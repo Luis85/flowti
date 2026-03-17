@@ -30,6 +30,8 @@ export interface AgentResponse {
 const RESPONSE_FORMAT = `
 # Response Format
 
+You are in a **live chat**. Keep responses short, conversational, and to the point — 1-3 sentences max. No essays, no bullet lists unless asked.
+
 You MUST respond with a single JSON object. No text before or after the JSON.
 
 \`\`\`json

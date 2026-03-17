@@ -67,7 +67,7 @@ describe("sendMessage", () => {
 		mockFetch.mockRejectedValueOnce(new Error("Network error"));
 		const result = await sendMessage(BASE, "Bob", "Hello");
 		expect(result.ok).toBe(false);
-		expect(result.error).toBe("Network error");
+		expect(result.error).toBe("Cannot reach server: Network error");
 	});
 });
 
@@ -87,7 +87,7 @@ describe("assignTask", () => {
 		mockFetch.mockRejectedValueOnce(new Error("Timeout"));
 		const result = await assignTask(BASE, "Bob", "Fix the bug");
 		expect(result.ok).toBe(false);
-		expect(result.error).toBe("Timeout");
+		expect(result.error).toBe("Cannot reach server: Timeout");
 	});
 });
 
@@ -107,6 +107,6 @@ describe("grantPermission", () => {
 		mockFetch.mockRejectedValueOnce(new Error("Connection refused"));
 		const result = await grantPermission(BASE, "Bob", "file_write", "allow");
 		expect(result.ok).toBe(false);
-		expect(result.error).toBe("Connection refused");
+		expect(result.error).toBe("Cannot reach server: Connection refused");
 	});
 });

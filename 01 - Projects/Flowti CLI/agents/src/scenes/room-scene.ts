@@ -14,6 +14,8 @@ import { AgentActor } from "../actors/agent-actor.js";
 import { WorkstationActor } from "../actors/workstation-actor.js";
 import { DoorwayActor } from "../actors/doorway-actor.js";
 import type { BrainSystem } from "../systems/brain-system.js";
+import { resolveCharacter } from "../sprites/character-pool.js";
+import type { AgentSprites } from "../sprites/sprite-loader.js";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -36,6 +38,11 @@ export class RoomScene extends ex.Scene {
 	private readonly workstations: WorkstationActor[] = [];
 	private readonly agentActors = new Map<string, AgentActor>();
 	private brainSystem: BrainSystem | null = null;
+	private spriteRegistry: Map<string, AgentSprites> = new Map();
+
+	setSpriteRegistry(registry: Map<string, AgentSprites>): void {
+		this.spriteRegistry = registry;
+	}
 
 	constructor(setting: Setting, config: RoomSceneConfig) {
 		super();
@@ -121,6 +128,7 @@ export class RoomScene extends ex.Scene {
 					y,
 					workstationColor: this.theme.workstationColor,
 					style: this.roomConfig.workstationStyle,
+					workstationId: `${this.setting}-${row * WORKSTATION_COLS + col}`,
 				});
 				this.add(ws);
 				this.workstations.push(ws);
@@ -151,11 +159,15 @@ export class RoomScene extends ex.Scene {
 			ws.occupy(agent.name);
 		}
 
+		const charName = resolveCharacter(agent.name, agent.domain ?? "");
+		const sprites = this.spriteRegistry.get(charName);
+		if (!sprites) return;
 		const actor = new AgentActor({
 			agent,
 			x,
 			y,
 			onSelect: this.roomConfig.onAgentSelect,
+			sprites,
 		});
 		this.add(actor);
 		this.agentActors.set(agent.name, actor);

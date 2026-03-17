@@ -16,6 +16,8 @@ import { evaluateDecision, getRulesForAgent } from "../domain/agents/decision-en
 import { buildCharacter, buildTaskPrompt, buildResponsePrompt, respondFromState, acknowledge } from "../domain/agents/action-handlers.js";
 import { resolvePermissionPolicy, resolveAllowedTools } from "../domain/agents/permission-engine.js";
 import { readAgentState, writeAgentState, clearOnceGrants } from "../domain/agents/agent-state.js";
+import { parseAgentResponse } from "../domain/agents/agent-conversation.js";
+import type { IProcessPool } from "../domain/agents/process-pool.js";
 
 export type WorkerManagerDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
@@ -88,6 +90,7 @@ export function createWorkerManager(
 	processRunner: IAgentProcessRunner,
 	vaultRoot: string,
 	config: AgentsConfig | undefined,
+	pool?: IProcessPool,
 ): IWorkerManager {
 	const workers = new Map<string, WorkerImpl>();
 
@@ -137,18 +140,29 @@ export function createWorkerManager(
 	}
 
 	async function processLlmMessage(worker: WorkerImpl, message: string, opts: SendOptions | undefined): Promise<void> {
-		setWorkerState(worker, "thinking", worldState);
-
 		const prompt = buildPrompt(deps, vaultRoot, worker, message, opts);
 		const { resolvedTools } = resolveAgentPermissions(deps, vaultRoot, worker);
 
+		let proc: import("../domain/agents/worker-types.js").AgentProcess;
+		if (pool) {
+			const acquired = pool.acquire(worker.agent, prompt, resolvedTools);
+			if (acquired.queued) {
+				setWorkerState(worker, "queued", worldState);
+			}
+			proc = acquired.process;
+		} else {
+			proc = processRunner.spawn(worker.agent, prompt, resolvedTools);
+		}
+
+		if (opts?.onEvent) proc.onEvent(opts.onEvent);
+
+		setWorkerState(worker, "thinking", worldState);
+
 		try {
-			const proc = processRunner.spawn(worker.agent, prompt, resolvedTools);
-			if (opts?.onEvent) proc.onEvent(opts.onEvent);
-
 			setWorkerState(worker, "working", worldState);
-
 			const result = await proc.result;
+			if (pool) pool.release(worker.name);
+
 			const stopped = handleLlmResult(worker, result.exitCode, result.text, worldState);
 			if (stopped) return;
 
@@ -157,9 +171,10 @@ export function createWorkerManager(
 			const cleared = clearOnceGrants(freshState);
 			if (cleared !== freshState) writeAgentState(deps, varDir, worker.name, cleared);
 
-			opts?.onResponse?.({ message: result.text, status: "message" });
+			opts?.onResponse?.(parseAgentResponse(result.text));
 		} catch {
 			worker.failureCount++;
+			if (pool) pool.release(worker.name);
 		}
 
 		if (worker.state !== "stopped") {
@@ -235,6 +250,7 @@ export function createWorkerManager(
 		stop(agentName: string): void {
 			const worker = workers.get(agentName);
 			if (!worker) return;
+			if (pool) pool.cancel(agentName);
 			setWorkerState(worker, "stopped", worldState);
 		},
 

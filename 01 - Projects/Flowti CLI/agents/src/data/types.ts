@@ -3,7 +3,8 @@
 export type AgentActionType =
 	| "thinking" | "speaking" | "asking" | "using-tool" | "tool-complete"
 	| "requesting-permission" | "permission-granted" | "permission-denied"
-	| "task-started" | "task-completed" | "idle" | "error";
+	| "task-started" | "task-completed" | "idle" | "error"
+	| "queued";
 
 export interface AgentAction {
 	readonly id: string;
@@ -63,6 +64,11 @@ export interface DashboardAgent {
 	readonly skills?: readonly { name: string; level: string }[];
 	readonly relationships?: readonly { target: string; type: string }[];
 	readonly suggestedTasks?: readonly { name: string; phases: string[] }[];
+	readonly goals?: readonly { text: string; priority: string }[];
+	readonly behaviors?: readonly string[];
+	readonly project?: string;
+	readonly iteration?: string;
+	readonly phase?: string;
 }
 
 export interface DashboardData {

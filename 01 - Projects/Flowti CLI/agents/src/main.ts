@@ -2,8 +2,8 @@
  * main.ts — ExcaliburJS engine setup with multi-scene navigation.
  *
  * Creates the engine with four scenes (hub, office, village, station),
- * wires up sync/brain/bubble systems and the agent detail panel, and
- * starts the game loop.
+ * wires up sync/brain/bubble/talk systems and Lit overlay components,
+ * and starts the game loop.
  */
 
 import * as ex from "excalibur";
@@ -15,28 +15,41 @@ import type { RoomScene } from "./scenes/room-scene.js";
 import { SyncSystem } from "./systems/sync-system.js";
 import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
-import { createPanelManager } from "./ui/panel-manager.js";
-import { renderAgentPanel, switchToTab } from "./ui/agent-panel.js";
-import { appendAgentResponse } from "./ui/talk-tab.js";
-import { sendMessage, assignTask, grantPermission } from "./data/api-client.js";
-import type { AgentAction, DashboardAgent, ActivityEntry, PermissionEntry } from "./data/types.js";
+import { TalkEngine } from "./systems/talk-engine.js";
+import { extractAgentMessage } from "./data/message-utils.js";
+import type { AgentAction, DashboardAgent } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
+import { preferredWorkstation } from "./brain/movement.js";
+import { createCameraSystem } from "./systems/camera-system.js";
+import { DOMAIN_POOLS } from "./sprites/character-pool.js";
+import { resolveSettingForDomain } from "./config/domain-map.js";
+import { preloadSpriteRegistry } from "./sprites/sprite-loader.js";
+import { DashboardStore } from "./store/dashboard-store.js";
+import { ParticlePool } from "./systems/particle-system.js";
+import { EmoteSystem } from "./systems/emote-system.js";
+import { SocialSystem } from "./systems/social-system.js";
+
+const DOMAIN_PARTICLE_COLORS: Record<string, string> = {
+	engineering: "#3b82f6",
+	design: "#a855f7",
+	product: "#f59e0b",
+	management: "#10b981",
+	quality: "#ef4444",
+	operations: "#06b6d4",
+};
+
+// Side-effect imports — register Lit custom elements
+import "./ui/dashboard-overlays.js";
+import "./ui/ask-bob.js";
+import "./ui/roster-bar.js";
+import "./ui/camera-hud.js";
+import "./ui/agent-panel.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const ENGINE_WIDTH = 1200;
-const ENGINE_HEIGHT = 700;
+const ENGINE_WIDTH = 800;
+const ENGINE_HEIGHT = 500;
 const BASE_URL = "";
-
-// ── Scene navigation helpers ─────────────────────────────────────────
-
-function handleSceneChange(engine: ex.Engine, targetScene: string, panelMgr: { close: () => void }): void {
-	panelMgr.close();
-	void engine.goToScene(targetScene, {
-		destinationIn: new ex.FadeInOut({ duration: 300, direction: "in" }),
-		sourceOut: new ex.FadeInOut({ duration: 300, direction: "out" }),
-	});
-}
 
 // ── Main ─────────────────────────────────────────────────────────────
 
@@ -52,70 +65,78 @@ async function main(): Promise<void> {
 
 	// ── Shared mutable state ────────────────────────────
 	const canvasParent = engine.canvas.parentElement ?? document.body;
-	let activityLog: readonly ActivityEntry[] = [];
 
-	// Late-bound reference — set after SyncSystem is created.
-	// All closures that reference syncRef are event callbacks, never called
-	// during construction, so the value is guaranteed to be set by runtime.
-	let syncRef: SyncSystem | null = null;
+	// ── Reactive store ──────────────────────────────────
+	const store = new DashboardStore(BASE_URL);
 
-	// ── Panel manager (DOM overlay) ─────────────────────
-	const panelManager = createPanelManager(canvasParent, {
-		fetchAgent: (name) => {
-			const agents = syncRef?.getAgents() ?? [];
-			return agents.find((a) => a.name === name) ?? null;
-		},
-		fetchActivityLog: (agentName) =>
-			activityLog.filter((e) => e.agentName === agentName),
-		fetchPermissions: (agentName) => {
-			const state = syncRef?.getStateStore().getState() ?? null;
-			return state?.permissions[agentName] ?? [];
-		},
-		onClose: () => { /* panel closed — nothing to do */ },
-		renderContent: (container, agentName, _callbacks) => {
-			const agent = (syncRef?.getAgents() ?? []).find((a) => a.name === agentName);
-			if (!agent) return;
+	// ── Mount Lit overlay components ────────────────────
+	const overlays = document.createElement("dashboard-overlays") as any;
+	overlays.store = store;
+	canvasParent.appendChild(overlays);
 
-			const state = syncRef?.getStateStore().getState() ?? null;
-			const agentPermissions: readonly PermissionEntry[] =
-				state?.permissions[agentName] ?? [];
-			const agentActivity = activityLog.filter((e) => e.agentName === agentName);
+	const rosterBarEl = document.createElement("roster-bar") as any;
+	rosterBarEl.store = store;
+	canvasParent.appendChild(rosterBarEl);
 
-			renderAgentPanel(container, agent, {
-				onClose: () => panelManager.close(),
-				sendMessage,
-				assignTask,
-				grantPermission,
-				baseUrl: BASE_URL,
-				activityLog: agentActivity,
-				permissions: agentPermissions,
-				pendingPermissions: [],
-				currentPhase: undefined,
-				onTaskAssigned: (name, taskName) => {
-					brainSystem.applyEvent(name, "task-started");
-					const currentScene = engine.currentScene;
-					bubbleSystem.showBubble(name, "thought", `Starting: ${taskName}`, currentScene, findAgentActor);
-				},
-			});
-		},
-	});
+	const cameraHudEl = document.createElement("camera-hud") as any;
+	cameraHudEl.store = store;
+	canvasParent.appendChild(cameraHudEl);
+
+	const agentPanelEl = document.createElement("agent-panel") as any;
+	agentPanelEl.store = store;
+	canvasParent.appendChild(agentPanelEl);
+
+	const askBobEl = document.createElement("ask-bob") as any;
+	askBobEl.store = store;
+	canvasParent.appendChild(askBobEl);
 
 	// ── Agent select handler ────────────────────────────
-	function openPanelForAgent(agentName: string, screenX: number, screenY: number): void {
-		panelManager.open(agentName, screenX, screenY);
-	}
-
 	function handleAgentSelect(agentName: string): void {
-		// Open panel near center-right of the canvas
-		const rect = engine.canvas.getBoundingClientRect();
-		const screenX = rect.width * 0.6;
-		const screenY = rect.height * 0.15;
-		openPanelForAgent(agentName, screenX, screenY);
+		const actor = findAgentActor(agentName);
+		if (store.selectedAgent === agentName) {
+			// Same agent clicked while panel open -> close panel, start follow
+			store.selectAgent(null);
+			if (actor && cameraSystem) {
+				cameraSystem.startFollow(actor);
+			}
+			store.startFollow(agentName);
+		} else {
+			// Different agent or no panel -> center camera on agent, open panel
+			if (cameraSystem?.isFollowing()) {
+				cameraSystem.stopFollow();
+				store.stopFollow();
+			}
+			if (actor) {
+				// Stop the agent immediately and face the user
+				brainSystem.freeze(agentName);
+				actor.focus();
+				void engine.currentScene.camera.move(actor.pos, 300, ex.EasingFunctions.EaseInOutCubic);
+			}
+			store.selectAgent(agentName);
+			store.selectTab("info");
+			// Show a personality greeting via the talk engine instead of waking LLM
+			const agent = store.agents.find((a) => a.name === agentName);
+			if (agent) {
+				const greetings = agent.personality && agent.personality.length > 0
+					? [`Hey there!`, `What can I help with?`, `Good to see you.`]
+					: [`Hello!`, `What's up?`];
+				const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+				bubbleSystem.showBubble(agentName, "speech", greeting, engine.currentScene, findAgentActor, 3000);
+			}
+		}
 	}
 
 	// ── Scene config ────────────────────────────────────
 	const sceneConfig = {
-		onSceneChange: (target: string) => handleSceneChange(engine, target, panelManager),
+		onSceneChange: (target: string) => {
+			store.selectAgent(null);
+			void engine.goToScene(target, {
+				destinationIn: new ex.FadeInOut({ duration: 300, direction: "in" }),
+				sourceOut: new ex.FadeInOut({ duration: 300, direction: "out" }),
+			}).then(() => {
+				cameraSystem?.onSceneActivate(findAgentActor, engine.currentScene.camera);
+			});
+		},
 		onAgentSelect: handleAgentSelect,
 	};
 
@@ -140,13 +161,11 @@ async function main(): Promise<void> {
 	const brainSystem = new BrainSystem({
 		bounds: { minX: 80, maxX: ENGINE_WIDTH - 80, minY: 80, maxY: ENGINE_HEIGHT - 60 },
 		onWorkstationChange: (agentName, action, position) => {
-			// Find which room scene contains the agent and update its workstations
 			for (const room of Object.values(roomScenes)) {
 				const actor = room.getAgentActor(agentName);
 				if (!actor) continue;
 
 				if (action === "occupy") {
-					// Find the nearest workstation to the agent's position
 					const workstations = room.getWorkstations();
 					let nearest = workstations[0];
 					let minDist = Infinity;
@@ -163,7 +182,6 @@ async function main(): Promise<void> {
 						nearest.occupy(agentName);
 					}
 				} else {
-					// Vacate — find the workstation this agent occupies
 					const workstations = room.getWorkstations();
 					const ws = workstations.find((w) => w.occupantName === agentName);
 					if (ws) ws.vacate();
@@ -171,9 +189,33 @@ async function main(): Promise<void> {
 				break;
 			}
 		},
+		onWorkstationResolve: (agentName, preferredId) => {
+			for (const room of Object.values(roomScenes)) {
+				const actor = room.getAgentActor(agentName);
+				if (!actor) continue;
+				const workstations = room.getWorkstations().map((ws) => ({
+					id: ws.workstationId, x: ws.pos.x, y: ws.pos.y, occupied: ws.occupied,
+				}));
+				return preferredWorkstation({ x: actor.pos.x, y: actor.pos.y }, workstations, preferredId);
+			}
+			return null;
+		},
 	});
 
 	const bubbleSystem = new BubbleSystem();
+
+	// ── Talk engine (ambient chatter) ───────────────────
+	const talkEngine = new TalkEngine({
+		showBubble: (agentName, kind, text) => {
+			bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
+		},
+		isIdle: (name) => brainSystem.getState(name)?.state === "idle",
+	});
+
+	// ── Joy systems: particles, emotes, social ──────────
+	const particlePool = new ParticlePool(200);
+	const emoteSystem = new EmoteSystem();
+	const socialSystem = new SocialSystem();
 
 	// Actor lookup across all scenes
 	function findAgentActor(name: string): AgentActor | undefined {
@@ -186,88 +228,165 @@ async function main(): Promise<void> {
 		return undefined;
 	}
 
+	// Actor lookup in the current scene only (for position projection)
+	function findCurrentSceneActor(name: string): AgentActor | undefined {
+		const current = engine.currentScene;
+		if (current === hubScene) return hubScene.getAgentActor(name);
+		for (const [, room] of Object.entries(roomScenes)) {
+			if (current === room) return room.getAgentActor(name);
+		}
+		return undefined;
+	}
+
 	// ── Sync system ─────────────────────────────────────
 	const syncSystem = new SyncSystem(BASE_URL, {
 		onAgentAction: (action: AgentAction) => {
 			// Transition brain state
 			brainSystem.applyEvent(action.agentName, action.type);
 
-			// Show bubble for certain actions
-			if (action.type === "speaking") {
-				const text = typeof action.data["text"] === "string" ? action.data["text"] : "...";
-				const currentScene = engine.currentScene;
-				bubbleSystem.showBubble(action.agentName, "speech", text, currentScene, findAgentActor);
+			// Silence talk engine when LLM responds
+			if (action.type === "speaking" || action.type === "asking") {
+				talkEngine.silence(action.agentName);
+			}
 
-				// If panel is open for this agent, append to the talk thread
-				if (panelManager.isOpen() && panelManager.getAgentName() === action.agentName) {
-					const panelEl = canvasParent.querySelector(".agent-panel");
-					const contentArea = panelEl?.querySelector(".agent-panel-content");
-					if (contentArea instanceof HTMLElement) {
-						appendAgentResponse(contentArea, `${action.agentName}: ${text}`);
-					}
-				}
+			// Show bubble for certain actions
+			if (action.type === "speaking" || action.type === "asking") {
+				const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+				const text = extractAgentMessage(rawText);
+				const bubbleKind = action.type === "asking" ? "question" : "speech";
+				const currentScene = engine.currentScene;
+				bubbleSystem.showBubble(action.agentName, bubbleKind, text, currentScene, findAgentActor);
+
+				// Push response to store for panel-talk component
+				store.pushAgentResponse(action.agentName, text);
+				store.setLlmStatus(action.agentName, { state: "idle", since: Date.now() });
 			} else if (action.type === "thinking") {
-				const text = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+				const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+				const text = extractAgentMessage(rawText);
 				const currentScene = engine.currentScene;
 				bubbleSystem.showBubble(action.agentName, "thought", text, currentScene, findAgentActor);
-			} else if (action.type === "asking" || action.type === "requesting-permission") {
+			} else if (action.type === "requesting-permission") {
 				const currentScene = engine.currentScene;
 				bubbleSystem.showBubble(action.agentName, "question", "?", currentScene, findAgentActor);
 
-				// Auto-open panel to Permissions tab when requesting-permission
-				if (action.type === "requesting-permission") {
-					// Check if the agent has an actor in the current scene
-					const activeScene = engine.currentScene;
-					const isInCurrentScene =
-						(activeScene === hubScene && hubScene.getAgentActor(action.agentName) !== undefined) ||
-						Object.values(roomScenes).some((room) =>
-							activeScene === room && room.getAgentActor(action.agentName) !== undefined,
-						);
-
-					if (isInCurrentScene) {
-						// Open panel and switch to Permissions tab
-						const rect = engine.canvas.getBoundingClientRect();
-						openPanelForAgent(action.agentName, rect.width * 0.6, rect.height * 0.15);
-
-						const panelEl = canvasParent.querySelector(".agent-panel");
-						if (panelEl instanceof HTMLElement) {
-							switchToTab(panelEl, "Permissions");
-						}
-					} else {
-						// Agent is in another scene — show notification in ticker
-						hubScene.updateTicker([{
-							id: `perm-${Date.now()}`,
-							agentName: action.agentName,
-							timestamp: new Date().toISOString(),
-							type: "requesting-permission",
-							summary: `${action.agentName} is requesting permission`,
-						}]);
-					}
-				}
+				// Auto-open panel to Permissions tab via store
+				store.selectAgent(action.agentName);
+				store.selectTab("permissions");
 			}
 		},
 		onAgentsUpdated: (agents: readonly DashboardAgent[]) => {
-			// Update hub scene with all agents
+			// Update hub scene and store
 			hubScene.updateAgents(agents);
+			store.setAgents(agents);
 
-			// Register agents in brain and bubble systems
+			// Register agents in brain, bubble, talk, emote, and social systems
 			for (const agent of agents) {
-				brainSystem.register(agent.name, agent.attributes ?? {});
-				bubbleSystem.register(agent.name, agent.personality ?? [], brainSystem.getState(agent.name)!.params);
+				brainSystem.register(agent.name, agent.attributes ?? {}, agent.mood, agent.domain);
+				const brainState = brainSystem.getState(agent.name)!;
+				bubbleSystem.register(agent.name, agent.personality ?? [], brainState.params);
+				talkEngine.register(
+					agent.name,
+					agent.domain ?? "general",
+					agent.personality ?? [],
+					agent.attributes?.cha ?? 10,
+				);
+				emoteSystem.register(agent.name, agent.mood ?? "neutral", brainState.params.quoteFrequency);
+				socialSystem.register(agent.name, {
+					socialRadius: brainState.params.socialRadius,
+					personality: agent.personality ?? [],
+					relationships: agent.relationships ?? [],
+				});
 			}
 		},
 		onActivityLog: (log) => {
-			activityLog = log;
-			hubScene.updateTicker(log);
+			store.setActivityLog(log);
 		},
 		onConnectionStatus: (status) => {
 			hubScene.updateConnectionStatus(status);
+			store.setConnectionStatus(status);
 		},
-		onStateDiff: (_diff) => {
-			// Entity-level sync integration pending
+		onStateDiff: (diff) => {
+			// Spawn new agent entities
+			for (const entityId of diff.added) {
+				const entity = syncSystem.getStateStore().getEntity(entityId);
+				if (!entity || entity.type !== "agent") continue;
+				if (store.agents.find((a) => a.name === entityId)) continue;
+
+				const agentData: DashboardAgent = {
+					name: entityId,
+					agentType: "ai",
+					status: ((entity.components["status"] as string) ?? "idle") as DashboardAgent["status"],
+					domain: entity.components["domain"] as string | undefined,
+				};
+				const setting = resolveSettingForDomain(agentData.domain);
+				if (setting !== "hub" && roomScenes[setting]) {
+					roomScenes[setting].spawnAgent(agentData);
+				}
+				store.setAgents([...store.agents, agentData]);
+				hubScene.updateAgents([...store.agents]);
+				brainSystem.register(agentData.name, {}, undefined, agentData.domain);
+				bubbleSystem.showBubble(entityId, "speech", "Hello! I just arrived.", engine.currentScene, findAgentActor, 3000);
+			}
+
+			// Despawn removed agent entities
+			for (const entityId of diff.removed) {
+				brainSystem.unregister(entityId);
+				emoteSystem.unregister(entityId);
+				socialSystem.unregister(entityId);
+				talkEngine.silence(entityId);
+				const updated = store.agents.filter((a) => a.name !== entityId);
+				store.setAgents(updated);
+				hubScene.updateAgents(updated);
+			}
+
+			// Update changed agent entities
+			for (const entityId of diff.changed) {
+				const entity = syncSystem.getStateStore().getEntity(entityId);
+				if (!entity || entity.type !== "agent") continue;
+				const statusComp = entity.components["status"];
+				if (typeof statusComp === "object" && statusComp !== null && "state" in statusComp) {
+					const state = (statusComp as { state: string }).state;
+					brainSystem.applyEvent(entityId, state as AgentAction["type"]);
+					bubbleSystem.showBubble(entityId, "speech", `I'm now ${state}!`, engine.currentScene, findAgentActor, 3000);
+				}
+			}
 		},
 	});
-	syncRef = syncSystem;
+	// ── Wire emote callback ─────────────────────────────
+	emoteSystem.onEmote((name, _emoteIndex) => {
+		const actor = findAgentActor(name);
+		if (!actor) return;
+		// Float a thought bubble with a mood emote (using bubble system for now)
+		const agent = store.agents.find((a) => a.name === name);
+		const moodTexts: Record<string, string[]> = {
+			happy: ["Life is good.", "Feeling great!"],
+			frustrated: ["Hmm...", "This is tricky."],
+			focused: ["Deep in thought...", "Concentrating..."],
+			neutral: ["...", "Hmm."],
+			empathetic: ["I understand.", "How are you?"],
+			inspired: ["I have an idea!", "What if..."],
+			aesthetic: ["Beautiful.", "So elegant."],
+			playful: ["Hehe.", "Fun times!"],
+		};
+		const mood = agent?.mood ?? "neutral";
+		const texts = moodTexts[mood] ?? moodTexts["neutral"]!;
+		const text = texts[Math.floor(Math.random() * texts.length)];
+		bubbleSystem.showBubble(name, "thought", text, engine.currentScene, findAgentActor, 2500);
+	});
+
+	// ── Wire social conversation callback ────────────────
+	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
+		brainSystem.applyEvent(nameA, "speaking");
+		brainSystem.applyEvent(nameB, "speaking");
+		bubbleSystem.showBubble(nameA, "speech", lineA, engine.currentScene, findAgentActor, 4000);
+		setTimeout(() => {
+			bubbleSystem.showBubble(nameB, "speech", lineB, engine.currentScene, findAgentActor, 4000);
+		}, 800);
+		setTimeout(() => {
+			brainSystem.applyEvent(nameA, "idle");
+			brainSystem.applyEvent(nameB, "idle");
+		}, 5000);
+	});
 
 	// ── Wire room scenes to sync and brain systems ──────
 	syncSystem.setRoomScenes(roomScenes);
@@ -275,24 +394,241 @@ async function main(): Promise<void> {
 	villageScene.setBrainSystem(brainSystem);
 	stationScene.setBrainSystem(brainSystem);
 
-	// ── Pre-update hook for brain and bubble systems ────
+	// ── Pre-update hook for brain, bubble, talk, and camera systems ──
 	let lastTime = performance.now();
+	let cameraSystem: ReturnType<typeof createCameraSystem> | null = null;
+
+	// Track previous walking state per agent for particle trail spawning
+	const prevWalkingState = new Map<string, boolean>();
+	const lastTrailPos = new Map<string, { x: number; y: number }>();
+
+	// ── Particle renderer — ex.Canvas actor added to each scene ────────
+	function createParticleRenderer(): ex.Actor {
+		const actor = new ex.Actor({ pos: ex.vec(0, 0), anchor: ex.vec(0, 0), z: -10 });
+		const canvas = new ex.Canvas({
+			width: ENGINE_WIDTH,
+			height: ENGINE_HEIGHT,
+			cache: false,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				for (const p of particlePool.getAll()) {
+					if (p.opacity <= 0.01) continue;
+					ctx.globalAlpha = p.opacity;
+					ctx.fillStyle = p.color;
+					ctx.beginPath();
+					ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+					ctx.fill();
+				}
+				ctx.globalAlpha = 1.0;
+			},
+		});
+		actor.graphics.use(canvas);
+		return actor;
+	}
+	hubScene.add(createParticleRenderer());
+	officeScene.add(createParticleRenderer());
+	villageScene.add(createParticleRenderer());
+	stationScene.add(createParticleRenderer());
+
 	engine.on("preframe", () => {
 		const now = performance.now();
 		const deltaMs = now - lastTime;
 		lastTime = now;
+
+		// Snapshot walking states before brain update
+		for (const [name, entry] of brainSystem.getAllEntries()) {
+			prevWalkingState.set(name, entry.state === "wandering" || entry.state === "walking-to");
+		}
+
 		brainSystem.update(deltaMs, findAgentActor);
+
+		// Particle trails: spawn trail dots every ~8px of movement, dust on arrival
+		for (const [name, entry] of brainSystem.getAllEntries()) {
+			const wasWalking = prevWalkingState.get(name) ?? false;
+			const isWalking = entry.state === "wandering" || entry.state === "walking-to";
+
+			if (isWalking) {
+				const actor = findAgentActor(name);
+				if (actor) {
+					const prev = lastTrailPos.get(name);
+					const x = actor.pos.x;
+					const y = actor.pos.y + 28;
+					if (prev) {
+						const dx = x - prev.x;
+						const dy = y - prev.y;
+						if (dx * dx + dy * dy >= 64) { // 8px^2
+							const agent = store.agents.find((a) => a.name === name);
+							const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+							particlePool.spawnTrail(x, y, color, entry.state === "walking-to");
+							lastTrailPos.set(name, { x, y });
+						}
+					} else {
+						lastTrailPos.set(name, { x, y });
+					}
+				}
+			} else {
+				lastTrailPos.delete(name);
+				if (wasWalking) {
+					// Just arrived — dust burst
+					const actor = findAgentActor(name);
+					if (actor) {
+						const agent = store.agents.find((a) => a.name === name);
+						const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+						particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, color);
+					}
+				}
+			}
+		}
+
+		particlePool.update(deltaMs);
+
+		// Emote system
+		emoteSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
+
+		// Social system
+		socialSystem.update(
+			deltaMs,
+			(name) => brainSystem.getPosition(name) ?? { x: 0, y: 0 },
+			(name) => brainSystem.getState(name)?.state ?? "idle",
+		);
+
+		// Workstation glow updates
+		for (const room of Object.values(roomScenes)) {
+			for (const ws of room.getWorkstations()) {
+				ws.updateGlow(deltaMs);
+			}
+		}
+
 		bubbleSystem.update(
 			deltaMs,
 			(name) => brainSystem.getState(name)?.state === "idle",
 			engine.currentScene,
 			findAgentActor,
 		);
+		talkEngine.update(deltaMs);
+		if (cameraSystem) {
+			cameraSystem.checkDespawn();
+			cameraSystem.applyZoom(deltaMs);
+			cameraSystem.updatePan(deltaMs);
+		}
 	});
 
-	// ── Start ───────────────────────────────────────────
+	// ── Post-frame adapter: push positions/targets/states to store ──
+	// Only projects agents in the CURRENT scene to avoid garbage coordinates
+	// from actors in non-active scenes. Uses worldToPageCoordinates() which
+	// accounts for CSS scaling from FitScreen mode.
+	engine.on("postframe", () => {
+		store.beginBatch();
+		const positions = new Map<string, { x: number; y: number }>();
+		const canvasRect = engine.canvas.getBoundingClientRect();
+
+		for (const [name, entry] of brainSystem.getAllEntries()) {
+			const actor = findCurrentSceneActor(name);
+			if (!actor) continue;
+			const pagePos = engine.screen.worldToPageCoordinates(actor.pos);
+			positions.set(name, { x: pagePos.x - canvasRect.left, y: pagePos.y - canvasRect.top });
+
+			if (entry.targetPos) {
+				const targetPage = engine.screen.worldToPageCoordinates(ex.vec(entry.targetPos.x, entry.targetPos.y));
+				store.setAgentTarget(name, {
+					x: targetPage.x - canvasRect.left,
+					y: targetPage.y - canvasRect.top,
+				});
+			} else {
+				store.clearAgentTarget(name);
+			}
+			store.setAgentState(name, entry.state);
+		}
+
+		store.updatePositions(positions);
+		store.endBatch();
+	});
+
+	// ── Store event listeners for engine-side effects ────
+	store.addEventListener("scene-change", ((e: CustomEvent) => {
+		sceneConfig.onSceneChange(e.detail.setting);
+	}) as EventListener);
+
+	store.addEventListener("agent-message-sent", ((e: CustomEvent) => {
+		const { agentName } = e.detail;
+		const fillers = ["Let me think...", "One moment...", "Processing..."];
+		const filler = fillers[Math.floor(Math.random() * fillers.length)];
+		bubbleSystem.showBubble(agentName, "thought", filler, engine.currentScene, findAgentActor, 4000);
+		talkEngine.silence(agentName);
+	}) as EventListener);
+
+	store.addEventListener("task-assigned", ((e: CustomEvent) => {
+		const { agentName, task } = e.detail;
+		brainSystem.applyEvent(agentName, "task-started");
+		bubbleSystem.showBubble(agentName, "thought", `Starting: ${task}`, engine.currentScene, findAgentActor);
+	}) as EventListener);
+
+	// ── Camera follow via store state ───────────────────
+	let prevFollowed: string | null = null;
+	store.addEventListener("state-changed", () => {
+		if (store.followedAgent !== prevFollowed) {
+			prevFollowed = store.followedAgent;
+			if (store.followedAgent) {
+				const actor = findAgentActor(store.followedAgent);
+				if (actor) cameraSystem!.startFollow(actor);
+			} else {
+				cameraSystem!.stopFollow();
+			}
+		}
+	});
+
+	// ── Start engine first (WebGL context needed for textures) ──────────
 	await engine.start();
 	engine.goToScene("hub");
+	console.log("[dashboard] Engine started, hub scene active");
+
+	// ── Preload all character sprites ───────────────────────────────────
+	const ASSET_BASE = "assets/Actor/Characters/";
+	const allCharacters = [
+		...new Set(Object.values(DOMAIN_POOLS).flat()),
+	];
+	console.log("[dashboard] Preloading sprites for", allCharacters.length, "characters...");
+	const spriteRegistry = await preloadSpriteRegistry(allCharacters, ASSET_BASE);
+	console.log("[dashboard] Sprites loaded:", spriteRegistry.size, "of", allCharacters.length);
+
+	// ── Pass sprite registry to scenes ──────────────────────────────────
+	hubScene.setSpriteRegistry(spriteRegistry);
+	officeScene.setSpriteRegistry(spriteRegistry);
+	villageScene.setSpriteRegistry(spriteRegistry);
+	stationScene.setSpriteRegistry(spriteRegistry);
+
+	// ── Camera system (after engine.start so camera is initialized) ──
+	cameraSystem = createCameraSystem(
+		engine.currentScene.camera,
+		{ x: ENGINE_WIDTH / 2, y: ENGINE_HEIGHT / 2 },
+	);
+
+	engine.canvas.addEventListener("wheel", (e) => {
+		e.preventDefault();
+		cameraSystem!.handleZoom(e.deltaY);
+	}, { passive: false });
+
+	function isTyping(): boolean {
+		const el = document.activeElement;
+		if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return true;
+		const inner = el?.shadowRoot?.activeElement;
+		return inner instanceof HTMLInputElement || inner instanceof HTMLTextAreaElement;
+	}
+
+	document.addEventListener("keydown", (e) => {
+		if (isTyping()) return;
+		if (e.key === "Escape" && cameraSystem!.isFollowing()) {
+			cameraSystem!.stopFollow();
+		}
+		if (e.key === "Home") {
+			cameraSystem!.stopFollow();
+		}
+		cameraSystem!.handleKeyDown(e.key);
+	});
+
+	document.addEventListener("keyup", (e) => {
+		if (isTyping()) return;
+		cameraSystem!.handleKeyUp(e.key);
+	});
 
 	// Load initial data and start sync after engine is ready
 	await syncSystem.start();

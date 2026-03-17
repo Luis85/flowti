@@ -176,6 +176,11 @@ export async function handleApiRoute(
 		const message = String(body.message ?? "");
 		if (!name || !message) { json(400, { error: "agentName and message required" }); return; }
 
+		// Ensure worker exists (mirrors /api/agent/wake pattern)
+		let worker = ctx.workerManager.getWorker(name);
+		if (!worker) worker = ctx.workerManager.spawn(name);
+		if (!worker) { json(404, { error: "Agent not found" }); return; }
+
 		const varDir = ctx.deps.paths.join(ctx.vaultRoot, ".flowti", "var");
 		const { loadConversation, appendTurn, saveConversation } = await import("../agents/agent-conversation-store.js");
 		const conv = loadConversation(ctx.deps, varDir, name);
@@ -183,9 +188,10 @@ export async function handleApiRoute(
 			const withUser = appendTurn(conv, { role: "user", content: message, ts: ctx.deps.clock.iso() });
 			const withAgent = appendTurn(withUser, { role: "agent", content: response.message, ts: ctx.deps.clock.iso() });
 			saveConversation(ctx.deps, varDir, name, withAgent);
+			const actionType = response.status === "question" ? "asking" : "speaking";
 			ctx.worldState.emitAction({
 				id: `speak-${Date.now()}`, agentName: name, timestamp: ctx.deps.clock.iso(),
-				type: "speaking", data: { text: response.message },
+				type: actionType, data: { text: response.message },
 			});
 		};
 		ctx.workerManager.send(name, message, { foreground: false, onResponse });
@@ -232,6 +238,39 @@ export async function handleApiRoute(
 			type: actionType, data: { tool },
 		});
 		json(200, { ok: true });
+		return;
+	}
+
+	if (urlPath === "/api/agent/wake" && req.method === "POST") {
+		const body = await parseJsonBody(req);
+		const name = String(body.agentName ?? "");
+		if (!name) { json(400, { error: "agentName required" }); return; }
+
+		// Ensure worker exists
+		let worker = ctx.workerManager.getWorker(name);
+		if (!worker) {
+			worker = ctx.workerManager.spawn(name);
+		}
+		if (!worker || worker.state !== "idle") {
+			json(200, { ok: true, state: worker?.state ?? "unknown" });
+			return;
+		}
+
+		// Send a greeting prompt that actually spins up the LLM
+		const varDir = ctx.deps.paths.join(ctx.vaultRoot, ".flowti", "var");
+		const { loadConversation, appendTurn, saveConversation } = await import("../agents/agent-conversation-store.js");
+		const conv = loadConversation(ctx.deps, varDir, name);
+		const greeting = "[system] The user just clicked on you in the dashboard. Greet them with a brief, friendly one-liner (max 15 words). This is a live chat — keep all responses short and conversational.";
+		const onResponse: SendOptions["onResponse"] = (response) => {
+			const withAgent = appendTurn(conv, { role: "agent", content: response.message, ts: ctx.deps.clock.iso() });
+			saveConversation(ctx.deps, varDir, name, withAgent);
+			ctx.worldState.emitAction({
+				id: `greet-${Date.now()}`, agentName: name, timestamp: ctx.deps.clock.iso(),
+				type: "speaking", data: { text: response.message },
+			});
+		};
+		ctx.workerManager.send(name, greeting, { foreground: false, onResponse });
+		json(200, { ok: true, state: "waking" });
 		return;
 	}
 

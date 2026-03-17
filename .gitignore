@@ -50,6 +50,7 @@ build-endpoints.json
 /.flowti/bin/
 /.flowti/var/
 /.flowti/agents/
+.flowti-prompt-**
 /01 - Projects/Flowti CLI/component-library/
 /01 - Projects/Flowti CLI/configs/.sitemap-hash
 /01 - Projects/Flowti CLI/reports/html/
