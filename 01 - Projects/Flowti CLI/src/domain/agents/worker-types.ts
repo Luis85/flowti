@@ -9,7 +9,7 @@ import type { AgentSummary } from "./agent-types.js";
 import type { AgentStreamEvent } from "./agent-stream.js";
 import type { AgentResponse } from "./agent-conversation.js";
 
-export type WorkerState = "spawning" | "idle" | "reacting" | "thinking" | "working" | "waiting" | "stopped";
+export type WorkerState = "spawning" | "idle" | "queued" | "reacting" | "thinking" | "working" | "waiting" | "stopped";
 
 export interface EventFilter {
 	readonly entityType?: import("./world-state-types.js").WorldEntityType;

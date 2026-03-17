@@ -28,6 +28,7 @@ const STATUS_MAP: Record<string, (action: AgentAction) => Record<string, unknown
 	"task-started": (a) => ({ state: "busy", currentAction: "task-started", task: a.data.task }),
 	"task-completed": () => ({ state: "idle", currentAction: "idle" }),
 	"idle": () => ({ state: "idle", currentAction: "idle" }),
+	"queued": () => ({ state: "waiting", currentAction: "queued" }),
 	"error": (a) => ({ state: "error", currentAction: "error", message: a.data.message }),
 };
 
