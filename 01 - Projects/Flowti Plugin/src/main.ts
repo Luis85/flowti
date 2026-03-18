@@ -90,7 +90,7 @@ import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../configs/sitemap.json";
 import type { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 import { setupAgentDomain, type AgentSetupResult } from "./bootstrap/agent-setup";
-import { VIEW_TYPE_AGENT_SIDEBAR } from "./ui/agents/types";
+import { VIEW_TYPE_AGENT_SIDEBAR, VIEW_TYPE_AGENT_WORLD } from "./ui/agents/types";
 
 
 /**  
@@ -396,6 +396,16 @@ export default class FlowtiBasePlugin extends Plugin {
 				this.activateAgentPanel();
 			});
 
+			this.addRibbonIcon("globe", "Open agent world", () => {
+				const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_WORLD);
+				if (existing.length > 0) {
+					void this.app.workspace.revealLeaf(existing[0]);
+				} else {
+					const leaf = this.app.workspace.getLeaf(true);
+					void leaf.setViewState({ type: VIEW_TYPE_AGENT_WORLD, active: true });
+				}
+			});
+
 			// Listen for execute requests from the Command Catalog UI
 			{
 				const ctx = this.createCommandContext();
@@ -476,6 +486,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			"flowti-csv", "flowti-export", "flowti-canvas-import",
 			"flowti-journey-builder",
 			VIEW_TYPE_AGENT_SIDEBAR,
+			VIEW_TYPE_AGENT_WORLD,
 		];
 		for (const type of viewTypes) {
 			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
