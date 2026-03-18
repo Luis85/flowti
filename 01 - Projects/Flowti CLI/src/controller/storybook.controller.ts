@@ -77,11 +77,10 @@ function scanMarkdownFrontmatter(
 function runMarkdownImport(
 	projectPath: string,
 	sourcePath: string,
-	config: { markdownSource?: { strategy?: string; requiredFields?: readonly string[] }; storybookDir?: string } | undefined,
+	mdSource: { strategy?: string; requiredFields?: readonly string[] } | undefined,
 	outputFlag: string,
 	deps: { disk: IFileSystem; paths: IPaths },
 ): StorybookImportResultModel {
-	const mdSource = config?.markdownSource;
 	const srcDir = deps.paths.resolve(projectPath, sourcePath);
 	const strategy = (mdSource?.strategy ?? "category") as import("../domain/make/markdown-sitemap-types.js").Strategy;
 	const requiredFields = mdSource?.requiredFields ?? ["name", "category"];
@@ -90,8 +89,7 @@ function runMarkdownImport(
 	const { valid, warnings } = validateComponents(mdFiles, requiredFields);
 	const sitemap = generateSitemapFromMarkdown(valid, strategy);
 
-	const storybookDir = config?.storybookDir ?? "components";
-	const outputPath = outputFlag || deps.paths.join(projectPath, storybookDir, "sitemap.json");
+	const outputPath = outputFlag || deps.paths.join(projectPath, ".flowti", "var", "imported-sitemap.json");
 	writeSitemapFile(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", deps);
 
 	return {
@@ -232,7 +230,7 @@ export const commands: Record<string, CommandHandler> = {
 			if (!sourcePath) {
 				return { componentCount: 0, skippedCount: 0, warnings: [], outputPath: "", configured: false };
 			}
-			return runMarkdownImport(ctx.project!.path, sourcePath, ctx.project!.config.components, ctx.flags.output, ctx.deps);
+			return runMarkdownImport(ctx.project!.path, sourcePath, ctx.project!.config.components?.markdownSource, ctx.flags.output, ctx.deps);
 		},
 		renderer: renderStorybookImportResult,
 	}),

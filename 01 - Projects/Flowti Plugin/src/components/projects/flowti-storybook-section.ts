@@ -259,7 +259,7 @@ export class FlowtiStorybookSection extends FlowtiElement {
 			: this.running
 				? this.renderRunning()
 				: this.renderInstalled();
-		return html`${this.renderErrorNote()}${main}${this.renderOutputLog()}`;
+		return html`${this.renderErrorNote()}${this.renderImportActions()}${main}${this.renderOutputLog()}`;
 	}
 
 	private renderOutputLog() {
@@ -315,6 +315,14 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		`;
 	}
 
+	private renderImportActions() {
+		return html`
+			<div class="actions">
+				<button class="action-btn" @click="${() => this.dispatchImportMarkdown()}" title="Pick a vault folder and import markdown component files into a sitemap">Import Markdown</button>
+			</div>
+		`;
+	}
+
 	private renderInstalled() {
 		return html`
 			<div class="status-row">
@@ -323,7 +331,6 @@ export class FlowtiStorybookSection extends FlowtiElement {
 			</div>
 			<div class="actions">
 				<button class="action-btn action-btn--primary" @click="${() => this.dispatchStart()}" title="Launch dev server on localhost:6006">Start</button>
-				<button class="action-btn" @click="${() => this.dispatchImportMarkdown()}" title="Import markdown component files into a sitemap">Import Markdown</button>
 				<button class="action-btn" @click="${() => this.dispatchScaffold()}" title="Generate .stories files from sitemap page definitions">Scaffold from sitemap</button>
 				<button class="action-btn" @click="${() => this.dispatchBuild()}" title="Build static site to storybook-static/">Build</button>
 				<button class="action-btn" @click="${() => this.dispatchOpenFolder()}" title="Open .storybook config directory">Open folder</button>

@@ -143,7 +143,7 @@ export function registerComponentHandlers(registry: HandlerRegistry): void {
 			return undefined;
 		}
 
-		const result = await importMarkdownToSitemap(ctx.project.path, srcDir, mdSource, config?.storybookDir ?? "components", { disk, paths });
+		const result = await importMarkdownToSitemap(ctx.project.path, srcDir, mdSource, { disk, paths });
 		log(`\n  ${GREEN}✓${RESET} Imported ${BOLD}${result.componentCount}${RESET} components → ${DIM}${result.outputPath}${RESET}`);
 		if (result.skippedCount > 0) {
 			log(`  ${YELLOW}⚠${RESET} Skipped ${result.skippedCount} file(s):`);
@@ -331,7 +331,6 @@ async function importMarkdownToSitemap(
 	projectPath: string,
 	srcDir: string,
 	mdSource: { strategy?: string; requiredFields?: readonly string[] },
-	storybookDir: string,
 	deps: { disk: import("../../infrastructure/types.js").IFileSystem; paths: import("../../infrastructure/types.js").IPaths },
 ): Promise<ImportPipelineResult> {
 	const { parseFrontmatterContent } = await import("../../infrastructure/frontmatter.js");
@@ -346,7 +345,7 @@ async function importMarkdownToSitemap(
 	const { valid, warnings } = validateComponents(mdFiles, requiredFields);
 	const sitemap = generateSitemapFromMarkdown(valid, strategy);
 
-	const outputPath = deps.paths.join(projectPath, storybookDir, "sitemap.json");
+	const outputPath = deps.paths.join(projectPath, ".flowti", "var", "imported-sitemap.json");
 	const outputDir = deps.paths.dirname(outputPath);
 	if (!deps.disk.existsSync(outputDir)) deps.disk.mkdirSync(outputDir, { recursive: true });
 	deps.disk.writeFileSync(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", "utf8");
