@@ -21,6 +21,7 @@ export interface ServerContext {
 	readonly sseClients: Set<ServerResponse>;
 	readonly vaultRoot: string;
 	readonly projectsDir: string;
+	readonly startedAt: number;
 }
 
 export interface ServerOptions {
@@ -339,6 +340,61 @@ export async function handleApiRoute(
 		const projectPath = ctx.deps.paths.join(ctx.projectsDir, project);
 		if (!ctx.deps.disk.existsSync(projectPath)) { json(404, { error: "Project not found" }); return; }
 		json(200, { ok: true, message: "Build queued" });
+		return;
+	}
+
+	// ── Server Management routes ────────────────────────────────────
+
+	if (urlPath === "/api/server/stats" && req.method === "GET") {
+		const agentCount = Object.values(ctx.worldState.getState().entities)
+			.filter((e) => e.type === "agent").length;
+		const varDir = ctx.deps.paths.join(ctx.vaultRoot, ".flowti", "var");
+		const sbProcesses: Array<{ project: string; pid: number; url: string }> = [];
+		try {
+			const files = ctx.deps.disk.readdirSync(varDir, { withFileTypes: true });
+			for (const f of files) {
+				if (f.name.startsWith("storybook-") && f.name.endsWith(".pid")) {
+					try {
+						const data = JSON.parse(ctx.deps.disk.readFileSync(
+							ctx.deps.paths.join(varDir, f.name), "utf-8"
+						)) as { project?: string; pid?: number; url?: string };
+						if (data.pid) sbProcesses.push({ project: data.project ?? "", pid: data.pid, url: data.url ?? "" });
+					} catch { /* corrupt pid file */ }
+				}
+			}
+		} catch { /* var dir missing */ }
+		json(200, {
+			uptime: Math.floor((Date.now() - ctx.startedAt) / 1000),
+			connections: ctx.sseClients.size,
+			agentCount,
+			storybookProcesses: sbProcesses,
+		});
+		return;
+	}
+
+	if (urlPath === "/api/server/config" && req.method === "GET") {
+		const configPath = ctx.deps.paths.join(ctx.vaultRoot, ".flowti", "var", "server-config.json");
+		let config = { port: 3000, logLevel: "info", autoConnect: true };
+		if (ctx.deps.disk.existsSync(configPath)) {
+			try { config = { ...config, ...JSON.parse(ctx.deps.disk.readFileSync(configPath, "utf-8")) as Record<string, unknown> }; }
+			catch { /* corrupt config */ }
+		}
+		json(200, config);
+		return;
+	}
+
+	if (urlPath === "/api/server/config" && req.method === "POST") {
+		const body = await parseJsonBody(req);
+		const configPath = ctx.deps.paths.join(ctx.vaultRoot, ".flowti", "var", "server-config.json");
+		const varDir = ctx.deps.paths.join(ctx.vaultRoot, ".flowti", "var");
+		if (!ctx.deps.disk.existsSync(varDir)) ctx.deps.disk.mkdirSync(varDir, { recursive: true });
+		ctx.deps.disk.writeFileSync(configPath, JSON.stringify(body, null, "\t"), "utf-8");
+		json(200, { ok: true });
+		return;
+	}
+
+	if (urlPath === "/api/server/restart" && req.method === "POST") {
+		json(200, { ok: true, message: "Restart signal received" });
 		return;
 	}
 

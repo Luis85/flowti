@@ -214,6 +214,7 @@ export async function startDashboardServer(opts: StartDashboardOptions, deps: Da
 		sseClients,
 		vaultRoot: opts.vaultRoot,
 		projectsDir: opts.projectsDir,
+		startedAt: Date.now(),
 	};
 
 	const handle = await startServer({ port: opts.port, dir: opts.rootDir }, {
