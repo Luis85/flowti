@@ -10,7 +10,18 @@
  */
 
 import type { TuiHandlerRegistry } from "./tui-handler-registry.js";
-import type { TuiActionContext } from "./tui-handler-types.js";
+import type { TuiActionContext, TuiActionResult } from "./tui-handler-types.js";
+import { readComponentsConfig, getFramework, setFramework } from "../../domain/make/component/storybook-settings.js";
+import {
+	isStorybookInstalled,
+	isStorybookRunning,
+	stopStorybook,
+	startStorybookDev,
+	runStorybookBuild,
+	installStorybook,
+	resolveStorybookDir,
+} from "../../domain/make/component/storybook-service.js";
+import { nullStorybookRenderer } from "../../domain/make/component/storybook-renderer.js";
 
 export function registerCrudEffectHandlers(registry: TuiHandlerRegistry): void {
 	// ── RAID handlers ────────────────────────────────────────────────
@@ -112,18 +123,62 @@ export function registerCrudEffectHandlers(registry: TuiHandlerRegistry): void {
 		if (!ctx.project) return { kind: "error", message: "No project selected" };
 		return { kind: "ok", message: "Regeneration triggered" };
 	});
-	registry.registerHandler("comp:sb-install", async (ctx: TuiActionContext) => {
+	registry.registerHandler("comp:sb-install", async (ctx: TuiActionContext): Promise<TuiActionResult> => {
 		if (!ctx.project) return { kind: "error", message: "No project selected" };
-		return { kind: "ok", message: "Storybook install not available in TUI yet" };
+		const { disk, paths, shell } = ctx.deps;
+		const config = readComponentsConfig(ctx.project.path, { disk, paths });
+		if (isStorybookInstalled(ctx.project.path, config, { disk, paths })) {
+			return { kind: "ok", message: "Storybook is already installed" };
+		}
+		const framework = getFramework(ctx.project.path, { disk, paths });
+		setFramework(ctx.project.path, framework, { disk, paths });
+		const projectName = paths.basename(ctx.project.path);
+		const sbDir = resolveStorybookDir(ctx.project.path, config, { paths });
+		// installStorybook accepts StorybookDeps (includes input) but never calls input —
+		// pass a no-op stub so the type is satisfied.
+		const noopInput = { ask: async () => "", waitForEnter: async () => {}, askYesNo: async () => true } as never;
+		const installed = installStorybook(
+			ctx.project.path, projectName,
+			{ ...config, framework },
+			{ disk, paths, shell, input: noopInput },
+			nullStorybookRenderer,
+		);
+		return installed
+			? { kind: "ok", message: `Storybook installed in ${sbDir}` }
+			: { kind: "error", message: "Storybook installation failed" };
 	});
-	registry.registerHandler("comp:sb-start", async (ctx: TuiActionContext) => {
+	registry.registerHandler("comp:sb-start", async (ctx: TuiActionContext): Promise<TuiActionResult> => {
 		if (!ctx.project) return { kind: "error", message: "No project selected" };
-		return { kind: "ok", message: "Storybook start not available in TUI yet" };
+		const { disk, paths, shell } = ctx.deps;
+		const config = readComponentsConfig(ctx.project.path, { disk, paths });
+		if (!isStorybookInstalled(ctx.project.path, config, { disk, paths })) {
+			return { kind: "error", message: "Storybook not installed. Use Install Storybook first." };
+		}
+		if (isStorybookRunning()) {
+			return { kind: "ok", message: "Storybook is already running" };
+		}
+		const { VAULT_ROOT } = await import("../../infrastructure/config.js");
+		const result = await startStorybookDev(ctx.project.path, config, VAULT_ROOT, { disk, paths, shell }, nullStorybookRenderer);
+		return result.started
+			? { kind: "ok", message: `Storybook running at ${result.url}` }
+			: { kind: "error", message: result.error ?? "Storybook failed to start" };
 	});
-	registry.registerHandler("comp:sb-stop", async () => ({ kind: "ok", message: "Storybook stopped" }));
-	registry.registerHandler("comp:sb-build", async (ctx: TuiActionContext) => {
+	registry.registerHandler("comp:sb-stop", async (): Promise<TuiActionResult> => {
+		if (!isStorybookRunning()) {
+			return { kind: "ok", message: "Storybook is not running" };
+		}
+		stopStorybook(nullStorybookRenderer);
+		return { kind: "ok", message: "Storybook stopped" };
+	});
+	registry.registerHandler("comp:sb-build", async (ctx: TuiActionContext): Promise<TuiActionResult> => {
 		if (!ctx.project) return { kind: "error", message: "No project selected" };
-		return { kind: "ok", message: "Storybook build not available in TUI yet" };
+		const { disk, paths, shell } = ctx.deps;
+		const config = readComponentsConfig(ctx.project.path, { disk, paths });
+		if (!isStorybookInstalled(ctx.project.path, config, { disk, paths })) {
+			return { kind: "error", message: "Storybook not installed. Use Install Storybook first." };
+		}
+		runStorybookBuild(ctx.project.path, config, { disk, paths, shell }, nullStorybookRenderer);
+		return { kind: "ok", message: "Storybook build complete" };
 	});
 	registry.registerHandler("comp:data-providers", async () => ({ kind: "navigate", target: "component-data-providers" }));
 	registry.registerHandler("comp:action-ref", async () => ({ kind: "navigate", target: "component-action-ref" }));

@@ -1,4 +1,29 @@
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({ disk: {} }));
+vi.mock("../../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/test-vault",
+	CLI_PROJECT: "/test-vault/01 - Projects/Flowti CLI",
+	PROJECTS_DIR: "/test-vault/01 - Projects",
+	PLUGIN_ROOT: "/test-vault/Development/flowti",
+	cliConfig: {},
+	loadJson: () => null,
+}));
+vi.mock("../../../src/domain/make/component/storybook-settings.js", () => ({
+	readComponentsConfig: vi.fn().mockReturnValue({}),
+	getFramework: vi.fn().mockReturnValue("react"),
+	setFramework: vi.fn(),
+}));
+vi.mock("../../../src/domain/make/component/storybook-service.js", () => ({
+	isStorybookInstalled: vi.fn().mockReturnValue(false),
+	isStorybookRunning: vi.fn().mockReturnValue(false),
+	stopStorybook: vi.fn(),
+	startStorybookDev: vi.fn().mockResolvedValue({ started: true, url: "http://localhost:6006" }),
+	runStorybookBuild: vi.fn(),
+	installStorybook: vi.fn().mockReturnValue(true),
+	resolveStorybookDir: vi.fn().mockReturnValue(".storybook"),
+}));
+vi.mock("../../../src/domain/make/component/storybook-renderer.js", () => ({
+	nullStorybookRenderer: {},
+}));
 
 import { describe, it, expect, vi } from "vitest";
 import { TuiHandlerRegistry } from "../../../src/tui/registry/tui-handler-registry.js";
@@ -9,7 +34,7 @@ function makeCtx(overrides?: Partial<TuiActionContext>): TuiActionContext {
 	return {
 		deps: {
 			disk: { existsSync: vi.fn().mockReturnValue(false) },
-			paths: { join: (...a: string[]) => a.join("/") },
+			paths: { join: (...a: string[]) => a.join("/"), basename: (p: string) => p.split("/").pop() ?? "" },
 			clock: { now: () => 0 },
 			shell: { run: vi.fn().mockReturnValue(0) },
 		} as never,
@@ -146,5 +171,121 @@ describe("crud effect handlers", () => {
 		registerCrudEffectHandlers(registry);
 		const result = await registry.getHandler("devtools:console")(makeCtx());
 		expect(result).toEqual({ kind: "ok", message: "Console not available in TUI" });
+	});
+
+	// ── Storybook handler tests ──────────────────────────────────────
+
+	it("comp:sb-install returns error when no project", async () => {
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-install")(makeCtx({ project: undefined }));
+		expect(result).toEqual({ kind: "error", message: "No project selected" });
+	});
+
+	it("comp:sb-install reports already installed when storybook exists", async () => {
+		const { isStorybookInstalled } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-install")(makeCtx());
+		expect(result).toEqual({ kind: "ok", message: "Storybook is already installed" });
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(false);
+	});
+
+	it("comp:sb-install calls installStorybook and returns ok on success", async () => {
+		const { isStorybookInstalled, installStorybook } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		(installStorybook as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-install")(makeCtx());
+		expect(result.kind).toBe("ok");
+		expect(installStorybook).toHaveBeenCalled();
+	});
+
+	it("comp:sb-install returns error on installation failure", async () => {
+		const { isStorybookInstalled, installStorybook } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		(installStorybook as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-install")(makeCtx());
+		expect(result).toEqual({ kind: "error", message: "Storybook installation failed" });
+		(installStorybook as ReturnType<typeof vi.fn>).mockReturnValue(true);
+	});
+
+	it("comp:sb-start returns error when not installed", async () => {
+		const { isStorybookInstalled } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-start")(makeCtx());
+		expect(result).toEqual({ kind: "error", message: "Storybook not installed. Use Install Storybook first." });
+	});
+
+	it("comp:sb-start returns ok when already running", async () => {
+		const { isStorybookInstalled, isStorybookRunning } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		(isStorybookRunning as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-start")(makeCtx());
+		expect(result).toEqual({ kind: "ok", message: "Storybook is already running" });
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		(isStorybookRunning as ReturnType<typeof vi.fn>).mockReturnValue(false);
+	});
+
+	it("comp:sb-start calls startStorybookDev and returns url on success", async () => {
+		const { isStorybookInstalled, isStorybookRunning, startStorybookDev } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		(isStorybookRunning as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		(startStorybookDev as ReturnType<typeof vi.fn>).mockResolvedValue({ started: true, url: "http://localhost:6006" });
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-start")(makeCtx());
+		expect(result).toEqual({ kind: "ok", message: "Storybook running at http://localhost:6006" });
+		expect(startStorybookDev).toHaveBeenCalled();
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		(isStorybookRunning as ReturnType<typeof vi.fn>).mockReturnValue(false);
+	});
+
+	it("comp:sb-stop returns ok when not running", async () => {
+		const { isStorybookRunning } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookRunning as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-stop")(makeCtx());
+		expect(result).toEqual({ kind: "ok", message: "Storybook is not running" });
+	});
+
+	it("comp:sb-stop calls stopStorybook when running", async () => {
+		const { isStorybookRunning, stopStorybook } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookRunning as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-stop")(makeCtx());
+		expect(result).toEqual({ kind: "ok", message: "Storybook stopped" });
+		expect(stopStorybook).toHaveBeenCalled();
+		(isStorybookRunning as ReturnType<typeof vi.fn>).mockReturnValue(false);
+	});
+
+	it("comp:sb-build returns error when not installed", async () => {
+		const { isStorybookInstalled } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-build")(makeCtx());
+		expect(result).toEqual({ kind: "error", message: "Storybook not installed. Use Install Storybook first." });
+	});
+
+	it("comp:sb-build calls runStorybookBuild when installed", async () => {
+		const { isStorybookInstalled, runStorybookBuild } = await import("../../../src/domain/make/component/storybook-service.js");
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		const registry = new TuiHandlerRegistry();
+		registerCrudEffectHandlers(registry);
+		const result = await registry.getHandler("comp:sb-build")(makeCtx());
+		expect(result).toEqual({ kind: "ok", message: "Storybook build complete" });
+		expect(runStorybookBuild).toHaveBeenCalled();
+		(isStorybookInstalled as ReturnType<typeof vi.fn>).mockReturnValue(false);
 	});
 });
