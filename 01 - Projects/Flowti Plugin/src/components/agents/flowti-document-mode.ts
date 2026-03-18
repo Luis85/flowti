@@ -1,7 +1,9 @@
 // src/components/agents/flowti-document-mode.ts
 import { html, css, nothing } from "lit";
+import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import type { PropertyValues } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
+import { simpleMarkdown } from "./simple-markdown.js";
 import type { ConversationTurn, ToolCall } from "../../domain/agents/types.js";
 
 /**
@@ -60,8 +62,38 @@ export class FlowtiDocumentMode extends FlowtiElement {
 			.turn__content {
 				font-size: var(--flowti-font-sm);
 				line-height: 1.5;
-				white-space: pre-wrap;
 				word-wrap: break-word;
+			}
+
+			.turn__content h1, .turn__content h2, .turn__content h3, .turn__content h4 {
+				margin: var(--flowti-space-xs) 0;
+				line-height: 1.3;
+			}
+			.turn__content h1 { font-size: 1.2em; }
+			.turn__content h2 { font-size: 1.1em; }
+			.turn__content h3 { font-size: 1em; }
+			.turn__content pre {
+				background: var(--background-secondary);
+				padding: var(--flowti-space-sm);
+				border-radius: var(--flowti-radius);
+				overflow-x: auto;
+				font-family: var(--flowti-font-mono);
+				font-size: 0.85em;
+			}
+			.turn__content code {
+				background: var(--background-secondary);
+				padding: 1px 4px;
+				border-radius: 3px;
+				font-family: var(--flowti-font-mono);
+				font-size: 0.9em;
+			}
+			.turn__content pre code {
+				background: none;
+				padding: 0;
+			}
+			.turn__content ul {
+				margin: var(--flowti-space-xs) 0;
+				padding-left: var(--flowti-space-md);
 			}
 
 			.thinking-toggle {
@@ -157,7 +189,7 @@ export class FlowtiDocumentMode extends FlowtiElement {
 		return html`
 			<div class="turn ${roleClass}" data-turn-id="${turn.id}">
 				<div class="turn__role">${roleLabel}</div>
-				<div class="turn__content">${turn.content}</div>
+				<div class="turn__content">${unsafeHTML(simpleMarkdown(turn.content))}</div>
 				${turn.thinking ? this.renderThinking(turn.thinking) : nothing}
 				${turn.toolCalls?.length ? this.renderToolCalls(turn.toolCalls) : nothing}
 				${turn.timestamp ? html`<div class="turn__timestamp">${turn.timestamp}</div>` : nothing}
