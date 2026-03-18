@@ -93,6 +93,8 @@ import { setupAgentDomain, type AgentSetupResult } from "./bootstrap/agent-setup
 import { VIEW_TYPE_AGENT_SIDEBAR } from "./ui/agents/types";
 import { setupProjectDomain, type ProjectSetupResult } from "./bootstrap/project-setup";
 import { VIEW_TYPE_PROJECT_DETAIL } from "./ui/projects/types";
+import { setupServerDomain, type ServerSetupResult } from "./bootstrap/server-setup";
+import { VIEW_TYPE_SERVER_PANEL } from "./ui/server/types";
 
 
 /**  
@@ -177,6 +179,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private installerServiceRef?: IInstallerService;
 	private agentSetup?: AgentSetupResult;
 	private projectSetup?: ProjectSetupResult;
+	private serverSetup?: ServerSetupResult;
 
 	async onload() {
 		try {
@@ -409,6 +412,22 @@ export default class FlowtiBasePlugin extends Plugin {
 				this.activateProjectHub();
 			});
 
+			// ── Server domain — view, command, ribbon ──
+			this.serverSetup = setupServerDomain({
+				plugin: this,
+				app: this.app,
+				sseClient: this.agentSetup!.sseClient,
+				startServer: async () => {
+					const { launchCliServer } = await import("./infrastructure/agents/server-launcher");
+					const vaultPath = (this.app.vault.adapter as unknown as { basePath: string }).basePath;
+					return launchCliServer(vaultPath, "http://localhost:3000");
+				},
+			});
+
+			this.addRibbonIcon("activity", "Open server panel", () => {
+				this.activateServerPanel();
+			});
+
 			// Listen for execute requests from the Command Catalog UI
 			{
 				const ctx = this.createCommandContext();
@@ -490,6 +509,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			"flowti-journey-builder",
 			VIEW_TYPE_AGENT_SIDEBAR,
 			VIEW_TYPE_PROJECT_DETAIL,
+			VIEW_TYPE_SERVER_PANEL,
 		];
 		for (const type of viewTypes) {
 			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
@@ -710,6 +730,17 @@ export default class FlowtiBasePlugin extends Plugin {
 		}
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (leaf) void leaf.setViewState({ type: VIEW_TYPE_PROJECT_DETAIL, active: true });
+	}
+
+	/** Reveal existing server panel leaf or create one in the right sidebar. */
+	private activateServerPanel(): void {
+		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERVER_PANEL);
+		if (existing.length > 0) {
+			void this.app.workspace.revealLeaf(existing[0]);
+			return;
+		}
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (leaf) void leaf.setViewState({ type: VIEW_TYPE_SERVER_PANEL, active: true });
 	}
 
 	private safeRegisterView(type: string, factory: ViewCreator): void {
