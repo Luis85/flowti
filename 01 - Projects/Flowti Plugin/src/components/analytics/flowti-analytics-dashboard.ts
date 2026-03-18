@@ -2,6 +2,9 @@ import { html, css, nothing } from 'lit';
 import { FlowtiElement } from '../flowti-element.js';
 import { emptyState } from '../shared-styles.js';
 
+// Side-effect import: register tile custom element
+import './flowti-analytics-tile.js';
+
 interface DashboardData {
 	id: string;
 	name: string;
@@ -21,6 +24,7 @@ interface TileSlot {
 	col: number;
 	width: number;
 	height: number;
+	tileData?: unknown;
 }
 
 interface BreadcrumbEntry {
@@ -276,7 +280,16 @@ export class FlowtiAnalyticsDashboard extends FlowtiElement {
 		`;
 	}
 
+	/** Map domain TileDisplayMode to Lit tile component tileType. */
+	private mapTileType(displayMode: string): "stat" | "table" | "chart" {
+		if (displayMode === "stat-card") return "stat";
+		if (displayMode === "table") return "table";
+		// line-chart, bar-chart, area-chart, pie-chart → chart
+		return "chart";
+	}
+
 	private renderTileSlot(tile: TileSlot) {
+		const tileType = this.mapTileType(tile.displayMode);
 		return html`
 			<div
 				class="tile-slot"
@@ -291,6 +304,12 @@ export class FlowtiAnalyticsDashboard extends FlowtiElement {
 						@click=${() => this.dispatchRemoveTile(tile.id)}
 					>x</button>
 				</div>
+				<flowti-analytics-tile
+					.tileType=${tileType}
+					.title=${""}
+					.data=${tile.tileData ?? null}
+					.config=${{}}
+				></flowti-analytics-tile>
 			</div>
 		`;
 	}

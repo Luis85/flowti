@@ -13,8 +13,30 @@ import { setProps } from "./handler-utils";
 
 // Side-effect imports: register Lit custom elements
 import "../../components/analytics/flowti-analytics-dashboard.js";
+import "../../components/analytics/flowti-analytics-tile.js";
 import "../../components/analytics/flowti-analytics-queries.js";
 import "../../components/analytics/flowti-analytics-measurements.js";
+
+/** Shape of an analytics result returned by runSavedQuery. */
+interface AnalyticsResultShape {
+	columns: string[];
+	rows: Array<Record<string, string | number>>;
+	groupCount: number;
+	sourceRowCount: number;
+}
+
+/** Enriched tile slot with query result data for the Lit dashboard component. */
+interface EnrichedTileSlot {
+	id: string;
+	queryId: string;
+	title?: string;
+	displayMode: string;
+	row: number;
+	col: number;
+	width: number;
+	height: number;
+	tileData: { value: string | number; label?: string } | { columns: string[]; rows: Array<Record<string, string | number>> } | null;
+}
 
 export interface AnalyticsHandlerDeps {
 	analyticsService: {
@@ -24,7 +46,7 @@ export interface AnalyticsHandlerDeps {
 		getQuery: (id: string) => unknown | null;
 		getDashboardQueryMap: (id: string) => Map<string, unknown>;
 		getDefaultDashboard: () => unknown | null;
-		runSavedQuery: (id: string) => unknown;
+		runSavedQuery: (id: string) => Promise<AnalyticsResultShape> | undefined;
 	};
 	tileResultCache: {
 		tryRun: (key: string, fn: () => unknown, cb: () => void) => unknown;
@@ -50,18 +72,61 @@ export function registerAnalyticsHandlers(
 		container.innerHTML = "";
 		const el = document.createElement("flowti-analytics-dashboard");
 
-		const dashboards = deps.analyticsService.listDashboards() as Array<{ id: string; name: string; tiles: unknown[] }>;
+		const dashboards = deps.analyticsService.listDashboards() as Array<{ id: string; name: string; tiles: Array<{ id: string; queryId: string; title?: string; displayMode: string; row: number; col: number; width: number; height: number }> }>;
 		const defaultDash = deps.analyticsService.getDefaultDashboard() as { id: string } | null;
 		const selectedDashboard = defaultDash
 			? dashboards.find((d) => d.id === defaultDash.id) ?? dashboards[0]
 			: dashboards[0];
 
 		if (selectedDashboard) {
+			// Set layout-only tiles immediately so the grid renders
+			const rawTiles = selectedDashboard.tiles ?? [];
 			setProps(el, {
 				dashboard: selectedDashboard,
-				tiles: selectedDashboard.tiles ?? [],
+				tiles: rawTiles,
 				breadcrumbs: [{ level: "dashboard", label: selectedDashboard.name }],
 			});
+
+			// Enrich tiles with query result data asynchronously
+			if (rawTiles.length > 0) {
+				void Promise.all(
+					rawTiles.map(async (tile) => {
+						let tileData: EnrichedTileSlot["tileData"] = null;
+						try {
+							const result = await deps.analyticsService.runSavedQuery(tile.queryId);
+							if (result && result.rows.length > 0) {
+								const mode = tile.displayMode;
+								if (mode === "stat-card") {
+									// Extract first numeric value from first row as the stat
+									const firstRow = result.rows[0];
+									const numericCol = result.columns.find((c) => typeof firstRow[c] === "number");
+									const value = numericCol ? firstRow[numericCol] : Object.values(firstRow)[0] ?? 0;
+									const label = numericCol ?? result.columns[0] ?? undefined;
+									tileData = { value: value as string | number, label };
+								} else {
+									// table and chart modes both use columns + rows
+									tileData = { columns: result.columns, rows: result.rows };
+								}
+							}
+						} catch {
+							// Query failed — tile will show "No data"
+						}
+						return {
+							id: tile.id,
+							queryId: tile.queryId,
+							title: tile.title,
+							displayMode: tile.displayMode,
+							row: tile.row,
+							col: tile.col,
+							width: tile.width,
+							height: tile.height,
+							tileData,
+						};
+					}),
+				).then((enrichedTiles) => {
+					setProps(el, { tiles: enrichedTiles });
+				});
+			}
 		}
 
 		el.addEventListener("add-tile", () => {
