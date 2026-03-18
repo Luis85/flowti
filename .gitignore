@@ -7,6 +7,8 @@ node_modules
 /.obsidian/workspace.json
 /.obsidian/appearance.json
 
+/Development
+
 .claude/settings.local.json
 .claude/worktrees
 .superpowers
