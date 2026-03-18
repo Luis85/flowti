@@ -118,4 +118,41 @@ describe("HttpAgentService", () => {
 		await service.sendMessage("atlas", "hi", "conversational");
 		expect(service.getTeamConversation()).toHaveLength(1);
 	});
+
+	it("sendMessage emits error and resets to idle on network failure", async () => {
+		mockFetch
+			.mockResolvedValueOnce(jsonResponse({
+				entities: { atlas: { id: "atlas", type: "agent", components: {
+					identity: { name: "atlas" }, status: { currentAction: "idle" },
+				}}},
+			}))
+			.mockRejectedValueOnce(new Error("Network error"));
+		const service = new HttpAgentService("http://localhost:3000");
+		await service.connect();
+		const events: Array<Record<string, unknown>> = [];
+		service.onEvent((e) => events.push(e as unknown as Record<string, unknown>));
+		await service.sendMessage("atlas", "hello", "conversational");
+		const errorEvent = events.find((e) => e.kind === "error");
+		expect(errorEvent).toBeDefined();
+		expect(errorEvent?.error).toBe("Network error");
+		expect(service.getAgent("atlas")?.activity).toBe("idle");
+	});
+
+	it("sendMessage emits error on non-OK response", async () => {
+		mockFetch
+			.mockResolvedValueOnce(jsonResponse({
+				entities: { atlas: { id: "atlas", type: "agent", components: {
+					identity: { name: "atlas" }, status: { currentAction: "idle" },
+				}}},
+			}))
+			.mockResolvedValueOnce(jsonResponse({}, 500));
+		const service = new HttpAgentService("http://localhost:3000");
+		await service.connect();
+		const events: Array<Record<string, unknown>> = [];
+		service.onEvent((e) => events.push(e as unknown as Record<string, unknown>));
+		await service.sendMessage("atlas", "hello", "conversational");
+		const errorEvent = events.find((e) => e.kind === "error");
+		expect(errorEvent).toBeDefined();
+		expect(service.getAgent("atlas")?.activity).toBe("idle");
+	});
 });

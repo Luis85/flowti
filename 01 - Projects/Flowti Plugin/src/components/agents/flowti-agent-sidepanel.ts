@@ -6,6 +6,7 @@
  */
 
 import { html, css, nothing } from "lit";
+import type { PropertyValues } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { statusBadge } from "../shared-styles.js";
 import type { AgentCard, ConversationTurn, ConversationMode } from "../../domain/agents/types.js";
@@ -151,13 +152,15 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 	processing = false;
 	private inputText = "";
 
-	protected renderContent() {
-		if (this.agents.length === 0) {
-			this.isEmpty = true;
+	protected willUpdate(changed: PropertyValues): void {
+		super.willUpdate(changed);
+		this.isEmpty = this.agents.length === 0;
+		if (this.isEmpty) {
 			this.emptyMessage = "No agents available. Start the CLI server with 'flowti serve'.";
-			return html`<div class="flowti-empty">${this.emptyMessage}</div>`;
 		}
-		this.isEmpty = false;
+	}
+
+	protected renderContent() {
 
 		const activeCard = this.agents.find((a) => a.name === this.activeAgent);
 		const label = this.teamMode ? "Talking to team" : `Talking to ${activeCard?.persona ?? this.activeAgent}`;

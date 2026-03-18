@@ -2,9 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SseClient } from "../../../src/infrastructure/agents/sse-client";
 
 class MockEventSource {
+	static OPEN = 1;
+	static CLOSED = 2;
+	static CONNECTING = 0;
+
 	url: string;
-	listeners = new Map<string, ((event: MessageEvent) => void)[]>();
+	listeners = new Map<string, Set<EventListener>>();
 	closed = false;
+	readyState = MockEventSource.OPEN;
 	onmessage: ((event: MessageEvent) => void) | null = null;
 	onerror: ((event: Event) => void) | null = null;
 	onopen: (() => void) | null = null;
@@ -12,12 +17,18 @@ class MockEventSource {
 	constructor(url: string) {
 		this.url = url;
 	}
-	addEventListener(type: string, cb: (event: MessageEvent) => void) {
-		const list = this.listeners.get(type) ?? [];
-		list.push(cb);
-		this.listeners.set(type, list);
+	addEventListener(type: string, cb: EventListener) {
+		const set = this.listeners.get(type) ?? new Set();
+		set.add(cb);
+		this.listeners.set(type, set);
 	}
-	close() { this.closed = true; }
+	removeEventListener(type: string, cb: EventListener) {
+		this.listeners.get(type)?.delete(cb);
+	}
+	close() {
+		this.closed = true;
+		this.readyState = MockEventSource.CLOSED;
+	}
 	simulateEvent(type: string, data: string) {
 		const event = { data } as MessageEvent;
 		for (const cb of this.listeners.get(type) ?? []) cb(event);
@@ -26,12 +37,13 @@ class MockEventSource {
 
 let mockEs: MockEventSource;
 vi.stubGlobal("EventSource", class FakeEventSource {
+	static OPEN = 1;
+	static CLOSED = 2;
+	static CONNECTING = 0;
 	constructor(url: string) {
 		mockEs = new MockEventSource(url);
-		Object.assign(this, mockEs);
+		return mockEs as unknown as FakeEventSource;
 	}
-	addEventListener(type: string, cb: (event: MessageEvent) => void) { mockEs.addEventListener(type, cb); }
-	close() { mockEs.close(); }
 });
 
 describe("SseClient", () => {

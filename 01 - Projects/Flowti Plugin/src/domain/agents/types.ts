@@ -37,7 +37,8 @@ export type AgentServiceEvent =
 	| { readonly kind: "message-received"; readonly agent: string; readonly turn: ConversationTurn }
 	| { readonly kind: "thinking"; readonly agent: string; readonly text: string }
 	| { readonly kind: "tool-started"; readonly agent: string; readonly tool: string; readonly id: string }
-	| { readonly kind: "tool-completed"; readonly agent: string; readonly id: string };
+	| { readonly kind: "tool-completed"; readonly agent: string; readonly id: string }
+	| { readonly kind: "error"; readonly agent: string; readonly error: string };
 
 export interface IAgentService {
 	listAgents(): AgentCard[];

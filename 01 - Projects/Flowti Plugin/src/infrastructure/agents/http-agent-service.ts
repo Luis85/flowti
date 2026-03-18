@@ -92,15 +92,26 @@ export class HttpAgentService implements IAgentService {
 		this.conversations.set(agent, conv);
 		this.teamConversation.push({ ...turn, agentName: agent });
 
-		this.emit({ kind: "status-changed", agent, activity: "thinking" });
 		this.updateAgentActivity(agent, "thinking");
 
-		await fetch(`${this.baseUrl}/api/agent/send`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ agentName: agent, message }),
-			signal,
-		});
+		try {
+			const res = await fetch(`${this.baseUrl}/api/agent/send`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ agentName: agent, message }),
+				signal,
+			});
+			if (!res.ok) {
+				this.updateAgentActivity(agent, "idle");
+				this.emit({ kind: "error", agent, error: `Server returned ${res.status}` });
+			}
+		} catch (err) {
+			this.updateAgentActivity(agent, "idle");
+			const msg = err instanceof Error ? err.message : "Network error";
+			if (!(err instanceof DOMException && err.name === "AbortError")) {
+				this.emit({ kind: "error", agent, error: msg });
+			}
+		}
 	}
 
 	async stopGeneration(agent: string): Promise<void> {

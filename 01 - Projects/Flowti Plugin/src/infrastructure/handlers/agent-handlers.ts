@@ -31,7 +31,6 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 
 	el.addEventListener("agent-selected", ((e: CustomEvent) => {
 		activeAgent = String(e.detail.agent);
-		void eventBus.emit("agent.status.changed", { agent: activeAgent, activity: "idle" });
 		refresh();
 	}) as EventListener);
 
@@ -39,6 +38,7 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		const message = String(e.detail.message);
 		if (!activeAgent || !message) return;
 		el.processing = true;
+		void eventBus.emit("agent.message.sent", { agent: activeAgent, message, mode: activeMode });
 		void agentService.sendMessage(activeAgent, message, activeMode).finally(() => {
 			el.processing = false;
 			refresh();

@@ -29,11 +29,20 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		agentService.handleServerEvent("agent-action", data);
 	});
 
+	let connected = false;
+	function ensureConnected(): void {
+		if (connected) return;
+		connected = true;
+		void agentService.connect().catch(() => { /* CLI server not running */ });
+		sseClient.connect();
+	}
+
 	const viewDeps: AgentSidepanelDeps = { eventBus: deps.eventBus, agentService };
 	try {
-		deps.plugin.registerView(VIEW_TYPE_AGENT_SIDEBAR, (leaf: WorkspaceLeaf) =>
-			new AgentSidepanelView(leaf, viewDeps),
-		);
+		deps.plugin.registerView(VIEW_TYPE_AGENT_SIDEBAR, (leaf: WorkspaceLeaf) => {
+			ensureConnected();
+			return new AgentSidepanelView(leaf, viewDeps);
+		});
 	} catch (err) {
 		if (err instanceof Error && !err.message.includes("existing view type")) throw err;
 	}
@@ -46,9 +55,6 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 			if (leaf) void leaf.setViewState({ type: VIEW_TYPE_AGENT_SIDEBAR, active: true });
 		},
 	});
-
-	void agentService.connect().catch(() => { /* CLI server not running */ });
-	sseClient.connect();
 
 	return { agentService, sseClient };
 }
