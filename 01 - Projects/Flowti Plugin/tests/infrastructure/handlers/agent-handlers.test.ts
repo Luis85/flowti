@@ -74,7 +74,7 @@ describe("mountAgentSidepanel", () => {
 		mountAgentSidepanel(container, { eventBus: bus, agentService: mockService(agents) });
 		const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement;
 		el.dispatchEvent(new CustomEvent("team-toggled", { detail: { enabled: true }, bubbles: true, composed: true }));
-		expect(bus.emit).toHaveBeenCalledWith("agent.team.toggled", { enabled: true });
+		expect((bus as unknown as { emit: ReturnType<typeof vi.fn> }).emit).toHaveBeenCalledWith("agent.team.toggled", { enabled: true });
 	});
 
 	it("handles agent-stop event", () => {

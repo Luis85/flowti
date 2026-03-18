@@ -42,7 +42,7 @@ describe("ObsidianContextProvider", () => {
 	});
 
 	it("returns file context for active file", async () => {
-		workspace.getActiveFile.mockReturnValue({ path: "notes/test.md" });
+		workspace.getActiveFile.mockReturnValue({ path: "notes/test.md" } as never);
 		vault.cachedRead.mockResolvedValue("hello world");
 		const provider = new ObsidianContextProvider(workspace as never, vault as never);
 		await provider.refreshContext();
@@ -54,7 +54,7 @@ describe("ObsidianContextProvider", () => {
 	});
 
 	it("computes diff between previous and current content", async () => {
-		workspace.getActiveFile.mockReturnValue({ path: "test.md" });
+		workspace.getActiveFile.mockReturnValue({ path: "test.md" } as never);
 		vault.cachedRead.mockResolvedValueOnce("line1\nline2");
 		const provider = new ObsidianContextProvider(workspace as never, vault as never);
 		await provider.refreshContext();
@@ -69,7 +69,7 @@ describe("ObsidianContextProvider", () => {
 	});
 
 	it("getDiff returns null when hash matches current", async () => {
-		workspace.getActiveFile.mockReturnValue({ path: "test.md" });
+		workspace.getActiveFile.mockReturnValue({ path: "test.md" } as never);
 		vault.cachedRead.mockResolvedValue("same content");
 		const provider = new ObsidianContextProvider(workspace as never, vault as never);
 		await provider.refreshContext();
@@ -84,7 +84,7 @@ describe("ObsidianContextProvider", () => {
 	});
 
 	it("onFileChanged registers subscriber", async () => {
-		workspace.getActiveFile.mockReturnValue({ path: "test.md" });
+		workspace.getActiveFile.mockReturnValue({ path: "test.md" } as never);
 		vault.cachedRead.mockResolvedValue("content");
 		const provider = new ObsidianContextProvider(workspace as never, vault as never);
 		const changes: unknown[] = [];
