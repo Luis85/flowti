@@ -18,6 +18,10 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		running: { type: Boolean },
 		url: { type: String },
 		pid: { type: Number },
+		busy: { type: Boolean },
+		busyLabel: { type: String },
+		outputLines: { type: Array },
+		errorNote: { type: String },
 	};
 
 	static styles = [
@@ -137,6 +141,78 @@ export class FlowtiStorybookSection extends FlowtiElement {
 			.action-btn--primary:hover {
 				opacity: 0.9;
 			}
+
+			.busy-section {
+				display: flex;
+				flex-direction: column;
+				gap: var(--flowti-space-xs, 4px);
+			}
+
+			.busy-label {
+				display: flex;
+				align-items: center;
+				gap: var(--flowti-space-sm, 8px);
+				font-size: var(--flowti-font-sm, 0.85em);
+				color: var(--text-muted);
+			}
+
+			.spinner {
+				width: 14px; height: 14px;
+				border: 2px solid var(--background-modifier-border);
+				border-top-color: var(--interactive-accent);
+				border-radius: 50%;
+				animation: spin 0.8s linear infinite;
+			}
+
+			@keyframes spin { to { transform: rotate(360deg); } }
+
+			.error-note {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--flowti-space-sm, 8px);
+				padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
+				border-radius: var(--flowti-radius-sm, 4px);
+				background: color-mix(in srgb, var(--color-red, #e53935) 10%, transparent);
+				color: var(--text-normal);
+				font-size: var(--flowti-font-sm, 0.85em);
+				line-height: 1.4;
+			}
+
+			.error-note__text {
+				flex: 1;
+				white-space: pre-wrap;
+				word-break: break-word;
+			}
+
+			.error-note__dismiss {
+				flex-shrink: 0;
+				background: none;
+				border: none;
+				color: var(--text-muted);
+				cursor: pointer;
+				font-size: 1.1em;
+				padding: 0 4px;
+				line-height: 1;
+			}
+
+			.error-note__dismiss:hover {
+				color: var(--text-normal);
+			}
+
+			.output-log {
+				max-height: 200px;
+				overflow-y: auto;
+				background: var(--background-primary, #1e1e1e);
+				border: 1px solid var(--background-modifier-border);
+				border-radius: var(--flowti-radius-sm, 4px);
+				padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
+				font-family: var(--font-monospace);
+				font-size: 0.75em;
+				line-height: 1.4;
+				color: var(--text-muted);
+				white-space: pre-wrap;
+				word-break: break-all;
+			}
 		`,
 	];
 
@@ -145,15 +221,60 @@ export class FlowtiStorybookSection extends FlowtiElement {
 	running = false;
 	url = "";
 	pid = 0;
+	busy = false;
+	busyLabel = "";
+	outputLines: string[] = [];
+	errorNote = "";
 
 	protected renderContent() {
-		if (!this.installed) {
-			return this.renderNotInstalled();
+		if (this.busy) {
+			return html`${this.renderErrorNote()}${this.renderBusy()}`;
 		}
-		if (this.running) {
-			return this.renderRunning();
-		}
-		return this.renderInstalled();
+		const main = !this.installed
+			? this.renderNotInstalled()
+			: this.running
+				? this.renderRunning()
+				: this.renderInstalled();
+		return html`${this.renderErrorNote()}${main}${this.renderOutputLog()}`;
+	}
+
+	private renderOutputLog() {
+		if (this.outputLines.length === 0) return "";
+		return html`<div class="output-log">${this.outputLines.join("\n")}</div>`;
+	}
+
+	private renderErrorNote() {
+		if (!this.errorNote) return "";
+		return html`
+			<div class="error-note">
+				<span class="error-note__text">${this.errorNote}</span>
+				<button class="error-note__dismiss" @click="${() => this.dismissError()}" title="Dismiss">&times;</button>
+			</div>
+		`;
+	}
+
+	private dismissError(): void {
+		this.errorNote = "";
+		this.outputLines = [];
+	}
+
+	private renderBusy() {
+		return html`
+			<div class="busy-section">
+				<div class="busy-label">
+					<span class="spinner"></span>
+					<span>${this.busyLabel || "Working..."}</span>
+				</div>
+				${this.outputLines.length > 0 ? html`
+					<div class="output-log">${this.outputLines.join("\n")}</div>
+				` : ""}
+			</div>
+		`;
+	}
+
+	protected updated(): void {
+		const log = this.shadowRoot?.querySelector(".output-log");
+		if (log) log.scrollTop = log.scrollHeight;
 	}
 
 	private renderNotInstalled() {
@@ -175,10 +296,10 @@ export class FlowtiStorybookSection extends FlowtiElement {
 				<span class="framework-badge">${this.framework}</span>
 			</div>
 			<div class="actions">
-				<button class="action-btn action-btn--primary" @click="${this.dispatchStart}">Start</button>
-				<button class="action-btn" @click="${this.dispatchScaffold}">Scaffold from sitemap</button>
-				<button class="action-btn" @click="${this.dispatchBuild}">Build</button>
-				<button class="action-btn" @click="${this.dispatchOpenFolder}">Open folder</button>
+				<button class="action-btn action-btn--primary" @click="${() => this.dispatchStart()}">Start</button>
+				<button class="action-btn" @click="${() => this.dispatchScaffold()}">Scaffold from sitemap</button>
+				<button class="action-btn" @click="${() => this.dispatchBuild()}">Build</button>
+				<button class="action-btn" @click="${() => this.dispatchOpenFolder()}">Open folder</button>
 			</div>
 		`;
 	}
@@ -191,9 +312,9 @@ export class FlowtiStorybookSection extends FlowtiElement {
 				<span class="url-label">${this.url}</span>
 			</div>
 			<div class="actions">
-				<button class="action-btn action-btn--primary" @click="${this.dispatchView}">View</button>
-				<button class="action-btn action-btn--danger" @click="${this.dispatchStop}">Stop</button>
-				<button class="action-btn" @click="${this.dispatchBuild}">Build</button>
+				<button class="action-btn action-btn--primary" @click="${() => this.dispatchView()}">View</button>
+				<button class="action-btn action-btn--danger" @click="${() => this.dispatchStop()}">Stop</button>
+				<button class="action-btn" @click="${() => this.dispatchBuild()}">Build</button>
 			</div>
 		`;
 	}

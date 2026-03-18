@@ -25,12 +25,14 @@ export interface ProjectDetail extends ProjectSummary {
 
 export type StorybookFramework = "html-vite" | "react" | "vue" | "angular";
 
+export type OutputCallback = (line: string) => void;
+
 export interface IProjectService {
 	listProjects(): Promise<ProjectSummary[]>;
 	getProject(name: string): Promise<ProjectDetail | undefined>;
-	installStorybook(project: string, framework: StorybookFramework): Promise<{ ok: boolean; error?: string }>;
-	startStorybook(project: string): Promise<{ ok: boolean; url?: string; pid?: number; error?: string }>;
+	installStorybook(project: string, framework: StorybookFramework, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+	startStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; url?: string; pid?: number; error?: string }>;
 	stopStorybook(project: string): Promise<{ ok: boolean; error?: string }>;
-	buildStorybook(project: string): Promise<{ ok: boolean; outputDir?: string; error?: string }>;
-	scaffoldStorybook(project: string): Promise<{ ok: boolean; filesCreated?: number; error?: string }>;
+	buildStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; outputDir?: string; error?: string }>;
+	scaffoldStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; filesCreated?: number; error?: string }>;
 }

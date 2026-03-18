@@ -75,55 +75,112 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		}, 500);
 	}) as EventListener);
 
-	function showStatus(result: { ok: boolean; error?: string }): void {
+	const outputLines: string[] = [];
+
+	function startBusy(label: string): void {
+		outputLines.length = 0;
+		el.storybookBusy = true;
+		el.storybookBusyLabel = label;
+		el.storybookOutput = [];
+		el.storybookError = "";
+	}
+
+	function appendOutput(line: string): void {
+		// Always log to console for debugging
+		console.debug("[storybook]", line);
+		outputLines.push(line);
+		if (outputLines.length > 200) outputLines.shift();
+		el.storybookOutput = [...outputLines];
+	}
+
+	function endBusy(result: { ok: boolean; error?: string }): void {
+		el.storybookBusy = false;
+		el.storybookBusyLabel = "";
 		if (!result.ok && result.error) {
-			el.statusMessage = result.error;
-			setTimeout(() => { el.statusMessage = ""; }, 5000);
-		} else if (result.ok) {
-			el.statusMessage = "";
+			el.storybookError = result.error;
 		}
+		void loadProject(currentProject);
 	}
 
 	// ── Storybook actions ──
 	el.addEventListener("storybook-install", ((e: CustomEvent) => {
-		el.loading = true;
-		void projectService.installStorybook(currentProject, String(e.detail.framework) as StorybookFramework)
-			.then((r) => { showStatus(r); return loadProject(currentProject); })
-			.finally(() => { el.loading = false; });
+		startBusy("Installing Storybook...");
+		void projectService.installStorybook(currentProject, String(e.detail.framework) as StorybookFramework, appendOutput)
+			.then((r) => endBusy(r));
 	}) as EventListener);
 
 	el.addEventListener("storybook-start", (() => {
-		el.loading = true;
-		void projectService.startStorybook(currentProject)
-			.then((result) => {
-				showStatus(result);
-				if (result.ok && result.url) {
-					deps.openInWebviewer?.(result.url);
+		startBusy("Starting Storybook...");
+		let resolved = false;
+		let detectedUrl = "http://localhost:6006";
+
+		// Watch output lines for storybook's ready signal or errors
+		const originalAppend = appendOutput;
+		const watchingAppend = (line: string) => {
+			originalAppend(line);
+			if (resolved) return;
+
+			// Storybook prints "Local: http://localhost:XXXX" when ready
+			const urlMatch = line.match(/Local:\s*(https?:\/\/localhost:\d+)/i);
+			if (urlMatch) {
+				detectedUrl = urlMatch[1];
+			}
+
+			// Storybook v10 prints "ready" or the local URL when done
+			const lower = line.toLowerCase();
+			if (lower.includes("storybook") && (lower.includes("ready") || lower.includes("started"))) {
+				resolved = true;
+				originalAppend(`\nStorybook ready at ${detectedUrl}`);
+				el.storybookBusy = false;
+				el.storybookBusyLabel = "";
+				deps.openInWebviewer?.(detectedUrl);
+				void loadProject(currentProject);
+			}
+		};
+
+		void projectService.startStorybook(currentProject, watchingAppend)
+			.then(async (result) => {
+				if (!result.ok) { endBusy(result); return; }
+
+				// Poll for process death (output will show errors)
+				const deadline = Date.now() + 90000;
+				while (!resolved && Date.now() < deadline) {
+					await new Promise((r) => setTimeout(r, 3000));
+					if (resolved) return;
+					const detail = await projectService.getProject(currentProject);
+					if (detail && !detail.storybook.running) {
+						resolved = true;
+						el.storybookBusy = false;
+						el.storybookBusyLabel = "";
+						el.storybookError = "Storybook process exited. See output log for details.";
+						void loadProject(currentProject);
+						return;
+					}
 				}
-				return loadProject(currentProject);
-			})
-			.finally(() => { el.loading = false; });
+				if (!resolved) {
+					resolved = true;
+					originalAppend("Timeout (90s) — Storybook may still be starting.");
+					el.storybookBusy = false;
+					void loadProject(currentProject);
+				}
+			});
 	}) as EventListener);
 
 	el.addEventListener("storybook-stop", (() => {
-		el.loading = true;
 		void projectService.stopStorybook(currentProject)
-			.then((r) => { showStatus(r); return loadProject(currentProject); })
-			.finally(() => { el.loading = false; });
+			.then((r) => { endBusy(r); });
 	}) as EventListener);
 
 	el.addEventListener("storybook-build", (() => {
-		el.loading = true;
-		void projectService.buildStorybook(currentProject)
-			.then((r) => { showStatus(r); return loadProject(currentProject); })
-			.finally(() => { el.loading = false; });
+		startBusy("Building Storybook...");
+		void projectService.buildStorybook(currentProject, appendOutput)
+			.then((r) => endBusy(r));
 	}) as EventListener);
 
 	el.addEventListener("storybook-scaffold", (() => {
-		el.loading = true;
-		void projectService.scaffoldStorybook(currentProject)
-			.then((r) => { showStatus(r); return loadProject(currentProject); })
-			.finally(() => { el.loading = false; });
+		startBusy("Scaffolding from sitemap...");
+		void projectService.scaffoldStorybook(currentProject, appendOutput)
+			.then((r) => endBusy(r));
 	}) as EventListener);
 
 	el.addEventListener("storybook-view", ((e: CustomEvent) => {

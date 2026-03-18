@@ -23,6 +23,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		projects: { type: Array },
 		searchQuery: { type: String },
 		statusMessage: { type: String },
+		storybookBusy: { type: Boolean },
+		storybookBusyLabel: { type: String },
+		storybookOutput: { type: Array },
+		storybookError: { type: String },
 	};
 
 	static styles = [
@@ -244,6 +248,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	projects: ProjectSummary[] = [];
 	searchQuery = "";
 	statusMessage = "";
+	storybookBusy = false;
+	storybookBusyLabel = "";
+	storybookOutput: string[] = [];
+	storybookError = "";
 
 	protected renderContent() {
 		if (!this.projectName) {
@@ -341,6 +349,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.installed="${this.storybook.installed}"
 					.framework="${this.storybook.framework}"
 					.running="${this.storybook.running}"
+					.busy="${this.storybookBusy}"
+					.busyLabel="${this.storybookBusyLabel}"
+					.outputLines="${this.storybookOutput}"
+					.errorNote="${this.storybookError}"
 					.url="${this.storybook.url}"
 					.pid="${this.storybook.pid}"
 				></flowti-storybook-section>

@@ -1,11 +1,13 @@
 /**
  * Vault-based project service — scans 01 - Projects/ via Obsidian Vault API.
- * Works fully offline. Storybook operations run as local shell commands.
+ * Works fully offline. Storybook operations run as local async shell commands.
  */
 
 import type { App, TFolder, TFile } from "obsidian";
-import { spawn, execSync } from "node:child_process";
-import type { IProjectService, ProjectSummary, ProjectDetail, StorybookFramework, StorybookStatus } from "../../domain/projects/types.js";
+import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { IProjectService, ProjectSummary, ProjectDetail, StorybookFramework, StorybookStatus, OutputCallback } from "../../domain/projects/types.js";
 
 const PROJECTS_FOLDER = "01 - Projects";
 const PROJECT_BRIEF_TYPE = "ProjectBrief";
@@ -19,11 +21,22 @@ function parseNoteType(content: string): string | null {
 	return typeMatch ? typeMatch[1].trim() : null;
 }
 
-function detectStorybookLocally(app: App, projectPath: string): StorybookStatus {
+/** Detect storybook using Node.js fs (not vault API — Obsidian ignores dot-folders). */
+function detectStorybookOnDisk(absProjectPath: string): StorybookStatus {
 	for (const dir of STORYBOOK_DIRS) {
-		const sbPath = `${projectPath}/${dir}`;
-		if (app.vault.getAbstractFileByPath(sbPath)) {
-			return { installed: true, framework: "detected", running: false, url: null, pid: null };
+		const sbPath = join(absProjectPath, dir);
+		if (existsSync(sbPath)) {
+			// Try reading framework from config
+			let framework: string | null = null;
+			try {
+				const mainPath = join(sbPath, "main.ts");
+				if (existsSync(mainPath)) {
+					const content = readFileSync(mainPath, "utf-8");
+					const fwMatch = content.match(/@storybook\/([\w-]+)/);
+					if (fwMatch) framework = fwMatch[1];
+				}
+			} catch { /* can't read */ }
+			return { installed: true, framework, running: false, url: null, pid: null };
 		}
 	}
 	return EMPTY_STORYBOOK;
@@ -33,9 +46,54 @@ function getVaultBasePath(app: App): string {
 	return (app.vault.adapter as unknown as { basePath: string }).basePath;
 }
 
-function resolveAbsProjectPath(app: App, projectName: string): string {
-	const base = getVaultBasePath(app);
-	return `${base}/${PROJECTS_FOLDER}/${projectName}`.replace(/\//g, "\\");
+/** Strip ANSI escape codes from terminal output. */
+function stripAnsi(text: string): string {
+	return text.replace(/\x1B\[[0-9;]*[A-Za-z]|\x1B\][^\x07]*\x07|\x1B\][^\x1B]*\x1B\\/g, "");
+}
+
+/** Run a shell command asynchronously — streams output via callback. */
+function runAsync(
+	command: string,
+	args: string[],
+	cwd: string,
+	onOutput?: (line: string) => void,
+): Promise<{ ok: boolean; error?: string }> {
+	return new Promise((resolve) => {
+		const child = spawn(command, args, {
+			cwd,
+			shell: true,
+			windowsHide: true,
+			stdio: "pipe",
+		});
+
+		let stderr = "";
+
+		child.stdout?.on("data", (chunk: Buffer) => {
+			const lines = stripAnsi(chunk.toString()).split("\n").filter(Boolean);
+			for (const line of lines) onOutput?.(line);
+		});
+
+		child.stderr?.on("data", (chunk: Buffer) => {
+			const text = chunk.toString();
+			stderr += text;
+			const lines = stripAnsi(text).split("\n").filter(Boolean);
+			for (const line of lines) onOutput?.(line);
+		});
+
+		child.on("error", (err) => {
+			onOutput?.(`Error: ${err.message}`);
+			resolve({ ok: false, error: err.message });
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				onOutput?.("Done.");
+				resolve({ ok: true });
+			} else {
+				resolve({ ok: false, error: stderr.trim() || `Exit code ${code}` });
+			}
+		});
+	});
 }
 
 export class VaultProjectService implements IProjectService {
@@ -52,6 +110,7 @@ export class VaultProjectService implements IProjectService {
 
 		const folder = projectsFolder as TFolder;
 		const projects: ProjectSummary[] = [];
+		const basePath = getVaultBasePath(this.app);
 
 		for (const child of folder.children) {
 			if (!("children" in child)) continue;
@@ -71,10 +130,22 @@ export class VaultProjectService implements IProjectService {
 				type = noteType ?? "unknown";
 			}
 
-			let storybook = detectStorybookLocally(this.app, `${PROJECTS_FOLDER}/${name}`);
+			const absPath = join(basePath, PROJECTS_FOLDER, name);
+			let storybook = detectStorybookOnDisk(absPath);
 			const running = this.runningProcesses.get(name);
 			if (running) {
 				storybook = { ...storybook, running: true, url: running.url, pid: running.pid };
+			}
+
+			// Read type from config if not from note
+			if (type === "unknown") {
+				try {
+					const configPath = join(absPath, "configs", "flowti.config.json");
+					if (existsSync(configPath)) {
+						const config = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
+						if (config.type) type = String(config.type);
+					}
+				} catch { /* invalid config */ }
 			}
 
 			projects.push({ name, type, hasNote, storybook });
@@ -87,6 +158,9 @@ export class VaultProjectService implements IProjectService {
 		const projectPath = `${PROJECTS_FOLDER}/${name}`;
 		const projectFolder = this.app.vault.getAbstractFileByPath(projectPath);
 		if (!projectFolder) return undefined;
+
+		const basePath = getVaultBasePath(this.app);
+		const absPath = join(basePath, PROJECTS_FOLDER, name);
 
 		const notePath = `${PROJECTS_FOLDER}/${name}/${name}.md`;
 		const noteFile = this.app.vault.getAbstractFileByPath(notePath) as TFile | null;
@@ -101,26 +175,24 @@ export class VaultProjectService implements IProjectService {
 			type = noteType ?? "unknown";
 		}
 
-		let storybook = detectStorybookLocally(this.app, projectPath);
+		let storybook = detectStorybookOnDisk(absPath);
 		const running = this.runningProcesses.get(name);
 		if (running) {
 			storybook = { ...storybook, running: true, url: running.url, pid: running.pid };
 		}
 
-		// Try reading framework from config
-		const configPath = `${projectPath}/configs/flowti.config.json`;
-		const configFile = this.app.vault.getAbstractFileByPath(configPath) as TFile | null;
-		if (configFile && "extension" in configFile) {
-			try {
-				const content = await this.app.vault.cachedRead(configFile);
-				const config = JSON.parse(content) as Record<string, unknown>;
+		// Read config for additional info
+		try {
+			const configPath = join(absPath, "configs", "flowti.config.json");
+			if (existsSync(configPath)) {
+				const config = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
 				const components = (config.components ?? {}) as Record<string, unknown>;
 				if (components.framework) {
 					storybook = { ...storybook, framework: String(components.framework) };
 				}
 				if (config.type) type = String(config.type);
-			} catch { /* invalid config */ }
-		}
+			}
+		} catch { /* invalid config */ }
 
 		return {
 			name,
@@ -132,50 +204,70 @@ export class VaultProjectService implements IProjectService {
 		};
 	}
 
-	async installStorybook(project: string, framework: StorybookFramework): Promise<{ ok: boolean; error?: string }> {
-		const cwd = resolveAbsProjectPath(this.app, project);
-		try {
-			execSync(`npx storybook@latest init --type ${framework} --yes`, {
-				cwd,
-				timeout: 120000,
-				windowsHide: true,
-				stdio: "ignore",
-			});
-			return { ok: true };
-		} catch (err) {
-			return { ok: false, error: err instanceof Error ? err.message : "Install failed" };
-		}
+	async installStorybook(project: string, framework: StorybookFramework, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
+		return runAsync("npx", ["storybook@latest", "init", "--type", framework, "--yes"], cwd, onOutput);
 	}
 
-	async startStorybook(project: string): Promise<{ ok: boolean; url?: string; pid?: number; error?: string }> {
-		const cwd = resolveAbsProjectPath(this.app, project);
+	private findStorybookConfigDir(absProjectPath: string): string | null {
+		for (const dir of STORYBOOK_DIRS) {
+			const sbPath = join(absProjectPath, dir);
+			if (existsSync(sbPath)) return join(absProjectPath, dir.replace("/.storybook", "").replace(".storybook", "."));
+		}
+		return null;
+	}
+
+	private findStorybookDir(absProjectPath: string): string {
+		for (const dir of STORYBOOK_DIRS) {
+			const sbPath = join(absProjectPath, dir);
+			if (existsSync(sbPath)) return sbPath;
+		}
+		return join(absProjectPath, ".storybook");
+	}
+
+	async startStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; url?: string; pid?: number; error?: string }> {
+		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
 		const port = 6006;
 		const url = `http://localhost:${port}`;
+		const configDir = this.findStorybookDir(cwd);
 
 		try {
-			const child = spawn("npx", ["storybook", "dev", "-p", String(port), "--no-open"], {
-				cwd,
-				detached: true,
-				stdio: "ignore",
+			// Run from the directory containing node_modules (parent of .storybook)
+			const sbParent = join(configDir, "..");
+			const child = spawn("npx", ["storybook", "dev", "-p", String(port), "--no-open", "--ci", "--config-dir", `"${configDir}"`], {
+				cwd: sbParent,
+				stdio: "pipe",
 				shell: true,
 				windowsHide: true,
 			});
-			child.unref();
-			const pid = child.pid ?? 0;
 
+			const pid = child.pid ?? 0;
 			if (pid > 0) {
 				this.runningProcesses.set(project, { pid, url });
 			}
 
-			// Poll until ready (max 30s)
-			const deadline = Date.now() + 30000;
-			while (Date.now() < deadline) {
-				try {
-					const res = await fetch(url);
-					if (res.ok) return { ok: true, url, pid };
-				} catch { /* not ready */ }
-				await new Promise((r) => setTimeout(r, 1000));
-			}
+			// Stream output but don't wait for exit (it's a long-running dev server)
+			child.stdout?.on("data", (chunk: Buffer) => {
+				for (const line of stripAnsi(chunk.toString()).split("\n").filter(Boolean)) {
+					onOutput?.(line);
+				}
+			});
+			child.stderr?.on("data", (chunk: Buffer) => {
+				for (const line of stripAnsi(chunk.toString()).split("\n").filter(Boolean)) {
+					onOutput?.(line);
+				}
+			});
+			child.on("error", (err) => {
+				onOutput?.(`Error: ${err.message}`);
+				this.runningProcesses.delete(project);
+			});
+			child.on("close", (code) => {
+				if (code !== 0) onOutput?.(`Process exited with code ${code}`);
+				this.runningProcesses.delete(project);
+			});
+
+			// Detach so it survives if the handler scope is GC'd, but keep pipes alive
+			child.unref();
 
 			return { ok: true, url, pid };
 		} catch (err) {
@@ -189,7 +281,7 @@ export class VaultProjectService implements IProjectService {
 
 		try {
 			if (process.platform === "win32") {
-				execSync(`taskkill /F /PID ${running.pid}`, { windowsHide: true, timeout: 5000 });
+				spawn("taskkill", ["/F", "/PID", String(running.pid)], { windowsHide: true, shell: true });
 			} else {
 				process.kill(running.pid, "SIGTERM");
 			}
@@ -199,36 +291,19 @@ export class VaultProjectService implements IProjectService {
 		return { ok: true };
 	}
 
-	async buildStorybook(project: string): Promise<{ ok: boolean; outputDir?: string; error?: string }> {
-		const cwd = resolveAbsProjectPath(this.app, project);
-		try {
-			execSync("npx storybook build", {
-				cwd,
-				timeout: 120000,
-				windowsHide: true,
-				stdio: "ignore",
-			});
-			return { ok: true, outputDir: `${cwd}\\storybook-static` };
-		} catch (err) {
-			return { ok: false, error: err instanceof Error ? err.message : "Build failed" };
+	async buildStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; outputDir?: string; error?: string }> {
+		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
+		const configDir = this.findStorybookDir(cwd);
+		const result = await runAsync("npx", ["storybook", "build", "--config-dir", `"${configDir}"`], cwd, onOutput);
+		if (result.ok) {
+			return { ...result, outputDir: join(cwd, "storybook-static") };
 		}
+		return result;
 	}
 
-	async scaffoldStorybook(project: string): Promise<{ ok: boolean; filesCreated?: number; error?: string }> {
-		const cwd = resolveAbsProjectPath(this.app, project);
+	async scaffoldStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; filesCreated?: number; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = `${vaultBase}\\.flowti\\bin`.replace(/\//g, "\\");
-
-		try {
-			execSync(`node "${cliBin}" storybook:scaffold --project="${project}"`, {
-				cwd: vaultBase,
-				timeout: 30000,
-				windowsHide: true,
-				stdio: "ignore",
-			});
-			return { ok: true };
-		} catch (err) {
-			return { ok: false, error: err instanceof Error ? err.message : "Scaffold failed" };
-		}
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		return runAsync("node", [cliBin, "storybook:scaffold", `--project=${project}`], vaultBase, onOutput);
 	}
 }
