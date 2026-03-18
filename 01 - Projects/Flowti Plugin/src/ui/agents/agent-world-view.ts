@@ -64,7 +64,12 @@ export class AgentWorldView extends ItemView {
 		});
 
 		// Create game
-		this.handle = createAgentWorld({ container, provider, spriteBasePath });
+		this.handle = createAgentWorld({
+			container,
+			provider,
+			spriteBasePath,
+			serverBaseUrl: this.deps.serverBaseUrl,
+		});
 
 		try {
 			await this.handle.start();

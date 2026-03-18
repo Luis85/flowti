@@ -61,6 +61,7 @@ export interface AgentWorldDeps {
 	container: HTMLElement;
 	provider: DataProvider;
 	spriteBasePath: string;
+	serverBaseUrl?: string;
 }
 
 export interface AgentWorldHandle {
@@ -92,7 +93,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Reactive store ──────────────────────────────────
-	const store = new DashboardStore("");
+	const store = new DashboardStore(deps.serverBaseUrl ?? "");
 
 	// ── Mount Lit overlay components ────────────────────
 	const overlays = document.createElement("ft-game-overlays") as HTMLElement & { store: DashboardStore };
