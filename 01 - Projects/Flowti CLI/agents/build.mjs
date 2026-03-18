@@ -16,9 +16,11 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outdirArg = process.argv.find((a) => a.startsWith("--outdir="));
+// Default: vault root's .flowti/agents/
+// agents/ → Flowti CLI/ → 01 - Projects/ → vault root
 const outDir = outdirArg
 	? resolve(outdirArg.slice("--outdir=".length))
-	: resolve(__dirname, "../.flowti/agents");
+	: resolve(__dirname, "../../../.flowti/agents");
 
 mkdirSync(outDir, { recursive: true });
 mkdirSync(resolve(outDir, "data"), { recursive: true });

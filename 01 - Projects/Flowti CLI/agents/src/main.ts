@@ -61,18 +61,22 @@ async function main(): Promise<void> {
 		import("./config/bridge-provider.js").WorldBridge | undefined;
 	const embedded = !!bridge;
 
+	// When embedded, start with Fixed mode — FitContainer needs a mounted canvas
+	// to read parentElement.clientWidth. We switch to FitContainer after mounting.
 	const engine = new ex.Engine({
 		width: ENGINE_WIDTH,
 		height: ENGINE_HEIGHT,
 		backgroundColor: ex.Color.fromHex("#0a0a0f"),
-		displayMode: embedded ? ex.DisplayMode.FitContainer : ex.DisplayMode.FitScreen,
+		displayMode: embedded ? ex.DisplayMode.Fixed : ex.DisplayMode.FitScreen,
 		antialiasing: true,
 		suppressPlayButton: true,
 	});
 
-	// When embedded, mount the canvas inside the bridge container
+	// When embedded, mount the canvas inside the bridge container then switch display mode
 	if (embedded) {
 		bridge!.containerElement.appendChild(engine.canvas);
+		engine.screen.displayMode = ex.DisplayMode.FitContainer;
+		engine.screen.applyResolutionAndViewport();
 	}
 
 	// ── Shared mutable state ────────────────────────────
@@ -411,7 +415,7 @@ async function main(): Promise<void> {
 
 	// ── Particle renderer — ex.Canvas actor added to each scene ────────
 	function createParticleRenderer(): ex.Actor {
-		const actor = new ex.Actor({ pos: ex.vec(0, 0), anchor: ex.vec(0, 0), z: -10 });
+		const actor = new ex.Actor({ pos: ex.vec(0, 0), anchor: ex.vec(0, 0), z: -10, collisionType: ex.CollisionType.PreventCollision });
 		const canvas = new ex.Canvas({
 			width: ENGINE_WIDTH,
 			height: ENGINE_HEIGHT,
@@ -589,7 +593,7 @@ async function main(): Promise<void> {
 	console.log("[dashboard] Engine started, hub scene active");
 
 	// ── Preload all character sprites ───────────────────────────────────
-	const ASSET_BASE = "assets/Actor/Characters/";
+	const ASSET_BASE = `${provider.assetBasePath}assets/Actor/Characters/`;
 	const allCharacters = [
 		...new Set(Object.values(DOMAIN_POOLS).flat()),
 	];

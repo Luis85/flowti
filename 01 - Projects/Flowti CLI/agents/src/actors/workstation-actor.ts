@@ -30,6 +30,7 @@ export class WorkstationActor extends ex.Actor {
 			width: ACTOR_WIDTH,
 			height: ACTOR_HEIGHT,
 			anchor: ex.vec(0.5, 0.5),
+			collisionType: ex.CollisionType.PreventCollision,
 		});
 		this.workstationId = config.workstationId ?? `ws-${config.x}-${config.y}`;
 		this.workstationColor = config.workstationColor;

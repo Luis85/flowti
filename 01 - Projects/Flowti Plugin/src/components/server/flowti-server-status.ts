@@ -143,7 +143,7 @@ export class FlowtiServerStatus extends FlowtiElement {
 				<button
 					?disabled="${!this.running}"
 					@click="${this.onVisit}"
-				>Visit</button>
+				>World</button>
 			</div>
 		`;
 	}

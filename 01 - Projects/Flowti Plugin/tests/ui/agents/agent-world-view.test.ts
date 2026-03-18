@@ -88,7 +88,6 @@ function createView(deps?: AgentWorldViewDeps): AgentWorldView {
 		vault: {
 			adapter: {
 				...d.app.vault.adapter,
-				basePath: "/test/vault",
 			},
 		},
 	};

@@ -4,7 +4,7 @@
  */
 
 import { LitElement, html, css, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles, buttonStyles } from "./shared-styles.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
@@ -16,7 +16,6 @@ export interface TaskEntry {
 
 type AgentWithTasks = DashboardAgent & { tasks?: readonly TaskEntry[] };
 
-@customElement("panel-tasks")
 export class PanelTasks extends LitElement {
 	static styles = [
 		resetStyles,
@@ -273,3 +272,5 @@ export class PanelTasks extends LitElement {
 		`;
 	}
 }
+
+if (!customElements.get("panel-tasks")) customElements.define("panel-tasks", PanelTasks);

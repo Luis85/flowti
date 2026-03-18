@@ -29,11 +29,28 @@ export function createBridgeProvider(bridge: WorldBridge): DataProvider {
 		},
 
 		async getDashboardAgents(): Promise<DashboardAgent[]> {
+			// Prefer the full agent roster from the server (has domain, mood,
+			// personality, skills, etc.). Fall back to world-state entities
+			// with minimal fields if the server is unreachable.
+			try {
+				const res = await fetch(`${bridge.assetBasePath}data/agent-dashboard.json`);
+				if (res.ok) {
+					const data = await res.json() as { agents?: DashboardAgent[] };
+					if (data.agents && data.agents.length > 0) return data.agents;
+				}
+			} catch {
+				// Server unreachable — fall back to world state
+			}
 			const state = await bridge.getWorldState();
 			if (!state) return [];
 			return Object.values(state.entities)
 				.filter((entity): entity is WorldEntity => entity.type === "agent")
-				.map((entity) => entity.components as unknown as DashboardAgent);
+				.map((entity) => ({
+					name: entity.id,
+					agentType: (entity.components["identity"] as { type?: string })?.type ?? "ai",
+					status: ((entity.components["status"] as { state?: string })?.state ?? "idle") as DashboardAgent["status"],
+					persona: (entity.components["identity"] as { persona?: string })?.persona,
+				}));
 		},
 
 		onAction(cb: (action: AgentAction) => void): () => void {

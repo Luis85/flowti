@@ -89,6 +89,7 @@ export class BubbleActor extends ex.Actor {
 			anchor: ex.vec(0.5, 1),
 			z: 100,
 			scale: ex.vec(s, s),
+			collisionType: ex.CollisionType.PreventCollision,
 		});
 		this.text = config.text;
 		this.kind = config.kind;

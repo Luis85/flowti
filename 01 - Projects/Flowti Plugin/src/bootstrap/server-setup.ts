@@ -38,7 +38,15 @@ export function setupServerDomain(deps: ServerSetupDeps): ServerSetupResult {
 				clearServerRegistry(vaultPath);
 			}
 		},
-		openInBrowser: (url: string) => { window.open(url); },
+		openInBrowser: () => {
+			const existing = deps.app.workspace.getLeavesOfType("flowti-agent-world");
+			if (existing.length > 0) {
+				void deps.app.workspace.revealLeaf(existing[0]);
+			} else {
+				const leaf = deps.app.workspace.getLeaf(true);
+				void leaf.setViewState({ type: "flowti-agent-world", active: true });
+			}
+		},
 		getServerStatus: () => {
 			const status = getServerStatus(vaultPath);
 			return {

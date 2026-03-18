@@ -7,13 +7,12 @@
  */
 
 import { LitElement, html, css, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles } from "./shared-styles.js";
 import type { DashboardStore, ConversationTurn } from "../store/dashboard-store.js";
 
 const BOB_AGENT_NAME = "Bob";
 
-@customElement("ask-bob")
 export class AskBob extends LitElement {
 	static styles = [
 		resetStyles,
@@ -300,3 +299,5 @@ export class AskBob extends LitElement {
 		`;
 	}
 }
+
+if (!customElements.get("ask-bob")) customElements.define("ask-bob", AskBob);

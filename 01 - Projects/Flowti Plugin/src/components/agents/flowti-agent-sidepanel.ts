@@ -245,7 +245,7 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 			<div class="server-bar">
 				<span class="dot--live"></span>
 				<span class="info">${pidLabel} ${uptime}</span>
-				<button @click="${this.dispatchVisitWorld}" title="Open dashboard in browser">Visit</button>
+				<button @click="${this.dispatchVisitWorld}" title="Open Agent World">World</button>
 				${this.serverPid ? html`<button class="btn--danger" @click="${this.dispatchStopServer}" title="Stop the CLI server">Stop</button>` : ""}
 			</div>
 		`;

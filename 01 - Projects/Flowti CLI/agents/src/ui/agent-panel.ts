@@ -4,7 +4,7 @@
  */
 
 import { LitElement, html, css, nothing } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { property } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./shared-styles.js";
 import type { DashboardStore, TabName } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
@@ -24,7 +24,6 @@ const TAB_LABELS: ReadonlyArray<{ name: TabName; label: string }> = [
 	{ name: "history", label: "History" },
 ];
 
-@customElement("agent-panel")
 export class AgentPanel extends LitElement {
 	static styles = [
 		resetStyles,
@@ -333,3 +332,5 @@ export class AgentPanel extends LitElement {
 		`;
 	}
 }
+
+if (!customElements.get("agent-panel")) customElements.define("agent-panel", AgentPanel);

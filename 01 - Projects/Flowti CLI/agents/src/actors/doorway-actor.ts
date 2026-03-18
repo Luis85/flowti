@@ -27,6 +27,7 @@ export class DoorwayActor extends ex.Actor {
 			width: ACTOR_SIZE,
 			height: ACTOR_SIZE + 16,
 			anchor: ex.vec(0.5, 0.5),
+			collisionType: ex.CollisionType.PreventCollision,
 		});
 		this.targetScene = config.targetScene;
 		this.label = config.label;

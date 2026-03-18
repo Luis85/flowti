@@ -1,12 +1,11 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { property } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles } from "./shared-styles.js";
 import { resolveSettingForDomain } from "../config/domain-map.js";
 import { SCENE_THEMES } from "../config/settings.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { DashboardAgent, Setting } from "../data/types.js";
 
-@customElement("roster-bar")
 export class RosterBar extends LitElement {
 	static styles = [
 		resetStyles,
@@ -130,3 +129,5 @@ export class RosterBar extends LitElement {
 		})}`;
 	}
 }
+
+if (!customElements.get("roster-bar")) customElements.define("roster-bar", RosterBar);

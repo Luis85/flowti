@@ -1,9 +1,8 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { property } from "lit/decorators.js";
 import { resetStyles } from "./shared-styles.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 
-@customElement("dashboard-overlays")
 export class DashboardOverlays extends LitElement {
 	static styles = [
 		resetStyles,
@@ -81,3 +80,5 @@ export class DashboardOverlays extends LitElement {
 		)}`;
 	}
 }
+
+if (!customElements.get("dashboard-overlays")) customElements.define("dashboard-overlays", DashboardOverlays);

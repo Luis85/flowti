@@ -1,9 +1,8 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { property } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles } from "./shared-styles.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 
-@customElement("camera-hud")
 export class CameraHud extends LitElement {
 	static styles = [
 		resetStyles,
@@ -96,3 +95,5 @@ export class CameraHud extends LitElement {
 		`;
 	}
 }
+
+if (!customElements.get("camera-hud")) customElements.define("camera-hud", CameraHud);

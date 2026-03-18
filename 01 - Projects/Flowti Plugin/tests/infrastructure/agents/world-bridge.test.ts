@@ -61,7 +61,7 @@ function createConfig(overrides: Record<string, unknown> = {}): import("../../..
 	return {
 		containerElement: document.createElement("div"),
 		eventBus: createMockEventBus(),
-		vaultBasePath: "C:\\Users\\test\\vault",
+		assetBasePath: "http://localhost:3000/",
 		baseUrl: "http://localhost:3000",
 		initialWorldState: { entities: { atlas: { id: "atlas" } } },
 		...overrides,
@@ -198,10 +198,10 @@ describe("WorldBridge", () => {
 		expect(first.payload.activity).toBe("action-10");
 	});
 
-	it("assetBasePath is correctly constructed with forward slashes", () => {
-		const config = createConfig({ vaultBasePath: "C:\\Users\\test\\my vault" });
+	it("assetBasePath is passed through from config", () => {
+		const config = createConfig({ assetBasePath: "http://localhost:3000/" });
 		const bridge = new WorldBridge(config);
-		expect(bridge.assetBasePath).toBe("file:///C:/Users/test/my vault/.flowti/agents/");
+		expect(bridge.assetBasePath).toBe("http://localhost:3000/");
 	});
 
 	it("hasEventBusListeners returns true after construction", () => {

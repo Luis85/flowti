@@ -55,6 +55,7 @@ export class HubScene extends ex.Scene {
 			height: h,
 			anchor: ex.vec(0.5, 0.5),
 			z: -10,
+			collisionType: ex.CollisionType.PreventCollision,
 		});
 		const floorCanvas = new ex.Canvas({
 			width: w,
@@ -113,6 +114,7 @@ export class HubScene extends ex.Scene {
 			anchor: ex.vec(0.5, 0.5),
 			z: 5,
 		});
+		title.body.collisionType = ex.CollisionType.PreventCollision;
 		this.add(title);
 
 		// ── Iteration badge ─────────────────────────────────
@@ -129,6 +131,7 @@ export class HubScene extends ex.Scene {
 			anchor: ex.vec(0.5, 0.5),
 			z: 5,
 		});
+		this.iterationLabel.body.collisionType = ex.CollisionType.PreventCollision;
 		this.add(this.iterationLabel);
 
 		// ── Connection status indicator ─────────────────────
@@ -145,6 +148,7 @@ export class HubScene extends ex.Scene {
 			anchor: ex.vec(1, 0.5),
 			z: 20,
 		});
+		this.connectionLabel.body.collisionType = ex.CollisionType.PreventCollision;
 		this.add(this.connectionLabel);
 
 		// ── Doorways along right edge ────────────────────────

@@ -4,7 +4,7 @@
  */
 
 import { LitElement, html, css } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles } from "./shared-styles.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { ActivityEntry, AgentActionType } from "../data/types.js";
@@ -57,7 +57,6 @@ function cleanSummary(type: AgentActionType, summary: string): string {
 	return stripped || summary;
 }
 
-@customElement("panel-history")
 export class PanelHistory extends LitElement {
 	static styles = [
 		resetStyles,
@@ -164,3 +163,5 @@ export class PanelHistory extends LitElement {
 		`;
 	}
 }
+
+if (!customElements.get("panel-history")) customElements.define("panel-history", PanelHistory);

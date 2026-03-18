@@ -4,7 +4,7 @@
  */
 
 import { LitElement, html, css, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles } from "./shared-styles.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { PermissionEntry } from "../data/types.js";
@@ -14,7 +14,6 @@ export interface PendingPermission {
 	readonly requestedAt: string;
 }
 
-@customElement("panel-permissions")
 export class PanelPermissions extends LitElement {
 	static styles = [
 		resetStyles,
@@ -196,3 +195,5 @@ export class PanelPermissions extends LitElement {
 		`;
 	}
 }
+
+if (!customElements.get("panel-permissions")) customElements.define("panel-permissions", PanelPermissions);

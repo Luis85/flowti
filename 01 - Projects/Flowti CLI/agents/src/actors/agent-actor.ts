@@ -37,6 +37,7 @@ export class AgentActor extends ex.Actor {
 			width: 16,
 			height: 16,
 			anchor: ex.vec(0.5, 0.5),
+			collisionType: ex.CollisionType.PreventCollision,
 		});
 		this.agentData = config.agent;
 		this.onSelect = config.onSelect;
@@ -135,6 +136,7 @@ export class AgentActor extends ex.Actor {
 			pos: ex.vec(0, 12),
 			anchor: ex.vec(0.5, 0),
 			z: 1,
+			collisionType: ex.CollisionType.PreventCollision,
 		});
 		labelActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
 		labelActor.graphics.use(labelCanvas);
@@ -170,6 +172,7 @@ export class AgentActor extends ex.Actor {
 			pos: ex.vec(7, -7),
 			anchor: ex.vec(0.5, 0.5),
 			z: 20,
+			collisionType: ex.CollisionType.PreventCollision,
 		});
 		badgeActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
 		badgeActor.graphics.use(badgeCanvas);

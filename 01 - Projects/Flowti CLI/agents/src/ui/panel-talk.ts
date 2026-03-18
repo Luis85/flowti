@@ -4,7 +4,7 @@
  */
 
 import { LitElement, html, css, nothing } from "lit";
-import { customElement, property, state, query } from "lit/decorators.js";
+import { property, state, query } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles, buttonStyles } from "./shared-styles.js";
 import type { DashboardStore, ConversationTurn, LlmStatus } from "../store/dashboard-store.js";
 
@@ -19,7 +19,6 @@ const THINKING_PHRASES = [
 	"Almost there...",
 ];
 
-@customElement("panel-talk")
 export class PanelTalk extends LitElement {
 	static styles = [
 		resetStyles,
@@ -304,3 +303,5 @@ export class PanelTalk extends LitElement {
 		`;
 	}
 }
+
+if (!customElements.get("panel-talk")) customElements.define("panel-talk", PanelTalk);

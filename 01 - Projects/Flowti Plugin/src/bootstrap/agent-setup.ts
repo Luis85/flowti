@@ -69,8 +69,14 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 			sseClient.disconnect();
 			agentService.disconnect();
 		},
-		openInBrowser: (url: string) => {
-			window.open(url);
+		openInBrowser: () => {
+			const existing = deps.plugin.app.workspace.getLeavesOfType("flowti-agent-world");
+			if (existing.length > 0) {
+				void deps.plugin.app.workspace.revealLeaf(existing[0]);
+			} else {
+				const leaf = deps.plugin.app.workspace.getLeaf(true);
+				void leaf.setViewState({ type: "flowti-agent-world", active: true });
+			}
 		},
 	};
 

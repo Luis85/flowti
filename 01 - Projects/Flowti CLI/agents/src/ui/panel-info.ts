@@ -4,7 +4,7 @@
  */
 
 import { LitElement, html, css, nothing } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { property } from "lit/decorators.js";
 import { resetStyles, colorStyles, fontStyles } from "./shared-styles.js";
 import type { DashboardAgent } from "../data/types.js";
 
@@ -35,7 +35,6 @@ const DOMAIN_COLORS: Record<string, string> = {
 	orchestration: "#ec4899",
 };
 
-@customElement("panel-info")
 export class PanelInfo extends LitElement {
 	static styles = [
 		resetStyles,
@@ -417,3 +416,5 @@ export class PanelInfo extends LitElement {
 		`;
 	}
 }
+
+if (!customElements.get("panel-info")) customElements.define("panel-info", PanelInfo);

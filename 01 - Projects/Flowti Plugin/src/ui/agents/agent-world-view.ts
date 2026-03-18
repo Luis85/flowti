@@ -132,11 +132,14 @@ export class AgentWorldView extends ItemView {
 		container.appendChild(fontLink);
 
 		// ── Create WorldBridge ──
-		const vaultBasePath = (this.app.vault.adapter as { basePath?: string }).basePath ?? "";
+		// Assets are served by the CLI server — use its URL as the base path.
+		// This avoids file:/// and app:// protocol issues in Electron.
+		const assetBasePath = this.deps.baseUrl ? `${this.deps.baseUrl}/` : "";
+
 		this.bridge = new WorldBridge({
 			containerElement: container,
 			eventBus: this.deps.eventBus,
-			vaultBasePath,
+			assetBasePath,
 			baseUrl: this.deps.baseUrl,
 			initialWorldState: worldState,
 		});

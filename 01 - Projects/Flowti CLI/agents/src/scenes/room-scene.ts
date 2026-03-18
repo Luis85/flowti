@@ -87,6 +87,7 @@ export class RoomScene extends ex.Scene {
 				height: h,
 				anchor: ex.vec(0.5, 0.5),
 				z: -10,
+				collisionType: ex.CollisionType.PreventCollision,
 			});
 			bgActor.graphics.use(bgCanvas);
 			this.add(bgActor);
@@ -106,6 +107,7 @@ export class RoomScene extends ex.Scene {
 			}),
 			anchor: ex.vec(0.5, 0.5),
 		});
+		title.body.collisionType = ex.CollisionType.PreventCollision;
 		this.add(title);
 
 		// ── Floor accent ────────────────────────────────────
@@ -115,6 +117,7 @@ export class RoomScene extends ex.Scene {
 			height: 40,
 			anchor: ex.vec(0.5, 0.5),
 			color: ex.Color.fromHex(this.theme.floorColor),
+			collisionType: ex.CollisionType.PreventCollision,
 		});
 		this.add(floor);
 

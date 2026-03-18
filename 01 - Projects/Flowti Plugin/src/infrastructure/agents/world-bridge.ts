@@ -30,7 +30,7 @@ const MAX_BUFFER = 50;
 export interface WorldBridgeConfig {
 	containerElement: HTMLElement;
 	eventBus: IEventBus;
-	vaultBasePath: string;
+	assetBasePath: string;
 	baseUrl: string;
 	initialWorldState: unknown | null;
 }
@@ -59,10 +59,7 @@ export class WorldBridge {
 		this.eventBus = config.eventBus;
 		this.baseUrl = config.baseUrl;
 		this.initialState = config.initialWorldState;
-
-		// Construct asset path with forward slashes
-		const normalized = config.vaultBasePath.replace(/\\/g, "/");
-		this.assetBasePath = `file:///${normalized}/.flowti/agents/`;
+		this.assetBasePath = config.assetBasePath;
 
 		this.sseClient = new SseClient(`${config.baseUrl}/events`);
 
