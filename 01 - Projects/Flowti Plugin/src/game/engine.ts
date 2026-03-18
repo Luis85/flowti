@@ -171,11 +171,20 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	const talkEngine = new TalkEngine({
 		showBubble: (agentName, kind, text) => {
-			bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
-			// If this agent's LLM is thinking, pipe chatter into the chat panel
-			const llmStatus = store.llmStatus.get(agentName);
-			if (llmStatus?.state === "thinking") {
+			const isSelected = store.selectedAgent === agentName;
+			if (isSelected) {
+				// Selected agent: chatter goes to chat panel only, no overhead bubble
 				store.pushAgentThought(agentName, text);
+			} else {
+				// Unselected agent: show bubble over head as usual
+				bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
+			}
+			// Also pipe to chat if LLM is thinking (even if not selected)
+			if (!isSelected) {
+				const llmStatus = store.llmStatus.get(agentName);
+				if (llmStatus?.state === "thinking") {
+					store.pushAgentThought(agentName, text);
+				}
 			}
 		},
 		isIdle: (name) => brainSystem.getState(name)?.state === "idle",
@@ -620,10 +629,17 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Keyboard handling ───────────────────────────────
 
 	function isTyping(): boolean {
-		const el = document.activeElement;
-		if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return true;
-		const inner = el?.shadowRoot?.activeElement;
-		return inner instanceof HTMLInputElement || inner instanceof HTMLTextAreaElement;
+		// Walk the shadow DOM chain to find the deepest active element
+		let el: Element | null = document.activeElement;
+		while (el) {
+			if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return true;
+			if (el.shadowRoot?.activeElement) {
+				el = el.shadowRoot.activeElement;
+			} else {
+				break;
+			}
+		}
+		return false;
 	}
 
 	container.setAttribute("tabindex", "0");

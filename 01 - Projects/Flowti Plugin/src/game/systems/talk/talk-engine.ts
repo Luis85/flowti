@@ -26,6 +26,7 @@ interface ChatterEntry {
 	silencedUntil: number;
 	lastTemplate: string;
 	vars: TemplateVars;
+	activated: boolean;
 }
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ function defaultVars(domain: string): TemplateVars {
 export interface TalkEngineCallbacks {
 	readonly showBubble: (agentName: string, kind: BubbleKind, text: string) => void;
 	readonly isIdle: (agentName: string) => boolean;
+	readonly isWaiting?: (agentName: string) => boolean;
 }
 
 export class TalkEngine {
@@ -115,6 +117,7 @@ export class TalkEngine {
 			silencedUntil: performance.now() + startupSilence,
 			lastTemplate: "",
 			vars: defaultVars(domain.toLowerCase()),
+			activated: false,
 		});
 	}
 
@@ -132,6 +135,7 @@ export class TalkEngine {
 		if (entry) {
 			entry.silencedUntil = performance.now() + LLM_SILENCE_DURATION;
 			entry.interval = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
+			entry.activated = false;
 		}
 	}
 
@@ -142,6 +146,7 @@ export class TalkEngine {
 			entry.silencedUntil = 0;
 			entry.timer = entry.interval; // trigger immediately on next update
 			entry.interval = 3000 + Math.random() * 4000; // 3-7s rapid chatter
+			entry.activated = true;
 		}
 	}
 
@@ -149,12 +154,17 @@ export class TalkEngine {
 		const now = performance.now();
 		for (const [name, entry] of this.entries) {
 			if (now < entry.silencedUntil) continue;
-			if (!this.callbacks.isIdle(name)) continue;
+			// Activated agents (waiting for LLM) always chatter, idle agents chatter normally
+			if (!entry.activated && !this.callbacks.isIdle(name)) continue;
 
 			entry.timer += deltaMs;
 			if (entry.timer >= entry.interval) {
 				entry.timer = 0;
-				entry.interval = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
+				if (entry.activated) {
+					entry.interval = 3000 + Math.random() * 4000; // keep rapid pace
+				} else {
+					entry.interval = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
+				}
 				const phrase = this.resolvePhrase(entry);
 				this.callbacks.showBubble(name, "thought", phrase);
 			}
@@ -164,13 +174,32 @@ export class TalkEngine {
 	// ── Template resolution ─────────────────────────────────────────
 
 	private resolvePhrase(entry: ChatterEntry): string {
-		// 1. Personality-driven quotes (20% chance, preserved from original)
+		// When activated (waiting for LLM), strongly prefer "waiting" category
+		if (entry.activated) {
+			// 70% domain waiting, 30% core waiting
+			const domainSet = DOMAIN_TEMPLATES.get(entry.domain);
+			const domainWaiting = domainSet?.categories["waiting"] ?? [];
+			const coreWaiting = coreTemplates.categories["waiting"] ?? [];
+
+			const pool = Math.random() < 0.7 && domainWaiting.length > 0 ? domainWaiting : coreWaiting;
+			const picked = weightedRandom(pool);
+			if (picked) {
+				const result = interpolate(picked.template, entry.vars);
+				if (result !== entry.lastTemplate) {
+					entry.lastTemplate = result;
+					return result;
+				}
+			}
+			// Fall through to normal resolution if we picked the same template
+		}
+
+		// 1. Personality-driven quotes (20% chance)
 		if (entry.personality.length > 0 && Math.random() < 0.2) {
 			return entry.personality[Math.floor(Math.random() * entry.personality.length)];
 		}
 
 		// 2. Social templates for charismatic agents (30% chance when charisma > 12)
-		if (entry.charisma > 12 && Math.random() < 0.3) {
+		if (!entry.activated && entry.charisma > 12 && Math.random() < 0.3) {
 			const socialPool = flattenTemplates(socialTemplates.categories);
 			const picked = weightedRandom(socialPool);
 			if (picked) {
