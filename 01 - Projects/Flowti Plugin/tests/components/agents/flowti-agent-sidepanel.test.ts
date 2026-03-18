@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import "../../../src/components/agents/flowti-agent-sidepanel.js";
 
 describe("flowti-agent-sidepanel", () => {
@@ -9,6 +9,8 @@ describe("flowti-agent-sidepanel", () => {
 		el = document.createElement("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 		document.body.appendChild(el);
 	});
+
+	afterEach(() => { el.remove(); });
 
 	it("is defined as a custom element", () => {
 		expect(customElements.get("flowti-agent-sidepanel")).toBeDefined();
@@ -21,54 +23,54 @@ describe("flowti-agent-sidepanel", () => {
 		expect(shadow.textContent).toContain("No agents");
 	});
 
-	it("renders agent name when agents provided", async () => {
+	it("composes child components when agents provided", async () => {
 		el.agents = [{ name: "atlas", activity: "idle" }];
 		el.activeAgent = "atlas";
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const shadow = el.shadowRoot!;
-		expect(shadow.textContent).toContain("atlas");
+		expect(shadow.querySelector("flowti-agent-roster")).not.toBeNull();
+		expect(shadow.querySelector("flowti-mode-bar")).not.toBeNull();
+		expect(shadow.querySelector("flowti-conversational-mode")).not.toBeNull();
+		expect(shadow.querySelector("flowti-input-bar")).not.toBeNull();
 	});
 
-	it("dispatches agent-selected event on agent click", async () => {
+	it("switches mode view based on activeMode", async () => {
+		el.agents = [{ name: "atlas", activity: "idle" }];
+		el.activeAgent = "atlas";
+		el.activeMode = "document";
+		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+		const shadow = el.shadowRoot!;
+		expect(shadow.querySelector("flowti-document-mode")).not.toBeNull();
+		expect(shadow.querySelector("flowti-conversational-mode")).toBeNull();
+	});
+
+	it("renders canvas mode when activeMode is canvas", async () => {
+		el.agents = [{ name: "atlas", activity: "idle" }];
+		el.activeAgent = "atlas";
+		el.activeMode = "canvas";
+		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+		expect(el.shadowRoot!.querySelector("flowti-canvas-mode")).not.toBeNull();
+	});
+
+	it("bubbles agent-selected from roster", async () => {
 		el.agents = [{ name: "atlas", activity: "idle" }];
 		el.activeAgent = "atlas";
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		let detail: unknown = null;
 		el.addEventListener("agent-selected", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const shadow = el.shadowRoot!;
-		const card = shadow.querySelector("[data-agent='atlas']") as HTMLElement;
-		if (card) card.click();
+		const roster = el.shadowRoot!.querySelector("flowti-agent-roster") as HTMLElement;
+		roster?.dispatchEvent(new CustomEvent("agent-selected", { detail: { agent: "atlas" }, bubbles: true, composed: true }));
 		expect(detail).toEqual({ agent: "atlas" });
 	});
 
-	it("renders mode bar with three buttons", async () => {
+	it("bubbles agent-send from input bar", async () => {
 		el.agents = [{ name: "atlas", activity: "idle" }];
 		el.activeAgent = "atlas";
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const shadow = el.shadowRoot!;
-		const buttons = shadow.querySelectorAll(".mode-btn");
-		expect(buttons.length).toBe(3);
-	});
-
-	it("renders conversation turns", async () => {
-		el.agents = [{ name: "atlas", activity: "idle" }];
-		el.activeAgent = "atlas";
-		el.turns = [
-			{ id: "1", role: "user", content: "Hello", timestamp: "", mode: "conversational" },
-			{ id: "2", role: "agent", agentName: "atlas", content: "Hi there!", timestamp: "", mode: "conversational" },
-		];
-		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const shadow = el.shadowRoot!;
-		expect(shadow.textContent).toContain("Hello");
-		expect(shadow.textContent).toContain("Hi there!");
-	});
-
-	it("renders input bar", async () => {
-		el.agents = [{ name: "atlas", activity: "idle" }];
-		el.activeAgent = "atlas";
-		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const shadow = el.shadowRoot!;
-		const textarea = shadow.querySelector("textarea");
-		expect(textarea).toBeTruthy();
+		let detail: unknown = null;
+		el.addEventListener("agent-send", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+		const inputBar = el.shadowRoot!.querySelector("flowti-input-bar") as HTMLElement;
+		inputBar?.dispatchEvent(new CustomEvent("agent-send", { detail: { message: "hello" }, bubbles: true, composed: true }));
+		expect(detail).toEqual({ message: "hello" });
 	});
 });
