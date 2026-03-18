@@ -75,18 +75,22 @@ export interface AgentWorldHandle {
 export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const { container, provider, spriteBasePath } = deps;
 
-	// ── Engine creation (Fixed → FitContainer) ──────────
+	// ── Engine creation ─────────────────────────────────
+	// Pre-create a canvas inside the container so ExcaliburJS can measure
+	// the parent for FitContainer mode during construction.
+	const gameCanvas = document.createElement("canvas");
+	gameCanvas.id = "flowti-game-canvas";
+	container.appendChild(gameCanvas);
+
 	const engine = new ex.Engine({
+		canvasElementId: gameCanvas.id,
 		width: ENGINE_WIDTH,
 		height: ENGINE_HEIGHT,
 		backgroundColor: ex.Color.fromHex("#0a0a0f"),
-		displayMode: ex.DisplayMode.Fixed,
+		displayMode: ex.DisplayMode.FitContainer,
 		antialiasing: true,
 		suppressPlayButton: true,
 	});
-	container.appendChild(engine.canvas);
-	(engine.screen as { displayMode: ex.DisplayMode }).displayMode = ex.DisplayMode.FitContainer;
-	engine.screen.applyResolutionAndViewport();
 
 	// ── Reactive store ──────────────────────────────────
 	const store = new DashboardStore("");
