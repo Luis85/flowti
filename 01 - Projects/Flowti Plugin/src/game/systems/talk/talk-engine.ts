@@ -131,6 +131,17 @@ export class TalkEngine {
 		const entry = this.entries.get(agentName);
 		if (entry) {
 			entry.silencedUntil = performance.now() + LLM_SILENCE_DURATION;
+			entry.interval = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
+		}
+	}
+
+	/** Call when waiting for LLM — activates rapid chatter ("thinking aloud"). */
+	activate(agentName: string): void {
+		const entry = this.entries.get(agentName);
+		if (entry) {
+			entry.silencedUntil = 0;
+			entry.timer = entry.interval; // trigger immediately on next update
+			entry.interval = 3000 + Math.random() * 4000; // 3-7s rapid chatter
 		}
 	}
 

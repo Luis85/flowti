@@ -564,10 +564,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	store.addEventListener("agent-message-sent", ((e: CustomEvent) => {
 		const { agentName } = e.detail;
-		const fillers = ["Let me think...", "One moment...", "Processing..."];
-		const filler = fillers[Math.floor(Math.random() * fillers.length)];
-		bubbleSystem.showBubble(agentName, "thought", filler, engine.currentScene, findAgentActor, 4000);
-		talkEngine.silence(agentName);
+		// Activate rapid chatter while waiting for LLM — the talk engine
+		// fills the silence with domain-relevant "thinking aloud" phrases.
+		// When the real LLM response arrives, silence() stops it.
+		talkEngine.activate(agentName);
 	}) as EventListener);
 
 	store.addEventListener("task-assigned", ((e: CustomEvent) => {
