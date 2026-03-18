@@ -102,9 +102,9 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 	const worldDeps: AgentWorldViewDeps = {
 		plugin: deps.plugin,
 		eventBus: deps.eventBus,
-		sseClient,
 		serverBaseUrl: baseUrl,
 		contextProvider,
+		agentService,
 	};
 	try {
 		deps.plugin.registerView(VIEW_TYPE_AGENT_WORLD, (leaf: WorkspaceLeaf) =>

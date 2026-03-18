@@ -19,6 +19,9 @@ export interface PluginProviderDeps {
 		on(type: string, cb: (event: { type: string; payload: unknown }) => void): () => void;
 		emit?(type: string, payload: unknown): void;
 	};
+	readonly agentService?: {
+		onEvent(cb: (event: { kind: string; agent: string; text?: string; turn?: { content: string } }) => void): () => void;
+	};
 	readonly serverBaseUrl?: string;
 }
 
@@ -49,12 +52,35 @@ export function createPluginProvider(deps: PluginProviderDeps): DataProvider {
 				}
 			} catch { worldState = null; }
 
-			// Subscribe to EventBus only — agent-setup.ts already handles SSE
-			// and relays events to the EventBus. Subscribing to both causes
-			// double-firing and "all agents respond" cascades.
+			// Subscribe to EventBus for plugin-native events
 			for (const eventType of RELAYED_EVENTS) {
 				const unsub = deps.eventBus.on(eventType, (event) => {
 					const action = event.payload as AgentAction;
+					for (const cb of actionCallbacks) cb(action);
+				});
+				unsubs.push(unsub);
+			}
+
+			// Subscribe to agentService for SSE-relayed events (speaking, thinking, etc.)
+			// agent-setup.ts handles SSE → agentService.handleServerEvent() → onEvent()
+			if (deps.agentService) {
+				const unsub = deps.agentService.onEvent((event) => {
+					const actionMap: Record<string, string> = {
+						"thinking": "thinking",
+						"message-received": "speaking",
+						"tool-started": "using-tool",
+						"tool-completed": "tool-complete",
+					};
+					const actionType = actionMap[event.kind];
+					if (!actionType) return;
+					const text = event.turn?.content ?? event.text ?? "";
+					const action: AgentAction = {
+						id: `svc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+						agentName: event.agent,
+						timestamp: new Date().toISOString(),
+						type: actionType as AgentAction["type"],
+						data: { text },
+					};
 					for (const cb of actionCallbacks) cb(action);
 				});
 				unsubs.push(unsub);

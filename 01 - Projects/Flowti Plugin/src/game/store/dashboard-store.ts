@@ -237,12 +237,12 @@ export class DashboardStore extends EventTarget {
 		const context = this.userContext
 			? { path: this.userContext.path, contentSnippet: this.userContext.content.slice(0, 2000) }
 			: undefined;
-		// Log to debug console
-		this.pushDebugEntry(
-			agentName,
-			message,
-			context ? `[${context.path}]\n${context.contentSnippet}` : undefined,
-		);
+		// Log the full enriched prompt to debug console (mirrors server-side enrichment)
+		let fullPrompt = message;
+		if (context?.path) {
+			fullPrompt = `[User is currently viewing: ${context.path}]\n${context.contentSnippet ? `[File content (first 2000 chars)]:\n${context.contentSnippet}\n\n` : ""}${message}`;
+		}
+		this.pushDebugEntry(agentName, fullPrompt);
 		const result = await api.sendMessage(this.baseUrl, agentName, message, context);
 		if (!result.ok) {
 			// Push error as agent response so user sees feedback

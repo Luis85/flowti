@@ -18,11 +18,13 @@ import { VIEW_TYPE_AGENT_WORLD } from "./types.js";
 export interface AgentWorldViewDeps {
 	readonly plugin: Plugin;
 	readonly eventBus: IEventBus;
-	readonly sseClient?: { connect(): void; disconnect(): void; on(event: string, cb: (data: unknown) => void): () => void };
 	readonly serverBaseUrl?: string;
 	readonly contextProvider?: {
 		getActiveFileContext(): { path: string; content: string } | null;
 		onFileChanged(cb: (ctx: { path: string; content: string }) => void): () => void;
+	};
+	readonly agentService?: {
+		onEvent(cb: (event: { kind: string; agent: string; text?: string; turn?: { content: string } }) => void): () => void;
 	};
 }
 
@@ -59,10 +61,11 @@ export class AgentWorldView extends ItemView {
 			spriteBasePath = pluginDir;
 		}
 
-		// Create provider — EventBus only, no direct SSE (agent-setup handles SSE relay)
+		// Create provider — EventBus + agentService (which receives SSE via agent-setup)
 		const provider = createPluginProvider({
 			vaultAdapter: this.app.vault.adapter as { exists(p: string): Promise<boolean>; read(p: string): Promise<string> },
 			eventBus: this.deps.eventBus as { on(type: string, cb: (event: { type: string; payload: unknown }) => void): () => void; emit?(type: string, payload: unknown): void },
+			agentService: this.deps.agentService,
 			serverBaseUrl: this.deps.serverBaseUrl,
 		});
 
