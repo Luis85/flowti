@@ -34,7 +34,12 @@
 	"components": {
 		"storybook": true,
 		"storybookDir": "components",
-		"framework": "html"
+		"framework": "html",
+		"markdownSource": {
+			"path": "../design-system/components",
+			"strategy": "category",
+			"requiredFields": ["name", "category", "description", "props", "slots", "variants", "status"]
+		}
 	},
 	"agents": {
 		"dashboard": true,
