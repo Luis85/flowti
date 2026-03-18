@@ -41,6 +41,7 @@ export class DashboardStore extends EventTarget {
 	activityLog: readonly ActivityEntry[] = [];
 	permissions: Map<string, readonly PermissionEntry[]> = new Map();
 	llmStatus: Map<string, LlmStatus> = new Map();
+	assignedTasks: Map<string, { name: string; status: string; assignedAt: number }[]> = new Map();
 
 	currentScene: Setting = "hub";
 
@@ -217,10 +218,26 @@ export class DashboardStore extends EventTarget {
 	}
 
 	async assignTask(agentName: string, task: string): Promise<{ ok: boolean; error?: string }> {
-		// Fire visual effects immediately (brain transition + thought bubble)
+		// Track locally immediately so the UI updates
+		const tasks = this.assignedTasks.get(agentName) ?? [];
+		tasks.push({ name: task, status: "pending", assignedAt: Date.now() });
+		this.assignedTasks.set(agentName, tasks);
+
+		// Fire visual effects (brain transition + thought bubble)
 		this.dispatchEvent(new CustomEvent("task-assigned", { detail: { agentName, task } }));
+		this.notify();
+
 		const result = await api.assignTask(this.baseUrl, agentName, task);
-		if (!result.ok) {
+		if (result.ok) {
+			// Mark as in-progress once server confirms
+			const entry = tasks.find((t) => t.name === task && t.status === "pending");
+			if (entry) entry.status = "in-progress";
+			this.notify();
+		} else {
+			// Remove on failure
+			const idx = tasks.findIndex((t) => t.name === task && t.status === "pending");
+			if (idx >= 0) tasks.splice(idx, 1);
+			this.notify();
 			console.warn(`[store] Task assignment failed for ${agentName}:`, result.error);
 		}
 		return result;

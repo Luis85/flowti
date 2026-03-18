@@ -183,6 +183,19 @@ export class PanelTasks extends FlowtiElement {
 	currentPhase = "";
 
 	private pendingTask: string | null = null;
+	private unsubscribe: (() => void) | null = null;
+
+	connectedCallback(): void {
+		super.connectedCallback();
+		const handler = () => this.requestUpdate();
+		this.store?.addEventListener("state-changed", handler);
+		this.unsubscribe = () => this.store?.removeEventListener("state-changed", handler);
+	}
+
+	disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.unsubscribe?.();
+	}
 
 	private get isAiAgent(): boolean {
 		return this.agent?.agentType === "ai";
@@ -208,14 +221,20 @@ export class PanelTasks extends FlowtiElement {
 	}
 
 	private renderTaskList() {
-		const tasks = (this.agent as AgentWithTasks).tasks;
+		// Combine static tasks from agent data with locally tracked assignments
+		const staticTasks = (this.agent as AgentWithTasks).tasks ?? [];
+		const localTasks = this.store.assignedTasks.get(this.agent?.name ?? "") ?? [];
+		const allTasks = [
+			...staticTasks.map((t) => ({ name: t.name, status: t.status })),
+			...localTasks.map((t) => ({ name: t.name, status: t.status })),
+		];
 
-		if (!tasks || tasks.length === 0) {
+		if (allTasks.length === 0) {
 			return html`<div class="empty">No tasks assigned.</div>`;
 		}
 
 		return html`
-			${tasks.map((task) => html`
+			${allTasks.map((task) => html`
 				<div class="task-item">
 					<span class="task-name">${task.name}</span>
 					<span class="task-badge" data-status="${task.status}">${task.status}</span>
