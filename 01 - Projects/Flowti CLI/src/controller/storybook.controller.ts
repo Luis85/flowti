@@ -1,7 +1,8 @@
 /**
  * storybook.controller.ts — Non-interactive CLI commands for Storybook.
  *
- * Provides storybook:install, storybook:start, storybook:stop, storybook:build, storybook:generate.
+ * Provides storybook:install, storybook:start, storybook:stop, storybook:build,
+ * storybook:generate, storybook:scaffold.
  */
 
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
@@ -26,12 +27,15 @@ import {
 	renderStorybookStopResult,
 	renderStorybookBuildResult,
 	renderStorybookGenerateResult,
+	renderStorybookScaffoldResult,
 	type StorybookInstallResultModel,
 	type StorybookStartResultModel,
 	type StorybookStopResultModel,
 	type StorybookBuildResultModel,
 	type StorybookGenerateResultModel,
+	type StorybookScaffoldResultModel,
 } from "../ui/renderers/storybook-renderers.js";
+import { scaffoldStorybookFromSitemap, SCAFFOLD_FRAMEWORKS } from "../domain/make/storybook-scaffold.js";
 
 export const commands: Record<string, CommandHandler> = {
 	"storybook:install": adaptDescriptor<{ framework: string }, StorybookInstallResultModel>({
@@ -110,5 +114,26 @@ export const commands: Record<string, CommandHandler> = {
 			return { generated: exitCode === 0, exitCode };
 		},
 		renderer: renderStorybookGenerateResult,
+	}),
+
+	"storybook:scaffold": adaptDescriptor<{ sitemap: string; framework: string }, StorybookScaffoldResultModel>({
+		flags: {
+			sitemap: {
+				type: "string",
+				required: true,
+				hint: "--sitemap=<path>",
+			},
+			framework: {
+				type: "string",
+				required: true,
+				hint: "--framework=react|vue|angular|lit|cli-app",
+				choices: [...SCAFFOLD_FRAMEWORKS],
+			},
+		},
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			return scaffoldStorybookFromSitemap(ctx.flags.sitemap, ctx.flags.framework, { disk, paths });
+		},
+		renderer: renderStorybookScaffoldResult,
 	}),
 };

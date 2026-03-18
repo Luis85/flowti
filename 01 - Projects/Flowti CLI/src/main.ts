@@ -124,7 +124,7 @@ registry.registerDomain({ domain: "state", commands: stateCmds, projectFree: ["s
 registry.registerDomain({ domain: "onboarding", commands: onboardingCmds, projectFree: ["onboarding:status", "onboarding:start", "onboarding:skip", "onboarding:restart"] });
 registry.registerDomain({ domain: "workspace", commands: workspaceCmds, projectFree: ["workspace:list", "workspace:inspect", "workspace:provision", "workspace:collect", "workspace:dispose", "workspace:prune"] });
 registry.registerDomain({ domain: "vault-test", commands: vaultTestCmds, projectFree: ["test:vault", "test:vault:smoke", "test:vault:integration", "test:vault:ecosystem"] });
-registry.registerDomain({ domain: "storybook", commands: storybookCmds });
+registry.registerDomain({ domain: "storybook", commands: storybookCmds, projectFree: ["storybook:scaffold"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 registry.setWildcardPrefix("report:");
 
