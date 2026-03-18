@@ -45,6 +45,13 @@ export class DashboardStore extends EventTarget {
 
 	currentScene: Setting = "hub";
 
+	// ── User context (active file) ─────────────────────────────────
+	userContext: { path: string; content: string } | null = null;
+
+	setUserContext(ctx: { path: string; content: string } | null): void {
+		this.userContext = ctx;
+	}
+
 	// ── Private state ─────────────────────────────────────────────
 	private conversations: Map<string, ConversationTurn[]> = new Map();
 	private thinkingAgents: Set<string> = new Set();
@@ -209,7 +216,11 @@ export class DashboardStore extends EventTarget {
 	async sendMessage(agentName: string, message: string): Promise<{ ok: boolean; error?: string }> {
 		// Fire visual effects immediately (thought bubble + silence ambient talk)
 		this.dispatchEvent(new CustomEvent("agent-message-sent", { detail: { agentName } }));
-		const result = await api.sendMessage(this.baseUrl, agentName, message);
+		// Include user's active file context so the LLM knows what the user is working on
+		const context = this.userContext
+			? { path: this.userContext.path, contentSnippet: this.userContext.content.slice(0, 2000) }
+			: undefined;
+		const result = await api.sendMessage(this.baseUrl, agentName, message, context);
 		if (!result.ok) {
 			// Push error as agent response so user sees feedback
 			this.pushAgentResponse(agentName, `[offline] ${result.error ?? "Cannot reach server."}`);

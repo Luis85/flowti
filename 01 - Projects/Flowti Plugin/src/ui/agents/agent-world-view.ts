@@ -20,6 +20,10 @@ export interface AgentWorldViewDeps {
 	readonly eventBus: IEventBus;
 	readonly sseClient?: { connect(): void; disconnect(): void; on(event: string, cb: (data: unknown) => void): () => void };
 	readonly serverBaseUrl?: string;
+	readonly contextProvider?: {
+		getActiveFileContext(): { path: string; content: string } | null;
+		onFileChanged(cb: (ctx: { path: string; content: string }) => void): () => void;
+	};
 }
 
 export class AgentWorldView extends ItemView {
@@ -69,6 +73,7 @@ export class AgentWorldView extends ItemView {
 			provider,
 			spriteBasePath,
 			serverBaseUrl: this.deps.serverBaseUrl,
+			contextProvider: this.deps.contextProvider,
 		});
 
 		try {

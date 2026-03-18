@@ -179,6 +179,13 @@ export async function handleApiRoute(
 		const message = String(body.message ?? "");
 		if (!name || !message) { json(400, { error: "agentName and message required" }); return; }
 
+		// Prepend user's active file context if provided
+		const context = body.context as { path?: string; contentSnippet?: string } | undefined;
+		let fullMessage = message;
+		if (context?.path) {
+			fullMessage = `[User is currently viewing: ${context.path}]\n${context.contentSnippet ? `[File content (first 2000 chars)]:\n${context.contentSnippet}\n\n` : ""}${message}`;
+		}
+
 		// Ensure worker exists (mirrors /api/agent/wake pattern)
 		let worker = ctx.workerManager.getWorker(name);
 		if (!worker) worker = ctx.workerManager.spawn(name);
@@ -197,7 +204,7 @@ export async function handleApiRoute(
 				type: actionType, data: { text: response.message },
 			});
 		};
-		ctx.workerManager.send(name, message, { foreground: false, onResponse });
+		ctx.workerManager.send(name, fullMessage, { foreground: false, onResponse });
 		json(200, { ok: true });
 		return;
 	}

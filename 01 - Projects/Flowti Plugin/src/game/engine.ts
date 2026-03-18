@@ -62,6 +62,10 @@ export interface AgentWorldDeps {
 	provider: DataProvider;
 	spriteBasePath: string;
 	serverBaseUrl?: string;
+	contextProvider?: {
+		getActiveFileContext(): { path: string; content: string } | null;
+		onFileChanged(cb: (ctx: { path: string; content: string }) => void): () => void;
+	};
 }
 
 export interface AgentWorldHandle {
@@ -677,6 +681,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				e.preventDefault();
 				cameraSystem!.handleZoom(e.deltaY);
 			}, { passive: false });
+
+			// Wire user context (active file) into the store
+			if (deps.contextProvider) {
+				const initial = deps.contextProvider.getActiveFileContext();
+				if (initial) store.setUserContext(initial);
+				deps.contextProvider.onFileChanged((ctx) => store.setUserContext(ctx));
+			}
 
 			// Start data provider and load initial data
 			await provider.start();

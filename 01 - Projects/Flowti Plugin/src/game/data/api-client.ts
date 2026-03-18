@@ -25,13 +25,18 @@ export async function fetchAgent(baseUrl: string, name: string): Promise<WorldEn
 	}
 }
 
-export async function sendMessage(baseUrl: string, agentName: string, message: string): Promise<ApiResult> {
+export async function sendMessage(
+	baseUrl: string,
+	agentName: string,
+	message: string,
+	context?: { path: string; contentSnippet: string },
+): Promise<ApiResult> {
 	try {
-		console.log(`[api] sendMessage → ${agentName}: "${message.slice(0, 60)}"`);
+		console.log(`[api] sendMessage → ${agentName}: "${message.slice(0, 60)}"${context ? ` [ctx: ${context.path}]` : ""}`);
 		const res = await fetch(`${baseUrl}/api/agent/send`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ agentName, message }),
+			body: JSON.stringify({ agentName, message, context }),
 		});
 		const result = await res.json() as ApiResult;
 		console.log(`[api] sendMessage ← ${agentName}: ${result.ok ? "ok" : result.error}`);
