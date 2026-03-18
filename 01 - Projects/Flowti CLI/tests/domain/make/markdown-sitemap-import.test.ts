@@ -211,3 +211,25 @@ describe("generateSitemapFromMarkdown — category strategy", () => {
 		expect(Object.keys(sitemap.pages)).toHaveLength(0);
 	});
 });
+
+// ── generateSitemapFromMarkdown — flat ──────────────────────────────
+
+describe("generateSitemapFromMarkdown — flat strategy", () => {
+	it("creates top-level component pages with no parent", () => {
+		const sitemap = generateSitemapFromMarkdown([button, badge, navbar], "flat");
+		expect(Object.keys(sitemap.pages)).toHaveLength(3);
+
+		expect(sitemap.pages["atoms-button"]).toBeDefined();
+		expect(sitemap.pages["atoms-button"].kind).toBe("component");
+		expect(sitemap.pages["atoms-button"].parent).toBeUndefined();
+
+		expect(sitemap.pages["atoms-badge"]).toBeDefined();
+		expect(sitemap.pages["navigation-navbar"]).toBeDefined();
+	});
+
+	it("does not create category group pages", () => {
+		const sitemap = generateSitemapFromMarkdown([button, navbar], "flat");
+		expect(sitemap.pages["atoms"]).toBeUndefined();
+		expect(sitemap.pages["navigation"]).toBeUndefined();
+	});
+});

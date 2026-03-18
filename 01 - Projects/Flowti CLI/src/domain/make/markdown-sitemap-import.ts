@@ -153,6 +153,18 @@ function generateCategory(components: readonly ComponentMarkdown[]): Record<stri
 	return pages;
 }
 
+function generateFlat(components: readonly ComponentMarkdown[]): Record<string, PageObject> {
+	const pages: Record<string, PageObject> = {};
+
+	for (const comp of components) {
+		const catId = toKebab(comp.category);
+		const pageId = `${catId}-${toKebab(comp.name)}`;
+		pages[pageId] = buildComponentPage(comp, pageId);
+	}
+
+	return pages;
+}
+
 // ── Main export ──────────────────────────────────────────────────────
 
 export function generateSitemapFromMarkdown(
@@ -166,7 +178,7 @@ export function generateSitemapFromMarkdown(
 			pages = generateCategory(components);
 			break;
 		case "flat":
-			pages = {};
+			pages = generateFlat(components);
 			break;
 		case "hierarchical":
 			pages = {};
