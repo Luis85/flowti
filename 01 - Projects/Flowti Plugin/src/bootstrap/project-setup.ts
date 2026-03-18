@@ -1,31 +1,24 @@
 /**
  * Project domain bootstrap — registers project detail view + command.
- * Uses vault-based project scanning (works offline).
- * Storybook operations delegate to CLI server when available.
+ * Fully offline — uses vault scanning + local shell for all operations.
  */
 
 import type { App, Plugin, WorkspaceLeaf } from "obsidian";
 import { VaultProjectService } from "../infrastructure/projects/vault-project-service.js";
-import { HttpProjectService } from "../infrastructure/projects/http-project-service.js";
 import { ProjectDetailView, type ProjectDetailDeps } from "../ui/projects/project-detail-view.js";
 import { VIEW_TYPE_PROJECT_DETAIL } from "../ui/projects/types.js";
 
 export interface ProjectSetupDeps {
 	readonly plugin: Plugin;
 	readonly app: App;
-	readonly cliServerUrl?: string;
 }
 
 export interface ProjectSetupResult {
 	readonly projectService: VaultProjectService;
-	/** Call when CLI server comes online to enable storybook operations. */
-	readonly connectHttpService: () => void;
 }
 
 export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
-	const baseUrl = deps.cliServerUrl ?? "http://localhost:3000";
-	const httpService = new HttpProjectService(baseUrl);
-	const projectService = new VaultProjectService(deps.app, null);
+	const projectService = new VaultProjectService(deps.app);
 
 	const viewDeps: ProjectDetailDeps = {
 		projectService,
@@ -64,11 +57,7 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 		},
 	});
 
-	function connectHttpService(): void {
-		projectService.setHttpService(httpService);
-	}
-
-	return { projectService, connectHttpService };
+	return { projectService };
 }
 
 /** Open project detail view for a specific project. */

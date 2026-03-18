@@ -65,15 +65,30 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 
 	el.addEventListener("create-project-note", ((e: CustomEvent) => {
 		deps.createNote?.(String(e.detail.name));
-		// Reload list after a brief delay to pick up the new note
-		setTimeout(() => void loadProjectList(), 500);
+		// Reload current view after a brief delay to pick up the new note
+		setTimeout(() => {
+			if (currentProject) {
+				void loadProject(currentProject);
+			} else {
+				void loadProjectList();
+			}
+		}, 500);
 	}) as EventListener);
+
+	function showStatus(result: { ok: boolean; error?: string }): void {
+		if (!result.ok && result.error) {
+			el.statusMessage = result.error;
+			setTimeout(() => { el.statusMessage = ""; }, 5000);
+		} else if (result.ok) {
+			el.statusMessage = "";
+		}
+	}
 
 	// ── Storybook actions ──
 	el.addEventListener("storybook-install", ((e: CustomEvent) => {
 		el.loading = true;
 		void projectService.installStorybook(currentProject, String(e.detail.framework) as StorybookFramework)
-			.then(() => loadProject(currentProject))
+			.then((r) => { showStatus(r); return loadProject(currentProject); })
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 
@@ -81,6 +96,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.loading = true;
 		void projectService.startStorybook(currentProject)
 			.then((result) => {
+				showStatus(result);
 				if (result.ok && result.url) {
 					deps.openInWebviewer?.(result.url);
 				}
@@ -92,21 +108,21 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("storybook-stop", (() => {
 		el.loading = true;
 		void projectService.stopStorybook(currentProject)
-			.then(() => loadProject(currentProject))
+			.then((r) => { showStatus(r); return loadProject(currentProject); })
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 
 	el.addEventListener("storybook-build", (() => {
 		el.loading = true;
 		void projectService.buildStorybook(currentProject)
-			.then(() => loadProject(currentProject))
+			.then((r) => { showStatus(r); return loadProject(currentProject); })
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 
 	el.addEventListener("storybook-scaffold", (() => {
 		el.loading = true;
 		void projectService.scaffoldStorybook(currentProject)
-			.then(() => loadProject(currentProject))
+			.then((r) => { showStatus(r); return loadProject(currentProject); })
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 

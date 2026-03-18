@@ -812,9 +812,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			// Agent server connection — silent, non-blocking
 			this.agentSetup?.connectWhenReady();
 
-			// Enable storybook operations once server is reachable
-			this.projectSetup?.connectHttpService();
-
 		} catch (error) {
 			const err = error instanceof Error ? error : new Error(String(error));
 			this.errorService.handle(err, "onLayoutReady");

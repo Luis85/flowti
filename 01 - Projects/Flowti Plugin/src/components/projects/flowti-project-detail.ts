@@ -22,6 +22,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		storybook: { type: Object },
 		projects: { type: Array },
 		searchQuery: { type: String },
+		statusMessage: { type: String },
 	};
 
 	static styles = [
@@ -224,6 +225,14 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				color: var(--text-muted, #999);
 				font-size: var(--flowti-font-sm, 0.85em);
 			}
+
+			.status-banner {
+				padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
+				border-radius: var(--flowti-radius-sm, 4px);
+				background: color-mix(in srgb, var(--color-yellow, #e5a00d) 12%, transparent);
+				color: var(--text-muted, #999);
+				font-size: var(--flowti-font-sm, 0.85em);
+			}
 		`,
 	];
 
@@ -234,6 +243,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	storybook: StorybookStatus = { installed: false, framework: null, running: false, url: null, pid: null };
 	projects: ProjectSummary[] = [];
 	searchQuery = "";
+	statusMessage = "";
 
 	protected renderContent() {
 		if (!this.projectName) {
@@ -241,6 +251,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		}
 		return html`
 			${this.renderHeader()}
+			${this.statusMessage ? html`<div class="status-banner">${this.statusMessage}</div>` : ""}
 			${this.renderNoteSection()}
 			${this.renderStorybookSection()}
 		`;
