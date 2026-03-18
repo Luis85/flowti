@@ -6,6 +6,7 @@ import type { IEventBus } from "../infrastructure/events/types";
 import type { Plugin, WorkspaceLeaf } from "obsidian";
 import { HttpAgentService } from "../infrastructure/agents/http-agent-service";
 import { SseClient } from "../infrastructure/agents/sse-client";
+import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider";
 import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/AgentSidepanelView";
 import { VIEW_TYPE_AGENT_SIDEBAR } from "../ui/agents/types";
 
@@ -18,6 +19,7 @@ export interface AgentSetupDeps {
 export interface AgentSetupResult {
 	readonly agentService: HttpAgentService;
 	readonly sseClient: SseClient;
+	readonly contextProvider: ObsidianContextProvider;
 }
 
 export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
@@ -37,7 +39,12 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		sseClient.connect();
 	}
 
-	const viewDeps: AgentSidepanelDeps = { eventBus: deps.eventBus, agentService };
+	const contextProvider = new ObsidianContextProvider(
+		deps.plugin.app.workspace,
+		deps.plugin.app.vault,
+	);
+
+	const viewDeps: AgentSidepanelDeps = { eventBus: deps.eventBus, agentService, contextProvider };
 	try {
 		deps.plugin.registerView(VIEW_TYPE_AGENT_SIDEBAR, (leaf: WorkspaceLeaf) => {
 			ensureConnected();
@@ -56,5 +63,5 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		},
 	});
 
-	return { agentService, sseClient };
+	return { agentService, sseClient, contextProvider };
 }

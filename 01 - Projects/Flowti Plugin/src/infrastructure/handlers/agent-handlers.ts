@@ -6,19 +6,23 @@
 
 import type { IEventBus } from "../events/types";
 import type { IAgentService, ConversationMode } from "../../domain/agents/types";
+import type { IContextProvider } from "../../domain/agents/context-provider";
 
 export interface AgentHandlerDeps {
 	readonly eventBus: IEventBus;
 	readonly agentService: IAgentService;
+	readonly contextProvider?: IContextProvider;
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {
-	const { agentService, eventBus } = deps;
+	const { agentService, eventBus, contextProvider } = deps;
 	const el = document.createElement("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 	const unsubscribes: (() => void)[] = [];
 
 	let activeAgent = "";
 	let activeMode: ConversationMode = "conversational";
+	let teamMode = false;
+	let lastContextHash = "";
 
 	function refresh(): void {
 		const agents = agentService.listAgents();
@@ -26,32 +30,74 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		if (!activeAgent && agents.length > 0) activeAgent = agents[0].name;
 		el.activeAgent = activeAgent;
 		el.activeMode = activeMode;
-		el.turns = activeAgent ? agentService.getConversation(activeAgent) : [];
+		el.teamMode = teamMode;
+		el.turns = teamMode
+			? agentService.getTeamConversation()
+			: activeAgent ? agentService.getConversation(activeAgent) : [];
 	}
 
+	// ── Agent selection ──
 	el.addEventListener("agent-selected", ((e: CustomEvent) => {
 		activeAgent = String(e.detail.agent);
 		refresh();
 	}) as EventListener);
 
+	// ── Send message (with context) ──
 	el.addEventListener("agent-send", ((e: CustomEvent) => {
 		const message = String(e.detail.message);
 		if (!activeAgent || !message) return;
 		el.processing = true;
 		void eventBus.emit("agent.message.sent", { agent: activeAgent, message, mode: activeMode });
-		void agentService.sendMessage(activeAgent, message, activeMode).finally(() => {
+
+		let enrichedMessage = message;
+		if (contextProvider) {
+			const diff = contextProvider.getDiff(lastContextHash);
+			if (diff) {
+				enrichedMessage = `[Context: ${diff.path} changed]\n${diff.diff}\n\n${message}`;
+				lastContextHash = diff.currentHash;
+			}
+			const ctx = contextProvider.getActiveFileContext();
+			if (ctx) lastContextHash = ctx.contentHash;
+		}
+
+		void agentService.sendMessage(activeAgent, enrichedMessage, activeMode).finally(() => {
 			el.processing = false;
 			refresh();
 		});
 		refresh();
 	}) as EventListener);
 
+	// ── Mode switch ──
 	el.addEventListener("mode-changed", ((e: CustomEvent) => {
 		activeMode = e.detail.mode as ConversationMode;
 		void eventBus.emit("agent.mode.switched", { mode: activeMode });
 		refresh();
 	}) as EventListener);
 
+	// ── Team toggle ──
+	el.addEventListener("team-toggled", ((e: CustomEvent) => {
+		teamMode = Boolean(e.detail.enabled);
+		void eventBus.emit("agent.team.toggled", { enabled: teamMode });
+		refresh();
+	}) as EventListener);
+
+	// ── Stop generation ──
+	el.addEventListener("agent-stop", (() => {
+		if (!activeAgent) return;
+		void agentService.stopGeneration(activeAgent);
+		el.processing = false;
+		refresh();
+	}) as EventListener);
+
+	// ── Canvas events ──
+	el.addEventListener("canvas-export", ((e: CustomEvent) => {
+		void eventBus.emit("agent.canvas.synced", {
+			canvasPath: String(e.detail.canvasPath ?? ""),
+			nodeCount: Number(e.detail.nodeCount ?? 0),
+		});
+	}) as EventListener);
+
+	// ── Service events → component updates ──
 	const unsubService = agentService.onEvent((event) => {
 		if (event.kind === "message-received" || event.kind === "status-changed") {
 			refresh();
@@ -62,8 +108,32 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		if (event.kind === "message-received") {
 			void eventBus.emit("agent.message.received", { agent: event.agent, turn: event.turn });
 		}
+		if (event.kind === "error") {
+			el.error = event.error;
+			el.processing = false;
+			setTimeout(() => { el.error = ""; }, 5000);
+		}
 	});
 	unsubscribes.push(unsubService);
+
+	// ── Context tracking ──
+	if (contextProvider) {
+		const unsubCtx = contextProvider.onFileChanged((ctx) => {
+			lastContextHash = ctx.contentHash;
+		});
+		unsubscribes.push(unsubCtx);
+	}
+
+	// ── Keyboard shortcuts ──
+	const keyHandler = (e: KeyboardEvent) => {
+		if (e.key === "Escape" && el.processing) {
+			if (activeAgent) void agentService.stopGeneration(activeAgent);
+			el.processing = false;
+			refresh();
+		}
+	};
+	container.addEventListener("keydown", keyHandler);
+	unsubscribes.push(() => container.removeEventListener("keydown", keyHandler));
 
 	refresh();
 	container.appendChild(el);
