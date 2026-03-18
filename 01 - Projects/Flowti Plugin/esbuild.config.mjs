@@ -164,6 +164,27 @@ const concatCSS = () => {
 	safeWriteText(path.resolve(__dirname, "styles.css"), output);
 };
 
+const syncSprites = () => {
+	const charsDir = path.resolve(__dirname, "assets", "Actor", "Characters");
+	if (!safeExists(charsDir)) return;
+
+	const entries = fs.readdirSync(charsDir, { withFileTypes: true });
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+
+		const animDir = path.join(charsDir, entry.name, "SeparateAnim");
+		if (!safeExists(animDir)) continue;
+
+		for (const sprite of ["Idle.png", "Walk.png"]) {
+			const src = path.join(animDir, sprite);
+			if (!safeExists(src)) continue;
+
+			const dest = path.join(OUTDIR, "assets", "Actor", "Characters", entry.name, "SeparateAnim", sprite);
+			safeCopyFile(src, dest);
+		}
+	}
+};
+
 const syncAssets = () => {
 	concatCSS();
 	const assets = ["manifest.json", ".hotreload", "LICENSE", "styles.css"];
@@ -171,6 +192,7 @@ const syncAssets = () => {
 		const src = path.resolve(__dirname, file);
 		if (safeExists(src)) safeCopyFile(src, path.join(OUTDIR, file));
 	}
+	syncSprites();
 };
 
 const listFilesRecursive = (rootDir) => {
