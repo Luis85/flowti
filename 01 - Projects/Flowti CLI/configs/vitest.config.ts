@@ -5,7 +5,16 @@ export default defineConfig({
 	test: {
 		root: path.resolve(import.meta.dirname, ".."),
 		include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "agents/tests/**/*.test.ts"],
-		exclude: ["tests/e2e/**", "tests/vault-template/**", "tests/vault-journeys/**"],
+		exclude: [
+			"tests/e2e/**",
+			"tests/vault-template/**",
+			"tests/vault-journeys/**",
+			// Agent dashboard UI tests require jsdom (installed in agents/package.json, not CLI).
+			// Run via agents/vitest.config.ts instead.
+			"agents/tests/ui/**",
+			"agents/tests/store/dashboard-store-raf.test.ts",
+			"agents/tests/actors/agent-actor.test.ts",
+		],
 		globals: true,
 		environment: "node",
 		testTimeout: 10_000,
