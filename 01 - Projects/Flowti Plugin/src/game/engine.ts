@@ -79,16 +79,15 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// Pre-create a canvas inside the container so ExcaliburJS can measure
 	// the parent for FitContainer mode during construction.
 	const gameCanvas = document.createElement("canvas");
-	gameCanvas.id = "flowti-game-canvas";
 	container.appendChild(gameCanvas);
 
 	const engine = new ex.Engine({
-		canvasElementId: gameCanvas.id,
+		canvasElement: gameCanvas,
 		width: ENGINE_WIDTH,
 		height: ENGINE_HEIGHT,
 		backgroundColor: ex.Color.fromHex("#0a0a0f"),
 		displayMode: ex.DisplayMode.FitContainer,
-		antialiasing: true,
+		pixelArt: true,
 		suppressPlayButton: true,
 	});
 

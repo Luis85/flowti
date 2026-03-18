@@ -42,12 +42,18 @@ export class AgentWorldView extends ItemView {
 		const container = this.contentEl.createDiv({ cls: "ft-world-container" });
 		container.id = "flowti-world";
 
-		// Resolve sprite path via plugin manifest
+		// Resolve sprite base path via plugin manifest — points to plugin root.
+		// getResourcePath() appends a cache-busting query string (?timestamp)
+		// which breaks path concatenation, so we strip it.
 		const pluginDir = this.app.vault.configDir + "/plugins/" + this.deps.plugin.manifest.id;
 		const adapter = this.app.vault.adapter as { getResourcePath?(p: string): string };
-		const spriteBasePath = adapter.getResourcePath
-			? adapter.getResourcePath(pluginDir + "/assets/Actor/Characters")
-			: pluginDir + "/assets/Actor/Characters";
+		let spriteBasePath: string;
+		if (adapter.getResourcePath) {
+			const raw = adapter.getResourcePath(pluginDir);
+			spriteBasePath = raw.split("?")[0];
+		} else {
+			spriteBasePath = pluginDir;
+		}
 
 		// Create provider
 		const provider = createPluginProvider({
