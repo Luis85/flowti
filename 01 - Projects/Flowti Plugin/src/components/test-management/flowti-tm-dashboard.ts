@@ -166,6 +166,12 @@ export class FlowtiTmDashboard extends FlowtiElement {
 				border-radius: var(--flowti-radius-sm);
 				background: var(--flowti-bg-secondary);
 				font-size: var(--flowti-font-sm);
+				cursor: pointer;
+				transition: background 0.15s ease;
+			}
+
+			.run-item:hover {
+				background: var(--flowti-bg-hover, var(--flowti-bg-secondary));
 			}
 
 			.run-item .run-name {
@@ -196,6 +202,12 @@ export class FlowtiTmDashboard extends FlowtiElement {
 				background: color-mix(in srgb, var(--flowti-warning) 10%, transparent);
 				font-size: var(--flowti-font-sm);
 				color: var(--flowti-text);
+				cursor: pointer;
+				transition: background 0.15s ease;
+			}
+
+			.attention-item:hover {
+				background: color-mix(in srgb, var(--flowti-warning) 18%, transparent);
 			}
 
 			/* Empty + Onboarding */
@@ -373,7 +385,7 @@ export class FlowtiTmDashboard extends FlowtiElement {
 				<h3>Recent Runs</h3>
 				${runs.map(
 					(journey) => html`
-						<div class="run-item">
+						<div class="run-item" @click=${() => this.navigateToTab('journeys')}>
 							<span class="run-name">${journey.name}</span>
 							<span class="run-stats">
 								${journey.lastRunResult.passed}/${journey.lastRunResult.totalSteps} passed
@@ -394,7 +406,7 @@ export class FlowtiTmDashboard extends FlowtiElement {
 				<h3>Needs Attention</h3>
 				${items.map(
 					(journey) => html`
-						<div class="attention-item">
+						<div class="attention-item" @click=${() => this.navigateToTab('journeys')}>
 							${journey.name} — ${journey.lastRunResult.failed} step${journey.lastRunResult.failed !== 1 ? 's' : ''} failing
 						</div>
 					`,
@@ -404,4 +416,4 @@ export class FlowtiTmDashboard extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-tm-dashboard', FlowtiTmDashboard);
+if (!customElements.get('flowti-tm-dashboard')) customElements.define('flowti-tm-dashboard', FlowtiTmDashboard);

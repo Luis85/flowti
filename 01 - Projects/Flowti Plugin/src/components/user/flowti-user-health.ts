@@ -104,6 +104,12 @@ export class FlowtiUserHealth extends FlowtiElement {
 				color: var(--flowti-color-muted);
 				margin-top: var(--flowti-space-sm);
 			}
+
+			.empty-state__hint {
+				font-size: var(--flowti-font-sm);
+				color: var(--flowti-color-muted);
+				margin-top: var(--flowti-space-xs);
+			}
 		`,
 	];
 
@@ -142,7 +148,10 @@ export class FlowtiUserHealth extends FlowtiElement {
 		if (filtered.length === 0 && this.healthItems.length === 0) {
 			return html`
 				<div class="empty-state">
-					<div class="empty-state__message">No health checks found</div>
+					<div class="empty-state__message">No health checks available</div>
+					<div class="empty-state__hint">
+						Health checks will appear here once a health scanning service is configured.
+					</div>
 				</div>
 			`;
 		}
@@ -191,4 +200,4 @@ export class FlowtiUserHealth extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-user-health', FlowtiUserHealth);
+if (!customElements.get('flowti-user-health')) customElements.define('flowti-user-health', FlowtiUserHealth);

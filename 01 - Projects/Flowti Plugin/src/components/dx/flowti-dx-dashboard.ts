@@ -22,6 +22,7 @@ interface ActiveOperation {
  * @property activeOps - Array of active operation objects
  *
  * @fires open-pipelines - When "View all pipelines" is clicked
+ * @fires navigate-tab - detail: { tabId } when a stat card is clicked
  */
 export class FlowtiDxDashboard extends FlowtiElement {
 	static properties = {
@@ -98,6 +99,21 @@ export class FlowtiDxDashboard extends FlowtiElement {
 			button:hover {
 				background: var(--background-modifier-hover);
 			}
+
+			.stat-card--clickable {
+				cursor: pointer;
+			}
+
+			.stat-card--clickable:hover {
+				background: var(--background-modifier-hover);
+			}
+
+			.empty-state__hint {
+				font-size: var(--flowti-font-sm);
+				color: var(--flowti-color-muted);
+				margin-top: var(--flowti-space-xs);
+				margin-bottom: var(--flowti-space-sm);
+			}
 		`,
 	];
 
@@ -113,6 +129,16 @@ export class FlowtiDxDashboard extends FlowtiElement {
 
 	private get failedCount(): number {
 		return this.activeOps.filter((op) => op.completed && !op.success).length;
+	}
+
+	private dispatchNavigateTab(tabId: string): void {
+		this.dispatchEvent(
+			new CustomEvent('navigate-tab', {
+				detail: { tabId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private dispatchOpenPipelines(): void {
@@ -136,19 +162,19 @@ export class FlowtiDxDashboard extends FlowtiElement {
 	private renderStatGrid() {
 		return html`
 			<div class="stat-grid">
-				<div class="stat-card">
+				<div class="stat-card stat-card--clickable" @click=${() => this.dispatchNavigateTab('pipelines')}>
 					<div class="stat-card__value">${this.activeOps.length}</div>
 					<div class="stat-card__label">Total Operations</div>
 				</div>
-				<div class="stat-card">
+				<div class="stat-card stat-card--clickable" @click=${() => this.dispatchNavigateTab('imports')}>
 					<div class="stat-card__value">${this.runningCount}</div>
 					<div class="stat-card__label">Running</div>
 				</div>
-				<div class="stat-card">
+				<div class="stat-card stat-card--clickable" @click=${() => this.dispatchNavigateTab('exports')}>
 					<div class="stat-card__value">${this.completedCount}</div>
 					<div class="stat-card__label">Completed</div>
 				</div>
-				<div class="stat-card">
+				<div class="stat-card stat-card--clickable" @click=${() => this.dispatchNavigateTab('pipelines')}>
 					<div class="stat-card__value">${this.failedCount}</div>
 					<div class="stat-card__label">Failed</div>
 				</div>
@@ -160,7 +186,10 @@ export class FlowtiDxDashboard extends FlowtiElement {
 		if (this.activeOps.length === 0) {
 			return html`
 				<div class="empty-state">
-					<div class="empty-state__message">No active operations</div>
+					<div class="empty-state__message">No operations running</div>
+					<div class="empty-state__hint">
+						Operations appear here when imports, exports, or pipelines are executing.
+					</div>
 					<button @click=${this.dispatchOpenPipelines}>View all pipelines</button>
 				</div>
 			`;
@@ -196,4 +225,4 @@ export class FlowtiDxDashboard extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-dx-dashboard', FlowtiDxDashboard);
+if (!customElements.get('flowti-dx-dashboard')) customElements.define('flowti-dx-dashboard', FlowtiDxDashboard);

@@ -441,7 +441,13 @@ const CATALOG_DATA = {
 	"ui.runCanvasImport":         { category: "UI Commands", description: "Execute a canvas import", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
 	"ui.runExport":               { category: "UI Commands", description: "Execute an export operation", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
 	"ui.runImport":               { category: "UI Commands", description: "Execute an import operation", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.selectCanvas":            { category: "UI Commands", description: "Select a canvas config for viewing", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.selectExport":            { category: "UI Commands", description: "Select an export config for viewing", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.selectImport":            { category: "UI Commands", description: "Select an import config for viewing", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
 	"ui.selectPipeline":          { category: "UI Commands", description: "Select a data pipeline", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.selectProperty":          { category: "UI Commands", description: "Select a property for viewing", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.selectReport":            { category: "UI Commands", description: "Select a report for viewing", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.selectType":              { category: "UI Commands", description: "Select a type for viewing", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
 	"ui.sessionSelected":         { category: "UI Commands", description: "A session was selected in the list", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
 	"ui.signalSync":              { category: "UI Commands", description: "Trigger signal synchronization", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
 	"ui.syncSignal":              { category: "UI Commands", description: "Sync a signal (alternate event name)", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
@@ -664,6 +670,7 @@ const CATALOG_DATA = {
 	"analytics.ui.renameDashboard":     { category: "Analytics", description: "Rename a dashboard", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
 	"analytics.ui.runQuery":            { category: "Analytics", description: "Execute an analytics query", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
 	"analytics.ui.saveQuery":           { category: "Analytics", description: "Save an analytics query", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.selectQuery":         { category: "Analytics", description: "A query was selected in the list", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
 
 	// ── Onboarding events ─────────────────────────────────────
 
@@ -707,6 +714,7 @@ const CATALOG_DATA = {
 	// ── Catalog ──────────────────────────────────────────────
 	"catalog.actors.selected":  { category: "Catalog", description: "An actor was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
 	"catalog.domains.selected": { category: "Catalog", description: "A domain was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
+	"catalog.event.selected":   { category: "Catalog", description: "An event was selected in the catalog events tab", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
 	"catalog.flows.selected":   { category: "Catalog", description: "A flow was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
 	"catalog.health.selected":  { category: "Catalog", description: "Health was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
 	"catalog.services.selected": { category: "Catalog", description: "A service was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },

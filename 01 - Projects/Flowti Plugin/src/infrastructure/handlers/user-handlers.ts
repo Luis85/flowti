@@ -12,6 +12,14 @@ import type { IEventBus } from "../events/types";
 import type { EventType, FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/user/flowti-user-dashboard.js";
+import "../../components/user/flowti-user-sessions.js";
+import "../../components/user/flowti-user-inbox.js";
+import "../../components/user/flowti-user-commands.js";
+import "../../components/user/flowti-user-preferences.js";
+import "../../components/user/flowti-user-health.js";
+
 /** Session action event names keyed by action string. */
 const SESSION_ACTION_EVENTS: Record<string, string> = {
 	start: "session.start",
@@ -51,6 +59,17 @@ export interface UserHandlerDeps {
 	};
 	commandRegistry: {
 		getCommandsMeta: () => readonly unknown[];
+	};
+	settingsProvider: {
+		getSettings: () => {
+			inboxEnabledSources: string[];
+			sessionActivityFilterGlobal: string[];
+			customSessionTypes: Record<string, unknown>;
+			trainFolder: string;
+			defaultTrainDuration: number;
+			trainMaxThoughts: number;
+			trainAutoOpenTimeline: boolean;
+		};
 	};
 	eventBus: IEventBus;
 }
@@ -99,6 +118,11 @@ export function registerUserHandlers(
 		el.addEventListener("open-inbox", () => {
 			void deps.eventBus.emit("ui.navigateTab", { viewId: "user-hub", tabId: "inbox" });
 		});
+
+		el.addEventListener("select-inbox-item", ((e: CustomEvent) => {
+			const { itemId } = e.detail as { itemId: string };
+			void deps.eventBus.emit("ui.inboxItemSelected", { itemId });
+		}) as EventListener);
 
 		el.addEventListener("open-session", ((e: CustomEvent) => {
 			const { sessionId } = e.detail as { sessionId: string };
@@ -189,13 +213,22 @@ export function registerUserHandlers(
 		container.innerHTML = "";
 		const el = document.createElement("flowti-user-preferences");
 
-		// Build settings from services
+		// Build settings from actual settings provider and nudge service
 		const nudgeConfigs = deps.nudgeService.getConfigs();
+		const currentSettings = deps.settingsProvider.getSettings();
 		setProps(el, {
 			settings: {
-				sources: { enabled: [] },
-				session: { activityFilterGlobal: [], customTypes: {} },
-				train: { folder: "", defaultDuration: 15, maxThoughts: 100, autoOpenTimeline: true },
+				sources: { enabled: currentSettings.inboxEnabledSources },
+				session: {
+					activityFilterGlobal: currentSettings.sessionActivityFilterGlobal,
+					customTypes: currentSettings.customSessionTypes,
+				},
+				train: {
+					folder: currentSettings.trainFolder,
+					defaultDuration: currentSettings.defaultTrainDuration,
+					maxThoughts: currentSettings.trainMaxThoughts,
+					autoOpenTimeline: currentSettings.trainAutoOpenTimeline,
+				},
 				nudge: { configs: nudgeConfigs },
 			},
 			activePanel: "",

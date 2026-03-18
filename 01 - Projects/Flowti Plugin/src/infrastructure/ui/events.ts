@@ -217,9 +217,39 @@ export interface UiCommandEventMap {
 	/** Create a new export config */
 	"ui.createExport": Record<string, never>;
 
+	/** Select an import config for viewing */
+	"ui.selectImport": {
+		importId: string;
+	};
+
+	/** Select an export config for viewing */
+	"ui.selectExport": {
+		exportId: string;
+	};
+
 	/** Select a pipeline for viewing */
 	"ui.selectPipeline": {
 		pipelineId: string;
+	};
+
+	/** Select a type for viewing */
+	"ui.selectType": {
+		typeName: string;
+	};
+
+	/** Select a property for viewing */
+	"ui.selectProperty": {
+		propertyName: string;
+	};
+
+	/** Select a report for viewing */
+	"ui.selectReport": {
+		reportPath: string;
+	};
+
+	/** Select a canvas config for viewing */
+	"ui.selectCanvas": {
+		canvasId: string;
 	};
 
 	/** Create a property documentation file */
@@ -239,6 +269,13 @@ export interface UiCommandEventMap {
 	};
 
 	// ── Catalog UI events ─────────────────────────────────────
+
+	/** An event was selected in the catalog events tab */
+	"catalog.event.selected": {
+		type: string;
+		category: string;
+		domain: string;
+	};
 
 	/** A health item was selected in the catalog */
 	"catalog.health.selected": {

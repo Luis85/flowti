@@ -44,14 +44,33 @@ export class SitemapBootstrap {
 				continue;
 			} else if (viewDef.tabs) {
 				// Hub view — tabs + handlers
+				// Capture viewDef fields in a bound subclass so getViewType() works
+				// during the Obsidian ItemView super() call (before this.viewDef is assigned).
+				const boundType = viewDef.type;
+				const boundLabel = viewDef.label;
+				const boundIcon = viewDef.icon;
+				const BoundHub = class extends SitemapHubView {
+					override getViewType(): string { return boundType; }
+					override getDisplayText(): string { return boundLabel; }
+					override getIcon(): string { return boundIcon; }
+				};
 				this.safeRegister(viewDef.type, (leaf) =>
-					new SitemapHubView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
+					new BoundHub(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
 				);
 				this.registeredViewTypes.push(viewDef.type);
 			} else if (viewDef.component || viewDef.handler) {
 				// Leaf view — component or handler
+				// Same bound subclass pattern for leaf views.
+				const boundType = viewDef.type;
+				const boundLabel = viewDef.label;
+				const boundIcon = viewDef.icon;
+				const BoundLeaf = class extends SitemapLeafView {
+					override getViewType(): string { return boundType; }
+					override getDisplayText(): string { return boundLabel; }
+					override getIcon(): string { return boundIcon; }
+				};
 				this.safeRegister(viewDef.type, (leaf) =>
-					new SitemapLeafView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
+					new BoundLeaf(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
 				);
 				this.registeredViewTypes.push(viewDef.type);
 			}

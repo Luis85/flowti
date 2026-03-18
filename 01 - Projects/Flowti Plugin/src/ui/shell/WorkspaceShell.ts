@@ -29,7 +29,7 @@ export class WorkspaceShell {
 	 */
 	mount(wrapper: HTMLElement): ShellElements {
 		this.buildTopBar(wrapper);
-		this.tabBarEl = wrapper.createDiv({ cls: "ft-catalog-tab-bar ft-hidden" });
+		this.tabBarEl = wrapper.createDiv({ cls: "ft-catalog-tab-bar" });
 		this.tabBarEl.dataset.testId = "catalog-tab-bar";
 
 		return {
@@ -73,7 +73,7 @@ export class WorkspaceShell {
 	// ── Private ──────────────────────────────────────────────
 
 	private buildTopBar(container: HTMLElement): void {
-		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden ft-border-bottom" });
+		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-border-bottom" });
 		bar.addClass("ft-flex-shrink-0");
 		this.topBarEl = bar;
 

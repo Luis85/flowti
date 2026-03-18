@@ -173,3 +173,25 @@ export function renderStorybookGenerateResult(data: StorybookGenerateResultModel
 		log(`\n  ${RED}✗${RESET} Story generation failed (exit code ${data.exitCode}).\n`);
 	}
 }
+
+// ── Scaffold renderer ────────────────────────────────────────────────
+
+export interface StorybookScaffoldResultModel {
+	files: Array<{ path: string; content: string }>;
+	framework: string;
+	pageCount: number;
+	outputDir?: string;
+}
+
+export function renderStorybookScaffoldResult(data: StorybookScaffoldResultModel, log: Log): void {
+	if (data.pageCount === 0) {
+		log(`\n  ${YELLOW}No pages found in sitemap.${RESET} Nothing to scaffold.\n`);
+		return;
+	}
+	const dir = data.outputDir ? ` in ${DIM}${data.outputDir}${RESET}` : "";
+	log(`\n  ${GREEN}✓${RESET} Scaffolded ${BOLD}${data.files.length}${RESET} files for ${BOLD}${data.pageCount}${RESET} pages (${data.framework})${dir}\n`);
+	for (const file of data.files) {
+		log(`    ${DIM}${file.path}${RESET}`);
+	}
+	log();
+}

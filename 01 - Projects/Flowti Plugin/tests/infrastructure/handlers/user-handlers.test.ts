@@ -83,6 +83,20 @@ function createMockCommandRegistry() {
 	};
 }
 
+function createMockSettingsProvider() {
+	return {
+		getSettings: vi.fn(() => ({
+			inboxEnabledSources: ["subscription.matched", "dataExchange.import.completed"],
+			sessionActivityFilterGlobal: [],
+			customSessionTypes: {},
+			trainFolder: "00 - Connectivity/trains",
+			defaultTrainDuration: 0,
+			trainMaxThoughts: 100,
+			trainAutoOpenTimeline: true,
+		})),
+	};
+}
+
 describe("registerUserHandlers", () => {
 	let registry: PluginHandlerRegistry;
 	let eventBus: IEventBus;
@@ -99,6 +113,7 @@ describe("registerUserHandlers", () => {
 			onboardingService: createMockOnboardingService() as never,
 			trainService: createMockTrainService() as never,
 			commandRegistry: createMockCommandRegistry() as never,
+			settingsProvider: createMockSettingsProvider() as never,
 			eventBus,
 		});
 	});
@@ -132,6 +147,7 @@ describe("registerUserHandlers", () => {
 				onboardingService: createMockOnboardingService() as never,
 				trainService: createMockTrainService() as never,
 				commandRegistry: createMockCommandRegistry() as never,
+				settingsProvider: createMockSettingsProvider() as never,
 				eventBus,
 			});
 			const container = document.createElement("div");
@@ -165,6 +181,7 @@ describe("registerUserHandlers", () => {
 				onboardingService: createMockOnboardingService() as never,
 				trainService: createMockTrainService() as never,
 				commandRegistry: createMockCommandRegistry() as never,
+				settingsProvider: createMockSettingsProvider() as never,
 				eventBus,
 			});
 
@@ -210,6 +227,7 @@ describe("registerUserHandlers", () => {
 				onboardingService: createMockOnboardingService() as never,
 				trainService: createMockTrainService() as never,
 				commandRegistry: createMockCommandRegistry() as never,
+				settingsProvider: createMockSettingsProvider() as never,
 				eventBus,
 			});
 
@@ -232,6 +250,7 @@ describe("registerUserHandlers", () => {
 				onboardingService: createMockOnboardingService() as never,
 				trainService: createMockTrainService() as never,
 				commandRegistry: createMockCommandRegistry() as never,
+				settingsProvider: createMockSettingsProvider() as never,
 				eventBus,
 			});
 

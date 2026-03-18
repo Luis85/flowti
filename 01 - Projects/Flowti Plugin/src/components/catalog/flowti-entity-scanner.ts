@@ -164,4 +164,4 @@ export class FlowtiEntityScanner extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-entity-scanner', FlowtiEntityScanner);
+if (!customElements.get('flowti-entity-scanner')) customElements.define('flowti-entity-scanner', FlowtiEntityScanner);

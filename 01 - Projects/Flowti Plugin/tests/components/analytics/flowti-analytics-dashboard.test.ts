@@ -133,15 +133,15 @@ describe("flowti-analytics-dashboard", () => {
 		expect(nameInput).not.toBeNull();
 		nameInput.value = "Renamed Dashboard";
 		nameInput.dispatchEvent(new Event("change"));
-		expect(detail).toEqual({ name: "Renamed Dashboard" });
+		expect(detail).toEqual({ dashboardId: "dash-1", name: "Renamed Dashboard" });
 	});
 
 	it("dispatches navigate-breadcrumb event on crumb click", async () => {
 		el.dashboard = makeDashboard();
 		el.tiles = [];
 		el.breadcrumbs = [
-			{ level: "list", label: "Dashboards" },
-			{ level: "dashboard", label: "Test Dashboard" },
+			{ level: "list", label: "Dashboards", dashboardId: "dash-list" },
+			{ level: "dashboard", label: "Test Dashboard", dashboardId: "dash-1" },
 		];
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 
@@ -151,6 +151,6 @@ describe("flowti-analytics-dashboard", () => {
 		const shadow = el.shadowRoot!;
 		const crumbs = shadow.querySelectorAll(".breadcrumb-item");
 		(crumbs[0] as HTMLElement).click();
-		expect(detail).toEqual({ index: 0 });
+		expect(detail).toEqual({ dashboardId: "dash-list", index: 0 });
 	});
 });

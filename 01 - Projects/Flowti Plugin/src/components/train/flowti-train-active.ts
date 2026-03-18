@@ -299,4 +299,4 @@ export class FlowtiTrainActive extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-train-active', FlowtiTrainActive);
+if (!customElements.get('flowti-train-active')) customElements.define('flowti-train-active', FlowtiTrainActive);

@@ -32,6 +32,7 @@ export interface CatalogCategory {
  *
  * @fires toggle-category - detail: { category, collapsed } when a category header is clicked
  * @fires toggle-setting - emitted when the settings button is clicked
+ * @fires select-event - detail: { type, category, domain } when an event item is clicked
  */
 export class FlowtiCatalogEvents extends FlowtiElement {
 	static properties = {
@@ -234,6 +235,16 @@ export class FlowtiCatalogEvents extends FlowtiElement {
 		);
 	}
 
+	private onEventClick(event: CatalogEventEntry): void {
+		this.dispatchEvent(
+			new CustomEvent('select-event', {
+				detail: { type: event.type, category: event.category, domain: event.domain },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
 	private onSettingsClick(): void {
 		this._showSettings = !this._showSettings;
 		this.dispatchEvent(
@@ -327,7 +338,7 @@ export class FlowtiCatalogEvents extends FlowtiElement {
 		const isNotified = this.notifiedTypes.has(event.type);
 
 		return html`
-			<div class="event-item">
+			<div class="event-item" @click=${() => this.onEventClick(event)}>
 				<span class="event-type">${event.type}</span>
 				<div class="event-dots">
 					${isExcluded ? html`<div class="dot dot-hidden" title="Hidden from log"></div>` : nothing}
@@ -338,4 +349,4 @@ export class FlowtiCatalogEvents extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-catalog-events', FlowtiCatalogEvents);
+if (!customElements.get('flowti-catalog-events')) customElements.define('flowti-catalog-events', FlowtiCatalogEvents);

@@ -92,6 +92,26 @@ describe("flowti-dx-dashboard", () => {
 		expect(msg!.textContent).toContain("3 created, 2 updated");
 	});
 
+	it("dispatches navigate-tab when a stat card is clicked", async () => {
+		el.activeOps = [];
+		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+
+		const shadow = el.shadowRoot!;
+		const statCards = shadow.querySelectorAll(".stat-card--clickable") as NodeListOf<HTMLElement>;
+		expect(statCards.length).toBe(4);
+
+		let tabId = "";
+		el.addEventListener("navigate-tab", ((e: CustomEvent<{ tabId: string }>) => {
+			tabId = e.detail.tabId;
+		}) as EventListener);
+
+		statCards[0].click();
+		expect(tabId).toBe("pipelines");
+
+		statCards[1].click();
+		expect(tabId).toBe("imports");
+	});
+
 	it("dispatches open-pipelines event on button click", async () => {
 		el.activeOps = [];
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;

@@ -395,4 +395,4 @@ export class FlowtiTmCompliance extends FlowtiElement {
 	}
 }
 
-customElements.define("flowti-tm-compliance", FlowtiTmCompliance);
+if (!customElements.get("flowti-tm-compliance")) customElements.define("flowti-tm-compliance", FlowtiTmCompliance);

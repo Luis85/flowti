@@ -70,4 +70,4 @@ export class FlowtiStatusBadge extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-status-badge', FlowtiStatusBadge);
+if (!customElements.get('flowti-status-badge')) customElements.define('flowti-status-badge', FlowtiStatusBadge);

@@ -237,21 +237,20 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		BaseHubView.viewStateStore?.set(this.getHubId(), String(page));
 		const isDashboard = page === "dashboard";
 
-		// Toggle dashboard vs split + tab bar + top bar
+		// Toggle dashboard vs split content — tab bar and top bar always visible
 		this.dashboardEl.classList.toggle("ft-hidden", !isDashboard);
 		this.splitEl.classList.toggle("ft-hidden", isDashboard);
-		this.tabBarEl.classList.toggle("ft-hidden", isDashboard);
-		this.topBarEl.classList.toggle("ft-hidden", isDashboard);
 
 		if (!isDashboard) {
 			const tabs = this.getTabDefinitions();
 			const tab = tabs.find((t) => t.id === page);
-			this.topBarTitleEl.textContent = `${this.getHubDisplayName()} - ${tab?.label ?? page}`;
+			this.topBarTitleEl.textContent = `${this.getHubDisplayName()} — ${tab?.label ?? page}`;
 			this.searchInput.placeholder = tab?.searchPlaceholder ?? "Search...";
-			// Show search header on non-dashboard tabs
 			this.searchInput.parentElement!.classList.remove("ft-hidden");
 		} else {
 			this.topBarTitleEl.textContent = this.getHubDisplayName();
+			// Hide search on dashboard
+			this.searchInput.parentElement!.classList.add("ft-hidden");
 		}
 
 		// Emit tab change event
@@ -371,7 +370,9 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 	/** Re-render the tab bar (e.g. after active tab changes). Delegates to WorkspaceShell. */
 	protected renderTabBar(): void {
 		if (this.shell) {
-			this.shell.renderTabBar(this.getTabDefinitions(), String(this.activePage), (tabId) => {
+			const dashboardTab: TabDef = { id: "dashboard", label: "Dashboard", icon: "layout-dashboard", searchPlaceholder: "" };
+			const allTabs = [dashboardTab, ...this.getTabDefinitions()];
+			this.shell.renderTabBar(allTabs, String(this.activePage), (tabId) => {
 				this.navigateTo(tabId as TPage);
 				this.renderTabBar();
 			});

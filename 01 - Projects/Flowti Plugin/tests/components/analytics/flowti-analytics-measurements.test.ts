@@ -98,7 +98,7 @@ describe("flowti-analytics-measurements", () => {
 		const shadow = el.shadowRoot!;
 		const item = shadow.querySelector(".measurement-item") as HTMLElement;
 		item.click();
-		expect(detail).toEqual({ id: "m1", name: "Total Revenue" });
+		expect(detail).toEqual({ measurementId: "m1", name: "Total Revenue" });
 	});
 
 	it("dispatches create event on create button click", async () => {
@@ -127,6 +127,6 @@ describe("flowti-analytics-measurements", () => {
 		const deleteBtn = shadow.querySelector("[data-action='delete']") as HTMLButtonElement;
 		expect(deleteBtn).not.toBeNull();
 		deleteBtn.click();
-		expect(detail).toEqual({ id: "m1" });
+		expect(detail).toEqual({ measurementId: "m1" });
 	});
 });

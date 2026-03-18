@@ -11,6 +11,11 @@ import type { IEventBus } from "../events/types";
 import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/train/flowti-train-dashboard.js";
+import "../../components/train/flowti-train-active.js";
+import "../../components/train/flowti-train-history.js";
+
 export interface TrainHandlerDeps {
 	trainService: {
 		getAllTrains: () => readonly unknown[];
@@ -51,6 +56,13 @@ export function registerTrainHandlers(
 		el.addEventListener("start-train", () => {
 			void deps.eventBus.emit("ui.startTrain", {});
 		});
+		el.addEventListener("open-train", ((e: CustomEvent) => {
+			deps.openTrainView((e.detail as { trainId: string }).trainId);
+		}) as EventListener);
+		el.addEventListener("navigate-to-tab", ((e: CustomEvent) => {
+			const { tabId } = e.detail as { tabId: string };
+			void deps.eventBus.emit("ui.navigateTab", { viewId: "flowti-train-hub", tabId });
+		}) as EventListener);
 		container.appendChild(el);
 	});
 

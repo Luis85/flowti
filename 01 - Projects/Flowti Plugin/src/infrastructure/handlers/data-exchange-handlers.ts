@@ -11,6 +11,17 @@ import type { IEventBus } from "../events/types";
 import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/dx/flowti-dx-dashboard.js";
+import "../../components/dx/flowti-dx-imports.js";
+import "../../components/dx/flowti-dx-exports.js";
+import "../../components/dx/flowti-dx-pipelines.js";
+import "../../components/dx/flowti-dx-types.js";
+import "../../components/dx/flowti-dx-properties.js";
+import "../../components/dx/flowti-dx-signals.js";
+import "../../components/dx/flowti-dx-reports.js";
+import "../../components/dx/flowti-dx-canvas.js";
+
 interface ActiveOperation {
 	operationId: string;
 	type: string;
@@ -50,7 +61,7 @@ export function registerDataExchangeHandlers(
 ): void {
 	// ── Dashboard handler ─────────────────────────────────
 
-	registry.registerTabHandler("dx:dashboard", (container: HTMLElement) => {
+	const dxDashboardHandler = (container: HTMLElement) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-dx-dashboard");
 		const activeOps = deps.operationTracker.getActiveOperations();
@@ -58,8 +69,13 @@ export function registerDataExchangeHandlers(
 		el.addEventListener("open-pipelines", () => {
 			void deps.eventBus.emit("ui.navigateTab", { viewId: "data-exchange-hub", tabId: "pipelines" });
 		});
+		el.addEventListener("navigate-tab", ((e: CustomEvent<{ tabId: string }>) => {
+			void deps.eventBus.emit("ui.navigateTab", { viewId: "data-exchange-hub", tabId: e.detail.tabId });
+		}) as EventListener);
 		container.appendChild(el);
-	});
+	};
+	registry.registerTabHandler("dx:dashboard", dxDashboardHandler);
+	registry.registerTabHandler("data-exchange:dashboard", dxDashboardHandler);
 
 	// ── Imports handler ───────────────────────────────────
 
@@ -69,6 +85,9 @@ export function registerDataExchangeHandlers(
 		const imports = deps.dataExchangeService.getSavedImportConfigs();
 		setProps(el, { imports });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-import", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectImport", e.detail as FlowtiEventMap["ui.selectImport"]);
+		}) as EventListener);
 		el.addEventListener("run-import", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.runImport", e.detail as FlowtiEventMap["ui.runImport"]);
 		}) as EventListener);
@@ -92,6 +111,9 @@ export function registerDataExchangeHandlers(
 		const exports = deps.dataExchangeService.getSavedExportConfigs();
 		setProps(el, { exports });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-export", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectExport", e.detail as FlowtiEventMap["ui.selectExport"]);
+		}) as EventListener);
 		el.addEventListener("run-export", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.runExport", e.detail as FlowtiEventMap["ui.runExport"]);
 		}) as EventListener);
@@ -143,10 +165,45 @@ export function registerDataExchangeHandlers(
 	registry.registerTabHandler("dx:types", (container: HTMLElement, ctx: TabContext) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-dx-types");
-		// Types are passed in as empty by default — the handler can be enriched later
-		// when the service provides type scanning
-		setProps(el, { types: [] });
+		// Derive types from saved import/export/pipeline configs' noteType fields
+		const imports = deps.dataExchangeService.getSavedImportConfigs() as Array<{ noteType?: string; name: string }>;
+		const exports = deps.dataExchangeService.getSavedExportConfigs() as Array<{ noteType?: string; name: string }>;
+		const pipelines = deps.dataExchangeService.getSavedPipelines() as Array<{ noteType?: string; name: string }>;
+		const typeMap = new Map<string, { name: string; pipelineCount: number; properties: string[] }>();
+		for (const cfg of [...imports, ...exports, ...pipelines]) {
+			if (cfg.noteType) {
+				const existing = typeMap.get(cfg.noteType);
+				if (existing) {
+					existing.pipelineCount++;
+				} else {
+					typeMap.set(cfg.noteType, { name: cfg.noteType, pipelineCount: 1, properties: [] });
+				}
+			}
+		}
+		// Enrich with property data from the data dictionary
+		const dictionary = deps.dataExchangeService.buildDataDictionary() as Array<{
+			propertyName: string; noteTypes?: string[];
+		}>;
+		for (const entry of dictionary) {
+			if (entry.noteTypes) {
+				for (const nt of entry.noteTypes) {
+					const t = typeMap.get(nt);
+					if (t) t.properties.push(entry.propertyName);
+				}
+			}
+		}
+		const types = [...typeMap.values()].map((t) => ({
+			name: t.name,
+			description: `Used in ${t.pipelineCount} config${t.pipelineCount !== 1 ? "s" : ""}`,
+			properties: t.properties,
+			filePath: deps.dataExchangeService.getTypesFolderPath() + "/" + t.name + ".md",
+			pipelineCount: t.pipelineCount,
+		}));
+		setProps(el, { types });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-type", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectType", e.detail as FlowtiEventMap["ui.selectType"]);
+		}) as EventListener);
 		el.addEventListener("open-type", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.openFile", { filePath: (e.detail as { filePath: string }).filePath });
 		}) as EventListener);
@@ -169,6 +226,9 @@ export function registerDataExchangeHandlers(
 		}));
 		setProps(el, { properties });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-property", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectProperty", e.detail as FlowtiEventMap["ui.selectProperty"]);
+		}) as EventListener);
 		el.addEventListener("open-property-doc", ((e: CustomEvent) => {
 			const propName = (e.detail as { propertyName: string }).propertyName;
 			const docPath = deps.dataExchangeService.getPropertyDocPath(propName);
@@ -202,9 +262,13 @@ export function registerDataExchangeHandlers(
 	registry.registerTabHandler("dx:reports", (container: HTMLElement, ctx: TabContext) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-dx-reports");
-		// Reports are populated from scanning — start empty, enriched by refresh
-		setProps(el, { reports: [] });
+		// Reports require vault-level file scanning (not yet available via handler deps).
+		// The full Data Exchange Hub view provides scanning; this handler shows guidance.
+		setProps(el, { reports: [], emptyHint: "Reports are available in the full Data Exchange Hub view, which scans CSV files from your vault." });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-report", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectReport", e.detail as FlowtiEventMap["ui.selectReport"]);
+		}) as EventListener);
 		el.addEventListener("open-report", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.openFile", { filePath: (e.detail as { reportPath: string }).reportPath });
 		}) as EventListener);
@@ -219,6 +283,9 @@ export function registerDataExchangeHandlers(
 		const canvases = deps.canvasService?.getConfigs() ?? [];
 		setProps(el, { canvases });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-canvas", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectCanvas", e.detail as FlowtiEventMap["ui.selectCanvas"]);
+		}) as EventListener);
 		el.addEventListener("run-canvas", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.runCanvasImport", e.detail as FlowtiEventMap["ui.runCanvasImport"]);
 		}) as EventListener);

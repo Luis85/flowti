@@ -78,6 +78,7 @@ import { registerActionHandlers } from "./infrastructure/handlers/action-handler
 import { registerTestManagementHandlers, type TestManagementHandlerDeps } from "./infrastructure/handlers/test-management-handlers";
 import { registerTrainHandlers } from "./infrastructure/handlers/train-handlers";
 import { registerCatalogHandlers } from "./infrastructure/handlers/catalog-handlers";
+import { EVENT_CATALOG, type EventCatalogEntry } from "./infrastructure/events/catalog";
 import { registerDataExchangeHandlers } from "./infrastructure/handlers/data-exchange-handlers";
 import { registerAnalyticsHandlers } from "./infrastructure/handlers/analytics-handlers";
 import { registerTrainTimelineHandler } from "./infrastructure/handlers/leaf-handlers/train-timeline-handler";
@@ -86,7 +87,7 @@ import { registerCanvasImportHandler } from "./infrastructure/handlers/leaf-hand
 import { registerExportHandler } from "./infrastructure/handlers/leaf-handlers/export-handler";
 import { registerSessionWorkspaceHandler } from "./infrastructure/handlers/leaf-handlers/session-workspace-handler";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
-import pluginSitemap from "../plugin-sitemap.json";
+import pluginSitemap from "../configs/sitemap.json";
 import type { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 
 
@@ -271,12 +272,12 @@ export default class FlowtiBasePlugin extends Plugin {
 						getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
 						getExcludedTypes: () => this.eventFilterService?.getExcludedTypes() ?? [],
 						getNotifiedTypes: () => this.eventNotifyService?.getNotifiedTypes() ?? [],
-						getDomainEntries: () => [],
-						getServiceEntries: () => [],
+						getDomainEntries: () => this.buildScannerEntities("domain"),
+						getServiceEntries: () => this.buildScannerEntities("services"),
 						getFlowEntries: () => [],
 						getSystemEntries: () => [],
 						getActorEntries: () => [],
-						getCategories: () => [],
+						getCategories: () => this.settings.catalogCategories,
 					},
 					eventBus: this.eventBus,
 				});
@@ -358,6 +359,9 @@ export default class FlowtiBasePlugin extends Plugin {
 					},
 					commandRegistry: {
 						getCommandsMeta: () => this.commands?.getCommandsMeta() ?? [],
+					},
+					settingsProvider: {
+						getSettings: () => this.settings,
 					},
 					eventBus: this.eventBus,
 				});
@@ -1197,6 +1201,46 @@ export default class FlowtiBasePlugin extends Plugin {
 		);
 
 		return settingsService;
+	}
+
+	/**
+	 * Builds ScannerEntity entries for Lit entity-scanner components by
+	 * extracting unique values from EVENT_CATALOG + discovered events.
+	 *
+	 * Supports "domain" and "services" fields (derived from catalog metadata).
+	 * "flow", "system", and "actor" entities require vault folder scanning
+	 * and return empty arrays here.
+	 */
+	private buildScannerEntities(field: "domain" | "services"): readonly { id: string; name: string; description: string; count: number }[] {
+
+		const discovered = this.discoveryService?.getDiscoveredEvents() ?? [];
+		const discoveredEntries: EventCatalogEntry[] = discovered.map((d) => ({
+			type: d.eventName,
+			category: d.category ?? "Uncategorized",
+			description: `Custom event (triggered ${d.triggerCount}x)`,
+			direction: "User \u2192 EventBus",
+			domain: "custom",
+			services: "Discovery",
+			stability: "experimental" as const,
+			visibility: "user-facing" as const,
+			tags: [],
+		}));
+		const allEntries = [...EVENT_CATALOG, ...discoveredEntries];
+
+		const grouped = new Map<string, number>();
+		for (const entry of allEntries) {
+			const key = entry[field] as string;
+			if (key) grouped.set(key, (grouped.get(key) ?? 0) + 1);
+		}
+
+		return Array.from(grouped.entries())
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([name, count]) => ({
+				id: name,
+				name,
+				description: `${count} event${count === 1 ? "" : "s"} in this ${field === "services" ? "service" : field}`,
+				count,
+			}));
 	}
 
 	/**

@@ -11,6 +11,10 @@ import type { IEventBus } from "../events/types";
 import type { EventType, FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/catalog/flowti-catalog-events.js";
+import "../../components/catalog/flowti-entity-scanner.js";
+
 export interface CatalogViewStateProvider {
 	getDiscoveredEvents: () => readonly unknown[];
 	getExcludedTypes: () => string[];
@@ -34,7 +38,9 @@ export function registerCatalogHandlers(
 ): void {
 	// ── Events handler ───────────────────────────────────────
 
-	registry.registerTabHandler("catalog:events", (container: HTMLElement, ctx: TabContext) => {
+	const collapsedCategories = new Set<string>();
+
+	const eventsHandler = (container: HTMLElement, ctx: TabContext) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-catalog-events");
 		const events = deps.viewState.getDiscoveredEvents();
@@ -49,8 +55,33 @@ export function registerCatalogHandlers(
 			categories,
 		});
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+
+		el.addEventListener("toggle-category", ((e: CustomEvent<{ category: string; collapsed: boolean }>) => {
+			if (e.detail.collapsed) {
+				collapsedCategories.add(e.detail.category);
+			} else {
+				collapsedCategories.delete(e.detail.category);
+			}
+			const eventType = "settings.updateCollapsedCategories" as EventType;
+			void deps.eventBus.emit(eventType, {
+				collapsed: [...collapsedCategories],
+			} as FlowtiEventMap[typeof eventType]);
+		}) as EventListener);
+
+		el.addEventListener("toggle-setting", (() => {
+			// Settings panel toggle is UI-local state managed by the Lit component.
+			// No service-level persistence needed; listener wired to acknowledge the event.
+		}) as EventListener);
+
+		el.addEventListener("select-event", ((e: CustomEvent) => {
+			const eventType = "catalog.event.selected" as EventType;
+			void deps.eventBus.emit(eventType, e.detail as FlowtiEventMap[typeof eventType]);
+		}) as EventListener);
+
 		container.appendChild(el);
-	});
+	};
+	registry.registerTabHandler("catalog:events", eventsHandler);
+	registry.registerTabHandler("event-catalog:dashboard", eventsHandler);
 
 	// ── Entity scanner handlers (shared pattern) ─────────────
 

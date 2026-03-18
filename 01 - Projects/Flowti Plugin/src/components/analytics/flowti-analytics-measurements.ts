@@ -24,9 +24,9 @@ interface MeasurementData {
  * @property selectedId - ID of the currently selected measurement
  * @property searchText - External search filter text
  *
- * @fires measurement-selected - detail: { id, name } when an item is clicked
+ * @fires measurement-selected - detail: { measurementId, name } when an item is clicked
  * @fires create - When the create button is clicked
- * @fires delete - detail: { id } when delete is clicked
+ * @fires delete - detail: { measurementId } when delete is clicked
  */
 export class FlowtiAnalyticsMeasurements extends FlowtiElement {
 	static properties = {
@@ -197,7 +197,7 @@ export class FlowtiAnalyticsMeasurements extends FlowtiElement {
 		this.selectedId = m.id;
 		this.dispatchEvent(
 			new CustomEvent("measurement-selected", {
-				detail: { id: m.id, name: m.name },
+				detail: { measurementId: m.id, name: m.name },
 				bubbles: true,
 				composed: true,
 			}),
@@ -213,7 +213,7 @@ export class FlowtiAnalyticsMeasurements extends FlowtiElement {
 	private dispatchDelete(id: string): void {
 		this.dispatchEvent(
 			new CustomEvent("delete", {
-				detail: { id },
+				detail: { measurementId: id },
 				bubbles: true,
 				composed: true,
 			}),
@@ -296,4 +296,4 @@ export class FlowtiAnalyticsMeasurements extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-analytics-measurements', FlowtiAnalyticsMeasurements);
+if (!customElements.get('flowti-analytics-measurements')) customElements.define('flowti-analytics-measurements', FlowtiAnalyticsMeasurements);

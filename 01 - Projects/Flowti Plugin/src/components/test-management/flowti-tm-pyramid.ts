@@ -325,4 +325,4 @@ export class FlowtiTmPyramid extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-tm-pyramid', FlowtiTmPyramid);
+if (!customElements.get('flowti-tm-pyramid')) customElements.define('flowti-tm-pyramid', FlowtiTmPyramid);

@@ -114,8 +114,8 @@ describe("registerAnalyticsHandlers", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("analytics:dashboards")!(container, { tabId: "dashboards", viewId: "analytics-hub", eventBus });
 			const el = container.querySelector("flowti-analytics-dashboard")!;
-			el.dispatchEvent(new CustomEvent("rename-dashboard", { detail: { name: "New Name" }, bubbles: true }));
-			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.renameDashboard", { name: "New Name" });
+			el.dispatchEvent(new CustomEvent("rename-dashboard", { detail: { dashboardId: "d1", name: "New Name" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.renameDashboard", { dashboardId: "d1", name: "New Name" });
 		});
 	});
 
@@ -143,12 +143,20 @@ describe("registerAnalyticsHandlers", () => {
 			expect(el.searchText).toBe("revenue");
 		});
 
+		it("wires select-query event to eventBus.emit", () => {
+			const container = document.createElement("div");
+			registry.getTabHandler("analytics:queries")!(container, { tabId: "queries", viewId: "analytics-hub", eventBus });
+			const el = container.querySelector("flowti-analytics-queries")!;
+			el.dispatchEvent(new CustomEvent("select-query", { detail: { queryId: "q1" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.selectQuery", { queryId: "q1" });
+		});
+
 		it("wires run-query event to eventBus.emit", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("analytics:queries")!(container, { tabId: "queries", viewId: "analytics-hub", eventBus });
 			const el = container.querySelector("flowti-analytics-queries")!;
-			el.dispatchEvent(new CustomEvent("run-query", { bubbles: true }));
-			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.runQuery", {});
+			el.dispatchEvent(new CustomEvent("run-query", { detail: { queryId: "q1" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.runQuery", { queryId: "q1" });
 		});
 
 		it("wires save-query event to eventBus.emit", () => {
@@ -196,8 +204,8 @@ describe("registerAnalyticsHandlers", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("analytics:measurements")!(container, { tabId: "measurements", viewId: "analytics-hub", eventBus });
 			const el = container.querySelector("flowti-analytics-measurements")!;
-			el.dispatchEvent(new CustomEvent("measurement-selected", { detail: { id: "m1", name: "Revenue" }, bubbles: true }));
-			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.measurementSelected", { id: "m1", name: "Revenue" });
+			el.dispatchEvent(new CustomEvent("measurement-selected", { detail: { measurementId: "m1", name: "Revenue" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.measurementSelected", { measurementId: "m1", name: "Revenue" });
 		});
 
 		it("wires create event to eventBus.emit", () => {
@@ -212,8 +220,8 @@ describe("registerAnalyticsHandlers", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("analytics:measurements")!(container, { tabId: "measurements", viewId: "analytics-hub", eventBus });
 			const el = container.querySelector("flowti-analytics-measurements")!;
-			el.dispatchEvent(new CustomEvent("delete", { detail: { id: "m1" }, bubbles: true }));
-			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.deleteMeasurement", { id: "m1" });
+			el.dispatchEvent(new CustomEvent("delete", { detail: { measurementId: "m1" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("analytics.ui.deleteMeasurement", { measurementId: "m1" });
 		});
 	});
 });

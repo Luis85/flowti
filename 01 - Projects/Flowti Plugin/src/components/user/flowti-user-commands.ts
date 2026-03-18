@@ -139,4 +139,4 @@ export class FlowtiUserCommands extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-user-commands', FlowtiUserCommands);
+if (!customElements.get('flowti-user-commands')) customElements.define('flowti-user-commands', FlowtiUserCommands);
