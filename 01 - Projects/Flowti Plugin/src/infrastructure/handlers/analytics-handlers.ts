@@ -16,6 +16,8 @@ import "../../components/analytics/flowti-analytics-dashboard.js";
 import "../../components/analytics/flowti-analytics-tile.js";
 import "../../components/analytics/flowti-analytics-queries.js";
 import "../../components/analytics/flowti-analytics-measurements.js";
+import "../../components/analytics/flowti-query-editor.js";
+import "../../components/analytics/flowti-query-results.js";
 
 /** Shape of an analytics result returned by runSavedQuery. */
 interface AnalyticsResultShape {
@@ -168,6 +170,15 @@ export function registerAnalyticsHandlers(
 		}) as EventListener);
 		el.addEventListener("delete-query", ((e: CustomEvent) => {
 			void deps.eventBus.emit("analytics.ui.deleteQuery", e.detail as FlowtiEventMap["analytics.ui.deleteQuery"]);
+		}) as EventListener);
+		el.addEventListener("new-query", ((e: CustomEvent) => {
+			void deps.eventBus.emit("analytics.ui.selectQuery", { queryId: "" } as FlowtiEventMap["analytics.ui.selectQuery"]);
+		}) as EventListener);
+		el.addEventListener("export-csv", ((e: CustomEvent) => {
+			const detail = e.detail as { queryId: string };
+			if (detail.queryId) {
+				void deps.analyticsService.runSavedQuery(detail.queryId);
+			}
 		}) as EventListener);
 
 		container.appendChild(el);
