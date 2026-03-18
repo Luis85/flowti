@@ -51,7 +51,7 @@ describe("flowti-dx-dashboard", () => {
 		const shadow = el.shadowRoot!;
 		const empty = shadow.querySelector(".empty-state");
 		expect(empty).not.toBeNull();
-		expect(empty!.textContent).toContain("No active operations");
+		expect(empty!.textContent).toContain("No operations running");
 	});
 
 	it("renders operation cards when ops exist", async () => {

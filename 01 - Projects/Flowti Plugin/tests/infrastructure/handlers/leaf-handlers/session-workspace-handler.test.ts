@@ -6,74 +6,12 @@ import { PluginHandlerRegistry } from "../../../../src/infrastructure/handlers/p
 import type { IEventBus } from "../../../../src/infrastructure/events/types";
 import type { Session } from "../../../../src/domain/session/types";
 
-// ── Mock all panel components (render stubs) ──────────────────
+// ── Mock Lit component side-effect import ────────────────────
+// The handler imports flowti-session-workspace.js as side-effect;
+// in happy-dom custom elements from Lit don't register, so
+// document.createElement returns a plain HTMLElement — which is
+// fine for our property-based assertions.
 
-const panelMocks = {
-	timerPanel: { render: vi.fn(), destroy: vi.fn() },
-	goalsPanel: { render: vi.fn(), refreshGoals: vi.fn() },
-	executionPanel: { render: vi.fn(), refreshTasks: vi.fn() },
-	notesPanel: { render: vi.fn(), updateNotes: vi.fn(), destroy: vi.fn() },
-	contextPanel: { render: vi.fn() },
-	activityPanel: { render: vi.fn(), refreshList: vi.fn() },
-	guidingPanel: { render: vi.fn() },
-	decisionPanel: { render: vi.fn(), refreshList: vi.fn() },
-	reflectionPanel: { render: vi.fn(), refreshList: vi.fn() },
-	outputPanel: { render: vi.fn(), refreshList: vi.fn() },
-	energyPanel: { render: vi.fn(), refreshEnergy: vi.fn() },
-	overloadAlert: { render: vi.fn(), refreshAlert: vi.fn() },
-	intelligencePanel: { render: vi.fn(), refreshStats: vi.fn() },
-	closureOverlay: { render: vi.fn() },
-	trainClosurePanel: { render: vi.fn() },
-};
-
-vi.mock("../../../../src/ui/session/SessionTimerPanel", () => ({
-	SessionTimerPanel: class { render = panelMocks.timerPanel.render; destroy = panelMocks.timerPanel.destroy; },
-}));
-vi.mock("../../../../src/ui/session/SessionGoalsPanel", () => ({
-	SessionGoalsPanel: class { render = panelMocks.goalsPanel.render; refreshGoals = panelMocks.goalsPanel.refreshGoals; },
-}));
-vi.mock("../../../../src/ui/session/SessionExecutionPanel", () => ({
-	SessionExecutionPanel: class { render = panelMocks.executionPanel.render; refreshTasks = panelMocks.executionPanel.refreshTasks; },
-}));
-vi.mock("../../../../src/ui/session/SessionNotesPanel", () => ({
-	SessionNotesPanel: class { render = panelMocks.notesPanel.render; updateNotes = panelMocks.notesPanel.updateNotes; destroy = panelMocks.notesPanel.destroy; },
-}));
-vi.mock("../../../../src/ui/session/SessionContextPanel", () => ({
-	SessionContextPanel: class { render = panelMocks.contextPanel.render; },
-}));
-vi.mock("../../../../src/ui/session/SessionActivityPanel", () => ({
-	SessionActivityPanel: class { render = panelMocks.activityPanel.render; refreshList = panelMocks.activityPanel.refreshList; },
-}));
-vi.mock("../../../../src/ui/session/SessionGuidingQuestions", () => ({
-	SessionGuidingQuestions: class { render = panelMocks.guidingPanel.render; },
-}));
-vi.mock("../../../../src/ui/session/SessionDecisionPanel", () => ({
-	SessionDecisionPanel: class { render = panelMocks.decisionPanel.render; refreshList = panelMocks.decisionPanel.refreshList; },
-}));
-vi.mock("../../../../src/ui/session/SessionReflectionPanel", () => ({
-	SessionReflectionPanel: class { render = panelMocks.reflectionPanel.render; refreshList = panelMocks.reflectionPanel.refreshList; },
-}));
-vi.mock("../../../../src/ui/session/SessionOutputPanel", () => ({
-	SessionOutputPanel: class { render = panelMocks.outputPanel.render; refreshList = panelMocks.outputPanel.refreshList; },
-}));
-vi.mock("../../../../src/ui/session/SessionEnergyIndicator", () => ({
-	SessionEnergyIndicator: class { render = panelMocks.energyPanel.render; refreshEnergy = panelMocks.energyPanel.refreshEnergy; },
-}));
-vi.mock("../../../../src/ui/session/CognitiveLoadAlert", () => ({
-	CognitiveLoadAlert: class { render = panelMocks.overloadAlert.render; refreshAlert = panelMocks.overloadAlert.refreshAlert; },
-}));
-vi.mock("../../../../src/ui/session/SessionActivityIntelligencePanel", () => ({
-	SessionActivityIntelligencePanel: class { render = panelMocks.intelligencePanel.render; refreshStats = panelMocks.intelligencePanel.refreshStats; },
-}));
-vi.mock("../../../../src/ui/session/SessionClosureOverlay", () => ({
-	SessionClosureOverlay: class { render = panelMocks.closureOverlay.render; },
-}));
-vi.mock("../../../../src/ui/session/TrainClosurePanel", () => ({
-	TrainClosurePanel: class { render = panelMocks.trainClosurePanel.render; },
-}));
-vi.mock("../../../../src/ui/session/SessionWorkspaceSubscriptions", () => ({
-	setupEventSubscriptions: vi.fn(() => [vi.fn()]),
-}));
 vi.mock("../../../../src/ui/session/SessionWorkspaceHelpers", () => ({
 	getStatusClass: vi.fn((s: string) => s),
 	captureWorkspaceState: vi.fn(),
@@ -110,21 +48,27 @@ function createSession(overrides: Partial<Session> = {}): Session {
 		completedAt: null,
 		durationMinutes: 25,
 		goals: [],
-		tasks: [],
+		executionTasks: [],
 		notes: "",
-		activities: [],
+		activity: [],
 		decisions: [],
 		reflections: [],
-		outputs: [],
+		outputArtifacts: [],
 		focusFile: null,
 		notesFile: null,
 		canvasFile: null,
 		closureResponse: null,
-		energyStart: null,
-		energyEnd: null,
-		activityFilter: { types: [], minDuration: 0 },
-		tags: [],
+		energy: null,
+		activityFilter: [],
 		pausedAt: null,
+		elapsedBeforePauseMs: 0,
+		artifacts: [],
+		timeline: [],
+		links: [],
+		contextBindings: [],
+		workspaceState: null,
+		featureName: null,
+		intent: null,
 		...overrides,
 	} as Session;
 }
@@ -137,7 +81,7 @@ function createMockSessionService(session: Session | null = null) {
 		completeClosure: vi.fn().mockResolvedValue(undefined),
 		skipClosure: vi.fn().mockResolvedValue(undefined),
 		updateActivityFilter: vi.fn(),
-		globalActivityFilter: { types: [], minDuration: 0 },
+		globalActivityFilter: [] as string[],
 	};
 }
 
@@ -174,6 +118,11 @@ function createCtx(eventBus: IEventBus) {
 	};
 }
 
+/** Helper to get the Lit workspace element from the container. */
+function getWorkspaceEl(container: HTMLElement): HTMLElement & Record<string, unknown> {
+	return container.querySelector("flowti-session-workspace") as HTMLElement & Record<string, unknown>;
+}
+
 // ── Tests ─────────────────────────────────────────────────────
 
 describe("registerSessionWorkspaceHandler", () => {
@@ -190,7 +139,7 @@ describe("registerSessionWorkspaceHandler", () => {
 	});
 
 	describe("empty state (no session)", () => {
-		it("renders empty state when no active session", () => {
+		it("creates workspace element with empty sessionId when no active session", () => {
 			const deps = createDeps({
 				sessionService: createMockSessionService(null) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
 			});
@@ -199,12 +148,12 @@ describe("registerSessionWorkspaceHandler", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			const empty = container.querySelector(".ft-session-workspace-empty");
-			expect(empty).not.toBeNull();
-			expect(empty!.querySelector(".ft-text-lg")?.textContent).toBe("No session selected");
+			const workspace = getWorkspaceEl(container);
+			expect(workspace).not.toBeNull();
+			expect(workspace.sessionId).toBe("");
 		});
 
-		it("does not render any panels when no session", () => {
+		it("creates workspace element even when no session", () => {
 			const deps = createDeps({
 				sessionService: createMockSessionService(null) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
 			});
@@ -213,9 +162,8 @@ describe("registerSessionWorkspaceHandler", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(panelMocks.goalsPanel.render).not.toHaveBeenCalled();
-			expect(panelMocks.executionPanel.render).not.toHaveBeenCalled();
-			expect(panelMocks.notesPanel.render).not.toHaveBeenCalled();
+			// The Lit component is always appended — it handles empty state internally
+			expect(getWorkspaceEl(container)).not.toBeNull();
 		});
 	});
 
@@ -230,60 +178,51 @@ describe("registerSessionWorkspaceHandler", () => {
 			expect(container.classList.contains("ft-session-workspace")).toBe(true);
 		});
 
-		it("renders header with session title and type badge", () => {
+		it("sets session title on workspace element", () => {
 			const deps = createDeps();
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			const header = container.querySelector(".ft-session-workspace-header");
-			expect(header).not.toBeNull();
-			expect(header!.querySelector("h4")?.textContent).toBe("Test Session");
-			expect(header!.querySelector(".ft-session-type-badge")).not.toBeNull();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.sessionTitle).toBe("Test Session");
 		});
 
-		it("renders status badge in header", () => {
+		it("sets session type on workspace element", () => {
 			const deps = createDeps();
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			const statusBadge = container.querySelector(".ft-session-status-badge");
-			expect(statusBadge).not.toBeNull();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.sessionType).toBe("focused");
 		});
 
-		it("renders core panels for active session", () => {
+		it("sets session status on workspace element", () => {
 			const deps = createDeps();
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(panelMocks.energyPanel.render).toHaveBeenCalled();
-			expect(panelMocks.intelligencePanel.render).toHaveBeenCalled();
-			expect(panelMocks.goalsPanel.render).toHaveBeenCalled();
-			expect(panelMocks.executionPanel.render).toHaveBeenCalled();
-			expect(panelMocks.overloadAlert.render).toHaveBeenCalled();
-			expect(panelMocks.notesPanel.render).toHaveBeenCalled();
-			expect(panelMocks.contextPanel.render).toHaveBeenCalled();
-			expect(panelMocks.decisionPanel.render).toHaveBeenCalled();
-			expect(panelMocks.reflectionPanel.render).toHaveBeenCalled();
-			expect(panelMocks.activityPanel.render).toHaveBeenCalled();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.sessionStatus).toBe("active");
 		});
 
-		it("renders timer panel when session has duration", () => {
+		it("sets duration on workspace element", () => {
 			const deps = createDeps();
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(panelMocks.timerPanel.render).toHaveBeenCalled();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.durationMinutes).toBe(25);
 		});
 
-		it("skips timer panel for untimed sessions", () => {
+		it("sets zero duration for untimed sessions", () => {
 			const session = createSession({ durationMinutes: 0 });
 			const deps = createDeps({
 				sessionService: createMockSessionService(session) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
@@ -293,20 +232,23 @@ describe("registerSessionWorkspaceHandler", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(panelMocks.timerPanel.render).not.toHaveBeenCalled();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.durationMinutes).toBe(0);
 		});
 
-		it("renders guiding questions for active sessions", () => {
+		it("sets guiding questions for active sessions", () => {
 			const deps = createDeps();
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(panelMocks.guidingPanel.render).toHaveBeenCalled();
+			const workspace = getWorkspaceEl(container);
+			// Active sessions receive guiding questions from type config
+			expect(Array.isArray(workspace.guidingQuestions)).toBe(true);
 		});
 
-		it("does not render guiding questions for completed sessions", () => {
+		it("sets empty guiding questions for completed sessions", () => {
 			const session = createSession({ status: "completed" });
 			const deps = createDeps({
 				sessionService: createMockSessionService(session) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
@@ -316,44 +258,24 @@ describe("registerSessionWorkspaceHandler", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(panelMocks.guidingPanel.render).not.toHaveBeenCalled();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.guidingQuestions).toEqual([]);
 		});
 	});
 
-	describe("action buttons", () => {
-		it("renders Pause and Complete for active sessions", () => {
+	describe("session status properties", () => {
+		it("sets isEditable true for active sessions", () => {
 			const deps = createDeps();
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			const actions = container.querySelector(".ft-session-workspace-actions");
-			expect(actions).not.toBeNull();
-			const buttons = actions!.querySelectorAll("button");
-			const labels = Array.from(buttons).map((b) => b.textContent?.trim());
-			expect(labels).toContain("Pause");
-			expect(labels).toContain("Complete");
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.isEditable).toBe(true);
 		});
 
-		it("renders Resume and Complete for paused sessions", () => {
-			const session = createSession({ status: "paused" });
-			const deps = createDeps({
-				sessionService: createMockSessionService(session) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
-			});
-			registerSessionWorkspaceHandler(registry, deps);
-
-			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
-
-			const actions = container.querySelector(".ft-session-workspace-actions");
-			const buttons = actions!.querySelectorAll("button");
-			const labels = Array.from(buttons).map((b) => b.textContent?.trim());
-			expect(labels).toContain("Resume");
-			expect(labels).toContain("Complete");
-		});
-
-		it("renders output panel for completed sessions", () => {
+		it("sets isEditable false for completed sessions", () => {
 			const session = createSession({ status: "completed" });
 			const deps = createDeps({
 				sessionService: createMockSessionService(session) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
@@ -363,12 +285,27 @@ describe("registerSessionWorkspaceHandler", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(panelMocks.outputPanel.render).toHaveBeenCalled();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.isEditable).toBe(false);
+		});
+
+		it("sets showOutputs true for completed sessions", () => {
+			const session = createSession({ status: "completed" });
+			const deps = createDeps({
+				sessionService: createMockSessionService(session) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
+			});
+			registerSessionWorkspaceHandler(registry, deps);
+
+			const container = document.createElement("div");
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
+
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.showOutputs).toBe(true);
 		});
 	});
 
 	describe("closure overlay", () => {
-		it("renders closure overlay for reviewing sessions", () => {
+		it("sets closure questions for reviewing sessions", () => {
 			const session = createSession({ status: "reviewing" as Session["status"] });
 			const deps = createDeps({
 				sessionService: createMockSessionService(session) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
@@ -378,22 +315,22 @@ describe("registerSessionWorkspaceHandler", () => {
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(panelMocks.closureOverlay.render).toHaveBeenCalled();
-			// Normal panels should NOT render when reviewing
-			expect(panelMocks.goalsPanel.render).not.toHaveBeenCalled();
+			const workspace = getWorkspaceEl(container);
+			expect(Array.isArray(workspace.closureQuestions)).toBe(true);
+			expect((workspace.closureQuestions as unknown[]).length).toBeGreaterThan(0);
 		});
 	});
 
 	describe("event subscriptions", () => {
-		it("sets up event subscriptions on init", async () => {
-			const { setupEventSubscriptions } = await import("../../../../src/ui/session/SessionWorkspaceSubscriptions");
+		it("sets up event subscriptions on init", () => {
 			const deps = createDeps();
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
 			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
-			expect(setupEventSubscriptions).toHaveBeenCalled();
+			// The handler registers EventBus listeners internally
+			expect(deps.eventBus.on).toHaveBeenCalled();
 		});
 	});
 

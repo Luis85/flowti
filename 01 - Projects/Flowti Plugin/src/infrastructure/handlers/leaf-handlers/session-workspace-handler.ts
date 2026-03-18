@@ -12,7 +12,7 @@
  * Helper functions:    SessionWorkspaceHelpers.ts
  */
 
-import type { App, WorkspaceLeaf } from "obsidian";
+import { FuzzySuggestModal, type App, type WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../events/types";
 import type { SessionService } from "../../../domain/session/SessionService";
 import type { TrainService } from "../../../domain/train/TrainService";
@@ -396,14 +396,14 @@ function createSessionWorkspace(
 		workspace.addEventListener("filter-add", ((e: CustomEvent) => {
 			if (session) {
 				const updated = [...session.activityFilter, e.detail.folder];
-				sessionService.updateActivityFilter(session.id, updated);
+				void sessionService.updateActivityFilter(session.id, updated);
 			}
 		}) as EventListener);
 
 		workspace.addEventListener("filter-remove", ((e: CustomEvent) => {
 			if (session) {
 				const updated = session.activityFilter.filter((f) => f !== e.detail.folder);
-				sessionService.updateActivityFilter(session.id, updated);
+				void sessionService.updateActivityFilter(session.id, updated);
 			}
 		}) as EventListener);
 
@@ -457,8 +457,6 @@ function createSessionWorkspace(
 			}
 			choices.sort((a, b) => a.path.localeCompare(b.path));
 
-			// Dynamic import to avoid top-level dependency on the modal
-			const { FuzzySuggestModal } = require("obsidian") as typeof import("obsidian");
 			class PickerModal extends FuzzySuggestModal<{ path: string; type: "file" | "folder" }> {
 				getItems() { return choices; }
 				getItemText(item: { path: string }) { return item.path; }

@@ -32,7 +32,7 @@ describe("flowti-dx-types", () => {
 		const shadow = el.shadowRoot!;
 		const empty = shadow.querySelector(".empty-state");
 		expect(empty).not.toBeNull();
-		expect(empty!.textContent).toContain("No type definitions found");
+		expect(empty!.textContent).toContain("No note types defined yet");
 	});
 
 	it("renders type list items", async () => {

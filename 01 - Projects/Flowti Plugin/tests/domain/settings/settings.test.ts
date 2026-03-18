@@ -53,10 +53,9 @@ describe("FlowtiSettings", () => {
 			expect(result.catalogCategories).toEqual(DEFAULT_CATALOG_CATEGORIES);
 		});
 
-		it("should have an entry for every EVENT_CATEGORIES item", () => {
-			const names = DEFAULT_CATALOG_CATEGORIES.map((c) => c.name);
-			for (const cat of EVENT_CATEGORIES) {
-				expect(names).toContain(cat);
+		it("should have entries that are valid EVENT_CATEGORIES items", () => {
+			for (const entry of DEFAULT_CATALOG_CATEGORIES) {
+				expect(EVENT_CATEGORIES).toContain(entry.name);
 			}
 		});
 

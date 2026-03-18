@@ -24,6 +24,7 @@ export class FlowtiDocumentMode extends FlowtiElement {
 		css`
 			:host {
 				display: block;
+				flex: 1;
 				overflow-y: auto;
 				padding: var(--flowti-space-sm);
 			}

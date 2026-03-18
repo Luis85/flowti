@@ -55,18 +55,18 @@ describe("WorkspaceShell", () => {
 			expect(els.topBarTitleEl.textContent).toBe("Event Catalog");
 		});
 
-		it("top bar starts hidden", () => {
+		it("top bar starts visible", () => {
 			const shell = new WorkspaceShell(makeConfig());
 			const els = shell.mount(wrapper);
 
-			expect(els.topBarEl.classList.contains("ft-hidden")).toBe(true);
+			expect(els.topBarEl.classList.contains("ft-hidden")).toBe(false);
 		});
 
-		it("tab bar starts hidden", () => {
+		it("tab bar starts visible", () => {
 			const shell = new WorkspaceShell(makeConfig());
 			const els = shell.mount(wrapper);
 
-			expect(els.tabBarEl.classList.contains("ft-hidden")).toBe(true);
+			expect(els.tabBarEl.classList.contains("ft-hidden")).toBe(false);
 		});
 
 		it("calls renderTopBarActions with bar element", () => {

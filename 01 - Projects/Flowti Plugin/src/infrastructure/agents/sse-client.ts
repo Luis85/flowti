@@ -12,7 +12,9 @@ export class SseClient {
 	private boundListeners = new Map<SseCallback, EventListener>();
 	private retryCount = 0;
 	private retryTimer: ReturnType<typeof setTimeout> | null = null;
-	private maxRetries = 10;
+	private maxRetries = 5;
+	/** True once a connection has succeeded at least once. */
+	private hasConnectedBefore = false;
 
 	constructor(url: string) {
 		this.url = url;
@@ -22,18 +24,23 @@ export class SseClient {
 		this.disconnect();
 		this.source = new EventSource(this.url);
 
+		this.source.onopen = () => {
+			this.hasConnectedBefore = true;
+			this.retryCount = 0;
+		};
+
 		this.source.onerror = () => {
 			this.source?.close();
 			this.source = null;
 			this.boundListeners.clear();
 			this.retryCount++;
-			if (this.retryCount <= this.maxRetries) {
+			// Only retry if the server was reachable before (reconnect scenario).
+			// On first connect failure, give up silently — server isn't running.
+			if (this.hasConnectedBefore && this.retryCount <= this.maxRetries) {
 				const delay = Math.min(1000 * 2 ** (this.retryCount - 1), 30000);
 				this.retryTimer = setTimeout(() => this.connect(), delay);
 			}
 		};
-
-		this.retryCount = 0;
 
 		for (const [type, callbacks] of this.listeners) {
 			for (const cb of callbacks) {

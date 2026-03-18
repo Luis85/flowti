@@ -6,15 +6,17 @@
 
 import { ItemView } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
-import type { IEventBus } from "../../infrastructure/events/types";
-import type { IAgentService } from "../../domain/agents/types";
-import type { IContextProvider } from "../../domain/agents/context-provider";
-import { VIEW_TYPE_AGENT_SIDEBAR } from "./types";
+import type { IEventBus } from "../../infrastructure/events/types.js";
+import type { IAgentService } from "../../domain/agents/types.js";
+import type { IContextProvider } from "../../domain/agents/context-provider.js";
+import type { LaunchResult } from "../../infrastructure/agents/server-launcher.js";
+import { VIEW_TYPE_AGENT_SIDEBAR } from "./types.js";
 
 export interface AgentSidepanelDeps {
 	readonly eventBus: IEventBus;
 	readonly agentService: IAgentService;
 	readonly contextProvider?: IContextProvider;
+	readonly startServer: () => Promise<LaunchResult>;
 }
 
 export class AgentSidepanelView extends ItemView {
@@ -31,7 +33,7 @@ export class AgentSidepanelView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Agent Panel";
+		return "Agent panel";
 	}
 
 	getIcon(): string {

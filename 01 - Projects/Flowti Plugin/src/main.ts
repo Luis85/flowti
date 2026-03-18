@@ -89,6 +89,8 @@ import { registerSessionWorkspaceHandler } from "./infrastructure/handlers/leaf-
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../configs/sitemap.json";
 import type { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
+import { setupAgentDomain, type AgentSetupResult } from "./bootstrap/agentSetup";
+import { VIEW_TYPE_AGENT_SIDEBAR } from "./ui/agents/types";
 
 
 /**  
@@ -171,6 +173,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private modalService?: ModalService;
 	private handlerRegistry?: PluginHandlerRegistry;
 	private installerServiceRef?: IInstallerService;
+	private agentSetup?: AgentSetupResult;
 
 	async onload() {
 		try {
@@ -382,6 +385,17 @@ export default class FlowtiBasePlugin extends Plugin {
 				bootstrap.validate();
 			}
 
+			// ── Agent domain — view, command, ribbon ──
+			this.agentSetup = setupAgentDomain({
+				plugin: this,
+				app: this.app,
+				eventBus: this.eventBus,
+			});
+
+			this.addRibbonIcon("bot", "Open agent panel", () => {
+				this.activateAgentPanel();
+			});
+
 			// Listen for execute requests from the Command Catalog UI
 			{
 				const ctx = this.createCommandContext();
@@ -461,10 +475,14 @@ export default class FlowtiBasePlugin extends Plugin {
 			"flowti-analytics-hub", "flowti-session-workspace",
 			"flowti-csv", "flowti-export", "flowti-canvas-import",
 			"flowti-journey-builder",
+			VIEW_TYPE_AGENT_SIDEBAR,
 		];
 		for (const type of viewTypes) {
 			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
 		}
+		safeDispose("agentSseClient", () => this.agentSetup?.sseClient.disconnect());
+		safeDispose("agentService", () => this.agentSetup?.agentService.disconnect());
+		safeDispose("agentContext", () => this.agentSetup?.contextProvider.dispose());
 		safeDispose("trainCanvasSync", () => this.trainCanvasSync?.destroy());
 		safeDispose("canvasSessionService", () => this.canvasSessionService?.dispose());
 		safeDispose("journeyBuilderService", () => this.journeyBuilderService?.stop());
@@ -658,6 +676,17 @@ export default class FlowtiBasePlugin extends Plugin {
 		};
 	}
 
+	/** Reveal existing agent panel leaf or create one in the right sidebar. */
+	private activateAgentPanel(): void {
+		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_SIDEBAR);
+		if (existing.length > 0) {
+			void this.app.workspace.revealLeaf(existing[0]);
+			return;
+		}
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (leaf) void leaf.setViewState({ type: VIEW_TYPE_AGENT_SIDEBAR, active: true });
+	}
+
 	private safeRegisterView(type: string, factory: ViewCreator): void {
 		try {
 			this.registerView(type, factory);
@@ -712,6 +741,9 @@ export default class FlowtiBasePlugin extends Plugin {
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
 			});
+
+			// Agent server connection — silent, non-blocking
+			this.agentSetup?.connectWhenReady();
 
 		} catch (error) {
 			const err = error instanceof Error ? error : new Error(String(error));

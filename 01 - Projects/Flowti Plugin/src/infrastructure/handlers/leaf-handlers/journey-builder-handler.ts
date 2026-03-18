@@ -395,7 +395,7 @@ export function registerJourneyBuilderHandler(
 			} else {
 				const empty = stepContainer.createDiv({ cls: "ft-jb-empty-state" });
 				empty.dataset.testId = "jb-empty-steps";
-				empty.textContent = "No steps yet. Click \"Add step\" to begin.";
+				empty.textContent = "No steps yet. Click \u201cadd step\u201d to begin.";
 			}
 
 			// JSONPanel

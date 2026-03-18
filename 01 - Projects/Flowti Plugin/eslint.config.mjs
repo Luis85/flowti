@@ -1,6 +1,7 @@
 // For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
 import storybook from "eslint-plugin-storybook";
 
+import { readFileSync } from "node:fs";
 import { defineConfig, globalIgnores } from "eslint/config";
 import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import globals from "globals";
@@ -19,8 +20,26 @@ const compat = new FlatCompat({
     allConfig: js.configs.all
 });
 
+// ── Read configurable thresholds from flowti.config.json ─────────────
+const DEFAULTS = { maxComplexity: 15, maxLines: 400 };
+
+function loadThresholds() {
+	try {
+		const raw = JSON.parse(readFileSync("configs/flowti.config.json", "utf-8"));
+		const t = raw?.devtools?.thresholds;
+		return {
+			maxComplexity: typeof t?.maxComplexity === "number" ? t.maxComplexity : DEFAULTS.maxComplexity,
+			maxLines: typeof t?.maxLines === "number" ? t.maxLines : DEFAULTS.maxLines,
+		};
+	} catch {
+		return DEFAULTS;
+	}
+}
+
+const thresholds = loadThresholds();
+
 export default defineConfig([
-    globalIgnores(["**/node_modules/", "**/main.js", "scripts/", "eslint.config.mjs", "esbuild.config.mjs", "split-css.mjs"]),
+    globalIgnores(["**/node_modules/", "**/main.js", "scripts/", "eslint.config.mjs", "esbuild.config.mjs", "split-css.mjs", "components/"]),
     {
         extends: compat.extends(
             "eslint:recommended",
@@ -48,6 +67,10 @@ export default defineConfig([
         },
 
         rules: {
+            // ── Code quality thresholds (from flowti.config.json) ─────────
+            complexity: ["warn", thresholds.maxComplexity],
+            "max-lines": ["warn", { max: thresholds.maxLines, skipBlankLines: true, skipComments: true }],
+
             "no-unused-vars": "off",
 
             "@typescript-eslint/no-unused-vars": ["error", {
@@ -109,5 +132,91 @@ export default defineConfig([
 
         ignores: ["node_modules/"],
     },
+
+    // ── Architecture enforcement: Domain purity ──────────────────────
+    // Domain is PURE business logic — must NEVER import infrastructure,
+    // UI, components, bootstrap, or Obsidian directly.
+    // Receives all deps via typed injection through EventBus/service interfaces.
+    {
+        files: ["src/domain/**/*.ts"],
+        rules: {
+            "no-restricted-imports": ["error", {
+                patterns: [{
+                    group: ["../infrastructure/*", "../infrastructure/**"],
+                    message: "Domain must not import infrastructure. Use dependency injection via typed interfaces.",
+                }, {
+                    group: ["../ui/*", "../ui/**", "../../ui/*", "../../ui/**"],
+                    message: "Domain must not import UI. Emit events via EventBus instead.",
+                }, {
+                    group: ["../components/*", "../components/**", "../../components/*", "../../components/**"],
+                    message: "Domain must not import components. Components consume domain types, not the reverse.",
+                }, {
+                    group: ["../bootstrap/*", "../bootstrap/**", "../../bootstrap/*", "../../bootstrap/**"],
+                    message: "Domain must not import bootstrap. Bootstrap wires domain, not the reverse.",
+                }],
+                paths: [{
+                    name: "obsidian",
+                    message: "Domain must not import Obsidian. Use EventBus abstractions instead.",
+                }],
+            }],
+        },
+    },
+
+    // ── Architecture enforcement: Component isolation ─────────────────
+    // Lit components are presentation-only — import from 'lit' and
+    // domain types only. Never reach into infrastructure or Obsidian.
+    {
+        files: ["src/components/**/*.ts"],
+        rules: {
+            "no-restricted-imports": ["error", {
+                patterns: [{
+                    group: ["../infrastructure/*", "../infrastructure/**", "../../infrastructure/*", "../../infrastructure/**"],
+                    message: "Components must not import infrastructure. Receive data via properties, emit via CustomEvent.",
+                }, {
+                    group: ["../ui/*", "../ui/**", "../../ui/*", "../../ui/**"],
+                    message: "Components must not import UI views. Components are consumed by UI, not the reverse.",
+                }, {
+                    group: ["../bootstrap/*", "../bootstrap/**", "../../bootstrap/*", "../../bootstrap/**"],
+                    message: "Components must not import bootstrap.",
+                }],
+                paths: [{
+                    name: "obsidian",
+                    message: "Components must not import Obsidian. Use Lit APIs and receive Obsidian data via properties.",
+                }],
+            }],
+        },
+    },
+
+    // ── Architecture enforcement: Utils purity ───────────────────────
+    // Utility modules are pure helpers — no Obsidian, no infrastructure.
+    {
+        files: ["src/utils/**/*.ts"],
+        rules: {
+            "no-restricted-imports": ["error", {
+                patterns: [{
+                    group: ["../infrastructure/*", "../infrastructure/**"],
+                    message: "Utils must not import infrastructure. Keep utils pure and portable.",
+                }, {
+                    group: ["../ui/*", "../ui/**"],
+                    message: "Utils must not import UI.",
+                }, {
+                    group: ["../components/*", "../components/**"],
+                    message: "Utils must not import components.",
+                }],
+            }],
+        },
+    },
+
+    // ── Large data files — exempt from max-lines ─────────────────────
+    {
+        files: [
+            "src/infrastructure/events/catalog.ts",
+            "src/infrastructure/events/events.ts",
+        ],
+        rules: {
+            "max-lines": "off",
+        },
+    },
+
     ...storybook.configs["flat/recommended"]
 ]);

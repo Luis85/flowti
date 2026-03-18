@@ -1,17 +1,26 @@
 /**
  * Agent domain bootstrap — creates HttpAgentService, registers view.
+ *
+ * Connection strategy:
+ * - View is registered immediately (so Obsidian can restore it from layout)
+ * - Server connection deferred to onLayoutReady (silent, non-blocking)
+ * - If the server isn't running, gives up quietly — no console spam
+ * - If a connection succeeds then drops, SSE client auto-reconnects
+ * - "Restart the world" spawns `flowti serve` and waits for healthy
  */
 
-import type { IEventBus } from "../infrastructure/events/types";
-import type { Plugin, WorkspaceLeaf } from "obsidian";
-import { HttpAgentService } from "../infrastructure/agents/http-agent-service";
-import { SseClient } from "../infrastructure/agents/sse-client";
-import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider";
-import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/AgentSidepanelView";
-import { VIEW_TYPE_AGENT_SIDEBAR } from "../ui/agents/types";
+import type { IEventBus } from "../infrastructure/events/types.js";
+import type { App, Plugin, WorkspaceLeaf } from "obsidian";
+import { HttpAgentService } from "../infrastructure/agents/http-agent-service.js";
+import { SseClient } from "../infrastructure/agents/sse-client.js";
+import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider.js";
+import { launchCliServer } from "../infrastructure/agents/server-launcher.js";
+import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/AgentSidepanelView.js";
+import { VIEW_TYPE_AGENT_SIDEBAR } from "../ui/agents/types.js";
 
 export interface AgentSetupDeps {
 	readonly plugin: Plugin;
+	readonly app: App;
 	readonly eventBus: IEventBus;
 	readonly cliServerUrl?: string;
 }
@@ -20,6 +29,8 @@ export interface AgentSetupResult {
 	readonly agentService: HttpAgentService;
 	readonly sseClient: SseClient;
 	readonly contextProvider: ObsidianContextProvider;
+	/** Call once layout is ready to attempt server connection silently. */
+	readonly connectWhenReady: () => void;
 }
 
 export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
@@ -31,23 +42,29 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		agentService.handleServerEvent("agent-action", data);
 	});
 
-	let connected = false;
-	function ensureConnected(): void {
-		if (connected) return;
-		connected = true;
-		void agentService.connect().catch(() => { /* CLI server not running */ });
-		sseClient.connect();
-	}
-
 	const contextProvider = new ObsidianContextProvider(
 		deps.plugin.app.workspace,
 		deps.plugin.app.vault,
 	);
 
-	const viewDeps: AgentSidepanelDeps = { eventBus: deps.eventBus, agentService, contextProvider };
+	const viewDeps: AgentSidepanelDeps = {
+		eventBus: deps.eventBus,
+		agentService,
+		contextProvider,
+		startServer: async () => {
+			const vaultPath = (deps.app.vault.adapter as unknown as { basePath: string }).basePath;
+			const result = await launchCliServer(vaultPath, baseUrl);
+			if (result.ok) {
+				await agentService.connect();
+				sseClient.connect();
+			}
+			return result;
+		},
+	};
+
+	// Register view immediately — Obsidian needs the factory to restore layout
 	try {
 		deps.plugin.registerView(VIEW_TYPE_AGENT_SIDEBAR, (leaf: WorkspaceLeaf) => {
-			ensureConnected();
 			return new AgentSidepanelView(leaf, viewDeps);
 		});
 	} catch (err) {
@@ -56,12 +73,22 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 
 	deps.plugin.addCommand({
 		id: "open-agent-panel",
-		name: "Open Agent Panel",
+		name: "Open agent panel",
 		callback: () => {
-			const leaf = deps.plugin.app.workspace.getRightLeaf(false);
-			if (leaf) void leaf.setViewState({ type: VIEW_TYPE_AGENT_SIDEBAR, active: true });
+			void deps.plugin.app.workspace.getRightLeaf(false)
+				?.setViewState({ type: VIEW_TYPE_AGENT_SIDEBAR, active: true });
 		},
 	});
 
-	return { agentService, sseClient, contextProvider };
+	// Deferred connection — called from onLayoutReady, never from view factory
+	let connected = false;
+	function connectWhenReady(): void {
+		if (connected) return;
+		connected = true;
+		void agentService.connect()
+			.then(() => sseClient.connect())
+			.catch(() => { /* server not running — silent */ });
+	}
+
+	return { agentService, sseClient, contextProvider, connectWhenReady };
 }

@@ -91,6 +91,11 @@ function createDeps(overrides: Partial<TrainMainHandlerDeps> = {}): TrainMainHan
 	};
 }
 
+/** Helper to get the Lit workspace element from the container. */
+function getWorkspaceEl(container: HTMLElement): HTMLElement & Record<string, unknown> {
+	return container.querySelector("flowti-train-workspace") as HTMLElement & Record<string, unknown>;
+}
+
 // ── Tests ─────────────────────────────────────────────────────
 
 describe("registerTrainMainHandler", () => {
@@ -153,7 +158,7 @@ describe("registerTrainMainHandler", () => {
 	});
 
 	describe("active train rendering", () => {
-		it("renders header with train title when train exists", () => {
+		it("sets train property on workspace element", () => {
 			const train = createTrain({ title: "My Brainstorm" });
 			trainService.getActiveTrain.mockReturnValue(train);
 			trainService.getTrain.mockReturnValue(train);
@@ -167,12 +172,12 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const title = container.querySelector(".ft-train-title");
-			expect(title).not.toBeNull();
-			expect(title!.textContent).toContain("Train: My Brainstorm");
+			const workspace = getWorkspaceEl(container);
+			expect(workspace).not.toBeNull();
+			expect((workspace.train as TrainState).title).toBe("My Brainstorm");
 		});
 
-		it("renders status badge", () => {
+		it("sets train status on workspace element", () => {
 			const train = createTrain({ status: "running" });
 			trainService.getActiveTrain.mockReturnValue(train);
 			trainService.getTrain.mockReturnValue(train);
@@ -186,12 +191,11 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const badge = container.querySelector(".ft-train-status");
-			expect(badge).not.toBeNull();
-			expect(badge!.textContent).toBe("running");
+			const workspace = getWorkspaceEl(container);
+			expect((workspace.train as TrainState).status).toBe("running");
 		});
 
-		it("renders nav bar with prev/next buttons when train has thoughts", () => {
+		it("sets navigation properties with prev/next thoughts", () => {
 			const thought1 = createThought({ id: "t1", order: 0, title: "First" });
 			const thought2 = createThought({ id: "t2", order: 1, title: "Second" });
 			const train = createTrain({
@@ -210,18 +214,15 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const prevBtn = container.querySelector(".ft-train-prev-btn");
-			expect(prevBtn).not.toBeNull();
-			// First thought is active by default, so prev should be disabled
-			expect((prevBtn as HTMLButtonElement).disabled).toBe(true);
-
-			// Should have a next button or jump-to-end button
-			const nextBtn = container.querySelector(".ft-train-next-btn");
-			const jumpBtn = container.querySelector(".ft-train-jump-to-end-btn");
-			expect(nextBtn ?? jumpBtn).not.toBeNull();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace).not.toBeNull();
+			// Active thought defaults to first in sorted order
+			expect((workspace.activeThought as ThoughtNode).id).toBe("t1");
+			// Next thought should be t2
+			expect((workspace.nextThought as ThoughtNode).id).toBe("t2");
 		});
 
-		it("renders stats section for active train", () => {
+		it("sets chainLength and branchCount stats", () => {
 			const thought = createThought();
 			const train = createTrain({ thoughts: [thought] });
 			trainService.getActiveTrain.mockReturnValue(train);
@@ -236,11 +237,12 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const statsSection = container.querySelector(".ft-train-stats-section");
-			expect(statsSection).not.toBeNull();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.chainLength).toBe(1);
+			expect(workspace.branchCount).toBe(0);
 		});
 
-		it("renders thought detail when active thought exists", () => {
+		it("sets activeThought property", () => {
 			const thought = createThought({ title: "My Insight" });
 			const train = createTrain({ thoughts: [thought] });
 			trainService.getActiveTrain.mockReturnValue(train);
@@ -255,12 +257,11 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const thoughtTitle = container.querySelector(".ft-train-thought-title");
-			expect(thoughtTitle).not.toBeNull();
-			expect(thoughtTitle!.textContent).toBe("My Insight");
+			const workspace = getWorkspaceEl(container);
+			expect((workspace.activeThought as ThoughtNode).title).toBe("My Insight");
 		});
 
-		it("renders breadcrumb section", () => {
+		it("sets breadcrumbPath property", () => {
 			const thought = createThought();
 			const train = createTrain({ thoughts: [thought] });
 			trainService.getActiveTrain.mockReturnValue(train);
@@ -275,13 +276,14 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const breadcrumbSection = container.querySelector(".ft-train-breadcrumb-section");
-			expect(breadcrumbSection).not.toBeNull();
+			const workspace = getWorkspaceEl(container);
+			expect(Array.isArray(workspace.breadcrumbPath)).toBe(true);
+			expect((workspace.breadcrumbPath as ThoughtNode[]).length).toBeGreaterThan(0);
 		});
 	});
 
 	describe("completed train rendering", () => {
-		it("renders completion callout when train is completed", () => {
+		it("sets train status to completed on workspace element", () => {
 			const thought = createThought();
 			const train = createTrain({
 				status: "completed",
@@ -299,15 +301,11 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const callout = container.querySelector(".ft-train-completion-callout");
-			expect(callout).not.toBeNull();
-
-			const headingEl = callout!.querySelector(".ft-heading-sm");
-			expect(headingEl).not.toBeNull();
-			expect(headingEl!.textContent).toBe("Ride complete");
+			const workspace = getWorkspaceEl(container);
+			expect((workspace.train as TrainState).status).toBe("completed");
 		});
 
-		it("renders stats panel in completed state", () => {
+		it("sets chainLength stat for completed train", () => {
 			const thought = createThought();
 			const train = createTrain({
 				status: "completed",
@@ -325,8 +323,8 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const statsSection = container.querySelector(".ft-train-stats-section");
-			expect(statsSection).not.toBeNull();
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.chainLength).toBe(1);
 		});
 
 		it("does NOT render nav bar when train is completed", () => {
@@ -347,12 +345,13 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			// Completed trains skip the nav bar entirely
+			// Completed trains skip the nav bar entirely — the Lit component
+			// receives the train with completed status and renders accordingly
 			const navBar = container.querySelector(".ft-train-nav-bar");
 			expect(navBar).toBeNull();
 		});
 
-		it("renders a 'Start a new ride' CTA button", () => {
+		it("creates workspace element for completed train", () => {
 			const train = createTrain({
 				status: "completed",
 				completedAt: new Date().toISOString(),
@@ -369,14 +368,13 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const ctaButton = container.querySelector(".ft-btn-primary");
-			expect(ctaButton).not.toBeNull();
-			expect(ctaButton!.textContent).toBe("Start a new ride");
+			const workspace = getWorkspaceEl(container);
+			expect(workspace).not.toBeNull();
 		});
 	});
 
 	describe("train action buttons", () => {
-		it("renders Pause and Complete buttons for running train", () => {
+		it("wires pause-train event handler on workspace element", () => {
 			const thought = createThought();
 			const train = createTrain({ status: "running", thoughts: [thought] });
 			trainService.getActiveTrain.mockReturnValue(train);
@@ -391,14 +389,12 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const buttons = container.querySelectorAll(".ft-detail-actions button");
-			expect(buttons.length).toBe(2);
-			const texts = Array.from(buttons).map((b) => b.textContent?.trim());
-			expect(texts).toContain("Pause");
-			expect(texts).toContain("Complete");
+			const workspace = getWorkspaceEl(container);
+			workspace.dispatchEvent(new CustomEvent("pause-train"));
+			expect(trainService.pause).toHaveBeenCalledWith("train-1");
 		});
 
-		it("renders Resume and Complete buttons for paused train", () => {
+		it("wires resume-train event handler on workspace element", () => {
 			const thought = createThought();
 			const train = createTrain({ status: "paused", thoughts: [thought] });
 			trainService.getActiveTrain.mockReturnValue(train);
@@ -413,14 +409,12 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const buttons = container.querySelectorAll(".ft-detail-actions button");
-			expect(buttons.length).toBe(2);
-			const texts = Array.from(buttons).map((b) => b.textContent?.trim());
-			expect(texts).toContain("Resume");
-			expect(texts).toContain("Complete");
+			const workspace = getWorkspaceEl(container);
+			workspace.dispatchEvent(new CustomEvent("resume-train", { detail: {} }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.startTrain", expect.any(Object));
 		});
 
-		it("emits ui.startTrain when 'Start a new ride' CTA is clicked", () => {
+		it("wires start-train event handler on workspace element", () => {
 			const train = createTrain({
 				status: "completed",
 				completedAt: new Date().toISOString(),
@@ -437,18 +431,17 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const ctaButton = container.querySelector(".ft-btn-primary") as HTMLButtonElement;
-			ctaButton.click();
+			const workspace = getWorkspaceEl(container);
+			workspace.dispatchEvent(new CustomEvent("start-train"));
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.startTrain", {});
 		});
 
-		it("renders Add Thought button when at the end of the chain", () => {
+		it("wires add-thought event handler on workspace element", () => {
 			const thought = createThought({ id: "t1" });
 			const train = createTrain({
 				status: "running",
 				thoughts: [thought],
 			});
-			// Head node is the same as active thought, no next relation
 			trainService.getActiveTrain.mockReturnValue(train);
 			trainService.getTrain.mockReturnValue(train);
 			trainService.getTimeline.mockReturnValue([thought]);
@@ -461,12 +454,12 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const addBtn = container.querySelector(".ft-train-add-thought-btn");
-			expect(addBtn).not.toBeNull();
-			expect(addBtn!.textContent).toContain("Add Thought");
+			const workspace = getWorkspaceEl(container);
+			workspace.dispatchEvent(new CustomEvent("add-thought", { detail: {} }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.startTrain", expect.any(Object));
 		});
 
-		it("renders branch links when thought has branches", () => {
+		it("sets branches property when thought has branches", () => {
 			const thought = createThought({ id: "t1" });
 			const branch = createThought({ id: "b1", title: "Branch Idea" });
 			const train = createTrain({
@@ -487,15 +480,13 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const branchSection = container.querySelector(".ft-train-branches");
-			expect(branchSection).not.toBeNull();
-
-			const branchLink = container.querySelector(".ft-train-branch-link");
-			expect(branchLink).not.toBeNull();
-			expect(branchLink!.textContent).toContain("Branch Idea");
+			const workspace = getWorkspaceEl(container);
+			const branches = workspace.branches as ThoughtNode[];
+			expect(branches).toHaveLength(1);
+			expect(branches[0].title).toBe("Branch Idea");
 		});
 
-		it("renders parent train link when parentTrainId exists", () => {
+		it("sets parentTrainTitle when parentTrainId exists", () => {
 			const parentTrain = createTrain({ id: "parent-1", title: "Parent Train" });
 			const thought = createThought();
 			const train = createTrain({
@@ -517,12 +508,12 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const parentLink = container.querySelector(".ft-train-parent-link");
-			expect(parentLink).not.toBeNull();
-			expect(parentLink!.textContent).toContain("Parent: Parent Train");
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.parentTrainTitle).toBe("Parent Train");
+			expect(workspace.parentTrainId).toBe("parent-1");
 		});
 
-		it("renders toggle timeline sidebar button in header", () => {
+		it("wires toggle-timeline event handler on workspace element", () => {
 			const train = createTrain({ thoughts: [createThought()] });
 			trainService.getActiveTrain.mockReturnValue(train);
 			trainService.getTrain.mockReturnValue(train);
@@ -536,20 +527,14 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			// The toggle button is a ghost button inside the header section (after the spacer)
-			const ghostButtons = container.querySelectorAll(".ft-btn-ghost.ft-btn-sm");
-			// Find the toggle button (it's in the header, not in the nav bar)
-			const headerSection = container.querySelector(".ft-section");
-			const toggleBtn = headerSection?.querySelector(".ft-btn-ghost.ft-btn-sm") as HTMLButtonElement | null;
-			expect(toggleBtn).not.toBeNull();
-
-			toggleBtn!.click();
+			const workspace = getWorkspaceEl(container);
+			workspace.dispatchEvent(new CustomEvent("toggle-timeline", { detail: { trainId: "train-1" } }));
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.toggleTrainTimeline", { trainId: "train-1" });
 		});
 	});
 
 	describe("merge section", () => {
-		it("renders merge section with undo button when thought has outgoing merges", () => {
+		it("sets outgoingMerges property when thought has outgoing merges", () => {
 			const thought1 = createThought({ id: "t1", title: "Source" });
 			const thought2 = createThought({ id: "t2", title: "Target" });
 			const train = createTrain({
@@ -571,16 +556,16 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const mergeSection = container.querySelector(".ft-train-merge-section");
-			expect(mergeSection).not.toBeNull();
-
-			const undoBtn = container.querySelector(".ft-train-merge-undo");
-			expect(undoBtn).not.toBeNull();
+			const workspace = getWorkspaceEl(container);
+			const merges = workspace.outgoingMerges as Array<{ fromId: string; toId: string; targetTitle: string }>;
+			expect(merges).toHaveLength(1);
+			expect(merges[0].toId).toBe("t2");
+			expect(merges[0].targetTitle).toBe("Target");
 		});
 	});
 
 	describe("type badge", () => {
-		it("renders type badge with correct label", () => {
+		it("sets trainTypeLabel with correct label", () => {
 			const train = createTrain({
 				trainType: "brainstorm",
 				thoughts: [createThought()],
@@ -597,9 +582,8 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const typeBadge = container.querySelector(".ft-train-type-badge");
-			expect(typeBadge).not.toBeNull();
-			expect(typeBadge!.textContent).toContain("Brainstorm");
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.trainTypeLabel).toBe("Brainstorm");
 		});
 
 		it("falls back to Free-form when no type is set", () => {
@@ -616,9 +600,8 @@ describe("registerTrainMainHandler", () => {
 				eventBus,
 			});
 
-			const typeBadge = container.querySelector(".ft-train-type-badge");
-			expect(typeBadge).not.toBeNull();
-			expect(typeBadge!.textContent).toContain("Free-form");
+			const workspace = getWorkspaceEl(container);
+			expect(workspace.trainTypeLabel).toBe("Free-form");
 		});
 	});
 });

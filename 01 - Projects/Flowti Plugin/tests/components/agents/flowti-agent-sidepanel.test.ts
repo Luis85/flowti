@@ -20,7 +20,7 @@ describe("flowti-agent-sidepanel", () => {
 		el.agents = [];
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const shadow = el.shadowRoot!;
-		expect(shadow.textContent).toContain("No agents");
+		expect(shadow.textContent).toContain("CLI server not connected");
 	});
 
 	it("composes child components when agents provided", async () => {

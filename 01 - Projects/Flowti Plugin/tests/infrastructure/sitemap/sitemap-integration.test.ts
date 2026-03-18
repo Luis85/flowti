@@ -8,7 +8,7 @@ import { SitemapBootstrap } from "../../../src/infrastructure/sitemap/sitemap-bo
 import type { PluginSitemap } from "../../../src/domain/sitemap/plugin-sitemap-types";
 
 function loadSitemap(): PluginSitemap {
-	const raw = readFileSync(resolve(__dirname, "../../../plugin-sitemap.json"), "utf8");
+	const raw = readFileSync(resolve(__dirname, "../../../configs/sitemap.json"), "utf8");
 	return JSON.parse(raw) as PluginSitemap;
 }
 

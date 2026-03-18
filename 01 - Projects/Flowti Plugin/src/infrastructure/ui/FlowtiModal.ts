@@ -57,7 +57,7 @@ export class FlowtiModal extends Modal {
 		// Set properties
 		if (this.config.properties) {
 			for (const [key, value] of Object.entries(this.config.properties)) {
-				(el as Record<string, unknown>)[key] = value;
+				(el as unknown as Record<string, unknown>)[key] = value;
 			}
 		}
 
@@ -93,7 +93,7 @@ export class FlowtiModal extends Modal {
 	updateProperties(properties: Record<string, unknown>): void {
 		if (!this.litElement) return;
 		for (const [key, value] of Object.entries(properties)) {
-			(this.litElement as Record<string, unknown>)[key] = value;
+			(this.litElement as unknown as Record<string, unknown>)[key] = value;
 		}
 	}
 

@@ -4,14 +4,19 @@
  * Returns a dispose function for cleanup on view close.
  */
 
-import type { IEventBus } from "../events/types";
-import type { IAgentService, ConversationMode } from "../../domain/agents/types";
-import type { IContextProvider } from "../../domain/agents/context-provider";
+import type { IEventBus } from "../events/types.js";
+import type { IAgentService, ConversationMode } from "../../domain/agents/types.js";
+import type { IContextProvider } from "../../domain/agents/context-provider.js";
+import type { LaunchResult } from "../agents/server-launcher.js";
+
+// Side-effect import: register the Lit custom element
+import "../../components/agents/flowti-agent-sidepanel.js";
 
 export interface AgentHandlerDeps {
 	readonly eventBus: IEventBus;
 	readonly agentService: IAgentService;
 	readonly contextProvider?: IContextProvider;
+	readonly startServer?: () => Promise<LaunchResult>;
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {
@@ -90,11 +95,31 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 	}) as EventListener);
 
 	// ── Canvas events ──
-	el.addEventListener("canvas-export", ((e: CustomEvent) => {
+	el.addEventListener("canvas-node-added", ((e: CustomEvent) => {
 		void eventBus.emit("agent.canvas.synced", {
 			canvasPath: String(e.detail.canvasPath ?? ""),
 			nodeCount: Number(e.detail.nodeCount ?? 0),
 		});
+	}) as EventListener);
+
+	// ── Restart world (launch CLI server) ──
+	el.addEventListener("restart-world", (() => {
+		if (!deps.startServer) return;
+		el.connectStatus = "connecting";
+		void deps.startServer()
+			.then((result: LaunchResult) => {
+				if (result.ok) {
+					el.connectStatus = "idle";
+					refresh();
+				} else {
+					el.connectStatus = "failed";
+					el.connectError = result.error ?? "Unknown error";
+				}
+			})
+			.catch(() => {
+				el.connectStatus = "failed";
+				el.connectError = "Unexpected error starting server";
+			});
 	}) as EventListener);
 
 	// ── Service events → component updates ──
@@ -107,6 +132,15 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		}
 		if (event.kind === "message-received") {
 			void eventBus.emit("agent.message.received", { agent: event.agent, turn: event.turn });
+		}
+		if (event.kind === "thinking") {
+			void eventBus.emit("agent.thinking", { agent: event.agent, text: event.text });
+		}
+		if (event.kind === "tool-started") {
+			void eventBus.emit("agent.tool.started", { agent: event.agent, tool: event.tool, id: event.id });
+		}
+		if (event.kind === "tool-completed") {
+			void eventBus.emit("agent.tool.completed", { agent: event.agent, id: event.id });
 		}
 		if (event.kind === "error") {
 			el.error = event.error;
