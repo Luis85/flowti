@@ -30,6 +30,9 @@ export class AgentActor extends ex.Actor {
 
 	private readonly onSelect: (agentName: string) => void;
 	private bobPhase = 0;
+	private bulbActor: ex.Actor | null = null;
+	private bulbPhase = 0;
+	private llmActive = false;
 
 	constructor(config: AgentActorConfig) {
 		super({
@@ -51,6 +54,7 @@ export class AgentActor extends ex.Actor {
 
 		this.buildLabelChild();
 		this.buildBadgeChild();
+		this.buildBulbChild();
 	}
 
 	onInitialize(engine: ex.Engine): void {
@@ -74,6 +78,17 @@ export class AgentActor extends ex.Actor {
 		} else {
 			this.graphics.offset = ex.vec(0, 0);
 		}
+
+		// Lightbulb pulse when LLM is active
+		if (this.bulbActor) {
+			if (this.llmActive) {
+				this.bulbPhase += delta * 0.004;
+				const pulse = 0.6 + 0.4 * Math.sin(this.bulbPhase);
+				this.bulbActor.graphics.opacity = pulse;
+				this.bulbActor.pos = ex.vec(0, -12 + Math.sin(this.bulbPhase * 0.7) * 0.5);
+			}
+			this.bulbActor.graphics.visible = this.llmActive;
+		}
 	}
 
 	/** Snap to idle. Called when selected. */
@@ -92,6 +107,17 @@ export class AgentActor extends ex.Actor {
 			this.bobPhase = 0;
 		}
 		this.brainState = state;
+	}
+
+	/** Show lightbulb indicator — LLM is thinking. */
+	showLlmIndicator(): void {
+		this.llmActive = true;
+		this.bulbPhase = 0;
+	}
+
+	/** Hide lightbulb indicator — LLM response arrived. */
+	hideLlmIndicator(): void {
+		this.llmActive = false;
 	}
 
 	/** No-op stubs kept for API compatibility. */
@@ -179,5 +205,54 @@ export class AgentActor extends ex.Actor {
 		badgeActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
 		badgeActor.graphics.use(badgeCanvas);
 		this.addChild(badgeActor);
+	}
+
+	private buildBulbChild(): void {
+		const BULB_SIZE = 20;
+
+		const bulbCanvas = new ex.Canvas({
+			width: BULB_SIZE,
+			height: BULB_SIZE,
+			cache: true,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				const cx = BULB_SIZE / 2;
+
+				// Glow halo
+				const gradient = ctx.createRadialGradient(cx, cx - 2, 2, cx, cx - 2, 9);
+				gradient.addColorStop(0, "rgba(250, 204, 21, 0.4)");
+				gradient.addColorStop(1, "rgba(250, 204, 21, 0)");
+				ctx.fillStyle = gradient;
+				ctx.beginPath();
+				ctx.arc(cx, cx - 2, 9, 0, Math.PI * 2);
+				ctx.fill();
+
+				// Bulb body
+				ctx.fillStyle = "#facc15";
+				ctx.beginPath();
+				ctx.arc(cx, cx - 2, 5, 0, Math.PI * 2);
+				ctx.fill();
+
+				// Filament highlight
+				ctx.fillStyle = "#fef9c3";
+				ctx.beginPath();
+				ctx.arc(cx - 1, cx - 4, 1.5, 0, Math.PI * 2);
+				ctx.fill();
+
+				// Base
+				ctx.fillStyle = "#a16207";
+				ctx.fillRect(cx - 2, cx + 3, 4, 3);
+			},
+		});
+
+		this.bulbActor = new ex.Actor({
+			pos: ex.vec(0, -12),
+			anchor: ex.vec(0.5, 0.5),
+			z: 30,
+			collisionType: ex.CollisionType.PreventCollision,
+		});
+		this.bulbActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
+		this.bulbActor.graphics.use(bulbCanvas);
+		this.bulbActor.graphics.visible = false;
+		this.addChild(this.bulbActor);
 	}
 }

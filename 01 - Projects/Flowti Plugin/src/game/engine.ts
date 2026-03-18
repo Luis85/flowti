@@ -311,9 +311,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// Transition brain state
 		brainSystem.applyEvent(action.agentName, action.type);
 
-		// Silence talk engine when LLM responds
+		// Silence talk engine and hide lightbulb when LLM responds
 		if (action.type === "speaking" || action.type === "asking") {
 			talkEngine.silence(action.agentName);
+			const actor = findAgentActor(action.agentName);
+			if (actor) actor.hideLlmIndicator();
 		}
 
 		// Show bubble for certain actions
@@ -576,16 +578,20 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	store.addEventListener("agent-message-sent", ((e: CustomEvent) => {
 		const { agentName } = e.detail;
-		// Activate rapid chatter while waiting for LLM — the talk engine
-		// fills the silence with domain-relevant "thinking aloud" phrases.
-		// When the real LLM response arrives, silence() stops it.
+		// Activate rapid chatter while waiting for LLM
 		talkEngine.activate(agentName);
+		// Show lightbulb indicator
+		const actor = findAgentActor(agentName);
+		if (actor) actor.showLlmIndicator();
 	}) as EventListener);
 
 	store.addEventListener("task-assigned", ((e: CustomEvent) => {
 		const { agentName, task } = e.detail;
 		brainSystem.applyEvent(agentName, "task-started");
 		bubbleSystem.showBubble(agentName, "thought", `Starting: ${task}`, engine.currentScene, findAgentActor);
+		// Show lightbulb — agent is working on the task
+		const actor = findAgentActor(agentName);
+		if (actor) actor.showLlmIndicator();
 	}) as EventListener);
 
 	// ── Camera follow via store state ───────────────────
