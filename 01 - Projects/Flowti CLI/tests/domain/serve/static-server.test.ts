@@ -215,6 +215,7 @@ function fakeContext(overrides: Partial<ServerContext> = {}): ServerContext {
 		},
 		sseClients: new Set(),
 		vaultRoot: "/vault",
+		projectsDir: "/projects",
 		...overrides,
 	};
 }

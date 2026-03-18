@@ -213,6 +213,7 @@ export async function startDashboardServer(opts: StartDashboardOptions, deps: Da
 		},
 		sseClients,
 		vaultRoot: opts.vaultRoot,
+		projectsDir: opts.projectsDir,
 	};
 
 	const handle = await startServer({ port: opts.port, dir: opts.rootDir }, {

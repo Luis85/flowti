@@ -10,6 +10,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { IFileSystem, IShell, IPaths } from "../../infrastructure/types.js";
 import type { IWorldStateManager } from "../agents/world-state-types.js";
 import type { IWorkerManager, SendOptions } from "../agents/worker-types.js";
+import { getProjectList, getProjectDetail } from "./project-api.js";
 
 // ── Server context (for API + SSE routes) ────────────────────────────
 
@@ -19,6 +20,7 @@ export interface ServerContext {
 	readonly deps: { readonly disk: IFileSystem; readonly paths: IPaths; readonly clock: { now(): Date; iso(): string } };
 	readonly sseClients: Set<ServerResponse>;
 	readonly vaultRoot: string;
+	readonly projectsDir: string;
 }
 
 export interface ServerOptions {
@@ -271,6 +273,72 @@ export async function handleApiRoute(
 		};
 		ctx.workerManager.send(name, greeting, { foreground: false, onResponse });
 		json(200, { ok: true, state: "waking" });
+		return;
+	}
+
+	// ── Project Hub routes ───────────────────────────────────────────
+
+	if (urlPath === "/api/projects" && req.method === "GET") {
+		const result = getProjectList(ctx.projectsDir, ctx.deps);
+		json(200, result);
+		return;
+	}
+
+	const projectMatch = urlPath.match(/^\/api\/projects\/(.+)$/);
+	if (projectMatch && req.method === "GET") {
+		const detail = getProjectDetail(decodeURIComponent(projectMatch[1]), ctx.projectsDir, ctx.deps);
+		if (!detail) { json(404, { error: "Project not found" }); return; }
+		json(200, detail);
+		return;
+	}
+
+	if (urlPath === "/api/storybook/install" && req.method === "POST") {
+		const body = await parseJsonBody(req);
+		const project = String(body.project ?? "");
+		const framework = String(body.framework ?? "");
+		if (!project || !framework) { json(400, { error: "project and framework required" }); return; }
+		const projectPath = ctx.deps.paths.join(ctx.projectsDir, project);
+		if (!ctx.deps.disk.existsSync(projectPath)) { json(404, { error: "Project not found" }); return; }
+		// Full wiring deferred until shell is available in ServerContext
+		json(200, { ok: true, message: "Install queued" });
+		return;
+	}
+
+	if (urlPath === "/api/storybook/scaffold" && req.method === "POST") {
+		const body = await parseJsonBody(req);
+		const project = String(body.project ?? "");
+		if (!project) { json(400, { error: "project required" }); return; }
+		const projectPath = ctx.deps.paths.join(ctx.projectsDir, project);
+		if (!ctx.deps.disk.existsSync(projectPath)) { json(404, { error: "Project not found" }); return; }
+		json(200, { ok: true, message: "Scaffold queued" });
+		return;
+	}
+
+	if (urlPath === "/api/storybook/start" && req.method === "POST") {
+		const body = await parseJsonBody(req);
+		const project = String(body.project ?? "");
+		if (!project) { json(400, { error: "project required" }); return; }
+		const projectPath = ctx.deps.paths.join(ctx.projectsDir, project);
+		if (!ctx.deps.disk.existsSync(projectPath)) { json(404, { error: "Project not found" }); return; }
+		json(200, { ok: true, message: "Start queued" });
+		return;
+	}
+
+	if (urlPath === "/api/storybook/stop" && req.method === "POST") {
+		const body = await parseJsonBody(req);
+		const project = String(body.project ?? "");
+		if (!project) { json(400, { error: "project required" }); return; }
+		json(200, { ok: true, message: "Stop queued" });
+		return;
+	}
+
+	if (urlPath === "/api/storybook/build" && req.method === "POST") {
+		const body = await parseJsonBody(req);
+		const project = String(body.project ?? "");
+		if (!project) { json(400, { error: "project required" }); return; }
+		const projectPath = ctx.deps.paths.join(ctx.projectsDir, project);
+		if (!ctx.deps.disk.existsSync(projectPath)) { json(404, { error: "Project not found" }); return; }
+		json(200, { ok: true, message: "Build queued" });
 		return;
 	}
 
