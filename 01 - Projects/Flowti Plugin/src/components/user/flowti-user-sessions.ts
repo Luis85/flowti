@@ -277,4 +277,4 @@ export class FlowtiUserSessions extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-user-sessions', FlowtiUserSessions);
+if (!customElements.get('flowti-user-sessions')) customElements.define('flowti-user-sessions', FlowtiUserSessions);

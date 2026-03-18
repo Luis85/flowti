@@ -309,4 +309,4 @@ export class FlowtiTmFeatureQuality extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-tm-feature-quality', FlowtiTmFeatureQuality);
+if (!customElements.get('flowti-tm-feature-quality')) customElements.define('flowti-tm-feature-quality', FlowtiTmFeatureQuality);

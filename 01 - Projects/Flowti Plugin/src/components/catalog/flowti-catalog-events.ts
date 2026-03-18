@@ -338,4 +338,4 @@ export class FlowtiCatalogEvents extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-catalog-events', FlowtiCatalogEvents);
+if (!customElements.get('flowti-catalog-events')) customElements.define('flowti-catalog-events', FlowtiCatalogEvents);

@@ -305,4 +305,4 @@ export class FlowtiAnalyticsDashboard extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-analytics-dashboard', FlowtiAnalyticsDashboard);
+if (!customElements.get('flowti-analytics-dashboard')) customElements.define('flowti-analytics-dashboard', FlowtiAnalyticsDashboard);

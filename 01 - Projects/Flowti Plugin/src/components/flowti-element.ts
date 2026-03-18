@@ -82,4 +82,4 @@ export class FlowtiElement extends LitElement {
 	}
 }
 
-customElements.define('flowti-element', FlowtiElement);
+if (!customElements.get('flowti-element')) customElements.define('flowti-element', FlowtiElement);

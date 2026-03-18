@@ -212,4 +212,4 @@ export class FlowtiDxCanvas extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-dx-canvas', FlowtiDxCanvas);
+if (!customElements.get('flowti-dx-canvas')) customElements.define('flowti-dx-canvas', FlowtiDxCanvas);

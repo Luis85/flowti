@@ -233,4 +233,4 @@ export class FlowtiDxProperties extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-dx-properties', FlowtiDxProperties);
+if (!customElements.get('flowti-dx-properties')) customElements.define('flowti-dx-properties', FlowtiDxProperties);

@@ -302,4 +302,4 @@ export class FlowtiTmCoverage extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-tm-coverage', FlowtiTmCoverage);
+if (!customElements.get('flowti-tm-coverage')) customElements.define('flowti-tm-coverage', FlowtiTmCoverage);

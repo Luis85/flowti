@@ -296,4 +296,4 @@ export class FlowtiAnalyticsMeasurements extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-analytics-measurements', FlowtiAnalyticsMeasurements);
+if (!customElements.get('flowti-analytics-measurements')) customElements.define('flowti-analytics-measurements', FlowtiAnalyticsMeasurements);

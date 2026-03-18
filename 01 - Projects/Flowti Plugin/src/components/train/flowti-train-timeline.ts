@@ -596,4 +596,4 @@ export class FlowtiTrainTimeline extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-train-timeline', FlowtiTrainTimeline);
+if (!customElements.get('flowti-train-timeline')) customElements.define('flowti-train-timeline', FlowtiTrainTimeline);

@@ -539,4 +539,4 @@ export class FlowtiTmJourneys extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-tm-journeys', FlowtiTmJourneys);
+if (!customElements.get('flowti-tm-journeys')) customElements.define('flowti-tm-journeys', FlowtiTmJourneys);

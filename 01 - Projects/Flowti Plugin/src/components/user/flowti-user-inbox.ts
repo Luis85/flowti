@@ -262,4 +262,4 @@ export class FlowtiUserInbox extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-user-inbox', FlowtiUserInbox);
+if (!customElements.get('flowti-user-inbox')) customElements.define('flowti-user-inbox', FlowtiUserInbox);

@@ -217,4 +217,4 @@ export class FlowtiDxImports extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-dx-imports', FlowtiDxImports);
+if (!customElements.get('flowti-dx-imports')) customElements.define('flowti-dx-imports', FlowtiDxImports);

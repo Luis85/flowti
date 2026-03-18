@@ -204,4 +204,4 @@ export class FlowtiDxReports extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-dx-reports', FlowtiDxReports);
+if (!customElements.get('flowti-dx-reports')) customElements.define('flowti-dx-reports', FlowtiDxReports);

@@ -163,4 +163,4 @@ export class FlowtiDxSignals extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-dx-signals', FlowtiDxSignals);
+if (!customElements.get('flowti-dx-signals')) customElements.define('flowti-dx-signals', FlowtiDxSignals);

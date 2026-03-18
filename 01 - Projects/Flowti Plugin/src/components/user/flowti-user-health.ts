@@ -200,4 +200,4 @@ export class FlowtiUserHealth extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-user-health', FlowtiUserHealth);
+if (!customElements.get('flowti-user-health')) customElements.define('flowti-user-health', FlowtiUserHealth);

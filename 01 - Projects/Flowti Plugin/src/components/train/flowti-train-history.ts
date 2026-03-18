@@ -193,4 +193,4 @@ export class FlowtiTrainHistory extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-train-history', FlowtiTrainHistory);
+if (!customElements.get('flowti-train-history')) customElements.define('flowti-train-history', FlowtiTrainHistory);

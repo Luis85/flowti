@@ -350,4 +350,4 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-analytics-queries', FlowtiAnalyticsQueries);
+if (!customElements.get('flowti-analytics-queries')) customElements.define('flowti-analytics-queries', FlowtiAnalyticsQueries);

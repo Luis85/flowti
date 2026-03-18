@@ -190,4 +190,4 @@ export class FlowtiAnalyticsTile extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-analytics-tile', FlowtiAnalyticsTile);
+if (!customElements.get('flowti-analytics-tile')) customElements.define('flowti-analytics-tile', FlowtiAnalyticsTile);

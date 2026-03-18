@@ -212,4 +212,4 @@ export class FlowtiDxPipelines extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-dx-pipelines', FlowtiDxPipelines);
+if (!customElements.get('flowti-dx-pipelines')) customElements.define('flowti-dx-pipelines', FlowtiDxPipelines);

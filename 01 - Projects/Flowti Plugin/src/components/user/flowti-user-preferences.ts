@@ -311,4 +311,4 @@ export class FlowtiUserPreferences extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-user-preferences', FlowtiUserPreferences);
+if (!customElements.get('flowti-user-preferences')) customElements.define('flowti-user-preferences', FlowtiUserPreferences);

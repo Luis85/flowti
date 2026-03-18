@@ -307,4 +307,4 @@ export class FlowtiUserDashboard extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-user-dashboard', FlowtiUserDashboard);
+if (!customElements.get('flowti-user-dashboard')) customElements.define('flowti-user-dashboard', FlowtiUserDashboard);

@@ -217,4 +217,4 @@ export class FlowtiTrainDashboard extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-train-dashboard', FlowtiTrainDashboard);
+if (!customElements.get('flowti-train-dashboard')) customElements.define('flowti-train-dashboard', FlowtiTrainDashboard);

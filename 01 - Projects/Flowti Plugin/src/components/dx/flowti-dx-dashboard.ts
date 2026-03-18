@@ -206,4 +206,4 @@ export class FlowtiDxDashboard extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-dx-dashboard', FlowtiDxDashboard);
+if (!customElements.get('flowti-dx-dashboard')) customElements.define('flowti-dx-dashboard', FlowtiDxDashboard);

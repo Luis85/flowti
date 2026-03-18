@@ -404,4 +404,4 @@ export class FlowtiTmDashboard extends FlowtiElement {
 	}
 }
 
-customElements.define('flowti-tm-dashboard', FlowtiTmDashboard);
+if (!customElements.get('flowti-tm-dashboard')) customElements.define('flowti-tm-dashboard', FlowtiTmDashboard);
