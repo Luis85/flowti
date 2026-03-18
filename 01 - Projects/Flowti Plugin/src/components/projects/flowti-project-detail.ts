@@ -272,8 +272,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			<button class="project-item" @click="${() => this.selectProject(p.name)}">
 				<span class="project-item__name">${p.name}</span>
 				<span class="project-item__badges">
-					${p.type !== "unknown" ? html`<span class="badge badge--type">${p.type}</span>` : ""}
-					${!p.hasNote ? html`<span class="badge badge--no-note">no note</span>` : ""}
+					${p.hasNote ? html`<span class="badge badge--type">${p.type}</span>` : ""}
+					${!p.hasNote ? html`<span class="badge badge--no-note" @click="${(e: Event) => { e.stopPropagation(); this.createNote(p.name); }}" title="Create ProjectBrief note">+ brief</span>` : ""}
 					${p.storybook.running ? html`<span class="badge badge--running">SB running</span>` : ""}
 					${p.storybook.installed && !p.storybook.running ? html`<span class="badge badge--sb">${p.storybook.framework ?? "SB"}</span>` : ""}
 				</span>
@@ -283,6 +283,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 
 	private selectProject(name: string) {
 		this.dispatchEvent(new CustomEvent("project-selected", { detail: { name }, bubbles: true, composed: true }));
+	}
+
+	private createNote(name: string) {
+		this.dispatchEvent(new CustomEvent("create-project-note", { detail: { name }, bubbles: true, composed: true }));
 	}
 
 	private renderHeader() {

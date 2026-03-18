@@ -1,8 +1,11 @@
 /**
  * Project domain bootstrap — registers project detail view + command.
+ * Uses vault-based project scanning (works offline).
+ * Storybook operations delegate to CLI server when available.
  */
 
 import type { App, Plugin, WorkspaceLeaf } from "obsidian";
+import { VaultProjectService } from "../infrastructure/projects/vault-project-service.js";
 import { HttpProjectService } from "../infrastructure/projects/http-project-service.js";
 import { ProjectDetailView, type ProjectDetailDeps } from "../ui/projects/project-detail-view.js";
 import { VIEW_TYPE_PROJECT_DETAIL } from "../ui/projects/types.js";
@@ -14,12 +17,15 @@ export interface ProjectSetupDeps {
 }
 
 export interface ProjectSetupResult {
-	readonly projectService: HttpProjectService;
+	readonly projectService: VaultProjectService;
+	/** Call when CLI server comes online to enable storybook operations. */
+	readonly connectHttpService: () => void;
 }
 
 export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 	const baseUrl = deps.cliServerUrl ?? "http://localhost:3000";
-	const projectService = new HttpProjectService(baseUrl);
+	const httpService = new HttpProjectService(baseUrl);
+	const projectService = new VaultProjectService(deps.app, null);
 
 	const viewDeps: ProjectDetailDeps = {
 		projectService,
@@ -28,14 +34,12 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 		},
 		createNote: (name: string) => {
 			const projectPath = `01 - Projects/${name}/${name}.md`;
-			void deps.app.vault.create(projectPath, `# ${name}\n\n`).then((file) => {
+			const content = `---\ntype: ProjectBrief\n---\n\n# ${name}\n\n`;
+			void deps.app.vault.create(projectPath, content).then((file) => {
 				void deps.app.workspace.openLinkText(file.path, "", false);
 			});
 		},
 		openInWebviewer: (url: string) => {
-			(deps.app as unknown as { commands: { executeCommandById: (id: string) => void } })
-				.commands.executeCommandById("open-with-default-app:" + url);
-			// Fallback: open in external browser
 			window.open(url);
 		},
 		navigateBack: () => {
@@ -60,7 +64,11 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 		},
 	});
 
-	return { projectService };
+	function connectHttpService(): void {
+		projectService.setHttpService(httpService);
+	}
+
+	return { projectService, connectHttpService };
 }
 
 /** Open project detail view for a specific project. */

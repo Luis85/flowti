@@ -65,6 +65,8 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 
 	el.addEventListener("create-project-note", ((e: CustomEvent) => {
 		deps.createNote?.(String(e.detail.name));
+		// Reload list after a brief delay to pick up the new note
+		setTimeout(() => void loadProjectList(), 500);
 	}) as EventListener);
 
 	// ── Storybook actions ──
