@@ -6,6 +6,7 @@
  * YAML parsing, and sitemap writing.
  */
 
+import type { UnifiedSitemap, PageObject, PageProperty, PageVariant, PageChild } from "../sitemap/unified-page.js";
 import type { ComponentMarkdown, ValidationResult, ImportWarning, Strategy } from "./markdown-sitemap-types.js";
 import { VALID_STATUSES } from "./markdown-sitemap-types.js";
 
@@ -86,4 +87,93 @@ function checkRecord(fm: Record<string, unknown>, requiredFields: readonly strin
 function asStringArray(value: unknown): readonly string[] {
 	if (!Array.isArray(value)) return [];
 	return value.map(String);
+}
+
+// ── Status mapping ───────────────────────────────────────────────────
+
+function mapStatus(status: ComponentMarkdown["status"]): "draft" | "active" | "deprecated" {
+	if (status === "ready") return "active";
+	return status;
+}
+
+// ── PageObject builders ──────────────────────────────────────────────
+
+function buildProperties(props: readonly string[]): readonly PageProperty[] {
+	return props.map((key) => ({ key, type: "string" as const }));
+}
+
+function buildChildren(componentId: string, slots: readonly string[]): readonly PageChild[] {
+	return slots.map((slot) => ({ ref: componentId, slot }));
+}
+
+function buildVariants(variants: readonly string[]): readonly PageVariant[] {
+	return variants.map((name) => ({ name, props: {} }));
+}
+
+function buildComponentPage(component: ComponentMarkdown, pageId: string, parent?: string): PageObject {
+	return {
+		kind: "component",
+		label: component.name,
+		description: component.description,
+		status: mapStatus(component.status),
+		actions: [],
+		...(parent ? { parent } : {}),
+		...(component.props.length > 0 ? { properties: buildProperties(component.props) } : {}),
+		...(component.slots.length > 0 ? { children: buildChildren(pageId, component.slots) } : {}),
+		...(component.variants.length > 0 ? { variants: buildVariants(component.variants) } : {}),
+	};
+}
+
+function buildCategoryPage(category: string): PageObject {
+	return {
+		kind: "page",
+		label: category,
+		description: `${category} components`,
+		actions: [],
+	};
+}
+
+// ── Strategy implementations ─────────────────────────────────────────
+
+function generateCategory(components: readonly ComponentMarkdown[]): Record<string, PageObject> {
+	const pages: Record<string, PageObject> = {};
+	const categories = new Set(components.map((c) => c.category));
+
+	for (const cat of categories) {
+		const catId = toKebab(cat);
+		pages[catId] = buildCategoryPage(cat);
+	}
+
+	for (const comp of components) {
+		const catId = toKebab(comp.category);
+		const pageId = `${catId}-${toKebab(comp.name)}`;
+		pages[pageId] = buildComponentPage(comp, pageId, catId);
+	}
+
+	return pages;
+}
+
+// ── Main export ──────────────────────────────────────────────────────
+
+export function generateSitemapFromMarkdown(
+	components: readonly ComponentMarkdown[],
+	strategy: Strategy,
+): UnifiedSitemap {
+	let pages: Record<string, PageObject>;
+
+	switch (strategy) {
+		case "category":
+			pages = generateCategory(components);
+			break;
+		case "flat":
+			pages = {};
+			break;
+		case "hierarchical":
+			pages = {};
+			break;
+		default:
+			pages = generateCategory(components);
+	}
+
+	return { version: 2, pages };
 }
