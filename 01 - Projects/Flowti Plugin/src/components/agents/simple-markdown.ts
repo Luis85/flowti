@@ -35,7 +35,7 @@ export function simpleMarkdown(text: string): string {
 
 	for (const line of lines) {
 		// Code block placeholder — emit as-is
-		const placeholderMatch = line.match(/^\x00CODEBLOCK_(\d+)\x00$/);
+		const placeholderMatch = line.match(/^\x00CODEBLOCK_(\d+)\x00$/); // eslint-disable-line no-control-regex
 		if (placeholderMatch) {
 			if (inList) { output.push("</ul>"); inList = false; }
 			output.push(codeBlocks[Number(placeholderMatch[1])]);
