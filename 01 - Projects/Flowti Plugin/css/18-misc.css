@@ -146,10 +146,12 @@
 	overflow: hidden;
 }
 
+/* Let ExcaliburJS FitContainer mode manage canvas sizing.
+   Do NOT set width/height — it breaks the coordinate mapping
+   between visual pixels and game world coordinates, causing
+   click hitboxes and overlay positions to drift. */
 .ft-world-container canvas {
 	display: block;
-	width: 100%;
-	height: 100%;
 }
 
 .ft-world-missing,

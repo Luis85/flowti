@@ -619,9 +619,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	container.addEventListener("keydown", keydownHandler);
 	container.addEventListener("keyup", keyupHandler);
 
-	// ── ResizeObserver (connected during start) ─────────
-	let resizeObserver: ResizeObserver | null = null;
-
 	// ── Lifecycle handle ────────────────────────────────
 
 	return {
@@ -682,12 +679,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				store.setActivityLog(worldState.activityLog);
 			}
 
-			// Observe container resizes
-			resizeObserver = new ResizeObserver(() => {
-				const rect = container.getBoundingClientRect();
-				engine.screen.viewport = { width: rect.width, height: rect.height };
-			});
-			resizeObserver.observe(container);
+			// FitContainer mode handles resize automatically — no manual
+			// ResizeObserver needed. ExcaliburJS listens for window resize
+			// and recalculates the viewport based on the parent container.
 		},
 
 		pause(): void {
@@ -702,10 +696,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			engine.stop();
 			engine.dispose();
 			provider.stop();
-			if (resizeObserver) {
-				resizeObserver.disconnect();
-				resizeObserver = null;
-			}
 			container.removeEventListener("keydown", keydownHandler);
 			container.removeEventListener("keyup", keyupHandler);
 		},
