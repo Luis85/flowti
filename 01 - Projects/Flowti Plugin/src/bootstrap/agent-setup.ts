@@ -16,7 +16,8 @@ import { SseClient } from "../infrastructure/agents/sse-client.js";
 import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider.js";
 import { launchCliServer, getServerStatus, killServer, clearServerRegistry, writeServerRegistryForExisting } from "../infrastructure/agents/server-launcher.js";
 import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/agent-sidepanel-view.js";
-import { VIEW_TYPE_AGENT_SIDEBAR } from "../ui/agents/types.js";
+import { AgentWorldView, type AgentWorldViewDeps } from "../ui/agents/agent-world-view.js";
+import { VIEW_TYPE_AGENT_SIDEBAR, VIEW_TYPE_AGENT_WORLD } from "../ui/agents/types.js";
 
 export interface AgentSetupDeps {
 	readonly plugin: Plugin;
@@ -88,6 +89,34 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		callback: () => {
 			void deps.plugin.app.workspace.getRightLeaf(false)
 				?.setViewState({ type: VIEW_TYPE_AGENT_SIDEBAR, active: true });
+		},
+	});
+
+	// Register world view immediately — Obsidian needs the factory to restore layout
+	const worldDeps: AgentWorldViewDeps = {
+		app: deps.app,
+		eventBus: deps.eventBus,
+		baseUrl,
+	};
+	try {
+		deps.plugin.registerView(VIEW_TYPE_AGENT_WORLD, (leaf: WorkspaceLeaf) =>
+			new AgentWorldView(leaf, worldDeps),
+		);
+	} catch (err) {
+		if (err instanceof Error && !err.message.includes("existing view type")) throw err;
+	}
+
+	deps.plugin.addCommand({
+		id: "open-agent-world",
+		name: "Open agent world",
+		callback: () => {
+			const existing = deps.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_WORLD);
+			if (existing.length > 0) {
+				void deps.app.workspace.revealLeaf(existing[0]);
+			} else {
+				const leaf = deps.app.workspace.getLeaf(true);
+				void leaf.setViewState({ type: VIEW_TYPE_AGENT_WORLD, active: true });
+			}
 		},
 	});
 

@@ -12,12 +12,11 @@ import { createOfficeScene } from "./scenes/office-scene.js";
 import { createVillageScene } from "./scenes/village-scene.js";
 import { createStationScene } from "./scenes/station-scene.js";
 import type { RoomScene } from "./scenes/room-scene.js";
-import { SyncSystem } from "./systems/sync-system.js";
 import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
 import { TalkEngine } from "./systems/talk-engine.js";
 import { extractAgentMessage } from "./data/message-utils.js";
-import type { AgentAction, DashboardAgent } from "./data/types.js";
+import type { AgentAction, DashboardAgent, WorldEntity } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import { preferredWorkstation } from "./brain/movement.js";
 import { createCameraSystem } from "./systems/camera-system.js";
@@ -28,6 +27,9 @@ import { DashboardStore } from "./store/dashboard-store.js";
 import { ParticlePool } from "./systems/particle-system.js";
 import { EmoteSystem } from "./systems/emote-system.js";
 import { SocialSystem } from "./systems/social-system.js";
+import { createServerProvider } from "./config/server-provider.js";
+import { createBridgeProvider } from "./config/bridge-provider.js";
+import type { DataProvider } from "./config/data-provider.js";
 
 const DOMAIN_PARTICLE_COLORS: Record<string, string> = {
 	engineering: "#3b82f6",
@@ -54,17 +56,29 @@ const BASE_URL = "";
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+	// ── Bridge detection ────────────────────────────────
+	const bridge = (window as Record<string, unknown>).__flowtiWorldBridge as
+		import("./config/bridge-provider.js").WorldBridge | undefined;
+	const embedded = !!bridge;
+
 	const engine = new ex.Engine({
 		width: ENGINE_WIDTH,
 		height: ENGINE_HEIGHT,
 		backgroundColor: ex.Color.fromHex("#0a0a0f"),
-		displayMode: ex.DisplayMode.FitScreen,
+		displayMode: embedded ? ex.DisplayMode.FitContainer : ex.DisplayMode.FitScreen,
 		antialiasing: true,
 		suppressPlayButton: true,
 	});
 
+	// When embedded, mount the canvas inside the bridge container
+	if (embedded) {
+		bridge!.containerElement.appendChild(engine.canvas);
+	}
+
 	// ── Shared mutable state ────────────────────────────
-	const canvasParent = engine.canvas.parentElement ?? document.body;
+	const canvasParent = embedded
+		? bridge!.containerElement
+		: engine.canvas.parentElement ?? document.body;
 
 	// ── Reactive store ──────────────────────────────────
 	const store = new DashboardStore(BASE_URL);
@@ -238,119 +252,113 @@ async function main(): Promise<void> {
 		return undefined;
 	}
 
-	// ── Sync system ─────────────────────────────────────
-	const syncSystem = new SyncSystem(BASE_URL, {
-		onAgentAction: (action: AgentAction) => {
-			// Transition brain state
-			brainSystem.applyEvent(action.agentName, action.type);
+	// ── Data provider (pluggable: server SSE or embedded bridge) ────────
+	const provider: DataProvider = embedded
+		? createBridgeProvider(bridge!)
+		: createServerProvider(BASE_URL);
 
-			// Silence talk engine when LLM responds
-			if (action.type === "speaking" || action.type === "asking") {
-				talkEngine.silence(action.agentName);
+	// Track known entity IDs to distinguish adds from updates
+	const knownEntities = new Set<string>();
+
+	// ── Register agents across all game subsystems ──────
+	function registerAgents(agents: readonly DashboardAgent[]): void {
+		hubScene.updateAgents(agents);
+		store.setAgents(agents);
+
+		for (const agent of agents) {
+			brainSystem.register(agent.name, agent.attributes ?? {}, agent.mood, agent.domain);
+			const brainState = brainSystem.getState(agent.name)!;
+			bubbleSystem.register(agent.name, agent.personality ?? [], brainState.params);
+			talkEngine.register(
+				agent.name,
+				agent.domain ?? "general",
+				agent.personality ?? [],
+				agent.attributes?.cha ?? 10,
+			);
+			emoteSystem.register(agent.name, agent.mood ?? "neutral", brainState.params.quoteFrequency);
+			socialSystem.register(agent.name, {
+				socialRadius: brainState.params.socialRadius,
+				personality: agent.personality ?? [],
+				relationships: agent.relationships ?? [],
+			});
+			knownEntities.add(agent.name);
+		}
+	}
+
+	// ── Wire provider action events ─────────────────────
+	provider.onAction((action: AgentAction) => {
+		// Transition brain state
+		brainSystem.applyEvent(action.agentName, action.type);
+
+		// Silence talk engine when LLM responds
+		if (action.type === "speaking" || action.type === "asking") {
+			talkEngine.silence(action.agentName);
+		}
+
+		// Show bubble for certain actions
+		if (action.type === "speaking" || action.type === "asking") {
+			const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+			const text = extractAgentMessage(rawText);
+			const bubbleKind = action.type === "asking" ? "question" : "speech";
+			const currentScene = engine.currentScene;
+			bubbleSystem.showBubble(action.agentName, bubbleKind, text, currentScene, findAgentActor);
+
+			// Push response to store for panel-talk component
+			store.pushAgentResponse(action.agentName, text);
+			store.setLlmStatus(action.agentName, { state: "idle", since: Date.now() });
+		} else if (action.type === "thinking") {
+			const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+			const text = extractAgentMessage(rawText);
+			const currentScene = engine.currentScene;
+			bubbleSystem.showBubble(action.agentName, "thought", text, currentScene, findAgentActor);
+		} else if (action.type === "requesting-permission") {
+			const currentScene = engine.currentScene;
+			bubbleSystem.showBubble(action.agentName, "question", "?", currentScene, findAgentActor);
+
+			// Auto-open panel to Permissions tab via store
+			store.selectAgent(action.agentName);
+			store.selectTab("permissions");
+		}
+	});
+
+	// ── Wire provider connection status ─────────────────
+	provider.onConnectionStatus((status) => {
+		hubScene.updateConnectionStatus(status);
+		store.setConnectionStatus(status);
+	});
+
+	// ── Wire provider entity updates (add / change) ─────
+	provider.onEntityUpdate((entity: WorldEntity) => {
+		if (entity.type !== "agent") return;
+
+		if (!knownEntities.has(entity.id)) {
+			// New agent entity — spawn into game
+			if (store.agents.find((a) => a.name === entity.id)) return;
+
+			const agentData: DashboardAgent = {
+				name: entity.id,
+				agentType: "ai",
+				status: ((entity.components["status"] as string) ?? "idle") as DashboardAgent["status"],
+				domain: entity.components["domain"] as string | undefined,
+			};
+			const setting = resolveSettingForDomain(agentData.domain);
+			if (setting !== "hub" && roomScenes[setting]) {
+				roomScenes[setting].spawnAgent(agentData);
 			}
-
-			// Show bubble for certain actions
-			if (action.type === "speaking" || action.type === "asking") {
-				const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
-				const text = extractAgentMessage(rawText);
-				const bubbleKind = action.type === "asking" ? "question" : "speech";
-				const currentScene = engine.currentScene;
-				bubbleSystem.showBubble(action.agentName, bubbleKind, text, currentScene, findAgentActor);
-
-				// Push response to store for panel-talk component
-				store.pushAgentResponse(action.agentName, text);
-				store.setLlmStatus(action.agentName, { state: "idle", since: Date.now() });
-			} else if (action.type === "thinking") {
-				const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
-				const text = extractAgentMessage(rawText);
-				const currentScene = engine.currentScene;
-				bubbleSystem.showBubble(action.agentName, "thought", text, currentScene, findAgentActor);
-			} else if (action.type === "requesting-permission") {
-				const currentScene = engine.currentScene;
-				bubbleSystem.showBubble(action.agentName, "question", "?", currentScene, findAgentActor);
-
-				// Auto-open panel to Permissions tab via store
-				store.selectAgent(action.agentName);
-				store.selectTab("permissions");
+			store.setAgents([...store.agents, agentData]);
+			hubScene.updateAgents([...store.agents]);
+			brainSystem.register(agentData.name, {}, undefined, agentData.domain);
+			knownEntities.add(entity.id);
+			bubbleSystem.showBubble(entity.id, "speech", "Hello! I just arrived.", engine.currentScene, findAgentActor, 3000);
+		} else {
+			// Existing agent entity changed — apply state update
+			const statusComp = entity.components["status"];
+			if (typeof statusComp === "object" && statusComp !== null && "state" in statusComp) {
+				const state = (statusComp as { state: string }).state;
+				brainSystem.applyEvent(entity.id, state as AgentAction["type"]);
+				bubbleSystem.showBubble(entity.id, "speech", `I'm now ${state}!`, engine.currentScene, findAgentActor, 3000);
 			}
-		},
-		onAgentsUpdated: (agents: readonly DashboardAgent[]) => {
-			// Update hub scene and store
-			hubScene.updateAgents(agents);
-			store.setAgents(agents);
-
-			// Register agents in brain, bubble, talk, emote, and social systems
-			for (const agent of agents) {
-				brainSystem.register(agent.name, agent.attributes ?? {}, agent.mood, agent.domain);
-				const brainState = brainSystem.getState(agent.name)!;
-				bubbleSystem.register(agent.name, agent.personality ?? [], brainState.params);
-				talkEngine.register(
-					agent.name,
-					agent.domain ?? "general",
-					agent.personality ?? [],
-					agent.attributes?.cha ?? 10,
-				);
-				emoteSystem.register(agent.name, agent.mood ?? "neutral", brainState.params.quoteFrequency);
-				socialSystem.register(agent.name, {
-					socialRadius: brainState.params.socialRadius,
-					personality: agent.personality ?? [],
-					relationships: agent.relationships ?? [],
-				});
-			}
-		},
-		onActivityLog: (log) => {
-			store.setActivityLog(log);
-		},
-		onConnectionStatus: (status) => {
-			hubScene.updateConnectionStatus(status);
-			store.setConnectionStatus(status);
-		},
-		onStateDiff: (diff) => {
-			// Spawn new agent entities
-			for (const entityId of diff.added) {
-				const entity = syncSystem.getStateStore().getEntity(entityId);
-				if (!entity || entity.type !== "agent") continue;
-				if (store.agents.find((a) => a.name === entityId)) continue;
-
-				const agentData: DashboardAgent = {
-					name: entityId,
-					agentType: "ai",
-					status: ((entity.components["status"] as string) ?? "idle") as DashboardAgent["status"],
-					domain: entity.components["domain"] as string | undefined,
-				};
-				const setting = resolveSettingForDomain(agentData.domain);
-				if (setting !== "hub" && roomScenes[setting]) {
-					roomScenes[setting].spawnAgent(agentData);
-				}
-				store.setAgents([...store.agents, agentData]);
-				hubScene.updateAgents([...store.agents]);
-				brainSystem.register(agentData.name, {}, undefined, agentData.domain);
-				bubbleSystem.showBubble(entityId, "speech", "Hello! I just arrived.", engine.currentScene, findAgentActor, 3000);
-			}
-
-			// Despawn removed agent entities
-			for (const entityId of diff.removed) {
-				brainSystem.unregister(entityId);
-				emoteSystem.unregister(entityId);
-				socialSystem.unregister(entityId);
-				talkEngine.silence(entityId);
-				const updated = store.agents.filter((a) => a.name !== entityId);
-				store.setAgents(updated);
-				hubScene.updateAgents(updated);
-			}
-
-			// Update changed agent entities
-			for (const entityId of diff.changed) {
-				const entity = syncSystem.getStateStore().getEntity(entityId);
-				if (!entity || entity.type !== "agent") continue;
-				const statusComp = entity.components["status"];
-				if (typeof statusComp === "object" && statusComp !== null && "state" in statusComp) {
-					const state = (statusComp as { state: string }).state;
-					brainSystem.applyEvent(entityId, state as AgentAction["type"]);
-					bubbleSystem.showBubble(entityId, "speech", `I'm now ${state}!`, engine.currentScene, findAgentActor, 3000);
-				}
-			}
-		},
+		}
 	});
 	// ── Wire emote callback ─────────────────────────────
 	emoteSystem.onEmote((name, _emoteIndex) => {
@@ -388,8 +396,7 @@ async function main(): Promise<void> {
 		}, 5000);
 	});
 
-	// ── Wire room scenes to sync and brain systems ──────
-	syncSystem.setRoomScenes(roomScenes);
+	// ── Wire room scenes to brain system ────────────────
 	officeScene.setBrainSystem(brainSystem);
 	villageScene.setBrainSystem(brainSystem);
 	stationScene.setBrainSystem(brainSystem);
@@ -614,7 +621,13 @@ async function main(): Promise<void> {
 		return inner instanceof HTMLInputElement || inner instanceof HTMLTextAreaElement;
 	}
 
-	document.addEventListener("keydown", (e) => {
+	// Keyboard listeners: scoped to bridge container when embedded, document when browser
+	const keyTarget: EventTarget = embedded ? bridge!.containerElement : document;
+	if (embedded) {
+		bridge!.containerElement.setAttribute("tabindex", "0");
+	}
+
+	keyTarget.addEventListener("keydown", ((e: KeyboardEvent) => {
 		if (isTyping()) return;
 		if (e.key === "Escape" && cameraSystem!.isFollowing()) {
 			cameraSystem!.stopFollow();
@@ -623,15 +636,44 @@ async function main(): Promise<void> {
 			cameraSystem!.stopFollow();
 		}
 		cameraSystem!.handleKeyDown(e.key);
-	});
+	}) as EventListener);
 
-	document.addEventListener("keyup", (e) => {
+	keyTarget.addEventListener("keyup", ((e: KeyboardEvent) => {
 		if (isTyping()) return;
 		cameraSystem!.handleKeyUp(e.key);
-	});
+	}) as EventListener);
 
-	// Load initial data and start sync after engine is ready
-	await syncSystem.start();
+	// Load initial data and start provider after engine is ready
+	await provider.start();
+
+	// Fetch initial agent roster and register across all subsystems
+	const initialAgents = await provider.getDashboardAgents();
+	registerAgents(initialAgents);
+
+	// Route agents to room scenes by domain
+	for (const agent of initialAgents) {
+		const setting = resolveSettingForDomain(agent.domain);
+		if (setting !== "hub" && roomScenes[setting]) {
+			roomScenes[setting].spawnAgent(agent);
+		}
+	}
+
+	// Fetch initial world state for activity log
+	const worldState = await provider.getWorldState();
+	if (worldState?.activityLog) {
+		store.setActivityLog(worldState.activityLog);
+	}
+
+	// ── Embedded mode: expose engine + ResizeObserver ───
+	if (embedded) {
+		(window as Record<string, unknown>).__flowtiEngine = engine;
+
+		const ro = new ResizeObserver(() => {
+			const rect = bridge!.containerElement.getBoundingClientRect();
+			engine.screen.viewport = { width: rect.width, height: rect.height };
+		});
+		ro.observe(bridge!.containerElement);
+	}
 }
 
 main().catch((err: unknown) => {
