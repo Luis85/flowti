@@ -91,6 +91,8 @@ import pluginSitemap from "../configs/sitemap.json";
 import type { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 import { setupAgentDomain, type AgentSetupResult } from "./bootstrap/agent-setup";
 import { VIEW_TYPE_AGENT_SIDEBAR } from "./ui/agents/types";
+import { setupProjectDomain, type ProjectSetupResult } from "./bootstrap/project-setup";
+import { VIEW_TYPE_PROJECT_DETAIL } from "./ui/projects/types";
 
 
 /**  
@@ -174,6 +176,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private handlerRegistry?: PluginHandlerRegistry;
 	private installerServiceRef?: IInstallerService;
 	private agentSetup?: AgentSetupResult;
+	private projectSetup?: ProjectSetupResult;
 
 	async onload() {
 		try {
@@ -396,6 +399,16 @@ export default class FlowtiBasePlugin extends Plugin {
 				this.activateAgentPanel();
 			});
 
+			// ── Project domain — view, command, ribbon ──
+			this.projectSetup = setupProjectDomain({
+				plugin: this,
+				app: this.app,
+			});
+
+			this.addRibbonIcon("folder-open", "Open project hub", () => {
+				this.activateProjectHub();
+			});
+
 			// Listen for execute requests from the Command Catalog UI
 			{
 				const ctx = this.createCommandContext();
@@ -476,6 +489,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			"flowti-csv", "flowti-export", "flowti-canvas-import",
 			"flowti-journey-builder",
 			VIEW_TYPE_AGENT_SIDEBAR,
+			VIEW_TYPE_PROJECT_DETAIL,
 		];
 		for (const type of viewTypes) {
 			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
@@ -685,6 +699,17 @@ export default class FlowtiBasePlugin extends Plugin {
 		}
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (leaf) void leaf.setViewState({ type: VIEW_TYPE_AGENT_SIDEBAR, active: true });
+	}
+
+	/** Reveal existing project hub leaf or create one in the right sidebar. */
+	private activateProjectHub(): void {
+		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_PROJECT_DETAIL);
+		if (existing.length > 0) {
+			void this.app.workspace.revealLeaf(existing[0]);
+			return;
+		}
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (leaf) void leaf.setViewState({ type: VIEW_TYPE_PROJECT_DETAIL, active: true });
 	}
 
 	private safeRegisterView(type: string, factory: ViewCreator): void {

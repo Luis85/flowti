@@ -21,11 +21,18 @@ export interface ProjectHandlerDeps {
 export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerDeps): () => void {
 	const { projectService } = deps;
 	const el = document.createElement("flowti-project-detail") as HTMLElement & Record<string, unknown>;
+	let currentProject = deps.projectName;
 
-	async function loadProject(): Promise<void> {
-		const detail = await projectService.getProject(deps.projectName);
+	async function loadProjectList(): Promise<void> {
+		const projects = await projectService.listProjects();
+		el.projects = [...projects];
+	}
+
+	async function loadProject(name: string): Promise<void> {
+		currentProject = name;
+		const detail = await projectService.getProject(name);
 		if (!detail) {
-			el.projectName = deps.projectName;
+			el.projectName = name;
 			el.projectType = "unknown";
 			el.hasNote = false;
 			el.notePath = "";
@@ -39,9 +46,16 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.storybook = { ...detail.storybook };
 	}
 
+	// ── Project selected from list ──
+	el.addEventListener("project-selected", ((e: CustomEvent) => {
+		void loadProject(String(e.detail.name));
+	}) as EventListener);
+
 	// ── Back to list ──
 	el.addEventListener("back-to-list", (() => {
-		deps.navigateBack?.();
+		currentProject = "";
+		el.projectName = "";
+		void loadProjectList();
 	}) as EventListener);
 
 	// ── Note actions ──
@@ -56,41 +70,41 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	// ── Storybook actions ──
 	el.addEventListener("storybook-install", ((e: CustomEvent) => {
 		el.loading = true;
-		void projectService.installStorybook(deps.projectName, String(e.detail.framework) as StorybookFramework)
-			.then(() => loadProject())
+		void projectService.installStorybook(currentProject, String(e.detail.framework) as StorybookFramework)
+			.then(() => loadProject(currentProject))
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 
 	el.addEventListener("storybook-start", (() => {
 		el.loading = true;
-		void projectService.startStorybook(deps.projectName)
+		void projectService.startStorybook(currentProject)
 			.then((result) => {
 				if (result.ok && result.url) {
 					deps.openInWebviewer?.(result.url);
 				}
-				return loadProject();
+				return loadProject(currentProject);
 			})
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 
 	el.addEventListener("storybook-stop", (() => {
 		el.loading = true;
-		void projectService.stopStorybook(deps.projectName)
-			.then(() => loadProject())
+		void projectService.stopStorybook(currentProject)
+			.then(() => loadProject(currentProject))
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 
 	el.addEventListener("storybook-build", (() => {
 		el.loading = true;
-		void projectService.buildStorybook(deps.projectName)
-			.then(() => loadProject())
+		void projectService.buildStorybook(currentProject)
+			.then(() => loadProject(currentProject))
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 
 	el.addEventListener("storybook-scaffold", (() => {
 		el.loading = true;
-		void projectService.scaffoldStorybook(deps.projectName)
-			.then(() => loadProject())
+		void projectService.scaffoldStorybook(currentProject)
+			.then(() => loadProject(currentProject))
 			.finally(() => { el.loading = false; });
 	}) as EventListener);
 
@@ -100,7 +114,11 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	}) as EventListener);
 
 	container.appendChild(el);
-	void loadProject();
+	if (currentProject) {
+		void loadProject(currentProject);
+	} else {
+		void loadProjectList();
+	}
 
 	return () => { el.remove(); };
 }
