@@ -8,7 +8,14 @@ import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import type { StorybookFramework } from "../../domain/projects/types.js";
 
-const FRAMEWORKS: readonly StorybookFramework[] = ["html-vite", "react", "vue", "angular"] as const;
+const FRAMEWORKS: { id: StorybookFramework; label: string }[] = [
+	{ id: "html", label: "HTML" },
+	{ id: "react", label: "React" },
+	{ id: "vue3", label: "Vue" },
+	{ id: "angular", label: "Angular" },
+	{ id: "web_components", label: "Web Components" },
+	{ id: "svelte", label: "Svelte" },
+];
 
 export class FlowtiStorybookSection extends FlowtiElement {
 	static properties = {
@@ -29,7 +36,9 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		tokens,
 		css`
 			:host {
-				display: block;
+				display: flex;
+				flex-direction: column;
+				gap: var(--flowti-space-sm, 8px);
 			}
 
 			.section-header {
@@ -47,7 +56,12 @@ export class FlowtiStorybookSection extends FlowtiElement {
 			}
 
 			.not-configured p {
-				margin: 0 0 var(--flowti-space-md, 16px) 0;
+				margin: 0 0 var(--flowti-space-sm, 8px) 0;
+			}
+
+			.setup-hint {
+				font-weight: 500;
+				color: var(--text-normal);
 			}
 
 			.framework-grid {
@@ -99,6 +113,16 @@ export class FlowtiStorybookSection extends FlowtiElement {
 				font-weight: 500;
 			}
 
+			.status-label {
+				font-size: var(--flowti-font-sm, 0.85em);
+				color: var(--text-muted);
+			}
+
+			.status-label--running {
+				color: var(--color-green, #4caf50);
+				font-weight: 500;
+			}
+
 			.url-label {
 				color: var(--text-muted);
 				font-family: var(--font-monospace);
@@ -145,7 +169,7 @@ export class FlowtiStorybookSection extends FlowtiElement {
 			.busy-section {
 				display: flex;
 				flex-direction: column;
-				gap: var(--flowti-space-xs, 4px);
+				gap: var(--flowti-space-sm, 8px);
 			}
 
 			.busy-label {
@@ -205,10 +229,10 @@ export class FlowtiStorybookSection extends FlowtiElement {
 				background: var(--background-primary, #1e1e1e);
 				border: 1px solid var(--background-modifier-border);
 				border-radius: var(--flowti-radius-sm, 4px);
-				padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
+				padding: var(--flowti-space-sm, 8px);
 				font-family: var(--font-monospace);
 				font-size: 0.75em;
-				line-height: 1.4;
+				line-height: 1.5;
 				color: var(--text-muted);
 				white-space: pre-wrap;
 				word-break: break-all;
@@ -280,10 +304,11 @@ export class FlowtiStorybookSection extends FlowtiElement {
 	private renderNotInstalled() {
 		return html`
 			<div class="not-configured">
-				<p>Storybook not configured</p>
+				<p>Component workshop — build and preview UI in isolation with live docs and accessibility checks.</p>
+				<p class="setup-hint">Select a framework to initialize:</p>
 				<div class="framework-grid">
 					${FRAMEWORKS.map((fw) => html`
-						<button class="framework-btn" @click="${() => this.dispatchInstall(fw)}">${fw}</button>
+						<button class="framework-btn" @click="${() => this.dispatchInstall(fw.id)}" title="Initialize Storybook with ${fw.label} + Vite builder">${fw.label}</button>
 					`)}
 				</div>
 			</div>
@@ -294,12 +319,14 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		return html`
 			<div class="status-row">
 				<span class="framework-badge">${this.framework}</span>
+				<span class="status-label">Installed</span>
 			</div>
 			<div class="actions">
-				<button class="action-btn action-btn--primary" @click="${() => this.dispatchStart()}">Start</button>
-				<button class="action-btn" @click="${() => this.dispatchScaffold()}">Scaffold from sitemap</button>
-				<button class="action-btn" @click="${() => this.dispatchBuild()}">Build</button>
-				<button class="action-btn" @click="${() => this.dispatchOpenFolder()}">Open folder</button>
+				<button class="action-btn action-btn--primary" @click="${() => this.dispatchStart()}" title="Launch dev server on localhost:6006">Start</button>
+				<button class="action-btn" @click="${() => this.dispatchImportMarkdown()}" title="Import markdown component files into a sitemap">Import Markdown</button>
+				<button class="action-btn" @click="${() => this.dispatchScaffold()}" title="Generate .stories files from sitemap page definitions">Scaffold from sitemap</button>
+				<button class="action-btn" @click="${() => this.dispatchBuild()}" title="Build static site to storybook-static/">Build</button>
+				<button class="action-btn" @click="${() => this.dispatchOpenFolder()}" title="Open .storybook config directory">Open folder</button>
 			</div>
 		`;
 	}
@@ -309,12 +336,13 @@ export class FlowtiStorybookSection extends FlowtiElement {
 			<div class="status-row">
 				<span class="dot--running"></span>
 				<span class="framework-badge">${this.framework}</span>
+				<span class="status-label status-label--running">Running</span>
 				<span class="url-label">${this.url}</span>
 			</div>
 			<div class="actions">
-				<button class="action-btn action-btn--primary" @click="${() => this.dispatchView()}">View</button>
-				<button class="action-btn action-btn--danger" @click="${() => this.dispatchStop()}">Stop</button>
-				<button class="action-btn" @click="${() => this.dispatchBuild()}">Build</button>
+				<button class="action-btn action-btn--primary" @click="${() => this.dispatchView()}" title="Open Storybook in browser">View</button>
+				<button class="action-btn action-btn--danger" @click="${() => this.dispatchStop()}" title="Stop the dev server process">Stop</button>
+				<button class="action-btn" @click="${() => this.dispatchBuild()}" title="Build static site to storybook-static/">Build</button>
 			</div>
 		`;
 	}
@@ -337,6 +365,10 @@ export class FlowtiStorybookSection extends FlowtiElement {
 
 	private dispatchBuild(): void {
 		this.dispatchEvent(new CustomEvent("storybook-build", { bubbles: true, composed: true }));
+	}
+
+	private dispatchImportMarkdown(): void {
+		this.dispatchEvent(new CustomEvent("storybook-import", { bubbles: true, composed: true }));
 	}
 
 	private dispatchScaffold(): void {

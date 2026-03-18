@@ -21,9 +21,25 @@ export interface ProjectSummary {
 export interface ProjectDetail extends ProjectSummary {
 	readonly notePath: string | null;
 	readonly projectPath: string;
+	readonly config?: ProjectConfig;
 }
 
-export type StorybookFramework = "html-vite" | "react" | "vue" | "angular";
+export type StorybookFramework = "html" | "react" | "vue3" | "angular" | "web_components" | "svelte";
+
+export interface ProjectConfig {
+	readonly buildModes: readonly string[];
+	readonly testPresets: readonly string[];
+	readonly framework?: string;
+	readonly healthTargets?: {
+		readonly coverageMin?: number;
+		readonly coverageTarget?: number;
+		readonly maxLintErrors?: number;
+		readonly maxLintWarnings?: number;
+		readonly minTests?: number;
+	};
+	readonly agents?: readonly string[];
+	readonly publishTargets?: readonly string[];
+}
 
 export type OutputCallback = (line: string) => void;
 
@@ -35,4 +51,5 @@ export interface IProjectService {
 	stopStorybook(project: string): Promise<{ ok: boolean; error?: string }>;
 	buildStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; outputDir?: string; error?: string }>;
 	scaffoldStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; filesCreated?: number; error?: string }>;
+	importMarkdownSitemap(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
 }

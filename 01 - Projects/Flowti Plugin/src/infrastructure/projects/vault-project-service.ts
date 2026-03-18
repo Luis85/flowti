@@ -7,7 +7,7 @@ import type { App, TFolder, TFile } from "obsidian";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { IProjectService, ProjectSummary, ProjectDetail, StorybookFramework, StorybookStatus, OutputCallback } from "../../domain/projects/types.js";
+import type { IProjectService, ProjectSummary, ProjectDetail, ProjectConfig, StorybookFramework, StorybookStatus, OutputCallback } from "../../domain/projects/types.js";
 
 const PROJECTS_FOLDER = "01 - Projects";
 const PROJECT_BRIEF_TYPE = "ProjectBrief";
@@ -64,6 +64,7 @@ function runAsync(
 			shell: true,
 			windowsHide: true,
 			stdio: "pipe",
+			env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=4096" },
 		});
 
 		let stderr = "";
@@ -182,15 +183,42 @@ export class VaultProjectService implements IProjectService {
 		}
 
 		// Read config for additional info
+		let projectConfig: ProjectConfig | undefined;
 		try {
 			const configPath = join(absPath, "configs", "flowti.config.json");
 			if (existsSync(configPath)) {
-				const config = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
-				const components = (config.components ?? {}) as Record<string, unknown>;
+				const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
+				if (raw.type) type = String(raw.type);
+
+				const components = (raw.components ?? {}) as Record<string, unknown>;
 				if (components.framework) {
 					storybook = { ...storybook, framework: String(components.framework) };
 				}
-				if (config.type) type = String(config.type);
+
+				const buildCmds = ((raw.build as Record<string, unknown>)?.commands ?? {}) as Record<string, unknown>;
+				const testCmds = ((raw.test as Record<string, unknown>)?.commands ?? {}) as Record<string, unknown>;
+				const healthRaw = (raw.health as Record<string, unknown>)?.thresholds as Record<string, unknown> | undefined;
+				const coverage = healthRaw?.coverage as Record<string, unknown> | undefined;
+				const lint = healthRaw?.lint as Record<string, unknown> | undefined;
+				const tests = healthRaw?.tests as Record<string, unknown> | undefined;
+				const mgmt = raw.management as Record<string, unknown> | undefined;
+				const roster = (mgmt?.agents as Record<string, unknown>)?.roster as string[] | undefined;
+				const endpoints = (raw.publish as Record<string, unknown>)?.endpoints as Array<Record<string, unknown>> | undefined;
+
+				projectConfig = {
+					buildModes: Object.keys(buildCmds),
+					testPresets: Object.keys(testCmds),
+					framework: components.framework ? String(components.framework) : undefined,
+					healthTargets: coverage || lint || tests ? {
+						coverageMin: coverage?.min as number | undefined,
+						coverageTarget: coverage?.target as number | undefined,
+						maxLintErrors: lint?.maxErrors as number | undefined,
+						maxLintWarnings: lint?.maxWarnings as number | undefined,
+						minTests: tests?.minPassed as number | undefined,
+					} : undefined,
+					agents: roster,
+					publishTargets: endpoints?.map((e) => String(e.name)),
+				};
 			}
 		} catch { /* invalid config */ }
 
@@ -201,12 +229,23 @@ export class VaultProjectService implements IProjectService {
 			notePath: hasNote ? notePath : null,
 			projectPath,
 			storybook,
+			config: projectConfig,
 		};
 	}
 
 	async installStorybook(project: string, framework: StorybookFramework, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
 		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
-		return runAsync("npx", ["storybook@latest", "init", "--type", framework, "--yes"], cwd, onOutput);
+		// Install storybook with vite builder + essentials (includes docs + test)
+		const result = await runAsync("npx", ["storybook@latest", "init", "--type", framework, "--builder", "vite", "--yes"], cwd, onOutput);
+		if (!result.ok) return result;
+
+		// Add a11y addon via npm
+		onOutput?.("Installing @storybook/addon-a11y...");
+		const a11yResult = await runAsync("npm", ["install", "--save-dev", "@storybook/addon-a11y"], cwd, onOutput);
+		if (!a11yResult.ok) {
+			onOutput?.("Warning: a11y addon install failed, continuing without it.");
+		}
+		return { ok: true };
 	}
 
 	private findStorybookConfigDir(absProjectPath: string): string | null {
@@ -239,6 +278,7 @@ export class VaultProjectService implements IProjectService {
 				stdio: "pipe",
 				shell: true,
 				windowsHide: true,
+				env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=4096" },
 			});
 
 			const pid = child.pid ?? 0;
@@ -277,15 +317,22 @@ export class VaultProjectService implements IProjectService {
 
 	async stopStorybook(project: string): Promise<{ ok: boolean; error?: string }> {
 		const running = this.runningProcesses.get(project);
-		if (!running) return { ok: true };
+		const port = 6006;
 
-		try {
-			if (process.platform === "win32") {
-				spawn("taskkill", ["/F", "/PID", String(running.pid)], { windowsHide: true, shell: true });
-			} else {
-				process.kill(running.pid, "SIGTERM");
-			}
-		} catch { /* already dead */ }
+		// Kill by PID tree if we have it
+		if (running?.pid) {
+			await runAsync("taskkill", ["/F", "/T", "/PID", String(running.pid)], ".");
+		}
+
+		// Always kill by port as fallback — the PID might be stale or wrong (shell wrapper)
+		if (process.platform === "win32") {
+			await runAsync("powershell", [
+				"-Command",
+				`Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }`,
+			], ".");
+		} else {
+			await runAsync("sh", ["-c", `lsof -ti:${port} | xargs kill -9 2>/dev/null`], ".");
+		}
 
 		this.runningProcesses.delete(project);
 		return { ok: true };
@@ -305,5 +352,11 @@ export class VaultProjectService implements IProjectService {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
 		return runAsync("node", [cliBin, "storybook:scaffold", `--project=${project}`], vaultBase, onOutput);
+	}
+
+	async importMarkdownSitemap(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		return runAsync("node", [cliBin, "storybook:import", `--project=${project}`], vaultBase, onOutput);
 	}
 }

@@ -44,6 +44,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.hasNote = detail.hasNote;
 		el.notePath = detail.notePath ?? "";
 		el.storybook = { ...detail.storybook };
+		el.config = detail.config;
 	}
 
 	// ── Project selected from list ──
@@ -180,6 +181,12 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("storybook-scaffold", (() => {
 		startBusy("Scaffolding from sitemap...");
 		void projectService.scaffoldStorybook(currentProject, appendOutput)
+			.then((r) => endBusy(r));
+	}) as EventListener);
+
+	el.addEventListener("storybook-import", (() => {
+		startBusy("Importing markdown to sitemap...");
+		void projectService.importMarkdownSitemap(currentProject, appendOutput)
 			.then((r) => endBusy(r));
 	}) as EventListener);
 
