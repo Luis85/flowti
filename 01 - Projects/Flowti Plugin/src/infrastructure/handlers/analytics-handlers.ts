@@ -60,6 +60,7 @@ export function registerAnalyticsHandlers(
 			setProps(el, {
 				dashboard: selectedDashboard,
 				tiles: selectedDashboard.tiles ?? [],
+				breadcrumbs: [{ level: "dashboard", label: selectedDashboard.name }],
 			});
 		}
 
@@ -88,7 +89,7 @@ export function registerAnalyticsHandlers(
 		const el = document.createElement("flowti-analytics-queries");
 
 		const savedQueries = deps.analyticsService.listQueries();
-		setProps(el, { savedQueries, sources: [] });
+		setProps(el, { savedQueries });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 
 		el.addEventListener("run-query", () => {

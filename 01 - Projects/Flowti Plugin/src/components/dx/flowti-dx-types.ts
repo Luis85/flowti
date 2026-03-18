@@ -94,6 +94,12 @@ export class FlowtiDxTypes extends FlowtiElement {
 			button:hover {
 				background: var(--background-modifier-hover);
 			}
+
+			.empty-state__hint {
+				font-size: var(--flowti-font-sm);
+				color: var(--flowti-color-muted);
+				margin-top: var(--flowti-space-xs);
+			}
 		`,
 	];
 
@@ -141,7 +147,10 @@ export class FlowtiDxTypes extends FlowtiElement {
 		if (filtered.length === 0 && this.types.length === 0) {
 			return html`
 				<div class="empty-state">
-					<div class="empty-state__message">No type definitions found</div>
+					<div class="empty-state__message">No note types defined yet</div>
+					<div class="empty-state__hint">
+						Types appear here when import or export configs specify a noteType.
+					</div>
 				</div>
 			`;
 		}

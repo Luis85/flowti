@@ -98,6 +98,13 @@ export class FlowtiDxDashboard extends FlowtiElement {
 			button:hover {
 				background: var(--background-modifier-hover);
 			}
+
+			.empty-state__hint {
+				font-size: var(--flowti-font-sm);
+				color: var(--flowti-color-muted);
+				margin-top: var(--flowti-space-xs);
+				margin-bottom: var(--flowti-space-sm);
+			}
 		`,
 	];
 
@@ -160,7 +167,10 @@ export class FlowtiDxDashboard extends FlowtiElement {
 		if (this.activeOps.length === 0) {
 			return html`
 				<div class="empty-state">
-					<div class="empty-state__message">No active operations</div>
+					<div class="empty-state__message">No operations running</div>
+					<div class="empty-state__hint">
+						Operations appear here when imports, exports, or pipelines are executing.
+					</div>
 					<button @click=${this.dispatchOpenPipelines}>View all pipelines</button>
 				</div>
 			`;

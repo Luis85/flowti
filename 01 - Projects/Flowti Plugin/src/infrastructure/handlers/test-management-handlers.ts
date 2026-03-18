@@ -10,6 +10,7 @@ import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registr
 import type { IEventBus } from "../events/types";
 import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
+import { setIcon } from "obsidian";
 
 // Side-effect imports: register Lit custom elements
 import "../../components/test-management/flowti-tm-journeys.js";
@@ -122,6 +123,10 @@ export function registerTestManagementHandlers(
 			pyramid: deps.service.getPyramidWithTrends(),
 			onboardingVisible: deps.onboardingService.shouldShowCallout("test-management-welcome"),
 		});
+		el.addEventListener("navigate-to-tab", ((e: CustomEvent) => {
+			const { tabId } = e.detail as { tabId: string };
+			void deps.eventBus.emit("ui.navigateTab", { viewId: "flowti-test-management-hub", tabId });
+		}) as EventListener);
 		container.appendChild(el);
 	});
 
@@ -129,16 +134,40 @@ export function registerTestManagementHandlers(
 
 	registry.registerTabHandler("test-mgmt:features", (container: HTMLElement) => {
 		container.innerHTML = "";
-		container.createDiv({ text: "Features catalog", cls: "ft-text-muted" });
+		const wrapper = container.createDiv({ cls: "ft-empty-state ft-empty-state-centered" });
+		const iconEl = wrapper.createDiv();
+		setIcon(iconEl, "layers");
+		iconEl.addClass("ft-empty-state-icon");
+		wrapper.createDiv({ text: "Features Catalog", cls: "ft-empty-state-heading" });
+		wrapper.createDiv({
+			text: "Map test journeys to product features and track quality per feature area.",
+			cls: "ft-text-sm ft-text-muted ft-empty-state-subtitle-mb",
+		});
 	});
 
 	registry.registerTabHandler("test-mgmt:processes", (container: HTMLElement) => {
 		container.innerHTML = "";
-		container.createDiv({ text: "Processes catalog", cls: "ft-text-muted" });
+		const wrapper = container.createDiv({ cls: "ft-empty-state ft-empty-state-centered" });
+		const iconEl = wrapper.createDiv();
+		setIcon(iconEl, "workflow");
+		iconEl.addClass("ft-empty-state-icon");
+		wrapper.createDiv({ text: "Processes Catalog", cls: "ft-empty-state-heading" });
+		wrapper.createDiv({
+			text: "Define and monitor test processes \u2014 from CI gates to manual review workflows.",
+			cls: "ft-text-sm ft-text-muted ft-empty-state-subtitle-mb",
+		});
 	});
 
 	registry.registerTabHandler("test-mgmt:products", (container: HTMLElement) => {
 		container.innerHTML = "";
-		container.createDiv({ text: "Products catalog", cls: "ft-text-muted" });
+		const wrapper = container.createDiv({ cls: "ft-empty-state ft-empty-state-centered" });
+		const iconEl = wrapper.createDiv();
+		setIcon(iconEl, "package");
+		iconEl.addClass("ft-empty-state-icon");
+		wrapper.createDiv({ text: "Products Catalog", cls: "ft-empty-state-heading" });
+		wrapper.createDiv({
+			text: "Organize test coverage by product and track release readiness across deliverables.",
+			cls: "ft-text-sm ft-text-muted ft-empty-state-subtitle-mb",
+		});
 	});
 }

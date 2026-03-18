@@ -60,6 +60,17 @@ export interface UserHandlerDeps {
 	commandRegistry: {
 		getCommandsMeta: () => readonly unknown[];
 	};
+	settingsProvider: {
+		getSettings: () => {
+			inboxEnabledSources: string[];
+			sessionActivityFilterGlobal: string[];
+			customSessionTypes: Record<string, unknown>;
+			trainFolder: string;
+			defaultTrainDuration: number;
+			trainMaxThoughts: number;
+			trainAutoOpenTimeline: boolean;
+		};
+	};
 	eventBus: IEventBus;
 }
 
@@ -197,13 +208,22 @@ export function registerUserHandlers(
 		container.innerHTML = "";
 		const el = document.createElement("flowti-user-preferences");
 
-		// Build settings from services
+		// Build settings from actual settings provider and nudge service
 		const nudgeConfigs = deps.nudgeService.getConfigs();
+		const currentSettings = deps.settingsProvider.getSettings();
 		setProps(el, {
 			settings: {
-				sources: { enabled: [] },
-				session: { activityFilterGlobal: [], customTypes: {} },
-				train: { folder: "", defaultDuration: 15, maxThoughts: 100, autoOpenTimeline: true },
+				sources: { enabled: currentSettings.inboxEnabledSources },
+				session: {
+					activityFilterGlobal: currentSettings.sessionActivityFilterGlobal,
+					customTypes: currentSettings.customSessionTypes,
+				},
+				train: {
+					folder: currentSettings.trainFolder,
+					defaultDuration: currentSettings.defaultTrainDuration,
+					maxThoughts: currentSettings.trainMaxThoughts,
+					autoOpenTimeline: currentSettings.trainAutoOpenTimeline,
+				},
 				nudge: { configs: nudgeConfigs },
 			},
 			activePanel: "",

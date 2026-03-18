@@ -25,6 +25,7 @@ export class FlowtiDxReports extends FlowtiElement {
 		reports: { type: Array },
 		selectedId: { type: String },
 		searchText: { type: String },
+		emptyHint: { type: String },
 	};
 
 	static styles = [
@@ -92,12 +93,19 @@ export class FlowtiDxReports extends FlowtiElement {
 			button:hover {
 				background: var(--background-modifier-hover);
 			}
+
+			.empty-state__hint {
+				font-size: var(--flowti-font-sm);
+				color: var(--flowti-color-muted);
+				margin-top: var(--flowti-space-xs);
+			}
 		`,
 	];
 
 	reports: ReportEntry[] = [];
 	selectedId: string | null = null;
 	searchText = '';
+	emptyHint = '';
 
 	private get filteredReports(): ReportEntry[] {
 		if (!this.searchText) return this.reports;
@@ -137,6 +145,7 @@ export class FlowtiDxReports extends FlowtiElement {
 			return html`
 				<div class="empty-state">
 					<div class="empty-state__message">No reports found</div>
+					${this.emptyHint ? html`<div class="empty-state__hint">${this.emptyHint}</div>` : nothing}
 				</div>
 			`;
 		}

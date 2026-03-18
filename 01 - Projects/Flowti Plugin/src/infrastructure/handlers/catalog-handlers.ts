@@ -38,6 +38,8 @@ export function registerCatalogHandlers(
 ): void {
 	// ── Events handler ───────────────────────────────────────
 
+	const collapsedCategories = new Set<string>();
+
 	const eventsHandler = (container: HTMLElement, ctx: TabContext) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-catalog-events");
@@ -53,6 +55,24 @@ export function registerCatalogHandlers(
 			categories,
 		});
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+
+		el.addEventListener("toggle-category", ((e: CustomEvent<{ category: string; collapsed: boolean }>) => {
+			if (e.detail.collapsed) {
+				collapsedCategories.add(e.detail.category);
+			} else {
+				collapsedCategories.delete(e.detail.category);
+			}
+			const eventType = "settings.updateCollapsedCategories" as EventType;
+			void deps.eventBus.emit(eventType, {
+				collapsed: [...collapsedCategories],
+			} as FlowtiEventMap[typeof eventType]);
+		}) as EventListener);
+
+		el.addEventListener("toggle-setting", (() => {
+			// Settings panel toggle is UI-local state managed by the Lit component.
+			// No service-level persistence needed; listener wired to acknowledge the event.
+		}) as EventListener);
+
 		container.appendChild(el);
 	};
 	registry.registerTabHandler("catalog:events", eventsHandler);
