@@ -136,6 +136,11 @@ export interface ComponentsConfig {
 	storybook?: boolean;
 	storybookDir?: string;
 	framework?: ComponentFramework;
+	markdownSource?: {
+		readonly path: string;
+		readonly strategy: "category" | "flat" | "hierarchical";
+		readonly requiredFields: readonly string[];
+	};
 }
 
 export type QualityGateOperator = ">=" | "<=" | "==";
