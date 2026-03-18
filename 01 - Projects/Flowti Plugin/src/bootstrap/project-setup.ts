@@ -7,6 +7,7 @@ import type { App, Plugin, WorkspaceLeaf } from "obsidian";
 import { VaultProjectService } from "../infrastructure/projects/vault-project-service.js";
 import { ProjectDetailView, type ProjectDetailDeps } from "../ui/projects/project-detail-view.js";
 import { VIEW_TYPE_PROJECT_DETAIL } from "../ui/projects/types.js";
+import { FolderPickerModal, getVaultFolders } from "../ui/shared/FolderPickerModal.js";
 
 export interface ProjectSetupDeps {
 	readonly plugin: Plugin;
@@ -39,6 +40,10 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 			const leaves = deps.app.workspace.getLeavesOfType(VIEW_TYPE_PROJECT_DETAIL);
 			for (const leaf of leaves) leaf.detach();
 		},
+		pickFolder: () => new Promise<string | null>((resolve) => {
+			const folders = getVaultFolders(deps.app);
+			new FolderPickerModal(deps.app, folders, (folder) => resolve(folder)).open();
+		}),
 	};
 
 	try {

@@ -14,6 +14,7 @@ export interface ProjectDetailDeps {
 	readonly createNote: (name: string) => void;
 	readonly openInWebviewer: (url: string) => void;
 	readonly navigateBack: () => void;
+	readonly pickFolder: () => Promise<string | null>;
 }
 
 export class ProjectDetailView extends ItemView {
@@ -61,6 +62,7 @@ export class ProjectDetailView extends ItemView {
 			createNote: this.deps.createNote,
 			openInWebviewer: this.deps.openInWebviewer,
 			navigateBack: this.deps.navigateBack,
+			pickFolder: this.deps.pickFolder,
 		});
 	}
 

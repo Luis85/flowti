@@ -20,7 +20,7 @@ function mockService(): IProjectService {
 		stopStorybook: vi.fn(async () => ({ ok: true })),
 		buildStorybook: vi.fn(async () => ({ ok: true, outputDir: "/path" })),
 		scaffoldStorybook: vi.fn(async () => ({ ok: true, filesCreated: 5 })),
-		importMarkdownSitemap: vi.fn(async () => ({ ok: true })),
+		importMarkdownSitemap: vi.fn(async (_p: string, _s: string) => ({ ok: true })),
 	};
 }
 

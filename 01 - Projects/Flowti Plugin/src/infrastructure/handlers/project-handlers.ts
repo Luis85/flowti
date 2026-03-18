@@ -16,6 +16,7 @@ export interface ProjectHandlerDeps {
 	readonly createNote?: (name: string) => void;
 	readonly openInWebviewer?: (url: string) => void;
 	readonly navigateBack?: () => void;
+	readonly pickFolder?: () => Promise<string | null>;
 }
 
 export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerDeps): () => void {
@@ -185,9 +186,13 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	}) as EventListener);
 
 	el.addEventListener("storybook-import", (() => {
-		startBusy("Importing markdown to sitemap...");
-		void projectService.importMarkdownSitemap(currentProject, appendOutput)
-			.then((r) => endBusy(r));
+		if (!deps.pickFolder) return;
+		void deps.pickFolder().then((folder) => {
+			if (folder === null) return;
+			startBusy("Importing markdown to sitemap...");
+			void projectService.importMarkdownSitemap(currentProject, folder, appendOutput)
+				.then((r) => endBusy(r));
+		});
 	}) as EventListener);
 
 	el.addEventListener("storybook-view", ((e: CustomEvent) => {

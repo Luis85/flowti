@@ -44,20 +44,73 @@ import { validateComponents, generateSitemapFromMarkdown } from "../domain/make/
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function scanMarkdownFrontmatter(
-	srcDir: string,
-	deps: { disk: Pick<IFileSystem, "readdirSync" | "readFileSync">; paths: Pick<IPaths, "join"> },
+	rootDir: string,
+	deps: { disk: Pick<IFileSystem, "readdirSync" | "readFileSync">; paths: Pick<IPaths, "join" | "relative"> },
 ): Record<string, Record<string, unknown>> {
-	const entries = deps.disk.readdirSync(srcDir, { withFileTypes: true });
 	const mdFiles: Record<string, Record<string, unknown>> = {};
 
-	for (const entry of entries) {
-		if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-		const content = deps.disk.readFileSync(deps.paths.join(srcDir, entry.name), "utf8");
-		const fm = parseFrontmatterContent(content);
-		if (fm) mdFiles[entry.name] = fm;
+	function walk(dir: string): void {
+		const entries = deps.disk.readdirSync(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = deps.paths.join(dir, entry.name);
+			if (entry.isFile() && entry.name.endsWith(".md")) {
+				const relPath = deps.paths.relative(rootDir, fullPath).replace(/\\/g, "/");
+				const content = deps.disk.readFileSync(fullPath, "utf8");
+				const fm = parseFrontmatterContent(content);
+				if (!fm) continue;
+				// Derive category from folder path if not in frontmatter
+				if (!fm.category) {
+					const relDir = deps.paths.relative(rootDir, dir).replace(/\\/g, "/");
+					if (relDir && relDir !== ".") fm.category = relDir;
+				}
+				mdFiles[relPath] = fm;
+			} else if (!entry.isFile()) {
+				walk(fullPath);
+			}
+		}
 	}
 
+	walk(rootDir);
 	return mdFiles;
+}
+
+function runMarkdownImport(
+	projectPath: string,
+	sourcePath: string,
+	config: { markdownSource?: { strategy?: string; requiredFields?: readonly string[] }; storybookDir?: string } | undefined,
+	outputFlag: string,
+	deps: { disk: IFileSystem; paths: IPaths },
+): StorybookImportResultModel {
+	const mdSource = config?.markdownSource;
+	const srcDir = deps.paths.resolve(projectPath, sourcePath);
+	const strategy = (mdSource?.strategy ?? "category") as import("../domain/make/markdown-sitemap-types.js").Strategy;
+	const requiredFields = mdSource?.requiredFields ?? ["name", "category"];
+
+	const mdFiles = scanMarkdownFrontmatter(srcDir, deps);
+	const { valid, warnings } = validateComponents(mdFiles, requiredFields);
+	const sitemap = generateSitemapFromMarkdown(valid, strategy);
+
+	const storybookDir = config?.storybookDir ?? "components";
+	const outputPath = outputFlag || deps.paths.join(projectPath, storybookDir, "sitemap.json");
+	writeSitemapFile(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", deps);
+
+	return {
+		componentCount: valid.length,
+		skippedCount: warnings.length,
+		warnings: warnings.map((w) => ({ file: w.file, reason: w.reason })),
+		outputPath,
+		configured: true,
+	};
+}
+
+function writeSitemapFile(
+	outputPath: string,
+	content: string,
+	deps: { disk: Pick<IFileSystem, "existsSync" | "mkdirSync" | "writeFileSync">; paths: Pick<IPaths, "dirname"> },
+): void {
+	const outputDir = deps.paths.dirname(outputPath);
+	if (!deps.disk.existsSync(outputDir)) deps.disk.mkdirSync(outputDir, { recursive: true });
+	deps.disk.writeFileSync(outputPath, content, "utf8");
 }
 
 export const commands: Record<string, CommandHandler> = {
@@ -160,7 +213,7 @@ export const commands: Record<string, CommandHandler> = {
 		renderer: renderStorybookScaffoldResult,
 	}),
 
-	"storybook:import": adaptDescriptor<{ output: string }, StorybookImportResultModel>({
+	"storybook:import": adaptDescriptor<{ output: string; source: string }, StorybookImportResultModel>({
 		requires: "project",
 		flags: {
 			output: {
@@ -168,37 +221,18 @@ export const commands: Record<string, CommandHandler> = {
 				required: false,
 				hint: "--output=<path>",
 			},
+			source: {
+				type: "string",
+				required: false,
+				hint: "--source=<folder>",
+			},
 		},
 		handler: (ctx) => {
-			const { disk, paths } = ctx.deps;
-			const config = ctx.project!.config.components;
-			const mdSource = config?.markdownSource;
-
-			if (!mdSource?.path) {
+			const sourcePath = ctx.flags.source || ctx.project!.config.components?.markdownSource?.path;
+			if (!sourcePath) {
 				return { componentCount: 0, skippedCount: 0, warnings: [], outputPath: "", configured: false };
 			}
-
-			const srcDir = paths.resolve(ctx.project!.path, mdSource.path);
-			const strategy = mdSource.strategy ?? "category";
-			const requiredFields = mdSource.requiredFields ?? ["name", "category", "description", "props", "slots", "variants", "status"];
-
-			const mdFiles = scanMarkdownFrontmatter(srcDir, { disk, paths });
-			const { valid, warnings } = validateComponents(mdFiles, requiredFields);
-			const sitemap = generateSitemapFromMarkdown(valid, strategy);
-
-			const storybookDir = config?.storybookDir ?? "components";
-			const outputPath = ctx.flags.output || paths.join(ctx.project!.path, storybookDir, "sitemap.json");
-			const outputDir = paths.dirname(outputPath);
-			if (!disk.existsSync(outputDir)) disk.mkdirSync(outputDir, { recursive: true });
-			disk.writeFileSync(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", "utf8");
-
-			return {
-				componentCount: valid.length,
-				skippedCount: warnings.length,
-				warnings: warnings.map((w) => ({ file: w.file, reason: w.reason })),
-				outputPath,
-				configured: true,
-			};
+			return runMarkdownImport(ctx.project!.path, sourcePath, ctx.project!.config.components, ctx.flags.output, ctx.deps);
 		},
 		renderer: renderStorybookImportResult,
 	}),

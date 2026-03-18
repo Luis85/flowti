@@ -103,6 +103,17 @@ describe("validateComponents", () => {
 		expect(result.valid).toHaveLength(0);
 		expect(result.warnings[0].reason).toContain("name");
 	});
+
+	it("accepts records with folder-derived category (caller sets category from path)", () => {
+		const files: Record<string, Record<string, unknown>> = {
+			"atoms/Button.md": { name: "Button", category: "atoms", description: "A button" },
+			"forms/inputs/TextInput.md": { name: "TextInput", category: "forms/inputs", description: "Input" },
+		};
+		const result = validateComponents(files, ["name", "category"]);
+		expect(result.valid).toHaveLength(2);
+		expect(result.valid[0].category).toBe("atoms");
+		expect(result.valid[1].category).toBe("forms/inputs");
+	});
 });
 
 // ── Fixtures for generation ─────────────────────────────────────────

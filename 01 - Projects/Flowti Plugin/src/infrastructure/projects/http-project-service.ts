@@ -54,8 +54,8 @@ export class HttpProjectService implements IProjectService {
 		return this.post("/api/storybook/scaffold", { project });
 	}
 
-	async importMarkdownSitemap(project: string): Promise<ApiResult> {
-		return this.post("/api/storybook/import", { project });
+	async importMarkdownSitemap(project: string, sourcePath: string): Promise<ApiResult> {
+		return this.post("/api/storybook/import", { project, sourcePath });
 	}
 
 	private async post(path: string, body: Record<string, unknown>): Promise<ApiResult> {

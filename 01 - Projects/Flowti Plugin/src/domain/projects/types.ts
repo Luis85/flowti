@@ -51,5 +51,5 @@ export interface IProjectService {
 	stopStorybook(project: string): Promise<{ ok: boolean; error?: string }>;
 	buildStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; outputDir?: string; error?: string }>;
 	scaffoldStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; filesCreated?: number; error?: string }>;
-	importMarkdownSitemap(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+	importMarkdownSitemap(project: string, sourcePath: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
 }

@@ -354,9 +354,10 @@ export class VaultProjectService implements IProjectService {
 		return runAsync("node", [cliBin, "storybook:scaffold", `--project=${project}`], vaultBase, onOutput);
 	}
 
-	async importMarkdownSitemap(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+	async importMarkdownSitemap(project: string, sourcePath: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "storybook:import", `--project=${project}`], vaultBase, onOutput);
+		const absSource = join(vaultBase, sourcePath);
+		return runAsync("node", [cliBin, "storybook:import", `--project=${project}`, `--source=${absSource}`], vaultBase, onOutput);
 	}
 }

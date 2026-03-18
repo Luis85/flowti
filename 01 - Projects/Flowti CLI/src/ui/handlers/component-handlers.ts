@@ -338,16 +338,10 @@ async function importMarkdownToSitemap(
 	const { validateComponents, generateSitemapFromMarkdown } = await import("../../domain/make/markdown-sitemap-import.js");
 
 	const strategy = (mdSource.strategy ?? "category") as "category" | "flat" | "hierarchical";
-	const requiredFields = mdSource.requiredFields ?? ["name", "category", "description", "props", "slots", "variants", "status"];
+	const requiredFields = mdSource.requiredFields ?? ["name", "category"];
 
-	const entries = deps.disk.readdirSync(srcDir, { withFileTypes: true });
 	const mdFiles: Record<string, Record<string, unknown>> = {};
-	for (const entry of entries) {
-		if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-		const content = deps.disk.readFileSync(deps.paths.join(srcDir, entry.name), "utf8");
-		const fm = parseFrontmatterContent(content);
-		if (fm) mdFiles[entry.name] = fm;
-	}
+	walkDir(srcDir, srcDir, mdFiles, deps, parseFrontmatterContent);
 
 	const { valid, warnings } = validateComponents(mdFiles, requiredFields);
 	const sitemap = generateSitemapFromMarkdown(valid, strategy);
@@ -363,4 +357,30 @@ async function importMarkdownToSitemap(
 		warnings: warnings.map((w) => ({ file: w.file, reason: w.reason })),
 		outputPath,
 	};
+}
+
+function walkDir(
+	rootDir: string,
+	dir: string,
+	out: Record<string, Record<string, unknown>>,
+	deps: { disk: import("../../infrastructure/types.js").IFileSystem; paths: import("../../infrastructure/types.js").IPaths },
+	parseFm: (content: string) => Record<string, unknown> | null,
+): void {
+	const entries = deps.disk.readdirSync(dir, { withFileTypes: true });
+	for (const entry of entries) {
+		const fullPath = deps.paths.join(dir, entry.name);
+		if (entry.isFile() && entry.name.endsWith(".md")) {
+			const relPath = deps.paths.relative(rootDir, fullPath).replace(/\\/g, "/");
+			const content = deps.disk.readFileSync(fullPath, "utf8");
+			const fm = parseFm(content);
+			if (!fm) return;
+			if (!fm.category) {
+				const relDir = deps.paths.relative(rootDir, dir).replace(/\\/g, "/");
+				if (relDir && relDir !== ".") fm.category = relDir;
+			}
+			out[relPath] = fm;
+		} else if (!entry.isFile()) {
+			walkDir(rootDir, fullPath, out, deps, parseFm);
+		}
+	}
 }
