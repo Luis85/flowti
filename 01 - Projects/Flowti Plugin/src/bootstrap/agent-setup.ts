@@ -15,7 +15,7 @@ import { HttpAgentService } from "../infrastructure/agents/http-agent-service.js
 import { SseClient } from "../infrastructure/agents/sse-client.js";
 import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider.js";
 import { launchCliServer } from "../infrastructure/agents/server-launcher.js";
-import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/AgentSidepanelView.js";
+import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/agent-sidepanel-view.js";
 import { VIEW_TYPE_AGENT_SIDEBAR } from "../ui/agents/types.js";
 
 export interface AgentSetupDeps {

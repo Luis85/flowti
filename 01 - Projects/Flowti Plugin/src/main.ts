@@ -89,7 +89,7 @@ import { registerSessionWorkspaceHandler } from "./infrastructure/handlers/leaf-
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../configs/sitemap.json";
 import type { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
-import { setupAgentDomain, type AgentSetupResult } from "./bootstrap/agentSetup";
+import { setupAgentDomain, type AgentSetupResult } from "./bootstrap/agent-setup";
 import { VIEW_TYPE_AGENT_SIDEBAR } from "./ui/agents/types";
 
 
