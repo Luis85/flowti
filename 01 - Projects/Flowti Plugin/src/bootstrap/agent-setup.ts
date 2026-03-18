@@ -100,9 +100,10 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 
 	// Register world view immediately — Obsidian needs the factory to restore layout
 	const worldDeps: AgentWorldViewDeps = {
-		app: deps.app,
+		plugin: deps.plugin,
 		eventBus: deps.eventBus,
-		baseUrl,
+		sseClient,
+		serverBaseUrl: baseUrl,
 	};
 	try {
 		deps.plugin.registerView(VIEW_TYPE_AGENT_WORLD, (leaf: WorkspaceLeaf) =>
