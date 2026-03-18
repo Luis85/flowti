@@ -107,4 +107,4 @@ export class FlowtiInputBar extends FlowtiElement {
 	}
 }
 
-customElements.define("flowti-input-bar", FlowtiInputBar);
+if (!customElements.get("flowti-input-bar")) customElements.define("flowti-input-bar", FlowtiInputBar);

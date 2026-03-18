@@ -7,7 +7,7 @@
 import type { IEventBus } from "../events/types.js";
 import type { IAgentService, ConversationMode } from "../../domain/agents/types.js";
 import type { IContextProvider } from "../../domain/agents/context-provider.js";
-import type { LaunchResult } from "../agents/server-launcher.js";
+import type { LaunchResult, ServerRegistryEntry } from "../agents/server-launcher.js";
 
 // Side-effect import: register the Lit custom element
 import "../../components/agents/flowti-agent-sidepanel.js";
@@ -17,6 +17,9 @@ export interface AgentHandlerDeps {
 	readonly agentService: IAgentService;
 	readonly contextProvider?: IContextProvider;
 	readonly startServer?: () => Promise<LaunchResult>;
+	readonly getServerStatus?: () => { running: boolean; entry: ServerRegistryEntry | null };
+	readonly stopServer?: (pid: number) => void;
+	readonly openInBrowser?: (url: string) => void;
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {
@@ -31,14 +34,29 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 
 	function refresh(): void {
 		const agents = agentService.listAgents();
-		el.agents = agents;
+		el.agents = [...agents];
 		if (!activeAgent && agents.length > 0) activeAgent = agents[0].name;
 		el.activeAgent = activeAgent;
 		el.activeMode = activeMode;
 		el.teamMode = teamMode;
-		el.turns = teamMode
+		const turns = teamMode
 			? agentService.getTeamConversation()
 			: activeAgent ? agentService.getConversation(activeAgent) : [];
+		el.turns = [...turns];
+
+		// Update server status
+		if (deps.getServerStatus) {
+			const status = deps.getServerStatus();
+			if (status.running && status.entry) {
+				el.serverPid = status.entry.pid;
+				el.serverUrl = status.entry.url;
+				el.serverStartedAt = status.entry.startedAt;
+			} else {
+				el.serverPid = 0;
+				el.serverUrl = "";
+				el.serverStartedAt = "";
+			}
+		}
 	}
 
 	// ── Agent selection ──
@@ -120,6 +138,26 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 				el.connectStatus = "failed";
 				el.connectError = "Unexpected error starting server";
 			});
+	}) as EventListener);
+
+	// ── Visit world (open dashboard in browser) ──
+	el.addEventListener("visit-world", (() => {
+		const url = String(el.serverUrl || "http://localhost:3000");
+		if (deps.openInBrowser) deps.openInBrowser(url);
+	}) as EventListener);
+
+	// ── Stop server ──
+	el.addEventListener("stop-server", (() => {
+		const pid = Number(el.serverPid);
+		if (pid > 0 && deps.stopServer) {
+			deps.stopServer(pid);
+			el.serverPid = 0;
+			el.serverUrl = "";
+			el.serverStartedAt = "";
+			// Disconnect service — server is gone
+			agentService.disconnect();
+			refresh();
+		}
 	}) as EventListener);
 
 	// ── Service events → component updates ──

@@ -73,4 +73,4 @@ export class FlowtiModeBar extends FlowtiElement {
 	}
 }
 
-customElements.define("flowti-mode-bar", FlowtiModeBar);
+if (!customElements.get("flowti-mode-bar")) customElements.define("flowti-mode-bar", FlowtiModeBar);

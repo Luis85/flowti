@@ -179,4 +179,4 @@ export class FlowtiAgentRoster extends FlowtiElement {
 	}
 }
 
-customElements.define("flowti-agent-roster", FlowtiAgentRoster);
+if (!customElements.get("flowti-agent-roster")) customElements.define("flowti-agent-roster", FlowtiAgentRoster);

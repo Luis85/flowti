@@ -234,4 +234,4 @@ export class FlowtiCanvasMode extends FlowtiElement {
 	}
 }
 
-customElements.define("flowti-canvas-mode", FlowtiCanvasMode);
+if (!customElements.get("flowti-canvas-mode")) customElements.define("flowti-canvas-mode", FlowtiCanvasMode);

@@ -14,7 +14,7 @@ import type { App, Plugin, WorkspaceLeaf } from "obsidian";
 import { HttpAgentService } from "../infrastructure/agents/http-agent-service.js";
 import { SseClient } from "../infrastructure/agents/sse-client.js";
 import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider.js";
-import { launchCliServer } from "../infrastructure/agents/server-launcher.js";
+import { launchCliServer, getServerStatus, killServer, clearServerRegistry } from "../infrastructure/agents/server-launcher.js";
 import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/agent-sidepanel-view.js";
 import { VIEW_TYPE_AGENT_SIDEBAR } from "../ui/agents/types.js";
 
@@ -47,18 +47,29 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		deps.plugin.app.vault,
 	);
 
+	const vaultPath = (deps.app.vault.adapter as unknown as { basePath: string }).basePath;
+
 	const viewDeps: AgentSidepanelDeps = {
 		eventBus: deps.eventBus,
 		agentService,
 		contextProvider,
 		startServer: async () => {
-			const vaultPath = (deps.app.vault.adapter as unknown as { basePath: string }).basePath;
 			const result = await launchCliServer(vaultPath, baseUrl);
 			if (result.ok) {
 				await agentService.connect();
 				sseClient.connect();
 			}
 			return result;
+		},
+		getServerStatus: () => getServerStatus(vaultPath),
+		stopServer: (pid: number) => {
+			killServer(pid);
+			clearServerRegistry(vaultPath);
+			sseClient.disconnect();
+			agentService.disconnect();
+		},
+		openInBrowser: (url: string) => {
+			window.open(url);
 		},
 	};
 

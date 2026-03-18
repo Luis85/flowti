@@ -29,6 +29,9 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 		connectStatus: { type: String },
 		connectError: { type: String },
 		error: { type: String },
+		serverPid: { type: Number },
+		serverUrl: { type: String },
+		serverStartedAt: { type: String },
 	};
 
 	static styles = [
@@ -116,6 +119,45 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 			.status-msg--failed {
 				color: var(--color-red, #e53935);
 			}
+
+			.server-bar {
+				display: flex;
+				align-items: center;
+				gap: var(--flowti-space-sm, 8px);
+				padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
+				border-top: 1px solid var(--background-modifier-border);
+				font-size: 0.7em;
+				color: var(--text-muted);
+				flex-shrink: 0;
+			}
+
+			.server-bar .dot--live {
+				width: 6px; height: 6px; border-radius: 50%;
+				background: var(--color-green, #4caf50);
+				flex-shrink: 0;
+			}
+
+			.server-bar .info { flex: 1; }
+
+			.server-bar button {
+				padding: 2px 8px;
+				border-radius: var(--flowti-radius, 4px);
+				border: 1px solid var(--background-modifier-border);
+				background: none;
+				color: var(--text-muted);
+				cursor: pointer;
+				font-size: 1em;
+			}
+
+			.server-bar button:hover {
+				background: var(--background-modifier-hover);
+				color: var(--text-normal);
+			}
+
+			.server-bar .btn--danger:hover {
+				color: var(--color-red, #e53935);
+				border-color: var(--color-red, #e53935);
+			}
 		`,
 	];
 
@@ -129,6 +171,9 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 	connectStatus = "idle";
 	connectError = "";
 	error = "";
+	serverPid = 0;
+	serverUrl = "";
+	serverStartedAt = "";
 
 	protected renderContent() {
 		const offline = this.agents.length === 0;
@@ -174,11 +219,35 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 				.agentLabel="${label}"
 				.processing="${this.processing}"
 			></flowti-input-bar>
+			${this.renderServerBar()}
 		`;
 	}
 
 	private dispatchRestart(): void {
 		this.dispatchEvent(new CustomEvent("restart-world", { bubbles: true, composed: true }));
+	}
+
+	private dispatchVisitWorld(): void {
+		this.dispatchEvent(new CustomEvent("visit-world", { bubbles: true, composed: true }));
+	}
+
+	private dispatchStopServer(): void {
+		this.dispatchEvent(new CustomEvent("stop-server", { bubbles: true, composed: true }));
+	}
+
+	private renderServerBar() {
+		if (!this.serverPid) return "";
+		const uptime = this.serverStartedAt
+			? `up since ${new Date(this.serverStartedAt).toLocaleTimeString()}`
+			: "";
+		return html`
+			<div class="server-bar">
+				<span class="dot--live"></span>
+				<span class="info">PID ${this.serverPid} ${uptime}</span>
+				<button @click="${this.dispatchVisitWorld}" title="Open dashboard in browser">Visit</button>
+				<button class="btn--danger" @click="${this.dispatchStopServer}" title="Stop the CLI server">Stop</button>
+			</div>
+		`;
 	}
 
 	private renderActiveMode() {
@@ -194,4 +263,4 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 	}
 }
 
-customElements.define("flowti-agent-sidepanel", FlowtiAgentSidepanel);
+if (!customElements.get("flowti-agent-sidepanel")) customElements.define("flowti-agent-sidepanel", FlowtiAgentSidepanel);

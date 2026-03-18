@@ -194,4 +194,4 @@ export class FlowtiConversationalMode extends FlowtiElement {
 	}
 }
 
-customElements.define("flowti-conversational-mode", FlowtiConversationalMode);
+if (!customElements.get("flowti-conversational-mode")) customElements.define("flowti-conversational-mode", FlowtiConversationalMode);

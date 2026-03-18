@@ -140,13 +140,17 @@ export class HttpAgentService implements IAgentService {
 		const agent = String(data.agentName ?? "");
 		if (!agent) return;
 
+		// Action payload may be flat (data.text) or nested (data.data.text)
+		const nested = (data.data && typeof data.data === "object") ? data.data as Record<string, unknown> : {};
+		const getText = () => String(nested.text ?? data.text ?? "");
+
 		if (type === "agent-action") {
 			const actionType = String(data.type ?? "");
 			if (actionType === "thinking") {
-				this.emit({ kind: "thinking", agent, text: String(data.text ?? "") });
+				this.emit({ kind: "thinking", agent, text: getText() });
 				this.updateAgentActivity(agent, "thinking");
 			} else if (actionType === "speaking" || actionType === "asking") {
-				const text = String(data.text ?? "");
+				const text = getText();
 				const turn: ConversationTurn = {
 					id: `turn-${++this.turnCounter}`,
 					role: "agent",
@@ -163,7 +167,7 @@ export class HttpAgentService implements IAgentService {
 				this.emit({ kind: "message-received", agent, turn });
 				this.updateAgentActivity(agent, "idle");
 			} else if (actionType === "using-tool") {
-				this.emit({ kind: "tool-started", agent, tool: String(data.tool ?? ""), id: String(data.id ?? "") });
+				this.emit({ kind: "tool-started", agent, tool: String(nested.tool ?? data.tool ?? ""), id: String(data.id ?? "") });
 				this.updateAgentActivity(agent, "using-tool");
 			} else if (actionType === "tool-complete") {
 				this.emit({ kind: "tool-completed", agent, id: String(data.id ?? "") });

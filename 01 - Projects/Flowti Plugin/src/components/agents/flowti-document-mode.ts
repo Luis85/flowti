@@ -222,4 +222,4 @@ export class FlowtiDocumentMode extends FlowtiElement {
 	}
 }
 
-customElements.define("flowti-document-mode", FlowtiDocumentMode);
+if (!customElements.get("flowti-document-mode")) customElements.define("flowti-document-mode", FlowtiDocumentMode);

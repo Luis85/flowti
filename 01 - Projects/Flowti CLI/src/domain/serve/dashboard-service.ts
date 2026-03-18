@@ -226,7 +226,8 @@ export async function startDashboardServer(opts: StartDashboardOptions, deps: Da
 	activePool = opts.pool ?? null;
 	activeState = { url: handle.url, port: opts.port, dir: opts.rootDir };
 
-	openInBrowser(handle.url, deps.shell);
+	// Browser auto-open disabled — use "Visit the World" button in sidepanel
+	// openInBrowser(handle.url, deps.shell);
 
 	return activeState;
 }
