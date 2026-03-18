@@ -33,7 +33,7 @@ The Flowti Plugin has no way to interact with AI agents directly from Obsidian. 
 
 **Layer 2 — Lit component tree:** All UI lives in `src/components/agents/`. Components extend `FlowtiElement`, use `static properties` (no decorators), override `renderContent()`, and compose `static styles` from `tokens` + shared styles + component-specific CSS.
 
-**Data bridge:** Handler in `src/infrastructure/handlers/agent-handlers.ts` creates Lit elements, sets props via `setProps()`, listens for custom events (`bubbles: true, composed: true`), and forwards to `EventBus`. Components never import EventBus directly.
+**Data bridge:** Handler in `src/infrastructure/handlers/agent-handlers.ts` creates Lit elements, sets props via `setProps()`, listens for custom events (`bubbles: true, composed: true`), and forwards to `EventBus`. Components never import EventBus directly. The handler's mount function returns a `dispose: () => void` callback that unsubscribes all EventBus listeners. `AgentSidepanelView` stores this in `onOpen()` and calls it in `onClose()` to prevent subscription leaks across view reopens.
 
 ### Component Tree
 
@@ -261,8 +261,8 @@ interface FileDiff {
 interface IAgentService {
   listAgents(): AgentCard[];
   getAgent(name: string): AgentCard | undefined;
-  sendMessage(agent: string, message: string, mode: ConversationMode): void;
-  stopGeneration(agent: string): void;
+  sendMessage(agent: string, message: string, mode: ConversationMode, signal?: AbortSignal): Promise<void>;
+  stopGeneration(agent: string): Promise<void>;
   getConversation(agent: string): ConversationTurn[];
   getTeamConversation(): ConversationTurn[];
   onEvent(callback: (event: AgentServiceEvent) => void): () => void;
@@ -315,7 +315,7 @@ New `AgentEventMap` added to the Plugin's composite event map in `src/domain/age
 | `agent.tool.completed` | `{ agent, id }` | Tool call finished |
 | `agent.mode.switched` | `{ mode }` | User changed view mode |
 | `agent.team.toggled` | `{ enabled }` | Team mode on/off |
-| `agent.canvas.synced` | `{ canvasPath, nodeCount }` | Canvas file updated |
+| `agent.canvas.synced` | `{ canvasPath, nodeCount }` | Canvas file updated (lives in AgentEventMap, not CanvasEventMap — this is an agent-session concern, not a canvas-domain concern. The canvas domain owns `canvas.session.*` events for generic canvas monitoring; agent canvas sync is specific to the LLM conversation-to-canvas pipeline) |
 
 ## File Layout
 
@@ -362,25 +362,35 @@ tests/infrastructure/agents/
 ## Registration
 
 - **View type constant:** `VIEW_TYPE_AGENT_SIDEBAR = "flowti-agent-sidebar"`
-- **Registered** in `ViewRegistry` during plugin bootstrap
+- **Bootstrap pattern:** Follows `SessionSetup`/`dataExchangeSetup` — a dedicated `AgentSetup` class in `src/bootstrap/agent-setup.ts` that calls `safeRegisterView(VIEW_TYPE_AGENT_SIDEBAR, (leaf) => new AgentSidepanelView(leaf, deps))` during plugin initialization. Does NOT use `ViewRegistry.register()` (that path is metadata-only and does not bind to Obsidian's `this.registerView()`).
 - **Activated** via ribbon icon or command palette: "Flowti: Open Agent Panel"
 
 ## Styling
 
-All styles co-located in component `.ts` files via `static styles` arrays:
+All styles co-located in component `.ts` files via `static styles` arrays. Three-layer composition:
+
+1. **`...FlowtiElement.styles`** — inherits tokens + utilities + base component CSS (loading/error/empty states). Note: `--flowti-error` is declared inside `FlowtiElement`'s styles, not in `tokens.ts`. For explicit color references in child components, use `--flowti-color-error` from `tokens.ts`.
+2. **Named shared styles** — imported individually from `shared-styles.ts` (e.g., `statusBadge`, `masterDetailLayout`). These are NOT included via `FlowtiElement.styles` — each component imports what it needs.
+3. **Component-specific CSS** — inline `css` template literal.
+
+Example for the roster component:
 
 ```typescript
+import { statusBadge } from "../shared-styles.js";
+
 static styles = [
-  ...FlowtiElement.styles,    // tokens + utilities
+  ...FlowtiElement.styles,    // tokens + utilities + base states
+  statusBadge,                 // shared badge styles (from shared-styles.ts)
   css`
-    :host { /* component root styles */ }
-    .agent-card { /* character card */ }
+    :host { display: flex; flex-direction: column; }
+    .agent-card { /* character card layout */ }
+    .activity-pulse { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   `,
 ];
 ```
 
-- Uses design tokens from `tokens.ts` (inherits Obsidian theme variables)
-- Shared styles from `shared-styles.ts` where applicable
+- Design tokens from `tokens.ts` inherit Obsidian theme variables automatically
 - Activity indicator animations defined in `flowti-agent-roster.ts`
 - Chat bubble styles in `flowti-conversational-mode.ts`
 - No external CSS file — shadow DOM encapsulates everything
@@ -399,7 +409,7 @@ static styles = [
 - **No agents in roster:** Shows empty state via `FlowtiElement`'s `isEmpty` + `emptyMessage`
 - **Canvas file errors:** Canvas mode falls back to conversational mode with a warning
 - **LLM timeout:** Input bar shows timeout message, re-enables send button
-- **Event listener cleanup:** Unsubscribes collected in `onOpen()`, cleaned up in `onClose()` (follows existing sidebar pattern)
+- **Event listener cleanup:** Handler's `mount()` returns a `dispose()` callback. `AgentSidepanelView` stores it in `onOpen()` and calls it in `onClose()`. This ensures all EventBus subscriptions created by the handler are cleaned up when the view closes (follows existing sidebar pattern where `unsubscribes[]` are collected and drained).
 
 ## Backward Compatibility
 
