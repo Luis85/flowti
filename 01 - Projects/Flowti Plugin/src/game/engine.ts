@@ -172,6 +172,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const talkEngine = new TalkEngine({
 		showBubble: (agentName, kind, text) => {
 			bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
+			// If this agent's LLM is thinking, pipe chatter into the chat panel
+			const llmStatus = store.llmStatus.get(agentName);
+			if (llmStatus?.state === "thinking") {
+				store.pushAgentThought(agentName, text);
+			}
 		},
 		isIdle: (name) => brainSystem.getState(name)?.state === "idle",
 	});

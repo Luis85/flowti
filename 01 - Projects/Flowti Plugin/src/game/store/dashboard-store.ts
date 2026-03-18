@@ -204,6 +204,14 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
+	/** Push an interim agent message without clearing the thinking state. */
+	pushAgentThought(agentName: string, text: string): void {
+		const turns = this.conversations.get(agentName) ?? [];
+		turns.push({ role: "agent", text, timestamp: Date.now() });
+		this.conversations.set(agentName, turns);
+		this.notify();
+	}
+
 	getConversation(agentName: string): readonly ConversationTurn[] {
 		return this.conversations.get(agentName) ?? [];
 	}
