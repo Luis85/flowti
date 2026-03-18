@@ -345,7 +345,7 @@ async function importMarkdownToSitemap(
 	const { valid, warnings } = validateComponents(mdFiles, requiredFields);
 	const sitemap = generateSitemapFromMarkdown(valid, strategy);
 
-	const outputPath = deps.paths.join(projectPath, ".flowti", "var", "imported-sitemap.json");
+	const outputPath = deps.paths.join(projectPath, "imported-sitemap.json");
 	const outputDir = deps.paths.dirname(outputPath);
 	if (!deps.disk.existsSync(outputDir)) deps.disk.mkdirSync(outputDir, { recursive: true });
 	deps.disk.writeFileSync(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", "utf8");

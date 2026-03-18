@@ -89,7 +89,7 @@ function runMarkdownImport(
 	const { valid, warnings } = validateComponents(mdFiles, requiredFields);
 	const sitemap = generateSitemapFromMarkdown(valid, strategy);
 
-	const outputPath = outputFlag || deps.paths.join(projectPath, ".flowti", "var", "imported-sitemap.json");
+	const outputPath = outputFlag || deps.paths.join(projectPath, "imported-sitemap.json");
 	writeSitemapFile(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", deps);
 
 	return {
