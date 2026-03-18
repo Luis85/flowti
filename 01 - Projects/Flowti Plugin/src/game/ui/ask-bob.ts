@@ -20,6 +20,7 @@ export class AskBob extends FlowtiElement {
 		open: { state: true },
 		conversation: { state: true },
 		thinking: { state: true },
+		activeTab: { state: true },
 	};
 
 	static styles = [
@@ -212,6 +213,87 @@ export class AskBob extends FlowtiElement {
 			.send-btn:hover {
 				background: var(--bg-tertiary);
 			}
+
+			/* -- Tabs ----------------------------- */
+			.tab-row {
+				display: flex;
+				border-bottom: 1px solid var(--border);
+				background: var(--bg-primary);
+			}
+			.tab-btn {
+				flex: 1;
+				background: transparent;
+				border: none;
+				border-bottom: 2px solid transparent;
+				color: var(--text-muted);
+				font-family: inherit;
+				font-size: 10px;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				padding: 6px 8px;
+				cursor: pointer;
+				transition: color 0.15s, border-color 0.15s;
+			}
+			.tab-btn:hover { color: var(--text-primary); }
+			.tab-btn[data-active] {
+				color: var(--accent-gold);
+				border-bottom-color: var(--accent-gold);
+			}
+
+			/* -- Debug log ------------------------- */
+			.debug-log {
+				flex: 1;
+				overflow-y: auto;
+				padding: 8px;
+				scrollbar-width: thin;
+				scrollbar-color: var(--bg-tertiary) transparent;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				min-height: 180px;
+				max-height: 300px;
+				font-size: 11px;
+				font-family: monospace;
+			}
+			.debug-entry {
+				background: var(--bg-secondary);
+				border: 1px solid var(--border);
+				border-radius: 3px;
+				padding: 6px 8px;
+			}
+			.debug-header {
+				display: flex;
+				justify-content: space-between;
+				margin-bottom: 4px;
+				font-size: 9px;
+				color: var(--text-muted);
+			}
+			.debug-agent { color: var(--accent-gold); font-weight: 600; }
+			.debug-prompt {
+				color: var(--text-primary);
+				white-space: pre-wrap;
+				word-break: break-word;
+				max-height: 120px;
+				overflow-y: auto;
+			}
+			.debug-context {
+				margin-top: 4px;
+				padding-top: 4px;
+				border-top: 1px solid var(--border);
+				color: var(--text-dim);
+				white-space: pre-wrap;
+				word-break: break-word;
+				max-height: 80px;
+				overflow-y: auto;
+				font-size: 10px;
+			}
+			.debug-empty {
+				color: var(--text-muted);
+				font-style: italic;
+				text-align: center;
+				padding: 30px 0;
+			}
 		`,
 	];
 
@@ -219,6 +301,7 @@ export class AskBob extends FlowtiElement {
 	private open = false;
 	private conversation: readonly ConversationTurn[] = [];
 	private thinking = false;
+	private activeTab: "chat" | "debug" = "chat";
 
 	private unsubscribe: (() => void) | null = null;
 
@@ -242,6 +325,10 @@ export class AskBob extends FlowtiElement {
 	private handleToggle(): void {
 		this.open = !this.open;
 		if (this.open) this.syncFromStore();
+	}
+
+	private switchTab(tab: "chat" | "debug"): void {
+		this.activeTab = tab;
 	}
 
 	private handleClose(): void {
@@ -275,6 +362,30 @@ export class AskBob extends FlowtiElement {
 		`;
 	}
 
+	private renderDebugLog() {
+		const log = this.store.debugLog;
+		if (log.length === 0) {
+			return html`<div class="debug-log"><div class="debug-empty">No prompts sent yet.</div></div>`;
+		}
+		return html`
+			<div class="debug-log">
+				${[...log].reverse().map((entry) => {
+					const time = new Date(entry.timestamp).toLocaleTimeString();
+					return html`
+						<div class="debug-entry">
+							<div class="debug-header">
+								<span class="debug-agent">${entry.agentName}</span>
+								<span>${time}</span>
+							</div>
+							<div class="debug-prompt">${entry.prompt}</div>
+							${entry.context ? html`<div class="debug-context">${entry.context}</div>` : nothing}
+						</div>
+					`;
+				})}
+			</div>
+		`;
+	}
+
 	protected renderContent() {
 		return html`
 			${this.open ? html`
@@ -286,18 +397,24 @@ export class AskBob extends FlowtiElement {
 						</div>
 						<button class="close-btn" @click=${this.handleClose}>&times;</button>
 					</div>
-					<div class="thread">
-						${this.renderThread()}
+					<div class="tab-row">
+						<button class="tab-btn" ?data-active=${this.activeTab === "chat"} @click=${() => this.switchTab("chat")}>Chat</button>
+						<button class="tab-btn" ?data-active=${this.activeTab === "debug"} @click=${() => this.switchTab("debug")}>Debug</button>
 					</div>
-					<div class="input-row">
-						<input
-							class="chat-input"
-							type="text"
-							placeholder="Ask Bob about the world..."
-							@keydown=${this.handleKeydown}
-						/>
-						<button class="send-btn" @click=${this.handleSend}>Send</button>
-					</div>
+					${this.activeTab === "chat" ? html`
+						<div class="thread">
+							${this.renderThread()}
+						</div>
+						<div class="input-row">
+							<input
+								class="chat-input"
+								type="text"
+								placeholder="Ask Bob about the world..."
+								@keydown=${this.handleKeydown}
+							/>
+							<button class="send-btn" @click=${this.handleSend}>Send</button>
+						</div>
+					` : this.renderDebugLog()}
 				</div>
 			` : nothing}
 

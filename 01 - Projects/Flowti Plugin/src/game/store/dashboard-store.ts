@@ -52,6 +52,15 @@ export class DashboardStore extends EventTarget {
 		this.userContext = ctx;
 	}
 
+	// ── Debug log ─────────────────────────────────────────────────
+	debugLog: { timestamp: number; agentName: string; prompt: string; context?: string }[] = [];
+
+	pushDebugEntry(agentName: string, prompt: string, context?: string): void {
+		this.debugLog.push({ timestamp: Date.now(), agentName, prompt, context });
+		if (this.debugLog.length > 50) this.debugLog.shift();
+		this.notify();
+	}
+
 	// ── Private state ─────────────────────────────────────────────
 	private conversations: Map<string, ConversationTurn[]> = new Map();
 	private thinkingAgents: Set<string> = new Set();
@@ -220,6 +229,12 @@ export class DashboardStore extends EventTarget {
 		const context = this.userContext
 			? { path: this.userContext.path, contentSnippet: this.userContext.content.slice(0, 2000) }
 			: undefined;
+		// Log to debug console
+		this.pushDebugEntry(
+			agentName,
+			message,
+			context ? `[${context.path}]\n${context.contentSnippet}` : undefined,
+		);
 		const result = await api.sendMessage(this.baseUrl, agentName, message, context);
 		if (!result.ok) {
 			// Push error as agent response so user sees feedback
@@ -233,6 +248,9 @@ export class DashboardStore extends EventTarget {
 		const tasks = this.assignedTasks.get(agentName) ?? [];
 		tasks.push({ name: task, status: "pending", assignedAt: Date.now() });
 		this.assignedTasks.set(agentName, tasks);
+
+		// Log to debug console
+		this.pushDebugEntry(agentName, `[TASK] ${task}`);
 
 		// Fire visual effects (brain transition + thought bubble)
 		this.dispatchEvent(new CustomEvent("task-assigned", { detail: { agentName, task } }));
