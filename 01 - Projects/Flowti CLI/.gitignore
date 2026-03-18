@@ -5,6 +5,8 @@ reports/**/**.md
 reports/**/**.json
 docs/reference/
 
+.flowti
+
 *storybook.log
 storybook-static
 /components/node_modules
