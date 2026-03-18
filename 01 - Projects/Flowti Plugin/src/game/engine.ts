@@ -298,7 +298,15 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	// ── Wire provider action events ─────────────────────
+	// Dedup guard: SSE + EventBus can relay the same action twice
+	const recentActionIds = new Set<string>();
 	provider.onAction((action: AgentAction) => {
+		if (action.id && recentActionIds.has(action.id)) return;
+		if (action.id) {
+			recentActionIds.add(action.id);
+			setTimeout(() => recentActionIds.delete(action.id), 5000);
+		}
+
 		// Transition brain state
 		brainSystem.applyEvent(action.agentName, action.type);
 
