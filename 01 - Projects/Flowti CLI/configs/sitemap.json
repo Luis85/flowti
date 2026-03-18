@@ -1092,6 +1092,22 @@
 					"group": "storybook"
 				},
 				{
+					"name": "onImportMarkdown",
+					"label": "Import Markdown → Sitemap",
+					"type": "handler",
+					"target": "comp:sb-import",
+					"key": "m",
+					"group": "storybook"
+				},
+				{
+					"name": "onScaffoldFromSitemap",
+					"label": "Scaffold from Sitemap",
+					"type": "handler",
+					"target": "comp:sb-scaffold",
+					"key": "f",
+					"group": "storybook"
+				},
+				{
 					"name": "onDataProviders",
 					"label": "Data Providers",
 					"type": "handler",

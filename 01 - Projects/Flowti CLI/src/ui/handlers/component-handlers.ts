@@ -124,6 +124,66 @@ export function registerComponentHandlers(registry: HandlerRegistry): void {
 		return undefined;
 	});
 
+	registry.registerAction("comp:sb-import", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { disk, paths, input, log } = ctx.deps;
+		const config = ctx.project.config.components;
+		const mdSource = config?.markdownSource;
+
+		if (!mdSource?.path) {
+			log(`\n  ${YELLOW}No markdownSource configured in components config.${RESET}\n`);
+			await input.waitForEnter();
+			return undefined;
+		}
+
+		const srcDir = paths.resolve(ctx.project.path, mdSource.path);
+		if (!disk.existsSync(srcDir)) {
+			log(`\n  ${YELLOW}Source folder not found:${RESET} ${DIM}${srcDir}${RESET}\n`);
+			await input.waitForEnter();
+			return undefined;
+		}
+
+		const result = await importMarkdownToSitemap(ctx.project.path, srcDir, mdSource, config?.storybookDir ?? "components", { disk, paths });
+		log(`\n  ${GREEN}✓${RESET} Imported ${BOLD}${result.componentCount}${RESET} components → ${DIM}${result.outputPath}${RESET}`);
+		if (result.skippedCount > 0) {
+			log(`  ${YELLOW}⚠${RESET} Skipped ${result.skippedCount} file(s):`);
+			for (const w of result.warnings) log(`    ${DIM}${w.file}${RESET}: ${w.reason}`);
+		}
+		log();
+		await input.waitForEnter();
+		return undefined;
+	});
+
+	registry.registerAction("comp:sb-scaffold", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { disk, paths, input, log } = ctx.deps;
+		const config = ctx.project.config.components ?? {};
+		const storybookDir = config.storybookDir ?? "components";
+		const sitemapPath = paths.join(ctx.project.path, storybookDir, "sitemap.json");
+
+		if (!disk.existsSync(sitemapPath)) {
+			log(`\n  ${YELLOW}No sitemap found at:${RESET} ${DIM}${sitemapPath}${RESET}`);
+			log(`  ${DIM}Run "Import Markdown → Sitemap" first.${RESET}\n`);
+			await input.waitForEnter();
+			return undefined;
+		}
+
+		const { getFramework } = await import("../../domain/make/component/storybook-settings.js");
+		const { scaffoldStorybookFromSitemap } = await import("../../domain/make/storybook-scaffold.js");
+		const framework = getFramework(ctx.project.path, { disk, paths }) ?? "html";
+
+		const result = scaffoldStorybookFromSitemap(sitemapPath, framework, { disk, paths });
+		if (result.pageCount === 0) {
+			log(`\n  ${YELLOW}No pages found in sitemap.${RESET} Nothing to scaffold.\n`);
+		} else {
+			log(`\n  ${GREEN}✓${RESET} Scaffolded ${BOLD}${result.files.length}${RESET} files for ${BOLD}${result.pageCount}${RESET} pages (${framework})\n`);
+			for (const file of result.files) log(`    ${DIM}${file.path}${RESET}`);
+			log();
+		}
+		await input.waitForEnter();
+		return undefined;
+	});
+
 	registry.registerAction("comp:data-providers", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { dataProviderMenu } = await import("../menus/component-submenus.js");
@@ -255,5 +315,52 @@ function extractComponentParams(ctx: { params?: Readonly<Record<string, unknown>
 	return {
 		componentName: ctx.params?.componentName as string | undefined,
 		domain: ctx.params?.domain as string | undefined,
+	};
+}
+
+// ── Markdown import pipeline ────────────────────────────────────────
+
+interface ImportPipelineResult {
+	componentCount: number;
+	skippedCount: number;
+	warnings: Array<{ file: string; reason: string }>;
+	outputPath: string;
+}
+
+async function importMarkdownToSitemap(
+	projectPath: string,
+	srcDir: string,
+	mdSource: { strategy?: string; requiredFields?: readonly string[] },
+	storybookDir: string,
+	deps: { disk: import("../../infrastructure/types.js").IFileSystem; paths: import("../../infrastructure/types.js").IPaths },
+): Promise<ImportPipelineResult> {
+	const { parseFrontmatterContent } = await import("../../infrastructure/frontmatter.js");
+	const { validateComponents, generateSitemapFromMarkdown } = await import("../../domain/make/markdown-sitemap-import.js");
+
+	const strategy = (mdSource.strategy ?? "category") as "category" | "flat" | "hierarchical";
+	const requiredFields = mdSource.requiredFields ?? ["name", "category", "description", "props", "slots", "variants", "status"];
+
+	const entries = deps.disk.readdirSync(srcDir, { withFileTypes: true });
+	const mdFiles: Record<string, Record<string, unknown>> = {};
+	for (const entry of entries) {
+		if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+		const content = deps.disk.readFileSync(deps.paths.join(srcDir, entry.name), "utf8");
+		const fm = parseFrontmatterContent(content);
+		if (fm) mdFiles[entry.name] = fm;
+	}
+
+	const { valid, warnings } = validateComponents(mdFiles, requiredFields);
+	const sitemap = generateSitemapFromMarkdown(valid, strategy);
+
+	const outputPath = deps.paths.join(projectPath, storybookDir, "sitemap.json");
+	const outputDir = deps.paths.dirname(outputPath);
+	if (!deps.disk.existsSync(outputDir)) deps.disk.mkdirSync(outputDir, { recursive: true });
+	deps.disk.writeFileSync(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", "utf8");
+
+	return {
+		componentCount: valid.length,
+		skippedCount: warnings.length,
+		warnings: warnings.map((w) => ({ file: w.file, reason: w.reason })),
+		outputPath,
 	};
 }
