@@ -22,6 +22,7 @@ const AGENT_SCALE = 2;
 interface AgentBubbleEntry {
 	readonly bubbles: BubbleActor[];
 	idleQuoteTimer: number;
+	lastBubbleTime: number;
 	readonly personality: readonly string[];
 	readonly quoteFrequency: number;
 }
@@ -37,6 +38,7 @@ export class BubbleSystem {
 		this.entries.set(name, {
 			bubbles: [],
 			idleQuoteTimer: 0,
+			lastBubbleTime: 0,
 			personality,
 			quoteFrequency: params.quoteFrequency,
 		});
@@ -62,6 +64,11 @@ export class BubbleSystem {
 	): void {
 		const entry = this.entries.get(agentName);
 		if (!entry) return;
+
+		// Throttle: max 1 bubble per agent per 500ms to prevent DOM thrashing
+		const now = performance.now();
+		if (entry.lastBubbleTime && now - entry.lastBubbleTime < 500) return;
+		entry.lastBubbleTime = now;
 
 		const actor = getActor(agentName);
 		if (!actor) return;

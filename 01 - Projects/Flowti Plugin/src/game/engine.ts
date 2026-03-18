@@ -301,6 +301,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// Dedup guard: SSE + EventBus can relay the same action twice
 	const recentActionIds = new Set<string>();
 	provider.onAction((action: AgentAction) => {
+		try {
 		if (action.id && recentActionIds.has(action.id)) return;
 		if (action.id) {
 			recentActionIds.add(action.id);
@@ -338,6 +339,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			// Auto-open panel to Permissions tab via store
 			store.selectAgent(action.agentName);
 			store.selectTab("permissions");
+		}
+		} catch (err) {
+			console.warn("[game] Error handling action:", action.type, action.agentName, err);
 		}
 	});
 
