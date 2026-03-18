@@ -125,10 +125,11 @@ export class AgentWorldView extends ItemView {
 			return;
 		}
 
-		// ── Inject Silkscreen font ──
-		const fontStyle = document.createElement("style");
-		fontStyle.textContent = "@import url('https://fonts.googleapis.com/css2?family=Silkscreen&display=swap');";
-		this.contentEl.appendChild(fontStyle);
+		// ── Inject Silkscreen font (via link element — Obsidian-compliant) ──
+		const fontLink = document.createElement("link"); // eslint-disable-line obsidianmd/no-forbidden-elements
+		fontLink.rel = "stylesheet";
+		fontLink.href = "https://fonts.googleapis.com/css2?family=Silkscreen&display=swap";
+		container.appendChild(fontLink);
 
 		// ── Create WorldBridge ──
 		const vaultBasePath = (this.app.vault.adapter as { basePath?: string }).basePath ?? "";

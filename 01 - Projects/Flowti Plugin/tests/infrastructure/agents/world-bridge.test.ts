@@ -57,7 +57,7 @@ function createMockEventBus(): IEventBus & { handlers: HandlerEntry[]; fireEvent
 	return bus;
 }
 
-function createConfig(overrides: Partial<Parameters<typeof import("../../../src/infrastructure/agents/world-bridge")["WorldBridge"]["prototype"]["constructor"]>[0]> = {}) {
+function createConfig(overrides: Record<string, unknown> = {}): import("../../../src/infrastructure/agents/world-bridge").WorldBridgeConfig {
 	return {
 		containerElement: document.createElement("div"),
 		eventBus: createMockEventBus(),
@@ -65,7 +65,7 @@ function createConfig(overrides: Partial<Parameters<typeof import("../../../src/
 		baseUrl: "http://localhost:3000",
 		initialWorldState: { entities: { atlas: { id: "atlas" } } },
 		...overrides,
-	};
+	} as import("../../../src/infrastructure/agents/world-bridge").WorldBridgeConfig;
 }
 
 // ── Import (after mocks) ───────────────────────────────────

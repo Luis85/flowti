@@ -259,9 +259,9 @@ describe("AgentWorldView", () => {
 			const view = createView();
 			await view.onOpen();
 
-			const style = view.contentEl.querySelector("style") as HTMLStyleElement;
-			expect(style).toBeTruthy();
-			expect(style.textContent).toContain("Silkscreen");
+			const link = view.contentEl.querySelector('link[rel="stylesheet"]') as HTMLLinkElement;
+			expect(link).toBeTruthy();
+			expect(link.href).toContain("Silkscreen");
 		});
 	});
 
