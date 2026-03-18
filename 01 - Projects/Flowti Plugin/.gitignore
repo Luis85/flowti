@@ -38,4 +38,4 @@ styles.css
 *storybook.log
 storybook-static
 
-components/
+/components/
