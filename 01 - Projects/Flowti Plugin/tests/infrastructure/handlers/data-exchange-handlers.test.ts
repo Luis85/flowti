@@ -117,6 +117,14 @@ describe("registerDataExchangeHandlers", () => {
 			el.dispatchEvent(new CustomEvent("open-pipelines", { bubbles: true }));
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.navigateTab", { viewId: "data-exchange-hub", tabId: "pipelines" });
 		});
+
+		it("wires navigate-tab event to eventBus.emit", () => {
+			const container = document.createElement("div");
+			registry.getTabHandler("dx:dashboard")!(container, { tabId: "dashboard", viewId: "test", eventBus });
+			const el = container.querySelector("flowti-dx-dashboard")!;
+			el.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tabId: "imports" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.navigateTab", { viewId: "data-exchange-hub", tabId: "imports" });
+		});
 	});
 
 	describe("imports handler", () => {
@@ -151,6 +159,14 @@ describe("registerDataExchangeHandlers", () => {
 			el.dispatchEvent(new CustomEvent("create-import", { bubbles: true }));
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.createImport", {});
 		});
+
+		it("wires select-import to eventBus", () => {
+			const container = document.createElement("div");
+			registry.getTabHandler("dx:imports")!(container, { tabId: "imports", viewId: "test", eventBus });
+			const el = container.querySelector("flowti-dx-imports")!;
+			el.dispatchEvent(new CustomEvent("select-import", { detail: { importId: "i1" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.selectImport", { importId: "i1" });
+		});
 	});
 
 	describe("exports handler", () => {
@@ -169,6 +185,14 @@ describe("registerDataExchangeHandlers", () => {
 			const el = container.querySelector("flowti-dx-exports")!;
 			el.dispatchEvent(new CustomEvent("run-export", { detail: { exportId: "e1" }, bubbles: true }));
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.runExport", { exportId: "e1" });
+		});
+
+		it("wires select-export to eventBus", () => {
+			const container = document.createElement("div");
+			registry.getTabHandler("dx:exports")!(container, { tabId: "exports", viewId: "test", eventBus });
+			const el = container.querySelector("flowti-dx-exports")!;
+			el.dispatchEvent(new CustomEvent("select-export", { detail: { exportId: "e1" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.selectExport", { exportId: "e1" });
 		});
 	});
 
@@ -221,6 +245,14 @@ describe("registerDataExchangeHandlers", () => {
 			el.dispatchEvent(new CustomEvent("open-type", { detail: { typeName: "Article", filePath: "Types/Article.md" }, bubbles: true }));
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.openFile", { filePath: "Types/Article.md" });
 		});
+
+		it("wires select-type to eventBus", () => {
+			const container = document.createElement("div");
+			registry.getTabHandler("dx:types")!(container, { tabId: "types", viewId: "test", eventBus });
+			const el = container.querySelector("flowti-dx-types")!;
+			el.dispatchEvent(new CustomEvent("select-type", { detail: { typeName: "Article" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.selectType", { typeName: "Article" });
+		});
 	});
 
 	describe("properties handler", () => {
@@ -241,6 +273,14 @@ describe("registerDataExchangeHandlers", () => {
 			el.dispatchEvent(new CustomEvent("open-property-doc", { detail: { propertyName: "title" }, bubbles: true }));
 			expect(dataExchangeService.getPropertyDocPath).toHaveBeenCalledWith("title");
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.openFile", { filePath: "Properties/title.md" });
+		});
+
+		it("wires select-property to eventBus", () => {
+			const container = document.createElement("div");
+			registry.getTabHandler("dx:properties")!(container, { tabId: "properties", viewId: "test", eventBus });
+			const el = container.querySelector("flowti-dx-properties")!;
+			el.dispatchEvent(new CustomEvent("select-property", { detail: { propertyName: "title" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.selectProperty", { propertyName: "title" });
 		});
 	});
 
@@ -286,6 +326,14 @@ describe("registerDataExchangeHandlers", () => {
 			el.dispatchEvent(new CustomEvent("open-report", { detail: { reportPath: "Reports/CSV - Test.md" }, bubbles: true }));
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.openFile", { filePath: "Reports/CSV - Test.md" });
 		});
+
+		it("wires select-report to eventBus", () => {
+			const container = document.createElement("div");
+			registry.getTabHandler("dx:reports")!(container, { tabId: "reports", viewId: "test", eventBus });
+			const el = container.querySelector("flowti-dx-reports")!;
+			el.dispatchEvent(new CustomEvent("select-report", { detail: { reportPath: "Reports/CSV - Test.md" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.selectReport", { reportPath: "Reports/CSV - Test.md" });
+		});
 	});
 
 	describe("canvas handler", () => {
@@ -312,6 +360,14 @@ describe("registerDataExchangeHandlers", () => {
 			const el = container.querySelector("flowti-dx-canvas")!;
 			el.dispatchEvent(new CustomEvent("open-canvas", { detail: { canvasPath: "Canvases/a.canvas" }, bubbles: true }));
 			expect(eventBus.emit).toHaveBeenCalledWith("ui.openFile", { filePath: "Canvases/a.canvas" });
+		});
+
+		it("wires select-canvas to eventBus", () => {
+			const container = document.createElement("div");
+			registry.getTabHandler("dx:canvas")!(container, { tabId: "canvas", viewId: "test", eventBus });
+			const el = container.querySelector("flowti-dx-canvas")!;
+			el.dispatchEvent(new CustomEvent("select-canvas", { detail: { canvasId: "c1" }, bubbles: true }));
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.selectCanvas", { canvasId: "c1" });
 		});
 	});
 });

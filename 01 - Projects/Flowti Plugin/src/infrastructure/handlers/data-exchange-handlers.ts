@@ -69,6 +69,9 @@ export function registerDataExchangeHandlers(
 		el.addEventListener("open-pipelines", () => {
 			void deps.eventBus.emit("ui.navigateTab", { viewId: "data-exchange-hub", tabId: "pipelines" });
 		});
+		el.addEventListener("navigate-tab", ((e: CustomEvent<{ tabId: string }>) => {
+			void deps.eventBus.emit("ui.navigateTab", { viewId: "data-exchange-hub", tabId: e.detail.tabId });
+		}) as EventListener);
 		container.appendChild(el);
 	};
 	registry.registerTabHandler("dx:dashboard", dxDashboardHandler);
@@ -82,6 +85,9 @@ export function registerDataExchangeHandlers(
 		const imports = deps.dataExchangeService.getSavedImportConfigs();
 		setProps(el, { imports });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-import", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectImport", e.detail as FlowtiEventMap["ui.selectImport"]);
+		}) as EventListener);
 		el.addEventListener("run-import", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.runImport", e.detail as FlowtiEventMap["ui.runImport"]);
 		}) as EventListener);
@@ -105,6 +111,9 @@ export function registerDataExchangeHandlers(
 		const exports = deps.dataExchangeService.getSavedExportConfigs();
 		setProps(el, { exports });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-export", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectExport", e.detail as FlowtiEventMap["ui.selectExport"]);
+		}) as EventListener);
 		el.addEventListener("run-export", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.runExport", e.detail as FlowtiEventMap["ui.runExport"]);
 		}) as EventListener);
@@ -192,6 +201,9 @@ export function registerDataExchangeHandlers(
 		}));
 		setProps(el, { types });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-type", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectType", e.detail as FlowtiEventMap["ui.selectType"]);
+		}) as EventListener);
 		el.addEventListener("open-type", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.openFile", { filePath: (e.detail as { filePath: string }).filePath });
 		}) as EventListener);
@@ -214,6 +226,9 @@ export function registerDataExchangeHandlers(
 		}));
 		setProps(el, { properties });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-property", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectProperty", e.detail as FlowtiEventMap["ui.selectProperty"]);
+		}) as EventListener);
 		el.addEventListener("open-property-doc", ((e: CustomEvent) => {
 			const propName = (e.detail as { propertyName: string }).propertyName;
 			const docPath = deps.dataExchangeService.getPropertyDocPath(propName);
@@ -251,6 +266,9 @@ export function registerDataExchangeHandlers(
 		// The full Data Exchange Hub view provides scanning; this handler shows guidance.
 		setProps(el, { reports: [], emptyHint: "Reports are available in the full Data Exchange Hub view, which scans CSV files from your vault." });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-report", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectReport", e.detail as FlowtiEventMap["ui.selectReport"]);
+		}) as EventListener);
 		el.addEventListener("open-report", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.openFile", { filePath: (e.detail as { reportPath: string }).reportPath });
 		}) as EventListener);
@@ -265,6 +283,9 @@ export function registerDataExchangeHandlers(
 		const canvases = deps.canvasService?.getConfigs() ?? [];
 		setProps(el, { canvases });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
+		el.addEventListener("select-canvas", ((e: CustomEvent) => {
+			void deps.eventBus.emit("ui.selectCanvas", e.detail as FlowtiEventMap["ui.selectCanvas"]);
+		}) as EventListener);
 		el.addEventListener("run-canvas", ((e: CustomEvent) => {
 			void deps.eventBus.emit("ui.runCanvasImport", e.detail as FlowtiEventMap["ui.runCanvasImport"]);
 		}) as EventListener);

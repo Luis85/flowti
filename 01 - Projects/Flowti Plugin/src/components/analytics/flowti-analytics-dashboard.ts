@@ -45,8 +45,8 @@ interface BreadcrumbEntry {
  *
  * @fires add-tile - When the add tile button is clicked
  * @fires remove-tile - detail: { tileId } when a tile remove button is clicked
- * @fires rename-dashboard - detail: { name } when the dashboard name is changed
- * @fires navigate-breadcrumb - detail: { index } when a breadcrumb is clicked
+ * @fires rename-dashboard - detail: { dashboardId, name } when the dashboard name is changed
+ * @fires navigate-breadcrumb - detail: { dashboardId, index } when a breadcrumb is clicked
  */
 export class FlowtiAnalyticsDashboard extends FlowtiElement {
 	static properties = {
@@ -202,7 +202,7 @@ export class FlowtiAnalyticsDashboard extends FlowtiElement {
 	private dispatchRenameDashboard(name: string): void {
 		this.dispatchEvent(
 			new CustomEvent("rename-dashboard", {
-				detail: { name },
+				detail: { dashboardId: this.dashboard?.id ?? "", name },
 				bubbles: true,
 				composed: true,
 			}),
@@ -210,9 +210,10 @@ export class FlowtiAnalyticsDashboard extends FlowtiElement {
 	}
 
 	private dispatchNavigateBreadcrumb(index: number): void {
+		const crumb = this.breadcrumbs[index];
 		this.dispatchEvent(
 			new CustomEvent("navigate-breadcrumb", {
-				detail: { index },
+				detail: { dashboardId: crumb?.dashboardId ?? "", index },
 				bubbles: true,
 				composed: true,
 			}),

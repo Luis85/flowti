@@ -119,6 +119,11 @@ export function registerUserHandlers(
 			void deps.eventBus.emit("ui.navigateTab", { viewId: "user-hub", tabId: "inbox" });
 		});
 
+		el.addEventListener("select-inbox-item", ((e: CustomEvent) => {
+			const { itemId } = e.detail as { itemId: string };
+			void deps.eventBus.emit("ui.inboxItemSelected", { itemId });
+		}) as EventListener);
+
 		el.addEventListener("open-session", ((e: CustomEvent) => {
 			const { sessionId } = e.detail as { sessionId: string };
 			void deps.eventBus.emit("ui.openSessionWorkspace", { sessionId });

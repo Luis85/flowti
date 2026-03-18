@@ -106,20 +106,47 @@ describe("flowti-analytics-queries", () => {
 		expect(shadow.textContent).toContain("2 rows");
 	});
 
-	it("dispatches run-query event", async () => {
+	it("dispatches select-query event when a query item is clicked", async () => {
+		el.savedQueries = [makeSavedQuery()];
+		el.sources = [makeSource()];
+		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+
+		let detail: unknown = null;
+		el.addEventListener("select-query", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+
+		const shadow = el.shadowRoot!;
+		const queryItem = shadow.querySelector(".query-item") as HTMLElement;
+		expect(queryItem).not.toBeNull();
+		queryItem.click();
+		expect(detail).toEqual({ queryId: "q1" });
+	});
+
+	it("sets activeQuery when a query item is clicked", async () => {
+		el.savedQueries = [makeSavedQuery()];
+		el.sources = [makeSource()];
+		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+
+		const shadow = el.shadowRoot!;
+		const queryItem = shadow.querySelector(".query-item") as HTMLElement;
+		queryItem.click();
+		expect(el.activeQuery).not.toBeNull();
+		expect((el.activeQuery as Record<string, unknown>).id).toBe("q1");
+	});
+
+	it("dispatches run-query event with queryId", async () => {
 		el.sources = [makeSource()];
 		el.savedQueries = [];
 		el.activeQuery = makeSavedQuery();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 
-		let fired = false;
-		el.addEventListener("run-query", () => { fired = true; });
+		let detail: unknown = null;
+		el.addEventListener("run-query", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
 
 		const shadow = el.shadowRoot!;
 		const runBtn = shadow.querySelector("[data-action='run-query']") as HTMLButtonElement;
 		expect(runBtn).not.toBeNull();
 		runBtn.click();
-		expect(fired).toBe(true);
+		expect(detail).toEqual({ queryId: "q1" });
 	});
 
 	it("dispatches save-query event with query name", async () => {

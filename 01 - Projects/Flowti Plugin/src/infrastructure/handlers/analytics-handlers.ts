@@ -157,9 +157,12 @@ export function registerAnalyticsHandlers(
 		setProps(el, { savedQueries });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 
-		el.addEventListener("run-query", () => {
-			void deps.eventBus.emit("analytics.ui.runQuery", {});
-		});
+		el.addEventListener("select-query", ((e: CustomEvent) => {
+			void deps.eventBus.emit("analytics.ui.selectQuery", e.detail as FlowtiEventMap["analytics.ui.selectQuery"]);
+		}) as EventListener);
+		el.addEventListener("run-query", ((e: CustomEvent) => {
+			void deps.eventBus.emit("analytics.ui.runQuery", e.detail as FlowtiEventMap["analytics.ui.runQuery"]);
+		}) as EventListener);
 		el.addEventListener("save-query", ((e: CustomEvent) => {
 			void deps.eventBus.emit("analytics.ui.saveQuery", e.detail as FlowtiEventMap["analytics.ui.saveQuery"]);
 		}) as EventListener);

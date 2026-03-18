@@ -37,7 +37,8 @@ interface QueryResult {
  * @property activeQuery - Currently active query (or null)
  * @property results - Query execution results (or null)
  *
- * @fires run-query - When the run button is clicked
+ * @fires select-query - detail: { queryId } when a query item is clicked
+ * @fires run-query - detail: { queryId } when the run button is clicked
  * @fires save-query - detail: { queryId } when save is clicked
  * @fires delete-query - detail: { queryId } when delete is clicked
  */
@@ -216,9 +217,25 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 	activeQuery: SavedQuery | null = null;
 	results: QueryResult | null = null;
 
-	private dispatchRunQuery(): void {
+	private dispatchSelectQuery(queryId: string): void {
+		this.activeQuery = this.savedQueries.find((q) => q.id === queryId) ?? null;
 		this.dispatchEvent(
-			new CustomEvent("run-query", { bubbles: true, composed: true }),
+			new CustomEvent("select-query", {
+				detail: { queryId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private dispatchRunQuery(): void {
+		const queryId = this.activeQuery?.id ?? "";
+		this.dispatchEvent(
+			new CustomEvent("run-query", {
+				detail: { queryId },
+				bubbles: true,
+				composed: true,
+			}),
 		);
 	}
 
@@ -276,7 +293,11 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 	private renderQueryItem(q: SavedQuery) {
 		const isActive = this.activeQuery?.id === q.id;
 		return html`
-			<div class="query-item ${isActive ? "query-item--active" : ""}">
+			<div
+				class="query-item ${isActive ? "query-item--active" : ""}"
+				data-query-id=${q.id}
+				@click=${() => this.dispatchSelectQuery(q.id)}
+			>
 				<span class="query-name">${q.name}</span>
 				<span class="query-meta">${q.sources.length} source${q.sources.length !== 1 ? "s" : ""}</span>
 				<button

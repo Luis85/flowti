@@ -73,6 +73,11 @@ export function registerCatalogHandlers(
 			// No service-level persistence needed; listener wired to acknowledge the event.
 		}) as EventListener);
 
+		el.addEventListener("select-event", ((e: CustomEvent) => {
+			const eventType = "catalog.event.selected" as EventType;
+			void deps.eventBus.emit(eventType, e.detail as FlowtiEventMap[typeof eventType]);
+		}) as EventListener);
+
 		container.appendChild(el);
 	};
 	registry.registerTabHandler("catalog:events", eventsHandler);

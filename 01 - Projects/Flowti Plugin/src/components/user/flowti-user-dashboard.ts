@@ -38,6 +38,7 @@ interface ActiveSessionInfo {
  *
  * @fires navigate-hub - detail: { hubId } when a hub stat card is clicked
  * @fires open-inbox - When "View all" inbox link is clicked
+ * @fires select-inbox-item - detail: { itemId } when an inbox preview item is clicked
  * @fires open-session - detail: { sessionId } when active session card is clicked
  */
 export class FlowtiUserDashboard extends FlowtiElement {
@@ -138,11 +139,17 @@ export class FlowtiUserDashboard extends FlowtiElement {
 			}
 
 			.inbox-preview-item {
-				padding: var(--flowti-space-xs) 0;
+				padding: var(--flowti-space-xs) var(--flowti-space-sm);
 				font-size: var(--flowti-font-sm);
 				display: flex;
 				align-items: center;
 				gap: var(--flowti-space-sm);
+				cursor: pointer;
+				border-radius: var(--flowti-radius);
+			}
+
+			.inbox-preview-item:hover {
+				background: var(--background-modifier-hover);
 			}
 
 			.inbox-unread {
@@ -202,6 +209,16 @@ export class FlowtiUserDashboard extends FlowtiElement {
 	private dispatchOpenInbox(): void {
 		this.dispatchEvent(
 			new CustomEvent('open-inbox', {
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private dispatchSelectInboxItem(itemId: string): void {
+		this.dispatchEvent(
+			new CustomEvent('select-inbox-item', {
+				detail: { itemId },
 				bubbles: true,
 				composed: true,
 			}),
@@ -281,7 +298,8 @@ export class FlowtiUserDashboard extends FlowtiElement {
 				</div>
 				${this.inboxPreview.map(
 					(item) => html`
-						<div class="inbox-preview-item ${item.read ? '' : 'inbox-unread'}">
+						<div class="inbox-preview-item ${item.read ? '' : 'inbox-unread'}"
+							@click=${() => this.dispatchSelectInboxItem(item.id)}>
 							<span>${item.title}</span>
 						</div>
 					`,

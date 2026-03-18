@@ -21,6 +21,8 @@ interface TrainSummary {
  * @property pausedTrain - A paused train (or null)
  *
  * @fires start-train - When "Start a ride" button is clicked
+ * @fires open-train - detail: { trainId } when active/paused train callout is clicked
+ * @fires navigate-to-tab - detail: { tabId } when a stat card is clicked
  */
 export class FlowtiTrainDashboard extends FlowtiElement {
 	static properties = {
@@ -101,6 +103,22 @@ export class FlowtiTrainDashboard extends FlowtiElement {
 				background: color-mix(in srgb, var(--flowti-color-info) 15%, transparent);
 				border-color: var(--flowti-color-info);
 			}
+
+			.stat-card--clickable {
+				cursor: pointer;
+			}
+
+			.stat-card--clickable:hover {
+				background: var(--background-modifier-hover);
+			}
+
+			.callout-clickable {
+				cursor: pointer;
+			}
+
+			.callout-clickable:hover {
+				background: var(--background-modifier-hover);
+			}
 		`,
 	];
 
@@ -129,6 +147,26 @@ export class FlowtiTrainDashboard extends FlowtiElement {
 		);
 	}
 
+	private dispatchOpenTrain(trainId: string): void {
+		this.dispatchEvent(
+			new CustomEvent('open-train', {
+				detail: { trainId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private dispatchNavigateToTab(tabId: string): void {
+		this.dispatchEvent(
+			new CustomEvent('navigate-to-tab', {
+				detail: { tabId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
 	protected renderContent() {
 		return html`
 			<div class="dashboard">
@@ -143,19 +181,19 @@ export class FlowtiTrainDashboard extends FlowtiElement {
 	private renderStatGrid() {
 		return html`
 			<div class="stat-grid">
-				<div class="stat-card">
+				<div class="stat-card stat-card--clickable" @click=${() => this.dispatchNavigateToTab('active')}>
 					<div class="stat-card__value">${this.trains.length}</div>
 					<div class="stat-card__label">Total Trains</div>
 				</div>
-				<div class="stat-card">
+				<div class="stat-card stat-card--clickable" @click=${() => this.dispatchNavigateToTab('active')}>
 					<div class="stat-card__value">${this.activeCount}</div>
 					<div class="stat-card__label">Active</div>
 				</div>
-				<div class="stat-card">
+				<div class="stat-card stat-card--clickable" @click=${() => this.dispatchNavigateToTab('history')}>
 					<div class="stat-card__value">${this.completedCount}</div>
 					<div class="stat-card__label">Completed</div>
 				</div>
-				<div class="stat-card">
+				<div class="stat-card stat-card--clickable" @click=${() => this.dispatchNavigateToTab('active')}>
 					<div class="stat-card__value">${this.totalThoughts}</div>
 					<div class="stat-card__label">Total Thoughts</div>
 				</div>
@@ -167,7 +205,7 @@ export class FlowtiTrainDashboard extends FlowtiElement {
 		if (!this.activeTrain) return nothing;
 
 		return html`
-			<div class="callout running-callout">
+			<div class="callout running-callout callout-clickable" @click=${() => this.dispatchOpenTrain(this.activeTrain!.id)}>
 				<div class="callout-header">
 					<span class="running-label">Currently Running</span>
 				</div>
@@ -183,7 +221,7 @@ export class FlowtiTrainDashboard extends FlowtiElement {
 		if (this.activeTrain || !this.pausedTrain) return nothing;
 
 		return html`
-			<div class="callout paused-callout">
+			<div class="callout paused-callout callout-clickable" @click=${() => this.dispatchOpenTrain(this.pausedTrain!.id)}>
 				<div class="callout-header">
 					<span class="paused-label">Paused</span>
 				</div>
@@ -191,7 +229,7 @@ export class FlowtiTrainDashboard extends FlowtiElement {
 					<span class="callout-title">${this.pausedTrain.title}</span>
 					<span class="callout-meta">${this.pausedTrain.thoughts.length} thoughts</span>
 					<span class="callout-actions">
-						<button class="btn-primary" @click=${this.dispatchStartTrain}>Resume</button>
+						<button class="btn-primary" @click=${(e: Event) => { e.stopPropagation(); this.dispatchStartTrain(); }}>Resume</button>
 					</span>
 				</div>
 			</div>

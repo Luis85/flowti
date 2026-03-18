@@ -205,6 +205,28 @@ describe("FlowtiCatalogEvents", () => {
 			document.body.removeChild(el);
 		});
 
+		it("dispatches select-event when an event item is clicked", async () => {
+			el.events = [makeEvent({ category: "User", type: "user.created", domain: "auth" })];
+			el.categories = [makeCategory({ name: "User" })];
+			document.body.appendChild(el);
+			await el.updateComplete;
+
+			let fired = false;
+			let detail: unknown = null;
+			el.addEventListener("select-event", ((e: CustomEvent) => {
+				fired = true;
+				detail = e.detail;
+			}) as EventListener);
+
+			const shadow = el.shadowRoot!;
+			const eventItem = shadow.querySelector(".event-item") as HTMLElement;
+			eventItem.click();
+
+			expect(fired).toBe(true);
+			expect(detail).toEqual({ type: "user.created", category: "User", domain: "auth" });
+			document.body.removeChild(el);
+		});
+
 		it("dispatches toggle-setting when settings button is clicked", async () => {
 			el.events = [makeEvent()];
 			el.categories = [makeCategory()];

@@ -202,8 +202,15 @@ export interface AnalyticsEventMap {
 		dashboardId: string;
 	};
 
-	/** UI: request to run the current query */
-	"analytics.ui.runQuery": Record<string, never>;
+	/** UI: a query was selected in the queries list */
+	"analytics.ui.selectQuery": {
+		queryId: string;
+	};
+
+	/** UI: request to run the active query */
+	"analytics.ui.runQuery": {
+		queryId: string;
+	};
 
 	/** UI: request to save a query */
 	"analytics.ui.saveQuery": {
