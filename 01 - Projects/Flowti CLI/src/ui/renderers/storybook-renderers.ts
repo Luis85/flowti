@@ -195,3 +195,35 @@ export function renderStorybookScaffoldResult(data: StorybookScaffoldResultModel
 	}
 	log();
 }
+
+// ── Import renderer ─────────────────────────────────────────────────
+
+export interface StorybookImportResultModel {
+	componentCount: number;
+	skippedCount: number;
+	warnings: ReadonlyArray<{ file: string; reason: string }>;
+	outputPath: string;
+	configured: boolean;
+}
+
+export function renderStorybookImportResult(data: StorybookImportResultModel, log: Log): void {
+	if (!data.configured) {
+		log(`\n  ${YELLOW}No markdownSource configured in components config.${RESET}\n`);
+		return;
+	}
+
+	if (data.componentCount === 0 && data.skippedCount === 0) {
+		log(`\n  ${YELLOW}No markdown files found in source folder.${RESET}\n`);
+		return;
+	}
+
+	log(`\n  ${GREEN}✓${RESET} Imported ${BOLD}${data.componentCount}${RESET} components → ${DIM}${data.outputPath}${RESET}`);
+
+	if (data.skippedCount > 0) {
+		log(`  ${YELLOW}⚠${RESET} Skipped ${data.skippedCount} file(s):`);
+		for (const w of data.warnings) {
+			log(`    ${DIM}${w.file}${RESET}: ${w.reason}`);
+		}
+	}
+	log();
+}
