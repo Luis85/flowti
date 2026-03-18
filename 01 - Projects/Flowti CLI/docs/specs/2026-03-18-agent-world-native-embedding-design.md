@@ -44,9 +44,10 @@ Make the game a native TypeScript module inside the plugin. Import it, compile i
 │   │   ├── config/
 │   │   │   ├── settings.ts
 │   │   │   ├── domain-map.ts
+│   │   │   ├── data-provider.ts    ← DataProvider interface (kept from CLI)
 │   │   │   └── plugin-provider.ts  ← replaces ServerProvider + BridgeProvider
 │   │   ├── data/
-│   │   │   ├── types.ts
+│   │   │   ├── types.ts            ← includes ConnectionStatus (merged from event-stream.ts)
 │   │   │   ├── api-client.ts       ← optional server commands
 │   │   │   └── message-utils.ts
 │   │   ├── scenes/
@@ -103,15 +104,20 @@ export interface AgentWorldDeps {
 
 export interface AgentWorldHandle {
   start(): Promise<void>;
-  stop(): void;
-  resume(): void;
-  dispose(): void;
+  pause(): void;             // pause engine + systems (tab hidden)
+  resume(): void;            // resume engine + systems (tab visible)
+  dispose(): void;           // full teardown (view closed)
 }
 
 export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle;
 ```
 
 The factory creates the ExcaliburJS engine, scenes, systems, Lit overlays, and returns a handle for lifecycle control. No window globals. No self-detection of embedding mode.
+
+**Internal to the factory:**
+- **ResizeObserver** — watches the container element and updates `engine.screen.viewport` on size changes. Created in `start()`, disconnected in `dispose()`.
+- **Keyboard listeners** — scoped to the container element (not `document`) to avoid conflicts with Obsidian hotkeys. Container gets `tabindex="0"` for focus.
+- **Silkscreen font** — the `<link>` element for Google Fonts is injected into the container by the factory during `start()`, not by the view.
 
 ### AgentWorldView (Rewritten)
 
@@ -136,6 +142,17 @@ async onClose(): Promise<void> {
 
 Eliminated: blob URL creation/revocation, `window.__flowtiWorldBridge`, `window.__flowtiEngine`, script element injection, status polling interval.
 
+**Sprite path resolution** uses the plugin's manifest directory rather than a hard-coded path:
+
+```typescript
+const pluginDir = this.app.vault.configDir + "/plugins/" + this.manifest.id;
+const spriteBase = this.app.vault.adapter.getResourcePath(
+  pluginDir + "/assets/Actor/Characters"
+);
+```
+
+This avoids coupling to the output directory name.
+
 ### Data Provider: PluginProvider
 
 Single implementation replacing both `ServerProvider` and `BridgeProvider`:
@@ -151,6 +168,20 @@ export interface PluginProviderDeps {
   serverBaseUrl?: string;
 }
 ```
+
+**PluginProvider implements the full `DataProvider` interface:**
+
+| Method | Implementation |
+|--------|---------------|
+| `getWorldState()` | Read + parse `.flowti/var/world-state.json` via vault adapter |
+| `getDashboardAgents()` | Read + parse `.flowti/agents/data/agent-dashboard.json` via vault adapter |
+| `onAction(cb)` | Subscribe to EventBus events + optional SSE `agent-action` events |
+| `onEntityUpdate(cb)` | Subscribe to EventBus events + optional SSE `entity-update` events |
+| `onConnectionStatus(cb)` | Emit based on EventBus/SSE state |
+| `sendCommand(endpoint, body)` | REST fetch if `serverBaseUrl` provided, else emit via EventBus |
+| `assetBasePath` | Not used (sprites loaded via `app://` protocol directly) |
+| `start()` | Read vault files, subscribe EventBus, optionally connect SSE |
+| `stop()` | Unsubscribe EventBus, disconnect SSE |
 
 **Primary data source: vault files (no server required).**
 
@@ -178,27 +209,32 @@ Source: assets/Actor/Characters/*/SeparateAnim/{Idle.png, Walk.png}
 Target: .obsidian/plugins/flowti-ibde/assets/Actor/Characters/*/SeparateAnim/{Idle.png, Walk.png}
 ```
 
-**Runtime loading:** `AgentWorldView` resolves the sprite path using Obsidian's native protocol:
+**Runtime loading:** `AgentWorldView` resolves the sprite path dynamically using the plugin's manifest directory (see AgentWorldView section above). ExcaliburJS `ImageSource` loads sprites via the resulting `app://` URL — no CORS issues, no Electron CSP blocks, no server dependency.
 
-```typescript
-const spriteBase = this.app.vault.adapter.getResourcePath(
-  ".obsidian/plugins/flowti-ibde/assets/Actor/Characters"
-);
-// Returns: "app://<id>/.obsidian/plugins/flowti-ibde/assets/Actor/Characters"
-```
+### File Disposition (CLI agents/ → Plugin)
 
-ExcaliburJS `ImageSource` loads sprites via this `app://` URL — no CORS issues, no Electron CSP blocks, no server dependency.
+Files that are **not** in the directory structure above are explicitly dropped or merged:
+
+| CLI File | Disposition | Reason |
+|----------|-------------|--------|
+| `config/data-provider.ts` | **Migrated** to `src/game/config/data-provider.ts` | Interface kept, consumed by engine.ts |
+| `config/server-provider.ts` | **Deleted** | Replaced by PluginProvider |
+| `config/bridge-provider.ts` | **Deleted** | Replaced by PluginProvider |
+| `data/event-stream.ts` | **Deleted** — `ConnectionStatus` type merged into `data/types.ts` | Plugin uses its own SSE client; only the type is needed |
+| `data/state-store.ts` | **Deleted** | Vault adapter reads state directly; no in-memory diff store needed |
+| `systems/sync-system.ts` | **Deleted** | Orchestration logic absorbed by PluginProvider |
 
 ### Lit Components
 
 The 11 game UI components migrate to the plugin's `FlowtiElement` base class:
 
+- **Prerequisite:** The plugin already has a `FlowtiElement` base class at `src/components/flowti-element.ts`. All existing plugin components extend it.
 - `extends LitElement` → `extends FlowtiElement`
 - Game-specific dark-theme CSS stays scoped in each component's `static styles`
 - The CLI's `shared-styles.ts` becomes `src/game/ui/game-styles.ts` — a composable Lit CSS module with the dark pixel-art palette
 - Components use plugin design tokens where appropriate, game-specific colors where not
 
-Shadow DOM encapsulation ensures the game's dark aesthetic doesn't leak into Obsidian's UI. Custom element tag names (`dashboard-overlays`, `roster-bar`, etc.) are unique and won't collide.
+Shadow DOM encapsulation ensures the game's dark aesthetic doesn't leak into Obsidian's UI. Custom element tag names are prefixed with `ft-game-` (e.g., `ft-game-roster-bar`, `ft-game-agent-panel`) to follow the plugin's `ft-` prefix convention and avoid collision with other Obsidian plugins.
 
 ### Build Pipeline
 
@@ -210,7 +246,7 @@ Shadow DOM encapsulation ensures the game's dark aesthetic doesn't leak into Obs
 
 **Plugin `esbuild.config.mjs`** — two additions:
 
-1. ExcaliburJS is bundled into `main.js` (not externalized). Adds ~500-700KB to the output.
+1. ExcaliburJS is bundled into `main.js` (not externalized). Adds ~500-700KB to the output. **CJS bundling note:** The plugin builds with `format: "cjs"`, `platform: "node"`. ExcaliburJS expects browser globals (`document`, `window`, `canvas`, `WebGL`). This works because Obsidian runs in Electron where both Node.js and DOM APIs are available. If tree-shaking issues arise, `platform: "neutral"` or targeted `define` entries may be needed — validate during implementation.
 2. Sprite copy step after `syncAssets()` — copies `assets/Actor/Characters/*/SeparateAnim/{Idle.png,Walk.png}` to the output directory. Runs in both production and watch mode.
 
 **Plugin `tsconfig.json`** — no changes. The `src/game/` directory is covered by the existing include pattern.
@@ -255,6 +291,8 @@ Test files mirror `src/game/` under `tests/game/`:
 | Lit components | happy-dom environment. Test rendering, event dispatch, store binding |
 | `engine.ts` | Integration test with mocked engine. Verify wiring: systems created, provider started, sprites loaded |
 | `agent-world-view.ts` | Test `createAgentWorld()` called with correct deps, `handle.dispose()` called on close |
+
+**Note:** The CLI `agents/` has zero existing tests. All game test files are net-new authoring, not migration of existing tests.
 
 **Coverage target:** 80% statements, 80% lines (plugin convention).
 
