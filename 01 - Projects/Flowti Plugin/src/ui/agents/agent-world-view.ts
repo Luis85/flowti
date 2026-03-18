@@ -59,11 +59,10 @@ export class AgentWorldView extends ItemView {
 			spriteBasePath = pluginDir;
 		}
 
-		// Create provider
+		// Create provider — EventBus only, no direct SSE (agent-setup handles SSE relay)
 		const provider = createPluginProvider({
 			vaultAdapter: this.app.vault.adapter as { exists(p: string): Promise<boolean>; read(p: string): Promise<string> },
 			eventBus: this.deps.eventBus as { on(type: string, cb: (event: { type: string; payload: unknown }) => void): () => void; emit?(type: string, payload: unknown): void },
-			sseClient: this.deps.sseClient,
 			serverBaseUrl: this.deps.serverBaseUrl,
 		});
 

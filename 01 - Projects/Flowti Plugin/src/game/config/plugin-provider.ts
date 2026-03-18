@@ -19,11 +19,6 @@ export interface PluginProviderDeps {
 		on(type: string, cb: (event: { type: string; payload: unknown }) => void): () => void;
 		emit?(type: string, payload: unknown): void;
 	};
-	readonly sseClient?: {
-		connect(): void;
-		disconnect(): void;
-		on(event: string, cb: (data: unknown) => void): () => void;
-	};
 	readonly serverBaseUrl?: string;
 }
 
@@ -54,6 +49,9 @@ export function createPluginProvider(deps: PluginProviderDeps): DataProvider {
 				}
 			} catch { worldState = null; }
 
+			// Subscribe to EventBus only — agent-setup.ts already handles SSE
+			// and relays events to the EventBus. Subscribing to both causes
+			// double-firing and "all agents respond" cascades.
 			for (const eventType of RELAYED_EVENTS) {
 				const unsub = deps.eventBus.on(eventType, (event) => {
 					const action = event.payload as AgentAction;
@@ -61,25 +59,11 @@ export function createPluginProvider(deps: PluginProviderDeps): DataProvider {
 				});
 				unsubs.push(unsub);
 			}
-
-			if (deps.sseClient) {
-				try {
-					deps.sseClient.connect();
-					unsubs.push(deps.sseClient.on("agent-action", (data) => {
-						for (const cb of actionCallbacks) cb(data as AgentAction);
-					}));
-					unsubs.push(deps.sseClient.on("entity-update", (data) => {
-						for (const cb of entityCallbacks) cb(data as WorldEntity);
-					}));
-					for (const cb of connectionCallbacks) cb("connected");
-				} catch { /* SSE not available */ }
-			}
 		},
 
 		stop(): void {
 			for (const unsub of unsubs) unsub();
 			unsubs.length = 0;
-			deps.sseClient?.disconnect();
 		},
 
 		async getWorldState(): Promise<WorldState | null> { return worldState; },
