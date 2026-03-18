@@ -14,7 +14,7 @@ import type { App, Plugin, WorkspaceLeaf } from "obsidian";
 import { HttpAgentService } from "../infrastructure/agents/http-agent-service.js";
 import { SseClient } from "../infrastructure/agents/sse-client.js";
 import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider.js";
-import { launchCliServer, getServerStatus, killServer, clearServerRegistry } from "../infrastructure/agents/server-launcher.js";
+import { launchCliServer, getServerStatus, killServer, clearServerRegistry, writeServerRegistryForExisting } from "../infrastructure/agents/server-launcher.js";
 import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/agent-sidepanel-view.js";
 import { VIEW_TYPE_AGENT_SIDEBAR } from "../ui/agents/types.js";
 
@@ -92,12 +92,25 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 	});
 
 	// Deferred connection — called from onLayoutReady, never from view factory
+	// When SSE loses connection permanently, reset to offline state
+	sseClient.onDisconnect(() => {
+		agentService.disconnect();
+		clearServerRegistry(vaultPath);
+		connected = false;
+	});
+
 	let connected = false;
 	function connectWhenReady(): void {
 		if (connected) return;
 		connected = true;
 		void agentService.connect()
-			.then(() => sseClient.connect())
+			.then(() => {
+				sseClient.connect();
+				// If server is running but no registry (started externally), create one
+				if (!getServerStatus(vaultPath).entry) {
+					writeServerRegistryForExisting(vaultPath, baseUrl);
+				}
+			})
 			.catch(() => { /* server not running — silent */ });
 	}
 

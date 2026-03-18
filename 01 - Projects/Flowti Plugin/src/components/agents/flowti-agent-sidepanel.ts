@@ -236,16 +236,17 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 	}
 
 	private renderServerBar() {
-		if (!this.serverPid) return "";
+		if (!this.serverUrl) return "";
 		const uptime = this.serverStartedAt
 			? `up since ${new Date(this.serverStartedAt).toLocaleTimeString()}`
 			: "";
+		const pidLabel = this.serverPid ? `PID ${this.serverPid}` : "External";
 		return html`
 			<div class="server-bar">
 				<span class="dot--live"></span>
-				<span class="info">PID ${this.serverPid} ${uptime}</span>
+				<span class="info">${pidLabel} ${uptime}</span>
 				<button @click="${this.dispatchVisitWorld}" title="Open dashboard in browser">Visit</button>
-				<button class="btn--danger" @click="${this.dispatchStopServer}" title="Stop the CLI server">Stop</button>
+				${this.serverPid ? html`<button class="btn--danger" @click="${this.dispatchStopServer}" title="Stop the CLI server">Stop</button>` : ""}
 			</div>
 		`;
 	}

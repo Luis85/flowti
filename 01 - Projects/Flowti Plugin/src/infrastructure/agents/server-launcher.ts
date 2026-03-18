@@ -60,6 +60,16 @@ export function clearServerRegistry(vaultPath: string): void {
 	try { unlinkSync(path); } catch { /* already gone */ }
 }
 
+/** Create a registry entry for an externally started server (no PID known). */
+export function writeServerRegistryForExisting(vaultPath: string, url: string): void {
+	writeServerRegistry(vaultPath, {
+		pid: 0,
+		url,
+		startedAt: new Date().toISOString(),
+		vaultPath,
+	});
+}
+
 /** Kill a server process by PID. Cross-platform: uses taskkill on Windows, SIGTERM elsewhere. */
 export function killServer(pid: number): boolean {
 	try {

@@ -15,6 +15,7 @@ export class SseClient {
 	private maxRetries = 5;
 	/** True once a connection has succeeded at least once. */
 	private hasConnectedBefore = false;
+	private disconnectCallback: (() => void) | null = null;
 
 	constructor(url: string) {
 		this.url = url;
@@ -39,6 +40,8 @@ export class SseClient {
 			if (this.hasConnectedBefore && this.retryCount <= this.maxRetries) {
 				const delay = Math.min(1000 * 2 ** (this.retryCount - 1), 30000);
 				this.retryTimer = setTimeout(() => this.connect(), delay);
+			} else if (this.hasConnectedBefore && this.retryCount > this.maxRetries) {
+				this.disconnectCallback?.();
 			}
 		};
 
@@ -87,6 +90,10 @@ export class SseClient {
 
 	get connected(): boolean {
 		return this.source?.readyState === EventSource.OPEN;
+	}
+
+	onDisconnect(callback: () => void): void {
+		this.disconnectCallback = callback;
 	}
 
 	private attachListener(eventType: string, callback: SseCallback): void {

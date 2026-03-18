@@ -60,6 +60,8 @@ export class HttpAgentService implements IAgentService {
 				this.agents.set(id, entityToCard(entity));
 			}
 		}
+		// Notify subscribers so handler refreshes UI with new agents
+		this.emit({ kind: "status-changed", agent: "", activity: "idle" });
 	}
 
 	disconnect(): void {
@@ -68,6 +70,7 @@ export class HttpAgentService implements IAgentService {
 		this.agents.clear();
 		this.conversations.clear();
 		this.teamConversation = [];
+		this.emit({ kind: "status-changed", agent: "", activity: "idle" });
 	}
 
 	listAgents(): AgentCard[] {
