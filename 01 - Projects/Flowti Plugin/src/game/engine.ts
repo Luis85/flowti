@@ -85,7 +85,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		suppressPlayButton: true,
 	});
 	container.appendChild(engine.canvas);
-	engine.screen.displayMode = ex.DisplayMode.FitContainer;
+	(engine.screen as { displayMode: ex.DisplayMode }).displayMode = ex.DisplayMode.FitContainer;
 	engine.screen.applyResolutionAndViewport();
 
 	// ── Reactive store ──────────────────────────────────
