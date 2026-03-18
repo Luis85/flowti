@@ -233,3 +233,72 @@ describe("generateSitemapFromMarkdown — flat strategy", () => {
 		expect(sitemap.pages["navigation"]).toBeUndefined();
 	});
 });
+
+// ── generateSitemapFromMarkdown — hierarchical ──────────────────────
+
+const textInput: ComponentMarkdown = {
+	name: "TextInput",
+	category: "forms/inputs",
+	description: "Single-line text field",
+	status: "ready",
+	props: ["placeholder"],
+	slots: ["prefix"],
+	variants: ["outlined"],
+};
+
+const selectComp: ComponentMarkdown = {
+	name: "Select",
+	category: "forms/selectors",
+	description: "Dropdown selector",
+	status: "ready",
+	props: ["options"],
+	slots: [],
+	variants: ["native", "custom"],
+};
+
+describe("generateSitemapFromMarkdown — hierarchical strategy", () => {
+	it("creates intermediate parent pages from nested categories", () => {
+		const sitemap = generateSitemapFromMarkdown([textInput, selectComp], "hierarchical");
+
+		// Root category page
+		expect(sitemap.pages["forms"]).toBeDefined();
+		expect(sitemap.pages["forms"].kind).toBe("page");
+		expect(sitemap.pages["forms"].parent).toBeUndefined();
+
+		// Subcategory pages
+		expect(sitemap.pages["forms-inputs"]).toBeDefined();
+		expect(sitemap.pages["forms-inputs"].kind).toBe("page");
+		expect(sitemap.pages["forms-inputs"].parent).toBe("forms");
+
+		expect(sitemap.pages["forms-selectors"]).toBeDefined();
+		expect(sitemap.pages["forms-selectors"].parent).toBe("forms");
+	});
+
+	it("places components under their deepest category", () => {
+		const sitemap = generateSitemapFromMarkdown([textInput, selectComp], "hierarchical");
+
+		expect(sitemap.pages["forms-inputs-text-input"]).toBeDefined();
+		expect(sitemap.pages["forms-inputs-text-input"].parent).toBe("forms-inputs");
+
+		expect(sitemap.pages["forms-selectors-select"]).toBeDefined();
+		expect(sitemap.pages["forms-selectors-select"].parent).toBe("forms-selectors");
+	});
+
+	it("treats non-nested categories like category strategy", () => {
+		const sitemap = generateSitemapFromMarkdown([button], "hierarchical");
+
+		expect(sitemap.pages["atoms"]).toBeDefined();
+		expect(sitemap.pages["atoms"].kind).toBe("page");
+
+		expect(sitemap.pages["atoms-button"]).toBeDefined();
+		expect(sitemap.pages["atoms-button"].parent).toBe("atoms");
+	});
+
+	it("deduplicates intermediate pages from multiple components", () => {
+		const sitemap = generateSitemapFromMarkdown([textInput, selectComp], "hierarchical");
+
+		// Only one "forms" page even though two subcategories reference it
+		const formsPages = Object.keys(sitemap.pages).filter((k) => k === "forms");
+		expect(formsPages).toHaveLength(1);
+	});
+});

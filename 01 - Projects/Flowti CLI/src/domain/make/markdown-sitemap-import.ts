@@ -165,6 +165,35 @@ function generateFlat(components: readonly ComponentMarkdown[]): Record<string, 
 	return pages;
 }
 
+function generateHierarchical(components: readonly ComponentMarkdown[]): Record<string, PageObject> {
+	const pages: Record<string, PageObject> = {};
+
+	for (const comp of components) {
+		const segments = comp.category.split("/").map((s) => s.trim()).filter(Boolean);
+
+		// Build intermediate category pages
+		for (let i = 0; i < segments.length; i++) {
+			const pathSegments = segments.slice(0, i + 1);
+			const pageId = pathSegments.map(toKebab).join("-");
+			if (!pages[pageId]) {
+				const parentSegments = pathSegments.slice(0, -1);
+				const parent = parentSegments.length > 0 ? parentSegments.map(toKebab).join("-") : undefined;
+				pages[pageId] = buildCategoryPage(segments[i]);
+				if (parent) {
+					pages[pageId] = { ...pages[pageId], parent };
+				}
+			}
+		}
+
+		// Place component under deepest category
+		const deepestId = segments.map(toKebab).join("-");
+		const compId = `${deepestId}-${toKebab(comp.name)}`;
+		pages[compId] = buildComponentPage(comp, compId, deepestId);
+	}
+
+	return pages;
+}
+
 // ── Main export ──────────────────────────────────────────────────────
 
 export function generateSitemapFromMarkdown(
@@ -181,7 +210,7 @@ export function generateSitemapFromMarkdown(
 			pages = generateFlat(components);
 			break;
 		case "hierarchical":
-			pages = {};
+			pages = generateHierarchical(components);
 			break;
 		default:
 			pages = generateCategory(components);
