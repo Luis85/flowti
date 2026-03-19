@@ -77,7 +77,14 @@ export function createPluginProvider(deps: PluginProviderDeps): DataProvider {
 			// Subscribe to agentService for SSE-relayed events (speaking, thinking, etc.)
 			// agent-setup.ts handles SSE → agentService.handleServerEvent() → onEvent()
 			if (deps.agentService) {
+				let sawEvent = false;
 				const unsub = deps.agentService.onEvent((event) => {
+					// First real agent event confirms server is live
+					if (!sawEvent && event.agent) {
+						sawEvent = true;
+						for (const cb of connectionCallbacks) cb("connected");
+					}
+
 					const actionMap: Record<string, string> = {
 						"thinking": "thinking",
 						"message-received": "speaking",
