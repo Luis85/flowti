@@ -417,7 +417,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.serverSetup = setupServerDomain({
 				plugin: this,
 				app: this.app,
-				sseClient: this.agentSetup!.sseClient,
+				sseClient: undefined as never, // Server panel will be refactored in a later task
 				startServer: async (onOutput?: (line: string) => void) => {
 					const { launchCliServer } = await import("./infrastructure/agents/server-launcher");
 					const vaultPath = (this.app.vault.adapter as unknown as { basePath: string }).basePath;
@@ -536,8 +536,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				clearServerRegistry(vaultPath);
 			}
 		});
-		safeDispose("agentSseClient", () => this.agentSetup?.sseClient.disconnect());
-		safeDispose("agentService", () => this.agentSetup?.agentService.disconnect());
+		safeDispose("cliExecutor", () => this.agentSetup?.cliExecutor.dispose());
 		safeDispose("agentContext", () => this.agentSetup?.contextProvider.dispose());
 		safeDispose("worldContext", () => this.agentSetup?.worldContext.dispose());
 		safeDispose("trainCanvasSync", () => this.trainCanvasSync?.destroy());
@@ -821,8 +820,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				timestamp: new Date().toISOString(),
 			});
 
-			// Agent server connection — silent, non-blocking
-			this.agentSetup?.connectWhenReady();
+			// Serverless mode — no server connection needed
 
 		} catch (error) {
 			const err = error instanceof Error ? error : new Error(String(error));

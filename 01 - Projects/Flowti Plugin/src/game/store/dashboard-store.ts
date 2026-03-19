@@ -1,7 +1,7 @@
 import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting } from "../data/types.js";
 import type { BrainState } from "../brain/brain-types.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
-import * as api from "../data/api-client.js";
+import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
 
 // ── Exported helper types ──────────────────────────────────────────
 
@@ -61,13 +61,15 @@ export class DashboardStore extends EventTarget {
 	private batchDepth = 0;
 	private batchDirty = false;
 	private wokenAgents: Map<string, number> = new Map();
+	private agentProcesses: Map<string, AgentProcess> = new Map();
+	private eventUnsubs: Map<string, () => void> = new Map();
 
-	private readonly baseUrl: string;
+	private cliExecutor: ICliExecutor | null;
 	private worldContext: WorldContext | null;
 
-	constructor(baseUrl: string, worldContext?: WorldContext) {
+	constructor(cliExecutor?: ICliExecutor, worldContext?: WorldContext) {
 		super();
-		this.baseUrl = baseUrl;
+		this.cliExecutor = cliExecutor ?? null;
 		this.worldContext = worldContext ?? null;
 	}
 
@@ -224,7 +226,67 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	// ── Action methods (call API client) ──────────────────────────
+	// ── Action methods (CliExecutor-backed) ──────────────────────
+
+	private getOrStartProcess(agentName: string): AgentProcess | null {
+		if (!this.cliExecutor) return null;
+
+		const existing = this.agentProcesses.get(agentName);
+		if (existing?.running) return existing;
+
+		// Clean up old subscription
+		const oldUnsub = this.eventUnsubs.get(agentName);
+		if (oldUnsub) {
+			oldUnsub();
+			this.eventUnsubs.delete(agentName);
+		}
+
+		const proc = this.cliExecutor.startAgent(agentName);
+		this.agentProcesses.set(agentName, proc);
+
+		// Subscribe to process events
+		const unsub = proc.onEvent((event: CliEvent) => {
+			this.handleCliEvent(agentName, event);
+		});
+		this.eventUnsubs.set(agentName, unsub);
+
+		return proc;
+	}
+
+	private handleCliEvent(agentName: string, event: CliEvent): void {
+		switch (event.type) {
+			case "response": {
+				const text = event.text ?? "";
+				this.pushAgentResponse(agentName, text);
+				this.dispatchEvent(new CustomEvent("agent-response-received", {
+					detail: { agentName, text, type: "speaking" },
+				}));
+				break;
+			}
+			case "thinking": {
+				const text = event.text ?? "...";
+				this.pushAgentThought(agentName, text);
+				break;
+			}
+			case "permission-request": {
+				this.dispatchEvent(new CustomEvent("permission-requested", {
+					detail: { agentName, tool: event.tool, id: event.id },
+				}));
+				break;
+			}
+			case "error": {
+				const text = event.text ?? "An error occurred.";
+				this.pushAgentResponse(agentName, `[error] ${text}`);
+				break;
+			}
+			case "task-started":
+			case "task-completed":
+			case "using-tool":
+			case "tool-complete":
+				// These events are handled by the data provider / engine action pipeline
+				break;
+		}
+	}
 
 	async sendMessage(agentName: string, message: string): Promise<{ ok: boolean; error?: string }> {
 		this.dispatchEvent(new CustomEvent("agent-message-sent", { detail: { agentName } }));
@@ -246,20 +308,24 @@ export class DashboardStore extends EventTarget {
 		const fullPrompt = contextBlock ? `${contextBlock}\n\n${message}` : message;
 		this.pushDebugEntry(agentName, fullPrompt);
 
-		const result = await api.sendMessage(this.baseUrl, agentName, message, contextBlock || undefined);
-		if (result.ok && result.response) {
-			this.pushAgentResponse(agentName, result.response);
-			this.dispatchEvent(new CustomEvent("agent-response-received", {
-				detail: { agentName, text: result.response, type: result.type ?? "speaking" },
-			}));
-			// Successful API call confirms server is live — update connection status
-			if (this.connectionStatus !== "connected") {
-				this.setConnectionStatus("connected" as import("../data/types.js").ConnectionStatus);
-			}
-		} else if (!result.ok) {
-			this.pushAgentResponse(agentName, `[offline] ${result.error ?? "Cannot reach server."}`);
+		const proc = this.getOrStartProcess(agentName);
+		if (!proc) {
+			this.pushAgentResponse(agentName, "[offline] CLI executor not available.");
+			return { ok: false, error: "CLI executor not available" };
 		}
-		return result;
+
+		try {
+			proc.send(message, contextBlock || undefined);
+			// Connection confirmed — update status
+			if (this.connectionStatus !== "connected") {
+				this.setConnectionStatus("connected");
+			}
+			return { ok: true };
+		} catch (err) {
+			const errorMsg = err instanceof Error ? err.message : "Unknown error";
+			this.pushAgentResponse(agentName, `[offline] ${errorMsg}`);
+			return { ok: false, error: errorMsg };
+		}
 	}
 
 	async assignTask(agentName: string, task: string): Promise<{ ok: boolean; error?: string }> {
@@ -275,12 +341,19 @@ export class DashboardStore extends EventTarget {
 		this.dispatchEvent(new CustomEvent("task-assigned", { detail: { agentName, task } }));
 		this.notify();
 
-		const result = await api.assignTask(this.baseUrl, agentName, task);
+		if (!this.cliExecutor) {
+			const idx = tasks.findIndex((t) => t.name === task && t.status === "pending");
+			if (idx >= 0) tasks.splice(idx, 1);
+			this.notify();
+			return { ok: false, error: "CLI executor not available" };
+		}
+
+		const result = await this.cliExecutor.assignTask(agentName, task);
 		if (result.ok) {
 			const entry = tasks.find((t) => t.name === task && t.status === "pending");
 			if (entry) entry.status = "in-progress";
 			if (this.connectionStatus !== "connected") {
-				this.setConnectionStatus("connected" as import("../data/types.js").ConnectionStatus);
+				this.setConnectionStatus("connected");
 			}
 			this.notify();
 		} else {
@@ -288,13 +361,14 @@ export class DashboardStore extends EventTarget {
 			const idx = tasks.findIndex((t) => t.name === task && t.status === "pending");
 			if (idx >= 0) tasks.splice(idx, 1);
 			this.notify();
-			console.warn(`[store] Task assignment failed for ${agentName}:`, result.error);
+			console.warn(`[store] Task assignment failed for ${agentName}`);
 		}
 		return result;
 	}
 
-	async grantPermission(agentName: string, tool: string, decision: string): Promise<{ ok: boolean; error?: string }> {
-		return api.grantPermission(this.baseUrl, agentName, tool, decision);
+	async grantPermission(agentName: string, tool: string, decision: string): Promise<{ ok: boolean }> {
+		if (!this.cliExecutor) return { ok: false };
+		return this.cliExecutor.grantPermission(agentName, tool, decision);
 	}
 
 	private static readonly WAKE_COOLDOWN_MS = 30_000;
@@ -304,6 +378,7 @@ export class DashboardStore extends EventTarget {
 		const lastWoken = this.wokenAgents.get(agentName) ?? 0;
 		if (now - lastWoken < DashboardStore.WAKE_COOLDOWN_MS) return;
 		this.wokenAgents.set(agentName, now);
-		return api.wakeAgent(this.baseUrl, agentName);
+		if (!this.cliExecutor) return;
+		await this.cliExecutor.wakeAgent(agentName);
 	}
 }

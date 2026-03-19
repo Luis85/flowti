@@ -12,18 +12,16 @@ import { ItemView } from "obsidian";
 import type { WorkspaceLeaf, Plugin } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
+import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
 import { createAgentWorld, type AgentWorldHandle } from "../../game/engine.js";
-import { createPluginProvider } from "../../game/config/plugin-provider.js";
+import { createCliDataProvider } from "../../game/config/cli-data-provider.js";
 import { VIEW_TYPE_AGENT_WORLD } from "./types.js";
 
 export interface AgentWorldViewDeps {
 	readonly plugin: Plugin;
 	readonly eventBus: IEventBus;
-	readonly serverBaseUrl?: string;
 	readonly worldContext?: WorldContext;
-	readonly agentService?: {
-		onEvent(cb: (event: { kind: string; agent: string; text?: string; turn?: { content: string } }) => void): () => void;
-	};
+	readonly cliExecutor?: ICliExecutor;
 }
 
 export class AgentWorldView extends ItemView {
@@ -59,20 +57,16 @@ export class AgentWorldView extends ItemView {
 			spriteBasePath = pluginDir;
 		}
 
-		// Create provider — EventBus + agentService (which receives SSE via agent-setup)
-		const provider = createPluginProvider({
-			vaultAdapter: this.app.vault.adapter as { exists(p: string): Promise<boolean>; read(p: string): Promise<string> },
-			eventBus: this.deps.eventBus as { on(type: string, cb: (event: { type: string; payload: unknown }) => void): () => void; emit?(type: string, payload: unknown): void },
-			agentService: this.deps.agentService,
-			serverBaseUrl: this.deps.serverBaseUrl,
-		});
+		// Create CLI-backed data provider — reads vault files directly, no server needed
+		const vaultBasePath = (this.app.vault.adapter as unknown as { basePath: string }).basePath;
+		const provider = createCliDataProvider(vaultBasePath, this.deps.cliExecutor);
 
 		// Create game
 		this.handle = createAgentWorld({
 			container,
 			provider,
 			spriteBasePath,
-			serverBaseUrl: this.deps.serverBaseUrl,
+			cliExecutor: this.deps.cliExecutor,
 			worldContext: this.deps.worldContext,
 		});
 
