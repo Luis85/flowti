@@ -1,8 +1,10 @@
 import type { WorldState, WorldEntity } from "./types.js";
 
-interface ApiResult {
+export interface ApiResult {
 	readonly ok: boolean;
 	readonly error?: string;
+	readonly response?: string;
+	readonly type?: string;
 }
 
 export async function fetchWorldState(baseUrl: string): Promise<WorldState | null> {

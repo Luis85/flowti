@@ -244,8 +244,13 @@ export class DashboardStore extends EventTarget {
 		}
 		this.pushDebugEntry(agentName, fullPrompt);
 		const result = await api.sendMessage(this.baseUrl, agentName, message, context);
-		if (!result.ok) {
-			// Push error as agent response so user sees feedback
+		if (result.ok && result.response) {
+			// Server returned the LLM response directly — no SSE dependency
+			this.pushAgentResponse(agentName, result.response);
+			this.dispatchEvent(new CustomEvent("agent-response-received", {
+				detail: { agentName, text: result.response, type: result.type ?? "speaking" },
+			}));
+		} else if (!result.ok) {
 			this.pushAgentResponse(agentName, `[offline] ${result.error ?? "Cannot reach server."}`);
 		}
 		return result;

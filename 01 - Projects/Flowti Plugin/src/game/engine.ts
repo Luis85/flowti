@@ -603,6 +603,17 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		if (actor) actor.showLlmIndicator();
 	}) as EventListener);
 
+	store.addEventListener("agent-response-received", ((e: CustomEvent) => {
+		const { agentName, text, type } = e.detail;
+		// Silence talk engine + hide lightbulb
+		talkEngine.silence(agentName);
+		const actor = findAgentActor(agentName);
+		if (actor) actor.hideLlmIndicator();
+		// Show bubble
+		const bubbleKind = type === "asking" ? "question" : "speech";
+		bubbleSystem.showBubble(agentName, bubbleKind, text, engine.currentScene, findAgentActor);
+	}) as EventListener);
+
 	store.addEventListener("task-assigned", ((e: CustomEvent) => {
 		const { agentName, task } = e.detail;
 		brainSystem.applyEvent(agentName, "task-started");
@@ -642,8 +653,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		return false;
 	}
 
-	container.setAttribute("tabindex", "0");
-
+	// Listen on document — keyboard should work whenever the game view is visible,
+	// not just when the container has focus. isTyping() prevents conflicts with inputs.
 	const keydownHandler = ((e: KeyboardEvent) => {
 		if (isTyping()) return;
 		if (e.key === "Escape" && cameraSystem?.isFollowing()) {
@@ -660,8 +671,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		cameraSystem?.handleKeyUp(e.key);
 	}) as EventListener;
 
-	container.addEventListener("keydown", keydownHandler);
-	container.addEventListener("keyup", keyupHandler);
+	document.addEventListener("keydown", keydownHandler);
+	document.addEventListener("keyup", keyupHandler);
 
 	// ── Lifecycle handle ────────────────────────────────
 
@@ -747,8 +758,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			engine.stop();
 			engine.dispose();
 			provider.stop();
-			container.removeEventListener("keydown", keydownHandler);
-			container.removeEventListener("keyup", keyupHandler);
+			document.removeEventListener("keydown", keydownHandler);
+			document.removeEventListener("keyup", keyupHandler);
 		},
 	};
 }

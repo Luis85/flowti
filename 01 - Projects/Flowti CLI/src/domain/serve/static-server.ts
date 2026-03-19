@@ -194,18 +194,25 @@ export async function handleApiRoute(
 		const varDir = ctx.deps.paths.join(ctx.vaultRoot, ".flowti", "var");
 		const { loadConversation, appendTurn, saveConversation } = await import("../agents/agent-conversation-store.js");
 		const conv = loadConversation(ctx.deps, varDir, name);
-		const onResponse: SendOptions["onResponse"] = (response) => {
-			const withUser = appendTurn(conv, { role: "user", content: message, ts: ctx.deps.clock.iso() });
-			const withAgent = appendTurn(withUser, { role: "agent", content: response.message, ts: ctx.deps.clock.iso() });
-			saveConversation(ctx.deps, varDir, name, withAgent);
-			const actionType = response.status === "question" ? "asking" : "speaking";
-			ctx.worldState.emitAction({
-				id: `speak-${Date.now()}`, agentName: name, timestamp: ctx.deps.clock.iso(),
-				type: actionType, data: { text: response.message },
-			});
-		};
-		ctx.workerManager.send(name, fullMessage, { foreground: false, onResponse });
-		json(200, { ok: true });
+
+		// Wait for LLM response and return it in the HTTP response.
+		// This way the plugin doesn't depend on SSE for getting answers.
+		const response = await new Promise<{ message: string; status: string }>((resolve) => {
+			const onResponse: SendOptions["onResponse"] = (resp) => {
+				resolve(resp);
+			};
+			ctx.workerManager.send(name, fullMessage, { foreground: false, onResponse });
+		});
+
+		const withUser = appendTurn(conv, { role: "user", content: message, ts: ctx.deps.clock.iso() });
+		const withAgent = appendTurn(withUser, { role: "agent", content: response.message, ts: ctx.deps.clock.iso() });
+		saveConversation(ctx.deps, varDir, name, withAgent);
+		const actionType = response.status === "question" ? "asking" : "speaking";
+		ctx.worldState.emitAction({
+			id: `speak-${Date.now()}`, agentName: name, timestamp: ctx.deps.clock.iso(),
+			type: actionType, data: { text: response.message },
+		});
+		json(200, { ok: true, response: response.message, type: actionType });
 		return;
 	}
 
