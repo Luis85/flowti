@@ -116,6 +116,7 @@ export default [
 			"src/infrastructure/clock.ts",
 			"src/infrastructure/logger.ts",
 			"src/infrastructure/input.ts",
+			"src/infrastructure/agent-process-io.ts",
 			"src/infrastructure/types.ts",
 		],
 		rules: {
