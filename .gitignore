@@ -68,3 +68,5 @@ build-endpoints.json
 /.worktrees/
 
 .vscode
+*storybook.log
+storybook-static
