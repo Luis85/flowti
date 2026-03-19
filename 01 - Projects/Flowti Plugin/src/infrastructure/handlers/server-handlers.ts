@@ -14,7 +14,7 @@ import "../../components/server/flowti-server-panel.js";
 export interface ServerHandlerDeps {
 	readonly serverService: HttpServerService;
 	readonly sseClient: SseClient;
-	readonly startServer?: () => Promise<{ ok: boolean }>;
+	readonly startServer?: (onOutput?: (line: string) => void) => Promise<{ ok: boolean }>;
 	readonly stopServer?: () => void;
 	readonly openInBrowser?: (url: string) => void;
 	readonly getServerStatus?: () => { running: boolean; entry: { pid: number; url: string; startedAt: string } | null };
@@ -79,23 +79,56 @@ export function mountServerPanel(container: HTMLElement, deps: ServerHandlerDeps
 	});
 	cleanups.push(unsubSse);
 
+	// ── Process output buffer ──
+	const outputLines: string[] = [];
+
+	function appendOutput(line: string): void {
+		outputLines.push(line);
+		if (outputLines.length > 200) outputLines.shift();
+		el.outputLines = [...outputLines];
+	}
+
+	function clearOutput(): void {
+		outputLines.length = 0;
+		el.outputLines = [];
+		el.outputBusy = false;
+		el.outputError = "";
+	}
+
 	// ── Server lifecycle events ──
 	el.addEventListener("server-start", (() => {
 		if (deps.startServer) {
-			void deps.startServer().then(() => refreshStatus());
+			clearOutput();
+			el.outputBusy = true;
+			el.outputBusyLabel = "Starting server...";
+			void deps.startServer(appendOutput).then((result) => {
+				el.outputBusy = false;
+				if (!result.ok) el.outputError = "Server failed to start";
+				void refreshStatus();
+			});
 		}
 	}) as EventListener);
 
 	el.addEventListener("server-stop", (() => {
 		deps.stopServer?.();
+		appendOutput("[Server stopped]");
 		void refreshStatus();
 	}) as EventListener);
 
 	el.addEventListener("server-restart", (() => {
+		clearOutput();
+		el.outputBusy = true;
+		el.outputBusyLabel = "Restarting server...";
+		appendOutput("[Stopping server...]");
 		deps.stopServer?.();
 		setTimeout(() => {
 			if (deps.startServer) {
-				void deps.startServer().then(() => refreshStatus());
+				appendOutput("[Starting server...]");
+				void deps.startServer(appendOutput).then((result) => {
+					el.outputBusy = false;
+					if (!result.ok) el.outputError = "Server failed to restart";
+					void refreshStatus();
+				});
 			}
 		}, 1000);
 	}) as EventListener);

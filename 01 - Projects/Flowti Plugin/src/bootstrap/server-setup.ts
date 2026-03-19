@@ -15,7 +15,7 @@ export interface ServerSetupDeps {
 	readonly app: App;
 	readonly sseClient: SseClient;
 	readonly cliServerUrl?: string;
-	readonly startServer: () => Promise<LaunchResult>;
+	readonly startServer: (onOutput?: (line: string) => void) => Promise<LaunchResult>;
 }
 
 export interface ServerSetupResult {

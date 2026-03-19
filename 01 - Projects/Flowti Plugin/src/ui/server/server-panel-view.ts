@@ -11,7 +11,7 @@ import { VIEW_TYPE_SERVER_PANEL } from "./types.js";
 export interface ServerPanelDeps {
 	readonly serverService: HttpServerService;
 	readonly sseClient: SseClient;
-	readonly startServer?: () => Promise<{ ok: boolean }>;
+	readonly startServer?: (onOutput?: (line: string) => void) => Promise<{ ok: boolean }>;
 	readonly stopServer?: () => void;
 	readonly openInBrowser?: (url: string) => void;
 	readonly getServerStatus?: () => { running: boolean; entry: { pid: number; url: string; startedAt: string } | null };

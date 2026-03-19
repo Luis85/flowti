@@ -418,10 +418,10 @@ export default class FlowtiBasePlugin extends Plugin {
 				plugin: this,
 				app: this.app,
 				sseClient: this.agentSetup!.sseClient,
-				startServer: async () => {
+				startServer: async (onOutput?: (line: string) => void) => {
 					const { launchCliServer } = await import("./infrastructure/agents/server-launcher");
 					const vaultPath = (this.app.vault.adapter as unknown as { basePath: string }).basePath;
-					return launchCliServer(vaultPath, "http://localhost:3000");
+					return launchCliServer(vaultPath, "http://localhost:3000", onOutput);
 				},
 			});
 

@@ -14,6 +14,7 @@ import "./flowti-server-status.js";
 import "./flowti-activity-feed.js";
 import "./flowti-server-stats.js";
 import "./flowti-server-config.js";
+import "../shared/ft-process-log.js";
 
 export class FlowtiServerPanel extends FlowtiElement {
 	static properties = {
@@ -27,6 +28,10 @@ export class FlowtiServerPanel extends FlowtiElement {
 		paused: { type: Boolean },
 		stats: { type: Object },
 		config: { type: Object },
+		outputLines: { type: Array },
+		outputBusy: { type: Boolean },
+		outputBusyLabel: { type: String },
+		outputError: { type: String },
 	};
 
 	static styles = [
@@ -81,6 +86,10 @@ export class FlowtiServerPanel extends FlowtiElement {
 	paused = false;
 	stats: ServerStats | null = null;
 	config: ServerConfig | null = null;
+	outputLines: string[] = [];
+	outputBusy = false;
+	outputBusyLabel = "Starting server...";
+	outputError = "";
 
 	protected renderContent() {
 		return html`
@@ -96,6 +105,13 @@ export class FlowtiServerPanel extends FlowtiElement {
 					></flowti-server-status>
 				</div>
 			</details>
+			<ft-process-log
+				.lines="${this.outputLines}"
+				.busy="${this.outputBusy}"
+				.busyLabel="${this.outputBusyLabel}"
+				.errorNote="${this.outputError}"
+				@dismiss="${() => { this.outputLines = []; this.outputError = ""; }}"
+			></ft-process-log>
 			<details>
 				<summary>Activity</summary>
 				<div class="section-content">

@@ -105,7 +105,7 @@ export async function probeServer(vaultPath: string): Promise<boolean> {
 	}
 }
 
-export async function launchCliServer(vaultPath: string, baseUrl: string): Promise<LaunchResult> {
+export async function launchCliServer(vaultPath: string, baseUrl: string, onOutput?: (line: string) => void): Promise<LaunchResult> {
 	const binDir = join(vaultPath, ".flowti", "bin");
 
 	const hasBinary = existsSync(join(binDir, "main.mjs")) || existsSync(join(binDir, "index.mjs"));
@@ -140,16 +140,31 @@ export async function launchCliServer(vaultPath: string, baseUrl: string): Promi
 	}
 
 	let child: ChildProcess;
+	const useOutput = !!onOutput;
 	try {
 		child = spawn(nodeBin, [binDir, "serve"], {
 			cwd: vaultPath,
 			detached: true,
-			stdio: "ignore",
+			stdio: useOutput ? "pipe" : "ignore",
 			windowsHide: true,
 		});
 		child.unref();
 	} catch (err) {
 		return { ok: false, error: `Failed to start server: ${err instanceof Error ? err.message : String(err)}` };
+	}
+
+	// Stream output if callback provided
+	if (useOutput && child.stdout) {
+		child.stdout.on("data", (chunk: Buffer) => {
+			const lines = chunk.toString().replace(/\x1B\[[0-9;]*[A-Za-z]/g, "").split("\n").filter(Boolean);
+			for (const line of lines) onOutput!(line);
+		});
+	}
+	if (useOutput && child.stderr) {
+		child.stderr.on("data", (chunk: Buffer) => {
+			const lines = chunk.toString().replace(/\x1B\[[0-9;]*[A-Za-z]/g, "").split("\n").filter(Boolean);
+			for (const line of lines) onOutput!(line);
+		});
 	}
 
 	const pid = child.pid ?? 0;
