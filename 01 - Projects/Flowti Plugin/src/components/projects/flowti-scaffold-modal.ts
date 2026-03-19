@@ -16,6 +16,8 @@ export class FlowtiScaffoldModal extends FlowtiElement {
 		...FlowtiElement.properties,
 		hasSitemap: { type: Boolean },
 		hasMarkdownSource: { type: Boolean },
+		hasCanvas: { type: Boolean },
+		canvasChanged: { type: Boolean },
 	};
 
 	static styles = [
@@ -91,8 +93,13 @@ export class FlowtiScaffoldModal extends FlowtiElement {
 
 	hasSitemap = false;
 	hasMarkdownSource = false;
+	hasCanvas = false;
+	canvasChanged = false;
 
 	protected renderContent() {
+		if (this.hasCanvas && !this.hasSitemap) {
+			return this.renderCanvasImportPrompt();
+		}
 		if (this.hasSitemap) {
 			return this.renderSitemapPrompt();
 		}
@@ -100,6 +107,31 @@ export class FlowtiScaffoldModal extends FlowtiElement {
 			return this.renderImportPrompt();
 		}
 		return this.renderNoSitemap();
+	}
+
+	private renderCanvasImportPrompt() {
+		return html`
+			<div class="overlay" @click="${this.dispatchDismiss}">
+				<div class="modal" @click="${(e: Event) => e.stopPropagation()}">
+					<div class="modal-title">Import from canvas</div>
+					<div class="modal-body">
+						A sitemap canvas was found. Import it to generate the project sitemap
+						and create component stubs and stories.
+					</div>
+					<div class="modal-actions">
+						<button class="btn" @click="${this.dispatchDismiss}">Cancel</button>
+						<button class="btn btn--primary" @click="${this.dispatchConfirmCanvas}">Import &amp; Generate</button>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	private dispatchConfirmCanvas(): void {
+		this.dispatchEvent(new CustomEvent("scaffold-confirm", {
+			detail: { canvasImport: true },
+			bubbles: true, composed: true,
+		}));
 	}
 
 	private renderSitemapPrompt() {

@@ -31,6 +31,8 @@ export interface ProjectDetail extends ProjectSummary {
 	readonly notePath: string | null;
 	readonly projectPath: string;
 	readonly hasSitemap: boolean;
+	readonly hasCanvas: boolean;
+	readonly canvasChanged: boolean;
 	readonly brief?: ProjectBrief;
 	readonly config?: ProjectConfig;
 }
@@ -74,6 +76,7 @@ export interface IProjectService {
 	importMarkdownSitemap(project: string, sourcePath: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
 	saveMarkdownSourceConfig(project: string, config: MarkdownSourceConfig, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
 	cleanStorybook(project: string): Promise<{ ok: boolean; error?: string }>;
+	importCanvasSitemap(project: string, onOutput?: OutputCallback, opts?: { merge?: boolean }): Promise<{ ok: boolean; error?: string }>;
 	previewStorybook(project: string): Promise<{ ok: boolean; url?: string; error?: string }>;
 	stopPreview(project: string): Promise<{ ok: boolean; error?: string }>;
 }

@@ -14,6 +14,8 @@ function mockService(): IProjectService {
 			notePath: "/projects/Alpha/Alpha.md",
 			projectPath: "/projects/Alpha",
 			hasSitemap: false,
+			hasCanvas: false,
+			canvasChanged: false,
 			storybook: { installed: true, framework: "react", running: false, url: null, pid: null, hasStaticBuild: false },
 		})),
 		installStorybook: vi.fn(async () => ({ ok: true })),
@@ -24,6 +26,7 @@ function mockService(): IProjectService {
 		importMarkdownSitemap: vi.fn(async (_p: string, _s: string) => ({ ok: true })),
 		saveMarkdownSourceConfig: vi.fn(async () => ({ ok: true })),
 		cleanStorybook: vi.fn(async () => ({ ok: true })),
+		importCanvasSitemap: vi.fn(async () => ({ ok: true })),
 		previewStorybook: vi.fn(async () => ({ ok: true, url: "http://localhost:6007" })),
 		stopPreview: vi.fn(async () => ({ ok: true })),
 	};
@@ -144,7 +147,7 @@ describe("mountProjectDetail", () => {
 		const service = mockService();
 		(service.getProject as ReturnType<typeof vi.fn>).mockResolvedValue({
 			name: "Alpha", type: "typescript", hasNote: true, notePath: "/p",
-			projectPath: "/p", hasSitemap: true,
+			projectPath: "/p", hasSitemap: true, hasCanvas: false, canvasChanged: false,
 			storybook: { installed: true, framework: "react", running: false, url: null, pid: null, hasStaticBuild: false },
 		});
 		mountProjectDetail(container, { projectService: service, projectName: "Alpha" });

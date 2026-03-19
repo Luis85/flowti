@@ -232,3 +232,38 @@ describe("storybook:clean", () => {
 		expect(ctx.deps.disk.rmSync).not.toHaveBeenCalled();
 	});
 });
+
+describe("storybook:canvas-import", () => {
+	it("reads canvas and writes sitemap", () => {
+		const handler = getHandler("storybook:canvas-import");
+		const canvasJson = JSON.stringify({
+			nodes: [{ id: "n1", type: "text", text: "Home", x: 0, y: 0, width: 200, height: 100, color: "4" }],
+			edges: [],
+		});
+		const ctx = createProjectContext({ command: "storybook:canvas-import", flags: {} });
+		ctx.deps.disk.existsSync = vi.fn((p: string) => String(p).includes("sitemap.canvas"));
+		ctx.deps.disk.readFileSync = vi.fn(() => canvasJson);
+		ctx.deps.disk.writeFileSync = vi.fn();
+		ctx.deps.disk.mkdirSync = vi.fn();
+		const result = handler(ctx) as Record<string, unknown>;
+		expect(result).toHaveProperty("added", 1);
+		expect(ctx.deps.disk.writeFileSync).toHaveBeenCalled();
+	});
+
+	it("merges when --merge flag is set and sitemap exists", () => {
+		const handler = getHandler("storybook:canvas-import");
+		const canvasJson = JSON.stringify({
+			nodes: [{ id: "n1", type: "text", text: "Home", x: 0, y: 0, width: 200, height: 100 }],
+			edges: [],
+		});
+		const existingSitemap = JSON.stringify({ version: 2, pages: { "old": { kind: "page", label: "Old", description: "", actions: [] } } });
+		const ctx = createProjectContext({ command: "storybook:canvas-import", flags: { merge: true } });
+		ctx.deps.disk.existsSync = vi.fn(() => true);
+		ctx.deps.disk.readFileSync = vi.fn((p: string) => String(p).includes("sitemap.json") ? existingSitemap : canvasJson);
+		ctx.deps.disk.writeFileSync = vi.fn();
+		ctx.deps.disk.mkdirSync = vi.fn();
+		const result = handler(ctx) as Record<string, unknown>;
+		expect(result).toHaveProperty("added", 1);
+		expect(result).toHaveProperty("totalPages", 2);
+	});
+});

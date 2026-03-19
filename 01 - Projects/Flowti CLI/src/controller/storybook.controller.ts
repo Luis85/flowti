@@ -40,6 +40,8 @@ import {
 import { scaffoldStorybookFromSitemap, SCAFFOLD_FRAMEWORKS } from "../domain/make/storybook-scaffold.js";
 import { parseFrontmatterContent } from "../infrastructure/frontmatter.js";
 import { validateComponents, generateSitemapFromMarkdown } from "../domain/make/markdown-sitemap-import.js";
+import { parseCanvasToSitemap } from "../domain/make/canvas-sitemap-import.js";
+import type { CanvasData } from "../domain/make/canvas-sitemap-types.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -340,5 +342,53 @@ export const commands: Record<string, CommandHandler> = {
 			return { cleaned: true, dir: sbDir };
 		},
 		renderer: (data, log) => { log(`Cleaned ${data.dir}`); },
+	}),
+
+	"storybook:canvas-import": adaptDescriptor<{ canvas: string; output: string; merge: boolean }, { added: number; updated: number; totalPages: number; outputPath: string }>({
+		requires: "project",
+		flags: {
+			canvas: { type: "string", required: false, hint: "--canvas=<path>" },
+			output: { type: "string", required: false, hint: "--output=<path>" },
+			merge: { type: "boolean", required: false, hint: "--merge" },
+		},
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const canvasPath = ctx.flags.canvas || paths.join(ctx.project!.path, "sitemap.canvas");
+			const outputPath = ctx.flags.output || paths.join(ctx.project!.path, "configs", "sitemap.json");
+
+			if (!disk.existsSync(canvasPath)) {
+				return { added: 0, updated: 0, totalPages: 0, outputPath: "" };
+			}
+
+			const canvasJson = disk.readFileSync(canvasPath, "utf8");
+			const canvas = JSON.parse(canvasJson) as CanvasData;
+
+			let existing: import("../domain/sitemap/unified-page.js").UnifiedSitemap | undefined;
+			if (ctx.flags.merge && disk.existsSync(outputPath)) {
+				existing = JSON.parse(disk.readFileSync(outputPath, "utf8")) as import("../domain/sitemap/unified-page.js").UnifiedSitemap;
+			}
+
+			const { sitemap, added, updated, totalPages } = parseCanvasToSitemap(canvas, existing);
+
+			const outputDir = paths.dirname(outputPath);
+			if (!disk.existsSync(outputDir)) disk.mkdirSync(outputDir, { recursive: true });
+			disk.writeFileSync(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", "utf8");
+
+			// Write canvas hash metadata
+			const crypto = require("node:crypto");
+			const hash = crypto.createHash("md5").update(canvasJson).digest("hex");
+			const metaPath = paths.join(paths.dirname(outputPath), ".sitemap-canvas-meta.json");
+			disk.writeFileSync(metaPath, JSON.stringify({ canvasHash: hash, importedAt: new Date().toISOString() }) + "\n", "utf8");
+
+			return { added, updated, totalPages, outputPath };
+		},
+		renderer: (data, log) => {
+			if (data.totalPages === 0) {
+				log("\n  No canvas found. Nothing to import.\n");
+				return;
+			}
+			log(`\n  Imported canvas → ${data.outputPath}`);
+			log(`  ${data.added} added, ${data.updated} updated, ${data.totalPages} total pages\n`);
+		},
 	}),
 };

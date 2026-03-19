@@ -66,6 +66,10 @@ export class HttpProjectService implements IProjectService {
 		return this.post("/api/storybook/clean", { project });
 	}
 
+	async importCanvasSitemap(project: string, _onOutput?: (line: string) => void, opts?: { merge?: boolean }): Promise<ApiResult> {
+		return this.post("/api/storybook/canvas-import", { project, merge: opts?.merge });
+	}
+
 	async previewStorybook(project: string): Promise<ApiResult & { url?: string }> {
 		return this.post("/api/storybook/preview", { project });
 	}

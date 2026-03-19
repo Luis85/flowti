@@ -47,6 +47,8 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.storybook = { ...detail.storybook };
 		el.config = detail.config;
 		el.hasSitemap = detail.hasSitemap;
+		el.hasCanvas = detail.hasCanvas;
+		el.canvasChanged = detail.canvasChanged;
 		el.hasMarkdownSource = !!detail.config?.markdownSource;
 		el.brief = detail.brief;
 	}
@@ -237,6 +239,24 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	// ── Scaffold modal actions ──
 	el.addEventListener("scaffold-confirm", ((e: CustomEvent) => {
 		el.showScaffoldModal = false;
+		const canvasImport = e.detail?.canvasImport === true;
+
+		if (canvasImport) {
+			startBusy("Importing canvas sitemap...");
+			void projectService.importCanvasSitemap(currentProject, appendOutput)
+				.then((importResult) => {
+					if (!importResult.ok) { endBusy(importResult); return; }
+					appendOutput("Scaffolding components...");
+					void projectService.scaffoldStorybook(currentProject, appendOutput, { adoptImport: true })
+						.then((scaffoldResult) => {
+							if (!scaffoldResult.ok) { endBusy(scaffoldResult); return; }
+							endBusy(scaffoldResult);
+							el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
+						});
+				});
+			return;
+		}
+
 		const importFirst = e.detail?.importFirst === true;
 
 		if (importFirst) {
@@ -320,6 +340,12 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("storybook-dismiss-output", (() => {
 		outputLines.length = 0;
 		el.storybookOutput = [];
+	}) as EventListener);
+
+	el.addEventListener("canvas-merge", (() => {
+		startBusy("Merging canvas changes...");
+		void projectService.importCanvasSitemap(currentProject, appendOutput, { merge: true })
+			.then((r) => endBusy(r));
 	}) as EventListener);
 
 	container.appendChild(el);

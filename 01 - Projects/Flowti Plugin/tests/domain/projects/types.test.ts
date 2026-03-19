@@ -27,6 +27,8 @@ describe("project domain types", () => {
 			notePath: "01 - Projects/Flowti CLI/Flowti CLI.md",
 			projectPath: "01 - Projects/Flowti CLI",
 			hasSitemap: false,
+			hasCanvas: false,
+			canvasChanged: false,
 		};
 		expectTypeOf(detail).toMatchTypeOf<ProjectDetail>();
 		expectTypeOf(detail).toMatchTypeOf<ProjectSummary>();
@@ -63,8 +65,17 @@ describe("project domain types", () => {
 		expectTypeOf<ProjectDetail>().toHaveProperty("hasSitemap");
 	});
 
+	it("ProjectDetail has hasCanvas and canvasChanged fields", () => {
+		expectTypeOf<ProjectDetail>().toHaveProperty("hasCanvas");
+		expectTypeOf<ProjectDetail>().toHaveProperty("canvasChanged");
+	});
+
 	it("IProjectService has cleanStorybook method", () => {
 		expectTypeOf<IProjectService>().toHaveProperty("cleanStorybook");
+	});
+
+	it("IProjectService has importCanvasSitemap method", () => {
+		expectTypeOf<IProjectService>().toHaveProperty("importCanvasSitemap");
 	});
 
 	it("IProjectService has previewStorybook and stopPreview methods", () => {

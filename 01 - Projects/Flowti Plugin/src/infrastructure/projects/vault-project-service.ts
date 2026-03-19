@@ -248,6 +248,23 @@ export class VaultProjectService implements IProjectService {
 		const hasSitemap = existsSync(join(absProjectPath, "configs", "sitemap.json"))
 			|| existsSync(join(absProjectPath, "imported-sitemap.json"));
 
+		const canvasPath = join(absProjectPath, "sitemap.canvas");
+		const hasCanvas = existsSync(canvasPath);
+		let canvasChanged = false;
+		if (hasCanvas) {
+			const metaPath = join(absProjectPath, "configs", ".sitemap-canvas-meta.json");
+			if (existsSync(metaPath)) {
+				try {
+					const meta = JSON.parse(readFileSync(metaPath, "utf-8")) as { canvasHash?: string };
+					const crypto = require("node:crypto");
+					const currentHash = crypto.createHash("md5").update(readFileSync(canvasPath, "utf-8")).digest("hex");
+					canvasChanged = meta.canvasHash !== currentHash;
+				} catch { canvasChanged = true; }
+			} else {
+				canvasChanged = true;
+			}
+		}
+
 		return {
 			name,
 			type,
@@ -255,6 +272,8 @@ export class VaultProjectService implements IProjectService {
 			notePath: hasNote ? notePath : null,
 			projectPath,
 			hasSitemap,
+			hasCanvas,
+			canvasChanged,
 			brief,
 			storybook,
 			config: projectConfig,
@@ -399,6 +418,14 @@ export class VaultProjectService implements IProjectService {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
 		return runAsync("node", [cliBin, "storybook:clean", `--project="${project}"`], vaultBase);
+	}
+
+	async importCanvasSitemap(project: string, onOutput?: OutputCallback, opts?: { merge?: boolean }): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		const args = [cliBin, "storybook:canvas-import", `--project="${project}"`];
+		if (opts?.merge) args.push("--merge");
+		return runAsync("node", args, vaultBase, onOutput);
 	}
 
 	private previewServers = new Map<string, { close: () => void; url: string }>();

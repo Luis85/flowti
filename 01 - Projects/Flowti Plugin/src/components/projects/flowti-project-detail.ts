@@ -34,6 +34,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		showScaffoldModal: { type: Boolean },
 		hasSitemap: { type: Boolean },
 		hasMarkdownSource: { type: Boolean },
+		hasCanvas: { type: Boolean },
+		canvasChanged: { type: Boolean },
 		brief: { type: Object },
 	};
 
@@ -102,7 +104,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				border-top: 1px solid var(--background-modifier-border, #333);
 			}
 
-			.section:first-of-type {
+			.section--first {
 				border-top: none;
 			}
 
@@ -404,6 +406,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	showScaffoldModal = false;
 	hasSitemap = false;
 	hasMarkdownSource = false;
+	hasCanvas = false;
+	canvasChanged = false;
 	brief: Record<string, string | undefined> | undefined = undefined;
 
 	protected renderContent() {
@@ -414,6 +418,12 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			${this.renderHeader()}
 			${this.renderBriefSection()}
 			${this.statusMessage ? html`<div class="status-banner">${this.statusMessage}</div>` : ""}
+			${this.canvasChanged ? html`
+				<div class="status-banner">
+					sitemap.canvas has changed
+					<button class="note-create" @click="${() => this.dispatchEvent(new CustomEvent('canvas-merge', { bubbles: true, composed: true }))}">Merge</button>
+				</div>
+			` : ""}
 			${this.renderTabBar()}
 			${this.activeTab === "overview" ? html`
 				${this.renderConfigSection()}
@@ -430,6 +440,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				<flowti-scaffold-modal
 					.hasSitemap="${this.hasSitemap}"
 					.hasMarkdownSource="${this.hasMarkdownSource}"
+					.hasCanvas="${this.hasCanvas}"
+					.canvasChanged="${this.canvasChanged}"
 				></flowti-scaffold-modal>
 			` : ""}
 		`;
@@ -556,7 +568,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	private renderConfigSection() {
 		if (!this.config) {
 			return html`
-				<div class="section">
+				<div class="section section--first">
 					<div class="section-title">Project Info</div>
 					<div class="config-empty">No flowti.config.json found</div>
 				</div>
@@ -567,7 +579,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		const hasHealth = healthTargets && (healthTargets.coverageTarget || healthTargets.minTests);
 
 		return html`
-			<div class="section">
+			<div class="section section--first">
 				<div class="section-title">Project Info</div>
 				<div class="config-grid">
 					${buildModes.length > 0 ? html`
