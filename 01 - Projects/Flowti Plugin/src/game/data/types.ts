@@ -63,12 +63,22 @@ export interface DashboardAgent {
 	readonly experience?: number;
 	readonly skills?: readonly { name: string; level: string }[];
 	readonly relationships?: readonly { target: string; type: string }[];
-	readonly suggestedTasks?: readonly { name: string; phases: string[] }[];
+	readonly suggestedTasks?: readonly { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }[];
 	readonly goals?: readonly { text: string; priority: string }[];
 	readonly behaviors?: readonly string[];
 	readonly project?: string;
 	readonly iteration?: string;
 	readonly phase?: string;
+}
+
+export type TaskStatus = "pending" | "in-progress" | "completed" | "failed";
+
+export interface TrackedTask {
+	readonly name: string;
+	readonly status: TaskStatus;
+	readonly assignedAt: number;
+	readonly input?: string;
+	readonly tool?: { command: string };
 }
 
 export interface DashboardData {

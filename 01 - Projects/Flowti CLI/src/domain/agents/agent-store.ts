@@ -40,10 +40,33 @@ function toStringArray(value: unknown): string[] {
 	return [];
 }
 
-function parseSuggestedTask(raw: string): SuggestedTask {
-	const idx = raw.indexOf("|");
-	if (idx === -1) return { name: raw.trim(), phases: [] };
-	return { name: raw.slice(0, idx).trim(), phases: raw.slice(idx + 1).split(",").map((s) => s.trim()).filter(Boolean) };
+export function parseSuggestedTask(raw: string): SuggestedTask {
+	const segments = raw.split("|");
+	const name = segments[0].trim();
+	const phases = segments.length > 1
+		? segments[1].split(",").map((s) => s.trim()).filter(Boolean)
+		: [];
+
+	let input: SuggestedTask["input"];
+	let tool: SuggestedTask["tool"];
+
+	for (let i = 2; i < segments.length; i++) {
+		const seg = segments[i].trim();
+		if (seg.startsWith("input:")) {
+			const rest = seg.slice(6);
+			const colonIdx = rest.indexOf(":");
+			if (colonIdx !== -1) {
+				input = { type: "text", prompt: rest.slice(colonIdx + 1) };
+			}
+		} else if (seg.startsWith("tool:")) {
+			tool = { command: seg.slice(5) };
+		}
+	}
+
+	const result: SuggestedTask = { name, phases };
+	if (input) result.input = input;
+	if (tool) result.tool = tool;
+	return result;
 }
 
 function parseJsonFile<T>(deps: AgentStoreDeps, dir: string, mdFile: string): T | null {

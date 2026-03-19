@@ -108,6 +108,9 @@ async function loadAgentCards(adapter: VaultFileAdapter, agentsDir: string): Pro
 			if (fm.type !== "Agent") continue;
 			const attrs = fm.attributes as Record<string, number> | undefined;
 			const persona = typeof fm.persona === "string" ? fm.persona : undefined;
+			const suggestedTasks = Array.isArray(fm.suggestedTasks)
+				? (fm.suggestedTasks as string[]).map(parseSuggestedTask)
+				: undefined;
 			cards.push({
 				name: String(fm.name ?? ""),
 				persona,
@@ -115,12 +118,40 @@ async function loadAgentCards(adapter: VaultFileAdapter, agentsDir: string): Pro
 				intStat: attrs?.int,
 				chaStat: attrs?.cha,
 				activity: "idle",
+				suggestedTasks,
 			});
 		} catch {
 			// Skip unreadable files
 		}
 	}
 	return cards.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Parse a pipe-delimited suggestedTask string into a structured object. */
+export function parseSuggestedTask(raw: string): { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } } {
+	const segments = raw.split("|");
+	const name = segments[0].trim();
+	const phases = segments.length > 1
+		? segments[1].split(",").map((s) => s.trim()).filter(Boolean)
+		: [];
+
+	let input: { type: "text"; prompt: string } | undefined;
+	let tool: { command: string } | undefined;
+
+	for (let i = 2; i < segments.length; i++) {
+		const seg = segments[i].trim();
+		if (seg.startsWith("input:")) {
+			const rest = seg.slice(6);
+			const colonIdx = rest.indexOf(":");
+			if (colonIdx !== -1) {
+				input = { type: "text", prompt: rest.slice(colonIdx + 1) };
+			}
+		} else if (seg.startsWith("tool:")) {
+			tool = { command: seg.slice(5) };
+		}
+	}
+
+	return { name, phases, ...(input && { input }), ...(tool && { tool }) };
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {

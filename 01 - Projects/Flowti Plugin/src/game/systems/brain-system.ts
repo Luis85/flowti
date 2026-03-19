@@ -33,6 +33,8 @@ export interface AgentBrainEntry {
 	breakRestTarget: number;
 	// Social facing
 	socialHoldTimer: number;
+	// Task execution lock — prevents autonomous state transitions while externally driven
+	taskLocked: boolean;
 }
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -65,7 +67,7 @@ const MOVEMENT_SPEED_MAP: Record<AgentHabits["movementStyle"], number> = {
 
 export interface BrainSystemConfig {
 	readonly bounds: Bounds;
-	readonly onWorkstationChange?: (agentName: string, action: "occupy" | "vacate", position: { x: number; y: number }) => void;
+	readonly onWorkstationChange?: (agentName: string, action: "occupy" | "vacate" | "claim", position: { x: number; y: number }) => void;
 	readonly onWorkstationResolve?: (agentName: string, preferredId: string | null) => { x: number; y: number } | null;
 }
 
@@ -111,6 +113,7 @@ export class BrainSystem {
 			breakTimer: 0,
 			breakRestTarget: 0,
 			socialHoldTimer: 0,
+			taskLocked: false,
 		});
 	}
 
@@ -132,6 +135,35 @@ export class BrainSystem {
 		entry.stateTimer = 0;
 		entry.breakPhase = "none";
 		entry.breakTimer = 0;
+	}
+
+	/** Lock an agent into task execution — walk to workstation and begin working. */
+	assignWork(name: string): void {
+		const entry = this.entries.get(name);
+		if (!entry) return;
+		entry.taskLocked = true;
+		entry.state = "walking-to";
+		entry.stateTimer = 0;
+		const ws = this.config.onWorkstationResolve?.(name, entry.habits.preferredWorkstationId);
+		entry.targetPos = ws ?? null;
+		entry.target = { kind: "workstation", ...(ws ? { x: ws.x, y: ws.y } : {}) };
+		if (ws) {
+			this.config.onWorkstationChange?.(name, "claim", ws);
+		}
+	}
+
+	/** Release an agent from task execution — unlock and return to idle. */
+	releaseWork(name: string): void {
+		const entry = this.entries.get(name);
+		if (!entry) return;
+		entry.taskLocked = false;
+		if (entry.state === "working") {
+			this.config.onWorkstationChange?.(name, "vacate", entry.position);
+		}
+		entry.state = "idle";
+		entry.target = { kind: "none" };
+		entry.targetPos = null;
+		entry.stateTimer = 0;
 	}
 
 	/** Recompute habit multipliers when mood changes at runtime. */
@@ -288,6 +320,7 @@ export class BrainSystem {
 	}
 
 	private updateWorking(entry: AgentBrainEntry, name: string): void {
+		if (entry.taskLocked) return;
 		const breakThresholdMs = entry.habits.breakThreshold * 1000;
 		if (entry.stateTimer >= breakThresholdMs && breakThresholdMs < entry.params.focusDuration) {
 			// Break time

@@ -1,4 +1,4 @@
-import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting } from "../data/types.js";
+import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting, TrackedTask } from "../data/types.js";
 import type { BrainState } from "../brain/brain-types.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
@@ -43,7 +43,8 @@ export class DashboardStore extends EventTarget {
 	activityLog: readonly ActivityEntry[] = [];
 	permissions: Map<string, readonly PermissionEntry[]> = new Map();
 	llmStatus: Map<string, LlmStatus> = new Map();
-	assignedTasks: Map<string, { name: string; status: string; assignedAt: number }[]> = new Map();
+	assignedTasks: Map<string, TrackedTask[]> = new Map();
+	unreadAgents: Set<string> = new Set();
 
 	currentScene: Setting = "hub";
 
@@ -131,6 +132,9 @@ export class DashboardStore extends EventTarget {
 
 	selectTab(tab: TabName): void {
 		this.selectedTab = tab;
+		if (tab === "talk" && this.selectedAgent) {
+			this.unreadAgents.delete(this.selectedAgent);
+		}
 		this.notify();
 	}
 
@@ -259,6 +263,18 @@ export class DashboardStore extends EventTarget {
 			case "response": {
 				const text = extractAgentMessage(event.text ?? "");
 				this.pushAgentResponse(agentName, text);
+
+				// Check if agent has an active task — mark completed on response
+				const agentTasks = this.assignedTasks.get(agentName) ?? [];
+				const activeTask = agentTasks.find((t) => t.status === "pending" || t.status === "in-progress");
+				if (activeTask) {
+					this.markTaskStatus(agentName, activeTask.name, "completed");
+					this.unreadAgents.add(agentName);
+					this.dispatchEvent(new CustomEvent("task-completed", {
+						detail: { agentName, task: activeTask.name, result: text },
+					}));
+				}
+
 				this.dispatchEvent(new CustomEvent("agent-response-received", {
 					detail: { agentName, text, type: "speaking" },
 				}));
@@ -336,6 +352,74 @@ export class DashboardStore extends EventTarget {
 			this.pushAgentResponse(agentName, `[offline] ${errorMsg}`);
 			return { ok: false, error: errorMsg };
 		}
+	}
+
+	executeTask(agentName: string, task: { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }, userInput?: string): void {
+		// Track task
+		const tasks = this.assignedTasks.get(agentName) ?? [];
+		tasks.push({
+			name: task.name,
+			status: "pending",
+			assignedAt: Date.now(),
+			input: userInput,
+			tool: task.tool,
+		});
+		this.assignedTasks.set(agentName, tasks);
+
+		// Build task prompt
+		const inputLine = userInput ? `\nDirector's input: ${userInput}` : "";
+		const toolLine = task.tool
+			? `\nA tool has been dispatched: "${task.tool.command}". Its output will follow. Interpret the results and summarize for the Director.`
+			: "\nWork through this using your expertise. Report when complete.";
+		const taskPrompt = `[Task Assignment]\nTask: ${task.name}${inputLine}\n\nExecute this task. When done, report your results concisely.${toolLine}`;
+
+		this.pushDebugEntry(agentName, taskPrompt, "task");
+
+		// Dispatch events
+		this.dispatchEvent(new CustomEvent("task-assigned", {
+			detail: { agentName, task: task.name, tool: task.tool?.command },
+		}));
+		this.notify();
+
+		// Send to LLM
+		const proc = this.getOrStartProcess(agentName);
+		if (!proc) {
+			this.markTaskStatus(agentName, task.name, "failed");
+			this.pushAgentResponse(agentName, "[offline] Cannot execute task \u2014 CLI executor not available.");
+			return;
+		}
+
+		proc.send(taskPrompt);
+
+		// Spawn tool if mapped
+		if (task.tool) {
+			this.runToolCommand(agentName, task, proc);
+		}
+	}
+
+	private markTaskStatus(agentName: string, taskName: string, status: string): void {
+		const tasks = this.assignedTasks.get(agentName) ?? [];
+		const entry = tasks.find((t) => t.name === taskName && t.status !== "completed" && t.status !== "failed");
+		if (entry) (entry as { status: string }).status = status;
+		this.notify();
+	}
+
+	private runToolCommand(agentName: string, task: { name: string; tool?: { command: string } }, proc: AgentProcess): void {
+		if (!task.tool) return;
+
+		const args = task.tool.command.split(/\s+/);
+		const cmd = args.shift()!;
+
+		import("node:child_process").then(({ execFile }) => {
+			execFile(cmd, args, { timeout: 120_000 }, (error, stdout, stderr) => {
+				const output = [`[Tool output for "${task.name}"]`, "", stdout];
+				if (stderr) output.push("[stderr]", stderr);
+				if (error) output.push(`[exit code: ${error.code ?? "unknown"}]`);
+
+				proc.send(output.join("\n"));
+				this.pushDebugEntry(agentName, output.join("\n"), "tool-output");
+			});
+		});
 	}
 
 	async assignTask(agentName: string, task: string): Promise<{ ok: boolean; error?: string }> {

@@ -1,4 +1,4 @@
-import { html, css } from "lit";
+import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import { resolveSettingForDomain } from "../config/domain-map.js";
@@ -47,6 +47,16 @@ export class RosterBar extends FlowtiElement {
 				min-width: 64px;
 				transition: background 0.15s, border-color 0.2s, box-shadow 0.2s;
 				flex-shrink: 0;
+				position: relative;
+			}
+			.unread-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: #f59e0b;
+				position: absolute;
+				top: 2px;
+				right: 2px;
 			}
 			.card:hover {
 				background: var(--bg-tertiary);
@@ -123,8 +133,11 @@ export class RosterBar extends FlowtiElement {
 			const dotColor = this.statusColor(agent.status);
 			const truncName = this.truncate(agent.name);
 
+			const hasUnread = this.store?.unreadAgents?.has(agent.name);
+
 			return html`
 				<div class="card" @click=${() => this.handleCardClick(setting)}>
+					${hasUnread ? html`<span class="unread-dot"></span>` : nothing}
 					<div class="card-top">
 						<span class="status-dot" style="background:${dotColor}"></span>
 						<span class="agent-name">${truncName}</span>

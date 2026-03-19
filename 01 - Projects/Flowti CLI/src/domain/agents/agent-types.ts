@@ -92,6 +92,10 @@ export interface SuggestedTask {
 	name: string;
 	/** Iteration phases where this task is relevant. Empty = all phases. */
 	phases: string[];
+	/** Optional text input to collect from the user before executing. */
+	input?: { type: "text"; prompt: string };
+	/** Optional tool command to run as part of task execution. */
+	tool?: { command: string };
 }
 
 /** A markdown file in the agent's inventory. */

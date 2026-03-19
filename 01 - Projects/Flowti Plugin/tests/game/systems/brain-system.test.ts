@@ -124,4 +124,128 @@ describe("BrainSystem", () => {
 			expect(system.getAllEntries().size).toBe(2);
 		});
 	});
+
+	describe("assignWork()", () => {
+		it("sets taskLocked to true", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			const entry = system.getAllEntries().get("Alice");
+			expect(entry?.taskLocked).toBe(true);
+		});
+
+		it("sets state to walking-to", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			expect(system.getState("Alice")?.state).toBe("walking-to");
+		});
+
+		it("sets target kind to workstation", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			expect(system.getState("Alice")?.target.kind).toBe("workstation");
+		});
+
+		it("resets stateTimer to 0", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			const entry = system.getAllEntries().get("Alice");
+			expect(entry?.stateTimer).toBe(0);
+		});
+
+		it("calls onWorkstationChange with claim when workstation resolved", () => {
+			const onWorkstationChange = vi.fn();
+			const onWorkstationResolve = vi.fn().mockReturnValue({ x: 100, y: 200 });
+			const sys = new BrainSystem({ bounds: BOUNDS, onWorkstationChange, onWorkstationResolve });
+			sys.register("Alice", makeAttributes());
+			sys.assignWork("Alice");
+			expect(onWorkstationChange).toHaveBeenCalledWith("Alice", "claim", { x: 100, y: 200 });
+		});
+
+		it("does not call onWorkstationChange when no workstation resolved", () => {
+			const onWorkstationChange = vi.fn();
+			const onWorkstationResolve = vi.fn().mockReturnValue(null);
+			const sys = new BrainSystem({ bounds: BOUNDS, onWorkstationChange, onWorkstationResolve });
+			sys.register("Alice", makeAttributes());
+			sys.assignWork("Alice");
+			expect(onWorkstationChange).not.toHaveBeenCalled();
+		});
+
+		it("does nothing for an unknown agent (no throw)", () => {
+			expect(() => system.assignWork("nobody")).not.toThrow();
+		});
+	});
+
+	describe("releaseWork()", () => {
+		it("sets taskLocked to false", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			system.releaseWork("Alice");
+			const entry = system.getAllEntries().get("Alice");
+			expect(entry?.taskLocked).toBe(false);
+		});
+
+		it("sets state to idle", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			system.releaseWork("Alice");
+			expect(system.getState("Alice")?.state).toBe("idle");
+		});
+
+		it("clears movement target", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			system.releaseWork("Alice");
+			expect(system.getState("Alice")?.target.kind).toBe("none");
+		});
+
+		it("calls onWorkstationChange vacate when releasing a working agent", () => {
+			const onWorkstationChange = vi.fn();
+			const sys = new BrainSystem({ bounds: BOUNDS, onWorkstationChange });
+			sys.register("Alice", makeAttributes());
+			sys.applyEvent("Alice", "thinking"); // → working
+			// Manually set taskLocked via assignWork side-effect isn't needed,
+			// we just need working state to test vacate
+			sys.releaseWork("Alice");
+			expect(onWorkstationChange).toHaveBeenCalledWith("Alice", "vacate", expect.anything());
+		});
+
+		it("does not call onWorkstationChange vacate when not in working state", () => {
+			const onWorkstationChange = vi.fn();
+			const sys = new BrainSystem({ bounds: BOUNDS, onWorkstationChange });
+			sys.register("Alice", makeAttributes());
+			sys.assignWork("Alice"); // state = walking-to
+			onWorkstationChange.mockClear();
+			sys.releaseWork("Alice");
+			expect(onWorkstationChange).not.toHaveBeenCalled();
+		});
+
+		it("resets stateTimer to 0", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			system.releaseWork("Alice");
+			const entry = system.getAllEntries().get("Alice");
+			expect(entry?.stateTimer).toBe(0);
+		});
+
+		it("does nothing for an unknown agent (no throw)", () => {
+			expect(() => system.releaseWork("nobody")).not.toThrow();
+		});
+	});
+
+	describe("taskLocked behavior", () => {
+		it("register initializes taskLocked to false", () => {
+			system.register("Alice", makeAttributes());
+			const entry = system.getAllEntries().get("Alice");
+			expect(entry?.taskLocked).toBe(false);
+		});
+
+		it("assignWork then releaseWork round-trips taskLocked correctly", () => {
+			system.register("Alice", makeAttributes());
+			expect(system.getAllEntries().get("Alice")?.taskLocked).toBe(false);
+			system.assignWork("Alice");
+			expect(system.getAllEntries().get("Alice")?.taskLocked).toBe(true);
+			system.releaseWork("Alice");
+			expect(system.getAllEntries().get("Alice")?.taskLocked).toBe(false);
+		});
+	});
 });
