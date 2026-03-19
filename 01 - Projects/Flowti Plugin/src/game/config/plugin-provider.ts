@@ -61,11 +61,13 @@ export function createPluginProvider(deps: PluginProviderDeps): DataProvider {
 				unsubs.push(unsub);
 			}
 
-			// Check server connectivity and emit status
+			// Check server connectivity once on start — no polling
 			if (deps.serverBaseUrl) {
-				fetch(`${deps.serverBaseUrl}/api/health`).then((res) => {
+				fetch(`${deps.serverBaseUrl}/api/world-state`).then((res) => {
 					if (res.ok) {
 						for (const cb of connectionCallbacks) cb("connected");
+					} else {
+						for (const cb of connectionCallbacks) cb("disconnected");
 					}
 				}).catch(() => {
 					for (const cb of connectionCallbacks) cb("disconnected");
