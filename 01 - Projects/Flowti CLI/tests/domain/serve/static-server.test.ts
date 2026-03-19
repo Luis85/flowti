@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { EventEmitter } from "node:events";
+
+vi.mock("../../../src/domain/agents/agent-conversation-store.js", () => ({
+	loadConversation: vi.fn(() => ({ turns: [] })),
+	appendTurn: vi.fn((_conv: unknown, turn: unknown) => ({ turns: [turn] })),
+	saveConversation: vi.fn(),
+}));
+
 import { resolveMimeType, handleRequest, parseJsonBody, handleSseConnection, handleApiRoute } from "../../../src/domain/serve/static-server.js";
 import type { ServerContext } from "../../../src/domain/serve/static-server.js";
 import type { IFileSystem, IPaths } from "../../../src/infrastructure/types.js";
@@ -205,7 +212,9 @@ function fakeContext(overrides: Partial<ServerContext> = {}): ServerContext {
 			stopAll: vi.fn(),
 			getWorker: vi.fn(),
 			listWorkers: vi.fn(),
-			send: vi.fn(),
+			send: vi.fn((_name: string, _msg: string, opts?: { onResponse?: (r: { message: string; status: string }) => void }) => {
+				opts?.onResponse?.({ message: "mock response", status: "message" });
+			}),
 			dispatchWorldEvent: vi.fn(),
 		},
 		deps: {

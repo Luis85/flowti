@@ -18,23 +18,25 @@ describe("flowti-storybook-section", () => {
 		expect(customElements.get("flowti-storybook-section")).toBeDefined();
 	});
 
-	it("renders 'not configured' when installed=false", async () => {
+	it("renders setup description when installed=false", async () => {
 		el.installed = false;
 		await el.updateComplete;
 		const text = el.shadowRoot!.textContent;
-		expect(text).toContain("not configured");
+		expect(text).toContain("Select a framework to initialize");
 	});
 
-	it("shows 4 framework buttons when not installed", async () => {
+	it("shows 6 framework buttons when not installed", async () => {
 		el.installed = false;
 		await el.updateComplete;
 		const buttons = el.shadowRoot!.querySelectorAll(".framework-btn");
-		expect(buttons.length).toBe(4);
+		expect(buttons.length).toBe(6);
 		const labels = Array.from(buttons).map((b) => b.textContent?.trim());
-		expect(labels).toContain("html-vite");
-		expect(labels).toContain("react");
-		expect(labels).toContain("vue");
-		expect(labels).toContain("angular");
+		expect(labels).toContain("HTML");
+		expect(labels).toContain("React");
+		expect(labels).toContain("Vue");
+		expect(labels).toContain("Angular");
+		expect(labels).toContain("Web Components");
+		expect(labels).toContain("Svelte");
 	});
 
 	it("dispatches storybook-install with framework on button click", async () => {
@@ -44,10 +46,10 @@ describe("flowti-storybook-section", () => {
 		el.addEventListener("storybook-install", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
 		const btn = el.shadowRoot!.querySelector(".framework-btn") as HTMLButtonElement;
 		btn.click();
-		expect(detail).toEqual({ framework: "html-vite" });
+		expect(detail).toEqual({ framework: "html" });
 	});
 
-	it("shows Start/Scaffold/Build/Open buttons when installed but not running", async () => {
+	it("shows Start/Build/Open/Regenerate buttons when installed but not running", async () => {
 		el.installed = true;
 		el.running = false;
 		el.framework = "react";
@@ -56,9 +58,9 @@ describe("flowti-storybook-section", () => {
 		const buttons = shadow.querySelectorAll(".action-btn");
 		const labels = Array.from(buttons).map((b) => b.textContent?.trim());
 		expect(labels).toContain("Start");
-		expect(labels).toContain("Scaffold from sitemap");
 		expect(labels).toContain("Build");
 		expect(labels).toContain("Open folder");
+		expect(labels).toContain("Regenerate");
 	});
 
 	it("badge and dot are rendered by parent, not by this component", async () => {
@@ -136,15 +138,15 @@ describe("flowti-storybook-section", () => {
 		expect(fired).toBe(true);
 	});
 
-	it("dispatches storybook-scaffold on Scaffold click", async () => {
+	it("dispatches storybook-regenerate on Regenerate click", async () => {
 		el.installed = true;
 		el.running = false;
 		el.framework = "react";
 		await el.updateComplete;
 		let fired = false;
-		el.addEventListener("storybook-scaffold", () => { fired = true; });
+		el.addEventListener("storybook-regenerate", () => { fired = true; });
 		const btn = Array.from(el.shadowRoot!.querySelectorAll(".action-btn"))
-			.find((b) => b.textContent?.trim() === "Scaffold from sitemap") as HTMLButtonElement;
+			.find((b) => b.textContent?.trim() === "Regenerate") as HTMLButtonElement;
 		btn.click();
 		expect(fired).toBe(true);
 	});

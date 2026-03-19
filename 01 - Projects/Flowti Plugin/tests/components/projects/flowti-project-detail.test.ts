@@ -33,7 +33,7 @@ describe("flowti-project-detail", () => {
 		const shadow = el.shadowRoot!;
 		const btn = shadow.querySelector(".note-create") as HTMLElement;
 		expect(btn).not.toBeNull();
-		expect(btn.textContent).toContain("Create note");
+		expect(btn.textContent).toContain("Create brief");
 	});
 
 	it("shows open note link when hasNote is true", async () => {
@@ -45,7 +45,7 @@ describe("flowti-project-detail", () => {
 		const shadow = el.shadowRoot!;
 		const link = shadow.querySelector(".note-link") as HTMLElement;
 		expect(link).not.toBeNull();
-		expect(link.textContent).toContain("Project note");
+		expect(link.textContent).toContain("Open brief");
 	});
 
 	it("dispatches back-to-list on back button click", async () => {
