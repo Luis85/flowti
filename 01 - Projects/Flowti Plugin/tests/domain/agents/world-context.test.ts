@@ -119,10 +119,39 @@ describe("WorldContext", () => {
 
 			const output = ctx.serialize();
 			expect(output).toContain("[World Context — Snapshot]");
-			expect(output).toContain("Active: src/game/engine.ts (TypeScript)");
+			expect(output).toContain("Active file: src/game/engine.ts (TypeScript)");
 		});
 
-		it("includes open files list", () => {
+		it("includes file content snippet in code block", () => {
+			contextProvider.fireFileChanged({
+				path: "src/game/engine.ts",
+				contentHash: "abc",
+				content: "export class Engine {}",
+			});
+
+			const output = ctx.serialize();
+			expect(output).toContain("Content of engine.ts:");
+			expect(output).toContain("```\nexport class Engine {}\n```");
+		});
+
+		it("truncates long content at 500 chars", () => {
+			const longContent = "x".repeat(1000);
+			contextProvider.fireFileChanged({
+				path: "src/big.ts",
+				contentHash: "big",
+				content: longContent,
+			});
+
+			const output = ctx.serialize();
+			expect(output).toContain("[... truncated at 500 chars, full file: 1000 chars]");
+		});
+
+		it("includes open files list excluding active file", () => {
+			contextProvider.fireFileChanged({
+				path: "src/game/engine.ts",
+				contentHash: "abc",
+				content: "export class Engine {}",
+			});
 			workspace.setLeaves([
 				{ path: "src/game/engine.ts" },
 				{ path: "src/domain/agents/types.ts" },
@@ -132,12 +161,26 @@ describe("WorldContext", () => {
 			vi.advanceTimersByTime(600);
 
 			const output = ctx.serialize();
-			expect(output).toContain("Open:");
+			expect(output).toContain("Also open:");
+			expect(output).not.toMatch(/Also open:.*engine\.ts/);
+			expect(output).toContain("types.ts");
+		});
+
+		it("shows all open files when no active file", () => {
+			workspace.setLeaves([
+				{ path: "src/game/engine.ts" },
+				{ path: "src/domain/agents/types.ts" },
+			]);
+			workspace.fireLayoutChange();
+			vi.advanceTimersByTime(600);
+
+			const output = ctx.serialize();
+			expect(output).toContain("Also open:");
 			expect(output).toContain("engine.ts");
 			expect(output).toContain("types.ts");
 		});
 
-		it("disambiguates files with same basename", () => {
+		it("shows full paths for open files", () => {
 			workspace.setLeaves([
 				{ path: "src/domain/agents/types.ts" },
 				{ path: "src/domain/session/types.ts" },
@@ -146,8 +189,8 @@ describe("WorldContext", () => {
 			vi.advanceTimersByTime(600);
 
 			const output = ctx.serialize();
-			expect(output).toContain("agents/types.ts");
-			expect(output).toContain("session/types.ts");
+			expect(output).toContain("src/domain/agents/types.ts");
+			expect(output).toContain("src/domain/session/types.ts");
 		});
 
 		it("omits canvas when none open", () => {
@@ -173,15 +216,30 @@ describe("WorldContext", () => {
 			expect(output).toContain('Iteration: "Agent World" Phase B — 7/10 done');
 		});
 
-		it("includes agent roster", () => {
+		it("includes agent roster with one agent per line", () => {
 			ctx.setAgentRoster([
 				{ name: "Atlas", role: "orchestration", status: "idle" },
 				{ name: "Bob", role: "engineering", status: "busy", task: "Fix parser" },
 			]);
 			const output = ctx.serialize();
 			expect(output).toContain("Team:");
-			expect(output).toContain("Atlas (orchestration, idle)");
-			expect(output).toContain('Bob (engineering, busy: "Fix parser")');
+			expect(output).toContain("- Atlas (orchestration — idle)");
+			expect(output).toContain('- Bob (engineering — working on "Fix parser")');
+		});
+
+		it("includes persona, mood, and skills in roster", () => {
+			ctx.setAgentRoster([
+				{
+					name: "Clara",
+					role: "design",
+					status: "idle",
+					persona: "The Architect",
+					mood: "focused",
+					skills: ["UI", "CSS"],
+				},
+			]);
+			const output = ctx.serialize();
+			expect(output).toContain('- Clara "The Architect" (design, focused — idle) [UI, CSS]');
 		});
 
 		it("includes recent activity", () => {
@@ -193,13 +251,45 @@ describe("WorldContext", () => {
 	});
 
 	describe("getProtocolInstruction()", () => {
-		it("interpolates name and domain", () => {
+		it("interpolates name and domain with character instruction", () => {
 			const instruction = ctx.getProtocolInstruction("Atlas", "orchestration");
-			expect(instruction).toContain("Atlas");
-			expect(instruction).toContain("orchestration");
-			expect(instruction).toBe(
-				"You are Atlas, operating in the orchestration domain. Respond concisely and stay within your area of expertise."
-			);
+			expect(instruction).toContain("You ARE Atlas, a orchestration specialist");
+			expect(instruction).toContain("Stay in character at all times");
+			expect(instruction).toContain("Communication rules:");
+		});
+
+		it("includes persona when provided via agent arg", () => {
+			const instruction = ctx.getProtocolInstruction("Atlas", "orchestration", {
+				persona: "The Coordinator",
+			});
+			expect(instruction).toContain("You ARE The Coordinator, a orchestration specialist");
+		});
+
+		it("includes mood, personality, skills, and roles", () => {
+			const instruction = ctx.getProtocolInstruction("Atlas", "orchestration", {
+				mood: "focused",
+				personality: ["methodical", "calm"],
+				skills: [{ name: "planning", level: "expert" }, { name: "delegation", level: "advanced" }],
+				roles: ["team lead", "coordinator"],
+				description: "Orchestrates team workflows",
+			});
+			expect(instruction).toContain("Current mood: focused.");
+			expect(instruction).toContain("Personality: methodical; calm.");
+			expect(instruction).toContain("Core skills: planning (expert), delegation (advanced).");
+			expect(instruction).toContain("Roles: team lead, coordinator.");
+			expect(instruction).toContain("Your role: Orchestrates team workflows");
+		});
+
+		it("includes scene description (defaults to hub)", () => {
+			const instruction = ctx.getProtocolInstruction("Atlas", "orchestration");
+			expect(instruction).toContain("You are in The Hub.");
+		});
+
+		it("includes communication rules", () => {
+			const instruction = ctx.getProtocolInstruction("Atlas", "orchestration");
+			expect(instruction).toContain("Keep responses SHORT");
+			expect(instruction).toContain("Respond with plain text only");
+			expect(instruction).toContain("Director");
 		});
 	});
 
@@ -222,7 +312,7 @@ describe("WorldContext", () => {
 			const delta = ctx.serializeDelta("Atlas");
 			expect(delta).not.toBeNull();
 			expect(delta).toContain("Delta for Atlas");
-			expect(delta).toContain("Active file: helpers.ts");
+			expect(delta).toContain("Active file: src/utils/helpers.ts");
 		});
 
 		it("returns full snapshot when many changes accumulated", () => {
