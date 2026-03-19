@@ -1,0 +1,141 @@
+/**
+ * CLI-backed DataProvider — reads vault files directly and receives agent
+ * events from CliExecutor. No server process required.
+ *
+ * File paths:
+ *   Agent roster:  <vault>/.flowti/agents/data/agent-dashboard.json
+ *   World state:   <vault>/.flowti/var/world-state.json
+ *   CLI binary:    <vault>/.flowti/bin/main.mjs
+ */
+
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import type { DataProvider } from "./data-provider.js";
+import type { DashboardAgent, WorldState, WorldEntity, AgentAction, ConnectionStatus } from "../data/types.js";
+import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
+import { watchJsonFile, type FileWatcher } from "../../infrastructure/agents/file-watcher.js";
+
+const AGENT_ROSTER_SUBPATH = ".flowti/agents/data/agent-dashboard.json";
+const WORLD_STATE_SUBPATH = ".flowti/var/world-state.json";
+const CLI_BINARY_SUBPATH = ".flowti/bin/main.mjs";
+
+export function createCliDataProvider(
+	vaultBasePath: string,
+	cliExecutor?: ICliExecutor,
+): DataProvider {
+	let agents: DashboardAgent[] = [];
+	let worldState: WorldState | null = null;
+
+	const actionCallbacks = new Set<(action: AgentAction) => void>();
+	const entityCallbacks = new Set<(entity: WorldEntity) => void>();
+	const connectionCallbacks = new Set<(status: ConnectionStatus) => void>();
+
+	const watchers: FileWatcher[] = [];
+
+	const rosterPath = join(vaultBasePath, AGENT_ROSTER_SUBPATH);
+	const worldStatePath = join(vaultBasePath, WORLD_STATE_SUBPATH);
+	const cliBinPath = join(vaultBasePath, CLI_BINARY_SUBPATH);
+
+	return {
+		async start(): Promise<void> {
+			// Read agent roster synchronously at startup
+			try {
+				if (existsSync(rosterPath)) {
+					const raw = readFileSync(rosterPath, "utf-8");
+					const data = JSON.parse(raw) as { agents?: DashboardAgent[] };
+					agents = data.agents ?? [];
+				}
+			} catch {
+				agents = [];
+			}
+
+			// Read world state synchronously at startup
+			try {
+				if (existsSync(worldStatePath)) {
+					const raw = readFileSync(worldStatePath, "utf-8");
+					worldState = JSON.parse(raw) as WorldState;
+				}
+			} catch {
+				worldState = null;
+			}
+
+			// Watch world-state.json for reactive updates from CLI commands
+			const worldStateWatcher = watchJsonFile<WorldState>(
+				worldStatePath,
+				(updated) => {
+					worldState = updated;
+					// Emit each entity from the updated world state
+					for (const entity of Object.values(updated.entities)) {
+						for (const cb of entityCallbacks) {
+							try { cb(entity); } catch { /* subscriber error */ }
+						}
+					}
+				},
+			);
+			watchers.push(worldStateWatcher);
+
+			// Emit connection status based on CLI binary availability
+			const isConnected = existsSync(cliBinPath);
+			const status: ConnectionStatus = isConnected ? "connected" : "disconnected";
+			// Defer emission so callers have time to subscribe before receiving it
+			setTimeout(() => {
+				for (const cb of connectionCallbacks) {
+					try { cb(status); } catch { /* subscriber error */ }
+				}
+			}, 0);
+		},
+
+		stop(): void {
+			for (const watcher of watchers) {
+				watcher.close();
+			}
+			watchers.length = 0;
+		},
+
+		async getWorldState(): Promise<WorldState | null> {
+			return worldState;
+		},
+
+		async getDashboardAgents(): Promise<DashboardAgent[]> {
+			return agents;
+		},
+
+		onAction(cb: (action: AgentAction) => void): () => void {
+			actionCallbacks.add(cb);
+			return () => { actionCallbacks.delete(cb); };
+		},
+
+		onEntityUpdate(cb: (entity: WorldEntity) => void): () => void {
+			entityCallbacks.add(cb);
+			return () => { entityCallbacks.delete(cb); };
+		},
+
+		onConnectionStatus(cb: (status: ConnectionStatus) => void): () => void {
+			connectionCallbacks.add(cb);
+			return () => { connectionCallbacks.delete(cb); };
+		},
+
+		async sendCommand(endpoint: string, body: Record<string, unknown>): Promise<void> {
+			if (!cliExecutor) return;
+			// Map known endpoints to CLI executor calls
+			if (endpoint === "/api/agent/run" || endpoint === "/api/agent/task") {
+				const agentName = typeof body.agent === "string" ? body.agent : "";
+				const task = typeof body.task === "string" ? body.task : "";
+				if (agentName && task) {
+					await cliExecutor.assignTask(agentName, task);
+				}
+			} else if (endpoint === "/api/agent/permission") {
+				const agentName = typeof body.agent === "string" ? body.agent : "";
+				const tool = typeof body.tool === "string" ? body.tool : "";
+				const decision = typeof body.decision === "string" ? body.decision : "deny";
+				if (agentName && tool) {
+					await cliExecutor.grantPermission(agentName, tool, decision);
+				}
+			}
+		},
+
+		get assetBasePath(): string {
+			return "";
+		},
+	};
+}
