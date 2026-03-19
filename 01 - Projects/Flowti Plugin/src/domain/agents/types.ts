@@ -12,6 +12,7 @@ export interface AgentCard {
 	readonly intStat?: number;
 	readonly chaStat?: number;
 	readonly activity: "idle" | "thinking" | "speaking" | "using-tool";
+	readonly suggestedTasks?: readonly { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }[];
 }
 
 export interface ToolCall {

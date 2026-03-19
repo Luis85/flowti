@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import "../../../src/components/agents/flowti-agent-sidepanel.js";
-import { mountAgentSidepanel } from "../../../src/infrastructure/handlers/agent-handlers.js";
+import { mountAgentSidepanel, parseSuggestedTask } from "../../../src/infrastructure/handlers/agent-handlers.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../../src/infrastructure/agents/cli-executor.js";
 import type { IContextProvider, FileContext } from "../../../src/domain/agents/context-provider.js";
 import type { VaultFileAdapter } from "../../../src/infrastructure/handlers/agent-handlers.js";
@@ -270,5 +270,53 @@ describe("mountAgentSidepanel", () => {
 			expect(agents.length).toBe(1);
 			expect(agents[0].name).toBe("Atlas");
 		});
+	});
+});
+
+describe("parseSuggestedTask", () => {
+	it("parses a simple task with name only", () => {
+		const result = parseSuggestedTask("Run tests");
+		expect(result).toEqual({ name: "Run tests", phases: [] });
+	});
+
+	it("parses a task with phases", () => {
+		const result = parseSuggestedTask("Run tests|ready,active");
+		expect(result).toEqual({ name: "Run tests", phases: ["ready", "active"] });
+	});
+
+	it("parses a task with a tool segment", () => {
+		const result = parseSuggestedTask("Run tests|any|tool:flowti test");
+		expect(result).toEqual({ name: "Run tests", phases: ["any"], tool: { command: "flowti test" } });
+	});
+
+	it("parses a task with an input segment", () => {
+		const result = parseSuggestedTask("Review code|ready|input:text:Which file?");
+		expect(result).toEqual({ name: "Review code", phases: ["ready"], input: { type: "text", prompt: "Which file?" } });
+	});
+
+	it("parses suggestedTasks with input and tool segments", () => {
+		const task1 = parseSuggestedTask("Run tests|any|tool:flowti test");
+		const task2 = parseSuggestedTask("Review code|ready|input:text:Which file?");
+		const tasks = [task1, task2];
+
+		expect(tasks).toHaveLength(2);
+		expect(tasks[0].tool).toEqual({ command: "flowti test" });
+		expect(tasks[1].input).toEqual({ type: "text", prompt: "Which file?" });
+	});
+
+	it("parses a task with both input and tool segments", () => {
+		const result = parseSuggestedTask("Deploy|release|input:text:Target env?|tool:flowti deploy");
+		expect(result).toEqual({
+			name: "Deploy",
+			phases: ["release"],
+			input: { type: "text", prompt: "Target env?" },
+			tool: { command: "flowti deploy" },
+		});
+	});
+
+	it("omits input and tool when not present", () => {
+		const result = parseSuggestedTask("Simple task|planning");
+		expect(result.input).toBeUndefined();
+		expect(result.tool).toBeUndefined();
 	});
 });
