@@ -61,6 +61,17 @@ export function createPluginProvider(deps: PluginProviderDeps): DataProvider {
 				unsubs.push(unsub);
 			}
 
+			// Check server connectivity and emit status
+			if (deps.serverBaseUrl) {
+				fetch(`${deps.serverBaseUrl}/api/health`).then((res) => {
+					if (res.ok) {
+						for (const cb of connectionCallbacks) cb("connected");
+					}
+				}).catch(() => {
+					for (const cb of connectionCallbacks) cb("disconnected");
+				});
+			}
+
 			// Subscribe to agentService for SSE-relayed events (speaking, thinking, etc.)
 			// agent-setup.ts handles SSE → agentService.handleServerEvent() → onEvent()
 			if (deps.agentService) {
