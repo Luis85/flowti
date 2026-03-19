@@ -33,6 +33,10 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 
 	async function loadProject(name: string): Promise<void> {
 		currentProject = name;
+		outputLines.length = 0;
+		el.storybookOutput = [];
+		el.storybookError = "";
+		el.actionSuccess = "";
 		const detail = await projectService.getProject(name);
 		if (!detail) {
 			el.projectName = name;
@@ -64,6 +68,10 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("back-to-list", (() => {
 		currentProject = "";
 		el.projectName = "";
+		outputLines.length = 0;
+		el.storybookOutput = [];
+		el.storybookError = "";
+		el.actionSuccess = "";
 		void loadProjectList();
 	}) as EventListener);
 
@@ -461,10 +469,15 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("create-empty-project", ((e: CustomEvent) => {
 		const name = String(e.detail?.name);
 		startBusy("Creating project...");
-		void projectService.createEmptyProject(name)
+		appendOutput("Creating project folder...");
+		void projectService.createEmptyProject(name, appendOutput)
 			.then((r) => {
+				if (!r.ok) { endBusy(r); return; }
+				appendOutput("Creating project brief...");
+				deps.createNote?.(name);
+				appendOutput("Done.");
 				endBusy(r);
-				if (r.ok) void loadProject(name);
+				void loadProject(name);
 			});
 	}) as EventListener);
 

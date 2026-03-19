@@ -99,13 +99,16 @@ function buildLegendNodes(baseX: number, baseY: number): CanvasNode[] {
 
 // ── Presets ──────────────────────────────────────────────────────────
 
-export type CanvasPreset = "web-app" | "landing" | "dashboard" | "e-commerce" | "docs" | "system-design" | "service-design" | "product-design";
+export type CanvasPreset = "web-app" | "landing" | "dashboard" | "e-commerce" | "enterprise" | "cli" | "obsidian-plugin" | "docs" | "system-design" | "service-design" | "product-design";
 
 export const CANVAS_PRESETS: { id: CanvasPreset; label: string; description: string }[] = [
 	{ id: "web-app", label: "Web App", description: "Pages, components, auth, services" },
 	{ id: "landing", label: "Landing Site", description: "Marketing pages, forms, legal" },
 	{ id: "dashboard", label: "Dashboard", description: "Admin panels, data views, settings" },
 	{ id: "e-commerce", label: "E-Commerce", description: "Catalog, cart, checkout, account" },
+	{ id: "enterprise", label: "Enterprise", description: "Portal, workforce, finance, projects, admin" },
+	{ id: "cli", label: "CLI App", description: "Commands, config, output, plugins, help" },
+	{ id: "obsidian-plugin", label: "Obsidian Plugin", description: "Views, settings, commands, modals, events" },
 	{ id: "docs", label: "Documentation", description: "Guides, API reference, examples" },
 	{ id: "system-design", label: "System Design", description: "C4 systems, containers, components, actors" },
 	{ id: "service-design", label: "Service Design", description: "API gateway, microservices, events, data" },
@@ -432,118 +435,19 @@ function buildStarterExample(nodes: CanvasNode[], edges: CanvasEdge[]): void {
 	placeGroup(systems, pagesX, row2Y, nodes);
 	placeGroup(services, componentsX, row2Y, nodes);
 
-	// ── Navigation edges ─────────────────────────────────────
+	// ── Edges: left→right between groups, top→bottom within ──
 
-	// Auth → Pages flow
-	edges.push({
-		id: "edge-login-home",
-		fromNode: "sys-login",
-		toNode: "pg-home",
-		fromSide: "top",
-		toSide: "bottom",
-		label: "Authenticate",
-	});
+	// Pages → Components (right→left, adjacent groups)
+	edges.push({ id: "e-dashboard-table", fromNode: "pg-dashboard", toNode: "cmp-data-table", fromSide: "right", toSide: "left", label: "Uses" });
+	edges.push({ id: "e-search-card", fromNode: "pg-search", toNode: "cmp-card", fromSide: "right", toSide: "left", label: "Uses" });
+	edges.push({ id: "e-settings-form", fromNode: "pg-settings", toNode: "cmp-form-field", fromSide: "right", toSide: "left", label: "Uses" });
 
-	edges.push({
-		id: "edge-register-login",
-		fromNode: "sys-register",
-		toNode: "sys-login",
-		fromSide: "left",
-		toSide: "right",
-		label: "Account created",
-	});
+	// Systems → Services (right→left, adjacent groups)
+	edges.push({ id: "e-login-toast", fromNode: "sys-login", toNode: "svc-toast", fromSide: "right", toSide: "left", label: "Shows" });
 
-	edges.push({
-		id: "edge-forgot-login",
-		fromNode: "sys-forgot-password",
-		toNode: "sys-login",
-		fromSide: "top",
-		toSide: "bottom",
-		label: "Reset sent",
-	});
-
-	// Page-to-page navigation
-	edges.push({
-		id: "edge-home-dashboard",
-		fromNode: "pg-home",
-		toNode: "pg-dashboard",
-		fromSide: "bottom",
-		toSide: "top",
-	});
-
-	edges.push({
-		id: "edge-home-profile",
-		fromNode: "pg-home",
-		toNode: "pg-profile",
-		fromSide: "bottom",
-		toSide: "top",
-	});
-
-	edges.push({
-		id: "edge-home-settings",
-		fromNode: "pg-home",
-		toNode: "pg-settings",
-		fromSide: "bottom",
-		toSide: "top",
-	});
-
-	edges.push({
-		id: "edge-home-search",
-		fromNode: "pg-home",
-		toNode: "pg-search",
-		fromSide: "bottom",
-		toSide: "top",
-		label: "Search",
-	});
-
-	// Dashboard → Data Table component
-	edges.push({
-		id: "edge-dashboard-table",
-		fromNode: "pg-dashboard",
-		toNode: "cmp-data-table",
-		fromSide: "right",
-		toSide: "left",
-		label: "Uses",
-	});
-
-	// Search → Card component
-	edges.push({
-		id: "edge-search-card",
-		fromNode: "pg-search",
-		toNode: "cmp-card",
-		fromSide: "right",
-		toSide: "left",
-		label: "Uses",
-	});
-
-	// Settings → Form Field component
-	edges.push({
-		id: "edge-settings-form",
-		fromNode: "pg-settings",
-		toNode: "cmp-form-field",
-		fromSide: "right",
-		toSide: "left",
-		label: "Uses",
-	});
-
-	// Error flows
-	edges.push({
-		id: "edge-error-home",
-		fromNode: "sys-error-page",
-		toNode: "pg-home",
-		fromSide: "top",
-		toSide: "bottom",
-		label: "Retry",
-	});
-
-	edges.push({
-		id: "edge-notfound-home",
-		fromNode: "sys-not-found",
-		toNode: "pg-home",
-		fromSide: "top",
-		toSide: "bottom",
-		label: "Go home",
-	});
+	// Systems → Pages (bottom→top, row 2 → row 1)
+	edges.push({ id: "e-login-home", fromNode: "sys-login", toNode: "pg-home", fromSide: "top", toSide: "bottom", label: "Authenticate" });
+	edges.push({ id: "e-register-login", fromNode: "sys-register", toNode: "sys-login", fromSide: "top", toSide: "bottom", label: "Account created" });
 }
 
 // ── Preset: Landing Site ─────────────────────────────────────────────
@@ -845,17 +749,15 @@ function buildServiceDesignPreset(nodes: CanvasNode[], edges: CanvasEdge[]): voi
 	placeGroup(data, WORK_X, row2Y, nodes);
 	placeGroup(events, WORK_X + gw + GROUP_GAP_X, row2Y, nodes);
 
-	edges.push({ id: "e-gw-auth", fromNode: "gw-api", toNode: "gw-auth", fromSide: "bottom", toSide: "top" });
+	// Gateway → Services (right→left, adjacent groups)
 	edges.push({ id: "e-gw-user", fromNode: "gw-api", toNode: "svc-user", fromSide: "right", toSide: "left", label: "Routes" });
 	edges.push({ id: "e-gw-order", fromNode: "gw-api", toNode: "svc-order", fromSide: "right", toSide: "left", label: "Routes" });
-	edges.push({ id: "e-order-payment", fromNode: "svc-order", toNode: "svc-payment", fromSide: "bottom", toSide: "top", label: "Charges" });
-	edges.push({ id: "e-order-inventory", fromNode: "svc-order", toNode: "svc-inventory", fromSide: "bottom", toSide: "top", label: "Reserves" });
+	// Services → Data (top→bottom, row 1 → row 2)
+	edges.push({ id: "e-user-db", fromNode: "svc-user", toNode: "db-users", fromSide: "bottom", toSide: "top" });
+	edges.push({ id: "e-order-db", fromNode: "svc-order", toNode: "db-orders", fromSide: "bottom", toSide: "top" });
+	// Services → Events (right→left, adjacent in row 2 conceptually)
 	edges.push({ id: "e-order-evt", fromNode: "svc-order", toNode: "evt-order-placed", fromSide: "right", toSide: "left", label: "Emits" });
 	edges.push({ id: "e-payment-evt", fromNode: "svc-payment", toNode: "evt-payment-ok", fromSide: "right", toSide: "left", label: "Emits" });
-	edges.push({ id: "e-inv-evt", fromNode: "svc-inventory", toNode: "evt-stock-low", fromSide: "right", toSide: "left", label: "Emits" });
-	edges.push({ id: "e-notif-evt", fromNode: "svc-notification", toNode: "evt-payment-ok", fromSide: "left", toSide: "right", label: "Subscribes" });
-	edges.push({ id: "e-user-db", fromNode: "svc-user", toNode: "db-users", fromSide: "bottom", toSide: "top", label: "Reads/Writes" });
-	edges.push({ id: "e-order-db", fromNode: "svc-order", toNode: "db-orders", fromSide: "bottom", toSide: "top", label: "Reads/Writes" });
 }
 
 // ── Preset: Product Design ───────────────────────────────────────────
@@ -908,16 +810,255 @@ function buildProductDesignPreset(nodes: CanvasNode[], edges: CanvasEdge[]): voi
 	placeGroup(features, WORK_X, row2Y, nodes);
 	placeGroup(touchpoints, WORK_X + gw + GROUP_GAP_X, row2Y, nodes);
 
+	// Personas → Journeys (right→left, adjacent groups)
 	edges.push({ id: "e-buyer-onboard", fromNode: "per-buyer", toNode: "jrn-onboarding", fromSide: "right", toSide: "left", label: "Starts" });
 	edges.push({ id: "e-power-repeat", fromNode: "per-power-user", toNode: "jrn-repeat-use", fromSide: "right", toSide: "left", label: "Daily" });
-	edges.push({ id: "e-admin-dashboard", fromNode: "per-admin", toNode: "ft-dashboard", fromSide: "bottom", toSide: "top", label: "Monitors" });
+	// Journey sequence (top→bottom within group)
 	edges.push({ id: "e-onboard-purchase", fromNode: "jrn-onboarding", toNode: "jrn-first-purchase", fromSide: "bottom", toSide: "top" });
 	edges.push({ id: "e-purchase-repeat", fromNode: "jrn-first-purchase", toNode: "jrn-repeat-use", fromSide: "bottom", toSide: "top" });
 	edges.push({ id: "e-repeat-upgrade", fromNode: "jrn-repeat-use", toNode: "jrn-upgrade", fromSide: "bottom", toSide: "top", label: "Converts" });
-	edges.push({ id: "e-onboard-search", fromNode: "jrn-onboarding", toNode: "ft-search", fromSide: "right", toSide: "left", label: "Discovers" });
-	edges.push({ id: "e-purchase-checkout", fromNode: "jrn-first-purchase", toNode: "ft-checkout", fromSide: "right", toSide: "left", label: "Uses" });
-	edges.push({ id: "e-web-email", fromNode: "tp-web", toNode: "tp-email", fromSide: "bottom", toSide: "top", label: "Triggers" });
+	// Features → Touchpoints (right→left, adjacent in row 2)
 	edges.push({ id: "e-notif-push", fromNode: "ft-notifications", toNode: "tp-push", fromSide: "right", toSide: "left", label: "Delivers" });
+}
+
+// ── Preset: Enterprise ───────────────────────────────────────────────
+
+function buildEnterprisePreset(nodes: CanvasNode[], edges: CanvasEdge[]): void {
+	const gw = NODE_W + GROUP_PAD * 2;
+
+	// Row 1: Portal + Workforce + Admin (3 columns)
+	const portal: ExampleGroup = {
+		id: "grp-portal", label: "Portal",
+		children: [
+			{ id: "pg-home", text: "Home Dashboard", color: "5" },
+			{ id: "pg-notifications", text: "Notification Center", color: "1" },
+			{ id: "pg-search", text: "Global Search", color: "3" },
+			{ id: "pg-profile", text: "My Profile", color: "4" },
+			{ id: "pg-help", text: "Help Center", color: "4" },
+		],
+	};
+	const workforce: ExampleGroup = {
+		id: "grp-workforce", label: "Workforce",
+		children: [
+			{ id: "pg-employees", text: "Employee Directory", color: "3" },
+			{ id: "pg-departments", text: "Departments", color: "3" },
+			{ id: "pg-roles", text: "Roles & Permissions", color: "2" },
+			{ id: "pg-org-chart", text: "Org Chart", color: "5" },
+			{ id: "pg-onboarding", text: "Onboarding", color: "4" },
+		],
+	};
+	const admin: ExampleGroup = {
+		id: "grp-admin", label: "Administration",
+		children: [
+			{ id: "pg-users", text: "User Management", color: "3" },
+			{ id: "pg-audit-log", text: "Audit Log", color: "3" },
+			{ id: "pg-settings", text: "System Settings", color: "2" },
+			{ id: "pg-sso", text: "SSO Configuration", color: "6" },
+			{ id: "pg-tenant", text: "Tenant Management", color: "6" },
+		],
+	};
+
+	const col1 = WORK_X;
+	const col2 = col1 + gw + GROUP_GAP_X;
+	const col3 = col2 + gw + GROUP_GAP_X;
+
+	placeGroup(portal, col1, WORK_Y, nodes);
+	placeGroup(workforce, col2, WORK_Y, nodes);
+	placeGroup(admin, col3, WORK_Y, nodes);
+
+	// Row 2: Finance + Projects + Integration
+	const row1MaxH = groupHeight(portal.children.length);
+	const row2Y = WORK_Y + row1MaxH + GROUP_GAP_Y;
+
+	const finance: ExampleGroup = {
+		id: "grp-finance", label: "Finance",
+		children: [
+			{ id: "pg-invoices", text: "Invoices", color: "3" },
+			{ id: "pg-budgets", text: "Budgets", color: "2" },
+			{ id: "pg-expenses", text: "Expense Claims", color: "2" },
+			{ id: "pg-reports", text: "Financial Reports", color: "3" },
+			{ id: "pg-approvals", text: "Approvals", color: "1" },
+		],
+	};
+	const projects: ExampleGroup = {
+		id: "grp-projects", label: "Projects",
+		children: [
+			{ id: "pg-project-list", text: "Project List", color: "3" },
+			{ id: "pg-tasks", text: "Tasks", color: "3" },
+			{ id: "pg-milestones", text: "Milestones", color: "4" },
+			{ id: "pg-calendar", text: "Calendar", color: "5" },
+			{ id: "pg-timesheets", text: "Timesheets", color: "2" },
+		],
+	};
+	const integration: ExampleGroup = {
+		id: "grp-integration", label: "Integration",
+		children: [
+			{ id: "pg-api-portal", text: "API Portal", color: "4" },
+			{ id: "pg-webhooks", text: "Webhooks", color: "2" },
+			{ id: "pg-connectors", text: "Connectors", color: "4" },
+			{ id: "pg-data-import", text: "Data Import", color: "2" },
+			{ id: "pg-data-export", text: "Data Export", color: "2" },
+		],
+	};
+
+	placeGroup(finance, col1, row2Y, nodes);
+	placeGroup(projects, col2, row2Y, nodes);
+	placeGroup(integration, col3, row2Y, nodes);
+
+	// Edges: only between adjacent groups, clean flow
+	// Portal → Workforce (right→left)
+	edges.push({ id: "e-home-employees", fromNode: "pg-home", toNode: "pg-employees", fromSide: "right", toSide: "left", label: "Browse" });
+	// Portal → Finance (top→bottom)
+	edges.push({ id: "e-home-invoices", fromNode: "pg-home", toNode: "pg-invoices", fromSide: "bottom", toSide: "top", label: "Finance" });
+	// Workforce → Admin (right→left)
+	edges.push({ id: "e-roles-users", fromNode: "pg-roles", toNode: "pg-users", fromSide: "right", toSide: "left", label: "Manages" });
+	// Workforce → Projects (top→bottom)
+	edges.push({ id: "e-employees-tasks", fromNode: "pg-employees", toNode: "pg-tasks", fromSide: "bottom", toSide: "top", label: "Assigned" });
+	// Finance → Projects (right→left, adjacent in row 2)
+	edges.push({ id: "e-budgets-projects", fromNode: "pg-budgets", toNode: "pg-project-list", fromSide: "right", toSide: "left", label: "Allocates" });
+	// Projects → Integration (right→left, adjacent in row 2)
+	edges.push({ id: "e-tasks-webhooks", fromNode: "pg-tasks", toNode: "pg-webhooks", fromSide: "right", toSide: "left", label: "Triggers" });
+}
+
+// ── Preset: CLI App ──────────────────────────────────────────────────
+
+function buildCliPreset(nodes: CanvasNode[], edges: CanvasEdge[]): void {
+	const gw = NODE_W + GROUP_PAD * 2;
+
+	const commands: ExampleGroup = {
+		id: "grp-commands", label: "Commands",
+		children: [
+			{ id: "cmd-init", text: "init", color: "4" },
+			{ id: "cmd-build", text: "build", color: "4" },
+			{ id: "cmd-test", text: "test", color: "4" },
+			{ id: "cmd-dev", text: "dev", color: "5" },
+			{ id: "cmd-lint", text: "lint", color: "4" },
+			{ id: "cmd-publish", text: "publish", color: "6" },
+		],
+	};
+	const config: ExampleGroup = {
+		id: "grp-config", label: "Configuration",
+		children: [
+			{ id: "cfg-global", text: "Global Config", color: "2" },
+			{ id: "cfg-project", text: "Project Config", color: "2" },
+			{ id: "cfg-env", text: "Environment", color: "2" },
+			{ id: "cfg-flags", text: "CLI Flags", color: "3" },
+		],
+	};
+	const output: ExampleGroup = {
+		id: "grp-output", label: "Output",
+		children: [
+			{ id: "out-console", text: "Console Output", color: "5" },
+			{ id: "out-json", text: "JSON Output", color: "3" },
+			{ id: "out-log-file", text: "Log File", color: "3" },
+			{ id: "out-progress", text: "Progress Bar", color: "5" },
+		],
+	};
+	const plugins: ExampleGroup = {
+		id: "grp-plugins", label: "Plugins",
+		children: [
+			{ id: "plg-hooks", text: "Lifecycle Hooks", color: "6" },
+			{ id: "plg-custom-cmd", text: "Custom Commands", color: "4" },
+			{ id: "plg-reporter", text: "Custom Reporter", color: "5" },
+		],
+	};
+	const help: ExampleGroup = {
+		id: "grp-help", label: "Help & Docs",
+		children: [
+			{ id: "hlp-usage", text: "Usage Text", color: "4" },
+			{ id: "hlp-examples", text: "Examples", color: "4" },
+			{ id: "hlp-version", text: "Version", color: "6" },
+			{ id: "hlp-man", text: "Man Page", color: "4" },
+		],
+	};
+
+	placeGroup(commands, WORK_X, WORK_Y, nodes);
+	placeGroup(config, WORK_X + gw + GROUP_GAP_X, WORK_Y, nodes);
+	placeGroup(output, WORK_X + 2 * (gw + GROUP_GAP_X), WORK_Y, nodes);
+	const row2Y = WORK_Y + groupHeight(commands.children.length) + GROUP_GAP_Y;
+	placeGroup(plugins, WORK_X, row2Y, nodes);
+	placeGroup(help, WORK_X + gw + GROUP_GAP_X, row2Y, nodes);
+
+	// Commands → Config (right→left)
+	edges.push({ id: "e-init-project", fromNode: "cmd-init", toNode: "cfg-project", fromSide: "right", toSide: "left", label: "Creates" });
+	// Commands → Output (right→left, via config)
+	edges.push({ id: "e-build-console", fromNode: "cmd-build", toNode: "out-console", fromSide: "right", toSide: "left", label: "Writes" });
+	// Commands → Plugins (top→bottom)
+	edges.push({ id: "e-build-hooks", fromNode: "cmd-build", toNode: "plg-hooks", fromSide: "bottom", toSide: "top", label: "Triggers" });
+	// Config → Flags (within group)
+	edges.push({ id: "e-global-flags", fromNode: "cfg-global", toNode: "cfg-flags", fromSide: "bottom", toSide: "top", label: "Overrides" });
+}
+
+// ── Preset: Obsidian Plugin ─────────────────────────────────────────
+
+function buildObsidianPluginPreset(nodes: CanvasNode[], edges: CanvasEdge[]): void {
+	const gw = NODE_W + GROUP_PAD * 2;
+
+	const views: ExampleGroup = {
+		id: "grp-views", label: "Views",
+		children: [
+			{ id: "vw-sidebar", text: "Sidebar View", color: "5" },
+			{ id: "vw-tab", text: "Tab View", color: "4" },
+			{ id: "vw-status-bar", text: "Status Bar", color: "5" },
+			{ id: "vw-ribbon", text: "Ribbon Actions", color: "4" },
+		],
+	};
+	const modals: ExampleGroup = {
+		id: "grp-modals", label: "Modals & Dialogs",
+		children: [
+			{ id: "mdl-settings", text: "Settings Tab", color: "2" },
+			{ id: "mdl-suggest", text: "Suggest Modal", color: "1" },
+			{ id: "mdl-confirm", text: "Confirm Dialog", color: "1" },
+			{ id: "mdl-input", text: "Input Prompt", color: "2" },
+			{ id: "mdl-fuzzy", text: "Fuzzy Search", color: "3" },
+		],
+	};
+	const commands: ExampleGroup = {
+		id: "grp-commands", label: "Commands",
+		children: [
+			{ id: "cmd-palette", text: "Command Palette", color: "4" },
+			{ id: "cmd-hotkeys", text: "Hotkey Bindings", color: "2" },
+			{ id: "cmd-context", text: "Context Menu", color: "4" },
+			{ id: "cmd-editor", text: "Editor Commands", color: "4" },
+		],
+	};
+	const events: ExampleGroup = {
+		id: "grp-events", label: "Events",
+		children: [
+			{ id: "evt-file-open", text: "file-open", color: "6" },
+			{ id: "evt-file-modify", text: "file-modify", color: "6" },
+			{ id: "evt-layout", text: "layout-change", color: "6" },
+			{ id: "evt-metadata", text: "metadata-change", color: "6" },
+			{ id: "evt-workspace", text: "workspace-ready", color: "6" },
+		],
+	};
+	const data: ExampleGroup = {
+		id: "grp-data", label: "Data & Storage",
+		children: [
+			{ id: "dat-settings", text: "Plugin Settings", color: "2", shape: "document" },
+			{ id: "dat-cache", text: "Metadata Cache", color: "3", shape: "document" },
+			{ id: "dat-vault", text: "Vault API", color: "4", shape: "document" },
+			{ id: "dat-local", text: "Local Storage", color: "2", shape: "document" },
+		],
+	};
+
+	placeGroup(views, WORK_X, WORK_Y, nodes);
+	placeGroup(modals, WORK_X + gw + GROUP_GAP_X, WORK_Y, nodes);
+	placeGroup(commands, WORK_X + 2 * (gw + GROUP_GAP_X), WORK_Y, nodes);
+	const row2Y = WORK_Y + groupHeight(modals.children.length) + GROUP_GAP_Y;
+	placeGroup(events, WORK_X, row2Y, nodes);
+	placeGroup(data, WORK_X + gw + GROUP_GAP_X, row2Y, nodes);
+
+	// Views → Modals (right→left)
+	edges.push({ id: "e-sidebar-suggest", fromNode: "vw-sidebar", toNode: "mdl-suggest", fromSide: "right", toSide: "left", label: "Opens" });
+	// Modals → Commands (right→left)
+	edges.push({ id: "e-settings-hotkeys", fromNode: "mdl-settings", toNode: "cmd-hotkeys", fromSide: "right", toSide: "left", label: "Configures" });
+	// Commands → Views (loop back, top→bottom)
+	edges.push({ id: "e-palette-tab", fromNode: "cmd-palette", toNode: "vw-tab", fromSide: "bottom", toSide: "top", label: "Opens" });
+	// Events → Data (right→left, row 2)
+	edges.push({ id: "e-filemod-cache", fromNode: "evt-file-modify", toNode: "dat-cache", fromSide: "right", toSide: "left", label: "Updates" });
+	// Views → Events (top→bottom)
+	edges.push({ id: "e-tab-fileopen", fromNode: "vw-tab", toNode: "evt-file-open", fromSide: "bottom", toSide: "top", label: "Triggers" });
 }
 
 // ── Preset lookup ────────────────────────────────────────────────────
@@ -929,6 +1070,9 @@ const PRESET_BUILDERS: Record<string, PresetBuilder> = {
 	"landing": buildLandingPreset,
 	"dashboard": buildDashboardPreset,
 	"e-commerce": buildECommercePreset,
+	"enterprise": buildEnterprisePreset,
+	"cli": buildCliPreset,
+	"obsidian-plugin": buildObsidianPluginPreset,
 	"docs": buildDocsPreset,
 	"system-design": buildSystemDesignPreset,
 	"service-design": buildServiceDesignPreset,

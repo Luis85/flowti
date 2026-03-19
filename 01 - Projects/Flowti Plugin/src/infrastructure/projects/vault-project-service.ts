@@ -202,11 +202,12 @@ export class VaultProjectService implements IProjectService {
 
 	async getProject(name: string): Promise<ProjectDetail | undefined> {
 		const projectPath = `${PROJECTS_FOLDER}/${name}`;
-		const projectFolder = this.app.vault.getAbstractFileByPath(projectPath);
-		if (!projectFolder) return undefined;
-
 		const basePath = getVaultBasePath(this.app);
 		const absPath = join(basePath, PROJECTS_FOLDER, name);
+
+		// Check vault first, fall back to disk (folder may not be indexed yet after creation)
+		const projectFolder = this.app.vault.getAbstractFileByPath(projectPath);
+		if (!projectFolder && !existsSync(absPath)) return undefined;
 
 		const notePath = `${PROJECTS_FOLDER}/${name}/${name}.md`;
 		const noteFile = this.app.vault.getAbstractFileByPath(notePath) as TFile | null;
@@ -576,10 +577,10 @@ export class VaultProjectService implements IProjectService {
 		return runAsync("node", args, vaultBase);
 	}
 
-	async createEmptyProject(name: string): Promise<{ ok: boolean; error?: string }> {
+	async createEmptyProject(name: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "project:create", `--name=${name}`], vaultBase);
+		return runAsync("node", [cliBin, "project:create", `--name=${name}`], vaultBase, onOutput);
 	}
 
 	private previewServers = new Map<string, { close: () => void; url: string }>();

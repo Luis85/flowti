@@ -214,26 +214,6 @@ export class FlowtiConfigTab extends FlowtiElement {
 
 	protected renderContent() {
 		return html`
-			${!this.hasCanvas ? html`
-				<div class="field-group">
-					<div class="section-title">Sitemap Canvas</div>
-					<span class="field-label">Pick a preset to generate a starter canvas</span>
-					<div class="strategy-group">
-						${[
-							{ id: "web-app", label: "Web App" },
-							{ id: "landing", label: "Landing" },
-							{ id: "dashboard", label: "Dashboard" },
-							{ id: "e-commerce", label: "E-Commerce" },
-							{ id: "docs", label: "Docs" },
-							{ id: "system-design", label: "System" },
-							{ id: "service-design", label: "Service" },
-							{ id: "product-design", label: "Product" },
-						].map((p) => html`
-							<button class="strategy-btn" @click="${() => this.dispatchGeneratePreset(p.id)}" title="Generate ${p.label} sitemap canvas">${p.label}</button>
-						`)}
-					</div>
-				</div>
-			` : ""}
 			<div class="section-title">Markdown Sitemap Import</div>
 			${this.renderSourceFolder()}
 			${this.renderStrategy()}
@@ -331,9 +311,6 @@ export class FlowtiConfigTab extends FlowtiElement {
 		this.dispatchEvent(new CustomEvent("storybook-import", { bubbles: true, composed: true }));
 	}
 
-	private dispatchGeneratePreset(preset: string): void {
-		this.dispatchEvent(new CustomEvent("canvas-generate", { detail: { preset }, bubbles: true, composed: true }));
-	}
 }
 
 if (!customElements.get("flowti-config-tab")) customElements.define("flowti-config-tab", FlowtiConfigTab);

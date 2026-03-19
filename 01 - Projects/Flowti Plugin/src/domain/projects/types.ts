@@ -83,5 +83,5 @@ export interface IProjectService {
 	importFromGit(url: string, name: string, mode: "submodule" | "template", onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
 	detectProject(name: string): Promise<{ ok: boolean; type?: string; framework?: string; packageManager?: string; testFramework?: string; hasConfig?: boolean; buildCommand?: string; testCommand?: string; lintCommand?: string; error?: string }>;
 	bootstrapProject(name: string, config: { build?: string; test?: string; lint?: string; storybook?: string }): Promise<{ ok: boolean; error?: string }>;
-	createEmptyProject(name: string): Promise<{ ok: boolean; error?: string }>;
+	createEmptyProject(name: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
 }

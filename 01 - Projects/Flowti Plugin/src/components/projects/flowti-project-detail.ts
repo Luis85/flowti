@@ -173,13 +173,15 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				color: var(--interactive-accent, #7c3aed);
 				cursor: pointer;
 				font-size: var(--flowti-font-sm, 0.85em);
-				border: none;
+				border: 1px solid var(--interactive-accent, #7c3aed);
+				border-radius: var(--flowti-radius-sm, 4px);
 				background: none;
-				padding: 4px 0;
+				padding: 4px 12px;
+				font-weight: 500;
 			}
 
 			.note-link:hover {
-				text-decoration: underline;
+				background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 10%, transparent);
 			}
 
 			.note-warning {
@@ -648,6 +650,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			: this.projects;
 
 		return html`
+			${this.renderActivityBar()}
 			<div class="list-header"><span>Projects</span><flowti-add-project-dropdown></flowti-add-project-dropdown></div>
 			<input
 				class="search-input"
@@ -799,6 +802,9 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			{ id: "landing", label: "Landing" },
 			{ id: "dashboard", label: "Dashboard" },
 			{ id: "e-commerce", label: "E-Commerce" },
+			{ id: "enterprise", label: "Enterprise" },
+			{ id: "cli", label: "CLI" },
+			{ id: "obsidian-plugin", label: "Plugin" },
 			{ id: "docs", label: "Docs" },
 			{ id: "system-design", label: "System" },
 			{ id: "service-design", label: "Service" },
