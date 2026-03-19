@@ -11,6 +11,7 @@
 import { ItemView } from "obsidian";
 import type { WorkspaceLeaf, Plugin } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types.js";
+import type { WorldContext } from "../../domain/agents/world-context.js";
 import { createAgentWorld, type AgentWorldHandle } from "../../game/engine.js";
 import { createPluginProvider } from "../../game/config/plugin-provider.js";
 import { VIEW_TYPE_AGENT_WORLD } from "./types.js";
@@ -19,10 +20,7 @@ export interface AgentWorldViewDeps {
 	readonly plugin: Plugin;
 	readonly eventBus: IEventBus;
 	readonly serverBaseUrl?: string;
-	readonly contextProvider?: {
-		getActiveFileContext(): { path: string; content: string } | null;
-		onFileChanged(cb: (ctx: { path: string; content: string }) => void): () => void;
-	};
+	readonly worldContext?: WorldContext;
 	readonly agentService?: {
 		onEvent(cb: (event: { kind: string; agent: string; text?: string; turn?: { content: string } }) => void): () => void;
 	};
@@ -75,7 +73,7 @@ export class AgentWorldView extends ItemView {
 			provider,
 			spriteBasePath,
 			serverBaseUrl: this.deps.serverBaseUrl,
-			contextProvider: this.deps.contextProvider,
+			worldContext: this.deps.worldContext,
 		});
 
 		try {

@@ -33,6 +33,7 @@ import { ParticlePool } from "./systems/particle-system.js";
 import { EmoteSystem } from "./systems/emote-system.js";
 import { SocialSystem } from "./systems/social-system.js";
 import type { DataProvider } from "./config/data-provider.js";
+import type { WorldContext } from "../domain/agents/world-context.js";
 
 // Side-effect imports — register Lit custom elements
 import "./ui/dashboard-overlays.js";
@@ -62,10 +63,7 @@ export interface AgentWorldDeps {
 	provider: DataProvider;
 	spriteBasePath: string;
 	serverBaseUrl?: string;
-	contextProvider?: {
-		getActiveFileContext(): { path: string; content: string } | null;
-		onFileChanged(cb: (ctx: { path: string; content: string }) => void): () => void;
-	};
+	worldContext?: WorldContext;
 }
 
 export interface AgentWorldHandle {
@@ -714,12 +712,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				cameraSystem!.handleZoom(e.deltaY);
 			}, { passive: false });
 
-			// Wire user context (active file) into the store
-			if (deps.contextProvider) {
-				const initial = deps.contextProvider.getActiveFileContext();
-				if (initial) store.setUserContext(initial);
-				deps.contextProvider.onFileChanged((ctx) => store.setUserContext(ctx));
-			}
+			// WorldContext updates are consumed during sendMessage serialization.
+			// No need to push state to the store — WorldContext is the source of truth.
 
 			// Start data provider and load initial data
 			await provider.start();

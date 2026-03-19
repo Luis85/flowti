@@ -18,6 +18,7 @@ import { launchCliServer, getServerStatus, killServer, clearServerRegistry, writ
 import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/agent-sidepanel-view.js";
 import { AgentWorldView, type AgentWorldViewDeps } from "../ui/agents/agent-world-view.js";
 import { VIEW_TYPE_AGENT_SIDEBAR, VIEW_TYPE_AGENT_WORLD } from "../ui/agents/types.js";
+import { WorldContext } from "../domain/agents/world-context.js";
 
 export interface AgentSetupDeps {
 	readonly plugin: Plugin;
@@ -30,6 +31,7 @@ export interface AgentSetupResult {
 	readonly agentService: HttpAgentService;
 	readonly sseClient: SseClient;
 	readonly contextProvider: ObsidianContextProvider;
+	readonly worldContext: WorldContext;
 	/** Call once layout is ready to attempt server connection silently. */
 	readonly connectWhenReady: () => void;
 }
@@ -47,6 +49,13 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		deps.plugin.app.workspace,
 		deps.plugin.app.vault,
 	);
+
+	const worldContext = new WorldContext({
+		contextProvider,
+		workspace: deps.app.workspace as unknown as import("../domain/agents/world-context.js").WorkspaceDep,
+		vaultAdapter: deps.app.vault.adapter as { exists(p: string): Promise<boolean>; read(p: string): Promise<string> },
+		eventBus: deps.eventBus,
+	});
 
 	const vaultPath = (deps.app.vault.adapter as unknown as { basePath: string }).basePath;
 
@@ -103,7 +112,7 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		plugin: deps.plugin,
 		eventBus: deps.eventBus,
 		serverBaseUrl: baseUrl,
-		contextProvider,
+		worldContext,
 		agentService,
 	};
 	try {
@@ -151,5 +160,5 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 			.catch(() => { /* server not running — silent */ });
 	}
 
-	return { agentService, sseClient, contextProvider, connectWhenReady };
+	return { agentService, sseClient, contextProvider, worldContext, connectWhenReady };
 }
