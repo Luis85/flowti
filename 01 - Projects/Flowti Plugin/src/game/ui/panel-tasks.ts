@@ -11,7 +11,7 @@ import type { DashboardAgent } from "../data/types.js";
 
 export interface TaskEntry {
 	readonly name: string;
-	readonly status: "pending" | "in-progress" | "completed";
+	readonly status: "pending" | "in-progress" | "completed" | "failed";
 }
 
 type AgentWithTasks = DashboardAgent & { tasks?: readonly TaskEntry[] };
@@ -22,7 +22,8 @@ export class PanelTasks extends FlowtiElement {
 		store: { attribute: false },
 		agent: { attribute: false },
 		currentPhase: { type: String },
-		pendingTask: { state: true },
+		pendingTaskDef: { state: true },
+		inputValue: { state: true },
 	};
 
 	static styles = [
@@ -175,6 +176,34 @@ export class PanelTasks extends FlowtiElement {
 				background: var(--border);
 				color: var(--text-primary);
 			}
+
+			.confirm-btn:disabled {
+				opacity: 0.5;
+				cursor: default;
+			}
+
+			.task-input {
+				width: 100%;
+				padding: 6px 10px;
+				margin-bottom: 10px;
+				background: var(--bg-primary);
+				border: 1px solid var(--border);
+				border-radius: 4px;
+				color: var(--text-primary);
+				font-family: inherit;
+				font-size: 12px;
+				outline: none;
+				box-sizing: border-box;
+			}
+
+			.task-input:focus {
+				border-color: var(--accent-blue);
+			}
+
+			.task-badge[data-status="failed"] {
+				background: #7f1d1d;
+				color: #f87171;
+			}
 		`,
 	];
 
@@ -182,7 +211,8 @@ export class PanelTasks extends FlowtiElement {
 	agent!: DashboardAgent;
 	currentPhase = "";
 
-	private pendingTask: string | null = null;
+	private pendingTaskDef: { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } } | null = null;
+	private inputValue = "";
 	private unsubscribe: (() => void) | null = null;
 
 	connectedCallback(): void {
@@ -201,23 +231,41 @@ export class PanelTasks extends FlowtiElement {
 		return this.agent?.agentType === "ai";
 	}
 
-	private handleAssignClick(taskName: string): void {
-		if (this.isAiAgent) {
-			this.pendingTask = taskName;
+	private handleAssignClick(task: { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }): void {
+		if (task.input) {
+			this.pendingTaskDef = task;
+			this.inputValue = "";
+		} else if (this.isAiAgent) {
+			this.pendingTaskDef = task;
+			this.inputValue = "";
 		} else {
-			void this.store.assignTask(this.agent.name, taskName);
+			this.executeOrAssign(task);
+		}
+	}
+
+	private executeOrAssign(task: { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }, userInput?: string): void {
+		const store = this.store as DashboardStore & { executeTask?: (agentName: string, task: { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }, userInput?: string) => void };
+		if (typeof store.executeTask === "function") {
+			void store.executeTask(this.agent.name, task, userInput);
+		} else {
+			void this.store.assignTask(this.agent.name, task.name);
 		}
 	}
 
 	private handleConfirm(): void {
-		if (this.pendingTask) {
-			void this.store.assignTask(this.agent.name, this.pendingTask);
+		if (this.pendingTaskDef) {
+			this.executeOrAssign(
+				this.pendingTaskDef,
+				this.pendingTaskDef.input ? this.inputValue : undefined,
+			);
 		}
-		this.pendingTask = null;
+		this.pendingTaskDef = null;
+		this.inputValue = "";
 	}
 
 	private handleCancel(): void {
-		this.pendingTask = null;
+		this.pendingTaskDef = null;
+		this.inputValue = "";
 	}
 
 	private renderTaskList() {
@@ -262,7 +310,7 @@ export class PanelTasks extends FlowtiElement {
 					<button
 						class="assign-btn"
 						data-task="${task.name}"
-						@click="${() => { this.handleAssignClick(task.name); }}"
+						@click="${() => { this.handleAssignClick(task); }}"
 					>${task.name}</button>
 				`)}
 			</div>
@@ -270,19 +318,34 @@ export class PanelTasks extends FlowtiElement {
 	}
 
 	private renderConfirmDialog() {
-		if (!this.pendingTask) return nothing;
+		if (!this.pendingTaskDef) return nothing;
 
-		const taskName = this.pendingTask;
+		const task = this.pendingTaskDef;
 		const agentName = this.agent?.name ?? "";
+		const hasInput = !!task.input;
 
 		return html`
 			<div class="confirm-overlay">
 				<div class="confirm-dialog">
 					<div class="confirm-message">
-						Assign "${taskName}" to ${agentName}?
+						${hasInput
+							? task.input!.prompt
+							: html`Assign "${task.name}" to ${agentName}?`}
 					</div>
+					${hasInput ? html`
+						<input
+							class="task-input"
+							type="text"
+							.value="${this.inputValue}"
+							@input="${(e: Event) => { this.inputValue = (e.target as HTMLInputElement).value; }}"
+							@keydown="${(e: KeyboardEvent) => { if (e.key === "Enter" && this.inputValue.trim()) this.handleConfirm(); }}"
+							placeholder="Type your answer..."
+						/>
+					` : nothing}
 					<div class="confirm-buttons">
-						<button class="confirm-btn" @click="${this.handleConfirm}">Confirm</button>
+						<button class="confirm-btn" @click="${this.handleConfirm}" ?disabled="${hasInput && !this.inputValue.trim()}">
+							${hasInput ? "Send" : "Confirm"}
+						</button>
 						<button class="cancel-btn" @click="${this.handleCancel}">Cancel</button>
 					</div>
 				</div>
