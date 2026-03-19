@@ -7,6 +7,7 @@
 import type { IEventBus } from "../events/types.js";
 import type { IAgentService, ConversationMode } from "../../domain/agents/types.js";
 import type { IContextProvider } from "../../domain/agents/context-provider.js";
+import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { LaunchResult, ServerRegistryEntry } from "../agents/server-launcher.js";
 
 // Side-effect import: register the Lit custom element
@@ -16,6 +17,7 @@ export interface AgentHandlerDeps {
 	readonly eventBus: IEventBus;
 	readonly agentService: IAgentService;
 	readonly contextProvider?: IContextProvider;
+	readonly worldContext?: WorldContext;
 	readonly startServer?: () => Promise<LaunchResult>;
 	readonly getServerStatus?: () => { running: boolean; entry: ServerRegistryEntry | null };
 	readonly stopServer?: (pid: number) => void;
@@ -23,7 +25,7 @@ export interface AgentHandlerDeps {
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {
-	const { agentService, eventBus, contextProvider } = deps;
+	const { agentService, eventBus, contextProvider, worldContext } = deps;
 	const el = document.createElement("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 	const unsubscribes: (() => void)[] = [];
 
@@ -73,7 +75,22 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		void eventBus.emit("agent.message.sent", { agent: activeAgent, message, mode: activeMode });
 
 		let enrichedMessage = message;
-		if (contextProvider) {
+		if (worldContext) {
+			const isFirst = !agentService.getConversation(activeAgent).length;
+			let contextBlock: string;
+			if (isFirst) {
+				const domain = "general";
+				contextBlock = worldContext.getProtocolInstruction(activeAgent, domain)
+					+ "\n\n" + worldContext.serialize();
+			} else {
+				contextBlock = worldContext.serializeDelta(activeAgent) ?? "";
+			}
+			worldContext.markSeen(activeAgent);
+			if (contextBlock) {
+				enrichedMessage = contextBlock + "\n\n" + message;
+			}
+		} else if (contextProvider) {
+			// Legacy fallback
 			const diff = contextProvider.getDiff(lastContextHash);
 			if (diff) {
 				enrichedMessage = `[Context: ${diff.path} changed]\n${diff.diff}\n\n${message}`;

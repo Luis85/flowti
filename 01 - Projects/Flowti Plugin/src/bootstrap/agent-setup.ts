@@ -63,6 +63,7 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		eventBus: deps.eventBus,
 		agentService,
 		contextProvider,
+		worldContext,
 		startServer: async () => {
 			const result = await launchCliServer(vaultPath, baseUrl);
 			if (result.ok) {
