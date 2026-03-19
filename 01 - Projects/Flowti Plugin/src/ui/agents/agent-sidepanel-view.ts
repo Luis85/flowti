@@ -7,21 +7,16 @@
 import { ItemView } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types.js";
-import type { IAgentService } from "../../domain/agents/types.js";
+import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
 import type { IContextProvider } from "../../domain/agents/context-provider.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
-import type { LaunchResult, ServerRegistryEntry } from "../../infrastructure/agents/server-launcher.js";
 import { VIEW_TYPE_AGENT_SIDEBAR } from "./types.js";
 
 export interface AgentSidepanelDeps {
 	readonly eventBus: IEventBus;
-	readonly agentService: IAgentService;
+	readonly cliExecutor?: ICliExecutor;
 	readonly contextProvider?: IContextProvider;
 	readonly worldContext?: WorldContext;
-	readonly startServer: () => Promise<LaunchResult>;
-	readonly getServerStatus?: () => { running: boolean; entry: ServerRegistryEntry | null };
-	readonly stopServer?: (pid: number) => void;
-	readonly openInBrowser?: (url: string) => void;
 }
 
 export class AgentSidepanelView extends ItemView {

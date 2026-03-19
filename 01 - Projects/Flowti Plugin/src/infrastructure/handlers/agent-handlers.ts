@@ -1,31 +1,36 @@
 /**
- * Agent sidepanel handler — bridges Lit component ↔ EventBus ↔ IAgentService.
+ * Agent sidepanel handler — bridges Lit component ↔ EventBus ↔ ICliExecutor.
  *
  * Returns a dispose function for cleanup on view close.
  */
 
 import type { IEventBus } from "../events/types.js";
-import type { IAgentService, ConversationMode } from "../../domain/agents/types.js";
+import type { ICliExecutor, AgentProcess, CliEvent } from "../agents/cli-executor.js";
 import type { IContextProvider } from "../../domain/agents/context-provider.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
-import type { LaunchResult, ServerRegistryEntry } from "../agents/server-launcher.js";
+import type { ConversationMode } from "../../domain/agents/types.js";
 
 // Side-effect import: register the Lit custom element
 import "../../components/agents/flowti-agent-sidepanel.js";
 
+/** Minimal turn structure for local conversation tracking. */
+interface LocalTurn {
+	readonly role: "user" | "assistant";
+	readonly text: string;
+	readonly agent: string;
+	readonly mode: ConversationMode;
+	readonly timestamp: string;
+}
+
 export interface AgentHandlerDeps {
 	readonly eventBus: IEventBus;
-	readonly agentService: IAgentService;
+	readonly cliExecutor?: ICliExecutor;
 	readonly contextProvider?: IContextProvider;
 	readonly worldContext?: WorldContext;
-	readonly startServer?: () => Promise<LaunchResult>;
-	readonly getServerStatus?: () => { running: boolean; entry: ServerRegistryEntry | null };
-	readonly stopServer?: (pid: number) => void;
-	readonly openInBrowser?: (url: string) => void;
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {
-	const { agentService, eventBus, contextProvider, worldContext } = deps;
+	const { cliExecutor, eventBus, contextProvider, worldContext } = deps;
 	const el = document.createElement("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 	const unsubscribes: (() => void)[] = [];
 
@@ -34,31 +39,94 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 	let teamMode = false;
 	let lastContextHash = "";
 
-	function refresh(): void {
-		const agents = agentService.listAgents();
-		el.agents = [...agents];
-		if (!activeAgent && agents.length > 0) activeAgent = agents[0].name;
-		el.activeAgent = activeAgent;
-		el.activeMode = activeMode;
-		el.teamMode = teamMode;
-		const turns = teamMode
-			? agentService.getTeamConversation()
-			: activeAgent ? agentService.getConversation(activeAgent) : [];
-		el.turns = [...turns];
+	/** Local conversation log keyed by agent name. */
+	const conversations = new Map<string, LocalTurn[]>();
+	/** Team-wide conversation (interleaved). */
+	const teamConversation: LocalTurn[] = [];
 
-		// Update server status
-		if (deps.getServerStatus) {
-			const status = deps.getServerStatus();
-			if (status.running && status.entry) {
-				el.serverPid = status.entry.pid;
-				el.serverUrl = status.entry.url;
-				el.serverStartedAt = status.entry.startedAt;
-			} else {
-				el.serverPid = 0;
-				el.serverUrl = "";
-				el.serverStartedAt = "";
-			}
+	/** Active agent process handles keyed by agent name. */
+	const agentProcesses = new Map<string, AgentProcess>();
+	/** Unsub functions for agent process event listeners. */
+	const processUnsubs = new Map<string, () => void>();
+
+	function getConversation(agent: string): LocalTurn[] {
+		return conversations.get(agent) ?? [];
+	}
+
+	function addTurn(agent: string, role: "user" | "assistant", text: string): void {
+		if (!conversations.has(agent)) conversations.set(agent, []);
+		const turn: LocalTurn = {
+			role,
+			text,
+			agent,
+			mode: activeMode,
+			timestamp: new Date().toISOString(),
+		};
+		conversations.get(agent)!.push(turn);
+		if (teamMode) teamConversation.push(turn);
+	}
+
+	function refresh(): void {
+		if (cliExecutor) {
+			void cliExecutor.listAgents().then((agents) => {
+				el.agents = [...agents];
+				if (!activeAgent && agents.length > 0) activeAgent = agents[0].name;
+				el.activeAgent = activeAgent;
+				el.activeMode = activeMode;
+				el.teamMode = teamMode;
+				el.turns = teamMode
+					? [...teamConversation]
+					: [...getConversation(activeAgent)];
+			});
+		} else {
+			el.agents = [];
+			el.activeAgent = activeAgent;
+			el.activeMode = activeMode;
+			el.teamMode = teamMode;
+			el.turns = teamMode
+				? [...teamConversation]
+				: [...getConversation(activeAgent)];
 		}
+	}
+
+	/** Get or create an AgentProcess for the given agent and wire events. */
+	function ensureAgentProcess(agentName: string): AgentProcess | null {
+		if (!cliExecutor) return null;
+		const existing = agentProcesses.get(agentName);
+		if (existing?.running) return existing;
+
+		// Clean up old subscription
+		const oldUnsub = processUnsubs.get(agentName);
+		if (oldUnsub) oldUnsub();
+
+		const proc = cliExecutor.startAgent(agentName);
+		agentProcesses.set(agentName, proc);
+
+		const unsub = proc.onEvent((event: CliEvent) => {
+			if (event.type === "response") {
+				addTurn(agentName, "assistant", event.text ?? "");
+				el.processing = false;
+				refresh();
+			}
+			if (event.type === "thinking") {
+				void eventBus.emit("agent.thinking", { agent: event.agent, text: event.text ?? "" });
+			}
+			if (event.type === "using-tool") {
+				void eventBus.emit("agent.tool.started", { agent: event.agent, tool: event.tool ?? "", id: event.id ?? "" });
+			}
+			if (event.type === "tool-complete") {
+				void eventBus.emit("agent.tool.completed", { agent: event.agent, id: event.id ?? "" });
+			}
+			if (event.type === "error") {
+				el.error = event.text ?? "Agent error";
+				el.processing = false;
+				setTimeout(() => { el.error = ""; }, 5000);
+			}
+		});
+		processUnsubs.set(agentName, unsub);
+		unsubscribes.push(unsub);
+
+		return proc;
 	}
 
 	// ── Agent selection ──
@@ -74,9 +142,11 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		el.processing = true;
 		void eventBus.emit("agent.message.sent", { agent: activeAgent, message, mode: activeMode });
 
+		addTurn(activeAgent, "user", message);
+
 		let enrichedMessage = message;
 		if (worldContext) {
-			const isFirst = !agentService.getConversation(activeAgent).length;
+			const isFirst = !getConversation(activeAgent).length;
 			let contextBlock: string;
 			if (isFirst) {
 				const domain = "general";
@@ -100,10 +170,15 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 			if (ctx) lastContextHash = ctx.contentHash;
 		}
 
-		void agentService.sendMessage(activeAgent, enrichedMessage, activeMode).finally(() => {
+		const proc = ensureAgentProcess(activeAgent);
+		if (proc) {
+			proc.send(enrichedMessage);
+		} else {
 			el.processing = false;
-			refresh();
-		});
+			el.error = "No CLI executor available";
+			setTimeout(() => { el.error = ""; }, 5000);
+		}
+
 		refresh();
 	}) as EventListener);
 
@@ -124,7 +199,8 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 	// ── Stop generation ──
 	el.addEventListener("agent-stop", (() => {
 		if (!activeAgent) return;
-		void agentService.stopGeneration(activeAgent);
+		const proc = agentProcesses.get(activeAgent);
+		if (proc?.running) proc.stopGeneration();
 		el.processing = false;
 		refresh();
 	}) as EventListener);
@@ -137,74 +213,6 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		});
 	}) as EventListener);
 
-	// ── Restart world (launch CLI server) ──
-	el.addEventListener("restart-world", (() => {
-		if (!deps.startServer) return;
-		el.connectStatus = "connecting";
-		void deps.startServer()
-			.then((result: LaunchResult) => {
-				if (result.ok) {
-					el.connectStatus = "idle";
-					refresh();
-				} else {
-					el.connectStatus = "failed";
-					el.connectError = result.error ?? "Unknown error";
-				}
-			})
-			.catch(() => {
-				el.connectStatus = "failed";
-				el.connectError = "Unexpected error starting server";
-			});
-	}) as EventListener);
-
-	// ── Visit world (open dashboard in browser) ──
-	el.addEventListener("visit-world", (() => {
-		const url = String(el.serverUrl || "http://localhost:3000");
-		if (deps.openInBrowser) deps.openInBrowser(url);
-	}) as EventListener);
-
-	// ── Stop server ──
-	el.addEventListener("stop-server", (() => {
-		const pid = Number(el.serverPid);
-		if (pid > 0 && deps.stopServer) {
-			deps.stopServer(pid);
-			el.serverPid = 0;
-			el.serverUrl = "";
-			el.serverStartedAt = "";
-			// Disconnect service — server is gone
-			agentService.disconnect();
-			refresh();
-		}
-	}) as EventListener);
-
-	// ── Service events → component updates ──
-	const unsubService = agentService.onEvent((event) => {
-		if (event.kind === "message-received" || event.kind === "status-changed") {
-			refresh();
-		}
-		if (event.kind === "status-changed") {
-			void eventBus.emit("agent.status.changed", { agent: event.agent, activity: event.activity });
-		}
-		if (event.kind === "message-received") {
-			void eventBus.emit("agent.message.received", { agent: event.agent, turn: event.turn });
-		}
-		if (event.kind === "thinking") {
-			void eventBus.emit("agent.thinking", { agent: event.agent, text: event.text });
-		}
-		if (event.kind === "tool-started") {
-			void eventBus.emit("agent.tool.started", { agent: event.agent, tool: event.tool, id: event.id });
-		}
-		if (event.kind === "tool-completed") {
-			void eventBus.emit("agent.tool.completed", { agent: event.agent, id: event.id });
-		}
-		if (event.kind === "error") {
-			el.error = event.error;
-			el.processing = false;
-			setTimeout(() => { el.error = ""; }, 5000);
-		}
-	});
-	unsubscribes.push(unsubService);
-
 	// ── Context tracking ──
 	if (contextProvider) {
 		const unsubCtx = contextProvider.onFileChanged((ctx) => {
@@ -216,7 +224,8 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 	// ── Keyboard shortcuts ──
 	const keyHandler = (e: KeyboardEvent) => {
 		if (e.key === "Escape" && el.processing) {
-			if (activeAgent) void agentService.stopGeneration(activeAgent);
+			const proc = agentProcesses.get(activeAgent);
+			if (proc?.running) proc.stopGeneration();
 			el.processing = false;
 			refresh();
 		}
@@ -229,6 +238,12 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 
 	return () => {
 		for (const unsub of unsubscribes) unsub();
+		// Kill agent processes owned by this panel
+		for (const proc of agentProcesses.values()) {
+			if (proc.running) proc.kill();
+		}
+		agentProcesses.clear();
+		processUnsubs.clear();
 		el.remove();
 	};
 }
