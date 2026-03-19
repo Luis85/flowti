@@ -5,6 +5,8 @@
 
 import type { IContextProvider, FileContext } from "./context-provider.js";
 import type { IEventBus } from "../../infrastructure/events/types.js";
+import { watchJsonFile, type FileWatcher } from "../../infrastructure/agents/file-watcher.js";
+import { readFileSync, existsSync } from "node:fs";
 
 /* ── Minimal workspace interface (avoids importing full Obsidian Workspace) ── */
 
@@ -60,6 +62,7 @@ export interface WorldContextDeps {
 	readonly workspace: WorkspaceDep;
 	readonly vaultAdapter: VaultAdapterDep;
 	readonly eventBus: IEventBus;
+	readonly vaultBasePath?: string;
 }
 
 /* ── File type mapping ── */
@@ -128,6 +131,34 @@ function relativeAge(ms: number): string {
 	return `${hr}h ago`;
 }
 
+/* ── Minimal world-state types (mirrors CLI WorldState shape) ── */
+
+interface WorldStateEntity {
+	readonly id: string;
+	readonly type: string;
+	readonly components: Record<string, Record<string, unknown>>;
+}
+
+interface WorldStateActivityEntry {
+	readonly agentName: string;
+	readonly timestamp: string;
+	readonly type: string;
+	readonly summary: string;
+}
+
+interface WorldStateFile {
+	readonly entities?: Record<string, WorldStateEntity>;
+	readonly activityLog?: readonly WorldStateActivityEntry[];
+}
+
+interface AgentDashboardFile {
+	readonly agents?: readonly {
+		readonly name: string;
+		readonly domain?: string;
+		readonly status?: string;
+	}[];
+}
+
 /* ── Constants ── */
 
 const MAX_CHANGE_LOG = 50;
@@ -156,6 +187,9 @@ export class WorldContext {
 	private readonly agentVersions = new Map<string, number>();
 	private readonly changeLog: ChangeEntry[] = [];
 
+	/* ── File watcher ── */
+	private worldStateWatcher: FileWatcher | null = null;
+
 	/* ── Debounce ── */
 	private layoutTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -183,6 +217,59 @@ export class WorldContext {
 		// Seed initial state
 		this.activeFile = deps.contextProvider.getActiveFileContext();
 		this.refreshOpenFiles();
+
+		// If vaultBasePath is provided, seed agent roster from agent-dashboard.json
+		// and set up a file watcher on world-state.json for reactive updates.
+		if (deps.vaultBasePath) {
+			this.seedFromDashboard(deps.vaultBasePath);
+
+			const worldStatePath = deps.vaultBasePath + "/.flowti/var/world-state.json";
+			this.worldStateWatcher = watchJsonFile<WorldStateFile>(worldStatePath, (state) => {
+				// Update agent roster from world state entities
+				const entities = Object.values(state.entities ?? {});
+				this.agentRoster = entities
+					.filter((e) => e.type === "agent")
+					.map((e) => ({
+						name: e.id,
+						role: String(e.components?.identity?.["domain"] ?? "general"),
+						status: this.normalizeStatus(String(e.components?.status?.["state"] ?? "idle")),
+					}));
+
+				// Update recent activity from activity log
+				if (state.activityLog) {
+					this.recentActivity = state.activityLog.slice(-10).reverse().map((entry) => ({
+						text: entry.summary,
+						timestamp: new Date(entry.timestamp).getTime(),
+					}));
+				}
+
+				this.recordChange("worldState", "World state updated");
+				this.notify();
+			});
+		}
+	}
+
+	private normalizeStatus(state: string): "idle" | "busy" {
+		return state === "idle" ? "idle" : "busy";
+	}
+
+	private seedFromDashboard(vaultBasePath: string): void {
+		try {
+			const rosterPath = vaultBasePath + "/.flowti/agents/data/agent-dashboard.json";
+			if (!existsSync(rosterPath)) return;
+			const raw = readFileSync(rosterPath, "utf-8");
+			const data = JSON.parse(raw) as AgentDashboardFile;
+			const agents = data.agents ?? [];
+			if (agents.length === 0) return;
+			this.agentRoster = agents.map((a) => ({
+				name: a.name,
+				role: a.domain ?? "general",
+				status: this.normalizeStatus(a.status ?? "idle"),
+			}));
+			this.recordChange("agentRoster", `Roster seeded: ${agents.length} agents from dashboard`);
+		} catch {
+			/* missing file or parse error — silently ignore */
+		}
 	}
 
 	/* ── Mutators ── */
@@ -321,6 +408,8 @@ export class WorldContext {
 	/* ── Lifecycle ── */
 
 	dispose(): void {
+		this.worldStateWatcher?.close();
+		this.worldStateWatcher = null;
 		for (const unsub of this.unsubs) unsub();
 		this.unsubs.length = 0;
 		this.listeners.clear();
