@@ -113,6 +113,8 @@ vi.mock("../../src/game/systems/brain-system.js", () => {
 		self.register = vi.fn();
 		self.applyEvent = vi.fn();
 		self.freeze = vi.fn();
+		self.assignWork = vi.fn();
+		self.releaseWork = vi.fn();
 		self.getState = vi.fn(() => ({ state: "idle", params: { quoteFrequency: 0.1, socialRadius: 100 } }));
 		self.getPosition = vi.fn();
 		self.getAllEntries = vi.fn(() => new Map());
@@ -135,6 +137,7 @@ vi.mock("../../src/game/systems/talk/talk-engine.js", () => {
 	function MockTalkEngine() {
 		const self = this as Record<string, unknown>;
 		self.register = vi.fn();
+		self.activate = vi.fn();
 		self.silence = vi.fn();
 		self.update = vi.fn();
 	}
