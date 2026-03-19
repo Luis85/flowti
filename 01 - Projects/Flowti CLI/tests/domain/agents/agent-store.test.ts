@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { agentStore, getProjectAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt, listInventory, addInventoryItem, removeInventoryItem } from "../../../src/domain/agents/agent-store.js";
+import { agentStore, getProjectAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt, listInventory, addInventoryItem, removeInventoryItem, parseSuggestedTask } from "../../../src/domain/agents/agent-store.js";
 import type { AgentDefinition } from "../../../src/domain/agents/agent-types.js";
 
 function makeDeps(files: Record<string, string> = {}) {
@@ -578,5 +578,55 @@ describe("inventory", () => {
 		expect(jsonCall).toBeDefined();
 		const parsed = JSON.parse(jsonCall![1] as string);
 		expect(parsed.inventory).toEqual([{ path: "docs/brief.md", label: "Brief" }]);
+	});
+});
+
+describe("parseSuggestedTask", () => {
+	it("parses name and phases only", () => {
+		const result = parseSuggestedTask("Refine goal|new,planned");
+		expect(result).toEqual({ name: "Refine goal", phases: ["new", "planned"] });
+	});
+
+	it("parses input segment", () => {
+		const result = parseSuggestedTask("Refine goal|new|input:text:What is the goal?");
+		expect(result).toEqual({
+			name: "Refine goal",
+			phases: ["new"],
+			input: { type: "text", prompt: "What is the goal?" },
+		});
+	});
+
+	it("parses tool segment", () => {
+		const result = parseSuggestedTask("Run tests|any|tool:flowti test --format=json");
+		expect(result).toEqual({
+			name: "Run tests",
+			phases: ["any"],
+			tool: { command: "flowti test --format=json" },
+		});
+	});
+
+	it("parses both input and tool", () => {
+		const result = parseSuggestedTask("Review|ready|input:text:Which PR?|tool:flowti review");
+		expect(result).toEqual({
+			name: "Review",
+			phases: ["ready"],
+			input: { type: "text", prompt: "Which PR?" },
+			tool: { command: "flowti review" },
+		});
+	});
+
+	it("handles segments in any order", () => {
+		const result = parseSuggestedTask("Review|ready|tool:flowti review|input:text:Which PR?");
+		expect(result.input).toEqual({ type: "text", prompt: "Which PR?" });
+		expect(result.tool).toEqual({ command: "flowti review" });
+	});
+
+	it("handles no phases with input", () => {
+		const result = parseSuggestedTask("Quick task||input:text:Details?");
+		expect(result).toEqual({
+			name: "Quick task",
+			phases: [],
+			input: { type: "text", prompt: "Details?" },
+		});
 	});
 });
