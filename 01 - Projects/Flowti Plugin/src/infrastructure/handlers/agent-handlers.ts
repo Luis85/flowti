@@ -108,6 +108,9 @@ async function loadAgentCards(adapter: VaultFileAdapter, agentsDir: string): Pro
 			if (fm.type !== "Agent") continue;
 			const attrs = fm.attributes as Record<string, number> | undefined;
 			const persona = typeof fm.persona === "string" ? fm.persona : undefined;
+			const suggestedTasks = Array.isArray(fm.suggestedTasks)
+				? (fm.suggestedTasks as string[]).map(parseSuggestedTask)
+				: undefined;
 			cards.push({
 				name: String(fm.name ?? ""),
 				persona,
@@ -115,6 +118,7 @@ async function loadAgentCards(adapter: VaultFileAdapter, agentsDir: string): Pro
 				intStat: attrs?.int,
 				chaStat: attrs?.cha,
 				activity: "idle",
+				suggestedTasks,
 			});
 		} catch {
 			// Skip unreadable files
