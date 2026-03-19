@@ -149,6 +149,11 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 	let connected = false;
 	function connectWhenReady(): void {
 		if (connected) return;
+
+		// Check server registry first — avoid network error spam when server isn't running
+		const status = getServerStatus(vaultPath);
+		if (!status.running) return;
+
 		connected = true;
 		void agentService.connect()
 			.then(() => {

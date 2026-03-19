@@ -105,13 +105,6 @@ export class FlowtiServerPanel extends FlowtiElement {
 					></flowti-server-status>
 				</div>
 			</details>
-			<ft-process-log
-				.lines="${this.outputLines}"
-				.busy="${this.outputBusy}"
-				.busyLabel="${this.outputBusyLabel}"
-				.errorNote="${this.outputError}"
-				@dismiss="${() => { this.outputLines = []; this.outputError = ""; }}"
-			></ft-process-log>
 			<details>
 				<summary>Activity</summary>
 				<div class="section-content">
@@ -137,6 +130,13 @@ export class FlowtiServerPanel extends FlowtiElement {
 					></flowti-server-config>
 				</div>
 			</details>
+			<ft-process-log
+				.lines="${this.outputLines}"
+				.busy="${this.outputBusy}"
+				.busyLabel="${this.outputBusyLabel}"
+				.errorNote="${this.outputError}"
+				@dismiss="${() => { this.outputLines = []; this.outputError = ""; }}"
+			></ft-process-log>
 		`;
 	}
 }

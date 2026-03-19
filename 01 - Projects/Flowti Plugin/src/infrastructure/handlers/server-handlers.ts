@@ -47,20 +47,30 @@ export function mountServerPanel(container: HTMLElement, deps: ServerHandlerDeps
 		el.port = 3000;
 	}
 
-	// ── Stats polling ──
+	// ── Stats polling (only when server is running) ──
 	let statsInterval: ReturnType<typeof setInterval> | null = null;
 	async function refreshStats(): Promise<void> {
-		const stats = await serverService.getStats();
-		el.stats = stats;
+		if (!el.running) return; // skip when server is offline
+		try {
+			const stats = await serverService.getStats();
+			el.stats = stats;
+		} catch {
+			// Server not reachable — silent
+		}
 	}
 
 	statsInterval = setInterval(() => void refreshStats(), 5000);
 	cleanups.push(() => { if (statsInterval) clearInterval(statsInterval); });
 
-	// ── Load config ──
+	// ── Load config (only when server is running) ──
 	async function loadConfig(): Promise<void> {
-		const config = await serverService.getConfig();
-		el.config = config;
+		if (!el.running) return;
+		try {
+			const config = await serverService.getConfig();
+			el.config = config;
+		} catch {
+			// Server not reachable — silent
+		}
 	}
 
 	// ── SSE activity listener ──
@@ -154,11 +164,12 @@ export function mountServerPanel(container: HTMLElement, deps: ServerHandlerDeps
 		el.entries = [];
 	}) as EventListener);
 
-	// ── Initial load ──
+	// ── Initial load — refresh status first, then stats/config only if running ──
 	container.appendChild(el);
-	void refreshStatus();
-	void refreshStats();
-	void loadConfig();
+	void refreshStatus().then(() => {
+		void refreshStats();
+		void loadConfig();
+	});
 
 	return () => {
 		for (const fn of cleanups) fn();

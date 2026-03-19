@@ -7,6 +7,7 @@ import { html, css } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import type { StorybookFramework } from "../../domain/projects/types.js";
+import "../shared/ft-process-log.js";
 
 const FRAMEWORKS: { id: StorybookFramework; label: string }[] = [
 	{ id: "html", label: "HTML" },
@@ -285,62 +286,24 @@ export class FlowtiStorybookSection extends FlowtiElement {
 	hasStaticBuild = false;
 
 	protected renderContent() {
-		if (this.busy) {
-			return html`${this.renderErrorNote()}${this.renderBusy()}`;
-		}
-		const main = !this.installed
-			? this.renderNotInstalled()
-			: this.running
-				? this.renderRunning()
-				: this.renderInstalled();
-		return html`${this.renderErrorNote()}${this.renderImportActions()}${main}${this.renderOutputLog()}`;
-	}
-
-	private renderOutputLog() {
-		if (this.outputLines.length === 0) return "";
+		const main = this.busy
+			? ""
+			: !this.installed
+				? this.renderNotInstalled()
+				: this.running
+					? this.renderRunning()
+					: this.renderInstalled();
 		return html`
-			${!this.busy ? html`
-				<div class="output-header">
-					<span class="output-header__label">Output</span>
-					<button class="output-header__dismiss" @click="${() => this.dismissOutput()}" title="Dismiss">&times;</button>
-				</div>
-			` : ""}
-			<div class="output-log">${this.outputLines.join("\n")}</div>
+			${!this.busy ? this.renderImportActions() : ""}
+			${main}
+			<ft-process-log
+				.lines="${this.outputLines}"
+				.busy="${this.busy}"
+				.busyLabel="${this.busyLabel || "Working..."}"
+				.errorNote="${this.errorNote}"
+				@dismiss="${() => { this.outputLines = []; this.errorNote = ""; }}"
+			></ft-process-log>
 		`;
-	}
-
-	private renderErrorNote() {
-		if (!this.errorNote) return "";
-		return html`
-			<div class="error-note">
-				<span class="error-note__text">${this.errorNote}</span>
-				<button class="error-note__dismiss" @click="${() => this.dismissError()}" title="Dismiss">&times;</button>
-			</div>
-		`;
-	}
-
-	private dismissError(): void {
-		this.errorNote = "";
-		this.outputLines = [];
-	}
-
-	private renderBusy() {
-		return html`
-			<div class="busy-section">
-				<div class="busy-label">
-					<span class="spinner"></span>
-					<span>${this.busyLabel || "Working..."}</span>
-				</div>
-				${this.outputLines.length > 0 ? html`
-					<div class="output-log">${this.outputLines.join("\n")}</div>
-				` : ""}
-			</div>
-		`;
-	}
-
-	protected updated(): void {
-		const log = this.shadowRoot?.querySelector(".output-log");
-		if (log) log.scrollTop = log.scrollHeight;
 	}
 
 	private renderNotInstalled() {
@@ -358,11 +321,7 @@ export class FlowtiStorybookSection extends FlowtiElement {
 	}
 
 	private renderImportActions() {
-		return html`
-			<div class="actions">
-				<button class="action-btn" @click="${() => this.dispatchImportMarkdown()}" title="Pick a vault folder and import markdown component files into a sitemap">Import Markdown</button>
-			</div>
-		`;
+		return "";
 	}
 
 	private renderInstalled() {
@@ -395,9 +354,6 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		`;
 	}
 
-	private dismissOutput(): void {
-		this.dispatchEvent(new CustomEvent("storybook-dismiss-output", { bubbles: true, composed: true }));
-	}
 
 	private dispatchInstall(framework: StorybookFramework): void {
 		this.dispatchEvent(new CustomEvent("storybook-install", {
