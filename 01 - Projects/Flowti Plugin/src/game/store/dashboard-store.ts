@@ -252,6 +252,10 @@ export class DashboardStore extends EventTarget {
 			this.dispatchEvent(new CustomEvent("agent-response-received", {
 				detail: { agentName, text: result.response, type: result.type ?? "speaking" },
 			}));
+			// Successful API call confirms server is live — update connection status
+			if (this.connectionStatus !== "connected") {
+				this.setConnectionStatus("connected" as import("../data/types.js").ConnectionStatus);
+			}
 		} else if (!result.ok) {
 			this.pushAgentResponse(agentName, `[offline] ${result.error ?? "Cannot reach server."}`);
 		}
@@ -273,9 +277,11 @@ export class DashboardStore extends EventTarget {
 
 		const result = await api.assignTask(this.baseUrl, agentName, task);
 		if (result.ok) {
-			// Mark as in-progress once server confirms
 			const entry = tasks.find((t) => t.name === task && t.status === "pending");
 			if (entry) entry.status = "in-progress";
+			if (this.connectionStatus !== "connected") {
+				this.setConnectionStatus("connected" as import("../data/types.js").ConnectionStatus);
+			}
 			this.notify();
 		} else {
 			// Remove on failure
