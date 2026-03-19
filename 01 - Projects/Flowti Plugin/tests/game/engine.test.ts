@@ -284,22 +284,25 @@ describe("createAgentWorld", () => {
 		expect(container.children.length).toBe(6);
 	});
 
-	it("sets tabindex on container for keyboard focus", () => {
-		const container = document.createElement("div");
-		createAgentWorld({ container, provider: createMockProvider(), spriteBasePath: "/test" });
-		expect(container.getAttribute("tabindex")).toBe("0");
+	it("keyboard listeners are on document (not container)", () => {
+		const addSpy = vi.spyOn(document, "addEventListener");
+		createAgentWorld({ container: document.createElement("div"), provider: createMockProvider(), spriteBasePath: "/test" });
+		const addedEvents = addSpy.mock.calls.map((c) => c[0]);
+		expect(addedEvents).toContain("keydown");
+		expect(addedEvents).toContain("keyup");
+		addSpy.mockRestore();
 	});
 
-	it("dispose removes keyboard listeners", () => {
-		const container = document.createElement("div");
-		const removeSpy = vi.spyOn(container, "removeEventListener");
-		const handle = createAgentWorld({ container, provider: createMockProvider(), spriteBasePath: "/test" });
+	it("dispose removes keyboard listeners from document", () => {
+		const removeSpy = vi.spyOn(document, "removeEventListener");
+		const handle = createAgentWorld({ container: document.createElement("div"), provider: createMockProvider(), spriteBasePath: "/test" });
 
 		handle.dispose();
 
 		const removedEvents = removeSpy.mock.calls.map((c) => c[0]);
 		expect(removedEvents).toContain("keydown");
 		expect(removedEvents).toContain("keyup");
+		removeSpy.mockRestore();
 	});
 
 	it("dispose calls provider.stop()", () => {
