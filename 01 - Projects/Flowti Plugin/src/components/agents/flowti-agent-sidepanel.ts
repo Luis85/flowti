@@ -26,12 +26,7 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 		turns: { type: Array },
 		teamMode: { type: Boolean },
 		processing: { type: Boolean },
-		connectStatus: { type: String },
-		connectError: { type: String },
 		error: { type: String },
-		serverPid: { type: Number },
-		serverUrl: { type: String },
-		serverStartedAt: { type: String },
 	};
 
 	static styles = [
@@ -45,23 +40,12 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 				overflow: hidden;
 			}
 
-			.offline-banner {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm, 8px);
+			.error-banner {
 				padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
-				background: color-mix(in srgb, var(--color-yellow, #e5a00d) 12%, transparent);
-				color: var(--text-muted);
+				background: color-mix(in srgb, var(--color-red, #e53935) 12%, transparent);
+				color: var(--color-red, #e53935);
 				font-size: var(--flowti-font-sm, 0.85em);
 				border-bottom: 1px solid var(--background-modifier-border);
-			}
-
-			.offline-banner .dot {
-				width: 8px;
-				height: 8px;
-				border-radius: 50%;
-				background: var(--color-yellow, #e5a00d);
-				flex-shrink: 0;
 			}
 
 			.offline-cta {
@@ -87,77 +71,6 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 				line-height: 1.5;
 			}
 
-			.offline-cta button {
-				padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
-				border-radius: var(--flowti-radius, 4px);
-				border: 1px solid var(--interactive-accent);
-				background: var(--interactive-accent);
-				color: var(--text-on-accent);
-				font-size: var(--flowti-font-sm, 0.85em);
-				cursor: pointer;
-				font-weight: 500;
-			}
-
-			.offline-cta button:hover {
-				opacity: 0.9;
-			}
-
-			.offline-cta button:disabled {
-				opacity: 0.6;
-				cursor: wait;
-			}
-
-			.status-msg {
-				font-size: var(--flowti-font-sm, 0.85em);
-				padding: var(--flowti-space-xs, 4px) 0;
-			}
-
-			.status-msg--connecting {
-				color: var(--text-muted);
-			}
-
-			.status-msg--failed {
-				color: var(--color-red, #e53935);
-			}
-
-			.server-bar {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm, 8px);
-				padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
-				border-top: 1px solid var(--background-modifier-border);
-				font-size: 0.7em;
-				color: var(--text-muted);
-				flex-shrink: 0;
-			}
-
-			.server-bar .dot--live {
-				width: 6px; height: 6px; border-radius: 50%;
-				background: var(--color-green, #4caf50);
-				flex-shrink: 0;
-			}
-
-			.server-bar .info { flex: 1; }
-
-			.server-bar button {
-				padding: 2px 8px;
-				border-radius: var(--flowti-radius, 4px);
-				border: 1px solid var(--background-modifier-border);
-				background: none;
-				color: var(--text-muted);
-				cursor: pointer;
-				font-size: 1em;
-			}
-
-			.server-bar button:hover {
-				background: var(--background-modifier-hover);
-				color: var(--text-normal);
-			}
-
-			.server-bar .btn--danger:hover {
-				color: var(--color-red, #e53935);
-				border-color: var(--color-red, #e53935);
-			}
 		`,
 	];
 
@@ -167,13 +80,7 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 	turns: ConversationTurn[] = [];
 	teamMode = false;
 	processing = false;
-	/** "idle" | "connecting" | "failed" */
-	connectStatus = "idle";
-	connectError = "";
 	error = "";
-	serverPid = 0;
-	serverUrl = "";
-	serverStartedAt = "";
 
 	protected renderContent() {
 		const offline = this.agents.length === 0;
@@ -185,27 +92,16 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 				: `Talking to ${activeCard?.persona ?? this.activeAgent}`;
 
 		if (offline) {
-			const connecting = this.connectStatus === "connecting";
-			const failed = this.connectStatus === "failed";
 			return html`
-				<div class="offline-banner">
-					<span class="dot"></span>
-					CLI server not connected
-				</div>
 				<div class="offline-cta">
 					<span class="icon">&#x1F30D;</span>
-					<p>The agent world is offline.<br/>Would you like to restart it?</p>
-					<button @click="${this.dispatchRestart}" ?disabled="${connecting}">
-						${connecting ? "Connecting\u2026" : "Restart the world"}
-					</button>
-					${failed ? html`<span class="status-msg status-msg--failed">${this.connectError || "Server unreachable. Is flowti serve running?"}</span>` : ""}
-					${connecting ? html`<span class="status-msg status-msg--connecting">Reaching out to localhost:3000\u2026</span>` : ""}
+					<p>No agents found.<br/>Define agents in your project to get started.</p>
 				</div>
 			`;
 		}
 
 		return html`
-			${this.error ? html`<div class="offline-banner"><span class="dot" style="background:var(--color-red,#e53935)"></span>${this.error}</div>` : ""}
+			${this.error ? html`<div class="error-banner">${this.error}</div>` : ""}
 			<flowti-agent-roster
 				.agents="${this.agents}"
 				.activeAgent="${this.activeAgent}"
@@ -219,35 +115,6 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 				.agentLabel="${label}"
 				.processing="${this.processing}"
 			></flowti-input-bar>
-			${this.renderServerBar()}
-		`;
-	}
-
-	private dispatchRestart(): void {
-		this.dispatchEvent(new CustomEvent("restart-world", { bubbles: true, composed: true }));
-	}
-
-	private dispatchVisitWorld(): void {
-		this.dispatchEvent(new CustomEvent("visit-world", { bubbles: true, composed: true }));
-	}
-
-	private dispatchStopServer(): void {
-		this.dispatchEvent(new CustomEvent("stop-server", { bubbles: true, composed: true }));
-	}
-
-	private renderServerBar() {
-		if (!this.serverUrl) return "";
-		const uptime = this.serverStartedAt
-			? `up since ${new Date(this.serverStartedAt).toLocaleTimeString()}`
-			: "";
-		const pidLabel = this.serverPid ? `PID ${this.serverPid}` : "External";
-		return html`
-			<div class="server-bar">
-				<span class="dot--live"></span>
-				<span class="info">${pidLabel} ${uptime}</span>
-				<button @click="${this.dispatchVisitWorld}" title="Open Agent World">World</button>
-				${this.serverPid ? html`<button class="btn--danger" @click="${this.dispatchStopServer}" title="Stop the CLI server">Stop</button>` : ""}
-			</div>
 		`;
 	}
 

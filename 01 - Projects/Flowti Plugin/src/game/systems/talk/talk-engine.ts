@@ -95,9 +95,13 @@ export interface TalkEngineCallbacks {
 	readonly isWaiting?: (agentName: string) => boolean;
 }
 
+/** Minimum gap between any two agents talking (prevents exact-same-frame stacking). */
+const MIN_GAP = 2000;
+
 export class TalkEngine {
 	private readonly entries = new Map<string, ChatterEntry>();
 	private readonly callbacks: TalkEngineCallbacks;
+	private lastGlobalTalk = 0;
 
 	constructor(callbacks: TalkEngineCallbacks) {
 		this.callbacks = callbacks;
@@ -159,6 +163,12 @@ export class TalkEngine {
 
 			entry.timer += deltaMs;
 			if (entry.timer >= entry.interval) {
+				// If another agent just talked, nudge this one forward a bit instead of dropping it
+				if (!entry.activated && now - this.lastGlobalTalk < MIN_GAP) {
+					entry.timer = entry.interval - (MIN_GAP - (now - this.lastGlobalTalk));
+					continue;
+				}
+
 				entry.timer = 0;
 				if (entry.activated) {
 					entry.interval = 3000 + Math.random() * 4000; // keep rapid pace
@@ -167,6 +177,7 @@ export class TalkEngine {
 				}
 				const phrase = this.resolvePhrase(entry);
 				this.callbacks.showBubble(name, "thought", phrase);
+				this.lastGlobalTalk = now;
 			}
 		}
 	}

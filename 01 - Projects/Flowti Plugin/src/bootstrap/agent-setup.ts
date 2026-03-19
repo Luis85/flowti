@@ -44,13 +44,22 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		workspace: deps.app.workspace as unknown as import("../domain/agents/world-context.js").WorkspaceDep,
 		vaultAdapter: deps.app.vault.adapter as { exists(p: string): Promise<boolean>; read(p: string): Promise<string> },
 		eventBus: deps.eventBus,
+		vaultBasePath,
 	});
+
+	const vaultAdapter = deps.app.vault.adapter as unknown as {
+		list(path: string): Promise<{ files: string[]; folders: string[] }>;
+		read(path: string): Promise<string>;
+	};
 
 	const viewDeps: AgentSidepanelDeps = {
 		eventBus: deps.eventBus,
 		cliExecutor,
 		contextProvider,
 		worldContext,
+		vaultAdapter,
+		agentsDir: "03 - Resources/Agents",
+		vaultBasePath,
 	};
 
 	// Register view immediately — Obsidian needs the factory to restore layout

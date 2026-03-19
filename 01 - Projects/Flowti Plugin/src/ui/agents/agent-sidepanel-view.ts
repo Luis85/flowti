@@ -17,6 +17,9 @@ export interface AgentSidepanelDeps {
 	readonly cliExecutor?: ICliExecutor;
 	readonly contextProvider?: IContextProvider;
 	readonly worldContext?: WorldContext;
+	readonly vaultAdapter?: { list(path: string): Promise<{ files: string[]; folders: string[] }>; read(path: string): Promise<string> };
+	readonly agentsDir?: string;
+	readonly vaultBasePath?: string;
 }
 
 export class AgentSidepanelView extends ItemView {

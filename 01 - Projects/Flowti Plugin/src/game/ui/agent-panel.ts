@@ -208,10 +208,9 @@ export class AgentPanel extends FlowtiElement {
 			/* Content area */
 			.panel-content {
 				flex: 1;
-				overflow-y: auto;
-				padding: 10px 12px;
-				scrollbar-width: thin;
-				scrollbar-color: var(--bg-tertiary) transparent;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
 			}
 
 			.panel-content ft-game-panel-info,
@@ -219,8 +218,22 @@ export class AgentPanel extends FlowtiElement {
 			.panel-content ft-game-panel-tasks,
 			.panel-content ft-game-panel-permissions,
 			.panel-content ft-game-panel-history {
-				display: block;
-				height: 100%;
+				display: flex;
+				flex-direction: column;
+				flex: 1;
+				min-height: 0;
+				overflow: hidden;
+			}
+
+			/* Non-talk panels scroll their content directly */
+			.panel-content ft-game-panel-info,
+			.panel-content ft-game-panel-tasks,
+			.panel-content ft-game-panel-permissions,
+			.panel-content ft-game-panel-history {
+				overflow-y: auto;
+				padding: 10px 12px;
+				scrollbar-width: thin;
+				scrollbar-color: var(--bg-tertiary) transparent;
 			}
 		`,
 	];

@@ -4,6 +4,7 @@ import "../../../src/components/agents/flowti-agent-sidepanel.js";
 import { mountAgentSidepanel } from "../../../src/infrastructure/handlers/agent-handlers.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../../src/infrastructure/agents/cli-executor.js";
 import type { IContextProvider, FileContext } from "../../../src/domain/agents/context-provider.js";
+import type { VaultFileAdapter } from "../../../src/infrastructure/handlers/agent-handlers.js";
 
 function mockAgentProcess(agentName: string): AgentProcess & { _triggerEvent: (e: CliEvent) => void } {
 	const callbacks = new Set<(event: CliEvent) => void>();
@@ -25,7 +26,7 @@ function mockAgentProcess(agentName: string): AgentProcess & { _triggerEvent: (e
 	};
 }
 
-function createMockCliExecutor(agents: { name: string; status: string }[] = []) {
+function createMockCliExecutor() {
 	const processes: ReturnType<typeof mockAgentProcess>[] = [];
 	const executor: ICliExecutor = {
 		startAgent: vi.fn((name: string) => {
@@ -35,7 +36,7 @@ function createMockCliExecutor(agents: { name: string; status: string }[] = []) 
 		}),
 		assignTask: vi.fn(async () => ({ ok: true })),
 		grantPermission: vi.fn(async () => ({ ok: true })),
-		listAgents: vi.fn(async () => agents),
+		listAgents: vi.fn(async () => []),
 		wakeAgent: vi.fn(async () => ({ ok: true })),
 		killAll: vi.fn(),
 		dispose: vi.fn(),
@@ -56,6 +57,38 @@ function mockContextProvider(): IContextProvider {
 	};
 }
 
+const ATLAS_MD = `---
+type: Agent
+name: Atlas
+agentType: ai
+persona: "[[Atlas]]"
+domain: orchestration
+attributes:
+  str: 10
+  int: 18
+  wis: 16
+  cha: 14
+  dex: 12
+  con: 14
+mood: focused
+---
+
+# Atlas
+`;
+
+function mockVaultAdapter(files: Record<string, string> = {}): VaultFileAdapter {
+	return {
+		list: vi.fn(async () => ({
+			files: Object.keys(files),
+			folders: [],
+		})),
+		read: vi.fn(async (path: string) => {
+			if (path in files) return files[path];
+			throw new Error(`File not found: ${path}`);
+		}),
+	};
+}
+
 describe("mountAgentSidepanel", () => {
 	let container: HTMLElement;
 
@@ -72,14 +105,21 @@ describe("mountAgentSidepanel", () => {
 		dispose();
 	});
 
-	it("sets agents from cliExecutor.listAgents()", async () => {
-		const agents = [{ name: "atlas", status: "idle" }];
-		const { executor } = createMockCliExecutor(agents);
-		mountAgentSidepanel(container, { eventBus: mockEventBus(), cliExecutor: executor });
-		// listAgents is async — wait for the microtask
+	it("loads agents from vault adapter", async () => {
+		const adapter = mockVaultAdapter({
+			"03 - Resources/Agents/atlas.md": ATLAS_MD,
+		});
+		mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			cliExecutor: createMockCliExecutor().executor,
+			vaultAdapter: adapter,
+			agentsDir: "03 - Resources/Agents",
+		});
 		await vi.waitFor(() => {
 			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
-			expect(el.agents).toEqual(agents);
+			const agents = el.agents as { name: string }[];
+			expect(agents.length).toBe(1);
+			expect(agents[0].name).toBe("Atlas");
 		});
 	});
 
@@ -90,12 +130,18 @@ describe("mountAgentSidepanel", () => {
 	});
 
 	it("sets activeAgent to first agent when none selected", async () => {
-		const agents = [{ name: "atlas", status: "idle" }];
-		const { executor } = createMockCliExecutor(agents);
-		mountAgentSidepanel(container, { eventBus: mockEventBus(), cliExecutor: executor });
+		const adapter = mockVaultAdapter({
+			"03 - Resources/Agents/atlas.md": ATLAS_MD,
+		});
+		mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			cliExecutor: createMockCliExecutor().executor,
+			vaultAdapter: adapter,
+			agentsDir: "03 - Resources/Agents",
+		});
 		await vi.waitFor(() => {
 			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
-			expect(el.activeAgent).toBe("atlas");
+			expect(el.activeAgent).toBe("Atlas");
 		});
 	});
 
@@ -108,36 +154,47 @@ describe("mountAgentSidepanel", () => {
 	});
 
 	it("handles agent-stop event by calling process.stopGeneration()", async () => {
-		const agents = [{ name: "atlas", status: "thinking" }];
-		const { executor, processes } = createMockCliExecutor(agents);
-		mountAgentSidepanel(container, { eventBus: mockEventBus(), cliExecutor: executor });
-
-		// Wait for agent list to populate so activeAgent is set
-		await vi.waitFor(() => {
-			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
-			expect(el.activeAgent).toBe("atlas");
+		const adapter = mockVaultAdapter({
+			"03 - Resources/Agents/atlas.md": ATLAS_MD,
+		});
+		const { executor, processes } = createMockCliExecutor();
+		mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			cliExecutor: executor,
+			vaultAdapter: adapter,
+			agentsDir: "03 - Resources/Agents",
 		});
 
-		// Send a message to create a process
+		await vi.waitFor(() => {
+			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
+			expect(el.activeAgent).toBe("Atlas");
+		});
+
 		const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 		el.dispatchEvent(new CustomEvent("agent-send", { detail: { message: "hello" }, bubbles: true, composed: true }));
 		expect(processes.length).toBe(1);
 
-		// Now stop
 		el.dispatchEvent(new CustomEvent("agent-stop", { bubbles: true, composed: true }));
 		expect(processes[0].stopGeneration).toHaveBeenCalled();
 	});
 
 	it("enriches message with context diff when provider available", async () => {
-		const agents = [{ name: "atlas", status: "idle" }];
-		const { executor, processes } = createMockCliExecutor(agents);
+		const adapter = mockVaultAdapter({
+			"03 - Resources/Agents/atlas.md": ATLAS_MD,
+		});
+		const { executor, processes } = createMockCliExecutor();
 		const ctx = mockContextProvider();
-		mountAgentSidepanel(container, { eventBus: mockEventBus(), cliExecutor: executor, contextProvider: ctx });
+		mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			cliExecutor: executor,
+			contextProvider: ctx,
+			vaultAdapter: adapter,
+			agentsDir: "03 - Resources/Agents",
+		});
 
-		// Wait for agent list to populate
 		await vi.waitFor(() => {
 			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
-			expect(el.activeAgent).toBe("atlas");
+			expect(el.activeAgent).toBe("Atlas");
 		});
 
 		const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement;
@@ -149,17 +206,22 @@ describe("mountAgentSidepanel", () => {
 	});
 
 	it("Escape key stops generation when processing", async () => {
-		const agents = [{ name: "atlas", status: "thinking" }];
-		const { executor, processes } = createMockCliExecutor(agents);
-		mountAgentSidepanel(container, { eventBus: mockEventBus(), cliExecutor: executor });
-
-		// Wait for agent list
-		await vi.waitFor(() => {
-			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
-			expect(el.activeAgent).toBe("atlas");
+		const adapter = mockVaultAdapter({
+			"03 - Resources/Agents/atlas.md": ATLAS_MD,
+		});
+		const { executor, processes } = createMockCliExecutor();
+		mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			cliExecutor: executor,
+			vaultAdapter: adapter,
+			agentsDir: "03 - Resources/Agents",
 		});
 
-		// Send a message to create a process
+		await vi.waitFor(() => {
+			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
+			expect(el.activeAgent).toBe("Atlas");
+		});
+
 		const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 		el.dispatchEvent(new CustomEvent("agent-send", { detail: { message: "test" }, bubbles: true, composed: true }));
 		expect(processes.length).toBe(1);
@@ -167,5 +229,46 @@ describe("mountAgentSidepanel", () => {
 		el.processing = true;
 		container.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
 		expect(processes[0].stopGeneration).toHaveBeenCalled();
+	});
+
+	it("parses persona, mood, and attributes from frontmatter", async () => {
+		const adapter = mockVaultAdapter({
+			"03 - Resources/Agents/atlas.md": ATLAS_MD,
+		});
+		mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			vaultAdapter: adapter,
+			agentsDir: "03 - Resources/Agents",
+		});
+		await vi.waitFor(() => {
+			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
+			const agents = el.agents as { name: string; persona?: string; mood?: string; intStat?: number; chaStat?: number }[];
+			expect(agents[0]).toEqual(expect.objectContaining({
+				name: "Atlas",
+				persona: "Atlas",
+				mood: "focused",
+				intStat: 18,
+				chaStat: 14,
+			}));
+		});
+	});
+
+	it("skips non-Agent markdown files", async () => {
+		const adapter = mockVaultAdapter({
+			"agents/atlas.md": ATLAS_MD,
+			"agents/notes.md": "---\ntype: Note\ntitle: Random\n---\n\nNot an agent.",
+			"agents/atlas.prompt.md": "prompt content",
+		});
+		mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			vaultAdapter: adapter,
+			agentsDir: "agents",
+		});
+		await vi.waitFor(() => {
+			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
+			const agents = el.agents as { name: string }[];
+			expect(agents.length).toBe(1);
+			expect(agents[0].name).toBe("Atlas");
+		});
 	});
 });

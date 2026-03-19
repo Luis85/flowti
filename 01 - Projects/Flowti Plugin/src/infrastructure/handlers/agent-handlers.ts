@@ -8,10 +8,17 @@ import type { IEventBus } from "../events/types.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../agents/cli-executor.js";
 import type { IContextProvider } from "../../domain/agents/context-provider.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
-import type { ConversationMode } from "../../domain/agents/types.js";
+import type { AgentCard, ConversationMode } from "../../domain/agents/types.js";
+import { extractAgentMessage } from "../../game/data/message-utils.js";
 
 // Side-effect import: register the Lit custom element
 import "../../components/agents/flowti-agent-sidepanel.js";
+
+/** Minimal vault adapter for reading agent definitions. */
+export interface VaultFileAdapter {
+	list(path: string): Promise<{ files: string[]; folders: string[] }>;
+	read(path: string): Promise<string>;
+}
 
 /** Minimal turn structure for local conversation tracking. */
 interface LocalTurn {
@@ -27,10 +34,97 @@ export interface AgentHandlerDeps {
 	readonly cliExecutor?: ICliExecutor;
 	readonly contextProvider?: IContextProvider;
 	readonly worldContext?: WorldContext;
+	readonly vaultAdapter?: VaultFileAdapter;
+	readonly agentsDir?: string;
+	readonly vaultBasePath?: string;
+}
+
+/** Parse YAML frontmatter from a markdown string. Returns key-value pairs. */
+function parseFrontmatter(md: string): Record<string, unknown> {
+	const match = md.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	if (!match) return {};
+	const result: Record<string, unknown> = {};
+	let currentKey = "";
+	let currentList: string[] | null = null;
+	const indent2: Record<string, Record<string, unknown>> = {};
+	let indent2Key = "";
+
+	for (const line of match[1].split(/\r?\n/)) {
+		// Nested key (2-space indent): e.g. "  str: 12"
+		const nestedMatch = line.match(/^  (\w+):\s*(.+)$/);
+		if (nestedMatch && indent2Key) {
+			if (!indent2[indent2Key]) indent2[indent2Key] = {};
+			const val = nestedMatch[2].trim();
+			indent2[indent2Key][nestedMatch[1]] = /^\d+$/.test(val) ? Number(val) : val;
+			continue;
+		}
+
+		// List item: "  - value"
+		const listMatch = line.match(/^\s+-\s+(.+)$/);
+		if (listMatch && currentList) {
+			currentList.push(listMatch[1]);
+			continue;
+		}
+
+		// Flush previous list
+		if (currentList) {
+			result[currentKey] = currentList;
+			currentList = null;
+		}
+
+		// Top-level key
+		const kvMatch = line.match(/^(\w[\w-]*):\s*(.*)$/);
+		if (kvMatch) {
+			currentKey = kvMatch[1];
+			const val = kvMatch[2].trim();
+			if (val === "") {
+				// Could be a list or nested object — peek ahead
+				currentList = [];
+				indent2Key = currentKey;
+			} else {
+				const cleaned = val.replace(/^["']|["']$/g, "").replace(/^\[\[|\]\]$/g, "");
+				result[currentKey] = /^\d+$/.test(cleaned) ? Number(cleaned) : cleaned;
+				indent2Key = "";
+			}
+		}
+	}
+	if (currentList) result[currentKey] = currentList;
+	for (const [k, v] of Object.entries(indent2)) {
+		if (Object.keys(v).length > 0) result[k] = v;
+	}
+	return result;
+}
+
+/** Load AgentCard[] from vault agent definition .md files. */
+async function loadAgentCards(adapter: VaultFileAdapter, agentsDir: string): Promise<AgentCard[]> {
+	const listing = await adapter.list(agentsDir);
+	const mdFiles = listing.files.filter((f) => f.endsWith(".md") && !f.endsWith(".prompt.md"));
+
+	const cards: AgentCard[] = [];
+	for (const filePath of mdFiles) {
+		try {
+			const content = await adapter.read(filePath);
+			const fm = parseFrontmatter(content);
+			if (fm.type !== "Agent") continue;
+			const attrs = fm.attributes as Record<string, number> | undefined;
+			const persona = typeof fm.persona === "string" ? fm.persona : undefined;
+			cards.push({
+				name: String(fm.name ?? ""),
+				persona,
+				mood: typeof fm.mood === "string" ? fm.mood : undefined,
+				intStat: attrs?.int,
+				chaStat: attrs?.cha,
+				activity: "idle",
+			});
+		} catch {
+			// Skip unreadable files
+		}
+	}
+	return cards.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {
-	const { cliExecutor, eventBus, contextProvider, worldContext } = deps;
+	const { cliExecutor, eventBus, contextProvider, worldContext, vaultAdapter, agentsDir } = deps;
 	const el = document.createElement("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 	const unsubscribes: (() => void)[] = [];
 
@@ -66,26 +160,32 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		if (teamMode) teamConversation.push(turn);
 	}
 
+	/** Cached agent cards — loaded once from vault, reused on refresh. */
+	let cachedAgents: AgentCard[] | null = null;
+
+	function applyAgents(agents: AgentCard[]): void {
+		el.agents = agents;
+		if (!activeAgent && agents.length > 0) activeAgent = agents[0].name;
+		el.activeAgent = activeAgent;
+		el.activeMode = activeMode;
+		el.teamMode = teamMode;
+		el.turns = teamMode
+			? [...teamConversation]
+			: [...getConversation(activeAgent)];
+	}
+
 	function refresh(): void {
-		if (cliExecutor) {
-			void cliExecutor.listAgents().then((agents) => {
-				el.agents = [...agents];
-				if (!activeAgent && agents.length > 0) activeAgent = agents[0].name;
-				el.activeAgent = activeAgent;
-				el.activeMode = activeMode;
-				el.teamMode = teamMode;
-				el.turns = teamMode
-					? [...teamConversation]
-					: [...getConversation(activeAgent)];
+		if (cachedAgents) {
+			applyAgents(cachedAgents);
+			return;
+		}
+		if (vaultAdapter && agentsDir) {
+			void loadAgentCards(vaultAdapter, agentsDir).then((agents) => {
+				cachedAgents = agents;
+				applyAgents(agents);
 			});
 		} else {
-			el.agents = [];
-			el.activeAgent = activeAgent;
-			el.activeMode = activeMode;
-			el.teamMode = teamMode;
-			el.turns = teamMode
-				? [...teamConversation]
-				: [...getConversation(activeAgent)];
+			applyAgents([]);
 		}
 	}
 
@@ -104,7 +204,7 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 
 		const unsub = proc.onEvent((event: CliEvent) => {
 			if (event.type === "response") {
-				addTurn(agentName, "assistant", event.text ?? "");
+				addTurn(agentName, "assistant", extractAgentMessage(event.text ?? ""));
 				el.processing = false;
 				refresh();
 			}
@@ -149,8 +249,12 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 			const isFirst = !getConversation(activeAgent).length;
 			let contextBlock: string;
 			if (isFirst) {
+				const card = cachedAgents?.find((a) => a.name === activeAgent);
 				const domain = "general";
-				contextBlock = worldContext.getProtocolInstruction(activeAgent, domain)
+				contextBlock = worldContext.getProtocolInstruction(activeAgent, domain, card ? {
+					persona: card.persona,
+					mood: card.mood,
+				} : undefined)
 					+ "\n\n" + worldContext.serialize();
 			} else {
 				contextBlock = worldContext.serializeDelta(activeAgent) ?? "";
@@ -163,7 +267,8 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 			// Legacy fallback
 			const diff = contextProvider.getDiff(lastContextHash);
 			if (diff) {
-				enrichedMessage = `[Context: ${diff.path} changed]\n${diff.diff}\n\n${message}`;
+				const absPath = deps.vaultBasePath ? `${deps.vaultBasePath}/${diff.path}` : diff.path;
+			enrichedMessage = `[Context: ${absPath} changed]\n${diff.diff}\n\n${message}`;
 				lastContextHash = diff.currentHash;
 			}
 			const ctx = contextProvider.getActiveFileContext();

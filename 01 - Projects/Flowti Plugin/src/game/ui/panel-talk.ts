@@ -6,7 +6,7 @@
 import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles, buttonStyles } from "./game-styles.js";
-import type { DashboardStore, ConversationTurn, LlmStatus } from "../store/dashboard-store.js";
+import type { DashboardStore, ConversationTurn } from "../store/dashboard-store.js";
 
 // -- Filler phrases shown while LLM is thinking -----------
 
@@ -26,7 +26,6 @@ export class PanelTalk extends FlowtiElement {
 		agentName: { type: String },
 		conversation: { state: true },
 		thinking: { state: true },
-		llmState: { state: true },
 		thinkingPhrase: { state: true },
 	};
 
@@ -41,31 +40,10 @@ export class PanelTalk extends FlowtiElement {
 			:host {
 				display: flex;
 				flex-direction: column;
-				height: 100%;
+				flex: 1;
+				min-height: 0;
 				overflow: hidden;
 			}
-
-			/* LLM status badge */
-			.llm-badge {
-				display: flex;
-				align-items: center;
-				gap: 6px;
-				padding: 4px 8px;
-				font-size: 11px;
-				color: var(--text-secondary);
-				border-bottom: 1px solid var(--border);
-			}
-
-			.llm-dot {
-				width: 8px;
-				height: 8px;
-				border-radius: 50%;
-				flex-shrink: 0;
-			}
-
-			.llm-dot.active { background: var(--accent-green); }
-			.llm-dot.waking { background: var(--accent-amber); }
-			.llm-dot.dormant { background: var(--text-dim); }
 
 			/* Thread */
 			.thread {
@@ -153,7 +131,6 @@ export class PanelTalk extends FlowtiElement {
 
 	private conversation: readonly ConversationTurn[] = [];
 	private thinking = false;
-	private llmState: LlmStatus["state"] | "none" = "none";
 	private thinkingPhrase = THINKING_PHRASES[0];
 
 	private storeHandler = () => { this.syncFromStore(); };
@@ -181,21 +158,11 @@ export class PanelTalk extends FlowtiElement {
 		const wasThinking = this.thinking;
 		this.thinking = this.store.isThinking(this.agentName);
 
-		const status = this.store.llmStatus.get(this.agentName);
-
-		// Queued state: show waiting indicator
-		if (status?.state === "queued") {
-			this.thinking = true;
-			this.stopThinkingTimer();
-			this.thinkingPhrase = "Waiting for available slot...";
-		} else if (this.thinking && (!wasThinking || this.thinkingPhrase === "Waiting for available slot...")) {
-			// Start timer: either fresh thinking, or transitioning from queued -> thinking
+		if (this.thinking && !wasThinking) {
 			this.startThinkingTimer();
 		} else if (!this.thinking && wasThinking) {
 			this.stopThinkingTimer();
 		}
-
-		this.llmState = status ? status.state : "none";
 	}
 
 	private startThinkingTimer(): void {
@@ -241,40 +208,6 @@ export class PanelTalk extends FlowtiElement {
 
 	updated(): void {
 		void this.scrollToBottom();
-	}
-
-	private renderLlmBadge() {
-		if (this.llmState === "none") return nothing;
-
-		const labelMap: Record<string, string> = {
-			active: "LLM Active",
-			waking: "LLM Waking",
-			dormant: "LLM Dormant",
-			idle: "LLM Idle",
-			thinking: "LLM Thinking",
-			error: "LLM Error",
-		};
-
-		// Map LlmStatus.state to dot class — the store type uses "idle"|"thinking"|"error"
-		// but the task spec maps to active/waking/dormant. Map thinking->active, idle->dormant, error->dormant
-		const dotClassMap: Record<string, string> = {
-			active: "active",
-			waking: "waking",
-			dormant: "dormant",
-			idle: "dormant",
-			thinking: "active",
-			error: "dormant",
-		};
-
-		const dotClass = dotClassMap[this.llmState] ?? "dormant";
-		const label = labelMap[this.llmState] ?? `LLM ${this.llmState}`;
-
-		return html`
-			<div class="llm-badge">
-				<span class="llm-dot ${dotClass}"></span>
-				<span>${label}</span>
-			</div>
-		`;
 	}
 
 	private renderThread() {

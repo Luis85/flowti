@@ -58,6 +58,8 @@ build-endpoints.json
 /01 - Projects/Flowti CLI/reports/html/
 /01 - Projects/Flowti CLI/reports/ui/
 
+/01 - Projects/foobar
+
 /** Storybook build artifacts **/
 /Development/flowti/stories/storybook-bundle.js
 /Development/flowti/stories/storybook-bundle.js.map

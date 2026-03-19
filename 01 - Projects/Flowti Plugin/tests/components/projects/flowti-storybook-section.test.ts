@@ -138,16 +138,22 @@ describe("flowti-storybook-section", () => {
 		expect(fired).toBe(true);
 	});
 
-	it("dispatches storybook-regenerate on Regenerate click", async () => {
+	it("dispatches storybook-regenerate-confirmed after confirm", async () => {
 		el.installed = true;
 		el.running = false;
 		el.framework = "react";
 		await el.updateComplete;
 		let fired = false;
-		el.addEventListener("storybook-regenerate", () => { fired = true; });
-		const btn = Array.from(el.shadowRoot!.querySelectorAll(".action-btn"))
+		el.addEventListener("storybook-regenerate-confirmed", () => { fired = true; });
+		// Click "Regenerate" to show confirm dialog
+		const regenBtn = Array.from(el.shadowRoot!.querySelectorAll(".action-btn"))
 			.find((b) => b.textContent?.trim() === "Regenerate") as HTMLButtonElement;
-		btn.click();
+		regenBtn.click();
+		await el.updateComplete;
+		// Click "Confirm" in the confirm row
+		const confirmBtn = Array.from(el.shadowRoot!.querySelectorAll(".action-btn"))
+			.find((b) => b.textContent?.trim() === "Confirm") as HTMLButtonElement;
+		confirmBtn.click();
 		expect(fired).toBe(true);
 	});
 

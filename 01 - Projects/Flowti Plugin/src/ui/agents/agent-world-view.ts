@@ -68,6 +68,7 @@ export class AgentWorldView extends ItemView {
 			spriteBasePath,
 			cliExecutor: this.deps.cliExecutor,
 			worldContext: this.deps.worldContext,
+			vaultBasePath,
 		});
 
 		try {

@@ -2,6 +2,7 @@ import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting } from "..
 import type { BrainState } from "../brain/brain-types.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
+import { extractAgentMessage } from "../data/message-utils.js";
 
 // ── Exported helper types ──────────────────────────────────────────
 
@@ -256,7 +257,7 @@ export class DashboardStore extends EventTarget {
 	private handleCliEvent(agentName: string, event: CliEvent): void {
 		switch (event.type) {
 			case "response": {
-				const text = event.text ?? "";
+				const text = extractAgentMessage(event.text ?? "");
 				this.pushAgentResponse(agentName, text);
 				this.dispatchEvent(new CustomEvent("agent-response-received", {
 					detail: { agentName, text, type: "speaking" },
@@ -264,8 +265,11 @@ export class DashboardStore extends EventTarget {
 				break;
 			}
 			case "thinking": {
-				const text = event.text ?? "...";
-				this.pushAgentThought(agentName, text);
+				// Only update thinking state — do NOT add to conversation thread.
+				// The talk engine handles the thinking indicator visually.
+				this.thinkingAgents.add(agentName);
+				this.llmStatus.set(agentName, { state: "thinking", since: Date.now() });
+				this.notify();
 				break;
 			}
 			case "permission-request": {
@@ -296,7 +300,13 @@ export class DashboardStore extends EventTarget {
 			const isFirstMessage = !this.conversations.has(agentName) || this.conversations.get(agentName)!.length === 0;
 			if (isFirstMessage) {
 				const agent = this.agents.find((a) => a.name === agentName);
-				const protocol = this.worldContext.getProtocolInstruction(agentName, agent?.domain ?? "general");
+				const protocol = this.worldContext.getProtocolInstruction(agentName, agent?.domain ?? "general", agent ? {
+					persona: agent.persona,
+					mood: agent.mood,
+					personality: agent.personality,
+					skills: agent.skills,
+					description: undefined,
+				} : undefined);
 				const snapshot = this.worldContext.serialize();
 				contextBlock = `${protocol}\n\n${snapshot}`;
 			} else {
@@ -379,6 +389,23 @@ export class DashboardStore extends EventTarget {
 		if (now - lastWoken < DashboardStore.WAKE_COOLDOWN_MS) return;
 		this.wokenAgents.set(agentName, now);
 		if (!this.cliExecutor) return;
+		// Eagerly start the agent process so LLM is warm when the user sends a message
+		const proc = this.getOrStartProcess(agentName);
+		if (proc && this.worldContext) {
+			const agent = this.agents.find((a) => a.name === agentName);
+			const protocol = this.worldContext.getProtocolInstruction(agentName, agent?.domain ?? "general", agent ? {
+				persona: agent.persona,
+				mood: agent.mood,
+				personality: agent.personality,
+				skills: agent.skills,
+				description: undefined,
+			} : undefined);
+			const snapshot = this.worldContext.serialize();
+			const primer = `${protocol}\n\n${snapshot}\n\nYou have just been summoned by the Director. Acknowledge briefly — one sentence, in character.`;
+			this.pushDebugEntry(agentName, primer, "wake-up");
+			proc.send(primer);
+			this.worldContext.markSeen(agentName);
+		}
 		await this.cliExecutor.wakeAgent(agentName);
 	}
 }

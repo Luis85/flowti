@@ -35,6 +35,8 @@ import { SocialSystem } from "./systems/social-system.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
+import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 // Side-effect imports — register Lit custom elements
 import "./ui/dashboard-overlays.js";
@@ -65,6 +67,7 @@ export interface AgentWorldDeps {
 	spriteBasePath: string;
 	cliExecutor?: ICliExecutor;
 	worldContext?: WorldContext;
+	vaultBasePath?: string;
 }
 
 export interface AgentWorldHandle {
@@ -197,26 +200,22 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	function handleAgentSelect(agentName: string): void {
 		const actor = findAgentActor(agentName);
 		if (store.selectedAgent === agentName) {
-			// Same agent clicked while panel open -> close panel, start follow
+			// Same agent clicked while panel open -> close panel, stop follow
 			store.selectAgent(null);
-			if (actor && cameraSystem) {
-				cameraSystem.startFollow(actor);
-			}
-			store.startFollow(agentName);
+			if (cameraSystem) cameraSystem.stopFollow();
+			store.stopFollow();
 		} else {
-			// Different agent or no panel -> center camera on agent, open panel
-			if (cameraSystem?.isFollowing()) {
-				cameraSystem.stopFollow();
-				store.stopFollow();
-			}
+			// Select agent -> center camera, follow, open panel
 			if (actor) {
-				// Stop the agent immediately and face the user
 				brainSystem.freeze(agentName);
 				actor.focus();
-				void engine.currentScene.camera.move(actor.pos, 300, ex.EasingFunctions.EaseInOutCubic);
+				if (cameraSystem) cameraSystem.startFollow(actor);
+				store.startFollow(agentName);
 			}
 			store.selectAgent(agentName);
 			store.selectTab("info");
+			// Warm up the agent process so LLM is ready when the user talks
+			void store.wakeAgent(agentName);
 			// Show a personality greeting via the talk engine instead of waking LLM
 			const agent = store.agents.find((a) => a.name === agentName);
 			if (agent) {
@@ -342,10 +341,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			const bubbleKind = action.type === "asking" ? "question" : "speech";
 			const currentScene = engine.currentScene;
 			bubbleSystem.showBubble(action.agentName, bubbleKind, text, currentScene, findAgentActor);
-
-			// Push response to store for panel-talk component
-			store.pushAgentResponse(action.agentName, text);
-			store.setLlmStatus(action.agentName, { state: "idle", since: Date.now() });
 		} else if (action.type === "thinking") {
 			const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
 			const text = extractAgentMessage(rawText);
@@ -587,6 +582,38 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		store.updatePositions(positions);
 		store.endBatch();
 	});
+
+	// ── Position writer (tick-based, flushes every ~5s) ──
+	const POSITION_FLUSH_INTERVAL = 5_000;
+	let positionFlushTimer = 0;
+
+	if (deps.vaultBasePath) {
+		const positionsPath = join(deps.vaultBasePath, ".flowti", "var", "world-positions.json");
+		const positionsDir = join(deps.vaultBasePath, ".flowti", "var");
+
+		engine.on("postupdate", (evt: ex.PostUpdateEvent) => {
+			positionFlushTimer += evt.delta;
+			if (positionFlushTimer < POSITION_FLUSH_INTERVAL) return;
+			positionFlushTimer = 0;
+
+			const positions: Record<string, { x: number; y: number; scene: string; state: string }> = {};
+			for (const [name, entry] of brainSystem.getAllEntries()) {
+				positions[name] = {
+					x: Math.round(entry.position.x),
+					y: Math.round(entry.position.y),
+					scene: store.currentScene,
+					state: entry.state,
+				};
+			}
+
+			try {
+				if (!existsSync(positionsDir)) mkdirSync(positionsDir, { recursive: true });
+				writeFileSync(positionsPath, JSON.stringify({ updatedAt: new Date().toISOString(), positions }, null, "\t"), "utf-8");
+			} catch {
+				// Non-critical — skip silently
+			}
+		});
+	}
 
 	// ── Store event listeners for engine-side effects ────
 	store.addEventListener("scene-change", ((e: CustomEvent) => {

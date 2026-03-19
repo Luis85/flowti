@@ -78,6 +78,26 @@ export class HttpProjectService implements IProjectService {
 		return this.post("/api/storybook/preview/stop", { project });
 	}
 
+	async generateSitemapCanvas(project: string): Promise<ApiResult> {
+		return this.post("/api/storybook/canvas-generate", { project });
+	}
+
+	async importFromGit(_url: string, _name: string, _mode: "submodule" | "template"): Promise<ApiResult> {
+		return this.post("/api/project/import", { url: _url, name: _name, mode: _mode });
+	}
+
+	async detectProject(name: string): Promise<ApiResult> {
+		return this.post("/api/project/detect", { name });
+	}
+
+	async bootstrapProject(name: string, config: { build?: string; test?: string; lint?: string; storybook?: string }): Promise<ApiResult> {
+		return this.post("/api/project/bootstrap", { name, config });
+	}
+
+	async createEmptyProject(name: string): Promise<ApiResult> {
+		return this.post("/api/project/create", { name });
+	}
+
 	private async post(path: string, body: Record<string, unknown>): Promise<ApiResult> {
 		try {
 			const res = await fetch(`${this.baseUrl}${path}`, {
