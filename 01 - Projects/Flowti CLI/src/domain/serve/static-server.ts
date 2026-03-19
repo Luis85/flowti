@@ -179,12 +179,17 @@ export async function handleApiRoute(
 		const message = String(body.message ?? "");
 		if (!name || !message) { json(400, { error: "agentName and message required" }); return; }
 
-		// Prepend user's active file context if provided
-		const context = body.context as { path?: string; contentSnippet?: string } | undefined;
-		let fullMessage = message;
-		if (context?.path) {
-			fullMessage = `[User is currently viewing: ${context.path}]\n${context.contentSnippet ? `[File content (first 2000 chars)]:\n${context.contentSnippet}\n\n` : ""}${message}`;
+		// Prepend context if provided (string from WorldContext, or legacy object shape)
+		let contextPrefix = "";
+		if (typeof body.context === "string" && body.context) {
+			contextPrefix = body.context + "\n\n";
+		} else if (body.context && typeof body.context === "object") {
+			const ctx = body.context as { path?: string; contentSnippet?: string };
+			if (ctx.path) {
+				contextPrefix = `[User is currently viewing: ${ctx.path}]\n${ctx.contentSnippet ? `[File content]:\n${ctx.contentSnippet}\n\n` : ""}`;
+			}
 		}
+		let fullMessage = contextPrefix + message;
 
 		// Ensure worker exists (mirrors /api/agent/wake pattern)
 		let worker = ctx.workerManager.getWorker(name);

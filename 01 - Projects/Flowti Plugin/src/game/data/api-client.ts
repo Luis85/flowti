@@ -31,10 +31,10 @@ export async function sendMessage(
 	baseUrl: string,
 	agentName: string,
 	message: string,
-	context?: { path: string; contentSnippet: string },
+	context?: string,
 ): Promise<ApiResult> {
 	try {
-		console.log(`[api] sendMessage → ${agentName}: "${message.slice(0, 60)}"${context ? ` [ctx: ${context.path}]` : ""}`);
+		console.log(`[api] sendMessage → ${agentName}: "${message.slice(0, 60)}"${context ? " [+context]" : ""}`);
 		const res = await fetch(`${baseUrl}/api/agent/send`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },

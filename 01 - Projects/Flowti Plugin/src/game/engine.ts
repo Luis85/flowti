@@ -95,7 +95,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Reactive store ──────────────────────────────────
-	const store = new DashboardStore(deps.serverBaseUrl ?? "");
+	const store = new DashboardStore(deps.serverBaseUrl ?? "", deps.worldContext);
 
 	// ── Mount Lit overlay components ────────────────────
 	const overlays = document.createElement("ft-game-overlays") as HTMLElement & { store: DashboardStore };

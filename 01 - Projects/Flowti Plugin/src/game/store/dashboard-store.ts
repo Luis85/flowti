@@ -1,5 +1,6 @@
 import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting } from "../data/types.js";
 import type { BrainState } from "../brain/brain-types.js";
+import type { WorldContext } from "../../domain/agents/world-context.js";
 import * as api from "../data/api-client.js";
 
 // ── Exported helper types ──────────────────────────────────────────
@@ -45,13 +46,6 @@ export class DashboardStore extends EventTarget {
 
 	currentScene: Setting = "hub";
 
-	// ── User context (active file) ─────────────────────────────────
-	userContext: { path: string; content: string } | null = null;
-
-	setUserContext(ctx: { path: string; content: string } | null): void {
-		this.userContext = ctx;
-	}
-
 	// ── Debug log ─────────────────────────────────────────────────
 	debugLog: { timestamp: number; agentName: string; prompt: string; context?: string }[] = [];
 
@@ -69,10 +63,12 @@ export class DashboardStore extends EventTarget {
 	private wokenAgents: Map<string, number> = new Map();
 
 	private readonly baseUrl: string;
+	private worldContext: WorldContext | null;
 
-	constructor(baseUrl = "") {
+	constructor(baseUrl: string, worldContext?: WorldContext) {
 		super();
 		this.baseUrl = baseUrl;
+		this.worldContext = worldContext ?? null;
 	}
 
 	// ── Batching ──────────────────────────────────────────────────
@@ -231,21 +227,27 @@ export class DashboardStore extends EventTarget {
 	// ── Action methods (call API client) ──────────────────────────
 
 	async sendMessage(agentName: string, message: string): Promise<{ ok: boolean; error?: string }> {
-		// Fire visual effects immediately (thought bubble + silence ambient talk)
 		this.dispatchEvent(new CustomEvent("agent-message-sent", { detail: { agentName } }));
-		// Include user's active file context so the LLM knows what the user is working on
-		const context = this.userContext
-			? { path: this.userContext.path, contentSnippet: this.userContext.content.slice(0, 2000) }
-			: undefined;
-		// Log the full enriched prompt to debug console (mirrors server-side enrichment)
-		let fullPrompt = message;
-		if (context?.path) {
-			fullPrompt = `[User is currently viewing: ${context.path}]\n${context.contentSnippet ? `[File content (first 2000 chars)]:\n${context.contentSnippet}\n\n` : ""}${message}`;
+
+		let contextBlock = "";
+		if (this.worldContext) {
+			const isFirstMessage = !this.conversations.has(agentName) || this.conversations.get(agentName)!.length === 0;
+			if (isFirstMessage) {
+				const agent = this.agents.find((a) => a.name === agentName);
+				const protocol = this.worldContext.getProtocolInstruction(agentName, agent?.domain ?? "general");
+				const snapshot = this.worldContext.serialize();
+				contextBlock = `${protocol}\n\n${snapshot}`;
+			} else {
+				contextBlock = this.worldContext.serializeDelta(agentName) ?? "";
+			}
+			this.worldContext.markSeen(agentName);
 		}
+
+		const fullPrompt = contextBlock ? `${contextBlock}\n\n${message}` : message;
 		this.pushDebugEntry(agentName, fullPrompt);
-		const result = await api.sendMessage(this.baseUrl, agentName, message, context);
+
+		const result = await api.sendMessage(this.baseUrl, agentName, message, contextBlock || undefined);
 		if (result.ok && result.response) {
-			// Server returned the LLM response directly — no SSE dependency
 			this.pushAgentResponse(agentName, result.response);
 			this.dispatchEvent(new CustomEvent("agent-response-received", {
 				detail: { agentName, text: result.response, type: result.type ?? "speaking" },
