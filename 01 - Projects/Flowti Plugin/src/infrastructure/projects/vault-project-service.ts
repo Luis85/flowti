@@ -7,12 +7,12 @@ import type { App, TFolder, TFile } from "obsidian";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { IProjectService, ProjectSummary, ProjectDetail, ProjectConfig, StorybookFramework, StorybookStatus, OutputCallback } from "../../domain/projects/types.js";
+import type { IProjectService, ProjectSummary, ProjectDetail, ProjectConfig, StorybookFramework, StorybookStatus, OutputCallback, MarkdownSourceConfig } from "../../domain/projects/types.js";
 
 const PROJECTS_FOLDER = "01 - Projects";
 const PROJECT_BRIEF_TYPE = "ProjectBrief";
 const STORYBOOK_DIRS = [".storybook", "components/.storybook"];
-const EMPTY_STORYBOOK: StorybookStatus = { installed: false, framework: null, running: false, url: null, pid: null };
+const EMPTY_STORYBOOK: StorybookStatus = { installed: false, framework: null, running: false, url: null, pid: null, hasStaticBuild: false };
 
 function parseNoteType(content: string): string | null {
 	const match = content.match(/^---\s*\n([\s\S]*?)\n---/);
@@ -36,7 +36,9 @@ function detectStorybookOnDisk(absProjectPath: string): StorybookStatus {
 					if (fwMatch) framework = fwMatch[1];
 				}
 			} catch { /* can't read */ }
-			return { installed: true, framework, running: false, url: null, pid: null };
+			const sbParent = join(sbPath, "..");
+			const hasStaticBuild = existsSync(join(sbParent, "storybook-static", "index.html"));
+			return { installed: true, framework, running: false, url: null, pid: null, hasStaticBuild };
 		}
 	}
 	return EMPTY_STORYBOOK;
@@ -176,6 +178,21 @@ export class VaultProjectService implements IProjectService {
 			type = noteType ?? "unknown";
 		}
 
+		let brief: import("../../domain/projects/types.js").ProjectBrief | undefined;
+		if (noteFile && hasNote) {
+			const cache = this.app.metadataCache.getFileCache(noteFile);
+			const fm = cache?.frontmatter;
+			if (fm) {
+				brief = {
+					start: fm.start != null ? String(fm.start) : undefined,
+					end: fm.end != null ? String(fm.end) : undefined,
+					goal: fm.goal != null ? String(fm.goal) : undefined,
+					description: fm.description != null ? String(fm.description) : undefined,
+					status: fm.status != null ? String(fm.status) : undefined,
+				};
+			}
+		}
+
 		let storybook = detectStorybookOnDisk(absPath);
 		const running = this.runningProcesses.get(name);
 		if (running) {
@@ -218,9 +235,18 @@ export class VaultProjectService implements IProjectService {
 					} : undefined,
 					agents: roster,
 					publishTargets: endpoints?.map((e) => String(e.name)),
+					markdownSource: components.markdownSource ? {
+						path: String((components.markdownSource as Record<string, unknown>).path ?? ""),
+						strategy: String((components.markdownSource as Record<string, unknown>).strategy ?? "category") as import("../../domain/projects/types.js").ImportStrategy,
+						requiredFields: ((components.markdownSource as Record<string, unknown>).requiredFields as string[] | undefined) ?? [],
+					} : undefined,
 				};
 			}
 		} catch { /* invalid config */ }
+
+		const absProjectPath = absPath;
+		const hasSitemap = existsSync(join(absProjectPath, "configs", "sitemap.json"))
+			|| existsSync(join(absProjectPath, "imported-sitemap.json"));
 
 		return {
 			name,
@@ -228,24 +254,17 @@ export class VaultProjectService implements IProjectService {
 			hasNote,
 			notePath: hasNote ? notePath : null,
 			projectPath,
+			hasSitemap,
+			brief,
 			storybook,
 			config: projectConfig,
 		};
 	}
 
 	async installStorybook(project: string, framework: StorybookFramework, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
-		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
-		// Install storybook with vite builder + essentials (includes docs + test)
-		const result = await runAsync("npx", ["storybook@latest", "init", "--type", framework, "--builder", "vite", "--yes"], cwd, onOutput);
-		if (!result.ok) return result;
-
-		// Add a11y addon via npm
-		onOutput?.("Installing @storybook/addon-a11y...");
-		const a11yResult = await runAsync("npm", ["install", "--save-dev", "@storybook/addon-a11y"], cwd, onOutput);
-		if (!a11yResult.ok) {
-			onOutput?.("Warning: a11y addon install failed, continuing without it.");
-		}
-		return { ok: true };
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		return runAsync("node", [cliBin, "storybook:install", `--project="${project}"`, `--framework=${framework}`], vaultBase, onOutput);
 	}
 
 	private findStorybookConfigDir(absProjectPath: string): string | null {
@@ -348,10 +367,12 @@ export class VaultProjectService implements IProjectService {
 		return result;
 	}
 
-	async scaffoldStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; filesCreated?: number; error?: string }> {
+	async scaffoldStorybook(project: string, onOutput?: OutputCallback, opts?: { adoptImport?: boolean }): Promise<{ ok: boolean; filesCreated?: number; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "storybook:scaffold", `--project="${project}"`], vaultBase, onOutput);
+		const args = [cliBin, "storybook:scaffold", `--project="${project}"`];
+		if (opts?.adoptImport) args.push("--adopt-import");
+		return runAsync("node", args, vaultBase, onOutput);
 	}
 
 	async importMarkdownSitemap(project: string, sourcePath: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
@@ -359,5 +380,78 @@ export class VaultProjectService implements IProjectService {
 		const cliBin = join(vaultBase, ".flowti", "bin");
 		const absSource = join(vaultBase, sourcePath);
 		return runAsync("node", [cliBin, "storybook:import", `--project="${project}"`, `--source="${absSource}"`], vaultBase, onOutput);
+	}
+
+	async saveMarkdownSourceConfig(project: string, config: MarkdownSourceConfig, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		const fields = config.requiredFields.join(",");
+		return runAsync("node", [
+			cliBin, "storybook:import", "--save-config",
+			`--project="${project}"`,
+			`--source="${config.path}"`,
+			`--strategy=${config.strategy}`,
+			`--fields=${fields}`,
+		], vaultBase, onOutput);
+	}
+
+	async cleanStorybook(project: string): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		return runAsync("node", [cliBin, "storybook:clean", `--project="${project}"`], vaultBase);
+	}
+
+	private previewServers = new Map<string, { close: () => void; url: string }>();
+
+	async previewStorybook(project: string): Promise<{ ok: boolean; url?: string; error?: string }> {
+		const existing = this.previewServers.get(project);
+		if (existing) return { ok: true, url: existing.url };
+
+		const vaultBase = getVaultBasePath(this.app);
+		const staticDir = join(vaultBase, PROJECTS_FOLDER, project, "components", "storybook-static");
+		if (!existsSync(staticDir)) return { ok: false, error: "No static build found" };
+
+		try {
+			const http = await import("node:http");
+			const fs = await import("node:fs");
+			const nodePath = await import("node:path");
+			const port = 6007;
+
+			const MIME: Record<string, string> = {
+				".html": "text/html", ".css": "text/css", ".js": "application/javascript",
+				".mjs": "application/javascript", ".json": "application/json",
+				".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+			};
+
+			const server = http.createServer((req, res) => {
+				res.setHeader("Access-Control-Allow-Origin", "*");
+				const urlPath = decodeURIComponent((req.url ?? "/").split("?")[0]);
+				const safePath = urlPath === "/" ? "/index.html" : urlPath;
+				const filePath = nodePath.join(staticDir, ...safePath.split("/").filter(s => s && s !== ".."));
+
+				if (!fs.existsSync(filePath)) { res.writeHead(404); res.end("Not found"); return; }
+				const ext = nodePath.extname(filePath).toLowerCase();
+				const mime = MIME[ext] ?? "application/octet-stream";
+				const body = fs.readFileSync(filePath);
+				res.writeHead(200, { "Content-Type": mime });
+				res.end(body);
+			});
+
+			await new Promise<void>((resolve) => server.listen(port, resolve));
+			const url = `http://localhost:${port}`;
+			this.previewServers.set(project, { close: () => server.close(), url });
+			return { ok: true, url };
+		} catch (err) {
+			return { ok: false, error: String(err) };
+		}
+	}
+
+	async stopPreview(project: string): Promise<{ ok: boolean; error?: string }> {
+		const server = this.previewServers.get(project);
+		if (server) {
+			server.close();
+			this.previewServers.delete(project);
+		}
+		return { ok: true };
 	}
 }

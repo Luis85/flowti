@@ -4,7 +4,7 @@
  * Returns a dispose function for cleanup on view close.
  */
 
-import type { IProjectService, StorybookFramework } from "../../domain/projects/types.js";
+import type { IProjectService, StorybookFramework, MarkdownSourceConfig } from "../../domain/projects/types.js";
 
 // Side-effect import: register the Lit custom element
 import "../../components/projects/flowti-project-detail.js";
@@ -37,7 +37,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 			el.projectType = "unknown";
 			el.hasNote = false;
 			el.notePath = "";
-			el.storybook = { installed: false, framework: null, running: false, url: null, pid: null };
+			el.storybook = { installed: false, framework: null, running: false, url: null, pid: null, hasStaticBuild: false };
 			return;
 		}
 		el.projectName = detail.name;
@@ -46,6 +46,9 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.notePath = detail.notePath ?? "";
 		el.storybook = { ...detail.storybook };
 		el.config = detail.config;
+		el.hasSitemap = detail.hasSitemap;
+		el.hasMarkdownSource = !!detail.config?.markdownSource;
+		el.brief = detail.brief;
 	}
 
 	// ── Project selected from list ──
@@ -108,7 +111,13 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("storybook-install", ((e: CustomEvent) => {
 		startBusy("Installing Storybook...");
 		void projectService.installStorybook(currentProject, String(e.detail.framework) as StorybookFramework, appendOutput)
-			.then((r) => endBusy(r));
+			.then((r) => {
+				endBusy(r);
+				if (r.ok) {
+					// Show scaffold modal instead of auto-starting
+					el.showScaffoldModal = true;
+				}
+			});
 	}) as EventListener);
 
 	el.addEventListener("storybook-start", (() => {
@@ -179,13 +188,15 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 			.then((r) => endBusy(r));
 	}) as EventListener);
 
-	el.addEventListener("storybook-scaffold", (() => {
-		startBusy("Scaffolding from sitemap...");
-		void projectService.scaffoldStorybook(currentProject, appendOutput)
-			.then((r) => endBusy(r));
-	}) as EventListener);
-
 	el.addEventListener("storybook-import", (() => {
+		// Use saved config path if available, otherwise fall back to folder picker
+		const savedPath = (el.config as { markdownSource?: { path?: string } } | undefined)?.markdownSource?.path;
+		if (savedPath) {
+			startBusy("Importing markdown to sitemap...");
+			void projectService.importMarkdownSitemap(currentProject, savedPath, appendOutput)
+				.then((r) => endBusy(r));
+			return;
+		}
 		if (!deps.pickFolder) return;
 		void deps.pickFolder().then((folder) => {
 			if (folder === null) return;
@@ -198,6 +209,117 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("storybook-view", ((e: CustomEvent) => {
 		const url = String(e.detail?.url ?? "http://localhost:6006");
 		deps.openInWebviewer?.(url);
+	}) as EventListener);
+
+	// ── Config tab actions ──
+	el.addEventListener("config-save", ((e: CustomEvent) => {
+		const detail = e.detail as { path: string; strategy: string; requiredFields: string[] };
+		const config: MarkdownSourceConfig = {
+			path: detail.path,
+			strategy: detail.strategy as MarkdownSourceConfig["strategy"],
+			requiredFields: detail.requiredFields,
+		};
+		startBusy("Saving config...");
+		void projectService.saveMarkdownSourceConfig(currentProject, config, appendOutput)
+			.then((r) => endBusy(r));
+	}) as EventListener);
+
+	el.addEventListener("config-browse-folder", (() => {
+		if (!deps.pickFolder) return;
+		void deps.pickFolder().then((folder) => {
+			if (folder === null) return;
+			// Push the chosen folder path into the config tab's sourcePath
+			const configTab = el.shadowRoot?.querySelector("flowti-config-tab") as HTMLElement & { sourcePath: string } | null;
+			if (configTab) configTab.sourcePath = folder;
+		});
+	}) as EventListener);
+
+	// ── Scaffold modal actions ──
+	el.addEventListener("scaffold-confirm", ((e: CustomEvent) => {
+		el.showScaffoldModal = false;
+		const importFirst = e.detail?.importFirst === true;
+
+		if (importFirst) {
+			const savedPath = (el.config as { markdownSource?: { path?: string } } | undefined)?.markdownSource?.path;
+			if (!savedPath) { return; }
+			startBusy("Importing markdown...");
+			void projectService.importMarkdownSitemap(currentProject, savedPath, appendOutput)
+				.then((importResult) => {
+					if (!importResult.ok) { endBusy(importResult); return; }
+					appendOutput("Scaffolding components...");
+					void projectService.scaffoldStorybook(currentProject, appendOutput, { adoptImport: true })
+						.then((scaffoldResult) => {
+							if (!scaffoldResult.ok) { endBusy(scaffoldResult); return; }
+							endBusy(scaffoldResult);
+							el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
+						});
+				});
+		} else {
+			startBusy("Scaffolding components...");
+			void projectService.scaffoldStorybook(currentProject, appendOutput, { adoptImport: true })
+				.then((r) => {
+					if (!r.ok) { endBusy(r); return; }
+					endBusy(r);
+					el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
+				});
+		}
+	}) as EventListener);
+
+	el.addEventListener("scaffold-dismiss", (() => {
+		el.showScaffoldModal = false;
+	}) as EventListener);
+
+	// ── Regenerate flow ──
+	el.addEventListener("storybook-regenerate", (() => {
+		el.showRegenerateConfirm = true;
+	}) as EventListener);
+
+	el.addEventListener("storybook-regenerate-confirmed", (() => {
+		el.showRegenerateConfirm = false;
+		const framework = (el.storybook as { framework?: string })?.framework ?? "html";
+
+		startBusy("Regenerating component library...");
+		void projectService.cleanStorybook(currentProject)
+			.then((cleanResult) => {
+				if (!cleanResult.ok) { endBusy(cleanResult); return; }
+				appendOutput("Re-installing Storybook...");
+				return projectService.installStorybook(currentProject, framework as StorybookFramework, appendOutput);
+			})
+			.then((installResult) => {
+				if (!installResult || !installResult.ok) { endBusy(installResult ?? { ok: false }); return; }
+				appendOutput("Scaffolding components...");
+				return projectService.scaffoldStorybook(currentProject, appendOutput, { adoptImport: true });
+			})
+			.then((scaffoldResult) => {
+				if (!scaffoldResult || !scaffoldResult.ok) { endBusy(scaffoldResult ?? { ok: false }); return; }
+				endBusy(scaffoldResult);
+				el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
+			});
+	}) as EventListener);
+
+	el.addEventListener("storybook-open-folder", (() => {
+		const config = (el.config as { storybookDir?: string } | undefined);
+		const dir = config?.storybookDir ?? "components";
+		el.dispatchEvent(new CustomEvent("reveal-path", {
+			detail: { path: `${currentProject}/${dir}` },
+			bubbles: true, composed: true,
+		}));
+	}) as EventListener);
+
+	el.addEventListener("storybook-preview", (() => {
+		void projectService.previewStorybook(currentProject)
+			.then((r) => {
+				if (r.ok && r.url) {
+					deps.openInWebviewer?.(r.url);
+				} else if (r.error) {
+					el.storybookError = r.error;
+				}
+			});
+	}) as EventListener);
+
+	el.addEventListener("storybook-dismiss-output", (() => {
+		outputLines.length = 0;
+		el.storybookOutput = [];
 	}) as EventListener);
 
 	container.appendChild(el);

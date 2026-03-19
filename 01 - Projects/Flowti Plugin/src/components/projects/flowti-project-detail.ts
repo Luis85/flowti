@@ -7,10 +7,12 @@
 import { html, css } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
-import type { StorybookStatus, ProjectSummary } from "../../domain/projects/types.js";
+import type { StorybookStatus, ProjectSummary, ProjectConfig } from "../../domain/projects/types.js";
 
-// Side-effect import to register child custom element
+// Side-effect imports to register child custom elements
 import "./flowti-storybook-section.js";
+import "./flowti-config-tab.js";
+import "./flowti-scaffold-modal.js";
 
 export class FlowtiProjectDetail extends FlowtiElement {
 	static properties = {
@@ -27,6 +29,12 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		storybookBusyLabel: { type: String },
 		storybookOutput: { type: Array },
 		storybookError: { type: String },
+		config: { type: Object },
+		activeTab: { type: String },
+		showScaffoldModal: { type: Boolean },
+		hasSitemap: { type: Boolean },
+		hasMarkdownSource: { type: Boolean },
+		brief: { type: Object },
 	};
 
 	static styles = [
@@ -92,6 +100,53 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			.section {
 				padding: var(--flowti-space-sm, 8px) 0;
 				border-top: 1px solid var(--background-modifier-border, #333);
+			}
+
+			.section:first-of-type {
+				border-top: none;
+			}
+
+			.brief-info {
+				display: flex;
+				flex-direction: column;
+				gap: var(--flowti-space-xs, 4px);
+				padding: var(--flowti-space-sm, 8px) 0;
+			}
+
+			.brief-row {
+				display: flex;
+				gap: var(--flowti-space-sm, 8px);
+				font-size: var(--flowti-font-sm, 0.85em);
+			}
+
+			.brief-label {
+				color: var(--text-muted, #999);
+				min-width: 70px;
+			}
+
+			.brief-value {
+				color: var(--text-normal, #ddd);
+			}
+
+			.brief-meta {
+				display: flex;
+				gap: var(--flowti-space-md, 16px);
+				font-size: var(--flowti-font-sm, 0.85em);
+				color: var(--text-muted, #999);
+			}
+
+			.brief-description {
+				font-size: var(--flowti-font-sm, 0.85em);
+				color: var(--text-normal, #ddd);
+				line-height: 1.5;
+			}
+
+			.brief-status {
+				display: inline-block;
+				padding: 1px 8px;
+				border-radius: 3px;
+				font-size: 0.8em;
+				background: var(--background-modifier-hover, #333);
 			}
 
 			.section-title {
@@ -237,6 +292,98 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				color: var(--text-muted, #999);
 				font-size: var(--flowti-font-sm, 0.85em);
 			}
+
+			/* ── Config info section ── */
+			.config-grid {
+				display: grid;
+				grid-template-columns: auto 1fr;
+				gap: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
+				font-size: var(--flowti-font-sm, 0.85em);
+			}
+
+			.config-label {
+				color: var(--text-muted, #999);
+				font-weight: 500;
+				white-space: nowrap;
+			}
+
+			.config-value {
+				color: var(--text-normal, #ddd);
+			}
+
+			.config-tags {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--flowti-space-xs, 4px);
+			}
+
+			.config-tag {
+				display: inline-block;
+				padding: 1px 6px;
+				border-radius: var(--flowti-radius-sm, 4px);
+				background: var(--background-modifier-hover, #333);
+				font-size: 0.9em;
+			}
+
+			.config-empty {
+				padding: var(--flowti-space-sm, 8px);
+				color: var(--text-faint, #666);
+				font-size: var(--flowti-font-sm, 0.85em);
+				font-style: italic;
+			}
+
+			.tab-bar {
+				display: flex;
+				gap: 0;
+				border-bottom: 1px solid var(--background-modifier-border, #333);
+				margin-bottom: var(--flowti-space-sm, 8px);
+			}
+
+			.tab-btn {
+				padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
+				border: none;
+				border-bottom: 2px solid transparent;
+				background: none;
+				color: var(--text-muted, #999);
+				font-size: var(--flowti-font-sm, 0.85em);
+				cursor: pointer;
+			}
+
+			.tab-btn:hover {
+				color: var(--text-normal, #ddd);
+			}
+
+			.tab-btn--active {
+				color: var(--interactive-accent, #7c3aed);
+				border-bottom-color: var(--interactive-accent, #7c3aed);
+				font-weight: 500;
+			}
+
+			.framework-badge {
+				display: inline-block;
+				padding: 1px 6px;
+				border-radius: 3px;
+				font-size: 0.8em;
+				background: var(--background-modifier-hover, #333);
+				color: var(--text-muted, #999);
+			}
+
+			.status-label {
+				font-size: 0.8em;
+				color: var(--text-muted, #999);
+			}
+
+			.status-label--running {
+				color: var(--color-green, #4caf50);
+			}
+
+			.dot--running {
+				display: inline-block;
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background: var(--color-green, #4caf50);
+			}
 		`,
 	];
 
@@ -244,7 +391,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	projectType = "";
 	hasNote = false;
 	notePath = "";
-	storybook: StorybookStatus = { installed: false, framework: null, running: false, url: null, pid: null };
+	storybook: StorybookStatus = { installed: false, framework: null, running: false, url: null, pid: null, hasStaticBuild: false };
 	projects: ProjectSummary[] = [];
 	searchQuery = "";
 	statusMessage = "";
@@ -252,6 +399,12 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	storybookBusyLabel = "";
 	storybookOutput: string[] = [];
 	storybookError = "";
+	config: ProjectConfig | undefined = undefined;
+	activeTab = "overview";
+	showScaffoldModal = false;
+	hasSitemap = false;
+	hasMarkdownSource = false;
+	brief: Record<string, string | undefined> | undefined = undefined;
 
 	protected renderContent() {
 		if (!this.projectName) {
@@ -259,9 +412,41 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		}
 		return html`
 			${this.renderHeader()}
+			${this.renderBriefSection()}
 			${this.statusMessage ? html`<div class="status-banner">${this.statusMessage}</div>` : ""}
-			${this.renderNoteSection()}
-			${this.renderStorybookSection()}
+			${this.renderTabBar()}
+			${this.activeTab === "overview" ? html`
+				${this.renderConfigSection()}
+				${this.renderNoteSection()}
+				${this.renderStorybookSection()}
+			` : ""}
+			${this.activeTab === "config" ? html`
+				<flowti-config-tab
+					.projectName="${this.projectName}"
+					.config="${this.config}"
+				></flowti-config-tab>
+			` : ""}
+			${this.showScaffoldModal ? html`
+				<flowti-scaffold-modal
+					.hasSitemap="${this.hasSitemap}"
+					.hasMarkdownSource="${this.hasMarkdownSource}"
+				></flowti-scaffold-modal>
+			` : ""}
+		`;
+	}
+
+	private renderTabBar() {
+		const tab = (id: string, label: string) => html`
+			<button
+				class="tab-btn ${this.activeTab === id ? "tab-btn--active" : ""}"
+				@click="${() => { this.activeTab = id; }}"
+			>${label}</button>
+		`;
+		return html`
+			<div class="tab-bar">
+				${tab("overview", "Overview")}
+				${tab("config", "Config")}
+			</div>
 		`;
 	}
 
@@ -321,7 +506,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	private renderNoteSection() {
 		return html`
 			<div class="section">
-				<div class="section-title">Note</div>
+				<div class="section-title">Project Brief</div>
 				${this.hasNote ? this.renderNoteLink() : this.renderNoteWarning()}
 			</div>
 		`;
@@ -329,22 +514,112 @@ export class FlowtiProjectDetail extends FlowtiElement {
 
 	private renderNoteLink() {
 		return html`
-			<button class="note-link" @click="${this.dispatchOpenNote}">Project note</button>
+			<button class="note-link" @click="${this.dispatchOpenNote}">Open brief</button>
 		`;
 	}
 
 	private renderNoteWarning() {
 		return html`
 			<div class="note-warning">
-				<span>No project note found</span>
-				<button class="note-create" @click="${this.dispatchCreateNote}">Create note</button>
+				<span>No project brief</span>
+				<button class="note-create" @click="${this.dispatchCreateNote}">Create brief</button>
 			</div>
 		`;
 	}
 
-	private renderStorybookSection() {
+	private renderBriefSection() {
+		if (!this.brief) return "";
+		const { goal, description, start, end, status } = this.brief;
+		const hasAny = goal || description || start || end || status;
+		if (!hasAny) return "";
+
+		return html`
+			<div class="brief-info">
+				${goal ? html`
+					<div class="brief-row">
+						<span class="brief-label">Goal</span>
+						<span class="brief-value">${goal}</span>
+					</div>
+				` : ""}
+				${status || start || end ? html`
+					<div class="brief-meta">
+						${status ? html`<span class="brief-status">${status}</span>` : ""}
+						${start ? html`<span>Start: ${start}</span>` : ""}
+						${end ? html`<span>End: ${end}</span>` : ""}
+					</div>
+				` : ""}
+				${description ? html`<div class="brief-description">${description}</div>` : ""}
+			</div>
+		`;
+	}
+
+	private renderConfigSection() {
+		if (!this.config) {
+			return html`
+				<div class="section">
+					<div class="section-title">Project Info</div>
+					<div class="config-empty">No flowti.config.json found</div>
+				</div>
+			`;
+		}
+
+		const { buildModes, testPresets, healthTargets, agents, publishTargets } = this.config;
+		const hasHealth = healthTargets && (healthTargets.coverageTarget || healthTargets.minTests);
+
 		return html`
 			<div class="section">
+				<div class="section-title">Project Info</div>
+				<div class="config-grid">
+					${buildModes.length > 0 ? html`
+						<span class="config-label">Build</span>
+						<span class="config-value"><span class="config-tags">${buildModes.map((m) => html`<span class="config-tag">${m}</span>`)}</span></span>
+					` : ""}
+					${testPresets.length > 0 ? html`
+						<span class="config-label">Test</span>
+						<span class="config-value"><span class="config-tags">${testPresets.map((t) => html`<span class="config-tag">${t}</span>`)}</span></span>
+					` : ""}
+					${hasHealth ? html`
+						<span class="config-label">Health</span>
+						<span class="config-value">${this.formatHealth(healthTargets)}</span>
+					` : ""}
+					${agents && agents.length > 0 ? html`
+						<span class="config-label">Team</span>
+						<span class="config-value">${agents.length <= 4 ? agents.join(", ") : `${agents.slice(0, 3).join(", ")} +${agents.length - 3} more`}</span>
+					` : ""}
+					${publishTargets && publishTargets.length > 0 ? html`
+						<span class="config-label">Deploy</span>
+						<span class="config-value">${publishTargets.join(", ")}</span>
+					` : ""}
+				</div>
+			</div>
+		`;
+	}
+
+	private formatHealth(h: NonNullable<ProjectConfig["healthTargets"]>): string {
+		const parts: string[] = [];
+		if (h.coverageMin || h.coverageTarget) {
+			parts.push(`Coverage ${h.coverageMin ?? "?"}%\u2192${h.coverageTarget ?? "?"}%`);
+		}
+		if (h.maxLintErrors !== undefined) parts.push(`Lint errors \u2264${h.maxLintErrors}`);
+		if (h.maxLintWarnings !== undefined) parts.push(`Warnings \u2264${h.maxLintWarnings}`);
+		if (h.minTests) parts.push(`Tests \u2265${h.minTests}`);
+		return parts.join(" \u00B7 ");
+	}
+
+	private renderStorybookSection() {
+		const badge = this.storybook.framework
+			? html`<span class="framework-badge">${this.storybook.framework}</span>`
+			: "";
+		const statusText = this.storybook.running ? "Running" : this.storybook.installed ? "Installed" : "";
+		const statusClass = this.storybook.running ? "status-label--running" : "";
+		const dot = this.storybook.running ? html`<span class="dot--running"></span>` : "";
+
+		return html`
+			<div class="section">
+				<div class="section-title">
+					Storybook ${dot} ${badge}
+					${statusText ? html`<span class="status-label ${statusClass}">${statusText}</span>` : ""}
+				</div>
 				<flowti-storybook-section
 					.installed="${this.storybook.installed}"
 					.framework="${this.storybook.framework}"
@@ -355,6 +630,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.errorNote="${this.storybookError}"
 					.url="${this.storybook.url}"
 					.pid="${this.storybook.pid}"
+					.hasStaticBuild="${this.storybook.hasStaticBuild}"
 				></flowti-storybook-section>
 			</div>
 		`;

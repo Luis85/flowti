@@ -50,6 +50,7 @@ describe("HttpProjectService", () => {
 				name: "Flowti CLI", type: "typescript-cli", hasNote: true,
 				notePath: "01 - Projects/Flowti CLI/Flowti CLI.md",
 				projectPath: "01 - Projects/Flowti CLI",
+				hasSitemap: true,
 				storybook: { installed: true, framework: "react", running: false, url: null, pid: null },
 			};
 			http.request.mockResolvedValueOnce(jsonResponse(detail));
@@ -90,7 +91,7 @@ describe("HttpProjectService", () => {
 		it("returns error response on failure", async () => {
 			http.request.mockResolvedValueOnce(jsonResponse({ ok: false, error: "Install failed" }));
 
-			const result = await service.installStorybook("Flowti CLI", "vue");
+			const result = await service.installStorybook("Flowti CLI", "vue3");
 
 			expect(result).toEqual({ ok: false, error: "Install failed" });
 		});
@@ -141,6 +142,38 @@ describe("HttpProjectService", () => {
 				body: JSON.stringify({ project: "Flowti CLI" }),
 			});
 			expect(result).toEqual({ ok: true, outputDir: "storybook-static" });
+		});
+	});
+
+	describe("saveMarkdownSourceConfig", () => {
+		it("posts to /api/storybook/config with project and config", async () => {
+			const mockFetch = vi.fn().mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ ok: true }),
+			});
+			vi.stubGlobal("fetch", mockFetch);
+
+			const fetchService = new HttpProjectService("http://localhost:3000");
+			const result = await fetchService.saveMarkdownSourceConfig("Flowti CLI", {
+				path: "components",
+				strategy: "category",
+				requiredFields: ["name", "category", "description"],
+			});
+
+			expect(mockFetch).toHaveBeenCalledWith(
+				"http://localhost:3000/api/storybook/config",
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						project: "Flowti CLI",
+						config: { path: "components", strategy: "category", requiredFields: ["name", "category", "description"] },
+					}),
+				},
+			);
+			expect(result).toEqual({ ok: true });
+
+			vi.unstubAllGlobals();
 		});
 	});
 

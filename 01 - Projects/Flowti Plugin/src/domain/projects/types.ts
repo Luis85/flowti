@@ -9,6 +9,7 @@ export interface StorybookStatus {
 	readonly running: boolean;
 	readonly url: string | null;
 	readonly pid: number | null;
+	readonly hasStaticBuild: boolean;
 }
 
 export interface ProjectSummary {
@@ -18,13 +19,31 @@ export interface ProjectSummary {
 	readonly storybook: StorybookStatus;
 }
 
+export interface ProjectBrief {
+	readonly start?: string;
+	readonly end?: string;
+	readonly goal?: string;
+	readonly description?: string;
+	readonly status?: string;
+}
+
 export interface ProjectDetail extends ProjectSummary {
 	readonly notePath: string | null;
 	readonly projectPath: string;
+	readonly hasSitemap: boolean;
+	readonly brief?: ProjectBrief;
 	readonly config?: ProjectConfig;
 }
 
 export type StorybookFramework = "html" | "react" | "vue3" | "angular" | "web_components" | "svelte";
+
+export type ImportStrategy = "category" | "flat" | "hierarchical";
+
+export interface MarkdownSourceConfig {
+	readonly path: string;
+	readonly strategy: ImportStrategy;
+	readonly requiredFields: readonly string[];
+}
 
 export interface ProjectConfig {
 	readonly buildModes: readonly string[];
@@ -39,6 +58,7 @@ export interface ProjectConfig {
 	};
 	readonly agents?: readonly string[];
 	readonly publishTargets?: readonly string[];
+	readonly markdownSource?: MarkdownSourceConfig;
 }
 
 export type OutputCallback = (line: string) => void;
@@ -50,6 +70,10 @@ export interface IProjectService {
 	startStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; url?: string; pid?: number; error?: string }>;
 	stopStorybook(project: string): Promise<{ ok: boolean; error?: string }>;
 	buildStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; outputDir?: string; error?: string }>;
-	scaffoldStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; filesCreated?: number; error?: string }>;
+	scaffoldStorybook(project: string, onOutput?: OutputCallback, opts?: { adoptImport?: boolean }): Promise<{ ok: boolean; filesCreated?: number; error?: string }>;
 	importMarkdownSitemap(project: string, sourcePath: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+	saveMarkdownSourceConfig(project: string, config: MarkdownSourceConfig, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+	cleanStorybook(project: string): Promise<{ ok: boolean; error?: string }>;
+	previewStorybook(project: string): Promise<{ ok: boolean; url?: string; error?: string }>;
+	stopPreview(project: string): Promise<{ ok: boolean; error?: string }>;
 }

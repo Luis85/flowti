@@ -29,6 +29,7 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		busyLabel: { type: String },
 		outputLines: { type: Array },
 		errorNote: { type: String },
+		hasStaticBuild: { type: Boolean },
 	};
 
 	static styles = [
@@ -166,6 +167,38 @@ export class FlowtiStorybookSection extends FlowtiElement {
 				opacity: 0.9;
 			}
 
+			.action-btn:disabled {
+				opacity: 0.4;
+				cursor: not-allowed;
+				pointer-events: none;
+			}
+
+			.output-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-top: var(--flowti-space-sm, 8px);
+				margin-bottom: var(--flowti-space-xs, 4px);
+			}
+
+			.output-header__label {
+				font-size: 0.75em;
+				color: var(--text-muted, #999);
+			}
+
+			.output-header__dismiss {
+				background: none;
+				border: none;
+				color: var(--text-muted, #999);
+				cursor: pointer;
+				font-size: 1.1em;
+				padding: 0 4px;
+			}
+
+			.output-header__dismiss:hover {
+				color: var(--text-normal, #ddd);
+			}
+
 			.busy-section {
 				display: flex;
 				flex-direction: column;
@@ -249,6 +282,7 @@ export class FlowtiStorybookSection extends FlowtiElement {
 	busyLabel = "";
 	outputLines: string[] = [];
 	errorNote = "";
+	hasStaticBuild = false;
 
 	protected renderContent() {
 		if (this.busy) {
@@ -264,7 +298,15 @@ export class FlowtiStorybookSection extends FlowtiElement {
 
 	private renderOutputLog() {
 		if (this.outputLines.length === 0) return "";
-		return html`<div class="output-log">${this.outputLines.join("\n")}</div>`;
+		return html`
+			${!this.busy ? html`
+				<div class="output-header">
+					<span class="output-header__label">Output</span>
+					<button class="output-header__dismiss" @click="${() => this.dismissOutput()}" title="Dismiss">&times;</button>
+				</div>
+			` : ""}
+			<div class="output-log">${this.outputLines.join("\n")}</div>
+		`;
 	}
 
 	private renderErrorNote() {
@@ -325,15 +367,14 @@ export class FlowtiStorybookSection extends FlowtiElement {
 
 	private renderInstalled() {
 		return html`
-			<div class="status-row">
-				<span class="framework-badge">${this.framework}</span>
-				<span class="status-label">Installed</span>
-			</div>
 			<div class="actions">
-				<button class="action-btn action-btn--primary" @click="${() => this.dispatchStart()}" title="Launch dev server on localhost:6006">Start</button>
-				<button class="action-btn" @click="${() => this.dispatchScaffold()}" title="Generate .stories files from sitemap page definitions">Scaffold from sitemap</button>
-				<button class="action-btn" @click="${() => this.dispatchBuild()}" title="Build static site to storybook-static/">Build</button>
-				<button class="action-btn" @click="${() => this.dispatchOpenFolder()}" title="Open .storybook config directory">Open folder</button>
+				<button class="action-btn action-btn--primary" ?disabled="${this.busy}" @click="${() => this.dispatchStart()}" title="Launch dev server on localhost:6006">Start</button>
+				${this.hasStaticBuild ? html`
+					<button class="action-btn" ?disabled="${this.busy}" @click="${() => this.dispatchPreview()}" title="Open static build in viewer">Preview</button>
+				` : ""}
+				<button class="action-btn" ?disabled="${this.busy}" @click="${() => this.dispatchBuild()}" title="Build static site to storybook-static/">Build</button>
+				<button class="action-btn" ?disabled="${this.busy}" @click="${() => this.dispatchOpenFolder()}" title="Open components folder in vault">Open folder</button>
+				<button class="action-btn action-btn--danger" ?disabled="${this.busy}" @click="${() => this.dispatchRegenerate()}" title="Delete and recreate component library from sitemap">Regenerate</button>
 			</div>
 		`;
 	}
@@ -341,17 +382,21 @@ export class FlowtiStorybookSection extends FlowtiElement {
 	private renderRunning() {
 		return html`
 			<div class="status-row">
-				<span class="dot--running"></span>
-				<span class="framework-badge">${this.framework}</span>
-				<span class="status-label status-label--running">Running</span>
 				<span class="url-label">${this.url}</span>
 			</div>
 			<div class="actions">
-				<button class="action-btn action-btn--primary" @click="${() => this.dispatchView()}" title="Open Storybook in browser">View</button>
-				<button class="action-btn action-btn--danger" @click="${() => this.dispatchStop()}" title="Stop the dev server process">Stop</button>
-				<button class="action-btn" @click="${() => this.dispatchBuild()}" title="Build static site to storybook-static/">Build</button>
+				<button class="action-btn action-btn--primary" ?disabled="${this.busy}" @click="${() => this.dispatchView()}" title="Open Storybook in browser">View</button>
+				${this.hasStaticBuild ? html`
+					<button class="action-btn" ?disabled="${this.busy}" @click="${() => this.dispatchPreview()}" title="Open static build in viewer">Preview</button>
+				` : ""}
+				<button class="action-btn action-btn--danger" ?disabled="${this.busy}" @click="${() => this.dispatchStop()}" title="Stop the dev server process">Stop</button>
+				<button class="action-btn" ?disabled="${this.busy}" @click="${() => this.dispatchBuild()}" title="Build static site to storybook-static/">Build</button>
 			</div>
 		`;
+	}
+
+	private dismissOutput(): void {
+		this.dispatchEvent(new CustomEvent("storybook-dismiss-output", { bubbles: true, composed: true }));
 	}
 
 	private dispatchInstall(framework: StorybookFramework): void {
@@ -382,12 +427,20 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		this.dispatchEvent(new CustomEvent("storybook-scaffold", { bubbles: true, composed: true }));
 	}
 
+	private dispatchRegenerate(): void {
+		this.dispatchEvent(new CustomEvent("storybook-regenerate", { bubbles: true, composed: true }));
+	}
+
 	private dispatchOpenFolder(): void {
 		this.dispatchEvent(new CustomEvent("storybook-open-folder", { bubbles: true, composed: true }));
 	}
 
 	private dispatchView(): void {
 		this.dispatchEvent(new CustomEvent("storybook-view", { bubbles: true, composed: true }));
+	}
+
+	private dispatchPreview(): void {
+		this.dispatchEvent(new CustomEvent("storybook-preview", { bubbles: true, composed: true }));
 	}
 }
 

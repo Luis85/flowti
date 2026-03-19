@@ -61,17 +61,16 @@ describe("flowti-storybook-section", () => {
 		expect(labels).toContain("Open folder");
 	});
 
-	it("shows framework badge when installed", async () => {
+	it("badge and dot are rendered by parent, not by this component", async () => {
 		el.installed = true;
 		el.running = false;
 		el.framework = "react";
 		await el.updateComplete;
 		const badge = el.shadowRoot!.querySelector(".framework-badge");
-		expect(badge).not.toBeNull();
-		expect(badge!.textContent?.trim()).toBe("react");
+		expect(badge).toBeNull();
 	});
 
-	it("shows green dot and URL when running", async () => {
+	it("shows URL when running", async () => {
 		el.installed = true;
 		el.running = true;
 		el.url = "http://localhost:6006";
@@ -79,7 +78,6 @@ describe("flowti-storybook-section", () => {
 		el.framework = "react";
 		await el.updateComplete;
 		const shadow = el.shadowRoot!;
-		expect(shadow.querySelector(".dot--running")).not.toBeNull();
 		expect(shadow.textContent).toContain("http://localhost:6006");
 	});
 

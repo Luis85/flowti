@@ -5,7 +5,7 @@
 
 import type {
 	IProjectService, ProjectSummary, ProjectDetail,
-	StorybookFramework,
+	StorybookFramework, MarkdownSourceConfig,
 } from "../../domain/projects/types.js";
 
 interface ApiResult { ok: boolean; error?: string; [key: string]: unknown }
@@ -50,12 +50,28 @@ export class HttpProjectService implements IProjectService {
 		return this.post("/api/storybook/build", { project });
 	}
 
-	async scaffoldStorybook(project: string): Promise<ApiResult & { filesCreated?: number }> {
-		return this.post("/api/storybook/scaffold", { project });
+	async scaffoldStorybook(project: string, _onOutput?: (line: string) => void, opts?: { adoptImport?: boolean }): Promise<ApiResult & { filesCreated?: number }> {
+		return this.post("/api/storybook/scaffold", { project, adoptImport: opts?.adoptImport });
 	}
 
 	async importMarkdownSitemap(project: string, sourcePath: string): Promise<ApiResult> {
 		return this.post("/api/storybook/import", { project, sourcePath });
+	}
+
+	async saveMarkdownSourceConfig(project: string, config: MarkdownSourceConfig): Promise<ApiResult> {
+		return this.post("/api/storybook/config", { project, config });
+	}
+
+	async cleanStorybook(project: string): Promise<ApiResult> {
+		return this.post("/api/storybook/clean", { project });
+	}
+
+	async previewStorybook(project: string): Promise<ApiResult & { url?: string }> {
+		return this.post("/api/storybook/preview", { project });
+	}
+
+	async stopPreview(project: string): Promise<ApiResult> {
+		return this.post("/api/storybook/preview/stop", { project });
 	}
 
 	private async post(path: string, body: Record<string, unknown>): Promise<ApiResult> {
