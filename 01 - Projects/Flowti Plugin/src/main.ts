@@ -1,4 +1,5 @@
 import { Plugin, TFile, TFolder, type ViewCreator } from "obsidian";
+import { getServerStatus, killServer, clearServerRegistry } from "./infrastructure/agents/server-launcher.js";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -525,9 +526,20 @@ export default class FlowtiBasePlugin extends Plugin {
 		for (const type of viewTypes) {
 			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
 		}
+		// Kill CLI server (and its child processes like storybook) if we spawned one
+		safeDispose("cliServer", () => {
+			const vaultPath = (this.app.vault.adapter as unknown as { basePath: string }).basePath;
+			const status = getServerStatus(vaultPath);
+			if (status.running && status.entry?.pid) {
+				// On Windows, taskkill /F /T kills the process tree (server + storybook children)
+				killServer(status.entry.pid);
+				clearServerRegistry(vaultPath);
+			}
+		});
 		safeDispose("agentSseClient", () => this.agentSetup?.sseClient.disconnect());
 		safeDispose("agentService", () => this.agentSetup?.agentService.disconnect());
 		safeDispose("agentContext", () => this.agentSetup?.contextProvider.dispose());
+		safeDispose("worldContext", () => this.agentSetup?.worldContext.dispose());
 		safeDispose("trainCanvasSync", () => this.trainCanvasSync?.destroy());
 		safeDispose("canvasSessionService", () => this.canvasSessionService?.dispose());
 		safeDispose("journeyBuilderService", () => this.journeyBuilderService?.stop());

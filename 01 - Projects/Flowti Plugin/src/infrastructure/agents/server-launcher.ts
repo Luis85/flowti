@@ -70,13 +70,14 @@ export function writeServerRegistryForExisting(vaultPath: string, url: string): 
 	});
 }
 
-/** Kill a server process by PID. Cross-platform: uses taskkill on Windows, SIGTERM elsewhere. */
+/** Kill a server process by PID. Cross-platform: uses taskkill /T on Windows (tree kill) to also stop child processes (storybook, etc.), SIGTERM elsewhere. */
 export function killServer(pid: number): boolean {
 	try {
 		if (process.platform === "win32") {
-			execSync(`taskkill /F /PID ${pid}`, { windowsHide: true, timeout: 5000 });
+			execSync(`taskkill /F /T /PID ${pid}`, { windowsHide: true, timeout: 5000 });
 		} else {
-			process.kill(pid, "SIGTERM");
+			// Kill process group on Unix — negative PID sends signal to the group
+			try { process.kill(-pid, "SIGTERM"); } catch { process.kill(pid, "SIGTERM"); }
 		}
 		return true;
 	} catch {
