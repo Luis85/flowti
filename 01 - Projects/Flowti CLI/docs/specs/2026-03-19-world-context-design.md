@@ -16,7 +16,9 @@ A `WorldContext` service that maintains a live, event-driven picture of the user
 
 ### WorldContext Service
 
-**Location:** `src/infrastructure/world-context.ts`
+**Location:** `src/domain/agents/world-context.ts`
+
+WorldContext aggregates domain data (agents, projects, iterations) and serializes it for prompt enrichment — this is domain logic, not infrastructure I/O. It lives in the agents domain alongside the existing `context-provider.ts` interface.
 
 Created once during plugin startup in `agent-setup.ts`. Lives for the entire plugin lifecycle — not tied to the game view. Consumed by both the Agent World game and the agent sidepanel.
 
@@ -51,26 +53,39 @@ interface WorldContext {
 
 ```typescript
 interface WorldContextDeps {
-  contextProvider: ObsidianContextProvider;  // existing — wraps active file tracking
-  workspace: Workspace;                      // Obsidian workspace API
+  contextProvider: IContextProvider;  // domain interface (not concrete ObsidianContextProvider)
+  workspace: Workspace;              // Obsidian workspace API
   vaultAdapter: { exists(p: string): Promise<boolean>; read(p: string): Promise<string> };
   eventBus: IEventBus;
 }
 ```
 
+The `IContextProvider` interface (from `src/domain/agents/context-provider.ts`) provides `getActiveFileContext(): FileContext | null` and `onFileChanged(cb): () => void`. This preserves the plugin's pattern of coding against interfaces and allows mock injection in tests.
+
 ### Data Sources
 
 | Section | Source | Update Trigger |
 |---------|--------|---------------|
-| `activeFile` | `ObsidianContextProvider` (existing) | `onFileChanged()` callback |
+| `activeFile` | `IContextProvider.getActiveFileContext()` → `FileContext` | `onFileChanged()` callback |
 | `openFiles` | `workspace.iterateAllLeaves()` | `layout-change` workspace event |
 | `activeCanvas` | Vault adapter + `CanvasParser` (existing) | `file-open` event when `.canvas` file is active |
 | `projectInfo` | Read `configs/flowti.config.json` from vault | Once on startup, refresh on file-modify event |
 | `currentIteration` | Read active iteration from `.flowti/var/` | Once on startup, refresh on file-modify event |
-| `agentRoster` | Read `agent-dashboard.json` | Once on startup, refresh when EventBus emits agent events |
-| `recentActivity` | Read `world-state.json` activity log | Once on startup, updated via EventBus events |
+| `agentRoster` | Read from `DashboardStore.agents` (already parsed by PluginProvider) | Updated when store emits `state-changed` |
+| `recentActivity` | Read from `DashboardStore.assignedTasks` + EventBus agent events | Updated via EventBus events |
 
-**Update strategy:** Event-driven for fast-changing sections (active file, open files, canvas). Cached reads with 60s refresh interval for slow-changing sections (project info, iteration, roster).
+**Field derivation rules:**
+
+- `activeFile.path` — from `FileContext.path`
+- `activeFile.contentSnippet` — first 500 chars of `FileContext.content`
+- `activeFile.type` — derived from file extension (`.ts` → "TypeScript", `.md` → "Markdown", `.canvas` → "Canvas", `.json` → "JSON", etc.)
+- `openFiles` — `workspace.iterateAllLeaves()`, extract each leaf's `view.file?.path` and extension
+- `currentIteration` — read from the management iterations directory configured in `flowti.config.json` under `management.iterations.dir`. The active iteration is the one with `status: "in-progress"` in its frontmatter.
+- `recentActivity` — stores `{ agent, action, timestamp: number }` internally, formats `timeAgo` string only during `serialize()`
+
+**Update strategy:** Event-driven for fast-changing sections (active file, open files, canvas). Cached reads for slow-changing sections (project info, iteration, roster) — refreshed on vault file-modify events, not on a timer. No polling when no agent conversation is active.
+
+**Debouncing:** `layout-change` events are debounced at 500ms (fires frequently on tab switches, pane resizes). `file-open` events use the existing 2000ms debounce from `IContextProvider`.
 
 ### Version Tracking
 
@@ -146,7 +161,9 @@ Key flows: Auth → API [validates], Router → Views [navigate], API → Queue 
 - Total output capped at ~200 tokens
 - If no canvas is open, section is omitted from serialization
 
-Uses existing `CanvasParser.buildCanvasItems()` and `buildRelations()` — no new parsing logic, just a text serializer on top.
+Uses existing `CanvasParser.buildCanvasItems()` and `buildRelations()` from `src/domain/canvas/CanvasParser.ts` (cross-domain import: agents → canvas). No new parsing logic, just a text serializer on top.
+
+**Open files format note:** The `Open:` line in serialized output uses shortened paths — basename if unique across open files, otherwise `folder/basename` for disambiguation.
 
 ## Wiring
 
@@ -161,7 +178,17 @@ const worldContext = new WorldContext({
 });
 ```
 
-Passed to both `AgentWorldViewDeps` and `AgentSidepanelDeps`.
+**Interface changes required:**
+
+| Interface | Change |
+|-----------|--------|
+| `AgentSetupResult` | Add `worldContext: WorldContext` to the return type |
+| `AgentWorldViewDeps` | Replace `contextProvider?` with `worldContext: WorldContext` |
+| `AgentSidepanelDeps` | Add `worldContext: WorldContext` (alongside existing `contextProvider`) |
+| `AgentWorldDeps` (engine) | Replace `contextProvider?` with `worldContext: WorldContext` |
+| `DashboardStore` constructor | Accept `worldContext: WorldContext` parameter |
+
+WorldContext is passed to both `AgentWorldViewDeps` and `AgentSidepanelDeps`.
 
 ### In `DashboardStore.sendMessage()`
 
@@ -183,6 +210,26 @@ async sendMessage(agentName: string, message: string): Promise<ApiResult> {
   // ... send contextBlock + message to server
 }
 ```
+
+### In `agent-handlers.ts` (sidepanel path)
+
+The sidepanel sends messages via `agentService.sendMessage()` through `agent-handlers.ts`. This path also needs WorldContext injection:
+
+```typescript
+// In agent-handlers.ts, where the sidepanel sends a message:
+const isFirstMessage = !agentService.getConversation(agentName).length;
+let contextBlock: string;
+if (isFirstMessage) {
+  contextBlock = worldContext.getProtocolInstruction(agentName, domain)
+    + "\n\n" + worldContext.serialize();
+} else {
+  contextBlock = worldContext.serializeDelta(agentName) ?? "";
+}
+worldContext.markSeen(agentName);
+// Prepend contextBlock to the message sent to agentService
+```
+
+WorldContext is injected into `AgentSidepanelDeps` (which feeds `agent-handlers.ts`) so both the game and sidepanel paths share the same context instance and delta tracking.
 
 ### In the server
 
@@ -222,6 +269,6 @@ The server receives `{ agentName, message, context }` where `context` is the ser
 
 | Metric | Change |
 |--------|--------|
-| New files | `src/infrastructure/world-context.ts` (~200-300 lines), `tests/infrastructure/world-context.test.ts` |
-| Modified files | `agent-setup.ts`, `dashboard-store.ts`, `agent-world-view.ts`, `agent-sidepanel-view.ts` |
+| New files | `src/domain/agents/world-context.ts` (~200-300 lines), `tests/domain/agents/world-context.test.ts` |
+| Modified files | `agent-setup.ts`, `dashboard-store.ts`, `agent-world-view.ts`, `agent-sidepanel-view.ts`, `agent-handlers.ts` |
 | Deleted code | `DashboardStore.userContext`, manual context enrichment in `sendMessage()` |
