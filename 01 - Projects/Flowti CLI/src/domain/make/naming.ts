@@ -7,7 +7,8 @@ export function toKebab(name: string): string {
 }
 
 export function toPascal(name: string): string {
-	return name.replace(/(?:^|[\s_-])(\w)/g, (_, c: string) => c.toUpperCase()).replace(/[\s_-]/g, "");
+	const result = name.replace(/(?:^|[\s_-])(\w)/g, (_, c: string) => c.toUpperCase()).replace(/[\s_-]/g, "");
+	return /^\d/.test(result) ? `_${result}` : result;
 }
 
 export function toCamel(name: string): string {

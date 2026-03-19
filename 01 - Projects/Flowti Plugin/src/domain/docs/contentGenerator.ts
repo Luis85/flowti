@@ -9,4 +9,4 @@
 
 export { generateEventDocContent, generateDomainDocContent, generateServiceDocContent, generateCategoryDocContent } from "./entityDocContent";
 export { generateArchitectureDocContent, generateServiceBlueprintContent } from "./architectureDocContent";
-export { generateSystemDocContent, generateFlowDocContent, generateActorDocContent, generateProductDocContent } from "./simpleDocContent";
+export { generateProjectBriefContent, generateSystemDocContent, generateFlowDocContent, generateActorDocContent, generateProductDocContent } from "./simpleDocContent";

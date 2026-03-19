@@ -54,6 +54,28 @@ function stripAnsi(text: string): string {
 }
 
 /** Run a shell command asynchronously — streams output via callback. */
+/** Quote an arg for shell usage if it contains spaces and isn't already quoted. */
+function shellQuote(arg: string): string {
+	if (arg.includes(" ") && !arg.startsWith('"') && !arg.startsWith("'")) {
+		return `"${arg}"`;
+	}
+	return arg;
+}
+
+/** Filter noisy output lines from child processes (Vite dep scan, stack traces, telemetry). */
+function isNoisyLine(line: string): boolean {
+	const trimmed = line.trim();
+	// Vite dependency scan path dumps
+	if (/^\|?\s+[A-Z]:[/\\]/.test(trimmed)) return true;
+	// Stack trace lines
+	if (/^\|?\s+at\s/.test(trimmed)) return true;
+	// Telemetry notice
+	if (/telemetry|completely anonymous/i.test(trimmed)) return true;
+	// Empty pipe lines
+	if (trimmed === "|" || trimmed === "│") return true;
+	return false;
+}
+
 function runAsync(
 	command: string,
 	args: string[],
@@ -61,7 +83,7 @@ function runAsync(
 	onOutput?: (line: string) => void,
 ): Promise<{ ok: boolean; error?: string }> {
 	return new Promise((resolve) => {
-		const child = spawn(command, args, {
+		const child = spawn(command, args.map(shellQuote), {
 			cwd,
 			shell: true,
 			windowsHide: true,
@@ -71,16 +93,20 @@ function runAsync(
 
 		let stderr = "";
 
+		const emit = (line: string) => {
+			if (!isNoisyLine(line)) onOutput?.(line);
+		};
+
 		child.stdout?.on("data", (chunk: Buffer) => {
 			const lines = stripAnsi(chunk.toString()).split("\n").filter(Boolean);
-			for (const line of lines) onOutput?.(line);
+			for (const line of lines) emit(line);
 		});
 
 		child.stderr?.on("data", (chunk: Buffer) => {
 			const text = chunk.toString();
 			stderr += text;
 			const lines = stripAnsi(text).split("\n").filter(Boolean);
-			for (const line of lines) onOutput?.(line);
+			for (const line of lines) emit(line);
 		});
 
 		child.on("error", (err) => {
@@ -93,7 +119,13 @@ function runAsync(
 				onOutput?.("Done.");
 				resolve({ ok: true });
 			} else {
-				resolve({ ok: false, error: stderr.trim() || `Exit code ${code}` });
+				// Extract only fatal/error lines from stderr, not progress spam
+				const meaningful = stderr.split("\n")
+					.map((l) => l.trim())
+					.filter((l) => /^(fatal|error|warning):/i.test(l))
+					.slice(-3)
+					.join("\n");
+				resolve({ ok: false, error: meaningful || stderr.trim().split("\n").pop() || `Exit code ${code}` });
 			}
 		});
 	});
@@ -131,6 +163,17 @@ export class VaultProjectService implements IProjectService {
 				const noteType = parseNoteType(content);
 				hasNote = noteType === PROJECT_BRIEF_TYPE;
 				type = noteType ?? "unknown";
+			} else {
+				// Fallback: file may exist on disk but not yet indexed by Obsidian
+				const absNotePath = join(basePath, notePath);
+				if (existsSync(absNotePath)) {
+					try {
+						const content = readFileSync(absNotePath, "utf-8");
+						const noteType = parseNoteType(content);
+						hasNote = noteType === PROJECT_BRIEF_TYPE;
+						type = noteType ?? "unknown";
+					} catch { /* can't read */ }
+				}
 			}
 
 			const absPath = join(basePath, PROJECTS_FOLDER, name);
@@ -176,6 +219,17 @@ export class VaultProjectService implements IProjectService {
 			const noteType = parseNoteType(content);
 			hasNote = noteType === PROJECT_BRIEF_TYPE;
 			type = noteType ?? "unknown";
+		} else {
+			// Fallback: file may exist on disk but not yet indexed by Obsidian
+			const absNotePath = join(basePath, notePath);
+			if (existsSync(absNotePath)) {
+				try {
+					const content = readFileSync(absNotePath, "utf-8");
+					const noteType = parseNoteType(content);
+					hasNote = noteType === PROJECT_BRIEF_TYPE;
+					type = noteType ?? "unknown";
+				} catch { /* can't read */ }
+			}
 		}
 
 		let brief: import("../../domain/projects/types.js").ProjectBrief | undefined;
@@ -283,7 +337,7 @@ export class VaultProjectService implements IProjectService {
 	async installStorybook(project: string, framework: StorybookFramework, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "storybook:install", `--project="${project}"`, `--framework=${framework}`], vaultBase, onOutput);
+		return runAsync("node", [cliBin, "storybook:install", `--project=${project}`, `--framework=${framework}`], vaultBase, onOutput);
 	}
 
 	private findStorybookConfigDir(absProjectPath: string): string | null {
@@ -311,7 +365,7 @@ export class VaultProjectService implements IProjectService {
 		try {
 			// Run from the directory containing node_modules (parent of .storybook)
 			const sbParent = join(configDir, "..");
-			const child = spawn("npx", ["storybook", "dev", "-p", String(port), "--no-open", "--ci", "--config-dir", `"${configDir}"`], {
+			const child = spawn("npx", ["storybook", "dev", "-p", String(port), "--no-open", "--ci", "--config-dir", configDir].map(shellQuote), {
 				cwd: sbParent,
 				stdio: "pipe",
 				shell: true,
@@ -379,7 +433,7 @@ export class VaultProjectService implements IProjectService {
 	async buildStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; outputDir?: string; error?: string }> {
 		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
 		const configDir = this.findStorybookDir(cwd);
-		const result = await runAsync("npx", ["storybook", "build", "--config-dir", `"${configDir}"`], cwd, onOutput);
+		const result = await runAsync("npx", ["storybook", "build", "--config-dir", configDir], cwd, onOutput);
 		if (result.ok) {
 			return { ...result, outputDir: join(cwd, "storybook-static") };
 		}
@@ -389,7 +443,7 @@ export class VaultProjectService implements IProjectService {
 	async scaffoldStorybook(project: string, onOutput?: OutputCallback, opts?: { adoptImport?: boolean }): Promise<{ ok: boolean; filesCreated?: number; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
-		const args = [cliBin, "storybook:scaffold", `--project="${project}"`];
+		const args = [cliBin, "storybook:scaffold", `--project=${project}`];
 		if (opts?.adoptImport) args.push("--adopt-import");
 		return runAsync("node", args, vaultBase, onOutput);
 	}
@@ -398,7 +452,7 @@ export class VaultProjectService implements IProjectService {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
 		const absSource = join(vaultBase, sourcePath);
-		return runAsync("node", [cliBin, "storybook:import", `--project="${project}"`, `--source="${absSource}"`], vaultBase, onOutput);
+		return runAsync("node", [cliBin, "storybook:import", `--project=${project}`, `--source=${absSource}`], vaultBase, onOutput);
 	}
 
 	async saveMarkdownSourceConfig(project: string, config: MarkdownSourceConfig, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
@@ -407,8 +461,8 @@ export class VaultProjectService implements IProjectService {
 		const fields = config.requiredFields.join(",");
 		return runAsync("node", [
 			cliBin, "storybook:import", "--save-config",
-			`--project="${project}"`,
-			`--source="${config.path}"`,
+			`--project=${project}`,
+			`--source=${config.path}`,
 			`--strategy=${config.strategy}`,
 			`--fields=${fields}`,
 		], vaultBase, onOutput);
@@ -417,15 +471,115 @@ export class VaultProjectService implements IProjectService {
 	async cleanStorybook(project: string): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "storybook:clean", `--project="${project}"`], vaultBase);
+		return runAsync("node", [cliBin, "storybook:clean", `--project=${project}`], vaultBase);
 	}
 
 	async importCanvasSitemap(project: string, onOutput?: OutputCallback, opts?: { merge?: boolean }): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
 		const cliBin = join(vaultBase, ".flowti", "bin");
-		const args = [cliBin, "storybook:canvas-import", `--project="${project}"`];
+		const args = [cliBin, "storybook:canvas-import", `--project=${project}`];
 		if (opts?.merge) args.push("--merge");
 		return runAsync("node", args, vaultBase, onOutput);
+	}
+
+	async generateSitemapCanvas(project: string, onOutput?: OutputCallback, opts?: { preset?: string; force?: boolean }): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		const args = [cliBin, "storybook:canvas-generate", `--project=${project}`];
+		if (opts?.preset) args.push(`--preset=${opts.preset}`);
+		if (opts?.force) args.push("--force");
+		return runAsync("node", args, vaultBase, onOutput);
+	}
+
+	async importFromGit(url: string, name: string, mode: "submodule" | "template", onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const targetDir = join(vaultBase, PROJECTS_FOLDER, name);
+
+		if (existsSync(targetDir)) {
+			return { ok: false, error: `Folder "${name}" already exists` };
+		}
+
+		if (mode === "submodule") {
+			return runAsync("git", ["-c", "core.longpaths=true", "submodule", "add", url, `${PROJECTS_FOLDER}/${name}`], vaultBase, onOutput);
+		}
+
+		// Template mode: clone then detach
+		const cloneResult = await runAsync("git", ["-c", "core.longpaths=true", "clone", url, targetDir], vaultBase, onOutput);
+		if (!cloneResult.ok) return cloneResult;
+
+		// Remove .git directory — use shell on Windows for file-locking safety
+		const gitDir = join(targetDir, ".git");
+		if (existsSync(gitDir)) {
+			const removeCmd = process.platform === "win32"
+				? { cmd: "cmd", args: ["/c", "rmdir", "/s", "/q", gitDir] }
+				: { cmd: "rm", args: ["-rf", gitDir] };
+			const removeResult = await runAsync(removeCmd.cmd, removeCmd.args, vaultBase);
+			if (!removeResult.ok) {
+				return { ok: false, error: "Failed to detach from remote (could not remove .git directory)" };
+			}
+		}
+
+		return { ok: true };
+	}
+
+	async detectProject(name: string): Promise<{ ok: boolean; type?: string; framework?: string; packageManager?: string; testFramework?: string; hasConfig?: boolean; buildCommand?: string; testCommand?: string; lintCommand?: string; error?: string }> {
+		try {
+			const vaultBase = getVaultBasePath(this.app);
+			const projectPath = join(vaultBase, PROJECTS_FOLDER, name);
+
+			const hasPkg = existsSync(join(projectPath, "package.json"));
+			const hasTsConfig = existsSync(join(projectPath, "tsconfig.json"));
+			const type = !hasPkg ? "unknown" : hasTsConfig ? "typescript" : "javascript";
+
+			let pkg: Record<string, unknown> = {};
+			if (hasPkg) {
+				try { pkg = JSON.parse(readFileSync(join(projectPath, "package.json"), "utf-8")) as Record<string, unknown>; } catch { /* empty */ }
+			}
+			const allDeps = { ...(pkg.dependencies as Record<string, string> ?? {}), ...(pkg.devDependencies as Record<string, string> ?? {}) };
+			const devDeps = (pkg.devDependencies ?? {}) as Record<string, string>;
+			const scripts = (pkg.scripts ?? {}) as Record<string, string>;
+
+			const framework = existsSync(join(projectPath, "angular.json")) ? "Angular"
+				: (existsSync(join(projectPath, "next.config.js")) || existsSync(join(projectPath, "next.config.ts"))) ? "Next.js"
+				: ("react" in allDeps && ("vite" in allDeps || existsSync(join(projectPath, "vite.config.ts")))) ? "React"
+				: "vue" in allDeps ? "Vue"
+				: "svelte" in allDeps ? "Svelte"
+				: undefined;
+
+			const packageManager = existsSync(join(projectPath, "bun.lockb")) ? "bun"
+				: existsSync(join(projectPath, "pnpm-lock.yaml")) ? "pnpm"
+				: existsSync(join(projectPath, "yarn.lock")) ? "yarn"
+				: existsSync(join(projectPath, "package-lock.json")) ? "npm"
+				: undefined;
+
+			const testFramework = "vitest" in devDeps ? "vitest" : "jest" in devDeps ? "jest" : undefined;
+			const hasConfig = existsSync(join(projectPath, "configs", "flowti.config.json")) || existsSync(join(projectPath, "flowti.config.json"));
+			const pm = packageManager ?? "npm";
+			const buildCommand = scripts.build ? `${pm} run build` : undefined;
+			const testCommand = scripts.test ? `${pm} test` : undefined;
+			const lintCommand = scripts.lint ? `${pm} run lint` : undefined;
+
+			return { ok: true, type, framework, packageManager, testFramework, hasConfig, buildCommand, testCommand, lintCommand };
+		} catch (err) {
+			return { ok: false, error: err instanceof Error ? err.message : "Detection failed" };
+		}
+	}
+
+	async bootstrapProject(name: string, config: { build?: string; test?: string; lint?: string; storybook?: string }): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		const args = [cliBin, "project:bootstrap", `--project=${name}`];
+		if (config.build) args.push(`--build=${config.build}`);
+		if (config.test) args.push(`--test=${config.test}`);
+		if (config.lint) args.push(`--lint=${config.lint}`);
+		if (config.storybook) args.push(`--storybook=${config.storybook}`);
+		return runAsync("node", args, vaultBase);
+	}
+
+	async createEmptyProject(name: string): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		return runAsync("node", [cliBin, "project:create", `--name=${name}`], vaultBase);
 	}
 
 	private previewServers = new Map<string, { close: () => void; url: string }>();

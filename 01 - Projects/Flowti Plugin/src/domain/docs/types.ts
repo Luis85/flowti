@@ -19,6 +19,7 @@ export type DocType =
 	| "ProductDoc"
 	// Special docs
 	| "AreaDoc"
+	| "ProjectBrief"
 	// Data exchange docs
 	| "CsvDoc"
 	| "PropertyDoc"

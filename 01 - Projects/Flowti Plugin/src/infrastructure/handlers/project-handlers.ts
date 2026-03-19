@@ -17,6 +17,7 @@ export interface ProjectHandlerDeps {
 	readonly openInWebviewer?: (url: string) => void;
 	readonly navigateBack?: () => void;
 	readonly pickFolder?: () => Promise<string | null>;
+	readonly revealFolder?: (path: string) => void;
 }
 
 export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerDeps): () => void {
@@ -27,6 +28,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	async function loadProjectList(): Promise<void> {
 		const projects = await projectService.listProjects();
 		el.projects = [...projects];
+		el.cliConnected = true;
 	}
 
 	async function loadProject(name: string): Promise<void> {
@@ -70,6 +72,10 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		deps.openNote?.(String(e.detail.path));
 	}) as EventListener);
 
+	el.addEventListener("open-project-folder", ((e: CustomEvent) => {
+		deps.revealFolder?.(`01 - Projects/${String(e.detail.name)}`);
+	}) as EventListener);
+
 	el.addEventListener("create-project-note", ((e: CustomEvent) => {
 		deps.createNote?.(String(e.detail.name));
 		// Reload current view after a brief delay to pick up the new note
@@ -84,12 +90,16 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 
 	const outputLines: string[] = [];
 
+	let lastBusyLabel = "";
+
 	function startBusy(label: string): void {
 		outputLines.length = 0;
+		lastBusyLabel = label;
 		el.storybookBusy = true;
 		el.storybookBusyLabel = label;
 		el.storybookOutput = [];
 		el.storybookError = "";
+		el.actionSuccess = "";
 	}
 
 	function appendOutput(line: string): void {
@@ -105,6 +115,11 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.storybookBusyLabel = "";
 		if (!result.ok && result.error) {
 			el.storybookError = result.error;
+			el.actionSuccess = "";
+		} else {
+			const msg = lastBusyLabel.replace(/\.{3}$/, "") + " completed";
+			el.actionSuccess = msg;
+			setTimeout(() => { if (el.actionSuccess === msg) el.actionSuccess = ""; }, 4000);
 		}
 		void loadProject(currentProject);
 	}
@@ -223,7 +238,14 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		};
 		startBusy("Saving config...");
 		void projectService.saveMarkdownSourceConfig(currentProject, config, appendOutput)
-			.then((r) => endBusy(r));
+			.then((r) => {
+				endBusy(r);
+				const configTab = el.shadowRoot?.querySelector("flowti-config-tab") as HTMLElement & { saveStatus: string } | null;
+				if (configTab) {
+					configTab.saveStatus = r.ok ? "Saved" : (r.error ?? "Save failed");
+					setTimeout(() => { if (configTab) configTab.saveStatus = ""; }, 3000);
+				}
+			});
 	}) as EventListener);
 
 	el.addEventListener("config-browse-folder", (() => {
@@ -290,12 +312,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	}) as EventListener);
 
 	// ── Regenerate flow ──
-	el.addEventListener("storybook-regenerate", (() => {
-		el.showRegenerateConfirm = true;
-	}) as EventListener);
-
 	el.addEventListener("storybook-regenerate-confirmed", (() => {
-		el.showRegenerateConfirm = false;
 		const framework = (el.storybook as { framework?: string })?.framework ?? "html";
 
 		startBusy("Regenerating component library...");
@@ -320,10 +337,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("storybook-open-folder", (() => {
 		const config = (el.config as { storybookDir?: string } | undefined);
 		const dir = config?.storybookDir ?? "components";
-		el.dispatchEvent(new CustomEvent("reveal-path", {
-			detail: { path: `${currentProject}/${dir}` },
-			bubbles: true, composed: true,
-		}));
+		deps.revealFolder?.(`01 - Projects/${currentProject}/${dir}`);
 	}) as EventListener);
 
 	el.addEventListener("storybook-preview", (() => {
@@ -342,17 +356,123 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.storybookOutput = [];
 	}) as EventListener);
 
+	el.addEventListener("canvas-generate", ((e: CustomEvent) => {
+		const preset = e.detail?.preset ? String(e.detail.preset) : undefined;
+		if (!preset) {
+			// No preset = just open the existing canvas
+			deps.openNote?.(`01 - Projects/${currentProject}/sitemap.canvas`);
+			return;
+		}
+		startBusy("Generating sitemap canvas...");
+		void projectService.generateSitemapCanvas(currentProject, appendOutput, { preset, force: true })
+			.then((r) => {
+				endBusy(r);
+				if (r.ok) {
+					deps.openNote?.(`01 - Projects/${currentProject}/sitemap.canvas`);
+				}
+			});
+	}) as EventListener);
+
 	el.addEventListener("canvas-merge", (() => {
 		startBusy("Merging canvas changes...");
 		void projectService.importCanvasSitemap(currentProject, appendOutput, { merge: true })
 			.then((r) => endBusy(r));
 	}) as EventListener);
 
+	// ── Git import / add project ──
+	el.addEventListener("add-project", ((e: CustomEvent) => {
+		const mode = String(e.detail?.mode);
+		if (mode === "empty") {
+			el.showNamePrompt = true;
+			return;
+		}
+		el.gitModalMode = mode === "template" ? "template" : "submodule";
+		el.showGitModal = true;
+	}) as EventListener);
+
+	el.addEventListener("import-setup", ((e: CustomEvent) => {
+		const { url, name, mode } = e.detail as { url: string; name: string; mode: string };
+		startBusy("Cloning repository...");
+		const modal = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
+		if (modal) { modal.step = "progress"; modal.errorNote = ""; }
+		const gitOutputLines: string[] = [];
+		const gitAppend = (line: string) => {
+			gitOutputLines.push(line);
+			if (gitOutputLines.length > 200) gitOutputLines.shift();
+			const modal = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
+			if (modal) modal.outputLines = [...gitOutputLines];
+		};
+		void projectService.importFromGit(url, name, mode as "submodule" | "template", gitAppend)
+			.then((r) => {
+				if (!r.ok) {
+					el.storybookBusy = false;
+					el.storybookBusyLabel = "";
+					const modal = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
+					if (modal) modal.errorNote = r.error ?? "Clone failed";
+					return;
+				}
+				gitAppend("Detecting project...");
+				return projectService.detectProject(name);
+			})
+			.then((detectResult) => {
+				if (!detectResult) return;
+				el.storybookBusy = false;
+				el.storybookBusyLabel = "";
+				const modal = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
+				if (modal && detectResult.ok !== false) {
+					modal.step = "detect";
+					modal.detectedType = (detectResult as Record<string, unknown>).type ?? "";
+					modal.detectedFramework = (detectResult as Record<string, unknown>).framework ?? "";
+					modal.detectedPackageManager = (detectResult as Record<string, unknown>).packageManager ?? "";
+					modal.detectedTestFramework = (detectResult as Record<string, unknown>).testFramework ?? "";
+					modal.detectedHasConfig = (detectResult as Record<string, unknown>).hasConfig ?? false;
+					modal.configBuildCommand = (detectResult as Record<string, unknown>).buildCommand ?? "";
+					modal.configTestCommand = (detectResult as Record<string, unknown>).testCommand ?? "";
+					modal.configLintCommand = (detectResult as Record<string, unknown>).lintCommand ?? "";
+				}
+			});
+	}) as EventListener);
+
+	el.addEventListener("wizard-configure", ((e: CustomEvent) => {
+		const detail = e.detail as Record<string, string>;
+		const name = detail.name;
+		startBusy("Writing config...");
+		void projectService.bootstrapProject(name, {
+			build: detail.buildCommand,
+			test: detail.testCommand,
+			lint: detail.lintCommand,
+			storybook: detail.framework,
+		}).then((r) => {
+			endBusy(r);
+			const modal = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
+			if (modal && r.ok) modal.step = "done";
+		});
+	}) as EventListener);
+
+	el.addEventListener("wizard-open-project", ((e: CustomEvent) => {
+		el.showGitModal = false;
+		void loadProject(String(e.detail?.name));
+	}) as EventListener);
+
+	el.addEventListener("import-cancel", (() => {
+		el.showGitModal = false;
+	}) as EventListener);
+
+	el.addEventListener("create-empty-project", ((e: CustomEvent) => {
+		const name = String(e.detail?.name);
+		startBusy("Creating project...");
+		void projectService.createEmptyProject(name)
+			.then((r) => {
+				endBusy(r);
+				if (r.ok) void loadProject(name);
+			});
+	}) as EventListener);
+
 	container.appendChild(el);
 	if (currentProject) {
 		void loadProject(currentProject);
 	} else {
-		void loadProjectList();
+		void loadProjectList().then(() => { el.cliConnected = true; });
 	}
 
 	return () => { el.remove(); };

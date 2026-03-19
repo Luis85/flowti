@@ -22,12 +22,13 @@ export default config;
 `;
 }
 
-export function getStoryTemplate(pageName: string, pascal: string): string {
+export function getStoryTemplate(pageName: string, pascal: string, titlePrefix?: string): string {
+	const title = titlePrefix ?? `CLI Pages/${pascal}`;
 	return `import type { Meta, StoryObj } from "@storybook/react";
 import { ${pascal} } from "./${pageName}";
 
 const meta: Meta<typeof ${pascal}> = {
-\ttitle: "CLI Pages/${pascal}",
+\ttitle: "${title}",
 \tcomponent: ${pascal},
 \ttags: ["autodocs"],
 \tparameters: {

@@ -146,6 +146,26 @@ created: "${now}"
 }
 
 // ─────────────────────────────────────────────────────────────
+// Project brief
+// ─────────────────────────────────────────────────────────────
+
+export function generateProjectBriefContent(name: string): string {
+	return `---
+type: ProjectBrief
+project: "${name}"
+goal: ""
+description: ""
+status: ""
+start: ""
+end: ""
+---
+
+# ${name}
+
+`;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Product documentation
 // ─────────────────────────────────────────────────────────────
 

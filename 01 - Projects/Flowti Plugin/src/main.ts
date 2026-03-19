@@ -403,6 +403,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.projectSetup = setupProjectDomain({
 				plugin: this,
 				app: this.app,
+				eventBus: this.eventBus,
 			});
 
 			this.addRibbonIcon("folder-open", "Open project hub", () => {

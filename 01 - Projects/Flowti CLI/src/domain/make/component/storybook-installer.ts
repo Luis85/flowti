@@ -249,9 +249,9 @@ function addAddonsToConfig(sbDir: string, deps: Pick<StorybookDeps, "disk" | "pa
 		const addons = ["@storybook/addon-vitest", "@storybook/addon-a11y"];
 		for (const addon of addons) {
 			if (!content.includes(addon)) {
-				// Insert before the closing bracket of the addons array
+				// Match both unquoted `addons: [` and JSON-style `"addons": [`
 				content = content.replace(
-					/(addons:\s*\[)/,
+					/("?addons"?\s*:\s*\[)/,
 					`$1\n    "${addon}",`,
 				);
 			}
@@ -338,7 +338,8 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	const typeMap: Record<string, string> = { html: "html", angular: "angular", react: "react", vue: "vue3" };
 	const typeFlag = typeMap[framework] ? ` --type ${typeMap[framework]}` : "";
 	const builderFlag = framework === "angular" ? "" : " --builder vite";
-	const initCmd = `npx storybook@latest init --yes --features docs${typeFlag}${builderFlag}`;
+	const initCmd = `npx storybook@latest init --yes --disable-telemetry --features docs${typeFlag}${builderFlag}`;
+	render.progress("Telemetry disabled by default");
 	const code = deps.shell.run(initCmd, runOpts("Initializing Storybook"));
 	if (code !== 0) {
 		render.installFailed();

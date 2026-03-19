@@ -13,6 +13,8 @@ import type { StorybookStatus, ProjectSummary, ProjectConfig } from "../../domai
 import "./flowti-storybook-section.js";
 import "./flowti-config-tab.js";
 import "./flowti-scaffold-modal.js";
+import "./flowti-add-project-dropdown.js";
+import "./flowti-git-import-modal.js";
 
 export class FlowtiProjectDetail extends FlowtiElement {
 	static properties = {
@@ -29,6 +31,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		storybookBusyLabel: { type: String },
 		storybookOutput: { type: Array },
 		storybookError: { type: String },
+		actionSuccess: { type: String },
 		config: { type: Object },
 		activeTab: { type: String },
 		showScaffoldModal: { type: Boolean },
@@ -36,7 +39,12 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		hasMarkdownSource: { type: Boolean },
 		hasCanvas: { type: Boolean },
 		canvasChanged: { type: Boolean },
+		canvasPreset: { type: String },
 		brief: { type: Object },
+		showGitModal: { type: Boolean },
+		gitModalMode: { type: String },
+		showNamePrompt: { type: Boolean },
+		cliConnected: { type: Boolean },
 	};
 
 	static styles = [
@@ -123,7 +131,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 
 			.brief-label {
 				color: var(--text-muted, #999);
-				min-width: 70px;
+				min-width: 40px;
 			}
 
 			.brief-value {
@@ -200,8 +208,101 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 10%, transparent);
 			}
 
+			.preset-row {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--flowti-space-xs, 4px);
+				margin-top: var(--flowti-space-xs, 4px);
+			}
+
+			.preset-btn {
+				padding: 3px 10px;
+				border-radius: var(--flowti-radius-sm, 4px);
+				border: 1px solid var(--background-modifier-border, #444);
+				background: none;
+				color: var(--text-normal, #ddd);
+				font-size: var(--flowti-font-xs, 0.75em);
+				cursor: pointer;
+			}
+
+			.preset-btn:hover {
+				background: var(--background-modifier-hover, #333);
+				border-color: var(--interactive-accent, #7c3aed);
+				color: var(--interactive-accent, #7c3aed);
+			}
+
+			.preset-btn--active {
+				background: var(--interactive-accent, #7c3aed);
+				border-color: var(--interactive-accent, #7c3aed);
+				color: #fff;
+			}
+
+			.overlay {
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.6);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				z-index: 1000;
+			}
+
+			.modal {
+				background: var(--background-primary, #1e1e1e);
+				border: 1px solid var(--background-modifier-border, #333);
+				border-radius: 8px;
+				padding: var(--flowti-space-md, 16px);
+				max-width: 360px;
+				width: calc(100% - 24px);
+				box-sizing: border-box;
+			}
+
+			.modal-title {
+				font-weight: 600;
+				font-size: 1.1em;
+				margin-bottom: var(--flowti-space-sm, 8px);
+			}
+
+			.modal-body {
+				margin-bottom: var(--flowti-space-md, 16px);
+			}
+
+			.modal-actions {
+				display: flex;
+				gap: var(--flowti-space-sm, 8px);
+				justify-content: flex-end;
+			}
+
+			.btn {
+				padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
+				border: 1px solid var(--background-modifier-border, #333);
+				border-radius: 4px;
+				background: var(--background-secondary, #262626);
+				color: var(--text-normal, #ddd);
+				font-size: var(--flowti-font-sm, 0.85em);
+				cursor: pointer;
+			}
+
+			.btn:hover {
+				background: var(--background-modifier-hover, #333);
+			}
+
+			.btn--primary {
+				background: var(--interactive-accent, #7c3aed);
+				border-color: var(--interactive-accent, #7c3aed);
+				color: #fff;
+			}
+
+			.preset-btn--accent {
+				border-color: var(--color-yellow, #e5a00d);
+				color: var(--color-yellow, #e5a00d);
+			}
+
 			/* ── Project list styles ── */
 			.list-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
 				font-size: 1.1em;
 				font-weight: 600;
 				color: var(--text-normal, #ddd);
@@ -209,6 +310,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 
 			.search-input {
 				width: 100%;
+				box-sizing: border-box;
 				padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
 				border: 1px solid var(--background-modifier-border, #444);
 				border-radius: var(--flowti-radius-sm, 4px);
@@ -285,6 +387,27 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				text-align: center;
 				color: var(--text-muted, #999);
 				font-size: var(--flowti-font-sm, 0.85em);
+			}
+
+			.empty-state {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: var(--flowti-space-sm, 8px);
+			}
+
+			.empty-pulse {
+				display: inline-block;
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background: var(--text-muted, #999);
+				animation: pulse 1.5s ease-in-out infinite;
+			}
+
+			@keyframes pulse {
+				0%, 100% { opacity: 0.3; }
+				50% { opacity: 1; }
 			}
 
 			.status-banner {
@@ -386,6 +509,61 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				border-radius: 50%;
 				background: var(--color-green, #4caf50);
 			}
+
+			/* ── Activity bar ── */
+			.activity-bar {
+				display: flex;
+				align-items: center;
+				gap: var(--flowti-space-sm, 8px);
+				padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
+				border-radius: var(--flowti-radius-sm, 4px);
+				font-size: var(--flowti-font-sm, 0.85em);
+			}
+
+			.activity-bar--busy {
+				background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 10%, transparent);
+				color: var(--interactive-accent, #7c3aed);
+			}
+
+			.activity-bar--success {
+				background: color-mix(in srgb, var(--color-green, #4caf50) 12%, transparent);
+				color: var(--color-green, #4caf50);
+			}
+
+			.activity-bar--error {
+				background: color-mix(in srgb, var(--color-red, #e53935) 12%, transparent);
+				color: var(--color-red, #e53935);
+			}
+
+			.activity-spinner {
+				display: inline-block;
+				width: 14px;
+				height: 14px;
+				border: 2px solid currentColor;
+				border-top-color: transparent;
+				border-radius: 50%;
+				animation: spin 0.8s linear infinite;
+				flex-shrink: 0;
+			}
+
+			@keyframes spin {
+				to { transform: rotate(360deg); }
+			}
+
+			.activity-dismiss {
+				margin-left: auto;
+				background: none;
+				border: none;
+				color: inherit;
+				cursor: pointer;
+				font-size: 1.1em;
+				padding: 0 4px;
+				opacity: 0.6;
+			}
+
+			.activity-dismiss:hover {
+				opacity: 1;
+			}
 		`,
 	];
 
@@ -401,6 +579,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	storybookBusyLabel = "";
 	storybookOutput: string[] = [];
 	storybookError = "";
+	actionSuccess = "";
 	config: ProjectConfig | undefined = undefined;
 	activeTab = "overview";
 	showScaffoldModal = false;
@@ -408,7 +587,12 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	hasMarkdownSource = false;
 	hasCanvas = false;
 	canvasChanged = false;
+	canvasPreset = "";
 	brief: Record<string, string | undefined> | undefined = undefined;
+	showGitModal = false;
+	gitModalMode: "submodule" | "template" = "submodule";
+	showNamePrompt = false;
+	cliConnected = false;
 
 	protected renderContent() {
 		if (!this.projectName) {
@@ -416,24 +600,20 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		}
 		return html`
 			${this.renderHeader()}
-			${this.renderBriefSection()}
+			${this.renderActivityBar()}
 			${this.statusMessage ? html`<div class="status-banner">${this.statusMessage}</div>` : ""}
-			${this.canvasChanged ? html`
-				<div class="status-banner">
-					sitemap.canvas has changed
-					<button class="note-create" @click="${() => this.dispatchEvent(new CustomEvent('canvas-merge', { bubbles: true, composed: true }))}">Merge</button>
-				</div>
-			` : ""}
 			${this.renderTabBar()}
 			${this.activeTab === "overview" ? html`
-				${this.renderConfigSection()}
+				${this.renderBriefSection()}
 				${this.renderNoteSection()}
+				${this.renderCanvasSection()}
 				${this.renderStorybookSection()}
 			` : ""}
 			${this.activeTab === "config" ? html`
 				<flowti-config-tab
 					.projectName="${this.projectName}"
 					.config="${this.config}"
+					.hasCanvas="${this.hasCanvas}"
 				></flowti-config-tab>
 			` : ""}
 			${this.showScaffoldModal ? html`
@@ -468,7 +648,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			: this.projects;
 
 		return html`
-			<div class="list-header">Projects</div>
+			<div class="list-header"><span>Projects</span><flowti-add-project-dropdown></flowti-add-project-dropdown></div>
 			<input
 				class="search-input"
 				type="text"
@@ -477,10 +657,53 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				@input="${(e: Event) => { this.searchQuery = (e.target as HTMLInputElement).value; }}"
 			/>
 			${filtered.length === 0
-				? html`<div class="empty-list">${this.projects.length === 0 ? "No projects found. Is the CLI server running?" : "No matches"}</div>`
+				? html`<div class="empty-list">
+					${!this.cliConnected
+						? html`<div class="empty-state"><span class="empty-pulse"></span><span>Waiting for Flowti CLI server...</span></div>`
+						: this.projects.length === 0
+							? html`<div class="empty-state"><span>No projects yet</span><flowti-add-project-dropdown></flowti-add-project-dropdown></div>`
+							: html`<span>No matches</span>`
+					}
+				</div>`
 				: html`<div class="project-list">${filtered.map((p) => this.renderProjectItem(p))}</div>`
 			}
+			${this.showGitModal ? html`
+				<flowti-git-import-modal
+					.mode="${this.gitModalMode}"
+				></flowti-git-import-modal>
+			` : ""}
+			${this.showNamePrompt ? this.renderNamePrompt() : ""}
 		`;
+	}
+
+	private renderNamePrompt() {
+		return html`
+			<div class="overlay" @click="${() => { this.showNamePrompt = false; }}">
+				<div class="modal" @click="${(e: Event) => e.stopPropagation()}">
+					<div class="modal-title">Create project</div>
+					<div class="modal-body">
+						<input
+							class="search-input"
+							type="text"
+							placeholder="Project name"
+							@keydown="${(e: KeyboardEvent) => { if (e.key === "Enter") this.submitNamePrompt(e); }}"
+						/>
+					</div>
+					<div class="modal-actions">
+						<button class="btn" @click="${() => { this.showNamePrompt = false; }}">Cancel</button>
+						<button class="btn btn--primary" @click="${(e: Event) => this.submitNamePrompt(e)}">Create</button>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	private submitNamePrompt(e: Event): void {
+		const input = this.shadowRoot?.querySelector<HTMLInputElement>(".overlay .search-input");
+		const name = input?.value.trim();
+		if (!name) return;
+		this.showNamePrompt = false;
+		this.dispatchEvent(new CustomEvent("create-empty-project", { detail: { name }, bubbles: true, composed: true }));
 	}
 
 	private renderProjectItem(p: ProjectSummary) {
@@ -510,14 +733,41 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			<div class="header">
 				<button class="back-btn" @click="${this.dispatchBackToList}" title="Back to project list">&larr;</button>
 				<span class="project-name">${this.projectName}</span>
-				<span class="type-badge">${this.projectType}</span>
 			</div>
 		`;
 	}
 
+	private renderActivityBar() {
+		if (this.storybookBusy) {
+			return html`
+				<div class="activity-bar activity-bar--busy">
+					<span class="activity-spinner"></span>
+					<span>${this.storybookBusyLabel || "Working..."}</span>
+				</div>
+			`;
+		}
+		if (this.storybookError) {
+			return html`
+				<div class="activity-bar activity-bar--error">
+					<span>${this.storybookError}</span>
+					<button class="activity-dismiss" @click="${() => { this.storybookError = ""; }}" title="Dismiss">&times;</button>
+				</div>
+			`;
+		}
+		if (this.actionSuccess) {
+			return html`
+				<div class="activity-bar activity-bar--success">
+					<span>${this.actionSuccess}</span>
+					<button class="activity-dismiss" @click="${() => { this.actionSuccess = ""; }}" title="Dismiss">&times;</button>
+				</div>
+			`;
+		}
+		return "";
+	}
+
 	private renderNoteSection() {
 		return html`
-			<div class="section">
+			<div class="section section--first">
 				<div class="section-title">Project Brief</div>
 				${this.hasNote ? this.renderNoteLink() : this.renderNoteWarning()}
 			</div>
@@ -526,7 +776,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 
 	private renderNoteLink() {
 		return html`
-			<button class="note-link" @click="${this.dispatchOpenNote}">Open brief</button>
+			<div class="preset-row">
+				<button class="note-link" @click="${this.dispatchOpenNote}">Open brief</button>
+				<button class="note-link" @click="${this.dispatchOpenFolder}">Open folder</button>
+			</div>
 		`;
 	}
 
@@ -535,32 +788,132 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			<div class="note-warning">
 				<span>No project brief</span>
 				<button class="note-create" @click="${this.dispatchCreateNote}">Create brief</button>
+				<button class="note-link" @click="${this.dispatchOpenFolder}">Open folder</button>
+			</div>
+		`;
+	}
+
+	private renderCanvasSection() {
+		const presets = [
+			{ id: "web-app", label: "Web App" },
+			{ id: "landing", label: "Landing" },
+			{ id: "dashboard", label: "Dashboard" },
+			{ id: "e-commerce", label: "E-Commerce" },
+			{ id: "docs", label: "Docs" },
+			{ id: "system-design", label: "System" },
+			{ id: "service-design", label: "Service" },
+			{ id: "product-design", label: "Product" },
+		];
+
+		const presetBtn = (p: { id: string; label: string }) => html`
+			<button class="preset-btn ${this.canvasPreset === p.id ? "preset-btn--active" : ""}"
+				@click="${() => { this.canvasPreset = p.id; this.dispatchEvent(new CustomEvent('canvas-generate', { detail: { preset: p.id }, bubbles: true, composed: true })); }}"
+			>${p.label}</button>
+		`;
+
+		// No canvas yet — show presets to pick from
+		if (!this.hasCanvas) {
+			return html`
+				<div class="section">
+					<div class="section-title">Sitemap Canvas</div>
+					<div class="preset-row">
+						${presets.map(presetBtn)}
+					</div>
+				</div>
+			`;
+		}
+
+		// Canvas exists and has sitemap — saved state, hide presets
+		if (this.hasSitemap) {
+			return html`
+				<div class="section">
+					<div class="section-title">Sitemap Canvas</div>
+					<div class="preset-row">
+						<button class="preset-btn" @click="${() => this.dispatchEvent(new CustomEvent('canvas-generate', { detail: { preset: '' }, bubbles: true, composed: true }))}">Open</button>
+						${this.canvasChanged ? html`
+							<button class="preset-btn preset-btn--accent" @click="${() => this.dispatchEvent(new CustomEvent('canvas-merge', { bubbles: true, composed: true }))}">Merge changes</button>
+						` : ""}
+					</div>
+				</div>
+			`;
+		}
+
+		// Canvas exists but no sitemap — unsaved, show presets + save
+		return html`
+			<div class="section">
+				<div class="section-title">Sitemap Canvas</div>
+				<div class="preset-row">
+					<button class="preset-btn" @click="${() => this.dispatchEvent(new CustomEvent('canvas-generate', { detail: { preset: '' }, bubbles: true, composed: true }))}">Open</button>
+					<button class="preset-btn preset-btn--active" @click="${() => this.dispatchEvent(new CustomEvent('canvas-merge', { bubbles: true, composed: true }))}">Save</button>
+					${presets.map(presetBtn)}
+				</div>
 			</div>
 		`;
 	}
 
 	private renderBriefSection() {
-		if (!this.brief) return "";
-		const { goal, description, start, end, status } = this.brief;
-		const hasAny = goal || description || start || end || status;
-		if (!hasAny) return "";
+		const hasBrief = this.brief && (this.brief.goal || this.brief.description || this.brief.start || this.brief.end || this.brief.status);
+		const hasConfig = this.config && (this.config.buildModes.length > 0 || this.config.testPresets.length > 0 || this.config.agents?.length || this.config.publishTargets?.length || (this.config.healthTargets && (this.config.healthTargets.coverageTarget || this.config.healthTargets.minTests)));
 
 		return html`
 			<div class="brief-info">
-				${goal ? html`
-					<div class="brief-row">
-						<span class="brief-label">Goal</span>
-						<span class="brief-value">${goal}</span>
-					</div>
+				<div class="brief-row">
+					<span class="brief-label">Type</span>
+					<span class="brief-value"><span class="type-badge">${this.projectType}</span></span>
+				</div>
+				${hasBrief ? this.renderBriefFields() : ""}
+				${hasConfig ? this.renderConfigFields() : ""}
+			</div>
+		`;
+	}
+
+	private renderBriefFields() {
+		const { goal, description, start, end, status } = this.brief!;
+		return html`
+			${goal ? html`
+				<div class="brief-row">
+					<span class="brief-label">Goal</span>
+					<span class="brief-value">${goal}</span>
+				</div>
+			` : ""}
+			${status || start || end ? html`
+				<div class="brief-meta">
+					${status ? html`<span class="brief-status">${status}</span>` : ""}
+					${start ? html`<span>Start: ${start}</span>` : ""}
+					${end ? html`<span>End: ${end}</span>` : ""}
+				</div>
+			` : ""}
+			${description ? html`<div class="brief-description">${description}</div>` : ""}
+		`;
+	}
+
+	private renderConfigFields() {
+		if (!this.config) return "";
+		const { buildModes, testPresets, healthTargets, agents, publishTargets } = this.config;
+		const hasHealth = healthTargets && (healthTargets.coverageTarget || healthTargets.minTests);
+
+		return html`
+			<div class="config-grid">
+				${buildModes.length > 0 ? html`
+					<span class="config-label">Build</span>
+					<span class="config-value"><span class="config-tags">${buildModes.map((m) => html`<span class="config-tag">${m}</span>`)}</span></span>
 				` : ""}
-				${status || start || end ? html`
-					<div class="brief-meta">
-						${status ? html`<span class="brief-status">${status}</span>` : ""}
-						${start ? html`<span>Start: ${start}</span>` : ""}
-						${end ? html`<span>End: ${end}</span>` : ""}
-					</div>
+				${testPresets.length > 0 ? html`
+					<span class="config-label">Test</span>
+					<span class="config-value"><span class="config-tags">${testPresets.map((t) => html`<span class="config-tag">${t}</span>`)}</span></span>
 				` : ""}
-				${description ? html`<div class="brief-description">${description}</div>` : ""}
+				${hasHealth ? html`
+					<span class="config-label">Health</span>
+					<span class="config-value">${this.formatHealth(healthTargets!)}</span>
+				` : ""}
+				${agents && agents.length > 0 ? html`
+					<span class="config-label">Team</span>
+					<span class="config-value">${agents.length <= 4 ? agents.join(", ") : `${agents.slice(0, 3).join(", ")} +${agents.length - 3} more`}</span>
+				` : ""}
+				${publishTargets && publishTargets.length > 0 ? html`
+					<span class="config-label">Deploy</span>
+					<span class="config-value">${publishTargets.join(", ")}</span>
+				` : ""}
 			</div>
 		`;
 	}
@@ -655,6 +1008,14 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	private dispatchOpenNote(): void {
 		this.dispatchEvent(new CustomEvent("open-project-note", {
 			detail: { path: this.notePath },
+			bubbles: true,
+			composed: true,
+		}));
+	}
+
+	private dispatchOpenFolder(): void {
+		this.dispatchEvent(new CustomEvent("open-project-folder", {
+			detail: { name: this.projectName },
 			bubbles: true,
 			composed: true,
 		}));

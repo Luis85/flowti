@@ -29,6 +29,11 @@ function mockService(): IProjectService {
 		importCanvasSitemap: vi.fn(async () => ({ ok: true })),
 		previewStorybook: vi.fn(async () => ({ ok: true, url: "http://localhost:6007" })),
 		stopPreview: vi.fn(async () => ({ ok: true })),
+		generateSitemapCanvas: vi.fn(async () => ({ ok: true })),
+		importFromGit: vi.fn(async () => ({ ok: true })),
+		detectProject: vi.fn(async () => ({ ok: true, type: "typescript" })),
+		bootstrapProject: vi.fn(async () => ({ ok: true })),
+		createEmptyProject: vi.fn(async () => ({ ok: true })),
 	};
 }
 

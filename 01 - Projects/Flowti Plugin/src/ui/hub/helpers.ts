@@ -12,10 +12,14 @@ export function revealFolderInExplorer(app: App, folderPath: string): void {
 	const folder = app.vault.getAbstractFileByPath(folderPath.replace(/\/$/, ""));
 	if (!folder) return;
 	const explorers = app.workspace.getLeavesOfType("file-explorer");
-	if (explorers.length > 0) {
-		const view = explorers[0].view as unknown as { revealInFolder?: (f: unknown) => void };
-		view.revealInFolder?.(folder);
-		void app.workspace.revealLeaf(explorers[0]);
+	if (explorers.length === 0) return;
+	const leaf = explorers[0];
+	const view = leaf.view as unknown as { revealInFolder?: (f: unknown) => void };
+	view.revealInFolder?.(folder);
+	// Only switch to the explorer if it's not already visible — avoids expensive layout reflow
+	const root = leaf.getRoot();
+	if (root && "collapsed" in root && (root as { collapsed: boolean }).collapsed) {
+		void app.workspace.revealLeaf(leaf);
 	}
 }
 

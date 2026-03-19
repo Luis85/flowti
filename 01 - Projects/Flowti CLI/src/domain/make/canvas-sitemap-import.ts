@@ -44,8 +44,10 @@ export function parseCanvasToSitemap(
 	canvas: CanvasData,
 	existingSitemap?: UnifiedSitemap,
 ): { sitemap: UnifiedSitemap } & CanvasImportResult {
-	const groups = canvas.nodes.filter((n) => n.type === "group");
-	const nonGroups = canvas.nodes.filter((n) => n.type !== "group");
+	const allGroups = canvas.nodes.filter((n) => n.type === "group");
+	const metaGroups = allGroups.filter((g) => nodeLabel(g).startsWith("_"));
+	const groups = allGroups.filter((g) => !nodeLabel(g).startsWith("_"));
+	const nonGroups = canvas.nodes.filter((n) => n.type !== "group" && !metaGroups.some((mg) => isInside(n, mg)));
 
 	const idMap = new Map<string, string>();
 	for (const node of canvas.nodes) {

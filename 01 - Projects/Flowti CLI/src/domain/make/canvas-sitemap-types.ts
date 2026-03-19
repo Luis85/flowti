@@ -15,6 +15,7 @@ export interface CanvasNode {
 	readonly label?: string;
 	readonly color?: string;
 	readonly shape?: string;
+	readonly file?: string;
 }
 
 export interface CanvasEdge {

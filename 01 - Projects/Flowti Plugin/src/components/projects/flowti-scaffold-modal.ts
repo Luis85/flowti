@@ -41,9 +41,11 @@ export class FlowtiScaffoldModal extends FlowtiElement {
 				background: var(--background-primary, #1e1e1e);
 				border: 1px solid var(--background-modifier-border, #333);
 				border-radius: 8px;
-				padding: var(--flowti-space-lg, 24px);
+				padding: var(--flowti-space-md, 16px);
 				max-width: 420px;
-				width: 90%;
+				width: calc(100% - 24px);
+				margin: 0 12px;
+				box-sizing: border-box;
 			}
 
 			.modal-title {

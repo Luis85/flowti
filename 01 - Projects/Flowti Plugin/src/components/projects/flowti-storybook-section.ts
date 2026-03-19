@@ -31,6 +31,7 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		outputLines: { type: Array },
 		errorNote: { type: String },
 		hasStaticBuild: { type: Boolean },
+		showConfirm: { type: Boolean },
 	};
 
 	static styles = [
@@ -156,6 +157,17 @@ export class FlowtiStorybookSection extends FlowtiElement {
 			.action-btn--danger:hover {
 				color: var(--color-red, #e53935);
 				border-color: var(--color-red, #e53935);
+			}
+
+			.confirm-row {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--flowti-space-xs, 4px);
+			}
+
+			.confirm-text {
+				font-size: var(--flowti-font-sm, 0.85em);
+				color: var(--text-muted, #999);
 			}
 
 			.action-btn--primary {
@@ -284,6 +296,7 @@ export class FlowtiStorybookSection extends FlowtiElement {
 	outputLines: string[] = [];
 	errorNote = "";
 	hasStaticBuild = false;
+	showConfirm = false;
 
 	protected renderContent() {
 		const main = this.busy
@@ -333,7 +346,15 @@ export class FlowtiStorybookSection extends FlowtiElement {
 				` : ""}
 				<button class="action-btn" ?disabled="${this.busy}" @click="${() => this.dispatchBuild()}" title="Build static site to storybook-static/">Build</button>
 				<button class="action-btn" ?disabled="${this.busy}" @click="${() => this.dispatchOpenFolder()}" title="Open components folder in vault">Open folder</button>
-				<button class="action-btn action-btn--danger" ?disabled="${this.busy}" @click="${() => this.dispatchRegenerate()}" title="Delete and recreate component library from sitemap">Regenerate</button>
+				${this.showConfirm ? html`
+					<span class="confirm-row">
+						<span class="confirm-text">Delete and recreate?</span>
+						<button class="action-btn action-btn--danger" @click="${() => { this.showConfirm = false; this.dispatchRegenerateConfirmed(); }}">Confirm</button>
+						<button class="action-btn" @click="${() => { this.showConfirm = false; }}">Cancel</button>
+					</span>
+				` : html`
+					<button class="action-btn action-btn--danger" ?disabled="${this.busy}" @click="${() => { this.showConfirm = true; }}" title="Delete and recreate component library from sitemap">Regenerate</button>
+				`}
 			</div>
 		`;
 	}
@@ -383,8 +404,8 @@ export class FlowtiStorybookSection extends FlowtiElement {
 		this.dispatchEvent(new CustomEvent("storybook-scaffold", { bubbles: true, composed: true }));
 	}
 
-	private dispatchRegenerate(): void {
-		this.dispatchEvent(new CustomEvent("storybook-regenerate", { bubbles: true, composed: true }));
+	private dispatchRegenerateConfirmed(): void {
+		this.dispatchEvent(new CustomEvent("storybook-regenerate-confirmed", { bubbles: true, composed: true }));
 	}
 
 	private dispatchOpenFolder(): void {

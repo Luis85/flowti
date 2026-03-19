@@ -17,6 +17,7 @@ vi.mock("../../src/infrastructure/filesystem.js", () => ({
 		readFileSync: vi.fn(() => ""),
 		readdirSync: vi.fn(() => []),
 		writeFileSync: vi.fn(),
+		mkdirSync: vi.fn(),
 	},
 }));
 vi.mock("../../src/infrastructure/paths.js", () => ({
@@ -31,6 +32,7 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 vi.mock("../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 	CLI_PROJECT: "/vault/cli",
+	PROJECTS_DIR: "/vault/projects",
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn() },
@@ -66,6 +68,24 @@ describe("project.controller", () => {
 			expect(vi.mocked(log)).toHaveBeenCalledWith(
 				expect.stringContaining("interactive"),
 			);
+		});
+	});
+
+	describe("project:create", () => {
+		it("is registered as a command", () => {
+			expect(commands["project:create"]).toBeDefined();
+		});
+	});
+
+	describe("project:detect", () => {
+		it("is registered as a command", () => {
+			expect(commands["project:detect"]).toBeDefined();
+		});
+	});
+
+	describe("project:bootstrap", () => {
+		it("is registered as a command", () => {
+			expect(commands["project:bootstrap"]).toBeDefined();
 		});
 	});
 });

@@ -274,8 +274,10 @@ export class AskBob extends FlowtiElement {
 				color: var(--text-primary);
 				white-space: pre-wrap;
 				word-break: break-word;
-				max-height: 120px;
 				overflow-y: auto;
+			}
+			.debug-prompt.collapsed {
+				max-height: 80px;
 			}
 			.debug-context {
 				margin-top: 4px;
@@ -284,9 +286,32 @@ export class AskBob extends FlowtiElement {
 				color: var(--text-dim);
 				white-space: pre-wrap;
 				word-break: break-word;
-				max-height: 80px;
 				overflow-y: auto;
 				font-size: 10px;
+			}
+			.debug-context.collapsed {
+				max-height: 60px;
+			}
+			.debug-actions {
+				display: flex;
+				gap: 4px;
+				margin-top: 6px;
+			}
+			.debug-action {
+				background: var(--bg-primary);
+				border: 1px solid var(--border);
+				border-radius: 2px;
+				color: var(--text-muted);
+				font-family: inherit;
+				font-size: 9px;
+				padding: 2px 8px;
+				cursor: pointer;
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+			}
+			.debug-action:hover {
+				color: var(--accent-gold);
+				border-color: var(--accent-gold);
 			}
 			.debug-empty {
 				color: var(--text-muted);
@@ -302,6 +327,7 @@ export class AskBob extends FlowtiElement {
 	private conversation: readonly ConversationTurn[] = [];
 	private thinking = false;
 	private activeTab: "chat" | "debug" = "chat";
+	private expandedEntries = new Set<number>();
 
 	private unsubscribe: (() => void) | null = null;
 
@@ -335,6 +361,20 @@ export class AskBob extends FlowtiElement {
 		this.open = false;
 	}
 
+	private async scrollToBottom(): Promise<void> {
+		await this.updateComplete;
+		const thread = this.shadowRoot?.querySelector<HTMLElement>(".thread");
+		if (thread) {
+			thread.scrollTop = thread.scrollHeight;
+		}
+	}
+
+	updated(): void {
+		if (this.activeTab === "chat") {
+			void this.scrollToBottom();
+		}
+	}
+
 	private handleSend(): void {
 		const input = this.shadowRoot?.querySelector<HTMLInputElement>(".chat-input");
 		if (!input) return;
@@ -344,6 +384,7 @@ export class AskBob extends FlowtiElement {
 		this.store.pushUserMessage(BOB_AGENT_NAME, text);
 		void this.store.sendMessage(BOB_AGENT_NAME, text);
 		input.value = "";
+		void this.scrollToBottom();
 	}
 
 	private handleKeydown(e: KeyboardEvent): void {
@@ -362,6 +403,25 @@ export class AskBob extends FlowtiElement {
 		`;
 	}
 
+	private toggleExpand(idx: number): void {
+		if (this.expandedEntries.has(idx)) {
+			this.expandedEntries.delete(idx);
+		} else {
+			this.expandedEntries.add(idx);
+		}
+		this.requestUpdate();
+	}
+
+	private copyToClipboard(text: string): void {
+		void navigator.clipboard.writeText(text);
+	}
+
+	private resendPrompt(agentName: string, prompt: string): void {
+		this.store.pushUserMessage(agentName, prompt);
+		void this.store.sendMessage(agentName, prompt);
+		this.activeTab = "chat";
+	}
+
 	private renderDebugLog() {
 		const log = this.store.debugLog;
 		if (log.length === 0) {
@@ -369,16 +429,22 @@ export class AskBob extends FlowtiElement {
 		}
 		return html`
 			<div class="debug-log">
-				${[...log].reverse().map((entry) => {
+				${[...log].reverse().map((entry, idx) => {
 					const time = new Date(entry.timestamp).toLocaleTimeString();
+					const expanded = this.expandedEntries.has(idx);
 					return html`
 						<div class="debug-entry">
 							<div class="debug-header">
 								<span class="debug-agent">${entry.agentName}</span>
 								<span>${time}</span>
 							</div>
-							<div class="debug-prompt">${entry.prompt}</div>
-							${entry.context ? html`<div class="debug-context">${entry.context}</div>` : nothing}
+							<div class="debug-prompt ${expanded ? "" : "collapsed"}">${entry.prompt}</div>
+							${entry.context ? html`<div class="debug-context ${expanded ? "" : "collapsed"}">${entry.context}</div>` : nothing}
+							<div class="debug-actions">
+								<button class="debug-action" @click=${() => this.toggleExpand(idx)}>${expanded ? "Collapse" : "Expand"}</button>
+								<button class="debug-action" @click=${() => this.copyToClipboard(entry.prompt)}>Copy</button>
+								<button class="debug-action" @click=${() => this.resendPrompt(entry.agentName, entry.prompt)}>Resend</button>
+							</div>
 						</div>
 					`;
 				})}

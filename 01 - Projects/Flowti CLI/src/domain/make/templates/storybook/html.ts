@@ -21,12 +21,13 @@ export default config;
 `;
 }
 
-export function getStoryTemplate(pageName: string, pascal: string): string {
+export function getStoryTemplate(pageName: string, pascal: string, titlePrefix?: string): string {
+	const title = titlePrefix ?? `Pages/${pascal}`;
 	return `import type { Meta, StoryObj } from "@storybook/html";
 import { create${pascal} } from "./${pageName}";
 
 const meta: Meta = {
-\ttitle: "Pages/${pascal}",
+\ttitle: "${title}",
 \ttags: ["autodocs"],
 \trender: (args) => create${pascal}(args),
 };

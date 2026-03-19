@@ -21,12 +21,13 @@ export default config;
 `;
 }
 
-export function getStoryTemplate(pageName: string, pascal: string): string {
+export function getStoryTemplate(pageName: string, pascal: string, titlePrefix?: string): string {
+	const title = titlePrefix ?? `Pages/${pascal}`;
 	return `import type { Meta, StoryObj } from "@storybook/angular";
 import { ${pascal}Component } from "./${pageName}.component";
 
 const meta: Meta<${pascal}Component> = {
-\ttitle: "Pages/${pascal}",
+\ttitle: "${title}",
 \tcomponent: ${pascal}Component,
 \ttags: ["autodocs"],
 };

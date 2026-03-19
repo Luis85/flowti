@@ -4,14 +4,17 @@
  */
 
 import type { App, Plugin, WorkspaceLeaf } from "obsidian";
+import type { IEventBus } from "../infrastructure/events/types.js";
 import { VaultProjectService } from "../infrastructure/projects/vault-project-service.js";
 import { ProjectDetailView, type ProjectDetailDeps } from "../ui/projects/project-detail-view.js";
 import { VIEW_TYPE_PROJECT_DETAIL } from "../ui/projects/types.js";
 import { FolderPickerModal, getVaultFolders } from "../ui/shared/FolderPickerModal.js";
+import { revealFolderInExplorer } from "../ui/hub/helpers.js";
 
 export interface ProjectSetupDeps {
 	readonly plugin: Plugin;
 	readonly app: App;
+	readonly eventBus: IEventBus;
 }
 
 export interface ProjectSetupResult {
@@ -28,9 +31,24 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 		},
 		createNote: (name: string) => {
 			const projectPath = `01 - Projects/${name}/${name}.md`;
-			const content = `---\ntype: ProjectBrief\n---\n\n# ${name}\n\n`;
-			void deps.app.vault.create(projectPath, content).then((file) => {
-				void deps.app.workspace.openLinkText(file.path, "", false);
+
+			// Listen for result before emitting
+			const unsub = deps.eventBus.on("doc.created", (event) => {
+				unsub();
+				unsubExists();
+				void deps.app.workspace.openLinkText(event.payload.path, "", false);
+			});
+			const unsubExists = deps.eventBus.on("doc.exists", (event) => {
+				unsub();
+				unsubExists();
+				void deps.app.workspace.openLinkText(event.payload.path, "", false);
+			});
+
+			void deps.eventBus.emit("doc.create", {
+				docType: "ProjectBrief",
+				name,
+				path: projectPath,
+				source: "ProjectSetup",
 			});
 		},
 		openInWebviewer: (url: string) => {
@@ -44,6 +62,9 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 			const folders = getVaultFolders(deps.app);
 			new FolderPickerModal(deps.app, folders, (folder) => resolve(folder)).open();
 		}),
+		revealFolder: (path: string) => {
+			revealFolderInExplorer(deps.app, path);
+		},
 	};
 
 	try {

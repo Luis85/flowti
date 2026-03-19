@@ -79,4 +79,9 @@ export interface IProjectService {
 	importCanvasSitemap(project: string, onOutput?: OutputCallback, opts?: { merge?: boolean }): Promise<{ ok: boolean; error?: string }>;
 	previewStorybook(project: string): Promise<{ ok: boolean; url?: string; error?: string }>;
 	stopPreview(project: string): Promise<{ ok: boolean; error?: string }>;
+	generateSitemapCanvas(project: string, onOutput?: OutputCallback, opts?: { preset?: string; force?: boolean }): Promise<{ ok: boolean; error?: string }>;
+	importFromGit(url: string, name: string, mode: "submodule" | "template", onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+	detectProject(name: string): Promise<{ ok: boolean; type?: string; framework?: string; packageManager?: string; testFramework?: string; hasConfig?: boolean; buildCommand?: string; testCommand?: string; lintCommand?: string; error?: string }>;
+	bootstrapProject(name: string, config: { build?: string; test?: string; lint?: string; storybook?: string }): Promise<{ ok: boolean; error?: string }>;
+	createEmptyProject(name: string): Promise<{ ok: boolean; error?: string }>;
 }

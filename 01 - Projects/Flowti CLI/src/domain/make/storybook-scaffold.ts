@@ -39,11 +39,12 @@ export interface ScaffoldResult {
 interface SitemapPage {
 	label?: string;
 	kind?: string;
+	parent?: string;
 }
 
 interface FrameworkTemplate {
 	getStorybookConfig(): string;
-	getStoryTemplate(pageName: string, pascal: string): string;
+	getStoryTemplate(pageName: string, pascal: string, titlePrefix?: string): string;
 	getComponentStub(pageName: string, pascal: string): string;
 	getPackageDeps(): Record<string, string>;
 }
@@ -78,13 +79,14 @@ function toKebab(s: string): string {
 		.replace(/^-+|-+$/g, "");
 }
 
-function extractPages(sitemap: Record<string, unknown>): Array<{ id: string; label: string }> {
+function extractPages(sitemap: Record<string, unknown>): Array<{ id: string; label: string; parent?: string }> {
 	// CLI format: { pages: { "page-id": { label, kind, ... } } }
 	if (sitemap.pages && typeof sitemap.pages === "object" && !Array.isArray(sitemap.pages)) {
 		const pages = sitemap.pages as Record<string, SitemapPage>;
 		return Object.entries(pages).map(([id, page]) => ({
 			id,
 			label: page.label ?? id,
+			parent: page.parent,
 		}));
 	}
 
@@ -94,6 +96,7 @@ function extractPages(sitemap: Record<string, unknown>): Array<{ id: string; lab
 		return Object.entries(views).map(([id, view]) => ({
 			id,
 			label: view.label ?? id,
+			parent: view.parent,
 		}));
 	}
 
@@ -155,15 +158,18 @@ export function scaffoldStorybookFromSitemap(
 	for (const page of pages) {
 		const kebab = toKebab(page.id);
 		const pascal = toPascal(page.label);
+		const parentKebab = page.parent ? toKebab(page.parent) : undefined;
+		const folder = parentKebab ? `${parentKebab}/${kebab}` : kebab;
+		const titlePrefix = parentKebab ? `${toPascal(page.parent!)}/${pascal}` : undefined;
 
 		files.push({
-			path: `src/${kebab}/${kebab}.stories.ts`,
-			content: templates.getStoryTemplate(kebab, pascal),
+			path: `src/${folder}/${kebab}.stories.ts`,
+			content: templates.getStoryTemplate(kebab, pascal, titlePrefix),
 		});
 
 		const stubExt = fw === "vue" ? ".vue" : fw === "angular" ? ".component.ts" : fw === "html" ? ".ts" : ".tsx";
 		files.push({
-			path: `src/${kebab}/${kebab}${stubExt}`,
+			path: `src/${folder}/${kebab}${stubExt}`,
 			content: templates.getComponentStub(kebab, pascal),
 		});
 	}

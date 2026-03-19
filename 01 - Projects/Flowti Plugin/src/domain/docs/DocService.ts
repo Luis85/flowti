@@ -207,6 +207,8 @@ export class DocService {
 				return contentGenerator.generateActorDocContent(request.name);
 			case "ProductDoc":
 				return contentGenerator.generateProductDocContent(request.name);
+			case "ProjectBrief":
+				return contentGenerator.generateProjectBriefContent(request.name);
 			default:
 				// Domain, Service, Config docs etc. require context — caller must provide content
 				return null;

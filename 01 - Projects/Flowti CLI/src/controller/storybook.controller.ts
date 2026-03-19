@@ -41,6 +41,7 @@ import { scaffoldStorybookFromSitemap, SCAFFOLD_FRAMEWORKS } from "../domain/mak
 import { parseFrontmatterContent } from "../infrastructure/frontmatter.js";
 import { validateComponents, generateSitemapFromMarkdown } from "../domain/make/markdown-sitemap-import.js";
 import { parseCanvasToSitemap } from "../domain/make/canvas-sitemap-import.js";
+import { generateSitemapCanvas } from "../domain/make/canvas-sitemap-export.js";
 import type { CanvasData } from "../domain/make/canvas-sitemap-types.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -342,6 +343,47 @@ export const commands: Record<string, CommandHandler> = {
 			return { cleaned: true, dir: sbDir };
 		},
 		renderer: (data, log) => { log(`Cleaned ${data.dir}`); },
+	}),
+
+	"storybook:canvas-generate": adaptDescriptor<{ preset: string; force: boolean }, { created: boolean; path: string }>({
+		requires: "project",
+		flags: {
+			preset: { type: "string", default: "", hint: "--preset=<web-app|landing|dashboard|e-commerce|docs>" },
+			force: { type: "boolean", default: false, hint: "--force" },
+		},
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const canvasPath = paths.join(ctx.project!.path, "sitemap.canvas");
+
+			if (disk.existsSync(canvasPath) && !ctx.flags.force) {
+				return { created: false, path: "" };
+			}
+
+			const projectName = paths.basename(ctx.project!.path);
+			const briefPath = `01 - Projects/${projectName}/${projectName}.md`;
+			const preset = (ctx.flags.preset || undefined) as import("../domain/make/canvas-sitemap-export.js").CanvasPreset | undefined;
+
+			// When a preset is specified, use it directly — don't read existing sitemap
+			let sitemap: import("../domain/sitemap/unified-page.js").UnifiedSitemap | undefined;
+			if (!preset) {
+				const sitemapPath = paths.join(ctx.project!.path, "configs", "sitemap.json");
+				if (disk.existsSync(sitemapPath)) {
+					sitemap = JSON.parse(disk.readFileSync(sitemapPath, "utf8")) as import("../domain/sitemap/unified-page.js").UnifiedSitemap;
+				}
+			}
+
+			const canvas = generateSitemapCanvas({ briefPath, sitemap, preset });
+			disk.writeFileSync(canvasPath, JSON.stringify(canvas, null, "\t") + "\n", "utf8");
+
+			return { created: true, path: canvasPath };
+		},
+		renderer: (data, log) => {
+			if (data.created) {
+				log(`\n  Created sitemap.canvas at ${data.path}\n`);
+			} else {
+				log("\n  Canvas already exists. Use --force to overwrite.\n");
+			}
+		},
 	}),
 
 	"storybook:canvas-import": adaptDescriptor<{ canvas: string; output: string; merge: boolean }, { added: number; updated: number; totalPages: number; outputPath: string }>({

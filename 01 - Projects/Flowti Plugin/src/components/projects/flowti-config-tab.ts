@@ -24,6 +24,8 @@ export class FlowtiConfigTab extends FlowtiElement {
 		sourcePath: { type: String },
 		strategy: { type: String },
 		requiredFields: { type: Array },
+		saveStatus: { type: String },
+		hasCanvas: { type: Boolean },
 	};
 
 	static styles = [
@@ -182,20 +184,64 @@ export class FlowtiConfigTab extends FlowtiElement {
 			.save-btn:hover {
 				opacity: 0.9;
 			}
+
+			.save-feedback {
+				font-size: var(--flowti-font-sm, 0.85em);
+				padding: var(--flowti-space-xs, 4px) 0;
+			}
+
+			.save-feedback--success {
+				color: var(--color-green, #4caf50);
+			}
+
+			.save-feedback--error {
+				color: var(--color-red, #e53935);
+			}
+
+			.import-section {
+				margin-top: var(--flowti-space-md, 16px);
+				padding-top: var(--flowti-space-md, 16px);
+				border-top: 1px solid var(--background-modifier-border, #333);
+			}
 		`,
 	];
 
 	sourcePath = "";
 	strategy: ImportStrategy = "category";
 	requiredFields: string[] = [];
+	saveStatus = "";
+	hasCanvas = false;
 
 	protected renderContent() {
 		return html`
+			${!this.hasCanvas ? html`
+				<div class="field-group">
+					<div class="section-title">Sitemap Canvas</div>
+					<span class="field-label">Pick a preset to generate a starter canvas</span>
+					<div class="strategy-group">
+						${[
+							{ id: "web-app", label: "Web App" },
+							{ id: "landing", label: "Landing" },
+							{ id: "dashboard", label: "Dashboard" },
+							{ id: "e-commerce", label: "E-Commerce" },
+							{ id: "docs", label: "Docs" },
+							{ id: "system-design", label: "System" },
+							{ id: "service-design", label: "Service" },
+							{ id: "product-design", label: "Product" },
+						].map((p) => html`
+							<button class="strategy-btn" @click="${() => this.dispatchGeneratePreset(p.id)}" title="Generate ${p.label} sitemap canvas">${p.label}</button>
+						`)}
+					</div>
+				</div>
+			` : ""}
 			<div class="section-title">Markdown Sitemap Import</div>
 			${this.renderSourceFolder()}
 			${this.renderStrategy()}
 			${this.renderRequiredFields()}
 			${this.renderSaveButton()}
+			${this.saveStatus ? html`
+				<div class="save-feedback ${this.saveStatus === "Saved" ? "save-feedback--success" : "save-feedback--error"}">${this.saveStatus}</div>
+			` : ""}
 		`;
 	}
 
@@ -207,6 +253,7 @@ export class FlowtiConfigTab extends FlowtiElement {
 				<div class="folder-row">
 					<span class="folder-display ${isEmpty ? "folder-display--empty" : ""}">${this.sourcePath || "No folder selected"}</span>
 					<button class="browse-btn" @click="${this.dispatchBrowse}">Browse</button>
+					<button class="browse-btn" @click="${this.dispatchImport}" title="Import markdown files into sitemap">Import</button>
 				</div>
 			</div>
 		`;
@@ -278,6 +325,14 @@ export class FlowtiConfigTab extends FlowtiElement {
 			bubbles: true,
 			composed: true,
 		}));
+	}
+
+	private dispatchImport(): void {
+		this.dispatchEvent(new CustomEvent("storybook-import", { bubbles: true, composed: true }));
+	}
+
+	private dispatchGeneratePreset(preset: string): void {
+		this.dispatchEvent(new CustomEvent("canvas-generate", { detail: { preset }, bubbles: true, composed: true }));
 	}
 }
 

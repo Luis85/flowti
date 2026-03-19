@@ -21,12 +21,13 @@ export default config;
 `;
 }
 
-export function getStoryTemplate(pageName: string, pascal: string): string {
+export function getStoryTemplate(pageName: string, pascal: string, titlePrefix?: string): string {
+	const title = titlePrefix ?? `Pages/${pascal}`;
 	return `import type { Meta, StoryObj } from "@storybook/vue3";
 import ${pascal} from "./${pageName}.vue";
 
 const meta: Meta<typeof ${pascal}> = {
-\ttitle: "Pages/${pascal}",
+\ttitle: "${title}",
 \tcomponent: ${pascal},
 \ttags: ["autodocs"],
 };
