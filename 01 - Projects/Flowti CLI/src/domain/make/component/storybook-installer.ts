@@ -158,21 +158,16 @@ function writeAngularWorkspacePackageJson(sbDir: string, projectName: string, de
 	deps.disk.writeFileSync(deps.paths.join(sbDir, "package.json"), JSON.stringify(pkg, null, 2), "utf-8");
 }
 
-/** After Storybook init, patch main.ts to disable telemetry and fix stories glob. */
+/** After Storybook init, patch main config to fix stories glob for scaffold layout. */
 function patchStorybookConfig(sbDir: string, deps: Pick<StorybookDeps, "disk" | "paths">): void {
-	const mainPath = deps.paths.join(sbDir, ".storybook", "main.ts");
+	// Storybook init may create main.ts or main.js — try both
+	const mainTs = deps.paths.join(sbDir, ".storybook", "main.ts");
+	const mainJs = deps.paths.join(sbDir, ".storybook", "main.js");
+	const mainPath = deps.disk.existsSync(mainTs) ? mainTs : mainJs;
 	try {
 		let content = deps.disk.readFileSync(mainPath, "utf-8");
-		// Fix stories glob: point to all component directories, not just a stories folder
-		content = content.replace(/\.\.\/stories\//g, "../");
-		// Disable telemetry if not already present
-		if (!content.includes("disableTelemetry")) {
-			// Match the closing of the config object — works with both SB 8 and 10 formats
-			content = content.replace(
-				/(\n)(};?\s*\nexport default)/,
-				'$1  core: {\n    disableTelemetry: true,\n  },\n$2',
-			);
-		}
+		// Fix stories glob: point to src/ where scaffold writes component stories
+		content = content.replace(/\.\.\/stories\//g, "../src/");
 		// Remove chromatic addon (not needed for our component library)
 		content = content.replace(/\s*"@chromatic-com\/storybook",?\n?/g, "\n");
 		deps.disk.writeFileSync(mainPath, content, "utf-8");
@@ -244,6 +239,41 @@ function patchAngularProject(sbDir: string, deps: Pick<StorybookDeps, "disk" | "
 	} catch { /* leave as-is */ }
 }
 
+/** Add vitest + a11y addons to main config (skipping broken automigrate scripts). */
+function addAddonsToConfig(sbDir: string, deps: Pick<StorybookDeps, "disk" | "paths">): void {
+	const mainTs = deps.paths.join(sbDir, ".storybook", "main.ts");
+	const mainJs = deps.paths.join(sbDir, ".storybook", "main.js");
+	const mainPath = deps.disk.existsSync(mainTs) ? mainTs : mainJs;
+	try {
+		let content = deps.disk.readFileSync(mainPath, "utf-8");
+		const addons = ["@storybook/addon-vitest", "@storybook/addon-a11y"];
+		for (const addon of addons) {
+			if (!content.includes(addon)) {
+				// Insert before the closing bracket of the addons array
+				content = content.replace(
+					/(addons:\s*\[)/,
+					`$1\n    "${addon}",`,
+				);
+			}
+		}
+		deps.disk.writeFileSync(mainPath, content, "utf-8");
+	} catch { /* leave as-is */ }
+}
+
+/** Add vitest + a11y packages to package.json devDependencies. */
+function addAddonDeps(sbDir: string, deps: Pick<StorybookDeps, "disk" | "paths">): void {
+	const pkgPath = deps.paths.join(sbDir, "package.json");
+	try {
+		const pkg = JSON.parse(deps.disk.readFileSync(pkgPath, "utf-8"));
+		const devDeps = pkg.devDependencies ?? {};
+		devDeps["@storybook/addon-vitest"] = devDeps["@storybook/addon-vitest"] ?? "^10.0.0";
+		devDeps["@storybook/addon-a11y"] = devDeps["@storybook/addon-a11y"] ?? "^10.0.0";
+		devDeps["vitest"] = devDeps["vitest"] ?? "^4.0.0";
+		pkg.devDependencies = devDeps;
+		deps.disk.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8");
+	} catch { /* leave as-is */ }
+}
+
 // ── Main installation ────────────────────────────────────────────────
 
 export function installStorybook(projectPath: string, projectName: string, config: ComponentsConfig, deps: StorybookDeps, render: StorybookRenderer = nullStorybookRenderer): boolean {
@@ -259,16 +289,24 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	// Ensure components directory exists
 	deps.disk.mkdirSync(sbDir, { recursive: true });
 
+	// Isolate from parent project's dependency tree — prevents npm from
+	// walking up and finding incompatible packages (e.g. @types/node@^16)
+	const npmrcPath = deps.paths.join(sbDir, ".npmrc");
+	if (!deps.disk.existsSync(npmrcPath)) {
+		deps.disk.writeFileSync(npmrcPath, "legacy-peer-deps=true\n", "utf-8");
+	}
+
 	const framework = config.framework ?? "html";
 
-	// Suppress interactive prompts from Angular CLI and npx
-	const nonInteractiveEnv = { NG_CLI_ANALYTICS: "false", npm_config_yes: "true" };
+	// Suppress interactive prompts — close stdin so child processes get EOF instead of hanging
+	const nonInteractiveEnv = { NG_CLI_ANALYTICS: "false", npm_config_yes: "true", CI: "true" };
+	const runOpts = (label: string) => ({ cwd: sbDir, label, env: nonInteractiveEnv, nonInteractive: true });
 
 	if (framework === "angular") {
 		// Angular requires a workspace scaffold before Storybook init can detect the framework
 		writeAngularWorkspacePackageJson(sbDir, projectName, deps);
 		writeAngularWorkspace(sbDir, projectName, deps);
-		const angularInstall = deps.shell.run("npm install", { cwd: sbDir, label: "Installing Angular workspace", env: nonInteractiveEnv });
+		const angularInstall = deps.shell.run("npm install", runOpts("Installing Angular workspace"));
 		if (angularInstall !== 0) {
 			render.installFailed();
 			return false;
@@ -276,7 +314,7 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	} else {
 		// Non-Angular: create a minimal package.json and install deps so storybook init can detect the framework
 		writePackageJson(sbDir, projectName, framework, deps);
-		const depInstall = deps.shell.run("npm install", { cwd: sbDir, label: "Installing framework dependencies", env: nonInteractiveEnv });
+		const depInstall = deps.shell.run("npm install", runOpts("Installing framework dependencies"));
 		if (depInstall !== 0) {
 			render.installFailed();
 			return false;
@@ -286,7 +324,7 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	// Skip storybook init if already configured — only update packages
 	const mainTsPath = deps.paths.join(sbDir, ".storybook", "main.ts");
 	if (deps.disk.existsSync(mainTsPath)) {
-		const updateCode = deps.shell.run("npm install", { cwd: sbDir, label: "Updating Storybook packages", env: nonInteractiveEnv });
+		const updateCode = deps.shell.run("npm install", runOpts("Updating Storybook packages"));
 		if (updateCode !== 0) {
 			render.installFailed();
 			return false;
@@ -295,13 +333,13 @@ export function installStorybook(projectPath: string, projectName: string, confi
 		return true;
 	}
 
-	// Use official Storybook CLI to install with all features
-	// Angular uses webpack — addon-vitest requires Vite, so exclude "test" feature for Angular
-	const features = framework === "angular" ? "docs a11y" : "docs test a11y";
+	// Init with docs only — test/a11y automigrates crash on Windows and pull Playwright (~200MB)
+	// We add vitest + a11y addons manually after init for a clean single-pass install
 	const typeMap: Record<string, string> = { html: "html", angular: "angular", react: "react", vue: "vue3" };
 	const typeFlag = typeMap[framework] ? ` --type ${typeMap[framework]}` : "";
-	const initCmd = `npx storybook@latest init --yes --features ${features}${typeFlag}`;
-	const code = deps.shell.run(initCmd, { cwd: sbDir, label: "Installing Storybook", env: nonInteractiveEnv });
+	const builderFlag = framework === "angular" ? "" : " --builder vite";
+	const initCmd = `npx storybook@latest init --yes --features docs${typeFlag}${builderFlag}`;
+	const code = deps.shell.run(initCmd, runOpts("Initializing Storybook"));
 	if (code !== 0) {
 		render.installFailed();
 		return false;
@@ -313,6 +351,17 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	removeExampleStories(sbDir, deps);
 	if (framework === "angular") {
 		patchAngularProject(sbDir, deps);
+	}
+
+	// Add test + a11y addons to config and package.json (skipping broken automigrates)
+	addAddonsToConfig(sbDir, deps);
+	addAddonDeps(sbDir, deps);
+
+	// Single npm install for everything
+	const installCode = deps.shell.run("npm install", runOpts("Installing dependencies"));
+	if (installCode !== 0) {
+		render.installFailed();
+		return false;
 	}
 
 	render.installSuccess(sbDir);

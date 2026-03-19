@@ -14,27 +14,28 @@ const CREATE_PREFIX = "+ Create: ";
 
 export class FolderPickerModal extends FuzzySuggestModal<string> {
 	private folders: string[];
+	private folderSet: Set<string>;
 	private onChoose: (folder: string) => void;
 	private eventBus?: IEventBus;
 
 	constructor(app: App, folders: string[], onChoose: (folder: string) => void, eventBus?: IEventBus) {
 		super(app);
 		this.folders = folders;
+		this.folderSet = new Set(folders);
 		this.onChoose = onChoose;
 		this.eventBus = eventBus;
 	}
 
 	getItems(): string[] {
 		const query = this.inputEl?.value?.trim() ?? "";
-		const items = [...this.folders];
 
 		// When the user types a path that doesn't match an existing folder,
-		// offer to create it
-		if (query && !this.folders.includes(query)) {
-			items.push(`${CREATE_PREFIX}${query}`);
+		// offer to create it — only allocate a new array then
+		if (query && !this.folderSet.has(query)) {
+			return [...this.folders, `${CREATE_PREFIX}${query}`];
 		}
 
-		return items;
+		return this.folders;
 	}
 
 	getItemText(item: string): string {

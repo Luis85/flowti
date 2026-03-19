@@ -148,13 +148,18 @@ describe("installStorybook", () => {
 		expect(writeCalls.some((p) => String(p).includes("package.json"))).toBe(true);
 	});
 
-	it("runs storybook init with features", () => {
+	it("runs storybook init with docs and single npm install", () => {
 		mockShell.run.mockReturnValue(0);
 
 		installStorybook("/project", "my-project", {}, sbDeps());
 
 		expect(mockShell.run).toHaveBeenCalledWith(
-			expect.stringContaining("npx storybook@latest init --yes --features docs test a11y"),
+			expect.stringContaining("npx storybook@latest init --yes --features docs"),
+			expect.objectContaining({ cwd: "/project/components" }),
+		);
+		// Final npm install after patching
+		expect(mockShell.run).toHaveBeenCalledWith(
+			"npm install",
 			expect.objectContaining({ cwd: "/project/components" }),
 		);
 	});
@@ -556,12 +561,12 @@ describe("installStorybook — framework-aware", () => {
 		const angularCall = mockDisk.writeFileSync.mock.calls.find(([p]) => String(p).includes("angular.json"));
 		expect(angularCall).toBeDefined();
 
-		// Should run npm install for Angular deps, then storybook init
+		// Should run npm install for Angular deps, then storybook init, then final npm install
 		const runCalls = mockShell.run.mock.calls.map(([cmd]) => cmd);
 		expect(runCalls[0]).toBe("npm install");
 		expect(runCalls[1]).toContain("npx storybook@latest init");
-		// Angular excludes "test" feature (addon-vitest requires Vite)
-		expect(runCalls[1]).toContain("--features docs a11y");
+		expect(runCalls[1]).toContain("--features docs");
+		expect(runCalls[2]).toBe("npm install");
 	});
 
 	it("returns false if angular npm install fails", () => {

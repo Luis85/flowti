@@ -18,7 +18,7 @@ import {
 	runStorybookBuild,
 	resolveStorybookDir,
 } from "../domain/make/component/storybook-service.js";
-import { getFramework, setFramework } from "../domain/make/component/storybook-settings.js";
+import { getFramework, setFramework, writeComponentsConfig } from "../domain/make/component/storybook-settings.js";
 import { createStorybookRenderer } from "../ui/renderers/storybook-renderer-impl.js";
 
 import {
@@ -81,7 +81,9 @@ function runMarkdownImport(
 	outputFlag: string,
 	deps: { disk: IFileSystem; paths: IPaths },
 ): StorybookImportResultModel {
-	const srcDir = deps.paths.resolve(projectPath, sourcePath);
+	const srcDir = deps.paths.isAbsolute(sourcePath)
+		? sourcePath
+		: deps.paths.resolve(sourcePath);
 	const strategy = (mdSource?.strategy ?? "category") as import("../domain/make/markdown-sitemap-types.js").Strategy;
 	const requiredFields = mdSource?.requiredFields ?? ["name", "category"];
 
@@ -190,28 +192,88 @@ export const commands: Record<string, CommandHandler> = {
 		renderer: renderStorybookGenerateResult,
 	}),
 
-	"storybook:scaffold": adaptDescriptor<{ sitemap: string; framework: string }, StorybookScaffoldResultModel>({
+	"storybook:scaffold": adaptDescriptor<{ sitemap: string; framework: string; adoptImport: boolean }, StorybookScaffoldResultModel>({
+		requires: "project",
 		flags: {
 			sitemap: {
 				type: "string",
-				required: true,
+				required: false,
 				hint: "--sitemap=<path>",
 			},
 			framework: {
 				type: "string",
-				required: true,
+				required: false,
 				hint: "--framework=react|vue|angular|lit|cli-app",
 				choices: [...SCAFFOLD_FRAMEWORKS],
+			},
+			adoptImport: {
+				type: "boolean",
+				required: false,
+				hint: "--adopt-import",
 			},
 		},
 		handler: (ctx) => {
 			const { disk, paths } = ctx.deps;
-			return scaffoldStorybookFromSitemap(ctx.flags.sitemap, ctx.flags.framework, { disk, paths });
+			const config = ctx.project!.config.components ?? {};
+			const storybookDir = resolveStorybookDir(ctx.project!.path, config, { paths });
+			const framework = ctx.flags.framework || getFramework(ctx.project!.path, { disk, paths }) || "html";
+
+			// Primary sitemap lives at configs/sitemap.json
+			const configsSitemap = paths.join(ctx.project!.path, "configs", "sitemap.json");
+			const importedSitemap = paths.join(ctx.project!.path, "imported-sitemap.json");
+
+			let sitemapPath = ctx.flags.sitemap || configsSitemap;
+			let adoptedImport = false;
+
+			// Auto-adopt imported-sitemap.json when no project sitemap exists
+			if (!ctx.flags.sitemap && !disk.existsSync(configsSitemap) && disk.existsSync(importedSitemap)) {
+				if (ctx.flags.adoptImport) {
+					const configsDir = paths.join(ctx.project!.path, "configs");
+					if (!disk.existsSync(configsDir)) disk.mkdirSync(configsDir, { recursive: true });
+					const content = disk.readFileSync(importedSitemap, "utf8");
+					disk.writeFileSync(configsSitemap, content, "utf8");
+					sitemapPath = configsSitemap;
+					adoptedImport = true;
+				} else {
+					// Signal that an import is available but not adopted
+					return { files: [], framework, pageCount: 0, outputDir: storybookDir, noSitemap: false, pendingImport: true };
+				}
+			}
+
+			if (!disk.existsSync(sitemapPath)) {
+				return { files: [], framework, pageCount: 0, outputDir: storybookDir, noSitemap: true };
+			}
+
+			const result = scaffoldStorybookFromSitemap(sitemapPath, framework, { disk, paths });
+
+			// Skip files that storybook init already created (config, package.json)
+			const INIT_OWNED = new Set([".storybook/main.ts", ".storybook/main.js", "package.json"]);
+			// Cross-extension check: main.ts and main.js are interchangeable
+			const mainTs = paths.join(storybookDir, ".storybook", "main.ts");
+			const mainJs = paths.join(storybookDir, ".storybook", "main.js");
+			const hasAnyMain = disk.existsSync(mainTs) || disk.existsSync(mainJs);
+			const written: typeof result.files = [];
+
+			// Write scaffold files into the components directory
+			for (const file of result.files) {
+				if (INIT_OWNED.has(file.path)) {
+					if (file.path.startsWith(".storybook/main.") && hasAnyMain) continue;
+					const absPath = paths.join(storybookDir, file.path);
+					if (disk.existsSync(absPath)) continue;
+				}
+				const absPath = paths.join(storybookDir, file.path);
+				const dir = paths.dirname(absPath);
+				if (!disk.existsSync(dir)) disk.mkdirSync(dir, { recursive: true });
+				disk.writeFileSync(absPath, file.content, "utf8");
+				written.push(file);
+			}
+
+			return { ...result, files: written, outputDir: storybookDir, adoptedImport };
 		},
 		renderer: renderStorybookScaffoldResult,
 	}),
 
-	"storybook:import": adaptDescriptor<{ output: string; source: string }, StorybookImportResultModel>({
+	"storybook:import": adaptDescriptor<{ output: string; source: string; saveConfig: boolean; strategy: string; fields: string }, StorybookImportResultModel | { configSaved: boolean; path: string; strategy: string; requiredFields: string[] }>({
 		requires: "project",
 		flags: {
 			output: {
@@ -224,14 +286,59 @@ export const commands: Record<string, CommandHandler> = {
 				required: false,
 				hint: "--source=<folder>",
 			},
+			saveConfig: {
+				type: "boolean",
+				required: false,
+				hint: "--save-config",
+			},
+			strategy: {
+				type: "string",
+				required: false,
+				hint: "--strategy=category|flat|hierarchical",
+				choices: ["category", "flat", "hierarchical"],
+			},
+			fields: {
+				type: "string",
+				required: false,
+				hint: "--fields=name,category,...",
+			},
 		},
 		handler: (ctx) => {
+			// Save config mode: write markdownSource to flowti.config.json
+			if (ctx.flags.saveConfig) {
+				const path = ctx.flags.source || "";
+				const strategy = (ctx.flags.strategy || "category") as import("../domain/make/markdown-sitemap-types.js").Strategy;
+				const requiredFields = ctx.flags.fields ? ctx.flags.fields.split(",").map((f) => f.trim()) : ["name", "category"];
+				writeComponentsConfig(ctx.project!.path, { markdownSource: { path, strategy, requiredFields } }, ctx.deps);
+				return { configSaved: true, path, strategy, requiredFields };
+			}
+
+			// Normal import mode
 			const sourcePath = ctx.flags.source || ctx.project!.config.components?.markdownSource?.path;
 			if (!sourcePath) {
 				return { componentCount: 0, skippedCount: 0, warnings: [], outputPath: "", configured: false };
 			}
 			return runMarkdownImport(ctx.project!.path, sourcePath, ctx.project!.config.components?.markdownSource, ctx.flags.output, ctx.deps);
 		},
-		renderer: renderStorybookImportResult,
+		renderer: (data, log) => {
+			if ("configSaved" in data) {
+				log(`Markdown source config saved: path=${data.path}, strategy=${data.strategy}, fields=${data.requiredFields.join(",")}`);
+				return;
+			}
+			renderStorybookImportResult(data, log);
+		},
+	}),
+
+	"storybook:clean": adaptDescriptor<Record<string, never>, { cleaned: boolean; dir: string }>({
+		requires: "project",
+		handler: (ctx) => {
+			const config = ctx.project!.config.components ?? {};
+			const sbDir = resolveStorybookDir(ctx.project!.path, config, { paths: ctx.deps.paths });
+			if (ctx.deps.disk.existsSync(sbDir)) {
+				ctx.deps.disk.rmSync(sbDir, { recursive: true, force: true });
+			}
+			return { cleaned: true, dir: sbDir };
+		},
+		renderer: (data, log) => { log(`Cleaned ${data.dir}`); },
 	}),
 };

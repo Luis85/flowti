@@ -10,6 +10,7 @@
 
 import type { CliDeps } from "../../infrastructure/deps.js";
 
+import * as htmlTemplates from "./templates/storybook/html.js";
 import * as reactTemplates from "./templates/storybook/react.js";
 import * as vueTemplates from "./templates/storybook/vue.js";
 import * as angularTemplates from "./templates/storybook/angular.js";
@@ -18,10 +19,10 @@ import * as cliAppTemplates from "./templates/storybook/cli-app.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
-export type ScaffoldFramework = "react" | "vue" | "angular" | "lit" | "cli-app";
+export type ScaffoldFramework = "html" | "react" | "vue" | "angular" | "lit" | "cli-app";
 
 export const SCAFFOLD_FRAMEWORKS: readonly ScaffoldFramework[] = [
-	"react", "vue", "angular", "lit", "cli-app",
+	"html", "react", "vue", "angular", "lit", "cli-app",
 ] as const;
 
 export interface ScaffoldFile {
@@ -52,6 +53,7 @@ export type ScaffoldDeps = Pick<CliDeps, "disk" | "paths">;
 // ── Framework template registry ──────────────────────────────────────
 
 const frameworkTemplates: Record<ScaffoldFramework, FrameworkTemplate> = {
+	html: htmlTemplates,
 	react: reactTemplates,
 	vue: vueTemplates,
 	angular: angularTemplates,
@@ -159,7 +161,7 @@ export function scaffoldStorybookFromSitemap(
 			content: templates.getStoryTemplate(kebab, pascal),
 		});
 
-		const stubExt = fw === "vue" ? ".vue" : fw === "angular" ? ".component.ts" : ".tsx";
+		const stubExt = fw === "vue" ? ".vue" : fw === "angular" ? ".component.ts" : fw === "html" ? ".ts" : ".tsx";
 		files.push({
 			path: `src/${kebab}/${kebab}${stubExt}`,
 			content: templates.getComponentStub(kebab, pascal),

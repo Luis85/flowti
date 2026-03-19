@@ -17,6 +17,8 @@ vi.mock("../../src/domain/make/component/storybook-service.js", () => ({
 vi.mock("../../src/domain/make/component/storybook-settings.js", () => ({
 	getFramework: vi.fn(() => "html"),
 	setFramework: vi.fn(),
+	writeComponentsConfig: vi.fn(),
+	readComponentsConfig: vi.fn(() => ({})),
 }));
 
 vi.mock("../../src/ui/renderers/storybook-renderer-impl.js", () => ({
@@ -32,7 +34,7 @@ import {
 	startStorybookDev,
 	isStorybookInstalled,
 } from "../../src/domain/make/component/storybook-service.js";
-import { setFramework } from "../../src/domain/make/component/storybook-settings.js";
+import { setFramework, writeComponentsConfig } from "../../src/domain/make/component/storybook-settings.js";
 
 const mockInstall = vi.mocked(installStorybook);
 const mockIsRunning = vi.mocked(isStorybookRunning);
@@ -40,6 +42,7 @@ const mockStop = vi.mocked(stopStorybook);
 const mockStart = vi.mocked(startStorybookDev);
 const mockIsInstalled = vi.mocked(isStorybookInstalled);
 const mockSetFramework = vi.mocked(setFramework);
+const mockWriteConfig = vi.mocked(writeComponentsConfig);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -184,5 +187,48 @@ describe("storybook:generate", () => {
 		expect(result.generated).toBe(false);
 		expect(result.exitCode).toBe(1);
 		ctx.deps.shell.run = origRun;
+	});
+});
+
+describe("storybook:import --save-config", () => {
+	it("writes markdownSource to config instead of running import", () => {
+		const handler = getHandler("storybook:import");
+		const ctx = createProjectContext({
+			command: "storybook:import",
+			flags: { output: "", source: "components", saveConfig: true, strategy: "flat", fields: "name,category,description" },
+		});
+		const result = handler(ctx) as Record<string, unknown>;
+		expect(result).toHaveProperty("configSaved", true);
+		expect(result).toHaveProperty("strategy", "flat");
+		expect(mockWriteConfig).toHaveBeenCalledWith(
+			expect.any(String),
+			{ markdownSource: { path: "components", strategy: "flat", requiredFields: ["name", "category", "description"] } },
+			expect.anything(),
+		);
+	});
+});
+
+describe("storybook:clean", () => {
+	it("deletes the components directory when it exists", () => {
+		const handler = getHandler("storybook:clean");
+		const ctx = createProjectContext({ command: "storybook:clean", flags: {} });
+		ctx.deps.disk.existsSync = vi.fn(() => true);
+		ctx.deps.disk.rmSync = vi.fn();
+		const result = handler(ctx) as Record<string, unknown>;
+		expect(result).toHaveProperty("cleaned", true);
+		expect(ctx.deps.disk.rmSync).toHaveBeenCalledWith(
+			expect.stringContaining("components"),
+			{ recursive: true, force: true },
+		);
+	});
+
+	it("returns cleaned true even when directory does not exist", () => {
+		const handler = getHandler("storybook:clean");
+		const ctx = createProjectContext({ command: "storybook:clean", flags: {} });
+		ctx.deps.disk.existsSync = vi.fn(() => false);
+		ctx.deps.disk.rmSync = vi.fn();
+		const result = handler(ctx) as Record<string, unknown>;
+		expect(result).toHaveProperty("cleaned", true);
+		expect(ctx.deps.disk.rmSync).not.toHaveBeenCalled();
 	});
 });

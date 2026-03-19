@@ -45,7 +45,7 @@ export interface BackgroundProcess {
 
 export interface IShell {
 	/** Run a command with inherited stdio, return exit code. */
-	run(cmd: string, opts?: { cwd?: string; label?: string; env?: Record<string, string> }): number;
+	run(cmd: string, opts?: { cwd?: string; label?: string; env?: Record<string, string>; nonInteractive?: boolean }): number;
 	/** Run a command silently, return trimmed stdout or null on error. */
 	runSilent(cmd: string, opts?: { cwd?: string }): string | null;
 	/** Run a command and check if it succeeds (exit code 0). */

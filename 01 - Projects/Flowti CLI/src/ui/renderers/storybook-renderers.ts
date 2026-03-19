@@ -181,9 +181,23 @@ export interface StorybookScaffoldResultModel {
 	framework: string;
 	pageCount: number;
 	outputDir?: string;
+	adoptedImport?: boolean;
+	noSitemap?: boolean;
+	pendingImport?: boolean;
 }
 
 export function renderStorybookScaffoldResult(data: StorybookScaffoldResultModel, log: Log): void {
+	if (data.pendingImport) {
+		log(`\n  ${YELLOW}Found imported-sitemap.json${RESET} — use --adopt-import to make it the project sitemap.\n`);
+		return;
+	}
+	if (data.noSitemap) {
+		log(`\n  ${YELLOW}No sitemap found at configs/sitemap.json.${RESET} Run "Import Markdown → Sitemap" first.\n`);
+		return;
+	}
+	if (data.adoptedImport) {
+		log(`\n  ${GREEN}✓${RESET} Adopted imported-sitemap.json as project sitemap ${DIM}(configs/sitemap.json)${RESET}`);
+	}
 	if (data.pageCount === 0) {
 		log(`\n  ${YELLOW}No pages found in sitemap.${RESET} Nothing to scaffold.\n`);
 		return;
