@@ -1,49 +1,38 @@
 /**
- * Agent domain bootstrap — creates HttpAgentService, registers view.
+ * Agent domain bootstrap — creates CliExecutor, registers views.
  *
- * Connection strategy:
- * - View is registered immediately (so Obsidian can restore it from layout)
- * - Server connection deferred to onLayoutReady (silent, non-blocking)
- * - If the server isn't running, gives up quietly — no console spam
- * - If a connection succeeds then drops, SSE client auto-reconnects
- * - "Restart the world" spawns `flowti serve` and waits for healthy
+ * Serverless architecture:
+ * - No HTTP server, no SSE — agents run as direct CLI child processes
+ * - CliExecutor spawns `node .flowti/bin/main.mjs agent:start` per agent
+ * - Communication via JSONL over stdin/stdout + file-based event logs
+ * - Views registered immediately (Obsidian needs factories to restore layout)
  */
 
 import type { IEventBus } from "../infrastructure/events/types.js";
 import type { App, Plugin, WorkspaceLeaf } from "obsidian";
-import { HttpAgentService } from "../infrastructure/agents/http-agent-service.js";
-import { SseClient } from "../infrastructure/agents/sse-client.js";
+import { CliExecutor } from "../infrastructure/agents/cli-executor.js";
 import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider.js";
-import { launchCliServer, getServerStatus, killServer, clearServerRegistry, writeServerRegistryForExisting } from "../infrastructure/agents/server-launcher.js";
 import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/agent-sidepanel-view.js";
 import { AgentWorldView, type AgentWorldViewDeps } from "../ui/agents/agent-world-view.js";
 import { VIEW_TYPE_AGENT_SIDEBAR, VIEW_TYPE_AGENT_WORLD } from "../ui/agents/types.js";
 import { WorldContext } from "../domain/agents/world-context.js";
+import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
 
 export interface AgentSetupDeps {
 	readonly plugin: Plugin;
 	readonly app: App;
 	readonly eventBus: IEventBus;
-	readonly cliServerUrl?: string;
 }
 
 export interface AgentSetupResult {
-	readonly agentService: HttpAgentService;
-	readonly sseClient: SseClient;
+	readonly cliExecutor: ICliExecutor;
 	readonly contextProvider: ObsidianContextProvider;
 	readonly worldContext: WorldContext;
-	/** Call once layout is ready to attempt server connection silently. */
-	readonly connectWhenReady: () => void;
 }
 
 export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
-	const baseUrl = deps.cliServerUrl ?? "http://localhost:3000";
-	const agentService = new HttpAgentService(baseUrl);
-	const sseClient = new SseClient(`${baseUrl}/events`);
-
-	sseClient.on("agent-action", (data) => {
-		agentService.handleServerEvent("agent-action", data);
-	});
+	const vaultBasePath = (deps.app.vault.adapter as unknown as { basePath: string }).basePath;
+	const cliExecutor = new CliExecutor(vaultBasePath);
 
 	const contextProvider = new ObsidianContextProvider(
 		deps.plugin.app.workspace,
@@ -57,37 +46,11 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		eventBus: deps.eventBus,
 	});
 
-	const vaultPath = (deps.app.vault.adapter as unknown as { basePath: string }).basePath;
-
 	const viewDeps: AgentSidepanelDeps = {
 		eventBus: deps.eventBus,
-		agentService,
+		cliExecutor,
 		contextProvider,
 		worldContext,
-		startServer: async () => {
-			const result = await launchCliServer(vaultPath, baseUrl);
-			if (result.ok) {
-				await agentService.connect();
-				sseClient.connect();
-			}
-			return result;
-		},
-		getServerStatus: () => getServerStatus(vaultPath),
-		stopServer: (pid: number) => {
-			killServer(pid);
-			clearServerRegistry(vaultPath);
-			sseClient.disconnect();
-			agentService.disconnect();
-		},
-		openInBrowser: () => {
-			const existing = deps.plugin.app.workspace.getLeavesOfType("flowti-agent-world");
-			if (existing.length > 0) {
-				void deps.plugin.app.workspace.revealLeaf(existing[0]);
-			} else {
-				const leaf = deps.plugin.app.workspace.getLeaf(true);
-				void leaf.setViewState({ type: "flowti-agent-world", active: true });
-			}
-		},
 	};
 
 	// Register view immediately — Obsidian needs the factory to restore layout
@@ -112,9 +75,8 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 	const worldDeps: AgentWorldViewDeps = {
 		plugin: deps.plugin,
 		eventBus: deps.eventBus,
-		serverBaseUrl: baseUrl,
 		worldContext,
-		agentService,
+		cliExecutor,
 	};
 	try {
 		deps.plugin.registerView(VIEW_TYPE_AGENT_WORLD, (leaf: WorkspaceLeaf) =>
@@ -138,33 +100,5 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		},
 	});
 
-	// Deferred connection — called from onLayoutReady, never from view factory
-	// When SSE loses connection permanently, reset to offline state
-	sseClient.onDisconnect(() => {
-		agentService.disconnect();
-		clearServerRegistry(vaultPath);
-		connected = false;
-	});
-
-	let connected = false;
-	function connectWhenReady(): void {
-		if (connected) return;
-
-		// Check server registry first — avoid network error spam when server isn't running
-		const status = getServerStatus(vaultPath);
-		if (!status.running) return;
-
-		connected = true;
-		void agentService.connect()
-			.then(() => {
-				sseClient.connect();
-				// If server is running but no registry (started externally), create one
-				if (!getServerStatus(vaultPath).entry) {
-					writeServerRegistryForExisting(vaultPath, baseUrl);
-				}
-			})
-			.catch(() => { /* server not running — silent */ });
-	}
-
-	return { agentService, sseClient, contextProvider, worldContext, connectWhenReady };
+	return { cliExecutor, contextProvider, worldContext };
 }

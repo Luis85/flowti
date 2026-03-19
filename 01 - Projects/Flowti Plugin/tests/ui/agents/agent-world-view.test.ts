@@ -11,8 +11,8 @@ vi.mock("../../../src/game/engine.js", () => ({
 	})),
 }));
 
-vi.mock("../../../src/game/config/plugin-provider.js", () => ({
-	createPluginProvider: vi.fn(() => ({})),
+vi.mock("../../../src/game/config/cli-data-provider.js", () => ({
+	createCliDataProvider: vi.fn(() => ({})),
 }));
 
 import { AgentWorldView } from "../../../src/ui/agents/agent-world-view.js";
@@ -69,6 +69,7 @@ function createView(deps?: never): AgentWorldView {
 		vault: {
 			configDir: ".obsidian",
 			adapter: {
+				basePath: "/mock/vault",
 				exists: vi.fn().mockResolvedValue(true),
 				read: vi.fn().mockResolvedValue("{}"),
 				getResourcePath: vi.fn((p: string) => `app://test/${p}`),

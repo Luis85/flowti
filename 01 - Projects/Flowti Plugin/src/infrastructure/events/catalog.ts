@@ -784,12 +784,12 @@ const CATALOG_DATA = {
 	"process.execution.completed":          { category: "Process", description: "Process execution completed for a feature", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
 
 	// ── Agent Events ─────────────────────────────────────────────
-	"agent.status.changed":                 { category: "Agent", description: "Agent activity status changed", direction: "Service → Listeners", domain: "agents", services: "HttpAgentService", tags: ["agent"] },
-	"agent.message.received":               { category: "Agent", description: "New message received from LLM agent", direction: "Service → Listeners", domain: "agents", services: "HttpAgentService", tags: ["agent"] },
+	"agent.status.changed":                 { category: "Agent", description: "Agent activity status changed", direction: "Service → Listeners", domain: "agents", services: "CliExecutor", tags: ["agent"] },
+	"agent.message.received":               { category: "Agent", description: "New message received from LLM agent", direction: "Service → Listeners", domain: "agents", services: "CliExecutor", tags: ["agent"] },
 	"agent.message.sent":                   { category: "Agent", description: "User sent a message to agent", direction: "Service → Listeners", domain: "agents", services: "AgentHandler", tags: ["agent"] },
-	"agent.thinking":                       { category: "Agent", description: "Agent is thinking (streaming chain-of-thought)", direction: "Service → Listeners", domain: "agents", services: "HttpAgentService", tags: ["agent"] },
-	"agent.tool.started":                   { category: "Agent", description: "Agent started using a tool", direction: "Service → Listeners", domain: "agents", services: "HttpAgentService", tags: ["agent"] },
-	"agent.tool.completed":                 { category: "Agent", description: "Agent tool call completed", direction: "Service → Listeners", domain: "agents", services: "HttpAgentService", tags: ["agent"] },
+	"agent.thinking":                       { category: "Agent", description: "Agent is thinking (streaming chain-of-thought)", direction: "Service → Listeners", domain: "agents", services: "CliExecutor", tags: ["agent"] },
+	"agent.tool.started":                   { category: "Agent", description: "Agent started using a tool", direction: "Service → Listeners", domain: "agents", services: "CliExecutor", tags: ["agent"] },
+	"agent.tool.completed":                 { category: "Agent", description: "Agent tool call completed", direction: "Service → Listeners", domain: "agents", services: "CliExecutor", tags: ["agent"] },
 	"agent.mode.switched":                  { category: "Agent", description: "User switched conversation view mode", direction: "Service → Listeners", domain: "agents", services: "AgentHandler", tags: ["agent"] },
 	"agent.team.toggled":                   { category: "Agent", description: "Team mode toggled on/off", direction: "Service → Listeners", domain: "agents", services: "AgentHandler", tags: ["agent"] },
 	"agent.canvas.synced":                  { category: "Agent", description: "Agent conversation synced to canvas file", direction: "Service → Listeners", domain: "agents", services: "CanvasSync", tags: ["agent", "canvas"] },

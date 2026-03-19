@@ -34,6 +34,7 @@ import { EmoteSystem } from "./systems/emote-system.js";
 import { SocialSystem } from "./systems/social-system.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
+import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
 
 // Side-effect imports — register Lit custom elements
 import "./ui/dashboard-overlays.js";
@@ -62,7 +63,7 @@ export interface AgentWorldDeps {
 	container: HTMLElement;
 	provider: DataProvider;
 	spriteBasePath: string;
-	serverBaseUrl?: string;
+	cliExecutor?: ICliExecutor;
 	worldContext?: WorldContext;
 }
 
@@ -95,7 +96,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Reactive store ──────────────────────────────────
-	const store = new DashboardStore(deps.serverBaseUrl ?? "", deps.worldContext);
+	const store = new DashboardStore(deps.cliExecutor, deps.worldContext);
 
 	// ── Mount Lit overlay components ────────────────────
 	const overlays = document.createElement("ft-game-overlays") as HTMLElement & { store: DashboardStore };

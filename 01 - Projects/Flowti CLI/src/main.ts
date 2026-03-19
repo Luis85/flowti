@@ -63,6 +63,7 @@ import { commands as workspaceCmds } from "./controller/workspace.controller.js"
 import { commands as onboardingCmds } from "./controller/onboarding.controller.js";
 import { commands as vaultTestCmds } from "./controller/vault-test.controller.js";
 import { commands as storybookCmds } from "./controller/storybook.controller.js";
+import { commands as agentCmds } from "./controller/agent.controller.js";
 import { shouldOnboard } from "./domain/onboarding/onboarding-detection.js";
 import { disk, watchFile } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
@@ -125,6 +126,7 @@ registry.registerDomain({ domain: "onboarding", commands: onboardingCmds, projec
 registry.registerDomain({ domain: "workspace", commands: workspaceCmds, projectFree: ["workspace:list", "workspace:inspect", "workspace:provision", "workspace:collect", "workspace:dispose", "workspace:prune"] });
 registry.registerDomain({ domain: "vault-test", commands: vaultTestCmds, projectFree: ["test:vault", "test:vault:smoke", "test:vault:integration", "test:vault:ecosystem"] });
 registry.registerDomain({ domain: "storybook", commands: storybookCmds, projectFree: ["storybook:scaffold"] });
+registry.registerDomain({ domain: "agent", commands: agentCmds, projectFree: ["agent:list", "agent:task", "agent:wake", "agent:permission"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 registry.setWildcardPrefix("report:");
 
@@ -201,7 +203,7 @@ function applyGlobalFlags(flags: Record<string, string | boolean>): void {
 	if (flags["no-color"]) setColorEnabled(false);
 }
 
-async function handleCliArgs(): Promise<boolean> {
+async function handleCliArgs(deps: import("./infrastructure/deps.js").CliDeps): Promise<boolean> {
 	const rawArgs = proc.argv();
 	if (!rawArgs.length) return false;
 
@@ -219,6 +221,35 @@ async function handleCliArgs(): Promise<boolean> {
 		}
 		log();
 		return true;
+	}
+
+	// ── agent:start special case — persistent stdin/stdout JSONL loop ──
+	if (command === "agent:start") {
+		const agentFlag = flags.agent ?? rawArgs[1];
+		const agentName = String(agentFlag ?? "");
+		if (!agentName) {
+			log(`\n  ${RED}Error: --agent is required${RESET}\n`);
+			proc.exit(1);
+			return true;
+		}
+
+		const { createAgentProcessLoop } = await import("./domain/agents/agent-process-loop.js");
+		const { createStdinLineReader, createStdoutLineWriter, getProcessPid, exitProcess } = await import("./infrastructure/agent-process-io.js");
+		const session = createAgentProcessLoop({
+			workerManager: deps.workerManager,
+			worldState: deps.worldState,
+			disk,
+			paths,
+			clock: deps.clock,
+			vaultRoot: VAULT_ROOT,
+			agentName,
+			pid: getProcessPid(),
+			lineReader: createStdinLineReader(),
+			lineWriter: createStdoutLineWriter(),
+			exit: exitProcess,
+		});
+		session.start();
+		return true; // Don't exit — process stays alive
 	}
 
 	const project = resolution.project;
@@ -321,7 +352,7 @@ async function main(): Promise<void> {
 
 	checkPrerequisites(cliConfig.onboarding?.nodeMinVersion ?? 16, { shell, proc });
 
-	if (await handleCliArgs()) return;
+	if (await handleCliArgs(deps)) return;
 
 	// Legacy mode — classic SitemapRouter interactive UI
 	if (proc.argv().includes("--legacy")) {

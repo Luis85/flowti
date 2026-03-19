@@ -185,6 +185,8 @@ describe("registerComponentHandlers", () => {
 				"comp:sb-start",
 				"comp:sb-stop",
 				"comp:sb-build",
+				"comp:sb-import",
+				"comp:sb-scaffold",
 				"comp:data-providers",
 				"comp:action-ref",
 				"comp-detail:edit-fields",
@@ -201,8 +203,8 @@ describe("registerComponentHandlers", () => {
 			}
 		});
 
-		it("registers exactly 16 actions", () => {
-			expect(registry.actionCount).toBe(16);
+		it("registers exactly 18 actions", () => {
+			expect(registry.actionCount).toBe(18);
 		});
 	});
 

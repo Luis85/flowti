@@ -121,7 +121,7 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 	const baseDeps = { disk, shell, paths, clock, log };
 	const providerRegistry = createProviderRegistry();
 	providerRegistry.register(createClaudeProvider(baseDeps));
-	if (shell.check("cursor --version")) providerRegistry.register(createCursorProvider(baseDeps));
+	if (shell.check?.("cursor --version")) providerRegistry.register(createCursorProvider(baseDeps));
 	providerRegistry.register(createOllamaProvider());
 	const processRunner = createProcessRunner(baseDeps, agentsConfig, providerRegistry);
 	const pool = createProcessPool(processRunner, { set: setTimeout, clear: clearTimeout }, {

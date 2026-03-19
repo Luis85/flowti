@@ -1,5 +1,4 @@
 import { Plugin, TFile, TFolder, type ViewCreator } from "obsidian";
-import { getServerStatus, killServer, clearServerRegistry } from "./infrastructure/agents/server-launcher.js";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -94,8 +93,6 @@ import { setupAgentDomain, type AgentSetupResult } from "./bootstrap/agent-setup
 import { VIEW_TYPE_AGENT_SIDEBAR, VIEW_TYPE_AGENT_WORLD } from "./ui/agents/types";
 import { setupProjectDomain, type ProjectSetupResult } from "./bootstrap/project-setup";
 import { VIEW_TYPE_PROJECT_DETAIL } from "./ui/projects/types";
-import { setupServerDomain, type ServerSetupResult } from "./bootstrap/server-setup";
-import { VIEW_TYPE_SERVER_PANEL } from "./ui/server/types";
 
 
 /**  
@@ -180,7 +177,6 @@ export default class FlowtiBasePlugin extends Plugin {
 	private installerServiceRef?: IInstallerService;
 	private agentSetup?: AgentSetupResult;
 	private projectSetup?: ProjectSetupResult;
-	private serverSetup?: ServerSetupResult;
 
 	async onload() {
 		try {
@@ -413,22 +409,6 @@ export default class FlowtiBasePlugin extends Plugin {
 				this.activateProjectHub();
 			});
 
-			// ── Server domain — view, command, ribbon ──
-			this.serverSetup = setupServerDomain({
-				plugin: this,
-				app: this.app,
-				sseClient: this.agentSetup!.sseClient,
-				startServer: async (onOutput?: (line: string) => void) => {
-					const { launchCliServer } = await import("./infrastructure/agents/server-launcher");
-					const vaultPath = (this.app.vault.adapter as unknown as { basePath: string }).basePath;
-					return launchCliServer(vaultPath, "http://localhost:3000", onOutput);
-				},
-			});
-
-			this.addRibbonIcon("activity", "Open server panel", () => {
-				this.activateServerPanel();
-			});
-
 			this.addRibbonIcon("globe", "Open agent world", () => {
 				const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_AGENT_WORLD);
 				if (existing.length > 0) {
@@ -521,23 +501,11 @@ export default class FlowtiBasePlugin extends Plugin {
 			VIEW_TYPE_AGENT_SIDEBAR,
 			VIEW_TYPE_AGENT_WORLD,
 			VIEW_TYPE_PROJECT_DETAIL,
-			VIEW_TYPE_SERVER_PANEL,
 		];
 		for (const type of viewTypes) {
 			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
 		}
-		// Kill CLI server (and its child processes like storybook) if we spawned one
-		safeDispose("cliServer", () => {
-			const vaultPath = (this.app.vault.adapter as unknown as { basePath: string }).basePath;
-			const status = getServerStatus(vaultPath);
-			if (status.running && status.entry?.pid) {
-				// On Windows, taskkill /F /T kills the process tree (server + storybook children)
-				killServer(status.entry.pid);
-				clearServerRegistry(vaultPath);
-			}
-		});
-		safeDispose("agentSseClient", () => this.agentSetup?.sseClient.disconnect());
-		safeDispose("agentService", () => this.agentSetup?.agentService.disconnect());
+		safeDispose("cliExecutor", () => this.agentSetup?.cliExecutor.dispose());
 		safeDispose("agentContext", () => this.agentSetup?.contextProvider.dispose());
 		safeDispose("worldContext", () => this.agentSetup?.worldContext.dispose());
 		safeDispose("trainCanvasSync", () => this.trainCanvasSync?.destroy());
@@ -755,17 +723,6 @@ export default class FlowtiBasePlugin extends Plugin {
 		if (leaf) void leaf.setViewState({ type: VIEW_TYPE_PROJECT_DETAIL, active: true });
 	}
 
-	/** Reveal existing server panel leaf or create one in the right sidebar. */
-	private activateServerPanel(): void {
-		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERVER_PANEL);
-		if (existing.length > 0) {
-			void this.app.workspace.revealLeaf(existing[0]);
-			return;
-		}
-		const leaf = this.app.workspace.getRightLeaf(false);
-		if (leaf) void leaf.setViewState({ type: VIEW_TYPE_SERVER_PANEL, active: true });
-	}
-
 	private safeRegisterView(type: string, factory: ViewCreator): void {
 		try {
 			this.registerView(type, factory);
@@ -821,8 +778,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				timestamp: new Date().toISOString(),
 			});
 
-			// Agent server connection — silent, non-blocking
-			this.agentSetup?.connectWhenReady();
+			// Serverless mode — no server connection needed
 
 		} catch (error) {
 			const err = error instanceof Error ? error : new Error(String(error));
