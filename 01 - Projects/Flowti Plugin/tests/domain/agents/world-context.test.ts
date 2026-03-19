@@ -311,8 +311,9 @@ describe("WorldContext", () => {
 
 			const delta = ctx.serializeDelta("Atlas");
 			expect(delta).not.toBeNull();
-			expect(delta).toContain("Delta for Atlas");
-			expect(delta).toContain("Active file: src/utils/helpers.ts");
+			expect(delta).toContain("Delta]");
+			expect(delta).toContain("Active file:");
+			expect(delta).toContain("helpers.ts");
 		});
 
 		it("returns full snapshot when many changes accumulated", () => {

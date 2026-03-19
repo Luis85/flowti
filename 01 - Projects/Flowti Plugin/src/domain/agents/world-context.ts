@@ -279,7 +279,15 @@ export class WorldContext {
 					}));
 				}
 
-				this.recordChange("worldState", "World state updated");
+				// Record meaningful changes, not a generic "updated"
+			const agentSummaries = this.agentRoster.slice(0, 5).map((a) => `${a.name}:${a.status}`).join(", ");
+			if (this.agentRoster.length > 0) {
+				this.recordChange("worldState", `Team status: ${agentSummaries}`);
+			}
+			if (state.activityLog && state.activityLog.length > 0) {
+				const latest = state.activityLog[state.activityLog.length - 1];
+				this.recordChange("recentActivity", `${latest.agentName}: ${latest.summary}`);
+			}
 				this.notify();
 			});
 
@@ -440,7 +448,11 @@ export class WorldContext {
 			return this.serialize();
 		}
 
-		const lines = [`[World Context — Delta for ${agentName}]`];
+		const lines = [`[World Context — Delta]`];
+		if (this.activeFile) {
+			lines.push(`Active file: ${this.toAbsolutePath(this.activeFile.path)} (${fileTypeFromPath(this.activeFile.path)})`);
+		}
+		lines.push("Changes since last message:");
 		for (const c of changes) {
 			lines.push(`- ${c.summary}`);
 		}

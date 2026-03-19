@@ -222,9 +222,6 @@ export class PanelTalk extends FlowtiElement {
 					${turn.text}
 				</div>
 			`)}
-			${this.thinking
-				? html`<div class="thinking">${this.thinkingPhrase}</div>`
-				: nothing}
 		`;
 	}
 

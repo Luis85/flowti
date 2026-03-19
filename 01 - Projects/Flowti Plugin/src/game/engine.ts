@@ -389,12 +389,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			knownEntities.add(entity.id);
 			bubbleSystem.showBubble(entity.id, "speech", "Hello! I just arrived.", engine.currentScene, findAgentActor, 3000);
 		} else {
-			// Existing agent entity changed — apply state update
+			// Existing agent entity changed — only react if state actually changed
 			const statusComp = entity.components["status"];
 			if (typeof statusComp === "object" && statusComp !== null && "state" in statusComp) {
-				const state = (statusComp as { state: string }).state;
-				brainSystem.applyEvent(entity.id, state as AgentAction["type"]);
-				bubbleSystem.showBubble(entity.id, "speech", `I'm now ${state}!`, engine.currentScene, findAgentActor, 3000);
+				const newState = (statusComp as { state: string }).state;
+				const currentState = brainSystem.getState(entity.id)?.state;
+				if (newState !== currentState) {
+					brainSystem.applyEvent(entity.id, newState as AgentAction["type"]);
+				}
 			}
 		}
 	});
