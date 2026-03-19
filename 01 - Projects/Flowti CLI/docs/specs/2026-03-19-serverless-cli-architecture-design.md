@@ -65,6 +65,8 @@ The process streams events to stdout and appends to the event log:
 
 This handler bypasses `adaptDescriptor` — it directly reads stdin and writes JSONL to stdout. The `WorkerManager.send()` already emits these event types; the handler serializes them.
 
+**Known deviation from controller pattern:** The `agent:start` command is the only CLI command that does not use `adaptDescriptor`. This is necessary because it maintains a persistent stdin/stdout stream — fundamentally different from the request/response model that `adaptDescriptor` handles. It is registered in the `CommandRegistry` as a special-case handler that takes control of stdin/stdout directly, similar to how the CLI's interactive TUI mode works. All other `agent:*` commands use the standard pattern.
+
 #### `agent:task --agent="Bob" --task="Run alignment"` (one-shot)
 
 Normal controller pattern via `adaptDescriptor`. Spawns as a fresh process, returns JSON, exits.
@@ -74,7 +76,7 @@ flowti agent:task --agent="Bob" --task="Run alignment check" --format=json
 # → { "ok": true, "taskId": "task-1711065600" }
 ```
 
-Internally starts the agent process if not running, assigns the task, writes state to `world-state.json`.
+This is a one-shot command — it spawns, executes, and exits. It does NOT start a persistent agent process. It loads the agent's conversation history from `.flowti/var/conversations/`, sends the task prompt to the LLM, writes the result to `world-state.json` and the agent's event log, and exits. For persistent conversations, use `agent:start` instead.
 
 #### `agent:list --format=json` (one-shot)
 
@@ -109,7 +111,9 @@ Each agent has:
 | User reopens panel | Plugin reads log from last position, `fs.watch()` for new lines |
 | Agent finishes task | CLI writes final event to log, updates `world-state.json` |
 | Plugin unload | Kill all agent processes via PID files |
-| Plugin reloads | Check PID files, reattach to running agents |
+| Plugin reloads | Kill stale processes (PID files), spawn fresh agents on demand |
+
+**Reattach semantics:** Stdio pipes cannot be reconnected to a running process after the parent detaches. "Reattach" means: kill the old process (via PID file), spawn a new `agent:start` process, and replay the conversation from the event log file. The event log IS the persistence layer — the agent's conversation history survives process restarts. The CLI's conversation store at `.flowti/var/conversations/` provides the full LLM context for the new process.
 
 ### Event Log Format
 
@@ -148,6 +152,7 @@ interface CliExecutor {
 
   // One-shot commands
   assignTask(agentName: string, task: string): Promise<{ ok: boolean }>;
+  grantPermission(agentName: string, tool: string, decision: string): Promise<{ ok: boolean }>;
   listAgents(): Promise<AgentSummary[]>;
   wakeAgent(agentName: string): Promise<{ ok: boolean }>;
 
@@ -169,13 +174,19 @@ interface AgentProcess {
   // Replay events from log file (for reattach after panel reopen)
   replayFrom(offset: number): CliEvent[];
 
+  // Send cancellation signal via stdin (stops in-flight LLM request)
+  stopGeneration(): void;
+
+  // Grant/deny tool permission via stdin
+  grantPermission(tool: string, decision: string): void;
+
   // Kill the process
   kill(): void;
 }
 
 interface CliEvent {
   ts: number;
-  type: "thinking" | "using-tool" | "tool-complete" | "response" | "task-started" | "task-completed" | "error";
+  type: "message-in" | "thinking" | "using-tool" | "tool-complete" | "response" | "task-started" | "task-completed" | "permission-request" | "error";
   agent: string;
   text?: string;
   tool?: string;
@@ -188,9 +199,11 @@ interface CliEvent {
 
 **Process management:**
 - Tracks running agents in a `Map<string, ChildProcess>`
-- On `startAgent`: checks PID file, reattach if process alive, spawn if not
-- On `killAll`: iterate PID files, kill each (tree kill on Windows)
-- On `dispose`: kill all + clear watchers
+- On `startAgent`: checks PID file, validates process is alive (`tasklist /FI "PID eq ..."` on Windows, `kill -0` on Unix). If stale PID, removes file and spawns fresh. If alive, kills old process and spawns fresh (since stdio can't be reattached).
+- On `killAll`: iterate PID files, kill each with tree kill (`taskkill /F /T` on Windows, `-pid` group kill on Unix) — same proven pattern from `server-launcher.ts`
+- On `dispose`: kill all + clear watchers + remove PID files
+
+**Log rotation:** on agent process startup, if the event log exceeds 1000 lines, rotate to `<agent>-events.prev.jsonl` and start a fresh log. This avoids truncating during active tailing.
 
 ### Plugin File Watcher
 
@@ -222,6 +235,7 @@ interface FileWatcher {
 - On change: reads from last offset to current size
 - Buffers partial lines (no newline yet)
 - Calls callback per complete line
+- **Polling fallback:** on Windows, supplements `fs.watch()` with a 500ms `setInterval` that checks byte offset, in case `fs.watch()` misses rapid successive writes
 - Used for: `agents/<name>-events.jsonl`
 
 Both follow the CLI's proven `SitemapWatcher` pattern.
@@ -260,7 +274,13 @@ Both follow the CLI's proven `SitemapWatcher` pattern.
 | `src/domain/server/types.ts` | No server types |
 | `src/game/config/plugin-provider.ts` | Replaced by CliExecutor + file watcher |
 | `src/game/data/api-client.ts` | No HTTP API calls |
+| `src/infrastructure/agents/stub-agent-service.ts` | IAgentService interface replaced by CliExecutor |
+| `src/domain/agents/types.ts` → `IAgentService` | Replaced by CliExecutor interface |
 | Server ribbon icon + setup in `main.ts` | No server |
+
+**Kept unchanged:**
+- `src/infrastructure/agents/obsidian-context-provider.ts` — still wraps active file tracking, still wired into WorldContext via `agent-setup.ts`
+- CLI `src/controller/serve.controller.ts` — **deprecated but not deleted**. `flowti serve` remains available for users who want the standalone browser experience, but the plugin no longer depends on it.
 
 **Total deleted:** ~1,500+ lines of HTTP/SSE/server infrastructure.
 
@@ -268,9 +288,10 @@ Both follow the CLI's proven `SitemapWatcher` pattern.
 
 | Component | Responsibility |
 |-----------|---------------|
-| `src/infrastructure/agents/cli-executor.ts` (~200 lines) | Spawn/manage CLI processes, stdin/stdout JSONL |
-| `src/infrastructure/agents/file-watcher.ts` (~100 lines) | `watchJsonFile()` + `tailJsonlFile()` utilities |
-| CLI `src/controller/agent.controller.ts` (~150 lines) | `agent:start`, `agent:task`, `agent:list`, `agent:wake` commands |
+| `src/infrastructure/agents/cli-executor.ts` (~300 lines) | Spawn/manage CLI processes, stdin/stdout JSONL, PID management |
+| `src/infrastructure/agents/file-watcher.ts` (~150 lines) | `watchJsonFile()` + `tailJsonlFile()` utilities with polling fallback |
+| `src/game/config/cli-data-provider.ts` (~80 lines) | `DataProvider` implementation backed by CliExecutor + file watcher (replaces `plugin-provider.ts`) |
+| CLI `src/controller/agent.controller.ts` (~150 lines) | `agent:start`, `agent:task`, `agent:list`, `agent:wake`, `agent:permission` commands |
 | CLI `src/domain/agents/agent-session.ts` (~200 lines) | Persistent agent process: stdin reader, event log writer, JSONL serializer |
 
 ### What Gets Modified
