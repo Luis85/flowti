@@ -65,6 +65,78 @@ export interface ProjectConfig {
 
 export type OutputCallback = (line: string) => void;
 
+// ── TODO types ──────────────────────────────────────────────────────
+
+export interface TodoItem {
+	readonly text: string;
+	readonly done: boolean;
+}
+
+// ── Event Catalog types ─────────────────────────────────────────────
+
+export type CatalogEntityType = "domains" | "services" | "events" | "flows";
+
+export interface CatalogEntity {
+	readonly name: string;
+	readonly type: string;
+	readonly domain?: string;
+	readonly status: string;
+	readonly date: string;
+	readonly path: string;
+}
+
+export interface CatalogEntityDef {
+	readonly name: string;
+	readonly domain?: string;
+	readonly status?: string;
+	readonly description?: string;
+	readonly version?: string;
+	readonly producers?: string;
+	readonly consumers?: string;
+}
+
+// ── Reporting types ─────────────────────────────────────────────────
+
+export interface ReportGeneratorInfo {
+	readonly id: string;
+	readonly label: string;
+	readonly dependencies?: readonly string[];
+	readonly prerequisites?: readonly string[];
+}
+
+export interface ReportResult {
+	readonly id: string;
+	readonly label: string;
+	readonly ok: boolean;
+	readonly metrics?: Record<string, number>;
+	readonly outputPath?: string;
+}
+
+// ── Component types ─────────────────────────────────────────────────
+
+export interface ComponentEntry {
+	readonly name: string;
+	readonly category: string;
+	readonly status?: string;
+	readonly propCount: number;
+	readonly slotCount: number;
+}
+
+// ── Health types ────────────────────────────────────────────────────
+
+export interface HealthScore {
+	readonly overall: number;
+	readonly grade: string;
+	readonly categories: {
+		readonly tests: number;
+		readonly coverage: number;
+		readonly build: number;
+		readonly lint: number;
+		readonly security: number;
+		readonly git: number;
+	};
+}
+
 export interface IProjectService {
 	listProjects(): Promise<ProjectSummary[]>;
 	getProject(name: string): Promise<ProjectDetail | undefined>;
@@ -84,4 +156,25 @@ export interface IProjectService {
 	detectProject(name: string): Promise<{ ok: boolean; type?: string; framework?: string; packageManager?: string; testFramework?: string; hasConfig?: boolean; buildCommand?: string; testCommand?: string; lintCommand?: string; error?: string }>;
 	bootstrapProject(name: string, config: { build?: string; test?: string; lint?: string; storybook?: string }): Promise<{ ok: boolean; error?: string }>;
 	createEmptyProject(name: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+
+	// Health
+	getHealth(project: string): Promise<{ ok: boolean; score?: HealthScore; error?: string }>;
+
+	// TODOs
+	getTodos(project: string): Promise<{ items: TodoItem[]; exists: boolean }>;
+	addTodo(project: string, text: string): Promise<{ ok: boolean }>;
+	toggleTodo(project: string, index: number): Promise<{ ok: boolean }>;
+	deleteTodo(project: string, index: number): Promise<{ ok: boolean }>;
+
+	// Event Catalog
+	listEntities(project: string, entityType: CatalogEntityType): Promise<CatalogEntity[]>;
+	createEntity(project: string, entityType: CatalogEntityType, definition: CatalogEntityDef): Promise<{ ok: boolean; path?: string }>;
+
+	// Reports
+	getReportGenerators(project: string): Promise<ReportGeneratorInfo[]>;
+	runReport(project: string, generatorId: string, onOutput?: OutputCallback): Promise<{ ok: boolean; metrics?: Record<string, number>; outputPath?: string; error?: string }>;
+	runAllReports(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; results?: ReportResult[]; error?: string }>;
+
+	// Components
+	listComponents(project: string): Promise<ComponentEntry[]>;
 }
