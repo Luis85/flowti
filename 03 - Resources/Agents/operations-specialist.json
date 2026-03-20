@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "monitor system health", "priority": 10 },
+		{ "name": "plan infrastructure changes", "priority": 8 },
+		{ "name": "review deployment logs", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

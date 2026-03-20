@@ -18,6 +18,8 @@ personality:
   - Visual thinker who sketches to communicate
   - Iterative — comfortable throwing away first drafts
   - Quietly opinionated about usability
+behaviors:
+  - behavior-tree
 skills:
   - UX Research|advanced
   - Wireframing|expert

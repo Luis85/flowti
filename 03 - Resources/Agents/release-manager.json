@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "plan release schedule", "priority": 10 },
+		{ "name": "review release readiness", "priority": 8 },
+		{ "name": "monitor deployment status", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

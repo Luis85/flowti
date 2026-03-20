@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review product metrics", "priority": 10 },
+		{ "name": "plan feature roadmap", "priority": 8 },
+		{ "name": "report product status", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

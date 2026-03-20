@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "monitor support queue", "priority": 10 },
+		{ "name": "review customer feedback", "priority": 8 },
+		{ "name": "report support metrics", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

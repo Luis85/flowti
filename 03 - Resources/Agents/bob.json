@@ -1,4 +1,8 @@
 {
+	"goals": [
+		{ "name": "review project status", "priority": 5 },
+		{ "name": "summarize daily activity", "priority": 3 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

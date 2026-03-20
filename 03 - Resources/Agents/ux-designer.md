@@ -18,6 +18,8 @@ personality:
   - Research-driven — distrusts assumptions
   - Comfortable saying "we need to test this"
   - Sees the product through the user's eyes
+behaviors:
+  - behavior-tree
 skills:
   - User Research|expert
   - Wireframing|expert

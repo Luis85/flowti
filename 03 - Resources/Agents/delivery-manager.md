@@ -18,6 +18,8 @@ personality:
   - Action-oriented — talks less, does more
   - Protects the team from distractions
   - Always knows the current status
+behaviors:
+  - behavior-tree
 skills:
   - Risk Management|expert
   - Stakeholder Communication|expert

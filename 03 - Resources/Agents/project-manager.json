@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "monitor project health", "priority": 10 },
+		{ "name": "plan resource allocation", "priority": 8 },
+		{ "name": "report milestone status", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

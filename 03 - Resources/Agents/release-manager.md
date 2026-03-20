@@ -18,6 +18,8 @@ personality:
   - Healthy paranoia about deployments
   - Prefers boring, predictable releases
   - Calm in crisis, decisive in rollback
+behaviors:
+  - behavior-tree
 skills:
   - Release Planning|expert
   - Change Management|advanced

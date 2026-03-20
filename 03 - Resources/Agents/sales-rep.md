@@ -18,6 +18,8 @@ personality:
   - Listens more than talks
   - Finds the value proposition in anything
   - Treats objections as invitations to understand deeper
+behaviors:
+  - behavior-tree
 skills:
   - Solution Selling|expert
   - Objection Handling|expert

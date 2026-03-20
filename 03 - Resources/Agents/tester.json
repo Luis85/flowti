@@ -1,4 +1,10 @@
 {
+	"goals": [
+		{ "name": "review test coverage", "priority": 10 },
+		{ "name": "plan test strategy", "priority": 8 },
+		{ "name": "monitor test results", "priority": 7 },
+		{ "name": "report defects", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

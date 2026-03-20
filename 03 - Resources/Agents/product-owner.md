@@ -18,6 +18,8 @@ personality:
   - Pragmatic about trade-offs
   - Sharp eye for ambiguous requirements
   - Values clarity over completeness
+behaviors:
+  - behavior-tree
 skills:
   - Product Strategy|expert
   - Stakeholder Communication|expert

@@ -18,6 +18,8 @@ personality:
   - Data-informed but trusts intuition
   - Always sees the bigger picture
   - Communicates vision with conviction
+behaviors:
+  - behavior-tree
 skills:
   - Product Strategy|expert
   - Market Analysis|expert

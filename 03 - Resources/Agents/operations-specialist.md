@@ -18,6 +18,8 @@ personality:
   - Sees waste as a personal affront
   - Quietly optimizes processes while everyone else is busy debating
   - Loves metrics, dashboards, and runbooks
+behaviors:
+  - behavior-tree
 skills:
   - Process Optimization|expert
   - Automation Design|expert

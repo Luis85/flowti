@@ -1,0 +1,10 @@
+{
+	"goals": [
+		{ "name": "plan game mechanics", "priority": 10 },
+		{ "name": "review level design", "priority": 8 },
+		{ "name": "implement game balance", "priority": 5 }
+	],
+	"ai": {
+		"provider": "anthropic"
+	}
+}

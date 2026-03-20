@@ -18,6 +18,8 @@ personality:
   - Believes quality is built in, not bolted on
   - Patient with honest mistakes, firm with shortcuts
   - Data-driven in assessments
+behaviors:
+  - behavior-tree
 skills:
   - Quality Assurance|expert
   - Process Auditing|expert
