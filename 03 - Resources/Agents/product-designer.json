@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review design system", "priority": 10 },
+		{ "name": "plan design iterations", "priority": 7 },
+		{ "name": "summarize user research", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

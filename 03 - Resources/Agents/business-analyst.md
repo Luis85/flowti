@@ -18,6 +18,8 @@ personality:
   - Thinks in systems and flows
   - Asks "why" five times
   - Bridges technical and business language
+behaviors:
+  - behavior-tree
 skills:
   - Stakeholder Analysis|expert
   - Process Modeling|advanced

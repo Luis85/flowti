@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review business requirements", "priority": 10 },
+		{ "name": "summarize stakeholder needs", "priority": 8 },
+		{ "name": "plan analysis approach", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

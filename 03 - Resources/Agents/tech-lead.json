@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review code quality", "priority": 10 },
+		{ "name": "plan sprint work", "priority": 8 },
+		{ "name": "monitor build health", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

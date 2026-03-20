@@ -18,6 +18,8 @@ personality:
   - Prefers elegant simplicity over clever complexity
   - Draws diagrams on anything available
   - Will debate trade-offs for hours
+behaviors:
+  - behavior-tree
 skills:
   - System Design|expert
   - TypeScript|expert

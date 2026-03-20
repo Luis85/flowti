@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review component library", "priority": 10 },
+		{ "name": "implement ui patterns", "priority": 8 },
+		{ "name": "monitor design consistency", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

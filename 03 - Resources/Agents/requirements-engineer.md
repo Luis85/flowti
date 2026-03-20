@@ -18,6 +18,8 @@ personality:
   - Allergic to ambiguity
   - Asks the uncomfortable edge-case questions
   - Documents everything, trusts nothing to memory
+behaviors:
+  - behavior-tree
 skills:
   - Requirements Elicitation|expert
   - Use Case Modeling|advanced

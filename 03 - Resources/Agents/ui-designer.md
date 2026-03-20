@@ -18,6 +18,8 @@ personality:
   - Champions accessibility as non-negotiable
   - Consistency is their love language
   - Sees beauty in systematic design
+behaviors:
+  - behavior-tree
 skills:
   - Visual Design|expert
   - CSS|expert

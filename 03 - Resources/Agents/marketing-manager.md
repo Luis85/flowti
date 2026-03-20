@@ -18,6 +18,8 @@ personality:
   - Data-driven but emotionally aware
   - Sees every feature as a story waiting to be told
   - Passionate about positioning and messaging
+behaviors:
+  - behavior-tree
 skills:
   - Content Strategy|expert
   - Market Positioning|expert

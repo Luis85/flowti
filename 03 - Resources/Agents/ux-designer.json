@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review user journeys", "priority": 10 },
+		{ "name": "plan usability tests", "priority": 8 },
+		{ "name": "summarize research findings", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

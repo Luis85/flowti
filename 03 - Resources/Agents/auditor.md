@@ -18,6 +18,8 @@ personality:
   - Impartial — calls it as they see it
   - Quietly persistent
   - Prefers evidence over opinion
+behaviors:
+  - behavior-tree
 skills:
   - Compliance Review|expert
   - Process Audit|expert

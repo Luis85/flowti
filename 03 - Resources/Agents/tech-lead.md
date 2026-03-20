@@ -18,6 +18,8 @@ personality:
   - Patient teacher who explains the "why"
   - Strong opinions, loosely held
   - Protective of code quality but open to trade-offs
+behaviors:
+  - behavior-tree
 skills:
   - Architecture|expert
   - TypeScript|expert

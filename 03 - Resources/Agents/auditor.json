@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review process compliance", "priority": 10 },
+		{ "name": "report audit findings", "priority": 8 },
+		{ "name": "monitor corrective actions", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

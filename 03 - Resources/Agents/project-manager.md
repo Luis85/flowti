@@ -18,6 +18,8 @@ personality:
   - Risk-aware without being risk-averse
   - Communicates status clearly and honestly
   - Keeps calm when plans change
+behaviors:
+  - behavior-tree
 skills:
   - Project Planning|expert
   - Resource Management|expert

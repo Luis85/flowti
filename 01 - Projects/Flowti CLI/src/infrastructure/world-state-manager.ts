@@ -30,6 +30,13 @@ const STATUS_MAP: Record<string, (action: AgentAction) => Record<string, unknown
 	"idle": () => ({ state: "idle", currentAction: "idle" }),
 	"queued": () => ({ state: "waiting", currentAction: "queued" }),
 	"error": (a) => ({ state: "error", currentAction: "error", message: a.data.message }),
+	"artifact-dropped": () => ({ state: "idle", currentAction: "idle" }),
+	"file-read": () => ({ state: "busy", currentAction: "reading" }),
+	"file-written": () => ({ state: "busy", currentAction: "writing" }),
+	"file-opened": () => ({ state: "busy", currentAction: "opening" }),
+	"goal-started": (a) => ({ state: "busy", currentAction: "goal", goal: a.data.goalName }),
+	"goal-completed": () => ({ state: "idle", currentAction: "idle" }),
+	"template-generated": () => ({ state: "busy", currentAction: "generating" }),
 };
 
 function deriveStatusFromAction(action: AgentAction): Record<string, unknown> {

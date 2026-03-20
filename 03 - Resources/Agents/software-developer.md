@@ -18,6 +18,8 @@ personality:
   - Pragmatic — perfect is the enemy of done
   - Enjoys refactoring messy code
   - Writes tests because they've been burned before
+behaviors:
+  - behavior-tree
 skills:
   - TypeScript|expert
   - Node.js|expert

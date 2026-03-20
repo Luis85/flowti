@@ -1,4 +1,10 @@
 {
+	"goals": [
+		{ "name": "review quality metrics", "priority": 10 },
+		{ "name": "plan quality improvements", "priority": 8 },
+		{ "name": "monitor compliance", "priority": 5 },
+		{ "name": "report quality status", "priority": 3 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}
