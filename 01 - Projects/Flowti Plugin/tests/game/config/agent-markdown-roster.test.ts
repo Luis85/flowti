@@ -47,6 +47,46 @@ describe("dashboardAgentFromFrontmatter", () => {
 			agentType: "ai",
 		});
 	});
+
+	it("maps behaviors from frontmatter list", () => {
+		const row = dashboardAgentFromFrontmatter({
+			type: "Agent",
+			name: "Archie",
+			behaviors: ["behavior-tree", "review"],
+		});
+		expect(row?.behaviors).toEqual(["behavior-tree", "review"]);
+	});
+
+	it("maps skills from pipe-delimited list", () => {
+		const row = dashboardAgentFromFrontmatter({
+			type: "Agent",
+			name: "Archie",
+			skills: ["System Design|expert", "TypeScript|advanced"],
+		});
+		expect(row?.skills).toEqual([
+			{ name: "System Design", level: "expert" },
+			{ name: "TypeScript", level: "advanced" },
+		]);
+	});
+
+	it("maps experience from frontmatter number", () => {
+		const row = dashboardAgentFromFrontmatter({
+			type: "Agent",
+			name: "Archie",
+			experience: 42,
+		});
+		expect(row?.experience).toBe(42);
+	});
+
+	it("omits behaviors/skills/experience when absent", () => {
+		const row = dashboardAgentFromFrontmatter({
+			type: "Agent",
+			name: "Archie",
+		});
+		expect(row?.behaviors).toBeUndefined();
+		expect(row?.skills).toBeUndefined();
+		expect(row?.experience).toBeUndefined();
+	});
 });
 
 describe("dashboardAgentsFromAgentsMarkdownDir", () => {
@@ -97,5 +137,44 @@ domain: hub
 		writeFileSync(join(agentsDir, "sub", "Nested.md"), "# x", "utf-8");
 		const paths = collectAgentMarkdownPaths(agentsDir);
 		expect(paths.some((p) => p.endsWith(join("sub", "Nested.md")))).toBe(true);
+	});
+
+	it("loads goals from companion JSON file", () => {
+		const agentsDir = join(dir, "Agents");
+		mkdirSync(agentsDir, { recursive: true });
+		writeFileSync(
+			join(agentsDir, "archie.md"),
+			`---\ntype: Agent\nname: Archie\nbehaviors:\n  - behavior-tree\n---\n`,
+			"utf-8",
+		);
+		writeFileSync(
+			join(agentsDir, "archie.json"),
+			JSON.stringify({
+				goals: [
+					{ name: "review architecture", priority: 10 },
+					{ name: "plan tasks", priority: 5 },
+				],
+			}),
+			"utf-8",
+		);
+		const rows = dashboardAgentsFromAgentsMarkdownDir(dir, "Agents");
+		expect(rows).toHaveLength(1);
+		expect(rows[0].goals).toEqual([
+			{ text: "review architecture", priority: "10" },
+			{ text: "plan tasks", priority: "5" },
+		]);
+	});
+
+	it("works without companion JSON", () => {
+		const agentsDir = join(dir, "Agents");
+		mkdirSync(agentsDir, { recursive: true });
+		writeFileSync(
+			join(agentsDir, "bob.md"),
+			`---\ntype: Agent\nname: Bob\n---\n`,
+			"utf-8",
+		);
+		const rows = dashboardAgentsFromAgentsMarkdownDir(dir, "Agents");
+		expect(rows).toHaveLength(1);
+		expect(rows[0].goals).toBeUndefined();
 	});
 });
