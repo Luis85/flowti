@@ -1,16 +1,19 @@
 /**
  * Root Lit component for the Project Detail view.
- * Composes child components: header → note section → storybook section.
- * Dispatches navigation and action events to the controller.
+ * 5-tab router: Overview, Components, Event Catalog, Reporting, Config.
+ * Each tab delegates to a dedicated child tab component.
  */
 
 import { html, css } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
-import type { StorybookStatus, ProjectSummary, ProjectConfig } from "../../domain/projects/types.js";
+import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo } from "../../domain/projects/types.js";
 
 // Side-effect imports to register child custom elements
-import "./flowti-storybook-section.js";
+import "./flowti-tab-overview.js";
+import "./flowti-tab-components.js";
+import "./flowti-tab-event-catalog.js";
+import "./flowti-tab-reporting.js";
 import "./flowti-tab-config.js";
 import "./flowti-scaffold-modal.js";
 import "./flowti-add-project-dropdown.js";
@@ -45,6 +48,16 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		gitModalMode: { type: String },
 		showNamePrompt: { type: Boolean },
 		cliConnected: { type: Boolean },
+		healthScore: { type: Object },
+		healthError: { type: String },
+		todos: { type: Array },
+		todosExist: { type: Boolean },
+		catalogEntities: { type: Array },
+		components: { type: Array },
+		reportGenerators: { type: Array },
+		reportNodeStates: { type: Object },
+		reportOutput: { type: Array },
+		reportBusy: { type: Boolean },
 	};
 
 	static styles = [
@@ -93,150 +106,6 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
-			}
-
-			.type-badge {
-				font-size: var(--flowti-font-xs, 0.75em);
-				padding: 2px 8px;
-				border-radius: var(--flowti-radius-sm, 4px);
-				background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 15%, transparent);
-				color: var(--interactive-accent, #7c3aed);
-				font-weight: 500;
-				text-transform: uppercase;
-				letter-spacing: 0.05em;
-				flex-shrink: 0;
-			}
-
-			.section {
-				padding: var(--flowti-space-sm, 8px) 0;
-				border-top: 1px solid var(--background-modifier-border, #333);
-			}
-
-			.section--first {
-				border-top: none;
-			}
-
-			.brief-info {
-				display: flex;
-				flex-direction: column;
-				gap: var(--flowti-space-xs, 4px);
-				padding: var(--flowti-space-sm, 8px) 0;
-			}
-
-			.brief-row {
-				display: flex;
-				gap: var(--flowti-space-sm, 8px);
-				font-size: var(--flowti-font-sm, 0.85em);
-			}
-
-			.brief-label {
-				color: var(--text-muted, #999);
-				min-width: 40px;
-			}
-
-			.brief-value {
-				color: var(--text-normal, #ddd);
-			}
-
-			.brief-meta {
-				display: flex;
-				gap: var(--flowti-space-md, 16px);
-				font-size: var(--flowti-font-sm, 0.85em);
-				color: var(--text-muted, #999);
-			}
-
-			.brief-description {
-				font-size: var(--flowti-font-sm, 0.85em);
-				color: var(--text-normal, #ddd);
-				line-height: 1.5;
-			}
-
-			.brief-status {
-				display: inline-block;
-				padding: 1px 8px;
-				border-radius: 3px;
-				font-size: 0.8em;
-				background: var(--background-modifier-hover, #333);
-			}
-
-			.section-title {
-				font-size: var(--flowti-font-sm, 0.85em);
-				font-weight: 500;
-				color: var(--text-muted, #999);
-				margin-bottom: var(--flowti-space-xs, 4px);
-			}
-
-			.note-link {
-				display: inline-flex;
-				align-items: center;
-				gap: var(--flowti-space-xs, 4px);
-				color: var(--interactive-accent, #7c3aed);
-				cursor: pointer;
-				font-size: var(--flowti-font-sm, 0.85em);
-				border: 1px solid var(--interactive-accent, #7c3aed);
-				border-radius: var(--flowti-radius-sm, 4px);
-				background: none;
-				padding: 4px 12px;
-				font-weight: 500;
-			}
-
-			.note-link:hover {
-				background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 10%, transparent);
-			}
-
-			.note-warning {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm, 8px);
-				padding: var(--flowti-space-sm, 8px);
-				border-radius: var(--flowti-radius-sm, 4px);
-				background: color-mix(in srgb, var(--color-yellow, #e5a00d) 10%, transparent);
-				color: var(--text-muted, #999);
-				font-size: var(--flowti-font-sm, 0.85em);
-			}
-
-			.note-create {
-				padding: 4px 12px;
-				border-radius: var(--flowti-radius-sm, 4px);
-				border: 1px solid var(--interactive-accent, #7c3aed);
-				background: none;
-				color: var(--interactive-accent, #7c3aed);
-				cursor: pointer;
-				font-size: var(--flowti-font-sm, 0.85em);
-				font-weight: 500;
-			}
-
-			.note-create:hover {
-				background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 10%, transparent);
-			}
-
-			.preset-row {
-				display: flex;
-				flex-wrap: wrap;
-				gap: var(--flowti-space-xs, 4px);
-				margin-top: var(--flowti-space-xs, 4px);
-			}
-
-			.preset-btn {
-				padding: 3px 10px;
-				border-radius: var(--flowti-radius-sm, 4px);
-				border: 1px solid var(--background-modifier-border, #444);
-				background: none;
-				color: var(--text-normal, #ddd);
-				font-size: var(--flowti-font-xs, 0.75em);
-				cursor: pointer;
-			}
-
-			.preset-btn:hover {
-				background: var(--background-modifier-hover, #333);
-				border-color: var(--interactive-accent, #7c3aed);
-				color: var(--interactive-accent, #7c3aed);
-			}
-
-			.preset-btn--active {
-				background: var(--interactive-accent, #7c3aed);
-				border-color: var(--interactive-accent, #7c3aed);
-				color: #fff;
 			}
 
 			.overlay {
@@ -293,11 +162,6 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				background: var(--interactive-accent, #7c3aed);
 				border-color: var(--interactive-accent, #7c3aed);
 				color: #fff;
-			}
-
-			.preset-btn--accent {
-				border-color: var(--color-yellow, #e5a00d);
-				color: var(--color-yellow, #e5a00d);
 			}
 
 			/* ── Project list styles ── */
@@ -420,45 +284,6 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				font-size: var(--flowti-font-sm, 0.85em);
 			}
 
-			/* ── Config info section ── */
-			.config-grid {
-				display: grid;
-				grid-template-columns: auto 1fr;
-				gap: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
-				font-size: var(--flowti-font-sm, 0.85em);
-			}
-
-			.config-label {
-				color: var(--text-muted, #999);
-				font-weight: 500;
-				white-space: nowrap;
-			}
-
-			.config-value {
-				color: var(--text-normal, #ddd);
-			}
-
-			.config-tags {
-				display: flex;
-				flex-wrap: wrap;
-				gap: var(--flowti-space-xs, 4px);
-			}
-
-			.config-tag {
-				display: inline-block;
-				padding: 1px 6px;
-				border-radius: var(--flowti-radius-sm, 4px);
-				background: var(--background-modifier-hover, #333);
-				font-size: 0.9em;
-			}
-
-			.config-empty {
-				padding: var(--flowti-space-sm, 8px);
-				color: var(--text-faint, #666);
-				font-size: var(--flowti-font-sm, 0.85em);
-				font-style: italic;
-			}
-
 			.tab-bar {
 				display: flex;
 				gap: 0;
@@ -484,32 +309,6 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				color: var(--interactive-accent, #7c3aed);
 				border-bottom-color: var(--interactive-accent, #7c3aed);
 				font-weight: 500;
-			}
-
-			.framework-badge {
-				display: inline-block;
-				padding: 1px 6px;
-				border-radius: 3px;
-				font-size: 0.8em;
-				background: var(--background-modifier-hover, #333);
-				color: var(--text-muted, #999);
-			}
-
-			.status-label {
-				font-size: 0.8em;
-				color: var(--text-muted, #999);
-			}
-
-			.status-label--running {
-				color: var(--color-green, #4caf50);
-			}
-
-			.dot--running {
-				display: inline-block;
-				width: 8px;
-				height: 8px;
-				border-radius: 50%;
-				background: var(--color-green, #4caf50);
 			}
 
 			/* ── Activity bar ── */
@@ -595,6 +394,16 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	gitModalMode: "submodule" | "template" = "submodule";
 	showNamePrompt = false;
 	cliConnected = false;
+	healthScore: HealthScore | null = null;
+	healthError = "";
+	todos: TodoItem[] = [];
+	todosExist = false;
+	catalogEntities: CatalogEntity[] = [];
+	components: ComponentEntry[] = [];
+	reportGenerators: ReportGeneratorInfo[] = [];
+	reportNodeStates: Record<string, string> = {};
+	reportOutput: string[] = [];
+	reportBusy = false;
 
 	protected renderContent() {
 		if (!this.projectName) {
@@ -606,10 +415,48 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			${this.statusMessage ? html`<div class="status-banner">${this.statusMessage}</div>` : ""}
 			${this.renderTabBar()}
 			${this.activeTab === "overview" ? html`
-				${this.renderBriefSection()}
-				${this.renderNoteSection()}
-				${this.renderCanvasSection()}
-				${this.renderStorybookSection()}
+				<flowti-tab-overview
+					.projectName="${this.projectName}"
+					.brief="${this.brief}"
+					.config="${this.config}"
+					.healthScore="${this.healthScore}"
+					.healthError="${this.healthError}"
+					.todos="${this.todos}"
+					.todosExist="${this.todosExist}"
+					.hasCanvas="${this.hasCanvas}"
+					.hasSitemap="${this.hasSitemap}"
+					.canvasPreset="${this.canvasPreset}"
+					.canvasChanged="${this.canvasChanged}"
+				></flowti-tab-overview>
+			` : ""}
+			${this.activeTab === "components" ? html`
+				<flowti-tab-components
+					.projectName="${this.projectName}"
+					.components="${this.components}"
+					.storybookInstalled="${this.storybook?.installed ?? false}"
+					.storybookFramework="${this.storybook?.framework ?? ""}"
+					.storybookRunning="${this.storybook?.running ?? false}"
+					.storybookUrl="${this.storybook?.url ?? ""}"
+					.storybookBusy="${this.storybookBusy}"
+					.storybookBusyLabel="${this.storybookBusyLabel}"
+					.storybookOutput="${this.storybookOutput}"
+					.storybookError="${this.storybookError}"
+				></flowti-tab-components>
+			` : ""}
+			${this.activeTab === "catalog" ? html`
+				<flowti-tab-event-catalog
+					.projectName="${this.projectName}"
+					.entities="${this.catalogEntities}"
+				></flowti-tab-event-catalog>
+			` : ""}
+			${this.activeTab === "reporting" ? html`
+				<flowti-tab-reporting
+					.projectName="${this.projectName}"
+					.generators="${this.reportGenerators}"
+					.nodeStates="${this.reportNodeStates}"
+					.outputLines="${this.reportOutput}"
+					.busy="${this.reportBusy}"
+				></flowti-tab-reporting>
 			` : ""}
 			${this.activeTab === "config" ? html`
 				<flowti-tab-config
@@ -639,6 +486,9 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		return html`
 			<div class="tab-bar">
 				${tab("overview", "Overview")}
+				${tab("components", "Components")}
+				${tab("catalog", "Event Catalog")}
+				${tab("reporting", "Reporting")}
 				${tab("config", "Config")}
 			</div>
 		`;
@@ -768,271 +618,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		return "";
 	}
 
-	private renderNoteSection() {
-		return html`
-			<div class="section section--first">
-				<div class="section-title">Project Brief</div>
-				${this.hasNote ? this.renderNoteLink() : this.renderNoteWarning()}
-			</div>
-		`;
-	}
-
-	private renderNoteLink() {
-		return html`
-			<div class="preset-row">
-				<button class="note-link" @click="${this.dispatchOpenNote}">Open brief</button>
-				<button class="note-link" @click="${this.dispatchOpenFolder}">Open folder</button>
-			</div>
-		`;
-	}
-
-	private renderNoteWarning() {
-		return html`
-			<div class="note-warning">
-				<span>No project brief</span>
-				<button class="note-create" @click="${this.dispatchCreateNote}">Create brief</button>
-				<button class="note-link" @click="${this.dispatchOpenFolder}">Open folder</button>
-			</div>
-		`;
-	}
-
-	private renderCanvasSection() {
-		const presets = [
-			{ id: "web-app", label: "Web App" },
-			{ id: "landing", label: "Landing" },
-			{ id: "dashboard", label: "Dashboard" },
-			{ id: "e-commerce", label: "E-Commerce" },
-			{ id: "enterprise", label: "Enterprise" },
-			{ id: "cli", label: "CLI" },
-			{ id: "obsidian-plugin", label: "Plugin" },
-			{ id: "docs", label: "Docs" },
-			{ id: "system-design", label: "System" },
-			{ id: "service-design", label: "Service" },
-			{ id: "product-design", label: "Product" },
-		];
-
-		const presetBtn = (p: { id: string; label: string }) => html`
-			<button class="preset-btn ${this.canvasPreset === p.id ? "preset-btn--active" : ""}"
-				@click="${() => { this.canvasPreset = p.id; this.dispatchEvent(new CustomEvent('canvas-generate', { detail: { preset: p.id }, bubbles: true, composed: true })); }}"
-			>${p.label}</button>
-		`;
-
-		// No canvas yet — show presets to pick from
-		if (!this.hasCanvas) {
-			return html`
-				<div class="section">
-					<div class="section-title">Sitemap Canvas</div>
-					<div class="preset-row">
-						${presets.map(presetBtn)}
-					</div>
-				</div>
-			`;
-		}
-
-		// Canvas exists and has sitemap — saved state, hide presets
-		if (this.hasSitemap) {
-			return html`
-				<div class="section">
-					<div class="section-title">Sitemap Canvas</div>
-					<div class="preset-row">
-						<button class="preset-btn" @click="${() => this.dispatchEvent(new CustomEvent('canvas-generate', { detail: { preset: '' }, bubbles: true, composed: true }))}">Open</button>
-						${this.canvasChanged ? html`
-							<button class="preset-btn preset-btn--accent" @click="${() => this.dispatchEvent(new CustomEvent('canvas-merge', { bubbles: true, composed: true }))}">Merge changes</button>
-						` : ""}
-					</div>
-				</div>
-			`;
-		}
-
-		// Canvas exists but no sitemap — unsaved, show presets + save
-		return html`
-			<div class="section">
-				<div class="section-title">Sitemap Canvas</div>
-				<div class="preset-row">
-					<button class="preset-btn" @click="${() => this.dispatchEvent(new CustomEvent('canvas-generate', { detail: { preset: '' }, bubbles: true, composed: true }))}">Open</button>
-					<button class="preset-btn preset-btn--active" @click="${() => this.dispatchEvent(new CustomEvent('canvas-merge', { bubbles: true, composed: true }))}">Save</button>
-					${presets.map(presetBtn)}
-				</div>
-			</div>
-		`;
-	}
-
-	private renderBriefSection() {
-		const hasBrief = this.brief && (this.brief.goal || this.brief.description || this.brief.start || this.brief.end || this.brief.status);
-		const hasConfig = this.config && (this.config.buildModes.length > 0 || this.config.testPresets.length > 0 || this.config.agents?.length || this.config.publishTargets?.length || (this.config.healthTargets && (this.config.healthTargets.coverageTarget || this.config.healthTargets.minTests)));
-
-		return html`
-			<div class="brief-info">
-				<div class="brief-row">
-					<span class="brief-label">Type</span>
-					<span class="brief-value"><span class="type-badge">${this.projectType}</span></span>
-				</div>
-				${hasBrief ? this.renderBriefFields() : ""}
-				${hasConfig ? this.renderConfigFields() : ""}
-			</div>
-		`;
-	}
-
-	private renderBriefFields() {
-		const { goal, description, start, end, status } = this.brief!;
-		return html`
-			${goal ? html`
-				<div class="brief-row">
-					<span class="brief-label">Goal</span>
-					<span class="brief-value">${goal}</span>
-				</div>
-			` : ""}
-			${status || start || end ? html`
-				<div class="brief-meta">
-					${status ? html`<span class="brief-status">${status}</span>` : ""}
-					${start ? html`<span>Start: ${start}</span>` : ""}
-					${end ? html`<span>End: ${end}</span>` : ""}
-				</div>
-			` : ""}
-			${description ? html`<div class="brief-description">${description}</div>` : ""}
-		`;
-	}
-
-	private renderConfigFields() {
-		if (!this.config) return "";
-		const { buildModes, testPresets, healthTargets, agents, publishTargets } = this.config;
-		const hasHealth = healthTargets && (healthTargets.coverageTarget || healthTargets.minTests);
-
-		return html`
-			<div class="config-grid">
-				${buildModes.length > 0 ? html`
-					<span class="config-label">Build</span>
-					<span class="config-value"><span class="config-tags">${buildModes.map((m) => html`<span class="config-tag">${m}</span>`)}</span></span>
-				` : ""}
-				${testPresets.length > 0 ? html`
-					<span class="config-label">Test</span>
-					<span class="config-value"><span class="config-tags">${testPresets.map((t) => html`<span class="config-tag">${t}</span>`)}</span></span>
-				` : ""}
-				${hasHealth ? html`
-					<span class="config-label">Health</span>
-					<span class="config-value">${this.formatHealth(healthTargets!)}</span>
-				` : ""}
-				${agents && agents.length > 0 ? html`
-					<span class="config-label">Team</span>
-					<span class="config-value">${agents.length <= 4 ? agents.join(", ") : `${agents.slice(0, 3).join(", ")} +${agents.length - 3} more`}</span>
-				` : ""}
-				${publishTargets && publishTargets.length > 0 ? html`
-					<span class="config-label">Deploy</span>
-					<span class="config-value">${publishTargets.join(", ")}</span>
-				` : ""}
-			</div>
-		`;
-	}
-
-	private renderConfigSection() {
-		if (!this.config) {
-			return html`
-				<div class="section section--first">
-					<div class="section-title">Project Info</div>
-					<div class="config-empty">No flowti.config.json found</div>
-				</div>
-			`;
-		}
-
-		const { buildModes, testPresets, healthTargets, agents, publishTargets } = this.config;
-		const hasHealth = healthTargets && (healthTargets.coverageTarget || healthTargets.minTests);
-
-		return html`
-			<div class="section section--first">
-				<div class="section-title">Project Info</div>
-				<div class="config-grid">
-					${buildModes.length > 0 ? html`
-						<span class="config-label">Build</span>
-						<span class="config-value"><span class="config-tags">${buildModes.map((m) => html`<span class="config-tag">${m}</span>`)}</span></span>
-					` : ""}
-					${testPresets.length > 0 ? html`
-						<span class="config-label">Test</span>
-						<span class="config-value"><span class="config-tags">${testPresets.map((t) => html`<span class="config-tag">${t}</span>`)}</span></span>
-					` : ""}
-					${hasHealth ? html`
-						<span class="config-label">Health</span>
-						<span class="config-value">${this.formatHealth(healthTargets)}</span>
-					` : ""}
-					${agents && agents.length > 0 ? html`
-						<span class="config-label">Team</span>
-						<span class="config-value">${agents.length <= 4 ? agents.join(", ") : `${agents.slice(0, 3).join(", ")} +${agents.length - 3} more`}</span>
-					` : ""}
-					${publishTargets && publishTargets.length > 0 ? html`
-						<span class="config-label">Deploy</span>
-						<span class="config-value">${publishTargets.join(", ")}</span>
-					` : ""}
-				</div>
-			</div>
-		`;
-	}
-
-	private formatHealth(h: NonNullable<ProjectConfig["healthTargets"]>): string {
-		const parts: string[] = [];
-		if (h.coverageMin || h.coverageTarget) {
-			parts.push(`Coverage ${h.coverageMin ?? "?"}%\u2192${h.coverageTarget ?? "?"}%`);
-		}
-		if (h.maxLintErrors !== undefined) parts.push(`Lint errors \u2264${h.maxLintErrors}`);
-		if (h.maxLintWarnings !== undefined) parts.push(`Warnings \u2264${h.maxLintWarnings}`);
-		if (h.minTests) parts.push(`Tests \u2265${h.minTests}`);
-		return parts.join(" \u00B7 ");
-	}
-
-	private renderStorybookSection() {
-		const badge = this.storybook.framework
-			? html`<span class="framework-badge">${this.storybook.framework}</span>`
-			: "";
-		const statusText = this.storybook.running ? "Running" : this.storybook.installed ? "Installed" : "";
-		const statusClass = this.storybook.running ? "status-label--running" : "";
-		const dot = this.storybook.running ? html`<span class="dot--running"></span>` : "";
-
-		return html`
-			<div class="section">
-				<div class="section-title">
-					Storybook ${dot} ${badge}
-					${statusText ? html`<span class="status-label ${statusClass}">${statusText}</span>` : ""}
-				</div>
-				<flowti-storybook-section
-					.installed="${this.storybook.installed}"
-					.framework="${this.storybook.framework}"
-					.running="${this.storybook.running}"
-					.busy="${this.storybookBusy}"
-					.busyLabel="${this.storybookBusyLabel}"
-					.outputLines="${this.storybookOutput}"
-					.errorNote="${this.storybookError}"
-					.url="${this.storybook.url}"
-					.pid="${this.storybook.pid}"
-					.hasStaticBuild="${this.storybook.hasStaticBuild}"
-				></flowti-storybook-section>
-			</div>
-		`;
-	}
-
 	private dispatchBackToList(): void {
 		this.dispatchEvent(new CustomEvent("back-to-list", { bubbles: true, composed: true }));
-	}
-
-	private dispatchOpenNote(): void {
-		this.dispatchEvent(new CustomEvent("open-project-note", {
-			detail: { path: this.notePath },
-			bubbles: true,
-			composed: true,
-		}));
-	}
-
-	private dispatchOpenFolder(): void {
-		this.dispatchEvent(new CustomEvent("open-project-folder", {
-			detail: { name: this.projectName },
-			bubbles: true,
-			composed: true,
-		}));
-	}
-
-	private dispatchCreateNote(): void {
-		this.dispatchEvent(new CustomEvent("create-project-note", {
-			detail: { name: this.projectName },
-			bubbles: true,
-			composed: true,
-		}));
 	}
 }
 
