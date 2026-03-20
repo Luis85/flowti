@@ -6,6 +6,7 @@
 import { ItemView } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type { IProjectService } from "../../domain/projects/types.js";
+import type { VaultFileAdapter } from "../../infrastructure/vault-adapter.js";
 import { VIEW_TYPE_PROJECT_DETAIL } from "./types.js";
 
 export interface ProjectDetailDeps {
@@ -16,6 +17,7 @@ export interface ProjectDetailDeps {
 	readonly navigateBack: () => void;
 	readonly pickFolder: () => Promise<string | null>;
 	readonly revealFolder: (path: string) => void;
+	readonly vaultAdapter?: VaultFileAdapter;
 }
 
 export class ProjectDetailView extends ItemView {
@@ -65,6 +67,7 @@ export class ProjectDetailView extends ItemView {
 			navigateBack: this.deps.navigateBack,
 			pickFolder: this.deps.pickFolder,
 			revealFolder: this.deps.revealFolder,
+			vaultAdapter: this.deps.vaultAdapter,
 		});
 	}
 
