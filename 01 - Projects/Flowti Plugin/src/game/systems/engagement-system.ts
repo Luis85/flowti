@@ -60,6 +60,9 @@ export class EngagementSystem {
 	/** Agents that have completed a task and are awaiting acknowledgment. */
 	private readonly pendingTaskCompletions = new Set<string>();
 
+	/** Workspace context variables for template interpolation. */
+	private context: Record<string, string> = {};
+
 	// ── Registration ────────────────────────────────────────────────
 
 	register(agentName: string, info: { domain: string; cha: number }): void {
@@ -75,6 +78,13 @@ export class EngagementSystem {
 
 	onEngagement(cb: (e: EngagementEvent) => void): void {
 		this.engagementCallbacks.push(cb);
+	}
+
+	// ── Context ────────────────────────────────────────────────────
+
+	/** Set workspace context variables for template interpolation. */
+	setContext(ctx: Record<string, string>): void {
+		this.context = ctx;
 	}
 
 	// ── Task completion tracking ─────────────────────────────────────
@@ -196,7 +206,7 @@ export class EngagementSystem {
 	private buildEvent(tier: number, agentName: string, domain: string): EngagementEvent {
 		const templates = tier >= 3 ? TIER3_TEMPLATES : tier === 2 ? TIER2_TEMPLATES : TIER1_TEMPLATES;
 		const template = templates[Math.floor(Math.random() * templates.length)];
-		const text = interpolateTemplate(template.text, { domain, task: "current task" });
+		const text = interpolateTemplate(template.text, { domain, task: "current task", ...this.context });
 
 		const bubbleKind: "thought" | "speech" = tier === 1 ? "thought" : "speech";
 

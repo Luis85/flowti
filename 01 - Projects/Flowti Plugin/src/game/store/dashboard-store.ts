@@ -591,6 +591,8 @@ export class DashboardStore extends EventTarget {
 			if (idx >= 0) pending.splice(idx, 1);
 			this.notify();
 		}
+		const signalType = decision === "allow" ? "permission-grant" : "permission-deny";
+		this.dispatchEvent(new CustomEvent("permission-decided", { detail: { agentName, signalType } }));
 		return this.cliExecutor.grantPermission(agentName, tool, decision);
 	}
 
