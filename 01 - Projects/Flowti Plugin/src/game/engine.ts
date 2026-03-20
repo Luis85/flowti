@@ -53,6 +53,7 @@ import { MemorySystem } from "./systems/memory-system.js";
 import { QuirkSystem } from "./systems/quirk-system.js";
 import { RelationshipSystem } from "./systems/relationship-system.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
+import { BtSystem, createStubDeps } from "./systems/bt-system.js";
 import { assignOpinions, findClashLabels } from "./data/opinion-topics.js";
 import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
 import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
@@ -269,6 +270,22 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const worldEventScheduler = new WorldEventScheduler();
 	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
 	const registry = new SceneRegistry();
+	const btSystem = new BtSystem();
+
+	// ── BT shared deps (Phase 1: stub I/O, real clock + action piping) ──
+	const btWorldState = {
+		emitAction: (action: { id: string; agentName: string; timestamp: string; type: string; data: Record<string, unknown> }) => {
+			// Feed BT-emitted actions through the same event pipeline as SSE actions
+			brainSystem.applyEvent(action.agentName, action.type);
+		},
+		updateEntity: () => {},
+	};
+	const btClock = {
+		now: () => Date.now(),
+		ms: () => Date.now(),
+		iso: () => new Date().toISOString(),
+	};
+	const btDeps = createStubDeps(btWorldState, btClock);
 	const cycleConversationCounts = new Map<string, number>();
 	/** Tracks which reactive triggers have fired per agent this cycle to avoid spamming. */
 	const firedReactiveTriggers = new Map<string, Set<string>>();
@@ -609,6 +626,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				memorySystem.getMemory(agent.name).opinions = opinions;
 			}
 			relationshipSystem.register(agent.name, opinions);
+			btSystem.register(agent, btDeps);
 			knownEntities.add(agent.name);
 		}
 	}
@@ -1465,6 +1483,21 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		engagementSystem.setContext({
 			agentCount: String(brainSystem.getAllEntries().size),
 		});
+
+		// 5c. Behavior tree — tick agent brains (throttled to 3s intervals)
+		const btActions = btSystem.update(deltaMs, btWorldState, btClock);
+		for (const action of btActions) {
+			if (action.type === "goal-started") {
+				brainSystem.assignWork(action.agentName);
+			} else if (action.type === "goal-completed" || action.type === "artifact-dropped") {
+				brainSystem.releaseWork(action.agentName);
+			} else if (action.type === "speaking") {
+				const text = String(action.data.text ?? "");
+				if (text) {
+					bubbleSystem.showBubble(action.agentName, "speech", text, engine.currentScene, findAgentActor, 4000);
+				}
+			}
+		}
 
 		// Snapshot walking states before brain update
 		for (const [name, entry] of brainSystem.getAllEntries()) {
