@@ -49,6 +49,12 @@ function makeDeps(answers: string[] = []): RosterTaskDeps {
 				kill: vi.fn(),
 			})),
 		} as unknown as RosterTaskDeps["processRunner"],
+		providerRegistry: {
+			register: vi.fn(),
+			get: vi.fn(),
+			list: vi.fn(() => [{ name: "anthropic", capabilities: () => ({}), execute: vi.fn() }]),
+			select: vi.fn(),
+		},
 	} as unknown as RosterTaskDeps;
 }
 

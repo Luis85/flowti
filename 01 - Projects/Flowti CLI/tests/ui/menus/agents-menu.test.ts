@@ -123,6 +123,12 @@ function makeDeps() {
 		processRunner: {
 			spawn: vi.fn(() => makeProcess()),
 		},
+		providerRegistry: {
+			register: vi.fn(),
+			get: vi.fn(),
+			list: vi.fn(() => [{ name: "anthropic", capabilities: () => ({}), execute: vi.fn() }]),
+			select: vi.fn(),
+		},
 		clock: { now: vi.fn(() => new Date()), ms: vi.fn(() => 1000), iso: vi.fn(() => "2026-03-15T00:00:00.000Z"), safeIso: vi.fn(() => "2026-03-15") },
 		log: vi.fn(),
 	} as any;
@@ -442,11 +448,11 @@ describe("manageProjectAgentsInteractive", () => {
 // ── Talk to Agent ───────────────────────────────────────────────────
 
 describe("talkToAgentInteractive", () => {
-	it("shows error when Claude CLI is not installed", async () => {
+	it("shows error when no LLM provider is available", async () => {
 		const deps = makeDeps();
-		deps.shell.check.mockReturnValue(false);
+		deps.providerRegistry.list.mockReturnValue([]);
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("not installed"));
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No LLM provider"));
 		expect(deps.processRunner.spawn).not.toHaveBeenCalled();
 	});
 
@@ -669,9 +675,9 @@ describe("clarifyTaskInteractive", () => {
 		expect(deps.processRunner.spawn).not.toHaveBeenCalled();
 	});
 
-	it("skips when Claude CLI is not installed", async () => {
+	it("skips when no LLM provider is available", async () => {
 		const deps = makeDeps();
-		deps.shell.check.mockReturnValue(false);
+		deps.providerRegistry.list.mockReturnValue([]);
 		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Task", "Desc", "", deps);
 		expect(deps.processRunner.spawn).not.toHaveBeenCalled();
 	});
