@@ -8,8 +8,9 @@
  *   CLI binary:    <vault>/.flowti/bin/main.mjs
  *
  * If `agent-dashboard.json` is missing or has an empty `agents` array, the
- * provider falls back to agent entities in `world-state.json` so Agent World
- * is populated when only the CLI runtime file exists.
+ * provider falls back to: (1) agent entities in `world-state.json`, (2) markdown
+ * definitions under `03 - Resources/Agents` (`type: Agent` frontmatter), (3) CLI
+ * `listAgents()`.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -19,6 +20,10 @@ import type { DashboardAgent, WorldState, WorldEntity, AgentAction, ConnectionSt
 import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
 import { watchJsonFile, type FileWatcher } from "../../infrastructure/agents/file-watcher.js";
 import { dashboardAgentsFromWorldState } from "./world-state-agents.js";
+import {
+	dashboardAgentsFromAgentsMarkdownDir,
+	DEFAULT_AGENTS_MARKDOWN_DIR,
+} from "./agent-markdown-roster.js";
 
 const AGENT_ROSTER_SUBPATH = ".flowti/agents/data/agent-dashboard.json";
 const WORLD_STATE_SUBPATH = ".flowti/var/world-state.json";
@@ -67,6 +72,11 @@ export function createCliDataProvider(
 			// Roster file missing / empty → use agent entities from world-state.json
 			if (agents.length === 0) {
 				agents = dashboardAgentsFromWorldState(worldState);
+			}
+
+			// Still empty → scan vault `03 - Resources/Agents` for Agent markdown (same as sidepanel)
+			if (agents.length === 0) {
+				agents = dashboardAgentsFromAgentsMarkdownDir(vaultBasePath, DEFAULT_AGENTS_MARKDOWN_DIR);
 			}
 
 			// Still empty → ask CLI for registered agents (definitions / registry, not only running)

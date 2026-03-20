@@ -10,7 +10,10 @@ import type { IContextProvider } from "../../domain/agents/context-provider.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { AgentCard, ConversationMode } from "../../domain/agents/types.js";
 import { extractAgentMessage } from "../../game/data/message-utils.js";
+import { parseFrontmatter, parseSuggestedTask } from "../../game/config/agent-markdown-roster.js";
 import type { VaultFileAdapter } from "../vault-adapter.js";
+
+export { parseSuggestedTask } from "../../game/config/agent-markdown-roster.js";
 
 // Side-effect import: register the Lit custom element
 import "../../components/agents/flowti-agent-sidepanel.js";
@@ -34,62 +37,6 @@ export interface AgentHandlerDeps {
 	readonly vaultAdapter?: VaultFileAdapter;
 	readonly agentsDir?: string;
 	readonly vaultBasePath?: string;
-}
-
-/** Parse YAML frontmatter from a markdown string. Returns key-value pairs. */
-function parseFrontmatter(md: string): Record<string, unknown> {
-	const match = md.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-	if (!match) return {};
-	const result: Record<string, unknown> = {};
-	let currentKey = "";
-	let currentList: string[] | null = null;
-	const indent2: Record<string, Record<string, unknown>> = {};
-	let indent2Key = "";
-
-	for (const line of match[1].split(/\r?\n/)) {
-		// Nested key (2-space indent): e.g. "  str: 12"
-		const nestedMatch = line.match(/^ {2}(\w+):\s*(.+)$/);
-		if (nestedMatch && indent2Key) {
-			if (!indent2[indent2Key]) indent2[indent2Key] = {};
-			const val = nestedMatch[2].trim();
-			indent2[indent2Key][nestedMatch[1]] = /^\d+$/.test(val) ? Number(val) : val;
-			continue;
-		}
-
-		// List item: "  - value"
-		const listMatch = line.match(/^\s+-\s+(.+)$/);
-		if (listMatch && currentList) {
-			currentList.push(listMatch[1]);
-			continue;
-		}
-
-		// Flush previous list
-		if (currentList) {
-			result[currentKey] = currentList;
-			currentList = null;
-		}
-
-		// Top-level key
-		const kvMatch = line.match(/^(\w[\w-]*):\s*(.*)$/);
-		if (kvMatch) {
-			currentKey = kvMatch[1];
-			const val = kvMatch[2].trim();
-			if (val === "") {
-				// Could be a list or nested object — peek ahead
-				currentList = [];
-				indent2Key = currentKey;
-			} else {
-				const cleaned = val.replace(/^["']|["']$/g, "").replace(/^\[\[|\]\]$/g, "");
-				result[currentKey] = /^\d+$/.test(cleaned) ? Number(cleaned) : cleaned;
-				indent2Key = "";
-			}
-		}
-	}
-	if (currentList) result[currentKey] = currentList;
-	for (const [k, v] of Object.entries(indent2)) {
-		if (Object.keys(v).length > 0) result[k] = v;
-	}
-	return result;
 }
 
 /** Load AgentCard[] from vault agent definition .md files. */
@@ -122,33 +69,6 @@ async function loadAgentCards(adapter: VaultFileAdapter, agentsDir: string): Pro
 		}
 	}
 	return cards.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/** Parse a pipe-delimited suggestedTask string into a structured object. */
-export function parseSuggestedTask(raw: string): { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } } {
-	const segments = raw.split("|");
-	const name = segments[0].trim();
-	const phases = segments.length > 1
-		? segments[1].split(",").map((s) => s.trim()).filter(Boolean)
-		: [];
-
-	let input: { type: "text"; prompt: string } | undefined;
-	let tool: { command: string } | undefined;
-
-	for (let i = 2; i < segments.length; i++) {
-		const seg = segments[i].trim();
-		if (seg.startsWith("input:")) {
-			const rest = seg.slice(6);
-			const colonIdx = rest.indexOf(":");
-			if (colonIdx !== -1) {
-				input = { type: "text", prompt: rest.slice(colonIdx + 1) };
-			}
-		} else if (seg.startsWith("tool:")) {
-			tool = { command: seg.slice(5) };
-		}
-	}
-
-	return { name, phases, ...(input && { input }), ...(tool && { tool }) };
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {
