@@ -34,6 +34,17 @@ function mockService(): IProjectService {
 		detectProject: vi.fn(async () => ({ ok: true, type: "typescript" })),
 		bootstrapProject: vi.fn(async () => ({ ok: true })),
 		createEmptyProject: vi.fn(async () => ({ ok: true })),
+		getHealth: vi.fn(async () => ({ ok: true, score: { overall: 85, grade: "B", categories: { tests: 90, coverage: 80, build: 100, lint: 70, security: 90, git: 80 } } })),
+		getTodos: vi.fn(async () => ({ items: [], exists: false })),
+		addTodo: vi.fn(async () => ({ ok: true })),
+		toggleTodo: vi.fn(async () => ({ ok: true })),
+		deleteTodo: vi.fn(async () => ({ ok: true })),
+		listEntities: vi.fn(async () => []),
+		createEntity: vi.fn(async () => ({ ok: true })),
+		getReportGenerators: vi.fn(async () => []),
+		runReport: vi.fn(async () => ({ ok: true })),
+		runAllReports: vi.fn(async () => ({ ok: true })),
+		listComponents: vi.fn(async () => []),
 	};
 }
 

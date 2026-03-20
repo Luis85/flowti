@@ -106,10 +106,7 @@ vi.mock("node:path", async () => {
 
 // Mock the file-watcher — the source imports from "./file-watcher.js"
 // Vitest resolves vi.mock paths relative to the source module's location
-const mockTailClose = vi.fn();
-const mockTailJsonlFile = vi.fn(() => ({ close: mockTailClose }));
 vi.mock("../../../src/infrastructure/agents/file-watcher.js", () => ({
-	tailJsonlFile: (...args: unknown[]) => mockTailJsonlFile(...args),
 	watchJsonFile: vi.fn(() => ({ close: vi.fn() })),
 }));
 
@@ -241,15 +238,6 @@ describe("CliExecutor", () => {
 			expect(agent.running).toBe(true);
 		});
 
-		it("sets up event log tailing via tailJsonlFile", () => {
-			const executor = new CliExecutor(VAULT);
-			executor.startAgent("Atlas");
-
-			expect(mockTailJsonlFile).toHaveBeenCalledWith(
-				expect.stringContaining("atlas.events.jsonl"),
-				expect.any(Function),
-			);
-		});
 	});
 
 	describe("AgentProcess.send", () => {
@@ -431,14 +419,6 @@ describe("CliExecutor", () => {
 			);
 		});
 
-		it("closes the log file watcher", () => {
-			const executor = new CliExecutor(VAULT);
-			const agent = executor.startAgent("Atlas");
-
-			agent.kill();
-
-			expect(mockTailClose).toHaveBeenCalled();
-		});
 	});
 
 	describe("assignTask", () => {

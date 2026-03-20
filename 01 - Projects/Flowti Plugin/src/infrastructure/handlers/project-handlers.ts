@@ -4,7 +4,8 @@
  * Returns a dispose function for cleanup on view close.
  */
 
-import type { IProjectService, StorybookFramework, MarkdownSourceConfig } from "../../domain/projects/types.js";
+import type { IProjectService, StorybookFramework, MarkdownSourceConfig, CatalogEntityType, CatalogEntityDef } from "../../domain/projects/types.js";
+import type { VaultFileAdapter } from "../vault-adapter.js";
 
 // Side-effect import: register the Lit custom element
 import "../../components/projects/flowti-project-detail.js";
@@ -18,6 +19,7 @@ export interface ProjectHandlerDeps {
 	readonly navigateBack?: () => void;
 	readonly pickFolder?: () => Promise<string | null>;
 	readonly revealFolder?: (path: string) => void;
+	readonly vaultAdapter?: VaultFileAdapter;
 }
 
 export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerDeps): () => void {
@@ -57,6 +59,32 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.canvasChanged = detail.canvasChanged;
 		el.hasMarkdownSource = !!detail.config?.markdownSource;
 		el.brief = detail.brief;
+
+		// Load health
+		void projectService.getHealth(name).then((r) => {
+			if (r.ok && r.score) el.healthScore = r.score;
+		});
+
+		// Load TODOs
+		void projectService.getTodos(name).then((r) => {
+			el.todos = r.items;
+			el.todosExist = r.exists;
+		});
+
+		// Load components
+		void projectService.listComponents(name).then((c) => {
+			el.components = c;
+		});
+
+		// Load report generators
+		void projectService.getReportGenerators(name).then((g) => {
+			el.reportGenerators = g;
+		});
+
+		// Load initial catalog entities (domains)
+		void projectService.listEntities(name, "domains").then((entities) => {
+			el.catalogEntities = entities;
+		});
 	}
 
 	// ── Project selected from list ──
@@ -248,7 +276,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		void projectService.saveMarkdownSourceConfig(currentProject, config, appendOutput)
 			.then((r) => {
 				endBusy(r);
-				const configTab = el.shadowRoot?.querySelector("flowti-config-tab") as HTMLElement & { saveStatus: string } | null;
+				const configTab = el.shadowRoot?.querySelector("flowti-tab-config") as HTMLElement & { saveStatus: string } | null;
 				if (configTab) {
 					configTab.saveStatus = r.ok ? "Saved" : (r.error ?? "Save failed");
 					setTimeout(() => { if (configTab) configTab.saveStatus = ""; }, 3000);
@@ -261,7 +289,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		void deps.pickFolder().then((folder) => {
 			if (folder === null) return;
 			// Push the chosen folder path into the config tab's sourcePath
-			const configTab = el.shadowRoot?.querySelector("flowti-config-tab") as HTMLElement & { sourcePath: string } | null;
+			const configTab = el.shadowRoot?.querySelector("flowti-tab-config") as HTMLElement & { sourcePath: string } | null;
 			if (configTab) configTab.sourcePath = folder;
 		});
 	}) as EventListener);
@@ -385,6 +413,89 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		startBusy("Merging canvas changes...");
 		void projectService.importCanvasSitemap(currentProject, appendOutput, { merge: true })
 			.then((r) => endBusy(r));
+	}) as EventListener);
+
+	// ── Health ──────────────────────────────────────────────────────
+	el.addEventListener("health-refresh", (() => {
+		void projectService.getHealth(currentProject).then((r) => {
+			if (r.ok && r.score) {
+				el.healthScore = r.score;
+				el.healthError = "";
+			} else {
+				el.healthError = r.error ?? "Health check failed";
+			}
+		});
+	}) as EventListener);
+
+	// ── TODOs ───────────────────────────────────────────────────────
+	const refreshTodos = () => {
+		void projectService.getTodos(currentProject).then((r) => {
+			el.todos = r.items;
+			el.todosExist = r.exists;
+		});
+	};
+
+	el.addEventListener("todo-add", ((e: CustomEvent) => {
+		void projectService.addTodo(currentProject, String(e.detail?.text ?? "")).then(() => refreshTodos());
+	}) as EventListener);
+
+	el.addEventListener("todo-toggle", ((e: CustomEvent) => {
+		void projectService.toggleTodo(currentProject, Number(e.detail?.index ?? 0)).then(() => refreshTodos());
+	}) as EventListener);
+
+	el.addEventListener("todo-delete", ((e: CustomEvent) => {
+		void projectService.deleteTodo(currentProject, Number(e.detail?.index ?? 0)).then(() => refreshTodos());
+	}) as EventListener);
+
+	// ── Event Catalog ───────────────────────────────────────────────
+	el.addEventListener("catalog-list-refresh", ((e: CustomEvent) => {
+		const entityType = String(e.detail?.entityType ?? "domains");
+		void projectService.listEntities(currentProject, entityType as CatalogEntityType).then((entities) => {
+			el.catalogEntities = entities;
+		});
+	}) as EventListener);
+
+	el.addEventListener("catalog-entity-create", ((e: CustomEvent) => {
+		const { entityType, definition } = e.detail as { entityType: string; definition: CatalogEntityDef };
+		void projectService.createEntity(currentProject, entityType as CatalogEntityType, definition).then((r) => {
+			if (r.ok) {
+				void projectService.listEntities(currentProject, entityType as CatalogEntityType).then((entities) => {
+					el.catalogEntities = entities;
+				});
+			}
+		});
+	}) as EventListener);
+
+	// ── Reporting ───────────────────────────────────────────────────
+	el.addEventListener("report-run", ((e: CustomEvent) => {
+		const id = String(e.detail?.generatorId ?? "");
+		el.reportNodeStates = { ...(el.reportNodeStates as Record<string, string>), [id]: "running" };
+		el.reportBusy = true;
+		const lines: string[] = [];
+		void projectService.runReport(currentProject, id, (line) => {
+			lines.push(line);
+			if (lines.length > 200) lines.shift();
+			el.reportOutput = [...lines];
+		}).then((r) => {
+			el.reportNodeStates = { ...(el.reportNodeStates as Record<string, string>), [id]: r.ok ? "passed" : "failed" };
+			el.reportBusy = false;
+		});
+	}) as EventListener);
+
+	el.addEventListener("report-run-all", (() => {
+		el.reportBusy = true;
+		const lines: string[] = [];
+		const states: Record<string, string> = {};
+		for (const g of (el.reportGenerators as Array<{ id: string }>)) states[g.id] = "running";
+		el.reportNodeStates = states;
+
+		void projectService.runAllReports(currentProject, (line) => {
+			lines.push(line);
+			if (lines.length > 200) lines.shift();
+			el.reportOutput = [...lines];
+		}).then(() => {
+			el.reportBusy = false;
+		});
 	}) as EventListener);
 
 	// ── Git import / add project ──

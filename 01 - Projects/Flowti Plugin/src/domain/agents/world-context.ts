@@ -106,25 +106,6 @@ function basename(path: string): string {
 	return sep === -1 ? path : path.slice(sep + 1);
 }
 
-function parentAndBasename(path: string): string {
-	const sep = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-	if (sep === -1) return path;
-	const parent = path.slice(0, sep);
-	const parentSep = Math.max(parent.lastIndexOf("/"), parent.lastIndexOf("\\"));
-	const folder = parentSep === -1 ? parent : parent.slice(parentSep + 1);
-	return `${folder}/${path.slice(sep + 1)}`;
-}
-
-function disambiguateFiles(paths: string[]): string[] {
-	const names = paths.map(basename);
-	const counts = new Map<string, number>();
-	for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1);
-	return paths.map((p, i) => {
-		const n = names[i];
-		return (counts.get(n) ?? 0) > 1 ? parentAndBasename(p) : n;
-	});
-}
-
 function relativeAge(ms: number): string {
 	const sec = Math.floor(ms / 1000);
 	if (sec < 60) return `${sec}s ago`;
