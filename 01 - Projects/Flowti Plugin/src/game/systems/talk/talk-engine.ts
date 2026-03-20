@@ -92,6 +92,7 @@ function defaultVars(domain: string): TemplateVars {
 export interface TalkEngineCallbacks {
 	readonly showBubble: (agentName: string, kind: BubbleKind, text: string) => void;
 	readonly isIdle: (agentName: string) => boolean;
+	readonly isOnScene?: (agentName: string) => boolean;
 	readonly isWaiting?: (agentName: string) => boolean;
 }
 
@@ -157,6 +158,8 @@ export class TalkEngine {
 	update(deltaMs: number): void {
 		const now = performance.now();
 		for (const [name, entry] of this.entries) {
+			// Skip agents not present in the current scene
+			if (this.callbacks.isOnScene && !this.callbacks.isOnScene(name)) continue;
 			if (now < entry.silencedUntil) continue;
 			// Activated agents (waiting for LLM) always chatter, idle agents chatter normally
 			if (!entry.activated && !this.callbacks.isIdle(name)) continue;

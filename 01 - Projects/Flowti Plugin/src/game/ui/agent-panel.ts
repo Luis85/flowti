@@ -263,6 +263,7 @@ export class AgentPanel extends FlowtiElement {
 	}
 
 	private handleClose(): void {
+		this.store.stopFollow();
 		this.store.selectAgent(null);
 	}
 

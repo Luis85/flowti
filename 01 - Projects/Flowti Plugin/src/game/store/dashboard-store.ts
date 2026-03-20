@@ -44,6 +44,7 @@ export class DashboardStore extends EventTarget {
 	connectionStatus: ConnectionStatus = "disconnected";
 	activityLog: readonly ActivityEntry[] = [];
 	permissions: Map<string, readonly PermissionEntry[]> = new Map();
+	pendingPermissions: Map<string, { tool: string; requestedAt: number }[]> = new Map();
 	llmStatus: Map<string, LlmStatus> = new Map();
 	assignedTasks: Map<string, TrackedTask[]> = new Map();
 	unreadAgents: Set<string> = new Set();
@@ -282,33 +283,12 @@ export class DashboardStore extends EventTarget {
 		switch (event.type) {
 			case "response": {
 				const text = extractAgentMessage(event.text ?? "");
-
-				// Check if agent has an active task — save output as document
-				const agentTasks = this.assignedTasks.get(agentName) ?? [];
-				const activeTask = agentTasks.find((t) => t.status === "pending" || t.status === "in-progress");
-				if (activeTask) {
-					const savedPath = this.saveTaskOutput(agentName, activeTask.name, text);
-					const summary = savedPath
-						? `Done. Saved to ${savedPath}`
-						: `Done. (Could not save to vault)`;
-					this.pushAgentResponse(agentName, summary);
-					this.pushEventLog(agentName, "response", summary);
-					this.markTaskStatus(agentName, activeTask.name, "completed");
-					this.pushEventLog(agentName, "task-completed", `${activeTask.name} \u2192 ${savedPath ?? "unsaved"}`);
-					this.unreadAgents.add(agentName);
-					this.dispatchEvent(new CustomEvent("task-completed", {
-						detail: { agentName, task: activeTask.name, result: summary, path: savedPath },
-					}));
-					this.dispatchEvent(new CustomEvent("agent-response-received", {
-						detail: { agentName, text: summary, type: "speaking" },
-					}));
-				} else {
-					this.pushAgentResponse(agentName, text);
-					this.pushEventLog(agentName, "response", text.slice(0, 80));
-					this.dispatchEvent(new CustomEvent("agent-response-received", {
-						detail: { agentName, text, type: "speaking" },
-					}));
-				}
+				// Store the response — task completion is handled by the "done" event
+				this.pushAgentResponse(agentName, text);
+				this.pushEventLog(agentName, "response", text.slice(0, 80));
+				this.dispatchEvent(new CustomEvent("agent-response-received", {
+					detail: { agentName, text, type: "speaking" },
+				}));
 				break;
 			}
 			case "thinking": {
@@ -321,10 +301,18 @@ export class DashboardStore extends EventTarget {
 				break;
 			}
 			case "permission-request": {
-				this.pushEventLog(agentName, "permission-request", `${event.tool ?? "unknown"} \u2014 permission requested`);
+				const toolName = event.tool ?? "unknown";
+				// Track pending permission so the permissions tab can render it
+				const pending = this.pendingPermissions.get(agentName) ?? [];
+				if (!pending.some((p) => p.tool === toolName)) {
+					pending.push({ tool: toolName, requestedAt: Date.now() });
+					this.pendingPermissions.set(agentName, pending);
+				}
+				this.pushEventLog(agentName, "permission-request", `${toolName} \u2014 permission requested`);
 				this.dispatchEvent(new CustomEvent("permission-requested", {
-					detail: { agentName, tool: event.tool, id: event.id },
+					detail: { agentName, tool: toolName, id: event.id },
 				}));
+				this.notify();
 				break;
 			}
 			case "error": {
@@ -337,7 +325,7 @@ export class DashboardStore extends EventTarget {
 				const hasSummary = event.text && event.text !== event.tool;
 				const toolSummary = hasSummary ? event.text! : (event.tool ?? "tool");
 				this.pushEventLog(agentName, "using-tool", toolSummary);
-				// Only show enriched summaries in chat — bare tool names are noise
+				// Show tool usage as a natural one-liner in the conversation
 				if (hasSummary) {
 					this.pushAgentThought(agentName, `🔧 ${toolSummary}`);
 				}
@@ -362,6 +350,33 @@ export class DashboardStore extends EventTarget {
 					this.markTaskStatus(agentName, pending.name, "in-progress");
 					this.pushEventLog(agentName, "task-started", pending.name);
 				}
+				break;
+			}
+			case "done": {
+				// Agent finished its turn — check if there's an active task to complete
+				const doneTasks = this.assignedTasks.get(agentName) ?? [];
+				const activeTask = doneTasks.find((t) => t.status === "in-progress");
+				if (activeTask) {
+					// Grab the last agent response as the task output
+					const turns = this.conversations.get(agentName) ?? [];
+					const lastResponse = [...turns].reverse().find((t) => t.role === "agent");
+					const outputText = lastResponse?.text ?? "";
+					const savedPath = this.saveTaskOutput(agentName, activeTask.name, outputText);
+					const summary = savedPath
+						? `Done. Saved to ${savedPath}`
+						: `Done. (Could not save to vault)`;
+					this.pushAgentResponse(agentName, summary);
+					this.pushEventLog(agentName, "task-completed", `${activeTask.name} \u2192 ${savedPath ?? "unsaved"}`);
+					this.markTaskStatus(agentName, activeTask.name, "completed");
+					this.unreadAgents.add(agentName);
+					this.dispatchEvent(new CustomEvent("task-completed", {
+						detail: { agentName, task: activeTask.name, result: summary, path: savedPath },
+					}));
+				}
+				this.thinkingAgents.delete(agentName);
+				this.llmStatus.set(agentName, { state: "idle", since: Date.now() });
+				this.pushEventLog(agentName, "done", "Turn complete");
+				this.notify();
 				break;
 			}
 			case "task-completed":
@@ -547,6 +562,13 @@ export class DashboardStore extends EventTarget {
 
 	async grantPermission(agentName: string, tool: string, decision: string): Promise<{ ok: boolean }> {
 		if (!this.cliExecutor) return { ok: false };
+		// Remove from pending permissions
+		const pending = this.pendingPermissions.get(agentName);
+		if (pending) {
+			const idx = pending.findIndex((p) => p.tool === tool);
+			if (idx >= 0) pending.splice(idx, 1);
+			this.notify();
+		}
 		return this.cliExecutor.grantPermission(agentName, tool, decision);
 	}
 

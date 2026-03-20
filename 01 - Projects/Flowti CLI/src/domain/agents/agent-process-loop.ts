@@ -147,8 +147,12 @@ function summarizeToolInput(toolName: string, json: string): string | null {
 			case "WebSearch": return `Searching: ${input.query ?? "web"}`;
 			case "WebFetch": return `Fetching: ${String(input.url ?? "").slice(0, 60)}`;
 			default: {
-				const keys = Object.keys(input).slice(0, 2).join(", ");
-				return keys ? `${toolName}(${keys})` : null;
+				const keys = Object.keys(input).slice(0, 2);
+				if (keys.length > 0) {
+					const firstVal = String(input[keys[0]] ?? "").slice(0, 50);
+					return firstVal ? `Using ${toolName}: ${firstVal}` : `Using ${toolName}`;
+				}
+				return `Using ${toolName}`;
 			}
 		}
 	} catch {
@@ -212,17 +216,31 @@ function handleMessage(deps: AgentProcessLoopDeps, msg: MessageInput): void {
 	const contextPrefix = msg.context ? `${msg.context}\n\n` : "";
 	const fullText = contextPrefix + msg.text;
 	let lastToolName = "";
+	let lastToolEmitted = false;
 	deps.workerManager.send(deps.agentName, fullText, {
 		onEvent(event: AgentStreamEvent) {
 			const type = mapStreamEventToType(event);
 			const text = extractText(event);
 			const meta = extractToolMeta(event);
-			if (event.kind === "tool-start") lastToolName = event.name;
-			// For tool-input, write a summary with the tool name for richer logging
+			if (event.kind === "tool-start") {
+				lastToolName = event.name;
+				lastToolEmitted = false;
+				return; // Don't emit — tool-input will emit with richer context
+			}
+			// For tool-input, write a single enriched summary for this tool use
 			if (event.kind === "tool-input") {
-				const summary = summarizeToolInput(lastToolName, event.json);
-				if (summary) writeEvent(deps, "using-tool", summary, { tool: lastToolName });
+				if (!lastToolEmitted) {
+					const summary = summarizeToolInput(lastToolName, event.json);
+					if (summary) {
+						writeEvent(deps, "using-tool", summary, { tool: lastToolName });
+						lastToolEmitted = true;
+					}
+				}
 				return;
+			}
+			// Emit a fallback using-tool if tool-input never produced a summary
+			if (event.kind === "tool-end" && !lastToolEmitted) {
+				writeEvent(deps, "using-tool", lastToolName, { tool: lastToolName });
 			}
 			writeEvent(deps, type, text, meta);
 		},

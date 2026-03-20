@@ -238,7 +238,7 @@ describe("createAgentProcessLoop", () => {
 			expect(disk.files[logPath]).toContain("thinking");
 		});
 
-		it("writes tool-start events as using-tool type", () => {
+		it("defers tool-start emission until tool-input provides richer context", () => {
 			const { deps, lineReader, lineWriter, workerManager } = makeDeps();
 			const handle = createAgentProcessLoop(deps);
 			handle.start();
@@ -247,9 +247,34 @@ describe("createAgentProcessLoop", () => {
 			const sendOpts = workerManager.lastSend?.opts;
 			sendOpts!.onEvent!({ kind: "tool-start", id: "t1", name: "Bash" });
 
+			// tool-start alone should NOT emit — waits for tool-input
+			expect(lineWriter.lines).toHaveLength(0);
+
+			// tool-input with parseable JSON emits the enriched summary
+			sendOpts!.onEvent!({ kind: "tool-input", index: 0, json: JSON.stringify({ command: "npm test" }) });
 			const parsed = JSON.parse(lineWriter.lines[0].trim());
 			expect(parsed.type).toBe("using-tool");
-			expect(parsed.text).toBe("Bash");
+			expect(parsed.text).toBe("Running: npm test");
+		});
+
+		it("emits fallback using-tool on tool-end if tool-input never succeeded", () => {
+			const { deps, lineReader, lineWriter, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({ type: "message", text: "go" }));
+
+			const sendOpts = workerManager.lastSend?.opts;
+			sendOpts!.onEvent!({ kind: "tool-start", id: "t1", name: "CustomTool" });
+			sendOpts!.onEvent!({ kind: "tool-input", index: 0, json: "invalid" });
+			sendOpts!.onEvent!({ kind: "tool-end", id: "t1" });
+
+			// Fallback using-tool emitted before tool-complete
+			const usingTool = JSON.parse(lineWriter.lines[0].trim());
+			expect(usingTool.type).toBe("using-tool");
+			expect(usingTool.text).toBe("CustomTool");
+			// tool-complete also emitted
+			const toolComplete = JSON.parse(lineWriter.lines[1].trim());
+			expect(toolComplete.type).toBe("tool-complete");
 		});
 
 		it("writes onResponse callback as response event", () => {

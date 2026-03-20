@@ -138,12 +138,13 @@ export class PanelPermissions extends FlowtiElement {
 
 	private syncFromStore(): void {
 		const allPerms = this.store.permissions.get(this.agentName) ?? [];
-		// Permissions without a grantedAt field are treated as pending.
-		// The store holds PermissionEntry (already-granted) entries; pending
-		// permissions arrive via a separate mechanism in the full system.
-		// For now, surface the grant history from the store directly.
 		this.grantHistory = allPerms;
-		this.pendingPermissions = [];
+		// Pull pending permissions from store (populated by permission-request CLI events)
+		const pending = this.store.pendingPermissions.get(this.agentName) ?? [];
+		this.pendingPermissions = pending.map((p) => ({
+			tool: p.tool,
+			requestedAt: new Date(p.requestedAt).toLocaleTimeString(),
+		}));
 	}
 
 	private handleAllow(tool: string): void {

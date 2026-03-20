@@ -190,6 +190,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 		},
 		isIdle: (name) => brainSystem.getState(name)?.state === "idle",
+		isOnScene: (name) => findCurrentSceneActor(name) !== undefined,
 	});
 
 	const particlePool = new ParticlePool(200);
