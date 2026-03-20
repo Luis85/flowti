@@ -54,11 +54,30 @@ export class DashboardStore extends EventTarget {
 	currentScene: Setting = "hub";
 
 	// ── Debug log ─────────────────────────────────────────────────
-	debugLog: { timestamp: number; agentName: string; prompt: string; context?: string }[] = [];
+	debugMode = false;
+	debugLog: { timestamp: number; agentName: string; prompt: string; context?: string; rawResponse?: string }[] = [];
+
+	toggleDebugMode(): void {
+		this.debugMode = !this.debugMode;
+		this.notify();
+	}
 
 	pushDebugEntry(agentName: string, prompt: string, context?: string): void {
 		this.debugLog.push({ timestamp: Date.now(), agentName, prompt, context });
 		if (this.debugLog.length > 50) this.debugLog.shift();
+		this.notify();
+	}
+
+	pushDebugResponse(agentName: string, rawResponse: string): void {
+		if (!this.debugMode) return;
+		// Append raw response to the last entry for this agent, or create a new one
+		const lastEntry = [...this.debugLog].reverse().find((e) => e.agentName === agentName);
+		if (lastEntry) {
+			lastEntry.rawResponse = rawResponse;
+		} else {
+			this.debugLog.push({ timestamp: Date.now(), agentName, prompt: "(response only)", rawResponse });
+			if (this.debugLog.length > 50) this.debugLog.shift();
+		}
 		this.notify();
 	}
 
@@ -282,7 +301,10 @@ export class DashboardStore extends EventTarget {
 	private handleCliEvent(agentName: string, event: CliEvent): void {
 		switch (event.type) {
 			case "response": {
-				const text = extractAgentMessage(event.text ?? "");
+				const rawText = event.text ?? "";
+				const text = extractAgentMessage(rawText);
+				// Log raw response in debug mode
+				if (this.debugMode) this.pushDebugResponse(agentName, rawText);
 				// Store the response — task completion is handled by the "done" event
 				this.pushAgentResponse(agentName, text);
 				this.pushEventLog(agentName, "response", text.slice(0, 80));

@@ -319,6 +319,57 @@ export class AskBob extends FlowtiElement {
 				text-align: center;
 				padding: 30px 0;
 			}
+			.debug-toolbar {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 6px 8px;
+				border-bottom: 1px solid var(--border);
+				font-size: 10px;
+				color: var(--text-secondary);
+			}
+			.debug-toggle {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				cursor: pointer;
+			}
+			.debug-toggle input[type="checkbox"] {
+				accent-color: var(--accent-gold);
+				cursor: pointer;
+			}
+			.debug-toggle-label {
+				user-select: none;
+			}
+			.debug-mode-badge {
+				padding: 1px 6px;
+				border-radius: 3px;
+				font-size: 9px;
+				font-weight: 600;
+				text-transform: uppercase;
+			}
+			.debug-mode-badge[data-active] {
+				background: #422006;
+				color: var(--accent-gold);
+			}
+			.debug-response {
+				margin-top: 4px;
+				padding-top: 4px;
+				border-top: 1px dashed var(--border);
+				color: #4ade80;
+				white-space: pre-wrap;
+				word-break: break-word;
+				overflow-y: auto;
+				font-size: 10px;
+			}
+			.debug-response.collapsed {
+				max-height: 60px;
+			}
+			.debug-response-label {
+				font-size: 9px;
+				color: var(--text-muted);
+				margin-bottom: 2px;
+			}
 		`,
 	];
 
@@ -422,33 +473,51 @@ export class AskBob extends FlowtiElement {
 		this.activeTab = "chat";
 	}
 
+	private handleDebugToggle(): void {
+		this.store.toggleDebugMode();
+	}
+
 	private renderDebugLog() {
 		const log = this.store.debugLog;
-		if (log.length === 0) {
-			return html`<div class="debug-log"><div class="debug-empty">No prompts sent yet.</div></div>`;
-		}
+		const debugOn = this.store.debugMode;
 		return html`
-			<div class="debug-log">
-				${[...log].reverse().map((entry, idx) => {
-					const time = new Date(entry.timestamp).toLocaleTimeString();
-					const expanded = this.expandedEntries.has(idx);
-					return html`
-						<div class="debug-entry">
-							<div class="debug-header">
-								<span class="debug-agent">${entry.agentName}</span>
-								<span>${time}</span>
-							</div>
-							<div class="debug-prompt ${expanded ? "" : "collapsed"}">${entry.prompt}</div>
-							${entry.context ? html`<div class="debug-context ${expanded ? "" : "collapsed"}">${entry.context}</div>` : nothing}
-							<div class="debug-actions">
-								<button class="debug-action" @click=${() => this.toggleExpand(idx)}>${expanded ? "Collapse" : "Expand"}</button>
-								<button class="debug-action" @click=${() => this.copyToClipboard(entry.prompt)}>Copy</button>
-								<button class="debug-action" @click=${() => this.resendPrompt(entry.agentName, entry.prompt)}>Resend</button>
-							</div>
-						</div>
-					`;
-				})}
+			<div class="debug-toolbar">
+				<label class="debug-toggle">
+					<input type="checkbox" .checked=${debugOn} @change=${this.handleDebugToggle} />
+					<span class="debug-toggle-label">Log raw LLM I/O</span>
+				</label>
+				${debugOn ? html`<span class="debug-mode-badge" data-active>RECORDING</span>` : nothing}
 			</div>
+			${log.length === 0
+				? html`<div class="debug-log"><div class="debug-empty">No prompts sent yet.${debugOn ? " Debug mode active — raw I/O will be captured." : ""}</div></div>`
+				: html`
+					<div class="debug-log">
+						${[...log].reverse().map((entry, idx) => {
+							const time = new Date(entry.timestamp).toLocaleTimeString();
+							const expanded = this.expandedEntries.has(idx);
+							return html`
+								<div class="debug-entry">
+									<div class="debug-header">
+										<span class="debug-agent">${entry.agentName}</span>
+										<span>${time}</span>
+									</div>
+									<div class="debug-prompt ${expanded ? "" : "collapsed"}">${entry.prompt}</div>
+									${entry.context ? html`<div class="debug-context ${expanded ? "" : "collapsed"}">${entry.context}</div>` : nothing}
+									${entry.rawResponse ? html`
+										<div class="debug-response-label">RAW RESPONSE</div>
+										<div class="debug-response ${expanded ? "" : "collapsed"}">${entry.rawResponse}</div>
+									` : nothing}
+									<div class="debug-actions">
+										<button class="debug-action" @click=${() => this.toggleExpand(idx)}>${expanded ? "Collapse" : "Expand"}</button>
+										<button class="debug-action" @click=${() => this.copyToClipboard(entry.prompt)}>Copy Prompt</button>
+										${entry.rawResponse ? html`<button class="debug-action" @click=${() => this.copyToClipboard(entry.rawResponse!)}>Copy Response</button>` : nothing}
+										<button class="debug-action" @click=${() => this.resendPrompt(entry.agentName, entry.prompt)}>Resend</button>
+									</div>
+								</div>
+							`;
+						})}
+					</div>
+				`}
 		`;
 	}
 

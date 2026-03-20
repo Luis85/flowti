@@ -65,7 +65,11 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 			deps.disk.writeFileSync(tempPath, prompt, "utf-8");
 
 			const args = [...provider.args];
-			const tools = resolvedTools ?? agent.ai?.allowedTools ?? [];
+			// If permission engine resolved tools, use them; otherwise fall back to
+			// the agent's defined tools so it can actually function.
+			const tools = (resolvedTools && resolvedTools.length > 0)
+				? [...resolvedTools]
+				: (agent.ai?.allowedTools ?? []);
 			if (tools.length > 0) {
 				args.push("--allowedTools", tools.join(","));
 			}

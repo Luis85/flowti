@@ -28,6 +28,7 @@ export interface CliEvent {
 		| "using-tool"
 		| "tool-complete"
 		| "response"
+		| "done"
 		| "task-started"
 		| "task-completed"
 		| "permission-request"

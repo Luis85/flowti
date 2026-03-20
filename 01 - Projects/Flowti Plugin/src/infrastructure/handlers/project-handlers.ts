@@ -367,7 +367,8 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 				if (!scaffoldResult || !scaffoldResult.ok) { endBusy(scaffoldResult ?? { ok: false }); return; }
 				endBusy(scaffoldResult);
 				el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
-			});
+			})
+			.catch(() => { endBusy({ ok: false, error: "Regeneration failed unexpectedly" }); });
 	}) as EventListener);
 
 	el.addEventListener("storybook-open-folder", (() => {

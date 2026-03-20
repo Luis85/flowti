@@ -91,6 +91,12 @@ export class FlowtiTabOverview extends FlowtiElement {
 
 			.preset-row { display: flex; flex-wrap: wrap; gap: var(--flowti-space-xs, 4px); }
 			.preset-btn--active { background: var(--interactive-accent, #7c3aed); color: var(--text-on-accent, #fff); border-color: var(--interactive-accent, #7c3aed); }
+			.canvas-actions { display: flex; align-items: center; gap: var(--flowti-space-sm, 8px); margin-top: var(--flowti-space-sm, 8px); }
+			.canvas-merge-btn { padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px); border-radius: var(--flowti-radius-sm, 4px); border: 1px solid var(--interactive-accent, #7c3aed); background: var(--interactive-accent, #7c3aed); color: var(--text-on-accent, #fff); font-size: var(--flowti-font-sm, 0.85em); font-weight: 500; cursor: pointer; }
+			.canvas-merge-btn:hover { opacity: 0.9; }
+			.canvas-open-btn { padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px); border-radius: var(--flowti-radius-sm, 4px); border: 1px solid var(--background-modifier-border, #444); background: none; color: var(--text-normal, #ddd); font-size: var(--flowti-font-sm, 0.85em); cursor: pointer; }
+			.canvas-open-btn:hover { background: var(--background-modifier-hover, #333); }
+			.canvas-changed-badge { padding: 2px 8px; border-radius: 12px; font-size: var(--flowti-font-xs, 0.75em); background: #422006; color: #f59e0b; font-weight: 600; }
 
 			.todo-add-row { display: flex; gap: var(--flowti-space-xs, 4px); }
 			.todo-input { flex: 1; padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px); border: 1px solid var(--background-modifier-border, #444); border-radius: var(--flowti-radius-sm, 4px); background: var(--background-primary, #1e1e1e); color: var(--text-normal, #ddd); font-size: var(--flowti-font-sm, 0.85em); }
@@ -224,6 +230,17 @@ export class FlowtiTabOverview extends FlowtiElement {
 						>${p.label}</button>
 					`)}
 				</div>
+				${this.hasCanvas ? html`
+					<div class="canvas-actions">
+						<button class="canvas-merge-btn"
+							@click="${() => this.fire("canvas-merge")}"
+						>${this.hasSitemap ? "Merge to sitemap.json" : "Save as sitemap.json"}</button>
+						<button class="canvas-open-btn"
+							@click="${() => this.fire("canvas-generate")}"
+						>Open canvas</button>
+						${this.canvasChanged ? html`<span class="canvas-changed-badge">changed</span>` : nothing}
+					</div>
+				` : nothing}
 			</div>
 		`;
 	}

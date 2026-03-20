@@ -219,6 +219,8 @@ function handleMessage(deps: AgentProcessLoopDeps, msg: MessageInput): void {
 	let lastToolEmitted = false;
 	deps.workerManager.send(deps.agentName, fullText, {
 		onEvent(event: AgentStreamEvent) {
+			// Skip streaming text chunks — onResponse will emit the complete response
+			if (event.kind === "text") return;
 			const type = mapStreamEventToType(event);
 			const text = extractText(event);
 			const meta = extractToolMeta(event);
