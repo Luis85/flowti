@@ -42,7 +42,7 @@ Each need ticks every second. Rates are per-minute base values, modified by attr
 | Need | Decays when | Base rate | Attribute modifier | Restores when | Base rate |
 |------|-------------|-----------|-------------------|---------------|-----------|
 | Energy | Working, walking | -3/min | CON: ×(1 - con/40) — high CON = slower drain | On-break, idle | +5/min |
-| Social | Alone (no agent within socialRadius) | -2/min | CHA: ×(1 + cha/20) — high CHA = faster drain (needs people more) | Conversation, nearby agents | +4/min per nearby agent |
+| Social | Alone (no agent within socialRadius) | -2/min | CHA: ×(1 + cha/20) — high CHA = faster drain (needs people more) | Conversation, nearby agents | +4/min for first nearby agent, +2/min each additional (cap: +10/min) |
 | Focus | Interrupted (conversation, engagement nudge) | -4/event | INT: ×(1 - int/40) — high INT = less disruption | Working uninterrupted for 10+s | +2/min |
 | Morale | Task error, idle >60s, ignored by Director | -1/event or -1/min | WIS: ×(1 - wis/40) — high WIS = emotional resilience | Task completed, Director praise, celebration | +5/event |
 
@@ -72,13 +72,30 @@ If any task completed in last 60s → "inspired" (temporary, 60s duration)
 
 Existing mood-dependent systems (emotes, brain habits) already have `updateMood()` methods. The engine wiring must call these per-tick with the derived mood from NeedsSystem.
 
+### Public API
+
+```typescript
+class NeedsSystem {
+  register(agentName: string, attributes: AgentAttributes): void;
+  unregister(agentName: string): void;
+  update(
+    deltaMs: number,
+    getBrainState: (name: string) => BrainState,
+    getNearbyAgents: (name: string) => string[],
+  ): void;
+  getNeeds(agentName: string): AgentNeeds;
+  getMood(agentName: string): string;          // derived mood string
+  applyEffect(agentName: string, effect: Partial<AgentNeeds>): void;  // direct adjustments from sensors, tools, rituals
+}
+```
+
 ### Integration Points
 
 - **BrainSystem** reads `getNeeds(name)` each tick to adjust: idleResistance, breakThreshold, socialDrift, focusDrift, speedMultiplier
 - **BrainSystem.updateMood()** called per-tick by engine with NeedsSystem's derived mood
 - **EmoteSystem.updateMood()** called per-tick by engine with NeedsSystem's derived mood
 - **TalkEngine** reads mood (now derived) for template selection — engine passes `getMood` callback
-- **SocialSystem** checks `focus` need before allowing conversations (focus < 20 = reject)
+- **SocialSystem** receives `getNeeds` callback in its `update()` signature (4th parameter after `getState`). When `getNeeds(name).focus < 20`, the agent is excluded from conversation initiation.
 
 ---
 
@@ -230,12 +247,32 @@ Extends the existing SocialSystem's pair detection to 3+ agents:
 - **Flow**:
   1. Highest-CHA agent initiates: thought bubble "Quick sync?"
   2. After 1.5s, agents tighten formation — walk toward cluster centroid, stop at 40px from center
-  3. Round-robin: each agent speaks one huddle template line with 2s gaps. BubbleSystem's `showBubble()` must accept a `priority` flag — ritual and engagement bubbles bypass the 500ms per-agent throttle to prevent silent drops when the TalkEngine has recently fired a bubble for the same agent.
+  3. Round-robin: each agent speaks one huddle template line with 2s gaps. Uses priority bubbles (see below).
   4. After all agents have spoken, 50% chance of reaction round (emotes from 1-2 agents)
   5. Agents disperse after 3s pause — return to previous idle targets
 - **Cooldown**: 3 minutes for the same group composition
 
 Huddle templates are stored as a standalone string array in `huddle-templates.ts` (not part of the TalkEngine's `TemplateCategory` union). Lines like "Here's where I'm at...", "Anyone else stuck on..?", "Quick update from my side..." are passed directly to BubbleSystem as raw strings, bypassing the template selection pipeline.
+
+### BubbleSystem Priority Flag
+
+BubbleSystem's `showBubble()` gains an optional `priority` parameter to bypass the 500ms per-agent throttle:
+
+```typescript
+// Updated signature (existing parameters unchanged, new optional parameter appended)
+showBubble(
+  agentName: string,
+  kind: BubbleKind,
+  text: string,
+  scene: ex.Scene,
+  getActor: (name: string) => AgentActor | undefined,
+  duration?: number,
+  priority?: boolean,  // NEW — when true, bypasses 500ms throttle
+): void;
+```
+
+- **Default callers** (TalkEngine via `TalkEngineCallbacks.showBubble`) pass `priority: false` (default). The callback wrapper signature stays `(name, kind, text) => void` — engine fills in the other args.
+- **Priority callers** (RitualSystem, EngagementSystem, cluster huddles) pass `priority: true` to ensure choreographed lines always display.
 
 ### Configurable Rituals
 
@@ -273,6 +310,27 @@ emote: random
 disperse: true
 ```
 
+**Parsed model** (the contract between the markdown parser and RitualSystem):
+
+```typescript
+interface RitualDefinition {
+  name: string;
+  trigger: 'manual' | 'schedule' | 'event';
+  schedule?: string;                          // HH:MM format, only if trigger: 'schedule'
+  event?: string;                             // sensor event key, only if trigger: 'event'
+  participants: 'all' | 'nearby' | 'idle' | `domain:${string}`;
+  duration: number;                           // ms (parsed from "30s", "2m" etc.)
+  cooldown: number;                           // ms (parsed from "24h", "5m" etc.)
+  gatherPoint: 'center' | { x: number; y: number };
+  settleMs: number;                           // ms to wait after gathering
+  lines: string[];                            // template lines with {name}, {domain}, {mood_adj} variables
+  reactionEmote: 'random' | number;           // emote index or random
+  disperse: boolean;
+}
+```
+
+Frontmatter parsed via Obsidian's `parseYaml()` utility (already available in the Plugin). Body phases parsed with a simple line-by-line scanner: `gather:` and `settle:` as key-value, `-` prefixed lines as template entries, `emote:` and `disperse:` as reaction config.
+
 **Ritual engine**:
 1. Parses frontmatter for trigger/schedule/event/participants/duration/cooldown
 2. Monitors triggers — manual rituals wait for Director UI action, schedule rituals check real clock, event rituals listen to SensorSystem
@@ -296,6 +354,17 @@ disperse: true
 ## 5. Engagement System
 
 Escalating Director engagement — reactive by default, progressively assertive when idle. All timing values configurable.
+
+### Movement Override
+
+Tier 2 and 3 require walking an agent to the camera edge — a position not associated with any workstation. BrainSystem needs a new `walkTo(agentName, pos)` method:
+
+```typescript
+// New method on BrainSystem — sets agent state to "walking-to" with an arbitrary target position
+walkTo(agentName: string, target: { x: number; y: number }): void;
+```
+
+This is distinct from `assignWork()` (which targets a workstation) and `applyEvent()` (which triggers state transitions without positions). When the agent arrives at the target, it enters `"idle"` state at that position. The EngagementSystem calls `walkTo()` to move the selected agent to the camera edge, then shows the engagement bubble after arrival.
 
 ### Escalation Tiers
 
@@ -555,6 +624,7 @@ SensorSystem ──→ EngagementSystem (pending events for agent selection)
              ──→ ToolExecutor (trigger tool suggestions)
 
 NeedsSystem  ──→ BrainSystem (thresholds affect movement, breaks, social drift; per-tick updateMood() call)
+             ──→ SocialSystem (focus < 20 rejects conversation; via getNeeds callback)
              ──→ TalkEngine (derived mood selects templates via getMood callback)
              ──→ EmoteSystem (derived mood selects emotes; per-tick updateMood() call)
              ──→ EngagementSystem (low morale agents seek Director)
@@ -598,7 +668,7 @@ src/game/systems/
   bubble-system.ts         (existing — extended with priority flag to bypass 500ms throttle)
   camera-system.ts         (existing — unchanged)
   emote-system.ts          (existing — mood input becomes dynamic)
-  social-system.ts         (existing — extended with cluster detection)
+  social-system.ts         (existing — extended with cluster detection + getNeeds callback in update())
   particle-system.ts       (existing — unchanged)
   talk/                    (existing — mood input becomes dynamic)
   needs-system.ts          (new)
