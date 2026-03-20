@@ -32,6 +32,13 @@ import { DashboardStore } from "./store/dashboard-store.js";
 import { ParticlePool } from "./systems/particle-system.js";
 import { EmoteSystem } from "./systems/emote-system.js";
 import { SocialSystem } from "./systems/social-system.js";
+import { NeedsSystem } from "./systems/needs-system.js";
+import { DirectorSystem } from "./systems/director-system.js";
+import { SensorSystem } from "./systems/sensor-system.js";
+import { EngagementSystem } from "./systems/engagement-system.js";
+import { RitualSystem } from "./systems/ritual-system.js";
+import { ToolExecutor } from "./systems/tool-executor-system.js";
+import { DEFAULT_TOOLS } from "./data/tool-registry.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
@@ -197,6 +204,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const emoteSystem = new EmoteSystem();
 	const socialSystem = new SocialSystem();
 
+	const needsSystem = new NeedsSystem();
+	const directorSystem = new DirectorSystem();
+	const sensorSystem = new SensorSystem();
+	const engagementSystem = new EngagementSystem();
+	const ritualSystem = new RitualSystem();
+	const toolExecutor = new ToolExecutor();
+	toolExecutor.registerTools(DEFAULT_TOOLS);
+
 	// ── Agent select handler ────────────────────────────
 	function handleAgentSelect(agentName: string): void {
 		const actor = findAgentActor(agentName);
@@ -212,6 +227,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				actor.focus();
 				if (cameraSystem) cameraSystem.startFollow(actor);
 				store.startFollow(agentName);
+				directorSystem.recordInteraction("click", { x: actor.pos.x, y: actor.pos.y });
 			}
 			store.selectAgent(agentName);
 			store.selectTab("info");
@@ -311,6 +327,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				domain: agent.domain ?? "general",
 				relationships: agent.relationships ?? [],
 			});
+			needsSystem.register(agent.name, agent.attributes ?? {});
+			sensorSystem.register(agent.name, agent.domain ?? "general");
+			engagementSystem.register(agent.name, { domain: agent.domain ?? "general", cha: agent.attributes?.cha ?? 10 });
+			ritualSystem.register(agent.name, { domain: agent.domain ?? "general" });
 			knownEntities.add(agent.name);
 		}
 	}
@@ -521,6 +541,51 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}, 6000 + Math.random() * 2000);
 	});
 
+	// ── Wire sensor reactions → bubble + needs ──────────
+	sensorSystem.onReaction((reaction) => {
+		if (reaction.bubble) {
+			bubbleSystem.showBubble(reaction.agentName, reaction.bubble.kind, reaction.bubble.text, engine.currentScene, findAgentActor, 5000, true);
+		}
+		if (reaction.needsEffect) {
+			needsSystem.applyEffect(reaction.agentName, reaction.needsEffect);
+		}
+	});
+
+	// ── Wire engagement → walk toward camera + bubble ───
+	engagementSystem.onEngagement((e) => {
+		if (e.tier >= 2) {
+			const cam = engine.currentScene.camera;
+			brainSystem.walkTo(e.agentName, { x: cam.pos.x - 50, y: cam.pos.y });
+		}
+		bubbleSystem.showBubble(e.agentName, e.bubbleKind, e.text, engine.currentScene, findAgentActor, 5000, true);
+	});
+
+	// ── Wire ritual phases → brain + bubble + needs ─────
+	ritualSystem.onPhase((phase) => {
+		if (phase.kind === "gather") {
+			for (const name of phase.participants) {
+				brainSystem.applyEvent(name, "speaking");
+			}
+		}
+		if (phase.kind === "line") {
+			bubbleSystem.showBubble(phase.agentName, "speech", phase.text, engine.currentScene, findAgentActor, 4000, true);
+		}
+		if (phase.kind === "disperse") {
+			for (const name of phase.participants) {
+				brainSystem.applyEvent(name, "idle");
+				needsSystem.applyEffect(name, { social: 8, morale: 5 });
+			}
+		}
+	});
+
+	// ── Wire tool results → sensor feedback + needs + bubble ──
+	toolExecutor.onResult((result) => {
+		const eventType = result.success ? "test-pass" : "test-fail";
+		sensorSystem.pushFeedback({ type: eventType, data: { output: result.output } });
+		needsSystem.applyEffect(result.agentName, { morale: result.success ? 3 : -2, energy: -5 });
+		bubbleSystem.showBubble(result.agentName, "speech", result.success ? "Done! All good." : "Something went wrong...", engine.currentScene, findAgentActor, 5000, true);
+	});
+
 	// ── Pre-update loop state ───────────────────────────
 	let lastTime = performance.now();
 	const prevWalkingState = new Map<string, boolean>();
@@ -564,12 +629,77 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const deltaMs = now - lastTime;
 		lastTime = now;
 
+		// 1. Sensor system — drain cooldowns, process queued feedback
+		sensorSystem.update(deltaMs);
+
+		// 2. Needs system — decay/restore all agent needs
+		needsSystem.update(
+			deltaMs,
+			(name) => brainSystem.getState(name)?.state ?? "idle",
+			(name: string) => {
+				const pos = brainSystem.getPosition(name);
+				if (!pos) return [];
+				const params = brainSystem.getState(name);
+				const radius = params?.params.socialRadius ?? 100;
+				return [...brainSystem.getAllEntries()]
+					.filter(([n]) => {
+						if (n === name) return false;
+						const otherPos = brainSystem.getPosition(n);
+						if (!otherPos) return false;
+						const dx = pos.x - otherPos.x;
+						const dy = pos.y - otherPos.y;
+						return Math.sqrt(dx * dx + dy * dy) < radius;
+					})
+					.map(([n]) => n);
+			},
+		);
+
+		// 3. Mood propagation — push derived mood into brain + emote systems
+		for (const agentName of needsSystem.getAgentNames()) {
+			const mood = needsSystem.getMood(agentName);
+			brainSystem.updateMood(agentName, mood);
+			emoteSystem.updateMood(agentName, mood);
+		}
+
+		// 4. Director system — advance idle timer
+		directorSystem.update(deltaMs);
+
+		// 5. Engagement system — director idle escalation
+		engagementSystem.update(
+			deltaMs,
+			() => directorSystem.getPresence(),
+			(name) => needsSystem.getNeeds(name),
+			(name) => brainSystem.getState(name)?.state ?? "idle",
+			(_name) => false,
+		);
+
 		// Snapshot walking states before brain update
 		for (const [name, entry] of brainSystem.getAllEntries()) {
 			prevWalkingState.set(name, entry.state === "wandering" || entry.state === "walking-to");
 		}
 
+		// 6. Brain system — movement, state machine
 		brainSystem.update(deltaMs, findAgentActor);
+
+		// 7. Ritual system — ceremonial choreography
+		ritualSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
+
+		// 8. Social system — proximity conversations (extended with needs callback)
+		socialSystem.update(
+			deltaMs,
+			(name) => brainSystem.getPosition(name) ?? { x: 0, y: 0 },
+			(name) => brainSystem.getState(name)?.state ?? "idle",
+			(name) => needsSystem.getNeeds(name),
+		);
+
+		// 9. Talk engine — ambient chatter
+		talkEngine.update(deltaMs);
+
+		// 10. Emote system — mood-driven emotes
+		emoteSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
+
+		// 11. Tool executor — drain cooldowns, run approved tools
+		toolExecutor.update(deltaMs);
 
 		// Particle trails: spawn trail dots every ~8px of movement, dust on arrival
 		for (const [name, entry] of brainSystem.getAllEntries()) {
@@ -611,16 +741,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 		particlePool.update(deltaMs);
 
-		// Emote system
-		emoteSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
-
-		// Social system
-		socialSystem.update(
-			deltaMs,
-			(name) => brainSystem.getPosition(name) ?? { x: 0, y: 0 },
-			(name) => brainSystem.getState(name)?.state ?? "idle",
-		);
-
 		// Workstation glow updates
 		for (const room of Object.values(roomScenes)) {
 			for (const ws of room.getWorkstations()) {
@@ -628,13 +748,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 		}
 
+		// 12. Bubble system — overhead speech/thought bubbles
 		bubbleSystem.update(
 			deltaMs,
 			(name) => brainSystem.getState(name)?.state === "idle",
 			engine.currentScene,
 			findAgentActor,
 		);
-		talkEngine.update(deltaMs);
+
 		if (cameraSystem) {
 			cameraSystem.checkDespawn();
 			cameraSystem.applyZoom(deltaMs);
@@ -713,7 +834,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		talkEngine.activate(agentName);
 		// Show lightbulb indicator
 		const actor = findAgentActor(agentName);
-		if (actor) actor.showLlmIndicator();
+		if (actor) {
+			actor.showLlmIndicator();
+			directorSystem.recordInteraction("message", { x: actor.pos.x, y: actor.pos.y });
+		}
 	}) as EventListener);
 
 	store.addEventListener("agent-response-received", ((e: CustomEvent) => {
@@ -852,6 +976,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				e.preventDefault();
 				cameraSystem!.handleZoom(e.deltaY);
 			}, { passive: false });
+
+			// Director mouse tracking — world-space cursor position
+			engine.input.pointers.primary.on("move", (evt) => {
+				directorSystem.onMouseMove(evt.worldPos.x, evt.worldPos.y);
+			});
+
+			// Director mouse leave — cursor left canvas
+			engine.canvas.addEventListener("mouseleave", () => {
+				directorSystem.onMouseLeave();
+			});
 
 			// WorldContext updates are consumed during sendMessage serialization.
 			// No need to push state to the store — WorldContext is the source of truth.

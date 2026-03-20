@@ -166,6 +166,15 @@ export class BrainSystem {
 		entry.stateTimer = 0;
 	}
 
+	/** Walk an agent to a specific world-space coordinate. */
+	walkTo(name: string, target: { x: number; y: number }): void {
+		const entry = this.entries.get(name);
+		if (!entry) return;
+		entry.state = "walking-to";
+		entry.target = { kind: "custom", x: target.x, y: target.y };
+		entry.targetPos = { x: target.x, y: target.y };
+	}
+
 	/** Recompute habit multipliers when mood changes at runtime. */
 	updateMood(name: string, mood: string): void {
 		const entry = this.entries.get(name);

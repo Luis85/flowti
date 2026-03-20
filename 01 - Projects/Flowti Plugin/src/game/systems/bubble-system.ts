@@ -61,13 +61,14 @@ export class BubbleSystem {
 		_scene: unknown,
 		getActor: (name: string) => AgentActor | undefined,
 		duration: number = DEFAULT_DURATION,
+		priority?: boolean,
 	): void {
 		const entry = this.entries.get(agentName);
 		if (!entry) return;
 
 		// Throttle: max 1 bubble per agent per 500ms to prevent DOM thrashing
 		const now = performance.now();
-		if (entry.lastBubbleTime && now - entry.lastBubbleTime < 500) return;
+		if (!priority && entry.lastBubbleTime && now - entry.lastBubbleTime < 500) return;
 		entry.lastBubbleTime = now;
 
 		const actor = getActor(agentName);

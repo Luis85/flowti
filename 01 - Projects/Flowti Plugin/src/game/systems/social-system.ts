@@ -20,7 +20,20 @@ const PROXIMITY_THRESHOLD_MS = 4000;
 const PAIR_COOLDOWN_MS = 60000;
 const IDLE_STATES: readonly BrainState[] = ["idle", "on-break", "waiting"];
 
+const CLUSTER_THRESHOLD_MS = 6000;
+const CLUSTER_COOLDOWN_MS = 180000;
+const CLUSTER_MIN_SIZE = 3;
+const CLUSTER_MIN_FOCUS = 20;
+
 type ConversationCallback = (agentA: string, agentB: string, lineA: string, lineB: string) => void;
+type ClusterCallback = (members: string[]) => void;
+
+interface AgentNeeds {
+	readonly energy: number;
+	readonly social: number;
+	readonly focus: number;
+	readonly morale: number;
+}
 
 const CONVERSATION_LINES: Record<string, readonly string[]> = {
 	engineering: [
@@ -115,9 +128,18 @@ export class SocialSystem {
 	private readonly entries = new Map<string, SocialEntry>();
 	private readonly pairCooldowns = new Map<string, number>();
 	private callback: ConversationCallback | null = null;
+	private clusterCallback: ClusterCallback | null = null;
+	/** Per-cluster proximity timers keyed by sorted-name hash. */
+	private readonly clusterTimers = new Map<string, number>();
+	/** Cooldowns for cluster compositions already fired. */
+	private readonly clusterCooldowns = new Map<string, number>();
 
 	onConversation(cb: ConversationCallback): void {
 		this.callback = cb;
+	}
+
+	onCluster(cb: ClusterCallback): void {
+		this.clusterCallback = cb;
 	}
 
 	register(name: string, agent: SocialAgent): void {
@@ -132,6 +154,7 @@ export class SocialSystem {
 		deltaMs: number,
 		getPosition: (name: string) => { x: number; y: number },
 		getState: (name: string) => BrainState,
+		getNeeds: (name: string) => AgentNeeds,
 	): void {
 		// Decrement pair cooldowns
 		for (const [key, remaining] of this.pairCooldowns) {
@@ -140,7 +163,17 @@ export class SocialSystem {
 			else this.pairCooldowns.set(key, updated);
 		}
 
+		// Decrement cluster cooldowns
+		for (const [key, remaining] of this.clusterCooldowns) {
+			const updated = remaining - deltaMs;
+			if (updated <= 0) this.clusterCooldowns.delete(key);
+			else this.clusterCooldowns.set(key, updated);
+		}
+
 		const names = [...this.entries.keys()];
+		/** Adjacency set of pairs within social radius (used for cluster detection). */
+		const proximatePairs = new Set<string>();
+
 		for (let i = 0; i < names.length; i++) {
 			const nameA = names[i];
 			const entryA = this.entries.get(nameA)!;
@@ -153,7 +186,6 @@ export class SocialSystem {
 				if (!IDLE_STATES.includes(getState(nameB))) continue;
 
 				const pairKey = `${nameA}|${nameB}`;
-				if (this.pairCooldowns.has(pairKey)) continue;
 
 				const posB = getPosition(nameB);
 				const dx = posA.x - posB.x;
@@ -166,17 +198,108 @@ export class SocialSystem {
 					continue;
 				}
 
-				const timer = (entryA.proximityTimers.get(nameB) ?? 0) + deltaMs;
-				entryA.proximityTimers.set(nameB, timer);
+				// Within radius — track for both pair conversations and cluster detection
+				proximatePairs.add(pairKey);
 
-				if (timer >= PROXIMITY_THRESHOLD_MS) {
-					entryA.proximityTimers.delete(nameB);
-					this.pairCooldowns.set(pairKey, PAIR_COOLDOWN_MS);
+				if (!this.pairCooldowns.has(pairKey)) {
+					const timer = (entryA.proximityTimers.get(nameB) ?? 0) + deltaMs;
+					entryA.proximityTimers.set(nameB, timer);
 
-					const lineA = this.pickLine(entryA.domain, entryA.personality);
-					const lineB = this.pickLine(entryB.domain, entryB.personality);
-					this.callback?.(nameA, nameB, lineA, lineB);
+					if (timer >= PROXIMITY_THRESHOLD_MS) {
+						entryA.proximityTimers.delete(nameB);
+						this.pairCooldowns.set(pairKey, PAIR_COOLDOWN_MS);
+
+						const lineA = this.pickLine(entryA.domain, entryA.personality);
+						const lineB = this.pickLine(entryB.domain, entryB.personality);
+						this.callback?.(nameA, nameB, lineA, lineB);
+					}
 				}
+			}
+		}
+
+		// Cluster detection — find connected components of 3+ idle, high-focus agents
+		if (this.clusterCallback) {
+			this.updateClusters(deltaMs, names, proximatePairs, getState, getNeeds);
+		}
+	}
+
+	private updateClusters(
+		deltaMs: number,
+		names: string[],
+		proximatePairs: Set<string>,
+		getState: (name: string) => BrainState,
+		getNeeds: (name: string) => AgentNeeds,
+	): void {
+		// Filter to idle agents with sufficient focus
+		const eligible = names.filter(
+			(n) => IDLE_STATES.includes(getState(n)) && getNeeds(n).focus >= CLUSTER_MIN_FOCUS,
+		);
+
+		// Build adjacency from proximate pairs among eligible agents
+		const adjacency = new Map<string, Set<string>>();
+		for (const name of eligible) {
+			adjacency.set(name, new Set());
+		}
+		for (const name of eligible) {
+			for (const other of eligible) {
+				if (name >= other) continue;
+				const key = `${name}|${other}`;
+				if (proximatePairs.has(key)) {
+					adjacency.get(name)!.add(other);
+					adjacency.get(other)!.add(name);
+				}
+			}
+		}
+
+		// Find connected components via BFS
+		const visited = new Set<string>();
+		const components: string[][] = [];
+		for (const start of eligible) {
+			if (visited.has(start)) continue;
+			const component: string[] = [];
+			const queue: string[] = [start];
+			visited.add(start);
+			while (queue.length > 0) {
+				const current = queue.shift()!;
+				component.push(current);
+				for (const neighbor of adjacency.get(current) ?? []) {
+					if (!visited.has(neighbor)) {
+						visited.add(neighbor);
+						queue.push(neighbor);
+					}
+				}
+			}
+			components.push(component);
+		}
+
+		// Update cluster timers and fire callback when threshold met
+		for (const component of components) {
+			if (component.length < CLUSTER_MIN_SIZE) continue;
+			const clusterKey = [...component].sort().join("|");
+			if (this.clusterCooldowns.has(clusterKey)) continue;
+
+			const elapsed = (this.clusterTimers.get(clusterKey) ?? 0) + deltaMs;
+			this.clusterTimers.set(clusterKey, elapsed);
+
+			if (elapsed >= CLUSTER_THRESHOLD_MS) {
+				this.clusterTimers.delete(clusterKey);
+				this.clusterCooldowns.set(clusterKey, CLUSTER_COOLDOWN_MS);
+				this.clusterCallback?.(component.sort());
+			}
+		}
+
+		// Clean up stale cluster timers for groups no longer proximate
+		for (const [key] of this.clusterTimers) {
+			const members = key.split("|");
+			const stillTogether = members.every((m) => eligible.includes(m)) &&
+				members.every((m, _i) =>
+					members.every((other) => {
+						if (m >= other) return true;
+						return proximatePairs.has(`${m}|${other}`);
+					})
+				);
+			if (!stillTogether) {
+				this.clusterTimers.delete(key);
 			}
 		}
 	}

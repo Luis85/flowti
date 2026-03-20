@@ -8,7 +8,7 @@ export interface BrainEvent {
 }
 
 export interface MovementTarget {
-	readonly kind: "wander" | "workstation" | "agent" | "doorway" | "none";
+	readonly kind: "wander" | "workstation" | "agent" | "doorway" | "custom" | "none";
 	readonly x?: number;
 	readonly y?: number;
 	readonly targetId?: string;
