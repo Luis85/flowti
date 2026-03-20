@@ -27,6 +27,20 @@ export interface SpawnOpts {
 	vy?: number;
 }
 
+export type ParticlePreset = "steam" | "confetti" | "sparkle" | "alert" | "scribble" | "hearts" | "thunder" | "rain" | "sunny";
+
+const PRESET_CONFIGS: Record<ParticlePreset, { count: number; colorRange: string[]; lifetime: number; speed: number; radius: number; spread: number }> = {
+	steam:    { count: 6,  colorRange: ["rgba(200,200,220,0.4)"], lifetime: 2000, speed: 20, radius: 1.5, spread: 0.5 },
+	confetti: { count: 30, colorRange: ["#ef4444","#3b82f6","#10b981","#f59e0b","#a855f7","#ec4899"], lifetime: 3000, speed: 60, radius: 2, spread: Math.PI * 2 },
+	sparkle:  { count: 8,  colorRange: ["rgba(255,220,100,0.5)"], lifetime: 1500, speed: 25, radius: 1, spread: Math.PI * 2 },
+	alert:    { count: 4,  colorRange: ["rgba(239,68,68,0.6)"], lifetime: 500, speed: 80, radius: 3, spread: Math.PI * 2 },
+	scribble: { count: 8,  colorRange: ["#3b82f6","#10b981","#f59e0b"], lifetime: 3000, speed: 15, radius: 1.5, spread: 1 },
+	hearts:   { count: 3,  colorRange: ["rgba(244,114,182,0.6)"], lifetime: 800, speed: 20, radius: 2, spread: 0.8 },
+	thunder:  { count: 5,  colorRange: ["rgba(120,120,140,0.5)"], lifetime: 2000, speed: 10, radius: 2.5, spread: 0.6 },
+	rain:     { count: 1,  colorRange: ["rgba(150,170,220,0.4)"], lifetime: 1500, speed: 120, radius: 0.5, spread: 0.3 },
+	sunny:    { count: 1,  colorRange: ["rgba(255,220,100,0.3)"], lifetime: 2000, speed: 15, radius: 1, spread: Math.PI * 2 },
+};
+
 const DUST_COUNT_MIN = 4;
 const DUST_COUNT_MAX = 6;
 const DUST_SPEED_MIN = 30;
@@ -40,7 +54,7 @@ export class ParticlePool {
 	private readonly particles: Particle[] = [];
 	private readonly maxSize: number;
 
-	constructor(maxSize = 200) {
+	constructor(maxSize = 400) {
 		this.maxSize = maxSize;
 	}
 
@@ -73,6 +87,25 @@ export class ParticlePool {
 			opacity: isPurposeful ? TRAIL_OPACITY_WALK : TRAIL_OPACITY_WANDER,
 			radius: 1,
 		});
+	}
+
+	spawnPreset(preset: ParticlePreset, x: number, y: number): void {
+		const cfg = PRESET_CONFIGS[preset];
+		for (let i = 0; i < cfg.count; i++) {
+			const angle = (Math.random() - 0.5) * cfg.spread;
+			const speed = cfg.speed * (0.7 + Math.random() * 0.6);
+			const color = cfg.colorRange[Math.floor(Math.random() * cfg.colorRange.length)];
+			this.spawn({
+				x: x + (Math.random() - 0.5) * 10,
+				y: y + (Math.random() - 0.5) * 10,
+				vx: Math.sin(angle) * speed,
+				vy: -Math.cos(angle) * speed,
+				color,
+				lifetime: cfg.lifetime * (0.8 + Math.random() * 0.4),
+				opacity: 0.6 + Math.random() * 0.4,
+				radius: cfg.radius,
+			});
+		}
 	}
 
 	spawnDustBurst(x: number, y: number, color: string): void {
