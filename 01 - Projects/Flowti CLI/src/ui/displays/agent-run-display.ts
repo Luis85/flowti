@@ -18,7 +18,7 @@ export function renderBriefGenerated(briefPath: string, agentName: string, log: 
 	log(`  ${DIM}${briefPath}${RESET}`);
 	log();
 	log(`  ${DIM}To run manually:${RESET}`);
-	log(`  ${CYAN}claude --print --prompt-file "${briefPath}"${RESET}`);
+	log(`  ${CYAN}cat "${briefPath}" | <your-llm-cli> --print${RESET}`);
 	log();
 }
 

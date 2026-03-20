@@ -11,6 +11,7 @@ import { printHeader, RESET, DIM, GREEN, RED, BOLD, CYAN } from "../../infrastru
 import type { ShellMenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, IterationsConfig, IAgentProcessRunner } from "../../infrastructure/types.js";
 import type { IProviderRegistry } from "../../domain/agents/llm-types.js";
+import { hasLLMProvider } from "../../domain/agents/llm-availability.js";
 import type { LifecycleTemplate } from "../../domain/lifecycle/lifecycle-types.js";
 import type { AgentSummary, SuggestedTask } from "../../domain/agents/agent-types.js";
 import { getProjectAgents, readSystemPrompt } from "../../domain/agents/agent-store.js";
@@ -66,7 +67,7 @@ async function assignTaskToAgent(
 		deps.log(`\n  ${GREEN}✓${RESET} Task enqueued for ${BOLD}${who}${RESET} ${DIM}(currently busy)${RESET}\n`);
 		return;
 	}
-	if (agent.agentType === "ai" && deps.shell.check("claude --version")) {
+	if (agent.agentType === "ai" && hasLLMProvider(deps.providerRegistry)) {
 		deps.log(`\n  ${DIM}Starting clarification chat with ${who}...${RESET}\n`);
 		const launched = await clarifyAndLaunch(agent, task, opts, iteration, dir, deps);
 		if (launched) {

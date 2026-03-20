@@ -4,6 +4,7 @@ import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig } from "../../infrastructure/types.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
 import type { IterationSummary } from "../../domain/iterations/iteration-types.js";
+import { hasLLMProvider } from "../../domain/agents/llm-availability.js";
 
 export type RunMenuDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "input" | "log" | "processRunner" | "providerRegistry">;
 
@@ -38,8 +39,8 @@ export async function runBriefInteractive(
 		renderBriefGenerated(briefPath, agentName, deps.log);
 		return;
 	}
-	if (!deps.shell.check("claude --version")) {
-		deps.log("\n  Claude CLI is not installed or not in PATH.\n");
+	if (!hasLLMProvider(deps.providerRegistry)) {
+		deps.log("\n  No LLM provider available. Install Claude CLI or Cursor.\n");
 		return;
 	}
 	const { renderAgentSpawned, renderStreamEvent } = await import("../displays/agent-run-display.js");
@@ -77,8 +78,8 @@ async function spawnAndStream(
 	agent: AgentSummary, briefPath: string, iterDir: string,
 	iteration: IterationSummary, deps: RunMenuDeps,
 ): Promise<void> {
-	if (!deps.shell.check("claude --version")) {
-		deps.log("\n  Claude CLI is not installed or not in PATH.\n");
+	if (!hasLLMProvider(deps.providerRegistry)) {
+		deps.log("\n  No LLM provider available. Install Claude CLI or Cursor.\n");
 		return;
 	}
 	const { renderAgentSpawned, renderStreamEvent } = await import("../displays/agent-run-display.js");

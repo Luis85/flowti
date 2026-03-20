@@ -3,6 +3,7 @@ import { printHeader, RESET, DIM, GREEN, RED, CYAN, BOLD } from "../../infrastru
 import type { MenuDeps, ShellMenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig, IAgentProcessRunner } from "../../infrastructure/types.js";
 import type { IProviderRegistry } from "../../domain/agents/llm-types.js";
+import { hasLLMProvider } from "../../domain/agents/llm-availability.js";
 import { readSystemPrompt } from "../../domain/agents/agent-store.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
 import { buildConversationPrompt, buildClarificationPrompt, parseAgentResponse } from "../../domain/agents/agent-conversation.js";
@@ -139,9 +140,9 @@ async function askUser(lastStatus: AgentResponse["status"] | null, deps: TalkDep
 export async function talkToAgentInteractive(projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined, deps: TalkDeps): Promise<void> {
 	const talkTitle = agent.persona ? `Talk — ${agent.persona} (${agent.name})` : `Talk — ${agent.name}`;
 	printHeader(talkTitle);
-	if (!deps.shell.check("claude --version")) {
-		deps.log(`  ${RED}Claude CLI is not installed or not in PATH.${RESET}`);
-		deps.log(`  ${DIM}Install it to enable agent conversations.${RESET}\n`);
+	if (!hasLLMProvider(deps.providerRegistry)) {
+		deps.log(`  ${RED}No LLM provider available.${RESET}`);
+		deps.log(`  ${DIM}Install Claude CLI or Cursor to enable agent conversations.${RESET}\n`);
 		return;
 	}
 
@@ -313,7 +314,7 @@ export async function clarifyTaskInteractive(
 	projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined,
 	taskName: string, taskDesc: string, taskContext: string, deps: TalkDeps,
 ): Promise<void> {
-	if (agent.agentType !== "ai" || !deps.shell.check("claude --version")) return;
+	if (agent.agentType !== "ai" || !hasLLMProvider(deps.providerRegistry)) return;
 
 	deps.log(`  ${DIM}${agent.name} is reviewing the task...${RESET}`);
 	const systemPrompt = readSystemPrompt(deps, projectPath, agent.name, config);
