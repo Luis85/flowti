@@ -13,6 +13,7 @@ import { useTuiContext } from "../context.js";
 import { useChatSession } from "../hooks/use-chat-session.js";
 import { TuiChatRenderer } from "../chat/tui-chat-renderer.js";
 import { HeaderBar } from "../../infrastructure/chat/components/header-bar.js";
+import { hasLLMProvider } from "../../domain/agents/llm-availability.js";
 import { MessageArea } from "../../infrastructure/chat/components/message-area.js";
 import { ActivityBar as ChatStatusBar } from "../../infrastructure/chat/components/activity-bar.js";
 import { InputArea } from "../../infrastructure/chat/components/input-area.js";
@@ -38,10 +39,9 @@ function AgentsChatPage({ params, enabled, goBack }: PageProps): React.JSX.Eleme
 
 		(async () => {
 			// 1. Check Claude CLI
-			const hasClaude = tui.deps.shell.check("claude --version");
-			if (!hasClaude) {
+			if (!hasLLMProvider(tui.providerRegistry)) {
 				if (!cancelled) {
-					setConnectionError("Claude CLI not found. Install Claude Code or add it to PATH.");
+					setConnectionError("No LLM provider available. Install Claude CLI or Cursor.");
 					setConnectionStatus("error");
 				}
 				return;

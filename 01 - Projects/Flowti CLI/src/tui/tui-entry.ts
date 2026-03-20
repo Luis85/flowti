@@ -18,6 +18,10 @@ import { log } from "../infrastructure/logger.js";
 import { VAULT_ROOT, CLI_PROJECT, PROJECTS_DIR, cliConfig, loadJson } from "../infrastructure/config.js";
 import type { ProjectConfig } from "../infrastructure/types-config.js";
 import { createProcessRunner } from "../infrastructure/agent-process-runner.js";
+import { createProviderRegistry } from "../infrastructure/llm/provider-registry.js";
+import { createClaudeProvider } from "../infrastructure/llm/claude-provider.js";
+import { createCursorProvider } from "../infrastructure/llm/cursor-provider.js";
+import { createOllamaProvider } from "../infrastructure/llm/ollama-provider.js";
 import { loadSitemap } from "../infrastructure/sitemap-loader.js";
 import { TuiHandlerRegistry } from "./registry/tui-handler-registry.js";
 import { createSessionStore } from "./registry/tui-session-store.js";
@@ -32,7 +36,12 @@ import "./pages/agents-chat-page.js";
 export async function runTui(): Promise<void> {
 	const projectConfig = loadJson<ProjectConfig>(paths.join(CLI_PROJECT, "configs", "flowti.config.json"));
 
-	const processRunner = createProcessRunner({ disk, paths, clock, shell, log }, cliConfig.agents);
+	const baseDeps = { disk, paths, clock, shell, log };
+	const providerRegistry = createProviderRegistry();
+	providerRegistry.register(createClaudeProvider(baseDeps));
+	if (shell.check?.("cursor --version")) providerRegistry.register(createCursorProvider(baseDeps));
+	providerRegistry.register(createOllamaProvider());
+	const processRunner = createProcessRunner(baseDeps, cliConfig.agents, providerRegistry);
 
 	// Load sitemap
 	const sitemapResult = loadSitemap(
@@ -58,6 +67,7 @@ export async function runTui(): Promise<void> {
 		iterationsConfig: projectConfig?.management?.iterations,
 		projectConfig: projectConfig ?? undefined,
 		processRunner,
+		providerRegistry,
 		sitemap,
 		tuiRegistry,
 		session,

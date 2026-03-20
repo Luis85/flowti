@@ -9,6 +9,7 @@ import React, { createContext, useContext, useMemo } from "react";
 import type { LoaderDeps, LoaderContext } from "./loaders/loader-types.js";
 import type { AgentsConfig, IterationsConfig, ProjectConfig } from "../infrastructure/types-config.js";
 import type { IAgentProcessRunner } from "../domain/agents/worker-types.js";
+import type { IProviderRegistry } from "../domain/agents/llm-types.js";
 import type { UnifiedSitemap } from "../domain/sitemap/unified-page.js";
 import type { TuiHandlerRegistry } from "./registry/tui-handler-registry.js";
 import type { TuiSessionStore } from "./registry/tui-handler-types.js";
@@ -23,6 +24,7 @@ export interface TuiContextValue {
 	readonly iterationsConfig: IterationsConfig | undefined;
 	readonly projectConfig: ProjectConfig | undefined;
 	readonly processRunner: IAgentProcessRunner;
+	readonly providerRegistry?: IProviderRegistry;
 	readonly sitemap?: UnifiedSitemap;
 	readonly tuiRegistry?: TuiHandlerRegistry;
 	readonly session?: TuiSessionStore;
