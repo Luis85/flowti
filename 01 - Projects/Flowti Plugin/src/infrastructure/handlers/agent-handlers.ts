@@ -10,15 +10,12 @@ import type { IContextProvider } from "../../domain/agents/context-provider.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { AgentCard, ConversationMode } from "../../domain/agents/types.js";
 import { extractAgentMessage } from "../../game/data/message-utils.js";
+import type { VaultFileAdapter } from "../vault-adapter.js";
 
 // Side-effect import: register the Lit custom element
 import "../../components/agents/flowti-agent-sidepanel.js";
 
-/** Minimal vault adapter for reading agent definitions. */
-export interface VaultFileAdapter {
-	list(path: string): Promise<{ files: string[]; folders: string[] }>;
-	read(path: string): Promise<string>;
-}
+export type { VaultFileAdapter } from "../vault-adapter.js";
 
 /** Minimal turn structure for local conversation tracking. */
 interface LocalTurn {
