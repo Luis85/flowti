@@ -646,6 +646,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const { agentName, task } = e.detail;
 		brainSystem.applyEvent(agentName, "task-started");
 		brainSystem.assignWork(agentName);
+		store.taskLockedAgents.add(agentName);
 		talkEngine.activate(agentName);
 		bubbleSystem.showBubble(agentName, "thought", `Starting: ${task}`, engine.currentScene, findAgentActor);
 		// Show lightbulb — agent is working on the task
@@ -656,6 +657,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	store.addEventListener("task-completed", ((e: CustomEvent) => {
 		const { agentName, result } = e.detail;
 		brainSystem.releaseWork(agentName);
+		store.taskLockedAgents.delete(agentName);
 		talkEngine.silence(agentName);
 		// Show completion bubble
 		bubbleSystem.showBubble(agentName, "speech", typeof result === "string" ? result.slice(0, 80) : "Task complete.", engine.currentScene, findAgentActor, 5000);
