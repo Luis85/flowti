@@ -13,7 +13,7 @@ export interface Point {
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
-export type TabName = "info" | "talk" | "tasks" | "permissions" | "history";
+export type TabName = "info" | "talk" | "tasks" | "permissions" | "monitor";
 
 export interface LlmStatus {
 	readonly state: "idle" | "queued" | "thinking" | "error";
@@ -45,6 +45,8 @@ export class DashboardStore extends EventTarget {
 	llmStatus: Map<string, LlmStatus> = new Map();
 	assignedTasks: Map<string, TrackedTask[]> = new Map();
 	unreadAgents: Set<string> = new Set();
+	agentEventLog: Map<string, { timestamp: number; type: string; summary: string }[]> = new Map();
+	taskLockedAgents: Set<string> = new Set();
 
 	currentScene: Setting = "hub";
 
@@ -136,6 +138,10 @@ export class DashboardStore extends EventTarget {
 			this.unreadAgents.delete(this.selectedAgent);
 		}
 		this.notify();
+	}
+
+	isProcessAlive(agentName: string): boolean {
+		return this.agentProcesses.get(agentName)?.running ?? false;
 	}
 
 	startFollow(agentName: string): void {
@@ -258,17 +264,26 @@ export class DashboardStore extends EventTarget {
 		return proc;
 	}
 
+	private pushEventLog(agentName: string, type: string, summary: string): void {
+		const log = this.agentEventLog.get(agentName) ?? [];
+		log.push({ timestamp: Date.now(), type, summary: summary.slice(0, 80) });
+		if (log.length > 50) log.shift();
+		this.agentEventLog.set(agentName, log);
+	}
+
 	private handleCliEvent(agentName: string, event: CliEvent): void {
 		switch (event.type) {
 			case "response": {
 				const text = extractAgentMessage(event.text ?? "");
 				this.pushAgentResponse(agentName, text);
+				this.pushEventLog(agentName, "response", text.slice(0, 80));
 
-				// Check if agent has an active task — mark completed on response
+				// Check if agent has an active task \u2014 mark completed on response
 				const agentTasks = this.assignedTasks.get(agentName) ?? [];
 				const activeTask = agentTasks.find((t) => t.status === "pending" || t.status === "in-progress");
 				if (activeTask) {
 					this.markTaskStatus(agentName, activeTask.name, "completed");
+					this.pushEventLog(agentName, "task-completed", `${activeTask.name} completed`);
 					this.unreadAgents.add(agentName);
 					this.dispatchEvent(new CustomEvent("task-completed", {
 						detail: { agentName, task: activeTask.name, result: text },
@@ -281,14 +296,16 @@ export class DashboardStore extends EventTarget {
 				break;
 			}
 			case "thinking": {
-				// Only update thinking state — do NOT add to conversation thread.
+				// Only update thinking state \u2014 do NOT add to conversation thread.
 				// The talk engine handles the thinking indicator visually.
 				this.thinkingAgents.add(agentName);
 				this.llmStatus.set(agentName, { state: "thinking", since: Date.now() });
+				this.pushEventLog(agentName, "thinking", "Thinking...");
 				this.notify();
 				break;
 			}
 			case "permission-request": {
+				this.pushEventLog(agentName, "permission-request", `${event.tool ?? "unknown"} \u2014 permission requested`);
 				this.dispatchEvent(new CustomEvent("permission-requested", {
 					detail: { agentName, tool: event.tool, id: event.id },
 				}));
@@ -297,13 +314,17 @@ export class DashboardStore extends EventTarget {
 			case "error": {
 				const text = event.text ?? "An error occurred.";
 				this.pushAgentResponse(agentName, `[error] ${text}`);
+				this.pushEventLog(agentName, "error", event.text ?? "Unknown error");
 				break;
 			}
+			case "using-tool":
+				this.pushEventLog(agentName, "using-tool", event.tool ?? "tool");
+				break;
+			case "tool-complete":
+				this.pushEventLog(agentName, "tool-complete", `${event.tool ?? "tool"} done`);
+				break;
 			case "task-started":
 			case "task-completed":
-			case "using-tool":
-			case "tool-complete":
-				// These events are handled by the data provider / engine action pipeline
 				break;
 		}
 	}
@@ -342,7 +363,7 @@ export class DashboardStore extends EventTarget {
 
 		try {
 			proc.send(message, contextBlock || undefined);
-			// Connection confirmed — update status
+			// Connection confirmed \u2014 update status
 			if (this.connectionStatus !== "connected") {
 				this.setConnectionStatus("connected");
 			}
@@ -379,6 +400,7 @@ export class DashboardStore extends EventTarget {
 		this.dispatchEvent(new CustomEvent("task-assigned", {
 			detail: { agentName, task: task.name, tool: task.tool?.command },
 		}));
+		this.pushEventLog(agentName, "task-started", task.name);
 		this.notify();
 
 		// Send to LLM
@@ -485,7 +507,7 @@ export class DashboardStore extends EventTarget {
 				description: undefined,
 			} : undefined);
 			const snapshot = this.worldContext.serialize();
-			const primer = `${protocol}\n\n${snapshot}\n\nYou have just been summoned by the Director. Acknowledge briefly — one sentence, in character.`;
+			const primer = `${protocol}\n\n${snapshot}\n\nYou have just been summoned by the Director. Acknowledge briefly \u2014 one sentence, in character.`;
 			this.pushDebugEntry(agentName, primer, "wake-up");
 			proc.send(primer);
 			this.worldContext.markSeen(agentName);
