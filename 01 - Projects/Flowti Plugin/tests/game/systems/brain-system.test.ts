@@ -232,6 +232,29 @@ describe("BrainSystem", () => {
 		});
 	});
 
+	describe("walkTo()", () => {
+		it("sets state to walking-to with custom target", () => {
+			system.register("Alice", makeAttributes());
+			system.walkTo("Alice", { x: 300, y: 200 });
+			const state = system.getState("Alice");
+			expect(state?.state).toBe("walking-to");
+			expect(state?.target.kind).toBe("custom");
+			expect(state?.target.x).toBe(300);
+			expect(state?.target.y).toBe(200);
+		});
+
+		it("also sets targetPos so movement engine can read it", () => {
+			system.register("Alice", makeAttributes());
+			system.walkTo("Alice", { x: 150, y: 75 });
+			const entry = system.getAllEntries().get("Alice");
+			expect(entry?.targetPos).toEqual({ x: 150, y: 75 });
+		});
+
+		it("does nothing for an unknown agent (no throw)", () => {
+			expect(() => system.walkTo("nobody", { x: 100, y: 100 })).not.toThrow();
+		});
+	});
+
 	describe("taskLocked behavior", () => {
 		it("register initializes taskLocked to false", () => {
 			system.register("Alice", makeAttributes());
