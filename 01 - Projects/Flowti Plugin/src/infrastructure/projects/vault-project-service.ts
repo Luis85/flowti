@@ -5,9 +5,12 @@
 
 import type { App, TFolder, TFile } from "obsidian";
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { IProjectService, ProjectSummary, ProjectDetail, ProjectConfig, StorybookFramework, StorybookStatus, OutputCallback, MarkdownSourceConfig } from "../../domain/projects/types.js";
+import type { IProjectService, ProjectSummary, ProjectDetail, ProjectConfig, StorybookFramework, StorybookStatus, OutputCallback, MarkdownSourceConfig, TodoItem, CatalogEntity, CatalogEntityType, CatalogEntityDef, ReportGeneratorInfo, ComponentEntry, HealthScore } from "../../domain/projects/types.js";
+import { parseTodos, addTodoLine, toggleTodoLine, deleteTodoLine } from "../../domain/projects/todo-service.js";
+import { parseEntityFromMarkdown, generateDomainMarkdown, generateServiceMarkdown, generateEventMarkdown, generateFlowMarkdown, toKebabCase } from "../../domain/projects/catalog-service.js";
+import { parseFrontmatter } from "../../domain/projects/frontmatter.js";
 
 const PROJECTS_FOLDER = "01 - Projects";
 const PROJECT_BRIEF_TYPE = "ProjectBrief";
@@ -635,5 +638,150 @@ export class VaultProjectService implements IProjectService {
 			this.previewServers.delete(project);
 		}
 		return { ok: true };
+	}
+
+	private resolveProjectPath(project: string): string {
+		return join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
+	}
+
+	async getHealth(project: string): Promise<{ ok: boolean; score?: HealthScore; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+
+		const lines: string[] = [];
+		const result = await runAsync("node", [cliBin, "health", `--project=${project}`, "--format=json"], vaultBase, (line) => {
+			if (line !== "Done.") lines.push(line);
+		});
+		if (!result.ok) return { ok: false, error: result.error ?? "Health check failed" };
+
+		try {
+			const parsed = JSON.parse(lines.join("")) as { score?: HealthScore };
+			return { ok: true, score: parsed.score };
+		} catch {
+			return { ok: false, error: "Failed to parse health output" };
+		}
+	}
+
+	async getTodos(project: string): Promise<{ items: TodoItem[]; exists: boolean }> {
+		const todoPath = join(this.resolveProjectPath(project), "TODO.md");
+		if (!existsSync(todoPath)) return { items: [], exists: false };
+		const content = readFileSync(todoPath, "utf-8");
+		return { items: parseTodos(content), exists: true };
+	}
+
+	async addTodo(project: string, text: string): Promise<{ ok: boolean }> {
+		const todoPath = join(this.resolveProjectPath(project), "TODO.md");
+		const content = existsSync(todoPath) ? readFileSync(todoPath, "utf-8") : "";
+		writeFileSync(todoPath, addTodoLine(content, text), "utf-8");
+		return { ok: true };
+	}
+
+	async toggleTodo(project: string, index: number): Promise<{ ok: boolean }> {
+		const todoPath = join(this.resolveProjectPath(project), "TODO.md");
+		if (!existsSync(todoPath)) return { ok: false };
+		const content = readFileSync(todoPath, "utf-8");
+		writeFileSync(todoPath, toggleTodoLine(content, index), "utf-8");
+		return { ok: true };
+	}
+
+	async deleteTodo(project: string, index: number): Promise<{ ok: boolean }> {
+		const todoPath = join(this.resolveProjectPath(project), "TODO.md");
+		if (!existsSync(todoPath)) return { ok: false };
+		const content = readFileSync(todoPath, "utf-8");
+		writeFileSync(todoPath, deleteTodoLine(content, index), "utf-8");
+		return { ok: true };
+	}
+
+	async listEntities(project: string, entityType: CatalogEntityType): Promise<CatalogEntity[]> {
+		const dir = join(this.resolveProjectPath(project), "docs", "catalog", entityType);
+		if (!existsSync(dir)) return [];
+
+		const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
+		const entities: CatalogEntity[] = [];
+		for (const file of files) {
+			const content = readFileSync(join(dir, file), "utf-8");
+			const vaultRelative = `${project}/docs/catalog/${entityType}/${file}`;
+			const entity = parseEntityFromMarkdown(content, vaultRelative);
+			if (entity) entities.push(entity);
+		}
+		return entities;
+	}
+
+	async createEntity(project: string, entityType: CatalogEntityType, definition: CatalogEntityDef): Promise<{ ok: boolean; path?: string }> {
+		const date = new Date().toISOString().slice(0, 10);
+		const generators: Record<CatalogEntityType, (def: CatalogEntityDef, d: string) => string> = {
+			domains: generateDomainMarkdown,
+			services: generateServiceMarkdown,
+			events: generateEventMarkdown,
+			flows: generateFlowMarkdown,
+		};
+		const md = generators[entityType](definition, date);
+		const slug = toKebabCase(definition.name);
+		const dir = join(this.resolveProjectPath(project), "docs", "catalog", entityType);
+		if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+		const filePath = join(dir, `${slug}.md`);
+		writeFileSync(filePath, md, "utf-8");
+		const vaultPath = `${project}/docs/catalog/${entityType}/${slug}.md`;
+		return { ok: true, path: vaultPath };
+	}
+
+	async getReportGenerators(project: string): Promise<ReportGeneratorInfo[]> {
+		const configPath = join(this.resolveProjectPath(project), "configs", "flowti.config.json");
+		if (!existsSync(configPath)) return [];
+
+		try {
+			const config = JSON.parse(readFileSync(configPath, "utf-8")) as { reports?: { generators?: ReportGeneratorInfo[] } };
+			return config.reports?.generators ?? [];
+		} catch {
+			return [];
+		}
+	}
+
+	async runReport(project: string, generatorId: string, onOutput?: OutputCallback): Promise<{ ok: boolean; metrics?: Record<string, number>; outputPath?: string; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		return runAsync("node", [cliBin, `report:${generatorId}`, `--project=${project}`], vaultBase, onOutput);
+	}
+
+	async runAllReports(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; results?: import("../../domain/projects/types.js").ReportResult[]; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const cliBin = join(vaultBase, ".flowti", "bin");
+		return runAsync("node", [cliBin, "reports", `--project=${project}`], vaultBase, onOutput);
+	}
+
+	async listComponents(project: string): Promise<ComponentEntry[]> {
+		const projectPath = this.resolveProjectPath(project);
+
+		const configPath = join(projectPath, "configs", "flowti.config.json");
+		let sourcePath = "";
+		if (existsSync(configPath)) {
+			try {
+				const config = JSON.parse(readFileSync(configPath, "utf-8")) as { components?: { markdownSource?: { path?: string } } };
+				sourcePath = config.components?.markdownSource?.path ?? "";
+			} catch { /* ignore */ }
+		}
+		if (!sourcePath) sourcePath = join(projectPath, ".storybook", "stories");
+		else sourcePath = join(projectPath, sourcePath);
+
+		if (!existsSync(sourcePath)) return [];
+
+		const files = readdirSync(sourcePath).filter((f) => f.endsWith(".md"));
+		const entries: ComponentEntry[] = [];
+		for (const file of files) {
+			const content = readFileSync(join(sourcePath, file), "utf-8");
+			const { fields, body } = parseFrontmatter(content);
+			if (!fields.name) continue;
+			const propCount = (body.match(/^\|(?![\s-])/gm) ?? []).length;
+			const slotCount = (body.match(/^- slot:/gim) ?? []).length;
+			entries.push({
+				name: fields.name,
+				category: fields.category ?? "uncategorized",
+				status: fields.status,
+				propCount: Math.max(0, propCount - 1),
+				slotCount,
+			});
+		}
+		return entries;
 	}
 }
