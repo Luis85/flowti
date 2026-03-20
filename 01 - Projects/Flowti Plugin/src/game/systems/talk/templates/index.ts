@@ -6,11 +6,9 @@
  */
 
 import type { TemplateSet } from "../talk-types.js";
-import { coreTemplates } from "./core.js";
 import { engineeringTemplates, qualityTemplates, operationsTemplates } from "./engineering.js";
 import { designTemplates, analysisTemplates } from "./design.js";
 import { productTemplates, managementTemplates, orchestrationTemplates } from "./product.js";
-import { socialTemplates } from "./social.js";
 
 /** All domain-specific template sets, keyed by domain name. */
 export const DOMAIN_TEMPLATES: ReadonlyMap<string, TemplateSet> = new Map<string, TemplateSet>([

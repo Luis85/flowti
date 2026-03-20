@@ -33,6 +33,9 @@ export class AgentActor extends ex.Actor {
 	private bulbActor: ex.Actor | null = null;
 	private bulbPhase = 0;
 	private llmActive = false;
+	private toolActor: ex.Actor | null = null;
+	private toolActive = false;
+	private toolPhase = 0;
 
 	constructor(config: AgentActorConfig) {
 		super({
@@ -55,6 +58,7 @@ export class AgentActor extends ex.Actor {
 		this.buildLabelChild();
 		this.buildBadgeChild();
 		this.buildBulbChild();
+		this.buildToolChild();
 	}
 
 	onInitialize(engine: ex.Engine): void {
@@ -87,7 +91,16 @@ export class AgentActor extends ex.Actor {
 				this.bulbActor.graphics.opacity = pulse;
 				this.bulbActor.pos = ex.vec(0, -12 + Math.sin(this.bulbPhase * 0.7) * 0.5);
 			}
-			this.bulbActor.graphics.visible = this.llmActive;
+			this.bulbActor.graphics.visible = this.llmActive && !this.toolActive;
+		}
+
+		// Tool icon spin when using a tool
+		if (this.toolActor) {
+			if (this.toolActive) {
+				this.toolPhase += delta * 0.003;
+				this.toolActor.rotation = Math.sin(this.toolPhase) * 0.3;
+			}
+			this.toolActor.graphics.visible = this.toolActive;
 		}
 	}
 
@@ -118,6 +131,17 @@ export class AgentActor extends ex.Actor {
 	/** Hide lightbulb indicator — LLM response arrived. */
 	hideLlmIndicator(): void {
 		this.llmActive = false;
+	}
+
+	/** Show tool icon — agent is using a tool. */
+	showToolIndicator(): void {
+		this.toolActive = true;
+		this.toolPhase = 0;
+	}
+
+	/** Hide tool icon — tool call complete. */
+	hideToolIndicator(): void {
+		this.toolActive = false;
 	}
 
 	/** No-op stubs kept for API compatibility. */
@@ -205,6 +229,62 @@ export class AgentActor extends ex.Actor {
 		badgeActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
 		badgeActor.graphics.use(badgeCanvas);
 		this.addChild(badgeActor);
+	}
+
+	private buildToolChild(): void {
+		const TOOL_SIZE = 20;
+
+		const toolCanvas = new ex.Canvas({
+			width: TOOL_SIZE,
+			height: TOOL_SIZE,
+			cache: true,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				const cx = TOOL_SIZE / 2;
+
+				// Glow halo
+				const gradient = ctx.createRadialGradient(cx, cx, 2, cx, cx, 9);
+				gradient.addColorStop(0, "rgba(59, 130, 246, 0.4)");
+				gradient.addColorStop(1, "rgba(59, 130, 246, 0)");
+				ctx.fillStyle = gradient;
+				ctx.beginPath();
+				ctx.arc(cx, cx, 9, 0, Math.PI * 2);
+				ctx.fill();
+
+				// Gear body
+				ctx.fillStyle = "#3b82f6";
+				ctx.beginPath();
+				ctx.arc(cx, cx, 5, 0, Math.PI * 2);
+				ctx.fill();
+
+				// Gear teeth (4 notches)
+				ctx.strokeStyle = "#3b82f6";
+				ctx.lineWidth = 2;
+				for (let i = 0; i < 4; i++) {
+					const angle = (i * Math.PI) / 2;
+					ctx.beginPath();
+					ctx.moveTo(cx + Math.cos(angle) * 4, cx + Math.sin(angle) * 4);
+					ctx.lineTo(cx + Math.cos(angle) * 7, cx + Math.sin(angle) * 7);
+					ctx.stroke();
+				}
+
+				// Center hole
+				ctx.fillStyle = "#1e3a5f";
+				ctx.beginPath();
+				ctx.arc(cx, cx, 2, 0, Math.PI * 2);
+				ctx.fill();
+			},
+		});
+
+		this.toolActor = new ex.Actor({
+			pos: ex.vec(-8, -12),
+			anchor: ex.vec(0.5, 0.5),
+			z: 31,
+			collisionType: ex.CollisionType.PreventCollision,
+		});
+		this.toolActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
+		this.toolActor.graphics.use(toolCanvas);
+		this.toolActor.graphics.visible = false;
+		this.addChild(this.toolActor);
 	}
 
 	private buildBulbChild(): void {

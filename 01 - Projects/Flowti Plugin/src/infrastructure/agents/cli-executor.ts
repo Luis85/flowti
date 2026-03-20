@@ -15,7 +15,6 @@ import {
 	unlinkSync, readdirSync, statSync, openSync, readSync, closeSync,
 } from "node:fs";
 import { join } from "node:path";
-import { tailJsonlFile } from "./file-watcher.js";
 
 /* ------------------------------------------------------------------ */
 /*  Public types                                                       */
@@ -373,7 +372,15 @@ export class CliExecutor implements ICliExecutor {
 			writePidFile(pidFile, child.pid);
 		}
 
-		// Parse stdout line-by-line for JSONL events
+		const emitEvent = (event: CliEvent) => {
+			for (const cb of tracked.eventCallbacks) {
+				try { cb(event); } catch { /* subscriber error */ }
+			}
+		};
+
+		// For spawned processes, stdout is the single source of truth.
+		// File watcher is ONLY for reconnecting to processes we didn't spawn
+		// (where stdout isn't available). Running both causes duplicate events.
 		let stdoutPartial = "";
 		if (child.stdout) {
 			child.stdout.on("data", (chunk: Buffer) => {
@@ -385,29 +392,12 @@ export class CliExecutor implements ICliExecutor {
 					const trimmed = line.trim();
 					if (!trimmed) continue;
 					try {
-						const event = JSON.parse(trimmed) as CliEvent;
-						for (const cb of tracked.eventCallbacks) {
-							try { cb(event); } catch { /* subscriber error */ }
-						}
+						emitEvent(JSON.parse(trimmed) as CliEvent);
 					} catch {
 						/* non-JSON output — ignore */
 					}
 				}
 			});
-		}
-
-		// Set up event log tailing via file watcher
-		const logFile = eventLogPath(this.vaultPath, slug);
-		try {
-			const watcher = tailJsonlFile(logFile, (data) => {
-				const event = data as CliEvent;
-				for (const cb of tracked.eventCallbacks) {
-					try { cb(event); } catch { /* subscriber error */ }
-				}
-			});
-			tracked.logWatcherClose = () => watcher.close();
-		} catch {
-			/* file-watcher not available — stdout-only mode */
 		}
 
 		// Clean up on process exit

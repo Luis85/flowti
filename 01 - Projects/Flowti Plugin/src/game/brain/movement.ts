@@ -137,6 +137,48 @@ export function resolveIdleTarget(
 	return point;
 }
 
+const SEPARATION_RADIUS = 48;
+const SEPARATION_STRENGTH = 0.6;
+
+/**
+ * Compute a separation nudge for an agent that is too close to others.
+ * Returns a small displacement vector that pushes overlapping agents apart.
+ * Agents gather in a natural circle/cluster rather than stacking on one point.
+ */
+export function computeSeparation(
+	agentPos: Position,
+	otherPositions: readonly Position[],
+	bounds: Bounds,
+): Position {
+	let pushX = 0;
+	let pushY = 0;
+
+	for (const other of otherPositions) {
+		const dx = agentPos.x - other.x;
+		const dy = agentPos.y - other.y;
+		const distSq = dx * dx + dy * dy;
+		if (distSq < SEPARATION_RADIUS * SEPARATION_RADIUS && distSq > 0.01) {
+			const dist = Math.sqrt(distSq);
+			const overlap = SEPARATION_RADIUS - dist;
+			const force = (overlap / SEPARATION_RADIUS) * SEPARATION_STRENGTH;
+			pushX += (dx / dist) * force * SEPARATION_RADIUS;
+			pushY += (dy / dist) * force * SEPARATION_RADIUS;
+		} else if (distSq <= 0.01) {
+			// Exactly overlapping — push in a random-ish direction based on position
+			const angle = (agentPos.x * 7 + agentPos.y * 13) % (Math.PI * 2);
+			pushX += Math.cos(angle) * SEPARATION_RADIUS * 0.5;
+			pushY += Math.sin(angle) * SEPARATION_RADIUS * 0.5;
+		}
+	}
+
+	if (pushX === 0 && pushY === 0) return agentPos;
+
+	return {
+		x: Math.max(bounds.minX, Math.min(bounds.maxX, agentPos.x + pushX)),
+		y: Math.max(bounds.minY, Math.min(bounds.maxY, agentPos.y + pushY)),
+	};
+}
+
 /** Find preferred workstation if available, otherwise nearest unoccupied. */
 export function preferredWorkstation(
 	position: Position,

@@ -9,7 +9,7 @@
 export type BubbleKind = "speech" | "thought" | "question";
 
 /** Category of a chatter line — determines selection weighting logic. */
-export type TemplateCategory = "thinking" | "social" | "personality" | "filler";
+export type TemplateCategory = "thinking" | "waiting" | "social" | "personality" | "filler";
 
 /** A single template string with selection weight and category tag. */
 export interface WeightedTemplate {

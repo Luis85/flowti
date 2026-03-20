@@ -3,7 +3,7 @@
  * and LLM status badge. Subscribes to DashboardStore for reactive updates.
  */
 
-import { html, css, nothing } from "lit";
+import { html, css } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles, buttonStyles } from "./game-styles.js";
 import type { DashboardStore, ConversationTurn } from "../store/dashboard-store.js";
@@ -123,6 +123,16 @@ export class PanelTalk extends FlowtiElement {
 			.input-row input::placeholder {
 				color: var(--text-muted);
 			}
+
+			.vault-link {
+				color: var(--accent-blue, #3b82f6);
+				cursor: pointer;
+				text-decoration: underline;
+				text-decoration-style: dotted;
+			}
+			.vault-link:hover {
+				text-decoration-style: solid;
+			}
 		`,
 	];
 
@@ -210,6 +220,22 @@ export class PanelTalk extends FlowtiElement {
 		void this.scrollToBottom();
 	}
 
+	private renderTurnText(text: string) {
+		// Detect vault paths (e.g., "03 - Resources/Agents/output/foo/bar.md") and make them clickable
+		const pathMatch = text.match(/(\d{2} - [^\s]+\.md)/);
+		if (pathMatch) {
+			const path = pathMatch[1];
+			const before = text.slice(0, pathMatch.index);
+			const after = text.slice(pathMatch.index! + path.length);
+			return html`${before}<span class="vault-link" @click="${() => this.openPath(path)}">${path}</span>${after}`;
+		}
+		return text;
+	}
+
+	private openPath(path: string): void {
+		this.dispatchEvent(new CustomEvent("open-vault-path", { detail: { path }, bubbles: true, composed: true }));
+	}
+
 	private renderThread() {
 		const visible = this.conversation.slice(-50);
 		if (visible.length === 0 && !this.thinking) {
@@ -219,7 +245,7 @@ export class PanelTalk extends FlowtiElement {
 		return html`
 			${visible.map((turn) => html`
 				<div class="turn" data-role="${turn.role}">
-					${turn.text}
+					${this.renderTurnText(turn.text)}
 				</div>
 			`)}
 		`;

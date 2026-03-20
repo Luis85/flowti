@@ -1,6 +1,6 @@
 /** Strip markdown code fences and extract message from JSON agent responses. */
 export function extractAgentMessage(raw: string): string {
-	let cleaned = raw.replace(/```(?:json)?\s*/gi, "").replace(/```/g, "").trim();
+	const cleaned = raw.replace(/```(?:json)?\s*/gi, "").replace(/```/g, "").trim();
 
 	try {
 		const parsed: unknown = JSON.parse(cleaned);

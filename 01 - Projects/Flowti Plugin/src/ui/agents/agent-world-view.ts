@@ -61,6 +61,12 @@ export class AgentWorldView extends ItemView {
 		const vaultBasePath = (this.app.vault.adapter as unknown as { basePath: string }).basePath;
 		const provider = createCliDataProvider(vaultBasePath, this.deps.cliExecutor);
 
+		// Listen for vault path clicks from game UI components
+		container.addEventListener("open-vault-path", ((e: CustomEvent) => {
+			const path = String(e.detail?.path ?? "");
+			if (path) void this.app.workspace.openLinkText(path, "", false);
+		}) as EventListener);
+
 		// Create game
 		this.handle = createAgentWorld({
 			container,

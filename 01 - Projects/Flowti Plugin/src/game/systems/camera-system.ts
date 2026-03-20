@@ -37,7 +37,7 @@ export function createCameraSystem(
 	let followedActor: AgentActor | null = null;
 	let followedName: string | null = null;
 	let targetZoom = camera.zoom;
-	let center = sceneCenter;
+	const center = sceneCenter;
 
 	// Keyboard pan state
 	const keysHeld = new Set<string>();

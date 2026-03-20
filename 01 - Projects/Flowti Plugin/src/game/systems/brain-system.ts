@@ -9,7 +9,7 @@
 import type { BrainState, BrainParams, MovementTarget, AgentHabits } from "../brain/brain-types.js";
 import type { AgentAttributes, AgentActionType } from "../data/types.js";
 import { computeParams, transition, computeHabits } from "../brain/agent-brain.js";
-import { randomWanderPoint, resolveIdleTarget, preferredWorkstation, type Bounds, type Position, type Workstation } from "../brain/movement.js";
+import { randomWanderPoint, resolveIdleTarget, computeSeparation, type Bounds, type Position } from "../brain/movement.js";
 import type { AgentActor } from "../actors/agent-actor.js";
 
 // ── Per-agent entry ──────────────────────────────────────────────────
@@ -241,8 +241,38 @@ export class BrainSystem {
 			entry.position = { x: actor.pos.x, y: actor.pos.y };
 		}
 
+		// Separation pass — push overlapping agents apart so they cluster naturally
+		this.applySeparation(getActor);
+
 		// Social facing pass (after all positions updated)
 		this.updateSocialFacing(deltaMs, getActor);
+	}
+
+	/** Push agents apart when they overlap. Idle/wandering agents get nudged; working/talking agents are anchored. */
+	private applySeparation(getActor: (name: string) => AgentActor | undefined): void {
+		const movableStates = new Set<BrainState>(["idle", "wandering", "on-break"]);
+		const names = [...this.entries.keys()];
+
+		for (const name of names) {
+			const entry = this.entries.get(name);
+			if (!entry || !movableStates.has(entry.state)) continue;
+			const actor = getActor(name);
+			if (!actor) continue;
+
+			const others: Position[] = [];
+			for (const otherName of names) {
+				if (otherName === name) continue;
+				const otherEntry = this.entries.get(otherName);
+				if (otherEntry) others.push(otherEntry.position);
+			}
+
+			const nudged = computeSeparation(entry.position, others, this.targetBounds);
+			if (nudged.x !== entry.position.x || nudged.y !== entry.position.y) {
+				actor.pos.x = nudged.x;
+				actor.pos.y = nudged.y;
+				entry.position = { x: nudged.x, y: nudged.y };
+			}
+		}
 	}
 
 	/** Read-only access to brain entries for the store frame adapter. */

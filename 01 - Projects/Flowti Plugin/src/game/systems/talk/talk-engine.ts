@@ -148,8 +148,8 @@ export class TalkEngine {
 		const entry = this.entries.get(agentName);
 		if (entry) {
 			entry.silencedUntil = 0;
-			entry.timer = entry.interval; // trigger immediately on next update
-			entry.interval = 3000 + Math.random() * 4000; // 3-7s rapid chatter
+			entry.timer = 0; // start from zero — first chatter after initial delay
+			entry.interval = 2000 + Math.random() * 1500; // 2-3.5s before first "thinking" phrase
 			entry.activated = true;
 		}
 	}

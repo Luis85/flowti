@@ -106,12 +106,13 @@ function mapStreamEventToType(event: AgentStreamEvent): string {
 	}
 }
 
-function buildEventLine(deps: Pick<AgentProcessLoopDeps, "clock" | "agentName">, type: string, text: string): string {
-	const payload = {
+function buildEventLine(deps: Pick<AgentProcessLoopDeps, "clock" | "agentName">, type: string, text: string, extra?: Record<string, string>): string {
+	const payload: Record<string, unknown> = {
 		ts: deps.clock.ms(),
 		type,
 		agent: deps.agentName,
 		text,
+		...extra,
 	};
 	return JSON.stringify(payload);
 }
@@ -124,8 +125,39 @@ function extractText(event: AgentStreamEvent): string {
 	return "";
 }
 
-function writeEvent(deps: AgentProcessLoopDeps, type: string, text: string): void {
-	const line = buildEventLine(deps, type, text);
+/** Extract tool metadata for richer event logging. */
+function extractToolMeta(event: AgentStreamEvent): Record<string, string> | undefined {
+	if (event.kind === "tool-start") return { tool: event.name, id: event.id };
+	if (event.kind === "tool-end") return { tool: event.id, id: event.id };
+	return undefined;
+}
+
+/** Extract a human-readable summary from tool input JSON. */
+function summarizeToolInput(toolName: string, json: string): string | null {
+	try {
+		const input = JSON.parse(json) as Record<string, unknown>;
+		switch (toolName) {
+			case "Read": return `Reading ${input.file_path ?? input.path ?? "file"}`;
+			case "Write": return `Writing ${input.file_path ?? input.path ?? "file"}`;
+			case "Edit": return `Editing ${input.file_path ?? input.path ?? "file"}`;
+			case "Bash": return `Running: ${String(input.command ?? "").slice(0, 60)}`;
+			case "Glob": return `Searching for ${input.pattern ?? "files"}`;
+			case "Grep": return `Searching for "${input.pattern ?? ""}"`;
+			case "Agent": return `Spawning agent: ${input.description ?? "task"}`;
+			case "WebSearch": return `Searching: ${input.query ?? "web"}`;
+			case "WebFetch": return `Fetching: ${String(input.url ?? "").slice(0, 60)}`;
+			default: {
+				const keys = Object.keys(input).slice(0, 2).join(", ");
+				return keys ? `${toolName}(${keys})` : null;
+			}
+		}
+	} catch {
+		return null;
+	}
+}
+
+function writeEvent(deps: AgentProcessLoopDeps, type: string, text: string, extra?: Record<string, string>): void {
+	const line = buildEventLine(deps, type, text, extra);
 	deps.lineWriter.write(line + "\n");
 	appendToEventLog(deps, line);
 }
@@ -179,11 +211,20 @@ function parseStdinMessage(line: string): StdinMessage | null {
 function handleMessage(deps: AgentProcessLoopDeps, msg: MessageInput): void {
 	const contextPrefix = msg.context ? `${msg.context}\n\n` : "";
 	const fullText = contextPrefix + msg.text;
+	let lastToolName = "";
 	deps.workerManager.send(deps.agentName, fullText, {
 		onEvent(event: AgentStreamEvent) {
 			const type = mapStreamEventToType(event);
 			const text = extractText(event);
-			writeEvent(deps, type, text);
+			const meta = extractToolMeta(event);
+			if (event.kind === "tool-start") lastToolName = event.name;
+			// For tool-input, write a summary with the tool name for richer logging
+			if (event.kind === "tool-input") {
+				const summary = summarizeToolInput(lastToolName, event.json);
+				if (summary) writeEvent(deps, "using-tool", summary, { tool: lastToolName });
+				return;
+			}
+			writeEvent(deps, type, text, meta);
 		},
 		onResponse(response) {
 			writeEvent(deps, "response", response.message);
