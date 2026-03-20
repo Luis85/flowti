@@ -20,6 +20,7 @@
 |------|---------|
 | `src/domain/agents/behavior-tree/bt-types.ts` | All BT types: GoalType, AgentNeeds, BTSensorEvent, LLMSlot, BTAgentContext, AgentToolDeps |
 | `src/domain/agents/behavior-tree/bt-agent.ts` | BTAgent object factory — binds tools + conditions to context |
+| `src/domain/agents/behavior-tree/bt-prompt.ts` | LLM prompt assembly — scales richness with INT attribute |
 | `src/domain/agents/behavior-tree/bt-factory.ts` | Creates BehaviourTree from agent definition + subtrees |
 | `src/domain/agents/behavior-tree/bt-tick.ts` | Tick orchestration — step + world-state action collection |
 | `src/domain/agents/behavior-tree/subtrees/goal-review.ts` | MDSL + config for "review" goal type |
@@ -188,6 +189,7 @@ import type { AgentAttributes, AgentGoal } from "../agent-types.js";
 import type { IWorldStateManager } from "../world-state-types.js";
 import type { IProviderRegistry, LLMProcess } from "../llm-types.js";
 import type { PermissionVerdict } from "../permission-engine.js";
+import type { IFileSystem, IPaths, IClock } from "../../../infrastructure/types.js";
 
 // ── Goal Types ───────────────────────────────────────────────────────
 
@@ -238,25 +240,10 @@ export function createIdleLLMSlot(): LLMSlot {
 }
 
 // ── Tool Dependencies ────────────────────────────────────────────────
+// IFileSystem, IPaths, IClock imported from infrastructure/types.ts
+// (type-only imports from infra are allowed — ESLint only blocks node built-in singletons)
 
-export interface IFileSystem {
-	readFileSync(path: string, encoding: string): string;
-	writeFileSync(path: string, content: string, encoding: string): void;
-	existsSync(path: string): boolean;
-	mkdirSync(path: string, opts?: { recursive?: boolean }): void;
-}
-
-export interface IPaths {
-	join(...segments: string[]): string;
-	dirname(p: string): string;
-	basename(p: string): string;
-}
-
-export interface IClock {
-	now(): number;
-	ms(): number;
-	iso(): string;
-}
+export type { IFileSystem, IPaths, IClock };
 
 export interface AgentToolDeps {
 	readonly disk: IFileSystem;
@@ -404,7 +391,7 @@ In `src/infrastructure/world-state-manager.ts`, add after the `"error"` entry (l
 	"file-read": () => ({ state: "busy", currentAction: "reading" }),
 	"file-written": () => ({ state: "busy", currentAction: "writing" }),
 	"file-opened": () => ({ state: "busy", currentAction: "opening" }),
-	"goal-started": (a: AgentAction) => ({ state: "busy", currentAction: "goal", goal: a.data.goalName }),
+	"goal-started": (a) => ({ state: "busy", currentAction: "goal", goal: a.data.goalName }),
 	"goal-completed": () => ({ state: "idle", currentAction: "idle" }),
 	"template-generated": () => ({ state: "busy", currentAction: "generating" }),
 ```
@@ -750,7 +737,7 @@ function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 function makeAgent(overrides: Partial<AgentSummary> = {}): AgentSummary {
 	return {
 		name: "Atlas",
-		agentType: "llm",
+		agentType: "ai",
 		description: "Test agent",
 		skills: [],
 		tools: [],
@@ -875,8 +862,10 @@ Expected: FAIL — module not found.
 
 import { State } from "mistreevous";
 import type { AgentSummary } from "../agent-types.js";
+import type { LLMRequest } from "../llm-types.js";
 import { hasLLMProvider } from "../llm-availability.js";
 import { generateFromTemplate } from "./templates/template-engine.js";
+import { assemblePrompt } from "./bt-prompt.js";
 import {
 	createDefaultNeeds,
 	createIdleLLMSlot,
@@ -1082,9 +1071,11 @@ export function createBTAgent(agent: AgentSummary, deps: AgentToolDeps): BTAgent
 			const prompt = assemblePrompt(context, goalType, int_);
 
 			const process = selection.provider.execute({
-				messages: [{ role: "user", content: prompt }],
-				system: `You are ${context.persona ?? context.name}, a ${context.domain ?? "general"} specialist.`,
-			} as never);
+				prompt: {
+					message: prompt,
+					system: `You are ${context.persona ?? context.name}, a ${context.domain ?? "general"} specialist.`,
+				},
+			});
 
 			context.llmSlot.state = "pending";
 			context.llmSlot.process = process;
@@ -1092,7 +1083,7 @@ export function createBTAgent(agent: AgentSummary, deps: AgentToolDeps): BTAgent
 			process.result
 				.then((result) => {
 					context.llmSlot.state = "resolved";
-					context.llmSlot.result = typeof result.text === "string" ? result.text : JSON.stringify(result);
+					context.llmSlot.result = result.text;
 				})
 				.catch(() => {
 					context.llmSlot.state = "failed";
@@ -1214,9 +1205,33 @@ export function createBTAgent(agent: AgentSummary, deps: AgentToolDeps): BTAgent
 	};
 }
 
-// ── Prompt Assembly ──────────────────────────────────────────────────
+```
 
-function assemblePrompt(ctx: BTAgentContext, goalType: string, int_: number): string {
+**Note:** `assemblePrompt` is imported from `bt-prompt.ts` (extracted to keep bt-agent.ts under 350 lines). Create `src/domain/agents/behavior-tree/bt-prompt.ts`:
+
+```typescript
+/**
+ * bt-prompt.ts — LLM prompt assembly for BT agents.
+ *
+ * Scales prompt richness with INT attribute.
+ * Domain-layer pure.
+ */
+
+import type { BTAgentContext } from "./bt-types.js";
+
+function goalTypeInstruction(goalType: string): string {
+	switch (goalType) {
+		case "review": return "Assess the document and provide recommendations. Note strengths, weaknesses, and action items.";
+		case "summarize": return "Provide a concise summary. Extract key points and organize clearly.";
+		case "plan": return "Generate actionable steps. Create a prioritized checklist with clear owners and deadlines.";
+		case "implement": return "Propose code or content changes. Be specific about what to add, modify, or remove.";
+		case "monitor": return "Check current status. Report any changes, anomalies, or items needing attention.";
+		case "report": return "Aggregate information into a structured report. Include metadata, findings, and recommendations.";
+		default: return "Analyze and respond appropriately.";
+	}
+}
+
+export function assemblePrompt(ctx: BTAgentContext, goalType: string, int_: number): string {
 	let prompt = `You are ${ctx.persona ?? ctx.name}, a ${ctx.domain ?? "general"} specialist.\n`;
 	prompt += `Goal: ${goalType} — ${ctx.activeGoal?.name ?? "general task"}\n`;
 	prompt += `File: ${ctx.activeGoalFile ?? "none"}\n\n`;
@@ -1236,18 +1251,6 @@ function assemblePrompt(ctx: BTAgentContext, goalType: string, int_: number): st
 
 	return prompt;
 }
-
-function goalTypeInstruction(goalType: string): string {
-	switch (goalType) {
-		case "review": return "Assess the document and provide recommendations. Note strengths, weaknesses, and action items.";
-		case "summarize": return "Provide a concise summary. Extract key points and organize clearly.";
-		case "plan": return "Generate actionable steps. Create a prioritized checklist with clear owners and deadlines.";
-		case "implement": return "Propose code or content changes. Be specific about what to add, modify, or remove.";
-		case "monitor": return "Check current status. Report any changes, anomalies, or items needing attention.";
-		case "report": return "Aggregate information into a structured report. Include metadata, findings, and recommendations.";
-		default: return "Analyze and respond appropriately.";
-	}
-}
 ```
 
 - [ ] **Step 4: Run test to verify conditions pass**
@@ -1261,7 +1264,7 @@ Expected: PASS (all condition tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add "01 - Projects/Flowti CLI/src/domain/agents/behavior-tree/bt-agent.ts" "01 - Projects/Flowti CLI/tests/domain/agents/behavior-tree/bt-agent.test.ts"
+git add "01 - Projects/Flowti CLI/src/domain/agents/behavior-tree/bt-agent.ts" "01 - Projects/Flowti CLI/src/domain/agents/behavior-tree/bt-prompt.ts" "01 - Projects/Flowti CLI/tests/domain/agents/behavior-tree/bt-agent.test.ts"
 git commit -m "feat(bt): add BTAgent factory with conditions and tool actions"
 ```
 
@@ -1274,9 +1277,11 @@ git commit -m "feat(bt): add BTAgent factory with conditions and tool actions"
 
 - [ ] **Step 1: Add tool action tests**
 
-Append to the existing test file:
+Append to the existing test file. Import `State` from mistreevous:
 
 ```typescript
+import { State } from "mistreevous";
+
 describe("createBTAgent — tool actions", () => {
 	it("PickGoal selects highest-priority goal when WIS >= 14", () => {
 		const agent = makeAgent({
@@ -1288,20 +1293,20 @@ describe("createBTAgent — tool actions", () => {
 		});
 		const bt = createBTAgent(agent, makeDeps());
 		const result = bt.PickGoal();
-		expect(result).toBe(1); // State.SUCCEEDED = 1
+		expect(result).toBe(State.SUCCEEDED);
 		expect(bt.context.activeGoal?.name).toBe("summarize report");
 	});
 
 	it("PickGoal fails when no goals exist", () => {
 		const bt = createBTAgent(makeAgent({ goals: [] }), makeDeps());
-		expect(bt.PickGoal()).toBe(2); // State.FAILED = 2
+		expect(bt.PickGoal()).toBe(State.FAILED);
 	});
 
 	it("PickGoalFile derives file name from goal", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps());
 		bt.context.activeGoal = { name: "review iteration plan" };
 		const result = bt.PickGoalFile();
-		expect(result).toBe(1); // SUCCEEDED
+		expect(result).toBe(State.SUCCEEDED);
 		expect(bt.context.activeGoalFile).toBe("iteration-plan.md");
 	});
 
@@ -1310,14 +1315,14 @@ describe("createBTAgent — tool actions", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps({ disk }));
 		(bt.context as { workingFilePath: string }).workingFilePath = "test.md";
 		const result = bt.ReadFile();
-		expect(result).toBe(1); // SUCCEEDED
+		expect(result).toBe(State.SUCCEEDED);
 		expect(bt.context.lastFileContent).toBe("file content");
 	});
 
 	it("ReadFile returns FAILED when permission denied", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps({ checkPermission: vi.fn(() => "denied" as const) }));
 		(bt.context as { workingFilePath: string }).workingFilePath = "test.md";
-		expect(bt.ReadFile()).toBe(2); // FAILED
+		expect(bt.ReadFile()).toBe(State.FAILED);
 	});
 
 	it("WriteFile writes content and stores path", () => {
@@ -1326,7 +1331,7 @@ describe("createBTAgent — tool actions", () => {
 		bt.context.activeGoal = { name: "review plan" };
 		(bt.context as { lastLLMResult: string }).lastLLMResult = "generated content";
 		const result = bt.WriteFile();
-		expect(result).toBe(1); // SUCCEEDED
+		expect(result).toBe(State.SUCCEEDED);
 		expect(disk.writeFileSync).toHaveBeenCalled();
 		expect(bt.context.lastWrittenPath).toContain("Atlas-review-");
 	});
@@ -1337,7 +1342,7 @@ describe("createBTAgent — tool actions", () => {
 		(bt.context as { activeGoalFile: string }).activeGoalFile = "plan.md";
 		(bt.context as { lastFileContent: string }).lastFileContent = "# Plan\n\nContent here.";
 		const result = bt.GenerateFromTemplate();
-		expect(result).toBe(1); // SUCCEEDED
+		expect(result).toBe(State.SUCCEEDED);
 		expect(bt.context.lastLLMResult).toBeTruthy();
 		expect(bt.context.lastLLMResult!.length).toBeGreaterThan(50);
 	});
@@ -1348,7 +1353,7 @@ describe("createBTAgent — tool actions", () => {
 		bt.context.activeGoal = { name: "review plan" };
 		(bt.context as { lastWrittenPath: string }).lastWrittenPath = "artifacts/Atlas-review-1000.md";
 		const result = bt.DropArtifact();
-		expect(result).toBe(1); // SUCCEEDED
+		expect(result).toBe(State.SUCCEEDED);
 		expect(worldState.updateEntity).toHaveBeenCalledWith(
 			expect.stringContaining("artifact-Atlas-"),
 			"artifact",
@@ -1378,7 +1383,7 @@ describe("createBTAgent — tool actions", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps());
 		(bt.context as { lastWrittenPath: string }).lastWrittenPath = "test.md";
 		const result = bt.OpenInVault();
-		expect(result).toBe(1); // SUCCEEDED
+		expect(result).toBe(State.SUCCEEDED);
 		expect(bt.collectedActions.find((a) => a.type === "file-opened")).toBeDefined();
 	});
 });
@@ -1390,7 +1395,7 @@ describe("createBTAgent — tool actions", () => {
 cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/agents/behavior-tree/bt-agent.test.ts --config configs/vitest.config.ts
 ```
 
-Expected: PASS (all condition + tool action tests). Note: `State.SUCCEEDED = 1`, `State.FAILED = 2`, `State.RUNNING = 3` — verify these match mistreevous's actual enum values and adjust assertions if different.
+Expected: PASS (all condition + tool action tests).
 
 - [ ] **Step 3: Commit**
 
@@ -1849,7 +1854,7 @@ function makeDeps(): AgentToolDeps {
 function makeAgent(overrides: Partial<AgentSummary> = {}): AgentSummary {
 	return {
 		name: "Atlas",
-		agentType: "llm",
+		agentType: "ai",
 		description: "Test agent",
 		skills: [],
 		tools: [],
@@ -1925,7 +1930,6 @@ import { BehaviourTree } from "mistreevous";
 import type { AgentSummary } from "../agent-types.js";
 import { createBTAgent, type BTAgentObject } from "./bt-agent.js";
 import type { AgentToolDeps } from "./bt-types.js";
-import { parseGoalType } from "./bt-types.js";
 
 // Subtree imports
 import { REVIEW_SUBTREE } from "./subtrees/goal-review.js";
@@ -1946,14 +1950,11 @@ export interface AgentBT {
 
 /**
  * Build the master MDSL that references subtrees.
- * The ActiveGoal branch picks a goal subtree based on the agent's first goal type.
+ * The ActiveGoal branch uses PickGoal to set the active goal, then
+ * a selector tries each goal subtree — the matching one succeeds
+ * because PickGoalFile resolves based on the active goal's type.
  */
-function buildMasterMDSL(agent: AgentSummary): string {
-	// Determine which goal subtree to use based on first goal
-	const firstGoal = agent.goals?.[0];
-	const goalType = firstGoal ? (parseGoalType(firstGoal.name) ?? "review") : "review";
-	const goalRootName = goalType.charAt(0).toUpperCase() + goalType.slice(1) + "Goal";
-
+function buildMasterMDSL(): string {
 	return `root {
 	selector {
 		branch [UrgentReaction]
@@ -1962,7 +1963,14 @@ function buildMasterMDSL(agent: AgentSummary): string {
 			condition [HasEnoughFocus]
 			condition [HasEnoughMorale]
 			action [PickGoal]
-			branch [${goalRootName}]
+			selector {
+				branch [ReviewGoal]
+				branch [SummarizeGoal]
+				branch [PlanGoal]
+				branch [ImplementGoal]
+				branch [MonitorGoal]
+				branch [ReportGoal]
+			}
 		}
 		branch [SocialBehavior]
 		branch [NeedsSatisfaction]
@@ -1989,7 +1997,7 @@ function collectSubtrees(): string {
 
 export function createAgentBT(agent: AgentSummary, deps: AgentToolDeps): AgentBT {
 	const btAgent = createBTAgent(agent, deps);
-	const masterMDSL = buildMasterMDSL(agent);
+	const masterMDSL = buildMasterMDSL();
 	const allMDSL = masterMDSL + "\n\n" + collectSubtrees();
 	const tree = new BehaviourTree(allMDSL, btAgent);
 	return { tree, agent: btAgent };
@@ -2124,6 +2132,8 @@ import type { BTAgentObject } from "./bt-agent.js";
 import type { IClock } from "./bt-types.js";
 import type { IWorldStateManager, AgentAction } from "../world-state-types.js";
 
+let tickSeq = 0;
+
 export function btTick(
 	tree: BehaviourTree,
 	agent: BTAgentObject,
@@ -2131,12 +2141,13 @@ export function btTick(
 	clock: IClock,
 ): AgentAction[] {
 	tree.step();
+	tickSeq++;
 
 	const emitted: AgentAction[] = [];
 
 	for (const collected of agent.collectedActions) {
 		const action: AgentAction = {
-			id: `bt-${agent.context.name}-${clock.ms()}-${emitted.length}`,
+			id: `bt-${agent.context.name}-${tickSeq}-${emitted.length}`,
 			agentName: agent.context.name,
 			timestamp: clock.iso(),
 			type: collected.type as AgentAction["type"],
@@ -2188,51 +2199,93 @@ import type { AgentToolDeps } from "../domain/agents/behavior-tree/bt-types.js";
 import { checkPermission } from "../domain/agents/permission-engine.js";
 ```
 
-- [ ] **Step 2: Add BT fields to worker state**
+- [ ] **Step 2: Add BT fields to WorkerImpl interface (line 26-32)**
 
-Find the `WorkerImpl` class/interface in worker-manager.ts and add:
-
-```typescript
-bt?: AgentBT;
-btTickTimer?: ReturnType<typeof setInterval>;
-```
-
-- [ ] **Step 3: Add BT creation on spawn**
-
-In the worker spawn logic, after the worker is created, add a conditional:
+In `WorkerImpl` interface, add two optional fields after `failureCount`:
 
 ```typescript
-if (worker.agent.behaviors && worker.agent.behaviors.length > 0) {
-	const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
-	const agentState = readAgentState(deps, varDir, worker.name);
-	const policy = resolvePermissionPolicy(worker.agent.ai?.permissions, agentState.permissionOverride);
-
-	const toolDeps: AgentToolDeps = {
-		disk: deps.disk,
-		paths: deps.paths,
-		clock: deps.clock,
-		providerRegistry: undefined, // Wired when LLM provider is available
-		worldState,
-		checkPermission: (tool: string) => checkPermission(policy, agentState.grants, tool, true),
-	};
-
-	worker.bt = createAgentBT(worker.agent, toolDeps);
-	worker.btTickTimer = setInterval(() => {
-		if (worker.bt) btTick(worker.bt.tree, worker.bt.agent, worldState, deps.clock);
-	}, 3000);
+interface WorkerImpl {
+	readonly name: string;
+	readonly agent: AgentSummary;
+	state: WorkerState;
+	messageQueue: string[];
+	failureCount: number;
+	bt?: AgentBT;
+	btTickTimer?: ReturnType<typeof setInterval>;
 }
 ```
 
-- [ ] **Step 4: Add BT cleanup on despawn**
+No changes needed to the literal in `spawnWorker` (line 98-104) — optional fields are satisfied by omission.
 
-In the worker stop/despawn logic, add:
+- [ ] **Step 3: Add BT creation in spawnWorker (insert before `return worker;` at line 112)**
+
+The existing `spawnWorker` function (lines 97-113) creates the worker and updates the world-state entity. Insert this block **before the `return worker;` on line 112:**
 
 ```typescript
-if (worker.btTickTimer) {
-	clearInterval(worker.btTickTimer);
-	worker.btTickTimer = undefined;
-}
-worker.bt = undefined;
+	// BT execution model for agents with behaviors[] defined
+	if (worker.agent.behaviors && worker.agent.behaviors.length > 0) {
+		const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
+		const agentState = readAgentState(deps, varDir, worker.name);
+		const policy = resolvePermissionPolicy(worker.agent.ai?.permissions, agentState.permissionOverride);
+
+		const toolDeps: AgentToolDeps = {
+			disk: deps.disk,
+			paths: deps.paths,
+			clock: deps.clock,
+			providerRegistry: undefined, // Wired when LLM provider is available
+			worldState,
+			checkPermission: (tool: string) => checkPermission(policy, agentState.grants, tool, true),
+		};
+
+		worker.bt = createAgentBT(worker.agent, toolDeps);
+		worker.btTickTimer = setInterval(() => {
+			try {
+				if (worker.bt) btTick(worker.bt.tree, worker.bt.agent, worldState, deps.clock);
+			} catch (err) {
+				worker.failureCount++;
+				if (worker.failureCount >= 3) {
+					clearInterval(worker.btTickTimer);
+					worker.btTickTimer = undefined;
+					setWorkerState(worker, "stopped", worldState);
+				}
+			}
+		}, 3000);
+	}
+```
+
+Note: `readAgentState` and `resolvePermissionPolicy` are already imported at lines 18 and 17. The new imports from Step 1 add `createAgentBT`, `btTick`, `AgentToolDeps`, and `checkPermission`.
+
+- [ ] **Step 4: Add BT cleanup in stop() (line 250-255) and stopAll() (line 257-261)**
+
+In the `stop()` method, add cleanup **before** `setWorkerState`:
+
+```typescript
+stop(agentName: string): void {
+	const worker = workers.get(agentName);
+	if (!worker) return;
+	if (worker.btTickTimer) {
+		clearInterval(worker.btTickTimer);
+		worker.btTickTimer = undefined;
+	}
+	worker.bt = undefined;
+	if (pool) pool.cancel(agentName);
+	setWorkerState(worker, "stopped", worldState);
+},
+```
+
+In `stopAll()`, add cleanup inside the loop:
+
+```typescript
+stopAll(): void {
+	for (const worker of workers.values()) {
+		if (worker.btTickTimer) {
+			clearInterval(worker.btTickTimer);
+			worker.btTickTimer = undefined;
+		}
+		worker.bt = undefined;
+		setWorkerState(worker, "stopped", worldState);
+	}
+},
 ```
 
 - [ ] **Step 5: Type-check**
@@ -2295,7 +2348,7 @@ describe("BT integration — full tick cycle", () => {
 		const deps = makeDeps();
 		const agent: AgentSummary = {
 			name: "Atlas",
-			agentType: "llm",
+			agentType: "ai",
 			description: "Test agent",
 			skills: [],
 			tools: [],
@@ -2316,16 +2369,19 @@ describe("BT integration — full tick cycle", () => {
 			allActions.push(...actions);
 		}
 
-		// Verify goal was started
+		// Verify full pipeline: PickGoal → ReadFile → GenerateFromTemplate → WriteFile → DropArtifact
 		expect(allActions.some((a) => a.type === "goal-started")).toBe(true);
-
-		// Verify template was used (no LLM provider)
+		expect(allActions.some((a) => a.type === "file-read")).toBe(true);
 		expect(allActions.some((a) => a.type === "template-generated")).toBe(true);
+		expect(allActions.some((a) => a.type === "file-written")).toBe(true);
 
-		// Verify file was written
+		// Verify ReadFile actually populated the context
+		expect(deps.disk.readFileSync).toHaveBeenCalled();
+
+		// Verify WriteFile wrote content
 		expect(deps.disk.writeFileSync).toHaveBeenCalled();
 
-		// Verify artifact was dropped
+		// Verify artifact entity was created in world state
 		expect(deps.worldState.updateEntity).toHaveBeenCalledWith(
 			expect.stringContaining("artifact-Atlas-"),
 			"artifact",
@@ -2370,13 +2426,13 @@ describe("BT integration — full tick cycle", () => {
 		};
 
 		const { tree, agent: btAgent } = createAgentBT(agent, deps);
-		btTick(tree, btAgent, deps.worldState, deps.clock);
+		const actions = btTick(tree, btAgent, deps.worldState, deps.clock);
 
-		// Should have some idle action (wander, emote, or chatter)
-		const hasIdleOrSpeech = btAgent.collectedActions.length === 0 ||
-			(deps.worldState.emitAction as ReturnType<typeof vi.fn>).mock.calls.some(
-				(c: [{ type: string }]) => c[0].type === "idle" || c[0].type === "speaking"
-			);
+		// With no goals, ActiveGoal branch fails → should fall to idle or social
+		expect(actions.length).toBeGreaterThan(0);
+		const hasIdleOrSpeech = actions.some(
+			(a) => a.type === "idle" || a.type === "speaking"
+		);
 		expect(hasIdleOrSpeech).toBe(true);
 	});
 
@@ -2385,7 +2441,7 @@ describe("BT integration — full tick cycle", () => {
 		const deps = makeDeps({ checkPermission });
 		const agent: AgentSummary = {
 			name: "Blocked",
-			agentType: "llm",
+			agentType: "ai",
 			description: "Blocked agent",
 			skills: [],
 			tools: [],

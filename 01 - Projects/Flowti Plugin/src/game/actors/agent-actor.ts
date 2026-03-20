@@ -56,7 +56,6 @@ export class AgentActor extends ex.Actor {
 		}
 
 		this.buildLabelChild();
-		this.buildBadgeChild();
 		this.buildBulbChild();
 		this.buildToolChild();
 	}

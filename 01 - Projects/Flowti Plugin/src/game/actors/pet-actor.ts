@@ -8,7 +8,13 @@
 import * as ex from "excalibur";
 import type { PetDefinition } from "../data/pet-definitions.js";
 
-type PetState = "idle" | "wandering" | "sleeping" | "following";
+type PetState = "idle" | "wandering" | "sleeping" | "following" | "exiting";
+
+// World bounds with margin so pets stay visible
+const WORLD_MIN_X = 30;
+const WORLD_MAX_X = 770;
+const WORLD_MIN_Y = 60;
+const WORLD_MAX_Y = 460;
 
 export class PetActor extends ex.Actor {
 	readonly petType: string;
@@ -19,6 +25,7 @@ export class PetActor extends ex.Actor {
 	private targetPos: ex.Vector | null = null;
 	private followTarget: string | null = null;
 	private sleepZTimer = 0;
+	private reachedExit = false;
 
 	constructor(def: PetDefinition, x: number, y: number) {
 		super({
@@ -69,6 +76,155 @@ export class PetActor extends ex.Actor {
 				},
 			});
 			this.graphics.use(canvas);
+		} else if (def.type === "cat") {
+			const canvas = new ex.Canvas({
+				width: 16,
+				height: 16,
+				draw: (ctx) => {
+					// Body — rounded orange oval
+					ctx.fillStyle = "#f59e0b";
+					ctx.beginPath();
+					ctx.ellipse(8, 10, 5, 4, 0, 0, Math.PI * 2);
+					ctx.fill();
+					// Head
+					ctx.beginPath();
+					ctx.arc(8, 5, 3.5, 0, Math.PI * 2);
+					ctx.fill();
+					// Ears — pointy triangles
+					ctx.fillStyle = "#d97706";
+					ctx.beginPath();
+					ctx.moveTo(5, 3);
+					ctx.lineTo(4, 0);
+					ctx.lineTo(7, 2);
+					ctx.fill();
+					ctx.beginPath();
+					ctx.moveTo(11, 3);
+					ctx.lineTo(12, 0);
+					ctx.lineTo(9, 2);
+					ctx.fill();
+					// Eyes
+					ctx.fillStyle = "#1e293b";
+					ctx.beginPath();
+					ctx.arc(6.5, 5, 0.8, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.beginPath();
+					ctx.arc(9.5, 5, 0.8, 0, Math.PI * 2);
+					ctx.fill();
+					// Nose
+					ctx.fillStyle = "#ec4899";
+					ctx.beginPath();
+					ctx.arc(8, 6.2, 0.5, 0, Math.PI * 2);
+					ctx.fill();
+					// Tail — curved line
+					ctx.strokeStyle = "#f59e0b";
+					ctx.lineWidth = 1.5;
+					ctx.beginPath();
+					ctx.moveTo(13, 10);
+					ctx.quadraticCurveTo(16, 6, 14, 4);
+					ctx.stroke();
+				},
+			});
+			this.graphics.use(canvas);
+		} else if (def.type === "dog") {
+			const canvas = new ex.Canvas({
+				width: 16,
+				height: 16,
+				draw: (ctx) => {
+					// Body
+					ctx.fillStyle = "#d97706";
+					ctx.beginPath();
+					ctx.ellipse(8, 10, 5, 4, 0, 0, Math.PI * 2);
+					ctx.fill();
+					// Belly patch
+					ctx.fillStyle = "#fbbf24";
+					ctx.beginPath();
+					ctx.ellipse(8, 11, 3, 2.5, 0, 0, Math.PI * 2);
+					ctx.fill();
+					// Head
+					ctx.fillStyle = "#d97706";
+					ctx.beginPath();
+					ctx.arc(8, 5, 3.5, 0, Math.PI * 2);
+					ctx.fill();
+					// Floppy ears
+					ctx.fillStyle = "#b45309";
+					ctx.beginPath();
+					ctx.ellipse(4, 5, 2, 3, -0.3, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.beginPath();
+					ctx.ellipse(12, 5, 2, 3, 0.3, 0, Math.PI * 2);
+					ctx.fill();
+					// Eyes
+					ctx.fillStyle = "#1e293b";
+					ctx.beginPath();
+					ctx.arc(6.5, 4.5, 0.8, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.beginPath();
+					ctx.arc(9.5, 4.5, 0.8, 0, Math.PI * 2);
+					ctx.fill();
+					// Nose
+					ctx.fillStyle = "#1e293b";
+					ctx.beginPath();
+					ctx.ellipse(8, 6.2, 1, 0.6, 0, 0, Math.PI * 2);
+					ctx.fill();
+					// Tail — short wagging stub
+					ctx.strokeStyle = "#d97706";
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.moveTo(13, 9);
+					ctx.quadraticCurveTo(15, 6, 14, 5);
+					ctx.stroke();
+				},
+			});
+			this.graphics.use(canvas);
+		} else if (def.type === "bird") {
+			const canvas = new ex.Canvas({
+				width: 16,
+				height: 16,
+				draw: (ctx) => {
+					// Body — round
+					ctx.fillStyle = "#3b82f6";
+					ctx.beginPath();
+					ctx.arc(8, 9, 4.5, 0, Math.PI * 2);
+					ctx.fill();
+					// Wing
+					ctx.fillStyle = "#2563eb";
+					ctx.beginPath();
+					ctx.ellipse(11, 9, 3, 2, 0.4, 0, Math.PI * 2);
+					ctx.fill();
+					// Belly
+					ctx.fillStyle = "#93c5fd";
+					ctx.beginPath();
+					ctx.ellipse(7, 11, 2.5, 2, 0, 0, Math.PI * 2);
+					ctx.fill();
+					// Head
+					ctx.fillStyle = "#3b82f6";
+					ctx.beginPath();
+					ctx.arc(7, 5, 3, 0, Math.PI * 2);
+					ctx.fill();
+					// Eye
+					ctx.fillStyle = "#1e293b";
+					ctx.beginPath();
+					ctx.arc(6, 4.5, 0.8, 0, Math.PI * 2);
+					ctx.fill();
+					// Beak
+					ctx.fillStyle = "#f59e0b";
+					ctx.beginPath();
+					ctx.moveTo(4, 5);
+					ctx.lineTo(2, 5.5);
+					ctx.lineTo(4, 6.2);
+					ctx.fill();
+					// Feet — two tiny lines
+					ctx.strokeStyle = "#f59e0b";
+					ctx.lineWidth = 1;
+					ctx.beginPath();
+					ctx.moveTo(6.5, 13);
+					ctx.lineTo(6, 15);
+					ctx.moveTo(9, 13);
+					ctx.lineTo(9.5, 15);
+					ctx.stroke();
+				},
+			});
+			this.graphics.use(canvas);
 		}
 	}
 
@@ -111,8 +267,8 @@ export class PetActor extends ex.Actor {
 					const angle = Math.random() * Math.PI * 2;
 					const dist = Math.random() * this.def.behaviors.wanderRadius;
 					this.targetPos = ex.vec(
-						this.homePos.x + Math.cos(angle) * dist,
-						this.homePos.y + Math.sin(angle) * dist,
+						Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, this.homePos.x + Math.cos(angle) * dist)),
+						Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.homePos.y + Math.sin(angle) * dist)),
 					);
 					this.stateTimer = 3000 + Math.random() * 4000;
 				}
@@ -161,6 +317,29 @@ export class PetActor extends ex.Actor {
 				}
 				break;
 			}
+			case "exiting": {
+				// Walk toward exit target (door position)
+				if (this.targetPos) {
+					const dx = this.targetPos.x - this.pos.x;
+					const dy = this.targetPos.y - this.pos.y;
+					const dist = Math.sqrt(dx * dx + dy * dy);
+					if (dist < 10) {
+						// Arrived at door — engine will handle the transfer
+						this.reachedExit = true;
+					} else {
+						const speed = 50 * this.def.speed * (deltaMs / 1000);
+						this.pos.x += (dx / dist) * speed;
+						this.pos.y += (dy / dist) * speed;
+					}
+				}
+				break;
+			}
+		}
+
+		// Clamp position to world bounds (except when exiting — pet must reach the door)
+		if (this.state !== "exiting") {
+			this.pos.x = Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, this.pos.x));
+			this.pos.y = Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.pos.y));
 		}
 	}
 
@@ -173,6 +352,9 @@ export class PetActor extends ex.Actor {
 		const speed = 40 * this.def.speed * (deltaMs / 1000);
 		this.pos.x += (dx / dist) * speed;
 		this.pos.y += (dy / dist) * speed;
+		// Clamp after follow movement too
+		this.pos.x = Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, this.pos.x));
+		this.pos.y = Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.pos.y));
 	}
 
 	getInteractRadius(): number {
@@ -185,5 +367,38 @@ export class PetActor extends ex.Actor {
 
 	isSleeping(): boolean {
 		return this.state === "sleeping";
+	}
+
+	isExiting(): boolean {
+		return this.state === "exiting";
+	}
+
+	/** Start walking toward a door position. Returns false if already exiting. */
+	walkToExit(doorX: number, doorY: number): boolean {
+		if (this.state === "exiting") return false;
+		this.state = "exiting";
+		this.targetPos = ex.vec(doorX, doorY);
+		this.followTarget = null;
+		return true;
+	}
+
+	/** Check if the pet has arrived at its exit target and consume the flag. */
+	hasArrivedAtExit(): boolean {
+		if (this.reachedExit) {
+			this.reachedExit = false;
+			this.state = "idle";
+			this.targetPos = null;
+			return true;
+		}
+		return false;
+	}
+
+	/** Reset home position after being placed in a new room. */
+	resetHome(): void {
+		this.homePos = ex.vec(
+			Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, this.pos.x)),
+			Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.pos.y)),
+		);
+		this.stateTimer = 2000 + Math.random() * 3000; // pause at new location before wandering
 	}
 }

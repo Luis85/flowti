@@ -139,6 +139,27 @@ export class NeedsSystem {
 		}
 	}
 
+	/** Serialize all agent needs for persistence. */
+	serialize(): Record<string, AgentNeeds> {
+		const result: Record<string, AgentNeeds> = {};
+		for (const [name, entry] of this.agents) {
+			result[name] = { energy: entry.energy, social: entry.social, focus: entry.focus, morale: entry.morale };
+		}
+		return result;
+	}
+
+	/** Restore previously saved needs. Only updates agents that have been registered. */
+	restore(data: Record<string, AgentNeeds>): void {
+		for (const [name, needs] of Object.entries(data)) {
+			const entry = this.agents.get(name);
+			if (!entry) continue;
+			entry.energy = clamp(needs.energy ?? entry.energy);
+			entry.social = clamp(needs.social ?? entry.social);
+			entry.focus = clamp(needs.focus ?? entry.focus);
+			entry.morale = clamp(needs.morale ?? entry.morale);
+		}
+	}
+
 	/** Compute per-need decay multipliers from agent attributes. */
 	private getModifiers(attrs: AgentAttributes): { energy: number; social: number; focus: number; morale: number } {
 		return {

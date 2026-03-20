@@ -19,7 +19,7 @@ import type { AgentSprites } from "../sprites/sprite-loader.js";
 
 // ── Config ───────────────────────────────────────────────────────────
 
-const WORKSTATION_ROWS = 3;
+const WORKSTATION_ROWS = 2;
 const DOORWAY_MARGIN = 40;
 
 export interface RoomSceneConfig {
@@ -202,5 +202,33 @@ export class RoomScene extends ex.Scene {
 	/** Get all agent actors in this room. */
 	getAgentActors(): ReadonlyMap<string, AgentActor> {
 		return this.agentActors;
+	}
+
+	/** Get the doorway position (left side of room). Engine height is 500. */
+	getDoorwayPosition(): { x: number; y: number } {
+		return { x: DOORWAY_MARGIN, y: 250 };
+	}
+
+	/** Spawn an agent actor near the doorway (used for room transfers). */
+	spawnAgentAtDoorway(agent: DashboardAgent): void {
+		if (this.agentActors.has(agent.name)) return;
+
+		// Spawn near the doorway with a small random offset so agents don't stack
+		const doorway = this.getDoorwayPosition();
+		const x = doorway.x + 30 + Math.random() * 40;
+		const y = doorway.y - 20 + Math.random() * 40;
+
+		const charName = resolveCharacter(agent.name, agent.domain ?? "");
+		const sprites = this.spriteRegistry.get(charName);
+		if (!sprites) return;
+		const actor = new AgentActor({
+			agent,
+			x,
+			y,
+			onSelect: this.roomConfig.onAgentSelect,
+			sprites,
+		});
+		this.add(actor);
+		this.agentActors.set(agent.name, actor);
 	}
 }

@@ -126,6 +126,24 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const gameCanvas = document.createElement("canvas");
 	container.appendChild(gameCanvas);
 
+	// ── Loading overlay ──────────────────────────────────
+	const loadingOverlay = document.createElement("div");
+	loadingOverlay.style.cssText = `
+		position: absolute; inset: 0; z-index: 9999;
+		display: flex; flex-direction: column; align-items: center; justify-content: center;
+		background: #0a0a0f; color: #64748b; font-family: system-ui, sans-serif;
+		transition: opacity 0.6s ease-out;
+	`;
+	loadingOverlay.innerHTML = `
+		<div style="font-size: 14px; margin-bottom: 16px; color: #94a3b8;">Loading Agent World</div>
+		<div style="width: 120px; height: 4px; background: #1e293b; border-radius: 2px; overflow: hidden;">
+			<div style="width: 30%; height: 100%; background: #3b82f6; border-radius: 2px; animation: loading-bar 1.2s ease-in-out infinite alternate;"></div>
+		</div>
+		<style>@keyframes loading-bar { from { width: 20%; margin-left: 0; } to { width: 40%; margin-left: 60%; } }</style>
+	`;
+	container.style.position = "relative";
+	container.appendChild(loadingOverlay);
+
 	const engine = new ex.Engine({
 		canvasElement: gameCanvas,
 		width: ENGINE_WIDTH,
@@ -272,15 +290,21 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Office pets ──────────────────────────────────────
 	const pets: PetActor[] = [];
+	const petRoomMap = new Map<PetActor, string>(); // pet → scene key ("hub"|"office"|"village"|"station")
 	const catDef = PET_DEFINITIONS.find((p) => p.type === "cat")!;
 	const dogDef = PET_DEFINITIONS.find((p) => p.type === "dog")!;
 	const birdDef = PET_DEFINITIONS.find((p) => p.type === "bird")!;
 	const fishDef = PET_DEFINITIONS.find((p) => p.type === "fish")!;
 
+	// 3 cats, 3 dogs, 1 bird, 1 fish — distributed across rooms
+	const hubCat = new PetActor(catDef, 300, 250);
 	const officeCat = new PetActor(catDef, 350, 300);
+	const villageCat = new PetActor(catDef, 400, 280);
 	const officeDog = new PetActor(dogDef, 500, 350);
-	const officeBird = new PetActor(birdDef, 200, 80);
-	const officeFish = new PetActor(fishDef, 680, 380);
+	const villageDog = new PetActor(dogDef, 300, 200);
+	const stationDog = new PetActor(dogDef, 450, 300);
+	const villageBird = new PetActor(birdDef, 200, 80);
+	const stationFish = new PetActor(fishDef, 680, 380);
 
 	// Wire DayClock phase changes to store + scheduler
 	dayClock.onPhaseChange((phase) => {
@@ -300,7 +324,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	registerWorldEvent("standup", "Morning Standup", () => {
-		const agents = needsSystem.getAgentNames();
+		const agents = needsSystem.getAgentNames().filter((n) => !isInTransit(n));
 		for (const name of agents) {
 			const state = brainSystem.getState(name)?.state;
 			if (state === "idle" || state === "wandering") brainSystem.applyEvent(name, "speaking");
@@ -487,14 +511,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		return undefined;
 	}
 
-	/** Find the position of the closest agent to `agentName` (for seek-agent threshold). */
+	/** Find the position of the closest agent to `agentName` — same room only. */
 	function findNearestAgent(agentName: string): { x: number; y: number } | null {
 		const pos = brainSystem.getPosition(agentName);
 		if (!pos) return null;
+		const myRoom = agentRoomMap.get(agentName);
 		let closest: { x: number; y: number } | null = null;
 		let minDist = Infinity;
 		for (const [name, entry] of brainSystem.getAllEntries()) {
 			if (name === agentName) continue;
+			if (agentRoomMap.get(name) !== myRoom) continue;
 			const dx = pos.x - entry.position.x;
 			const dy = pos.y - entry.position.y;
 			const dist = dx * dx + dy * dy;
@@ -626,6 +652,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			const setting = resolveSettingForDomain(agentData.domain);
 			if (setting !== "hub" && roomScenes[setting]) {
 				roomScenes[setting].spawnAgent(agentData);
+				agentRoomMap.set(agentData.name, setting);
 			}
 			store.setAgents([...store.agents, agentData]);
 			hubScene.updateAgents([...store.agents]);
@@ -718,6 +745,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 
 	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
+		// Skip if either agent is walking to a door
+		if (isInTransit(nameA) || isInTransit(nameB)) return;
 		// Track conversations for memory streaks
 		cycleConversationCounts.set(nameA, (cycleConversationCounts.get(nameA) ?? 0) + 1);
 		cycleConversationCounts.set(nameB, (cycleConversationCounts.get(nameB) ?? 0) + 1);
@@ -786,7 +815,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Wire cluster huddle conversations ────────────────
 	socialSystem.onCluster((members) => {
-		relationshipSystem.recordCluster(members);
+		// Filter out in-transit agents
+		const available = members.filter((n) => !isInTransit(n));
+		if (available.length < 2) return;
+		relationshipSystem.recordCluster(available);
 		const speakCount = Math.min(members.length, 3);
 		const lines = members.slice(0, speakCount).map(() => {
 			const template = HUDDLE_TEMPLATES[Math.floor(Math.random() * HUDDLE_TEMPLATES.length)];
@@ -823,6 +855,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Wire engagement → walk toward camera + bubble ───
 	engagementSystem.onEngagement((e) => {
+		if (isInTransit(e.agentName)) return;
 		if (e.tier >= 2) {
 			const cam = engine.currentScene.camera;
 			brainSystem.walkTo(e.agentName, { x: cam.pos.x - 50, y: cam.pos.y });
@@ -834,11 +867,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	ritualSystem.onPhase((phase) => {
 		if (phase.kind === "gather") {
 			for (const name of phase.participants) {
-				brainSystem.applyEvent(name, "speaking");
+				if (!isInTransit(name)) brainSystem.applyEvent(name, "speaking");
 			}
 		}
 		if (phase.kind === "line") {
-			bubbleSystem.showBubble(phase.agentName, "speech", phase.text, engine.currentScene, findAgentActor, 4000, true);
+			if (!isInTransit(phase.agentName)) bubbleSystem.showBubble(phase.agentName, "speech", phase.text, engine.currentScene, findAgentActor, 4000, true);
 		}
 		if (phase.kind === "disperse") {
 			for (const name of phase.participants) {
@@ -856,6 +889,55 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		bubbleSystem.showBubble(result.agentName, "speech", result.success ? "Done! All good." : "Something went wrong...", engine.currentScene, findAgentActor, 5000, true);
 	});
 
+	// ── Agent room tracking ─────────────────────────────
+	const agentRoomMap = new Map<string, string>(); // agentName → room key ("office"|"village"|"station")
+	const ROOM_KEYS = Object.keys(roomScenes); // ["office", "village", "station"]
+	let roomSwitchTimer = 0;
+	const ROOM_SWITCH_INTERVAL = 10_000; // check every 10s
+	const ROOM_SWITCH_CHANCE = 0.08; // 8% chance per idle agent per check
+	/** Agents walking toward a door to switch rooms. */
+	const agentsInTransit = new Map<string, { targetRoom: string; door: { x: number; y: number } }>();
+
+	/** Check if an agent is in transit and should not be interrupted. */
+	function isInTransit(name: string): boolean {
+		return agentsInTransit.has(name);
+	}
+
+	/** Scenes that support agent transfer (hub + room scenes). */
+	const transferScenes: Record<string, { removeAgent: (n: string) => void; spawnAgentAtDoorway: (a: DashboardAgent) => void; getDoorwayPosition: () => { x: number; y: number } }> = {
+		hub: hubScene,
+		...roomScenes,
+	};
+	const ALL_SCENE_KEYS = ["hub", ...ROOM_KEYS];
+
+	/** Transfer an agent from their current room to a different room. */
+	function transferAgent(agentName: string, targetRoom: string): void {
+		const currentRoom = agentRoomMap.get(agentName);
+		if (!currentRoom || currentRoom === targetRoom) return;
+		if (!transferScenes[currentRoom] || !transferScenes[targetRoom]) return;
+
+		const agent = store.agents.find((a) => a.name === agentName);
+		if (!agent) return;
+
+		// Remove from current scene
+		transferScenes[currentRoom].removeAgent(agentName);
+
+		// Spawn at doorway in target scene
+		transferScenes[targetRoom].spawnAgentAtDoorway(agent);
+		agentRoomMap.set(agentName, targetRoom);
+		agentsInTransit.delete(agentName);
+
+		// Walk away from doorway toward center
+		const targetX = 200 + Math.random() * 400;
+		const targetY = 150 + Math.random() * 200;
+		brainSystem.walkTo(agentName, { x: targetX, y: targetY });
+
+		// Show arrival bubble
+		const roomLabel = targetRoom.charAt(0).toUpperCase() + targetRoom.slice(1);
+		bubbleSystem.showBubble(agentName, "thought", `Visiting ${roomLabel}...`, engine.currentScene, findAgentActor, 3000);
+		store.pushWorldEvent("room-switch", `${agentName} moved to ${roomLabel}`);
+	}
+
 	// ── Pre-update loop state ───────────────────────────
 	let lastTime = performance.now();
 	const prevWalkingState = new Map<string, boolean>();
@@ -867,7 +949,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const actor = new ex.Actor({
 			pos: ex.vec(0, 0),
 			anchor: ex.vec(0, 0),
-			z: -10,
+			z: 50,
 			collisionType: ex.CollisionType.PreventCollision,
 		});
 		const canvas = new ex.Canvas({
@@ -904,11 +986,19 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	hubScene.add(noticeBoard);
 
 	// ── Office pets in scenes ────────────────────────────
-	officeScene.add(officeCat);
-	officeScene.add(officeDog);
-	villageScene.add(officeBird);
-	stationScene.add(officeFish);
-	pets.push(officeCat, officeDog, officeBird, officeFish);
+	hubScene.add(hubCat);        petRoomMap.set(hubCat, "hub");
+	officeScene.add(officeCat);  petRoomMap.set(officeCat, "office");
+	officeScene.add(officeDog);  petRoomMap.set(officeDog, "office");
+	villageScene.add(villageCat); petRoomMap.set(villageCat, "village");
+	villageScene.add(villageDog); petRoomMap.set(villageDog, "village");
+	villageScene.add(villageBird); petRoomMap.set(villageBird, "village");
+	stationScene.add(stationDog); petRoomMap.set(stationDog, "station");
+	stationScene.add(stationFish); petRoomMap.set(stationFish, "station");
+	pets.push(hubCat, officeCat, villageCat, officeDog, villageDog, stationDog, villageBird, stationFish);
+	let petSwitchTimer = 0;
+	const PET_SWITCH_INTERVAL = 8_000;  // check every 8s
+	const PET_SWITCH_CHANCE = 0.25;     // 25% per mobile pet per check (much higher than agents)
+	const petTransitTargets = new Map<PetActor, string>(); // pet → target room (while walking to door)
 
 	// ── Cursor spirit — visual director presence (one per scene) ────
 	const cursorSpirits = [new CursorSpirit(), new CursorSpirit(), new CursorSpirit(), new CursorSpirit()];
@@ -917,7 +1007,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	villageScene.add(cursorSpirits[2]);
 	stationScene.add(cursorSpirits[3]);
 
-	// ── Lighting overlay — full-screen tint driven by DayClock phase ──
+	// ── Lighting overlay — full-screen tint driven by DayClock phase (smooth fade) ──
+	const currentLight = { r: 0, g: 0, b: 0, opacity: 0 };
+	const LIGHT_LERP_SPEED = 0.0015; // per ms — full transition takes ~2-3s
 	function createLightingOverlay(): ex.Actor {
 		const actor = new ex.Actor({
 			pos: ex.vec(0, 0),
@@ -930,9 +1022,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			height: ENGINE_HEIGHT,
 			cache: false,
 			draw: (ctx: CanvasRenderingContext2D) => {
-				const light = worldAmbience.getLighting(dayClock.getPhase());
-				if (light.opacity <= 0) return;
-				ctx.fillStyle = `rgba(${light.r}, ${light.g}, ${light.b}, ${light.opacity})`;
+				if (currentLight.opacity <= 0.001) return;
+				ctx.fillStyle = `rgba(${Math.round(currentLight.r)}, ${Math.round(currentLight.g)}, ${Math.round(currentLight.b)}, ${currentLight.opacity.toFixed(3)})`;
 				ctx.fillRect(0, 0, ENGINE_WIDTH, ENGINE_HEIGHT);
 			},
 		});
@@ -944,15 +1035,17 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	villageScene.add(createLightingOverlay());
 	stationScene.add(createLightingOverlay());
 
-	/** Get names of agents within social radius of `name`. */
+	/** Get names of agents within social radius of `name` — same room only. */
 	function getNearbyAgents(name: string): string[] {
 		const pos = brainSystem.getPosition(name);
 		if (!pos) return [];
+		const myRoom = agentRoomMap.get(name);
 		const params = brainSystem.getState(name);
 		const radius = params?.params.socialRadius ?? 100;
 		return [...brainSystem.getAllEntries()]
 			.filter(([n]) => {
 				if (n === name) return false;
+				if (agentRoomMap.get(n) !== myRoom) return false; // different room — invisible
 				const otherPos = brainSystem.getPosition(n);
 				if (!otherPos) return false;
 				const dx = pos.x - otherPos.x;
@@ -965,6 +1058,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	/** Process behavior thresholds — needs-driven state overrides. */
 	function processThresholds(): void {
 		for (const agentName of needsSystem.getAgentNames()) {
+			if (isInTransit(agentName)) continue;
 			const actions = needsSystem.checkThresholds(agentName);
 			for (const action of actions) {
 				switch (action.type) {
@@ -993,14 +1087,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		return DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
 	}
 
-	/** Spawn particle trails for walking agents, dust bursts on arrival. */
+	/** Spawn particle trails for walking agents, dust bursts on arrival. Only for current scene. */
 	function updateParticleTrails(): void {
 		for (const [name, entry] of brainSystem.getAllEntries()) {
 			const wasWalking = prevWalkingState.get(name) ?? false;
 			const isWalking = entry.state === "wandering" || entry.state === "walking-to";
 
 			if (isWalking) {
-				const actor = findAgentActor(name);
+				const actor = findCurrentSceneActor(name);
 				if (!actor) continue;
 				const x = actor.pos.x;
 				const y = actor.pos.y + 28;
@@ -1018,7 +1112,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			} else {
 				lastTrailPos.delete(name);
 				if (wasWalking) {
-					const actor = findAgentActor(name);
+					const actor = findCurrentSceneActor(name);
 					if (actor) particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, agentParticleColor(name));
 				}
 			}
@@ -1052,6 +1146,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 		// 0b. World event scheduler — tick active events and fire queued
 		worldEventScheduler.update(deltaMs);
+
+		// 0c. Smooth lighting transition — lerp toward target phase lighting
+		const targetLight = worldAmbience.getLighting(dayClock.getPhase());
+		const lerpT = Math.min(1, LIGHT_LERP_SPEED * deltaMs);
+		currentLight.r += (targetLight.r - currentLight.r) * lerpT;
+		currentLight.g += (targetLight.g - currentLight.g) * lerpT;
+		currentLight.b += (targetLight.b - currentLight.b) * lerpT;
+		currentLight.opacity += (targetLight.opacity - currentLight.opacity) * lerpT;
 
 		// 1. Sensor system — drain cooldowns, process queued feedback
 		sensorSystem.update(deltaMs);
@@ -1140,35 +1242,46 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 		}
 
-		// 3d. Pet behavior + agent reactions
+		// 3d. Pet behavior + agent reactions (room-aware)
 		for (const pet of pets) {
 			pet.updateBehavior(deltaMs);
+			const petRoom = petRoomMap.get(pet);
 
-			// Follow behavior — move toward target agent
+			// Follow behavior — move toward target agent (only if same room)
 			if (pet.getFollowTarget()) {
-				const targetPos = brainSystem.getPosition(pet.getFollowTarget()!);
-				if (targetPos) pet.moveToward(targetPos.x, targetPos.y, deltaMs);
+				const targetRoom = agentRoomMap.get(pet.getFollowTarget()!);
+				if (targetRoom === petRoom) {
+					const targetPos = brainSystem.getPosition(pet.getFollowTarget()!);
+					if (targetPos) pet.moveToward(targetPos.x, targetPos.y, deltaMs);
+				} else {
+					pet.setFollowTarget(null); // lost target — different room
+				}
 			}
 
-			// Dog follows nearest idle agent
+			// Dog follows nearest idle agent in same room
 			if (pet.petType === "dog" && pet.getState() === "idle" && Math.random() < 0.001) {
-				const idle = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "idle");
-				if (idle.length > 0) {
-					pet.setFollowTarget(idle[Math.floor(Math.random() * idle.length)]);
+				const sameRoomAgents = needsSystem.getAgentNames().filter((n) =>
+					agentRoomMap.get(n) === petRoom && brainSystem.getState(n)?.state === "idle",
+				);
+				if (sameRoomAgents.length > 0) {
+					pet.setFollowTarget(sameRoomAgents[Math.floor(Math.random() * sameRoomAgents.length)]);
 				}
 			}
 
-			// Cat follows stressed agents (low morale)
+			// Cat follows stressed agents in same room (low morale)
 			if (pet.petType === "cat" && pet.getState() === "idle" && Math.random() < 0.0005) {
-				const stressed = needsSystem.getAgentNames().filter((n) => needsSystem.getNeeds(n).morale < 30);
-				if (stressed.length > 0) {
-					pet.setFollowTarget(stressed[Math.floor(Math.random() * stressed.length)]);
+				const sameRoomStressed = needsSystem.getAgentNames().filter((n) =>
+					agentRoomMap.get(n) === petRoom && needsSystem.getNeeds(n).morale < 30,
+				);
+				if (sameRoomStressed.length > 0) {
+					pet.setFollowTarget(sameRoomStressed[Math.floor(Math.random() * sameRoomStressed.length)]);
 				}
 			}
 
-			// Agent proximity reactions
-			if (pet.getState() !== "sleeping") {
+			// Agent proximity reactions — only agents in the same room
+			if (pet.getState() !== "sleeping" && petRoom) {
 				for (const agentName of needsSystem.getAgentNames()) {
+					if (agentRoomMap.get(agentName) !== petRoom) continue;
 					const agentPos = brainSystem.getPosition(agentName);
 					if (!agentPos) continue;
 					const dx = pet.pos.x - agentPos.x;
@@ -1177,21 +1290,130 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					if (dist < pet.getInteractRadius()) {
 						const cooldownKey = `${agentName}:${pet.petType}`;
 						const lastReaction = petReactionCooldowns.get(cooldownKey) ?? 0;
-						if (performance.now() - lastReaction > 30000) { // 30s cooldown per agent-pet pair
+						if (performance.now() - lastReaction > 30000) {
 							petReactionCooldowns.set(cooldownKey, performance.now());
-							// Apply needs effects
 							needsSystem.applyEffect(agentName, pet.getNeedsEffects());
-							// Show reaction bubble from pet phrases
 							const def = PET_DEFINITIONS.find((d) => d.type === pet.petType);
 							if (def && def.phrases.length > 0) {
 								const phrase = def.phrases[Math.floor(Math.random() * def.phrases.length)];
 								bubbleSystem.showBubble(agentName, "thought", phrase, engine.currentScene, findAgentActor, 3000);
 							}
-							// Hearts particles
 							particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
 						}
 					}
 				}
+			}
+		}
+
+		// 3d-ii. Pet room switching — walk to door, exit, enter new room at door
+		petSwitchTimer += deltaMs;
+		const allSceneKeys = ["hub", ...ROOM_KEYS];
+		const sceneMap: Record<string, ex.Scene> = { hub: hubScene, ...roomScenes };
+		// Door positions: room scenes have door on left (40, 250), hub has doors on right (~750, 250)
+		const doorPositions: Record<string, { x: number; y: number }> = {
+			hub: { x: ENGINE_WIDTH - 50, y: ENGINE_HEIGHT / 2 },
+			office: { x: 40, y: ENGINE_HEIGHT / 2 },
+			village: { x: 40, y: ENGINE_HEIGHT / 2 },
+			station: { x: 40, y: ENGINE_HEIGHT / 2 },
+		};
+		// Spawn positions: opposite side of the door (enter from door, walk inward)
+		const spawnPositions: Record<string, { x: number; y: number }> = {
+			hub: { x: ENGINE_WIDTH - 80, y: ENGINE_HEIGHT / 2 },
+			office: { x: 70, y: ENGINE_HEIGHT / 2 },
+			village: { x: 70, y: ENGINE_HEIGHT / 2 },
+			station: { x: 70, y: ENGINE_HEIGHT / 2 },
+		};
+
+		// Check if any exiting pets have arrived at their door
+		for (const pet of pets) {
+			if (!pet.isExiting() || !pet.hasArrivedAtExit()) continue;
+			const targetRoom = petTransitTargets.get(pet);
+			if (!targetRoom) continue;
+
+			const currentRoom = petRoomMap.get(pet)!;
+			const currentScene = sceneMap[currentRoom];
+			if (currentScene) currentScene.remove(pet);
+
+			// Place at door position in target room
+			const spawn = spawnPositions[targetRoom] ?? { x: 70, y: 250 };
+			pet.pos.x = spawn.x;
+			pet.pos.y = spawn.y;
+			pet.resetHome();
+
+			const targetScene = sceneMap[targetRoom];
+			if (targetScene) targetScene.add(pet);
+			petRoomMap.set(pet, targetRoom);
+			petTransitTargets.delete(pet);
+		}
+
+		// Periodically send pets toward doors
+		if (petSwitchTimer >= PET_SWITCH_INTERVAL) {
+			petSwitchTimer = 0;
+			for (const pet of pets) {
+				if (pet.petType === "fish") continue;
+				if (pet.getState() !== "idle" && pet.getState() !== "wandering") continue;
+				if (petTransitTargets.has(pet)) continue;
+				if (Math.random() > PET_SWITCH_CHANCE) continue;
+
+				const currentRoom = petRoomMap.get(pet);
+				if (!currentRoom) continue;
+				const otherRooms = allSceneKeys.filter((r) => r !== currentRoom);
+				const targetRoom = otherRooms[Math.floor(Math.random() * otherRooms.length)];
+
+				const door = doorPositions[currentRoom];
+				if (!door) continue;
+				pet.walkToExit(door.x, door.y);
+				petTransitTargets.set(pet, targetRoom);
+			}
+		}
+
+		// 3e. Room switching — idle agents occasionally visit other rooms
+		// Brain bounds clamp agents to minX=96, so walk targets must be within bounds.
+		// The visual door is at x=40 but agents can only reach ~x=96.
+		// Use a generous arrival radius (70px) to detect agents at the brain edge.
+		const DOOR_ARRIVAL_DIST_SQ = 70 * 70; // 4900 — generous radius for brain-clamped agents
+
+		// Step 1: Check in-transit agents for door arrival or re-walk if interrupted
+		for (const [agentName, transit] of agentsInTransit) {
+			const pos = brainSystem.getPosition(agentName);
+			if (!pos) { agentsInTransit.delete(agentName); continue; }
+			const dx = pos.x - transit.door.x;
+			const dy = pos.y - transit.door.y;
+			if (dx * dx + dy * dy < DOOR_ARRIVAL_DIST_SQ) {
+				// Close enough to door — transfer
+				agentsInTransit.delete(agentName);
+				transferAgent(agentName, transit.targetRoom);
+			} else {
+				// Not at door yet — ensure agent is still walking toward it
+				const state = brainSystem.getState(agentName)?.state;
+				if (state !== "walking-to") {
+					brainSystem.walkTo(agentName, transit.door);
+				}
+			}
+		}
+
+		// Step 2: Periodically pick new agents to switch rooms
+		roomSwitchTimer += deltaMs;
+		if (roomSwitchTimer >= ROOM_SWITCH_INTERVAL) {
+			roomSwitchTimer = 0;
+			for (const agentName of needsSystem.getAgentNames()) {
+				if (agentsInTransit.has(agentName)) continue;
+				const state = brainSystem.getState(agentName)?.state;
+				if (state !== "idle" && state !== "wandering") continue;
+				if (store.taskLockedAgents.has(agentName)) continue;
+				if (Math.random() > ROOM_SWITCH_CHANCE) continue;
+
+				const currentRoom = agentRoomMap.get(agentName);
+				if (!currentRoom || !transferScenes[currentRoom]) continue;
+
+				// Pick a random different room (hub included)
+				const otherRooms = ALL_SCENE_KEYS.filter((r) => r !== currentRoom);
+				if (otherRooms.length === 0) continue;
+				const targetRoom = otherRooms[Math.floor(Math.random() * otherRooms.length)];
+
+				const doorway = transferScenes[currentRoom].getDoorwayPosition();
+				agentsInTransit.set(agentName, { targetRoom, door: doorway });
+				brainSystem.walkTo(agentName, doorway);
 			}
 		}
 
@@ -1218,15 +1440,21 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}
 
 		// 6. Brain system — movement, state machine
-		brainSystem.update(deltaMs, findAgentActor);
+		brainSystem.update(deltaMs, findAgentActor, (name) => agentRoomMap.get(name));
 
 		// 7. Ritual system — ceremonial choreography
 		ritualSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
 
-		// 8. Social system — proximity conversations (extended with needs callback)
+		// 8. Social system — proximity conversations (room-isolated: offset positions by room)
+		const ROOM_OFFSETS: Record<string, number> = { hub: 0, office: 10000, village: 20000, station: 30000 };
 		socialSystem.update(
 			deltaMs,
-			(name) => brainSystem.getPosition(name) ?? { x: 0, y: 0 },
+			(name) => {
+				const pos = brainSystem.getPosition(name) ?? { x: 0, y: 0 };
+				const room = agentRoomMap.get(name) ?? "";
+				const offset = ROOM_OFFSETS[room] ?? 30000; // unknown rooms are far away
+				return { x: pos.x + offset, y: pos.y + offset };
+			},
 			(name) => brainSystem.getState(name)?.state ?? "idle",
 			(name) => needsSystem.getNeeds(name),
 		);
@@ -1331,7 +1559,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				positions[name] = {
 					x: Math.round(entry.position.x),
 					y: Math.round(entry.position.y),
-					scene: store.currentScene,
+					scene: agentRoomMap.get(name) ?? "office",
 					state: entry.state,
 				};
 			}
@@ -1527,6 +1755,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			// No need to push state to the store — WorldContext is the source of truth.
 
 			// Restore persisted Living World state
+			let savedPositions: Record<string, { x: number; y: number; scene: string; state: string }> | null = null;
 			if (deps.vaultBasePath) {
 				try {
 					const varDir = join(deps.vaultBasePath, ".flowti", "var");
@@ -1538,9 +1767,21 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					if (existsSync(memoryPath)) memorySystem.restore(JSON.parse(readFileSync(memoryPath, "utf-8")));
 					const relPath = join(varDir, "world-relationships.json");
 					if (existsSync(relPath)) relationshipSystem.restore(JSON.parse(readFileSync(relPath, "utf-8")));
+					const posPath = join(varDir, "world-positions.json");
+					if (existsSync(posPath)) {
+						const posData = JSON.parse(readFileSync(posPath, "utf-8"));
+						if (posData.positions) savedPositions = posData.positions;
+					}
 				} catch { /* non-critical — start fresh */ }
 			}
 			prevCycleCount = dayClock.getCycleCount();
+
+			// Initialize lighting to current phase (no pop on first frame)
+			const initLight = worldAmbience.getLighting(dayClock.getPhase());
+			currentLight.r = initLight.r;
+			currentLight.g = initLight.g;
+			currentLight.b = initLight.b;
+			currentLight.opacity = initLight.opacity;
 
 			// Start data provider and load initial data
 			await provider.start();
@@ -1548,12 +1789,45 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			const initialAgents = await provider.getDashboardAgents();
 			registerAgents(initialAgents);
 
-			// Route agents to room scenes by domain
+			// Route agents to room scenes — use saved positions/rooms if available
 			for (const agent of initialAgents) {
-				const setting = resolveSettingForDomain(agent.domain);
-				if (setting !== "hub" && roomScenes[setting]) {
-					roomScenes[setting].spawnAgent(agent);
+				const saved = savedPositions?.[agent.name];
+				const targetRoom = saved?.scene && transferScenes[saved.scene] ? saved.scene : resolveSettingForDomain(agent.domain);
+
+				if (targetRoom === "hub") {
+					// Hub agents are already created by hubScene.updateAgents above
+					agentRoomMap.set(agent.name, "hub");
+					// Restore position if saved
+					if (saved) {
+						const actor = hubScene.getAgentActor(agent.name);
+						if (actor) {
+							actor.pos.x = saved.x;
+							actor.pos.y = saved.y;
+						}
+					}
+				} else if (roomScenes[targetRoom]) {
+					// Remove from hub first (hubScene.updateAgents may have created an actor)
+					hubScene.removeAgent(agent.name);
+					if (saved) {
+						roomScenes[targetRoom].spawnAgentAtDoorway(agent);
+						const actor = roomScenes[targetRoom].getAgentActor(agent.name);
+						if (actor) {
+							actor.pos.x = saved.x;
+							actor.pos.y = saved.y;
+						}
+					} else {
+						roomScenes[targetRoom].spawnAgent(agent);
+					}
+					agentRoomMap.set(agent.name, targetRoom);
 				}
+			}
+
+			// Restore needs after registration (register sets defaults, restore overrides)
+			if (deps.vaultBasePath) {
+				try {
+					const needsPath = join(deps.vaultBasePath, ".flowti", "var", "world-needs.json");
+					if (existsSync(needsPath)) needsSystem.restore(JSON.parse(readFileSync(needsPath, "utf-8")));
+				} catch { /* non-critical */ }
 			}
 
 			// Fetch initial world state for activity log
@@ -1565,6 +1839,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			// FitContainer mode handles resize automatically — no manual
 			// ResizeObserver needed. ExcaliburJS listens for window resize
 			// and recalculates the viewport based on the parent container.
+
+			// Fade out loading overlay
+			loadingOverlay.style.opacity = "0";
+			setTimeout(() => loadingOverlay.remove(), 600);
 		},
 
 		pause(): void {
@@ -1585,6 +1863,18 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					writeFileSync(join(varDir, "world-weather.json"), JSON.stringify(worldAmbience.serialize(), null, "\t"), "utf-8");
 					writeFileSync(join(varDir, "world-memory.json"), JSON.stringify(memorySystem.serialize(), null, "\t"), "utf-8");
 					writeFileSync(join(varDir, "world-relationships.json"), JSON.stringify(relationshipSystem.serialize(), null, "\t"), "utf-8");
+					writeFileSync(join(varDir, "world-needs.json"), JSON.stringify(needsSystem.serialize(), null, "\t"), "utf-8");
+					// Flush agent positions + rooms
+					const positions: Record<string, { x: number; y: number; scene: string; state: string }> = {};
+					for (const [name, entry] of brainSystem.getAllEntries()) {
+						positions[name] = {
+							x: Math.round(entry.position.x),
+							y: Math.round(entry.position.y),
+							scene: agentRoomMap.get(name) ?? "office",
+							state: entry.state,
+						};
+					}
+					writeFileSync(join(varDir, "world-positions.json"), JSON.stringify({ updatedAt: new Date().toISOString(), positions }, null, "\t"), "utf-8");
 				} catch { /* non-critical — skip silently */ }
 			}
 			engine.stop();

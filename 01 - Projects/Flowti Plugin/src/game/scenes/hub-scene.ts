@@ -258,4 +258,37 @@ export class HubScene extends ex.Scene {
 	getAgentActor(name: string): AgentActor | undefined {
 		return this.agentActors.get(name);
 	}
+
+	/** Remove an agent actor by name (for room switching). */
+	removeAgent(name: string): void {
+		const actor = this.agentActors.get(name);
+		if (!actor) return;
+		actor.kill();
+		this.agentActors.delete(name);
+	}
+
+	/** Spawn an agent actor near the hub doorways (right side, for room transfers). */
+	spawnAgentAtDoorway(agent: DashboardAgent): void {
+		if (this.agentActors.has(agent.name)) return;
+		const w = this.engine?.drawWidth ?? 800;
+		const h = this.engine?.drawHeight ?? 500;
+		const x = w - 80 + Math.random() * 20;
+		const y = h / 2 - 20 + Math.random() * 40;
+		const charName = resolveCharacter(agent.name, agent.domain ?? "");
+		const sprites = this.spriteRegistry.get(charName);
+		if (!sprites) return;
+		const actor = new AgentActor({
+			agent, x, y,
+			onSelect: this.config.onAgentSelect,
+			sprites,
+		});
+		actor.z = 10;
+		this.add(actor);
+		this.agentActors.set(agent.name, actor);
+	}
+
+	/** Get the doorway position (right side of hub where room doors are). */
+	getDoorwayPosition(): { x: number; y: number } {
+		return { x: (this.engine?.drawWidth ?? 800) - 50, y: (this.engine?.drawHeight ?? 500) / 2 };
+	}
 }

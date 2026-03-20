@@ -11,9 +11,9 @@ import type { BrainParams } from "../brain/brain-types.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const MAX_BUBBLES_PER_AGENT = 3;
+const MAX_BUBBLES_PER_AGENT = 1;
 const DEFAULT_DURATION = 5000;
-const BUBBLE_STACK_OFFSET = 20;
+const MIN_BUBBLE_GAP = 1500;
 const BUBBLE_Y_OFFSET = -10;
 const AGENT_SCALE = 2;
 
@@ -66,23 +66,19 @@ export class BubbleSystem {
 		const entry = this.entries.get(agentName);
 		if (!entry) return;
 
-		// Throttle: max 1 bubble per agent per 500ms to prevent DOM thrashing
+		// Throttle: enforce gap between bubbles to prevent burst spam
 		const now = performance.now();
-		if (!priority && entry.lastBubbleTime && now - entry.lastBubbleTime < 500) return;
+		if (!priority && entry.lastBubbleTime && now - entry.lastBubbleTime < MIN_BUBBLE_GAP) return;
 		entry.lastBubbleTime = now;
 
 		const actor = getActor(agentName);
 		if (!actor) return;
 
-		// FIFO: remove oldest if at capacity
-		while (entry.bubbles.length >= MAX_BUBBLES_PER_AGENT) {
-			const oldest = entry.bubbles.shift();
-			if (oldest) oldest.kill();
-		}
+		// Kill any existing bubble — one at a time, no stacking
+		for (const b of entry.bubbles) b.kill();
+		entry.bubbles.length = 0;
 
-		// Stack position in parent-local coords (parent is AGENT_SCALE)
-		const stackIndex = entry.bubbles.length;
-		const localY = BUBBLE_Y_OFFSET - stackIndex * (BUBBLE_STACK_OFFSET / AGENT_SCALE);
+		const localY = BUBBLE_Y_OFFSET;
 
 		const bubble = new BubbleActor({
 			text,

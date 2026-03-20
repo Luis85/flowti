@@ -222,8 +222,9 @@ export class BrainSystem {
 		}
 	}
 
-	/** Advance all agent brains by deltaMs. Updates actor positions and visuals. */
-	update(deltaMs: number, getActor: (name: string) => AgentActor | undefined): void {
+	/** Advance all agent brains by deltaMs. Updates actor positions and visuals.
+	 * @param getRoom optional room getter — when provided, separation only applies to same-room agents. */
+	update(deltaMs: number, getActor: (name: string) => AgentActor | undefined, getRoom?: (name: string) => string | undefined): void {
 		for (const [name, entry] of this.entries) {
 			entry.stateTimer += deltaMs;
 			const actor = getActor(name);
@@ -267,14 +268,14 @@ export class BrainSystem {
 		}
 
 		// Separation pass — push overlapping agents apart so they cluster naturally
-		this.applySeparation(getActor);
+		this.applySeparation(getActor, getRoom);
 
 		// Social facing pass (after all positions updated)
-		this.updateSocialFacing(deltaMs, getActor);
+		this.updateSocialFacing(deltaMs, getActor, getRoom);
 	}
 
 	/** Push agents apart when they overlap. Idle/wandering agents get nudged; working/talking agents are anchored. */
-	private applySeparation(getActor: (name: string) => AgentActor | undefined): void {
+	private applySeparation(getActor: (name: string) => AgentActor | undefined, getRoom?: (name: string) => string | undefined): void {
 		const movableStates = new Set<BrainState>(["idle", "wandering", "on-break"]);
 		const names = [...this.entries.keys()];
 
@@ -284,9 +285,12 @@ export class BrainSystem {
 			const actor = getActor(name);
 			if (!actor) continue;
 
+			const myRoom = getRoom?.(name);
 			const others: Position[] = [];
 			for (const otherName of names) {
 				if (otherName === name) continue;
+				// Only separate from agents in the same room
+				if (getRoom && getRoom(otherName) !== myRoom) continue;
 				const otherEntry = this.entries.get(otherName);
 				if (otherEntry) others.push(otherEntry.position);
 			}
@@ -449,7 +453,7 @@ export class BrainSystem {
 		}
 	}
 
-	private updateSocialFacing(deltaMs: number, getActor: (name: string) => AgentActor | undefined): void {
+	private updateSocialFacing(deltaMs: number, getActor: (name: string) => AgentActor | undefined, getRoom?: (name: string) => string | undefined): void {
 		const idleEntries: Array<[string, AgentBrainEntry]> = [];
 		for (const [name, entry] of this.entries) {
 			if (entry.state === "idle" && entry.socialHoldTimer <= 0) {
@@ -461,6 +465,8 @@ export class BrainSystem {
 			for (let j = i + 1; j < idleEntries.length; j++) {
 				const [nameA, entryA] = idleEntries[i];
 				const [nameB, entryB] = idleEntries[j];
+				// Only face agents in the same room
+				if (getRoom && getRoom(nameA) !== getRoom(nameB)) continue;
 				const dx = entryA.position.x - entryB.position.x;
 				const dy = entryA.position.y - entryB.position.y;
 				const dist = Math.sqrt(dx * dx + dy * dy);
