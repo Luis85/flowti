@@ -10,6 +10,8 @@ import { InteractableActor } from "./interactable-actor.js";
 export class NoticeBoard extends InteractableActor {
 	constructor() {
 		super({
+			objectId: "notice-board",
+			objectType: "morale",
 			width: 48,
 			height: 40,
 			interactionOffset: { x: 0, y: 24 },

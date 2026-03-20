@@ -10,6 +10,8 @@ import { InteractableActor } from "./interactable-actor.js";
 export class CouchActor extends InteractableActor {
 	constructor() {
 		super({
+			objectId: "couch",
+			objectType: "rest",
 			width: 64,
 			height: 36,
 			interactionOffset: { x: 0, y: 20 },

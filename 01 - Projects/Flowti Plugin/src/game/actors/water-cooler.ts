@@ -10,6 +10,8 @@ import { InteractableActor } from "./interactable-actor.js";
 export class WaterCooler extends InteractableActor {
 	constructor() {
 		super({
+			objectId: "water-cooler",
+			objectType: "social",
 			width: 24,
 			height: 40,
 			interactionOffset: { x: 0, y: 24 },

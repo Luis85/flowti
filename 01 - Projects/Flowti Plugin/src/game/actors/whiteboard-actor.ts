@@ -10,6 +10,8 @@ import { InteractableActor } from "./interactable-actor.js";
 export class WhiteboardActor extends InteractableActor {
 	constructor() {
 		super({
+			objectId: "whiteboard",
+			objectType: "focus",
 			width: 64,
 			height: 48,
 			interactionOffset: { x: 0, y: 30 },

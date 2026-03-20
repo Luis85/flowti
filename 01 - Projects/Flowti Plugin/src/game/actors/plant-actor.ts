@@ -10,6 +10,8 @@ import { InteractableActor } from "./interactable-actor.js";
 export class PlantActor extends InteractableActor {
 	constructor() {
 		super({
+			objectId: "plant",
+			objectType: "focus",
 			width: 20,
 			height: 28,
 			interactionOffset: { x: 0, y: 16 },

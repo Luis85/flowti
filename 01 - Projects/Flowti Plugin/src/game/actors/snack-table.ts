@@ -10,6 +10,8 @@ import { InteractableActor } from "./interactable-actor.js";
 export class SnackTable extends InteractableActor {
 	constructor() {
 		super({
+			objectId: "snack-table",
+			objectType: "energy",
 			width: 48,
 			height: 40,
 			interactionOffset: { x: 0, y: 24 },

@@ -10,6 +10,8 @@ import { InteractableActor } from "./interactable-actor.js";
 export class CoffeeMachine extends InteractableActor {
 	constructor() {
 		super({
+			objectId: "coffee-machine",
+			objectType: "energy",
 			width: 32,
 			height: 40,
 			interactionOffset: { x: 0, y: 24 },
