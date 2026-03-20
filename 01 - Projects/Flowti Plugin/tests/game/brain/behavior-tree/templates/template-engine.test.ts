@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateFromTemplate, type TemplateContext } from "../../../../../src/domain/agents/behavior-tree/templates/template-engine.js";
+import { generateFromTemplate, type TemplateContext } from "../../../../../src/game/brain/behavior-tree/templates/template-engine.js";
 
 function makeCtx(overrides: Partial<TemplateContext> = {}): TemplateContext {
 	return {

@@ -7,9 +7,8 @@
  */
 
 import { BehaviourTree } from "mistreevous";
-import type { AgentSummary } from "../agent-types.js";
 import { createBTAgent, type BTAgentObject } from "./bt-agent.js";
-import type { AgentToolDeps } from "./bt-types.js";
+import type { AgentToolDeps, BTAgentDef } from "./bt-types.js";
 
 // Subtree imports
 import { REVIEW_SUBTREE } from "./subtrees/goal-review.js";
@@ -75,7 +74,7 @@ function collectSubtrees(): string {
 	].join("\n\n");
 }
 
-export function createAgentBT(agent: AgentSummary, deps: AgentToolDeps): AgentBT {
+export function createAgentBT(agent: BTAgentDef, deps: AgentToolDeps): AgentBT {
 	const btAgent = createBTAgent(agent, deps);
 	const masterMDSL = buildMasterMDSL();
 	const allMDSL = masterMDSL + "\n\n" + collectSubtrees();

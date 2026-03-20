@@ -7,8 +7,6 @@
  */
 
 import { State } from "mistreevous";
-import type { AgentSummary } from "../agent-types.js";
-import { hasLLMProvider } from "../llm-availability.js";
 import { generateFromTemplate } from "./templates/template-engine.js";
 import { assemblePrompt } from "./bt-prompt.js";
 import {
@@ -17,8 +15,15 @@ import {
 	parseGoalType,
 	type AgentToolDeps,
 	type BTAgentContext,
+	type BTAgentDef,
 	type CollectedAction,
+	type IProviderRegistry,
 } from "./bt-types.js";
+
+function hasLLMProvider(registry?: IProviderRegistry): boolean {
+	if (!registry) return false;
+	return registry.list().length > 0;
+}
 
 export interface BTAgentObject {
 	readonly context: BTAgentContext;
@@ -54,7 +59,7 @@ export interface BTAgentObject {
 	HandleEvent(): State;
 }
 
-export function createBTAgent(agent: AgentSummary, deps: AgentToolDeps): BTAgentObject {
+export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentObject {
 	const attr = agent.attributes ?? {};
 	const con = attr.con ?? 10;
 	const int_ = attr.int ?? 10;

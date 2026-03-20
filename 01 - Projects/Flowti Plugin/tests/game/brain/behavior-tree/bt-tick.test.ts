@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { btTick } from "../../../../src/domain/agents/behavior-tree/bt-tick.js";
-import type { BTAgentObject } from "../../../../src/domain/agents/behavior-tree/bt-agent.js";
-import type { IWorldStateManager, AgentAction } from "../../../../src/domain/agents/world-state-types.js";
-import type { IClock } from "../../../../src/domain/agents/behavior-tree/bt-types.js";
+import { btTick } from "../../../../src/game/brain/behavior-tree/bt-tick.js";
+import type { BTAgentObject } from "../../../../src/game/brain/behavior-tree/bt-agent.js";
+import type { AgentAction } from "../../../../src/game/data/types.js";
+import type { IClock, IWorldStateManager } from "../../../../src/game/brain/behavior-tree/bt-types.js";
 
 function makeClock(): IClock {
 	return { now: () => 1000, ms: () => 1000, iso: () => "2026-03-20T10:00:00Z" };
@@ -12,11 +12,6 @@ function makeWorldState(): IWorldStateManager {
 	return {
 		emitAction: vi.fn(),
 		updateEntity: vi.fn(),
-		getState: vi.fn() as never,
-		getEntity: vi.fn(),
-		flush: vi.fn(),
-		addActionListener: vi.fn(),
-		removeActionListener: vi.fn(),
 	};
 }
 

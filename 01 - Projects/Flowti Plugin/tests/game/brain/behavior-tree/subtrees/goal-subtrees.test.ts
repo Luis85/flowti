@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { REVIEW_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/goal-review.js";
-import { SUMMARIZE_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/goal-summarize.js";
-import { PLAN_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/goal-plan.js";
-import { IMPLEMENT_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/goal-implement.js";
-import { MONITOR_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/goal-monitor.js";
-import { REPORT_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/goal-report.js";
+import { REVIEW_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/goal-review.js";
+import { SUMMARIZE_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/goal-summarize.js";
+import { PLAN_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/goal-plan.js";
+import { IMPLEMENT_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/goal-implement.js";
+import { MONITOR_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/goal-monitor.js";
+import { REPORT_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/goal-report.js";
 
 describe("goal subtrees", () => {
 	describe("REVIEW_SUBTREE", () => {

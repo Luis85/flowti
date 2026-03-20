@@ -3,11 +3,7 @@ import {
 	createDefaultNeeds,
 	createIdleLLMSlot,
 	parseGoalType,
-	type GoalType,
-	type AgentNeeds,
-	type LLMSlot,
-	type BTAgentContext,
-} from "../../../../src/domain/agents/behavior-tree/bt-types.js";
+} from "../../../../src/game/brain/behavior-tree/bt-types.js";
 
 describe("bt-types", () => {
 	describe("createDefaultNeeds", () => {

@@ -7,9 +7,9 @@
  */
 
 import type { BehaviourTree } from "mistreevous";
+import type { AgentAction } from "../../data/types.js";
 import type { BTAgentObject } from "./bt-agent.js";
-import type { IClock } from "./bt-types.js";
-import type { IWorldStateManager, AgentAction } from "../world-state-types.js";
+import type { IClock, IWorldStateManager } from "./bt-types.js";
 
 let tickSeq = 0;
 

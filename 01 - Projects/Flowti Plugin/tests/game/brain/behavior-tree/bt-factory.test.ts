@@ -1,28 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
-import { createAgentBT } from "../../../../src/domain/agents/behavior-tree/bt-factory.js";
-import type { AgentToolDeps } from "../../../../src/domain/agents/behavior-tree/bt-types.js";
-import type { AgentSummary } from "../../../../src/domain/agents/agent-types.js";
+import { createAgentBT } from "../../../../src/game/brain/behavior-tree/bt-factory.js";
+import type { AgentToolDeps, BTAgentDef } from "../../../../src/game/brain/behavior-tree/bt-types.js";
 
 function makeDeps(): AgentToolDeps {
 	return {
 		disk: { readFileSync: vi.fn(), writeFileSync: vi.fn(), existsSync: vi.fn(), mkdirSync: vi.fn() },
 		paths: { join: (...s: string[]) => s.join("/"), dirname: (p: string) => p, basename: (p: string) => p },
 		clock: { now: () => 1000, ms: () => 1000, iso: () => "2026-03-20T10:00:00Z" },
-		worldState: { emitAction: vi.fn(), updateEntity: vi.fn(), getState: vi.fn(), getEntity: vi.fn(), flush: vi.fn(), addActionListener: vi.fn(), removeActionListener: vi.fn() },
+		worldState: { emitAction: vi.fn(), updateEntity: vi.fn() },
 		checkPermission: vi.fn(() => "allowed" as const),
 	};
 }
 
-function makeAgent(overrides: Partial<AgentSummary> = {}): AgentSummary {
+function makeAgent(overrides: Partial<BTAgentDef> = {}): BTAgentDef {
 	return {
 		name: "Atlas",
 		agentType: "ai",
-		description: "Test agent",
-		skills: [],
-		tools: [],
-		roles: [],
 		goals: [{ name: "review iteration plan", priority: 10 }],
-		file: "agents/atlas.md",
 		...overrides,
 	};
 }
@@ -46,12 +40,6 @@ describe("createAgentBT", () => {
 	});
 
 	it("tree step collects actions on agent", () => {
-		const disk = {
-			readFileSync: vi.fn(() => "# Content"),
-			writeFileSync: vi.fn(),
-			existsSync: vi.fn(() => true),
-			mkdirSync: vi.fn(),
-		};
 		const { tree, agent } = createAgentBT(makeAgent(), makeDeps());
 		tree.step();
 		// After one step, the tree should have attempted the ActiveGoal branch

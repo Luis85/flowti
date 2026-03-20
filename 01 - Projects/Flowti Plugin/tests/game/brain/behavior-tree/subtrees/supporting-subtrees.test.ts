@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { IDLE_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/idle.js";
-import { SOCIAL_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/social.js";
-import { NEEDS_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/needs.js";
-import { URGENT_SUBTREE } from "../../../../../src/domain/agents/behavior-tree/subtrees/urgent.js";
+import { IDLE_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/idle.js";
+import { SOCIAL_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/social.js";
+import { NEEDS_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/needs.js";
+import { URGENT_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/urgent.js";
 
 describe("supporting subtrees", () => {
 	describe("IDLE_SUBTREE", () => {

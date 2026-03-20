@@ -1,36 +1,29 @@
 import { describe, it, expect, vi } from "vitest";
 import { State } from "mistreevous";
-import { createBTAgent } from "../../../../src/domain/agents/behavior-tree/bt-agent.js";
-import { createDefaultNeeds, createIdleLLMSlot } from "../../../../src/domain/agents/behavior-tree/bt-types.js";
-import type { AgentToolDeps } from "../../../../src/domain/agents/behavior-tree/bt-types.js";
-import type { AgentSummary } from "../../../../src/domain/agents/agent-types.js";
+import { createBTAgent } from "../../../../src/game/brain/behavior-tree/bt-agent.js";
+import type { AgentToolDeps, BTAgentDef } from "../../../../src/game/brain/behavior-tree/bt-types.js";
 
 function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 	return {
 		disk: { readFileSync: vi.fn(), writeFileSync: vi.fn(), existsSync: vi.fn(), mkdirSync: vi.fn() },
 		paths: { join: (...s: string[]) => s.join("/"), dirname: (p: string) => p, basename: (p: string) => p },
 		clock: { now: () => 1000, ms: () => 1000, iso: () => "2026-03-20T10:00:00Z" },
-		worldState: { emitAction: vi.fn(), updateEntity: vi.fn(), getState: vi.fn(), getEntity: vi.fn(), flush: vi.fn(), addActionListener: vi.fn(), removeActionListener: vi.fn() },
+		worldState: { emitAction: vi.fn(), updateEntity: vi.fn() },
 		checkPermission: vi.fn(() => "allowed" as const),
 		...overrides,
 	} as AgentToolDeps;
 }
 
-function makeAgent(overrides: Partial<AgentSummary> = {}): AgentSummary {
+function makeAgent(overrides: Partial<BTAgentDef> = {}): BTAgentDef {
 	return {
 		name: "Atlas",
 		agentType: "ai",
-		description: "Test agent",
-		skills: [],
-		tools: [],
-		roles: [],
 		attributes: { str: 10, int: 14, wis: 12, cha: 10, dex: 10, con: 14 },
 		persona: "The Architect",
 		mood: "focused",
 		personality: ["analytical", "methodical"],
 		experience: 100,
 		goals: [{ name: "review iteration plan", priority: 10 }],
-		file: "agents/atlas.md",
 		...overrides,
 	};
 }
@@ -188,7 +181,7 @@ describe("createBTAgent — tool actions", () => {
 	});
 
 	it("DropArtifact creates entity and emits action", () => {
-		const worldState = { emitAction: vi.fn(), updateEntity: vi.fn(), getState: vi.fn(), getEntity: vi.fn(), flush: vi.fn(), addActionListener: vi.fn(), removeActionListener: vi.fn() };
+		const worldState = { emitAction: vi.fn(), updateEntity: vi.fn() };
 		const bt = createBTAgent(makeAgent(), makeDeps({ worldState }));
 		bt.context.activeGoal = { name: "review plan" };
 		(bt.context as { lastWrittenPath: string }).lastWrittenPath = "artifacts/Atlas-review-1000.md";

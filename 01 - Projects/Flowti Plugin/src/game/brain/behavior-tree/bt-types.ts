@@ -2,15 +2,63 @@
  * bt-types.ts — Type definitions for the behavior tree agent system.
  *
  * Domain-layer pure. No I/O, no infrastructure imports.
- * AgentNeeds / BTSensorEvent are defined here (not yet in CLI codebase).
  * See spec: docs/specs/2026-03-20-agent-behavior-trees-and-tools-design.md
  */
 
-import type { AgentAttributes, AgentGoal } from "../agent-types.js";
-import type { IWorldStateManager } from "../world-state-types.js";
-import type { IProviderRegistry, LLMProcess } from "../llm-types.js";
-import type { PermissionVerdict } from "../permission-engine.js";
-import type { IFileSystem, IPaths, IClock } from "../../../infrastructure/types.js";
+import type { AgentAttributes, AgentGoal } from "../../data/types.js";
+
+// ── Deps interfaces (Plugin-native) ──────────────────────────────────
+
+export interface IFileSystem {
+	readFileSync(path: string, encoding: string): string;
+	writeFileSync(path: string, content: string, encoding: string): void;
+	existsSync(path: string): boolean;
+	mkdirSync(path: string, opts?: { recursive?: boolean }): void;
+}
+
+export interface IPaths {
+	join(...segments: string[]): string;
+	dirname(p: string): string;
+	basename(p: string): string;
+}
+
+export interface IClock {
+	now(): number;
+	ms(): number;
+	iso(): string;
+}
+
+export type PermissionVerdict = "allowed" | "denied" | "prompt-user" | "queued";
+
+export interface LLMProcess {
+	readonly result: Promise<{ text: string }>;
+	kill(): void;
+}
+
+export interface IProviderRegistry {
+	list(): readonly unknown[];
+	select(options: { preferred?: string; taskType: string }): { provider: { execute(request: { prompt: { message: string; system?: string } }): LLMProcess } };
+}
+
+export interface IWorldStateManager {
+	emitAction(action: { id: string; agentName: string; timestamp: string; type: string; data: Record<string, unknown> }): void;
+	updateEntity(id: string, type: string, components: Record<string, unknown>): void;
+}
+
+// ── BTAgent Definition (boundary contract) ──────────────────────────
+
+export interface BTAgentDef {
+	readonly name: string;
+	readonly agentType: string;
+	readonly domain?: string;
+	readonly persona?: string;
+	readonly mood?: string;
+	readonly personality?: readonly string[];
+	readonly experience?: number;
+	readonly attributes?: AgentAttributes;
+	readonly goals?: readonly AgentGoal[];
+	readonly behaviors?: readonly string[];
+}
 
 // ── Goal Types ───────────────────────────────────────────────────────
 
@@ -61,10 +109,6 @@ export function createIdleLLMSlot(): LLMSlot {
 }
 
 // ── Tool Dependencies ────────────────────────────────────────────────
-// IFileSystem, IPaths, IClock imported from infrastructure/types.ts
-// (type-only imports from infra are allowed — ESLint only blocks node built-in singletons)
-
-export type { IFileSystem, IPaths, IClock };
 
 export interface AgentToolDeps {
 	readonly disk: IFileSystem;
