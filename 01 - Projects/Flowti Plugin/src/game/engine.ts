@@ -12,11 +12,8 @@
  */
 
 import * as ex from "excalibur";
-import { HubScene } from "./scenes/hub-scene.js";
-import { createOfficeScene } from "./scenes/office-scene.js";
-import { createVillageScene } from "./scenes/village-scene.js";
-import { createStationScene } from "./scenes/station-scene.js";
-import type { RoomScene } from "./scenes/room-scene.js";
+import { GameScene } from "./scenes/game-scene.js";
+import { SCENE_CONFIGS } from "./data/scene-configs.js";
 import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
 import { TalkEngine } from "./systems/talk/talk-engine.js";
@@ -489,26 +486,22 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	};
 
 	// ── Create scenes ───────────────────────────────────
-	const hubScene = new HubScene(sceneConfig);
-	const officeScene = createOfficeScene(sceneConfig);
-	const villageScene = createVillageScene(sceneConfig);
-	const stationScene = createStationScene(sceneConfig);
+	const hubScene = new GameScene(SCENE_CONFIGS.hub, sceneConfig);
+	const officeScene = new GameScene(SCENE_CONFIGS.office, sceneConfig);
+	const villageScene = new GameScene(SCENE_CONFIGS.village, sceneConfig);
+	const stationScene = new GameScene(SCENE_CONFIGS.station, sceneConfig);
 
-	const roomScenes: Record<string, RoomScene> = {
+	const roomScenes: Record<string, GameScene> = {
 		office: officeScene,
 		village: villageScene,
 		station: stationScene,
 	};
 
-	// Register scenes in SceneRegistry (adapter for getDoorBetween)
-	registry.registerScene("hub", { getDoors: () => [
-		{ target: "office", label: "Office", position: { x: 750, y: 130 } },
-		{ target: "village", label: "Village", position: { x: 750, y: 250 } },
-		{ target: "station", label: "Station", position: { x: 750, y: 370 } },
-	] });
-	registry.registerScene("office", { getDoors: () => [{ target: "hub", label: "Back", position: { x: 40, y: 250 } }] });
-	registry.registerScene("village", { getDoors: () => [{ target: "hub", label: "Back", position: { x: 40, y: 250 } }] });
-	registry.registerScene("station", { getDoors: () => [{ target: "hub", label: "Back", position: { x: 40, y: 250 } }] });
+	// Register scenes in SceneRegistry (GameScene implements SceneHandle)
+	registry.registerScene("hub", hubScene);
+	registry.registerScene("office", officeScene);
+	registry.registerScene("village", villageScene);
+	registry.registerScene("station", stationScene);
 
 	engine.addScene("hub", hubScene);
 	engine.addScene("office", officeScene);
@@ -931,7 +924,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	/** Scenes that support agent transfer (hub + room scenes). */
-	const transferScenes: Record<string, { removeAgent: (n: string) => void; spawnAgentAtDoorway: (a: DashboardAgent) => void; getDoorwayPosition: () => { x: number; y: number } }> = {
+	const transferScenes: Record<string, GameScene> = {
 		hub: hubScene,
 		...roomScenes,
 	};
