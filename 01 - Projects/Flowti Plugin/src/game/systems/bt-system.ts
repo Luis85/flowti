@@ -8,6 +8,7 @@
 
 import { createAgentBT, type AgentBT } from "../brain/behavior-tree/bt-factory.js";
 import { btTick } from "../brain/behavior-tree/bt-tick.js";
+import type { BTAgentObject } from "../brain/behavior-tree/bt-agent.js";
 import type {
 	AgentToolDeps,
 	BTAgentDef,
@@ -21,10 +22,17 @@ import type { AgentAction, DashboardAgent } from "../data/types.js";
 // ── Constants ────────────────────────────────────────────────────────
 
 export const BT_TICK_INTERVAL_MS = 3000;
+export const PET_TICK_INTERVAL_MS = 1000;
 
 // ── Per-agent entry ──────────────────────────────────────────────────
 
 interface BtEntry {
+	readonly bt: AgentBT;
+	accumulator: number;
+}
+
+interface PetBtEntry {
+	readonly name: string;
 	readonly bt: AgentBT;
 	accumulator: number;
 }
@@ -81,6 +89,7 @@ export function createStubDeps(
 
 export class BtSystem {
 	private readonly entries = new Map<string, BtEntry>();
+	private readonly petEntries = new Map<string, PetBtEntry>();
 	private lastActions: AgentAction[] = [];
 
 	/** Register a BT for an agent that has behaviors defined. */
@@ -131,5 +140,43 @@ export class BtSystem {
 	/** Number of registered BTs. */
 	get size(): number {
 		return this.entries.size;
+	}
+
+	/** Get an agent's BT object (for needs snapshot refresh). */
+	getAgent(name: string): BTAgentObject | undefined {
+		const entry = this.entries.get(name);
+		return entry?.bt.agent;
+	}
+
+	/** Register a pet BT. */
+	registerPet(name: string, bt: AgentBT): void {
+		if (this.petEntries.has(name)) return;
+		this.petEntries.set(name, { name, bt, accumulator: 0 });
+	}
+
+	/** Remove a pet BT. */
+	unregisterPet(name: string): void {
+		this.petEntries.delete(name);
+	}
+
+	/** Tick pet BTs at PET_TICK_INTERVAL_MS. Returns collected actions. */
+	updatePets(deltaMs: number, worldState: IWorldStateManager, clock: IClock): AgentAction[] {
+		const actions: AgentAction[] = [];
+		for (const [, entry] of this.petEntries) {
+			entry.accumulator += deltaMs;
+			if (entry.accumulator >= PET_TICK_INTERVAL_MS) {
+				entry.accumulator -= PET_TICK_INTERVAL_MS;
+				const emitted = btTick(entry.bt.tree, entry.bt.agent, worldState, clock);
+				for (const action of emitted) {
+					actions.push(action);
+				}
+			}
+		}
+		return actions;
+	}
+
+	/** Number of registered pet BTs. */
+	get petSize(): number {
+		return this.petEntries.size;
 	}
 }
