@@ -78,7 +78,25 @@ interface DayClock {
 
 ### Persistence
 
-Current cycle position and cycle count saved to `.flowti/var/world-clock.json`. Reopening mid-session resumes where it left off.
+Current cycle position and cycle count saved to `.flowti/var/world-clock.json`.
+
+**Resume policy:** On reopen, DayClock calculates elapsed time since `lastUpdated`. If elapsed < total cycle duration, it snaps forward to the correct phase position (skipping intermediate phases). Skipped phase-change events are **not** fired retroactively — guaranteed events for skipped phases are simply missed. If elapsed >= total cycle duration, a fresh cycle starts from `morning-arrival`. This avoids stale mid-cycle state while keeping the world predictable.
+
+### NeedsSystem integration
+
+DayClock exposes `getPhaseMultipliers(): { energy: number; social: number; focus: number; morale: number }`. The engine passes this to `NeedsSystem.update()` via a new fourth parameter:
+
+```typescript
+// Updated NeedsSystem.update signature:
+update(
+  deltaMs: number,
+  getState: (name: string) => string,
+  getNearby: (name: string) => string[],
+  phaseMultipliers?: { energy: number; social: number; focus: number; morale: number },
+): void
+```
+
+When `phaseMultipliers` is provided, each need's rate is multiplied by the corresponding value before applying. When omitted (backward-compatible), multipliers default to 1.0.
 
 ---
 
@@ -102,7 +120,7 @@ New actor types serving as destinations and interaction points. Each object has 
 
 - Base class `InteractableActor extends ex.Actor` with hooks: `onAgentArrive(name)`, `onAgentLeave(name)`, `onDirectorClick()`
 - Each object defines an attraction function: `shouldAttract(agentName, phase, needs, brainState) → number` (0 = no attraction, 1 = strong)
-- BrainSystem gets `walkToObject(agentName, objectActor)` for navigation to interaction point
+- Navigation uses the existing `brainSystem.walkTo(agentName, { x, y })` — the engine extracts the object's interaction point position at the call site, keeping BrainSystem free of ExcaliburJS actor imports
 - Objects registered with scenes via config — positions in scene setup
 
 ### Needs effects on arrival
@@ -152,6 +170,7 @@ interface ScheduledEvent {
 - On each DayClock phase transition, evaluate eligible events and roll probability dice
 - Real sensor events **promote** simulated events — if a real build-fail fires, simulated "build break" suppressed for that cycle
 - Events are **non-overlapping** — only one scripted event at a time, 30s minimum gap
+- Guaranteed events for the same phase are **queued in priority order** (standup before deploy, tea before eureka) and fired sequentially with the 30s gap. If the phase ends before all guaranteed events fire, remaining ones are dropped for that cycle — the phase duration is the hard cap
 - Each handler receives full system context (brainSystem, needsSystem, bubbleSystem, particlePool, etc.)
 
 ### Default event schedule per cycle
@@ -203,6 +222,10 @@ Each agent gets 2-3 behavioral quirks assigned at registration, derived from att
 ## System 5: Evolving Relationships
 
 A `RelationshipSystem` tracking how agents feel about each other, evolving through interactions.
+
+### SocialSystem integration
+
+RelationshipSystem does **not** modify SocialSystem. Instead, the engine wires relationship updates inside the existing `onConversation` and `onCluster` callbacks — same pattern as the existing bubble/brain wiring. The engine calls `relationshipSystem.recordConversation(nameA, nameB)` as an additional step inside the `socialSystem.onConversation(...)` closure. No new callbacks are added to SocialSystem.
 
 ### Relationship entry
 
@@ -282,7 +305,7 @@ Tied to DayClock phase — a background overlay that shifts across the cycle:
 | wind-down | cool blue `rgb(100, 120, 200)` | 0.06 |
 | evening-departure | blue-purple `rgb(80, 80, 160)` | 0.12 |
 
-Implemented as full-screen `ex.Canvas` at z=-100, phase transitions use 3s lerp.
+Implemented as full-screen `ex.Canvas` at z=500 (above agents at default z, below bubbles at z=998 and cursor spirit at z=999), phase transitions use 3s lerp. The existing particle renderer sits at z=-10 (below scene floor), and scene backgrounds are at z=0. The lighting overlay must be above all scene content to tint everything.
 
 ### Weather system
 
@@ -359,6 +382,10 @@ interface AgentMemory {
   quirks: string[];
 }
 ```
+
+### Migration & defaults
+
+When `MemorySystem` loads an existing `data-{agentName}.json` that lacks the new `AgentMemory` fields, all fields initialize to safe defaults: `preferredSpot: null`, `visitCounts: {}`, `workStreak: 0`, `quirks: []` (triggers first-registration quirk roll), `opinions: []` (triggers opinion assignment), `milestones: ["first-day"]`, `recentEvents: []`, `moodLog: []`, `daysActive: 0`. This means existing agents seamlessly gain memory on first load with no migration script needed.
 
 ### Memory effects on behavior
 
@@ -476,9 +503,10 @@ DayClock ──→ phase/time ──→ NeedsSystem (rate multipliers)
 | File | Changes |
 |------|---------|
 | `src/game/engine.ts` | Wire all 7 new systems, environmental objects, phase-driven updates |
-| `src/game/systems/brain-system.ts` | Add `walkToObject()`, quirk modifiers, relationship-driven drift |
-| `src/game/systems/needs-system.ts` | Accept phase multipliers from DayClock |
-| `src/game/systems/social-system.ts` | Emit relationship events on conversation |
+| `src/game/systems/brain-system.ts` | Quirk modifiers via `applyQuirkOverrides(name, overrides)`, relationship-driven drift bias |
+| `src/game/brain/agent-brain.ts` | `computeParams` / `computeHabits` accept optional quirk overrides for param adjustment |
+| `src/game/systems/needs-system.ts` | Accept phase multipliers as 4th param to `update()` |
+| `src/game/systems/social-system.ts` | No changes — relationship wiring done in engine.ts inside existing callbacks |
 | `src/game/systems/engagement-system.ts` | Phase-aware engagement (suppress during productive morning) |
 | `src/game/systems/talk/talk-engine.ts` | Query DayClock phase, weather, relationships, memory for template selection |
 | `src/game/systems/particle-system.ts` | Add ParticlePreset enum, preset configs, pool increase 200→400 |
@@ -489,6 +517,64 @@ DayClock ──→ phase/time ──→ NeedsSystem (rate multipliers)
 | `src/game/store/dashboard-store.ts` | Expose DayClock state, weather, relationship data to UI |
 | `src/game/data/world-config.ts` | Add day cycle, weather, quirk, relationship config sections |
 | `tests/game/engine.test.ts` | Update mocks for new systems |
+
+---
+
+## WorldConfig extensions
+
+New sections added to `DEFAULT_WORLD_CONFIG` in `data/world-config.ts`:
+
+```typescript
+dayCycle: {
+  durationMs: 1_500_000,           // 25 minutes total cycle
+  phases: DayPhase[],              // ordered phase definitions with percentage
+},
+weather: {
+  cycleLengthInDayCycles: 2,       // weather changes every N day cycles
+  states: ["clear", "rain", "overcast", "sunny"],
+},
+quirks: {
+  maxPerAgent: 3,
+  minPerAgent: 2,
+},
+relationships: {
+  affinityDecayPerCycle: 1,        // drift toward 0 when no interaction
+  bickerChance: 0.3,              // probability of opinion clash → bicker
+  maxSharedMemories: 5,
+},
+```
+
+### Quirk modifier API
+
+QuirkSystem provides overrides to BrainSystem via a simple data object — no type dependency from BrainSystem on QuirkSystem:
+
+```typescript
+interface QuirkOverrides {
+  socialRadiusMultiplier?: number;  // e.g., 1.5 for social-butterfly, 0.7 for hermit
+  idleResistanceMultiplier?: number;
+  moveSpeedMultiplier?: number;
+  coffeeAttractionMultiplier?: number;
+  conversationRateMultiplier?: number;
+}
+```
+
+`BrainSystem.applyQuirkOverrides(name, overrides)` stores these per-agent and factors them into `computeParams`. This keeps BrainSystem unaware of the quirk concept — it just applies numeric multipliers.
+
+### Relationship `opinion` field
+
+The `opinion` field on `RelationshipEntry` is populated by `RelationshipSystem` when affinity crosses a tier boundary. It uses template strings like `"thinks {agentB} is hilarious"` (Friend), `"respects {agentB}'s focus"` (Colleague), `"can't stand {agentB}'s taste in editors"` (Rival). The opinion is displayed in the agent panel UI and referenced by the talk engine for relationship-aware phrases.
+
+---
+
+## Implementation phases (recommended order)
+
+To reduce blast radius, implement in 3 phases:
+
+1. **Phase A — Foundation** (DayClock + WorldAmbience + Agent Memory persistence)
+2. **Phase B — Behavior** (Quirks + Environmental Objects + Micro-Events)
+3. **Phase C — Social depth** (Relationships + opinion system + tier templates)
+
+Each phase is independently shippable and testable.
 
 ---
 
