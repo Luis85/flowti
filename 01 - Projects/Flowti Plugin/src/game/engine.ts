@@ -63,6 +63,8 @@ import {
 	BIRTHDAY_TEMPLATES, POWER_FLICKER_REACTION_TEMPLATES, POWER_FLICKER_RESOLVE_TEMPLATES,
 	NEW_PR_TEMPLATES, TEA_TIME_TEMPLATES,
 } from "./data/micro-event-templates.js";
+import { PetActor } from "./actors/pet-actor.js";
+import { PET_DEFINITIONS } from "./data/pet-definitions.js";
 import { CoffeeMachine } from "./actors/coffee-machine.js";
 import { WhiteboardActor } from "./actors/whiteboard-actor.js";
 import { SnackTable } from "./actors/snack-table.js";
@@ -267,6 +269,18 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	plant.pos = ex.vec(100, 60);
 	const noticeBoard = new NoticeBoard();
 	noticeBoard.pos = ex.vec(680, 60);
+
+	// ── Office pets ──────────────────────────────────────
+	const pets: PetActor[] = [];
+	const catDef = PET_DEFINITIONS.find((p) => p.type === "cat")!;
+	const dogDef = PET_DEFINITIONS.find((p) => p.type === "dog")!;
+	const birdDef = PET_DEFINITIONS.find((p) => p.type === "bird")!;
+	const fishDef = PET_DEFINITIONS.find((p) => p.type === "fish")!;
+
+	const officeCat = new PetActor(catDef, 350, 300);
+	const officeDog = new PetActor(dogDef, 500, 350);
+	const officeBird = new PetActor(birdDef, 200, 80);
+	const officeFish = new PetActor(fishDef, 680, 380);
 
 	// Wire DayClock phase changes to store + scheduler
 	dayClock.onPhaseChange((phase) => {
@@ -837,6 +851,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	let lastTime = performance.now();
 	const prevWalkingState = new Map<string, boolean>();
 	const lastTrailPos = new Map<string, { x: number; y: number }>();
+	const petReactionCooldowns = new Map<string, number>();
 
 	// ── Particle renderer — ex.Canvas actor added to each scene ──────
 	function createParticleRenderer(): ex.Actor {
@@ -878,6 +893,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	stationScene.add(couch);
 	hubScene.add(plant);
 	hubScene.add(noticeBoard);
+
+	// ── Office pets in scenes ────────────────────────────
+	officeScene.add(officeCat);
+	officeScene.add(officeDog);
+	villageScene.add(officeBird);
+	stationScene.add(officeFish);
+	pets.push(officeCat, officeDog, officeBird, officeFish);
 
 	// ── Cursor spirit — visual director presence (one per scene) ────
 	const cursorSpirits = [new CursorSpirit(), new CursorSpirit(), new CursorSpirit(), new CursorSpirit()];
@@ -1104,6 +1126,61 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 						if (attr.object === coffeeMachine) particlePool.spawnPreset("steam", point.x, point.y - 20);
 					}, 5000);
 					break; // one attraction per agent per frame
+				}
+			}
+		}
+
+		// 3d. Pet behavior + agent reactions
+		for (const pet of pets) {
+			pet.updateBehavior(deltaMs);
+
+			// Follow behavior — move toward target agent
+			if (pet.getFollowTarget()) {
+				const targetPos = brainSystem.getPosition(pet.getFollowTarget()!);
+				if (targetPos) pet.moveToward(targetPos.x, targetPos.y, deltaMs);
+			}
+
+			// Dog follows nearest idle agent
+			if (pet.petType === "dog" && pet.getState() === "idle" && Math.random() < 0.001) {
+				const idle = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "idle");
+				if (idle.length > 0) {
+					pet.setFollowTarget(idle[Math.floor(Math.random() * idle.length)]);
+				}
+			}
+
+			// Cat follows stressed agents (low morale)
+			if (pet.petType === "cat" && pet.getState() === "idle" && Math.random() < 0.0005) {
+				const stressed = needsSystem.getAgentNames().filter((n) => needsSystem.getNeeds(n).morale < 30);
+				if (stressed.length > 0) {
+					pet.setFollowTarget(stressed[Math.floor(Math.random() * stressed.length)]);
+				}
+			}
+
+			// Agent proximity reactions
+			if (pet.getState() !== "sleeping") {
+				for (const agentName of needsSystem.getAgentNames()) {
+					const agentPos = brainSystem.getPosition(agentName);
+					if (!agentPos) continue;
+					const dx = pet.pos.x - agentPos.x;
+					const dy = pet.pos.y - agentPos.y;
+					const dist = Math.sqrt(dx * dx + dy * dy);
+					if (dist < pet.getInteractRadius()) {
+						const cooldownKey = `${agentName}:${pet.petType}`;
+						const lastReaction = petReactionCooldowns.get(cooldownKey) ?? 0;
+						if (performance.now() - lastReaction > 30000) { // 30s cooldown per agent-pet pair
+							petReactionCooldowns.set(cooldownKey, performance.now());
+							// Apply needs effects
+							needsSystem.applyEffect(agentName, pet.getNeedsEffects());
+							// Show reaction bubble from pet phrases
+							const def = PET_DEFINITIONS.find((d) => d.type === pet.petType);
+							if (def && def.phrases.length > 0) {
+								const phrase = def.phrases[Math.floor(Math.random() * def.phrases.length)];
+								bubbleSystem.showBubble(agentName, "thought", phrase, engine.currentScene, findAgentActor, 3000);
+							}
+							// Hearts particles
+							particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
+						}
+					}
 				}
 			}
 		}
