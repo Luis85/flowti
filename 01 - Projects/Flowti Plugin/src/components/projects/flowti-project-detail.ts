@@ -11,7 +11,7 @@ import type { StorybookStatus, ProjectSummary, ProjectConfig } from "../../domai
 
 // Side-effect imports to register child custom elements
 import "./flowti-storybook-section.js";
-import "./flowti-config-tab.js";
+import "./flowti-tab-config.js";
 import "./flowti-scaffold-modal.js";
 import "./flowti-add-project-dropdown.js";
 import "./flowti-git-import-modal.js";
@@ -612,11 +612,11 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				${this.renderStorybookSection()}
 			` : ""}
 			${this.activeTab === "config" ? html`
-				<flowti-config-tab
+				<flowti-tab-config
 					.projectName="${this.projectName}"
 					.config="${this.config}"
 					.hasCanvas="${this.hasCanvas}"
-				></flowti-config-tab>
+				></flowti-tab-config>
 			` : ""}
 			${this.showScaffoldModal ? html`
 				<flowti-scaffold-modal

@@ -248,7 +248,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		void projectService.saveMarkdownSourceConfig(currentProject, config, appendOutput)
 			.then((r) => {
 				endBusy(r);
-				const configTab = el.shadowRoot?.querySelector("flowti-config-tab") as HTMLElement & { saveStatus: string } | null;
+				const configTab = el.shadowRoot?.querySelector("flowti-tab-config") as HTMLElement & { saveStatus: string } | null;
 				if (configTab) {
 					configTab.saveStatus = r.ok ? "Saved" : (r.error ?? "Save failed");
 					setTimeout(() => { if (configTab) configTab.saveStatus = ""; }, 3000);
@@ -261,7 +261,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		void deps.pickFolder().then((folder) => {
 			if (folder === null) return;
 			// Push the chosen folder path into the config tab's sourcePath
-			const configTab = el.shadowRoot?.querySelector("flowti-config-tab") as HTMLElement & { sourcePath: string } | null;
+			const configTab = el.shadowRoot?.querySelector("flowti-tab-config") as HTMLElement & { sourcePath: string } | null;
 			if (configTab) configTab.sourcePath = folder;
 		});
 	}) as EventListener);

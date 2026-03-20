@@ -313,4 +313,4 @@ export class FlowtiConfigTab extends FlowtiElement {
 
 }
 
-if (!customElements.get("flowti-config-tab")) customElements.define("flowti-config-tab", FlowtiConfigTab);
+if (!customElements.get("flowti-tab-config")) customElements.define("flowti-tab-config", FlowtiConfigTab);
