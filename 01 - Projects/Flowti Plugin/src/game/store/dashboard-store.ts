@@ -3,6 +3,8 @@ import type { BrainState } from "../brain/brain-types.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
 import { extractAgentMessage } from "../data/message-utils.js";
+import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 // ── Exported helper types ──────────────────────────────────────────
 
@@ -70,11 +72,13 @@ export class DashboardStore extends EventTarget {
 
 	private cliExecutor: ICliExecutor | null;
 	private worldContext: WorldContext | null;
+	private vaultBasePath: string | null;
 
-	constructor(cliExecutor?: ICliExecutor, worldContext?: WorldContext) {
+	constructor(cliExecutor?: ICliExecutor, worldContext?: WorldContext, vaultBasePath?: string) {
 		super();
 		this.cliExecutor = cliExecutor ?? null;
 		this.worldContext = worldContext ?? null;
+		this.vaultBasePath = vaultBasePath ?? null;
 	}
 
 	// ── Batching ──────────────────────────────────────────────────
@@ -206,6 +210,9 @@ export class DashboardStore extends EventTarget {
 
 	pushAgentResponse(agentName: string, text: string): void {
 		const turns = this.conversations.get(agentName) ?? [];
+		// Dedup: skip if the last turn is the same agent message within 5 seconds
+		const last = turns.length > 0 ? turns[turns.length - 1] : null;
+		if (last && last.role === "agent" && last.text === text && Date.now() - last.timestamp < 5000) return;
 		turns.push({ role: "agent", text, timestamp: Date.now() });
 		this.conversations.set(agentName, turns);
 		this.thinkingAgents.delete(agentName);
@@ -275,24 +282,33 @@ export class DashboardStore extends EventTarget {
 		switch (event.type) {
 			case "response": {
 				const text = extractAgentMessage(event.text ?? "");
-				this.pushAgentResponse(agentName, text);
-				this.pushEventLog(agentName, "response", text.slice(0, 80));
 
-				// Check if agent has an active task \u2014 mark completed on response
+				// Check if agent has an active task — save output as document
 				const agentTasks = this.assignedTasks.get(agentName) ?? [];
 				const activeTask = agentTasks.find((t) => t.status === "pending" || t.status === "in-progress");
 				if (activeTask) {
+					const savedPath = this.saveTaskOutput(agentName, activeTask.name, text);
+					const summary = savedPath
+						? `Done. Saved to ${savedPath}`
+						: `Done. (Could not save to vault)`;
+					this.pushAgentResponse(agentName, summary);
+					this.pushEventLog(agentName, "response", summary);
 					this.markTaskStatus(agentName, activeTask.name, "completed");
-					this.pushEventLog(agentName, "task-completed", `${activeTask.name} completed`);
+					this.pushEventLog(agentName, "task-completed", `${activeTask.name} \u2192 ${savedPath ?? "unsaved"}`);
 					this.unreadAgents.add(agentName);
 					this.dispatchEvent(new CustomEvent("task-completed", {
-						detail: { agentName, task: activeTask.name, result: text },
+						detail: { agentName, task: activeTask.name, result: summary, path: savedPath },
+					}));
+					this.dispatchEvent(new CustomEvent("agent-response-received", {
+						detail: { agentName, text: summary, type: "speaking" },
+					}));
+				} else {
+					this.pushAgentResponse(agentName, text);
+					this.pushEventLog(agentName, "response", text.slice(0, 80));
+					this.dispatchEvent(new CustomEvent("agent-response-received", {
+						detail: { agentName, text, type: "speaking" },
 					}));
 				}
-
-				this.dispatchEvent(new CustomEvent("agent-response-received", {
-					detail: { agentName, text, type: "speaking" },
-				}));
 				break;
 			}
 			case "thinking": {
@@ -317,13 +333,37 @@ export class DashboardStore extends EventTarget {
 				this.pushEventLog(agentName, "error", event.text ?? "Unknown error");
 				break;
 			}
-			case "using-tool":
-				this.pushEventLog(agentName, "using-tool", event.tool ?? "tool");
+			case "using-tool": {
+				const hasSummary = event.text && event.text !== event.tool;
+				const toolSummary = hasSummary ? event.text! : (event.tool ?? "tool");
+				this.pushEventLog(agentName, "using-tool", toolSummary);
+				// Only show enriched summaries in chat — bare tool names are noise
+				if (hasSummary) {
+					this.pushAgentThought(agentName, `🔧 ${toolSummary}`);
+				}
+				this.dispatchEvent(new CustomEvent("agent-using-tool", {
+					detail: { agentName, tool: event.tool ?? "tool" },
+				}));
 				break;
-			case "tool-complete":
-				this.pushEventLog(agentName, "tool-complete", `${event.tool ?? "tool"} done`);
+			}
+			case "tool-complete": {
+				const toolName = event.tool ?? "tool";
+				this.pushEventLog(agentName, "tool-complete", `${toolName} done`);
+				this.dispatchEvent(new CustomEvent("agent-tool-complete", {
+					detail: { agentName, tool: toolName },
+				}));
 				break;
-			case "task-started":
+			}
+			case "task-started": {
+				// Mark the first pending task as in-progress
+				const tasks = this.assignedTasks.get(agentName) ?? [];
+				const pending = tasks.find((t) => t.status === "pending");
+				if (pending) {
+					this.markTaskStatus(agentName, pending.name, "in-progress");
+					this.pushEventLog(agentName, "task-started", pending.name);
+				}
+				break;
+			}
 			case "task-completed":
 				break;
 		}
@@ -334,8 +374,10 @@ export class DashboardStore extends EventTarget {
 
 		let contextBlock = "";
 		if (this.worldContext) {
-			const isFirstMessage = !this.conversations.has(agentName) || this.conversations.get(agentName)!.length === 0;
-			if (isFirstMessage) {
+			const turns = this.conversations.get(agentName) ?? [];
+			const hasAgentResponse = turns.some((t) => t.role === "agent");
+			if (!hasAgentResponse) {
+				// First real exchange — send full protocol + world snapshot
 				const agent = this.agents.find((a) => a.name === agentName);
 				const protocol = this.worldContext.getProtocolInstruction(agentName, agent?.domain ?? "general", agent ? {
 					persona: agent.persona,
@@ -347,7 +389,8 @@ export class DashboardStore extends EventTarget {
 				const snapshot = this.worldContext.serialize();
 				contextBlock = `${protocol}\n\n${snapshot}`;
 			} else {
-				contextBlock = this.worldContext.serializeDelta(agentName) ?? "";
+				// Subsequent messages — send delta or refresh world snapshot if delta is empty
+				contextBlock = this.worldContext.serializeDelta(agentName) ?? this.worldContext.serialize();
 			}
 			this.worldContext.markSeen(agentName);
 		}
@@ -387,12 +430,12 @@ export class DashboardStore extends EventTarget {
 		});
 		this.assignedTasks.set(agentName, tasks);
 
-		// Build task prompt
+		// Build task prompt — instruct LLM to produce a full markdown document
 		const inputLine = userInput ? `\nDirector's input: ${userInput}` : "";
-		const toolLine = task.tool
-			? `\nA tool has been dispatched: "${task.tool.command}". Its output will follow. Interpret the results and summarize for the Director.`
-			: "\nWork through this using your expertise. Report when complete.";
-		const taskPrompt = `[Task Assignment]\nTask: ${task.name}${inputLine}\n\nExecute this task. When done, report your results concisely.${toolLine}`;
+		const toolInstruction = task.tool
+			? `\nA tool has been dispatched: "${task.tool.command}". Its output will follow. Incorporate the results into your document.`
+			: "";
+		const taskPrompt = `[Task Assignment]\nTask: ${task.name}${inputLine}${toolInstruction}\n\nProduce your output as a complete markdown document. Start with a heading. Be thorough but concise. Your entire response will be saved as a document in the vault.`;
 
 		this.pushDebugEntry(agentName, taskPrompt, "task");
 
@@ -419,6 +462,26 @@ export class DashboardStore extends EventTarget {
 		}
 	}
 
+	private saveTaskOutput(agentName: string, taskName: string, content: string): string | null {
+		if (!this.vaultBasePath) return null;
+		try {
+			const slug = taskName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+			const date = new Date().toISOString().slice(0, 10);
+			const agentSlug = agentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+			const dir = join(this.vaultBasePath, "03 - Resources", "Agents", "output", agentSlug);
+			const filename = `${slug}-${date}.md`;
+			const filePath = join(dir, filename);
+
+			if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+			writeFileSync(filePath, content, "utf-8");
+
+			// Return vault-relative path (for Obsidian links)
+			return `03 - Resources/Agents/output/${agentSlug}/${filename}`;
+		} catch {
+			return null;
+		}
+	}
+
 	private markTaskStatus(agentName: string, taskName: string, status: string): void {
 		const tasks = this.assignedTasks.get(agentName) ?? [];
 		const entry = tasks.find((t) => t.name === taskName && t.status !== "completed" && t.status !== "failed");
@@ -432,7 +495,7 @@ export class DashboardStore extends EventTarget {
 		const args = task.tool.command.split(/\s+/);
 		const cmd = args.shift()!;
 
-		import("node:child_process").then(({ execFile }) => {
+		void import("node:child_process").then(({ execFile }) => {
 			execFile(cmd, args, { timeout: 120_000 }, (error, stdout, stderr) => {
 				const output = [`[Tool output for "${task.name}"]`, "", stdout];
 				if (stderr) output.push("[stderr]", stderr);
@@ -467,7 +530,7 @@ export class DashboardStore extends EventTarget {
 		const result = await this.cliExecutor.assignTask(agentName, task);
 		if (result.ok) {
 			const entry = tasks.find((t) => t.name === task && t.status === "pending");
-			if (entry) entry.status = "in-progress";
+			if (entry) (entry as { status: string }).status = "in-progress";
 			if (this.connectionStatus !== "connected") {
 				this.setConnectionStatus("connected");
 			}

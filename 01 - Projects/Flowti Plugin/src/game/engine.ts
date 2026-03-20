@@ -99,7 +99,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Reactive store ──────────────────────────────────
-	const store = new DashboardStore(deps.cliExecutor, deps.worldContext);
+	const store = new DashboardStore(deps.cliExecutor, deps.worldContext, deps.vaultBasePath);
 
 	// ── Mount Lit overlay components ────────────────────
 	const overlays = document.createElement("ft-game-overlays") as HTMLElement & { store: DashboardStore };
@@ -214,8 +214,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 			store.selectAgent(agentName);
 			store.selectTab("info");
-			// Warm up the agent process so LLM is ready when the user talks
-			void store.wakeAgent(agentName);
+			// Warm up the agent process after a short delay so selection feels smooth
+			setTimeout(() => void store.wakeAgent(agentName), 600);
 			// Show a personality greeting via the talk engine instead of waking LLM
 			const agent = store.agents.find((a) => a.name === agentName);
 			if (agent) {
@@ -307,6 +307,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			socialSystem.register(agent.name, {
 				socialRadius: brainState.params.socialRadius,
 				personality: agent.personality ?? [],
+				domain: agent.domain ?? "general",
 				relationships: agent.relationships ?? [],
 			});
 			knownEntities.add(agent.name);
@@ -407,14 +408,56 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		if (!actor) return;
 		const agent = store.agents.find((a) => a.name === name);
 		const moodTexts: Record<string, string[]> = {
-			happy: ["Life is good.", "Feeling great!"],
-			frustrated: ["Hmm...", "This is tricky."],
-			focused: ["Deep in thought...", "Concentrating..."],
-			neutral: ["...", "Hmm."],
-			empathetic: ["I understand.", "How are you?"],
-			inspired: ["I have an idea!", "What if..."],
-			aesthetic: ["Beautiful.", "So elegant."],
-			playful: ["Hehe.", "Fun times!"],
+			happy: [
+				"\u{1F60A} Life is good.", "\u{2728} Feeling great!", "\u{1F389} Yes!",
+				"\u{1F31F} What a day!", "\u{1F44D} Love it.", "\u{1F60E} Smooth sailing.",
+				"\u{1F496} Grateful for this team.", "\u{1F3B5} Humming along.",
+			],
+			enthusiastic: [
+				"\u{1F525} Let's go!", "\u{1F680} Launching!", "\u{1F4AA} Pumped!",
+				"\u{26A1} Energy!", "\u{1F3AF} Locked in!", "\u{1F4A5} Boom!",
+			],
+			frustrated: [
+				"\u{1F914} Hmm...", "\u{1F615} This is tricky.", "\u{1F62E}\u200D\u{1F4A8} Come on...",
+				"\u{1F9D0} Let me look at this differently.", "\u{1F616} Stuck for a moment.",
+				"\u{1F612} Not clicking yet.", "\u{1F4AD} There's gotta be a way...",
+			],
+			focused: [
+				"\u{1F9D0} Deep in thought...", "\u{1F3AF} Concentrating...", "\u{1F4A1} Almost got it.",
+				"\u{1F52C} Zooming in.", "\u{1F9E0} Brain at full capacity.", "\u{1F4DD} Taking notes.",
+				"\u{23F3} Just need a bit more time.", "\u{1F50D} Investigating.",
+			],
+			neutral: [
+				"\u{1F4AD} ...", "\u{1F914} Hmm.", "\u{2615} Sip.",
+				"\u{1F440} Looking around.", "\u{1F6B6} Just vibing.", "\u{1F324}\uFE0F Nice day.",
+			],
+			contemplative: [
+				"\u{1F30C} Big picture thinking.", "\u{1F4AD} What if...", "\u{1F52D} Seeing patterns.",
+				"\u{1F9D8} Reflecting.", "\u{1F31F} There's something here.",
+			],
+			empathetic: [
+				"\u{1F49B} I understand.", "\u{1F917} How are you?", "\u{1F64F} I appreciate you.",
+				"\u{1F4AC} Tell me more.", "\u{1F91D} We're in this together.",
+				"\u{2764}\uFE0F The team matters.", "\u{1F60C} Take your time.",
+			],
+			inspired: [
+				"\u{1F4A1} I have an idea!", "\u{2728} What if...", "\u{1F680} This could be big!",
+				"\u{1F31F} Eureka moment.", "\u{1F525} The spark is there!",
+				"\u{1F3A8} Creative juices flowing.", "\u{1F4AB} Breakthrough incoming.",
+			],
+			aesthetic: [
+				"\u{2728} Beautiful.", "\u{1F3A8} So elegant.", "\u{1F308} Harmony.",
+				"\u{1F338} Clean and refined.", "\u{1F5BC}\uFE0F Art.", "\u{1F48E} Polished.",
+			],
+			playful: [
+				"\u{1F604} Hehe.", "\u{1F389} Fun times!", "\u{1F60E} Cool cool cool.",
+				"\u{1F3AE} Game on.", "\u{1F938} Plot twist!", "\u{1F47E} Beep boop.",
+				"\u{1F609} You know it.", "\u{1F942} Cheers!",
+			],
+			skeptical: [
+				"\u{1F928} Really though?", "\u{1F9D0} Let me verify.", "\u{1F914} Show me the data.",
+				"\u{1F50D} Prove it.", "\u{1F4CA} Numbers don't lie.", "\u{2753} But why?",
+			],
 		};
 		const mood = agent?.mood ?? "neutral";
 		const texts = moodTexts[mood] ?? moodTexts["neutral"]!;
@@ -423,17 +466,58 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Wire social conversation callback ────────────────
+	const SOCIAL_EMOJIS = [
+		"\u{1F44B}", "\u{1F60A}", "\u{1F4AC}", "\u{2728}", "\u{1F91D}", "\u{1F4A1}", "\u{1F44D}", "\u{1F914}",
+		"\u{1F60E}", "\u{1F525}", "\u{1F389}", "\u{1F64C}", "\u{1F4AA}", "\u{1F942}", "\u{2615}", "\u{1F31F}",
+		"\u{1F44F}", "\u{1F60D}", "\u{1F929}", "\u{1F4AF}", "\u{1F680}", "\u{1F3AF}", "\u{2764}\uFE0F", "\u{1F917}",
+	];
+	const REACTION_EMOJIS = ["\u{1F44D}", "\u{1F60A}", "\u{2728}", "\u{1F4AF}", "\u{1F44F}", "\u{1F64C}", "\u{2764}\uFE0F", "\u{1F525}"];
+	const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+
 	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
 		brainSystem.applyEvent(nameA, "speaking");
 		brainSystem.applyEvent(nameB, "speaking");
+
+		// Face each other
+		const actorA = findAgentActor(nameA);
+		const actorB = findAgentActor(nameB);
+		if (actorA) actorA.focus();
+		if (actorB) actorB.focus();
+
+		// Agent A speaks first
 		bubbleSystem.showBubble(nameA, "speech", lineA, engine.currentScene, findAgentActor, 4000);
+
+		// Agent B responds with delay + occasional emoji
+		const bDelay = 1000 + Math.random() * 800;
 		setTimeout(() => {
-			bubbleSystem.showBubble(nameB, "speech", lineB, engine.currentScene, findAgentActor, 4000);
-		}, 800);
+			const prefix = Math.random() < 0.5 ? `${pick(SOCIAL_EMOJIS)} ` : "";
+			bubbleSystem.showBubble(nameB, "speech", `${prefix}${lineB}`, engine.currentScene, findAgentActor, 4000);
+		}, bDelay);
+
+		// 50% chance: Agent A reacts with an emoji thought bubble
+		if (Math.random() < 0.5) {
+			setTimeout(() => {
+				bubbleSystem.showBubble(nameA, "thought", pick(REACTION_EMOJIS), engine.currentScene, findAgentActor, 2000);
+			}, bDelay + 1500 + Math.random() * 1000);
+		}
+
+		// 30% chance: One more exchange (A or B adds a follow-up)
+		if (Math.random() < 0.3) {
+			const follower = Math.random() < 0.5 ? nameA : nameB;
+			const followUps = [
+				"Totally.", "Right?", "Exactly.", "Ha, yeah.", "For sure.",
+				"Good point.", "Agreed.", "Makes sense.", "Love that.",
+				"Same here.", "You said it.", "100%.", "Can't argue with that.",
+			];
+			setTimeout(() => {
+				bubbleSystem.showBubble(follower, "speech", pick(followUps), engine.currentScene, findAgentActor, 2500);
+			}, bDelay + 2500 + Math.random() * 1000);
+		}
+
 		setTimeout(() => {
 			brainSystem.applyEvent(nameA, "idle");
 			brainSystem.applyEvent(nameB, "idle");
-		}, 5000);
+		}, 6000 + Math.random() * 2000);
 	});
 
 	// ── Pre-update loop state ───────────────────────────
@@ -593,8 +677,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const positionsPath = join(deps.vaultBasePath, ".flowti", "var", "world-positions.json");
 		const positionsDir = join(deps.vaultBasePath, ".flowti", "var");
 
-		engine.on("postupdate", (evt: ex.PostUpdateEvent) => {
-			positionFlushTimer += evt.delta;
+		engine.on("postupdate", (evt) => {
+			positionFlushTimer += evt.elapsed;
 			if (positionFlushTimer < POSITION_FLUSH_INTERVAL) return;
 			positionFlushTimer = 0;
 
@@ -659,8 +743,21 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		brainSystem.releaseWork(agentName);
 		store.taskLockedAgents.delete(agentName);
 		talkEngine.silence(agentName);
+		const actor = findAgentActor(agentName);
+		if (actor) { actor.hideLlmIndicator(); actor.hideToolIndicator(); }
 		// Show completion bubble
 		bubbleSystem.showBubble(agentName, "speech", typeof result === "string" ? result.slice(0, 80) : "Task complete.", engine.currentScene, findAgentActor, 5000);
+	}) as EventListener);
+
+	// ── Tool usage indicators ──────────────────────────
+	store.addEventListener("agent-using-tool", ((e: CustomEvent) => {
+		const actor = findAgentActor(e.detail.agentName);
+		if (actor) actor.showToolIndicator();
+	}) as EventListener);
+
+	store.addEventListener("agent-tool-complete", ((e: CustomEvent) => {
+		const actor = findAgentActor(e.detail.agentName);
+		if (actor) actor.hideToolIndicator();
 	}) as EventListener);
 
 	// ── Camera follow via store state ───────────────────
@@ -718,8 +815,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	return {
 		async start(): Promise<void> {
-			// Inject pixel-art font link if not already present
+			// Inject pixel-art font — loaded dynamically since game may not always be active
 			if (!document.querySelector('link[href*="Press+Start+2P"]')) {
+				// eslint-disable-next-line obsidianmd/no-forbidden-elements -- dynamic font load for game UI only
 				const fontLink = document.createElement("link");
 				fontLink.rel = "stylesheet";
 				fontLink.href = "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap";
@@ -728,7 +826,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 			// Start engine and navigate to hub
 			await engine.start();
-			engine.goToScene("hub");
+			void engine.goToScene("hub");
 
 			// Preload all character sprites
 			const ASSET_BASE = `${spriteBasePath}/assets/Actor/Characters/`;
@@ -787,7 +885,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 
 		resume(): void {
-			engine.start();
+			void engine.start();
 		},
 
 		dispose(): void {
