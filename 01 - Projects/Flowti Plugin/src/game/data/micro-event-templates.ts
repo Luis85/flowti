@@ -407,15 +407,29 @@ export const TEA_TIME_TEMPLATES: readonly EventTemplate[] = [
 	{ text: "Five-minute break. The code will still be broken when I get back", weight: 1 },
 ];
 
-// ── Picker helper ────────────────────────────────────────────────────
+// ── Picker helper with global dedup ──────────────────────────────────
 
-/** Pick a random template from a pool using weighted selection. */
+const GLOBAL_RECENT_SIZE = 30;
+const globalRecentPhrases: string[] = [];
+
+/** Pick a random template from a pool using weighted selection, avoiding recently used phrases. */
 export function pickTemplate(pool: readonly EventTemplate[]): string {
-	const totalWeight = pool.reduce((sum, t) => sum + t.weight, 0);
+	const recentSet = new Set(globalRecentPhrases);
+	// Filter out recently used, fall back to full pool if all filtered
+	const filtered = pool.filter((t) => !recentSet.has(t.text));
+	const source = filtered.length > 0 ? filtered : pool;
+	const totalWeight = source.reduce((sum, t) => sum + t.weight, 0);
 	let roll = Math.random() * totalWeight;
-	for (const t of pool) {
+	for (const t of source) {
 		roll -= t.weight;
-		if (roll <= 0) return t.text;
+		if (roll <= 0) {
+			globalRecentPhrases.push(t.text);
+			if (globalRecentPhrases.length > GLOBAL_RECENT_SIZE) globalRecentPhrases.shift();
+			return t.text;
+		}
 	}
-	return pool[pool.length - 1].text;
+	const fallback = source[source.length - 1].text;
+	globalRecentPhrases.push(fallback);
+	if (globalRecentPhrases.length > GLOBAL_RECENT_SIZE) globalRecentPhrases.shift();
+	return fallback;
 }

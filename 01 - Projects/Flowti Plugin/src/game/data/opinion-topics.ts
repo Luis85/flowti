@@ -68,3 +68,37 @@ export function checkOpinionAgreement(
 	}
 	return false;
 }
+
+/** Find the clashing opinion topic labels between two agents. Returns {opinionA, opinionB} for the first clash, or null. */
+export function findClashLabels(
+	opinionsA: readonly AgentOpinion[],
+	opinionsB: readonly AgentOpinion[],
+): { opinionA: string; opinionB: string } | null {
+	for (const a of opinionsA) {
+		const match = opinionsB.find((b) => b.topic === a.topic && b.side !== a.side);
+		if (match) {
+			const topic = OPINION_TOPICS.find((t) => t.id === a.topic);
+			if (!topic) continue;
+			const labelA = a.side === "A" ? topic.sideA : topic.sideB;
+			const labelB = match.side === "A" ? topic.sideA : topic.sideB;
+			return { opinionA: labelA, opinionB: labelB };
+		}
+	}
+	return null;
+}
+
+/** Find the agreeing opinion topic label between two agents. Returns the shared label, or null. */
+export function findAgreementLabel(
+	opinionsA: readonly AgentOpinion[],
+	opinionsB: readonly AgentOpinion[],
+): string | null {
+	for (const a of opinionsA) {
+		const match = opinionsB.find((b) => b.topic === a.topic && b.side === a.side);
+		if (match) {
+			const topic = OPINION_TOPICS.find((t) => t.id === a.topic);
+			if (!topic) continue;
+			return a.side === "A" ? topic.sideA : topic.sideB;
+		}
+	}
+	return null;
+}

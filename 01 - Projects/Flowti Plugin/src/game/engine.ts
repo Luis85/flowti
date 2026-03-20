@@ -51,7 +51,7 @@ import { MemorySystem } from "./systems/memory-system.js";
 import { QuirkSystem } from "./systems/quirk-system.js";
 import { RelationshipSystem } from "./systems/relationship-system.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
-import { assignOpinions } from "./data/opinion-topics.js";
+import { assignOpinions, findClashLabels } from "./data/opinion-topics.js";
 import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
 import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
 import {
@@ -700,12 +700,18 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		relationshipSystem.recordConversation(nameA, nameB);
 		if (relationshipSystem.shouldBicker(nameA, nameB)) {
 			relationshipSystem.recordBicker(nameA, nameB);
-			const pickBicker = () => pickTemplate(BICKER_TEMPLATES);
+			// Resolve opinion labels for template interpolation
+			const opsA = relationshipSystem.getOpinions(nameA);
+			const opsB = relationshipSystem.getOpinions(nameB);
+			const clash = findClashLabels(opsA, opsB);
+			const resolveOpinions = (text: string) =>
+				text.replace(/\{opinionA\}/g, clash?.opinionA ?? "my way")
+					.replace(/\{opinionB\}/g, clash?.opinionB ?? "your way");
 			setTimeout(() => {
-				bubbleSystem.showBubble(nameA, "speech", pickBicker(), engine.currentScene, findAgentActor, 3000);
+				bubbleSystem.showBubble(nameA, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), engine.currentScene, findAgentActor, 3000);
 			}, 500);
 			setTimeout(() => {
-				bubbleSystem.showBubble(nameB, "speech", pickBicker(), engine.currentScene, findAgentActor, 3000);
+				bubbleSystem.showBubble(nameB, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), engine.currentScene, findAgentActor, 3000);
 			}, 2000);
 		}
 		brainSystem.applyEvent(nameA, "speaking");
