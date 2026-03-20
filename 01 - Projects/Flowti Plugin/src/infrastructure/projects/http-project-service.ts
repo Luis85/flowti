@@ -6,6 +6,8 @@
 import type {
 	IProjectService, ProjectSummary, ProjectDetail,
 	StorybookFramework, MarkdownSourceConfig,
+	HealthScore, TodoItem, CatalogEntity, CatalogEntityType,
+	CatalogEntityDef, ReportGeneratorInfo, ComponentEntry,
 } from "../../domain/projects/types.js";
 
 interface ApiResult { ok: boolean; error?: string; [key: string]: unknown }
@@ -96,6 +98,50 @@ export class HttpProjectService implements IProjectService {
 
 	async createEmptyProject(name: string): Promise<ApiResult> {
 		return this.post("/api/project/create", { name });
+	}
+
+	async getHealth(_project: string): Promise<{ ok: boolean; score?: HealthScore; error?: string }> {
+		return { ok: false, error: "Not supported via HTTP" };
+	}
+
+	async getTodos(_project: string): Promise<{ items: TodoItem[]; exists: boolean }> {
+		return { items: [], exists: false };
+	}
+
+	async addTodo(_project: string, _text: string): Promise<{ ok: boolean }> {
+		return { ok: false };
+	}
+
+	async toggleTodo(_project: string, _index: number): Promise<{ ok: boolean }> {
+		return { ok: false };
+	}
+
+	async deleteTodo(_project: string, _index: number): Promise<{ ok: boolean }> {
+		return { ok: false };
+	}
+
+	async listEntities(_project: string, _entityType: CatalogEntityType): Promise<CatalogEntity[]> {
+		return [];
+	}
+
+	async createEntity(_project: string, _entityType: CatalogEntityType, _definition: CatalogEntityDef): Promise<{ ok: boolean; path?: string }> {
+		return { ok: false };
+	}
+
+	async getReportGenerators(_project: string): Promise<ReportGeneratorInfo[]> {
+		return [];
+	}
+
+	async runReport(_project: string, _generatorId: string): Promise<{ ok: boolean; error?: string }> {
+		return { ok: false, error: "Not supported via HTTP" };
+	}
+
+	async runAllReports(_project: string): Promise<{ ok: boolean; error?: string }> {
+		return { ok: false, error: "Not supported via HTTP" };
+	}
+
+	async listComponents(_project: string): Promise<ComponentEntry[]> {
+		return [];
 	}
 
 	private async post(path: string, body: Record<string, unknown>): Promise<ApiResult> {
