@@ -331,6 +331,41 @@ vi.mock("../../src/game/systems/world-event-scheduler.js", () => {
 	return { WorldEventScheduler: MockWorldEventScheduler };
 });
 
+vi.mock("../../src/game/systems/relationship-system.js", () => {
+	function MockRelationshipSystem() {
+		const self = this as Record<string, unknown>;
+		self.register = vi.fn();
+		self.recordConversation = vi.fn();
+		self.recordCluster = vi.fn();
+		self.recordBicker = vi.fn();
+		self.shouldBicker = vi.fn(() => false);
+		self.getAffinity = vi.fn(() => 0);
+		self.getTier = vi.fn(() => "acquaintance");
+		self.onCycleEnd = vi.fn();
+		self.onTierChange = vi.fn();
+		self.addSharedMemory = vi.fn();
+		self.serialize = vi.fn(() => ({ relationships: [], opinions: {} }));
+		self.restore = vi.fn();
+	}
+	return { RelationshipSystem: MockRelationshipSystem };
+});
+
+vi.mock("../../src/game/data/relationship-templates.js", () => ({
+	BICKER_TEMPLATES: [{ text: "test bicker", weight: 1 }],
+	COLLEAGUE_TEMPLATES: [{ text: "test", weight: 1 }],
+	FRIEND_TEMPLATES: [{ text: "test", weight: 1 }],
+	BEST_FRIEND_TEMPLATES: [{ text: "test", weight: 1 }],
+	AGREEMENT_TEMPLATES: [{ text: "test", weight: 1 }],
+	getTemplatesForTier: vi.fn(() => []),
+}));
+
+vi.mock("../../src/game/data/opinion-topics.js", () => ({
+	assignOpinions: vi.fn(() => []),
+	checkOpinionClash: vi.fn(() => false),
+	checkOpinionAgreement: vi.fn(() => false),
+	OPINION_TOPICS: [],
+}));
+
 vi.mock("../../src/game/actors/coffee-machine.js", () => {
 	function MockCoffeeMachine() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { CoffeeMachine: MockCoffeeMachine };
@@ -365,6 +400,7 @@ vi.mock("../../src/game/data/world-config.js", () => ({
 		engagement: { tiers: { ambient: { idleThresholdMs: 30000, durationMs: 45000 }, nudge: { idleThresholdMs: 90000, durationMs: 90000 }, offer: { idleThresholdMs: 180000, durationMs: 180000 } }, engagementDuration: 10000 },
 		dayCycle: { durationMs: 1500000 },
 		weather: { cycleLengthInDayCycles: 2 },
+		relationships: { affinityDecayPerCycle: 1, bickerChance: 0.3, maxSharedMemories: 5 },
 	},
 }));
 

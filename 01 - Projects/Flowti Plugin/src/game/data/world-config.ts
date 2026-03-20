@@ -140,6 +140,13 @@ export interface WeatherWorldConfig {
 	readonly cycleLengthInDayCycles: number;
 }
 
+/** Relationship system tuning. */
+export interface RelationshipsConfig {
+	readonly affinityDecayPerCycle: number;
+	readonly bickerChance: number;
+	readonly maxSharedMemories: number;
+}
+
 /** Top-level configuration bag for all Agent World systems. */
 export interface WorldConfig {
 	readonly needs: NeedsConfig;
@@ -150,6 +157,7 @@ export interface WorldConfig {
 	readonly tools: ToolsConfig;
 	readonly dayCycle: DayCycleConfig;
 	readonly weather: WeatherWorldConfig;
+	readonly relationships: RelationshipsConfig;
 }
 
 /** Sensible defaults for all WorldConfig values. */
@@ -207,6 +215,11 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 	weather: {
 		cycleLengthInDayCycles: 2,
 	},
+	relationships: {
+		affinityDecayPerCycle: 1,
+		bickerChance: 0.3,
+		maxSharedMemories: 5,
+	},
 };
 
 /**
@@ -257,6 +270,10 @@ export function mergeWorldConfig(overrides: DeepPartial<WorldConfig>): WorldConf
 		weather: {
 			...DEFAULT_WORLD_CONFIG.weather,
 			...overrides.weather,
+		},
+		relationships: {
+			...DEFAULT_WORLD_CONFIG.relationships,
+			...overrides.relationships,
 		},
 	};
 }

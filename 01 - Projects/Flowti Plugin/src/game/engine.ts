@@ -49,7 +49,10 @@ import { DayClock } from "./systems/day-clock.js";
 import { WorldAmbience } from "./systems/world-ambience.js";
 import { MemorySystem } from "./systems/memory-system.js";
 import { QuirkSystem } from "./systems/quirk-system.js";
+import { RelationshipSystem } from "./systems/relationship-system.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
+import { assignOpinions } from "./data/opinion-topics.js";
+import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
 import { CoffeeMachine } from "./actors/coffee-machine.js";
 import { WhiteboardActor } from "./actors/whiteboard-actor.js";
 import { SnackTable } from "./actors/snack-table.js";
@@ -233,6 +236,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const memorySystem = new MemorySystem();
 	const quirkSystem = new QuirkSystem();
 	const worldEventScheduler = new WorldEventScheduler();
+	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
 	const cycleConversationCounts = new Map<string, number>();
 	let prevCycleCount = 0;
 
@@ -505,6 +509,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			if (Object.keys(overrides).length > 0) {
 				brainSystem.applyQuirkOverrides(agent.name, overrides as Record<string, number>);
 			}
+			// Relationship opinions — restore from memory or assign new
+			const savedOpinions = memorySystem.getMemory(agent.name).opinions;
+			const opinions = savedOpinions.length > 0 ? savedOpinions : assignOpinions();
+			if (savedOpinions.length === 0) {
+				memorySystem.getMemory(agent.name).opinions = opinions;
+			}
+			relationshipSystem.register(agent.name, opinions);
 			knownEntities.add(agent.name);
 		}
 	}
@@ -673,6 +684,18 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// Track conversations for memory streaks
 		cycleConversationCounts.set(nameA, (cycleConversationCounts.get(nameA) ?? 0) + 1);
 		cycleConversationCounts.set(nameB, (cycleConversationCounts.get(nameB) ?? 0) + 1);
+		// Relationship tracking + bicker check
+		relationshipSystem.recordConversation(nameA, nameB);
+		if (relationshipSystem.shouldBicker(nameA, nameB)) {
+			relationshipSystem.recordBicker(nameA, nameB);
+			const pickBicker = () => BICKER_TEMPLATES[Math.floor(Math.random() * BICKER_TEMPLATES.length)].text;
+			setTimeout(() => {
+				bubbleSystem.showBubble(nameA, "speech", pickBicker(), engine.currentScene, findAgentActor, 3000);
+			}, 500);
+			setTimeout(() => {
+				bubbleSystem.showBubble(nameB, "speech", pickBicker(), engine.currentScene, findAgentActor, 3000);
+			}, 2000);
+		}
 		brainSystem.applyEvent(nameA, "speaking");
 		brainSystem.applyEvent(nameB, "speaking");
 
@@ -720,6 +743,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Wire cluster huddle conversations ────────────────
 	socialSystem.onCluster((members) => {
+		relationshipSystem.recordCluster(members);
 		const speakCount = Math.min(members.length, 3);
 		const lines = members.slice(0, speakCount).map(() => {
 			const template = HUDDLE_TEMPLATES[Math.floor(Math.random() * HUDDLE_TEMPLATES.length)];
@@ -943,6 +967,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				cycleConversationCounts.set(agentName, 0);
 			}
 			worldEventScheduler.onCycleReset();
+			relationshipSystem.onCycleEnd();
 		}
 
 		// 0b. World event scheduler — tick active events and fire queued
@@ -1291,6 +1316,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					if (existsSync(clockPath)) dayClock.restore(JSON.parse(readFileSync(clockPath, "utf-8")));
 					if (existsSync(weatherPath)) worldAmbience.restore(JSON.parse(readFileSync(weatherPath, "utf-8")));
 					if (existsSync(memoryPath)) memorySystem.restore(JSON.parse(readFileSync(memoryPath, "utf-8")));
+					const relPath = join(varDir, "world-relationships.json");
+					if (existsSync(relPath)) relationshipSystem.restore(JSON.parse(readFileSync(relPath, "utf-8")));
 				} catch { /* non-critical — start fresh */ }
 			}
 			prevCycleCount = dayClock.getCycleCount();
@@ -1337,6 +1364,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					writeFileSync(join(varDir, "world-clock.json"), JSON.stringify(dayClock.serialize(), null, "\t"), "utf-8");
 					writeFileSync(join(varDir, "world-weather.json"), JSON.stringify(worldAmbience.serialize(), null, "\t"), "utf-8");
 					writeFileSync(join(varDir, "world-memory.json"), JSON.stringify(memorySystem.serialize(), null, "\t"), "utf-8");
+					writeFileSync(join(varDir, "world-relationships.json"), JSON.stringify(relationshipSystem.serialize(), null, "\t"), "utf-8");
 				} catch { /* non-critical — skip silently */ }
 			}
 			engine.stop();
