@@ -18,10 +18,6 @@ import { resolvePermissionPolicy, resolveAllowedTools } from "../domain/agents/p
 import { readAgentState, writeAgentState, clearOnceGrants } from "../domain/agents/agent-state.js";
 import { parseAgentResponse } from "../domain/agents/agent-conversation.js";
 import type { IProcessPool } from "../domain/agents/process-pool.js";
-import { createAgentBT, type AgentBT } from "../domain/agents/behavior-tree/bt-factory.js";
-import { btTick } from "../domain/agents/behavior-tree/bt-tick.js";
-import type { AgentToolDeps } from "../domain/agents/behavior-tree/bt-types.js";
-import { checkPermission } from "../domain/agents/permission-engine.js";
 
 export type WorkerManagerDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
@@ -33,8 +29,6 @@ interface WorkerImpl {
 	state: WorkerState;
 	messageQueue: string[];
 	failureCount: number;
-	bt?: AgentBT;
-	btTickTimer?: ReturnType<typeof setInterval>;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -114,36 +108,6 @@ export function createWorkerManager(
 			identity: { name: agent.name, persona: agent.persona, type: agent.agentType },
 			status: { state: "idle" },
 		});
-
-		// BT execution model for agents with behaviors[] defined
-		if (worker.agent.behaviors && worker.agent.behaviors.length > 0) {
-			const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
-			const agentState = readAgentState(deps, varDir, worker.name);
-			const policy = resolvePermissionPolicy(worker.agent.ai?.permissions, agentState.permissionOverride);
-
-			const toolDeps: AgentToolDeps = {
-				disk: deps.disk,
-				paths: deps.paths,
-				clock: deps.clock,
-				providerRegistry: undefined, // Wired when LLM provider is available
-				worldState,
-				checkPermission: (tool: string) => checkPermission(policy, agentState.grants, tool, true),
-			};
-
-			worker.bt = createAgentBT(worker.agent, toolDeps);
-			worker.btTickTimer = setInterval(() => {
-				try {
-					if (worker.bt) btTick(worker.bt.tree, worker.bt.agent, worldState, deps.clock);
-				} catch (err) {
-					worker.failureCount++;
-					if (worker.failureCount >= 3) {
-						clearInterval(worker.btTickTimer);
-						worker.btTickTimer = undefined;
-						setWorkerState(worker, "stopped", worldState);
-					}
-				}
-			}, 3000);
-		}
 
 		return worker;
 	}
@@ -286,22 +250,12 @@ export function createWorkerManager(
 		stop(agentName: string): void {
 			const worker = workers.get(agentName);
 			if (!worker) return;
-			if (worker.btTickTimer) {
-				clearInterval(worker.btTickTimer);
-				worker.btTickTimer = undefined;
-			}
-			worker.bt = undefined;
 			if (pool) pool.cancel(agentName);
 			setWorkerState(worker, "stopped", worldState);
 		},
 
 		stopAll(): void {
 			for (const worker of workers.values()) {
-				if (worker.btTickTimer) {
-					clearInterval(worker.btTickTimer);
-					worker.btTickTimer = undefined;
-				}
-				worker.bt = undefined;
 				setWorkerState(worker, "stopped", worldState);
 			}
 		},
