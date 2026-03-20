@@ -11,16 +11,20 @@ import { createBTAgent, type BTAgentObject } from "./bt-agent.js";
 import type { AgentToolDeps, BTAgentDef } from "./bt-types.js";
 
 // Subtree imports
+import { URGENT_SUBTREE } from "./subtrees/urgent.js";
 import { REVIEW_SUBTREE } from "./subtrees/goal-review.js";
 import { SUMMARIZE_SUBTREE } from "./subtrees/goal-summarize.js";
 import { PLAN_SUBTREE } from "./subtrees/goal-plan.js";
 import { IMPLEMENT_SUBTREE } from "./subtrees/goal-implement.js";
 import { MONITOR_SUBTREE } from "./subtrees/goal-monitor.js";
 import { REPORT_SUBTREE } from "./subtrees/goal-report.js";
-import { IDLE_SUBTREE } from "./subtrees/idle.js";
 import { SOCIAL_SUBTREE } from "./subtrees/social.js";
-import { NEEDS_SUBTREE } from "./subtrees/needs.js";
-import { URGENT_SUBTREE } from "./subtrees/urgent.js";
+import { IDLE_SUBTREE } from "./subtrees/idle.js";
+import { NEEDS_ENERGY_SUBTREE } from "./subtrees/needs-energy.js";
+import { NEEDS_SOCIAL_SUBTREE } from "./subtrees/needs-social.js";
+import { NEEDS_FOCUS_SUBTREE } from "./subtrees/needs-focus.js";
+import { NEEDS_MORALE_SUBTREE } from "./subtrees/needs-morale.js";
+import { WORK_CYCLE_SUBTREE } from "./subtrees/work-cycle.js";
 
 export interface AgentBT {
 	readonly tree: BehaviourTree;
@@ -37,6 +41,11 @@ function buildMasterMDSL(): string {
 	return `root {
 	selector {
 		branch [UrgentReaction]
+		branch [NeedsEnergy]
+		branch [NeedsSocial]
+		branch [NeedsFocus]
+		branch [NeedsMorale]
+		branch [WorkCycle]
 		sequence {
 			condition [HasEnoughEnergy]
 			condition [HasEnoughFocus]
@@ -52,7 +61,6 @@ function buildMasterMDSL(): string {
 			}
 		}
 		branch [SocialBehavior]
-		branch [NeedsSatisfaction]
 		branch [IdleBehavior]
 	}
 }`;
@@ -62,6 +70,11 @@ function buildMasterMDSL(): string {
 function collectSubtrees(): string {
 	return [
 		URGENT_SUBTREE,
+		NEEDS_ENERGY_SUBTREE,
+		NEEDS_SOCIAL_SUBTREE,
+		NEEDS_FOCUS_SUBTREE,
+		NEEDS_MORALE_SUBTREE,
+		WORK_CYCLE_SUBTREE,
 		REVIEW_SUBTREE,
 		SUMMARIZE_SUBTREE,
 		PLAN_SUBTREE,
@@ -69,7 +82,6 @@ function collectSubtrees(): string {
 		MONITOR_SUBTREE,
 		REPORT_SUBTREE,
 		SOCIAL_SUBTREE,
-		NEEDS_SUBTREE,
 		IDLE_SUBTREE,
 	].join("\n\n");
 }
