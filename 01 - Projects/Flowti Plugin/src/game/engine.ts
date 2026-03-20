@@ -43,6 +43,8 @@ import { CursorSpirit } from "./actors/cursor-spirit.js";
 import { HUDDLE_TEMPLATES } from "./data/huddle-templates.js";
 import { interpolateTemplate } from "./data/engagement-templates.js";
 import type { DataProvider } from "./config/data-provider.js";
+import type { InteractableActor } from "./actors/interactable-actor.js";
+import type { AgentNeeds } from "./systems/needs-system.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
 import { DayClock } from "./systems/day-clock.js";
@@ -884,6 +886,33 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	villageScene.add(cursorSpirits[2]);
 	stationScene.add(cursorSpirits[3]);
 
+	// ── Lighting overlay — full-screen tint driven by DayClock phase ──
+	function createLightingOverlay(): ex.Actor {
+		const actor = new ex.Actor({
+			pos: ex.vec(0, 0),
+			anchor: ex.vec(0, 0),
+			z: 500,
+			collisionType: ex.CollisionType.PreventCollision,
+		});
+		const canvas = new ex.Canvas({
+			width: ENGINE_WIDTH,
+			height: ENGINE_HEIGHT,
+			cache: false,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				const light = worldAmbience.getLighting(dayClock.getPhase());
+				if (light.opacity <= 0) return;
+				ctx.fillStyle = `rgba(${light.r}, ${light.g}, ${light.b}, ${light.opacity})`;
+				ctx.fillRect(0, 0, ENGINE_WIDTH, ENGINE_HEIGHT);
+			},
+		});
+		actor.graphics.use(canvas);
+		return actor;
+	}
+	hubScene.add(createLightingOverlay());
+	officeScene.add(createLightingOverlay());
+	villageScene.add(createLightingOverlay());
+	stationScene.add(createLightingOverlay());
+
 	/** Get names of agents within social radius of `name`. */
 	function getNearbyAgents(name: string): string[] {
 		const pos = brainSystem.getPosition(name);
@@ -1046,6 +1075,39 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// 3b. Behavior thresholds — needs-driven state overrides
 		processThresholds();
 
+		// 3c. Object attraction — agents navigate to environmental objects when needs/phase trigger
+		const objectAttractions: Array<{ object: InteractableActor; phase: string[]; needCheck: (needs: AgentNeeds) => boolean; chance: number }> = [
+			{ object: coffeeMachine, phase: ["morning-arrival", "afternoon-slump"], needCheck: (n) => n.energy < 40, chance: 0.002 },
+			{ object: snackTable, phase: ["lunch", "afternoon-slump"], needCheck: (n) => n.energy < 50 && n.social < 40, chance: 0.002 },
+			{ object: waterCooler, phase: ["afternoon", "afternoon-slump"], needCheck: (n) => n.social < 30, chance: 0.001 },
+			{ object: couch, phase: ["afternoon-slump", "wind-down"], needCheck: () => false, chance: 0.001 },
+		];
+		const currentPhase = dayClock.getPhase();
+		for (const agentName of needsSystem.getAgentNames()) {
+			const state = brainSystem.getState(agentName)?.state;
+			if (state !== "idle" && state !== "wandering") continue;
+			const needs = needsSystem.getNeeds(agentName);
+			for (const attr of objectAttractions) {
+				if (attr.object.isOccupied()) continue;
+				const phaseMatch = attr.phase.includes(currentPhase);
+				const needMatch = attr.needCheck(needs);
+				if ((phaseMatch || needMatch) && Math.random() < attr.chance) {
+					const point = attr.object.getInteractionPoint();
+					brainSystem.walkTo(agentName, point);
+					attr.object.occupy(agentName);
+					// Apply needs effects on arrival (delayed)
+					setTimeout(() => {
+						const effects = attr.object.getNeedsEffects();
+						needsSystem.applyEffect(agentName, effects);
+						attr.object.vacate();
+						// Spawn interaction particles
+						if (attr.object === coffeeMachine) particlePool.spawnPreset("steam", point.x, point.y - 20);
+					}, 5000);
+					break; // one attraction per agent per frame
+				}
+			}
+		}
+
 		// 4. Director system — advance idle timer
 		directorSystem.update(deltaMs);
 
@@ -1094,6 +1156,25 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// Particle trails
 		updateParticleTrails();
 		particlePool.update(deltaMs);
+
+		// Weather ambient particles
+		const weatherVisuals = worldAmbience.getWeatherVisuals();
+		if (weatherVisuals.particleCount > 0) {
+			// Spawn 1-2 particles per frame when weather has particles (rain streaks, sunny sparkles)
+			if (Math.random() < 0.3) {
+				const x = Math.random() * ENGINE_WIDTH;
+				const y = weatherVisuals.particleAngle > 0 ? 0 : Math.random() * ENGINE_HEIGHT; // rain from top, sunny anywhere
+				particlePool.spawn({
+					x, y,
+					vx: Math.sin(weatherVisuals.particleAngle) * weatherVisuals.particleSpeed,
+					vy: Math.cos(weatherVisuals.particleAngle) * weatherVisuals.particleSpeed,
+					color: weatherVisuals.particleColor,
+					lifetime: 1500,
+					opacity: 0.4,
+					radius: weatherVisuals.particleAngle > 0 ? 0.5 : 1, // thin streaks for rain, dots for sunny
+				});
+			}
+		}
 
 		// Workstation glow updates
 		for (const room of Object.values(roomScenes)) {
