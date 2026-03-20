@@ -73,6 +73,11 @@ export interface SensorsConfig {
 	/** Cooldown in ms between sensor fires targeting the same agent. */
 	readonly perAgentCooldown: number;
 	readonly overrides?: readonly SensorRuleOverride[];
+	/**
+	 * Maps domain names to file-path prefixes.
+	 * Used by file-saved / file-opened rules to select the nearest-domain agent.
+	 */
+	readonly domainPaths?: Readonly<Record<string, string>>;
 }
 
 /** Configuration for group/cluster detection. */
@@ -160,6 +165,13 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 	sensors: {
 		globalCooldown: 10000,
 		perAgentCooldown: 5000,
+		domainPaths: {
+			engineering: "src/",
+			quality: "tests/",
+			design: "design/",
+			product: "docs/",
+			operations: ".flowti/",
+		},
 	},
 	groups: {
 		clusterMinAgents: 3,
