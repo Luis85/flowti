@@ -235,8 +235,8 @@ describe("tailJsonlFile", () => {
 
 		vi.mocked(statSync).mockReturnValue({ size: chunkBuffer.length } as ReturnType<typeof statSync>);
 		vi.mocked(openSync).mockReturnValue(10);
-		vi.mocked(readSync).mockImplementation((_fd, buf: Buffer) => {
-			chunkBuffer.copy(buf);
+		vi.mocked(readSync).mockImplementation((_fd, buf) => {
+			chunkBuffer.copy(buf as Buffer);
 			return chunkBuffer.length;
 		});
 
@@ -259,8 +259,8 @@ describe("tailJsonlFile", () => {
 
 		vi.mocked(statSync).mockReturnValue({ size: buf1.length } as ReturnType<typeof statSync>);
 		vi.mocked(openSync).mockReturnValue(10);
-		vi.mocked(readSync).mockImplementation((_fd, buf: Buffer) => {
-			buf1.copy(buf);
+		vi.mocked(readSync).mockImplementation((_fd, buf) => {
+			buf1.copy(buf as Buffer);
 			return buf1.length;
 		});
 
@@ -274,8 +274,8 @@ describe("tailJsonlFile", () => {
 		const totalSize = buf1.length + buf2.length;
 
 		vi.mocked(statSync).mockReturnValue({ size: totalSize } as ReturnType<typeof statSync>);
-		vi.mocked(readSync).mockImplementation((_fd, buf: Buffer) => {
-			buf2.copy(buf);
+		vi.mocked(readSync).mockImplementation((_fd, buf) => {
+			buf2.copy(buf as Buffer);
 			return buf2.length;
 		});
 
@@ -328,8 +328,8 @@ describe("tailJsonlFile", () => {
 
 		vi.mocked(statSync).mockReturnValue({ size: buf.length } as ReturnType<typeof statSync>);
 		vi.mocked(openSync).mockReturnValue(10);
-		vi.mocked(readSync).mockImplementation((_fd, b: Buffer) => {
-			buf.copy(b);
+		vi.mocked(readSync).mockImplementation((_fd, b) => {
+			buf.copy(b as Buffer);
 			return buf.length;
 		});
 
@@ -353,8 +353,8 @@ describe("tailJsonlFile", () => {
 
 		vi.mocked(statSync).mockReturnValue({ size: buf.length } as ReturnType<typeof statSync>);
 		vi.mocked(openSync).mockReturnValue(10);
-		vi.mocked(readSync).mockImplementation((_fd, b: Buffer) => {
-			buf.copy(b);
+		vi.mocked(readSync).mockImplementation((_fd, b) => {
+			buf.copy(b as Buffer);
 			return buf.length;
 		});
 

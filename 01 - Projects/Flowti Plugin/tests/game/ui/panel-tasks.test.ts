@@ -105,8 +105,8 @@ describe("PanelTasks interaction logic", () => {
 			addEventListener: vi.fn(),
 			removeEventListener: vi.fn(),
 		};
-		(el as Record<string, unknown>).store = mockStore;
-		(el as Record<string, unknown>).agent = {
+		(el as unknown as Record<string, unknown>).store = mockStore;
+		(el as unknown as Record<string, unknown>).agent = {
 			name: "atlas",
 			agentType: "ai",
 			status: "idle" as const,
@@ -133,7 +133,7 @@ describe("PanelTasks interaction logic", () => {
 	});
 
 	it("handleAssignClick calls executeTask directly for non-AI agents without input", () => {
-		(el as Record<string, unknown>).agent = {
+		(el as unknown as Record<string, unknown>).agent = {
 			name: "bob",
 			agentType: "human",
 			status: "idle" as const,
@@ -171,7 +171,7 @@ describe("PanelTasks interaction logic", () => {
 
 	it("falls back to assignTask when executeTask is not available", () => {
 		delete (mockStore as Record<string, unknown>).executeTask;
-		(el as Record<string, unknown>).agent = {
+		(el as unknown as Record<string, unknown>).agent = {
 			name: "bob",
 			agentType: "human",
 			status: "idle" as const,

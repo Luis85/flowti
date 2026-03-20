@@ -34,7 +34,7 @@ describe("TestManagementService", () => {
 	beforeEach(() => {
 		storage = createMockStorage();
 		eventBus = createMockEventBus();
-		service = new TestManagementService({
+		service = new TestManagementService({ deferVaultIndexing: false,
 			storage: storage as unknown as Parameters<typeof TestManagementService.prototype.load extends () => Promise<void> ? never : never>[0],
 			eventBus: eventBus as unknown as Parameters<typeof TestManagementService.prototype.load extends () => Promise<void> ? never : never>[0],
 		} as ConstructorParameters<typeof TestManagementService>[0]);
@@ -68,7 +68,7 @@ describe("TestManagementService", () => {
 					runHistory: [],
 				}],
 			});
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never });
 			await service.load();
 
 			expect(service.getJourneys()).toHaveLength(1);
@@ -234,7 +234,7 @@ describe("TestManagementService", () => {
 				{ json: { journey: "Scanned A", steps: [{ id: "s1", actions: [] }] }, path: "journeys/A.json" },
 				{ json: { journey: "Scanned B", steps: [], type: "smoke" }, path: "journeys/B.json" },
 			]);
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
 			await service.load();
 
 			expect(scanner).toHaveBeenCalledOnce();
@@ -262,7 +262,7 @@ describe("TestManagementService", () => {
 			const scanner = vi.fn(async () => [
 				{ json: { journey: "A", steps: [{ id: "s1", actions: [] }, { id: "s2", actions: [] }] }, path: "journeys/A.json" },
 			]);
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
 			await service.load();
 
 			const entry = service.getJourneyByName("A")!;
@@ -277,7 +277,7 @@ describe("TestManagementService", () => {
 				{ json: { notAJourney: true }, path: "bad.json" }, // invalid — no 'journey' field
 				{ json: { journey: "Valid", steps: [] }, path: "good.json" },
 			]);
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
 			await service.load();
 
 			expect(service.getJourneys()).toHaveLength(1);
@@ -286,14 +286,14 @@ describe("TestManagementService", () => {
 
 		it("handles scanner failure gracefully", async () => {
 			const scanner = vi.fn(async () => { throw new Error("Vault read failed"); });
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
 			await service.load(); // Should not throw
 
 			expect(service.getJourneys()).toHaveLength(0);
 		});
 
 		it("loads without scanner when not provided", async () => {
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never });
 			await service.load();
 
 			expect(service.getJourneys()).toHaveLength(0);
@@ -303,7 +303,7 @@ describe("TestManagementService", () => {
 			const scanner = vi.fn(async () => [
 				{ json: { journey: "Late", steps: [] }, path: "late.json" },
 			]);
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never });
 			service.setScanner(scanner);
 			await service.load();
 
@@ -385,7 +385,7 @@ describe("TestManagementService", () => {
 				}
 				return () => {};
 			});
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never });
 			await service.load();
 			expect(capturedHandler).toBeDefined();
 
@@ -407,7 +407,7 @@ describe("TestManagementService", () => {
 				if (event === "journey-builder.exported") capturedHandler = handler;
 				return () => {};
 			});
-			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			service = new TestManagementService({ deferVaultIndexing: false, storage: storage as never, eventBus: eventBus as never });
 			await service.load();
 
 			// First export
@@ -433,7 +433,7 @@ describe("TestManagementService", () => {
 		});
 
 		it("no crash when eventBus is undefined", async () => {
-			const svc = new TestManagementService({ storage: storage as never });
+			const svc = new TestManagementService({ deferVaultIndexing: false, storage: storage as never });
 			await svc.load(); // Should not throw
 			expect(svc.getJourneys()).toHaveLength(0);
 		});

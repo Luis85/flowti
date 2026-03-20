@@ -43,12 +43,18 @@ function makeAgent(overrides: Partial<DashboardAgent> = {}): DashboardAgent {
 	};
 }
 
+function stubAnimation(): AgentSprites["idle"] {
+	return { frames: [{ graphic: {} } as never] } as unknown as AgentSprites["idle"];
+}
+
 function makeSprites(): AgentSprites {
 	return {
-		idle: {
-			frames: [{ graphic: {} } as never],
-		},
-	} as AgentSprites;
+		idle: stubAnimation(),
+		walkDown: stubAnimation(),
+		walkLeft: stubAnimation(),
+		walkRight: stubAnimation(),
+		walkUp: stubAnimation(),
+	};
 }
 
 describe("AgentActor", () => {

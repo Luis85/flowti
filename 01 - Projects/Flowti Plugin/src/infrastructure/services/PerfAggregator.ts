@@ -11,6 +11,8 @@ import type { IEventBus } from "../events/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import type {
 	StartupSummary,
+	StartupPhaseEntry,
+	StartupSegmentEntry,
 	StorageSummary,
 	StorageKeySummary,
 	QuerySummary,
@@ -30,6 +32,12 @@ const DEFAULT_STARTUP_THRESHOLD_MS = 5000;
 
 export class PerfAggregator {
 	private startupServices: ServiceStartupEntry[] = [];
+	/** Cleared when the next startup run begins (first phase/segment of a run). */
+	private startupPhasesBuffer: StartupPhaseEntry[] = [];
+	private startupSegmentsBuffer: StartupSegmentEntry[] = [];
+	private lastRunPhases: StartupPhaseEntry[] = [];
+	private lastRunSegments: StartupSegmentEntry[] = [];
+	private startupRunOpen = false;
 	private startupTotals: number[] = [];
 	private storageLoads = new Map<string, number[]>();
 	private storageSaves = new Map<string, number[]>();
@@ -59,12 +67,47 @@ export class PerfAggregator {
 	setup(): void {
 		this.unsubscribes.push(
 			this.eventBus.on("perf.startup.service", (event) => {
+				if (!this.startupRunOpen) {
+					this.startupRunOpen = true;
+					this.startupServices = [];
+					this.startupPhasesBuffer = [];
+					this.startupSegmentsBuffer = [];
+				}
 				this.startupServices.push({
 					service: event.payload.service,
 					durationMs: event.payload.durationMs,
 				});
 			}),
+			this.eventBus.on("perf.startup.phase", (event) => {
+				if (!this.startupRunOpen) {
+					this.startupRunOpen = true;
+					this.startupServices = [];
+					this.startupPhasesBuffer = [];
+					this.startupSegmentsBuffer = [];
+				}
+				this.startupPhasesBuffer.push({
+					phase: event.payload.phase,
+					durationMs: event.payload.durationMs,
+				});
+			}),
+			this.eventBus.on("perf.startup.segment", (event) => {
+				if (!this.startupRunOpen) {
+					this.startupRunOpen = true;
+					this.startupServices = [];
+					this.startupPhasesBuffer = [];
+					this.startupSegmentsBuffer = [];
+				}
+				this.startupSegmentsBuffer.push({
+					segment: event.payload.segment,
+					durationMs: event.payload.durationMs,
+				});
+			}),
 			this.eventBus.on("perf.startup.total", (event) => {
+				this.lastRunPhases = [...this.startupPhasesBuffer];
+				this.lastRunSegments = [...this.startupSegmentsBuffer];
+				this.startupPhasesBuffer = [];
+				this.startupSegmentsBuffer = [];
+				this.startupRunOpen = false;
 				this.push(this.startupTotals, event.payload.durationMs);
 				if (event.payload.durationMs > this.startupThresholdMs) {
 					void this.eventBus.emit("perf.alert", {
@@ -148,6 +191,8 @@ export class PerfAggregator {
 			serviceCount: this.startupServices.length,
 			perService: [...this.startupServices],
 			timing: this.computeSummary(this.startupTotals),
+			lastRunPhases: [...this.lastRunPhases],
+			lastRunSegments: [...this.lastRunSegments],
 		};
 	}
 

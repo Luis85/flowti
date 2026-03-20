@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from "vitest";
 
 // Mock excalibur — use function constructors so `new` works
 vi.mock("excalibur", () => {
-	function MockEngine() {
-		const self = this as Record<string, unknown>;
+	function MockEngine(this: Record<string, unknown>) {
+		const self = this;
 		self.canvas = document.createElement("canvas");
 		self.screen = {
 			displayMode: 0,
@@ -26,8 +26,8 @@ vi.mock("excalibur", () => {
 		self.drawHeight = 500;
 	}
 
-	function MockActor() {
-		const self = this as Record<string, unknown>;
+	function MockActor(this: Record<string, unknown>) {
+		const self = this;
 		self.graphics = { use: vi.fn(), add: vi.fn() };
 		self.addChild = vi.fn();
 		self.on = vi.fn();
@@ -48,8 +48,8 @@ vi.mock("excalibur", () => {
 		Font: function MockFont() { return; },
 		SpriteSheet: { fromImageSource: vi.fn() },
 		Animation: { fromSpriteSheet: vi.fn(() => ({ strategy: 0, frames: [{ graphic: {} }] })) },
-		ImageSource: function MockImageSource() {
-			(this as Record<string, unknown>).load = vi.fn().mockResolvedValue(undefined);
+		ImageSource: function MockImageSource(this: Record<string, unknown>) {
+			this.load = vi.fn().mockResolvedValue(undefined);
 		},
 		FadeInOut: function MockFadeInOut() { return; },
 		EasingFunctions: { EaseInOutCubic: vi.fn() },
@@ -62,8 +62,8 @@ vi.mock("excalibur", () => {
 
 // Mock all game modules that the engine imports
 vi.mock("../../src/game/scenes/hub-scene.js", () => {
-	function MockHubScene() {
-		const self = this as Record<string, unknown>;
+	function MockHubScene(this: Record<string, unknown>) {
+		const self = this;
 		self.add = vi.fn();
 		self.updateAgents = vi.fn();
 		self.updateConnectionStatus = vi.fn();
@@ -108,8 +108,8 @@ vi.mock("../../src/game/scenes/station-scene.js", () => ({
 }));
 
 vi.mock("../../src/game/systems/brain-system.js", () => {
-	function MockBrainSystem() {
-		const self = this as Record<string, unknown>;
+	function MockBrainSystem(this: Record<string, unknown>) {
+		const self = this;
 		self.register = vi.fn();
 		self.applyEvent = vi.fn();
 		self.freeze = vi.fn();
@@ -124,8 +124,8 @@ vi.mock("../../src/game/systems/brain-system.js", () => {
 });
 
 vi.mock("../../src/game/systems/bubble-system.js", () => {
-	function MockBubbleSystem() {
-		const self = this as Record<string, unknown>;
+	function MockBubbleSystem(this: Record<string, unknown>) {
+		const self = this;
 		self.register = vi.fn();
 		self.showBubble = vi.fn();
 		self.update = vi.fn();
@@ -134,8 +134,8 @@ vi.mock("../../src/game/systems/bubble-system.js", () => {
 });
 
 vi.mock("../../src/game/systems/talk/talk-engine.js", () => {
-	function MockTalkEngine() {
-		const self = this as Record<string, unknown>;
+	function MockTalkEngine(this: Record<string, unknown>) {
+		const self = this;
 		self.register = vi.fn();
 		self.activate = vi.fn();
 		self.silence = vi.fn();
@@ -145,8 +145,8 @@ vi.mock("../../src/game/systems/talk/talk-engine.js", () => {
 });
 
 vi.mock("../../src/game/systems/particle-system.js", () => {
-	function MockParticlePool() {
-		const self = this as Record<string, unknown>;
+	function MockParticlePool(this: Record<string, unknown>) {
+		const self = this;
 		self.getAll = vi.fn(() => []);
 		self.spawnTrail = vi.fn();
 		self.spawnDustBurst = vi.fn();
@@ -156,8 +156,8 @@ vi.mock("../../src/game/systems/particle-system.js", () => {
 });
 
 vi.mock("../../src/game/systems/emote-system.js", () => {
-	function MockEmoteSystem() {
-		const self = this as Record<string, unknown>;
+	function MockEmoteSystem(this: Record<string, unknown>) {
+		const self = this;
 		self.register = vi.fn();
 		self.onEmote = vi.fn();
 		self.update = vi.fn();
@@ -166,8 +166,8 @@ vi.mock("../../src/game/systems/emote-system.js", () => {
 });
 
 vi.mock("../../src/game/systems/social-system.js", () => {
-	function MockSocialSystem() {
-		const self = this as Record<string, unknown>;
+	function MockSocialSystem(this: Record<string, unknown>) {
+		const self = this;
 		self.register = vi.fn();
 		self.onConversation = vi.fn();
 		self.onCluster = vi.fn();
@@ -212,8 +212,8 @@ vi.mock("../../src/game/sprites/sprite-loader.js", () => ({
 }));
 
 vi.mock("../../src/game/store/dashboard-store.js", () => {
-	function MockDashboardStore() {
-		const self = this as Record<string, unknown>;
+	function MockDashboardStore(this: Record<string, unknown>) {
+		const self = this;
 		self.agents = [];
 		self.selectedAgent = null;
 		self.followedAgent = null;
@@ -239,8 +239,8 @@ vi.mock("../../src/game/store/dashboard-store.js", () => {
 });
 
 vi.mock("../../src/game/actors/cursor-spirit.js", () => {
-	function MockCursorSpirit() {
-		const self = this as Record<string, unknown>;
+	function MockCursorSpirit(this: Record<string, unknown>) {
+		const self = this;
 		self.show = vi.fn();
 		self.hide = vi.fn();
 		self.moveTo = vi.fn();

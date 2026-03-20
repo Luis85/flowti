@@ -9,7 +9,7 @@ import { DEFAULT_WORLD_CONFIG } from "../../../src/game/data/world-config.js";
 // ── Helpers ────────────────────────────────────────────────────────────
 
 function makePresence(idleMs: number): DirectorPresence {
-	return { worldPos: null, visible: false, idleMs, lastInteraction: null };
+	return { idleMs, present: false };
 }
 
 function makeNeeds(_name: string): AgentNeeds {

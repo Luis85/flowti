@@ -147,7 +147,7 @@ describe("FeatureLifecycleService.handleSessionEnded", () => {
 	beforeEach(async () => {
 		storage = createMockStorage();
 		const eventBus = createMockEventBus();
-		service = new FeatureLifecycleService({ storage, eventBus } as any);
+		service = new FeatureLifecycleService({ storage, eventBus, deferVaultScan: false } as any);
 		service.setScanner(async () => [createTestPRD()]);
 		await service.load();
 	});
