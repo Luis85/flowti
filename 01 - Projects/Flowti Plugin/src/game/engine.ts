@@ -54,6 +54,7 @@ import { QuirkSystem } from "./systems/quirk-system.js";
 import { RelationshipSystem } from "./systems/relationship-system.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import { BtSystem, createStubDeps } from "./systems/bt-system.js";
+import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
 import { assignOpinions, findClashLabels } from "./data/opinion-topics.js";
 import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
 import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
@@ -285,7 +286,19 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		ms: () => Date.now(),
 		iso: () => new Date().toISOString(),
 	};
-	const btDeps = createStubDeps(btWorldState, btClock);
+	const btNeedsBridge = {
+		getNeeds: (name: string) => needsSystem.getNeeds(name),
+	};
+	const btBrainBridge = {
+		assignWork: (name: string) => brainSystem.assignWork(name),
+		releaseWork: (name: string) => brainSystem.releaseWork(name),
+		applyEvent: (name: string, event: string) => brainSystem.applyEvent(name, event),
+		getState: (name: string) => {
+			const state = brainSystem.getState(name);
+			return state?.state ?? "idle";
+		},
+	};
+	const btDeps = createStubDeps(btWorldState, btClock, btNeedsBridge, btBrainBridge);
 	const cycleConversationCounts = new Map<string, number>();
 	/** Tracks which reactive triggers have fired per agent this cycle to avoid spamming. */
 	const firedReactiveTriggers = new Map<string, Set<string>>();
@@ -342,6 +355,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	petEntityIds.set(stationDog, "dog-station");
 	petEntityIds.set(villageBird, "bird-village");
 	petEntityIds.set(stationFish, "fish-station");
+
+	// Register pet BTs (skip stationary pets like fish with speed=0)
+	for (const [pet, def] of [
+		[hubCat, catDef], [officeCat, catDef], [villageCat, catDef],
+		[officeDog, dogDef], [villageDog, dogDef], [stationDog, dogDef],
+		[villageBird, birdDef],
+	] as const) {
+		const petId = petEntityIds.get(pet as PetActor) ?? pet.petType;
+		btSystem.registerPet(petId, createPetBT(petId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed));
+	}
 
 	// Wire DayClock phase changes to store + scheduler
 	dayClock.onPhaseChange((phase) => {
@@ -1485,6 +1508,19 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		});
 
 		// 5c. Behavior tree — tick agent brains (throttled to 3s intervals)
+
+		// Refresh BT agent needs snapshots from the live needs system
+		for (const agentName of needsSystem.getAgentNames()) {
+			const btAgent = btSystem.getAgent(agentName);
+			if (btAgent) {
+				const live = needsSystem.getNeeds(agentName);
+				btAgent.context.needs.energy = live.energy;
+				btAgent.context.needs.social = live.social;
+				btAgent.context.needs.focus = live.focus;
+				btAgent.context.needs.morale = live.morale;
+			}
+		}
+
 		const btActions = btSystem.update(deltaMs, btWorldState, btClock);
 		for (const action of btActions) {
 			if (action.type === "goal-started") {
