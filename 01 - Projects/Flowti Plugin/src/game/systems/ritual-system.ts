@@ -59,7 +59,6 @@ interface RitualRun {
 }
 
 const LINE_GAP_MS = 2000;
-const IDLE_STATES: readonly BrainState[] = ["idle", "on-break", "waiting"];
 const MOOD_ADJS = ["focused", "energized", "curious", "calm", "inspired"];
 
 // ── Duration parsing ──────────────────────────────────────────────────

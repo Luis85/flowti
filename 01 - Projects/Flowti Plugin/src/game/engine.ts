@@ -679,45 +679,26 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	villageScene.add(cursorSpirits[2]);
 	stationScene.add(cursorSpirits[3]);
 
-	// ── Pre-frame hook: tick all systems ─────────────────
-	engine.on("preframe", () => {
-		const now = performance.now();
-		const deltaMs = now - lastTime;
-		lastTime = now;
+	/** Get names of agents within social radius of `name`. */
+	function getNearbyAgents(name: string): string[] {
+		const pos = brainSystem.getPosition(name);
+		if (!pos) return [];
+		const params = brainSystem.getState(name);
+		const radius = params?.params.socialRadius ?? 100;
+		return [...brainSystem.getAllEntries()]
+			.filter(([n]) => {
+				if (n === name) return false;
+				const otherPos = brainSystem.getPosition(n);
+				if (!otherPos) return false;
+				const dx = pos.x - otherPos.x;
+				const dy = pos.y - otherPos.y;
+				return Math.sqrt(dx * dx + dy * dy) < radius;
+			})
+			.map(([n]) => n);
+	}
 
-		// 1. Sensor system — drain cooldowns, process queued feedback
-		sensorSystem.update(deltaMs);
-
-		// 2. Needs system — decay/restore all agent needs
-		needsSystem.update(
-			deltaMs,
-			(name) => brainSystem.getState(name)?.state ?? "idle",
-			(name: string) => {
-				const pos = brainSystem.getPosition(name);
-				if (!pos) return [];
-				const params = brainSystem.getState(name);
-				const radius = params?.params.socialRadius ?? 100;
-				return [...brainSystem.getAllEntries()]
-					.filter(([n]) => {
-						if (n === name) return false;
-						const otherPos = brainSystem.getPosition(n);
-						if (!otherPos) return false;
-						const dx = pos.x - otherPos.x;
-						const dy = pos.y - otherPos.y;
-						return Math.sqrt(dx * dx + dy * dy) < radius;
-					})
-					.map(([n]) => n);
-			},
-		);
-
-		// 3. Mood propagation — push derived mood into brain + emote systems
-		for (const agentName of needsSystem.getAgentNames()) {
-			const mood = needsSystem.getMood(agentName);
-			brainSystem.updateMood(agentName, mood);
-			emoteSystem.updateMood(agentName, mood);
-		}
-
-		// 3b. Behavior thresholds — needs-driven state overrides
+	/** Process behavior thresholds — needs-driven state overrides. */
+	function processThresholds(): void {
 		for (const agentName of needsSystem.getAgentNames()) {
 			const actions = needsSystem.checkThresholds(agentName);
 			for (const action of actions) {
@@ -733,14 +714,77 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 						break;
 					}
 					case "seek-quiet":
-						brainSystem.applyEvent(agentName, "idle");
-						break;
 					case "demoralized":
 						brainSystem.applyEvent(agentName, "idle");
 						break;
 				}
 			}
 		}
+	}
+
+	/** Resolve domain particle color for an agent. */
+	function agentParticleColor(name: string): string {
+		const agent = store.agents.find((a) => a.name === name);
+		return DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+	}
+
+	/** Spawn particle trails for walking agents, dust bursts on arrival. */
+	function updateParticleTrails(): void {
+		for (const [name, entry] of brainSystem.getAllEntries()) {
+			const wasWalking = prevWalkingState.get(name) ?? false;
+			const isWalking = entry.state === "wandering" || entry.state === "walking-to";
+
+			if (isWalking) {
+				const actor = findAgentActor(name);
+				if (!actor) continue;
+				const x = actor.pos.x;
+				const y = actor.pos.y + 28;
+				const prev = lastTrailPos.get(name);
+				if (!prev) {
+					lastTrailPos.set(name, { x, y });
+					continue;
+				}
+				const dx = x - prev.x;
+				const dy = y - prev.y;
+				if (dx * dx + dy * dy >= 64) {
+					particlePool.spawnTrail(x, y, agentParticleColor(name), entry.state === "walking-to");
+					lastTrailPos.set(name, { x, y });
+				}
+			} else {
+				lastTrailPos.delete(name);
+				if (wasWalking) {
+					const actor = findAgentActor(name);
+					if (actor) particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, agentParticleColor(name));
+				}
+			}
+		}
+	}
+
+	// ── Pre-frame hook: tick all systems ─────────────────
+	engine.on("preframe", () => {
+		const now = performance.now();
+		const deltaMs = now - lastTime;
+		lastTime = now;
+
+		// 1. Sensor system — drain cooldowns, process queued feedback
+		sensorSystem.update(deltaMs);
+
+		// 2. Needs system — decay/restore all agent needs
+		needsSystem.update(
+			deltaMs,
+			(name) => brainSystem.getState(name)?.state ?? "idle",
+			getNearbyAgents,
+		);
+
+		// 3. Mood propagation — push derived mood into brain + emote systems
+		for (const agentName of needsSystem.getAgentNames()) {
+			const mood = needsSystem.getMood(agentName);
+			brainSystem.updateMood(agentName, mood);
+			emoteSystem.updateMood(agentName, mood);
+		}
+
+		// 3b. Behavior thresholds — needs-driven state overrides
+		processThresholds();
 
 		// 4. Director system — advance idle timer
 		directorSystem.update(deltaMs);
@@ -787,44 +831,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// 11. Tool executor — drain cooldowns, run approved tools
 		toolExecutor.update(deltaMs);
 
-		// Particle trails: spawn trail dots every ~8px of movement, dust on arrival
-		for (const [name, entry] of brainSystem.getAllEntries()) {
-			const wasWalking = prevWalkingState.get(name) ?? false;
-			const isWalking = entry.state === "wandering" || entry.state === "walking-to";
-
-			if (isWalking) {
-				const actor = findAgentActor(name);
-				if (actor) {
-					const prev = lastTrailPos.get(name);
-					const x = actor.pos.x;
-					const y = actor.pos.y + 28;
-					if (prev) {
-						const dx = x - prev.x;
-						const dy = y - prev.y;
-						if (dx * dx + dy * dy >= 64) { // 8px^2
-							const agent = store.agents.find((a) => a.name === name);
-							const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
-							particlePool.spawnTrail(x, y, color, entry.state === "walking-to");
-							lastTrailPos.set(name, { x, y });
-						}
-					} else {
-						lastTrailPos.set(name, { x, y });
-					}
-				}
-			} else {
-				lastTrailPos.delete(name);
-				if (wasWalking) {
-					// Just arrived — dust burst
-					const actor = findAgentActor(name);
-					if (actor) {
-						const agent = store.agents.find((a) => a.name === name);
-						const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
-						particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, color);
-					}
-				}
-			}
-		}
-
+		// Particle trails
+		updateParticleTrails();
 		particlePool.update(deltaMs);
 
 		// Workstation glow updates
