@@ -161,4 +161,33 @@ describe("NeedsSystem", () => {
 			expect(sys.getNeeds("Atlas").social).toBeGreaterThan(before);
 		});
 	});
+
+	describe("phase multipliers", () => {
+		it("applies energy multiplier to decay rate", () => {
+			const base = new NeedsSystem();
+			base.register("Base");
+			const boosted = new NeedsSystem();
+			boosted.register("Boosted");
+
+			const getState = () => "working";
+			const getNearby = () => [] as string[];
+			base.update(10_000, getState, getNearby);
+			boosted.update(10_000, getState, getNearby, { energy: 0.5, social: 1.0, focus: 1.0, morale: 1.0 });
+
+			// 0.5x energy multiplier → less energy drain
+			expect(boosted.getNeeds("Boosted").energy).toBeGreaterThan(base.getNeeds("Base").energy);
+		});
+
+		it("defaults to 1.0 multipliers when omitted", () => {
+			const a = new NeedsSystem();
+			a.register("A");
+			const b = new NeedsSystem();
+			b.register("B");
+
+			a.update(5_000, () => "idle", () => []);
+			b.update(5_000, () => "idle", () => [], undefined);
+
+			expect(a.getNeeds("A").energy).toBeCloseTo(b.getNeeds("B").energy, 2);
+		});
+	});
 });

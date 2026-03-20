@@ -119,8 +119,10 @@ export class NeedsSystem {
 		deltaMs: number,
 		getState: (name: string) => string,
 		getNearby: (name: string) => string[],
+		phaseMultipliers?: { energy: number; social: number; focus: number; morale: number },
 	): void {
 		const dt = deltaMs / 1000;
+		const pm = phaseMultipliers ?? { energy: 1, social: 1, focus: 1, morale: 1 };
 		for (const [name, entry] of this.agents) {
 			const state = getState(name);
 			const rates = DECAY[state] ?? DEFAULT_RATES;
@@ -130,10 +132,10 @@ export class NeedsSystem {
 			const nearbyCount = getNearby(name).length;
 			const socialBonus = nearbyCount > 0 ? 0.3 * nearbyCount : 0;
 
-			entry.energy = clamp(entry.energy + applyMod(rates.energy, mods.energy) * dt);
-			entry.social = clamp(entry.social + (applyMod(rates.social, mods.social) + socialBonus) * dt);
-			entry.focus = clamp(entry.focus + applyMod(rates.focus, mods.focus) * dt);
-			entry.morale = clamp(entry.morale + applyMod(rates.morale, mods.morale) * dt);
+			entry.energy = clamp(entry.energy + applyMod(rates.energy, mods.energy) * pm.energy * dt);
+			entry.social = clamp(entry.social + (applyMod(rates.social, mods.social) + socialBonus) * pm.social * dt);
+			entry.focus = clamp(entry.focus + applyMod(rates.focus, mods.focus) * pm.focus * dt);
+			entry.morale = clamp(entry.morale + applyMod(rates.morale, mods.morale) * pm.morale * dt);
 		}
 	}
 
