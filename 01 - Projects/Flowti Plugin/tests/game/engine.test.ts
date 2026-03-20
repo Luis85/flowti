@@ -306,6 +306,60 @@ vi.mock("../../src/game/systems/memory-system.js", () => {
 	return { MemorySystem: MockMemorySystem };
 });
 
+vi.mock("../../src/game/systems/quirk-system.js", () => {
+	function MockQuirkSystem() {
+		const self = this as Record<string, unknown>;
+		self.register = vi.fn();
+		self.getQuirks = vi.fn(() => []);
+		self.getOverrides = vi.fn(() => ({}));
+		self.getQuirkPhrases = vi.fn(() => []);
+		self.hasQuirk = vi.fn(() => false);
+	}
+	return { QuirkSystem: MockQuirkSystem };
+});
+
+vi.mock("../../src/game/systems/world-event-scheduler.js", () => {
+	function MockWorldEventScheduler() {
+		const self = this as Record<string, unknown>;
+		self.registerHandler = vi.fn();
+		self.recordSensorEvent = vi.fn();
+		self.onPhaseChange = vi.fn();
+		self.onCycleReset = vi.fn();
+		self.update = vi.fn();
+		self.isEventActive = vi.fn(() => false);
+	}
+	return { WorldEventScheduler: MockWorldEventScheduler };
+});
+
+vi.mock("../../src/game/actors/coffee-machine.js", () => {
+	function MockCoffeeMachine() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { CoffeeMachine: MockCoffeeMachine };
+});
+vi.mock("../../src/game/actors/whiteboard-actor.js", () => {
+	function MockWhiteboardActor() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { WhiteboardActor: MockWhiteboardActor };
+});
+vi.mock("../../src/game/actors/snack-table.js", () => {
+	function MockSnackTable() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { SnackTable: MockSnackTable };
+});
+vi.mock("../../src/game/actors/water-cooler.js", () => {
+	function MockWaterCooler() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { WaterCooler: MockWaterCooler };
+});
+vi.mock("../../src/game/actors/couch-actor.js", () => {
+	function MockCouchActor() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { CouchActor: MockCouchActor };
+});
+vi.mock("../../src/game/actors/plant-actor.js", () => {
+	function MockPlantActor() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { PlantActor: MockPlantActor };
+});
+vi.mock("../../src/game/actors/notice-board.js", () => {
+	function MockNoticeBoard() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { NoticeBoard: MockNoticeBoard };
+});
+
 vi.mock("../../src/game/data/world-config.js", () => ({
 	DEFAULT_WORLD_CONFIG: {
 		engagement: { tiers: { ambient: { idleThresholdMs: 30000, durationMs: 45000 }, nudge: { idleThresholdMs: 90000, durationMs: 90000 }, offer: { idleThresholdMs: 180000, durationMs: 180000 } }, engagementDuration: 10000 },

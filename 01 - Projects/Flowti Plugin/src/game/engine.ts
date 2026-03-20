@@ -48,6 +48,15 @@ import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
 import { DayClock } from "./systems/day-clock.js";
 import { WorldAmbience } from "./systems/world-ambience.js";
 import { MemorySystem } from "./systems/memory-system.js";
+import { QuirkSystem } from "./systems/quirk-system.js";
+import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
+import { CoffeeMachine } from "./actors/coffee-machine.js";
+import { WhiteboardActor } from "./actors/whiteboard-actor.js";
+import { SnackTable } from "./actors/snack-table.js";
+import { WaterCooler } from "./actors/water-cooler.js";
+import { CouchActor } from "./actors/couch-actor.js";
+import { PlantActor } from "./actors/plant-actor.js";
+import { NoticeBoard } from "./actors/notice-board.js";
 import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -222,13 +231,128 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const dayClock = new DayClock(DEFAULT_WORLD_CONFIG.dayCycle.durationMs);
 	const worldAmbience = new WorldAmbience(DEFAULT_WORLD_CONFIG.weather.cycleLengthInDayCycles);
 	const memorySystem = new MemorySystem();
+	const quirkSystem = new QuirkSystem();
+	const worldEventScheduler = new WorldEventScheduler();
 	const cycleConversationCounts = new Map<string, number>();
 	let prevCycleCount = 0;
 
-	// Wire DayClock phase changes to store
+	// ── Environmental objects ────────────────────────────
+	const coffeeMachine = new CoffeeMachine();
+	coffeeMachine.pos = ex.vec(680, 120);
+	const whiteboard = new WhiteboardActor();
+	whiteboard.pos = ex.vec(400, 60);
+	const snackTable = new SnackTable();
+	snackTable.pos = ex.vec(400, 380);
+	const waterCooler = new WaterCooler();
+	waterCooler.pos = ex.vec(600, 380);
+	const couch = new CouchActor();
+	couch.pos = ex.vec(400, 380);
+	const plant = new PlantActor();
+	plant.pos = ex.vec(100, 60);
+	const noticeBoard = new NoticeBoard();
+	noticeBoard.pos = ex.vec(680, 60);
+
+	// Wire DayClock phase changes to store + scheduler
 	dayClock.onPhaseChange((phase) => {
 		store.setDayPhase(phase);
 		store.setWeatherState(worldAmbience.getWeather());
+		worldEventScheduler.onPhaseChange(phase);
+	});
+
+	// ── Micro-event handlers ─────────────────────────────
+	worldEventScheduler.registerHandler("standup", () => {
+		const agents = needsSystem.getAgentNames();
+		for (const name of agents) {
+			const state = brainSystem.getState(name)?.state;
+			if (state === "idle" || state === "wandering") brainSystem.applyEvent(name, "speaking");
+		}
+		agents.forEach((name, i) => {
+			setTimeout(() => {
+				bubbleSystem.showBubble(name, "thought", "Status update...", engine.currentScene, findAgentActor, 3000);
+			}, i * 2000);
+		});
+		setTimeout(() => {
+			for (const name of agents) brainSystem.applyEvent(name, "idle");
+		}, agents.length * 2000 + 2000);
+	});
+
+	worldEventScheduler.registerHandler("deploy-success", () => {
+		const agents = needsSystem.getAgentNames();
+		const celebrant = agents[Math.floor(Math.random() * agents.length)];
+		if (celebrant) {
+			bubbleSystem.showBubble(celebrant, "speech", "Deploy is green! Ship it!", engine.currentScene, findAgentActor, 4000);
+			const actor = findAgentActor(celebrant);
+			if (actor) particlePool.spawnPreset("confetti", actor.pos.x, actor.pos.y - 20);
+			needsSystem.applyEffect(celebrant, { morale: 5 });
+		}
+	});
+
+	worldEventScheduler.registerHandler("tea-time", () => {
+		const idle = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "idle");
+		for (const name of idle.slice(0, 3)) {
+			brainSystem.walkTo(name, coffeeMachine.getInteractionPoint());
+		}
+	});
+
+	worldEventScheduler.registerHandler("end-of-day", () => {
+		for (const name of needsSystem.getAgentNames()) {
+			bubbleSystem.showBubble(name, "thought", "Wrapping up for the day...", engine.currentScene, findAgentActor, 3000);
+		}
+	});
+
+	worldEventScheduler.registerHandler("eureka", () => {
+		const working = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "working");
+		if (working.length > 0) {
+			const agent = working[Math.floor(Math.random() * working.length)];
+			bubbleSystem.showBubble(agent, "speech", "Wait... I've got it!", engine.currentScene, findAgentActor, 4000);
+			const actor = findAgentActor(agent);
+			if (actor) particlePool.spawnPreset("sparkle", actor.pos.x, actor.pos.y - 20);
+			needsSystem.applyEffect(agent, { morale: 8, focus: 5 });
+		}
+	});
+
+	worldEventScheduler.registerHandler("build-break", () => {
+		for (const name of needsSystem.getAgentNames()) {
+			bubbleSystem.showBubble(name, "thought", "Uh oh...", engine.currentScene, findAgentActor, 2000);
+			needsSystem.applyEffect(name, { morale: -3 });
+		}
+		particlePool.spawnPreset("alert", 400, 250);
+		setTimeout(() => {
+			const resolver = needsSystem.getAgentNames()[0];
+			if (resolver) bubbleSystem.showBubble(resolver, "speech", "Fixed it. We're back.", engine.currentScene, findAgentActor, 4000);
+		}, 10_000);
+	});
+
+	worldEventScheduler.registerHandler("birthday", () => {
+		const agents = needsSystem.getAgentNames();
+		const birthdayAgent = agents[Math.floor(Math.random() * agents.length)];
+		if (birthdayAgent) {
+			bubbleSystem.showBubble(birthdayAgent, "speech", "Wait, is that cake?!", engine.currentScene, findAgentActor, 4000);
+			particlePool.spawnPreset("confetti", snackTable.pos.x, snackTable.pos.y - 20);
+			for (const name of agents) needsSystem.applyEffect(name, { morale: 3 });
+		}
+	});
+
+	worldEventScheduler.registerHandler("power-flicker", () => {
+		for (const name of needsSystem.getAgentNames()) {
+			bubbleSystem.showBubble(name, "thought", "?", engine.currentScene, findAgentActor, 1500);
+		}
+		setTimeout(() => {
+			const ops = needsSystem.getAgentNames()[0];
+			if (ops) bubbleSystem.showBubble(ops, "speech", "Just a blip. All good.", engine.currentScene, findAgentActor, 3000);
+		}, 2000);
+	});
+
+	worldEventScheduler.registerHandler("new-pr", () => {
+		const agents = needsSystem.getAgentNames();
+		const author = agents[Math.floor(Math.random() * agents.length)];
+		if (author) {
+			brainSystem.walkTo(author, whiteboard.getInteractionPoint());
+			setTimeout(() => {
+				bubbleSystem.showBubble(author, "thought", "New PR ready for review", engine.currentScene, findAgentActor, 3000);
+				particlePool.spawnPreset("scribble", whiteboard.pos.x, whiteboard.pos.y);
+			}, 3000);
+		}
 	});
 
 	// ── Agent select handler ────────────────────────────
@@ -371,6 +495,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			engagementSystem.register(agent.name, { domain: agent.domain ?? "general", cha: agent.attributes?.cha ?? 10 });
 			ritualSystem.register(agent.name, { domain: agent.domain ?? "general" });
 			memorySystem.register(agent.name);
+			// Quirk assignment — restore from memory or roll new
+			const savedQuirks = memorySystem.getMemory(agent.name).quirks;
+			quirkSystem.register(agent.name, (agent.attributes ?? {}) as Record<string, number>, agent.domain ?? "general", savedQuirks);
+			if (savedQuirks.length === 0) {
+				memorySystem.getMemory(agent.name).quirks = quirkSystem.getQuirks(agent.name);
+			}
+			const overrides = quirkSystem.getOverrides(agent.name);
+			if (Object.keys(overrides).length > 0) {
+				brainSystem.applyQuirkOverrides(agent.name, overrides as Record<string, number>);
+			}
 			knownEntities.add(agent.name);
 		}
 	}
@@ -692,6 +826,15 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	villageScene.add(createParticleRenderer());
 	stationScene.add(createParticleRenderer());
 
+	// ── Environmental objects in scenes ─────────────────
+	officeScene.add(coffeeMachine);
+	officeScene.add(whiteboard);
+	villageScene.add(snackTable);
+	villageScene.add(waterCooler);
+	stationScene.add(couch);
+	hubScene.add(plant);
+	hubScene.add(noticeBoard);
+
 	// ── Cursor spirit — visual director presence (one per scene) ────
 	const cursorSpirits = [new CursorSpirit(), new CursorSpirit(), new CursorSpirit(), new CursorSpirit()];
 	hubScene.add(cursorSpirits[0]);
@@ -799,7 +942,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				});
 				cycleConversationCounts.set(agentName, 0);
 			}
+			worldEventScheduler.onCycleReset();
 		}
+
+		// 0b. World event scheduler — tick active events and fire queued
+		worldEventScheduler.update(deltaMs);
 
 		// 1. Sensor system — drain cooldowns, process queued feedback
 		sensorSystem.update(deltaMs);
