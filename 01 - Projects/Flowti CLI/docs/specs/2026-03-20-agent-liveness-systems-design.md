@@ -70,13 +70,14 @@ If social > 80 and morale > 50 → "empathetic"
 If any task completed in last 60s → "inspired" (temporary, 60s duration)
 ```
 
-All existing mood-dependent systems (emotes, talk templates, brain habits) react dynamically without changes — they already read mood, they'll just get a dynamic value now.
+Existing mood-dependent systems (emotes, brain habits) already have `updateMood()` methods. The engine wiring must call these per-tick with the derived mood from NeedsSystem.
 
 ### Integration Points
 
 - **BrainSystem** reads `getNeeds(name)` each tick to adjust: idleResistance, breakThreshold, socialDrift, focusDrift, speedMultiplier
-- **TalkEngine** reads mood (now derived) for template selection
-- **EmoteSystem** reads mood (now derived) for emote selection
+- **BrainSystem.updateMood()** called per-tick by engine with NeedsSystem's derived mood
+- **EmoteSystem.updateMood()** called per-tick by engine with NeedsSystem's derived mood
+- **TalkEngine** reads mood (now derived) for template selection — engine passes `getMood` callback
 - **SocialSystem** checks `focus` need before allowing conversations (focus < 20 = reject)
 
 ---
@@ -134,7 +135,7 @@ interface DirectorPresence {
 }
 ```
 
-Exposes `getPresence()` for other systems: EngagementSystem reads `idleMs`, BrainSystem reads `worldPos`, NeedsSystem reads interactions for morale adjustments.
+`DirectorPresence` is the **data model** returned by `DirectorSystem.getPresence()`. The system class is `DirectorSystem` (file: `director-system.ts`); it exposes `getPresence()` for other systems: EngagementSystem reads `idleMs`, BrainSystem reads `worldPos`, NeedsSystem reads interactions for morale adjustments.
 
 ---
 
@@ -156,7 +157,9 @@ Watches project state changes and maps them to agent reactions via a rule table.
 ### Rule Table
 
 ```typescript
+// Code-defined rules (support conditions as functions — not serializable to JSON)
 interface SensorRule {
+  id: string;
   event: SensorEventType;
   condition?: (data: SensorEventData) => boolean;
   agentFilter: 'nearest-domain' | 'all' | 'domain-match';
@@ -168,7 +171,16 @@ interface SensorRule {
   };
   cooldown: number;
 }
+
+// JSON-serializable config overrides (no functions — cooldown/enabled only)
+interface SensorRuleOverride {
+  id: string;           // matches SensorRule.id
+  cooldown?: number;    // override default cooldown
+  enabled?: boolean;    // disable a default rule
+}
 ```
+
+Default rules live in code (`sensor-rules.ts`). The config file can only override cooldowns or disable rules via `SensorRuleOverride` — it cannot define new rules with condition functions since JSON cannot represent functions.
 
 ### Default Rules
 
@@ -218,12 +230,12 @@ Extends the existing SocialSystem's pair detection to 3+ agents:
 - **Flow**:
   1. Highest-CHA agent initiates: thought bubble "Quick sync?"
   2. After 1.5s, agents tighten formation — walk toward cluster centroid, stop at 40px from center
-  3. Round-robin: each agent speaks one huddle template line with 2s gaps
+  3. Round-robin: each agent speaks one huddle template line with 2s gaps. BubbleSystem's `showBubble()` must accept a `priority` flag — ritual and engagement bubbles bypass the 500ms per-agent throttle to prevent silent drops when the TalkEngine has recently fired a bubble for the same agent.
   4. After all agents have spoken, 50% chance of reaction round (emotes from 1-2 agents)
   5. Agents disperse after 3s pause — return to previous idle targets
 - **Cooldown**: 3 minutes for the same group composition
 
-Huddle templates are a separate category (`"huddle"`) with lines like "Here's where I'm at...", "Anyone else stuck on..?", "Quick update from my side..."
+Huddle templates are stored as a standalone string array in `huddle-templates.ts` (not part of the TalkEngine's `TemplateCategory` union). Lines like "Here's where I'm at...", "Anyone else stuck on..?", "Quick update from my side..." are passed directly to BubbleSystem as raw strings, bypassing the template selection pipeline.
 
 ### Configurable Rituals
 
@@ -274,7 +286,7 @@ disperse: true
 
 ### Integration
 
-- **RitualSystem** calls `BrainSystem.overrideState(agentName, 'talking')` during participation, releases after
+- **RitualSystem** calls `BrainSystem.applyEvent(agentName, 'speaking')` to transition agents to `"talking"` state during participation, and `BrainSystem.applyEvent(agentName, 'idle')` to release them after. Uses existing state transition API — no new methods needed.
 - **NeedsSystem** gets social +8 for each participant, morale +5 for celebrations
 - **SensorSystem** fires ritual trigger events
 - **Director** triggers manual rituals via UI action (panel button or context menu)
@@ -287,14 +299,14 @@ Escalating Director engagement — reactive by default, progressively assertive 
 
 ### Escalation Tiers
 
-Reads `DirectorPresence.idleMs`. Any interaction (click, message, key, mouse move on canvas) resets to Tier 0.
+Reads `DirectorSystem.getPresence().idleMs`. Any interaction (click, message, key, mouse move on canvas) resets to Tier 0.
 
 | Tier | Triggers after idle | Behavior | Max frequency |
 |------|-------------------|----------|---------------|
 | **0 — Passive** | Always (default) | Agents react only to cursor proximity and clicks. No unsolicited outreach. | — |
 | **1 — Ambient** | 30s idle | One agent shows a thought bubble with an observation. Not directed at camera — thinking aloud. "Tests haven't run in a while...", "The iteration is at 73%..." | 1 per 45s |
-| **2 — Nudge** | 90s idle | One agent walks toward camera edge, speech bubble addressed to Director. "Hey boss, got a sec?" Stays 10s, then returns. | 1 per 90s |
-| **3 — Offer** | 180s idle | Agent at camera edge offers a specific action. "Want me to run a health check?" If Director clicks within 10s, action queued as tool permission request. If ignored, agent shrugs and returns. | 1 per 180s |
+| **2 — Nudge** | 90s idle | One agent walks toward camera edge, speech bubble addressed to Director. "Hey boss, got a sec?" Stays for `engagementDuration` ms (default 10s), then returns. | 1 per 90s |
+| **3 — Offer** | 180s idle | Agent at camera edge offers a specific action. "Want me to run a health check?" If Director clicks within `engagementDuration` ms, action queued as tool permission request. If ignored, agent shrugs and returns. | 1 per 180s |
 
 ### Agent Selection Priority
 
@@ -403,6 +415,8 @@ File saved → Engineering agent notices →
 
 No chain runs automatically without Director approval at the permission gate.
 
+**Timing note**: Tool results feed back to SensorSystem via a queue. Since ToolExecutor runs at step 10 and SensorSystem at step 1, feedback is processed on the **next frame** (one-frame delay, ~16ms at 60fps). This is imperceptible and by design — avoids infinite loops within a single frame.
+
 ### CLI Executor Integration
 
 Wraps existing `cli-executor.ts` with:
@@ -469,7 +483,7 @@ interface WorldConfig {
     globalCooldown: number;
     perAgentCooldown: number;
     domainPaths: Record<string, string[]>;
-    rules: SensorRule[];
+    ruleOverrides: SensorRuleOverride[];  // override cooldowns or disable default rules (no functions in JSON)
   };
 
   groups: {
@@ -487,7 +501,7 @@ interface WorldConfig {
       offer:    { idleMs: number; frequency: number };
     };
     maxTier: number;
-    engagementDuration: number;
+    engagementDuration: number;  // ms an engaging agent stays at camera edge before returning (default 10000)
   };
 
   tools: {
@@ -520,7 +534,7 @@ Systems run sequentially in the engine's `preframe` hook. Upstream systems produ
 ```
  1. SensorSystem.update()        — processes vault/CLI events, emits sensor data
  2. NeedsSystem.update()         — ticks need decay/restore, derives mood
- 3. DirectorPresence.update()    — tracks cursor position, idle timer
+ 3. DirectorSystem.update()       — tracks cursor position, idle timer (exposes DirectorPresence data)
  4. EngagementSystem.update()    — reads needs + sensors + director idle, picks tier
  5. BrainSystem.update()         — reads needs + director + engagement, drives movement/state
  6. RitualSystem.update()        — checks triggers, choreographs active rituals
@@ -540,12 +554,12 @@ SensorSystem ──→ EngagementSystem (pending events for agent selection)
              ──→ RitualSystem (event triggers like iteration-50)
              ──→ ToolExecutor (trigger tool suggestions)
 
-NeedsSystem  ──→ BrainSystem (thresholds affect movement, breaks, social drift)
-             ──→ TalkEngine (derived mood selects templates)
-             ──→ EmoteSystem (derived mood selects emotes)
+NeedsSystem  ──→ BrainSystem (thresholds affect movement, breaks, social drift; per-tick updateMood() call)
+             ──→ TalkEngine (derived mood selects templates via getMood callback)
+             ──→ EmoteSystem (derived mood selects emotes; per-tick updateMood() call)
              ──→ EngagementSystem (low morale agents seek Director)
 
-DirectorPresence ──→ BrainSystem (cursor awareness, facing)
+DirectorSystem   ──→ BrainSystem (cursor awareness, facing) [via getPresence() → DirectorPresence]
                  ──→ EngagementSystem (idle timer drives escalation)
                  ──→ NeedsSystem (interactions affect morale)
 
@@ -581,7 +595,7 @@ Cross-system reads via getter callbacks passed during engine wiring (e.g., Brain
 ```
 src/game/systems/
   brain-system.ts          (existing — extended to read needs + director)
-  bubble-system.ts         (existing — unchanged)
+  bubble-system.ts         (existing — extended with priority flag to bypass 500ms throttle)
   camera-system.ts         (existing — unchanged)
   emote-system.ts          (existing — mood input becomes dynamic)
   social-system.ts         (existing — extended with cluster detection)
