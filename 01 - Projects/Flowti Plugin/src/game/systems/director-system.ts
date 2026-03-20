@@ -15,11 +15,29 @@ export interface DirectorPresence {
 	readonly present: boolean;
 }
 
+export interface DirectorSignal {
+	readonly type: string;
+	readonly moraleEffect?: number;
+	readonly position?: { x: number; y: number };
+}
+
+// ── Signal effects map ──────────────────────────────────────────────
+
+const SIGNAL_EFFECTS: Record<string, { moraleEffect?: number }> = {
+	click: {},
+	message: { moraleEffect: 2 },
+	"permission-grant": { moraleEffect: 5 },
+	"permission-deny": { moraleEffect: -3 },
+	"task-praise": { moraleEffect: 10 },
+};
+
 // ── System ───────────────────────────────────────────────────────────
 
 export class DirectorSystem {
 	private idleMs = 0;
 	private present = true;
+	private cursorX: number | null = null;
+	private cursorY: number | null = null;
 
 	/** Get current director presence state. */
 	getPresence(): DirectorPresence {
@@ -38,19 +56,42 @@ export class DirectorSystem {
 		this.idleMs = 0;
 	}
 
-	/** Record a user interaction (click, message, etc.) — resets idle timer. */
-	recordInteraction(_type: string, _position?: { x: number; y: number }): void {
+	/** Record a user interaction (click, message, etc.) — resets idle timer, returns signal. */
+	recordInteraction(type: string, position?: { x: number; y: number }): DirectorSignal {
+		this.idleMs = 0;
+		const effects = SIGNAL_EFFECTS[type] ?? {};
+		return {
+			type,
+			...effects,
+			...(position ? { position } : {}),
+		};
+	}
+
+	/** Track mouse movement — stores cursor position and resets idle timer. */
+	onMouseMove(x: number, y: number): void {
+		this.cursorX = x;
+		this.cursorY = y;
 		this.idleMs = 0;
 	}
 
-	/** Track mouse movement — resets idle timer. */
-	onMouseMove(_x: number, _y: number): void {
-		this.idleMs = 0;
-	}
-
-	/** Track mouse leaving the game area. */
+	/** Track mouse leaving the game area — clears cursor position. */
 	onMouseLeave(): void {
-		// Don't reset idle — user left the viewport
+		this.cursorX = null;
+		this.cursorY = null;
+	}
+
+	/** Get current cursor world position, or null if unknown. */
+	getCursorPosition(): { x: number; y: number } | null {
+		if (this.cursorX === null || this.cursorY === null) return null;
+		return { x: this.cursorX, y: this.cursorY };
+	}
+
+	/** Calculate Euclidean distance from cursor to a point. Returns Infinity if cursor unknown. */
+	distanceTo(x: number, y: number): number {
+		if (this.cursorX === null || this.cursorY === null) return Infinity;
+		const dx = this.cursorX - x;
+		const dy = this.cursorY - y;
+		return Math.sqrt(dx * dx + dy * dy);
 	}
 
 	/** Set visibility state (e.g., IntersectionObserver). */
