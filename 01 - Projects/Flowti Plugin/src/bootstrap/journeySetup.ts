@@ -21,6 +21,13 @@ import { registerJourneyBuilderHandler } from "../infrastructure/handlers/leaf-h
 import { EVENT_CATALOG } from "../infrastructure/events/catalog";
 import { VIEW_TYPE_JOURNEY_FILE } from "../ui/journeyBuilder/JourneyFileView";
 
+/** Built once — journey builder reads catalog often; avoid re-mapping 500+ entries per call. */
+const JOURNEY_EVENT_CATALOG_LITE = EVENT_CATALOG.map((e) => ({
+	type: e.type,
+	category: e.category,
+	description: e.description,
+}));
+
 export interface JourneySetupDeps {
 	app: App;
 	eventBus: IEventBus;
@@ -99,11 +106,7 @@ export function setupJourneyDomain(deps: JourneySetupDeps): JourneySetupResult {
 	registerJourneyBuilderHandler(deps.handlerRegistry, {
 		eventBus: deps.eventBus,
 		app: deps.app,
-		getEventCatalog: () => EVENT_CATALOG.map((e) => ({
-			type: e.type,
-			category: e.category,
-			description: e.description,
-		})),
+		getEventCatalog: () => JOURNEY_EVENT_CATALOG_LITE,
 		getCommands: () => deps.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label, domain: c.domain })),
 		getJourneyFolder: () => deps.settingsService.getSettings().journeyFolder,
 	});

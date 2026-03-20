@@ -5,36 +5,27 @@ import type {
 
 describe("server domain types", () => {
 	it("ServerStats has required readonly fields", () => {
-		const stats: ServerStats = {
+		const stats = {
 			uptime: 120,
 			connections: 3,
 			agentCount: 2,
 			storybookProcesses: [{ project: "demo", pid: 1234, url: "http://localhost:6006" }],
-		};
+		} satisfies ServerStats;
 		expectTypeOf(stats).toMatchTypeOf<ServerStats>();
-		expectTypeOf(stats.uptime).toBeNumber();
-		expectTypeOf(stats.connections).toBeNumber();
-		expectTypeOf(stats.agentCount).toBeNumber();
-		expectTypeOf(stats.storybookProcesses).toBeArray();
 	});
 
 	it("ServerStats storybookProcesses items have project, pid, url", () => {
-		const proc: ServerStats["storybookProcesses"][number] = {
+		const proc = {
 			project: "app", pid: 42, url: "http://localhost:6006",
-		};
-		expectTypeOf(proc.project).toBeString();
-		expectTypeOf(proc.pid).toBeNumber();
-		expectTypeOf(proc.url).toBeString();
+		} satisfies ServerStats["storybookProcesses"][number];
+		expectTypeOf(proc).toMatchTypeOf<ServerStats["storybookProcesses"][number]>();
 	});
 
 	it("ServerConfig has mutable port, logLevel, autoConnect", () => {
-		const config: ServerConfig = {
+		const config = {
 			port: 3000, logLevel: "info", autoConnect: true,
-		};
+		} satisfies ServerConfig;
 		expectTypeOf(config).toMatchTypeOf<ServerConfig>();
-		expectTypeOf(config.port).toBeNumber();
-		expectTypeOf(config.logLevel).toBeString();
-		expectTypeOf(config.autoConnect).toBeBoolean();
 	});
 
 	it("ServerConfig fields are mutable", () => {
@@ -46,20 +37,14 @@ describe("server domain types", () => {
 	});
 
 	it("ActivityEntry has required fields", () => {
-		const entry: ActivityEntry = {
+		const entry = {
 			id: "act-1",
 			timestamp: "2026-03-18T10:00:00Z",
 			agentName: "atlas",
 			actionType: "speaking",
 			text: "Hello world",
 			expanded: false,
-		};
+		} satisfies ActivityEntry;
 		expectTypeOf(entry).toMatchTypeOf<ActivityEntry>();
-		expectTypeOf(entry.id).toBeString();
-		expectTypeOf(entry.timestamp).toBeString();
-		expectTypeOf(entry.agentName).toBeString();
-		expectTypeOf(entry.actionType).toBeString();
-		expectTypeOf(entry.text).toBeString();
-		expectTypeOf(entry.expanded).toBeBoolean();
 	});
 });

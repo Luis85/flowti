@@ -6,6 +6,10 @@
  *   Agent roster:  <vault>/.flowti/agents/data/agent-dashboard.json
  *   World state:   <vault>/.flowti/var/world-state.json
  *   CLI binary:    <vault>/.flowti/bin/main.mjs
+ *
+ * If `agent-dashboard.json` is missing or has an empty `agents` array, the
+ * provider falls back to agent entities in `world-state.json` so Agent World
+ * is populated when only the CLI runtime file exists.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -14,6 +18,7 @@ import type { DataProvider } from "./data-provider.js";
 import type { DashboardAgent, WorldState, WorldEntity, AgentAction, ConnectionStatus } from "../data/types.js";
 import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
 import { watchJsonFile, type FileWatcher } from "../../infrastructure/agents/file-watcher.js";
+import { dashboardAgentsFromWorldState } from "./world-state-agents.js";
 
 const AGENT_ROSTER_SUBPATH = ".flowti/agents/data/agent-dashboard.json";
 const WORLD_STATE_SUBPATH = ".flowti/var/world-state.json";
@@ -43,7 +48,7 @@ export function createCliDataProvider(
 				if (existsSync(rosterPath)) {
 					const raw = readFileSync(rosterPath, "utf-8");
 					const data = JSON.parse(raw) as { agents?: DashboardAgent[] };
-					agents = data.agents ?? [];
+					agents = Array.isArray(data.agents) ? data.agents : [];
 				}
 			} catch {
 				agents = [];
@@ -57,6 +62,35 @@ export function createCliDataProvider(
 				}
 			} catch {
 				worldState = null;
+			}
+
+			// Roster file missing / empty → use agent entities from world-state.json
+			if (agents.length === 0) {
+				agents = dashboardAgentsFromWorldState(worldState);
+			}
+
+			// Still empty → ask CLI for registered agents (definitions / registry, not only running)
+			if (agents.length === 0 && cliExecutor) {
+				try {
+					const listed = await cliExecutor.listAgents();
+					agents = listed
+						.filter((a) => a.name.length > 0)
+						.map((a) => {
+							const st = a.status.toLowerCase();
+							const rowStatus: DashboardAgent["status"] =
+								st === "busy" || st === "working" ? "busy"
+									: st === "unassigned" ? "unassigned"
+										: "idle";
+							return {
+								name: a.name,
+								agentType: "ai",
+								domain: a.domain,
+								status: rowStatus,
+							} satisfies DashboardAgent;
+						});
+				} catch {
+					/* CLI unavailable — leave [] */
+				}
 			}
 
 			// Watch world-state.json for reactive updates from CLI commands

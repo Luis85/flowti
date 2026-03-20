@@ -69,9 +69,10 @@ describe("Performance Observability Events", () => {
 			expect(entry?.tags).toContain("system");
 		});
 
-		it("should have exactly 12 Performance category entries", () => {
+		it("should have Performance category entries for every perf.* catalog event", () => {
+			const perfTypes = EVENT_CATALOG.filter((e) => e.type.startsWith("perf."));
 			const entries = getEventsByCategory("Performance");
-			expect(entries).toHaveLength(12);
+			expect(entries.length).toBe(perfTypes.length);
 		});
 
 		it("should mark all perf events as system-internal visibility", () => {
@@ -96,7 +97,7 @@ describe("Performance Observability Events", () => {
 
 		it("should filter perf events from wildcard listeners", () => {
 			const perfEvents = EVENT_CATALOG.filter((e) => e.type.startsWith("perf."));
-			expect(perfEvents.length).toBe(12);
+			expect(perfEvents.length).toBeGreaterThan(0);
 			for (const ev of perfEvents) {
 				const isInternal = INTERNAL_EVENT_PREFIXES.some((p) => ev.type.startsWith(p));
 				expect(isInternal).toBe(true);

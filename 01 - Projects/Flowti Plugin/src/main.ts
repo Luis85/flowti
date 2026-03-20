@@ -758,26 +758,88 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.register(() => this.perfAggregator?.destroy());
 
 		const startupStart = performance.now();
+		this.startupServiceCount = 0;
+		this.startupServiceTimings = [];
+		const startupPhases: Array<{ name: string; durationMs: number }> = [];
+		const trackPhase = async (name: string, fn: () => Promise<void> | void): Promise<void> => {
+			const start = performance.now();
+			await fn();
+			const durationMs = performance.now() - start;
+			startupPhases.push({ name, durationMs });
+			void this.eventBus.emit("perf.startup.phase", { phase: name, durationMs });
+		};
 		try {
-			const settingsService = await this.loadDomainServices();
-			this.setupHubRegistry();
-			this.wireDataExchange(settingsService);
-			await this.runIngestionCatchUp();
+			let settingsService: ISettingsService | undefined;
+			await trackPhase("domain.services.load", async () => {
+				settingsService = await this.loadDomainServices();
+			});
+			await trackPhase("hub.registry.setup", () => {
+				this.setupHubRegistry();
+			});
+			await trackPhase("data.exchange.wire", () => {
+				this.wireDataExchange(settingsService!);
+			});
 
-			this.eventBridge.registerVaultListeners();
+			await trackPhase("vault.listeners.register", () => {
+				this.eventBridge.registerVaultListeners();
+			});
 
 			// Open configured startpage (if set)
-			openStartPage(this.app.workspace, this.settings.startPage);
+			await trackPhase("startpage.open", () => {
+				openStartPage(this.app.workspace, this.settings.startPage);
+			});
 
-			// Emit startup total timing
+			// Emit startup total timing + structured perf breakdown (for PerfAggregator, traces, UI)
+			const totalDurationMs = performance.now() - startupStart;
+			const topServices = [...this.startupServiceTimings]
+				.sort((a, b) => b.durationMs - a.durationMs)
+				.slice(0, 5);
+			const topServiceSummary = topServices.length > 0
+				? topServices
+					.map((s) => `${s.name}=${Math.round(s.durationMs)}ms`)
+					.join(", ")
+				: "none";
+			const dominantPhase = [...startupPhases].sort((a, b) => b.durationMs - a.durationMs)[0];
+			const dominantPhasePct = dominantPhase
+				? Math.round((dominantPhase.durationMs / totalDurationMs) * 100)
+				: 0;
+			const loadSeverity = totalDurationMs > 5000 ? "critical"
+				: totalDurationMs > 2500 ? "high"
+					: totalDurationMs > 1500 ? "medium"
+						: "low";
+			const phaseSummary = startupPhases
+				.map((p) => `${p.name}=${Math.round(p.durationMs)}ms`)
+				.join(", ");
+			const segSorted = [...this.startupDomainSegments].sort((a, b) => b.durationMs - a.durationMs);
+			const segSum = segSorted.reduce((s, x) => s + x.durationMs, 0);
+
 			void this.eventBus.emit("perf.startup.total", {
-				durationMs: performance.now() - startupStart,
+				durationMs: totalDurationMs,
 				serviceCount: this.startupServiceCount,
+			});
+			void this.eventBus.emit("perf.startup.breakdown", {
+				totalMs: totalDurationMs,
+				severity: loadSeverity,
+				serviceCount: this.startupServiceCount,
+				phases: startupPhases.map((p) => ({ phase: p.name, durationMs: p.durationMs })),
+				segments: this.startupDomainSegments.map((s) => ({ segment: s.label, durationMs: s.durationMs })),
+				segmentsWallClockSumMs: segSum,
+				topServices: topServices.map((s) => ({ service: s.name, durationMs: s.durationMs })),
+				dominantPhase: dominantPhase
+					? { phase: dominantPhase.name, durationMs: dominantPhase.durationMs }
+					: null,
 			});
 
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
 			});
+
+			// Keep Obsidian startup responsive by running catch-up in background.
+			void this.runIngestionCatchUp();
+			const segTop = segSorted.slice(0, 8).map((x) => `${x.label}=${Math.round(x.durationMs)}ms`).join(", ");
+			this.logger.info(`[StartupProfile] total=${Math.round(totalDurationMs)}ms severity=${loadSeverity} services=${this.startupServiceCount}${phaseSummary ? ` | phases: ${phaseSummary}` : ""}`);
+			this.logger.info(`[StartupProfile] bottlenecks: dominant-phase: ${dominantPhase ? `${dominantPhase.name}=${Math.round(dominantPhase.durationMs)}ms (${dominantPhasePct}%)` : "n/a"} | longest-individual-service-loads (overlap when parallel — do not sum): ${topServiceSummary}`);
+			this.logger.info(`[StartupProfile] domain.load.segments (wall-clock, sum=${Math.round(segSum)}ms): ${segTop || "none"}`);
 
 			// Serverless mode — no server connection needed
 
@@ -790,16 +852,27 @@ export default class FlowtiBasePlugin extends Plugin {
 
 	/** Track service count for perf.startup.total */
 	private startupServiceCount = 0;
+	private startupServiceTimings: Array<{ name: string; durationMs: number }> = [];
+	/** Wall-clock segments inside {@link loadDomainServices} (non-overlapping; sums to ~domain.services.load). */
+	private startupDomainSegments: Array<{ label: string; durationMs: number }> = [];
 
 	/** Load a service with performance timing. */
 	private async timedServiceLoad(name: string, loadFn: () => Promise<void>): Promise<void> {
 		const start = performance.now();
 		await loadFn();
 		this.startupServiceCount++;
+		const durationMs = performance.now() - start;
+		this.startupServiceTimings.push({ name, durationMs });
 		void this.eventBus.emit("perf.startup.service", {
 			service: name,
-			durationMs: performance.now() - start,
+			durationMs,
 		});
+		this.logger.debug(`[StartupProfile] service ${name}=${Math.round(durationMs)}ms`);
+	}
+
+	/** Run multiple service loads in parallel (each still timed + counted). */
+	private async timedServiceLoadsParallel(entries: readonly { name: string; fn: () => Promise<void> }[]): Promise<void> {
+		await Promise.all(entries.map(({ name, fn }) => this.timedServiceLoad(name, fn)));
 	}
 
 	/**
@@ -808,43 +881,67 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * before any event-driven updates arrive.
 	 */
 	private async loadDomainServices(): Promise<ISettingsService> {
+		this.startupDomainSegments = [];
+		const trackSeg = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
+			const t0 = performance.now();
+			try {
+				return await fn();
+			} finally {
+				const durationMs = performance.now() - t0;
+				this.startupDomainSegments.push({ label, durationMs });
+				void this.eventBus.emit("perf.startup.segment", { segment: label, durationMs });
+			}
+		};
+
 		const settingsService = await this.services.get<ISettingsService>("settingsService");
-		await this.timedServiceLoad("settingsService", () => settingsService.load());
+		await trackSeg("01.core.settings-user-installer", async () => {
+			await this.timedServiceLoad("settingsService", () => settingsService.load());
 
-		this.userService = await this.services.get<IUserService>("userService");
-		await this.timedServiceLoad("userService", () => this.userService.load());
+			// User + installer only need persisted settings in memory; loads are independent TypedStorage reads — run in parallel.
+			this.userService = await this.services.get<IUserService>("userService");
+			const installerService = await this.services.get<IInstallerService>("installerService");
+			await this.timedServiceLoadsParallel([
+				{ name: "userService", fn: () => this.userService!.load() },
+				{ name: "installerService", fn: () => installerService.load() },
+			]);
+			this.installerServiceRef = installerService;
+			InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
 
-		const installerService = await this.services.get<IInstallerService>("installerService");
-		await this.timedServiceLoad("installerService", () => installerService.load());
-		this.installerServiceRef = installerService;
-		InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
-
-		// Register open-installer command — only available when not installed
-		this.addCommand({
-			id: "flowti:open-installer",
-			name: "Open installer",
-			icon: "download",
-			checkCallback: (checking) => {
-				if (installerService.isInstalled()) return false;
-				if (!checking) {
-					InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
-				}
-				return true;
-			},
+			// Register open-installer command — only available when not installed
+			this.addCommand({
+				id: "flowti:open-installer",
+				name: "Open installer",
+				icon: "download",
+				checkCallback: (checking) => {
+					if (installerService.isInstalled()) return false;
+					if (!checking) {
+						InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
+					}
+					return true;
+				},
+			});
 		});
 
-		this.eventFilterService = await this.services.get<EventFilterService>("eventFilterService");
-		await this.timedServiceLoad("eventFilterService", () => this.eventFilterService!.load());
+		await trackSeg("02.wave.catalog-services", async () => {
+		const [eventFilterService, eventNotifyService, discoveryService, subscriptionService] = await Promise.all([
+			this.services.get<EventFilterService>("eventFilterService"),
+			this.services.get<EventNotificationService>("eventNotifyService"),
+			this.services.get<DiscoveryService>("discoveryService"),
+			this.services.get<SubscriptionService>("subscriptionService"),
+		]);
+		this.eventFilterService = eventFilterService;
+		this.eventNotifyService = eventNotifyService;
+		this.discoveryService = discoveryService;
+		this.subscriptionService = subscriptionService;
+		await this.timedServiceLoadsParallel([
+			{ name: "eventFilterService", fn: () => eventFilterService.load() },
+			{ name: "eventNotifyService", fn: () => eventNotifyService.load() },
+			{ name: "discoveryService", fn: () => discoveryService.load() },
+			{ name: "subscriptionService", fn: () => subscriptionService.load() },
+		]);
+		});
 
-		this.eventNotifyService = await this.services.get<EventNotificationService>("eventNotifyService");
-		await this.timedServiceLoad("eventNotifyService", () => this.eventNotifyService!.load());
-
-		this.discoveryService = await this.services.get<DiscoveryService>("discoveryService");
-		await this.timedServiceLoad("discoveryService", () => this.discoveryService!.load());
-
-		this.subscriptionService = await this.services.get<SubscriptionService>("subscriptionService");
-		await this.timedServiceLoad("subscriptionService", () => this.subscriptionService!.load());
-
+		await trackSeg("03.inbox", async () => {
 		this.inboxService = await this.services.get<InboxService>("inboxService");
 		this.inboxService.setEnabledSources(settingsService.getSettings().inboxEnabledSources);
 		this.inboxService.setWatchedFolders(settingsService.getSettings().inboxWatchedFolders ?? []);
@@ -862,6 +959,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		};
 		this.inboxService.setTriageTargetFolder(settingsService.getSettings().inboxTriageTargetFolder ?? "");
 		await this.timedServiceLoad("inboxService", () => this.inboxService!.load());
+		});
 
 		this.crossCuttingListeners.push(
 			this.eventBus.on("settings.changed", (event) => {
@@ -880,18 +978,27 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		this.ingestionService = await this.services.get<IngestionService>("ingestionService");
-		await this.timedServiceLoad("ingestionService", () => this.ingestionService!.load());
+		await trackSeg("04.wave.ingestion-eventdef-dataexchange", async () => {
+		const [ingestionService, eventDefinitionService, dataExchangeService] = await Promise.all([
+			this.services.get<IngestionService>("ingestionService"),
+			this.services.get<EventDefinitionService>("eventDefinitionService"),
+			this.services.get<DataExchangeService>("dataExchangeService"),
+		]);
+		this.ingestionService = ingestionService;
+		this.eventDefinitionService = eventDefinitionService;
+		this.dataExchangeService = dataExchangeService;
+		await this.timedServiceLoadsParallel([
+			{ name: "ingestionService", fn: () => ingestionService.load() },
+			{ name: "eventDefinitionService", fn: () => eventDefinitionService.load() },
+			{ name: "dataExchangeService", fn: () => dataExchangeService.load() },
+		]);
+		});
 
-		this.eventDefinitionService = await this.services.get<EventDefinitionService>("eventDefinitionService");
-		await this.timedServiceLoad("eventDefinitionService", () => this.eventDefinitionService!.load());
-
-		this.dataExchangeService = await this.services.get<DataExchangeService>("dataExchangeService");
-		await this.timedServiceLoad("dataExchangeService", () => this.dataExchangeService!.load());
-
+		await trackSeg("05.session", async () => {
 		this.sessionService = await this.services.get<SessionService>("sessionService");
 		this.sessionService.globalActivityFilter = settingsService.getSettings().sessionActivityFilterGlobal ?? [];
 		await this.timedServiceLoad("sessionService", () => this.sessionService!.load());
+		});
 
 		// Write session summary to notes file on completion
 		this.crossCuttingListeners.push(
@@ -924,14 +1031,24 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Nudge Service — time-based session start reminders
-		this.nudgeService = await this.services.get<NudgeService>("nudgeService");
-		this.nudgeService.isSessionTypeActive = (type) =>
+		await trackSeg("06.wave.nudge-signal", async () => {
+		// Nudge + Signal — independent persisted loads after session is ready
+		const [nudgeService, signalService] = await Promise.all([
+			this.services.get<NudgeService>("nudgeService"),
+			this.services.get<SignalService>("signalService"),
+		]);
+		this.nudgeService = nudgeService;
+		this.signalService = signalService;
+		nudgeService.isSessionTypeActive = (type) =>
 			this.sessionService?.getActiveSession()?.type === type;
-		this.nudgeService.getInboxCount = () =>
+		nudgeService.getInboxCount = () =>
 			this.inboxService?.getItems().length ?? 0;
-		await this.timedServiceLoad("nudgeService", () => this.nudgeService!.load());
-		this.nudgeService.start();
+		await this.timedServiceLoadsParallel([
+			{ name: "nudgeService", fn: () => nudgeService.load() },
+			{ name: "signalService", fn: () => signalService.load() },
+		]);
+		nudgeService.start();
+		});
 
 		// Show notification when a nudge fires
 		this.crossCuttingListeners.push(
@@ -940,10 +1057,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Signal Service — external data source connections
-		this.signalService = await this.services.get<SignalService>("signalService");
-		await this.timedServiceLoad("signalService", () => this.signalService!.load());
-
+		await trackSeg("07.trainSetup", async () => {
 		// Train domain — service instantiation, canvas sync, event subscriptions
 		this.trainSetup = new TrainSetup({
 			app: this.app,
@@ -964,39 +1078,50 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.trainCanvasSync = trainResult.trainCanvasSync;
 		this.crossCuttingListeners.push(...trainResult.unsubscribes);
 		this.dataExchangeService!.setCanvasService(this.canvasService);
+		});
 
-		// Analytics Service — in-memory CSV analytics engine
-		this.analyticsService = await this.services.get<AnalyticsService>("analyticsService");
-		await this.timedServiceLoad("analyticsService", () => this.analyticsService!.load());
-		this.analyticsService.setReadCsv(async (csvPath: string) => {
+		await trackSeg("08.wave.analytics-onboarding", async () => {
+		// Analytics + Onboarding — independent storage loads
+		const [analyticsService, onboardingService] = await Promise.all([
+			this.services.get<AnalyticsService>("analyticsService"),
+			this.services.get<OnboardingService>("onboardingService"),
+		]);
+		this.analyticsService = analyticsService;
+		this.onboardingService = onboardingService;
+		await this.timedServiceLoadsParallel([
+			{ name: "analyticsService", fn: () => analyticsService.load() },
+			{ name: "onboardingService", fn: () => onboardingService.load() },
+		]);
+		});
+
+		await trackSeg("09.analytics-wiring", async () => {
+		this.analyticsService!.setReadCsv(async (csvPath: string) => {
 			const file = this.app.vault.getAbstractFileByPath(csvPath);
 			if (!file || !(file instanceof TFile)) return null;
 			const content = await this.app.vault.read(file);
 			const { CsvParser } = await import("./domain/dataExchange/CsvParser");
 			return new CsvParser().parse(content);
 		});
-		this.analyticsService.setAnalyticsFolder(settingsService.getSettings().analyticsFolder);
+		this.analyticsService!.setAnalyticsFolder(settingsService.getSettings().analyticsFolder);
 
 		// Wire .base file analytics adapter (delegates to ExportService)
 		const { BaseAnalyticsAdapter } = await import("./domain/analytics/BaseAnalyticsAdapter");
 		const exportSvc = this.dataExchangeService!.getExportService();
-		this.analyticsService.setBaseAdapter(new BaseAnalyticsAdapter({
+		this.analyticsService!.setBaseAdapter(new BaseAnalyticsAdapter({
 			scanColumns: (path, viewIndex) => exportSvc.scanResolvedColumns(path, viewIndex),
 			resolveFiles: (path, sourceType, viewIndex) => exportSvc.resolveExportFiles(path, sourceType, viewIndex),
 		}));
 
-		this.analyticsService.setListFolder(async (folderPath: string) => {
+		this.analyticsService!.setListFolder(async (folderPath: string) => {
 			const folder = this.app.vault.getAbstractFileByPath(folderPath);
 			if (!folder || !(folder instanceof TFolder)) return [];
 			return folder.children
 				.filter((f): f is TFile => f instanceof TFile)
 				.map((f) => f.path);
 		});
+		});
 
-		// Onboarding Service — post-install guidance (migrates from AnalyticsState)
-		this.onboardingService = await this.services.get<OnboardingService>("onboardingService");
-		await this.timedServiceLoad("onboardingService", () => this.onboardingService!.load());
-
+		await trackSeg("10.leaf-handlers.train-export-session", async () => {
 		// Train Main — now sitemap-driven via SitemapLeafView + handler
 		registerTrainMainHandler(this.handlerRegistry!, {
 			trainService: this.trainService!,
@@ -1052,32 +1177,44 @@ export default class FlowtiBasePlugin extends Plugin {
 			app: this.app,
 			trainService: this.trainService,
 		});
+		});
 
-		// Test Management Hub — quality cockpit for journey-based testing
-		this.testManagementService = await this.services.get<TestManagementService>("testManagementService");
-		this.testManagementService.setScanner(async () => {
+		await trackSeg("11.quality-hubs.testMgmt-featureLifecycle", async () => {
+		// Test Management + Feature Lifecycle — resolve in parallel; vault scans deferred inside load where applicable
+		const [testManagementService, featureLifecycleService] = await Promise.all([
+			this.services.get<TestManagementService>("testManagementService"),
+			this.services.get<FeatureLifecycleService>("featureLifecycleService"),
+		]);
+		this.testManagementService = testManagementService;
+		this.featureLifecycleService = featureLifecycleService;
+		testManagementService.setScanner(async () => {
+			const scanStart = performance.now();
 			const folder = settingsService.getSettings().journeyFolder;
 			const abstract = this.app.vault.getAbstractFileByPath(folder);
 			if (!abstract) return [];
 			const results: { json: Record<string, unknown>; path: string }[] = [];
-			const files = this.app.vault.getFiles().filter((f) => f.path.startsWith(folder + "/") && f.extension === "json");
+			const files = this.getFilesInFolder(folder, (f) => f.extension === "json");
 			for (const file of files) {
 				try {
 					const content = await this.app.vault.read(file);
+					if (this.hasMergeConflictMarkers(content)) {
+						this.logger.warn(`[Flowti] Skipping conflicted journey JSON: ${file.path}`);
+						continue;
+					}
 					const json = JSON.parse(content) as Record<string, unknown>;
 					if (typeof json.journey === "string") results.push({ json, path: file.path });
 				} catch { /* skip invalid files */ }
 			}
+			this.logger.debug(`[StartupProfile] scan journeys files=${files.length} matched=${results.length} duration=${Math.round(performance.now() - scanStart)}ms`);
 			return results;
 		});
-		this.testManagementService.setPrdScanner(async () => {
+		testManagementService.setPrdScanner(async () => {
+			const scanStart = performance.now();
 			const featuresFolder = settingsService.getSettings().featuresFolder;
 			const abstract = this.app.vault.getAbstractFileByPath(featuresFolder);
 			if (!abstract) return [];
 			const results: { name: string; stage: string; domain: string }[] = [];
-			const files = this.app.vault.getFiles().filter(
-				(f) => f.path.startsWith(featuresFolder + "/") && f.extension === "md",
-			);
+			const files = this.getFilesInFolder(featuresFolder, (f) => f.extension === "md");
 			for (const file of files) {
 				const cache = this.app.metadataCache.getFileCache(file);
 				const fm = cache?.frontmatter;
@@ -1088,14 +1225,19 @@ export default class FlowtiBasePlugin extends Plugin {
 					domain: String(fm.domain ?? "unknown"),
 				});
 			}
+			this.logger.debug(`[StartupProfile] scan test-mgmt-prds files=${files.length} matched=${results.length} duration=${Math.round(performance.now() - scanStart)}ms`);
 			return results;
 		});
-		this.testManagementService.setTestReportReader(async () => {
+		testManagementService.setTestReportReader(async () => {
 			const reportPath = settingsService.getSettings().testReportPath;
 			const file = this.app.vault.getAbstractFileByPath(reportPath);
 			if (!file || !(file instanceof TFile)) return null;
 			try {
 				const content = await this.app.vault.read(file);
+				if (this.hasMergeConflictMarkers(content)) {
+					this.logger.warn(`[Flowti] Skipping conflicted test report JSON: ${reportPath}`);
+					return null;
+				}
 				const report = JSON.parse(content) as { testResults?: { name?: string; status?: string }[] };
 				const results = report.testResults ?? [];
 				const flowSuites = results.filter((r) => r.name && r.name.includes("/flows/"));
@@ -1110,7 +1252,30 @@ export default class FlowtiBasePlugin extends Plugin {
 				return null;
 			}
 		});
-		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
+		featureLifecycleService.setScanner(async () => {
+			const scanStart = performance.now();
+			const featuresFolder = settingsService.getSettings().featuresFolder;
+			const abstract = this.app.vault.getAbstractFileByPath(featuresFolder);
+			if (!abstract) return [];
+			const results: { path: string; name: string; frontmatter: Record<string, unknown> }[] = [];
+			const files = this.getFilesInFolder(featuresFolder, (f) => f.extension === "md");
+			for (const file of files) {
+				const cache = this.app.metadataCache.getFileCache(file);
+				const fm = cache?.frontmatter;
+				if (!fm || fm.type !== "ProductRequirementsDocument") continue;
+				results.push({
+					path: file.path,
+					name: file.basename,
+					frontmatter: { ...fm },
+				});
+			}
+			this.logger.debug(`[StartupProfile] scan feature-lifecycle-prds files=${files.length} matched=${results.length} duration=${Math.round(performance.now() - scanStart)}ms`);
+			return results;
+		});
+		await this.timedServiceLoadsParallel([
+			{ name: "testManagementService", fn: () => this.testManagementService!.load() },
+			{ name: "featureLifecycleService", fn: () => this.featureLifecycleService!.load() },
+		]);
 		// TestManagement hub is now driven by SitemapHubView + Lit components.
 		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
 		// Register tab handlers now that the service is available.
@@ -1122,53 +1287,39 @@ export default class FlowtiBasePlugin extends Plugin {
 				eventBus: this.eventBus,
 			});
 		}
-
-		// Feature Lifecycle — PRD scanning, stage management, gate checks
-		this.featureLifecycleService = await this.services.get<FeatureLifecycleService>("featureLifecycleService");
-		this.featureLifecycleService.setScanner(async () => {
-			const featuresFolder = settingsService.getSettings().featuresFolder;
-			const abstract = this.app.vault.getAbstractFileByPath(featuresFolder);
-			if (!abstract) return [];
-			const results: { path: string; name: string; frontmatter: Record<string, unknown> }[] = [];
-			const files = this.app.vault.getFiles().filter(
-				(f) => f.path.startsWith(featuresFolder + "/") && f.extension === "md",
-			);
-			for (const file of files) {
-				const cache = this.app.metadataCache.getFileCache(file);
-				const fm = cache?.frontmatter;
-				if (!fm || fm.type !== "ProductRequirementsDocument") continue;
-				results.push({
-					path: file.path,
-					name: file.basename,
-					frontmatter: { ...fm },
-				});
-			}
-			return results;
 		});
-		await this.timedServiceLoad("featureLifecycleService", () => this.featureLifecycleService!.load());
 
+		await trackSeg("12.process-journey-sessionUi", async () => {
 		// Process Management — process definition scanning and validation
 		this.processService = await this.services.get<ProcessService>("processService");
 		this.processService.setScanner(async () => {
+			const scanStart = performance.now();
 			const processesFolder = settingsService.getSettings().processesFolder;
 			const abstract = this.app.vault.getAbstractFileByPath(processesFolder);
 			if (!abstract) return [];
 			const results: { name: string; filePath: string; content: string }[] = [];
-			const files = this.app.vault.getFiles().filter(
+			const files = this.getFilesInFolder(
+				processesFolder,
 				(f) => f.path.startsWith(processesFolder + "/") && f.extension === "canvas" && f.basename.endsWith(".process"),
 			);
 			for (const file of files) {
 				try {
 					const content = await this.app.vault.read(file);
+					if (this.hasMergeConflictMarkers(content)) {
+						this.logger.warn(`[Flowti] Skipping conflicted process canvas: ${file.path}`);
+						continue;
+					}
 					results.push({ name: file.basename.replace(/\.process$/, ""), filePath: file.path, content });
 				} catch { /* skip unreadable files */ }
 			}
+			this.logger.debug(`[StartupProfile] scan processes files=${files.length} matched=${results.length} duration=${Math.round(performance.now() - scanStart)}ms`);
 			return results;
 		});
-		const processResults = await this.processService.scanProcesses();
-		if (processResults.length > 0) {
-			void this.eventBus.emit("notice.show", { message: `Found ${processResults.length} process definition${processResults.length === 1 ? "" : "s"}` });
-		}
+		void this.processService.scanProcesses().then((processResults) => {
+			if (processResults.length > 0) {
+				void this.eventBus.emit("notice.show", { message: `Found ${processResults.length} process definition${processResults.length === 1 ? "" : "s"}` });
+			}
+		});
 		this.addCommand({
 			id: "flowti:scan-processes",
 			name: "Scan process definitions",
@@ -1267,6 +1418,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				void this.app.workspace.openLinkText(session.canvasFile, "", false);
 			}),
 		);
+		});
 
 		return settingsService;
 	}
@@ -1332,9 +1484,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			addCommand: (cmd) => this.addCommand(cmd),
 		});
 		dxSetup.wireCallbacks();
-		dxSetup.registerViews();
-		dxSetup.registerFileMenuItems();
-		dxSetup.registerCommands();
 
 		this.uiCommandService?.setOpenCsvImport(
 			(filePath, savedConfig) => dxSetup.openCsvImportWithConfig(filePath, savedConfig),
@@ -1345,6 +1494,29 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.uiCommandService?.setOpenExportWithSavedConfig(
 			(savedConfig) => dxSetup.openExportWithSavedConfig(savedConfig),
 		);
+
+		// View factories, file-menu hooks, and DX commands are heavy on large vaults — defer to idle.
+		const registerDxHeavyUi = (): void => {
+			const t0 = performance.now();
+			try {
+				dxSetup.registerViews();
+				dxSetup.registerFileMenuItems();
+				dxSetup.registerCommands();
+				this.logger.debug(`[StartupProfile] data exchange idle registration done in ${Math.round(performance.now() - t0)}ms`);
+			} catch (err) {
+				this.logger.error(
+					`[Flowti] Data exchange UI registration failed: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+		};
+		this.logger.debug("[StartupProfile] data exchange: views/menus/commands scheduled on idle");
+		if (typeof requestIdleCallback !== "undefined") {
+			requestIdleCallback(() => {
+				registerDxHeavyUi();
+			}, { timeout: 2500 });
+		} else {
+			setTimeout(registerDxHeavyUi, 0);
+		}
 	}
 
 	/**
@@ -1405,9 +1577,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		try {
 			await this.ingestionService.runCatchUp(this.settings.watchFolders, async (folder) => {
-				return this.app.vault.getFiles()
-					.filter((f) => f.path.startsWith(folder + "/"))
-					.map((f) => f.path);
+				return this.getFilesInFolder(folder).map((f) => f.path);
 			});
 		} catch (error) {
 			this.errorService.handle(
@@ -1415,6 +1585,36 @@ export default class FlowtiBasePlugin extends Plugin {
 				"ingestion.catchUp"
 			);
 		}
+	}
+
+	/**
+	 * Returns files contained in a specific vault folder path without scanning
+	 * the entire vault file list. This avoids repeated full-vault traversals
+	 * during startup on large repositories.
+	 */
+	private getFilesInFolder(folderPath: string, predicate?: (file: TFile) => boolean): TFile[] {
+		const root = this.app.vault.getAbstractFileByPath(folderPath);
+		if (!(root instanceof TFolder)) return [];
+		const files: TFile[] = [];
+		const stack: TFolder[] = [root];
+		while (stack.length > 0) {
+			const current = stack.pop();
+			if (!current) continue;
+			for (const child of current.children) {
+				if (child instanceof TFolder) {
+					stack.push(child);
+					continue;
+				}
+				if (child instanceof TFile && (!predicate || predicate(child))) {
+					files.push(child);
+				}
+			}
+		}
+		return files;
+	}
+
+	private hasMergeConflictMarkers(content: string): boolean {
+		return content.includes("<<<<<<< ") || content.includes("\n=======\n") || content.includes(">>>>>>> ");
 	}
 
 	/**

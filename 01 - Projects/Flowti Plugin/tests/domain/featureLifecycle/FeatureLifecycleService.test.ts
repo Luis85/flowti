@@ -62,6 +62,7 @@ function createService(opts: {
 		eventBus: eventBus as unknown as ServiceOpts["eventBus"],
 		scanPRDs: opts.noScanner ? undefined : async () => prds,
 		updateFrontmatter: opts.updateFrontmatter,
+		deferVaultScan: false,
 	});
 	return { service, storage, eventBus };
 }

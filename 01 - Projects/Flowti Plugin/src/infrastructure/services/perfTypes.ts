@@ -18,12 +18,27 @@ export interface ServiceStartupEntry {
 	durationMs: number;
 }
 
+/** One startup phase timing (onLayoutReady trackPhase). */
+export interface StartupPhaseEntry {
+	phase: string;
+	durationMs: number;
+}
+
+/** One domain-load wall-clock segment (loadDomainServices trackSeg). */
+export interface StartupSegmentEntry {
+	segment: string;
+	durationMs: number;
+}
+
 /** Startup performance summary. */
 export interface StartupSummary {
 	totalMs: number;
 	serviceCount: number;
 	perService: ServiceStartupEntry[];
 	timing: MetricSummary;
+	/** Last completed startup run (from perf.startup.phase / perf.startup.segment). */
+	lastRunPhases: StartupPhaseEntry[];
+	lastRunSegments: StartupSegmentEntry[];
 }
 
 /** Per-key storage performance. */

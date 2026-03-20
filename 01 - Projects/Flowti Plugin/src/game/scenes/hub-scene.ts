@@ -32,6 +32,8 @@ export class HubScene extends ex.Scene {
 	private readonly config: HubSceneConfig;
 	private readonly agentActors = new Map<string, AgentActor>();
 	private iterationLabel: ex.Label | null = null;
+	/** Explains empty hub when agents are routed to office/village/station by domain. */
+	private hubHintLabel: ex.Label | null = null;
 	private connectionLabel: ex.Label | null = null;
 	private spriteRegistry: Map<string, AgentSprites> = new Map();
 
@@ -117,10 +119,27 @@ export class HubScene extends ex.Scene {
 		title.body.collisionType = ex.CollisionType.PreventCollision;
 		this.add(title);
 
+		// ── Roster / routing hint (LLM not required for sprites to appear)
+		this.hubHintLabel = new ex.Label({
+			text: "",
+			pos: ex.vec(w / 2, 52),
+			font: new ex.Font({
+				family: "system-ui, sans-serif",
+				size: 10,
+				unit: ex.FontUnit.Px,
+				color: ex.Color.fromHex("#64748b"),
+				textAlign: ex.TextAlign.Center,
+			}),
+			anchor: ex.vec(0.5, 0.5),
+			z: 5,
+		});
+		this.hubHintLabel.body.collisionType = ex.CollisionType.PreventCollision;
+		this.add(this.hubHintLabel);
+
 		// ── Iteration badge ─────────────────────────────────
 		this.iterationLabel = new ex.Label({
 			text: "",
-			pos: ex.vec(w / 2, 52),
+			pos: ex.vec(w / 2, 70),
 			font: new ex.Font({
 				family: "system-ui, sans-serif",
 				size: 11,
@@ -173,8 +192,22 @@ export class HubScene extends ex.Scene {
 	updateAgents(agents: readonly DashboardAgent[]): void {
 		const incoming = new Set<string>();
 
-		// Only hub-resident agents get full actors in this scene
+		// Only hub-resident agents get full actors in this scene (domain → room map in domain-map.ts).
 		const hubAgents = agents.filter((a) => resolveSettingForDomain(a.domain) === "hub");
+		const offHubCount = agents.length - hubAgents.length;
+		if (this.hubHintLabel) {
+			if (agents.length === 0) {
+				this.hubHintLabel.text =
+					"No roster yet — add .flowti/agents/data/agent-dashboard.json or run the Flowti CLI.";
+			} else if (offHubCount > 0 && hubAgents.length === 0) {
+				this.hubHintLabel.text =
+					`${offHubCount} agent(s) are in side rooms by domain — click the doors on the right (Office / Village / Station).`;
+			} else if (offHubCount > 0) {
+				this.hubHintLabel.text = `+${offHubCount} more in side rooms → use doors`;
+			} else {
+				this.hubHintLabel.text = "";
+			}
+		}
 
 		const w = this.engine?.drawWidth ?? 1200;
 		const h = this.engine?.drawHeight ?? 700;

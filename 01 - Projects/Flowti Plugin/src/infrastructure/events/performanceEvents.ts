@@ -32,6 +32,30 @@ export interface PerformanceEventMap {
 		serviceCount: number;
 	};
 
+	/** Emitted for each high-level startup phase (e.g. domain.services.load, hub.registry.setup). */
+	"perf.startup.phase": {
+		phase: string;
+		durationMs: number;
+	};
+
+	/** Emitted for each wall-clock segment inside {@link loadDomainServices} (non-overlapping). */
+	"perf.startup.segment": {
+		segment: string;
+		durationMs: number;
+	};
+
+	/** Single structured snapshot after startup profiling (for dashboards, traces, tests). */
+	"perf.startup.breakdown": {
+		totalMs: number;
+		severity: "low" | "medium" | "high" | "critical";
+		serviceCount: number;
+		phases: { phase: string; durationMs: number }[];
+		segments: { segment: string; durationMs: number }[];
+		segmentsWallClockSumMs: number;
+		topServices: { service: string; durationMs: number }[];
+		dominantPhase: { phase: string; durationMs: number } | null;
+	};
+
 	/** Emitted after an analytics query completes execution. */
 	"perf.query.executed": {
 		queryId: string;

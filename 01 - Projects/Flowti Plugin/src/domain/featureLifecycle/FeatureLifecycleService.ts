@@ -57,6 +57,11 @@ export interface FeatureLifecycleServiceOptions {
 	scanPRDs?: () => Promise<ScannedPRD[]>;
 	/** Callback to update a frontmatter field in a vault file. Injected from main.ts. */
 	updateFrontmatter?: (path: string, key: string, value: string) => Promise<void>;
+	/**
+	 * When true (default), PRD scan runs on requestIdleCallback after load.
+	 * Set false in unit tests so `load()` finishes with features populated.
+	 */
+	deferVaultScan?: boolean;
 }
 
 export class FeatureLifecycleService {
@@ -66,12 +71,14 @@ export class FeatureLifecycleService {
 	private eventBus: IEventBus;
 	private scanPRDsFn?: () => Promise<ScannedPRD[]>;
 	private updateFrontmatterFn?: (path: string, key: string, value: string) => Promise<void>;
+	private readonly deferVaultScan: boolean;
 
 	constructor(options: FeatureLifecycleServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
 		this.scanPRDsFn = options.scanPRDs;
 		this.updateFrontmatterFn = options.updateFrontmatter;
+		this.deferVaultScan = options.deferVaultScan ?? true;
 	}
 
 	/** Set the PRD scanner callback (called from main.ts after vault is ready). */
@@ -94,7 +101,35 @@ export class FeatureLifecycleService {
 				activeSession: saved.activeSession ?? null,
 			};
 		}
-		await this.scanFeatures();
+		if (this.deferVaultScan) {
+			this.scheduleDeferredFeatureScan();
+		} else {
+			try {
+				await this.scanFeatures();
+			} catch {
+				// Non-fatal
+			}
+		}
+	}
+
+	/** PRD folder scan off the critical startup path. */
+	private scheduleDeferredFeatureScan(): void {
+		const run = async (): Promise<void> => {
+			try {
+				await this.scanFeatures();
+			} catch {
+				// Non-fatal
+			}
+		};
+		if (typeof requestIdleCallback !== "undefined") {
+			requestIdleCallback(() => {
+				void run();
+			}, { timeout: 4000 });
+		} else {
+			setTimeout(() => {
+				void run();
+			}, 0);
+		}
 	}
 
 	async save(): Promise<void> {

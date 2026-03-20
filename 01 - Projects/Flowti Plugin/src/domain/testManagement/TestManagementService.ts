@@ -34,6 +34,11 @@ export interface TestManagementServiceOptions {
 	eventBus?: IEventBus;
 	/** Optional callback that scans the vault for journey JSON files on load. */
 	scanJourneys?: () => Promise<ScannedJourney[]>;
+	/**
+	 * When true (default), journey/PRD/report scans run on requestIdleCallback after load.
+	 * Set false in unit tests so `load()` finishes with vault data applied.
+	 */
+	deferVaultIndexing?: boolean;
 }
 
 export class TestManagementService {
@@ -46,11 +51,13 @@ export class TestManagementService {
 	private prds: PrdInfo[] = [];
 	private testReportMetrics: { flowSuites: number; flowPassRate: number; unitSuites: number; unitPassRate: number } | null = null;
 	private unsubscribes: (() => void)[] = [];
+	private readonly deferVaultIndexing: boolean;
 
 	constructor(options: TestManagementServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
 		this.scanJourneys = options.scanJourneys;
+		this.deferVaultIndexing = options.deferVaultIndexing ?? true;
 	}
 
 	/** Set the vault scanner callback (called before load). */
@@ -75,14 +82,53 @@ export class TestManagementService {
 		if (saved) {
 			this.state = { ...createDefaultState(), ...saved };
 		}
-		await this.scanVaultJourneys();
-		await this.scanVaultPrds();
-		await this.loadTestReportMetrics();
+		// Subscriptions must exist before deferred vault scans (journey-builder.exported, etc.).
 		this.wireEventSubscriptions();
-		await this.eventBus?.emit("test-mgmt.hub.loaded", {
+		void this.eventBus?.emit("test-mgmt.hub.loaded", {
 			journeyCount: this.state.journeys.length,
 			coveragePercent: 0,
 		});
+		if (this.deferVaultIndexing) {
+			this.scheduleDeferredVaultIndexing();
+		} else {
+			try {
+				await this.scanVaultJourneys();
+				await this.scanVaultPrds();
+				await this.loadTestReportMetrics();
+				void this.eventBus?.emit("test-mgmt.hub.loaded", {
+					journeyCount: this.state.journeys.length,
+					coveragePercent: 0,
+				});
+			} catch {
+				// Non-fatal — same as deferred path
+			}
+		}
+	}
+
+	/** Runs journey/PRD/report scans off the critical startup path. */
+	private scheduleDeferredVaultIndexing(): void {
+		const run = async (): Promise<void> => {
+			try {
+				await this.scanVaultJourneys();
+				await this.scanVaultPrds();
+				await this.loadTestReportMetrics();
+				void this.eventBus?.emit("test-mgmt.hub.loaded", {
+					journeyCount: this.state.journeys.length,
+					coveragePercent: 0,
+				});
+			} catch {
+				// Non-fatal — same as individual scan failures
+			}
+		};
+		if (typeof requestIdleCallback !== "undefined") {
+			requestIdleCallback(() => {
+				void run();
+			}, { timeout: 4000 });
+		} else {
+			setTimeout(() => {
+				void run();
+			}, 0);
+		}
 	}
 
 	dispose(): void {

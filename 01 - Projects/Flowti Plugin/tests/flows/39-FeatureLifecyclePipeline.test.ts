@@ -98,6 +98,7 @@ describe("Flow 39: Feature Lifecycle Pipeline", () => {
 			eventBus,
 			scanPRDs: () => Promise.resolve(prds),
 			updateFrontmatter,
+			deferVaultScan: false,
 		});
 		await svc.load();
 		return svc;

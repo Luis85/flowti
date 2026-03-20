@@ -20,7 +20,7 @@ function createMockChild(pid = 12345): ChildProcess {
 	Object.defineProperty(child, "exitCode", { value: null, writable: true });
 	Object.defineProperty(child, "killed", { value: false, writable: true });
 
-	(child as Record<string, unknown>).unref = vi.fn();
+	(child as unknown as Record<string, unknown>).unref = vi.fn();
 
 	return child;
 }
@@ -41,7 +41,7 @@ function createAutoRespondChild(pid: number, responseData: string, exitCode = 0)
 	// Schedule response after a microtask (so the promise listeners are attached)
 	const origOn = child.on.bind(child);
 	let closeHandler: ((code: number) => void) | null = null;
-	(child as EventEmitter).on = function (event: string, handler: (...args: unknown[]) => void) {
+	(child as EventEmitter).on = function (this: EventEmitter, event: string, handler: (...args: unknown[]) => void) {
 		if (event === "close") {
 			closeHandler = handler as (code: number) => void;
 			// Schedule the auto-response
@@ -69,11 +69,11 @@ const mockSpawn = vi.fn((): ChildProcess => {
 const mockExecSync = vi.fn();
 
 vi.mock("node:child_process", () => ({
-	spawn: (...args: unknown[]) => mockSpawn(...args),
-	execSync: (...args: unknown[]) => mockExecSync(...args),
+	spawn: (...args: unknown[]) => (mockSpawn as (...a: unknown[]) => ChildProcess)(...args),
+	execSync: (...args: unknown[]) => (mockExecSync as (...a: unknown[]) => unknown)(...args),
 }));
 
-const mockFs: Record<string, ReturnType<typeof vi.fn>> = {
+const mockFs = vi.hoisted(() => ({
 	existsSync: vi.fn(),
 	readFileSync: vi.fn(),
 	writeFileSync: vi.fn(),
@@ -84,20 +84,24 @@ const mockFs: Record<string, ReturnType<typeof vi.fn>> = {
 	openSync: vi.fn(),
 	readSync: vi.fn(),
 	closeSync: vi.fn(),
-};
-
-vi.mock("node:fs", () => ({
-	existsSync: (...args: unknown[]) => mockFs.existsSync(...args),
-	readFileSync: (...args: unknown[]) => mockFs.readFileSync(...args),
-	writeFileSync: (...args: unknown[]) => mockFs.writeFileSync(...args),
-	mkdirSync: (...args: unknown[]) => mockFs.mkdirSync(...args),
-	unlinkSync: (...args: unknown[]) => mockFs.unlinkSync(...args),
-	readdirSync: (...args: unknown[]) => mockFs.readdirSync(...args),
-	statSync: (...args: unknown[]) => mockFs.statSync(...args),
-	openSync: (...args: unknown[]) => mockFs.openSync(...args),
-	readSync: (...args: unknown[]) => mockFs.readSync(...args),
-	closeSync: (...args: unknown[]) => mockFs.closeSync(...args),
 }));
+
+vi.mock("node:fs", () => {
+	const spread = (fn: ReturnType<typeof vi.fn>, args: unknown[]) =>
+		(fn as (...a: unknown[]) => unknown)(...args);
+	return {
+		existsSync: (...args: unknown[]) => spread(mockFs.existsSync, args),
+		readFileSync: (...args: unknown[]) => spread(mockFs.readFileSync, args),
+		writeFileSync: (...args: unknown[]) => spread(mockFs.writeFileSync, args),
+		mkdirSync: (...args: unknown[]) => spread(mockFs.mkdirSync, args),
+		unlinkSync: (...args: unknown[]) => spread(mockFs.unlinkSync, args),
+		readdirSync: (...args: unknown[]) => spread(mockFs.readdirSync, args),
+		statSync: (...args: unknown[]) => spread(mockFs.statSync, args),
+		openSync: (...args: unknown[]) => spread(mockFs.openSync, args),
+		readSync: (...args: unknown[]) => spread(mockFs.readSync, args),
+		closeSync: (...args: unknown[]) => spread(mockFs.closeSync, args),
+	};
+});
 
 vi.mock("node:path", async () => {
 	const actual = await vi.importActual<typeof import("node:path")>("node:path");
@@ -348,8 +352,8 @@ describe("CliExecutor", () => {
 			mockFs.existsSync.mockReturnValue(true);
 			mockFs.statSync.mockReturnValue({ size: buf.length });
 			mockFs.openSync.mockReturnValue(42);
-			mockFs.readSync.mockImplementation((_fd: number, b: Buffer) => {
-				buf.copy(b);
+			mockFs.readSync.mockImplementation((_fd: number, b: ArrayBufferView) => {
+				buf.copy(b as Buffer);
 				return buf.length;
 			});
 

@@ -58,13 +58,15 @@ export class TrainSetup {
 			captureFolder: settingsService.getSettings().captureFolder,
 		});
 
-		// Train Service — serial thought capture sessions
-		const trainService = await services.get<TrainService>("trainService");
+		// Train + Canvas services — resolve in parallel; loads run in parallel (independent I/O).
+		const [trainService, canvasService] = await Promise.all([
+			services.get<TrainService>("trainService"),
+			services.get<CanvasService>("canvasService"),
+		]);
 		trainService.getSettings = () => ({
 			trainFolder: settingsService.getSettings().trainFolder,
 			trainMaxThoughts: settingsService.getSettings().trainMaxThoughts,
 		});
-		await timedServiceLoad("trainService", () => trainService.load());
 
 		// Train Canvas Sync — auto-generate canvas from train graph
 		const trainCanvasFileSystem = new FileSystemClient({ eventBus });
@@ -78,9 +80,10 @@ export class TrainSetup {
 		});
 		trainCanvasSync.setup();
 
-		// Canvas Service — canvas import configurations and orchestration
-		const canvasService = await services.get<CanvasService>("canvasService");
-		await timedServiceLoad("canvasService", () => canvasService.load());
+		await Promise.all([
+			timedServiceLoad("trainService", () => trainService.load()),
+			timedServiceLoad("canvasService", () => canvasService.load()),
+		]);
 
 		// Canvas Session Service — guided canvas session orchestration
 		const canvasSessionFs = new FileSystemClient({ eventBus });
