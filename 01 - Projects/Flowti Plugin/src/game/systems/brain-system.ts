@@ -77,6 +77,7 @@ export class BrainSystem {
 	/** Bounds shrunk by SPRITE_MARGIN — all wander/break targets land inside the clamped area. */
 	private readonly targetBounds: Bounds;
 	private readonly config: BrainSystemConfig;
+	private readonly quirkOverrides = new Map<string, Record<string, number>>();
 
 	constructor(config: BrainSystemConfig) {
 		this.bounds = config.bounds;
@@ -180,6 +181,21 @@ export class BrainSystem {
 		const entry = this.entries.get(name);
 		if (!entry) return;
 		entry.habits = computeHabits(entry.attributes, mood, entry.domain);
+	}
+
+	/** Apply quirk-derived multipliers to an agent's brain params. */
+	applyQuirkOverrides(name: string, overrides: Record<string, number>): void {
+		this.quirkOverrides.set(name, overrides);
+		const entry = this.entries.get(name);
+		if (!entry) return;
+		const p = entry.params;
+		entry.params = {
+			speedMultiplier: p.speedMultiplier * (overrides.moveSpeedMultiplier ?? 1),
+			socialRadius: p.socialRadius * (overrides.socialRadiusMultiplier ?? 1),
+			idleResistance: p.idleResistance * (overrides.idleResistanceMultiplier ?? 1),
+			focusDuration: p.focusDuration,
+			quoteFrequency: p.quoteFrequency,
+		};
 	}
 
 	/** Get the current brain state for an agent. */

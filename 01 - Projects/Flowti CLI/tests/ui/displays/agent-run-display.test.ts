@@ -21,10 +21,10 @@ describe("renderBriefGenerated", () => {
 		expect(output).toContain("Dev");
 	});
 
-	it("shows manual run command", () => {
+	it("shows manual run command hint", () => {
 		const { log, lines } = capture();
 		renderBriefGenerated("/brief.md", "Agent", log);
-		expect(lines.join("\n")).toContain("claude --print --prompt-file");
+		expect(lines.join("\n")).toContain("--print");
 	});
 });
 

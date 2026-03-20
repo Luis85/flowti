@@ -45,7 +45,31 @@ import { interpolateTemplate } from "./data/engagement-templates.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
-import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { DayClock } from "./systems/day-clock.js";
+import { WorldAmbience } from "./systems/world-ambience.js";
+import { MemorySystem } from "./systems/memory-system.js";
+import { QuirkSystem } from "./systems/quirk-system.js";
+import { RelationshipSystem } from "./systems/relationship-system.js";
+import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
+import { assignOpinions, findClashLabels } from "./data/opinion-topics.js";
+import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
+import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
+import {
+	pickTemplate,
+	STANDUP_TEMPLATES, DEPLOY_SUCCESS_TEMPLATES, END_OF_DAY_TEMPLATES,
+	EUREKA_TEMPLATES, BUILD_BREAK_REACTION_TEMPLATES, BUILD_BREAK_RESOLVE_TEMPLATES,
+	BIRTHDAY_TEMPLATES, POWER_FLICKER_REACTION_TEMPLATES, POWER_FLICKER_RESOLVE_TEMPLATES,
+	NEW_PR_TEMPLATES, TEA_TIME_TEMPLATES,
+} from "./data/micro-event-templates.js";
+import { CoffeeMachine } from "./actors/coffee-machine.js";
+import { WhiteboardActor } from "./actors/whiteboard-actor.js";
+import { SnackTable } from "./actors/snack-table.js";
+import { WaterCooler } from "./actors/water-cooler.js";
+import { CouchActor } from "./actors/couch-actor.js";
+import { PlantActor } from "./actors/plant-actor.js";
+import { NoticeBoard } from "./actors/notice-board.js";
+import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 // Side-effect imports — register Lit custom elements
@@ -215,6 +239,138 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const toolExecutor = new ToolExecutor();
 	toolExecutor.registerTools(DEFAULT_TOOLS);
 
+	const dayClock = new DayClock(DEFAULT_WORLD_CONFIG.dayCycle.durationMs);
+	const worldAmbience = new WorldAmbience(DEFAULT_WORLD_CONFIG.weather.cycleLengthInDayCycles);
+	const memorySystem = new MemorySystem();
+	const quirkSystem = new QuirkSystem();
+	const worldEventScheduler = new WorldEventScheduler();
+	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
+	const cycleConversationCounts = new Map<string, number>();
+	/** Tracks which reactive triggers have fired per agent this cycle to avoid spamming. */
+	const firedReactiveTriggers = new Map<string, Set<string>>();
+	let prevCycleCount = 0;
+
+	// ── Environmental objects ────────────────────────────
+	const coffeeMachine = new CoffeeMachine();
+	coffeeMachine.pos = ex.vec(680, 120);
+	const whiteboard = new WhiteboardActor();
+	whiteboard.pos = ex.vec(400, 60);
+	const snackTable = new SnackTable();
+	snackTable.pos = ex.vec(400, 380);
+	const waterCooler = new WaterCooler();
+	waterCooler.pos = ex.vec(600, 380);
+	const couch = new CouchActor();
+	couch.pos = ex.vec(400, 380);
+	const plant = new PlantActor();
+	plant.pos = ex.vec(100, 60);
+	const noticeBoard = new NoticeBoard();
+	noticeBoard.pos = ex.vec(680, 60);
+
+	// Wire DayClock phase changes to store + scheduler
+	dayClock.onPhaseChange((phase) => {
+		store.setDayPhase(phase);
+		store.setWeatherState(worldAmbience.getWeather());
+		worldEventScheduler.onPhaseChange(phase);
+	});
+
+	// ── Micro-event handlers ─────────────────────────────
+	worldEventScheduler.registerHandler("standup", () => {
+		const agents = needsSystem.getAgentNames();
+		for (const name of agents) {
+			const state = brainSystem.getState(name)?.state;
+			if (state === "idle" || state === "wandering") brainSystem.applyEvent(name, "speaking");
+		}
+		agents.forEach((name, i) => {
+			setTimeout(() => {
+				bubbleSystem.showBubble(name, "thought", pickTemplate(STANDUP_TEMPLATES), engine.currentScene, findAgentActor, 3000);
+			}, i * 2000);
+		});
+		setTimeout(() => {
+			for (const name of agents) brainSystem.applyEvent(name, "idle");
+		}, agents.length * 2000 + 2000);
+	});
+
+	worldEventScheduler.registerHandler("deploy-success", () => {
+		const agents = needsSystem.getAgentNames();
+		const celebrant = agents[Math.floor(Math.random() * agents.length)];
+		if (celebrant) {
+			bubbleSystem.showBubble(celebrant, "speech", pickTemplate(DEPLOY_SUCCESS_TEMPLATES), engine.currentScene, findAgentActor, 4000);
+			const actor = findAgentActor(celebrant);
+			if (actor) particlePool.spawnPreset("confetti", actor.pos.x, actor.pos.y - 20);
+			needsSystem.applyEffect(celebrant, { morale: 5 });
+		}
+	});
+
+	worldEventScheduler.registerHandler("tea-time", () => {
+		const idle = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "idle");
+		const teaGroup = idle.slice(0, 3);
+		for (const name of teaGroup) {
+			brainSystem.walkTo(name, coffeeMachine.getInteractionPoint());
+			bubbleSystem.showBubble(name, "thought", pickTemplate(TEA_TIME_TEMPLATES), engine.currentScene, findAgentActor, 3000);
+		}
+	});
+
+	worldEventScheduler.registerHandler("end-of-day", () => {
+		for (const name of needsSystem.getAgentNames()) {
+			bubbleSystem.showBubble(name, "thought", pickTemplate(END_OF_DAY_TEMPLATES), engine.currentScene, findAgentActor, 3000);
+		}
+	});
+
+	worldEventScheduler.registerHandler("eureka", () => {
+		const working = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "working");
+		if (working.length > 0) {
+			const agent = working[Math.floor(Math.random() * working.length)];
+			bubbleSystem.showBubble(agent, "speech", pickTemplate(EUREKA_TEMPLATES), engine.currentScene, findAgentActor, 4000);
+			const actor = findAgentActor(agent);
+			if (actor) particlePool.spawnPreset("sparkle", actor.pos.x, actor.pos.y - 20);
+			needsSystem.applyEffect(agent, { morale: 8, focus: 5 });
+		}
+	});
+
+	worldEventScheduler.registerHandler("build-break", () => {
+		for (const name of needsSystem.getAgentNames()) {
+			bubbleSystem.showBubble(name, "thought", pickTemplate(BUILD_BREAK_REACTION_TEMPLATES), engine.currentScene, findAgentActor, 2000);
+			needsSystem.applyEffect(name, { morale: -3 });
+		}
+		particlePool.spawnPreset("alert", 400, 250);
+		setTimeout(() => {
+			const resolver = needsSystem.getAgentNames()[0];
+			if (resolver) bubbleSystem.showBubble(resolver, "speech", pickTemplate(BUILD_BREAK_RESOLVE_TEMPLATES), engine.currentScene, findAgentActor, 4000);
+		}, 10_000);
+	});
+
+	worldEventScheduler.registerHandler("birthday", () => {
+		const agents = needsSystem.getAgentNames();
+		const birthdayAgent = agents[Math.floor(Math.random() * agents.length)];
+		if (birthdayAgent) {
+			bubbleSystem.showBubble(birthdayAgent, "speech", pickTemplate(BIRTHDAY_TEMPLATES), engine.currentScene, findAgentActor, 4000);
+			particlePool.spawnPreset("confetti", snackTable.pos.x, snackTable.pos.y - 20);
+			for (const name of agents) needsSystem.applyEffect(name, { morale: 3 });
+		}
+	});
+
+	worldEventScheduler.registerHandler("power-flicker", () => {
+		for (const name of needsSystem.getAgentNames()) {
+			bubbleSystem.showBubble(name, "thought", pickTemplate(POWER_FLICKER_REACTION_TEMPLATES), engine.currentScene, findAgentActor, 1500);
+		}
+		setTimeout(() => {
+			const ops = needsSystem.getAgentNames()[0];
+			if (ops) bubbleSystem.showBubble(ops, "speech", pickTemplate(POWER_FLICKER_RESOLVE_TEMPLATES), engine.currentScene, findAgentActor, 3000);
+		}, 2000);
+	});
+
+	worldEventScheduler.registerHandler("new-pr", () => {
+		const agents = needsSystem.getAgentNames();
+		const author = agents[Math.floor(Math.random() * agents.length)];
+		if (author) {
+			brainSystem.walkTo(author, whiteboard.getInteractionPoint());
+			setTimeout(() => {
+				bubbleSystem.showBubble(author, "thought", pickTemplate(NEW_PR_TEMPLATES), engine.currentScene, findAgentActor, 3000);
+				particlePool.spawnPreset("scribble", whiteboard.pos.x, whiteboard.pos.y);
+			}, 3000);
+		}
+	});
+
 	// ── Agent select handler ────────────────────────────
 	function handleAgentSelect(agentName: string): void {
 		const actor = findAgentActor(agentName);
@@ -354,6 +510,24 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			sensorSystem.register(agent.name, agent.domain ?? "general");
 			engagementSystem.register(agent.name, { domain: agent.domain ?? "general", cha: agent.attributes?.cha ?? 10 });
 			ritualSystem.register(agent.name, { domain: agent.domain ?? "general" });
+			memorySystem.register(agent.name);
+			// Quirk assignment — restore from memory or roll new
+			const savedQuirks = memorySystem.getMemory(agent.name).quirks;
+			quirkSystem.register(agent.name, (agent.attributes ?? {}) as Record<string, number>, agent.domain ?? "general", savedQuirks);
+			if (savedQuirks.length === 0) {
+				memorySystem.getMemory(agent.name).quirks = quirkSystem.getQuirks(agent.name);
+			}
+			const overrides = quirkSystem.getOverrides(agent.name);
+			if (Object.keys(overrides).length > 0) {
+				brainSystem.applyQuirkOverrides(agent.name, overrides as Record<string, number>);
+			}
+			// Relationship opinions — restore from memory or assign new
+			const savedOpinions = memorySystem.getMemory(agent.name).opinions;
+			const opinions = savedOpinions.length > 0 ? savedOpinions : assignOpinions();
+			if (savedOpinions.length === 0) {
+				memorySystem.getMemory(agent.name).opinions = opinions;
+			}
+			relationshipSystem.register(agent.name, opinions);
 			knownEntities.add(agent.name);
 		}
 	}
@@ -519,6 +693,27 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 
 	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
+		// Track conversations for memory streaks
+		cycleConversationCounts.set(nameA, (cycleConversationCounts.get(nameA) ?? 0) + 1);
+		cycleConversationCounts.set(nameB, (cycleConversationCounts.get(nameB) ?? 0) + 1);
+		// Relationship tracking + bicker check
+		relationshipSystem.recordConversation(nameA, nameB);
+		if (relationshipSystem.shouldBicker(nameA, nameB)) {
+			relationshipSystem.recordBicker(nameA, nameB);
+			// Resolve opinion labels for template interpolation
+			const opsA = relationshipSystem.getOpinions(nameA);
+			const opsB = relationshipSystem.getOpinions(nameB);
+			const clash = findClashLabels(opsA, opsB);
+			const resolveOpinions = (text: string) =>
+				text.replace(/\{opinionA\}/g, clash?.opinionA ?? "my way")
+					.replace(/\{opinionB\}/g, clash?.opinionB ?? "your way");
+			setTimeout(() => {
+				bubbleSystem.showBubble(nameA, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), engine.currentScene, findAgentActor, 3000);
+			}, 500);
+			setTimeout(() => {
+				bubbleSystem.showBubble(nameB, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), engine.currentScene, findAgentActor, 3000);
+			}, 2000);
+		}
 		brainSystem.applyEvent(nameA, "speaking");
 		brainSystem.applyEvent(nameB, "speaking");
 
@@ -566,6 +761,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Wire cluster huddle conversations ────────────────
 	socialSystem.onCluster((members) => {
+		relationshipSystem.recordCluster(members);
 		const speakCount = Math.min(members.length, 3);
 		const lines = members.slice(0, speakCount).map(() => {
 			const template = HUDDLE_TEMPLATES[Math.floor(Math.random() * HUDDLE_TEMPLATES.length)];
@@ -672,6 +868,15 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	villageScene.add(createParticleRenderer());
 	stationScene.add(createParticleRenderer());
 
+	// ── Environmental objects in scenes ─────────────────
+	officeScene.add(coffeeMachine);
+	officeScene.add(whiteboard);
+	villageScene.add(snackTable);
+	villageScene.add(waterCooler);
+	stationScene.add(couch);
+	hubScene.add(plant);
+	hubScene.add(noticeBoard);
+
 	// ── Cursor spirit — visual director presence (one per scene) ────
 	const cursorSpirits = [new CursorSpirit(), new CursorSpirit(), new CursorSpirit(), new CursorSpirit()];
 	hubScene.add(cursorSpirits[0]);
@@ -766,6 +971,27 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const deltaMs = now - lastTime;
 		lastTime = now;
 
+		// 0. Day clock — advance phase
+		dayClock.update(deltaMs);
+		if (dayClock.getCycleCount() > prevCycleCount) {
+			prevCycleCount = dayClock.getCycleCount();
+			worldAmbience.onCycleComplete();
+			for (const agentName of needsSystem.getAgentNames()) {
+				memorySystem.onCycleEnd(agentName, {
+					completedTask: store.taskLockedAgents.has(agentName),
+					conversations: cycleConversationCounts.get(agentName) ?? 0,
+					dominantMood: needsSystem.getMood(agentName),
+				});
+				cycleConversationCounts.set(agentName, 0);
+			}
+			worldEventScheduler.onCycleReset();
+			firedReactiveTriggers.clear();
+			relationshipSystem.onCycleEnd();
+		}
+
+		// 0b. World event scheduler — tick active events and fire queued
+		worldEventScheduler.update(deltaMs);
+
 		// 1. Sensor system — drain cooldowns, process queued feedback
 		sensorSystem.update(deltaMs);
 
@@ -774,13 +1000,47 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			deltaMs,
 			(name) => brainSystem.getState(name)?.state ?? "idle",
 			getNearbyAgents,
+			dayClock.getPhaseMultipliers(),
 		);
 
-		// 3. Mood propagation — push derived mood into brain + emote systems
+		// 3. Mood propagation — push derived mood into brain + emote + talk systems
 		for (const agentName of needsSystem.getAgentNames()) {
 			const mood = needsSystem.getMood(agentName);
 			brainSystem.updateMood(agentName, mood);
 			emoteSystem.updateMood(agentName, mood);
+			// Feed rich context to talk engine
+			const nearby = getNearbyAgents(agentName);
+			const nearbyAgent = nearby[0] ?? "";
+			const nearbyDomain = nearbyAgent ? (store.agents.find((a) => a.name === nearbyAgent)?.domain ?? "") : "";
+			talkEngine.updateVars(agentName, {
+				mood,
+				mood_adj: mood === "neutral" ? "focused" : mood,
+				phase: dayClock.getPhase(),
+				weather: worldAmbience.getWeather(),
+				streak: String(memorySystem.getMemory(agentName).workStreak),
+				nearby_agent: nearbyAgent,
+				nearby_domain: nearbyDomain,
+			});
+		}
+
+		// 3a. Reactive talk triggers — detect significant need changes (once per trigger per cycle)
+		for (const agentName of needsSystem.getAgentNames()) {
+			const needs = needsSystem.getNeeds(agentName);
+			const mood = needsSystem.getMood(agentName);
+			let fired = firedReactiveTriggers.get(agentName);
+			if (!fired) { fired = new Set(); firedReactiveTriggers.set(agentName, fired); }
+			const tryTrigger = (trigger: ReactiveTrigger) => {
+				if (!fired!.has(trigger)) {
+					fired!.add(trigger);
+					talkEngine.triggerReactive(agentName, trigger);
+				}
+			};
+			if (needs.energy < 20) tryTrigger("energy-critical");
+			else if (needs.energy > 60 && fired.has("energy-critical")) { fired.delete("energy-critical"); tryTrigger("energy-restored"); }
+			if (mood === "lonely") tryTrigger("lonely");
+			if (needs.focus > 80) tryTrigger("focus-deep");
+			else if (needs.focus < 30) tryTrigger("focus-lost");
+			if (needs.morale > 75 && !fired.has("morale-boost")) tryTrigger("morale-boost");
 		}
 
 		// 3b. Behavior thresholds — needs-driven state overrides
@@ -1098,6 +1358,22 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			// WorldContext updates are consumed during sendMessage serialization.
 			// No need to push state to the store — WorldContext is the source of truth.
 
+			// Restore persisted Living World state
+			if (deps.vaultBasePath) {
+				try {
+					const varDir = join(deps.vaultBasePath, ".flowti", "var");
+					const clockPath = join(varDir, "world-clock.json");
+					const weatherPath = join(varDir, "world-weather.json");
+					const memoryPath = join(varDir, "world-memory.json");
+					if (existsSync(clockPath)) dayClock.restore(JSON.parse(readFileSync(clockPath, "utf-8")));
+					if (existsSync(weatherPath)) worldAmbience.restore(JSON.parse(readFileSync(weatherPath, "utf-8")));
+					if (existsSync(memoryPath)) memorySystem.restore(JSON.parse(readFileSync(memoryPath, "utf-8")));
+					const relPath = join(varDir, "world-relationships.json");
+					if (existsSync(relPath)) relationshipSystem.restore(JSON.parse(readFileSync(relPath, "utf-8")));
+				} catch { /* non-critical — start fresh */ }
+			}
+			prevCycleCount = dayClock.getCycleCount();
+
 			// Start data provider and load initial data
 			await provider.start();
 
@@ -1132,6 +1408,17 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 
 		dispose(): void {
+			// Flush persistent state before shutdown
+			if (deps.vaultBasePath) {
+				try {
+					const varDir = join(deps.vaultBasePath, ".flowti", "var");
+					if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
+					writeFileSync(join(varDir, "world-clock.json"), JSON.stringify(dayClock.serialize(), null, "\t"), "utf-8");
+					writeFileSync(join(varDir, "world-weather.json"), JSON.stringify(worldAmbience.serialize(), null, "\t"), "utf-8");
+					writeFileSync(join(varDir, "world-memory.json"), JSON.stringify(memorySystem.serialize(), null, "\t"), "utf-8");
+					writeFileSync(join(varDir, "world-relationships.json"), JSON.stringify(relationshipSystem.serialize(), null, "\t"), "utf-8");
+				} catch { /* non-critical — skip silently */ }
+			}
 			engine.stop();
 			engine.dispose();
 			provider.stop();

@@ -53,6 +53,20 @@ export class DashboardStore extends EventTarget {
 
 	currentScene: Setting = "hub";
 
+	// ── Living World state ────────────────────────────────────────
+	dayPhase = "morning-arrival";
+	weatherState = "clear";
+
+	setDayPhase(phase: string): void {
+		this.dayPhase = phase;
+		this.notify();
+	}
+
+	setWeatherState(weather: string): void {
+		this.weatherState = weather;
+		this.notify();
+	}
+
 	// ── Debug log ─────────────────────────────────────────────────
 	debugMode = false;
 	debugLog: { timestamp: number; agentName: string; prompt: string; context?: string; rawResponse?: string }[] = [];

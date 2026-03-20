@@ -52,7 +52,7 @@ describe("AgentsChatPage", () => {
 		unmount();
 	});
 
-	it("shows connecting then error when Claude CLI missing", async () => {
+	it("shows connecting then error when no LLM provider available", async () => {
 		const Page = getPage("agents-chat");
 		const { unmount, ...inst } = render(
 			React.createElement(TuiProvider, { value: mockTuiContext },
@@ -66,7 +66,7 @@ describe("AgentsChatPage", () => {
 		);
 		await flush();
 		const frame = lastFrame(inst);
-		expect(frame).toContain("Claude CLI not found");
+		expect(frame).toContain("No LLM provider");
 		unmount();
 	});
 

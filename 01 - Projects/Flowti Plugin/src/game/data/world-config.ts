@@ -130,6 +130,23 @@ export interface ToolsConfig {
 	readonly defaultTimeout: number;
 }
 
+/** Day cycle timing. */
+export interface DayCycleConfig {
+	readonly durationMs: number;
+}
+
+/** Weather cycling. */
+export interface WeatherWorldConfig {
+	readonly cycleLengthInDayCycles: number;
+}
+
+/** Relationship system tuning. */
+export interface RelationshipsConfig {
+	readonly affinityDecayPerCycle: number;
+	readonly bickerChance: number;
+	readonly maxSharedMemories: number;
+}
+
 /** Top-level configuration bag for all Agent World systems. */
 export interface WorldConfig {
 	readonly needs: NeedsConfig;
@@ -138,6 +155,9 @@ export interface WorldConfig {
 	readonly groups: GroupsConfig;
 	readonly engagement: EngagementConfig;
 	readonly tools: ToolsConfig;
+	readonly dayCycle: DayCycleConfig;
+	readonly weather: WeatherWorldConfig;
+	readonly relationships: RelationshipsConfig;
 }
 
 /** Sensible defaults for all WorldConfig values. */
@@ -189,6 +209,17 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 	tools: {
 		defaultTimeout: 30000,
 	},
+	dayCycle: {
+		durationMs: 1_500_000,  // 25 minutes
+	},
+	weather: {
+		cycleLengthInDayCycles: 2,
+	},
+	relationships: {
+		affinityDecayPerCycle: 1,
+		bickerChance: 0.3,
+		maxSharedMemories: 5,
+	},
 };
 
 /**
@@ -231,6 +262,18 @@ export function mergeWorldConfig(overrides: DeepPartial<WorldConfig>): WorldConf
 		tools: {
 			...DEFAULT_WORLD_CONFIG.tools,
 			...overrides.tools,
+		},
+		dayCycle: {
+			...DEFAULT_WORLD_CONFIG.dayCycle,
+			...overrides.dayCycle,
+		},
+		weather: {
+			...DEFAULT_WORLD_CONFIG.weather,
+			...overrides.weather,
+		},
+		relationships: {
+			...DEFAULT_WORLD_CONFIG.relationships,
+			...overrides.relationships,
 		},
 	};
 }
