@@ -39,6 +39,9 @@ import { EngagementSystem } from "./systems/engagement-system.js";
 import { RitualSystem } from "./systems/ritual-system.js";
 import { ToolExecutor } from "./systems/tool-executor-system.js";
 import { DEFAULT_TOOLS } from "./data/tool-registry.js";
+import { CursorSpirit } from "./actors/cursor-spirit.js";
+import { HUDDLE_TEMPLATES } from "./data/huddle-templates.js";
+import { interpolateTemplate } from "./data/engagement-templates.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
@@ -231,6 +234,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 			store.selectAgent(agentName);
 			store.selectTab("info");
+			engagementSystem.clearTaskCompleted(agentName);
 			// Warm up the agent process after a short delay so selection feels smooth
 			setTimeout(() => void store.wakeAgent(agentName), 600);
 			// Show a personality greeting via the talk engine instead of waking LLM
@@ -300,6 +304,25 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			if (current === room) return room.getAgentActor(name);
 		}
 		return undefined;
+	}
+
+	/** Find the position of the closest agent to `agentName` (for seek-agent threshold). */
+	function findNearestAgent(agentName: string): { x: number; y: number } | null {
+		const pos = brainSystem.getPosition(agentName);
+		if (!pos) return null;
+		let closest: { x: number; y: number } | null = null;
+		let minDist = Infinity;
+		for (const [name, entry] of brainSystem.getAllEntries()) {
+			if (name === agentName) continue;
+			const dx = pos.x - entry.position.x;
+			const dy = pos.y - entry.position.y;
+			const dist = dx * dx + dy * dy;
+			if (dist < minDist) {
+				minDist = dist;
+				closest = { x: entry.position.x, y: entry.position.y };
+			}
+		}
+		return closest;
 	}
 
 	// ── Track known entity IDs to distinguish adds from updates ──────
@@ -541,6 +564,32 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}, 6000 + Math.random() * 2000);
 	});
 
+	// ── Wire cluster huddle conversations ────────────────
+	socialSystem.onCluster((members) => {
+		const speakCount = Math.min(members.length, 3);
+		const lines = members.slice(0, speakCount).map(() => {
+			const template = HUDDLE_TEMPLATES[Math.floor(Math.random() * HUDDLE_TEMPLATES.length)];
+			return template.text;
+		});
+
+		members.slice(0, speakCount).forEach((name, i) => {
+			const agent = store.agents.find((a) => a.name === name);
+			const domain = agent?.domain ?? "general";
+			const mood = needsSystem.getMood(name);
+			const moodAdj = mood === "neutral" ? "optimistic" : mood;
+			const text = interpolateTemplate(lines[i], { domain, mood_adj: moodAdj });
+
+			brainSystem.applyEvent(name, "speaking");
+			setTimeout(() => {
+				bubbleSystem.showBubble(name, "speech", text, engine.currentScene, findAgentActor, 4000);
+			}, i * 1500);
+		});
+
+		setTimeout(() => {
+			for (const name of members) brainSystem.applyEvent(name, "idle");
+		}, speakCount * 1500 + 3000);
+	});
+
 	// ── Wire sensor reactions → bubble + needs ──────────
 	sensorSystem.onReaction((reaction) => {
 		if (reaction.bubble) {
@@ -623,6 +672,94 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	villageScene.add(createParticleRenderer());
 	stationScene.add(createParticleRenderer());
 
+	// ── Cursor spirit — visual director presence (one per scene) ────
+	const cursorSpirits = [new CursorSpirit(), new CursorSpirit(), new CursorSpirit(), new CursorSpirit()];
+	hubScene.add(cursorSpirits[0]);
+	officeScene.add(cursorSpirits[1]);
+	villageScene.add(cursorSpirits[2]);
+	stationScene.add(cursorSpirits[3]);
+
+	/** Get names of agents within social radius of `name`. */
+	function getNearbyAgents(name: string): string[] {
+		const pos = brainSystem.getPosition(name);
+		if (!pos) return [];
+		const params = brainSystem.getState(name);
+		const radius = params?.params.socialRadius ?? 100;
+		return [...brainSystem.getAllEntries()]
+			.filter(([n]) => {
+				if (n === name) return false;
+				const otherPos = brainSystem.getPosition(n);
+				if (!otherPos) return false;
+				const dx = pos.x - otherPos.x;
+				const dy = pos.y - otherPos.y;
+				return Math.sqrt(dx * dx + dy * dy) < radius;
+			})
+			.map(([n]) => n);
+	}
+
+	/** Process behavior thresholds — needs-driven state overrides. */
+	function processThresholds(): void {
+		for (const agentName of needsSystem.getAgentNames()) {
+			const actions = needsSystem.checkThresholds(agentName);
+			for (const action of actions) {
+				switch (action.type) {
+					case "force-break":
+						if (brainSystem.getState(agentName)?.state !== "on-break") {
+							brainSystem.applyEvent(agentName, "break");
+						}
+						break;
+					case "seek-agent": {
+						const nearest = findNearestAgent(agentName);
+						if (nearest) brainSystem.walkTo(agentName, nearest);
+						break;
+					}
+					case "seek-quiet":
+					case "demoralized":
+						brainSystem.applyEvent(agentName, "idle");
+						break;
+				}
+			}
+		}
+	}
+
+	/** Resolve domain particle color for an agent. */
+	function agentParticleColor(name: string): string {
+		const agent = store.agents.find((a) => a.name === name);
+		return DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+	}
+
+	/** Spawn particle trails for walking agents, dust bursts on arrival. */
+	function updateParticleTrails(): void {
+		for (const [name, entry] of brainSystem.getAllEntries()) {
+			const wasWalking = prevWalkingState.get(name) ?? false;
+			const isWalking = entry.state === "wandering" || entry.state === "walking-to";
+
+			if (isWalking) {
+				const actor = findAgentActor(name);
+				if (!actor) continue;
+				const x = actor.pos.x;
+				const y = actor.pos.y + 28;
+				const prev = lastTrailPos.get(name);
+				if (!prev) {
+					lastTrailPos.set(name, { x, y });
+					continue;
+				}
+				const dx = x - prev.x;
+				const dy = y - prev.y;
+				if (dx * dx + dy * dy >= 64) {
+					particlePool.spawnTrail(x, y, agentParticleColor(name), entry.state === "walking-to");
+					lastTrailPos.set(name, { x, y });
+				}
+			} else {
+				lastTrailPos.delete(name);
+				if (wasWalking) {
+					const actor = findAgentActor(name);
+					if (actor) particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, agentParticleColor(name));
+				}
+			}
+		}
+	}
+
 	// ── Pre-frame hook: tick all systems ─────────────────
 	engine.on("preframe", () => {
 		const now = performance.now();
@@ -636,22 +773,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		needsSystem.update(
 			deltaMs,
 			(name) => brainSystem.getState(name)?.state ?? "idle",
-			(name: string) => {
-				const pos = brainSystem.getPosition(name);
-				if (!pos) return [];
-				const params = brainSystem.getState(name);
-				const radius = params?.params.socialRadius ?? 100;
-				return [...brainSystem.getAllEntries()]
-					.filter(([n]) => {
-						if (n === name) return false;
-						const otherPos = brainSystem.getPosition(n);
-						if (!otherPos) return false;
-						const dx = pos.x - otherPos.x;
-						const dy = pos.y - otherPos.y;
-						return Math.sqrt(dx * dx + dy * dy) < radius;
-					})
-					.map(([n]) => n);
-			},
+			getNearbyAgents,
 		);
 
 		// 3. Mood propagation — push derived mood into brain + emote systems
@@ -660,6 +782,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			brainSystem.updateMood(agentName, mood);
 			emoteSystem.updateMood(agentName, mood);
 		}
+
+		// 3b. Behavior thresholds — needs-driven state overrides
+		processThresholds();
 
 		// 4. Director system — advance idle timer
 		directorSystem.update(deltaMs);
@@ -672,6 +797,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			(name) => brainSystem.getState(name)?.state ?? "idle",
 			(_name) => false,
 		);
+
+		// 5b. Feed workspace context to engagement system
+		engagementSystem.setContext({
+			agentCount: String(brainSystem.getAllEntries().size),
+		});
 
 		// Snapshot walking states before brain update
 		for (const [name, entry] of brainSystem.getAllEntries()) {
@@ -701,44 +831,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// 11. Tool executor — drain cooldowns, run approved tools
 		toolExecutor.update(deltaMs);
 
-		// Particle trails: spawn trail dots every ~8px of movement, dust on arrival
-		for (const [name, entry] of brainSystem.getAllEntries()) {
-			const wasWalking = prevWalkingState.get(name) ?? false;
-			const isWalking = entry.state === "wandering" || entry.state === "walking-to";
-
-			if (isWalking) {
-				const actor = findAgentActor(name);
-				if (actor) {
-					const prev = lastTrailPos.get(name);
-					const x = actor.pos.x;
-					const y = actor.pos.y + 28;
-					if (prev) {
-						const dx = x - prev.x;
-						const dy = y - prev.y;
-						if (dx * dx + dy * dy >= 64) { // 8px^2
-							const agent = store.agents.find((a) => a.name === name);
-							const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
-							particlePool.spawnTrail(x, y, color, entry.state === "walking-to");
-							lastTrailPos.set(name, { x, y });
-						}
-					} else {
-						lastTrailPos.set(name, { x, y });
-					}
-				}
-			} else {
-				lastTrailPos.delete(name);
-				if (wasWalking) {
-					// Just arrived — dust burst
-					const actor = findAgentActor(name);
-					if (actor) {
-						const agent = store.agents.find((a) => a.name === name);
-						const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
-						particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, color);
-					}
-				}
-			}
-		}
-
+		// Particle trails
+		updateParticleTrails();
 		particlePool.update(deltaMs);
 
 		// Workstation glow updates
@@ -836,7 +930,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const actor = findAgentActor(agentName);
 		if (actor) {
 			actor.showLlmIndicator();
-			directorSystem.recordInteraction("message", { x: actor.pos.x, y: actor.pos.y });
+			const signal = directorSystem.recordInteraction("message", { x: actor.pos.x, y: actor.pos.y });
+			if (signal.moraleEffect) needsSystem.applyEffect(agentName, { morale: signal.moraleEffect });
 		}
 	}) as EventListener);
 
@@ -868,10 +963,18 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		brainSystem.releaseWork(agentName);
 		store.taskLockedAgents.delete(agentName);
 		talkEngine.silence(agentName);
+		engagementSystem.markTaskCompleted(agentName);
 		const actor = findAgentActor(agentName);
 		if (actor) { actor.hideLlmIndicator(); actor.hideToolIndicator(); }
 		// Show completion bubble
 		bubbleSystem.showBubble(agentName, "speech", typeof result === "string" ? result.slice(0, 80) : "Task complete.", engine.currentScene, findAgentActor, 5000);
+	}) as EventListener);
+
+	// ── Permission decision → director signal + morale ──
+	store.addEventListener("permission-decided", ((e: CustomEvent) => {
+		const { agentName, signalType } = e.detail;
+		const signal = directorSystem.recordInteraction(signalType);
+		if (signal.moraleEffect) needsSystem.applyEffect(agentName, { morale: signal.moraleEffect });
 	}) as EventListener);
 
 	// ── Tool usage indicators ──────────────────────────
@@ -977,14 +1080,19 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				cameraSystem!.handleZoom(e.deltaY);
 			}, { passive: false });
 
-			// Director mouse tracking — world-space cursor position
+			// Director mouse tracking — world-space cursor position + cursor spirit
 			engine.input.pointers.primary.on("move", (evt) => {
 				directorSystem.onMouseMove(evt.worldPos.x, evt.worldPos.y);
+				for (const spirit of cursorSpirits) {
+					spirit.show(evt.worldPos.x, evt.worldPos.y);
+					spirit.moveTo(evt.worldPos.x, evt.worldPos.y);
+				}
 			});
 
 			// Director mouse leave — cursor left canvas
 			engine.canvas.addEventListener("mouseleave", () => {
 				directorSystem.onMouseLeave();
+				for (const spirit of cursorSpirits) spirit.hide();
 			});
 
 			// WorldContext updates are consumed during sendMessage serialization.

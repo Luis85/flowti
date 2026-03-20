@@ -170,6 +170,7 @@ vi.mock("../../src/game/systems/social-system.js", () => {
 		const self = this as Record<string, unknown>;
 		self.register = vi.fn();
 		self.onConversation = vi.fn();
+		self.onCluster = vi.fn();
 		self.update = vi.fn();
 	}
 	return { SocialSystem: MockSocialSystem };
@@ -236,6 +237,30 @@ vi.mock("../../src/game/store/dashboard-store.js", () => {
 	}
 	return { DashboardStore: MockDashboardStore };
 });
+
+vi.mock("../../src/game/actors/cursor-spirit.js", () => {
+	function MockCursorSpirit() {
+		const self = this as Record<string, unknown>;
+		self.show = vi.fn();
+		self.hide = vi.fn();
+		self.moveTo = vi.fn();
+		self.graphics = { opacity: 0, use: vi.fn() };
+		self.pos = { x: 0, y: 0 };
+		self.z = 999;
+	}
+	return { CursorSpirit: MockCursorSpirit };
+});
+
+vi.mock("../../src/game/data/huddle-templates.js", () => ({
+	HUDDLE_TEMPLATES: [{ text: "Test huddle line about {domain}" }],
+}));
+
+vi.mock("../../src/game/data/engagement-templates.js", () => ({
+	TIER1_TEMPLATES: [{ text: "test" }],
+	TIER2_TEMPLATES: [{ text: "test" }],
+	TIER3_TEMPLATES: [{ text: "test" }],
+	interpolateTemplate: vi.fn((text: string) => text),
+}));
 
 // Mock all side-effect Lit UI imports
 vi.mock("../../src/game/ui/dashboard-overlays.js", () => ({}));
