@@ -67,6 +67,30 @@ describe("BubbleSystem", () => {
 			system.showBubble("Alice", "speech", "hello", null, () => mockActor as never);
 			expect(mockActor.addChild).toHaveBeenCalled();
 		});
+
+		it("non-priority bubble is throttled within 500ms", () => {
+			system.register("Alice", [], makeParams());
+			const mockActor = { addChild: vi.fn() };
+			const getActor = () => mockActor as never;
+			// First call sets lastBubbleTime
+			system.showBubble("Alice", "speech", "first", null, getActor);
+			const callsAfterFirst = mockActor.addChild.mock.calls.length;
+			// Second call within 500ms — should be throttled
+			system.showBubble("Alice", "speech", "second", null, getActor);
+			expect(mockActor.addChild.mock.calls.length).toBe(callsAfterFirst);
+		});
+
+		it("priority bubble bypasses throttle", () => {
+			system.register("Alice", [], makeParams());
+			const mockActor = { addChild: vi.fn() };
+			const getActor = () => mockActor as never;
+			// First call sets lastBubbleTime
+			system.showBubble("Alice", "speech", "first", null, getActor);
+			const callsAfterFirst = mockActor.addChild.mock.calls.length;
+			// Second call immediately with priority=true — should NOT be throttled
+			system.showBubble("Alice", "speech", "second", null, getActor, 5000, true);
+			expect(mockActor.addChild.mock.calls.length).toBe(callsAfterFirst + 1);
+		});
 	});
 
 	describe("unregister()", () => {
