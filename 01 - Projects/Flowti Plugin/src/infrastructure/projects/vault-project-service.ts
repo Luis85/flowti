@@ -53,6 +53,7 @@ function getVaultBasePath(app: App): string {
 
 /** Strip ANSI escape codes from terminal output. */
 function stripAnsi(text: string): string {
+	// eslint-disable-next-line no-control-regex -- stripping ANSI escape sequences requires matching control chars
 	return text.replace(/\x1B\[[0-9;]*[A-Za-z]|\x1B\][^\x07]*\x07|\x1B\][^\x1B]*\x1B\\/g, "");
 }
 
@@ -146,12 +147,14 @@ export class VaultProjectService implements IProjectService {
 		const projectsFolder = this.app.vault.getAbstractFileByPath(PROJECTS_FOLDER);
 		if (!projectsFolder || !("children" in projectsFolder)) return [];
 
+		// eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast -- narrowed by "children" check above
 		const folder = projectsFolder as TFolder;
 		const projects: ProjectSummary[] = [];
 		const basePath = getVaultBasePath(this.app);
 
 		for (const child of folder.children) {
 			if (!("children" in child)) continue;
+			// eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast -- narrowed by "children" check
 			const projectFolder = child as TFolder;
 			const name = projectFolder.name;
 
@@ -314,6 +317,7 @@ export class VaultProjectService implements IProjectService {
 			if (existsSync(metaPath)) {
 				try {
 					const meta = JSON.parse(readFileSync(metaPath, "utf-8")) as { canvasHash?: string };
+					// eslint-disable-next-line @typescript-eslint/no-require-imports -- sync crypto needed for hash comparison
 					const crypto = require("node:crypto");
 					const currentHash = crypto.createHash("md5").update(readFileSync(canvasPath, "utf-8")).digest("hex");
 					canvasChanged = meta.canvasHash !== currentHash;

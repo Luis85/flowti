@@ -42,11 +42,11 @@ export class ProjectDetailView extends ItemView {
 		return "folder-open";
 	}
 
-	async setState(state: Record<string, unknown>): Promise<void> {
+	async setState(state: Record<string, unknown>, result: import("obsidian").ViewStateResult): Promise<void> {
 		if (state.projectName && typeof state.projectName === "string") {
 			this.projectName = state.projectName;
 		}
-		await super.setState(state);
+		await super.setState(state, result);
 	}
 
 	getState(): Record<string, unknown> {

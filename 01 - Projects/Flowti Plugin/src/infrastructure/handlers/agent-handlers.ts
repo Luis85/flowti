@@ -48,7 +48,7 @@ function parseFrontmatter(md: string): Record<string, unknown> {
 
 	for (const line of match[1].split(/\r?\n/)) {
 		// Nested key (2-space indent): e.g. "  str: 12"
-		const nestedMatch = line.match(/^  (\w+):\s*(.+)$/);
+		const nestedMatch = line.match(/^ {2}(\w+):\s*(.+)$/);
 		if (nestedMatch && indent2Key) {
 			if (!indent2[indent2Key]) indent2[indent2Key] = {};
 			const val = nestedMatch[2].trim();
