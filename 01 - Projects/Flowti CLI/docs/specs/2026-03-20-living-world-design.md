@@ -428,6 +428,10 @@ When DayClock completes a full cycle (evening departure ends), MemorySystem:
 4. Prunes recentEvents to last 20
 5. Writes all agent data files
 
+**Flush-on-dispose:** MemorySystem also flushes all in-memory state to disk when the engine's `dispose()` is called (plugin unload, tab close, Obsidian quit). This ensures partial-cycle progress (streaks, mood log, recent events accumulated so far) is not lost. The flush writes the current in-memory state as-is — it does not finalize streaks or check milestones (those only trigger at full-cycle completion). This means a mid-cycle close preserves accumulated data but does not credit a partial cycle toward streaks.
+
+**Weather and relationship persistence** follow the same pattern: `WorldAmbience` writes weather state on weather-change events and on dispose. `RelationshipSystem` writes on affinity tier changes (significant events) and on dispose.
+
 ---
 
 ## System Interconnection Map
@@ -522,27 +526,57 @@ DayClock ──→ phase/time ──→ NeedsSystem (rate multipliers)
 
 ## WorldConfig extensions
 
-New sections added to `DEFAULT_WORLD_CONFIG` in `data/world-config.ts`:
+New sub-interfaces and sections added to `data/world-config.ts`:
 
 ```typescript
-dayCycle: {
-  durationMs: 1_500_000,           // 25 minutes total cycle
-  phases: DayPhase[],              // ordered phase definitions with percentage
-},
-weather: {
-  cycleLengthInDayCycles: 2,       // weather changes every N day cycles
-  states: ["clear", "rain", "overcast", "sunny"],
-},
-quirks: {
-  maxPerAgent: 3,
-  minPerAgent: 2,
-},
-relationships: {
-  affinityDecayPerCycle: 1,        // drift toward 0 when no interaction
-  bickerChance: 0.3,              // probability of opinion clash → bicker
-  maxSharedMemories: 5,
-},
+// ── New types ────────────────────────────────────────────
+
+type DayPhase = "morning-arrival" | "productive-morning" | "lunch"
+  | "afternoon" | "afternoon-slump" | "wind-down" | "evening-departure";
+
+type WeatherState = "clear" | "rain" | "overcast" | "sunny";
+
+interface DayPhaseConfig {
+  readonly phase: DayPhase;
+  readonly percent: number;        // fraction of total cycle (must sum to 1.0)
+  readonly needMultipliers: { energy: number; social: number; focus: number; morale: number };
+}
+
+// ── New config sub-interfaces ────────────────────────────
+
+interface DayCycleConfig {
+  readonly durationMs: number;     // total cycle length (default 1_500_000 = 25 min)
+  readonly phases: readonly DayPhaseConfig[];
+}
+
+interface WeatherConfig {
+  readonly cycleLengthInDayCycles: number;  // weather changes every N day cycles
+  readonly states: readonly WeatherState[];
+}
+
+interface QuirksConfig {
+  readonly maxPerAgent: number;    // default 3
+  readonly minPerAgent: number;    // default 2
+}
+
+interface RelationshipsConfig {
+  readonly affinityDecayPerCycle: number;   // drift toward 0 (default 1)
+  readonly bickerChance: number;            // opinion clash probability (default 0.3)
+  readonly maxSharedMemories: number;       // per relationship (default 5)
+}
+
+// ── Added to WorldConfig interface ───────────────────────
+
+interface WorldConfig {
+  // ... existing sections (needs, director, sensors, groups, engagement, tools) ...
+  readonly dayCycle: DayCycleConfig;
+  readonly weather: WeatherConfig;
+  readonly quirks: QuirksConfig;
+  readonly relationships: RelationshipsConfig;
+}
 ```
+
+`mergeWorldConfig` gains merge paths for all four new sections following the existing deep-merge pattern (spread defaults, overlay user overrides).
 
 ### Quirk modifier API
 
@@ -558,7 +592,20 @@ interface QuirkOverrides {
 }
 ```
 
-`BrainSystem.applyQuirkOverrides(name, overrides)` stores these per-agent and factors them into `computeParams`. This keeps BrainSystem unaware of the quirk concept — it just applies numeric multipliers.
+**Storage & application:** `BrainSystem` gains a private `quirkOverrides: Map<string, QuirkOverrides>` and a public `applyQuirkOverrides(name: string, overrides: QuirkOverrides): void` that stores the overrides. The overrides are applied as **post-multipliers** after `computeParams` returns — `computeParams` itself is not modified. In `BrainSystem.register()`, after `computeParams(attributes)` produces `BrainParams`, the system checks for stored quirk overrides and multiplies the relevant fields:
+
+```typescript
+// In BrainSystem, after computeParams:
+const params = computeParams(attributes);
+const quirks = this.quirkOverrides.get(name);
+if (quirks) {
+  if (quirks.socialRadiusMultiplier) params.socialRadius *= quirks.socialRadiusMultiplier;
+  if (quirks.idleResistanceMultiplier) params.idleResistance *= quirks.idleResistanceMultiplier;
+  if (quirks.moveSpeedMultiplier) params.moveSpeed *= quirks.moveSpeedMultiplier;
+}
+```
+
+This keeps `agent-brain.ts` (`computeParams`, `computeHabits`) completely unchanged — BrainSystem owns the override application.
 
 ### Relationship `opinion` field
 
