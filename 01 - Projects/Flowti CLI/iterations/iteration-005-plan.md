@@ -206,6 +206,7 @@ B10: Setting Themes (parallel with B4+)
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-20 | in-progress | in-progress | Increment review #2 — Phase A + Storybook accepted, Phase B accepted-with-notes (needs polish), G1-G6 carry over for design, Cursor CLI integration requirement filed |
 | 2026-03-17 | in-review | in-progress | Increment review — 0/3 phases accepted, added Phase C (CLI-Plugin integration), 2 critical bugs filed |
 | 2026-03-17 | in-progress | in-review | Increment review ceremony initiated |
 | 2026-03-16 | in-progress | in-progress | Iteration planning ceremony — Phase A complete, Phase B (RPG World) committed with 10 scope items across 8 agents |
