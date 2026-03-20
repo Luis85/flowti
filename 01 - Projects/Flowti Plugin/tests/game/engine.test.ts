@@ -262,6 +262,58 @@ vi.mock("../../src/game/data/engagement-templates.js", () => ({
 	interpolateTemplate: vi.fn((text: string) => text),
 }));
 
+vi.mock("../../src/game/systems/day-clock.js", () => {
+	function MockDayClock() {
+		const self = this as Record<string, unknown>;
+		self.update = vi.fn();
+		self.getPhase = vi.fn(() => "morning-arrival");
+		self.getPhaseMultipliers = vi.fn(() => ({ energy: 1, social: 1, focus: 1, morale: 1 }));
+		self.getCycleCount = vi.fn(() => 0);
+		self.getCycleProgress = vi.fn(() => 0);
+		self.getTimeOfDay = vi.fn(() => "morning");
+		self.onPhaseChange = vi.fn();
+		self.serialize = vi.fn(() => ({}));
+		self.restore = vi.fn();
+	}
+	return { DayClock: MockDayClock };
+});
+
+vi.mock("../../src/game/systems/world-ambience.js", () => {
+	function MockWorldAmbience() {
+		const self = this as Record<string, unknown>;
+		self.getLighting = vi.fn(() => ({ r: 0, g: 0, b: 0, opacity: 0 }));
+		self.getWeather = vi.fn(() => "clear");
+		self.getWeatherVisuals = vi.fn(() => ({ particleCount: 0 }));
+		self.onCycleComplete = vi.fn();
+		self.serialize = vi.fn(() => ({}));
+		self.restore = vi.fn();
+	}
+	return { WorldAmbience: MockWorldAmbience };
+});
+
+vi.mock("../../src/game/systems/memory-system.js", () => {
+	function MockMemorySystem() {
+		const self = this as Record<string, unknown>;
+		self.register = vi.fn();
+		self.getMemory = vi.fn(() => ({ milestones: [], recentEvents: [], moodLog: [] }));
+		self.recordEvent = vi.fn();
+		self.recordVisit = vi.fn();
+		self.onCycleEnd = vi.fn();
+		self.onMilestone = vi.fn();
+		self.serialize = vi.fn(() => ({}));
+		self.restore = vi.fn();
+	}
+	return { MemorySystem: MockMemorySystem };
+});
+
+vi.mock("../../src/game/data/world-config.js", () => ({
+	DEFAULT_WORLD_CONFIG: {
+		engagement: { tiers: { ambient: { idleThresholdMs: 30000, durationMs: 45000 }, nudge: { idleThresholdMs: 90000, durationMs: 90000 }, offer: { idleThresholdMs: 180000, durationMs: 180000 } }, engagementDuration: 10000 },
+		dayCycle: { durationMs: 1500000 },
+		weather: { cycleLengthInDayCycles: 2 },
+	},
+}));
+
 // Mock all side-effect Lit UI imports
 vi.mock("../../src/game/ui/dashboard-overlays.js", () => ({}));
 vi.mock("../../src/game/ui/ask-bob.js", () => ({}));

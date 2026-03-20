@@ -45,7 +45,11 @@ import { interpolateTemplate } from "./data/engagement-templates.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
-import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { DayClock } from "./systems/day-clock.js";
+import { WorldAmbience } from "./systems/world-ambience.js";
+import { MemorySystem } from "./systems/memory-system.js";
+import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 // Side-effect imports — register Lit custom elements
@@ -215,6 +219,18 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const toolExecutor = new ToolExecutor();
 	toolExecutor.registerTools(DEFAULT_TOOLS);
 
+	const dayClock = new DayClock(DEFAULT_WORLD_CONFIG.dayCycle.durationMs);
+	const worldAmbience = new WorldAmbience(DEFAULT_WORLD_CONFIG.weather.cycleLengthInDayCycles);
+	const memorySystem = new MemorySystem();
+	const cycleConversationCounts = new Map<string, number>();
+	let prevCycleCount = 0;
+
+	// Wire DayClock phase changes to store
+	dayClock.onPhaseChange((phase) => {
+		store.setDayPhase(phase);
+		store.setWeatherState(worldAmbience.getWeather());
+	});
+
 	// ── Agent select handler ────────────────────────────
 	function handleAgentSelect(agentName: string): void {
 		const actor = findAgentActor(agentName);
@@ -354,6 +370,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			sensorSystem.register(agent.name, agent.domain ?? "general");
 			engagementSystem.register(agent.name, { domain: agent.domain ?? "general", cha: agent.attributes?.cha ?? 10 });
 			ritualSystem.register(agent.name, { domain: agent.domain ?? "general" });
+			memorySystem.register(agent.name);
 			knownEntities.add(agent.name);
 		}
 	}
@@ -519,6 +536,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 
 	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
+		// Track conversations for memory streaks
+		cycleConversationCounts.set(nameA, (cycleConversationCounts.get(nameA) ?? 0) + 1);
+		cycleConversationCounts.set(nameB, (cycleConversationCounts.get(nameB) ?? 0) + 1);
 		brainSystem.applyEvent(nameA, "speaking");
 		brainSystem.applyEvent(nameB, "speaking");
 
@@ -766,6 +786,21 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const deltaMs = now - lastTime;
 		lastTime = now;
 
+		// 0. Day clock — advance phase
+		dayClock.update(deltaMs);
+		if (dayClock.getCycleCount() > prevCycleCount) {
+			prevCycleCount = dayClock.getCycleCount();
+			worldAmbience.onCycleComplete();
+			for (const agentName of needsSystem.getAgentNames()) {
+				memorySystem.onCycleEnd(agentName, {
+					completedTask: store.taskLockedAgents.has(agentName),
+					conversations: cycleConversationCounts.get(agentName) ?? 0,
+					dominantMood: needsSystem.getMood(agentName),
+				});
+				cycleConversationCounts.set(agentName, 0);
+			}
+		}
+
 		// 1. Sensor system — drain cooldowns, process queued feedback
 		sensorSystem.update(deltaMs);
 
@@ -774,6 +809,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			deltaMs,
 			(name) => brainSystem.getState(name)?.state ?? "idle",
 			getNearbyAgents,
+			dayClock.getPhaseMultipliers(),
 		);
 
 		// 3. Mood propagation — push derived mood into brain + emote systems
@@ -1098,6 +1134,20 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			// WorldContext updates are consumed during sendMessage serialization.
 			// No need to push state to the store — WorldContext is the source of truth.
 
+			// Restore persisted Living World state
+			if (deps.vaultBasePath) {
+				try {
+					const varDir = join(deps.vaultBasePath, ".flowti", "var");
+					const clockPath = join(varDir, "world-clock.json");
+					const weatherPath = join(varDir, "world-weather.json");
+					const memoryPath = join(varDir, "world-memory.json");
+					if (existsSync(clockPath)) dayClock.restore(JSON.parse(readFileSync(clockPath, "utf-8")));
+					if (existsSync(weatherPath)) worldAmbience.restore(JSON.parse(readFileSync(weatherPath, "utf-8")));
+					if (existsSync(memoryPath)) memorySystem.restore(JSON.parse(readFileSync(memoryPath, "utf-8")));
+				} catch { /* non-critical — start fresh */ }
+			}
+			prevCycleCount = dayClock.getCycleCount();
+
 			// Start data provider and load initial data
 			await provider.start();
 
@@ -1132,6 +1182,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 
 		dispose(): void {
+			// Flush persistent state before shutdown
+			if (deps.vaultBasePath) {
+				try {
+					const varDir = join(deps.vaultBasePath, ".flowti", "var");
+					if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
+					writeFileSync(join(varDir, "world-clock.json"), JSON.stringify(dayClock.serialize(), null, "\t"), "utf-8");
+					writeFileSync(join(varDir, "world-weather.json"), JSON.stringify(worldAmbience.serialize(), null, "\t"), "utf-8");
+					writeFileSync(join(varDir, "world-memory.json"), JSON.stringify(memorySystem.serialize(), null, "\t"), "utf-8");
+				} catch { /* non-critical — skip silently */ }
+			}
 			engine.stop();
 			engine.dispose();
 			provider.stop();
