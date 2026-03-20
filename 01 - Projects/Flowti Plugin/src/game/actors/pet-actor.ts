@@ -7,6 +7,7 @@
 
 import * as ex from "excalibur";
 import type { PetDefinition } from "../data/pet-definitions.js";
+import type { SceneEntity } from "../data/scene-entity.js";
 
 type PetState = "idle" | "wandering" | "sleeping" | "following" | "exiting";
 
@@ -16,7 +17,9 @@ const WORLD_MAX_X = 770;
 const WORLD_MIN_Y = 60;
 const WORLD_MAX_Y = 460;
 
-export class PetActor extends ex.Actor {
+export class PetActor extends ex.Actor implements SceneEntity {
+	readonly entityId: string;
+	readonly entityType = "creature" as const;
 	readonly petType: string;
 	private readonly def: PetDefinition;
 	private state: PetState = "idle";
@@ -27,7 +30,7 @@ export class PetActor extends ex.Actor {
 	private sleepZTimer = 0;
 	private reachedExit = false;
 
-	constructor(def: PetDefinition, x: number, y: number) {
+	constructor(def: PetDefinition, x: number, y: number, entityId: string) {
 		super({
 			width: 16,
 			height: 16,
@@ -37,6 +40,7 @@ export class PetActor extends ex.Actor {
 			collisionType: ex.CollisionType.PreventCollision,
 			z: 5,
 		});
+		this.entityId = entityId;
 		this.petType = def.type;
 		this.def = def;
 		this.homePos = ex.vec(x, y);
@@ -400,5 +404,41 @@ export class PetActor extends ex.Actor {
 			Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.pos.y)),
 		);
 		this.stateTimer = 2000 + Math.random() * 3000; // pause at new location before wandering
+	}
+
+	// ── SceneEntity implementation ──────────────────────
+
+	createActor(x: number, y: number): ex.Actor {
+		this.pos.x = x;
+		this.pos.y = y;
+		return this;
+	}
+
+	getActor(): ex.Actor | null {
+		return this;
+	}
+
+	moveTo(x: number, y: number): void {
+		if (this.def.speed === 0) return;
+		this.state = "wandering";
+		this.targetPos = ex.vec(x, y);
+		this.stateTimer = 10000;
+	}
+
+	getPosition(): { x: number; y: number } {
+		return { x: this.pos.x, y: this.pos.y };
+	}
+
+	onExitScene(): void {
+		this.followTarget = null;
+		this.state = "idle";
+		this.targetPos = null;
+		this.reachedExit = false;
+	}
+
+	onEnterScene(x: number, y: number): void {
+		this.pos.x = x;
+		this.pos.y = y;
+		this.resetHome();
 	}
 }

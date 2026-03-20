@@ -298,30 +298,20 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Office pets ──────────────────────────────────────
 	const pets: PetActor[] = [];
-	const petEntityIds = new Map<PetActor, string>();
 	const catDef = PET_DEFINITIONS.find((p) => p.type === "cat")!;
 	const dogDef = PET_DEFINITIONS.find((p) => p.type === "dog")!;
 	const birdDef = PET_DEFINITIONS.find((p) => p.type === "bird")!;
 	const fishDef = PET_DEFINITIONS.find((p) => p.type === "fish")!;
 
 	// 3 cats, 3 dogs, 1 bird, 1 fish — distributed across rooms
-	const hubCat = new PetActor(catDef, 300, 250);
-	const officeCat = new PetActor(catDef, 350, 300);
-	const villageCat = new PetActor(catDef, 400, 280);
-	const officeDog = new PetActor(dogDef, 500, 350);
-	const villageDog = new PetActor(dogDef, 300, 200);
-	const stationDog = new PetActor(dogDef, 450, 300);
-	const villageBird = new PetActor(birdDef, 200, 80);
-	const stationFish = new PetActor(fishDef, 680, 380);
-
-	petEntityIds.set(hubCat, "cat-hub");
-	petEntityIds.set(officeCat, "cat-office");
-	petEntityIds.set(villageCat, "cat-village");
-	petEntityIds.set(officeDog, "dog-office");
-	petEntityIds.set(villageDog, "dog-village");
-	petEntityIds.set(stationDog, "dog-station");
-	petEntityIds.set(villageBird, "bird-village");
-	petEntityIds.set(stationFish, "fish-station");
+	const hubCat = new PetActor(catDef, 300, 250, "cat-hub");
+	const officeCat = new PetActor(catDef, 350, 300, "cat-office");
+	const villageCat = new PetActor(catDef, 400, 280, "cat-village");
+	const officeDog = new PetActor(dogDef, 500, 350, "dog-office");
+	const villageDog = new PetActor(dogDef, 300, 200, "dog-village");
+	const stationDog = new PetActor(dogDef, 450, 300, "dog-station");
+	const villageBird = new PetActor(birdDef, 200, 80, "bird-village");
+	const stationFish = new PetActor(fishDef, 680, 380, "fish-station");
 
 	// Wire DayClock phase changes to store + scheduler
 	dayClock.onPhaseChange((phase) => {
@@ -1006,19 +996,19 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	hubScene.add(noticeBoard);
 
 	// ── Office pets in scenes ────────────────────────────
-	hubScene.add(hubCat);        registry.setEntityRoom(petEntityIds.get(hubCat)!, "hub");
-	officeScene.add(officeCat);  registry.setEntityRoom(petEntityIds.get(officeCat)!, "office");
-	officeScene.add(officeDog);  registry.setEntityRoom(petEntityIds.get(officeDog)!, "office");
-	villageScene.add(villageCat); registry.setEntityRoom(petEntityIds.get(villageCat)!, "village");
-	villageScene.add(villageDog); registry.setEntityRoom(petEntityIds.get(villageDog)!, "village");
-	villageScene.add(villageBird); registry.setEntityRoom(petEntityIds.get(villageBird)!, "village");
-	stationScene.add(stationDog); registry.setEntityRoom(petEntityIds.get(stationDog)!, "station");
-	stationScene.add(stationFish); registry.setEntityRoom(petEntityIds.get(stationFish)!, "station");
+	hubScene.add(hubCat);        registry.setEntityRoom(hubCat.entityId, "hub");
+	officeScene.add(officeCat);  registry.setEntityRoom(officeCat.entityId, "office");
+	officeScene.add(officeDog);  registry.setEntityRoom(officeDog.entityId, "office");
+	villageScene.add(villageCat); registry.setEntityRoom(villageCat.entityId, "village");
+	villageScene.add(villageDog); registry.setEntityRoom(villageDog.entityId, "village");
+	villageScene.add(villageBird); registry.setEntityRoom(villageBird.entityId, "village");
+	stationScene.add(stationDog); registry.setEntityRoom(stationDog.entityId, "station");
+	stationScene.add(stationFish); registry.setEntityRoom(stationFish.entityId, "station");
 	pets.push(hubCat, officeCat, villageCat, officeDog, villageDog, stationDog, villageBird, stationFish);
 	let petSwitchTimer = 0;
 	const PET_SWITCH_INTERVAL = 8_000;  // check every 8s
 	const PET_SWITCH_CHANCE = 0.25;     // 25% per mobile pet per check (much higher than agents)
-	// Pet transit now tracked via registry (using petEntityIds for ID mapping)
+	// Pet transit now tracked via registry (using pet.entityId)
 
 	// ── Cursor spirit — visual director presence (one per scene) ────
 	const cursorSpirits = [new CursorSpirit(), new CursorSpirit(), new CursorSpirit(), new CursorSpirit()];
@@ -1265,7 +1255,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// 3d. Pet behavior + agent reactions (room-aware)
 		for (const pet of pets) {
 			pet.updateBehavior(deltaMs);
-			const petRoom = registry.getEntityRoom(petEntityIds.get(pet)!);
+			const petRoom = registry.getEntityRoom(pet.entityId);
 
 			// Follow behavior — move toward target agent (only if same room)
 			if (pet.getFollowTarget()) {
@@ -1347,7 +1337,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// Check if any exiting pets have arrived at their door
 		for (const pet of pets) {
 			if (!pet.isExiting() || !pet.hasArrivedAtExit()) continue;
-			const petId = petEntityIds.get(pet)!;
+			const petId = pet.entityId;
 			const transitEntry = registry.getTransit(petId);
 			if (!transitEntry) continue;
 			const targetRoom = transitEntry.target;
@@ -1374,7 +1364,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			for (const pet of pets) {
 				if (pet.petType === "fish") continue;
 				if (pet.getState() !== "idle" && pet.getState() !== "wandering") continue;
-				const petId = petEntityIds.get(pet)!;
+				const petId = pet.entityId;
 				if (registry.isInTransit(petId)) continue;
 				if (Math.random() > PET_SWITCH_CHANCE) continue;
 
