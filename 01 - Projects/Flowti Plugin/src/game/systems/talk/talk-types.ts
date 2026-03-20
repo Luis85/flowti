@@ -32,5 +32,11 @@ export interface TemplateVars {
 	readonly domain: string;
 	readonly idle_action: string;
 	readonly nearby_agent: string;
+	readonly nearby_domain: string;
 	readonly persona_quirk: string;
+	readonly phase: string;
+	readonly weather: string;
+	readonly streak: string;
+	readonly friend_name: string;
+	readonly mood: string;
 }

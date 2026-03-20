@@ -53,6 +53,7 @@ import { RelationshipSystem } from "./systems/relationship-system.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import { assignOpinions } from "./data/opinion-topics.js";
 import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
+import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
 import {
 	pickTemplate,
 	STANDUP_TEMPLATES, DEPLOY_SUCCESS_TEMPLATES, END_OF_DAY_TEMPLATES,
@@ -245,6 +246,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const worldEventScheduler = new WorldEventScheduler();
 	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
 	const cycleConversationCounts = new Map<string, number>();
+	/** Tracks which reactive triggers have fired per agent this cycle to avoid spamming. */
+	const firedReactiveTriggers = new Map<string, Set<string>>();
 	let prevCycleCount = 0;
 
 	// ── Environmental objects ────────────────────────────
@@ -976,6 +979,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				cycleConversationCounts.set(agentName, 0);
 			}
 			worldEventScheduler.onCycleReset();
+			firedReactiveTriggers.clear();
 			relationshipSystem.onCycleEnd();
 		}
 
@@ -993,11 +997,44 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			dayClock.getPhaseMultipliers(),
 		);
 
-		// 3. Mood propagation — push derived mood into brain + emote systems
+		// 3. Mood propagation — push derived mood into brain + emote + talk systems
 		for (const agentName of needsSystem.getAgentNames()) {
 			const mood = needsSystem.getMood(agentName);
 			brainSystem.updateMood(agentName, mood);
 			emoteSystem.updateMood(agentName, mood);
+			// Feed rich context to talk engine
+			const nearby = getNearbyAgents(agentName);
+			const nearbyAgent = nearby[0] ?? "";
+			const nearbyDomain = nearbyAgent ? (store.agents.find((a) => a.name === nearbyAgent)?.domain ?? "") : "";
+			talkEngine.updateVars(agentName, {
+				mood,
+				mood_adj: mood === "neutral" ? "focused" : mood,
+				phase: dayClock.getPhase(),
+				weather: worldAmbience.getWeather(),
+				streak: String(memorySystem.getMemory(agentName).workStreak),
+				nearby_agent: nearbyAgent,
+				nearby_domain: nearbyDomain,
+			});
+		}
+
+		// 3a. Reactive talk triggers — detect significant need changes (once per trigger per cycle)
+		for (const agentName of needsSystem.getAgentNames()) {
+			const needs = needsSystem.getNeeds(agentName);
+			const mood = needsSystem.getMood(agentName);
+			let fired = firedReactiveTriggers.get(agentName);
+			if (!fired) { fired = new Set(); firedReactiveTriggers.set(agentName, fired); }
+			const tryTrigger = (trigger: ReactiveTrigger) => {
+				if (!fired!.has(trigger)) {
+					fired!.add(trigger);
+					talkEngine.triggerReactive(agentName, trigger);
+				}
+			};
+			if (needs.energy < 20) tryTrigger("energy-critical");
+			else if (needs.energy > 60 && fired.has("energy-critical")) { fired.delete("energy-critical"); tryTrigger("energy-restored"); }
+			if (mood === "lonely") tryTrigger("lonely");
+			if (needs.focus > 80) tryTrigger("focus-deep");
+			else if (needs.focus < 30) tryTrigger("focus-lost");
+			if (needs.morale > 75 && !fired.has("morale-boost")) tryTrigger("morale-boost");
 		}
 
 		// 3b. Behavior thresholds — needs-driven state overrides
