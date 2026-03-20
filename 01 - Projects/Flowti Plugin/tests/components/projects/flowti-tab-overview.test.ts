@@ -90,15 +90,6 @@ describe("flowti-tab-overview", () => {
 		expect(detail).toEqual({ index: 0 });
 	});
 
-	it("dispatches canvas-generate on preset click", async () => {
-		await el.updateComplete;
-		let detail: unknown = null;
-		el.addEventListener("canvas-generate", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const btn = el.shadowRoot!.querySelector(".preset-btn") as HTMLElement;
-		btn?.click();
-		expect(detail).not.toBeNull();
-	});
-
 	it("dispatches open-project-note when brief note exists", async () => {
 		el.brief = { goal: "Ship MVP", status: "active" };
 		el.projectName = "TestProject";

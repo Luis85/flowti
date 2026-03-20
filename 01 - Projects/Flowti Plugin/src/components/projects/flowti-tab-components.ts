@@ -3,11 +3,25 @@
  * Shows the component registry list and wraps the Storybook section.
  */
 
-import { html, css } from "lit";
+import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import type { ComponentEntry } from "../../domain/projects/types.js";
 import "./flowti-storybook-section.js";
+
+const PRESETS = [
+	{ id: "web-app", label: "Web App" },
+	{ id: "landing", label: "Landing" },
+	{ id: "dashboard", label: "Dashboard" },
+	{ id: "e-commerce", label: "E-Commerce" },
+	{ id: "enterprise", label: "Enterprise" },
+	{ id: "cli", label: "CLI" },
+	{ id: "obsidian-plugin", label: "Plugin" },
+	{ id: "docs", label: "Docs" },
+	{ id: "system-design", label: "System" },
+	{ id: "service-design", label: "Service" },
+	{ id: "product-design", label: "Product" },
+];
 
 export class FlowtiTabComponents extends FlowtiElement {
 	static properties = {
@@ -23,6 +37,10 @@ export class FlowtiTabComponents extends FlowtiElement {
 		storybookOutput: { type: Array },
 		storybookError: { type: String },
 		expandedComponent: { type: String },
+		hasCanvas: { type: Boolean },
+		hasSitemap: { type: Boolean },
+		canvasPreset: { type: String },
+		canvasChanged: { type: Boolean },
 	};
 
 	static styles = [
@@ -146,6 +164,28 @@ export class FlowtiTabComponents extends FlowtiElement {
 				flex-direction: column;
 				gap: var(--flowti-space-sm, 8px);
 			}
+
+			.refresh-btn, .preset-btn {
+				padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
+				border-radius: var(--flowti-radius-sm, 4px);
+				border: 1px solid var(--background-modifier-border, #444);
+				background: none; color: var(--text-normal, #ddd);
+				font-size: var(--flowti-font-sm, 0.85em); cursor: pointer;
+			}
+			.refresh-btn:hover, .preset-btn:hover {
+				background: var(--background-modifier-hover, #333);
+				border-color: var(--interactive-accent, #7c3aed);
+				color: var(--interactive-accent, #7c3aed);
+			}
+			.preset-row { display: flex; flex-wrap: wrap; gap: var(--flowti-space-xs, 4px); }
+			.preset-btn--active { background: var(--interactive-accent, #7c3aed); color: var(--text-on-accent, #fff); border-color: var(--interactive-accent, #7c3aed); }
+			.canvas-actions { display: flex; align-items: center; gap: var(--flowti-space-sm, 8px); margin-top: var(--flowti-space-sm, 8px); }
+			.canvas-merge-btn { padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px); border-radius: var(--flowti-radius-sm, 4px); border: 1px solid var(--interactive-accent, #7c3aed); background: var(--interactive-accent, #7c3aed); color: var(--text-on-accent, #fff); font-size: var(--flowti-font-sm, 0.85em); font-weight: 500; cursor: pointer; }
+			.canvas-merge-btn:hover { opacity: 0.9; }
+			.canvas-open-btn { padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px); border-radius: var(--flowti-radius-sm, 4px); border: 1px solid var(--background-modifier-border, #444); background: none; color: var(--text-normal, #ddd); font-size: var(--flowti-font-sm, 0.85em); cursor: pointer; }
+			.canvas-open-btn:hover { background: var(--background-modifier-hover, #333); }
+			.canvas-changed-badge { padding: 2px 8px; border-radius: 12px; font-size: var(--flowti-font-xs, 0.75em); background: #422006; color: #f59e0b; font-weight: 600; }
+			.registry-header { display: flex; align-items: center; justify-content: space-between; }
 		`,
 	];
 
@@ -160,19 +200,53 @@ export class FlowtiTabComponents extends FlowtiElement {
 	storybookOutput: string[] = [];
 	storybookError = "";
 	expandedComponent: string | null = null;
+	hasCanvas = false;
+	hasSitemap = false;
+	canvasPreset = "";
+	canvasChanged = false;
 
 	protected renderContent() {
 		return html`
+			${this.renderCanvasSection()}
 			${this.renderRegistry()}
 			<hr class="divider" />
 			${this.renderStorybook()}
 		`;
 	}
 
+	private renderCanvasSection() {
+		return html`
+			<div class="registry-section">
+				<div class="section-title">Sitemap Canvas</div>
+				<div class="preset-row">
+					${PRESETS.map((p) => html`
+						<button class="preset-btn ${this.canvasPreset === p.id ? "preset-btn--active" : ""}"
+							@click="${() => { this.canvasPreset = p.id; this.fire("canvas-generate", { preset: p.id }); }}"
+						>${p.label}</button>
+					`)}
+				</div>
+				${this.hasCanvas ? html`
+					<div class="canvas-actions">
+						<button class="canvas-merge-btn"
+							@click="${() => this.fire("canvas-merge")}"
+						>${this.hasSitemap ? "Merge to sitemap.json" : "Save as sitemap.json"}</button>
+						<button class="canvas-open-btn"
+							@click="${() => this.fire("canvas-open")}"
+						>Open canvas</button>
+						${this.canvasChanged ? html`<span class="canvas-changed-badge">changed</span>` : nothing}
+					</div>
+				` : nothing}
+			</div>
+		`;
+	}
+
 	private renderRegistry() {
 		return html`
 			<div class="registry-section">
-				<div class="section-title">Component Registry</div>
+				<div class="registry-header">
+					<div class="section-title">Component Registry</div>
+					<button class="refresh-btn" @click="${() => this.fire("components-refresh")}">Refresh</button>
+				</div>
 				${this.components.length === 0
 					? html`<div class="empty-state">Configure component source in Config tab</div>`
 					: this.components.map((c) => this.renderComponentRow(c))
@@ -244,6 +318,10 @@ export class FlowtiTabComponents extends FlowtiElement {
 
 	private toggleExpand(name: string): void {
 		this.expandedComponent = this.expandedComponent === name ? null : name;
+	}
+
+	private fire(name: string, detail?: Record<string, unknown>): void {
+		this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
 	}
 }
 

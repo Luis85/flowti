@@ -39,6 +39,17 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.storybookOutput = [];
 		el.storybookError = "";
 		el.actionSuccess = "";
+		// Clear stale data from previous project immediately
+		el.healthScore = null;
+		el.healthError = "";
+		el.todos = [];
+		el.todosExist = false;
+		el.components = [];
+		el.reportGenerators = [];
+		el.reportNodeStates = {};
+		el.reportOutput = [];
+		el.reportBusy = false;
+		el.catalogEntities = [];
 		const detail = await projectService.getProject(name);
 		if (!detail) {
 			el.projectName = name;
@@ -414,6 +425,23 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		startBusy("Merging canvas changes...");
 		void projectService.importCanvasSitemap(currentProject, appendOutput, { merge: true })
 			.then((r) => endBusy(r));
+	}) as EventListener);
+
+	el.addEventListener("canvas-open", (() => {
+		deps.openNote?.(`01 - Projects/${currentProject}/sitemap.canvas`);
+	}) as EventListener);
+
+	el.addEventListener("storybook-canvas-import", (() => {
+		startBusy("Importing from canvas...");
+		void projectService.importCanvasSitemap(currentProject, appendOutput)
+			.then((r) => {
+				endBusy(r);
+				void projectService.listComponents(currentProject).then((c) => { el.components = c; });
+			});
+	}) as EventListener);
+
+	el.addEventListener("components-refresh", (() => {
+		void projectService.listComponents(currentProject).then((c) => { el.components = c; });
 	}) as EventListener);
 
 	// ── Health ──────────────────────────────────────────────────────

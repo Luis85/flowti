@@ -334,7 +334,19 @@ export class FlowtiStorybookSection extends FlowtiElement {
 	}
 
 	private renderImportActions() {
-		return "";
+		if (!this.installed) return "";
+		return html`
+			<div class="actions">
+				<button class="action-btn" ?disabled="${this.busy}"
+					@click="${() => this.dispatchImportMarkdown()}"
+					title="Re-import components from markdown source"
+				>Import Markdown</button>
+				<button class="action-btn" ?disabled="${this.busy}"
+					@click="${() => this.dispatchEvent(new CustomEvent("storybook-canvas-import", { bubbles: true, composed: true }))}"
+					title="Re-import components from sitemap canvas"
+				>Import Canvas</button>
+			</div>
+		`;
 	}
 
 	private renderInstalled() {

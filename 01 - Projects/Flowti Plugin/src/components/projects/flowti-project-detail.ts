@@ -423,10 +423,6 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.healthError="${this.healthError}"
 					.todos="${this.todos}"
 					.todosExist="${this.todosExist}"
-					.hasCanvas="${this.hasCanvas}"
-					.hasSitemap="${this.hasSitemap}"
-					.canvasPreset="${this.canvasPreset}"
-					.canvasChanged="${this.canvasChanged}"
 				></flowti-tab-overview>
 			` : ""}
 			${this.activeTab === "components" ? html`
@@ -441,6 +437,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.storybookBusyLabel="${this.storybookBusyLabel}"
 					.storybookOutput="${this.storybookOutput}"
 					.storybookError="${this.storybookError}"
+					.hasCanvas="${this.hasCanvas}"
+					.hasSitemap="${this.hasSitemap}"
+					.canvasPreset="${this.canvasPreset}"
+					.canvasChanged="${this.canvasChanged}"
 				></flowti-tab-components>
 			` : ""}
 			${this.activeTab === "catalog" ? html`
