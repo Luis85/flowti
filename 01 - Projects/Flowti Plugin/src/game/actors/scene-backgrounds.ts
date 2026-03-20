@@ -383,3 +383,40 @@ export function drawStationFloor(ctx: CanvasRenderingContext2D, w: number, h: nu
 	ctx.stroke();
 	ctx.setLineDash([]);
 }
+
+// ── Hub — Central Gathering Floor ─────────────────────────────────────
+
+export function drawHubFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+	// Base floor
+	ctx.fillStyle = "#0d1117";
+	ctx.fillRect(0, 0, w, h);
+
+	// Subtle grid
+	ctx.strokeStyle = "#1b2332";
+	ctx.lineWidth = 0.5;
+	for (let x = 0; x < w; x += 40) {
+		ctx.beginPath();
+		ctx.moveTo(x, 0);
+		ctx.lineTo(x, h);
+		ctx.stroke();
+	}
+	for (let y = 0; y < h; y += 40) {
+		ctx.beginPath();
+		ctx.moveTo(0, y);
+		ctx.lineTo(w, y);
+		ctx.stroke();
+	}
+
+	// Center radial glow
+	const gradient = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, 180);
+	gradient.addColorStop(0, "rgba(30, 41, 59, 0.3)");
+	gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+	ctx.fillStyle = gradient;
+	ctx.fillRect(0, 0, w, h);
+
+	// Top border accent
+	ctx.fillStyle = "#1e293b";
+	ctx.fillRect(0, 0, w, 3);
+	// Bottom border accent
+	ctx.fillRect(0, h - 3, w, 3);
+}
