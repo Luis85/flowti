@@ -22,7 +22,7 @@ import type { AgentAction, DashboardAgent, WorldEntity } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import { preferredWorkstation } from "./brain/movement.js";
 import { createCameraSystem } from "./systems/camera-system.js";
-import { DOMAIN_POOLS } from "./sprites/character-pool.js";
+import { DOMAIN_POOLS, resolveCharacter } from "./sprites/character-pool.js";
 import { resolveSettingForDomain } from "./config/domain-map.js";
 import { preloadSpriteRegistry } from "./sprites/sprite-loader.js";
 import { DashboardStore } from "./store/dashboard-store.js";
@@ -71,6 +71,9 @@ import { PlantActor } from "./actors/plant-actor.js";
 import { NoticeBoard } from "./actors/notice-board.js";
 import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
 import { SceneRegistry } from "./systems/scene-registry.js";
+import { RoomSwitcher } from "./systems/room-switcher.js";
+import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
+import type { SceneEntity } from "./data/scene-entity.js";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -331,7 +334,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	registerWorldEvent("standup", "Morning Standup", () => {
-		const agents = needsSystem.getAgentNames().filter((n) => !isInTransit(n));
+		const agents = needsSystem.getAgentNames().filter((n) => !registry.isInTransit(n));
 		for (const name of agents) {
 			const state = brainSystem.getState(name)?.state;
 			if (state === "idle" || state === "wandering") brainSystem.applyEvent(name, "speaking");
@@ -759,7 +762,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
 		// Skip if either agent is walking to a door
-		if (isInTransit(nameA) || isInTransit(nameB)) return;
+		if (registry.isInTransit(nameA) || registry.isInTransit(nameB)) return;
 		// Track conversations for memory streaks
 		cycleConversationCounts.set(nameA, (cycleConversationCounts.get(nameA) ?? 0) + 1);
 		cycleConversationCounts.set(nameB, (cycleConversationCounts.get(nameB) ?? 0) + 1);
@@ -829,7 +832,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Wire cluster huddle conversations ────────────────
 	socialSystem.onCluster((members) => {
 		// Filter out in-transit agents
-		const available = members.filter((n) => !isInTransit(n));
+		const available = members.filter((n) => !registry.isInTransit(n));
 		if (available.length < 2) return;
 		relationshipSystem.recordCluster(available);
 		const speakCount = Math.min(members.length, 3);
@@ -868,7 +871,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Wire engagement → walk toward camera + bubble ───
 	engagementSystem.onEngagement((e) => {
-		if (isInTransit(e.agentName)) return;
+		if (registry.isInTransit(e.agentName)) return;
 		if (e.tier >= 2) {
 			const cam = engine.currentScene.camera;
 			brainSystem.walkTo(e.agentName, { x: cam.pos.x - 50, y: cam.pos.y });
@@ -880,11 +883,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	ritualSystem.onPhase((phase) => {
 		if (phase.kind === "gather") {
 			for (const name of phase.participants) {
-				if (!isInTransit(name)) brainSystem.applyEvent(name, "speaking");
+				if (!registry.isInTransit(name)) brainSystem.applyEvent(name, "speaking");
 			}
 		}
 		if (phase.kind === "line") {
-			if (!isInTransit(phase.agentName)) bubbleSystem.showBubble(phase.agentName, "speech", phase.text, engine.currentScene, findAgentActor, 4000, true);
+			if (!registry.isInTransit(phase.agentName)) bubbleSystem.showBubble(phase.agentName, "speech", phase.text, engine.currentScene, findAgentActor, 4000, true);
 		}
 		if (phase.kind === "disperse") {
 			for (const name of phase.participants) {
@@ -901,52 +904,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		needsSystem.applyEffect(result.agentName, { morale: result.success ? 3 : -2, energy: -5 });
 		bubbleSystem.showBubble(result.agentName, "speech", result.success ? "Done! All good." : "Something went wrong...", engine.currentScene, findAgentActor, 5000, true);
 	});
-
-	// ── Agent room tracking ─────────────────────────────
-	const ROOM_KEYS = Object.keys(roomScenes); // ["office", "village", "station"]
-	let roomSwitchTimer = 0;
-	const ROOM_SWITCH_INTERVAL = 10_000; // check every 10s
-	const ROOM_SWITCH_CHANCE = 0.08; // 8% chance per idle agent per check
-
-	/** Check if an agent is in transit and should not be interrupted. */
-	function isInTransit(name: string): boolean {
-		return registry.isInTransit(name);
-	}
-
-	/** Scenes that support agent transfer (hub + room scenes). */
-	const transferScenes: Record<string, GameScene> = {
-		hub: hubScene,
-		...roomScenes,
-	};
-	const ALL_SCENE_KEYS = ["hub", ...ROOM_KEYS];
-
-	/** Transfer an agent from their current room to a different room. */
-	function transferAgent(agentName: string, targetRoom: string): void {
-		const currentRoom = registry.getEntityRoom(agentName);
-		if (!currentRoom || currentRoom === targetRoom) return;
-		if (!transferScenes[currentRoom] || !transferScenes[targetRoom]) return;
-
-		const agent = store.agents.find((a) => a.name === agentName);
-		if (!agent) return;
-
-		// Remove from current scene
-		transferScenes[currentRoom].removeAgent(agentName);
-
-		// Spawn at doorway in target scene
-		transferScenes[targetRoom].spawnAgentAtDoorway(agent);
-		registry.setEntityRoom(agentName, targetRoom);
-		registry.clearTransit(agentName);
-
-		// Walk away from doorway toward center
-		const targetX = 200 + Math.random() * 400;
-		const targetY = 150 + Math.random() * 200;
-		brainSystem.walkTo(agentName, { x: targetX, y: targetY });
-
-		// Show arrival bubble
-		const roomLabel = targetRoom.charAt(0).toUpperCase() + targetRoom.slice(1);
-		bubbleSystem.showBubble(agentName, "thought", `Visiting ${roomLabel}...`, engine.currentScene, findAgentActor, 3000);
-		store.pushWorldEvent("room-switch", `${agentName} moved to ${roomLabel}`);
-	}
 
 	// ── Pre-update loop state ───────────────────────────
 	let lastTime = performance.now();
@@ -995,20 +952,28 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	hubScene.add(plant);
 	hubScene.add(noticeBoard);
 
-	// ── Office pets in scenes ────────────────────────────
-	hubScene.add(hubCat);        registry.setEntityRoom(hubCat.entityId, "hub");
-	officeScene.add(officeCat);  registry.setEntityRoom(officeCat.entityId, "office");
-	officeScene.add(officeDog);  registry.setEntityRoom(officeDog.entityId, "office");
-	villageScene.add(villageCat); registry.setEntityRoom(villageCat.entityId, "village");
-	villageScene.add(villageDog); registry.setEntityRoom(villageDog.entityId, "village");
-	villageScene.add(villageBird); registry.setEntityRoom(villageBird.entityId, "village");
-	stationScene.add(stationDog); registry.setEntityRoom(stationDog.entityId, "station");
-	stationScene.add(stationFish); registry.setEntityRoom(stationFish.entityId, "station");
+	// ── Office pets — scene placement deferred to start() for position restore ──
 	pets.push(hubCat, officeCat, villageCat, officeDog, villageDog, stationDog, villageBird, stationFish);
-	let petSwitchTimer = 0;
-	const PET_SWITCH_INTERVAL = 8_000;  // check every 8s
-	const PET_SWITCH_CHANCE = 0.25;     // 25% per mobile pet per check (much higher than agents)
-	// Pet transit now tracked via registry (using pet.entityId)
+
+	// ── SceneEntity registry + unified room switcher ──
+	const allEntities = new Map<string, SceneEntity>();
+
+	const roomSwitcher = new RoomSwitcher({
+		registry,
+		getEntity: (id) => allEntities.get(id),
+		getEntityState: (id) => {
+			const brainState = brainSystem.getState(id)?.state;
+			if (brainState) return brainState;
+			const pet = pets.find((p) => p.entityId === id);
+			return pet?.getState() ?? "idle";
+		},
+		isTaskLocked: (id) => store.taskLockedAgents.has(id),
+		onTransferComplete: (entityId, _from, to) => {
+			const label = to.charAt(0).toUpperCase() + to.slice(1);
+			bubbleSystem.showBubble(entityId, "thought", `Visiting ${label}...`, engine.currentScene, findAgentActor, 3000);
+			store.pushWorldEvent("room-switch", `${entityId} moved to ${label}`);
+		},
+	});
 
 	// ── Cursor spirit — visual director presence (one per scene) ────
 	const cursorSpirits = [new CursorSpirit(), new CursorSpirit(), new CursorSpirit(), new CursorSpirit()];
@@ -1068,7 +1033,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	/** Process behavior thresholds — needs-driven state overrides. */
 	function processThresholds(): void {
 		for (const agentName of needsSystem.getAgentNames()) {
-			if (isInTransit(agentName)) continue;
+			if (registry.isInTransit(agentName)) continue;
 			const actions = needsSystem.checkThresholds(agentName);
 			for (const action of actions) {
 				switch (action.type) {
@@ -1315,122 +1280,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 		}
 
-		// 3d-ii. Pet room switching — walk to door, exit, enter new room at door
-		petSwitchTimer += deltaMs;
-		const allSceneKeys = ["hub", ...ROOM_KEYS];
-		const sceneMap: Record<string, ex.Scene> = { hub: hubScene, ...roomScenes };
-		// Door positions: room scenes have door on left (40, 250), hub has doors on right (~750, 250)
-		const doorPositions: Record<string, { x: number; y: number }> = {
-			hub: { x: ENGINE_WIDTH - 50, y: ENGINE_HEIGHT / 2 },
-			office: { x: 40, y: ENGINE_HEIGHT / 2 },
-			village: { x: 40, y: ENGINE_HEIGHT / 2 },
-			station: { x: 40, y: ENGINE_HEIGHT / 2 },
-		};
-		// Spawn positions: opposite side of the door (enter from door, walk inward)
-		const spawnPositions: Record<string, { x: number; y: number }> = {
-			hub: { x: ENGINE_WIDTH - 80, y: ENGINE_HEIGHT / 2 },
-			office: { x: 70, y: ENGINE_HEIGHT / 2 },
-			village: { x: 70, y: ENGINE_HEIGHT / 2 },
-			station: { x: 70, y: ENGINE_HEIGHT / 2 },
-		};
-
-		// Check if any exiting pets have arrived at their door
-		for (const pet of pets) {
-			if (!pet.isExiting() || !pet.hasArrivedAtExit()) continue;
-			const petId = pet.entityId;
-			const transitEntry = registry.getTransit(petId);
-			if (!transitEntry) continue;
-			const targetRoom = transitEntry.target;
-
-			const currentRoom = registry.getEntityRoom(petId)!;
-			const currentScene = sceneMap[currentRoom];
-			if (currentScene) currentScene.remove(pet);
-
-			// Place at door position in target room
-			const spawn = spawnPositions[targetRoom] ?? { x: 70, y: 250 };
-			pet.pos.x = spawn.x;
-			pet.pos.y = spawn.y;
-			pet.resetHome();
-
-			const targetScene = sceneMap[targetRoom];
-			if (targetScene) targetScene.add(pet);
-			registry.setEntityRoom(petId, targetRoom);
-			registry.clearTransit(petId);
-		}
-
-		// Periodically send pets toward doors
-		if (petSwitchTimer >= PET_SWITCH_INTERVAL) {
-			petSwitchTimer = 0;
-			for (const pet of pets) {
-				if (pet.petType === "fish") continue;
-				if (pet.getState() !== "idle" && pet.getState() !== "wandering") continue;
-				const petId = pet.entityId;
-				if (registry.isInTransit(petId)) continue;
-				if (Math.random() > PET_SWITCH_CHANCE) continue;
-
-				const currentRoom = registry.getEntityRoom(petId);
-				if (!currentRoom) continue;
-				const otherRooms = allSceneKeys.filter((r) => r !== currentRoom);
-				const targetRoom = otherRooms[Math.floor(Math.random() * otherRooms.length)];
-
-				const door = doorPositions[currentRoom];
-				if (!door) continue;
-				pet.walkToExit(door.x, door.y);
-				registry.setInTransit(petId, targetRoom, door);
-			}
-		}
-
-		// 3e. Room switching — idle agents occasionally visit other rooms
-		// Brain bounds clamp agents to minX=96, so walk targets must be within bounds.
-		// The visual door is at x=40 but agents can only reach ~x=96.
-		// Use a generous arrival radius (70px) to detect agents at the brain edge.
-		const DOOR_ARRIVAL_DIST_SQ = 70 * 70; // 4900 — generous radius for brain-clamped agents
-
-		// Step 1: Check in-transit agents for door arrival or re-walk if interrupted
-		for (const agentName of registry.getAllTransitIds()) {
-			// Skip pet transit entries — handled by pet arrival check above
-			const pos = brainSystem.getPosition(agentName);
-			if (!pos) continue;
-			const transit = registry.getTransit(agentName)!;
-			const dx = pos.x - transit.door.x;
-			const dy = pos.y - transit.door.y;
-			if (dx * dx + dy * dy < DOOR_ARRIVAL_DIST_SQ) {
-				// Close enough to door — transfer
-				registry.clearTransit(agentName);
-				transferAgent(agentName, transit.target);
-			} else {
-				// Not at door yet — ensure agent is still walking toward it
-				const state = brainSystem.getState(agentName)?.state;
-				if (state !== "walking-to") {
-					brainSystem.walkTo(agentName, transit.door);
-				}
-			}
-		}
-
-		// Step 2: Periodically pick new agents to switch rooms
-		roomSwitchTimer += deltaMs;
-		if (roomSwitchTimer >= ROOM_SWITCH_INTERVAL) {
-			roomSwitchTimer = 0;
-			for (const agentName of needsSystem.getAgentNames()) {
-				if (registry.isInTransit(agentName)) continue;
-				const state = brainSystem.getState(agentName)?.state;
-				if (state !== "idle" && state !== "wandering") continue;
-				if (store.taskLockedAgents.has(agentName)) continue;
-				if (Math.random() > ROOM_SWITCH_CHANCE) continue;
-
-				const currentRoom = registry.getEntityRoom(agentName);
-				if (!currentRoom || !transferScenes[currentRoom]) continue;
-
-				// Pick a random different room (hub included)
-				const otherRooms = ALL_SCENE_KEYS.filter((r) => r !== currentRoom);
-				if (otherRooms.length === 0) continue;
-				const targetRoom = otherRooms[Math.floor(Math.random() * otherRooms.length)];
-
-				const doorway = transferScenes[currentRoom].getDoorwayPosition();
-				registry.setInTransit(agentName, targetRoom, doorway);
-				brainSystem.walkTo(agentName, doorway);
-			}
-		}
+		// 3e. Room switching — handled by unified RoomSwitcher
+		roomSwitcher.update(deltaMs);
 
 		// 4. Director system — advance idle timer
 		directorSystem.update(deltaMs);
@@ -1576,6 +1427,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					y: Math.round(entry.position.y),
 					scene: registry.getEntityRoom(name) ?? "office",
 					state: entry.state,
+				};
+			}
+			for (const pet of pets) {
+				positions[pet.entityId] = {
+					x: Math.round(pet.pos.x),
+					y: Math.round(pet.pos.y),
+					scene: registry.getEntityRoom(pet.entityId) ?? "hub",
+					state: pet.getState(),
 				};
 			}
 
@@ -1804,10 +1663,23 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			const initialAgents = await provider.getDashboardAgents();
 			registerAgents(initialAgents);
 
+			// Create SceneEntity wrappers for agents
+			for (const agent of initialAgents) {
+				const charName = resolveCharacter(agent.name, agent.domain ?? "");
+				const sprites = spriteRegistry.get(charName);
+				if (!sprites) continue;
+				const entity = new AgentSceneEntity(agent, sprites, brainSystem, handleAgentSelect);
+				allEntities.set(agent.name, entity);
+			}
+			// Add creature entities
+			for (const pet of pets) {
+				allEntities.set(pet.entityId, pet);
+			}
+
 			// Route agents to room scenes — use saved positions/rooms if available
 			for (const agent of initialAgents) {
 				const saved = savedPositions?.[agent.name];
-				const targetRoom = saved?.scene && transferScenes[saved.scene] ? saved.scene : resolveSettingForDomain(agent.domain);
+				const targetRoom = saved?.scene && registry.getScene(saved.scene) ? saved.scene : resolveSettingForDomain(agent.domain);
 
 				if (targetRoom === "hub") {
 					// Hub agents are already created by hubScene.updateAgents above
@@ -1835,6 +1707,25 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					}
 					registry.setEntityRoom(agent.name, targetRoom);
 				}
+			}
+
+			// Restore or default-place creatures
+			const defaultRooms: Record<string, string> = {
+				"cat-hub": "hub", "cat-office": "office", "cat-village": "village",
+				"dog-office": "office", "dog-village": "village", "dog-station": "station",
+				"bird-village": "village", "fish-station": "station",
+			};
+			for (const pet of pets) {
+				const saved = savedPositions?.[pet.entityId];
+				const targetRoom = saved?.scene ?? defaultRooms[pet.entityId] ?? "hub";
+				const scene = targetRoom === "hub" ? hubScene : (roomScenes[targetRoom] ?? hubScene);
+
+				if (saved) {
+					pet.pos.x = saved.x;
+					pet.pos.y = saved.y;
+				}
+				scene.add(pet);
+				registry.setEntityRoom(pet.entityId, targetRoom);
 			}
 
 			// Restore needs after registration (register sets defaults, restore overrides)
@@ -1887,6 +1778,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 							y: Math.round(entry.position.y),
 							scene: registry.getEntityRoom(name) ?? "office",
 							state: entry.state,
+						};
+					}
+					for (const pet of pets) {
+						positions[pet.entityId] = {
+							x: Math.round(pet.pos.x),
+							y: Math.round(pet.pos.y),
+							scene: registry.getEntityRoom(pet.entityId) ?? "hub",
+							state: pet.getState(),
 						};
 					}
 					writeFileSync(join(varDir, "world-positions.json"), JSON.stringify({ updatedAt: new Date().toISOString(), positions }, null, "\t"), "utf-8");
