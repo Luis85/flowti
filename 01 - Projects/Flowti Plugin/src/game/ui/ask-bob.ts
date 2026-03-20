@@ -377,7 +377,7 @@ export class AskBob extends FlowtiElement {
 	private open = false;
 	private conversation: readonly ConversationTurn[] = [];
 	private thinking = false;
-	private activeTab: "chat" | "debug" = "chat";
+	private activeTab: "chat" | "debug" | "world" = "chat";
 	private expandedEntries = new Set<number>();
 
 	private unsubscribe: (() => void) | null = null;
@@ -404,7 +404,7 @@ export class AskBob extends FlowtiElement {
 		if (this.open) this.syncFromStore();
 	}
 
-	private switchTab(tab: "chat" | "debug"): void {
+	private switchTab(tab: "chat" | "debug" | "world"): void {
 		this.activeTab = tab;
 	}
 
@@ -477,6 +477,96 @@ export class AskBob extends FlowtiElement {
 		this.store.toggleDebugMode();
 	}
 
+	private renderWorldMonitor() {
+		const phase = this.store.dayPhase.replace(/-/g, " ");
+		const weather = this.store.weatherState;
+		const progress = Math.round(this.store.dayProgress * 100);
+		const cycle = this.store.cycleCount;
+		const activeEvent = this.store.activeWorldEvent;
+		const log = [...this.store.worldEventLog].reverse().slice(0, 20);
+
+		const PHASE_EMOJI: Record<string, string> = {
+			"morning arrival": "\u{1F305}",
+			"productive morning": "\u{1F4BB}",
+			"lunch": "\u{1F35C}",
+			"afternoon": "\u{2615}",
+			"afternoon slump": "\u{1F634}",
+			"wind down": "\u{1F307}",
+			"evening departure": "\u{1F303}",
+		};
+		const WEATHER_EMOJI: Record<string, string> = {
+			clear: "\u{2600}\u{FE0F}",
+			rain: "\u{1F327}\u{FE0F}",
+			overcast: "\u{2601}\u{FE0F}",
+			sunny: "\u{1F31E}",
+		};
+		const EVENT_COLOR: Record<string, string> = {
+			standup: "#4e8bd9",
+			"deploy-success": "#4ed97a",
+			"tea-time": "#d9aa4e",
+			"end-of-day": "#9b7ed9",
+			eureka: "#d9d44e",
+			"build-break": "#d94e4e",
+			birthday: "#d94eaa",
+			"power-flicker": "#d97a4e",
+			"new-pr": "#4ed9d9",
+			"phase-change": "#8e8979",
+		};
+
+		return html`
+			<div class="thread" style="padding: 8px; gap: 6px; display: flex; flex-direction: column;">
+				<!-- Status bar -->
+				<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: var(--bg-secondary); border-radius: 3px; border: 1px solid var(--border);">
+					<div style="display: flex; flex-direction: column; gap: 2px;">
+						<span style="color: var(--accent-gold); font-size: 11px; font-weight: bold;">
+							${PHASE_EMOJI[phase] ?? "\u{1F551}"} ${phase}
+						</span>
+						<span style="color: var(--text-secondary); font-size: 10px;">
+							Cycle ${cycle} \u{2022} ${progress}% complete
+						</span>
+					</div>
+					<span style="font-size: 14px;" title="${weather}">
+						${WEATHER_EMOJI[weather] ?? "\u{2600}\u{FE0F}"}
+					</span>
+				</div>
+
+				<!-- Day progress bar -->
+				<div style="height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
+					<div style="height: 100%; width: ${progress}%; background: var(--accent-gold); border-radius: 2px; transition: width 1s;"></div>
+				</div>
+
+				<!-- Active event -->
+				${activeEvent ? html`
+					<div style="padding: 4px 8px; background: rgba(217, 170, 78, 0.1); border: 1px solid var(--accent-gold); border-radius: 3px; display: flex; align-items: center; gap: 6px;">
+						<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-gold); animation: bob-pulse 1.5s ease-in-out infinite;"></span>
+						<span style="color: var(--accent-gold); font-size: 10px;">LIVE: ${activeEvent}</span>
+					</div>
+				` : nothing}
+
+				<!-- Event log -->
+				<div style="font-size: 10px; color: var(--text-secondary); padding-top: 4px; border-top: 1px solid var(--border);">
+					Event Log
+				</div>
+				${log.length === 0 ? html`
+					<div style="color: var(--text-muted); font-size: 10px; text-align: center; padding: 12px;">
+						No events yet — waiting for the day to begin...
+					</div>
+				` : log.map((entry) => {
+					const time = new Date(entry.timestamp);
+					const timeStr = `${time.getHours().toString().padStart(2, "0")}:${time.getMinutes().toString().padStart(2, "0")}:${time.getSeconds().toString().padStart(2, "0")}`;
+					const color = EVENT_COLOR[entry.type] ?? "#8e8979";
+					return html`
+						<div style="display: flex; align-items: center; gap: 6px; padding: 3px 0;">
+							<span style="color: var(--text-muted); font-size: 9px; flex-shrink: 0; width: 48px;">${timeStr}</span>
+							<span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>
+							<span style="color: var(--text-primary); font-size: 10px;">${entry.label}</span>
+						</div>
+					`;
+				})}
+			</div>
+		`;
+	}
+
 	private renderDebugLog() {
 		const log = this.store.debugLog;
 		const debugOn = this.store.debugMode;
@@ -534,6 +624,7 @@ export class AskBob extends FlowtiElement {
 					</div>
 					<div class="tab-row">
 						<button class="tab-btn" ?data-active=${this.activeTab === "chat"} @click=${() => this.switchTab("chat")}>Chat</button>
+						<button class="tab-btn" ?data-active=${this.activeTab === "world"} @click=${() => this.switchTab("world")}>World</button>
 						<button class="tab-btn" ?data-active=${this.activeTab === "debug"} @click=${() => this.switchTab("debug")}>Debug</button>
 					</div>
 					${this.activeTab === "chat" ? html`
@@ -549,7 +640,7 @@ export class AskBob extends FlowtiElement {
 							/>
 							<button class="send-btn" @click=${this.handleSend}>Send</button>
 						</div>
-					` : this.renderDebugLog()}
+					` : this.activeTab === "world" ? this.renderWorldMonitor() : this.renderDebugLog()}
 				</div>
 			` : nothing}
 

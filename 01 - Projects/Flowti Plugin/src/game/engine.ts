@@ -286,11 +286,20 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	dayClock.onPhaseChange((phase) => {
 		store.setDayPhase(phase);
 		store.setWeatherState(worldAmbience.getWeather());
+		store.pushWorldEvent("phase-change", `Day phase: ${phase.replace(/-/g, " ")}`);
 		worldEventScheduler.onPhaseChange(phase);
 	});
 
 	// ── Micro-event handlers ─────────────────────────────
-	worldEventScheduler.registerHandler("standup", () => {
+	// Helper: wrap handler to also push to world event log
+	function registerWorldEvent(type: string, label: string, handler: () => void): void {
+		worldEventScheduler.registerHandler(type, () => {
+			store.pushWorldEvent(type, label);
+			handler();
+		});
+	}
+
+	registerWorldEvent("standup", "Morning Standup", () => {
 		const agents = needsSystem.getAgentNames();
 		for (const name of agents) {
 			const state = brainSystem.getState(name)?.state;
@@ -306,7 +315,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}, agents.length * 2000 + 2000);
 	});
 
-	worldEventScheduler.registerHandler("deploy-success", () => {
+	registerWorldEvent("deploy-success", "Deploy Success", () => {
 		const agents = needsSystem.getAgentNames();
 		const celebrant = agents[Math.floor(Math.random() * agents.length)];
 		if (celebrant) {
@@ -317,7 +326,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}
 	});
 
-	worldEventScheduler.registerHandler("tea-time", () => {
+	registerWorldEvent("tea-time", "Tea Time", () => {
 		const idle = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "idle");
 		const teaGroup = idle.slice(0, 3);
 		for (const name of teaGroup) {
@@ -326,13 +335,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}
 	});
 
-	worldEventScheduler.registerHandler("end-of-day", () => {
+	registerWorldEvent("end-of-day", "End of Day", () => {
 		for (const name of needsSystem.getAgentNames()) {
 			bubbleSystem.showBubble(name, "thought", pickTemplate(END_OF_DAY_TEMPLATES), engine.currentScene, findAgentActor, 3000);
 		}
 	});
 
-	worldEventScheduler.registerHandler("eureka", () => {
+	registerWorldEvent("eureka", "Eureka Moment", () => {
 		const working = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "working");
 		if (working.length > 0) {
 			const agent = working[Math.floor(Math.random() * working.length)];
@@ -343,7 +352,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}
 	});
 
-	worldEventScheduler.registerHandler("build-break", () => {
+	registerWorldEvent("build-break", "Build Break", () => {
 		for (const name of needsSystem.getAgentNames()) {
 			bubbleSystem.showBubble(name, "thought", pickTemplate(BUILD_BREAK_REACTION_TEMPLATES), engine.currentScene, findAgentActor, 2000);
 			needsSystem.applyEffect(name, { morale: -3 });
@@ -355,7 +364,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}, 10_000);
 	});
 
-	worldEventScheduler.registerHandler("birthday", () => {
+	registerWorldEvent("birthday", "Birthday", () => {
 		const agents = needsSystem.getAgentNames();
 		const birthdayAgent = agents[Math.floor(Math.random() * agents.length)];
 		if (birthdayAgent) {
@@ -365,7 +374,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}
 	});
 
-	worldEventScheduler.registerHandler("power-flicker", () => {
+	registerWorldEvent("power-flicker", "Power Flicker", () => {
 		for (const name of needsSystem.getAgentNames()) {
 			bubbleSystem.showBubble(name, "thought", pickTemplate(POWER_FLICKER_REACTION_TEMPLATES), engine.currentScene, findAgentActor, 1500);
 		}
@@ -375,7 +384,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}, 2000);
 	});
 
-	worldEventScheduler.registerHandler("new-pr", () => {
+	registerWorldEvent("new-pr", "New PR", () => {
 		const agents = needsSystem.getAgentNames();
 		const author = agents[Math.floor(Math.random() * agents.length)];
 		if (author) {
@@ -1024,6 +1033,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 		// 0. Day clock — advance phase
 		dayClock.update(deltaMs);
+		store.setDayProgress(dayClock.getCycleProgress(), dayClock.getCycleCount());
 		if (dayClock.getCycleCount() > prevCycleCount) {
 			prevCycleCount = dayClock.getCycleCount();
 			worldAmbience.onCycleComplete();

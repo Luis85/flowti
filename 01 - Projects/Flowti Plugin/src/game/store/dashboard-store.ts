@@ -67,6 +67,29 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
+	// ── World event log ──────────────────────────────────────────
+	worldEventLog: Array<{ timestamp: number; type: string; label: string }> = [];
+	activeWorldEvent: string | null = null;
+	dayProgress = 0;
+	cycleCount = 0;
+
+	pushWorldEvent(type: string, label: string): void {
+		this.worldEventLog.push({ timestamp: Date.now(), type, label });
+		if (this.worldEventLog.length > 50) this.worldEventLog.shift();
+		this.activeWorldEvent = type;
+		this.notify();
+	}
+
+	clearActiveWorldEvent(): void {
+		this.activeWorldEvent = null;
+		this.notify();
+	}
+
+	setDayProgress(progress: number, cycle: number): void {
+		this.dayProgress = progress;
+		this.cycleCount = cycle;
+	}
+
 	// ── Debug log ─────────────────────────────────────────────────
 	debugMode = false;
 	debugLog: { timestamp: number; agentName: string; prompt: string; context?: string; rawResponse?: string }[] = [];
