@@ -2,6 +2,7 @@
 import { printHeader, RESET, DIM, GREEN, RED, CYAN, BOLD } from "../../infrastructure/ui.js";
 import type { MenuDeps, ShellMenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig, IAgentProcessRunner } from "../../infrastructure/types.js";
+import type { IProviderRegistry } from "../../domain/agents/llm-types.js";
 import { readSystemPrompt } from "../../domain/agents/agent-store.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
 import { buildConversationPrompt, buildClarificationPrompt, parseAgentResponse } from "../../domain/agents/agent-conversation.js";
@@ -12,7 +13,7 @@ import { listProjects } from "../../domain/project/project.js";
 import type { ThinkingDisplay } from "../displays/agent-run-display.js";
 
 /** Deps for talk/clarify functions — needs processRunner for LLM spawning. */
-export type TalkDeps = ShellMenuDeps & { readonly processRunner: IAgentProcessRunner };
+export type TalkDeps = ShellMenuDeps & { readonly processRunner: IAgentProcessRunner; readonly providerRegistry?: IProviderRegistry };
 
 // ── Spinner ──────────────────────────────────────────────────────────
 

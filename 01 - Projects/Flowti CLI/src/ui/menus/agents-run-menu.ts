@@ -5,7 +5,7 @@ import type { AgentsConfig } from "../../infrastructure/types.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
 import type { IterationSummary } from "../../domain/iterations/iteration-types.js";
 
-export type RunMenuDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "input" | "log" | "processRunner">;
+export type RunMenuDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "input" | "log" | "processRunner" | "providerRegistry">;
 
 /**
  * Run an agent: generate a brief and either display the path (prompt-only)

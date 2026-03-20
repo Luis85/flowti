@@ -10,6 +10,7 @@
 import { printHeader, RESET, DIM, GREEN, RED, BOLD, CYAN } from "../../infrastructure/ui.js";
 import type { ShellMenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, IterationsConfig, IAgentProcessRunner } from "../../infrastructure/types.js";
+import type { IProviderRegistry } from "../../domain/agents/llm-types.js";
 import type { LifecycleTemplate } from "../../domain/lifecycle/lifecycle-types.js";
 import type { AgentSummary, SuggestedTask } from "../../domain/agents/agent-types.js";
 import { getProjectAgents, readSystemPrompt } from "../../domain/agents/agent-store.js";
@@ -20,7 +21,7 @@ import { buildClarificationPrompt, parseAgentResponse } from "../../domain/agent
 import type { AgentCharacter } from "../../domain/agents/agent-conversation.js";
 
 /** Deps for roster task menu — needs processRunner for clarification and dispatch. */
-export type RosterTaskDeps = ShellMenuDeps & { readonly processRunner: IAgentProcessRunner };
+export type RosterTaskDeps = ShellMenuDeps & { readonly processRunner: IAgentProcessRunner; readonly providerRegistry?: IProviderRegistry };
 
 export interface RosterTaskOptions {
 	readonly projectPath: string;
