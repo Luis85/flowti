@@ -167,7 +167,6 @@ Expected: FAIL — module not found
 
 ```typescript
 // src/game/data/world-config.ts
-import type { AgentNeeds } from "./needs-types.js";
 
 export interface SensorRuleOverride {
 	readonly id: string;
@@ -854,6 +853,10 @@ export class NeedsSystem {
 		const entry = this.entries.get(agentName);
 		if (entry) entry.lastTaskCompletedAt = Date.now();
 	}
+
+	getAgentNames(): readonly string[] {
+		return [...this.entries.keys()];
+	}
 }
 ```
 
@@ -1185,6 +1188,7 @@ describe("BrainSystem.walkTo", () => {
 
 	beforeEach(() => {
 		system = new BrainSystem({
+			bounds: { minX: 0, maxX: 800, minY: 0, maxY: 500 },
 			onWorkstationChange: vi.fn(),
 			onWorkstationResolve: vi.fn(() => null),
 		});
@@ -1231,6 +1235,7 @@ walkTo(name: string, target: { x: number; y: number }): void {
 	if (!entry) return;
 	entry.state = "walking-to";
 	entry.target = { kind: "custom", x: target.x, y: target.y };
+	entry.targetPos = { x: target.x, y: target.y };
 }
 ```
 
@@ -1284,9 +1289,9 @@ describe("SocialSystem cluster detection", () => {
 		system.onCluster(clusterCallback);
 
 		// Register 3 agents with socialRadius 100
-		system.register("alice", { domain: "engineering", personality: [], socialRadius: 100 });
-		system.register("bob", { domain: "engineering", personality: [], socialRadius: 100 });
-		system.register("charlie", { domain: "engineering", personality: [], socialRadius: 100 });
+		system.register("alice", { domain: "engineering", personality: [], socialRadius: 100, relationships: [] });
+		system.register("bob", { domain: "engineering", personality: [], socialRadius: 100, relationships: [] });
+		system.register("charlie", { domain: "engineering", personality: [], socialRadius: 100, relationships: [] });
 	});
 
 	it("fires cluster callback when 3+ idle agents are near for 6s", () => {
@@ -1576,6 +1581,28 @@ export const DEFAULT_SENSOR_RULES: readonly SensorRule[] = [
 		domainHint: "management",
 		reaction: {
 			bubble: { kind: "thought", template: "Health dipped to {score}..." },
+		},
+		cooldown: 60_000,
+	},
+	{
+		id: "test-delta",
+		event: "test-delta",
+		condition: (d) => (d.failDelta as number) > 0,
+		agentFilter: "nearest-domain",
+		domainHint: "quality",
+		reaction: {
+			bubble: { kind: "thought", template: "That's more failures than before..." },
+			emote: 10,
+		},
+		cooldown: 30_000,
+	},
+	{
+		id: "iteration-milestone",
+		event: "iteration-milestone",
+		agentFilter: "all",
+		reaction: {
+			bubble: { kind: "speech", template: "Iteration at {percent}%!" },
+			needsEffect: { morale: 3 },
 		},
 		cooldown: 60_000,
 	},
@@ -1920,6 +1947,7 @@ const IDLE_STATES: ReadonlySet<BrainState> = new Set(["idle", "on-break", "waiti
 
 export class EngagementSystem {
 	private readonly agents = new Map<string, AgentEntry>();
+	private readonly taskCompletedAgents = new Set<string>();
 	private callback: ((e: EngagementEvent) => void) | null = null;
 	private lastEngagementAt = 0;
 	private activeEngagement = false;
@@ -1977,6 +2005,14 @@ export class EngagementSystem {
 		this.activeEngagement = false;
 	}
 
+	markTaskCompleted(agentName: string): void {
+		this.taskCompletedAgents.add(agentName);
+	}
+
+	clearTaskCompleted(agentName: string): void {
+		this.taskCompletedAgents.delete(agentName);
+	}
+
 	private computeTier(idleMs: number): number {
 		if (idleMs >= this.config.tiers.offer.idleMs) return Math.min(3, this.config.maxTier);
 		if (idleMs >= this.config.tiers.nudge.idleMs) return Math.min(2, this.config.maxTier);
@@ -2006,6 +2042,10 @@ export class EngagementSystem {
 		// Priority 2: low morale
 		const lowMorale = idle.filter((a) => getNeeds(a.name).morale < 30);
 		if (lowMorale.length > 0) return lowMorale[0];
+
+		// Priority 3: completed task awaiting acknowledgment
+		const taskDone = idle.find((a) => this.taskCompletedAgents.has(a.name));
+		if (taskDone) return taskDone;
 
 		// Priority 4: highest CHA
 		return idle.sort((a, b) => b.cha - a.cha)[0];
@@ -2561,8 +2601,17 @@ needsSystem.update(
 	(name) => {
 		const pos = brainSystem.getPosition(name);
 		if (!pos) return [];
+		const params = brainSystem.getState(name);
+		const radius = params?.params.socialRadius ?? 100;
 		return [...brainSystem.getAllEntries()]
-			.filter(([n, e]) => n !== name && /* within socialRadius */)
+			.filter(([n]) => {
+				if (n === name) return false;
+				const otherPos = brainSystem.getPosition(n);
+				if (!otherPos) return false;
+				const dx = pos.x - otherPos.x;
+				const dy = pos.y - otherPos.y;
+				return Math.sqrt(dx * dx + dy * dy) < radius;
+			})
 			.map(([n]) => n);
 	},
 );
@@ -2586,22 +2635,31 @@ brainSystem.update(deltaMs, findAgentActor);
 ritualSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
 
 // 7. Social (extended with getNeeds)
-socialSystem.update(deltaMs, getPosition, getState, (name) => needsSystem.getNeeds(name));
+socialSystem.update(
+	deltaMs,
+	(name) => brainSystem.getPosition(name) ?? { x: 0, y: 0 },
+	(name) => brainSystem.getState(name)?.state ?? "idle",
+	(name) => needsSystem.getNeeds(name),
+);
 
-// 8. Talk (existing)
+// 8. Talk (existing — keep existing call)
 talkEngine.update(deltaMs);
 
-// 9. Emote (existing)
-emoteSystem.update(deltaMs, getState);
+// 9. Emote (existing — keep existing call)
+emoteSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
 
 // 10. Tool executor
 toolExecutor.update(deltaMs);
 
-// 11. Bubble (existing)
-bubbleSystem.update(deltaMs, isIdle, scene, getActor);
+// 11. Bubble (existing — keep existing call)
+bubbleSystem.update(
+	deltaMs,
+	(name) => brainSystem.getState(name)?.state === "idle",
+	scene,
+	(name) => findAgentActor(name),
+);
 
-// 12. Particles (existing)
-// particlePool.update(deltaMs) — already in postframe or similar
+// 12. Particles (existing — keep existing call)
 ```
 
 - [ ] **Step 6: Wire mood derivation per-tick**
@@ -2609,14 +2667,12 @@ bubbleSystem.update(deltaMs, isIdle, scene, getActor);
 After `needsSystem.update()`, add mood propagation:
 
 ```typescript
-for (const [name] of needsSystem.getAllEntries?.() ?? []) {
+for (const name of needsSystem.getAgentNames()) {
 	const mood = needsSystem.getMood(name);
 	brainSystem.updateMood(name, mood);
 	emoteSystem.updateMood(name, mood);
 }
 ```
-
-Note: `NeedsSystem` may need a `getAllEntries()` method for this iteration. If not available, iterate over the known agent names from the agent list.
 
 - [ ] **Step 7: Wire callback connections**
 
@@ -2714,7 +2770,34 @@ directorSystem.recordInteraction("click", { x: actor.pos.x, y: actor.pos.y });
 directorSystem.recordInteraction("message", { x: targetActor.pos.x, y: targetActor.pos.y });
 ```
 
-- [ ] **Step 9: Add unregister calls**
+- [ ] **Step 9: Add cursor spirit renderer**
+
+Add a canvas-drawn actor that renders the Director's cursor glow each frame. Follow the same pattern as `createParticleRenderer()`:
+
+```typescript
+// In createAgentWorld(), add a cursor spirit actor to each scene:
+const cursorSpirit = new ex.Actor({ anchor: ex.vec(0.5, 0.5) });
+cursorSpirit.graphics.use(new ex.Canvas({
+	width: 24, height: 24,
+	draw: (ctx) => {
+		const presence = directorSystem.getPresence();
+		if (!presence.worldPos || !presence.visible) return;
+		const opacity = presence.idleMs > 30_000 ? 0.15 : 0.3;
+		const gradient = ctx.createRadialGradient(12, 12, 0, 12, 12, 12);
+		gradient.addColorStop(0, `rgba(100, 180, 255, ${opacity})`);
+		gradient.addColorStop(1, `rgba(100, 180, 255, 0)`);
+		ctx.fillStyle = gradient;
+		ctx.fillRect(0, 0, 24, 24);
+	},
+}));
+// Update position each frame in preframe:
+cursorSpirit.pos = presence.worldPos
+	? ex.vec(presence.worldPos.x, presence.worldPos.y)
+	: ex.vec(-1000, -1000); // off-screen when not visible
+scene.add(cursorSpirit);
+```
+
+- [ ] **Step 10: Add unregister calls**
 
 In the agent unregistration path (when agents are removed from the world), add:
 
@@ -2725,12 +2808,12 @@ engagementSystem.unregister(name);
 ritualSystem.unregister(name);
 ```
 
-- [ ] **Step 10: Run type check**
+- [ ] **Step 11: Run type check**
 
 Run: `npx tsc --noEmit`
 Expected: PASS (may need adjustments based on exact callback signatures)
 
-- [ ] **Step 11: Manual integration test**
+- [ ] **Step 12: Manual integration test**
 
 Build and load the plugin in Obsidian:
 
@@ -2745,7 +2828,7 @@ Open the agent world view. Verify:
 4. After 30s idle, an agent shows a Tier 1 thought bubble
 5. File saves trigger sensor reactions from domain-relevant agents
 
-- [ ] **Step 12: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
 git add src/game/engine.ts
@@ -2762,11 +2845,13 @@ git commit -m "feat(world): wire all 12 systems in createAgentWorld() with full 
 - Create: `.flowti/rituals/standup.md`
 - Create: `.flowti/rituals/celebration.md`
 
-- [ ] **Step 1: Create rituals directory**
+- [ ] **Step 1: Create rituals directory at vault root**
 
 ```bash
-mkdir -p .flowti/rituals
+mkdir -p "../../.flowti/rituals"
 ```
+
+Note: `.flowti/rituals/` must be at the vault root (`c:\Projects\flowti\.flowti\rituals\`), not the Plugin project root. All paths below are relative to vault root.
 
 - [ ] **Step 2: Write standup.md**
 
@@ -2826,8 +2911,9 @@ disperse: true
 - [ ] **Step 4: Commit**
 
 ```bash
-git add .flowti/rituals/standup.md .flowti/rituals/celebration.md
+cd ../.. && git add .flowti/rituals/standup.md .flowti/rituals/celebration.md
 git commit -m "feat(world): ship standup and celebration ritual templates"
+cd "01 - Projects/Flowti Plugin"
 ```
 
 ---
