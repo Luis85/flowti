@@ -53,6 +53,13 @@ import { RelationshipSystem } from "./systems/relationship-system.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import { assignOpinions } from "./data/opinion-topics.js";
 import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
+import {
+	pickTemplate,
+	STANDUP_TEMPLATES, DEPLOY_SUCCESS_TEMPLATES, END_OF_DAY_TEMPLATES,
+	EUREKA_TEMPLATES, BUILD_BREAK_REACTION_TEMPLATES, BUILD_BREAK_RESOLVE_TEMPLATES,
+	BIRTHDAY_TEMPLATES, POWER_FLICKER_REACTION_TEMPLATES, POWER_FLICKER_RESOLVE_TEMPLATES,
+	NEW_PR_TEMPLATES, TEA_TIME_TEMPLATES,
+} from "./data/micro-event-templates.js";
 import { CoffeeMachine } from "./actors/coffee-machine.js";
 import { WhiteboardActor } from "./actors/whiteboard-actor.js";
 import { SnackTable } from "./actors/snack-table.js";
@@ -272,7 +279,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}
 		agents.forEach((name, i) => {
 			setTimeout(() => {
-				bubbleSystem.showBubble(name, "thought", "Status update...", engine.currentScene, findAgentActor, 3000);
+				bubbleSystem.showBubble(name, "thought", pickTemplate(STANDUP_TEMPLATES), engine.currentScene, findAgentActor, 3000);
 			}, i * 2000);
 		});
 		setTimeout(() => {
@@ -284,7 +291,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const agents = needsSystem.getAgentNames();
 		const celebrant = agents[Math.floor(Math.random() * agents.length)];
 		if (celebrant) {
-			bubbleSystem.showBubble(celebrant, "speech", "Deploy is green! Ship it!", engine.currentScene, findAgentActor, 4000);
+			bubbleSystem.showBubble(celebrant, "speech", pickTemplate(DEPLOY_SUCCESS_TEMPLATES), engine.currentScene, findAgentActor, 4000);
 			const actor = findAgentActor(celebrant);
 			if (actor) particlePool.spawnPreset("confetti", actor.pos.x, actor.pos.y - 20);
 			needsSystem.applyEffect(celebrant, { morale: 5 });
@@ -293,14 +300,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	worldEventScheduler.registerHandler("tea-time", () => {
 		const idle = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "idle");
-		for (const name of idle.slice(0, 3)) {
+		const teaGroup = idle.slice(0, 3);
+		for (const name of teaGroup) {
 			brainSystem.walkTo(name, coffeeMachine.getInteractionPoint());
+			bubbleSystem.showBubble(name, "thought", pickTemplate(TEA_TIME_TEMPLATES), engine.currentScene, findAgentActor, 3000);
 		}
 	});
 
 	worldEventScheduler.registerHandler("end-of-day", () => {
 		for (const name of needsSystem.getAgentNames()) {
-			bubbleSystem.showBubble(name, "thought", "Wrapping up for the day...", engine.currentScene, findAgentActor, 3000);
+			bubbleSystem.showBubble(name, "thought", pickTemplate(END_OF_DAY_TEMPLATES), engine.currentScene, findAgentActor, 3000);
 		}
 	});
 
@@ -308,7 +317,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const working = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "working");
 		if (working.length > 0) {
 			const agent = working[Math.floor(Math.random() * working.length)];
-			bubbleSystem.showBubble(agent, "speech", "Wait... I've got it!", engine.currentScene, findAgentActor, 4000);
+			bubbleSystem.showBubble(agent, "speech", pickTemplate(EUREKA_TEMPLATES), engine.currentScene, findAgentActor, 4000);
 			const actor = findAgentActor(agent);
 			if (actor) particlePool.spawnPreset("sparkle", actor.pos.x, actor.pos.y - 20);
 			needsSystem.applyEffect(agent, { morale: 8, focus: 5 });
@@ -317,13 +326,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	worldEventScheduler.registerHandler("build-break", () => {
 		for (const name of needsSystem.getAgentNames()) {
-			bubbleSystem.showBubble(name, "thought", "Uh oh...", engine.currentScene, findAgentActor, 2000);
+			bubbleSystem.showBubble(name, "thought", pickTemplate(BUILD_BREAK_REACTION_TEMPLATES), engine.currentScene, findAgentActor, 2000);
 			needsSystem.applyEffect(name, { morale: -3 });
 		}
 		particlePool.spawnPreset("alert", 400, 250);
 		setTimeout(() => {
 			const resolver = needsSystem.getAgentNames()[0];
-			if (resolver) bubbleSystem.showBubble(resolver, "speech", "Fixed it. We're back.", engine.currentScene, findAgentActor, 4000);
+			if (resolver) bubbleSystem.showBubble(resolver, "speech", pickTemplate(BUILD_BREAK_RESOLVE_TEMPLATES), engine.currentScene, findAgentActor, 4000);
 		}, 10_000);
 	});
 
@@ -331,7 +340,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const agents = needsSystem.getAgentNames();
 		const birthdayAgent = agents[Math.floor(Math.random() * agents.length)];
 		if (birthdayAgent) {
-			bubbleSystem.showBubble(birthdayAgent, "speech", "Wait, is that cake?!", engine.currentScene, findAgentActor, 4000);
+			bubbleSystem.showBubble(birthdayAgent, "speech", pickTemplate(BIRTHDAY_TEMPLATES), engine.currentScene, findAgentActor, 4000);
 			particlePool.spawnPreset("confetti", snackTable.pos.x, snackTable.pos.y - 20);
 			for (const name of agents) needsSystem.applyEffect(name, { morale: 3 });
 		}
@@ -339,11 +348,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	worldEventScheduler.registerHandler("power-flicker", () => {
 		for (const name of needsSystem.getAgentNames()) {
-			bubbleSystem.showBubble(name, "thought", "?", engine.currentScene, findAgentActor, 1500);
+			bubbleSystem.showBubble(name, "thought", pickTemplate(POWER_FLICKER_REACTION_TEMPLATES), engine.currentScene, findAgentActor, 1500);
 		}
 		setTimeout(() => {
 			const ops = needsSystem.getAgentNames()[0];
-			if (ops) bubbleSystem.showBubble(ops, "speech", "Just a blip. All good.", engine.currentScene, findAgentActor, 3000);
+			if (ops) bubbleSystem.showBubble(ops, "speech", pickTemplate(POWER_FLICKER_RESOLVE_TEMPLATES), engine.currentScene, findAgentActor, 3000);
 		}, 2000);
 	});
 
@@ -353,7 +362,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		if (author) {
 			brainSystem.walkTo(author, whiteboard.getInteractionPoint());
 			setTimeout(() => {
-				bubbleSystem.showBubble(author, "thought", "New PR ready for review", engine.currentScene, findAgentActor, 3000);
+				bubbleSystem.showBubble(author, "thought", pickTemplate(NEW_PR_TEMPLATES), engine.currentScene, findAgentActor, 3000);
 				particlePool.spawnPreset("scribble", whiteboard.pos.x, whiteboard.pos.y);
 			}, 3000);
 		}
@@ -688,7 +697,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		relationshipSystem.recordConversation(nameA, nameB);
 		if (relationshipSystem.shouldBicker(nameA, nameB)) {
 			relationshipSystem.recordBicker(nameA, nameB);
-			const pickBicker = () => BICKER_TEMPLATES[Math.floor(Math.random() * BICKER_TEMPLATES.length)].text;
+			const pickBicker = () => pickTemplate(BICKER_TEMPLATES);
 			setTimeout(() => {
 				bubbleSystem.showBubble(nameA, "speech", pickBicker(), engine.currentScene, findAgentActor, 3000);
 			}, 500);

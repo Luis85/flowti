@@ -359,6 +359,21 @@ vi.mock("../../src/game/data/relationship-templates.js", () => ({
 	getTemplatesForTier: vi.fn(() => []),
 }));
 
+vi.mock("../../src/game/data/micro-event-templates.js", () => ({
+	pickTemplate: vi.fn(() => "test event line"),
+	STANDUP_TEMPLATES: [{ text: "test", weight: 1 }],
+	DEPLOY_SUCCESS_TEMPLATES: [{ text: "test", weight: 1 }],
+	END_OF_DAY_TEMPLATES: [{ text: "test", weight: 1 }],
+	EUREKA_TEMPLATES: [{ text: "test", weight: 1 }],
+	BUILD_BREAK_REACTION_TEMPLATES: [{ text: "test", weight: 1 }],
+	BUILD_BREAK_RESOLVE_TEMPLATES: [{ text: "test", weight: 1 }],
+	BIRTHDAY_TEMPLATES: [{ text: "test", weight: 1 }],
+	POWER_FLICKER_REACTION_TEMPLATES: [{ text: "test", weight: 1 }],
+	POWER_FLICKER_RESOLVE_TEMPLATES: [{ text: "test", weight: 1 }],
+	NEW_PR_TEMPLATES: [{ text: "test", weight: 1 }],
+	TEA_TIME_TEMPLATES: [{ text: "test", weight: 1 }],
+}));
+
 vi.mock("../../src/game/data/opinion-topics.js", () => ({
 	assignOpinions: vi.fn(() => []),
 	checkOpinionClash: vi.fn(() => false),
