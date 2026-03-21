@@ -66,9 +66,9 @@ describe("onboarding:status", () => {
 });
 
 describe("onboarding:start", () => {
-	it("reports interactive mode needed when no progress", () => {
+	it("reports Obsidian / plugin when no progress", () => {
 		commands["onboarding:start"]({}, [], "onboarding:start", undefined);
-		expect(mockLog).toHaveBeenCalledWith(expect.stringContaining("interactively"));
+		expect(mockLog).toHaveBeenCalledWith(expect.stringContaining("Obsidian"));
 	});
 
 	it("reports resume info when progress exists", () => {

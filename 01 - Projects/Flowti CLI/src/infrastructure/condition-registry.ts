@@ -1,8 +1,7 @@
 /**
- * condition-registry.ts — Shared interface for condition lookup.
+ * condition-registry.ts — Shared interface for sitemap condition lookup.
  *
- * Both the legacy HandlerRegistry and TuiHandlerRegistry implement this,
- * so sitemap-conditions can accept either.
+ * Used by sitemap-conditions when evaluating `hidden` / `disabled` entries in sitemap.json.
  */
 
 /** Condition function with `unknown` context so both RouterContext and TuiActionContext work. */

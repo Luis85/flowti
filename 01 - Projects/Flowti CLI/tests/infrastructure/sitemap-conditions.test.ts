@@ -6,11 +6,18 @@ import {
 	resolveDisabledCondition,
 	resolveHiddenCondition,
 } from "../../src/infrastructure/sitemap-conditions.js";
-import { HandlerRegistry } from "../../src/infrastructure/handler-registry.js";
 import type { RouterContext } from "../../src/infrastructure/sitemap-types.js";
 import type { CliDeps } from "../../src/infrastructure/deps.js";
+import type { IConditionRegistry } from "../../src/infrastructure/condition-registry.js";
 
 const stubDeps = {} as CliDeps;
+
+function stubRegistry(conditions: Record<string, () => boolean> = {}): IConditionRegistry {
+	return {
+		hasCondition: (id: string) => id in conditions,
+		getCondition: (id: string) => conditions[id] ?? (() => false),
+	};
+}
 
 function makeCtx(overrides: Partial<RouterContext> = {}): RouterContext {
 	return { deps: stubDeps, ...overrides };
@@ -136,24 +143,23 @@ describe("buildFlatContext", () => {
 
 describe("resolveDisabledCondition", () => {
 	it("returns false for undefined", () => {
-		const reg = new HandlerRegistry();
+		const reg = stubRegistry();
 		expect(resolveDisabledCondition(undefined, makeCtx(), reg)).toBe(false);
 	});
 
 	it("returns the boolean literal", () => {
-		const reg = new HandlerRegistry();
+		const reg = stubRegistry();
 		expect(resolveDisabledCondition(true, makeCtx(), reg)).toBe(true);
 		expect(resolveDisabledCondition(false, makeCtx(), reg)).toBe(false);
 	});
 
 	it("calls a registered condition handler by ID", () => {
-		const reg = new HandlerRegistry();
-		reg.registerCondition("my:check", () => true);
+		const reg = stubRegistry({ "my:check": () => true });
 		expect(resolveDisabledCondition("my:check", makeCtx(), reg)).toBe(true);
 	});
 
 	it("evaluates { unless } expression — disabled when falsy", () => {
-		const reg = new HandlerRegistry();
+		const reg = stubRegistry();
 		const ctx = makeCtx({ tools: { esbuild: true, tsc: false } });
 		// tools.esbuild is true → not disabled
 		expect(resolveDisabledCondition({ unless: "tools.esbuild" }, ctx, reg)).toBe(false);
@@ -162,7 +168,7 @@ describe("resolveDisabledCondition", () => {
 	});
 
 	it("evaluates { unless } with OR", () => {
-		const reg = new HandlerRegistry();
+		const reg = stubRegistry();
 		const ctx = makeCtx({ tools: { esbuild: false, tsc: true } });
 		expect(resolveDisabledCondition({ unless: "tools.esbuild || tools.tsc" }, ctx, reg)).toBe(false);
 	});
@@ -172,18 +178,17 @@ describe("resolveDisabledCondition", () => {
 
 describe("resolveHiddenCondition", () => {
 	it("returns false for undefined", () => {
-		const reg = new HandlerRegistry();
+		const reg = stubRegistry();
 		expect(resolveHiddenCondition(undefined, makeCtx(), reg)).toBe(false);
 	});
 
 	it("returns the boolean literal", () => {
-		const reg = new HandlerRegistry();
+		const reg = stubRegistry();
 		expect(resolveHiddenCondition(true, makeCtx(), reg)).toBe(true);
 	});
 
 	it("calls a registered condition handler by ID", () => {
-		const reg = new HandlerRegistry();
-		reg.registerCondition("hide:me", () => true);
+		const reg = stubRegistry({ "hide:me": () => true });
 		expect(resolveHiddenCondition("hide:me", makeCtx(), reg)).toBe(true);
 	});
 });

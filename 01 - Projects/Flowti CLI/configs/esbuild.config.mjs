@@ -2,10 +2,7 @@
  * esbuild.config.mjs — Bundles the Flowti CLI into .flowti/bin/.
  *
  * Produces a single ESM bundle:
- *   main.mjs — ESM bundle (core CLI + TUI + chat, ink/react external)
- *
- * Ink/React are marked external and resolved at runtime from node_modules.
- * Dynamic imports in main.ts ensure Ink is only loaded for interactive paths.
+ *   main.mjs — ESM bundle (command-only CLI, Node built-ins + declared externals)
  *
  * Usage:
  *   node configs/esbuild.config.mjs           Build once
@@ -25,15 +22,6 @@ const isWatch = process.argv.includes("--watch");
 
 // Ensure output directory exists
 mkdirSync(outDir, { recursive: true });
-
-const INK_EXTERNALS = [
-	"ink",
-	"react",
-	"react/jsx-runtime",
-	"@inkjs/ui",
-	"yoga-wasm-web",
-	"react-devtools-core",
-];
 
 // ── Single ESM bundle ────────────────────────────────────────────────
 const mainOptions = {
@@ -60,7 +48,6 @@ const mainOptions = {
 		"node:*",
 		"eslint",
 		"typedoc",
-		...INK_EXTERNALS,
 	],
 };
 

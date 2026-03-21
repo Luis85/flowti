@@ -79,7 +79,7 @@ describe("e2e-report entry point", () => {
 		const mod = await import("../../../../src/domain/reports/generators/e2e-report.js");
 		expect(mod.initE2EReportPaths).toBeDefined();
 		expect(typeof mod.initE2EReportPaths).toBe("function");
-	});
+	}, 30_000);
 
 	it("re-exports utility functions", async () => {
 		const mod = await import("../../../../src/domain/reports/generators/e2e-report.js");

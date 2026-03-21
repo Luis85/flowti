@@ -19,12 +19,7 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
-	printHeader: vi.fn(),
 	printMenu: vi.fn(),
-}));
-
-vi.mock("../../../src/infrastructure/input.js", () => ({
-	input: { ask: vi.fn() },
 }));
 
 vi.mock("../../../src/infrastructure/clock.js", () => ({
@@ -65,20 +60,11 @@ import { paths } from "../../../src/infrastructure/paths.js";
 import { clock } from "../../../src/infrastructure/clock.js";
 import { commands } from "../../../src/controller/capture.controller.js";
 import { searchCaptures } from "../../../src/domain/capture/capture.js";
-import { captureIdea, captureNote } from "../../../src/ui/menus/capture-menu.js";
-import { input } from "../../../src/infrastructure/input.js";
-import { printHeader } from "../../../src/infrastructure/ui.js";
 import type { IFileSystem } from "../../../src/infrastructure/types.js";
 
 const mockLog = log as ReturnType<typeof vi.fn>;
-const mockInput = input.ask as ReturnType<typeof vi.fn>;
-const mockPrintHeader = printHeader as ReturnType<typeof vi.fn>;
 
 const mockGetCaptureDir = (type: string) => type ? `/mock/vault/inbox/${type}` : "/mock/vault/inbox";
-
-function getMenuDeps() {
-	return { disk: filesystemMod.disk, paths, clock, input, log } as any;
-}
 
 function capDeps(fs: IFileSystem) {
 	return { disk: fs, paths, clock } as const;
@@ -262,193 +248,6 @@ describe("commands['capture:idea'] — filename sanitization", () => {
 		const created = files.find(f => f.includes(".md"));
 		const basename = created!.split("/").pop()!.replace(".md", "");
 		expect(basename.length).toBeLessThanOrEqual(80);
-	});
-});
-
-describe("captureIdea()", () => {
-	it("prints header and returns 'main'", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("My idea")  // idea text
-			.mockResolvedValueOnce("b");             // back
-
-		const result = await captureIdea(getMenuDeps());
-
-		expect(mockPrintHeader).toHaveBeenCalledWith("Capture Idea");
-		expect(result).toBe("main");
-	});
-
-	it("creates file when idea is entered", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("Test idea text")
-			.mockResolvedValueOnce("b");
-
-		await captureIdea(getMenuDeps());
-
-		const files = [...fs.files.keys()];
-		expect(files.some(f => f.includes("Test idea text"))).toBe(true);
-	});
-
-	it("skips when empty idea is entered", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("")   // empty idea
-			.mockResolvedValueOnce("b");
-
-		await captureIdea(getMenuDeps());
-
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("No idea entered");
-	});
-
-	it("loops when user chooses 'a' for another", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("First idea")
-			.mockResolvedValueOnce("a")              // another
-			.mockResolvedValueOnce("Second idea")
-			.mockResolvedValueOnce("b");             // back
-
-		await captureIdea(getMenuDeps());
-
-		const files = [...fs.files.keys()];
-		expect(files.some(f => f.includes("First idea"))).toBe(true);
-		expect(files.some(f => f.includes("Second idea"))).toBe(true);
-	});
-
-	it("truncates long idea titles to 60 chars for filename", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		const longIdea = "B".repeat(80);
-		mockInput.mockResolvedValueOnce(longIdea)
-			.mockResolvedValueOnce("b");
-
-		await captureIdea(getMenuDeps());
-
-		const files = [...fs.files.keys()];
-		const created = files.find(f => f.includes(".md"));
-		expect(created).toBeDefined();
-		// Title is truncated to 60 chars
-		const basename = created!.split("/").pop()!.replace(".md", "");
-		expect(basename.length).toBeLessThanOrEqual(60);
-	});
-});
-
-describe("captureNote()", () => {
-	it("returns 'main'", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("1")           // type: Task
-			.mockResolvedValueOnce("My task title")    // title
-			.mockResolvedValueOnce("b");               // back
-
-		const result = await captureNote(getMenuDeps());
-
-		expect(result).toBe("main");
-	});
-
-	it("creates note file with chosen type", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("2")           // type: Bug
-			.mockResolvedValueOnce("Login crash")      // title
-			.mockResolvedValueOnce("b");
-
-		await captureNote(getMenuDeps());
-
-		const files = [...fs.files.keys()];
-		expect(files.some(f => f.includes("Login crash"))).toBe(true);
-	});
-
-	it("skips on invalid type index (too high)", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("99");         // invalid type
-
-		await captureNote(getMenuDeps());
-
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Invalid type");
-	});
-
-	it("skips on invalid type index (0)", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("0");          // invalid type
-
-		await captureNote(getMenuDeps());
-
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Invalid type");
-	});
-
-	it("skips on negative type index", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("-1");
-
-		await captureNote(getMenuDeps());
-
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Invalid type");
-	});
-
-	it("skips on non-numeric type input", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("abc");
-
-		await captureNote(getMenuDeps());
-
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Invalid type");
-	});
-
-	it("shows skip message when empty title is entered", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("1")           // type: Task
-			.mockResolvedValueOnce("")                  // empty title
-			.mockResolvedValueOnce("b");
-
-		await captureNote(getMenuDeps());
-
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("No title entered");
-	});
-
-	it("loops when user chooses 'a' for another", async () => {
-		const fs = createMockFs();
-		setDisk(fs);
-		mockInput.mockResolvedValueOnce("1")           // type: Task
-			.mockResolvedValueOnce("First task")       // title
-			.mockResolvedValueOnce("a")                // another
-			.mockResolvedValueOnce("2")                // type: Bug
-			.mockResolvedValueOnce("Second bug")       // title
-			.mockResolvedValueOnce("b");               // back
-
-		await captureNote(getMenuDeps());
-
-		const files = [...fs.files.keys()];
-		expect(files.some(f => f.includes("First task"))).toBe(true);
-		expect(files.some(f => f.includes("Second bug"))).toBe(true);
-	});
-
-	it("selects all 5 note types correctly", async () => {
-		const types = ["Task", "Bug", "Note", "Documentation", "Idea"];
-		for (let i = 0; i < types.length; i++) {
-			const fs = createMockFs();
-			setDisk(fs);
-			mockInput.mockResolvedValueOnce(String(i + 1))
-				.mockResolvedValueOnce(`Test-${types[i]}`)
-				.mockResolvedValueOnce("b");
-
-			await captureNote(getMenuDeps());
-
-			const files = [...fs.files.keys()];
-			expect(files.some(f => f.includes(`Test-${types[i]}`))).toBe(true);
-		}
 	});
 });
 

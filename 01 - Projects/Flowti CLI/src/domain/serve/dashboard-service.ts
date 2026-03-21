@@ -9,7 +9,7 @@
 import type { ServerResponse } from "node:http";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsDashboardConfig, AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
-import { startServer, openInBrowser } from "./static-server.js";
+import { startServer } from "./static-server.js";
 import type { ServerHandle, ServerContext } from "./static-server.js";
 import { exportAgentDashboardData, writeDashboardData } from "../agents/agent-export.js";
 import type { ProjectEntry } from "../agents/agent-export.js";

@@ -478,7 +478,8 @@ describe("AgentShell", () => {
 	describe("prune", () => {
 		it("removes old retained workspaces", async () => {
 			const registry = createMockRegistry();
-			const oldDate = new Date(Date.now() - 999999999).toISOString();
+			// Mock clock is fixed at 2026-03-15 — must be > retentionMaxAge (7d) older
+			const oldDate = "2026-03-01T00:00:00.000Z";
 			registry.register({
 				id: "ws-old", state: "retained", agentSlug: "bob",
 				branch: "b", baseBranch: "m", method: "worktree",
@@ -511,7 +512,7 @@ describe("AgentShell", () => {
 
 		it("supports dryRun mode", async () => {
 			const registry = createMockRegistry();
-			const oldDate = new Date(Date.now() - 999999999).toISOString();
+			const oldDate = "2026-03-01T00:00:00.000Z";
 			registry.register({
 				id: "ws-old", state: "retained", agentSlug: "bob",
 				branch: "b", baseBranch: "m", method: "worktree",
@@ -530,7 +531,7 @@ describe("AgentShell", () => {
 
 		it("filters by state when specified", async () => {
 			const registry = createMockRegistry();
-			const oldDate = new Date(Date.now() - 999999999).toISOString();
+			const oldDate = "2026-03-01T00:00:00.000Z";
 			registry.register({
 				id: "ws-ret", state: "retained", agentSlug: "bob",
 				branch: "b", baseBranch: "m", method: "worktree",
@@ -550,7 +551,7 @@ describe("AgentShell", () => {
 
 		it("captures errors and continues", async () => {
 			const registry = createMockRegistry();
-			const oldDate = new Date(Date.now() - 999999999).toISOString();
+			const oldDate = "2026-03-01T00:00:00.000Z";
 			registry.register({
 				id: "ws-fail", state: "retained", agentSlug: "bob",
 				branch: "b", baseBranch: "m", method: "worktree",

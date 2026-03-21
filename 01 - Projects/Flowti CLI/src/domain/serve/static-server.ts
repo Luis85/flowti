@@ -189,7 +189,7 @@ export async function handleApiRoute(
 				contextPrefix = `[User is currently viewing: ${ctx.path}]\n${ctx.contentSnippet ? `[File content]:\n${ctx.contentSnippet}\n\n` : ""}`;
 			}
 		}
-		let fullMessage = contextPrefix + message;
+		const fullMessage = contextPrefix + message;
 
 		// Ensure worker exists (mirrors /api/agent/wake pattern)
 		let worker = ctx.workerManager.getWorker(name);

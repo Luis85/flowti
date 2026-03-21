@@ -148,16 +148,15 @@ describe("installStorybook", () => {
 		expect(writeCalls.some((p) => String(p).includes("package.json"))).toBe(true);
 	});
 
-	it("runs storybook init with docs and single npm install", () => {
+	it("runs storybook init with docs and npm installs", () => {
 		mockShell.run.mockReturnValue(0);
 
 		installStorybook("/project", "my-project", {}, sbDeps());
 
 		expect(mockShell.run).toHaveBeenCalledWith(
-			expect.stringContaining("npx storybook@latest init --yes --features docs"),
+			expect.stringContaining("npx storybook@latest init --yes --disable-telemetry --features docs"),
 			expect.objectContaining({ cwd: "/project/components" }),
 		);
-		// Final npm install after patching
 		expect(mockShell.run).toHaveBeenCalledWith(
 			"npm install",
 			expect.objectContaining({ cwd: "/project/components" }),

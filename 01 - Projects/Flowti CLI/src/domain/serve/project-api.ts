@@ -9,10 +9,7 @@
 import type { IFileSystem, IPaths, ComponentFramework } from "../../infrastructure/types.js";
 import { listProjects } from "../project/project.js";
 import { readProjectConfig } from "../project/project-config.js";
-import {
-	resolveStorybookDir,
-	isStorybookInstalled,
-} from "../make/component/storybook-service.js";
+import { isStorybookInstalled } from "../make/component/storybook-service.js";
 import { isStorybookRunning } from "../make/component/storybook-browser.js";
 
 // ── Types ────────────────────────────────────────────────────────────

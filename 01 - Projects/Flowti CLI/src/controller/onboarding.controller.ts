@@ -23,9 +23,9 @@ function renderOnboardingStatus(data: OnboardingStatus, log: LogFn): void {
 function renderOnboardingStart(data: StartModel, log: LogFn): void {
 	if ("tourId" in data) {
 		log(`  Resuming tour: ${data.tourId} (step ${data.currentStepIndex})`);
-		log("  Run Flowti interactively to continue the tour.");
+		log("  Open this vault in Obsidian with the Flowti plugin to continue the tour.");
 	} else {
-		log("  Run Flowti interactively to start the onboarding tour.");
+		log("  Open this vault in Obsidian with the Flowti plugin to start the onboarding tour.");
 	}
 }
 
@@ -34,7 +34,7 @@ function renderOnboardingSkip(_data: SkipModel, log: LogFn): void {
 }
 
 function renderOnboardingReset(_data: ResetModel, log: LogFn): void {
-	log("  Onboarding reset. Run 'flowti' to start the tour.");
+	log("  Onboarding reset. Use the Flowti plugin in Obsidian to start the tour.");
 }
 
 export const commands: Record<string, CommandHandler> = {
