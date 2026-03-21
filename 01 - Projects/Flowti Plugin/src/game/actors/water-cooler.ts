@@ -15,7 +15,7 @@ export class WaterCooler extends InteractableActor {
 			width: 24,
 			height: 40,
 			interactionOffset: { x: 0, y: 24 },
-			needsEffects: { social: 10 },
+			needsEffects: { social: 10, thirst: 15 },
 		});
 
 		const canvas = new ex.Canvas({

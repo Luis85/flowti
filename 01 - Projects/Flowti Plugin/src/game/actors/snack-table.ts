@@ -15,7 +15,7 @@ export class SnackTable extends InteractableActor {
 			width: 48,
 			height: 40,
 			interactionOffset: { x: 0, y: 24 },
-			needsEffects: { energy: 10, social: 8, morale: 3 },
+			needsEffects: { energy: 10, social: 8, morale: 3, hunger: 25 },
 		});
 
 		const canvas = new ex.Canvas({
