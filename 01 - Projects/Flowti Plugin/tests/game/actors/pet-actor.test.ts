@@ -97,4 +97,35 @@ describe("PetActor", () => {
 		pet.setThirst(200);
 		expect(pet.getThirst()).toBe(100);
 	});
+
+	it("getAffection returns default 50", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		expect(pet.getAffection()).toBe(50);
+	});
+
+	it("addAffection increases affection", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.addAffection(20);
+		expect(pet.getAffection()).toBe(70);
+	});
+
+	it("addAffection clamps to 100 maximum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.addAffection(60);
+		expect(pet.getAffection()).toBe(100);
+	});
+
+	it("addAffection clamps to 0 minimum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.addAffection(-60);
+		expect(pet.getAffection()).toBe(0);
+	});
+
+	it("utilityScore starts at 0 and increments", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		expect(pet.getUtilityScore()).toBe(0);
+		pet.incrementUtilityScore();
+		pet.incrementUtilityScore();
+		expect(pet.getUtilityScore()).toBe(2);
+	});
 });

@@ -31,6 +31,8 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	private reachedExit = false;
 	private hunger = 70;
 	private thirst = 70;
+	private affection = 50;
+	private utilityScore = 0;
 
 	constructor(def: PetDefinition, x: number, y: number, entityId: string) {
 		super({
@@ -258,12 +260,20 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	setHunger(v: number): void { this.hunger = Math.max(0, Math.min(100, v)); }
 	setThirst(v: number): void { this.thirst = Math.max(0, Math.min(100, v)); }
 
+	getAffection(): number { return this.affection; }
+	setAffection(v: number): void { this.affection = Math.max(0, Math.min(100, v)); }
+	addAffection(amount: number): void { this.setAffection(this.affection + amount); }
+
+	getUtilityScore(): number { return this.utilityScore; }
+	incrementUtilityScore(): void { this.utilityScore++; }
+
 	/** Called by the engine each frame with deltaMs. */
 	updateBehavior(deltaMs: number): void {
 		if (this.def.speed === 0) return; // stationary (fish)
 
 		this.hunger = Math.max(0, this.hunger - 0.3 * (deltaMs / 1000));
 		this.thirst = Math.max(0, this.thirst - 0.4 * (deltaMs / 1000));
+		this.affection = Math.max(0, this.affection - 0.05 * (deltaMs / 1000));
 
 		this.stateTimer -= deltaMs;
 
