@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review iteration scope", "priority": 10 },
+		{ "name": "plan backlog priorities", "priority": 8 },
+		{ "name": "summarize stakeholder feedback", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

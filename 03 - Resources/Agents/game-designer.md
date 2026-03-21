@@ -19,6 +19,8 @@ personality:
   - Studies what makes people watch, not just what makes them click
   - Believes emergent behavior is more compelling than scripted content
   - References Animal Crossing, Dwarf Fortress, and Stardew Valley daily
+behaviors:
+  - behavior-tree
 skills:
   - Game Feel|expert
   - Player Psychology|expert

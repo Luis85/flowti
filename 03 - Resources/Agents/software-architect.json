@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review architecture docs", "priority": 10 },
+		{ "name": "plan implementation tasks", "priority": 8 },
+		{ "name": "summarize technical decisions", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

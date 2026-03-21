@@ -94,6 +94,17 @@ export function parseSuggestedTask(raw: string): {
 	return { name, phases, ...(input && { input }), ...(tool && { tool }) };
 }
 
+function parseSkills(raw: unknown): readonly { name: string; level: string }[] | undefined {
+	if (!Array.isArray(raw)) return undefined;
+	const skills = (raw as unknown[])
+		.filter((x): x is string => typeof x === "string")
+		.map((s) => {
+			const [name, level] = s.split("|").map((p) => p.trim());
+			return { name, level: level || "unknown" };
+		});
+	return skills.length > 0 ? skills : undefined;
+}
+
 function parseDashboardStatus(raw: unknown): DashboardAgent["status"] {
 	const s = typeof raw === "string" ? raw.toLowerCase() : "";
 	if (s === "busy" || s === "working") return "busy";
@@ -137,6 +148,14 @@ export function dashboardAgentFromFrontmatter(fm: Record<string, unknown>): Dash
 
 	const attributes = normalizeAttributes(fm.attributes);
 
+	let behaviors: readonly string[] | undefined;
+	if (Array.isArray(fm.behaviors)) {
+		const b = (fm.behaviors as unknown[]).filter((x): x is string => typeof x === "string");
+		if (b.length > 0) behaviors = b;
+	}
+
+	const skills = parseSkills(fm.skills);
+
 	return {
 		name,
 		agentType,
@@ -147,6 +166,9 @@ export function dashboardAgentFromFrontmatter(fm: Record<string, unknown>): Dash
 		...(personality && { personality }),
 		...(attributes && { attributes }),
 		...(suggestedTasks && suggestedTasks.length > 0 && { suggestedTasks }),
+		...(behaviors && { behaviors }),
+		...(skills && { skills }),
+		...(typeof fm.experience === "number" && { experience: fm.experience }),
 	};
 }
 
@@ -206,8 +228,27 @@ export function dashboardAgentsFromAgentsMarkdownDir(
 		try {
 			const content = readFileSync(filePath, "utf-8");
 			const fm = parseFrontmatter(content);
-			const row = dashboardAgentFromFrontmatter(fm);
-			if (row) byName.set(row.name, row);
+			let row = dashboardAgentFromFrontmatter(fm);
+			if (!row) continue;
+
+			// Load companion JSON (same basename, .json extension)
+			const jsonPath = filePath.replace(/\.md$/, ".json");
+			if (existsSync(jsonPath)) {
+				try {
+					const jsonRaw = readFileSync(jsonPath, "utf-8");
+					const companion = JSON.parse(jsonRaw) as Record<string, unknown>;
+					if (Array.isArray(companion.goals)) {
+						const goals = (companion.goals as Array<{ name?: string; priority?: number }>)
+							.filter((g) => typeof g.name === "string")
+							.map((g) => ({ text: g.name!, priority: String(g.priority ?? 0) }));
+						if (goals.length > 0) {
+							row = { ...row, goals };
+						}
+					}
+				} catch { /* skip unreadable JSON */ }
+			}
+
+			byName.set(row.name, row);
 		} catch {
 			/* skip unreadable */
 		}

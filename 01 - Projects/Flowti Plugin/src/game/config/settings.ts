@@ -14,6 +14,6 @@ export const SCENE_THEMES: Record<Setting, SceneTheme> = {
 	station: { background: "#0a0f1a", workstationColor: "#0e3d4a", floorColor: "#080d14", label: "Station" },
 };
 
-export const WORKSTATION_COLS = 4;
-export const WORKSTATION_SPACING = { x: 140, y: 120 };
-export const WORKSTATION_START = { x: 100, y: 100 };
+export const WORKSTATION_COLS = 3;
+export const WORKSTATION_SPACING = { x: 160, y: 140 };
+export const WORKSTATION_START = { x: 180, y: 160 };

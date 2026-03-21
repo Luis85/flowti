@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "implement feature code", "priority": 10 },
+		{ "name": "review pull requests", "priority": 7 },
+		{ "name": "monitor test results", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

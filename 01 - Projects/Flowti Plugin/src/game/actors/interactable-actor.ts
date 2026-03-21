@@ -8,6 +8,8 @@
 import * as ex from "excalibur";
 
 export interface InteractableConfig {
+	readonly objectId: string;
+	readonly objectType: string;
 	readonly width: number;
 	readonly height: number;
 	readonly interactionOffset: { x: number; y: number };
@@ -15,6 +17,8 @@ export interface InteractableConfig {
 }
 
 export class InteractableActor extends ex.Actor {
+	readonly objectId: string;
+	readonly objectType: string;
 	private readonly interactionOffset: { x: number; y: number };
 	private readonly effects: Partial<{ energy: number; social: number; focus: number; morale: number }>;
 	private occupant: string | null = null;
@@ -26,6 +30,8 @@ export class InteractableActor extends ex.Actor {
 			anchor: ex.vec(0.5, 0.5),
 			collisionType: ex.CollisionType.PreventCollision,
 		});
+		this.objectId = config.objectId;
+		this.objectType = config.objectType;
 		this.interactionOffset = config.interactionOffset;
 		this.effects = config.needsEffects;
 	}

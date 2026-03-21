@@ -30,6 +30,34 @@ function mapEntityToDashboardAgent(entity: WorldEntity): DashboardAgent | null {
 	const persona = typeof identity["persona"] === "string" ? identity["persona"] : undefined;
 	const mood = typeof identity["mood"] === "string" ? identity["mood"] : undefined;
 
+	// Behaviors
+	let behaviors: readonly string[] | undefined;
+	if (Array.isArray(c["behaviors"])) {
+		const b = (c["behaviors"] as unknown[]).filter((x): x is string => typeof x === "string");
+		if (b.length > 0) behaviors = b;
+	}
+
+	// Goals — world-state uses { name, priority } → DashboardAgent uses { text, priority: string }
+	let goals: readonly { text: string; priority: string }[] | undefined;
+	if (Array.isArray(c["goals"])) {
+		const g = (c["goals"] as Array<{ name?: string; priority?: number }>)
+			.filter((x) => typeof x.name === "string")
+			.map((x) => ({ text: x.name!, priority: String(x.priority ?? 0) }));
+		if (g.length > 0) goals = g;
+	}
+
+	// Skills
+	let skills: readonly { name: string; level: string }[] | undefined;
+	if (Array.isArray(c["skills"])) {
+		const s = (c["skills"] as Array<{ name?: string; level?: string }>)
+			.filter((x) => typeof x.name === "string" && typeof x.level === "string")
+			.map((x) => ({ name: x.name!, level: x.level! }));
+		if (s.length > 0) skills = s;
+	}
+
+	// Experience
+	const experience = typeof c["experience"] === "number" ? c["experience"] : undefined;
+
 	return {
 		name: entity.id,
 		agentType,
@@ -37,6 +65,10 @@ function mapEntityToDashboardAgent(entity: WorldEntity): DashboardAgent | null {
 		status,
 		persona,
 		mood,
+		...(behaviors && { behaviors }),
+		...(goals && { goals }),
+		...(skills && { skills }),
+		...(experience !== undefined && { experience }),
 	};
 }
 

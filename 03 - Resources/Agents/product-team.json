@@ -11,8 +11,9 @@
 		{ "target": "Project Manager", "type": "delegates-to", "description": "Resource coordination and timeline management" }
 	],
 	"goals": [
-		{ "name": "execute-prompt", "priority": 1, "condition": "User prompt fully addressed by delegated agent outputs" },
-		{ "name": "optimal-delegation", "priority": 2, "condition": "Each task assigned to the agent with the best-fit skills" }
+		{ "name": "review iteration progress", "priority": 10 },
+		{ "name": "plan team coordination", "priority": 8 },
+		{ "name": "monitor delivery pipeline", "priority": 5 }
 	],
 	"ai": {
 		"provider": "anthropic"

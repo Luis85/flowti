@@ -18,7 +18,14 @@ export type AgentActionType =
 	| "task-started"
 	| "task-completed"
 	| "idle"
-	| "error";
+	| "error"
+	| "artifact-dropped"
+	| "file-read"
+	| "file-written"
+	| "file-opened"
+	| "goal-started"
+	| "goal-completed"
+	| "template-generated";
 
 export interface AgentAction {
 	readonly id: string;
@@ -28,7 +35,7 @@ export interface AgentAction {
 	readonly data: Record<string, unknown>;
 }
 
-export type WorldEntityType = "agent" | "project" | "iteration";
+export type WorldEntityType = "agent" | "project" | "iteration" | "artifact";
 
 export interface WorldEntity {
 	readonly id: string;

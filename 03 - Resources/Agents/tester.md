@@ -18,6 +18,8 @@ personality:
   - Finds the edge case nobody thought of
   - Quietly delighted when they find a bug
   - Tireless and thorough
+behaviors:
+  - behavior-tree
 skills:
   - Test Strategy|expert
   - Test Automation|expert

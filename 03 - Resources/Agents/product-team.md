@@ -32,6 +32,7 @@ roles:
   - Team Coordinator
   - Integration Lead
 behaviors:
+  - behavior-tree
   - decompose-prompt
   - delegate-to-roster
   - aggregate-results

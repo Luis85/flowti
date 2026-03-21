@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "plan marketing campaigns", "priority": 10 },
+		{ "name": "review market analysis", "priority": 8 },
+		{ "name": "report campaign metrics", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

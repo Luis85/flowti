@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review requirements docs", "priority": 10 },
+		{ "name": "plan requirements breakdown", "priority": 8 },
+		{ "name": "summarize acceptance criteria", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

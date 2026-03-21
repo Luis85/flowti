@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "monitor delivery progress", "priority": 10 },
+		{ "name": "report project status", "priority": 8 },
+		{ "name": "review risk register", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}

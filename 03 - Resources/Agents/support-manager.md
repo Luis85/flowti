@@ -18,6 +18,8 @@ personality:
   - Turns complaints into insights
   - Sees patterns in tickets that others miss
   - Advocates fiercely for users while respecting engineering constraints
+behaviors:
+  - behavior-tree
 skills:
   - Issue Triage|expert
   - Customer Communication|expert

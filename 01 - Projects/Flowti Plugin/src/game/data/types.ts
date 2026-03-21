@@ -4,7 +4,9 @@ export type AgentActionType =
 	| "thinking" | "speaking" | "asking" | "using-tool" | "tool-complete"
 	| "requesting-permission" | "permission-granted" | "permission-denied"
 	| "task-started" | "task-completed" | "idle" | "error"
-	| "queued";
+	| "queued"
+	| "artifact-dropped" | "file-read" | "file-written" | "file-opened"
+	| "goal-started" | "goal-completed" | "template-generated";
 
 export interface AgentAction {
 	readonly id: string;
@@ -16,7 +18,7 @@ export interface AgentAction {
 
 export interface WorldEntity {
 	readonly id: string;
-	readonly type: "agent" | "project" | "iteration";
+	readonly type: "agent" | "project" | "iteration" | "artifact";
 	readonly components: Record<string, unknown>;
 }
 
@@ -49,6 +51,12 @@ export interface AgentAttributes {
 	readonly cha?: number;
 	readonly dex?: number;
 	readonly con?: number;
+}
+
+export interface AgentGoal {
+	readonly name: string;
+	readonly priority?: number;
+	readonly condition?: string;
 }
 
 export interface DashboardAgent {

@@ -381,6 +381,33 @@ vi.mock("../../src/game/data/opinion-topics.js", () => ({
 	OPINION_TOPICS: [],
 }));
 
+vi.mock("../../src/game/actors/pet-actor.js", () => {
+	function MockPetActor() {
+		const self = this as Record<string, unknown>;
+		self.pos = { x: 0, y: 0 };
+		self.petType = "cat";
+		self.getState = vi.fn(() => "idle");
+		self.getFollowTarget = vi.fn(() => null);
+		self.setFollowTarget = vi.fn();
+		self.updateBehavior = vi.fn();
+		self.moveToward = vi.fn();
+		self.getInteractRadius = vi.fn(() => 50);
+		self.getNeedsEffects = vi.fn(() => ({}));
+		self.isSleeping = vi.fn(() => false);
+	}
+	return { PetActor: MockPetActor };
+});
+
+vi.mock("../../src/game/data/pet-definitions.js", () => ({
+	PET_DEFINITIONS: [
+		{ type: "cat", phrases: ["meow"], behaviors: { interactRadius: 50, needsEffect: {} } },
+		{ type: "dog", phrases: ["woof"], behaviors: { interactRadius: 60, needsEffect: {} } },
+		{ type: "bird", phrases: ["chirp"], behaviors: { interactRadius: 40, needsEffect: {} } },
+		{ type: "fish", phrases: ["blub"], behaviors: { interactRadius: 60, needsEffect: {} } },
+	],
+	getPetDefinition: vi.fn(),
+}));
+
 vi.mock("../../src/game/actors/coffee-machine.js", () => {
 	function MockCoffeeMachine() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { CoffeeMachine: MockCoffeeMachine };

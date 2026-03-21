@@ -18,6 +18,8 @@ personality:
   - Fiercely protective of team focus
   - Observant — spots dysfunction early
   - Asks questions more than gives answers
+behaviors:
+  - behavior-tree
 skills:
   - Facilitation|expert
   - Agile Methodology|expert

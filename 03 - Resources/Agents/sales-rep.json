@@ -1,4 +1,9 @@
 {
+	"goals": [
+		{ "name": "review sales pipeline", "priority": 10 },
+		{ "name": "plan outreach strategy", "priority": 8 },
+		{ "name": "report revenue forecast", "priority": 5 }
+	],
 	"ai": {
 		"provider": "anthropic"
 	}
