@@ -45,6 +45,12 @@ export interface NeedsConfig {
 		readonly focus: FocusDecay;
 		readonly morale: MoraleDecay;
 	};
+	readonly hungerThreshold: number;
+	readonly thirstThreshold: number;
+	readonly hungerEnergyMult: number;
+	readonly thirstEnergyMult: number;
+	readonly hungerInitial: number;
+	readonly thirstInitial: number;
 }
 
 /** Spatial awareness thresholds for the DirectorSystem. */
@@ -175,6 +181,12 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 			focus: { perInterruption: 4 },
 			morale: { perError: 1 },
 		},
+		hungerThreshold: 40,
+		thirstThreshold: 30,
+		hungerEnergyMult: 1.5,
+		thirstEnergyMult: 1.5,
+		hungerInitial: 80,
+		thirstInitial: 80,
 	},
 	director: {
 		awareness: {
@@ -232,6 +244,12 @@ function mergeNeeds(overrides: DeepPartial<NeedsConfig> | undefined): NeedsConfi
 			focus:  { ...DEFAULT_WORLD_CONFIG.needs.decay.focus,  ...overrides?.decay?.focus  },
 			morale: { ...DEFAULT_WORLD_CONFIG.needs.decay.morale, ...overrides?.decay?.morale },
 		},
+		hungerThreshold: overrides?.hungerThreshold ?? DEFAULT_WORLD_CONFIG.needs.hungerThreshold,
+		thirstThreshold: overrides?.thirstThreshold ?? DEFAULT_WORLD_CONFIG.needs.thirstThreshold,
+		hungerEnergyMult: overrides?.hungerEnergyMult ?? DEFAULT_WORLD_CONFIG.needs.hungerEnergyMult,
+		thirstEnergyMult: overrides?.thirstEnergyMult ?? DEFAULT_WORLD_CONFIG.needs.thirstEnergyMult,
+		hungerInitial: overrides?.hungerInitial ?? DEFAULT_WORLD_CONFIG.needs.hungerInitial,
+		thirstInitial: overrides?.thirstInitial ?? DEFAULT_WORLD_CONFIG.needs.thirstInitial,
 	};
 }
 

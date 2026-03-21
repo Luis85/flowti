@@ -13,11 +13,11 @@ function makePresence(idleMs: number): DirectorPresence {
 }
 
 function makeNeeds(_name: string): AgentNeeds {
-	return { energy: 80, social: 60, focus: 70, morale: 75 };
+	return { energy: 80, social: 60, focus: 70, morale: 75, hunger: 80, thirst: 80 };
 }
 
 function makeNeedsFrom(overrides: Partial<AgentNeeds>): AgentNeeds {
-	return { energy: 80, social: 60, focus: 70, morale: 75, ...overrides };
+	return { energy: 80, social: 60, focus: 70, morale: 75, hunger: 80, thirst: 80, ...overrides };
 }
 
 function alwaysIdle(_name: string): BrainState {

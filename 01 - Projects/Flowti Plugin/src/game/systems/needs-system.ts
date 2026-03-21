@@ -125,10 +125,10 @@ export class NeedsSystem {
 		deltaMs: number,
 		getState: (name: string) => string,
 		getNearby: (name: string) => string[],
-		phaseMultipliers?: { energy: number; social: number; focus: number; morale: number },
+		phaseMultipliers?: { energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number },
 	): void {
 		const dt = deltaMs / 1000;
-		const pm = phaseMultipliers ?? { energy: 1, social: 1, focus: 1, morale: 1 };
+		const pm = phaseMultipliers ?? { energy: 1, social: 1, focus: 1, morale: 1, hunger: 1, thirst: 1 };
 		for (const [name, entry] of this.agents) {
 			const state = getState(name);
 			const rates = DECAY[state] ?? DEFAULT_RATES;
@@ -138,12 +138,19 @@ export class NeedsSystem {
 			const nearbyCount = getNearby(name).length;
 			const socialBonus = nearbyCount > 0 ? 0.3 * nearbyCount : 0;
 
-			entry.energy = clamp(entry.energy + applyMod(rates.energy, mods.energy) * pm.energy * dt);
+			// Hunger/thirst decay (phase-multiplied)
+			entry.hunger = clamp(entry.hunger + (rates.hunger ?? 0) * (pm.hunger ?? 1) * dt);
+			entry.thirst = clamp(entry.thirst + (rates.thirst ?? 0) * (pm.thirst ?? 1) * dt);
+
+			// Energy drain multiplier (stacking)
+			let energyMult = 1;
+			if (entry.hunger < 40) energyMult *= 1.5;
+			if (entry.thirst < 30) energyMult *= 1.5;
+
+			entry.energy = clamp(entry.energy + applyMod(rates.energy, mods.energy) * pm.energy * energyMult * dt);
 			entry.social = clamp(entry.social + (applyMod(rates.social, mods.social) + socialBonus) * pm.social * dt);
 			entry.focus = clamp(entry.focus + applyMod(rates.focus, mods.focus) * pm.focus * dt);
 			entry.morale = clamp(entry.morale + applyMod(rates.morale, mods.morale) * pm.morale * dt);
-			entry.hunger = clamp(entry.hunger + (rates.hunger ?? 0) * dt);
-			entry.thirst = clamp(entry.thirst + (rates.thirst ?? 0) * dt);
 		}
 	}
 

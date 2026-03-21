@@ -340,13 +340,13 @@ describe("tickNeeds", () => {
 
 describe("tickReactiveTriggers", () => {
 	it("fires energy-critical trigger when energy is low", () => {
-		vi.mocked(ctx.needs.getNeeds).mockReturnValue({ energy: 10, social: 50, focus: 50, morale: 50 });
+		vi.mocked(ctx.needs.getNeeds).mockReturnValue({ energy: 10, social: 50, focus: 50, morale: 50, hunger: 80, thirst: 80 });
 		tickReactiveTriggers(ctx);
 		expect(ctx.talk.triggerReactive).toHaveBeenCalledWith("alice", "energy-critical");
 	});
 
 	it("does not fire same trigger twice", () => {
-		vi.mocked(ctx.needs.getNeeds).mockReturnValue({ energy: 10, social: 50, focus: 50, morale: 50 });
+		vi.mocked(ctx.needs.getNeeds).mockReturnValue({ energy: 10, social: 50, focus: 50, morale: 50, hunger: 80, thirst: 80 });
 		tickReactiveTriggers(ctx);
 		tickReactiveTriggers(ctx);
 		// Should be called once per agent, not twice
@@ -430,7 +430,7 @@ describe("tickBehaviorTree", () => {
 			},
 		};
 		vi.mocked(ctx.bt.getAgent).mockReturnValue(mockBtAgent as unknown as BTAgentObject);
-		vi.mocked(ctx.needs.getNeeds).mockReturnValue({ energy: 75, social: 60, focus: 80, morale: 90 });
+		vi.mocked(ctx.needs.getNeeds).mockReturnValue({ energy: 75, social: 60, focus: 80, morale: 90, hunger: 80, thirst: 80 });
 
 		tickBehaviorTree(ctx);
 

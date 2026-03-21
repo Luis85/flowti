@@ -13,8 +13,8 @@ function makeSocialAgent(overrides: Partial<SocialAgent> = {}): SocialAgent {
 	};
 }
 
-function makeNeeds(overrides: Partial<{ energy: number; social: number; focus: number; morale: number }> = {}) {
-	return { energy: 80, social: 60, focus: 80, morale: 70, ...overrides };
+function makeNeeds(overrides: Partial<{ energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number }> = {}) {
+	return { energy: 80, social: 60, focus: 80, morale: 70, hunger: 80, thirst: 80, ...overrides };
 }
 
 describe("SocialSystem", () => {
