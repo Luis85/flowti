@@ -4,7 +4,7 @@ type TaskStoreDeps = {
 	readonly disk: {
 		existsSync(p: string): boolean;
 		readFileSync(p: string, enc?: string): string;
-		writeFileSync(p: string, c: string): void;
+		writeFileSync(p: string, c: string, enc?: string): void;
 		mkdirSync(p: string, opts?: { recursive?: boolean }): void;
 		readdirSync(p: string): string[];
 		unlinkSync(p: string): void;
