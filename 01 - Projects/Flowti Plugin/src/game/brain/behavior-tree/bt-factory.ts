@@ -21,6 +21,8 @@ import { REPORT_SUBTREE } from "./subtrees/goal-report.js";
 import { SOCIAL_SUBTREE } from "./subtrees/social.js";
 import { IDLE_SUBTREE } from "./subtrees/idle.js";
 import { NEEDS_ENERGY_SUBTREE } from "./subtrees/needs-energy.js";
+import { NEEDS_HUNGER_SUBTREE } from "./subtrees/needs-hunger.js";
+import { NEEDS_THIRST_SUBTREE } from "./subtrees/needs-thirst.js";
 import { NEEDS_SOCIAL_SUBTREE } from "./subtrees/needs-social.js";
 import { NEEDS_FOCUS_SUBTREE } from "./subtrees/needs-focus.js";
 import { NEEDS_MORALE_SUBTREE } from "./subtrees/needs-morale.js";
@@ -42,6 +44,8 @@ function buildMasterMDSL(): string {
 	selector {
 		branch [UrgentReaction]
 		branch [NeedsEnergy]
+		branch [NeedsHunger]
+		branch [NeedsThirst]
 		branch [NeedsSocial]
 		branch [NeedsFocus]
 		branch [NeedsMorale]
@@ -71,6 +75,8 @@ function collectSubtrees(): string {
 	return [
 		URGENT_SUBTREE,
 		NEEDS_ENERGY_SUBTREE,
+		NEEDS_HUNGER_SUBTREE,
+		NEEDS_THIRST_SUBTREE,
 		NEEDS_SOCIAL_SUBTREE,
 		NEEDS_FOCUS_SUBTREE,
 		NEEDS_MORALE_SUBTREE,
