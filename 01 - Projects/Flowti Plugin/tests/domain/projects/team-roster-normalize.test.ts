@@ -30,4 +30,13 @@ describe("normalizeTeamRoleSlots", () => {
 		expect(slots[0].roleSummary).toBe("Short");
 		expect(slots[0].roleBody).toBe("Long");
 	});
+
+	it("preserves FTE and date fields when present", () => {
+		const slots = normalizeTeamRoleSlots([
+			{ id: "r", title: "X", need: "", roleFte: 1.25, roleStart: "2025-01-15", roleEnd: "2025-06-30" },
+		]);
+		expect(slots[0].roleFte).toBe(1.25);
+		expect(slots[0].roleStart).toBe("2025-01-15");
+		expect(slots[0].roleEnd).toBe("2025-06-30");
+	});
 });

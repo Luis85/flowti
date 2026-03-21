@@ -199,6 +199,9 @@ export function enrichRoleSlotsWithRoleNotes(
 				roleSkills: parsed.skills.length > 0 ? parsed.skills : s.roleSkills,
 				roleSummary: parsed.summary || s.roleSummary,
 				roleBody: parsed.body || s.roleBody,
+				roleFte: parsed.fte ?? s.roleFte,
+				roleStart: parsed.start ?? s.roleStart,
+				roleEnd: parsed.end ?? s.roleEnd,
 			};
 		} catch {
 			return { ...s, roleNotePath: path };

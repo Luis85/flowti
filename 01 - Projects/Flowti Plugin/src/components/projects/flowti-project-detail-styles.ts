@@ -34,6 +34,11 @@ export const projectDetailStyles = css`
 		color: var(--text-normal, #ddd);
 	}
 
+	.back-btn:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
+	}
+
 	.project-name {
 		font-size: 1.25em;
 		font-weight: 600;
@@ -220,6 +225,60 @@ export const projectDetailStyles = css`
 		font-size: var(--flowti-font-sm, 0.85em);
 	}
 
+	.hub-cli-log {
+		margin-bottom: var(--flowti-space-sm, 8px);
+		border: 1px solid var(--background-modifier-border, #333);
+		border-radius: var(--flowti-radius-sm, 4px);
+		background: var(--background-secondary, #1a1a1a);
+		overflow: hidden;
+	}
+
+	.hub-cli-log__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 6px 10px;
+		border-bottom: 1px solid var(--background-modifier-border, #333);
+		font-size: var(--flowti-font-sm, 0.85em);
+		color: var(--text-muted, #999);
+	}
+
+	.hub-cli-log__title {
+		font-weight: 500;
+		color: var(--text-normal, #ccc);
+	}
+
+	.hub-cli-log__clear {
+		padding: 2px 8px;
+		font-size: 0.85em;
+		border-radius: 4px;
+		border: 1px solid var(--background-modifier-border, #444);
+		background: var(--background-primary, #1e1e1e);
+		color: var(--text-muted, #aaa);
+		cursor: pointer;
+	}
+
+	.hub-cli-log__clear:hover {
+		color: var(--text-normal, #ddd);
+	}
+
+	.hub-cli-log__clear:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
+	}
+
+	.hub-cli-log__pre {
+		margin: 0;
+		padding: 8px 10px;
+		max-height: 200px;
+		overflow: auto;
+		font-size: 11px;
+		line-height: 1.4;
+		color: var(--text-muted, #bbb);
+		background: var(--background-primary, #141414);
+	}
+
 	.tab-bar {
 		display: flex;
 		gap: 0;
@@ -239,6 +298,12 @@ export const projectDetailStyles = css`
 
 	.tab-btn:hover {
 		color: var(--text-normal, #ddd);
+	}
+
+	.tab-btn:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
+		border-radius: 2px;
 	}
 
 	.tab-btn--active {
@@ -299,5 +364,11 @@ export const projectDetailStyles = css`
 
 	.activity-dismiss:hover {
 		opacity: 1;
+	}
+
+	.activity-dismiss:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
+		border-radius: 2px;
 	}
 `;

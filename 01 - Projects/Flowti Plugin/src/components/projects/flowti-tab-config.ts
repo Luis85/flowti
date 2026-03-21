@@ -2,7 +2,7 @@ import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { css } from "lit";
-import type { ProjectConfig } from "../../domain/projects/types.js";
+import type { ProjectConfig, TeamRoleSlot } from "../../domain/projects/types.js";
 
 const styles = css`
 	h3 { font-size: 0.95em; margin: 0 0 8px; color: var(--text-muted, #999); }
@@ -25,6 +25,10 @@ const styles = css`
 		outline: 2px solid var(--interactive-accent, #7c3aed);
 		outline-offset: 2px;
 	}
+	.btn:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
 	.btn--primary {
 		background: var(--interactive-accent, #7c3aed);
 		border-color: var(--interactive-accent, #7c3aed);
@@ -39,6 +43,8 @@ export class FlowtiTabConfig extends FlowtiElement {
 		projectName: { type: String },
 		config: { type: Object },
 		hasCanvas: { type: Boolean },
+		/** True while another tab runs a project-wide CLI action (team save, etc.). */
+		hubLocked: { type: Boolean, attribute: "hub-locked" },
 		saveStatus: { type: String },
 		sourcePath: { type: String },
 		strategy: { type: String },
@@ -50,6 +56,7 @@ export class FlowtiTabConfig extends FlowtiElement {
 	projectName = "";
 	config: ProjectConfig | undefined;
 	hasCanvas = false;
+	hubLocked = false;
 	saveStatus = "";
 	sourcePath = "";
 	strategy = "category";
@@ -67,7 +74,14 @@ export class FlowtiTabConfig extends FlowtiElement {
 
 	protected renderContent() {
 		const roster = this.config?.agents?.join(", ") ?? "";
-		const slots = this.config?.roleSlots?.length ?? 0;
+		const roleSlots = (this.config?.roleSlots ?? []) as TeamRoleSlot[];
+		const slots = roleSlots.length;
+		const fteTotal = roleSlots.reduce(
+			(a, s) => a + (typeof s.roleFte === "number" && Number.isFinite(s.roleFte) ? s.roleFte : 0),
+			0,
+		);
+		const anyFte = roleSlots.some((s) => s.roleFte != null && Number.isFinite(s.roleFte));
+		const fteLabel = anyFte ? (fteTotal % 1 === 0 ? String(fteTotal) : fteTotal.toFixed(2)) : "—";
 		return html`
 			<h3>flowti.config.json</h3>
 			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999)">Markdown import source (Storybook)</p>
@@ -90,14 +104,16 @@ export class FlowtiTabConfig extends FlowtiElement {
 				<label>Required fields (comma-separated)</label>
 				<input type="text" .value="${this.requiredFields}" @input="${(e: Event) => { this.requiredFields = (e.target as HTMLInputElement).value; }}" />
 			</div>
-			<button type="button" class="btn btn--primary" @click="${this.save}">Save markdown source config</button>
+			<button type="button" class="btn btn--primary" ?disabled="${this.hubLocked}" @click="${this.save}">Save markdown source config</button>
 			${this.saveStatus ? html`<div class="status">${this.saveStatus}</div>` : ""}
 			<hr style="border:none;border-top:1px solid var(--background-modifier-border,#333);margin:16px 0" />
-			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999)">Team roster (read-only here — use Team tab): ${slots} role slot(s), agents: ${roster || "—"}</p>
+			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999)">
+				Team roster (edit on <strong>Team</strong> tab): ${slots} role slot(s), Σ FTE ${fteLabel}, dashboard agents: ${roster || "—"}
+			</p>
 			${this.hasCanvas ? html`
 				<div style="margin-top:12px">
 					<button type="button" class="btn" @click="${() => this.emit("canvas-open", {})}">Open sitemap.canvas</button>
-					<button type="button" class="btn" @click="${() => this.emit("canvas-merge", {})}">Merge canvas → sitemap</button>
+					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Merge canvas → sitemap</button>
 				</div>
 			` : ""}
 		`;

@@ -81,6 +81,12 @@ export interface TeamRoleSlot {
 	readonly roleSummary?: string;
 	/** Markdown body of the role note (longer description). */
 	readonly roleBody?: string;
+	/** Full-time equivalent needed (from role note frontmatter `fte`). */
+	readonly roleFte?: number;
+	/** Planned start date `YYYY-MM-DD` (frontmatter `start`). */
+	readonly roleStart?: string;
+	/** Planned end date `YYYY-MM-DD` (frontmatter `end`). */
+	readonly roleEnd?: string;
 }
 
 export interface ProjectConfig {

@@ -14,6 +14,12 @@ export interface ParsedProjectRole {
 	readonly summary: string;
 	/** Markdown body below frontmatter. */
 	readonly body: string;
+	/** Headcount as FTE (full-time equivalent), if set. */
+	readonly fte?: number;
+	/** ISO date `YYYY-MM-DD` when the need starts. */
+	readonly start?: string;
+	/** ISO date `YYYY-MM-DD` when the need ends. */
+	readonly end?: string;
 }
 
 /** Split user skills line: "Requirements Engineering 5; Team Player; IREB Certified" */
@@ -66,7 +72,35 @@ export function parseProjectRoleMarkdown(md: string): ParsedProjectRole | null {
 		if (raw && raw !== "[]") skills = parseSkillsLine(raw);
 	}
 
-	return { id, role, need, skills, summary, body };
+	const fte = parseFrontmatterNumber(block, "fte");
+	const start = parseFrontmatterScalar(block, "start");
+	const end = parseFrontmatterScalar(block, "end");
+
+	return { id, role, need, skills, summary, body, ...spreadStaffing(fte, start, end) };
+}
+
+function parseFrontmatterNumber(block: string, key: string): number | undefined {
+	const m = block.match(new RegExp(`^${key}:\\s*(.*)$`, "m"));
+	if (!m) return undefined;
+	const t = stripQuotes(m[1].trim());
+	if (t === "") return undefined;
+	const n = Number(t);
+	return Number.isFinite(n) ? n : undefined;
+}
+
+function parseFrontmatterScalar(block: string, key: string): string | undefined {
+	const m = block.match(new RegExp(`^${key}:\\s*(.*)$`, "m"));
+	if (!m) return undefined;
+	const t = stripQuotes(m[1].trim());
+	return t || undefined;
+}
+
+function spreadStaffing(fte: number | undefined, start: string | undefined, end: string | undefined): Pick<ParsedProjectRole, "fte" | "start" | "end"> {
+	const o: Pick<ParsedProjectRole, "fte" | "start" | "end"> = {};
+	if (fte !== undefined) o.fte = fte;
+	if (start) o.start = start;
+	if (end) o.end = end;
+	return o;
 }
 
 function stripQuotes(s: string): string {
@@ -104,6 +138,12 @@ export interface BuildProjectRoleInput {
 	readonly summary: string;
 	/** Markdown body (longer description). */
 	readonly body: string;
+	/** Full-time equivalent (omit or undefined to leave out of frontmatter). */
+	readonly fte?: number;
+	/** `YYYY-MM-DD` (omit when not set). */
+	readonly start?: string;
+	/** `YYYY-MM-DD` (omit when not set). */
+	readonly end?: string;
 }
 
 function yamlScalar(s: string): string {
@@ -118,6 +158,11 @@ export function buildProjectRoleMarkdown(input: BuildProjectRoleInput): string {
 			? ["skills:", ...input.skills.map((sk) => `  - ${yamlScalar(sk)}`)]
 			: ["skills: []"];
 
+	const staffing: string[] = [];
+	if (typeof input.fte === "number" && Number.isFinite(input.fte)) staffing.push(`fte: ${input.fte}`);
+	if (input.start?.trim()) staffing.push(`start: ${yamlScalar(input.start.trim())}`);
+	if (input.end?.trim()) staffing.push(`end: ${yamlScalar(input.end.trim())}`);
+
 	const fm = [
 		"---",
 		`type: ${PROJECT_ROLE_NOTE_TYPE}`,
@@ -125,6 +170,7 @@ export function buildProjectRoleMarkdown(input: BuildProjectRoleInput): string {
 		`role: ${yamlScalar(input.role)}`,
 		`need: ${yamlScalar(input.need)}`,
 		...(input.summary ? [`description: ${yamlScalar(input.summary)}`] : []),
+		...staffing,
 		...skillsLines,
 		"---",
 		"",

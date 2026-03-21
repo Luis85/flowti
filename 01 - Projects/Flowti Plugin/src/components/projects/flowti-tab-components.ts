@@ -30,6 +30,46 @@ const styles = css`
 		outline-offset: 2px;
 	}
 	.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+	.intro { line-height: 1.45; margin: 0 0 14px; max-width: 52em; }
+	.storybook-status {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 0 0 10px;
+		font-size: var(--flowti-font-sm, 0.85em);
+		color: var(--interactive-accent, #a78bfa);
+	}
+	.mini-spin {
+		width: 12px;
+		height: 12px;
+		border: 2px solid currentColor;
+		border-top-color: transparent;
+		border-radius: 50%;
+		animation: ft-spin 0.75s linear infinite;
+		flex-shrink: 0;
+	}
+	@keyframes ft-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	.storybook-error {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 12px;
+		margin: 0 0 10px;
+		padding: 8px 10px;
+		border-radius: 6px;
+		font-size: var(--flowti-font-sm, 0.85em);
+		background: color-mix(in srgb, var(--color-red, #e53935) 12%, transparent);
+		color: color-mix(in srgb, var(--color-red, #f87171) 90%, var(--text-normal, #ddd));
+		border: 1px solid color-mix(in srgb, var(--color-red, #e53935) 35%, transparent);
+	}
+	.btn--tiny {
+		padding: 4px 10px;
+		font-size: 0.85em;
+	}
 `;
 
 export class FlowtiTabComponents extends FlowtiElement {
@@ -69,33 +109,47 @@ export class FlowtiTabComponents extends FlowtiElement {
 	canvasChanged = false;
 
 	protected renderContent() {
+		const sb = this.storybookBusy;
 		return html`
-			<div aria-busy="${this.storybookBusy}">
+			<div class="components-root" aria-busy="${String(sb)}">
+			<p class="muted intro">
+				<strong>Components</strong> lists what lives in your project. <strong>Storybook</strong> below is optional tooling for stories, static builds, and importing markdown or canvas into the
+				sitemap — it is not the project itself.
+			</p>
 			<div class="section">
 				<h3>Storybook</h3>
 				<p class="muted">${this.storybookInstalled ? `Installed (${this.storybookFramework || "?"})` : "Not installed"}${this.storybookRunning ? ` — running ${this.storybookUrl}` : ""}</p>
+				${sb ? html`<p class="storybook-status" role="status" aria-live="polite"><span class="mini-spin" aria-hidden="true"></span>${this.storybookBusyLabel || "Working…"}</p>` : ""}
+				${this.storybookError
+					? html`
+						<div class="storybook-error" role="alert">
+							<span>${this.storybookError}</span>
+							<button type="button" class="btn btn--tiny" @click="${() => this.emit("storybook-dismiss-error", {})}">Dismiss</button>
+						</div>
+					`
+					: ""}
 				<div class="row">
 					${!this.storybookInstalled
 						? html`
-							<button type="button" class="btn btn--primary" ?disabled="${this.storybookBusy}" @click="${() => this.emit("storybook-install", { framework: "html" })}">Install (HTML)</button>
-							<button type="button" class="btn" ?disabled="${this.storybookBusy}" @click="${() => this.emit("storybook-install", { framework: "react" })}">React</button>
-							<button type="button" class="btn" ?disabled="${this.storybookBusy}" @click="${() => this.emit("storybook-install", { framework: "vue3" })}">Vue</button>
+							<button type="button" class="btn btn--primary" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "html" })}">Install (HTML)</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "react" })}">React</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "vue3" })}">Vue</button>
 						`
 						: html`
-							<button type="button" class="btn btn--primary" @click="${() => this.emit("storybook-start", {})}">Start</button>
-							<button type="button" class="btn" @click="${() => this.emit("storybook-stop", {})}">Stop</button>
-							<button type="button" class="btn" @click="${() => this.emit("storybook-build", {})}">Build</button>
-							<button type="button" class="btn" @click="${() => this.emit("storybook-view", { url: this.storybookUrl || "http://localhost:6006" })}">Open</button>
-							<button type="button" class="btn" @click="${() => this.emit("storybook-preview", {})}">Preview static</button>
-							<button type="button" class="btn" @click="${() => this.emit("storybook-import", {})}">Import MD → sitemap</button>
-							<button type="button" class="btn" @click="${() => this.emit("storybook-canvas-import", {})}">Import canvas</button>
-							<button type="button" class="btn" @click="${() => this.emit("storybook-regenerate-confirmed", {})}">Regenerate</button>
+							<button type="button" class="btn btn--primary" ?disabled="${sb}" @click="${() => this.emit("storybook-start", {})}">Start</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-stop", {})}">Stop</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-build", {})}">Build</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-view", { url: this.storybookUrl || "http://localhost:6006" })}">Open</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-preview", {})}">Preview static</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-import", {})}">Import MD → sitemap</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-canvas-import", {})}">Import canvas</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-regenerate-confirmed", {})}">Regenerate</button>
 						`}
 				</div>
 			</div>
 			<div class="section">
 				<h3>Components (${this.components.length})</h3>
-				<button type="button" class="btn" ?disabled="${this.storybookBusy}" @click="${() => this.emit("components-refresh", {})}">Refresh list</button>
+				<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("components-refresh", {})}">Refresh list</button>
 				<div class="list">
 					${this.components.map((c) => html`<div>${c.name} <span class="muted">(${c.category})</span></div>`)}
 				</div>
@@ -103,7 +157,7 @@ export class FlowtiTabComponents extends FlowtiElement {
 			${this.storybookOutput.length > 0
 				? html`
 					<div class="section">
-						<h3>Output <button type="button" class="btn" @click="${() => this.emit("storybook-dismiss-output", {})}">Clear</button></h3>
+						<h3>Storybook CLI log <button type="button" class="btn" @click="${() => this.emit("storybook-dismiss-output", {})}">Clear</button></h3>
 						<pre class="log">${this.storybookOutput.join("\n")}</pre>
 					</div>
 				`

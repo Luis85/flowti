@@ -1,6 +1,7 @@
 /**
  * Project detail handler — bridges Lit component <-> IProjectService.
  *
+ * Separates **Storybook/Components-tab** busy state from **project hub** busy state (team roster, config, canvas, git, …).
  * Returns a dispose function for cleanup on view close.
  */
 
@@ -40,9 +41,10 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 
 	async function loadProject(name: string): Promise<void> {
 		currentProject = name;
-		outputLines.length = 0;
 		el.storybookOutput = [];
 		el.storybookError = "";
+		el.projectHubOutput = [];
+		el.projectHubError = "";
 		el.actionSuccess = "";
 		el.healthScore = null;
 		el.healthError = "";
@@ -92,9 +94,14 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("back-to-list", (() => {
 		currentProject = "";
 		el.projectName = "";
-		outputLines.length = 0;
+		el.storybookBusy = false;
+		el.storybookBusyLabel = "";
 		el.storybookOutput = [];
 		el.storybookError = "";
+		el.projectHubBusy = false;
+		el.projectHubBusyLabel = "";
+		el.projectHubOutput = [];
+		el.projectHubError = "";
 		el.actionSuccess = "";
 		void loadProjectList();
 	}) as EventListener);
@@ -106,35 +113,73 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		setTimeout(() => { if (currentProject) void loadProject(currentProject); else void loadProjectList(); }, 500);
 	}) as EventListener);
 
-	const outputLines: string[] = [];
-	let lastBusyLabel = "";
+	const storybookLines: string[] = [];
+	const projectHubLines: string[] = [];
+	let lastProjectHubLabel = "";
 
-	function startBusy(label: string): void {
-		outputLines.length = 0;
-		lastBusyLabel = label;
+	/** Success toast for project-hub operations (global activity bar). */
+	function projectHubSuccessMessage(label: string): string {
+		const t = label.trim();
+		if (/team roster/i.test(t)) return "Team roster saved.";
+		if (/creating agent/i.test(t)) return "Agent created; roster updated.";
+		if (/saving markdown source config/i.test(t)) return "Markdown source config saved.";
+		if (/merging canvas/i.test(t)) return "Canvas merged into sitemap.";
+		if (/generating sitemap canvas/i.test(t)) return "Sitemap canvas generated.";
+		if (/creating project/i.test(t)) return "Project created.";
+		if (/writing config/i.test(t)) return "Project config written.";
+		if (/cloning repository/i.test(t)) return "Repository cloned.";
+		const stripped = t.replace(/\.{3}\s*$/u, "").replace(/…\s*$/u, "").trim();
+		return stripped.length > 0 ? `${stripped} — finished` : "Done.";
+	}
+
+	function startStorybookWork(label: string): void {
+		storybookLines.length = 0;
 		el.storybookBusy = true;
 		el.storybookBusyLabel = label;
 		el.storybookOutput = [];
 		el.storybookError = "";
+	}
+
+	function appendStorybookLog(line: string): void {
+		console.debug("[Flowti:Components/Storybook]", line);
+		storybookLines.push(line);
+		if (storybookLines.length > 200) storybookLines.shift();
+		el.storybookOutput = [...storybookLines];
+	}
+
+	function endStorybookWork(result: { ok: boolean; error?: string }): void {
+		el.storybookBusy = false;
+		el.storybookBusyLabel = "";
+		if (!result.ok && result.error) el.storybookError = result.error;
+		void loadProject(currentProject);
+	}
+
+	function startProjectHubWork(label: string): void {
+		projectHubLines.length = 0;
+		lastProjectHubLabel = label;
+		el.projectHubBusy = true;
+		el.projectHubBusyLabel = label;
+		el.projectHubOutput = [];
+		el.projectHubError = "";
 		el.actionSuccess = "";
 		el.statusMessage = "";
 	}
 
-	function appendOutput(line: string): void {
-		console.debug("[Flowti:Storybook]", line);
-		outputLines.push(line);
-		if (outputLines.length > 200) outputLines.shift();
-		el.storybookOutput = [...outputLines];
+	function appendProjectHubLog(line: string): void {
+		console.debug("[Flowti:Project]", line);
+		projectHubLines.push(line);
+		if (projectHubLines.length > 200) projectHubLines.shift();
+		el.projectHubOutput = [...projectHubLines];
 	}
 
-	function endBusy(result: { ok: boolean; error?: string }): void {
-		el.storybookBusy = false;
-		el.storybookBusyLabel = "";
+	function endProjectHubWork(result: { ok: boolean; error?: string }): void {
+		el.projectHubBusy = false;
+		el.projectHubBusyLabel = "";
 		if (!result.ok && result.error) {
-			el.storybookError = result.error;
+			el.projectHubError = result.error;
 			el.actionSuccess = "";
 		} else {
-			const msg = lastBusyLabel.replace(/\.{3}$/, "") + " completed";
+			const msg = projectHubSuccessMessage(lastProjectHubLabel);
 			el.actionSuccess = msg;
 			setTimeout(() => { if (el.actionSuccess === msg) el.actionSuccess = ""; }, 4000);
 		}
@@ -146,7 +191,8 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el, projectService,
 		getCurrentProject: () => currentProject,
 		loadProject, loadProjectList,
-		startBusy, appendOutput, endBusy,
+		startStorybookWork, appendStorybookLog, endStorybookWork,
+		startProjectHubWork, appendProjectHubLog, endProjectHubWork,
 		openNote: deps.openNote,
 		createNote: deps.createNote,
 		openInWebviewer: deps.openInWebviewer,

@@ -1,9 +1,10 @@
-import { html } from "lit";
+import { html, type PropertyValues } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { css } from "lit";
 import type { TeamRoleSlot, VaultAgentSummary, AgentBlueprint } from "../../domain/projects/types.js";
 import { formatSkillsLineForEditor, parseSkillsLine, projectRoleNoteRelativePath } from "../../domain/projects/project-role-markdown.js";
+import { teamRoleSlotDateRangeInvalid, teamRoleSlotsHaveInvalidDateRange } from "../../domain/projects/team-roster.js";
 
 const styles = css`
 	:host {
@@ -42,6 +43,11 @@ const styles = css`
 	.summary-bar strong {
 		color: var(--text-normal, #ddd);
 		font-weight: 500;
+	}
+	.summary-bar .summary-hint {
+		flex-basis: 100%;
+		font-size: 0.92em;
+		color: color-mix(in srgb, var(--color-yellow, #e5a00d) 75%, var(--text-muted, #999));
 	}
 	.toolbar {
 		display: flex;
@@ -85,6 +91,11 @@ const styles = css`
 	.btn--danger:hover:not(:disabled) {
 		background: color-mix(in srgb, var(--color-red, #e53935) 12%, transparent);
 	}
+	.btn--compact {
+		padding: 4px 10px;
+		font-size: 0.85em;
+		margin-left: 8px;
+	}
 	.card {
 		border: 1px solid var(--background-modifier-border, #333);
 		border-radius: var(--flowti-team-radius);
@@ -121,6 +132,8 @@ const styles = css`
 		border: 0;
 	}
 	input[type="text"],
+	input[type="number"],
+	input[type="date"],
 	select,
 	textarea {
 		font-size: var(--flowti-font-sm, 0.85em);
@@ -198,6 +211,41 @@ const styles = css`
 		color: var(--text-muted, #777);
 		font-style: italic;
 	}
+	.staffing-row__inputs {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10px 14px;
+	}
+	.staffing-row__inputs input[type="number"] {
+		width: 7rem;
+		max-width: 100%;
+	}
+	.staffing-dates {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 8px 12px;
+	}
+	.staffing-date-field {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		min-width: 0;
+	}
+	.staffing-date-label {
+		font-size: var(--flowti-font-sm, 0.85em);
+		color: var(--text-muted, #999);
+	}
+	.staffing-dates input[type="date"] {
+		width: auto;
+		min-width: 10rem;
+	}
+	.staffing-dates__sep {
+		color: var(--text-muted, #777);
+		font-size: var(--flowti-font-sm, 0.85em);
+		user-select: none;
+	}
 	.muted {
 		font-size: var(--flowti-font-sm, 0.85em);
 		color: var(--text-muted, #999);
@@ -216,6 +264,12 @@ const styles = css`
 		color: var(--color-red, #f87171);
 		font-size: 0.8em;
 		margin: 6px 0 0;
+	}
+	.field-warn {
+		color: color-mix(in srgb, var(--color-yellow, #e5a00d) 85%, var(--text-normal, #ddd));
+		font-size: var(--flowti-font-sm, 0.85em);
+		margin: 6px 0 0;
+		line-height: 1.35;
 	}
 	.empty {
 		padding: 20px 14px;
@@ -236,12 +290,15 @@ function cloneSlots(slots: readonly TeamRoleSlot[]): TeamRoleSlot[] {
 	return JSON.parse(JSON.stringify(slots)) as TeamRoleSlot[];
 }
 
+
 export class FlowtiTabTeam extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
 		projectName: { type: String },
 		roleSlots: { type: Array },
 		vaultAgents: { type: Array },
+		/** True while project hub runs an async action (save roster, create agent, …). */
+		actionsLocked: { type: Boolean, attribute: "actions-locked" },
 	};
 
 	static styles = [tokens, styles];
@@ -249,6 +306,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 	projectName = "";
 	roleSlots: TeamRoleSlot[] = [];
 	vaultAgents: VaultAgentSummary[] = [];
+	actionsLocked = false;
 	private _slots: TeamRoleSlot[] = [];
 	private _createNameByRole: Record<string, string> = {};
 	/** Role id whose blueprint JSON failed to parse (inline error). */
@@ -261,8 +319,36 @@ export class FlowtiTabTeam extends FlowtiElement {
 		}
 	}
 
+	protected updated(_changed: PropertyValues): void {
+		super.updated(_changed);
+		if (this.actionsLocked) this.setAttribute("aria-busy", "true");
+		else this.removeAttribute("aria-busy");
+	}
+
 	private get assignedCount(): number {
 		return this._slots.filter((s) => s.assignee?.trim()).length;
+	}
+
+	private get totalFtePlanned(): number {
+		return this._slots.reduce((acc, s) => acc + (typeof s.roleFte === "number" && Number.isFinite(s.roleFte) ? s.roleFte : 0), 0);
+	}
+
+	private get anyRoleHasFte(): boolean {
+		return this._slots.some((s) => s.roleFte != null && Number.isFinite(s.roleFte));
+	}
+
+	private get rolesMissingFteCount(): number {
+		return this._slots.filter((s) => s.roleFte == null || !Number.isFinite(s.roleFte)).length;
+	}
+
+	private get dateRangeWarningCount(): number {
+		return this._slots.filter((s) => !isoDateRangeOk(s.roleStart, s.roleEnd)).length;
+	}
+
+	private formatFteTotal(): string {
+		if (!this.anyRoleHasFte) return "—";
+		const t = this.totalFtePlanned;
+		return t % 1 === 0 ? String(t) : t.toFixed(2);
 	}
 
 	protected renderContent() {
@@ -271,10 +357,9 @@ export class FlowtiTabTeam extends FlowtiElement {
 		return html`
 			<h3>Team roster</h3>
 			<p class="lead">
-				Define <strong>role profiles</strong> (title, need, skills, description). Each role is saved as a <code>ProjectRole</code> markdown file under
-				<code>team/roles/</code> in the project folder; <code>flowti.config.json</code> stores the slot, assignee, and path. Creating an agent copies skills and
-				description into the new Agent note; an optional <strong>blueprint JSON</strong> overrides those fields when set. Assign existing vault agents or create a note under
-				<code>03 - Resources/Agents</code>. Saving runs <code>agent:dashboard-sync</code>.
+				Each <strong>role</strong> is a <code>ProjectRole</code> note under <code>team/roles/</code> (title, need, <strong>FTE</strong>, optional dates, skills, narrative).
+				<code>flowti.config.json</code> keeps the slot list and assignees. <strong>Save roster</strong> writes every note and runs <code>agent:dashboard-sync</code>.
+				Assign vault agents or <strong>Create agent from role</strong> (skills/description from the note; optional <strong>blueprint JSON</strong> overrides).
 			</p>
 			${nAgents === 0
 				? html`<p class="hint-warn">No agents found under <code>03 - Resources/Agents</code>. Create an agent from a role, or add Agent notes there — then use <strong>Refresh agent list</strong>.</p>`
@@ -285,16 +370,34 @@ export class FlowtiTabTeam extends FlowtiElement {
 						<span><strong>${nSlots}</strong> role${nSlots === 1 ? "" : "s"}</span>
 						<span><strong>${this.assignedCount}</strong> filled</span>
 						<span><strong>${nAgents}</strong> vault agent${nAgents === 1 ? "" : "s"}</span>
+						<span><strong>${this.formatFteTotal()}</strong> Σ FTE</span>
+						${this.rolesMissingFteCount > 0
+							? html`<span class="summary-hint">${this.rolesMissingFteCount} role${this.rolesMissingFteCount === 1 ? "" : "s"} without FTE — optional, but helps capacity planning.</span>`
+							: ""}
+						${this.dateRangeWarningCount > 0
+							? html`<span class="summary-hint">${this.dateRangeWarningCount} role${this.dateRangeWarningCount === 1 ? "" : "s"}: end date before start — check dates below.</span>`
+							: ""}
 					</div>
 				`
 				: ""}
 			<div class="toolbar">
-				<button type="button" class="btn" title="Reload Agent definitions from the vault folder" @click="${this.refreshAgents}">Refresh agent list</button>
-				<button type="button" class="btn" title="Add another staffing role to this project" @click="${this.addSlot}">Add role</button>
+				<button
+					type="button"
+					class="btn"
+					title="Reload Agent definitions from the vault folder"
+					?disabled="${this.actionsLocked}"
+					@click="${this.refreshAgents}"
+				>
+					Refresh agent list
+				</button>
+				<button type="button" class="btn" title="Add another staffing role to this project" ?disabled="${this.actionsLocked}" @click="${this.addSlot}">
+					Add role
+				</button>
 				<button
 					type="button"
 					class="btn btn--primary"
-					title="Write role slots and roster to flowti.config.json and sync the agent dashboard"
+					title="Write role notes, flowti.config.json, and sync the agent dashboard"
+					?disabled="${this.actionsLocked}"
 					@click="${this.saveAll}"
 				>
 					Save roster
@@ -318,9 +421,16 @@ export class FlowtiTabTeam extends FlowtiElement {
 		const skillsId = `${sid}-skills`;
 		const summaryId = `${sid}-summary`;
 		const bodyId = `${sid}-body`;
+		const fteId = `${sid}-fte`;
+		const startId = `${sid}-start`;
+		const endId = `${sid}-end`;
 		const rolePath = slot.roleNotePath ?? projectRoleNoteRelativePath(this.projectName, slot.id);
 		const hasAssignee = Boolean(slot.assignee?.trim());
 		const canCreate = createName.trim().length > 0;
+
+		const lock = this.actionsLocked;
+		const staffingHintId = `${sid}-staffing-hint`;
+		const badDates = teamRoleSlotDateRangeInvalid(slot);
 
 		return html`
 			<div class="card" data-role="${slot.id}">
@@ -332,6 +442,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 						type="text"
 						.value="${slot.title}"
 						autocomplete="off"
+						?disabled="${lock}"
 						@change="${(e: Event) => this.patchSlot(slot.id, { title: (e.target as HTMLInputElement).value })}"
 					/>
 				</div>
@@ -343,8 +454,52 @@ export class FlowtiTabTeam extends FlowtiElement {
 						.value="${slot.need}"
 						autocomplete="off"
 						placeholder="e.g. Owns API design and review"
+						?disabled="${lock}"
 						@change="${(e: Event) => this.patchSlot(slot.id, { need: (e.target as HTMLInputElement).value })}"
 					/>
+				</div>
+				<div class="field staffing-row">
+					<label for="${fteId}">Staffing</label>
+					<div class="staffing-row__inputs">
+						<input
+							id="${fteId}"
+							type="number"
+							min="0"
+							step="0.25"
+							.value="${slot.roleFte != null && Number.isFinite(slot.roleFte) ? String(slot.roleFte) : ""}"
+							placeholder="FTE"
+							aria-describedby="${staffingHintId}"
+							?disabled="${lock}"
+							@change="${(e: Event) => this.onFteChange(slot.id, (e.target as HTMLInputElement).value)}"
+						/>
+						<div class="staffing-dates">
+							<div class="staffing-date-field">
+								<label class="staffing-date-label" for="${startId}">Start</label>
+								<input
+									id="${startId}"
+									type="date"
+									.value="${slot.roleStart ?? ""}"
+									?disabled="${lock}"
+									@change="${(e: Event) => this.onDateField(slot.id, "roleStart", (e.target as HTMLInputElement).value)}"
+								/>
+							</div>
+							<span class="staffing-dates__sep" aria-hidden="true">→</span>
+							<div class="staffing-date-field">
+								<label class="staffing-date-label" for="${endId}">End</label>
+								<input
+									id="${endId}"
+									type="date"
+									.value="${slot.roleEnd ?? ""}"
+									?disabled="${lock}"
+									@change="${(e: Event) => this.onDateField(slot.id, "roleEnd", (e.target as HTMLInputElement).value)}"
+								/>
+							</div>
+						</div>
+					</div>
+					<p id="${staffingHintId}" class="muted" style="margin:6px 0 0">
+						Full-time equivalent (optional). Dates use your locale control but are stored as ISO in the note.
+					</p>
+					${badDates ? html`<p class="field-warn" role="alert">End date is before start date.</p>` : ""}
 				</div>
 				<div class="field">
 					<label for="${skillsId}">Skills (semicolon-separated)</label>
@@ -354,6 +509,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 						.value="${formatSkillsLineForEditor(slot.roleSkills ?? [])}"
 						autocomplete="off"
 						placeholder="e.g. Requirements Engineering 5; Team Player; IREB Certified"
+						?disabled="${lock}"
 						@change="${(e: Event) => this.onSkillsLine(slot.id, (e.target as HTMLInputElement).value)}"
 					/>
 				</div>
@@ -365,6 +521,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 						.value="${slot.roleSummary ?? ""}"
 						autocomplete="off"
 						placeholder="One line summary for the role note"
+						?disabled="${lock}"
 						@change="${(e: Event) => this.patchSlot(slot.id, { roleSummary: (e.target as HTMLInputElement).value })}"
 					/>
 				</div>
@@ -376,17 +533,26 @@ export class FlowtiTabTeam extends FlowtiElement {
 						.value="${slot.roleBody ?? ""}"
 						spellcheck="true"
 						placeholder="Longer context, responsibilities, expectations…"
+						?disabled="${lock}"
 						@change="${(e: Event) => this.patchSlot(slot.id, { roleBody: (e.target as HTMLTextAreaElement).value })}"
 					></textarea>
 				</div>
 				<p class="muted" style="margin:0 0 8px">
 					Role note: <code style="font-size:0.9em">${rolePath}</code>
-					<button type="button" class="btn" style="margin-left:8px;padding:4px 10px;font-size:0.85em" @click="${() => this.openRoleNote(rolePath)}">Open note</button>
+					<button
+						type="button"
+						class="btn btn--compact"
+						title="Open this role note in the vault"
+						?disabled="${lock || !this.projectName}"
+						@click="${() => this.openRoleNote(rolePath)}"
+					>
+						Open note
+					</button>
 				</p>
 				<details class="bp-details" ?open="${Boolean(slot.blueprint && Object.keys(slot.blueprint).length > 0)}">
 					<summary>Agent blueprint (JSON)</summary>
 					<p class="muted" style="margin:8px 0 6px">
-						Optional override. When creating an agent, values here replace the role note’s skills/description. Invalid JSON is not saved until fixed.
+						Power users: override skills, description, goals, or attributes when materializing an agent. Invalid JSON blocks save until fixed.
 					</p>
 					<label class="sr-only" for="${bpId}">Blueprint JSON for ${slot.title}</label>
 					<textarea
@@ -394,6 +560,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 						class="bp"
 						.value="${bpText}"
 						spellcheck="false"
+						?disabled="${lock}"
 						@change="${(e: Event) => this.onBlueprintJson(slot.id, (e.target as HTMLTextAreaElement).value)}"
 					></textarea>
 					${this._blueprintErrorRoleId === slot.id ? html`<p class="json-error" role="alert">Invalid JSON — fix the blueprint or clear the field.</p>` : ""}
@@ -405,6 +572,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 						id="${assignId}"
 						class="assign-select"
 						aria-label="Assign existing vault agent to ${slot.title}"
+						?disabled="${lock}"
 						@change="${(e: Event) => this.onAssignSelect(slot.id, (e.target as HTMLSelectElement).value)}"
 					>
 						<option value="">Assign existing agent…</option>
@@ -413,8 +581,8 @@ export class FlowtiTabTeam extends FlowtiElement {
 					<button
 						type="button"
 						class="btn"
-						?disabled="${!hasAssignee}"
-						title="Remove this assignee from the role and update the project roster"
+						?disabled="${!hasAssignee || lock}"
+						title="Remove this assignee and update the roster (saves immediately)"
 						@click="${() => this.clearAssignee(slot.id)}"
 					>
 						Unassign
@@ -429,6 +597,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 						placeholder="New agent display name"
 						.value="${createName}"
 						autocomplete="off"
+						?disabled="${lock}"
 						@input="${(e: Event) => {
 							this._createNameByRole = { ...this._createNameByRole, [slot.id]: (e.target as HTMLInputElement).value };
 							this.requestUpdate();
@@ -443,8 +612,8 @@ export class FlowtiTabTeam extends FlowtiElement {
 					<button
 						type="button"
 						class="btn btn--primary"
-						?disabled="${!canCreate}"
-						title="Create Agent note from role requirements (and optional blueprint) and assign to this role"
+						?disabled="${!canCreate || lock}"
+						title="Create an Agent note from this role and assign it (saves roster)"
 						@click="${() => this.emitCreate(slot.id)}"
 					>
 						Create agent from role
@@ -452,7 +621,8 @@ export class FlowtiTabTeam extends FlowtiElement {
 					<button
 						type="button"
 						class="btn btn--danger"
-						title="Remove this role slot from the project (saves immediately)"
+						title="Remove this role and its ProjectRole note from the project"
+						?disabled="${lock}"
 						@click="${() => this.removeSlot(slot.id)}"
 					>
 						Remove role
@@ -472,11 +642,27 @@ export class FlowtiTabTeam extends FlowtiElement {
 		this.patchSlot(id, { roleSkills: skills.length > 0 ? skills : undefined });
 	}
 
+	private onFteChange(id: string, raw: string): void {
+		const t = raw.trim();
+		if (!t) {
+			this.patchSlot(id, { roleFte: undefined });
+			return;
+		}
+		const n = Number(t);
+		this.patchSlot(id, { roleFte: Number.isFinite(n) && n >= 0 ? n : undefined });
+	}
+
+	private onDateField(id: string, key: "roleStart" | "roleEnd", value: string): void {
+		const v = value.trim();
+		this.patchSlot(id, { [key]: v ? v : undefined } as Partial<TeamRoleSlot>);
+	}
+
 	private openRoleNote(vaultRelativePath: string): void {
 		this.dispatchEvent(new CustomEvent("open-project-note", { detail: { path: vaultRelativePath }, bubbles: true, composed: true }));
 	}
 
 	private clearAssignee(id: string): void {
+		if (this.actionsLocked) return;
 		this._slots = this._slots.map((s) => {
 			if (s.id !== id) return s;
 			const { assignee: _a, ...rest } = s;
@@ -507,17 +693,23 @@ export class FlowtiTabTeam extends FlowtiElement {
 	}
 
 	private onAssignSelect(roleId: string, name: string): void {
-		if (!name) return;
+		if (this.actionsLocked || !name) return;
 		this.patchSlot(roleId, { assignee: name });
 		this.dispatchEvent(new CustomEvent("team-roster-save", { detail: { slots: this._slots }, bubbles: true, composed: true }));
 	}
 
 	private addSlot(): void {
+		if (this.actionsLocked) return;
 		this._slots = [...this._slots, { id: newRoleId(), title: "New role", need: "" }];
 		this.requestUpdate();
 	}
 
 	private removeSlot(id: string): void {
+		if (this.actionsLocked) return;
+		const ok = globalThis.confirm(
+			"Remove this role from the project? Its ProjectRole note will be deleted and the roster will be saved.",
+		);
+		if (!ok) return;
 		this._slots = this._slots.filter((s) => s.id !== id);
 		const rest = { ...this._createNameByRole };
 		delete rest[id];
@@ -527,9 +719,20 @@ export class FlowtiTabTeam extends FlowtiElement {
 	}
 
 	private saveAll(): void {
+		if (this.actionsLocked) return;
 		if (this._blueprintErrorRoleId) {
 			this.dispatchEvent(
 				new CustomEvent("team-roster-error", { detail: { message: "Fix invalid blueprint JSON before saving the roster." }, bubbles: true, composed: true }),
+			);
+			return;
+		}
+		if (teamRoleSlotsHaveInvalidDateRange(this._slots)) {
+			this.dispatchEvent(
+				new CustomEvent("team-roster-error", {
+					detail: { message: "One or more roles have an end date before the start date — fix dates or clear them before saving." },
+					bubbles: true,
+					composed: true,
+				}),
 			);
 			return;
 		}
@@ -537,10 +740,12 @@ export class FlowtiTabTeam extends FlowtiElement {
 	}
 
 	private refreshAgents(): void {
+		if (this.actionsLocked) return;
 		this.dispatchEvent(new CustomEvent("team-refresh-agents", { bubbles: true, composed: true }));
 	}
 
 	private emitCreate(roleId: string): void {
+		if (this.actionsLocked) return;
 		const name = (this._createNameByRole[roleId] ?? "").trim();
 		if (!name) {
 			this.dispatchEvent(new CustomEvent("team-roster-error", { detail: { message: "Enter a display name before creating an agent." }, bubbles: true, composed: true }));

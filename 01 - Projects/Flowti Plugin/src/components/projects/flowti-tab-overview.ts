@@ -18,6 +18,10 @@ const styles = css`
 		cursor: pointer;
 	}
 	.btn:hover { background: var(--background-modifier-hover, #333); }
+	.btn:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
 	.btn:focus-visible {
 		outline: 2px solid var(--interactive-accent, #7c3aed);
 		outline-offset: 2px;
@@ -63,6 +67,7 @@ export class FlowtiTabOverview extends FlowtiElement {
 		healthError: { type: String },
 		todos: { type: Array },
 		todosExist: { type: Boolean },
+		hubLocked: { type: Boolean, attribute: "hub-locked" },
 	};
 
 	static styles = [tokens, styles];
@@ -93,8 +98,8 @@ export class FlowtiTabOverview extends FlowtiElement {
 				<h3>Sitemap canvas</h3>
 				<div class="row">
 					<button type="button" class="btn" @click="${() => this.emit("canvas-open", {})}">Open canvas</button>
-					<button type="button" class="btn" @click="${() => this.emit("canvas-generate", { preset: "default" })}">Generate</button>
-					<button type="button" class="btn" @click="${() => this.emit("canvas-merge", {})}">Merge changes</button>
+					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-generate", { preset: "default" })}">Generate</button>
+					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Merge changes</button>
 				</div>
 			</div>
 			<div class="section">

@@ -4,6 +4,18 @@
 
 import type { TeamRoleSlot } from "./types.js";
 
+/** True when both ISO `YYYY-MM-DD` dates are set and end is before start. */
+export function teamRoleSlotDateRangeInvalid(slot: TeamRoleSlot): boolean {
+	const a = slot.roleStart?.trim();
+	const b = slot.roleEnd?.trim();
+	if (!a || !b) return false;
+	return a > b;
+}
+
+export function teamRoleSlotsHaveInvalidDateRange(slots: readonly TeamRoleSlot[]): boolean {
+	return slots.some(teamRoleSlotDateRangeInvalid);
+}
+
 /** Stable roster after role-slot edits: keep manual roster entries; drop slot-only assignees when unassigned. */
 export function reconcileProjectRoster(
 	previousRoster: readonly string[],

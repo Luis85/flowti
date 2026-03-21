@@ -17,6 +17,9 @@ export function normalizeTeamRoleSlots(slots: readonly TeamRoleSlot[]): TeamRole
 		if (s.roleSkills?.length) slot.roleSkills = [...s.roleSkills];
 		if (s.roleSummary?.trim()) slot.roleSummary = s.roleSummary.trim();
 		if (s.roleBody != null && s.roleBody !== "") slot.roleBody = s.roleBody;
+		if (typeof s.roleFte === "number" && Number.isFinite(s.roleFte)) slot.roleFte = s.roleFte;
+		if (s.roleStart?.trim()) slot.roleStart = s.roleStart.trim();
+		if (s.roleEnd?.trim()) slot.roleEnd = s.roleEnd.trim();
 		return slot;
 	});
 }

@@ -8,7 +8,7 @@ import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, unlink
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { IProjectService, ProjectSummary, ProjectDetail, StorybookFramework, OutputCallback, MarkdownSourceConfig, TodoItem, CatalogEntity, CatalogEntityType, CatalogEntityDef, ReportGeneratorInfo, ComponentEntry, HealthScore, TeamRoleSlot, VaultAgentSummary } from "../../domain/projects/types.js";
-import { reconcileProjectRoster } from "../../domain/projects/team-roster.js";
+import { reconcileProjectRoster, teamRoleSlotsHaveInvalidDateRange } from "../../domain/projects/team-roster.js";
 import { normalizeTeamRoleSlots } from "../../domain/projects/team-roster-normalize.js";
 import { buildAgentMarkdownFile, buildAgentCompanionJson, agentVaultPaths } from "../../domain/projects/agent-note-builder.js";
 import { listVaultAgentSummaries } from "../../domain/projects/agent-vault-scan.js";
@@ -344,6 +344,9 @@ export class VaultProjectService implements IProjectService {
 	}
 
 	async saveTeamRoster(project: string, roleSlots: readonly TeamRoleSlot[], onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+		if (teamRoleSlotsHaveInvalidDateRange(roleSlots)) {
+			return { ok: false, error: "A role has an end date before its start date. Fix the dates on the Team tab, then save again." };
+		}
 		const configPath = join(this.resolveProjectPath(project), "configs", "flowti.config.json");
 		if (!existsSync(configPath)) return { ok: false, error: "configs/flowti.config.json not found — bootstrap the project first." };
 		let raw: Record<string, unknown>;
@@ -374,6 +377,9 @@ export class VaultProjectService implements IProjectService {
 				skills: slot.roleSkills ?? [],
 				summary: slot.roleSummary ?? "",
 				body: slot.roleBody ?? "",
+				fte: slot.roleFte,
+				start: slot.roleStart,
+				end: slot.roleEnd,
 			});
 			writeFileSync(absFile, md, "utf-8");
 		}

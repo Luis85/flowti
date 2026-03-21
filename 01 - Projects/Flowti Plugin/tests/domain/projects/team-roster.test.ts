@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { reconcileProjectRoster } from "../../../src/domain/projects/team-roster.js";
+import {
+	reconcileProjectRoster,
+	teamRoleSlotDateRangeInvalid,
+	teamRoleSlotsHaveInvalidDateRange,
+} from "../../../src/domain/projects/team-roster.js";
 import type { TeamRoleSlot } from "../../../src/domain/projects/types.js";
 
 describe("reconcileProjectRoster", () => {
@@ -25,5 +29,25 @@ describe("reconcileProjectRoster", () => {
 			{ id: "2", title: "B", need: "", assignee: "Same" },
 		];
 		expect(reconcileProjectRoster(prevRoster, prevSlots, nextSlots)).toEqual(["Same"]);
+	});
+});
+
+describe("team role date range", () => {
+	const slot = (start?: string, end?: string): TeamRoleSlot => ({ id: "r", title: "T", need: "", roleStart: start, roleEnd: end });
+
+	it("treats missing start or end as valid", () => {
+		expect(teamRoleSlotDateRangeInvalid(slot())).toBe(false);
+		expect(teamRoleSlotDateRangeInvalid(slot("2025-01-01", undefined))).toBe(false);
+		expect(teamRoleSlotDateRangeInvalid(slot(undefined, "2025-12-31"))).toBe(false);
+	});
+
+	it("flags end before start for ISO dates", () => {
+		expect(teamRoleSlotDateRangeInvalid(slot("2025-06-01", "2025-01-01"))).toBe(true);
+		expect(teamRoleSlotDateRangeInvalid(slot("2025-01-01", "2025-06-01"))).toBe(false);
+	});
+
+	it("aggregates across slots", () => {
+		expect(teamRoleSlotsHaveInvalidDateRange([slot("2025-06-01", "2025-01-01")])).toBe(true);
+		expect(teamRoleSlotsHaveInvalidDateRange([slot("2025-01-01", "2025-06-01")])).toBe(false);
 	});
 });

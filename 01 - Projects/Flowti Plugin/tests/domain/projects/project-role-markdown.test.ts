@@ -66,4 +66,36 @@ Body here.
 		const parsed = parseProjectRoleMarkdown(md);
 		expect(parsed?.skills).toEqual(["Foo|3", "Bar"]);
 	});
+
+	it("round-trips FTE and optional start/end dates", () => {
+		const md = buildProjectRoleMarkdown({
+			id: "r1",
+			role: "PM",
+			need: "Coordination",
+			skills: [],
+			summary: "",
+			body: "Details.",
+			fte: 0.5,
+			start: "2025-04-01",
+			end: "2025-12-31",
+		});
+		const parsed = parseProjectRoleMarkdown(md);
+		expect(parsed?.fte).toBe(0.5);
+		expect(parsed?.start).toBe("2025-04-01");
+		expect(parsed?.end).toBe("2025-12-31");
+	});
+
+	it("persists fte 0 in frontmatter", () => {
+		const md = buildProjectRoleMarkdown({
+			id: "z",
+			role: "Z",
+			need: "",
+			skills: [],
+			summary: "",
+			body: "",
+			fte: 0,
+		});
+		expect(md).toMatch(/^fte: 0$/m);
+		expect(parseProjectRoleMarkdown(md)?.fte).toBe(0);
+	});
 });

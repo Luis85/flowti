@@ -1,7 +1,8 @@
 /**
- * Project detail handler event wiring — Storybook, Git, and Config actions.
+ * Project detail handler event wiring — Components/Storybook tools, Git import, config/catalog, team roster.
  *
- * Extracted from project-handlers.ts to stay under max-lines.
+ * Storybook-related handlers use {@link ProjectEventContext.startStorybookWork}; project-wide CLI uses
+ * {@link ProjectEventContext.startProjectHubWork}. Extracted from project-handlers.ts to stay under max-lines.
  */
 
 import type { IProjectService, StorybookFramework, MarkdownSourceConfig, CatalogEntityType, CatalogEntityDef, TeamRoleSlot } from "../../domain/projects/types.js";
@@ -12,9 +13,14 @@ export interface ProjectEventContext {
 	getCurrentProject: () => string;
 	loadProject: (name: string) => Promise<void>;
 	loadProjectList: () => Promise<void>;
-	startBusy: (label: string) => void;
-	appendOutput: (line: string) => void;
-	endBusy: (result: { ok: boolean; error?: string }) => void;
+	/** Storybook / Components-tab CLI work only (install, scaffold, import MD, etc.). */
+	startStorybookWork: (label: string) => void;
+	appendStorybookLog: (line: string) => void;
+	endStorybookWork: (result: { ok: boolean; error?: string }) => void;
+	/** Project-wide operations: team roster, config, canvas, git wizard, empty project, … */
+	startProjectHubWork: (label: string) => void;
+	appendProjectHubLog: (line: string) => void;
+	endProjectHubWork: (result: { ok: boolean; error?: string }) => void;
 	openNote?: (path: string) => void;
 	createNote?: (name: string) => void;
 	openInWebviewer?: (url: string) => void;
@@ -26,16 +32,16 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 	const { el, projectService } = ctx;
 
 	el.addEventListener("storybook-install", ((e: CustomEvent) => {
-		ctx.startBusy("Installing Storybook...");
-		void projectService.installStorybook(ctx.getCurrentProject(), String(e.detail.framework) as StorybookFramework, ctx.appendOutput)
-			.then((r) => { ctx.endBusy(r); if (r.ok) el.showScaffoldModal = true; });
+		ctx.startStorybookWork("Installing Storybook…");
+		void projectService.installStorybook(ctx.getCurrentProject(), String(e.detail.framework) as StorybookFramework, ctx.appendStorybookLog)
+			.then((r) => { ctx.endStorybookWork(r); if (r.ok) el.showScaffoldModal = true; });
 	}) as EventListener);
 
 	el.addEventListener("storybook-start", (() => {
-		ctx.startBusy("Starting Storybook...");
+		ctx.startStorybookWork("Starting Storybook…");
 		let resolved = false;
 		let detectedUrl = "http://localhost:6006";
-		const originalAppend = ctx.appendOutput;
+		const originalAppend = ctx.appendStorybookLog;
 		const watchingAppend = (line: string) => {
 			originalAppend(line);
 			if (resolved) return;
@@ -53,7 +59,7 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 		};
 		void projectService.startStorybook(ctx.getCurrentProject(), watchingAppend)
 			.then(async (result) => {
-				if (!result.ok) { ctx.endBusy(result); return; }
+				if (!result.ok) { ctx.endStorybookWork(result); return; }
 				const deadline = Date.now() + 90000;
 				while (!resolved && Date.now() < deadline) {
 					await new Promise((r) => setTimeout(r, 3000));
@@ -77,26 +83,26 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 	}) as EventListener);
 
 	el.addEventListener("storybook-stop", (() => {
-		void projectService.stopStorybook(ctx.getCurrentProject()).then((r) => ctx.endBusy(r));
+		void projectService.stopStorybook(ctx.getCurrentProject()).then((r) => ctx.endStorybookWork(r));
 	}) as EventListener);
 
 	el.addEventListener("storybook-build", (() => {
-		ctx.startBusy("Building Storybook...");
-		void projectService.buildStorybook(ctx.getCurrentProject(), ctx.appendOutput).then((r) => ctx.endBusy(r));
+		ctx.startStorybookWork("Building Storybook…");
+		void projectService.buildStorybook(ctx.getCurrentProject(), ctx.appendStorybookLog).then((r) => ctx.endStorybookWork(r));
 	}) as EventListener);
 
 	el.addEventListener("storybook-import", (() => {
 		const savedPath = (el.config as { markdownSource?: { path?: string } } | undefined)?.markdownSource?.path;
 		if (savedPath) {
-			ctx.startBusy("Importing markdown to sitemap...");
-			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), savedPath, ctx.appendOutput).then((r) => ctx.endBusy(r));
+			ctx.startStorybookWork("Importing markdown to sitemap…");
+			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), savedPath, ctx.appendStorybookLog).then((r) => ctx.endStorybookWork(r));
 			return;
 		}
 		if (!ctx.pickFolder) return;
 		void ctx.pickFolder().then((folder) => {
 			if (folder === null) return;
-			ctx.startBusy("Importing markdown to sitemap...");
-			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), folder, ctx.appendOutput).then((r) => ctx.endBusy(r));
+			ctx.startStorybookWork("Importing markdown to sitemap…");
+			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), folder, ctx.appendStorybookLog).then((r) => ctx.endStorybookWork(r));
 		});
 	}) as EventListener);
 
@@ -120,10 +126,14 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 		el.storybookOutput = [];
 	}) as EventListener);
 
+	el.addEventListener("storybook-dismiss-error", (() => {
+		el.storybookError = "";
+	}) as EventListener);
+
 	el.addEventListener("storybook-canvas-import", (() => {
-		ctx.startBusy("Importing from canvas...");
-		void projectService.importCanvasSitemap(ctx.getCurrentProject(), ctx.appendOutput).then((r) => {
-			ctx.endBusy(r);
+		ctx.startStorybookWork("Importing from canvas…");
+		void projectService.importCanvasSitemap(ctx.getCurrentProject(), ctx.appendStorybookLog).then((r) => {
+			ctx.endStorybookWork(r);
 			void projectService.listComponents(ctx.getCurrentProject()).then((c) => { el.components = c; });
 		});
 	}) as EventListener);
@@ -140,13 +150,13 @@ export function wireScaffoldAndRegenerateEvents(ctx: ProjectEventContext): void 
 		el.showScaffoldModal = false;
 		const canvasImport = e.detail?.canvasImport === true;
 		if (canvasImport) {
-			ctx.startBusy("Importing canvas sitemap...");
-			void projectService.importCanvasSitemap(ctx.getCurrentProject(), ctx.appendOutput).then((importResult) => {
-				if (!importResult.ok) { ctx.endBusy(importResult); return; }
-				ctx.appendOutput("Scaffolding components...");
-				void projectService.scaffoldStorybook(ctx.getCurrentProject(), ctx.appendOutput, { adoptImport: true }).then((scaffoldResult) => {
-					if (!scaffoldResult.ok) { ctx.endBusy(scaffoldResult); return; }
-					ctx.endBusy(scaffoldResult);
+			ctx.startStorybookWork("Importing canvas sitemap…");
+			void projectService.importCanvasSitemap(ctx.getCurrentProject(), ctx.appendStorybookLog).then((importResult) => {
+				if (!importResult.ok) { ctx.endStorybookWork(importResult); return; }
+				ctx.appendStorybookLog("Scaffolding components…");
+				void projectService.scaffoldStorybook(ctx.getCurrentProject(), ctx.appendStorybookLog, { adoptImport: true }).then((scaffoldResult) => {
+					if (!scaffoldResult.ok) { ctx.endStorybookWork(scaffoldResult); return; }
+					ctx.endStorybookWork(scaffoldResult);
 					el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
 				});
 			});
@@ -156,21 +166,21 @@ export function wireScaffoldAndRegenerateEvents(ctx: ProjectEventContext): void 
 		if (importFirst) {
 			const savedPath = (el.config as { markdownSource?: { path?: string } } | undefined)?.markdownSource?.path;
 			if (!savedPath) return;
-			ctx.startBusy("Importing markdown...");
-			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), savedPath, ctx.appendOutput).then((importResult) => {
-				if (!importResult.ok) { ctx.endBusy(importResult); return; }
-				ctx.appendOutput("Scaffolding components...");
-				void projectService.scaffoldStorybook(ctx.getCurrentProject(), ctx.appendOutput, { adoptImport: true }).then((scaffoldResult) => {
-					if (!scaffoldResult.ok) { ctx.endBusy(scaffoldResult); return; }
-					ctx.endBusy(scaffoldResult);
+			ctx.startStorybookWork("Importing markdown…");
+			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), savedPath, ctx.appendStorybookLog).then((importResult) => {
+				if (!importResult.ok) { ctx.endStorybookWork(importResult); return; }
+				ctx.appendStorybookLog("Scaffolding components…");
+				void projectService.scaffoldStorybook(ctx.getCurrentProject(), ctx.appendStorybookLog, { adoptImport: true }).then((scaffoldResult) => {
+					if (!scaffoldResult.ok) { ctx.endStorybookWork(scaffoldResult); return; }
+					ctx.endStorybookWork(scaffoldResult);
 					el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
 				});
 			});
 		} else {
-			ctx.startBusy("Scaffolding components...");
-			void projectService.scaffoldStorybook(ctx.getCurrentProject(), ctx.appendOutput, { adoptImport: true }).then((r) => {
-				if (!r.ok) { ctx.endBusy(r); return; }
-				ctx.endBusy(r);
+			ctx.startStorybookWork("Scaffolding components…");
+			void projectService.scaffoldStorybook(ctx.getCurrentProject(), ctx.appendStorybookLog, { adoptImport: true }).then((r) => {
+				if (!r.ok) { ctx.endStorybookWork(r); return; }
+				ctx.endStorybookWork(r);
 				el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
 			});
 		}
@@ -180,20 +190,20 @@ export function wireScaffoldAndRegenerateEvents(ctx: ProjectEventContext): void 
 
 	el.addEventListener("storybook-regenerate-confirmed", (() => {
 		const framework = (el.storybook as { framework?: string })?.framework ?? "html";
-		ctx.startBusy("Regenerating component library...");
+		ctx.startStorybookWork("Regenerating component library…");
 		void projectService.cleanStorybook(ctx.getCurrentProject()).then((cleanResult) => {
-			if (!cleanResult.ok) { ctx.endBusy(cleanResult); return; }
-			ctx.appendOutput("Re-installing Storybook...");
-			return projectService.installStorybook(ctx.getCurrentProject(), framework as StorybookFramework, ctx.appendOutput);
+			if (!cleanResult.ok) { ctx.endStorybookWork(cleanResult); return; }
+			ctx.appendStorybookLog("Re-installing Storybook…");
+			return projectService.installStorybook(ctx.getCurrentProject(), framework as StorybookFramework, ctx.appendStorybookLog);
 		}).then((installResult) => {
-			if (!installResult || !installResult.ok) { ctx.endBusy(installResult ?? { ok: false }); return; }
-			ctx.appendOutput("Scaffolding components...");
-			return projectService.scaffoldStorybook(ctx.getCurrentProject(), ctx.appendOutput, { adoptImport: true });
+			if (!installResult || !installResult.ok) { ctx.endStorybookWork(installResult ?? { ok: false }); return; }
+			ctx.appendStorybookLog("Scaffolding components…");
+			return projectService.scaffoldStorybook(ctx.getCurrentProject(), ctx.appendStorybookLog, { adoptImport: true });
 		}).then((scaffoldResult) => {
-			if (!scaffoldResult || !scaffoldResult.ok) { ctx.endBusy(scaffoldResult ?? { ok: false }); return; }
-			ctx.endBusy(scaffoldResult);
+			if (!scaffoldResult || !scaffoldResult.ok) { ctx.endStorybookWork(scaffoldResult ?? { ok: false }); return; }
+			ctx.endStorybookWork(scaffoldResult);
 			el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
-		}).catch(() => { ctx.endBusy({ ok: false, error: "Regeneration failed unexpectedly" }); });
+		}).catch(() => { ctx.endStorybookWork({ ok: false, error: "Regeneration failed unexpectedly" }); });
 	}) as EventListener);
 }
 
@@ -209,7 +219,7 @@ export function wireGitImportEvents(ctx: ProjectEventContext): void {
 
 	el.addEventListener("import-setup", ((e: CustomEvent) => {
 		const { url, name, mode } = e.detail as { url: string; name: string; mode: string };
-		ctx.startBusy("Cloning repository...");
+		ctx.startProjectHubWork("Cloning repository…");
 		const modal = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
 		if (modal) { modal.step = "progress"; modal.errorNote = ""; }
 		const gitOutputLines: string[] = [];
@@ -221,7 +231,7 @@ export function wireGitImportEvents(ctx: ProjectEventContext): void {
 		};
 		void projectService.importFromGit(url, name, mode as "submodule" | "template", gitAppend).then((r) => {
 			if (!r.ok) {
-				el.storybookBusy = false; el.storybookBusyLabel = "";
+				el.projectHubBusy = false; el.projectHubBusyLabel = "";
 				const m = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
 				if (m) m.errorNote = r.error ?? "Clone failed";
 				return;
@@ -230,7 +240,7 @@ export function wireGitImportEvents(ctx: ProjectEventContext): void {
 			return projectService.detectProject(name);
 		}).then((detectResult) => {
 			if (!detectResult) return;
-			el.storybookBusy = false; el.storybookBusyLabel = "";
+			el.projectHubBusy = false; el.projectHubBusyLabel = "";
 			const m = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
 			if (m && detectResult.ok !== false) {
 				m.step = "detect";
@@ -248,12 +258,12 @@ export function wireGitImportEvents(ctx: ProjectEventContext): void {
 
 	el.addEventListener("wizard-configure", ((e: CustomEvent) => {
 		const detail = e.detail as Record<string, string>;
-		ctx.startBusy("Writing config...");
+		ctx.startProjectHubWork("Writing config…");
 		void projectService.bootstrapProject(detail.name, {
 			build: detail.buildCommand, test: detail.testCommand,
 			lint: detail.lintCommand, storybook: detail.framework,
 		}).then((r) => {
-			ctx.endBusy(r);
+			ctx.endProjectHubWork(r);
 			const m = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
 			if (m && r.ok) m.step = "done";
 		});
@@ -268,14 +278,14 @@ export function wireGitImportEvents(ctx: ProjectEventContext): void {
 
 	el.addEventListener("create-empty-project", ((e: CustomEvent) => {
 		const name = String(e.detail?.name);
-		ctx.startBusy("Creating project...");
-		ctx.appendOutput("Creating project folder...");
-		void projectService.createEmptyProject(name, ctx.appendOutput).then((r) => {
-			if (!r.ok) { ctx.endBusy(r); return; }
-			ctx.appendOutput("Creating project brief...");
+		ctx.startProjectHubWork("Creating project…");
+		ctx.appendProjectHubLog("Creating project folder…");
+		void projectService.createEmptyProject(name, ctx.appendProjectHubLog).then((r) => {
+			if (!r.ok) { ctx.endProjectHubWork(r); return; }
+			ctx.appendProjectHubLog("Creating project brief…");
 			ctx.createNote?.(name);
-			ctx.appendOutput("Done.");
-			ctx.endBusy(r);
+			ctx.appendProjectHubLog("Done.");
+			ctx.endProjectHubWork(r);
 			void ctx.loadProject(name);
 		});
 	}) as EventListener);
@@ -285,11 +295,12 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 	const { el, projectService } = ctx;
 
 	el.addEventListener("config-save", ((e: CustomEvent) => {
+		if (el.projectHubBusy) return;
 		const detail = e.detail as { path: string; strategy: string; requiredFields: string[] };
 		const config: MarkdownSourceConfig = { path: detail.path, strategy: detail.strategy as MarkdownSourceConfig["strategy"], requiredFields: detail.requiredFields };
-		ctx.startBusy("Saving config...");
-		void projectService.saveMarkdownSourceConfig(ctx.getCurrentProject(), config, ctx.appendOutput).then((r) => {
-			ctx.endBusy(r);
+		ctx.startProjectHubWork("Saving markdown source config…");
+		void projectService.saveMarkdownSourceConfig(ctx.getCurrentProject(), config, ctx.appendProjectHubLog).then((r) => {
+			ctx.endProjectHubWork(r);
 			const configTab = el.shadowRoot?.querySelector("flowti-tab-config") as HTMLElement & { saveStatus: string } | null;
 			if (configTab) { configTab.saveStatus = r.ok ? "Saved" : (r.error ?? "Save failed"); setTimeout(() => { if (configTab) configTab.saveStatus = ""; }, 3000); }
 		});
@@ -305,18 +316,20 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 	}) as EventListener);
 
 	el.addEventListener("canvas-generate", ((e: CustomEvent) => {
+		if (el.projectHubBusy) return;
 		const preset = e.detail?.preset ? String(e.detail.preset) : undefined;
 		if (!preset) { ctx.openNote?.(`01 - Projects/${ctx.getCurrentProject()}/sitemap.canvas`); return; }
-		ctx.startBusy("Generating sitemap canvas...");
-		void projectService.generateSitemapCanvas(ctx.getCurrentProject(), ctx.appendOutput, { preset, force: true }).then((r) => {
-			ctx.endBusy(r);
+		ctx.startProjectHubWork("Generating sitemap canvas…");
+		void projectService.generateSitemapCanvas(ctx.getCurrentProject(), ctx.appendProjectHubLog, { preset, force: true }).then((r) => {
+			ctx.endProjectHubWork(r);
 			if (r.ok) ctx.openNote?.(`01 - Projects/${ctx.getCurrentProject()}/sitemap.canvas`);
 		});
 	}) as EventListener);
 
 	el.addEventListener("canvas-merge", (() => {
-		ctx.startBusy("Merging canvas changes...");
-		void projectService.importCanvasSitemap(ctx.getCurrentProject(), ctx.appendOutput, { merge: true }).then((r) => ctx.endBusy(r));
+		if (el.projectHubBusy) return;
+		ctx.startProjectHubWork("Merging canvas changes…");
+		void projectService.importCanvasSitemap(ctx.getCurrentProject(), ctx.appendProjectHubLog, { merge: true }).then((r) => ctx.endProjectHubWork(r));
 	}) as EventListener);
 
 	el.addEventListener("canvas-open", (() => { ctx.openNote?.(`01 - Projects/${ctx.getCurrentProject()}/sitemap.canvas`); }) as EventListener);
@@ -370,16 +383,18 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 
 	// Team roster
 	el.addEventListener("team-roster-save", ((e: CustomEvent) => {
+		if (el.projectHubBusy) return;
 		const slots = (e.detail?.slots ?? []) as TeamRoleSlot[];
-		ctx.startBusy("Saving team roster...");
-		void projectService.saveTeamRoster(ctx.getCurrentProject(), slots, ctx.appendOutput).then((r) => ctx.endBusy(r));
+		ctx.startProjectHubWork("Saving team roster");
+		void projectService.saveTeamRoster(ctx.getCurrentProject(), slots, ctx.appendProjectHubLog).then((r) => ctx.endProjectHubWork(r));
 	}) as EventListener);
 
 	el.addEventListener("team-create-agent", ((e: CustomEvent) => {
+		if (el.projectHubBusy) return;
 		const roleId = String((e.detail as { roleId?: string })?.roleId ?? "");
 		const agentName = String((e.detail as { agentName?: string })?.agentName ?? "");
-		ctx.startBusy("Creating agent…");
-		void projectService.createAgentFromRole(ctx.getCurrentProject(), roleId, agentName, ctx.appendOutput).then((r) => ctx.endBusy(r));
+		ctx.startProjectHubWork("Creating agent");
+		void projectService.createAgentFromRole(ctx.getCurrentProject(), roleId, agentName, ctx.appendProjectHubLog).then((r) => ctx.endProjectHubWork(r));
 	}) as EventListener);
 
 	el.addEventListener("team-refresh-agents", (() => {
