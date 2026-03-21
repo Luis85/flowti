@@ -52,6 +52,9 @@ export interface BTAgentObject {
 	IsFocusOk(): boolean;
 	HasWorkGoal(): boolean;
 
+	// Journey conditions
+	HasJourneyTask(): boolean;
+
 	// Actions (return State)
 	PickGoal(): State;
 	PickGoalFile(): State;
@@ -81,6 +84,9 @@ export interface BTAgentObject {
 	GoToWorkstation(): State;
 	DoWork(): State;
 	LeaveWorkstation(): State;
+
+	// Journey actions
+	ExecuteJourney(): State;
 }
 
 export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentObject {
@@ -196,6 +202,11 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return context.goals.length > 0
 			&& context.needs.energy > 50
 			&& context.needs.focus > 40;
+	}
+
+	// Stub: no journey tasks assigned via this system yet (SSE wiring deferred)
+	function HasJourneyTask(): boolean {
+		return false;
 	}
 
 	// ── Actions ──────────────────────────────────────────────────────
@@ -480,6 +491,11 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return fromNodeState("succeeded");
 	}
 
+	// Stub: actual journey execution wires to SSE event contract (deferred)
+	function ExecuteJourney(): State {
+		return fromNodeState("succeeded");
+	}
+
 	return {
 		context,
 		collectedActions,
@@ -489,6 +505,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		IsEnergyLow, IsSocialLow, IsFocusLow, IsMoraleLow,
 		IsHungry, IsThirsty,
 		IsEnergyOk, IsFocusOk, HasWorkGoal,
+		HasJourneyTask,
 		PickGoal, PickGoalFile, ReadFile, WriteFile, OpenInVault,
 		QueryLLM, GenerateFromTemplate, DropArtifact, SpeakBubble,
 		Wander, Emote, Chatter, Socialize, Rest, HandleEvent,
@@ -496,5 +513,6 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		SeekFoodStation, SeekDrinkStation, Eat, Drink,
 		WanderSad,
 		GoToWorkstation, DoWork, LeaveWorkstation,
+		ExecuteJourney,
 	};
 }
