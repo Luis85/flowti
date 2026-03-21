@@ -8,6 +8,8 @@ import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import type { DashboardAgent } from "../data/types.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
+import "./panel-vitals.js";
+import "./panel-economy.js";
 
 const STAT_LABELS: ReadonlyArray<readonly [string, keyof NonNullable<DashboardAgent["attributes"]>]> = [
 	["STR", "str"],
@@ -36,23 +38,6 @@ const DOMAIN_COLORS: Record<string, string> = {
 	orchestration: "#ec4899",
 };
 
-const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2200, 3000] as const;
-
-const TRUST_TIER_COLORS: Record<string, string> = {
-	supervised: "#f59e0b",
-	trusted: "#22c55e",
-	autonomous: "#8b5cf6",
-};
-
-const VITALS: ReadonlyArray<{ label: string; key: keyof AgentNeeds; color: string; lowThreshold: number }> = [
-	{ label: "Energy",  key: "energy",  color: "#22c55e", lowThreshold: 30 },
-	{ label: "Hunger",  key: "hunger",  color: "#f97316", lowThreshold: 40 },
-	{ label: "Thirst",  key: "thirst",  color: "#06b6d4", lowThreshold: 30 },
-	{ label: "Focus",   key: "focus",   color: "#a855f7", lowThreshold: 25 },
-	{ label: "Social",  key: "social",  color: "#f59e0b", lowThreshold: 25 },
-	{ label: "Morale",  key: "morale",  color: "#ec4899", lowThreshold: 20 },
-];
-
 export class PanelInfo extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
@@ -70,7 +55,6 @@ export class PanelInfo extends FlowtiElement {
 				display: block;
 			}
 
-			/* -- Hero / greeting area ------------- */
 			.hero {
 				text-align: center;
 				padding: 12px 8px 16px;
@@ -87,7 +71,6 @@ export class PanelInfo extends FlowtiElement {
 				margin: 0 auto;
 			}
 
-			/* -- Tags row ------------------------- */
 			.tags {
 				display: flex;
 				flex-wrap: wrap;
@@ -133,7 +116,6 @@ export class PanelInfo extends FlowtiElement {
 				color: #9ca3af;
 			}
 
-			/* -- Personality traits --------------- */
 			.personality {
 				display: flex;
 				flex-wrap: wrap;
@@ -150,7 +132,6 @@ export class PanelInfo extends FlowtiElement {
 				color: var(--text-secondary);
 			}
 
-			/* -- Stats bar ----------------------- */
 			.stats {
 				display: grid;
 				grid-template-columns: repeat(6, 1fr);
@@ -193,7 +174,6 @@ export class PanelInfo extends FlowtiElement {
 				background: #3b82f6;
 			}
 
-			/* -- Section ------------------------- */
 			.section {
 				margin-bottom: 10px;
 			}
@@ -207,7 +187,6 @@ export class PanelInfo extends FlowtiElement {
 				margin-bottom: 6px;
 			}
 
-			/* -- Skills -------------------------- */
 			.skill {
 				display: flex;
 				align-items: center;
@@ -225,7 +204,6 @@ export class PanelInfo extends FlowtiElement {
 				font-size: 10px;
 			}
 
-			/* -- Relationships ------------------- */
 			.rel {
 				display: flex;
 				align-items: center;
@@ -243,7 +221,6 @@ export class PanelInfo extends FlowtiElement {
 				font-size: 10px;
 			}
 
-			/* -- XP bar -------------------------- */
 			.xp-row {
 				display: flex;
 				align-items: center;
@@ -278,7 +255,6 @@ export class PanelInfo extends FlowtiElement {
 				padding: 20px 0;
 			}
 
-			/* -- Context rows -------------------- */
 			.context-row {
 				display: flex;
 				justify-content: space-between;
@@ -298,114 +274,6 @@ export class PanelInfo extends FlowtiElement {
 				color: var(--text-muted);
 				font-size: 10px;
 			}
-
-			/* -- Vitals bars --------------------- */
-			.vitals-row {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				padding: 2px 0;
-				font-size: 11px;
-			}
-
-			.vitals-label {
-				color: var(--text-secondary);
-				min-width: 44px;
-			}
-
-			.vitals-pct {
-				color: var(--text-muted);
-				font-size: 10px;
-				min-width: 30px;
-				text-align: right;
-			}
-
-			.needs-bar {
-				height: 6px;
-				border-radius: 3px;
-				background: #1e293b;
-				overflow: hidden;
-				flex: 1;
-				margin: 0 6px;
-			}
-
-			.needs-bar-fill {
-				height: 100%;
-				border-radius: 3px;
-				transition: width 0.3s ease;
-			}
-
-			.needs-low .needs-bar-fill {
-				animation: pulse-bar 1s ease-in-out infinite alternate;
-			}
-
-			@keyframes pulse-bar {
-				from { opacity: 1; }
-				to { opacity: 0.5; }
-			}
-
-			/* -- Economy section ----------------- */
-			.economy-header {
-				display: flex;
-				align-items: center;
-				gap: 6px;
-				margin-bottom: 6px;
-			}
-
-			.level-badge {
-				font-size: 10px;
-				font-weight: 700;
-				padding: 2px 7px;
-				border-radius: 10px;
-				background: rgba(139, 92, 246, 0.2);
-				color: #c4b5fd;
-				white-space: nowrap;
-			}
-
-			.trust-badge {
-				font-size: 10px;
-				font-weight: 600;
-				padding: 2px 7px;
-				border-radius: 10px;
-				color: #fff;
-				white-space: nowrap;
-			}
-
-			.economy-stats {
-				display: flex;
-				gap: 12px;
-				margin-bottom: 8px;
-			}
-
-			.economy-stat {
-				display: flex;
-				align-items: center;
-				gap: 4px;
-				font-size: 11px;
-				color: var(--text-secondary);
-			}
-
-			.economy-stat-icon {
-				font-size: 12px;
-			}
-
-			.economy-stat-value {
-				font-weight: 600;
-				color: var(--text-primary);
-			}
-
-			/* -- Capability badges ---------------- */
-			.capability-badges {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 4px;
-				margin-top: 6px;
-			}
-
-			.tag-capability {
-				background: rgba(6, 182, 212, 0.12);
-				color: #22d3ee;
-			}
 		`,
 	];
 
@@ -422,8 +290,8 @@ export class PanelInfo extends FlowtiElement {
 		return html`
 			${this.renderHero()}
 			${this.renderProjectContext()}
-			${this.renderVitals()}
-			${this.renderEconomy()}
+			<ft-game-panel-vitals .needs="${this.needs}"></ft-game-panel-vitals>
+			<ft-game-panel-economy .agent="${this.agent}"></ft-game-panel-economy>
 			${this.renderStats(attributes)}
 			${experience !== undefined ? this.renderXp(experience) : nothing}
 			${this.renderListSection("Skills", this.agent.skills, (s) => html`
@@ -490,80 +358,6 @@ export class PanelInfo extends FlowtiElement {
 			<div class="section">
 				<div class="section-label">${label}</div>
 				${items.map(renderItem)}
-			</div>
-		`;
-	}
-
-	private renderVitals() {
-		if (!this.needs) return nothing;
-		return html`
-			<div class="section">
-				<div class="section-label">Vitals</div>
-				${VITALS.map(({ label, key, color, lowThreshold }) => {
-					const value = this.needs![key];
-					const pct = Math.round(value);
-					const isLow = value < lowThreshold;
-					return html`
-						<div class="vitals-row${isLow ? " needs-low" : ""}">
-							<span class="vitals-label">${label}</span>
-							<div class="needs-bar">
-								<div class="needs-bar-fill" style="width:${pct}%;background:${color}"></div>
-							</div>
-							<span class="vitals-pct">${pct}%</span>
-						</div>
-					`;
-				})}
-			</div>
-		`;
-	}
-
-	private renderEconomy() {
-		const { level, coin, tokens, trustTier, capabilities } = this.agent;
-		if (level === undefined && coin === undefined && tokens === undefined) return nothing;
-
-		const lvl = level ?? 1;
-		const xp = this.agent.experience ?? 0;
-		const currentThreshold = LEVEL_THRESHOLDS[lvl - 1] ?? 0;
-		const nextThreshold = LEVEL_THRESHOLDS[lvl] ?? currentThreshold;
-		const xpProgress = nextThreshold > currentThreshold
-			? Math.min(1, (xp - currentThreshold) / (nextThreshold - currentThreshold))
-			: 1;
-		const xpPct = Math.round(xpProgress * 100);
-
-		const tier = trustTier ?? "supervised";
-		const tierColor = TRUST_TIER_COLORS[tier] ?? "#6b7280";
-
-		return html`
-			<div class="section">
-				<div class="section-label">Economy</div>
-				<div class="economy-header">
-					<span class="level-badge">Level ${lvl}</span>
-					<span class="trust-badge" style="background:${tierColor}22;color:${tierColor}">${tier}</span>
-				</div>
-				<div class="xp-row">
-					<span class="xp-label">XP</span>
-					<div class="xp-bar"><div class="xp-fill" style="width:${xpPct}%"></div></div>
-					<span class="xp-label">${xpPct}%</span>
-				</div>
-				<div class="economy-stats">
-					${coin !== undefined ? html`
-						<div class="economy-stat">
-							<span class="economy-stat-icon">\u{1FA99}</span>
-							<span class="economy-stat-value">${coin}</span>
-						</div>
-					` : nothing}
-					${tokens !== undefined ? html`
-						<div class="economy-stat">
-							<span class="economy-stat-icon">\u26A1</span>
-							<span class="economy-stat-value">${tokens}</span>
-						</div>
-					` : nothing}
-				</div>
-				${capabilities && capabilities.length > 0 ? html`
-					<div class="capability-badges">
-						${capabilities.map(c => html`<span class="tag tag-capability">${c}</span>`)}
-					</div>
-				` : nothing}
 			</div>
 		`;
 	}
