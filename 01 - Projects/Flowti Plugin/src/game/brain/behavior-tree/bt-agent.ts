@@ -46,6 +46,8 @@ export interface BTAgentObject {
 	IsSocialLow(): boolean;
 	IsFocusLow(): boolean;
 	IsMoraleLow(): boolean;
+	IsHungry(): boolean;
+	IsThirsty(): boolean;
 	IsEnergyOk(): boolean;
 	IsFocusOk(): boolean;
 	HasWorkGoal(): boolean;
@@ -71,6 +73,10 @@ export interface BTAgentObject {
 	SeekRestSpot(): State;
 	SeekNearbyAgent(): State;
 	SeekQuietCorner(): State;
+	SeekFoodStation(): State;
+	SeekDrinkStation(): State;
+	Eat(): State;
+	Drink(): State;
 	WanderSad(): State;
 	GoToWorkstation(): State;
 	DoWork(): State;
@@ -168,6 +174,14 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 
 	function IsMoraleLow(): boolean {
 		return context.needs.morale < 10;
+	}
+
+	function IsHungry(): boolean {
+		return context.needs.hunger < 35;
+	}
+
+	function IsThirsty(): boolean {
+		return context.needs.thirst < 30;
 	}
 
 	function IsEnergyOk(): boolean {
@@ -417,6 +431,30 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return fromNodeState("succeeded");
 	}
 
+	function SeekFoodStation(): State {
+		collect("seek-food", {});
+		deps.brain?.applyEvent(context.name, "seek-food");
+		return fromNodeState("succeeded");
+	}
+
+	function SeekDrinkStation(): State {
+		collect("seek-drink", {});
+		deps.brain?.applyEvent(context.name, "seek-drink");
+		return fromNodeState("succeeded");
+	}
+
+	function Eat(): State {
+		context.needs.hunger = Math.min(100, context.needs.hunger + 30);
+		collect("idle", {});
+		return fromNodeState("succeeded");
+	}
+
+	function Drink(): State {
+		context.needs.thirst = Math.min(100, context.needs.thirst + 30);
+		collect("idle", {});
+		return fromNodeState("succeeded");
+	}
+
 	function WanderSad(): State {
 		collect("wander-sad", {});
 		collect("idle", {});
@@ -449,11 +487,14 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		HasActiveGoal, HasGoalFile, HasLLMProvider,
 		HasNearbyAgent, HasPendingEvent, HasFileContent, HasLLMResult,
 		IsEnergyLow, IsSocialLow, IsFocusLow, IsMoraleLow,
+		IsHungry, IsThirsty,
 		IsEnergyOk, IsFocusOk, HasWorkGoal,
 		PickGoal, PickGoalFile, ReadFile, WriteFile, OpenInVault,
 		QueryLLM, GenerateFromTemplate, DropArtifact, SpeakBubble,
 		Wander, Emote, Chatter, Socialize, Rest, HandleEvent,
-		SeekRestSpot, SeekNearbyAgent, SeekQuietCorner, WanderSad,
+		SeekRestSpot, SeekNearbyAgent, SeekQuietCorner,
+		SeekFoodStation, SeekDrinkStation, Eat, Drink,
+		WanderSad,
 		GoToWorkstation, DoWork, LeaveWorkstation,
 	};
 }
