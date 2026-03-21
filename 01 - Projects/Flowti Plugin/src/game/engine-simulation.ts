@@ -284,6 +284,16 @@ export function tickBrain(ctx: EngineContext): void {
 
 	// Brain system — movement, state machine
 	ctx.brain.update(ctx.deltaMs, ctx.findAgentActor, (name) => ctx.registry.getEntityRoom(name));
+
+	// Standing order indicator — show loop icon when agent is working and task-locked
+	for (const [name, entry] of ctx.brain.getAllEntries()) {
+		const actor = ctx.findAgentActor(name);
+		if (!actor) continue;
+		const isActive = entry.state === "working" && entry.taskLocked;
+		if (actor.isStandingOrderActive() !== isActive) {
+			actor.setStandingOrderActive(isActive);
+		}
+	}
 }
 
 // ── 10. tickSocial — ritual + social + talk ──────────────────────────

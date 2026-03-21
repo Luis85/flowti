@@ -21,12 +21,18 @@ vi.mock("excalibur", () => {
 		this.frames = [{ graphic: {} }];
 	}
 
+	function MockColor(this: Record<string, unknown>, r: number, g: number, b: number, a: number) {
+		this.r = r; this.g = g; this.b = b; this.a = a;
+	}
+	(MockColor as unknown as Record<string, unknown>).Transparent = new (MockColor as unknown as new (r: number, g: number, b: number, a: number) => unknown)(0, 0, 0, 0);
+
 	return {
 		Actor: MockActor,
 		Canvas: MockCanvas,
 		Animation: MockAnimation,
 		CollisionType: { PreventCollision: 0 },
 		vec: vi.fn((x: number, y: number) => ({ x, y })),
+		Color: MockColor,
 	};
 });
 

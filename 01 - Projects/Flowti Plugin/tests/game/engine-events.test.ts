@@ -415,16 +415,16 @@ describe("engine-events", () => {
 	describe("wireStoreEvents", () => {
 		it("registers multiple store event listeners", () => {
 			wireEvents(ctx);
-			// 9 store listeners: scene-change, agent-message-sent, agent-response-received,
-			// task-assigned, task-completed, permission-decided, agent-using-tool,
-			// agent-tool-complete, state-changed
-			expect(ctx.store.addEventListener).toHaveBeenCalledTimes(9);
+			// 11 store listeners: scene-change, agent-message-sent, agent-response-received,
+			// task-assigned, task-completed, level-up, trust-promoted,
+			// permission-decided, agent-using-tool, agent-tool-complete, state-changed
+			expect(ctx.store.addEventListener).toHaveBeenCalledTimes(11);
 		});
 
 		it("cleanup removes all store event listeners", () => {
 			const cleanup = wireEvents(ctx);
 			cleanup();
-			expect(ctx.store.removeEventListener).toHaveBeenCalledTimes(9);
+			expect(ctx.store.removeEventListener).toHaveBeenCalledTimes(11);
 		});
 
 		it("registered event names match expected set", () => {

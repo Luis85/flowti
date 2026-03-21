@@ -360,7 +360,7 @@ export class BrainSystem {
 			return;
 		}
 
-		const speedMult = MOVEMENT_SPEED_MAP[entry.habits.movementStyle] * entry.habits.speedMult;
+		const speedMult = MOVEMENT_SPEED_MAP[entry.habits.movementStyle] * entry.habits.speedMult * actor.walkSpeedMultiplier;
 		const speed = BASE_SPEED * speedMult * (deltaMs / 1000);
 		const moveX = (dx / dist) * Math.min(speed, dist);
 		const moveY = (dy / dist) * Math.min(speed, dist);
@@ -413,7 +413,7 @@ export class BrainSystem {
 				entry.targetPos = null;
 				return;
 			}
-			const speedMult = MOVEMENT_SPEED_MAP[entry.habits.movementStyle];
+			const speedMult = MOVEMENT_SPEED_MAP[entry.habits.movementStyle] * actor.walkSpeedMultiplier;
 			const speed = BASE_SPEED * speedMult * (deltaMs / 1000);
 			actor.pos.x += (dx / dist) * Math.min(speed, dist);
 			actor.pos.y += (dy / dist) * Math.min(speed, dist);

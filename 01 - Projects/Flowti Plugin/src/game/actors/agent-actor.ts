@@ -9,6 +9,7 @@ import * as ex from "excalibur";
 import type { DashboardAgent } from "../data/types.js";
 import type { BrainState } from "../brain/brain-types.js";
 import type { AgentSprites } from "../sprites/sprite-loader.js";
+import { getVisualForLevel } from "../data/progression-visuals.js";
 
 // ── Dimensions ───────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ export interface AgentActorConfig {
 export class AgentActor extends ex.Actor {
 	public agentData: DashboardAgent;
 	public brainState: BrainState = "idle";
+	public level = 1;
 
 	private readonly onSelect: (agentName: string) => void;
 	private bobPhase = 0;
@@ -40,6 +42,7 @@ export class AgentActor extends ex.Actor {
 	private showStandingOrderIcon = false;
 	private capabilityUnlockTimer = 0;
 	private capabilityIcon = "";
+	private auraPhase = 0;
 
 	constructor(config: AgentActorConfig) {
 		super({
@@ -107,6 +110,24 @@ export class AgentActor extends ex.Actor {
 			this.toolActor.graphics.visible = this.toolActive;
 		}
 
+		// Progression-level visuals — glow tint + aura orbit dot
+		const levelVisual = getVisualForLevel(this.level);
+		if (levelVisual.glowColor && levelVisual.glowOpacity) {
+			// Apply a color tint proportional to glowOpacity (0 = no tint, 1 = full tint)
+			const t = levelVisual.glowOpacity;
+			this.color = new ex.Color(
+				Math.round(255 * t),
+				Math.round(220 * t),
+				Math.round(80 * t),
+				t * 0.6,
+			);
+		} else {
+			this.color = ex.Color.Transparent;
+		}
+		if (levelVisual.auraParticles) {
+			this.auraPhase += delta * 0.002;
+		}
+
 		// Standing order loop icon visibility
 		if (this.standingOrderActor) {
 			this.standingOrderActor.graphics.visible = this.showStandingOrderIcon;
@@ -170,6 +191,16 @@ export class AgentActor extends ex.Actor {
 	/** Returns true when a standing order is currently active. */
 	isStandingOrderActive(): boolean {
 		return this.showStandingOrderIcon;
+	}
+
+	/** Set the agent's current level to drive progression visuals and walk speed. */
+	setLevel(level: number): void {
+		this.level = level;
+	}
+
+	/** Walk speed multiplier from level progression (1.0 = no boost). */
+	get walkSpeedMultiplier(): number {
+		return 1 + (getVisualForLevel(this.level).walkSpeedBoost ?? 0);
 	}
 
 	/** Flash a capability unlock icon for the given duration (ms). */

@@ -7,6 +7,28 @@
  */
 
 import type { EngineContext } from "./engine-types.js";
+import { getCueForTrigger, formatBubbleText } from "./systems/economy-visuals.js";
+
+// ── Economy visual helper ─────────────────────────────────────────────
+
+function showEconomyCue(
+	ctx: EngineContext,
+	trigger: string,
+	agentName: string,
+	data: Record<string, string | number> = {},
+): void {
+	const cue = getCueForTrigger(trigger);
+	if (!cue) return;
+	const actor = ctx.findAgentActor(agentName);
+	if (!actor) return;
+	if (cue.bubbleText) {
+		const text = formatBubbleText(cue.bubbleText, data);
+		ctx.bubble.showBubble(agentName, "thought", text, ctx.engine.currentScene, ctx.findAgentActor, cue.duration ?? 2000);
+	}
+	if (cue.particlePreset) {
+		ctx.particlePool.spawnPreset(cue.particlePreset, actor.pos.x, actor.pos.y - 20);
+	}
+}
 
 export function wireStoreEvents(ctx: EngineContext): () => void {
 	const handlers: Array<{ event: string; handler: EventListener }> = [];
@@ -57,7 +79,7 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 	}) as EventListener);
 
 	addStoreListener("task-completed", ((e: CustomEvent) => {
-		const { agentName, result } = e.detail;
+		const { agentName, result, xp, coin } = e.detail;
 		ctx.brain.releaseWork(agentName);
 		ctx.store.taskLockedAgents.delete(agentName);
 		ctx.talk.silence(agentName);
@@ -66,6 +88,24 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 		if (actor) { actor.hideLlmIndicator(); actor.hideToolIndicator(); }
 		// Show completion bubble
 		ctx.bubble.showBubble(agentName, "speech", typeof result === "string" ? result.slice(0, 80) : "Task complete.", ctx.engine.currentScene, ctx.findAgentActor, 5000);
+		// Economy visual — floating "+{xp}XP +{coin}C"
+		showEconomyCue(ctx, "task-completed", agentName, {
+			xp: typeof xp === "number" ? xp : 10,
+			coin: typeof coin === "number" ? coin : 1,
+		});
+	}) as EventListener);
+
+	addStoreListener("level-up", ((e: CustomEvent) => {
+		const { agentName, level } = e.detail;
+		showEconomyCue(ctx, "level-up", agentName, { level: typeof level === "number" ? level : 1 });
+		// Update actor level for progression visuals
+		const actor = ctx.findAgentActor(agentName);
+		if (actor) actor.setLevel(typeof level === "number" ? level : 1);
+	}) as EventListener);
+
+	addStoreListener("trust-promoted", ((e: CustomEvent) => {
+		const { agentName } = e.detail;
+		showEconomyCue(ctx, "trust-promoted", agentName);
 	}) as EventListener);
 
 	addStoreListener("permission-decided", ((e: CustomEvent) => {
