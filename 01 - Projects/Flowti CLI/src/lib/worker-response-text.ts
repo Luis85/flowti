@@ -1,9 +1,6 @@
 /**
- * Final worker payload shape varies by LLM provider. The agent JSONL line uses
- * the `text` field (see `azt` / line writer in the Flowti CLI bundle).
- *
- * When rebuilding `main.mjs`, wire `onResponse` to this helper so Talk / plugin
- * receive non-empty `response` events.
+ * Final worker `onResponse` payload shape varies by LLM provider / runner.
+ * Agent JSONL events and the HTTP API use the normalized string as assistant text.
  */
 export function textFromWorkerResponsePayload(n: unknown): string {
 	if (n == null || typeof n !== "object") return "";

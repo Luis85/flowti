@@ -368,7 +368,7 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	private updateHubHint(totalCount: number, hubCount: number, offHubCount: number): void {
 		if (!this.hubHintLabel) return;
 		if (totalCount === 0) {
-			this.hubHintLabel.text = "No roster yet — add .flowti/agents/data/agent-dashboard.json or run the Flowti CLI.";
+			this.hubHintLabel.text = "No roster yet — run `flowti agent:dashboard-sync` or add .flowti/agents/data/agent-dashboard.json.";
 		} else if (offHubCount > 0 && hubCount === 0) {
 			this.hubHintLabel.text = `${offHubCount} agent(s) are in side rooms by domain — click the doors on the right (Office / Village / Station).`;
 		} else if (offHubCount > 0) {

@@ -10,6 +10,7 @@ import type { IFileSystem, IPaths, IClock } from "../../infrastructure/types.js"
 import type { IWorkerManager } from "./worker-types.js";
 import type { IWorldStateManager, AgentActionType } from "./world-state-types.js";
 import type { AgentStreamEvent } from "./agent-stream.js";
+import { textFromWorkerResponsePayload } from "../../lib/worker-response-text.js";
 
 // ── Deps ─────────────────────────────────────────────────────────────
 
@@ -247,7 +248,7 @@ function handleMessage(deps: AgentProcessLoopDeps, msg: MessageInput): void {
 			writeEvent(deps, type, text, meta);
 		},
 		onResponse(response) {
-			writeEvent(deps, "response", response.message);
+			writeEvent(deps, "response", textFromWorkerResponsePayload(response));
 		},
 	});
 }

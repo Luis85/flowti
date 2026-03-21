@@ -29,7 +29,6 @@ import { createCommands as createProjectDepsCmds } from "../ui/displays/deps-dis
 import { commands as pluginCmds } from "../controller/plugins.controller.js";
 import { commands as aiToolsCmds } from "../controller/ai-tools.controller.js";
 import { commands as sitemapCmds } from "../controller/sitemap.controller.js";
-import { commands as serveCmds } from "../controller/serve.controller.js";
 import { commands as claudeSyncCmds } from "../controller/claude-sync.controller.js";
 import { commands as stateCmds } from "../controller/state.controller.js";
 import { commands as workspaceCmds } from "../controller/workspace.controller.js";
@@ -128,11 +127,6 @@ export function registerBuiltinDomains(registry: CommandRegistry): void {
 		projectFree: ["sitemap:validate", "sitemap:status", "sitemap:views"],
 	});
 	registry.registerDomain({
-		domain: "serve",
-		commands: serveCmds,
-		projectFree: ["serve", "serve:stop", "serve:status"],
-	});
-	registry.registerDomain({
 		domain: "claude",
 		commands: claudeSyncCmds,
 		projectFree: ["claude:sync"],
@@ -168,7 +162,7 @@ export function registerBuiltinDomains(registry: CommandRegistry): void {
 	registry.registerDomain({
 		domain: "agent",
 		commands: agentCmds,
-		projectFree: ["agent:list", "agent:task", "agent:wake", "agent:permission"],
+		projectFree: ["agent:list", "agent:task", "agent:wake", "agent:permission", "agent:dashboard-sync"],
 	});
 	registry.setWildcard("reports", reportsCmds["report:*"]);
 	registry.setWildcardPrefix("report:");
