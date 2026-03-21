@@ -135,12 +135,15 @@ export function tickReactiveTriggers(ctx: EngineContext): void {
 		if (needs.focus > REACTIVE_THRESHOLDS.focusDeep) tryTrigger("focus-deep");
 		else if (needs.focus < REACTIVE_THRESHOLDS.focusLost) tryTrigger("focus-lost");
 		if (needs.morale > REACTIVE_THRESHOLDS.moraleBoost && !fired.has("morale-boost")) tryTrigger("morale-boost");
-		// Hunger/thirst — low-probability thought bubbles while below threshold
-		if (needs.hunger < 40 && Math.random() < 0.001) {
+		// Hunger/thirst — low-probability thought bubbles while below threshold.
+		// Quirk modulation: snacker gets hungry earlier, coffee-addict gets thirsty earlier.
+		const hungerThreshold = sys.quirk.hasQuirk(agentName, "snacker") ? 50 : 40;
+		const thirstThreshold = sys.quirk.hasQuirk(agentName, "coffee-addict") ? 45 : 30;
+		if (needs.hunger < hungerThreshold && Math.random() < 0.001) {
 			const phrase = HUNGER_PHRASES[Math.floor(Math.random() * HUNGER_PHRASES.length)];
 			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
 		}
-		if (needs.thirst < 30 && Math.random() < 0.001) {
+		if (needs.thirst < thirstThreshold && Math.random() < 0.001) {
 			const phrase = THIRST_PHRASES[Math.floor(Math.random() * THIRST_PHRASES.length)];
 			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
 		}

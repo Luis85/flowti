@@ -134,7 +134,7 @@ function createMockContext(): EngineContext {
 				onCycleEnd: vi.fn(),
 				getMemory: vi.fn(() => ({ workStreak: 0, quirks: [], opinions: [] })),
 			},
-			quirk: {},
+			quirk: { hasQuirk: vi.fn(() => false) },
 			relationship: {
 				onCycleEnd: vi.fn(),
 			},

@@ -9,6 +9,10 @@ import * as ex from "excalibur";
 import type { PetDefinition } from "../data/pet-definitions.js";
 import type { SceneEntity } from "../data/scene-entity.js";
 
+// ── Affection visual thresholds ────────────────────────────────────────
+const AFFECTION_WARM_THRESHOLD = 75;   // warm tint above this
+const AFFECTION_DIM_THRESHOLD = 25;    // gray tint below this
+
 type PetState = "idle" | "wandering" | "sleeping" | "following" | "exiting";
 
 // World bounds with margin so pets stay visible
@@ -32,7 +36,9 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	private thirst = 70;
 	private affection = 50;
 	private utilityScore = 0;
-	private bondedAgent: string | null = null; private readonly proximityTracker: Map<string, number> = new Map();
+	private bondedAgent: string | null = null;
+	private readonly proximityTracker: Map<string, number> = new Map();
+	private bondLabelActor: ex.Actor | null = null;
 
 	constructor(def: PetDefinition, x: number, y: number, entityId: string) {
 		super({
@@ -233,6 +239,27 @@ export class PetActor extends ex.Actor implements SceneEntity {
 				},
 			});
 			this.graphics.use(canvas);
+		}
+		this.buildBondLabelChild();
+	}
+
+	onPreUpdate(_engine: ex.Engine, _delta: number): void {
+		// Affection-based color tint — warm glow when happy, gray when neglected
+		if (this.affection >= AFFECTION_WARM_THRESHOLD) {
+			// Warm pink tint — subtle, just a hint of warmth
+			const t = (this.affection - AFFECTION_WARM_THRESHOLD) / (100 - AFFECTION_WARM_THRESHOLD);
+			this.color = new ex.Color(255, Math.round(200 + 55 * (1 - t)), Math.round(200 + 55 * (1 - t)), 0.25 * t);
+		} else if (this.affection <= AFFECTION_DIM_THRESHOLD) {
+			// Desaturated/gray tint — low affection
+			const t = 1 - this.affection / AFFECTION_DIM_THRESHOLD;
+			this.color = new ex.Color(180, 180, 180, 0.3 * t);
+		} else {
+			this.color = ex.Color.Transparent;
+		}
+
+		// Bond label visibility — show "♥" near name when bonded
+		if (this.bondLabelActor) {
+			this.bondLabelActor.graphics.visible = this.bondedAgent !== null;
 		}
 	}
 
@@ -472,5 +499,34 @@ export class PetActor extends ex.Actor implements SceneEntity {
 		this.pos.x = x;
 		this.pos.y = y;
 		this.resetHome();
+	}
+
+	// ── Private ──────────────────────────────────────────────────────
+
+	private buildBondLabelChild(): void {
+		const SIZE = 14;
+		const bondCanvas = new ex.Canvas({
+			width: SIZE,
+			height: SIZE,
+			cache: true,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				ctx.fillStyle = "rgba(244, 114, 182, 0.85)";
+				ctx.font = "bold 10px system-ui, sans-serif";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
+				ctx.fillText("\u2665", SIZE / 2, SIZE / 2 + 0.5);
+			},
+		});
+
+		this.bondLabelActor = new ex.Actor({
+			pos: ex.vec(8, -10),
+			anchor: ex.vec(0.5, 0.5),
+			z: 20,
+			collisionType: ex.CollisionType.PreventCollision,
+		});
+		this.bondLabelActor.scale = ex.vec(1 / (this.def.scale * 2), 1 / (this.def.scale * 2));
+		this.bondLabelActor.graphics.use(bondCanvas);
+		this.bondLabelActor.graphics.visible = false;
+		this.addChild(this.bondLabelActor);
 	}
 }

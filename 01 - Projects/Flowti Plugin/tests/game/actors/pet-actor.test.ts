@@ -6,15 +6,23 @@ vi.mock("excalibur", () => {
 		const self = this;
 		self.pos = { x: 100, y: 100 };
 		self.scale = { x: 1, y: 1 };
-		self.graphics = { use: vi.fn(), opacity: 1 };
+		self.graphics = { use: vi.fn(), add: vi.fn(), opacity: 1, visible: true };
 		self.on = vi.fn();
+		self.addChild = vi.fn();
 		self.z = 0;
+		self.color = { r: 0, g: 0, b: 0, a: 0 };
 	}
 	return {
 		Actor: MockActor,
 		vec: vi.fn((x: number, y: number) => ({ x, y })),
 		CollisionType: { PreventCollision: 0 },
 		Canvas: function MockCanvas() { return; },
+		Color: Object.assign(
+			function MockColor(this: Record<string, unknown>, r: number, g: number, b: number, a: number) {
+				this.r = r; this.g = g; this.b = b; this.a = a;
+			},
+			{ Transparent: { r: 0, g: 0, b: 0, a: 0 }, fromHex: vi.fn() },
+		),
 	};
 });
 
