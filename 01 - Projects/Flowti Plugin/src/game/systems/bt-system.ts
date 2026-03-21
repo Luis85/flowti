@@ -6,7 +6,7 @@
  * Produces actions that drive the brain system and world state.
  */
 
-import { createAgentBT, type AgentBT } from "../brain/behavior-tree/bt-factory.js";
+import { createAgentBT, type AgentBT, type FullAgentBT } from "../brain/behavior-tree/bt-factory.js";
 import { btTick } from "../brain/behavior-tree/bt-tick.js";
 import type { BTAgentObject } from "../brain/behavior-tree/bt-agent.js";
 import type {
@@ -27,7 +27,9 @@ export const PET_TICK_INTERVAL_MS = 1000;
 // ── Per-agent entry ──────────────────────────────────────────────────
 
 interface BtEntry {
-	readonly bt: AgentBT;
+	// FullAgentBT preserves the concrete BTAgentObject so getAgent() can return
+	// the typed reference for needs-snapshot refresh without any cast.
+	readonly bt: FullAgentBT;
 	accumulator: number;
 }
 
@@ -146,6 +148,7 @@ export class BtSystem {
 	/** Get an agent's BT object (for needs snapshot refresh). */
 	getAgent(name: string): BTAgentObject | undefined {
 		const entry = this.entries.get(name);
+		// FullAgentBT.agent is typed as BTAgentObject — no cast needed.
 		return entry?.bt.agent;
 	}
 

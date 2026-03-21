@@ -5,6 +5,8 @@
  * and scene references. Replaces scattered maps in engine.ts.
  */
 
+import type { SceneEntity } from "../data/scene-entity.js";
+
 export interface ObjectEntry {
 	readonly id: string;
 	readonly room: string;
@@ -21,6 +23,12 @@ export interface DoorConfig {
 /** Minimal scene interface for registry — GameScene implements this. */
 export interface SceneHandle {
 	getDoors(): readonly DoorConfig[];
+}
+
+/** Scene transfer interface used by RoomSwitcher — GameScene implements both. */
+export interface SceneTransition {
+	exit(entityId: string): void;
+	enter(entity: SceneEntity, fromScene: string | null): void;
 }
 
 interface TransitEntry {

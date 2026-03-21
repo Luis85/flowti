@@ -227,7 +227,7 @@ export function createPetBT(
 
 	const tree = createTree(PET_MASTER_MDSL, agent);
 
-	// Bridge: PetBTObject is not a BTAgentObject, but AgentBT just needs tree + agent.
-	// We cast to satisfy the interface — btTick only accesses tree.step() and agent.collectedActions.
-	return { tree, agent: agent as unknown as import("./bt-agent.js").BTAgentObject };
+	// PetBTObject satisfies BtAgentBase (has collectedActions and context.name).
+	// AgentBT.agent is typed as BtAgentBase so no cast is needed.
+	return { tree, agent };
 }

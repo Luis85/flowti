@@ -8,7 +8,7 @@
 
 import { createTree, type BehaviourTree } from "./bt-service.js";
 import { createBTAgent, type BTAgentObject } from "./bt-agent.js";
-import type { AgentToolDeps, BTAgentDef } from "./bt-types.js";
+import type { AgentToolDeps, BtAgentBase, BTAgentDef } from "./bt-types.js";
 
 // Subtree imports
 import { URGENT_SUBTREE } from "./subtrees/urgent.js";
@@ -31,6 +31,11 @@ import { JOURNEY_EXECUTION_SUBTREE } from "./subtrees/journey-execution.js";
 
 export interface AgentBT {
 	readonly tree: BehaviourTree;
+	readonly agent: BtAgentBase;
+}
+
+/** Concrete BT produced by createAgentBT — agent is always a full BTAgentObject. */
+export interface FullAgentBT extends AgentBT {
 	readonly agent: BTAgentObject;
 }
 
@@ -95,7 +100,7 @@ function collectSubtrees(): string {
 	].join("\n\n");
 }
 
-export function createAgentBT(agent: BTAgentDef, deps: AgentToolDeps): AgentBT {
+export function createAgentBT(agent: BTAgentDef, deps: AgentToolDeps): FullAgentBT {
 	const btAgent = createBTAgent(agent, deps);
 	const masterMDSL = buildMasterMDSL();
 	const allMDSL = masterMDSL + "\n\n" + collectSubtrees();

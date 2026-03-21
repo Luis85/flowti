@@ -172,3 +172,12 @@ export interface CollectedAction {
 	readonly type: string;
 	readonly data: Record<string, unknown>;
 }
+
+// ── Minimal BT agent contract for the tick system ───────────────────
+// AgentBT.agent is typed as BtAgentBase so PetBTObject (which has no
+// full BTAgentObject method set) can satisfy it without unsafe casts.
+
+export interface BtAgentBase {
+	readonly collectedActions: CollectedAction[];
+	readonly context: { readonly name: string };
+}

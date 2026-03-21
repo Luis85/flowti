@@ -8,14 +8,13 @@
 
 import { stepTree, type BehaviourTree } from "./bt-service.js";
 import type { AgentAction } from "../../data/types.js";
-import type { BTAgentObject } from "./bt-agent.js";
-import type { IClock, IWorldStateManager } from "./bt-types.js";
+import type { BtAgentBase, IClock, IWorldStateManager } from "./bt-types.js";
 
 let tickSeq = 0;
 
 export function btTick(
 	tree: BehaviourTree,
-	agent: BTAgentObject,
+	agent: BtAgentBase,
 	worldState: IWorldStateManager,
 	clock: IClock,
 ): AgentAction[] {
