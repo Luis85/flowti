@@ -577,6 +577,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			const label = to.charAt(0).toUpperCase() + to.slice(1);
 			bubbleSystem.showBubble(entityId, "thought", `Visiting ${label}...`, engine.currentScene, findAgentActor, 3000);
 			store.pushWorldEvent("room-switch", `${entityId} moved to ${label}`);
+
+			// If following this entity, switch scene to follow them
+			if (store.followedAgent === entityId) {
+				void engine.goToScene(to, {
+					destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
+					sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
+				}).then(() => {
+					cameraSystem?.onSceneActivate(findAgentActor, engine.currentScene.camera);
+				});
+			}
 		},
 	});
 

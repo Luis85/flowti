@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 
 // Mock excalibur — use function constructors so `new` works
 vi.mock("excalibur", () => {
-	function MockEngine(this: Record<string, unknown>) {
+	const MockEngine = vi.fn(function (this: Record<string, unknown>) {
 		const self = this;
 		self.canvas = document.createElement("canvas");
 		self.screen = {
@@ -27,7 +27,7 @@ vi.mock("excalibur", () => {
 		self.input = {
 			pointers: { primary: { on: vi.fn() } },
 		};
-	}
+	});
 
 	function MockActor(this: Record<string, unknown>) {
 		const self = this;
@@ -144,10 +144,10 @@ vi.mock("../../src/game/systems/scene-registry.js", () => {
 });
 
 vi.mock("../../src/game/systems/room-switcher.js", () => {
-	function MockRoomSwitcher(this: Record<string, unknown>) {
+	const MockRoomSwitcher = vi.fn(function (this: Record<string, unknown>) {
 		const self = this;
 		self.update = vi.fn();
-	}
+	});
 	return { RoomSwitcher: MockRoomSwitcher };
 });
 
@@ -342,7 +342,7 @@ vi.mock("../../src/game/sprites/sprite-loader.js", () => ({
 }));
 
 vi.mock("../../src/game/store/dashboard-store.js", () => {
-	function MockDashboardStore(this: Record<string, unknown>) {
+	const MockDashboardStore = vi.fn(function (this: Record<string, unknown>) {
 		const self = this;
 		self.agents = [];
 		self.selectedAgent = null;
@@ -369,7 +369,7 @@ vi.mock("../../src/game/store/dashboard-store.js", () => {
 		self.setAgentState = vi.fn();
 		self.addEventListener = vi.fn();
 		self.removeEventListener = vi.fn();
-	}
+	});
 	return { DashboardStore: MockDashboardStore };
 });
 
@@ -593,6 +593,9 @@ vi.mock("../../src/game/ui/agent-panel.js", () => ({}));
 import { createAgentWorld } from "../../src/game/engine.js";
 import type { DataProvider } from "../../src/game/config/data-provider.js";
 import { wireEvents } from "../../src/game/engine-events.js";
+import { RoomSwitcher } from "../../src/game/systems/room-switcher.js";
+import { DashboardStore } from "../../src/game/store/dashboard-store.js";
+import * as ex from "excalibur";
 
 function createMockProvider(): DataProvider {
 	return {
@@ -674,5 +677,80 @@ describe("createAgentWorld", () => {
 
 		// Event wiring is now delegated to wireEvents()
 		expect(wireEvents).toHaveBeenCalled();
+	});
+
+	describe("follow across rooms", () => {
+		function getTransferCallback(): (entityId: string, from: string, to: string, reason: string) => void {
+			const calls = vi.mocked(RoomSwitcher).mock.calls;
+			const config = calls[calls.length - 1][0] as Record<string, unknown>;
+			return config.onTransferComplete as (entityId: string, from: string, to: string, reason: string) => void;
+		}
+
+		function getStoreInstance(): Record<string, unknown> {
+			const instances = vi.mocked(DashboardStore).mock.instances;
+			return instances[instances.length - 1] as unknown as Record<string, unknown>;
+		}
+
+		function getEngineInstance(): Record<string, unknown> {
+			const instances = vi.mocked(ex.Engine).mock.instances;
+			return instances[instances.length - 1] as unknown as Record<string, unknown>;
+		}
+
+		it("switches scene when followed agent transfers rooms", () => {
+			createAgentWorld({
+				container: document.createElement("div"),
+				provider: createMockProvider(),
+				spriteBasePath: "/test",
+			});
+			const store = getStoreInstance();
+			store.followedAgent = "alice";
+
+			getTransferCallback()("alice", "hub", "office", "transfer");
+
+			expect(getEngineInstance().goToScene).toHaveBeenCalledWith("office", expect.any(Object));
+		});
+
+		it("does NOT switch scene when a different agent transfers", () => {
+			createAgentWorld({
+				container: document.createElement("div"),
+				provider: createMockProvider(),
+				spriteBasePath: "/test",
+			});
+			const store = getStoreInstance();
+			store.followedAgent = "alice";
+			(getEngineInstance().goToScene as ReturnType<typeof vi.fn>).mockClear();
+
+			getTransferCallback()("bob", "hub", "office", "transfer");
+
+			expect(getEngineInstance().goToScene).not.toHaveBeenCalledWith("office", expect.any(Object));
+		});
+
+		it("does NOT switch scene when no agent is followed", () => {
+			createAgentWorld({
+				container: document.createElement("div"),
+				provider: createMockProvider(),
+				spriteBasePath: "/test",
+			});
+			(getEngineInstance().goToScene as ReturnType<typeof vi.fn>).mockClear();
+
+			getTransferCallback()("alice", "hub", "office", "transfer");
+
+			expect(getEngineInstance().goToScene).not.toHaveBeenCalledWith("office", expect.any(Object));
+		});
+
+		it("does NOT call selectAgent during follow-triggered scene switch", () => {
+			createAgentWorld({
+				container: document.createElement("div"),
+				provider: createMockProvider(),
+				spriteBasePath: "/test",
+			});
+			const store = getStoreInstance();
+			store.followedAgent = "alice";
+			(store.selectAgent as ReturnType<typeof vi.fn>).mockClear();
+
+			getTransferCallback()("alice", "hub", "office", "transfer");
+
+			expect(store.selectAgent).not.toHaveBeenCalled();
+		});
 	});
 });
