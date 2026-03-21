@@ -176,4 +176,100 @@ describe("createPetBT", () => {
 		pet.context.followTarget = "Atlas";
 		expect(pet.LostFollowTarget()).toBe(false);
 	});
+
+	it("context initialises hunger to 70", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		expect(pet.context.hunger).toBe(70);
+	});
+
+	it("context initialises thirst to 70", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		expect(pet.context.thirst).toBe(70);
+	});
+
+	it("IsHungry returns false when hunger is above threshold", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.hunger = 50;
+		expect(pet.IsHungry()).toBe(false);
+	});
+
+	it("IsHungry returns true when hunger is below threshold", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.hunger = 39;
+		expect(pet.IsHungry()).toBe(true);
+	});
+
+	it("IsThirsty returns false when thirst is above threshold", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.thirst = 50;
+		expect(pet.IsThirsty()).toBe(false);
+	});
+
+	it("IsThirsty returns true when thirst is below threshold", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.thirst = 34;
+		expect(pet.IsThirsty()).toBe(true);
+	});
+
+	it("PetEat increases hunger by 30", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.hunger = 30;
+		pet.PetEat();
+		expect(pet.context.hunger).toBe(60);
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-eat" }),
+		);
+	});
+
+	it("PetDrink increases thirst by 25", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.thirst = 20;
+		pet.PetDrink();
+		expect(pet.context.thirst).toBe(45);
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-drink" }),
+		);
+	});
+
+	it("SeekFoodBowl collects pet-seek-food action", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.SeekFoodBowl();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-seek-food" }),
+		);
+	});
+
+	it("SeekWaterBowl collects pet-seek-water action", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.SeekWaterBowl();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-seek-water" }),
+		);
+	});
+
+	it("PetEat clamps hunger to 100", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.hunger = 90;
+		pet.PetEat();
+		expect(pet.context.hunger).toBe(100);
+	});
+
+	it("PetDrink clamps thirst to 100", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.thirst = 90;
+		pet.PetDrink();
+		expect(pet.context.thirst).toBe(100);
+	});
 });

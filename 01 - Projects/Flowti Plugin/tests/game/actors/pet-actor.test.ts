@@ -63,4 +63,38 @@ describe("PetActor", () => {
 	it("has 4 pet definitions", () => {
 		expect(PET_DEFINITIONS).toHaveLength(4);
 	});
+
+	it("getHunger returns default value of 70", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		expect(pet.getHunger()).toBe(70);
+	});
+
+	it("getThirst returns default value of 70", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		expect(pet.getThirst()).toBe(70);
+	});
+
+	it("setHunger clamps to 0 minimum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.setHunger(-10);
+		expect(pet.getHunger()).toBe(0);
+	});
+
+	it("setHunger clamps to 100 maximum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.setHunger(150);
+		expect(pet.getHunger()).toBe(100);
+	});
+
+	it("setThirst clamps to 0 minimum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.setThirst(-5);
+		expect(pet.getThirst()).toBe(0);
+	});
+
+	it("setThirst clamps to 100 maximum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.setThirst(200);
+		expect(pet.getThirst()).toBe(100);
+	});
 });

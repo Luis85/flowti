@@ -29,6 +29,8 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	private followTarget: string | null = null;
 	private sleepZTimer = 0;
 	private reachedExit = false;
+	private hunger = 70;
+	private thirst = 70;
 
 	constructor(def: PetDefinition, x: number, y: number, entityId: string) {
 		super({
@@ -251,9 +253,17 @@ export class PetActor extends ex.Actor implements SceneEntity {
 		}
 	}
 
+	getHunger(): number { return this.hunger; }
+	getThirst(): number { return this.thirst; }
+	setHunger(v: number): void { this.hunger = Math.max(0, Math.min(100, v)); }
+	setThirst(v: number): void { this.thirst = Math.max(0, Math.min(100, v)); }
+
 	/** Called by the engine each frame with deltaMs. */
 	updateBehavior(deltaMs: number): void {
 		if (this.def.speed === 0) return; // stationary (fish)
+
+		this.hunger = Math.max(0, this.hunger - 0.3 * (deltaMs / 1000));
+		this.thirst = Math.max(0, this.thirst - 0.4 * (deltaMs / 1000));
 
 		this.stateTimer -= deltaMs;
 

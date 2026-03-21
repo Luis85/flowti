@@ -26,6 +26,8 @@ export interface PetBTContext {
 	nearbyIdleAgent?: string;
 	targetRoom?: string;
 	currentRoom?: string;
+	hunger: number;
+	thirst: number;
 }
 
 export interface PetBTObject {
@@ -39,12 +41,18 @@ export interface PetBTObject {
 	ShouldFollowStressedAgent(): boolean;
 	ShouldFollowRandomAgent(): boolean;
 	LostFollowTarget(): boolean;
+	IsHungry(): boolean;
+	IsThirsty(): boolean;
 	WalkToExit(): State;
 	FollowAgent(): State;
 	ReturnHome(): State;
 	Nap(): State;
 	PickWanderPoint(): State;
 	WalkToPoint(): State;
+	SeekFoodBowl(): State;
+	SeekWaterBowl(): State;
+	PetEat(): State;
+	PetDrink(): State;
 	Idle(): State;
 }
 
@@ -59,6 +67,16 @@ const PET_MASTER_MDSL = `root {
 			action [FollowAgent]
 			condition [FollowTimeElapsed]
 			action [ReturnHome]
+		}
+		sequence {
+			condition [IsHungry]
+			action [SeekFoodBowl]
+			action [PetEat]
+		}
+		sequence {
+			condition [IsThirsty]
+			action [SeekWaterBowl]
+			action [PetDrink]
 		}
 		sequence {
 			condition [SleepChanceRoll]
@@ -90,6 +108,8 @@ export function createPetBT(
 		stateTimer: 0,
 		speed,
 		petType,
+		hunger: 70,
+		thirst: 70,
 	};
 
 	const collectedActions: CollectedAction[] = [];
@@ -142,6 +162,14 @@ export function createPetBT(
 			&& context.currentRoom !== context.targetRoom;
 	}
 
+	function IsHungry(): boolean {
+		return context.hunger < 40;
+	}
+
+	function IsThirsty(): boolean {
+		return context.thirst < 35;
+	}
+
 	// ── Actions ─────────────────────────────────────────────
 
 	function WalkToExit(): State {
@@ -182,6 +210,28 @@ export function createPetBT(
 		return fromNodeState("succeeded");
 	}
 
+	function SeekFoodBowl(): State {
+		collect("pet-seek-food", { name: context.name });
+		return fromNodeState("succeeded");
+	}
+
+	function SeekWaterBowl(): State {
+		collect("pet-seek-water", { name: context.name });
+		return fromNodeState("succeeded");
+	}
+
+	function PetEat(): State {
+		context.hunger = Math.min(100, context.hunger + 30);
+		collect("pet-eat", { name: context.name });
+		return fromNodeState("succeeded");
+	}
+
+	function PetDrink(): State {
+		context.thirst = Math.min(100, context.thirst + 25);
+		collect("pet-drink", { name: context.name });
+		return fromNodeState("succeeded");
+	}
+
 	function Idle(): State {
 		context.state = "idle";
 		collect("pet-idle", { name: context.name });
@@ -194,8 +244,11 @@ export function createPetBT(
 		HasExitTarget, HasFollowTarget, FollowTimeElapsed,
 		SleepChanceRoll, WanderChanceRoll,
 		ShouldFollowStressedAgent, ShouldFollowRandomAgent, LostFollowTarget,
+		IsHungry, IsThirsty,
 		WalkToExit, FollowAgent, ReturnHome,
-		Nap, PickWanderPoint, WalkToPoint, Idle,
+		Nap, PickWanderPoint, WalkToPoint,
+		SeekFoodBowl, SeekWaterBowl, PetEat, PetDrink,
+		Idle,
 	};
 
 	const tree = createTree(PET_MASTER_MDSL, agent);
