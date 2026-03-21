@@ -1,173 +1,89 @@
-/**
- * Add project dropdown — "+" button with three project creation modes.
- * Dispatches `add-project` event with { mode } detail.
- */
-
-import { html, css } from "lit";
+import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { css } from "lit";
 
-const ITEMS: { mode: string; label: string; hint: string }[] = [
-	{ mode: "git", label: "Import from Git", hint: "Clone as tracked submodule" },
-	{ mode: "template", label: "New from Template", hint: "Clone + detach, untracked copy" },
-	{ mode: "empty", label: "Create Empty", hint: "Blank project with config" },
-];
+const styles = css`
+	.wrap { position: relative; display: inline-block; }
+	.trigger {
+		padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
+		border-radius: 4px;
+		border: 1px solid var(--background-modifier-border, #444);
+		background: var(--interactive-accent, #7c3aed);
+		color: #fff;
+		font-size: var(--flowti-font-sm, 0.85em);
+		cursor: pointer;
+	}
+	.menu {
+		display: none;
+		position: absolute;
+		right: 0;
+		top: 100%;
+		margin-top: 4px;
+		min-width: 200px;
+		background: var(--background-primary, #1e1e1e);
+		border: 1px solid var(--background-modifier-border, #333);
+		border-radius: 6px;
+		padding: 4px;
+		z-index: 50;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+	}
+	.menu.open { display: block; }
+	.menu button {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: 8px 10px;
+		border: none;
+		background: none;
+		color: var(--text-normal, #ddd);
+		font-size: var(--flowti-font-sm, 0.85em);
+		cursor: pointer;
+		border-radius: 4px;
+	}
+	.menu button:hover { background: var(--background-modifier-hover, #333); }
+	.trigger:focus-visible,
+	.menu button:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
+	}
+`;
 
 export class FlowtiAddProjectDropdown extends FlowtiElement {
-	static properties = {
-		...FlowtiElement.properties,
-		open: { type: Boolean },
-		focusIndex: { type: Number },
-	};
-
-	static styles = [
-		...FlowtiElement.styles,
-		tokens,
-		css`
-			:host {
-				position: relative;
-				display: inline-block;
-			}
-
-			.add-btn {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 28px;
-				height: 28px;
-				border: 1px solid var(--background-modifier-border, #444);
-				border-radius: var(--flowti-radius-sm, 4px);
-				background: none;
-				color: var(--text-muted, #999);
-				cursor: pointer;
-				font-size: 1.1em;
-			}
-
-			.add-btn:hover {
-				background: var(--background-modifier-hover, #333);
-				color: var(--interactive-accent, #7c3aed);
-				border-color: var(--interactive-accent, #7c3aed);
-			}
-
-			.dropdown {
-				position: absolute;
-				top: 100%;
-				right: 0;
-				margin-top: 4px;
-				z-index: 1000;
-				min-width: 240px;
-				background: var(--background-primary, #1e1e1e);
-				border: 1px solid var(--background-modifier-border, #333);
-				border-radius: var(--flowti-radius-sm, 4px);
-				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-				padding: var(--flowti-space-xs, 4px) 0;
-			}
-
-			.dropdown-item {
-				display: flex;
-				flex-direction: column;
-				gap: 2px;
-				padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
-				cursor: pointer;
-				border: none;
-				background: none;
-				width: 100%;
-				text-align: left;
-				color: var(--text-normal, #ddd);
-			}
-
-			.dropdown-item:hover,
-			.dropdown-item--focused {
-				background: var(--background-modifier-hover, #333);
-			}
-
-			.dropdown-item__label {
-				font-size: var(--flowti-font-sm, 0.85em);
-				font-weight: 500;
-			}
-
-			.dropdown-item__hint {
-				font-size: 0.75em;
-				color: var(--text-faint, #666);
-			}
-		`,
-	];
+	static properties = { ...FlowtiElement.properties, open: { type: Boolean } };
+	static styles = [tokens, styles];
 
 	open = false;
-	focusIndex = -1;
-
-	private outsideClickHandler = (e: MouseEvent) => {
-		if (!e.composedPath().includes(this)) {
-			this.close();
-		}
-	};
 
 	protected renderContent() {
 		return html`
-			<button class="add-btn" @click="${this.toggleDropdown}" title="Add project">+</button>
-			${this.open ? this.renderDropdown() : ""}
-		`;
-	}
-
-	private renderDropdown() {
-		return html`
-			<div class="dropdown" @keydown="${this.onKeydown}">
-				${ITEMS.map((item, i) => html`
-					<button
-						class="dropdown-item ${i === this.focusIndex ? "dropdown-item--focused" : ""}"
-						@click="${() => this.select(item.mode)}"
-						@mouseenter="${() => { this.focusIndex = i; }}"
-					>
-						<span class="dropdown-item__label">${item.label}</span>
-						<span class="dropdown-item__hint">${item.hint}</span>
-					</button>
-				`)}
+			<div class="wrap">
+				<button type="button" class="trigger" @click="${() => { this.open = !this.open; }}">+ Add project</button>
+				<div class="menu ${this.open ? "open" : ""}" @click="${(e: Event) => e.stopPropagation()}">
+					<button type="button" @click="${() => this.pick("empty")}">Empty project</button>
+					<button type="button" @click="${() => this.pick("submodule")}">Import from Git (submodule)</button>
+					<button type="button" @click="${() => this.pick("template")}">New from template</button>
+				</div>
 			</div>
 		`;
 	}
 
-	private toggleDropdown(): void {
-		if (this.open) {
-			this.close();
-		} else {
-			this.open = true;
-			this.focusIndex = 0;
-			document.addEventListener("click", this.outsideClickHandler);
-			document.addEventListener("keydown", this.escapeHandler);
-		}
+	connectedCallback(): void {
+		super.connectedCallback();
+		this._onDoc = () => { this.open = false; };
+		document.addEventListener("click", this._onDoc);
 	}
 
-	private escapeHandler = (e: KeyboardEvent) => {
-		if (e.key === "Escape") this.close();
-	};
+	disconnectedCallback(): void {
+		super.disconnectedCallback();
+		document.removeEventListener("click", this._onDoc!);
+	}
 
-	private close(): void {
+	private _onDoc?: () => void;
+
+	private pick(mode: string): void {
 		this.open = false;
-		this.focusIndex = -1;
-		document.removeEventListener("click", this.outsideClickHandler);
-		document.removeEventListener("keydown", this.escapeHandler);
-	}
-
-	private select(mode: string): void {
-		this.close();
-		this.dispatchEvent(new CustomEvent("add-project", {
-			detail: { mode },
-			bubbles: true,
-			composed: true,
-		}));
-	}
-
-	private onKeydown(e: KeyboardEvent): void {
-		if (e.key === "ArrowDown") {
-			e.preventDefault();
-			this.focusIndex = Math.min(this.focusIndex + 1, ITEMS.length - 1);
-		} else if (e.key === "ArrowUp") {
-			e.preventDefault();
-			this.focusIndex = Math.max(this.focusIndex - 1, 0);
-		} else if (e.key === "Enter" && this.focusIndex >= 0) {
-			e.preventDefault();
-			this.select(ITEMS[this.focusIndex].mode);
-		}
+		this.dispatchEvent(new CustomEvent("add-project", { detail: { mode }, bubbles: true, composed: true }));
 	}
 }
 

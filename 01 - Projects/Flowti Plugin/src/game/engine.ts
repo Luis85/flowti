@@ -131,9 +131,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Reactive store + Lit overlays ─────────────────────
 	const store = new DashboardStore(deps.cliExecutor, deps.worldContext, deps.vaultBasePath);
+	store.syncCliSessionFromEnvironment();
 	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-agent-panel", "ft-game-ask-bob"]) {
 		const el = document.createElement(tag) as HTMLElement & { store: DashboardStore };
 		el.store = store;
+		if (tag === "ft-game-agent-panel" && deps.eventBus) {
+			(el as HTMLElement & { eventBus?: IEventBus }).eventBus = deps.eventBus;
+		}
 		if (tag === "ft-game-ask-bob") {
 			const bob = el as HTMLElement & {
 				store: DashboardStore;
@@ -294,7 +298,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	const sceneConfig = {
 		onSceneChange: (target: string) => {
+			// User picked a room (door / roster) — stop following so an agent's autonomous room change
+			// cannot pull the camera to another scene afterward.
 			store.selectAgent(null);
+			store.stopFollow();
+			cameraRef.current?.stopFollow();
 			void engine.goToScene(target, {
 				destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
 				sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
@@ -315,6 +323,17 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	for (const room of Object.values(roomScenes)) room.setBrainSystem(brainSystem);
 
 	// ── Actor lookups ───────────────────────────────────
+
+	/** Perf / Ask Bob monitor — `Scene.name` is not the `addScene` key in Excalibur; use instance identity. */
+	function getCurrentSceneIdForPerf(): string {
+		const cur = engine.currentScene;
+		if (cur === hubScene) return "hub";
+		if (cur === officeScene) return "office";
+		if (cur === villageScene) return "village";
+		if (cur === stationScene) return "station";
+		const n = cur?.name;
+		return typeof n === "string" && n.length > 0 ? n : "unknown";
+	}
 
 	function findAgentActor(name: string): AgentActor | undefined {
 		const hubActor = hubScene.getAgentActor(name);
@@ -498,9 +517,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		tickSimulation(ctx);
 		const simMs = performance.now() - simStart;
 		if (perfSampler) {
-			const sceneName = typeof engine.currentScene?.name === "string" && engine.currentScene.name
-				? engine.currentScene.name
-				: "unknown";
+			const sceneName = getCurrentSceneIdForPerf();
 			perfSampler.onFrameMeta({
 				deltaMs: ctx.deltaMs,
 				agentCount: brainSystem.getAllEntries().size,
@@ -544,6 +561,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				brainSystem, directorSystem, cursorSpirits, store,
 				registrationSystems, handleAgentSelect, allEntities, pets, registry,
 				loadingOverlay, doRegisterAgents,
+				cameraRef,
 			});
 		},
 

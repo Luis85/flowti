@@ -7,6 +7,8 @@ import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles } from "./game-styles.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
+import type { IEventBus, EventPayload } from "../../infrastructure/events/types.js";
+import { CANVAS_SLICE_ORDER, CANVAS_SLICE_LABELS, formatCanvasPerfMs } from "./canvas-perf-labels.js";
 
 const STATE_COLORS: Record<string, string> = {
 	idle: "#3b82f6",
@@ -60,6 +62,8 @@ export class PanelMonitor extends FlowtiElement {
 		...FlowtiElement.properties,
 		store: { attribute: false },
 		agentName: { type: String },
+		eventBus: { attribute: false },
+		agentCanvasPerfEnabled: { state: true },
 	};
 
 	static styles = [
@@ -205,30 +209,243 @@ export class PanelMonitor extends FlowtiElement {
 				margin: 0 0 10px;
 				line-height: 1.35;
 			}
+
+			/* Canvas perf (this agent) — same sample window as Ask Bob world monitor */
+			.canvas-perf-toolbar {
+				display: flex;
+				align-items: flex-start;
+				justify-content: space-between;
+				gap: 8px;
+				padding: 6px 8px;
+				border: 1px solid var(--border);
+				border-radius: 3px;
+				background: var(--bg-secondary);
+				font-size: 10px;
+				color: var(--text-secondary);
+				margin-bottom: 10px;
+			}
+			.canvas-perf-toggle {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				cursor: pointer;
+				user-select: none;
+				flex-shrink: 0;
+			}
+			.canvas-perf-toggle input {
+				accent-color: var(--accent-gold);
+				cursor: pointer;
+			}
+			.canvas-perf-hint {
+				font-size: 9px;
+				color: var(--text-muted);
+				line-height: 1.35;
+				flex: 1;
+				text-align: right;
+			}
+			.canvas-perf-wait {
+				font-size: 10px;
+				color: var(--text-muted);
+				margin: 0 0 10px;
+			}
+			.canvas-perf-panel {
+				padding: 8px;
+				border-radius: 3px;
+				border: 1px solid var(--border);
+				background: var(--bg-primary);
+				font-size: 10px;
+				color: var(--text-primary);
+				margin-bottom: 12px;
+			}
+			.canvas-perf-meta {
+				font-size: 9px;
+				color: var(--text-muted);
+				margin-bottom: 8px;
+				line-height: 1.4;
+			}
+			.canvas-perf-grid {
+				display: grid;
+				grid-template-columns: 1fr;
+				gap: 4px 0;
+			}
+			.canvas-perf-row {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 8px;
+				font-size: 10px;
+			}
+			.canvas-perf-slice-name {
+				color: var(--text-secondary);
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.canvas-perf-slice-ms {
+				color: var(--accent-gold);
+				font-variant-numeric: tabular-nums;
+				flex-shrink: 0;
+			}
+			.canvas-perf-total {
+				margin-top: 8px;
+				padding-top: 8px;
+				border-top: 1px solid var(--border);
+				font-size: 10px;
+				font-weight: 600;
+				color: var(--text-primary);
+				display: flex;
+				justify-content: space-between;
+			}
 		`,
 	];
 
 	store!: DashboardStore;
 	agentName = "";
+	eventBus?: IEventBus;
+
+	private agentCanvasPerfEnabled = false;
+	private lastWorldPerfSample: EventPayload<"perf.agentWorld.sample"> | null = null;
 
 	private unsubscribe: (() => void) | null = null;
+	private perfBusUnsubs: Array<() => void> = [];
 
 	connectedCallback(): void {
 		super.connectedCallback();
 		const handler = () => this.requestUpdate();
 		this.store?.addEventListener("state-changed", handler);
 		this.unsubscribe = () => this.store?.removeEventListener("state-changed", handler);
+		this.refreshCanvasPerfBusListeners();
 	}
 
 	disconnectedCallback(): void {
 		super.disconnectedCallback();
+		this.teardownCanvasPerfBusListeners();
 		this.unsubscribe?.();
+	}
+
+	private teardownCanvasPerfBusListeners(): void {
+		for (const u of this.perfBusUnsubs) {
+			try {
+				u();
+			} catch {
+				/* ignore */
+			}
+		}
+		this.perfBusUnsubs = [];
+	}
+
+	private refreshCanvasPerfBusListeners(): void {
+		this.teardownCanvasPerfBusListeners();
+		if (!this.agentCanvasPerfEnabled || !this.eventBus) return;
+		const bus = this.eventBus;
+		this.perfBusUnsubs.push(
+			bus.on("perf.agentWorld.sample", (ev) => {
+				this.lastWorldPerfSample = ev.payload;
+				this.requestUpdate();
+			}),
+		);
+	}
+
+	private handleCanvasPerfToggle(e: Event): void {
+		const on = (e.target as HTMLInputElement).checked;
+		this.agentCanvasPerfEnabled = on;
+		if (!on) {
+			this.teardownCanvasPerfBusListeners();
+			this.lastWorldPerfSample = null;
+		} else {
+			this.refreshCanvasPerfBusListeners();
+		}
+		this.requestUpdate();
+	}
+
+	private getAgentCanvasRow(): {
+		agentName: string;
+		slices: Record<string, { avgMs: number; maxMs: number }>;
+	} | null {
+		const sample = this.lastWorldPerfSample;
+		if (!sample?.perAgentCanvas?.agents) return null;
+		return sample.perAgentCanvas.agents.find((a) => a.agentName === this.agentName) ?? null;
+	}
+
+	private renderCanvasPerfSection() {
+		const hasBus = Boolean(this.eventBus);
+		const row = this.agentCanvasPerfEnabled ? this.getAgentCanvasRow() : null;
+		const sample = this.lastWorldPerfSample;
+
+		return html`
+			<div class="canvas-perf-toolbar">
+				<label class="canvas-perf-toggle">
+					<input
+						type="checkbox"
+						.checked=${this.agentCanvasPerfEnabled}
+						@change=${this.handleCanvasPerfToggle}
+					/>
+					<span>Canvas perf</span>
+				</label>
+				<div class="canvas-perf-hint">
+					${!hasBus
+						? "Plugin event bus not wired — open Agent World from the Flowti plugin."
+						: !this.agentCanvasPerfEnabled
+							? "Per-frame slices for this agent (same ~2s window as world perf)."
+							: "Live: perf.agentWorld.sample → perAgentCanvas."}
+				</div>
+			</div>
+			${this.agentCanvasPerfEnabled && hasBus && !sample ? html`
+				<div class="canvas-perf-wait">Waiting for first sample (~2s of canvas activity)…</div>
+			` : nothing}
+			${this.agentCanvasPerfEnabled && hasBus && sample && !row ? html`
+				<div class="canvas-perf-wait">No slice data for <strong>${this.agentName}</strong> in the last window (agent idle or not in simulation).</div>
+			` : nothing}
+			${this.agentCanvasPerfEnabled && row ? html`
+				<div class="canvas-perf-panel">
+					<div class="canvas-perf-meta">
+						Window: ${sample!.windowFrames} frames / ${formatCanvasPerfMs(sample!.windowDurationMs)} ms
+						\u{2022} scene <strong style="color:var(--text-primary)">${sample!.sceneName}</strong>
+					</div>
+					<div class="canvas-perf-grid">
+						${CANVAS_SLICE_ORDER.filter((k) => row!.slices[k]).map((k) => {
+							const v = row!.slices[k]!;
+							return html`
+								<div class="canvas-perf-row">
+									<span class="canvas-perf-slice-name" title="${k}">${CANVAS_SLICE_LABELS[k] ?? k}</span>
+									<span class="canvas-perf-slice-ms">${formatCanvasPerfMs(v.avgMs)} / ${formatCanvasPerfMs(v.maxMs)} ms</span>
+								</div>
+							`;
+						})}
+						${Object.keys(row.slices)
+							.filter((k) => !(CANVAS_SLICE_ORDER as readonly string[]).includes(k))
+							.map((k) => {
+								const v = row.slices[k]!;
+								return html`
+									<div class="canvas-perf-row">
+										<span class="canvas-perf-slice-name" title="${k}">${k}</span>
+										<span class="canvas-perf-slice-ms">${formatCanvasPerfMs(v.avgMs)} / ${formatCanvasPerfMs(v.maxMs)} ms</span>
+									</div>
+								`;
+							})}
+					</div>
+					<div class="canvas-perf-total">
+						<span>Σ avg / frame (slices)</span>
+						<span>${formatCanvasPerfMs(
+							Object.values(row.slices).reduce((s, v) => s + v.avgMs, 0),
+						)} ms</span>
+					</div>
+				</div>
+			` : nothing}
+		`;
 	}
 
 	protected renderContent() {
 		if (!this.store || !this.agentName) return html``;
 
 		return html`
+			${this.renderCanvasPerfSection()}
+			${!this.store.cliSessionAvailable && this.store.cliSessionBlockedReason
+				? html`<p class="resource-hint" style="margin-top:0">${this.store.cliSessionBlockedReason}</p>`
+				: nothing}
+			${this.store.cliSessionAvailable && this.store.llmBackendReminder
+				? html`<p class="resource-hint" style="margin-top:0">${this.store.llmBackendReminder}</p>`
+				: nothing}
 			${this.renderStatusGrid()}
 			<div class="section-title">System resources</div>
 			${this.renderResources()}
@@ -265,6 +482,11 @@ export class PanelMonitor extends FlowtiElement {
 
 				<span class="status-label">LLM</span>
 				<span class="status-value">${llmState}</span>
+
+				<span class="status-label">CLI host</span>
+				<span class="status-value ${this.store.cliSessionAvailable ? "" : "muted"}">
+					${this.store.cliSessionAvailable ? "Ready (spawn OK)" : "Unavailable"}
+				</span>
 
 				<span class="status-label">Scene</span>
 				<span class="status-value">${scene}</span>

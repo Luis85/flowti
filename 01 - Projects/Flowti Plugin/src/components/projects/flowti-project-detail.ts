@@ -8,7 +8,7 @@ import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { projectDetailStyles } from "./flowti-project-detail-styles.js";
-import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo } from "../../domain/projects/types.js";
+import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo, TeamRoleSlot, VaultAgentSummary } from "../../domain/projects/types.js";
 
 // Side-effect imports to register child custom elements
 import "./flowti-tab-overview.js";
@@ -16,6 +16,7 @@ import "./flowti-tab-components.js";
 import "./flowti-tab-event-catalog.js";
 import "./flowti-tab-reporting.js";
 import "./flowti-tab-config.js";
+import "./flowti-tab-team.js";
 import "./flowti-scaffold-modal.js";
 import "./flowti-add-project-dropdown.js";
 import "./flowti-git-import-modal.js";
@@ -59,6 +60,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		reportNodeStates: { type: Object },
 		reportOutput: { type: Array },
 		reportBusy: { type: Boolean },
+		roleSlots: { type: Array },
+		vaultAgents: { type: Array },
 	};
 
 	static styles = [
@@ -103,6 +106,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	reportNodeStates: Record<string, string> = {};
 	reportOutput: string[] = [];
 	reportBusy = false;
+	roleSlots: TeamRoleSlot[] = [];
+	vaultAgents: VaultAgentSummary[] = [];
 
 	protected renderContent() {
 		if (!this.projectName) return this.renderProjectList();
@@ -122,6 +127,12 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			case "components": return html`<flowti-tab-components .projectName="${this.projectName}" .components="${this.components}" .storybookInstalled="${this.storybook?.installed ?? false}" .storybookFramework="${this.storybook?.framework ?? ""}" .storybookRunning="${this.storybook?.running ?? false}" .storybookUrl="${this.storybook?.url ?? ""}" .storybookBusy="${this.storybookBusy}" .storybookBusyLabel="${this.storybookBusyLabel}" .storybookOutput="${this.storybookOutput}" .storybookError="${this.storybookError}" .hasCanvas="${this.hasCanvas}" .hasSitemap="${this.hasSitemap}" .canvasPreset="${this.canvasPreset}" .canvasChanged="${this.canvasChanged}"></flowti-tab-components>`;
 			case "catalog": return html`<flowti-tab-event-catalog .projectName="${this.projectName}" .entities="${this.catalogEntities}"></flowti-tab-event-catalog>`;
 			case "reporting": return html`<flowti-tab-reporting .projectName="${this.projectName}" .generators="${this.reportGenerators}" .nodeStates="${this.reportNodeStates}" .outputLines="${this.reportOutput}" .busy="${this.reportBusy}"></flowti-tab-reporting>`;
+			case "team":
+				return html`<flowti-tab-team
+					.projectName="${this.projectName}"
+					.roleSlots="${this.roleSlots}"
+					.vaultAgents="${this.vaultAgents}"
+				></flowti-tab-team>`;
 			case "config": return html`<flowti-tab-config .projectName="${this.projectName}" .config="${this.config}" .hasCanvas="${this.hasCanvas}"></flowti-tab-config>`;
 			default: return "";
 		}
@@ -144,6 +155,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				${tab("components", "Components")}
 				${tab("catalog", "Event Catalog")}
 				${tab("reporting", "Reporting")}
+				${tab("team", "Team")}
 				${tab("config", "Config")}
 			</div>
 		`;

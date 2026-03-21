@@ -54,6 +54,8 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.reportOutput = [];
 		el.reportBusy = false;
 		el.catalogEntities = [];
+		el.roleSlots = [];
+		el.vaultAgents = [];
 		const detail = await projectService.getProject(name);
 		if (!detail) {
 			el.projectName = name;
@@ -74,12 +76,14 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.canvasChanged = detail.canvasChanged;
 		el.hasMarkdownSource = !!detail.config?.markdownSource;
 		el.brief = detail.brief;
+		el.roleSlots = [...(detail.config?.roleSlots ?? [])];
 
 		void projectService.getHealth(name).then((r) => { if (r.ok && r.score) el.healthScore = r.score; });
 		void projectService.getTodos(name).then((r) => { el.todos = r.items; el.todosExist = r.exists; });
 		void projectService.listComponents(name).then((c) => { el.components = c; });
 		void projectService.getReportGenerators(name).then((g) => { el.reportGenerators = g; });
 		void projectService.listEntities(name, "domains").then((entities) => { el.catalogEntities = entities; });
+		void projectService.listVaultAgents().then((agents) => { el.vaultAgents = [...agents]; });
 	}
 
 	// ── Core navigation events ──
@@ -113,6 +117,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.storybookOutput = [];
 		el.storybookError = "";
 		el.actionSuccess = "";
+		el.statusMessage = "";
 	}
 
 	function appendOutput(line: string): void {

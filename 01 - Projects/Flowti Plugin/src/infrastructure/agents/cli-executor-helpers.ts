@@ -51,6 +51,15 @@ export interface AgentProcess {
 	kill(): void;
 }
 
+/** Whether this machine can spawn `agent:start` (Node on PATH + vault CLI bundle). */
+export interface CliHostReadiness {
+	readonly canSpawnAgents: boolean;
+	readonly nodePath: string | null;
+	readonly cliBinaryPath: string;
+	readonly cliBinaryExists: boolean;
+	readonly issues: readonly string[];
+}
+
 export interface ICliExecutor {
 	startAgent(agentName: string): AgentProcess;
 	assignTask(agentName: string, task: string): Promise<{ ok: boolean; taskId?: string }>;
@@ -59,6 +68,8 @@ export interface ICliExecutor {
 	wakeAgent(agentName: string): Promise<{ ok: boolean; state?: string }>;
 	killAll(): void;
 	dispose(): void;
+	/** Optional: host checks for Agent World (Node + `.flowti/bin/main.mjs`). */
+	getHostReadiness?(): CliHostReadiness;
 }
 
 /* ------------------------------------------------------------------ */

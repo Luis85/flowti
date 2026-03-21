@@ -23,12 +23,15 @@ describe("createAgentWorldPerfCollector", () => {
 		const c = createAgentWorldPerfCollector(bus, { maxFramesPerSample: 2, sampleIntervalMs: 60_000 });
 
 		c.onPhase("brain", 1);
+		c.onAgentSlice("A", "brain", 0.5);
+		c.onAgentSlice("A", "needs", 0.1);
 		c.onFrameMeta({ deltaMs: 16, agentCount: 2, sceneName: "hub" });
 		c.onSimulationEnd(5);
 		c.onPostframe(0.5);
 		c.afterFullFrame();
 
 		c.onPhase("brain", 2);
+		c.onAgentSlice("A", "brain", 0.6);
 		c.onFrameMeta({ deltaMs: 16, agentCount: 2, sceneName: "hub" });
 		c.onSimulationEnd(6);
 		c.onPostframe(0.4);
@@ -39,11 +42,30 @@ describe("createAgentWorldPerfCollector", () => {
 			windowFrames: number;
 			simulation: { avgMs: number; maxMs: number };
 			phases: Record<string, { avgMs: number; maxMs: number }>;
+			eventBus: {
+				typedDispatchCount: number;
+				handlerInvocationCount: number;
+				avgDispatchWallMs: number;
+				maxDispatchWallMs: number;
+				dispatchesPerSec: number;
+				topEventTypes: { eventType: string; count: number; maxMs: number }[];
+			};
+			perAgentCanvas: {
+				agents: { agentName: string; slices: Record<string, { avgMs: number; maxMs: number }> }[];
+			};
 		};
 		expect(sample?.windowFrames).toBe(2);
 		expect(sample?.simulation.avgMs).toBeCloseTo(5.5, 5);
 		expect(sample?.simulation.maxMs).toBe(6);
 		expect(sample?.phases.brain?.avgMs).toBeCloseTo(1.5, 5);
+		expect(sample?.eventBus).toBeDefined();
+		expect(sample?.eventBus.typedDispatchCount).toBe(0);
+		expect(sample?.eventBus.topEventTypes).toEqual([]);
+
+		expect(sample?.perAgentCanvas?.agents?.length).toBeGreaterThan(0);
+		const rowA = sample?.perAgentCanvas.agents.find((a) => a.agentName === "A");
+		expect(rowA?.slices.brain?.avgMs).toBeCloseTo(0.55, 5);
+		expect(rowA?.slices.needs?.avgMs).toBeCloseTo(0.05, 5);
 
 		c.dispose();
 	});

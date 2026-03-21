@@ -127,6 +127,28 @@ export interface PerformanceEventMap {
 		phases: Record<string, { avgMs: number; maxMs: number }>;
 		agentCount: number;
 		sceneName: string;
+		/**
+		 * Plugin EventBus: aggregates `perf.event.dispatched` over the same wall window.
+		 * Typed `emit()` only — `emitCustom` is not measured.
+		 */
+		eventBus: {
+			typedDispatchCount: number;
+			handlerInvocationCount: number;
+			avgDispatchWallMs: number;
+			maxDispatchWallMs: number;
+			dispatchesPerSec: number;
+			topEventTypes: { eventType: string; count: number; maxMs: number }[];
+		};
+		/**
+		 * Per-agent canvas simulation slices (avg/max ms per frame over the window).
+		 * Slices: needs, reactive, thresholds, objects, brain, talk.
+		 */
+		perAgentCanvas: {
+			agents: {
+				agentName: string;
+				slices: Record<string, { avgMs: number; maxMs: number }>;
+			}[];
+		};
 	};
 
 	/** Single frame exceeded the slow simulation threshold (throttled). */

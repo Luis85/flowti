@@ -12,7 +12,12 @@ import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import { askBobStyles } from "./ask-bob-styles.js";
 import type { DashboardStore, ConversationTurn } from "../store/dashboard-store.js";
 import type { IEventBus, EventPayload } from "../../infrastructure/events/types.js";
-import type { IAgentWorldPerfDashboard, AgentWorldPerfSummary } from "../../infrastructure/services/perfTypes.js";
+import type {
+	IAgentWorldPerfDashboard,
+	AgentWorldPerfSummary,
+	AgentCanvasAggregateView,
+} from "../../infrastructure/services/perfTypes.js";
+import { CANVAS_SLICE_ORDER, CANVAS_SLICE_LABELS } from "./canvas-perf-labels.js";
 
 const BOB_AGENT_NAME = "Bob";
 
@@ -198,6 +203,46 @@ export class AskBob extends FlowtiElement {
 							<span class="val">${this.formatPerfMs(sample.delta.maxMs)} ms</span>
 						</div>
 					</div>
+					${this.renderWorldPerfAgentCanvas(sample, agg)}
+					${sample.eventBus ? html`
+						<div class="world-perf-phases-title">Event bus (same wall window)</div>
+						<p class="world-perf-bus-hint">
+							Typed <code>emit()</code> only; <code>emitCustom</code> is not measured. Throughput = dispatches / window duration.
+						</p>
+						<div class="world-perf-grid">
+							<div class="world-perf-metric">
+								<span class="lbl">Dispatches</span>
+								<span class="val">${sample.eventBus.typedDispatchCount}</span>
+							</div>
+							<div class="world-perf-metric">
+								<span class="lbl">Handler runs</span>
+								<span class="val">${sample.eventBus.handlerInvocationCount}</span>
+							</div>
+							<div class="world-perf-metric">
+								<span class="lbl">Throughput</span>
+								<span class="val">${sample.eventBus.dispatchesPerSec < 10
+									? sample.eventBus.dispatchesPerSec.toFixed(2)
+									: Math.round(sample.eventBus.dispatchesPerSec)}/s</span>
+							</div>
+							<div class="world-perf-metric">
+								<span class="lbl">Avg latency</span>
+								<span class="val">${this.formatPerfMs(sample.eventBus.avgDispatchWallMs)} ms</span>
+							</div>
+							<div class="world-perf-metric">
+								<span class="lbl">Max latency</span>
+								<span class="val">${this.formatPerfMs(sample.eventBus.maxDispatchWallMs)} ms</span>
+							</div>
+						</div>
+						${sample.eventBus.topEventTypes.length > 0 ? html`
+							<div class="world-perf-bus-top-title">Top event types (count / max ms)</div>
+							${sample.eventBus.topEventTypes.map((row) => html`
+								<div class="world-perf-phase-row">
+									<span class="world-perf-phase-name" title="${row.eventType}">${row.eventType}</span>
+									<span class="world-perf-phase-ms">${row.count} / ${this.formatPerfMs(row.maxMs)}</span>
+								</div>
+							`)}
+						` : html`<div class="world-perf-bus-empty">No typed dispatches in this window.</div>`}
+					` : nothing}
 					${this.perfLocalSlowFrames > 0 ? html`
 						<div class="world-perf-warn">
 							Slow simulation frames (this panel session): ${this.perfLocalSlowFrames}
@@ -347,25 +392,28 @@ export class AskBob extends FlowtiElement {
 
 		return html`
 			<div class="thread" style="padding: 8px; gap: 6px; display: flex; flex-direction: column;">
-				${this.renderWorldPerfMonitor()}
-				<!-- Status bar -->
-				<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: var(--bg-secondary); border-radius: 3px; border: 1px solid var(--border);">
-					<div style="display: flex; flex-direction: column; gap: 2px;">
-						<span style="color: var(--accent-gold); font-size: 11px; font-weight: bold;">
-							${PHASE_EMOJI[phase] ?? "\u{1F551}"} ${phase}
-						</span>
-						<span style="color: var(--text-secondary); font-size: 10px;">
-							Cycle ${cycle} \u{2022} ${progress}% complete
+				<div class="world-monitor-sticky-header">
+					<!-- Always above the perf monitor: pinned while scrolling -->
+					<div class="world-monitor-status-bar">
+						<div style="display: flex; flex-direction: column; gap: 2px;">
+							<span style="color: var(--accent-gold); font-size: 11px; font-weight: bold;">
+								${PHASE_EMOJI[phase] ?? "\u{1F551}"} ${phase}
+							</span>
+							<span style="color: var(--text-secondary); font-size: 10px;">
+								Cycle ${cycle} \u{2022} ${progress}% complete
+							</span>
+						</div>
+						<span style="font-size: 14px;" title="${weather}">
+							${WEATHER_EMOJI[weather] ?? "\u{2600}\u{FE0F}"}
 						</span>
 					</div>
-					<span style="font-size: 14px;" title="${weather}">
-						${WEATHER_EMOJI[weather] ?? "\u{2600}\u{FE0F}"}
-					</span>
+					<div class="world-monitor-day-bar-track">
+						<div class="world-monitor-day-bar-fill" style="width: ${progress}%;"></div>
+					</div>
 				</div>
 
-				<!-- Day progress bar -->
-				<div style="height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
-					<div style="height: 100%; width: ${progress}%; background: var(--accent-gold); border-radius: 2px; transition: width 1s;"></div>
+				<div class="world-perf-stack">
+					${this.renderWorldPerfMonitor()}
 				</div>
 
 				<!-- Active event -->

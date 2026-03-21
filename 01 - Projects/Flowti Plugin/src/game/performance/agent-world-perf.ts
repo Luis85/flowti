@@ -32,6 +32,8 @@ export interface AgentWorldPerfSink {
 	onSimulationEnd(durationMs: number): void;
 	onFrameMeta(meta: { deltaMs: number; agentCount: number; sceneName: string }): void;
 	onPostframe(durationMs: number): void;
+	/** Per-agent canvas slices (needs, brain, talk, …) summed over the current sample window. */
+	onAgentSlice(agentName: string, slice: string, durationMs: number): void;
 	afterFullFrame(): void;
 	dispose(): void;
 }
@@ -83,8 +85,85 @@ export function createAgentWorldPerfCollector(
 	let winPost = { sumMs: 0, maxMs: 0 };
 	let winDelta = { sumMs: 0, maxMs: 0 };
 	const winPhases = new Map<string, PhaseAgg>();
+	/** Per agent → slice → aggregate over the current window (same semantics as winPhases). */
+	const winPerAgent = new Map<string, Map<string, PhaseAgg>>();
 
 	let lastSlowEmit = 0;
+
+	// ── EventBus window (same wall window as frame batch) via perf.event.dispatched ──
+	let winBusTypedCount = 0;
+	let winBusHandlerSum = 0;
+	let winBusDurSum = 0;
+	let winBusDurMax = 0;
+	const winBusPerType = new Map<string, { count: number; maxMs: number }>();
+
+	const unsubBus = eventBus.on("perf.event.dispatched", (ev) => {
+		if (disposed) return;
+		const { eventType, handlerCount, durationMs } = ev.payload;
+		winBusTypedCount++;
+		winBusHandlerSum += handlerCount;
+		winBusDurSum += durationMs;
+		winBusDurMax = Math.max(winBusDurMax, durationMs);
+		const row = winBusPerType.get(eventType) ?? { count: 0, maxMs: 0 };
+		row.count++;
+		row.maxMs = Math.max(row.maxMs, durationMs);
+		winBusPerType.set(eventType, row);
+	});
+
+	const buildEventBusSnapshot = (windowDurationMs: number) => {
+		const sec = windowDurationMs > 0 ? windowDurationMs / 1000 : 0.001;
+		const topEventTypes = [...winBusPerType.entries()]
+			.map(([eventType, v]) => ({ eventType, count: v.count, maxMs: v.maxMs }))
+			.sort((a, b) => b.count - a.count)
+			.slice(0, 6);
+		return {
+			typedDispatchCount: winBusTypedCount,
+			handlerInvocationCount: winBusHandlerSum,
+			avgDispatchWallMs: winBusTypedCount > 0 ? winBusDurSum / winBusTypedCount : 0,
+			maxDispatchWallMs: winBusDurMax,
+			dispatchesPerSec: winBusTypedCount / sec,
+			topEventTypes,
+		};
+	};
+
+	const resetBusWindow = (): void => {
+		winBusTypedCount = 0;
+		winBusHandlerSum = 0;
+		winBusDurSum = 0;
+		winBusDurMax = 0;
+		winBusPerType.clear();
+	};
+
+	const mergeAgentSlice = (agentName: string, slice: string, ms: number): void => {
+		let slices = winPerAgent.get(agentName);
+		if (!slices) {
+			slices = new Map();
+			winPerAgent.set(agentName, slices);
+		}
+		mergePhase(slices, slice, ms);
+	};
+
+	const buildPerAgentSnapshot = () => {
+		const agents: { agentName: string; slices: Record<string, { avgMs: number; maxMs: number }> }[] = [];
+		for (const [agentName, slices] of winPerAgent) {
+			const rec: Record<string, { avgMs: number; maxMs: number }> = {};
+			let total = 0;
+			for (const [slice, agg] of slices) {
+				const avgMs = winFrames > 0 ? agg.sumMs / winFrames : 0;
+				rec[slice] = { avgMs, maxMs: agg.maxMs };
+				total += avgMs;
+			}
+			if (total > 1e-9) {
+				agents.push({ agentName, slices: rec });
+			}
+		}
+		agents.sort((a, b) => {
+			const sa = Object.values(a.slices).reduce((s, v) => s + v.avgMs, 0);
+			const sb = Object.values(b.slices).reduce((s, v) => s + v.avgMs, 0);
+			return sb - sa;
+		});
+		return { agents };
+	};
 
 	const flushWindow = (): void => {
 		if (winFrames === 0) return;
@@ -98,6 +177,8 @@ export function createAgentWorldPerfCollector(
 		}
 
 		const windowDurationMs = performance.now() - winStart;
+		const eventBusSnapshot = buildEventBusSnapshot(windowDurationMs);
+		const perAgentCanvas = buildPerAgentSnapshot();
 
 		void eventBus.emit("perf.agentWorld.sample", {
 			windowFrames: winFrames,
@@ -117,7 +198,12 @@ export function createAgentWorldPerfCollector(
 			phases,
 			agentCount: lastMeta.agentCount,
 			sceneName: lastMeta.sceneName,
+			eventBus: eventBusSnapshot,
+			perAgentCanvas,
 		});
+
+		resetBusWindow();
+		winPerAgent.clear();
 
 		winFrames = 0;
 		winStart = performance.now();
@@ -158,6 +244,11 @@ export function createAgentWorldPerfCollector(
 			lastPostMs = durationMs;
 		},
 
+		onAgentSlice(agentName: string, slice: string, durationMs: number): void {
+			if (disposed) return;
+			mergeAgentSlice(agentName, slice, durationMs);
+		},
+
 		afterFullFrame(): void {
 			if (disposed) return;
 
@@ -182,7 +273,14 @@ export function createAgentWorldPerfCollector(
 
 		dispose(): void {
 			disposed = true;
+			try {
+				unsubBus();
+			} catch {
+				/* ignore */
+			}
 			flushWindow();
+			resetBusWindow();
+			winPerAgent.clear();
 		},
 	};
 }

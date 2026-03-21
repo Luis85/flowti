@@ -109,6 +109,22 @@ export interface ViewSummary {
 	perHub: ViewHubEntry[];
 }
 
+/** Plugin EventBus stats aligned with one agent-world sample window. */
+export interface AgentWorldEventBusWindow {
+	readonly typedDispatchCount: number;
+	readonly handlerInvocationCount: number;
+	readonly avgDispatchWallMs: number;
+	readonly maxDispatchWallMs: number;
+	readonly dispatchesPerSec: number;
+	readonly topEventTypes: readonly { eventType: string; count: number; maxMs: number }[];
+}
+
+/** Per-agent canvas slice stats (matches `perf.agentWorld.sample.perAgentCanvas`). */
+export interface AgentCanvasPerfEntry {
+	readonly agentName: string;
+	readonly slices: Record<string, { avgMs: number; maxMs: number }>;
+}
+
 /** One aggregated agent-world perf window (matches `perf.agentWorld.sample` payload). */
 export interface AgentWorldSampleSnapshot {
 	readonly windowFrames: number;
@@ -119,6 +135,29 @@ export interface AgentWorldSampleSnapshot {
 	readonly phases: Record<string, { avgMs: number; maxMs: number }>;
 	readonly agentCount: number;
 	readonly sceneName: string;
+	readonly eventBus: AgentWorldEventBusWindow;
+	readonly perAgentCanvas: { readonly agents: readonly AgentCanvasPerfEntry[] };
+}
+
+/**
+ * Rolled up from buffered `perAgentCanvas` samples (last N windows in PerfAggregator).
+ * Complements the single-window view in each `AgentWorldSampleSnapshot`.
+ */
+export interface AgentCanvasAggregateView {
+	readonly windowCount: number;
+	/**
+	 * Per slice: mean across windows of Σ(agent slice.avgMs) — total roster cost in that
+	 * slice category per simulation frame (not equal to full sim time; other phases untracked).
+	 */
+	readonly sliceSumAvgAcrossWindows: Readonly<Record<string, number>>;
+	/** Per slice: max Σ(agent slice.avgMs) in any single buffered window. */
+	readonly sliceSumMaxAcrossWindows: Readonly<Record<string, number>>;
+	/** Agents ranked by mean Σ(slices.avgMs) over windows where they appear. */
+	readonly topAgentsByMeanTotal: readonly {
+		readonly agentName: string;
+		readonly meanTotalAvgMs: number;
+		readonly windowsSeen: number;
+	}[];
 }
 
 /** Rolling agent-world (Excalibur simulation) performance view. */
@@ -126,6 +165,8 @@ export interface AgentWorldPerfSummary {
 	readonly samples: readonly AgentWorldSampleSnapshot[];
 	readonly slowFrameCount: number;
 	readonly simulationMaxAcrossSamples: MetricSummary;
+	/** Null when no buffered sample had per-agent canvas data. */
+	readonly agentCanvasAggregate: AgentCanvasAggregateView | null;
 }
 
 /**

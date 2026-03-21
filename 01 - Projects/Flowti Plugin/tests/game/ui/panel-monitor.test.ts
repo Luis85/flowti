@@ -27,6 +27,9 @@ function mockStore() {
 	store.agents = [{ name: "atlas", persona: "Atlas" }, { name: "bob", persona: "Bobby" }];
 	store.isProcessAlive = vi.fn(() => true);
 	store.agentResourceMetrics = new Map();
+	store.cliSessionAvailable = true;
+	store.cliSessionBlockedReason = "";
+	store.llmBackendReminder = "";
 	return store;
 }
 

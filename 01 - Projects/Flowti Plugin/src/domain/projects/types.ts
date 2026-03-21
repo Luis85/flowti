@@ -47,6 +47,42 @@ export interface MarkdownSourceConfig {
 	readonly requiredFields: readonly string[];
 }
 
+/** RPG-style defaults for materializing an Agent note from a project role slot. */
+export interface AgentBlueprint {
+	readonly agentType?: string;
+	readonly domain?: string;
+	readonly persona?: string;
+	readonly mood?: string;
+	readonly description?: string;
+	readonly personality?: readonly string[];
+	readonly attributes?: { readonly str?: number; readonly int?: number; readonly wis?: number; readonly cha?: number; readonly dex?: number; readonly con?: number };
+	readonly skills?: readonly string[];
+	readonly behaviors?: readonly string[];
+	readonly suggestedTasks?: readonly string[];
+	readonly goals?: readonly { readonly name: string; readonly priority?: number }[];
+}
+
+/** Staffing slot on a project: need + optional blueprint; assignee links to vault Agent name. */
+export interface TeamRoleSlot {
+	readonly id: string;
+	/** Display name — maps to `role:` in the ProjectRole markdown file. */
+	readonly title: string;
+	readonly need: string;
+	readonly blueprint?: AgentBlueprint;
+	readonly assignee?: string;
+	/**
+	 * Vault-relative path to `type: ProjectRole` markdown (e.g. `01 - Projects/MyApp/team/roles/solution-manager.md`).
+	 * Persisted in flowti.config; requirements live in that file.
+	 */
+	readonly roleNotePath?: string;
+	/** Filled when the role note is read from disk (not stored in JSON). */
+	readonly roleSkills?: readonly string[];
+	/** Frontmatter `description` line when present. */
+	readonly roleSummary?: string;
+	/** Markdown body of the role note (longer description). */
+	readonly roleBody?: string;
+}
+
 export interface ProjectConfig {
 	readonly buildModes: readonly string[];
 	readonly testPresets: readonly string[];
@@ -58,7 +94,9 @@ export interface ProjectConfig {
 		readonly maxLintWarnings?: number;
 		readonly minTests?: number;
 	};
+	/** `management.agents.roster` — agent names attached to this project for dashboard export. */
 	readonly agents?: readonly string[];
+	readonly roleSlots?: readonly TeamRoleSlot[];
 	readonly publishTargets?: readonly string[];
 	readonly markdownSource?: MarkdownSourceConfig;
 }
@@ -177,4 +215,15 @@ export interface IProjectService {
 
 	// Components
 	listComponents(project: string): Promise<ComponentEntry[]>;
+
+	// Team roster (role slots + vault agents)
+	listVaultAgents(): Promise<VaultAgentSummary[]>;
+	saveTeamRoster(project: string, roleSlots: readonly TeamRoleSlot[], onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+	createAgentFromRole(project: string, roleId: string, agentName: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+}
+
+/** Minimal info for assigning existing agents to a role. */
+export interface VaultAgentSummary {
+	readonly name: string;
+	readonly path: string;
 }

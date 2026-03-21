@@ -223,11 +223,31 @@ export class BrainSystem {
 	}
 
 	/** Advance all agent brains by deltaMs. Updates actor positions and visuals.
-	 * @param getRoom optional room getter — when provided, separation only applies to same-room agents. */
-	update(deltaMs: number, getActor: (name: string) => AgentActor | undefined, getRoom?: (name: string) => string | undefined): void {
+	 * @param getRoom optional room getter — when provided, separation only applies to same-room agents.
+	 * @param recordBrain when set, records per-agent body time and an equal share of separation/social facing (canvas perf). */
+	update(
+		deltaMs: number,
+		getActor: (name: string) => AgentActor | undefined,
+		getRoom?: (name: string) => string | undefined,
+		recordBrain?: (name: string, bodyMs: number) => void,
+	): void {
 		for (const [name, entry] of this.entries) {
 			entry.stateTimer += deltaMs;
 			const actor = getActor(name);
+
+			if (recordBrain) {
+				const t0 = performance.now();
+				if (actor) {
+					const prevState = entry.state;
+					this.tickAgentState(entry, actor, deltaMs, name);
+					this.applyWalkDirection(entry, prevState, actor);
+					actor.updateFromBrain(entry.state);
+					entry.position = { x: actor.pos.x, y: actor.pos.y };
+				}
+				recordBrain(name, performance.now() - t0);
+				continue;
+			}
+
 			if (!actor) continue;
 
 			const prevState = entry.state;
@@ -236,6 +256,19 @@ export class BrainSystem {
 
 			actor.updateFromBrain(entry.state);
 			entry.position = { x: actor.pos.x, y: actor.pos.y };
+		}
+
+		if (recordBrain) {
+			const t0 = performance.now();
+			this.applySeparation(getActor, getRoom);
+			this.updateSocialFacing(deltaMs, getActor, getRoom);
+			const sharedMs = performance.now() - t0;
+			const n = Math.max(1, this.entries.size);
+			const per = sharedMs / n;
+			for (const name of this.entries.keys()) {
+				recordBrain(name, per);
+			}
+			return;
 		}
 
 		this.applySeparation(getActor, getRoom);

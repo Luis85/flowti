@@ -266,22 +266,35 @@ export class TalkEngine {
 		}
 	}
 
-	update(deltaMs: number): void {
+	/**
+	 * @param recordAgent optional wall-time recorder for canvas perf (per agent per frame).
+	 */
+	update(deltaMs: number, recordAgent?: (name: string, durationMs: number) => void): void {
 		const now = performance.now();
 		for (const [name, entry] of this.entries) {
-			if (this.callbacks.isOnScene && !this.callbacks.isOnScene(name)) continue;
-			if (now < entry.silencedUntil) continue;
+			const work = (): void => {
+				if (this.callbacks.isOnScene && !this.callbacks.isOnScene(name)) return;
+				if (now < entry.silencedUntil) return;
 
-			if (entry.activeChain) {
-				this.advanceChain(name, entry, deltaMs);
-				continue;
-			}
+				if (entry.activeChain) {
+					this.advanceChain(name, entry, deltaMs);
+					return;
+				}
 
-			if (!entry.activated && !this.callbacks.isIdle(name)) continue;
+				if (!entry.activated && !this.callbacks.isIdle(name)) return;
 
-			entry.timer += deltaMs;
-			if (entry.timer >= entry.interval) {
-				this.fireChatter(name, entry, now);
+				entry.timer += deltaMs;
+				if (entry.timer >= entry.interval) {
+					this.fireChatter(name, entry, now);
+				}
+			};
+
+			if (recordAgent) {
+				const t0 = performance.now();
+				work();
+				recordAgent(name, performance.now() - t0);
+			} else {
+				work();
 			}
 		}
 	}

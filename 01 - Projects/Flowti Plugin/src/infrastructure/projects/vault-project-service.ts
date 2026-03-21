@@ -4,13 +4,18 @@
  */
 
 import type { App, TFolder, TFile } from "obsidian";
-import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { IProjectService, ProjectSummary, ProjectDetail, StorybookFramework, OutputCallback, MarkdownSourceConfig, TodoItem, CatalogEntity, CatalogEntityType, CatalogEntityDef, ReportGeneratorInfo, ComponentEntry, HealthScore } from "../../domain/projects/types.js";
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import type { IProjectService, ProjectSummary, ProjectDetail, StorybookFramework, OutputCallback, MarkdownSourceConfig, TodoItem, CatalogEntity, CatalogEntityType, CatalogEntityDef, ReportGeneratorInfo, ComponentEntry, HealthScore, TeamRoleSlot, VaultAgentSummary } from "../../domain/projects/types.js";
+import { reconcileProjectRoster } from "../../domain/projects/team-roster.js";
+import { normalizeTeamRoleSlots } from "../../domain/projects/team-roster-normalize.js";
+import { buildAgentMarkdownFile, buildAgentCompanionJson, agentVaultPaths } from "../../domain/projects/agent-note-builder.js";
+import { listVaultAgentSummaries } from "../../domain/projects/agent-vault-scan.js";
 import { parseTodos, addTodoLine, toggleTodoLine, deleteTodoLine } from "../../domain/projects/todo-service.js";
 import { parseEntityFromMarkdown, generateDomainMarkdown, generateServiceMarkdown, generateEventMarkdown, generateFlowMarkdown, toKebabCase } from "../../domain/projects/catalog-service.js";
 import { parseFrontmatter } from "../../domain/projects/frontmatter.js";
-import { resolveNoteInfoAsync, readBrief, mergeRunningStatus, readTypeFromConfig, parseProjectConfig, checkSitemapFiles, detectProjectFromDisk } from "./vault-project-helpers.js";
+import { resolveNoteInfoAsync, readBrief, mergeRunningStatus, readTypeFromConfig, parseProjectConfig, checkSitemapFiles, detectProjectFromDisk, enrichProjectConfigRoleSlots, enrichRoleSlotsWithRoleNotes } from "./vault-project-helpers.js";
 import { PROJECTS_FOLDER, detectStorybookOnDisk, getVaultBasePath, stripAnsi, shellQuote, runAsync, findStorybookDir } from "./vault-project-cli.js";
 import { ensureFlowtiCliRuntimeDeps, resolveFlowtiCliEntry } from "./flowti-cli-runtime.js";
 
@@ -72,7 +77,8 @@ export class VaultProjectService implements IProjectService {
 		const type = parsed.type ?? noteInfo.type;
 		if (parsed.framework) storybook = { ...storybook, framework: parsed.framework };
 		const sitemapInfo = checkSitemapFiles(absPath);
-		return { name, type, hasNote: noteInfo.hasNote, notePath: noteInfo.hasNote ? notePath : null, projectPath, ...sitemapInfo, brief, storybook, config: parsed.config };
+		const config = parsed.config ? enrichProjectConfigRoleSlots(basePath, absPath, parsed.config) : parsed.config;
+		return { name, type, hasNote: noteInfo.hasNote, notePath: noteInfo.hasNote ? notePath : null, projectPath, ...sitemapInfo, brief, storybook, config };
 	}
 
 	async installStorybook(project: string, framework: StorybookFramework, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
@@ -331,5 +337,95 @@ export class VaultProjectService implements IProjectService {
 			entries.push({ name: fields.name, category: fields.category ?? "uncategorized", status: fields.status, propCount: Math.max(0, (body.match(/^\|(?![\s-])/gm) ?? []).length - 1), slotCount: (body.match(/^- slot:/gim) ?? []).length });
 		}
 		return entries;
+	}
+
+	async listVaultAgents(): Promise<VaultAgentSummary[]> {
+		return listVaultAgentSummaries(getVaultBasePath(this.app));
+	}
+
+	async saveTeamRoster(project: string, roleSlots: readonly TeamRoleSlot[], onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+		const configPath = join(this.resolveProjectPath(project), "configs", "flowti.config.json");
+		if (!existsSync(configPath)) return { ok: false, error: "configs/flowti.config.json not found — bootstrap the project first." };
+		let raw: Record<string, unknown>;
+		try {
+			raw = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
+		} catch {
+			return { ok: false, error: "Invalid flowti.config.json" };
+		}
+		const parsed = parseProjectConfig(this.resolveProjectPath(project));
+		const prevRoster = parsed.config?.agents ?? [];
+		const prevSlots = parsed.config?.roleSlots ?? [];
+		const vaultBase = getVaultBasePath(this.app);
+		const nextSlots = normalizeTeamRoleSlots(roleSlots).map((s) => ({
+			...s,
+			roleNotePath: s.roleNotePath?.trim() || projectRoleNoteRelativePath(project, s.id),
+		}));
+		const prevPaths = new Set(
+			prevSlots.map((s) => (s.roleNotePath?.trim() ? s.roleNotePath.trim() : projectRoleNoteRelativePath(project, s.id))),
+		);
+		const nextPaths = new Set(nextSlots.map((s) => s.roleNotePath!));
+		for (const slot of nextSlots) {
+			const absFile = join(vaultBase, slot.roleNotePath!);
+			mkdirSync(dirname(absFile), { recursive: true });
+			const md = buildProjectRoleMarkdown({
+				id: slot.id,
+				role: slot.title,
+				need: slot.need,
+				skills: slot.roleSkills ?? [],
+				summary: slot.roleSummary ?? "",
+				body: slot.roleBody ?? "",
+			});
+			writeFileSync(absFile, md, "utf-8");
+		}
+		for (const rel of prevPaths) {
+			if (nextPaths.has(rel)) continue;
+			try {
+				const absFile = join(vaultBase, rel);
+				if (existsSync(absFile)) unlinkSync(absFile);
+			} catch { /* ignore */ }
+		}
+		const newRoster = reconcileProjectRoster(prevRoster, prevSlots, nextSlots);
+		const management = { ...((raw.management ?? {}) as Record<string, unknown>) };
+		const agents = { ...((management.agents ?? {}) as Record<string, unknown>) };
+		agents.roster = newRoster;
+		agents.roleSlots = nextSlots.map((s) => {
+			const row: Record<string, unknown> = { id: s.id, title: s.title, need: s.need, roleNotePath: s.roleNotePath };
+			if (s.assignee) row.assignee = s.assignee;
+			if (s.blueprint && Object.keys(s.blueprint).length > 0) row.blueprint = JSON.parse(JSON.stringify(s.blueprint)) as Record<string, unknown>;
+			return row;
+		});
+		management.agents = agents;
+		raw.management = management;
+		writeFileSync(configPath, JSON.stringify(raw, null, "\t"), "utf-8");
+		return runFlowtiCli(vaultBase, ["agent:dashboard-sync"], onOutput);
+	}
+
+	async createAgentFromRole(project: string, roleId: string, agentName: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+		const name = agentName.trim();
+		if (!name) return { ok: false, error: "Agent name is required." };
+		const parsed = parseProjectConfig(this.resolveProjectPath(project));
+		const slots = parsed.config?.roleSlots ?? [];
+		const vaultBase = getVaultBasePath(this.app);
+		const enriched = enrichRoleSlotsWithRoleNotes(vaultBase, project, slots) ?? slots;
+		const slot = enriched.find((s) => s.id === roleId);
+		if (!slot) return { ok: false, error: "Role slot not found." };
+		const { md: mdPath, json: jsonPath } = agentVaultPaths(name);
+		if (this.app.vault.getAbstractFileByPath(mdPath)) return { ok: false, error: "An agent note with this filename already exists." };
+		await mkdir(join(vaultBase, "03 - Resources", "Agents"), { recursive: true });
+		const blueprint = mergeAgentBlueprintFromRoleSlot(slot);
+		const mdBody = buildAgentMarkdownFile(name, Object.keys(blueprint).length > 0 ? blueprint : undefined);
+		try {
+			await this.app.vault.create(mdPath, mdBody);
+		} catch (e) {
+			return { ok: false, error: e instanceof Error ? e.message : "Failed to create agent note." };
+		}
+		const companion = buildAgentCompanionJson(Object.keys(blueprint).length > 0 ? blueprint : undefined);
+		if (companion && !this.app.vault.getAbstractFileByPath(jsonPath)) {
+			try {
+				await this.app.vault.create(jsonPath, companion);
+			} catch { /* optional */ }
+		}
+		const nextSlots = normalizeTeamRoleSlots(slots.map((s) => (s.id === roleId ? { ...s, assignee: name } : s)));
+		return this.saveTeamRoster(project, nextSlots, onOutput);
 	}
 }

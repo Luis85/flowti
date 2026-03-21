@@ -232,6 +232,7 @@ export class PanelTasks extends FlowtiElement {
 	}
 
 	private handleAssignClick(task: { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }): void {
+		if (this.isAiAgent && !this.store.cliSessionAvailable) return;
 		if (task.input) {
 			this.pendingTaskDef = task;
 			this.inputValue = "";
@@ -295,6 +296,9 @@ export class PanelTasks extends FlowtiElement {
 		const suggested = this.agent?.suggestedTasks;
 		if (!suggested || suggested.length === 0) return nothing;
 
+		const aiNeedsCli = this.isAiAgent && !this.store.cliSessionAvailable;
+		const blockTitle = this.store.cliSessionBlockedReason || "CLI host is not ready.";
+
 		const filtered = suggested.filter((t) => {
 			if (t.phases.length === 0) return true;
 			if (!this.currentPhase) return true;
@@ -306,10 +310,15 @@ export class PanelTasks extends FlowtiElement {
 		return html`
 			<div class="suggest-section">
 				<div class="suggest-title">Suggested Tasks</div>
+				${aiNeedsCli
+					? html`<div class="empty" style="margin-bottom:8px">AI tasks need a CLI host (Node + Flowti bundle). ${blockTitle}</div>`
+					: nothing}
 				${filtered.map((task) => html`
 					<button
 						class="assign-btn"
 						data-task="${task.name}"
+						?disabled="${aiNeedsCli}"
+						title="${aiNeedsCli ? blockTitle : task.name}"
 						@click="${() => { this.handleAssignClick(task); }}"
 					>${task.name}</button>
 				`)}

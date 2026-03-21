@@ -22,6 +22,7 @@ import { join } from "node:path";
 import type { DataProvider } from "./data-provider.js";
 import type { DashboardAgent, WorldState, WorldEntity, AgentAction, ConnectionStatus } from "../data/types.js";
 import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
+import { findNodeBinary } from "../../infrastructure/agents/cli-executor.js";
 import { watchJsonFile, type FileWatcher } from "../../infrastructure/agents/file-watcher.js";
 import { dashboardAgentsFromWorldState } from "./world-state-agents.js";
 import {
@@ -122,8 +123,10 @@ export function createCliDataProvider(
 			);
 			watchers.push(worldStateWatcher);
 
-			// Emit connection status based on CLI binary availability
-			const isConnected = existsSync(cliBinPath);
+			// Emit connection status: vault CLI bundle + Node on PATH (spawn prerequisites).
+			// A configured LLM (e.g. Claude Code) is separate — see store.llmBackendReminder.
+			const nodeOk = findNodeBinary() !== null;
+			const isConnected = nodeOk && existsSync(cliBinPath);
 			const status: ConnectionStatus = isConnected ? "connected" : "disconnected";
 			// Defer emission so callers have time to subscribe before receiving it
 			setTimeout(() => {

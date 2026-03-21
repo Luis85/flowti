@@ -21,7 +21,7 @@ import type { StateSystems } from "./engine-state.js";
 import type { LightState } from "./engine-rendering.js";
 import type { RegistrationSystems, PlacementContext } from "./engine-startup.js";
 import type { SceneEntity } from "./data/scene-entity.js";
-import { createCameraSystem } from "./systems/camera-system.js";
+import { createCameraSystem, type CameraSystem } from "./systems/camera-system.js";
 import { DOMAIN_POOLS, resolveCharacter } from "./sprites/character-pool.js";
 import { preloadSpriteRegistry } from "./sprites/sprite-loader.js";
 import { restoreWorldState, restoreAgentState } from "./engine-state.js";
@@ -74,7 +74,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 		ctx, stateSystems, dayClock, worldAmbience, currentLight,
 		brainSystem, directorSystem, cursorSpirits, store,
 		handleAgentSelect, allEntities, pets, registry,
-		loadingOverlay, doRegisterAgents,
+		loadingOverlay, doRegisterAgents, cameraRef,
 	} = deps;
 
 	// Inject pixel-art font — loaded dynamically since game may not always be active
@@ -104,6 +104,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 		engine.currentScene.camera,
 		{ x: ENGINE_WIDTH / 2, y: ENGINE_HEIGHT / 2 },
 	);
+	cameraRef.current = cameraSystem;
 	ctx.cameraSystem = cameraSystem;
 
 	engine.canvas.addEventListener("wheel", (e) => {

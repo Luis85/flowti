@@ -349,7 +349,47 @@ export const askBobStyles = css`
 		margin-bottom: 2px;
 	}
 
+	/* -- World tab: status + day bar above perf (sticky while scrolling) -- */
+	.world-monitor-sticky-header {
+		position: sticky;
+		top: 0;
+		z-index: 5;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding-bottom: 8px;
+		margin-bottom: 4px;
+		background: var(--bg-panel);
+		/* Separate scrolling perf/log from the pinned header */
+		box-shadow: 0 10px 14px -10px rgba(0, 0, 0, 0.55);
+	}
+	.world-monitor-status-bar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 6px 8px;
+		background: var(--bg-secondary);
+		border-radius: 3px;
+		border: 1px solid var(--border);
+	}
+	.world-monitor-day-bar-track {
+		height: 4px;
+		background: var(--bg-tertiary);
+		border-radius: 2px;
+		overflow: hidden;
+	}
+	.world-monitor-day-bar-fill {
+		height: 100%;
+		background: var(--accent-gold);
+		border-radius: 2px;
+		transition: width 1s;
+	}
+
 	/* -- World perf monitor ---------------- */
+	.world-perf-stack {
+		position: relative;
+		z-index: 0;
+	}
 	.world-perf-toolbar {
 		display: flex;
 		align-items: flex-start;
@@ -412,6 +452,44 @@ export const askBobStyles = css`
 		color: var(--accent-gold);
 		font-variant-numeric: tabular-nums;
 	}
+	.world-perf-bus-hint {
+		font-size: 9px;
+		color: var(--text-muted);
+		margin: 0 0 8px;
+		line-height: 1.35;
+	}
+	.world-perf-bus-hint code {
+		font-size: 8px;
+	}
+	.world-perf-bus-top-title {
+		font-size: 9px;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		font-weight: 600;
+		margin: 8px 0 4px;
+	}
+	.world-perf-bus-empty {
+		font-size: 10px;
+		color: var(--text-muted);
+		font-style: italic;
+		margin: 4px 0 0;
+	}
+
+	.world-perf-agent-hint {
+		font-size: 9px;
+		color: var(--text-muted);
+		margin: 0 0 8px;
+		line-height: 1.4;
+	}
+	.world-perf-agent-hint code {
+		font-size: 8px;
+	}
+	.world-perf-agent-pct {
+		color: var(--text-muted);
+		font-size: 9px;
+		font-variant-numeric: tabular-nums;
+	}
+
 	.world-perf-phases-title {
 		font-size: 9px;
 		color: var(--text-muted);

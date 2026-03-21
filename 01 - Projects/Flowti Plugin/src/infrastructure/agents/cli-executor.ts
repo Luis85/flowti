@@ -13,7 +13,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import type {
-	CliEvent, AgentProcess as IAgentProcess, ICliExecutor, TrackedProcess,
+	CliEvent, AgentProcess as IAgentProcess, ICliExecutor, TrackedProcess, CliHostReadiness,
 } from "./cli-executor-helpers";
 import {
 	slugify, findNodeBinary, agentsDir, pidFilePath, eventLogPath,
@@ -114,6 +114,30 @@ export class CliExecutor implements ICliExecutor {
 		this.vaultPath = vaultBasePath;
 		this.cliBin = join(vaultBasePath, ".flowti", "bin", "main.mjs");
 		this.nodeBin = findNodeBinary();
+	}
+
+	/** True when Node is on PATH and the Flowti CLI bundle exists in the vault. */
+	getHostReadiness(): CliHostReadiness {
+		const issues: string[] = [];
+		const nodePath = findNodeBinary();
+		const cliBinaryExists = existsSync(this.cliBin);
+		if (!nodePath) {
+			issues.push(
+				"Node.js was not found on PATH. Install Node and restart Obsidian (or your host app) so agent sessions can spawn.",
+			);
+		}
+		if (!cliBinaryExists) {
+			issues.push(
+				`Flowti CLI bundle missing at ${this.cliBin}. Build or sync the CLI into this vault.`,
+			);
+		}
+		return {
+			canSpawnAgents: Boolean(nodePath && cliBinaryExists),
+			nodePath,
+			cliBinaryPath: this.cliBin,
+			cliBinaryExists,
+			issues,
+		};
 	}
 
 	startAgent(agentName: string): IAgentProcess {

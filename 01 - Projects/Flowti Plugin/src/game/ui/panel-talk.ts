@@ -3,7 +3,7 @@
  * and LLM status badge. Subscribes to DashboardStore for reactive updates.
  */
 
-import { html, css } from "lit";
+import { html, css, nothing } from "lit";
 import type { PropertyValues } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles, buttonStyles } from "./game-styles.js";
@@ -125,6 +125,38 @@ export class PanelTalk extends FlowtiElement {
 				color: var(--text-muted);
 			}
 
+			/* Degraded-mode banners — must be visible (contrast) in shadow DOM */
+			.talk-banner {
+				font-size: 11px;
+				line-height: 1.45;
+				padding: 8px 10px;
+				border-radius: 4px;
+				border: 1px solid var(--border);
+				margin: 0 8px 6px;
+				flex-shrink: 0;
+			}
+			.talk-banner strong {
+				display: block;
+				margin-bottom: 4px;
+				color: var(--text-primary);
+				font-size: 11px;
+			}
+			.talk-banner--warn {
+				background: rgba(217, 170, 78, 0.12);
+				border-color: rgba(217, 170, 78, 0.35);
+				color: var(--text-secondary);
+			}
+			.talk-banner--note {
+				background: rgba(78, 139, 217, 0.1);
+				border-color: rgba(78, 139, 217, 0.3);
+				color: var(--text-secondary);
+			}
+			.talk-banner--info {
+				background: rgba(100, 116, 139, 0.15);
+				border-color: var(--border);
+				color: var(--text-secondary);
+			}
+
 			.vault-link {
 				color: var(--accent-blue, #3b82f6);
 				cursor: pointer;
@@ -210,6 +242,7 @@ export class PanelTalk extends FlowtiElement {
 	}
 
 	private handleSend(): void {
+		if (!this.store.cliSessionAvailable) return;
 		const input = this.shadowRoot?.querySelector<HTMLInputElement>(".talk-input");
 		if (!input) return;
 		const text = input.value.trim();
@@ -245,9 +278,15 @@ export class PanelTalk extends FlowtiElement {
 		this.dispatchEvent(new CustomEvent("open-vault-path", { detail: { path }, bubbles: true, composed: true }));
 	}
 
-	private renderThread() {
+	private renderThread(isAiBacked: boolean, cliOk: boolean) {
 		const visible = this.conversation.slice(-50);
 		if (visible.length === 0 && !this.thinking) {
+			if (!isAiBacked) {
+				return html`<div class="empty">This agent is not LLM-backed (e.g. human). The canvas still drives movement and ambient lines — no subprocess required.</div>`;
+			}
+			if (!cliOk) {
+				return html`<div class="empty">No LLM thread yet. The Agent World keeps running: sprites, moods, and template chatter work without Claude or any CLI reply.</div>`;
+			}
 			return html`<div class="empty">No messages yet. Start a conversation!</div>`;
 		}
 
@@ -261,18 +300,50 @@ export class PanelTalk extends FlowtiElement {
 	}
 
 	protected renderContent() {
+		const agentMeta = this.store.agents.find((a) => a.name === this.agentName);
+		const isAiBacked = (agentMeta?.agentType ?? "ai") === "ai";
+		const cliOk = this.store.cliSessionAvailable;
+		const canSend = cliOk && isAiBacked;
+		const blockReason = this.store.cliSessionBlockedReason;
+		const llmNote = this.store.llmBackendReminder;
+
 		return html`
+			${!isAiBacked
+				? html`
+					<div class="talk-banner talk-banner--info">
+						<strong>Simulation-only agent</strong>
+						Not wired to the Flowti LLM CLI. Watch them on the canvas — wandering, needs, and scripted chatter do not depend on Claude or any subprocess.
+					</div>
+				`
+				: nothing}
+			${isAiBacked && !cliOk && blockReason
+				? html`
+					<div class="talk-banner talk-banner--warn">
+						<strong>LLM / CLI host unavailable</strong>
+						${blockReason}
+						The world simulation still runs; only this chat pane and CLI-backed tasks need Node + bundle + your configured LLM.
+					</div>
+				`
+				: nothing}
+			${isAiBacked && cliOk && llmNote
+				? html`<div class="talk-banner talk-banner--note"><strong>LLM backend</strong>${llmNote}</div>`
+				: nothing}
 			<div class="thread">
-				${this.renderThread()}
+				${this.renderThread(isAiBacked, cliOk)}
 			</div>
 			<div class="input-row">
 				<input
 					class="talk-input"
 					type="text"
-					placeholder="Message ${this.agentName}..."
+					?disabled="${!canSend}"
+					placeholder="${!isAiBacked
+						? "Not an LLM-backed agent"
+						: cliOk
+							? `Message ${this.agentName}...`
+							: "Connect CLI + LLM to send messages"}"
 					@keydown="${this.handleKeydown}"
 				/>
-				<button class="primary" @click="${this.handleSend}">Send</button>
+				<button class="primary" ?disabled="${!canSend}" @click="${this.handleSend}">Send</button>
 			</div>
 		`;
 	}

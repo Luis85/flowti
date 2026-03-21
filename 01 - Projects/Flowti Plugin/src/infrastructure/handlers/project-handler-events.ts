@@ -4,7 +4,7 @@
  * Extracted from project-handlers.ts to stay under max-lines.
  */
 
-import type { IProjectService, StorybookFramework, MarkdownSourceConfig, CatalogEntityType, CatalogEntityDef } from "../../domain/projects/types.js";
+import type { IProjectService, StorybookFramework, MarkdownSourceConfig, CatalogEntityType, CatalogEntityDef, TeamRoleSlot } from "../../domain/projects/types.js";
 
 export interface ProjectEventContext {
 	el: HTMLElement & Record<string, unknown>;
@@ -366,5 +366,29 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 		for (const g of (el.reportGenerators as Array<{ id: string }>)) states[g.id] = "running";
 		el.reportNodeStates = states;
 		void projectService.runAllReports(ctx.getCurrentProject(), (line) => { lines.push(line); if (lines.length > 200) lines.shift(); el.reportOutput = [...lines]; }).then(() => { el.reportBusy = false; });
+	}) as EventListener);
+
+	// Team roster
+	el.addEventListener("team-roster-save", ((e: CustomEvent) => {
+		const slots = (e.detail?.slots ?? []) as TeamRoleSlot[];
+		ctx.startBusy("Saving team roster...");
+		void projectService.saveTeamRoster(ctx.getCurrentProject(), slots, ctx.appendOutput).then((r) => ctx.endBusy(r));
+	}) as EventListener);
+
+	el.addEventListener("team-create-agent", ((e: CustomEvent) => {
+		const roleId = String((e.detail as { roleId?: string })?.roleId ?? "");
+		const agentName = String((e.detail as { agentName?: string })?.agentName ?? "");
+		ctx.startBusy("Creating agent…");
+		void projectService.createAgentFromRole(ctx.getCurrentProject(), roleId, agentName, ctx.appendOutput).then((r) => ctx.endBusy(r));
+	}) as EventListener);
+
+	el.addEventListener("team-refresh-agents", (() => {
+		void projectService.listVaultAgents().then((a) => { el.vaultAgents = [...a]; });
+	}) as EventListener);
+
+	el.addEventListener("team-roster-error", ((e: CustomEvent) => {
+		const msg = String((e.detail as { message?: string })?.message ?? "Team roster error");
+		el.statusMessage = msg;
+		setTimeout(() => { if (el.statusMessage === msg) el.statusMessage = ""; }, 5000);
 	}) as EventListener);
 }

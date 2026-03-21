@@ -87,7 +87,13 @@ export class RoomSwitcher {
 			} else {
 				// Not at door — re-walk if interrupted
 				const state = this.config.getEntityState(entityId);
-				if (state !== "walking-to" && state !== "exiting" && state !== "wandering") {
+				if (entity.entityType === "creature") {
+					// Pets use PetState "wandering" for both room roam and walking to a door.
+					// Skipping moveTo while "wandering" strands them after wander timers retarget away from the door.
+					if (state !== "exiting") {
+						entity.moveTo(transit.door.x, transit.door.y);
+					}
+				} else if (state !== "walking-to" && state !== "exiting" && state !== "wandering") {
 					entity.moveTo(transit.door.x, transit.door.y);
 				}
 			}

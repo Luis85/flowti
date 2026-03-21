@@ -63,7 +63,20 @@ The `DataProvider` interface is **transport-agnostic** so tests or future tools 
 
 There is **no** `sendCommand("/api/...")` shim: tasks, permissions, and chat go through **`DashboardStore` + `ICliExecutor`**, not fake REST paths.
 
+## CLI host vs configured LLM
+
+Agent roster JSON can describe agents as **AI-backed** (e.g. Claude Code) while this environment **cannot** run them:
+
+1. **Spawn prerequisites** — `DashboardStore.syncCliSessionFromEnvironment()` + `CliExecutor.getHostReadiness()` require **Node on PATH** and **`<vault>/.flowti/bin/main.mjs`**. If either is missing, `cliSessionAvailable` is false: Talk is disabled, AI suggested tasks are disabled, and the UI explains why.
+2. **Provider “connected” signal** — `createCliDataProvider` treats connection as **Node + CLI bundle**, not “LLM online”.
+3. **Configured LLM** — Even when spawn succeeds, the **external LLM CLI** (e.g. Claude) must be installed where `agent:start` runs. When spawn is OK but agents are AI type, `llmBackendReminder` warns that the plugin does not bundle that binary. If the subprocess hangs or never returns text, the store **thinking watchdog** (~2 min) posts a timeout message so the Talk tab does not spin forever.
+
+## Project hub Team tab → dashboard roster
+
+The **Project** sidepanel **Team** tab edits `management.agents.roleSlots` and reconciles `management.agents.roster` in each project’s `configs/flowti.config.json`. Slots and names are **trimmed** on save; **roster-only** agent names (not tied to a previous slot assignee) are preserved when you edit roles. **Create agent** refuses duplicate display names (case-insensitive) and filename collisions under `03 - Resources/Agents`. After saves, the plugin runs **`agent:dashboard-sync`** so `.flowti/agents/data/agent-dashboard.json` stays aligned with vault agents and project rosters — the same file the Agent World `CliDataProvider` prefers for roster rows.
+
 ## Related docs
 
+- `docs/agent-world-degraded-mode.md` — canvas vs CLI/LLM; behavior when Claude or spawn fails.
 - `docs/agent-world-performance.md` — perf events for the Excalibur loop.
 - `docs/Agent World - Game Design Document.md` — design intent (mechanics, UX).
