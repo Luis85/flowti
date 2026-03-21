@@ -1,6 +1,10 @@
 /**
- * CLI-backed DataProvider — reads vault files directly and receives agent
- * events from CliExecutor. No server process required.
+ * CLI-backed DataProvider — **Flowti CLI / vault JSON is authoritative** for roster
+ * and world entities. The plugin displays that state inside Excalibur; it does not
+ * run a separate API server for the game.
+ *
+ * Reads vault files directly; agent tasks / Talk use {@link ICliExecutor} (JSONL
+ * subprocesses). No server process required for the Agent World canvas.
  *
  * File paths:
  *   Agent roster:  <vault>/.flowti/agents/data/agent-dashboard.json
@@ -18,6 +22,7 @@ import { join } from "node:path";
 import type { DataProvider } from "./data-provider.js";
 import type { DashboardAgent, WorldState, WorldEntity, AgentAction, ConnectionStatus } from "../data/types.js";
 import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
+import { findNodeBinary } from "../../infrastructure/agents/cli-executor.js";
 import { watchJsonFile, type FileWatcher } from "../../infrastructure/agents/file-watcher.js";
 import { dashboardAgentsFromWorldState } from "./world-state-agents.js";
 import {
@@ -118,8 +123,10 @@ export function createCliDataProvider(
 			);
 			watchers.push(worldStateWatcher);
 
-			// Emit connection status based on CLI binary availability
-			const isConnected = existsSync(cliBinPath);
+			// Emit connection status: vault CLI bundle + Node on PATH (spawn prerequisites).
+			// A configured LLM (e.g. Claude Code) is separate — see store.llmBackendReminder.
+			const nodeOk = findNodeBinary() !== null;
+			const isConnected = nodeOk && existsSync(cliBinPath);
 			const status: ConnectionStatus = isConnected ? "connected" : "disconnected";
 			// Defer emission so callers have time to subscribe before receiving it
 			setTimeout(() => {
@@ -157,25 +164,6 @@ export function createCliDataProvider(
 		onConnectionStatus(cb: (status: ConnectionStatus) => void): () => void {
 			connectionCallbacks.add(cb);
 			return () => { connectionCallbacks.delete(cb); };
-		},
-
-		async sendCommand(endpoint: string, body: Record<string, unknown>): Promise<void> {
-			if (!cliExecutor) return;
-			// Map known endpoints to CLI executor calls
-			if (endpoint === "/api/agent/run" || endpoint === "/api/agent/task") {
-				const agentName = typeof body.agent === "string" ? body.agent : "";
-				const task = typeof body.task === "string" ? body.task : "";
-				if (agentName && task) {
-					await cliExecutor.assignTask(agentName, task);
-				}
-			} else if (endpoint === "/api/agent/permission") {
-				const agentName = typeof body.agent === "string" ? body.agent : "";
-				const tool = typeof body.tool === "string" ? body.tool : "";
-				const decision = typeof body.decision === "string" ? body.decision : "deny";
-				if (agentName && tool) {
-					await cliExecutor.grantPermission(agentName, tool, decision);
-				}
-			}
 		},
 
 		get assetBasePath(): string {

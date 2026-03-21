@@ -348,4 +348,212 @@ export const askBobStyles = css`
 		color: var(--text-muted);
 		margin-bottom: 2px;
 	}
+
+	/* -- World tab: status + day bar above perf (sticky while scrolling) -- */
+	.world-monitor-sticky-header {
+		position: sticky;
+		top: 0;
+		z-index: 5;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding-bottom: 8px;
+		margin-bottom: 4px;
+		background: var(--bg-panel);
+		/* Separate scrolling perf/log from the pinned header */
+		box-shadow: 0 10px 14px -10px rgba(0, 0, 0, 0.55);
+	}
+	.world-monitor-status-bar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 6px 8px;
+		background: var(--bg-secondary);
+		border-radius: 3px;
+		border: 1px solid var(--border);
+	}
+	.world-monitor-day-bar-track {
+		height: 4px;
+		background: var(--bg-tertiary);
+		border-radius: 2px;
+		overflow: hidden;
+	}
+	.world-monitor-day-bar-fill {
+		height: 100%;
+		background: var(--accent-gold);
+		border-radius: 2px;
+		transition: width 1s;
+	}
+
+	/* -- World perf monitor ---------------- */
+	.world-perf-stack {
+		position: relative;
+		z-index: 0;
+	}
+	.world-perf-toolbar {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 6px 8px;
+		border: 1px solid var(--border);
+		border-radius: 3px;
+		background: var(--bg-secondary);
+		font-size: 10px;
+		color: var(--text-secondary);
+	}
+	.world-perf-toggle {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		cursor: pointer;
+		user-select: none;
+		flex-shrink: 0;
+	}
+	.world-perf-toggle input {
+		accent-color: var(--accent-gold);
+		cursor: pointer;
+	}
+	.world-perf-hint {
+		font-size: 9px;
+		color: var(--text-muted);
+		line-height: 1.35;
+		flex: 1;
+		text-align: right;
+	}
+	.world-perf-panel {
+		margin-top: 8px;
+		padding: 8px;
+		border-radius: 3px;
+		border: 1px solid var(--border);
+		background: var(--bg-primary);
+		font-size: 10px;
+		color: var(--text-primary);
+	}
+	.world-perf-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 6px 10px;
+		margin-bottom: 8px;
+	}
+	.world-perf-metric {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.world-perf-metric .lbl {
+		font-size: 9px;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.world-perf-metric .val {
+		font-weight: 600;
+		color: var(--accent-gold);
+		font-variant-numeric: tabular-nums;
+	}
+	.world-perf-bus-hint {
+		font-size: 9px;
+		color: var(--text-muted);
+		margin: 0 0 8px;
+		line-height: 1.35;
+	}
+	.world-perf-bus-hint code {
+		font-size: 8px;
+	}
+	.world-perf-bus-top-title {
+		font-size: 9px;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		font-weight: 600;
+		margin: 8px 0 4px;
+	}
+	.world-perf-bus-empty {
+		font-size: 10px;
+		color: var(--text-muted);
+		font-style: italic;
+		margin: 4px 0 0;
+	}
+
+	.world-perf-agent-hint {
+		font-size: 9px;
+		color: var(--text-muted);
+		margin: 0 0 8px;
+		line-height: 1.4;
+	}
+	.world-perf-agent-hint code {
+		font-size: 8px;
+	}
+	.world-perf-agent-pct {
+		color: var(--text-muted);
+		font-size: 9px;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.world-perf-phases-title {
+		font-size: 9px;
+		color: var(--text-muted);
+		margin: 6px 0 4px;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.world-perf-phase-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-bottom: 3px;
+	}
+	.world-perf-phase-name {
+		width: 108px;
+		flex-shrink: 0;
+		font-size: 9px;
+		color: var(--text-secondary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.world-perf-phase-bar-wrap {
+		flex: 1;
+		height: 6px;
+		background: var(--bg-tertiary);
+		border-radius: 2px;
+		overflow: hidden;
+	}
+	.world-perf-phase-bar {
+		height: 100%;
+		background: linear-gradient(90deg, #6366f1, var(--accent-gold));
+		border-radius: 2px;
+	}
+	.world-perf-phase-ms {
+		width: 72px;
+		flex-shrink: 0;
+		text-align: right;
+		font-size: 9px;
+		font-variant-numeric: tabular-nums;
+		color: var(--text-muted);
+	}
+	.world-perf-agg {
+		margin-top: 8px;
+		padding-top: 8px;
+		border-top: 1px dashed var(--border);
+		font-size: 9px;
+		color: var(--text-secondary);
+		line-height: 1.45;
+	}
+	.world-perf-warn {
+		margin-top: 6px;
+		padding: 6px 8px;
+		border-radius: 3px;
+		background: rgba(217, 78, 78, 0.12);
+		border: 1px solid rgba(217, 78, 78, 0.35);
+		color: #fca5a5;
+		font-size: 9px;
+		line-height: 1.4;
+	}
+	.world-perf-wait {
+		color: var(--text-muted);
+		font-size: 10px;
+		padding: 8px 0;
+		text-align: center;
+	}
 `;

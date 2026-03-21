@@ -25,12 +25,16 @@ import type {
 	ImportSummary,
 	ViewSummary,
 	PerfState,
+	AgentWorldSampleSnapshot,
+	AgentWorldPerfSummary,
+	AgentCanvasAggregateView,
+	IAgentWorldPerfDashboard,
 } from "./perfTypes";
 
 const WINDOW_SIZE = 20;
 const DEFAULT_STARTUP_THRESHOLD_MS = 5000;
 
-export class PerfAggregator {
+export class PerfAggregator implements IAgentWorldPerfDashboard {
 	private startupServices: ServiceStartupEntry[] = [];
 	/** Cleared when the next startup run begins (first phase/segment of a run). */
 	private startupPhasesBuffer: StartupPhaseEntry[] = [];
@@ -53,6 +57,9 @@ export class PerfAggregator {
 	private importTimings: number[] = [];
 	private importRows: number[] = [];
 	private viewTimings = new Map<string, number[]>();
+	private agentWorldSamples: AgentWorldSampleSnapshot[] = [];
+	private agentWorldSlowFrames = 0;
+	private agentWorldSimMax: number[] = [];
 	private unsubscribes: Array<() => void> = [];
 	private startupThresholdMs: number;
 
@@ -169,6 +176,14 @@ export class PerfAggregator {
 				this.push(arr, event.payload.durationMs);
 				this.viewTimings.set(event.payload.hubId, arr);
 			}),
+			this.eventBus.on("perf.agentWorld.sample", (event) => {
+				this.agentWorldSamples.push({ ...event.payload });
+				if (this.agentWorldSamples.length > WINDOW_SIZE) this.agentWorldSamples.shift();
+				this.push(this.agentWorldSimMax, event.payload.simulation.maxMs);
+			}),
+			this.eventBus.on("perf.agentWorld.slowFrame", () => {
+				this.agentWorldSlowFrames++;
+			}),
 		);
 	}
 
@@ -258,6 +273,76 @@ export class PerfAggregator {
 			timing: this.computeSummary(timings),
 		}));
 		return { perHub };
+	}
+
+	/** Agent canvas world: rolling `perf.agentWorld.sample` windows + slow-frame count. */
+	getAgentWorldSummary(): AgentWorldPerfSummary {
+		return {
+			samples: [...this.agentWorldSamples],
+			slowFrameCount: this.agentWorldSlowFrames,
+			simulationMaxAcrossSamples: this.computeSummary(this.agentWorldSimMax),
+			agentCanvasAggregate: this.computeAgentCanvasAggregate(),
+		};
+	}
+
+	/** Mean/max of per-window Σ-agent slice totals + top agents across buffered samples. */
+	private computeAgentCanvasAggregate(): AgentCanvasAggregateView | null {
+		const samples = this.agentWorldSamples.filter((s) =>
+			s.perAgentCanvas?.agents?.some((a) => Object.keys(a.slices).length > 0),
+		);
+		if (samples.length === 0) return null;
+
+		const perWindowSliceSums: Record<string, number>[] = [];
+		for (const s of samples) {
+			const sums: Record<string, number> = {};
+			for (const a of s.perAgentCanvas.agents) {
+				for (const [sliceKey, v] of Object.entries(a.slices)) {
+					sums[sliceKey] = (sums[sliceKey] ?? 0) + v.avgMs;
+				}
+			}
+			perWindowSliceSums.push(sums);
+		}
+
+		const allSliceKeys = new Set<string>();
+		for (const row of perWindowSliceSums) {
+			for (const k of Object.keys(row)) allSliceKeys.add(k);
+		}
+
+		const sliceSumAvgAcrossWindows: Record<string, number> = {};
+		const sliceSumMaxAcrossWindows: Record<string, number> = {};
+		for (const k of allSliceKeys) {
+			const vals = perWindowSliceSums.map((r) => r[k] ?? 0);
+			sliceSumAvgAcrossWindows[k] = vals.reduce((x, y) => x + y, 0) / vals.length;
+			sliceSumMaxAcrossWindows[k] = Math.max(...vals, 0);
+		}
+
+		const agentAcc = new Map<string, { sumTotal: number; windows: number }>();
+		for (const s of samples) {
+			for (const a of s.perAgentCanvas.agents) {
+				const total = Object.values(a.slices).reduce((acc, v) => acc + v.avgMs, 0);
+				if (total <= 1e-9) continue;
+				const cur = agentAcc.get(a.agentName) ?? { sumTotal: 0, windows: 0 };
+				cur.sumTotal += total;
+				cur.windows += 1;
+				agentAcc.set(a.agentName, cur);
+			}
+		}
+
+		const topAgentsByMeanTotal = [...agentAcc.entries()]
+			.map(([agentName, { sumTotal, windows }]) => ({
+				agentName,
+				meanTotalAvgMs: sumTotal / windows,
+				windowsSeen: windows,
+			}))
+			.sort((a, b) => b.meanTotalAvgMs - a.meanTotalAvgMs)
+			.slice(0, 10);
+
+		return {
+			windowCount: samples.length,
+			sliceSumAvgAcrossWindows,
+			sliceSumMaxAcrossWindows,
+			topAgentsByMeanTotal,
+		};
 	}
 
 	private push(arr: number[], value: number): void {

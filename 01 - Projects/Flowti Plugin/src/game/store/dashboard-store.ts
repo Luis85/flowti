@@ -1,8 +1,14 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting, TrackedTask } from "../data/types.js";
 import type { BrainState } from "../brain/brain-types.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
+import { findNodeBinary } from "../../infrastructure/agents/cli-executor.js";
+import { sampleAgentProcessResources, type AgentProcessResources } from "../../infrastructure/agents/agent-process-metrics.js";
+
+export type { AgentProcessResources };
 import {
 	handleCliResponse, handleCliPermissionRequest,
 	handleCliUsingTool, handleCliToolComplete,
@@ -55,6 +61,8 @@ export class DashboardStore extends EventTarget {
 	assignedTasks: Map<string, TrackedTask[]> = new Map();
 	unreadAgents: Set<string> = new Set();
 	agentEventLog: Map<string, { timestamp: number; type: string; summary: string }[]> = new Map();
+	/** PID/RAM/CPU samples for spawned CLI processes (Monitor tab). */
+	agentResourceMetrics: Map<string, AgentProcessResources> = new Map();
 	taskLockedAgents: Set<string> = new Set();
 	agentNeeds: Map<string, AgentNeeds> = new Map();
 
@@ -79,6 +87,19 @@ export class DashboardStore extends EventTarget {
 	}
 
 	currentScene: Setting = "hub";
+
+	/**
+	 * When false, Talk / AI task assignment cannot spawn `agent:start` (no executor, missing Node, or missing CLI bundle).
+	 * AI agents may still appear from vault data — they are “configured” but not runnable here.
+	 */
+	cliSessionAvailable = true;
+	/** User-facing explanation when {@link cliSessionAvailable} is false. */
+	cliSessionBlockedReason = "";
+	/**
+	 * Shown when AI agents are present and a CLI session *could* start: reminds that the configured LLM (e.g. Claude Code)
+	 * must exist on the host where the subprocess runs.
+	 */
+	llmBackendReminder = "";
 
 	// ── Living World state ────────────────────────────────────────
 	dayPhase = "morning-arrival";
@@ -135,6 +156,8 @@ export class DashboardStore extends EventTarget {
 	private wokenAgents: Map<string, number> = new Map();
 	private agentProcesses: Map<string, AgentProcess> = new Map();
 	private eventUnsubs: Map<string, () => void> = new Map();
+	/** Clears stuck "thinking" if the LLM CLI never completes (missing Claude, hung process, …). */
+	private thinkingWatchdogs = new Map<string, ReturnType<typeof setTimeout>>();
 
 	private cliExecutor: ICliExecutor | null;
 	private worldContext: WorldContext | null;
@@ -189,7 +212,87 @@ export class DashboardStore extends EventTarget {
 
 	setAgents(agents: readonly DashboardAgent[]): void {
 		this.agents = agents;
+		this.refreshLlmBackendReminder();
 		this.notify();
+	}
+
+	/**
+	 * Recompute whether Talk / tasks can spawn the Flowti agent CLI. Call after construction (engine startup).
+	 */
+	syncCliSessionFromEnvironment(): void {
+		if (!this.cliExecutor) {
+			this.cliSessionAvailable = false;
+			this.cliSessionBlockedReason =
+				"No CLI executor is attached to this view. The world can still show agents from vault files; Talk and CLI-backed tasks are disabled.";
+			this.refreshLlmBackendReminder();
+			this.notify();
+			return;
+		}
+
+		const readiness = this.cliExecutor.getHostReadiness?.();
+		if (readiness) {
+			this.cliSessionAvailable = readiness.canSpawnAgents;
+			this.cliSessionBlockedReason = readiness.canSpawnAgents ? "" : readiness.issues.join(" ");
+			this.refreshLlmBackendReminder();
+			this.notify();
+			return;
+		}
+
+		// Mocks / alternate executors without getHostReadiness
+		if (this.vaultBasePath) {
+			const bin = join(this.vaultBasePath, ".flowti", "bin", "main.mjs");
+			const node = findNodeBinary();
+			const ok = node !== null && existsSync(bin);
+			this.cliSessionAvailable = ok;
+			this.cliSessionBlockedReason = ok
+				? ""
+				: [
+					!node ? "Node.js was not found on PATH." : "",
+					!existsSync(bin) ? `Flowti CLI bundle missing at ${bin}.` : "",
+				]
+					.filter(Boolean)
+					.join(" ");
+		} else {
+			this.cliSessionAvailable = true;
+			this.cliSessionBlockedReason = "";
+		}
+		this.refreshLlmBackendReminder();
+		this.notify();
+	}
+
+	private refreshLlmBackendReminder(): void {
+		const hasAi = this.agents.some((a) => (a.agentType ?? "ai") === "ai");
+		this.llmBackendReminder =
+			hasAi && this.cliSessionAvailable
+				? "Roster agents expect an LLM CLI on this machine (often Claude Code or similar). Without it, the Talk tab stays quiet after you send — but the canvas still runs: movement, moods, and template chatter need no subprocess. Install the CLI where Flowti spawns agent processes."
+				: "";
+	}
+
+	/** @internal visible for tests */
+	static readonly THINKING_WATCHDOG_MS = 120_000;
+
+	private clearThinkingWatchdog(agentName: string): void {
+		const id = this.thinkingWatchdogs.get(agentName);
+		if (id !== undefined) {
+			clearTimeout(id);
+			this.thinkingWatchdogs.delete(agentName);
+		}
+	}
+
+	/** Reset timer while waiting for an LLM reply (user sent a message or CLI reported "thinking"). */
+	private scheduleThinkingWatchdog(agentName: string): void {
+		this.clearThinkingWatchdog(agentName);
+		const id = setTimeout(() => {
+			this.thinkingWatchdogs.delete(agentName);
+			if (!this.thinkingAgents.has(agentName)) return;
+			this.pushEventLog(agentName, "error", "LLM reply timeout");
+			this.pushAgentResponse(
+				agentName,
+				"[timeout] No reply from the LLM CLI after two minutes. If agents target Claude or another backend, install it on this machine where Flowti runs agent processes. The Agent World canvas does not require an LLM — agents keep wandering and using ambient dialogue.",
+				{ llmState: "error" },
+			);
+		}, DashboardStore.THINKING_WATCHDOG_MS);
+		this.thinkingWatchdogs.set(agentName, id);
 	}
 
 	updatePositions(positions: Map<string, Point>): void {
@@ -210,13 +313,77 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	isProcessAlive(agentName: string): boolean { return this.agentProcesses.get(agentName)?.running ?? false; }
-	startFollow(agentName: string): void { this.followedAgent = agentName; this.notify(); }
-	stopFollow(): void { this.followedAgent = null; this.notify(); }
-	setConnectionStatus(status: ConnectionStatus): void { this.connectionStatus = status; this.notify(); }
-	setActivityLog(log: readonly ActivityEntry[]): void { this.activityLog = log; this.notify(); }
-	setPermissions(agentName: string, perms: readonly PermissionEntry[]): void { this.permissions.set(agentName, perms); this.notify(); }
-	setLlmStatus(agentName: string, status: LlmStatus): void { this.llmStatus.set(agentName, status); this.notify(); }
+	isProcessAlive(agentName: string): boolean {
+		return this.agentProcesses.get(agentName)?.running ?? false;
+	}
+
+	/**
+	 * Refresh memory/CPU metrics for running agent CLI processes (spawned via CliExecutor).
+	 * No-op without a CliExecutor. Safe to call on an interval.
+	 */
+	refreshAgentResources(): void {
+		if (!this.cliExecutor) return;
+
+		let changed = false;
+
+		for (const name of [...this.agentResourceMetrics.keys()]) {
+			const proc = this.agentProcesses.get(name);
+			if (!proc?.running) {
+				this.agentResourceMetrics.delete(name);
+				changed = true;
+			}
+		}
+
+		for (const [name, proc] of this.agentProcesses) {
+			if (!proc.running) continue;
+			const pid = proc.getPid();
+			if (pid == null) continue;
+			const next = sampleAgentProcessResources(pid);
+			const prev = this.agentResourceMetrics.get(name);
+			this.agentResourceMetrics.set(name, next);
+			if (
+				!prev
+				|| prev.pid !== next.pid
+				|| prev.rssBytes !== next.rssBytes
+				|| prev.cpuPercent !== next.cpuPercent
+				|| prev.sampledAt !== next.sampledAt
+			) {
+				changed = true;
+			}
+		}
+
+		if (changed) this.notify();
+	}
+
+	startFollow(agentName: string): void {
+		this.followedAgent = agentName;
+		this.notify();
+	}
+
+	stopFollow(): void {
+		this.followedAgent = null;
+		this.notify();
+	}
+
+	setConnectionStatus(status: ConnectionStatus): void {
+		this.connectionStatus = status;
+		this.notify();
+	}
+
+	setActivityLog(log: readonly ActivityEntry[]): void {
+		this.activityLog = log;
+		this.notify();
+	}
+
+	setPermissions(agentName: string, perms: readonly PermissionEntry[]): void {
+		this.permissions.set(agentName, perms);
+		this.notify();
+	}
+
+	setLlmStatus(agentName: string, status: LlmStatus): void {
+		this.llmStatus.set(agentName, status);
+		this.notify();
+	}
 
 	setAgentState(agentName: string, state: BrainState): void {
 		if (this.agentStates.get(agentName) === state) return;
@@ -245,10 +412,12 @@ export class DashboardStore extends EventTarget {
 		this.conversations.set(agentName, turns);
 		this.thinkingAgents.add(agentName);
 		this.llmStatus.set(agentName, { state: "thinking", since: Date.now() });
+		this.scheduleThinkingWatchdog(agentName);
 		this.notify();
 	}
 
 	pushAgentResponse(agentName: string, text: string): void {
+		this.clearThinkingWatchdog(agentName);
 		const turns = this.conversations.get(agentName) ?? [];
 		// Dedup: skip if the last turn is the same agent message within 5 seconds
 		const last = turns.length > 0 ? turns[turns.length - 1] : null;
@@ -288,6 +457,7 @@ export class DashboardStore extends EventTarget {
 
 	private getOrStartProcess(agentName: string): AgentProcess | null {
 		if (!this.cliExecutor) return null;
+		if (!this.cliSessionAvailable) return null;
 
 		const existing = this.agentProcesses.get(agentName);
 		if (existing?.running) return existing;
@@ -299,7 +469,15 @@ export class DashboardStore extends EventTarget {
 			this.eventUnsubs.delete(agentName);
 		}
 
-		const proc = this.cliExecutor.startAgent(agentName);
+		let proc: AgentProcess;
+		try {
+			proc = this.cliExecutor.startAgent(agentName);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			this.pushEventLog(agentName, "error", msg.slice(0, 80));
+			this.pushAgentResponse(agentName, `[offline] ${msg}`, { llmState: "error" });
+			return null;
+		}
 		this.agentProcesses.set(agentName, proc);
 
 		// Subscribe to process events
@@ -316,14 +494,26 @@ export class DashboardStore extends EventTarget {
 		log.push({ timestamp: Date.now(), type, summary: summary.slice(0, 80) });
 		if (log.length > 50) log.shift();
 		this.agentEventLog.set(agentName, log);
+		this.notify();
 	}
 
 	private handleCliEvent(agentName: string, event: CliEvent): void {
 		switch (event.type) {
 			case "response": handleCliResponse(this, agentName, event); break;
-			case "thinking": this.thinkingAgents.add(agentName); this.llmStatus.set(agentName, { state: "thinking", since: Date.now() }); this.pushEventLog(agentName, "thinking", "Thinking..."); this.notify(); break;
+			case "thinking":
+				this.thinkingAgents.add(agentName);
+				this.llmStatus.set(agentName, { state: "thinking", since: Date.now() });
+				this.scheduleThinkingWatchdog(agentName);
+				this.pushEventLog(agentName, "thinking", "Thinking...");
+				this.notify();
+				break;
 			case "permission-request": handleCliPermissionRequest(this, agentName, event); this.notify(); break;
-			case "error": this.pushAgentResponse(agentName, `[error] ${event.text ?? "An error occurred."}`); this.pushEventLog(agentName, "error", event.text ?? "Unknown error"); break;
+			case "error": {
+				const errText = event.text ?? event.response ?? "An error occurred.";
+				this.pushAgentResponse(agentName, `[error] ${errText}`);
+				this.pushEventLog(agentName, "error", errText);
+				break;
+			}
 			case "using-tool": handleCliUsingTool(this, agentName, event); break;
 			case "tool-complete": handleCliToolComplete(this, agentName, event); break;
 			case "task-started": this.handleTaskStarted(agentName); break;
@@ -339,6 +529,7 @@ export class DashboardStore extends EventTarget {
 	}
 
 	private handleDone(agentName: string): void {
+		this.clearThinkingWatchdog(agentName);
 		const doneTasks = this.assignedTasks.get(agentName) ?? [];
 		const activeTask = doneTasks.find((t) => t.status === "in-progress");
 		if (activeTask) {
@@ -367,8 +558,21 @@ export class DashboardStore extends EventTarget {
 
 		const proc = this.getOrStartProcess(agentName);
 		if (!proc) {
-			this.pushAgentResponse(agentName, "[offline] CLI executor not available.");
-			return { ok: false, error: "CLI executor not available" };
+			if (!this.cliExecutor) {
+				this.pushAgentResponse(agentName, "[offline] CLI executor not available.", { llmState: "error" });
+				return { ok: false, error: "CLI executor not available" };
+			}
+			if (!this.cliSessionAvailable) {
+				const hint = this.cliSessionBlockedReason || "CLI host is not ready (Node or Flowti bundle missing).";
+				this.pushAgentResponse(agentName, `[offline] ${hint}`, { llmState: "error" });
+				return { ok: false, error: "CLI host not ready" };
+			}
+			this.pushAgentResponse(
+				agentName,
+				"[offline] Failed to start the agent CLI process. Check Node, the Flowti bundle, and any configured LLM (e.g. Claude) on this machine.",
+				{ llmState: "error" },
+			);
+			return { ok: false, error: "Failed to start agent process" };
 		}
 
 		try {
@@ -377,7 +581,7 @@ export class DashboardStore extends EventTarget {
 			return { ok: true };
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : "Unknown error";
-			this.pushAgentResponse(agentName, `[offline] ${errorMsg}`);
+			this.pushAgentResponse(agentName, `[offline] ${errorMsg}`, { llmState: "error" });
 			return { ok: false, error: errorMsg };
 		}
 	}
@@ -406,7 +610,14 @@ export class DashboardStore extends EventTarget {
 		const proc = this.getOrStartProcess(agentName);
 		if (!proc) {
 			this.markTaskStatus(agentName, task.name, "failed");
-			this.pushAgentResponse(agentName, "[offline] Cannot execute task \u2014 CLI executor not available.");
+			if (!this.cliExecutor) {
+				this.pushAgentResponse(agentName, "[offline] Cannot execute task \u2014 CLI executor not available.", { llmState: "error" });
+			} else if (!this.cliSessionAvailable) {
+				const hint = this.cliSessionBlockedReason || "CLI host is not ready.";
+				this.pushAgentResponse(agentName, `[offline] Cannot execute task \u2014 ${hint}`, { llmState: "error" });
+			} else {
+				this.pushAgentResponse(agentName, "[offline] Cannot execute task \u2014 failed to start agent process.", { llmState: "error" });
+			}
 			return;
 		}
 		proc.send(taskPrompt);
@@ -429,6 +640,9 @@ export class DashboardStore extends EventTarget {
 	}
 
 	async assignTask(agentName: string, task: string): Promise<{ ok: boolean; error?: string }> {
+		if (!this.cliSessionAvailable) {
+			return { ok: false, error: this.cliSessionBlockedReason || "CLI host is not ready." };
+		}
 		this.notify();
 		const result = await assignTaskViaExecutor(this, this.cliExecutor, agentName, task);
 		this.notify();
@@ -449,7 +663,7 @@ export class DashboardStore extends EventTarget {
 		const now = Date.now();
 		if (now - (this.wokenAgents.get(agentName) ?? 0) < DashboardStore.WAKE_COOLDOWN_MS) return;
 		this.wokenAgents.set(agentName, now);
-		if (!this.cliExecutor) return;
+		if (!this.cliExecutor || !this.cliSessionAvailable) return;
 		const proc = this.getOrStartProcess(agentName);
 		if (proc && this.worldContext) {
 			const context = this.buildMessageContext(agentName);

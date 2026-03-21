@@ -1,7 +1,7 @@
 /**
  * agent.controller.ts — CLI commands for agent management.
  *
- * Provides agent:list, agent:task, agent:wake, and agent:permission.
+ * Provides agent:list, agent:task, agent:wake, agent:permission, and agent:dashboard-sync.
  * The agent:start command is a special-case handler registered directly
  * in main.ts because it bypasses adaptDescriptor for persistent
  * stdin/stdout streaming.
@@ -10,9 +10,11 @@
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types-config.js";
 import type { LogFn } from "../infrastructure/command-engine.js";
-import { VAULT_ROOT, cliConfig } from "../infrastructure/config.js";
+import { VAULT_ROOT, PROJECTS_DIR, CLI_PROJECT, cliConfig } from "../infrastructure/config.js";
 import { agentStore } from "../domain/agents/agent-store.js";
 import { readAgentState, writeAgentState, addTask } from "../domain/agents/agent-state.js";
+import { syncAgentDashboardAssets } from "../domain/agents/agent-dashboard-sync.js";
+import type { SyncAgentDashboardResult } from "../domain/agents/agent-dashboard-sync.js";
 import type { AgentActionType } from "../domain/agents/world-state-types.js";
 
 // ── Data models ──────────────────────────────────────────────────────
@@ -67,6 +69,19 @@ function renderAgentWake(model: AgentWakeModel, log: LogFn): void {
 function renderAgentPermission(model: AgentPermissionModel, log: LogFn): void {
 	if (model.ok) {
 		log("\n  Permission updated.\n");
+	}
+}
+
+function renderAgentDashboardSync(model: SyncAgentDashboardResult, log: LogFn): void {
+	log("\n  Agent dashboard data regenerated.");
+	log(`  ${model.jsonPath}`);
+	log(`  Agents: ${model.agentCount}, projects: ${model.projectCount}`);
+	if (model.staticBundle === "ok") {
+		log("  Static bundle: ready.\n");
+	} else if (model.staticBundle === "skipped") {
+		log("  Static bundle: skipped (enable agents.dashboard in project config to build).\n");
+	} else {
+		log(`  Static bundle: failed — ${model.staticError ?? "unknown error"}\n`);
 	}
 }
 
@@ -160,5 +175,38 @@ export const commands: Record<string, CommandHandler> = {
 			return { ok: true };
 		},
 		renderer: renderAgentPermission,
+	}),
+
+	"agent:dashboard-sync": adaptDescriptor<{ dir: string }, SyncAgentDashboardResult>({
+		flags: {
+			dir: { type: "string", default: ".flowti/agents", hint: "--dir=<path>" },
+		},
+		handler: (ctx) => {
+			const { paths } = ctx.deps;
+			const dirFlag = ctx.flags.dir as string;
+			const rootDir = paths.isAbsolute(dirFlag) ? dirFlag : paths.resolve(dirFlag);
+
+			const result = syncAgentDashboardAssets(
+				{
+					rootDir,
+					cliProjectPath: CLI_PROJECT,
+					projectsDir: PROJECTS_DIR,
+					vaultRoot: VAULT_ROOT,
+					projectAgentsConfig: ctx.project?.config?.agents,
+					vaultAgentsConfig: cliConfig.agents,
+				},
+				ctx.deps,
+			);
+
+			return {
+				ok: true,
+				jsonPath: result.jsonPath,
+				agentCount: result.agentCount,
+				projectCount: result.projectCount,
+				staticBundle: result.staticBundle,
+				staticError: result.staticError,
+			};
+		},
+		renderer: renderAgentDashboardSync,
 	}),
 };

@@ -106,4 +106,21 @@ export class CommandRegistry {
 		if (this.wildcardDomain) seen.add(this.wildcardDomain);
 		return Array.from(seen);
 	}
+
+	/**
+	 * Flat list of registered commands for docs / introspection.
+	 * Does not include dynamic plugin commands unless they were registered on this instance.
+	 */
+	commandRows(): ReadonlyArray<{ command: string; domain: string; projectFree: boolean }> {
+		return Array.from(this.entries.entries()).map(([command, meta]) => ({
+			command,
+			domain: meta.domain,
+			projectFree: meta.projectFree,
+		}));
+	}
+
+	/** Domain name for the wildcard handler, if set. */
+	get wildcardDomainName(): string | undefined {
+		return this.wildcardDomain;
+	}
 }

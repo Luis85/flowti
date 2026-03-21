@@ -150,6 +150,6 @@ describe("generateConditionsReference", () => {
 		const content = mdFile![1];
 
 		expect(content).toContain("Adding New Conditions");
-		expect(content).toContain("register-handlers.ts");
+		expect(content).toContain("sitemap-conditions.ts");
 	});
 });

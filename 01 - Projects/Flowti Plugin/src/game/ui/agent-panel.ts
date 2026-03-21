@@ -8,6 +8,7 @@ import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./game-styles.js";
 import type { DashboardStore, TabName } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
+import type { IEventBus } from "../../infrastructure/events/types.js";
 
 // Side-effect imports to register sub-components
 import "./panel-info.js";
@@ -30,6 +31,8 @@ export class AgentPanel extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
 		store: { attribute: false },
+		/** Plugin bus — enables Monitor tab canvas perf when set from {@link createAgentWorld}. */
+		eventBus: { attribute: false },
 	};
 
 	static styles = [
@@ -143,6 +146,18 @@ export class AgentPanel extends FlowtiElement {
 			.llm-error .dot { background: #ef4444; }
 			.llm-error { background: rgba(239, 68, 68, 0.12); color: #f87171; }
 
+			.llm-offline .dot { background: #64748b; }
+			.llm-offline { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
+
+			.session-strip {
+				font-size: 10px;
+				color: #fbbf24;
+				background: rgba(245, 158, 11, 0.1);
+				padding: 6px 12px;
+				border-bottom: 1px solid var(--border);
+				line-height: 1.35;
+			}
+
 			@keyframes pulse {
 				0%, 100% { opacity: 1; }
 				50% { opacity: 0.3; }
@@ -243,6 +258,7 @@ export class AgentPanel extends FlowtiElement {
 	];
 
 	store!: DashboardStore;
+	eventBus?: IEventBus;
 
 	private storeHandler = () => { this.requestUpdate(); };
 
@@ -276,6 +292,14 @@ export class AgentPanel extends FlowtiElement {
 	}
 
 	private renderLlmBadge(agentName: string) {
+		if (!this.store.cliSessionAvailable) {
+			return html`
+				<span class="llm-badge llm-offline" title="${this.store.cliSessionBlockedReason}">
+					<span class="dot"></span>
+					CLI host off
+				</span>
+			`;
+		}
 		const status = this.store.llmStatus.get(agentName);
 		const state = status?.state ?? "idle";
 		const labels: Record<string, string> = {
@@ -305,7 +329,7 @@ export class AgentPanel extends FlowtiElement {
 			case "permissions":
 				return html`<ft-game-panel-permissions .store="${this.store}" agentName="${agent.name}"></ft-game-panel-permissions>`;
 			case "monitor":
-				return html`<ft-game-panel-monitor .store="${this.store}" agentName="${agent.name}"></ft-game-panel-monitor>`;
+				return html`<ft-game-panel-monitor .store="${this.store}" .eventBus="${this.eventBus}" agentName="${agent.name}"></ft-game-panel-monitor>`;
 			case "debug":
 				return html`<ft-game-panel-debug .agent="${agent}"></ft-game-panel-debug>`;
 			default:
@@ -338,6 +362,10 @@ export class AgentPanel extends FlowtiElement {
 						@click="${this.handleClose}"
 					>&#xD7;</button>
 				</div>
+
+				${!this.store.cliSessionAvailable && this.store.cliSessionBlockedReason
+					? html`<div class="session-strip">${this.store.cliSessionBlockedReason}</div>`
+					: nothing}
 
 				<div class="tab-bar" role="tablist">
 					${TAB_LABELS.map(({ name, label }) => html`

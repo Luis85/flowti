@@ -1,14 +1,18 @@
 /**
  * engine.ts — ExcaliburJS Agent World engine factory.
  *
+ * **Scope:** everything **on the canvas** (scenes, actors, particles, local
+ * simulation loops) is Excalibur + `src/game/`. **Authoritative agent/world data**
+ * comes from the Flowti CLI via vault JSON and {@link ICliExecutor} — see
+ * `createCliDataProvider` and `docs/agent-world-architecture.md`.
+ *
  * Exports `createAgentWorld()` which builds the full game engine with
  * four scenes (hub, office, village, station), wires sync/brain/bubble/
  * talk/particle/emote/social systems, mounts Lit overlay components,
  * and returns a lifecycle handle (start / pause / resume / dispose).
  *
- * This is the embedded-mode entry point — no bridge detection, no window
- * globals. The caller provides a container element, a DataProvider, and
- * a sprite base path.
+ * Embedded entry point: the caller provides a container, a {@link DataProvider},
+ * and a sprite base path (plugin manifest dir).
  */
 
 import * as ex from "excalibur";
@@ -36,6 +40,9 @@ import { CursorSpirit } from "./actors/cursor-spirit.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
+import type { IEventBus } from "../infrastructure/events/types.js";
+import type { IAgentWorldPerfDashboard } from "../infrastructure/services/perfTypes.js";
+import { createAgentWorldPerfCollector, type AgentWorldPerfCollectorOptions } from "./performance/agent-world-perf.js";
 import { DayClock } from "./systems/day-clock.js";
 import { WorldAmbience } from "./systems/world-ambience.js";
 import { MemorySystem } from "./systems/memory-system.js";
@@ -84,6 +91,14 @@ export interface AgentWorldDeps {
 	cliExecutor?: ICliExecutor;
 	worldContext?: WorldContext;
 	vaultBasePath?: string;
+	/** When set, emits `perf.agentWorld.sample` / `perf.agentWorld.slowFrame` for analysis. */
+	eventBus?: IEventBus;
+	/** Optional tuning for agent-world perf sampling (ignored without `eventBus`). */
+	agentWorldPerf?: AgentWorldPerfCollectorOptions;
+	/** Static reference for Ask Bob (tests); production often uses {@link getPerfDashboard} instead. */
+	perfDashboard?: IAgentWorldPerfDashboard;
+	/** Lazy resolver — e.g. plugin `getPerfDashboard()` after `onLayoutReady`. */
+	getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
 }
 
 export interface AgentWorldHandle {
@@ -115,10 +130,41 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Reactive store + Lit overlays ─────────────────────
 	const store = new DashboardStore(deps.cliExecutor, deps.worldContext, deps.vaultBasePath);
+	store.syncCliSessionFromEnvironment();
 	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-agent-panel", "ft-game-ask-bob"]) {
 		const el = document.createElement(tag) as HTMLElement & { store: DashboardStore };
 		el.store = store;
+		if (tag === "ft-game-agent-panel" && deps.eventBus) {
+			(el as HTMLElement & { eventBus?: IEventBus }).eventBus = deps.eventBus;
+		}
+		if (tag === "ft-game-ask-bob") {
+			const bob = el as HTMLElement & {
+				store: DashboardStore;
+				eventBus?: IEventBus;
+				perfDashboard?: IAgentWorldPerfDashboard;
+				getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
+			};
+			if (deps.eventBus) bob.eventBus = deps.eventBus;
+			if (deps.perfDashboard) bob.perfDashboard = deps.perfDashboard;
+			if (deps.getPerfDashboard) bob.getPerfDashboard = deps.getPerfDashboard;
+		}
 		container.appendChild(el);
+	}
+
+	let cancelAgentResourcePoll: (() => void) | null = null;
+	if (deps.cliExecutor) {
+		const pollMs = 2000;
+		const id = window.setInterval(() => {
+			try {
+				store.refreshAgentResources();
+			} catch {
+				/* ignore sampling errors */
+			}
+		}, pollMs);
+		cancelAgentResourcePoll = () => {
+			window.clearInterval(id);
+			cancelAgentResourcePoll = null;
+		};
 	}
 
 	// ── Systems ─────────────────────────────────────────
@@ -232,15 +278,34 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Scene config ────────────────────────────────────
+	const reattachCameraAfterSceneChange = (): void => {
+		const cam = cameraRef.current;
+		const sceneCam = engine.currentScene.camera;
+		if (!cam) return;
+		// Must resolve the actor in the *active* scene — hub-first findAgentActor can attach the wrong
+		// instance or miss the entity for one frame after a room transfer.
+		cam.onSceneActivate(findCurrentSceneActor, sceneCam);
+		const followed = store.followedAgent;
+		if (!followed) return;
+		requestAnimationFrame(() => {
+			if (store.followedAgent !== followed) return;
+			if (cam.isFollowing()) return;
+			const actor = findCurrentSceneActor(followed);
+			if (actor) cam.startFollow(actor);
+		});
+	};
+
 	const sceneConfig = {
 		onSceneChange: (target: string) => {
+			// User picked a room (door / roster) — stop following so an agent's autonomous room change
+			// cannot pull the camera to another scene afterward.
 			store.selectAgent(null);
+			store.stopFollow();
+			cameraRef.current?.stopFollow();
 			void engine.goToScene(target, {
 				destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
 				sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
-			}).then(() => {
-				cameraRef.current?.onSceneActivate(findAgentActor, engine.currentScene.camera);
-			});
+			}).then(reattachCameraAfterSceneChange);
 		},
 		onAgentSelect: handleAgentSelect,
 	};
@@ -257,6 +322,17 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	for (const room of Object.values(roomScenes)) room.setBrainSystem(brainSystem);
 
 	// ── Actor lookups ───────────────────────────────────
+
+	/** Perf / Ask Bob monitor — `Scene.name` is not the `addScene` key in Excalibur; use instance identity. */
+	function getCurrentSceneIdForPerf(): string {
+		const cur = engine.currentScene;
+		if (cur === hubScene) return "hub";
+		if (cur === officeScene) return "office";
+		if (cur === villageScene) return "village";
+		if (cur === stationScene) return "station";
+		const n = (cur as unknown as { name?: string })?.name;
+		return typeof n === "string" && n.length > 0 ? n : "unknown";
+	}
 
 	function findAgentActor(name: string): AgentActor | undefined {
 		const hubActor = hubScene.getAgentActor(name);
@@ -332,9 +408,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				void engine.goToScene(to, {
 					destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
 					sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
-				}).then(() => {
-					cameraRef.current?.onSceneActivate(findAgentActor, engine.currentScene.camera);
-				});
+				}).then(reattachCameraAfterSceneChange);
 			}
 		},
 	});
@@ -365,6 +439,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	if (deps.vaultBasePath) {
 		cancelPeriodicFlush = startPeriodicFlush(stateSystems, deps.vaultBasePath, engine);
 	}
+
+	const perfSampler = deps.eventBus
+		? createAgentWorldPerfCollector(deps.eventBus, deps.agentWorldPerf)
+		: null;
 
 	// ── Build shared context ────────────────────────────
 	const ctx: EngineContext = {
@@ -432,6 +510,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			petShareCooldowns,
 			knownEntities,
 			recentActionIds,
+			perfSampler,
 			prevCycleCount,
 			deltaMs: 0,
 			lastTime,
@@ -452,14 +531,34 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const now = performance.now();
 		ctx.state.deltaMs = now - ctx.state.lastTime;
 		ctx.state.lastTime = now;
+		const simStart = performance.now();
 		tickSimulation(ctx);
-
+		const simMs = performance.now() - simStart;
+		if (perfSampler) {
+			const sceneName = getCurrentSceneIdForPerf();
+			perfSampler.onFrameMeta({
+				deltaMs: ctx.state.deltaMs,
+				agentCount: brainSystem.getAllEntries().size,
+				sceneName,
+			});
+			perfSampler.onSimulationEnd(simMs);
+		}
 	});
 
 	// ── Post-frame adapter: push positions/targets/states to store ──
-	engine.on("postframe", createPostframeHandler({
+	const postframeHandler = createPostframeHandler({
 		engine, store, brainSystem, needsSystem, findCurrentSceneActor,
-	}));
+	});
+	engine.on("postframe", () => {
+		if (!perfSampler) {
+			postframeHandler();
+			return;
+		}
+		const t0 = performance.now();
+		postframeHandler();
+		perfSampler.onPostframe(performance.now() - t0);
+		perfSampler.afterFullFrame();
+	});
 
 	// ── Keyboard handling ───────────────────────────────
 	const { keydownHandler, keyupHandler } = setupKeyboardHandlers({
@@ -480,6 +579,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				brainSystem, directorSystem, cursorSpirits, store,
 				registrationSystems, handleAgentSelect, allEntities, pets, registry,
 				loadingOverlay, doRegisterAgents,
+				cameraRef,
 			});
 		},
 
@@ -492,8 +592,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 
 		dispose(): void {
+			perfSampler?.dispose();
 			// Cancel periodic position flush
 			if (cancelPeriodicFlush) cancelPeriodicFlush();
+			if (cancelAgentResourcePoll) cancelAgentResourcePoll();
 			// Tear down all event subscriptions
 			cleanupEvents();
 			// Flush persistent state before shutdown

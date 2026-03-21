@@ -151,7 +151,7 @@ export function generateConditionsReference(projectPath: string, deps: ReportDep
 		.text("To add a new condition handler:")
 		.addBlank()
 		.list([
-			"Register it in `src/ui/handlers/register-handlers.ts` using `registry.registerCondition(id, fn)`",
+			"Register the condition in the code that builds your sitemap condition registry (see `src/infrastructure/sitemap-conditions.ts` and `IConditionRegistry`)",
 			"The function receives `RouterContext` and returns `boolean`",
 			"Reference the ID in `configs/sitemap.json` as a `hidden` or `disabled` value",
 			"Update this reference by adding the handler to the catalog in `conditions-reference.ts`",

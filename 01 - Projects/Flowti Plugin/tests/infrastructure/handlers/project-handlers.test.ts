@@ -45,6 +45,9 @@ function mockService(): IProjectService {
 		runReport: vi.fn(async () => ({ ok: true })),
 		runAllReports: vi.fn(async () => ({ ok: true })),
 		listComponents: vi.fn(async () => []),
+		listVaultAgents: vi.fn(async () => []),
+		saveTeamRoster: vi.fn(async () => ({ ok: true })),
+		createAgentFromRole: vi.fn(async () => ({ ok: true })),
 	};
 }
 

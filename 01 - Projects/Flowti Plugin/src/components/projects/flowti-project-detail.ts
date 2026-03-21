@@ -1,6 +1,6 @@
 /**
  * Root Lit component for the Project Detail view.
- * 5-tab router: Overview, Components, Event Catalog, Reporting, Config.
+ * 6-tab router: Overview, Components, Event Catalog, Reporting, Team, Config.
  * Each tab delegates to a dedicated child tab component.
  */
 
@@ -8,7 +8,7 @@ import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { projectDetailStyles } from "./flowti-project-detail-styles.js";
-import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo } from "../../domain/projects/types.js";
+import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo, TeamRoleSlot, VaultAgentSummary } from "../../domain/projects/types.js";
 
 // Side-effect imports to register child custom elements
 import "./flowti-tab-overview.js";
@@ -16,6 +16,7 @@ import "./flowti-tab-components.js";
 import "./flowti-tab-event-catalog.js";
 import "./flowti-tab-reporting.js";
 import "./flowti-tab-config.js";
+import "./flowti-tab-team.js";
 import "./flowti-scaffold-modal.js";
 import "./flowti-add-project-dropdown.js";
 import "./flowti-git-import-modal.js";
@@ -35,6 +36,11 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		storybookBusyLabel: { type: String },
 		storybookOutput: { type: Array },
 		storybookError: { type: String },
+		/** Long-running work outside Components (team, config, canvas, git, …). */
+		projectHubBusy: { type: Boolean },
+		projectHubBusyLabel: { type: String },
+		projectHubOutput: { type: Array },
+		projectHubError: { type: String },
 		actionSuccess: { type: String },
 		config: { type: Object },
 		activeTab: { type: String },
@@ -59,6 +65,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		reportNodeStates: { type: Object },
 		reportOutput: { type: Array },
 		reportBusy: { type: Boolean },
+		roleSlots: { type: Array },
+		vaultAgents: { type: Array },
 	};
 
 	static styles = [
@@ -79,6 +87,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	storybookBusyLabel = "";
 	storybookOutput: string[] = [];
 	storybookError = "";
+	projectHubBusy = false;
+	projectHubBusyLabel = "";
+	projectHubOutput: string[] = [];
+	projectHubError = "";
 	actionSuccess = "";
 	config: ProjectConfig | undefined = undefined;
 	activeTab = "overview";
@@ -103,13 +115,17 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	reportNodeStates: Record<string, string> = {};
 	reportOutput: string[] = [];
 	reportBusy = false;
+	roleSlots: TeamRoleSlot[] = [];
+	vaultAgents: VaultAgentSummary[] = [];
 
 	protected renderContent() {
 		if (!this.projectName) return this.renderProjectList();
 		return html`
 			${this.renderHeader()}
 			${this.renderActivityBar()}
-			${this.statusMessage ? html`<div class="status-banner">${this.statusMessage}</div>` : ""}
+			${this.statusMessage
+				? html`<div class="status-banner" role="status" aria-live="polite">${this.statusMessage}</div>`
+				: ""}
 			${this.renderTabBar()}
 			${this.renderActiveTab()}
 			${this.showScaffoldModal ? this.renderScaffoldModal() : ""}
@@ -118,11 +134,35 @@ export class FlowtiProjectDetail extends FlowtiElement {
 
 	private renderActiveTab() {
 		switch (this.activeTab) {
-			case "overview": return html`<flowti-tab-overview .projectName="${this.projectName}" .brief="${this.brief}" .config="${this.config}" .healthScore="${this.healthScore}" .healthError="${this.healthError}" .todos="${this.todos}" .todosExist="${this.todosExist}"></flowti-tab-overview>`;
+			case "overview":
+				return html`<flowti-tab-overview
+					.projectName="${this.projectName}"
+					.notePath="${this.notePath}"
+					.brief="${this.brief}"
+					.config="${this.config}"
+					.healthScore="${this.healthScore}"
+					.healthError="${this.healthError}"
+					.todos="${this.todos}"
+					.todosExist="${this.todosExist}"
+					.hubLocked="${this.projectHubBusy}"
+				></flowti-tab-overview>`;
 			case "components": return html`<flowti-tab-components .projectName="${this.projectName}" .components="${this.components}" .storybookInstalled="${this.storybook?.installed ?? false}" .storybookFramework="${this.storybook?.framework ?? ""}" .storybookRunning="${this.storybook?.running ?? false}" .storybookUrl="${this.storybook?.url ?? ""}" .storybookBusy="${this.storybookBusy}" .storybookBusyLabel="${this.storybookBusyLabel}" .storybookOutput="${this.storybookOutput}" .storybookError="${this.storybookError}" .hasCanvas="${this.hasCanvas}" .hasSitemap="${this.hasSitemap}" .canvasPreset="${this.canvasPreset}" .canvasChanged="${this.canvasChanged}"></flowti-tab-components>`;
 			case "catalog": return html`<flowti-tab-event-catalog .projectName="${this.projectName}" .entities="${this.catalogEntities}"></flowti-tab-event-catalog>`;
 			case "reporting": return html`<flowti-tab-reporting .projectName="${this.projectName}" .generators="${this.reportGenerators}" .nodeStates="${this.reportNodeStates}" .outputLines="${this.reportOutput}" .busy="${this.reportBusy}"></flowti-tab-reporting>`;
-			case "config": return html`<flowti-tab-config .projectName="${this.projectName}" .config="${this.config}" .hasCanvas="${this.hasCanvas}"></flowti-tab-config>`;
+			case "team":
+				return html`<flowti-tab-team
+					.projectName="${this.projectName}"
+					.roleSlots="${this.roleSlots}"
+					.vaultAgents="${this.vaultAgents}"
+					.actionsLocked="${this.projectHubBusy}"
+				></flowti-tab-team>`;
+			case "config":
+				return html`<flowti-tab-config
+					.projectName="${this.projectName}"
+					.config="${this.config}"
+					.hasCanvas="${this.hasCanvas}"
+					.hubLocked="${this.projectHubBusy}"
+				></flowti-tab-config>`;
 			default: return "";
 		}
 	}
@@ -144,6 +184,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 				${tab("components", "Components")}
 				${tab("catalog", "Event Catalog")}
 				${tab("reporting", "Reporting")}
+				${tab("team", "Team")}
 				${tab("config", "Config")}
 			</div>
 		`;
@@ -246,31 +287,48 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	}
 
 	private renderActivityBar() {
-		if (this.storybookBusy) {
+		if (this.projectHubBusy) {
 			return html`
-				<div class="activity-bar activity-bar--busy">
+				<div class="activity-bar activity-bar--busy" role="status" aria-live="polite">
 					<span class="activity-spinner"></span>
-					<span>${this.storybookBusyLabel || "Working..."}</span>
+					<span>${this.projectHubBusyLabel || "Working…"}</span>
 				</div>
 			`;
 		}
-		if (this.storybookError) {
+		if (this.projectHubError) {
 			return html`
-				<div class="activity-bar activity-bar--error">
-					<span>${this.storybookError}</span>
-					<button class="activity-dismiss" @click="${() => { this.storybookError = ""; }}" title="Dismiss">&times;</button>
+				<div class="activity-bar activity-bar--error" role="alert">
+					<span>${this.projectHubError}</span>
+					<button class="activity-dismiss" @click="${() => { this.projectHubError = ""; }}" title="Dismiss">&times;</button>
 				</div>
 			`;
 		}
 		if (this.actionSuccess) {
 			return html`
-				<div class="activity-bar activity-bar--success">
+				<div class="activity-bar activity-bar--success" role="status">
 					<span>${this.actionSuccess}</span>
 					<button class="activity-dismiss" @click="${() => { this.actionSuccess = ""; }}" title="Dismiss">&times;</button>
 				</div>
 			`;
 		}
 		return "";
+	}
+
+	private renderProjectHubLog() {
+		if (this.projectHubOutput.length === 0) return "";
+		return html`
+			<div class="hub-cli-log" role="region" aria-label="Project CLI output">
+				<div class="hub-cli-log__head">
+					<span class="hub-cli-log__title">Project CLI output</span>
+					<button type="button" class="hub-cli-log__clear" @click="${this.clearProjectHubLog}">Clear</button>
+				</div>
+				<pre class="hub-cli-log__pre">${this.projectHubOutput.join("\n")}</pre>
+			</div>
+		`;
+	}
+
+	private clearProjectHubLog(): void {
+		this.projectHubOutput = [];
 	}
 
 	private dispatchBackToList(): void {

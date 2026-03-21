@@ -619,7 +619,6 @@ function createMockProvider(): DataProvider {
 		onAction: vi.fn().mockReturnValue(() => {}),
 		onEntityUpdate: vi.fn().mockReturnValue(() => {}),
 		onConnectionStatus: vi.fn().mockReturnValue(() => {}),
-		sendCommand: vi.fn().mockResolvedValue(undefined),
 		assetBasePath: "",
 	};
 }

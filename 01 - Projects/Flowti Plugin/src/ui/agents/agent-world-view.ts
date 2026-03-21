@@ -1,5 +1,9 @@
 /**
- * Obsidian ItemView shell for the embedded Agent World (ExcaliburJS game).
+ * Obsidian ItemView shell for the embedded Agent World (ExcaliburJS).
+ *
+ * **Data:** Roster and world entities come from vault `.flowti` JSON via
+ * {@link createCliDataProvider}; agents run through the bundled Flowti CLI
+ * (`CliExecutor`), not an internal game server. See `docs/agent-world-architecture.md`.
  *
  * Lifecycle:
  *  1. onOpen  — creates engine via createAgentWorld(), starts game
@@ -13,6 +17,7 @@ import type { WorkspaceLeaf, Plugin } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
+import type { IAgentWorldPerfDashboard } from "../../infrastructure/services/perfTypes.js";
 import { createAgentWorld, type AgentWorldHandle } from "../../game/engine.js";
 import { createCliDataProvider } from "../../game/config/cli-data-provider.js";
 import { VIEW_TYPE_AGENT_WORLD } from "./types.js";
@@ -22,6 +27,8 @@ export interface AgentWorldViewDeps {
 	readonly eventBus: IEventBus;
 	readonly worldContext?: WorldContext;
 	readonly cliExecutor?: ICliExecutor;
+	/** Resolves {@link PerfAggregator} for Ask Bob — available after plugin layout ready. */
+	readonly getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
 }
 
 export class AgentWorldView extends ItemView {
@@ -75,6 +82,8 @@ export class AgentWorldView extends ItemView {
 			cliExecutor: this.deps.cliExecutor,
 			worldContext: this.deps.worldContext,
 			vaultBasePath,
+			eventBus: this.deps.eventBus,
+			getPerfDashboard: this.deps.getPerfDashboard,
 		});
 
 		try {

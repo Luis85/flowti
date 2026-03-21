@@ -29,7 +29,10 @@ export interface CliEvent {
 		| "permission-request"
 		| "error";
 	agent: string;
+	/** Final assistant text (preferred). */
 	text?: string;
+	/** Some CLI builds stream `response` before normalizing to `text`. */
+	response?: string;
 	tool?: string;
 	id?: string;
 	status?: string;
@@ -38,12 +41,23 @@ export interface CliEvent {
 export interface AgentProcess {
 	readonly agentName: string;
 	readonly running: boolean;
+	/** Child process id while running; use for OS-level metrics. */
+	getPid(): number | null;
 	send(message: string, context?: string): void;
 	onEvent(cb: (event: CliEvent) => void): () => void;
 	replayFrom(offset: number): CliEvent[];
 	stopGeneration(): void;
 	grantPermission(tool: string, decision: string): void;
 	kill(): void;
+}
+
+/** Whether this machine can spawn `agent:start` (Node on PATH + vault CLI bundle). */
+export interface CliHostReadiness {
+	readonly canSpawnAgents: boolean;
+	readonly nodePath: string | null;
+	readonly cliBinaryPath: string;
+	readonly cliBinaryExists: boolean;
+	readonly issues: readonly string[];
 }
 
 export interface ICliExecutor {
@@ -54,6 +68,8 @@ export interface ICliExecutor {
 	wakeAgent(agentName: string): Promise<{ ok: boolean; state?: string }>;
 	killAll(): void;
 	dispose(): void;
+	/** Optional: host checks for Agent World (Node + `.flowti/bin/main.mjs`). */
+	getHostReadiness?(): CliHostReadiness;
 }
 
 /* ------------------------------------------------------------------ */

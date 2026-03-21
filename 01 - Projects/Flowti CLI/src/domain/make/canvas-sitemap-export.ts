@@ -20,7 +20,6 @@ const CHILD_GAP = 16;
 const GROUP_GAP_X = 140;
 const GROUP_GAP_Y = 80;
 const STANDALONE_GAP_X = 40;
-const STANDALONE_GAP_Y = 30;
 const META_W = 540;
 const META_X = -700;
 const META_Y = -60;

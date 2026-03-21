@@ -1,12 +1,11 @@
 /**
- * CLI-based agent executor — spawns and manages CLI agent processes.
+ * CLI-based agent executor — spawns and manages Flowti CLI agent processes.
  *
- * Replaces HttpAgentService + server-launcher + api-client with direct
- * process management. Each agent runs as a `node .flowti/bin/main.mjs agent:start`
- * child process with JSONL communication over stdin/stdout.
+ * Each agent runs as `node .flowti/bin/main.mjs agent:start` with JSONL over
+ * stdin/stdout. Tasks and permissions use one-shot CLI invocations.
  *
- * PID files live at `.flowti/var/agents/<slug>.pid`.
- * Event logs live at `.flowti/var/agents/<slug>.events.jsonl`.
+ * PID files: `.flowti/var/agents/<slug>.pid`
+ * Event logs: `.flowti/var/agents/<slug>.events.jsonl`
  */
 
 import { spawn } from "node:child_process";
@@ -14,7 +13,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import type {
-	CliEvent, AgentProcess as IAgentProcess, ICliExecutor, TrackedProcess,
+	CliEvent, AgentProcess as IAgentProcess, ICliExecutor, TrackedProcess, CliHostReadiness,
 } from "./cli-executor-helpers";
 import {
 	slugify, findNodeBinary, agentsDir, pidFilePath, eventLogPath,
@@ -47,6 +46,11 @@ class AgentProcessImpl implements IAgentProcess {
 	get running(): boolean {
 		const child = this.tracked.child;
 		return child.exitCode === null && !child.killed;
+	}
+
+	getPid(): number | null {
+		const pid = this.tracked.child.pid;
+		return typeof pid === "number" ? pid : null;
 	}
 
 	send(message: string, context?: string): void {
@@ -110,6 +114,30 @@ export class CliExecutor implements ICliExecutor {
 		this.vaultPath = vaultBasePath;
 		this.cliBin = join(vaultBasePath, ".flowti", "bin", "main.mjs");
 		this.nodeBin = findNodeBinary();
+	}
+
+	/** True when Node is on PATH and the Flowti CLI bundle exists in the vault. */
+	getHostReadiness(): CliHostReadiness {
+		const issues: string[] = [];
+		const nodePath = findNodeBinary();
+		const cliBinaryExists = existsSync(this.cliBin);
+		if (!nodePath) {
+			issues.push(
+				"Node.js was not found on PATH. Install Node and restart Obsidian (or your host app) so agent sessions can spawn.",
+			);
+		}
+		if (!cliBinaryExists) {
+			issues.push(
+				`Flowti CLI bundle missing at ${this.cliBin}. Build or sync the CLI into this vault.`,
+			);
+		}
+		return {
+			canSpawnAgents: Boolean(nodePath && cliBinaryExists),
+			nodePath,
+			cliBinaryPath: this.cliBin,
+			cliBinaryExists,
+			issues,
+		};
 	}
 
 	startAgent(agentName: string): IAgentProcess {

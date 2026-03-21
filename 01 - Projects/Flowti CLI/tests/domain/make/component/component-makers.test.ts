@@ -1,89 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-
-vi.mock("../../../../src/infrastructure/filesystem.js", () => ({
-	disk: {
-		existsSync: vi.fn(),
-		readFileSync: vi.fn(),
-		writeFileSync: vi.fn(),
-		readdirSync: vi.fn(),
-		mkdirSync: vi.fn(),
-	},
-}));
-
-vi.mock("../../../../src/infrastructure/paths.js", () => ({
-	paths: {
-		join: (...parts: string[]) => parts.join("/"),
-	},
-}));
-
-vi.mock("../../../../src/infrastructure/config.js", () => ({
-	VAULT_ROOT: "/mock",
-	CLI_PROJECT: "/mock/cli",
-	cliConfig: {},
-}));
-
-vi.mock("../../../../src/infrastructure/ui.js", () => ({
-	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "",
-	printHeader: vi.fn(),
-}));
-
-vi.mock("../../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
-}));
-
-vi.mock("../../../../src/infrastructure/input.js", () => ({
-	input: { ask: vi.fn(), waitForEnter: vi.fn().mockResolvedValue(undefined) },
-}));
-
-vi.mock("../../../../src/infrastructure/clock.js", () => ({
-	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
-}));
-vi.mock("../../../../src/infrastructure/menu.js", () => ({
-	runMenu: vi.fn(),
-}));
-
-import { disk } from "../../../../src/infrastructure/filesystem.js";
-import { input } from "../../../../src/infrastructure/input.js";
-import { paths } from "../../../../src/infrastructure/paths.js";
-import { clock } from "../../../../src/infrastructure/clock.js";
-import { log } from "../../../../src/infrastructure/logger.js";
-import { componentMenu } from "../../../../src/ui/menus/component-makers-menu.js";
-import { runMenu } from "../../../../src/infrastructure/menu.js";
 import type { ComponentDefinition, ComponentVariables, ComponentTemplateDeps } from "../../../../src/domain/make/component/component-types.js";
-import type { MenuDeps } from "../../../../src/infrastructure/deps.js";
 
 const mockDeps: ComponentTemplateDeps = {
 	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
 };
 
-const testMenuDeps: MenuDeps = { disk, paths, clock, input, log };
-
 beforeEach(() => {
 	vi.clearAllMocks();
-});
-
-// ── Property prompts in interactive maker ───────────────────────────
-
-describe("componentMenu property prompts", () => {
-	it("includes property prompts for definitions with properties", async () => {
-		// The componentMenu calls runMenu which presents menu items.
-		// We test that when a menu item is selected for a definition with properties,
-		// the interactive maker prompts for each property.
-
-		// Setup: runMenu returns void (simulating user selecting first item and completing)
-		vi.mocked(runMenu).mockResolvedValue(undefined);
-
-		// We just verify the menu is called — the interactive maker is tested
-		// indirectly via the template output tests below.
-		await componentMenu("/project", testMenuDeps);
-		expect(runMenu).toHaveBeenCalled();
-	});
 });
 
 // ── Template property rendering ─────────────────────────────────────
 
 describe("componentDocTemplate property frontmatter", () => {
-	// Import the template directly since it's a pure function
 	it("includes property values in frontmatter", async () => {
 		const { componentDocTemplate } = await import(
 			"../../../../src/domain/make/component/templates/component-doc.js"
@@ -115,11 +43,8 @@ describe("componentDocTemplate property frontmatter", () => {
 
 		const result = componentDocTemplate(vars, def, mockDeps).toString();
 
-		// Frontmatter should contain property values
 		expect(result).toContain("variant: primary");
 		expect(result).toContain("disabled: false");
-
-		// Properties table should still be present
 		expect(result).toContain("## Properties");
 		expect(result).toContain("| variant |");
 	});

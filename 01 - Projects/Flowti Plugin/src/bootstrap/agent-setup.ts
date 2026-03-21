@@ -1,11 +1,13 @@
 /**
  * Agent domain bootstrap — creates CliExecutor, registers views.
  *
- * Serverless architecture:
- * - No HTTP server, no SSE — agents run as direct CLI child processes
+ * **CLI is data authority** for agents; the plugin reads vault `.flowti` JSON and
+ * displays it in Excalibur (Agent World). See `docs/agent-world-architecture.md`.
+ *
+ * - No HTTP game server — agents run as CLI child processes
  * - CliExecutor spawns `node .flowti/bin/main.mjs agent:start` per agent
- * - Communication via JSONL over stdin/stdout + file-based event logs
- * - Views registered immediately (Obsidian needs factories to restore layout)
+ * - JSONL over stdin/stdout + `.flowti/var/agents/*.events.jsonl`
+ * - Views registered early (Obsidian restores layout from saved leaf types)
  */
 
 import type { IEventBus } from "../infrastructure/events/types.js";
@@ -17,6 +19,7 @@ import { AgentWorldView, type AgentWorldViewDeps } from "../ui/agents/agent-worl
 import { VIEW_TYPE_AGENT_SIDEBAR, VIEW_TYPE_AGENT_WORLD } from "../ui/agents/types.js";
 import { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
+import type { IAgentWorldPerfDashboard } from "../infrastructure/services/perfTypes.js";
 
 export interface AgentSetupDeps {
 	readonly plugin: Plugin;
@@ -86,6 +89,11 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		eventBus: deps.eventBus,
 		worldContext,
 		cliExecutor,
+		/** Lazy — PerfAggregator is created in plugin `onLayoutReady`, after this view is registered. */
+		getPerfDashboard: () => {
+			const p = deps.plugin as { getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined };
+			return p.getPerfDashboard?.();
+		},
 	};
 	try {
 		deps.plugin.registerView(VIEW_TYPE_AGENT_WORLD, (leaf: WorkspaceLeaf) =>

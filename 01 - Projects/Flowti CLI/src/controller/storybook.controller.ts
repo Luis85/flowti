@@ -5,6 +5,7 @@
  * storybook:generate, storybook:scaffold, storybook:import.
  */
 
+import { createHash } from "node:crypto";
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, ComponentFramework, IFileSystem, IPaths } from "../infrastructure/types.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
@@ -417,8 +418,7 @@ export const commands: Record<string, CommandHandler> = {
 			disk.writeFileSync(outputPath, JSON.stringify(sitemap, null, "\t") + "\n", "utf8");
 
 			// Write canvas hash metadata
-			const crypto = require("node:crypto");
-			const hash = crypto.createHash("md5").update(canvasJson).digest("hex");
+			const hash = createHash("md5").update(canvasJson).digest("hex");
 			const metaPath = paths.join(paths.dirname(outputPath), ".sitemap-canvas-meta.json");
 			disk.writeFileSync(metaPath, JSON.stringify({ canvasHash: hash, importedAt: new Date().toISOString() }) + "\n", "utf8");
 

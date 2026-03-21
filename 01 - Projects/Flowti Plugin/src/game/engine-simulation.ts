@@ -8,6 +8,7 @@
 
 import type { EngineContext } from "./engine-types.js";
 import type { InteractableActor } from "./actors/interactable-actor.js";
+import { PetSceneEntity } from "./actors/pet-scene-entity.js";
 import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
 import { PET_DEFINITIONS } from "./data/pet-definitions.js";
 import {
@@ -27,19 +28,43 @@ import {
 
 // ── Composite tick — called from engine.ts preframe hook ─────────────
 
+/** Run one simulation phase and record duration when `ctx.state.perfSampler` is set. */
+function runTimedPhase(ctx: EngineContext, phase: string, fn: (c: EngineContext) => void): void {
+	const sink = ctx.state.perfSampler;
+	if (!sink) {
+		fn(ctx);
+		return;
+	}
+	const t0 = performance.now();
+	fn(ctx);
+	sink.onPhase(phase, performance.now() - t0);
+}
+
+/** Time one agent's canvas slice for {@link perf.agentWorld.sample} `perAgentCanvas` (no-op when sampler off). */
+export function runAgentSlice(ctx: EngineContext, agentName: string, slice: string, fn: () => void): void {
+	const onSlice = ctx.state.perfSampler?.onAgentSlice;
+	if (!onSlice) {
+		fn();
+		return;
+	}
+	const t0 = performance.now();
+	fn();
+	onSlice.call(ctx.state.perfSampler!, agentName, slice, performance.now() - t0);
+}
+
 export function tickSimulation(ctx: EngineContext): void {
-	tickClock(ctx);
-	tickSensor(ctx);
-	tickNeeds(ctx);
-	tickReactiveTriggers(ctx);
-	tickBehaviorThresholds(ctx);
-	tickPets(ctx);
-	tickRoomTransit(ctx);
-	tickBehaviorTree(ctx);
-	tickBrain(ctx);
-	tickSocial(ctx);
-	tickDirector(ctx);
-	tickVisuals(ctx);
+	runTimedPhase(ctx, "clock", tickClock);
+	runTimedPhase(ctx, "sensor", tickSensor);
+	runTimedPhase(ctx, "needs", tickNeeds);
+	runTimedPhase(ctx, "reactiveTriggers", tickReactiveTriggers);
+	runTimedPhase(ctx, "behaviorThresholds", tickBehaviorThresholds);
+	runTimedPhase(ctx, "pets", tickPets);
+	runTimedPhase(ctx, "roomTransit", tickRoomTransit);
+	runTimedPhase(ctx, "behaviorTree", tickBehaviorTree);
+	runTimedPhase(ctx, "brain", tickBrain);
+	runTimedPhase(ctx, "social", tickSocial);
+	runTimedPhase(ctx, "director", tickDirector);
+	runTimedPhase(ctx, "visuals", tickVisuals);
 }
 
 // ── 1. tickClock — day clock, world event scheduler, cycle boundary ──
@@ -94,22 +119,24 @@ export function tickNeeds(ctx: EngineContext): void {
 
 	// Mood propagation — push derived mood into brain + emote + talk systems
 	for (const agentName of sys.needs.getAgentNames()) {
-		const mood = sys.needs.getMood(agentName);
-		sys.brain.updateMood(agentName, mood);
-		sys.emote.updateMood(agentName, mood);
+		runAgentSlice(ctx, agentName, "needs", () => {
+			const mood = sys.needs.getMood(agentName);
+			sys.brain.updateMood(agentName, mood);
+			sys.emote.updateMood(agentName, mood);
 
-		// Feed rich context to talk engine
-		const nearby = getNearbyAgents(ctx, agentName);
-		const nearbyAgent = nearby[0] ?? "";
-		const nearbyDomain = nearbyAgent ? (ctx.store.agents.find((a) => a.name === nearbyAgent)?.domain ?? "") : "";
-		sys.talk.updateVars(agentName, {
-			mood,
-			mood_adj: mood === "neutral" ? "focused" : mood,
-			phase: sys.dayClock.getPhase(),
-			weather: sys.worldAmbience.getWeather(),
-			streak: String(sys.memory.getMemory(agentName).workStreak),
-			nearby_agent: nearbyAgent,
-			nearby_domain: nearbyDomain,
+			// Feed rich context to talk engine
+			const nearby = getNearbyAgents(ctx, agentName);
+			const nearbyAgent = nearby[0] ?? "";
+			const nearbyDomain = nearbyAgent ? (ctx.store.agents.find((a) => a.name === nearbyAgent)?.domain ?? "") : "";
+			sys.talk.updateVars(agentName, {
+				mood,
+				mood_adj: mood === "neutral" ? "focused" : mood,
+				phase: sys.dayClock.getPhase(),
+				weather: sys.worldAmbience.getWeather(),
+				streak: String(sys.memory.getMemory(agentName).workStreak),
+				nearby_agent: nearbyAgent,
+				nearby_domain: nearbyDomain,
+			});
 		});
 	}
 }
@@ -119,34 +146,36 @@ export function tickNeeds(ctx: EngineContext): void {
 export function tickReactiveTriggers(ctx: EngineContext): void {
 	const { systems: sys, state } = ctx;
 	for (const agentName of sys.needs.getAgentNames()) {
-		const needs = sys.needs.getNeeds(agentName);
-		const mood = sys.needs.getMood(agentName);
-		let fired = state.firedReactiveTriggers.get(agentName);
-		if (!fired) { fired = new Set(); state.firedReactiveTriggers.set(agentName, fired); }
-		const tryTrigger = (trigger: ReactiveTrigger) => {
-			if (!fired!.has(trigger)) {
-				fired!.add(trigger);
-				sys.talk.triggerReactive(agentName, trigger);
+		runAgentSlice(ctx, agentName, "reactive", () => {
+			const needs = sys.needs.getNeeds(agentName);
+			const mood = sys.needs.getMood(agentName);
+			let fired = state.firedReactiveTriggers.get(agentName);
+			if (!fired) { fired = new Set(); state.firedReactiveTriggers.set(agentName, fired); }
+			const tryTrigger = (trigger: ReactiveTrigger) => {
+				if (!fired!.has(trigger)) {
+					fired!.add(trigger);
+					sys.talk.triggerReactive(agentName, trigger);
+				}
+			};
+			if (needs.energy < REACTIVE_THRESHOLDS.energyCritical) tryTrigger("energy-critical");
+			else if (needs.energy > REACTIVE_THRESHOLDS.energyRestored && fired.has("energy-critical")) { fired.delete("energy-critical"); tryTrigger("energy-restored"); }
+			if (mood === "lonely") tryTrigger("lonely");
+			if (needs.focus > REACTIVE_THRESHOLDS.focusDeep) tryTrigger("focus-deep");
+			else if (needs.focus < REACTIVE_THRESHOLDS.focusLost) tryTrigger("focus-lost");
+			if (needs.morale > REACTIVE_THRESHOLDS.moraleBoost && !fired.has("morale-boost")) tryTrigger("morale-boost");
+			// Hunger/thirst — low-probability thought bubbles while below threshold.
+			// Quirk modulation: snacker gets hungry earlier, coffee-addict gets thirsty earlier.
+			const hungerThreshold = sys.quirk.hasQuirk(agentName, "snacker") ? 50 : 40;
+			const thirstThreshold = sys.quirk.hasQuirk(agentName, "coffee-addict") ? 45 : 30;
+			if (needs.hunger < hungerThreshold && Math.random() < 0.001) {
+				const phrase = HUNGER_PHRASES[Math.floor(Math.random() * HUNGER_PHRASES.length)];
+				sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
 			}
-		};
-		if (needs.energy < REACTIVE_THRESHOLDS.energyCritical) tryTrigger("energy-critical");
-		else if (needs.energy > REACTIVE_THRESHOLDS.energyRestored && fired.has("energy-critical")) { fired.delete("energy-critical"); tryTrigger("energy-restored"); }
-		if (mood === "lonely") tryTrigger("lonely");
-		if (needs.focus > REACTIVE_THRESHOLDS.focusDeep) tryTrigger("focus-deep");
-		else if (needs.focus < REACTIVE_THRESHOLDS.focusLost) tryTrigger("focus-lost");
-		if (needs.morale > REACTIVE_THRESHOLDS.moraleBoost && !fired.has("morale-boost")) tryTrigger("morale-boost");
-		// Hunger/thirst — low-probability thought bubbles while below threshold.
-		// Quirk modulation: snacker gets hungry earlier, coffee-addict gets thirsty earlier.
-		const hungerThreshold = sys.quirk.hasQuirk(agentName, "snacker") ? 50 : 40;
-		const thirstThreshold = sys.quirk.hasQuirk(agentName, "coffee-addict") ? 45 : 30;
-		if (needs.hunger < hungerThreshold && Math.random() < 0.001) {
-			const phrase = HUNGER_PHRASES[Math.floor(Math.random() * HUNGER_PHRASES.length)];
-			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
-		}
-		if (needs.thirst < thirstThreshold && Math.random() < 0.001) {
-			const phrase = THIRST_PHRASES[Math.floor(Math.random() * THIRST_PHRASES.length)];
-			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
-		}
+			if (needs.thirst < thirstThreshold && Math.random() < 0.001) {
+				const phrase = THIRST_PHRASES[Math.floor(Math.random() * THIRST_PHRASES.length)];
+				sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+			}
+		});
 	}
 }
 
@@ -222,6 +251,16 @@ export function tickPets(ctx: EngineContext): void {
 		tryPetAutoFollow(ctx, pet, petRoom);
 		checkPetProximityReactions(ctx, pet, petRoom);
 		checkPetShareInteraction(ctx, pet, petRoom);
+
+		// PetSceneEntity draws a proxy Actor; PetActor.pos is updated here. Without syncing,
+		// sprites stay at spawn until a room transfer recenters them at the door.
+		if (petRoom) {
+			const sceneForPet = ctx.scenes.map[petRoom] ?? (petRoom === "hub" ? ctx.scenes.hub : undefined);
+			if (sceneForPet === ctx.engine.currentScene) {
+				const wrapper = ctx.state.allEntities.get(pet.entityId);
+				if (wrapper instanceof PetSceneEntity) wrapper.syncVisual();
+			}
+		}
 	}
 }
 
@@ -342,8 +381,15 @@ export function tickBrain(ctx: EngineContext): void {
 		state.prevWalkingState.set(name, entry.state === "wandering" || entry.state === "walking-to");
 	}
 
+	const onSlice = ctx.state.perfSampler?.onAgentSlice;
+	const recordBrain = onSlice
+		? (name: string, ms: number) => {
+			onSlice.call(ctx.state.perfSampler!, name, "brain", ms);
+		}
+		: undefined;
+
 	// Brain system — movement, state machine
-	sys.brain.update(state.deltaMs, ctx.lookups.findAgentActor, (name) => sys.registry.getEntityRoom(name));
+	sys.brain.update(state.deltaMs, ctx.lookups.findAgentActor, (name) => sys.registry.getEntityRoom(name), recordBrain);
 
 	// Standing order indicator — show loop icon when agent is working and task-locked
 	for (const [name, entry] of sys.brain.getAllEntries()) {
@@ -377,7 +423,11 @@ export function tickSocial(ctx: EngineContext): void {
 	);
 
 	// Talk engine — ambient chatter
-	sys.talk.update(state.deltaMs);
+	const onSlice = ctx.state.perfSampler?.onAgentSlice;
+	sys.talk.update(
+		state.deltaMs,
+		onSlice ? (name, ms) => onSlice.call(ctx.state.perfSampler!, name, "talk", ms) : undefined,
+	);
 }
 
 // ── 11. tickDirector — director + engagement + tool executor ─────────

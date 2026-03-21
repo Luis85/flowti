@@ -2,7 +2,7 @@
  * capture.ts — Quick capture of ideas and notes into the vault.
  *
  * Pure domain logic — no display or interactive I/O.
- * Interactive menus live in ui/menus/capture-menu.ts.
+ * Flag-based capture uses `capture.controller` (`capture:idea`, `capture:note`, etc.).
  */
 
 import { Document } from "../../infrastructure/document.js";

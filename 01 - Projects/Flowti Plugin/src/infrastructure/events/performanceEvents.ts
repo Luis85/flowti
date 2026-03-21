@@ -113,4 +113,49 @@ export interface PerformanceEventMap {
 		hubId: string;
 		durationMs: number;
 	};
+
+	/**
+	 * Aggregated agent-world (Excalibur preframe simulation + store postframe) sample.
+	 * Emitted every ~2s or 120 frames while the world is running.
+	 */
+	"perf.agentWorld.sample": {
+		windowFrames: number;
+		windowDurationMs: number;
+		simulation: { avgMs: number; maxMs: number };
+		postframe: { avgMs: number; maxMs: number };
+		delta: { avgMs: number; maxMs: number };
+		phases: Record<string, { avgMs: number; maxMs: number }>;
+		agentCount: number;
+		sceneName: string;
+		/**
+		 * Plugin EventBus: aggregates `perf.event.dispatched` over the same wall window.
+		 * Typed `emit()` only — `emitCustom` is not measured.
+		 */
+		eventBus: {
+			typedDispatchCount: number;
+			handlerInvocationCount: number;
+			avgDispatchWallMs: number;
+			maxDispatchWallMs: number;
+			dispatchesPerSec: number;
+			topEventTypes: { eventType: string; count: number; maxMs: number }[];
+		};
+		/**
+		 * Per-agent canvas simulation slices (avg/max ms per frame over the window).
+		 * Slices: needs, reactive, thresholds, objects, brain, talk.
+		 */
+		perAgentCanvas: {
+			agents: {
+				agentName: string;
+				slices: Record<string, { avgMs: number; maxMs: number }>;
+			}[];
+		};
+	};
+
+	/** Single frame exceeded the slow simulation threshold (throttled). */
+	"perf.agentWorld.slowFrame": {
+		simulationMs: number;
+		sceneName: string;
+		agentCount: number;
+		deltaMs: number;
+	};
 }

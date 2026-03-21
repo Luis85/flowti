@@ -24,15 +24,15 @@ describe("flowti-project-detail", () => {
 		expect(shadow.textContent).toContain("Flowti CLI");
 	});
 
-	it("renders 5 tab buttons when a project is selected", async () => {
+	it("renders 6 tab buttons when a project is selected", async () => {
 		el.projectName = "Flowti CLI";
 		el.projectType = "cli";
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const shadow = el.shadowRoot!;
 		const tabs = shadow.querySelectorAll(".tab-btn");
-		expect(tabs.length).toBe(5);
+		expect(tabs.length).toBe(6);
 		const labels = Array.from(tabs).map((t) => t.textContent?.trim());
-		expect(labels).toEqual(["Overview", "Components", "Event Catalog", "Reporting", "Config"]);
+		expect(labels).toEqual(["Overview", "Components", "Event Catalog", "Reporting", "Team", "Config"]);
 	});
 
 	it("renders flowti-tab-overview on overview tab by default", async () => {
@@ -81,6 +81,18 @@ describe("flowti-project-detail", () => {
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const shadow = el.shadowRoot!;
 		expect(shadow.querySelector("flowti-tab-reporting")).not.toBeNull();
+	});
+
+	it("renders flowti-tab-team when team tab is active", async () => {
+		el.projectName = "Flowti CLI";
+		el.projectType = "cli";
+		el.activeTab = "team";
+		el.roleSlots = [];
+		el.vaultAgents = [];
+		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+		const shadow = el.shadowRoot!;
+		expect(shadow.querySelector("flowti-tab-team")).not.toBeNull();
+		expect(shadow.querySelector("flowti-tab-overview")).toBeNull();
 	});
 
 	it("dispatches back-to-list on back button click", async () => {

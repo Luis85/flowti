@@ -1,179 +1,23 @@
-import { readFileSync } from "node:fs";
-import tseslint from "@typescript-eslint/eslint-plugin";
-import tsparser from "@typescript-eslint/parser";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import parser from "@typescript-eslint/parser";
+import plugin from "@typescript-eslint/eslint-plugin";
 
-// ── Read configurable thresholds from flowti.config.json ─────────────
-const DEFAULTS = { maxComplexity: 10, maxLines: 300 };
-
-function loadThresholds() {
-	try {
-		const raw = JSON.parse(readFileSync("configs/flowti.config.json", "utf-8"));
-		const t = raw?.devtools?.thresholds;
-		return {
-			maxComplexity: typeof t?.maxComplexity === "number" ? t.maxComplexity : DEFAULTS.maxComplexity,
-			maxLines: typeof t?.maxLines === "number" ? t.maxLines : DEFAULTS.maxLines,
-		};
-	} catch {
-		return DEFAULTS;
-	}
-}
-
-const thresholds = loadThresholds();
+const cliRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export default [
-	// Base: @typescript-eslint recommended (mirrors plugin's eslint:recommended + @typescript-eslint/recommended)
-	...tseslint.configs["flat/recommended"].map((config) => ({
-		...config,
-		files: ["src/**/*.ts", "scripts/**/*.ts"],
-	})),
-
-	// Project-specific overrides
 	{
-		files: ["src/**/*.ts", "scripts/**/*.ts"],
+		files: ["src/**/*.ts", "tests/**/*.ts"],
 		languageOptions: {
-			parser: tsparser,
+			parser,
 			parserOptions: {
-				ecmaVersion: "latest",
-				sourceType: "module",
+				project: path.join(cliRoot, "configs/tsconfig.json"),
+				tsconfigRootDir: cliRoot,
 			},
 		},
-		plugins: {
-			"@typescript-eslint": tseslint,
-		},
+		plugins: { "@typescript-eslint": plugin },
 		rules: {
-			// Cyclomatic complexity — configurable via devtools.thresholds.maxComplexity
-			complexity: ["warn", thresholds.maxComplexity],
-
-			// File size — configurable via devtools.thresholds.maxLines (excludes blanks/comments)
-			"max-lines": ["warn", { max: thresholds.maxLines, skipBlankLines: true, skipComments: true }],
-
-			// Unused vars — error, but allow unused function args
-			"no-unused-vars": "off",
-			"@typescript-eslint/no-unused-vars": ["error", {
-				args: "none",
-			}],
-
-			// Relaxations matching the parent plugin
-			"@typescript-eslint/ban-ts-comment": "off",
-			"no-prototype-builtins": "off",
-			"@typescript-eslint/no-empty-function": "off",
-
-			// ── Architecture enforcement ───────────────────────────────────────
-			// These rules enforce the centralized service pattern:
-			//   console.*    → { debug, log, warn, error } from infrastructure/logger.js
-			//   process.*    → { proc }              from infrastructure/proc.js
-			//   node:fs      → { disk }              from infrastructure/filesystem.js
-			//   child_process→ { shell }             from infrastructure/shell.js
-			//   node:path    → { paths }             from infrastructure/paths.js
-
-			"no-console": "error",
-
-			"no-restricted-properties": ["error",
-				{ object: "process", property: "exit", message: "Use { proc } from infrastructure/proc.js instead." },
-				{ object: "process", property: "argv", message: "Use { proc } from infrastructure/proc.js instead." },
-				{ object: "process", property: "cwd", message: "Use { proc } from infrastructure/proc.js instead." },
-				{ object: "process", property: "env", message: "Use { proc } from infrastructure/proc.js instead." },
-			],
-
-			"no-restricted-imports": ["error", {
-				paths: [{
-					name: "node:fs",
-					message: "Use { disk } from infrastructure/filesystem.js instead.",
-				}, {
-					name: "fs",
-					message: "Use { disk } from infrastructure/filesystem.js instead.",
-				}, {
-					name: "node:child_process",
-					message: "Use { shell } from infrastructure/shell.js instead.",
-				}, {
-					name: "child_process",
-					message: "Use { shell } from infrastructure/shell.js instead.",
-				}, {
-					name: "node:path",
-					message: "Use { paths } from infrastructure/paths.js instead.",
-				}, {
-					name: "path",
-					message: "Use { paths } from infrastructure/paths.js instead.",
-				}, {
-					name: "node:readline",
-					message: "Use { input } from infrastructure/input.js instead.",
-				}, {
-					name: "readline",
-					message: "Use { input } from infrastructure/input.js instead.",
-				}],
-			}],
-		},
-	},
-
-	// ── Service implementations ────────────────────────────────────────
-	// These files ARE the centralized services — they wrap the raw APIs
-	{
-		files: [
-			"src/infrastructure/filesystem.ts",
-			"src/infrastructure/shell.ts",
-			"src/infrastructure/paths.ts",
-			"src/infrastructure/proc.ts",
-			"src/infrastructure/clock.ts",
-			"src/infrastructure/logger.ts",
-			"src/infrastructure/input.ts",
-			"src/infrastructure/agent-process-io.ts",
-			"src/infrastructure/types.ts",
-		],
-		rules: {
-			"no-restricted-imports": "off",
-			"no-restricted-properties": "off",
-			"no-console": "off",
-		},
-	},
-
-	// ── Template generators ────────────────────────────────────────────
-	// These files generate code for OTHER projects — their string literals
-	// contain process.*, console.*, and node:* imports that are valid in
-	// the generated output, not runtime violations
-	{
-		files: [
-			"src/domain/make/templates.ts",
-			"src/domain/make/appTemplates.ts",
-			"src/domain/make/cliTemplates.ts",
-			"src/domain/scaffold/templates/shared-templates.ts",
-			"src/domain/scaffold/templates/project-templates.ts",
-		],
-		rules: {
-			"no-restricted-imports": "off",
-			"no-restricted-properties": "off",
-			"no-console": "off",
-			"max-lines": "off",
-		},
-	},
-
-	// ── Declarative controller pattern ────────────────────────────────
-	// All controllers use adaptDescriptor() from command-engine.js.
-	// Ban the legacy request-response helpers to prevent regression.
-	{
-		files: ["src/controller/**/*.ts"],
-		rules: {
-			"no-restricted-imports": ["error", {
-				paths: [{
-					name: "../infrastructure/request-response.js",
-					importNames: ["adapt", "createRequest", "ControllerAction"],
-					message: "Use adaptDescriptor() from command-engine.js instead.",
-				}],
-			}],
-			"no-restricted-syntax": ["error",
-				{ selector: "FunctionDeclaration[id.name='noProjectResponse']", message: "Use requires: 'project' in adaptDescriptor() instead." },
-				{ selector: "FunctionDeclaration[id.name='flagStr']", message: "Use flags spec in adaptDescriptor() instead." },
-			],
-		},
-	},
-
-	// ── Data registries ───────────────────────────────────────────────
-	// Pure data files with no logic — max-lines is not meaningful here
-	{
-		files: [
-			"src/domain/reports/generators/entity-registry.ts",
-		],
-		rules: {
-			"max-lines": "off",
+			...plugin.configs.recommended.rules,
 		},
 	},
 ];

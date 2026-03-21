@@ -1,316 +1,132 @@
-/**
- * Config tab for the project detail view.
- * Exposes markdown sitemap importer settings:
- * source folder, strategy, and required fields.
- */
-
-import { html, css } from "lit";
+import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
-import type { ImportStrategy } from "../../domain/projects/types.js";
+import { css } from "lit";
+import type { ProjectConfig, TeamRoleSlot } from "../../domain/projects/types.js";
 
-const STRATEGIES: { id: ImportStrategy; label: string }[] = [
-	{ id: "category", label: "Category" },
-	{ id: "flat", label: "Flat" },
-	{ id: "hierarchical", label: "Hierarchical" },
-];
+const styles = css`
+	h3 { font-size: 0.95em; margin: 0 0 8px; color: var(--text-muted, #999); }
+	.field { margin-bottom: 10px; }
+	label { display: block; font-size: var(--flowti-font-sm, 0.85em); color: var(--text-muted, #999); margin-bottom: 4px; }
+	input, select { width: 100%; box-sizing: border-box; font-size: var(--flowti-font-sm, 0.85em); padding: 6px 8px; background: var(--background-primary, #1e1e1e); color: var(--text-normal, #ddd); border: 1px solid var(--background-modifier-border, #333); border-radius: 4px; }
+	.row { display: flex; gap: 8px; align-items: center; }
+	.btn {
+		padding: 6px 12px;
+		border-radius: 4px;
+		border: 1px solid var(--background-modifier-border, #333);
+		background: var(--background-secondary, #262626);
+		color: var(--text-normal, #ddd);
+		font-size: var(--flowti-font-sm, 0.85em);
+		cursor: pointer;
+	}
+	.btn:focus-visible,
+	input:focus-visible,
+	select:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
+	}
+	.btn:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+	.btn--primary {
+		background: var(--interactive-accent, #7c3aed);
+		border-color: var(--interactive-accent, #7c3aed);
+		color: #fff;
+	}
+	.status { font-size: var(--flowti-font-sm, 0.85em); color: var(--color-green, #4caf50); margin-top: 8px; }
+`;
 
-const LOCKED_FIELDS = ["name", "category"] as const;
-const OPTIONAL_FIELDS = ["description", "status", "props", "slots", "variants"] as const;
-
-export class FlowtiConfigTab extends FlowtiElement {
+export class FlowtiTabConfig extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
+		projectName: { type: String },
+		config: { type: Object },
+		hasCanvas: { type: Boolean },
+		/** True while another tab runs a project-wide CLI action (team save, etc.). */
+		hubLocked: { type: Boolean, attribute: "hub-locked" },
+		saveStatus: { type: String },
 		sourcePath: { type: String },
 		strategy: { type: String },
-		requiredFields: { type: Array },
-		saveStatus: { type: String },
-		hasCanvas: { type: Boolean },
+		requiredFields: { type: String },
 	};
 
-	static styles = [
-		...FlowtiElement.styles,
-		tokens,
-		css`
-			:host {
-				display: flex;
-				flex-direction: column;
-				gap: var(--flowti-space-md, 16px);
-			}
+	static styles = [tokens, styles];
 
-			.section-title {
-				font-size: var(--flowti-font-sm, 0.85em);
-				font-weight: 500;
-				color: var(--text-muted, #999);
-				margin-bottom: var(--flowti-space-xs, 4px);
-			}
-
-			.field-group {
-				display: flex;
-				flex-direction: column;
-				gap: var(--flowti-space-xs, 4px);
-			}
-
-			.field-label {
-				font-size: var(--flowti-font-sm, 0.85em);
-				font-weight: 500;
-				color: var(--text-muted, #999);
-			}
-
-			.folder-row {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm, 8px);
-			}
-
-			.folder-display {
-				flex: 1;
-				padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
-				border: 1px solid var(--background-modifier-border, #444);
-				border-radius: var(--flowti-radius-sm, 4px);
-				background: var(--background-primary, #1e1e1e);
-				color: var(--text-normal, #ddd);
-				font-size: var(--flowti-font-sm, 0.85em);
-				font-family: var(--font-monospace);
-				min-height: 1.6em;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-
-			.folder-display--empty {
-				color: var(--text-faint, #666);
-				font-style: italic;
-				font-family: inherit;
-			}
-
-			.browse-btn {
-				padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
-				border-radius: var(--flowti-radius-sm, 4px);
-				border: 1px solid var(--background-modifier-border, #444);
-				background: none;
-				color: var(--text-normal, #ddd);
-				font-size: var(--flowti-font-sm, 0.85em);
-				cursor: pointer;
-				flex-shrink: 0;
-			}
-
-			.browse-btn:hover {
-				background: var(--background-modifier-hover, #333);
-				border-color: var(--interactive-accent, #7c3aed);
-				color: var(--interactive-accent, #7c3aed);
-			}
-
-			.strategy-group {
-				display: flex;
-				gap: var(--flowti-space-xs, 4px);
-			}
-
-			.strategy-btn {
-				padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
-				border-radius: var(--flowti-radius-sm, 4px);
-				border: 1px solid var(--background-modifier-border, #444);
-				background: none;
-				color: var(--text-normal, #ddd);
-				font-size: var(--flowti-font-sm, 0.85em);
-				cursor: pointer;
-			}
-
-			.strategy-btn:hover {
-				background: var(--background-modifier-hover, #333);
-			}
-
-			.strategy-btn--active {
-				background: var(--interactive-accent, #7c3aed);
-				color: var(--text-on-accent, #fff);
-				border-color: var(--interactive-accent, #7c3aed);
-			}
-
-			.chips {
-				display: flex;
-				flex-wrap: wrap;
-				gap: var(--flowti-space-xs, 4px);
-			}
-
-			.chip {
-				padding: 2px 10px;
-				border-radius: 12px;
-				font-size: var(--flowti-font-sm, 0.85em);
-				border: 1px solid var(--background-modifier-border, #444);
-				cursor: pointer;
-				user-select: none;
-			}
-
-			.chip--locked {
-				background: var(--background-modifier-hover, #333);
-				color: var(--text-faint, #666);
-				cursor: default;
-				opacity: 0.6;
-			}
-
-			.chip--active {
-				background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 20%, transparent);
-				color: var(--interactive-accent, #7c3aed);
-				border-color: var(--interactive-accent, #7c3aed);
-			}
-
-			.chip--inactive {
-				background: none;
-				color: var(--text-muted, #999);
-			}
-
-			.chip--inactive:hover {
-				background: var(--background-modifier-hover, #333);
-			}
-
-			.save-row {
-				display: flex;
-				justify-content: flex-end;
-				padding-top: var(--flowti-space-sm, 8px);
-				border-top: 1px solid var(--background-modifier-border, #333);
-			}
-
-			.save-btn {
-				padding: var(--flowti-space-xs, 4px) var(--flowti-space-lg, 24px);
-				border-radius: var(--flowti-radius-sm, 4px);
-				border: 1px solid var(--interactive-accent, #7c3aed);
-				background: var(--interactive-accent, #7c3aed);
-				color: var(--text-on-accent, #fff);
-				font-size: var(--flowti-font-sm, 0.85em);
-				font-weight: 500;
-				cursor: pointer;
-			}
-
-			.save-btn:hover {
-				opacity: 0.9;
-			}
-
-			.save-feedback {
-				font-size: var(--flowti-font-sm, 0.85em);
-				padding: var(--flowti-space-xs, 4px) 0;
-			}
-
-			.save-feedback--success {
-				color: var(--color-green, #4caf50);
-			}
-
-			.save-feedback--error {
-				color: var(--color-red, #e53935);
-			}
-
-			.import-section {
-				margin-top: var(--flowti-space-md, 16px);
-				padding-top: var(--flowti-space-md, 16px);
-				border-top: 1px solid var(--background-modifier-border, #333);
-			}
-		`,
-	];
-
-	sourcePath = "";
-	strategy: ImportStrategy = "category";
-	requiredFields: string[] = [];
-	saveStatus = "";
+	projectName = "";
+	config: ProjectConfig | undefined;
 	hasCanvas = false;
+	hubLocked = false;
+	saveStatus = "";
+	sourcePath = "";
+	strategy = "category";
+	requiredFields = "name,category";
+
+	updated(changed: Map<string, unknown>): void {
+		super.updated(changed);
+		if (changed.has("config") && this.config?.markdownSource) {
+			const ms = this.config.markdownSource;
+			this.sourcePath = ms.path;
+			this.strategy = ms.strategy;
+			this.requiredFields = ms.requiredFields.join(",");
+		}
+	}
 
 	protected renderContent() {
+		const roster = this.config?.agents?.join(", ") ?? "";
+		const roleSlots = (this.config?.roleSlots ?? []) as TeamRoleSlot[];
+		const slots = roleSlots.length;
+		const fteTotal = roleSlots.reduce(
+			(a, s) => a + (typeof s.roleFte === "number" && Number.isFinite(s.roleFte) ? s.roleFte : 0),
+			0,
+		);
+		const anyFte = roleSlots.some((s) => s.roleFte != null && Number.isFinite(s.roleFte));
+		const fteLabel = anyFte ? (fteTotal % 1 === 0 ? String(fteTotal) : fteTotal.toFixed(2)) : "—";
 		return html`
-			<div class="section-title">Markdown Sitemap Import</div>
-			${this.renderSourceFolder()}
-			${this.renderStrategy()}
-			${this.renderRequiredFields()}
-			${this.renderSaveButton()}
-			${this.saveStatus ? html`
-				<div class="save-feedback ${this.saveStatus === "Saved" ? "save-feedback--success" : "save-feedback--error"}">${this.saveStatus}</div>
+			<h3>flowti.config.json</h3>
+			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999)">Markdown import source (Storybook)</p>
+			<div class="field">
+				<label>Source folder (vault-relative or absolute)</label>
+				<div class="row">
+					<input type="text" .value="${this.sourcePath}" @input="${(e: Event) => { this.sourcePath = (e.target as HTMLInputElement).value; }}" />
+					<button type="button" class="btn" @click="${() => this.emit("config-browse-folder", {})}">Browse</button>
+				</div>
+			</div>
+			<div class="field">
+				<label>Strategy</label>
+				<select .value="${this.strategy}" @change="${(e: Event) => { this.strategy = (e.target as HTMLSelectElement).value; }}">
+					<option value="category">category</option>
+					<option value="flat">flat</option>
+					<option value="hierarchical">hierarchical</option>
+				</select>
+			</div>
+			<div class="field">
+				<label>Required fields (comma-separated)</label>
+				<input type="text" .value="${this.requiredFields}" @input="${(e: Event) => { this.requiredFields = (e.target as HTMLInputElement).value; }}" />
+			</div>
+			<button type="button" class="btn btn--primary" ?disabled="${this.hubLocked}" @click="${this.save}">Save markdown source config</button>
+			${this.saveStatus ? html`<div class="status">${this.saveStatus}</div>` : ""}
+			<hr style="border:none;border-top:1px solid var(--background-modifier-border,#333);margin:16px 0" />
+			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999)">
+				Team roster (edit on <strong>Team</strong> tab): ${slots} role slot(s), Σ FTE ${fteLabel}, dashboard agents: ${roster || "—"}
+			</p>
+			${this.hasCanvas ? html`
+				<div style="margin-top:12px">
+					<button type="button" class="btn" @click="${() => this.emit("canvas-open", {})}">Open sitemap.canvas</button>
+					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Merge canvas → sitemap</button>
+				</div>
 			` : ""}
 		`;
 	}
 
-	private renderSourceFolder() {
-		const isEmpty = !this.sourcePath;
-		return html`
-			<div class="field-group">
-				<span class="field-label">Source folder</span>
-				<div class="folder-row">
-					<span class="folder-display ${isEmpty ? "folder-display--empty" : ""}">${this.sourcePath || "No folder selected"}</span>
-					<button class="browse-btn" @click="${this.dispatchBrowse}">Browse</button>
-					<button class="browse-btn" @click="${this.dispatchImport}" title="Import markdown files into sitemap">Import</button>
-				</div>
-			</div>
-		`;
+	private save(): void {
+		const requiredFields = this.requiredFields.split(",").map((s) => s.trim()).filter(Boolean);
+		this.emit("config-save", { path: this.sourcePath, strategy: this.strategy, requiredFields });
 	}
 
-	private renderStrategy() {
-		return html`
-			<div class="field-group">
-				<span class="field-label">Strategy</span>
-				<div class="strategy-group">
-					${STRATEGIES.map((s) => html`
-						<button
-							class="strategy-btn ${this.strategy === s.id ? "strategy-btn--active" : ""}"
-							@click="${() => { this.strategy = s.id; }}"
-						>${s.label}</button>
-					`)}
-				</div>
-			</div>
-		`;
+	private emit(name: string, detail: Record<string, unknown>): void {
+		this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
 	}
-
-	private renderRequiredFields() {
-		return html`
-			<div class="field-group">
-				<span class="field-label">Required fields</span>
-				<div class="chips">
-					${LOCKED_FIELDS.map((f) => html`
-						<span class="chip chip--locked" title="Always required">${f}</span>
-					`)}
-					${OPTIONAL_FIELDS.map((f) => html`
-						<span
-							class="chip ${this.requiredFields.includes(f) ? "chip--active" : "chip--inactive"}"
-							@click="${() => this.toggleField(f)}"
-						>${f}</span>
-					`)}
-				</div>
-			</div>
-		`;
-	}
-
-	private renderSaveButton() {
-		return html`
-			<div class="save-row">
-				<button class="save-btn" @click="${this.dispatchSave}">Save</button>
-			</div>
-		`;
-	}
-
-	private toggleField(field: string): void {
-		if (this.requiredFields.includes(field)) {
-			this.requiredFields = this.requiredFields.filter((f) => f !== field);
-		} else {
-			this.requiredFields = [...this.requiredFields, field];
-		}
-	}
-
-	private dispatchBrowse(): void {
-		this.dispatchEvent(new CustomEvent("config-browse-folder", { bubbles: true, composed: true }));
-	}
-
-	private dispatchSave(): void {
-		const allRequired = [...LOCKED_FIELDS, ...this.requiredFields];
-		this.dispatchEvent(new CustomEvent("config-save", {
-			detail: {
-				path: this.sourcePath,
-				strategy: this.strategy,
-				requiredFields: allRequired,
-			},
-			bubbles: true,
-			composed: true,
-		}));
-	}
-
-	private dispatchImport(): void {
-		this.dispatchEvent(new CustomEvent("storybook-import", { bubbles: true, composed: true }));
-	}
-
 }
 
-if (!customElements.get("flowti-tab-config")) customElements.define("flowti-tab-config", FlowtiConfigTab);
+if (!customElements.get("flowti-tab-config")) customElements.define("flowti-tab-config", FlowtiTabConfig);

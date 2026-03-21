@@ -6,8 +6,9 @@
 import { TFile } from "obsidian";
 import type { App } from "obsidian";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import type { ProjectConfig, StorybookStatus } from "../../domain/projects/types.js";
+import { basename, join } from "node:path";
+import type { AgentBlueprint, ProjectConfig, StorybookStatus, TeamRoleSlot } from "../../domain/projects/types.js";
+import { parseProjectRoleMarkdown, projectRoleNoteRelativePath } from "../../domain/projects/project-role-markdown.js";
 
 const PROJECT_BRIEF_TYPE = "ProjectBrief";
 
@@ -123,6 +124,7 @@ export function parseProjectConfig(
 			framework,
 			healthTargets: parseHealthTargets(raw),
 			agents: parseAgentRoster(raw),
+			roleSlots: parseRoleSlots(raw),
 			publishTargets: parsePublishTargets(raw),
 			markdownSource: parseMarkdownSource(components),
 		};
@@ -149,6 +151,111 @@ function parseHealthTargets(raw: Record<string, unknown>): ProjectConfig["health
 function parseAgentRoster(raw: Record<string, unknown>): string[] | undefined {
 	const mgmt = raw.management as Record<string, unknown> | undefined;
 	return (mgmt?.agents as Record<string, unknown>)?.roster as string[] | undefined;
+}
+
+function parseRoleSlots(raw: Record<string, unknown>): TeamRoleSlot[] | undefined {
+	const mgmt = raw.management as Record<string, unknown> | undefined;
+	const agents = mgmt?.agents as Record<string, unknown> | undefined;
+	const slots = agents?.roleSlots as unknown[] | undefined;
+	if (!Array.isArray(slots) || slots.length === 0) return undefined;
+	const out: TeamRoleSlot[] = [];
+	for (const s of slots) {
+		if (!s || typeof s !== "object") continue;
+		const o = s as Record<string, unknown>;
+		const id = typeof o.id === "string" ? o.id : "";
+		const title = typeof o.title === "string" ? o.title : "";
+		const need = typeof o.need === "string" ? o.need : "";
+		const roleNotePath = typeof o.roleNotePath === "string" && o.roleNotePath.trim() ? o.roleNotePath.trim() : undefined;
+		if (!id || (!title.trim() && !roleNotePath)) continue;
+		const assignee = typeof o.assignee === "string" && o.assignee.trim() ? o.assignee.trim() : undefined;
+		const blueprint = parseBlueprintField(o.blueprint);
+		const slot: TeamRoleSlot = { id, title: title.trim() || id, need, ...(roleNotePath && { roleNotePath }), ...(assignee && { assignee }), ...(blueprint && { blueprint }) };
+		out.push(slot);
+	}
+	return out.length > 0 ? out : undefined;
+}
+
+/** Merge `team/roles/*.md` content into slots for UI (skills, body, title from `role:`). */
+export function enrichRoleSlotsWithRoleNotes(
+	vaultBasePath: string,
+	projectFolderName: string,
+	slots: readonly TeamRoleSlot[] | undefined,
+): TeamRoleSlot[] | undefined {
+	if (!slots?.length) return slots;
+	return slots.map((s) => {
+		const path = s.roleNotePath ?? projectRoleNoteRelativePath(projectFolderName, s.id);
+		const abs = join(vaultBasePath, path);
+		if (!existsSync(abs)) {
+			return s.roleNotePath ? s : { ...s, roleNotePath: path };
+		}
+		try {
+			const parsed = parseProjectRoleMarkdown(readFileSync(abs, "utf-8"));
+			if (!parsed) return { ...s, roleNotePath: path };
+			return {
+				...s,
+				title: parsed.role || s.title,
+				need: parsed.need || s.need,
+				roleNotePath: path,
+				roleSkills: parsed.skills.length > 0 ? parsed.skills : s.roleSkills,
+				roleSummary: parsed.summary || s.roleSummary,
+				roleBody: parsed.body || s.roleBody,
+				roleFte: parsed.fte ?? s.roleFte,
+				roleStart: parsed.start ?? s.roleStart,
+				roleEnd: parsed.end ?? s.roleEnd,
+			};
+		} catch {
+			return { ...s, roleNotePath: path };
+		}
+	});
+}
+
+/** Apply markdown enrichment to project config in memory (for `getProject`). */
+export function enrichProjectConfigRoleSlots(
+	vaultBasePath: string,
+	projectAbsPath: string,
+	config: ProjectConfig | undefined,
+): ProjectConfig | undefined {
+	if (!config?.roleSlots?.length) return config;
+	const folder = basename(projectAbsPath);
+	const roleSlots = enrichRoleSlotsWithRoleNotes(vaultBasePath, folder, config.roleSlots);
+	if (!roleSlots) return config;
+	return { ...config, roleSlots };
+}
+
+function parseBlueprintField(raw: unknown): AgentBlueprint | undefined {
+	if (!raw || typeof raw !== "object") return undefined;
+	const b = raw as Record<string, unknown>;
+	const goalsRaw = b.goals as unknown[] | undefined;
+	const goals = Array.isArray(goalsRaw)
+		? goalsRaw
+			.filter((g): g is { name: string; priority?: number } => !!g && typeof g === "object" && typeof (g as { name?: string }).name === "string")
+			.map((g) => ({ name: g.name, ...(typeof g.priority === "number" ? { priority: g.priority } : {}) }))
+		: undefined;
+	const attrs = b.attributes as Record<string, unknown> | undefined;
+	const attributes = attrs && typeof attrs === "object"
+		? {
+			...(typeof attrs.str === "number" ? { str: attrs.str } : {}),
+			...(typeof attrs.int === "number" ? { int: attrs.int } : {}),
+			...(typeof attrs.wis === "number" ? { wis: attrs.wis } : {}),
+			...(typeof attrs.cha === "number" ? { cha: attrs.cha } : {}),
+			...(typeof attrs.dex === "number" ? { dex: attrs.dex } : {}),
+			...(typeof attrs.con === "number" ? { con: attrs.con } : {}),
+		}
+		: undefined;
+	const blueprint: AgentBlueprint = {
+		...(typeof b.agentType === "string" ? { agentType: b.agentType } : {}),
+		...(typeof b.domain === "string" ? { domain: b.domain } : {}),
+		...(typeof b.persona === "string" ? { persona: b.persona } : {}),
+		...(typeof b.mood === "string" ? { mood: b.mood } : {}),
+		...(typeof b.description === "string" ? { description: b.description } : {}),
+		...(Array.isArray(b.personality) ? { personality: (b.personality as unknown[]).filter((x): x is string => typeof x === "string") } : {}),
+		...(attributes && Object.keys(attributes).length > 0 ? { attributes } : {}),
+		...(Array.isArray(b.skills) ? { skills: (b.skills as unknown[]).filter((x): x is string => typeof x === "string") } : {}),
+		...(Array.isArray(b.behaviors) ? { behaviors: (b.behaviors as unknown[]).filter((x): x is string => typeof x === "string") } : {}),
+		...(Array.isArray(b.suggestedTasks) ? { suggestedTasks: (b.suggestedTasks as unknown[]).filter((x): x is string => typeof x === "string") } : {}),
+		...(goals && goals.length > 0 ? { goals } : {}),
+	};
+	return Object.keys(blueprint).length > 0 ? blueprint : undefined;
 }
 
 function parsePublishTargets(raw: Record<string, unknown>): string[] | undefined {
