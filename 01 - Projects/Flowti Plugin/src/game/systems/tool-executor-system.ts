@@ -64,6 +64,11 @@ export class ToolExecutor {
 		this.resultCallbacks.push(cb);
 	}
 
+	offResult(cb: (result: ToolResult) => void): void {
+		const idx = this.resultCallbacks.indexOf(cb);
+		if (idx >= 0) this.resultCallbacks.splice(idx, 1);
+	}
+
 	setExecutor(fn: (command: string) => Promise<{ success: boolean; output: string }>): void {
 		this.executor = fn;
 	}

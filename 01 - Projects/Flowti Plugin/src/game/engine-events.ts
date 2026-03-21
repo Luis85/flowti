@@ -11,6 +11,7 @@
 import type { EngineContext } from "./engine-types.js";
 import { wireStoreEvents } from "./engine-events-store.js";
 import type { AgentAction, DashboardAgent, WorldEntity } from "./data/types.js";
+import type { DayPhase } from "./data/day-phase-config.js";
 import { extractAgentMessage } from "./data/message-utils.js";
 import {
 	MOOD_TEXTS, SOCIAL_EMOJIS, REACTION_EMOJIS, FOLLOW_UP_STRINGS,
@@ -53,20 +54,26 @@ function registerWorldEvent(
 // ── Day clock events ─────────────────────────────────────────────────
 
 function wireDayClockEvents(ctx: EngineContext): () => void {
-	ctx.dayClock.onPhaseChange((phase) => {
+	const cb = (phase: DayPhase) => {
 		ctx.store.setDayPhase(phase);
 		ctx.store.setWeatherState(ctx.worldAmbience.getWeather());
 		ctx.store.pushWorldEvent("phase-change", `Day phase: ${phase.replace(/-/g, " ")}`);
 		ctx.worldEvent.onPhaseChange(phase);
-	});
-	// DayClock.onPhaseChange does not return an unsubscribe
-	return () => {};
+	};
+	ctx.dayClock.onPhaseChange(cb);
+	return () => ctx.dayClock.offPhaseChange(cb);
 }
 
 // ── World micro-event handlers ───────────────────────────────────────
 
 function wireWorldEvents(ctx: EngineContext): () => void {
-	registerWorldEvent(ctx, "standup", "Morning Standup", () => {
+	const registeredTypes: string[] = [];
+	const registerWorldEventTracked = (type: string, label: string, handler: () => void): void => {
+		registeredTypes.push(type);
+		registerWorldEvent(ctx, type, label, handler);
+	};
+
+	registerWorldEventTracked("standup", "Morning Standup", () => {
 		const agents = ctx.needs.getAgentNames().filter((n) => !ctx.registry.isInTransit(n));
 		for (const name of agents) {
 			const state = ctx.brain.getState(name)?.state;
@@ -82,7 +89,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}, agents.length * 2000 + 2000);
 	});
 
-	registerWorldEvent(ctx, "deploy-success", "Deploy Success", () => {
+	registerWorldEventTracked("deploy-success", "Deploy Success", () => {
 		const agents = ctx.needs.getAgentNames();
 		const celebrant = agents[Math.floor(Math.random() * agents.length)];
 		if (celebrant) {
@@ -93,7 +100,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}
 	});
 
-	registerWorldEvent(ctx, "tea-time", "Tea Time", () => {
+	registerWorldEventTracked("tea-time", "Tea Time", () => {
 		const idle = ctx.needs.getAgentNames().filter((n) => ctx.brain.getState(n)?.state === "idle");
 		const teaGroup = idle.slice(0, 3);
 		for (const name of teaGroup) {
@@ -102,13 +109,13 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}
 	});
 
-	registerWorldEvent(ctx, "end-of-day", "End of Day", () => {
+	registerWorldEventTracked("end-of-day", "End of Day", () => {
 		for (const name of ctx.needs.getAgentNames()) {
 			ctx.bubble.showBubble(name, "thought", pickTemplate(END_OF_DAY_TEMPLATES), ctx.engine.currentScene, ctx.findAgentActor, 3000);
 		}
 	});
 
-	registerWorldEvent(ctx, "eureka", "Eureka Moment", () => {
+	registerWorldEventTracked("eureka", "Eureka Moment", () => {
 		const working = ctx.needs.getAgentNames().filter((n) => ctx.brain.getState(n)?.state === "working");
 		if (working.length > 0) {
 			const agent = working[Math.floor(Math.random() * working.length)];
@@ -119,7 +126,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}
 	});
 
-	registerWorldEvent(ctx, "build-break", "Build Break", () => {
+	registerWorldEventTracked("build-break", "Build Break", () => {
 		for (const name of ctx.needs.getAgentNames()) {
 			ctx.bubble.showBubble(name, "thought", pickTemplate(BUILD_BREAK_REACTION_TEMPLATES), ctx.engine.currentScene, ctx.findAgentActor, 2000);
 			ctx.needs.applyEffect(name, { morale: -3 });
@@ -131,7 +138,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}, 10_000);
 	});
 
-	registerWorldEvent(ctx, "birthday", "Birthday", () => {
+	registerWorldEventTracked("birthday", "Birthday", () => {
 		const agents = ctx.needs.getAgentNames();
 		const birthdayAgent = agents[Math.floor(Math.random() * agents.length)];
 		if (birthdayAgent) {
@@ -141,7 +148,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}
 	});
 
-	registerWorldEvent(ctx, "power-flicker", "Power Flicker", () => {
+	registerWorldEventTracked("power-flicker", "Power Flicker", () => {
 		for (const name of ctx.needs.getAgentNames()) {
 			ctx.bubble.showBubble(name, "thought", pickTemplate(POWER_FLICKER_REACTION_TEMPLATES), ctx.engine.currentScene, ctx.findAgentActor, 1500);
 		}
@@ -151,7 +158,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}, 2000);
 	});
 
-	registerWorldEvent(ctx, "new-pr", "New PR", () => {
+	registerWorldEventTracked("new-pr", "New PR", () => {
 		const agents = ctx.needs.getAgentNames();
 		const author = agents[Math.floor(Math.random() * agents.length)];
 		if (author) {
@@ -163,8 +170,9 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}
 	});
 
-	// WorldEventScheduler.registerHandler does not return an unsubscribe
-	return () => {};
+	return () => {
+		for (const type of registeredTypes) ctx.worldEvent.unregisterHandler(type);
+	};
 }
 
 // ── Emote events ─────────────────────────────────────────────────────
@@ -179,8 +187,7 @@ function wireEmoteEvents(ctx: EngineContext): () => void {
 		const text = texts[Math.floor(Math.random() * texts.length)];
 		ctx.bubble.showBubble(name, "thought", text, ctx.engine.currentScene, ctx.findAgentActor, 2500);
 	});
-	// EmoteSystem.onEmote does not return an unsubscribe
-	return () => {};
+	return () => ctx.emote.offEmote();
 }
 
 // ── Social conversation events ───────────────────────────────────────
@@ -280,42 +287,46 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 		}, speakCount * 1500 + 3000);
 	});
 
-	// SocialSystem does not return unsubscribes
-	return () => {};
+	return () => {
+		ctx.social.offConversation();
+		ctx.social.offCluster();
+	};
 }
 
 // ── Sensor events ────────────────────────────────────────────────────
 
 function wireSensorEvents(ctx: EngineContext): () => void {
-	ctx.sensor.onReaction((reaction) => {
+	const cb = (reaction: Parameters<typeof ctx.sensor.onReaction>[0]) => {
 		if (reaction.bubble) {
 			ctx.bubble.showBubble(reaction.agentName, reaction.bubble.kind, reaction.bubble.text, ctx.engine.currentScene, ctx.findAgentActor, 5000, true);
 		}
 		if (reaction.needsEffect) {
 			ctx.needs.applyEffect(reaction.agentName, reaction.needsEffect);
 		}
-	});
-	return () => {};
+	};
+	ctx.sensor.onReaction(cb);
+	return () => ctx.sensor.offReaction(cb);
 }
 
 // ── Engagement events ────────────────────────────────────────────────
 
 function wireEngagementEvents(ctx: EngineContext): () => void {
-	ctx.engagement.onEngagement((e) => {
+	const cb = (e: Parameters<typeof ctx.engagement.onEngagement>[0]) => {
 		if (ctx.registry.isInTransit(e.agentName)) return;
 		if (e.tier >= 2) {
 			const cam = ctx.engine.currentScene.camera;
 			ctx.brain.walkTo(e.agentName, { x: cam.pos.x - 50, y: cam.pos.y });
 		}
 		ctx.bubble.showBubble(e.agentName, e.bubbleKind, e.text, ctx.engine.currentScene, ctx.findAgentActor, 5000, true);
-	});
-	return () => {};
+	};
+	ctx.engagement.onEngagement(cb);
+	return () => ctx.engagement.offEngagement(cb);
 }
 
 // ── Ritual events ────────────────────────────────────────────────────
 
 function wireRitualEvents(ctx: EngineContext): () => void {
-	ctx.ritual.onPhase((phase) => {
+	const cb = (phase: Parameters<typeof ctx.ritual.onPhase>[0]) => {
 		if (phase.kind === "gather") {
 			for (const name of phase.participants) {
 				if (!ctx.registry.isInTransit(name)) ctx.brain.applyEvent(name, "speaking");
@@ -330,20 +341,22 @@ function wireRitualEvents(ctx: EngineContext): () => void {
 				ctx.needs.applyEffect(name, { social: 8, morale: 5 });
 			}
 		}
-	});
-	return () => {};
+	};
+	ctx.ritual.onPhase(cb);
+	return () => ctx.ritual.offPhase(cb);
 }
 
 // ── Tool result events ───────────────────────────────────────────────
 
 function wireToolEvents(ctx: EngineContext): () => void {
-	ctx.tool.onResult((result) => {
+	const cb = (result: Parameters<typeof ctx.tool.onResult>[0]) => {
 		const eventType = result.success ? "test-pass" : "test-fail";
 		ctx.sensor.pushFeedback({ type: eventType, data: { output: result.output } });
 		ctx.needs.applyEffect(result.agentName, { morale: result.success ? 3 : -2, energy: -5 });
 		ctx.bubble.showBubble(result.agentName, "speech", result.success ? "Done! All good." : "Something went wrong...", ctx.engine.currentScene, ctx.findAgentActor, 5000, true);
-	});
-	return () => {};
+	};
+	ctx.tool.onResult(cb);
+	return () => ctx.tool.offResult(cb);
 }
 
 // ── Provider events (action, connection, entity) ─────────────────────

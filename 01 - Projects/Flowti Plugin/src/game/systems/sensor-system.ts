@@ -58,6 +58,11 @@ export class SensorSystem {
 		this.reactionCallbacks.push(cb);
 	}
 
+	offReaction(cb: (reaction: SensorReaction) => void): void {
+		const idx = this.reactionCallbacks.indexOf(cb);
+		if (idx >= 0) this.reactionCallbacks.splice(idx, 1);
+	}
+
 	// ── Event ingestion ─────────────────────────────────────────────
 
 	/** Process an event immediately on this frame. */

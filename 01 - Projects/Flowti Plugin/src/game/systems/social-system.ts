@@ -100,8 +100,16 @@ export class SocialSystem {
 		this.callback = cb;
 	}
 
+	offConversation(): void {
+		this.callback = null;
+	}
+
 	onCluster(cb: ClusterCallback): void {
 		this.clusterCallback = cb;
+	}
+
+	offCluster(): void {
+		this.clusterCallback = null;
 	}
 
 	register(name: string, agent: SocialAgent): void {

@@ -68,10 +68,13 @@ function createMockContext(): EngineContext {
 		},
 		emote: {
 			onEmote: vi.fn(),
+			offEmote: vi.fn(),
 		},
 		social: {
 			onConversation: vi.fn(),
+			offConversation: vi.fn(),
 			onCluster: vi.fn(),
+			offCluster: vi.fn(),
 		},
 		needs: {
 			getAgentNames: vi.fn(() => ["alice"]),
@@ -84,20 +87,25 @@ function createMockContext(): EngineContext {
 		},
 		sensor: {
 			onReaction: vi.fn(),
+			offReaction: vi.fn(),
 			pushFeedback: vi.fn(),
 		},
 		engagement: {
 			onEngagement: vi.fn(),
+			offEngagement: vi.fn(),
 			markTaskCompleted: vi.fn(),
 		},
 		ritual: {
 			onPhase: vi.fn(),
+			offPhase: vi.fn(),
 		},
 		tool: {
 			onResult: vi.fn(),
+			offResult: vi.fn(),
 		},
 		dayClock: {
 			onPhaseChange: vi.fn(),
+			offPhaseChange: vi.fn(),
 		},
 		worldAmbience: {
 			getWeather: vi.fn(() => "clear"),
@@ -105,6 +113,7 @@ function createMockContext(): EngineContext {
 		worldEvent: {
 			onPhaseChange: vi.fn(),
 			registerHandler: vi.fn(),
+			unregisterHandler: vi.fn(),
 		},
 		memory: {},
 		quirk: {},

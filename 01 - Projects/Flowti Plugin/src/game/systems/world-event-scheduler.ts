@@ -27,6 +27,10 @@ export class WorldEventScheduler {
 		this.handlers.set(eventType, handler);
 	}
 
+	unregisterHandler(eventType: string): void {
+		this.handlers.delete(eventType);
+	}
+
 	recordSensorEvent(sensorType: string): void {
 		this.suppressedSensors.add(sensorType);
 	}
