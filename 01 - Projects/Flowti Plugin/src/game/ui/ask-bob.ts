@@ -144,6 +144,133 @@ export class AskBob extends FlowtiElement {
 		}
 	}
 
+	private orderedCanvasSliceKeys(sums: Record<string, number>): string[] {
+		const keys = new Set(Object.keys(sums));
+		const out: string[] = [];
+		for (const k of CANVAS_SLICE_ORDER) {
+			if (keys.has(k)) {
+				out.push(k);
+				keys.delete(k);
+			}
+		}
+		out.push(...[...keys].sort());
+		return out;
+	}
+
+	private computeWindowCanvasRollup(sample: EventPayload<"perf.agentWorld.sample">): {
+		sliceSums: Record<string, number>;
+		attributedTotal: number;
+		topAgents: { name: string; totalAvgMs: number }[];
+	} | null {
+		const agents = sample.perAgentCanvas?.agents ?? [];
+		if (agents.length === 0) return null;
+		const sliceSums: Record<string, number> = {};
+		for (const a of agents) {
+			for (const [k, v] of Object.entries(a.slices)) {
+				sliceSums[k] = (sliceSums[k] ?? 0) + v.avgMs;
+			}
+		}
+		const attributedTotal = Object.values(sliceSums).reduce((s, v) => s + v, 0);
+		const topAgents = [...agents]
+			.map((a) => ({
+				name: a.agentName,
+				totalAvgMs: Object.values(a.slices).reduce((s, v) => s + v.avgMs, 0),
+			}))
+			.sort((x, y) => y.totalAvgMs - x.totalAvgMs);
+		return { sliceSums, attributedTotal, topAgents };
+	}
+
+	private renderWorldPerfAgentWindowBlock(win: {
+		sliceSums: Record<string, number>;
+		attributedTotal: number;
+		topAgents: { name: string; totalAvgMs: number }[];
+	}): ReturnType<typeof html> {
+		const keys = this.orderedCanvasSliceKeys(win.sliceSums);
+		const maxSlice = Math.max(...keys.map((k) => win.sliceSums[k] ?? 0), 0.001);
+		return html`
+			<div class="world-perf-bus-top-title">This window — roster Σ by slice</div>
+			${keys.map((k) => {
+				const v = win.sliceSums[k] ?? 0;
+				return html`
+					<div class="world-perf-phase-row">
+						<span class="world-perf-phase-name" title="${k}">${CANVAS_SLICE_LABELS[k] ?? k}</span>
+						<div class="world-perf-phase-bar-wrap">
+							<div class="world-perf-phase-bar" style="width:${(v / maxSlice) * 100}%"></div>
+						</div>
+						<span class="world-perf-phase-ms">${this.formatPerfMs(v)} ms</span>
+					</div>
+				`;
+			})}
+			<div class="world-perf-bus-top-title">This window — top agents</div>
+			${win.topAgents.slice(0, 8).map((a) => html`
+				<div class="world-perf-phase-row">
+					<span class="world-perf-phase-name" title="${a.name}">${a.name}</span>
+					<div class="world-perf-phase-bar-wrap">
+						<div
+							class="world-perf-phase-bar"
+							style="width:${win.attributedTotal > 0 ? (a.totalAvgMs / win.attributedTotal) * 100 : 0}%"
+						></div>
+					</div>
+					<span class="world-perf-phase-ms">
+						${this.formatPerfMs(a.totalAvgMs)} ms
+						${win.attributedTotal > 0
+							? html`<span class="world-perf-agent-pct"> (${Math.round((a.totalAvgMs / win.attributedTotal) * 100)}%)</span>`
+							: nothing}
+					</span>
+				</div>
+			`)}
+		`;
+	}
+
+	private renderWorldPerfAgentBufferedBlock(bu: AgentCanvasAggregateView): ReturnType<typeof html> {
+		const keys = this.orderedCanvasSliceKeys({ ...bu.sliceSumAvgAcrossWindows });
+		const maxAvg = Math.max(...keys.map((k) => bu.sliceSumAvgAcrossWindows[k] ?? 0), 0.001);
+		return html`
+			<div class="world-perf-bus-top-title">Buffered — roster Σ by slice (avg / peak window)</div>
+			${keys.map((k) => {
+				const avg = bu.sliceSumAvgAcrossWindows[k] ?? 0;
+				const mx = bu.sliceSumMaxAcrossWindows[k] ?? 0;
+				return html`
+					<div class="world-perf-phase-row">
+						<span class="world-perf-phase-name" title="${k}">${CANVAS_SLICE_LABELS[k] ?? k}</span>
+						<div class="world-perf-phase-bar-wrap">
+							<div class="world-perf-phase-bar" style="width:${(avg / maxAvg) * 100}%"></div>
+						</div>
+						<span class="world-perf-phase-ms">${this.formatPerfMs(avg)} / ${this.formatPerfMs(mx)}</span>
+					</div>
+				`;
+			})}
+			<div class="world-perf-bus-top-title">Buffered — top agents (mean Σ slices)</div>
+			${bu.topAgentsByMeanTotal.slice(0, 8).map((a) => html`
+				<div class="world-perf-phase-row">
+					<span class="world-perf-phase-name" title="${a.agentName}">${a.agentName}</span>
+					<span class="world-perf-phase-ms" style="width:auto;flex:1;text-align:right">
+						${this.formatPerfMs(a.meanTotalAvgMs)} ms · ${a.windowsSeen}w
+					</span>
+				</div>
+			`)}
+		`;
+	}
+
+	private renderWorldPerfAgentCanvas(
+		sample: EventPayload<"perf.agentWorld.sample">,
+		agg: AgentWorldPerfSummary | null,
+	): ReturnType<typeof html> | typeof nothing {
+		const win = this.computeWindowCanvasRollup(sample);
+		const bu = agg?.agentCanvasAggregate ?? null;
+		if (!win && !bu) return nothing;
+
+		return html`
+			<div class="world-perf-phases-title">Agent canvas (simulation slices)</div>
+			<p class="world-perf-agent-hint">
+				Per-agent time per frame in attributed phases (needs, brain, talk, …). Less than full <strong>Sim</strong>
+				— pets, behavior tree, director, visuals, etc. are not split by agent.
+			</p>
+			${win ? this.renderWorldPerfAgentWindowBlock(win) : nothing}
+			${bu ? this.renderWorldPerfAgentBufferedBlock(bu) : nothing}
+		`;
+	}
+
 	private renderWorldPerfMonitor(): ReturnType<typeof html> {
 		const hasBus = Boolean(this.eventBus);
 		const agg = this.perfMonitorEnabled ? this.readPerfAggregatorSummary() : null;
