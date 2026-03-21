@@ -69,6 +69,7 @@ import { commands as economyCmds } from "./controller/economy.controller.js";
 import { commands as trustCmds } from "./controller/trust.controller.js";
 import { commands as shopCmds } from "./controller/shop.controller.js";
 import { commands as workerCmds } from "./controller/worker.controller.js";
+import { commands as debugCmds } from "./controller/debug.controller.js";
 import { shouldOnboard } from "./domain/onboarding/onboarding-detection.js";
 import { disk, watchFile } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
@@ -137,6 +138,7 @@ registry.registerDomain({ domain: "economy", commands: economyCmds, projectFree:
 registry.registerDomain({ domain: "trust", commands: trustCmds, projectFree: ["trust:show", "trust:promote", "trust:demote", "trust:history"] });
 registry.registerDomain({ domain: "shop", commands: shopCmds, projectFree: ["shop:list", "shop:buy", "shop:catalog:add", "shop:catalog:edit"] });
 registry.registerDomain({ domain: "worker", commands: workerCmds, projectFree: ["worker:status", "worker:queue", "worker:reassign", "worker:pause", "worker:resume"] });
+registry.registerDomain({ domain: "debug", commands: debugCmds, projectFree: ["debug:set", "debug:trust", "debug:needs", "debug:unlock"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 registry.setWildcardPrefix("report:");
 
