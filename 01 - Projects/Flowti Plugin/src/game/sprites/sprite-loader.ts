@@ -93,3 +93,15 @@ export async function preloadSpriteRegistry(
 	}
 	return registry;
 }
+
+/**
+ * Load a single item/object sprite from a given path and return a scaled Sprite.
+ * Used for NA item assets (food bowls, props, etc.).
+ */
+export async function loadItemSprite(basePath: string, itemPath: string, scale: number = 2): Promise<ex.Sprite> {
+	const source = new ex.ImageSource(`${basePath}/${itemPath}`);
+	await source.load();
+	const sprite = source.toSprite();
+	sprite.scale = ex.vec(scale, scale);
+	return sprite;
+}
