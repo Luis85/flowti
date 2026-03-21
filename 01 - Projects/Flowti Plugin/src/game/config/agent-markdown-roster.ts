@@ -6,7 +6,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { AgentAttributes, DashboardAgent } from "../data/types.js";
+import type { AgentType, AgentAttributes, DashboardAgent } from "../data/types.js";
 
 /** Default vault-relative folder for agent `.md` definitions (matches sidepanel). */
 export const DEFAULT_AGENTS_MARKDOWN_DIR = "03 - Resources/Agents";
@@ -142,11 +142,6 @@ function extractString(raw: unknown): string | undefined {
 	return typeof raw === "string" ? raw : undefined;
 }
 
-/** Extract a non-empty string value, returning a fallback for empty/missing. */
-function extractStringWithFallback(raw: unknown, fallback: string): string {
-	return typeof raw === "string" && raw.length > 0 ? raw : fallback;
-}
-
 /** Build the optional spread properties for a DashboardAgent. */
 function buildOptionalFields(fm: Record<string, unknown>): Record<string, unknown> {
 	const result: Record<string, unknown> = {};
@@ -176,7 +171,7 @@ export function dashboardAgentFromFrontmatter(fm: Record<string, unknown>): Dash
 
 	return {
 		name,
-		agentType: extractStringWithFallback(fm.agentType, "ai"),
+		agentType: (fm.agentType === "ai" || fm.agentType === "npc") ? (fm.agentType as AgentType) : "human" as AgentType,
 		domain: extractString(fm.domain),
 		status: parseDashboardStatus(fm.status),
 		persona: extractString(fm.persona),

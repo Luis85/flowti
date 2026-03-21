@@ -381,7 +381,7 @@ export class PanelInfo extends FlowtiElement {
 				${persona ? html`<div class="persona">"${persona}"</div>` : nothing}
 				<div class="tags">
 					${domain ? html`<span class="tag tag-domain" style="background:${domainColor}">${domain}</span>` : nothing}
-					<span class="tag tag-type">${agentType === "ai" ? "AI Agent" : "Human"}</span>
+					<span class="tag tag-type">${agentType === "ai" ? "AI Agent" : agentType === "npc" ? "NPC" : "Human"}</span>
 					${mood ? html`<span class="tag tag-mood">${MOOD_EMOJI[mood] ?? mood}</span>` : nothing}
 					<span class="tag tag-status" data-status="${status}">${status}</span>
 				</div>

@@ -95,6 +95,7 @@ export class BtSystem {
 	/** Register a BT for an agent that has behaviors defined. */
 	register(agent: DashboardAgent, deps: AgentToolDeps): void {
 		if (this.entries.has(agent.name)) return;
+		if (agent.agentType === "npc") return; // NPCs don't get behavior trees
 		if (!agent.behaviors || agent.behaviors.length === 0) return;
 
 		const def = toBTAgentDef(agent);

@@ -231,6 +231,10 @@ export class PanelTasks extends FlowtiElement {
 		return this.agent?.agentType === "ai";
 	}
 
+	private get isNpc(): boolean {
+		return this.agent?.agentType === "npc";
+	}
+
 	private handleAssignClick(task: { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }): void {
 		if (task.input) {
 			this.pendingTaskDef = task;

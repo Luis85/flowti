@@ -21,7 +21,7 @@ export interface Point {
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
-export type TabName = "info" | "talk" | "tasks" | "permissions" | "monitor";
+export type TabName = "info" | "talk" | "tasks" | "permissions" | "monitor" | "debug";
 
 export interface LlmStatus {
 	readonly state: "idle" | "queued" | "thinking" | "error";

@@ -4,7 +4,7 @@
  * no characters despite agents existing only in world entities.
  */
 
-import type { DashboardAgent, WorldState, WorldEntity } from "../data/types.js";
+import type { AgentType, DashboardAgent, WorldState, WorldEntity } from "../data/types.js";
 
 /** Resolve domain from entity components, checking root and identity. */
 function resolveDomain(c: Record<string, unknown>, identity: Record<string, unknown>): string | undefined {
@@ -58,7 +58,8 @@ function mapEntityToDashboardAgent(entity: WorldEntity): DashboardAgent | null {
 
 	const domain = resolveDomain(c, identity);
 	const status = resolveStatus(c["status"]);
-	const agentType = typeof c["agentType"] === "string" ? c["agentType"] : "ai";
+	const rawType = typeof c["agentType"] === "string" ? c["agentType"] : "ai";
+	const agentType: AgentType = (rawType === "ai" || rawType === "npc") ? rawType : "human";
 	const persona = typeof identity["persona"] === "string" ? identity["persona"] : undefined;
 	const mood = typeof identity["mood"] === "string" ? identity["mood"] : undefined;
 	const behaviors = extractStringArray(c["behaviors"]);

@@ -60,9 +60,11 @@ export interface AgentGoal {
 	readonly condition?: string;
 }
 
+export type AgentType = "ai" | "npc" | "human";
+
 export interface DashboardAgent {
 	readonly name: string;
-	readonly agentType: string;
+	readonly agentType: AgentType;
 	readonly domain?: string;
 	readonly status: "busy" | "idle" | "unassigned";
 	readonly persona?: string;
