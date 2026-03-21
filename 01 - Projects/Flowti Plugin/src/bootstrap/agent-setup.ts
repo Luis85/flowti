@@ -1,11 +1,13 @@
 /**
  * Agent domain bootstrap — creates CliExecutor, registers views.
  *
- * Serverless architecture:
- * - No HTTP server, no SSE — agents run as direct CLI child processes
+ * **CLI is data authority** for agents; the plugin reads vault `.flowti` JSON and
+ * displays it in Excalibur (Agent World). See `docs/agent-world-architecture.md`.
+ *
+ * - No HTTP game server — agents run as CLI child processes
  * - CliExecutor spawns `node .flowti/bin/main.mjs agent:start` per agent
- * - Communication via JSONL over stdin/stdout + file-based event logs
- * - Views registered immediately (Obsidian needs factories to restore layout)
+ * - JSONL over stdin/stdout + `.flowti/var/agents/*.events.jsonl`
+ * - Views registered early (Obsidian restores layout from saved leaf types)
  */
 
 import type { IEventBus } from "../infrastructure/events/types.js";

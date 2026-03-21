@@ -1,14 +1,18 @@
 /**
  * engine.ts — ExcaliburJS Agent World engine factory.
  *
+ * **Scope:** everything **on the canvas** (scenes, actors, particles, local
+ * simulation loops) is Excalibur + `src/game/`. **Authoritative agent/world data**
+ * comes from the Flowti CLI via vault JSON and {@link ICliExecutor} — see
+ * `createCliDataProvider` and `docs/agent-world-architecture.md`.
+ *
  * Exports `createAgentWorld()` which builds the full game engine with
  * four scenes (hub, office, village, station), wires sync/brain/bubble/
  * talk/particle/emote/social systems, mounts Lit overlay components,
  * and returns a lifecycle handle (start / pause / resume / dispose).
  *
- * This is the embedded-mode entry point — no bridge detection, no window
- * globals. The caller provides a container element, a DataProvider, and
- * a sprite base path.
+ * Embedded entry point: the caller provides a container, a {@link DataProvider},
+ * and a sprite base path (plugin manifest dir).
  */
 
 import * as ex from "excalibur";

@@ -1,6 +1,10 @@
 /**
- * CLI-backed DataProvider — reads vault files directly and receives agent
- * events from CliExecutor. No server process required.
+ * CLI-backed DataProvider — **Flowti CLI / vault JSON is authoritative** for roster
+ * and world entities. The plugin displays that state inside Excalibur; it does not
+ * run a separate API server for the game.
+ *
+ * Reads vault files directly; agent tasks / Talk use {@link ICliExecutor} (JSONL
+ * subprocesses). No server process required for the Agent World canvas.
  *
  * File paths:
  *   Agent roster:  <vault>/.flowti/agents/data/agent-dashboard.json
@@ -157,25 +161,6 @@ export function createCliDataProvider(
 		onConnectionStatus(cb: (status: ConnectionStatus) => void): () => void {
 			connectionCallbacks.add(cb);
 			return () => { connectionCallbacks.delete(cb); };
-		},
-
-		async sendCommand(endpoint: string, body: Record<string, unknown>): Promise<void> {
-			if (!cliExecutor) return;
-			// Map known endpoints to CLI executor calls
-			if (endpoint === "/api/agent/run" || endpoint === "/api/agent/task") {
-				const agentName = typeof body.agent === "string" ? body.agent : "";
-				const task = typeof body.task === "string" ? body.task : "";
-				if (agentName && task) {
-					await cliExecutor.assignTask(agentName, task);
-				}
-			} else if (endpoint === "/api/agent/permission") {
-				const agentName = typeof body.agent === "string" ? body.agent : "";
-				const tool = typeof body.tool === "string" ? body.tool : "";
-				const decision = typeof body.decision === "string" ? body.decision : "deny";
-				if (agentName && tool) {
-					await cliExecutor.grantPermission(agentName, tool, decision);
-				}
-			}
 		},
 
 		get assetBasePath(): string {

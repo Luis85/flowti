@@ -146,7 +146,7 @@ export interface EngineContext {
 	readonly petReactionCooldowns: Map<string, number>;
 	/** Known entity IDs to distinguish initial adds from updates. */
 	readonly knownEntities: Set<string>;
-	/** Dedup guard for SSE/EventBus action relay. */
+	/** Dedup guard for EventBus / external action relay. */
 	readonly recentActionIds: Set<string>;
 
 	/** Optional perf sampler for `perf.agentWorld.*` events (null when disabled). */

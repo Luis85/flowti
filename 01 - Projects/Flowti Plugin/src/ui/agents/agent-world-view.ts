@@ -1,5 +1,9 @@
 /**
- * Obsidian ItemView shell for the embedded Agent World (ExcaliburJS game).
+ * Obsidian ItemView shell for the embedded Agent World (ExcaliburJS).
+ *
+ * **Data:** Roster and world entities come from vault `.flowti` JSON via
+ * {@link createCliDataProvider}; agents run through the bundled Flowti CLI
+ * (`CliExecutor`), not an internal game server. See `docs/agent-world-architecture.md`.
  *
  * Lifecycle:
  *  1. onOpen  — creates engine via createAgentWorld(), starts game

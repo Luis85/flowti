@@ -14,6 +14,10 @@ Agent World is an **idle game meets team dashboard meets agent observatory** emb
 
 **The feel:** You open your vault and see your team of agents moving between rooms, chatting at the water cooler, grabbing coffee, working at their stations. A notification pops up: "Auditor finished tagging 12 inbox notes — earned 50 XP." You check the Merchant stall and buy Auditor a vault-write upgrade. Later, you notice the cat stole the dog's food bowl. You smile and get back to your own work.
 
+### Technical architecture (plugin + CLI)
+
+The **Flowti CLI** is **data authority** for roster and world entities (JSON under `.flowti/`). The **Obsidian plugin** reads those files and runs agent work via the bundled CLI (`node .flowti/bin/main.mjs`), not an internal HTTP server for the game. **ExcaliburJS** owns everything drawn and simulated on the canvas. See **`docs/agent-world-architecture.md`** for the canonical diagram and file map.
+
 ---
 
 ## Core Principles

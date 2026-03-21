@@ -205,7 +205,7 @@ export class BrainSystem {
 		return { state: entry.state, params: entry.params, target: entry.target };
 	}
 
-	/** Apply an external brain event (from SSE or sync). */
+	/** Apply an external brain event (e.g. world sync or EventBus relay). */
 	applyEvent(name: string, eventType: string): void {
 		const entry = this.entries.get(name);
 		if (!entry) return;

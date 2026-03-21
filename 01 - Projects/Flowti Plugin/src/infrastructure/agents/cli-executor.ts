@@ -1,12 +1,11 @@
 /**
- * CLI-based agent executor — spawns and manages CLI agent processes.
+ * CLI-based agent executor — spawns and manages Flowti CLI agent processes.
  *
- * Replaces HttpAgentService + server-launcher + api-client with direct
- * process management. Each agent runs as a `node .flowti/bin/main.mjs agent:start`
- * child process with JSONL communication over stdin/stdout.
+ * Each agent runs as `node .flowti/bin/main.mjs agent:start` with JSONL over
+ * stdin/stdout. Tasks and permissions use one-shot CLI invocations.
  *
- * PID files live at `.flowti/var/agents/<slug>.pid`.
- * Event logs live at `.flowti/var/agents/<slug>.events.jsonl`.
+ * PID files: `.flowti/var/agents/<slug>.pid`
+ * Event logs: `.flowti/var/agents/<slug>.events.jsonl`
  */
 
 import { spawn } from "node:child_process";

@@ -1,15 +1,17 @@
 /**
- * DataProvider — pluggable data-sourcing interface for the Agent World game.
+ * DataProvider — pluggable data-sourcing interface for the Agent World (Excalibur).
  *
- * Implementations of this interface decouple the game from any specific
- * transport layer. The default implementation (`ServerProvider`) connects
- * to the Flowti CLI dev-server via SSE and REST. The `BridgeProvider`
- * implementation bridges an Obsidian plugin's in-memory EventBus, enabling
- * the game to be embedded directly inside the plugin without a network hop.
+ * **Production (Flowti Obsidian plugin):** use {@link createCliDataProvider} in
+ * `cli-data-provider.ts`. The **Flowti CLI is data authority**: roster and world
+ * snapshots live under `<vault>/.flowti/` as JSON; the plugin reads the vault via
+ * `fs` and watches `world-state.json`. Agent tasks and chat go through
+ * {@link ICliExecutor} (child `node .flowti/bin/main.mjs …` + JSONL) — **no**
+ * in-game HTTP server or SSE requirement.
  *
- * The game's boot sequence calls `start()`, subscribes to updates via the
- * `on*` methods, and calls `stop()` on teardown. All `on*` methods return
- * an unsubscribe function.
+ * Other implementations may exist for tests or tooling; they must honor the same
+ * contract: `start()` → subscribe via `on*` → `stop()`. Each `on*` returns unsubscribe.
+ *
+ * @see docs/agent-world-architecture.md
  */
 
 import type { AgentAction, DashboardAgent, WorldState, WorldEntity, ConnectionStatus } from "../data/types.js";
@@ -22,13 +24,13 @@ export interface DataProvider {
 	getDashboardAgents(): Promise<DashboardAgent[]>;
 
 	/**
-	 * Subscribe to agent action events (SSE agent-action or equivalent).
+	 * Subscribe to agent action events (e.g. from CLI-written world state or in-proc bridges).
 	 * Returns an unsubscribe function.
 	 */
 	onAction(cb: (action: AgentAction) => void): () => void;
 
 	/**
-	 * Subscribe to entity update events (SSE world-state or equivalent).
+	 * Subscribe to entity updates (e.g. watched `world-state.json` or equivalent).
 	 * Returns an unsubscribe function.
 	 */
 	onEntityUpdate(cb: (entity: WorldEntity) => void): () => void;
@@ -38,13 +40,6 @@ export interface DataProvider {
 	 * Returns an unsubscribe function.
 	 */
 	onConnectionStatus(cb: (status: ConnectionStatus) => void): () => void;
-
-	/**
-	 * Send a command to an agent or the runtime.
-	 * @param endpoint - The relative endpoint path (e.g. "/api/agent/run").
-	 * @param body - The JSON-serialisable request payload.
-	 */
-	sendCommand(endpoint: string, body: Record<string, unknown>): Promise<void>;
 
 	/** Base URL (or empty string) used to resolve sprite asset paths. */
 	readonly assetBasePath: string;
