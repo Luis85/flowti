@@ -49,8 +49,8 @@ describe("engine-config", () => {
 	});
 
 	describe("object positions", () => {
-		it("has 11 environmental objects", () => {
-			expect(Object.keys(OBJECT_POSITIONS)).toHaveLength(11);
+		it("has 12 environmental objects", () => {
+			expect(Object.keys(OBJECT_POSITIONS)).toHaveLength(12);
 		});
 
 		it("all positions have x and y as numbers", () => {
