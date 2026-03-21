@@ -108,15 +108,15 @@ Needs create rhythm and create situations. A hungry agent at the coffee machine.
 
 | System | Status | Description |
 |--------|--------|-------------|
-| **Hunger & Thirst** | Planned | Energy sub-drivers, food/drink stations, pet bowls, BT integration |
-| **Task Engine** | Planned | Task CRUD, lifecycle (7 states), standing orders, journey tasks |
-| **Economy** | Planned | XP/Coin/Tokens, ledger, leveling (8 tiers), reward rules |
-| **Progressive Trust** | Planned | Per-operation trust tiers (manual/review/auto), auto-promotion |
+| **Hunger & Thirst** | Stable | Energy sub-drivers, food/drink stations (coffee machine, snack table, water cooler, pet bowls), steal/share mechanic, eating/drinking bubbles, quirk-modulated thresholds |
+| **Visual Progression** | Stable | Level glow/aura tint in agent-actor, economy particles (firework on level-up, sparkle on trust-promoted), trust bubble, pet affection tint + bond heart indicator |
+| **Task Engine** | In Progress | Task lifecycle events (assigned/completed/standing-order), taskLocked flag, standing-order loop icon — task CRUD and 7-state lifecycle pending |
+| **Economy** | In Progress | XP/Coin events wired (task-completed, level-up), floating reward bubble — ledger, leveling tiers, full reward rules pending |
+| **Progressive Trust** | In Progress | trust-promoted event fires bubble + sparkle particle — per-operation tiers and auto-promotion logic pending |
 | **Merchant NPC** | Planned | Catalog-driven shop, capability purchases, NPC agent type |
 | **Vault Operations** | Planned | 7 operation types, staging area, scoped awareness |
 | **Task Routing** | Planned | WorkerManager extension, capacity, attribute scoring, auto-dequeue |
 | **Process Pool** | Planned | maxConcurrent limit, queued state, timeout reaping |
-| **Visual Progression** | Planned | Level glow/aura, economy particles, trust indicators |
 | **Debug Panel** | Planned | Admin controls for agents, NPCs, pets |
 | **Pet Utility Roles** | Planned | Scout (cat), Fetch (dog), Audit (owl), Echo (parrot), Triage (fox) |
 
