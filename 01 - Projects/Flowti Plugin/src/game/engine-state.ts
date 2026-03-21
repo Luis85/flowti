@@ -35,6 +35,8 @@ export interface SavedPosition {
 	y: number;
 	scene: string;
 	state: string;
+	hunger?: number;
+	thirst?: number;
 }
 
 // ── Phase 1 restore result ───────────────────────────────────────────
@@ -145,6 +147,8 @@ function collectPositions(ctx: StateSystems): Record<string, SavedPosition> {
 			y: Math.round(pet.pos.y),
 			scene: ctx.registry.getEntityRoom(pet.entityId) ?? "hub",
 			state: pet.getState(),
+			hunger: Math.round(pet.getHunger()),
+			thirst: Math.round(pet.getThirst()),
 		};
 	}
 	return positions;

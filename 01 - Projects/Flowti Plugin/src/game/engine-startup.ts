@@ -6,6 +6,7 @@
  */
 
 import type { DashboardAgent } from "./data/types.js";
+import type { SavedPosition } from "./engine-state.js";
 import type { BrainSystem } from "./systems/brain-system.js";
 import type { BubbleSystem } from "./systems/bubble-system.js";
 import type { TalkEngine } from "./systems/talk/talk-engine.js";
@@ -124,7 +125,7 @@ export function registerAgents(agents: readonly DashboardAgent[], hubScene: Game
 /** Route agents to their target rooms, restoring saved positions if available. */
 export function routeAgentsToRooms(
 	agents: readonly DashboardAgent[],
-	savedPositions: Record<string, { x: number; y: number; scene: string }> | null,
+	savedPositions: Record<string, SavedPosition> | null,
 	ctx: PlacementContext,
 ): void {
 	for (const agent of agents) {
@@ -138,7 +139,7 @@ export function routeAgentsToRooms(
 function placeAgentInRoom(
 	agent: DashboardAgent,
 	targetRoom: string,
-	saved: { x: number; y: number } | undefined,
+	saved: SavedPosition | undefined,
 	ctx: PlacementContext,
 ): void {
 	if (targetRoom === "hub") {
@@ -162,7 +163,7 @@ function placeAgentInRoom(
 
 /** Restore or default-place pet creatures into scenes. */
 export function placePets(
-	savedPositions: Record<string, { x: number; y: number; scene: string }> | null,
+	savedPositions: Record<string, SavedPosition> | null,
 	ctx: PlacementContext,
 ): void {
 	for (const pet of ctx.pets) {
@@ -177,6 +178,8 @@ export function placePets(
 			pet.pos.y = saved.y;
 			pet.resetHome();
 			(petEntity as PetSceneEntity).syncVisual();
+			if (typeof saved.hunger === "number") pet.setHunger(saved.hunger);
+			if (typeof saved.thirst === "number") pet.setThirst(saved.thirst);
 		}
 		ctx.registry.setEntityRoom(pet.entityId, targetRoom);
 	}

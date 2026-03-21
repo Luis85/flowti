@@ -61,6 +61,8 @@ function createMockSystems(): StateSystems {
 				entityId: "cat-hub",
 				pos: { x: 150.5, y: 250.8 },
 				getState: vi.fn(() => "idle"),
+				getHunger: vi.fn(() => 65),
+				getThirst: vi.fn(() => 72),
 			},
 		],
 	} as unknown as StateSystems;
@@ -231,7 +233,7 @@ describe("flushWorldState", () => {
 
 		expect(posData.positions.alice).toEqual({ x: 101, y: 200, scene: "office", state: "idle" });
 		expect(posData.positions.bob).toEqual({ x: 300, y: 401, scene: "hub", state: "working" });
-		expect(posData.positions["cat-hub"]).toEqual({ x: 151, y: 251, scene: "hub", state: "idle" });
+		expect(posData.positions["cat-hub"]).toEqual({ x: 151, y: 251, scene: "hub", state: "idle", hunger: 65, thirst: 72 });
 		expect(posData.updatedAt).toBeDefined();
 	});
 
