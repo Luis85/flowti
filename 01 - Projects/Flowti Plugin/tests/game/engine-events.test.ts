@@ -226,7 +226,7 @@ describe("engine-events", () => {
 			);
 			expect(standupCall).toBeDefined();
 			// Execute the handler
-			standupCall[1]();
+			standupCall![1]();
 			expect(ctx.store.pushWorldEvent).toHaveBeenCalledWith("standup", "Morning Standup");
 			expect(ctx.brain.applyEvent).toHaveBeenCalledWith("alice", "speaking");
 		});
