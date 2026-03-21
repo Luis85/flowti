@@ -125,6 +125,7 @@ export interface EngineContext {
 	readonly couch: InteractableActor;
 	readonly plant: InteractableActor;
 	readonly noticeBoard: InteractableActor;
+	readonly merchantStall: InteractableActor;
 	readonly foodBowlHub: InteractableActor;
 	readonly foodBowlVillage: InteractableActor;
 	readonly waterBowlOffice: InteractableActor;

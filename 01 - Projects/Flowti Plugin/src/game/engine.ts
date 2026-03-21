@@ -218,7 +218,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Environmental objects ────────────────────────────
 	const envObjects = createEnvironmentalObjects();
 	registerEnvironmentalObjects(envObjects, registry);
-	const { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation } = envObjects;
+	const { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, merchantStall, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation } = envObjects;
 
 	// ── Office pets ──────────────────────────────────────
 	const pets = createPets();
@@ -307,7 +307,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		scene.add(createParticleRenderer(particlePool, ENGINE_WIDTH, ENGINE_HEIGHT));
 	}
 	officeScene.add(coffeeMachine); officeScene.add(whiteboard); villageScene.add(snackTable); villageScene.add(waterCooler);
-	stationScene.add(couch); hubScene.add(plant); hubScene.add(noticeBoard);
+	stationScene.add(couch); hubScene.add(plant); hubScene.add(noticeBoard); hubScene.add(merchantStall);
 	hubScene.add(foodBowlHub); villageScene.add(foodBowlVillage); officeScene.add(waterBowlOffice); stationScene.add(waterBowlStation);
 
 	// ── SceneEntity registry + unified room switcher ──
@@ -409,6 +409,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		couch,
 		plant,
 		noticeBoard,
+		merchantStall,
 		foodBowlHub,
 		foodBowlVillage,
 		waterBowlOffice,

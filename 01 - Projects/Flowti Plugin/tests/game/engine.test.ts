@@ -120,6 +120,7 @@ vi.mock("../../src/game/engine-config.js", () => ({
 		couch: { x: 600, y: 300 },
 		plant: { x: 100, y: 200 },
 		noticeBoard: { x: 700, y: 150 },
+		merchantStall: { x: 300, y: 60 },
 		foodBowlHub: { x: 200, y: 380 },
 		foodBowlVillage: { x: 250, y: 350 },
 		waterBowlOffice: { x: 580, y: 120 },
