@@ -271,4 +271,89 @@ describe("BrainSystem", () => {
 			expect(system.getAllEntries().get("Alice")?.taskLocked).toBe(false);
 		});
 	});
+
+	describe("isTaskLocked()", () => {
+		it("returns false for a freshly registered agent", () => {
+			system.register("Alice", makeAttributes());
+			expect(system.isTaskLocked("Alice")).toBe(false);
+		});
+
+		it("returns true after assignWork", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			expect(system.isTaskLocked("Alice")).toBe(true);
+		});
+
+		it("returns false after releaseWork", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice");
+			system.releaseWork("Alice");
+			expect(system.isTaskLocked("Alice")).toBe(false);
+		});
+
+		it("returns false for an unknown agent", () => {
+			expect(system.isTaskLocked("nobody")).toBe(false);
+		});
+	});
+
+	describe("setState()", () => {
+		it("sets state for an unlocked agent", () => {
+			system.register("Alice", makeAttributes());
+			system.setState("Alice", "wandering");
+			expect(system.getState("Alice")?.state).toBe("wandering");
+		});
+
+		it("resets stateTimer to 0 on transition", () => {
+			system.register("Alice", makeAttributes());
+			system.setState("Alice", "wandering");
+			const entry = system.getAllEntries().get("Alice");
+			expect(entry?.stateTimer).toBe(0);
+		});
+
+		it("does nothing for an unknown agent (no throw)", () => {
+			expect(() => system.setState("nobody", "working")).not.toThrow();
+		});
+
+		it("blocks arbitrary transitions while taskLocked", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice"); // taskLocked=true, state=walking-to
+			system.setState("Alice", "idle");
+			// Should remain walking-to because locked
+			expect(system.getState("Alice")?.state).toBe("walking-to");
+		});
+
+		it("blocks wandering transition while taskLocked", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice"); // taskLocked=true, state=walking-to
+			system.setState("Alice", "wandering");
+			expect(system.getState("Alice")?.state).toBe("walking-to");
+		});
+
+		it("allows walking-to → working transition while taskLocked", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice"); // taskLocked=true, state=walking-to
+			system.setState("Alice", "working");
+			expect(system.getState("Alice")?.state).toBe("working");
+		});
+
+		it("blocks working → idle transition while taskLocked", () => {
+			system.register("Alice", makeAttributes());
+			system.assignWork("Alice"); // taskLocked=true, state=walking-to
+			// First advance to working (the allowed transition)
+			system.setState("Alice", "working");
+			expect(system.getState("Alice")?.state).toBe("working");
+			// Now try to go idle — blocked
+			system.setState("Alice", "idle");
+			expect(system.getState("Alice")?.state).toBe("working");
+		});
+
+		it("calls onWorkstationChange vacate when leaving working while unlocked", () => {
+			const onWorkstationChange = vi.fn();
+			const sys = new BrainSystem({ bounds: BOUNDS, onWorkstationChange });
+			sys.register("Alice", makeAttributes());
+			sys.applyEvent("Alice", "thinking"); // → working
+			sys.setState("Alice", "idle");
+			expect(onWorkstationChange).toHaveBeenCalledWith("Alice", "vacate", expect.anything());
+		});
+	});
 });

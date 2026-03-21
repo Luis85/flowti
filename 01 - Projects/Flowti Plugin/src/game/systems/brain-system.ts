@@ -205,6 +205,32 @@ export class BrainSystem {
 		return { state: entry.state, params: entry.params, target: entry.target };
 	}
 
+	/**
+	 * Externally set an agent's brain state.
+	 * While taskLocked, only the walking-to → working transition is permitted;
+	 * all other external state changes are blocked.
+	 */
+	setState(name: string, state: BrainState): void {
+		const entry = this.entries.get(name);
+		if (!entry) return;
+		if (entry.taskLocked) {
+			// Only allow the arrival transition: walking-to → working
+			if (!(entry.state === "walking-to" && state === "working")) return;
+		}
+		if (entry.state === "working" && state !== "working") {
+			this.config.onWorkstationChange?.(name, "vacate", entry.position);
+		}
+		entry.state = state;
+		entry.stateTimer = 0;
+	}
+
+	/**
+	 * Return true if the agent is currently task-locked (externally driven).
+	 */
+	isTaskLocked(name: string): boolean {
+		return this.entries.get(name)?.taskLocked ?? false;
+	}
+
 	/** Apply an external brain event (from SSE or sync). */
 	applyEvent(name: string, eventType: string): void {
 		const entry = this.entries.get(name);
