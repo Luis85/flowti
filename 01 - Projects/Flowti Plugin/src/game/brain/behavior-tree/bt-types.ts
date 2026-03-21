@@ -79,10 +79,12 @@ export interface AgentNeeds {
 	social: number;
 	focus: number;
 	morale: number;
+	hunger: number;
+	thirst: number;
 }
 
 export function createDefaultNeeds(): AgentNeeds {
-	return { energy: 80, social: 60, focus: 70, morale: 75 };
+	return { energy: 80, social: 60, focus: 70, morale: 75, hunger: 80, thirst: 80 };
 }
 
 // ── Sensor Events (Phase 2 — liveness-systems prerequisite) ──────────

@@ -17,6 +17,8 @@ export interface AgentNeeds {
 	readonly social: number;
 	readonly focus: number;
 	readonly morale: number;
+	readonly hunger: number;
+	readonly thirst: number;
 }
 
 export interface ThresholdAction {
@@ -37,6 +39,8 @@ interface NeedsEntry {
 	social: number;
 	focus: number;
 	morale: number;
+	hunger: number;
+	thirst: number;
 	attributes: AgentAttributes;
 }
 

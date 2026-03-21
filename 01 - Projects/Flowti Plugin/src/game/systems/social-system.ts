@@ -34,6 +34,8 @@ interface AgentNeeds {
 	readonly social: number;
 	readonly focus: number;
 	readonly morale: number;
+	readonly hunger: number;
+	readonly thirst: number;
 }
 
 // ── Graph helpers ────────────────────────────────────────────────────
