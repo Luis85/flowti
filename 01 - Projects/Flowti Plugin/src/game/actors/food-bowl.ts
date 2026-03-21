@@ -7,9 +7,9 @@ import * as ex from "excalibur";
 import { InteractableActor } from "./interactable-actor.js";
 
 export class FoodBowl extends InteractableActor {
-	constructor() {
+	constructor(objectId = "food-bowl") {
 		super({
-			objectId: "food-bowl",
+			objectId,
 			objectType: "food",
 			width: 32,
 			height: 32,

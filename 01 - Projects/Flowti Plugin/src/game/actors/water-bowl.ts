@@ -7,9 +7,9 @@ import * as ex from "excalibur";
 import { InteractableActor } from "./interactable-actor.js";
 
 export class WaterBowl extends InteractableActor {
-	constructor() {
+	constructor(objectId = "water-bowl") {
 		super({
-			objectId: "water-bowl",
+			objectId,
 			objectType: "drink",
 			width: 32,
 			height: 32,

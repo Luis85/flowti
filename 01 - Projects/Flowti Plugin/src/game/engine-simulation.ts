@@ -135,6 +135,10 @@ export function tickBehaviorThresholds(ctx: EngineContext): void {
 		snackTable: ctx.snackTable,
 		waterCooler: ctx.waterCooler,
 		couch: ctx.couch,
+		foodBowlHub: ctx.foodBowlHub,
+		foodBowlVillage: ctx.foodBowlVillage,
+		waterBowlOffice: ctx.waterBowlOffice,
+		waterBowlStation: ctx.waterBowlStation,
 	};
 	const currentPhase = ctx.dayClock.getPhase();
 	for (const agentName of ctx.needs.getAgentNames()) {
