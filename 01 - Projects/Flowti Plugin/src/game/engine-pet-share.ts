@@ -11,10 +11,19 @@ import {
 	PET_SHARE_COOLDOWN, PET_SHARE_EFFECT_RATIO, PET_SHARE_SOCIAL_BONUS,
 } from "./engine-config.js";
 
-/** Pet share — when a pet is near an occupied food/drink station, both benefit. */
-export function checkPetShareInteraction(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
-	if (pet.getState() === "sleeping" || !petRoom) return;
+type PetActor = import("./actors/pet-actor.js").PetActor;
 
+function applyPetEffects(pet: PetActor, obj: InteractableActor): void {
+	const effects = obj.getNeedsEffects();
+	const scaledHunger = (effects.hunger ?? 0) * PET_SHARE_EFFECT_RATIO;
+	const scaledThirst = (effects.thirst ?? 0) * PET_SHARE_EFFECT_RATIO;
+	const scaledEnergy = (effects.energy ?? 0) * PET_SHARE_EFFECT_RATIO;
+	if (scaledHunger !== 0) pet.setHunger(pet.getHunger() + scaledHunger);
+	if (scaledThirst !== 0) pet.setThirst(pet.getThirst() + scaledThirst);
+	if (scaledEnergy !== 0) pet.setHunger(pet.getHunger() + scaledEnergy);
+}
+
+function findShareTarget(ctx: EngineContext, pet: PetActor, petRoom: string): { obj: InteractableActor; occupant: string } | null {
 	const allObjects: InteractableActor[] = [
 		ctx.coffeeMachine, ctx.snackTable, ctx.waterCooler,
 		ctx.foodBowlHub, ctx.foodBowlVillage,
@@ -23,37 +32,32 @@ export function checkPetShareInteraction(ctx: EngineContext, pet: import("./acto
 	for (const obj of allObjects) {
 		if (!FOOD_DRINK_OBJECT_TYPES.has(obj.objectType)) continue;
 		const occupant = obj.getOccupant();
-		if (!occupant) continue;
-		if (ctx.registry.getEntityRoom(occupant) !== petRoom) continue;
+		if (!occupant || ctx.registry.getEntityRoom(occupant) !== petRoom) continue;
 		const point = obj.getInteractionPoint();
 		const dx = pet.pos.x - point.x;
 		const dy = pet.pos.y - point.y;
-		const dist = Math.sqrt(dx * dx + dy * dy);
-		if (dist >= pet.getInteractRadius()) continue;
+		if (Math.sqrt(dx * dx + dy * dy) >= pet.getInteractRadius()) continue;
 		const cooldownKey = `share:${occupant}:${pet.entityId}`;
-		const lastShare = ctx.petShareCooldowns.get(cooldownKey) ?? 0;
-		if (performance.now() - lastShare <= PET_SHARE_COOLDOWN) continue;
+		if (performance.now() - (ctx.petShareCooldowns.get(cooldownKey) ?? 0) <= PET_SHARE_COOLDOWN) continue;
+		return { obj, occupant };
+	}
+	return null;
+}
 
-		ctx.petShareCooldowns.set(cooldownKey, performance.now());
+/** Pet share — when a pet is near an occupied food/drink station, both benefit. */
+export function checkPetShareInteraction(ctx: EngineContext, pet: PetActor, petRoom: string | undefined): void {
+	if (pet.getState() === "sleeping" || !petRoom) return;
+	const target = findShareTarget(ctx, pet, petRoom);
+	if (!target) return;
 
-		// Pet gets 50% of the station's effects via direct setters (pets are not registered with NeedsSystem)
-		const effects = obj.getNeedsEffects();
-		const scaledHunger = (effects.hunger ?? 0) * PET_SHARE_EFFECT_RATIO;
-		const scaledThirst = (effects.thirst ?? 0) * PET_SHARE_EFFECT_RATIO;
-		const scaledEnergy = (effects.energy ?? 0) * PET_SHARE_EFFECT_RATIO;
-		if (scaledHunger !== 0) pet.setHunger(pet.getHunger() + scaledHunger);
-		if (scaledThirst !== 0) pet.setThirst(pet.getThirst() + scaledThirst);
-		// Food items restore hunger; energy boost maps to hunger as well
-		if (scaledEnergy !== 0) pet.setHunger(pet.getHunger() + scaledEnergy);
+	const { obj, occupant } = target;
+	ctx.petShareCooldowns.set(`share:${occupant}:${pet.entityId}`, performance.now());
 
-		// Agent gets social bonus
-		ctx.needs.applyEffect(occupant, { social: PET_SHARE_SOCIAL_BONUS });
+	applyPetEffects(pet, obj);
+	ctx.needs.applyEffect(occupant, { social: PET_SHARE_SOCIAL_BONUS });
 
-		// Heart particles between agent and pet
-		const agentPos = ctx.brain.getPosition(occupant);
-		if (agentPos) {
-			ctx.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
-		}
-		break; // one share interaction per pet per frame
+	const agentPos = ctx.brain.getPosition(occupant);
+	if (agentPos) {
+		ctx.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
 	}
 }
