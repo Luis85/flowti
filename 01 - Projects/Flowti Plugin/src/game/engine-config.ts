@@ -313,6 +313,17 @@ export const PET_SHARE_SOCIAL_BONUS = 3;
 /** Object types that are food or drink stations (eligible for pet sharing). */
 export const FOOD_DRINK_OBJECT_TYPES = new Set(["food", "drink", "appliance"]);
 
+/** Frustrated bubble phrases shown when a pet steals an agent's station. */
+export const PET_STEAL_PHRASES = [
+	"Hey! That's my spot!",
+	"Seriously?! The pet got there first?",
+	"I was going there...",
+	"Guess I'll wait... again.",
+];
+
+/** Bonding threshold — seconds a pet must spend near an agent to bond (s). */
+export const PET_BONDING_THRESHOLD_S = 60;
+
 /** BrainSystem bounds configuration. */
 export const BRAIN_BOUNDS = {
 	minX: 80,

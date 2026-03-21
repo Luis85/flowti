@@ -1,5 +1,5 @@
 import type { AgentTrustProfile, TrustLevel, TrustConfig, VaultOperation, PromotionLogEntry } from "./trust-types.js";
-import { DEFAULT_OPERATION_TRUST } from "./trust-types.js";
+import { DEFAULT_OPERATION_TRUST, DEFAULT_TRUST_CONFIG } from "./trust-types.js";
 
 const TRUST_PATH_PREFIX = ".flowti/var/trust-";
 
@@ -89,9 +89,21 @@ export function demote(
 export function recordSuccess(
 	profile: AgentTrustProfile,
 	operation: VaultOperation,
-	currentCount: number,
+	agentLevel: number,
+	config: TrustConfig = DEFAULT_TRUST_CONFIG,
 ): { profile: AgentTrustProfile; promoted: boolean } {
-	return { profile, promoted: false };
+	const counts = profile.successCounts ?? {};
+	const count = (counts[operation] ?? 0) + 1;
+	const updatedCounts = { ...counts, [operation]: count };
+	let updatedProfile: AgentTrustProfile = { ...profile, successCounts: updatedCounts };
+
+	const shouldPromote = checkAutoPromotion(updatedProfile, operation, agentLevel, config, count);
+	if (shouldPromote && updatedProfile.operations[operation] === "review") {
+		updatedProfile = promote(updatedProfile, operation, "auto", `Auto-promoted after ${count} successes`);
+		return { profile: updatedProfile, promoted: true };
+	}
+
+	return { profile: updatedProfile, promoted: false };
 }
 
 export function checkAutoPromotion(
@@ -123,6 +135,7 @@ function buildDefaultProfile(): AgentTrustProfile {
 		tier: "supervised",
 		operations: { ...DEFAULT_OPERATION_TRUST },
 		promotionLog: [],
+		successCounts: {},
 	};
 	return { ...profile, tier: deriveTier(profile) };
 }

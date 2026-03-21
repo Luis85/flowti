@@ -33,6 +33,7 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	private thirst = 70;
 	private affection = 50;
 	private utilityScore = 0;
+	private bondedAgent: string | null = null; private readonly proximityTracker: Map<string, number> = new Map();
 
 	constructor(def: PetDefinition, x: number, y: number, entityId: string) {
 		super({
@@ -266,6 +267,14 @@ export class PetActor extends ex.Actor implements SceneEntity {
 
 	getUtilityScore(): number { return this.utilityScore; }
 	incrementUtilityScore(): void { this.utilityScore++; }
+	getBondedAgent(): string | null { return this.bondedAgent; }
+
+	trackProximity(agentName: string, deltaMs: number): void {
+		this.proximityTracker.set(agentName, (this.proximityTracker.get(agentName) ?? 0) + deltaMs / 1000);
+		let maxTime = 60; let maxAgent: string | null = null;
+		for (const [n, t] of this.proximityTracker) { if (t > maxTime) { maxTime = t; maxAgent = n; } }
+		if (maxAgent && maxAgent !== this.bondedAgent) this.bondedAgent = maxAgent;
+	}
 
 	/** Called by the engine each frame with deltaMs. */
 	updateBehavior(deltaMs: number): void {
@@ -304,8 +313,7 @@ export class PetActor extends ex.Actor implements SceneEntity {
 
 	private tickIdle(deltaMs: number): void {
 		if (Math.random() < this.def.behaviors.sleepChance * (deltaMs / 1000)) {
-			this.state = "sleeping";
-			this.stateTimer = 5000 + Math.random() * 10000;
+			this.state = "sleeping"; this.stateTimer = 5000 + Math.random() * 10000;
 			return;
 		}
 		if (this.stateTimer <= 0) {
@@ -326,8 +334,7 @@ export class PetActor extends ex.Actor implements SceneEntity {
 			const dy = this.targetPos.y - this.pos.y;
 			const dist = Math.sqrt(dx * dx + dy * dy);
 			if (dist < 5) {
-				this.state = "idle";
-				this.stateTimer = 2000 + Math.random() * 5000;
+				this.state = "idle"; this.stateTimer = 2000 + Math.random() * 5000;
 				this.targetPos = null;
 			} else {
 				const speed = 30 * this.def.speed * (deltaMs / 1000);

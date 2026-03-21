@@ -202,15 +202,39 @@ describe("trust-manager", () => {
 	});
 
 	describe("recordSuccess", () => {
-		it("returns the profile unchanged (no config supplied)", () => {
-			const result = recordSuccess(SUPERVISED_PROFILE, "vault-tag", 19);
-			expect(result.profile).toBe(SUPERVISED_PROFILE);
+		it("increments success count for the operation", () => {
+			const result = recordSuccess(SUPERVISED_PROFILE, "vault-tag", 1);
+			expect(result.profile.successCounts?.["vault-tag"]).toBe(1);
 			expect(result.promoted).toBe(false);
 		});
 
-		it("reports promoted:false below threshold", () => {
+		it("does not promote below threshold", () => {
 			const result = recordSuccess(SUPERVISED_PROFILE, "vault-tag", 5);
 			expect(result.promoted).toBe(false);
+			expect(result.profile.successCounts?.["vault-tag"]).toBe(1);
+		});
+
+		it("auto-promotes when threshold met and level sufficient", () => {
+			let profile = SUPERVISED_PROFILE;
+			for (let i = 0; i < 20; i++) {
+				const r = recordSuccess(profile, "vault-tag", 2);
+				profile = r.profile;
+				if (r.promoted) {
+					expect(i).toBe(19);
+					expect(profile.operations["vault-tag"]).toBe("auto");
+					return;
+				}
+			}
+			expect.unreachable("should have promoted after 20 successes");
+		});
+
+		it("does not promote when level is below minimum", () => {
+			let profile = SUPERVISED_PROFILE;
+			for (let i = 0; i < 25; i++) {
+				const r = recordSuccess(profile, "vault-tag", 1);
+				profile = r.profile;
+				expect(r.promoted).toBe(false);
+			}
 		});
 	});
 

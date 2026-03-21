@@ -16,6 +16,7 @@ export interface AgentTrustProfile {
 	readonly tier: "supervised" | "trusted" | "autonomous";
 	readonly operations: Record<VaultOperation, TrustLevel>;
 	readonly promotionLog: readonly PromotionLogEntry[];
+	readonly successCounts: Partial<Record<VaultOperation, number>>;
 }
 
 export interface TrustThreshold {

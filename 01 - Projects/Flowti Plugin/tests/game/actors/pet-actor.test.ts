@@ -128,4 +128,39 @@ describe("PetActor", () => {
 		pet.incrementUtilityScore();
 		expect(pet.getUtilityScore()).toBe(2);
 	});
+
+	describe("bonding", () => {
+		it("getBondedAgent returns null initially", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			expect(pet.getBondedAgent()).toBeNull();
+		});
+
+		it("trackProximity accumulates time for an agent", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			pet.trackProximity("Atlas", 30_000); // 30s
+			// Not bonded yet — threshold is 60s
+			expect(pet.getBondedAgent()).toBeNull();
+		});
+
+		it("bondedAgent is set after exceeding 60s threshold", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			pet.trackProximity("Atlas", 70_000); // 70s
+			expect(pet.getBondedAgent()).toBe("Atlas");
+		});
+
+		it("bonds with agent who has most accumulated time", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			pet.trackProximity("Bex", 40_000); // 40s — below threshold
+			pet.trackProximity("Atlas", 80_000); // 80s — bonds Atlas
+			expect(pet.getBondedAgent()).toBe("Atlas");
+		});
+
+		it("re-bonds to agent with higher accumulated time when they surpass threshold", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			pet.trackProximity("Atlas", 65_000); // 65s — bonds Atlas
+			expect(pet.getBondedAgent()).toBe("Atlas");
+			pet.trackProximity("Bex", 90_000); // 90s — bonds Bex
+			expect(pet.getBondedAgent()).toBe("Bex");
+		});
+	});
 });

@@ -18,7 +18,7 @@ import {
 	PET_REACTION_COOLDOWN, TRAIL_DISTANCE_SQ, TRAIL_Y_OFFSET,
 	WEATHER_PARTICLE_CHANCE, WEATHER_PARTICLE_LIFETIME, WEATHER_PARTICLE_OPACITY,
 	DOG_FOLLOW_CHANCE, CAT_FOLLOW_STRESSED_CHANCE, CAT_STRESS_MORALE_THRESHOLD,
-	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS,
+	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS, PET_STEAL_PHRASES,
 } from "./engine-config.js";
 import { checkPetShareInteraction } from "./engine-pet-share.js";
 
@@ -55,6 +55,13 @@ export function tickClock(ctx: EngineContext): void {
 				dominantMood: ctx.needs.getMood(agentName),
 			});
 			ctx.cycleConversationCounts.set(agentName, 0);
+		}
+		// Bonded pet morale bonus — +5 morale per cycle to bonded agent
+		for (const pet of ctx.pets) {
+			const bonded = pet.getBondedAgent();
+			if (bonded) {
+				ctx.needs.applyEffect(bonded, { morale: 5 });
+			}
 		}
 		ctx.worldEvent.onCycleReset();
 		ctx.firedReactiveTriggers.clear();
@@ -136,25 +143,41 @@ export function tickBehaviorThresholds(ctx: EngineContext): void {
 		foodBowlHub: ctx.foodBowlHub, foodBowlVillage: ctx.foodBowlVillage,
 		waterBowlOffice: ctx.waterBowlOffice, waterBowlStation: ctx.waterBowlStation,
 	};
+	const petEntityIds = new Set(ctx.pets.map((p) => p.entityId));
 	const currentPhase = ctx.dayClock.getPhase();
 	for (const agentName of ctx.needs.getAgentNames()) {
 		const state = ctx.brain.getState(agentName)?.state;
 		if (state !== "idle" && state !== "wandering") continue;
 		const needs = ctx.needs.getNeeds(agentName);
-		for (const rule of OBJECT_ATTRACTION_RULES) {
-			const obj = objectLookup[rule.objectKey];
-			if (!obj || obj.isOccupied()) continue;
-			if (!(rule.phases.includes(currentPhase) || rule.needCheck(needs)) || Math.random() >= rule.chance) continue;
-			const point = obj.getInteractionPoint();
-			ctx.brain.walkTo(agentName, point);
-			obj.occupy(agentName);
-			setTimeout(() => {
-				ctx.needs.applyEffect(agentName, obj.getNeedsEffects());
-				obj.vacate();
-				if (obj === ctx.coffeeMachine) ctx.particlePool.spawnPreset("steam", point.x, point.y - 20);
-			}, OBJECT_EFFECT_DELAY);
+		tryObjectAttraction(ctx, agentName, needs, currentPhase, objectLookup, petEntityIds);
+	}
+}
+
+type AgentNeeds = ReturnType<EngineContext["needs"]["getNeeds"]>;
+type DayPhase = ReturnType<EngineContext["dayClock"]["getPhase"]>;
+
+function tryObjectAttraction(ctx: EngineContext, agentName: string, needs: AgentNeeds, currentPhase: DayPhase, objectLookup: Record<string, InteractableActor>, petEntityIds: Set<string>): void {
+	for (const rule of OBJECT_ATTRACTION_RULES) {
+		const obj = objectLookup[rule.objectKey];
+		if (!obj) continue;
+		const ruleMatches = rule.phases.includes(currentPhase) || rule.needCheck(needs);
+		// Steal mechanic: pet occupying a station blocks agent — show frustrated bubble, skip this station
+		if (obj.isOccupied() && petEntityIds.has(obj.getOccupant()!)) {
+			if (!ruleMatches || Math.random() >= rule.chance) continue;
+			const phrase = PET_STEAL_PHRASES[Math.floor(Math.random() * PET_STEAL_PHRASES.length)];
+			ctx.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.findAgentActor, 2500);
 			break;
 		}
+		if (obj.isOccupied() || !ruleMatches || Math.random() >= rule.chance) continue;
+		const point = obj.getInteractionPoint();
+		ctx.brain.walkTo(agentName, point);
+		obj.occupy(agentName);
+		setTimeout(() => {
+			ctx.needs.applyEffect(agentName, obj.getNeedsEffects());
+			obj.vacate();
+			if (obj === ctx.coffeeMachine) ctx.particlePool.spawnPreset("steam", point.x, point.y - 20);
+		}, OBJECT_EFFECT_DELAY);
+		break;
 	}
 }
 
@@ -220,6 +243,9 @@ function checkPetProximityReactions(ctx: EngineContext, pet: import("./actors/pe
 		const dy = pet.pos.y - agentPos.y;
 		const dist = Math.sqrt(dx * dx + dy * dy);
 		if (dist >= pet.getInteractRadius()) continue;
+
+		// Track proximity time for bonding — always accumulate, not gated by reaction cooldown
+		pet.trackProximity(agentName, ctx.deltaMs);
 
 		const cooldownKey = `${agentName}:${pet.petType}`;
 		const lastReaction = ctx.petReactionCooldowns.get(cooldownKey) ?? 0;
