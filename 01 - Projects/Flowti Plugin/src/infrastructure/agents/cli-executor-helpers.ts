@@ -29,7 +29,10 @@ export interface CliEvent {
 		| "permission-request"
 		| "error";
 	agent: string;
+	/** Final assistant text (preferred). */
 	text?: string;
+	/** Some CLI builds stream `response` before normalizing to `text`. */
+	response?: string;
 	tool?: string;
 	id?: string;
 	status?: string;
@@ -38,6 +41,8 @@ export interface CliEvent {
 export interface AgentProcess {
 	readonly agentName: string;
 	readonly running: boolean;
+	/** Child process id while running; use for OS-level metrics. */
+	getPid(): number | null;
 	send(message: string, context?: string): void;
 	onEvent(cb: (event: CliEvent) => void): () => void;
 	replayFrom(offset: number): CliEvent[];

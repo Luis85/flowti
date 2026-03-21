@@ -26,6 +26,7 @@ function mockStore() {
 	store.selectedTab = "monitor";
 	store.agents = [{ name: "atlas", persona: "Atlas" }, { name: "bob", persona: "Bobby" }];
 	store.isProcessAlive = vi.fn(() => true);
+	store.agentResourceMetrics = new Map();
 	return store;
 }
 
@@ -65,6 +66,18 @@ describe("panel-monitor", () => {
 		container.appendChild(el);
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		expect(el.shadowRoot!.textContent).toContain("alive");
+	});
+
+	it("renders system resources section when process alive", async () => {
+		const store = mockStore();
+		el.store = store;
+		el.agentName = "atlas";
+		container.appendChild(el);
+		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+		expect(el.shadowRoot!.textContent).toContain("System resources");
+		expect(el.shadowRoot!.textContent).toContain("PID");
+		expect(el.shadowRoot!.textContent).toContain("RAM");
+		expect(el.shadowRoot!.textContent).toContain("CPU");
 	});
 
 	it("renders event stream entries", async () => {

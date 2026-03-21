@@ -49,6 +49,11 @@ class AgentProcessImpl implements IAgentProcess {
 		return child.exitCode === null && !child.killed;
 	}
 
+	getPid(): number | null {
+		const pid = this.tracked.child.pid;
+		return typeof pid === "number" ? pid : null;
+	}
+
 	send(message: string, context?: string): void {
 		const payload = context
 			? { type: "message", text: message, context }

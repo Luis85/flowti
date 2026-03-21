@@ -229,7 +229,11 @@ export default class FlowtiBasePlugin extends Plugin {
 				context: "FlowtiBasePlugin",
 				cause: error instanceof Error ? error : undefined,
 			});
-			console.error("[Flowti] Plugin load failed:", error);
+			if (this.logger) {
+				this.logger.error("Plugin load failed", error);
+			} else {
+				console.error("[Flowti] Plugin load failed:", error);
+			}
 			this.errorService?.handle(lifecycleError);
 			throw lifecycleError;
 		}
@@ -250,7 +254,6 @@ export default class FlowtiBasePlugin extends Plugin {
 		const data = await this.loadData();
 		const result = FlowtiSettingsSchema.safeParse(data);
 		if (!result.success) {
-			console.warn("[Flowti] Invalid settings, using defaults:", result.error.issues);
 			this.pendingSettingsWarning = result.error.issues;
 		}
 		this.settings = result.success ? result.data : DEFAULT_SETTINGS;

@@ -41,6 +41,20 @@ function capitalize(s: string): string {
 	return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function formatMem(bytes: number | null | undefined): string {
+	if (bytes == null) return "—";
+	if (bytes < 1024) return `${bytes} B`;
+	const kb = bytes / 1024;
+	if (kb < 1024) return `${kb.toFixed(0)} KB`;
+	return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+function formatCpu(pct: number | null | undefined): string {
+	if (pct == null) return "—";
+	if (!Number.isFinite(pct)) return "—";
+	return `${pct < 10 ? pct.toFixed(1) : Math.round(pct)}%`;
+}
+
 export class PanelMonitor extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
@@ -176,6 +190,21 @@ export class PanelMonitor extends FlowtiElement {
 				font-style: italic;
 				font-size: 11px;
 			}
+
+			.resource-grid {
+				margin-bottom: 6px;
+			}
+
+			.status-value.muted {
+				color: var(--text-muted);
+			}
+
+			.resource-hint {
+				font-size: 10px;
+				color: var(--text-muted);
+				margin: 0 0 10px;
+				line-height: 1.35;
+			}
 		`,
 	];
 
@@ -201,6 +230,8 @@ export class PanelMonitor extends FlowtiElement {
 
 		return html`
 			${this.renderStatusGrid()}
+			<div class="section-title">System resources</div>
+			${this.renderResources()}
 			<div class="section-title">Events</div>
 			${this.renderEventStream()}
 			<div class="section-title">Nearby</div>
@@ -243,6 +274,37 @@ export class PanelMonitor extends FlowtiElement {
 					<span class="status-value">${Math.round(pos.x)}, ${Math.round(pos.y)}</span>
 				` : nothing}
 			</div>
+		`;
+	}
+
+	private renderResources() {
+		const processAlive = this.store.isProcessAlive(this.agentName);
+		const m = this.store.agentResourceMetrics.get(this.agentName);
+
+		if (!processAlive) {
+			return html`
+				<div class="status-grid resource-grid">
+					<span class="status-label">PID</span>
+					<span class="status-value muted">—</span>
+					<span class="status-label">RAM</span>
+					<span class="status-value muted">—</span>
+					<span class="status-label">CPU</span>
+					<span class="status-value muted">—</span>
+				</div>
+				<p class="resource-hint">Resources appear when the agent CLI process is running.</p>
+			`;
+		}
+
+		return html`
+			<div class="status-grid resource-grid">
+				<span class="status-label">PID</span>
+				<span class="status-value">${m?.pid ?? "…"}</span>
+				<span class="status-label">RAM</span>
+				<span class="status-value" title="Resident set size (working set on Windows)">${formatMem(m?.rssBytes ?? null)}</span>
+				<span class="status-label">CPU</span>
+				<span class="status-value" title="Approximate share of CPU time since last sample (~2s)">${formatCpu(m?.cpuPercent ?? null)}</span>
+			</div>
+			<p class="resource-hint">CPU updates after the second sample. macOS shows an instantaneous % from ps.</p>
 		`;
 	}
 

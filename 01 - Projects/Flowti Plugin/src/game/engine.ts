@@ -122,6 +122,22 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		container.appendChild(el);
 	}
 
+	let cancelAgentResourcePoll: (() => void) | null = null;
+	if (deps.cliExecutor) {
+		const pollMs = 2000;
+		const id = window.setInterval(() => {
+			try {
+				store.refreshAgentResources();
+			} catch {
+				/* ignore sampling errors */
+			}
+		}, pollMs);
+		cancelAgentResourcePoll = () => {
+			window.clearInterval(id);
+			cancelAgentResourcePoll = null;
+		};
+	}
+
 	// ── Systems ─────────────────────────────────────────
 	const cameraRef: { current: ReturnType<typeof createCameraSystem> | null } = { current: null };
 	const brainSystem = new BrainSystem({
@@ -233,15 +249,30 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Scene config ────────────────────────────────────
+	const reattachCameraAfterSceneChange = (): void => {
+		const cam = cameraRef.current;
+		const sceneCam = engine.currentScene.camera;
+		if (!cam) return;
+		// Must resolve the actor in the *active* scene — hub-first findAgentActor can attach the wrong
+		// instance or miss the entity for one frame after a room transfer.
+		cam.onSceneActivate(findCurrentSceneActor, sceneCam);
+		const followed = store.followedAgent;
+		if (!followed) return;
+		requestAnimationFrame(() => {
+			if (store.followedAgent !== followed) return;
+			if (cam.isFollowing()) return;
+			const actor = findCurrentSceneActor(followed);
+			if (actor) cam.startFollow(actor);
+		});
+	};
+
 	const sceneConfig = {
 		onSceneChange: (target: string) => {
 			store.selectAgent(null);
 			void engine.goToScene(target, {
 				destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
 				sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
-			}).then(() => {
-				cameraRef.current?.onSceneActivate(findAgentActor, engine.currentScene.camera);
-			});
+			}).then(reattachCameraAfterSceneChange);
 		},
 		onAgentSelect: handleAgentSelect,
 	};
@@ -332,9 +363,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				void engine.goToScene(to, {
 					destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
 					sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
-				}).then(() => {
-					cameraRef.current?.onSceneActivate(findAgentActor, engine.currentScene.camera);
-				});
+				}).then(reattachCameraAfterSceneChange);
 			}
 		},
 	});
@@ -476,6 +505,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		dispose(): void {
 			// Cancel periodic position flush
 			if (cancelPeriodicFlush) cancelPeriodicFlush();
+			if (cancelAgentResourcePoll) cancelAgentResourcePoll();
 			// Tear down all event subscriptions
 			cleanupEvents();
 			// Flush persistent state before shutdown

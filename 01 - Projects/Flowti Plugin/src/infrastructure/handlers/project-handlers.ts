@@ -116,7 +116,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	}
 
 	function appendOutput(line: string): void {
-		console.debug("[storybook]", line);
+		console.debug("[Flowti:Storybook]", line);
 		outputLines.push(line);
 		if (outputLines.length > 200) outputLines.shift();
 		el.storybookOutput = [...outputLines];

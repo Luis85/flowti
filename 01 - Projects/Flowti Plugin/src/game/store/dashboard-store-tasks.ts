@@ -7,13 +7,16 @@
  */
 
 import type { CliEvent } from "../../infrastructure/agents/cli-executor.js";
+import { rawTextFromCliEvent } from "../data/cli-event-text.js";
 import { extractAgentMessage } from "../data/message-utils.js";
 import type { DashboardStore } from "./dashboard-store.js";
 
 /** Handle a "response" CLI event. */
 export function handleCliResponse(store: DashboardStore, agentName: string, event: CliEvent): void {
-	const rawText = event.text ?? "";
-	const text = extractAgentMessage(rawText);
+	const rawText = rawTextFromCliEvent(event);
+	const text = extractAgentMessage(rawText) || rawText;
+	// CLI may emit empty "response" lines during streaming; avoid junk turns in the Talk tab.
+	if (!text?.trim()) return;
 	if (store.debugMode) store.pushDebugResponse(agentName, rawText);
 	store.pushAgentResponse(agentName, text);
 	store.pushEventLog(agentName, "response", text.slice(0, 80));

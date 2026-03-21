@@ -4,6 +4,7 @@
  */
 
 import { html, css } from "lit";
+import type { PropertyValues } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles, buttonStyles } from "./game-styles.js";
 import type { DashboardStore, ConversationTurn } from "../store/dashboard-store.js";
@@ -146,6 +147,14 @@ export class PanelTalk extends FlowtiElement {
 	private storeHandler = () => { this.syncFromStore(); };
 	private thinkingTimer: ReturnType<typeof setInterval> | null = null;
 	private thinkingIndex = 0;
+
+	override willUpdate(changedProperties: PropertyValues<this>): void {
+		super.willUpdate(changedProperties);
+		// Conversation is cached locally; resync when switching agents or store reference.
+		if ((changedProperties.has("agentName") || changedProperties.has("store")) && this.store && this.agentName) {
+			this.syncFromStore();
+		}
+	}
 
 	connectedCallback(): void {
 		super.connectedCallback();

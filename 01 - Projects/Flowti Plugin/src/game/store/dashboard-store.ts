@@ -2,6 +2,9 @@ import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting, TrackedTa
 import type { BrainState } from "../brain/brain-types.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
+import { sampleAgentProcessResources, type AgentProcessResources } from "../../infrastructure/agents/agent-process-metrics.js";
+
+export type { AgentProcessResources };
 import {
 	handleCliResponse, handleCliPermissionRequest,
 	handleCliUsingTool, handleCliToolComplete,
@@ -210,6 +213,44 @@ export class DashboardStore extends EventTarget {
 		return this.agentProcesses.get(agentName)?.running ?? false;
 	}
 
+	/**
+	 * Refresh memory/CPU metrics for running agent CLI processes (spawned via CliExecutor).
+	 * No-op without a CliExecutor. Safe to call on an interval.
+	 */
+	refreshAgentResources(): void {
+		if (!this.cliExecutor) return;
+
+		let changed = false;
+
+		for (const name of [...this.agentResourceMetrics.keys()]) {
+			const proc = this.agentProcesses.get(name);
+			if (!proc?.running) {
+				this.agentResourceMetrics.delete(name);
+				changed = true;
+			}
+		}
+
+		for (const [name, proc] of this.agentProcesses) {
+			if (!proc.running) continue;
+			const pid = proc.getPid();
+			if (pid == null) continue;
+			const next = sampleAgentProcessResources(pid);
+			const prev = this.agentResourceMetrics.get(name);
+			this.agentResourceMetrics.set(name, next);
+			if (
+				!prev
+				|| prev.pid !== next.pid
+				|| prev.rssBytes !== next.rssBytes
+				|| prev.cpuPercent !== next.cpuPercent
+				|| prev.sampledAt !== next.sampledAt
+			) {
+				changed = true;
+			}
+		}
+
+		if (changed) this.notify();
+	}
+
 	startFollow(agentName: string): void {
 		this.followedAgent = agentName;
 		this.notify();
@@ -338,6 +379,7 @@ export class DashboardStore extends EventTarget {
 		log.push({ timestamp: Date.now(), type, summary: summary.slice(0, 80) });
 		if (log.length > 50) log.shift();
 		this.agentEventLog.set(agentName, log);
+		this.notify();
 	}
 
 	private handleCliEvent(agentName: string, event: CliEvent): void {
@@ -345,7 +387,12 @@ export class DashboardStore extends EventTarget {
 			case "response": handleCliResponse(this, agentName, event); break;
 			case "thinking": this.thinkingAgents.add(agentName); this.llmStatus.set(agentName, { state: "thinking", since: Date.now() }); this.pushEventLog(agentName, "thinking", "Thinking..."); this.notify(); break;
 			case "permission-request": handleCliPermissionRequest(this, agentName, event); this.notify(); break;
-			case "error": this.pushAgentResponse(agentName, `[error] ${event.text ?? "An error occurred."}`); this.pushEventLog(agentName, "error", event.text ?? "Unknown error"); break;
+			case "error": {
+				const errText = event.text ?? event.response ?? "An error occurred.";
+				this.pushAgentResponse(agentName, `[error] ${errText}`);
+				this.pushEventLog(agentName, "error", errText);
+				break;
+			}
 			case "using-tool": handleCliUsingTool(this, agentName, event); break;
 			case "tool-complete": handleCliToolComplete(this, agentName, event); break;
 			case "task-started": this.handleTaskStarted(agentName); break;
