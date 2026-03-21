@@ -21,6 +21,9 @@ import {
 	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS, PET_STEAL_PHRASES,
 } from "./engine-config.js";
 import { checkPetShareInteraction } from "./engine-pet-share.js";
+import {
+	HUNGER_PHRASES, THIRST_PHRASES, EATING_PHRASES, DRINKING_PHRASES, STEAL_REACTIONS, SHARE_PHRASES,
+} from "./systems/talk/templates/sustenance-phrases.js";
 
 // ── Composite tick — called from engine.ts preframe hook ─────────────
 
@@ -132,6 +135,15 @@ export function tickReactiveTriggers(ctx: EngineContext): void {
 		if (needs.focus > REACTIVE_THRESHOLDS.focusDeep) tryTrigger("focus-deep");
 		else if (needs.focus < REACTIVE_THRESHOLDS.focusLost) tryTrigger("focus-lost");
 		if (needs.morale > REACTIVE_THRESHOLDS.moraleBoost && !fired.has("morale-boost")) tryTrigger("morale-boost");
+		// Hunger/thirst — low-probability thought bubbles while below threshold
+		if (needs.hunger < 40 && Math.random() < 0.001) {
+			const phrase = HUNGER_PHRASES[Math.floor(Math.random() * HUNGER_PHRASES.length)];
+			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+		}
+		if (needs.thirst < 30 && Math.random() < 0.001) {
+			const phrase = THIRST_PHRASES[Math.floor(Math.random() * THIRST_PHRASES.length)];
+			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+		}
 	}
 }
 
@@ -169,7 +181,7 @@ function tryObjectAttraction(ctx: EngineContext, agentName: string, needs: Agent
 		// Steal mechanic: pet occupying a station blocks agent — show frustrated bubble, skip this station
 		if (obj.isOccupied() && petEntityIds.has(obj.getOccupant()!)) {
 			if (!ruleMatches || Math.random() >= rule.chance) continue;
-			const phrase = PET_STEAL_PHRASES[Math.floor(Math.random() * PET_STEAL_PHRASES.length)];
+			const phrase = STEAL_REACTIONS[Math.floor(Math.random() * STEAL_REACTIONS.length)];
 			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
 			break;
 		}
@@ -177,10 +189,20 @@ function tryObjectAttraction(ctx: EngineContext, agentName: string, needs: Agent
 		const point = obj.getInteractionPoint();
 		sys.brain.walkTo(agentName, point);
 		obj.occupy(agentName);
+		const isFoodStation = rule.objectKey === "snackTable" || rule.objectKey === "foodBowlHub" || rule.objectKey === "foodBowlVillage";
+		const isDrinkStation = rule.objectKey === "coffeeMachine" || rule.objectKey === "waterCooler" || rule.objectKey === "waterBowlOffice" || rule.objectKey === "waterBowlStation";
 		setTimeout(() => {
 			sys.needs.applyEffect(agentName, obj.getNeedsEffects());
 			obj.vacate();
 			if (obj === ctx.envObjects.coffeeMachine) sys.particlePool.spawnPreset("steam", point.x, point.y - 20);
+			// Show eating/drinking completion bubble
+			if (isFoodStation) {
+				const phrase = EATING_PHRASES[Math.floor(Math.random() * EATING_PHRASES.length)];
+				sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+			} else if (isDrinkStation) {
+				const phrase = DRINKING_PHRASES[Math.floor(Math.random() * DRINKING_PHRASES.length)];
+				sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+			}
 		}, OBJECT_EFFECT_DELAY);
 		break;
 	}

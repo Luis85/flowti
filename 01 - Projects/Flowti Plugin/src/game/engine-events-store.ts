@@ -8,6 +8,24 @@
 
 import type { EngineContext } from "./engine-types.js";
 import { getCueForTrigger, formatBubbleText } from "./systems/economy-visuals.js";
+import { getNearbyAgents } from "./engine-simulation.js";
+
+// ── Level-up celebration phrases ─────────────────────────────────────
+
+const LEVEL_UP_SELF = [
+	"I leveled up!",
+	"New level unlocked!",
+	"Hard work pays off!",
+	"Getting stronger every day",
+	"Level {level} — watch out world!",
+] as const;
+
+const LEVEL_UP_NEARBY = [
+	"Congrats!",
+	"Nice work!",
+	"Well deserved!",
+	"Way to go!",
+] as const;
 
 // ── Economy visual helper ─────────────────────────────────────────────
 
@@ -98,10 +116,23 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 
 	addStoreListener("level-up", ((e: CustomEvent) => {
 		const { agentName, level } = e.detail;
-		showEconomyCue(ctx, "level-up", agentName, { level: typeof level === "number" ? level : 1 });
+		const lvl = typeof level === "number" ? level : 1;
+		showEconomyCue(ctx, "level-up", agentName, { level: lvl });
 		// Update actor level for progression visuals
 		const actor = ctx.lookups.findAgentActor(agentName);
-		if (actor) actor.setLevel(typeof level === "number" ? level : 1);
+		if (actor) actor.setLevel(lvl);
+		// Self-celebration bubble
+		const selfRaw = LEVEL_UP_SELF[Math.floor(Math.random() * LEVEL_UP_SELF.length)];
+		const selfPhrase = selfRaw.replace("{level}", String(lvl));
+		sys.bubble.showBubble(agentName, "speech", selfPhrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3500);
+		// Nearby agents congratulate — up to 2, staggered
+		const nearby = getNearbyAgents(ctx, agentName).slice(0, 2);
+		nearby.forEach((name, i) => {
+			const phrase = LEVEL_UP_NEARBY[Math.floor(Math.random() * LEVEL_UP_NEARBY.length)];
+			setTimeout(() => {
+				sys.bubble.showBubble(name, "speech", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+			}, 600 + i * 500);
+		});
 	}) as EventListener);
 
 	addStoreListener("trust-promoted", ((e: CustomEvent) => {

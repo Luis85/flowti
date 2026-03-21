@@ -9,6 +9,10 @@ import type { DashboardAgent } from "../data/types.js";
 
 const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2200, 3000] as const;
 
+const LEVEL_TITLES = ["", "Novice", "Apprentice", "Journeyman", "Artisan", "Senior", "Expert", "Master", "Grandmaster"] as const;
+
+const NEXT_UNLOCK = ["", "Standing orders", "Vault write", "Delegation", "Auto-trust", "Cross-domain", "Mentoring", "Full autonomy", ""] as const;
+
 const TRUST_TIER_COLORS: Record<string, string> = {
 	supervised: "#f59e0b",
 	trusted: "#22c55e",
@@ -137,6 +141,26 @@ export class PanelEconomy extends LitElement {
 				background: rgba(6, 182, 212, 0.12);
 				color: #22d3ee;
 			}
+
+			.level-title {
+				font-size: 10px;
+				color: var(--text-secondary);
+				margin-left: 4px;
+			}
+
+			.next-unlock {
+				font-size: 10px;
+				color: var(--text-muted);
+				margin-bottom: 6px;
+			}
+
+			.hint {
+				font-size: 10px;
+				color: var(--text-muted);
+				font-style: italic;
+				line-height: 1.4;
+				margin-top: 4px;
+			}
 		`,
 	];
 
@@ -157,14 +181,19 @@ export class PanelEconomy extends LitElement {
 
 		const tier = trustTier ?? "supervised";
 		const tierColor = TRUST_TIER_COLORS[tier] ?? "#6b7280";
+		const title = LEVEL_TITLES[lvl] ?? "";
+		const nextUnlock = NEXT_UNLOCK[lvl] ?? "";
+		const isStarter = lvl === 1 && xp === 0;
 
 		return html`
 			<div class="section">
 				<div class="section-label">Economy</div>
 				<div class="economy-header">
-					<span class="level-badge">Level ${lvl}</span>
+					<span class="level-badge">Level ${lvl}${title ? html` <span class="level-title">— ${title}</span>` : nothing}</span>
 					<span class="trust-badge" style="background:${tierColor}22;color:${tierColor}">${tier}</span>
 				</div>
+				${nextUnlock ? html`<div class="next-unlock">Next: ${nextUnlock}</div>` : nothing}
+				${isStarter ? html`<p class="hint">Complete tasks to earn XP and level up. Level 2 unlocks standing orders.</p>` : nothing}
 				<div class="xp-row">
 					<span class="xp-label">XP</span>
 					<div class="xp-bar"><div class="xp-fill" style="width:${xpPct}%"></div></div>

@@ -10,6 +10,7 @@ import {
 	FOOD_DRINK_OBJECT_TYPES,
 	PET_SHARE_COOLDOWN, PET_SHARE_EFFECT_RATIO, PET_SHARE_SOCIAL_BONUS,
 } from "./engine-config.js";
+import { SHARE_PHRASES } from "./systems/talk/templates/sustenance-phrases.js";
 
 type PetActor = import("./actors/pet-actor.js").PetActor;
 
@@ -61,4 +62,8 @@ export function checkPetShareInteraction(ctx: EngineContext, pet: PetActor, petR
 	if (agentPos) {
 		ctx.systems.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
 	}
+
+	// Show a warm share phrase on the agent who is sharing
+	const phrase = SHARE_PHRASES[Math.floor(Math.random() * SHARE_PHRASES.length)];
+	ctx.systems.bubble.showBubble(occupant, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
 }
