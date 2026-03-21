@@ -334,7 +334,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		[villageBird, birdDef],
 	] as const) {
 		const petId = pet.entityId;
-		btSystem.registerPet(petId, createPetBT(petId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed));
+		btSystem.registerPet(petId, createPetBT(petId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed, pet.petType));
 	}
 
 	// ── Agent select handler ────────────────────────────
