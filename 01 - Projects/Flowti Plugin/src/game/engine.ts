@@ -212,7 +212,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
 	const cycleConversationCounts = new Map<string, number>();
 	const firedReactiveTriggers = new Map<string, Set<string>>();
-	const prevCycleCount = 0;
+	let prevCycleCount = 0;
 
 	// ── Environmental objects ────────────────────────────
 	const envObjects = createEnvironmentalObjects();

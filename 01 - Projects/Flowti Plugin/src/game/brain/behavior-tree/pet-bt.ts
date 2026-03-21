@@ -38,9 +38,6 @@ export interface PetBTObject {
 	FollowTimeElapsed(): boolean;
 	SleepChanceRoll(): boolean;
 	WanderChanceRoll(): boolean;
-	ShouldFollowStressedAgent(): boolean;
-	ShouldFollowRandomAgent(): boolean;
-	LostFollowTarget(): boolean;
 	IsHungry(): boolean;
 	IsThirsty(): boolean;
 	WalkToExit(): State;
@@ -140,28 +137,6 @@ export function createPetBT(
 		return context.state === "idle" && context.stateTimer <= 0;
 	}
 
-	function ShouldFollowStressedAgent(): boolean {
-		return context.petType === "cat"
-			&& context.state === "idle"
-			&& context.nearbyAgentMorale !== undefined
-			&& context.nearbyAgentMorale < 30
-			&& Math.random() < 0.0005;
-	}
-
-	function ShouldFollowRandomAgent(): boolean {
-		return context.petType === "dog"
-			&& context.state === "idle"
-			&& context.nearbyIdleAgent !== undefined
-			&& Math.random() < 0.001;
-	}
-
-	function LostFollowTarget(): boolean {
-		return context.followTarget !== null
-			&& context.currentRoom !== undefined
-			&& context.targetRoom !== undefined
-			&& context.currentRoom !== context.targetRoom;
-	}
-
 	function IsHungry(): boolean {
 		return context.hunger < 40;
 	}
@@ -243,7 +218,6 @@ export function createPetBT(
 		collectedActions,
 		HasExitTarget, HasFollowTarget, FollowTimeElapsed,
 		SleepChanceRoll, WanderChanceRoll,
-		ShouldFollowStressedAgent, ShouldFollowRandomAgent, LostFollowTarget,
 		IsHungry, IsThirsty,
 		WalkToExit, FollowAgent, ReturnHome,
 		Nap, PickWanderPoint, WalkToPoint,

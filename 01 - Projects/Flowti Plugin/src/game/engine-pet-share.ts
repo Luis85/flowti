@@ -36,15 +36,15 @@ export function checkPetShareInteraction(ctx: EngineContext, pet: import("./acto
 
 		ctx.petShareCooldowns.set(cooldownKey, performance.now());
 
-		// Pet gets 50% of the station's effects
+		// Pet gets 50% of the station's effects via direct setters (pets are not registered with NeedsSystem)
 		const effects = obj.getNeedsEffects();
-		const scaledEffects: Partial<{ energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number }> = {};
-		for (const [key, val] of Object.entries(effects)) {
-			if (typeof val === "number") {
-				(scaledEffects as Record<string, number>)[key] = val * PET_SHARE_EFFECT_RATIO;
-			}
-		}
-		ctx.needs.applyEffect(pet.entityId, scaledEffects);
+		const scaledHunger = (effects.hunger ?? 0) * PET_SHARE_EFFECT_RATIO;
+		const scaledThirst = (effects.thirst ?? 0) * PET_SHARE_EFFECT_RATIO;
+		const scaledEnergy = (effects.energy ?? 0) * PET_SHARE_EFFECT_RATIO;
+		if (scaledHunger !== 0) pet.setHunger(pet.getHunger() + scaledHunger);
+		if (scaledThirst !== 0) pet.setThirst(pet.getThirst() + scaledThirst);
+		// Food items restore hunger; energy boost maps to hunger as well
+		if (scaledEnergy !== 0) pet.setHunger(pet.getHunger() + scaledEnergy);
 
 		// Agent gets social bonus
 		ctx.needs.applyEffect(occupant, { social: PET_SHARE_SOCIAL_BONUS });

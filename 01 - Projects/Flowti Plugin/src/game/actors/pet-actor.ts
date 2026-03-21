@@ -27,7 +27,6 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	private homePos: ex.Vector;
 	private targetPos: ex.Vector | null = null;
 	private followTarget: string | null = null;
-	private sleepZTimer = 0;
 	private reachedExit = false;
 	private hunger = 70;
 	private thirst = 70;
@@ -351,8 +350,7 @@ export class PetActor extends ex.Actor implements SceneEntity {
 		}
 	}
 
-	private tickSleeping(deltaMs: number): void {
-		this.sleepZTimer += deltaMs;
+	private tickSleeping(_deltaMs: number): void {
 		if (this.stateTimer <= 0) {
 			this.state = "idle";
 			this.stateTimer = 3000 + Math.random() * 5000;

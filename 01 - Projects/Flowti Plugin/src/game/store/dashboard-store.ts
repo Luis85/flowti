@@ -69,6 +69,7 @@ export class DashboardStore extends EventTarget {
 		if (data.tokens !== undefined) agent.tokens = data.tokens;
 		if (data.trustTier !== undefined) agent.trustTier = data.trustTier as "supervised" | "trusted" | "autonomous";
 		if (data.capabilities !== undefined) agent.capabilities = data.capabilities;
+		this.notify();
 	}
 
 	getAgentEconomy(name: string): { level: number; coin: number; tokens: number; trustTier: string; capabilities: string[] } | undefined {
