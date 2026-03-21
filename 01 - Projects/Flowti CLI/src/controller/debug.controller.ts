@@ -11,6 +11,7 @@ import type { CliDeps } from "../infrastructure/deps.js";
 import { readLedger, writeLedger, appendTransaction } from "../domain/economy/economy-ledger.js";
 import { levelForXp } from "../domain/economy/leveling.js";
 import { loadTrustProfile, saveTrustProfile } from "../domain/trust/trust-manager.js";
+import type { AgentTrustProfile } from "../domain/trust/trust-types.js";
 import { renderDebugSet, renderDebugTrust, renderDebugNeeds, renderDebugUnlock } from "../ui/displays/debug-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 
@@ -140,8 +141,8 @@ export const commands: Record<string, CommandHandler> = {
 			const from = (profile.operations as Record<string, string>)[op] ?? "manual";
 
 			const updatedOps = { ...profile.operations, [op]: to };
-			const updatedProfile = { ...profile, operations: updatedOps };
-			saveTrustProfile(deps, VAULT_ROOT, agent, updatedProfile as never);
+			const updatedProfile: AgentTrustProfile = { ...profile, operations: updatedOps as AgentTrustProfile["operations"] };
+			saveTrustProfile(deps, VAULT_ROOT, agent, updatedProfile);
 
 			appendTransaction(ledgerDeps(ctx.deps), VAULT_ROOT, {
 				ts: ctx.deps.clock.iso(),

@@ -8,8 +8,23 @@ import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types-config.js";
 import type { CliDeps } from "../infrastructure/deps.js";
 import { loadTrustProfile, saveTrustProfile, promote, demote } from "../domain/trust/trust-manager.js";
+import type { VaultOperation, TrustLevel } from "../domain/trust/trust-types.js";
+import { DEFAULT_OPERATION_TRUST } from "../domain/trust/trust-types.js";
 import { renderTrustProfile, renderTrustUpdated, renderTrustHistory } from "../ui/displays/trust-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
+
+const VALID_OPS = new Set(Object.keys(DEFAULT_OPERATION_TRUST));
+const VALID_LEVELS = new Set<string>(["manual", "review", "auto"]);
+
+function validateOp(op: string): VaultOperation {
+	if (!VALID_OPS.has(op)) throw new Error(`Invalid vault operation: ${op}. Valid: ${[...VALID_OPS].join(", ")}`);
+	return op as VaultOperation;
+}
+
+function validateLevel(level: string): TrustLevel {
+	if (!VALID_LEVELS.has(level)) throw new Error(`Invalid trust level: ${level}. Valid: manual, review, auto`);
+	return level as TrustLevel;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -58,7 +73,7 @@ export const commands: Record<string, CommandHandler> = {
 			const agentName = ctx.flags.agent as string;
 			const profile = loadTrustProfile(deps, VAULT_ROOT, agentName);
 			const from = profile.operations[ctx.flags.op as keyof typeof profile.operations] ?? "manual";
-			const updated = promote(profile, ctx.flags.op as never, ctx.flags.to as never, ctx.flags.reason as string, ctx.deps.clock);
+			const updated = promote(profile, validateOp(ctx.flags.op as string), validateLevel(ctx.flags.to as string), ctx.flags.reason as string, ctx.deps.clock);
 			saveTrustProfile(deps, VAULT_ROOT, agentName, updated);
 			return {
 				agent: agentName,
@@ -83,7 +98,7 @@ export const commands: Record<string, CommandHandler> = {
 			const agentName = ctx.flags.agent as string;
 			const profile = loadTrustProfile(deps, VAULT_ROOT, agentName);
 			const from = profile.operations[ctx.flags.op as keyof typeof profile.operations] ?? "auto";
-			const updated = demote(profile, ctx.flags.op as never, ctx.flags.to as never, ctx.flags.reason as string, ctx.deps.clock);
+			const updated = demote(profile, validateOp(ctx.flags.op as string), validateLevel(ctx.flags.to as string), ctx.flags.reason as string, ctx.deps.clock);
 			saveTrustProfile(deps, VAULT_ROOT, agentName, updated);
 			return {
 				agent: agentName,

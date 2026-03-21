@@ -36,21 +36,25 @@ function parseArrayField(raw: string): string[] {
 	return trimmed.split(",").map(s => s.trim());
 }
 
+function str(fm: Record<string, string>, key: string, fallback = ""): string {
+	return fm[key] ?? fallback;
+}
+
 function toSummary(fm: Record<string, string>, file: string): TaskSummary {
 	return {
-		id: fm.id ?? "",
-		type: (fm.taskType ?? "one-off") as TaskType,
-		title: fm.title ?? "",
-		assignee: fm.assignee ?? "",
-		creator: fm.creator ?? "",
-		priority: (fm.priority ?? "normal") as TaskPriority,
-		trustTier: (fm.trustTier ?? "review") as TaskTrustTier,
-		status: (fm.status ?? "pending") as TaskStatus,
+		id: str(fm, "id"),
+		type: str(fm, "taskType", "one-off") as TaskType,
+		title: str(fm, "title"),
+		assignee: str(fm, "assignee"),
+		creator: str(fm, "creator"),
+		priority: str(fm, "priority", "normal") as TaskPriority,
+		trustTier: str(fm, "trustTier", "review") as TaskTrustTier,
+		status: str(fm, "status", "pending") as TaskStatus,
 		reward: { xp: Number(fm.rewardXp) || 0, coin: Number(fm.rewardCoin) || 0 },
-		tags: parseArrayField(fm.tags ?? ""),
-		createdAt: fm.createdAt ?? "",
-		completedAt: fm.completedAt ?? "",
-		journeyId: fm.journeyId ?? "",
+		tags: parseArrayField(str(fm, "tags")),
+		createdAt: str(fm, "createdAt"),
+		completedAt: str(fm, "completedAt"),
+		journeyId: str(fm, "journeyId"),
 		file,
 	};
 }

@@ -94,7 +94,6 @@ export interface AgentWorldHandle {
 }
 
 // ── Factory ──────────────────────────────────────────────────────────
-
 export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const { container, provider, spriteBasePath } = deps;
 
