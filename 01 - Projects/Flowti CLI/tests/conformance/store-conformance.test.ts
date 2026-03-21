@@ -14,6 +14,7 @@ describe("store conformance", () => {
 		"agents/agent-conversation-store.ts",  // thread-based persistence, not CRUD
 		"agents/brief-store.ts",              // template-based generation, not CRUD
 		"onboarding/onboarding-store.ts",     // progress tracking, not CRUD
+		"tasks/task-store.ts",                // manual implementation — reward field composition from rewardXp+rewardCoin
 	]);
 
 	const storeFiles: string[] = [];
