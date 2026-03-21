@@ -8,10 +8,13 @@
  * used to use `execFileSync` (PowerShell) and could block the renderer for hundreds of ms per poll (lag spikes).
  */
 
-import { execFileSync } from "node:child_process";
-import { execFile } from "node:child_process/promises";
+import { execFile as execFileCallback, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { cpus } from "node:os";
+import { promisify } from "node:util";
+
+/** Obsidian/Electron renderer may not expose `node:child_process/promises` — use promisify on the callback API. */
+const execFileAsync = promisify(execFileCallback);
 
 import { isProcessAlive } from "./cli-executor-helpers.js";
 
@@ -113,7 +116,7 @@ async function windowsSampleBatchAsync(pids: readonly number[]): Promise<Map<num
 	if (uniq.length === 0) return new Map();
 
 	try {
-		const { stdout } = await execFile(
+		const { stdout } = await execFileAsync(
 			"powershell.exe",
 			["-NoProfile", "-NonInteractive", "-Command", buildWindowsBatchCommand(uniq)],
 			{ encoding: "utf8", timeout: 10000, windowsHide: true },

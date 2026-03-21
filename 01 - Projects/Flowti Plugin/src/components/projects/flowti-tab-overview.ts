@@ -84,6 +84,7 @@ export class FlowtiTabOverview extends FlowtiElement {
 	hasSitemap = false;
 	hasCanvas = false;
 	canvasChanged = false;
+	hubLocked = false;
 
 	protected renderContent() {
 		const h = this.healthScore;

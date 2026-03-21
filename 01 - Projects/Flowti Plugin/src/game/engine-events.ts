@@ -409,9 +409,11 @@ function wireProviderEvents(ctx: EngineContext): () => void {
 				const currentScene = ctx.engine.currentScene;
 				sys.bubble.showBubble(action.agentName, "question", "?", currentScene, ctx.lookups.findAgentActor);
 
-				// Auto-open panel to Permissions tab via store
+				// Auto-open panel to Permissions tab via store (single notify)
+				ctx.store.beginBatch();
 				ctx.store.selectAgent(action.agentName);
 				ctx.store.selectTab("permissions");
+				ctx.store.endBatch();
 			}
 		} catch (err) {
 			console.warn("[game] Error handling action:", action.type, action.agentName, err);

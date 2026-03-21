@@ -20,6 +20,7 @@ import {
 	saveTaskOutput, runToolCommand, assignTaskViaExecutor,
 	buildTaskPrompt, type TaskSpec,
 } from "./dashboard-store-actions.js";
+import { afterNextPaint } from "../after-next-paint.js";
 
 // ── Exported helper types ──────────────────────────────────────────
 
@@ -459,7 +460,7 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	pushAgentResponse(agentName: string, text: string): void {
+	pushAgentResponse(agentName: string, text: string, options?: { readonly llmState?: LlmStatus["state"] }): void {
 		this.cancelAgentThoughtNotifyDebounce();
 		this.clearThinkingWatchdog(agentName);
 		const turns = this.conversations.get(agentName) ?? [];
@@ -469,7 +470,8 @@ export class DashboardStore extends EventTarget {
 		turns.push({ role: "agent", text, timestamp: Date.now() });
 		this.conversations.set(agentName, turns);
 		this.thinkingAgents.delete(agentName);
-		this.llmStatus.set(agentName, { state: "idle", since: Date.now() });
+		const nextState = options?.llmState ?? "idle";
+		this.llmStatus.set(agentName, { state: nextState, since: Date.now() });
 		this.notify();
 	}
 
@@ -730,7 +732,7 @@ export class DashboardStore extends EventTarget {
 			void executor.wakeAgent(agentName);
 		};
 
-		// setTimeout — not requestIdleCallback: spawn + context build routinely exceed idle budget.
-		globalThis.setTimeout(runWakeWork, 0);
+		// Defer past the next paint so CLI spawn + context serialization do not extend the interaction long task.
+		afterNextPaint(runWakeWork);
 	}
 }

@@ -18,6 +18,8 @@ import type {
 } from "../../infrastructure/services/perfTypes.js";
 import { CANVAS_SLICE_ORDER, CANVAS_SLICE_LABELS } from "./canvas-perf-labels.js";
 import { AGENT_WAKE_DELAY } from "../engine-config.js";
+import { afterNextPaint } from "../after-next-paint.js";
+import type { DashboardAgent } from "../data/types.js";
 
 const BOB_AGENT_NAME = "Bob";
 
@@ -138,16 +140,19 @@ export class AskBob extends FlowtiElement {
 	}
 
 	private selectAgentFromBob(name: string | null): void {
-		this.store.selectAgent(name);
 		if (name) {
-			this.activeTab = "agent";
-			// Same as canvas agent click (`engine-lifecycle` select handler): wake starts CLI via getOrStartProcess + executor.wakeAgent.
+			this.store.beginBatch();
+			this.store.selectAgent(name);
 			this.store.selectTab("info");
+			this.store.endBatch();
+			this.activeTab = "agent";
+			// Match canvas path: delay wake, then run spawn/context after next paint (see `wakeAgent` + `afterNextPaint`).
 			window.setTimeout(() => {
-				void this.store.wakeAgent(name);
+				afterNextPaint(() => void this.store.wakeAgent(name));
 			}, AGENT_WAKE_DELAY);
-		} else if (this.activeTab === "agent") {
-			this.activeTab = "overview";
+		} else {
+			this.store.selectAgent(null);
+			if (this.activeTab === "agent") this.activeTab = "overview";
 		}
 		this.requestUpdate();
 	}
@@ -745,7 +750,7 @@ export class AskBob extends FlowtiElement {
 		`;
 	}
 
-	private renderLiveWorldBanner(): ReturnType<typeof html> {
+	private renderLiveWorldBanner(): ReturnType<typeof html> | typeof nothing {
 		const activeEvent = this.store.activeWorldEvent;
 		if (!activeEvent) return nothing;
 		return html`

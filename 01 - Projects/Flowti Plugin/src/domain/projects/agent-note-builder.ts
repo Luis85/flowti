@@ -79,17 +79,24 @@ export function agentVaultPaths(displayName: string): { md: string; json: string
  * Explicit blueprint fields win when set; skills/description fall back to role note data.
  */
 export function mergeAgentBlueprintFromRoleSlot(slot: TeamRoleSlot): AgentBlueprint {
-	const fromRole: AgentBlueprint = {};
-	if (slot.roleSkills?.length) fromRole.skills = [...slot.roleSkills];
+	const fromRoleSkills = slot.roleSkills?.length ? [...slot.roleSkills] : undefined;
 	const parts: string[] = [];
 	if (slot.roleSummary?.trim()) parts.push(slot.roleSummary.trim());
 	if (slot.roleBody?.trim()) parts.push(slot.roleBody.trim());
-	if (parts.length) fromRole.description = parts.join("\n\n");
+	const fromRoleDesc = parts.length ? parts.join("\n\n") : undefined;
+	const fromRole: AgentBlueprint = {
+		...(fromRoleSkills ? { skills: fromRoleSkills } : {}),
+		...(fromRoleDesc ? { description: fromRoleDesc } : {}),
+	};
 	const bp = slot.blueprint;
 	if (!bp || Object.keys(bp).length === 0) return fromRole;
-	const out: AgentBlueprint = { ...fromRole, ...bp };
-	out.skills = bp.skills?.length ? bp.skills : fromRole.skills;
-	out.description =
+	const mergedSkills = bp.skills?.length ? bp.skills : fromRole.skills;
+	const mergedDescription =
 		typeof bp.description === "string" && bp.description.trim() ? bp.description : fromRole.description;
-	return out;
+	return {
+		...fromRole,
+		...bp,
+		...(mergedSkills ? { skills: mergedSkills } : {}),
+		...(mergedDescription ? { description: mergedDescription } : {}),
+	};
 }

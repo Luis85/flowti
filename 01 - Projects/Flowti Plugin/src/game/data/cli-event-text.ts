@@ -11,7 +11,7 @@ const SKIP_KEYS = new Set(["type", "agent", "tool", "id", "status", "ts"]);
  */
 export function collectStringFieldsFromCliEvent(event: CliEvent): string {
 	const parts: string[] = [];
-	for (const [k, v] of Object.entries(event as Record<string, unknown>)) {
+	for (const [k, v] of Object.entries(event as unknown as Record<string, unknown>)) {
 		if (SKIP_KEYS.has(k)) continue;
 		if (typeof v === "string" && v.trim()) parts.push(v.trim());
 	}
@@ -56,7 +56,7 @@ export function extractTextFromUnknownJson(parsed: unknown): string | null {
  * Best-effort raw assistant text from a single CLI event line.
  */
 export function rawTextFromCliEvent(event: CliEvent): string {
-	const e = event as Record<string, unknown>;
+	const e = event as unknown as Record<string, unknown>;
 	const ordered = [e.text, e.response, e.content, e.output, e.message, e.reply];
 	for (const v of ordered) {
 		if (typeof v === "string" && v.trim()) return v.trim();

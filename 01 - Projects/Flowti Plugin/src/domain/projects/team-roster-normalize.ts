@@ -10,16 +10,19 @@ export function normalizeTeamRoleSlots(slots: readonly TeamRoleSlot[]): TeamRole
 		const need = s.need.trim();
 		const assignee = s.assignee?.trim();
 		const roleNotePath = s.roleNotePath?.trim();
-		const slot: TeamRoleSlot = { id: s.id, title, need };
-		if (s.blueprint && Object.keys(s.blueprint).length > 0) slot.blueprint = s.blueprint;
-		if (assignee) slot.assignee = assignee;
-		if (roleNotePath) slot.roleNotePath = roleNotePath;
-		if (s.roleSkills?.length) slot.roleSkills = [...s.roleSkills];
-		if (s.roleSummary?.trim()) slot.roleSummary = s.roleSummary.trim();
-		if (s.roleBody != null && s.roleBody !== "") slot.roleBody = s.roleBody;
-		if (typeof s.roleFte === "number" && Number.isFinite(s.roleFte)) slot.roleFte = s.roleFte;
-		if (s.roleStart?.trim()) slot.roleStart = s.roleStart.trim();
-		if (s.roleEnd?.trim()) slot.roleEnd = s.roleEnd.trim();
-		return slot;
+		return {
+			id: s.id,
+			title,
+			need,
+			...(s.blueprint && Object.keys(s.blueprint).length > 0 ? { blueprint: s.blueprint } : {}),
+			...(assignee ? { assignee } : {}),
+			...(roleNotePath ? { roleNotePath } : {}),
+			...(s.roleSkills?.length ? { roleSkills: [...s.roleSkills] } : {}),
+			...(s.roleSummary?.trim() ? { roleSummary: s.roleSummary.trim() } : {}),
+			...(s.roleBody != null && s.roleBody !== "" ? { roleBody: s.roleBody } : {}),
+			...(typeof s.roleFte === "number" && Number.isFinite(s.roleFte) ? { roleFte: s.roleFte } : {}),
+			...(s.roleStart?.trim() ? { roleStart: s.roleStart.trim() } : {}),
+			...(s.roleEnd?.trim() ? { roleEnd: s.roleEnd.trim() } : {}),
+		} satisfies TeamRoleSlot;
 	});
 }

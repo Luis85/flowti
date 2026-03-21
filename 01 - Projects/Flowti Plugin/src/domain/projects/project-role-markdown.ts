@@ -96,7 +96,7 @@ function parseFrontmatterScalar(block: string, key: string): string | undefined 
 }
 
 function spreadStaffing(fte: number | undefined, start: string | undefined, end: string | undefined): Pick<ParsedProjectRole, "fte" | "start" | "end"> {
-	const o: Pick<ParsedProjectRole, "fte" | "start" | "end"> = {};
+	const o: { fte?: number; start?: string; end?: string } = {};
 	if (fte !== undefined) o.fte = fte;
 	if (start) o.start = start;
 	if (end) o.end = end;

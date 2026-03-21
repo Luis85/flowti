@@ -34,6 +34,7 @@ import type { WorldAmbience } from "./systems/world-ambience.js";
 import type { DayClock } from "./systems/day-clock.js";
 import type { SceneRegistry } from "./systems/scene-registry.js";
 import { AGENT_WAKE_DELAY } from "./engine-config.js";
+import { afterNextPaint } from "./after-next-paint.js";
 
 export interface StartEngineDeps {
 	engine: ex.Engine;
@@ -198,25 +199,34 @@ export function createAgentSelectHandler(deps: AgentSelectDeps): (agentName: str
 			if (cameraSystem) cameraSystem.stopFollow();
 			store.stopFollow();
 		} else {
-			if (actor) {
-				brainSystem.freeze(agentName);
-				actor.focus();
-				if (cameraSystem) cameraSystem.startFollow(actor);
-				store.startFollow(agentName);
-				directorSystem.recordInteraction("click", { x: actor.pos.x, y: actor.pos.y });
-			}
+			// 1) Update dashboard store in one batch so the agent panel can render without waiting
+			//    on Excalibur camera/brain/bubble work in the same task.
+			store.beginBatch();
 			store.selectAgent(agentName);
 			store.selectTab("info");
-			engagementSystem.clearTaskCompleted(agentName);
-			setTimeout(() => void store.wakeAgent(agentName), AGENT_WAKE_DELAY);
-			const agent = store.agents.find((a) => a.name === agentName);
-			if (agent) {
-				const greetings = agent.personality && agent.personality.length > 0
-					? ["Hey there!", "What can I help with?", "Good to see you."]
-					: ["Hello!", "What's up?"];
-				const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-				bubbleSystem.showBubble(agentName, "speech", greeting, engine.currentScene, findAgentActor, 3000);
-			}
+			store.endBatch();
+
+			// 2) After the next paint, apply canvas-side selection (freeze, follow, bubble, wake).
+			afterNextPaint(() => {
+				if (store.selectedAgent !== agentName) return;
+				if (actor) {
+					brainSystem.freeze(agentName);
+					actor.focus();
+					if (cameraSystem) cameraSystem.startFollow(actor);
+					store.startFollow(agentName);
+					directorSystem.recordInteraction("click", { x: actor.pos.x, y: actor.pos.y });
+				}
+				engagementSystem.clearTaskCompleted(agentName);
+				globalThis.setTimeout(() => void store.wakeAgent(agentName), AGENT_WAKE_DELAY);
+				const agent = store.agents.find((a) => a.name === agentName);
+				if (agent) {
+					const greetings = agent.personality && agent.personality.length > 0
+						? ["Hey there!", "What can I help with?", "Good to see you."]
+						: ["Hello!", "What's up?"];
+					const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+					bubbleSystem.showBubble(agentName, "speech", greeting, engine.currentScene, findAgentActor, 3000);
+				}
+			});
 		}
 	};
 }

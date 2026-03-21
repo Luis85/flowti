@@ -1,8 +1,10 @@
 // Economy visual cue definitions — used by engine-events.ts to trigger particles/bubbles
 
+import type { ParticlePreset } from "./particle-system.js";
+
 export interface EconomyVisualCue {
 	readonly trigger: string;
-	readonly particlePreset?: string;
+	readonly particlePreset?: ParticlePreset;
 	readonly bubbleText?: string;
 	readonly duration?: number;
 }
