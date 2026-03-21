@@ -24,21 +24,22 @@ function applyPetEffects(pet: PetActor, obj: InteractableActor): void {
 }
 
 function findShareTarget(ctx: EngineContext, pet: PetActor, petRoom: string): { obj: InteractableActor; occupant: string } | null {
+	const env = ctx.envObjects;
 	const allObjects: InteractableActor[] = [
-		ctx.coffeeMachine, ctx.snackTable, ctx.waterCooler,
-		ctx.foodBowlHub, ctx.foodBowlVillage,
-		ctx.waterBowlOffice, ctx.waterBowlStation,
+		env.coffeeMachine, env.snackTable, env.waterCooler,
+		env.foodBowlHub, env.foodBowlVillage,
+		env.waterBowlOffice, env.waterBowlStation,
 	];
 	for (const obj of allObjects) {
 		if (!FOOD_DRINK_OBJECT_TYPES.has(obj.objectType)) continue;
 		const occupant = obj.getOccupant();
-		if (!occupant || ctx.registry.getEntityRoom(occupant) !== petRoom) continue;
+		if (!occupant || ctx.systems.registry.getEntityRoom(occupant) !== petRoom) continue;
 		const point = obj.getInteractionPoint();
 		const dx = pet.pos.x - point.x;
 		const dy = pet.pos.y - point.y;
 		if (Math.sqrt(dx * dx + dy * dy) >= pet.getInteractRadius()) continue;
 		const cooldownKey = `share:${occupant}:${pet.entityId}`;
-		if (performance.now() - (ctx.petShareCooldowns.get(cooldownKey) ?? 0) <= PET_SHARE_COOLDOWN) continue;
+		if (performance.now() - (ctx.state.petShareCooldowns.get(cooldownKey) ?? 0) <= PET_SHARE_COOLDOWN) continue;
 		return { obj, occupant };
 	}
 	return null;
@@ -51,13 +52,13 @@ export function checkPetShareInteraction(ctx: EngineContext, pet: PetActor, petR
 	if (!target) return;
 
 	const { obj, occupant } = target;
-	ctx.petShareCooldowns.set(`share:${occupant}:${pet.entityId}`, performance.now());
+	ctx.state.petShareCooldowns.set(`share:${occupant}:${pet.entityId}`, performance.now());
 
 	applyPetEffects(pet, obj);
-	ctx.needs.applyEffect(occupant, { social: PET_SHARE_SOCIAL_BONUS });
+	ctx.systems.needs.applyEffect(occupant, { social: PET_SHARE_SOCIAL_BONUS });
 
-	const agentPos = ctx.brain.getPosition(occupant);
+	const agentPos = ctx.systems.brain.getPosition(occupant);
 	if (agentPos) {
-		ctx.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
+		ctx.systems.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
 	}
 }

@@ -51,13 +51,13 @@ export interface RestoreResult {
 // Narrow interface so callers don't need the full EngineContext.
 
 export interface StateSystems {
-	readonly dayClock: EngineContext["dayClock"];
-	readonly worldAmbience: EngineContext["worldAmbience"];
-	readonly memory: EngineContext["memory"];
-	readonly relationship: EngineContext["relationship"];
-	readonly needs: EngineContext["needs"];
-	readonly brain: EngineContext["brain"];
-	readonly registry: EngineContext["registry"];
+	readonly dayClock: EngineContext["systems"]["dayClock"];
+	readonly worldAmbience: EngineContext["systems"]["worldAmbience"];
+	readonly memory: EngineContext["systems"]["memory"];
+	readonly relationship: EngineContext["systems"]["relationship"];
+	readonly needs: EngineContext["systems"]["needs"];
+	readonly brain: EngineContext["systems"]["brain"];
+	readonly registry: EngineContext["systems"]["registry"];
 	readonly pets: EngineContext["pets"];
 }
 

@@ -104,7 +104,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 		engine.currentScene.camera,
 		{ x: ENGINE_WIDTH / 2, y: ENGINE_HEIGHT / 2 },
 	);
-	ctx.cameraSystem = cameraSystem;
+	ctx.systems.cameraSystem = cameraSystem;
 
 	engine.canvas.addEventListener("wheel", (e) => {
 		e.preventDefault();
@@ -128,7 +128,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 	const { savedPositions } = vaultBasePath
 		? restoreWorldState(stateSystems, vaultBasePath)
 		: { savedPositions: null };
-	ctx.prevCycleCount = dayClock.getCycleCount();
+	ctx.state.prevCycleCount = dayClock.getCycleCount();
 
 	// Initialize lighting to current phase (no pop on first frame)
 	const initLight = worldAmbience.getLighting(dayClock.getPhase());

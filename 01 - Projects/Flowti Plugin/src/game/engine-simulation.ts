@@ -42,67 +42,69 @@ export function tickSimulation(ctx: EngineContext): void {
 // ── 1. tickClock — day clock, world event scheduler, cycle boundary ──
 
 export function tickClock(ctx: EngineContext): void {
-	ctx.dayClock.update(ctx.deltaMs);
-	ctx.store.setDayProgress(ctx.dayClock.getCycleProgress(), ctx.dayClock.getCycleCount());
+	const { systems: sys, state } = ctx;
+	sys.dayClock.update(state.deltaMs);
+	ctx.store.setDayProgress(sys.dayClock.getCycleProgress(), sys.dayClock.getCycleCount());
 
-	if (ctx.dayClock.getCycleCount() > ctx.prevCycleCount) {
-		ctx.prevCycleCount = ctx.dayClock.getCycleCount();
-		ctx.worldAmbience.onCycleComplete();
-		for (const agentName of ctx.needs.getAgentNames()) {
-			ctx.memory.onCycleEnd(agentName, {
+	if (sys.dayClock.getCycleCount() > state.prevCycleCount) {
+		state.prevCycleCount = sys.dayClock.getCycleCount();
+		sys.worldAmbience.onCycleComplete();
+		for (const agentName of sys.needs.getAgentNames()) {
+			sys.memory.onCycleEnd(agentName, {
 				completedTask: ctx.store.taskLockedAgents.has(agentName),
-				conversations: ctx.cycleConversationCounts.get(agentName) ?? 0,
-				dominantMood: ctx.needs.getMood(agentName),
+				conversations: state.cycleConversationCounts.get(agentName) ?? 0,
+				dominantMood: sys.needs.getMood(agentName),
 			});
-			ctx.cycleConversationCounts.set(agentName, 0);
+			state.cycleConversationCounts.set(agentName, 0);
 		}
 		// Bonded pet morale bonus — +5 morale per cycle to bonded agent
 		for (const pet of ctx.pets) {
 			const bonded = pet.getBondedAgent();
 			if (bonded) {
-				ctx.needs.applyEffect(bonded, { morale: 5 });
+				sys.needs.applyEffect(bonded, { morale: 5 });
 			}
 		}
-		ctx.worldEvent.onCycleReset();
-		ctx.firedReactiveTriggers.clear();
-		ctx.relationship.onCycleEnd();
+		sys.worldEvent.onCycleReset();
+		state.firedReactiveTriggers.clear();
+		sys.relationship.onCycleEnd();
 	}
 
-	ctx.worldEvent.update(ctx.deltaMs);
+	sys.worldEvent.update(state.deltaMs);
 }
 
 // ── 2. tickSensor — sensor cooldowns and queued feedback ─────────────
 
 export function tickSensor(ctx: EngineContext): void {
-	ctx.sensor.update(ctx.deltaMs);
+	ctx.systems.sensor.update(ctx.state.deltaMs);
 }
 
 // ── 3. tickNeeds — decay/restore needs + mood propagation ────────────
 
 export function tickNeeds(ctx: EngineContext): void {
-	ctx.needs.update(
-		ctx.deltaMs,
-		(name) => ctx.brain.getState(name)?.state ?? "idle",
+	const { systems: sys, state } = ctx;
+	sys.needs.update(
+		state.deltaMs,
+		(name) => sys.brain.getState(name)?.state ?? "idle",
 		(name) => getNearbyAgents(ctx, name),
-		ctx.dayClock.getPhaseMultipliers(),
+		sys.dayClock.getPhaseMultipliers(),
 	);
 
 	// Mood propagation — push derived mood into brain + emote + talk systems
-	for (const agentName of ctx.needs.getAgentNames()) {
-		const mood = ctx.needs.getMood(agentName);
-		ctx.brain.updateMood(agentName, mood);
-		ctx.emote.updateMood(agentName, mood);
+	for (const agentName of sys.needs.getAgentNames()) {
+		const mood = sys.needs.getMood(agentName);
+		sys.brain.updateMood(agentName, mood);
+		sys.emote.updateMood(agentName, mood);
 
 		// Feed rich context to talk engine
 		const nearby = getNearbyAgents(ctx, agentName);
 		const nearbyAgent = nearby[0] ?? "";
 		const nearbyDomain = nearbyAgent ? (ctx.store.agents.find((a) => a.name === nearbyAgent)?.domain ?? "") : "";
-		ctx.talk.updateVars(agentName, {
+		sys.talk.updateVars(agentName, {
 			mood,
 			mood_adj: mood === "neutral" ? "focused" : mood,
-			phase: ctx.dayClock.getPhase(),
-			weather: ctx.worldAmbience.getWeather(),
-			streak: String(ctx.memory.getMemory(agentName).workStreak),
+			phase: sys.dayClock.getPhase(),
+			weather: sys.worldAmbience.getWeather(),
+			streak: String(sys.memory.getMemory(agentName).workStreak),
 			nearby_agent: nearbyAgent,
 			nearby_domain: nearbyDomain,
 		});
@@ -112,15 +114,16 @@ export function tickNeeds(ctx: EngineContext): void {
 // ── 4. tickReactiveTriggers — energy/mood/focus threshold talk ────────
 
 export function tickReactiveTriggers(ctx: EngineContext): void {
-	for (const agentName of ctx.needs.getAgentNames()) {
-		const needs = ctx.needs.getNeeds(agentName);
-		const mood = ctx.needs.getMood(agentName);
-		let fired = ctx.firedReactiveTriggers.get(agentName);
-		if (!fired) { fired = new Set(); ctx.firedReactiveTriggers.set(agentName, fired); }
+	const { systems: sys, state } = ctx;
+	for (const agentName of sys.needs.getAgentNames()) {
+		const needs = sys.needs.getNeeds(agentName);
+		const mood = sys.needs.getMood(agentName);
+		let fired = state.firedReactiveTriggers.get(agentName);
+		if (!fired) { fired = new Set(); state.firedReactiveTriggers.set(agentName, fired); }
 		const tryTrigger = (trigger: ReactiveTrigger) => {
 			if (!fired!.has(trigger)) {
 				fired!.add(trigger);
-				ctx.talk.triggerReactive(agentName, trigger);
+				sys.talk.triggerReactive(agentName, trigger);
 			}
 		};
 		if (needs.energy < REACTIVE_THRESHOLDS.energyCritical) tryTrigger("energy-critical");
@@ -135,28 +138,30 @@ export function tickReactiveTriggers(ctx: EngineContext): void {
 // ── 5. tickBehaviorThresholds — needs-driven overrides + object attraction ─
 
 export function tickBehaviorThresholds(ctx: EngineContext): void {
+	const { systems: sys } = ctx;
 	processThresholds(ctx);
 
 	const objectLookup: Record<string, InteractableActor> = {
-		coffeeMachine: ctx.coffeeMachine, snackTable: ctx.snackTable,
-		waterCooler: ctx.waterCooler, couch: ctx.couch,
-		foodBowlHub: ctx.foodBowlHub, foodBowlVillage: ctx.foodBowlVillage,
-		waterBowlOffice: ctx.waterBowlOffice, waterBowlStation: ctx.waterBowlStation,
+		coffeeMachine: ctx.envObjects.coffeeMachine, snackTable: ctx.envObjects.snackTable,
+		waterCooler: ctx.envObjects.waterCooler, couch: ctx.envObjects.couch,
+		foodBowlHub: ctx.envObjects.foodBowlHub, foodBowlVillage: ctx.envObjects.foodBowlVillage,
+		waterBowlOffice: ctx.envObjects.waterBowlOffice, waterBowlStation: ctx.envObjects.waterBowlStation,
 	};
 	const petEntityIds = new Set(ctx.pets.map((p) => p.entityId));
-	const currentPhase = ctx.dayClock.getPhase();
-	for (const agentName of ctx.needs.getAgentNames()) {
-		const state = ctx.brain.getState(agentName)?.state;
+	const currentPhase = sys.dayClock.getPhase();
+	for (const agentName of sys.needs.getAgentNames()) {
+		const state = sys.brain.getState(agentName)?.state;
 		if (state !== "idle" && state !== "wandering") continue;
-		const needs = ctx.needs.getNeeds(agentName);
+		const needs = sys.needs.getNeeds(agentName);
 		tryObjectAttraction(ctx, agentName, needs, currentPhase, objectLookup, petEntityIds);
 	}
 }
 
-type AgentNeeds = ReturnType<EngineContext["needs"]["getNeeds"]>;
-type DayPhase = ReturnType<EngineContext["dayClock"]["getPhase"]>;
+type AgentNeeds = ReturnType<EngineContext["systems"]["needs"]["getNeeds"]>;
+type DayPhase = ReturnType<EngineContext["systems"]["dayClock"]["getPhase"]>;
 
 function tryObjectAttraction(ctx: EngineContext, agentName: string, needs: AgentNeeds, currentPhase: DayPhase, objectLookup: Record<string, InteractableActor>, petEntityIds: Set<string>): void {
+	const { systems: sys } = ctx;
 	for (const rule of OBJECT_ATTRACTION_RULES) {
 		const obj = objectLookup[rule.objectKey];
 		if (!obj) continue;
@@ -165,17 +170,17 @@ function tryObjectAttraction(ctx: EngineContext, agentName: string, needs: Agent
 		if (obj.isOccupied() && petEntityIds.has(obj.getOccupant()!)) {
 			if (!ruleMatches || Math.random() >= rule.chance) continue;
 			const phrase = PET_STEAL_PHRASES[Math.floor(Math.random() * PET_STEAL_PHRASES.length)];
-			ctx.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.findAgentActor, 2500);
+			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
 			break;
 		}
 		if (obj.isOccupied() || !ruleMatches || Math.random() >= rule.chance) continue;
 		const point = obj.getInteractionPoint();
-		ctx.brain.walkTo(agentName, point);
+		sys.brain.walkTo(agentName, point);
 		obj.occupy(agentName);
 		setTimeout(() => {
-			ctx.needs.applyEffect(agentName, obj.getNeedsEffects());
+			sys.needs.applyEffect(agentName, obj.getNeedsEffects());
 			obj.vacate();
-			if (obj === ctx.coffeeMachine) ctx.particlePool.spawnPreset("steam", point.x, point.y - 20);
+			if (obj === ctx.envObjects.coffeeMachine) sys.particlePool.spawnPreset("steam", point.x, point.y - 20);
 		}, OBJECT_EFFECT_DELAY);
 		break;
 	}
@@ -185,8 +190,8 @@ function tryObjectAttraction(ctx: EngineContext, agentName: string, needs: Agent
 
 export function tickPets(ctx: EngineContext): void {
 	for (const pet of ctx.pets) {
-		pet.updateBehavior(ctx.deltaMs);
-		const petRoom = ctx.registry.getEntityRoom(pet.entityId);
+		pet.updateBehavior(ctx.state.deltaMs);
+		const petRoom = ctx.systems.registry.getEntityRoom(pet.entityId);
 
 		updatePetFollow(ctx, pet, petRoom);
 		tryPetAutoFollow(ctx, pet, petRoom);
@@ -199,10 +204,10 @@ export function tickPets(ctx: EngineContext): void {
 function updatePetFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
 	const target = pet.getFollowTarget();
 	if (!target) return;
-	const targetRoom = ctx.registry.getEntityRoom(target);
+	const targetRoom = ctx.systems.registry.getEntityRoom(target);
 	if (targetRoom === petRoom) {
-		const targetPos = ctx.brain.getPosition(target);
-		if (targetPos) pet.moveToward(targetPos.x, targetPos.y, ctx.deltaMs);
+		const targetPos = ctx.systems.brain.getPosition(target);
+		if (targetPos) pet.moveToward(targetPos.x, targetPos.y, ctx.state.deltaMs);
 	} else {
 		pet.setFollowTarget(null);
 	}
@@ -210,11 +215,12 @@ function updatePetFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js"
 
 /** Dog/cat auto-follow idle or stressed agents in same room. */
 function tryPetAutoFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
+	const { systems: sys } = ctx;
 	if (pet.getState() !== "idle") return;
 
 	if (pet.petType === "dog" && Math.random() < DOG_FOLLOW_CHANCE) {
-		const candidates = ctx.needs.getAgentNames().filter((n) =>
-			ctx.registry.getEntityRoom(n) === petRoom && ctx.brain.getState(n)?.state === "idle",
+		const candidates = sys.needs.getAgentNames().filter((n) =>
+			sys.registry.getEntityRoom(n) === petRoom && sys.brain.getState(n)?.state === "idle",
 		);
 		if (candidates.length > 0) {
 			pet.setFollowTarget(candidates[Math.floor(Math.random() * candidates.length)]);
@@ -222,8 +228,8 @@ function tryPetAutoFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js
 	}
 
 	if (pet.petType === "cat" && Math.random() < CAT_FOLLOW_STRESSED_CHANCE) {
-		const candidates = ctx.needs.getAgentNames().filter((n) =>
-			ctx.registry.getEntityRoom(n) === petRoom && ctx.needs.getNeeds(n).morale < CAT_STRESS_MORALE_THRESHOLD,
+		const candidates = sys.needs.getAgentNames().filter((n) =>
+			sys.registry.getEntityRoom(n) === petRoom && sys.needs.getNeeds(n).morale < CAT_STRESS_MORALE_THRESHOLD,
 		);
 		if (candidates.length > 0) {
 			pet.setFollowTarget(candidates[Math.floor(Math.random() * candidates.length)]);
@@ -233,11 +239,12 @@ function tryPetAutoFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js
 
 /** Check agent proximity reactions for a pet (thought bubbles + needs effects). */
 function checkPetProximityReactions(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
+	const { systems: sys, state } = ctx;
 	if (pet.getState() === "sleeping" || !petRoom) return;
 
-	for (const agentName of ctx.needs.getAgentNames()) {
-		if (ctx.registry.getEntityRoom(agentName) !== petRoom) continue;
-		const agentPos = ctx.brain.getPosition(agentName);
+	for (const agentName of sys.needs.getAgentNames()) {
+		if (sys.registry.getEntityRoom(agentName) !== petRoom) continue;
+		const agentPos = sys.brain.getPosition(agentName);
 		if (!agentPos) continue;
 		const dx = pet.pos.x - agentPos.x;
 		const dy = pet.pos.y - agentPos.y;
@@ -245,37 +252,38 @@ function checkPetProximityReactions(ctx: EngineContext, pet: import("./actors/pe
 		if (dist >= pet.getInteractRadius()) continue;
 
 		// Track proximity time for bonding — always accumulate, not gated by reaction cooldown
-		pet.trackProximity(agentName, ctx.deltaMs);
+		pet.trackProximity(agentName, state.deltaMs);
 
 		const cooldownKey = `${agentName}:${pet.petType}`;
-		const lastReaction = ctx.petReactionCooldowns.get(cooldownKey) ?? 0;
+		const lastReaction = state.petReactionCooldowns.get(cooldownKey) ?? 0;
 		if (performance.now() - lastReaction <= PET_REACTION_COOLDOWN) continue;
 
-		ctx.petReactionCooldowns.set(cooldownKey, performance.now());
-		ctx.needs.applyEffect(agentName, pet.getNeedsEffects());
+		state.petReactionCooldowns.set(cooldownKey, performance.now());
+		sys.needs.applyEffect(agentName, pet.getNeedsEffects());
 		const def = PET_DEFINITIONS.find((d) => d.type === pet.petType);
 		if (def && def.phrases.length > 0) {
 			const phrase = def.phrases[Math.floor(Math.random() * def.phrases.length)];
-			ctx.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.findAgentActor, 3000);
+			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
 		}
-		ctx.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
+		sys.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
 	}
 }
 
 // ── 7. tickRoomTransit — room switching via RoomSwitcher ─────────────
 
 export function tickRoomTransit(ctx: EngineContext): void {
-	ctx.roomSwitcher.update(ctx.deltaMs);
+	ctx.systems.roomSwitcher.update(ctx.state.deltaMs);
 }
 
 // ── 8. tickBehaviorTree — BT needs refresh + tick + action processing ─
 
 export function tickBehaviorTree(ctx: EngineContext): void {
+	const { systems: sys, state } = ctx;
 	// Refresh BT agent needs snapshots from the live needs system
-	for (const agentName of ctx.needs.getAgentNames()) {
-		const btAgent = ctx.bt.getAgent(agentName);
+	for (const agentName of sys.needs.getAgentNames()) {
+		const btAgent = sys.bt.getAgent(agentName);
 		if (btAgent) {
-			const live = ctx.needs.getNeeds(agentName);
+			const live = sys.needs.getNeeds(agentName);
 			btAgent.context.needs.energy = live.energy;
 			btAgent.context.needs.social = live.social;
 			btAgent.context.needs.focus = live.focus;
@@ -283,16 +291,16 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 		}
 	}
 
-	const btActions = ctx.bt.update(ctx.deltaMs, ctx.btWorldState, ctx.btClock);
+	const btActions = sys.bt.update(state.deltaMs, ctx.btBridge.worldState, ctx.btBridge.clock);
 	for (const action of btActions) {
 		if (action.type === "goal-started") {
-			ctx.brain.assignWork(action.agentName);
+			sys.brain.assignWork(action.agentName);
 		} else if (action.type === "goal-completed" || action.type === "artifact-dropped") {
-			ctx.brain.releaseWork(action.agentName);
+			sys.brain.releaseWork(action.agentName);
 		} else if (action.type === "speaking") {
 			const text = String(action.data.text ?? "");
 			if (text) {
-				ctx.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.findAgentActor, 4000);
+				sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
 			}
 		}
 	}
@@ -303,17 +311,18 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 // so that particle trail detection in tickVisuals can detect transitions.
 
 export function tickBrain(ctx: EngineContext): void {
+	const { systems: sys, state } = ctx;
 	// Snapshot walking states before brain update
-	for (const [name, entry] of ctx.brain.getAllEntries()) {
-		ctx.prevWalkingState.set(name, entry.state === "wandering" || entry.state === "walking-to");
+	for (const [name, entry] of sys.brain.getAllEntries()) {
+		state.prevWalkingState.set(name, entry.state === "wandering" || entry.state === "walking-to");
 	}
 
 	// Brain system — movement, state machine
-	ctx.brain.update(ctx.deltaMs, ctx.findAgentActor, (name) => ctx.registry.getEntityRoom(name));
+	sys.brain.update(state.deltaMs, ctx.lookups.findAgentActor, (name) => sys.registry.getEntityRoom(name));
 
 	// Standing order indicator — show loop icon when agent is working and task-locked
-	for (const [name, entry] of ctx.brain.getAllEntries()) {
-		const actor = ctx.findAgentActor(name);
+	for (const [name, entry] of sys.brain.getAllEntries()) {
+		const actor = ctx.lookups.findAgentActor(name);
 		if (!actor) continue;
 		const isActive = entry.state === "working" && entry.taskLocked;
 		if (actor.isStandingOrderActive() !== isActive) {
@@ -325,65 +334,68 @@ export function tickBrain(ctx: EngineContext): void {
 // ── 10. tickSocial — ritual + social + talk ──────────────────────────
 
 export function tickSocial(ctx: EngineContext): void {
+	const { systems: sys, state } = ctx;
 	// Ritual system — ceremonial choreography
-	ctx.ritual.update(ctx.deltaMs, (name) => ctx.brain.getState(name)?.state ?? "idle");
+	sys.ritual.update(state.deltaMs, (name) => sys.brain.getState(name)?.state ?? "idle");
 
 	// Social system — proximity conversations (room-isolated: offset positions by room)
-	ctx.social.update(
-		ctx.deltaMs,
+	sys.social.update(
+		state.deltaMs,
 		(name) => {
-			const pos = ctx.brain.getPosition(name) ?? { x: 0, y: 0 };
-			const room = ctx.registry.getEntityRoom(name) ?? "";
+			const pos = sys.brain.getPosition(name) ?? { x: 0, y: 0 };
+			const room = sys.registry.getEntityRoom(name) ?? "";
 			const offset = ROOM_OFFSETS[room] ?? UNKNOWN_ROOM_OFFSET;
 			return { x: pos.x + offset, y: pos.y + offset };
 		},
-		(name) => ctx.brain.getState(name)?.state ?? "idle",
-		(name) => ctx.needs.getNeeds(name),
+		(name) => sys.brain.getState(name)?.state ?? "idle",
+		(name) => sys.needs.getNeeds(name),
 	);
 
 	// Talk engine — ambient chatter
-	ctx.talk.update(ctx.deltaMs);
+	sys.talk.update(state.deltaMs);
 }
 
 // ── 11. tickDirector — director + engagement + tool executor ─────────
 
 export function tickDirector(ctx: EngineContext): void {
-	ctx.director.update(ctx.deltaMs);
+	const { systems: sys, state } = ctx;
+	sys.director.update(state.deltaMs);
 
-	ctx.engagement.update(
-		ctx.deltaMs,
-		() => ctx.director.getPresence(),
-		(name) => ctx.needs.getNeeds(name),
-		(name) => ctx.brain.getState(name)?.state ?? "idle",
+	sys.engagement.update(
+		state.deltaMs,
+		() => sys.director.getPresence(),
+		(name) => sys.needs.getNeeds(name),
+		(name) => sys.brain.getState(name)?.state ?? "idle",
 		(_name) => false,
 	);
 
-	ctx.engagement.setContext({
-		agentCount: String(ctx.brain.getAllEntries().size),
+	sys.engagement.setContext({
+		agentCount: String(sys.brain.getAllEntries().size),
 	});
 
-	ctx.tool.update(ctx.deltaMs);
+	sys.tool.update(state.deltaMs);
 }
 
 // ── 12. tickVisuals — emote, particles, weather, lighting, bubbles, camera ─
 
 export function tickVisuals(ctx: EngineContext): void {
+	const { systems: sys, state } = ctx;
 	// Emote system — mood-driven emotes
-	ctx.emote.update(ctx.deltaMs, (name) => ctx.brain.getState(name)?.state ?? "idle");
+	sys.emote.update(state.deltaMs, (name) => sys.brain.getState(name)?.state ?? "idle");
 
 	// Particle pool update
-	ctx.particlePool.update(ctx.deltaMs);
+	sys.particlePool.update(state.deltaMs);
 
 	// Particle trails — walking dust trails + arrival bursts
 	updateParticleTrails(ctx);
 
 	// Weather ambient particles
-	const weatherVisuals = ctx.worldAmbience.getWeatherVisuals();
+	const weatherVisuals = sys.worldAmbience.getWeatherVisuals();
 	if (weatherVisuals.particleCount > 0) {
 		if (Math.random() < WEATHER_PARTICLE_CHANCE) {
 			const x = Math.random() * ENGINE_WIDTH;
 			const y = weatherVisuals.particleAngle > 0 ? 0 : Math.random() * ENGINE_HEIGHT;
-			ctx.particlePool.spawn({
+			sys.particlePool.spawn({
 				x, y,
 				vx: Math.sin(weatherVisuals.particleAngle) * weatherVisuals.particleSpeed,
 				vy: Math.cos(weatherVisuals.particleAngle) * weatherVisuals.particleSpeed,
@@ -396,33 +408,33 @@ export function tickVisuals(ctx: EngineContext): void {
 	}
 
 	// Smooth lighting transition — lerp toward target phase lighting
-	const targetLight = ctx.worldAmbience.getLighting(ctx.dayClock.getPhase());
-	const lerpT = Math.min(1, LIGHT_LERP_SPEED * ctx.deltaMs);
-	ctx.currentLight.r += (targetLight.r - ctx.currentLight.r) * lerpT;
-	ctx.currentLight.g += (targetLight.g - ctx.currentLight.g) * lerpT;
-	ctx.currentLight.b += (targetLight.b - ctx.currentLight.b) * lerpT;
-	ctx.currentLight.opacity += (targetLight.opacity - ctx.currentLight.opacity) * lerpT;
+	const targetLight = sys.worldAmbience.getLighting(sys.dayClock.getPhase());
+	const lerpT = Math.min(1, LIGHT_LERP_SPEED * state.deltaMs);
+	state.currentLight.r += (targetLight.r - state.currentLight.r) * lerpT;
+	state.currentLight.g += (targetLight.g - state.currentLight.g) * lerpT;
+	state.currentLight.b += (targetLight.b - state.currentLight.b) * lerpT;
+	state.currentLight.opacity += (targetLight.opacity - state.currentLight.opacity) * lerpT;
 
 	// Workstation glow updates
-	for (const room of Object.values(ctx.roomScenes)) {
+	for (const room of Object.values(ctx.scenes.map)) {
 		for (const ws of room.getWorkstations()) {
-			ws.updateGlow(ctx.deltaMs);
+			ws.updateGlow(state.deltaMs);
 		}
 	}
 
 	// Bubble system — overhead speech/thought bubbles
-	ctx.bubble.update(
-		ctx.deltaMs,
-		(name) => ctx.brain.getState(name)?.state === "idle",
+	sys.bubble.update(
+		state.deltaMs,
+		(name) => sys.brain.getState(name)?.state === "idle",
 		ctx.engine.currentScene,
-		ctx.findAgentActor,
+		ctx.lookups.findAgentActor,
 	);
 
 	// Camera system
-	if (ctx.cameraSystem) {
-		ctx.cameraSystem.checkDespawn();
-		ctx.cameraSystem.applyZoom(ctx.deltaMs);
-		ctx.cameraSystem.updatePan(ctx.deltaMs);
+	if (sys.cameraSystem) {
+		sys.cameraSystem.checkDespawn();
+		sys.cameraSystem.applyZoom(state.deltaMs);
+		sys.cameraSystem.updatePan(state.deltaMs);
 	}
 }
 
@@ -430,16 +442,17 @@ export function tickVisuals(ctx: EngineContext): void {
 
 /** Get names of agents within social radius of `name` — same room only. */
 export function getNearbyAgents(ctx: EngineContext, name: string): string[] {
-	const pos = ctx.brain.getPosition(name);
+	const { systems: sys } = ctx;
+	const pos = sys.brain.getPosition(name);
 	if (!pos) return [];
-	const myRoom = ctx.registry.getEntityRoom(name);
-	const params = ctx.brain.getState(name);
+	const myRoom = sys.registry.getEntityRoom(name);
+	const params = sys.brain.getState(name);
 	const radius = params?.params.socialRadius ?? 100;
-	return [...ctx.brain.getAllEntries()]
+	return [...sys.brain.getAllEntries()]
 		.filter(([n]) => {
 			if (n === name) return false;
-			if (ctx.registry.getEntityRoom(n) !== myRoom) return false;
-			const otherPos = ctx.brain.getPosition(n);
+			if (sys.registry.getEntityRoom(n) !== myRoom) return false;
+			const otherPos = sys.brain.getPosition(n);
 			if (!otherPos) return false;
 			const dx = pos.x - otherPos.x;
 			const dy = pos.y - otherPos.y;
@@ -452,24 +465,25 @@ export function getNearbyAgents(ctx: EngineContext, name: string): string[] {
 
 /** Process behavior thresholds — needs-driven state overrides. */
 function processThresholds(ctx: EngineContext): void {
-	for (const agentName of ctx.needs.getAgentNames()) {
-		if (ctx.registry.isInTransit(agentName)) continue;
-		const actions = ctx.needs.checkThresholds(agentName);
+	const { systems: sys } = ctx;
+	for (const agentName of sys.needs.getAgentNames()) {
+		if (sys.registry.isInTransit(agentName)) continue;
+		const actions = sys.needs.checkThresholds(agentName);
 		for (const action of actions) {
 			switch (action.type) {
 				case "force-break":
-					if (ctx.brain.getState(agentName)?.state !== "on-break") {
-						ctx.brain.applyEvent(agentName, "break");
+					if (sys.brain.getState(agentName)?.state !== "on-break") {
+						sys.brain.applyEvent(agentName, "break");
 					}
 					break;
 				case "seek-agent": {
-					const nearest = ctx.findNearestAgent(agentName);
-					if (nearest) ctx.brain.walkTo(agentName, nearest);
+					const nearest = ctx.lookups.findNearestAgent(agentName);
+					if (nearest) sys.brain.walkTo(agentName, nearest);
 					break;
 				}
 				case "seek-quiet":
 				case "demoralized":
-					ctx.brain.applyEvent(agentName, "idle");
+					sys.brain.applyEvent(agentName, "idle");
 					break;
 			}
 		}
@@ -488,31 +502,32 @@ function agentParticleColor(ctx: EngineContext, name: string): string {
 
 /** Spawn particle trails for walking agents, dust bursts on arrival. Only for current scene. */
 function updateParticleTrails(ctx: EngineContext): void {
-	for (const [name, entry] of ctx.brain.getAllEntries()) {
-		const wasWalking = ctx.prevWalkingState.get(name) ?? false;
+	const { systems: sys, state } = ctx;
+	for (const [name, entry] of sys.brain.getAllEntries()) {
+		const wasWalking = state.prevWalkingState.get(name) ?? false;
 		const isWalking = entry.state === "wandering" || entry.state === "walking-to";
 
 		if (isWalking) {
-			const actor = ctx.findCurrentSceneActor(name);
+			const actor = ctx.lookups.findCurrentSceneActor(name);
 			if (!actor) continue;
 			const x = actor.pos.x;
 			const y = actor.pos.y + TRAIL_Y_OFFSET;
-			const prev = ctx.lastTrailPos.get(name);
+			const prev = state.lastTrailPos.get(name);
 			if (!prev) {
-				ctx.lastTrailPos.set(name, { x, y });
+				state.lastTrailPos.set(name, { x, y });
 				continue;
 			}
 			const dx = x - prev.x;
 			const dy = y - prev.y;
 			if (dx * dx + dy * dy >= TRAIL_DISTANCE_SQ) {
-				ctx.particlePool.spawnTrail(x, y, agentParticleColor(ctx, name), entry.state === "walking-to");
-				ctx.lastTrailPos.set(name, { x, y });
+				sys.particlePool.spawnTrail(x, y, agentParticleColor(ctx, name), entry.state === "walking-to");
+				state.lastTrailPos.set(name, { x, y });
 			}
 		} else {
-			ctx.lastTrailPos.delete(name);
+			state.lastTrailPos.delete(name);
 			if (wasWalking) {
-				const actor = ctx.findCurrentSceneActor(name);
-				if (actor) ctx.particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + TRAIL_Y_OFFSET, agentParticleColor(ctx, name));
+				const actor = ctx.lookups.findCurrentSceneActor(name);
+				if (actor) sys.particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + TRAIL_Y_OFFSET, agentParticleColor(ctx, name));
 			}
 		}
 	}
