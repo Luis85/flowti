@@ -41,7 +41,7 @@ import { HUDDLE_TEMPLATES } from "./data/huddle-templates.js";
 import { interpolateTemplate } from "./data/engagement-templates.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { InteractableActor } from "./actors/interactable-actor.js";
-import type { AgentNeeds } from "./systems/needs-system.js";
+
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
 import { DayClock } from "./systems/day-clock.js";
@@ -78,6 +78,19 @@ import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
 import type { SceneEntity } from "./data/scene-entity.js";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import {
+	ENGINE_WIDTH, ENGINE_HEIGHT, DOMAIN_PARTICLE_COLORS, DEFAULT_PARTICLE_COLOR,
+	LIGHT_LERP_SPEED, OBJECT_POSITIONS, BRAIN_BOUNDS, PARTICLE_POOL_SIZE,
+	SOCIAL_EMOJIS, REACTION_EMOJIS, MOOD_TEXTS, FOLLOW_UP_STRINGS,
+	ROOM_OFFSETS, UNKNOWN_ROOM_OFFSET, DEFAULT_PET_ROOMS,
+	OBJECT_ATTRACTION_RULES, POSITION_FLUSH_INTERVAL,
+	AGENT_WAKE_DELAY, SCENE_TRANSITION_DURATION, LOADING_FADE_DURATION,
+	ACTION_DEDUP_TTL, PET_REACTION_COOLDOWN, TRAIL_DISTANCE_SQ, TRAIL_Y_OFFSET,
+	FOLLOW_UP_CHANCE, SOCIAL_EMOJI_CHANCE, EMOJI_REACTION_CHANCE,
+	WEATHER_PARTICLE_CHANCE, WEATHER_PARTICLE_LIFETIME, WEATHER_PARTICLE_OPACITY,
+	DOG_FOLLOW_CHANCE, CAT_FOLLOW_STRESSED_CHANCE, CAT_STRESS_MORALE_THRESHOLD,
+	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS,
+} from "./engine-config.js";
 
 // Side-effect imports — register Lit custom elements
 import "./ui/dashboard-overlays.js";
@@ -85,20 +98,6 @@ import "./ui/ask-bob.js";
 import "./ui/roster-bar.js";
 import "./ui/camera-hud.js";
 import "./ui/agent-panel.js";
-
-// ── Constants ────────────────────────────────────────────────────────
-
-const ENGINE_WIDTH = 800;
-const ENGINE_HEIGHT = 500;
-
-const DOMAIN_PARTICLE_COLORS: Record<string, string> = {
-	engineering: "#3b82f6",
-	design: "#a855f7",
-	product: "#f59e0b",
-	management: "#10b981",
-	quality: "#ef4444",
-	operations: "#06b6d4",
-};
 
 // ── Public interface ─────────────────────────────────────────────────
 
@@ -185,7 +184,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	let cameraSystem: ReturnType<typeof createCameraSystem> | null = null;
 
 	const brainSystem = new BrainSystem({
-		bounds: { minX: 80, maxX: ENGINE_WIDTH - 80, minY: 80, maxY: ENGINE_HEIGHT - 60 },
+		bounds: BRAIN_BOUNDS,
 		onWorkstationChange: (agentName, action, position) => {
 			for (const room of Object.values(roomScenes)) {
 				const actor = room.getAgentActor(agentName);
@@ -252,7 +251,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		isOnScene: (name) => findCurrentSceneActor(name) !== undefined,
 	});
 
-	const particlePool = new ParticlePool(200);
+	const particlePool = new ParticlePool(PARTICLE_POOL_SIZE);
 	const emoteSystem = new EmoteSystem();
 	const socialSystem = new SocialSystem();
 
@@ -306,19 +305,19 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Environmental objects ────────────────────────────
 	const coffeeMachine = new CoffeeMachine();
-	coffeeMachine.pos = ex.vec(680, 120);
+	coffeeMachine.pos = ex.vec(OBJECT_POSITIONS.coffeeMachine.x, OBJECT_POSITIONS.coffeeMachine.y);
 	const whiteboard = new WhiteboardActor();
-	whiteboard.pos = ex.vec(400, 60);
+	whiteboard.pos = ex.vec(OBJECT_POSITIONS.whiteboard.x, OBJECT_POSITIONS.whiteboard.y);
 	const snackTable = new SnackTable();
-	snackTable.pos = ex.vec(400, 380);
+	snackTable.pos = ex.vec(OBJECT_POSITIONS.snackTable.x, OBJECT_POSITIONS.snackTable.y);
 	const waterCooler = new WaterCooler();
-	waterCooler.pos = ex.vec(600, 380);
+	waterCooler.pos = ex.vec(OBJECT_POSITIONS.waterCooler.x, OBJECT_POSITIONS.waterCooler.y);
 	const couch = new CouchActor();
-	couch.pos = ex.vec(400, 380);
+	couch.pos = ex.vec(OBJECT_POSITIONS.couch.x, OBJECT_POSITIONS.couch.y);
 	const plant = new PlantActor();
-	plant.pos = ex.vec(100, 60);
+	plant.pos = ex.vec(OBJECT_POSITIONS.plant.x, OBJECT_POSITIONS.plant.y);
 	const noticeBoard = new NoticeBoard();
-	noticeBoard.pos = ex.vec(680, 60);
+	noticeBoard.pos = ex.vec(OBJECT_POSITIONS.noticeBoard.x, OBJECT_POSITIONS.noticeBoard.y);
 
 	// ── Register environmental objects in registry ──────
 	registry.registerObject(coffeeMachine.objectId, "office", coffeeMachine.objectType, coffeeMachine.pos);
@@ -491,7 +490,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			store.selectTab("info");
 			engagementSystem.clearTaskCompleted(agentName);
 			// Warm up the agent process after a short delay so selection feels smooth
-			setTimeout(() => void store.wakeAgent(agentName), 600);
+			setTimeout(() => void store.wakeAgent(agentName), AGENT_WAKE_DELAY);
 			// Show a personality greeting via the talk engine instead of waking LLM
 			const agent = store.agents.find((a) => a.name === agentName);
 			if (agent) {
@@ -509,8 +508,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		onSceneChange: (target: string) => {
 			store.selectAgent(null);
 			void engine.goToScene(target, {
-				destinationIn: new ex.FadeInOut({ duration: 300, direction: "in" }),
-				sourceOut: new ex.FadeInOut({ duration: 300, direction: "out" }),
+				destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
+				sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
 			}).then(() => {
 				cameraSystem?.onSceneActivate(findAgentActor, engine.currentScene.camera);
 			});
@@ -648,7 +647,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		if (action.id && recentActionIds.has(action.id)) return;
 		if (action.id) {
 			recentActionIds.add(action.id);
-			setTimeout(() => recentActionIds.delete(action.id), 5000);
+			setTimeout(() => recentActionIds.delete(action.id), ACTION_DEDUP_TTL);
 		}
 
 		// Transition brain state
@@ -734,72 +733,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const actor = findAgentActor(name);
 		if (!actor) return;
 		const agent = store.agents.find((a) => a.name === name);
-		const moodTexts: Record<string, string[]> = {
-			happy: [
-				"\u{1F60A} Life is good.", "\u{2728} Feeling great!", "\u{1F389} Yes!",
-				"\u{1F31F} What a day!", "\u{1F44D} Love it.", "\u{1F60E} Smooth sailing.",
-				"\u{1F496} Grateful for this team.", "\u{1F3B5} Humming along.",
-			],
-			enthusiastic: [
-				"\u{1F525} Let's go!", "\u{1F680} Launching!", "\u{1F4AA} Pumped!",
-				"\u{26A1} Energy!", "\u{1F3AF} Locked in!", "\u{1F4A5} Boom!",
-			],
-			frustrated: [
-				"\u{1F914} Hmm...", "\u{1F615} This is tricky.", "\u{1F62E}\u200D\u{1F4A8} Come on...",
-				"\u{1F9D0} Let me look at this differently.", "\u{1F616} Stuck for a moment.",
-				"\u{1F612} Not clicking yet.", "\u{1F4AD} There's gotta be a way...",
-			],
-			focused: [
-				"\u{1F9D0} Deep in thought...", "\u{1F3AF} Concentrating...", "\u{1F4A1} Almost got it.",
-				"\u{1F52C} Zooming in.", "\u{1F9E0} Brain at full capacity.", "\u{1F4DD} Taking notes.",
-				"\u{23F3} Just need a bit more time.", "\u{1F50D} Investigating.",
-			],
-			neutral: [
-				"\u{1F4AD} ...", "\u{1F914} Hmm.", "\u{2615} Sip.",
-				"\u{1F440} Looking around.", "\u{1F6B6} Just vibing.", "\u{1F324}\uFE0F Nice day.",
-			],
-			contemplative: [
-				"\u{1F30C} Big picture thinking.", "\u{1F4AD} What if...", "\u{1F52D} Seeing patterns.",
-				"\u{1F9D8} Reflecting.", "\u{1F31F} There's something here.",
-			],
-			empathetic: [
-				"\u{1F49B} I understand.", "\u{1F917} How are you?", "\u{1F64F} I appreciate you.",
-				"\u{1F4AC} Tell me more.", "\u{1F91D} We're in this together.",
-				"\u{2764}\uFE0F The team matters.", "\u{1F60C} Take your time.",
-			],
-			inspired: [
-				"\u{1F4A1} I have an idea!", "\u{2728} What if...", "\u{1F680} This could be big!",
-				"\u{1F31F} Eureka moment.", "\u{1F525} The spark is there!",
-				"\u{1F3A8} Creative juices flowing.", "\u{1F4AB} Breakthrough incoming.",
-			],
-			aesthetic: [
-				"\u{2728} Beautiful.", "\u{1F3A8} So elegant.", "\u{1F308} Harmony.",
-				"\u{1F338} Clean and refined.", "\u{1F5BC}\uFE0F Art.", "\u{1F48E} Polished.",
-			],
-			playful: [
-				"\u{1F604} Hehe.", "\u{1F389} Fun times!", "\u{1F60E} Cool cool cool.",
-				"\u{1F3AE} Game on.", "\u{1F938} Plot twist!", "\u{1F47E} Beep boop.",
-				"\u{1F609} You know it.", "\u{1F942} Cheers!",
-			],
-			skeptical: [
-				"\u{1F928} Really though?", "\u{1F9D0} Let me verify.", "\u{1F914} Show me the data.",
-				"\u{1F50D} Prove it.", "\u{1F4CA} Numbers don't lie.", "\u{2753} But why?",
-			],
-		};
 		const mood = agent?.mood ?? "neutral";
-		const texts = moodTexts[mood] ?? moodTexts["neutral"]!;
+		const texts = MOOD_TEXTS[mood] ?? MOOD_TEXTS["neutral"]!;
 		const text = texts[Math.floor(Math.random() * texts.length)];
 		bubbleSystem.showBubble(name, "thought", text, engine.currentScene, findAgentActor, 2500);
 	});
 
 	// ── Wire social conversation callback ────────────────
-	const SOCIAL_EMOJIS = [
-		"\u{1F44B}", "\u{1F60A}", "\u{1F4AC}", "\u{2728}", "\u{1F91D}", "\u{1F4A1}", "\u{1F44D}", "\u{1F914}",
-		"\u{1F60E}", "\u{1F525}", "\u{1F389}", "\u{1F64C}", "\u{1F4AA}", "\u{1F942}", "\u{2615}", "\u{1F31F}",
-		"\u{1F44F}", "\u{1F60D}", "\u{1F929}", "\u{1F4AF}", "\u{1F680}", "\u{1F3AF}", "\u{2764}\uFE0F", "\u{1F917}",
-	];
-	const REACTION_EMOJIS = ["\u{1F44D}", "\u{1F60A}", "\u{2728}", "\u{1F4AF}", "\u{1F44F}", "\u{1F64C}", "\u{2764}\uFE0F", "\u{1F525}"];
-	const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+	const pick = (arr: readonly string[]) => arr[Math.floor(Math.random() * arr.length)];
 
 	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
 		// Skip if either agent is walking to a door
@@ -840,27 +781,22 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		// Agent B responds with delay + occasional emoji
 		const bDelay = 1000 + Math.random() * 800;
 		setTimeout(() => {
-			const prefix = Math.random() < 0.5 ? `${pick(SOCIAL_EMOJIS)} ` : "";
+			const prefix = Math.random() < SOCIAL_EMOJI_CHANCE ? `${pick(SOCIAL_EMOJIS)} ` : "";
 			bubbleSystem.showBubble(nameB, "speech", `${prefix}${lineB}`, engine.currentScene, findAgentActor, 4000);
 		}, bDelay);
 
 		// 50% chance: Agent A reacts with an emoji thought bubble
-		if (Math.random() < 0.5) {
+		if (Math.random() < EMOJI_REACTION_CHANCE) {
 			setTimeout(() => {
 				bubbleSystem.showBubble(nameA, "thought", pick(REACTION_EMOJIS), engine.currentScene, findAgentActor, 2000);
 			}, bDelay + 1500 + Math.random() * 1000);
 		}
 
 		// 30% chance: One more exchange (A or B adds a follow-up)
-		if (Math.random() < 0.3) {
+		if (Math.random() < FOLLOW_UP_CHANCE) {
 			const follower = Math.random() < 0.5 ? nameA : nameB;
-			const followUps = [
-				"Totally.", "Right?", "Exactly.", "Ha, yeah.", "For sure.",
-				"Good point.", "Agreed.", "Makes sense.", "Love that.",
-				"Same here.", "You said it.", "100%.", "Can't argue with that.",
-			];
 			setTimeout(() => {
-				bubbleSystem.showBubble(follower, "speech", pick(followUps), engine.currentScene, findAgentActor, 2500);
+				bubbleSystem.showBubble(follower, "speech", pick(FOLLOW_UP_STRINGS), engine.currentScene, findAgentActor, 2500);
 			}, bDelay + 2500 + Math.random() * 1000);
 		}
 
@@ -1025,7 +961,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Lighting overlay — full-screen tint driven by DayClock phase (smooth fade) ──
 	const currentLight = { r: 0, g: 0, b: 0, opacity: 0 };
-	const LIGHT_LERP_SPEED = 0.0015; // per ms — full transition takes ~2-3s
 	function createLightingOverlay(): ex.Actor {
 		const actor = new ex.Actor({
 			pos: ex.vec(0, 0),
@@ -1100,7 +1035,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	/** Resolve domain particle color for an agent. */
 	function agentParticleColor(name: string): string {
 		const agent = store.agents.find((a) => a.name === name);
-		return DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+		return DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? DEFAULT_PARTICLE_COLOR;
 	}
 
 	/** Spawn particle trails for walking agents, dust bursts on arrival. Only for current scene. */
@@ -1113,7 +1048,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				const actor = findCurrentSceneActor(name);
 				if (!actor) continue;
 				const x = actor.pos.x;
-				const y = actor.pos.y + 28;
+				const y = actor.pos.y + TRAIL_Y_OFFSET;
 				const prev = lastTrailPos.get(name);
 				if (!prev) {
 					lastTrailPos.set(name, { x, y });
@@ -1121,7 +1056,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				}
 				const dx = x - prev.x;
 				const dy = y - prev.y;
-				if (dx * dx + dy * dy >= 64) {
+				if (dx * dx + dy * dy >= TRAIL_DISTANCE_SQ) {
 					particlePool.spawnTrail(x, y, agentParticleColor(name), entry.state === "walking-to");
 					lastTrailPos.set(name, { x, y });
 				}
@@ -1129,7 +1064,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				lastTrailPos.delete(name);
 				if (wasWalking) {
 					const actor = findCurrentSceneActor(name);
-					if (actor) particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, agentParticleColor(name));
+					if (actor) particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + TRAIL_Y_OFFSET, agentParticleColor(name));
 				}
 			}
 		}
@@ -1214,45 +1149,43 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					talkEngine.triggerReactive(agentName, trigger);
 				}
 			};
-			if (needs.energy < 20) tryTrigger("energy-critical");
-			else if (needs.energy > 60 && fired.has("energy-critical")) { fired.delete("energy-critical"); tryTrigger("energy-restored"); }
+			if (needs.energy < REACTIVE_THRESHOLDS.energyCritical) tryTrigger("energy-critical");
+			else if (needs.energy > REACTIVE_THRESHOLDS.energyRestored && fired.has("energy-critical")) { fired.delete("energy-critical"); tryTrigger("energy-restored"); }
 			if (mood === "lonely") tryTrigger("lonely");
-			if (needs.focus > 80) tryTrigger("focus-deep");
-			else if (needs.focus < 30) tryTrigger("focus-lost");
-			if (needs.morale > 75 && !fired.has("morale-boost")) tryTrigger("morale-boost");
+			if (needs.focus > REACTIVE_THRESHOLDS.focusDeep) tryTrigger("focus-deep");
+			else if (needs.focus < REACTIVE_THRESHOLDS.focusLost) tryTrigger("focus-lost");
+			if (needs.morale > REACTIVE_THRESHOLDS.moraleBoost && !fired.has("morale-boost")) tryTrigger("morale-boost");
 		}
 
 		// 3b. Behavior thresholds — needs-driven state overrides
 		processThresholds();
 
 		// 3c. Object attraction — agents navigate to environmental objects when needs/phase trigger
-		const objectAttractions: Array<{ object: InteractableActor; phase: string[]; needCheck: (needs: AgentNeeds) => boolean; chance: number }> = [
-			{ object: coffeeMachine, phase: ["morning-arrival", "afternoon-slump"], needCheck: (n) => n.energy < 40, chance: 0.002 },
-			{ object: snackTable, phase: ["lunch", "afternoon-slump"], needCheck: (n) => n.energy < 50 && n.social < 40, chance: 0.002 },
-			{ object: waterCooler, phase: ["afternoon", "afternoon-slump"], needCheck: (n) => n.social < 30, chance: 0.001 },
-			{ object: couch, phase: ["afternoon-slump", "wind-down"], needCheck: () => false, chance: 0.001 },
-		];
+		const objectLookup: Record<string, InteractableActor> = {
+			coffeeMachine, snackTable, waterCooler, couch,
+		};
 		const currentPhase = dayClock.getPhase();
 		for (const agentName of needsSystem.getAgentNames()) {
 			const state = brainSystem.getState(agentName)?.state;
 			if (state !== "idle" && state !== "wandering") continue;
 			const needs = needsSystem.getNeeds(agentName);
-			for (const attr of objectAttractions) {
-				if (attr.object.isOccupied()) continue;
-				const phaseMatch = attr.phase.includes(currentPhase);
-				const needMatch = attr.needCheck(needs);
-				if ((phaseMatch || needMatch) && Math.random() < attr.chance) {
-					const point = attr.object.getInteractionPoint();
+			for (const rule of OBJECT_ATTRACTION_RULES) {
+				const obj = objectLookup[rule.objectKey];
+				if (!obj || obj.isOccupied()) continue;
+				const phaseMatch = rule.phases.includes(currentPhase);
+				const needMatch = rule.needCheck(needs);
+				if ((phaseMatch || needMatch) && Math.random() < rule.chance) {
+					const point = obj.getInteractionPoint();
 					brainSystem.walkTo(agentName, point);
-					attr.object.occupy(agentName);
+					obj.occupy(agentName);
 					// Apply needs effects on arrival (delayed)
 					setTimeout(() => {
-						const effects = attr.object.getNeedsEffects();
+						const effects = obj.getNeedsEffects();
 						needsSystem.applyEffect(agentName, effects);
-						attr.object.vacate();
+						obj.vacate();
 						// Spawn interaction particles
-						if (attr.object === coffeeMachine) particlePool.spawnPreset("steam", point.x, point.y - 20);
-					}, 5000);
+						if (obj === coffeeMachine) particlePool.spawnPreset("steam", point.x, point.y - 20);
+					}, OBJECT_EFFECT_DELAY);
 					break; // one attraction per agent per frame
 				}
 			}
@@ -1275,7 +1208,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 
 			// Dog follows nearest idle agent in same room
-			if (pet.petType === "dog" && pet.getState() === "idle" && Math.random() < 0.001) {
+			if (pet.petType === "dog" && pet.getState() === "idle" && Math.random() < DOG_FOLLOW_CHANCE) {
 				const sameRoomAgents = needsSystem.getAgentNames().filter((n) =>
 					registry.getEntityRoom(n) === petRoom && brainSystem.getState(n)?.state === "idle",
 				);
@@ -1285,9 +1218,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 
 			// Cat follows stressed agents in same room (low morale)
-			if (pet.petType === "cat" && pet.getState() === "idle" && Math.random() < 0.0005) {
+			if (pet.petType === "cat" && pet.getState() === "idle" && Math.random() < CAT_FOLLOW_STRESSED_CHANCE) {
 				const sameRoomStressed = needsSystem.getAgentNames().filter((n) =>
-					registry.getEntityRoom(n) === petRoom && needsSystem.getNeeds(n).morale < 30,
+					registry.getEntityRoom(n) === petRoom && needsSystem.getNeeds(n).morale < CAT_STRESS_MORALE_THRESHOLD,
 				);
 				if (sameRoomStressed.length > 0) {
 					pet.setFollowTarget(sameRoomStressed[Math.floor(Math.random() * sameRoomStressed.length)]);
@@ -1306,7 +1239,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					if (dist < pet.getInteractRadius()) {
 						const cooldownKey = `${agentName}:${pet.petType}`;
 						const lastReaction = petReactionCooldowns.get(cooldownKey) ?? 0;
-						if (performance.now() - lastReaction > 30000) {
+						if (performance.now() - lastReaction > PET_REACTION_COOLDOWN) {
 							petReactionCooldowns.set(cooldownKey, performance.now());
 							needsSystem.applyEffect(agentName, pet.getNeedsEffects());
 							const def = PET_DEFINITIONS.find((d) => d.type === pet.petType);
@@ -1381,13 +1314,12 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		ritualSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
 
 		// 8. Social system — proximity conversations (room-isolated: offset positions by room)
-		const ROOM_OFFSETS: Record<string, number> = { hub: 0, office: 10000, village: 20000, station: 30000 };
 		socialSystem.update(
 			deltaMs,
 			(name) => {
 				const pos = brainSystem.getPosition(name) ?? { x: 0, y: 0 };
 				const room = registry.getEntityRoom(name) ?? "";
-				const offset = ROOM_OFFSETS[room] ?? 30000; // unknown rooms are far away
+				const offset = ROOM_OFFSETS[room] ?? UNKNOWN_ROOM_OFFSET; // unknown rooms are far away
 				return { x: pos.x + offset, y: pos.y + offset };
 			},
 			(name) => brainSystem.getState(name)?.state ?? "idle",
@@ -1411,7 +1343,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const weatherVisuals = worldAmbience.getWeatherVisuals();
 		if (weatherVisuals.particleCount > 0) {
 			// Spawn 1-2 particles per frame when weather has particles (rain streaks, sunny sparkles)
-			if (Math.random() < 0.3) {
+			if (Math.random() < WEATHER_PARTICLE_CHANCE) {
 				const x = Math.random() * ENGINE_WIDTH;
 				const y = weatherVisuals.particleAngle > 0 ? 0 : Math.random() * ENGINE_HEIGHT; // rain from top, sunny anywhere
 				particlePool.spawn({
@@ -1419,8 +1351,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					vx: Math.sin(weatherVisuals.particleAngle) * weatherVisuals.particleSpeed,
 					vy: Math.cos(weatherVisuals.particleAngle) * weatherVisuals.particleSpeed,
 					color: weatherVisuals.particleColor,
-					lifetime: 1500,
-					opacity: 0.4,
+					lifetime: WEATHER_PARTICLE_LIFETIME,
+					opacity: WEATHER_PARTICLE_OPACITY,
 					radius: weatherVisuals.particleAngle > 0 ? 0.5 : 1, // thin streaks for rain, dots for sunny
 				});
 			}
@@ -1477,7 +1409,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Position writer (tick-based, flushes every ~5s) ──
-	const POSITION_FLUSH_INTERVAL = 5_000;
 	let positionFlushTimer = 0;
 
 	if (deps.vaultBasePath) {
@@ -1779,14 +1710,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 
 			// Restore or default-place creatures
-			const defaultRooms: Record<string, string> = {
-				"cat-hub": "hub", "cat-office": "office", "cat-village": "village",
-				"dog-office": "office", "dog-village": "village", "dog-station": "station",
-				"bird-village": "village", "fish-station": "station",
-			};
 			for (const pet of pets) {
 				const saved = savedPositions?.[pet.entityId];
-				const targetRoom = saved?.scene ?? defaultRooms[pet.entityId] ?? "hub";
+				const targetRoom = saved?.scene ?? DEFAULT_PET_ROOMS[pet.entityId] ?? "hub";
 				const scene = targetRoom === "hub" ? hubScene : (roomScenes[targetRoom] ?? hubScene);
 
 				if (saved) {
@@ -1818,7 +1744,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 			// Fade out loading overlay
 			loadingOverlay.style.opacity = "0";
-			setTimeout(() => loadingOverlay.remove(), 600);
+			setTimeout(() => loadingOverlay.remove(), LOADING_FADE_DURATION);
 		},
 
 		pause(): void {
