@@ -236,20 +236,32 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 
 /** Merge needs config, including nested decay sub-objects. */
 function mergeNeeds(overrides: DeepPartial<NeedsConfig> | undefined): NeedsConfig {
+	const base = DEFAULT_WORLD_CONFIG.needs;
+	const scalars = mergeNeedsScalars(base, overrides);
 	return {
-		initial: { ...DEFAULT_WORLD_CONFIG.needs.initial, ...overrides?.initial },
+		initial: { ...base.initial, ...overrides?.initial },
 		decay: {
-			energy: { ...DEFAULT_WORLD_CONFIG.needs.decay.energy, ...overrides?.decay?.energy },
-			social: { ...DEFAULT_WORLD_CONFIG.needs.decay.social, ...overrides?.decay?.social },
-			focus:  { ...DEFAULT_WORLD_CONFIG.needs.decay.focus,  ...overrides?.decay?.focus  },
-			morale: { ...DEFAULT_WORLD_CONFIG.needs.decay.morale, ...overrides?.decay?.morale },
+			energy: { ...base.decay.energy, ...overrides?.decay?.energy },
+			social: { ...base.decay.social, ...overrides?.decay?.social },
+			focus:  { ...base.decay.focus,  ...overrides?.decay?.focus  },
+			morale: { ...base.decay.morale, ...overrides?.decay?.morale },
 		},
-		hungerThreshold: overrides?.hungerThreshold ?? DEFAULT_WORLD_CONFIG.needs.hungerThreshold,
-		thirstThreshold: overrides?.thirstThreshold ?? DEFAULT_WORLD_CONFIG.needs.thirstThreshold,
-		hungerEnergyMult: overrides?.hungerEnergyMult ?? DEFAULT_WORLD_CONFIG.needs.hungerEnergyMult,
-		thirstEnergyMult: overrides?.thirstEnergyMult ?? DEFAULT_WORLD_CONFIG.needs.thirstEnergyMult,
-		hungerInitial: overrides?.hungerInitial ?? DEFAULT_WORLD_CONFIG.needs.hungerInitial,
-		thirstInitial: overrides?.thirstInitial ?? DEFAULT_WORLD_CONFIG.needs.thirstInitial,
+		...scalars,
+	};
+}
+
+/** Merge the flat scalar fields of NeedsConfig using spread over defaults. */
+function mergeNeedsScalars(
+	base: NeedsConfig,
+	overrides: DeepPartial<NeedsConfig> | undefined,
+): Pick<NeedsConfig, 'hungerThreshold' | 'thirstThreshold' | 'hungerEnergyMult' | 'thirstEnergyMult' | 'hungerInitial' | 'thirstInitial'> {
+	return {
+		hungerThreshold:  overrides?.hungerThreshold  ?? base.hungerThreshold,
+		thirstThreshold:  overrides?.thirstThreshold  ?? base.thirstThreshold,
+		hungerEnergyMult: overrides?.hungerEnergyMult ?? base.hungerEnergyMult,
+		thirstEnergyMult: overrides?.thirstEnergyMult ?? base.thirstEnergyMult,
+		hungerInitial:    overrides?.hungerInitial    ?? base.hungerInitial,
+		thirstInitial:    overrides?.thirstInitial    ?? base.thirstInitial,
 	};
 }
 
