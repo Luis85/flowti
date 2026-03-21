@@ -464,7 +464,9 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		if (entity) {
 			const actor = entity.getActor();
 			entity.onExitScene();
-			if (actor) this.remove(actor);
+			// kill() is immediate (sets isKilled=true, stops rendering).
+			// remove() is deferred and never processes on non-active scenes.
+			if (actor) actor.kill();
 			this.sceneEntities.delete(entityId);
 		}
 

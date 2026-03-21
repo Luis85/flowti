@@ -75,6 +75,7 @@ import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
 import { SceneRegistry } from "./systems/scene-registry.js";
 import { RoomSwitcher } from "./systems/room-switcher.js";
 import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
+import { PetSceneEntity } from "./actors/pet-scene-entity.js";
 import type { SceneEntity } from "./data/scene-entity.js";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -352,7 +353,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		[officeDog, dogDef], [villageDog, dogDef], [stationDog, dogDef],
 		[villageBird, birdDef],
 	] as const) {
-		const petId = petEntityIds.get(pet as PetActor) ?? pet.petType;
+		const petId = pet.entityId;
 		btSystem.registerPet(petId, createPetBT(petId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed));
 	}
 
@@ -1321,7 +1322,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 		}
 
-		// 3e. Room switching — handled by unified RoomSwitcher
+		// 3e. Sync pet visual actors with PetActor state
+		for (const pet of pets) {
+			const entity = allEntities.get(pet.entityId) as PetSceneEntity | undefined;
+			entity?.syncVisual();
+		}
+
+		// 3f. Room switching — handled by unified RoomSwitcher
 		roomSwitcher.update(deltaMs);
 
 		// 4. Director system — advance idle timer
@@ -1740,9 +1747,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				const entity = new AgentSceneEntity(agent, sprites, brainSystem, handleAgentSelect);
 				allEntities.set(agent.name, entity);
 			}
-			// Add creature entities
+			// Add creature entities (wrapped — PetActor stays as state holder,
+			// PetSceneEntity creates disposable visual actors per scene)
 			for (const pet of pets) {
-				allEntities.set(pet.entityId, pet);
+				allEntities.set(pet.entityId, new PetSceneEntity(pet));
 			}
 
 			// Route agents to room scenes — use saved positions/rooms if available
@@ -1788,13 +1796,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				const saved = savedPositions?.[pet.entityId];
 				const targetRoom = saved?.scene ?? defaultRooms[pet.entityId] ?? "hub";
 				const scene = targetRoom === "hub" ? hubScene : (roomScenes[targetRoom] ?? hubScene);
+				const petEntity = allEntities.get(pet.entityId)!;
 
+				scene.enter(petEntity as SceneEntity, null);
+				// Restore saved position (enter() defaults to scene center)
 				if (saved) {
 					pet.pos.x = saved.x;
 					pet.pos.y = saved.y;
+					pet.resetHome();
+					(petEntity as PetSceneEntity).syncVisual();
 				}
-				scene.add(pet);
-				scene.registerEntity(pet);
 				registry.setEntityRoom(pet.entityId, targetRoom);
 			}
 
