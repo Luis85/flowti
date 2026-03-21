@@ -3,6 +3,7 @@ import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { css } from "lit";
 import type { ProjectConfig, HealthScore, TodoItem } from "../../domain/projects/types.js";
+import { SITEMAP_CANVAS_PRESETS } from "../../domain/projects/sitemap-canvas-presets.js";
 
 const styles = css`
 	.section { margin-bottom: var(--flowti-space-md, 16px); }
@@ -55,6 +56,28 @@ const styles = css`
 		border: 0;
 	}
 	.score { font-size: 1.5em; font-weight: 600; color: var(--interactive-accent, #7c3aed); }
+	.preset-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		align-items: center;
+		margin-top: 8px;
+	}
+	.preset-row .label {
+		width: 100%;
+		font-size: var(--flowti-font-sm, 0.85em);
+		color: var(--text-muted, #999);
+		margin: 0 0 2px;
+	}
+	.btn.btn--preset {
+		padding: 4px 10px;
+		font-size: 0.8em;
+	}
+	.btn.btn--preset-active {
+		border-color: var(--interactive-accent, #7c3aed);
+		color: var(--interactive-accent, #c4b5fd);
+		background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 14%, var(--background-secondary, #262626));
+	}
 `;
 
 export class FlowtiTabOverview extends FlowtiElement {
@@ -69,6 +92,10 @@ export class FlowtiTabOverview extends FlowtiElement {
 		todos: { type: Array },
 		todosExist: { type: Boolean },
 		hubLocked: { type: Boolean, attribute: "hub-locked" },
+		hasSitemap: { type: Boolean },
+		hasCanvas: { type: Boolean },
+		canvasChanged: { type: Boolean },
+		canvasPreset: { type: String },
 	};
 
 	static styles = [tokens, styles];
@@ -85,6 +112,7 @@ export class FlowtiTabOverview extends FlowtiElement {
 	hasCanvas = false;
 	canvasChanged = false;
 	hubLocked = false;
+	canvasPreset = "";
 
 	protected renderContent() {
 		const h = this.healthScore;
@@ -108,8 +136,22 @@ export class FlowtiTabOverview extends FlowtiElement {
 				<p class="muted hint">${this.productMapStatusLine()}</p>
 				<div class="row">
 					<button type="button" class="btn" @click="${() => this.emit("canvas-open", {})}">Open sitemap.canvas</button>
-					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-generate", { preset: "default" })}">Generate baseline canvas</button>
 					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Sync canvas → sitemap.json</button>
+				</div>
+				<div class="preset-row" role="group" aria-label="Canvas layout presets">
+					<p class="label">Generate baseline canvas</p>
+					${SITEMAP_CANVAS_PRESETS.map(
+						(p) => html`
+							<button
+								type="button"
+								class="btn btn--preset ${this.canvasPreset === p.id ? "btn--preset-active" : ""}"
+								?disabled="${this.hubLocked}"
+								@click="${() => this.emit("canvas-generate", { preset: p.id })}"
+							>
+								${p.label}
+							</button>
+						`,
+					)}
 				</div>
 			</div>
 			<div class="section">

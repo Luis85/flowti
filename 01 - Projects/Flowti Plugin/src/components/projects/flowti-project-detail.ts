@@ -150,6 +150,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.hasSitemap="${this.hasSitemap}"
 					.hasCanvas="${this.hasCanvas}"
 					.canvasChanged="${this.canvasChanged}"
+					.canvasPreset="${this.canvasPreset}"
 				></flowti-tab-overview>`;
 			case "components": return html`<flowti-tab-components .projectName="${this.projectName}" .components="${this.components}" .storybookInstalled="${this.storybook?.installed ?? false}" .storybookFramework="${this.storybook?.framework ?? ""}" .storybookRunning="${this.storybook?.running ?? false}" .storybookUrl="${this.storybook?.url ?? ""}" .storybookBusy="${this.storybookBusy}" .storybookBusyLabel="${this.storybookBusyLabel}" .storybookOutput="${this.storybookOutput}" .storybookError="${this.storybookError}" .hasSitemap="${this.hasSitemap}"></flowti-tab-components>`;
 			case "catalog": return html`<flowti-tab-event-catalog .projectName="${this.projectName}" .entities="${this.catalogEntities}"></flowti-tab-event-catalog>`;
