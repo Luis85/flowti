@@ -36,6 +36,10 @@ export class AgentActor extends ex.Actor {
 	private toolActor: ex.Actor | null = null;
 	private toolActive = false;
 	private toolPhase = 0;
+	private standingOrderActor: ex.Actor | null = null;
+	private showStandingOrderIcon = false;
+	private capabilityUnlockTimer = 0;
+	private capabilityIcon = "";
 
 	constructor(config: AgentActorConfig) {
 		super({
@@ -58,6 +62,7 @@ export class AgentActor extends ex.Actor {
 		this.buildLabelChild();
 		this.buildBulbChild();
 		this.buildToolChild();
+		this.buildStandingOrderChild();
 	}
 
 	onInitialize(engine: ex.Engine): void {
@@ -101,6 +106,20 @@ export class AgentActor extends ex.Actor {
 			}
 			this.toolActor.graphics.visible = this.toolActive;
 		}
+
+		// Standing order loop icon visibility
+		if (this.standingOrderActor) {
+			this.standingOrderActor.graphics.visible = this.showStandingOrderIcon;
+		}
+
+		// Decrement capability unlock timer
+		if (this.capabilityUnlockTimer > 0) {
+			this.capabilityUnlockTimer -= delta;
+			if (this.capabilityUnlockTimer <= 0) {
+				this.capabilityUnlockTimer = 0;
+				this.capabilityIcon = "";
+			}
+		}
 	}
 
 	/** Snap to idle. Called when selected. */
@@ -141,6 +160,27 @@ export class AgentActor extends ex.Actor {
 	/** Hide tool icon — tool call complete. */
 	hideToolIndicator(): void {
 		this.toolActive = false;
+	}
+
+	/** Activate or deactivate the standing order loop indicator. */
+	setStandingOrderActive(active: boolean): void {
+		this.showStandingOrderIcon = active;
+	}
+
+	/** Returns true when a standing order is currently active. */
+	isStandingOrderActive(): boolean {
+		return this.showStandingOrderIcon;
+	}
+
+	/** Flash a capability unlock icon for the given duration (ms). */
+	showCapabilityUnlock(icon: string, durationMs: number = 2000): void {
+		this.capabilityIcon = icon;
+		this.capabilityUnlockTimer = durationMs;
+	}
+
+	/** Returns the current capability icon, or empty string when none is active. */
+	getCapabilityIcon(): string {
+		return this.capabilityIcon;
 	}
 
 	/** No-op stubs kept for API compatibility. */
@@ -284,6 +324,44 @@ export class AgentActor extends ex.Actor {
 		this.toolActor.graphics.use(toolCanvas);
 		this.toolActor.graphics.visible = false;
 		this.addChild(this.toolActor);
+	}
+
+	private buildStandingOrderChild(): void {
+		const SIZE = 16;
+
+		const soCanvas = new ex.Canvas({
+			width: SIZE,
+			height: SIZE,
+			cache: true,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				const cx = SIZE / 2;
+				const cy = SIZE / 2;
+
+				// Subtle background circle
+				ctx.fillStyle = "rgba(34, 197, 94, 0.18)";
+				ctx.beginPath();
+				ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+				ctx.fill();
+
+				// Loop-arrows "↻" glyph
+				ctx.fillStyle = "#4ade80";
+				ctx.font = "bold 9px system-ui, sans-serif";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
+				ctx.fillText("\u21BB", cx, cy + 0.5);
+			},
+		});
+
+		this.standingOrderActor = new ex.Actor({
+			pos: ex.vec(8, -12),
+			anchor: ex.vec(0.5, 0.5),
+			z: 32,
+			collisionType: ex.CollisionType.PreventCollision,
+		});
+		this.standingOrderActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
+		this.standingOrderActor.graphics.use(soCanvas);
+		this.standingOrderActor.graphics.visible = false;
+		this.addChild(this.standingOrderActor);
 	}
 
 	private buildBulbChild(): void {

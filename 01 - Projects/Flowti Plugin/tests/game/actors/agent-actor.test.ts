@@ -114,4 +114,44 @@ describe("AgentActor", () => {
 	it("setWalkDirection() is a no-op (does not throw)", () => {
 		expect(() => actor.setWalkDirection(50, 80)).not.toThrow();
 	});
+
+	describe("standing order indicator", () => {
+		it("isStandingOrderActive() defaults to false", () => {
+			expect(actor.isStandingOrderActive()).toBe(false);
+		});
+
+		it("setStandingOrderActive(true) activates the indicator", () => {
+			actor.setStandingOrderActive(true);
+			expect(actor.isStandingOrderActive()).toBe(true);
+		});
+
+		it("setStandingOrderActive(false) deactivates the indicator", () => {
+			actor.setStandingOrderActive(true);
+			actor.setStandingOrderActive(false);
+			expect(actor.isStandingOrderActive()).toBe(false);
+		});
+	});
+
+	describe("capability unlock", () => {
+		it("getCapabilityIcon() defaults to empty string", () => {
+			expect(actor.getCapabilityIcon()).toBe("");
+		});
+
+		it("showCapabilityUnlock() sets the icon", () => {
+			actor.showCapabilityUnlock("🔓");
+			expect(actor.getCapabilityIcon()).toBe("🔓");
+		});
+
+		it("showCapabilityUnlock() accepts a custom duration", () => {
+			actor.showCapabilityUnlock("✨", 5000);
+			expect(actor.getCapabilityIcon()).toBe("✨");
+		});
+
+		it("icon clears after timer expires via onPreUpdate", () => {
+			actor.showCapabilityUnlock("🔓", 100);
+			// Simulate a delta that exceeds the timer
+			(actor as unknown as { onPreUpdate: (_e: unknown, d: number) => void }).onPreUpdate(null, 200);
+			expect(actor.getCapabilityIcon()).toBe("");
+		});
+	});
 });
