@@ -803,6 +803,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				engine.currentScene.camera,
 				{ x: ENGINE_WIDTH / 2, y: ENGINE_HEIGHT / 2 },
 			);
+			ctx.cameraSystem = cameraSystem;
 
 			engine.canvas.addEventListener("wheel", (e) => {
 				e.preventDefault();
@@ -831,7 +832,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			const { savedPositions } = deps.vaultBasePath
 				? restoreWorldState(stateSystems, deps.vaultBasePath)
 				: { savedPositions: null };
-			prevCycleCount = dayClock.getCycleCount();
+			ctx.prevCycleCount = dayClock.getCycleCount();
 
 			// Initialize lighting to current phase (no pop on first frame)
 			const initLight = worldAmbience.getLighting(dayClock.getPhase());

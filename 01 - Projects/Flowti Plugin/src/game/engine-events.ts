@@ -255,13 +255,13 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 		const available = members.filter((n) => !ctx.registry.isInTransit(n));
 		if (available.length < 2) return;
 		ctx.relationship.recordCluster(available);
-		const speakCount = Math.min(members.length, 3);
-		const lines = members.slice(0, speakCount).map(() => {
+		const speakCount = Math.min(available.length, 3);
+		const lines = available.slice(0, speakCount).map(() => {
 			const template = HUDDLE_TEMPLATES[Math.floor(Math.random() * HUDDLE_TEMPLATES.length)];
 			return template.text;
 		});
 
-		members.slice(0, speakCount).forEach((name, i) => {
+		available.slice(0, speakCount).forEach((name, i) => {
 			const agent = ctx.store.agents.find((a) => a.name === name);
 			const domain = agent?.domain ?? "general";
 			const mood = ctx.needs.getMood(name);
@@ -275,7 +275,7 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 		});
 
 		setTimeout(() => {
-			for (const name of members) ctx.brain.applyEvent(name, "idle");
+			for (const name of available) ctx.brain.applyEvent(name, "idle");
 		}, speakCount * 1500 + 3000);
 	});
 

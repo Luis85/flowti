@@ -6,8 +6,7 @@
  * the PetActor handles per-frame movement execution.
  */
 
-import { BehaviourTree } from "mistreevous";
-import { State } from "mistreevous";
+import { BehaviourTree, State } from "mistreevous";
 import type { AgentBT } from "./bt-factory.js";
 import type { CollectedAction } from "./bt-types.js";
 
