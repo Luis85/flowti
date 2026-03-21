@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { State } from "mistreevous";
+import { fromNodeState } from "../../../../src/game/brain/behavior-tree/bt-service.js";
 import { createBTAgent } from "../../../../src/game/brain/behavior-tree/bt-agent.js";
 import type { AgentToolDeps, BTAgentDef } from "../../../../src/game/brain/behavior-tree/bt-types.js";
 
@@ -126,20 +126,20 @@ describe("createBTAgent — tool actions", () => {
 		});
 		const bt = createBTAgent(agent, makeDeps());
 		const result = bt.PickGoal();
-		expect(result).toBe(State.SUCCEEDED);
+		expect(result).toBe(fromNodeState("succeeded"));
 		expect(bt.context.activeGoal?.name).toBe("summarize report");
 	});
 
 	it("PickGoal fails when no goals exist", () => {
 		const bt = createBTAgent(makeAgent({ goals: [] }), makeDeps());
-		expect(bt.PickGoal()).toBe(State.FAILED);
+		expect(bt.PickGoal()).toBe(fromNodeState("failed"));
 	});
 
 	it("PickGoalFile derives file name from goal", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps());
 		bt.context.activeGoal = { name: "review iteration plan" };
 		const result = bt.PickGoalFile();
-		expect(result).toBe(State.SUCCEEDED);
+		expect(result).toBe(fromNodeState("succeeded"));
 		expect(bt.context.activeGoalFile).toBe("iteration-plan.md");
 	});
 
@@ -148,14 +148,14 @@ describe("createBTAgent — tool actions", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps({ disk }));
 		(bt.context as { workingFilePath: string }).workingFilePath = "test.md";
 		const result = bt.ReadFile();
-		expect(result).toBe(State.SUCCEEDED);
+		expect(result).toBe(fromNodeState("succeeded"));
 		expect(bt.context.lastFileContent).toBe("file content");
 	});
 
 	it("ReadFile returns FAILED when permission denied", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps({ checkPermission: vi.fn(() => "denied" as const) }));
 		(bt.context as { workingFilePath: string }).workingFilePath = "test.md";
-		expect(bt.ReadFile()).toBe(State.FAILED);
+		expect(bt.ReadFile()).toBe(fromNodeState("failed"));
 	});
 
 	it("WriteFile writes content and stores path", () => {
@@ -164,7 +164,7 @@ describe("createBTAgent — tool actions", () => {
 		bt.context.activeGoal = { name: "review plan" };
 		(bt.context as { lastLLMResult: string }).lastLLMResult = "generated content";
 		const result = bt.WriteFile();
-		expect(result).toBe(State.SUCCEEDED);
+		expect(result).toBe(fromNodeState("succeeded"));
 		expect(disk.writeFileSync).toHaveBeenCalled();
 		expect(bt.context.lastWrittenPath).toContain("Atlas-review-");
 	});
@@ -175,7 +175,7 @@ describe("createBTAgent — tool actions", () => {
 		(bt.context as { activeGoalFile: string }).activeGoalFile = "plan.md";
 		(bt.context as { lastFileContent: string }).lastFileContent = "# Plan\n\nContent here.";
 		const result = bt.GenerateFromTemplate();
-		expect(result).toBe(State.SUCCEEDED);
+		expect(result).toBe(fromNodeState("succeeded"));
 		expect(bt.context.lastLLMResult).toBeTruthy();
 		expect(bt.context.lastLLMResult!.length).toBeGreaterThan(50);
 	});
@@ -186,7 +186,7 @@ describe("createBTAgent — tool actions", () => {
 		bt.context.activeGoal = { name: "review plan" };
 		(bt.context as { lastWrittenPath: string }).lastWrittenPath = "artifacts/Atlas-review-1000.md";
 		const result = bt.DropArtifact();
-		expect(result).toBe(State.SUCCEEDED);
+		expect(result).toBe(fromNodeState("succeeded"));
 		expect(worldState.updateEntity).toHaveBeenCalledWith(
 			expect.stringContaining("artifact-Atlas-"),
 			"artifact",
@@ -216,7 +216,7 @@ describe("createBTAgent — tool actions", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps());
 		(bt.context as { lastWrittenPath: string }).lastWrittenPath = "test.md";
 		const result = bt.OpenInVault();
-		expect(result).toBe(State.SUCCEEDED);
+		expect(result).toBe(fromNodeState("succeeded"));
 		expect(bt.collectedActions.find((a) => a.type === "file-opened")).toBeDefined();
 	});
 });

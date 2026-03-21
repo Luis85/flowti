@@ -6,7 +6,7 @@
  * Domain-layer pure — receives all deps as arguments.
  */
 
-import type { BehaviourTree } from "mistreevous";
+import { stepTree, type BehaviourTree } from "./bt-service.js";
 import type { AgentAction } from "../../data/types.js";
 import type { BTAgentObject } from "./bt-agent.js";
 import type { IClock, IWorldStateManager } from "./bt-types.js";
@@ -19,7 +19,7 @@ export function btTick(
 	worldState: IWorldStateManager,
 	clock: IClock,
 ): AgentAction[] {
-	tree.step();
+	stepTree(tree);
 	tickSeq++;
 
 	const emitted: AgentAction[] = [];
