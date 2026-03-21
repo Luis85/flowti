@@ -11,6 +11,8 @@ import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import { askBobStyles } from "./ask-bob-styles.js";
 import type { DashboardStore, ConversationTurn } from "../store/dashboard-store.js";
+import type { IEventBus, EventPayload } from "../../infrastructure/events/types.js";
+import type { IAgentWorldPerfDashboard, AgentWorldPerfSummary } from "../../infrastructure/services/perfTypes.js";
 
 const BOB_AGENT_NAME = "Bob";
 
@@ -18,6 +20,8 @@ export class AskBob extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
 		store: { attribute: false },
+		eventBus: { attribute: false },
+		perfDashboard: { attribute: false },
 		open: { state: true },
 		conversation: { state: true },
 		thinking: { state: true },
@@ -34,23 +38,37 @@ export class AskBob extends FlowtiElement {
 
 
 	store!: DashboardStore;
+	/** When set (via `createAgentWorld` deps), enables live `perf.agentWorld.*` subscription. */
+	eventBus?: IEventBus;
+	/** Optional static ref (e.g. tests). Production uses {@link getPerfDashboard}. */
+	perfDashboard?: IAgentWorldPerfDashboard;
+	/** Lazy — resolves `PerfAggregator` after plugin layout ready. */
+	getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
+
 	private open = false;
 	private conversation: readonly ConversationTurn[] = [];
 	private thinking = false;
 	private activeTab: "chat" | "debug" | "world" = "chat";
 	private expandedEntries = new Set<number>();
 
+	private perfMonitorEnabled = false;
+	private lastPerfSample: EventPayload<"perf.agentWorld.sample"> | null = null;
+	private perfLocalSlowFrames = 0;
+
 	private unsubscribe: (() => void) | null = null;
+	private perfBusUnsubs: Array<() => void> = [];
 
 	connectedCallback(): void {
 		super.connectedCallback();
 		const handler = () => this.syncFromStore();
 		this.store?.addEventListener("state-changed", handler);
 		this.unsubscribe = () => this.store?.removeEventListener("state-changed", handler);
+		this.refreshPerfBusListeners();
 	}
 
 	disconnectedCallback(): void {
 		super.disconnectedCallback();
+		this.teardownPerfBusListeners();
 		this.unsubscribe?.();
 	}
 
@@ -66,6 +84,160 @@ export class AskBob extends FlowtiElement {
 
 	private switchTab(tab: "chat" | "debug" | "world"): void {
 		this.activeTab = tab;
+		this.refreshPerfBusListeners();
+	}
+
+	private teardownPerfBusListeners(): void {
+		for (const u of this.perfBusUnsubs) {
+			try { u(); } catch { /* ignore */ }
+		}
+		this.perfBusUnsubs = [];
+	}
+
+	private refreshPerfBusListeners(): void {
+		this.teardownPerfBusListeners();
+		if (!this.perfMonitorEnabled || this.activeTab !== "world" || !this.eventBus) return;
+		const bus = this.eventBus;
+		this.perfBusUnsubs.push(
+			bus.on("perf.agentWorld.sample", (ev) => {
+				this.lastPerfSample = ev.payload;
+				this.requestUpdate();
+			}),
+			bus.on("perf.agentWorld.slowFrame", () => {
+				this.perfLocalSlowFrames += 1;
+				this.requestUpdate();
+			}),
+		);
+	}
+
+	private handlePerfMonitorToggle(e: Event): void {
+		const on = (e.target as HTMLInputElement).checked;
+		this.perfMonitorEnabled = on;
+		if (!on) {
+			this.teardownPerfBusListeners();
+			this.lastPerfSample = null;
+			this.perfLocalSlowFrames = 0;
+		} else {
+			this.refreshPerfBusListeners();
+		}
+		this.requestUpdate();
+	}
+
+	private formatPerfMs(ms: number): string {
+		if (ms < 0.05) return "0";
+		if (ms < 10) return ms.toFixed(2);
+		return String(Math.round(ms));
+	}
+
+	private readPerfAggregatorSummary(): AgentWorldPerfSummary | null {
+		const dash = this.perfDashboard ?? this.getPerfDashboard?.();
+		if (!dash) return null;
+		try {
+			return dash.getAgentWorldSummary();
+		} catch {
+			return null;
+		}
+	}
+
+	private renderWorldPerfMonitor(): ReturnType<typeof html> {
+		const hasBus = Boolean(this.eventBus);
+		const agg = this.perfMonitorEnabled ? this.readPerfAggregatorSummary() : null;
+		const sample = this.lastPerfSample;
+
+		return html`
+			<div class="world-perf-toolbar">
+				<label class="world-perf-toggle">
+					<input
+						type="checkbox"
+						.checked=${this.perfMonitorEnabled}
+						@change=${this.handlePerfMonitorToggle}
+					/>
+					<span>World perf monitor</span>
+				</label>
+				<div class="world-perf-hint">
+					${!hasBus
+						? "Plugin event bus not wired to the canvas — no samples."
+						: !this.perfMonitorEnabled
+							? "Turn on to record live tick timing and PerfAggregator rollups."
+							: "Subscribed to perf.agentWorld.sample / slowFrame."}
+				</div>
+			</div>
+			${this.perfMonitorEnabled && hasBus && !sample ? html`
+				<div class="world-perf-wait">Waiting for first sample (~2s of canvas activity)…</div>
+			` : nothing}
+			${this.perfMonitorEnabled && sample ? html`
+				<div class="world-perf-panel">
+					<div style="font-size:9px;color:var(--text-muted);margin-bottom:6px;">
+						Last window: ${sample.windowFrames} frames / ${this.formatPerfMs(sample.windowDurationMs)} ms wall
+						\u{2022} scene <strong style="color:var(--text-primary)">${sample.sceneName}</strong>
+						\u{2022} ${sample.agentCount} agents
+					</div>
+					<div class="world-perf-grid">
+						<div class="world-perf-metric">
+							<span class="lbl">Sim avg</span>
+							<span class="val">${this.formatPerfMs(sample.simulation.avgMs)} ms</span>
+						</div>
+						<div class="world-perf-metric">
+							<span class="lbl">Sim max</span>
+							<span class="val">${this.formatPerfMs(sample.simulation.maxMs)} ms</span>
+						</div>
+						<div class="world-perf-metric">
+							<span class="lbl">Post avg</span>
+							<span class="val">${this.formatPerfMs(sample.postframe.avgMs)} ms</span>
+						</div>
+						<div class="world-perf-metric">
+							<span class="lbl">Post max</span>
+							<span class="val">${this.formatPerfMs(sample.postframe.maxMs)} ms</span>
+						</div>
+						<div class="world-perf-metric">
+							<span class="lbl">\u0394 avg</span>
+							<span class="val">${this.formatPerfMs(sample.delta.avgMs)} ms</span>
+						</div>
+						<div class="world-perf-metric">
+							<span class="lbl">\u0394 max</span>
+							<span class="val">${this.formatPerfMs(sample.delta.maxMs)} ms</span>
+						</div>
+					</div>
+					${this.perfLocalSlowFrames > 0 ? html`
+						<div class="world-perf-warn">
+							Slow simulation frames (this panel session): ${this.perfLocalSlowFrames}
+						</div>
+					` : nothing}
+					<div class="world-perf-phases-title">Tick phases (avg / max ms)</div>
+					${(() => {
+						const entries = Object.entries(sample.phases)
+							.sort((a, b) => b[1].avgMs - a[1].avgMs)
+							.slice(0, 8);
+						const maxBar = Math.max(...entries.map(([, v]) => v.avgMs), 0.001);
+						return entries.map(([name, v]) => html`
+							<div class="world-perf-phase-row">
+								<span class="world-perf-phase-name" title="${name}">${name}</span>
+								<div class="world-perf-phase-bar-wrap">
+									<div class="world-perf-phase-bar" style="width:${(v.avgMs / maxBar) * 100}%"></div>
+								</div>
+								<span class="world-perf-phase-ms">${this.formatPerfMs(v.avgMs)} / ${this.formatPerfMs(v.maxMs)}</span>
+							</div>
+						`);
+					})()}
+					${agg && (agg.samples.length > 0 || agg.slowFrameCount > 0) ? html`
+						<div class="world-perf-agg">
+							<strong style="color:var(--accent-gold)">PerfAggregator</strong>
+							\u{2022} ${agg.samples.length} sample window(s) buffered
+							\u{2022} slow frames (plugin): ${agg.slowFrameCount}
+							${agg.simulationMaxAcrossSamples.count > 0 ? html`
+								<br/>Sim max across windows: p50 ${this.formatPerfMs(agg.simulationMaxAcrossSamples.p50)} ms,
+								p95 ${this.formatPerfMs(agg.simulationMaxAcrossSamples.p95)} ms,
+								max ${this.formatPerfMs(agg.simulationMaxAcrossSamples.max)} ms
+							` : nothing}
+						</div>
+					` : this.perfMonitorEnabled && !(this.perfDashboard ?? this.getPerfDashboard?.()) ? html`
+						<div class="world-perf-agg">
+							PerfAggregator becomes available after the plugin finishes layout. Re-open this tab or toggle the monitor off and on if you opened the world very early.
+						</div>
+					` : nothing}
+				</div>
+			` : nothing}
+		`;
 	}
 
 	private handleClose(): void {
@@ -175,6 +347,7 @@ export class AskBob extends FlowtiElement {
 
 		return html`
 			<div class="thread" style="padding: 8px; gap: 6px; display: flex; flex-direction: column;">
+				${this.renderWorldPerfMonitor()}
 				<!-- Status bar -->
 				<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: var(--bg-secondary); border-radius: 3px; border: 1px solid var(--border);">
 					<div style="display: flex; flex-direction: column; gap: 2px;">

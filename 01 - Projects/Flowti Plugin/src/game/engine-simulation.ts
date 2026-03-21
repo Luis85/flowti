@@ -23,19 +23,31 @@ import {
 
 // ── Composite tick — called from engine.ts preframe hook ─────────────
 
+/** Run one simulation phase and record duration when `ctx.perfSampler` is set. */
+function runTimedPhase(ctx: EngineContext, phase: string, fn: (c: EngineContext) => void): void {
+	const sink = ctx.perfSampler;
+	if (!sink) {
+		fn(ctx);
+		return;
+	}
+	const t0 = performance.now();
+	fn(ctx);
+	sink.onPhase(phase, performance.now() - t0);
+}
+
 export function tickSimulation(ctx: EngineContext): void {
-	tickClock(ctx);
-	tickSensor(ctx);
-	tickNeeds(ctx);
-	tickReactiveTriggers(ctx);
-	tickBehaviorThresholds(ctx);
-	tickPets(ctx);
-	tickRoomTransit(ctx);
-	tickBehaviorTree(ctx);
-	tickBrain(ctx);
-	tickSocial(ctx);
-	tickDirector(ctx);
-	tickVisuals(ctx);
+	runTimedPhase(ctx, "clock", tickClock);
+	runTimedPhase(ctx, "sensor", tickSensor);
+	runTimedPhase(ctx, "needs", tickNeeds);
+	runTimedPhase(ctx, "reactiveTriggers", tickReactiveTriggers);
+	runTimedPhase(ctx, "behaviorThresholds", tickBehaviorThresholds);
+	runTimedPhase(ctx, "pets", tickPets);
+	runTimedPhase(ctx, "roomTransit", tickRoomTransit);
+	runTimedPhase(ctx, "behaviorTree", tickBehaviorTree);
+	runTimedPhase(ctx, "brain", tickBrain);
+	runTimedPhase(ctx, "social", tickSocial);
+	runTimedPhase(ctx, "director", tickDirector);
+	runTimedPhase(ctx, "visuals", tickVisuals);
 }
 
 // ── 1. tickClock — day clock, world event scheduler, cycle boundary ──

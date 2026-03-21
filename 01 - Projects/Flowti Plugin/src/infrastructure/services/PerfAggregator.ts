@@ -25,12 +25,15 @@ import type {
 	ImportSummary,
 	ViewSummary,
 	PerfState,
+	AgentWorldSampleSnapshot,
+	AgentWorldPerfSummary,
+	IAgentWorldPerfDashboard,
 } from "./perfTypes";
 
 const WINDOW_SIZE = 20;
 const DEFAULT_STARTUP_THRESHOLD_MS = 5000;
 
-export class PerfAggregator {
+export class PerfAggregator implements IAgentWorldPerfDashboard {
 	private startupServices: ServiceStartupEntry[] = [];
 	/** Cleared when the next startup run begins (first phase/segment of a run). */
 	private startupPhasesBuffer: StartupPhaseEntry[] = [];
@@ -53,6 +56,9 @@ export class PerfAggregator {
 	private importTimings: number[] = [];
 	private importRows: number[] = [];
 	private viewTimings = new Map<string, number[]>();
+	private agentWorldSamples: AgentWorldSampleSnapshot[] = [];
+	private agentWorldSlowFrames = 0;
+	private agentWorldSimMax: number[] = [];
 	private unsubscribes: Array<() => void> = [];
 	private startupThresholdMs: number;
 
@@ -258,6 +264,15 @@ export class PerfAggregator {
 			timing: this.computeSummary(timings),
 		}));
 		return { perHub };
+	}
+
+	/** Agent canvas world: rolling `perf.agentWorld.sample` windows + slow-frame count. */
+	getAgentWorldSummary(): AgentWorldPerfSummary {
+		return {
+			samples: [...this.agentWorldSamples],
+			slowFrameCount: this.agentWorldSlowFrames,
+			simulationMaxAcrossSamples: this.computeSummary(this.agentWorldSimMax),
+		};
 	}
 
 	private push(arr: number[], value: number): void {

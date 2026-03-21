@@ -113,4 +113,27 @@ export interface PerformanceEventMap {
 		hubId: string;
 		durationMs: number;
 	};
+
+	/**
+	 * Aggregated agent-world (Excalibur preframe simulation + store postframe) sample.
+	 * Emitted every ~2s or 120 frames while the world is running.
+	 */
+	"perf.agentWorld.sample": {
+		windowFrames: number;
+		windowDurationMs: number;
+		simulation: { avgMs: number; maxMs: number };
+		postframe: { avgMs: number; maxMs: number };
+		delta: { avgMs: number; maxMs: number };
+		phases: Record<string, { avgMs: number; maxMs: number }>;
+		agentCount: number;
+		sceneName: string;
+	};
+
+	/** Single frame exceeded the slow simulation threshold (throttled). */
+	"perf.agentWorld.slowFrame": {
+		simulationMs: number;
+		sceneName: string;
+		agentCount: number;
+		deltaMs: number;
+	};
 }

@@ -29,7 +29,7 @@ import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
 import type { OnboardingService } from "./domain/onboarding/OnboardingService";
 import { PerfAggregator } from "./infrastructure/services/PerfAggregator";
 import { TypedStorage } from "./utils/TypedStorage";
-import type { PerfState } from "./infrastructure/services/perfTypes";
+import type { PerfState, IAgentWorldPerfDashboard } from "./infrastructure/services/perfTypes";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { IngestionStatusBar } from "./ui/shared/IngestionStatusBar";
@@ -353,6 +353,15 @@ export default class FlowtiBasePlugin extends Plugin {
 			getFilesInFolder: (folderPath, predicate) => this.getFilesInFolder(folderPath, predicate),
 			hasMergeConflictMarkers: (content) => content.includes("<<<<<<< ") || content.includes("\n=======\n") || content.includes(">>>>>>> "),
 		};
+	}
+
+	/**
+	 * Exposed for the Agent World view / Ask Bob perf monitor.
+	 * `PerfAggregator` is created in {@link onLayoutReady}, so this may be
+	 * undefined until layout has finished initializing.
+	 */
+	getPerfDashboard(): IAgentWorldPerfDashboard | undefined {
+		return this.perfAggregator;
 	}
 
 	private async onLayoutReady(): Promise<void> {

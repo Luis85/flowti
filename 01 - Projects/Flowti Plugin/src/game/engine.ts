@@ -36,6 +36,9 @@ import { CursorSpirit } from "./actors/cursor-spirit.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
+import type { IEventBus } from "../infrastructure/events/types.js";
+import type { IAgentWorldPerfDashboard } from "../infrastructure/services/perfTypes.js";
+import { createAgentWorldPerfCollector, type AgentWorldPerfCollectorOptions } from "./performance/agent-world-perf.js";
 import { DayClock } from "./systems/day-clock.js";
 import { WorldAmbience } from "./systems/world-ambience.js";
 import { MemorySystem } from "./systems/memory-system.js";
@@ -84,6 +87,14 @@ export interface AgentWorldDeps {
 	cliExecutor?: ICliExecutor;
 	worldContext?: WorldContext;
 	vaultBasePath?: string;
+	/** When set, emits `perf.agentWorld.sample` / `perf.agentWorld.slowFrame` for analysis. */
+	eventBus?: IEventBus;
+	/** Optional tuning for agent-world perf sampling (ignored without `eventBus`). */
+	agentWorldPerf?: AgentWorldPerfCollectorOptions;
+	/** Static reference for Ask Bob (tests); production often uses {@link getPerfDashboard} instead. */
+	perfDashboard?: IAgentWorldPerfDashboard;
+	/** Lazy resolver — e.g. plugin `getPerfDashboard()` after `onLayoutReady`. */
+	getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
 }
 
 export interface AgentWorldHandle {
@@ -119,6 +130,17 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-agent-panel", "ft-game-ask-bob"]) {
 		const el = document.createElement(tag) as HTMLElement & { store: DashboardStore };
 		el.store = store;
+		if (tag === "ft-game-ask-bob") {
+			const bob = el as HTMLElement & {
+				store: DashboardStore;
+				eventBus?: IEventBus;
+				perfDashboard?: IAgentWorldPerfDashboard;
+				getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
+			};
+			if (deps.eventBus) bob.eventBus = deps.eventBus;
+			if (deps.perfDashboard) bob.perfDashboard = deps.perfDashboard;
+			if (deps.getPerfDashboard) bob.getPerfDashboard = deps.getPerfDashboard;
+		}
 		container.appendChild(el);
 	}
 
@@ -395,6 +417,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		cancelPeriodicFlush = startPeriodicFlush(stateSystems, deps.vaultBasePath, engine);
 	}
 
+	const perfSampler = deps.eventBus
+		? createAgentWorldPerfCollector(deps.eventBus, deps.agentWorldPerf)
+		: null;
+
 	// ── Build shared context ────────────────────────────
 	const ctx: EngineContext = {
 		engine,
@@ -455,6 +481,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		findNearestAgent,
 		handleAgentSelect,
 		handleSceneChange: sceneConfig.onSceneChange,
+		perfSampler,
 	};
 	const cleanupEvents = wireEvents(ctx);
 
@@ -463,14 +490,36 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const now = performance.now();
 		ctx.deltaMs = now - ctx.lastTime;
 		ctx.lastTime = now;
+		const simStart = performance.now();
 		tickSimulation(ctx);
-
+		const simMs = performance.now() - simStart;
+		if (perfSampler) {
+			const sceneName = typeof engine.currentScene?.name === "string" && engine.currentScene.name
+				? engine.currentScene.name
+				: "unknown";
+			perfSampler.onFrameMeta({
+				deltaMs: ctx.deltaMs,
+				agentCount: brainSystem.getAllEntries().size,
+				sceneName,
+			});
+			perfSampler.onSimulationEnd(simMs);
+		}
 	});
 
 	// ── Post-frame adapter: push positions/targets/states to store ──
-	engine.on("postframe", createPostframeHandler({
+	const postframeHandler = createPostframeHandler({
 		engine, store, brainSystem, findCurrentSceneActor,
-	}));
+	});
+	engine.on("postframe", () => {
+		if (!perfSampler) {
+			postframeHandler();
+			return;
+		}
+		const t0 = performance.now();
+		postframeHandler();
+		perfSampler.onPostframe(performance.now() - t0);
+		perfSampler.afterFullFrame();
+	});
 
 	// ── Keyboard handling ───────────────────────────────
 	const { keydownHandler, keyupHandler } = setupKeyboardHandlers({
@@ -503,6 +552,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 
 		dispose(): void {
+			perfSampler?.dispose();
 			// Cancel periodic position flush
 			if (cancelPeriodicFlush) cancelPeriodicFlush();
 			if (cancelAgentResourcePoll) cancelAgentResourcePoll();

@@ -17,6 +17,7 @@ import { AgentWorldView, type AgentWorldViewDeps } from "../ui/agents/agent-worl
 import { VIEW_TYPE_AGENT_SIDEBAR, VIEW_TYPE_AGENT_WORLD } from "../ui/agents/types.js";
 import { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
+import type { IAgentWorldPerfDashboard } from "../infrastructure/services/perfTypes.js";
 
 export interface AgentSetupDeps {
 	readonly plugin: Plugin;
@@ -86,6 +87,11 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		eventBus: deps.eventBus,
 		worldContext,
 		cliExecutor,
+		/** Lazy — PerfAggregator is created in plugin `onLayoutReady`, after this view is registered. */
+		getPerfDashboard: () => {
+			const p = deps.plugin as { getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined };
+			return p.getPerfDashboard?.();
+		},
 	};
 	try {
 		deps.plugin.registerView(VIEW_TYPE_AGENT_WORLD, (leaf: WorkspaceLeaf) =>

@@ -109,6 +109,33 @@ export interface ViewSummary {
 	perHub: ViewHubEntry[];
 }
 
+/** One aggregated agent-world perf window (matches `perf.agentWorld.sample` payload). */
+export interface AgentWorldSampleSnapshot {
+	readonly windowFrames: number;
+	readonly windowDurationMs: number;
+	readonly simulation: { avgMs: number; maxMs: number };
+	readonly postframe: { avgMs: number; maxMs: number };
+	readonly delta: { avgMs: number; maxMs: number };
+	readonly phases: Record<string, { avgMs: number; maxMs: number }>;
+	readonly agentCount: number;
+	readonly sceneName: string;
+}
+
+/** Rolling agent-world (Excalibur simulation) performance view. */
+export interface AgentWorldPerfSummary {
+	readonly samples: readonly AgentWorldSampleSnapshot[];
+	readonly slowFrameCount: number;
+	readonly simulationMaxAcrossSamples: MetricSummary;
+}
+
+/**
+ * Narrow interface so game UI (e.g. Ask Bob World tab) can read aggregator state
+ * without importing the PerfAggregator class from game code paths.
+ */
+export interface IAgentWorldPerfDashboard {
+	getAgentWorldSummary(): AgentWorldPerfSummary;
+}
+
 /** Persisted performance state (cross-session trend data). */
 export interface PerfState {
 	startupHistory: number[];

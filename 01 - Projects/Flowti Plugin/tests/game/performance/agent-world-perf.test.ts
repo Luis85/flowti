@@ -1,0 +1,66 @@
+import { describe, expect, it, vi } from "vitest";
+import { createAgentWorldPerfCollector } from "../../../src/game/performance/agent-world-perf.js";
+import type { IEventBus } from "../../../src/infrastructure/events/types.js";
+
+function createMockBus(): { bus: IEventBus; emitted: { type: string; payload: unknown }[] } {
+	const emitted: { type: string; payload: unknown }[] = [];
+	const bus: IEventBus = {
+		emit: vi.fn(async (type: string, payload: unknown) => {
+			emitted.push({ type, payload });
+		}),
+		emitCustom: vi.fn(async () => { /* noop */ }),
+		on: vi.fn(() => () => { /* noop */ }),
+		onWildcard: vi.fn(() => () => { /* noop */ }),
+		off: vi.fn(),
+		offWildcard: vi.fn(),
+	} as unknown as IEventBus;
+	return { bus, emitted };
+}
+
+describe("createAgentWorldPerfCollector", () => {
+	it("emits perf.agentWorld.sample after maxFramesPerSample frames", async () => {
+		const { bus, emitted } = createMockBus();
+		const c = createAgentWorldPerfCollector(bus, { maxFramesPerSample: 2, sampleIntervalMs: 60_000 });
+
+		c.onPhase("brain", 1);
+		c.onFrameMeta({ deltaMs: 16, agentCount: 2, sceneName: "hub" });
+		c.onSimulationEnd(5);
+		c.onPostframe(0.5);
+		c.afterFullFrame();
+
+		c.onPhase("brain", 2);
+		c.onFrameMeta({ deltaMs: 16, agentCount: 2, sceneName: "hub" });
+		c.onSimulationEnd(6);
+		c.onPostframe(0.4);
+		c.afterFullFrame();
+
+		expect(emitted.some((e) => e.type === "perf.agentWorld.sample")).toBe(true);
+		const sample = emitted.find((e) => e.type === "perf.agentWorld.sample")?.payload as {
+			windowFrames: number;
+			simulation: { avgMs: number; maxMs: number };
+			phases: Record<string, { avgMs: number; maxMs: number }>;
+		};
+		expect(sample?.windowFrames).toBe(2);
+		expect(sample?.simulation.avgMs).toBeCloseTo(5.5, 5);
+		expect(sample?.simulation.maxMs).toBe(6);
+		expect(sample?.phases.brain?.avgMs).toBeCloseTo(1.5, 5);
+
+		c.dispose();
+	});
+
+	it("emits perf.agentWorld.slowFrame when simulation exceeds threshold", async () => {
+		const { bus, emitted } = createMockBus();
+		const c = createAgentWorldPerfCollector(bus, {
+			maxFramesPerSample: 9999,
+			sampleIntervalMs: 60_000,
+			slowSimulationThresholdMs: 10,
+			slowFrameThrottleMs: 0,
+		});
+
+		c.onFrameMeta({ deltaMs: 32, agentCount: 1, sceneName: "office" });
+		c.onSimulationEnd(50);
+		expect(emitted.some((e) => e.type === "perf.agentWorld.slowFrame")).toBe(true);
+
+		c.dispose();
+	});
+});

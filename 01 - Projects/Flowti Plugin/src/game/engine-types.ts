@@ -38,6 +38,7 @@ import type { PetActor } from "./actors/pet-actor.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { SceneEntity } from "./data/scene-entity.js";
 import type { AgentToolDeps, IClock, IWorldStateManager } from "./brain/behavior-tree/bt-types.js";
+import type { AgentWorldPerfSink } from "./performance/agent-world-perf.js";
 
 // ── BT bridge types (defined inline in engine.ts) ────────────────────
 
@@ -147,6 +148,9 @@ export interface EngineContext {
 	readonly knownEntities: Set<string>;
 	/** Dedup guard for SSE/EventBus action relay. */
 	readonly recentActionIds: Set<string>;
+
+	/** Optional perf sampler for `perf.agentWorld.*` events (null when disabled). */
+	perfSampler: AgentWorldPerfSink | null;
 
 	// ── Mutable scalars ──────────────────────────────────
 	/** Previous day-cycle count, for detecting cycle boundary. */
