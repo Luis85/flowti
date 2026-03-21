@@ -126,6 +126,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			${this.statusMessage
 				? html`<div class="status-banner" role="status" aria-live="polite">${this.statusMessage}</div>`
 				: ""}
+			${this.renderStorybookCliLog()}
+			${this.renderProjectHubLog()}
 			${this.renderTabBar()}
 			${this.renderActiveTab()}
 			${this.showScaffoldModal ? this.renderScaffoldModal() : ""}
@@ -315,6 +317,26 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			`;
 		}
 		return "";
+	}
+
+	private renderStorybookCliLog() {
+		if (!this.storybookBusy && this.storybookOutput.length === 0) return "";
+		const body = this.storybookOutput.length > 0
+			? this.storybookOutput.join("\n")
+			: (this.storybookBusy ? "Waiting for CLI output…" : "");
+		return html`
+			<div class="hub-cli-log hub-cli-log--storybook" role="region" aria-label="Storybook CLI output">
+				<div class="hub-cli-log__head">
+					<span class="hub-cli-log__title">Storybook CLI output</span>
+					<button type="button" class="hub-cli-log__clear" @click="${this.clearStorybookSurfaceLog}">Clear</button>
+				</div>
+				<pre class="hub-cli-log__pre">${body}</pre>
+			</div>
+		`;
+	}
+
+	private clearStorybookSurfaceLog(): void {
+		this.dispatchEvent(new CustomEvent("storybook-dismiss-output", { bubbles: true, composed: true }));
 	}
 
 	private renderProjectHubLog() {

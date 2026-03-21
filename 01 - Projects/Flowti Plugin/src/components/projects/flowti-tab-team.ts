@@ -342,7 +342,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 	}
 
 	private get dateRangeWarningCount(): number {
-		return this._slots.filter((s) => !isoDateRangeOk(s.roleStart, s.roleEnd)).length;
+		return this._slots.filter((s) => teamRoleSlotDateRangeInvalid(s)).length;
 	}
 
 	private formatFteTotal(): string {

@@ -32,6 +32,22 @@ export interface PerformanceEventMap {
 		serviceCount: number;
 	};
 
+	/**
+	 * Synchronous work in {@code onload} after `plugin.loading` until `plugin.loaded`
+	 * (service registration, `initializeAll`, ribbons — not domain hydration).
+	 */
+	"perf.startup.shell": {
+		durationMs: number;
+	};
+
+	/**
+	 * Wall time from `plugin.loaded` until Obsidian fires `workspace.onLayoutReady`
+	 * (plugin idle / Obsidian layout — no Flowti work in between).
+	 */
+	"perf.startup.layoutGap": {
+		durationMs: number;
+	};
+
 	/** Emitted for each high-level startup phase (e.g. domain.services.load, hub.registry.setup). */
 	"perf.startup.phase": {
 		phase: string;
@@ -116,7 +132,7 @@ export interface PerformanceEventMap {
 
 	/**
 	 * Aggregated agent-world (Excalibur preframe simulation + store postframe) sample.
-	 * Emitted every ~2s or 120 frames while the world is running.
+	 * Emitted every ~4s or 120 frames while the world is running.
 	 */
 	"perf.agentWorld.sample": {
 		windowFrames: number;
@@ -125,6 +141,8 @@ export interface PerformanceEventMap {
 		postframe: { avgMs: number; maxMs: number };
 		delta: { avgMs: number; maxMs: number };
 		phases: Record<string, { avgMs: number; maxMs: number }>;
+		/** Per named game system / store step (avg & max ms per frame in this window). */
+		gameSystems: Record<string, { avgMs: number; maxMs: number }>;
 		agentCount: number;
 		sceneName: string;
 		/**
@@ -157,5 +175,13 @@ export interface PerformanceEventMap {
 		sceneName: string;
 		agentCount: number;
 		deltaMs: number;
+	};
+
+	/**
+	 * Agent World view finished cold start (`startEngine`: Excalibur start, sprites, provider, agents).
+	 * Not emitted until the user opens the Agent World leaf.
+	 */
+	"perf.agentWorld.engine.start": {
+		durationMs: number;
 	};
 }

@@ -17,6 +17,8 @@ export interface ProjectEventContext {
 	startStorybookWork: (label: string) => void;
 	appendStorybookLog: (line: string) => void;
 	endStorybookWork: (result: { ok: boolean; error?: string }) => void;
+	/** Clears both the in-memory line buffer and `el.storybookOutput` (dismiss / Clear UI). */
+	clearStorybookLogBuffer: () => void;
 	/** Project-wide operations: team roster, config, canvas, git wizard, empty project, … */
 	startProjectHubWork: (label: string) => void;
 	appendProjectHubLog: (line: string) => void;
@@ -34,7 +36,12 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 	el.addEventListener("storybook-install", ((e: CustomEvent) => {
 		ctx.startStorybookWork("Installing Storybook…");
 		void projectService.installStorybook(ctx.getCurrentProject(), String(e.detail.framework) as StorybookFramework, ctx.appendStorybookLog)
-			.then((r) => { ctx.endStorybookWork(r); if (r.ok) el.showScaffoldModal = true; });
+			.then((r) => { ctx.endStorybookWork(r); if (r.ok) el.showScaffoldModal = true; })
+			.catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				ctx.appendStorybookLog(`Error: ${msg}`);
+				ctx.endStorybookWork({ ok: false, error: msg });
+			});
 	}) as EventListener);
 
 	el.addEventListener("storybook-start", (() => {
@@ -79,30 +86,58 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 					el.storybookBusy = false;
 					void ctx.loadProject(ctx.getCurrentProject());
 				}
+			})
+			.catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				ctx.appendStorybookLog(`Error: ${msg}`);
+				ctx.endStorybookWork({ ok: false, error: msg });
 			});
 	}) as EventListener);
 
 	el.addEventListener("storybook-stop", (() => {
-		void projectService.stopStorybook(ctx.getCurrentProject()).then((r) => ctx.endStorybookWork(r));
+		void projectService.stopStorybook(ctx.getCurrentProject())
+			.then((r) => ctx.endStorybookWork(r))
+			.catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				ctx.endStorybookWork({ ok: false, error: msg });
+			});
 	}) as EventListener);
 
 	el.addEventListener("storybook-build", (() => {
 		ctx.startStorybookWork("Building Storybook…");
-		void projectService.buildStorybook(ctx.getCurrentProject(), ctx.appendStorybookLog).then((r) => ctx.endStorybookWork(r));
+		void projectService.buildStorybook(ctx.getCurrentProject(), ctx.appendStorybookLog)
+			.then((r) => ctx.endStorybookWork(r))
+			.catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				ctx.appendStorybookLog(`Error: ${msg}`);
+				ctx.endStorybookWork({ ok: false, error: msg });
+			});
 	}) as EventListener);
 
 	el.addEventListener("storybook-import", (() => {
 		const savedPath = (el.config as { markdownSource?: { path?: string } } | undefined)?.markdownSource?.path;
 		if (savedPath) {
 			ctx.startStorybookWork("Importing markdown to sitemap…");
-			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), savedPath, ctx.appendStorybookLog).then((r) => ctx.endStorybookWork(r));
+			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), savedPath, ctx.appendStorybookLog)
+				.then((r) => ctx.endStorybookWork(r))
+				.catch((err: unknown) => {
+					const msg = err instanceof Error ? err.message : String(err);
+					ctx.appendStorybookLog(`Error: ${msg}`);
+					ctx.endStorybookWork({ ok: false, error: msg });
+				});
 			return;
 		}
 		if (!ctx.pickFolder) return;
 		void ctx.pickFolder().then((folder) => {
 			if (folder === null) return;
 			ctx.startStorybookWork("Importing markdown to sitemap…");
-			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), folder, ctx.appendStorybookLog).then((r) => ctx.endStorybookWork(r));
+			void projectService.importMarkdownSitemap(ctx.getCurrentProject(), folder, ctx.appendStorybookLog)
+				.then((r) => ctx.endStorybookWork(r))
+				.catch((err: unknown) => {
+					const msg = err instanceof Error ? err.message : String(err);
+					ctx.appendStorybookLog(`Error: ${msg}`);
+					ctx.endStorybookWork({ ok: false, error: msg });
+				});
 		});
 	}) as EventListener);
 
@@ -132,10 +167,16 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 
 	el.addEventListener("storybook-canvas-import", (() => {
 		ctx.startStorybookWork("Importing from canvas…");
-		void projectService.importCanvasSitemap(ctx.getCurrentProject(), ctx.appendStorybookLog).then((r) => {
-			ctx.endStorybookWork(r);
-			void projectService.listComponents(ctx.getCurrentProject()).then((c) => { el.components = c; });
-		});
+		void projectService.importCanvasSitemap(ctx.getCurrentProject(), ctx.appendStorybookLog)
+			.then((r) => {
+				ctx.endStorybookWork(r);
+				void projectService.listComponents(ctx.getCurrentProject()).then((c) => { el.components = c; });
+			})
+			.catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				ctx.appendStorybookLog(`Error: ${msg}`);
+				ctx.endStorybookWork({ ok: false, error: msg });
+			});
 	}) as EventListener);
 
 	el.addEventListener("components-refresh", (() => {

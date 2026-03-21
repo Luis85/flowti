@@ -153,12 +153,21 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	let cancelAgentResourcePoll: (() => void) | null = null;
 	if (deps.cliExecutor) {
-		const pollMs = 2000;
+		/** Less aggressive than 2s to reduce alignment with perf windows and main-thread stalls from CLI sampling. */
+		const pollMs = 4000;
 		const id = window.setInterval(() => {
-			try {
-				store.refreshAgentResources();
-			} catch {
-				/* ignore sampling errors */
+			const run = () => {
+				try {
+					store.refreshAgentResources();
+				} catch {
+					/* ignore sampling errors */
+				}
+			};
+			// Defer off the timer tick so Excalibur can paint; prefer idle time on Chromium.
+			if (typeof window.requestIdleCallback === "function") {
+				window.requestIdleCallback(run, { timeout: pollMs });
+			} else {
+				window.setTimeout(run, 0);
 			}
 		}, pollMs);
 		cancelAgentResourcePoll = () => {
@@ -548,6 +557,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Post-frame adapter: push positions/targets/states to store ──
 	const postframeHandler = createPostframeHandler({
 		engine, store, brainSystem, needsSystem, findCurrentSceneActor,
+		perfSampler,
 	});
 	engine.on("postframe", () => {
 		if (!perfSampler) {
@@ -572,6 +582,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	return {
 		async start(): Promise<void> {
+			const t0 = performance.now();
 			await startEngine({
 				engine, spriteBasePath, provider, vaultBasePath: deps.vaultBasePath,
 				hubScene, officeScene, villageScene, stationScene, roomScenes,
@@ -581,6 +592,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				loadingOverlay, doRegisterAgents,
 				cameraRef,
 			});
+			if (deps.eventBus) {
+				void deps.eventBus.emit("perf.agentWorld.engine.start", {
+					durationMs: performance.now() - t0,
+				});
+			}
 		},
 
 		pause(): void {

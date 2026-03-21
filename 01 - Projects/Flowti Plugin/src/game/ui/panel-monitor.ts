@@ -6,7 +6,7 @@
 import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, scrollStyles } from "./game-styles.js";
-import type { DashboardStore } from "../store/dashboard-store.js";
+import { AGENT_RESOURCES_CHANGED_EVENT, type DashboardStore } from "../store/dashboard-store.js";
 import type { IEventBus, EventPayload } from "../../infrastructure/events/types.js";
 import { CANVAS_SLICE_ORDER, CANVAS_SLICE_LABELS, formatCanvasPerfMs } from "./canvas-perf-labels.js";
 
@@ -309,11 +309,22 @@ export class PanelMonitor extends FlowtiElement {
 	private unsubscribe: (() => void) | null = null;
 	private perfBusUnsubs: Array<() => void> = [];
 
+	private readonly onStoreStateChanged = (): void => {
+		this.requestUpdate();
+	};
+
+	private readonly onAgentResourcesChanged = (): void => {
+		this.requestUpdate();
+	};
+
 	connectedCallback(): void {
 		super.connectedCallback();
-		const handler = () => this.requestUpdate();
-		this.store?.addEventListener("state-changed", handler);
-		this.unsubscribe = () => this.store?.removeEventListener("state-changed", handler);
+		this.store?.addEventListener("state-changed", this.onStoreStateChanged);
+		this.store?.addEventListener(AGENT_RESOURCES_CHANGED_EVENT, this.onAgentResourcesChanged);
+		this.unsubscribe = () => {
+			this.store?.removeEventListener("state-changed", this.onStoreStateChanged);
+			this.store?.removeEventListener(AGENT_RESOURCES_CHANGED_EVENT, this.onAgentResourcesChanged);
+		};
 		this.refreshCanvasPerfBusListeners();
 	}
 
@@ -386,12 +397,12 @@ export class PanelMonitor extends FlowtiElement {
 					${!hasBus
 						? "Plugin event bus not wired — open Agent World from the Flowti plugin."
 						: !this.agentCanvasPerfEnabled
-							? "Per-frame slices for this agent (same ~2s window as world perf)."
+							? "Per-frame slices for this agent (same ~4s window as world perf)."
 							: "Live: perf.agentWorld.sample → perAgentCanvas."}
 				</div>
 			</div>
 			${this.agentCanvasPerfEnabled && hasBus && !sample ? html`
-				<div class="canvas-perf-wait">Waiting for first sample (~2s of canvas activity)…</div>
+				<div class="canvas-perf-wait">Waiting for first sample (~4s of canvas activity)…</div>
 			` : nothing}
 			${this.agentCanvasPerfEnabled && hasBus && sample && !row ? html`
 				<div class="canvas-perf-wait">No slice data for <strong>${this.agentName}</strong> in the last window (agent idle or not in simulation).</div>
@@ -524,7 +535,7 @@ export class PanelMonitor extends FlowtiElement {
 				<span class="status-label">RAM</span>
 				<span class="status-value" title="Resident set size (working set on Windows)">${formatMem(m?.rssBytes ?? null)}</span>
 				<span class="status-label">CPU</span>
-				<span class="status-value" title="Approximate share of CPU time since last sample (~2s)">${formatCpu(m?.cpuPercent ?? null)}</span>
+				<span class="status-value" title="Approximate share of CPU time since last resource poll (~4s)">${formatCpu(m?.cpuPercent ?? null)}</span>
 			</div>
 			<p class="resource-hint">CPU updates after the second sample. macOS shows an instantaneous % from ps.</p>
 		`;

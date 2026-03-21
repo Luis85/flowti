@@ -41,8 +41,10 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 
 	async function loadProject(name: string): Promise<void> {
 		currentProject = name;
+		storybookLines.length = 0;
 		el.storybookOutput = [];
 		el.storybookError = "";
+		projectHubLines.length = 0;
 		el.projectHubOutput = [];
 		el.projectHubError = "";
 		el.actionSuccess = "";
@@ -147,6 +149,11 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.storybookOutput = [...storybookLines];
 	}
 
+	function clearStorybookLogBuffer(): void {
+		storybookLines.length = 0;
+		el.storybookOutput = [];
+	}
+
 	function endStorybookWork(result: { ok: boolean; error?: string }): void {
 		el.storybookBusy = false;
 		el.storybookBusyLabel = "";
@@ -191,7 +198,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el, projectService,
 		getCurrentProject: () => currentProject,
 		loadProject, loadProjectList,
-		startStorybookWork, appendStorybookLog, endStorybookWork,
+		startStorybookWork, appendStorybookLog, endStorybookWork, clearStorybookLogBuffer,
 		startProjectHubWork, appendProjectHubLog, endProjectHubWork,
 		openNote: deps.openNote,
 		createNote: deps.createNote,

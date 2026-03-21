@@ -116,8 +116,13 @@ export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, Installe
 
 	/** Emitted when plugin starts loading */
 	"plugin.loading": { timestamp: string };
-	/** Emitted when plugin has fully loaded */
-	"plugin.loaded": { timestamp: string };
+	/**
+	 * Synchronous shell ready: commands/views registered, `ServiceContainer.initializeAll` done.
+	 * Domain hydration and storage loads run later — see `plugin.deferred.start` and `plugin.ready`.
+	 */
+	"plugin.loaded": { timestamp: string; shellDurationMs?: number };
+	/** Deferred startup begins (Obsidian `workspace.onLayoutReady` callback entered). */
+	"plugin.deferred.start": { timestamp: string; layoutGapMs: number };
 	/** Emitted when plugin is ready (layout ready, user loaded) */
 	"plugin.ready": { timestamp: string };
 	/** Emitted when plugin starts unloading */

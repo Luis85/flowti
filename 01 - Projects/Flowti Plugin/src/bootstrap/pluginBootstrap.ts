@@ -47,9 +47,9 @@ export function createInfrastructure(deps: {
 			// Uses logger via closure — safe because logger is assigned before any event fires.
 			logger.error(`[EventBus] Handler error in "${eventType}"`, error);
 		},
-		onMeasure: (eventType, handlerCount, durationMs) => {
-			void eventBus.emit("perf.event.dispatched", { eventType, handlerCount, durationMs });
-		},
+		/* Await so perf listeners run before emit() resolves — avoids races with perf windows. */
+		onMeasure: (eventType, handlerCount, durationMs) =>
+			eventBus.emit("perf.event.dispatched", { eventType, handlerCount, durationMs }),
 	});
 
 	const logger: ILogger = new LoggerService({

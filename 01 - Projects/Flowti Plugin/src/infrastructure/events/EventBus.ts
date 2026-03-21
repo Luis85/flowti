@@ -88,8 +88,12 @@ type StoredHandler = EventHandler | WildcardEventHandler;
  * @see {@link IEventBus} for the interface definition
  * @see {@link FlowtiEvents} for available event types
  */
-/** Timing measurement callback for event dispatch observability. */
-export type EventBusMeasure = (eventType: string, handlerCount: number, durationMs: number) => void;
+/** Timing measurement callback for event dispatch observability. May return a Promise (e.g. to await nested emits). */
+export type EventBusMeasure = (
+	eventType: string,
+	handlerCount: number,
+	durationMs: number,
+) => void | Promise<void>;
 
 export class EventBus implements IEventBus {
 	private handlers: Map<EventType | typeof WILDCARD, Set<StoredHandler>>;
@@ -162,7 +166,8 @@ export class EventBus implements IEventBus {
 		}
 
 		if (measure) {
-			this.onMeasure!(type, handlerCount, performance.now() - start);
+			const durationMs = performance.now() - start;
+			await Promise.resolve(this.onMeasure!(type, handlerCount, durationMs));
 		}
 	}
 

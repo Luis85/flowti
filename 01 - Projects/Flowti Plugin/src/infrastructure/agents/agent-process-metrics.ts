@@ -29,6 +29,73 @@ function deleteCpuPrev(pid: number): void {
 	cpuPrev.delete(pid);
 }
 
+/** Windows CPU% from TotalProcessorTime delta vs wall clock (same as previous per-pid path). */
+function finishWindowsSample(
+	pid: number,
+	rssBytes: number | null,
+	cpuMs: number | null,
+	sampledAt: number,
+): AgentProcessResources {
+	let cpuPercent: number | null = null;
+	const prev = cpuPrev.get(pid);
+	if (prev != null && cpuMs != null) {
+		const deltaCpu = cpuMs - prev.integral;
+		const deltaWall = (sampledAt - prev.wallMs) / 1000;
+		if (deltaWall > 0.05 && deltaCpu >= 0) {
+			const nCpus = Math.max(1, cpus().length);
+			cpuPercent = Math.min(999, (deltaCpu / 1000 / deltaWall / nCpus) * 100);
+		}
+	}
+	if (cpuMs != null) {
+		cpuPrev.set(pid, { wallMs: sampledAt, integral: cpuMs });
+	} else {
+		deleteCpuPrev(pid);
+	}
+	return { pid, rssBytes, cpuPercent, sampledAt };
+}
+
+/**
+ * One PowerShell invocation for all PIDs (avoids N× tasklist + N× powershell on the 2s poll).
+ * PIDs missing from output are treated as exited.
+ */
+function windowsSampleBatch(pids: readonly number[]): Map<number, { rssBytes: number | null; cpuMs: number | null }> {
+	const out = new Map<number, { rssBytes: number | null; cpuMs: number | null }>();
+	const uniq = [...new Set(pids.filter((p) => Number.isInteger(p) && p > 0))];
+	if (uniq.length === 0) return out;
+
+	const idList = uniq.join(",");
+	const psCommand =
+		"$ids = @(" +
+		idList +
+		'); Get-Process -Id $ids -ErrorAction SilentlyContinue | ForEach-Object { "' +
+		'$($_.Id)|$($_.WorkingSet64)|$([int64]$_.TotalProcessorTime.TotalMilliseconds)' +
+		'" }';
+
+	try {
+		const raw = execFileSync(
+			"powershell.exe",
+			["-NoProfile", "-NonInteractive", "-Command", psCommand],
+			{ encoding: "utf-8", timeout: 10000, windowsHide: true },
+		).trim();
+		for (const line of raw.split(/\r?\n/)) {
+			const trimmed = line.trim();
+			if (!trimmed) continue;
+			const parts = trimmed.split("|");
+			const pid = parseInt(parts[0] ?? "", 10);
+			const rss = parseInt(parts[1] ?? "", 10);
+			const cpu = parseInt(parts[2] ?? "", 10);
+			if (!Number.isFinite(pid) || pid <= 0) continue;
+			out.set(pid, {
+				rssBytes: Number.isFinite(rss) ? rss : null,
+				cpuMs: Number.isFinite(cpu) ? cpu : null,
+			});
+		}
+	} catch {
+		/* caller treats missing PIDs as dead */
+	}
+	return out;
+}
+
 function windowsSample(pid: number): { rssBytes: number | null; cpuMs: number | null } {
 	try {
 		const out = execFileSync(
@@ -121,22 +188,7 @@ export function sampleAgentProcessResources(pid: number): AgentProcessResources 
 
 	if (process.platform === "win32") {
 		const { rssBytes: rss, cpuMs } = windowsSample(pid);
-		rssBytes = rss;
-		const prev = cpuPrev.get(pid);
-		if (prev != null && cpuMs != null) {
-			const deltaCpu = cpuMs - prev.integral;
-			const deltaWall = (sampledAt - prev.wallMs) / 1000;
-			if (deltaWall > 0.05 && deltaCpu >= 0) {
-				const nCpus = Math.max(1, cpus().length);
-				cpuPercent = Math.min(999, (deltaCpu / 1000 / deltaWall / nCpus) * 100);
-			}
-		}
-		if (cpuMs != null) {
-			cpuPrev.set(pid, { wallMs: sampledAt, integral: cpuMs });
-		} else {
-			deleteCpuPrev(pid);
-		}
-		return { pid, rssBytes, cpuPercent, sampledAt };
+		return finishWindowsSample(pid, rss, cpuMs, sampledAt);
 	}
 
 	if (process.platform === "linux") {
@@ -165,4 +217,33 @@ export function sampleAgentProcessResources(pid: number): AgentProcessResources 
 	rssBytes = rss;
 	cpuPercent = psCpu;
 	return { pid, rssBytes, cpuPercent, sampledAt };
+}
+
+/**
+ * Sample RSS/CPU for many PIDs in one OS round-trip on Windows (single PowerShell).
+ * On other platforms, falls back to {@link sampleAgentProcessResources} per PID.
+ */
+export function sampleManyAgentProcessResources(pids: readonly number[]): Map<number, AgentProcessResources> {
+	const sampledAt = Date.now();
+	const uniq = [...new Set(pids.filter((p) => Number.isInteger(p) && p > 0))];
+	const result = new Map<number, AgentProcessResources>();
+
+	if (process.platform === "win32") {
+		const batch = windowsSampleBatch(uniq);
+		for (const pid of uniq) {
+			const row = batch.get(pid);
+			if (!row) {
+				deleteCpuPrev(pid);
+				result.set(pid, { pid, rssBytes: null, cpuPercent: null, sampledAt });
+				continue;
+			}
+			result.set(pid, finishWindowsSample(pid, row.rssBytes, row.cpuMs, sampledAt));
+		}
+		return result;
+	}
+
+	for (const pid of uniq) {
+		result.set(pid, sampleAgentProcessResources(pid));
+	}
+	return result;
 }

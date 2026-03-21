@@ -193,7 +193,8 @@ export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 const CATALOG_DATA = {
 	// ── Plugin Lifecycle ─────────────────────────────────────
 	"plugin.loading":   { category: "Plugin Lifecycle", description: "Plugin starts loading", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
-	"plugin.loaded":    { category: "Plugin Lifecycle", description: "Plugin has fully loaded", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"plugin.loaded":    { category: "Plugin Lifecycle", description: "Sync shell ready (onload); domain work follows after layout", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"plugin.deferred.start": { category: "Plugin Lifecycle", description: "workspace.onLayoutReady — deferred startup (domain services, hubs)", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
 	"plugin.ready":     { category: "Plugin Lifecycle", description: "Plugin is ready (layout ready, user loaded)", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
 	"plugin.unloading": { category: "Plugin Lifecycle", description: "Plugin starts unloading", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
 	"plugin.unloaded":  { category: "Plugin Lifecycle", description: "Plugin has fully unloaded", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
@@ -683,6 +684,8 @@ const CATALOG_DATA = {
 
 	"perf.storage.loaded":   { category: "Performance", description: "TypedStorage load completed with timing", direction: "Internal", domain: "infrastructure", services: "TypedStorage", tags: ["system"] },
 	"perf.storage.saved":    { category: "Performance", description: "TypedStorage save completed with timing", direction: "Internal", domain: "infrastructure", services: "TypedStorage", tags: ["system"] },
+	"perf.startup.shell":    { category: "Performance", description: "Sync onload duration (plugin.loading → plugin.loaded)", direction: "Internal", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"perf.startup.layoutGap": { category: "Performance", description: "Wall time plugin.loaded → onLayoutReady (Obsidian layout)", direction: "Internal", domain: "infrastructure", services: "Plugin", tags: ["system"] },
 	"perf.startup.service":  { category: "Performance", description: "Domain service startup load completed", direction: "Internal", domain: "infrastructure", services: "Plugin", tags: ["system"] },
 	"perf.startup.total":    { category: "Performance", description: "All services startup completed", direction: "Internal", domain: "infrastructure", services: "Plugin", tags: ["system"] },
 	"perf.startup.phase":    { category: "Performance", description: "Startup phase timing (e.g. domain load, hub registry)", direction: "Internal", domain: "infrastructure", services: "Plugin", tags: ["system"] },
@@ -696,6 +699,9 @@ const CATALOG_DATA = {
 	"perf.csv.parsed":       { category: "Performance", description: "CSV content parsed by CsvParser", direction: "Internal", domain: "dataExchange", services: "ImportService", tags: ["system"] },
 	"perf.import.completed": { category: "Performance", description: "Full import pipeline completed", direction: "Internal", domain: "dataExchange", services: "ImportService", tags: ["system"] },
 	"perf.view.opened":      { category: "Performance", description: "Hub view finished opening", direction: "Internal", domain: "ui", services: "BaseHubView", tags: ["system"] },
+	"perf.agentWorld.sample": { category: "Performance", description: "Agent world simulation perf window sample", direction: "Internal", domain: "game", services: "AgentWorld", tags: ["system"] },
+	"perf.agentWorld.slowFrame": { category: "Performance", description: "Agent world simulation frame exceeded threshold", direction: "Internal", domain: "game", services: "AgentWorld", tags: ["system"] },
+	"perf.agentWorld.engine.start": { category: "Performance", description: "Agent World Excalibur cold start completed", direction: "Internal", domain: "game", services: "AgentWorld", tags: ["system"] },
 
 	// ── Notification ───────────────────────────────────────
 	"notice.show":               { category: "Notification", description: "Show a plain notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },

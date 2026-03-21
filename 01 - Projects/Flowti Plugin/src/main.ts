@@ -87,7 +87,11 @@ import { wireDataExchange } from "./bootstrap/data-exchange-wiring";
  * | 3 - Registration | Services, commands, and views are registered |
  * | 4 - Init | All services are initialized in dependency order |
  * | 5 - UI | Settings tab, views, and commands are bound to Obsidian |
- * | 6 - Post-load | Vault listeners registered, user data loaded, plugin.ready emitted |
+ * | 5b - `plugin.loaded` | Sync shell only — **not** domain/storage hydration |
+ * | 6 - Layout gap | Obsidian `workspace.onLayoutReady` (wall time → `perf.startup.layoutGap`) |
+ * | 7 - Deferred | `loadDomainServices`, hubs, vault listeners, `plugin.ready` |
+ *
+ * Agent World / Excalibur starts only when the Agent World leaf opens (`perf.agentWorld.engine.start`).
  */
 export default class FlowtiBasePlugin extends Plugin {
 	settings!: FlowtiSettings;
@@ -161,6 +165,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.views = infra.views;
 
 			void this.eventBus.emit("plugin.loading", { timestamp: new Date().toISOString() });
+			this.perfShellMark = performance.now();
 
 			this.noticeService = new NoticeService({ eventBus: this.eventBus });
 			this.modalService = new ModalService({ app: this.app, eventBus: this.eventBus, noticeService: this.noticeService, getSettings: () => this.settings });
@@ -219,8 +224,15 @@ export default class FlowtiBasePlugin extends Plugin {
 
 			this.app.workspace.onLayoutReady(() => { void this.onLayoutReady(); });
 
-			void this.eventBus.emit("plugin.loaded", { timestamp: new Date().toISOString() });
-			this.logger.info("Plugin loaded successfully");
+			const shellDurationMs = this.perfShellMark > 0 ? performance.now() - this.perfShellMark : 0;
+			this.lastStartupShellMs = shellDurationMs;
+			void this.eventBus.emit("perf.startup.shell", { durationMs: shellDurationMs });
+			const loadedTs = new Date().toISOString();
+			void this.eventBus.emit("plugin.loaded", { timestamp: loadedTs, shellDurationMs });
+			this.perfLoadedMark = performance.now();
+			this.logger.info("Plugin shell ready (sync onload complete); deferred work runs after workspace layout", {
+				shellDurationMs: Math.round(shellDurationMs),
+			});
 		} catch (error) {
 			const lifecycleError = new LifecycleError({
 				code: "PLUGIN_LOAD_FAILED",
@@ -335,6 +347,12 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	private timingState: TimingState = { startupServiceCount: 0, startupServiceTimings: [], startupDomainSegments: [] };
+	/** `performance.now()` when `plugin.loading` was emitted (sync shell timing). */
+	private perfShellMark = 0;
+	/** `performance.now()` when `plugin.loaded` was emitted (layout-gap timing). */
+	private perfLoadedMark = 0;
+	private lastStartupShellMs = 0;
+	private lastStartupLayoutGapMs = 0;
 
 	private createDomainLoaderDeps(): DomainLoaderDeps {
 		return {
@@ -365,6 +383,17 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	private async onLayoutReady(): Promise<void> {
+		const layoutGapMs = this.perfLoadedMark > 0 ? performance.now() - this.perfLoadedMark : 0;
+		this.lastStartupLayoutGapMs = layoutGapMs;
+		void this.eventBus.emit("perf.startup.layoutGap", { durationMs: layoutGapMs });
+		void this.eventBus.emit("plugin.deferred.start", {
+			timestamp: new Date().toISOString(),
+			layoutGapMs,
+		});
+		this.logger.info("[StartupProfile] workspace layout ready — starting deferred load", {
+			layoutGapSincePluginLoadedMs: Math.round(layoutGapMs),
+		});
+
 		const perfStorage = new TypedStorage<PerfState>(
 			{ load: () => this.loadData(), save: (d) => this.saveData(d) }, "perfAggregator",
 		);
@@ -390,7 +419,10 @@ export default class FlowtiBasePlugin extends Plugin {
 			await trackPhase("vault.listeners.register", () => { this.eventBridge.registerVaultListeners(); });
 			await trackPhase("startpage.open", () => { openStartPage(this.app.workspace, this.settings.startPage); });
 
-			this.doEmitStartupMetrics(startupStart, startupPhases);
+			this.doEmitStartupMetrics(startupStart, startupPhases, {
+				shellMs: this.lastStartupShellMs,
+				layoutGapMs: this.lastStartupLayoutGapMs,
+			});
 
 			void this.eventBus.emit("plugin.ready", { timestamp: new Date().toISOString() });
 			void this.runIngestionCatchUp();
@@ -402,13 +434,19 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/** Delegates to extracted startup-metrics module. */
-	private doEmitStartupMetrics(startupStart: number, startupPhases: Array<{ name: string; durationMs: number }>): void {
+	private doEmitStartupMetrics(
+		startupStart: number,
+		startupPhases: Array<{ name: string; durationMs: number }>,
+		preamble?: { shellMs: number; layoutGapMs: number },
+	): void {
 		emitStartupMetrics(this.eventBus, this.logger, {
 			startupStart,
 			startupPhases,
 			serviceCount: this.timingState.startupServiceCount,
 			serviceTimings: this.timingState.startupServiceTimings,
 			domainSegments: this.timingState.startupDomainSegments,
+			shellMs: preamble?.shellMs,
+			layoutGapMs: preamble?.layoutGapMs,
 		});
 	}
 

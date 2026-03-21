@@ -29,6 +29,11 @@ export type AgentWorldPerfPhase = (typeof AGENT_WORLD_PERF_PHASES)[number];
 
 export interface AgentWorldPerfSink {
 	onPhase(phase: string, durationMs: number): void;
+	/**
+	 * Named game systems (BrainSystem, TalkEngine, store postframe, …).
+	 * Multiple calls per frame for the same id accumulate (same frame), then roll into the sample window like phases.
+	 */
+	onGameSystem(systemId: string, durationMs: number): void;
 	onSimulationEnd(durationMs: number): void;
 	onFrameMeta(meta: { deltaMs: number; agentCount: number; sceneName: string }): void;
 	onPostframe(durationMs: number): void;
@@ -38,8 +43,20 @@ export interface AgentWorldPerfSink {
 	dispose(): void;
 }
 
+/** Run work after the current frame / when the browser is idle to avoid hitching Excalibur's loop. */
+function schedulePerfSampleDelivery(run: () => void): void {
+	const g = globalThis as typeof globalThis & {
+		requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+	};
+	if (typeof g.requestIdleCallback === "function") {
+		g.requestIdleCallback(() => run(), { timeout: 250 });
+		return;
+	}
+	queueMicrotask(run);
+}
+
 export interface AgentWorldPerfCollectorOptions {
-	/** Flush sample after this wall-clock span (default 2000). */
+	/** Flush sample after this wall-clock span (default 4000). */
 	sampleIntervalMs?: number;
 	/** Or after this many frames, whichever comes first (default 120). */
 	maxFramesPerSample?: number;
@@ -68,13 +85,15 @@ export function createAgentWorldPerfCollector(
 	eventBus: IEventBus,
 	options?: AgentWorldPerfCollectorOptions,
 ): AgentWorldPerfSink {
-	const sampleIntervalMs = options?.sampleIntervalMs ?? 2000;
+	const sampleIntervalMs = options?.sampleIntervalMs ?? 4000;
 	const maxFramesPerSample = options?.maxFramesPerSample ?? 120;
 	const slowSimulationThresholdMs = options?.slowSimulationThresholdMs ?? 24;
 	const slowFrameThrottleMs = options?.slowFrameThrottleMs ?? 4000;
 
 	let disposed = false;
 	let currentPhases = new Map<string, number>();
+	/** Per-frame totals per system id (may be multiple contributions per id per frame). */
+	let currentGameSystems = new Map<string, number>();
 	let lastSimMs = 0;
 	let lastPostMs = 0;
 	let lastMeta = { deltaMs: 0, agentCount: 0, sceneName: "unknown" };
@@ -85,6 +104,7 @@ export function createAgentWorldPerfCollector(
 	let winPost = { sumMs: 0, maxMs: 0 };
 	let winDelta = { sumMs: 0, maxMs: 0 };
 	const winPhases = new Map<string, PhaseAgg>();
+	const winGameSystems = new Map<string, PhaseAgg>();
 	/** Per agent → slice → aggregate over the current window (same semantics as winPhases). */
 	const winPerAgent = new Map<string, Map<string, PhaseAgg>>();
 
@@ -176,11 +196,19 @@ export function createAgentWorldPerfCollector(
 			};
 		}
 
+		const gameSystems: Record<string, { avgMs: number; maxMs: number }> = {};
+		for (const [name, agg] of winGameSystems) {
+			gameSystems[name] = {
+				avgMs: agg.sumMs / winFrames,
+				maxMs: agg.maxMs,
+			};
+		}
+
 		const windowDurationMs = performance.now() - winStart;
 		const eventBusSnapshot = buildEventBusSnapshot(windowDurationMs);
 		const perAgentCanvas = buildPerAgentSnapshot();
 
-		void eventBus.emit("perf.agentWorld.sample", {
+		const samplePayload = {
 			windowFrames: winFrames,
 			windowDurationMs,
 			simulation: {
@@ -196,11 +224,12 @@ export function createAgentWorldPerfCollector(
 				maxMs: winDelta.maxMs,
 			},
 			phases,
+			gameSystems,
 			agentCount: lastMeta.agentCount,
 			sceneName: lastMeta.sceneName,
 			eventBus: eventBusSnapshot,
 			perAgentCanvas,
-		});
+		};
 
 		resetBusWindow();
 		winPerAgent.clear();
@@ -211,12 +240,23 @@ export function createAgentWorldPerfCollector(
 		winPost = { sumMs: 0, maxMs: 0 };
 		winDelta = { sumMs: 0, maxMs: 0 };
 		winPhases.clear();
+		winGameSystems.clear();
+
+		schedulePerfSampleDelivery(() => {
+			void eventBus.emit("perf.agentWorld.sample", samplePayload);
+		});
 	};
 
 	return {
 		onPhase(phase: string, durationMs: number): void {
 			if (disposed) return;
 			currentPhases.set(phase, (currentPhases.get(phase) ?? 0) + durationMs);
+		},
+
+		onGameSystem(systemId: string, durationMs: number): void {
+			if (disposed) return;
+			const id = systemId.trim() || "unknown";
+			currentGameSystems.set(id, (currentGameSystems.get(id) ?? 0) + durationMs);
 		},
 
 		onSimulationEnd(durationMs: number): void {
@@ -256,6 +296,11 @@ export function createAgentWorldPerfCollector(
 				mergePhase(winPhases, name, ms);
 			}
 			currentPhases = new Map();
+
+			for (const [name, ms] of currentGameSystems) {
+				mergePhase(winGameSystems, name, ms);
+			}
+			currentGameSystems = new Map();
 
 			winFrames++;
 			winSim.sumMs += lastSimMs;

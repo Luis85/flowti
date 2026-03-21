@@ -133,6 +133,8 @@ export interface AgentWorldSampleSnapshot {
 	readonly postframe: { avgMs: number; maxMs: number };
 	readonly delta: { avgMs: number; maxMs: number };
 	readonly phases: Record<string, { avgMs: number; maxMs: number }>;
+	/** Named systems (BrainSystem, talk, store postframe, …); avg/max ms per simulation frame over the window. */
+	readonly gameSystems: Record<string, { avgMs: number; maxMs: number }>;
 	readonly agentCount: number;
 	readonly sceneName: string;
 	readonly eventBus: AgentWorldEventBusWindow;

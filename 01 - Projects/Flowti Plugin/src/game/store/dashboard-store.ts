@@ -6,7 +6,10 @@ import type { AgentNeeds } from "../systems/needs-system.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
 import { findNodeBinary } from "../../infrastructure/agents/cli-executor.js";
-import { sampleAgentProcessResources, type AgentProcessResources } from "../../infrastructure/agents/agent-process-metrics.js";
+import {
+	sampleManyAgentProcessResources,
+	type AgentProcessResources,
+} from "../../infrastructure/agents/agent-process-metrics.js";
 
 export type { AgentProcessResources };
 import {
@@ -39,6 +42,13 @@ export interface ConversationTurn {
 	readonly text: string;
 	readonly timestamp: number;
 }
+
+/**
+ * Fired when {@link DashboardStore.refreshAgentResources} updates {@link DashboardStore.agentResourceMetrics}.
+ * Intentionally **not** a `state-changed` so RAM/CPU polls do not re-render the whole canvas overlay tree
+ * (agent panel, roster, etc.) — only components that subscribe to this event should refresh.
+ */
+export const AGENT_RESOURCES_CHANGED_EVENT = "agent-resources-changed";
 
 // ── Store ──────────────────────────────────────────────────────────
 
@@ -334,11 +344,21 @@ export class DashboardStore extends EventTarget {
 			}
 		}
 
+		const running: Array<{ name: string; pid: number }> = [];
 		for (const [name, proc] of this.agentProcesses) {
 			if (!proc.running) continue;
 			const pid = proc.getPid();
 			if (pid == null) continue;
-			const next = sampleAgentProcessResources(pid);
+			running.push({ name, pid });
+		}
+
+		const byPid =
+			running.length > 0 ? sampleManyAgentProcessResources(running.map((r) => r.pid)) : new Map<number, AgentProcessResources>();
+
+		for (const { name, pid } of running) {
+			const next =
+				byPid.get(pid)
+				?? ({ pid, rssBytes: null, cpuPercent: null, sampledAt: Date.now() } satisfies AgentProcessResources);
 			const prev = this.agentResourceMetrics.get(name);
 			this.agentResourceMetrics.set(name, next);
 			if (
@@ -352,7 +372,9 @@ export class DashboardStore extends EventTarget {
 			}
 		}
 
-		if (changed) this.notify();
+		if (changed) {
+			this.dispatchEvent(new Event(AGENT_RESOURCES_CHANGED_EVENT));
+		}
 	}
 
 	startFollow(agentName: string): void {

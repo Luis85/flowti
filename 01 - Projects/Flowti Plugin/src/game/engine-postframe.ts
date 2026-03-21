@@ -10,6 +10,7 @@ import type { BrainSystem } from "./systems/brain-system.js";
 import type { NeedsSystem } from "./systems/needs-system.js";
 import type { DashboardStore, Point } from "./store/dashboard-store.js";
 import type { AgentActor } from "./actors/agent-actor.js";
+import type { AgentWorldPerfSink } from "./performance/agent-world-perf.js";
 
 export interface PostframeDeps {
 	engine: ex.Engine;
@@ -17,6 +18,8 @@ export interface PostframeDeps {
 	brainSystem: BrainSystem;
 	needsSystem: NeedsSystem;
 	findCurrentSceneActor: (name: string) => AgentActor | undefined;
+	/** When set, records store sync sub-steps into `perf.agentWorld.sample`.gameSystems */
+	perfSampler?: AgentWorldPerfSink | null;
 }
 
 /**
@@ -24,13 +27,14 @@ export interface PostframeDeps {
  * Returns the handler function for `engine.on("postframe", handler)`.
  */
 export function createPostframeHandler(deps: PostframeDeps): () => void {
-	const { engine, store, brainSystem, needsSystem, findCurrentSceneActor } = deps;
+	const { engine, store, brainSystem, needsSystem, findCurrentSceneActor, perfSampler } = deps;
 
 	return () => {
 		store.beginBatch();
 		const positions = new Map<string, Point>();
 		const canvasRect = engine.canvas.getBoundingClientRect();
 
+		const tLayout = performance.now();
 		for (const [name, entry] of brainSystem.getAllEntries()) {
 			const actor = findCurrentSceneActor(name);
 			if (!actor) continue;
@@ -48,13 +52,17 @@ export function createPostframeHandler(deps: PostframeDeps): () => void {
 			}
 			store.setAgentState(name, entry.state);
 		}
+		perfSampler?.onGameSystem("store.agentLayout", performance.now() - tLayout);
 
-		// Push agent needs to store for UI consumption
+		const tNeeds = performance.now();
 		for (const agentName of needsSystem.getAgentNames()) {
 			store.setAgentNeeds(agentName, needsSystem.getNeeds(agentName));
 		}
+		perfSampler?.onGameSystem("store.agentNeeds", performance.now() - tNeeds);
 
+		const tFlush = performance.now();
 		store.updatePositions(positions);
 		store.endBatch();
+		perfSampler?.onGameSystem("store.flush", performance.now() - tFlush);
 	};
 }

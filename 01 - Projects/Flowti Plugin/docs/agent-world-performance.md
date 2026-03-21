@@ -6,10 +6,16 @@ The Excalibur-based **agent world** (living canvas) runs a **preframe simulation
 
 | Event | When | Payload highlights |
 |-------|------|-------------------|
-| `perf.agentWorld.sample` | Every **~2s** or **120 frames** (whichever first) | `simulation` / `postframe` / `delta` avg & max ms; per-phase breakdown (`clock`, `brain`, `social`, …); `agentCount`, `sceneName`; **`eventBus`** — same-window rollup of `perf.event.dispatched` (typed `emit()` only): dispatch count, handler-invocation sum, throughput (dispatches/s), avg/max dispatch wall time, top event types by count; **`perAgentCanvas`** — per-agent simulation slices averaged over the window (see below) |
+| `perf.agentWorld.sample` | Every **~4s** or **120 frames** (whichever first); delivery is deferred (idle / microtask) so the game loop does not hitch on large subscribers | `simulation` / `postframe` / `delta` avg & max ms; per-phase breakdown (`clock`, `brain`, `social`, …); **`gameSystems`** — named components (`brain`, `talk`, `particlePool`, `store.agentLayout`, …) avg & max ms per frame; `agentCount`, `sceneName`; **`eventBus`** — same-window rollup of `perf.event.dispatched` (typed `emit()` only): dispatch count, handler-invocation sum, throughput (dispatches/s), avg/max dispatch wall time, top event types by count; **`perAgentCanvas`** — per-agent simulation slices averaged over the window (see below) |
 | `perf.agentWorld.slowFrame` | Single-frame simulation **≥ 24ms** (default), throttled **4s** | `simulationMs`, `sceneName`, `agentCount`, `deltaMs` |
 
 Phase names match the order in `tickSimulation` (`engine-simulation.ts`): `clock`, `sensor`, `needs`, `reactiveTriggers`, `behaviorThresholds`, `pets`, `roomTransit`, `behaviorTree`, `brain`, `social`, `director`, `visuals`.
+
+### `gameSystems` (named components)
+
+Timed via `runTimedGameSystem` in `engine-simulation.ts` and `createPostframeHandler` (`engine-postframe.ts`). Typical ids include:
+
+`dayClock`, `worldAmbience`, `memory`, `worldEvent.reset`, `worldEvent.update`, `relationship`, `sensor`, `needs`, `reactiveTriggers`, `behaviorThresholds`, `pets`, `roomSwitcher`, `bt`, `brain`, `ritual`, `social`, `talk`, `director`, `engagement`, `tool`, `emote`, `particlePool`, `worldAmbience.visuals`, `workstations`, `bubble`, `camera`, and store steps `store.agentLayout`, `store.agentNeeds`, `store.flush`. Cycle-only entries (`memory`, `worldEvent.reset`, …) appear only when a day cycle rolls.
 
 ### `perAgentCanvas` (single-agent detail)
 

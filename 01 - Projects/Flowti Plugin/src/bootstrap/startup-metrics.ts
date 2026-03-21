@@ -14,6 +14,10 @@ export interface StartupTimingData {
 	serviceCount: number;
 	serviceTimings: Array<{ name: string; durationMs: number }>;
 	domainSegments: Array<{ label: string; durationMs: number }>;
+	/** Sync `onload` after `plugin.loading` until `plugin.loaded`. */
+	shellMs?: number;
+	/** Wall time `plugin.loaded` → `workspace.onLayoutReady` (Obsidian, not Flowti CPU). */
+	layoutGapMs?: number;
 }
 
 /**
@@ -60,8 +64,12 @@ export function emitStartupMetrics(
 
 	const segTop = segSorted.slice(0, 8)
 		.map((x) => `${x.label}=${Math.round(x.durationMs)}ms`).join(", ");
+	const pre =
+		data.shellMs != null || data.layoutGapMs != null
+			? ` shell=${data.shellMs != null ? `${Math.round(data.shellMs)}ms` : "n/a"} layoutGap=${data.layoutGapMs != null ? `${Math.round(data.layoutGapMs)}ms` : "n/a"} |`
+			: "";
 	logger.info(
-		`[StartupProfile] total=${Math.round(totalDurationMs)}ms severity=${loadSeverity} services=${data.serviceCount}${phaseSummary ? ` | phases: ${phaseSummary}` : ""}`,
+		`[StartupProfile]${pre} total=${Math.round(totalDurationMs)}ms severity=${loadSeverity} services=${data.serviceCount}${phaseSummary ? ` | phases: ${phaseSummary}` : ""}`,
 	);
 	logger.info(
 		`[StartupProfile] bottlenecks: dominant-phase: ${dominantPhase ? `${dominantPhase.name}=${Math.round(dominantPhase.durationMs)}ms (${dominantPhasePct}%)` : "n/a"} | longest-individual-service-loads (overlap when parallel — do not sum): ${topServiceSummary}`,
