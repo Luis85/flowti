@@ -19,6 +19,10 @@ import {
 	type CollectedAction,
 	type IProviderRegistry,
 } from "./bt-types.js";
+import {
+	IsHungry, IsThirsty, HasJourneyTask,
+	SeekFoodStation, SeekDrinkStation, Eat, Drink, ExecuteJourney,
+} from "./bt-agent-extensions.js";
 
 function hasLLMProvider(registry?: IProviderRegistry): boolean {
 	if (!registry) return false;
@@ -28,53 +32,23 @@ function hasLLMProvider(registry?: IProviderRegistry): boolean {
 export interface BTAgentObject {
 	readonly context: BTAgentContext;
 	readonly collectedActions: CollectedAction[];
-
-	// Conditions (return boolean)
-	HasEnoughEnergy(): boolean;
-	HasEnoughFocus(): boolean;
-	HasEnoughMorale(): boolean;
-	HasActiveGoal(): boolean;
-	HasGoalFile(): boolean;
-	HasLLMProvider(): boolean;
-	HasNearbyAgent(): boolean;
-	HasPendingEvent(): boolean;
-	HasFileContent(): boolean;
-	HasLLMResult(): boolean;
-
+	// Conditions
+	HasEnoughEnergy(): boolean; HasEnoughFocus(): boolean; HasEnoughMorale(): boolean;
+	HasActiveGoal(): boolean; HasGoalFile(): boolean; HasLLMProvider(): boolean;
+	HasNearbyAgent(): boolean; HasPendingEvent(): boolean; HasFileContent(): boolean; HasLLMResult(): boolean;
 	// Needs-driven conditions
-	IsEnergyLow(): boolean;
-	IsSocialLow(): boolean;
-	IsFocusLow(): boolean;
-	IsMoraleLow(): boolean;
-	IsEnergyOk(): boolean;
-	IsFocusOk(): boolean;
-	HasWorkGoal(): boolean;
-
-	// Actions (return State)
-	PickGoal(): State;
-	PickGoalFile(): State;
-	ReadFile(): State;
-	WriteFile(): State;
-	OpenInVault(): State;
-	QueryLLM(): State;
-	GenerateFromTemplate(): State;
-	DropArtifact(): State;
-	SpeakBubble(): State;
-	Wander(): State;
-	Emote(): State;
-	Chatter(): State;
-	Socialize(): State;
-	Rest(): State;
-	HandleEvent(): State;
-
-	// Needs-driven actions
-	SeekRestSpot(): State;
-	SeekNearbyAgent(): State;
-	SeekQuietCorner(): State;
-	WanderSad(): State;
-	GoToWorkstation(): State;
-	DoWork(): State;
-	LeaveWorkstation(): State;
+	IsEnergyLow(): boolean; IsSocialLow(): boolean; IsFocusLow(): boolean; IsMoraleLow(): boolean;
+	IsHungry(): boolean; IsThirsty(): boolean; IsEnergyOk(): boolean; IsFocusOk(): boolean;
+	HasWorkGoal(): boolean; HasJourneyTask(): boolean;
+	// Actions
+	PickGoal(): State; PickGoalFile(): State; ReadFile(): State; WriteFile(): State; OpenInVault(): State;
+	QueryLLM(): State; GenerateFromTemplate(): State; DropArtifact(): State; SpeakBubble(): State;
+	Wander(): State; Emote(): State; Chatter(): State; Socialize(): State; Rest(): State; HandleEvent(): State;
+	// Needs-driven + journey actions
+	SeekRestSpot(): State; SeekNearbyAgent(): State; SeekQuietCorner(): State;
+	SeekFoodStation(): State; SeekDrinkStation(): State; Eat(): State; Drink(): State;
+	WanderSad(): State; GoToWorkstation(): State; DoWork(): State; LeaveWorkstation(): State;
+	ExecuteJourney(): State;
 }
 
 export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentObject {
@@ -442,6 +416,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return fromNodeState("succeeded");
 	}
 
+	const extDeps = { context, collectedActions, collect, deps };
 	return {
 		context,
 		collectedActions,
@@ -449,11 +424,20 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		HasActiveGoal, HasGoalFile, HasLLMProvider,
 		HasNearbyAgent, HasPendingEvent, HasFileContent, HasLLMResult,
 		IsEnergyLow, IsSocialLow, IsFocusLow, IsMoraleLow,
+		IsHungry: () => IsHungry(context),
+		IsThirsty: () => IsThirsty(context),
 		IsEnergyOk, IsFocusOk, HasWorkGoal,
+		HasJourneyTask: () => HasJourneyTask(context),
 		PickGoal, PickGoalFile, ReadFile, WriteFile, OpenInVault,
 		QueryLLM, GenerateFromTemplate, DropArtifact, SpeakBubble,
 		Wander, Emote, Chatter, Socialize, Rest, HandleEvent,
-		SeekRestSpot, SeekNearbyAgent, SeekQuietCorner, WanderSad,
+		SeekRestSpot, SeekNearbyAgent, SeekQuietCorner,
+		SeekFoodStation: () => SeekFoodStation(extDeps),
+		SeekDrinkStation: () => SeekDrinkStation(extDeps),
+		Eat: () => Eat(context, collect),
+		Drink: () => Drink(context, collect),
+		WanderSad,
 		GoToWorkstation, DoWork, LeaveWorkstation,
+		ExecuteJourney,
 	};
 }

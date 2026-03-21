@@ -6,15 +6,23 @@ vi.mock("excalibur", () => {
 		const self = this;
 		self.pos = { x: 100, y: 100 };
 		self.scale = { x: 1, y: 1 };
-		self.graphics = { use: vi.fn(), opacity: 1 };
+		self.graphics = { use: vi.fn(), add: vi.fn(), opacity: 1, visible: true };
 		self.on = vi.fn();
+		self.addChild = vi.fn();
 		self.z = 0;
+		self.color = { r: 0, g: 0, b: 0, a: 0 };
 	}
 	return {
 		Actor: MockActor,
 		vec: vi.fn((x: number, y: number) => ({ x, y })),
 		CollisionType: { PreventCollision: 0 },
 		Canvas: function MockCanvas() { return; },
+		Color: Object.assign(
+			function MockColor(this: Record<string, unknown>, r: number, g: number, b: number, a: number) {
+				this.r = r; this.g = g; this.b = b; this.a = a;
+			},
+			{ Transparent: { r: 0, g: 0, b: 0, a: 0 }, fromHex: vi.fn() },
+		),
 	};
 });
 
@@ -62,5 +70,105 @@ describe("PetActor", () => {
 
 	it("has 4 pet definitions", () => {
 		expect(PET_DEFINITIONS).toHaveLength(4);
+	});
+
+	it("getHunger returns default value of 70", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		expect(pet.getHunger()).toBe(70);
+	});
+
+	it("getThirst returns default value of 70", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		expect(pet.getThirst()).toBe(70);
+	});
+
+	it("setHunger clamps to 0 minimum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.setHunger(-10);
+		expect(pet.getHunger()).toBe(0);
+	});
+
+	it("setHunger clamps to 100 maximum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.setHunger(150);
+		expect(pet.getHunger()).toBe(100);
+	});
+
+	it("setThirst clamps to 0 minimum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.setThirst(-5);
+		expect(pet.getThirst()).toBe(0);
+	});
+
+	it("setThirst clamps to 100 maximum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.setThirst(200);
+		expect(pet.getThirst()).toBe(100);
+	});
+
+	it("getAffection returns default 50", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		expect(pet.getAffection()).toBe(50);
+	});
+
+	it("addAffection increases affection", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.addAffection(20);
+		expect(pet.getAffection()).toBe(70);
+	});
+
+	it("addAffection clamps to 100 maximum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.addAffection(60);
+		expect(pet.getAffection()).toBe(100);
+	});
+
+	it("addAffection clamps to 0 minimum", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		pet.addAffection(-60);
+		expect(pet.getAffection()).toBe(0);
+	});
+
+	it("utilityScore starts at 0 and increments", () => {
+		const pet = new PetActor(catDef, 100, 100, "cat-test");
+		expect(pet.getUtilityScore()).toBe(0);
+		pet.incrementUtilityScore();
+		pet.incrementUtilityScore();
+		expect(pet.getUtilityScore()).toBe(2);
+	});
+
+	describe("bonding", () => {
+		it("getBondedAgent returns null initially", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			expect(pet.getBondedAgent()).toBeNull();
+		});
+
+		it("trackProximity accumulates time for an agent", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			pet.trackProximity("Atlas", 30_000); // 30s
+			// Not bonded yet — threshold is 60s
+			expect(pet.getBondedAgent()).toBeNull();
+		});
+
+		it("bondedAgent is set after exceeding 60s threshold", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			pet.trackProximity("Atlas", 70_000); // 70s
+			expect(pet.getBondedAgent()).toBe("Atlas");
+		});
+
+		it("bonds with agent who has most accumulated time", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			pet.trackProximity("Bex", 40_000); // 40s — below threshold
+			pet.trackProximity("Atlas", 80_000); // 80s — bonds Atlas
+			expect(pet.getBondedAgent()).toBe("Atlas");
+		});
+
+		it("re-bonds to agent with higher accumulated time when they surpass threshold", () => {
+			const pet = new PetActor(catDef, 100, 100, "cat-bond-test");
+			pet.trackProximity("Atlas", 65_000); // 65s — bonds Atlas
+			expect(pet.getBondedAgent()).toBe("Atlas");
+			pet.trackProximity("Bex", 90_000); // 90s — bonds Bex
+			expect(pet.getBondedAgent()).toBe("Bex");
+		});
 	});
 });

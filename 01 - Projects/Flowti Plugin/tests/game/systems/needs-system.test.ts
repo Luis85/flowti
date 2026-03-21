@@ -12,6 +12,14 @@ describe("NeedsSystem", () => {
 			expect(needs.focus).toBe(70);
 			expect(needs.morale).toBe(75);
 		});
+
+		it("registers agent with hunger and thirst defaults", () => {
+			const system = new NeedsSystem();
+			system.register("alice", {});
+			const needs = system.getNeeds("alice");
+			expect(needs.hunger).toBe(80);
+			expect(needs.thirst).toBe(80);
+		});
 	});
 
 	describe("attribute modifiers", () => {
@@ -162,6 +170,31 @@ describe("NeedsSystem", () => {
 		});
 	});
 
+	describe("energy drain multiplier", () => {
+		it("applies energy drain multiplier when hunger is low", () => {
+			const system = new NeedsSystem();
+			system.register("alice", {});
+			system.applyEffect("alice", { hunger: -50 }); // hunger = 30, below 40
+			const before = system.getNeeds("alice").energy;
+			system.update(1000, () => "working", () => []);
+			const after = system.getNeeds("alice").energy;
+			const energyDrop = before - after;
+			// With hunger penalty (1.5x on base working rate), drop should exceed normal
+			expect(energyDrop).toBeGreaterThan(1.0);
+		});
+
+		it("stacks energy drain when both hunger AND thirst are low", () => {
+			const system = new NeedsSystem();
+			system.register("alice", {});
+			system.applyEffect("alice", { hunger: -50, thirst: -55 });
+			const before = system.getNeeds("alice").energy;
+			system.update(1000, () => "working", () => []);
+			const after = system.getNeeds("alice").energy;
+			const energyDrop = before - after;
+			expect(energyDrop).toBeGreaterThan(1.5);
+		});
+	});
+
 	describe("phase multipliers", () => {
 		it("applies energy multiplier to decay rate", () => {
 			const base = new NeedsSystem();
@@ -172,7 +205,7 @@ describe("NeedsSystem", () => {
 			const getState = () => "working";
 			const getNearby = () => [] as string[];
 			base.update(10_000, getState, getNearby);
-			boosted.update(10_000, getState, getNearby, { energy: 0.5, social: 1.0, focus: 1.0, morale: 1.0 });
+			boosted.update(10_000, getState, getNearby, { energy: 0.5, social: 1.0, focus: 1.0, morale: 1.0, hunger: 1.0, thirst: 1.0 });
 
 			// 0.5x energy multiplier → less energy drain
 			expect(boosted.getNeeds("Boosted").energy).toBeGreaterThan(base.getNeeds("Base").energy);

@@ -16,6 +16,7 @@ import "./panel-talk.js";
 import "./panel-tasks.js";
 import "./panel-permissions.js";
 import "./panel-monitor.js";
+import "./panel-debug.js";
 
 const TAB_LABELS: ReadonlyArray<{ name: TabName; label: string }> = [
 	{ name: "info", label: "Info" },
@@ -23,6 +24,7 @@ const TAB_LABELS: ReadonlyArray<{ name: TabName; label: string }> = [
 	{ name: "tasks", label: "Tasks" },
 	{ name: "permissions", label: "Permissions" },
 	{ name: "monitor", label: "Monitor" },
+	{ name: "debug", label: "Debug" },
 ];
 
 export class AgentPanel extends FlowtiElement {
@@ -232,7 +234,8 @@ export class AgentPanel extends FlowtiElement {
 			.panel-content ft-game-panel-talk,
 			.panel-content ft-game-panel-tasks,
 			.panel-content ft-game-panel-permissions,
-			.panel-content ft-game-panel-monitor {
+			.panel-content ft-game-panel-monitor,
+			.panel-content ft-game-panel-debug {
 				display: flex;
 				flex-direction: column;
 				flex: 1;
@@ -244,7 +247,8 @@ export class AgentPanel extends FlowtiElement {
 			.panel-content ft-game-panel-info,
 			.panel-content ft-game-panel-tasks,
 			.panel-content ft-game-panel-permissions,
-			.panel-content ft-game-panel-monitor {
+			.panel-content ft-game-panel-monitor,
+			.panel-content ft-game-panel-debug {
 				overflow-y: auto;
 				padding: 10px 12px;
 				scrollbar-width: thin;
@@ -317,7 +321,7 @@ export class AgentPanel extends FlowtiElement {
 
 		switch (tab) {
 			case "info":
-				return html`<ft-game-panel-info .agent="${agent}"></ft-game-panel-info>`;
+				return html`<ft-game-panel-info .agent="${agent}" .needs="${this.store.getAgentNeeds(agent.name)}"></ft-game-panel-info>`;
 			case "talk":
 				return html`<ft-game-panel-talk .store="${this.store}" agentName="${agent.name}"></ft-game-panel-talk>`;
 			case "tasks":
@@ -326,6 +330,8 @@ export class AgentPanel extends FlowtiElement {
 				return html`<ft-game-panel-permissions .store="${this.store}" agentName="${agent.name}"></ft-game-panel-permissions>`;
 			case "monitor":
 				return html`<ft-game-panel-monitor .store="${this.store}" .eventBus="${this.eventBus}" agentName="${agent.name}"></ft-game-panel-monitor>`;
+			case "debug":
+				return html`<ft-game-panel-debug .agent="${agent}"></ft-game-panel-debug>`;
 			default:
 				return nothing;
 		}

@@ -64,116 +64,99 @@ describe("createPetBT", () => {
 		expect(pet.context.petType).toBe("dog");
 	});
 
-	it("ShouldFollowStressedAgent only triggers for cats", () => {
-		const bt = createPetBT("dog-office", 0, 120, 0.4, "dog");
+	it("context initialises hunger to 70", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.nearbyAgentMorale = 10;
-		expect(pet.ShouldFollowStressedAgent()).toBe(false);
+		expect(pet.context.hunger).toBe(70);
 	});
 
-	it("ShouldFollowStressedAgent true for cat with low morale nearby", () => {
-		const bt = createPetBT("cat-hub", 0, 120, 0.4, "cat");
+	it("context initialises thirst to 70", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.nearbyAgentMorale = 10;
-		const origRandom = Math.random;
-		Math.random = () => 0;
-		try {
-			expect(pet.ShouldFollowStressedAgent()).toBe(true);
-		} finally {
-			Math.random = origRandom;
-		}
+		expect(pet.context.thirst).toBe(70);
 	});
 
-	it("ShouldFollowStressedAgent false when morale above threshold", () => {
-		const bt = createPetBT("cat-hub", 0, 120, 0.4, "cat");
+	it("IsHungry returns false when hunger is above threshold", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.nearbyAgentMorale = 50;
-		const origRandom = Math.random;
-		Math.random = () => 0;
-		try {
-			expect(pet.ShouldFollowStressedAgent()).toBe(false);
-		} finally {
-			Math.random = origRandom;
-		}
+		pet.context.hunger = 50;
+		expect(pet.IsHungry()).toBe(false);
 	});
 
-	it("ShouldFollowStressedAgent false when not idle", () => {
-		const bt = createPetBT("cat-hub", 0, 120, 0.4, "cat");
+	it("IsHungry returns true when hunger is below threshold", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.nearbyAgentMorale = 10;
-		pet.context.state = "wandering";
-		const origRandom = Math.random;
-		Math.random = () => 0;
-		try {
-			expect(pet.ShouldFollowStressedAgent()).toBe(false);
-		} finally {
-			Math.random = origRandom;
-		}
+		pet.context.hunger = 39;
+		expect(pet.IsHungry()).toBe(true);
 	});
 
-	it("ShouldFollowRandomAgent only triggers for dogs", () => {
-		const bt = createPetBT("cat-hub", 0, 120, 0.4, "cat");
+	it("IsThirsty returns false when thirst is above threshold", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.nearbyIdleAgent = "Atlas";
-		expect(pet.ShouldFollowRandomAgent()).toBe(false);
+		pet.context.thirst = 50;
+		expect(pet.IsThirsty()).toBe(false);
 	});
 
-	it("ShouldFollowRandomAgent true for dog with idle agent nearby", () => {
-		const bt = createPetBT("dog-office", 0, 120, 0.4, "dog");
+	it("IsThirsty returns true when thirst is below threshold", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.nearbyIdleAgent = "Atlas";
-		const origRandom = Math.random;
-		Math.random = () => 0;
-		try {
-			expect(pet.ShouldFollowRandomAgent()).toBe(true);
-		} finally {
-			Math.random = origRandom;
-		}
+		pet.context.thirst = 34;
+		expect(pet.IsThirsty()).toBe(true);
 	});
 
-	it("ShouldFollowRandomAgent false when no idle agent nearby", () => {
-		const bt = createPetBT("dog-office", 0, 120, 0.4, "dog");
+	it("PetEat increases hunger by 30", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		const origRandom = Math.random;
-		Math.random = () => 0;
-		try {
-			expect(pet.ShouldFollowRandomAgent()).toBe(false);
-		} finally {
-			Math.random = origRandom;
-		}
+		pet.context.hunger = 30;
+		pet.PetEat();
+		expect(pet.context.hunger).toBe(60);
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-eat" }),
+		);
 	});
 
-	it("LostFollowTarget detects room mismatch", () => {
-		const bt = createPetBT("cat-hub", 0, 120, 0.4, "cat");
+	it("PetDrink increases thirst by 25", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.followTarget = "Atlas";
-		pet.context.currentRoom = "hub";
-		pet.context.targetRoom = "office";
-		expect(pet.LostFollowTarget()).toBe(true);
+		pet.context.thirst = 20;
+		pet.PetDrink();
+		expect(pet.context.thirst).toBe(45);
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-drink" }),
+		);
 	});
 
-	it("LostFollowTarget false when same room", () => {
-		const bt = createPetBT("cat-hub", 0, 120, 0.4, "cat");
+	it("SeekFoodBowl collects pet-seek-food action", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.followTarget = "Atlas";
-		pet.context.currentRoom = "hub";
-		pet.context.targetRoom = "hub";
-		expect(pet.LostFollowTarget()).toBe(false);
+		pet.SeekFoodBowl();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-seek-food" }),
+		);
 	});
 
-	it("LostFollowTarget false when no follow target", () => {
-		const bt = createPetBT("cat-hub", 0, 120, 0.4, "cat");
+	it("SeekWaterBowl collects pet-seek-water action", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.followTarget = null;
-		pet.context.currentRoom = "hub";
-		pet.context.targetRoom = "office";
-		expect(pet.LostFollowTarget()).toBe(false);
+		pet.SeekWaterBowl();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-seek-water" }),
+		);
 	});
 
-	it("LostFollowTarget false when rooms undefined", () => {
-		const bt = createPetBT("cat-hub", 0, 120, 0.4, "cat");
+	it("PetEat clamps hunger to 100", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
 		const pet = getPetContext(bt);
-		pet.context.followTarget = "Atlas";
-		expect(pet.LostFollowTarget()).toBe(false);
+		pet.context.hunger = 90;
+		pet.PetEat();
+		expect(pet.context.hunger).toBe(100);
+	});
+
+	it("PetDrink clamps thirst to 100", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.thirst = 90;
+		pet.PetDrink();
+		expect(pet.context.thirst).toBe(100);
 	});
 });

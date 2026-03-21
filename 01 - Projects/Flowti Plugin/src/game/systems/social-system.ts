@@ -4,6 +4,7 @@
  */
 
 import type { BrainState } from "../brain/brain-types.js";
+import type { AgentNeeds } from "./needs-system.js";
 import { CONVERSATION_LINES } from "./social-conversation-lines.js";
 
 export interface SocialAgent {
@@ -28,13 +29,6 @@ const CLUSTER_MIN_FOCUS = 20;
 
 type ConversationCallback = (agentA: string, agentB: string, lineA: string, lineB: string) => void;
 type ClusterCallback = (members: string[]) => void;
-
-interface AgentNeeds {
-	readonly energy: number;
-	readonly social: number;
-	readonly focus: number;
-	readonly morale: number;
-}
 
 // ── Graph helpers ────────────────────────────────────────────────────
 
@@ -106,8 +100,16 @@ export class SocialSystem {
 		this.callback = cb;
 	}
 
+	offConversation(): void {
+		this.callback = null;
+	}
+
 	onCluster(cb: ClusterCallback): void {
 		this.clusterCallback = cb;
+	}
+
+	offCluster(): void {
+		this.clusterCallback = null;
 	}
 
 	register(name: string, agent: SocialAgent): void {

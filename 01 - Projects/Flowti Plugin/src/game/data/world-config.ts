@@ -45,6 +45,12 @@ export interface NeedsConfig {
 		readonly focus: FocusDecay;
 		readonly morale: MoraleDecay;
 	};
+	readonly hungerThreshold: number;
+	readonly thirstThreshold: number;
+	readonly hungerEnergyMult: number;
+	readonly thirstEnergyMult: number;
+	readonly hungerInitial: number;
+	readonly thirstInitial: number;
 }
 
 /** Spatial awareness thresholds for the DirectorSystem. */
@@ -175,6 +181,12 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 			focus: { perInterruption: 4 },
 			morale: { perError: 1 },
 		},
+		hungerThreshold: 40,
+		thirstThreshold: 30,
+		hungerEnergyMult: 1.5,
+		thirstEnergyMult: 1.5,
+		hungerInitial: 80,
+		thirstInitial: 80,
 	},
 	director: {
 		awareness: {
@@ -224,14 +236,32 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 
 /** Merge needs config, including nested decay sub-objects. */
 function mergeNeeds(overrides: DeepPartial<NeedsConfig> | undefined): NeedsConfig {
+	const base = DEFAULT_WORLD_CONFIG.needs;
+	const scalars = mergeNeedsScalars(base, overrides);
 	return {
-		initial: { ...DEFAULT_WORLD_CONFIG.needs.initial, ...overrides?.initial },
+		initial: { ...base.initial, ...overrides?.initial },
 		decay: {
-			energy: { ...DEFAULT_WORLD_CONFIG.needs.decay.energy, ...overrides?.decay?.energy },
-			social: { ...DEFAULT_WORLD_CONFIG.needs.decay.social, ...overrides?.decay?.social },
-			focus:  { ...DEFAULT_WORLD_CONFIG.needs.decay.focus,  ...overrides?.decay?.focus  },
-			morale: { ...DEFAULT_WORLD_CONFIG.needs.decay.morale, ...overrides?.decay?.morale },
+			energy: { ...base.decay.energy, ...overrides?.decay?.energy },
+			social: { ...base.decay.social, ...overrides?.decay?.social },
+			focus:  { ...base.decay.focus,  ...overrides?.decay?.focus  },
+			morale: { ...base.decay.morale, ...overrides?.decay?.morale },
 		},
+		...scalars,
+	};
+}
+
+/** Merge the flat scalar fields of NeedsConfig using spread over defaults. */
+function mergeNeedsScalars(
+	base: NeedsConfig,
+	overrides: DeepPartial<NeedsConfig> | undefined,
+): Pick<NeedsConfig, 'hungerThreshold' | 'thirstThreshold' | 'hungerEnergyMult' | 'thirstEnergyMult' | 'hungerInitial' | 'thirstInitial'> {
+	return {
+		hungerThreshold:  overrides?.hungerThreshold  ?? base.hungerThreshold,
+		thirstThreshold:  overrides?.thirstThreshold  ?? base.thirstThreshold,
+		hungerEnergyMult: overrides?.hungerEnergyMult ?? base.hungerEnergyMult,
+		thirstEnergyMult: overrides?.thirstEnergyMult ?? base.thirstEnergyMult,
+		hungerInitial:    overrides?.hungerInitial    ?? base.hungerInitial,
+		thirstInitial:    overrides?.thirstInitial    ?? base.thirstInitial,
 	};
 }
 

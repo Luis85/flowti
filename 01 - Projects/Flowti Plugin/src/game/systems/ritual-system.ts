@@ -211,6 +211,11 @@ export class RitualSystem {
 		this.phaseCallbacks.push(cb);
 	}
 
+	offPhase(cb: (phase: RitualPhase) => void): void {
+		const idx = this.phaseCallbacks.indexOf(cb);
+		if (idx >= 0) this.phaseCallbacks.splice(idx, 1);
+	}
+
 	// ── Update ────────────────────────────────────────────────────────
 
 	update(deltaMs: number, getBrainState: (name: string) => BrainState): void {

@@ -13,14 +13,14 @@ export interface InteractableConfig {
 	readonly width: number;
 	readonly height: number;
 	readonly interactionOffset: { x: number; y: number };
-	readonly needsEffects: Partial<{ energy: number; social: number; focus: number; morale: number }>;
+	readonly needsEffects: Partial<{ energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number }>;
 }
 
 export class InteractableActor extends ex.Actor {
 	readonly objectId: string;
 	readonly objectType: string;
 	private readonly interactionOffset: { x: number; y: number };
-	private readonly effects: Partial<{ energy: number; social: number; focus: number; morale: number }>;
+	private readonly effects: Partial<{ energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number }>;
 	private occupant: string | null = null;
 
 	constructor(config: InteractableConfig) {
@@ -44,7 +44,7 @@ export class InteractableActor extends ex.Actor {
 		};
 	}
 
-	getNeedsEffects(): Partial<{ energy: number; social: number; focus: number; morale: number }> {
+	getNeedsEffects(): Partial<{ energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number }> {
 		return this.effects;
 	}
 

@@ -7,6 +7,9 @@ import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import type { DashboardAgent } from "../data/types.js";
+import type { AgentNeeds } from "../systems/needs-system.js";
+import "./panel-vitals.js";
+import "./panel-economy.js";
 
 const STAT_LABELS: ReadonlyArray<readonly [string, keyof NonNullable<DashboardAgent["attributes"]>]> = [
 	["STR", "str"],
@@ -39,6 +42,7 @@ export class PanelInfo extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
 		agent: { attribute: false },
+		needs: { attribute: false },
 	};
 
 	static styles = [
@@ -51,7 +55,6 @@ export class PanelInfo extends FlowtiElement {
 				display: block;
 			}
 
-			/* -- Hero / greeting area ------------- */
 			.hero {
 				text-align: center;
 				padding: 12px 8px 16px;
@@ -68,7 +71,6 @@ export class PanelInfo extends FlowtiElement {
 				margin: 0 auto;
 			}
 
-			/* -- Tags row ------------------------- */
 			.tags {
 				display: flex;
 				flex-wrap: wrap;
@@ -114,7 +116,6 @@ export class PanelInfo extends FlowtiElement {
 				color: #9ca3af;
 			}
 
-			/* -- Personality traits --------------- */
 			.personality {
 				display: flex;
 				flex-wrap: wrap;
@@ -131,7 +132,6 @@ export class PanelInfo extends FlowtiElement {
 				color: var(--text-secondary);
 			}
 
-			/* -- Stats bar ----------------------- */
 			.stats {
 				display: grid;
 				grid-template-columns: repeat(6, 1fr);
@@ -174,7 +174,6 @@ export class PanelInfo extends FlowtiElement {
 				background: #3b82f6;
 			}
 
-			/* -- Section ------------------------- */
 			.section {
 				margin-bottom: 10px;
 			}
@@ -188,7 +187,6 @@ export class PanelInfo extends FlowtiElement {
 				margin-bottom: 6px;
 			}
 
-			/* -- Skills -------------------------- */
 			.skill {
 				display: flex;
 				align-items: center;
@@ -206,7 +204,6 @@ export class PanelInfo extends FlowtiElement {
 				font-size: 10px;
 			}
 
-			/* -- Relationships ------------------- */
 			.rel {
 				display: flex;
 				align-items: center;
@@ -224,7 +221,6 @@ export class PanelInfo extends FlowtiElement {
 				font-size: 10px;
 			}
 
-			/* -- XP bar -------------------------- */
 			.xp-row {
 				display: flex;
 				align-items: center;
@@ -259,7 +255,6 @@ export class PanelInfo extends FlowtiElement {
 				padding: 20px 0;
 			}
 
-			/* -- Context rows -------------------- */
 			.context-row {
 				display: flex;
 				justify-content: space-between;
@@ -283,6 +278,7 @@ export class PanelInfo extends FlowtiElement {
 	];
 
 	agent!: DashboardAgent;
+	needs?: AgentNeeds;
 
 	protected renderContent() {
 		if (!this.agent) {
@@ -294,6 +290,8 @@ export class PanelInfo extends FlowtiElement {
 		return html`
 			${this.renderHero()}
 			${this.renderProjectContext()}
+			<ft-game-panel-vitals .needs="${this.needs}"></ft-game-panel-vitals>
+			<ft-game-panel-economy .agent="${this.agent}"></ft-game-panel-economy>
 			${this.renderStats(attributes)}
 			${experience !== undefined ? this.renderXp(experience) : nothing}
 			${this.renderListSection("Skills", this.agent.skills, (s) => html`
@@ -323,7 +321,7 @@ export class PanelInfo extends FlowtiElement {
 				${persona ? html`<div class="persona">"${persona}"</div>` : nothing}
 				<div class="tags">
 					${domain ? html`<span class="tag tag-domain" style="background:${domainColor}">${domain}</span>` : nothing}
-					<span class="tag tag-type">${agentType === "ai" ? "AI Agent" : "Human"}</span>
+					<span class="tag tag-type">${agentType === "ai" ? "AI Agent" : agentType === "npc" ? "NPC" : "Human"}</span>
 					${mood ? html`<span class="tag tag-mood">${MOOD_EMOJI[mood] ?? mood}</span>` : nothing}
 					<span class="tag tag-status" data-status="${status}">${status}</span>
 				</div>

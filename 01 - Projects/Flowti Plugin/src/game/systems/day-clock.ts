@@ -75,6 +75,11 @@ export class DayClock {
 		this.callbacks.push(cb);
 	}
 
+	offPhaseChange(cb: (phase: DayPhase) => void): void {
+		const idx = this.callbacks.indexOf(cb);
+		if (idx >= 0) this.callbacks.splice(idx, 1);
+	}
+
 	// ── Update ─────────────────────────────────────────────────
 
 	update(deltaMs: number): void {

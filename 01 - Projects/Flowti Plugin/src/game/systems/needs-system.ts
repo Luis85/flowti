@@ -17,6 +17,8 @@ export interface AgentNeeds {
 	readonly social: number;
 	readonly focus: number;
 	readonly morale: number;
+	readonly hunger: number;
+	readonly thirst: number;
 }
 
 export interface ThresholdAction {
@@ -37,21 +39,23 @@ interface NeedsEntry {
 	social: number;
 	focus: number;
 	morale: number;
+	hunger: number;
+	thirst: number;
 	attributes: AgentAttributes;
 }
 
 // ── Decay/restore rates (per second) ─────────────────────────────────
 
 const DECAY = {
-	working: { energy: -0.8, social: -0.3, focus: -1.2, morale: 0.5 },
-	idle: { energy: 0.5, social: -0.1, focus: 0.3, morale: -0.1 },
-	wandering: { energy: 0.3, social: -0.1, focus: 0.2, morale: 0 },
-	"walking-to": { energy: -0.2, social: 0, focus: 0, morale: 0 },
-	talking: { energy: -0.3, social: 1.5, focus: -0.2, morale: 0.3 },
-	"on-break": { energy: 1.2, social: 0, focus: 0.5, morale: 0.2 },
+	working: { energy: -0.8, social: -0.3, focus: -1.2, morale: 0.5, hunger: -0.6, thirst: -0.8 },
+	idle: { energy: 0.5, social: -0.1, focus: 0.3, morale: -0.1, hunger: -0.2, thirst: -0.3 },
+	wandering: { energy: 0.3, social: -0.1, focus: 0.2, morale: 0, hunger: -0.3, thirst: -0.4 },
+	"walking-to": { energy: -0.2, social: 0, focus: 0, morale: 0, hunger: -0.2, thirst: -0.3 },
+	talking: { energy: -0.3, social: 1.5, focus: -0.2, morale: 0.3, hunger: -0.3, thirst: -0.5 },
+	"on-break": { energy: 1.2, social: 0, focus: 0.5, morale: 0.2, hunger: -0.1, thirst: -0.1 },
 } as Record<string, Record<string, number>>;
 
-const DEFAULT_RATES = { energy: 0, social: 0, focus: 0, morale: 0 };
+const DEFAULT_RATES = { energy: 0, social: 0, focus: 0, morale: 0, hunger: 0, thirst: 0 };
 
 // ── System ───────────────────────────────────────────────────────────
 
@@ -60,7 +64,7 @@ export class NeedsSystem {
 
 	/** Register an agent with attribute-influenced starting needs. */
 	register(name: string, attributes?: AgentAttributes): void {
-		this.agents.set(name, { energy: 80, social: 60, focus: 70, morale: 75, attributes: attributes ?? {} });
+		this.agents.set(name, { energy: 80, social: 60, focus: 70, morale: 75, hunger: 80, thirst: 80, attributes: attributes ?? {} });
 	}
 
 	/** Apply a partial needs effect (e.g., from sensor reactions or social events). */
@@ -71,6 +75,8 @@ export class NeedsSystem {
 		if (effect.social !== undefined) entry.social = clamp(entry.social + effect.social);
 		if (effect.focus !== undefined) entry.focus = clamp(entry.focus + effect.focus);
 		if (effect.morale !== undefined) entry.morale = clamp(entry.morale + effect.morale);
+		if (effect.hunger !== undefined) entry.hunger = clamp(entry.hunger + effect.hunger);
+		if (effect.thirst !== undefined) entry.thirst = clamp(entry.thirst + effect.thirst);
 	}
 
 	/** Remove an agent. */
@@ -81,8 +87,8 @@ export class NeedsSystem {
 	/** Get current needs for an agent. Returns default if unknown. */
 	getNeeds(name: string): AgentNeeds {
 		const entry = this.agents.get(name);
-		if (!entry) return { energy: 50, social: 50, focus: 50, morale: 50 };
-		return { ...entry };
+		if (!entry) return { energy: 50, social: 50, focus: 50, morale: 50, hunger: 50, thirst: 50 };
+		return { energy: entry.energy, social: entry.social, focus: entry.focus, morale: entry.morale, hunger: entry.hunger, thirst: entry.thirst };
 	}
 
 	/** Derive mood from current needs state. */
@@ -119,10 +125,10 @@ export class NeedsSystem {
 		deltaMs: number,
 		getState: (name: string) => string,
 		getNearby: (name: string) => string[],
-		phaseMultipliers?: { energy: number; social: number; focus: number; morale: number },
+		phaseMultipliers?: { energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number },
 	): void {
 		const dt = deltaMs / 1000;
-		const pm = phaseMultipliers ?? { energy: 1, social: 1, focus: 1, morale: 1 };
+		const pm = phaseMultipliers ?? { energy: 1, social: 1, focus: 1, morale: 1, hunger: 1, thirst: 1 };
 		for (const [name, entry] of this.agents) {
 			const state = getState(name);
 			const rates = DECAY[state] ?? DEFAULT_RATES;
@@ -132,7 +138,16 @@ export class NeedsSystem {
 			const nearbyCount = getNearby(name).length;
 			const socialBonus = nearbyCount > 0 ? 0.3 * nearbyCount : 0;
 
-			entry.energy = clamp(entry.energy + applyMod(rates.energy, mods.energy) * pm.energy * dt);
+			// Hunger/thirst decay (phase-multiplied)
+			entry.hunger = clamp(entry.hunger + (rates.hunger ?? 0) * (pm.hunger ?? 1) * dt);
+			entry.thirst = clamp(entry.thirst + (rates.thirst ?? 0) * (pm.thirst ?? 1) * dt);
+
+			// Energy drain multiplier (stacking)
+			let energyMult = 1;
+			if (entry.hunger < 40) energyMult *= 1.5;
+			if (entry.thirst < 30) energyMult *= 1.5;
+
+			entry.energy = clamp(entry.energy + applyMod(rates.energy, mods.energy) * pm.energy * energyMult * dt);
 			entry.social = clamp(entry.social + (applyMod(rates.social, mods.social) + socialBonus) * pm.social * dt);
 			entry.focus = clamp(entry.focus + applyMod(rates.focus, mods.focus) * pm.focus * dt);
 			entry.morale = clamp(entry.morale + applyMod(rates.morale, mods.morale) * pm.morale * dt);
@@ -143,7 +158,7 @@ export class NeedsSystem {
 	serialize(): Record<string, AgentNeeds> {
 		const result: Record<string, AgentNeeds> = {};
 		for (const [name, entry] of this.agents) {
-			result[name] = { energy: entry.energy, social: entry.social, focus: entry.focus, morale: entry.morale };
+			result[name] = { energy: entry.energy, social: entry.social, focus: entry.focus, morale: entry.morale, hunger: entry.hunger, thirst: entry.thirst };
 		}
 		return result;
 	}
@@ -157,6 +172,8 @@ export class NeedsSystem {
 			entry.social = clamp(needs.social ?? entry.social);
 			entry.focus = clamp(needs.focus ?? entry.focus);
 			entry.morale = clamp(needs.morale ?? entry.morale);
+			entry.hunger = clamp(needs.hunger ?? entry.hunger);
+			entry.thirst = clamp(needs.thirst ?? entry.thirst);
 		}
 	}
 

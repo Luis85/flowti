@@ -15,7 +15,7 @@ export class CoffeeMachine extends InteractableActor {
 			width: 32,
 			height: 40,
 			interactionOffset: { x: 0, y: 24 },
-			needsEffects: { energy: 15, focus: 5 },
+			needsEffects: { energy: 15, focus: 5, thirst: 20 },
 		});
 
 		const canvas = new ex.Canvas({

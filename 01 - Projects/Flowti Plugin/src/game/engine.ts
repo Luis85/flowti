@@ -109,7 +109,6 @@ export interface AgentWorldHandle {
 }
 
 // ── Factory ──────────────────────────────────────────────────────────
-
 export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const { container, provider, spriteBasePath } = deps;
 
@@ -264,7 +263,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Environmental objects ────────────────────────────
 	const envObjects = createEnvironmentalObjects();
 	registerEnvironmentalObjects(envObjects, registry);
-	const { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard } = envObjects;
+	const { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, merchantStall, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation } = envObjects;
 
 	// ── Office pets ──────────────────────────────────────
 	const pets = createPets();
@@ -331,7 +330,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		if (cur === officeScene) return "office";
 		if (cur === villageScene) return "village";
 		if (cur === stationScene) return "station";
-		const n = cur?.name;
+		const n = (cur as unknown as { name?: string })?.name;
 		return typeof n === "string" && n.length > 0 ? n : "unknown";
 	}
 
@@ -376,14 +375,15 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Pre-update loop state ───────────────────────────
 	const lastTime = performance.now();
 	const prevWalkingState = new Map<string, boolean>();
-	const lastTrailPos = new Map<string, { x: number; y: number }>(); const petReactionCooldowns = new Map<string, number>();
+	const lastTrailPos = new Map<string, { x: number; y: number }>(); const petReactionCooldowns = new Map<string, number>(); const petShareCooldowns = new Map<string, number>();
 
 	// ── Particle renderers + environmental objects + lighting ────────
 	for (const scene of [hubScene, officeScene, villageScene, stationScene]) {
 		scene.add(createParticleRenderer(particlePool, ENGINE_WIDTH, ENGINE_HEIGHT));
 	}
 	officeScene.add(coffeeMachine); officeScene.add(whiteboard); villageScene.add(snackTable); villageScene.add(waterCooler);
-	stationScene.add(couch); hubScene.add(plant); hubScene.add(noticeBoard);
+	stationScene.add(couch); hubScene.add(plant); hubScene.add(noticeBoard); hubScene.add(merchantStall);
+	hubScene.add(foodBowlHub); villageScene.add(foodBowlVillage); officeScene.add(waterBowlOffice); stationScene.add(waterBowlStation);
 
 	// ── SceneEntity registry + unified room switcher ──
 	const allEntities = new Map<string, SceneEntity>();
@@ -449,77 +449,95 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		engine,
 		provider,
 		store,
-		brain: brainSystem,
-		bubble: bubbleSystem,
-		talk: talkEngine,
-		particlePool,
-		emote: emoteSystem,
-		social: socialSystem,
-		needs: needsSystem,
-		director: directorSystem,
-		sensor: sensorSystem,
-		engagement: engagementSystem,
-		ritual: ritualSystem,
-		tool: toolExecutor,
-		dayClock,
-		worldAmbience,
-		worldEvent: worldEventScheduler,
-		memory: memorySystem,
-		quirk: quirkSystem,
-		relationship: relationshipSystem,
-		bt: btSystem,
-		registry,
-		roomSwitcher,
-		cameraSystem: cameraRef.current,
-		btWorldState,
-		btClock,
-		btDeps,
-		hubScene,
-		officeScene,
-		villageScene,
-		stationScene,
-		roomScenes,
-		coffeeMachine,
-		whiteboard,
-		snackTable,
-		waterCooler,
-		couch,
-		plant,
-		noticeBoard,
+		systems: {
+			brain: brainSystem,
+			bubble: bubbleSystem,
+			talk: talkEngine,
+			particlePool,
+			emote: emoteSystem,
+			social: socialSystem,
+			needs: needsSystem,
+			director: directorSystem,
+			sensor: sensorSystem,
+			engagement: engagementSystem,
+			ritual: ritualSystem,
+			tool: toolExecutor,
+			dayClock,
+			worldAmbience,
+			worldEvent: worldEventScheduler,
+			memory: memorySystem,
+			quirk: quirkSystem,
+			relationship: relationshipSystem,
+			bt: btSystem,
+			registry,
+			roomSwitcher,
+			cameraSystem: cameraRef.current,
+		},
+		scenes: {
+			hub: hubScene,
+			office: officeScene,
+			village: villageScene,
+			station: stationScene,
+			map: roomScenes,
+		},
+		envObjects: {
+			coffeeMachine,
+			whiteboard,
+			snackTable,
+			waterCooler,
+			couch,
+			plant,
+			noticeBoard,
+			merchantStall,
+			foodBowlHub,
+			foodBowlVillage,
+			waterBowlOffice,
+			waterBowlStation,
+		},
 		pets,
-		allEntities,
-		cycleConversationCounts,
-		firedReactiveTriggers,
-		prevWalkingState,
-		lastTrailPos,
-		petReactionCooldowns,
-		knownEntities,
-		recentActionIds,
-		prevCycleCount,
-		deltaMs: 0,
-		lastTime,
-		currentLight,
-		findAgentActor,
-		findCurrentSceneActor,
-		findNearestAgent,
-		handleAgentSelect,
-		handleSceneChange: sceneConfig.onSceneChange,
-		perfSampler,
+		btBridge: {
+			worldState: btWorldState,
+			clock: btClock,
+			deps: btDeps,
+		},
+		state: {
+			allEntities,
+			cycleConversationCounts,
+			firedReactiveTriggers,
+			prevWalkingState,
+			lastTrailPos,
+			petReactionCooldowns,
+			petShareCooldowns,
+			knownEntities,
+			recentActionIds,
+			perfSampler,
+			prevCycleCount,
+			deltaMs: 0,
+			lastTime,
+			currentLight,
+		},
+		lookups: {
+			findAgentActor,
+			findCurrentSceneActor,
+			findNearestAgent,
+			handleAgentSelect,
+			handleSceneChange: sceneConfig.onSceneChange,
+		},
 	};
 	const cleanupEvents = wireEvents(ctx);
 
 	// ── Pre-frame hook: tick all systems ─────────────────
 	engine.on("preframe", () => {
 		const now = performance.now();
-		ctx.deltaMs = now - ctx.lastTime;
-		ctx.lastTime = now;
+		ctx.state.deltaMs = now - ctx.state.lastTime;
+		ctx.state.lastTime = now;
 		const simStart = performance.now();
 		tickSimulation(ctx);
 		const simMs = performance.now() - simStart;
 		if (perfSampler) {
 			const sceneName = getCurrentSceneIdForPerf();
 			perfSampler.onFrameMeta({
-				deltaMs: ctx.deltaMs,
+				deltaMs: ctx.state.deltaMs,
 				agentCount: brainSystem.getAllEntries().size,
 				sceneName,
 			});
@@ -529,7 +547,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Post-frame adapter: push positions/targets/states to store ──
 	const postframeHandler = createPostframeHandler({
-		engine, store, brainSystem, findCurrentSceneActor,
+		engine, store, brainSystem, needsSystem, findCurrentSceneActor,
 	});
 	engine.on("postframe", () => {
 		if (!perfSampler) {

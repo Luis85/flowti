@@ -13,6 +13,9 @@ import { WaterCooler } from "./actors/water-cooler.js";
 import { CouchActor } from "./actors/couch-actor.js";
 import { PlantActor } from "./actors/plant-actor.js";
 import { NoticeBoard } from "./actors/notice-board.js";
+import { MerchantStall } from "./actors/merchant-stall.js";
+import { FoodBowl } from "./actors/food-bowl.js";
+import { WaterBowl } from "./actors/water-bowl.js";
 import { PetActor } from "./actors/pet-actor.js";
 import { PET_DEFINITIONS } from "./data/pet-definitions.js";
 import { OBJECT_POSITIONS } from "./engine-config.js";
@@ -28,6 +31,11 @@ export interface EnvironmentalObjects {
 	readonly couch: CouchActor;
 	readonly plant: PlantActor;
 	readonly noticeBoard: NoticeBoard;
+	readonly merchantStall: MerchantStall;
+	readonly foodBowlHub: FoodBowl;
+	readonly foodBowlVillage: FoodBowl;
+	readonly waterBowlOffice: WaterBowl;
+	readonly waterBowlStation: WaterBowl;
 }
 
 /** Create all environmental objects, positioned from engine-config. */
@@ -46,8 +54,18 @@ export function createEnvironmentalObjects(): EnvironmentalObjects {
 	plant.pos = ex.vec(OBJECT_POSITIONS.plant.x, OBJECT_POSITIONS.plant.y);
 	const noticeBoard = new NoticeBoard();
 	noticeBoard.pos = ex.vec(OBJECT_POSITIONS.noticeBoard.x, OBJECT_POSITIONS.noticeBoard.y);
+	const merchantStall = new MerchantStall();
+	merchantStall.pos = ex.vec(OBJECT_POSITIONS.merchantStall.x, OBJECT_POSITIONS.merchantStall.y);
+	const foodBowlHub = new FoodBowl("food-bowl-hub");
+	foodBowlHub.pos = ex.vec(OBJECT_POSITIONS.foodBowlHub.x, OBJECT_POSITIONS.foodBowlHub.y);
+	const foodBowlVillage = new FoodBowl("food-bowl-village");
+	foodBowlVillage.pos = ex.vec(OBJECT_POSITIONS.foodBowlVillage.x, OBJECT_POSITIONS.foodBowlVillage.y);
+	const waterBowlOffice = new WaterBowl("water-bowl-office");
+	waterBowlOffice.pos = ex.vec(OBJECT_POSITIONS.waterBowlOffice.x, OBJECT_POSITIONS.waterBowlOffice.y);
+	const waterBowlStation = new WaterBowl("water-bowl-station");
+	waterBowlStation.pos = ex.vec(OBJECT_POSITIONS.waterBowlStation.x, OBJECT_POSITIONS.waterBowlStation.y);
 
-	return { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard };
+	return { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, merchantStall, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation };
 }
 
 /** Register all environmental objects in the scene registry. */
@@ -59,6 +77,11 @@ export function registerEnvironmentalObjects(objects: EnvironmentalObjects, regi
 	registry.registerObject(objects.couch.objectId, "station", objects.couch.objectType, objects.couch.pos);
 	registry.registerObject(objects.plant.objectId, "hub", objects.plant.objectType, objects.plant.pos);
 	registry.registerObject(objects.noticeBoard.objectId, "hub", objects.noticeBoard.objectType, objects.noticeBoard.pos);
+	registry.registerObject(objects.merchantStall.objectId, "hub", objects.merchantStall.objectType, objects.merchantStall.pos);
+	registry.registerObject(objects.foodBowlHub.objectId, "hub", objects.foodBowlHub.objectType, objects.foodBowlHub.pos);
+	registry.registerObject(objects.foodBowlVillage.objectId, "village", objects.foodBowlVillage.objectType, objects.foodBowlVillage.pos);
+	registry.registerObject(objects.waterBowlOffice.objectId, "office", objects.waterBowlOffice.objectType, objects.waterBowlOffice.pos);
+	registry.registerObject(objects.waterBowlStation.objectId, "station", objects.waterBowlStation.objectType, objects.waterBowlStation.pos);
 }
 
 // ── Pets ─────────────────────────────────────────────────────────────

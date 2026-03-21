@@ -13,7 +13,7 @@ export interface PetDefinition {
 		readonly wanderRadius: number;     // how far from home position
 		readonly followChance: number;     // per-second chance to follow nearest agent
 		readonly interactRadius: number;   // how close to trigger agent reaction
-		readonly needsEffect: Partial<{ energy: number; social: number; focus: number; morale: number }>;
+		readonly needsEffect: Partial<{ energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number }>;
 	};
 	readonly phrases: readonly string[];  // what agents say when they notice the pet
 }

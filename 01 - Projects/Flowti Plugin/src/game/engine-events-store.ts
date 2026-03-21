@@ -7,8 +7,49 @@
  */
 
 import type { EngineContext } from "./engine-types.js";
+import { getCueForTrigger, formatBubbleText } from "./systems/economy-visuals.js";
+import { getNearbyAgents } from "./engine-simulation.js";
+
+// ── Level-up celebration phrases ─────────────────────────────────────
+
+const LEVEL_UP_SELF = [
+	"I leveled up!",
+	"New level unlocked!",
+	"Hard work pays off!",
+	"Getting stronger every day",
+	"Level {level} — watch out world!",
+] as const;
+
+const LEVEL_UP_NEARBY = [
+	"Congrats!",
+	"Nice work!",
+	"Well deserved!",
+	"Way to go!",
+] as const;
+
+// ── Economy visual helper ─────────────────────────────────────────────
+
+function showEconomyCue(
+	ctx: EngineContext,
+	trigger: string,
+	agentName: string,
+	data: Record<string, string | number> = {},
+): void {
+	const cue = getCueForTrigger(trigger);
+	if (!cue) return;
+	const actor = ctx.lookups.findAgentActor(agentName);
+	if (!actor) return;
+	if (cue.bubbleText) {
+		const text = formatBubbleText(cue.bubbleText, data);
+		ctx.systems.bubble.showBubble(agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, cue.duration ?? 2000);
+	}
+	if (cue.particlePreset) {
+		ctx.systems.particlePool.spawnPreset(cue.particlePreset, actor.pos.x, actor.pos.y - 20);
+	}
+}
 
 export function wireStoreEvents(ctx: EngineContext): () => void {
+	const { systems: sys } = ctx;
 	const handlers: Array<{ event: string; handler: EventListener }> = [];
 
 	const addStoreListener = (event: string, handler: EventListener): void => {
@@ -17,70 +58,101 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 	};
 
 	addStoreListener("scene-change", ((e: CustomEvent) => {
-		ctx.handleSceneChange(e.detail.setting);
+		ctx.lookups.handleSceneChange(e.detail.setting);
 	}) as EventListener);
 
 	addStoreListener("agent-message-sent", ((e: CustomEvent) => {
 		const { agentName } = e.detail;
 		// Activate rapid chatter while waiting for LLM
-		ctx.talk.activate(agentName);
+		sys.talk.activate(agentName);
 		// Show lightbulb indicator
-		const actor = ctx.findAgentActor(agentName);
+		const actor = ctx.lookups.findAgentActor(agentName);
 		if (actor) {
 			actor.showLlmIndicator();
-			const signal = ctx.director.recordInteraction("message", { x: actor.pos.x, y: actor.pos.y });
-			if (signal.moraleEffect) ctx.needs.applyEffect(agentName, { morale: signal.moraleEffect });
+			const signal = sys.director.recordInteraction("message", { x: actor.pos.x, y: actor.pos.y });
+			if (signal.moraleEffect) sys.needs.applyEffect(agentName, { morale: signal.moraleEffect });
 		}
 	}) as EventListener);
 
 	addStoreListener("agent-response-received", ((e: CustomEvent) => {
 		const { agentName, text, type } = e.detail;
 		// Silence talk engine + hide lightbulb
-		ctx.talk.silence(agentName);
-		const actor = ctx.findAgentActor(agentName);
+		sys.talk.silence(agentName);
+		const actor = ctx.lookups.findAgentActor(agentName);
 		if (actor) actor.hideLlmIndicator();
 		// Show bubble
 		const bubbleKind = type === "asking" ? "question" : "speech";
-		ctx.bubble.showBubble(agentName, bubbleKind, text, ctx.engine.currentScene, ctx.findAgentActor);
+		sys.bubble.showBubble(agentName, bubbleKind, text, ctx.engine.currentScene, ctx.lookups.findAgentActor);
 	}) as EventListener);
 
 	addStoreListener("task-assigned", ((e: CustomEvent) => {
 		const { agentName, task } = e.detail;
-		ctx.brain.applyEvent(agentName, "task-started");
-		ctx.brain.assignWork(agentName);
+		sys.brain.applyEvent(agentName, "task-started");
+		sys.brain.assignWork(agentName);
 		ctx.store.taskLockedAgents.add(agentName);
-		ctx.talk.activate(agentName);
-		ctx.bubble.showBubble(agentName, "thought", `Starting: ${task}`, ctx.engine.currentScene, ctx.findAgentActor);
+		sys.talk.activate(agentName);
+		sys.bubble.showBubble(agentName, "thought", `Starting: ${task}`, ctx.engine.currentScene, ctx.lookups.findAgentActor);
 		// Show lightbulb — agent is working on the task
-		const actor = ctx.findAgentActor(agentName);
+		const actor = ctx.lookups.findAgentActor(agentName);
 		if (actor) actor.showLlmIndicator();
 	}) as EventListener);
 
 	addStoreListener("task-completed", ((e: CustomEvent) => {
-		const { agentName, result } = e.detail;
-		ctx.brain.releaseWork(agentName);
+		const { agentName, result, xp, coin } = e.detail;
+		sys.brain.releaseWork(agentName);
 		ctx.store.taskLockedAgents.delete(agentName);
-		ctx.talk.silence(agentName);
-		ctx.engagement.markTaskCompleted(agentName);
-		const actor = ctx.findAgentActor(agentName);
+		sys.talk.silence(agentName);
+		sys.engagement.markTaskCompleted(agentName);
+		const actor = ctx.lookups.findAgentActor(agentName);
 		if (actor) { actor.hideLlmIndicator(); actor.hideToolIndicator(); }
 		// Show completion bubble
-		ctx.bubble.showBubble(agentName, "speech", typeof result === "string" ? result.slice(0, 80) : "Task complete.", ctx.engine.currentScene, ctx.findAgentActor, 5000);
+		sys.bubble.showBubble(agentName, "speech", typeof result === "string" ? result.slice(0, 80) : "Task complete.", ctx.engine.currentScene, ctx.lookups.findAgentActor, 5000);
+		// Economy visual — floating "+{xp}XP +{coin}C"
+		showEconomyCue(ctx, "task-completed", agentName, {
+			xp: typeof xp === "number" ? xp : 10,
+			coin: typeof coin === "number" ? coin : 1,
+		});
+	}) as EventListener);
+
+	addStoreListener("level-up", ((e: CustomEvent) => {
+		const { agentName, level } = e.detail;
+		const lvl = typeof level === "number" ? level : 1;
+		showEconomyCue(ctx, "level-up", agentName, { level: lvl });
+		// Update actor level for progression visuals
+		const actor = ctx.lookups.findAgentActor(agentName);
+		if (actor) actor.setLevel(lvl);
+		// Self-celebration bubble
+		const selfRaw = LEVEL_UP_SELF[Math.floor(Math.random() * LEVEL_UP_SELF.length)];
+		const selfPhrase = selfRaw.replace("{level}", String(lvl));
+		sys.bubble.showBubble(agentName, "speech", selfPhrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3500);
+		// Nearby agents congratulate — up to 2, staggered
+		const nearby = getNearbyAgents(ctx, agentName).slice(0, 2);
+		nearby.forEach((name, i) => {
+			const phrase = LEVEL_UP_NEARBY[Math.floor(Math.random() * LEVEL_UP_NEARBY.length)];
+			setTimeout(() => {
+				sys.bubble.showBubble(name, "speech", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+			}, 600 + i * 500);
+		});
+	}) as EventListener);
+
+	addStoreListener("trust-promoted", ((e: CustomEvent) => {
+		const { agentName } = e.detail;
+		showEconomyCue(ctx, "trust-promoted", agentName);
 	}) as EventListener);
 
 	addStoreListener("permission-decided", ((e: CustomEvent) => {
 		const { agentName, signalType } = e.detail;
-		const signal = ctx.director.recordInteraction(signalType);
-		if (signal.moraleEffect) ctx.needs.applyEffect(agentName, { morale: signal.moraleEffect });
+		const signal = sys.director.recordInteraction(signalType);
+		if (signal.moraleEffect) sys.needs.applyEffect(agentName, { morale: signal.moraleEffect });
 	}) as EventListener);
 
 	addStoreListener("agent-using-tool", ((e: CustomEvent) => {
-		const actor = ctx.findAgentActor(e.detail.agentName);
+		const actor = ctx.lookups.findAgentActor(e.detail.agentName);
 		if (actor) actor.showToolIndicator();
 	}) as EventListener);
 
 	addStoreListener("agent-tool-complete", ((e: CustomEvent) => {
-		const actor = ctx.findAgentActor(e.detail.agentName);
+		const actor = ctx.lookups.findAgentActor(e.detail.agentName);
 		if (actor) actor.hideToolIndicator();
 	}) as EventListener);
 
@@ -90,10 +162,10 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 		if (ctx.store.followedAgent !== prevFollowed) {
 			prevFollowed = ctx.store.followedAgent;
 			if (ctx.store.followedAgent) {
-				const actor = ctx.findAgentActor(ctx.store.followedAgent);
-				if (actor && ctx.cameraSystem) ctx.cameraSystem.startFollow(actor);
+				const actor = ctx.lookups.findAgentActor(ctx.store.followedAgent);
+				if (actor && sys.cameraSystem) sys.cameraSystem.startFollow(actor);
 			} else {
-				if (ctx.cameraSystem) ctx.cameraSystem.stopFollow();
+				if (sys.cameraSystem) sys.cameraSystem.stopFollow();
 			}
 		}
 	}) as EventListener);

@@ -80,6 +80,11 @@ export class EngagementSystem {
 		this.engagementCallbacks.push(cb);
 	}
 
+	offEngagement(cb: (e: EngagementEvent) => void): void {
+		const idx = this.engagementCallbacks.indexOf(cb);
+		if (idx >= 0) this.engagementCallbacks.splice(idx, 1);
+	}
+
 	// ── Context ────────────────────────────────────────────────────
 
 	/** Set workspace context variables for template interpolation. */

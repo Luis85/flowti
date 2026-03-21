@@ -8,7 +8,7 @@
 
 import { createTree, type BehaviourTree } from "./bt-service.js";
 import { createBTAgent, type BTAgentObject } from "./bt-agent.js";
-import type { AgentToolDeps, BTAgentDef } from "./bt-types.js";
+import type { AgentToolDeps, BtAgentBase, BTAgentDef } from "./bt-types.js";
 
 // Subtree imports
 import { URGENT_SUBTREE } from "./subtrees/urgent.js";
@@ -21,13 +21,21 @@ import { REPORT_SUBTREE } from "./subtrees/goal-report.js";
 import { SOCIAL_SUBTREE } from "./subtrees/social.js";
 import { IDLE_SUBTREE } from "./subtrees/idle.js";
 import { NEEDS_ENERGY_SUBTREE } from "./subtrees/needs-energy.js";
+import { NEEDS_HUNGER_SUBTREE } from "./subtrees/needs-hunger.js";
+import { NEEDS_THIRST_SUBTREE } from "./subtrees/needs-thirst.js";
 import { NEEDS_SOCIAL_SUBTREE } from "./subtrees/needs-social.js";
 import { NEEDS_FOCUS_SUBTREE } from "./subtrees/needs-focus.js";
 import { NEEDS_MORALE_SUBTREE } from "./subtrees/needs-morale.js";
 import { WORK_CYCLE_SUBTREE } from "./subtrees/work-cycle.js";
+import { JOURNEY_EXECUTION_SUBTREE } from "./subtrees/journey-execution.js";
 
 export interface AgentBT {
 	readonly tree: BehaviourTree;
+	readonly agent: BtAgentBase;
+}
+
+/** Concrete BT produced by createAgentBT — agent is always a full BTAgentObject. */
+export interface FullAgentBT extends AgentBT {
 	readonly agent: BTAgentObject;
 }
 
@@ -42,9 +50,12 @@ function buildMasterMDSL(): string {
 	selector {
 		branch [UrgentReaction]
 		branch [NeedsEnergy]
+		branch [NeedsHunger]
+		branch [NeedsThirst]
 		branch [NeedsSocial]
 		branch [NeedsFocus]
 		branch [NeedsMorale]
+		branch [JourneyExecution]
 		branch [WorkCycle]
 		sequence {
 			condition [HasEnoughEnergy]
@@ -71,9 +82,12 @@ function collectSubtrees(): string {
 	return [
 		URGENT_SUBTREE,
 		NEEDS_ENERGY_SUBTREE,
+		NEEDS_HUNGER_SUBTREE,
+		NEEDS_THIRST_SUBTREE,
 		NEEDS_SOCIAL_SUBTREE,
 		NEEDS_FOCUS_SUBTREE,
 		NEEDS_MORALE_SUBTREE,
+		JOURNEY_EXECUTION_SUBTREE,
 		WORK_CYCLE_SUBTREE,
 		REVIEW_SUBTREE,
 		SUMMARIZE_SUBTREE,
@@ -86,7 +100,7 @@ function collectSubtrees(): string {
 	].join("\n\n");
 }
 
-export function createAgentBT(agent: BTAgentDef, deps: AgentToolDeps): AgentBT {
+export function createAgentBT(agent: BTAgentDef, deps: AgentToolDeps): FullAgentBT {
 	const btAgent = createBTAgent(agent, deps);
 	const masterMDSL = buildMasterMDSL();
 	const allMDSL = masterMDSL + "\n\n" + collectSubtrees();

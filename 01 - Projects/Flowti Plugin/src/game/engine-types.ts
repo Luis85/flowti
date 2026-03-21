@@ -5,6 +5,14 @@
  * It captures every system reference, mutable state map, scene reference,
  * actor lookup, and callback that the monolithic createAgentWorld() used
  * to access via closure variables.
+ *
+ * Organised into semantic sub-interfaces:
+ *   systems  — all game systems (brain, bubble, talk, ...)
+ *   scenes   — the four room scenes + lookup map
+ *   envObjects — environmental interactable objects
+ *   btBridge — behavior-tree bridge types
+ *   state    — mutable per-frame / per-cycle tracking maps & scalars
+ *   lookups  — actor/scene lookup functions and callbacks
  */
 
 import type * as ex from "excalibur";
@@ -68,19 +76,9 @@ export interface LightState {
 	opacity: number;
 }
 
-// ── Engine context — the full integration seam ───────────────────────
+// ── Sub-interfaces ───────────────────────────────────────────────────
 
-export interface EngineContext {
-	// ── Excalibur engine ─────────────────────────────────
-	readonly engine: ex.Engine;
-
-	// ── Data provider ────────────────────────────────────
-	readonly provider: DataProvider;
-
-	// ── Reactive store ───────────────────────────────────
-	readonly store: DashboardStore;
-
-	// ── Systems ──────────────────────────────────────────
+export interface EngineSystems {
 	readonly brain: BrainSystem;
 	readonly bubble: BubbleSystem;
 	readonly talk: TalkEngine;
@@ -102,23 +100,18 @@ export interface EngineContext {
 	readonly bt: BtSystem;
 	readonly registry: SceneRegistry;
 	readonly roomSwitcher: RoomSwitcher;
-
-	// ── Camera ───────────────────────────────────────────
 	cameraSystem: CameraSystem | null;
+}
 
-	// ── BT dependencies ──────────────────────────────────
-	readonly btWorldState: BtWorldState;
-	readonly btClock: BtClock;
-	readonly btDeps: AgentToolDeps;
+export interface EngineScenes {
+	readonly hub: GameScene;
+	readonly office: GameScene;
+	readonly village: GameScene;
+	readonly station: GameScene;
+	readonly map: Record<string, GameScene>;
+}
 
-	// ── Scenes ───────────────────────────────────────────
-	readonly hubScene: GameScene;
-	readonly officeScene: GameScene;
-	readonly villageScene: GameScene;
-	readonly stationScene: GameScene;
-	readonly roomScenes: Record<string, GameScene>;
-
-	// ── Environmental objects ─────────────────────────────
+export interface EngineEnvObjects {
 	readonly coffeeMachine: InteractableActor;
 	readonly whiteboard: InteractableActor;
 	readonly snackTable: InteractableActor;
@@ -126,14 +119,20 @@ export interface EngineContext {
 	readonly couch: InteractableActor;
 	readonly plant: InteractableActor;
 	readonly noticeBoard: InteractableActor;
+	readonly merchantStall: InteractableActor;
+	readonly foodBowlHub: InteractableActor;
+	readonly foodBowlVillage: InteractableActor;
+	readonly waterBowlOffice: InteractableActor;
+	readonly waterBowlStation: InteractableActor;
+}
 
-	// ── Pets ─────────────────────────────────────────────
-	readonly pets: PetActor[];
+export interface BtBridge {
+	readonly worldState: BtWorldState;
+	readonly clock: BtClock;
+	readonly deps: AgentToolDeps;
+}
 
-	// ── Entity tracking ──────────────────────────────────
-	readonly allEntities: Map<string, SceneEntity>;
-
-	// ── Mutable state maps ───────────────────────────────
+export interface EngineMutableState {
 	/** Conversation count per agent in the current day cycle. */
 	readonly cycleConversationCounts: Map<string, number>;
 	/** Which reactive triggers have fired per agent this cycle. */
@@ -144,10 +143,14 @@ export interface EngineContext {
 	readonly lastTrailPos: Map<string, { x: number; y: number }>;
 	/** Cooldown tracking for pet proximity reactions. */
 	readonly petReactionCooldowns: Map<string, number>;
+	/** Cooldown tracking for pet food/drink share interactions. */
+	readonly petShareCooldowns: Map<string, number>;
 	/** Known entity IDs to distinguish initial adds from updates. */
 	readonly knownEntities: Set<string>;
 	/** Dedup guard for EventBus / external action relay. */
 	readonly recentActionIds: Set<string>;
+	/** All scene entities (agent + pet wrappers). */
+	readonly allEntities: Map<string, SceneEntity>;
 
 	/** Optional perf sampler for `perf.agentWorld.*` events (null when disabled). */
 	perfSampler: AgentWorldPerfSink | null;
@@ -159,16 +162,32 @@ export interface EngineContext {
 	deltaMs: number;
 	/** Last performance.now() value for delta calculation. */
 	lastTime: number;
-
-	// ── Lighting ─────────────────────────────────────────
+	/** Lighting state (lerped toward target each frame). */
 	readonly currentLight: LightState;
+}
 
-	// ── Actor lookup functions ───────────────────────────
+export interface EngineLookups {
 	readonly findAgentActor: (name: string) => AgentActor | undefined;
 	readonly findCurrentSceneActor: (name: string) => AgentActor | undefined;
 	readonly findNearestAgent: (agentName: string) => { x: number; y: number } | null;
-
-	// ── Callbacks ────────────────────────────────────────
 	readonly handleAgentSelect: (agentName: string) => void;
 	readonly handleSceneChange: (setting: string) => void;
+}
+
+// ── Engine context — the full integration seam ───────────────────────
+
+export interface EngineContext {
+	// ── Core singletons ─────────────────────────────────
+	readonly engine: ex.Engine;
+	readonly provider: DataProvider;
+	readonly store: DashboardStore;
+
+	// ── Semantic groups ─────────────────────────────────
+	readonly systems: EngineSystems;
+	readonly scenes: EngineScenes;
+	readonly envObjects: EngineEnvObjects;
+	readonly pets: PetActor[];
+	readonly btBridge: BtBridge;
+	readonly state: EngineMutableState;
+	readonly lookups: EngineLookups;
 }

@@ -111,6 +111,21 @@ export class PanelTasks extends FlowtiElement {
 				padding: 20px 0;
 			}
 
+			.hint {
+				font-size: 10px;
+				color: var(--text-muted);
+				font-style: normal;
+				margin-top: 6px;
+			}
+
+			.hint code {
+				font-family: inherit;
+				background: rgba(255, 255, 255, 0.06);
+				padding: 1px 4px;
+				border-radius: 3px;
+				color: var(--text-secondary);
+			}
+
 			/* Confirmation overlay — renders inside shadow DOM */
 			.confirm-overlay {
 				position: absolute;
@@ -231,6 +246,10 @@ export class PanelTasks extends FlowtiElement {
 		return this.agent?.agentType === "ai";
 	}
 
+	private get isNpc(): boolean {
+		return this.agent?.agentType === "npc";
+	}
+
 	private handleAssignClick(task: { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }): void {
 		if (this.isAiAgent && !this.store.cliSessionAvailable) return;
 		if (task.input) {
@@ -279,7 +298,12 @@ export class PanelTasks extends FlowtiElement {
 		];
 
 		if (allTasks.length === 0) {
-			return html`<div class="empty">No tasks assigned.</div>`;
+			return html`
+				<div class="empty">
+					<p>No tasks assigned yet.</p>
+					<p class="hint">Use <code>flowti task:create</code> to assign work to this agent.</p>
+				</div>
+			`;
 		}
 
 		return html`

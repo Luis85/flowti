@@ -44,6 +44,11 @@ export const OBJECT_POSITIONS = {
 	couch: { x: 400, y: 380 },
 	plant: { x: 100, y: 60 },
 	noticeBoard: { x: 680, y: 60 },
+	merchantStall: { x: 300, y: 60 },
+	foodBowlHub: { x: 200, y: 380 },
+	foodBowlVillage: { x: 250, y: 350 },
+	waterBowlOffice: { x: 580, y: 120 },
+	waterBowlStation: { x: 550, y: 350 },
 } as const;
 
 // ── Object-to-scene assignments ──────────────────────────────────────
@@ -56,6 +61,11 @@ export const OBJECT_SCENE_ASSIGNMENTS = {
 	couch: "station",
 	plant: "hub",
 	noticeBoard: "hub",
+	merchantStall: "hub",
+	foodBowlHub: "hub",
+	foodBowlVillage: "village",
+	waterBowlOffice: "office",
+	waterBowlStation: "station",
 } as const;
 
 // ── Pet positions and room assignments ───────────────────────────────
@@ -188,19 +198,19 @@ export const OBJECT_ATTRACTION_RULES: readonly ObjectAttractionRule[] = [
 	{
 		objectKey: "coffeeMachine",
 		phases: ["morning-arrival", "afternoon-slump"],
-		needCheck: (n) => n.energy < 40,
+		needCheck: (n) => n.energy < 40 || n.thirst < 40,
 		chance: 0.002,
 	},
 	{
 		objectKey: "snackTable",
 		phases: ["lunch", "afternoon-slump"],
-		needCheck: (n) => n.energy < 50 && n.social < 40,
+		needCheck: (n) => n.hunger < 40,
 		chance: 0.002,
 	},
 	{
 		objectKey: "waterCooler",
 		phases: ["afternoon", "afternoon-slump"],
-		needCheck: (n) => n.social < 30,
+		needCheck: (n) => n.social < 30 || n.thirst < 30,
 		chance: 0.001,
 	},
 	{
@@ -208,6 +218,30 @@ export const OBJECT_ATTRACTION_RULES: readonly ObjectAttractionRule[] = [
 		phases: ["afternoon-slump", "wind-down"],
 		needCheck: () => false,
 		chance: 0.001,
+	},
+	{
+		objectKey: "foodBowlHub",
+		phases: ["lunch"],
+		needCheck: (n) => n.hunger < 25,
+		chance: 0.002,
+	},
+	{
+		objectKey: "foodBowlVillage",
+		phases: ["lunch"],
+		needCheck: (n) => n.hunger < 25,
+		chance: 0.002,
+	},
+	{
+		objectKey: "waterBowlOffice",
+		phases: ["morning-arrival", "morning-focus", "lunch", "afternoon", "afternoon-slump", "wind-down"],
+		needCheck: (n) => n.thirst < 20,
+		chance: 0.002,
+	},
+	{
+		objectKey: "waterBowlStation",
+		phases: ["morning-arrival", "morning-focus", "lunch", "afternoon", "afternoon-slump", "wind-down"],
+		needCheck: (n) => n.thirst < 20,
+		chance: 0.002,
 	},
 ];
 
@@ -266,6 +300,29 @@ export const CAT_STRESS_MORALE_THRESHOLD = 30;
 
 /** Object attraction arrival delay before applying effects (ms). */
 export const OBJECT_EFFECT_DELAY = 5000;
+
+/** Pet share cooldown — how long before the same agent-pet pair can share again (ms). */
+export const PET_SHARE_COOLDOWN = 30000;
+
+/** Multiplier for pet share — pet gets this fraction of the station's effects. */
+export const PET_SHARE_EFFECT_RATIO = 0.5;
+
+/** Social bonus an agent gets when sharing food/drink with a pet. */
+export const PET_SHARE_SOCIAL_BONUS = 3;
+
+/** Object types that are food or drink stations (eligible for pet sharing). */
+export const FOOD_DRINK_OBJECT_TYPES = new Set(["food", "drink", "appliance"]);
+
+/** Frustrated bubble phrases shown when a pet steals an agent's station. */
+export const PET_STEAL_PHRASES = [
+	"Hey! That's my spot!",
+	"Seriously?! The pet got there first?",
+	"I was going there...",
+	"Guess I'll wait... again.",
+];
+
+/** Bonding threshold — seconds a pet must spend near an agent to bond (s). */
+export const PET_BONDING_THRESHOLD_S = 60;
 
 /** BrainSystem bounds configuration. */
 export const BRAIN_BOUNDS = {

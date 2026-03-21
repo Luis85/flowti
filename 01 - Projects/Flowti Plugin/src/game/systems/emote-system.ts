@@ -38,6 +38,10 @@ export class EmoteSystem {
 		this.callback = cb;
 	}
 
+	offEmote(): void {
+		this.callback = null;
+	}
+
 	register(name: string, mood: string, quoteFrequency: number): void {
 		this.entries.set(name, {
 			mood,

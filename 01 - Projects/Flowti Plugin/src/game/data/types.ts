@@ -60,9 +60,11 @@ export interface AgentGoal {
 	readonly condition?: string;
 }
 
+export type AgentType = "ai" | "npc" | "human";
+
 export interface DashboardAgent {
 	readonly name: string;
-	readonly agentType: string;
+	readonly agentType: AgentType;
 	readonly domain?: string;
 	readonly status: "busy" | "idle" | "unassigned";
 	readonly persona?: string;
@@ -78,6 +80,11 @@ export interface DashboardAgent {
 	readonly project?: string;
 	readonly iteration?: string;
 	readonly phase?: string;
+	level?: number;
+	coin?: number;
+	tokens?: number;
+	trustTier?: "supervised" | "trusted" | "autonomous";
+	capabilities?: string[];
 }
 
 export type TaskStatus = "pending" | "in-progress" | "completed" | "failed";

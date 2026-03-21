@@ -14,6 +14,7 @@ import { VAULT_ROOT, PROJECTS_DIR, CLI_PROJECT, cliConfig } from "../infrastruct
 import { agentStore } from "../domain/agents/agent-store.js";
 import { readAgentState, writeAgentState, addTask } from "../domain/agents/agent-state.js";
 import { syncAgentDashboardAssets } from "../domain/agents/agent-dashboard-sync.js";
+import type { SyncAgentDashboardResult } from "../domain/agents/agent-dashboard-sync.js";
 import type { AgentActionType } from "../domain/agents/world-state-types.js";
 
 // ── Data models ──────────────────────────────────────────────────────
@@ -71,8 +72,7 @@ function renderAgentPermission(model: AgentPermissionModel, log: LogFn): void {
 	}
 }
 
-function renderAgentDashboardSync(model: AgentDashboardSyncModel, log: LogFn): void {
-	if (!model.ok) return;
+function renderAgentDashboardSync(model: SyncAgentDashboardResult, log: LogFn): void {
 	log("\n  Agent dashboard data regenerated.");
 	log(`  ${model.jsonPath}`);
 	log(`  Agents: ${model.agentCount}, projects: ${model.projectCount}`);
@@ -177,7 +177,7 @@ export const commands: Record<string, CommandHandler> = {
 		renderer: renderAgentPermission,
 	}),
 
-	"agent:dashboard-sync": adaptDescriptor<{ dir: string }, AgentDashboardSyncModel>({
+	"agent:dashboard-sync": adaptDescriptor<{ dir: string }, SyncAgentDashboardResult>({
 		flags: {
 			dir: { type: "string", default: ".flowti/agents", hint: "--dir=<path>" },
 		},

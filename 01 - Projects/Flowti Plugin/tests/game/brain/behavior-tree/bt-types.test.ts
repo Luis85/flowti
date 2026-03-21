@@ -9,7 +9,7 @@ describe("bt-types", () => {
 	describe("createDefaultNeeds", () => {
 		it("returns needs at default levels", () => {
 			const needs = createDefaultNeeds();
-			expect(needs).toEqual({ energy: 80, social: 60, focus: 70, morale: 75 });
+			expect(needs).toEqual({ energy: 80, social: 60, focus: 70, morale: 75, hunger: 80, thirst: 80 });
 		});
 	});
 

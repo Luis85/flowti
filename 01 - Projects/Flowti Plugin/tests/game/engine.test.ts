@@ -120,6 +120,11 @@ vi.mock("../../src/game/engine-config.js", () => ({
 		couch: { x: 600, y: 300 },
 		plant: { x: 100, y: 200 },
 		noticeBoard: { x: 700, y: 150 },
+		merchantStall: { x: 300, y: 60 },
+		foodBowlHub: { x: 200, y: 380 },
+		foodBowlVillage: { x: 250, y: 350 },
+		waterBowlOffice: { x: 580, y: 120 },
+		waterBowlStation: { x: 550, y: 350 },
 	},
 	BRAIN_BOUNDS: { x: 0, y: 0, width: 800, height: 500 },
 	PARTICLE_POOL_SIZE: 100,
@@ -572,6 +577,14 @@ vi.mock("../../src/game/actors/plant-actor.js", () => {
 vi.mock("../../src/game/actors/notice-board.js", () => {
 	function MockNoticeBoard(this: Record<string, unknown>) { const s = this; s.objectId = "notice-board"; s.objectType = "furniture"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { NoticeBoard: MockNoticeBoard };
+});
+vi.mock("../../src/game/actors/food-bowl.js", () => {
+	function MockFoodBowl(this: Record<string, unknown>, objectId?: string) { const s = this; s.objectId = objectId ?? "food-bowl"; s.objectType = "food"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { FoodBowl: MockFoodBowl };
+});
+vi.mock("../../src/game/actors/water-bowl.js", () => {
+	function MockWaterBowl(this: Record<string, unknown>, objectId?: string) { const s = this; s.objectId = objectId ?? "water-bowl"; s.objectType = "drink"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	return { WaterBowl: MockWaterBowl };
 });
 
 vi.mock("../../src/game/data/world-config.js", () => ({

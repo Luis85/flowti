@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting, TrackedTask } from "../data/types.js";
 import type { BrainState } from "../brain/brain-types.js";
+import type { AgentNeeds } from "../systems/needs-system.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
 import { findNodeBinary } from "../../infrastructure/agents/cli-executor.js";
@@ -26,7 +27,7 @@ export interface Point {
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
-export type TabName = "info" | "talk" | "tasks" | "permissions" | "monitor";
+export type TabName = "info" | "talk" | "tasks" | "permissions" | "monitor" | "debug";
 
 export interface LlmStatus {
 	readonly state: "idle" | "queued" | "thinking" | "error";
@@ -63,6 +64,27 @@ export class DashboardStore extends EventTarget {
 	/** PID/RAM/CPU samples for spawned CLI processes (Monitor tab). */
 	agentResourceMetrics: Map<string, AgentProcessResources> = new Map();
 	taskLockedAgents: Set<string> = new Set();
+	agentNeeds: Map<string, AgentNeeds> = new Map();
+
+	setAgentNeeds(name: string, needs: AgentNeeds): void { this.agentNeeds.set(name, needs); }
+	getAgentNeeds(name: string): AgentNeeds | undefined { return this.agentNeeds.get(name); }
+
+	setAgentEconomy(name: string, data: { level?: number; coin?: number; tokens?: number; trustTier?: string; capabilities?: string[] }): void {
+		const agent = this.agents.find(a => a.name === name);
+		if (!agent) return;
+		if (data.level !== undefined) agent.level = data.level;
+		if (data.coin !== undefined) agent.coin = data.coin;
+		if (data.tokens !== undefined) agent.tokens = data.tokens;
+		if (data.trustTier !== undefined) agent.trustTier = data.trustTier as "supervised" | "trusted" | "autonomous";
+		if (data.capabilities !== undefined) agent.capabilities = data.capabilities;
+		this.notify();
+	}
+
+	getAgentEconomy(name: string): { level: number; coin: number; tokens: number; trustTier: string; capabilities: string[] } | undefined {
+		const agent = this.agents.find(a => a.name === name);
+		if (!agent) return undefined;
+		return { level: agent.level ?? 1, coin: agent.coin ?? 0, tokens: agent.tokens ?? 0, trustTier: agent.trustTier ?? "supervised", capabilities: agent.capabilities ?? [] };
+	}
 
 	currentScene: Setting = "hub";
 
@@ -83,15 +105,8 @@ export class DashboardStore extends EventTarget {
 	dayPhase = "morning-arrival";
 	weatherState = "clear";
 
-	setDayPhase(phase: string): void {
-		this.dayPhase = phase;
-		this.notify();
-	}
-
-	setWeatherState(weather: string): void {
-		this.weatherState = weather;
-		this.notify();
-	}
+	setDayPhase(phase: string): void { this.dayPhase = phase; this.notify(); }
+	setWeatherState(weather: string): void { this.weatherState = weather; this.notify(); }
 
 	// ── World event log ──────────────────────────────────────────
 	worldEventLog: Array<{ timestamp: number; type: string; label: string }> = [];
@@ -106,24 +121,14 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	clearActiveWorldEvent(): void {
-		this.activeWorldEvent = null;
-		this.notify();
-	}
-
-	setDayProgress(progress: number, cycle: number): void {
-		this.dayProgress = progress;
-		this.cycleCount = cycle;
-	}
+	clearActiveWorldEvent(): void { this.activeWorldEvent = null; this.notify(); }
+	setDayProgress(progress: number, cycle: number): void { this.dayProgress = progress; this.cycleCount = cycle; }
 
 	// ── Debug log ─────────────────────────────────────────────────
 	debugMode = false;
 	debugLog: { timestamp: number; agentName: string; prompt: string; context?: string; rawResponse?: string }[] = [];
 
-	toggleDebugMode(): void {
-		this.debugMode = !this.debugMode;
-		this.notify();
-	}
+	toggleDebugMode(): void { this.debugMode = !this.debugMode; this.notify(); }
 
 	pushDebugEntry(agentName: string, prompt: string, context?: string): void {
 		this.debugLog.push({ timestamp: Date.now(), agentName, prompt, context });
@@ -133,7 +138,6 @@ export class DashboardStore extends EventTarget {
 
 	pushDebugResponse(agentName: string, rawResponse: string): void {
 		if (!this.debugMode) return;
-		// Append raw response to the last entry for this agent, or create a new one
 		const lastEntry = [...this.debugLog].reverse().find((e) => e.agentName === agentName);
 		if (lastEntry) {
 			lastEntry.rawResponse = rawResponse;

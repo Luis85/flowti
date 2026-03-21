@@ -5,7 +5,7 @@
  * Manages the full walk-to-door → exit → enter lifecycle for all entity types.
  */
 
-import type { SceneRegistry, DoorConfig } from "./scene-registry.js";
+import type { SceneRegistry, DoorConfig, SceneTransition } from "./scene-registry.js";
 import type { SceneEntity } from "../data/scene-entity.js";
 
 export interface TransferRequest {
@@ -21,6 +21,10 @@ export interface RoomSwitcherConfig {
 	readonly getEntityState: (id: string) => string;
 	readonly isTaskLocked: (id: string) => boolean;
 	readonly onTransferComplete?: (entityId: string, fromRoom: string, toRoom: string, reason: string) => void;
+}
+
+function isSceneTransition(s: unknown): s is SceneTransition {
+	return s !== null && typeof s === "object" && "exit" in s && "enter" in s;
 }
 
 const AGENT_SWITCH_INTERVAL = 10_000;
@@ -108,12 +112,13 @@ export class RoomSwitcher {
 		const fromScene = registry.getScene(fromRoom);
 		const toScene = registry.getScene(targetRoom);
 		if (!fromScene || !toScene) return;
+		if (!isSceneTransition(fromScene) || !isSceneTransition(toScene)) return;
 
 		// Exit current scene — GameScene.exit() handles actor cleanup
-		(fromScene as unknown as { exit(id: string): void }).exit(entityId);
+		fromScene.exit(entityId);
 
 		// Enter target scene
-		(toScene as unknown as { enter(entity: SceneEntity, from: string | null): void }).enter(entity, fromRoom);
+		toScene.enter(entity, fromRoom);
 
 		registry.setEntityRoom(entityId, targetRoom);
 		registry.clearTransit(entityId);

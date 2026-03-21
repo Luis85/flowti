@@ -26,6 +26,8 @@ export interface PetBTContext {
 	nearbyIdleAgent?: string;
 	targetRoom?: string;
 	currentRoom?: string;
+	hunger: number;
+	thirst: number;
 }
 
 export interface PetBTObject {
@@ -36,15 +38,18 @@ export interface PetBTObject {
 	FollowTimeElapsed(): boolean;
 	SleepChanceRoll(): boolean;
 	WanderChanceRoll(): boolean;
-	ShouldFollowStressedAgent(): boolean;
-	ShouldFollowRandomAgent(): boolean;
-	LostFollowTarget(): boolean;
+	IsHungry(): boolean;
+	IsThirsty(): boolean;
 	WalkToExit(): State;
 	FollowAgent(): State;
 	ReturnHome(): State;
 	Nap(): State;
 	PickWanderPoint(): State;
 	WalkToPoint(): State;
+	SeekFoodBowl(): State;
+	SeekWaterBowl(): State;
+	PetEat(): State;
+	PetDrink(): State;
 	Idle(): State;
 }
 
@@ -59,6 +64,16 @@ const PET_MASTER_MDSL = `root {
 			action [FollowAgent]
 			condition [FollowTimeElapsed]
 			action [ReturnHome]
+		}
+		sequence {
+			condition [IsHungry]
+			action [SeekFoodBowl]
+			action [PetEat]
+		}
+		sequence {
+			condition [IsThirsty]
+			action [SeekWaterBowl]
+			action [PetDrink]
 		}
 		sequence {
 			condition [SleepChanceRoll]
@@ -90,6 +105,8 @@ export function createPetBT(
 		stateTimer: 0,
 		speed,
 		petType,
+		hunger: 70,
+		thirst: 70,
 	};
 
 	const collectedActions: CollectedAction[] = [];
@@ -120,26 +137,12 @@ export function createPetBT(
 		return context.state === "idle" && context.stateTimer <= 0;
 	}
 
-	function ShouldFollowStressedAgent(): boolean {
-		return context.petType === "cat"
-			&& context.state === "idle"
-			&& context.nearbyAgentMorale !== undefined
-			&& context.nearbyAgentMorale < 30
-			&& Math.random() < 0.0005;
+	function IsHungry(): boolean {
+		return context.hunger < 40;
 	}
 
-	function ShouldFollowRandomAgent(): boolean {
-		return context.petType === "dog"
-			&& context.state === "idle"
-			&& context.nearbyIdleAgent !== undefined
-			&& Math.random() < 0.001;
-	}
-
-	function LostFollowTarget(): boolean {
-		return context.followTarget !== null
-			&& context.currentRoom !== undefined
-			&& context.targetRoom !== undefined
-			&& context.currentRoom !== context.targetRoom;
+	function IsThirsty(): boolean {
+		return context.thirst < 35;
 	}
 
 	// ── Actions ─────────────────────────────────────────────
@@ -182,6 +185,28 @@ export function createPetBT(
 		return fromNodeState("succeeded");
 	}
 
+	function SeekFoodBowl(): State {
+		collect("pet-seek-food", { name: context.name });
+		return fromNodeState("succeeded");
+	}
+
+	function SeekWaterBowl(): State {
+		collect("pet-seek-water", { name: context.name });
+		return fromNodeState("succeeded");
+	}
+
+	function PetEat(): State {
+		context.hunger = Math.min(100, context.hunger + 30);
+		collect("pet-eat", { name: context.name });
+		return fromNodeState("succeeded");
+	}
+
+	function PetDrink(): State {
+		context.thirst = Math.min(100, context.thirst + 25);
+		collect("pet-drink", { name: context.name });
+		return fromNodeState("succeeded");
+	}
+
 	function Idle(): State {
 		context.state = "idle";
 		collect("pet-idle", { name: context.name });
@@ -193,14 +218,16 @@ export function createPetBT(
 		collectedActions,
 		HasExitTarget, HasFollowTarget, FollowTimeElapsed,
 		SleepChanceRoll, WanderChanceRoll,
-		ShouldFollowStressedAgent, ShouldFollowRandomAgent, LostFollowTarget,
+		IsHungry, IsThirsty,
 		WalkToExit, FollowAgent, ReturnHome,
-		Nap, PickWanderPoint, WalkToPoint, Idle,
+		Nap, PickWanderPoint, WalkToPoint,
+		SeekFoodBowl, SeekWaterBowl, PetEat, PetDrink,
+		Idle,
 	};
 
 	const tree = createTree(PET_MASTER_MDSL, agent);
 
-	// Bridge: PetBTObject is not a BTAgentObject, but AgentBT just needs tree + agent.
-	// We cast to satisfy the interface — btTick only accesses tree.step() and agent.collectedActions.
-	return { tree, agent: agent as unknown as import("./bt-agent.js").BTAgentObject };
+	// PetBTObject satisfies BtAgentBase (has collectedActions and context.name).
+	// AgentBT.agent is typed as BtAgentBase so no cast is needed.
+	return { tree, agent };
 }

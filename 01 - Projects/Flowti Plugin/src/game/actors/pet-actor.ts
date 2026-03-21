@@ -9,6 +9,10 @@ import * as ex from "excalibur";
 import type { PetDefinition } from "../data/pet-definitions.js";
 import type { SceneEntity } from "../data/scene-entity.js";
 
+// ── Affection visual thresholds ────────────────────────────────────────
+const AFFECTION_WARM_THRESHOLD = 75;   // warm tint above this
+const AFFECTION_DIM_THRESHOLD = 25;    // gray tint below this
+
 type PetState = "idle" | "wandering" | "sleeping" | "following" | "exiting";
 
 // World bounds with margin so pets stay visible
@@ -27,8 +31,14 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	private homePos: ex.Vector;
 	private targetPos: ex.Vector | null = null;
 	private followTarget: string | null = null;
-	private sleepZTimer = 0;
 	private reachedExit = false;
+	private hunger = 70;
+	private thirst = 70;
+	private affection = 50;
+	private utilityScore = 0;
+	private bondedAgent: string | null = null;
+	private readonly proximityTracker: Map<string, number> = new Map();
+	private bondLabelActor: ex.Actor | null = null;
 
 	constructor(def: PetDefinition, x: number, y: number, entityId: string) {
 		super({
@@ -230,6 +240,27 @@ export class PetActor extends ex.Actor implements SceneEntity {
 			});
 			this.graphics.use(canvas);
 		}
+		this.buildBondLabelChild();
+	}
+
+	onPreUpdate(_engine: ex.Engine, _delta: number): void {
+		// Affection-based color tint — warm glow when happy, gray when neglected
+		if (this.affection >= AFFECTION_WARM_THRESHOLD) {
+			// Warm pink tint — subtle, just a hint of warmth
+			const t = (this.affection - AFFECTION_WARM_THRESHOLD) / (100 - AFFECTION_WARM_THRESHOLD);
+			this.color = new ex.Color(255, Math.round(200 + 55 * (1 - t)), Math.round(200 + 55 * (1 - t)), 0.25 * t);
+		} else if (this.affection <= AFFECTION_DIM_THRESHOLD) {
+			// Desaturated/gray tint — low affection
+			const t = 1 - this.affection / AFFECTION_DIM_THRESHOLD;
+			this.color = new ex.Color(180, 180, 180, 0.3 * t);
+		} else {
+			this.color = ex.Color.Transparent;
+		}
+
+		// Bond label visibility — show "♥" near name when bonded
+		if (this.bondLabelActor) {
+			this.bondLabelActor.graphics.visible = this.bondedAgent !== null;
+		}
 	}
 
 	getState(): PetState {
@@ -251,9 +282,33 @@ export class PetActor extends ex.Actor implements SceneEntity {
 		}
 	}
 
+	getHunger(): number { return this.hunger; }
+	getThirst(): number { return this.thirst; }
+	setHunger(v: number): void { this.hunger = Math.max(0, Math.min(100, v)); }
+	setThirst(v: number): void { this.thirst = Math.max(0, Math.min(100, v)); }
+
+	getAffection(): number { return this.affection; }
+	setAffection(v: number): void { this.affection = Math.max(0, Math.min(100, v)); }
+	addAffection(amount: number): void { this.setAffection(this.affection + amount); }
+
+	getUtilityScore(): number { return this.utilityScore; }
+	incrementUtilityScore(): void { this.utilityScore++; }
+	getBondedAgent(): string | null { return this.bondedAgent; }
+
+	trackProximity(agentName: string, deltaMs: number): void {
+		this.proximityTracker.set(agentName, (this.proximityTracker.get(agentName) ?? 0) + deltaMs / 1000);
+		let maxTime = 60; let maxAgent: string | null = null;
+		for (const [n, t] of this.proximityTracker) { if (t > maxTime) { maxTime = t; maxAgent = n; } }
+		if (maxAgent && maxAgent !== this.bondedAgent) this.bondedAgent = maxAgent;
+	}
+
 	/** Called by the engine each frame with deltaMs. */
 	updateBehavior(deltaMs: number): void {
 		if (this.def.speed === 0) return; // stationary (fish)
+
+		this.hunger = Math.max(0, this.hunger - 0.3 * (deltaMs / 1000));
+		this.thirst = Math.max(0, this.thirst - 0.4 * (deltaMs / 1000));
+		this.affection = Math.max(0, this.affection - 0.05 * (deltaMs / 1000));
 
 		this.stateTimer -= deltaMs;
 
@@ -284,8 +339,7 @@ export class PetActor extends ex.Actor implements SceneEntity {
 
 	private tickIdle(deltaMs: number): void {
 		if (Math.random() < this.def.behaviors.sleepChance * (deltaMs / 1000)) {
-			this.state = "sleeping";
-			this.stateTimer = 5000 + Math.random() * 10000;
+			this.state = "sleeping"; this.stateTimer = 5000 + Math.random() * 10000;
 			return;
 		}
 		if (this.stateTimer <= 0) {
@@ -306,8 +360,7 @@ export class PetActor extends ex.Actor implements SceneEntity {
 			const dy = this.targetPos.y - this.pos.y;
 			const dist = Math.sqrt(dx * dx + dy * dy);
 			if (dist < 5) {
-				this.state = "idle";
-				this.stateTimer = 2000 + Math.random() * 5000;
+				this.state = "idle"; this.stateTimer = 2000 + Math.random() * 5000;
 				this.targetPos = null;
 			} else {
 				const speed = 30 * this.def.speed * (deltaMs / 1000);
@@ -324,8 +377,7 @@ export class PetActor extends ex.Actor implements SceneEntity {
 		}
 	}
 
-	private tickSleeping(deltaMs: number): void {
-		this.sleepZTimer += deltaMs;
+	private tickSleeping(_deltaMs: number): void {
 		if (this.stateTimer <= 0) {
 			this.state = "idle";
 			this.stateTimer = 3000 + Math.random() * 5000;
@@ -447,5 +499,34 @@ export class PetActor extends ex.Actor implements SceneEntity {
 		this.pos.x = x;
 		this.pos.y = y;
 		this.resetHome();
+	}
+
+	// ── Private ──────────────────────────────────────────────────────
+
+	private buildBondLabelChild(): void {
+		const SIZE = 14;
+		const bondCanvas = new ex.Canvas({
+			width: SIZE,
+			height: SIZE,
+			cache: true,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				ctx.fillStyle = "rgba(244, 114, 182, 0.85)";
+				ctx.font = "bold 10px system-ui, sans-serif";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
+				ctx.fillText("\u2665", SIZE / 2, SIZE / 2 + 0.5);
+			},
+		});
+
+		this.bondLabelActor = new ex.Actor({
+			pos: ex.vec(8, -10),
+			anchor: ex.vec(0.5, 0.5),
+			z: 20,
+			collisionType: ex.CollisionType.PreventCollision,
+		});
+		this.bondLabelActor.scale = ex.vec(1 / (this.def.scale * 2), 1 / (this.def.scale * 2));
+		this.bondLabelActor.graphics.use(bondCanvas);
+		this.bondLabelActor.graphics.visible = false;
+		this.addChild(this.bondLabelActor);
 	}
 }
