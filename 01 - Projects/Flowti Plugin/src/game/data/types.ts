@@ -6,7 +6,8 @@ export type AgentActionType =
 	| "task-started" | "task-completed" | "idle" | "error"
 	| "queued"
 	| "artifact-dropped" | "file-read" | "file-written" | "file-opened"
-	| "goal-started" | "goal-completed" | "template-generated";
+	| "goal-started" | "goal-completed" | "template-generated"
+	| "seek-rest" | "seek-agent" | "seek-quiet" | "wander-sad";
 
 export interface AgentAction {
 	readonly id: string;

@@ -257,23 +257,27 @@ export function updateSessionPathsForFileMove(session: Session, oldPath: string,
  * Uses prefix matching to catch all children under the folder.
  * Returns true if any path was updated.
  */
+/** Remap a path under a renamed folder. Returns [newValue, changed]. */
+function remapFolderPath(path: string | null, oldPath: string, oldPrefix: string, newPath: string): [string | null, boolean] {
+	if (!path) return [path, false];
+	if (path.startsWith(oldPrefix) || path === oldPath + "/") {
+		return [newPath + path.slice(oldPath.length), true];
+	}
+	return [path, false];
+}
+
 export function updateSessionPathsForFolderMove(session: Session, oldPath: string, newPath: string): boolean {
 	let hit = false;
 	const oldPrefix = oldPath + "/";
 
-	if (session.focusFile && session.focusFile.startsWith(oldPrefix)) {
-		session.focusFile = newPath + session.focusFile.slice(oldPath.length); hit = true;
-	}
-	if (session.notesFile && session.notesFile.startsWith(oldPrefix)) {
-		session.notesFile = newPath + session.notesFile.slice(oldPath.length); hit = true;
-	}
-	if (session.canvasFile && session.canvasFile.startsWith(oldPrefix)) {
-		session.canvasFile = newPath + session.canvasFile.slice(oldPath.length); hit = true;
-	}
+	let changed: boolean;
+	[session.focusFile, changed] = remapFolderPath(session.focusFile, oldPath, oldPrefix, newPath); hit = hit || changed;
+	[session.notesFile, changed] = remapFolderPath(session.notesFile, oldPath, oldPrefix, newPath); hit = hit || changed;
+	[session.canvasFile, changed] = remapFolderPath(session.canvasFile, oldPath, oldPrefix, newPath); hit = hit || changed;
+
 	for (const binding of session.contextBindings) {
-		if (binding.path === oldPath + "/" || binding.path.startsWith(oldPrefix)) {
-			binding.path = newPath + binding.path.slice(oldPath.length); hit = true;
-		}
+		const [np, c] = remapFolderPath(binding.path, oldPath, oldPrefix, newPath);
+		if (c) { binding.path = np!; hit = true; }
 	}
 	for (const artifact of session.artifacts) {
 		if (artifact.path.startsWith(oldPrefix)) {

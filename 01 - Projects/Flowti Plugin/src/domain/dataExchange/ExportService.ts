@@ -44,6 +44,20 @@ export interface ExportServiceDeps {
 	readExternalFile?: ReadExternalFileCallback;
 }
 
+/** Dispatch map for file property resolution — avoids switch/case complexity. */
+const FILE_PROPERTY_RESOLVERS: Record<string, (file: VaultFileInfo) => string> = {
+	"file.name": (f) => f.basename,
+	"file.basename": (f) => f.basename,
+	"file.fullname": (f) => `${f.basename}.${f.extension}`,
+	"file.path": (f) => f.path,
+	"file.folder": (f) => f.folder,
+	"file.ext": (f) => f.extension,
+	"file.ctime": (f) => f.stat?.ctime ? new Date(f.stat.ctime).toISOString() : "",
+	"file.mtime": (f) => f.stat?.mtime ? new Date(f.stat.mtime).toISOString() : "",
+	"file.size": (f) => f.stat?.size !== undefined ? String(f.stat.size) : "",
+	"file.tags": (f) => f.tags?.join(", ") ?? "",
+};
+
 export class ExportService {
 	private eventBus: IEventBus;
 	private fileSystem: IFileSystemClient;
@@ -348,63 +362,55 @@ export class ExportService {
 	/**
 	 * Executes the full export pipeline.
 	 */
+	/** Build rows using resolved columns (Base view exports). */
+	private buildResolvedRows(files: VaultFileInfo[], config: ExportConfig, operationId: string, pipelineId?: string): { headers: string[]; rows: Array<Record<string, string>> } {
+		const headers = config.resolvedColumns!.map((rc) => rc.header);
+		const rows: Array<Record<string, string>> = [];
+		for (let fi = 0; fi < files.length; fi++) {
+			const row: Record<string, string> = {};
+			for (const rc of config.resolvedColumns!) row[rc.header] = this.resolveColumnValue(files[fi], rc);
+			rows.push(row);
+			void this.eventBus.emit("dataExchange.export.progress", { operationId, current: fi + 1, total: files.length, currentFile: files[fi].path, pipelineId });
+		}
+		return { headers, rows };
+	}
+
+	/** Build rows using legacy dual-array path (folder exports). */
+	private buildLegacyRows(files: VaultFileInfo[], config: ExportConfig, operationId: string, pipelineId?: string): { headers: string[]; rows: Array<Record<string, string>> } {
+		const dn = config.displayNames ?? {};
+		const headers = [
+			...config.fileProperties.map((fp) => dn[fp] ?? this.filePropertyLabel(fp)),
+			...config.columns.map((col) => dn[col] ?? dn[`note.${col}`] ?? col),
+		];
+		const rows: Array<Record<string, string>> = [];
+		for (let fi = 0; fi < files.length; fi++) {
+			const file = files[fi];
+			const row: Record<string, string> = {};
+			for (let i = 0; i < config.fileProperties.length; i++) {
+				row[headers[i]] = this.resolveFileProperty(file, config.fileProperties[i]);
+			}
+			const fpCount = config.fileProperties.length;
+			for (let i = 0; i < config.columns.length; i++) {
+				const value = file.frontmatter?.[config.columns[i]];
+				row[headers[fpCount + i]] = value !== undefined && value !== null ? String(value) : "";
+			}
+			rows.push(row);
+			void this.eventBus.emit("dataExchange.export.progress", { operationId, current: fi + 1, total: files.length, currentFile: file.path, pipelineId });
+		}
+		return { headers, rows };
+	}
+
 	async executeExport(config: ExportConfig, options?: ExportExecuteOptions): Promise<ExportResult> {
 		const operationId = options?.operationId ?? generateUUID();
 		const pipelineId = options?.pipelineId;
 		await this.eventBus.emit("dataExchange.export.started", { operationId, config, pipelineId });
 
 		try {
-			const files = await this.resolveFiles(
-				config.sourcePath,
-				config.sourceType,
-				config.baseViewIndex,
-			);
+			const files = await this.resolveFiles(config.sourcePath, config.sourceType, config.baseViewIndex);
 
-			let headers: string[];
-			let rows: Array<Record<string, string>>;
-
-			if (config.resolvedColumns && config.resolvedColumns.length > 0) {
-				// Unified column path for Base view exports
-				headers = config.resolvedColumns.map((rc) => rc.header);
-				rows = [];
-				for (let fi = 0; fi < files.length; fi++) {
-					const file = files[fi];
-					const row: Record<string, string> = {};
-					for (const rc of config.resolvedColumns!) {
-						row[rc.header] = this.resolveColumnValue(file, rc);
-					}
-					rows.push(row);
-					void this.eventBus.emit("dataExchange.export.progress", {
-						operationId, current: fi + 1, total: files.length, currentFile: file.path, pipelineId,
-					});
-				}
-			} else {
-				// Legacy dual-array path for folder exports
-				const dn = config.displayNames ?? {};
-				headers = [
-					...config.fileProperties.map((fp) => dn[fp] ?? this.filePropertyLabel(fp)),
-					...config.columns.map((col) => dn[col] ?? dn[`note.${col}`] ?? col),
-				];
-
-				rows = [];
-				for (let fi = 0; fi < files.length; fi++) {
-					const file = files[fi];
-					const row: Record<string, string> = {};
-					for (let i = 0; i < config.fileProperties.length; i++) {
-						row[headers[i]] = this.resolveFileProperty(file, config.fileProperties[i]);
-					}
-					const fpCount = config.fileProperties.length;
-					for (let i = 0; i < config.columns.length; i++) {
-						const value = file.frontmatter?.[config.columns[i]];
-						row[headers[fpCount + i]] =
-							value !== undefined && value !== null ? String(value) : "";
-					}
-					rows.push(row);
-					void this.eventBus.emit("dataExchange.export.progress", {
-						operationId, current: fi + 1, total: files.length, currentFile: file.path, pipelineId,
-					});
-				}
-			}
+			const { headers, rows } = config.resolvedColumns && config.resolvedColumns.length > 0
+				? this.buildResolvedRows(files, config, operationId, pipelineId)
+				: this.buildLegacyRows(files, config, operationId, pipelineId);
 
 			// Generate output content
 			const newContent = this.csvParser.generate(headers, rows, config.format);
@@ -474,22 +480,8 @@ export class ExportService {
 	 * Resolves a file property value from a VaultFileInfo.
 	 */
 	private resolveFileProperty(file: VaultFileInfo, property: string): string {
-		switch (property) {
-			case "file.name": return file.basename;
-			case "file.basename": return file.basename;
-			case "file.fullname": return `${file.basename}.${file.extension}`;
-			case "file.path": return file.path;
-			case "file.folder": return file.folder;
-			case "file.ext": return file.extension;
-			case "file.ctime":
-				return file.stat?.ctime ? new Date(file.stat.ctime).toISOString() : "";
-			case "file.mtime":
-				return file.stat?.mtime ? new Date(file.stat.mtime).toISOString() : "";
-			case "file.size":
-				return file.stat?.size !== undefined ? String(file.stat.size) : "";
-			case "file.tags": return file.tags?.join(", ") ?? "";
-			default: return "";
-		}
+		const resolver = FILE_PROPERTY_RESOLVERS[property];
+		return resolver ? resolver(file) : "";
 	}
 
 	/**

@@ -80,107 +80,32 @@ export class TrainCaptureModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 
-		// ── Row 1: Title + rename pencil ──
-		const titleRow = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		this.renderTitleRow(contentEl);
+		this.renderTimerRow(contentEl);
 
-		const titleEl = titleRow.createEl("h3", {
-			text: this.options.previousThoughtTitle ?? this.options.trainTitle,
-		});
-
-		// Merged badge
-		if (this.options.isMerged) {
-			const badge = titleRow.createSpan({ cls: "ft-badge ft-badge-muted ft-train-merged-badge" });
-			badge.setText("Merged");
-		}
-
-		// Rename thought (pencil icon) — only when navigated to an existing thought
-		if (this.options.onRenameThought && this.options.previousThoughtTitle) {
-			const editBtn = titleRow.createEl("button", { cls: "clickable-icon" });
-			editBtn.setAttribute("aria-label", "Rename thought");
-			setIcon(editBtn, "pencil");
-			editBtn.addEventListener("click", () => {
-				titleEl.addClass("ft-hidden");
-				editBtn.addClass("ft-hidden");
-
-				const input = document.createElement("input");
-				input.type = "text";
-				input.className = "ft-train-rename-input ft-train-rename-w-full";
-				input.value = titleEl.textContent ?? "";
-				titleRow.appendChild(input);
-				input.focus();
-				input.select();
-
-				const confirm = (): void => {
-					const newTitle = input.value.trim();
-					if (newTitle && newTitle !== this.options.previousThoughtTitle) {
-						this.options.onRenameThought!(newTitle);
-						titleEl.setText(newTitle);
-					}
-					input.remove();
-					titleEl.removeClass("ft-hidden");
-					editBtn.removeClass("ft-hidden");
-				};
-
-				const cancel = (): void => {
-					input.remove();
-					titleEl.removeClass("ft-hidden");
-					editBtn.removeClass("ft-hidden");
-				};
-
-				input.addEventListener("keydown", (e: KeyboardEvent) => {
-					if (e.key === "Enter") { e.preventDefault(); confirm(); }
-					if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancel(); }
-					if (e.key === "Tab") { e.stopPropagation(); } // Don't cycle direction while renaming
-				});
-				input.addEventListener("blur", confirm);
-			});
-		}
-
-		// ── Row 2: Timer display (only when timeboxed) ──
-		if (this.options.durationMinutes > 0 && this.options.subscribeTimerTick) {
-			const timerEl = contentEl.createDiv({ cls: "ft-train-timer" });
-			const initialMs = this.options.initialRemainingMs ?? this.options.durationMinutes * 60_000;
-			timerEl.setText(formatTimer(initialMs));
-
-			this.unsubTick = this.options.subscribeTimerTick((remainingMs) => {
-				timerEl.setText(formatTimer(remainingMs));
-			});
-
-			if (this.options.subscribeTimerCompleted) {
-				this.unsubCompleted = this.options.subscribeTimerCompleted(() => {
-					this.completed = true;
-					this.close();
-				});
-			}
-		}
+		const hasMergeDown = !!this.options.isBranchEndpoint && !!this.options.onMergeDown;
+		const hasDirection = !!this.options.previousThoughtTitle;
+		const directionOptions: string[] = ["next", "branch"];
+		if (hasMergeDown) directionOptions.push("merge-down");
 
 		let titleValue = "";
-		const hasMergeDown = !!this.options.isBranchEndpoint && !!this.options.onMergeDown;
 		let selectedDirection: string = (this.options.defaultMergeDown && hasMergeDown)
 			? "merge-down"
 			: (this.options.defaultDirection ?? "next");
 		let dropdownEl: HTMLSelectElement | null = null;
-		const hasDirection = !!this.options.previousThoughtTitle;
 		let mergeDownPending = selectedDirection === "merge-down";
-
-		// Build the list of available directions for Tab cycling
-		const directionOptions: string[] = ["next", "branch"];
-		if (hasMergeDown) directionOptions.push("merge-down");
 
 		const submit = (): void => {
 			const trimmed = titleValue.trim();
 			if (!trimmed) return;
 
+			this.submitted = true;
 			if (mergeDownPending || selectedDirection === "merge-down") {
-				// Merge-down: intercepted before onSubmit — creates thought + auto-merges
-				this.submitted = true;
 				this.options.onMergeDown!(trimmed);
-				this.close();
 			} else {
-				this.submitted = true;
 				this.options.onSubmit(trimmed, selectedDirection as ThoughtDirection);
-				this.close();
 			}
+			this.close();
 		};
 
 		const cycleDirection = (): void => {
@@ -193,7 +118,6 @@ export class TrainCaptureModal extends Modal {
 			dropdownEl.dispatchEvent(new Event("change"));
 		};
 
-		// Modal-level keyboard handler: Esc to cancel, Tab to cycle direction
 		contentEl.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
 				e.preventDefault();
@@ -204,7 +128,7 @@ export class TrainCaptureModal extends Modal {
 			}
 		});
 
-		// ── Row 3: Title input (primary interaction) ──
+		// ── Row 3: Title input ──
 		new Setting(contentEl)
 			.setName(`Thought #${this.options.thoughtCount + 1}`)
 			.addText((text) => {
@@ -213,97 +137,133 @@ export class TrainCaptureModal extends Modal {
 					.onChange((value) => { titleValue = value; });
 				text.inputEl.addClass("ft-train-capture-input-w");
 				text.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
-					if (e.key === "Enter") {
-						e.preventDefault();
-						submit();
-					}
+					if (e.key === "Enter") { e.preventDefault(); submit(); }
 				});
-				// Auto-focus with slight delay for modal rendering
 				setTimeout(() => text.inputEl.focus(), 50);
 			});
 
-		// ── Row 4: Direction row — Tab hint + dropdown ──
+		// ── Row 4: Direction row ──
 		if (hasDirection) {
 			const dirRow = new Setting(contentEl);
-
-			// Tab hint (before dropdown)
 			const hint = dirRow.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted ft-train-tab-hint-mr" });
 			hint.setText("Tab to cycle");
 
 			dirRow.addDropdown((dd) => {
 				dd.addOption("next", "Continue chain \u2192");
 				dd.addOption("branch", "Branch \u2197");
-				if (hasMergeDown) {
-					dd.addOption("merge-down", "Merge down \u2193");
-				}
+				if (hasMergeDown) dd.addOption("merge-down", "Merge down \u2193");
 				dd.setValue(selectedDirection);
-				dd.onChange((value) => {
-					selectedDirection = value;
-					mergeDownPending = value === "merge-down";
-				});
+				dd.onChange((value) => { selectedDirection = value; mergeDownPending = value === "merge-down"; });
 				dropdownEl = dd.selectEl;
 			});
 		}
 
-		// ── Row 5: Action row — Back (outer left) | nav (Up/Next) + Pause/Complete/Add Thought ──
+		this.renderActionRow(contentEl, submit);
+	}
+
+	private renderTitleRow(contentEl: HTMLElement): void {
+		const titleRow = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		const titleEl = titleRow.createEl("h3", {
+			text: this.options.previousThoughtTitle ?? this.options.trainTitle,
+		});
+
+		if (this.options.isMerged) {
+			const badge = titleRow.createSpan({ cls: "ft-badge ft-badge-muted ft-train-merged-badge" });
+			badge.setText("Merged");
+		}
+
+		if (this.options.onRenameThought && this.options.previousThoughtTitle) {
+			this.renderRenameButton(titleRow, titleEl);
+		}
+	}
+
+	private renderRenameButton(titleRow: HTMLElement, titleEl: HTMLElement): void {
+		const editBtn = titleRow.createEl("button", { cls: "clickable-icon" });
+		editBtn.setAttribute("aria-label", "Rename thought");
+		setIcon(editBtn, "pencil");
+		editBtn.addEventListener("click", () => {
+			titleEl.addClass("ft-hidden");
+			editBtn.addClass("ft-hidden");
+
+			const input = document.createElement("input");
+			input.type = "text";
+			input.className = "ft-train-rename-input ft-train-rename-w-full";
+			input.value = titleEl.textContent ?? "";
+			titleRow.appendChild(input);
+			input.focus();
+			input.select();
+
+			const confirm = (): void => {
+				const newTitle = input.value.trim();
+				if (newTitle && newTitle !== this.options.previousThoughtTitle) {
+					this.options.onRenameThought!(newTitle);
+					titleEl.setText(newTitle);
+				}
+				input.remove();
+				titleEl.removeClass("ft-hidden");
+				editBtn.removeClass("ft-hidden");
+			};
+
+			const cancel = (): void => {
+				input.remove();
+				titleEl.removeClass("ft-hidden");
+				editBtn.removeClass("ft-hidden");
+			};
+
+			input.addEventListener("keydown", (e: KeyboardEvent) => {
+				if (e.key === "Enter") { e.preventDefault(); confirm(); }
+				if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancel(); }
+				if (e.key === "Tab") { e.stopPropagation(); }
+			});
+			input.addEventListener("blur", confirm);
+		});
+	}
+
+	private renderTimerRow(contentEl: HTMLElement): void {
+		if (this.options.durationMinutes <= 0 || !this.options.subscribeTimerTick) return;
+
+		const timerEl = contentEl.createDiv({ cls: "ft-train-timer" });
+		const initialMs = this.options.initialRemainingMs ?? this.options.durationMinutes * 60_000;
+		timerEl.setText(formatTimer(initialMs));
+
+		this.unsubTick = this.options.subscribeTimerTick((remainingMs) => {
+			timerEl.setText(formatTimer(remainingMs));
+		});
+
+		if (this.options.subscribeTimerCompleted) {
+			this.unsubCompleted = this.options.subscribeTimerCompleted(() => {
+				this.completed = true;
+				this.close();
+			});
+		}
+	}
+
+	private renderActionRow(contentEl: HTMLElement, submit: () => void): void {
 		const actionSetting = new Setting(contentEl);
 		actionSetting.settingEl.addClass("ft-train-action-row-w");
 		if (actionSetting.infoEl) actionSetting.infoEl.addClass("ft-hidden");
 
-		// Back button at the outermost left of the action row (same style as Next)
 		if (this.options.onBack) {
 			actionSetting.addButton((btn) => {
-				btn.setButtonText("\u25C4 back").onClick(() => {
-					this.navAction = "back";
-					this.close();
-				});
+				btn.setButtonText("\u25C4 back").onClick(() => { this.navAction = "back"; this.close(); });
 				btn.buttonEl.classList.add("ft-train-back-btn", "ft-train-back-mr-auto");
 			});
 		}
 
-		// Navigation buttons (Up, Down, Next)
 		if (this.options.onUp) {
-			actionSetting.addButton((btn) =>
-				btn.setButtonText("\u2191 up").onClick(() => {
-					this.navAction = "up";
-					this.close();
-				})
-			);
+			actionSetting.addButton((btn) => btn.setButtonText("\u2191 up").onClick(() => { this.navAction = "up"; this.close(); }));
 		}
 		if (this.options.onDown) {
-			actionSetting.addButton((btn) =>
-				btn.setButtonText("\u2193 down").onClick(() => {
-					this.navAction = "down";
-					this.close();
-				})
-			);
+			actionSetting.addButton((btn) => btn.setButtonText("\u2193 down").onClick(() => { this.navAction = "down"; this.close(); }));
 		}
 		if (this.options.onNext) {
-			actionSetting.addButton((btn) =>
-				btn.setButtonText("Next \u25BA").onClick(() => {
-					this.navAction = "next";
-					this.close();
-				})
-			);
+			actionSetting.addButton((btn) => btn.setButtonText("Next \u25BA").onClick(() => { this.navAction = "next"; this.close(); }));
 		}
 
 		actionSetting
-			.addButton((btn) =>
-				btn.setButtonText("Pause").onClick(() => this.close())
-			)
-			.addButton((btn) =>
-				btn.setButtonText("Complete").onClick(() => {
-					this.completed = true;
-					this.close();
-				})
-			)
-			.addButton((btn) =>
-				btn
-					.setButtonText("Add thought")
-					.setCta()
-					.onClick(() => submit())
-			);
-
+			.addButton((btn) => btn.setButtonText("Pause").onClick(() => this.close()))
+			.addButton((btn) => btn.setButtonText("Complete").onClick(() => { this.completed = true; this.close(); }))
+			.addButton((btn) => btn.setButtonText("Add thought").setCta().onClick(() => submit()));
 	}
 
 	onClose(): void {

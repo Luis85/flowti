@@ -20,18 +20,7 @@ export class CsvConfigPage {
 		const state = this.deps.getState();
 
 		if (state.parseError) {
-			const alert = ws.createDiv({ cls: "ft-alert-error ft-p-3 ft-m-3" });
-			alert.createEl("strong", { text: "Parse error: " });
-			alert.createSpan({ text: state.parseError });
-			const actions = ws.createDiv({ cls: "ft-detail-actions ft-p-3" });
-			const cancelBtn = actions.createEl("span", { cls: "ft-nav-link" });
-			setIcon(cancelBtn.createSpan(), "arrow-left");
-			cancelBtn.appendText(" Back to CSV");
-			cancelBtn.addEventListener("click", () => {
-				this.deps.resetImportState();
-				this.deps.setState({ currentPage: "landing" });
-				this.deps.renderContent();
-			});
+			this.renderParseError(ws, state.parseError);
 			return;
 		}
 
@@ -41,7 +30,32 @@ export class CsvConfigPage {
 
 		// ── Left panel: config form ──
 		const panel = split.createDiv({ cls: "ft-config-panel" });
+		this.renderLeftPanel(panel, state);
 
+		// ── Right panel: column mapping + custom properties ──
+		const content = split.createDiv({ cls: "ft-config-content" });
+		this.renderRightPanel(content, state);
+
+		// Sync top bar Save button visibility after every render
+		this.deps.updateUnsavedHint();
+	}
+
+	private renderParseError(ws: HTMLElement, parseError: string): void {
+		const alert = ws.createDiv({ cls: "ft-alert-error ft-p-3 ft-m-3" });
+		alert.createEl("strong", { text: "Parse error: " });
+		alert.createSpan({ text: parseError });
+		const actions = ws.createDiv({ cls: "ft-detail-actions ft-p-3" });
+		const cancelBtn = actions.createEl("span", { cls: "ft-nav-link" });
+		setIcon(cancelBtn.createSpan(), "arrow-left");
+		cancelBtn.appendText(" Back to CSV");
+		cancelBtn.addEventListener("click", () => {
+			this.deps.resetImportState();
+			this.deps.setState({ currentPage: "landing" });
+			this.deps.renderContent();
+		});
+	}
+
+	private renderLeftPanel(panel: HTMLElement, state: ReturnType<CsvComponentDeps["getState"]>): void {
 		panel.createEl("h3", { text: "Configure import", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		// Action bar
@@ -147,7 +161,10 @@ export class CsvConfigPage {
 				});
 			});
 
-		// ── Create .base view option ───────────────────────
+		this.renderBaseViewOption(panel, state);
+	}
+
+	private renderBaseViewOption(panel: HTMLElement, state: ReturnType<CsvComponentDeps["getState"]>): void {
 		const file = this.deps.getFile();
 		let basePath = state.basePath;
 		if (!basePath) {
@@ -201,10 +218,9 @@ export class CsvConfigPage {
 				});
 			}
 		}
+	}
 
-		// ── Right panel: column mapping + custom properties ──
-		const content = split.createDiv({ cls: "ft-config-content" });
-
+	private renderRightPanel(content: HTMLElement, state: ReturnType<CsvComponentDeps["getState"]>): void {
 		const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const headerTitle = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		headerTitle.addClass("ft-flex-1");
@@ -260,9 +276,6 @@ export class CsvConfigPage {
 
 		const propsContainer = content.createDiv({ cls: "ft-custom-props" });
 		this.renderCustomProperties(propsContainer, headerTitle);
-
-		// Sync top bar Save button visibility after every render
-		this.deps.updateUnsavedHint();
 	}
 
 	private renderCustomProperties(container: HTMLElement, badgeHost?: HTMLElement): void {

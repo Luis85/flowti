@@ -148,43 +148,36 @@ export class TableTileRenderer implements TileRenderer {
 		ctx: TileRenderContext,
 	): void {
 		tbody.empty();
-		const rules = ctx.tile.conditionalRules;
 		for (const row of rows) {
 			const tr = tbody.createEl("tr");
 			for (const col of columns) {
-				const val = row[col];
-				const td = tr.createEl("td", { cls: "ft-text-sm" });
-				td.textContent = typeof val === "number" ? fmtNum(val, ctx, ctx.result?.columnTypeHints, col) : String(val ?? "");
-
-				if (typeof val === "number") {
-					if (rules && rules.length > 0) {
-						const colRules = rules.filter((r) => r.column === col);
-						if (colRules.length > 0) {
-							const color = evaluateConditionalRules(val, colRules);
-							if (color) {
-								td.style.backgroundColor = color;
-								td.addClass("ft-table-cond-format");
-							}
-						}
-					}
-				} else if (typeof val === "string" && (ctx.onCrossTileFilter || ctx.onDrillDown)) {
-					td.addClass("ft-table-cell-clickable");
-
-					const isActive = ctx.activeFilters?.some((f) => f.column === col && f.values.includes(val));
-					if (isActive) {
-						td.addClass("ft-table-cell-active-filter");
-					}
-
-					td.addEventListener("click", () => {
-						if (ctx.onCrossTileFilter) {
-							ctx.onCrossTileFilter(ctx.tile.id, col, val);
-						} else {
-							ctx.onDrillDown!(col, val);
-						}
-					});
-				}
+				this.renderCell(tr, row[col], col, ctx);
 			}
 		}
+	}
+
+	private renderCell(tr: HTMLElement, val: unknown, col: string, ctx: TileRenderContext): void {
+		const td = tr.createEl("td", { cls: "ft-text-sm" });
+		td.textContent = typeof val === "number" ? fmtNum(val, ctx, ctx.result?.columnTypeHints, col) : String(val ?? "");
+		if (typeof val === "number") {
+			this.applyConditionalFormat(td, val, col, ctx);
+		} else if (typeof val === "string" && (ctx.onCrossTileFilter || ctx.onDrillDown)) {
+			td.addClass("ft-table-cell-clickable");
+			if (ctx.activeFilters?.some((f) => f.column === col && f.values.includes(val))) td.addClass("ft-table-cell-active-filter");
+			td.addEventListener("click", () => {
+				if (ctx.onCrossTileFilter) ctx.onCrossTileFilter(ctx.tile.id, col, val);
+				else ctx.onDrillDown!(col, val);
+			});
+		}
+	}
+
+	private applyConditionalFormat(td: HTMLElement, val: number, col: string, ctx: TileRenderContext): void {
+		const rules = ctx.tile.conditionalRules;
+		if (!rules || rules.length === 0) return;
+		const colRules = rules.filter((r) => r.column === col);
+		if (colRules.length === 0) return;
+		const color = evaluateConditionalRules(val, colRules);
+		if (color) { td.style.backgroundColor = color; td.addClass("ft-table-cond-format"); }
 	}
 
 	/** Render pagination bar below the table (prev/next + page indicator). */

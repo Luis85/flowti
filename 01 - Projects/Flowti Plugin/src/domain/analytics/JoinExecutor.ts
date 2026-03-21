@@ -40,6 +40,41 @@ export class JoinExecutor {
 	 *
 	 * Uses hash-based join (O(n+m) per join step).
 	 */
+	/** Build a hash index from rows keyed by a column value. */
+	private buildHashIndex(rows: RawRow[], column: string): Map<string, RawRow[]> {
+		const index = new Map<string, RawRow[]>();
+		for (const row of rows) {
+			const key = row[column] ?? "";
+			if (!index.has(key)) index.set(key, []);
+			index.get(key)!.push(row);
+		}
+		return index;
+	}
+
+	/** Execute a single join step between left and right rows. */
+	private executeJoinStep(leftRows: RawRow[], rightRows: RawRow[], join: JoinSpec): RawRow[] {
+		const rightIndex = this.buildHashIndex(rightRows, join.rightColumn);
+		const joined: RawRow[] = [];
+
+		for (const leftRow of leftRows) {
+			const key = leftRow[join.leftColumn] ?? "";
+			const matches = rightIndex.get(key);
+
+			if (matches && matches.length > 0) {
+				for (const rightRow of matches) {
+					joined.push({ ...leftRow, ...rightRow });
+				}
+			} else if (join.type === "left") {
+				const rightHeaders = rightRows.length > 0 ? Object.keys(rightRows[0]) : [];
+				const filler: RawRow = {};
+				for (const h of rightHeaders) filler[h] = "Unknown";
+				joined.push({ ...leftRow, ...filler });
+			}
+		}
+
+		return joined;
+	}
+
 	applyJoins(
 		tables: Map<string, RawRow[]>,
 		joins: JoinSpec[],
@@ -54,39 +89,7 @@ export class JoinExecutor {
 		for (const join of joins) {
 			const leftRows = result ?? tables.get(join.leftSource) ?? [];
 			const rightRows = tables.get(join.rightSource) ?? [];
-
-			// Build hash index on right side
-			const rightIndex = new Map<string, RawRow[]>();
-			for (const row of rightRows) {
-				const key = row[join.rightColumn] ?? "";
-				if (!rightIndex.has(key)) rightIndex.set(key, []);
-				rightIndex.get(key)!.push(row);
-			}
-
-			const joined: RawRow[] = [];
-			for (const leftRow of leftRows) {
-				const key = leftRow[join.leftColumn] ?? "";
-				const matches = rightIndex.get(key);
-
-				if (matches && matches.length > 0) {
-					for (const rightRow of matches) {
-						joined.push({ ...leftRow, ...rightRow });
-					}
-				} else if (join.type === "left") {
-					// Left join: keep left row, fill right columns with "Unknown"
-					const rightHeaders = rightRows.length > 0
-						? Object.keys(rightRows[0])
-						: [];
-					const filler: RawRow = {};
-					for (const h of rightHeaders) {
-						filler[h] = "Unknown";
-					}
-					joined.push({ ...leftRow, ...filler });
-				}
-				// inner join: skip unmatched rows
-			}
-
-			result = joined;
+			result = this.executeJoinStep(leftRows, rightRows, join);
 		}
 
 		return result ?? [];

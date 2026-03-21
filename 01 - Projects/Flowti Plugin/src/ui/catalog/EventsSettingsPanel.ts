@@ -25,41 +25,15 @@ export function renderEventsSettingsPanel(
 	const state = deps.getState();
 	const eventsFolder = deps.getEntityFolder("events");
 
-	// Configured filter toggle
 	const configuredCount = getConfiguredCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, deps.vaultQuery, eventsFolder, state.subscriptions, state.definitions);
-	const configuredRow = container.createDiv({ cls: "ft-settings-row" });
-	const configuredToggle = configuredRow.createSpan({
-		cls: `ft-visibility-toggle${callbacks.filterChipConfigured ? "" : " ft-visibility-off"}`,
-	});
-	setIcon(configuredToggle, callbacks.filterChipConfigured ? "eye" : "eye-off");
-	configuredToggle.setAttribute("aria-label", callbacks.filterChipConfigured ? "Show all" : "Only configured");
-	configuredToggle.addEventListener("click", () => callbacks.onToggleConfigured());
-	configuredRow.createSpan({ text: `Only configured (${configuredCount})`, cls: "ft-settings-row-name" });
+	addToggleRow(container, callbacks.filterChipConfigured, `Only configured (${configuredCount})`, () => callbacks.onToggleConfigured());
 
-	// Followed filter toggle
 	const followedCount = getFollowedCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, deps.vaultQuery, eventsFolder, state.notifiedTypes);
-	const followedRow = container.createDiv({ cls: "ft-settings-row" });
-	const followedToggle = followedRow.createSpan({
-		cls: `ft-visibility-toggle${callbacks.filterChipFollowed ? "" : " ft-visibility-off"}`,
-	});
-	setIcon(followedToggle, callbacks.filterChipFollowed ? "eye" : "eye-off");
-	followedToggle.setAttribute("aria-label", callbacks.filterChipFollowed ? "Show all" : "Only followed");
-	followedToggle.addEventListener("click", () => callbacks.onToggleFollowed());
-	followedRow.createSpan({ text: `Only followed (${followedCount})`, cls: "ft-settings-row-name" });
+	addToggleRow(container, callbacks.filterChipFollowed, `Only followed (${followedCount})`, () => callbacks.onToggleFollowed());
 
-	// Show system events toggle
-	const systemRow = container.createDiv({ cls: "ft-settings-row" });
-	const systemToggle = systemRow.createSpan({
-		cls: `ft-visibility-toggle${state.showSystemEvents ? "" : " ft-visibility-off"}`,
+	addToggleRow(container, state.showSystemEvents, "Show system events", () => {
+		void deps.eventBus.emit("settings.updateShowSystemEvents", { showSystemEvents: !state.showSystemEvents });
 	});
-	setIcon(systemToggle, state.showSystemEvents ? "eye" : "eye-off");
-	systemToggle.setAttribute("aria-label", state.showSystemEvents ? "Hide system events" : "Show system events");
-	systemToggle.addEventListener("click", () => {
-		void deps.eventBus.emit("settings.updateShowSystemEvents", {
-			showSystemEvents: !state.showSystemEvents,
-		});
-	});
-	systemRow.createSpan({ text: "Show system events", cls: "ft-settings-row-name" });
 
 	// Category visibility section
 	const categories = getOrderedCategories(state.catalogCategories);
@@ -131,4 +105,12 @@ export function renderEventsSettingsPanel(
 			categories: [...DEFAULT_CATALOG_CATEGORIES],
 		});
 	});
+}
+
+function addToggleRow(container: HTMLElement, active: boolean, label: string, onClick: () => void): void {
+	const row = container.createDiv({ cls: "ft-settings-row" });
+	const toggle = row.createSpan({ cls: `ft-visibility-toggle${active ? "" : " ft-visibility-off"}` });
+	setIcon(toggle, active ? "eye" : "eye-off");
+	toggle.addEventListener("click", onClick);
+	row.createSpan({ text: label, cls: "ft-settings-row-name" });
 }

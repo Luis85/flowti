@@ -99,7 +99,18 @@ export class PropertiesTab {
 			return;
 		}
 
-		// Header
+		const hasDoc = state.documentedProperties.has(entry.propertyName);
+		this.renderDetailHeader(entry, hasDoc);
+		this.renderCsvColumns(entry);
+		this.renderUsedInConfigs(entry);
+		this.renderSampleValues(entry);
+		this.renderDetailActions(entry, hasDoc);
+	}
+
+	private renderDetailHeader(
+		entry: { propertyName: string; usedInConfigs: { configId: string; configName: string; configType: string }[]; typeNames?: string[] },
+		hasDoc: boolean,
+	): void {
 		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
 		const left = header.createDiv();
 		left.createDiv({ text: entry.propertyName, cls: "ft-detail-event-type" });
@@ -110,10 +121,7 @@ export class PropertiesTab {
 		});
 		if (entry.typeNames && entry.typeNames.length > 0) {
 			for (const typeName of entry.typeNames) {
-				const chip = badges.createSpan({
-					text: typeName,
-					cls: "ft-badge",
-				});
+				const chip = badges.createSpan({ text: typeName, cls: "ft-badge" });
 				chip.addClass("ft-cursor-pointer");
 				chip.addEventListener("click", () => {
 					this.deps.setState({ selectedTypeName: typeName });
@@ -122,8 +130,6 @@ export class PropertiesTab {
 			}
 		}
 
-		// Description from PropertyDoc frontmatter
-		const hasDoc = state.documentedProperties.has(entry.propertyName);
 		if (hasDoc) {
 			const docPath = this.deps.dataExchangeService.getPropertyDocPath(entry.propertyName);
 			const docFile = this.deps.app.vault.getAbstractFileByPath(docPath);
@@ -131,65 +137,63 @@ export class PropertiesTab {
 				const cache = this.deps.app.metadataCache.getFileCache(docFile);
 				const description = cache?.frontmatter?.description;
 				if (description && String(description).trim()) {
-					left.createDiv({
-						text: String(description),
-						cls: "ft-detail-description ft-mt-1",
-					});
+					left.createDiv({ text: String(description), cls: "ft-detail-description ft-mt-1" });
 				}
 			}
 		}
+	}
 
-		// CSV column names
-		if (entry.csvColumnNames.length > 0) {
-			const card = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
-			card.createDiv({ text: "CSV Columns", cls: "ft-detail-section-header" });
-			const chips = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-flex-wrap" });
-			for (const col of entry.csvColumnNames) {
-				chips.createSpan({ text: col, cls: "ft-badge ft-badge-muted" });
-			}
+	private renderCsvColumns(entry: { csvColumnNames: string[] }): void {
+		if (entry.csvColumnNames.length === 0) return;
+		const card = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+		card.createDiv({ text: "CSV Columns", cls: "ft-detail-section-header" });
+		const chips = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-flex-wrap" });
+		for (const col of entry.csvColumnNames) {
+			chips.createSpan({ text: col, cls: "ft-badge ft-badge-muted" });
 		}
+	}
 
-		// Configs using this property
-		if (entry.usedInConfigs.length > 0) {
-			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
-			section.createDiv({ text: "Used In Configs", cls: "ft-detail-section-header" });
+	private renderUsedInConfigs(entry: { usedInConfigs: { configId: string; configName: string; configType: string }[] }): void {
+		if (entry.usedInConfigs.length === 0) return;
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
+		section.createDiv({ text: "Used In Configs", cls: "ft-detail-section-header" });
 
-			for (const ref of entry.usedInConfigs) {
-				const item = section.createDiv({ cls: "ft-master-event-item" });
-				const iconEl = item.createSpan();
-				setIcon(iconEl, ref.configType === "import" ? "file-input" : "file-output");
-				iconEl.addClass("ft-icon-muted");
-				iconEl.addClass("ft-flex-shrink-0");
+		for (const ref of entry.usedInConfigs) {
+			const item = section.createDiv({ cls: "ft-master-event-item" });
+			const iconEl = item.createSpan();
+			setIcon(iconEl, ref.configType === "import" ? "file-input" : "file-output");
+			iconEl.addClass("ft-icon-muted");
+			iconEl.addClass("ft-flex-shrink-0");
 
-				item.createSpan({ text: ref.configName, cls: "ft-master-event-name" });
-				item.createSpan({
-					text: ref.configType === "import" ? "Import" : "Export",
-					cls: `ft-operation-badge ft-operation-badge-${ref.configType}`,
-				});
+			item.createSpan({ text: ref.configName, cls: "ft-master-event-name" });
+			item.createSpan({
+				text: ref.configType === "import" ? "Import" : "Export",
+				cls: `ft-operation-badge ft-operation-badge-${ref.configType}`,
+			});
 
-				item.addEventListener("click", () => {
-					if (ref.configType === "import") {
-						this.deps.setState({ selectedImportId: ref.configId });
-						this.deps.navigation.navigateTo("imports");
-					} else {
-						this.deps.setState({ selectedExportId: ref.configId });
-						this.deps.navigation.navigateTo("exports");
-					}
-				});
-			}
+			item.addEventListener("click", () => {
+				if (ref.configType === "import") {
+					this.deps.setState({ selectedImportId: ref.configId });
+					this.deps.navigation.navigateTo("imports");
+				} else {
+					this.deps.setState({ selectedExportId: ref.configId });
+					this.deps.navigation.navigateTo("exports");
+				}
+			});
 		}
+	}
 
-		// Sample values
-		if (entry.sampleValues.length > 0) {
-			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
-			section.createDiv({ text: "Sample Values", cls: "ft-detail-section-header" });
-			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-flex-wrap" });
-			for (const val of entry.sampleValues) {
-				chips.createSpan({ text: val, cls: "ft-badge ft-badge-muted" });
-			}
+	private renderSampleValues(entry: { sampleValues: string[] }): void {
+		if (entry.sampleValues.length === 0) return;
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
+		section.createDiv({ text: "Sample Values", cls: "ft-detail-section-header" });
+		const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-flex-wrap" });
+		for (const val of entry.sampleValues) {
+			chips.createSpan({ text: val, cls: "ft-badge ft-badge-muted" });
 		}
+	}
 
-		// Actions: Create / Open documentation
+	private renderDetailActions(entry: { propertyName: string }, hasDoc: boolean): void {
 		const actions = this.detailEl.createDiv({ cls: "ft-detail-actions ft-mt-3" });
 
 		if (hasDoc) {

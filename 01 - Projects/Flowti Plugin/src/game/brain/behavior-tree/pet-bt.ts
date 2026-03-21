@@ -6,7 +6,7 @@
  * the PetActor handles per-frame movement execution.
  */
 
-import { createTree, fromNodeState, type BehaviourTree, type State } from "./bt-service.js";
+import { createTree, fromNodeState, type State } from "./bt-service.js";
 import type { AgentBT } from "./bt-factory.js";
 import type { CollectedAction } from "./bt-types.js";
 

@@ -21,9 +21,6 @@ import type { DashboardAgent } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import { preferredWorkstation } from "./brain/movement.js";
 import { createCameraSystem } from "./systems/camera-system.js";
-import { DOMAIN_POOLS, resolveCharacter } from "./sprites/character-pool.js";
-import { resolveSettingForDomain } from "./config/domain-map.js";
-import { preloadSpriteRegistry } from "./sprites/sprite-loader.js";
 import { DashboardStore } from "./store/dashboard-store.js";
 import { ParticlePool } from "./systems/particle-system.js";
 import { EmoteSystem } from "./systems/emote-system.js";
@@ -37,7 +34,6 @@ import { ToolExecutor } from "./systems/tool-executor-system.js";
 import { DEFAULT_TOOLS } from "./data/tool-registry.js";
 import { CursorSpirit } from "./actors/cursor-spirit.js";
 import type { DataProvider } from "./config/data-provider.js";
-
 import type { WorldContext } from "../domain/agents/world-context.js";
 import type { ICliExecutor } from "../infrastructure/agents/cli-executor.js";
 import { DayClock } from "./systems/day-clock.js";
@@ -46,34 +42,31 @@ import { MemorySystem } from "./systems/memory-system.js";
 import { QuirkSystem } from "./systems/quirk-system.js";
 import { RelationshipSystem } from "./systems/relationship-system.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
-import { BtSystem, createStubDeps } from "./systems/bt-system.js";
+import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
-import { assignOpinions } from "./data/opinion-topics.js";
-import { PetActor } from "./actors/pet-actor.js";
-import { PET_DEFINITIONS } from "./data/pet-definitions.js";
-import { CoffeeMachine } from "./actors/coffee-machine.js";
-import { WhiteboardActor } from "./actors/whiteboard-actor.js";
-import { SnackTable } from "./actors/snack-table.js";
-import { WaterCooler } from "./actors/water-cooler.js";
-import { CouchActor } from "./actors/couch-actor.js";
-import { PlantActor } from "./actors/plant-actor.js";
-import { NoticeBoard } from "./actors/notice-board.js";
+import { createEnvironmentalObjects, registerEnvironmentalObjects, createPets, getPetBTPairs } from "./engine-objects.js";
 import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
 import { SceneRegistry } from "./systems/scene-registry.js";
 import { RoomSwitcher } from "./systems/room-switcher.js";
-import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
-import { PetSceneEntity } from "./actors/pet-scene-entity.js";
 import type { SceneEntity } from "./data/scene-entity.js";
-import { restoreWorldState, restoreAgentState, flushWorldState, startPeriodicFlush } from "./engine-state.js";
-import type { StateSystems } from "./engine-state.js";
+import { flushWorldState, startPeriodicFlush, type StateSystems } from "./engine-state.js";
 import { wireEvents } from "./engine-events.js";
 import type { EngineContext } from "./engine-types.js";
 import {
-	ENGINE_WIDTH, ENGINE_HEIGHT, OBJECT_POSITIONS,
-	BRAIN_BOUNDS, PARTICLE_POOL_SIZE, DEFAULT_PET_ROOMS,
-	AGENT_WAKE_DELAY, SCENE_TRANSITION_DURATION, LOADING_FADE_DURATION,
+	ENGINE_WIDTH, ENGINE_HEIGHT,
+	BRAIN_BOUNDS, PARTICLE_POOL_SIZE,
+	SCENE_TRANSITION_DURATION,
 } from "./engine-config.js";
+import {
+	createParticleRenderer, createLightingOverlay, createLoadingOverlay,
+	setupKeyboardHandlers,
+	type LightState,
+} from "./engine-rendering.js";
+import { createBtBridges, createFindNearestAgent } from "./engine-systems-init.js";
+import { createPostframeHandler } from "./engine-postframe.js";
+import { startEngine, createAgentSelectHandler } from "./engine-lifecycle.js";
 import { tickSimulation } from "./engine-simulation.js";
+import { registerAgents, type RegistrationSystems } from "./engine-startup.js";
 
 // Side-effect imports — register Lit custom elements
 import "./ui/dashboard-overlays.js";
@@ -105,28 +98,10 @@ export interface AgentWorldHandle {
 export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const { container, provider, spriteBasePath } = deps;
 
-	// ── Engine creation ─────────────────────────────────
-	// Pre-create a canvas inside the container so ExcaliburJS can measure
-	// the parent for FitContainer mode during construction.
+	// Pre-create canvas + loading overlay
 	const gameCanvas = document.createElement("canvas");
 	container.appendChild(gameCanvas);
-
-	// ── Loading overlay ──────────────────────────────────
-	const loadingOverlay = document.createElement("div");
-	loadingOverlay.style.cssText = `
-		position: absolute; inset: 0; z-index: 9999;
-		display: flex; flex-direction: column; align-items: center; justify-content: center;
-		background: #0a0a0f; color: #64748b; font-family: system-ui, sans-serif;
-		transition: opacity 0.6s ease-out;
-	`;
-	loadingOverlay.innerHTML = `
-		<div style="font-size: 14px; margin-bottom: 16px; color: #94a3b8;">Loading Agent World</div>
-		<div style="width: 120px; height: 4px; background: #1e293b; border-radius: 2px; overflow: hidden;">
-			<div style="width: 30%; height: 100%; background: #3b82f6; border-radius: 2px; animation: loading-bar 1.2s ease-in-out infinite alternate;"></div>
-		</div>
-		<style>@keyframes loading-bar { from { width: 20%; margin-left: 0; } to { width: 40%; margin-left: 60%; } }</style>
-	`;
-	container.style.position = "relative";
+	const loadingOverlay = createLoadingOverlay();
 	container.appendChild(loadingOverlay);
 
 	const engine = new ex.Engine({
@@ -139,33 +114,16 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		suppressPlayButton: true,
 	});
 
-	// ── Reactive store ──────────────────────────────────
+	// ── Reactive store + Lit overlays ─────────────────────
 	const store = new DashboardStore(deps.cliExecutor, deps.worldContext, deps.vaultBasePath);
+	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-agent-panel", "ft-game-ask-bob"]) {
+		const el = document.createElement(tag) as HTMLElement & { store: DashboardStore };
+		el.store = store;
+		container.appendChild(el);
+	}
 
-	// ── Mount Lit overlay components ────────────────────
-	const overlays = document.createElement("ft-game-overlays") as HTMLElement & { store: DashboardStore };
-	overlays.store = store;
-	container.appendChild(overlays);
-
-	const rosterBarEl = document.createElement("ft-game-roster-bar") as HTMLElement & { store: DashboardStore };
-	rosterBarEl.store = store;
-	container.appendChild(rosterBarEl);
-
-	const cameraHudEl = document.createElement("ft-game-camera-hud") as HTMLElement & { store: DashboardStore };
-	cameraHudEl.store = store;
-	container.appendChild(cameraHudEl);
-
-	const agentPanelEl = document.createElement("ft-game-agent-panel") as HTMLElement & { store: DashboardStore };
-	agentPanelEl.store = store;
-	container.appendChild(agentPanelEl);
-
-	const askBobEl = document.createElement("ft-game-ask-bob") as HTMLElement & { store: DashboardStore };
-	askBobEl.store = store;
-	container.appendChild(askBobEl);
-
-	// ── Systems (initialised before scenes to allow wiring) ──────────
-	let cameraSystem: ReturnType<typeof createCameraSystem> | null = null;
-
+	// ── Systems ─────────────────────────────────────────
+	const cameraRef: { current: ReturnType<typeof createCameraSystem> | null } = { current: null };
 	const brainSystem = new BrainSystem({
 		bounds: BRAIN_BOUNDS,
 		onWorkstationChange: (agentName, action, position) => {
@@ -237,7 +195,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const particlePool = new ParticlePool(PARTICLE_POOL_SIZE);
 	const emoteSystem = new EmoteSystem();
 	const socialSystem = new SocialSystem();
-
 	const needsSystem = new NeedsSystem();
 	const directorSystem = new DirectorSystem();
 	const sensorSystem = new SensorSystem();
@@ -245,7 +202,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const ritualSystem = new RitualSystem();
 	const toolExecutor = new ToolExecutor();
 	toolExecutor.registerTools(DEFAULT_TOOLS);
-
 	const dayClock = new DayClock(DEFAULT_WORLD_CONFIG.dayCycle.durationMs);
 	const worldAmbience = new WorldAmbience(DEFAULT_WORLD_CONFIG.weather.cycleLengthInDayCycles);
 	const memorySystem = new MemorySystem();
@@ -254,123 +210,27 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
 	const registry = new SceneRegistry();
 	const btSystem = new BtSystem();
-
-	// ── BT shared deps (Phase 1: stub I/O, real clock + action piping) ──
-	const btWorldState = {
-		emitAction: (action: { id: string; agentName: string; timestamp: string; type: string; data: Record<string, unknown> }) => {
-			// Feed BT-emitted actions through the same event pipeline as SSE actions
-			brainSystem.applyEvent(action.agentName, action.type);
-		},
-		updateEntity: () => {},
-	};
-	const btClock = {
-		now: () => Date.now(),
-		ms: () => Date.now(),
-		iso: () => new Date().toISOString(),
-	};
-	const btNeedsBridge = {
-		getNeeds: (name: string) => needsSystem.getNeeds(name),
-	};
-	const btBrainBridge = {
-		assignWork: (name: string) => brainSystem.assignWork(name),
-		releaseWork: (name: string) => brainSystem.releaseWork(name),
-		applyEvent: (name: string, event: string) => brainSystem.applyEvent(name, event),
-		getState: (name: string) => {
-			const state = brainSystem.getState(name);
-			return state?.state ?? "idle";
-		},
-	};
-	const btDeps = createStubDeps(btWorldState, btClock, btNeedsBridge, btBrainBridge);
+	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
 	const cycleConversationCounts = new Map<string, number>();
-	/** Tracks which reactive triggers have fired per agent this cycle to avoid spamming. */
 	const firedReactiveTriggers = new Map<string, Set<string>>();
-	let prevCycleCount = 0;
+	const prevCycleCount = 0;
 
 	// ── Environmental objects ────────────────────────────
-	const coffeeMachine = new CoffeeMachine();
-	coffeeMachine.pos = ex.vec(OBJECT_POSITIONS.coffeeMachine.x, OBJECT_POSITIONS.coffeeMachine.y);
-	const whiteboard = new WhiteboardActor();
-	whiteboard.pos = ex.vec(OBJECT_POSITIONS.whiteboard.x, OBJECT_POSITIONS.whiteboard.y);
-	const snackTable = new SnackTable();
-	snackTable.pos = ex.vec(OBJECT_POSITIONS.snackTable.x, OBJECT_POSITIONS.snackTable.y);
-	const waterCooler = new WaterCooler();
-	waterCooler.pos = ex.vec(OBJECT_POSITIONS.waterCooler.x, OBJECT_POSITIONS.waterCooler.y);
-	const couch = new CouchActor();
-	couch.pos = ex.vec(OBJECT_POSITIONS.couch.x, OBJECT_POSITIONS.couch.y);
-	const plant = new PlantActor();
-	plant.pos = ex.vec(OBJECT_POSITIONS.plant.x, OBJECT_POSITIONS.plant.y);
-	const noticeBoard = new NoticeBoard();
-	noticeBoard.pos = ex.vec(OBJECT_POSITIONS.noticeBoard.x, OBJECT_POSITIONS.noticeBoard.y);
-
-	// ── Register environmental objects in registry ──────
-	registry.registerObject(coffeeMachine.objectId, "office", coffeeMachine.objectType, coffeeMachine.pos);
-	registry.registerObject(whiteboard.objectId, "office", whiteboard.objectType, whiteboard.pos);
-	registry.registerObject(snackTable.objectId, "village", snackTable.objectType, snackTable.pos);
-	registry.registerObject(waterCooler.objectId, "village", waterCooler.objectType, waterCooler.pos);
-	registry.registerObject(couch.objectId, "station", couch.objectType, couch.pos);
-	registry.registerObject(plant.objectId, "hub", plant.objectType, plant.pos);
-	registry.registerObject(noticeBoard.objectId, "hub", noticeBoard.objectType, noticeBoard.pos);
+	const envObjects = createEnvironmentalObjects();
+	registerEnvironmentalObjects(envObjects, registry);
+	const { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard } = envObjects;
 
 	// ── Office pets ──────────────────────────────────────
-	const pets: PetActor[] = [];
-	const catDef = PET_DEFINITIONS.find((p) => p.type === "cat")!;
-	const dogDef = PET_DEFINITIONS.find((p) => p.type === "dog")!;
-	const birdDef = PET_DEFINITIONS.find((p) => p.type === "bird")!;
-	const fishDef = PET_DEFINITIONS.find((p) => p.type === "fish")!;
-
-	// 3 cats, 3 dogs, 1 bird, 1 fish — distributed across rooms
-	const hubCat = new PetActor(catDef, 300, 250, "cat-hub");
-	const officeCat = new PetActor(catDef, 350, 300, "cat-office");
-	const villageCat = new PetActor(catDef, 400, 280, "cat-village");
-	const officeDog = new PetActor(dogDef, 500, 350, "dog-office");
-	const villageDog = new PetActor(dogDef, 300, 200, "dog-village");
-	const stationDog = new PetActor(dogDef, 450, 300, "dog-station");
-	const villageBird = new PetActor(birdDef, 200, 80, "bird-village");
-	const stationFish = new PetActor(fishDef, 680, 380, "fish-station");
-
-	// Register pet BTs (skip stationary pets like fish with speed=0)
-	for (const [pet, def] of [
-		[hubCat, catDef], [officeCat, catDef], [villageCat, catDef],
-		[officeDog, dogDef], [villageDog, dogDef], [stationDog, dogDef],
-		[villageBird, birdDef],
-	] as const) {
-		const petId = pet.entityId;
-		btSystem.registerPet(petId, createPetBT(petId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed, pet.petType));
+	const pets = createPets();
+	for (const [pet, def] of getPetBTPairs(pets)) {
+		btSystem.registerPet(pet.entityId, createPetBT(pet.entityId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed, pet.petType));
 	}
 
 	// ── Agent select handler ────────────────────────────
-	function handleAgentSelect(agentName: string): void {
-		const actor = findAgentActor(agentName);
-		if (store.selectedAgent === agentName) {
-			// Same agent clicked while panel open -> close panel, stop follow
-			store.selectAgent(null);
-			if (cameraSystem) cameraSystem.stopFollow();
-			store.stopFollow();
-		} else {
-			// Select agent -> center camera, follow, open panel
-			if (actor) {
-				brainSystem.freeze(agentName);
-				actor.focus();
-				if (cameraSystem) cameraSystem.startFollow(actor);
-				store.startFollow(agentName);
-				directorSystem.recordInteraction("click", { x: actor.pos.x, y: actor.pos.y });
-			}
-			store.selectAgent(agentName);
-			store.selectTab("info");
-			engagementSystem.clearTaskCompleted(agentName);
-			// Warm up the agent process after a short delay so selection feels smooth
-			setTimeout(() => void store.wakeAgent(agentName), AGENT_WAKE_DELAY);
-			// Show a personality greeting via the talk engine instead of waking LLM
-			const agent = store.agents.find((a) => a.name === agentName);
-			if (agent) {
-				const greetings = agent.personality && agent.personality.length > 0
-					? ["Hey there!", "What can I help with?", "Good to see you."]
-					: ["Hello!", "What's up?"];
-				const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-				bubbleSystem.showBubble(agentName, "speech", greeting, engine.currentScene, findAgentActor, 3000);
-			}
-		}
-	}
+	const handleAgentSelect = createAgentSelectHandler({
+		store, brainSystem, bubbleSystem, directorSystem, engagementSystem, engine,
+		findAgentActor, getCameraSystem: () => cameraRef.current,
+	});
 
 	// ── Scene config ────────────────────────────────────
 	const sceneConfig = {
@@ -380,7 +240,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
 				sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
 			}).then(() => {
-				cameraSystem?.onSceneActivate(findAgentActor, engine.currentScene.camera);
+				cameraRef.current?.onSceneActivate(findAgentActor, engine.currentScene.camera);
 			});
 		},
 		onAgentSelect: handleAgentSelect,
@@ -392,27 +252,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const villageScene = new GameScene(SCENE_CONFIGS.village, sceneConfig);
 	const stationScene = new GameScene(SCENE_CONFIGS.station, sceneConfig);
 
-	const roomScenes: Record<string, GameScene> = {
-		office: officeScene,
-		village: villageScene,
-		station: stationScene,
-	};
-
-	// Register scenes in SceneRegistry (GameScene implements SceneHandle)
-	registry.registerScene("hub", hubScene);
-	registry.registerScene("office", officeScene);
-	registry.registerScene("village", villageScene);
-	registry.registerScene("station", stationScene);
-
-	engine.addScene("hub", hubScene);
-	engine.addScene("office", officeScene);
-	engine.addScene("village", villageScene);
-	engine.addScene("station", stationScene);
-
-	// ── Wire room scenes to brain system ────────────────
-	officeScene.setBrainSystem(brainSystem);
-	villageScene.setBrainSystem(brainSystem);
-	stationScene.setBrainSystem(brainSystem);
+	const roomScenes: Record<string, GameScene> = { office: officeScene, village: villageScene, station: stationScene };
+	const sceneEntries: [string, GameScene][] = [["hub", hubScene], ["office", officeScene], ["village", villageScene], ["station", stationScene]];
+	for (const [name, scene] of sceneEntries) { registry.registerScene(name, scene); engine.addScene(name, scene); }
+	for (const room of Object.values(roomScenes)) room.setBrainSystem(brainSystem);
 
 	// ── Actor lookups ───────────────────────────────────
 
@@ -435,131 +278,36 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		return undefined;
 	}
 
-	/** Find the position of the closest agent to `agentName` — same room only. */
-	function findNearestAgent(agentName: string): { x: number; y: number } | null {
-		const pos = brainSystem.getPosition(agentName);
-		if (!pos) return null;
-		const myRoom = registry.getEntityRoom(agentName);
-		let closest: { x: number; y: number } | null = null;
-		let minDist = Infinity;
-		for (const [name, entry] of brainSystem.getAllEntries()) {
-			if (name === agentName) continue;
-			if (registry.getEntityRoom(name) !== myRoom) continue;
-			const dx = pos.x - entry.position.x;
-			const dy = pos.y - entry.position.y;
-			const dist = dx * dx + dy * dy;
-			if (dist < minDist) {
-				minDist = dist;
-				closest = { x: entry.position.x, y: entry.position.y };
-			}
-		}
-		return closest;
-	}
-
-	// ── Track known entity IDs to distinguish adds from updates ──────
+	const findNearestAgent = createFindNearestAgent(brainSystem, registry);
 	const knownEntities = new Set<string>();
 
-	// ── Register agents across all game subsystems ──────
-	function registerAgents(agents: readonly DashboardAgent[]): void {
-		hubScene.updateAgents(agents);
-		store.setAgents(agents);
+	// ── Registration systems context ─────────────────────
+	const registrationSystems: RegistrationSystems = {
+		brain: brainSystem, bubble: bubbleSystem, talk: talkEngine,
+		emote: emoteSystem, social: socialSystem, needs: needsSystem,
+		sensor: sensorSystem, engagement: engagementSystem, ritual: ritualSystem,
+		memory: memorySystem, quirk: quirkSystem, relationship: relationshipSystem,
+		bt: btSystem, btDeps, knownEntities,
+	};
 
-		for (const agent of agents) {
-			brainSystem.register(agent.name, agent.attributes ?? {}, agent.mood, agent.domain);
-			const brainState = brainSystem.getState(agent.name)!;
-			bubbleSystem.register(agent.name, agent.personality ?? [], brainState.params);
-			talkEngine.register(
-				agent.name,
-				agent.domain ?? "general",
-				agent.personality ?? [],
-				agent.attributes?.cha ?? 10,
-			);
-			emoteSystem.register(agent.name, agent.mood ?? "neutral", brainState.params.quoteFrequency);
-			socialSystem.register(agent.name, {
-				socialRadius: brainState.params.socialRadius,
-				personality: agent.personality ?? [],
-				domain: agent.domain ?? "general",
-				relationships: agent.relationships ?? [],
-			});
-			needsSystem.register(agent.name, agent.attributes ?? {});
-			sensorSystem.register(agent.name, agent.domain ?? "general");
-			engagementSystem.register(agent.name, { domain: agent.domain ?? "general", cha: agent.attributes?.cha ?? 10 });
-			ritualSystem.register(agent.name, { domain: agent.domain ?? "general" });
-			memorySystem.register(agent.name);
-			// Quirk assignment — restore from memory or roll new
-			const savedQuirks = memorySystem.getMemory(agent.name).quirks;
-			quirkSystem.register(agent.name, (agent.attributes ?? {}) as Record<string, number>, agent.domain ?? "general", savedQuirks);
-			if (savedQuirks.length === 0) {
-				memorySystem.getMemory(agent.name).quirks = quirkSystem.getQuirks(agent.name);
-			}
-			const overrides = quirkSystem.getOverrides(agent.name);
-			if (Object.keys(overrides).length > 0) {
-				brainSystem.applyQuirkOverrides(agent.name, overrides as Record<string, number>);
-			}
-			// Relationship opinions — restore from memory or assign new
-			const savedOpinions = memorySystem.getMemory(agent.name).opinions;
-			const opinions = savedOpinions.length > 0 ? savedOpinions : assignOpinions();
-			if (savedOpinions.length === 0) {
-				memorySystem.getMemory(agent.name).opinions = opinions;
-			}
-			relationshipSystem.register(agent.name, opinions);
-			btSystem.register(agent, btDeps);
-			knownEntities.add(agent.name);
-		}
+	function doRegisterAgents(agents: readonly DashboardAgent[]): void {
+		registerAgents(agents, hubScene, store, registrationSystems);
 	}
 
 	// ── Dedup guard for provider action relay ────────────
 	const recentActionIds = new Set<string>();
 
 	// ── Pre-update loop state ───────────────────────────
-	let lastTime = performance.now();
+	const lastTime = performance.now();
 	const prevWalkingState = new Map<string, boolean>();
-	const lastTrailPos = new Map<string, { x: number; y: number }>();
-	const petReactionCooldowns = new Map<string, number>();
+	const lastTrailPos = new Map<string, { x: number; y: number }>(); const petReactionCooldowns = new Map<string, number>();
 
-	// ── Particle renderer — ex.Canvas actor added to each scene ──────
-	function createParticleRenderer(): ex.Actor {
-		const actor = new ex.Actor({
-			pos: ex.vec(0, 0),
-			anchor: ex.vec(0, 0),
-			z: 50,
-			collisionType: ex.CollisionType.PreventCollision,
-		});
-		const canvas = new ex.Canvas({
-			width: ENGINE_WIDTH,
-			height: ENGINE_HEIGHT,
-			cache: false,
-			draw: (ctx: CanvasRenderingContext2D) => {
-				for (const p of particlePool.getAll()) {
-					if (p.opacity <= 0.01) continue;
-					ctx.globalAlpha = p.opacity;
-					ctx.fillStyle = p.color;
-					ctx.beginPath();
-					ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-					ctx.fill();
-				}
-				ctx.globalAlpha = 1.0;
-			},
-		});
-		actor.graphics.use(canvas);
-		return actor;
+	// ── Particle renderers + environmental objects + lighting ────────
+	for (const scene of [hubScene, officeScene, villageScene, stationScene]) {
+		scene.add(createParticleRenderer(particlePool, ENGINE_WIDTH, ENGINE_HEIGHT));
 	}
-	hubScene.add(createParticleRenderer());
-	officeScene.add(createParticleRenderer());
-	villageScene.add(createParticleRenderer());
-	stationScene.add(createParticleRenderer());
-
-	// ── Environmental objects in scenes ─────────────────
-	officeScene.add(coffeeMachine);
-	officeScene.add(whiteboard);
-	villageScene.add(snackTable);
-	villageScene.add(waterCooler);
-	stationScene.add(couch);
-	hubScene.add(plant);
-	hubScene.add(noticeBoard);
-
-	// ── Office pets — scene placement deferred to start() for position restore ──
-	pets.push(hubCat, officeCat, villageCat, officeDog, villageDog, stationDog, villageBird, stationFish);
+	officeScene.add(coffeeMachine); officeScene.add(whiteboard); villageScene.add(snackTable); villageScene.add(waterCooler);
+	stationScene.add(couch); hubScene.add(plant); hubScene.add(noticeBoard);
 
 	// ── SceneEntity registry + unified room switcher ──
 	const allEntities = new Map<string, SceneEntity>();
@@ -585,45 +333,20 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					destinationIn: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "in" }),
 					sourceOut: new ex.FadeInOut({ duration: SCENE_TRANSITION_DURATION, direction: "out" }),
 				}).then(() => {
-					cameraSystem?.onSceneActivate(findAgentActor, engine.currentScene.camera);
+					cameraRef.current?.onSceneActivate(findAgentActor, engine.currentScene.camera);
 				});
 			}
 		},
 	});
 
 	// ── Cursor spirit — visual director presence (one per scene) ────
-	const cursorSpirits = [new CursorSpirit(), new CursorSpirit(), new CursorSpirit(), new CursorSpirit()];
-	hubScene.add(cursorSpirits[0]);
-	officeScene.add(cursorSpirits[1]);
-	villageScene.add(cursorSpirits[2]);
-	stationScene.add(cursorSpirits[3]);
+	const cursorSpirits = sceneEntries.map(([, scene]) => { const s = new CursorSpirit(); scene.add(s); return s; });
 
 	// ── Lighting overlay — full-screen tint driven by DayClock phase (smooth fade) ──
-	const currentLight = { r: 0, g: 0, b: 0, opacity: 0 };
-	function createLightingOverlay(): ex.Actor {
-		const actor = new ex.Actor({
-			pos: ex.vec(0, 0),
-			anchor: ex.vec(0, 0),
-			z: 500,
-			collisionType: ex.CollisionType.PreventCollision,
-		});
-		const canvas = new ex.Canvas({
-			width: ENGINE_WIDTH,
-			height: ENGINE_HEIGHT,
-			cache: false,
-			draw: (ctx: CanvasRenderingContext2D) => {
-				if (currentLight.opacity <= 0.001) return;
-				ctx.fillStyle = `rgba(${Math.round(currentLight.r)}, ${Math.round(currentLight.g)}, ${Math.round(currentLight.b)}, ${currentLight.opacity.toFixed(3)})`;
-				ctx.fillRect(0, 0, ENGINE_WIDTH, ENGINE_HEIGHT);
-			},
-		});
-		actor.graphics.use(canvas);
-		return actor;
+	const currentLight: LightState = { r: 0, g: 0, b: 0, opacity: 0 };
+	for (const scene of [hubScene, officeScene, villageScene, stationScene]) {
+		scene.add(createLightingOverlay(currentLight, ENGINE_WIDTH, ENGINE_HEIGHT));
 	}
-	hubScene.add(createLightingOverlay());
-	officeScene.add(createLightingOverlay());
-	villageScene.add(createLightingOverlay());
-	stationScene.add(createLightingOverlay());
 
 	// ── State persistence context ────────────────────────
 	const stateSystems: StateSystems = {
@@ -669,7 +392,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		bt: btSystem,
 		registry,
 		roomSwitcher,
-		cameraSystem,
+		cameraSystem: cameraRef.current,
 		btWorldState,
 		btClock,
 		btDeps,
@@ -716,67 +439,15 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Post-frame adapter: push positions/targets/states to store ──
-	engine.on("postframe", () => {
-		store.beginBatch();
-		const positions = new Map<string, { x: number; y: number }>();
-		const canvasRect = engine.canvas.getBoundingClientRect();
-
-		for (const [name, entry] of brainSystem.getAllEntries()) {
-			const actor = findCurrentSceneActor(name);
-			if (!actor) continue;
-			const pagePos = engine.screen.worldToPageCoordinates(actor.pos);
-			positions.set(name, { x: pagePos.x - canvasRect.left, y: pagePos.y - canvasRect.top });
-
-			if (entry.targetPos) {
-				const targetPage = engine.screen.worldToPageCoordinates(ex.vec(entry.targetPos.x, entry.targetPos.y));
-				store.setAgentTarget(name, {
-					x: targetPage.x - canvasRect.left,
-					y: targetPage.y - canvasRect.top,
-				});
-			} else {
-				store.clearAgentTarget(name);
-			}
-			store.setAgentState(name, entry.state);
-		}
-
-		store.updatePositions(positions);
-		store.endBatch();
-	});
+	engine.on("postframe", createPostframeHandler({
+		engine, store, brainSystem, findCurrentSceneActor,
+	}));
 
 	// ── Keyboard handling ───────────────────────────────
-
-	function isTyping(): boolean {
-		// Walk the shadow DOM chain to find the deepest active element
-		let el: Element | null = document.activeElement;
-		while (el) {
-			if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return true;
-			if (el.shadowRoot?.activeElement) {
-				el = el.shadowRoot.activeElement;
-			} else {
-				break;
-			}
-		}
-		return false;
-	}
-
-	// Listen on document — keyboard should work whenever the game view is visible,
-	// not just when the container has focus. isTyping() prevents conflicts with inputs.
-	const keydownHandler = ((e: KeyboardEvent) => {
-		if (isTyping()) return;
-		if (e.key === "Escape" && cameraSystem?.isFollowing()) {
-			cameraSystem.stopFollow();
-		}
-		if (e.key === "Home") {
-			cameraSystem?.stopFollow();
-		}
-		cameraSystem?.handleKeyDown(e.key);
-	}) as EventListener;
-
-	const keyupHandler = ((e: KeyboardEvent) => {
-		if (isTyping()) return;
-		cameraSystem?.handleKeyUp(e.key);
-	}) as EventListener;
-
+	const { keydownHandler, keyupHandler } = setupKeyboardHandlers({
+		cameraSystem: cameraRef.current,
+		getCameraSystem: () => cameraRef.current,
+	});
 	document.addEventListener("keydown", keydownHandler);
 	document.addEventListener("keyup", keyupHandler);
 
@@ -784,164 +455,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	return {
 		async start(): Promise<void> {
-			// Inject pixel-art font — loaded dynamically since game may not always be active
-			if (!document.querySelector('link[href*="Press+Start+2P"]')) {
-				// eslint-disable-next-line obsidianmd/no-forbidden-elements -- dynamic font load for game UI only
-				const fontLink = document.createElement("link");
-				fontLink.rel = "stylesheet";
-				fontLink.href = "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap";
-				document.head.appendChild(fontLink);
-			}
-
-			// Start engine and navigate to hub
-			await engine.start();
-			void engine.goToScene("hub");
-
-			// Preload all character sprites
-			const ASSET_BASE = `${spriteBasePath}/assets/Actor/Characters/`;
-			const allCharacters = [
-				...new Set(Object.values(DOMAIN_POOLS).flat()),
-			];
-			const spriteRegistry = await preloadSpriteRegistry(allCharacters, ASSET_BASE);
-
-			// Pass sprite registry to all scenes
-			hubScene.setSpriteRegistry(spriteRegistry);
-			officeScene.setSpriteRegistry(spriteRegistry);
-			villageScene.setSpriteRegistry(spriteRegistry);
-			stationScene.setSpriteRegistry(spriteRegistry);
-
-			// Camera system (after engine.start so camera is initialised)
-			cameraSystem = createCameraSystem(
-				engine.currentScene.camera,
-				{ x: ENGINE_WIDTH / 2, y: ENGINE_HEIGHT / 2 },
-			);
-			ctx.cameraSystem = cameraSystem;
-
-			engine.canvas.addEventListener("wheel", (e) => {
-				e.preventDefault();
-				cameraSystem!.handleZoom(e.deltaY);
-			}, { passive: false });
-
-			// Director mouse tracking — world-space cursor position + cursor spirit
-			engine.input.pointers.primary.on("move", (evt) => {
-				directorSystem.onMouseMove(evt.worldPos.x, evt.worldPos.y);
-				for (const spirit of cursorSpirits) {
-					spirit.show(evt.worldPos.x, evt.worldPos.y);
-					spirit.moveTo(evt.worldPos.x, evt.worldPos.y);
-				}
+			await startEngine({
+				engine, spriteBasePath, provider, vaultBasePath: deps.vaultBasePath,
+				hubScene, officeScene, villageScene, stationScene, roomScenes,
+				ctx, stateSystems, dayClock, worldAmbience, currentLight,
+				brainSystem, directorSystem, cursorSpirits, store,
+				registrationSystems, handleAgentSelect, allEntities, pets, registry,
+				loadingOverlay, doRegisterAgents,
 			});
-
-			// Director mouse leave — cursor left canvas
-			engine.canvas.addEventListener("mouseleave", () => {
-				directorSystem.onMouseLeave();
-				for (const spirit of cursorSpirits) spirit.hide();
-			});
-
-			// WorldContext updates are consumed during sendMessage serialization.
-			// No need to push state to the store — WorldContext is the source of truth.
-
-			// Restore persisted Living World state
-			const { savedPositions } = deps.vaultBasePath
-				? restoreWorldState(stateSystems, deps.vaultBasePath)
-				: { savedPositions: null };
-			ctx.prevCycleCount = dayClock.getCycleCount();
-
-			// Initialize lighting to current phase (no pop on first frame)
-			const initLight = worldAmbience.getLighting(dayClock.getPhase());
-			currentLight.r = initLight.r;
-			currentLight.g = initLight.g;
-			currentLight.b = initLight.b;
-			currentLight.opacity = initLight.opacity;
-
-			// Start data provider and load initial data
-			await provider.start();
-
-			const initialAgents = await provider.getDashboardAgents();
-			registerAgents(initialAgents);
-
-			// Create SceneEntity wrappers for agents
-			for (const agent of initialAgents) {
-				const charName = resolveCharacter(agent.name, agent.domain ?? "");
-				const sprites = spriteRegistry.get(charName);
-				if (!sprites) continue;
-				const entity = new AgentSceneEntity(agent, sprites, brainSystem, handleAgentSelect);
-				allEntities.set(agent.name, entity);
-			}
-			// Add creature entities (wrapped — PetActor stays as state holder,
-			// PetSceneEntity creates disposable visual actors per scene)
-			for (const pet of pets) {
-				allEntities.set(pet.entityId, new PetSceneEntity(pet));
-			}
-
-			// Route agents to room scenes — use saved positions/rooms if available
-			for (const agent of initialAgents) {
-				const saved = savedPositions?.[agent.name];
-				const targetRoom = saved?.scene && registry.getScene(saved.scene) ? saved.scene : resolveSettingForDomain(agent.domain);
-
-				if (targetRoom === "hub") {
-					// Hub agents are already created by hubScene.updateAgents above
-					registry.setEntityRoom(agent.name, "hub");
-					// Restore position if saved
-					if (saved) {
-						const actor = hubScene.getAgentActor(agent.name);
-						if (actor) {
-							actor.pos.x = saved.x;
-							actor.pos.y = saved.y;
-						}
-					}
-				} else if (roomScenes[targetRoom]) {
-					// Remove from hub first (hubScene.updateAgents may have created an actor)
-					hubScene.removeAgent(agent.name);
-					if (saved) {
-						roomScenes[targetRoom].spawnAgentAtDoorway(agent);
-						const actor = roomScenes[targetRoom].getAgentActor(agent.name);
-						if (actor) {
-							actor.pos.x = saved.x;
-							actor.pos.y = saved.y;
-						}
-					} else {
-						roomScenes[targetRoom].spawnAgent(agent);
-					}
-					registry.setEntityRoom(agent.name, targetRoom);
-				}
-			}
-
-			// Restore or default-place creatures
-			for (const pet of pets) {
-				const saved = savedPositions?.[pet.entityId];
-				const targetRoom = saved?.scene ?? DEFAULT_PET_ROOMS[pet.entityId] ?? "hub";
-				const scene = targetRoom === "hub" ? hubScene : (roomScenes[targetRoom] ?? hubScene);
-				const petEntity = allEntities.get(pet.entityId)!;
-
-				scene.enter(petEntity as SceneEntity, null);
-				// Restore saved position (enter() defaults to scene center)
-				if (saved) {
-					pet.pos.x = saved.x;
-					pet.pos.y = saved.y;
-					pet.resetHome();
-					(petEntity as PetSceneEntity).syncVisual();
-				}
-				registry.setEntityRoom(pet.entityId, targetRoom);
-			}
-
-			// Restore needs after registration (register sets defaults, restore overrides)
-			if (deps.vaultBasePath) {
-				restoreAgentState(stateSystems, deps.vaultBasePath);
-			}
-
-			// Fetch initial world state for activity log
-			const worldState = await provider.getWorldState();
-			if (worldState?.activityLog) {
-				store.setActivityLog(worldState.activityLog);
-			}
-
-			// FitContainer mode handles resize automatically — no manual
-			// ResizeObserver needed. ExcaliburJS listens for window resize
-			// and recalculates the viewport based on the parent container.
-
-			// Fade out loading overlay
-			loadingOverlay.style.opacity = "0";
-			setTimeout(() => loadingOverlay.remove(), LOADING_FADE_DURATION);
 		},
 
 		pause(): void {

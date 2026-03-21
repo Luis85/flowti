@@ -22,13 +22,27 @@ import type {
 	ResultRow,
 	SortSpec,
 	TimeBucketSpec,
-	WindowFunctionName,
 } from "./types";
 import { parseNumber } from "./localeUtils";
 import { bucketDate, isDateInRange, parseDate } from "./dateUtils";
-import { computeChange, computePctChange, computeRollingAvg } from "./trendCalculations";
-import { evalRound, evalAbs, evalIf, evalCoalesce, evalUpper, evalLower, evalConcat } from "./expressionFunctions";
 import { JoinExecutor, type RawRow } from "./JoinExecutor";
+import { hasWindowFunction, evaluateExpression, applyWindowColumn, guessColumnType } from "./expressionEvaluator";
+
+// Re-export for backward compatibility — tests and other modules import from this file
+export { evaluateExpression } from "./expressionEvaluator";
+
+/** Compare two values (number or string) using an operator. */
+function compareValues<T extends string | number>(left: T, op: string, right: T): boolean {
+	switch (op) {
+		case "=": return left === right;
+		case "!=": return left !== right;
+		case ">": return left > right;
+		case "<": return left < right;
+		case ">=": return left >= right;
+		case "<=": return left <= right;
+		default: return left === right;
+	}
+}
 
 export class AnalyticsEngine {
 	private readonly joinExecutor = new JoinExecutor();
@@ -36,119 +50,103 @@ export class AnalyticsEngine {
 	 * Execute an analytics query and return the result.
 	 */
 	run(query: AnalyticsQuery): AnalyticsResult {
-		// 1. Build flat row arrays from each source
-		const sourceTables = this.buildSourceTables(query.sources);
+		const rows = this.loadAndFilterRows(query);
+		const sourceRowCount = rows.sourceRowCount;
 
-		// 2. Apply joins (or use single source)
-		let rows: RawRow[];
-		if (query.sources.length === 1) {
-			rows = sourceTables.get(query.sources[0].alias) ?? [];
-		} else {
-			rows = this.applyJoins(sourceTables, query.joins);
-		}
-
-		const sourceRowCount = rows.length;
-
-		// 2b. Apply date range filter (before other filters and grouping)
-		if (query.dateRangeFilter) {
-			rows = this.applyDateRangeFilter(rows, query.dateRangeFilter, query);
-		}
-
-		// 3. Apply filters (before grouping)
-		if (query.filters && query.filters.length > 0) {
-			rows = this.applyFilters(rows, query.filters, query);
-		}
-
-		// 4. Apply time bucketing (adds a new column)
-		if (query.timeBucket) {
-			rows = this.applyTimeBucket(rows, query.timeBucket, query);
-		}
-
-		// 5. GROUP BY + aggregate
+		// GROUP BY + aggregate
 		const { resultRows, groupCount } = this.groupAndAggregate(
-			rows,
+			rows.filtered,
 			query.dimensions,
 			query.measures,
 			query,
 		);
 
-		// 6. Apply computed columns (after aggregation)
+		// Apply computed columns (after aggregation)
 		if (query.computedColumns && query.computedColumns.length > 0) {
 			this.applyComputedColumns(resultRows, query.computedColumns, query.measures);
 		}
 
-		// 7. Apply sort (after aggregation) — multi-column sort
+		// Sort + limit
 		let sortedRows = resultRows;
-		if (query.sort && query.sort.length > 0) {
-			sortedRows = this.applySort(sortedRows, query.sort);
-		}
+		if (query.sort && query.sort.length > 0) sortedRows = this.applySort(sortedRows, query.sort);
+		if (query.limit !== undefined && query.limit >= 0) sortedRows = this.applyLimit(sortedRows, query.limit);
 
-		// 8. Apply limit (after sorting)
-		if (query.limit !== undefined && query.limit >= 0) {
-			sortedRows = this.applyLimit(sortedRows, query.limit);
-		}
+		return this.buildResult(query, sortedRows, groupCount, sourceRowCount);
+	}
 
-		// 9. Build column list (time bucket first when present)
-		const allColumns = [
-			...(query.timeBucket
-				? [query.timeBucket.outputColumn ?? `${query.timeBucket.column}_${query.timeBucket.period}`]
-				: []),
-			...query.dimensions.map((d) => d.column),
-			...query.measures.map((m) => m.label ?? `${m.function}(${m.column})`),
-			...(query.computedColumns ?? []).map((c) => c.name),
-		];
+	/** Load sources, apply joins, date range filter, row filters, and time bucketing. */
+	private loadAndFilterRows(query: AnalyticsQuery): { filtered: RawRow[]; sourceRowCount: number } {
+		const sourceTables = this.buildSourceTables(query.sources);
+		let rows: RawRow[] = query.sources.length === 1
+			? (sourceTables.get(query.sources[0].alias) ?? [])
+			: this.applyJoins(sourceTables, query.joins);
+		const sourceRowCount = rows.length;
+		if (query.dateRangeFilter) rows = this.applyDateRangeFilter(rows, query.dateRangeFilter, query);
+		if (query.filters && query.filters.length > 0) rows = this.applyFilters(rows, query.filters, query);
+		if (query.timeBucket) rows = this.applyTimeBucket(rows, query.timeBucket, query);
+		return { filtered: rows, sourceRowCount };
+	}
 
-		// 10. Exclude columns (filter from output, keep in rows for formula access)
-		const excludeSet = query.excludedColumns && query.excludedColumns.length > 0
-			? new Set(query.excludedColumns)
-			: null;
+	/** Build final result: columns, aliases, currency hints, anonymization. */
+	private buildResult(
+		query: AnalyticsQuery, sortedRows: ResultRow[],
+		groupCount: number, sourceRowCount: number,
+	): AnalyticsResult {
+		const allColumns = this.buildColumnList(query);
+		const excludeSet = query.excludedColumns?.length ? new Set(query.excludedColumns) : null;
 		const columns = excludeSet ? allColumns.filter((c) => !excludeSet.has(c)) : allColumns;
-
-		// 10b. Augment columnTypeHints: propagate currency to measure labels + aliases
-		const hintMap = new Map<string, ColumnTypeHint>();
-		for (const h of query.columnTypeHints ?? []) hintMap.set(h.column, h);
-		const augmentedHints = [...(query.columnTypeHints ?? [])];
-		for (const m of query.measures) {
-			const label = m.label ?? `${m.function}(${m.column})`;
-			const src = hintMap.get(m.column);
-			if (src?.currencySymbol && !hintMap.has(label)) {
-				augmentedHints.push({ column: label, type: "number", currencySymbol: src.currencySymbol });
-			}
-		}
-
-		// 11. Apply column aliases (display-only — computed column expressions use original names)
-		const aliasMap = new Map<string, string>();
-		for (const hint of query.columnTypeHints ?? []) {
-			if (hint.alias && hint.alias.trim()) aliasMap.set(hint.column, hint.alias.trim());
-		}
+		const augmentedHints = this.augmentCurrencyHints(query);
+		const aliasMap = this.buildAliasMap(query);
 		let finalColumns = columns;
 		let finalRows = sortedRows;
 		if (aliasMap.size > 0) {
 			finalColumns = columns.map((c) => aliasMap.get(c) ?? c);
-			finalRows = sortedRows.map((row) => {
-				const newRow: ResultRow = {};
-				for (const col of columns) {
-					const aliased = aliasMap.get(col) ?? col;
-					newRow[aliased] = row[col];
-				}
-				// Preserve non-output keys (e.g., excluded columns still needed for tile formulas)
-				for (const key of Object.keys(row)) {
-					if (!columns.includes(key) && !(aliasMap.get(key))) newRow[key] = row[key];
-				}
-				return newRow;
-			});
+			finalRows = this.applyAliases(sortedRows, columns, aliasMap);
 		}
-
-		// 12. Anonymize private columns (consistent pseudonyms per unique value)
 		finalRows = this.anonymizePrivateColumns(finalRows, finalColumns, query.columnTypeHints ?? []);
+		return { columns: finalColumns, rows: finalRows, groupCount, sourceRowCount, columnTypeHints: augmentedHints };
+	}
 
-		return {
-			columns: finalColumns,
-			rows: finalRows,
-			groupCount,
-			sourceRowCount,
-			columnTypeHints: augmentedHints,
-		};
+	private buildColumnList(query: AnalyticsQuery): string[] {
+		return [
+			...(query.timeBucket ? [query.timeBucket.outputColumn ?? `${query.timeBucket.column}_${query.timeBucket.period}`] : []),
+			...query.dimensions.map((d) => d.column),
+			...query.measures.map((m) => m.label ?? `${m.function}(${m.column})`),
+			...(query.computedColumns ?? []).map((c) => c.name),
+		];
+	}
+
+	private augmentCurrencyHints(query: AnalyticsQuery): ColumnTypeHint[] {
+		const hintMap = new Map<string, ColumnTypeHint>();
+		for (const h of query.columnTypeHints ?? []) hintMap.set(h.column, h);
+		const augmented = [...(query.columnTypeHints ?? [])];
+		for (const m of query.measures) {
+			const label = m.label ?? `${m.function}(${m.column})`;
+			const src = hintMap.get(m.column);
+			if (src?.currencySymbol && !hintMap.has(label)) {
+				augmented.push({ column: label, type: "number", currencySymbol: src.currencySymbol });
+			}
+		}
+		return augmented;
+	}
+
+	private buildAliasMap(query: AnalyticsQuery): Map<string, string> {
+		const aliasMap = new Map<string, string>();
+		for (const hint of query.columnTypeHints ?? []) {
+			if (hint.alias && hint.alias.trim()) aliasMap.set(hint.column, hint.alias.trim());
+		}
+		return aliasMap;
+	}
+
+	private applyAliases(rows: ResultRow[], columns: string[], aliasMap: Map<string, string>): ResultRow[] {
+		return rows.map((row) => {
+			const newRow: ResultRow = {};
+			for (const col of columns) newRow[aliasMap.get(col) ?? col] = row[col];
+			for (const key of Object.keys(row)) {
+				if (!columns.includes(key) && !(aliasMap.get(key))) newRow[key] = row[key];
+			}
+			return newRow;
+		});
 	}
 
 	// ── Private column anonymization ───────────────────
@@ -214,40 +212,13 @@ export class AnalyticsEngine {
 	private matchFilter(row: RawRow, filter: FilterSpec, query: AnalyticsQuery): boolean {
 		const raw = row[filter.column] ?? "";
 		const filterVal = filter.value;
-
-		// String operators
-		if (filter.operator === "contains") {
-			return raw.toLowerCase().includes(filterVal.toLowerCase());
-		}
-		if (filter.operator === "startsWith") {
-			return raw.toLowerCase().startsWith(filterVal.toLowerCase());
-		}
-
-		// Try numeric comparison
+		if (filter.operator === "contains") return raw.toLowerCase().includes(filterVal.toLowerCase());
+		if (filter.operator === "startsWith") return raw.toLowerCase().startsWith(filterVal.toLowerCase());
 		const localeId = this.findLocaleForColumn(filter.column, query);
 		const numRow = parseNumber(raw, localeId);
 		const numFilter = parseFloat(filterVal);
-
-		if (numRow !== null && !isNaN(numFilter)) {
-			switch (filter.operator) {
-				case "=": return numRow === numFilter;
-				case "!=": return numRow !== numFilter;
-				case ">": return numRow > numFilter;
-				case "<": return numRow < numFilter;
-				case ">=": return numRow >= numFilter;
-				case "<=": return numRow <= numFilter;
-			}
-		}
-
-		// Fallback to string comparison
-		switch (filter.operator) {
-			case "=": return raw === filterVal;
-			case "!=": return raw !== filterVal;
-			case ">": return raw > filterVal;
-			case "<": return raw < filterVal;
-			case ">=": return raw >= filterVal;
-			case "<=": return raw <= filterVal;
-		}
+		if (numRow !== null && !isNaN(numFilter)) return compareValues(numRow, filter.operator, numFilter);
+		return compareValues(raw, filter.operator, filterVal);
 	}
 
 	// ── Date range filtering ─────────────────────────
@@ -331,12 +302,20 @@ export class AnalyticsEngine {
 		measures: MeasureSpec[],
 		query: AnalyticsQuery,
 	): { resultRows: ResultRow[]; groupCount: number } {
-		// Build groups — include time bucket column in group key if present
+		const groups = this.buildGroups(rows, dimensions, query);
+		const hasComputedColumns = (query.computedColumns ?? []).length > 0;
+		const resultRows: ResultRow[] = [];
+		for (const [, groupRows] of groups) {
+			resultRows.push(this.aggregateGroup(groupRows, dimensions, measures, query, hasComputedColumns));
+		}
+		return { resultRows, groupCount: groups.size };
+	}
+
+	private buildGroups(rows: RawRow[], dimensions: DimensionSpec[], query: AnalyticsQuery): Map<string, RawRow[]> {
 		const groups = new Map<string, RawRow[]>();
 		const timeBucketCol = query.timeBucket
 			? (query.timeBucket.outputColumn ?? `${query.timeBucket.column}_${query.timeBucket.period}`)
 			: null;
-
 		for (const row of rows) {
 			const keyParts = dimensions.map((d) => row[d.column] ?? "");
 			if (timeBucketCol) keyParts.push(row[timeBucketCol] ?? "");
@@ -344,52 +323,31 @@ export class AnalyticsEngine {
 			if (!groups.has(groupKey)) groups.set(groupKey, []);
 			groups.get(groupKey)!.push(row);
 		}
+		return groups;
+	}
 
-		// Aggregate each group
-		const resultRows: ResultRow[] = [];
-		const hasComputedColumns = (query.computedColumns ?? []).length > 0;
-
-		for (const [, groupRows] of groups) {
-			const result: ResultRow = {};
-
-			// Carry forward raw column values from first row when computed columns
-			// need them. Parsed as numbers when possible so expressions work.
-			if (hasComputedColumns) {
-				for (const key of Object.keys(groupRows[0])) {
-					const raw = groupRows[0][key];
-					const num = parseNumber(raw, this.findLocaleForColumn(key, query));
-					result[key] = num !== null ? num : raw;
-				}
+	private aggregateGroup(
+		groupRows: RawRow[], dimensions: DimensionSpec[],
+		measures: MeasureSpec[], query: AnalyticsQuery, hasComputedColumns: boolean,
+	): ResultRow {
+		const result: ResultRow = {};
+		if (hasComputedColumns) {
+			for (const key of Object.keys(groupRows[0])) {
+				const raw = groupRows[0][key];
+				const num = parseNumber(raw, this.findLocaleForColumn(key, query));
+				result[key] = num !== null ? num : raw;
 			}
-
-			// Dimension values from first row (override raw passthrough)
-			for (const dim of dimensions) {
-				result[dim.column] = groupRows[0][dim.column] ?? "";
-			}
-
-			// Time bucket column (if present and in dimensions via output column)
-			if (query.timeBucket) {
-				const outputCol =
-					query.timeBucket.outputColumn ??
-					`${query.timeBucket.column}_${query.timeBucket.period}`;
-				result[outputCol] = groupRows[0][outputCol] ?? "";
-			}
-
-			// Measures (override raw passthrough with aggregated values)
-			for (const measure of measures) {
-				const label = measure.label ?? `${measure.function}(${measure.column})`;
-				result[label] = this.aggregate(
-					groupRows,
-					measure.column,
-					measure.function,
-					query,
-				);
-			}
-
-			resultRows.push(result);
 		}
-
-		return { resultRows, groupCount: groups.size };
+		for (const dim of dimensions) result[dim.column] = groupRows[0][dim.column] ?? "";
+		if (query.timeBucket) {
+			const outputCol = query.timeBucket.outputColumn ?? `${query.timeBucket.column}_${query.timeBucket.period}`;
+			result[outputCol] = groupRows[0][outputCol] ?? "";
+		}
+		for (const measure of measures) {
+			const label = measure.label ?? `${measure.function}(${measure.column})`;
+			result[label] = this.aggregate(groupRows, measure.column, measure.function, query);
+		}
+		return result;
 	}
 
 	private aggregate(
@@ -517,407 +475,4 @@ export class AnalyticsEngine {
 	}
 }
 
-/** Known function names for detection. */
-const WINDOW_FUNCTIONS: Set<string> = new Set(["CHANGE", "PCT_CHANGE", "ROLLING_AVG"]);
-
-/** Check whether an expression contains any window function calls. */
-function hasWindowFunction(expression: string): boolean {
-	return WINDOW_FUNCTIONS.has(extractOuterFunctionName(expression)) ||
-		/\b(CHANGE|PCT_CHANGE|ROLLING_AVG)\s*\(/.test(expression);
-}
-
-/** Extract the outer function name if the expression is a bare function call. */
-function extractOuterFunctionName(expression: string): string {
-	const match = expression.trim().match(/^([A-Z_]+)\s*\(/);
-	return match ? match[1] : "";
-}
-
-/**
- * Extract a window function call from an expression, handling {Column(Name)} refs with parens.
- * Returns the function name, args string, and the full matched text for substitution.
- */
-function extractWindowFunction(expression: string): { funcName: WindowFunctionName; argsStr: string; fullMatch: string } | null {
-	// Find the start of a window function
-	const startMatch = expression.match(/\b(CHANGE|PCT_CHANGE|ROLLING_AVG)\s*\(/);
-	if (!startMatch || startMatch.index === undefined) return null;
-
-	const funcName = startMatch[1] as WindowFunctionName;
-	const argsStart = startMatch.index + startMatch[0].length;
-
-	// Walk forward tracking brace and paren depth to find the matching close paren
-	let depth = 1;
-	let braceDepth = 0;
-	let i = argsStart;
-	while (i < expression.length && depth > 0) {
-		const ch = expression[i];
-		if (ch === "{") braceDepth++;
-		else if (ch === "}") braceDepth--;
-		else if (braceDepth === 0) {
-			if (ch === "(") depth++;
-			else if (ch === ")") depth--;
-		}
-		if (depth > 0) i++;
-	}
-
-	if (depth !== 0) return null;
-
-	const argsStr = expression.substring(argsStart, i);
-	const fullMatch = expression.substring(startMatch.index, i + 1);
-	return { funcName, argsStr, fullMatch };
-}
-
-/**
- * Extract a scalar function call from an expression, handling {Column(Name)} refs.
- * Finds the innermost scalar function (one whose args contain no un-braced nested scalar calls).
- */
-function extractScalarFunction(expression: string): { funcName: string; argsStr: string; fullMatch: string } | null {
-	const startMatch = expression.match(/\b(ROUND|ABS|IF|COALESCE|UPPER|LOWER|CONCAT)\s*\(/);
-	if (!startMatch || startMatch.index === undefined) return null;
-
-	const funcName = startMatch[1];
-	const argsStart = startMatch.index + startMatch[0].length;
-
-	let depth = 1;
-	let braceDepth = 0;
-	let i = argsStart;
-	while (i < expression.length && depth > 0) {
-		const ch = expression[i];
-		if (ch === "{") braceDepth++;
-		else if (ch === "}") braceDepth--;
-		else if (braceDepth === 0) {
-			if (ch === "(") depth++;
-			else if (ch === ")") depth--;
-		}
-		if (depth > 0) i++;
-	}
-
-	if (depth !== 0) return null;
-
-	const argsStr = expression.substring(argsStart, i);
-	const fullMatch = expression.substring(startMatch.index, i + 1);
-
-	// Check if this is truly "innermost" — args should not contain un-braced ROUND/ABS/IF calls
-	// If they do, we need to find that inner call instead
-	const innerCheck = extractScalarFunction(argsStr);
-	if (innerCheck) {
-		// Recurse into the inner call — adjust positions
-		return {
-			funcName: innerCheck.funcName,
-			argsStr: innerCheck.argsStr,
-			fullMatch: innerCheck.fullMatch,
-		};
-	}
-
-	return { funcName, argsStr, fullMatch };
-}
-
-/**
- * Apply a window-function computed column to the full result set.
- * Supports standalone: `CHANGE({col})` and nested: `ROUND(PCT_CHANGE({col}), 1)`.
- */
-function applyWindowColumn(rows: ResultRow[], cc: ComputedColumn): void {
-	// Find the window function call — must handle {SUM(Revenue)} column refs with parens
-	const parsed = extractWindowFunction(cc.expression);
-	if (!parsed) {
-		// Fallback: treat as per-row expression
-		for (const row of rows) {
-			row[cc.name] = evaluateExpression(cc.expression, row);
-		}
-		return;
-	}
-
-	const { funcName, argsStr, fullMatch } = parsed;
-	const args = splitFunctionArgs(argsStr);
-
-	// Resolve column reference from first arg
-	const colRef = args[0]?.trim().replace(/^\{|\}$/g, "") ?? "";
-
-	// Compute window values
-	let windowValues: Array<number | null>;
-	switch (funcName) {
-		case "CHANGE":
-			windowValues = computeChange(rows, colRef);
-			break;
-		case "PCT_CHANGE":
-			windowValues = computePctChange(rows, colRef);
-			break;
-		case "ROLLING_AVG": {
-			const windowSize = parseInt(args[1]?.trim() ?? "3", 10);
-			windowValues = computeRollingAvg(rows, colRef, isNaN(windowSize) ? 3 : windowSize);
-			break;
-		}
-	}
-
-	// Check if the window function is wrapped in scalar functions
-	const isWrapped = cc.expression.trim() !== fullMatch;
-
-	for (let i = 0; i < rows.length; i++) {
-		const wv = windowValues[i];
-		if (wv === null) {
-			rows[i][cc.name] = null as unknown as string | number;
-		} else if (isWrapped) {
-			// Substitute the window function result back into the expression, then evaluate scalars
-			const substituted = cc.expression.replace(fullMatch, String(wv));
-			rows[i][cc.name] = evaluateExpression(substituted, rows[i]);
-		} else {
-			rows[i][cc.name] = wv;
-		}
-	}
-}
-
-/**
- * Evaluate an expression with {Column Label} references, arithmetic, and scalar functions.
- * Supports +, -, *, / with standard operator precedence.
- * Scalar functions: ROUND(val, n), ABS(val), IF(cond, then, else).
- * Returns string | number (IF can return string values).
- */
-export function evaluateExpression(expression: string, row: ResultRow): string | number {
-	if (!expression.trim()) return 0;
-
-	// Process scalar function calls inside-out (innermost first)
-	let processed = expression;
-	let iterations = 0;
-	const MAX_ITERATIONS = 20;
-
-	while (iterations < MAX_ITERATIONS) {
-		// Find innermost scalar function call (respects {Column(Name)} refs with parens)
-		const extracted = extractScalarFunction(processed);
-		if (!extracted) break;
-
-		const { funcName, argsStr, fullMatch } = extracted;
-		const args = splitFunctionArgs(argsStr);
-
-		let result: string | number;
-		switch (funcName) {
-			case "ROUND": result = evalRound(args, row); break;
-			case "ABS": result = evalAbs(args, row); break;
-			case "IF": result = evalIf(args, row); break;
-			case "COALESCE": result = evalCoalesce(args, row); break;
-			case "UPPER": result = evalUpper(args, row); break;
-			case "LOWER": result = evalLower(args, row); break;
-			case "CONCAT": result = evalConcat(args, row); break;
-			default: result = 0;
-		}
-
-		// Substitute the function call with the result
-		if (typeof result === "string") {
-			processed = processed.replace(fullMatch, `"${result}"`);
-		} else {
-			processed = processed.replace(fullMatch, String(result));
-		}
-		iterations++;
-	}
-
-	// Check if the result is a quoted string (from IF)
-	const trimmed = processed.trim();
-	if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-		return trimmed.slice(1, -1);
-	}
-
-	// Replace {Column Label} references with numeric values
-	const substituted = processed.replace(/\{([^}]+)\}/g, (_, label: string) => {
-		const key = label.trim();
-		let val = row[key];
-
-		// Fallback: if exact key not found, look for aggregated label like SUM(key), AVG(key), etc.
-		if (val === undefined) {
-			for (const rk of Object.keys(row)) {
-				if (rk.endsWith(`(${key})`)) {
-					val = row[rk];
-					break;
-				}
-			}
-		}
-
-		if (typeof val === "number") return String(val);
-		const num = parseFloat(String(val ?? ""));
-		return isNaN(num) ? "0" : String(num);
-	});
-
-	// Tokenize into numbers and operators
-	const tokens = tokenizeArithmetic(substituted);
-	if (tokens.length === 0) return 0;
-
-	return calculateWithPrecedence(tokens);
-}
-
-/** Split function arguments respecting nested parentheses and quoted strings. */
-function splitFunctionArgs(argsStr: string): string[] {
-	const args: string[] = [];
-	let depth = 0;
-	let current = "";
-	let inQuote = false;
-	let quoteChar = "";
-
-	for (let i = 0; i < argsStr.length; i++) {
-		const ch = argsStr[i];
-
-		if (inQuote) {
-			current += ch;
-			if (ch === quoteChar) inQuote = false;
-			continue;
-		}
-
-		if (ch === '"' || ch === "'") {
-			inQuote = true;
-			quoteChar = ch;
-			current += ch;
-			continue;
-		}
-
-		if (ch === "(") { depth++; current += ch; continue; }
-		if (ch === ")") { depth--; current += ch; continue; }
-		if (ch === "," && depth === 0) {
-			args.push(current);
-			current = "";
-			continue;
-		}
-		current += ch;
-	}
-
-	if (current.trim()) args.push(current);
-	return args;
-}
-
-/** Token: either a number or an operator */
-type ArithToken = { type: "num"; value: number } | { type: "op"; value: string };
-
-/** Tokenize a string like "100 - 50 * 2" into numbers and operators. */
-function tokenizeArithmetic(expr: string): ArithToken[] {
-	const tokens: ArithToken[] = [];
-	let i = 0;
-	const s = expr.trim();
-
-	while (i < s.length) {
-		// Skip whitespace
-		if (s[i] === " " || s[i] === "\t") { i++; continue; }
-
-		// Operator
-		if (s[i] === "+" || s[i] === "-" || s[i] === "*" || s[i] === "/") {
-			// Handle leading negative: treat as part of number if no preceding number
-			if (s[i] === "-" && (tokens.length === 0 || tokens[tokens.length - 1].type === "op")) {
-				const numStr = parseNumString(s, i);
-				if (numStr.length > 1) {
-					tokens.push({ type: "num", value: parseFloat(numStr) });
-					i += numStr.length;
-					continue;
-				}
-			}
-			tokens.push({ type: "op", value: s[i] });
-			i++;
-			continue;
-		}
-
-		// Number
-		if (isDigitOrDot(s[i])) {
-			const numStr = parseNumString(s, i);
-			tokens.push({ type: "num", value: parseFloat(numStr) });
-			i += numStr.length;
-			continue;
-		}
-
-		// Skip unknown characters
-		i++;
-	}
-
-	return tokens;
-}
-
-function isDigitOrDot(ch: string): boolean {
-	return (ch >= "0" && ch <= "9") || ch === ".";
-}
-
-function parseNumString(s: string, start: number): string {
-	let i = start;
-	if (s[i] === "-" || s[i] === "+") i++;
-	while (i < s.length && (isDigitOrDot(s[i]) || s[i] === "e" || s[i] === "E")) i++;
-	return s.substring(start, i);
-}
-
-/** Evaluate tokens with operator precedence: * / before + - */
-function calculateWithPrecedence(tokens: ArithToken[]): number {
-	if (tokens.length === 0) return 0;
-
-	// Collect numbers and operators
-	const nums: number[] = [];
-	const ops: string[] = [];
-
-	for (const t of tokens) {
-		if (t.type === "num") nums.push(t.value);
-		else ops.push(t.value);
-	}
-
-	// If mismatched, return first number or 0
-	if (nums.length === 0) return 0;
-	if (ops.length < nums.length - 1) return nums[0];
-
-	// Pass 1: handle * and /
-	const nums2: number[] = [nums[0]];
-	const ops2: string[] = [];
-
-	for (let i = 0; i < ops.length; i++) {
-		if (ops[i] === "*" || ops[i] === "/") {
-			const left = nums2.pop()!;
-			const right = nums[i + 1] ?? 0;
-			if (ops[i] === "*") {
-				nums2.push(left * right);
-			} else {
-				nums2.push(right === 0 ? 0 : left / right);
-			}
-		} else {
-			ops2.push(ops[i]);
-			nums2.push(nums[i + 1] ?? 0);
-		}
-	}
-
-	// Pass 2: handle + and -
-	let result = nums2[0];
-	for (let i = 0; i < ops2.length; i++) {
-		if (ops2[i] === "+") result += nums2[i + 1] ?? 0;
-		else if (ops2[i] === "-") result -= nums2[i + 1] ?? 0;
-	}
-
-	return isNaN(result) || !isFinite(result) ? 0 : result;
-}
-
-/**
- * Guess a column's type from sample values.
- */
-function guessColumnType(
-	samples: string[],
-	_localeId?: string,
-): { type: "number" | "date" | "string"; currencySymbol?: string } {
-	if (samples.length === 0) return { type: "string" };
-
-	let numericCount = 0;
-	let dateCount = 0;
-	let detectedSymbol: string | undefined;
-
-	for (const s of samples) {
-		// Detect currency symbol prefix
-		const symbolMatch = s.match(/^[€$£¥₹]/);
-		if (symbolMatch) detectedSymbol = symbolMatch[0];
-
-		// Strip currency symbols before number check (same as parseNumber)
-		const stripped = s.replace(/[€$£¥₹]/g, "").trim();
-		// Check if it looks like a number (digits, separators, optional sign)
-		if (/^[-+]?[\d.,\s\u00A0]+$/.test(stripped) && /\d/.test(stripped)) {
-			numericCount++;
-		}
-		// Check if it looks like a date (various patterns incl. dash-separated, 2/4-digit year, year-month)
-		if (
-			/^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$/.test(s) ||
-			/^\d{4}-\d{1,2}-\d{1,2}$/.test(s) ||
-			/^\d{4}-\d{1,2}$/.test(s)
-		) {
-			dateCount++;
-		}
-	}
-
-	// Date patterns are unambiguous — use lower threshold (50%)
-	const dateThreshold = samples.length * 0.5;
-	if (dateCount >= dateThreshold) return { type: "date" };
-	const threshold = samples.length * 0.7;
-	if (numericCount >= threshold) return { type: "number", currencySymbol: detectedSymbol };
-	return { type: "string" };
-}
+// Expression evaluation, window functions, and guessColumnType are in ./expressionEvaluator

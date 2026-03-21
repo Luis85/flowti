@@ -3,13 +3,14 @@
  * Renders the master list of saved import configs and the detail/edit panel.
  */
 
-import { Setting, TFile, setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import type { SavedImportConfig } from "../../domain/dataExchange/types";
 import { ConfirmModal } from "../modals";
 import { FilePickerModal } from "../shared/FilePickerModal";
-import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
 import { addInfoRow, renderEmptyDetail, resolveImportBaseFile, getEmptyDetailStats } from "./helpers";
 import type { ActiveOperation, HubComponentDeps } from "./types";
+import { renderImportEditForm } from "./ImportsTabEditForm";
+import { renderActiveImportProgress } from "./ImportsTabProgress";
 
 export class ImportsTab {
 	private liveUnsubscribes: (() => void)[] = [];
@@ -122,7 +123,17 @@ export class ImportsTab {
 			return;
 		}
 
-		// Header with operation badge
+		this.renderDetailHeader(cfg);
+		this.renderDetailActions(cfg);
+		this.renderActiveOperations(cfg, state);
+		this.renderDescription(cfg);
+		this.renderSourceTargetInfo(cfg);
+		this.renderConfigurationInfo(cfg);
+		this.renderColumnMappings(cfg);
+		this.renderCustomProperties(cfg);
+	}
+
+	private renderDetailHeader(cfg: SavedImportConfig): void {
 		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
 		const left = header.createDiv();
 		left.createDiv({ text: cfg.name || "(unnamed)", cls: "ft-detail-event-type" });
@@ -135,8 +146,9 @@ export class ImportsTab {
 		if (cfg.noteType) {
 			badges.createSpan({ text: cfg.noteType, cls: "ft-badge" });
 		}
+	}
 
-		// Actions bar
+	private renderDetailActions(cfg: SavedImportConfig): void {
 		const actions = this.detailEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
 
 		// Execute
@@ -243,8 +255,9 @@ export class ImportsTab {
 				},
 			}).open();
 		});
+	}
 
-		// Active import operations (state-backed — survives tab navigation)
+	private renderActiveOperations(cfg: SavedImportConfig, state: ReturnType<HubComponentDeps["getState"]>): void {
 		const activeImports = cfg.sourcePath
 			? state.activeOperations.filter(
 				(op) => op.type === "import" && !op.completed && op.sourcePath === cfg.sourcePath,
@@ -253,23 +266,23 @@ export class ImportsTab {
 		for (const op of activeImports) {
 			this.renderActiveImportProgress(this.detailEl, op);
 		}
+	}
 
-		// Description from linked CsvDoc
-		if (cfg.sourcePath) {
-			const csvDocPath = this.deps.dataExchangeService.resolveCsvDocPath(cfg.sourcePath, (p) => !!this.deps.app.vault.getAbstractFileByPath(p));
-			const csvDocFile = this.deps.app.vault.getAbstractFileByPath(csvDocPath);
-			if (csvDocFile instanceof TFile) {
-				const cache = this.deps.app.metadataCache.getFileCache(csvDocFile);
-				const description = cache?.frontmatter?.["description"] as string | undefined;
-				if (description) {
-					const descSection = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
-					descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
-					descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
-				}
-			}
+	private renderDescription(cfg: SavedImportConfig): void {
+		if (!cfg.sourcePath) return;
+		const csvDocPath = this.deps.dataExchangeService.resolveCsvDocPath(cfg.sourcePath, (p) => !!this.deps.app.vault.getAbstractFileByPath(p));
+		const csvDocFile = this.deps.app.vault.getAbstractFileByPath(csvDocPath);
+		if (!(csvDocFile instanceof TFile)) return;
+		const cache = this.deps.app.metadataCache.getFileCache(csvDocFile);
+		const description = cache?.frontmatter?.["description"] as string | undefined;
+		if (description) {
+			const descSection = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+			descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
+			descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
 		}
+	}
 
-		// Source & target info
+	private renderSourceTargetInfo(cfg: SavedImportConfig): void {
 		const sourceCard = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 		sourceCard.createDiv({ text: "Source & Target", cls: "ft-detail-section-header" });
 		const sourceGrid = sourceCard.createDiv({ cls: "ft-detail-info-grid" });
@@ -288,8 +301,9 @@ export class ImportsTab {
 		addInfoRow(sourceGrid, "Name Column", cfg.nameColumn || "(not set)");
 		if (cfg.namePrefix) addInfoRow(sourceGrid, "Name Prefix", cfg.namePrefix);
 		if (cfg.nameSuffix) addInfoRow(sourceGrid, "Name Suffix", cfg.nameSuffix);
+	}
 
-		// Configuration
+	private renderConfigurationInfo(cfg: SavedImportConfig): void {
 		const configCard = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 		configCard.createDiv({ text: "Configuration", cls: "ft-detail-section-header" });
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
@@ -303,50 +317,52 @@ export class ImportsTab {
 		if (cfg.noteType) addInfoRow(configGrid, "Note Type", cfg.noteType);
 		addInfoRow(configGrid, "Created", new Date(cfg.createdAt).toLocaleString());
 
-		// Last import run
-		if (cfg.sourcePath) {
-			const csvSettings = this.deps.dataExchangeService.getCsvDisplaySettings(cfg.sourcePath);
-			if (csvSettings?.lastImportedAt) {
-				const lastRun = new Date(csvSettings.lastImportedAt);
-				const elapsed = Date.now() - csvSettings.lastImportedAt;
-				const relativeTime = elapsed < 60_000 ? "just now"
-					: elapsed < 3_600_000 ? `${Math.floor(elapsed / 60_000)}m ago`
-						: elapsed < 86_400_000 ? `${Math.floor(elapsed / 3_600_000)}h ago`
-							: `${Math.floor(elapsed / 86_400_000)}d ago`;
-				addInfoRow(configGrid, "Last Import", `${lastRun.toLocaleString()} (${relativeTime})`);
-			} else {
-				addInfoRow(configGrid, "Last Import", "Never");
-			}
-		}
+		this.renderLastImportRun(configGrid, cfg);
+	}
 
-		// Column mappings
-		if (cfg.columnMappings.length > 0) {
-			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
-			section.createDiv({ text: "Column Mappings", cls: "ft-detail-section-header" });
-			const table = section.createEl("table", { cls: "ft-preview-table" });
-			const thead = table.createEl("tr");
-			thead.createEl("th", { text: "CSV column" });
-			thead.createEl("th", { text: "Frontmatter key" });
-			thead.createEl("th", { text: "Included" });
-			for (const m of cfg.columnMappings) {
-				const tr = table.createEl("tr");
-				tr.createEl("td", { text: m.csvColumn });
-				tr.createEl("td", { text: m.frontmatterKey });
-				const inclTd = tr.createEl("td");
-				const inclIcon = inclTd.createSpan();
-				setIcon(inclIcon, m.included ? "check" : "minus");
-				if (!m.included) inclIcon.addClass("ft-opacity-60");
-			}
+	private renderLastImportRun(configGrid: HTMLElement, cfg: SavedImportConfig): void {
+		if (!cfg.sourcePath) return;
+		const csvSettings = this.deps.dataExchangeService.getCsvDisplaySettings(cfg.sourcePath);
+		if (!csvSettings?.lastImportedAt) {
+			addInfoRow(configGrid, "Last Import", "Never");
+			return;
 		}
+		const lastRun = new Date(csvSettings.lastImportedAt);
+		const elapsed = Date.now() - csvSettings.lastImportedAt;
+		const relativeTime = elapsed < 60_000 ? "just now"
+			: elapsed < 3_600_000 ? `${Math.floor(elapsed / 60_000)}m ago`
+				: elapsed < 86_400_000 ? `${Math.floor(elapsed / 3_600_000)}h ago`
+					: `${Math.floor(elapsed / 86_400_000)}d ago`;
+		addInfoRow(configGrid, "Last Import", `${lastRun.toLocaleString()} (${relativeTime})`);
+	}
 
-		// Custom properties
-		if (cfg.customProperties && Object.keys(cfg.customProperties).length > 0) {
-			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
-			section.createDiv({ text: "Custom Properties", cls: "ft-detail-section-header" });
-			const propGrid = section.createDiv({ cls: "ft-detail-info-grid" });
-			for (const [key, val] of Object.entries(cfg.customProperties)) {
-				addInfoRow(propGrid, key, val);
-			}
+	private renderColumnMappings(cfg: SavedImportConfig): void {
+		if (cfg.columnMappings.length === 0) return;
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
+		section.createDiv({ text: "Column Mappings", cls: "ft-detail-section-header" });
+		const table = section.createEl("table", { cls: "ft-preview-table" });
+		const thead = table.createEl("tr");
+		thead.createEl("th", { text: "CSV column" });
+		thead.createEl("th", { text: "Frontmatter key" });
+		thead.createEl("th", { text: "Included" });
+		for (const m of cfg.columnMappings) {
+			const tr = table.createEl("tr");
+			tr.createEl("td", { text: m.csvColumn });
+			tr.createEl("td", { text: m.frontmatterKey });
+			const inclTd = tr.createEl("td");
+			const inclIcon = inclTd.createSpan();
+			setIcon(inclIcon, m.included ? "check" : "minus");
+			if (!m.included) inclIcon.addClass("ft-opacity-60");
+		}
+	}
+
+	private renderCustomProperties(cfg: SavedImportConfig): void {
+		if (!cfg.customProperties || Object.keys(cfg.customProperties).length === 0) return;
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
+		section.createDiv({ text: "Custom Properties", cls: "ft-detail-section-header" });
+		const propGrid = section.createDiv({ cls: "ft-detail-info-grid" });
+		for (const [key, val] of Object.entries(cfg.customProperties)) {
+			addInfoRow(propGrid, key, val);
 		}
 	}
 
@@ -355,108 +371,11 @@ export class ImportsTab {
 	// ─────────────────────────────────────────────────────────
 
 	private renderEditForm(cfg: SavedImportConfig): void {
-		const panel = this.detailEl;
-		panel.createEl("h3", { text: "Edit import config", cls: "ft-heading ft-heading-sm ft-mb-3" });
-
-		const edits: Partial<SavedImportConfig> = {
-			name: cfg.name,
-			targetFolder: cfg.targetFolder,
-			nameColumn: cfg.nameColumn,
-			conflictStrategy: cfg.conflictStrategy,
-			createBase: cfg.createBase ?? false,
-			basePath: cfg.basePath ?? "",
-			noteType: cfg.noteType ?? "",
-		};
-
-		new Setting(panel)
-			.setName("Name")
-			.addText((t) => t.setValue(cfg.name).onChange((v) => { edits.name = v; }));
-
-		const targetSetting = new Setting(panel)
-			.setName("Target folder")
-			.addText((t) => t.setValue(cfg.targetFolder).onChange((v) => { edits.targetFolder = v; }));
-		targetSetting.addExtraButton((btn) =>
-			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
-				const folders = getVaultFolders(this.deps.app);
-				new FolderPickerModal(this.deps.app, folders, (folder) => {
-					edits.targetFolder = folder;
-					this.renderDetail();
-				}).open();
-			}),
+		renderImportEditForm(
+			this.detailEl, cfg, this.deps,
+			() => { this.renderMaster(); this.renderDetail(); },
+			() => { this.renderDetail(); },
 		);
-
-		new Setting(panel)
-			.setName("Name column")
-			.addText((t) => t.setValue(cfg.nameColumn).onChange((v) => { edits.nameColumn = v; }));
-
-		new Setting(panel)
-			.setName("Conflict strategy")
-			.addDropdown((dd) =>
-				dd
-					.addOptions({ skip: "Skip", update: "Update frontmatter", overwrite: "Overwrite" })
-					.setValue(cfg.conflictStrategy)
-					.onChange((v) => { edits.conflictStrategy = v as SavedImportConfig["conflictStrategy"]; }),
-			);
-
-		new Setting(panel)
-			.setName("Create .base view")
-			.setDesc("Generate a table view for imported notes")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(edits.createBase ?? false)
-					.onChange((v) => {
-						edits.createBase = v || undefined;
-						basePathSetting.settingEl.toggle(v);
-					}),
-			);
-
-		const basePathSetting = new Setting(panel)
-			.setName("Base file path")
-			.setDesc("Where to save the .base view file")
-			.addText((t) =>
-				t
-					.setValue(edits.basePath ?? "")
-					.setPlaceholder("path/to/view.base")
-					.onChange((v) => { edits.basePath = v || undefined; }),
-			);
-		basePathSetting.settingEl.toggle(edits.createBase ?? false);
-
-		new Setting(panel)
-			.setName("Note type")
-			.setDesc("Type value added to every note's frontmatter (optional)")
-			.addText((t) =>
-				t
-					.setValue(cfg.noteType ?? "")
-					// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.setPlaceholder("e.g. event, asset, service")
-					.onChange((v) => { edits.noteType = v || undefined; }),
-			);
-
-		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
-
-		const saveLink = nav.createEl("span", { cls: "ft-nav-link" });
-		const saveIcon = saveLink.createSpan();
-		setIcon(saveIcon, "check");
-		saveLink.appendText(" Save");
-		saveLink.addEventListener("click", () => {
-			void this.deps.dataExchangeService
-				.updateImportConfig(cfg.id, edits)
-				.then(() => {
-					this.deps.setState({ editingImportId: null });
-					this.renderMaster();
-					this.renderDetail();
-					void this.deps.eventBus.emit("notice.success", { message: "Import config updated" });
-				});
-		});
-
-		const cancelLink = nav.createEl("span", { cls: "ft-nav-link" });
-		const cancelIcon = cancelLink.createSpan();
-		setIcon(cancelIcon, "x");
-		cancelLink.appendText(" Cancel");
-		cancelLink.addEventListener("click", () => {
-			this.deps.setState({ editingImportId: null });
-			this.renderDetail();
-		});
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -465,71 +384,7 @@ export class ImportsTab {
 
 	private renderActiveImportProgress(container: HTMLElement, op: ActiveOperation): void {
 		this.cleanupLiveListeners();
-		const section = container.createDiv({ cls: "ft-import-progress ft-card ft-mt-3" });
-
-		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
-		const spinnerIcon = statusRow.createSpan();
-		setIcon(spinnerIcon, "loader");
-		spinnerIcon.addClass("ft-opacity-60");
-		spinnerIcon.addClass("ft-spin");
-		const statusText = statusRow.createSpan({ cls: "ft-text-sm" });
-		if (op.progress) {
-			statusText.textContent = `Importing... ${op.progress.current} / ${op.progress.total}`;
-			if (op.progress.lastFilename) statusText.textContent += ` — ${op.progress.lastFilename}`;
-		} else {
-			statusText.textContent = `Running import: ${op.name}...`;
-		}
-
-		const barBg = section.createDiv({ cls: "ft-progress-bar-track-4" });
-		const barFill = barBg.createDiv({ cls: "ft-progress-bar-fill-animated" });
-		const pct = op.progress && op.progress.total > 0
-			? Math.round((op.progress.current / op.progress.total) * 100)
-			: 0;
-		barFill.style.width = `${pct}%`;
-
-		const detailText = section.createDiv({ cls: "ft-text-muted ft-text-sm ft-px-2 ft-pb-2" });
-
-		// Live progress listener
-		this.liveUnsubscribes.push(
-			this.deps.eventBus.on("dataExchange.import.progress", (event) => {
-				if (event.payload.operationId !== op.operationId) return;
-				const { current, total, lastFilename } = event.payload;
-				const livePct = total > 0 ? Math.round((current / total) * 100) : 0;
-				barFill.style.width = `${livePct}%`;
-				statusText.textContent = `Importing... ${current} / ${total}`;
-				if (lastFilename) statusText.textContent += ` — ${lastFilename}`;
-				detailText.textContent = lastFilename ? `Last: ${lastFilename}` : "";
-			}),
-		);
-
-		// Completion/failure listener — update to result state
-		this.liveUnsubscribes.push(
-			this.deps.eventBus.on("dataExchange.import.completed", (event) => {
-				if (event.payload.operationId !== op.operationId) return;
-				section.empty();
-				const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
-				const icon = resultRow.createSpan();
-				setIcon(icon, "check-circle");
-				icon.addClass("ft-text-success");
-				const r = event.payload.result;
-				resultRow.createSpan({
-					text: `Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
-						(r.failed > 0 ? `, ${r.failed} failed` : ""),
-					cls: "ft-text-sm",
-				});
-			}),
-		);
-		this.liveUnsubscribes.push(
-			this.deps.eventBus.on("dataExchange.import.failed", (event) => {
-				if (event.payload.operationId !== op.operationId) return;
-				section.empty();
-				const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
-				const icon = resultRow.createSpan();
-				setIcon(icon, "x-circle");
-				icon.addClass("ft-text-error");
-				resultRow.createSpan({ text: `Import failed: ${event.payload.error}`, cls: "ft-text-sm" });
-			}),
-		);
+		renderActiveImportProgress(container, op, this.deps, this.liveUnsubscribes);
 	}
 
 	cleanupLiveListeners(): void {

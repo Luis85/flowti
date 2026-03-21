@@ -20,42 +20,70 @@ export class PreviewPage {
 		ws.empty();
 
 		const state = this.deps.getState();
-		const dn = state.displayNames;
+		const { allHeaders, renderCell } = this.resolveColumns(state);
 
-		// Unified column descriptors when available; legacy split otherwise
-		let allHeaders: string[];
-		let renderCell: (file: VaultFileInfo, colIndex: number) => string;
+		this.renderActionBar(ws, state, allHeaders);
+		this.renderImpactSummary(ws, state, allHeaders);
+		this.renderCountBar(ws, state, allHeaders);
+
+		if (allHeaders.length === 0) {
+			const scroll = ws.createDiv({ cls: "ft-table-scroll" });
+			scroll.createEl("p", {
+				text: "No columns selected. Go back and select at least one column.",
+				cls: "ft-text-muted ft-p-3",
+			});
+			return;
+		}
+
+		this.renderPreviewTable(ws, state, allHeaders, renderCell);
+	}
+
+	private resolveColumns(state: ReturnType<ExportComponentDeps["getState"]>): {
+		allHeaders: string[];
+		renderCell: (file: VaultFileInfo, colIndex: number) => string;
+	} {
+		const dn = state.displayNames;
 
 		if (state.resolvedColumns && state.resolvedColumns.length > 0) {
 			const cols = state.resolvedColumns;
-			allHeaders = cols.map((rc) => rc.header);
-			renderCell = (file, i) => resolveColumnValue(file, cols[i]);
-		} else {
-			const fileHeaders: { key: string; label: string }[] =
-				state.selectedFileProperties.map((key) => ({
-					key,
-					label: dn[key] ?? getFilePropertyLabel(key),
-				}));
-			const columnHeaders: { key: string; label: string }[] =
-				state.selectedColumns.map((col) => ({
-					key: col,
-					label: dn[col] ?? dn[`note.${col}`] ?? col,
-				}));
-			allHeaders = [
+			return {
+				allHeaders: cols.map((rc) => rc.header),
+				renderCell: (file, i) => resolveColumnValue(file, cols[i]),
+			};
+		}
+
+		const fileHeaders: { key: string; label: string }[] =
+			state.selectedFileProperties.map((key) => ({
+				key,
+				label: dn[key] ?? getFilePropertyLabel(key),
+			}));
+		const columnHeaders: { key: string; label: string }[] =
+			state.selectedColumns.map((col) => ({
+				key: col,
+				label: dn[col] ?? dn[`note.${col}`] ?? col,
+			}));
+
+		return {
+			allHeaders: [
 				...fileHeaders.map((h) => h.label),
 				...columnHeaders.map((h) => h.label),
-			];
-			renderCell = (file, i) => {
+			],
+			renderCell: (file, i) => {
 				if (i < fileHeaders.length) {
 					return resolveFileProperty(file, fileHeaders[i].key);
 				}
 				const ch = columnHeaders[i - fileHeaders.length];
 				const val = file.frontmatter?.[ch.key];
 				return val !== undefined && val !== null ? String(val) : "";
-			};
-		}
+			},
+		};
+	}
 
-		// Action bar
+	private renderActionBar(
+		ws: HTMLElement,
+		state: ReturnType<ExportComponentDeps["getState"]>,
+		allHeaders: string[],
+	): void {
 		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-border-bottom ft-flex-shrink-0" });
 
 		// Validation
@@ -91,67 +119,58 @@ export class PreviewPage {
 				this.deps.runExport();
 			});
 		}
+	}
 
-		// ── Impact summary ──
+	private renderImpactSummary(
+		ws: HTMLElement,
+		state: ReturnType<ExportComponentDeps["getState"]>,
+		allHeaders: string[],
+	): void {
 		const summary = ws.createDiv({ cls: "ft-card ft-mt-3 ft-mb-2" });
 		summary.createDiv({ text: "What will happen", cls: "ft-detail-section-header ft-mb-2" });
 		const grid = summary.createDiv({ cls: "ft-detail-info-grid" });
 
-		const addRow = (label: string, value: string) => {
+		const addRow = (label: string, value: string): void => {
 			grid.createDiv({ text: label, cls: "ft-detail-info-label" });
 			grid.createDiv({ text: value, cls: "ft-detail-info-value" });
 		};
 
 		addRow("Source", state.sourcePath);
-		if (state.sourceType === "base") {
-			addRow("Source type", `Base view (view ${state.baseViewIndex + 1})`);
-		} else {
-			addRow("Source type", "Folder");
-		}
+		addRow("Source type", state.sourceType === "base" ? `Base view (view ${state.baseViewIndex + 1})` : "Folder");
 		addRow("Files to export", `${state.previewFiles.length} note${state.previewFiles.length !== 1 ? "s" : ""}`);
 		const outputLabel = state.isExternal
 			? `${state.outputPath} (external)`
 			: state.outputPath || "(not set)";
 		addRow("Output file", outputLabel);
 		addRow("Format", state.format === "tab" ? "Tab-delimited" : "CSV");
-		addRow(
-			"Columns",
-			`${state.selectedColumns.length} frontmatter + ${state.selectedFileProperties.length} file properties`,
-		);
+		addRow("Columns", `${state.selectedColumns.length} frontmatter + ${state.selectedFileProperties.length} file properties`);
 		addRow("Conflict strategy", STRATEGY_LABELS[state.conflictStrategy] ?? state.conflictStrategy);
 		const dnCount = Object.keys(state.displayNames).length;
 		if (dnCount > 0) {
 			addRow("Display names", `${dnCount} override${dnCount !== 1 ? "s" : ""}`);
 		}
+	}
 
-		// Count bar
+	private renderCountBar(
+		ws: HTMLElement,
+		state: ReturnType<ExportComponentDeps["getState"]>,
+		allHeaders: string[],
+	): void {
 		const countBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 		countBar.addClass("ft-flex-shrink-0");
-		countBar.createSpan({
-			text: `${state.previewFiles.length} rows`,
-			cls: "ft-badge ft-badge-muted",
-		});
-		countBar.createSpan({
-			text: `${allHeaders.length} columns`,
-			cls: "ft-badge ft-badge-muted",
-		});
+		countBar.createSpan({ text: `${state.previewFiles.length} rows`, cls: "ft-badge ft-badge-muted" });
+		countBar.createSpan({ text: `${allHeaders.length} columns`, cls: "ft-badge ft-badge-muted" });
 		if (state.previewFiles.length > 25) {
-			countBar.createSpan({
-				text: "Showing first 25 rows",
-				cls: "ft-text-sm ft-text-muted",
-			});
+			countBar.createSpan({ text: "Showing first 25 rows", cls: "ft-text-sm ft-text-muted" });
 		}
+	}
 
-		if (allHeaders.length === 0) {
-			const scroll = ws.createDiv({ cls: "ft-table-scroll" });
-			scroll.createEl("p", {
-				text: "No columns selected. Go back and select at least one column.",
-				cls: "ft-text-muted ft-p-3",
-			});
-			return;
-		}
-
-		// Table scroll area
+	private renderPreviewTable(
+		ws: HTMLElement,
+		state: ReturnType<ExportComponentDeps["getState"]>,
+		allHeaders: string[],
+		renderCell: (file: VaultFileInfo, colIndex: number) => string,
+	): void {
 		const scroll = ws.createDiv({ cls: "ft-table-scroll" });
 		const table = scroll.createEl("table", { cls: "ft-preview-table" });
 		const thead = table.createEl("thead");
@@ -171,16 +190,9 @@ export class PreviewPage {
 			}
 		}
 
-		if (state.previewFiles.length > maxPreview) {
-			scroll.createEl("p", {
-				text: `Showing ${maxPreview} of ${state.previewFiles.length} rows`,
-				cls: "ft-text-muted ft-text-sm ft-mt-2",
-			});
-		} else {
-			scroll.createEl("p", {
-				text: `${state.previewFiles.length} rows total`,
-				cls: "ft-text-muted ft-text-sm ft-mt-2",
-			});
-		}
+		const totalLabel = state.previewFiles.length > maxPreview
+			? `Showing ${maxPreview} of ${state.previewFiles.length} rows`
+			: `${state.previewFiles.length} rows total`;
+		scroll.createEl("p", { text: totalLabel, cls: "ft-text-muted ft-text-sm ft-mt-2" });
 	}
 }

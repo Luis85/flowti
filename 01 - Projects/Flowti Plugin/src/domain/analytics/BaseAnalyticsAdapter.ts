@@ -46,23 +46,23 @@ function resolveColumnValue(file: VaultFileInfo, rc: ResolvedColumn): string {
 	return value !== undefined && value !== null ? String(value) : "";
 }
 
+/** Dispatch map for file property resolution — avoids switch/case complexity. */
+const FILE_PROPERTY_RESOLVERS: Record<string, (file: VaultFileInfo) => string> = {
+	"file.name": (f) => f.basename,
+	"file.basename": (f) => f.basename,
+	"file.fullname": (f) => `${f.basename}.${f.extension}`,
+	"file.path": (f) => f.path,
+	"file.folder": (f) => f.folder,
+	"file.ext": (f) => f.extension,
+	"file.ctime": (f) => f.stat?.ctime ? new Date(f.stat.ctime).toISOString() : "",
+	"file.mtime": (f) => f.stat?.mtime ? new Date(f.stat.mtime).toISOString() : "",
+	"file.size": (f) => f.stat?.size !== undefined ? String(f.stat.size) : "",
+	"file.tags": (f) => f.tags?.join(", ") ?? "",
+};
+
 function resolveFileProperty(file: VaultFileInfo, property: string): string {
-	switch (property) {
-		case "file.name": return file.basename;
-		case "file.basename": return file.basename;
-		case "file.fullname": return `${file.basename}.${file.extension}`;
-		case "file.path": return file.path;
-		case "file.folder": return file.folder;
-		case "file.ext": return file.extension;
-		case "file.ctime":
-			return file.stat?.ctime ? new Date(file.stat.ctime).toISOString() : "";
-		case "file.mtime":
-			return file.stat?.mtime ? new Date(file.stat.mtime).toISOString() : "";
-		case "file.size":
-			return file.stat?.size !== undefined ? String(file.stat.size) : "";
-		case "file.tags": return file.tags?.join(", ") ?? "";
-		default: return "";
-	}
+	const resolver = FILE_PROPERTY_RESOLVERS[property];
+	return resolver ? resolver(file) : "";
 }
 
 export class BaseAnalyticsAdapter {

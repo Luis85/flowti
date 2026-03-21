@@ -14,27 +14,19 @@ import type {
 	AnalyticsResult,
 	AnalyticsSource,
 	AnalyticsState,
-	ColumnTypeHint,
-	ComputedColumn,
-	ConditionalRule,
 	Dashboard,
 	DashboardTile,
 	DashboardTemplate,
-	DimensionSpec,
 	Measurement,
 	MeasurementType,
 	NumberDisplayFormat,
 	OnboardingChecklist,
-	FilterSpec,
-	JoinSpec,
-	MeasureSpec,
 	ParsedSourceData,
 	SavedAnalyticsQuery,
 	QueryDateRangeFilter,
 	SavedAnalyticsQuerySource,
 	SortSpec,
 	TileDisplayMode,
-	TimeBucketSpec,
 } from "./types";
 import { AnalyticsEngine } from "./AnalyticsEngine";
 import { QueryResultCache } from "./QueryResultCache";
@@ -42,8 +34,10 @@ import type { BaseAnalyticsAdapter } from "./BaseAnalyticsAdapter";
 import type { AnalyticsHandlerContext } from "./handlers/types";
 import { dashboardHandlers, measurementHandlers } from "./handlers";
 
-/** Callback to read a CSV file's content from the vault. */
-export type ReadCsvCallback = (csvPath: string) => Promise<ParsedCsv | null>;
+import { resolveSource, resolveCsvFolder, type ReadCsvCallback } from "./AnalyticsService-sources";
+
+/** Re-export for consumers that import from AnalyticsService. */
+export type { ReadCsvCallback } from "./AnalyticsService-sources";
 
 export interface AnalyticsServiceOptions {
 	storage: ITypedStorage<AnalyticsState>;
@@ -91,23 +85,30 @@ export class AnalyticsService {
 		};
 	}
 
-	/** Load persisted state from storage. */
-	async load(): Promise<void> {
-		const saved = await this.storage.load();
-		if (saved && (
-			(saved.savedAnalyticsQueries?.length ?? 0) > 0 ||
-			(saved.dashboards?.length ?? 0) > 0 ||
-			(saved.measurements?.length ?? 0) > 0
-		)) {
-			this.state = saved;
-		}
+	/** Returns true if the saved state has meaningful data worth restoring. */
+	private hasData(saved: AnalyticsState): boolean {
+		return (saved.savedAnalyticsQueries?.length ?? 0) > 0
+			|| (saved.dashboards?.length ?? 0) > 0
+			|| (saved.measurements?.length ?? 0) > 0;
+	}
 
-		// Migration: wrap single SortSpec in array for backward compatibility
+	/** Migration: wrap single SortSpec in array for backward compatibility. */
+	private migrateSortSpecs(): void {
 		for (const q of this.state.savedAnalyticsQueries ?? []) {
 			if (q.sort && !Array.isArray(q.sort)) {
 				q.sort = [q.sort as unknown as SortSpec];
 			}
 		}
+	}
+
+	/** Load persisted state from storage. */
+	async load(): Promise<void> {
+		const saved = await this.storage.load();
+		if (saved && this.hasData(saved)) {
+			this.state = saved;
+		}
+
+		this.migrateSortSpecs();
 
 		await this.eventBus?.emit("analytics.loaded", {
 			queryCount: this.state.savedAnalyticsQueries?.length ?? 0,
@@ -171,8 +172,7 @@ export class AnalyticsService {
 	/** Load and merge all CSV files from a folder into ParsedSourceData. */
 	async loadCsvFolder(folderPath: string): Promise<ParsedSourceData | null> {
 		if (!this.listFolder || !this.readCsv) return null;
-		const src: SavedAnalyticsQuerySource = { alias: "", csvPath: folderPath, sourceType: "csv-folder" };
-		return this.resolveSource(src);
+		return resolveCsvFolder(folderPath, this.listFolder, this.readCsv);
 	}
 
 	// ── Query execution ──────────────────────────────────
@@ -182,108 +182,47 @@ export class AnalyticsService {
 		this.queryCache.clear();
 	}
 
-	/**
-	 * Execute an analytics query with pre-loaded source data.
-	 * Use this when the caller already has parsed CSV data.
-	 */
+	/** Execute an analytics query with pre-loaded source data. */
 	async runQuery(query: AnalyticsQuery, queryName?: string): Promise<AnalyticsResult> {
-		await this.eventBus?.emit("analytics.query.started", {
-			queryName,
-			sourceCount: query.sources.length,
-			dimensionCount: query.dimensions.length,
-			measureCount: query.measures.length,
-		});
-
+		await this.eventBus?.emit("analytics.query.started", { queryName, sourceCount: query.sources.length, dimensionCount: query.dimensions.length, measureCount: query.measures.length });
 		const start = Date.now();
-
 		try {
 			const result = this.engine.run(query);
 			const durationMs = Date.now() - start;
-
-			await this.eventBus?.emit("analytics.query.completed", {
-				queryName,
-				rowCount: result.rows.length,
-				groupCount: result.groupCount,
-				durationMs,
-				result,
-			});
-
-			void this.eventBus?.emit("perf.query.executed", {
-				queryId: queryName ?? "ad-hoc",
-				durationMs,
-				sourceRows: result.sourceRowCount,
-				resultRows: result.rows.length,
-			});
-
+			await this.eventBus?.emit("analytics.query.completed", { queryName, rowCount: result.rows.length, groupCount: result.groupCount, durationMs, result });
+			void this.eventBus?.emit("perf.query.executed", { queryId: queryName ?? "ad-hoc", durationMs, sourceRows: result.sourceRowCount, resultRows: result.rows.length });
 			return result;
 		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			await this.eventBus?.emit("analytics.query.failed", {
-				queryName,
-				error: message,
-			});
+			await this.eventBus?.emit("analytics.query.failed", { queryName, error: err instanceof Error ? err.message : String(err) });
 			throw err;
 		}
 	}
 
-	/**
-	 * Execute a saved query by ID.
-	 * Loads sources from vault (CSV or .base), builds AnalyticsQuery, and runs the engine.
-	 */
+	/** Execute a saved query by ID. Loads sources from vault, builds query, and runs engine. */
 	async runSavedQuery(queryId: string): Promise<AnalyticsResult> {
 		const saved = this.getQuery(queryId);
 		if (!saved) throw new Error(`Saved query not found: ${queryId}`);
-
-		// Check cache before loading sources (skip disk I/O + engine execution)
 		const cached = this.queryCache.get(queryId);
 		if (cached) return cached;
-
-		// Load sources (CSV or .base)
 		const sources: AnalyticsSource[] = [];
 		for (const src of saved.sources) {
-			const data = await this.resolveSource(src);
-			sources.push({
-				alias: src.alias,
-				data,
-				locale: src.locale,
-			});
+			sources.push({ alias: src.alias, data: await this.resolveSourceInternal(src), locale: src.locale });
 		}
-
-		const query: AnalyticsQuery = {
-			sources,
-			joins: saved.joins,
-			columnTypeHints: saved.columnTypeHints,
-			dimensions: saved.dimensions,
-			measures: saved.measures,
-			timeBucket: saved.timeBucket,
-			filters: saved.filters,
-			sort: saved.sort,
-			limit: saved.limit,
-			computedColumns: saved.computedColumns,
-		};
-
-		const result = await this.runQuery(query, saved.name);
-
-		// Cache the result for subsequent reads
+		const result = await this.runQuery({
+			sources, joins: saved.joins, columnTypeHints: saved.columnTypeHints,
+			dimensions: saved.dimensions, measures: saved.measures, timeBucket: saved.timeBucket,
+			filters: saved.filters, sort: saved.sort, limit: saved.limit, computedColumns: saved.computedColumns,
+		}, saved.name);
 		this.queryCache.set(queryId, result);
-
-		// Update last run metadata
 		saved.lastRun = Date.now();
 		saved.lastRowCount = result.rows.length;
 		await this.storage.save(this.state);
-
 		return result;
 	}
 
 	/**
 	 * Run a saved query with additional dashboard-level filters.
-	 *
-	 * - Dimension filters (extraFilters) are applied AFTER aggregation (post-filter)
-	 *   because filter values come from the result data.
-	 * - Date range filter is applied BEFORE aggregation (pre-filter) in the engine
-	 *   because it operates on raw date column values.
-	 *
-	 * Filters for columns not present in the result are silently skipped.
+	 * Dimension filters are post-aggregation; date range is pre-aggregation.
 	 */
 	async runSavedQueryWithFilters(
 		queryId: string,
@@ -291,91 +230,45 @@ export class AnalyticsService {
 		dateRangeFilter?: QueryDateRangeFilter,
 	): Promise<AnalyticsResult> {
 		let result: AnalyticsResult;
-
 		if (dateRangeFilter) {
-			// Date range is pre-aggregation — rebuild and run query with filter injected
 			const saved = this.getQuery(queryId);
 			if (!saved) throw new Error(`Saved query not found: ${queryId}`);
-
 			const sources: AnalyticsSource[] = [];
 			for (const src of saved.sources) {
-				const data = await this.resolveSource(src);
-				sources.push({ alias: src.alias, data, locale: src.locale });
+				sources.push({ alias: src.alias, data: await this.resolveSourceInternal(src), locale: src.locale });
 			}
-
-			const query: AnalyticsQuery = {
-				sources,
-				joins: saved.joins,
-				columnTypeHints: saved.columnTypeHints,
-				dimensions: saved.dimensions,
-				measures: saved.measures,
-				timeBucket: saved.timeBucket,
-				filters: saved.filters,
-				sort: saved.sort,
-				limit: saved.limit,
-				computedColumns: saved.computedColumns,
-				dateRangeFilter,
-			};
-
-			result = await this.runQuery(query, saved.name);
+			result = await this.runQuery({
+				sources, joins: saved.joins, columnTypeHints: saved.columnTypeHints,
+				dimensions: saved.dimensions, measures: saved.measures, timeBucket: saved.timeBucket,
+				filters: saved.filters, sort: saved.sort, limit: saved.limit,
+				computedColumns: saved.computedColumns, dateRangeFilter,
+			}, saved.name);
 		} else {
 			result = await this.runSavedQuery(queryId);
 		}
-
-		// Post-filter the result rows by dimension filters
 		if (extraFilters.length === 0) return result;
-
 		const filteredRows = result.rows.filter((row) =>
-			extraFilters.every((f) => {
-				const val = row[f.column];
-				if (val === undefined) return true; // Column not in result → skip filter
-				return f.values.includes(String(val));
-			}),
+			extraFilters.every((f) => { const val = row[f.column]; return val === undefined || f.values.includes(String(val)); }),
 		);
-
-		return {
-			...result,
-			rows: filteredRows,
-			groupCount: filteredRows.length,
-		};
+		return { ...result, rows: filteredRows, groupCount: filteredRows.length };
 	}
 
 	// ── Saved query CRUD ─────────────────────────────────
 
 	/** Save a new analytics query configuration. */
-	async saveQuery(
-		name: string,
-		sources: SavedAnalyticsQuerySource[],
-		query: Omit<AnalyticsQuery, "sources">,
-	): Promise<SavedAnalyticsQuery> {
+	async saveQuery(name: string, sources: SavedAnalyticsQuerySource[], query: Omit<AnalyticsQuery, "sources">): Promise<SavedAnalyticsQuery> {
 		const saved: SavedAnalyticsQuery = {
-			id: generateId(),
-			name,
-			createdAt: Date.now(),
-			sources,
-			joins: query.joins,
-			columnTypeHints: query.columnTypeHints,
-			dimensions: query.dimensions,
-			measures: query.measures,
-			timeBucket: query.timeBucket,
-			filters: query.filters,
-			sort: query.sort,
-			limit: query.limit,
-			computedColumns: query.computedColumns,
+			id: generateId(), name, createdAt: Date.now(), sources,
+			joins: query.joins, columnTypeHints: query.columnTypeHints,
+			dimensions: query.dimensions, measures: query.measures,
+			timeBucket: query.timeBucket, filters: query.filters,
+			sort: query.sort, limit: query.limit, computedColumns: query.computedColumns,
 		};
-
-		const queries = this.state.savedAnalyticsQueries ?? [];
-		queries.push(saved);
-		this.state.savedAnalyticsQueries = queries;
+		(this.state.savedAnalyticsQueries ?? []).push(saved);
+		this.state.savedAnalyticsQueries = this.state.savedAnalyticsQueries ?? [saved];
 		await this.storage.save(this.state);
-
-		void this.eventBus?.emit("analytics.query.saved", {
-			queryId: saved.id,
-			queryName: saved.name,
-		});
-
+		void this.eventBus?.emit("analytics.query.saved", { queryId: saved.id, queryName: saved.name });
 		void this.writeQueryFile(saved);
-
 		return saved;
 	}
 
@@ -397,19 +290,11 @@ export class AnalyticsService {
 	/** Rename a saved query. */
 	async renameQuery(id: string, newName: string): Promise<SavedAnalyticsQuery | undefined> {
 		const query = this.getQuery(id);
-		if (!query) return undefined;
-		if (!newName.trim()) return undefined;
-
+		if (!query || !newName.trim()) return undefined;
 		const oldName = query.name;
 		query.name = newName.trim();
 		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.query.renamed", {
-			queryId: query.id,
-			oldName,
-			newName: query.name,
-		});
-
+		await this.eventBus?.emit("analytics.query.renamed", { queryId: query.id, oldName, newName: query.name });
 		return query;
 	}
 
@@ -424,64 +309,28 @@ export class AnalyticsService {
 	async duplicateQuery(id: string): Promise<SavedAnalyticsQuery | undefined> {
 		const original = this.getQuery(id);
 		if (!original) return undefined;
-
-		const clone: SavedAnalyticsQuery = {
-			...structuredClone(original),
-			id: generateId(),
-			name: `${original.name} (copy)`,
-			createdAt: Date.now(),
-			lastRun: undefined,
-			lastRowCount: undefined,
-			isFavorite: undefined,
-		};
-
-		const queries = this.state.savedAnalyticsQueries ?? [];
-		queries.push(clone);
-		this.state.savedAnalyticsQueries = queries;
+		const clone: SavedAnalyticsQuery = { ...structuredClone(original), id: generateId(), name: `${original.name} (copy)`, createdAt: Date.now(), lastRun: undefined, lastRowCount: undefined, isFavorite: undefined };
+		(this.state.savedAnalyticsQueries ?? []).push(clone);
 		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.query.duplicated", {
-			originalQueryId: original.id,
-			newQueryId: clone.id,
-			newQueryName: clone.name,
-		});
-
+		await this.eventBus?.emit("analytics.query.duplicated", { originalQueryId: original.id, newQueryId: clone.id, newQueryName: clone.name });
 		await this.writeQueryFile(clone);
-
 		return clone;
 	}
 
 	/** Update an existing saved query's configuration in place. */
-	async updateQuery(
-		id: string,
-		sources: SavedAnalyticsQuerySource[],
-		query: Omit<AnalyticsQuery, "sources">,
-	): Promise<SavedAnalyticsQuery | undefined> {
+	async updateQuery(id: string, sources: SavedAnalyticsQuerySource[], query: Omit<AnalyticsQuery, "sources">): Promise<SavedAnalyticsQuery | undefined> {
 		const existing = this.getQuery(id);
 		if (!existing) return undefined;
-
 		existing.sources = sources;
-		existing.joins = query.joins;
-		existing.columnTypeHints = query.columnTypeHints;
-		existing.dimensions = query.dimensions;
-		existing.measures = query.measures;
-		existing.timeBucket = query.timeBucket;
-		existing.filters = query.filters;
-		existing.sort = query.sort;
-		existing.limit = query.limit;
+		existing.joins = query.joins; existing.columnTypeHints = query.columnTypeHints;
+		existing.dimensions = query.dimensions; existing.measures = query.measures;
+		existing.timeBucket = query.timeBucket; existing.filters = query.filters;
+		existing.sort = query.sort; existing.limit = query.limit;
 		existing.computedColumns = query.computedColumns;
 		await this.storage.save(this.state);
-
-		// Invalidate cached result for this query (config changed)
 		this.queryCache.invalidate(id);
-
-		void this.eventBus?.emit("analytics.query.saved", {
-			queryId: existing.id,
-			queryName: existing.name,
-		});
-
+		void this.eventBus?.emit("analytics.query.saved", { queryId: existing.id, queryName: existing.name });
 		void this.writeQueryFile(existing);
-
 		return existing;
 	}
 
@@ -490,29 +339,17 @@ export class AnalyticsService {
 		const queries = this.state.savedAnalyticsQueries ?? [];
 		const idx = queries.findIndex((q) => q.id === id);
 		if (idx === -1) return false;
-
 		this.queryCache.invalidate(id);
-
 		const removed = queries[idx];
 		queries.splice(idx, 1);
 		this.state.savedAnalyticsQueries = queries;
-
-		// Cascade: delete measurements linked to this query
-		const orphanMeasurements = (this.state.measurements ?? []).filter((m) => m.queryId === id);
-		for (const m of orphanMeasurements) {
+		for (const m of (this.state.measurements ?? []).filter((m) => m.queryId === id)) {
 			await dashboardHandlers.clearMeasurementFromTiles(this.ctx(), m.id);
 		}
 		this.state.measurements = (this.state.measurements ?? []).filter((m) => m.queryId !== id);
-
 		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.query.deleted", {
-			queryId: removed.id,
-			queryName: removed.name,
-		});
-
+		await this.eventBus?.emit("analytics.query.deleted", { queryId: removed.id, queryName: removed.name });
 		await this.deleteQueryFile(removed.name);
-
 		return true;
 	}
 
@@ -530,16 +367,9 @@ export class AnalyticsService {
 	async toggleQueryFavorite(id: string): Promise<boolean | undefined> {
 		const query = this.getQuery(id);
 		if (!query) return undefined;
-
 		query.isFavorite = !query.isFavorite;
 		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.query.favorited", {
-			queryId: query.id,
-			queryName: query.name,
-			isFavorite: query.isFavorite,
-		});
-
+		await this.eventBus?.emit("analytics.query.favorited", { queryId: query.id, queryName: query.name, isFavorite: query.isFavorite });
 		return query.isFavorite;
 	}
 
@@ -573,16 +403,11 @@ export class AnalyticsService {
 	getSourcePathsForDashboard(dashboardId: string): string[] {
 		const dashboard = this.getDashboard(dashboardId);
 		if (!dashboard) return [];
-
 		const paths = new Set<string>();
 		for (const tile of dashboard.tiles) {
-			const measurement = this.listMeasurements().find((m) => m.id === tile.measurementId);
-			const queryId = measurement ? measurement.queryId : tile.queryId;
-			const query = this.getQuery(queryId);
-			if (!query) continue;
-			for (const source of query.sources) {
-				paths.add(source.csvPath);
-			}
+			const m = this.listMeasurements().find((me) => me.id === tile.measurementId);
+			const query = this.getQuery(m ? m.queryId : tile.queryId);
+			if (query) for (const source of query.sources) paths.add(source.csvPath);
 		}
 		return [...paths];
 	}
@@ -595,118 +420,28 @@ export class AnalyticsService {
 		sourceMapping: Record<string, string>,
 		dashboardName?: string,
 	): Promise<Dashboard | undefined> {
-		const template = this.listTemplates().find((t) => t.id === templateId);
-		if (!template) return undefined;
-
-		const newQueryIds: string[] = [];
-		for (const qt of template.queries) {
-			const mappedSources: SavedAnalyticsQuerySource[] = qt.originalSources.map((src) => ({
-				...src,
-				csvPath: sourceMapping[src.csvPath] ?? src.csvPath,
-			}));
-			const saved = await this.saveQuery(qt.queryConfig.name, mappedSources, {
-				joins: qt.queryConfig.joins,
-				columnTypeHints: qt.queryConfig.columnTypeHints,
-				dimensions: qt.queryConfig.dimensions,
-				measures: qt.queryConfig.measures,
-				timeBucket: qt.queryConfig.timeBucket,
-				filters: qt.queryConfig.filters,
-				sort: qt.queryConfig.sort,
-				limit: qt.queryConfig.limit,
-				computedColumns: qt.queryConfig.computedColumns,
-			});
-			newQueryIds.push(saved.id);
-		}
-
-		const dashboard = await this.createDashboard(dashboardName ?? template.name, template.description);
-
-		for (const tt of template.tiles) {
-			const queryId = newQueryIds[tt.queryIndex];
-			if (!queryId) continue;
-			const tile = await this.addTile(dashboard.id, queryId, tt.displayMode, tt.title);
-			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.chartValueColumns || tt.width !== 2 || tt.height !== 1)) {
-				await this.updateTile(dashboard.id, tile.id, {
-					width: tt.width, height: tt.height,
-					conditionalRules: tt.conditionalRules, chartValueColumn: tt.chartValueColumn, chartValueColumns: tt.chartValueColumns,
+		const { createDashboardFromTemplate: create } = await import("./AnalyticsService-templates");
+		const dashboard = await create(this, templateId, sourceMapping, dashboardName);
+		if (dashboard) {
+			const template = this.listTemplates().find((t) => t.id === templateId);
+			if (template) {
+				await this.eventBus?.emit("analytics.template.used", {
+					templateId: template.id,
+					dashboardId: dashboard.id,
+					dashboardName: dashboard.name,
 				});
 			}
 		}
-
-		await this.eventBus?.emit("analytics.template.used", {
-			templateId: template.id,
-			dashboardId: dashboard.id,
-			dashboardName: dashboard.name,
-		});
-
 		return dashboard;
 	}
 
 	/** Import a dashboard from a raw JSON template (file import). */
 	async importDashboardFromJson(
-		template: {
-			name: string;
-			description?: string;
-			queries: Array<{
-				originalSources: SavedAnalyticsQuerySource[];
-				queryConfig: {
-					name: string;
-					joins: JoinSpec[];
-					columnTypeHints: ColumnTypeHint[];
-					dimensions: DimensionSpec[];
-					measures: MeasureSpec[];
-					timeBucket?: TimeBucketSpec;
-					filters?: FilterSpec[];
-					sort?: SortSpec[];
-					limit?: number;
-					computedColumns?: ComputedColumn[];
-				};
-			}>;
-			tiles: Array<{
-				queryIndex: number;
-				title: string;
-				displayMode: TileDisplayMode;
-				width: number;
-				height: number;
-				conditionalRules?: ConditionalRule[];
-				chartValueColumn?: string;
-				chartValueColumns?: string[];
-			}>;
-		},
+		template: Parameters<typeof import("./AnalyticsService-templates").importDashboardFromJson>[1],
 		sourceMapping?: Record<string, string>,
 	): Promise<Dashboard> {
-		const mapping = sourceMapping ?? {};
-
-		const newQueryIds: string[] = [];
-		for (const qt of template.queries) {
-			const mappedSources: SavedAnalyticsQuerySource[] = qt.originalSources.map((src) => ({
-				...src,
-				csvPath: mapping[src.csvPath] ?? src.csvPath,
-			}));
-			const saved = await this.saveQuery(qt.queryConfig.name, mappedSources, {
-				joins: qt.queryConfig.joins, columnTypeHints: qt.queryConfig.columnTypeHints,
-				dimensions: qt.queryConfig.dimensions, measures: qt.queryConfig.measures,
-				timeBucket: qt.queryConfig.timeBucket, filters: qt.queryConfig.filters,
-				sort: qt.queryConfig.sort, limit: qt.queryConfig.limit,
-				computedColumns: qt.queryConfig.computedColumns,
-			});
-			newQueryIds.push(saved.id);
-		}
-
-		const dashboard = await this.createDashboard(template.name, template.description);
-
-		for (const tt of template.tiles) {
-			const queryId = newQueryIds[tt.queryIndex];
-			if (!queryId) continue;
-			const tile = await this.addTile(dashboard.id, queryId, tt.displayMode, tt.title);
-			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.chartValueColumns || tt.width !== 2 || tt.height !== 1)) {
-				await this.updateTile(dashboard.id, tile.id, {
-					width: tt.width, height: tt.height,
-					conditionalRules: tt.conditionalRules, chartValueColumn: tt.chartValueColumn, chartValueColumns: tt.chartValueColumns,
-				});
-			}
-		}
-
-		return dashboard;
+		const { importDashboardFromJson: importFn } = await import("./AnalyticsService-templates");
+		return importFn(this, template, sourceMapping);
 	}
 
 	// ── Measurement CRUD ─────────────────────────────────
@@ -733,81 +468,25 @@ export class AnalyticsService {
 		return measurementHandlers.toggleFavorite(this.ctx(), id);
 	}
 
-	/**
-	 * Auto-create measurements for query measures that don't have one yet.
-	 * Called after saving/updating a query to keep measurement catalog in sync.
-	 */
+	/** Auto-create measurements for query measures that don't have one yet. */
 	async syncMeasurementsFromQuery(queryId: string): Promise<void> {
 		const query = this.getQuery(queryId);
 		if (!query || (query.measures.length === 0 && (!query.computedColumns || query.computedColumns.length === 0))) return;
-
 		const existing = this.listMeasurements().filter((m) => m.queryId === queryId);
-
 		for (const measure of query.measures) {
 			const label = measure.label ?? `${measure.function}(${measure.column})`;
-			const alreadyExists = existing.some((m) => m.measureColumn === label || m.name === label);
-			if (!alreadyExists) {
-				await this.createMeasurement(label, queryId, "single", label);
-			}
+			if (!existing.some((m) => m.measureColumn === label || m.name === label)) await this.createMeasurement(label, queryId, "single", label);
 		}
-
 		for (const computed of query.computedColumns ?? []) {
 			const name = computed.name.trim();
-			if (!name) continue;
-			const alreadyExists = existing.some((m) => m.measureColumn === name || m.name === name);
-			if (!alreadyExists) {
-				await this.createMeasurement(name, queryId, "single", name);
-			}
+			if (name && !existing.some((m) => m.measureColumn === name || m.name === name)) await this.createMeasurement(name, queryId, "single", name);
 		}
 	}
 
-	// ── Source resolution ────────────────────────────────
+	// ── Source resolution (delegated to AnalyticsService-sources.ts) ─
 
-	/** Resolve a saved query source to ParsedSourceData, regardless of type. */
-	private async resolveSource(src: SavedAnalyticsQuerySource): Promise<ParsedSourceData> {
-		if (src.sourceType === "base") {
-			if (!this.baseAdapter) throw new Error("Base adapter not configured");
-			return this.baseAdapter.resolve(src.csvPath, src.viewIndex ?? 0);
-		}
-
-		if (src.sourceType === "csv-folder") {
-			if (!this.listFolder) throw new Error("Folder listing not configured");
-			if (!this.readCsv) throw new Error("CSV reader not configured");
-			const files = await this.listFolder(src.csvPath);
-			const csvFiles = files.filter((f) => f.endsWith(".csv")).sort();
-			if (csvFiles.length === 0) throw new Error(`No CSV files in folder: ${src.csvPath}`);
-
-			// Build union of all headers across files, pad rows for missing columns
-			const headerSet = new Set<string>();
-			const headerOrder: string[] = [];
-			const fileResults: Array<{ headers: string[]; rows: string[][] }> = [];
-			for (const file of csvFiles) {
-				const parsed = await this.readCsv(file);
-				if (!parsed) continue;
-				for (const h of parsed.headers) {
-					if (!headerSet.has(h)) {
-						headerSet.add(h);
-						headerOrder.push(h);
-					}
-				}
-				fileResults.push(parsed);
-			}
-
-			const mergedRows: string[][] = [];
-			for (const fr of fileResults) {
-				const colIndex = headerOrder.map((h) => fr.headers.indexOf(h));
-				for (const row of fr.rows) {
-					mergedRows.push(colIndex.map((idx) => (idx >= 0 ? row[idx] : "")));
-				}
-			}
-			return { headers: headerOrder, rows: mergedRows };
-		}
-
-		// Default: CSV
-		if (!this.readCsv) throw new Error("CSV reader not configured");
-		const parsed = await this.readCsv(src.csvPath);
-		if (!parsed) throw new Error(`CSV not found: ${src.csvPath}`);
-		return { headers: parsed.headers, rows: parsed.rows };
+	private async resolveSourceInternal(src: SavedAnalyticsQuerySource): Promise<ParsedSourceData> {
+		return resolveSource(src, this.baseAdapter, this.readCsv, this.listFolder);
 	}
 
 	// ── File persistence ────────────────────────────────

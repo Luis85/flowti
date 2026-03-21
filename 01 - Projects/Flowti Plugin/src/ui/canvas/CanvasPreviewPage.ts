@@ -19,22 +19,10 @@ export class CanvasPreviewPage {
 		ws.empty();
 
 		const state = this.deps.getState();
-
-		// Action bar
-		const actions = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-border-bottom" });
-		actions.addClass("ft-flex-shrink-0");
+		const actions = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-border-bottom ft-flex-shrink-0" });
 
 		if (state.parseError) {
-			const alert = ws.createDiv({ cls: "ft-alert-error ft-p-3 ft-mt-3" });
-			alert.createEl("strong", { text: "Parse error: " });
-			alert.createSpan({ text: state.parseError });
-			const backBtn = actions.createEl("span", { cls: "ft-nav-link" });
-			setIcon(backBtn.createSpan(), "arrow-left");
-			backBtn.appendText(" Back");
-			backBtn.addEventListener("click", () => {
-				this.deps.setState({ currentPage: "config" });
-				this.deps.renderContent();
-			});
+			this.renderParseError(ws, actions, state.parseError);
 			return;
 		}
 
@@ -64,12 +52,39 @@ export class CanvasPreviewPage {
 		});
 
 		const content = ws.createDiv({ cls: "ft-table-scroll" });
+		this.renderContentSections(content, state, allImportable, importable);
+	}
 
+	private renderContentSections(
+		content: HTMLElement,
+		state: ReturnType<CanvasComponentDeps["getState"]>,
+		allImportable: { type: string; title: string; originalType: string; id: string; parentId: string | null; isEmpty: boolean }[],
+		importable: { type: string; title: string; originalType: string; id: string; parentId: string | null; isEmpty: boolean }[],
+	): void {
 		const canvasBasename = state.canvasPath.split("/").pop()?.replace(/\.canvas$/, "") ?? "canvas";
 		const subfolder = state.subfolderName || canvasBasename;
 		const effectiveTarget = state.targetFolder ? `${state.targetFolder}/${subfolder}` : subfolder;
 
-		// ── Configuration card (first) ──
+		this.renderConfigCard(content, state, effectiveTarget, subfolder);
+		this.renderImpactCard(content, allImportable, importable);
+		this.renderTypeDistribution(content, allImportable, state.excludedTypes);
+
+		// ── Folder structure (hierarchy-aware) ──
+		if (state.hierarchyMode === "product") {
+			this.renderProductStructure(content, effectiveTarget, importable);
+		} else if (state.hierarchyMode === "group") {
+			this.renderGroupStructure(content, state.previewItems);
+		}
+
+		this.renderLegendSection(content, state.legendMap);
+	}
+
+	private renderConfigCard(
+		content: HTMLElement,
+		state: ReturnType<CanvasComponentDeps["getState"]>,
+		effectiveTarget: string,
+		subfolder: string,
+	): void {
 		const cfgSection = content.createDiv({ cls: "ft-card ft-mt-3 ft-mb-2" });
 		cfgSection.createDiv({ text: "Configuration", cls: "ft-detail-section-header ft-mb-2" });
 		const cfgGrid = cfgSection.createDiv({ cls: "ft-detail-info-grid" });
@@ -99,8 +114,13 @@ export class CanvasPreviewPage {
 		}
 		this.addRow(cfgGrid, "Color mappings", this.summarizeMappings(state.colorMap));
 		this.addRow(cfgGrid, "Shape mappings", this.summarizeMappings(state.shapeMap));
+	}
 
-		// ── "What will happen" card ──
+	private renderImpactCard(
+		content: HTMLElement,
+		allImportable: { type: string }[],
+		importable: { type: string }[],
+	): void {
 		const summary = content.createDiv({ cls: "ft-card ft-mt-2 ft-mb-2" });
 		summary.createDiv({ text: "What will happen", cls: "ft-detail-section-header ft-mb-2" });
 		const grid = summary.createDiv({ cls: "ft-detail-info-grid" });
@@ -110,80 +130,91 @@ export class CanvasPreviewPage {
 			? `${importable.length} (${excludedCount} excluded by type)`
 			: `${importable.length}`;
 		this.addRow(grid, "Notes to create", notesLabel);
+	}
 
-		// ── Type distribution table ──
+	private renderTypeDistribution(
+		content: HTMLElement,
+		allImportable: { type: string }[],
+		excludedTypes: string[],
+	): void {
 		const typeCounts = new Map<string, number>();
 		for (const item of allImportable) {
 			typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + 1);
 		}
-		if (typeCounts.size > 0) {
-			const typeSection = content.createDiv({ cls: "ft-card ft-mt-2 ft-mb-2" });
-			typeSection.createDiv({ text: "Type Distribution", cls: "ft-detail-section-header ft-mb-2" });
-			const table = typeSection.createEl("table", { cls: "ft-preview-table" });
-			const thead = table.createEl("tr");
-			thead.createEl("th", { text: "Type" });
-			thead.createEl("th", { text: "Count" });
-			thead.createEl("th", { text: "Status" });
+		if (typeCounts.size === 0) return;
 
-			const sorted = [...typeCounts.entries()].sort(
-				(a, b) => (TYPE_ORDER[a[0]] ?? 98) - (TYPE_ORDER[b[0]] ?? 98),
-			);
+		const typeSection = content.createDiv({ cls: "ft-card ft-mt-2 ft-mb-2" });
+		typeSection.createDiv({ text: "Type Distribution", cls: "ft-detail-section-header ft-mb-2" });
+		const table = typeSection.createEl("table", { cls: "ft-preview-table" });
+		const thead = table.createEl("tr");
+		thead.createEl("th", { text: "Type" });
+		thead.createEl("th", { text: "Count" });
+		thead.createEl("th", { text: "Status" });
 
-			let includedTotal = 0;
-			for (const [type, count] of sorted) {
-				const excluded = state.excludedTypes.includes(type);
-				const tr = table.createEl("tr");
-				if (excluded) tr.addClass("ft-canvas-excluded-row");
+		const sorted = [...typeCounts.entries()].sort(
+			(a, b) => (TYPE_ORDER[a[0]] ?? 98) - (TYPE_ORDER[b[0]] ?? 98),
+		);
 
-				const nameTd = tr.createEl("td", { cls: "ft-text-sm" });
-				nameTd.textContent = type;
-				if (excluded) nameTd.addClass("ft-canvas-excluded-name");
+		let includedTotal = 0;
+		for (const [type, count] of sorted) {
+			const excluded = excludedTypes.includes(type);
+			const tr = table.createEl("tr");
+			if (excluded) tr.addClass("ft-canvas-excluded-row");
 
-				tr.createEl("td", { text: String(count), cls: "ft-text-sm" });
+			const nameTd = tr.createEl("td", { cls: "ft-text-sm" });
+			nameTd.textContent = type;
+			if (excluded) nameTd.addClass("ft-canvas-excluded-name");
 
-				const statusTd = tr.createEl("td", { cls: "ft-text-sm" });
-				if (excluded) {
-					statusTd.textContent = "Excluded";
-					statusTd.addClass("ft-canvas-status-excluded");
-				} else {
-					statusTd.textContent = "Included";
-					statusTd.addClass("ft-text-success-color");
-					includedTotal += count;
-				}
-			}
+			tr.createEl("td", { text: String(count), cls: "ft-text-sm" });
 
-			// Subtotal row
-			const totalTr = table.createEl("tr");
-			totalTr.addClass("ft-canvas-total-row");
-			totalTr.createEl("td", { text: "Total to import" });
-			totalTr.createEl("td", { text: `${includedTotal} of ${allImportable.length}` });
-			totalTr.createEl("td");
-		}
-
-		// ── Folder structure (hierarchy-aware) ──
-		if (state.hierarchyMode === "product") {
-			this.renderProductStructure(content, effectiveTarget, importable);
-		} else if (state.hierarchyMode === "group") {
-			this.renderGroupStructure(content, state.previewItems);
-		}
-
-		// ── Legend section ──
-		if (state.legendMap) {
-			const legendSection = content.createDiv({ cls: "ft-card ft-mt-2 ft-mb-2" });
-			legendSection.createDiv({ text: "Detected Legend", cls: "ft-detail-section-header ft-mb-2" });
-			const table = legendSection.createEl("table", { cls: "ft-preview-table" });
-			const thead = table.createEl("tr");
-			thead.createEl("th", { text: "Color" });
-			thead.createEl("th", { text: "Resolved type" });
-
-			for (const [color, type] of Object.entries(state.legendMap)) {
-				const tr = table.createEl("tr");
-				const label = CANVAS_COLOR_LABELS[color] ? `${color} (${CANVAS_COLOR_LABELS[color]})` : color;
-				tr.createEl("td", { text: label, cls: "ft-text-sm ft-text-muted" });
-				tr.createEl("td", { text: type, cls: "ft-text-sm ft-font-medium" });
+			const statusTd = tr.createEl("td", { cls: "ft-text-sm" });
+			if (excluded) {
+				statusTd.textContent = "Excluded";
+				statusTd.addClass("ft-canvas-status-excluded");
+			} else {
+				statusTd.textContent = "Included";
+				statusTd.addClass("ft-text-success-color");
+				includedTotal += count;
 			}
 		}
 
+		// Subtotal row
+		const totalTr = table.createEl("tr");
+		totalTr.addClass("ft-canvas-total-row");
+		totalTr.createEl("td", { text: "Total to import" });
+		totalTr.createEl("td", { text: `${includedTotal} of ${allImportable.length}` });
+		totalTr.createEl("td");
+	}
+
+	private renderLegendSection(content: HTMLElement, legendMap: Record<string, string> | null): void {
+		if (!legendMap) return;
+
+		const legendSection = content.createDiv({ cls: "ft-card ft-mt-2 ft-mb-2" });
+		legendSection.createDiv({ text: "Detected Legend", cls: "ft-detail-section-header ft-mb-2" });
+		const table = legendSection.createEl("table", { cls: "ft-preview-table" });
+		const thead = table.createEl("tr");
+		thead.createEl("th", { text: "Color" });
+		thead.createEl("th", { text: "Resolved type" });
+
+		for (const [color, type] of Object.entries(legendMap)) {
+			const tr = table.createEl("tr");
+			const label = CANVAS_COLOR_LABELS[color] ? `${color} (${CANVAS_COLOR_LABELS[color]})` : color;
+			tr.createEl("td", { text: label, cls: "ft-text-sm ft-text-muted" });
+			tr.createEl("td", { text: type, cls: "ft-text-sm ft-font-medium" });
+		}
+	}
+
+	private renderParseError(ws: HTMLElement, actions: HTMLElement, parseError: string): void {
+		const alert = ws.createDiv({ cls: "ft-alert-error ft-p-3 ft-mt-3" });
+		alert.createEl("strong", { text: "Parse error: " });
+		alert.createSpan({ text: parseError });
+		const backBtn = actions.createEl("span", { cls: "ft-nav-link" });
+		setIcon(backBtn.createSpan(), "arrow-left");
+		backBtn.appendText(" Back");
+		backBtn.addEventListener("click", () => {
+			this.deps.setState({ currentPage: "config" });
+			this.deps.renderContent();
+		});
 	}
 
 	private addRow(grid: HTMLElement, label: string, value: string): void {

@@ -65,41 +65,34 @@ export class CsvAssociatedBases {
 		if (!file) return [];
 		const configs = this.deps.dataExchangeService.getImportConfigsForFile(file.path);
 		const targetFolders = new Set(configs.map((c) => c.targetFolder).filter(Boolean));
+		const explicitPaths = this.collectExplicitBasePaths(configs);
 
-		// Collect explicit basePath entries from configs
-		const explicitPaths = new Set<string>();
+		if (targetFolders.size === 0 && explicitPaths.size === 0) return [];
+
+		return this.matchBaseFiles(explicitPaths, targetFolders);
+	}
+
+	private collectExplicitBasePaths(configs: { basePath?: string }[]): Set<string> {
+		const paths = new Set<string>();
 		for (const cfg of configs) {
 			if (cfg.basePath) {
 				let bp = cfg.basePath.trim();
 				if (bp && !bp.endsWith(".base")) bp += ".base";
-				if (bp) explicitPaths.add(bp);
+				if (bp) paths.add(bp);
 			}
 		}
+		return paths;
+	}
 
-		if (targetFolders.size === 0 && explicitPaths.size === 0) return [];
-
+	private matchBaseFiles(explicitPaths: Set<string>, targetFolders: Set<string>): { path: string; name: string }[] {
 		const results: { path: string; name: string }[] = [];
 		const seen = new Set<string>();
-		const allFiles = this.deps.app.vault.getFiles();
-		for (const f of allFiles) {
-			if (!f.path.endsWith(".base")) continue;
-			if (seen.has(f.path)) continue;
-
-			// Direct match from config basePath
-			if (explicitPaths.has(f.path)) {
-				results.push({ path: f.path, name: f.basename });
-				seen.add(f.path);
-				continue;
-			}
-
-			// Check if the base file lives in or next to a target folder
+		for (const f of this.deps.app.vault.getFiles()) {
+			if (!f.path.endsWith(".base") || seen.has(f.path)) continue;
+			if (explicitPaths.has(f.path)) { results.push({ path: f.path, name: f.basename }); seen.add(f.path); continue; }
 			for (const folder of targetFolders) {
 				const baseDir = f.path.substring(0, f.path.lastIndexOf("/"));
-				if (baseDir === folder || f.path.startsWith(folder + "/")) {
-					results.push({ path: f.path, name: f.basename });
-					seen.add(f.path);
-					break;
-				}
+				if (baseDir === folder || f.path.startsWith(folder + "/")) { results.push({ path: f.path, name: f.basename }); seen.add(f.path); break; }
 			}
 		}
 		return results;

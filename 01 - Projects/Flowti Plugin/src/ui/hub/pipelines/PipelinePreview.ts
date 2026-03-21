@@ -72,11 +72,16 @@ export class PipelinePreview {
 		setIcon(headerIcon, "eye");
 		header.createEl("span", { text: "Pipeline preview", cls: "ft-text-sm ft-font-medium" });
 
+		this.renderPreviewStats(section, result);
+		this.renderPreviewSources(section, result);
+		this.renderPreviewExportSteps(section, pipe);
+		this.renderPreviewEntries(section, result);
+		this.renderPreviewFooter(section, pipe, result);
+	}
+
+	private renderPreviewStats(section: HTMLElement, result: PipelinePreviewResult): void {
 		const stats = section.createDiv({ cls: "ft-flex ft-gap-3 ft-px-2 ft-pb-2" });
-		stats.createSpan({
-			text: `${result.entries.length} items`,
-			cls: "ft-badge ft-badge-muted ft-text-sm",
-		});
+		stats.createSpan({ text: `${result.entries.length} items`, cls: "ft-badge ft-badge-muted ft-text-sm" });
 		if (result.toCreate > 0) {
 			const createBadge = stats.createSpan({ cls: "ft-badge ft-text-sm ft-text-success" });
 			createBadge.textContent = `${result.toCreate} new`;
@@ -85,7 +90,9 @@ export class PipelinePreview {
 			const updateBadge = stats.createSpan({ cls: "ft-badge ft-text-sm ft-text-accent" });
 			updateBadge.textContent = `${result.toUpdate} update`;
 		}
+	}
 
+	private renderPreviewSources(section: HTMLElement, result: PipelinePreviewResult): void {
 		const sourcesDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
 		for (const src of result.sources) {
 			const srcRow = sourcesDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
@@ -106,59 +113,59 @@ export class PipelinePreview {
 				});
 			}
 		}
+	}
 
-		if (pipe.exportConfigIds && pipe.exportConfigIds.length > 0) {
-			const exportsDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
-			exportsDiv.createDiv({ text: "Export Steps", cls: "ft-detail-section-header ft-mb-1" });
-			for (const exportId of pipe.exportConfigIds) {
-				const exportCfg = this.deps.dataExchangeService.getExportConfig(exportId);
-				const expRow = exportsDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-				if (exportCfg) {
-					const expIcon = expRow.createSpan();
-					setIcon(expIcon, "file-output");
-					expIcon.addClass("ft-opacity-60");
-					expRow.createSpan({ text: exportCfg.name, cls: "ft-text-sm" });
-					const details: string[] = [];
-					details.push(exportCfg.format.toUpperCase());
-					details.push(basename(exportCfg.outputPath) || exportCfg.outputPath);
-					if (exportCfg.isExternal) details.push("external");
-					expRow.createSpan({
-						text: details.join(" · "),
-						cls: "ft-text-muted ft-text-sm",
-					});
-				} else {
-					const warnIcon = expRow.createSpan();
-					setIcon(warnIcon, "alert-triangle");
-					warnIcon.addClass("ft-text-warning");
-					expRow.createSpan({ text: "(deleted config)", cls: "ft-text-sm ft-text-muted" });
-				}
+	private renderPreviewExportSteps(section: HTMLElement, pipe: SavedMultiImportPipeline): void {
+		if (!pipe.exportConfigIds || pipe.exportConfigIds.length === 0) return;
+
+		const exportsDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
+		exportsDiv.createDiv({ text: "Export Steps", cls: "ft-detail-section-header ft-mb-1" });
+		for (const exportId of pipe.exportConfigIds) {
+			const exportCfg = this.deps.dataExchangeService.getExportConfig(exportId);
+			const expRow = exportsDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+			if (exportCfg) {
+				const expIcon = expRow.createSpan();
+				setIcon(expIcon, "file-output");
+				expIcon.addClass("ft-opacity-60");
+				expRow.createSpan({ text: exportCfg.name, cls: "ft-text-sm" });
+				const details: string[] = [];
+				details.push(exportCfg.format.toUpperCase());
+				details.push(basename(exportCfg.outputPath) || exportCfg.outputPath);
+				if (exportCfg.isExternal) details.push("external");
+				expRow.createSpan({ text: details.join(" · "), cls: "ft-text-muted ft-text-sm" });
+			} else {
+				const warnIcon = expRow.createSpan();
+				setIcon(warnIcon, "alert-triangle");
+				warnIcon.addClass("ft-text-warning");
+				expRow.createSpan({ text: "(deleted config)", cls: "ft-text-sm ft-text-muted" });
 			}
 		}
+	}
 
-		if (result.entries.length > 0) {
-			section.createDiv({
-				text: "Items",
-				cls: "ft-detail-section-header ft-px-2 ft-mt-1",
+	private renderPreviewEntries(section: HTMLElement, result: PipelinePreviewResult): void {
+		if (result.entries.length === 0) return;
+
+		section.createDiv({ text: "Items", cls: "ft-detail-section-header ft-px-2 ft-mt-1" });
+		const tableDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2 ft-preview-scroll" });
+
+		for (const entry of result.entries) {
+			const row = tableDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-border-bottom" });
+
+			const dot = row.createSpan({ cls: "ft-text-sm" });
+			dot.addClass(entry.exists ? "ft-text-accent" : "ft-text-success");
+			dot.textContent = entry.exists ? "○" : "●";
+
+			row.createSpan({ text: entry.key, cls: "ft-text-sm ft-flex-1 ft-text-ellipsis" });
+
+			const badge = row.createSpan({
+				text: entry.exists ? "Update" : "New",
+				cls: "ft-badge ft-badge-muted ft-text-sm",
 			});
-			const tableDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2 ft-preview-scroll" });
-
-			for (const entry of result.entries) {
-				const row = tableDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-border-bottom" });
-
-				const dot = row.createSpan({ cls: "ft-text-sm" });
-				dot.addClass(entry.exists ? "ft-text-accent" : "ft-text-success");
-				dot.textContent = entry.exists ? "○" : "●";
-
-				row.createSpan({ text: entry.key, cls: "ft-text-sm ft-flex-1 ft-text-ellipsis" });
-
-				const badge = row.createSpan({
-					text: entry.exists ? "Update" : "New",
-					cls: "ft-badge ft-badge-muted ft-text-sm",
-				});
-				if (!entry.exists) badge.addClass("ft-text-success");
-			}
+			if (!entry.exists) badge.addClass("ft-text-success");
 		}
+	}
 
+	private renderPreviewFooter(section: HTMLElement, pipe: SavedMultiImportPipeline, result: PipelinePreviewResult): void {
 		const footer = section.createDiv({ cls: "ft-flex ft-items-center ft-justify-end ft-gap-2 ft-p-2 ft-footer-bordered" });
 
 		const cancelBtn = footer.createEl("button", { cls: "mod-muted", text: "Cancel" });

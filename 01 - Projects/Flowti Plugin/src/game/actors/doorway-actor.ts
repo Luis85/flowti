@@ -41,11 +41,11 @@ export class DoorwayActor extends ex.Actor {
 		});
 		this.on("pointerenter", () => {
 			this.hovered = true;
-			engine.canvas.style.cursor = "pointer";
+			engine.canvas.classList.add("ft-cursor-pointer");
 		});
 		this.on("pointerleave", () => {
 			this.hovered = false;
-			engine.canvas.style.cursor = "default";
+			engine.canvas.classList.remove("ft-cursor-pointer");
 		});
 	}
 

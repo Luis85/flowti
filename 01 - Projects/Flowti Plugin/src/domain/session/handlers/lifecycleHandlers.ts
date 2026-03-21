@@ -11,6 +11,38 @@ import { MAX_SESSIONS, SESSION_NOTES_FOLDER } from "../types";
 import { createSession, createGoal, createDecision, createContextBinding } from "../helpers";
 import type { SessionHandlerContext } from "./types";
 
+/** Populate optional collections on a newly created session. */
+function populateSessionCollections(session: Session, payload: {
+	goals?: string[]; decisions?: string[]; tasks?: string[];
+	contextBindings?: Array<{ path: string; type: ContextBindingType }>;
+	notes?: string; reflections?: Array<{ type: ReflectionEntry["type"]; content: string }>;
+	featureName?: string;
+}): void {
+	if (payload.goals && payload.goals.length > 0) {
+		session.goals = payload.goals.map((text) => createGoal(`goal_${generateUUID()}`, text));
+	}
+	if (payload.decisions && payload.decisions.length > 0) {
+		session.decisions = payload.decisions.map((title) => createDecision(`dec_${generateUUID()}`, title, ""));
+	}
+	if (payload.tasks && payload.tasks.length > 0) {
+		session.executionTasks = payload.tasks.map((label, i): ExecutionTask => ({
+			id: `task_${generateUUID()}`, label, completed: false, order: i,
+		}));
+	}
+	if (payload.contextBindings && payload.contextBindings.length > 0) {
+		session.contextBindings = payload.contextBindings.map((cb) =>
+			createContextBinding(`ctx_${generateUUID()}`, cb.type, cb.path),
+		);
+	}
+	if (payload.notes) session.notes = payload.notes;
+	if (payload.reflections && payload.reflections.length > 0) {
+		session.reflections = payload.reflections.map((r): ReflectionEntry => ({
+			id: `ref_${generateUUID()}`, type: r.type, content: r.content, timestamp: new Date().toISOString(),
+		}));
+	}
+	if (payload.featureName) session.featureName = payload.featureName;
+}
+
 export async function handleCreate(ctx: SessionHandlerContext, payload: {
 	type: string; title: string; durationMinutes: number; focusFile?: string;
 	goals?: string[]; decisions?: string[]; tasks?: string[];
@@ -19,13 +51,7 @@ export async function handleCreate(ctx: SessionHandlerContext, payload: {
 	featureName?: string;
 }): Promise<Session> {
 	const id = `session_${generateUUID()}`;
-	const session = createSession(
-		id,
-		payload.type as Session["type"],
-		payload.title,
-		payload.durationMinutes,
-		payload.focusFile,
-	);
+	const session = createSession(id, payload.type as Session["type"], payload.title, payload.durationMinutes, payload.focusFile);
 
 	// Auto-set notes file path (ISO date prefix + short ID suffix)
 	const datePrefix = new Date().toISOString().split("T")[0];
@@ -33,53 +59,12 @@ export async function handleCreate(ctx: SessionHandlerContext, payload: {
 	const shortId = id.slice(-6);
 	session.notesFile = `${SESSION_NOTES_FOLDER}/${datePrefix} ${safeName} (${shortId}).md`;
 
-	if (!session.focusFile) {
-		session.focusFile = session.notesFile;
-	}
+	if (!session.focusFile) session.focusFile = session.notesFile;
 
-	if (payload.goals && payload.goals.length > 0) {
-		session.goals = payload.goals.map((text) => createGoal(`goal_${generateUUID()}`, text));
-	}
-
-	if (payload.decisions && payload.decisions.length > 0) {
-		session.decisions = payload.decisions.map((title) => createDecision(`dec_${generateUUID()}`, title, ""));
-	}
-
-	if (payload.tasks && payload.tasks.length > 0) {
-		session.executionTasks = payload.tasks.map((label, i): ExecutionTask => ({
-			id: `task_${generateUUID()}`,
-			label,
-			completed: false,
-			order: i,
-		}));
-	}
-
-	if (payload.contextBindings && payload.contextBindings.length > 0) {
-		session.contextBindings = payload.contextBindings.map((cb) =>
-			createContextBinding(`ctx_${generateUUID()}`, cb.type, cb.path),
-		);
-	}
-
-	if (payload.notes) {
-		session.notes = payload.notes;
-	}
-
-	if (payload.reflections && payload.reflections.length > 0) {
-		session.reflections = payload.reflections.map((r): ReflectionEntry => ({
-			id: `ref_${generateUUID()}`,
-			type: r.type,
-			content: r.content,
-			timestamp: new Date().toISOString(),
-		}));
-	}
-
-	if (payload.featureName) {
-		session.featureName = payload.featureName;
-	}
+	populateSessionCollections(session, payload);
 
 	const state = ctx.getState();
 	state.sessions.unshift(session);
-
 	if (state.sessions.length > MAX_SESSIONS) {
 		state.sessions = state.sessions.slice(0, MAX_SESSIONS);
 	}

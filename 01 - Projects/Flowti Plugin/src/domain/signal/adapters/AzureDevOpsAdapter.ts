@@ -94,32 +94,40 @@ interface AzureDevOpsWorkItem {
 	_links?: { html?: { href?: string } };
 }
 
+function extractStringField(fields: Record<string, unknown>, key: string): string {
+	return (fields[key] as string) ?? "";
+}
+
+function extractAssignedTo(fields: Record<string, unknown>): string {
+	const val = fields["System.AssignedTo"];
+	if (typeof val === "object" && val !== null) {
+		return (val as { displayName?: string }).displayName ?? "";
+	}
+	return "";
+}
+
+function extractTags(fields: Record<string, unknown>): string[] {
+	const raw = fields["System.Tags"];
+	return typeof raw === "string" && raw.length > 0 ? raw.split("; ") : [];
+}
+
 function mapWorkItem(raw: AzureDevOpsWorkItem): WorkItemMapping {
 	const f = raw.fields;
-	const assignedTo = f["System.AssignedTo"];
-	const tagsRaw = f["System.Tags"];
-
 	return {
 		id: raw.id,
 		rev: raw.rev,
-		type: (f["System.WorkItemType"] as string) ?? "",
-		title: (f["System.Title"] as string) ?? "",
-		state: (f["System.State"] as string) ?? "",
-		assignedTo: typeof assignedTo === "object" && assignedTo !== null
-			? ((assignedTo as { displayName?: string }).displayName ?? "")
-			: "",
-		areaPath: (f["System.AreaPath"] as string) ?? "",
-		iterationPath: (f["System.IterationPath"] as string) ?? "",
-		priority: typeof f["Microsoft.VSTS.Common.Priority"] === "number"
-			? (f["Microsoft.VSTS.Common.Priority"] as number)
-			: 0,
-		tags: typeof tagsRaw === "string" && tagsRaw.length > 0
-			? tagsRaw.split("; ")
-			: [],
+		type: extractStringField(f, "System.WorkItemType"),
+		title: extractStringField(f, "System.Title"),
+		state: extractStringField(f, "System.State"),
+		assignedTo: extractAssignedTo(f),
+		areaPath: extractStringField(f, "System.AreaPath"),
+		iterationPath: extractStringField(f, "System.IterationPath"),
+		priority: typeof f["Microsoft.VSTS.Common.Priority"] === "number" ? f["Microsoft.VSTS.Common.Priority"] as number : 0,
+		tags: extractTags(f),
 		url: raw._links?.html?.href ?? "",
-		description: (f["System.Description"] as string) ?? "",
-		createdDate: (f["System.CreatedDate"] as string) ?? "",
-		changedDate: (f["System.ChangedDate"] as string) ?? "",
+		description: extractStringField(f, "System.Description"),
+		createdDate: extractStringField(f, "System.CreatedDate"),
+		changedDate: extractStringField(f, "System.ChangedDate"),
 	};
 }
 
@@ -212,6 +220,15 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 		}
 	}
 
+	/** Extract a user-friendly error message from an API error. */
+	private describeApiError(err: unknown): string {
+		const status = (err as { status?: number }).status;
+		const headers = (err as { headers?: Record<string, string> }).headers;
+		if (typeof status === "number") return mapHttpError(status, headers);
+		if (isNetworkError(err)) return `Network error: ${(err as Error).message}`;
+		return "Connection failed — check your network and organization URL";
+	}
+
 	async fetchItems(config: SignalConfig): Promise<FetchItemsResult> {
 		// Step 1: WIQL query for work item IDs
 		const wiqlUrl = `${config.orgUrl}/${encodeURIComponent(config.project)}/_apis/wit/wiql?api-version=${API_VERSION}`;
@@ -227,14 +244,7 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 			const response = await this.apiRequestWithRetry(wiqlUrl, config, { query: wiqlQuery });
 			wiqlResult = response.json as { workItems?: Array<{ id: number }> };
 		} catch (err: unknown) {
-			const status = (err as { status?: number }).status;
-			const headers = (err as { headers?: Record<string, string> }).headers;
-			const message = typeof status === "number"
-				? mapHttpError(status, headers)
-				: isNetworkError(err)
-					? `Network error: ${(err as Error).message}`
-					: "Connection failed — check your network and organization URL";
-			return { items: [], errors: [{ workItemId: 0, message, recoverable: false }] };
+			return { items: [], errors: [{ workItemId: 0, message: this.describeApiError(err), recoverable: false }] };
 		}
 
 		const ids = wiqlResult.workItems?.map(wi => wi.id) ?? [];
@@ -258,22 +268,11 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 					try {
 						items.push(mapWorkItem(raw));
 					} catch (err: unknown) {
-						const detail = err instanceof Error ? err.message : String(err);
-						errors.push({
-							workItemId: raw.id,
-							message: `Failed to map work item fields: ${detail}`,
-							recoverable: true,
-						});
+						errors.push({ workItemId: raw.id, message: `Failed to map work item fields: ${err instanceof Error ? err.message : String(err)}`, recoverable: true });
 					}
 				}
 			} catch (err: unknown) {
-				const status = (err as { status?: number }).status;
-				const headers = (err as { headers?: Record<string, string> }).headers;
-				const message = typeof status === "number"
-					? mapHttpError(status, headers)
-					: isNetworkError(err)
-						? `Network error: ${(err as Error).message}`
-						: "Connection failed — check your network and organization URL";
+				const message = this.describeApiError(err);
 				for (const id of batch) {
 					errors.push({ workItemId: id, message, recoverable: false });
 				}

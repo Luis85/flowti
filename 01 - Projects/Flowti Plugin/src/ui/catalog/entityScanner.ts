@@ -100,52 +100,33 @@ export function scanEntityFolder<T extends { name: string }>(
 
 	for (const child of folder.children) {
 		if (!(child instanceof TFile) || child.extension !== "md") continue;
-
-		const fm = readFrontmatter(deps.vaultQuery, child.path);
-
-		// Resolve name from frontmatter fallback fields
-		let name: string | undefined;
-		if (fm) {
-			for (const field of config.nameFields) {
-				name = fmString(fm, field);
-				if (name) break;
-			}
-		}
-		name ??= child.basename;
-
-		const description = (fm && fmString(fm, "description")) ?? "";
-		const events = config.readEvents !== false ? fmStringArray(fm, "events") : [];
-		const domains = [
-			...fmStringArray(fm, "domains"),
-			...(config.extraDomainFields?.flatMap((f) => fmStringArray(fm, f)) ?? []),
-		];
-		const services = [
-			...fmStringArray(fm, "services"),
-			...(config.extraServiceFields?.flatMap((f) => fmStringArray(fm, f)) ?? []),
-		];
-
-		const raw: RawScanEntry = { name, description, events, domains, services, filePath: child.path, fm };
-		entries.push(config.mapEntry(raw, context));
-
-		// Collect non-conforming files for deferred normalization (TD-32)
-		if (!fm || fm.type !== config.docType) {
-			nonConforming.push({
-				file: child,
-				docType: config.docType,
-				nameField: config.normalizeNameKey,
-				name,
-				metadata: {
-					description,
-					domains,
-					services,
-					...(config.readEvents !== false ? { events } : {}),
-				},
-			});
-		}
+		processEntityFile(child, config, deps, context, entries, nonConforming);
 	}
 
 	return {
 		entries: entries.sort((a, b) => a.name.localeCompare(b.name)),
 		nonConforming,
 	};
+}
+
+function processEntityFile<T extends { name: string }>(
+	child: TFile, config: EntityScanConfig<T>, deps: CatalogComponentDeps,
+	context: ScanContext, entries: T[], nonConforming: NonConformingFile[],
+): void {
+	const fm = readFrontmatter(deps.vaultQuery, child.path);
+	let name: string | undefined;
+	if (fm) { for (const field of config.nameFields) { name = fmString(fm, field); if (name) break; } }
+	name ??= child.basename;
+	const description = (fm && fmString(fm, "description")) ?? "";
+	const events = config.readEvents !== false ? fmStringArray(fm, "events") : [];
+	const domains = [...fmStringArray(fm, "domains"), ...(config.extraDomainFields?.flatMap((f) => fmStringArray(fm, f)) ?? [])];
+	const services = [...fmStringArray(fm, "services"), ...(config.extraServiceFields?.flatMap((f) => fmStringArray(fm, f)) ?? [])];
+	const raw: RawScanEntry = { name, description, events, domains, services, filePath: child.path, fm };
+	entries.push(config.mapEntry(raw, context));
+	if (!fm || fm.type !== config.docType) {
+		nonConforming.push({
+			file: child, docType: config.docType, nameField: config.normalizeNameKey, name,
+			metadata: { description, domains, services, ...(config.readEvents !== false ? { events } : {}) },
+		});
+	}
 }

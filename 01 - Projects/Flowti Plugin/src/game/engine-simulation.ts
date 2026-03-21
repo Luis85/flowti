@@ -171,62 +171,73 @@ export function tickPets(ctx: EngineContext): void {
 		pet.updateBehavior(ctx.deltaMs);
 		const petRoom = ctx.registry.getEntityRoom(pet.entityId);
 
-		// Follow behavior — move toward target agent (only if same room)
-		if (pet.getFollowTarget()) {
-			const targetRoom = ctx.registry.getEntityRoom(pet.getFollowTarget()!);
-			if (targetRoom === petRoom) {
-				const targetPos = ctx.brain.getPosition(pet.getFollowTarget()!);
-				if (targetPos) pet.moveToward(targetPos.x, targetPos.y, ctx.deltaMs);
-			} else {
-				pet.setFollowTarget(null); // lost target — different room
-			}
-		}
+		updatePetFollow(ctx, pet, petRoom);
+		tryPetAutoFollow(ctx, pet, petRoom);
+		checkPetProximityReactions(ctx, pet, petRoom);
+	}
+}
 
-		// Dog follows nearest idle agent in same room
-		if (pet.petType === "dog" && pet.getState() === "idle" && Math.random() < DOG_FOLLOW_CHANCE) {
-			const sameRoomAgents = ctx.needs.getAgentNames().filter((n) =>
-				ctx.registry.getEntityRoom(n) === petRoom && ctx.brain.getState(n)?.state === "idle",
-			);
-			if (sameRoomAgents.length > 0) {
-				pet.setFollowTarget(sameRoomAgents[Math.floor(Math.random() * sameRoomAgents.length)]);
-			}
-		}
+/** Move pet toward its follow target (only if same room). */
+function updatePetFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
+	const target = pet.getFollowTarget();
+	if (!target) return;
+	const targetRoom = ctx.registry.getEntityRoom(target);
+	if (targetRoom === petRoom) {
+		const targetPos = ctx.brain.getPosition(target);
+		if (targetPos) pet.moveToward(targetPos.x, targetPos.y, ctx.deltaMs);
+	} else {
+		pet.setFollowTarget(null);
+	}
+}
 
-		// Cat follows stressed agents in same room (low morale)
-		if (pet.petType === "cat" && pet.getState() === "idle" && Math.random() < CAT_FOLLOW_STRESSED_CHANCE) {
-			const sameRoomStressed = ctx.needs.getAgentNames().filter((n) =>
-				ctx.registry.getEntityRoom(n) === petRoom && ctx.needs.getNeeds(n).morale < CAT_STRESS_MORALE_THRESHOLD,
-			);
-			if (sameRoomStressed.length > 0) {
-				pet.setFollowTarget(sameRoomStressed[Math.floor(Math.random() * sameRoomStressed.length)]);
-			}
-		}
+/** Dog/cat auto-follow idle or stressed agents in same room. */
+function tryPetAutoFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
+	if (pet.getState() !== "idle") return;
 
-		// Agent proximity reactions — only agents in the same room
-		if (pet.getState() !== "sleeping" && petRoom) {
-			for (const agentName of ctx.needs.getAgentNames()) {
-				if (ctx.registry.getEntityRoom(agentName) !== petRoom) continue;
-				const agentPos = ctx.brain.getPosition(agentName);
-				if (!agentPos) continue;
-				const dx = pet.pos.x - agentPos.x;
-				const dy = pet.pos.y - agentPos.y;
-				const dist = Math.sqrt(dx * dx + dy * dy);
-				if (dist < pet.getInteractRadius()) {
-					const cooldownKey = `${agentName}:${pet.petType}`;
-					const lastReaction = ctx.petReactionCooldowns.get(cooldownKey) ?? 0;
-					if (performance.now() - lastReaction > PET_REACTION_COOLDOWN) {
-						ctx.petReactionCooldowns.set(cooldownKey, performance.now());
-						ctx.needs.applyEffect(agentName, pet.getNeedsEffects());
-						const def = PET_DEFINITIONS.find((d) => d.type === pet.petType);
-						if (def && def.phrases.length > 0) {
-							const phrase = def.phrases[Math.floor(Math.random() * def.phrases.length)];
-							ctx.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.findAgentActor, 3000);
-						}
-						ctx.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
-					}
-				}
-			}
+	if (pet.petType === "dog" && Math.random() < DOG_FOLLOW_CHANCE) {
+		const candidates = ctx.needs.getAgentNames().filter((n) =>
+			ctx.registry.getEntityRoom(n) === petRoom && ctx.brain.getState(n)?.state === "idle",
+		);
+		if (candidates.length > 0) {
+			pet.setFollowTarget(candidates[Math.floor(Math.random() * candidates.length)]);
 		}
+	}
+
+	if (pet.petType === "cat" && Math.random() < CAT_FOLLOW_STRESSED_CHANCE) {
+		const candidates = ctx.needs.getAgentNames().filter((n) =>
+			ctx.registry.getEntityRoom(n) === petRoom && ctx.needs.getNeeds(n).morale < CAT_STRESS_MORALE_THRESHOLD,
+		);
+		if (candidates.length > 0) {
+			pet.setFollowTarget(candidates[Math.floor(Math.random() * candidates.length)]);
+		}
+	}
+}
+
+/** Check agent proximity reactions for a pet (thought bubbles + needs effects). */
+function checkPetProximityReactions(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
+	if (pet.getState() === "sleeping" || !petRoom) return;
+
+	for (const agentName of ctx.needs.getAgentNames()) {
+		if (ctx.registry.getEntityRoom(agentName) !== petRoom) continue;
+		const agentPos = ctx.brain.getPosition(agentName);
+		if (!agentPos) continue;
+		const dx = pet.pos.x - agentPos.x;
+		const dy = pet.pos.y - agentPos.y;
+		const dist = Math.sqrt(dx * dx + dy * dy);
+		if (dist >= pet.getInteractRadius()) continue;
+
+		const cooldownKey = `${agentName}:${pet.petType}`;
+		const lastReaction = ctx.petReactionCooldowns.get(cooldownKey) ?? 0;
+		if (performance.now() - lastReaction <= PET_REACTION_COOLDOWN) continue;
+
+		ctx.petReactionCooldowns.set(cooldownKey, performance.now());
+		ctx.needs.applyEffect(agentName, pet.getNeedsEffects());
+		const def = PET_DEFINITIONS.find((d) => d.type === pet.petType);
+		if (def && def.phrases.length > 0) {
+			const phrase = def.phrases[Math.floor(Math.random() * def.phrases.length)];
+			ctx.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.findAgentActor, 3000);
+		}
+		ctx.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
 	}
 }
 

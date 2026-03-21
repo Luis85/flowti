@@ -682,7 +682,7 @@ describe("createAgentWorld", () => {
 	describe("follow across rooms", () => {
 		function getTransferCallback(): (entityId: string, from: string, to: string, reason: string) => void {
 			const calls = vi.mocked(RoomSwitcher).mock.calls;
-			const config = calls[calls.length - 1][0] as Record<string, unknown>;
+			const config = calls[calls.length - 1][0] as unknown as Record<string, unknown>;
 			return config.onTransferComplete as (entityId: string, from: string, to: string, reason: string) => void;
 		}
 

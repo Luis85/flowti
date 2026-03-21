@@ -65,10 +65,10 @@ export class AgentActor extends ex.Actor {
 			this.onSelect(this.agentData.name);
 		});
 		this.on("pointerenter", () => {
-			engine.canvas.style.cursor = "pointer";
+			engine.canvas.classList.add("ft-cursor-pointer");
 		});
 		this.on("pointerleave", () => {
-			engine.canvas.style.cursor = "default";
+			engine.canvas.classList.remove("ft-cursor-pointer");
 		});
 	}
 

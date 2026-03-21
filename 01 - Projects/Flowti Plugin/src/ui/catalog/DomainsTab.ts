@@ -69,42 +69,7 @@ export class DomainsTab {
 			domainMap.set(entry.domain, list);
 		}
 
-		// Scan folder for documented domains
-		const domainsFolder = this.deps.getEntityFolder("domains");
-		const folder = this.deps.app.vault.getAbstractFileByPath(domainsFolder);
-		const fileMap = new Map<string, {
-			filePath: string;
-			description: string;
-			services: string[];
-			categories: string[];
-		}>();
-
-		const nonConforming: NonConformingFile[] = [];
-		if (folder && folder instanceof TFolder) {
-			for (const child of folder.children) {
-				if (!(child instanceof TFile) || child.extension !== "md") continue;
-
-				const fm = readFrontmatter(this.deps.vaultQuery, child.path);
-				const name = (fm && (fmString(fm, "domain")
-					?? fmString(fm, "name"))) ?? child.basename;
-				const description = (fm && fmString(fm, "description")) ?? "";
-				const services = fmStringArray(fm, "services");
-				const categories = fmStringArray(fm, "categories");
-
-				fileMap.set(name, { filePath: child.path, description, services, categories });
-
-				// Ensure this domain exists in the map even if catalog has no events for it
-				if (!domainMap.has(name)) domainMap.set(name, []);
-
-				if (!fm || fm.type !== "DomainDoc") {
-					nonConforming.push({
-						file: child, docType: "DomainDoc", nameField: "domain", name,
-						metadata: { description, domains: [], services },
-					});
-				}
-			}
-		}
-		normalizeNonConformingFiles(this.deps.app, nonConforming);
+		const { fileMap } = this.scanDomainFolder(domainMap);
 
 		const state = this.deps.getState();
 
@@ -139,6 +104,32 @@ export class DomainsTab {
 				if (a.isArea !== b.isArea) return a.isArea ? -1 : 1;
 				return a.name.localeCompare(b.name);
 			});
+	}
+
+	private scanDomainFolder(domainMap: Map<string, EventCatalogEntry[]>): {
+		fileMap: Map<string, { filePath: string; description: string; services: string[]; categories: string[] }>;
+	} {
+		const domainsFolder = this.deps.getEntityFolder("domains");
+		const folder = this.deps.app.vault.getAbstractFileByPath(domainsFolder);
+		const fileMap = new Map<string, { filePath: string; description: string; services: string[]; categories: string[] }>();
+		const nonConforming: NonConformingFile[] = [];
+		if (folder && folder instanceof TFolder) {
+			for (const child of folder.children) {
+				if (!(child instanceof TFile) || child.extension !== "md") continue;
+				const fm = readFrontmatter(this.deps.vaultQuery, child.path);
+				const name = (fm && (fmString(fm, "domain") ?? fmString(fm, "name"))) ?? child.basename;
+				const description = (fm && fmString(fm, "description")) ?? "";
+				const services = fmStringArray(fm, "services");
+				const categories = fmStringArray(fm, "categories");
+				fileMap.set(name, { filePath: child.path, description, services, categories });
+				if (!domainMap.has(name)) domainMap.set(name, []);
+				if (!fm || fm.type !== "DomainDoc") {
+					nonConforming.push({ file: child, docType: "DomainDoc", nameField: "domain", name, metadata: { description, domains: [], services } });
+				}
+			}
+		}
+		normalizeNonConformingFiles(this.deps.app, nonConforming);
+		return { fileMap };
 	}
 
 	// ─────────────────────────────────────────────────────────────

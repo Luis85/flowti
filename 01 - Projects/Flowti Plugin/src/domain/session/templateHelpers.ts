@@ -45,52 +45,43 @@ export const BUILT_IN_OUTPUT_TEMPLATES: readonly SessionOutputTemplate[] = [
 	},
 ];
 
+function resolveDate(session: Session): string {
+	return session.completedAt
+		? new Date(session.completedAt).toISOString().split("T")[0]
+		: new Date(session.createdAt).toISOString().split("T")[0];
+}
+
+const PLACEHOLDER_RESOLVERS: Record<string, (session: Session) => string> = {
+	"{{title}}": (s) => s.title,
+	"{{date}}": resolveDate,
+	"{{type}}": (s) => resolveTypeConfig(s.type).label,
+	"{{duration}}": (s) => formatDurationHuman(computeElapsedMs(s)),
+	"{{goals}}": (s) => s.goals.length > 0
+		? s.goals.map((g) => `- [${g.completed ? "x" : " "}] ${g.text}`).join("\n")
+		: "*No goals recorded.*",
+	"{{decisions}}": (s) => s.decisions.length > 0
+		? s.decisions.map((d) => `- **${d.title}**${d.description ? `: ${d.description}` : ""}`).join("\n")
+		: "*No decisions recorded.*",
+	"{{artifacts}}": (s) => s.artifacts.length > 0
+		? s.artifacts.map((a) => `- [[${a.path}]] *(${a.action})*`).join("\n")
+		: "*No artifacts tracked.*",
+	"{{context}}": (s) => s.contextBindings.length > 0
+		? s.contextBindings.map((b) => b.label).join(", ")
+		: "*No context bindings.*",
+	"{{notes}}": (s) => s.notes.trim() || "*No notes recorded.*",
+	"{{overview}}": (s) => {
+		const date = resolveDate(s);
+		const typeLabel = resolveTypeConfig(s.type).label;
+		return `- **Date:** ${date}\n- **Type:** ${typeLabel}\n- **Duration:** ${formatDurationHuman(computeElapsedMs(s))}`;
+	},
+};
+
 /**
  * Resolves a single placeholder against a session's data.
  */
 export function resolvePlaceholder(placeholder: string, session: Session): string {
-	switch (placeholder) {
-		case "{{title}}":
-			return session.title;
-		case "{{date}}":
-			return session.completedAt
-				? new Date(session.completedAt).toISOString().split("T")[0]
-				: new Date(session.createdAt).toISOString().split("T")[0];
-		case "{{type}}":
-			return resolveTypeConfig(session.type).label;
-		case "{{duration}}": {
-			const elapsedMs = computeElapsedMs(session);
-			return formatDurationHuman(elapsedMs);
-		}
-		case "{{goals}}":
-			return session.goals.length > 0
-				? session.goals.map((g) => `- [${g.completed ? "x" : " "}] ${g.text}`).join("\n")
-				: "*No goals recorded.*";
-		case "{{decisions}}":
-			return session.decisions.length > 0
-				? session.decisions.map((d) => `- **${d.title}**${d.description ? `: ${d.description}` : ""}`).join("\n")
-				: "*No decisions recorded.*";
-		case "{{artifacts}}":
-			return session.artifacts.length > 0
-				? session.artifacts.map((a) => `- [[${a.path}]] *(${a.action})*`).join("\n")
-				: "*No artifacts tracked.*";
-		case "{{context}}":
-			return session.contextBindings.length > 0
-				? session.contextBindings.map((b) => b.label).join(", ")
-				: "*No context bindings.*";
-		case "{{notes}}":
-			return session.notes.trim() || "*No notes recorded.*";
-		case "{{overview}}": {
-			const date = session.completedAt
-				? new Date(session.completedAt).toISOString().split("T")[0]
-				: new Date(session.createdAt).toISOString().split("T")[0];
-			const typeLabel = resolveTypeConfig(session.type).label;
-			const elapsedMs = computeElapsedMs(session);
-			return `- **Date:** ${date}\n- **Type:** ${typeLabel}\n- **Duration:** ${formatDurationHuman(elapsedMs)}`;
-		}
-		default:
-			return placeholder;
-	}
+	const resolver = PLACEHOLDER_RESOLVERS[placeholder];
+	return resolver ? resolver(session) : placeholder;
 }
 
 /**

@@ -45,76 +45,49 @@ export function validateExpression(
 	availableColumns: string[],
 ): ExpressionValidationResult {
 	const errors: string[] = [];
+	if (!expression.trim()) return { valid: false, errors: ["Expression is empty"] };
+	checkBalanced(expression, "{", "}", "brace", errors);
+	checkColumnRefs(expression, availableColumns, errors);
+	checkFunctionCalls(expression, errors);
+	checkBalanced(expression, "(", ")", "parenthesis", errors);
+	return { valid: errors.length === 0, errors };
+}
 
-	if (!expression.trim()) {
-		return { valid: false, errors: ["Expression is empty"] };
+function checkBalanced(expr: string, open: string, close: string, label: string, errors: string[]): void {
+	let depth = 0;
+	for (const ch of expr) {
+		if (ch === open) depth++;
+		if (ch === close) depth--;
+		if (depth < 0) { errors.push(`Unmatched closing ${label} '${close}'`); return; }
 	}
+	if (depth > 0) errors.push(`Unmatched opening ${label} '${open}'`);
+}
 
-	// Check balanced curly braces
-	let braceDepth = 0;
-	for (const ch of expression) {
-		if (ch === "{") braceDepth++;
-		if (ch === "}") braceDepth--;
-		if (braceDepth < 0) {
-			errors.push("Unmatched closing brace '}'");
-			break;
-		}
-	}
-	if (braceDepth > 0) {
-		errors.push("Unmatched opening brace '{'");
-	}
-
-	// Check column references
-	const colRefPattern = /\{([^}]+)\}/g;
+function checkColumnRefs(expression: string, availableColumns: string[], errors: string[]): void {
 	const colSet = new Set(availableColumns);
+	const colRefPattern = /\{([^}]+)\}/g;
 	let match;
 	while ((match = colRefPattern.exec(expression)) !== null) {
 		const colName = match[1].trim();
-		if (!colSet.has(colName)) {
-			errors.push(`Unknown column: {${colName}}`);
-		}
+		if (!colSet.has(colName)) errors.push(`Unknown column: {${colName}}`);
 	}
+}
 
-	// Check function calls (strip column refs first so {SUM(x)} doesn't look like a SUM call)
+function checkFunctionCalls(expression: string, errors: string[]): void {
 	const stripped = expression.replace(/\{[^}]*\}/g, "__COL__");
 	const funcPattern = /([A-Z_]+)\s*\(/g;
+	let match;
 	while ((match = funcPattern.exec(stripped)) !== null) {
 		const funcName = match[1];
-		if (!VALID_FUNCTIONS.has(funcName)) {
-			errors.push(`Unknown function: ${funcName}`);
-			continue;
-		}
-
-		// Count arguments by finding matching parenthesis
+		if (!VALID_FUNCTIONS.has(funcName)) { errors.push(`Unknown function: ${funcName}`); continue; }
 		const startIdx = match.index + match[0].length;
 		const argCount = countFunctionArgs(stripped, startIdx);
-		if (argCount !== null) {
-			const expected = FUNCTION_ARG_COUNTS[funcName];
-			if (expected) {
-				if (argCount < expected.min) {
-					errors.push(`${funcName} requires at least ${expected.min} argument${expected.min > 1 ? "s" : ""}, got ${argCount}`);
-				} else if (argCount > expected.max) {
-					errors.push(`${funcName} accepts at most ${expected.max} argument${expected.max > 1 ? "s" : ""}, got ${argCount}`);
-				}
-			}
-		}
+		if (argCount === null) continue;
+		const expected = FUNCTION_ARG_COUNTS[funcName];
+		if (!expected) continue;
+		if (argCount < expected.min) errors.push(`${funcName} requires at least ${expected.min} argument${expected.min > 1 ? "s" : ""}, got ${argCount}`);
+		else if (argCount > expected.max) errors.push(`${funcName} accepts at most ${expected.max} argument${expected.max > 1 ? "s" : ""}, got ${argCount}`);
 	}
-
-	// Check balanced parentheses
-	let parenDepth = 0;
-	for (const ch of expression) {
-		if (ch === "(") parenDepth++;
-		if (ch === ")") parenDepth--;
-		if (parenDepth < 0) {
-			errors.push("Unmatched closing parenthesis ')'");
-			break;
-		}
-	}
-	if (parenDepth > 0) {
-		errors.push("Unmatched opening parenthesis '('");
-	}
-
-	return { valid: errors.length === 0, errors };
 }
 
 /**

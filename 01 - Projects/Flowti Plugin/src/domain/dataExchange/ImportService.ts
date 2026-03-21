@@ -187,6 +187,24 @@ export class ImportService {
 
 	// ── Private ─────────────────────────────────────────────
 
+	/** Build frontmatter from mapped columns and custom properties. */
+	private buildRowFrontmatter(row: string[], headers: string[], config: ImportConfig): Record<string, string> {
+		const frontmatter: Record<string, string> = {};
+		for (const mapping of config.columnMappings) {
+			if (!mapping.included) continue;
+			const colIndex = headers.indexOf(mapping.csvColumn);
+			if (colIndex >= 0 && row[colIndex] !== undefined && row[colIndex] !== "") {
+				frontmatter[mapping.frontmatterKey] = row[colIndex];
+			}
+		}
+		if (config.customProperties) {
+			for (const [key, value] of Object.entries(config.customProperties)) {
+				frontmatter[key] = value;
+			}
+		}
+		return frontmatter;
+	}
+
 	private async processRow(
 		row: string[],
 		rowIndex: number,
@@ -199,39 +217,15 @@ export class ImportService {
 		const baseName = this.sanitizeFilename(rawName);
 
 		if (!baseName) {
-			result.errors.push({
-				row: rowIndex + 1,
-				filename: rawName ?? "",
-				error: "Empty filename after sanitization",
-			});
+			result.errors.push({ row: rowIndex + 1, filename: rawName ?? "", error: "Empty filename after sanitization" });
 			result.failed++;
 			return;
 		}
 
 		const prefix = config.namePrefix ?? "";
 		const suffix = config.nameSuffix ?? "";
-		const filename = `${prefix}${baseName}${suffix}`;
-
-		const notePath = `${config.targetFolder}/${filename}.md`;
-
-		// Build frontmatter from mapped columns
-		const frontmatter: Record<string, string> = {};
-		for (const mapping of config.columnMappings) {
-			if (!mapping.included) continue;
-			const colIndex = headers.indexOf(mapping.csvColumn);
-			if (colIndex >= 0 && row[colIndex] !== undefined && row[colIndex] !== "") {
-				frontmatter[mapping.frontmatterKey] = row[colIndex];
-			}
-		}
-
-		// Merge custom properties into frontmatter
-		if (config.customProperties) {
-			for (const [key, value] of Object.entries(config.customProperties)) {
-				frontmatter[key] = value;
-			}
-		}
-
-		// Check if note already exists
+		const notePath = `${config.targetFolder}/${prefix}${baseName}${suffix}.md`;
+		const frontmatter = this.buildRowFrontmatter(row, headers, config);
 		const exists = await this.fileSystem.fileExists(notePath);
 
 		if (exists) {
@@ -243,18 +237,13 @@ export class ImportService {
 					await this.fileSystem.updateFrontmatter(notePath, frontmatter);
 					result.updated++;
 					return;
-				case "overwrite": {
-					const noteContent = this.buildNoteContent(frontmatter);
-					await this.fileSystem.updateFile(notePath, noteContent);
+				case "overwrite":
+					await this.fileSystem.updateFile(notePath, this.buildNoteContent(frontmatter));
 					result.updated++;
 					return;
-				}
 			}
 		} else {
-			const noteContent = this.buildNoteContent(frontmatter);
-			await this.fileSystem.createFile(notePath, noteContent, {
-				createFolders: true,
-			});
+			await this.fileSystem.createFile(notePath, this.buildNoteContent(frontmatter), { createFolders: true });
 			result.created++;
 		}
 	}

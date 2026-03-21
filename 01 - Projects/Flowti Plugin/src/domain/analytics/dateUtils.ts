@@ -31,75 +31,30 @@ export function resolveDateFormat(localeId: LocaleId | undefined): DateFormatPat
 export function parseDate(raw: string, localeId: LocaleId | undefined): ParsedDate | null {
 	if (!raw || raw.trim() === "") return null;
 	let s = raw.trim();
-
-	// Strip trailing time portion (e.g., "2026-01-15T10:30:00" or "01/15/2026 12:00")
 	const timeMatch = s.match(/^(.+?)[T ]\d{1,2}:\d{2}/);
 	if (timeMatch) s = timeMatch[1].trim();
-
-	// Always try ISO first (unambiguous)
 	const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-	if (isoMatch) {
-		return makeDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
-	}
-
-	// Year-month only: "2025-09" → day defaults to 1
+	if (isoMatch) return makeDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
 	const ymMatch = s.match(/^(\d{4})-(\d{1,2})$/);
-	if (ymMatch) {
-		return makeDate(Number(ymMatch[1]), Number(ymMatch[2]), 1);
-	}
-
+	if (ymMatch) return makeDate(Number(ymMatch[1]), Number(ymMatch[2]), 1);
 	const format = resolveDateFormat(localeId);
-
-	// DD.MM.YYYY or DD.MM.YY (German style)
 	const dotMatch = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
-	if (dotMatch) {
-		return makeDate(expandYear(Number(dotMatch[3])), Number(dotMatch[2]), Number(dotMatch[1]));
-	}
-
-	// Slash-based formats: MM/DD/YYYY or DD/MM/YYYY (also 2-digit year)
+	if (dotMatch) return makeDate(expandYear(Number(dotMatch[3])), Number(dotMatch[2]), Number(dotMatch[1]));
 	const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-	if (slashMatch) {
-		const a = Number(slashMatch[1]);
-		const b = Number(slashMatch[2]);
-		const year = expandYear(Number(slashMatch[3]));
-
-		if (format === "MM/DD/YYYY") {
-			return makeDate(year, a, b);
-		}
-		// DD/MM/YYYY (GB, NL, FR) or auto
-		if (format === "DD/MM/YYYY" || format === "DD.MM.YYYY") {
-			return makeDate(year, b, a);
-		}
-		// Auto: if first number > 12, it must be a day → DD/MM
-		if (format === "auto") {
-			if (a > 12) return makeDate(year, b, a);
-			if (b > 12) return makeDate(year, a, b);
-			// Ambiguous — default to MM/DD (US-biased for auto)
-			return makeDate(year, a, b);
-		}
-	}
-
-	// Dash-separated non-ISO: DD-MM-YYYY or DD-MM-YY
+	if (slashMatch) return parseTwoPartDate(Number(slashMatch[1]), Number(slashMatch[2]), expandYear(Number(slashMatch[3])), format);
 	const dashMatch = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-	if (dashMatch) {
-		const a = Number(dashMatch[1]);
-		const b = Number(dashMatch[2]);
-		const year = expandYear(Number(dashMatch[3]));
-
-		if (format === "MM/DD/YYYY") {
-			return makeDate(year, a, b);
-		}
-		if (format === "DD/MM/YYYY" || format === "DD.MM.YYYY") {
-			return makeDate(year, b, a);
-		}
-		if (format === "auto") {
-			if (a > 12) return makeDate(year, b, a);
-			if (b > 12) return makeDate(year, a, b);
-			return makeDate(year, a, b);
-		}
-	}
-
+	if (dashMatch) return parseTwoPartDate(Number(dashMatch[1]), Number(dashMatch[2]), expandYear(Number(dashMatch[3])), format);
 	return null;
+}
+
+/** Parse an ambiguous two-part date (slash or dash) using the locale format. */
+function parseTwoPartDate(a: number, b: number, year: number, format: DateFormatPattern): ParsedDate | null {
+	if (format === "MM/DD/YYYY") return makeDate(year, a, b);
+	if (format === "DD/MM/YYYY" || format === "DD.MM.YYYY") return makeDate(year, b, a);
+	// Auto: disambiguate by value range
+	if (a > 12) return makeDate(year, b, a);
+	if (b > 12) return makeDate(year, a, b);
+	return makeDate(year, a, b); // US-biased fallback
 }
 
 /** Expand a 2-digit year to 4-digit (00–99 → 2000–2099). */
@@ -177,78 +132,42 @@ export function computeDateRange(
 	preset: DateRangePreset,
 	now: Date = new Date(),
 ): { start: ParsedDate; end: ParsedDate } {
-	const today: ParsedDate = {
-		year: now.getFullYear(),
-		month: now.getMonth() + 1,
-		day: now.getDate(),
-	};
-
-	switch (preset) {
-		case "last-7-days":
-			return { start: addDays(today, -6), end: today };
-		case "last-30-days":
-			return { start: addDays(today, -29), end: today };
-		case "last-90-days":
-			return { start: addDays(today, -89), end: today };
-		case "this-week": {
-			const dow = now.getDay(); // 0=Sun
-			const mondayOffset = dow === 0 ? -6 : 1 - dow;
-			return { start: addDays(today, mondayOffset), end: addDays(today, mondayOffset + 6) };
-		}
-		case "last-week": {
-			const dow = now.getDay();
-			const mondayOffset = dow === 0 ? -6 : 1 - dow;
-			return { start: addDays(today, mondayOffset - 7), end: addDays(today, mondayOffset - 1) };
-		}
-		case "this-month":
-			return {
-				start: { year: today.year, month: today.month, day: 1 },
-				end: { year: today.year, month: today.month, day: daysInMonth(today.year, today.month) },
-			};
-		case "last-month": {
-			const prev = today.month === 1
-				? { year: today.year - 1, month: 12 }
-				: { year: today.year, month: today.month - 1 };
-			return {
-				start: { ...prev, day: 1 },
-				end: { ...prev, day: daysInMonth(prev.year, prev.month) },
-			};
-		}
-		case "this-quarter": {
-			const q = Math.ceil(today.month / 3);
-			const startMonth = (q - 1) * 3 + 1;
-			const endMonth = startMonth + 2;
-			return {
-				start: { year: today.year, month: startMonth, day: 1 },
-				end: { year: today.year, month: endMonth, day: daysInMonth(today.year, endMonth) },
-			};
-		}
-		case "last-quarter": {
-			let q = Math.ceil(today.month / 3) - 1;
-			let yr = today.year;
-			if (q === 0) { q = 4; yr--; }
-			const startMonth = (q - 1) * 3 + 1;
-			const endMonth = startMonth + 2;
-			return {
-				start: { year: yr, month: startMonth, day: 1 },
-				end: { year: yr, month: endMonth, day: daysInMonth(yr, endMonth) },
-			};
-		}
-		case "this-year":
-			return {
-				start: { year: today.year, month: 1, day: 1 },
-				end: { year: today.year, month: 12, day: 31 },
-			};
-		case "last-year":
-			return {
-				start: { year: today.year - 1, month: 1, day: 1 },
-				end: { year: today.year - 1, month: 12, day: 31 },
-			};
-		case "custom":
-			// Custom uses explicit startDate/endDate, return today as fallback
-			return { start: today, end: today };
-	}
+	const today: ParsedDate = { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+	const mondayOffset = () => { const dow = now.getDay(); return dow === 0 ? -6 : 1 - dow; };
+	const range = DATE_RANGE_RESOLVERS[preset];
+	return range ? range(today, mondayOffset) : { start: today, end: today };
 }
+
+type DateRangeResolver = (today: ParsedDate, mondayOffset: () => number) => { start: ParsedDate; end: ParsedDate };
+
+function quarterRange(yr: number, q: number): { start: ParsedDate; end: ParsedDate } {
+	const startMonth = (q - 1) * 3 + 1;
+	const endMonth = startMonth + 2;
+	return { start: { year: yr, month: startMonth, day: 1 }, end: { year: yr, month: endMonth, day: daysInMonth(yr, endMonth) } };
+}
+
+const DATE_RANGE_RESOLVERS: Record<DateRangePreset, DateRangeResolver> = {
+	"last-7-days": (t) => ({ start: addDays(t, -6), end: t }),
+	"last-30-days": (t) => ({ start: addDays(t, -29), end: t }),
+	"last-90-days": (t) => ({ start: addDays(t, -89), end: t }),
+	"this-week": (t, mo) => ({ start: addDays(t, mo()), end: addDays(t, mo() + 6) }),
+	"last-week": (t, mo) => ({ start: addDays(t, mo() - 7), end: addDays(t, mo() - 1) }),
+	"this-month": (t) => ({ start: { ...t, day: 1 }, end: { ...t, day: daysInMonth(t.year, t.month) } }),
+	"last-month": (t) => {
+		const prev = t.month === 1 ? { year: t.year - 1, month: 12 } : { year: t.year, month: t.month - 1 };
+		return { start: { ...prev, day: 1 }, end: { ...prev, day: daysInMonth(prev.year, prev.month) } };
+	},
+	"this-quarter": (t) => quarterRange(t.year, Math.ceil(t.month / 3)),
+	"last-quarter": (t) => {
+		let q = Math.ceil(t.month / 3) - 1;
+		let yr = t.year;
+		if (q === 0) { q = 4; yr--; }
+		return quarterRange(yr, q);
+	},
+	"this-year": (t) => ({ start: { year: t.year, month: 1, day: 1 }, end: { year: t.year, month: 12, day: 31 } }),
+	"last-year": (t) => ({ start: { year: t.year - 1, month: 1, day: 1 }, end: { year: t.year - 1, month: 12, day: 31 } }),
+	"custom": (t) => ({ start: t, end: t }),
+};
 
 /** Check whether a parsed date falls within an inclusive [start, end] range. */
 export function isDateInRange(date: ParsedDate, start: ParsedDate, end: ParsedDate): boolean {

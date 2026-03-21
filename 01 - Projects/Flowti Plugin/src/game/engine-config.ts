@@ -7,7 +7,6 @@
  * pet room assignments, and timing/threshold constants.
  */
 
-import type { InteractableActor } from "./actors/interactable-actor.js";
 import type { AgentNeeds } from "./systems/needs-system.js";
 
 // ── Engine dimensions ────────────────────────────────────────────────

@@ -7,6 +7,15 @@ import type { IContextProvider, FileContext } from "./context-provider.js";
 import type { IEventBus } from "../../infrastructure/events/types.js";
 import { watchJsonFile, type FileWatcher } from "../../infrastructure/agents/file-watcher.js";
 import { readFileSync, existsSync } from "node:fs";
+import {
+	type AgentRosterEntry, type ProjectInfo, type IterationInfo, type CanvasInfo,
+	type ActivityEntry, type WorldStateFile, type AgentDashboardFile,
+	MAX_CHANGE_LOG, MAX_CONTENT_SNIPPET, DEBOUNCE_MS, DELTA_FALLBACK_THRESHOLD,
+	fileTypeFromPath, basename, relativeAge, SCENE_DESCRIPTIONS,
+} from "./world-context-constants.js";
+
+// Re-export public types for consumers
+export type { AgentRosterEntry, ProjectInfo, IterationInfo, CanvasInfo, ActivityEntry } from "./world-context-constants.js";
 
 /* ── Minimal workspace interface (avoids importing full Obsidian Workspace) ── */
 
@@ -18,40 +27,6 @@ export interface WorkspaceDep {
 export interface VaultAdapterDep {
 	exists(path: string): Promise<boolean>;
 	read(path: string): Promise<string>;
-}
-
-/* ── Supporting types ── */
-
-export interface AgentRosterEntry {
-	readonly name: string;
-	readonly role: string;
-	readonly status: "idle" | "busy";
-	readonly task?: string;
-	readonly persona?: string;
-	readonly mood?: string;
-	readonly skills?: readonly string[];
-}
-
-export interface ProjectInfo {
-	readonly name: string;
-	readonly domains: string[];
-}
-
-export interface IterationInfo {
-	readonly name: string;
-	readonly phase?: string;
-	readonly done: number;
-	readonly total: number;
-}
-
-export interface CanvasInfo {
-	readonly name: string;
-	readonly description?: string;
-}
-
-export interface ActivityEntry {
-	readonly text: string;
-	readonly timestamp: number;
 }
 
 interface ChangeEntry {
@@ -67,112 +42,6 @@ export interface WorldContextDeps {
 	readonly eventBus: IEventBus;
 	readonly vaultBasePath?: string;
 }
-
-/* ── File type mapping ── */
-
-const EXT_TYPE_MAP: Record<string, string> = {
-	".ts": "TypeScript",
-	".tsx": "TypeScript",
-	".js": "JavaScript",
-	".jsx": "JavaScript",
-	".md": "Markdown",
-	".json": "JSON",
-	".css": "CSS",
-	".canvas": "Canvas",
-	".html": "HTML",
-	".scss": "SCSS",
-	".less": "LESS",
-	".yaml": "YAML",
-	".yml": "YAML",
-	".xml": "XML",
-	".svg": "SVG",
-	".py": "Python",
-	".rs": "Rust",
-	".go": "Go",
-	".sh": "Shell",
-	".bat": "Batch",
-	".ps1": "PowerShell",
-};
-
-function fileTypeFromPath(path: string): string {
-	const dot = path.lastIndexOf(".");
-	if (dot === -1) return "Unknown";
-	const ext = path.slice(dot).toLowerCase();
-	return EXT_TYPE_MAP[ext] ?? "Unknown";
-}
-
-function basename(path: string): string {
-	const sep = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-	return sep === -1 ? path : path.slice(sep + 1);
-}
-
-function relativeAge(ms: number): string {
-	const sec = Math.floor(ms / 1000);
-	if (sec < 60) return `${sec}s ago`;
-	const min = Math.floor(sec / 60);
-	if (min < 60) return `${min}m ago`;
-	const hr = Math.floor(min / 60);
-	return `${hr}h ago`;
-}
-
-/* ── Minimal world-state types (mirrors CLI WorldState shape) ── */
-
-interface WorldStateEntity {
-	readonly id: string;
-	readonly type: string;
-	readonly components: Record<string, Record<string, unknown>>;
-}
-
-interface WorldStateActivityEntry {
-	readonly agentName: string;
-	readonly timestamp: string;
-	readonly type: string;
-	readonly summary: string;
-}
-
-interface WorldStateFile {
-	readonly entities?: Record<string, WorldStateEntity>;
-	readonly activityLog?: readonly WorldStateActivityEntry[];
-}
-
-interface AgentDashboardFile {
-	readonly agents?: readonly {
-		readonly name: string;
-		readonly domain?: string;
-		readonly status?: string;
-	}[];
-}
-
-/* ── Constants ── */
-
-const MAX_CHANGE_LOG = 50;
-const MAX_CONTENT_SNIPPET = 500;
-const DEBOUNCE_MS = 500;
-const DELTA_FALLBACK_THRESHOLD = 10;
-
-/** Scene descriptions — what each environment looks and feels like. */
-const SCENE_DESCRIPTIONS: Record<string, { name: string; vibe: string; who: string }> = {
-	hub: {
-		name: "The Hub",
-		vibe: "A central gathering hall with a dark floor and subtle grid pattern. Doorways along the right edge lead to other rooms. The mood is open and communal — this is where everyone crosses paths.",
-		who: "General-purpose agents and anyone passing through.",
-	},
-	office: {
-		name: "The Office",
-		vibe: "A focused workspace with individual workstations. Monitors glow softly. The atmosphere is heads-down and productive — code gets written here.",
-		who: "Engineering, QA, and DevOps agents.",
-	},
-	village: {
-		name: "The Village",
-		vibe: "An informal, collaborative space with workbenches instead of desks. Relaxed and creative — ideas flow freely, whiteboards are everywhere.",
-		who: "Design, UX, and Product agents.",
-	},
-	station: {
-		name: "The Station",
-		vibe: "A coordination center with dashboards and planning boards. Structured but dynamic — schedules are tracked, decisions are made.",
-		who: "Management, Delivery, and Coordination agents.",
-	},
-};
 
 /* ── WorldContext ── */
 
@@ -288,20 +157,11 @@ export class WorldContext {
 		try {
 			const rosterPath = vaultBasePath + "/.flowti/agents/data/agent-dashboard.json";
 			if (!existsSync(rosterPath)) return;
-			const raw = readFileSync(rosterPath, "utf-8");
-			const data = JSON.parse(raw) as AgentDashboardFile;
-			const agents = data.agents ?? [];
+			const agents = (JSON.parse(readFileSync(rosterPath, "utf-8")) as AgentDashboardFile).agents ?? [];
 			if (agents.length === 0) return;
-			this.agentRoster = agents.map((a) => ({
-				name: a.name,
-				role: a.domain ?? "general",
-				persona: typeof (a as Record<string, unknown>).persona === "string" ? (a as Record<string, unknown>).persona as string : undefined,
-				status: this.normalizeStatus(a.status ?? "idle"),
-			}));
+			this.agentRoster = agents.map((a) => ({ name: a.name, role: a.domain ?? "general", persona: typeof (a as Record<string, unknown>).persona === "string" ? (a as Record<string, unknown>).persona as string : undefined, status: this.normalizeStatus(a.status ?? "idle") }));
 			this.recordChange("agentRoster", `Roster seeded: ${agents.length} agents from dashboard`);
-		} catch {
-			/* missing file or parse error — silently ignore */
-		}
+		} catch { /* missing file or parse error */ }
 	}
 
 	/* ── Mutators ── */
@@ -353,90 +213,58 @@ export class WorldContext {
 
 	serialize(): string {
 		const lines: string[] = ["[World Context — Snapshot]"];
-
-		// Active file + content
-		if (this.activeFile) {
-			const type = fileTypeFromPath(this.activeFile.path);
-			const absPath = this.toAbsolutePath(this.activeFile.path);
-			lines.push(`Active file: ${absPath} (${type})`);
-			if (this.activeFile.content) {
-				const snippet = this.activeFile.content.slice(0, MAX_CONTENT_SNIPPET);
-				const truncated = snippet.length < this.activeFile.content.length ? `\n[... truncated at ${MAX_CONTENT_SNIPPET} chars, full file: ${this.activeFile.content.length} chars]` : "";
-				lines.push(`\nContent of ${basename(this.activeFile.path)}:\n\`\`\`\n${snippet}${truncated}\n\`\`\``);
-			}
-		}
-
-		// Open files (excluding active)
-		if (this.openFiles.length > 0) {
-			const activePath = this.activeFile?.path;
-			const others = this.openFiles.filter((f) => f !== activePath);
-			if (others.length > 0) {
-				const absPaths = others.map((f) => this.toAbsolutePath(f));
-				lines.push(`Also open: ${absPaths.join(", ")}`);
-			}
-		}
-
-		// Canvas
-		if (this.activeCanvas) {
-			const desc = this.activeCanvas.description ? ` — ${this.activeCanvas.description}` : "";
-			lines.push(`Canvas: "${this.activeCanvas.name}"${desc}`);
-		}
-
-		// Project
-		if (this.projectInfo) {
-			lines.push(`Project: ${this.projectInfo.name} — domains: ${this.projectInfo.domains.join(", ")}`);
-		}
-
-		// Iteration
-		if (this.currentIteration) {
-			const phase = this.currentIteration.phase ? ` ${this.currentIteration.phase}` : "";
-			lines.push(`Iteration: "${this.currentIteration.name}"${phase} — ${this.currentIteration.done}/${this.currentIteration.total} done`);
-		}
-
-		// Team — each colleague with role, status, and skills
-		if (this.agentRoster.length > 0) {
-			lines.push("\nTeam:");
-			for (const a of this.agentRoster) {
-				const persona = a.persona ? ` "${a.persona}"` : "";
-				const task = a.status === "busy" && a.task ? ` — working on "${a.task}"` : ` — ${a.status}`;
-				const mood = a.mood ? `, ${a.mood}` : "";
-				const skills = a.skills && a.skills.length > 0 ? ` [${a.skills.join(", ")}]` : "";
-				lines.push(`- ${a.name}${persona} (${a.role}${mood}${task})${skills}`);
-			}
-		}
-
-		// Recent activity
-		if (this.recentActivity.length > 0) {
-			const now = Date.now();
-			const recent = this.recentActivity.slice(0, 3).map(
-				(a) => `${a.text} ${relativeAge(now - a.timestamp)}`
-			);
-			lines.push(`Recent: ${recent.join("; ")}`);
-		}
-
+		this.serializeActiveFile(lines);
+		this.serializeOpenFiles(lines);
+		if (this.activeCanvas) lines.push(`Canvas: "${this.activeCanvas.name}"${this.activeCanvas.description ? ` — ${this.activeCanvas.description}` : ""}`);
+		if (this.projectInfo) lines.push(`Project: ${this.projectInfo.name} — domains: ${this.projectInfo.domains.join(", ")}`);
+		if (this.currentIteration) lines.push(`Iteration: "${this.currentIteration.name}"${this.currentIteration.phase ? ` ${this.currentIteration.phase}` : ""} — ${this.currentIteration.done}/${this.currentIteration.total} done`);
+		this.serializeTeam(lines);
+		this.serializeRecentActivity(lines);
 		return lines.join("\n");
+	}
+
+	private serializeActiveFile(lines: string[]): void {
+		if (!this.activeFile) return;
+		const absPath = this.toAbsolutePath(this.activeFile.path);
+		lines.push(`Active file: ${absPath} (${fileTypeFromPath(this.activeFile.path)})`);
+		if (this.activeFile.content) {
+			const snippet = this.activeFile.content.slice(0, MAX_CONTENT_SNIPPET);
+			const truncated = snippet.length < this.activeFile.content.length ? `\n[... truncated at ${MAX_CONTENT_SNIPPET} chars, full file: ${this.activeFile.content.length} chars]` : "";
+			lines.push(`\nContent of ${basename(this.activeFile.path)}:\n\`\`\`\n${snippet}${truncated}\n\`\`\``);
+		}
+	}
+
+	private serializeOpenFiles(lines: string[]): void {
+		if (this.openFiles.length === 0) return;
+		const others = this.openFiles.filter((f) => f !== this.activeFile?.path);
+		if (others.length > 0) lines.push(`Also open: ${others.map((f) => this.toAbsolutePath(f)).join(", ")}`);
+	}
+
+	private serializeTeam(lines: string[]): void {
+		if (this.agentRoster.length === 0) return;
+		lines.push("\nTeam:");
+		for (const a of this.agentRoster) {
+			const task = a.status === "busy" && a.task ? ` — working on "${a.task}"` : ` — ${a.status}`;
+			lines.push(`- ${a.name}${a.persona ? ` "${a.persona}"` : ""} (${a.role}${a.mood ? `, ${a.mood}` : ""}${task})${a.skills && a.skills.length > 0 ? ` [${a.skills.join(", ")}]` : ""}`);
+		}
+	}
+
+	private serializeRecentActivity(lines: string[]): void {
+		if (this.recentActivity.length === 0) return;
+		const now = Date.now();
+		lines.push(`Recent: ${this.recentActivity.slice(0, 3).map((a) => `${a.text} ${relativeAge(now - a.timestamp)}`).join("; ")}`);
 	}
 
 	serializeDelta(agentName: string): string | null {
 		const lastSeen = this.agentVersions.get(agentName) ?? 0;
 		if (lastSeen >= this.version) return null;
-
 		const changes = this.changeLog.filter((c) => c.version > lastSeen);
 		if (changes.length === 0) return null;
-
-		// Fall back to full snapshot if too many changes accumulated
-		if (changes.length > DELTA_FALLBACK_THRESHOLD) {
-			return this.serialize();
-		}
-
+		if (changes.length > DELTA_FALLBACK_THRESHOLD) return this.serialize();
 		const lines = [`[World Context — Delta]`];
-		if (this.activeFile) {
-			lines.push(`Active file: ${this.toAbsolutePath(this.activeFile.path)} (${fileTypeFromPath(this.activeFile.path)})`);
-		}
+		if (this.activeFile) lines.push(`Active file: ${this.toAbsolutePath(this.activeFile.path)} (${fileTypeFromPath(this.activeFile.path)})`);
 		lines.push("Changes since last message:");
-		for (const c of changes) {
-			lines.push(`- ${c.summary}`);
-		}
+		for (const c of changes) lines.push(`- ${c.summary}`);
 		return lines.join("\n");
 	}
 
@@ -446,74 +274,51 @@ export class WorldContext {
 
 	getProtocolInstruction(agentName: string, domain: string, agent?: { persona?: string; mood?: string; personality?: readonly string[]; skills?: readonly { name: string; level: string }[]; roles?: readonly string[]; description?: string }): string {
 		const persona = agent?.persona ?? agentName;
-		const lines: string[] = [];
-
-		lines.push(`You ARE ${persona}, a ${domain} specialist. Stay in character at all times — never break the fourth wall, never mention being an AI or LLM.`);
-
-		if (agent?.description) {
-			lines.push(`Your role: ${agent.description}`);
-		}
-
-		if (agent?.mood) {
-			lines.push(`Current mood: ${agent.mood}.`);
-		}
-
-		if (agent?.personality && agent.personality.length > 0) {
-			lines.push(`Personality: ${agent.personality.join("; ")}.`);
-		}
-
-		if (agent?.skills && agent.skills.length > 0) {
-			const top = agent.skills.slice(0, 5).map((s) => `${s.name} (${s.level})`).join(", ");
-			lines.push(`Core skills: ${top}.`);
-		}
-
-		if (agent?.roles && agent.roles.length > 0) {
-			lines.push(`Roles: ${agent.roles.join(", ")}.`);
-		}
-
-		// Scene / environment awareness
-		const myPos = this.agentPositions[agentName];
-		const scene = myPos?.scene ?? "hub";
-		const sceneInfo = SCENE_DESCRIPTIONS[scene] ?? SCENE_DESCRIPTIONS["hub"];
-		lines.push("");
-		lines.push(`You are in ${sceneInfo.name}. ${sceneInfo.vibe}`);
-		lines.push(`Typical residents: ${sceneInfo.who}`);
-
-		// Nearby colleagues (from spatial positions)
-		const nearby = this.getNearbyAgents(agentName);
-		if (nearby.length > 0) {
-			lines.push("");
-			lines.push(`Nearby colleagues: ${nearby.map((n) => {
-				const roster = this.agentRoster.find((a) => a.name === n.name);
-				const role = roster?.role ?? "team member";
-				const persona = roster?.persona ? ` "${roster.persona}"` : "";
-				return `${n.name}${persona} (${role}, ${n.distance}px away)`;
-			}).join(", ")}.`);
-		}
-
-		lines.push("");
-		lines.push("Communication rules:");
-		lines.push("- Keep responses SHORT. One to three sentences unless asked for detail.");
-		lines.push("- Speak in first person as yourself. Be direct and natural.");
-		lines.push("- The person you're talking to is the Director — they oversee and steer the project. Never call them \"user\" or \"human\". Address them directly or refer to them as \"boss\", \"chief\", or simply \"you\".");
-		lines.push("- If you need something from the Director, say so clearly and specifically.");
-		lines.push("- Do NOT repeat or echo context that was provided to you. Just use it to inform your response.");
-		lines.push("- Respond with plain text only. No markdown, no code fences, no JSON wrapping.");
-
+		const lines: string[] = [`You ARE ${persona}, a ${domain} specialist. Stay in character at all times — never break the fourth wall, never mention being an AI or LLM.`];
+		this.buildIdentitySection(lines, agent);
+		this.buildLocationSection(lines, agentName);
+		this.buildNearbySection(lines, agentName);
+		lines.push("", "Communication rules:",
+			"- Keep responses SHORT. One to three sentences unless asked for detail.",
+			"- Speak in first person as yourself. Be direct and natural.",
+			"- The person you're talking to is the Director — they oversee and steer the project. Never call them \"user\" or \"human\". Address them directly or refer to them as \"boss\", \"chief\", or simply \"you\".",
+			"- If you need something from the Director, say so clearly and specifically.",
+			"- Do NOT repeat or echo context that was provided to you. Just use it to inform your response.",
+			"- Respond with plain text only. No markdown, no code fences, no JSON wrapping.");
 		return lines.join("\n");
 	}
 
-	/** Get agents within proximity of the given agent, sorted by distance. */
+	private buildIdentitySection(lines: string[], agent?: { description?: string; mood?: string; personality?: readonly string[]; skills?: readonly { name: string; level: string }[]; roles?: readonly string[] }): void {
+		if (agent?.description) lines.push(`Your role: ${agent.description}`);
+		if (agent?.mood) lines.push(`Current mood: ${agent.mood}.`);
+		if (agent?.personality && agent.personality.length > 0) lines.push(`Personality: ${agent.personality.join("; ")}.`);
+		if (agent?.skills && agent.skills.length > 0) lines.push(`Core skills: ${agent.skills.slice(0, 5).map((s) => `${s.name} (${s.level})`).join(", ")}.`);
+		if (agent?.roles && agent.roles.length > 0) lines.push(`Roles: ${agent.roles.join(", ")}.`);
+	}
+
+	private buildLocationSection(lines: string[], agentName: string): void {
+		const myPos = this.agentPositions[agentName];
+		const sceneInfo = SCENE_DESCRIPTIONS[myPos?.scene ?? "hub"] ?? SCENE_DESCRIPTIONS["hub"];
+		lines.push("", `You are in ${sceneInfo.name}. ${sceneInfo.vibe}`, `Typical residents: ${sceneInfo.who}`);
+	}
+
+	private buildNearbySection(lines: string[], agentName: string): void {
+		const nearby = this.getNearbyAgents(agentName);
+		if (nearby.length === 0) return;
+		lines.push("", `Nearby colleagues: ${nearby.map((n) => {
+			const r = this.agentRoster.find((a) => a.name === n.name);
+			const p = r?.persona ? ` "${r.persona}"` : "";
+			return `${n.name}${p} (${r?.role ?? "team member"}, ${n.distance}px away)`;
+		}).join(", ")}.`);
+	}
+
 	private getNearbyAgents(agentName: string, radius = 300): { name: string; distance: number }[] {
 		const myPos = this.agentPositions[agentName];
 		if (!myPos) return [];
 		const nearby: { name: string; distance: number }[] = [];
 		for (const [name, pos] of Object.entries(this.agentPositions)) {
-			if (name === agentName) continue;
-			if (pos.scene !== myPos.scene) continue;
-			const dx = pos.x - myPos.x;
-			const dy = pos.y - myPos.y;
-			const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
+			if (name === agentName || pos.scene !== myPos.scene) continue;
+			const dist = Math.round(Math.sqrt((pos.x - myPos.x) ** 2 + (pos.y - myPos.y) ** 2));
 			if (dist <= radius) nearby.push({ name, distance: dist });
 		}
 		return nearby.sort((a, b) => a.distance - b.distance);
@@ -565,16 +370,11 @@ export class WorldContext {
 
 	private refreshOpenFiles(): void {
 		const files: string[] = [];
-		this.deps.workspace.iterateAllLeaves((leaf) => {
-			if (leaf.view.file?.path) {
-				files.push(leaf.view.file.path);
-			}
-		});
+		this.deps.workspace.iterateAllLeaves((leaf) => { if (leaf.view.file?.path) files.push(leaf.view.file.path); });
 		const prev = this.openFiles;
 		this.openFiles = files;
 		if (prev.length !== files.length || prev.some((f, i) => f !== files[i])) {
-			const absPaths = files.map((f) => this.toAbsolutePath(f));
-			this.recordChange("openFiles", `Open files: ${absPaths.join(", ")}`);
+			this.recordChange("openFiles", `Open files: ${files.map((f) => this.toAbsolutePath(f)).join(", ")}`);
 			this.notify();
 		}
 	}
@@ -582,14 +382,8 @@ export class WorldContext {
 	private recordChange(field: string, summary: string): void {
 		this.version++;
 		this.changeLog.push({ version: this.version, field, summary });
-		if (this.changeLog.length > MAX_CHANGE_LOG) {
-			this.changeLog.splice(0, this.changeLog.length - MAX_CHANGE_LOG);
-		}
+		if (this.changeLog.length > MAX_CHANGE_LOG) this.changeLog.splice(0, this.changeLog.length - MAX_CHANGE_LOG);
 	}
 
-	private notify(): void {
-		for (const cb of this.listeners) {
-			try { cb(); } catch { /* listener errors do not propagate */ }
-		}
-	}
+	private notify(): void { for (const cb of this.listeners) { try { cb(); } catch { /* ignore */ } } }
 }

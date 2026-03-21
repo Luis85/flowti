@@ -114,65 +114,10 @@ export class CsvDataSnapshot {
 		const allHeaders = this.cachedAllHeaders;
 		const allRows = this.cachedAllRows;
 
-		// Determine visible column indices
-		const visibleIndices: number[] = [];
-		const visibleHeaders: string[] = [];
-		for (let i = 0; i < allHeaders.length; i++) {
-			if (!state.hiddenColumns.includes(allHeaders[i])) {
-				visibleIndices.push(i);
-				visibleHeaders.push(allHeaders[i]);
-			}
-		}
-
-		// Apply single-column filter
-		let filteredRows = allRows;
-		const ft = state.filterText.toLowerCase();
-		if (ft) {
-			if (state.filterColumn !== null) {
-				const filterIdx = allHeaders.indexOf(state.filterColumn);
-				if (filterIdx >= 0) {
-					filteredRows = filteredRows.filter((row) =>
-						(row[filterIdx] ?? "").toLowerCase().includes(ft),
-					);
-				}
-			} else {
-				filteredRows = filteredRows.filter((row) =>
-					row.some((cell) => (cell ?? "").toLowerCase().includes(ft)),
-				);
-			}
-		}
-
-		// Apply sort (numeric-aware via localeCompare with numeric option)
-		if (state.previewSortColumn !== null) {
-			const sortIdx = allHeaders.indexOf(state.previewSortColumn);
-			if (sortIdx >= 0) {
-				const dir = state.previewSortDir === "asc" ? 1 : -1;
-				filteredRows = [...filteredRows].sort((a, b) =>
-					(a[sortIdx] ?? "").localeCompare(b[sortIdx] ?? "", undefined, { numeric: true }) * dir,
-				);
-			}
-		}
-
-		const totalFiltered = filteredRows.length;
+		const { visibleIndices, visibleHeaders } = this.getVisibleColumns(allHeaders, state.hiddenColumns);
+		const filteredRows = this.applyFilterAndSort(allRows, allHeaders, state);
 		const displayRows = filteredRows.slice(0, state.previewMaxRows);
-
-		// Update badges
-		if (this.previewBadgeEl) {
-			this.previewBadgeEl.textContent = totalFiltered < allRows.length
-				? `${totalFiltered} rows (filtered from ${allRows.length})`
-				: `${allRows.length} rows`;
-		}
-		if (this.previewHiddenBadgeEl) {
-			if (state.hiddenColumns.length > 0) {
-				this.previewHiddenBadgeEl.textContent = `${state.hiddenColumns.length} hidden`;
-				this.previewHiddenBadgeEl.removeClass("ft-hidden");
-			} else {
-				this.previewHiddenBadgeEl.addClass("ft-hidden");
-			}
-		}
-		if (this.previewResetEl) {
-			this.previewResetEl.classList.toggle("ft-hidden", state.hiddenColumns.length === 0);
-		}
+		this.updateBadges(filteredRows.length, allRows.length, state.hiddenColumns);
 
 		const tableWrap = this.previewTableAreaEl.createDiv({ cls: "flowti-csv-preview" });
 		const table = tableWrap.createEl("table");
@@ -214,11 +159,71 @@ export class CsvDataSnapshot {
 			}
 		}
 
-		if (totalFiltered > state.previewMaxRows) {
+		if (filteredRows.length > state.previewMaxRows) {
 			this.previewTableAreaEl.createEl("p", {
 				cls: "flowti-csv-more",
-				text: `Showing first ${state.previewMaxRows} of ${totalFiltered} rows`,
+				text: `Showing first ${state.previewMaxRows} of ${filteredRows.length} rows`,
 			});
+		}
+	}
+
+	private getVisibleColumns(allHeaders: string[], hiddenColumns: string[]): { visibleIndices: number[]; visibleHeaders: string[] } {
+		const visibleIndices: number[] = [];
+		const visibleHeaders: string[] = [];
+		for (let i = 0; i < allHeaders.length; i++) {
+			if (!hiddenColumns.includes(allHeaders[i])) {
+				visibleIndices.push(i);
+				visibleHeaders.push(allHeaders[i]);
+			}
+		}
+		return { visibleIndices, visibleHeaders };
+	}
+
+	private applyFilterAndSort(
+		allRows: string[][],
+		allHeaders: string[],
+		state: ReturnType<CsvComponentDeps["getState"]>,
+	): string[][] {
+		let filteredRows = allRows;
+		const ft = state.filterText.toLowerCase();
+		if (ft) {
+			if (state.filterColumn !== null) {
+				const filterIdx = allHeaders.indexOf(state.filterColumn);
+				if (filterIdx >= 0) {
+					filteredRows = filteredRows.filter((row) => (row[filterIdx] ?? "").toLowerCase().includes(ft));
+				}
+			} else {
+				filteredRows = filteredRows.filter((row) => row.some((cell) => (cell ?? "").toLowerCase().includes(ft)));
+			}
+		}
+		if (state.previewSortColumn !== null) {
+			const sortIdx = allHeaders.indexOf(state.previewSortColumn);
+			if (sortIdx >= 0) {
+				const dir = state.previewSortDir === "asc" ? 1 : -1;
+				filteredRows = [...filteredRows].sort((a, b) =>
+					(a[sortIdx] ?? "").localeCompare(b[sortIdx] ?? "", undefined, { numeric: true }) * dir,
+				);
+			}
+		}
+		return filteredRows;
+	}
+
+	private updateBadges(totalFiltered: number, totalRows: number, hiddenColumns: string[]): void {
+		if (this.previewBadgeEl) {
+			this.previewBadgeEl.textContent = totalFiltered < totalRows
+				? `${totalFiltered} rows (filtered from ${totalRows})`
+				: `${totalRows} rows`;
+		}
+		if (this.previewHiddenBadgeEl) {
+			if (hiddenColumns.length > 0) {
+				this.previewHiddenBadgeEl.textContent = `${hiddenColumns.length} hidden`;
+				this.previewHiddenBadgeEl.removeClass("ft-hidden");
+			} else {
+				this.previewHiddenBadgeEl.addClass("ft-hidden");
+			}
+		}
+		if (this.previewResetEl) {
+			this.previewResetEl.classList.toggle("ft-hidden", hiddenColumns.length === 0);
 		}
 	}
 }

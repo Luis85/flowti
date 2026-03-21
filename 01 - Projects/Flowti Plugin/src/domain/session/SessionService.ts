@@ -17,10 +17,11 @@ import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
 import type { ClosureResponse, EnergyLevel, ExecutionTask, Session, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig } from "./types";
 import { MAX_TEMPLATES } from "./types";
-import { createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isValidTransition } from "./helpers";
+import { computeRemainingMs, computeElapsedMs, isTimerExpired, isValidTransition } from "./helpers";
 import { SessionTemplateExportSchema } from "./schemas";
 import type { SessionHandlerContext } from "./handlers/types";
 import { lifecycleHandlers, fieldHandlers, taskHandlers, closureHandlers, syncHandlers, trackingHandlers, featureBindingHandlers } from "./handlers";
+import { migrateSessionState } from "./sessionMigration";
 
 /**
  * Configuration options for the SessionService.
@@ -37,6 +38,7 @@ export interface SessionServiceOptions {
 function createDefaultState(): SessionState {
 	return { sessions: [], activeSessionId: null, savedTemplates: [] };
 }
+
 
 /**
  * Service for managing documentation sessions.
@@ -175,59 +177,17 @@ export class SessionService {
 		const saved = await this.storage.load();
 		if (saved) {
 			this.state = saved;
-			if (!this.state.savedTemplates) {
-				this.state.savedTemplates = [];
-			}
-			let migrated = false;
-			for (const s of this.state.sessions) {
-				if (!s.timeline) s.timeline = [];
-				if (!s.goals) s.goals = [];
-				if (!s.links) s.links = [];
-				if (s.notesFile === undefined) s.notesFile = null;
-				if (s.canvasFile === undefined) s.canvasFile = null;
-				if (!s.activity) s.activity = [];
-				if (!s.activityFilter) s.activityFilter = [];
-				if (!s.contextBindings) s.contextBindings = [];
-				if (!s.type) (s as { type?: string }).type = "documentation";
-				if (!s.decisions) s.decisions = [];
-				if (s.workspaceState === undefined) s.workspaceState = null;
-				if (!s.outputArtifacts) s.outputArtifacts = [];
-				// v2 backward compat (ADR-031)
-				if (s.status === "active") s.status = "running";
-				if (s.intent === undefined) s.intent = null;
-				if (s.energy === undefined) s.energy = null;
-				if (!s.executionTasks) s.executionTasks = [];
-				if (!s.reflections) s.reflections = [];
-				if (s.closureResponse === undefined) s.closureResponse = null;
-				// v3 backward compat (Cycle 59)
-				if (s.featureName === undefined) s.featureName = null;
-				// Migrate legacy links → context bindings
-				if (s.links.length > 0) {
-					for (const link of s.links) {
-						if (!s.contextBindings.some((b) => b.path === link.path)) {
-							s.contextBindings.push(createContextBinding(`ctx_${generateUUID()}`, "file", link.path));
-						}
-					}
-					s.links = [];
-					migrated = true;
-				}
-			}
-			if (migrated) {
-				await this.saveState();
-			}
+			if (!this.state.savedTemplates) this.state.savedTemplates = [];
+			const migrated = migrateSessionState(this.state);
+			if (migrated) await this.saveState();
 		}
-
 		if (this.state.activeSessionId) {
 			const session = this.findSession(this.state.activeSessionId);
 			if (session && session.status === "running") {
-				if (isTimerExpired(session)) {
-					await lifecycleHandlers.completeSession(this.ctx, session);
-				} else {
-					this.startTimer(session);
-				}
+				if (isTimerExpired(session)) await lifecycleHandlers.completeSession(this.ctx, session);
+				else this.startTimer(session);
 			}
 		}
-
 		await this.emitLoaded();
 	}
 
@@ -582,21 +542,13 @@ class HandlerContextProxy implements SessionHandlerContext {
 	stopTimer = () => this.svc.stopTimer();
 }
 
-/**
- * Generates a rerun title by appending or incrementing a `(N)` suffix.
- */
+/** Generates a rerun title by appending or incrementing a `(N)` suffix. */
 export function generateRerunTitle(title: string): string {
 	const match = title.match(/^(.+?)\s*\((\d+)\)$/);
-	if (match) {
-		return `${match[1]} (${Number(match[2]) + 1})`;
-	}
-	return `${title} (2)`;
+	return match ? `${match[1]} (${Number(match[2]) + 1})` : `${title} (2)`;
 }
 
-/**
- * Type guard validating an unknown value is a valid SessionTemplateExport.
- * Uses Zod schema (TD-120) for structural validation.
- */
+/** Type guard: validates an unknown value is a valid SessionTemplateExport. */
 function isValidTemplateExport(data: unknown): data is SessionTemplateExport {
 	return SessionTemplateExportSchema.safeParse(data).success;
 }

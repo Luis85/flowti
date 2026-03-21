@@ -122,6 +122,65 @@ function defaultVars(domain: string): TemplateVars {
 	};
 }
 
+// ── Phrase resolution helpers ────────────────────────────────────────
+
+function resolveActivatedPhrase(entry: ChatterEntry): string | null {
+	if (!entry.activated) return null;
+	const domainSet = DOMAIN_TEMPLATES.get(entry.domain);
+	const domainWaiting = domainSet?.categories["waiting"] ?? [];
+	const coreWaiting = coreTemplates.categories["waiting"] ?? [];
+	const pool = Math.random() < 0.7 && domainWaiting.length > 0 ? domainWaiting : coreWaiting;
+	const picked = weightedRandom(pool, entry.recentlyUsed);
+	return picked ? interpolate(picked.template, entry.vars) : null;
+}
+
+function resolveMoodPhrase(entry: ChatterEntry): string | null {
+	const mood = entry.vars.mood as AgentMood;
+	if (!mood || mood === "neutral" || Math.random() >= MOOD_CHANCE) return null;
+	const moodPool = MOOD_VARIANTS[mood];
+	if (!moodPool || moodPool.length === 0) return null;
+	const picked = weightedRandom(moodPool, entry.recentlyUsed);
+	return picked ? interpolate(picked.template, entry.vars) : null;
+}
+
+function resolveCrossoverPhrase(entry: ChatterEntry): string | null {
+	if (!entry.vars.nearby_agent || !entry.vars.nearby_domain) return null;
+	if (entry.vars.nearby_domain === entry.domain) return null;
+	if (Math.random() >= CROSSOVER_CHANCE) return null;
+	const crossover = findCrossover(entry.domain, entry.vars.nearby_domain);
+	if (!crossover) return null;
+	const lines = crossover.domainA === entry.domain ? crossover.linesA : crossover.linesB;
+	const picked = weightedRandom(lines, entry.recentlyUsed);
+	return picked ? interpolate(picked.template, entry.vars) : null;
+}
+
+function resolvePersonalityPhrase(entry: ChatterEntry): string | null {
+	if (entry.personality.length === 0 || Math.random() >= 0.2) return null;
+	const quote = entry.personality[Math.floor(Math.random() * entry.personality.length)];
+	return !entry.recentlyUsed.includes(quote) ? quote : null;
+}
+
+function resolveSocialPhrase(entry: ChatterEntry): string | null {
+	if (entry.activated || entry.charisma <= 12 || Math.random() >= 0.3) return null;
+	const socialPool = flattenTemplates(socialTemplates.categories);
+	const picked = weightedRandom(socialPool, entry.recentlyUsed);
+	return picked ? interpolate(picked.template, entry.vars) : null;
+}
+
+function resolveDomainPhrase(entry: ChatterEntry): string | null {
+	const domainSet = DOMAIN_TEMPLATES.get(entry.domain);
+	if (!domainSet || Math.random() >= 0.6) return null;
+	const domainPool = flattenTemplates(domainSet.categories);
+	const picked = weightedRandom(domainPool, entry.recentlyUsed);
+	return picked ? interpolate(picked.template, entry.vars) : null;
+}
+
+function resolveCorePhrase(entry: ChatterEntry): string | null {
+	const corePool = flattenTemplates(coreTemplates.categories);
+	const picked = weightedRandom(corePool, entry.recentlyUsed);
+	return picked ? interpolate(picked.template, entry.vars) : null;
+}
+
 // ── TalkEngine ──────────────────────────────────────────────────────
 
 export interface TalkEngineCallbacks {
@@ -210,134 +269,86 @@ export class TalkEngine {
 	update(deltaMs: number): void {
 		const now = performance.now();
 		for (const [name, entry] of this.entries) {
-			// Skip agents not present in the current scene
 			if (this.callbacks.isOnScene && !this.callbacks.isOnScene(name)) continue;
 			if (now < entry.silencedUntil) continue;
 
-			// ── Active chain progression ────────────────────
 			if (entry.activeChain) {
-				entry.activeChainTimer += deltaMs;
-				const step = entry.activeChain.steps[entry.activeChainStep];
-				if (step && entry.activeChainTimer >= step.delayMs) {
-					entry.activeChainTimer = 0;
-					const text = interpolate(step.text, entry.vars);
-					this.callbacks.showBubble(name, step.kind, text);
-					this.recordPhrase(entry, text);
-					entry.activeChainStep++;
-					if (entry.activeChainStep >= entry.activeChain.steps.length) {
-						entry.activeChain = null; // chain complete
-						entry.timer = 0;
-						entry.interval = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
-					}
-				}
-				continue; // don't do normal chatter while chain is active
+				this.advanceChain(name, entry, deltaMs);
+				continue;
 			}
 
-			// Activated agents (waiting for LLM) always chatter, idle agents chatter normally
 			if (!entry.activated && !this.callbacks.isIdle(name)) continue;
 
 			entry.timer += deltaMs;
 			if (entry.timer >= entry.interval) {
-				if (!entry.activated && now - this.lastGlobalTalk < MIN_GAP) {
-					entry.timer = entry.interval - (MIN_GAP - (now - this.lastGlobalTalk));
-					continue;
-				}
-
-				entry.timer = 0;
-				if (entry.activated) {
-					entry.interval = 3000 + Math.random() * 4000;
-				} else {
-					entry.interval = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
-				}
-
-				// Try starting a phrase chain (8% chance when idle, not activated)
-				if (!entry.activated && Math.random() < CHAIN_CHANCE) {
-					const chain = this.pickChain(entry);
-					if (chain) {
-						entry.activeChain = chain;
-						entry.activeChainStep = 0;
-						entry.activeChainTimer = 0;
-						// Fire first step immediately
-						const firstStep = chain.steps[0];
-						const text = interpolate(firstStep.text, entry.vars);
-						this.callbacks.showBubble(name, firstStep.kind, text);
-						this.recordPhrase(entry, text);
-						entry.activeChainStep = 1;
-						this.lastGlobalTalk = now;
-						continue;
-					}
-				}
-
-				const phrase = this.resolvePhrase(entry);
-				this.callbacks.showBubble(name, "thought", phrase);
-				this.recordPhrase(entry, phrase);
-				this.lastGlobalTalk = now;
+				this.fireChatter(name, entry, now);
 			}
 		}
+	}
+
+	/** Advance an active phrase chain for an agent. */
+	private advanceChain(name: string, entry: ChatterEntry, deltaMs: number): void {
+		entry.activeChainTimer += deltaMs;
+		const step = entry.activeChain!.steps[entry.activeChainStep];
+		if (!step || entry.activeChainTimer < step.delayMs) return;
+
+		entry.activeChainTimer = 0;
+		const text = interpolate(step.text, entry.vars);
+		this.callbacks.showBubble(name, step.kind, text);
+		this.recordPhrase(entry, text);
+		entry.activeChainStep++;
+		if (entry.activeChainStep >= entry.activeChain!.steps.length) {
+			entry.activeChain = null;
+			entry.timer = 0;
+			entry.interval = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
+		}
+	}
+
+	/** Fire a chatter line or start a chain when the timer expires. */
+	private fireChatter(name: string, entry: ChatterEntry, now: number): void {
+		if (!entry.activated && now - this.lastGlobalTalk < MIN_GAP) {
+			entry.timer = entry.interval - (MIN_GAP - (now - this.lastGlobalTalk));
+			return;
+		}
+
+		entry.timer = 0;
+		entry.interval = entry.activated
+			? 3000 + Math.random() * 4000
+			: MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);
+
+		if (!entry.activated && Math.random() < CHAIN_CHANCE) {
+			const chain = this.pickChain(entry);
+			if (chain) {
+				entry.activeChain = chain;
+				entry.activeChainStep = 0;
+				entry.activeChainTimer = 0;
+				const firstStep = chain.steps[0];
+				const text = interpolate(firstStep.text, entry.vars);
+				this.callbacks.showBubble(name, firstStep.kind, text);
+				this.recordPhrase(entry, text);
+				entry.activeChainStep = 1;
+				this.lastGlobalTalk = now;
+				return;
+			}
+		}
+
+		const phrase = this.resolvePhrase(entry);
+		this.callbacks.showBubble(name, "thought", phrase);
+		this.recordPhrase(entry, phrase);
+		this.lastGlobalTalk = now;
 	}
 
 	// ── Template resolution ─────────────────────────────────────────
 
 	private resolvePhrase(entry: ChatterEntry): string {
-		// When activated (waiting for LLM), strongly prefer "waiting" category
-		if (entry.activated) {
-			const domainSet = DOMAIN_TEMPLATES.get(entry.domain);
-			const domainWaiting = domainSet?.categories["waiting"] ?? [];
-			const coreWaiting = coreTemplates.categories["waiting"] ?? [];
-			const pool = Math.random() < 0.7 && domainWaiting.length > 0 ? domainWaiting : coreWaiting;
-			const picked = weightedRandom(pool, entry.recentlyUsed);
-			if (picked) return interpolate(picked.template, entry.vars);
-		}
-
-		// 1. Mood-influenced variant (15% chance)
-		const mood = entry.vars.mood as AgentMood;
-		if (mood && mood !== "neutral" && Math.random() < MOOD_CHANCE) {
-			const moodPool = MOOD_VARIANTS[mood];
-			if (moodPool && moodPool.length > 0) {
-				const picked = weightedRandom(moodPool, entry.recentlyUsed);
-				if (picked) return interpolate(picked.template, entry.vars);
-			}
-		}
-
-		// 2. Cross-domain conversation (25% chance when nearby agent is different domain)
-		if (entry.vars.nearby_agent && entry.vars.nearby_domain && entry.vars.nearby_domain !== entry.domain) {
-			if (Math.random() < CROSSOVER_CHANCE) {
-				const crossover = findCrossover(entry.domain, entry.vars.nearby_domain);
-				if (crossover) {
-					const lines = crossover.domainA === entry.domain ? crossover.linesA : crossover.linesB;
-					const picked = weightedRandom(lines, entry.recentlyUsed);
-					if (picked) return interpolate(picked.template, entry.vars);
-				}
-			}
-		}
-
-		// 3. Personality-driven quotes (20% chance)
-		if (entry.personality.length > 0 && Math.random() < 0.2) {
-			const quote = entry.personality[Math.floor(Math.random() * entry.personality.length)];
-			if (!entry.recentlyUsed.includes(quote)) return quote;
-		}
-
-		// 4. Social templates for charismatic agents (30% chance when charisma > 12)
-		if (!entry.activated && entry.charisma > 12 && Math.random() < 0.3) {
-			const socialPool = flattenTemplates(socialTemplates.categories);
-			const picked = weightedRandom(socialPool, entry.recentlyUsed);
-			if (picked) return interpolate(picked.template, entry.vars);
-		}
-
-		// 5. Domain-specific templates (60% chance)
-		const domainSet = DOMAIN_TEMPLATES.get(entry.domain);
-		if (domainSet && Math.random() < 0.6) {
-			const domainPool = flattenTemplates(domainSet.categories);
-			const picked = weightedRandom(domainPool, entry.recentlyUsed);
-			if (picked) return interpolate(picked.template, entry.vars);
-		}
-
-		// 6. Core templates (fallback)
-		const corePool = flattenTemplates(coreTemplates.categories);
-		const picked = weightedRandom(corePool, entry.recentlyUsed);
-		if (picked) return interpolate(picked.template, entry.vars);
-
-		return "...";
+		return resolveActivatedPhrase(entry)
+			?? resolveMoodPhrase(entry)
+			?? resolveCrossoverPhrase(entry)
+			?? resolvePersonalityPhrase(entry)
+			?? resolveSocialPhrase(entry)
+			?? resolveDomainPhrase(entry)
+			?? resolveCorePhrase(entry)
+			?? "...";
 	}
 
 	// ── Chain selection ──────────────────────────────────────────────

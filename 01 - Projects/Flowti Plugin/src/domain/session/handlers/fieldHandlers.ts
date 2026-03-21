@@ -230,6 +230,35 @@ export async function handleStateSaved(ctx: SessionHandlerContext, sessionId: st
 
 // ── Output artifacts ─────────────────────────────────────
 
+/** Write the output artifact file; silently skip if it already exists. */
+async function writeArtifactFile(ctx: SessionHandlerContext, path: string, content: string): Promise<void> {
+	if (!ctx.fileSystem) return;
+	try {
+		await ctx.fileSystem.createFile(path, content);
+	} catch (err: unknown) {
+		const msg = err instanceof Error ? err.message : String(err);
+		if (!msg.includes("already exists") && !msg.includes("File exists")) {
+			console.warn("[Flowti] Output artifact creation failed:", msg);
+		}
+	}
+}
+
+/** Append a wikilink to the session's notes file under ## Output Artifacts. */
+async function appendArtifactLink(ctx: SessionHandlerContext, notesFile: string, artifactPath: string): Promise<void> {
+	if (!ctx.fileSystem) return;
+	const date = new Date().toISOString().split("T")[0];
+	const wikilink = `- [[${artifactPath}]] *(generated ${date})*`;
+	try {
+		const existing = await ctx.fileSystem.readFile(notesFile);
+		if (existing !== null && !existing.includes(`[[${artifactPath}]]`)) {
+			const section = existing.includes("## Output Artifacts") ? "" : "\n## Output Artifacts\n";
+			await ctx.fileSystem.updateFile(notesFile, existing + section + wikilink + "\n");
+		}
+	} catch (err: unknown) {
+		console.warn("[Flowti] Could not append artifact link to notes file:", err instanceof Error ? err.message : err);
+	}
+}
+
 export async function handleOutputGenerate(ctx: SessionHandlerContext, sessionId: string, template: SessionOutputTemplate): Promise<void> {
 	const session = ctx.findSession(sessionId);
 	if (!session) return;
@@ -241,33 +270,9 @@ export async function handleOutputGenerate(ctx: SessionHandlerContext, sessionId
 	const shortId = session.id.slice(-6);
 	const path = `${SESSION_NOTES_FOLDER}/${safeName} - ${template.title} (${shortId}).md`;
 
-	if (ctx.fileSystem) {
-		try {
-			await ctx.fileSystem.createFile(path, content);
-		} catch (err: unknown) {
-			// File may already exist — only warn on unexpected errors
-			const msg = err instanceof Error ? err.message : String(err);
-			if (!msg.includes("already exists") && !msg.includes("File exists")) {
-				console.warn("[Flowti] Output artifact creation failed:", msg);
-			}
-		}
-	}
-
-	if (session.notesFile && ctx.fileSystem) {
-		const date = new Date().toISOString().split("T")[0];
-		const wikilink = `- [[${path}]] *(generated ${date})*`;
-		try {
-			const existing = await ctx.fileSystem.readFile(session.notesFile);
-			if (existing !== null && !existing.includes(`[[${path}]]`)) {
-				const section = existing.includes("## Output Artifacts")
-					? ""
-					: "\n## Output Artifacts\n";
-				await ctx.fileSystem.updateFile(session.notesFile, existing + section + wikilink + "\n");
-			}
-		} catch (err: unknown) {
-			// Notes file doesn't exist or can't be read — log and skip
-			console.warn("[Flowti] Could not append artifact link to notes file:", err instanceof Error ? err.message : err);
-		}
+	await writeArtifactFile(ctx, path, content);
+	if (session.notesFile) {
+		await appendArtifactLink(ctx, session.notesFile, path);
 	}
 
 	const artifact: SessionOutputArtifact = {

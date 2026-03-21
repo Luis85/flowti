@@ -231,47 +231,45 @@ export class BrainSystem {
 			if (!actor) continue;
 
 			const prevState = entry.state;
-
-			switch (entry.state) {
-				case "idle":
-					this.updateIdlePoseCycle(entry, deltaMs, actor);
-					this.updateIdle(entry, name);
-					break;
-				case "wandering":
-					this.updateMoving(entry, actor, deltaMs, name);
-					break;
-				case "walking-to":
-					this.updateMoving(entry, actor, deltaMs, name);
-					break;
-				case "working":
-					this.updateWorking(entry, name);
-					break;
-				case "on-break":
-					this.updateOnBreak(entry, actor, deltaMs, name);
-					this.updateIdlePoseCycle(entry, deltaMs, actor);
-					break;
-				case "talking":
-					break;
-				case "waiting":
-					break;
-			}
-
-			// Set walk direction once when transitioning into a walking state
-			const isNowWalking = entry.state === "wandering" || entry.state === "walking-to" || (entry.state === "on-break" && entry.breakPhase === "moving");
-			const wasWalking = prevState === "wandering" || prevState === "walking-to" || (prevState === "on-break");
-			if (isNowWalking && !wasWalking && entry.targetPos) {
-				actor.setWalkDirection(entry.targetPos.x, entry.targetPos.y);
-			}
+			this.tickAgentState(entry, actor, deltaMs, name);
+			this.applyWalkDirection(entry, prevState, actor);
 
 			actor.updateFromBrain(entry.state);
 			entry.position = { x: actor.pos.x, y: actor.pos.y };
 		}
 
-		// Separation pass — push overlapping agents apart so they cluster naturally
 		this.applySeparation(getActor, getRoom);
-
-		// Social facing pass (after all positions updated)
 		this.updateSocialFacing(deltaMs, getActor, getRoom);
+	}
+
+	/** Tick a single agent's state machine. */
+	private tickAgentState(entry: AgentBrainEntry, actor: AgentActor, deltaMs: number, name: string): void {
+		switch (entry.state) {
+			case "idle":
+				this.updateIdlePoseCycle(entry, deltaMs, actor);
+				this.updateIdle(entry, name);
+				break;
+			case "wandering":
+			case "walking-to":
+				this.updateMoving(entry, actor, deltaMs, name);
+				break;
+			case "working":
+				this.updateWorking(entry, name);
+				break;
+			case "on-break":
+				this.updateOnBreak(entry, actor, deltaMs, name);
+				this.updateIdlePoseCycle(entry, deltaMs, actor);
+				break;
+		}
+	}
+
+	/** Set walk direction once when transitioning into a walking state. */
+	private applyWalkDirection(entry: AgentBrainEntry, prevState: BrainState, actor: AgentActor): void {
+		const isNowWalking = entry.state === "wandering" || entry.state === "walking-to" || (entry.state === "on-break" && entry.breakPhase === "moving");
+		const wasWalking = prevState === "wandering" || prevState === "walking-to" || prevState === "on-break";
+		if (isNowWalking && !wasWalking && entry.targetPos) {
+			actor.setWalkDirection(entry.targetPos.x, entry.targetPos.y);
+		}
 	}
 
 	/** Push agents apart when they overlap. Idle/wandering agents get nudged; working/talking agents are anchored. */
@@ -454,39 +452,23 @@ export class BrainSystem {
 	}
 
 	private updateSocialFacing(deltaMs: number, getActor: (name: string) => AgentActor | undefined, getRoom?: (name: string) => string | undefined): void {
-		const idleEntries: Array<[string, AgentBrainEntry]> = [];
-		for (const [name, entry] of this.entries) {
-			if (entry.state === "idle" && entry.socialHoldTimer <= 0) {
-				idleEntries.push([name, entry]);
-			}
-		}
-
-		for (let i = 0; i < idleEntries.length; i++) {
-			for (let j = i + 1; j < idleEntries.length; j++) {
-				const [nameA, entryA] = idleEntries[i];
-				const [nameB, entryB] = idleEntries[j];
-				// Only face agents in the same room
+		const idle = [...this.entries].filter(([, e]) => e.state === "idle" && e.socialHoldTimer <= 0);
+		for (let i = 0; i < idle.length; i++) {
+			for (let j = i + 1; j < idle.length; j++) {
+				const [nameA, entryA] = idle[i];
+				const [nameB, entryB] = idle[j];
 				if (getRoom && getRoom(nameA) !== getRoom(nameB)) continue;
 				const dx = entryA.position.x - entryB.position.x;
 				const dy = entryA.position.y - entryB.position.y;
 				const dist = Math.sqrt(dx * dx + dy * dy);
-				if (dist < SOCIAL_PROXIMITY_THRESHOLD && dist > 0) {
-					const actorA = getActor(nameA);
-					const actorB = getActor(nameB);
-					if (actorA && actorB) {
-						// Social facing — no-op, direction handled by updateFromBrain
-						entryA.socialHoldTimer = SOCIAL_HOLD_DURATION;
-						entryB.socialHoldTimer = SOCIAL_HOLD_DURATION;
-					}
+				if (dist < SOCIAL_PROXIMITY_THRESHOLD && dist > 0 && getActor(nameA) && getActor(nameB)) {
+					entryA.socialHoldTimer = SOCIAL_HOLD_DURATION;
+					entryB.socialHoldTimer = SOCIAL_HOLD_DURATION;
 				}
 			}
 		}
-
-		// Decrement social hold timers
 		for (const [, entry] of this.entries) {
-			if (entry.socialHoldTimer > 0) {
-				entry.socialHoldTimer -= deltaMs;
-			}
+			if (entry.socialHoldTimer > 0) entry.socialHoldTimer -= deltaMs;
 		}
 	}
 

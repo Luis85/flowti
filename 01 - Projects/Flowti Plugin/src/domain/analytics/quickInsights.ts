@@ -35,6 +35,64 @@ export interface QuickInsightSuggestion {
  * Generate up to 3 quick insight suggestions based on detected column types.
  * Returns empty array if fewer than 2 columns or no useful combinations found.
  */
+interface ColumnContext {
+	firstText: ColumnTypeHint | undefined;
+	firstNum: ColumnTypeHint | undefined;
+	firstDate: ColumnTypeHint | undefined;
+	textCols: ColumnTypeHint[];
+}
+
+/** Each rule is a function that may push a suggestion. */
+type InsightRule = (ctx: ColumnContext) => QuickInsightSuggestion | null;
+
+const insightRules: InsightRule[] = [
+	// Rule 1: "Total [numeric] by [text]" — SUM
+	({ firstText, firstNum }) => firstText && firstNum ? {
+		title: `Total ${firstNum.column} by ${firstText.column}`,
+		description: `SUM of ${firstNum.column}, grouped by ${firstText.column}`,
+		dimensions: [{ column: firstText.column }],
+		measures: [{ column: firstNum.column, function: "SUM" }],
+	} : null,
+	// Rule 2: "Count by [text]" — COUNT
+	({ firstText, firstNum, firstDate }) => firstText && (firstNum || firstDate) ? {
+		title: `Count by ${firstText.column}`,
+		description: `Number of records per ${firstText.column}`,
+		dimensions: [{ column: firstText.column }],
+		measures: [{ column: (firstNum?.column ?? firstText.column), function: "COUNT" }],
+	} : null,
+	// Rule 3: "[numeric] over time" — SUM + time bucket
+	({ firstNum, firstDate }) => firstDate && firstNum ? {
+		title: `${firstNum.column} over time`,
+		description: `Monthly ${firstNum.column} trend`,
+		dimensions: [],
+		measures: [{ column: firstNum.column, function: "SUM" }],
+		timeBucket: { column: firstDate.column, period: "month" },
+	} : null,
+	// Rule 4: "Average [numeric] by [text]" — AVG
+	({ firstText, firstNum }) => firstText && firstNum ? {
+		title: `Average ${firstNum.column} by ${firstText.column}`,
+		description: `AVG of ${firstNum.column}, grouped by ${firstText.column}`,
+		dimensions: [{ column: firstText.column }],
+		measures: [{ column: firstNum.column, function: "AVG" }],
+	} : null,
+	// Rule 5: "Top 5 [text] by [numeric]" — SUM + limit + sort desc
+	({ firstText, firstNum }) => firstText && firstNum ? {
+		title: `Top 5 ${firstText.column} by ${firstNum.column}`,
+		description: `Highest ${firstNum.column} entries`,
+		dimensions: [{ column: firstText.column }],
+		measures: [{ column: firstNum.column, function: "SUM" }],
+		sort: [{ column: `SUM(${firstNum.column})`, direction: "desc" }],
+		limit: 5,
+	} : null,
+	// Rule 6: "Distribution of [text1] × [text2]" — COUNT grouped by two text columns
+	({ textCols, firstNum }) => textCols.length >= 2 ? {
+		title: `Distribution of ${textCols[0].column} × ${textCols[1].column}`,
+		description: `Count per ${textCols[0].column} and ${textCols[1].column} combination`,
+		dimensions: [{ column: textCols[0].column }, { column: textCols[1].column }],
+		measures: [{ column: (firstNum?.column ?? textCols[0].column), function: "COUNT" }],
+	} : null,
+];
+
 export function generateQuickInsights(
 	columnTypeHints: ColumnTypeHint[],
 	_headers: string[],
@@ -45,77 +103,17 @@ export function generateQuickInsights(
 	const numCols = columnTypeHints.filter((h) => h.type === "number");
 	const dateCols = columnTypeHints.filter((h) => h.type === "date");
 
+	const ctx: ColumnContext = {
+		firstText: textCols[0],
+		firstNum: numCols[0],
+		firstDate: dateCols[0],
+		textCols,
+	};
+
 	const suggestions: QuickInsightSuggestion[] = [];
-
-	const firstText = textCols[0];
-	const firstNum = numCols[0];
-	const firstDate = dateCols[0];
-
-	// Rule 1: "Total [numeric] by [text]" — SUM
-	if (firstText && firstNum) {
-		suggestions.push({
-			title: `Total ${firstNum.column} by ${firstText.column}`,
-			description: `SUM of ${firstNum.column}, grouped by ${firstText.column}`,
-			dimensions: [{ column: firstText.column }],
-			measures: [{ column: firstNum.column, function: "SUM" }],
-		});
-	}
-
-	// Rule 2: "Count by [text]" — COUNT
-	if (firstText && (firstNum || dateCols.length > 0)) {
-		const countCol = firstNum?.column ?? firstText.column;
-		suggestions.push({
-			title: `Count by ${firstText.column}`,
-			description: `Number of records per ${firstText.column}`,
-			dimensions: [{ column: firstText.column }],
-			measures: [{ column: countCol, function: "COUNT" }],
-		});
-	}
-
-	// Rule 3: "[numeric] over time" — SUM + time bucket
-	if (firstDate && firstNum) {
-		suggestions.push({
-			title: `${firstNum.column} over time`,
-			description: `Monthly ${firstNum.column} trend`,
-			dimensions: [],
-			measures: [{ column: firstNum.column, function: "SUM" }],
-			timeBucket: { column: firstDate.column, period: "month" },
-		});
-	}
-
-	// Rule 4: "Average [numeric] by [text]" — AVG
-	if (firstText && firstNum) {
-		suggestions.push({
-			title: `Average ${firstNum.column} by ${firstText.column}`,
-			description: `AVG of ${firstNum.column}, grouped by ${firstText.column}`,
-			dimensions: [{ column: firstText.column }],
-			measures: [{ column: firstNum.column, function: "AVG" }],
-		});
-	}
-
-	// Rule 5: "Top 5 [text] by [numeric]" — SUM + limit + sort desc
-	if (firstText && firstNum) {
-		suggestions.push({
-			title: `Top 5 ${firstText.column} by ${firstNum.column}`,
-			description: `Highest ${firstNum.column} entries`,
-			dimensions: [{ column: firstText.column }],
-			measures: [{ column: firstNum.column, function: "SUM" }],
-			sort: [{ column: `SUM(${firstNum.column})`, direction: "desc" }],
-			limit: 5,
-		});
-	}
-
-	// Rule 6: "Distribution of [text1] × [text2]" — COUNT grouped by two text columns
-	if (textCols.length >= 2) {
-		const t1 = textCols[0];
-		const t2 = textCols[1];
-		const countCol = firstNum?.column ?? t1.column;
-		suggestions.push({
-			title: `Distribution of ${t1.column} × ${t2.column}`,
-			description: `Count per ${t1.column} and ${t2.column} combination`,
-			dimensions: [{ column: t1.column }, { column: t2.column }],
-			measures: [{ column: countCol, function: "COUNT" }],
-		});
+	for (const rule of insightRules) {
+		const suggestion = rule(ctx);
+		if (suggestion) suggestions.push(suggestion);
 	}
 
 	return suggestions.slice(0, 6);

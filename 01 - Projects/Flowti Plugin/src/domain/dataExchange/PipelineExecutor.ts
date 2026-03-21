@@ -115,6 +115,101 @@ export class PipelineExecutor {
 		};
 	}
 
+	/** Import a single CSV source within a pipeline. */
+	private async executeCsvSource(
+		source: SavedMultiImportPipeline["sources"][number],
+		pipeline: SavedMultiImportPipeline,
+		sourceIndex: number,
+		totalSources: number,
+		result: MultiImportResult,
+	): Promise<void> {
+		const mergeKeyMapping: ColumnMapping = {
+			csvColumn: source.mergeKeyColumn,
+			frontmatterKey: pipeline.mergeKey,
+			included: true,
+		};
+		const otherMappings = source.columnMappings.filter(
+			(m) => m.frontmatterKey !== pipeline.mergeKey,
+		);
+		const customProps = { ...source.customProperties };
+		if (pipeline.noteType) customProps.type = pipeline.noteType;
+
+		const importConfig: ImportConfig = {
+			sourcePath: source.csvPath,
+			targetFolder: pipeline.targetFolder,
+			nameColumn: source.mergeKeyColumn,
+			namePrefix: pipeline.namePrefix,
+			nameSuffix: pipeline.nameSuffix,
+			columnMappings: [mergeKeyMapping, ...otherMappings],
+			conflictStrategy: "update",
+			customProperties: Object.keys(customProps).length > 0 ? customProps : undefined,
+		};
+
+		try {
+			const sourceResult = await this.deps.importService.executeImport(importConfig, { pipelineId: pipeline.id });
+			const psr: PipelineSourceResult = { sourceId: source.id, csvPath: source.csvPath, result: sourceResult };
+			result.sourceResults.push(psr);
+			result.totalRows += sourceResult.totalRows;
+			result.created += sourceResult.created;
+			result.updated += sourceResult.updated;
+			result.skipped += sourceResult.skipped;
+			result.failed += sourceResult.failed;
+			result.errors.push(...sourceResult.errors);
+			result.completedSources++;
+
+			await this.deps.eventBus.emit("dataExchange.pipeline.sourceCompleted", {
+				pipelineId: pipeline.id, sourceIndex, totalSources, sourceResult: psr,
+			});
+		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			result.sourceResults.push({
+				sourceId: source.id, csvPath: source.csvPath,
+				result: { totalRows: 0, created: 0, updated: 0, skipped: 0, failed: 1, errors: [{ row: 0, filename: source.csvPath, error: errorMsg }] },
+			});
+			result.failed++;
+			result.errors.push({ row: 0, filename: source.csvPath, error: errorMsg });
+		}
+	}
+
+	/** Import a single canvas source within a pipeline. */
+	private async executeCanvasSource(
+		configId: string,
+		canvasService: CanvasService,
+		pipeline: SavedMultiImportPipeline,
+		sourceIndex: number,
+		totalSources: number,
+		result: MultiImportResult,
+	): Promise<void> {
+		try {
+			const canvasResult = await canvasService.runImport(configId);
+			const mappedErrors = canvasResult.errors.map((e) => ({ row: 0, filename: e.title || e.nodeId, error: e.error }));
+			const psr: PipelineSourceResult = {
+				sourceId: configId, csvPath: canvasResult.canvasPath,
+				result: { totalRows: canvasResult.totalNodes, created: canvasResult.imported, updated: 0, skipped: canvasResult.skipped, failed: canvasResult.errors.length, errors: mappedErrors },
+			};
+			result.sourceResults.push(psr);
+			result.totalRows += canvasResult.totalNodes;
+			result.created += canvasResult.imported;
+			result.skipped += canvasResult.skipped;
+			result.failed += canvasResult.errors.length;
+			result.errors.push(...mappedErrors);
+			result.completedSources++;
+
+			await this.deps.eventBus.emit("dataExchange.pipeline.sourceCompleted", {
+				pipelineId: pipeline.id, sourceIndex, totalSources, sourceResult: psr,
+			});
+		} catch (error) {
+			const configName = canvasService.getConfig(configId)?.name ?? configId;
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			result.sourceResults.push({
+				sourceId: configId, csvPath: configName,
+				result: { totalRows: 0, created: 0, updated: 0, skipped: 0, failed: 1, errors: [{ row: 0, filename: configName, error: errorMsg }] },
+			});
+			result.failed++;
+			result.errors.push({ row: 0, filename: configName, error: errorMsg });
+		}
+	}
+
 	async executePipeline(pipelineId: string): Promise<MultiImportResult> {
 		const pipeline = this.deps.getPipeline(pipelineId);
 		if (!pipeline) throw new Error(`Pipeline not found: ${pipelineId}`);
@@ -122,198 +217,52 @@ export class PipelineExecutor {
 		const totalSourceCount = pipeline.sources.length + canvasCount;
 		if (totalSourceCount === 0) throw new Error("Pipeline has no sources");
 
-		await this.deps.eventBus.emit("dataExchange.pipeline.started", {
-			pipeline,
-			totalSources: totalSourceCount,
-		});
+		await this.deps.eventBus.emit("dataExchange.pipeline.started", { pipeline, totalSources: totalSourceCount });
 
 		const result: MultiImportResult = {
-			totalSources: totalSourceCount,
-			completedSources: 0,
-			totalRows: 0,
-			created: 0,
-			updated: 0,
-			skipped: 0,
-			failed: 0,
-			errors: [],
-			sourceResults: [],
+			totalSources: totalSourceCount, completedSources: 0,
+			totalRows: 0, created: 0, updated: 0, skipped: 0, failed: 0,
+			errors: [], sourceResults: [],
 		};
 
 		for (let i = 0; i < pipeline.sources.length; i++) {
-			const source = pipeline.sources[i];
-
-			// Auto-build merge key mapping
-			const mergeKeyMapping: ColumnMapping = {
-				csvColumn: source.mergeKeyColumn,
-				frontmatterKey: pipeline.mergeKey,
-				included: true,
-			};
-
-			// Filter out any user mapping that already targets the merge key
-			const otherMappings = source.columnMappings.filter(
-				(m) => m.frontmatterKey !== pipeline.mergeKey,
-			);
-
-			// Merge note type into custom properties if set
-			const customProps = { ...source.customProperties };
-			if (pipeline.noteType) {
-				customProps.type = pipeline.noteType;
-			}
-
-			const importConfig: ImportConfig = {
-				sourcePath: source.csvPath,
-				targetFolder: pipeline.targetFolder,
-				nameColumn: source.mergeKeyColumn,
-				namePrefix: pipeline.namePrefix,
-				nameSuffix: pipeline.nameSuffix,
-				columnMappings: [mergeKeyMapping, ...otherMappings],
-				conflictStrategy: "update",
-				customProperties: Object.keys(customProps).length > 0 ? customProps : undefined,
-			};
-
-			try {
-				const sourceResult = await this.deps.importService.executeImport(importConfig, { pipelineId: pipeline.id });
-				const psr: PipelineSourceResult = {
-					sourceId: source.id,
-					csvPath: source.csvPath,
-					result: sourceResult,
-				};
-				result.sourceResults.push(psr);
-				result.totalRows += sourceResult.totalRows;
-				result.created += sourceResult.created;
-				result.updated += sourceResult.updated;
-				result.skipped += sourceResult.skipped;
-				result.failed += sourceResult.failed;
-				result.errors.push(...sourceResult.errors);
-				result.completedSources++;
-
-				await this.deps.eventBus.emit("dataExchange.pipeline.sourceCompleted", {
-					pipelineId: pipeline.id,
-					sourceIndex: i,
-					totalSources: totalSourceCount,
-					sourceResult: psr,
-				});
-			} catch (error) {
-				result.sourceResults.push({
-					sourceId: source.id,
-					csvPath: source.csvPath,
-					result: {
-						totalRows: 0,
-						created: 0,
-						updated: 0,
-						skipped: 0,
-						failed: 1,
-						errors: [{
-							row: 0,
-							filename: source.csvPath,
-							error: error instanceof Error ? error.message : String(error),
-						}],
-					},
-				});
-				result.failed++;
-				result.errors.push({
-					row: 0,
-					filename: source.csvPath,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
+			await this.executeCsvSource(pipeline.sources[i], pipeline, i, totalSourceCount, result);
 		}
 
-		// Execute canvas import steps
 		const canvasService = this.deps.getCanvasService?.();
 		if (canvasService && pipeline.canvasConfigIds?.length) {
 			const csvCount = pipeline.sources.length;
 			for (let j = 0; j < pipeline.canvasConfigIds.length; j++) {
-				const configId = pipeline.canvasConfigIds[j];
-				try {
-					const canvasResult = await canvasService.runImport(configId);
-					const mappedErrors = canvasResult.errors.map((e) => ({
-						row: 0,
-						filename: e.title || e.nodeId,
-						error: e.error,
-					}));
-					const psr: PipelineSourceResult = {
-						sourceId: configId,
-						csvPath: canvasResult.canvasPath,
-						result: {
-							totalRows: canvasResult.totalNodes,
-							created: canvasResult.imported,
-							updated: 0,
-							skipped: canvasResult.skipped,
-							failed: canvasResult.errors.length,
-							errors: mappedErrors,
-						},
-					};
-					result.sourceResults.push(psr);
-					result.totalRows += canvasResult.totalNodes;
-					result.created += canvasResult.imported;
-					result.skipped += canvasResult.skipped;
-					result.failed += canvasResult.errors.length;
-					result.errors.push(...mappedErrors);
-					result.completedSources++;
-
-					await this.deps.eventBus.emit("dataExchange.pipeline.sourceCompleted", {
-						pipelineId: pipeline.id,
-						sourceIndex: csvCount + j,
-						totalSources: totalSourceCount,
-						sourceResult: psr,
-					});
-				} catch (error) {
-					const configName = canvasService.getConfig(configId)?.name ?? configId;
-					result.sourceResults.push({
-						sourceId: configId,
-						csvPath: configName,
-						result: {
-							totalRows: 0,
-							created: 0,
-							updated: 0,
-							skipped: 0,
-							failed: 1,
-							errors: [{
-								row: 0,
-								filename: configName,
-								error: error instanceof Error ? error.message : String(error),
-							}],
-						},
-					});
-					result.failed++;
-					result.errors.push({
-						row: 0,
-						filename: configName,
-						error: error instanceof Error ? error.message : String(error),
-					});
-				}
+				await this.executeCanvasSource(pipeline.canvasConfigIds[j], canvasService, pipeline, csvCount + j, totalSourceCount, result);
 			}
 		}
 
-		// Create .base view if configured
 		if (pipeline.createBase) {
 			await this.createPipelineBaseFile(pipeline);
 		}
 
-		// Run linked exports if configured
-		for (const exportId of pipeline.exportConfigIds ?? []) {
-			const exportCfg = this.deps.getExportConfig(exportId);
-			if (exportCfg) {
-				try {
-					await this.deps.exportService.executeExport({
-						sourcePath: exportCfg.sourcePath,
-						sourceType: exportCfg.sourceType,
-						format: exportCfg.format,
-						outputPath: exportCfg.outputPath,
-						columns: exportCfg.columns,
-						fileProperties: exportCfg.fileProperties,
-						baseViewIndex: exportCfg.baseViewIndex,
-						isExternal: exportCfg.isExternal,
-						conflictStrategy: exportCfg.conflictStrategy,
-					}, { pipelineId: pipeline.id });
-				} catch (err) {
-					console.error(`[Flowti] Pipeline export step failed (${exportCfg.name}): ${err instanceof Error ? err.message : String(err)}`);
-				}
-			}
-		}
+		await this.runLinkedExports(pipeline);
 
 		return result;
+	}
+
+	/** Run linked export configs for a pipeline (fire-and-forget failures). */
+	private async runLinkedExports(pipeline: SavedMultiImportPipeline): Promise<void> {
+		for (const exportId of pipeline.exportConfigIds ?? []) {
+			const exportCfg = this.deps.getExportConfig(exportId);
+			if (!exportCfg) continue;
+			try {
+				await this.deps.exportService.executeExport({
+					sourcePath: exportCfg.sourcePath, sourceType: exportCfg.sourceType,
+					format: exportCfg.format, outputPath: exportCfg.outputPath,
+					columns: exportCfg.columns, fileProperties: exportCfg.fileProperties,
+					baseViewIndex: exportCfg.baseViewIndex, isExternal: exportCfg.isExternal,
+					conflictStrategy: exportCfg.conflictStrategy,
+				}, { pipelineId: pipeline.id });
+			} catch (err) {
+				console.error(`[Flowti] Pipeline export step failed (${exportCfg.name}): ${err instanceof Error ? err.message : String(err)}`);
+			}
+		}
 	}
 
 	/** Creates a .base view file for the pipeline's target folder. */

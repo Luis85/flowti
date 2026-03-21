@@ -11,7 +11,7 @@
 
 import { ItemView, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
-import type { CanvasService, CanvasConfigInput } from "../../domain/canvas/CanvasService";
+import type { CanvasService } from "../../domain/canvas/CanvasService";
 import { DEFAULT_COLOR_MAP, DEFAULT_SHAPE_MAP } from "../../domain/canvas/types";
 import {
 	parseCanvasJson,
@@ -20,7 +20,8 @@ import {
 	resolveParentage,
 } from "../../domain/canvas/CanvasParser";
 import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
-import { renderStepBar, revealFolderInExplorer } from "../hub/helpers";
+import { renderStepBar } from "../hub/helpers";
+import { buildConfigInput, executeImport, executeSavedImport } from "./CanvasActionViewHelpers";
 import { CanvasLanding } from "./CanvasLanding";
 import { CanvasConfigPage } from "./CanvasConfigPage";
 import { CanvasPreviewPage } from "./CanvasPreviewPage";
@@ -356,42 +357,7 @@ export class CanvasActionView extends ItemView {
 		this.renderContent();
 
 		try {
-			const input: CanvasConfigInput = {
-				name: this.state.configName.trim() || `Import ${this.state.canvasPath.split("/").pop() ?? "canvas"}`,
-				canvasPath: this.state.canvasPath,
-				targetFolder: this.state.targetFolder,
-				colorMap: this.state.colorMap,
-				shapeMap: this.state.shapeMap,
-				excludedTypes: this.state.excludedTypes,
-				conflictStrategy: this.state.conflictStrategy,
-				hierarchyMode: this.state.hierarchyMode,
-				subfolderName: this.state.subfolderName,
-				createCanvas: this.state.createCanvas,
-				createBase: this.state.createBase,
-			};
-
-			let configId: string;
-			if (this.state.loadedConfigId) {
-				// Update existing config
-				await this.canvasService.updateConfig(this.state.loadedConfigId, input);
-				configId = this.state.loadedConfigId;
-			} else {
-				// Save new config
-				const config = await this.canvasService.saveConfig(input);
-				this.state.loadedConfigId = config.id;
-				configId = config.id;
-			}
-
-			const result = await this.canvasService.runImport(configId);
-
-			this.state.importResult = result;
-			this.state.importSuccess = true;
-			this.state.artifactPaths = this.resolveArtifactPaths();
-			const errorNote = result.errors.length > 0 ? `, ${result.errors.length} errors` : "";
-			this.state.importMessage =
-				`Imported ${result.imported} of ${result.totalNodes} nodes (${result.skipped} skipped${errorNote}) in ${result.duration}ms`;
-			void this.eventBus.emit("notice.success", { message: this.state.importMessage });
-			revealFolderInExplorer(this.app, result.targetFolder);
+			await executeImport(this.state, this.canvasService, this.eventBus, this.app, () => this.resolveArtifactPaths());
 		} catch (err) {
 			this.state.importSuccess = false;
 			this.state.importMessage = `Import failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -407,16 +373,7 @@ export class CanvasActionView extends ItemView {
 		this.state.importDone = false;
 
 		try {
-			const result = await this.canvasService.runImport(configId);
-
-			this.state.importResult = result;
-			this.state.importSuccess = true;
-			this.state.artifactPaths = this.resolveArtifactPaths();
-			const errorNote = result.errors.length > 0 ? `, ${result.errors.length} errors` : "";
-			this.state.importMessage =
-				`Imported ${result.imported} of ${result.totalNodes} nodes (${result.skipped} skipped${errorNote}) in ${result.duration}ms`;
-			void this.eventBus.emit("notice.success", { message: this.state.importMessage });
-			revealFolderInExplorer(this.app, result.targetFolder);
+			await executeSavedImport(this.state, configId, this.canvasService, this.eventBus, this.app, () => this.resolveArtifactPaths());
 		} catch (err) {
 			this.state.importSuccess = false;
 			this.state.importMessage = `Import failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -430,19 +387,7 @@ export class CanvasActionView extends ItemView {
 	// ── Save config ──────────────────────────────────────────
 
 	private async saveConfig(): Promise<void> {
-		const input: CanvasConfigInput = {
-			name: this.state.configName.trim() || `Import ${this.state.canvasPath.split("/").pop() ?? "canvas"}`,
-			canvasPath: this.state.canvasPath,
-			targetFolder: this.state.targetFolder,
-			colorMap: this.state.colorMap,
-			shapeMap: this.state.shapeMap,
-			excludedTypes: this.state.excludedTypes,
-			conflictStrategy: this.state.conflictStrategy,
-			hierarchyMode: this.state.hierarchyMode,
-			subfolderName: this.state.subfolderName,
-			createCanvas: this.state.createCanvas,
-			createBase: this.state.createBase,
-		};
+		const input = buildConfigInput(this.state);
 
 		try {
 			if (this.state.loadedConfigId) {

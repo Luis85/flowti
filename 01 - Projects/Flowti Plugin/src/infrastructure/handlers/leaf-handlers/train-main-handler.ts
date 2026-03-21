@@ -129,113 +129,68 @@ export function registerTrainMainHandler(
 				return;
 			}
 
-			// Compute all data for the workspace component
+			const props = buildWorkspaceProps(train);
+			const workspace = document.createElement("flowti-train-workspace");
+			Object.assign(workspace, props);
+			wireWorkspaceEvents(workspace, train);
+			container.appendChild(workspace);
+		}
+
+		/** Build all data props for the workspace component. */
+		function buildWorkspaceProps(train: TrainState): Record<string, unknown> {
 			const allThoughts = getSortedThoughts(train);
 			const activeThought = resolveActiveThought(allThoughts);
-			const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
-
-			// Navigation
-			const prevRelation = activeThought
-				? train.relations.find((r) => r.toId === activeThought.id && r.direction === "next")
-				: null;
-			const prevThought = prevRelation ? thoughtById.get(prevRelation.fromId) ?? null : null;
-			const nextRelation = activeThought
-				? train.relations.find((r) => r.fromId === activeThought.id && r.direction === "next")
-				: null;
-			const nextThought = nextRelation ? thoughtById.get(nextRelation.toId) ?? null : null;
-			const headThought = trainService.getHeadNode(train.id);
-
-			// Merge down
-			const mergeDownInfo = (activeThought && train.status !== "completed")
-				? trainService.findMergeDownTarget(train.id, activeThought.id)
-				: null;
-			const mergeDownTarget = mergeDownInfo
-				? {
-					targetId: mergeDownInfo.targetId,
-					targetTitle: mergeDownInfo.targetId
-						? train.thoughts.find((t) => t.id === mergeDownInfo.targetId)?.title
-						: undefined,
-				}
-				: null;
-
-			// Stats
-			const timeline = trainService.getTimeline(train.id);
-			let branchCount = 0;
-			for (const thought of train.thoughts) {
-				branchCount += trainService.getBranches(train.id, thought.id).length;
-			}
-			const activeIdx = activeThought
-				? allThoughts.findIndex((t) => t.id === activeThought.id)
-				: -1;
-			const activePosition = activeIdx >= 0
-				? { index: activeIdx, total: allThoughts.length }
-				: null;
-
-			// Breadcrumb
-			const breadcrumbPath = activeThought
-				? buildPathToRoot(train, activeThought)
-				: [];
-
-			// Branches
-			const branches = activeThought
-				? trainService.getBranches(train.id, activeThought.id)
-				: [];
-
-			// Outgoing merges
-			const outgoingMerges = activeThought && train.status !== "completed"
-				? train.relations
-					.filter((r) => r.fromId === activeThought.id && r.direction === "merge")
-					.map((r) => ({
-						fromId: r.fromId,
-						toId: r.toId,
-						targetTitle: train.thoughts.find((t) => t.id === r.toId)?.title ?? "",
-					}))
-				: [];
-
-			// Parent train
-			const parentTrain = train.parentTrainId
-				? trainService.getTrain(train.parentTrainId)
-				: null;
-
-			// Type badge
+			const nav = buildNavigation(train, activeThought);
+			const stats = buildStats(train, allThoughts, activeThought);
+			const parentTrain = train.parentTrainId ? trainService.getTrain(train.parentTrainId) : null;
 			const typeConfig = BUILT_IN_TRAIN_TYPES.find((t) => t.id === train.trainType);
-			const trainTypeLabel = typeConfig?.label ?? "Free-form";
 
-			// Canvas
-			const canvasPath = getCanvasPathForTrain(train);
-
-			// Elapsed
-			const elapsed = computeElapsedLabel(train);
-
-			// Create workspace element
-			const workspace = document.createElement("flowti-train-workspace");
-
-			// Set all properties
-			Object.assign(workspace, {
-				train,
-				activeThought,
-				allThoughts,
-				chainLength: timeline.length,
-				branchCount,
-				activePosition,
-				prevThought,
-				nextThought,
-				headThought,
-				mergeDownTarget,
+			return {
+				train, activeThought, allThoughts, ...nav, ...stats,
+				headThought: trainService.getHeadNode(train.id),
 				parentTrainTitle: parentTrain?.title ?? null,
 				parentTrainId: train.parentTrainId ?? null,
-				canvasPath,
-				breadcrumbPath,
-				branches,
-				outgoingMerges,
-				trainTypeLabel,
-				elapsed,
-			});
+				canvasPath: getCanvasPathForTrain(train),
+				breadcrumbPath: activeThought ? buildPathToRoot(train, activeThought) : [],
+				branches: activeThought ? trainService.getBranches(train.id, activeThought.id) : [],
+				outgoingMerges: buildOutgoingMerges(train, activeThought),
+				trainTypeLabel: typeConfig?.label ?? "Free-form",
+				elapsed: computeElapsedLabel(train),
+			};
+		}
 
-			// Wire events from Lit components to EventBus / TrainService
-			wireWorkspaceEvents(workspace, train);
+		/** Resolve prev/next/mergeDown navigation. */
+		function buildNavigation(train: TrainState, activeThought: ThoughtNode | null): Record<string, unknown> {
+			const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
+			const prevRelation = activeThought ? train.relations.find((r) => r.toId === activeThought.id && r.direction === "next") : null;
+			const nextRelation = activeThought ? train.relations.find((r) => r.fromId === activeThought.id && r.direction === "next") : null;
+			const mergeDownInfo = (activeThought && train.status !== "completed") ? trainService.findMergeDownTarget(train.id, activeThought.id) : null;
+			return {
+				prevThought: prevRelation ? thoughtById.get(prevRelation.fromId) ?? null : null,
+				nextThought: nextRelation ? thoughtById.get(nextRelation.toId) ?? null : null,
+				mergeDownTarget: mergeDownInfo ? { targetId: mergeDownInfo.targetId, targetTitle: mergeDownInfo.targetId ? train.thoughts.find((t) => t.id === mergeDownInfo.targetId)?.title : undefined } : null,
+			};
+		}
 
-			container.appendChild(workspace);
+		/** Compute chain length, branch count, and active position. */
+		function buildStats(train: TrainState, allThoughts: ThoughtNode[], activeThought: ThoughtNode | null): Record<string, unknown> {
+			const timeline = trainService.getTimeline(train.id);
+			let branchCount = 0;
+			for (const thought of train.thoughts) { branchCount += trainService.getBranches(train.id, thought.id).length; }
+			const activeIdx = activeThought ? allThoughts.findIndex((t) => t.id === activeThought.id) : -1;
+			return {
+				chainLength: timeline.length,
+				branchCount,
+				activePosition: activeIdx >= 0 ? { index: activeIdx, total: allThoughts.length } : null,
+			};
+		}
+
+		/** Compute outgoing merge relations for the active thought. */
+		function buildOutgoingMerges(train: TrainState, activeThought: ThoughtNode | null): Array<{ fromId: string; toId: string; targetTitle: string }> {
+			if (!activeThought || train.status === "completed") return [];
+			return train.relations
+				.filter((r) => r.fromId === activeThought.id && r.direction === "merge")
+				.map((r) => ({ fromId: r.fromId, toId: r.toId, targetTitle: train.thoughts.find((t) => t.id === r.toId)?.title ?? "" }));
 		}
 
 		// ── Event wiring ──────────────────────────────────────

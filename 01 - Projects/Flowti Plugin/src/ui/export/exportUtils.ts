@@ -14,22 +14,19 @@ export function getFilePropertyLabel(key: string): string {
 
 /** Resolves a file property value from a VaultFileInfo. */
 export function resolveFileProperty(file: VaultFileInfo, key: string): string {
-	switch (key) {
-		case "file.name": return file.basename;
-		case "file.basename": return file.basename;
-		case "file.fullname": return `${file.basename}.${file.extension}`;
-		case "file.path": return file.path;
-		case "file.folder": return file.folder;
-		case "file.ext": return file.extension;
-		case "file.ctime":
-			return file.stat?.ctime ? new Date(file.stat.ctime).toISOString() : "";
-		case "file.mtime":
-			return file.stat?.mtime ? new Date(file.stat.mtime).toISOString() : "";
-		case "file.size":
-			return file.stat?.size !== undefined ? String(file.stat.size) : "";
-		case "file.tags": return file.tags?.join(", ") ?? "";
-		default: return "";
-	}
+	const resolvers: Record<string, () => string> = {
+		"file.name": () => file.basename,
+		"file.basename": () => file.basename,
+		"file.fullname": () => `${file.basename}.${file.extension}`,
+		"file.path": () => file.path,
+		"file.folder": () => file.folder,
+		"file.ext": () => file.extension,
+		"file.ctime": () => file.stat?.ctime ? new Date(file.stat.ctime).toISOString() : "",
+		"file.mtime": () => file.stat?.mtime ? new Date(file.stat.mtime).toISOString() : "",
+		"file.size": () => file.stat?.size !== undefined ? String(file.stat.size) : "",
+		"file.tags": () => file.tags?.join(", ") ?? "",
+	};
+	return resolvers[key]?.() ?? "";
 }
 
 /** Resolves a column value from a file using a ResolvedColumn descriptor. */

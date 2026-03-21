@@ -98,40 +98,14 @@ export function checkDocCoverage(state: CatalogState): HealthCheckResult {
 // ─────────────────────────────────────────────────────────────
 
 export function checkFrontmatterCompleteness(state: CatalogState): HealthCheckResult {
-	const items: HealthCheckItem[] = [];
+	const items: HealthCheckItem[] = [
+		...checkFlowCompleteness(state.flowEntries),
+		...checkSystemCompleteness(state.systemEntries),
+		...checkActorCompleteness(state.actorEntries),
+		...checkProductCompleteness(state.productEntries),
+	];
 
-	for (const f of state.flowEntries) {
-		if (f.events.length === 0) {
-			items.push({ name: f.name, reason: "Flow has no events listed", entityType: "flow" });
-		}
-		if (f.domains.length === 0 && f.services.length === 0) {
-			items.push({ name: f.name, reason: "Flow has no domains or services", entityType: "flow" });
-		}
-	}
-
-	for (const s of state.systemEntries) {
-		if (s.domains.length === 0 && s.services.length === 0) {
-			items.push({ name: s.name, reason: "System has no domains or services", entityType: "system" });
-		}
-	}
-
-	for (const a of state.actorEntries) {
-		if (a.events.length === 0) {
-			items.push({ name: a.name, reason: "Actor has no events listed", entityType: "actor" });
-		}
-	}
-
-	for (const p of state.productEntries) {
-		if (p.events.length === 0 && p.domains.length === 0) {
-			items.push({ name: p.name, reason: "Product has no events or domains", entityType: "product" });
-		}
-	}
-
-	const totalEntities =
-		state.flowEntries.length +
-		state.systemEntries.length +
-		state.actorEntries.length +
-		state.productEntries.length;
+	const totalEntities = state.flowEntries.length + state.systemEntries.length + state.actorEntries.length + state.productEntries.length;
 	const problemEntities = new Set(items.map((i) => `${i.entityType}:${i.name}`)).size;
 	const score = totalEntities > 0 ? (totalEntities - problemEntities) / totalEntities : 1;
 
@@ -141,12 +115,42 @@ export function checkFrontmatterCompleteness(state: CatalogState): HealthCheckRe
 		category: "consistency",
 		severity: score >= 0.9 ? "pass" : score >= 0.6 ? "warn" : "fail",
 		score,
-		summary:
-			problemEntities === 0
-				? "All entity docs have required fields"
-				: `${problemEntities} of ${totalEntities} entity docs have missing fields`,
+		summary: problemEntities === 0 ? "All entity docs have required fields" : `${problemEntities} of ${totalEntities} entity docs have missing fields`,
 		items,
 	};
+}
+
+function checkFlowCompleteness(entries: CatalogState["flowEntries"]): HealthCheckItem[] {
+	const items: HealthCheckItem[] = [];
+	for (const f of entries) {
+		if (f.events.length === 0) items.push({ name: f.name, reason: "Flow has no events listed", entityType: "flow" });
+		if (f.domains.length === 0 && f.services.length === 0) items.push({ name: f.name, reason: "Flow has no domains or services", entityType: "flow" });
+	}
+	return items;
+}
+
+function checkSystemCompleteness(entries: CatalogState["systemEntries"]): HealthCheckItem[] {
+	const items: HealthCheckItem[] = [];
+	for (const s of entries) {
+		if (s.domains.length === 0 && s.services.length === 0) items.push({ name: s.name, reason: "System has no domains or services", entityType: "system" });
+	}
+	return items;
+}
+
+function checkActorCompleteness(entries: CatalogState["actorEntries"]): HealthCheckItem[] {
+	const items: HealthCheckItem[] = [];
+	for (const a of entries) {
+		if (a.events.length === 0) items.push({ name: a.name, reason: "Actor has no events listed", entityType: "actor" });
+	}
+	return items;
+}
+
+function checkProductCompleteness(entries: CatalogState["productEntries"]): HealthCheckItem[] {
+	const items: HealthCheckItem[] = [];
+	for (const p of entries) {
+		if (p.events.length === 0 && p.domains.length === 0) items.push({ name: p.name, reason: "Product has no events or domains", entityType: "product" });
+	}
+	return items;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -157,57 +161,16 @@ export function checkReferenceIntegrity(
 	state: CatalogState,
 	allEvents: EventCatalogEntry[],
 ): HealthCheckResult {
-	const items: HealthCheckItem[] = [];
 	const eventTypes = new Set(allEvents.map((e) => e.type));
 	const domainNames = new Set(state.domainEntries.map((d) => d.name));
 	const serviceNames = new Set(state.serviceEntries.map((s) => s.name));
 
-	for (const f of state.flowEntries) {
-		for (const evt of f.events) {
-			if (!eventTypes.has(evt)) {
-				items.push({ name: f.name, reason: `References unknown event: ${evt}`, entityType: "flow" });
-			}
-		}
-		for (const d of f.domains) {
-			if (!domainNames.has(d)) {
-				items.push({ name: f.name, reason: `References unknown domain: ${d}`, entityType: "flow" });
-			}
-		}
-		for (const s of f.services) {
-			if (!serviceNames.has(s)) {
-				items.push({ name: f.name, reason: `References unknown service: ${s}`, entityType: "flow" });
-			}
-		}
-	}
-
-	for (const sys of state.systemEntries) {
-		for (const d of sys.domains) {
-			if (!domainNames.has(d)) {
-				items.push({ name: sys.name, reason: `References unknown domain: ${d}`, entityType: "system" });
-			}
-		}
-		for (const s of sys.services) {
-			if (!serviceNames.has(s)) {
-				items.push({ name: sys.name, reason: `References unknown service: ${s}`, entityType: "system" });
-			}
-		}
-	}
-
-	for (const a of state.actorEntries) {
-		for (const evt of a.events) {
-			if (!eventTypes.has(evt)) {
-				items.push({ name: a.name, reason: `References unknown event: ${evt}`, entityType: "actor" });
-			}
-		}
-	}
-
-	for (const p of state.productEntries) {
-		for (const evt of p.events) {
-			if (!eventTypes.has(evt)) {
-				items.push({ name: p.name, reason: `References unknown event: ${evt}`, entityType: "product" });
-			}
-		}
-	}
+	const items: HealthCheckItem[] = [
+		...checkEntityRefs(state.flowEntries, "flow", eventTypes, domainNames, serviceNames),
+		...checkEntityRefs(state.systemEntries.map((s) => ({ ...s, events: s.events.map((e) => e.type) })), "system", undefined, domainNames, serviceNames),
+		...checkEntityRefs(state.actorEntries, "actor", eventTypes),
+		...checkEntityRefs(state.productEntries, "product", eventTypes),
+	];
 
 	const totalRefs = countTotalRefs(state);
 	const score = totalRefs > 0 ? Math.max(0, (totalRefs - items.length) / totalRefs) : 1;
@@ -218,12 +181,37 @@ export function checkReferenceIntegrity(
 		category: "references",
 		severity: items.length === 0 ? "pass" : items.length <= 3 ? "warn" : "fail",
 		score,
-		summary:
-			items.length === 0
-				? "All references resolve correctly"
-				: `${items.length} broken reference${items.length === 1 ? "" : "s"} found`,
+		summary: items.length === 0 ? "All references resolve correctly" : `${items.length} broken reference${items.length === 1 ? "" : "s"} found`,
 		items,
 	};
+}
+
+function checkEntityRefs(
+	entries: Array<{ name: string; events?: string[]; domains?: string[]; services?: string[] }>,
+	entityType: string,
+	eventTypes?: Set<string>,
+	domainNames?: Set<string>,
+	serviceNames?: Set<string>,
+): HealthCheckItem[] {
+	const items: HealthCheckItem[] = [];
+	for (const entry of entries) {
+		if (eventTypes && entry.events) {
+			for (const evt of entry.events) {
+				if (!eventTypes.has(evt)) items.push({ name: entry.name, reason: `References unknown event: ${evt}`, entityType });
+			}
+		}
+		if (domainNames && entry.domains) {
+			for (const d of entry.domains) {
+				if (!domainNames.has(d)) items.push({ name: entry.name, reason: `References unknown domain: ${d}`, entityType });
+			}
+		}
+		if (serviceNames && entry.services) {
+			for (const s of entry.services) {
+				if (!serviceNames.has(s)) items.push({ name: entry.name, reason: `References unknown service: ${s}`, entityType });
+			}
+		}
+	}
+	return items;
 }
 
 function countTotalRefs(state: CatalogState): number {

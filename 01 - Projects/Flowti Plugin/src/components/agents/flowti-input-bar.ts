@@ -78,6 +78,7 @@ export class FlowtiInputBar extends FlowtiElement {
 	private onInput(e: Event) {
 		this.inputText = (e.target as HTMLTextAreaElement).value;
 		const textarea = e.target as HTMLTextAreaElement;
+		// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- dynamic height from scrollHeight
 		textarea.style.height = "auto";
 		textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
 		this.requestUpdate();
