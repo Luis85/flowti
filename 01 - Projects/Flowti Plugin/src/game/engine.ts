@@ -17,8 +17,7 @@ import { SCENE_CONFIGS } from "./data/scene-configs.js";
 import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
 import { TalkEngine } from "./systems/talk/talk-engine.js";
-import { extractAgentMessage } from "./data/message-utils.js";
-import type { AgentAction, DashboardAgent, WorldEntity } from "./data/types.js";
+import type { DashboardAgent } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import { preferredWorkstation } from "./brain/movement.js";
 import { createCameraSystem } from "./systems/camera-system.js";
@@ -37,8 +36,6 @@ import { RitualSystem } from "./systems/ritual-system.js";
 import { ToolExecutor } from "./systems/tool-executor-system.js";
 import { DEFAULT_TOOLS } from "./data/tool-registry.js";
 import { CursorSpirit } from "./actors/cursor-spirit.js";
-import { HUDDLE_TEMPLATES } from "./data/huddle-templates.js";
-import { interpolateTemplate } from "./data/engagement-templates.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { InteractableActor } from "./actors/interactable-actor.js";
 
@@ -52,16 +49,8 @@ import { RelationshipSystem } from "./systems/relationship-system.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import { BtSystem, createStubDeps } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
-import { assignOpinions, findClashLabels } from "./data/opinion-topics.js";
-import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
+import { assignOpinions } from "./data/opinion-topics.js";
 import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
-import {
-	pickTemplate,
-	STANDUP_TEMPLATES, DEPLOY_SUCCESS_TEMPLATES, END_OF_DAY_TEMPLATES,
-	EUREKA_TEMPLATES, BUILD_BREAK_REACTION_TEMPLATES, BUILD_BREAK_RESOLVE_TEMPLATES,
-	BIRTHDAY_TEMPLATES, POWER_FLICKER_REACTION_TEMPLATES, POWER_FLICKER_RESOLVE_TEMPLATES,
-	NEW_PR_TEMPLATES, TEA_TIME_TEMPLATES,
-} from "./data/micro-event-templates.js";
 import { PetActor } from "./actors/pet-actor.js";
 import { PET_DEFINITIONS } from "./data/pet-definitions.js";
 import { CoffeeMachine } from "./actors/coffee-machine.js";
@@ -78,15 +67,15 @@ import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
 import type { SceneEntity } from "./data/scene-entity.js";
 import { restoreWorldState, restoreAgentState, flushWorldState, startPeriodicFlush } from "./engine-state.js";
 import type { StateSystems } from "./engine-state.js";
+import { wireEvents } from "./engine-events.js";
+import type { EngineContext } from "./engine-types.js";
 import {
 	ENGINE_WIDTH, ENGINE_HEIGHT, DOMAIN_PARTICLE_COLORS, DEFAULT_PARTICLE_COLOR,
 	LIGHT_LERP_SPEED, OBJECT_POSITIONS, BRAIN_BOUNDS, PARTICLE_POOL_SIZE,
-	SOCIAL_EMOJIS, REACTION_EMOJIS, MOOD_TEXTS, FOLLOW_UP_STRINGS,
 	ROOM_OFFSETS, UNKNOWN_ROOM_OFFSET, DEFAULT_PET_ROOMS,
 	OBJECT_ATTRACTION_RULES,
 	AGENT_WAKE_DELAY, SCENE_TRANSITION_DURATION, LOADING_FADE_DURATION,
-	ACTION_DEDUP_TTL, PET_REACTION_COOLDOWN, TRAIL_DISTANCE_SQ, TRAIL_Y_OFFSET,
-	FOLLOW_UP_CHANCE, SOCIAL_EMOJI_CHANCE, EMOJI_REACTION_CHANCE,
+	PET_REACTION_COOLDOWN, TRAIL_DISTANCE_SQ, TRAIL_Y_OFFSET,
 	WEATHER_PARTICLE_CHANCE, WEATHER_PARTICLE_LIFETIME, WEATHER_PARTICLE_OPACITY,
 	DOG_FOLLOW_CHANCE, CAT_FOLLOW_STRESSED_CHANCE, CAT_STRESS_MORALE_THRESHOLD,
 	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS,
@@ -355,120 +344,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		btSystem.registerPet(petId, createPetBT(petId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed));
 	}
 
-	// Wire DayClock phase changes to store + scheduler
-	dayClock.onPhaseChange((phase) => {
-		store.setDayPhase(phase);
-		store.setWeatherState(worldAmbience.getWeather());
-		store.pushWorldEvent("phase-change", `Day phase: ${phase.replace(/-/g, " ")}`);
-		worldEventScheduler.onPhaseChange(phase);
-	});
-
-	// ── Micro-event handlers ─────────────────────────────
-	// Helper: wrap handler to also push to world event log
-	function registerWorldEvent(type: string, label: string, handler: () => void): void {
-		worldEventScheduler.registerHandler(type, () => {
-			store.pushWorldEvent(type, label);
-			handler();
-		});
-	}
-
-	registerWorldEvent("standup", "Morning Standup", () => {
-		const agents = needsSystem.getAgentNames().filter((n) => !registry.isInTransit(n));
-		for (const name of agents) {
-			const state = brainSystem.getState(name)?.state;
-			if (state === "idle" || state === "wandering") brainSystem.applyEvent(name, "speaking");
-		}
-		agents.forEach((name, i) => {
-			setTimeout(() => {
-				bubbleSystem.showBubble(name, "thought", pickTemplate(STANDUP_TEMPLATES), engine.currentScene, findAgentActor, 3000);
-			}, i * 2000);
-		});
-		setTimeout(() => {
-			for (const name of agents) brainSystem.applyEvent(name, "idle");
-		}, agents.length * 2000 + 2000);
-	});
-
-	registerWorldEvent("deploy-success", "Deploy Success", () => {
-		const agents = needsSystem.getAgentNames();
-		const celebrant = agents[Math.floor(Math.random() * agents.length)];
-		if (celebrant) {
-			bubbleSystem.showBubble(celebrant, "speech", pickTemplate(DEPLOY_SUCCESS_TEMPLATES), engine.currentScene, findAgentActor, 4000);
-			const actor = findAgentActor(celebrant);
-			if (actor) particlePool.spawnPreset("confetti", actor.pos.x, actor.pos.y - 20);
-			needsSystem.applyEffect(celebrant, { morale: 5 });
-		}
-	});
-
-	registerWorldEvent("tea-time", "Tea Time", () => {
-		const idle = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "idle");
-		const teaGroup = idle.slice(0, 3);
-		for (const name of teaGroup) {
-			brainSystem.walkTo(name, coffeeMachine.getInteractionPoint());
-			bubbleSystem.showBubble(name, "thought", pickTemplate(TEA_TIME_TEMPLATES), engine.currentScene, findAgentActor, 3000);
-		}
-	});
-
-	registerWorldEvent("end-of-day", "End of Day", () => {
-		for (const name of needsSystem.getAgentNames()) {
-			bubbleSystem.showBubble(name, "thought", pickTemplate(END_OF_DAY_TEMPLATES), engine.currentScene, findAgentActor, 3000);
-		}
-	});
-
-	registerWorldEvent("eureka", "Eureka Moment", () => {
-		const working = needsSystem.getAgentNames().filter((n) => brainSystem.getState(n)?.state === "working");
-		if (working.length > 0) {
-			const agent = working[Math.floor(Math.random() * working.length)];
-			bubbleSystem.showBubble(agent, "speech", pickTemplate(EUREKA_TEMPLATES), engine.currentScene, findAgentActor, 4000);
-			const actor = findAgentActor(agent);
-			if (actor) particlePool.spawnPreset("sparkle", actor.pos.x, actor.pos.y - 20);
-			needsSystem.applyEffect(agent, { morale: 8, focus: 5 });
-		}
-	});
-
-	registerWorldEvent("build-break", "Build Break", () => {
-		for (const name of needsSystem.getAgentNames()) {
-			bubbleSystem.showBubble(name, "thought", pickTemplate(BUILD_BREAK_REACTION_TEMPLATES), engine.currentScene, findAgentActor, 2000);
-			needsSystem.applyEffect(name, { morale: -3 });
-		}
-		particlePool.spawnPreset("alert", 400, 250);
-		setTimeout(() => {
-			const resolver = needsSystem.getAgentNames()[0];
-			if (resolver) bubbleSystem.showBubble(resolver, "speech", pickTemplate(BUILD_BREAK_RESOLVE_TEMPLATES), engine.currentScene, findAgentActor, 4000);
-		}, 10_000);
-	});
-
-	registerWorldEvent("birthday", "Birthday", () => {
-		const agents = needsSystem.getAgentNames();
-		const birthdayAgent = agents[Math.floor(Math.random() * agents.length)];
-		if (birthdayAgent) {
-			bubbleSystem.showBubble(birthdayAgent, "speech", pickTemplate(BIRTHDAY_TEMPLATES), engine.currentScene, findAgentActor, 4000);
-			particlePool.spawnPreset("confetti", snackTable.pos.x, snackTable.pos.y - 20);
-			for (const name of agents) needsSystem.applyEffect(name, { morale: 3 });
-		}
-	});
-
-	registerWorldEvent("power-flicker", "Power Flicker", () => {
-		for (const name of needsSystem.getAgentNames()) {
-			bubbleSystem.showBubble(name, "thought", pickTemplate(POWER_FLICKER_REACTION_TEMPLATES), engine.currentScene, findAgentActor, 1500);
-		}
-		setTimeout(() => {
-			const ops = needsSystem.getAgentNames()[0];
-			if (ops) bubbleSystem.showBubble(ops, "speech", pickTemplate(POWER_FLICKER_RESOLVE_TEMPLATES), engine.currentScene, findAgentActor, 3000);
-		}, 2000);
-	});
-
-	registerWorldEvent("new-pr", "New PR", () => {
-		const agents = needsSystem.getAgentNames();
-		const author = agents[Math.floor(Math.random() * agents.length)];
-		if (author) {
-			brainSystem.walkTo(author, whiteboard.getInteractionPoint());
-			setTimeout(() => {
-				bubbleSystem.showBubble(author, "thought", pickTemplate(NEW_PR_TEMPLATES), engine.currentScene, findAgentActor, 3000);
-				particlePool.spawnPreset("scribble", whiteboard.pos.x, whiteboard.pos.y);
-			}, 3000);
-		}
-	});
-
 	// ── Agent select handler ────────────────────────────
 	function handleAgentSelect(agentName: string): void {
 		const actor = findAgentActor(agentName);
@@ -639,248 +514,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}
 	}
 
-	// ── Wire provider action events ─────────────────────
-	// Dedup guard: SSE + EventBus can relay the same action twice
+	// ── Dedup guard for provider action relay ────────────
 	const recentActionIds = new Set<string>();
-	provider.onAction((action: AgentAction) => {
-		try {
-		if (action.id && recentActionIds.has(action.id)) return;
-		if (action.id) {
-			recentActionIds.add(action.id);
-			setTimeout(() => recentActionIds.delete(action.id), ACTION_DEDUP_TTL);
-		}
-
-		// Transition brain state
-		brainSystem.applyEvent(action.agentName, action.type);
-
-		// Silence talk engine and hide lightbulb when LLM responds
-		if (action.type === "speaking" || action.type === "asking") {
-			talkEngine.silence(action.agentName);
-			const actor = findAgentActor(action.agentName);
-			if (actor) actor.hideLlmIndicator();
-		}
-
-		// Show bubble for certain actions
-		if (action.type === "speaking" || action.type === "asking") {
-			const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
-			const text = extractAgentMessage(rawText);
-			const bubbleKind = action.type === "asking" ? "question" : "speech";
-			const currentScene = engine.currentScene;
-			bubbleSystem.showBubble(action.agentName, bubbleKind, text, currentScene, findAgentActor);
-		} else if (action.type === "thinking") {
-			const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
-			const text = extractAgentMessage(rawText);
-			const currentScene = engine.currentScene;
-			bubbleSystem.showBubble(action.agentName, "thought", text, currentScene, findAgentActor);
-		} else if (action.type === "requesting-permission") {
-			const currentScene = engine.currentScene;
-			bubbleSystem.showBubble(action.agentName, "question", "?", currentScene, findAgentActor);
-
-			// Auto-open panel to Permissions tab via store
-			store.selectAgent(action.agentName);
-			store.selectTab("permissions");
-		}
-		} catch (err) {
-			console.warn("[game] Error handling action:", action.type, action.agentName, err);
-		}
-	});
-
-	// ── Wire provider connection status ─────────────────
-	provider.onConnectionStatus((status) => {
-		hubScene.updateConnectionStatus(status);
-		store.setConnectionStatus(status);
-	});
-
-	// ── Wire provider entity updates (add / change) ─────
-	provider.onEntityUpdate((entity: WorldEntity) => {
-		if (entity.type !== "agent") return;
-
-		if (!knownEntities.has(entity.id)) {
-			// New agent entity — spawn into game
-			if (store.agents.find((a) => a.name === entity.id)) return;
-
-			const agentData: DashboardAgent = {
-				name: entity.id,
-				agentType: "ai",
-				status: ((entity.components["status"] as string) ?? "idle") as DashboardAgent["status"],
-				domain: entity.components["domain"] as string | undefined,
-			};
-			const setting = resolveSettingForDomain(agentData.domain);
-			if (setting !== "hub" && roomScenes[setting]) {
-				roomScenes[setting].spawnAgent(agentData);
-				registry.setEntityRoom(agentData.name, setting);
-			}
-			store.setAgents([...store.agents, agentData]);
-			hubScene.updateAgents([...store.agents]);
-			brainSystem.register(agentData.name, {}, undefined, agentData.domain);
-			knownEntities.add(entity.id);
-			bubbleSystem.showBubble(entity.id, "speech", "Hello! I just arrived.", engine.currentScene, findAgentActor, 3000);
-		} else {
-			// Existing agent entity changed — only react if state actually changed
-			const statusComp = entity.components["status"];
-			if (typeof statusComp === "object" && statusComp !== null && "state" in statusComp) {
-				const newState = (statusComp as { state: string }).state;
-				const currentState = brainSystem.getState(entity.id)?.state;
-				if (newState !== currentState) {
-					brainSystem.applyEvent(entity.id, newState as AgentAction["type"]);
-				}
-			}
-		}
-	});
-
-	// ── Wire emote callback ─────────────────────────────
-	emoteSystem.onEmote((name, _emoteIndex) => {
-		const actor = findAgentActor(name);
-		if (!actor) return;
-		const agent = store.agents.find((a) => a.name === name);
-		const mood = agent?.mood ?? "neutral";
-		const texts = MOOD_TEXTS[mood] ?? MOOD_TEXTS["neutral"]!;
-		const text = texts[Math.floor(Math.random() * texts.length)];
-		bubbleSystem.showBubble(name, "thought", text, engine.currentScene, findAgentActor, 2500);
-	});
-
-	// ── Wire social conversation callback ────────────────
-	const pick = (arr: readonly string[]) => arr[Math.floor(Math.random() * arr.length)];
-
-	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
-		// Skip if either agent is walking to a door
-		if (registry.isInTransit(nameA) || registry.isInTransit(nameB)) return;
-		// Track conversations for memory streaks
-		cycleConversationCounts.set(nameA, (cycleConversationCounts.get(nameA) ?? 0) + 1);
-		cycleConversationCounts.set(nameB, (cycleConversationCounts.get(nameB) ?? 0) + 1);
-		// Relationship tracking + bicker check
-		relationshipSystem.recordConversation(nameA, nameB);
-		if (relationshipSystem.shouldBicker(nameA, nameB)) {
-			relationshipSystem.recordBicker(nameA, nameB);
-			// Resolve opinion labels for template interpolation
-			const opsA = relationshipSystem.getOpinions(nameA);
-			const opsB = relationshipSystem.getOpinions(nameB);
-			const clash = findClashLabels(opsA, opsB);
-			const resolveOpinions = (text: string) =>
-				text.replace(/\{opinionA\}/g, clash?.opinionA ?? "my way")
-					.replace(/\{opinionB\}/g, clash?.opinionB ?? "your way");
-			setTimeout(() => {
-				bubbleSystem.showBubble(nameA, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), engine.currentScene, findAgentActor, 3000);
-			}, 500);
-			setTimeout(() => {
-				bubbleSystem.showBubble(nameB, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), engine.currentScene, findAgentActor, 3000);
-			}, 2000);
-		}
-		brainSystem.applyEvent(nameA, "speaking");
-		brainSystem.applyEvent(nameB, "speaking");
-
-		// Face each other
-		const actorA = findAgentActor(nameA);
-		const actorB = findAgentActor(nameB);
-		if (actorA) actorA.focus();
-		if (actorB) actorB.focus();
-
-		// Agent A speaks first
-		bubbleSystem.showBubble(nameA, "speech", lineA, engine.currentScene, findAgentActor, 4000);
-
-		// Agent B responds with delay + occasional emoji
-		const bDelay = 1000 + Math.random() * 800;
-		setTimeout(() => {
-			const prefix = Math.random() < SOCIAL_EMOJI_CHANCE ? `${pick(SOCIAL_EMOJIS)} ` : "";
-			bubbleSystem.showBubble(nameB, "speech", `${prefix}${lineB}`, engine.currentScene, findAgentActor, 4000);
-		}, bDelay);
-
-		// 50% chance: Agent A reacts with an emoji thought bubble
-		if (Math.random() < EMOJI_REACTION_CHANCE) {
-			setTimeout(() => {
-				bubbleSystem.showBubble(nameA, "thought", pick(REACTION_EMOJIS), engine.currentScene, findAgentActor, 2000);
-			}, bDelay + 1500 + Math.random() * 1000);
-		}
-
-		// 30% chance: One more exchange (A or B adds a follow-up)
-		if (Math.random() < FOLLOW_UP_CHANCE) {
-			const follower = Math.random() < 0.5 ? nameA : nameB;
-			setTimeout(() => {
-				bubbleSystem.showBubble(follower, "speech", pick(FOLLOW_UP_STRINGS), engine.currentScene, findAgentActor, 2500);
-			}, bDelay + 2500 + Math.random() * 1000);
-		}
-
-		setTimeout(() => {
-			brainSystem.applyEvent(nameA, "idle");
-			brainSystem.applyEvent(nameB, "idle");
-		}, 6000 + Math.random() * 2000);
-	});
-
-	// ── Wire cluster huddle conversations ────────────────
-	socialSystem.onCluster((members) => {
-		// Filter out in-transit agents
-		const available = members.filter((n) => !registry.isInTransit(n));
-		if (available.length < 2) return;
-		relationshipSystem.recordCluster(available);
-		const speakCount = Math.min(members.length, 3);
-		const lines = members.slice(0, speakCount).map(() => {
-			const template = HUDDLE_TEMPLATES[Math.floor(Math.random() * HUDDLE_TEMPLATES.length)];
-			return template.text;
-		});
-
-		members.slice(0, speakCount).forEach((name, i) => {
-			const agent = store.agents.find((a) => a.name === name);
-			const domain = agent?.domain ?? "general";
-			const mood = needsSystem.getMood(name);
-			const moodAdj = mood === "neutral" ? "optimistic" : mood;
-			const text = interpolateTemplate(lines[i], { domain, mood_adj: moodAdj });
-
-			brainSystem.applyEvent(name, "speaking");
-			setTimeout(() => {
-				bubbleSystem.showBubble(name, "speech", text, engine.currentScene, findAgentActor, 4000);
-			}, i * 1500);
-		});
-
-		setTimeout(() => {
-			for (const name of members) brainSystem.applyEvent(name, "idle");
-		}, speakCount * 1500 + 3000);
-	});
-
-	// ── Wire sensor reactions → bubble + needs ──────────
-	sensorSystem.onReaction((reaction) => {
-		if (reaction.bubble) {
-			bubbleSystem.showBubble(reaction.agentName, reaction.bubble.kind, reaction.bubble.text, engine.currentScene, findAgentActor, 5000, true);
-		}
-		if (reaction.needsEffect) {
-			needsSystem.applyEffect(reaction.agentName, reaction.needsEffect);
-		}
-	});
-
-	// ── Wire engagement → walk toward camera + bubble ───
-	engagementSystem.onEngagement((e) => {
-		if (registry.isInTransit(e.agentName)) return;
-		if (e.tier >= 2) {
-			const cam = engine.currentScene.camera;
-			brainSystem.walkTo(e.agentName, { x: cam.pos.x - 50, y: cam.pos.y });
-		}
-		bubbleSystem.showBubble(e.agentName, e.bubbleKind, e.text, engine.currentScene, findAgentActor, 5000, true);
-	});
-
-	// ── Wire ritual phases → brain + bubble + needs ─────
-	ritualSystem.onPhase((phase) => {
-		if (phase.kind === "gather") {
-			for (const name of phase.participants) {
-				if (!registry.isInTransit(name)) brainSystem.applyEvent(name, "speaking");
-			}
-		}
-		if (phase.kind === "line") {
-			if (!registry.isInTransit(phase.agentName)) bubbleSystem.showBubble(phase.agentName, "speech", phase.text, engine.currentScene, findAgentActor, 4000, true);
-		}
-		if (phase.kind === "disperse") {
-			for (const name of phase.participants) {
-				brainSystem.applyEvent(name, "idle");
-				needsSystem.applyEffect(name, { social: 8, morale: 5 });
-			}
-		}
-	});
-
-	// ── Wire tool results → sensor feedback + needs + bubble ──
-	toolExecutor.onResult((result) => {
-		const eventType = result.success ? "test-pass" : "test-fail";
-		sensorSystem.pushFeedback({ type: eventType, data: { output: result.output } });
-		needsSystem.applyEffect(result.agentName, { morale: result.success ? 3 : -2, energy: -5 });
-		bubbleSystem.showBubble(result.agentName, "speech", result.success ? "Done! All good." : "Something went wrong...", engine.currentScene, findAgentActor, 5000, true);
-	});
 
 	// ── Pre-update loop state ───────────────────────────
 	let lastTime = performance.now();
@@ -1426,90 +1061,68 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		cancelPeriodicFlush = startPeriodicFlush(stateSystems, deps.vaultBasePath, engine);
 	}
 
-	// ── Store event listeners for engine-side effects ────
-	store.addEventListener("scene-change", ((e: CustomEvent) => {
-		sceneConfig.onSceneChange(e.detail.setting);
-	}) as EventListener);
-
-	store.addEventListener("agent-message-sent", ((e: CustomEvent) => {
-		const { agentName } = e.detail;
-		// Activate rapid chatter while waiting for LLM
-		talkEngine.activate(agentName);
-		// Show lightbulb indicator
-		const actor = findAgentActor(agentName);
-		if (actor) {
-			actor.showLlmIndicator();
-			const signal = directorSystem.recordInteraction("message", { x: actor.pos.x, y: actor.pos.y });
-			if (signal.moraleEffect) needsSystem.applyEffect(agentName, { morale: signal.moraleEffect });
-		}
-	}) as EventListener);
-
-	store.addEventListener("agent-response-received", ((e: CustomEvent) => {
-		const { agentName, text, type } = e.detail;
-		// Silence talk engine + hide lightbulb
-		talkEngine.silence(agentName);
-		const actor = findAgentActor(agentName);
-		if (actor) actor.hideLlmIndicator();
-		// Show bubble
-		const bubbleKind = type === "asking" ? "question" : "speech";
-		bubbleSystem.showBubble(agentName, bubbleKind, text, engine.currentScene, findAgentActor);
-	}) as EventListener);
-
-	store.addEventListener("task-assigned", ((e: CustomEvent) => {
-		const { agentName, task } = e.detail;
-		brainSystem.applyEvent(agentName, "task-started");
-		brainSystem.assignWork(agentName);
-		store.taskLockedAgents.add(agentName);
-		talkEngine.activate(agentName);
-		bubbleSystem.showBubble(agentName, "thought", `Starting: ${task}`, engine.currentScene, findAgentActor);
-		// Show lightbulb — agent is working on the task
-		const actor = findAgentActor(agentName);
-		if (actor) actor.showLlmIndicator();
-	}) as EventListener);
-
-	store.addEventListener("task-completed", ((e: CustomEvent) => {
-		const { agentName, result } = e.detail;
-		brainSystem.releaseWork(agentName);
-		store.taskLockedAgents.delete(agentName);
-		talkEngine.silence(agentName);
-		engagementSystem.markTaskCompleted(agentName);
-		const actor = findAgentActor(agentName);
-		if (actor) { actor.hideLlmIndicator(); actor.hideToolIndicator(); }
-		// Show completion bubble
-		bubbleSystem.showBubble(agentName, "speech", typeof result === "string" ? result.slice(0, 80) : "Task complete.", engine.currentScene, findAgentActor, 5000);
-	}) as EventListener);
-
-	// ── Permission decision → director signal + morale ──
-	store.addEventListener("permission-decided", ((e: CustomEvent) => {
-		const { agentName, signalType } = e.detail;
-		const signal = directorSystem.recordInteraction(signalType);
-		if (signal.moraleEffect) needsSystem.applyEffect(agentName, { morale: signal.moraleEffect });
-	}) as EventListener);
-
-	// ── Tool usage indicators ──────────────────────────
-	store.addEventListener("agent-using-tool", ((e: CustomEvent) => {
-		const actor = findAgentActor(e.detail.agentName);
-		if (actor) actor.showToolIndicator();
-	}) as EventListener);
-
-	store.addEventListener("agent-tool-complete", ((e: CustomEvent) => {
-		const actor = findAgentActor(e.detail.agentName);
-		if (actor) actor.hideToolIndicator();
-	}) as EventListener);
-
-	// ── Camera follow via store state ───────────────────
-	let prevFollowed: string | null = null;
-	store.addEventListener("state-changed", () => {
-		if (store.followedAgent !== prevFollowed) {
-			prevFollowed = store.followedAgent;
-			if (store.followedAgent) {
-				const actor = findAgentActor(store.followedAgent);
-				if (actor && cameraSystem) cameraSystem.startFollow(actor);
-			} else {
-				if (cameraSystem) cameraSystem.stopFollow();
-			}
-		}
-	});
+	// ── Wire all event subscriptions ────────────────────
+	const ctx: EngineContext = {
+		engine,
+		provider,
+		store,
+		brain: brainSystem,
+		bubble: bubbleSystem,
+		talk: talkEngine,
+		particlePool,
+		emote: emoteSystem,
+		social: socialSystem,
+		needs: needsSystem,
+		director: directorSystem,
+		sensor: sensorSystem,
+		engagement: engagementSystem,
+		ritual: ritualSystem,
+		tool: toolExecutor,
+		dayClock,
+		worldAmbience,
+		worldEvent: worldEventScheduler,
+		memory: memorySystem,
+		quirk: quirkSystem,
+		relationship: relationshipSystem,
+		bt: btSystem,
+		registry,
+		roomSwitcher,
+		cameraSystem,
+		btWorldState,
+		btClock,
+		btDeps,
+		hubScene,
+		officeScene,
+		villageScene,
+		stationScene,
+		roomScenes,
+		coffeeMachine,
+		whiteboard,
+		snackTable,
+		waterCooler,
+		couch,
+		plant,
+		noticeBoard,
+		pets,
+		allEntities,
+		cycleConversationCounts,
+		firedReactiveTriggers,
+		prevWalkingState,
+		lastTrailPos,
+		petReactionCooldowns,
+		knownEntities,
+		recentActionIds,
+		prevCycleCount,
+		deltaMs: 0,
+		lastTime,
+		currentLight,
+		findAgentActor,
+		findCurrentSceneActor,
+		findNearestAgent,
+		handleAgentSelect,
+		handleSceneChange: sceneConfig.onSceneChange,
+	};
+	const cleanupEvents = wireEvents(ctx);
 
 	// ── Keyboard handling ───────────────────────────────
 
@@ -1718,6 +1331,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		dispose(): void {
 			// Cancel periodic position flush
 			if (cancelPeriodicFlush) cancelPeriodicFlush();
+			// Tear down all event subscriptions
+			cleanupEvents();
 			// Flush persistent state before shutdown
 			if (deps.vaultBasePath) {
 				flushWorldState(stateSystems, deps.vaultBasePath);

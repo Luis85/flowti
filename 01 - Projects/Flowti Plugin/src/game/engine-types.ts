@@ -166,4 +166,5 @@ export interface EngineContext {
 
 	// ── Callbacks ────────────────────────────────────────
 	readonly handleAgentSelect: (agentName: string) => void;
+	readonly handleSceneChange: (setting: string) => void;
 }
