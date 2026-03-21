@@ -417,6 +417,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			${this.activeTab === "overview" ? html`
 				<flowti-tab-overview
 					.projectName="${this.projectName}"
+					.notePath="${this.notePath}"
 					.brief="${this.brief}"
 					.config="${this.config}"
 					.healthScore="${this.healthScore}"

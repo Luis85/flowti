@@ -12,6 +12,8 @@ export class FlowtiTabOverview extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
 		projectName: { type: String },
+		/** Vault path to the project note (e.g. 01 - Projects/Foo/Foo.md). */
+		notePath: { type: String },
 		brief: { type: Object },
 		healthScore: { type: Object },
 		healthError: { type: String },
@@ -86,6 +88,7 @@ export class FlowtiTabOverview extends FlowtiElement {
 	];
 
 	projectName = "";
+	notePath = "";
 	brief: ProjectBrief | undefined = undefined;
 	healthScore: HealthScore | null = null;
 	healthError = "";
@@ -108,7 +111,7 @@ export class FlowtiTabOverview extends FlowtiElement {
 					<div class="section-title">Brief</div>
 					<div class="brief-actions">
 						<button class="brief-btn brief-create-btn"
-							@click="${() => this.fire("create-note", { name: this.projectName })}"
+							@click="${() => this.fire("create-project-note", { name: this.projectName })}"
 						>Create brief</button>
 					</div>
 				</div>
@@ -127,7 +130,7 @@ export class FlowtiTabOverview extends FlowtiElement {
 				${this.config ? this.renderConfigBadges() : nothing}
 				<div class="brief-actions">
 					<button class="brief-btn brief-open-btn"
-						@click="${() => this.fire("open-project-note", { path: this.projectName })}"
+						@click="${() => this.fire("open-project-note", { path: this.resolveNotePath() })}"
 					>Open note</button>
 				</div>
 			</div>
@@ -230,6 +233,12 @@ export class FlowtiTabOverview extends FlowtiElement {
 		if (!text) return;
 		this.fire("todo-add", { text });
 		input.value = "";
+	}
+
+	private resolveNotePath(): string {
+		if (this.notePath.trim()) return this.notePath.trim();
+		const n = this.projectName.trim();
+		return n ? `01 - Projects/${n}/${n}.md` : "";
 	}
 
 	private fire(name: string, detail?: Record<string, unknown>): void {

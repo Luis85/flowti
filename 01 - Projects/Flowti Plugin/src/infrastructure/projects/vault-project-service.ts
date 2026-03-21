@@ -11,6 +11,7 @@ import type { IProjectService, ProjectSummary, ProjectDetail, ProjectConfig, Sto
 import { parseTodos, addTodoLine, toggleTodoLine, deleteTodoLine } from "../../domain/projects/todo-service.js";
 import { parseEntityFromMarkdown, generateDomainMarkdown, generateServiceMarkdown, generateEventMarkdown, generateFlowMarkdown, toKebabCase } from "../../domain/projects/catalog-service.js";
 import { parseFrontmatter } from "../../domain/projects/frontmatter.js";
+import { ensureFlowtiCliRuntimeDeps, resolveFlowtiCliEntry } from "./flowti-cli-runtime.js";
 
 const PROJECTS_FOLDER = "01 - Projects";
 const PROJECT_BRIEF_TYPE = "ProjectBrief";
@@ -133,6 +134,21 @@ function runAsync(
 			}
 		});
 	});
+}
+
+/**
+ * Run the Flowti vault CLI (`main.mjs`) after ensuring peer deps (react, ink) exist in `.flowti/bin`.
+ */
+async function runFlowtiCli(
+	vaultBase: string,
+	cliSubArgs: string[],
+	onOutput?: OutputCallback,
+): Promise<{ ok: boolean; error?: string }> {
+	const binDir = join(vaultBase, ".flowti", "bin");
+	const ensured = await ensureFlowtiCliRuntimeDeps(binDir, onOutput);
+	if (!ensured.ok) return ensured;
+	const entry = resolveFlowtiCliEntry(binDir);
+	return runAsync("node", [entry, ...cliSubArgs], vaultBase, onOutput);
 }
 
 export class VaultProjectService implements IProjectService {
@@ -344,8 +360,7 @@ export class VaultProjectService implements IProjectService {
 
 	async installStorybook(project: string, framework: StorybookFramework, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "storybook:install", `--project=${project}`, `--framework=${framework}`], vaultBase, onOutput);
+		return runFlowtiCli(vaultBase, ["storybook:install", `--project=${project}`, `--framework=${framework}`], onOutput);
 	}
 
 	private findStorybookConfigDir(absProjectPath: string): string | null {
@@ -450,10 +465,9 @@ export class VaultProjectService implements IProjectService {
 
 	async scaffoldStorybook(project: string, onOutput?: OutputCallback, opts?: { adoptImport?: boolean }): Promise<{ ok: boolean; filesCreated?: number; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		const args = [cliBin, "storybook:scaffold", `--project=${project}`];
+		const args = ["storybook:scaffold", `--project=${project}`];
 		if (opts?.adoptImport) args.push("--adopt-import");
-		return runAsync("node", args, vaultBase, onOutput);
+		return runFlowtiCli(vaultBase, args, onOutput);
 	}
 
 	async importMarkdownSitemap(project: string, sourcePath: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
@@ -465,38 +479,34 @@ export class VaultProjectService implements IProjectService {
 
 	async saveMarkdownSourceConfig(project: string, config: MarkdownSourceConfig, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
 		const fields = config.requiredFields.join(",");
-		return runAsync("node", [
-			cliBin, "storybook:import", "--save-config",
+		return runFlowtiCli(vaultBase, [
+			"storybook:import", "--save-config",
 			`--project=${project}`,
 			`--source=${config.path}`,
 			`--strategy=${config.strategy}`,
 			`--fields=${fields}`,
-		], vaultBase, onOutput);
+		], onOutput);
 	}
 
 	async cleanStorybook(project: string): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "storybook:clean", `--project=${project}`], vaultBase);
+		return runFlowtiCli(vaultBase, ["storybook:clean", `--project=${project}`]);
 	}
 
 	async importCanvasSitemap(project: string, onOutput?: OutputCallback, opts?: { merge?: boolean }): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		const args = [cliBin, "storybook:canvas-import", `--project=${project}`];
+		const args = ["storybook:canvas-import", `--project=${project}`];
 		if (opts?.merge) args.push("--merge");
-		return runAsync("node", args, vaultBase, onOutput);
+		return runFlowtiCli(vaultBase, args, onOutput);
 	}
 
 	async generateSitemapCanvas(project: string, onOutput?: OutputCallback, opts?: { preset?: string; force?: boolean }): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		const args = [cliBin, "storybook:canvas-generate", `--project=${project}`];
+		const args = ["storybook:canvas-generate", `--project=${project}`];
 		if (opts?.preset) args.push(`--preset=${opts.preset}`);
 		if (opts?.force) args.push("--force");
-		return runAsync("node", args, vaultBase, onOutput);
+		return runFlowtiCli(vaultBase, args, onOutput);
 	}
 
 	async importFromGit(url: string, name: string, mode: "submodule" | "template", onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
@@ -575,19 +585,17 @@ export class VaultProjectService implements IProjectService {
 
 	async bootstrapProject(name: string, config: { build?: string; test?: string; lint?: string; storybook?: string }): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		const args = [cliBin, "project:bootstrap", `--project=${name}`];
+		const args = ["project:bootstrap", `--project=${name}`];
 		if (config.build) args.push(`--build=${config.build}`);
 		if (config.test) args.push(`--test=${config.test}`);
 		if (config.lint) args.push(`--lint=${config.lint}`);
 		if (config.storybook) args.push(`--storybook=${config.storybook}`);
-		return runAsync("node", args, vaultBase);
+		return runFlowtiCli(vaultBase, args);
 	}
 
 	async createEmptyProject(name: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "project:create", `--name=${name}`], vaultBase, onOutput);
+		return runFlowtiCli(vaultBase, ["project:create", `--name=${name}`], onOutput);
 	}
 
 	private previewServers = new Map<string, { close: () => void; url: string }>();
@@ -650,10 +658,9 @@ export class VaultProjectService implements IProjectService {
 
 	async getHealth(project: string): Promise<{ ok: boolean; score?: HealthScore; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
 
 		const lines: string[] = [];
-		const result = await runAsync("node", [cliBin, "health", `--project=${project}`, "--format=json"], vaultBase, (line) => {
+		const result = await runFlowtiCli(vaultBase, ["health", `--project=${project}`, "--format=json"], (line) => {
 			if (line !== "Done.") lines.push(line);
 		});
 		if (!result.ok) return { ok: false, error: result.error ?? "Health check failed" };
@@ -744,14 +751,12 @@ export class VaultProjectService implements IProjectService {
 
 	async runReport(project: string, generatorId: string, onOutput?: OutputCallback): Promise<{ ok: boolean; metrics?: Record<string, number>; outputPath?: string; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, `report:${generatorId}`, `--project=${project}`], vaultBase, onOutput);
+		return runFlowtiCli(vaultBase, [`report:${generatorId}`, `--project=${project}`], onOutput);
 	}
 
 	async runAllReports(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; results?: import("../../domain/projects/types.js").ReportResult[]; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
-		const cliBin = join(vaultBase, ".flowti", "bin");
-		return runAsync("node", [cliBin, "reports", `--project=${project}`], vaultBase, onOutput);
+		return runFlowtiCli(vaultBase, ["reports", `--project=${project}`], onOutput);
 	}
 
 	async listComponents(project: string): Promise<ComponentEntry[]> {
