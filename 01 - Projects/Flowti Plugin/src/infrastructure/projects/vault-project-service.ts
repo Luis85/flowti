@@ -16,7 +16,19 @@ import { parseTodos, addTodoLine, toggleTodoLine, deleteTodoLine } from "../../d
 import { parseEntityFromMarkdown, generateDomainMarkdown, generateServiceMarkdown, generateEventMarkdown, generateFlowMarkdown, toKebabCase } from "../../domain/projects/catalog-service.js";
 import { parseFrontmatter } from "../../domain/projects/frontmatter.js";
 import { resolveNoteInfoAsync, readBrief, mergeRunningStatus, readTypeFromConfig, parseProjectConfig, checkSitemapFiles, detectProjectFromDisk, enrichProjectConfigRoleSlots, enrichRoleSlotsWithRoleNotes } from "./vault-project-helpers.js";
-import { PROJECTS_FOLDER, detectStorybookOnDisk, getVaultBasePath, stripAnsi, shellQuote, runAsync, findStorybookDir } from "./vault-project-cli.js";
+import {
+	PROJECTS_FOLDER,
+	detectStorybookOnDisk,
+	getVaultBasePath,
+	stripAnsi,
+	shellQuote,
+	runAsync,
+	findStorybookDir,
+	FLOWTI_CLI_TIMEOUT_MS,
+	STORYBOOK_BUILD_TIMEOUT_MS,
+	GIT_COMMAND_TIMEOUT_MS,
+	SHORT_SHELL_COMMAND_TIMEOUT_MS,
+} from "./vault-project-cli.js";
 import { ensureFlowtiCliRuntimeDeps, resolveFlowtiCliEntry } from "./flowti-cli-runtime.js";
 
 /**
@@ -31,7 +43,7 @@ async function runFlowtiCli(
 	const ensured = await ensureFlowtiCliRuntimeDeps(binDir, onOutput);
 	if (!ensured.ok) return ensured;
 	const entry = resolveFlowtiCliEntry(binDir);
-	return runAsync("node", [entry, ...cliSubArgs], vaultBase, onOutput);
+	return runAsync("node", [entry, ...cliSubArgs], vaultBase, onOutput, { timeoutMs: FLOWTI_CLI_TIMEOUT_MS });
 }
 
 export class VaultProjectService implements IProjectService {
@@ -111,17 +123,17 @@ export class VaultProjectService implements IProjectService {
 	async stopStorybook(project: string): Promise<{ ok: boolean; error?: string }> {
 		const running = this.runningProcesses.get(project);
 		const port = 6006;
-		if (running?.pid) await runAsync("taskkill", ["/F", "/T", "/PID", String(running.pid)], ".");
+		if (running?.pid) await runAsync("taskkill", ["/F", "/T", "/PID", String(running.pid)], ".", undefined, { timeoutMs: SHORT_SHELL_COMMAND_TIMEOUT_MS });
 		if (process.platform === "win32") {
-			await runAsync("powershell", ["-Command", `Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }`], ".");
-		} else { await runAsync("sh", ["-c", `lsof -ti:${port} | xargs kill -9 2>/dev/null`], "."); }
+			await runAsync("powershell", ["-Command", `Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }`], ".", undefined, { timeoutMs: SHORT_SHELL_COMMAND_TIMEOUT_MS });
+		} else { await runAsync("sh", ["-c", `lsof -ti:${port} | xargs kill -9 2>/dev/null`], ".", undefined, { timeoutMs: SHORT_SHELL_COMMAND_TIMEOUT_MS }); }
 		this.runningProcesses.delete(project);
 		return { ok: true };
 	}
 
 	async buildStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; outputDir?: string; error?: string }> {
 		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
-		const result = await runAsync("npx", ["storybook", "build", "--config-dir", findStorybookDir(cwd)], cwd, onOutput);
+		const result = await runAsync("npx", ["storybook", "build", "--config-dir", findStorybookDir(cwd)], cwd, onOutput, { timeoutMs: STORYBOOK_BUILD_TIMEOUT_MS });
 		return result.ok ? { ...result, outputDir: join(cwd, "storybook-static") } : result;
 	}
 
@@ -173,13 +185,13 @@ export class VaultProjectService implements IProjectService {
 		const vaultBase = getVaultBasePath(this.app);
 		const targetDir = join(vaultBase, PROJECTS_FOLDER, name);
 		if (existsSync(targetDir)) return { ok: false, error: `Folder "${name}" already exists` };
-		if (mode === "submodule") return runAsync("git", ["-c", "core.longpaths=true", "submodule", "add", url, `${PROJECTS_FOLDER}/${name}`], vaultBase, onOutput);
-		const cloneResult = await runAsync("git", ["-c", "core.longpaths=true", "clone", url, targetDir], vaultBase, onOutput);
+		if (mode === "submodule") return runAsync("git", ["-c", "core.longpaths=true", "submodule", "add", url, `${PROJECTS_FOLDER}/${name}`], vaultBase, onOutput, { timeoutMs: GIT_COMMAND_TIMEOUT_MS });
+		const cloneResult = await runAsync("git", ["-c", "core.longpaths=true", "clone", url, targetDir], vaultBase, onOutput, { timeoutMs: GIT_COMMAND_TIMEOUT_MS });
 		if (!cloneResult.ok) return cloneResult;
 		const gitDir = join(targetDir, ".git");
 		if (existsSync(gitDir)) {
 			const removeCmd = process.platform === "win32" ? { cmd: "cmd", args: ["/c", "rmdir", "/s", "/q", gitDir] } : { cmd: "rm", args: ["-rf", gitDir] };
-			const removeResult = await runAsync(removeCmd.cmd, removeCmd.args, vaultBase);
+			const removeResult = await runAsync(removeCmd.cmd, removeCmd.args, vaultBase, undefined, { timeoutMs: SHORT_SHELL_COMMAND_TIMEOUT_MS });
 			if (!removeResult.ok) return { ok: false, error: "Failed to detach from remote (could not remove .git directory)" };
 		}
 		return { ok: true };

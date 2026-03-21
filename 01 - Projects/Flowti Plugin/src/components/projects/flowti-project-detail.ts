@@ -145,8 +145,11 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.todos="${this.todos}"
 					.todosExist="${this.todosExist}"
 					.hubLocked="${this.projectHubBusy}"
+					.hasSitemap="${this.hasSitemap}"
+					.hasCanvas="${this.hasCanvas}"
+					.canvasChanged="${this.canvasChanged}"
 				></flowti-tab-overview>`;
-			case "components": return html`<flowti-tab-components .projectName="${this.projectName}" .components="${this.components}" .storybookInstalled="${this.storybook?.installed ?? false}" .storybookFramework="${this.storybook?.framework ?? ""}" .storybookRunning="${this.storybook?.running ?? false}" .storybookUrl="${this.storybook?.url ?? ""}" .storybookBusy="${this.storybookBusy}" .storybookBusyLabel="${this.storybookBusyLabel}" .storybookOutput="${this.storybookOutput}" .storybookError="${this.storybookError}" .hasCanvas="${this.hasCanvas}" .hasSitemap="${this.hasSitemap}" .canvasPreset="${this.canvasPreset}" .canvasChanged="${this.canvasChanged}"></flowti-tab-components>`;
+			case "components": return html`<flowti-tab-components .projectName="${this.projectName}" .components="${this.components}" .storybookInstalled="${this.storybook?.installed ?? false}" .storybookFramework="${this.storybook?.framework ?? ""}" .storybookRunning="${this.storybook?.running ?? false}" .storybookUrl="${this.storybook?.url ?? ""}" .storybookBusy="${this.storybookBusy}" .storybookBusyLabel="${this.storybookBusyLabel}" .storybookOutput="${this.storybookOutput}" .storybookError="${this.storybookError}" .hasSitemap="${this.hasSitemap}"></flowti-tab-components>`;
 			case "catalog": return html`<flowti-tab-event-catalog .projectName="${this.projectName}" .entities="${this.catalogEntities}"></flowti-tab-event-catalog>`;
 			case "reporting": return html`<flowti-tab-reporting .projectName="${this.projectName}" .generators="${this.reportGenerators}" .nodeStates="${this.reportNodeStates}" .outputLines="${this.reportOutput}" .busy="${this.reportBusy}"></flowti-tab-reporting>`;
 			case "team":

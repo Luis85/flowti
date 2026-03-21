@@ -85,10 +85,8 @@ export class FlowtiTabComponents extends FlowtiElement {
 		storybookBusyLabel: { type: String },
 		storybookOutput: { type: Array },
 		storybookError: { type: String },
-		hasCanvas: { type: Boolean },
+		/** When false, nudge toward Overview / markdown import before Storybook work. */
 		hasSitemap: { type: Boolean },
-		canvasPreset: { type: String },
-		canvasChanged: { type: Boolean },
 	};
 
 	static styles = [tokens, styles];
@@ -113,9 +111,12 @@ export class FlowtiTabComponents extends FlowtiElement {
 		return html`
 			<div class="components-root" aria-busy="${String(sb)}">
 			<p class="muted intro">
-				<strong>Components</strong> lists what lives in your project. <strong>Storybook</strong> below is optional tooling for stories, static builds, and importing markdown or canvas into the
-				sitemap — it is not the project itself.
+				After <strong>configs/sitemap.json</strong> exists (from Overview → Product map or markdown import), use <strong>Storybook</strong> here as the component workshop for your chosen framework.
+				<strong>Components</strong> lists what the project already exposes. Canvas → JSON sync stays on Overview; markdown import below updates the same sitemap JSON.
 			</p>
+			${!this.hasSitemap
+				? html`<p class="muted intro" role="status">No <strong>sitemap.json</strong> yet — start on <strong>Overview</strong> (Product map) or run markdown import once Config has a source path.</p>`
+				: ""}
 			<div class="section">
 				<h3>Storybook</h3>
 				<p class="muted">${this.storybookInstalled ? `Installed (${this.storybookFramework || "?"})` : "Not installed"}${this.storybookRunning ? ` — running ${this.storybookUrl}` : ""}</p>
@@ -141,8 +142,7 @@ export class FlowtiTabComponents extends FlowtiElement {
 							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-build", {})}">Build</button>
 							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-view", { url: this.storybookUrl || "http://localhost:6006" })}">Open</button>
 							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-preview", {})}">Preview static</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-import", {})}">Import MD → sitemap</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-canvas-import", {})}">Import canvas</button>
+							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-import", {})}">Import markdown → sitemap.json</button>
 							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-regenerate-confirmed", {})}">Regenerate</button>
 						`}
 				</div>

@@ -30,8 +30,9 @@ describe("flowti-tab-components", () => {
 
 	it("shows empty state when no components", async () => {
 		el.components = [];
+		el.hasSitemap = true;
 		await el.updateComplete;
-		expect(el.shadowRoot!.textContent).toContain("Configure component source");
+		expect(el.shadowRoot!.textContent).toContain("Components (0)");
 	});
 
 	it("renders storybook section heading", async () => {
