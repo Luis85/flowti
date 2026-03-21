@@ -630,3 +630,52 @@ describe("parseSuggestedTask", () => {
 		});
 	});
 });
+
+// ── NPC agent type parsing ────────────────────────────────────────────
+
+const NPC_AGENT_MD = `---
+type: Agent
+name: Merchant
+agentType: npc
+domain: commerce
+description: NPC shopkeeper for the Agent World economy
+---
+
+# Merchant
+`;
+
+describe("agentStore — NPC type parsing", () => {
+	it("parses agentType npc from frontmatter", () => {
+		const deps = makeDeps({ "/proj/docs/agents/merchant.md": NPC_AGENT_MD });
+		const agents = agentStore.list(deps, "/proj");
+		expect(agents).toHaveLength(1);
+		expect(agents[0].agentType).toBe("npc");
+	});
+
+	it("preserves npc agentType on read", () => {
+		const deps = makeDeps({ "/proj/docs/agents/merchant.md": NPC_AGENT_MD });
+		const agent = findAgent(deps, "/proj", "Merchant");
+		expect(agent).not.toBeNull();
+		expect(agent!.agentType).toBe("npc");
+	});
+
+	it("falls back to human for unknown agentType values", () => {
+		const badMd = `---
+type: Agent
+name: Unknown
+agentType: robot
+description: Unknown type
+---
+`;
+		const deps = makeDeps({ "/proj/docs/agents/unknown.md": badMd });
+		const agents = agentStore.list(deps, "/proj");
+		expect(agents[0].agentType).toBe("human");
+	});
+
+	it("parses npc domain and description", () => {
+		const deps = makeDeps({ "/proj/docs/agents/merchant.md": NPC_AGENT_MD });
+		const agents = agentStore.list(deps, "/proj");
+		expect(agents[0].domain).toBe("commerce");
+		expect(agents[0].description).toBe("NPC shopkeeper for the Agent World economy");
+	});
+});

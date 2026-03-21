@@ -14,7 +14,7 @@ import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig } from "../../infrastructure/types.js";
 import type { StoreApi, StoreDeps } from "../../infrastructure/store-engine.js";
-import type { AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship, SuggestedTask, InventoryItem, AgentAttributes } from "./agent-types.js";
+import type { AgentType, AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship, SuggestedTask, InventoryItem, AgentAttributes } from "./agent-types.js";
 import { resolveDir, listMdFiles, toMdFilename, updateField } from "../shared/markdown-store.js";
 
 export type AgentStoreDeps = Pick<CliDeps, "disk" | "paths">;
@@ -114,7 +114,7 @@ function parseOptionalFields(fm: Record<string, unknown>): Pick<AgentSummary, "p
 function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick<AgentSummary, "name" | "agentType" | "description" | "domain" | "skills" | "tools" | "roles" | "behaviors" | "preferredPhases" | "suggestedTasks" | "attributes" | "persona" | "mood" | "personality" | "experience" | "tags"> {
 	return {
 		name: String(fm.name ?? file.replace(/\.md$/, "")),
-		agentType: fm.agentType === "ai" ? "ai" : "human",
+		agentType: ((): AgentType => { const validTypes = new Set<AgentType>(["human", "ai", "npc"]); return validTypes.has(fm.agentType as AgentType) ? fm.agentType as AgentType : "human"; })(),
 		description: String(fm.description ?? ""),
 		domain: fm.domain ? String(fm.domain) : undefined,
 		skills: toStringArray(fm.skills).map(parseSkill),
@@ -163,7 +163,7 @@ export const agentStore: StoreApi<AgentSummary, AgentDefinition> = {
 		companion: { extension: ".json", fields: ["components", "goals", "ai", "relationships", "inventory"] },
 		fields: {
 			name: { type: "string", required: true, default: "" },
-			agentType: { type: "enum", options: ["human", "ai"], default: "human" },
+			agentType: { type: "enum", options: ["human", "ai", "npc"], default: "human" },
 			description: { type: "string", default: "" },
 			domain: { type: "string", default: "" },
 			skills: { type: "array", default: [] },

@@ -23,8 +23,8 @@
 
 // ── Core identity ────────────────────────────────────────────────────
 
-/** Agent type discriminator — human actors vs AI-driven agents. */
-export type AgentType = "human" | "ai";
+/** Agent type discriminator — human actors, AI-driven agents, and NPC world entities. */
+export type AgentType = "human" | "ai" | "npc";
 
 /** Skill entry — key-value pair (skill name: proficiency level). */
 export interface AgentSkill {
