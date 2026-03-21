@@ -20,7 +20,7 @@ function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 }
 
 describe("BT integration — full tick cycle", () => {
-	it("agent with review goal produces artifact after ticks", () => {
+	it("agent with goals goes through work cycle (needs-driven priority)", () => {
 		const deps = makeDeps();
 		const agent: BTAgentDef = {
 			name: "Atlas",
@@ -33,35 +33,21 @@ describe("BT integration — full tick cycle", () => {
 
 		const { tree, agent: btAgent } = createAgentBT(agent, deps);
 
-		// Tick several times to walk through the tree
+		// Tick several times — WorkCycle branch fires before LLM goal sequence
 		const allActions: ReturnType<typeof btTick> = [];
 		for (let i = 0; i < 5; i++) {
 			const actions = btTick(tree, btAgent, deps.worldState, deps.clock);
 			allActions.push(...actions);
 		}
 
-		// Verify full pipeline: PickGoal -> ReadFile -> GenerateFromTemplate -> WriteFile -> DropArtifact
+		// WorkCycle: PickGoal → GoToWorkstation → DoWork → LeaveWorkstation → SpeakBubble
 		expect(allActions.some((a) => a.type === "goal-started")).toBe(true);
-		expect(allActions.some((a) => a.type === "file-read")).toBe(true);
-		expect(allActions.some((a) => a.type === "template-generated")).toBe(true);
-		expect(allActions.some((a) => a.type === "file-written")).toBe(true);
-
-		// Verify ReadFile actually populated the context
-		expect(deps.disk.readFileSync).toHaveBeenCalled();
-
-		// Verify WriteFile wrote content
-		expect(deps.disk.writeFileSync).toHaveBeenCalled();
-
-		// Verify artifact entity was created in world state
-		expect(deps.worldState.updateEntity).toHaveBeenCalledWith(
-			expect.stringContaining("artifact-Atlas-"),
-			"artifact",
-			expect.objectContaining({ droppedBy: "Atlas" }),
-		);
+		expect(allActions.some((a) => a.type === "goal-completed")).toBe(true);
+		expect(allActions.some((a) => a.type === "speaking")).toBe(true);
 	});
 
-	it("agent without LLM falls back to template generation", () => {
-		const deps = makeDeps({ providerRegistry: undefined });
+	it("agent with low energy seeks rest instead of working", () => {
+		const deps = makeDeps();
 		const agent: BTAgentDef = {
 			name: "Scout",
 			agentType: "ai",
@@ -69,13 +55,15 @@ describe("BT integration — full tick cycle", () => {
 		};
 
 		const { tree, agent: btAgent } = createAgentBT(agent, deps);
+		// Set energy below threshold — NeedsEnergy branch fires
+		btAgent.context.needs.energy = 10;
 
 		const allActions: ReturnType<typeof btTick> = [];
 		for (let i = 0; i < 5; i++) {
 			allActions.push(...btTick(tree, btAgent, deps.worldState, deps.clock));
 		}
 
-		expect(allActions.some((a) => a.type === "template-generated")).toBe(true);
+		expect(allActions.some((a) => a.type === "seek-rest")).toBe(true);
 	});
 
 	it("agent with no goals falls to idle behavior", () => {

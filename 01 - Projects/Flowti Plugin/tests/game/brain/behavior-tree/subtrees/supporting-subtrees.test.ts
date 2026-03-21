@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { IDLE_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/idle.js";
 import { SOCIAL_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/social.js";
-import { NEEDS_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/needs.js";
+import { NEEDS_ENERGY_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/needs-energy.js";
+import { NEEDS_SOCIAL_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/needs-social.js";
+import { NEEDS_FOCUS_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/needs-focus.js";
+import { NEEDS_MORALE_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/needs-morale.js";
+import { WORK_CYCLE_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/work-cycle.js";
 import { URGENT_SUBTREE } from "../../../../../src/game/brain/behavior-tree/subtrees/urgent.js";
 
 describe("supporting subtrees", () => {
@@ -46,23 +50,63 @@ describe("supporting subtrees", () => {
 		});
 	});
 
-	describe("NEEDS_SUBTREE", () => {
-		it("is a non-empty string", () => {
-			expect(typeof NEEDS_SUBTREE).toBe("string");
-			expect(NEEDS_SUBTREE.length).toBeGreaterThan(0);
+	describe("NEEDS_ENERGY_SUBTREE", () => {
+		it("has root node named NeedsEnergy", () => {
+			expect(NEEDS_ENERGY_SUBTREE).toContain("root [NeedsEnergy]");
 		});
 
-		it("has root node named NeedsSatisfaction", () => {
-			expect(NEEDS_SUBTREE).toContain("root [NeedsSatisfaction]");
+		it("gates on IsEnergyLow and triggers SeekRestSpot + Rest", () => {
+			expect(NEEDS_ENERGY_SUBTREE).toContain("condition [IsEnergyLow]");
+			expect(NEEDS_ENERGY_SUBTREE).toContain("action [SeekRestSpot]");
+			expect(NEEDS_ENERGY_SUBTREE).toContain("action [Rest]");
+		});
+	});
+
+	describe("NEEDS_SOCIAL_SUBTREE", () => {
+		it("has root node named NeedsSocial", () => {
+			expect(NEEDS_SOCIAL_SUBTREE).toContain("root [NeedsSocial]");
 		});
 
-		it("inverts HasEnoughEnergy with flip", () => {
-			expect(NEEDS_SUBTREE).toContain("flip");
-			expect(NEEDS_SUBTREE).toContain("condition [HasEnoughEnergy]");
+		it("gates on IsSocialLow and triggers SeekNearbyAgent", () => {
+			expect(NEEDS_SOCIAL_SUBTREE).toContain("condition [IsSocialLow]");
+			expect(NEEDS_SOCIAL_SUBTREE).toContain("action [SeekNearbyAgent]");
+		});
+	});
+
+	describe("NEEDS_FOCUS_SUBTREE", () => {
+		it("has root node named NeedsFocus", () => {
+			expect(NEEDS_FOCUS_SUBTREE).toContain("root [NeedsFocus]");
 		});
 
-		it("contains Rest action", () => {
-			expect(NEEDS_SUBTREE).toContain("action [Rest]");
+		it("gates on IsFocusLow and triggers SeekQuietCorner", () => {
+			expect(NEEDS_FOCUS_SUBTREE).toContain("condition [IsFocusLow]");
+			expect(NEEDS_FOCUS_SUBTREE).toContain("action [SeekQuietCorner]");
+		});
+	});
+
+	describe("NEEDS_MORALE_SUBTREE", () => {
+		it("has root node named NeedsMorale", () => {
+			expect(NEEDS_MORALE_SUBTREE).toContain("root [NeedsMorale]");
+		});
+
+		it("gates on IsMoraleLow and triggers Emote + WanderSad", () => {
+			expect(NEEDS_MORALE_SUBTREE).toContain("condition [IsMoraleLow]");
+			expect(NEEDS_MORALE_SUBTREE).toContain("action [Emote]");
+			expect(NEEDS_MORALE_SUBTREE).toContain("action [WanderSad]");
+		});
+	});
+
+	describe("WORK_CYCLE_SUBTREE", () => {
+		it("has root node named WorkCycle", () => {
+			expect(WORK_CYCLE_SUBTREE).toContain("root [WorkCycle]");
+		});
+
+		it("gates on HasWorkGoal and runs work sequence", () => {
+			expect(WORK_CYCLE_SUBTREE).toContain("condition [HasWorkGoal]");
+			expect(WORK_CYCLE_SUBTREE).toContain("action [PickGoal]");
+			expect(WORK_CYCLE_SUBTREE).toContain("action [GoToWorkstation]");
+			expect(WORK_CYCLE_SUBTREE).toContain("action [DoWork]");
+			expect(WORK_CYCLE_SUBTREE).toContain("action [LeaveWorkstation]");
 		});
 	});
 
