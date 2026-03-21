@@ -12,6 +12,14 @@ describe("NeedsSystem", () => {
 			expect(needs.focus).toBe(70);
 			expect(needs.morale).toBe(75);
 		});
+
+		it("registers agent with hunger and thirst defaults", () => {
+			const system = new NeedsSystem();
+			system.register("alice", {});
+			const needs = system.getNeeds("alice");
+			expect(needs.hunger).toBe(80);
+			expect(needs.thirst).toBe(80);
+		});
 	});
 
 	describe("attribute modifiers", () => {
