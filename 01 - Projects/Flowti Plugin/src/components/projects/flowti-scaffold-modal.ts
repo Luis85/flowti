@@ -62,15 +62,15 @@ export class FlowtiScaffoldModal extends FlowtiElement {
 				<div class="modal" @click="${(e: Event) => e.stopPropagation()}">
 					<div class="modal-title">Storybook scaffold</div>
 					<div class="modal-body">
-						Choose how to set up your component library. You can import from canvas or markdown first, then scaffold.
+						Scaffold ties your component library to <strong>configs/sitemap.json</strong>. Prefer sketching <strong>sitemap.canvas</strong> on Overview, syncing to JSON, then scaffolding — or import markdown if that is how you maintain the map.
 					</div>
 					<div class="actions">
 						<button type="button" class="btn" @click="${() => this.emitDismiss()}">Cancel</button>
 						${this.hasCanvas && this.canvasChanged
-							? html`<button type="button" class="btn btn--primary" @click="${() => this.confirm({ canvasImport: true })}">Import canvas → scaffold</button>`
+							? html`<button type="button" class="btn btn--primary" @click="${() => this.confirm({ canvasImport: true })}">Sync canvas → JSON, then scaffold</button>`
 							: ""}
 						${this.hasMarkdownSource
-							? html`<button type="button" class="btn btn--primary" @click="${() => this.confirm({ importFirst: true })}">Import markdown → scaffold</button>`
+							? html`<button type="button" class="btn btn--primary" @click="${() => this.confirm({ importFirst: true })}">Import markdown → JSON, then scaffold</button>`
 							: ""}
 						<button type="button" class="btn btn--primary" @click="${() => this.confirm({})}">Scaffold now</button>
 					</div>

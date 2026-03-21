@@ -84,7 +84,10 @@ export class FlowtiTabConfig extends FlowtiElement {
 		const fteLabel = anyFte ? (fteTotal % 1 === 0 ? String(fteTotal) : fteTotal.toFixed(2)) : "—";
 		return html`
 			<h3>flowti.config.json</h3>
-			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999)">Markdown import source (Storybook)</p>
+			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999);line-height:1.45;max-width:52em;margin:0 0 10px">
+				<strong>configs/sitemap.json</strong> is the source of truth for the product map and Storybook workflow. Sketch in <strong>sitemap.canvas</strong> (Overview), sync there, or import markdown from the folder below (run import on the Components tab).
+			</p>
+			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999)">Markdown import source</p>
 			<div class="field">
 				<label>Source folder (vault-relative or absolute)</label>
 				<div class="row">
@@ -113,7 +116,7 @@ export class FlowtiTabConfig extends FlowtiElement {
 			${this.hasCanvas ? html`
 				<div style="margin-top:12px">
 					<button type="button" class="btn" @click="${() => this.emit("canvas-open", {})}">Open sitemap.canvas</button>
-					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Merge canvas → sitemap</button>
+					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Sync canvas → sitemap.json</button>
 				</div>
 			` : ""}
 		`;

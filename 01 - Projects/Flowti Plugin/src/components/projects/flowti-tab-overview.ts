@@ -43,6 +43,7 @@ const styles = css`
 	.todo-list { list-style: none; padding: 0; margin: 0; }
 	.todo-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: var(--flowti-font-sm, 0.85em); }
 	.muted { color: var(--text-muted, #999); font-size: var(--flowti-font-sm, 0.85em); }
+	.hint { margin: 0 0 10px; line-height: 1.45; max-width: 52em; }
 	.sr-only {
 		position: absolute;
 		width: 1px;
@@ -80,6 +81,9 @@ export class FlowtiTabOverview extends FlowtiElement {
 	healthError = "";
 	todos: TodoItem[] = [];
 	todosExist = false;
+	hasSitemap = false;
+	hasCanvas = false;
+	canvasChanged = false;
 
 	protected renderContent() {
 		const h = this.healthScore;
@@ -95,11 +99,16 @@ export class FlowtiTabOverview extends FlowtiElement {
 				${this.brief?.goal ? html`<p class="muted" style="margin-top:8px">${this.brief.goal}</p>` : ""}
 			</div>
 			<div class="section">
-				<h3>Sitemap canvas</h3>
+				<h3>Product map</h3>
+				<p class="muted hint">
+					Start here: sketch the product in <strong>sitemap.canvas</strong>, then sync into <strong>configs/sitemap.json</strong> (source of truth for Storybook and the component library).
+					You can also fill that JSON from markdown via Config and the Components tab import.
+				</p>
+				<p class="muted hint">${this.productMapStatusLine()}</p>
 				<div class="row">
-					<button type="button" class="btn" @click="${() => this.emit("canvas-open", {})}">Open canvas</button>
-					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-generate", { preset: "default" })}">Generate</button>
-					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Merge changes</button>
+					<button type="button" class="btn" @click="${() => this.emit("canvas-open", {})}">Open sitemap.canvas</button>
+					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-generate", { preset: "default" })}">Generate baseline canvas</button>
+					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Sync canvas → sitemap.json</button>
 				</div>
 			</div>
 			<div class="section">
@@ -128,6 +137,14 @@ export class FlowtiTabOverview extends FlowtiElement {
 				${!this.todosExist && this.todos.length === 0 ? html`<p class="muted">No TODO.md yet — add a task to create it.</p>` : ""}
 			</div>
 		`;
+	}
+
+	private productMapStatusLine(): string {
+		if (!this.hasCanvas && !this.hasSitemap) return "No canvas or sitemap.json yet — open or generate a baseline canvas first.";
+		if (!this.hasSitemap && this.hasCanvas) return "Canvas present; sync when you are ready to write configs/sitemap.json.";
+		if (this.hasSitemap && this.canvasChanged) return "Canvas differs from last sync — use Sync to update sitemap.json.";
+		if (this.hasSitemap) return "sitemap.json is present; use Components to run Storybook against it.";
+		return "";
 	}
 
 	private emit(name: string, detail: Record<string, unknown>): void {

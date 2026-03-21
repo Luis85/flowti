@@ -11,6 +11,16 @@ import type { App } from "obsidian";
 import type { StorybookStatus, OutputCallback } from "../../domain/projects/types.js";
 
 export const PROJECTS_FOLDER = "01 - Projects";
+
+/** Max wall time for Flowti CLI (`node main.mjs`) and comparable Node jobs. */
+export const FLOWTI_CLI_TIMEOUT_MS = 15 * 60 * 1000;
+/** Storybook static builds can exceed CLI work on large trees. */
+export const STORYBOOK_BUILD_TIMEOUT_MS = 20 * 60 * 1000;
+/** Git clone / submodule add on slow or large remotes. */
+export const GIT_COMMAND_TIMEOUT_MS = 30 * 60 * 1000;
+/** taskkill, port cleanup, quick shell helpers. */
+export const SHORT_SHELL_COMMAND_TIMEOUT_MS = 60 * 1000;
+
 const STORYBOOK_DIRS = [".storybook", "components/.storybook"];
 const EMPTY_STORYBOOK: StorybookStatus = { installed: false, framework: null, running: false, url: null, pid: null, hasStaticBuild: false };
 
@@ -64,14 +74,27 @@ function isNoisyLine(line: string): boolean {
 	return false;
 }
 
-/** Run a shell command asynchronously — streams output via callback. */
+export type RunAsyncOptions = { timeoutMs?: number };
+
+/** Run a shell command asynchronously — streams output via callback. Optional timeout kills the child (best-effort on Windows shell trees). */
 export function runAsync(
 	command: string,
 	args: string[],
 	cwd: string,
 	onOutput?: OutputCallback,
+	options?: RunAsyncOptions,
 ): Promise<{ ok: boolean; error?: string }> {
 	return new Promise((resolve) => {
+		let settled = false;
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+		const finish = (result: { ok: boolean; error?: string }) => {
+			if (settled) return;
+			settled = true;
+			if (timeoutId !== undefined) clearTimeout(timeoutId);
+			resolve(result);
+		};
+
 		const child = spawn(command, args.map(shellQuote), {
 			cwd, shell: true, windowsHide: true, stdio: "pipe",
 			env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=4096" },
@@ -79,6 +102,19 @@ export function runAsync(
 
 		let stderr = "";
 		const emit = (line: string) => { if (!isNoisyLine(line)) onOutput?.(line); };
+
+		const timeoutMs = options?.timeoutMs;
+		if (timeoutMs !== undefined && timeoutMs > 0) {
+			timeoutId = setTimeout(() => {
+				onOutput?.(`Timed out after ${Math.round(timeoutMs / 1000)}s — stopping process.`);
+				try {
+					child.kill();
+				} catch {
+					/* ignore */
+				}
+				finish({ ok: false, error: `Timed out after ${timeoutMs}ms` });
+			}, timeoutMs);
+		}
 
 		child.stdout?.on("data", (chunk: Buffer) => {
 			for (const line of stripAnsi(chunk.toString()).split("\n").filter(Boolean)) emit(line);
@@ -88,13 +124,19 @@ export function runAsync(
 			stderr += text;
 			for (const line of stripAnsi(text).split("\n").filter(Boolean)) emit(line);
 		});
-		child.on("error", (err) => { onOutput?.(`Error: ${err.message}`); resolve({ ok: false, error: err.message }); });
+		child.on("error", (err) => {
+			onOutput?.(`Error: ${err.message}`);
+			finish({ ok: false, error: err.message });
+		});
 		child.on("close", (code) => {
-			if (code === 0) { onOutput?.("Done."); resolve({ ok: true }); }
-			else {
+			if (settled) return;
+			if (code === 0) {
+				onOutput?.("Done.");
+				finish({ ok: true });
+			} else {
 				const meaningful = stderr.split("\n").map((l) => l.trim())
 					.filter((l) => /^(fatal|error|warning):/i.test(l)).slice(-3).join("\n");
-				resolve({ ok: false, error: meaningful || stderr.trim().split("\n").pop() || `Exit code ${code}` });
+				finish({ ok: false, error: meaningful || stderr.trim().split("\n").pop() || `Exit code ${code}` });
 			}
 		});
 	});
