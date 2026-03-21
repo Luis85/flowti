@@ -58,13 +58,8 @@ export class DashboardStore extends EventTarget {
 	taskLockedAgents: Set<string> = new Set();
 	agentNeeds: Map<string, AgentNeeds> = new Map();
 
-	setAgentNeeds(name: string, needs: AgentNeeds): void {
-		this.agentNeeds.set(name, needs);
-	}
-
-	getAgentNeeds(name: string): AgentNeeds | undefined {
-		return this.agentNeeds.get(name);
-	}
+	setAgentNeeds(name: string, needs: AgentNeeds): void { this.agentNeeds.set(name, needs); }
+	getAgentNeeds(name: string): AgentNeeds | undefined { return this.agentNeeds.get(name); }
 
 	setAgentEconomy(name: string, data: { level?: number; coin?: number; tokens?: number; trustTier?: string; capabilities?: string[] }): void {
 		const agent = this.agents.find(a => a.name === name);
@@ -88,15 +83,8 @@ export class DashboardStore extends EventTarget {
 	dayPhase = "morning-arrival";
 	weatherState = "clear";
 
-	setDayPhase(phase: string): void {
-		this.dayPhase = phase;
-		this.notify();
-	}
-
-	setWeatherState(weather: string): void {
-		this.weatherState = weather;
-		this.notify();
-	}
+	setDayPhase(phase: string): void { this.dayPhase = phase; this.notify(); }
+	setWeatherState(weather: string): void { this.weatherState = weather; this.notify(); }
 
 	// ── World event log ──────────────────────────────────────────
 	worldEventLog: Array<{ timestamp: number; type: string; label: string }> = [];
@@ -111,24 +99,14 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	clearActiveWorldEvent(): void {
-		this.activeWorldEvent = null;
-		this.notify();
-	}
-
-	setDayProgress(progress: number, cycle: number): void {
-		this.dayProgress = progress;
-		this.cycleCount = cycle;
-	}
+	clearActiveWorldEvent(): void { this.activeWorldEvent = null; this.notify(); }
+	setDayProgress(progress: number, cycle: number): void { this.dayProgress = progress; this.cycleCount = cycle; }
 
 	// ── Debug log ─────────────────────────────────────────────────
 	debugMode = false;
 	debugLog: { timestamp: number; agentName: string; prompt: string; context?: string; rawResponse?: string }[] = [];
 
-	toggleDebugMode(): void {
-		this.debugMode = !this.debugMode;
-		this.notify();
-	}
+	toggleDebugMode(): void { this.debugMode = !this.debugMode; this.notify(); }
 
 	pushDebugEntry(agentName: string, prompt: string, context?: string): void {
 		this.debugLog.push({ timestamp: Date.now(), agentName, prompt, context });
@@ -138,7 +116,6 @@ export class DashboardStore extends EventTarget {
 
 	pushDebugResponse(agentName: string, rawResponse: string): void {
 		if (!this.debugMode) return;
-		// Append raw response to the last entry for this agent, or create a new one
 		const lastEntry = [...this.debugLog].reverse().find((e) => e.agentName === agentName);
 		if (lastEntry) {
 			lastEntry.rawResponse = rawResponse;
@@ -232,39 +209,13 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	isProcessAlive(agentName: string): boolean {
-		return this.agentProcesses.get(agentName)?.running ?? false;
-	}
-
-	startFollow(agentName: string): void {
-		this.followedAgent = agentName;
-		this.notify();
-	}
-
-	stopFollow(): void {
-		this.followedAgent = null;
-		this.notify();
-	}
-
-	setConnectionStatus(status: ConnectionStatus): void {
-		this.connectionStatus = status;
-		this.notify();
-	}
-
-	setActivityLog(log: readonly ActivityEntry[]): void {
-		this.activityLog = log;
-		this.notify();
-	}
-
-	setPermissions(agentName: string, perms: readonly PermissionEntry[]): void {
-		this.permissions.set(agentName, perms);
-		this.notify();
-	}
-
-	setLlmStatus(agentName: string, status: LlmStatus): void {
-		this.llmStatus.set(agentName, status);
-		this.notify();
-	}
+	isProcessAlive(agentName: string): boolean { return this.agentProcesses.get(agentName)?.running ?? false; }
+	startFollow(agentName: string): void { this.followedAgent = agentName; this.notify(); }
+	stopFollow(): void { this.followedAgent = null; this.notify(); }
+	setConnectionStatus(status: ConnectionStatus): void { this.connectionStatus = status; this.notify(); }
+	setActivityLog(log: readonly ActivityEntry[]): void { this.activityLog = log; this.notify(); }
+	setPermissions(agentName: string, perms: readonly PermissionEntry[]): void { this.permissions.set(agentName, perms); this.notify(); }
+	setLlmStatus(agentName: string, status: LlmStatus): void { this.llmStatus.set(agentName, status); this.notify(); }
 
 	setAgentState(agentName: string, state: BrainState): void {
 		if (this.agentStates.get(agentName) === state) return;

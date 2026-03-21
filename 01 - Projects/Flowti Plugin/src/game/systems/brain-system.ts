@@ -119,9 +119,7 @@ export class BrainSystem {
 	}
 
 	/** Remove an agent from the brain system. */
-	unregister(name: string): void {
-		this.entries.delete(name);
-	}
+	unregister(name: string): void { this.entries.delete(name); }
 
 	/** Immediately stop an agent — cancel movement, go idle, face forward. */
 	freeze(name: string): void {
@@ -148,9 +146,7 @@ export class BrainSystem {
 		const ws = this.config.onWorkstationResolve?.(name, entry.habits.preferredWorkstationId);
 		entry.targetPos = ws ?? null;
 		entry.target = { kind: "workstation", ...(ws ? { x: ws.x, y: ws.y } : {}) };
-		if (ws) {
-			this.config.onWorkstationChange?.(name, "claim", ws);
-		}
+		if (ws) this.config.onWorkstationChange?.(name, "claim", ws);
 	}
 
 	/** Release an agent from task execution — unlock and return to idle. */
@@ -158,9 +154,7 @@ export class BrainSystem {
 		const entry = this.entries.get(name);
 		if (!entry) return;
 		entry.taskLocked = false;
-		if (entry.state === "working") {
-			this.config.onWorkstationChange?.(name, "vacate", entry.position);
-		}
+		if (entry.state === "working") this.config.onWorkstationChange?.(name, "vacate", entry.position);
 		entry.state = "idle";
 		entry.target = { kind: "none" };
 		entry.targetPos = null;
@@ -207,29 +201,19 @@ export class BrainSystem {
 
 	/**
 	 * Externally set an agent's brain state.
-	 * While taskLocked, only the walking-to → working transition is permitted;
-	 * all other external state changes are blocked.
+	 * While taskLocked, only the walking-to → working transition is permitted.
 	 */
 	setState(name: string, state: BrainState): void {
 		const entry = this.entries.get(name);
 		if (!entry) return;
-		if (entry.taskLocked) {
-			// Only allow the arrival transition: walking-to → working
-			if (!(entry.state === "walking-to" && state === "working")) return;
-		}
-		if (entry.state === "working" && state !== "working") {
-			this.config.onWorkstationChange?.(name, "vacate", entry.position);
-		}
+		if (entry.taskLocked && !(entry.state === "walking-to" && state === "working")) return;
+		if (entry.state === "working" && state !== "working") this.config.onWorkstationChange?.(name, "vacate", entry.position);
 		entry.state = state;
 		entry.stateTimer = 0;
 	}
 
-	/**
-	 * Return true if the agent is currently task-locked (externally driven).
-	 */
-	isTaskLocked(name: string): boolean {
-		return this.entries.get(name)?.taskLocked ?? false;
-	}
+	/** Return true if the agent is currently task-locked (externally driven). */
+	isTaskLocked(name: string): boolean { return this.entries.get(name)?.taskLocked ?? false; }
 
 	/** Apply an external brain event (from SSE or sync). */
 	applyEvent(name: string, eventType: string): void {
@@ -241,8 +225,6 @@ export class BrainSystem {
 		entry.target = result.target;
 		entry.targetPos = null;
 		entry.stateTimer = 0;
-
-		// Fire vacate callback when leaving working state
 		if (previousState === "working" && result.state !== "working") {
 			this.config.onWorkstationChange?.(name, "vacate", entry.position);
 		}
@@ -341,25 +323,16 @@ export class BrainSystem {
 	}
 
 	private updateIdle(entry: AgentBrainEntry, name: string): void {
-		const adjustedIdleResistance = entry.params.idleResistance * entry.habits.idleResistanceMult;
-		if (entry.stateTimer >= adjustedIdleResistance) {
-			// Start wandering with personality-driven target
-			entry.state = "wandering";
-			entry.stateTimer = 0;
-			const nearbyAgents = this.getNearbyAgentPositions(name);
-			const dest = resolveIdleTarget(entry.habits, nearbyAgents, this.targetBounds, Math.random, entry.position);
-			if (dest) {
-				entry.targetPos = dest;
-				entry.target = { kind: "wander", x: dest.x, y: dest.y };
-			} else {
-				entry.state = "idle";
-			}
-		}
+		if (entry.stateTimer < entry.params.idleResistance * entry.habits.idleResistanceMult) return;
+		entry.state = "wandering";
+		entry.stateTimer = 0;
+		const dest = resolveIdleTarget(entry.habits, this.getNearbyAgentPositions(name), this.targetBounds, Math.random, entry.position);
+		if (dest) { entry.targetPos = dest; entry.target = { kind: "wander", x: dest.x, y: dest.y }; }
+		else { entry.state = "idle"; }
 	}
 
 	private updateMoving(entry: AgentBrainEntry, actor: AgentActor, deltaMs: number, name: string): void {
 		if (!entry.targetPos) {
-			// No target, go idle
 			entry.state = "idle";
 			entry.stateTimer = 0;
 			entry.target = { kind: "none" };
@@ -371,20 +344,15 @@ export class BrainSystem {
 		const dist = Math.sqrt(dx * dx + dy * dy);
 
 		if (dist < ARRIVAL_THRESHOLD) {
-			// Arrived at target
 			if (entry.state === "wandering") {
-				entry.state = "idle";
-				entry.target = { kind: "none" };
-				entry.stateTimer = 0;
+				entry.state = "idle"; entry.target = { kind: "none" }; entry.stateTimer = 0;
 			} else if (entry.state === "walking-to") {
 				if (entry.target.kind === "workstation") {
-					// Settling pause before working
 					entry.state = "idle";
 					entry.stateTimer = entry.params.idleResistance - entry.habits.settlingPause;
 					this.config.onWorkstationChange?.(name, "occupy", { x: entry.position.x, y: entry.position.y });
 				} else {
-					entry.state = "idle";
-					entry.stateTimer = 0;
+					entry.state = "idle"; entry.stateTimer = 0;
 				}
 				entry.target = { kind: "none" };
 			}
@@ -392,7 +360,6 @@ export class BrainSystem {
 			return;
 		}
 
-		// Move toward target with habit-based speed
 		const speedMult = MOVEMENT_SPEED_MAP[entry.habits.movementStyle] * entry.habits.speedMult;
 		const speed = BASE_SPEED * speedMult * (deltaMs / 1000);
 		const moveX = (dx / dist) * Math.min(speed, dist);
