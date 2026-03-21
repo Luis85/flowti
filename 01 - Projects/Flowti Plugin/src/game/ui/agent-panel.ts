@@ -293,7 +293,7 @@ export class AgentPanel extends FlowtiElement {
 
 		switch (tab) {
 			case "info":
-				return html`<ft-game-panel-info .agent="${agent}"></ft-game-panel-info>`;
+				return html`<ft-game-panel-info .agent="${agent}" .needs="${this.store.getAgentNeeds(agent.name)}"></ft-game-panel-info>`;
 			case "talk":
 				return html`<ft-game-panel-talk .store="${this.store}" agentName="${agent.name}"></ft-game-panel-talk>`;
 			case "tasks":
