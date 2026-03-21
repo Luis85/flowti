@@ -15,12 +15,13 @@ const TRUST_MODES = ["AUTO", "REVIEW", "MANUAL"] as const;
 type TrustMode = typeof TRUST_MODES[number];
 
 const VAULT_OPS = [
-	"read-file",
-	"write-file",
-	"delete-file",
-	"run-command",
-	"network-request",
-	"plugin-call",
+	"vault-read",
+	"vault-search",
+	"vault-tag",
+	"vault-create",
+	"vault-edit",
+	"vault-move",
+	"vault-link",
 ] as const;
 
 export class PanelDebug extends FlowtiElement {

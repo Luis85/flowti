@@ -110,7 +110,7 @@ describe("createTaskHealthMonitor", () => {
 		});
 	});
 
-	describe("getFailureCount()", () => {
+	describe("failure tracking", () => {
 		it("returns 0 for an unknown agent", () => {
 			expect(monitor.getFailureCount("nobody")).toBe(0);
 		});
@@ -118,6 +118,28 @@ describe("createTaskHealthMonitor", () => {
 		it("returns 0 for a known agent with no failures recorded", () => {
 			monitor.recordTaskStart("Alice", "task-1");
 			expect(monitor.getFailureCount("Alice")).toBe(0);
+		});
+
+		it("increments failure count on recordFailure", () => {
+			monitor.recordFailure("Alice");
+			expect(monitor.getFailureCount("Alice")).toBe(1);
+			monitor.recordFailure("Alice");
+			expect(monitor.getFailureCount("Alice")).toBe(2);
+		});
+
+		it("resets failure count on resetFailures", () => {
+			monitor.recordFailure("Alice");
+			monitor.recordFailure("Alice");
+			monitor.resetFailures("Alice");
+			expect(monitor.getFailureCount("Alice")).toBe(0);
+		});
+
+		it("tracks failures independently per agent", () => {
+			monitor.recordFailure("Alice");
+			monitor.recordFailure("Alice");
+			monitor.recordFailure("Bob");
+			expect(monitor.getFailureCount("Alice")).toBe(2);
+			expect(monitor.getFailureCount("Bob")).toBe(1);
 		});
 	});
 

@@ -20,6 +20,8 @@ export interface StaleTask {
 export interface ITaskHealthMonitor {
 	recordTaskStart(agentName: string, taskId: string): void;
 	recordTaskEnd(agentName: string, taskId: string): void;
+	recordFailure(agentName: string): void;
+	resetFailures(agentName: string): void;
 	checkStale(nowMs: number): StaleTask[];
 	getFailureCount(agentName: string): number;
 }
@@ -51,6 +53,14 @@ export function createTaskHealthMonitor(config?: Partial<TaskHealthConfig>): ITa
 
 		recordTaskEnd(agentName: string, taskId: string): void {
 			inProgress.delete(key(agentName, taskId));
+		},
+
+		recordFailure(agentName: string): void {
+			failureCounts.set(agentName, (failureCounts.get(agentName) ?? 0) + 1);
+		},
+
+		resetFailures(agentName: string): void {
+			failureCounts.delete(agentName);
 		},
 
 		checkStale(nowMs: number): StaleTask[] {
