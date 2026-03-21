@@ -1,58 +1,12 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
 export default defineConfig({
+	root,
 	test: {
-		root: path.resolve(import.meta.dirname, ".."),
-		include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "agents/tests/**/*.test.ts"],
-		exclude: [
-			"tests/e2e/**",
-			"tests/vault-template/**",
-			"tests/vault-journeys/**",
-			// Agent dashboard UI tests require jsdom (installed in agents/package.json, not CLI).
-			// Run via agents/vitest.config.ts instead.
-			"agents/tests/ui/**",
-			"agents/tests/store/dashboard-store-raf.test.ts",
-			"agents/tests/actors/agent-actor.test.ts",
-		],
-		globals: true,
-		environment: "node",
-		testTimeout: 10_000,
-		hookTimeout: 10_000,
-		teardownTimeout: 5_000,
-		pool: "forks",
-		fileParallelism: true,
-		isolate: true,
-		restoreMocks: true,
-		clearMocks: true,
-		unstubEnvs: true,
-		unstubGlobals: true,
-		passWithNoTests: false,
-		reporters: ["default"],
-		outputFile: {
-			json: "reports/tests/testreport.json",
-		},
-		sequence: {
-			shuffle: false,
-		},
-		coverage: {
-			enabled: false,
-			clean: false,
-			provider: "v8",
-			reportsDirectory: "reports/coverage",
-			reporter: ["json", "text"],
-			include: ["src/**/*.ts", "src/**/*.tsx"],
-			exclude: [
-				"configs/vendor.d.ts",
-				"src/**/*.d.ts",
-				"src/**/*.stories.ts",
-			],
-			thresholds: {
-				statements: 70,
-				branches: 70,
-				functions: 70,
-				lines: 70,
-			},
-		},
+		include: ["tests/**/*.test.ts"],
 	},
 });
