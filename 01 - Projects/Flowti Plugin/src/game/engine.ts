@@ -76,14 +76,14 @@ import { SceneRegistry } from "./systems/scene-registry.js";
 import { RoomSwitcher } from "./systems/room-switcher.js";
 import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
 import type { SceneEntity } from "./data/scene-entity.js";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { restoreWorldState, restoreAgentState, flushWorldState, startPeriodicFlush } from "./engine-state.js";
+import type { StateSystems } from "./engine-state.js";
 import {
 	ENGINE_WIDTH, ENGINE_HEIGHT, DOMAIN_PARTICLE_COLORS, DEFAULT_PARTICLE_COLOR,
 	LIGHT_LERP_SPEED, OBJECT_POSITIONS, BRAIN_BOUNDS, PARTICLE_POOL_SIZE,
 	SOCIAL_EMOJIS, REACTION_EMOJIS, MOOD_TEXTS, FOLLOW_UP_STRINGS,
 	ROOM_OFFSETS, UNKNOWN_ROOM_OFFSET, DEFAULT_PET_ROOMS,
-	OBJECT_ATTRACTION_RULES, POSITION_FLUSH_INTERVAL,
+	OBJECT_ATTRACTION_RULES,
 	AGENT_WAKE_DELAY, SCENE_TRANSITION_DURATION, LOADING_FADE_DURATION,
 	ACTION_DEDUP_TTL, PET_REACTION_COOLDOWN, TRAIL_DISTANCE_SQ, TRAIL_Y_OFFSET,
 	FOLLOW_UP_CHANCE, SOCIAL_EMOJI_CHANCE, EMOJI_REACTION_CHANCE,
@@ -1408,43 +1408,22 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		store.endBatch();
 	});
 
+	// ── State persistence context ────────────────────────
+	const stateSystems: StateSystems = {
+		dayClock,
+		worldAmbience,
+		memory: memorySystem,
+		relationship: relationshipSystem,
+		needs: needsSystem,
+		brain: brainSystem,
+		registry,
+		pets,
+	};
+
 	// ── Position writer (tick-based, flushes every ~5s) ──
-	let positionFlushTimer = 0;
-
+	let cancelPeriodicFlush: (() => void) | null = null;
 	if (deps.vaultBasePath) {
-		const positionsPath = join(deps.vaultBasePath, ".flowti", "var", "world-positions.json");
-		const positionsDir = join(deps.vaultBasePath, ".flowti", "var");
-
-		engine.on("postupdate", (evt) => {
-			positionFlushTimer += evt.elapsed;
-			if (positionFlushTimer < POSITION_FLUSH_INTERVAL) return;
-			positionFlushTimer = 0;
-
-			const positions: Record<string, { x: number; y: number; scene: string; state: string }> = {};
-			for (const [name, entry] of brainSystem.getAllEntries()) {
-				positions[name] = {
-					x: Math.round(entry.position.x),
-					y: Math.round(entry.position.y),
-					scene: registry.getEntityRoom(name) ?? "office",
-					state: entry.state,
-				};
-			}
-			for (const pet of pets) {
-				positions[pet.entityId] = {
-					x: Math.round(pet.pos.x),
-					y: Math.round(pet.pos.y),
-					scene: registry.getEntityRoom(pet.entityId) ?? "hub",
-					state: pet.getState(),
-				};
-			}
-
-			try {
-				if (!existsSync(positionsDir)) mkdirSync(positionsDir, { recursive: true });
-				writeFileSync(positionsPath, JSON.stringify({ updatedAt: new Date().toISOString(), positions }, null, "\t"), "utf-8");
-			} catch {
-				// Non-critical — skip silently
-			}
-		});
+		cancelPeriodicFlush = startPeriodicFlush(stateSystems, deps.vaultBasePath, engine);
 	}
 
 	// ── Store event listeners for engine-side effects ────
@@ -1629,25 +1608,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			// No need to push state to the store — WorldContext is the source of truth.
 
 			// Restore persisted Living World state
-			let savedPositions: Record<string, { x: number; y: number; scene: string; state: string }> | null = null;
-			if (deps.vaultBasePath) {
-				try {
-					const varDir = join(deps.vaultBasePath, ".flowti", "var");
-					const clockPath = join(varDir, "world-clock.json");
-					const weatherPath = join(varDir, "world-weather.json");
-					const memoryPath = join(varDir, "world-memory.json");
-					if (existsSync(clockPath)) dayClock.restore(JSON.parse(readFileSync(clockPath, "utf-8")));
-					if (existsSync(weatherPath)) worldAmbience.restore(JSON.parse(readFileSync(weatherPath, "utf-8")));
-					if (existsSync(memoryPath)) memorySystem.restore(JSON.parse(readFileSync(memoryPath, "utf-8")));
-					const relPath = join(varDir, "world-relationships.json");
-					if (existsSync(relPath)) relationshipSystem.restore(JSON.parse(readFileSync(relPath, "utf-8")));
-					const posPath = join(varDir, "world-positions.json");
-					if (existsSync(posPath)) {
-						const posData = JSON.parse(readFileSync(posPath, "utf-8"));
-						if (posData.positions) savedPositions = posData.positions;
-					}
-				} catch { /* non-critical — start fresh */ }
-			}
+			const { savedPositions } = deps.vaultBasePath
+				? restoreWorldState(stateSystems, deps.vaultBasePath)
+				: { savedPositions: null };
 			prevCycleCount = dayClock.getCycleCount();
 
 			// Initialize lighting to current phase (no pop on first frame)
@@ -1726,10 +1689,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 			// Restore needs after registration (register sets defaults, restore overrides)
 			if (deps.vaultBasePath) {
-				try {
-					const needsPath = join(deps.vaultBasePath, ".flowti", "var", "world-needs.json");
-					if (existsSync(needsPath)) needsSystem.restore(JSON.parse(readFileSync(needsPath, "utf-8")));
-				} catch { /* non-critical */ }
+				restoreAgentState(stateSystems, deps.vaultBasePath);
 			}
 
 			// Fetch initial world state for activity log
@@ -1756,36 +1716,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 
 		dispose(): void {
+			// Cancel periodic position flush
+			if (cancelPeriodicFlush) cancelPeriodicFlush();
 			// Flush persistent state before shutdown
 			if (deps.vaultBasePath) {
-				try {
-					const varDir = join(deps.vaultBasePath, ".flowti", "var");
-					if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
-					writeFileSync(join(varDir, "world-clock.json"), JSON.stringify(dayClock.serialize(), null, "\t"), "utf-8");
-					writeFileSync(join(varDir, "world-weather.json"), JSON.stringify(worldAmbience.serialize(), null, "\t"), "utf-8");
-					writeFileSync(join(varDir, "world-memory.json"), JSON.stringify(memorySystem.serialize(), null, "\t"), "utf-8");
-					writeFileSync(join(varDir, "world-relationships.json"), JSON.stringify(relationshipSystem.serialize(), null, "\t"), "utf-8");
-					writeFileSync(join(varDir, "world-needs.json"), JSON.stringify(needsSystem.serialize(), null, "\t"), "utf-8");
-					// Flush agent positions + rooms
-					const positions: Record<string, { x: number; y: number; scene: string; state: string }> = {};
-					for (const [name, entry] of brainSystem.getAllEntries()) {
-						positions[name] = {
-							x: Math.round(entry.position.x),
-							y: Math.round(entry.position.y),
-							scene: registry.getEntityRoom(name) ?? "office",
-							state: entry.state,
-						};
-					}
-					for (const pet of pets) {
-						positions[pet.entityId] = {
-							x: Math.round(pet.pos.x),
-							y: Math.round(pet.pos.y),
-							scene: registry.getEntityRoom(pet.entityId) ?? "hub",
-							state: pet.getState(),
-						};
-					}
-					writeFileSync(join(varDir, "world-positions.json"), JSON.stringify({ updatedAt: new Date().toISOString(), positions }, null, "\t"), "utf-8");
-				} catch { /* non-critical — skip silently */ }
+				flushWorldState(stateSystems, deps.vaultBasePath);
 			}
 			engine.stop();
 			engine.dispose();
