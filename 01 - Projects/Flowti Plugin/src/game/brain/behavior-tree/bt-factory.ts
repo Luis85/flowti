@@ -6,7 +6,7 @@
  * Domain-layer pure — mistreevous is a pure computation library.
  */
 
-import { BehaviourTree } from "mistreevous";
+import { createTree, type BehaviourTree } from "./bt-service.js";
 import { createBTAgent, type BTAgentObject } from "./bt-agent.js";
 import type { AgentToolDeps, BTAgentDef } from "./bt-types.js";
 
@@ -93,6 +93,6 @@ export function createAgentBT(agent: BTAgentDef, deps: AgentToolDeps): AgentBT {
 	// BTAgentObject satisfies the mistreevous Agent contract at runtime
 	// (all condition/action methods are properties). The Agent type requires
 	// an index signature that our strict interface omits, so we bridge via unknown.
-	const tree = new BehaviourTree(allMDSL, btAgent as unknown as Record<string, unknown>);
+	const tree = createTree(allMDSL, btAgent);
 	return { tree, agent: btAgent };
 }
