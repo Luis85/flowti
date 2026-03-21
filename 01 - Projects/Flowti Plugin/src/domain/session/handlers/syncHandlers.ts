@@ -70,55 +70,53 @@ export function scheduleReverseSync(ctx: SessionHandlerContext, sessionId: strin
 	);
 }
 
+/** Apply reverse sync diff to a session (mutates in place). */
+function applyReverseDiff(session: Session, diff: ReturnType<typeof computeReverseSyncDiff>): void {
+	for (const toggle of diff.goalToggles) {
+		const goal = session.goals.find(g => g.id === toggle.goalId);
+		if (goal) goal.completed = toggle.completed;
+	}
+	for (const ng of diff.newGoals) {
+		const goal = createGoal(`goal_${generateUUID()}`, ng.label);
+		if (ng.checked) goal.completed = true;
+		session.goals.push(goal);
+	}
+	for (const toggle of diff.taskToggles) {
+		const task = session.executionTasks.find(t => t.id === toggle.taskId);
+		if (task) task.completed = toggle.completed;
+	}
+	for (const nt of diff.newTasks) {
+		const task: ExecutionTask = {
+			id: `task_${generateUUID()}`, label: nt.label, completed: nt.checked, order: session.executionTasks.length,
+		};
+		session.executionTasks.push(task);
+	}
+	if (diff.notesUpdate !== null) {
+		session.notes = diff.notesUpdate;
+	}
+}
+
 export async function executeReverseSync(ctx: SessionHandlerContext, sessionId: string, path: string): Promise<void> {
 	const session = ctx.findSession(sessionId);
 	if (!session?.notesFile || session.notesFile !== path || !ctx.fileSystem) return;
 
 	try {
 		const content = await ctx.fileSystem.readFile(path);
-
-		// Skip if file content matches what we last wrote (our own forward sync)
 		if (content === ctx.lastSyncedContent.get(path)) return;
 
 		const parsed = reverseParseSessionNotes(content);
 		const diff = computeReverseSyncDiff(session, parsed);
 		if (diff.changes.length === 0) return;
 
-		for (const toggle of diff.goalToggles) {
-			const goal = session.goals.find(g => g.id === toggle.goalId);
-			if (goal) goal.completed = toggle.completed;
-		}
-		for (const ng of diff.newGoals) {
-			const goal = createGoal(`goal_${generateUUID()}`, ng.label);
-			if (ng.checked) goal.completed = true;
-			session.goals.push(goal);
-		}
-		for (const toggle of diff.taskToggles) {
-			const task = session.executionTasks.find(t => t.id === toggle.taskId);
-			if (task) task.completed = toggle.completed;
-		}
-		for (const nt of diff.newTasks) {
-			const task: ExecutionTask = {
-				id: `task_${generateUUID()}`,
-				label: nt.label,
-				completed: nt.checked,
-				order: session.executionTasks.length,
-			};
-			session.executionTasks.push(task);
-		}
-		if (diff.notesUpdate !== null) {
-			session.notes = diff.notesUpdate;
-		}
+		applyReverseDiff(session, diff);
 
 		await ctx.saveState();
 		await ctx.eventBus?.emit("session.notes.reverseSynced", { sessionId, path, changes: diff.changes });
 
-		// Forward sync only when structural changes need normalization
 		if (diff.newGoals.length > 0 || diff.newTasks.length > 0) {
 			ctx.scheduleSyncNotesFile(sessionId);
 		}
 	} catch (err: unknown) {
-		// Reverse sync parse errors are non-critical — log but don't disrupt
 		console.warn("[Flowti] Reverse sync failed for session", sessionId, err instanceof Error ? err.message : err);
 	}
 }

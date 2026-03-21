@@ -9,243 +9,29 @@
  * Event logs live at `.flowti/var/agents/<slug>.events.jsonl`.
  */
 
-import { spawn, execSync, type ChildProcess } from "node:child_process";
-import {
-	existsSync, readFileSync, writeFileSync, mkdirSync,
-	unlinkSync, readdirSync, statSync, openSync, readSync, closeSync,
-} from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-/* ------------------------------------------------------------------ */
-/*  Public types                                                       */
-/* ------------------------------------------------------------------ */
+import type {
+	CliEvent, AgentProcess as IAgentProcess, ICliExecutor, TrackedProcess,
+} from "./cli-executor-helpers";
+import {
+	slugify, findNodeBinary, agentsDir, pidFilePath, eventLogPath,
+	ensureDir, isProcessAlive, treeKill, readPidFile, writePidFile,
+	removePidFile, readJsonlRange, runOneShotCommand,
+} from "./cli-executor-helpers";
 
-export interface CliEvent {
-	ts: number;
-	type:
-		| "message-in"
-		| "thinking"
-		| "using-tool"
-		| "tool-complete"
-		| "response"
-		| "done"
-		| "task-started"
-		| "task-completed"
-		| "permission-request"
-		| "error";
-	agent: string;
-	text?: string;
-	tool?: string;
-	id?: string;
-	status?: string;
-}
-
-export interface AgentProcess {
-	readonly agentName: string;
-	readonly running: boolean;
-	send(message: string, context?: string): void;
-	onEvent(cb: (event: CliEvent) => void): () => void;
-	replayFrom(offset: number): CliEvent[];
-	stopGeneration(): void;
-	grantPermission(tool: string, decision: string): void;
-	kill(): void;
-}
-
-export interface ICliExecutor {
-	startAgent(agentName: string): AgentProcess;
-	assignTask(agentName: string, task: string): Promise<{ ok: boolean; taskId?: string }>;
-	grantPermission(agentName: string, tool: string, decision: string): Promise<{ ok: boolean }>;
-	listAgents(): Promise<{ name: string; domain?: string; status: string }[]>;
-	wakeAgent(agentName: string): Promise<{ ok: boolean; state?: string }>;
-	killAll(): void;
-	dispose(): void;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Internal types                                                     */
-/* ------------------------------------------------------------------ */
-
-interface TrackedProcess {
-	child: ChildProcess;
-	eventCallbacks: Set<(event: CliEvent) => void>;
-	logWatcherClose: (() => void) | null;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-function slugify(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
-/** Resolve the system Node.js binary path. Cached after first lookup. */
-let cachedNodeBin: string | null | undefined;
-export function findNodeBinary(): string | null {
-	if (cachedNodeBin !== undefined) return cachedNodeBin;
-	try {
-		const cmd = process.platform === "win32" ? "where node" : "which node";
-		const result = execSync(cmd, { encoding: "utf-8", timeout: 5000, windowsHide: true }).trim();
-		cachedNodeBin = result.split(/\r?\n/)[0] || null;
-	} catch {
-		cachedNodeBin = null;
-	}
-	return cachedNodeBin;
-}
-
-/** Reset the cached node binary (for testing). */
-export function resetNodeBinaryCache(): void {
-	cachedNodeBin = undefined;
-}
-
-function agentsDir(vaultPath: string): string {
-	return join(vaultPath, ".flowti", "var", "agents");
-}
-
-function pidFilePath(vaultPath: string, slug: string): string {
-	return join(agentsDir(vaultPath), `${slug}.pid`);
-}
-
-function eventLogPath(vaultPath: string, slug: string): string {
-	return join(agentsDir(vaultPath), `${slug}.events.jsonl`);
-}
-
-function ensureDir(dirPath: string): void {
-	if (!existsSync(dirPath)) {
-		mkdirSync(dirPath, { recursive: true });
-	}
-}
-
-function isProcessAlive(pid: number): boolean {
-	try {
-		if (process.platform === "win32") {
-			const out = execSync(`tasklist /FI "PID eq ${pid}" /NH`, {
-				encoding: "utf-8", timeout: 5000, windowsHide: true,
-			});
-			return out.includes(String(pid));
-		}
-		process.kill(pid, 0);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function treeKill(pid: number): boolean {
-	try {
-		if (process.platform === "win32") {
-			execSync(`taskkill /F /T /PID ${pid}`, { windowsHide: true, timeout: 5000 });
-		} else {
-			try { process.kill(-pid, "SIGTERM"); } catch { process.kill(pid, "SIGTERM"); }
-		}
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function readPidFile(filePath: string): number | null {
-	try {
-		if (!existsSync(filePath)) return null;
-		const raw = readFileSync(filePath, "utf-8").trim();
-		const pid = parseInt(raw, 10);
-		return isNaN(pid) ? null : pid;
-	} catch {
-		return null;
-	}
-}
-
-function writePidFile(filePath: string, pid: number): void {
-	ensureDir(join(filePath, ".."));
-	writeFileSync(filePath, String(pid), "utf-8");
-}
-
-function removePidFile(filePath: string): void {
-	try { unlinkSync(filePath); } catch { /* already gone */ }
-}
-
-/** Parse JSONL lines from a byte range of a file. */
-function readJsonlRange(filePath: string, fromOffset: number): { events: CliEvent[]; bytesRead: number } {
-	const events: CliEvent[] = [];
-	try {
-		if (!existsSync(filePath)) return { events, bytesRead: 0 };
-		const size = statSync(filePath).size;
-		if (size <= fromOffset) return { events, bytesRead: 0 };
-
-		const bytesToRead = size - fromOffset;
-		const buffer = Buffer.alloc(bytesToRead);
-		const fd = openSync(filePath, "r");
-		try {
-			readSync(fd, buffer, 0, bytesToRead, fromOffset);
-		} finally {
-			closeSync(fd);
-		}
-
-		const text = buffer.toString("utf-8");
-		const lines = text.split("\n");
-		for (const line of lines) {
-			const trimmed = line.trim();
-			if (!trimmed) continue;
-			try {
-				events.push(JSON.parse(trimmed) as CliEvent);
-			} catch {
-				/* malformed line — skip */
-			}
-		}
-		return { events, bytesRead: bytesToRead };
-	} catch {
-		return { events, bytesRead: 0 };
-	}
-}
-
-/** Run a one-shot CLI command and parse the JSON response. */
-async function runOneShotCommand(
-	nodeBin: string,
-	cliBin: string,
-	args: string[],
-	cwd: string,
-): Promise<unknown> {
-	return new Promise((resolve, reject) => {
-		const child = spawn(nodeBin, [cliBin, ...args], {
-			cwd,
-			stdio: ["ignore", "pipe", "pipe"],
-			windowsHide: true,
-		});
-
-		let stdout = "";
-		let stderr = "";
-
-		if (child.stdout) {
-			child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
-		}
-		if (child.stderr) {
-			child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
-		}
-
-		child.on("error", (err) => {
-			reject(new Error(`Failed to execute CLI command: ${err.message}`));
-		});
-
-		child.on("close", (code) => {
-			if (code !== 0 && !stdout.trim()) {
-				reject(new Error(`CLI exited with code ${code}: ${stderr.trim()}`));
-				return;
-			}
-			try {
-				const parsed: unknown = JSON.parse(stdout.trim());
-				resolve(parsed);
-			} catch {
-				reject(new Error(`Failed to parse CLI output as JSON: ${stdout.slice(0, 200)}`));
-			}
-		});
-	});
-}
+// Re-export public API types and helpers that external consumers rely on
+export type { CliEvent, ICliExecutor, TrackedProcess } from "./cli-executor-helpers";
+export type { AgentProcess } from "./cli-executor-helpers";
+export { findNodeBinary, resetNodeBinaryCache } from "./cli-executor-helpers";
 
 /* ------------------------------------------------------------------ */
 /*  AgentProcess implementation                                        */
 /* ------------------------------------------------------------------ */
 
-class AgentProcessImpl implements AgentProcess {
+class AgentProcessImpl implements IAgentProcess {
 	readonly agentName: string;
 	private tracked: TrackedProcess;
 	private vaultPath: string;
@@ -326,7 +112,7 @@ export class CliExecutor implements ICliExecutor {
 		this.nodeBin = findNodeBinary();
 	}
 
-	startAgent(agentName: string): AgentProcess {
+	startAgent(agentName: string): IAgentProcess {
 		const slug = slugify(agentName);
 		const pidFile = pidFilePath(this.vaultPath, slug);
 
@@ -380,8 +166,6 @@ export class CliExecutor implements ICliExecutor {
 		};
 
 		// For spawned processes, stdout is the single source of truth.
-		// File watcher is ONLY for reconnecting to processes we didn't spawn
-		// (where stdout isn't available). Running both causes duplicate events.
 		let stdoutPartial = "";
 		if (child.stdout) {
 			child.stdout.on("data", (chunk: Buffer) => {

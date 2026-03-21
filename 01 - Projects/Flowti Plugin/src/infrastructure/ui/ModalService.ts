@@ -21,7 +21,6 @@ import type { CaptureService } from "../../domain/capture/CaptureService";
 import type { TrainService } from "../../domain/train/TrainService";
 import type { SessionService } from "../../domain/session/SessionService";
 import type { CanvasSessionService } from "../../domain/canvas/session/CanvasSessionService";
-import type { ThoughtDirection } from "../../domain/train/types";
 import { resolveCaptureConfig } from "../../domain/capture/resolveCaptureConfig";
 import { QuickCaptureModal } from "../../ui/capture/QuickCaptureModal";
 import { TrainResumeModal } from "../../ui/train/TrainResumeModal";
@@ -30,8 +29,11 @@ import { TrainCaptureModal } from "../../ui/train/TrainCaptureModal";
 import { CanvasTemplatePickerModal } from "../../ui/canvas/CanvasTemplatePickerModal";
 import { InputModal, ManualQaModal } from "../../ui/modals";
 import { SubscriptionManagerModal } from "../../ui/catalog/SubscriptionManagerModal";
-import { computeRemainingMs } from "../../domain/session/helpers";
 import type { InputModalConfig } from "./UiCommandService";
+import {
+	resolveThoughtContext, resolveInitialRemainingMs,
+	resolveDefaultDirection, buildTimerSubscriptions, buildNavigationCallbacks,
+} from "./ModalService-train-helpers";
 
 // ─────────────────────────────────────────────────────────────
 // Options
@@ -276,7 +278,6 @@ export class ModalService implements IDisposable {
 								});
 								break;
 							case "stay-here":
-								// Don't resume — leave the train paused at current position
 								break;
 						}
 					},
@@ -377,124 +378,29 @@ export class ModalService implements IDisposable {
 	): void {
 		if (!this.trainService) return;
 
-		// Sync the active thought across all views (main view + timeline sidebar)
 		if (fromThoughtId) {
 			void this.eventBus.emit("train.thought.activated", { trainId, thoughtId: fromThoughtId });
 		}
 
-		let previousThoughtTitle: string | null;
-		let thoughtCount: number;
+		const { previousThoughtTitle, thoughtCount } = resolveThoughtContext(this.trainService, trainId, overrides, fromThoughtId);
+		if (previousThoughtTitle === undefined) return; // train not found
 
-		if (overrides) {
-			previousThoughtTitle = overrides.previousTitle;
-			thoughtCount = overrides.thoughtCount;
-		} else {
-			const train = this.trainService.getTrain(trainId);
-			if (!train) return;
-
-			// Use the specified thought as context, otherwise fall back to last thought
-			const contextThought = fromThoughtId
-				? train.thoughts.find((t) => t.id === fromThoughtId) ?? null
-				: train.thoughts[train.thoughts.length - 1] ?? null;
-			previousThoughtTitle = contextThought?.title ?? null;
-			thoughtCount = train.thoughts.length;
-		}
-
-		// Resolve timer info from TrainState
 		const train = this.trainService.getTrain(trainId);
 		const durationMinutes = train?.durationMinutes ?? 0;
 		const sessionId = train?.sessionId;
 
-		// Compute current remaining time to avoid timer reset flash when modal reopens
-		let initialRemainingMs: number | undefined;
-		if (durationMinutes > 0 && sessionId && this.sessionService) {
-			const session = this.sessionService.getSessionById(sessionId);
-			if (session) {
-				initialRemainingMs = computeRemainingMs(session);
-			}
-		}
+		const initialRemainingMs = resolveInitialRemainingMs(this.sessionService, durationMinutes, sessionId);
+		const defaultDirection = resolveDefaultDirection(fromThoughtId, train);
+		const timerSubs = buildTimerSubscriptions(this.eventBus, durationMinutes, sessionId);
+		const navCbs = buildNavigationCallbacks(
+			trainId, trainTitle,
+			(tId, tTitle, ovr, ftId, md) => this.openTrainModal(tId, tTitle, ovr, ftId, md),
+			fromThoughtId, train,
+		);
 
-		// Auto-detect direction: if the source thought already has a "next" child, default to "branch"
-		let defaultDirection: ThoughtDirection = "next";
-		if (fromThoughtId && train) {
-			const hasNextChild = train.relations.some(
-				(r) => r.fromId === fromThoughtId && r.direction === "next",
-			);
-			if (hasNextChild) {
-				defaultDirection = "branch";
-			}
-		}
-
-		// Timer subscriptions — closures that filter by sessionId
-		const subscribeTimerTick = (durationMinutes > 0 && sessionId)
-			? (cb: (remainingMs: number) => void) => {
-				return this.eventBus.on("session.timer.tick", (event) => {
-					if (event.payload.sessionId === sessionId) {
-						cb(event.payload.remainingMs);
-					}
-				});
-			}
-			: undefined;
-
-		const subscribeTimerCompleted = (durationMinutes > 0 && sessionId)
-			? (cb: () => void) => {
-				return this.eventBus.on("session.timer.completed", (event) => {
-					if (event.payload.sessionId === sessionId) {
-						cb();
-					}
-				});
-			}
-			: undefined;
-
-		// Navigation callbacks — mirrors the thought's link directions (prev/next/up)
-		// Each emits train.thought.activated so main view + timeline sync to the new thought.
-		let onBack: (() => void) | undefined;
-		let onNext: (() => void) | undefined;
-		let onUp: (() => void) | undefined;
-		let onDown: (() => void) | undefined;
-		if (fromThoughtId && train) {
-			// prev: linear parent (any relation pointing TO this thought)
-			const parentRelation = train.relations.find((r) => r.toId === fromThoughtId);
-			if (parentRelation) {
-				const parentId = parentRelation.fromId;
-				onBack = () => this.openTrainModal(trainId, trainTitle, undefined, parentId);
-			}
-			// next: linear child (direction="next" from this thought)
-			const nextRelation = train.relations.find(
-				(r) => r.fromId === fromThoughtId && r.direction === "next",
-			);
-			if (nextRelation) {
-				const nextId = nextRelation.toId;
-				onNext = () => this.openTrainModal(trainId, trainTitle, undefined, nextId);
-			}
-			// up: first branch child (direction="branch" from this thought)
-			const branchRelation = train.relations.find(
-				(r) => r.fromId === fromThoughtId && r.direction === "branch",
-			);
-			if (branchRelation) {
-				const branchId = branchRelation.toId;
-				onUp = () => this.openTrainModal(trainId, trainTitle, undefined, branchId);
-			}
-			// down: branch parent (parent with direction="branch" pointing TO this thought)
-			const branchParentRelation = train.relations.find(
-				(r) => r.toId === fromThoughtId && r.direction === "branch",
-			);
-			if (branchParentRelation) {
-				const branchParentId = branchParentRelation.fromId;
-				onDown = () => this.openTrainModal(trainId, trainTitle, undefined, branchParentId);
-			}
-		}
-
-		// Detect branch for merge-down option (available whenever thought is on a branch)
-		const mergeDownInfo = (fromThoughtId && train)
-			? this.trainService.findMergeDownTarget(trainId, fromThoughtId)
-			: null;
+		const mergeDownInfo = (fromThoughtId && train) ? this.trainService.findMergeDownTarget(trainId, fromThoughtId) : null;
 		const isBranchEndpoint = mergeDownInfo !== null;
-
-		// Check if source thought has been merged into another thought
-		const isMerged = (fromThoughtId && train)
-			? train.relations.some((r) => r.fromId === fromThoughtId && r.direction === "merge")
-			: false;
+		const isMerged = (fromThoughtId && train) ? train.relations.some((r) => r.fromId === fromThoughtId && r.direction === "merge") : false;
 
 		new TrainCaptureModal(this.app, {
 			trainTitle,
@@ -503,12 +409,12 @@ export class ModalService implements IDisposable {
 			durationMinutes,
 			initialRemainingMs,
 			defaultDirection,
-			subscribeTimerTick,
-			subscribeTimerCompleted,
-			onBack,
-			onNext,
-			onUp,
-			onDown,
+			subscribeTimerTick: timerSubs.subscribeTimerTick,
+			subscribeTimerCompleted: timerSubs.subscribeTimerCompleted,
+			onBack: navCbs.onBack,
+			onNext: navCbs.onNext,
+			onUp: navCbs.onUp,
+			onDown: navCbs.onDown,
 			isBranchEndpoint,
 			isMerged,
 			defaultMergeDown: mergeDown,
@@ -517,7 +423,6 @@ export class ModalService implements IDisposable {
 			} : undefined,
 			onMergeDown: isBranchEndpoint ? (title) => {
 				if (mergeDownInfo.targetId) {
-					// Add thought on branch, then merge it into main chain target
 					void this.trainService!.addThought(trainId, title, {
 						direction: "next",
 						fromThoughtId: fromThoughtId!,
@@ -525,14 +430,12 @@ export class ModalService implements IDisposable {
 						if (newThought) {
 							await this.trainService!.mergeBranch(trainId, newThought.id, mergeDownInfo.targetId!);
 						}
-						// Continue from the main chain target
 						this.openTrainModal(trainId, trainTitle, {
 							previousTitle: title,
 							thoughtCount: thoughtCount + 1,
 						}, mergeDownInfo.targetId!);
 					});
 				} else {
-					// No next on main chain — add thought as "next" from origin, then merge branch into it
 					void this.trainService!.addThought(trainId, title, { direction: "next", fromThoughtId: mergeDownInfo.originId }).then(async (newThought) => {
 						if (newThought) {
 							await this.trainService!.mergeBranch(trainId, fromThoughtId!, newThought.id);
@@ -545,7 +448,6 @@ export class ModalService implements IDisposable {
 				}
 			} : undefined,
 			onSubmit: (title, direction) => {
-				// Await addThought so the next modal chains from the correct thought
 				void this.trainService!.addThought(trainId, title, { direction, fromThoughtId }).then((newThought) => {
 					this.openTrainModal(trainId, trainTitle, {
 						previousTitle: title,

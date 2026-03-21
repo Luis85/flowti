@@ -154,6 +154,9 @@
 	display: block;
 }
 
+.ft-world-container canvas.ft-cursor-pointer { cursor: pointer; }
+.ft-world-fade-out { opacity: 0; }
+
 .ft-world-missing,
 .ft-world-error {
 	display: flex;

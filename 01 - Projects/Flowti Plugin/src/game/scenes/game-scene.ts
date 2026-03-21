@@ -21,6 +21,17 @@ import type { AgentSprites } from "../sprites/sprite-loader.js";
 import { WORKSTATION_COLS, WORKSTATION_SPACING, WORKSTATION_START } from "../config/settings.js";
 import { resolveSettingForDomain } from "../config/domain-map.js";
 
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function createOverlayLabel(x: number, y: number, text: string, size: number, color: string, textAlign: ex.TextAlign, anchor: ex.Vector, z: number): ex.Label {
+	const label = new ex.Label({
+		text, pos: ex.vec(x, y), anchor, z,
+		font: new ex.Font({ family: "system-ui, sans-serif", size, unit: ex.FontUnit.Px, color: ex.Color.fromHex(color), textAlign }),
+	});
+	label.body.collisionType = ex.CollisionType.PreventCollision;
+	return label;
+}
+
 // ── Hub layout constants ────────────────────────────────────────────
 
 const HUB_AGENT_SPACING = 80;
@@ -203,82 +214,47 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		this.spriteRegistry = registry;
 	}
 
-	/** Spawn an agent actor at the next available workstation. */
+	/** Spawn an agent actor at the next available workstation or hub grid position. */
 	spawnAgent(agent: DashboardAgent): void {
 		if (this.agentActors.has(agent.name)) return;
 
+		let x: number, y: number, z = 0;
 		if (this.sceneConfig.workstationCount > 0) {
-			// Room with workstations — find unoccupied slot
 			const ws = this.workstations.find((w) => !w.occupied);
-			const x = ws ? ws.pos.x : WORKSTATION_START.x + this.agentActors.size * 60;
-			const y = ws ? ws.pos.y - 40 : WORKSTATION_START.y - 40;
-
+			x = ws ? ws.pos.x : WORKSTATION_START.x + this.agentActors.size * 60;
+			y = ws ? ws.pos.y - 40 : WORKSTATION_START.y - 40;
 			if (ws) ws.occupy(agent.name);
-
-			const charName = resolveCharacter(agent.name, agent.domain ?? "");
-			const sprites = this.spriteRegistry.get(charName);
-			if (!sprites) return;
-			const actor = new AgentActor({
-				agent,
-				x,
-				y,
-				onSelect: this.callbacks.onAgentSelect,
-				sprites,
-			});
-			this.add(actor);
-			this.agentActors.set(agent.name, actor);
 		} else {
-			// Hub — place at calculated grid position
 			const w = this.engine?.drawWidth ?? 1200;
 			const h = this.engine?.drawHeight ?? 700;
 			const idx = this.agentActors.size;
 			const col = idx % HUB_AGENTS_PER_ROW;
 			const row = Math.floor(idx / HUB_AGENTS_PER_ROW);
-			const cols = Math.min(idx + 1, HUB_AGENTS_PER_ROW);
-			const gridW = cols * HUB_AGENT_SPACING;
-			const areaW = w - 120;
-			const startX = (areaW - gridW) / 2 + HUB_AGENT_SPACING / 2;
-			const startY = (h - HUB_AGENT_SPACING) / 2 + 20;
-			const x = startX + col * HUB_AGENT_SPACING;
-			const y = startY + row * HUB_AGENT_SPACING;
-
-			const charName = resolveCharacter(agent.name, agent.domain ?? "");
-			const sprites = this.spriteRegistry.get(charName);
-			if (!sprites) return;
-			const actor = new AgentActor({
-				agent,
-				x,
-				y,
-				onSelect: this.callbacks.onAgentSelect,
-				sprites,
-			});
-			actor.z = 10;
-			this.add(actor);
-			this.agentActors.set(agent.name, actor);
+			const gridW = Math.min(idx + 1, HUB_AGENTS_PER_ROW) * HUB_AGENT_SPACING;
+			x = ((w - 120 - gridW) / 2 + HUB_AGENT_SPACING / 2) + col * HUB_AGENT_SPACING;
+			y = ((h - HUB_AGENT_SPACING) / 2 + 20) + row * HUB_AGENT_SPACING;
+			z = 10;
 		}
+		this.addAgentActor(agent, x, y, z);
 	}
 
 	/** Spawn an agent actor near the first door (used for room transfers). */
 	spawnAgentAtDoorway(agent: DashboardAgent): void {
 		if (this.agentActors.has(agent.name)) return;
-
 		const doorway = this.getDoorwayPosition();
-		const x = doorway.x + 30 + Math.random() * 40;
-		const y = doorway.y - 20 + Math.random() * 40;
+		this.addAgentActor(agent, doorway.x + 30 + Math.random() * 40, doorway.y - 20 + Math.random() * 40, 10);
+	}
 
+	/** Create and add an agent actor at the given position. Returns false if sprites not found. */
+	private addAgentActor(agent: DashboardAgent, x: number, y: number, z = 0): boolean {
 		const charName = resolveCharacter(agent.name, agent.domain ?? "");
 		const sprites = this.spriteRegistry.get(charName);
-		if (!sprites) return;
-		const actor = new AgentActor({
-			agent,
-			x,
-			y,
-			onSelect: this.callbacks.onAgentSelect,
-			sprites,
-		});
-		actor.z = 10;
+		if (!sprites) return false;
+		const actor = new AgentActor({ agent, x, y, onSelect: this.callbacks.onAgentSelect, sprites });
+		if (z) actor.z = z;
 		this.add(actor);
 		this.agentActors.set(agent.name, actor);
+		return true;
 	}
 
 	/** Remove an agent actor by name. */
@@ -354,23 +330,9 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	updateAgents(agents: readonly DashboardAgent[]): void {
 		const incoming = new Set<string>();
 
-		// Only hub-resident agents get full actors (domain routing in domain-map.ts)
 		const hubAgents = agents.filter((a) => resolveSettingForDomain(a.domain) === "hub");
 		const offHubCount = agents.length - hubAgents.length;
-
-		if (this.hubHintLabel) {
-			if (agents.length === 0) {
-				this.hubHintLabel.text =
-					"No roster yet — add .flowti/agents/data/agent-dashboard.json or run the Flowti CLI.";
-			} else if (offHubCount > 0 && hubAgents.length === 0) {
-				this.hubHintLabel.text =
-					`${offHubCount} agent(s) are in side rooms by domain — click the doors on the right (Office / Village / Station).`;
-			} else if (offHubCount > 0) {
-				this.hubHintLabel.text = `+${offHubCount} more in side rooms → use doors`;
-			} else {
-				this.hubHintLabel.text = "";
-			}
-		}
+		this.updateHubHint(agents.length, hubAgents.length, offHubCount);
 
 		const w = this.engine?.drawWidth ?? 1200;
 		const h = this.engine?.drawHeight ?? 700;
@@ -386,32 +348,11 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		for (let i = 0; i < hubAgents.length; i++) {
 			const agent = hubAgents[i];
 			incoming.add(agent.name);
-
 			const col = i % HUB_AGENTS_PER_ROW;
 			const row = Math.floor(i / HUB_AGENTS_PER_ROW);
 			const x = startX + col * HUB_AGENT_SPACING;
 			const y = startY + row * HUB_AGENT_SPACING;
-
-			if (this.agentActors.has(agent.name)) {
-				const actor = this.agentActors.get(agent.name)!;
-				actor.agentData = agent;
-				actor.updateVisualStatus(agent.status);
-			} else if (!this.sceneEntities.has(agent.name) && !this.transferredOut.has(agent.name)) {
-				// Only create if not managed by Phase 3 or transferred out
-				const charName = resolveCharacter(agent.name, agent.domain ?? "");
-				const sprites = this.spriteRegistry.get(charName);
-				if (!sprites) continue;
-				const actor = new AgentActor({
-					agent,
-					x,
-					y,
-					onSelect: this.callbacks.onAgentSelect,
-					sprites,
-				});
-				actor.z = 10;
-				this.add(actor);
-				this.agentActors.set(agent.name, actor);
-			}
+			this.upsertHubAgent(agent, x, y);
 		}
 
 		// Remove stale agent actors (skip entities managed by Phase 3)
@@ -421,6 +362,39 @@ export class GameScene extends ex.Scene implements SceneHandle {
 				this.agentActors.delete(name);
 			}
 		}
+	}
+
+	/** Update hub hint label based on agent counts. */
+	private updateHubHint(totalCount: number, hubCount: number, offHubCount: number): void {
+		if (!this.hubHintLabel) return;
+		if (totalCount === 0) {
+			this.hubHintLabel.text = "No roster yet — add .flowti/agents/data/agent-dashboard.json or run the Flowti CLI.";
+		} else if (offHubCount > 0 && hubCount === 0) {
+			this.hubHintLabel.text = `${offHubCount} agent(s) are in side rooms by domain — click the doors on the right (Office / Village / Station).`;
+		} else if (offHubCount > 0) {
+			this.hubHintLabel.text = `+${offHubCount} more in side rooms → use doors`;
+		} else {
+			this.hubHintLabel.text = "";
+		}
+	}
+
+	/** Create or update a single hub agent actor. */
+	private upsertHubAgent(agent: DashboardAgent, x: number, y: number): void {
+		if (this.agentActors.has(agent.name)) {
+			const actor = this.agentActors.get(agent.name)!;
+			actor.agentData = agent;
+			actor.updateVisualStatus(agent.status);
+			return;
+		}
+		if (this.sceneEntities.has(agent.name) || this.transferredOut.has(agent.name)) return;
+
+		const charName = resolveCharacter(agent.name, agent.domain ?? "");
+		const sprites = this.spriteRegistry.get(charName);
+		if (!sprites) return;
+		const actor = new AgentActor({ agent, x, y, onSelect: this.callbacks.onAgentSelect, sprites });
+		actor.z = 10;
+		this.add(actor);
+		this.agentActors.set(agent.name, actor);
 	}
 
 	// ── NEW APIs (Phase 3 — SceneEntity-based) ──────────────────────
@@ -500,43 +474,12 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	// ── Private helpers ─────────────────────────────────────────────
 
 	private createOverlay(overlay: OverlayConfig, sceneWidth: number): void {
-		switch (overlay.type) {
-			case "connection-status": {
-				this.connectionLabel = new ex.Label({
-					text: "POLLING",
-					pos: ex.vec(overlay.position.x ?? sceneWidth - 12, overlay.position.y ?? 16),
-					font: new ex.Font({
-						family: "system-ui, sans-serif",
-						size: 10,
-						unit: ex.FontUnit.Px,
-						color: ex.Color.fromHex("#f59e0b"),
-						textAlign: ex.TextAlign.Right,
-					}),
-					anchor: ex.vec(1, 0.5),
-					z: 20,
-				});
-				this.connectionLabel.body.collisionType = ex.CollisionType.PreventCollision;
-				this.add(this.connectionLabel);
-				break;
-			}
-			case "iteration-badge": {
-				this.iterationLabel = new ex.Label({
-					text: "",
-					pos: ex.vec(overlay.position.x ?? sceneWidth / 2, overlay.position.y ?? 70),
-					font: new ex.Font({
-						family: "system-ui, sans-serif",
-						size: 11,
-						unit: ex.FontUnit.Px,
-						color: ex.Color.fromHex("#64748b"),
-						textAlign: ex.TextAlign.Center,
-					}),
-					anchor: ex.vec(0.5, 0.5),
-					z: 5,
-				});
-				this.iterationLabel.body.collisionType = ex.CollisionType.PreventCollision;
-				this.add(this.iterationLabel);
-				break;
-			}
+		if (overlay.type === "connection-status") {
+			this.connectionLabel = createOverlayLabel(overlay.position.x ?? sceneWidth - 12, overlay.position.y ?? 16, "POLLING", 10, "#f59e0b", ex.TextAlign.Right, ex.vec(1, 0.5), 20);
+			this.add(this.connectionLabel);
+		} else if (overlay.type === "iteration-badge") {
+			this.iterationLabel = createOverlayLabel(overlay.position.x ?? sceneWidth / 2, overlay.position.y ?? 70, "", 11, "#64748b", ex.TextAlign.Center, ex.vec(0.5, 0.5), 5);
+			this.add(this.iterationLabel);
 		}
 	}
 }

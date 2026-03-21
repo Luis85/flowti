@@ -20,6 +20,8 @@ import { InteractableActor } from "../../../src/game/actors/interactable-actor.j
 describe("InteractableActor", () => {
 	it("stores interaction point offset", () => {
 		const actor = new InteractableActor({
+			objectId: "desk-01",
+			objectType: "desk",
 			width: 48, height: 48,
 			interactionOffset: { x: 0, y: 30 },
 			needsEffects: { energy: 10 },
@@ -29,6 +31,8 @@ describe("InteractableActor", () => {
 
 	it("returns needs effects", () => {
 		const actor = new InteractableActor({
+			objectId: "plant-01",
+			objectType: "plant",
 			width: 48, height: 48,
 			interactionOffset: { x: 0, y: 0 },
 			needsEffects: { energy: 15, focus: 5 },
@@ -38,6 +42,8 @@ describe("InteractableActor", () => {
 
 	it("tracks occupied state", () => {
 		const actor = new InteractableActor({
+			objectId: "chair-01",
+			objectType: "chair",
 			width: 48, height: 48,
 			interactionOffset: { x: 0, y: 0 },
 			needsEffects: {},

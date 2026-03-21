@@ -2,8 +2,8 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("excalibur", () => {
-	function MockActor() {
-		const self = this as Record<string, unknown>;
+	function MockActor(this: Record<string, unknown>) {
+		const self = this;
 		self.pos = { x: 100, y: 100 };
 		self.scale = { x: 1, y: 1 };
 		self.graphics = { use: vi.fn(), opacity: 1 };

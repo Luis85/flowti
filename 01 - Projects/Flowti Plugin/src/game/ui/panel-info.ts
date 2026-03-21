@@ -289,102 +289,78 @@ export class PanelInfo extends FlowtiElement {
 			return html`<div class="empty">No agent selected.</div>`;
 		}
 
-		const { persona, personality, domain, mood, status, agentType, attributes, experience, skills, relationships } = this.agent;
+		const { attributes, experience } = this.agent;
+
+		return html`
+			${this.renderHero()}
+			${this.renderProjectContext()}
+			${this.renderStats(attributes)}
+			${experience !== undefined ? this.renderXp(experience) : nothing}
+			${this.renderListSection("Skills", this.agent.skills, (s) => html`
+				<div class="skill"><span class="skill-name">${s.name}</span><span class="skill-level">${s.level}</span></div>
+			`)}
+			${this.renderListSection("Connections", this.agent.relationships, (r) => html`
+				<div class="rel"><span class="rel-name">${r.target}</span><span class="rel-type">${r.type}</span></div>
+			`)}
+			${this.renderListSection("Goals", this.agent.goals, (g) => html`
+				<div class="skill"><span class="skill-name">${g.text}</span><span class="skill-level">${g.priority}</span></div>
+			`)}
+			${this.agent.behaviors && this.agent.behaviors.length > 0 ? html`
+				<div class="section">
+					<div class="section-label">Behaviors</div>
+					<div class="personality">${this.agent.behaviors.map((b) => html`<span class="trait">${b}</span>`)}</div>
+				</div>
+			` : nothing}
+		`;
+	}
+
+	private renderHero() {
+		const { persona, personality, domain, mood, status, agentType } = this.agent;
 		const domainColor = DOMAIN_COLORS[domain ?? ""] ?? "#64748b";
 
 		return html`
-			<!-- Hero / greeting -->
 			<div class="hero">
-				${persona
-					? html`<div class="persona">"${persona}"</div>`
-					: nothing}
-
+				${persona ? html`<div class="persona">"${persona}"</div>` : nothing}
 				<div class="tags">
 					${domain ? html`<span class="tag tag-domain" style="background:${domainColor}">${domain}</span>` : nothing}
 					<span class="tag tag-type">${agentType === "ai" ? "AI Agent" : "Human"}</span>
 					${mood ? html`<span class="tag tag-mood">${MOOD_EMOJI[mood] ?? mood}</span>` : nothing}
 					<span class="tag tag-status" data-status="${status}">${status}</span>
 				</div>
-
 				${personality && personality.length > 0 ? html`
-					<div class="personality">
-						${personality.map((t) => html`<span class="trait">${t}</span>`)}
+					<div class="personality">${personality.map((t) => html`<span class="trait">${t}</span>`)}</div>
+				` : nothing}
+			</div>
+		`;
+	}
+
+	private renderProjectContext() {
+		if (!this.agent.project && !this.agent.iteration) return nothing;
+		return html`
+			<div class="section">
+				${this.agent.project ? html`
+					<div class="context-row">
+						<span class="context-label">Project</span>
+						<span class="context-value">${this.agent.project}</span>
+					</div>
+				` : nothing}
+				${this.agent.iteration ? html`
+					<div class="context-row">
+						<span class="context-label">Iteration</span>
+						<span class="context-value">${this.agent.iteration}${this.agent.phase ? html` <span class="context-dim">(${this.agent.phase})</span>` : nothing}</span>
 					</div>
 				` : nothing}
 			</div>
+		`;
+	}
 
-			<!-- Project context -->
-			${this.agent.project || this.agent.iteration ? html`
-				<div class="section">
-					${this.agent.project ? html`
-						<div class="context-row">
-							<span class="context-label">Project</span>
-							<span class="context-value">${this.agent.project}</span>
-						</div>
-					` : nothing}
-					${this.agent.iteration ? html`
-						<div class="context-row">
-							<span class="context-label">Iteration</span>
-							<span class="context-value">${this.agent.iteration}${this.agent.phase ? html` <span class="context-dim">(${this.agent.phase})</span>` : nothing}</span>
-						</div>
-					` : nothing}
-				</div>
-			` : nothing}
-
-			<!-- Stats -->
-			${this.renderStats(attributes)}
-
-			<!-- XP -->
-			${experience !== undefined ? this.renderXp(experience) : nothing}
-
-			<!-- Skills -->
-			${skills && skills.length > 0 ? html`
-				<div class="section">
-					<div class="section-label">Skills</div>
-					${skills.map((s) => html`
-						<div class="skill">
-							<span class="skill-name">${s.name}</span>
-							<span class="skill-level">${s.level}</span>
-						</div>
-					`)}
-				</div>
-			` : nothing}
-
-			<!-- Relationships -->
-			${relationships && relationships.length > 0 ? html`
-				<div class="section">
-					<div class="section-label">Connections</div>
-					${relationships.map((r) => html`
-						<div class="rel">
-							<span class="rel-name">${r.target}</span>
-							<span class="rel-type">${r.type}</span>
-						</div>
-					`)}
-				</div>
-			` : nothing}
-
-			<!-- Goals -->
-			${this.agent.goals && this.agent.goals.length > 0 ? html`
-				<div class="section">
-					<div class="section-label">Goals</div>
-					${this.agent.goals.map((g) => html`
-						<div class="skill">
-							<span class="skill-name">${g.text}</span>
-							<span class="skill-level">${g.priority}</span>
-						</div>
-					`)}
-				</div>
-			` : nothing}
-
-			<!-- Behaviors -->
-			${this.agent.behaviors && this.agent.behaviors.length > 0 ? html`
-				<div class="section">
-					<div class="section-label">Behaviors</div>
-					<div class="personality">
-						${this.agent.behaviors.map((b) => html`<span class="trait">${b}</span>`)}
-					</div>
-				</div>
-			` : nothing}
+	private renderListSection<T>(label: string, items: readonly T[] | undefined, renderItem: (item: T) => unknown) {
+		if (!items || items.length === 0) return nothing;
+		return html`
+			<div class="section">
+				<div class="section-label">${label}</div>
+				${items.map(renderItem)}
+			</div>
 		`;
 	}
 

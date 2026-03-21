@@ -261,79 +261,66 @@ export class TrainTimelineSidebar extends ItemView {
 		isHead = false,
 		mergeTargetLane: number | null = null,
 	): void {
-		const { thought, lane, activeLanes, isBranchStart, parentLane } = row;
+		const { thought, lane } = row;
 		const isActive = thought.id === this.activeThoughtId;
-
-		const cls = [
-			"ft-timeline-node",
-			"ft-graph-node",
-			isActive ? "ft-timeline-node-active" : "",
-			lane > 0 ? "ft-timeline-node-branch" : "",
-		].filter(Boolean).join(" ");
-
+		const cls = ["ft-timeline-node", "ft-graph-node", isActive ? "ft-timeline-node-active" : "", lane > 0 ? "ft-timeline-node-branch" : ""].filter(Boolean).join(" ");
 		const node = container.createDiv({ cls });
 
-		// ── Graph cell: lane rails + node dot ──
+		this.renderGraphCell(node, row, maxLane, isHead, mergeTargetLane);
+		this.renderGraphContent(node, thought, train);
+
+		node.addEventListener("click", () => {
+			this.activeThoughtId = thought.id;
+			void this.eventBus.emit("train.thought.activated", { trainId: train.id, thoughtId: thought.id });
+			void this.eventBus.emit("ui.openTrainView", { trainId: train.id });
+			this.render();
+		});
+	}
+
+	private renderGraphCell(node: HTMLElement, row: GraphRow, maxLane: number, isHead: boolean, mergeTargetLane: number | null): void {
+		const { lane, activeLanes } = row;
 		const graphCell = node.createDiv({ cls: "ft-graph-cell" });
 		const cellWidth = (maxLane + 1) * LANE_WIDTH + 4;
 		graphCell.style.width = `${cellWidth}px`;
 		graphCell.style.minWidth = `${cellWidth}px`;
 
-		// Vertical rails for each active lane
 		for (const [laneIdx, color] of activeLanes) {
 			const rail = graphCell.createDiv({ cls: "ft-graph-rail" });
 			rail.style.left = `${laneIdx * LANE_WIDTH + LANE_WIDTH / 2 - 1}px`;
 			rail.style.backgroundColor = color;
 		}
 
-		// Fork connector for branch start (horizontal line from parent lane to branch lane)
-		if (isBranchStart && parentLane !== lane) {
+		if (row.isBranchStart && row.parentLane !== lane) {
 			const forkColor = activeLanes.get(lane) ?? LANE_COLORS[lane % LANE_COLORS.length];
 			const fork = graphCell.createDiv({ cls: "ft-graph-fork" });
-			const fromX = parentLane * LANE_WIDTH + LANE_WIDTH / 2;
-			const toX = lane * LANE_WIDTH + LANE_WIDTH / 2;
-			fork.style.left = `${fromX}px`;
-			fork.style.width = `${toX - fromX}px`;
+			fork.style.left = `${row.parentLane * LANE_WIDTH + LANE_WIDTH / 2}px`;
+			fork.style.width = `${lane * LANE_WIDTH + LANE_WIDTH / 2 - (row.parentLane * LANE_WIDTH + LANE_WIDTH / 2)}px`;
 			fork.style.backgroundColor = forkColor;
 		}
 
-		// Merge connector for branch endpoint merging back to target lane
 		if (mergeTargetLane !== null && mergeTargetLane !== lane) {
 			const mergeColor = activeLanes.get(lane) ?? LANE_COLORS[lane % LANE_COLORS.length];
 			const merge = graphCell.createDiv({ cls: "ft-graph-merge" });
-			const fromX = Math.min(lane, mergeTargetLane) * LANE_WIDTH + LANE_WIDTH / 2;
-			const toX = Math.max(lane, mergeTargetLane) * LANE_WIDTH + LANE_WIDTH / 2;
-			merge.style.left = `${fromX}px`;
-			merge.style.width = `${toX - fromX}px`;
+			merge.style.left = `${Math.min(lane, mergeTargetLane) * LANE_WIDTH + LANE_WIDTH / 2}px`;
+			merge.style.width = `${Math.max(lane, mergeTargetLane) * LANE_WIDTH + LANE_WIDTH / 2 - (Math.min(lane, mergeTargetLane) * LANE_WIDTH + LANE_WIDTH / 2)}px`;
 			merge.style.borderBottomColor = mergeColor;
-
-			// Arrow pointing toward the target lane
 			const arrow = merge.createDiv({ cls: "ft-graph-merge-arrow" });
 			arrow.style.borderTopColor = mergeColor;
-			// Position arrow at the target end
-			if (mergeTargetLane < lane) {
-				arrow.addClass("ft-graph-merge-arrow-left");
-			} else {
-				arrow.addClass("ft-graph-merge-arrow-right");
-			}
+			arrow.addClass(mergeTargetLane < lane ? "ft-graph-merge-arrow-left" : "ft-graph-merge-arrow-right");
 		}
 
-		// Node circle (dot)
 		const dotColor = activeLanes.get(lane) ?? LANE_COLORS[lane % LANE_COLORS.length];
-		const dotCls = ["ft-graph-dot"];
-		if (isActive) dotCls.push("ft-graph-dot-active");
-		if (isHead) dotCls.push("ft-graph-dot-head");
+		const isActiveDot = row.thought.id === this.activeThoughtId;
+		const dotCls = ["ft-graph-dot", ...(isActiveDot ? ["ft-graph-dot-active"] : []), ...(isHead ? ["ft-graph-dot-head"] : [])];
 		const dot = graphCell.createDiv({ cls: dotCls.join(" ") });
 		dot.style.left = `${lane * LANE_WIDTH + LANE_WIDTH / 2}px`;
 		dot.style.backgroundColor = dotColor;
+	}
 
-		// ── Content area ──
+	private renderGraphContent(node: HTMLElement, thought: TrainState["thoughts"][0], train: TrainState): void {
 		const content = node.createDiv({ cls: "ft-graph-content" });
-
-		// Title
 		content.createSpan({ cls: "ft-timeline-node-title", text: thought.title });
 
-		// Collapse chevron + branch count badge
 		const branchCount = this.trainService.getBranches(train.id, thought.id).length;
 		if (branchCount > 0) {
 			const isCollapsed = this.collapsedNodes.has(thought.id);
@@ -341,81 +328,33 @@ export class TrainTimelineSidebar extends ItemView {
 			chevron.setText(isCollapsed ? "▸" : "▾");
 			chevron.addEventListener("click", (e) => {
 				e.stopPropagation();
-				if (this.collapsedNodes.has(thought.id)) {
-					this.collapsedNodes.delete(thought.id);
-				} else {
-					this.collapsedNodes.add(thought.id);
-				}
+				if (this.collapsedNodes.has(thought.id)) this.collapsedNodes.delete(thought.id);
+				else this.collapsedNodes.add(thought.id);
 				this.render();
 			});
-
-			content.createSpan({
-				cls: "ft-badge ft-badge-muted ft-text-sm ft-timeline-branch-badge",
-				text: `+${branchCount}`,
-			});
+			content.createSpan({ cls: "ft-badge ft-badge-muted ft-text-sm ft-timeline-branch-badge", text: `+${branchCount}` });
 		}
 
-		// Branch status badge (clickable — cycles through statuses)
-		const isBranchOrigin = train.relations.some(
-			(r) => r.direction === "branch" && r.toId === thought.id,
-		);
+		const isBranchOrigin = train.relations.some((r) => r.direction === "branch" && r.toId === thought.id);
 		if (isBranchOrigin && thought.branchStatus) {
-			const statusCls = `ft-branch-status-${thought.branchStatus}`;
-			const badge = content.createSpan({
-				cls: `ft-badge ft-text-sm ft-branch-status-badge ${statusCls}`,
-				text: thought.branchStatus,
-			});
-			badge.addEventListener("click", (e) => {
-				e.stopPropagation();
-				void this.cycleBranchStatus(train.id, thought.id, thought.branchStatus ?? null);
-			});
+			const badge = content.createSpan({ cls: `ft-badge ft-text-sm ft-branch-status-badge ft-branch-status-${thought.branchStatus}`, text: thought.branchStatus });
+			badge.addEventListener("click", (e) => { e.stopPropagation(); void this.cycleBranchStatus(train.id, thought.id, thought.branchStatus ?? null); });
 		} else if (isBranchOrigin) {
-			// No status yet — show a subtle "tag" button
-			const tagBtn = content.createSpan({
-				cls: "ft-branch-status-tag clickable-icon ft-text-sm",
-			});
+			const tagBtn = content.createSpan({ cls: "ft-branch-status-tag clickable-icon ft-text-sm" });
 			setIcon(tagBtn, "tag");
 			tagBtn.ariaLabel = "Set branch status";
-			tagBtn.addEventListener("click", (e) => {
-				e.stopPropagation();
-				void this.cycleBranchStatus(train.id, thought.id, null);
-			});
+			tagBtn.addEventListener("click", (e) => { e.stopPropagation(); void this.cycleBranchStatus(train.id, thought.id, null); });
 		}
 
-		// Merge indicators
-		const hasOutgoingMerge = train.relations.some(
-			(r) => r.fromId === thought.id && r.direction === "merge",
-		);
-		const hasIncomingMerge = train.relations.some(
-			(r) => r.toId === thought.id && r.direction === "merge",
-		);
-		if (hasOutgoingMerge) {
-			content.createSpan({
-				cls: "ft-badge ft-badge-accent ft-text-sm ft-timeline-merge-badge",
-				text: "⤴ merged",
-			});
+		if (train.relations.some((r) => r.fromId === thought.id && r.direction === "merge")) {
+			content.createSpan({ cls: "ft-badge ft-badge-accent ft-text-sm ft-timeline-merge-badge", text: "⤴ merged" });
 		}
-		if (hasIncomingMerge) {
-			content.createSpan({
-				cls: "ft-badge ft-badge-info ft-text-sm ft-timeline-merge-target-badge",
-				text: "⤵ target",
-			});
+		if (train.relations.some((r) => r.toId === thought.id && r.direction === "merge")) {
+			content.createSpan({ cls: "ft-badge ft-badge-info ft-text-sm ft-timeline-merge-target-badge", text: "⤵ target" });
 		}
 
-		// Timestamp
 		const time = new Date(thought.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 		content.createSpan({ cls: "ft-text-sm ft-text-faint ft-graph-time", text: time });
-
-		// Click to navigate — activates thought AND opens detail view
-		node.addEventListener("click", () => {
-			this.activeThoughtId = thought.id;
-			void this.eventBus.emit("train.thought.activated", {
-				trainId: train.id,
-				thoughtId: thought.id,
-			});
-			void this.eventBus.emit("ui.openTrainView", { trainId: train.id });
-			this.render();
-		});
 	}
 
 	// ── Helpers ──────────────────────────────────────────────

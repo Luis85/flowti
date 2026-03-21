@@ -80,6 +80,43 @@ export function parseDurationMs(raw: string): number {
 
 // ── Markdown parser ───────────────────────────────────────────────────
 
+/** Parse simple key-value frontmatter lines into a record. */
+function parseFrontmatterKV(raw: string): Record<string, string> {
+	const fm: Record<string, string> = {};
+	for (const line of raw.split(/\r?\n/)) {
+		const colonIdx = line.indexOf(":");
+		if (colonIdx === -1) continue;
+		const key = line.slice(0, colonIdx).trim();
+		const value = line.slice(colonIdx + 1).trim();
+		if (key) fm[key] = value;
+	}
+	return fm;
+}
+
+/** Parse gather point from frontmatter value. */
+function parseGatherPoint(raw: string | undefined): RitualDefinition["gatherPoint"] {
+	if (!raw || raw === "center") return "center";
+	const xyMatch = /(\d+)[,\s]+(\d+)/.exec(raw);
+	return xyMatch ? { x: parseInt(xyMatch[1], 10), y: parseInt(xyMatch[2], 10) } : "center";
+}
+
+/** Parse reaction emote from frontmatter value. */
+function parseReactionEmote(raw: string | undefined): RitualDefinition["reactionEmote"] {
+	if (!raw || raw === "random") return "random";
+	const n = parseInt(raw, 10);
+	return isNaN(n) ? "random" : n;
+}
+
+/** Parse quoted lines from markdown body (lines starting with - "..."). */
+function parseBodyLines(body: string): string[] {
+	const lines: string[] = [];
+	for (const rawLine of body.split(/\r?\n/)) {
+		const lineMatch = /^\s*-\s+"(.*)"/.exec(rawLine);
+		if (lineMatch) lines.push(lineMatch[1]);
+	}
+	return lines;
+}
+
 /**
  * Parse a ritual markdown file into a RitualDefinition.
  *
@@ -103,47 +140,11 @@ export function parseDurationMs(raw: string): number {
  * ```
  */
 export function parseRitualMarkdown(md: string): RitualDefinition {
-	// Extract frontmatter between --- delimiters
 	const fmMatch = /^---\r?\n([\s\S]*?)\r?\n---/m.exec(md);
 	const frontmatter = fmMatch ? fmMatch[1] : "";
 	const body = fmMatch ? md.slice(fmMatch[0].length) : md;
 
-	// Simple key: value YAML line parser (no nested objects needed)
-	const fm: Record<string, string> = {};
-	for (const line of frontmatter.split(/\r?\n/)) {
-		const colonIdx = line.indexOf(":");
-		if (colonIdx === -1) continue;
-		const key = line.slice(0, colonIdx).trim();
-		const value = line.slice(colonIdx + 1).trim();
-		if (key) fm[key] = value;
-	}
-
-	// Parse gather point
-	let gatherPoint: RitualDefinition["gatherPoint"] = "center";
-	if (fm["gather"] && fm["gather"] !== "center") {
-		// Try to parse "x,y" or "{x:10, y:20}" style — default to center on failure
-		const xyMatch = /(\d+)[,\s]+(\d+)/.exec(fm["gather"]);
-		if (xyMatch) {
-			gatherPoint = { x: parseInt(xyMatch[1], 10), y: parseInt(xyMatch[2], 10) };
-		}
-	}
-
-	// Parse reaction emote
-	let reactionEmote: RitualDefinition["reactionEmote"] = "random";
-	if (fm["emote"] && fm["emote"] !== "random") {
-		const n = parseInt(fm["emote"], 10);
-		if (!isNaN(n)) reactionEmote = n;
-	}
-
-	// Parse lines from body: lines starting with - "..."
-	const lines: string[] = [];
-	for (const rawLine of body.split(/\r?\n/)) {
-		const lineMatch = /^\s*-\s+"(.*)"/.exec(rawLine);
-		if (lineMatch) {
-			lines.push(lineMatch[1]);
-		}
-	}
-
+	const fm = parseFrontmatterKV(frontmatter);
 	const trigger = (fm["trigger"] as RitualDefinition["trigger"]) ?? "manual";
 
 	return {
@@ -154,10 +155,10 @@ export function parseRitualMarkdown(md: string): RitualDefinition {
 		participants: (fm["participants"] as RitualDefinition["participants"]) ?? "all",
 		duration: parseDurationMs(fm["duration"] ?? "5m"),
 		cooldown: parseDurationMs(fm["cooldown"] ?? "1h"),
-		gatherPoint,
+		gatherPoint: parseGatherPoint(fm["gather"]),
 		settleMs: parseDurationMs(fm["settle"] ?? "2s"),
-		lines,
-		reactionEmote,
+		lines: parseBodyLines(body),
+		reactionEmote: parseReactionEmote(fm["emote"]),
 		disperse: fm["disperse"] === "true",
 	};
 }

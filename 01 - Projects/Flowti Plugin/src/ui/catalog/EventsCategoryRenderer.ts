@@ -9,6 +9,8 @@ import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import { getCategoryDocPathResolved, generateCategoryDocContent } from "../eventDocTemplate";
 import { InputModal, CreateEventModal } from "../modals";
 import type { CatalogComponentDeps, CatalogState, CategoryEntry } from "./types";
+import type { Subscription } from "../../domain/subscription/types";
+import type { EventDefinition } from "../../domain/eventDefinition/types";
 import { UNCATEGORIZED_CATEGORY, isConfigured, openFile } from "./helpers";
 
 export interface CategoryRenderContext {
@@ -30,57 +32,25 @@ export function renderMasterCategory(
 	const { deps, state, categoryEntries } = ctx;
 	const isCollapsed = state.collapsedCategories.has(category);
 	const group = container.createDiv({ cls: "ft-master-category" });
-
-	const headerCls = isUserCategory
-		? "ft-master-category-header"
-		: "ft-master-category-header ft-master-category-system";
-	const header = group.createDiv({ cls: headerCls });
-
 	const isEmptyUncategorized = category === UNCATEGORIZED_CATEGORY && entries.length === 0;
 
+	const headerCls = isUserCategory ? "ft-master-category-header" : "ft-master-category-header ft-master-category-system";
+	const header = group.createDiv({ cls: headerCls });
 	let chevron: HTMLSpanElement | null = null;
 	if (isEmptyUncategorized) {
 		const plusIcon = header.createSpan();
 		setIcon(plusIcon, "plus");
 		plusIcon.addClass("ft-plus-icon-faded");
 	} else {
-		chevron = header.createSpan({
-			text: isCollapsed ? "\u25B6" : "\u25BC",
-			cls: "ft-chevron-sm",
-		});
+		chevron = header.createSpan({ text: isCollapsed ? "\u25B6" : "\u25BC", cls: "ft-chevron-sm" });
 	}
-
-	const displayLabel = isEmptyUncategorized ? "Create new Event" : category;
-	const catLabel = header.createSpan({ text: displayLabel });
-
-	// Show description from category doc as tooltip
+	const catLabel = header.createSpan({ text: isEmptyUncategorized ? "Create new Event" : category });
 	const catEntry = categoryEntries.find((c) => c.name === category);
-	if (catEntry?.description) {
-		catLabel.title = catEntry.description;
-	}
-
-	// Count badge with enhanced info
-	if (entries.length > 0) {
-		const visibleInLog = entries.filter((e) => !state.excludedTypes.has(e.type)).length;
-		const configuredInCat = entries.filter((e) => isConfigured(e.type, state.subscriptions, state.definitions)).length;
-
-		const parts: string[] = [String(entries.length)];
-		if (visibleInLog < entries.length) parts.push(`${visibleInLog} vis`);
-		if (configuredInCat > 0) parts.push(`${configuredInCat} conf`);
-
-		header.createSpan({
-			text: parts.join(" \u00B7 "),
-			cls: "ft-master-category-count",
-		});
-	}
-
-	if (isEmptyUncategorized) {
-		// No extra buttons — the whole header is the CTA
-	} else if (isUserCategory) {
-		renderUserCategoryActions(header, category, deps, ctx);
-	} else {
-		renderSystemCategoryActions(header, category, entries, state, deps, catEntry ?? null);
-	}
+	if (catEntry?.description) catLabel.title = catEntry.description;
+	renderCategoryBadge(header, entries, state);
+	if (isEmptyUncategorized) { /* no extra buttons */ }
+	else if (isUserCategory) renderUserCategoryActions(header, category, deps, ctx);
+	else renderSystemCategoryActions(header, category, entries, state, deps, catEntry ?? null);
 
 	const list = group.createDiv();
 	if (isCollapsed) list.classList.add("ft-hidden");
@@ -116,6 +86,16 @@ export function renderMasterCategory(
 			});
 		});
 	}
+}
+
+function renderCategoryBadge(header: HTMLElement, entries: EventCatalogEntry[], state: { excludedTypes: Set<string>; subscriptions: Subscription[]; definitions: EventDefinition[] }): void {
+	if (entries.length === 0) return;
+	const visibleInLog = entries.filter((e) => !state.excludedTypes.has(e.type)).length;
+	const configuredInCat = entries.filter((e) => isConfigured(e.type, state.subscriptions, state.definitions)).length;
+	const parts: string[] = [String(entries.length)];
+	if (visibleInLog < entries.length) parts.push(`${visibleInLog} vis`);
+	if (configuredInCat > 0) parts.push(`${configuredInCat} conf`);
+	header.createSpan({ text: parts.join(" \u00B7 "), cls: "ft-master-category-count" });
 }
 
 function renderUserCategoryActions(

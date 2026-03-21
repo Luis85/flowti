@@ -248,6 +248,14 @@ export interface CycleReportContext {
 	reportLinks?: string[];
 }
 
+/** Append a bulleted list section if items are non-empty. */
+function appendBulletSection(lines: string[], heading: string, items: string[], prefix = "- "): void {
+	if (items.length === 0) return;
+	lines.push(`## ${heading}`, "");
+	for (const item of items) lines.push(`${prefix}${item}`);
+	lines.push("");
+}
+
 export function generateCycleReportMarkdown(
 	fm: CycleReportFrontmatter,
 	ctx?: CycleReportContext,
@@ -270,32 +278,9 @@ export function generateCycleReportMarkdown(
 		lines.push(`## Source`, "", `- [[${ctx.cycleDocTitle}]]`, "");
 	}
 
-	const pbiNames = ctx?.pbiNames ?? [];
-	if (pbiNames.length > 0) {
-		lines.push(`## PBIs Delivered`, "");
-		for (const pbi of pbiNames) {
-			lines.push(`- ${pbi}`);
-		}
-		lines.push("");
-	}
-
-	const debtNames = ctx?.debtNames ?? [];
-	if (debtNames.length > 0) {
-		lines.push(`## Tech Debt Resolved`, "");
-		for (const td of debtNames) {
-			lines.push(`- ${td}`);
-		}
-		lines.push("");
-	}
-
-	const reportLinks = ctx?.reportLinks ?? [];
-	if (reportLinks.length > 0) {
-		lines.push(`## Related Reports`, "");
-		for (const link of reportLinks) {
-			lines.push(`- [[${link}]]`);
-		}
-		lines.push("");
-	}
+	appendBulletSection(lines, "PBIs Delivered", ctx?.pbiNames ?? []);
+	appendBulletSection(lines, "Tech Debt Resolved", ctx?.debtNames ?? []);
+	appendBulletSection(lines, "Related Reports", (ctx?.reportLinks ?? []).map((l) => `[[${l}]]`));
 
 	return lines.join("\n");
 }

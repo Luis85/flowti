@@ -7,6 +7,7 @@
 import { TFile, setIcon } from "obsidian";
 import { TYPE_ORDER } from "../../domain/canvas/types";
 import { revealFolderInExplorer } from "../hub/helpers";
+import type { CanvasImportResult } from "../../domain/canvas/types";
 import type { CanvasComponentDeps } from "./types";
 
 export class CanvasResultPage {
@@ -77,16 +78,21 @@ export class CanvasResultPage {
 	private renderSuccess(container: HTMLElement): void {
 		const state = this.deps.getState();
 		const result = state.importResult;
+		this.renderSuccessHeader(container, result, state);
+		this.renderWhatHappened(container, result, state);
+		if (result && result.imported > 0) this.renderTypeBreakdown(container, result, state);
+		if (result && result.errors.length > 0) this.renderErrorDetails(container, result);
+		this.renderArtifacts(container, state);
+		this.renderSuccessActions(container, result, state);
+	}
+
+	private renderSuccessHeader(container: HTMLElement, result: CanvasImportResult | null, state: ReturnType<typeof this.deps.getState>): void {
 		const hasErrors = result ? result.errors.length > 0 : false;
 		const allSkipped = result ? result.skipped === result.totalNodes : false;
-
-		// ── Status header ──
 		const statusIcon = hasErrors ? "alert-triangle" : allSkipped ? "minus-circle" : "check-circle";
 		const statusText = hasErrors
 			? `Import completed with ${result!.errors.length} error${result!.errors.length !== 1 ? "s" : ""}`
-			: allSkipped
-				? "All nodes skipped — notes already exist"
-				: "Import Complete";
+			: allSkipped ? "All nodes skipped \u2014 notes already exist" : "Import Complete";
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, statusIcon);
@@ -94,207 +100,112 @@ export class CanvasResultPage {
 		else if (allSkipped) hIcon.addClass("ft-text-muted");
 		else hIcon.addClass("ft-text-success-color");
 		headerRow.createEl("h3", { text: statusText, cls: "ft-heading ft-heading-sm" });
+	}
 
-		// ── "What happened" card ──
+	private renderWhatHappened(container: HTMLElement, result: CanvasImportResult | null, state: ReturnType<typeof this.deps.getState>): void {
 		const card = container.createDiv({ cls: "ft-card ft-mt-2" });
 		card.createDiv({ text: "What happened", cls: "ft-detail-section-header ft-mb-2" });
 		const grid = card.createDiv({ cls: "ft-detail-info-grid" });
-
-		if (result) {
-			this.addRow(grid, "Nodes processed", String(result.totalNodes));
-			if (result.imported > 0) this.addRow(grid, "Notes created", String(result.imported));
-			if (result.skipped > 0) this.addRow(grid, "Notes skipped", `${result.skipped} (already exist)`);
-			if (result.errors.length > 0) {
-				grid.createDiv({ text: "Errors", cls: "ft-detail-info-label ft-text-error" });
-				grid.createDiv({ text: String(result.errors.length), cls: "ft-detail-info-value ft-text-error" });
-			}
-
-			// Excluded by type
-			const excludedCount = state.excludedTypes.length;
-			if (excludedCount > 0) {
-				this.addRow(grid, "Excluded types", state.excludedTypes.join(", "));
-			}
-
-			this.addRow(grid, "Duration", `${result.duration}ms`);
-			this.addRow(grid, "Target folder", result.targetFolder);
-
-			if (state.configName) this.addRow(grid, "Config", state.configName);
-		} else {
-			// Fallback to legacy message
-			card.createDiv({ text: state.importMessage, cls: "ft-text-sm ft-p-3" });
+		if (!result) { card.createDiv({ text: state.importMessage, cls: "ft-text-sm ft-p-3" }); return; }
+		this.addRow(grid, "Nodes processed", String(result.totalNodes));
+		if (result.imported > 0) this.addRow(grid, "Notes created", String(result.imported));
+		if (result.skipped > 0) this.addRow(grid, "Notes skipped", `${result.skipped} (already exist)`);
+		if (result.errors.length > 0) {
+			grid.createDiv({ text: "Errors", cls: "ft-detail-info-label ft-text-error" });
+			grid.createDiv({ text: String(result.errors.length), cls: "ft-detail-info-value ft-text-error" });
 		}
+		if (state.excludedTypes.length > 0) this.addRow(grid, "Excluded types", state.excludedTypes.join(", "));
+		this.addRow(grid, "Duration", `${result.duration}ms`);
+		this.addRow(grid, "Target folder", result.targetFolder);
+		if (state.configName) this.addRow(grid, "Config", state.configName);
+	}
 
-		// ── Per-type breakdown ──
-		if (result && result.imported > 0) {
-			const typeCounts = new Map<string, { imported: number; skipped: number; errors: number }>();
-			// Count imported items from importedPaths
-			for (const path of Object.values(result.importedPaths)) {
-				// We don't have per-item type in the result, but we have preview items
-				const previewItem = state.previewItems.find(
-					(i) => path.includes(i.title.replace(/[#":/\\|?*<>]/g, "").trim()),
-				);
-				const type = previewItem?.type ?? "Unknown";
-				const entry = typeCounts.get(type) ?? { imported: 0, skipped: 0, errors: 0 };
-				entry.imported++;
-				typeCounts.set(type, entry);
-			}
-			// Count errors
-			for (const err of result.errors) {
-				const previewItem = state.previewItems.find((i) => i.id === err.nodeId);
-				const type = previewItem?.type ?? "Unknown";
-				const entry = typeCounts.get(type) ?? { imported: 0, skipped: 0, errors: 0 };
-				entry.errors++;
-				typeCounts.set(type, entry);
-			}
-
-			if (typeCounts.size > 1) {
-				const typeSection = container.createDiv({ cls: "ft-card ft-mt-2" });
-				typeSection.createDiv({ text: "Per-type breakdown", cls: "ft-detail-section-header ft-mb-2" });
-				const table = typeSection.createEl("table", { cls: "ft-preview-table" });
-				const thead = table.createEl("tr");
-				thead.createEl("th", { text: "Type" });
-				thead.createEl("th", { text: "Imported" });
-				thead.createEl("th", { text: "Errors" });
-
-				const sorted = [...typeCounts.entries()].sort(
-					(a, b) => (TYPE_ORDER[a[0]] ?? 98) - (TYPE_ORDER[b[0]] ?? 98),
-				);
-				for (const [type, counts] of sorted) {
-					const tr = table.createEl("tr");
-					tr.createEl("td", { text: type, cls: "ft-text-sm" });
-					tr.createEl("td", { text: String(counts.imported), cls: "ft-text-sm" });
-					const errTd = tr.createEl("td", { text: String(counts.errors), cls: "ft-text-sm" });
-					if (counts.errors > 0) errTd.addClass("ft-text-error");
-				}
-			}
+	private renderTypeBreakdown(container: HTMLElement, result: NonNullable<ReturnType<typeof this.deps.getState>["importResult"]>, state: ReturnType<typeof this.deps.getState>): void {
+		const typeCounts = new Map<string, { imported: number; skipped: number; errors: number }>();
+		for (const path of Object.values(result.importedPaths)) {
+			const previewItem = state.previewItems.find((i) => path.includes(i.title.replace(/[#":/\\|?*<>]/g, "").trim()));
+			const type = previewItem?.type ?? "Unknown";
+			const entry = typeCounts.get(type) ?? { imported: 0, skipped: 0, errors: 0 };
+			entry.imported++;
+			typeCounts.set(type, entry);
 		}
-
-		// ── Error details ──
-		if (result && result.errors.length > 0) {
-			const errorSection = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
-			errorSection.createDiv({ text: `Errors (${result.errors.length})`, cls: "ft-detail-section-header ft-mb-2" });
-
-			const errorList = errorSection.createDiv({ cls: "ft-flex-col ft-gap-1 ft-text-sm" });
-			for (const err of result.errors.slice(0, 20)) {
-				const row = errorList.createDiv({ cls: "ft-flex ft-gap-2" });
-				row.createSpan({ text: err.title || err.nodeId, cls: "ft-font-medium" });
-				row.createSpan({ text: err.error, cls: "ft-text-error" });
-			}
-			if (result.errors.length > 20) {
-				errorList.createDiv({
-					text: `...and ${result.errors.length - 20} more errors`,
-					cls: "ft-text-muted ft-mt-1",
-				});
-			}
+		for (const err of result.errors) {
+			const previewItem = state.previewItems.find((i) => i.id === err.nodeId);
+			const type = previewItem?.type ?? "Unknown";
+			const entry = typeCounts.get(type) ?? { imported: 0, skipped: 0, errors: 0 };
+			entry.errors++;
+			typeCounts.set(type, entry);
 		}
+		if (typeCounts.size <= 1) return;
+		const typeSection = container.createDiv({ cls: "ft-card ft-mt-2" });
+		typeSection.createDiv({ text: "Per-type breakdown", cls: "ft-detail-section-header ft-mb-2" });
+		const table = typeSection.createEl("table", { cls: "ft-preview-table" });
+		const thead = table.createEl("tr");
+		thead.createEl("th", { text: "Type" }); thead.createEl("th", { text: "Imported" }); thead.createEl("th", { text: "Errors" });
+		const sorted = [...typeCounts.entries()].sort((a, b) => (TYPE_ORDER[a[0]] ?? 98) - (TYPE_ORDER[b[0]] ?? 98));
+		for (const [type, counts] of sorted) {
+			const tr = table.createEl("tr");
+			tr.createEl("td", { text: type, cls: "ft-text-sm" });
+			tr.createEl("td", { text: String(counts.imported), cls: "ft-text-sm" });
+			const errTd = tr.createEl("td", { text: String(counts.errors), cls: "ft-text-sm" });
+			if (counts.errors > 0) errTd.addClass("ft-text-error");
+		}
+	}
 
-		// ── Artifacts created ──
+	private renderErrorDetails(container: HTMLElement, result: NonNullable<ReturnType<typeof this.deps.getState>["importResult"]>): void {
+		const errorSection = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
+		errorSection.createDiv({ text: `Errors (${result.errors.length})`, cls: "ft-detail-section-header ft-mb-2" });
+		const errorList = errorSection.createDiv({ cls: "ft-flex-col ft-gap-1 ft-text-sm" });
+		for (const err of result.errors.slice(0, 20)) {
+			const row = errorList.createDiv({ cls: "ft-flex ft-gap-2" });
+			row.createSpan({ text: err.title || err.nodeId, cls: "ft-font-medium" });
+			row.createSpan({ text: err.error, cls: "ft-text-error" });
+		}
+		if (result.errors.length > 20) {
+			errorList.createDiv({ text: `...and ${result.errors.length - 20} more errors`, cls: "ft-text-muted ft-mt-1" });
+		}
+	}
+
+	private renderArtifacts(container: HTMLElement, state: ReturnType<typeof this.deps.getState>): void {
 		const { canvasPath, basePath } = state.artifactPaths;
-		if (canvasPath || basePath) {
-			const artifactSection = container.createDiv({ cls: "ft-card ft-mt-2" });
-			artifactSection.createDiv({ text: "Artifacts", cls: "ft-detail-section-header ft-mb-2" });
-			const artifactGrid = artifactSection.createDiv({ cls: "ft-detail-info-grid" });
+		if (!canvasPath && !basePath) return;
+		const artifactSection = container.createDiv({ cls: "ft-card ft-mt-2" });
+		artifactSection.createDiv({ text: "Artifacts", cls: "ft-detail-section-header ft-mb-2" });
+		const artifactGrid = artifactSection.createDiv({ cls: "ft-detail-info-grid" });
+		if (canvasPath) this.renderArtifactLink(artifactGrid, "Rebuilt canvas", canvasPath);
+		if (basePath) this.renderArtifactLink(artifactGrid, "Base index", basePath);
+	}
 
-			if (canvasPath) {
-				const file = this.deps.app.vault.getAbstractFileByPath(canvasPath);
-				artifactGrid.createDiv({ text: "Rebuilt canvas", cls: "ft-detail-info-label" });
-				const val = artifactGrid.createDiv({ cls: "ft-detail-info-value" });
-				if (file instanceof TFile) {
-					const link = val.createEl("span", { text: canvasPath, cls: "ft-nav-link ft-text-sm" });
-					link.addEventListener("click", () => {
-						void this.deps.app.workspace.getLeaf(false).openFile(file);
-					});
-				} else {
-					val.createSpan({ text: canvasPath, cls: "ft-text-sm ft-text-muted" });
-				}
-			}
-
-			if (basePath) {
-				const file = this.deps.app.vault.getAbstractFileByPath(basePath);
-				artifactGrid.createDiv({ text: "Base index", cls: "ft-detail-info-label" });
-				const val = artifactGrid.createDiv({ cls: "ft-detail-info-value" });
-				if (file instanceof TFile) {
-					const link = val.createEl("span", { text: basePath, cls: "ft-nav-link ft-text-sm" });
-					link.addEventListener("click", () => {
-						void this.deps.app.workspace.getLeaf(false).openFile(file);
-					});
-				} else {
-					val.createSpan({ text: basePath, cls: "ft-text-sm ft-text-muted" });
-				}
-			}
+	private renderArtifactLink(grid: HTMLElement, label: string, path: string): void {
+		const file = this.deps.app.vault.getAbstractFileByPath(path);
+		grid.createDiv({ text: label, cls: "ft-detail-info-label" });
+		const val = grid.createDiv({ cls: "ft-detail-info-value" });
+		if (file instanceof TFile) {
+			const link = val.createEl("span", { text: path, cls: "ft-nav-link ft-text-sm" });
+			link.addEventListener("click", () => { void this.deps.app.workspace.getLeaf(false).openFile(file); });
+		} else {
+			val.createSpan({ text: path, cls: "ft-text-sm ft-text-muted" });
 		}
+	}
 
-		// ── "What's next" actions ──
+	private renderSuccessActions(container: HTMLElement, result: CanvasImportResult | null, state: ReturnType<typeof this.deps.getState>): void {
 		const actionsCard = container.createDiv({ cls: "ft-card ft-mt-3" });
 		actionsCard.createDiv({ text: "What's next", cls: "ft-detail-section-header ft-mb-2" });
 		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
+		const { canvasPath, basePath } = state.artifactPaths;
+		if (result) this.addActionBtn(actions, "folder-open", "Open Target Folder", () => revealFolderInExplorer(this.deps.app, result.targetFolder));
+		if (canvasPath) { const f = this.deps.app.vault.getAbstractFileByPath(canvasPath); if (f instanceof TFile) this.addActionBtn(actions, "layout-dashboard", "Open Canvas", () => void this.deps.app.workspace.getLeaf(false).openFile(f)); }
+		if (basePath) { const f = this.deps.app.vault.getAbstractFileByPath(basePath); if (f instanceof TFile) this.addActionBtn(actions, "table", "Open Base View", () => void this.deps.app.workspace.getLeaf(false).openFile(f)); }
+		this.addActionBtn(actions, "refresh-cw", "Run Again", () => { this.deps.setState({ importDone: false, importResult: null, importMessage: "", artifactPaths: {}, currentPage: "result" }); this.deps.renderContent(); void this.deps.runImport(); });
+		this.addActionBtn(actions, "settings", "Edit Config", () => { this.deps.setState({ importDone: false, importResult: null, importMessage: "", artifactPaths: {}, currentPage: "config" }); this.deps.renderContent(); });
+		this.addActionBtn(actions, "x", "Close", () => this.deps.detachLeaf());
+	}
 
-		// Open target folder
-		if (result) {
-			const openFolderBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
-			setIcon(openFolderBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "folder-open");
-			openFolderBtn.appendText(" Open Target Folder");
-			openFolderBtn.addEventListener("click", () => {
-				revealFolderInExplorer(this.deps.app, result.targetFolder);
-			});
-		}
-
-		// Open rebuilt canvas (if exists)
-		if (canvasPath) {
-			const file = this.deps.app.vault.getAbstractFileByPath(canvasPath);
-			if (file instanceof TFile) {
-				const openCanvasBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
-				setIcon(openCanvasBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "layout-dashboard");
-				openCanvasBtn.appendText(" Open Canvas");
-				openCanvasBtn.addEventListener("click", () => {
-					void this.deps.app.workspace.getLeaf(false).openFile(file);
-				});
-			}
-		}
-
-		// Open .base view (if exists)
-		if (basePath) {
-			const file = this.deps.app.vault.getAbstractFileByPath(basePath);
-			if (file instanceof TFile) {
-				const openBaseBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
-				setIcon(openBaseBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "table");
-				openBaseBtn.appendText(" Open Base View");
-				openBaseBtn.addEventListener("click", () => {
-					void this.deps.app.workspace.getLeaf(false).openFile(file);
-				});
-			}
-		}
-
-		// Run again
-		const rerunBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
-		setIcon(rerunBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "refresh-cw");
-		rerunBtn.appendText(" Run Again");
-		rerunBtn.addEventListener("click", () => {
-			this.deps.setState({
-				importDone: false, importResult: null, importMessage: "",
-				artifactPaths: {}, currentPage: "result",
-			});
-			this.deps.renderContent();
-			void this.deps.runImport();
-		});
-
-		// Edit config
-		const editBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
-		setIcon(editBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "settings");
-		editBtn.appendText(" Edit Config");
-		editBtn.addEventListener("click", () => {
-			this.deps.setState({
-				importDone: false, importResult: null, importMessage: "",
-				artifactPaths: {}, currentPage: "config",
-			});
-			this.deps.renderContent();
-		});
-
-		// Close
-		const closeBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
-		setIcon(closeBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "x");
-		closeBtn.appendText(" Close");
-		closeBtn.addEventListener("click", () => this.deps.detachLeaf());
+	private addActionBtn(container: HTMLElement, icon: string, label: string, onClick: () => void): void {
+		const btn = container.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(btn.createSpan({ cls: "flowti-csv-btn-icon" }), icon);
+		btn.appendText(` ${label}`);
+		btn.addEventListener("click", onClick);
 	}
 
 	private renderError(container: HTMLElement): void {

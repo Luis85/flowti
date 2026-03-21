@@ -22,19 +22,8 @@ export function parseFrontmatter(md: string): Record<string, unknown> {
 	let indent2Key = "";
 
 	for (const line of match[1].split(/\r?\n/)) {
-		const nestedMatch = line.match(/^ {2}(\w+):\s*(.+)$/);
-		if (nestedMatch && indent2Key) {
-			if (!indent2[indent2Key]) indent2[indent2Key] = {};
-			const val = nestedMatch[2].trim();
-			indent2[indent2Key][nestedMatch[1]] = /^\d+$/.test(val) ? Number(val) : val;
-			continue;
-		}
-
-		const listMatch = line.match(/^\s+-\s+(.+)$/);
-		if (listMatch && currentList) {
-			currentList.push(listMatch[1]);
-			continue;
-		}
+		if (tryParseNestedLine(line, indent2Key, indent2)) continue;
+		if (tryParseListItem(line, currentList)) continue;
 
 		if (currentList) {
 			result[currentKey] = currentList;
@@ -60,6 +49,24 @@ export function parseFrontmatter(md: string): Record<string, unknown> {
 		if (Object.keys(v).length > 0) result[k] = v;
 	}
 	return result;
+}
+
+/** Try to parse a nested (2-space indent) key-value line. Returns true if consumed. */
+function tryParseNestedLine(line: string, indent2Key: string, indent2: Record<string, Record<string, unknown>>): boolean {
+	const nestedMatch = line.match(/^ {2}(\w+):\s*(.+)$/);
+	if (!nestedMatch || !indent2Key) return false;
+	if (!indent2[indent2Key]) indent2[indent2Key] = {};
+	const val = nestedMatch[2].trim();
+	indent2[indent2Key][nestedMatch[1]] = /^\d+$/.test(val) ? Number(val) : val;
+	return true;
+}
+
+/** Try to parse a list item line. Returns true if consumed. */
+function tryParseListItem(line: string, currentList: string[] | null): boolean {
+	const listMatch = line.match(/^\s+-\s+(.+)$/);
+	if (!listMatch || !currentList) return false;
+	currentList.push(listMatch[1]);
+	return true;
 }
 
 /** Parse a pipe-delimited suggestedTask string into a structured object. */
@@ -123,6 +130,42 @@ function normalizeAttributes(attrs: unknown): AgentAttributes | undefined {
 	return Object.keys(out).length > 0 ? (out as AgentAttributes) : undefined;
 }
 
+/** Extract a string array from an unknown field, filtering to string elements. */
+function extractStringArray(raw: unknown): readonly string[] | undefined {
+	if (!Array.isArray(raw)) return undefined;
+	const filtered = (raw as unknown[]).filter((x): x is string => typeof x === "string");
+	return filtered.length > 0 ? filtered : undefined;
+}
+
+/** Extract a non-empty string value from an unknown field. */
+function extractString(raw: unknown): string | undefined {
+	return typeof raw === "string" ? raw : undefined;
+}
+
+/** Extract a non-empty string value, returning a fallback for empty/missing. */
+function extractStringWithFallback(raw: unknown, fallback: string): string {
+	return typeof raw === "string" && raw.length > 0 ? raw : fallback;
+}
+
+/** Build the optional spread properties for a DashboardAgent. */
+function buildOptionalFields(fm: Record<string, unknown>): Record<string, unknown> {
+	const result: Record<string, unknown> = {};
+	const personality = extractStringArray(fm.personality);
+	if (personality) result.personality = personality;
+	const attributes = normalizeAttributes(fm.attributes);
+	if (attributes) result.attributes = attributes;
+	const behaviors = extractStringArray(fm.behaviors);
+	if (behaviors) result.behaviors = behaviors;
+	const skills = parseSkills(fm.skills);
+	if (skills) result.skills = skills;
+	if (typeof fm.experience === "number") result.experience = fm.experience;
+	if (Array.isArray(fm.suggestedTasks)) {
+		const tasks = (fm.suggestedTasks as string[]).map(parseSuggestedTask);
+		if (tasks.length > 0) result.suggestedTasks = tasks;
+	}
+	return result;
+}
+
 /**
  * Map parsed frontmatter to a dashboard row when `type === "Agent"` and `name` is set.
  */
@@ -131,44 +174,14 @@ export function dashboardAgentFromFrontmatter(fm: Record<string, unknown>): Dash
 	const name = String(fm.name ?? "").trim();
 	if (!name) return null;
 
-	const agentType = typeof fm.agentType === "string" && fm.agentType.length > 0 ? fm.agentType : "ai";
-	const domain = typeof fm.domain === "string" && fm.domain.length > 0 ? fm.domain : undefined;
-	const persona = typeof fm.persona === "string" ? fm.persona : undefined;
-	const mood = typeof fm.mood === "string" ? fm.mood : undefined;
-
-	let personality: readonly string[] | undefined;
-	if (Array.isArray(fm.personality)) {
-		const p = (fm.personality as unknown[]).filter((x): x is string => typeof x === "string");
-		if (p.length > 0) personality = p;
-	}
-
-	const suggestedTasks = Array.isArray(fm.suggestedTasks)
-		? (fm.suggestedTasks as string[]).map(parseSuggestedTask)
-		: undefined;
-
-	const attributes = normalizeAttributes(fm.attributes);
-
-	let behaviors: readonly string[] | undefined;
-	if (Array.isArray(fm.behaviors)) {
-		const b = (fm.behaviors as unknown[]).filter((x): x is string => typeof x === "string");
-		if (b.length > 0) behaviors = b;
-	}
-
-	const skills = parseSkills(fm.skills);
-
 	return {
 		name,
-		agentType,
-		domain,
+		agentType: extractStringWithFallback(fm.agentType, "ai"),
+		domain: extractString(fm.domain),
 		status: parseDashboardStatus(fm.status),
-		persona,
-		mood,
-		...(personality && { personality }),
-		...(attributes && { attributes }),
-		...(suggestedTasks && suggestedTasks.length > 0 && { suggestedTasks }),
-		...(behaviors && { behaviors }),
-		...(skills && { skills }),
-		...(typeof fm.experience === "number" && { experience: fm.experience }),
+		persona: extractString(fm.persona),
+		mood: extractString(fm.mood),
+		...buildOptionalFields(fm),
 	};
 }
 

@@ -71,6 +71,106 @@ export class JourneyExecutorService {
 
 	// ── Execution ────────────────────────────────────────────
 
+	/** Evaluate step condition; push a skip result and return true if step should be skipped. */
+	private shouldSkipStep(
+		step: ExecutableJourney["steps"][number],
+		variables: Record<string, string>,
+		journeyName: string,
+		stepIndex: number,
+	): boolean {
+		if (!step.condition) return false;
+		const condResult = evaluateStepCondition(step.condition, variables);
+		if (condResult.shouldRun) return false;
+
+		const skipResult: StepResult = {
+			stepIndex, stepId: step.id, stepTitle: step.title,
+			status: "skip", durationMs: 0, error: condResult.reason,
+		};
+		this.state!.stepResults.push(skipResult);
+		void this.eventBus.emit("journey-executor.run.step-completed", {
+			journeyName, stepIndex, stepId: step.id,
+			stepTitle: step.title, status: "skip", durationMs: 0, error: condResult.reason,
+		});
+		return true;
+	}
+
+	/** Mark steps from startIndex..end as skipped and emit events. */
+	private skipRemainingSteps(journeyName: string, steps: ExecutableJourney["steps"], startIndex: number): void {
+		for (let j = startIndex; j < steps.length; j++) {
+			const skip: StepResult = {
+				stepIndex: j,
+				stepId: steps[j].id,
+				stepTitle: steps[j].title,
+				status: "skip",
+				durationMs: 0,
+			};
+			this.state!.stepResults.push(skip);
+			void this.eventBus.emit("journey-executor.run.step-completed", {
+				journeyName,
+				stepIndex: j,
+				stepId: steps[j].id,
+				stepTitle: steps[j].title,
+				status: "skip",
+				durationMs: 0,
+			});
+		}
+	}
+
+	/** Execute a single step's actions with retry logic. */
+	private async executeStepWithRetry(
+		step: ExecutableJourney["steps"][number],
+		signal: AbortSignal,
+		variables: Record<string, string>,
+		options: ExecutionOptions,
+		retryConfig: RetryConfig | undefined,
+	): Promise<{ status: "pass" | "fail"; error?: string; failedAction?: FailedActionContext; retryAttempts: number }> {
+		const maxRetries = retryConfig?.maxRetries ?? 0;
+		let retryAttempts = 0;
+
+		for (let attempt = 0; attempt <= maxRetries; attempt++) {
+			let status: "pass" | "fail" = "pass";
+			let error: string | undefined;
+			let failedAction: FailedActionContext | undefined;
+
+			for (let ai = 0; ai < step.actions.length; ai++) {
+				const action = step.actions[ai];
+				if (signal.aborted) {
+					return { status: "fail", error: "Cancelled", retryAttempts };
+				}
+				try {
+					await executeAction(action, this.host, this.eventBus, variables, options);
+				} catch (err) {
+					status = "fail";
+					error = err instanceof Error ? err.message : String(err);
+					failedAction = { tool: action.tool, actionIndex: ai, params: extractKeyParams(action) };
+					break;
+				}
+			}
+
+			if (status === "pass" || signal.aborted || attempt === maxRetries) {
+				return { status, error, failedAction, retryAttempts };
+			}
+
+			retryAttempts = attempt + 1;
+			void this.eventBus.emit("journey-executor.run.step-retried", {
+				journeyName: this.state!.journeyName,
+				stepIndex: this.state!.currentStep,
+				stepId: step.id,
+				stepTitle: step.title,
+				attempt: retryAttempts,
+				maxRetries,
+				error: error ?? "Unknown error",
+			});
+
+			const delay = retryConfig!.backoff === "exponential"
+				? retryConfig!.delayMs * Math.pow(2, attempt)
+				: retryConfig!.delayMs;
+			await this.delayFn(delay);
+		}
+
+		return { status: "pass", retryAttempts: 0 };
+	}
+
 	async run(journey: ExecutableJourney, options: ExecutionOptions = {}): Promise<ExecutionResult> {
 		if (this.isRunning()) {
 			throw new Error("A journey is already running");
@@ -105,28 +205,9 @@ export class JourneyExecutorService {
 		let aborted = false;
 
 		for (let i = 0; i < journey.steps.length; i++) {
-			// Check cancellation before each step
 			if (signal.aborted) {
 				aborted = true;
-				// Mark remaining steps as skipped
-				for (let j = i; j < journey.steps.length; j++) {
-					const skip: StepResult = {
-						stepIndex: j,
-						stepId: journey.steps[j].id,
-						stepTitle: journey.steps[j].title,
-						status: "skip",
-						durationMs: 0,
-					};
-					this.state.stepResults.push(skip);
-					void this.eventBus.emit("journey-executor.run.step-completed", {
-						journeyName: journey.journey,
-						stepIndex: j,
-						stepId: journey.steps[j].id,
-						stepTitle: journey.steps[j].title,
-						status: "skip",
-						durationMs: 0,
-					});
-				}
+				this.skipRemainingSteps(journey.journey, journey.steps, i);
 				break;
 			}
 
@@ -135,177 +216,72 @@ export class JourneyExecutorService {
 			const stepStart = Date.now();
 
 			// Evaluate step condition (skipIf / runIf)
-			if (step.condition) {
-				const condResult = evaluateStepCondition(step.condition, variables);
-				if (!condResult.shouldRun) {
-					const skipResult: StepResult = {
-						stepIndex: i,
-						stepId: step.id,
-						stepTitle: step.title,
-						status: "skip",
-						durationMs: 0,
-						error: condResult.reason,
-					};
-					this.state.stepResults.push(skipResult);
-					void this.eventBus.emit("journey-executor.run.step-completed", {
-						journeyName: journey.journey,
-						stepIndex: i,
-						stepId: step.id,
-						stepTitle: step.title,
-						status: "skip",
-						durationMs: 0,
-						error: condResult.reason,
-					});
-					continue;
-				}
+			if (this.shouldSkipStep(step, variables, journey.journey, i)) {
+				continue;
 			}
 
-			let status: "pass" | "fail" = "pass";
-			let error: string | undefined;
-			let failedAction: FailedActionContext | undefined;
-			let retryAttempts = 0;
+			const retryConfig = resolveRetryConfig(step.retry, globalRetryCount, globalRetryDelayMs);
 
-			// Determine retry config: per-step overrides global
-			const retryConfig: RetryConfig | undefined = step.retry
-				?? (globalRetryCount > 0 ? { maxRetries: globalRetryCount, delayMs: globalRetryDelayMs } : undefined);
-			const maxRetries = retryConfig?.maxRetries ?? 0;
-
-			for (let attempt = 0; attempt <= maxRetries; attempt++) {
-				status = "pass";
-				error = undefined;
-				failedAction = undefined;
-
-				for (let ai = 0; ai < step.actions.length; ai++) {
-					const action = step.actions[ai];
-					if (signal.aborted) {
-						status = "fail";
-						error = "Cancelled";
-						break;
-					}
-					try {
-						await executeAction(action, this.host, this.eventBus, variables, options);
-					} catch (err) {
-						status = "fail";
-						error = err instanceof Error ? err.message : String(err);
-						failedAction = {
-							tool: action.tool,
-							actionIndex: ai,
-							params: extractKeyParams(action),
-						};
-						break; // Stop remaining actions in this step
-					}
-				}
-
-				if (status === "pass" || signal.aborted || attempt === maxRetries) {
-					break; // Success, cancelled, or final attempt — no more retries
-				}
-
-				// Emit retry event and delay before next attempt
-				retryAttempts = attempt + 1;
-				void this.eventBus.emit("journey-executor.run.step-retried", {
-					journeyName: journey.journey,
-					stepIndex: i,
-					stepId: step.id,
-					stepTitle: step.title,
-					attempt: retryAttempts,
-					maxRetries,
-					error: error ?? "Unknown error",
-				});
-
-				const delay = retryConfig!.backoff === "exponential"
-					? retryConfig!.delayMs * Math.pow(2, attempt)
-					: retryConfig!.delayMs;
-				await this.delayFn(delay);
-			}
+			const stepOutcome = await this.executeStepWithRetry(step, signal, variables, options, retryConfig);
 
 			const stepResult: StepResult = {
-				stepIndex: i,
-				stepId: step.id,
-				stepTitle: step.title,
-				status,
+				stepIndex: i, stepId: step.id, stepTitle: step.title,
+				status: stepOutcome.status,
 				durationMs: Date.now() - stepStart,
-				error,
-				retryAttempts: retryAttempts > 0 ? retryAttempts : undefined,
-				failedAction,
+				error: stepOutcome.error,
+				retryAttempts: stepOutcome.retryAttempts > 0 ? stepOutcome.retryAttempts : undefined,
+				failedAction: stepOutcome.failedAction,
 			};
 			this.state.stepResults.push(stepResult);
 
 			void this.eventBus.emit("journey-executor.run.step-completed", {
-				journeyName: journey.journey,
-				stepIndex: i,
-				stepId: step.id,
-				stepTitle: step.title,
-				status,
-				durationMs: stepResult.durationMs,
-				error,
+				journeyName: journey.journey, stepIndex: i, stepId: step.id,
+				stepTitle: step.title, status: stepOutcome.status,
+				durationMs: stepResult.durationMs, error: stepOutcome.error,
 			});
 
-			if (status === "fail" && !continueOnFailure) {
-				// Mark remaining as skipped
-				for (let j = i + 1; j < journey.steps.length; j++) {
-					const skip: StepResult = {
-						stepIndex: j,
-						stepId: journey.steps[j].id,
-						stepTitle: journey.steps[j].title,
-						status: "skip",
-						durationMs: 0,
-					};
-					this.state.stepResults.push(skip);
-					void this.eventBus.emit("journey-executor.run.step-completed", {
-						journeyName: journey.journey,
-						stepIndex: j,
-						stepId: journey.steps[j].id,
-						stepTitle: journey.steps[j].title,
-						status: "skip",
-						durationMs: 0,
-					});
-				}
+			if (stepOutcome.status === "fail" && !continueOnFailure) {
+				this.skipRemainingSteps(journey.journey, journey.steps, i + 1);
 				break;
 			}
 		}
 
+		return this.finalizeRun(journey, runStart, aborted);
+	}
+
+	/** Build the final result, emit completion events, and clean up state. */
+	private finalizeRun(journey: ExecutableJourney, runStart: number, aborted: boolean): ExecutionResult {
 		const durationMs = Date.now() - runStart;
-		const passed = this.state.stepResults.filter((s) => s.status === "pass").length;
-		const failed = this.state.stepResults.filter((s) => s.status === "fail").length;
-		const skipped = this.state.stepResults.filter((s) => s.status === "skip").length;
+		const passed = this.state!.stepResults.filter((s) => s.status === "pass").length;
+		const failed = this.state!.stepResults.filter((s) => s.status === "fail").length;
+		const skipped = this.state!.stepResults.filter((s) => s.status === "skip").length;
 
 		const result: ExecutionResult = {
 			journeyName: journey.journey,
 			totalSteps: journey.steps.length,
-			passed,
-			failed,
-			skipped,
-			durationMs,
-			steps: [...this.state.stepResults],
+			passed, failed, skipped, durationMs,
+			steps: [...this.state!.stepResults],
 		};
 
 		if (aborted) {
 			void this.eventBus.emit("journey-executor.run.failed", {
-				journeyName: journey.journey,
-				reason: "cancelled",
+				journeyName: journey.journey, reason: "cancelled",
 			});
 		}
 
 		void this.eventBus.emit("journey-executor.run.completed", {
 			journeyName: journey.journey,
 			totalSteps: journey.steps.length,
-			passed,
-			failed,
-			skipped,
-			durationMs,
+			passed, failed, skipped, durationMs,
 		});
 
-		// Record result in Test Management Hub
 		this.testManagementService.recordRunResult(journey.journey, {
 			totalSteps: journey.steps.length,
-			passed,
-			failed,
-			skipped,
-			durationMs,
+			passed, failed, skipped, durationMs,
 			date: new Date().toISOString(),
 		});
 
-		this.state.running = false;
+		this.state!.running = false;
 		this.abortController = null;
 
 		return result;
@@ -322,6 +298,17 @@ export class JourneyExecutorService {
 }
 
 // ── Helpers ─────────────────────────────────────────────────
+
+/** Resolve retry config: per-step overrides global. */
+function resolveRetryConfig(
+	stepRetry: RetryConfig | undefined,
+	globalRetryCount: number,
+	globalRetryDelayMs: number,
+): RetryConfig | undefined {
+	if (stepRetry) return stepRetry;
+	if (globalRetryCount > 0) return { maxRetries: globalRetryCount, delayMs: globalRetryDelayMs };
+	return undefined;
+}
 
 /** Extracts key display-worthy parameters from an action for error context. */
 function extractKeyParams(action: Record<string, unknown>): Record<string, string> | undefined {

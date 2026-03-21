@@ -21,136 +21,97 @@ export class PipelineDetail {
 	}
 
 	render(pipe: SavedMultiImportPipeline): void {
-		// Header
+		this.renderHeader(pipe);
+		this.renderActions(pipe);
+		this.renderDescription(pipe);
+		this.renderConfigInfo(pipe);
+		this.grid.render(pipe);
+	}
+
+	private renderHeader(pipe: SavedMultiImportPipeline): void {
 		const header = this.container.createDiv({ cls: "ft-detail-header" });
 		const left = header.createDiv();
 		left.createDiv({ text: pipe.name || "(unnamed)", cls: "ft-detail-event-type" });
 		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 		badges.createSpan({ text: "Pipeline", cls: "ft-operation-badge ft-operation-badge-import" });
 		badges.createSpan({ text: pipe.mergeKey, cls: "ft-badge ft-badge-muted" });
-		badges.createSpan({
-			text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`,
-			cls: "ft-badge ft-badge-muted",
-		});
-		if (pipe.noteType) {
-			badges.createSpan({ text: pipe.noteType, cls: "ft-badge" });
-		}
-		if (pipe.canvasConfigIds?.length) {
-			badges.createSpan({
-				text: `${pipe.canvasConfigIds.length} canvas`,
-				cls: "ft-badge ft-badge-muted",
-			});
-		}
+		badges.createSpan({ text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`, cls: "ft-badge ft-badge-muted" });
+		if (pipe.noteType) badges.createSpan({ text: pipe.noteType, cls: "ft-badge" });
+		if (pipe.canvasConfigIds?.length) badges.createSpan({ text: `${pipe.canvasConfigIds.length} canvas`, cls: "ft-badge ft-badge-muted" });
 		if (pipe.exportConfigIds?.length) {
 			for (const exportId of pipe.exportConfigIds) {
 				const exportCfg = this.deps.dataExchangeService.getExportConfig(exportId);
-				const exportBadge = badges.createSpan({
-					text: exportCfg ? `→ ${exportCfg.name}` : "→ (deleted)",
-					cls: "ft-badge ft-badge-muted",
-				});
+				const exportBadge = badges.createSpan({ text: exportCfg ? `→ ${exportCfg.name}` : "→ (deleted)", cls: "ft-badge ft-badge-muted" });
 				const eIcon = exportBadge.createSpan();
 				setIcon(eIcon, "file-output");
 				eIcon.addClass("ft-mr-025");
 				exportBadge.prepend(eIcon);
 			}
 		}
+	}
 
-		// Actions bar
+	private renderActions(pipe: SavedMultiImportPipeline): void {
 		const actions = this.container.createDiv({ cls: "ft-detail-actions ft-mt-2" });
 
-		// Execute
 		const runLink = actions.createEl("span", { cls: "ft-nav-link" });
-		const runIcon = runLink.createSpan();
-		setIcon(runIcon, "play");
+		setIcon(runLink.createSpan(), "play");
 		runLink.appendText(" Execute");
-		runLink.addEventListener("click", () => {
-			this.deps.executePipeline(pipe);
-		});
+		runLink.addEventListener("click", () => { this.deps.executePipeline(pipe); });
 
-		// Preview
 		const previewLink = actions.createEl("span", { cls: "ft-nav-link" });
-		const previewIcon = previewLink.createSpan();
-		setIcon(previewIcon, "eye");
+		setIcon(previewLink.createSpan(), "eye");
 		previewLink.appendText(" Preview");
-		previewLink.addEventListener("click", () => {
-			this.deps.runPreview(pipe);
-		});
+		previewLink.addEventListener("click", () => { this.deps.runPreview(pipe); });
 
-		// Edit
 		const editLink = actions.createEl("span", { cls: "ft-nav-link" });
-		const editIcon = editLink.createSpan();
-		setIcon(editIcon, "pencil");
+		setIcon(editLink.createSpan(), "pencil");
 		editLink.appendText(" Update");
-		editLink.addEventListener("click", () => {
-			this.deps.setState({ editingPipelineId: pipe.id });
-			this.deps.renderDetail();
-		});
+		editLink.addEventListener("click", () => { this.deps.setState({ editingPipelineId: pipe.id }); this.deps.renderDetail(); });
 
-		// Open Doc
 		const docPath = this.deps.dataExchangeService.getPipelineDocPath(pipe.name);
 		const docFile = this.deps.app.vault.getAbstractFileByPath(docPath);
 		const docExists = docFile instanceof TFile;
 		const docLink = actions.createEl("span", { cls: "ft-nav-link" });
-		const docIcon = docLink.createSpan();
-		setIcon(docIcon, docExists ? "file-text" : "file-plus");
+		setIcon(docLink.createSpan(), docExists ? "file-text" : "file-plus");
 		docLink.appendText(docExists ? " Read Doc" : " Create Doc");
 		docLink.addEventListener("click", () => {
-			if (docExists) {
-				void this.deps.app.workspace.openLinkText(docPath, "", false);
-			} else {
-				void this.deps.dataExchangeService
-					.ensurePipelineDoc(pipe.id)
-					.then((path) => {
-						if (path) void this.deps.app.workspace.openLinkText(path, "", false);
-						this.deps.renderDetail();
-					});
-			}
+			if (docExists) { void this.deps.app.workspace.openLinkText(docPath, "", false); }
+			else { void this.deps.dataExchangeService.ensurePipelineDoc(pipe.id).then((path) => { if (path) void this.deps.app.workspace.openLinkText(path, "", false); this.deps.renderDetail(); }); }
 		});
 
-		// Open View (.base file)
 		const resolvedBase = resolvePipelineBaseFile(this.deps, pipe);
 		if (resolvedBase) {
 			const viewLink = actions.createEl("span", { cls: "ft-nav-link" });
-			const viewIcon = viewLink.createSpan();
-			setIcon(viewIcon, "table");
+			setIcon(viewLink.createSpan(), "table");
 			viewLink.appendText(" Open View");
-			viewLink.addEventListener("click", () => {
-				void this.deps.app.workspace.getLeaf(false).openFile(resolvedBase);
-			});
+			viewLink.addEventListener("click", () => { void this.deps.app.workspace.getLeaf(false).openFile(resolvedBase); });
 		}
 
-		// Delete
 		const deleteLink = actions.createEl("span", { cls: "ft-nav-link ft-text-error" });
-		const delIcon = deleteLink.createSpan();
-		setIcon(delIcon, "trash-2");
+		setIcon(deleteLink.createSpan(), "trash-2");
 		deleteLink.appendText(" Delete");
 		deleteLink.addEventListener("click", () => {
 			new ConfirmModal(this.deps.app, {
-				message: `Delete pipeline "${pipe.name}"?`,
-				confirmLabel: "Delete",
-				onConfirm: () => {
-					void this.deps.dataExchangeService
-						.deletePipeline(pipe.id)
-						.then(() => {
-							this.deps.setState({ selectedPipelineId: null });
-							this.deps.scheduleRender();
-						});
-				},
+				message: `Delete pipeline "${pipe.name}"?`, confirmLabel: "Delete",
+				onConfirm: () => { void this.deps.dataExchangeService.deletePipeline(pipe.id).then(() => { this.deps.setState({ selectedPipelineId: null }); this.deps.scheduleRender(); }); },
 			}).open();
 		});
+	}
 
-		// Description from linked config doc
-		if (docExists && docFile instanceof TFile) {
-			const cache = this.deps.app.metadataCache.getFileCache(docFile);
-			const description = cache?.frontmatter?.["description"] as string | undefined;
-			if (description) {
-				const descSection = this.container.createDiv({ cls: "ft-card ft-mt-3" });
-				descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
-				descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
-			}
+	private renderDescription(pipe: SavedMultiImportPipeline): void {
+		const docPath = this.deps.dataExchangeService.getPipelineDocPath(pipe.name);
+		const docFile = this.deps.app.vault.getAbstractFileByPath(docPath);
+		if (!(docFile instanceof TFile)) return;
+		const cache = this.deps.app.metadataCache.getFileCache(docFile);
+		const description = cache?.frontmatter?.["description"] as string | undefined;
+		if (description) {
+			const descSection = this.container.createDiv({ cls: "ft-card ft-mt-3" });
+			descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
+			descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
 		}
+	}
 
-		// Config info card
+	private renderConfigInfo(pipe: SavedMultiImportPipeline): void {
 		const configCard = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
 		addInfoRow(configGrid, "Target Folder", pipe.targetFolder || "(not set)");
@@ -163,8 +124,5 @@ export class PipelineDetail {
 		if (pipe.createBase) addInfoRow(configGrid, "Base View", pipe.basePath || "(auto-generated)");
 		addInfoRow(configGrid, "Created", new Date(pipe.createdAt).toLocaleString());
 		if (pipe.lastExecutedAt) addInfoRow(configGrid, "Last Run", new Date(pipe.lastExecutedAt).toLocaleString());
-
-		// Sources, Exports, Conflicts, Custom Properties
-		this.grid.render(pipe);
 	}
 }

@@ -9,7 +9,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import type { ISecretStore } from "../../utils/SecretStore";
-import type { SignalConfig, SignalState, SyncResult, SyncError } from "./types";
+import type { SignalConfig, SignalState, SyncResult, SyncError, WorkItemMapping } from "./types";
 import type { SignalAdapter, TestConnectionResult } from "./adapters/SignalAdapter";
 import { writeWorkItemNote } from "./mappers/workItemNoteMapper";
 
@@ -191,12 +191,38 @@ export class SignalService {
 		return result;
 	}
 
+	/** Create an empty sync result for early returns. */
+	private emptySyncResult(signalId: string, duration: number): SyncResult {
+		return { signalId, itemsCreated: 0, itemsUpdated: 0, itemsSkipped: 0, errors: [], duration, timestamp: new Date().toISOString() };
+	}
+
+	/** Process a single work item write and emit the appropriate event. */
+	private async processSyncItem(
+		item: WorkItemMapping,
+		config: SignalConfig,
+		signalId: string,
+		counters: { created: number; updated: number; skipped: number },
+		errors: SyncError[],
+	): Promise<void> {
+		try {
+			const writeResult = await writeWorkItemNote(item, config, this.fileSystem!);
+			const actionMap: Record<string, () => Promise<void>> = {
+				created: async () => { counters.created++; await this.eventBus?.emit("signal.item.created", { signalId, workItemId: item.id, notePath: writeResult.path }); },
+				updated: async () => { counters.updated++; await this.eventBus?.emit("signal.item.updated", { signalId, workItemId: item.id, notePath: writeResult.path, fields: [] }); },
+				skipped: async () => { counters.skipped++; },
+			};
+			await actionMap[writeResult.action]();
+		} catch (err: unknown) {
+			errors.push({ workItemId: item.id, message: err instanceof Error ? err.message : "Write failed", recoverable: true });
+		}
+	}
+
 	async sync(signalId: string): Promise<SyncResult> {
 		const config = this.state.signals.find((s) => s.id === signalId);
 		if (!config || !this.adapter || !this.fileSystem) {
 			const error = !config ? "Signal not found" : "Adapter or file system not configured";
 			await this.eventBus?.emit("signal.sync.failed", { signalId, error });
-			return { signalId, itemsCreated: 0, itemsUpdated: 0, itemsSkipped: 0, errors: [], duration: 0, timestamp: new Date().toISOString() };
+			return this.emptySyncResult(signalId, 0);
 		}
 
 		const start = Date.now();
@@ -206,52 +232,21 @@ export class SignalService {
 		try {
 			fetchResult = await this.adapter.fetchItems(config);
 		} catch (err: unknown) {
-			const error = err instanceof Error ? err.message : "Fetch failed";
-			await this.eventBus?.emit("signal.sync.failed", { signalId, error });
-			return { signalId, itemsCreated: 0, itemsUpdated: 0, itemsSkipped: 0, errors: [], duration: Date.now() - start, timestamp: new Date().toISOString() };
+			await this.eventBus?.emit("signal.sync.failed", { signalId, error: err instanceof Error ? err.message : "Fetch failed" });
+			return this.emptySyncResult(signalId, Date.now() - start);
 		}
 
 		const errors: SyncError[] = [...fetchResult.errors];
-		let itemsCreated = 0;
-		let itemsUpdated = 0;
-		let itemsSkipped = 0;
-		const total = fetchResult.items.length;
+		const counters = { created: 0, updated: 0, skipped: 0 };
 
 		for (let i = 0; i < fetchResult.items.length; i++) {
-			const item = fetchResult.items[i];
-			try {
-				const writeResult = await writeWorkItemNote(item, config, this.fileSystem);
-				switch (writeResult.action) {
-					case "created":
-						itemsCreated++;
-						await this.eventBus?.emit("signal.item.created", { signalId, workItemId: item.id, notePath: writeResult.path });
-						break;
-					case "updated":
-						itemsUpdated++;
-						await this.eventBus?.emit("signal.item.updated", { signalId, workItemId: item.id, notePath: writeResult.path, fields: [] });
-						break;
-					case "skipped":
-						itemsSkipped++;
-						break;
-				}
-			} catch (err: unknown) {
-				errors.push({
-					workItemId: item.id,
-					message: err instanceof Error ? err.message : "Write failed",
-					recoverable: true,
-				});
-			}
-			await this.eventBus?.emit("signal.sync.progress", { signalId, current: i + 1, total });
+			await this.processSyncItem(fetchResult.items[i], config, signalId, counters, errors);
+			await this.eventBus?.emit("signal.sync.progress", { signalId, current: i + 1, total: fetchResult.items.length });
 		}
 
 		const syncResult: SyncResult = {
-			signalId,
-			itemsCreated,
-			itemsUpdated,
-			itemsSkipped,
-			errors,
-			duration: Date.now() - start,
-			timestamp: new Date().toISOString(),
+			signalId, itemsCreated: counters.created, itemsUpdated: counters.updated, itemsSkipped: counters.skipped,
+			errors, duration: Date.now() - start, timestamp: new Date().toISOString(),
 		};
 
 		const idx = this.state.signals.findIndex((s) => s.id === signalId);
@@ -259,7 +254,7 @@ export class SignalService {
 			this.state.signals[idx] = {
 				...this.state.signals[idx],
 				lastSync: syncResult.timestamp,
-				lastSyncItemCount: itemsCreated + itemsUpdated + itemsSkipped,
+				lastSyncItemCount: counters.created + counters.updated + counters.skipped,
 				status: "connected",
 			};
 			await this.saveState();

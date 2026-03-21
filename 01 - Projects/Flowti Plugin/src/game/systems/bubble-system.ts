@@ -11,7 +11,6 @@ import type { BrainParams } from "../brain/brain-types.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const MAX_BUBBLES_PER_AGENT = 1;
 const DEFAULT_DURATION = 5000;
 const MIN_BUBBLE_GAP = 1500;
 const BUBBLE_Y_OFFSET = -10;

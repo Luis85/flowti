@@ -257,6 +257,26 @@ export class ConfigDocService {
 	// ── TypeDoc CRUD ─────────────────────────────────────────
 
 	async createOrUpdateTypeDoc(typeName: string): Promise<void> {
+		const properties = this.collectTypeProperties(typeName);
+		await this.createTypeDoc(typeName, [...properties].sort());
+	}
+
+	/** Add mapped properties from column mappings + custom properties to a set. */
+	private addMappedProperties(
+		properties: Set<string>,
+		columnMappings: Array<{ included: boolean; frontmatterKey: string }>,
+		customProperties?: Record<string, string>,
+	): void {
+		for (const m of columnMappings) {
+			if (m.included) properties.add(m.frontmatterKey);
+		}
+		if (customProperties) {
+			for (const key of Object.keys(customProperties)) properties.add(key);
+		}
+	}
+
+	/** Collect all properties associated with a note type across all config kinds. */
+	private collectTypeProperties(typeName: string): Set<string> {
 		const state = this.deps.getState();
 		const properties = new Set<string>();
 
@@ -264,37 +284,21 @@ export class ConfigDocService {
 			if (pipe.noteType !== typeName) continue;
 			properties.add(pipe.mergeKey);
 			for (const src of pipe.sources) {
-				for (const m of src.columnMappings) {
-					if (m.included) properties.add(m.frontmatterKey);
-				}
-				if (src.customProperties) {
-					for (const key of Object.keys(src.customProperties)) {
-						properties.add(key);
-					}
-				}
+				this.addMappedProperties(properties, src.columnMappings, src.customProperties);
 			}
 		}
 
 		for (const cfg of state.savedImportConfigs) {
 			if (cfg.noteType !== typeName) continue;
-			for (const m of cfg.columnMappings) {
-				if (m.included) properties.add(m.frontmatterKey);
-			}
-			if (cfg.customProperties) {
-				for (const key of Object.keys(cfg.customProperties)) {
-					properties.add(key);
-				}
-			}
+			this.addMappedProperties(properties, cfg.columnMappings, cfg.customProperties);
 		}
 
 		for (const cfg of state.savedExportConfigs) {
 			if (cfg.noteType !== typeName) continue;
-			for (const col of cfg.columns) {
-				properties.add(col);
-			}
+			for (const col of cfg.columns) properties.add(col);
 		}
 
-		await this.createTypeDoc(typeName, [...properties].sort());
+		return properties;
 	}
 
 	private async createTypeDoc(typeName: string, properties: string[]): Promise<void> {

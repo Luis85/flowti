@@ -15,20 +15,17 @@ import type { IEventBus } from "../../events/types";
 import type { DataExchangeService } from "../../../domain/dataExchange/DataExchangeService";
 import type { SavedImportConfig } from "../../../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "../../../ui/shared/FolderPickerModal";
-import { ConfirmModal, ConfigChooserModal, InputModal } from "../../../ui/modals";
+import { ConfigChooserModal } from "../../../ui/modals";
 import { renderStepBar, renderConfigDropdown } from "../../../ui/hub/helpers";
 import {
-	CsvLanding,
-	CsvConfigPage,
-	CsvPreviewPage,
-	CsvResultPage,
-	STEP_LABELS,
-	detectDelimiter,
-	generateBaseYaml,
-	getBaseFilename,
+	CsvLanding, CsvConfigPage, CsvPreviewPage, CsvResultPage,
+	STEP_LABELS, detectDelimiter, getBaseFilename,
 } from "../../../ui/csv";
 import type { CsvViewState, CsvComponentDeps, CsvPage } from "../../../ui/csv";
-import { basename } from "../../../utils/pathUtils";
+import {
+	promptSaveConfig, applySavedImportConfig, runImport,
+	hasUnsavedChanges, loadDisplaySettings, persistDisplaySettings,
+} from "./csv-action-helpers";
 
 // ── Deps ──────────────────────────────────────────────────────
 
@@ -36,17 +33,11 @@ export interface CsvActionHandlerDeps {
 	eventBus: IEventBus;
 	dataExchangeService: DataExchangeService;
 	app: App;
-	/** Get the currently displayed CSV file. */
 	getFile: () => TFile | null;
-	/** Get the raw CSV data. */
 	getData: () => string;
-	/** Detach the hosting leaf (e.g. close the tab). */
 	detachLeaf: () => void;
-	/** Navigate to Data Exchange Hub import config page. */
 	openHubImportConfig?: (configId: string) => void;
-	/** Get analytics queries referencing a source path. */
 	getQueriesBySource?: (csvPath: string) => import("../../../domain/analytics/types").SavedAnalyticsQuery[];
-	/** Navigate to Analytics Hub. */
 	openAnalyticsHub?: (tabId: string, entityId: string) => void;
 }
 
@@ -88,11 +79,8 @@ function createInitialState(): CsvViewState {
 // ── Orchestrator ──────────────────────────────────────────────
 
 export interface CsvOrchestrator {
-	/** Re-render content after file data changes. */
 	onDataChanged(data: string, autoStart: boolean): void;
-	/** Pre-apply a saved config before the wizard starts. */
 	setSavedConfig(config: SavedImportConfig): void;
-	/** Cleanup when the view closes. */
 	destroy(): void;
 }
 
@@ -174,9 +162,9 @@ export function createCsvOrchestrator(
 			openBaseFolderPicker: () => openBaseFolderPicker(),
 			openHubImportConfig: (id) => deps.openHubImportConfig?.(id),
 			detachLeaf: () => deps.detachLeaf(),
-			runImport: () => runImport(),
-			promptSaveConfig: () => promptSaveConfig(),
-			hasUnsavedChanges: () => hasUnsavedChanges(),
+			runImport: () => doRunImport(),
+			promptSaveConfig: () => doPromptSaveConfig(),
+			hasUnsavedChanges: () => hasUnsavedChanges(state),
 			updateUnsavedHint: () => updateUnsavedHint(),
 			getUnsavedHintEl: () => unsavedHintEl,
 			setUnsavedHintEl: (el) => { unsavedHintEl = el; },
@@ -185,6 +173,24 @@ export function createCsvOrchestrator(
 			getQueriesBySource: deps.getQueriesBySource,
 			openAnalyticsHub: deps.openAnalyticsHub,
 		};
+	}
+
+	// ── Delegating wrappers ─────────────────────────────
+
+	function doPromptSaveConfig(): void {
+		promptSaveConfig(app, eventBus, dataExchangeService, state, () => deps.getFile(), () => renderContent());
+	}
+
+	async function doRunImport(): Promise<void> {
+		await runImport(
+			eventBus, dataExchangeService, app, state,
+			() => deps.getFile(), () => renderContent(),
+			() => doPersistDisplaySettings(),
+		);
+	}
+
+	function doPersistDisplaySettings(): void {
+		persistDisplaySettings(dataExchangeService, state, () => deps.getFile());
 	}
 
 	// ── Top bar ──────────────────────────────────────────
@@ -243,117 +249,16 @@ export function createCsvOrchestrator(
 		const saveBtn = stepRow.createEl("span", { cls: "ft-nav-link" });
 		setIcon(saveBtn.createSpan(), "save");
 		saveBtn.appendText(" Save");
-		saveBtn.addEventListener("click", () => promptSaveConfig());
-		saveBtn.classList.toggle("ft-hidden", !hasUnsavedChanges());
+		saveBtn.addEventListener("click", () => doPromptSaveConfig());
+		saveBtn.classList.toggle("ft-hidden", !hasUnsavedChanges(state));
 		saveBtnEl = saveBtn;
 
 		const fileConfigs = state.savedConfigs.filter((c) => c.sourcePath === file?.path);
 		renderConfigDropdown(stepRow, {
-			onSave: () => promptSaveConfig(),
+			onSave: () => doPromptSaveConfig(),
 			configs: fileConfigs,
-			onLoad: (id) => { applySavedImportConfig(id); renderContent(); },
+			onLoad: (id) => { applySavedImportConfig(eventBus, state, id); renderContent(); },
 		});
-	}
-
-	// ── Config management ────────────────────────────────
-
-	function promptSaveConfig(): void {
-		const file = deps.getFile();
-		let defaultName = "My import config";
-		if (state.loadedConfigId) {
-			const loaded = state.savedConfigs.find((c) => c.id === state.loadedConfigId);
-			if (loaded) defaultName = loaded.name;
-		} else if (file?.basename) {
-			defaultName = file.basename;
-		}
-
-		new InputModal(app, {
-			title: "Save Import Config",
-			inputName: "Config name",
-			inputDesc: "A descriptive name for this import configuration",
-			placeholder: "My import config",
-			defaultValue: defaultName,
-			submitLabel: "Save",
-			onSubmit: (name) => {
-				let reportNoteType: string | undefined;
-				if (file) {
-					const docPath = dataExchangeService.resolveCsvDocPath(file.path, (p) => !!app.vault.getAbstractFileByPath(p));
-					const docFile = app.vault.getAbstractFileByPath(docPath);
-					if (docFile instanceof TFile && app.metadataCache) {
-						const cache = app.metadataCache.getFileCache(docFile);
-						const nt = cache?.frontmatter?.noteType;
-						if (typeof nt === "string" && nt) reportNoteType = nt;
-					}
-				}
-
-				const configData = {
-					name,
-					sourcePath: file?.path,
-					targetFolder: state.targetFolder,
-					nameColumn: state.nameColumn,
-					namePrefix: state.namePrefix || undefined,
-					nameSuffix: state.nameSuffix || undefined,
-					columnMappings: [...state.columnMappings],
-					conflictStrategy: state.conflictStrategy,
-					customProperties: Object.keys(state.customProperties).length > 0
-						? { ...state.customProperties } : undefined,
-					createBase: state.createBase || undefined,
-					basePath: state.basePath || undefined,
-					noteType: reportNoteType,
-				};
-
-				const existing = dataExchangeService.getSavedImportConfigs().find((c) => c.name === name);
-				if (existing) {
-					new ConfirmModal(app, {
-						message: `A config named "${name}" already exists. Update it?`,
-						confirmLabel: "Update",
-						onConfirm: () => {
-							void dataExchangeService.updateImportConfig(existing.id, configData).then((updated) => {
-								state.savedConfigs = dataExchangeService.getSavedImportConfigs();
-								state.loadedConfigId = existing.id;
-								void eventBus.emit("notice.success", { message: `Config updated: ${updated?.name ?? name}` });
-								renderContent();
-							}).catch((err) => console.error("[Flowti] Failed to update import config", err));
-						},
-					}).open();
-					return;
-				}
-
-				void dataExchangeService.saveImportConfig(configData).then((saved) => {
-					state.savedConfigs = dataExchangeService.getSavedImportConfigs();
-					state.loadedConfigId = saved.id;
-					void eventBus.emit("notice.success", { message: `Config saved: ${saved.name}` });
-					renderContent();
-				}).catch((err) => console.error("[Flowti] Failed to save import config", err));
-			},
-		}).open();
-	}
-
-	function applySavedImportConfig(id: string): void {
-		const cfg = state.savedConfigs.find((c) => c.id === id);
-		if (!cfg) return;
-		state.loadedConfigId = cfg.id;
-		state.targetFolder = cfg.targetFolder;
-		state.nameColumn = cfg.nameColumn;
-		state.namePrefix = cfg.namePrefix ?? "";
-		state.nameSuffix = cfg.nameSuffix ?? "";
-		state.conflictStrategy = cfg.conflictStrategy;
-		state.customProperties = cfg.customProperties ? { ...cfg.customProperties } : {};
-		state.createBase = cfg.createBase ?? false;
-		state.basePath = cfg.basePath ?? "";
-
-		for (const mapping of state.columnMappings) {
-			mapping.frontmatterKey = mapping.csvColumn.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-			mapping.included = true;
-		}
-		for (const saved of cfg.columnMappings) {
-			const mapping = state.columnMappings.find((m) => m.csvColumn === saved.csvColumn);
-			if (mapping) {
-				mapping.frontmatterKey = saved.frontmatterKey;
-				mapping.included = saved.included;
-			}
-		}
-		void eventBus.emit("notice.show", { message: `Loaded config: ${cfg.name}` });
 	}
 
 	// ── Import wizard ────────────────────────────────────
@@ -381,7 +286,7 @@ export function createCsvOrchestrator(
 		}
 
 		if (state.pendingSavedConfig) {
-			applySavedImportConfig(state.pendingSavedConfig.id);
+			applySavedImportConfig(eventBus, state, state.pendingSavedConfig.id);
 			state.pendingSavedConfig = null;
 			state.currentPage = "preview";
 			renderContent();
@@ -391,7 +296,7 @@ export function createCsvOrchestrator(
 		if (!skipAutoDetect) {
 			const matchingConfigs = dataExchangeService.getImportConfigsForFile(file!.path);
 			if (matchingConfigs.length === 1) {
-				applySavedImportConfig(matchingConfigs[0].id);
+				applySavedImportConfig(eventBus, state, matchingConfigs[0].id);
 				state.currentPage = "preview";
 				renderContent();
 				return;
@@ -401,7 +306,7 @@ export function createCsvOrchestrator(
 					app,
 					matchingConfigs.map((c) => ({ id: c.id, name: c.name })),
 					(id) => {
-						if (id) { applySavedImportConfig(id); state.currentPage = "preview"; }
+						if (id) { applySavedImportConfig(eventBus, state, id); state.currentPage = "preview"; }
 						else { state.currentPage = "config"; }
 						renderContent();
 					},
@@ -437,115 +342,8 @@ export function createCsvOrchestrator(
 		state.loadedConfigId = null;
 	}
 
-	// ── Execution ────────────────────────────────────────
-
-	async function runImport(): Promise<void> {
-		const file = deps.getFile();
-		try {
-			state.importResult = await state.importService!.executeImport({
-				sourcePath: file!.path,
-				targetFolder: state.targetFolder,
-				nameColumn: state.nameColumn,
-				namePrefix: state.namePrefix || undefined,
-				nameSuffix: state.nameSuffix || undefined,
-				columnMappings: state.columnMappings,
-				conflictStrategy: state.conflictStrategy,
-				customProperties: Object.keys(state.customProperties).length > 0
-					? { ...state.customProperties } : undefined,
-			});
-			const r = state.importResult;
-			void eventBus.emit("notice.success", {
-				message: `Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped`,
-			});
-			state.lastImportedAt = Date.now();
-			persistDisplaySettings();
-			await autoSaveConfigIfNeeded();
-			await syncBaseFile();
-		} catch (error) {
-			state.importError = error instanceof Error ? error.message : String(error);
-		}
-		renderContent();
-	}
-
-	async function autoSaveConfigIfNeeded(): Promise<void> {
-		const file = deps.getFile();
-		if (!file) return;
-		const existing = dataExchangeService.getImportConfigsForFile(file.path);
-		if (existing.length > 0) return;
-		try {
-			const saved = await dataExchangeService.saveImportConfig({
-				name: file.basename,
-				sourcePath: file.path,
-				targetFolder: state.targetFolder,
-				nameColumn: state.nameColumn,
-				namePrefix: state.namePrefix || undefined,
-				nameSuffix: state.nameSuffix || undefined,
-				columnMappings: [...state.columnMappings],
-				conflictStrategy: state.conflictStrategy,
-				customProperties: Object.keys(state.customProperties).length > 0
-					? { ...state.customProperties } : undefined,
-				createBase: state.createBase || undefined,
-				basePath: state.basePath || undefined,
-			});
-			state.savedConfigs = dataExchangeService.getSavedImportConfigs();
-			void eventBus.emit("notice.success", { message: `Config auto-saved: ${saved.name}` });
-		} catch (err) {
-			console.error("[Flowti] Failed to auto-save import config", err);
-		}
-	}
-
-	async function syncBaseFile(): Promise<void> {
-		if (!state.createBase) return;
-		const file = deps.getFile();
-		if (!state.basePath) {
-			const baseFilename = getBaseFilename(file?.path ?? "imported.csv");
-			state.basePath = state.targetFolder ? `${state.targetFolder}/${baseFilename}` : baseFilename;
-		}
-		let path = state.basePath.trim();
-		if (!path) return;
-		if (!path.endsWith(".base")) path += ".base";
-
-		if (app.vault.getAbstractFileByPath(path)) return;
-
-		try {
-			const content = generateBaseYaml(state.targetFolder, state.columnMappings);
-			await eventBus.emit("doc.create", {
-				docType: "CsvDoc" as const,
-				name: basename(path) || path,
-				path,
-				content,
-				source: "CsvActionView",
-			});
-			void eventBus.emit("notice.success", { message: `Base view created: ${path}` });
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			void eventBus.emit("notice.error", { message: `Failed to create .base file: ${msg}` });
-		}
-	}
-
-	// ── Unsaved changes ──────────────────────────────────
-
-	function hasUnsavedChanges(): boolean {
-		if (!state.loadedConfigId) return false;
-		const cfg = state.savedConfigs.find((c) => c.id === state.loadedConfigId);
-		if (!cfg) return false;
-		if (cfg.targetFolder !== state.targetFolder) return true;
-		if (cfg.nameColumn !== state.nameColumn) return true;
-		if ((cfg.namePrefix ?? "") !== state.namePrefix) return true;
-		if ((cfg.nameSuffix ?? "") !== state.nameSuffix) return true;
-		if (cfg.conflictStrategy !== state.conflictStrategy) return true;
-		if (JSON.stringify(cfg.customProperties ?? {}) !== JSON.stringify(state.customProperties)) return true;
-		if ((cfg.createBase ?? false) !== state.createBase) return true;
-		if ((cfg.basePath ?? "") !== state.basePath) return true;
-		for (const mapping of state.columnMappings) {
-			const saved = cfg.columnMappings.find((s) => s.csvColumn === mapping.csvColumn);
-			if (saved && (saved.included !== mapping.included || saved.frontmatterKey !== mapping.frontmatterKey)) return true;
-		}
-		return false;
-	}
-
 	function updateUnsavedHint(): void {
-		const changed = hasUnsavedChanges();
+		const changed = hasUnsavedChanges(state);
 		if (unsavedHintEl) unsavedHintEl.classList.toggle("ft-hidden", !changed);
 		if (saveBtnEl) saveBtnEl.classList.toggle("ft-hidden", !changed);
 	}
@@ -568,37 +366,6 @@ export function createCsvOrchestrator(
 			state.basePath = folder ? `${folder}/${filename}` : filename;
 			renderContent();
 		}).open();
-	}
-
-	// ── Display settings ─────────────────────────────────
-
-	function loadDisplaySettings(): void {
-		const file = deps.getFile();
-		if (!file) return;
-		const settings = dataExchangeService.getCsvDisplaySettings(file.path);
-		if (settings) {
-			state.previewSortColumn = settings.sortColumn;
-			state.previewSortDir = settings.sortDirection;
-			state.hiddenColumns = settings.hiddenColumns ?? [];
-			state.filterColumn = settings.filterColumn ?? null;
-			state.filterText = settings.filterText ?? "";
-			state.previewMaxRows = settings.maxPreviewRows;
-			state.lastImportedAt = settings.lastImportedAt ?? null;
-		}
-	}
-
-	function persistDisplaySettings(): void {
-		const file = deps.getFile();
-		if (!file) return;
-		dataExchangeService.saveCsvDisplaySettings(file.path, {
-			sortColumn: state.previewSortColumn,
-			sortDirection: state.previewSortDir,
-			hiddenColumns: [...state.hiddenColumns],
-			filterColumn: state.filterColumn,
-			filterText: state.filterText,
-			maxPreviewRows: state.previewMaxRows,
-			lastImportedAt: state.lastImportedAt ?? undefined,
-		}).catch((err) => console.error("[Flowti] Failed to persist CSV display settings", err));
 	}
 
 	// ── Initialization ───────────────────────────────────
@@ -626,7 +393,7 @@ export function createCsvOrchestrator(
 			state.currentPage = "landing";
 		}
 		if (data) state.detectedDelimiter = detectDelimiter(data);
-		loadDisplaySettings();
+		loadDisplaySettings(dataExchangeService, state, () => deps.getFile());
 
 		if (autoStart) {
 			void startImportWizard();

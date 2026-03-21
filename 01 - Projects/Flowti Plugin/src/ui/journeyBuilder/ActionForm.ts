@@ -156,65 +156,79 @@ export class ActionForm {
 		const currentValue = action[field.key];
 
 		if (field.type === "select") {
-			const select = group.createEl("select", { cls: "ft-jb-form-select" });
-			select.dataset.testId = `jb-action-field-${field.key}`;
-
-			const emptyOpt = document.createElement("option");
-			emptyOpt.value = "";
-			emptyOpt.textContent = field.placeholder ?? "";
-			select.appendChild(emptyOpt);
-
-			for (const opt of field.options ?? []) {
-				const option = document.createElement("option");
-				option.value = opt.value;
-				option.textContent = opt.label;
-				if (String(currentValue) === opt.value) option.selected = true;
-				select.appendChild(option);
-			}
-
-			select.addEventListener("change", () => {
-				this.deps.onFieldChanged(field.key, select.value);
-				// Re-render if other fields depend on this select
-				if (this.hasDependentFields(field.key)) {
-					this.deps.onReRender?.();
-				}
-			});
+			this.renderSelectField(group, field, currentValue);
 		} else if (field.type === "textarea") {
-			const textarea = group.createEl("textarea", { cls: "ft-jb-form-textarea" });
-			textarea.dataset.testId = `jb-action-field-${field.key}`;
-			textarea.placeholder = field.placeholder ?? "";
-			textarea.value = currentValue != null ? String(currentValue) : "";
-			textarea.rows = 3;
-			textarea.addEventListener("input", () => {
-				this.deps.onFieldChanged(field.key, textarea.value);
-			});
+			this.renderTextareaField(group, field, currentValue);
 		} else if (field.type === "number") {
-			const input = group.createEl("input", { cls: "ft-jb-form-input", type: "number" });
-			input.dataset.testId = `jb-action-field-${field.key}`;
-			input.placeholder = field.placeholder ?? "";
-			input.value = currentValue != null ? String(currentValue) : "";
-			input.addEventListener("input", () => {
-				const num = input.value === "" ? "" : Number(input.value);
-				this.deps.onFieldChanged(field.key, num);
-			});
+			this.renderNumberField(group, field, currentValue);
 		} else {
-			// text
-			const input = group.createEl("input", { cls: "ft-jb-form-input", type: "text" });
-			input.dataset.testId = `jb-action-field-${field.key}`;
-			input.placeholder = field.placeholder ?? "";
-			input.value = currentValue != null ? String(currentValue) : "";
-			input.addEventListener("input", () => {
-				this.deps.onFieldChanged(field.key, input.value);
-			});
+			this.renderTextField(group, field, currentValue);
+		}
+	}
 
-			// Attach event suggest to event fields (assert, emit, query-trace)
-			if (field.key === "event" && this.deps.getEventCatalog) {
-				input.dataset.testId = "jb-event-suggest-input";
-				const unsub = attachEventSuggest(input, this.deps.getEventCatalog, (value) => {
-					this.deps.onFieldChanged(field.key, value);
-				});
-				this.cleanups.push(unsub);
+	private renderSelectField(group: HTMLElement, field: ToolFieldDef, currentValue: unknown): void {
+		const select = group.createEl("select", { cls: "ft-jb-form-select" });
+		select.dataset.testId = `jb-action-field-${field.key}`;
+
+		const emptyOpt = document.createElement("option");
+		emptyOpt.value = "";
+		emptyOpt.textContent = field.placeholder ?? "";
+		select.appendChild(emptyOpt);
+
+		for (const opt of field.options ?? []) {
+			const option = document.createElement("option");
+			option.value = opt.value;
+			option.textContent = opt.label;
+			if (String(currentValue) === opt.value) option.selected = true;
+			select.appendChild(option);
+		}
+
+		select.addEventListener("change", () => {
+			this.deps.onFieldChanged(field.key, select.value);
+			if (this.hasDependentFields(field.key)) {
+				this.deps.onReRender?.();
 			}
+		});
+	}
+
+	private renderTextareaField(group: HTMLElement, field: ToolFieldDef, currentValue: unknown): void {
+		const textarea = group.createEl("textarea", { cls: "ft-jb-form-textarea" });
+		textarea.dataset.testId = `jb-action-field-${field.key}`;
+		textarea.placeholder = field.placeholder ?? "";
+		textarea.value = currentValue != null ? String(currentValue) : "";
+		textarea.rows = 3;
+		textarea.addEventListener("input", () => {
+			this.deps.onFieldChanged(field.key, textarea.value);
+		});
+	}
+
+	private renderNumberField(group: HTMLElement, field: ToolFieldDef, currentValue: unknown): void {
+		const input = group.createEl("input", { cls: "ft-jb-form-input", type: "number" });
+		input.dataset.testId = `jb-action-field-${field.key}`;
+		input.placeholder = field.placeholder ?? "";
+		input.value = currentValue != null ? String(currentValue) : "";
+		input.addEventListener("input", () => {
+			const num = input.value === "" ? "" : Number(input.value);
+			this.deps.onFieldChanged(field.key, num);
+		});
+	}
+
+	private renderTextField(group: HTMLElement, field: ToolFieldDef, currentValue: unknown): void {
+		const input = group.createEl("input", { cls: "ft-jb-form-input", type: "text" });
+		input.dataset.testId = `jb-action-field-${field.key}`;
+		input.placeholder = field.placeholder ?? "";
+		input.value = currentValue != null ? String(currentValue) : "";
+		input.addEventListener("input", () => {
+			this.deps.onFieldChanged(field.key, input.value);
+		});
+
+		// Attach event suggest to event fields (assert, emit, query-trace)
+		if (field.key === "event" && this.deps.getEventCatalog) {
+			input.dataset.testId = "jb-event-suggest-input";
+			const unsub = attachEventSuggest(input, this.deps.getEventCatalog, (value) => {
+				this.deps.onFieldChanged(field.key, value);
+			});
+			this.cleanups.push(unsub);
 		}
 	}
 

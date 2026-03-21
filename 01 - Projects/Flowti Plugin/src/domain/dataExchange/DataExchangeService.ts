@@ -25,6 +25,7 @@ import { ConfigPathTracker } from "./ConfigPathTracker";
 import { PipelineExecutor } from "./PipelineExecutor";
 import { ConfigDocService } from "./ConfigDocService";
 import { generateUUID } from "../../utils/helpers";
+import { createDocDelegation } from "./DataExchangeService-docs";
 
 export interface DataExchangeServiceOptions {
 	eventBus: IEventBus;
@@ -405,169 +406,76 @@ export class DataExchangeService {
 		return this.state.savedPipelines?.find((p) => p.id === id);
 	}
 
-	async savePipeline(
-		config: Omit<SavedMultiImportPipeline, "id" | "createdAt">,
-	): Promise<SavedMultiImportPipeline> {
-		const saved: SavedMultiImportPipeline = {
-			...config,
-			id: generateId(),
-			createdAt: Date.now(),
-		};
+	async savePipeline(config: Omit<SavedMultiImportPipeline, "id" | "createdAt">): Promise<SavedMultiImportPipeline> {
+		const saved: SavedMultiImportPipeline = { ...config, id: generateId(), createdAt: Date.now() };
 		if (!this.state.savedPipelines) this.state.savedPipelines = [];
 		this.state.savedPipelines.push(saved);
 		await this.saveState();
 		this.emitConfigChanged();
 		void this.configDocService.createPipelineConfigDoc(saved);
 		void this.configDocService.createConfigEventDocs(saved.name, "pipeline");
-		if (saved.noteType) {
-			void this.configDocService.createOrUpdateTypeDoc(saved.noteType);
-		}
+		if (saved.noteType) void this.configDocService.createOrUpdateTypeDoc(saved.noteType);
 		return saved;
 	}
 
 	async deletePipeline(id: string): Promise<void> {
 		if (!this.state.savedPipelines) return;
 		this.state.savedPipelines = this.state.savedPipelines.filter((p) => p.id !== id);
-		await this.saveState();
-		this.emitConfigChanged();
+		await this.saveState(); this.emitConfigChanged();
 	}
 
-	async updatePipeline(
-		id: string,
-		updates: Partial<Omit<SavedMultiImportPipeline, "id" | "createdAt">>,
-	): Promise<SavedMultiImportPipeline | undefined> {
+	async updatePipeline(id: string, updates: Partial<Omit<SavedMultiImportPipeline, "id" | "createdAt">>): Promise<SavedMultiImportPipeline | undefined> {
 		const pipe = this.state.savedPipelines?.find((p) => p.id === id);
 		if (!pipe) return undefined;
 		Object.assign(pipe, updates);
-		await this.saveState();
-		this.emitConfigChanged();
+		await this.saveState(); this.emitConfigChanged();
 		void this.configDocService.createPipelineConfigDoc(pipe);
-		if (pipe.noteType) {
-			void this.configDocService.createOrUpdateTypeDoc(pipe.noteType);
-		}
+		if (pipe.noteType) void this.configDocService.createOrUpdateTypeDoc(pipe.noteType);
 		return { ...pipe };
 	}
 
-	async togglePipelineFavourite(id: string): Promise<void> {
-		const pipe = this.getPipeline(id);
-		if (!pipe) return;
-		await this.updatePipeline(id, { favourite: !pipe.favourite });
-	}
+	async togglePipelineFavourite(id: string): Promise<void> { const p = this.getPipeline(id); if (p) await this.updatePipeline(id, { favourite: !p.favourite }); }
 
 	// ── CSV display settings ────────────────────────────────
-
-	getCsvDisplaySettings(csvPath: string): CsvDisplaySettings | undefined {
-		return this.state.csvDisplaySettings?.[csvPath];
-	}
-
-	async saveCsvDisplaySettings(
-		csvPath: string,
-		settings: CsvDisplaySettings,
-	): Promise<void> {
-		if (!this.state.csvDisplaySettings) {
-			this.state.csvDisplaySettings = {};
-		}
+	getCsvDisplaySettings(csvPath: string): CsvDisplaySettings | undefined { return this.state.csvDisplaySettings?.[csvPath]; }
+	async saveCsvDisplaySettings(csvPath: string, settings: CsvDisplaySettings): Promise<void> {
+		if (!this.state.csvDisplaySettings) this.state.csvDisplaySettings = {};
 		this.state.csvDisplaySettings[csvPath] = settings;
 		await this.saveState();
 	}
 
 	// ── CSV file visibility ─────────────────────────────────
-
-	getHiddenCsvPaths(): string[] {
-		return this.state.hiddenCsvPaths ?? [];
-	}
-
+	getHiddenCsvPaths(): string[] { return this.state.hiddenCsvPaths ?? []; }
 	async hideCsv(csvPath: string): Promise<void> {
-		if (!this.state.hiddenCsvPaths) {
-			this.state.hiddenCsvPaths = [];
-		}
-		if (!this.state.hiddenCsvPaths.includes(csvPath)) {
-			this.state.hiddenCsvPaths.push(csvPath);
-			await this.saveState();
-		}
+		if (!this.state.hiddenCsvPaths) this.state.hiddenCsvPaths = [];
+		if (!this.state.hiddenCsvPaths.includes(csvPath)) { this.state.hiddenCsvPaths.push(csvPath); await this.saveState(); }
 	}
-
 	async unhideCsv(csvPath: string): Promise<void> {
 		if (!this.state.hiddenCsvPaths) return;
 		const idx = this.state.hiddenCsvPaths.indexOf(csvPath);
-		if (idx !== -1) {
-			this.state.hiddenCsvPaths.splice(idx, 1);
-			await this.saveState();
-		}
+		if (idx !== -1) { this.state.hiddenCsvPaths.splice(idx, 1); await this.saveState(); }
 	}
 
-	// ── Data dictionary ─────────────────────────────────────
+	buildDataDictionary(): DataDictionaryEntry[] { return buildDataDictionaryFn(this.state); }
 
-	buildDataDictionary(): DataDictionaryEntry[] {
-		return buildDataDictionaryFn(this.state);
-	}
-
-	// ── Doc delegation ──────────────────────────────────────
-
-	getCsvDocPath(csvPath: string): string {
-		return this.configDocService.getCsvDocPath(csvPath);
-	}
-
-	/** Returns the doc path that actually exists (new or legacy), or the new path if neither exists. */
-	resolveCsvDocPath(csvPath: string, fileExists: (path: string) => boolean): string {
-		return this.configDocService.resolveCsvDocPath(csvPath, fileExists);
-	}
-
-	async createCsvDoc(csvPath: string, headers: string[], rowCount: number, delimiter?: string): Promise<string> {
-		return this.configDocService.createCsvDoc(csvPath, headers, rowCount, delimiter);
-	}
-
-	getConfigDocPath(configName: string, configType: "import" | "export"): string {
-		return this.configDocService.getConfigDocPath(configName, configType);
-	}
-
-	async ensureConfigDoc(configName: string, configType: "import" | "export"): Promise<string> {
-		return this.configDocService.ensureConfigDoc(configName, configType);
-	}
-
-	async ensurePipelineDoc(pipelineId: string): Promise<string> {
-		return this.configDocService.ensurePipelineDoc(pipelineId);
-	}
-
-	getConfigsFolderPath(): string {
-		return this.configDocService.getConfigsFolderPath();
-	}
-
-	getReportsFolderPath(): string {
-		return this.configDocService.getReportsFolderPath();
-	}
-
-	getPropertiesFolderPath(): string {
-		return this.configDocService.getPropertiesFolderPath();
-	}
-
-	getPropertyDocPath(propertyName: string): string {
-		return this.configDocService.getPropertyDocPath(propertyName);
-	}
-
-	async createPropertyDoc(propertyName: string): Promise<string> {
-		return this.configDocService.createPropertyDoc(propertyName);
-	}
-
-	getTypesFolderPath(): string {
-		return this.configDocService.getTypesFolderPath();
-	}
-
-	getEventDocPath(eventType: string): string {
-		return this.configDocService.getEventDocPath(eventType);
-	}
-
-	getTypeDocPath(typeName: string): string {
-		return this.configDocService.getTypeDocPath(typeName);
-	}
-
-	getPipelineDocPath(pipelineName: string): string {
-		return this.configDocService.getPipelineDocPath(pipelineName);
-	}
-
-	async createOrUpdateTypeDoc(typeName: string): Promise<void> {
-		return this.configDocService.createOrUpdateTypeDoc(typeName);
-	}
+	// ── Doc delegation (see DataExchangeService-docs.ts) ────
+	private get docs() { return createDocDelegation({ configDocService: this.configDocService }); }
+	getCsvDocPath(csvPath: string): string { return this.docs.getCsvDocPath(csvPath); }
+	resolveCsvDocPath(csvPath: string, fileExists: (path: string) => boolean): string { return this.docs.resolveCsvDocPath(csvPath, fileExists); }
+	async createCsvDoc(csvPath: string, headers: string[], rowCount: number, delimiter?: string): Promise<string> { return this.docs.createCsvDoc(csvPath, headers, rowCount, delimiter); }
+	getConfigDocPath(configName: string, configType: "import" | "export"): string { return this.docs.getConfigDocPath(configName, configType); }
+	async ensureConfigDoc(configName: string, configType: "import" | "export"): Promise<string> { return this.docs.ensureConfigDoc(configName, configType); }
+	async ensurePipelineDoc(pipelineId: string): Promise<string> { return this.docs.ensurePipelineDoc(pipelineId); }
+	getConfigsFolderPath(): string { return this.docs.getConfigsFolderPath(); }
+	getReportsFolderPath(): string { return this.docs.getReportsFolderPath(); }
+	getPropertiesFolderPath(): string { return this.docs.getPropertiesFolderPath(); }
+	getPropertyDocPath(propertyName: string): string { return this.docs.getPropertyDocPath(propertyName); }
+	async createPropertyDoc(propertyName: string): Promise<string> { return this.docs.createPropertyDoc(propertyName); }
+	getTypesFolderPath(): string { return this.docs.getTypesFolderPath(); }
+	getEventDocPath(eventType: string): string { return this.docs.getEventDocPath(eventType); }
+	getTypeDocPath(typeName: string): string { return this.docs.getTypeDocPath(typeName); }
+	getPipelineDocPath(pipelineName: string): string { return this.docs.getPipelineDocPath(pipelineName); }
+	async createOrUpdateTypeDoc(typeName: string): Promise<void> { return this.docs.createOrUpdateTypeDoc(typeName); }
 
 	// ── Internal ─────────────────────────────────────────────
 

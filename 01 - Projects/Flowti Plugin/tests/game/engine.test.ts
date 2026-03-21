@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 
 // Mock excalibur — use function constructors so `new` works
 vi.mock("excalibur", () => {
-	function MockEngine(this: Record<string, unknown>) {
+	const MockEngine = vi.fn(function (this: Record<string, unknown>) {
 		const self = this;
 		self.canvas = document.createElement("canvas");
 		self.screen = {
@@ -24,7 +24,10 @@ vi.mock("excalibur", () => {
 		};
 		self.drawWidth = 800;
 		self.drawHeight = 500;
-	}
+		self.input = {
+			pointers: { primary: { on: vi.fn() } },
+		};
+	});
 
 	function MockActor(this: Record<string, unknown>) {
 		const self = this;
@@ -61,52 +64,98 @@ vi.mock("excalibur", () => {
 });
 
 // Mock all game modules that the engine imports
-vi.mock("../../src/game/scenes/hub-scene.js", () => {
-	function MockHubScene(this: Record<string, unknown>) {
+
+// ── Scene mocks ─────────────────────────────────────────────────────
+vi.mock("../../src/game/scenes/game-scene.js", () => {
+	function MockGameScene(this: Record<string, unknown>) {
 		const self = this;
 		self.add = vi.fn();
 		self.updateAgents = vi.fn();
-		self.updateConnectionStatus = vi.fn();
+		self.removeAgent = vi.fn();
 		self.getAgentActor = vi.fn();
+		self.getWorkstations = vi.fn(() => []);
+		self.spawnAgent = vi.fn();
+		self.spawnAgentAtDoorway = vi.fn();
+		self.setBrainSystem = vi.fn();
 		self.setSpriteRegistry = vi.fn();
+		self.registerEntity = vi.fn();
 		self.camera = { move: vi.fn(), pos: { x: 0, y: 0 }, zoom: 1 };
 	}
-	return { HubScene: MockHubScene };
+	return { GameScene: MockGameScene };
 });
 
-vi.mock("../../src/game/scenes/office-scene.js", () => ({
-	createOfficeScene: vi.fn(() => ({
-		add: vi.fn(),
-		getAgentActor: vi.fn(),
-		getWorkstations: vi.fn(() => []),
-		spawnAgent: vi.fn(),
-		setBrainSystem: vi.fn(),
-		setSpriteRegistry: vi.fn(),
-	})),
+vi.mock("../../src/game/data/scene-configs.js", () => ({
+	SCENE_CONFIGS: {
+		hub: { name: "hub", bgColor: "#000" },
+		office: { name: "office", bgColor: "#000" },
+		village: { name: "village", bgColor: "#000" },
+		station: { name: "station", bgColor: "#000" },
+	},
 }));
 
-vi.mock("../../src/game/scenes/village-scene.js", () => ({
-	createVillageScene: vi.fn(() => ({
-		add: vi.fn(),
-		getAgentActor: vi.fn(),
-		getWorkstations: vi.fn(() => []),
-		spawnAgent: vi.fn(),
-		setBrainSystem: vi.fn(),
-		setSpriteRegistry: vi.fn(),
-	})),
+// ── Engine extraction mocks ─────────────────────────────────────────
+vi.mock("../../src/game/engine-state.js", () => ({
+	restoreWorldState: vi.fn(() => ({ savedPositions: null })),
+	restoreAgentState: vi.fn(),
+	flushWorldState: vi.fn(),
+	startPeriodicFlush: vi.fn(() => vi.fn()),
 }));
 
-vi.mock("../../src/game/scenes/station-scene.js", () => ({
-	createStationScene: vi.fn(() => ({
-		add: vi.fn(),
-		getAgentActor: vi.fn(),
-		getWorkstations: vi.fn(() => []),
-		spawnAgent: vi.fn(),
-		setBrainSystem: vi.fn(),
-		setSpriteRegistry: vi.fn(),
-	})),
+vi.mock("../../src/game/engine-events.js", () => ({
+	wireEvents: vi.fn(() => vi.fn()),
 }));
 
+vi.mock("../../src/game/engine-simulation.js", () => ({
+	tickSimulation: vi.fn(),
+}));
+
+vi.mock("../../src/game/engine-config.js", () => ({
+	ENGINE_WIDTH: 800,
+	ENGINE_HEIGHT: 500,
+	OBJECT_POSITIONS: {
+		coffeeMachine: { x: 200, y: 300 },
+		whiteboard: { x: 400, y: 200 },
+		snackTable: { x: 300, y: 350 },
+		waterCooler: { x: 500, y: 250 },
+		couch: { x: 600, y: 300 },
+		plant: { x: 100, y: 200 },
+		noticeBoard: { x: 700, y: 150 },
+	},
+	BRAIN_BOUNDS: { x: 0, y: 0, width: 800, height: 500 },
+	PARTICLE_POOL_SIZE: 100,
+	DEFAULT_PET_ROOMS: {},
+	AGENT_WAKE_DELAY: 100,
+	SCENE_TRANSITION_DURATION: 300,
+	LOADING_FADE_DURATION: 300,
+}));
+
+// ── Scene registry and room switcher ────────────────────────────────
+vi.mock("../../src/game/systems/scene-registry.js", () => {
+	function MockSceneRegistry(this: Record<string, unknown>) {
+		const self = this;
+		self.registerScene = vi.fn();
+		self.registerObject = vi.fn();
+		self.getScene = vi.fn();
+		self.setEntityRoom = vi.fn();
+		self.getEntityRoom = vi.fn();
+		self.isInTransit = vi.fn(() => false);
+	}
+	return { SceneRegistry: MockSceneRegistry };
+});
+
+vi.mock("../../src/game/systems/room-switcher.js", () => {
+	const MockRoomSwitcher = vi.fn(function (this: Record<string, unknown>) {
+		const self = this;
+		self.update = vi.fn();
+	});
+	return { RoomSwitcher: MockRoomSwitcher };
+});
+
+vi.mock("../../src/game/actors/agent-scene-entity.js", () => ({
+	AgentSceneEntity: vi.fn(),
+}));
+
+// ── Core system mocks ───────────────────────────────────────────────
 vi.mock("../../src/game/systems/brain-system.js", () => {
 	function MockBrainSystem(this: Record<string, unknown>) {
 		const self = this;
@@ -119,6 +168,7 @@ vi.mock("../../src/game/systems/brain-system.js", () => {
 		self.getPosition = vi.fn();
 		self.getAllEntries = vi.fn(() => new Map());
 		self.update = vi.fn();
+		self.applyQuirkOverrides = vi.fn();
 	}
 	return { BrainSystem: MockBrainSystem };
 });
@@ -176,6 +226,85 @@ vi.mock("../../src/game/systems/social-system.js", () => {
 	return { SocialSystem: MockSocialSystem };
 });
 
+vi.mock("../../src/game/systems/needs-system.js", () => {
+	function MockNeedsSystem(this: Record<string, unknown>) {
+		const self = this;
+		self.register = vi.fn();
+		self.getNeeds = vi.fn(() => ({ energy: 1, social: 1, focus: 1, morale: 1 }));
+		self.update = vi.fn();
+		self.serialize = vi.fn(() => ({}));
+		self.restore = vi.fn();
+	}
+	return { NeedsSystem: MockNeedsSystem };
+});
+
+vi.mock("../../src/game/systems/director-system.js", () => {
+	function MockDirectorSystem(this: Record<string, unknown>) {
+		const self = this;
+		self.onMouseMove = vi.fn();
+		self.onMouseLeave = vi.fn();
+		self.recordInteraction = vi.fn();
+		self.update = vi.fn();
+	}
+	return { DirectorSystem: MockDirectorSystem };
+});
+
+vi.mock("../../src/game/systems/sensor-system.js", () => {
+	function MockSensorSystem(this: Record<string, unknown>) {
+		const self = this;
+		self.register = vi.fn();
+		self.update = vi.fn();
+	}
+	return { SensorSystem: MockSensorSystem };
+});
+
+vi.mock("../../src/game/systems/engagement-system.js", () => {
+	function MockEngagementSystem(this: Record<string, unknown>) {
+		const self = this;
+		self.register = vi.fn();
+		self.clearTaskCompleted = vi.fn();
+		self.update = vi.fn();
+	}
+	return { EngagementSystem: MockEngagementSystem };
+});
+
+vi.mock("../../src/game/systems/ritual-system.js", () => {
+	function MockRitualSystem(this: Record<string, unknown>) {
+		const self = this;
+		self.register = vi.fn();
+		self.update = vi.fn();
+	}
+	return { RitualSystem: MockRitualSystem };
+});
+
+vi.mock("../../src/game/systems/tool-executor-system.js", () => {
+	function MockToolExecutor(this: Record<string, unknown>) {
+		const self = this;
+		self.registerTools = vi.fn();
+		self.update = vi.fn();
+	}
+	return { ToolExecutor: MockToolExecutor };
+});
+
+vi.mock("../../src/game/data/tool-registry.js", () => ({
+	DEFAULT_TOOLS: [],
+}));
+
+vi.mock("../../src/game/systems/bt-system.js", () => {
+	function MockBtSystem(this: Record<string, unknown>) {
+		const self = this;
+		self.register = vi.fn();
+		self.registerPet = vi.fn();
+		self.update = vi.fn(() => []);
+		self.getAgent = vi.fn();
+	}
+	return { BtSystem: MockBtSystem, createStubDeps: vi.fn(() => ({})) };
+});
+
+vi.mock("../../src/game/brain/behavior-tree/pet-bt.js", () => ({
+	createPetBT: vi.fn(() => ({ tree: {}, agent: {} })),
+}));
+
 vi.mock("../../src/game/systems/camera-system.js", () => ({
 	createCameraSystem: vi.fn(() => ({
 		startFollow: vi.fn(),
@@ -201,6 +330,7 @@ vi.mock("../../src/game/brain/movement.js", () => ({
 
 vi.mock("../../src/game/sprites/character-pool.js", () => ({
 	DOMAIN_POOLS: { engineering: ["char1"], design: ["char2"] },
+	resolveCharacter: vi.fn(() => "char1"),
 }));
 
 vi.mock("../../src/game/config/domain-map.js", () => ({
@@ -212,11 +342,13 @@ vi.mock("../../src/game/sprites/sprite-loader.js", () => ({
 }));
 
 vi.mock("../../src/game/store/dashboard-store.js", () => {
-	function MockDashboardStore(this: Record<string, unknown>) {
+	const MockDashboardStore = vi.fn(function (this: Record<string, unknown>) {
 		const self = this;
 		self.agents = [];
 		self.selectedAgent = null;
 		self.followedAgent = null;
+		self.llmStatus = new Map();
+		self.taskLockedAgents = new Set();
 		self.selectAgent = vi.fn();
 		self.selectTab = vi.fn();
 		self.startFollow = vi.fn();
@@ -225,7 +357,10 @@ vi.mock("../../src/game/store/dashboard-store.js", () => {
 		self.setConnectionStatus = vi.fn();
 		self.setActivityLog = vi.fn();
 		self.pushAgentResponse = vi.fn();
+		self.pushAgentThought = vi.fn();
+		self.pushWorldEvent = vi.fn();
 		self.setLlmStatus = vi.fn();
+		self.wakeAgent = vi.fn().mockResolvedValue(undefined);
 		self.beginBatch = vi.fn();
 		self.endBatch = vi.fn();
 		self.updatePositions = vi.fn();
@@ -234,7 +369,7 @@ vi.mock("../../src/game/store/dashboard-store.js", () => {
 		self.setAgentState = vi.fn();
 		self.addEventListener = vi.fn();
 		self.removeEventListener = vi.fn();
-	}
+	});
 	return { DashboardStore: MockDashboardStore };
 });
 
@@ -263,8 +398,8 @@ vi.mock("../../src/game/data/engagement-templates.js", () => ({
 }));
 
 vi.mock("../../src/game/systems/day-clock.js", () => {
-	function MockDayClock() {
-		const self = this as Record<string, unknown>;
+	function MockDayClock(this: Record<string, unknown>) {
+		const self = this;
 		self.update = vi.fn();
 		self.getPhase = vi.fn(() => "morning-arrival");
 		self.getPhaseMultipliers = vi.fn(() => ({ energy: 1, social: 1, focus: 1, morale: 1 }));
@@ -279,8 +414,8 @@ vi.mock("../../src/game/systems/day-clock.js", () => {
 });
 
 vi.mock("../../src/game/systems/world-ambience.js", () => {
-	function MockWorldAmbience() {
-		const self = this as Record<string, unknown>;
+	function MockWorldAmbience(this: Record<string, unknown>) {
+		const self = this;
 		self.getLighting = vi.fn(() => ({ r: 0, g: 0, b: 0, opacity: 0 }));
 		self.getWeather = vi.fn(() => "clear");
 		self.getWeatherVisuals = vi.fn(() => ({ particleCount: 0 }));
@@ -292,10 +427,10 @@ vi.mock("../../src/game/systems/world-ambience.js", () => {
 });
 
 vi.mock("../../src/game/systems/memory-system.js", () => {
-	function MockMemorySystem() {
-		const self = this as Record<string, unknown>;
+	function MockMemorySystem(this: Record<string, unknown>) {
+		const self = this;
 		self.register = vi.fn();
-		self.getMemory = vi.fn(() => ({ milestones: [], recentEvents: [], moodLog: [] }));
+		self.getMemory = vi.fn(() => ({ milestones: [], recentEvents: [], moodLog: [], quirks: [], opinions: [] }));
 		self.recordEvent = vi.fn();
 		self.recordVisit = vi.fn();
 		self.onCycleEnd = vi.fn();
@@ -307,8 +442,8 @@ vi.mock("../../src/game/systems/memory-system.js", () => {
 });
 
 vi.mock("../../src/game/systems/quirk-system.js", () => {
-	function MockQuirkSystem() {
-		const self = this as Record<string, unknown>;
+	function MockQuirkSystem(this: Record<string, unknown>) {
+		const self = this;
 		self.register = vi.fn();
 		self.getQuirks = vi.fn(() => []);
 		self.getOverrides = vi.fn(() => ({}));
@@ -319,8 +454,8 @@ vi.mock("../../src/game/systems/quirk-system.js", () => {
 });
 
 vi.mock("../../src/game/systems/world-event-scheduler.js", () => {
-	function MockWorldEventScheduler() {
-		const self = this as Record<string, unknown>;
+	function MockWorldEventScheduler(this: Record<string, unknown>) {
+		const self = this;
 		self.registerHandler = vi.fn();
 		self.recordSensorEvent = vi.fn();
 		self.onPhaseChange = vi.fn();
@@ -332,8 +467,8 @@ vi.mock("../../src/game/systems/world-event-scheduler.js", () => {
 });
 
 vi.mock("../../src/game/systems/relationship-system.js", () => {
-	function MockRelationshipSystem() {
-		const self = this as Record<string, unknown>;
+	function MockRelationshipSystem(this: Record<string, unknown>) {
+		const self = this;
 		self.register = vi.fn();
 		self.recordConversation = vi.fn();
 		self.recordCluster = vi.fn();
@@ -382,8 +517,10 @@ vi.mock("../../src/game/data/opinion-topics.js", () => ({
 }));
 
 vi.mock("../../src/game/actors/pet-actor.js", () => {
-	function MockPetActor() {
-		const self = this as Record<string, unknown>;
+	let petCounter = 0;
+	function MockPetActor(this: Record<string, unknown>) {
+		const self = this;
+		self.entityId = `pet-${petCounter++}`;
 		self.pos = { x: 0, y: 0 };
 		self.petType = "cat";
 		self.getState = vi.fn(() => "idle");
@@ -400,40 +537,40 @@ vi.mock("../../src/game/actors/pet-actor.js", () => {
 
 vi.mock("../../src/game/data/pet-definitions.js", () => ({
 	PET_DEFINITIONS: [
-		{ type: "cat", phrases: ["meow"], behaviors: { interactRadius: 50, needsEffect: {} } },
-		{ type: "dog", phrases: ["woof"], behaviors: { interactRadius: 60, needsEffect: {} } },
-		{ type: "bird", phrases: ["chirp"], behaviors: { interactRadius: 40, needsEffect: {} } },
-		{ type: "fish", phrases: ["blub"], behaviors: { interactRadius: 60, needsEffect: {} } },
+		{ type: "cat", speed: 0.4, phrases: ["meow"], behaviors: { interactRadius: 50, needsEffect: {}, sleepChance: 0.008, wanderRadius: 120 } },
+		{ type: "dog", speed: 0.5, phrases: ["woof"], behaviors: { interactRadius: 60, needsEffect: {}, sleepChance: 0.005, wanderRadius: 150 } },
+		{ type: "bird", speed: 0.3, phrases: ["chirp"], behaviors: { interactRadius: 40, needsEffect: {}, sleepChance: 0.01, wanderRadius: 80 } },
+		{ type: "fish", speed: 0, phrases: ["blub"], behaviors: { interactRadius: 60, needsEffect: {}, sleepChance: 0, wanderRadius: 0 } },
 	],
 	getPetDefinition: vi.fn(),
 }));
 
 vi.mock("../../src/game/actors/coffee-machine.js", () => {
-	function MockCoffeeMachine() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	function MockCoffeeMachine(this: Record<string, unknown>) { const s = this; s.objectId = "coffee-machine"; s.objectType = "appliance"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { CoffeeMachine: MockCoffeeMachine };
 });
 vi.mock("../../src/game/actors/whiteboard-actor.js", () => {
-	function MockWhiteboardActor() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	function MockWhiteboardActor(this: Record<string, unknown>) { const s = this; s.objectId = "whiteboard"; s.objectType = "furniture"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { WhiteboardActor: MockWhiteboardActor };
 });
 vi.mock("../../src/game/actors/snack-table.js", () => {
-	function MockSnackTable() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	function MockSnackTable(this: Record<string, unknown>) { const s = this; s.objectId = "snack-table"; s.objectType = "furniture"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { SnackTable: MockSnackTable };
 });
 vi.mock("../../src/game/actors/water-cooler.js", () => {
-	function MockWaterCooler() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	function MockWaterCooler(this: Record<string, unknown>) { const s = this; s.objectId = "water-cooler"; s.objectType = "appliance"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { WaterCooler: MockWaterCooler };
 });
 vi.mock("../../src/game/actors/couch-actor.js", () => {
-	function MockCouchActor() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	function MockCouchActor(this: Record<string, unknown>) { const s = this; s.objectId = "couch"; s.objectType = "furniture"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { CouchActor: MockCouchActor };
 });
 vi.mock("../../src/game/actors/plant-actor.js", () => {
-	function MockPlantActor() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	function MockPlantActor(this: Record<string, unknown>) { const s = this; s.objectId = "plant"; s.objectType = "decoration"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { PlantActor: MockPlantActor };
 });
 vi.mock("../../src/game/actors/notice-board.js", () => {
-	function MockNoticeBoard() { const s = this as Record<string, unknown>; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
+	function MockNoticeBoard(this: Record<string, unknown>) { const s = this; s.objectId = "notice-board"; s.objectType = "furniture"; s.pos = { x: 0, y: 0 }; s.getInteractionPoint = vi.fn(() => ({ x: 0, y: 0 })); }
 	return { NoticeBoard: MockNoticeBoard };
 });
 
@@ -455,6 +592,10 @@ vi.mock("../../src/game/ui/agent-panel.js", () => ({}));
 
 import { createAgentWorld } from "../../src/game/engine.js";
 import type { DataProvider } from "../../src/game/config/data-provider.js";
+import { wireEvents } from "../../src/game/engine-events.js";
+import { RoomSwitcher } from "../../src/game/systems/room-switcher.js";
+import { DashboardStore } from "../../src/game/store/dashboard-store.js";
+import * as ex from "excalibur";
 
 function createMockProvider(): DataProvider {
 	return {
@@ -492,8 +633,8 @@ describe("createAgentWorld", () => {
 	it("mounts overlay elements into container", () => {
 		const container = document.createElement("div");
 		createAgentWorld({ container, provider: createMockProvider(), spriteBasePath: "/test" });
-		// Canvas + 5 overlay elements = 6 children
-		expect(container.children.length).toBe(6);
+		// Canvas + loading overlay + 5 Lit overlay elements = 7 children
+		expect(container.children.length).toBe(7);
 	});
 
 	it("keyboard listeners are on document (not container)", () => {
@@ -534,8 +675,82 @@ describe("createAgentWorld", () => {
 		const provider = createMockProvider();
 		createAgentWorld({ container: document.createElement("div"), provider, spriteBasePath: "/test" });
 
-		expect(provider.onAction).toHaveBeenCalled();
-		expect(provider.onEntityUpdate).toHaveBeenCalled();
-		expect(provider.onConnectionStatus).toHaveBeenCalled();
+		// Event wiring is now delegated to wireEvents()
+		expect(wireEvents).toHaveBeenCalled();
+	});
+
+	describe("follow across rooms", () => {
+		function getTransferCallback(): (entityId: string, from: string, to: string, reason: string) => void {
+			const calls = vi.mocked(RoomSwitcher).mock.calls;
+			const config = calls[calls.length - 1][0] as unknown as Record<string, unknown>;
+			return config.onTransferComplete as (entityId: string, from: string, to: string, reason: string) => void;
+		}
+
+		function getStoreInstance(): Record<string, unknown> {
+			const instances = vi.mocked(DashboardStore).mock.instances;
+			return instances[instances.length - 1] as unknown as Record<string, unknown>;
+		}
+
+		function getEngineInstance(): Record<string, unknown> {
+			const instances = vi.mocked(ex.Engine).mock.instances;
+			return instances[instances.length - 1] as unknown as Record<string, unknown>;
+		}
+
+		it("switches scene when followed agent transfers rooms", () => {
+			createAgentWorld({
+				container: document.createElement("div"),
+				provider: createMockProvider(),
+				spriteBasePath: "/test",
+			});
+			const store = getStoreInstance();
+			store.followedAgent = "alice";
+
+			getTransferCallback()("alice", "hub", "office", "transfer");
+
+			expect(getEngineInstance().goToScene).toHaveBeenCalledWith("office", expect.any(Object));
+		});
+
+		it("does NOT switch scene when a different agent transfers", () => {
+			createAgentWorld({
+				container: document.createElement("div"),
+				provider: createMockProvider(),
+				spriteBasePath: "/test",
+			});
+			const store = getStoreInstance();
+			store.followedAgent = "alice";
+			(getEngineInstance().goToScene as ReturnType<typeof vi.fn>).mockClear();
+
+			getTransferCallback()("bob", "hub", "office", "transfer");
+
+			expect(getEngineInstance().goToScene).not.toHaveBeenCalledWith("office", expect.any(Object));
+		});
+
+		it("does NOT switch scene when no agent is followed", () => {
+			createAgentWorld({
+				container: document.createElement("div"),
+				provider: createMockProvider(),
+				spriteBasePath: "/test",
+			});
+			(getEngineInstance().goToScene as ReturnType<typeof vi.fn>).mockClear();
+
+			getTransferCallback()("alice", "hub", "office", "transfer");
+
+			expect(getEngineInstance().goToScene).not.toHaveBeenCalledWith("office", expect.any(Object));
+		});
+
+		it("does NOT call selectAgent during follow-triggered scene switch", () => {
+			createAgentWorld({
+				container: document.createElement("div"),
+				provider: createMockProvider(),
+				spriteBasePath: "/test",
+			});
+			const store = getStoreInstance();
+			store.followedAgent = "alice";
+			(store.selectAgent as ReturnType<typeof vi.fn>).mockClear();
+
+			getTransferCallback()("alice", "hub", "office", "transfer");
+
+			expect(store.selectAgent).not.toHaveBeenCalled();
+		});
 	});
 });

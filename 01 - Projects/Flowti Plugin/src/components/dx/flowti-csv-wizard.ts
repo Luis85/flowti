@@ -1,6 +1,8 @@
-import { html, css, nothing } from 'lit';
+import { html, nothing } from 'lit';
 import { FlowtiElement } from '../flowti-element.js';
 import { statusBadge, emptyState, statCardGrid } from '../shared-styles.js';
+import { csvWizardStyles } from './flowti-csv-wizard-styles.js';
+import { renderImportResult, renderImportError } from './flowti-csv-wizard-helpers.js';
 import type { WizardStep } from './flowti-wizard.js';
 import './flowti-wizard.js';
 
@@ -99,170 +101,7 @@ export class FlowtiCsvWizard extends FlowtiElement {
 		statusBadge,
 		emptyState,
 		statCardGrid,
-		css`
-			:host {
-				display: flex;
-				flex-direction: column;
-				height: 100%;
-			}
-
-			.page-content {
-				padding: var(--flowti-space-md);
-			}
-
-			.info-grid {
-				display: grid;
-				grid-template-columns: auto 1fr;
-				gap: var(--flowti-space-xs) var(--flowti-space-md);
-				font-size: var(--flowti-font-sm);
-			}
-
-			.info-label {
-				color: var(--flowti-color-muted);
-				font-weight: 500;
-			}
-
-			.card {
-				padding: var(--flowti-space-md);
-				border-radius: var(--flowti-radius);
-				background: var(--background-secondary);
-				margin-bottom: var(--flowti-space-md);
-			}
-
-			.card-title {
-				font-weight: 600;
-				font-size: var(--flowti-font-sm);
-				margin-bottom: var(--flowti-space-sm);
-			}
-
-			.nav-link {
-				color: var(--flowti-color-info);
-				cursor: pointer;
-				text-decoration: none;
-				font-size: var(--flowti-font-sm);
-			}
-
-			.nav-link:hover {
-				text-decoration: underline;
-			}
-
-			button {
-				padding: var(--flowti-space-xs) var(--flowti-space-sm);
-				border-radius: var(--flowti-radius);
-				border: 1px solid var(--flowti-border);
-				background: var(--background-secondary);
-				color: var(--flowti-text, inherit);
-				font-size: var(--flowti-font-sm);
-				cursor: pointer;
-			}
-
-			button:hover {
-				background: var(--background-modifier-hover);
-			}
-
-			.btn-primary {
-				background: color-mix(in srgb, var(--flowti-color-info) 15%, transparent);
-				border-color: var(--flowti-color-info);
-			}
-
-			.actions-row {
-				display: flex;
-				flex-wrap: wrap;
-				gap: var(--flowti-space-sm);
-				align-items: center;
-			}
-
-			.preview-table {
-				width: 100%;
-				border-collapse: collapse;
-				font-size: var(--flowti-font-sm);
-			}
-
-			.preview-table th,
-			.preview-table td {
-				text-align: left;
-				padding: var(--flowti-space-xs) var(--flowti-space-sm);
-				border-bottom: 1px solid var(--flowti-border);
-			}
-
-			.preview-table th {
-				font-weight: 600;
-				color: var(--flowti-color-muted);
-			}
-
-			.badge {
-				display: inline-flex;
-				padding: 2px var(--flowti-space-sm);
-				border-radius: var(--flowti-radius);
-				font-size: var(--flowti-font-sm);
-				background: var(--background-secondary);
-				color: var(--flowti-color-muted);
-			}
-
-			.badge-accent {
-				background: color-mix(in srgb, var(--flowti-color-info) 15%, transparent);
-				color: var(--flowti-color-info);
-			}
-
-			.text-success {
-				color: var(--flowti-color-success);
-			}
-
-			.text-error {
-				color: var(--flowti-color-error);
-			}
-
-			.text-muted {
-				color: var(--flowti-color-muted);
-				font-size: var(--flowti-font-sm);
-			}
-
-			.progress-bar {
-				height: 6px;
-				background: var(--background-modifier-border);
-				border-radius: 3px;
-				overflow: hidden;
-				margin-top: var(--flowti-space-sm);
-			}
-
-			.progress-bar-fill {
-				height: 100%;
-				background: var(--flowti-color-info);
-				transition: width 0.3s ease;
-			}
-
-			.status-icon {
-				font-size: 1.2em;
-				margin-right: var(--flowti-space-xs);
-			}
-
-			.header-row {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm);
-				margin-bottom: var(--flowti-space-md);
-			}
-
-			.table-scroll {
-				overflow-x: auto;
-			}
-
-			.mapping-row {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm);
-				padding: var(--flowti-space-xs) 0;
-				font-size: var(--flowti-font-sm);
-			}
-
-			.mapping-col {
-				flex: 1;
-			}
-
-			.mapping-arrow {
-				color: var(--flowti-color-muted);
-			}
-		`,
+		csvWizardStyles,
 	];
 
 	filePath = '';
@@ -529,10 +368,10 @@ export class FlowtiCsvWizard extends FlowtiElement {
 
 	private renderResult() {
 		if (this.importResult) {
-			return this.renderImportResult();
+			return this.renderCsvImportResult();
 		}
 		if (this.importError) {
-			return this.renderImportError();
+			return this.renderCsvImportError();
 		}
 		return this.renderProgress();
 	}
@@ -552,84 +391,23 @@ export class FlowtiCsvWizard extends FlowtiElement {
 		`;
 	}
 
-	private renderImportResult() {
-		const r = this.importResult!;
-		const hasErrors = r.failed > 0;
-		const allSkipped = r.skipped === r.totalRows;
-		const statusText = hasErrors
-			? `Import completed with ${r.failed} error${r.failed !== 1 ? 's' : ''}`
-			: allSkipped
-				? 'All rows skipped \u2014 notes already exist'
-				: `Successfully imported ${r.created + r.updated} note${(r.created + r.updated) !== 1 ? 's' : ''}`;
-
-		return html`
-			<div class="page-content">
-				<div class="header-row">
-					<span class="status-icon ${hasErrors ? 'text-error' : allSkipped ? 'text-muted' : 'text-success'}">
-						${hasErrors ? '\u26A0' : allSkipped ? '\u2296' : '\u2713'}
-					</span>
-					<h3>${statusText}</h3>
-				</div>
-
-				<div class="card">
-					<div class="card-title">What happened</div>
-					<div class="info-grid">
-						<span class="info-label">CSV rows processed</span><span>${r.totalRows}</span>
-						${r.created > 0 ? html`<span class="info-label">Notes created</span><span>${r.created}</span>` : nothing}
-						${r.updated > 0 ? html`<span class="info-label">Notes updated</span><span>${r.updated}</span>` : nothing}
-						${r.skipped > 0 ? html`<span class="info-label">Notes skipped</span><span>${r.skipped} (already exist)</span>` : nothing}
-						${r.failed > 0 ? html`<span class="info-label text-error">Failed</span><span class="text-error">${r.failed}</span>` : nothing}
-						<span class="info-label">Target folder</span><span>${this.targetFolder}</span>
-					</div>
-				</div>
-
-				${r.errors.length > 0 ? html`
-					<div class="card" style="border-left: 3px solid var(--flowti-color-error)">
-						<div class="card-title">Errors (${r.errors.length})</div>
-						${r.errors.slice(0, 20).map((err) => html`
-							<div style="display: flex; gap: var(--flowti-space-sm); font-size: var(--flowti-font-sm); margin-bottom: 2px">
-								<span class="text-muted">Row ${err.row}</span>
-								<span>${err.filename}</span>
-								<span class="text-error">${err.error}</span>
-							</div>
-						`)}
-						${r.errors.length > 20 ? html`<div class="text-muted">...and ${r.errors.length - 20} more</div>` : nothing}
-					</div>
-				` : nothing}
-
-				<div class="card">
-					<div class="card-title">What's next</div>
-					<div class="actions-row">
-						<button @click=${() => this.emit('run-import', {})}>Run Again</button>
-						<button @click=${() => this.goToPage('config')}>Edit Config</button>
-						<button @click=${() => this.goToPage('landing')}>CSV Detail</button>
-					</div>
-				</div>
-			</div>
-		`;
+	private renderCsvImportResult() {
+		return renderImportResult(
+			this.importResult!,
+			this.targetFolder,
+			() => this.emit('run-import', {}),
+			() => this.goToPage('config'),
+			() => this.goToPage('landing'),
+		);
 	}
 
-	private renderImportError() {
-		return html`
-			<div class="page-content">
-				<div class="header-row">
-					<span class="status-icon text-error">\u2717</span>
-					<h3>Import failed</h3>
-				</div>
-				<div class="card" style="border-left: 3px solid var(--flowti-color-error)">
-					<div class="card-title">Error</div>
-					<div style="font-size: var(--flowti-font-sm)">${this.importError}</div>
-				</div>
-				<div class="card">
-					<div class="card-title">What's next</div>
-					<div class="actions-row">
-						<button class="btn-primary" @click=${() => this.emit('run-import', {})}>Retry</button>
-						<button @click=${() => this.goToPage('config')}>Edit Config</button>
-						<button @click=${() => this.goToPage('landing')}>CSV Detail</button>
-					</div>
-				</div>
-			</div>
-		`;
+	private renderCsvImportError() {
+		return renderImportError(
+			this.importError,
+			() => this.emit('run-import', {}),
+			() => this.goToPage('config'),
+			() => this.goToPage('landing'),
+		);
 	}
 
 	// ── Helpers ─────────────────────────────────────────────

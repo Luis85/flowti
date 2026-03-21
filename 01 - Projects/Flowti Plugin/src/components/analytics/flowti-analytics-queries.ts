@@ -1,6 +1,8 @@
-import { html, css, nothing } from 'lit';
+import { html, nothing } from 'lit';
 import { FlowtiElement } from '../flowti-element.js';
 import { masterDetailLayout, emptyState } from '../shared-styles.js';
+import { analyticsQueriesStyles } from './flowti-analytics-queries-styles.js';
+import { handleEditorScalar, handleEditorCollection } from './flowti-analytics-queries-handlers.js';
 
 // Side-effect imports: register sub-components
 import './flowti-query-editor.js';
@@ -43,11 +45,6 @@ type EditorMode = 'list' | 'edit' | 'new';
  * Analytics queries component — query builder with source panel,
  * saved queries list, editor, and results preview.
  *
- * @property sources - Available CSV/base data sources
- * @property savedQueries - Array of saved query objects
- * @property activeQuery - Currently active query (or null)
- * @property results - Query execution results (or null)
- *
  * @fires select-query - detail: { queryId } when a query item is clicked
  * @fires run-query - detail: { queryId, config? } when the run button is clicked
  * @fires save-query - detail: { queryId, config? } when save is clicked
@@ -73,178 +70,7 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 		...FlowtiElement.styles,
 		masterDetailLayout,
 		emptyState,
-		css`
-			.queries-layout {
-				display: flex;
-				flex-direction: column;
-				gap: var(--flowti-space-md);
-			}
-
-			.queries-master {
-				display: flex;
-				flex-direction: column;
-				gap: var(--flowti-space-sm);
-			}
-
-			.section-header {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm);
-				font-size: var(--flowti-font-sm);
-				font-weight: 600;
-				color: var(--flowti-color-muted);
-			}
-
-			.section-count {
-				font-size: var(--flowti-font-sm);
-				background: var(--background-secondary);
-				padding: 0 var(--flowti-space-xs);
-				border-radius: var(--flowti-radius);
-			}
-
-			.query-item {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm);
-				padding: var(--flowti-space-sm) var(--flowti-space-md);
-				border-radius: var(--flowti-radius);
-				cursor: pointer;
-			}
-
-			.query-item:hover {
-				background: var(--background-modifier-hover);
-			}
-
-			.query-item--active {
-				background: var(--background-modifier-active-hover);
-			}
-
-			.query-name {
-				flex: 1;
-				font-size: var(--flowti-font-sm);
-			}
-
-			.query-meta {
-				font-size: var(--flowti-font-sm);
-				color: var(--flowti-color-muted);
-			}
-
-			.source-panel {
-				padding: var(--flowti-space-md);
-				background: var(--background-secondary);
-				border-radius: var(--flowti-radius);
-			}
-
-			.source-item {
-				padding: var(--flowti-space-xs) var(--flowti-space-sm);
-				font-size: var(--flowti-font-sm);
-			}
-
-			.config-section {
-				padding: var(--flowti-space-md);
-				background: var(--background-secondary);
-				border-radius: var(--flowti-radius);
-			}
-
-			.config-badges {
-				display: flex;
-				gap: var(--flowti-space-xs);
-				flex-wrap: wrap;
-			}
-
-			.config-badge {
-				font-size: var(--flowti-font-sm);
-				padding: 2px var(--flowti-space-sm);
-				border-radius: var(--flowti-radius);
-				background: var(--background-primary);
-				color: var(--flowti-color-muted);
-			}
-
-			.results-panel {
-				padding: var(--flowti-space-md);
-				background: var(--background-secondary);
-				border-radius: var(--flowti-radius);
-			}
-
-			.results-header {
-				display: flex;
-				align-items: center;
-				gap: var(--flowti-space-sm);
-				font-size: var(--flowti-font-sm);
-				font-weight: 600;
-				margin-bottom: var(--flowti-space-sm);
-			}
-
-			.results-table {
-				width: 100%;
-				border-collapse: collapse;
-				font-size: var(--flowti-font-sm);
-			}
-
-			.results-table th {
-				text-align: left;
-				padding: var(--flowti-space-xs) var(--flowti-space-sm);
-				border-bottom: 1px solid var(--flowti-border);
-				font-weight: 600;
-				color: var(--flowti-color-muted);
-			}
-
-			.results-table td {
-				padding: var(--flowti-space-xs) var(--flowti-space-sm);
-				border-bottom: 1px solid var(--flowti-border);
-			}
-
-			.actions-bar {
-				display: flex;
-				gap: var(--flowti-space-sm);
-			}
-
-			button {
-				padding: var(--flowti-space-xs) var(--flowti-space-sm);
-				border-radius: var(--flowti-radius);
-				border: 1px solid var(--flowti-border);
-				background: var(--background-secondary);
-				color: var(--flowti-text, inherit);
-				font-size: var(--flowti-font-sm);
-				cursor: pointer;
-			}
-
-			button:hover {
-				background: var(--background-modifier-hover);
-			}
-
-			button.primary {
-				background: var(--interactive-accent, #5a7);
-				color: white;
-				border-color: transparent;
-			}
-
-			.delete-btn {
-				color: var(--flowti-color-error);
-				border: none;
-				background: none;
-				cursor: pointer;
-				font-size: var(--flowti-font-sm);
-				padding: 2px var(--flowti-space-xs);
-			}
-
-			.new-query-btn {
-				margin-left: auto;
-			}
-
-			.edit-btn {
-				font-size: var(--flowti-font-sm);
-				color: var(--flowti-color-muted);
-				cursor: pointer;
-				background: none;
-				border: none;
-				padding: 2px var(--flowti-space-xs);
-			}
-
-			.edit-btn:hover {
-				color: var(--text-accent, #5a7);
-			}
-		`,
+		analyticsQueriesStyles,
 	];
 
 	sources: QuerySource[] = [];
@@ -341,7 +167,7 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 		this.editorConfig = {};
 	}
 
-	private get editorHeaders(): string[] {
+	get editorHeaders(): string[] {
 		const selectedAliases = new Set(
 			(this.editorConfig.sources ?? []).map((s) => s.alias),
 		);
@@ -363,157 +189,21 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 	private handleEditorEvent(e: CustomEvent): void {
 		const type = e.type;
 		const detail = e.detail as Record<string, unknown>;
-
-		switch (type) {
-			case 'update-query-name':
-				this.editorConfig = { ...this.editorConfig, name: detail.name as string };
-				break;
-
-			case 'toggle-source': {
-				const alias = detail.alias as string;
-				const currentSources = [...(this.editorConfig.sources ?? [])];
-				const idx = currentSources.findIndex((s) => s.alias === alias);
-				if (idx >= 0) {
-					currentSources.splice(idx, 1);
-				} else {
-					const src = this.sources.find((s) => s.alias === alias);
-					if (src) currentSources.push({ csvPath: src.path, alias: src.alias });
-				}
-				this.editorConfig = { ...this.editorConfig, sources: currentSources };
-				this.requestUpdate();
-				break;
-			}
-
-			case 'add-filter': {
-				const filters = [...(this.editorConfig.filters ?? [])];
-				const headers = this.editorHeaders;
-				filters.push({ column: headers[0] ?? '', operator: '=', value: '' });
-				this.editorConfig = { ...this.editorConfig, filters };
-				break;
-			}
-
-			case 'update-filter': {
-				const filters = [...(this.editorConfig.filters ?? [])];
-				const fi = detail.index as number;
-				const filterData = detail.filter as { column: string; operator: string; value: string };
-				filters[fi] = filterData;
-				this.editorConfig = { ...this.editorConfig, filters };
-				break;
-			}
-
-			case 'remove-filter': {
-				const filters = [...(this.editorConfig.filters ?? [])];
-				filters.splice(detail.index as number, 1);
-				this.editorConfig = { ...this.editorConfig, filters };
-				break;
-			}
-
-			case 'toggle-dimension': {
-				const col = detail.column as string;
-				const dims = [...(this.editorConfig.dimensions ?? [])];
-				const di = dims.findIndex((d) => d.column === col);
-				if (di >= 0) {
-					dims.splice(di, 1);
-				} else {
-					dims.push({ column: col });
-				}
-				this.editorConfig = { ...this.editorConfig, dimensions: dims };
-				break;
-			}
-
-			case 'add-measure': {
-				const measures = [...(this.editorConfig.measures ?? [])];
-				const headers = this.editorHeaders;
-				measures.push({ column: headers[0] ?? '', function: 'COUNT' });
-				this.editorConfig = { ...this.editorConfig, measures };
-				break;
-			}
-
-			case 'update-measure': {
-				const measures = [...(this.editorConfig.measures ?? [])];
-				const mi = detail.index as number;
-				const measureData = detail.measure as { column: string; function: string; label?: string };
-				measures[mi] = measureData;
-				this.editorConfig = { ...this.editorConfig, measures };
-				break;
-			}
-
-			case 'remove-measure': {
-				const measures = [...(this.editorConfig.measures ?? [])];
-				measures.splice(detail.index as number, 1);
-				this.editorConfig = { ...this.editorConfig, measures };
-				break;
-			}
-
-			case 'update-time-bucket':
-				this.editorConfig = {
-					...this.editorConfig,
-					timeBucket: detail.timeBucket as { column: string; period: string } | null,
-				};
-				break;
-
-			case 'add-sort': {
-				const sorts = [...(this.editorConfig.sorts ?? [])];
-				const headers = this.editorHeaders;
-				const usedCols = new Set(sorts.map((s) => s.column));
-				const available = headers.find((h) => !usedCols.has(h));
-				sorts.push({ column: available ?? headers[0] ?? '', direction: 'asc' });
-				this.editorConfig = { ...this.editorConfig, sorts };
-				break;
-			}
-
-			case 'update-sort': {
-				const sorts = [...(this.editorConfig.sorts ?? [])];
-				const si = detail.index as number;
-				const sortData = detail.sort as { column: string; direction: 'asc' | 'desc' };
-				sorts[si] = sortData;
-				this.editorConfig = { ...this.editorConfig, sorts };
-				break;
-			}
-
-			case 'remove-sort': {
-				const sorts = [...(this.editorConfig.sorts ?? [])];
-				sorts.splice(detail.index as number, 1);
-				this.editorConfig = { ...this.editorConfig, sorts };
-				break;
-			}
-
-			case 'update-limit':
-				this.editorConfig = {
-					...this.editorConfig,
-					limit: detail.limit as number | null,
-				};
-				break;
-
-			case 'run-query':
-				this.dispatchRunQuery();
-				break;
-
-			case 'save-query':
-				this.dispatchSaveQuery(this.activeQuery?.id ?? '');
-				break;
-
-			case 'reset-query':
-				if (this.activeQuery) {
-					this.editorConfig = { ...this.activeQuery };
-				}
-				break;
-
-			case 'cancel-edit':
-				this.closeEditor();
-				break;
-		}
+		if (handleEditorScalar(this, type, detail)) return;
+		if (handleEditorCollection(this, type, detail)) return;
+		if (type === 'run-query') this.dispatchRunQuery();
+		else if (type === 'save-query') this.dispatchSaveQuery(this.activeQuery?.id ?? '');
+		else if (type === 'reset-query' && this.activeQuery) this.editorConfig = { ...this.activeQuery };
+		else if (type === 'cancel-edit') this.closeEditor();
 	}
 
 	private handleResultsEvent(e: CustomEvent): void {
 		const type = e.type;
 		const detail = e.detail as Record<string, unknown>;
-
 		switch (type) {
 			case 'toggle-chart-mode':
 				this.chartMode = detail.mode as 'line' | 'bar' | 'none';
 				break;
-
 			case 'export-csv':
 				this.dispatchEvent(
 					new CustomEvent('export-csv', {
@@ -534,7 +224,6 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 				</div>
 			`;
 		}
-
 		if (this.editorMode === 'edit' || this.editorMode === 'new') {
 			return html`
 				<div class="queries-layout">
@@ -543,7 +232,6 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 				</div>
 			`;
 		}
-
 		return html`
 			<div class="queries-layout">
 				${this.savedQueries.length > 0 ? this.renderSavedQueries() : nothing}
@@ -614,7 +302,6 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 		const q = this.activeQuery!;
 		const dimCount = q.dimensions?.length ?? 0;
 		const measureCount = q.measures?.length ?? 0;
-
 		return html`
 			<div class="config-section">
 				<div class="section-header">${q.name}</div>
@@ -687,7 +374,6 @@ export class FlowtiAnalyticsQueries extends FlowtiElement {
 	private renderResults() {
 		const r = this.results!;
 		const displayRows = r.rows.slice(0, 50);
-
 		return html`
 			<div class="results-panel">
 				<div class="results-header">

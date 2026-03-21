@@ -6,8 +6,7 @@
  * the PetActor handles per-frame movement execution.
  */
 
-import { BehaviourTree } from "mistreevous";
-import { State } from "mistreevous";
+import { createTree, fromNodeState, type State } from "./bt-service.js";
 import type { AgentBT } from "./bt-factory.js";
 import type { CollectedAction } from "./bt-types.js";
 
@@ -22,6 +21,11 @@ export interface PetBTContext {
 	followTimer: number;
 	stateTimer: number;
 	speed: number;
+	petType: string;
+	nearbyAgentMorale?: number;
+	nearbyIdleAgent?: string;
+	targetRoom?: string;
+	currentRoom?: string;
 }
 
 export interface PetBTObject {
@@ -32,6 +36,9 @@ export interface PetBTObject {
 	FollowTimeElapsed(): boolean;
 	SleepChanceRoll(): boolean;
 	WanderChanceRoll(): boolean;
+	ShouldFollowStressedAgent(): boolean;
+	ShouldFollowRandomAgent(): boolean;
+	LostFollowTarget(): boolean;
 	WalkToExit(): State;
 	FollowAgent(): State;
 	ReturnHome(): State;
@@ -71,6 +78,7 @@ export function createPetBT(
 	sleepChance: number,
 	wanderRadius: number,
 	speed: number,
+	petType: string = name.split("-")[0],
 ): AgentBT {
 	const context: PetBTContext = {
 		name,
@@ -81,6 +89,7 @@ export function createPetBT(
 		followTimer: 0,
 		stateTimer: 0,
 		speed,
+		petType,
 	};
 
 	const collectedActions: CollectedAction[] = [];
@@ -111,17 +120,39 @@ export function createPetBT(
 		return context.state === "idle" && context.stateTimer <= 0;
 	}
 
+	function ShouldFollowStressedAgent(): boolean {
+		return context.petType === "cat"
+			&& context.state === "idle"
+			&& context.nearbyAgentMorale !== undefined
+			&& context.nearbyAgentMorale < 30
+			&& Math.random() < 0.0005;
+	}
+
+	function ShouldFollowRandomAgent(): boolean {
+		return context.petType === "dog"
+			&& context.state === "idle"
+			&& context.nearbyIdleAgent !== undefined
+			&& Math.random() < 0.001;
+	}
+
+	function LostFollowTarget(): boolean {
+		return context.followTarget !== null
+			&& context.currentRoom !== undefined
+			&& context.targetRoom !== undefined
+			&& context.currentRoom !== context.targetRoom;
+	}
+
 	// ── Actions ─────────────────────────────────────────────
 
 	function WalkToExit(): State {
 		collect("pet-exit", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function FollowAgent(): State {
 		context.state = "following";
 		collect("pet-follow", { name: context.name, target: context.followTarget });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function ReturnHome(): State {
@@ -129,32 +160,32 @@ export function createPetBT(
 		context.state = "idle";
 		context.stateTimer = 5000;
 		collect("pet-return-home", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function Nap(): State {
 		context.state = "sleeping";
 		context.stateTimer = 5000 + Math.random() * 10000;
 		collect("pet-sleep", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function PickWanderPoint(): State {
 		context.state = "wandering";
 		context.stateTimer = 3000 + Math.random() * 4000;
 		collect("pet-wander", { name: context.name, radius: context.wanderRadius });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function WalkToPoint(): State {
 		collect("pet-walk", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function Idle(): State {
 		context.state = "idle";
 		collect("pet-idle", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	const agent: PetBTObject = {
@@ -162,11 +193,12 @@ export function createPetBT(
 		collectedActions,
 		HasExitTarget, HasFollowTarget, FollowTimeElapsed,
 		SleepChanceRoll, WanderChanceRoll,
+		ShouldFollowStressedAgent, ShouldFollowRandomAgent, LostFollowTarget,
 		WalkToExit, FollowAgent, ReturnHome,
 		Nap, PickWanderPoint, WalkToPoint, Idle,
 	};
 
-	const tree = new BehaviourTree(PET_MASTER_MDSL, agent as unknown as Record<string, unknown>);
+	const tree = createTree(PET_MASTER_MDSL, agent);
 
 	// Bridge: PetBTObject is not a BTAgentObject, but AgentBT just needs tree + agent.
 	// We cast to satisfy the interface — btTick only accesses tree.step() and agent.collectedActions.

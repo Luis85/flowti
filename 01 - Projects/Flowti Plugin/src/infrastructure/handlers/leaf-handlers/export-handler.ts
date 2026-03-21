@@ -309,11 +309,19 @@ export function registerExportHandler(
 			if (!state.loadedConfigId) return false;
 			const cfg = state.savedConfigs.find((c) => c.id === state.loadedConfigId);
 			if (!cfg) return false;
+			return hasScalarDiff(cfg) || hasOptionalDiff(cfg);
+		}
+
+		function hasScalarDiff(cfg: typeof state.savedConfigs[0]): boolean {
 			if (state.format !== cfg.format) return true;
 			if (state.outputPath !== cfg.outputPath) return true;
 			if (JSON.stringify(state.selectedColumns) !== JSON.stringify(cfg.columns)) return true;
 			if (JSON.stringify(state.selectedFileProperties) !== JSON.stringify(cfg.fileProperties)) return true;
 			if (state.conflictStrategy !== (cfg.conflictStrategy ?? "overwrite")) return true;
+			return false;
+		}
+
+		function hasOptionalDiff(cfg: typeof state.savedConfigs[0]): boolean {
 			if (cfg.baseViewIndex !== undefined && state.baseViewIndex !== cfg.baseViewIndex) return true;
 			if (cfg.isExternal !== undefined && state.isExternal !== cfg.isExternal) return true;
 			if ((state.noteType || "") !== (cfg.noteType ?? "")) return true;

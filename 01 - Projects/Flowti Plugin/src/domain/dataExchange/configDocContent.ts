@@ -7,7 +7,6 @@ import { basename, stripExtension } from "../../utils/pathUtils";
 import type {
 	SavedImportConfig,
 	SavedExportConfig,
-	SavedMultiImportPipeline,
 	DataDictionaryEntry,
 } from "./types";
 
@@ -142,6 +141,29 @@ export function buildCsvDocContent(
 	return lines.join("\n");
 }
 
+/** Collect related files from config references. */
+function collectRelatedFiles(
+	configRefs: DataDictionaryEntry["usedInConfigs"],
+	importConfigs: Array<{ id: string; name: string; sourcePath?: string; basePath?: string }>,
+	exportConfigs: Array<{ id: string; name: string; sourcePath: string; outputPath: string; isExternal?: boolean }>,
+): Set<string> {
+	const relatedFiles = new Set<string>();
+	for (const ref of configRefs) {
+		if (ref.configType === "import") {
+			const cfg = importConfigs.find((c) => c.id === ref.configId);
+			if (cfg?.sourcePath) relatedFiles.add(cfg.sourcePath);
+			if (cfg?.basePath) relatedFiles.add(cfg.basePath);
+		} else {
+			const cfg = exportConfigs.find((c) => c.id === ref.configId);
+			if (cfg) {
+				relatedFiles.add(cfg.sourcePath);
+				if (!cfg.isExternal) relatedFiles.add(cfg.outputPath);
+			}
+		}
+	}
+	return relatedFiles;
+}
+
 export function buildPropertyDocContent(
 	propertyName: string,
 	docsRoot: string,
@@ -153,42 +175,23 @@ export function buildPropertyDocContent(
 	const csvColumns = entry?.csvColumnNames ?? [];
 	const configRefs = entry?.usedInConfigs ?? [];
 
-	const relatedFiles = new Set<string>();
-	const configDocLinks: string[] = [];
-
-	for (const ref of configRefs) {
+	const configDocLinks: string[] = configRefs.map((ref) => {
 		const configDocPath = getConfigDocPath(docsRoot, ref.configName, ref.configType);
 		const configDocName = stripExtension(basename(configDocPath), ".md") || ref.configName;
-		configDocLinks.push(`- [[${configDocName}]]`);
+		return `- [[${configDocName}]]`;
+	});
 
-		if (ref.configType === "import") {
-			const cfg = importConfigs.find((c) => c.id === ref.configId);
-			if (cfg) {
-				if (cfg.sourcePath) relatedFiles.add(cfg.sourcePath);
-				if (cfg.basePath) relatedFiles.add(cfg.basePath);
-			}
-		} else {
-			const cfg = exportConfigs.find((c) => c.id === ref.configId);
-			if (cfg) {
-				relatedFiles.add(cfg.sourcePath);
-				if (!cfg.isExternal) relatedFiles.add(cfg.outputPath);
-			}
-		}
-	}
+	const relatedFiles = collectRelatedFiles(configRefs, importConfigs, exportConfigs);
 
-	const reportLinks: string[] = [];
-	for (const filePath of relatedFiles) {
-		if (filePath.toLowerCase().endsWith(".csv")) {
+	const reportLinks: string[] = [...relatedFiles]
+		.filter((f) => f.toLowerCase().endsWith(".csv"))
+		.map((filePath) => {
 			const reportDocPath = getCsvDocPath(docsRoot, filePath);
 			const reportDocName = stripExtension(basename(reportDocPath), ".md") || filePath;
-			reportLinks.push(`- [[${reportDocName}]]`);
-		}
-	}
+			return `- [[${reportDocName}]]`;
+		});
 
-	const fileLinks = [...relatedFiles].map((f) => {
-		const name = basename(f) || f;
-		return `- [[${name}]]`;
-	});
+	const fileLinks = [...relatedFiles].map((f) => `- [[${basename(f) || f}]]`);
 
 	const lines: string[] = [
 		"---",
@@ -239,6 +242,20 @@ export function buildPropertyDocContent(
 	return lines.join("\n");
 }
 
+/** Filter out placeholder empty lines from frontmatter template arrays. */
+function filterEmptyPlaceholders(lines: string[]): string[] {
+	return lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
+}
+
+/** Append a notes section (user-written or default placeholder). */
+function appendNotesSection(lines: string[], userNotes: string | undefined): void {
+	if (userNotes !== undefined) {
+		lines.push("## Notes", "", userNotes);
+	} else {
+		lines.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
+	}
+}
+
 export function buildImportDocContent(config: SavedImportConfig, userNotes?: string): string {
 	const now = new Date(config.createdAt).toISOString();
 	const included = config.columnMappings.filter((m) => m.included);
@@ -279,7 +296,7 @@ export function buildImportDocContent(config: SavedImportConfig, userNotes?: str
 		"",
 	];
 
-	const filtered = lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
+	const filtered = filterEmptyPlaceholders(lines);
 
 	if (included.length > 0) {
 		filtered.push("## Column Mappings", "");
@@ -299,11 +316,7 @@ export function buildImportDocContent(config: SavedImportConfig, userNotes?: str
 		filtered.push("");
 	}
 
-	if (userNotes !== undefined) {
-		filtered.push("## Notes", "", userNotes);
-	} else {
-		filtered.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
-	}
+	appendNotesSection(filtered, userNotes);
 
 	return filtered.join("\n");
 }
@@ -347,7 +360,7 @@ export function buildExportDocContent(config: SavedExportConfig, userNotes?: str
 		"",
 	];
 
-	const filtered = lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
+	const filtered = filterEmptyPlaceholders(lines);
 
 	if (config.columns.length > 0) {
 		filtered.push("## Note Properties", "");
@@ -365,235 +378,15 @@ export function buildExportDocContent(config: SavedExportConfig, userNotes?: str
 		filtered.push("");
 	}
 
-	if (userNotes !== undefined) {
-		filtered.push("## Notes", "", userNotes);
-	} else {
-		filtered.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
-	}
+	appendNotesSection(filtered, userNotes);
 
 	return filtered.join("\n");
 }
 
-export interface PipelineDocContext {
-	getExportConfig: (id: string) => SavedExportConfig | undefined;
-	docsRoot: string;
-}
+// PipelineDocContext and buildPipelineDocContent have been moved to pipelineDocContent.ts
+export type { PipelineDocContext } from "./pipelineDocContent";
+export { buildPipelineDocContent } from "./pipelineDocContent";
 
-export function buildPipelineDocContent(
-	pipeline: SavedMultiImportPipeline,
-	ctx: PipelineDocContext,
-	userNotes?: string,
-): string {
-	const now = new Date(pipeline.createdAt).toISOString();
-	const lastRun = pipeline.lastExecutedAt
-		? new Date(pipeline.lastExecutedAt).toISOString()
-		: "";
-
-	const lines: string[] = [
-		"---",
-		"type: PipelineConfigDoc",
-		`configId: "${pipeline.id}"`,
-		`name: "${pipeline.name}"`,
-		`description: ""`,
-		`targetFolder: "${pipeline.targetFolder}"`,
-		`mergeKey: "${pipeline.mergeKey}"`,
-		pipeline.noteType ? `noteType: "${pipeline.noteType}"` : "",
-		pipeline.namePrefix ? `namePrefix: "${pipeline.namePrefix}"` : "",
-		pipeline.nameSuffix ? `nameSuffix: "${pipeline.nameSuffix}"` : "",
-		pipeline.exportConfigIds?.length ? `exportConfigIds: [${pipeline.exportConfigIds.map((id) => `"${id}"`).join(", ")}]` : "",
-		`sources: ${pipeline.sources.length}`,
-		`created: "${now}"`,
-		lastRun ? `lastExecuted: "${lastRun}"` : "",
-		"---",
-		"",
-		`# ${pipeline.name}`,
-		"",
-		"> Multi-import pipeline for merging CSV sources into enriched notes.",
-		"",
-		"## Settings",
-		"",
-		"| Setting           | Value            |",
-		"| ----------------- | ---------------- |",
-		`| **Target Folder** | \`${pipeline.targetFolder}\` |`,
-		`| **Merge Key**     | \`${pipeline.mergeKey}\` |`,
-		`| **Sources**       | ${pipeline.sources.length} |`,
-		pipeline.noteType ? `| **Note Type**     | [[Type - ${sanitizeDocName(pipeline.noteType)}\\|${pipeline.noteType}]] |` : "",
-		pipeline.namePrefix ? `| **Name Prefix**   | \`${pipeline.namePrefix}\` |` : "",
-		pipeline.nameSuffix ? `| **Name Suffix**   | \`${pipeline.nameSuffix}\` |` : "",
-		pipeline.exportConfigIds?.length ? `| **Export Steps**  | ${pipeline.exportConfigIds.map((id) => ctx.getExportConfig(id)?.name ?? id).join(", ")} |` : "",
-		lastRun ? `| **Last Run**      | ${lastRun} |` : "",
-		"",
-	];
-
-	const filtered = lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
-
-	if (pipeline.sources.length > 0) {
-		filtered.push("## Sources", "");
-		for (const source of pipeline.sources) {
-			const csvName = basename(source.csvPath) || source.csvPath;
-			const included = source.columnMappings.filter((m) => m.included);
-			filtered.push(`### [[${source.csvPath}|${csvName}]]`, "");
-			filtered.push(`- **Merge Key Column**: \`${source.mergeKeyColumn}\` → \`${pipeline.mergeKey}\``);
-			filtered.push(`- **Mapped Columns**: ${included.length} of ${source.columnMappings.length}`);
-			if (source.customProperties && Object.keys(source.customProperties).length > 0) {
-				filtered.push(`- **Custom Properties**: ${Object.entries(source.customProperties).map(([k, v]) => `\`${k}\`=\`${v}\``).join(", ")}`);
-			}
-			if (included.length > 0) {
-				filtered.push("");
-				filtered.push("| CSV Column | Frontmatter Key |");
-				filtered.push("| ---------- | --------------- |");
-				for (const m of included) {
-					filtered.push(`| ${m.csvColumn} | \`${m.frontmatterKey}\` |`);
-				}
-			}
-			filtered.push("");
-		}
-	}
-
-	if (pipeline.exportConfigIds && pipeline.exportConfigIds.length > 0) {
-		filtered.push("## Export Steps", "");
-		filtered.push("| # | Config | Format | Output | Conflict |");
-		filtered.push("| - | ------ | ------ | ------ | -------- |");
-		for (let i = 0; i < pipeline.exportConfigIds.length; i++) {
-			const exportCfg = ctx.getExportConfig(pipeline.exportConfigIds[i]);
-			if (exportCfg) {
-				const cfgSafe = sanitizeDocName(exportCfg.name);
-				const formatLabel = exportCfg.format === "tab" ? "Tab" : "CSV";
-				const outputName = basename(exportCfg.outputPath) || exportCfg.outputPath;
-				const conflict = exportCfg.conflictStrategy ?? "overwrite";
-				filtered.push(`| ${i + 1} | [[Export - ${cfgSafe}\\|${exportCfg.name}]] | ${formatLabel} | \`${outputName}\` | ${conflict} |`);
-			} else {
-				filtered.push(`| ${i + 1} | _(deleted config)_ | — | — | — |`);
-			}
-		}
-		filtered.push("");
-	}
-
-	if (pipeline.createBase && pipeline.basePath) {
-		filtered.push("## Base View", "");
-		filtered.push(`Linked base view: [[${pipeline.basePath}]]`, "");
-	}
-
-	filtered.push("## Related", "");
-	filtered.push(`- **Target folder**: \`${pipeline.targetFolder}\``);
-	if (pipeline.sources.length > 0) {
-		filtered.push("- **Source files**:");
-		for (const source of pipeline.sources) {
-			const csvName = basename(source.csvPath) || source.csvPath;
-			filtered.push(`  - [[${source.csvPath}|${csvName}]]`);
-		}
-	}
-	if (pipeline.exportConfigIds && pipeline.exportConfigIds.length > 0) {
-		filtered.push("- **Export configs**:");
-		for (const exportId of pipeline.exportConfigIds) {
-			const exportCfg = ctx.getExportConfig(exportId);
-			if (exportCfg) {
-				const cfgSafe = sanitizeDocName(exportCfg.name);
-				filtered.push(`  - [[Export - ${cfgSafe}|${exportCfg.name}]]`);
-			}
-		}
-	}
-	filtered.push("");
-
-	if (userNotes !== undefined) {
-		filtered.push("## Notes", "", userNotes);
-	} else {
-		filtered.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
-	}
-
-	return filtered.join("\n");
-}
-
-export interface TypeDocContext {
-	docsRoot: string;
-	pipelines: Array<{ name: string; sources: Array<{ columnMappings: Array<{ included: boolean }> }> }>;
-	importConfigs: Array<{ name: string }>;
-	exportConfigs: Array<{ name: string }>;
-}
-
-export function buildTypeDocContent(
-	typeName: string,
-	properties: string[],
-	ctx: TypeDocContext,
-	userNotes?: string,
-): string {
-	const now = new Date().toISOString();
-	const totalConfigs = ctx.pipelines.length + ctx.importConfigs.length + ctx.exportConfigs.length;
-
-	const lines: string[] = [
-		"---",
-		"type: TypeDoc",
-		`name: "${typeName}"`,
-		`description: ""`,
-		`properties: [${properties.map((p) => `"${p}"`).join(", ")}]`,
-		`pipelines: ${totalConfigs}`,
-		`created: "${now}"`,
-		"---",
-		"",
-		`# ${typeName}`,
-		"",
-		"> Note type definition.",
-		"",
-		"## Overview",
-		"",
-		`- **Type**: \`${typeName}\``,
-		`- **Expected Properties**: ${properties.length}`,
-		`- **Used by Configs**: ${totalConfigs}`,
-		"",
-	];
-
-	if (properties.length > 0) {
-		lines.push("## Expected Properties", "");
-		lines.push("| Property | Documented |");
-		lines.push("| -------- | ---------- |");
-		for (const prop of properties) {
-			const propDocPath = getPropertyDocPath(ctx.docsRoot, prop);
-			const propDocName = stripExtension(basename(propDocPath), ".md") || prop;
-			lines.push(`| [[${propDocName}\\|${prop}]] | — |`);
-		}
-		lines.push("");
-	}
-
-	if (totalConfigs > 0) {
-		lines.push("## Configs", "");
-		for (const pipe of ctx.pipelines) {
-			const pipeDocPath = getPipelineDocPath(ctx.docsRoot, pipe.name);
-			const pipeDocName = stripExtension(basename(pipeDocPath), ".md") || pipe.name;
-			lines.push(`- [[${pipeDocName}\\|${pipe.name}]] — Pipeline (${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""})`);
-		}
-		for (const cfg of ctx.importConfigs) {
-			const docPath = getConfigDocPath(ctx.docsRoot, cfg.name, "import");
-			const docName = stripExtension(basename(docPath), ".md") || cfg.name;
-			lines.push(`- [[${docName}\\|${cfg.name}]] — Import`);
-		}
-		for (const cfg of ctx.exportConfigs) {
-			const docPath = getConfigDocPath(ctx.docsRoot, cfg.name, "export");
-			const docName = stripExtension(basename(docPath), ".md") || cfg.name;
-			lines.push(`- [[${docName}\\|${cfg.name}]] — Export`);
-		}
-		lines.push("");
-	}
-
-	// Lifecycle event wikilinks
-	const lowerType = typeName.toLowerCase();
-	const crudSuffixes = [
-		{ suffix: "created", label: "Created" },
-		{ suffix: "read", label: "Read" },
-		{ suffix: "updated", label: "Updated" },
-		{ suffix: "deleted", label: "Deleted" },
-	];
-	lines.push("## Lifecycle Events", "");
-	for (const crud of crudSuffixes) {
-		const eventType = `${lowerType}.${crud.suffix}`;
-		lines.push(`- [[${eventType}\\|${eventType}]] — ${crud.label}`);
-	}
-	lines.push("");
-
-	if (userNotes !== undefined) {
-		lines.push("## Notes", "", userNotes);
-	} else {
-		lines.push("## Notes", "", "> Describe this type, its purpose, and usage guidelines.", "");
-	}
-
-	return lines.join("\n");
-}
+// TypeDocContext and buildTypeDocContent have been moved to typeDocContent.ts
+export type { TypeDocContext } from "./typeDocContent";
+export { buildTypeDocContent } from "./typeDocContent";

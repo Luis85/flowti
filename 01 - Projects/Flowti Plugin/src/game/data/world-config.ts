@@ -222,6 +222,31 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 	},
 };
 
+/** Merge needs config, including nested decay sub-objects. */
+function mergeNeeds(overrides: DeepPartial<NeedsConfig> | undefined): NeedsConfig {
+	return {
+		initial: { ...DEFAULT_WORLD_CONFIG.needs.initial, ...overrides?.initial },
+		decay: {
+			energy: { ...DEFAULT_WORLD_CONFIG.needs.decay.energy, ...overrides?.decay?.energy },
+			social: { ...DEFAULT_WORLD_CONFIG.needs.decay.social, ...overrides?.decay?.social },
+			focus:  { ...DEFAULT_WORLD_CONFIG.needs.decay.focus,  ...overrides?.decay?.focus  },
+			morale: { ...DEFAULT_WORLD_CONFIG.needs.decay.morale, ...overrides?.decay?.morale },
+		},
+	};
+}
+
+/** Merge engagement config, including nested tier sub-objects. */
+function mergeEngagement(overrides: DeepPartial<EngagementConfig> | undefined): EngagementConfig {
+	return {
+		tiers: {
+			ambient: { ...DEFAULT_WORLD_CONFIG.engagement.tiers.ambient, ...overrides?.tiers?.ambient },
+			nudge:   { ...DEFAULT_WORLD_CONFIG.engagement.tiers.nudge,   ...overrides?.tiers?.nudge   },
+			offer:   { ...DEFAULT_WORLD_CONFIG.engagement.tiers.offer,   ...overrides?.tiers?.offer   },
+		},
+		engagementDuration: overrides?.engagementDuration ?? DEFAULT_WORLD_CONFIG.engagement.engagementDuration,
+	};
+}
+
 /**
  * Deep-merge a partial WorldConfig over the defaults.
  *
@@ -231,50 +256,17 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
  */
 export function mergeWorldConfig(overrides: DeepPartial<WorldConfig>): WorldConfig {
 	return {
-		needs: {
-			initial: { ...DEFAULT_WORLD_CONFIG.needs.initial, ...overrides.needs?.initial },
-			decay: {
-				energy: { ...DEFAULT_WORLD_CONFIG.needs.decay.energy, ...overrides.needs?.decay?.energy },
-				social: { ...DEFAULT_WORLD_CONFIG.needs.decay.social, ...overrides.needs?.decay?.social },
-				focus:  { ...DEFAULT_WORLD_CONFIG.needs.decay.focus,  ...overrides.needs?.decay?.focus  },
-				morale: { ...DEFAULT_WORLD_CONFIG.needs.decay.morale, ...overrides.needs?.decay?.morale },
-			},
-		},
+		needs: mergeNeeds(overrides.needs),
 		director: {
 			awareness: { ...DEFAULT_WORLD_CONFIG.director.awareness, ...overrides.director?.awareness },
 		},
-		sensors: {
-			...DEFAULT_WORLD_CONFIG.sensors,
-			...overrides.sensors,
-		},
-		groups: {
-			...DEFAULT_WORLD_CONFIG.groups,
-			...overrides.groups,
-		},
-		engagement: {
-			tiers: {
-				ambient: { ...DEFAULT_WORLD_CONFIG.engagement.tiers.ambient, ...overrides.engagement?.tiers?.ambient },
-				nudge:   { ...DEFAULT_WORLD_CONFIG.engagement.tiers.nudge,   ...overrides.engagement?.tiers?.nudge   },
-				offer:   { ...DEFAULT_WORLD_CONFIG.engagement.tiers.offer,   ...overrides.engagement?.tiers?.offer   },
-			},
-			engagementDuration: overrides.engagement?.engagementDuration ?? DEFAULT_WORLD_CONFIG.engagement.engagementDuration,
-		},
-		tools: {
-			...DEFAULT_WORLD_CONFIG.tools,
-			...overrides.tools,
-		},
-		dayCycle: {
-			...DEFAULT_WORLD_CONFIG.dayCycle,
-			...overrides.dayCycle,
-		},
-		weather: {
-			...DEFAULT_WORLD_CONFIG.weather,
-			...overrides.weather,
-		},
-		relationships: {
-			...DEFAULT_WORLD_CONFIG.relationships,
-			...overrides.relationships,
-		},
+		sensors: { ...DEFAULT_WORLD_CONFIG.sensors, ...overrides.sensors },
+		groups: { ...DEFAULT_WORLD_CONFIG.groups, ...overrides.groups },
+		engagement: mergeEngagement(overrides.engagement),
+		tools: { ...DEFAULT_WORLD_CONFIG.tools, ...overrides.tools },
+		dayCycle: { ...DEFAULT_WORLD_CONFIG.dayCycle, ...overrides.dayCycle },
+		weather: { ...DEFAULT_WORLD_CONFIG.weather, ...overrides.weather },
+		relationships: { ...DEFAULT_WORLD_CONFIG.relationships, ...overrides.relationships },
 	};
 }
 

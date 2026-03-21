@@ -12,6 +12,40 @@
 
 ---
 
+## Review Fixes (2026-03-21)
+
+The following critical issues were identified during plan review and must be addressed during implementation:
+
+### Fix 1: `BtSystem.getPet()` does not exist
+Task 12 Step 5 calls `btSystem.getPet(pet.entityId)` — this method does not exist on `BtSystem`. Add `getPet(name: string)` to `bt-system.ts` returning from the `petEntries` map. Also: the correct variable in `engine-simulation.ts` is `ctx.bt`, not `btSystem`.
+
+### Fix 2: `NeedMultipliers` + `DEFAULT_MULTIPLIERS` incomplete
+Task 3 Step 3 says "Update all phase entries" without code. You MUST update all 7 `DAY_PHASES` entries in `day-phase-config.ts` with `hunger` and `thirst` multiplier values (per the spec table). Also update `DEFAULT_MULTIPLIERS` (line ~40) to include `hunger: 1, thirst: 1`.
+
+### Fix 3: `EngineContext` + `engine-objects.ts` not updated
+Tasks 13-14 place new bowl actors directly in `engine.ts`. The actual pattern is `engine-objects.ts` (which exports `EnvironmentalObjects`, `createEnvironmentalObjects()`, `registerEnvironmentalObjects()`). Add all 4 bowl actors there and extend `EngineContext` in `engine-types.ts`. Update `objectLookup` in `engine-simulation.ts` `tickBehaviorThresholds()` to include the new bowl keys.
+
+### Fix 4: Sprite loading needs error handling
+Task 7b uses `await Promise.all([...])` with no try/catch. A single missing asset kills startup. Use `Promise.allSettled()` and only apply sprites for fulfilled results. Canvas graphics remain as fallback for rejected loads.
+
+### Fix 5: `engine.on('postframe')` is in `engine-postframe.ts`
+Task 15 Step 2 says to modify "around line 1383 of engine.ts". The postframe handler was extracted to `engine-postframe.ts` (imported as `createPostframeHandler`). Modify that file instead.
+
+### Fix 6: Build command
+Use `npm run build` (not `node esbuild.config.mjs --production --no-reports`).
+
+### Fix 7: Sprite asset paths confirmed
+Ninja Adventure item sprites extracted to `.obsidian/plugins/flowti-ibde/assets/Items/`. Correct paths for `loadItemSprite()`:
+- CoffeeMachine: `Items/Potion/MilkPot.png`
+- SnackTable: `Items/Food/Onigiri.png`
+- WaterCooler: `Items/Potion/WaterPot.png`
+- FoodBowl: `Items/Food/Meat.png`
+- WaterBowl: `Items/Object/Gourd.png`
+
+The `spriteBasePath` resolves to the plugin directory (`.obsidian/plugins/flowti-ibde/assets/`), so item paths are relative to that.
+
+---
+
 ## Chunk 1: Data Model Foundation
 
 ### Task 1: Extend AgentNeeds interfaces

@@ -3,15 +3,13 @@
  * Renders the master list of saved export configs and the detail/edit panel.
  */
 
-import { Setting, TFile, setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import type { SavedExportConfig } from "../../domain/dataExchange/types";
 import { basename } from "../../utils/pathUtils";
 import { ConfirmModal } from "../modals";
-import { FilePickerModal } from "../shared/FilePickerModal";
-import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
-import { showNativeSaveDialog } from "../export/electronDialog";
 import { addInfoRow, renderEmptyDetail, getEmptyDetailStats } from "./helpers";
 import type { HubComponentDeps } from "./types";
+import { renderExportEditForm } from "./ExportsTabEditForm";
 
 export class ExportsTab {
 	constructor(
@@ -19,10 +17,6 @@ export class ExportsTab {
 		private detailEl: HTMLElement,
 		private deps: HubComponentDeps,
 	) {}
-
-	// ─────────────────────────────────────────────────────────
-	// Master list
-	// ─────────────────────────────────────────────────────────
 
 	renderMaster(): void {
 		this.masterEl.empty();
@@ -101,10 +95,6 @@ export class ExportsTab {
 		});
 	}
 
-	// ─────────────────────────────────────────────────────────
-	// Detail panel
-	// ─────────────────────────────────────────────────────────
-
 	renderDetail(): void {
 		this.detailEl.empty();
 		const state = this.deps.getState();
@@ -127,7 +117,16 @@ export class ExportsTab {
 			return;
 		}
 
-		// Header with operation badge
+		this.renderDetailHeader(cfg);
+		this.renderDetailActions(cfg);
+		this.renderLinkedPipelines(cfg);
+		this.renderDetailDescription(cfg);
+		this.renderSourceOutputInfo(cfg);
+		this.renderDetailConfig(cfg);
+		this.renderDetailColumns(cfg);
+	}
+
+	private renderDetailHeader(cfg: SavedExportConfig): void {
 		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
 		const left = header.createDiv();
 		left.createDiv({ text: cfg.name || "(unnamed)", cls: "ft-detail-event-type" });
@@ -141,8 +140,9 @@ export class ExportsTab {
 		if (cfg.noteType) {
 			badges.createSpan({ text: cfg.noteType, cls: "ft-badge" });
 		}
+	}
 
-		// Actions bar
+	private renderDetailActions(cfg: SavedExportConfig): void {
 		const actions = this.detailEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
 
 		// Execute
@@ -169,14 +169,7 @@ export class ExportsTab {
 		setIcon(viewIcon, cfg.sourceType === "base" ? "table" : "folder");
 		viewLink.appendText(cfg.sourceType === "base" ? " Open Base" : " Open Folder");
 		viewLink.addEventListener("click", () => {
-			if (cfg.sourceType === "base") {
-				const file = this.deps.app.vault.getAbstractFileByPath(cfg.sourcePath);
-				if (file instanceof TFile) {
-					void this.deps.app.workspace.getLeaf(false).openFile(file);
-				}
-			} else {
-				void this.deps.app.workspace.openLinkText(cfg.sourcePath, "", false);
-			}
+			this.openSourcePath(cfg);
 		});
 
 		// View Output
@@ -241,59 +234,74 @@ export class ExportsTab {
 				},
 			}).open();
 		});
+	}
 
-		// Linked Pipelines
+	private openSourcePath(cfg: SavedExportConfig): void {
+		if (cfg.sourceType === "base") {
+			const file = this.deps.app.vault.getAbstractFileByPath(cfg.sourcePath);
+			if (file instanceof TFile) {
+				void this.deps.app.workspace.getLeaf(false).openFile(file);
+			}
+		} else {
+			void this.deps.app.workspace.openLinkText(cfg.sourcePath, "", false);
+		}
+	}
+
+	private renderLinkedPipelines(cfg: SavedExportConfig): void {
 		const linkedPipelines = this.deps.dataExchangeService.getSavedPipelines()
 			.filter((p) => p.exportConfigIds?.includes(cfg.id));
-		if (linkedPipelines.length > 0) {
-			const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
-			section.createDiv({
-				text: `Pipeline${linkedPipelines.length > 1 ? "s" : ""} (${linkedPipelines.length})`,
-				cls: "ft-detail-section-header",
+		if (linkedPipelines.length === 0) return;
+
+		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+		section.createDiv({
+			text: `Pipeline${linkedPipelines.length > 1 ? "s" : ""} (${linkedPipelines.length})`,
+			cls: "ft-detail-section-header",
+		});
+		for (let i = 0; i < linkedPipelines.length; i++) {
+			const pipe = linkedPipelines[i];
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-px-2" });
+			if (linkedPipelines.length > 1 && i < linkedPipelines.length - 1) {
+				row.addClass("ft-border-bottom");
+			}
+			const icon = row.createSpan();
+			setIcon(icon, "git-merge");
+			icon.addClass("ft-flex-shrink-0");
+			icon.addClass("ft-opacity-60");
+			const link = row.createEl("span", {
+				text: pipe.name,
+				cls: "ft-nav-link ft-text-sm",
 			});
-			for (let i = 0; i < linkedPipelines.length; i++) {
-				const pipe = linkedPipelines[i];
-				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-px-2" });
-				if (linkedPipelines.length > 1 && i < linkedPipelines.length - 1) {
-					row.addClass("ft-border-bottom");
-				}
-				const icon = row.createSpan();
-				setIcon(icon, "git-merge");
-				icon.addClass("ft-flex-shrink-0");
-				icon.addClass("ft-opacity-60");
-				const link = row.createEl("span", {
-					text: pipe.name,
-					cls: "ft-nav-link ft-text-sm",
-				});
-				link.addClass("ft-flex-1");
-				link.addEventListener("click", () => {
-					this.deps.setState({ selectedPipelineId: pipe.id });
-					this.deps.navigation.navigateTo("pipelines");
-				});
-				const infoParts: string[] = [];
-				if (pipe.noteType) infoParts.push(pipe.noteType);
-				infoParts.push(`${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`);
-				infoParts.push(`→ ${pipe.targetFolder}`);
-				if (pipe.basePath) infoParts.push(basename(pipe.basePath) || pipe.basePath);
-				row.createSpan({
-					text: infoParts.join(" · "),
-					cls: "ft-text-muted ft-text-sm",
-				});
-			}
+			link.addClass("ft-flex-1");
+			link.addEventListener("click", () => {
+				this.deps.setState({ selectedPipelineId: pipe.id });
+				this.deps.navigation.navigateTo("pipelines");
+			});
+			const infoParts: string[] = [];
+			if (pipe.noteType) infoParts.push(pipe.noteType);
+			infoParts.push(`${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`);
+			infoParts.push(`→ ${pipe.targetFolder}`);
+			if (pipe.basePath) infoParts.push(basename(pipe.basePath) || pipe.basePath);
+			row.createSpan({
+				text: infoParts.join(" · "),
+				cls: "ft-text-muted ft-text-sm",
+			});
 		}
+	}
 
-		// Description from linked config doc
-		if (configDocExists && configDocFile instanceof TFile) {
-			const cache = this.deps.app.metadataCache.getFileCache(configDocFile);
-			const description = cache?.frontmatter?.["description"] as string | undefined;
-			if (description) {
-				const descSection = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
-				descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
-				descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
-			}
+	private renderDetailDescription(cfg: SavedExportConfig): void {
+		const configDocPath = this.deps.dataExchangeService.getConfigDocPath(cfg.name, "export");
+		const configDocFile = this.deps.app.vault.getAbstractFileByPath(configDocPath);
+		if (!(configDocFile instanceof TFile)) return;
+		const cache = this.deps.app.metadataCache.getFileCache(configDocFile);
+		const description = cache?.frontmatter?.["description"] as string | undefined;
+		if (description) {
+			const descSection = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+			descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
+			descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
 		}
+	}
 
-		// Source & Output info
+	private renderSourceOutputInfo(cfg: SavedExportConfig): void {
 		const sourceCard = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 		sourceCard.createDiv({ text: "Source & Output", cls: "ft-detail-section-header" });
 		const sourceGrid = sourceCard.createDiv({ cls: "ft-detail-info-grid" });
@@ -304,14 +312,7 @@ export class ExportsTab {
 		const sourceLink = sourceVal.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		sourceLink.textContent = cfg.sourcePath;
 		sourceLink.addEventListener("click", () => {
-			if (cfg.sourceType === "base") {
-				const file = this.deps.app.vault.getAbstractFileByPath(cfg.sourcePath);
-				if (file instanceof TFile) {
-					void this.deps.app.workspace.getLeaf(false).openFile(file);
-				}
-			} else {
-				void this.deps.app.workspace.openLinkText(cfg.sourcePath, "", false);
-			}
+			this.openSourcePath(cfg);
 		});
 
 		const outputRow = sourceGrid.createDiv({ cls: "ft-detail-info-label" });
@@ -329,8 +330,9 @@ export class ExportsTab {
 		} else {
 			outputVal.textContent = "(not set)";
 		}
+	}
 
-		// Configuration
+	private renderDetailConfig(cfg: SavedExportConfig): void {
 		const configCard = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 		configCard.createDiv({ text: "Configuration", cls: "ft-detail-section-header" });
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
@@ -340,8 +342,9 @@ export class ExportsTab {
 		if (cfg.baseViewIndex !== undefined) addInfoRow(configGrid, "Base View Index", String(cfg.baseViewIndex));
 		if (cfg.noteType) addInfoRow(configGrid, "Note Type", cfg.noteType);
 		addInfoRow(configGrid, "Created", new Date(cfg.createdAt).toLocaleString());
+	}
 
-		// Note Properties (columns)
+	private renderDetailColumns(cfg: SavedExportConfig): void {
 		if (cfg.columns.length > 0) {
 			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: `Note Properties (${cfg.columns.length})`, cls: "ft-detail-section-header" });
@@ -351,7 +354,6 @@ export class ExportsTab {
 			}
 		}
 
-		// File Properties
 		if (cfg.fileProperties.length > 0) {
 			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: `File Properties (${cfg.fileProperties.length})`, cls: "ft-detail-section-header" });
@@ -362,153 +364,13 @@ export class ExportsTab {
 		}
 	}
 
-	// ─────────────────────────────────────────────────────────
-	// Edit form
-	// ─────────────────────────────────────────────────────────
-
 	private renderEditForm(cfg: SavedExportConfig): void {
-		const panel = this.detailEl;
-		panel.createEl("h3", { text: "Edit export config", cls: "ft-heading ft-heading-sm ft-mb-3" });
-
-		const edits: Partial<SavedExportConfig> = {
-			name: cfg.name,
-			sourcePath: cfg.sourcePath,
-			outputPath: cfg.outputPath,
-			isExternal: cfg.isExternal ?? false,
-			conflictStrategy: cfg.conflictStrategy ?? "overwrite",
-			noteType: cfg.noteType ?? "",
-		};
-
-		new Setting(panel)
-			.setName("Name")
-			.addText((t) => t.setValue(cfg.name).onChange((v) => { edits.name = v; }));
-
-		let sourceTextComponent: { setValue: (v: string) => unknown } | undefined;
-		const sourceSetting = new Setting(panel)
-			.setName("Source path")
-			.addText((t) => {
-				t.setValue(cfg.sourcePath).onChange((v) => { edits.sourcePath = v; });
-				sourceTextComponent = t;
-			});
-		sourceSetting.addExtraButton((btn) =>
-			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
-				if (cfg.sourceType === "base") {
-					new FilePickerModal(this.deps.app, ["base"], (p) => {
-						edits.sourcePath = p;
-						sourceTextComponent?.setValue(p);
-					}).open();
-				} else {
-					const folders = getVaultFolders(this.deps.app);
-					new FolderPickerModal(this.deps.app, folders, (p) => {
-						edits.sourcePath = p;
-						sourceTextComponent?.setValue(p);
-					}).open();
-				}
-			}),
+		renderExportEditForm(
+			this.detailEl, cfg, this.deps,
+			() => { this.renderMaster(); this.renderDetail(); },
+			() => { this.renderDetail(); },
 		);
-
-		let outputTextComponent: { setValue: (v: string) => unknown } | undefined;
-		const externalBadgeFrag = document.createDocumentFragment();
-		const externalBadgeEl = externalBadgeFrag.appendChild(document.createElement("span"));
-		const updateExternalBadge = (): void => {
-			externalBadgeEl.textContent = "";
-			if (edits.isExternal) {
-				const badge = document.createElement("span");
-				badge.className = "ft-badge ft-badge-muted ft-text-sm";
-				badge.textContent = "External";
-				externalBadgeEl.replaceChildren(badge);
-			}
-		};
-		const outputSetting = new Setting(panel)
-			.setName("Output path")
-			.setDesc(externalBadgeFrag)
-			.addText((t) => {
-				t.setValue(cfg.outputPath).onChange((v) => { edits.outputPath = v; });
-				outputTextComponent = t;
-			});
-		outputSetting.addExtraButton((btn) =>
-			btn.setIcon("folder").setTooltip("Browse vault folder").onClick(() => {
-				const folders = getVaultFolders(this.deps.app);
-				new FolderPickerModal(this.deps.app, folders, (folder) => {
-					const filename = basename(edits.outputPath || cfg.outputPath || "export.csv") || "export.csv";
-					edits.outputPath = folder ? `${folder}/${filename}` : filename;
-					edits.isExternal = false;
-					outputTextComponent?.setValue(edits.outputPath);
-					updateExternalBadge();
-				}).open();
-			}),
-		);
-		outputSetting.addExtraButton((btn) =>
-			btn.setIcon("hard-drive").setTooltip("Save to filesystem").onClick(() => {
-				const format = cfg.format ?? "csv";
-				const ext = format === "tab" ? "txt" : "csv";
-				const currentFilename = basename(edits.outputPath || cfg.outputPath || `export.${ext}`) || `export.${ext}`;
-				void showNativeSaveDialog({ format, defaultFilename: currentFilename }).then((result) => {
-					if (result === null) {
-						void this.deps.eventBus.emit("notice.error", { message: "Could not open save dialog. Try entering the path manually." });
-						return;
-					}
-					if (!result.canceled && result.filePath) {
-						edits.outputPath = result.filePath;
-						edits.isExternal = true;
-						outputTextComponent?.setValue(result.filePath);
-						updateExternalBadge();
-					}
-				});
-			}),
-		);
-		updateExternalBadge();
-
-		new Setting(panel)
-			.setName("Conflict strategy")
-			.addDropdown((dd) =>
-				dd
-					.addOptions({ overwrite: "Overwrite", skip: "Skip", append: "Append" })
-					.setValue(cfg.conflictStrategy ?? "overwrite")
-					.onChange((v) => { edits.conflictStrategy = v as SavedExportConfig["conflictStrategy"]; }),
-			);
-
-		new Setting(panel)
-			.setName("Note type")
-			.setDesc("Associate this export with a type for TypeDoc creation (optional)")
-			.addText((t) =>
-				t
-					.setValue(cfg.noteType ?? "")
-					// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.setPlaceholder("e.g. event, asset, service")
-					.onChange((v) => { edits.noteType = v || undefined; }),
-			);
-
-		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
-
-		const saveLink = nav.createEl("span", { cls: "ft-nav-link" });
-		const saveIcon = saveLink.createSpan();
-		setIcon(saveIcon, "check");
-		saveLink.appendText(" Save");
-		saveLink.addEventListener("click", () => {
-			void this.deps.dataExchangeService
-				.updateExportConfig(cfg.id, edits)
-				.then(() => {
-					this.deps.setState({ editingExportId: null });
-					this.renderMaster();
-					this.renderDetail();
-					void this.deps.eventBus.emit("notice.success", { message: "Export config updated" });
-				});
-		});
-
-		const cancelLink = nav.createEl("span", { cls: "ft-nav-link" });
-		const cancelIcon = cancelLink.createSpan();
-		setIcon(cancelIcon, "x");
-		cancelLink.appendText(" Cancel");
-		cancelLink.addEventListener("click", () => {
-			this.deps.setState({ editingExportId: null });
-			this.renderDetail();
-		});
 	}
-
-	// ─────────────────────────────────────────────────────────
-	// Execution
-	// ─────────────────────────────────────────────────────────
 
 	executeExportConfig(cfg: SavedExportConfig): void {
 		void this.deps.eventBus.emit("dataExchange.export.execute", {

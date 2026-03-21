@@ -40,52 +40,16 @@ export function renderColumnPicker(container: HTMLElement, options: ColumnPicker
 	if (cssText) select.style.cssText = cssText;
 
 	if (placeholder) {
-		const opt = select.createEl("option");
-		opt.value = "";
-		opt.textContent = placeholder;
-		opt.disabled = true;
-		if (!selected) opt.selected = true;
+		addOption(select, "", placeholder, !selected, true);
 	}
 
-	const hintMap = new Map<string, ColumnType>();
-	for (const h of typeHints) {
-		hintMap.set(h.column, h.type);
-	}
+	const hintMap = buildTypeMap(typeHints);
+	const groups = groupByType(headers, hintMap);
 
-	// Group columns by type
-	const groups = new Map<ColumnType, string[]>();
-	for (const col of headers) {
-		const type = hintMap.get(col) ?? "string";
-		if (!groups.has(type)) groups.set(type, []);
-		groups.get(type)!.push(col);
-	}
-
-	// Use optgroups when 2+ types present
-	const typeCount = groups.size;
-
-	if (typeCount >= 2) {
-		for (const type of TYPE_ORDER) {
-			const cols = groups.get(type);
-			if (!cols || cols.length === 0) continue;
-
-			const optgroup = select.createEl("optgroup");
-			optgroup.label = TYPE_LABELS[type];
-
-			for (const col of cols) {
-				const opt = optgroup.createEl("option");
-				opt.value = col;
-				opt.textContent = col;
-				if (col === selected) opt.selected = true;
-			}
-		}
+	if (groups.size >= 2) {
+		renderGroupedOptions(select, groups, selected);
 	} else {
-		// Flat list
-		for (const col of headers) {
-			const opt = select.createEl("option");
-			opt.value = col;
-			opt.textContent = col;
-			if (col === selected) opt.selected = true;
-		}
+		renderFlatOptions(select, headers, selected);
 	}
 
 	if (onChange) {
@@ -93,6 +57,44 @@ export function renderColumnPicker(container: HTMLElement, options: ColumnPicker
 	}
 
 	return select;
+}
+
+function buildTypeMap(typeHints: ColumnTypeHint[]): Map<string, ColumnType> {
+	const map = new Map<string, ColumnType>();
+	for (const h of typeHints) map.set(h.column, h.type);
+	return map;
+}
+
+function groupByType(headers: string[], hintMap: Map<string, ColumnType>): Map<ColumnType, string[]> {
+	const groups = new Map<ColumnType, string[]>();
+	for (const col of headers) {
+		const type = hintMap.get(col) ?? "string";
+		if (!groups.has(type)) groups.set(type, []);
+		groups.get(type)!.push(col);
+	}
+	return groups;
+}
+
+function addOption(parent: HTMLElement, value: string, text: string, isSelected: boolean, disabled = false): void {
+	const opt = parent.createEl("option");
+	opt.value = value;
+	opt.textContent = text;
+	if (disabled) opt.disabled = true;
+	if (isSelected) opt.selected = true;
+}
+
+function renderGroupedOptions(select: HTMLSelectElement, groups: Map<ColumnType, string[]>, selected?: string): void {
+	for (const type of TYPE_ORDER) {
+		const cols = groups.get(type);
+		if (!cols || cols.length === 0) continue;
+		const optgroup = select.createEl("optgroup");
+		optgroup.label = TYPE_LABELS[type];
+		for (const col of cols) addOption(optgroup, col, col, col === selected);
+	}
+}
+
+function renderFlatOptions(select: HTMLSelectElement, headers: string[], selected?: string): void {
+	for (const col of headers) addOption(select, col, col, col === selected);
 }
 
 /** Group key — extends ColumnType with virtual "currency" group. */

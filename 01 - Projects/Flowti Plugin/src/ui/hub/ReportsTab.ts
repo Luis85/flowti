@@ -63,64 +63,9 @@ export class ReportsTab {
 			: documented.length;
 		this.renderCoverageSummary(totalVisible, docCount);
 
-		// ── Documented section (first) ──
-		if (documented.length > 0 || undocumented.length === 0) {
-			const header = this.masterEl.createDiv({ cls: "ft-master-category-header ft-mt-075" });
-			header.createSpan({ text: "Documented" });
-			header.createSpan({
-				text: `${documented.length}`,
-				cls: "ft-master-category-count",
-			});
-
-			if (documented.length === 0) {
-				this.masterEl.createDiv({
-					text: state.filterText ? "No matching documented reports" : "No documented CSV files yet",
-					cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm",
-				});
-			} else {
-				for (const entry of documented) {
-					this.renderCsvItem(entry, false);
-				}
-			}
-		}
-
-		// ── Undocumented section ──
-		if (undocumented.length > 0) {
-			const header = this.masterEl.createDiv({ cls: "ft-master-category-header ft-mt-1r" });
-			header.createSpan({ text: "Undocumented" });
-			header.createSpan({
-				text: `${undocumented.length}`,
-				cls: "ft-master-category-count",
-			});
-
-			for (const entry of undocumented) {
-				this.renderCsvItem(entry, false);
-			}
-		}
-
-		// ── Hidden section ──
-		if (hidden.length > 0) {
-			const toggleRow = this.masterEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-2" });
-			toggleRow.addClass("ft-mt-1r");
-			const toggleChip = toggleRow.createSpan({
-				cls: `ft-badge ${state.showHiddenCsvs ? "" : "ft-badge-muted"}`,
-			});
-			toggleChip.addClass("ft-cursor-pointer");
-			const eyeIcon = toggleChip.createSpan();
-			setIcon(eyeIcon, state.showHiddenCsvs ? "eye" : "eye-off");
-			eyeIcon.addClass("ft-mr-025");
-			toggleChip.appendText(`${state.showHiddenCsvs ? "Hide" : "Show"} hidden (${hidden.length})`);
-			toggleChip.addEventListener("click", () => {
-				this.deps.setState({ showHiddenCsvs: !state.showHiddenCsvs });
-				this.deps.scheduleRender();
-			});
-
-			if (state.showHiddenCsvs) {
-				for (const entry of hidden) {
-					this.renderCsvItem(entry, true);
-				}
-			}
-		}
+		this.renderDocumentedSection(state, documented, undocumented);
+		this.renderUndocumentedSection(undocumented);
+		this.renderHiddenSection(state, hidden);
 
 		// ── Empty state ──
 		if (visible.length === 0 && hidden.length === 0) {
@@ -128,6 +73,66 @@ export class ReportsTab {
 				text: state.filterText ? "No matching CSV files" : "No CSV files found in vault",
 				cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm",
 			});
+		}
+	}
+
+	private renderDocumentedSection(
+		state: ReturnType<HubComponentDeps["getState"]>,
+		documented: CsvFileEntry[],
+		undocumented: CsvFileEntry[],
+	): void {
+		if (documented.length === 0 && undocumented.length > 0) return;
+
+		const header = this.masterEl.createDiv({ cls: "ft-master-category-header ft-mt-075" });
+		header.createSpan({ text: "Documented" });
+		header.createSpan({ text: `${documented.length}`, cls: "ft-master-category-count" });
+
+		if (documented.length === 0) {
+			this.masterEl.createDiv({
+				text: state.filterText ? "No matching documented reports" : "No documented CSV files yet",
+				cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm",
+			});
+		} else {
+			for (const entry of documented) {
+				this.renderCsvItem(entry, false);
+			}
+		}
+	}
+
+	private renderUndocumentedSection(undocumented: CsvFileEntry[]): void {
+		if (undocumented.length === 0) return;
+
+		const header = this.masterEl.createDiv({ cls: "ft-master-category-header ft-mt-1r" });
+		header.createSpan({ text: "Undocumented" });
+		header.createSpan({ text: `${undocumented.length}`, cls: "ft-master-category-count" });
+
+		for (const entry of undocumented) {
+			this.renderCsvItem(entry, false);
+		}
+	}
+
+	private renderHiddenSection(state: ReturnType<HubComponentDeps["getState"]>, hidden: CsvFileEntry[]): void {
+		if (hidden.length === 0) return;
+
+		const toggleRow = this.masterEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-2" });
+		toggleRow.addClass("ft-mt-1r");
+		const toggleChip = toggleRow.createSpan({
+			cls: `ft-badge ${state.showHiddenCsvs ? "" : "ft-badge-muted"}`,
+		});
+		toggleChip.addClass("ft-cursor-pointer");
+		const eyeIcon = toggleChip.createSpan();
+		setIcon(eyeIcon, state.showHiddenCsvs ? "eye" : "eye-off");
+		eyeIcon.addClass("ft-mr-025");
+		toggleChip.appendText(`${state.showHiddenCsvs ? "Hide" : "Show"} hidden (${hidden.length})`);
+		toggleChip.addEventListener("click", () => {
+			this.deps.setState({ showHiddenCsvs: !state.showHiddenCsvs });
+			this.deps.scheduleRender();
+		});
+
+		if (state.showHiddenCsvs) {
+			for (const entry of hidden) {
+				this.renderCsvItem(entry, true);
+			}
 		}
 	}
 
@@ -171,6 +176,19 @@ export class ReportsTab {
 		// Name (with folder disambiguation when colliding)
 		item.createSpan({ text: entry.displayName, cls: "ft-master-event-name" });
 
+		this.renderCsvItemBadges(item, entry, isHidden, state);
+
+		item.addEventListener("click", () => {
+			this.selectCsvEntry(entry, state);
+		});
+	}
+
+	private renderCsvItemBadges(
+		item: HTMLElement,
+		entry: CsvFileEntry,
+		isHidden: boolean,
+		state: ReturnType<HubComponentDeps["getState"]>,
+	): void {
 		// Status badges
 		if (!entry.hasDoc && !isHidden) {
 			const docHint = item.createSpan({ cls: "ft-badge ft-badge-muted ft-cursor-pointer ft-badge-gap-sm" });
@@ -200,33 +218,26 @@ export class ReportsTab {
 		}
 
 		if (entry.importConfigs.length > 0) {
-			item.createSpan({
-				text: `${entry.importConfigs.length} imp`,
-				cls: "ft-badge ft-badge-muted",
-			});
+			item.createSpan({ text: `${entry.importConfigs.length} imp`, cls: "ft-badge ft-badge-muted" });
 		}
-
 		if (entry.exportConfigs.length > 0) {
-			item.createSpan({
-				text: `${entry.exportConfigs.length} exp`,
-				cls: "ft-badge ft-badge-muted",
-			});
+			item.createSpan({ text: `${entry.exportConfigs.length} exp`, cls: "ft-badge ft-badge-muted" });
 		}
+	}
 
-		item.addEventListener("click", () => {
-			if (entry.hasDoc) {
-				const report = findReportForCsv(state.reportEntries, entry);
-				if (report) {
-					this.deps.setState({ selectedReportPath: report.path, selectedCsvFilePath: null });
-				} else {
-					this.deps.setState({ selectedCsvFilePath: entry.path, selectedReportPath: null });
-				}
+	private selectCsvEntry(entry: CsvFileEntry, state: ReturnType<HubComponentDeps["getState"]>): void {
+		if (entry.hasDoc) {
+			const report = findReportForCsv(state.reportEntries, entry);
+			if (report) {
+				this.deps.setState({ selectedReportPath: report.path, selectedCsvFilePath: null });
 			} else {
 				this.deps.setState({ selectedCsvFilePath: entry.path, selectedReportPath: null });
 			}
-			this.renderMaster();
-			this.renderDetail();
-		});
+		} else {
+			this.deps.setState({ selectedCsvFilePath: entry.path, selectedReportPath: null });
+		}
+		this.renderMaster();
+		this.renderDetail();
 	}
 
 	// ─────────────────────────────────────────────────────────

@@ -66,3 +66,42 @@ export function renderLoading(el: HTMLElement, message: string): void {
 	setIcon(spinner, "loader");
 	loading.createDiv({ cls: "ft-jb-loading-text", text: message });
 }
+
+/** Renders a compact icon-only toolbar button with tooltip. */
+export function renderToolbarButton(
+	container: HTMLElement, testId: string, icon: string, tooltip: string, onClick: () => void,
+): void {
+	const btn = container.createSpan({ cls: "ft-jb-toolbar-btn" });
+	btn.dataset.testId = testId;
+	btn.setAttribute("role", "button");
+	btn.setAttribute("tabindex", "0");
+	btn.setAttribute("aria-label", tooltip);
+	btn.title = tooltip;
+	setIcon(btn, icon);
+	btn.addEventListener("click", onClick);
+	btn.addEventListener("keydown", (e: KeyboardEvent) => {
+		if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+	});
+}
+
+/** Toggles an element's loading/busy state. */
+export function setElementLoading(el: HTMLElement | null, cls: string, loading: boolean): void {
+	if (!el) return;
+	el.classList.toggle(cls, loading);
+	if (loading) el.setAttribute("aria-busy", "true"); else el.removeAttribute("aria-busy");
+}
+
+/** Toggles canvas sync status indicator. */
+export function setCanvasSyncStatus(contentEl: HTMLElement, syncing: boolean): void {
+	const el = contentEl.querySelector<HTMLElement>('[data-test-id="jb-canvas-status"]');
+	if (!el) return;
+	if (syncing) {
+		el.classList.add("ft-jb-canvas-syncing");
+		el.setAttribute("aria-busy", "true");
+	} else {
+		el.classList.remove("ft-jb-canvas-syncing");
+		el.classList.add("ft-jb-canvas-ready");
+		el.removeAttribute("aria-busy");
+		setTimeout(() => el.classList.remove("ft-jb-canvas-ready"), 2000);
+	}
+}

@@ -116,14 +116,24 @@ export class CsvResultPage {
 		const hasErrors = r.failed > 0;
 		const allSkipped = r.skipped === r.totalRows;
 
-		// ── Status header ──
+		this.renderResultHeader(container, hasErrors, allSkipped, r);
+		this.renderOutcomeSummary(container, state, r);
+		this.renderErrorDetails(container, r);
+		this.renderResultActions(container, state);
+	}
+
+	private renderResultHeader(
+		container: HTMLElement,
+		hasErrors: boolean,
+		allSkipped: boolean,
+		r: NonNullable<ReturnType<CsvComponentDeps["getState"]>["importResult"]>,
+	): void {
 		const statusIcon = hasErrors ? "alert-triangle" : allSkipped ? "minus-circle" : "check-circle";
 		const statusText = hasErrors
 			? `Import completed with ${r.failed} error${r.failed !== 1 ? "s" : ""}`
 			: allSkipped
 				? "All rows skipped — notes already exist"
 				: `Successfully imported ${r.created + r.updated} note${(r.created + r.updated) !== 1 ? "s" : ""}`;
-
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, statusIcon);
@@ -131,8 +141,13 @@ export class CsvResultPage {
 		else if (!allSkipped) hIcon.addClass("ft-text-success-color");
 		else hIcon.addClass("ft-text-muted");
 		headerRow.createEl("h3", { text: statusText, cls: "ft-heading ft-heading-sm" });
+	}
 
-		// ── Outcome summary card ──
+	private renderOutcomeSummary(
+		container: HTMLElement,
+		state: ReturnType<CsvComponentDeps["getState"]>,
+		r: NonNullable<ReturnType<CsvComponentDeps["getState"]>["importResult"]>,
+	): void {
 		const card = container.createDiv({ cls: "ft-card ft-mt-2" });
 		card.createDiv({ text: "What happened", cls: "ft-detail-section-header ft-mb-2" });
 		const grid = card.createDiv({ cls: "ft-detail-info-grid" });
@@ -151,43 +166,40 @@ export class CsvResultPage {
 		addRow("Target folder", state.targetFolder);
 		addRow("Conflict strategy", state.conflictStrategy);
 
-		// .base file info
 		let checkPath = state.basePath.trim();
 		if (checkPath && !checkPath.endsWith(".base")) checkPath += ".base";
-		if (checkPath && this.deps.app.vault.getAbstractFileByPath(checkPath)) {
-			addRow("Base view", checkPath);
-		}
-
-		// Loaded config
+		if (checkPath && this.deps.app.vault.getAbstractFileByPath(checkPath)) addRow("Base view", checkPath);
 		if (state.loadedConfigId) {
 			const cfg = state.savedConfigs.find((c) => c.id === state.loadedConfigId);
 			if (cfg) addRow("Config used", cfg.name);
 		}
+	}
 
-		// ── Error details ──
-		if (r.errors.length > 0) {
-			const errorSection = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
-			errorSection.createDiv({ text: `Errors (${r.errors.length})`, cls: "ft-detail-section-header ft-mb-2" });
-
-			const errorList = errorSection.createDiv({ cls: "ft-flex-col ft-gap-1 ft-text-sm" });
-			for (const err of r.errors.slice(0, 20)) {
-				const row = errorList.createDiv({ cls: "ft-flex ft-gap-2" });
-				row.createSpan({ text: `Row ${err.row}`, cls: "ft-text-muted" });
-				row.createSpan({ text: err.filename });
-				row.createSpan({ text: err.error, cls: "ft-text-error" });
-			}
-			if (r.errors.length > 20) {
-				errorList.createDiv({
-					text: `...and ${r.errors.length - 20} more errors`,
-					cls: "ft-text-muted ft-mt-1",
-				});
-			}
+	private renderErrorDetails(
+		container: HTMLElement,
+		r: NonNullable<ReturnType<CsvComponentDeps["getState"]>["importResult"]>,
+	): void {
+		if (r.errors.length === 0) return;
+		const errorSection = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
+		errorSection.createDiv({ text: `Errors (${r.errors.length})`, cls: "ft-detail-section-header ft-mb-2" });
+		const errorList = errorSection.createDiv({ cls: "ft-flex-col ft-gap-1 ft-text-sm" });
+		for (const err of r.errors.slice(0, 20)) {
+			const row = errorList.createDiv({ cls: "ft-flex ft-gap-2" });
+			row.createSpan({ text: `Row ${err.row}`, cls: "ft-text-muted" });
+			row.createSpan({ text: err.filename });
+			row.createSpan({ text: err.error, cls: "ft-text-error" });
 		}
+		if (r.errors.length > 20) {
+			errorList.createDiv({ text: `...and ${r.errors.length - 20} more errors`, cls: "ft-text-muted ft-mt-1" });
+		}
+	}
 
-		// ── Call to actions ──
+	private renderResultActions(container: HTMLElement, state: ReturnType<CsvComponentDeps["getState"]>): void {
 		const actionsCard = container.createDiv({ cls: "ft-card ft-mt-3" });
 		actionsCard.createDiv({ text: "What's next", cls: "ft-detail-section-header ft-mb-2" });
 		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
+		let checkPath = state.basePath.trim();
+		if (checkPath && !checkPath.endsWith(".base")) checkPath += ".base";
 
 		// Open target folder
 		const openFolderBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });

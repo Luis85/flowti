@@ -258,92 +258,99 @@ export class PetActor extends ex.Actor implements SceneEntity {
 		this.stateTimer -= deltaMs;
 
 		switch (this.state) {
-			case "idle": {
-				// Chance to sleep
-				if (Math.random() < this.def.behaviors.sleepChance * (deltaMs / 1000)) {
-					this.state = "sleeping";
-					this.stateTimer = 5000 + Math.random() * 10000; // sleep 5-15s
-					break;
-				}
-				// Chance to wander
-				if (this.stateTimer <= 0) {
-					this.state = "wandering";
-					const angle = Math.random() * Math.PI * 2;
-					const dist = Math.random() * this.def.behaviors.wanderRadius;
-					this.targetPos = ex.vec(
-						Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, this.homePos.x + Math.cos(angle) * dist)),
-						Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.homePos.y + Math.sin(angle) * dist)),
-					);
-					this.stateTimer = 3000 + Math.random() * 4000;
-				}
+			case "idle":
+				this.tickIdle(deltaMs);
 				break;
-			}
-			case "wandering": {
-				if (this.targetPos) {
-					const dx = this.targetPos.x - this.pos.x;
-					const dy = this.targetPos.y - this.pos.y;
-					const dist = Math.sqrt(dx * dx + dy * dy);
-					if (dist < 5) {
-						this.state = "idle";
-						this.stateTimer = 2000 + Math.random() * 5000;
-						this.targetPos = null;
-					} else {
-						const speed = 30 * this.def.speed * (deltaMs / 1000);
-						this.pos.x += (dx / dist) * speed;
-						this.pos.y += (dy / dist) * speed;
-					}
-				} else {
-					this.state = "idle";
-					this.stateTimer = 2000;
-				}
-				if (this.stateTimer <= 0) {
-					this.state = "idle";
-					this.stateTimer = 2000;
-				}
+			case "wandering":
+				this.tickWandering(deltaMs);
 				break;
-			}
-			case "sleeping": {
-				// Gentle bob while sleeping
-				this.sleepZTimer += deltaMs;
-				// Stay sleeping until timer expires
-				if (this.stateTimer <= 0) {
-					this.state = "idle";
-					this.stateTimer = 3000 + Math.random() * 5000;
-				}
+			case "sleeping":
+				this.tickSleeping(deltaMs);
 				break;
-			}
-			case "following": {
-				// Following is handled externally (engine updates target position)
-				if (this.stateTimer <= 0) {
-					this.followTarget = null;
-					this.state = "idle";
-					this.stateTimer = 5000;
-				}
+			case "following":
+				this.tickFollowing();
 				break;
-			}
-			case "exiting": {
-				// Walk toward exit target (door position)
-				if (this.targetPos) {
-					const dx = this.targetPos.x - this.pos.x;
-					const dy = this.targetPos.y - this.pos.y;
-					const dist = Math.sqrt(dx * dx + dy * dy);
-					if (dist < 10) {
-						// Arrived at door — engine will handle the transfer
-						this.reachedExit = true;
-					} else {
-						const speed = 50 * this.def.speed * (deltaMs / 1000);
-						this.pos.x += (dx / dist) * speed;
-						this.pos.y += (dy / dist) * speed;
-					}
-				}
+			case "exiting":
+				this.tickExiting(deltaMs);
 				break;
-			}
 		}
 
 		// Clamp position to world bounds (except when exiting — pet must reach the door)
 		if (this.state !== "exiting") {
 			this.pos.x = Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, this.pos.x));
 			this.pos.y = Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.pos.y));
+		}
+	}
+
+	private tickIdle(deltaMs: number): void {
+		if (Math.random() < this.def.behaviors.sleepChance * (deltaMs / 1000)) {
+			this.state = "sleeping";
+			this.stateTimer = 5000 + Math.random() * 10000;
+			return;
+		}
+		if (this.stateTimer <= 0) {
+			this.state = "wandering";
+			const angle = Math.random() * Math.PI * 2;
+			const dist = Math.random() * this.def.behaviors.wanderRadius;
+			this.targetPos = ex.vec(
+				Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, this.homePos.x + Math.cos(angle) * dist)),
+				Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.homePos.y + Math.sin(angle) * dist)),
+			);
+			this.stateTimer = 3000 + Math.random() * 4000;
+		}
+	}
+
+	private tickWandering(deltaMs: number): void {
+		if (this.targetPos) {
+			const dx = this.targetPos.x - this.pos.x;
+			const dy = this.targetPos.y - this.pos.y;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+			if (dist < 5) {
+				this.state = "idle";
+				this.stateTimer = 2000 + Math.random() * 5000;
+				this.targetPos = null;
+			} else {
+				const speed = 30 * this.def.speed * (deltaMs / 1000);
+				this.pos.x += (dx / dist) * speed;
+				this.pos.y += (dy / dist) * speed;
+			}
+		} else {
+			this.state = "idle";
+			this.stateTimer = 2000;
+		}
+		if (this.stateTimer <= 0) {
+			this.state = "idle";
+			this.stateTimer = 2000;
+		}
+	}
+
+	private tickSleeping(deltaMs: number): void {
+		this.sleepZTimer += deltaMs;
+		if (this.stateTimer <= 0) {
+			this.state = "idle";
+			this.stateTimer = 3000 + Math.random() * 5000;
+		}
+	}
+
+	private tickFollowing(): void {
+		if (this.stateTimer <= 0) {
+			this.followTarget = null;
+			this.state = "idle";
+			this.stateTimer = 5000;
+		}
+	}
+
+	private tickExiting(deltaMs: number): void {
+		if (!this.targetPos) return;
+		const dx = this.targetPos.x - this.pos.x;
+		const dy = this.targetPos.y - this.pos.y;
+		const dist = Math.sqrt(dx * dx + dy * dy);
+		if (dist < 10) {
+			this.reachedExit = true;
+		} else {
+			const speed = 50 * this.def.speed * (deltaMs / 1000);
+			this.pos.x += (dx / dist) * speed;
+			this.pos.y += (dy / dist) * speed;
 		}
 	}
 

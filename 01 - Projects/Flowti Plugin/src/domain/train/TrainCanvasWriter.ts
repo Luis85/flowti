@@ -198,26 +198,15 @@ export const ROLE_COLOR: Record<NodeRole, string | undefined> = {
 	"normal": undefined,
 };
 
-// ── Groups ───────────────────────────────────────────────────
+// ── Shared adjacency builder ──────────────────────────────────
 
-interface GroupSpec {
-	id: string;
-	label: string;
-	color: string;
-	memberIds: string[];
+interface AdjacencyMaps {
+	nextChildren: Map<string, string[]>;
+	branchChildren: Map<string, string[]>;
 }
 
-/**
- * Compute canvas groups for main chain and branches.
- * Returns group specs with bounding boxes computed from node positions.
- */
-export function computeGroups(
-	train: TrainState,
-	positions: Map<string, NodePosition>,
-): CanvasGroupData[] {
-	if (train.thoughts.length < 2) return [];
-
-	// Build adjacency for next and branch
+/** Build next/branch adjacency maps from train relations. */
+function buildAdjacency(train: TrainState): AdjacencyMaps {
 	const nextChildren = new Map<string, string[]>();
 	const branchChildren = new Map<string, string[]>();
 	for (const r of train.relations) {
@@ -231,80 +220,55 @@ export function computeGroups(
 			branchChildren.set(r.fromId, list);
 		}
 	}
+	return { nextChildren, branchChildren };
+}
 
-	// Find root
+/** Find root thought (no incoming next/branch edges). */
+function findRoot(train: TrainState): TrainState["thoughts"][number] | undefined {
 	const hasIncoming = new Set(
 		train.relations
 			.filter((r) => r.direction === "next" || r.direction === "branch")
 			.map((r) => r.toId),
 	);
-	const root = train.thoughts.find((t) => !hasIncoming.has(t.id));
-	if (!root) return [];
+	return train.thoughts.find((t) => !hasIncoming.has(t.id));
+}
 
-	// Main chain: follow "next" from root
-	const mainChainIds: string[] = [];
-	let current = root.id;
-	mainChainIds.push(current);
-	while (nextChildren.has(current)) {
-		const nexts = nextChildren.get(current)!;
-		if (nexts.length > 0) {
-			current = nexts[0];
-			mainChainIds.push(current);
-		} else {
-			break;
-		}
+/** Walk DFS from a start node collecting all descendants. */
+function collectDescendants(startId: string, adj: AdjacencyMaps): string[] {
+	const members: string[] = [];
+	const stack = [startId];
+	const visited = new Set<string>();
+	while (stack.length > 0) {
+		const id = stack.pop()!;
+		if (visited.has(id)) continue;
+		visited.add(id);
+		members.push(id);
+		for (const nid of adj.nextChildren.get(id) ?? []) stack.push(nid);
+		for (const bid of adj.branchChildren.get(id) ?? []) stack.push(bid);
 	}
+	return members;
+}
 
-	const groups: GroupSpec[] = [];
+// ── Groups ───────────────────────────────────────────────────
 
-	// Main chain group (only if 2+ nodes)
-	if (mainChainIds.length >= 2) {
-		groups.push({
-			id: groupId("main"),
-			label: "Main Chain",
-			color: "3", // yellow
-			memberIds: mainChainIds,
-		});
-	}
+interface GroupSpec {
+	id: string;
+	label: string;
+	color: string;
+	memberIds: string[];
+}
 
-	// Branch groups: per branch origin, collect all descendants via next/branch DFS
-	for (const r of train.relations) {
-		if (r.direction !== "branch") continue;
-
-		const branchMembers: string[] = [];
-		const stack = [r.toId];
-		const visited = new Set<string>();
-		while (stack.length > 0) {
-			const id = stack.pop()!;
-			if (visited.has(id)) continue;
-			visited.add(id);
-			branchMembers.push(id);
-			for (const nextId of nextChildren.get(id) ?? []) {
-				stack.push(nextId);
-			}
-			for (const branchId of branchChildren.get(id) ?? []) {
-				stack.push(branchId);
-			}
-		}
-
-		if (branchMembers.length > 0) {
-			const originTitle = train.thoughts.find((t) => t.id === r.fromId)?.title ?? r.fromId;
-			groups.push({
-				id: groupId(`branch-${r.fromId}`),
-				label: `Branch from: ${originTitle}`,
-				color: "2", // orange
-				memberIds: branchMembers,
-			});
-		}
-	}
-
-	// Convert group specs to CanvasGroupData with bounding boxes
+/**
+ * Compute canvas groups for main chain and branches.
+ * Returns group specs with bounding boxes computed from node positions.
+ */
+/** Convert group specs to CanvasGroupData with bounding boxes from positions. */
+function groupSpecsToCanvasGroups(groups: GroupSpec[], positions: Map<string, NodePosition>): CanvasGroupData[] {
 	return groups
 		.map((spec) => {
 			const memberPositions = spec.memberIds
 				.map((id) => positions.get(id))
 				.filter((p): p is NodePosition => p !== undefined);
-
 			if (memberPositions.length === 0) return null;
 
 			const minX = Math.min(...memberPositions.map((p) => p.x));
@@ -312,19 +276,52 @@ export function computeGroups(
 			const maxX = Math.max(...memberPositions.map((p) => p.x));
 			const maxY = Math.max(...memberPositions.map((p) => p.y));
 
-			const group: CanvasGroupData = {
-				id: spec.id,
-				type: "group",
-				label: spec.label,
-				color: spec.color,
-				x: minX - GROUP_PADDING,
-				y: minY - GROUP_PADDING,
+			return {
+				id: spec.id, type: "group" as const, label: spec.label, color: spec.color,
+				x: minX - GROUP_PADDING, y: minY - GROUP_PADDING,
 				width: (maxX - minX) + NODE_WIDTH + GROUP_PADDING * 2,
 				height: (maxY - minY) + NODE_HEIGHT + GROUP_PADDING * 2,
-			};
-			return group;
+			} as CanvasGroupData;
 		})
 		.filter((g): g is CanvasGroupData => g !== null);
+}
+
+export function computeGroups(
+	train: TrainState,
+	positions: Map<string, NodePosition>,
+): CanvasGroupData[] {
+	if (train.thoughts.length < 2) return [];
+
+	const adj = buildAdjacency(train);
+	const root = findRoot(train);
+	if (!root) return [];
+
+	// Main chain: follow "next" from root
+	const mainChainIds: string[] = [];
+	let current = root.id;
+	mainChainIds.push(current);
+	while (adj.nextChildren.has(current)) {
+		const nexts = adj.nextChildren.get(current)!;
+		if (nexts.length === 0) break;
+		current = nexts[0];
+		mainChainIds.push(current);
+	}
+
+	const groups: GroupSpec[] = [];
+	if (mainChainIds.length >= 2) {
+		groups.push({ id: groupId("main"), label: "Main Chain", color: "3", memberIds: mainChainIds });
+	}
+
+	for (const r of train.relations) {
+		if (r.direction !== "branch") continue;
+		const branchMembers = collectDescendants(r.toId, adj);
+		if (branchMembers.length > 0) {
+			const originTitle = train.thoughts.find((t) => t.id === r.fromId)?.title ?? r.fromId;
+			groups.push({ id: groupId(`branch-${r.fromId}`), label: `Branch from: ${originTitle}`, color: "2", memberIds: branchMembers });
+		}
+	}
+
+	return groupSpecsToCanvasGroups(groups, positions);
 }
 
 // ── Annotations ──────────────────────────────────────────────
@@ -336,6 +333,26 @@ const HEADER_OFFSET_Y = 160; // how far above root the header sits
 /**
  * Compute text annotations for train metadata and branch context.
  */
+/** Build the header annotation text node positioned above the root. */
+function buildHeaderAnnotation(train: TrainState, rootPos: NodePosition): CanvasTextData {
+	const durationText = train.durationMinutes > 0 ? `${train.durationMinutes} min` : "in progress";
+	const headerText = [
+		`# ${train.title}`,
+		`**Status:** ${train.status}`,
+		`**Thoughts:** ${train.thoughts.length} | **Duration:** ${durationText}`,
+	].join("\n");
+
+	const STATUS_COLORS: Record<string, string | undefined> = { running: "4", paused: "2" };
+	const statusColor = STATUS_COLORS[train.status];
+
+	return {
+		id: annotationId("header"), type: "text", text: headerText,
+		x: rootPos.x, y: rootPos.y - HEADER_OFFSET_Y,
+		width: ANNOTATION_WIDTH, height: ANNOTATION_HEIGHT,
+		...(statusColor ? { color: statusColor } : {}),
+	};
+}
+
 export function computeAnnotations(
 	train: TrainState,
 	positions: Map<string, NodePosition>,
@@ -343,85 +360,24 @@ export function computeAnnotations(
 	if (train.thoughts.length === 0) return [];
 
 	const annotations: CanvasTextData[] = [];
-
-	// Find root position
-	const hasIncoming = new Set(
-		train.relations
-			.filter((r) => r.direction === "next" || r.direction === "branch")
-			.map((r) => r.toId),
-	);
-	const root = train.thoughts.find((t) => !hasIncoming.has(t.id)) ?? train.thoughts[0];
+	const root = findRoot(train) ?? train.thoughts[0];
 	const rootPos = positions.get(root.id);
 
-	// Header annotation: positioned above root node
 	if (rootPos) {
-		const durationText = train.durationMinutes > 0
-			? `${train.durationMinutes} min`
-			: "in progress";
-
-		const headerText = [
-			`# ${train.title}`,
-			`**Status:** ${train.status}`,
-			`**Thoughts:** ${train.thoughts.length} | **Duration:** ${durationText}`,
-		].join("\n");
-
-		const statusColor = train.status === "running" ? "4"   // green
-			: train.status === "paused" ? "2"                      // orange
-			: undefined;                                           // completed — no color
-
-		annotations.push({
-			id: annotationId("header"),
-			type: "text",
-			text: headerText,
-			x: rootPos.x,
-			y: rootPos.y - HEADER_OFFSET_Y,
-			width: ANNOTATION_WIDTH,
-			height: ANNOTATION_HEIGHT,
-			...(statusColor ? { color: statusColor } : {}),
-		});
+		annotations.push(buildHeaderAnnotation(train, rootPos));
 	}
 
-	// Branch annotations: positioned near each branch group
+	// Branch annotations
+	const adj = buildAdjacency(train);
 	for (const r of train.relations) {
 		if (r.direction !== "branch") continue;
-
-		// Count branch descendants
-		const nextChildren = new Map<string, string[]>();
-		const branchChildren = new Map<string, string[]>();
-		for (const rel of train.relations) {
-			if (rel.direction === "next") {
-				const list = nextChildren.get(rel.fromId) ?? [];
-				list.push(rel.toId);
-				nextChildren.set(rel.fromId, list);
-			} else if (rel.direction === "branch") {
-				const list = branchChildren.get(rel.fromId) ?? [];
-				list.push(rel.toId);
-				branchChildren.set(rel.fromId, list);
-			}
-		}
-
-		let count = 0;
-		const stack = [r.toId];
-		const visited = new Set<string>();
-		while (stack.length > 0) {
-			const id = stack.pop()!;
-			if (visited.has(id)) continue;
-			visited.add(id);
-			count++;
-			for (const nid of nextChildren.get(id) ?? []) stack.push(nid);
-			for (const bid of branchChildren.get(id) ?? []) stack.push(bid);
-		}
-
+		const count = collectDescendants(r.toId, adj).length;
 		const branchPos = positions.get(r.toId);
 		if (branchPos) {
 			annotations.push({
-				id: annotationId(`branch-${r.fromId}`),
-				type: "text",
+				id: annotationId(`branch-${r.fromId}`), type: "text",
 				text: `Branch (${count} thought${count !== 1 ? "s" : ""})`,
-				x: branchPos.x,
-				y: branchPos.y - HEADER_OFFSET_Y,
-				width: 250,
-				height: 40,
+				x: branchPos.x, y: branchPos.y - HEADER_OFFSET_Y, width: 250, height: 40,
 			});
 		}
 	}

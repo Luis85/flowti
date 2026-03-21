@@ -25,6 +25,7 @@ import type {
 import { MAX_TRAINS, MAX_THOUGHTS_PER_TRAIN } from "./types";
 import { generateTrainSummary } from "./TrainSummaryWriter";
 import { registerTrainEventHandlers } from "./handlers/train-event-handlers";
+import { isBranchAlreadyMerged, computeMainChainIds, isReachable, buildNavLinks } from "./TrainService-helpers";
 
 export interface TrainServiceOptions {
 	storage: ITypedStorage<TrainServiceState>;
@@ -136,6 +137,20 @@ export class TrainService {
 	/**
 	 * Add a thought to a running train.
 	 */
+	/** Create a thought note file, either from a provided path or via CaptureService. */
+	private async resolveThoughtPath(train: TrainState, title: string, options?: AddThoughtOptions): Promise<string> {
+		if (options?.path) return options.path;
+		const now = new Date();
+		const ts = now.toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
+		const folder = train.folderPath ?? "";
+		const result = await this.captureService.capture({
+			title: `${ts} ${title}`,
+			type: "thought",
+			...(folder ? { folder } : {}),
+		});
+		return result.path;
+	}
+
 	async addThought(
 		trainId: string,
 		title: string,
@@ -147,62 +162,28 @@ export class TrainService {
 		if (train.thoughts.length >= maxThoughts) return null;
 
 		const direction: ThoughtDirection = options?.direction ?? "next";
-
-		let thoughtPath: string;
-		if (options?.path) {
-			// Use existing file path (e.g., "Start new Train from this file")
-			thoughtPath = options.path;
-		} else {
-			// Create note via CaptureService in the train's own subfolder
-			// Prefix with compact ISO timestamp to avoid naming collisions
-			const now = new Date();
-			const ts = now.toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15); // YYYYMMDD-HHmmss
-			const fileTitle = `${ts} ${title}`;
-			const folder = train.folderPath ?? "";
-			const result = await this.captureService.capture({
-				title: fileTitle,
-				type: "thought",
-				...(folder ? { folder } : {}),
-			});
-			thoughtPath = result.path;
-		}
-
+		const thoughtPath = await this.resolveThoughtPath(train, title, options);
 		const order = train.thoughts.length;
+
 		const thought: ThoughtNode = {
-			id: `thought_${generateUUID()}`,
-			trainId,
-			title,
-			path: thoughtPath,
-			createdAt: new Date().toISOString(),
-			order,
+			id: `thought_${generateUUID()}`, trainId, title,
+			path: thoughtPath, createdAt: new Date().toISOString(), order,
 		};
 
-		// Determine source thought for linking
 		const fromThought = options?.fromThoughtId
 			? train.thoughts.find((t) => t.id === options.fromThoughtId) ?? null
 			: train.thoughts[order - 1] ?? null;
 
-		// Create relation
 		if (fromThought) {
-			const relation: ThoughtRelation = {
-				fromId: fromThought.id,
-				toId: thought.id,
-				direction,
-			};
-			train.relations.push(relation);
+			train.relations.push({ fromId: fromThought.id, toId: thought.id, direction });
 		}
 
 		train.thoughts.push(thought);
 		await this.persist();
 
-		// Fire-and-forget frontmatter enrichment
 		void this.updateThoughtFrontmatter(thought, train, fromThought, direction);
-
 		void this.eventBus.emit("train.thought.added", {
-			trainId,
-			thought,
-			previousTitle: fromThought?.title ?? null,
-			direction,
+			trainId, thought, previousTitle: fromThought?.title ?? null, direction,
 		});
 
 		return thought;
@@ -364,21 +345,15 @@ export class TrainService {
 		return true;
 	}
 
-	/**
-	 * Delete a train from history. Running trains cannot be deleted.
-	 * Does NOT delete thought note files — they may be linked elsewhere.
-	 */
+	/** Delete a train from history. Running trains cannot be deleted. */
 	async deleteTrain(trainId: string): Promise<boolean> {
 		const idx = this.state.trains.findIndex((t) => t.id === trainId);
 		if (idx === -1) return false;
-
-		const train = this.state.trains[idx];
-		if (train.status === "running") return false;
-
+		if (this.state.trains[idx].status === "running") return false;
+		const title = this.state.trains[idx].title;
 		this.state.trains.splice(idx, 1);
 		await this.persist();
-
-		void this.eventBus.emit("train.deleted", { trainId, title: train.title });
+		void this.eventBus.emit("train.deleted", { trainId, title });
 		return true;
 	}
 
@@ -389,16 +364,9 @@ export class TrainService {
 	async setBranchStatus(trainId: string, thoughtId: string, status: BranchStatus): Promise<boolean> {
 		const train = this.findTrain(trainId);
 		if (!train) return false;
-
-		// Must be a branch origin (toId of a "branch" relation)
-		const isBranchOrigin = train.relations.some(
-			(r) => r.direction === "branch" && r.toId === thoughtId,
-		);
-		if (!isBranchOrigin) return false;
-
+		if (!train.relations.some((r) => r.direction === "branch" && r.toId === thoughtId)) return false;
 		const thought = train.thoughts.find((t) => t.id === thoughtId);
 		if (!thought) return false;
-
 		thought.branchStatus = status;
 		await this.persist();
 		void this.eventBus.emit("train.branch.status.changed", { trainId, thoughtId, status });
@@ -419,87 +387,44 @@ export class TrainService {
 		return true;
 	}
 
-	/**
-	 * Get the main timeline — follows "next" chain from the first thought.
-	 */
+	/** Get the main timeline — follows "next" chain from the first thought. */
 	getTimeline(trainId: string): ThoughtNode[] {
 		const train = this.findTrain(trainId);
 		if (!train || train.thoughts.length === 0) return [];
-
-		// Find root: the thought that has no incoming "next" relation
-		const incomingNext = new Set(
-			train.relations.filter((r) => r.direction === "next").map((r) => r.toId),
-		);
+		const incomingNext = new Set(train.relations.filter((r) => r.direction === "next").map((r) => r.toId));
 		const root = train.thoughts.find((t) => !incomingNext.has(t.id)) ?? train.thoughts[0];
-
-		// Build lookup: fromId → child thought with direction "next"
 		const nextMap = new Map<string, string>();
-		for (const r of train.relations) {
-			if (r.direction === "next") {
-				nextMap.set(r.fromId, r.toId);
-			}
-		}
-
-		// Walk the chain
+		for (const r of train.relations) { if (r.direction === "next") nextMap.set(r.fromId, r.toId); }
 		const timeline: ThoughtNode[] = [root];
 		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
 		let currentId = root.id;
-		while (nextMap.has(currentId)) {
-			const nextId = nextMap.get(currentId)!;
-			const next = thoughtById.get(nextId);
-			if (!next) break;
-			timeline.push(next);
-			currentId = nextId;
-		}
-
+		while (nextMap.has(currentId)) { const n = thoughtById.get(nextMap.get(currentId)!); if (!n) break; timeline.push(n); currentId = n.id; }
 		return timeline;
 	}
 
-	/**
-	 * Get branch children of a thought (direction = "branch").
-	 */
+	/** Get branch children of a thought. */
 	getBranches(trainId: string, thoughtId: string): ThoughtNode[] {
 		const train = this.findTrain(trainId);
 		if (!train) return [];
-
-		const branchIds = train.relations
-			.filter((r) => r.fromId === thoughtId && r.direction === "branch")
-			.map((r) => r.toId);
-
 		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
-		return branchIds.map((id) => thoughtById.get(id)).filter(Boolean) as ThoughtNode[];
+		return train.relations.filter((r) => r.fromId === thoughtId && r.direction === "branch").map((r) => thoughtById.get(r.toId)).filter(Boolean) as ThoughtNode[];
 	}
 
-	/**
-	 * Get all children of a thought (any direction).
-	 */
+	/** Get all children of a thought (any direction). */
 	getChildren(trainId: string, thoughtId: string): ThoughtNode[] {
 		const train = this.findTrain(trainId);
 		if (!train) return [];
-
-		const childIds = train.relations
-			.filter((r) => r.fromId === thoughtId)
-			.map((r) => r.toId);
-
 		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
-		return childIds.map((id) => thoughtById.get(id)).filter(Boolean) as ThoughtNode[];
+		return train.relations.filter((r) => r.fromId === thoughtId).map((r) => thoughtById.get(r.toId)).filter(Boolean) as ThoughtNode[];
 	}
 
-	/**
-	 * Get the set of thought IDs that lie on the main chain.
-	 * The main chain is the linear "next" path from root to head — the storyline backbone.
-	 * Branch origins are on the main chain; branch children are not.
-	 */
+	/** Get the set of thought IDs on the main chain. */
 	getMainChainIds(trainId: string): Set<string> {
 		const train = this.findTrain(trainId);
-		if (!train) return new Set();
-		return this.computeMainChainIds(train);
+		return train ? computeMainChainIds(train) : new Set();
 	}
 
-	/**
-	 * Get the head node (last main-chain thought) of a train.
-	 * Returns null if the train has no thoughts.
-	 */
+	/** Get the head node (last main-chain thought) of a train. */
 	getHeadNode(trainId: string): ThoughtNode | null {
 		const timeline = this.getTimeline(trainId);
 		return timeline.length > 0 ? timeline[timeline.length - 1] : null;
@@ -524,142 +449,61 @@ export class TrainService {
 	 */
 	findMergeDownTarget(trainId: string, sourceId: string): { targetId: string | null; originId: string } | null {
 		const train = this.findTrain(trainId);
-		if (!train) return null;
-
-		// Source must exist
-		if (!train.thoughts.some((t) => t.id === sourceId)) return null;
-
-		// Build reverse adjacency: childId → { parentId, direction }
+		if (!train || !train.thoughts.some((t) => t.id === sourceId)) return null;
 		const parentMap = new Map<string, { parentId: string; direction: string }>();
-		for (const r of train.relations) {
-			if (r.direction === "next" || r.direction === "branch") {
-				parentMap.set(r.toId, { parentId: r.fromId, direction: r.direction });
-			}
-		}
-
-		// Build forward "next" map for finding the target after each branch origin
 		const nextMap = new Map<string, string>();
 		for (const r of train.relations) {
-			if (r.direction === "next") {
-				nextMap.set(r.fromId, r.toId);
-			}
+			if (r.direction === "next" || r.direction === "branch") parentMap.set(r.toId, { parentId: r.fromId, direction: r.direction });
+			if (r.direction === "next") nextMap.set(r.fromId, r.toId);
 		}
-
-		// Check if branch is already merged: walk forward from source through "next"
-		// edges — if any node is already the source of a merge relation, branch is merged
-		const mergedSources = new Set<string>();
-		for (const r of train.relations) {
-			if (r.direction === "merge") mergedSources.add(r.fromId);
-		}
-		let fwd = sourceId;
-		const fwdVisited = new Set<string>();
-		while (fwd) {
-			if (fwdVisited.has(fwd)) break;
-			fwdVisited.add(fwd);
-			if (mergedSources.has(fwd)) return null; // Already merged
-			fwd = nextMap.get(fwd) ?? "";
-		}
-
+		if (isBranchAlreadyMerged(train, sourceId, nextMap)) return null;
 		let current = sourceId;
 		const visited = new Set<string>();
 		while (current) {
-			if (visited.has(current)) return null; // Cycle protection
+			if (visited.has(current)) return null;
 			visited.add(current);
-
 			const parent = parentMap.get(current);
-			if (!parent) return null; // Reached root without finding a branch edge
-
-			if (parent.direction === "branch") {
-				// Found a branch point — check if origin has a "next" child
-				const nextId = nextMap.get(parent.parentId);
-				return { targetId: nextId ?? null, originId: parent.parentId };
-			}
-
+			if (!parent) return null;
+			if (parent.direction === "branch") return { targetId: nextMap.get(parent.parentId) ?? null, originId: parent.parentId };
 			current = parent.parentId;
 		}
 		return null;
 	}
 
-	/**
-	 * Merge a branch thought into a target thought.
-	 * Creates a structural "merge" relation — no content is modified.
-	 * Train must be running or paused.
-	 * Rejects: self-merge, duplicates, cycles, and main-chain sources.
-	 * Only branch descendants can be merge sources — main chain nodes are protected.
-	 */
+	/** Merge a branch thought into a target thought. Only branch descendants can be merge sources. */
 	async mergeBranch(trainId: string, sourceId: string, targetId: string): Promise<boolean> {
 		const train = this.findTrain(trainId);
 		if (!train || train.status === "completed") return false;
-
-		// Both thoughts must exist
 		const source = train.thoughts.find((t) => t.id === sourceId);
 		const target = train.thoughts.find((t) => t.id === targetId);
-		if (!source || !target) return false;
-
-		// No self-merge
-		if (sourceId === targetId) return false;
-
-		// Main chain protection: source must NOT be on the main chain
-		if (this.computeMainChainIds(train).has(sourceId)) return false;
-
-		// No duplicate merge
-		const duplicate = train.relations.find(
-			(r) => r.fromId === sourceId && r.toId === targetId && r.direction === "merge",
-		);
-		if (duplicate) return false;
-
-		// No cycles — target must not be reachable from source via forward edges
-		if (this.isReachable(train, sourceId, targetId)) return false;
-
-		const relation: ThoughtRelation = {
-			fromId: sourceId,
-			toId: targetId,
-			direction: "merge",
-		};
-		train.relations.push(relation);
+		if (!source || !target || sourceId === targetId) return false;
+		if (computeMainChainIds(train).has(sourceId)) return false;
+		if (train.relations.find((r) => r.fromId === sourceId && r.toId === targetId && r.direction === "merge")) return false;
+		if (isReachable(train, sourceId, targetId)) return false;
+		train.relations.push({ fromId: sourceId, toId: targetId, direction: "merge" });
 		await this.persist();
-
-		// Fire-and-forget frontmatter update
 		void this.updateMergeFrontmatter(source, target, train);
-
 		void this.eventBus.emit("train.branch.merged", { trainId, sourceId, targetId });
 		return true;
 	}
 
-	/**
-	 * Undo a merge — remove the merge relation between source and target.
-	 */
+	/** Undo a merge — remove the merge relation between source and target. */
 	async undoMerge(trainId: string, sourceId: string, targetId: string): Promise<boolean> {
 		const train = this.findTrain(trainId);
 		if (!train) return false;
-
-		const idx = train.relations.findIndex(
-			(r) => r.fromId === sourceId && r.toId === targetId && r.direction === "merge",
-		);
+		const idx = train.relations.findIndex((r) => r.fromId === sourceId && r.toId === targetId && r.direction === "merge");
 		if (idx === -1) return false;
-
 		train.relations.splice(idx, 1);
 		await this.persist();
-
-		// Fire-and-forget frontmatter update
 		const source = train.thoughts.find((t) => t.id === sourceId);
-		if (source) {
-			void this.fileSystem.updateFrontmatter(source.path, {
-				...this.buildNavLinks(train, sourceId),
-			});
-		}
-
+		if (source) void this.fileSystem.updateFrontmatter(source.path, { ...buildNavLinks(train, sourceId) });
 		void this.eventBus.emit("train.branch.merge.undone", { trainId, sourceId, targetId });
 		return true;
 	}
 
-	/**
-	 * Get all merge relations for a train.
-	 */
 	getMerges(trainId: string): ThoughtRelation[] {
 		const train = this.findTrain(trainId);
-		if (!train) return [];
-		return train.relations.filter((r) => r.direction === "merge");
+		return train ? train.relations.filter((r) => r.direction === "merge") : [];
 	}
 
 	// ── Private helpers ──────────────────────────────────────────
@@ -668,100 +512,24 @@ export class TrainService {
 		return this.state.trains.find((t) => t.id === trainId);
 	}
 
-	/**
-	 * Compute a per-train subfolder path from the train title and creation timestamp.
-	 * Format: `{trainFolder}/{YYYYMMDD-HHmm} {safeTitle}`
-	 */
 	private computeFolderPath(title: string, createdAt: string): string {
-		const ts = createdAt.replace(/[-:]/g, "").replace("T", "-").slice(0, 13); // YYYYMMDD-HHmm
+		const ts = createdAt.replace(/[-:]/g, "").replace("T", "-").slice(0, 13);
 		const safeTitle = title.replace(/[\\/:*?"<>|]/g, "-");
 		const { trainFolder } = this.getSettings();
 		return trainFolder ? `${trainFolder}/${ts} ${safeTitle}` : `${ts} ${safeTitle}`;
 	}
 
-	/**
-	 * Check if targetId is reachable from sourceId via forward edges (next/branch).
-	 * Merge edges are NOT followed — they represent convergence, not forward flow.
-	 */
-	/**
-	 * Compute the set of thought IDs on the main chain (root → head via "next" edges).
-	 * Branch origins are on the main chain; branch children are not.
-	 */
-	private computeMainChainIds(train: TrainState): Set<string> {
-		if (train.thoughts.length === 0) return new Set();
-
-		const nextMap = new Map<string, string>();
-		const incomingNext = new Set<string>();
-		for (const r of train.relations) {
-			if (r.direction === "next") {
-				nextMap.set(r.fromId, r.toId);
-				incomingNext.add(r.toId);
-			}
-		}
-
-		const root = train.thoughts.find((t) => !incomingNext.has(t.id)) ?? train.thoughts[0];
-		const mainIds = new Set<string>([root.id]);
-		let current = root.id;
-		while (nextMap.has(current)) {
-			current = nextMap.get(current)!;
-			mainIds.add(current);
-		}
-		return mainIds;
+	private async updateMergeFrontmatter(source: ThoughtNode, target: ThoughtNode, train: TrainState): Promise<void> {
+		await this.fileSystem.updateFrontmatter(source.path, { ...buildNavLinks(train, source.id) });
+		await this.fileSystem.updateFrontmatter(target.path, { ...buildNavLinks(train, target.id) });
 	}
 
-	private isReachable(train: TrainState, sourceId: string, targetId: string): boolean {
-		const visited = new Set<string>();
-		const stack = [sourceId];
-
-		// Build adjacency: fromId → [toId] for next/branch only
-		const adj = new Map<string, string[]>();
-		for (const r of train.relations) {
-			if (r.direction === "next" || r.direction === "branch") {
-				const list = adj.get(r.fromId) ?? [];
-				list.push(r.toId);
-				adj.set(r.fromId, list);
-			}
-		}
-
-		while (stack.length > 0) {
-			const current = stack.pop()!;
-			if (current === targetId) return true;
-			if (visited.has(current)) continue;
-			visited.add(current);
-			for (const neighbor of adj.get(current) ?? []) {
-				stack.push(neighbor);
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * Update frontmatter for both source and target after a merge.
-	 */
-	private async updateMergeFrontmatter(
-		source: ThoughtNode,
-		target: ThoughtNode,
-		train: TrainState,
-	): Promise<void> {
-		await this.fileSystem.updateFrontmatter(source.path, {
-			...this.buildNavLinks(train, source.id),
-		});
-		await this.fileSystem.updateFrontmatter(target.path, {
-			...this.buildNavLinks(train, target.id),
-		});
-	}
-
-	/**
-	 * Generate and write a summary document for a completed train.
-	 */
 	private async writeSummary(train: TrainState): Promise<void> {
 		if (train.thoughts.length === 0) return;
-
 		const markdown = generateTrainSummary(train);
 		const folder = train.folderPath ?? "";
 		const fileName = `${train.title} — Summary`;
 		const summaryPath = folder ? `${folder}/${fileName}.md` : `${fileName}.md`;
-
 		await this.fileSystem.createFile(summaryPath, markdown);
 		void this.eventBus.emit("train.summary.created", { trainId: train.id, summaryPath });
 	}
@@ -770,104 +538,23 @@ export class TrainService {
 		await this.storage.safeSave(this.state);
 	}
 
-	/**
-	 * Create a session via EventBus and wait for the session.created response.
-	 * Times out after 5 seconds to avoid hanging if SessionService is unavailable.
-	 */
 	private createSessionViaEvent(title: string, durationMinutes: number): Promise<string> {
 		return new Promise<string>((resolve, reject) => {
-			const timeout = setTimeout(() => {
-				unsub();
-				reject(new Error("Timeout waiting for session.created"));
-			}, 5000);
-
+			const timeout = setTimeout(() => { unsub(); reject(new Error("Timeout waiting for session.created")); }, 5000);
 			const unsub = this.eventBus.on("session.created", (event) => {
-				clearTimeout(timeout);
-				unsub();
+				clearTimeout(timeout); unsub();
 				resolve((event.payload as { session: Session }).session.id);
 			});
-
-			void this.eventBus.emit("session.create", {
-				type: "train-of-thought" as const,
-				title: `Train: ${title}`,
-				durationMinutes,
-			});
+			void this.eventBus.emit("session.create", { type: "train-of-thought" as const, title: `Train: ${title}`, durationMinutes });
 		});
 	}
 
-	/**
-	 * Enrich thought note frontmatter with navigation links.
-	 *
-	 * Navigation model (compass):
-	 *   next  — linear forward  (children with direction="next")
-	 *   prev  — linear backward (parent with direction="next")
-	 *   up    — branch children (children with direction="branch")
-	 *   down  — branch parent   (parent with direction="branch")
-	 *
-	 * Each property is a list of wikilinks, rebuilt from the full relation graph.
-	 */
-	private async updateThoughtFrontmatter(
-		thought: ThoughtNode,
-		train: TrainState,
-		fromThought: ThoughtNode | null,
-		_direction: ThoughtDirection,
-	): Promise<void> {
-		// Update the new thought's frontmatter
+	private async updateThoughtFrontmatter(thought: ThoughtNode, train: TrainState, fromThought: ThoughtNode | null, _direction: ThoughtDirection): Promise<void> {
 		await this.fileSystem.updateFrontmatter(thought.path, {
-			"train-session": train.title,
-			"thought-order": thought.order,
-			...this.buildNavLinks(train, thought.id),
+			"train-session": train.title, "thought-order": thought.order, ...buildNavLinks(train, thought.id),
 		});
-
-		// Update the source thought's frontmatter (its nav links changed)
 		if (fromThought) {
-			await this.fileSystem.updateFrontmatter(fromThought.path, {
-				...this.buildNavLinks(train, fromThought.id),
-			});
+			await this.fileSystem.updateFrontmatter(fromThought.path, { ...buildNavLinks(train, fromThought.id) });
 		}
-	}
-
-	/**
-	 * Build the navigation wikilink lists for a thought from the train's relations.
-	 * Uses file basename (from path) for wikilinks — not thought.title — because
-	 * file names include an ISO timestamp prefix that titles lack.
-	 */
-	private buildNavLinks(
-		train: TrainState,
-		thoughtId: string,
-	): Record<string, string[]> {
-		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
-		const next: string[] = [];
-		const prev: string[] = [];
-		const up: string[] = [];
-		const down: string[] = [];
-		const mergeTarget: string[] = [];
-		const mergedFrom: string[] = [];
-
-		for (const r of train.relations) {
-			if (r.fromId === thoughtId) {
-				const child = thoughtById.get(r.toId);
-				if (!child) continue;
-				const link = `[[${this.basenameFromPath(child.path)}]]`;
-				if (r.direction === "next") next.push(link);
-				else if (r.direction === "branch") up.push(link);
-				else if (r.direction === "merge") mergeTarget.push(link);
-			} else if (r.toId === thoughtId) {
-				const parent = thoughtById.get(r.fromId);
-				if (!parent) continue;
-				const link = `[[${this.basenameFromPath(parent.path)}]]`;
-				if (r.direction === "next") prev.push(link);
-				else if (r.direction === "branch") down.push(link);
-				else if (r.direction === "merge") mergedFrom.push(link);
-			}
-		}
-
-		return { next, prev, up, down, "merge-target": mergeTarget, "merged-from": mergedFrom };
-	}
-
-	/** Extract file basename without extension from a vault path. */
-	private basenameFromPath(path: string): string {
-		const filename = path.split("/").pop() ?? path;
-		return filename.replace(/\.md$/, "");
 	}
 }

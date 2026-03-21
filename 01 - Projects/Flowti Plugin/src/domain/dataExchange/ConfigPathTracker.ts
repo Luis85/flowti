@@ -56,6 +56,14 @@ export class ConfigPathTracker {
 		}
 	}
 
+	/** Remap a path if it starts with oldPath or oldPrefix. Returns [newValue, changed]. */
+	private remapPath(path: string, oldPath: string, oldPrefix: string, newPath: string): [string, boolean] {
+		if (path === oldPath || path.startsWith(oldPrefix)) {
+			return [newPath + path.slice(oldPath.length), true];
+		}
+		return [path, false];
+	}
+
 	/** Updates saved configs when a folder is renamed/moved. */
 	async handleFolderRenamed(
 		oldPath: string,
@@ -66,56 +74,26 @@ export class ConfigPathTracker {
 		const oldPrefix = oldPath + "/";
 
 		for (const cfg of state.savedExportConfigs) {
-			if (
-				cfg.sourcePath === oldPath ||
-				cfg.sourcePath.startsWith(oldPrefix)
-			) {
-				cfg.sourcePath = newPath + cfg.sourcePath.slice(oldPath.length);
-				changed = true;
-			}
-			if (
-				!cfg.isExternal &&
-				(cfg.outputPath === oldPath ||
-					cfg.outputPath.startsWith(oldPrefix))
-			) {
-				cfg.outputPath = newPath + cfg.outputPath.slice(oldPath.length);
-				changed = true;
+			let c: boolean;
+			[cfg.sourcePath, c] = this.remapPath(cfg.sourcePath, oldPath, oldPrefix, newPath); changed = changed || c;
+			if (!cfg.isExternal) {
+				[cfg.outputPath, c] = this.remapPath(cfg.outputPath, oldPath, oldPrefix, newPath); changed = changed || c;
 			}
 		}
 
 		for (const cfg of state.savedImportConfigs) {
-			if (
-				cfg.sourcePath &&
-				(cfg.sourcePath === oldPath ||
-					cfg.sourcePath.startsWith(oldPrefix))
-			) {
-				cfg.sourcePath =
-					newPath + cfg.sourcePath.slice(oldPath.length);
-				changed = true;
+			let c: boolean;
+			if (cfg.sourcePath) {
+				[cfg.sourcePath, c] = this.remapPath(cfg.sourcePath, oldPath, oldPrefix, newPath); changed = changed || c;
 			}
-			if (
-				cfg.targetFolder === oldPath ||
-				cfg.targetFolder.startsWith(oldPrefix)
-			) {
-				cfg.targetFolder =
-					newPath + cfg.targetFolder.slice(oldPath.length);
-				changed = true;
-			}
+			[cfg.targetFolder, c] = this.remapPath(cfg.targetFolder, oldPath, oldPrefix, newPath); changed = changed || c;
 		}
 
 		for (const pipe of state.savedPipelines ?? []) {
-			if (
-				pipe.targetFolder === oldPath ||
-				pipe.targetFolder.startsWith(oldPrefix)
-			) {
-				pipe.targetFolder = newPath + pipe.targetFolder.slice(oldPath.length);
-				changed = true;
-			}
+			let c: boolean;
+			[pipe.targetFolder, c] = this.remapPath(pipe.targetFolder, oldPath, oldPrefix, newPath); changed = changed || c;
 			for (const src of pipe.sources) {
-				if (src.csvPath.startsWith(oldPrefix)) {
-					src.csvPath = newPath + src.csvPath.slice(oldPath.length);
-					changed = true;
-				}
+				[src.csvPath, c] = this.remapPath(src.csvPath, oldPath, oldPrefix, newPath); changed = changed || c;
 			}
 		}
 

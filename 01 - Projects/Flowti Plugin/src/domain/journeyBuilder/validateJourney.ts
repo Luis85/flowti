@@ -24,6 +24,37 @@ export interface JourneyValidationResult {
  * 5. Each step has `id` (string) and `title` (string)
  * 6. Each step's `actions` (if present) is an array with valid `tool` fields
  */
+/** Validates a single action within a step. */
+function validateAction(action: unknown, stepNum: number, actionNum: number, errors: string[]): void {
+	if (action === null || typeof action !== "object" || Array.isArray(action)) {
+		errors.push(`Step ${stepNum}, action ${actionNum}: must be an object`);
+	} else if (typeof (action as Record<string, unknown>).tool !== "string" || ((action as Record<string, unknown>).tool as string).trim() === "") {
+		errors.push(`Step ${stepNum}, action ${actionNum}: missing or empty "tool" field`);
+	}
+}
+
+/** Validates a single step and its actions. */
+function validateStep(step: unknown, stepNum: number, errors: string[]): void {
+	if (step === null || typeof step !== "object" || Array.isArray(step)) {
+		errors.push(`Step ${stepNum}: must be an object`);
+		return;
+	}
+	const obj = step as Record<string, unknown>;
+	if (typeof obj.id !== "string" || obj.id.trim() === "") {
+		errors.push(`Step ${stepNum}: missing or empty "id" field`);
+	}
+	if (typeof obj.title !== "string") {
+		errors.push(`Step ${stepNum}: missing "title" field`);
+	}
+	if ("actions" in obj && !Array.isArray(obj.actions)) {
+		errors.push(`Step ${stepNum}: "actions" must be an array`);
+	} else if (Array.isArray(obj.actions)) {
+		for (let j = 0; j < obj.actions.length; j++) {
+			validateAction(obj.actions[j], stepNum, j + 1, errors);
+		}
+	}
+}
+
 export function validateJourneyJSON(json: string): JourneyValidationResult {
 	const errors: string[] = [];
 
@@ -52,33 +83,8 @@ export function validateJourneyJSON(json: string): JourneyValidationResult {
 	if (!Array.isArray(obj.steps)) {
 		errors.push('Missing or invalid "steps" field (expected an array)');
 	} else {
-		// 5. Validate each step
 		for (let i = 0; i < obj.steps.length; i++) {
-			const step = obj.steps[i] as Record<string, unknown> | null;
-			if (step === null || typeof step !== "object" || Array.isArray(step)) {
-				errors.push(`Step ${i + 1}: must be an object`);
-				continue;
-			}
-			if (typeof step.id !== "string" || step.id.trim() === "") {
-				errors.push(`Step ${i + 1}: missing or empty "id" field`);
-			}
-			if (typeof step.title !== "string") {
-				errors.push(`Step ${i + 1}: missing "title" field`);
-			}
-
-			// 6. Actions (optional but must be array when present)
-			if ("actions" in step && !Array.isArray(step.actions)) {
-				errors.push(`Step ${i + 1}: "actions" must be an array`);
-			} else if (Array.isArray(step.actions)) {
-				for (let j = 0; j < step.actions.length; j++) {
-					const action = step.actions[j] as Record<string, unknown> | null;
-					if (action === null || typeof action !== "object" || Array.isArray(action)) {
-						errors.push(`Step ${i + 1}, action ${j + 1}: must be an object`);
-					} else if (typeof action.tool !== "string" || action.tool.trim() === "") {
-						errors.push(`Step ${i + 1}, action ${j + 1}: missing or empty "tool" field`);
-					}
-				}
-			}
+			validateStep(obj.steps[i], i + 1, errors);
 		}
 	}
 

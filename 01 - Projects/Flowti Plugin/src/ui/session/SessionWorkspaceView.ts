@@ -20,7 +20,6 @@ import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { SessionService } from "../../domain/session/SessionService";
 import type { Session } from "../../domain/session/types";
-import { generateSessionSummary } from "../../domain/session/helpers";
 import { SESSION_TYPE_LABELS, SESSION_STATUS_LABELS } from "../userHub/types";
 import type { SessionPanelDeps } from "./types";
 import { SessionTimerPanel } from "./SessionTimerPanel";
@@ -48,6 +47,7 @@ import {
 	revealInFileExplorer, openInAdjacentLeaf,
 } from "./SessionWorkspaceHelpers";
 import type { WorkspaceHelperContext } from "./SessionWorkspaceHelpers";
+import { renderFocusFile, renderNotesFile, renderCanvasFile } from "./SessionWorkspaceFileSections";
 
 // Re-export for backward compat (canonical location: session/types.ts)
 export { VIEW_TYPE_SESSION_WORKSPACE } from "./types";
@@ -178,22 +178,25 @@ export class SessionWorkspaceView extends ItemView {
 			this.panelRefreshTimer = null;
 			const pending = new Set(this.pendingPanelRefreshes);
 			this.pendingPanelRefreshes.clear();
-			for (const id of pending) {
-				switch (id) {
-					case "goals": this.goalsPanel?.refreshGoals(); break;
-					case "tasks": this.executionPanel?.refreshTasks(); break;
-					case "notes": this.notesPanel?.updateNotes(this.session?.notes ?? ""); break;
-					case "activity": this.activityPanel?.refreshList(); break;
-					case "decisions": this.decisionPanel?.refreshList(); break;
-					case "reflections": this.reflectionPanel?.refreshList(); break;
-					case "energy": this.energyPanel?.refreshEnergy(); break;
-					case "intelligence": this.intelligencePanel?.refreshStats(); break;
-					case "output": this.outputPanel?.refreshList(); break;
-					case "overload": this.overloadAlert?.refreshAlert(); break;
-					case "actions": this.renderActions(); break;
-				}
-			}
+			for (const id of pending) this.refreshPanel(id);
 		}, 16);
+	}
+
+	private refreshPanel(id: string): void {
+		const handlers: Record<string, () => void> = {
+			goals: () => this.goalsPanel?.refreshGoals(),
+			tasks: () => this.executionPanel?.refreshTasks(),
+			notes: () => this.notesPanel?.updateNotes(this.session?.notes ?? ""),
+			activity: () => this.activityPanel?.refreshList(),
+			decisions: () => this.decisionPanel?.refreshList(),
+			reflections: () => this.reflectionPanel?.refreshList(),
+			energy: () => this.energyPanel?.refreshEnergy(),
+			intelligence: () => this.intelligencePanel?.refreshStats(),
+			output: () => this.outputPanel?.refreshList(),
+			overload: () => this.overloadAlert?.refreshAlert(),
+			actions: () => this.renderActions(),
+		};
+		handlers[id]?.();
 	}
 
 	// ── Rendering ────────────────────────────────────────────
@@ -266,9 +269,10 @@ export class SessionWorkspaceView extends ItemView {
 		this.notesPanel = new SessionNotesPanel(container, deps);
 		this.notesPanel.render();
 
-		this.renderFocusFile(container);
-		this.renderNotesFile(container);
-		this.renderCanvasFile(container);
+		const ctx = this.buildHelperContext();
+		renderFocusFile(container, this.session, ctx);
+		renderNotesFile(container, this.session, this.app, this.eventBus, this.sessionService, ctx);
+		renderCanvasFile(container, this.session, this.app, this.eventBus, ctx);
 
 		this.contextPanel = new SessionContextPanel(container, deps);
 		this.contextPanel.render();
@@ -420,168 +424,6 @@ export class SessionWorkspaceView extends ItemView {
 		setIcon(iconEl, icon);
 		btn.prepend(iconEl);
 		btn.addEventListener("click", onClick);
-	}
-
-	// ── File Sections ─────────────────────────────────────────
-
-	private renderFocusFile(container: HTMLElement): void {
-		const session = this.session!;
-		if (!session.focusFile || session.focusFile === session.notesFile) return;
-
-		const section = container.createDiv({ cls: "ft-session-workspace-focus ft-section" });
-
-		const iconEl = section.createSpan();
-		setIcon(iconEl, "file-text");
-
-		section.createEl("span", { text: "Focus:", cls: "ft-session-file-label" });
-
-		const ctx = this.buildHelperContext();
-		const link = section.createEl("a", { text: session.focusFile, cls: "ft-focus-link ft-session-file-link" });
-		link.addEventListener("click", (e) => {
-			e.preventDefault();
-			openInAdjacentLeaf(ctx, session.focusFile!);
-		});
-	}
-
-	private renderNotesFile(container: HTMLElement): void {
-		const session = this.session!;
-		if (!session.notesFile) return;
-
-		const section = container.createDiv({ cls: "ft-session-workspace-notesfile ft-section" });
-
-		const iconEl = section.createSpan();
-		setIcon(iconEl, "file-text");
-
-		section.createEl("span", { text: "Session note:", cls: "ft-session-file-label" });
-
-		const name = session.notesFile.split("/").pop() ?? session.notesFile;
-		const link = section.createEl("a", { text: name, cls: "ft-notesfile-link ft-session-file-link" });
-		link.title = session.notesFile;
-		link.addEventListener("click", (e) => {
-			e.preventDefault();
-			void this.openOrCreateNotesFile(session);
-		});
-
-		const copyBtn = section.createEl("button", { cls: "ft-copy-path-btn clickable-icon" });
-		copyBtn.title = "Copy vault path to clipboard";
-		setIcon(copyBtn, "clipboard-copy");
-		copyBtn.addEventListener("click", () => {
-			void navigator.clipboard.writeText(session.notesFile!).then(() => {
-				setIcon(copyBtn, "check");
-				copyBtn.addClass("ft-copied");
-				setTimeout(() => {
-					setIcon(copyBtn, "clipboard-copy");
-					copyBtn.removeClass("ft-copied");
-				}, 1500);
-			});
-		});
-	}
-
-	private async openOrCreateNotesFile(session: Session): Promise<void> {
-		const path = session.notesFile!;
-		const exists = this.app.vault.getAbstractFileByPath(path);
-
-		if (!exists) {
-			const folder = path.substring(0, path.lastIndexOf("/"));
-			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
-				await this.app.vault.createFolder(folder);
-			}
-			try {
-				await this.app.vault.create(path, generateSessionSummary(session, this.sessionService.globalActivityFilter));
-			} catch {
-				// File already exists on disk — proceed to open
-			}
-		}
-
-		openInAdjacentLeaf(this.buildHelperContext(), path);
-	}
-
-	private renderCanvasFile(container: HTMLElement): void {
-		const session = this.session!;
-
-		const section = container.createDiv({ cls: "ft-session-workspace-canvas ft-section" });
-
-		if (session.canvasFile) {
-			const iconEl = section.createSpan();
-			setIcon(iconEl, "layout-dashboard");
-
-			section.createEl("span", { text: "Session canvas:", cls: "ft-session-file-label" });
-
-			const name = session.canvasFile.split("/").pop() ?? session.canvasFile;
-			const link = section.createEl("a", { text: name, cls: "ft-canvasfile-link ft-session-file-link" });
-			link.title = session.canvasFile;
-			link.addEventListener("click", (e) => {
-				e.preventDefault();
-				openInAdjacentLeaf(this.buildHelperContext(), session.canvasFile!);
-			});
-		} else {
-			const btn = section.createEl("button", { text: "Create session canvas", cls: "ft-canvasfile-create ft-session-action-btn" });
-			const iconEl = btn.createSpan();
-			setIcon(iconEl, "layout-dashboard");
-			btn.prepend(iconEl);
-			btn.addEventListener("click", () => {
-				btn.setText("Creating...");
-				btn.disabled = true;
-				void this.createAndLinkCanvas(session);
-			});
-		}
-	}
-
-	private async createAndLinkCanvas(session: Session): Promise<void> {
-		const safeName = session.title.replace(/[\\/:*?"<>|]/g, "-");
-		const shortId = session.id.slice(-6);
-		const folder = session.notesFile
-			? session.notesFile.substring(0, session.notesFile.lastIndexOf("/"))
-			: "03 - Resources/Sessions";
-		const path = `${folder}/${safeName} (${shortId}).canvas`;
-
-		const exists = this.app.vault.getAbstractFileByPath(path);
-		if (!exists) {
-			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
-				await this.app.vault.createFolder(folder);
-			}
-			try {
-				await this.app.vault.create(path, '{\n\t"nodes":[],\n\t"edges":[]\n}');
-			} catch {
-				// File already exists on disk — proceed to open
-			}
-		}
-
-		void this.eventBus.emit("session.canvasFile.set", { sessionId: session.id, path });
-		void this.eventBus.emit("notice.success", { message: `Canvas created: ${path.split("/").pop()}` });
-
-		if (session.notesFile) {
-			await this.appendCanvasLinkToNotes(session.notesFile, path);
-		}
-
-		openInAdjacentLeaf(this.buildHelperContext(), path);
-	}
-
-	private async appendCanvasLinkToNotes(notesPath: string, canvasPath: string): Promise<void> {
-		let file = this.app.vault.getAbstractFileByPath(notesPath);
-		if (!file) {
-			const folder = notesPath.substring(0, notesPath.lastIndexOf("/"));
-			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
-				await this.app.vault.createFolder(folder);
-			}
-			try {
-				const title = this.session?.title ?? "Session";
-				await this.app.vault.create(notesPath, `# ${title}\n\n## Canvas\n![[${canvasPath}]]\n`);
-				return;
-			} catch (err: unknown) {
-				// File may have been created concurrently — check before giving up
-				file = this.app.vault.getAbstractFileByPath(notesPath);
-				if (!file) {
-					console.warn("[Flowti] Failed to create notes file:", err instanceof Error ? err.message : err);
-					return;
-				}
-			}
-		}
-		const existing = await this.app.vault.read(file as import("obsidian").TFile);
-		const embed = `![[${canvasPath}]]`;
-		if (!existing.includes(embed)) {
-			await this.app.vault.modify(file as import("obsidian").TFile, existing + `\n## Canvas\n${embed}\n`);
-		}
 	}
 
 	// ── Context builders ─────────────────────────────────────

@@ -157,120 +157,102 @@ export class CanvasService {
 	 *  9. Rebuild canvas with file-node references
 	 * 10. Write .base index file
 	 */
-	async runImport(configId: string): Promise<CanvasImportResult> {
-		const config = this.state.configs.find((c) => c.id === configId);
-		if (!config) {
-			throw new Error(`Canvas config "${configId}" not found`);
-		}
-		if (!this.fileSystem) {
-			throw new Error("FileSystem not available");
-		}
-
-		const fileSystem = this.fileSystem;
-		const eventBus = this.eventBus;
-
-		// Derive subfolder name: use explicit subfolderName if set, else canvas file basename
-		const canvasBasename = config.canvasPath.split("/").pop()?.replace(/\.canvas$/, "") ?? "canvas";
-		const subfolder = config.subfolderName || canvasBasename;
-		const effectiveTarget = config.targetFolder
-			? `${config.targetFolder}/${subfolder}`
-			: subfolder;
-
-		// 1. Read canvas JSON
-		const json = await fileSystem.readFile(config.canvasPath);
+	/** Read and parse canvas JSON, throwing on failure with event emission. */
+	private async readAndParseCanvas(canvasPath: string): Promise<ReturnType<typeof parseCanvasJson> & object> {
+		const json = await this.fileSystem!.readFile(canvasPath);
 		if (!json) {
-			const error = `Canvas file not found or empty: ${config.canvasPath}`;
-			await eventBus?.emit("canvas.import.failed", {
-				canvasPath: config.canvasPath,
-				error,
-			});
+			const error = `Canvas file not found or empty: ${canvasPath}`;
+			await this.eventBus?.emit("canvas.import.failed", { canvasPath, error });
 			throw new Error(error);
 		}
-
-		// 2. Parse
 		const canvasData = parseCanvasJson(json);
 		if (!canvasData) {
-			const error = `Invalid canvas JSON: ${config.canvasPath}`;
-			await eventBus?.emit("canvas.import.failed", {
-				canvasPath: config.canvasPath,
-				error,
-			});
+			const error = `Invalid canvas JSON: ${canvasPath}`;
+			await this.eventBus?.emit("canvas.import.failed", { canvasPath, error });
 			throw new Error(error);
 		}
+		return canvasData;
+	}
 
-		// 3. Extract legend
+	async runImport(configId: string): Promise<CanvasImportResult> {
+		const config = this.state.configs.find((c) => c.id === configId);
+		if (!config) throw new Error(`Canvas config "${configId}" not found`);
+		if (!this.fileSystem) throw new Error("FileSystem not available");
+
+		const fileSystem = this.fileSystem;
+		const canvasBasename = config.canvasPath.split("/").pop()?.replace(/\.canvas$/, "") ?? "canvas";
+		const subfolder = config.subfolderName || canvasBasename;
+		const effectiveTarget = config.targetFolder ? `${config.targetFolder}/${subfolder}` : subfolder;
+
+		// Steps 1-2: Read + parse
+		const canvasData = await this.readAndParseCanvas(config.canvasPath);
+
+		// Step 3: Extract legend
 		const legendMap = extractLegend(canvasData);
-		if (legendMap) {
-			await eventBus?.emit("canvas.legend.detected", {
-				canvasPath: config.canvasPath,
-				mappings: legendMap,
-			});
-		}
+		if (legendMap) await this.eventBus?.emit("canvas.legend.detected", { canvasPath: config.canvasPath, mappings: legendMap });
 
-		// 4. Build items
+		// Step 4: Build items
 		const colorMap: Record<string, FlowtiCanvasType> = { ...DEFAULT_COLOR_MAP, ...config.colorMap };
 		const shapeMap: Record<string, FlowtiCanvasType> = { ...DEFAULT_SHAPE_MAP, ...config.shapeMap };
 		const items = buildCanvasItems(canvasData, legendMap, colorMap, shapeMap);
 
-		// 5. Resolve parentage
+		// Step 5: Resolve parentage
 		const groups = items.filter((i) => i.originalType === "group");
 		for (const item of items) {
-			const result = resolveParentage(item, groups);
-			if (result) {
-				item.parentId = result.parentId;
-				item.parent = result.parent;
-			}
+			const pr = resolveParentage(item, groups);
+			if (pr) { item.parentId = pr.parentId; item.parent = pr.parent; }
 		}
 
-		// 6. Build relations
+		// Step 6: Build relations
 		buildRelations(items, canvasData.edges);
 
-		// 7. Filter for import
-		const legendGroup = canvasData.nodes.find(
-			(n) => n.type === "group" && !!("label" in n && n.label) &&
-				String((n as { label?: string }).label).toLowerCase() === "legend",
-		);
-		let filteredItems = filterItemsForImport(items, {
-			legendGroup: legendGroup ? {
-				id: legendGroup.id,
-				x: legendGroup.x,
-				y: legendGroup.y,
-				width: legendGroup.width,
-				height: legendGroup.height,
-			} : null,
-		});
+		// Step 7: Filter for import
+		const filteredItems = this.filterForImport(items, canvasData, config);
 
-		// 7b. Exclude user-specified types
-		if (config.excludedTypes?.length) {
-			filteredItems = filteredItems.filter(
-				(item) => !config.excludedTypes.includes(item.type),
-			);
-		}
+		// Step 8: Import
+		const emit = async (type: string, payload: Record<string, unknown>): Promise<void> => { await this.eventBus?.emit(type as never, payload as never); };
+		const result = await importCanvas(filteredItems, { ...config, targetFolder: effectiveTarget }, { fileSystem, emit });
 
-		// 8. Import as vault notes (using canvas-named subfolder)
-		const emit = async (type: string, payload: Record<string, unknown>): Promise<void> => {
-			await eventBus?.emit(type as never, payload as never);
-		};
-		const importConfig = { ...config, targetFolder: effectiveTarget };
-		const result = await importCanvas(filteredItems, importConfig, { fileSystem, emit });
+		// Steps 9-10: Rebuild canvas + write .base
+		await this.postImportSteps(config, canvasData, result, effectiveTarget, subfolder, fileSystem);
 
-		// 9. Rebuild canvas with file-node references (gated on createCanvas)
-		const filePathById = new Map(Object.entries(result.importedPaths));
-		if (config.createCanvas !== false && filePathById.size > 0) {
-			const rebuilt = rebuildCanvasData(canvasData.nodes, canvasData.edges, filePathById);
-			await writeRebuiltCanvas(rebuilt, effectiveTarget, subfolder, fileSystem);
-		}
-
-		// 10. Write .base index file (gated on createBase)
-		if (config.createBase !== false) {
-			await writeBaseFile(effectiveTarget, fileSystem);
-		}
-
-		// Update config lastUsed
 		config.lastUsed = new Date().toISOString();
 		await this.saveState();
-
 		return result;
+	}
+
+	/** Filter canvas items for import, excluding legend and user-specified types. */
+	private filterForImport(
+		items: ReturnType<typeof buildCanvasItems>,
+		canvasData: ReturnType<typeof parseCanvasJson> & object,
+		config: CanvasImportConfig,
+	): ReturnType<typeof filterItemsForImport> {
+		const legendGroup = canvasData.nodes.find(
+			(n) => n.type === "group" && !!("label" in n && n.label) && String((n as { label?: string }).label).toLowerCase() === "legend",
+		);
+		let filtered = filterItemsForImport(items, {
+			legendGroup: legendGroup ? { id: legendGroup.id, x: legendGroup.x, y: legendGroup.y, width: legendGroup.width, height: legendGroup.height } : null,
+		});
+		if (config.excludedTypes?.length) {
+			filtered = filtered.filter((item) => !config.excludedTypes.includes(item.type));
+		}
+		return filtered;
+	}
+
+	/** Run post-import steps: rebuild canvas and write .base file. */
+	private async postImportSteps(
+		config: CanvasImportConfig,
+		canvasData: ReturnType<typeof parseCanvasJson> & object,
+		result: CanvasImportResult,
+		effectiveTarget: string,
+		subfolder: string,
+		fileSystem: IFileSystemClient,
+	): Promise<void> {
+		const filePathById = new Map(Object.entries(result.importedPaths));
+		if (config.createCanvas !== false && filePathById.size > 0) {
+			await writeRebuiltCanvas(rebuildCanvasData(canvasData.nodes, canvasData.edges, filePathById), effectiveTarget, subfolder, fileSystem);
+		}
+		if (config.createBase !== false) await writeBaseFile(effectiveTarget, fileSystem);
 	}
 
 	// ── Internal ─────────────────────────────────────────────

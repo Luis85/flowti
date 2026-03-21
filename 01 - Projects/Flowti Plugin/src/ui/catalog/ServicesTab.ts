@@ -61,39 +61,7 @@ export class ServicesTab {
 			serviceMap.set(svc, list);
 		}
 
-		// Scan folder for documented services
-		const servicesFolder = this.deps.getEntityFolder("services");
-		const folder = this.deps.app.vault.getAbstractFileByPath(servicesFolder);
-		const fileMap = new Map<string, {
-			filePath: string;
-			description: string;
-			domains: string[];
-		}>();
-
-		const nonConforming: NonConformingFile[] = [];
-		if (folder && folder instanceof TFolder) {
-			for (const child of folder.children) {
-				if (!(child instanceof TFile) || child.extension !== "md") continue;
-
-				const fm = readFrontmatter(this.deps.vaultQuery, child.path);
-				const name = (fm && (fmString(fm, "service")
-					?? fmString(fm, "name"))) ?? child.basename;
-				const description = (fm && fmString(fm, "description")) ?? "";
-				const domains = fmStringArray(fm, "domains");
-
-				fileMap.set(name, { filePath: child.path, description, domains });
-
-				if (!serviceMap.has(name)) serviceMap.set(name, []);
-
-				if (!fm || fm.type !== "ServiceDoc") {
-					nonConforming.push({
-						file: child, docType: "ServiceDoc", nameField: "service", name,
-						metadata: { description, domains, services: [] },
-					});
-				}
-			}
-		}
-		normalizeNonConformingFiles(this.deps.app, nonConforming);
+		const { fileMap } = this.scanServiceFolder(serviceMap);
 
 		const state = this.deps.getState();
 
@@ -122,6 +90,31 @@ export class ServicesTab {
 				};
 			})
 			.sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	private scanServiceFolder(serviceMap: Map<string, EventCatalogEntry[]>): {
+		fileMap: Map<string, { filePath: string; description: string; domains: string[] }>;
+	} {
+		const servicesFolder = this.deps.getEntityFolder("services");
+		const folder = this.deps.app.vault.getAbstractFileByPath(servicesFolder);
+		const fileMap = new Map<string, { filePath: string; description: string; domains: string[] }>();
+		const nonConforming: NonConformingFile[] = [];
+		if (folder && folder instanceof TFolder) {
+			for (const child of folder.children) {
+				if (!(child instanceof TFile) || child.extension !== "md") continue;
+				const fm = readFrontmatter(this.deps.vaultQuery, child.path);
+				const name = (fm && (fmString(fm, "service") ?? fmString(fm, "name"))) ?? child.basename;
+				const description = (fm && fmString(fm, "description")) ?? "";
+				const domains = fmStringArray(fm, "domains");
+				fileMap.set(name, { filePath: child.path, description, domains });
+				if (!serviceMap.has(name)) serviceMap.set(name, []);
+				if (!fm || fm.type !== "ServiceDoc") {
+					nonConforming.push({ file: child, docType: "ServiceDoc", nameField: "service", name, metadata: { description, domains, services: [] } });
+				}
+			}
+		}
+		normalizeNonConformingFiles(this.deps.app, nonConforming);
+		return { fileMap };
 	}
 
 	// ─────────────────────────────────────────────────────────────

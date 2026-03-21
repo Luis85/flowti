@@ -165,173 +165,63 @@ export class DataExchangeSetup {
 
 	/** Register file-menu context items for CSV, .base, and TFolder. */
 	registerFileMenuItems(): void {
-		const { app, eventBus, dataExchangeService, registerEvent } = this.deps;
+		const { app, registerEvent } = this.deps;
 
 		registerEvent(
 			app.workspace.on("file-menu", (menu, file) => {
-				// Separator before Flowti items (groups all DX + session items together)
 				const isFlowtiTarget = (file instanceof TFile && ["csv", "base", "canvas"].includes(file.extension))
 					|| file instanceof TFolder;
-				if (isFlowtiTarget) {
-					menu.addSeparator();
-				}
+				if (isFlowtiTarget) menu.addSeparator();
 
-				if (file instanceof TFile && file.extension === "csv") {
-					menu.addItem((item) => {
-						item.setTitle("Import as notes")
-							.setIcon("file-input")
-							.onClick(() => {
-								void eventBus.emit("ui.openCsvImport", {
-									filePath: file.path,
-									autoStart: true,
-								});
-							});
-					});
-
-					if (this.deps.hubRegistry) {
-						menu.addItem((item) => {
-							item.setTitle("Analyze in analytics hub")
-								.setIcon("bar-chart-2")
-								.onClick(() => {
-									void this.deps.hubRegistry!.openHub("analytics", "queries", file.path);
-								});
-						});
-					}
-
-					// Existing import configs for this CSV
-					const importConfigs = dataExchangeService.getImportConfigsForFile(file.path);
-					if (importConfigs.length > 0) {
-						menu.addSeparator();
-						for (const cfg of importConfigs.slice(0, 5)) {
-							menu.addItem((item) => {
-								item.setTitle(`Import with: ${cfg.name}`)
-									.setIcon("play")
-									.onClick(() => {
-										void eventBus.emit("ui.openCsvImport", {
-											filePath: file.path,
-											savedConfig: cfg,
-											autoStart: true,
-										});
-									});
-							});
-						}
-					}
-				}
-
-				if (file instanceof TFile && file.extension === "base") {
-					menu.addItem((item) => {
-						item.setTitle("Export as CSV")
-							.setIcon("file-output")
-							.onClick(() => {
-								void eventBus.emit("ui.openExport", {
-									sourcePath: file.path,
-									sourceType: "base",
-									format: "csv",
-								});
-							});
-					});
-					menu.addItem((item) => {
-						item.setTitle("Export as tab")
-							.setIcon("file-output")
-							.onClick(() => {
-								void eventBus.emit("ui.openExport", {
-									sourcePath: file.path,
-									sourceType: "base",
-									format: "tab",
-								});
-							});
-					});
-
-					// Existing export configs for this .base file
-					const exportConfigs = dataExchangeService.getExportConfigsForSource(file.path);
-					if (exportConfigs.length > 0) {
-						menu.addSeparator();
-						for (const cfg of exportConfigs.slice(0, 5)) {
-							menu.addItem((item) => {
-								item.setTitle(`Export with: ${cfg.name}`)
-									.setIcon("play")
-									.onClick(() => {
-										void eventBus.emit("ui.openExport", {
-											savedConfig: cfg,
-											format: cfg.format,
-										});
-									});
-							});
-						}
-					}
-				}
-
-				if (file instanceof TFile && file.extension === "canvas" && this.deps.canvasService) {
-					menu.addItem((item) => {
-						item.setTitle("Import canvas")
-							.setIcon("layout-dashboard")
-							.onClick(() => {
-								this.openCanvasImportView(file.path);
-							});
-					});
-
-					// Existing canvas configs for this file
-					const canvasConfigs = this.deps.canvasService.getConfigs().filter(
-						(c) => c.canvasPath === file.path,
-					);
-					if (canvasConfigs.length > 0) {
-						menu.addSeparator();
-						for (const cfg of canvasConfigs.slice(0, 5)) {
-							menu.addItem((item) => {
-								item.setTitle(`Import with: ${cfg.name}`)
-									.setIcon("play")
-									.onClick(() => {
-										this.openCanvasImportView(file.path, cfg.id, true);
-									});
-							});
-						}
-					}
-				}
-
-				if (file instanceof TFolder) {
-					menu.addItem((item) => {
-						item.setTitle("Export as CSV")
-							.setIcon("file-output")
-							.onClick(() => {
-								void eventBus.emit("ui.openExport", {
-									sourcePath: file.path,
-									sourceType: "folder",
-									format: "csv",
-								});
-							});
-					});
-					menu.addItem((item) => {
-						item.setTitle("Export as tab")
-							.setIcon("file-output")
-							.onClick(() => {
-								void eventBus.emit("ui.openExport", {
-									sourcePath: file.path,
-									sourceType: "folder",
-									format: "tab",
-								});
-							});
-					});
-
-					// Existing export configs for this folder
-					const exportConfigs = dataExchangeService.getExportConfigsForSource(file.path);
-					if (exportConfigs.length > 0) {
-						menu.addSeparator();
-						for (const cfg of exportConfigs.slice(0, 5)) {
-							menu.addItem((item) => {
-								item.setTitle(`Export with: ${cfg.name}`)
-									.setIcon("play")
-									.onClick(() => {
-										void eventBus.emit("ui.openExport", {
-											savedConfig: cfg,
-											format: cfg.format,
-										});
-									});
-							});
-						}
-					}
-				}
+				if (file instanceof TFile && file.extension === "csv") this.addCsvMenuItems(menu, file);
+				if (file instanceof TFile && file.extension === "base") this.addBaseMenuItems(menu, file);
+				if (file instanceof TFile && file.extension === "canvas") this.addCanvasMenuItems(menu, file);
+				if (file instanceof TFolder) this.addFolderMenuItems(menu, file);
 			})
 		);
+	}
+
+	private addCsvMenuItems(menu: import("obsidian").Menu, file: TFile): void {
+		const { eventBus, dataExchangeService } = this.deps;
+		menu.addItem((item) => { item.setTitle("Import as notes").setIcon("file-input").onClick(() => { void eventBus.emit("ui.openCsvImport", { filePath: file.path, autoStart: true }); }); });
+		if (this.deps.hubRegistry) { menu.addItem((item) => { item.setTitle("Analyze in analytics hub").setIcon("bar-chart-2").onClick(() => { void this.deps.hubRegistry!.openHub("analytics", "queries", file.path); }); }); }
+		const importConfigs = dataExchangeService.getImportConfigsForFile(file.path);
+		if (importConfigs.length > 0) {
+			menu.addSeparator();
+			for (const cfg of importConfigs.slice(0, 5)) { menu.addItem((item) => { item.setTitle(`Import with: ${cfg.name}`).setIcon("play").onClick(() => { void eventBus.emit("ui.openCsvImport", { filePath: file.path, savedConfig: cfg, autoStart: true }); }); }); }
+		}
+	}
+
+	private addBaseMenuItems(menu: import("obsidian").Menu, file: TFile): void {
+		const { eventBus, dataExchangeService } = this.deps;
+		menu.addItem((item) => { item.setTitle("Export as CSV").setIcon("file-output").onClick(() => { void eventBus.emit("ui.openExport", { sourcePath: file.path, sourceType: "base", format: "csv" }); }); });
+		menu.addItem((item) => { item.setTitle("Export as tab").setIcon("file-output").onClick(() => { void eventBus.emit("ui.openExport", { sourcePath: file.path, sourceType: "base", format: "tab" }); }); });
+		const exportConfigs = dataExchangeService.getExportConfigsForSource(file.path);
+		if (exportConfigs.length > 0) {
+			menu.addSeparator();
+			for (const cfg of exportConfigs.slice(0, 5)) { menu.addItem((item) => { item.setTitle(`Export with: ${cfg.name}`).setIcon("play").onClick(() => { void eventBus.emit("ui.openExport", { savedConfig: cfg, format: cfg.format }); }); }); }
+		}
+	}
+
+	private addCanvasMenuItems(menu: import("obsidian").Menu, file: TFile): void {
+		if (!this.deps.canvasService) return;
+		menu.addItem((item) => { item.setTitle("Import canvas").setIcon("layout-dashboard").onClick(() => { this.openCanvasImportView(file.path); }); });
+		const canvasConfigs = this.deps.canvasService.getConfigs().filter((c) => c.canvasPath === file.path);
+		if (canvasConfigs.length > 0) {
+			menu.addSeparator();
+			for (const cfg of canvasConfigs.slice(0, 5)) { menu.addItem((item) => { item.setTitle(`Import with: ${cfg.name}`).setIcon("play").onClick(() => { this.openCanvasImportView(file.path, cfg.id, true); }); }); }
+		}
+	}
+
+	private addFolderMenuItems(menu: import("obsidian").Menu, file: TFolder): void {
+		const { eventBus, dataExchangeService } = this.deps;
+		menu.addItem((item) => { item.setTitle("Export as CSV").setIcon("file-output").onClick(() => { void eventBus.emit("ui.openExport", { sourcePath: file.path, sourceType: "folder", format: "csv" }); }); });
+		menu.addItem((item) => { item.setTitle("Export as tab").setIcon("file-output").onClick(() => { void eventBus.emit("ui.openExport", { sourcePath: file.path, sourceType: "folder", format: "tab" }); }); });
+		const exportConfigs = dataExchangeService.getExportConfigsForSource(file.path);
+		if (exportConfigs.length > 0) {
+			menu.addSeparator();
+			for (const cfg of exportConfigs.slice(0, 5)) { menu.addItem((item) => { item.setTitle(`Export with: ${cfg.name}`).setIcon("play").onClick(() => { void eventBus.emit("ui.openExport", { savedConfig: cfg, format: cfg.format }); }); }); }
+		}
 	}
 
 	/** Register import/export commands for the command palette. */

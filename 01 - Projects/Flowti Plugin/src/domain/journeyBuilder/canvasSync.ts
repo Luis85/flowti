@@ -94,61 +94,56 @@ function edgeData(
  * @param idGen   - Injectable ID generator (defaults to generateCanvasId)
  * @returns Canvas data with nodes and edges arrays
  */
+/** Build a step group with inner text node. */
+function buildStepGroup(
+	step: CanvasSyncInput["steps"][number],
+	index: number,
+	input: CanvasSyncInput,
+	idGen: () => string,
+	nodes: AllCanvasNodeData[],
+): string {
+	const stepStartX = NODE_W + GAP;
+	const gx = stepStartX + index * (GROUP_W + GAP);
+	const gy = -(GROUP_H - NODE_H) / 2;
+
+	const gid = idGen();
+	const label = step.title || `Step ${index + 1}`;
+	const color = input.stepColors?.[index] ?? (index === input.activeStepIndex ? "5" : undefined);
+	nodes.push(groupNode(gid, label, gx, gy, GROUP_W, GROUP_H, color, step.backgroundImage));
+
+	const innerId = idGen();
+	const actionCount = step.actions?.length ?? 0;
+	const actionLabel = `${actionCount} action${actionCount !== 1 ? "s" : ""}`;
+	const innerText = step.description ? `${step.description}\n${actionLabel}` : actionLabel;
+	nodes.push(textNode(innerId, innerText, gx + INNER_PAD, gy + (GROUP_H - INNER_H) / 2, INNER_W, INNER_H));
+
+	return gid;
+}
+
 export function buildJourneyCanvas(
 	input: CanvasSyncInput,
 	idGen: () => string = generateCanvasId,
 ): { nodes: AllCanvasNodeData[]; edges: CanvasEdgeData[] } {
 	const nodes: AllCanvasNodeData[] = [];
 	const edges: CanvasEdgeData[] = [];
-	const nodeIds: string[] = []; // ordered: START, steps..., END
+	const nodeIds: string[] = [];
 
 	// START node
 	const startId = idGen();
-	const startText = `▶ Start${input.startEvent ? `\n${input.startEvent}` : ""}`;
-	nodes.push(textNode(startId, startText, 0, 0, NODE_W, NODE_H, "4"));
+	nodes.push(textNode(startId, `▶ Start${input.startEvent ? `\n${input.startEvent}` : ""}`, 0, 0, NODE_W, NODE_H, "4"));
 	nodeIds.push(startId);
 
 	// Step groups
-	const stepStartX = NODE_W + GAP;
 	for (let i = 0; i < input.steps.length; i++) {
-		const step = input.steps[i];
-		const gx = stepStartX + i * (GROUP_W + GAP);
-		const gy = -(GROUP_H - NODE_H) / 2; // vertically center around START
-
-		const groupId = idGen();
-		const label = step.title || `Step ${i + 1}`;
-		const color = input.stepColors?.[i] ?? (i === input.activeStepIndex ? "5" : undefined);
-		nodes.push(groupNode(groupId, label, gx, gy, GROUP_W, GROUP_H, color, step.backgroundImage));
-
-		// Inner text node
-		const innerId = idGen();
-		const desc = step.description || "";
-		const actionCount = step.actions?.length ?? 0;
-		const innerText = desc
-			? `${desc}\n${actionCount} action${actionCount !== 1 ? "s" : ""}`
-			: `${actionCount} action${actionCount !== 1 ? "s" : ""}`;
-		nodes.push(textNode(
-			innerId,
-			innerText,
-			gx + INNER_PAD,
-			gy + (GROUP_H - INNER_H) / 2,
-			INNER_W,
-			INNER_H,
-		));
-
-		nodeIds.push(groupId);
+		nodeIds.push(buildStepGroup(input.steps[i], i, input, idGen, nodes));
 	}
 
 	// END node
 	const endId = idGen();
-	const endX = input.steps.length > 0
-		? stepStartX + input.steps.length * (GROUP_W + GAP)
-		: NODE_W + GAP;
-	const endText = `⏹ End${input.endEvent ? `\n${input.endEvent}` : ""}`;
-	nodes.push(textNode(endId, endText, endX, 0, NODE_W, NODE_H, "1"));
+	const endX = input.steps.length > 0 ? NODE_W + GAP + input.steps.length * (GROUP_W + GAP) : NODE_W + GAP;
+	nodes.push(textNode(endId, `⏹ End${input.endEvent ? `\n${input.endEvent}` : ""}`, endX, 0, NODE_W, NODE_H, "1"));
 	nodeIds.push(endId);
 
-	// Edges: START → Step1 → Step2 → ... → END
 	for (let i = 0; i < nodeIds.length - 1; i++) {
 		edges.push(edgeData(idGen(), nodeIds[i], nodeIds[i + 1]));
 	}

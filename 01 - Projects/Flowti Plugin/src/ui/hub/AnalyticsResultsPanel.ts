@@ -35,36 +35,9 @@ export class AnalyticsResultsPanel {
 		this.container.empty();
 		const { result, durationMs } = this.options;
 
-		// ── Stat cards ──────────────────────────────────────
-		if (!this.options.hideStats) {
-			const cards: StatCardItem[] = [
-				{ icon: "rows-3", value: String(result.rows.length), label: "Result Rows" },
-				{ icon: "layers", value: String(result.groupCount), label: "Groups" },
-				{ icon: "database", value: String(result.sourceRowCount), label: "Source Rows" },
-			];
-			if (durationMs !== undefined) {
-				cards.push({ icon: "timer", value: `${durationMs}ms`, label: "Duration" });
-			}
-			renderStatGrid(this.container, cards, cards.length);
-		}
+		this.renderStatCards(result, durationMs);
+		this.renderActions(result);
 
-		// ── Actions ──────────────────────────────────────────
-		if (result.rows.length > 0) {
-			const actions = this.container.createDiv({ cls: "ft-detail-actions ft-mt-2" });
-
-			if (this.options.onExportCsv) {
-				const exportLink = actions.createEl("span", { cls: "ft-nav-link" });
-				const exportIcon = exportLink.createSpan();
-				setIcon(exportIcon, "download");
-				exportLink.appendText(" Export CSV");
-				exportLink.addEventListener("click", () => {
-					const csv = this.generateCsv();
-					this.options.onExportCsv?.(csv);
-				});
-			}
-		}
-
-		// ── Results table ────────────────────────────────────
 		if (result.rows.length === 0) {
 			this.container.createDiv({
 				text: "Query returned no results",
@@ -73,13 +46,59 @@ export class AnalyticsResultsPanel {
 			return;
 		}
 
+		this.renderResultsTable(result);
+	}
+
+	private renderStatCards(result: AnalyticsResult, durationMs: number | undefined): void {
+		if (this.options.hideStats) return;
+
+		const cards: StatCardItem[] = [
+			{ icon: "rows-3", value: String(result.rows.length), label: "Result Rows" },
+			{ icon: "layers", value: String(result.groupCount), label: "Groups" },
+			{ icon: "database", value: String(result.sourceRowCount), label: "Source Rows" },
+		];
+		if (durationMs !== undefined) {
+			cards.push({ icon: "timer", value: `${durationMs}ms`, label: "Duration" });
+		}
+		renderStatGrid(this.container, cards, cards.length);
+	}
+
+	private renderActions(result: AnalyticsResult): void {
+		if (result.rows.length === 0) return;
+
+		const actions = this.container.createDiv({ cls: "ft-detail-actions ft-mt-2" });
+		if (this.options.onExportCsv) {
+			const exportLink = actions.createEl("span", { cls: "ft-nav-link" });
+			const exportIcon = exportLink.createSpan();
+			setIcon(exportIcon, "download");
+			exportLink.appendText(" Export CSV");
+			exportLink.addEventListener("click", () => {
+				const csv = this.generateCsv();
+				this.options.onExportCsv?.(csv);
+			});
+		}
+	}
+
+	private renderResultsTable(result: AnalyticsResult): void {
 		const rows = this.getSortedRows();
 		const maxRows = Math.min(rows.length, 100);
 
 		const scrollWrapper = this.container.createDiv({ cls: "ft-table-scroll ft-mt-2" });
 		const table = scrollWrapper.createEl("table", { cls: "ft-preview-table" });
 
-		// Header row with sort controls
+		this.renderTableHeader(table, result);
+		this.renderTableBody(table, result, rows, maxRows);
+		this.renderTotalsRow(table, result);
+
+		if (rows.length > maxRows) {
+			this.container.createDiv({
+				text: `Showing ${maxRows} of ${rows.length} rows`,
+				cls: "ft-text-muted ft-text-sm ft-p-2 ft-text-center",
+			});
+		}
+	}
+
+	private renderTableHeader(table: HTMLElement, result: AnalyticsResult): void {
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
 		for (const col of result.columns) {
@@ -102,8 +121,9 @@ export class AnalyticsResultsPanel {
 				this.render();
 			});
 		}
+	}
 
-		// Data rows
+	private renderTableBody(table: HTMLElement, result: AnalyticsResult, rows: ResultRow[], maxRows: number): void {
 		const tbody = table.createEl("tbody");
 		for (let i = 0; i < maxRows; i++) {
 			const tr = tbody.createEl("tr");
@@ -117,33 +137,27 @@ export class AnalyticsResultsPanel {
 				});
 			}
 		}
+	}
 
-		// Totals row
+	private renderTotalsRow(table: HTMLElement, result: AnalyticsResult): void {
 		const numericCols = result.columns.filter((col) => typeof result.rows[0]?.[col] === "number");
-		if (numericCols.length > 0 && result.rows.length > 1) {
-			const tfoot = table.createEl("tfoot");
-			const totalsRow = tfoot.createEl("tr");
-			totalsRow.addClass("ft-totals-row");
-			for (const col of result.columns) {
-				const td = totalsRow.createEl("td", { cls: "ft-text-sm" });
-				if (numericCols.includes(col)) {
-					const sum = result.rows.reduce((acc, r) => {
-						const v = r[col];
-						return acc + (typeof v === "number" ? v : 0);
-					}, 0);
-					const hint = result.columnTypeHints?.find((h) => h.column === col || h.alias === col);
-					td.textContent = formatDisplayNumber(sum, undefined, hint?.currencySymbol);
-				} else {
-					td.textContent = col === result.columns[0] ? "Total" : "";
-				}
-			}
-		}
+		if (numericCols.length === 0 || result.rows.length <= 1) return;
 
-		if (rows.length > maxRows) {
-			this.container.createDiv({
-				text: `Showing ${maxRows} of ${rows.length} rows`,
-				cls: "ft-text-muted ft-text-sm ft-p-2 ft-text-center",
-			});
+		const tfoot = table.createEl("tfoot");
+		const totalsRow = tfoot.createEl("tr");
+		totalsRow.addClass("ft-totals-row");
+		for (const col of result.columns) {
+			const td = totalsRow.createEl("td", { cls: "ft-text-sm" });
+			if (numericCols.includes(col)) {
+				const sum = result.rows.reduce((acc, r) => {
+					const v = r[col];
+					return acc + (typeof v === "number" ? v : 0);
+				}, 0);
+				const hint = result.columnTypeHints?.find((h) => h.column === col || h.alias === col);
+				td.textContent = formatDisplayNumber(sum, undefined, hint?.currencySymbol);
+			} else {
+				td.textContent = col === result.columns[0] ? "Total" : "";
+			}
 		}
 	}
 

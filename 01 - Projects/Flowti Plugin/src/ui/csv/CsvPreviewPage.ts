@@ -20,48 +20,47 @@ export class CsvPreviewPage {
 		if (!state.parsedCsv) return;
 
 		const includedMappings = state.columnMappings.filter((m) => m.included);
-		const customPropCount = Object.keys(state.customProperties).length;
+		const customProps = Object.entries(state.customProperties);
 
-		// Action bar
-		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
-		statsBar.addClass("ft-border-bottom");
-		statsBar.addClass("ft-flex-shrink-0");
+		const issues = this.renderActionBar(ws, state);
+		this.renderImpactSummary(ws, state, includedMappings, customProps);
+		this.renderCountBar(ws, state, includedMappings, customProps);
+		this.renderPreviewTable(ws, state, includedMappings, customProps, issues);
+	}
 
-		// Validation
+	private renderActionBar(ws: HTMLElement, state: ReturnType<CsvComponentDeps["getState"]>): string[] {
+		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-border-bottom ft-flex-shrink-0" });
+
 		const issues: string[] = [];
 		if (!state.targetFolder.trim()) issues.push("Target folder is required");
 		if (!state.nameColumn) issues.push("Name column is required");
 
 		if (issues.length > 0) {
 			const alert = statsBar.createDiv({ cls: "ft-alert-warning ft-p-2 ft-text-sm" });
-			for (const issue of issues) {
-				alert.createSpan({ text: issue });
-				alert.createEl("br");
-			}
+			for (const issue of issues) { alert.createSpan({ text: issue }); alert.createEl("br"); }
 		}
 
 		const configBtn = statsBar.createEl("span", { cls: "ft-nav-link" });
 		setIcon(configBtn.createSpan(), "settings");
 		configBtn.appendText(" Edit Config");
-		configBtn.addEventListener("click", () => {
-			this.deps.setState({ currentPage: "config" });
-			this.deps.renderContent();
-		});
-
+		configBtn.addEventListener("click", () => { this.deps.setState({ currentPage: "config" }); this.deps.renderContent(); });
 		statsBar.createDiv({ cls: "ft-flex-1" });
 
 		if (issues.length === 0) {
 			const importBtn = statsBar.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
 			setIcon(importBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "play");
 			importBtn.appendText(" Run Import");
-			importBtn.addEventListener("click", () => {
-				this.deps.setState({ currentPage: "result" });
-				this.deps.renderContent();
-				void this.deps.runImport();
-			});
+			importBtn.addEventListener("click", () => { this.deps.setState({ currentPage: "result" }); this.deps.renderContent(); void this.deps.runImport(); });
 		}
+		return issues;
+	}
 
-		// ── Impact summary ──────────────────────────────────
+	private renderImpactSummary(
+		ws: HTMLElement,
+		state: ReturnType<CsvComponentDeps["getState"]>,
+		includedMappings: { csvColumn: string; frontmatterKey: string; included: boolean }[],
+		customProps: [string, string][],
+	): void {
 		const summary = ws.createDiv({ cls: "ft-card ft-mt-3 ft-mb-2" });
 		summary.createDiv({ text: "What will happen", cls: "ft-detail-section-header ft-mb-2" });
 		const grid = summary.createDiv({ cls: "ft-detail-info-grid" });
@@ -72,11 +71,11 @@ export class CsvPreviewPage {
 		};
 
 		addRow("Target folder", state.targetFolder || "(not set)");
-		addRow("Notes to create", `${state.parsedCsv.rowCount} (from ${state.parsedCsv.rowCount} CSV rows)`);
+		addRow("Notes to create", `${state.parsedCsv!.rowCount} (from ${state.parsedCsv!.rowCount} CSV rows)`);
 		addRow("Filename pattern", `${state.namePrefix || ""}[${state.nameColumn}]${state.nameSuffix || ""}.md`);
 		addRow("Frontmatter keys", `${includedMappings.length} mapped column${includedMappings.length !== 1 ? "s" : ""}`);
-		if (customPropCount > 0) {
-			addRow("Custom properties", `${customPropCount} extra key${customPropCount !== 1 ? "s" : ""} on every note`);
+		if (customProps.length > 0) {
+			addRow("Custom properties", `${customProps.length} extra key${customProps.length !== 1 ? "s" : ""} on every note`);
 		}
 		const strategyLabels: Record<string, string> = {
 			skip: "Skip — existing notes will not be touched",
@@ -85,7 +84,6 @@ export class CsvPreviewPage {
 		};
 		addRow("Conflict strategy", strategyLabels[state.conflictStrategy] ?? state.conflictStrategy);
 
-		// Base file info
 		let basePath = state.basePath.trim();
 		if (basePath && !basePath.endsWith(".base")) basePath += ".base";
 		if (basePath && this.deps.app.vault.getAbstractFileByPath(basePath)) {
@@ -93,65 +91,54 @@ export class CsvPreviewPage {
 		} else if (state.createBase && basePath) {
 			addRow("Base view", `Create ${basePath}`);
 		}
+	}
 
-		// Count summary (outside scroll container)
-		const customProps = Object.entries(state.customProperties);
+	private renderCountBar(
+		ws: HTMLElement,
+		state: ReturnType<CsvComponentDeps["getState"]>,
+		includedMappings: { csvColumn: string; frontmatterKey: string; included: boolean }[],
+		customProps: [string, string][],
+	): void {
 		const totalCols = 1 + includedMappings.length + customProps.length;
-		const countBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-		countBar.addClass("ft-flex-shrink-0");
-		countBar.createSpan({
-			text: `${state.parsedCsv.rowCount} rows`,
-			cls: "ft-badge ft-badge-muted",
-		});
-		countBar.createSpan({
-			text: `${totalCols} columns`,
-			cls: "ft-badge ft-badge-muted",
-		});
+		const countBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-flex-shrink-0" });
+		countBar.createSpan({ text: `${state.parsedCsv!.rowCount} rows`, cls: "ft-badge ft-badge-muted" });
+		countBar.createSpan({ text: `${totalCols} columns`, cls: "ft-badge ft-badge-muted" });
 		if (customProps.length > 0) {
-			countBar.createSpan({
-				text: `${customProps.length} custom prop${customProps.length !== 1 ? "s" : ""}`,
-				cls: "ft-badge ft-badge-accent",
-			});
+			countBar.createSpan({ text: `${customProps.length} custom prop${customProps.length !== 1 ? "s" : ""}`, cls: "ft-badge ft-badge-accent" });
 		}
-		if (state.parsedCsv.rowCount > 25) {
-			countBar.createSpan({
-				text: "Showing first 25 rows",
-				cls: "ft-text-sm ft-text-muted",
-			});
+		if (state.parsedCsv!.rowCount > 25) {
+			countBar.createSpan({ text: "Showing first 25 rows", cls: "ft-text-sm ft-text-muted" });
 		}
+	}
 
-		// Table scroll area
+	private renderPreviewTable(
+		ws: HTMLElement,
+		state: ReturnType<CsvComponentDeps["getState"]>,
+		includedMappings: { csvColumn: string; frontmatterKey: string; included: boolean }[],
+		customProps: [string, string][],
+		_issues: string[],
+	): void {
 		const scroll = ws.createDiv({ cls: "ft-table-scroll" });
 		const table = scroll.createEl("table", { cls: "ft-preview-table" });
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
 		headerRow.createEl("th", { text: "Filename" });
-		for (const m of includedMappings) {
-			headerRow.createEl("th", { text: m.frontmatterKey });
-		}
-		for (const [key] of customProps) {
-			headerRow.createEl("th", { text: key, cls: "ft-preview-custom-col" });
-		}
+		for (const m of includedMappings) headerRow.createEl("th", { text: m.frontmatterKey });
+		for (const [key] of customProps) headerRow.createEl("th", { text: key, cls: "ft-preview-custom-col" });
 
 		const tbody = table.createEl("tbody");
-		const nameIndex = state.parsedCsv.headers.indexOf(state.nameColumn);
-		const previewRows = state.parsedCsv.rows.slice(0, 25);
+		const nameIndex = state.parsedCsv!.headers.indexOf(state.nameColumn);
+		const previewRows = state.parsedCsv!.rows.slice(0, 25);
 
 		for (const row of previewRows) {
 			const tr = tbody.createEl("tr");
-			const baseName = state.importService!.sanitizeFilename(
-				row[nameIndex] ?? "",
-			);
-			const filename = `${state.namePrefix}${baseName}${state.nameSuffix}`;
-			tr.createEl("td", { text: filename || "(empty)" });
-
+			const baseName = state.importService!.sanitizeFilename(row[nameIndex] ?? "");
+			tr.createEl("td", { text: `${state.namePrefix}${baseName}${state.nameSuffix}` || "(empty)" });
 			for (const m of includedMappings) {
 				const colIdx = state.parsedCsv!.headers.indexOf(m.csvColumn);
 				tr.createEl("td", { text: row[colIdx] ?? "" });
 			}
-			for (const [, value] of customProps) {
-				tr.createEl("td", { text: value, cls: "ft-preview-custom-cell" });
-			}
+			for (const [, value] of customProps) tr.createEl("td", { text: value, cls: "ft-preview-custom-cell" });
 		}
 	}
 }
