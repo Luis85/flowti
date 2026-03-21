@@ -110,6 +110,17 @@ export function createIdleLLMSlot(): LLMSlot {
 
 // ── Tool Dependencies ────────────────────────────────────────────────
 
+export interface INeedsBridge {
+	getNeeds: (name: string) => AgentNeeds;
+}
+
+export interface IBrainBridge {
+	assignWork: (name: string) => void;
+	releaseWork: (name: string) => void;
+	applyEvent: (name: string, event: string) => void;
+	getState: (name: string) => string;
+}
+
 export interface AgentToolDeps {
 	readonly disk: IFileSystem;
 	readonly paths: IPaths;
@@ -117,6 +128,8 @@ export interface AgentToolDeps {
 	readonly providerRegistry?: IProviderRegistry;
 	readonly worldState: IWorldStateManager;
 	readonly checkPermission: (tool: string) => PermissionVerdict;
+	readonly needs?: INeedsBridge;
+	readonly brain?: IBrainBridge;
 }
 
 // ── BTAgent Context (Blackboard) ─────────────────────────────────────

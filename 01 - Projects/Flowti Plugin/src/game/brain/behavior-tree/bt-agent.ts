@@ -41,6 +41,15 @@ export interface BTAgentObject {
 	HasFileContent(): boolean;
 	HasLLMResult(): boolean;
 
+	// Needs-driven conditions
+	IsEnergyLow(): boolean;
+	IsSocialLow(): boolean;
+	IsFocusLow(): boolean;
+	IsMoraleLow(): boolean;
+	IsEnergyOk(): boolean;
+	IsFocusOk(): boolean;
+	HasWorkGoal(): boolean;
+
 	// Actions (return State)
 	PickGoal(): State;
 	PickGoalFile(): State;
@@ -57,6 +66,15 @@ export interface BTAgentObject {
 	Socialize(): State;
 	Rest(): State;
 	HandleEvent(): State;
+
+	// Needs-driven actions
+	SeekRestSpot(): State;
+	SeekNearbyAgent(): State;
+	SeekQuietCorner(): State;
+	WanderSad(): State;
+	GoToWorkstation(): State;
+	DoWork(): State;
+	LeaveWorkstation(): State;
 }
 
 export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentObject {
@@ -132,6 +150,38 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 
 	function HasLLMResult(): boolean {
 		return context.llmSlot.state === "resolved" && context.llmSlot.result !== null;
+	}
+
+	// ── Needs-driven conditions ─────────────────────────────────────
+
+	function IsEnergyLow(): boolean {
+		return context.needs.energy < (30 - con / 2);
+	}
+
+	function IsSocialLow(): boolean {
+		return context.needs.social < 25;
+	}
+
+	function IsFocusLow(): boolean {
+		return context.needs.focus < (20 - int_ / 3);
+	}
+
+	function IsMoraleLow(): boolean {
+		return context.needs.morale < 10;
+	}
+
+	function IsEnergyOk(): boolean {
+		return context.needs.energy > 60;
+	}
+
+	function IsFocusOk(): boolean {
+		return context.needs.focus > 50;
+	}
+
+	function HasWorkGoal(): boolean {
+		return context.goals.length > 0
+			&& context.needs.energy > 50
+			&& context.needs.focus > 40;
 	}
 
 	// ── Actions ──────────────────────────────────────────────────────
@@ -342,14 +392,68 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return State.SUCCEEDED;
 	}
 
+	// ── Needs-driven actions ────────────────────────────────────────
+
+	function SeekRestSpot(): State {
+		collect("seek-rest", {});
+		deps.brain?.applyEvent(context.name, "seek-rest");
+		return State.SUCCEEDED;
+	}
+
+	function SeekNearbyAgent(): State {
+		if (context.nearbyAgents.length === 0) {
+			collect("seek-agent", {});
+			deps.brain?.applyEvent(context.name, "seek-agent");
+		} else {
+			collect("speaking", { text: "", source: "social", target: context.nearbyAgents[0] });
+			deps.brain?.applyEvent(context.name, "talking");
+		}
+		return State.SUCCEEDED;
+	}
+
+	function SeekQuietCorner(): State {
+		collect("seek-quiet", {});
+		deps.brain?.applyEvent(context.name, "seek-quiet");
+		return State.SUCCEEDED;
+	}
+
+	function WanderSad(): State {
+		collect("wander-sad", {});
+		collect("idle", {});
+		return State.SUCCEEDED;
+	}
+
+	function GoToWorkstation(): State {
+		collect("goal-started", { goalName: context.activeGoal?.name ?? "work" });
+		deps.brain?.assignWork(context.name);
+		return State.SUCCEEDED;
+	}
+
+	function DoWork(): State {
+		context.needs.focus = Math.max(0, context.needs.focus - 5);
+		context.needs.morale = Math.min(100, context.needs.morale + 1);
+		return State.SUCCEEDED;
+	}
+
+	function LeaveWorkstation(): State {
+		collect("goal-completed", { goalName: context.activeGoal?.name ?? "work" });
+		deps.brain?.releaseWork(context.name);
+		(context as { activeGoal: null }).activeGoal = null;
+		return State.SUCCEEDED;
+	}
+
 	return {
 		context,
 		collectedActions,
 		HasEnoughEnergy, HasEnoughFocus, HasEnoughMorale,
 		HasActiveGoal, HasGoalFile, HasLLMProvider,
 		HasNearbyAgent, HasPendingEvent, HasFileContent, HasLLMResult,
+		IsEnergyLow, IsSocialLow, IsFocusLow, IsMoraleLow,
+		IsEnergyOk, IsFocusOk, HasWorkGoal,
 		PickGoal, PickGoalFile, ReadFile, WriteFile, OpenInVault,
 		QueryLLM, GenerateFromTemplate, DropArtifact, SpeakBubble,
 		Wander, Emote, Chatter, Socialize, Rest, HandleEvent,
+		SeekRestSpot, SeekNearbyAgent, SeekQuietCorner, WanderSad,
+		GoToWorkstation, DoWork, LeaveWorkstation,
 	};
 }
