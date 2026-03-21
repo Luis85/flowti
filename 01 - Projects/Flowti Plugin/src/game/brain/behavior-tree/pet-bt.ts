@@ -6,7 +6,7 @@
  * the PetActor handles per-frame movement execution.
  */
 
-import { BehaviourTree, State } from "mistreevous";
+import { createTree, fromNodeState, type BehaviourTree, type State } from "./bt-service.js";
 import type { AgentBT } from "./bt-factory.js";
 import type { CollectedAction } from "./bt-types.js";
 
@@ -146,13 +146,13 @@ export function createPetBT(
 
 	function WalkToExit(): State {
 		collect("pet-exit", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function FollowAgent(): State {
 		context.state = "following";
 		collect("pet-follow", { name: context.name, target: context.followTarget });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function ReturnHome(): State {
@@ -160,32 +160,32 @@ export function createPetBT(
 		context.state = "idle";
 		context.stateTimer = 5000;
 		collect("pet-return-home", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function Nap(): State {
 		context.state = "sleeping";
 		context.stateTimer = 5000 + Math.random() * 10000;
 		collect("pet-sleep", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function PickWanderPoint(): State {
 		context.state = "wandering";
 		context.stateTimer = 3000 + Math.random() * 4000;
 		collect("pet-wander", { name: context.name, radius: context.wanderRadius });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function WalkToPoint(): State {
 		collect("pet-walk", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	function Idle(): State {
 		context.state = "idle";
 		collect("pet-idle", { name: context.name });
-		return State.SUCCEEDED;
+		return fromNodeState("succeeded");
 	}
 
 	const agent: PetBTObject = {
@@ -198,7 +198,7 @@ export function createPetBT(
 		Nap, PickWanderPoint, WalkToPoint, Idle,
 	};
 
-	const tree = new BehaviourTree(PET_MASTER_MDSL, agent as unknown as Record<string, unknown>);
+	const tree = createTree(PET_MASTER_MDSL, agent);
 
 	// Bridge: PetBTObject is not a BTAgentObject, but AgentBT just needs tree + agent.
 	// We cast to satisfy the interface — btTick only accesses tree.step() and agent.collectedActions.
