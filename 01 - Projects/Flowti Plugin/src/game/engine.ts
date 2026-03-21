@@ -158,17 +158,14 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const id = window.setInterval(() => {
 			const run = () => {
 				try {
-					store.refreshAgentResources();
+					void store.refreshAgentResources();
 				} catch {
 					/* ignore sampling errors */
 				}
 			};
-			// Defer off the timer tick so Excalibur can paint; prefer idle time on Chromium.
-			if (typeof window.requestIdleCallback === "function") {
-				window.requestIdleCallback(run, { timeout: pollMs });
-			} else {
-				window.setTimeout(run, 0);
-			}
+			// Defer off the interval tick. Avoid requestIdleCallback: sampling uses sync OS calls (e.g. PowerShell)
+			// and violates the idle deadline (~50ms), spamming DevTools with long-handler warnings.
+			window.setTimeout(run, 0);
 		}, pollMs);
 		cancelAgentResourcePoll = () => {
 			window.clearInterval(id);

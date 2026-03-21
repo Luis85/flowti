@@ -3,9 +3,13 @@
  *
  * Used by the agent world Monitor tab. Windows uses TotalProcessorTime deltas;
  * Linux uses /proc/pid/stat jiffies; macOS uses ps %cpu snapshot.
+ *
+ * **Main thread:** Prefer {@link sampleManyAgentProcessResourcesAsync} from timers/UI — Windows batch sampling
+ * used to use `execFileSync` (PowerShell) and could block the renderer for hundreds of ms per poll (lag spikes).
  */
 
 import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process/promises";
 import { readFileSync } from "node:fs";
 import { cpus } from "node:os";
 
@@ -54,46 +58,71 @@ function finishWindowsSample(
 	return { pid, rssBytes, cpuPercent, sampledAt };
 }
 
-/**
- * One PowerShell invocation for all PIDs (avoids N× tasklist + N× powershell on the 2s poll).
- * PIDs missing from output are treated as exited.
- */
-function windowsSampleBatch(pids: readonly number[]): Map<number, { rssBytes: number | null; cpuMs: number | null }> {
-	const out = new Map<number, { rssBytes: number | null; cpuMs: number | null }>();
-	const uniq = [...new Set(pids.filter((p) => Number.isInteger(p) && p > 0))];
-	if (uniq.length === 0) return out;
-
+function buildWindowsBatchCommand(uniq: readonly number[]): string {
 	const idList = uniq.join(",");
-	const psCommand =
+	return (
 		"$ids = @(" +
 		idList +
 		'); Get-Process -Id $ids -ErrorAction SilentlyContinue | ForEach-Object { "' +
 		'$($_.Id)|$($_.WorkingSet64)|$([int64]$_.TotalProcessorTime.TotalMilliseconds)' +
-		'" }';
+		'" }'
+	);
+}
+
+function parseWindowsBatchOutput(raw: string): Map<number, { rssBytes: number | null; cpuMs: number | null }> {
+	const out = new Map<number, { rssBytes: number | null; cpuMs: number | null }>();
+	for (const line of raw.split(/\r?\n/)) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		const parts = trimmed.split("|");
+		const pid = parseInt(parts[0] ?? "", 10);
+		const rss = parseInt(parts[1] ?? "", 10);
+		const cpu = parseInt(parts[2] ?? "", 10);
+		if (!Number.isFinite(pid) || pid <= 0) continue;
+		out.set(pid, {
+			rssBytes: Number.isFinite(rss) ? rss : null,
+			cpuMs: Number.isFinite(cpu) ? cpu : null,
+		});
+	}
+	return out;
+}
+
+/**
+ * One PowerShell invocation for all PIDs (sync — blocks JS thread until PowerShell returns).
+ * Prefer {@link windowsSampleBatchAsync} from async call sites.
+ */
+function windowsSampleBatch(pids: readonly number[]): Map<number, { rssBytes: number | null; cpuMs: number | null }> {
+	const uniq = [...new Set(pids.filter((p) => Number.isInteger(p) && p > 0))];
+	if (uniq.length === 0) return new Map();
 
 	try {
 		const raw = execFileSync(
 			"powershell.exe",
-			["-NoProfile", "-NonInteractive", "-Command", psCommand],
+			["-NoProfile", "-NonInteractive", "-Command", buildWindowsBatchCommand(uniq)],
 			{ encoding: "utf-8", timeout: 10000, windowsHide: true },
 		).trim();
-		for (const line of raw.split(/\r?\n/)) {
-			const trimmed = line.trim();
-			if (!trimmed) continue;
-			const parts = trimmed.split("|");
-			const pid = parseInt(parts[0] ?? "", 10);
-			const rss = parseInt(parts[1] ?? "", 10);
-			const cpu = parseInt(parts[2] ?? "", 10);
-			if (!Number.isFinite(pid) || pid <= 0) continue;
-			out.set(pid, {
-				rssBytes: Number.isFinite(rss) ? rss : null,
-				cpuMs: Number.isFinite(cpu) ? cpu : null,
-			});
-		}
+		return parseWindowsBatchOutput(raw);
 	} catch {
-		/* caller treats missing PIDs as dead */
+		return new Map();
 	}
-	return out;
+}
+
+/** Non-blocking Windows batch sample (PowerShell runs while the event loop can process input/repaint). */
+async function windowsSampleBatchAsync(pids: readonly number[]): Promise<Map<number, { rssBytes: number | null; cpuMs: number | null }>> {
+	const uniq = [...new Set(pids.filter((p) => Number.isInteger(p) && p > 0))];
+	if (uniq.length === 0) return new Map();
+
+	try {
+		const { stdout } = await execFile(
+			"powershell.exe",
+			["-NoProfile", "-NonInteractive", "-Command", buildWindowsBatchCommand(uniq)],
+			{ encoding: "utf8", timeout: 10000, windowsHide: true },
+		);
+		const raw = (typeof stdout === "string" ? stdout : String(stdout)).trim();
+		return parseWindowsBatchOutput(raw);
+	} catch {
+		return new Map();
+	}
 }
 
 function windowsSample(pid: number): { rssBytes: number | null; cpuMs: number | null } {
@@ -222,6 +251,8 @@ export function sampleAgentProcessResources(pid: number): AgentProcessResources 
 /**
  * Sample RSS/CPU for many PIDs in one OS round-trip on Windows (single PowerShell).
  * On other platforms, falls back to {@link sampleAgentProcessResources} per PID.
+ *
+ * On Windows this blocks until PowerShell completes — use {@link sampleManyAgentProcessResourcesAsync} from the game/UI.
  */
 export function sampleManyAgentProcessResources(pids: readonly number[]): Map<number, AgentProcessResources> {
 	const sampledAt = Date.now();
@@ -230,6 +261,35 @@ export function sampleManyAgentProcessResources(pids: readonly number[]): Map<nu
 
 	if (process.platform === "win32") {
 		const batch = windowsSampleBatch(uniq);
+		for (const pid of uniq) {
+			const row = batch.get(pid);
+			if (!row) {
+				deleteCpuPrev(pid);
+				result.set(pid, { pid, rssBytes: null, cpuPercent: null, sampledAt });
+				continue;
+			}
+			result.set(pid, finishWindowsSample(pid, row.rssBytes, row.cpuMs, sampledAt));
+		}
+		return result;
+	}
+
+	for (const pid of uniq) {
+		result.set(pid, sampleAgentProcessResources(pid));
+	}
+	return result;
+}
+
+/**
+ * Async variant: on Windows, PowerShell does not block the JavaScript thread (reduces canvas/UI hitches).
+ * Other platforms still run synchronous per-PID sampling after the await (typically cheaper than Windows).
+ */
+export async function sampleManyAgentProcessResourcesAsync(pids: readonly number[]): Promise<Map<number, AgentProcessResources>> {
+	const sampledAt = Date.now();
+	const uniq = [...new Set(pids.filter((p) => Number.isInteger(p) && p > 0))];
+	const result = new Map<number, AgentProcessResources>();
+
+	if (process.platform === "win32") {
+		const batch = await windowsSampleBatchAsync(uniq);
 		for (const pid of uniq) {
 			const row = batch.get(pid);
 			if (!row) {

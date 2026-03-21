@@ -77,9 +77,6 @@ export function wireDataExchange(deps: DataExchangeWiringDeps): void {
 			);
 		}
 	};
-	if (typeof requestIdleCallback !== "undefined") {
-		requestIdleCallback(() => { registerDxHeavyUi(); }, { timeout: 2500 });
-	} else {
-		setTimeout(registerDxHeavyUi, 0);
-	}
+	// Defer past first paint; avoid requestIdleCallback — registration can take hundreds of ms and violates idle budget.
+	setTimeout(registerDxHeavyUi, 0);
 }

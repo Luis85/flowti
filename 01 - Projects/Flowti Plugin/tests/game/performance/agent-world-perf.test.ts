@@ -39,8 +39,8 @@ describe("createAgentWorldPerfCollector", () => {
 		c.onPostframe(0.4);
 		c.afterFullFrame();
 
-		// Sample emit is deferred off the frame path (idle / microtask).
-		await Promise.resolve();
+		// Sample emit is deferred with setTimeout(0).
+		await new Promise<void>((r) => setTimeout(r, 0));
 		expect(emitted.some((e) => e.type === "perf.agentWorld.sample")).toBe(true);
 		const sample = emitted.find((e) => e.type === "perf.agentWorld.sample")?.payload as {
 			windowFrames: number;

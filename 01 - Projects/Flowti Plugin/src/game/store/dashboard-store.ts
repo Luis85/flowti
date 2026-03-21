@@ -7,7 +7,7 @@ import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
 import { findNodeBinary } from "../../infrastructure/agents/cli-executor.js";
 import {
-	sampleManyAgentProcessResources,
+	sampleManyAgentProcessResourcesAsync,
 	type AgentProcessResources,
 } from "../../infrastructure/agents/agent-process-metrics.js";
 
@@ -143,7 +143,8 @@ export class DashboardStore extends EventTarget {
 	pushDebugEntry(agentName: string, prompt: string, context?: string): void {
 		this.debugLog.push({ timestamp: Date.now(), agentName, prompt, context });
 		if (this.debugLog.length > 50) this.debugLog.shift();
-		this.notify();
+		// Avoid full overlay re-renders on every LLM prompt when Debug tab is off (wake/send spikes the canvas).
+		if (this.debugMode) this.notify();
 	}
 
 	pushDebugResponse(agentName: string, rawResponse: string): void {
@@ -168,6 +169,10 @@ export class DashboardStore extends EventTarget {
 	private eventUnsubs: Map<string, () => void> = new Map();
 	/** Clears stuck "thinking" if the LLM CLI never completes (missing Claude, hung process, …). */
 	private thinkingWatchdogs = new Map<string, ReturnType<typeof setTimeout>>();
+	/** Coalesce rapid template-chatter updates (selected agent → panel) so we do not notify every line. */
+	private agentThoughtNotifyTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Skip overlapping polls — async Windows sampling can outlast the interval. */
+	private agentResourceRefreshInFlight = false;
 
 	private cliExecutor: ICliExecutor | null;
 	private worldContext: WorldContext | null;
@@ -329,51 +334,60 @@ export class DashboardStore extends EventTarget {
 
 	/**
 	 * Refresh memory/CPU metrics for running agent CLI processes (spawned via CliExecutor).
-	 * No-op without a CliExecutor. Safe to call on an interval.
+	 * No-op without a CliExecutor. Safe to call on an interval (use `void store.refreshAgentResources()`).
+	 * Uses async OS sampling on Windows so PowerShell does not block the main thread for hundreds of ms.
 	 */
-	refreshAgentResources(): void {
+	async refreshAgentResources(): Promise<void> {
 		if (!this.cliExecutor) return;
+		if (this.agentResourceRefreshInFlight) return;
+		this.agentResourceRefreshInFlight = true;
 
-		let changed = false;
+		try {
+			let changed = false;
 
-		for (const name of [...this.agentResourceMetrics.keys()]) {
-			const proc = this.agentProcesses.get(name);
-			if (!proc?.running) {
-				this.agentResourceMetrics.delete(name);
-				changed = true;
+			for (const name of [...this.agentResourceMetrics.keys()]) {
+				const proc = this.agentProcesses.get(name);
+				if (!proc?.running) {
+					this.agentResourceMetrics.delete(name);
+					changed = true;
+				}
 			}
-		}
 
-		const running: Array<{ name: string; pid: number }> = [];
-		for (const [name, proc] of this.agentProcesses) {
-			if (!proc.running) continue;
-			const pid = proc.getPid();
-			if (pid == null) continue;
-			running.push({ name, pid });
-		}
-
-		const byPid =
-			running.length > 0 ? sampleManyAgentProcessResources(running.map((r) => r.pid)) : new Map<number, AgentProcessResources>();
-
-		for (const { name, pid } of running) {
-			const next =
-				byPid.get(pid)
-				?? ({ pid, rssBytes: null, cpuPercent: null, sampledAt: Date.now() } satisfies AgentProcessResources);
-			const prev = this.agentResourceMetrics.get(name);
-			this.agentResourceMetrics.set(name, next);
-			if (
-				!prev
-				|| prev.pid !== next.pid
-				|| prev.rssBytes !== next.rssBytes
-				|| prev.cpuPercent !== next.cpuPercent
-				|| prev.sampledAt !== next.sampledAt
-			) {
-				changed = true;
+			const running: Array<{ name: string; pid: number }> = [];
+			for (const [name, proc] of this.agentProcesses) {
+				if (!proc.running) continue;
+				const pid = proc.getPid();
+				if (pid == null) continue;
+				running.push({ name, pid });
 			}
-		}
 
-		if (changed) {
-			this.dispatchEvent(new Event(AGENT_RESOURCES_CHANGED_EVENT));
+			const byPid =
+				running.length > 0
+					? await sampleManyAgentProcessResourcesAsync(running.map((r) => r.pid))
+					: new Map<number, AgentProcessResources>();
+
+			for (const { name, pid } of running) {
+				const next =
+					byPid.get(pid)
+					?? ({ pid, rssBytes: null, cpuPercent: null, sampledAt: Date.now() } satisfies AgentProcessResources);
+				const prev = this.agentResourceMetrics.get(name);
+				this.agentResourceMetrics.set(name, next);
+				if (
+					!prev
+					|| prev.pid !== next.pid
+					|| prev.rssBytes !== next.rssBytes
+					|| prev.cpuPercent !== next.cpuPercent
+					|| prev.sampledAt !== next.sampledAt
+				) {
+					changed = true;
+				}
+			}
+
+			if (changed) {
+				this.dispatchEvent(new Event(AGENT_RESOURCES_CHANGED_EVENT));
+			}
+		} finally {
+			this.agentResourceRefreshInFlight = false;
 		}
 	}
 
@@ -428,7 +442,14 @@ export class DashboardStore extends EventTarget {
 
 	// ── Conversation management ───────────────────────────────────
 
+	private cancelAgentThoughtNotifyDebounce(): void {
+		if (this.agentThoughtNotifyTimer == null) return;
+		clearTimeout(this.agentThoughtNotifyTimer);
+		this.agentThoughtNotifyTimer = null;
+	}
+
 	pushUserMessage(agentName: string, text: string): void {
+		this.cancelAgentThoughtNotifyDebounce();
 		const turns = this.conversations.get(agentName) ?? [];
 		turns.push({ role: "user", text, timestamp: Date.now() });
 		this.conversations.set(agentName, turns);
@@ -439,6 +460,7 @@ export class DashboardStore extends EventTarget {
 	}
 
 	pushAgentResponse(agentName: string, text: string): void {
+		this.cancelAgentThoughtNotifyDebounce();
 		this.clearThinkingWatchdog(agentName);
 		const turns = this.conversations.get(agentName) ?? [];
 		// Dedup: skip if the last turn is the same agent message within 5 seconds
@@ -456,7 +478,11 @@ export class DashboardStore extends EventTarget {
 		const turns = this.conversations.get(agentName) ?? [];
 		turns.push({ role: "agent", text, timestamp: Date.now() });
 		this.conversations.set(agentName, turns);
-		this.notify();
+		if (this.agentThoughtNotifyTimer != null) clearTimeout(this.agentThoughtNotifyTimer);
+		this.agentThoughtNotifyTimer = setTimeout(() => {
+			this.agentThoughtNotifyTimer = null;
+			this.notify();
+		}, 96);
 	}
 
 	getConversation(agentName: string): readonly ConversationTurn[] {
@@ -686,13 +712,25 @@ export class DashboardStore extends EventTarget {
 		if (now - (this.wokenAgents.get(agentName) ?? 0) < DashboardStore.WAKE_COOLDOWN_MS) return;
 		this.wokenAgents.set(agentName, now);
 		if (!this.cliExecutor || !this.cliSessionAvailable) return;
-		const proc = this.getOrStartProcess(agentName);
-		if (proc && this.worldContext) {
-			const context = this.buildMessageContext(agentName);
-			const primer = `${context}\n\nYou have just been summoned by the Director. Acknowledge briefly \u2014 one sentence, in character.`;
-			this.pushDebugEntry(agentName, primer, "wake-up");
-			proc.send(primer);
-		}
-		await this.cliExecutor.wakeAgent(agentName);
+
+		const executor = this.cliExecutor;
+		const hadWorldContext = this.worldContext != null;
+
+		/** Defer spawn + vault context build off the interaction/game frame (spawn, serialize, CLI one-shot are janky if synchronous here). */
+		const runWakeWork = (): void => {
+			if (!this.cliSessionAvailable) return;
+			const proc = this.getOrStartProcess(agentName);
+			if (proc && hadWorldContext && this.worldContext) {
+				const context = this.buildMessageContext(agentName);
+				const primer = `${context}\n\nYou have just been summoned by the Director. Acknowledge briefly \u2014 one sentence, in character.`;
+				this.pushDebugEntry(agentName, primer, "wake-up");
+				proc.send(primer);
+			}
+			// Do not await: agent:wake one-shot blocks the JS thread; it is not needed for the primer send path.
+			void executor.wakeAgent(agentName);
+		};
+
+		// setTimeout — not requestIdleCallback: spawn + context build routinely exceed idle budget.
+		globalThis.setTimeout(runWakeWork, 0);
 	}
 }

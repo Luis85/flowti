@@ -43,16 +43,13 @@ export interface AgentWorldPerfSink {
 	dispose(): void;
 }
 
-/** Run work after the current frame / when the browser is idle to avoid hitching Excalibur's loop. */
+/**
+ * Defer perf sample emission past the current simulation/postframe stack.
+ * Do **not** use `requestIdleCallback` here: subscribers (Lit, aggregators) can take hundreds of ms and
+ * Chrome reports `[Violation] requestIdleCallback handler took Nms` when work exceeds the idle budget.
+ */
 function schedulePerfSampleDelivery(run: () => void): void {
-	const g = globalThis as typeof globalThis & {
-		requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-	};
-	if (typeof g.requestIdleCallback === "function") {
-		g.requestIdleCallback(() => run(), { timeout: 250 });
-		return;
-	}
-	queueMicrotask(run);
+	globalThis.setTimeout(run, 0);
 }
 
 export interface AgentWorldPerfCollectorOptions {
