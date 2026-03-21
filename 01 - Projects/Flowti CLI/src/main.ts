@@ -66,6 +66,7 @@ import { commands as storybookCmds } from "./controller/storybook.controller.js"
 import { commands as agentCmds } from "./controller/agent.controller.js";
 import { commands as taskCmds } from "./controller/task.controller.js";
 import { commands as economyCmds } from "./controller/economy.controller.js";
+import { commands as trustCmds } from "./controller/trust.controller.js";
 import { shouldOnboard } from "./domain/onboarding/onboarding-detection.js";
 import { disk, watchFile } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
@@ -129,8 +130,9 @@ registry.registerDomain({ domain: "workspace", commands: workspaceCmds, projectF
 registry.registerDomain({ domain: "vault-test", commands: vaultTestCmds, projectFree: ["test:vault", "test:vault:smoke", "test:vault:integration", "test:vault:ecosystem"] });
 registry.registerDomain({ domain: "storybook", commands: storybookCmds, projectFree: ["storybook:scaffold"] });
 registry.registerDomain({ domain: "agent", commands: agentCmds, projectFree: ["agent:list", "agent:task", "agent:wake", "agent:permission"] });
-registry.registerDomain({ domain: "task", commands: taskCmds, projectFree: ["task:list", "task:create", "task:assign"] });
+registry.registerDomain({ domain: "task", commands: taskCmds, projectFree: ["task:list", "task:create", "task:assign", "task:review", "task:approve", "task:reject", "task:standing-orders"] });
 registry.registerDomain({ domain: "economy", commands: economyCmds, projectFree: ["economy:balance", "economy:ledger", "economy:grant"] });
+registry.registerDomain({ domain: "trust", commands: trustCmds, projectFree: ["trust:show", "trust:promote", "trust:demote", "trust:history"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 registry.setWildcardPrefix("report:");
 
