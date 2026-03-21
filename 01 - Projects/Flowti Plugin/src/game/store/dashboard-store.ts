@@ -1,5 +1,6 @@
 import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting, TrackedTask } from "../data/types.js";
 import type { BrainState } from "../brain/brain-types.js";
+import type { AgentNeeds } from "../systems/needs-system.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
 import {
@@ -55,6 +56,15 @@ export class DashboardStore extends EventTarget {
 	unreadAgents: Set<string> = new Set();
 	agentEventLog: Map<string, { timestamp: number; type: string; summary: string }[]> = new Map();
 	taskLockedAgents: Set<string> = new Set();
+	agentNeeds: Map<string, AgentNeeds> = new Map();
+
+	setAgentNeeds(name: string, needs: AgentNeeds): void {
+		this.agentNeeds.set(name, needs);
+	}
+
+	getAgentNeeds(name: string): AgentNeeds | undefined {
+		return this.agentNeeds.get(name);
+	}
 
 	currentScene: Setting = "hub";
 

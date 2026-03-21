@@ -446,7 +446,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Post-frame adapter: push positions/targets/states to store ──
 	engine.on("postframe", createPostframeHandler({
-		engine, store, brainSystem, findCurrentSceneActor,
+		engine, store, brainSystem, needsSystem, findCurrentSceneActor,
 	}));
 
 	// ── Keyboard handling ───────────────────────────────

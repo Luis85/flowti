@@ -7,6 +7,7 @@
 
 import * as ex from "excalibur";
 import type { BrainSystem } from "./systems/brain-system.js";
+import type { NeedsSystem } from "./systems/needs-system.js";
 import type { DashboardStore, Point } from "./store/dashboard-store.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 
@@ -14,6 +15,7 @@ export interface PostframeDeps {
 	engine: ex.Engine;
 	store: DashboardStore;
 	brainSystem: BrainSystem;
+	needsSystem: NeedsSystem;
 	findCurrentSceneActor: (name: string) => AgentActor | undefined;
 }
 
@@ -22,7 +24,7 @@ export interface PostframeDeps {
  * Returns the handler function for `engine.on("postframe", handler)`.
  */
 export function createPostframeHandler(deps: PostframeDeps): () => void {
-	const { engine, store, brainSystem, findCurrentSceneActor } = deps;
+	const { engine, store, brainSystem, needsSystem, findCurrentSceneActor } = deps;
 
 	return () => {
 		store.beginBatch();
@@ -45,6 +47,11 @@ export function createPostframeHandler(deps: PostframeDeps): () => void {
 				store.clearAgentTarget(name);
 			}
 			store.setAgentState(name, entry.state);
+		}
+
+		// Push agent needs to store for UI consumption
+		for (const agentName of needsSystem.getAgentNames()) {
+			store.setAgentNeeds(agentName, needsSystem.getNeeds(agentName));
 		}
 
 		store.updatePositions(positions);
