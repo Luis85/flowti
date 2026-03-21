@@ -1725,6 +1725,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 					pet.pos.y = saved.y;
 				}
 				scene.add(pet);
+				scene.registerEntity(pet);
 				registry.setEntityRoom(pet.entityId, targetRoom);
 			}
 

@@ -212,6 +212,7 @@ export default defineConfig([
         files: [
             "src/infrastructure/events/catalog.ts",
             "src/infrastructure/events/events.ts",
+            "src/game/systems/talk/templates/core.ts",
         ],
         rules: {
             "max-lines": "off",

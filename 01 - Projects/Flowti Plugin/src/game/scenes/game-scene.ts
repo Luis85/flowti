@@ -9,6 +9,7 @@
 
 import * as ex from "excalibur";
 import type { DashboardAgent } from "../data/types.js";
+import type { SceneEntity } from "../data/scene-entity.js";
 import type { GameSceneConfig, OverlayConfig } from "../data/scene-configs.js";
 import type { DoorConfig, SceneHandle } from "../systems/scene-registry.js";
 import { AgentActor } from "../actors/agent-actor.js";
@@ -19,15 +20,6 @@ import { resolveCharacter } from "../sprites/character-pool.js";
 import type { AgentSprites } from "../sprites/sprite-loader.js";
 import { WORKSTATION_COLS, WORKSTATION_SPACING, WORKSTATION_START } from "../config/settings.js";
 import { resolveSettingForDomain } from "../config/domain-map.js";
-
-// ── Phase 3 entity interface (inline until scene-entity.ts exists) ──
-
-interface SceneEntityLike {
-	readonly entityId: string;
-	createActor(x: number, y: number): ex.Actor;
-	onEnterScene(x: number, y: number): void;
-	onExitScene(): void;
-}
 
 // ── Hub layout constants ────────────────────────────────────────────
 
@@ -48,7 +40,8 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	private readonly callbacks: GameSceneCallbacks;
 	private readonly workstations: WorkstationActor[] = [];
 	private readonly agentActors = new Map<string, AgentActor>();
-	private readonly sceneEntities = new Map<string, SceneEntityLike>();
+	private readonly sceneEntities = new Map<string, SceneEntity>();
+	private readonly transferredOut = new Set<string>();
 	private brainSystem: BrainSystem | null = null;
 	private spriteRegistry: Map<string, AgentSprites> = new Map();
 
@@ -302,7 +295,15 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	}
 
 	getAgentActor(name: string): AgentActor | undefined {
-		return this.agentActors.get(name);
+		const old = this.agentActors.get(name);
+		if (old) return old;
+		// Phase 3 entity — check SceneEntity wrapper (post-RoomSwitcher transfers)
+		const entity = this.sceneEntities.get(name);
+		if (entity && entity.entityType === "agent") {
+			const actor = entity.getActor();
+			if (actor) return actor as AgentActor;
+		}
+		return undefined;
 	}
 
 	getAgentActors(): ReadonlyMap<string, AgentActor> {
@@ -395,7 +396,8 @@ export class GameScene extends ex.Scene implements SceneHandle {
 				const actor = this.agentActors.get(agent.name)!;
 				actor.agentData = agent;
 				actor.updateVisualStatus(agent.status);
-			} else {
+			} else if (!this.sceneEntities.has(agent.name) && !this.transferredOut.has(agent.name)) {
+				// Only create if not managed by Phase 3 or transferred out
 				const charName = resolveCharacter(agent.name, agent.domain ?? "");
 				const sprites = this.spriteRegistry.get(charName);
 				if (!sprites) continue;
@@ -412,7 +414,7 @@ export class GameScene extends ex.Scene implements SceneHandle {
 			}
 		}
 
-		// Remove stale agent actors
+		// Remove stale agent actors (skip entities managed by Phase 3)
 		for (const [name, actor] of this.agentActors) {
 			if (!incoming.has(name)) {
 				actor.kill();
@@ -424,8 +426,9 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	// ── NEW APIs (Phase 3 — SceneEntity-based) ──────────────────────
 
 	/** Enter a scene entity from another scene (or null for initial spawn). */
-	enter(entity: SceneEntityLike, fromScene: string | null): void {
+	enter(entity: SceneEntity, fromScene: string | null): void {
 		if (this.sceneEntities.has(entity.entityId)) return;
+		this.transferredOut.delete(entity.entityId);
 
 		// Find the door matching the source scene for spawn positioning
 		let spawnX: number;
@@ -454,21 +457,41 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		this.sceneEntities.set(entity.entityId, entity);
 	}
 
-	/** Remove a scene entity by id. */
+	/** Remove a scene entity by id (handles both Phase 3 and old-API actors). */
 	exit(entityId: string): void {
+		// Phase 3 entity — get actor BEFORE onExitScene nulls the reference
 		const entity = this.sceneEntities.get(entityId);
-		if (!entity) return;
-		entity.onExitScene();
-		this.sceneEntities.delete(entityId);
+		if (entity) {
+			const actor = entity.getActor();
+			entity.onExitScene();
+			if (actor) this.remove(actor);
+			this.sceneEntities.delete(entityId);
+		}
+
+		// Old-API agent actor (pre-Phase 3 placement via spawnAgent)
+		const oldActor = this.agentActors.get(entityId);
+		if (oldActor) {
+			const ws = this.workstations.find((w) => w.occupantName === entityId);
+			if (ws) ws.vacate();
+			oldActor.kill();
+			this.agentActors.delete(entityId);
+		}
+
+		this.transferredOut.add(entityId);
+	}
+
+	/** Register an existing scene actor for Phase 3 exit() tracking. */
+	registerEntity(entity: SceneEntity): void {
+		this.sceneEntities.set(entity.entityId, entity);
 	}
 
 	/** Get a tracked scene entity by id. */
-	getEntity(id: string): SceneEntityLike | undefined {
+	getEntity(id: string): SceneEntity | undefined {
 		return this.sceneEntities.get(id);
 	}
 
 	/** Get all tracked scene entities. */
-	getEntities(): ReadonlyMap<string, SceneEntityLike> {
+	getEntities(): ReadonlyMap<string, SceneEntity> {
 		return this.sceneEntities;
 	}
 
