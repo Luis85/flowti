@@ -19,6 +19,8 @@ import {
 	WEATHER_PARTICLE_CHANCE, WEATHER_PARTICLE_LIFETIME, WEATHER_PARTICLE_OPACITY,
 	DOG_FOLLOW_CHANCE, CAT_FOLLOW_STRESSED_CHANCE, CAT_STRESS_MORALE_THRESHOLD,
 	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS,
+	PET_SHARE_COOLDOWN, PET_SHARE_EFFECT_RATIO, PET_SHARE_SOCIAL_BONUS,
+	FOOD_DRINK_OBJECT_TYPES,
 } from "./engine-config.js";
 
 // ── Composite tick — called from engine.ts preframe hook ─────────────
@@ -178,6 +180,7 @@ export function tickPets(ctx: EngineContext): void {
 		updatePetFollow(ctx, pet, petRoom);
 		tryPetAutoFollow(ctx, pet, petRoom);
 		checkPetProximityReactions(ctx, pet, petRoom);
+		checkPetShareInteraction(ctx, pet, petRoom);
 	}
 }
 
@@ -242,6 +245,57 @@ function checkPetProximityReactions(ctx: EngineContext, pet: import("./actors/pe
 			ctx.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.findAgentActor, 3000);
 		}
 		ctx.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
+	}
+}
+
+/** Pet share — when a pet is near an occupied food/drink station, both benefit. */
+function checkPetShareInteraction(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
+	if (pet.getState() === "sleeping" || !petRoom) return;
+
+	// Check all food/drink objects in the pet's room
+	const allObjects: InteractableActor[] = [
+		ctx.coffeeMachine, ctx.snackTable, ctx.waterCooler,
+		ctx.foodBowlHub, ctx.foodBowlVillage,
+		ctx.waterBowlOffice, ctx.waterBowlStation,
+	];
+	for (const obj of allObjects) {
+		if (!FOOD_DRINK_OBJECT_TYPES.has(obj.objectType)) continue;
+		const occupant = obj.getOccupant();
+		if (!occupant) continue;
+		// Occupant must be in the same room as the pet
+		if (ctx.registry.getEntityRoom(occupant) !== petRoom) continue;
+		// Distance check between pet and the object
+		const point = obj.getInteractionPoint();
+		const dx = pet.pos.x - point.x;
+		const dy = pet.pos.y - point.y;
+		const dist = Math.sqrt(dx * dx + dy * dy);
+		if (dist >= pet.getInteractRadius()) continue;
+		// Cooldown check per agent-pet pair
+		const cooldownKey = `share:${occupant}:${pet.entityId}`;
+		const lastShare = ctx.petShareCooldowns.get(cooldownKey) ?? 0;
+		if (performance.now() - lastShare <= PET_SHARE_COOLDOWN) continue;
+
+		ctx.petShareCooldowns.set(cooldownKey, performance.now());
+
+		// Pet gets 50% of the station's effects
+		const effects = obj.getNeedsEffects();
+		const scaledEffects: Partial<{ energy: number; social: number; focus: number; morale: number; hunger: number; thirst: number }> = {};
+		for (const [key, val] of Object.entries(effects)) {
+			if (typeof val === "number") {
+				(scaledEffects as Record<string, number>)[key] = val * PET_SHARE_EFFECT_RATIO;
+			}
+		}
+		ctx.needs.applyEffect(pet.entityId, scaledEffects);
+
+		// Agent gets social bonus
+		ctx.needs.applyEffect(occupant, { social: PET_SHARE_SOCIAL_BONUS });
+
+		// Heart particles between agent and pet
+		const agentPos = ctx.brain.getPosition(occupant);
+		if (agentPos) {
+			ctx.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
+		}
+		break; // one share interaction per pet per frame
 	}
 }
 

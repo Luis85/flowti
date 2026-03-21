@@ -300,7 +300,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Pre-update loop state ───────────────────────────
 	const lastTime = performance.now();
 	const prevWalkingState = new Map<string, boolean>();
-	const lastTrailPos = new Map<string, { x: number; y: number }>(); const petReactionCooldowns = new Map<string, number>();
+	const lastTrailPos = new Map<string, { x: number; y: number }>(); const petReactionCooldowns = new Map<string, number>(); const petShareCooldowns = new Map<string, number>();
 
 	// ── Particle renderers + environmental objects + lighting ────────
 	for (const scene of [hubScene, officeScene, villageScene, stationScene]) {
@@ -420,6 +420,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		prevWalkingState,
 		lastTrailPos,
 		petReactionCooldowns,
+		petShareCooldowns,
 		knownEntities,
 		recentActionIds,
 		prevCycleCount,

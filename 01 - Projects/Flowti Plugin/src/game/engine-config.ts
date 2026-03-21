@@ -196,19 +196,19 @@ export const OBJECT_ATTRACTION_RULES: readonly ObjectAttractionRule[] = [
 	{
 		objectKey: "coffeeMachine",
 		phases: ["morning-arrival", "afternoon-slump"],
-		needCheck: (n) => n.energy < 40,
+		needCheck: (n) => n.energy < 40 || n.thirst < 40,
 		chance: 0.002,
 	},
 	{
 		objectKey: "snackTable",
 		phases: ["lunch", "afternoon-slump"],
-		needCheck: (n) => n.energy < 50 && n.social < 40,
+		needCheck: (n) => n.hunger < 40,
 		chance: 0.002,
 	},
 	{
 		objectKey: "waterCooler",
 		phases: ["afternoon", "afternoon-slump"],
-		needCheck: (n) => n.social < 30,
+		needCheck: (n) => n.social < 30 || n.thirst < 30,
 		chance: 0.001,
 	},
 	{
@@ -216,6 +216,30 @@ export const OBJECT_ATTRACTION_RULES: readonly ObjectAttractionRule[] = [
 		phases: ["afternoon-slump", "wind-down"],
 		needCheck: () => false,
 		chance: 0.001,
+	},
+	{
+		objectKey: "foodBowlHub",
+		phases: ["lunch"],
+		needCheck: (n) => n.hunger < 25,
+		chance: 0.002,
+	},
+	{
+		objectKey: "foodBowlVillage",
+		phases: ["lunch"],
+		needCheck: (n) => n.hunger < 25,
+		chance: 0.002,
+	},
+	{
+		objectKey: "waterBowlOffice",
+		phases: ["morning-arrival", "morning-focus", "lunch", "afternoon", "afternoon-slump", "wind-down"],
+		needCheck: (n) => n.thirst < 20,
+		chance: 0.002,
+	},
+	{
+		objectKey: "waterBowlStation",
+		phases: ["morning-arrival", "morning-focus", "lunch", "afternoon", "afternoon-slump", "wind-down"],
+		needCheck: (n) => n.thirst < 20,
+		chance: 0.002,
 	},
 ];
 
@@ -274,6 +298,18 @@ export const CAT_STRESS_MORALE_THRESHOLD = 30;
 
 /** Object attraction arrival delay before applying effects (ms). */
 export const OBJECT_EFFECT_DELAY = 5000;
+
+/** Pet share cooldown — how long before the same agent-pet pair can share again (ms). */
+export const PET_SHARE_COOLDOWN = 30000;
+
+/** Multiplier for pet share — pet gets this fraction of the station's effects. */
+export const PET_SHARE_EFFECT_RATIO = 0.5;
+
+/** Social bonus an agent gets when sharing food/drink with a pet. */
+export const PET_SHARE_SOCIAL_BONUS = 3;
+
+/** Object types that are food or drink stations (eligible for pet sharing). */
+export const FOOD_DRINK_OBJECT_TYPES = new Set(["food", "drink", "appliance"]);
 
 /** BrainSystem bounds configuration. */
 export const BRAIN_BOUNDS = {

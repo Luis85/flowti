@@ -147,6 +147,8 @@ export interface EngineContext {
 	readonly lastTrailPos: Map<string, { x: number; y: number }>;
 	/** Cooldown tracking for pet proximity reactions. */
 	readonly petReactionCooldowns: Map<string, number>;
+	/** Cooldown tracking for pet food/drink share interactions. */
+	readonly petShareCooldowns: Map<string, number>;
 	/** Known entity IDs to distinguish initial adds from updates. */
 	readonly knownEntities: Set<string>;
 	/** Dedup guard for SSE/EventBus action relay. */
