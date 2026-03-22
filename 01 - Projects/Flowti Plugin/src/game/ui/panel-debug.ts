@@ -300,6 +300,8 @@ export class PanelDebug extends FlowtiElement {
 	}
 
 	private handleTrustMode(op: string, mode: TrustMode): void {
+		this.trustOverrides.set(op, mode);
+		this.requestUpdate();
 		this.dispatch("debug-trust-mode", { op, mode });
 	}
 
@@ -391,6 +393,7 @@ export class PanelDebug extends FlowtiElement {
 									class="mode-btn"
 									data-op="${op}"
 									data-mode="${mode}"
+									data-active="${this.trustOverrides.get(op) === mode}"
 									@click="${() => { this.handleTrustMode(op, mode); }}"
 								>${mode}</button>
 							`)}

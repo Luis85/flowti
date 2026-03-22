@@ -274,22 +274,36 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 				const current = store.getAgentEconomy(agentResult.name);
 				if (!current) continue;
 				// Persist to CLI ledger first (CLI is data authority)
+				let usedCliTotals = false;
 				if (nodeBin && cliBin && vaultBasePath && existsSync(cliBin)) {
 					try {
-						await runOneShotCommand(
+						const output = await runOneShotCommand(
 							nodeBin, cliBin,
 							["economy:reward", `--agent=${agentResult.name}`, `--xp=${agentResult.xpEarned}`, `--coin=${agentResult.coinEarned}`, "--format=json"],
 							vaultBasePath,
 						);
+						const reward = output as {
+							totalXp?: number; totalCoin?: number; level?: number;
+						};
+						if (reward.totalXp !== undefined && reward.totalCoin !== undefined) {
+							store.setAgentEconomy(agentResult.name, {
+								coin: reward.totalCoin,
+								xp: reward.totalXp,
+								level: reward.level ?? agentResult.currentLevel,
+							});
+							usedCliTotals = true;
+						}
 					} catch {
 						// CLI not available — fall through to store-only update
 					}
 				}
-				store.setAgentEconomy(agentResult.name, {
-					coin: current.coin + agentResult.coinEarned,
-					xp: current.xp + agentResult.xpEarned,
-					level: agentResult.currentLevel,
-				});
+				if (!usedCliTotals) {
+					store.setAgentEconomy(agentResult.name, {
+						coin: current.coin + agentResult.coinEarned,
+						xp: current.xp + agentResult.xpEarned,
+						level: agentResult.currentLevel,
+					});
+				}
 				// Record narrative beat for offline earnings
 				narrativeSystem.recordBeat({
 					timestamp: Date.now(),

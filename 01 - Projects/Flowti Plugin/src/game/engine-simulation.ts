@@ -457,6 +457,8 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			btAgent.context.needs.social = live.social;
 			btAgent.context.needs.focus = live.focus;
 			btAgent.context.needs.morale = live.morale;
+			btAgent.context.needs.hunger = live.hunger;
+			btAgent.context.needs.thirst = live.thirst;
 			btAgent.context.echoStore = sys.echo;
 			btAgent.context.currentRoom = sys.registry.getEntityRoom(agentName);
 		}
