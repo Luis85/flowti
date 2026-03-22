@@ -128,6 +128,37 @@ describe("ConversationEngine", () => {
 		expect(recordConversation).toHaveBeenCalledWith("Atlas", "Rex");
 	});
 
+	it("skips turns with unmet conditions", () => {
+		const condScript: ConversationScript = {
+			id: "test-conditional",
+			tierRange: ["acquaintance", "best-friend"],
+			domainFilter: null,
+			trigger: "proximity",
+			weight: 10,
+			cooldownMs: 0,
+			tags: [],
+			turns: [
+				{ speaker: "A", text: "Hey!", delayMs: 0, kind: "speech" },
+				{ speaker: "pet", text: "meow", delayMs: 500, kind: "thought", condition: { type: "petPresent" } },
+				{ speaker: "B", text: "Bye!", delayMs: 500, kind: "speech" },
+			],
+		};
+		engine.registerScripts([condScript]);
+		// No pet in context — pet turn should be skipped
+		engine.tryScript("Atlas", "Rex", "proximity", {
+			domainA: "engineering",
+			domainB: "design",
+		});
+		engine.update(600);
+		// Pet turn was skipped (condition unmet); B's turn needs another tick to fire
+		engine.update(600);
+		// Pet turn skipped, B's turn fires
+		expect(showBubble).toHaveBeenCalledWith("Rex", "speech", "Bye!");
+		// Pet meow should NOT have been called
+		const calls = showBubble.mock.calls.map((c: unknown[]) => c[2]);
+		expect(calls).not.toContain("meow");
+	});
+
 	it("cooldown prevents same script from replaying too soon", () => {
 		vi.useFakeTimers();
 		try {

@@ -10,7 +10,7 @@
  */
 
 import type {
-	ConversationScript, ConversationTrigger, ConversationTurn, RunningJoke,
+	ConversationScript, ConversationTrigger, ConversationTurn, RunningJoke, TurnCondition,
 } from "./conversation-types.js";
 import type { BubbleKind } from "./talk-types.js";
 import type { RelationshipTier } from "../relationship-system.js";
@@ -183,6 +183,16 @@ export class ConversationEngine {
 			if (!turn || conv.timer < turn.delayMs) continue;
 
 			conv.timer = 0;
+
+			// Check condition — skip turn if not met
+			if (!this.evaluateCondition(turn.condition, conv)) {
+				conv.currentTurn++;
+				if (conv.currentTurn >= conv.turns.length) {
+					completed.push(i);
+				}
+				continue;
+			}
+
 			const speaker = turn.speaker === "A" ? conv.agentA
 				: turn.speaker === "B" ? conv.agentB
 				: conv.pet ?? conv.agentA;
@@ -208,6 +218,23 @@ export class ConversationEngine {
 				this.callbacks.incrementJokePlayCount(conv.agentA, conv.agentB, joke.id);
 			}
 			this.active.splice(completed[i], 1);
+		}
+	}
+
+	private evaluateCondition(condition: TurnCondition | undefined, conv: ActiveConversation): boolean {
+		if (!condition) return true;
+		switch (condition.type) {
+			case "petPresent":
+				return !!conv.pet;
+			case "thirdAgentNearby":
+				return !!conv.vars.agentC;
+			case "tier":
+			case "mood":
+				// These require runtime state we don't have in the conversation context
+				// For now, always pass — future enhancement can wire in live state
+				return true;
+			default:
+				return true;
 		}
 	}
 
