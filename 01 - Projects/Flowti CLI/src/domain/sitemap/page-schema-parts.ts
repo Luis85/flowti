@@ -143,7 +143,7 @@ export function validateStates(prefix: string, raw: unknown, warnings: string[])
 
 export function validateFields(
 	prefix: string, fields: unknown[],
-	errors: string[], warnings: string[],
+	errors: string[], _warnings: string[],
 ): void {
 	const names = new Set<string>();
 
