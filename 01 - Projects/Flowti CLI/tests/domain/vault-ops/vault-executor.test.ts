@@ -7,7 +7,8 @@ vi.mock("../../../src/domain/trust/trust-manager.js", () => ({
 		if (level === "review") return { allowed: true, level };
 		return { allowed: false, level, reason: "requires Director" };
 	}),
-	recordSuccess: vi.fn(),
+	checkAutoPromotion: vi.fn(),
+	promote: vi.fn(),
 }));
 
 vi.mock("../../../src/domain/economy/economy-ledger.js", () => ({
@@ -24,7 +25,7 @@ vi.mock("../../../src/domain/tasks/staging.js", () => ({
 }));
 
 import { validateRequest, executeVaultOp, approveStaged } from "../../../src/domain/vault-ops/vault-executor.js";
-import { recordSuccess } from "../../../src/domain/trust/trust-manager.js";
+import { checkAutoPromotion, promote } from "../../../src/domain/trust/trust-manager.js";
 import { creditReward } from "../../../src/domain/economy/economy-ledger.js";
 import { calculateReward } from "../../../src/domain/economy/economy-rules.js";
 import { createStagingArea } from "../../../src/domain/tasks/staging.js";
@@ -101,7 +102,6 @@ function makeProfile(overrides?: Partial<AgentTrustProfile>): AgentTrustProfile 
 		tier: "supervised",
 		operations: { ...DEFAULT_OPS },
 		promotionLog: [],
-		successCounts: {},
 		...overrides,
 	};
 }
@@ -142,17 +142,8 @@ const DEFAULT_CONFIG: TrustConfig = {
 beforeEach(() => {
 	vi.clearAllMocks();
 
-	const mockRecordSuccess = vi.mocked(recordSuccess);
-	mockRecordSuccess.mockImplementation((profile) => ({
-		profile: {
-			...profile,
-			successCounts: {
-				...profile.successCounts,
-				"vault-read": ((profile.successCounts["vault-read"] ?? 0) + 1),
-			},
-		},
-		promoted: false,
-	}));
+	vi.mocked(checkAutoPromotion).mockReturnValue({ shouldPromote: false });
+	vi.mocked(promote).mockImplementation((profile) => profile);
 
 	const mockCreditReward = vi.mocked(creditReward);
 	mockCreditReward.mockImplementation((ledger, _agent, _reward) => ({
@@ -286,8 +277,7 @@ describe("executeVaultOp — auto trust path", () => {
 			makeLedger(),
 		);
 
-		expect(recordSuccess).toHaveBeenCalledOnce();
-		expect(updatedProfile.successCounts["vault-read"]).toBe(1);
+		expect(checkAutoPromotion).toHaveBeenCalledOnce();
 	});
 
 	it("awards reward when taskId present", () => {
@@ -378,7 +368,7 @@ describe("executeVaultOp — review trust path", () => {
 			makeLedger(),
 		);
 
-		expect(recordSuccess).not.toHaveBeenCalled();
+		expect(checkAutoPromotion).not.toHaveBeenCalled();
 		expect(creditReward).not.toHaveBeenCalled();
 	});
 });
@@ -406,7 +396,7 @@ describe("executeVaultOp — manual trust path", () => {
 		);
 
 		expect(result.outcome).toBe("queued");
-		expect(recordSuccess).not.toHaveBeenCalled();
+		expect(checkAutoPromotion).not.toHaveBeenCalled();
 		expect(creditReward).not.toHaveBeenCalled();
 		expect(returnedProfile).toBe(profile);
 	});
@@ -444,7 +434,7 @@ describe("approveStaged", () => {
 
 		approveStaged("task-1", deps, profile, DEFAULT_CONFIG, ledger, "vault-create", "agent-a");
 
-		expect(recordSuccess).toHaveBeenCalledOnce();
+		expect(checkAutoPromotion).toHaveBeenCalledOnce();
 		expect(calculateReward).toHaveBeenCalledWith(
 			{ xp: 50, coin: 25 },
 			expect.objectContaining({ trustTier: "review" }),

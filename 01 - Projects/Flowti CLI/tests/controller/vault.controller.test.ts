@@ -67,7 +67,6 @@ vi.mock("../../src/domain/vault-ops/vault-executor.js", () => ({
 				"vault-create": "review", "vault-edit": "manual", "vault-move": "manual", "vault-link": "review",
 			},
 			promotionLog: [],
-			successCounts: {},
 		},
 		ledger: { version: 1, updatedAt: "", accounts: {} },
 	})),
@@ -103,7 +102,6 @@ vi.mock("../../src/domain/trust/trust-manager.js", () => ({
 			"vault-create": "review", "vault-edit": "manual", "vault-move": "manual", "vault-link": "review",
 		},
 		promotionLog: [],
-		successCounts: {},
 	})),
 	saveTrustProfile: vi.fn(),
 }));
@@ -267,7 +265,6 @@ describe("vault.controller", () => {
 						"vault-create": "auto", "vault-edit": "manual", "vault-move": "manual", "vault-link": "review",
 					},
 					promotionLog: [],
-					successCounts: {},
 				},
 				ledger: { version: 1, updatedAt: "", accounts: {} },
 			});
