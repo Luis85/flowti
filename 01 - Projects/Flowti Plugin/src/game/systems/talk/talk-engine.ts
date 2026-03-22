@@ -411,6 +411,18 @@ export class TalkEngine {
 			}
 		}
 
+		// Echo-driven mood bias — override mood before phrase resolution
+		if (this.enrichment.getEchoBias) {
+			const bias = this.enrichment.getEchoBias(name);
+			if (bias.moodOverride) {
+				entry.vars = {
+					...entry.vars,
+					mood: bias.moodOverride,
+					mood_adj: bias.moodOverride === "tired" ? "drained" : "energized",
+				};
+			}
+		}
+
 		const phrase = this.resolvePhrase(name, entry);
 		this.callbacks.showBubble(name, "thought", phrase);
 		this.recordPhrase(entry, phrase);
