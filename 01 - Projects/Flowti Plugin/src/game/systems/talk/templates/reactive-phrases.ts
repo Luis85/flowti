@@ -20,7 +20,15 @@ export type ReactiveTrigger =
 	| "focus-deep"        // focus above 80 (in the zone)
 	| "streak-milestone"  // hit a work streak milestone
 	| "new-friend"        // relationship reached friend tier
-	| "got-rival";        // relationship reached rival tier
+	| "got-rival"         // relationship reached rival tier
+	// Pet-specific triggers (emotional/situational, NOT PetState extensions)
+	| "pet-hungry"
+	| "pet-sleepy"
+	| "pet-bored"
+	| "pet-startled"
+	| "pet-affectionate"
+	| "pet-jealous"
+	| "pet-zoomies";
 
 export const REACTIVE_TEMPLATES: Record<ReactiveTrigger, readonly WeightedTemplate[]> = {
 	"morale-boost": [
@@ -309,4 +317,12 @@ export const REACTIVE_TEMPLATES: Record<ReactiveTrigger, readonly WeightedTempla
 		{ template: "Our code reviews are going to be legendary", weight: 2, category: "thinking" },
 		{ template: "The gauntlet has been thrown. Picking it up", weight: 1, category: "thinking" },
 	],
+	// Pet reactive triggers — content populated in pet-reactive-phrases.ts (Task 10)
+	"pet-hungry": [],
+	"pet-sleepy": [],
+	"pet-bored": [],
+	"pet-startled": [],
+	"pet-affectionate": [],
+	"pet-jealous": [],
+	"pet-zoomies": [],
 };

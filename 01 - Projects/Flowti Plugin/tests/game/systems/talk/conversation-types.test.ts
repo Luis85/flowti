@@ -3,6 +3,7 @@ import type {
 	ConversationScript, RunningJoke, ConversationTurn,
 	ConversationTrigger, TurnCondition,
 } from "../../../../src/game/systems/talk/conversation-types.js";
+import type { ReactiveTrigger } from "../../../../src/game/systems/talk/templates/reactive-phrases.js";
 
 describe("conversation-types", () => {
 	it("ConversationScript satisfies the type contract", () => {
@@ -59,5 +60,13 @@ describe("conversation-types", () => {
 			"gossip", "pet-catalyst", "tier-change",
 		];
 		expect(triggers).toHaveLength(7);
+	});
+
+	it("pet reactive triggers are valid ReactiveTrigger values", () => {
+		const petTriggers: ReactiveTrigger[] = [
+			"pet-hungry", "pet-sleepy", "pet-bored", "pet-startled",
+			"pet-affectionate", "pet-jealous", "pet-zoomies",
+		];
+		expect(petTriggers).toHaveLength(7);
 	});
 });
