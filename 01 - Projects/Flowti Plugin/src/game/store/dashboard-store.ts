@@ -21,6 +21,7 @@ import {
 	buildTaskPrompt, type TaskSpec,
 } from "./dashboard-store-actions.js";
 import { afterNextPaint } from "../after-next-paint.js";
+import type { StoryBeat } from "../systems/narrative-system.js";
 
 // ── Exported helper types ──────────────────────────────────────────
 
@@ -79,6 +80,21 @@ export class DashboardStore extends EventTarget {
 
 	setAgentNeeds(name: string, needs: AgentNeeds): void { this.agentNeeds.set(name, needs); }
 	getAgentNeeds(name: string): AgentNeeds | undefined { return this.agentNeeds.get(name); }
+
+	/** Recent narrative beats for the in-game story feed. Capped at 20 entries. */
+	narrativeBeats: readonly StoryBeat[] = [];
+
+	pushNarrativeBeat(beat: StoryBeat): void {
+		const next = [...this.narrativeBeats, beat];
+		if (next.length > 20) next.shift();
+		this.narrativeBeats = next;
+		this.notify();
+	}
+
+	clearNarrativeBeats(): void {
+		this.narrativeBeats = [];
+		this.notify();
+	}
 
 	setAgentEconomy(name: string, data: { level?: number; coin?: number; tokens?: number; trustTier?: string; capabilities?: string[] }): void {
 		const agent = this.agents.find(a => a.name === name);

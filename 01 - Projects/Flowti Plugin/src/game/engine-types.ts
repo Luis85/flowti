@@ -38,6 +38,7 @@ import type { ConversationEngine } from "./systems/talk/conversation-engine.js";
 import type { BtSystem } from "./systems/bt-system.js";
 import type { SceneRegistry } from "./systems/scene-registry.js";
 import type { RoomSwitcher } from "./systems/room-switcher.js";
+import type { NarrativeSystem } from "./systems/narrative-system.js";
 import type { DashboardStore } from "./store/dashboard-store.js";
 import type { CameraSystem } from "./systems/camera-system.js";
 import type { GameScene } from "./scenes/game-scene.js";
@@ -102,6 +103,7 @@ export interface EngineSystems {
 	readonly bt: BtSystem;
 	readonly registry: SceneRegistry;
 	readonly roomSwitcher: RoomSwitcher;
+	readonly narrative: NarrativeSystem;
 	cameraSystem: CameraSystem | null;
 }
 

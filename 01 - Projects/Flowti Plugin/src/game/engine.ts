@@ -57,6 +57,9 @@ import {
 	ALL_FRAGMENT_POOLS,
 } from "./systems/talk/templates/index.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
+import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { NarrativeSystem } from "./systems/narrative-system.js";
 import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
 import { createEnvironmentalObjects, registerEnvironmentalObjects, createPets, getPetBTPairs } from "./engine-objects.js";
@@ -244,6 +247,31 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const quirkSystem = new QuirkSystem();
 	const worldEventScheduler = new WorldEventScheduler();
 	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
+
+	// ── Narrative system ──────────────────────────────
+	const narrativeDir = deps.vaultBasePath
+		? join(deps.vaultBasePath, "03 - Resources", "Narrative")
+		: "";
+	const narrativeSystem = new NarrativeSystem({
+		writeFile: (path, content) => {
+			try {
+				const dir = dirname(path);
+				if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+				writeFileSync(path, content, "utf-8");
+			} catch {
+				// Non-critical — skip silently
+			}
+		},
+		narrativeDir,
+		currentDate: () => new Date().toISOString().slice(0, 10),
+	});
+
+	// Register narrative flush at end of each day cycle
+	if (deps.vaultBasePath) {
+		dayClock.onCycleEnd(() => {
+			narrativeSystem.flushToVault(dayClock.getCycleCount());
+		});
+	}
 
 	// ── Fragment composer + enriched talk engine ─────
 	const fragmentComposer = new FragmentComposer(ALL_FRAGMENT_POOLS);
@@ -514,6 +542,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			bt: btSystem,
 			registry,
 			roomSwitcher,
+			narrative: narrativeSystem,
 			cameraSystem: cameraRef.current,
 		},
 		scenes: {
