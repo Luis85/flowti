@@ -22,6 +22,8 @@ import {
 import {
 	IsHungry, IsThirsty, HasJourneyTask,
 	SeekFoodStation, SeekDrinkStation, Eat, Drink, ExecuteJourney,
+	IsMerchantEligible, HasNotVisitedMerchantThisCycle, HasAutoPurchaseAvailable,
+	SeekMerchantStall, BrowseMerchant, ExecuteMerchantPurchase,
 } from "./bt-agent-extensions.js";
 
 function hasLLMProvider(registry?: IProviderRegistry): boolean {
@@ -40,6 +42,7 @@ export interface BTAgentObject {
 	IsEnergyLow(): boolean; IsSocialLow(): boolean; IsFocusLow(): boolean; IsMoraleLow(): boolean;
 	IsHungry(): boolean; IsThirsty(): boolean; IsEnergyOk(): boolean; IsFocusOk(): boolean;
 	HasWorkGoal(): boolean; HasJourneyTask(): boolean;
+	IsMerchantEligible(): boolean; HasNotVisitedMerchantThisCycle(): boolean; HasAutoPurchaseAvailable(): boolean;
 	// Actions
 	PickGoal(): State; PickGoalFile(): State; ReadFile(): State; WriteFile(): State; OpenInVault(): State;
 	QueryLLM(): State; GenerateFromTemplate(): State; DropArtifact(): State; SpeakBubble(): State;
@@ -49,6 +52,7 @@ export interface BTAgentObject {
 	SeekFoodStation(): State; SeekDrinkStation(): State; Eat(): State; Drink(): State;
 	WanderSad(): State; GoToWorkstation(): State; DoWork(): State; LeaveWorkstation(): State;
 	ExecuteJourney(): State;
+	SeekMerchantStall(): State; BrowseMerchant(): State; ExecuteMerchantPurchase(): State;
 }
 
 export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentObject {
@@ -57,6 +61,8 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	const int_ = attr.int ?? 10;
 	const wis = attr.wis ?? 10;
 	const str = attr.str ?? 10;
+
+	const trustTier = agent.trustTier;
 
 	const context: BTAgentContext = {
 		name: agent.name,
@@ -76,6 +82,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		lastWrittenPath: null,
 		workingFilePath: null,
 		llmSlot: createIdleLLMSlot(),
+		lastMerchantVisitCycle: -1,
 	};
 
 	const collectedActions: CollectedAction[] = [];
@@ -428,6 +435,11 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		IsThirsty: () => IsThirsty(context),
 		IsEnergyOk, IsFocusOk, HasWorkGoal,
 		HasJourneyTask: () => HasJourneyTask(context),
+		IsMerchantEligible: () => IsMerchantEligible(context, trustTier),
+		HasNotVisitedMerchantThisCycle: () => HasNotVisitedMerchantThisCycle(
+			context, () => deps.merchant?.getCycleCount() ?? 0,
+		),
+		HasAutoPurchaseAvailable: () => HasAutoPurchaseAvailable(extDeps),
 		PickGoal, PickGoalFile, ReadFile, WriteFile, OpenInVault,
 		QueryLLM, GenerateFromTemplate, DropArtifact, SpeakBubble,
 		Wander, Emote, Chatter, Socialize, Rest, HandleEvent,
@@ -439,5 +451,8 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		WanderSad,
 		GoToWorkstation, DoWork, LeaveWorkstation,
 		ExecuteJourney,
+		SeekMerchantStall: () => SeekMerchantStall(extDeps),
+		BrowseMerchant: () => BrowseMerchant(extDeps),
+		ExecuteMerchantPurchase: () => ExecuteMerchantPurchase(extDeps),
 	};
 }

@@ -56,6 +56,7 @@ function toBTAgentDef(agent: DashboardAgent): BTAgentDef {
 			priority: Number(g.priority) || undefined,
 		})),
 		behaviors: agent.behaviors,
+		trustTier: agent.trustTier,
 	};
 }
 

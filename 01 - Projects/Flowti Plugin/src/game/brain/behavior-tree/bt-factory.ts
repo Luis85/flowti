@@ -28,6 +28,7 @@ import { NEEDS_FOCUS_SUBTREE } from "./subtrees/needs-focus.js";
 import { NEEDS_MORALE_SUBTREE } from "./subtrees/needs-morale.js";
 import { WORK_CYCLE_SUBTREE } from "./subtrees/work-cycle.js";
 import { JOURNEY_EXECUTION_SUBTREE } from "./subtrees/journey-execution.js";
+import { MERCHANT_VISIT_SUBTREE } from "./subtrees/merchant-visit.js";
 
 export interface AgentBT {
 	readonly tree: BehaviourTree;
@@ -57,6 +58,7 @@ function buildMasterMDSL(): string {
 		branch [NeedsMorale]
 		branch [JourneyExecution]
 		branch [WorkCycle]
+		branch [MerchantVisit]
 		sequence {
 			condition [HasEnoughEnergy]
 			condition [HasEnoughFocus]
@@ -89,6 +91,7 @@ function collectSubtrees(): string {
 		NEEDS_MORALE_SUBTREE,
 		JOURNEY_EXECUTION_SUBTREE,
 		WORK_CYCLE_SUBTREE,
+		MERCHANT_VISIT_SUBTREE,
 		REVIEW_SUBTREE,
 		SUMMARIZE_SUBTREE,
 		PLAN_SUBTREE,

@@ -1,5 +1,5 @@
 /**
- * bt-agent-extensions.ts — Hunger/thirst/journey conditions and actions for BTAgent.
+ * bt-agent-extensions.ts — Hunger/thirst/journey/merchant conditions and actions for BTAgent.
  *
  * Extracted from bt-agent.ts to keep that file within the line-count limit.
  * All functions receive the agent context and deps by closure from createBTAgent.
@@ -62,5 +62,66 @@ export function Drink(ctx: BTAgentContext, collect: (type: string, data?: Record
 
 // Stub: actual journey execution wires to SSE event contract (deferred)
 export function ExecuteJourney(): State {
+	return fromNodeState("succeeded");
+}
+
+// ── Merchant conditions ──────────────────────────────────────────────
+
+const MERCHANT_MIN_LEVEL = 5;
+const TRUSTED_TIERS: ReadonlySet<string> = new Set(["trusted", "autonomous"]);
+
+/** Agent must be level 5+ and have "trusted" or "autonomous" trust tier. */
+export function IsMerchantEligible(
+	ctx: BTAgentContext,
+	trustTier: string | undefined,
+): boolean {
+	if (ctx.experience < MERCHANT_MIN_LEVEL) return false;
+	return TRUSTED_TIERS.has(trustTier ?? "supervised");
+}
+
+/** Ensures only one merchant visit per day cycle. */
+export function HasNotVisitedMerchantThisCycle(
+	ctx: BTAgentContext,
+	getCycleCount: () => number,
+): boolean {
+	return ctx.lastMerchantVisitCycle < getCycleCount();
+}
+
+/** Delegates to MerchantSystem.shouldAutoPurchase via the merchant bridge. */
+export function HasAutoPurchaseAvailable(ext: BTAgentExtensionDeps): boolean {
+	if (!ext.deps.merchant) return false;
+	return ext.deps.merchant.shouldAutoPurchase(ext.context.name);
+}
+
+// ── Merchant actions ─────────────────────────────────────────────────
+
+export function SeekMerchantStall(ext: BTAgentExtensionDeps): State {
+	ext.collect("seek-merchant");
+	ext.deps.brain?.applyEvent(ext.context.name, "seek-merchant");
+	return fromNodeState("succeeded");
+}
+
+export function BrowseMerchant(ext: BTAgentExtensionDeps): State {
+	ext.collect("idle", { activity: "browsing-merchant" });
+	return fromNodeState("succeeded");
+}
+
+export function ExecuteMerchantPurchase(ext: BTAgentExtensionDeps): State {
+	if (!ext.deps.merchant) return fromNodeState("failed");
+
+	const itemId = ext.deps.merchant.getAutoPurchaseItemId(ext.context.name);
+	if (!itemId) return fromNodeState("failed");
+
+	// Fire-and-forget async purchase — BT actions are synchronous, so we
+	// collect the action immediately and let the purchase resolve in the
+	// background (same pattern as QueryLLM fire-and-poll but simpler since
+	// we don't need to wait for a result to continue).
+	ext.deps.merchant.purchase(ext.context.name, itemId).then();
+
+	ext.collect("merchant-purchase", { itemId });
+
+	// Mark this cycle as visited so the subtree won't re-trigger
+	ext.context.lastMerchantVisitCycle = ext.deps.merchant.getCycleCount();
+
 	return fromNodeState("succeeded");
 }
