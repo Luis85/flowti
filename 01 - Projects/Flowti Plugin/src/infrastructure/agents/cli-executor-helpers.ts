@@ -211,12 +211,16 @@ export function readJsonlRange(filePath: string, fromOffset: number): { events: 
 	}
 }
 
-/** Run a one-shot CLI command and parse the JSON response. */
+/**
+ * Run a one-shot CLI command and parse the JSON response.
+ * @param timeoutMs Max wait in ms; kills the child on expiry. Use `0` to disable.
+ */
 export async function runOneShotCommand(
 	nodeBin: string,
 	cliBin: string,
 	args: string[],
 	cwd: string,
+	timeoutMs: number = 60_000,
 ): Promise<unknown> {
 	return new Promise((resolve, reject) => {
 		const child = spawn(nodeBin, [cliBin, ...args], {
@@ -225,8 +229,27 @@ export async function runOneShotCommand(
 			windowsHide: true,
 		});
 
+		let settled = false;
 		let stdout = "";
 		let stderr = "";
+
+		const finish = (action: () => void): void => {
+			if (settled) return;
+			settled = true;
+			if (timer) clearTimeout(timer);
+			action();
+		};
+
+		const timer = timeoutMs > 0
+			? setTimeout(() => {
+				finish(() => {
+					const pid = child.pid;
+					if (pid != null) treeKill(pid);
+					else child.kill();
+					reject(new Error(`CLI command timed out after ${timeoutMs}ms`));
+				});
+			}, timeoutMs)
+			: null;
 
 		if (child.stdout) {
 			child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
@@ -236,20 +259,24 @@ export async function runOneShotCommand(
 		}
 
 		child.on("error", (err) => {
-			reject(new Error(`Failed to execute CLI command: ${err.message}`));
+			finish(() => {
+				reject(new Error(`Failed to execute CLI command: ${err.message}`));
+			});
 		});
 
 		child.on("close", (code) => {
-			if (code !== 0 && !stdout.trim()) {
-				reject(new Error(`CLI exited with code ${code}: ${stderr.trim()}`));
-				return;
-			}
-			try {
-				const parsed: unknown = JSON.parse(stdout.trim());
-				resolve(parsed);
-			} catch {
-				reject(new Error(`Failed to parse CLI output as JSON: ${stdout.slice(0, 200)}`));
-			}
+			finish(() => {
+				if (code !== 0 && !stdout.trim()) {
+					reject(new Error(`CLI exited with code ${code}: ${stderr.trim()}`));
+					return;
+				}
+				try {
+					const parsed: unknown = JSON.parse(stdout.trim());
+					resolve(parsed);
+				} catch {
+					reject(new Error(`Failed to parse CLI output as JSON: ${stdout.slice(0, 200)}`));
+				}
+			});
 		});
 	});
 }

@@ -41,6 +41,8 @@ const FEEDBACK_TIMEOUT_MS = 2_500;
 // ── Styles ────────────────────────────────────────────────────────────
 
 const merchantPanelStyles = css`
+	/* When visible is false the shadow tree is empty but :host still fills the viewport.
+	   Without pointer-events: none, the invisible host steals all clicks (canvas + UI). */
 	:host {
 		position: fixed;
 		inset: 0;
@@ -48,6 +50,10 @@ const merchantPanelStyles = css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		pointer-events: none;
+	}
+
+	:host([visible]) {
 		pointer-events: auto;
 	}
 
@@ -599,6 +605,7 @@ export class MerchantPanel extends FlowtiElement {
 	// ── Event handlers ────────────────────────────────────────────────
 
 	private handleClose(): void {
+		this.visible = false;
 		this.dispatchEvent(new CustomEvent("merchant-close", { bubbles: true, composed: true }));
 	}
 
