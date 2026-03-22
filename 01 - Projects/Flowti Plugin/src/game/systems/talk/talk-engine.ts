@@ -217,6 +217,7 @@ function resolveTierPhrase(
 }
 
 function resolveComposedPhrase(
+	agentName: string,
 	entry: ChatterEntry,
 	composer: FragmentComposer,
 	getTier?: (a: string, b: string) => RelationshipTier,
@@ -225,8 +226,8 @@ function resolveComposedPhrase(
 	const context: ComposeContext = {
 		mood: entry.vars.mood || undefined,
 		domain: entry.domain,
-		tier: entry.vars.nearby_agent && getTier
-			? getTier(entry.vars.nearby_agent, entry.domain)
+		tier: entry.vars.nearby_agent && agentName && getTier
+			? getTier(agentName, entry.vars.nearby_agent)
 			: undefined,
 	};
 	return composer.compose(context, entry.recentlyUsed);
@@ -418,7 +419,7 @@ export class TalkEngine {
 				? resolveTierPhrase(agentName, entry, this.enrichment.getTier)
 				: null)
 			?? (this.enrichment.composer
-				? resolveComposedPhrase(entry, this.enrichment.composer, this.enrichment.getTier)
+				? resolveComposedPhrase(agentName, entry, this.enrichment.composer, this.enrichment.getTier)
 				: null)
 			?? resolveCrossoverPhrase(entry)
 			?? resolvePersonalityPhrase(entry)

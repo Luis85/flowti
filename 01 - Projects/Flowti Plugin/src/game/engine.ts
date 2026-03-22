@@ -281,6 +281,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		getTier: (a, b) => relationshipSystem.getTier(a, b),
 		silenceTalk: (agentName) => talkEngine.silence(agentName),
 		recordConversation: (a, b) => relationshipSystem.recordConversation(a, b),
+		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
+		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),
 	});
 	conversationEngine.registerScripts([
 		...RIVAL_SCRIPTS, ...ACQUAINTANCE_SCRIPTS, ...COLLEAGUE_SCRIPTS,

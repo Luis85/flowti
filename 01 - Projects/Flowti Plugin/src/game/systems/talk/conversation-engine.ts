@@ -45,6 +45,8 @@ export interface ConversationEngineCallbacks {
 	readonly getTier: (a: string, b: string) => RelationshipTier;
 	readonly silenceTalk: (agentName: string) => void;
 	readonly recordConversation: (a: string, b: string) => void;
+	readonly getJokePlayCount?: (a: string, b: string, jokeId: string) => number;
+	readonly incrementJokePlayCount?: (a: string, b: string, jokeId: string) => void;
 }
 
 // ── Active conversation state ───────────────────────────────────────
@@ -66,6 +68,7 @@ export interface TryScriptContext {
 	readonly domainA: string;
 	readonly domainB: string;
 	readonly pet?: string;
+	readonly agentC?: string;
 }
 
 // ── Engine ───────────────────────────────────────────────────────────
@@ -117,7 +120,41 @@ export class ConversationEngine {
 			return true;
 		});
 
-		if (eligible.length === 0) return false;
+		// Also search jokes
+		const eligibleJokes = this.jokes.filter((j) => {
+			if (j.trigger !== trigger) return false;
+			if (!tierInRange(tier, j.tierRange)) return false;
+			if (j.domainFilter) {
+				const pair = [ctx.domainA, ctx.domainB].sort();
+				const filterPair = [...j.domainFilter].sort();
+				if (pair[0] !== filterPair[0] || pair[1] !== filterPair[1]) return false;
+			}
+			const lastUsed = this.cooldowns.get(j.id) ?? 0;
+			if (now - lastUsed < j.cooldownMs) return false;
+			return true;
+		});
+
+		if (eligible.length === 0 && eligibleJokes.length === 0) return false;
+
+		// If we have eligible jokes, try them with some probability
+		if (eligibleJokes.length > 0 && (eligible.length === 0 || Math.random() < 0.3)) {
+			const joke = this.weightedPickJoke(eligibleJokes);
+			if (joke) {
+				const playCount = this.callbacks.getJokePlayCount?.(agentA, agentB, joke.id) ?? 0;
+				const variantIndex = Math.min(playCount, joke.maxEscalation - 1);
+				const turns = joke.variants[variantIndex];
+				const vars: Record<string, string> = {
+					agentA,
+					agentB,
+					domain_a: ctx.domainA,
+					domain_b: ctx.domainB,
+					pet: ctx.pet ?? "",
+					agentC: ctx.agentC ?? "",
+				};
+				this.startJoke(joke, agentA, agentB, turns, vars, ctx.pet);
+				return true;
+			}
+		}
 
 		const script = this.weightedPick(eligible);
 		if (!script) return false;
@@ -128,6 +165,7 @@ export class ConversationEngine {
 			domain_a: ctx.domainA,
 			domain_b: ctx.domainB,
 			pet: ctx.pet ?? "",
+			agentC: ctx.agentC ?? "",
 		};
 
 		this.startScript(script, agentA, agentB, vars, ctx.pet);
@@ -164,6 +202,11 @@ export class ConversationEngine {
 			this.locked.delete(conv.agentB);
 			if (conv.pet) this.locked.delete(conv.pet);
 			this.callbacks.recordConversation(conv.agentA, conv.agentB);
+			// If this was a running joke, increment play count
+			const joke = this.jokes.find((j) => j.id === conv.scriptId);
+			if (joke && this.callbacks.incrementJokePlayCount) {
+				this.callbacks.incrementJokePlayCount(conv.agentA, conv.agentB, joke.id);
+			}
 			this.active.splice(completed[i], 1);
 		}
 	}
@@ -217,5 +260,56 @@ export class ConversationEngine {
 			if (roll <= 0) return s;
 		}
 		return scripts[scripts.length - 1];
+	}
+
+	private weightedPickJoke(jokes: readonly RunningJoke[]): RunningJoke | undefined {
+		const totalWeight = jokes.reduce((sum, j) => sum + j.weight, 0);
+		let roll = Math.random() * totalWeight;
+		for (const j of jokes) {
+			roll -= j.weight;
+			if (roll <= 0) return j;
+		}
+		return jokes[jokes.length - 1];
+	}
+
+	private startJoke(joke: RunningJoke, agentA: string, agentB: string, turns: readonly ConversationTurn[], vars: Record<string, string>, pet?: string): void {
+		this.locked.add(agentA);
+		this.locked.add(agentB);
+		if (pet) this.locked.add(pet);
+
+		this.callbacks.silenceTalk(agentA);
+		this.callbacks.silenceTalk(agentB);
+
+		this.cooldowns.set(joke.id, performance.now());
+
+		const firstTurn = turns[0];
+		if (firstTurn && firstTurn.delayMs === 0) {
+			const speaker = firstTurn.speaker === "A" ? agentA
+				: firstTurn.speaker === "B" ? agentB
+				: pet ?? agentA;
+			this.callbacks.showBubble(speaker, firstTurn.kind, interpolate(firstTurn.text, vars));
+
+			this.active.push({
+				scriptId: joke.id,
+				agentA,
+				agentB,
+				pet,
+				vars,
+				turns,
+				currentTurn: 1,
+				timer: 0,
+			});
+		} else {
+			this.active.push({
+				scriptId: joke.id,
+				agentA,
+				agentB,
+				pet,
+				vars,
+				turns,
+				currentTurn: 0,
+				timer: 0,
+			});
+		}
 	}
 }
