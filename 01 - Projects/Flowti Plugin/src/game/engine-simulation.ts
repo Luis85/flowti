@@ -522,7 +522,7 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			|| action.type === "seek-food" || action.type === "seek-drink"
 			|| action.type === "seek-agent" || action.type === "seek-quiet") {
 			// Show seek thoughts sparingly — these fire every BT tick while needs are low
-			if (Math.random() < 0.3) {
+			if (Math.random() < 0.5) {
 				const SEEK_PHRASES: Record<string, string> = {
 					"seek-rest": "Need a break...",
 					"seek-merchant": "Off to the shop...",

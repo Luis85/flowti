@@ -13,7 +13,7 @@ import type { BrainParams } from "../brain/brain-types.js";
 
 const DEFAULT_DURATION = 5000;
 const MIN_BUBBLE_GAP = 1500;
-const MAX_CONCURRENT_BUBBLES = 3;
+const MAX_CONCURRENT_BUBBLES = 5;
 const BUBBLE_Y_OFFSET = -10;
 const AGENT_SCALE = 2;
 
