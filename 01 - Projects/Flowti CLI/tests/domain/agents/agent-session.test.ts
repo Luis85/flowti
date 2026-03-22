@@ -6,6 +6,21 @@ import {
 import type { SessionStoreDeps, TimestampedEvent } from "../../../src/domain/agents/agent-session.js";
 import type { AgentStreamEvent } from "../../../src/domain/agents/agent-stream.js";
 
+function simpleParseFrontmatter(content: string): Record<string, unknown> | null {
+	const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	if (!match) return null;
+	const fm: Record<string, unknown> = {};
+	for (const line of match[1].split(/\r?\n/)) {
+		const kv = line.match(/^(\w[\w_]*)\s*:\s*(.*)$/);
+		if (kv) {
+			const raw = kv[2].trim();
+			if (/^-?\d+$/.test(raw)) fm[kv[1]] = parseInt(raw, 10);
+			else fm[kv[1]] = raw;
+		}
+	}
+	return fm;
+}
+
 function makeDeps(): SessionStoreDeps & { files: Record<string, string>; dirs: Set<string> } {
 	const files: Record<string, string> = {};
 	const dirs = new Set<string>();
@@ -36,6 +51,7 @@ function makeDeps(): SessionStoreDeps & { files: Record<string, string>; dirs: S
 			now: vi.fn(() => new Date("2026-03-15T10:00:00.000Z")),
 			ms: vi.fn(() => Date.now()),
 		} as unknown as SessionStoreDeps["clock"],
+		parseFrontmatter: simpleParseFrontmatter,
 	};
 }
 

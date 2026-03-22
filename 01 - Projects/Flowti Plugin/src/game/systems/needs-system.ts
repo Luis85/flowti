@@ -10,6 +10,8 @@
  * Mood is derived from the dominant need state.
  */
 
+import type { AgentAttributes } from "../data/types.js";
+
 // ── Public types ──────────────────────────────────────────────────────
 
 export interface AgentNeeds {
@@ -23,15 +25,6 @@ export interface AgentNeeds {
 
 export interface ThresholdAction {
 	readonly type: "force-break" | "seek-agent" | "seek-quiet" | "demoralized";
-}
-
-interface AgentAttributes {
-	str?: number;
-	int?: number;
-	wis?: number;
-	cha?: number;
-	dex?: number;
-	con?: number;
 }
 
 interface NeedsEntry {
