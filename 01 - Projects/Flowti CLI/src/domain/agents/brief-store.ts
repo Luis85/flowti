@@ -4,10 +4,11 @@ import type { CliDeps } from "../../infrastructure/deps.js";
 import type { OrchestrationConfig, PhaseBinding } from "../../infrastructure/types.js";
 import type { IterationSummary } from "../iterations/iteration-types.js";
 import type { LifecycleTemplate, GatedTransitionResult } from "../lifecycle/lifecycle-types.js";
-import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import { validateTransition } from "../lifecycle/lifecycle-engine.js";
 
-export type BriefStoreDeps = Pick<CliDeps, "disk" | "paths">;
+export type BriefStoreDeps = Pick<CliDeps, "disk" | "paths"> & {
+	readonly parseFrontmatter: (content: string) => Record<string, unknown> | null;
+};
 export type BriefStatus = "open" | "active" | "done";
 
 export interface BriefSummary {
@@ -98,7 +99,7 @@ export function findBrief(deps: BriefStoreDeps, iterDir: string, iterationNumber
 	const filePath = deps.paths.join(dir, file);
 	if (!deps.disk.existsSync(filePath)) return null;
 	const content = deps.disk.readFileSync(filePath, "utf-8");
-	const fm = parseFrontmatterContent(content);
+	const fm = deps.parseFrontmatter(content);
 	return { agentName, iterationNumber, phase, status: parseBriefStatus(fm?.status), file };
 }
 
@@ -111,7 +112,7 @@ export function listBriefs(deps: BriefStoreDeps, iterDir: string, iterationNumbe
 	const results: BriefSummary[] = [];
 	for (const file of files) {
 		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterContent(content);
+		const fm = deps.parseFrontmatter(content);
 		const status = parseBriefStatus(fm?.status);
 		const agent = typeof fm?.agent === "string" ? fm.agent : "unknown";
 		const phase = typeof fm?.phase === "string" ? fm.phase : "unknown";
@@ -155,7 +156,7 @@ export function transitionBrief(deps: BriefStoreDeps, iterDir: string, iteration
 	const filePath = deps.paths.join(dir, file);
 	if (!deps.disk.existsSync(filePath)) return { success: false, error: "Brief not found." };
 	let content = deps.disk.readFileSync(filePath, "utf-8");
-	const fm = parseFrontmatterContent(content);
+	const fm = deps.parseFrontmatter(content);
 	const from = parseBriefStatus(fm?.status);
 	const result = validateTransition(BRIEF_TEMPLATE, from, to);
 	if (!result.success) return result;

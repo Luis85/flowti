@@ -22,6 +22,7 @@ function makeDeps() {
 		running: true,
 		output: [],
 		waitForOutput: vi.fn(),
+		writeStdin: vi.fn(),
 	};
 	return {
 		disk: { writeFileSync: vi.fn(), unlinkSync: vi.fn() },
@@ -69,5 +70,48 @@ describe("createCursorProvider", () => {
 		}
 		const result = await proc.result;
 		expect(result.text).toBe("Hello from Cursor!");
+	});
+
+	describe("createSession", () => {
+		it("reports persistentSession capability", () => {
+			const caps = createCursorProvider(makeDeps()).capabilities();
+			expect(caps.persistentSession).toBe(true);
+		});
+
+		it("spawns agent (not claude) without -p flag, with stdin: true, with --force --trust", () => {
+			const deps = makeDeps();
+			const provider = createCursorProvider(deps);
+			provider.createSession!({ cwd: "/work" });
+			const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+			expect(cmd).toMatch(/^agent\b/);
+			expect(cmd).not.toContain("claude");
+			const args = cmd.split(" ");
+			expect(args).not.toContain("-p");
+			expect(cmd).toContain("--force");
+			expect(cmd).toContain("--trust");
+			const opts = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][1] as { stdin?: boolean; cwd?: string };
+			expect(opts.stdin).toBe(true);
+		});
+
+		it("send writes message to stdin and returns LLMProcess", () => {
+			const deps = makeDeps();
+			const provider = createCursorProvider(deps);
+			const session = provider.createSession!({ cwd: "/work" });
+			const proc = session.send("hello");
+			expect(deps._mockProc.writeStdin).toHaveBeenCalledWith("hello\n");
+			expect(proc).toHaveProperty("onEvent");
+			expect(proc).toHaveProperty("result");
+			expect(proc).toHaveProperty("kill");
+		});
+
+		it("kill sets alive to false", () => {
+			const deps = makeDeps();
+			const provider = createCursorProvider(deps);
+			const session = provider.createSession!({ cwd: "/work" });
+			expect(session.alive).toBe(true);
+			session.kill();
+			expect(session.alive).toBe(false);
+			expect(deps._mockProc.kill).toHaveBeenCalled();
+		});
 	});
 });

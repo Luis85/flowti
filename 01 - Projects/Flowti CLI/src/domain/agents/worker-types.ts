@@ -8,8 +8,9 @@
 import type { AgentSummary } from "./agent-types.js";
 import type { AgentStreamEvent } from "./agent-stream.js";
 import type { AgentResponse } from "./agent-conversation.js";
+import type { LLMSession } from "./llm-types.js";
 
-export type WorkerState = "spawning" | "idle" | "queued" | "reacting" | "thinking" | "working" | "waiting" | "stopped";
+export type WorkerState = "spawning" | "idle" | "queued" | "reacting" | "thinking" | "working" | "waiting" | "decaying" | "stopped";
 
 export interface EventFilter {
 	readonly entityType?: import("./world-state-types.js").WorldEntityType;
@@ -54,6 +55,8 @@ export interface SpawnOptions {
 
 export interface IAgentProcessRunner {
 	spawn(agent: AgentSummary, prompt: string, resolvedTools?: readonly string[], opts?: SpawnOptions): AgentProcess;
+	/** Acquire a persistent session. Returns null if provider doesn't support sessions. Optional — legacy runners may not implement. */
+	acquireSession?(agent: AgentSummary, resolvedTools?: readonly string[], opts?: SpawnOptions): LLMSession | null;
 }
 
 export interface AgentWorker {

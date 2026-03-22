@@ -60,6 +60,7 @@ export function createDirectorIntentResolver(config: DirectorResolverConfig): Di
 				cooldownMs: template.cooldownMs,
 				duration: template.duration,
 				effects: template.effects,
+				prerequisites: template.prerequisites,
 				timestamp: Date.now(),
 			};
 

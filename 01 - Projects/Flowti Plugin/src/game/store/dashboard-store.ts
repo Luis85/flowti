@@ -98,14 +98,17 @@ export class DashboardStore extends EventTarget {
 	}
 
 	setAgentEconomy(name: string, data: { level?: number; coin?: number; tokens?: number; xp?: number; trustTier?: string; capabilities?: string[] }): void {
-		const agent = this.agents.find(a => a.name === name);
-		if (!agent) return;
-		if (data.level !== undefined) agent.level = data.level;
-		if (data.coin !== undefined) agent.coin = data.coin;
-		if (data.tokens !== undefined) agent.tokens = data.tokens;
-		if (data.xp !== undefined) agent.xp = data.xp;
-		if (data.trustTier !== undefined) agent.trustTier = data.trustTier as "supervised" | "trusted" | "autonomous";
-		if (data.capabilities !== undefined) agent.capabilities = data.capabilities;
+		const idx = this.agents.findIndex(a => a.name === name);
+		if (idx === -1) return;
+		const agent = this.agents[idx];
+		const updated = { ...agent } as DashboardAgent;
+		if (data.level !== undefined) updated.level = data.level;
+		if (data.coin !== undefined) updated.coin = data.coin;
+		if (data.tokens !== undefined) updated.tokens = data.tokens;
+		if (data.xp !== undefined) updated.xp = data.xp;
+		if (data.trustTier !== undefined) updated.trustTier = data.trustTier as "supervised" | "trusted" | "autonomous";
+		if (data.capabilities !== undefined) updated.capabilities = data.capabilities;
+		this.agents = [...this.agents.slice(0, idx), updated, ...this.agents.slice(idx + 1)] as unknown as readonly DashboardAgent[];
 		this.notify();
 	}
 
@@ -611,7 +614,7 @@ export class DashboardStore extends EventTarget {
 
 		runOneShotCommand(
 			nodeBin, cliBin,
-			["economy:reward", `--agent=${agentName}`, "--format=json"],
+			["economy:reward", `--agent=${agentName}`, `--task=${taskName}`, "--format=json"],
 			this.vaultBasePath,
 		)
 			.then((output) => {

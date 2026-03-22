@@ -6,6 +6,8 @@
  * and rest status per agent.
  */
 
+import { LEVEL_TABLE, levelForXp as _cliLevelForXp } from "../../../../Flowti CLI/src/domain/economy/leveling.js";
+
 // ── Constants ────────────────────────────────────────────────────────
 
 export const CYCLE_DURATION_MS = 25 * 60 * 1000;
@@ -13,7 +15,7 @@ export const MAX_SIMULATION_MS = 8 * 60 * 60 * 1000;
 export const MIN_BRIEFING_MS = 5 * 60 * 1000;
 export const BASE_XP_PER_TASK = 50;
 export const BASE_COIN_PER_TASK = 25;
-export const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2200, 3000] as const;
+export const LEVEL_THRESHOLDS: readonly number[] = LEVEL_TABLE.map(e => e.xpRequired);
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -51,14 +53,7 @@ export function shouldShowBriefing(elapsedMs: number): boolean {
 	return elapsedMs >= MIN_BRIEFING_MS;
 }
 
-export function levelForXp(xp: number): number {
-	for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-		if (xp >= LEVEL_THRESHOLDS[i]) {
-			return i + 1;
-		}
-	}
-	return 1;
-}
+export const levelForXp = _cliLevelForXp;
 
 export function calculateOfflineProgress(
 	elapsedMs: number,

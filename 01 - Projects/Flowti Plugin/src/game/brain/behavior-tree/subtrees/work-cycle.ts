@@ -13,7 +13,6 @@ root [WorkCycle] {
 		action [GoToWorkstation]
 		action [DoWork]
 		action [LeaveWorkstation]
-		action [SpeakBubble]
 	}
 }
 `.trim();

@@ -41,7 +41,7 @@ function showEconomyCue(
 	if (!actor) return;
 	if (cue.bubbleText) {
 		const text = formatBubbleText(cue.bubbleText, data);
-		ctx.systems.bubble.showBubble(agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, cue.duration ?? 2000);
+		ctx.systems.bubble.showBubble(agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, cue.duration ?? 2000);
 	}
 	if (cue.particlePreset) {
 		ctx.systems.particlePool.spawnPreset(cue.particlePreset, actor.pos.x, actor.pos.y - 20);

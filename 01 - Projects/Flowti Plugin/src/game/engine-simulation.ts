@@ -518,6 +518,18 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			const snippet = detail.length > maxDetail ? `${detail.slice(0, maxDetail)}…` : detail;
 			const text = snippet ? `${summary} (${snippet})` : summary;
 			sys.bubble.showBubble(action.agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 6500);
+		} else if (action.type === "seek-rest") {
+			sys.bubble.showBubble(action.agentName, "thought", "Need a break...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-merchant") {
+			sys.bubble.showBubble(action.agentName, "thought", "Off to the shop...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-food") {
+			sys.bubble.showBubble(action.agentName, "thought", "Getting hungry...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-drink") {
+			sys.bubble.showBubble(action.agentName, "thought", "Need something to drink...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-agent") {
+			sys.bubble.showBubble(action.agentName, "thought", "Looking for company...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-quiet") {
+			sys.bubble.showBubble(action.agentName, "thought", "Need some quiet...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
 		}
 	}
 }
@@ -648,12 +660,13 @@ export function tickSocial(ctx: EngineContext): void {
 		const reaction = cascadeQueue.shift()!;
 		switch (reaction.type) {
 			case "vent": {
-				// Frustrated conversation with nearest agent
-				const nearest = ctx.lookups.findNearestAgent(reaction.agent);
-				if (nearest && reaction.target) {
-					const domainA = ctx.store.agents.find((a) => a.name === reaction.agent)?.domain ?? "";
-					const domainB = ctx.store.agents.find((a) => a.name === reaction.target)?.domain ?? "";
-					sys.conversation.tryScript(reaction.agent, reaction.target, "proximity", { domainA, domainB });
+				if (reaction.target) {
+					const targetActor = ctx.lookups.findAgentActor(reaction.target);
+					if (targetActor) {
+						const domainA = ctx.store.agents.find((a) => a.name === reaction.agent)?.domain ?? "";
+						const domainB = ctx.store.agents.find((a) => a.name === reaction.target)?.domain ?? "";
+						sys.conversation.tryScript(reaction.agent, reaction.target, "proximity", { domainA, domainB });
+					}
 				}
 				break;
 			}
@@ -750,7 +763,7 @@ export function tickDirector(ctx: EngineContext): void {
 		() => sys.director.getPresence(),
 		(name) => sys.needs.getNeeds(name),
 		(name) => sys.brain.getState(name)?.state ?? "idle",
-		(_name) => false,
+		(name) => sys.sensor.hasPendingReaction(name),
 	);
 
 	sys.engagement.setContext({

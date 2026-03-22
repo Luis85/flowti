@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({ RESET: "", DIM: "", GREEN: "", CYAN: "", BOLD: "" }));
 
-import { respondFromState, buildTaskPrompt, buildResponsePrompt } from "../../../src/domain/agents/action-handlers.js";
+import { respondFromState, buildTaskPrompt, buildResponsePrompt, buildPrimingPrompt, buildCharacter } from "../../../src/domain/agents/action-handlers.js";
 
 describe("respondFromState", () => {
 	it("returns agent status and task info", () => {
@@ -73,5 +73,39 @@ describe("buildResponsePrompt", () => {
 	it("includes system prompt when provided", () => {
 		const prompt = buildResponsePrompt("Bob", "Hello", "Be concise.", undefined, []);
 		expect(prompt).toContain("Be concise.");
+	});
+});
+
+describe("buildPrimingPrompt", () => {
+	it("builds a prompt with system instructions and character", () => {
+		const result = buildPrimingPrompt("Bob", "You are a helpful assistant.", undefined, []);
+		expect(result).toContain("Bob");
+		expect(result).toContain("You are a helpful assistant.");
+	});
+
+	it("includes conversation history when provided", () => {
+		const history = [
+			{ role: "user" as const, content: "Hello" },
+			{ role: "agent" as const, content: "Hi there!" },
+		];
+		const result = buildPrimingPrompt("Bob", null, undefined, history);
+		expect(result).toContain("Hello");
+		expect(result).toContain("Hi there!");
+	});
+
+	it("omits history content when history is empty", () => {
+		const result = buildPrimingPrompt("Bob", null, undefined, []);
+		expect(result).not.toContain("**User:** Hello");
+	});
+
+	it("includes character traits when provided", () => {
+		const character = buildCharacter({
+			name: "Bob", agentType: "ai", description: "A builder",
+			persona: "Builder Bob", mood: "cheerful",
+			skills: [], tools: [], roles: [], file: "bob.md",
+		});
+		const result = buildPrimingPrompt("Bob", null, character, []);
+		expect(result).toContain("Builder Bob");
+		expect(result).toContain("cheerful");
 	});
 });

@@ -41,6 +41,8 @@ export interface BackgroundProcess {
 	readonly running: boolean;
 	/** Collected output lines (stdout + stderr) for diagnostics. */
 	readonly output: string[];
+	/** Write data to the process stdin. Only available when spawned with stdin: true. */
+	writeStdin(data: string): void;
 }
 
 export interface IShell {
@@ -59,7 +61,7 @@ export interface IShell {
 	/** Run a command capturing stdout, stderr, and exit code separately. */
 	runCaptureDetailed(cmd: string, opts?: { cwd?: string; timeout?: number; env?: Record<string, string> }): { stdout: string; stderr: string; exitCode: number };
 	/** Spawn a command in the background with piped stdout/stderr. */
-	spawnBackground(cmd: string, opts?: { cwd?: string; env?: Record<string, string> }): BackgroundProcess;
+	spawnBackground(cmd: string, opts?: { cwd?: string; env?: Record<string, string>; stdin?: boolean }): BackgroundProcess;
 	/** Run a command asynchronously, return exit code and captured output. Optionally pipe `input` to stdin and stream lines via `onLine`. */
 	runAsync(cmd: string, opts?: { cwd?: string; timeout?: number; input?: string; onLine?: (line: string) => void }): Promise<{ output: string; exitCode: number }>;
 	/** Run multiple commands in parallel, return results in order. */

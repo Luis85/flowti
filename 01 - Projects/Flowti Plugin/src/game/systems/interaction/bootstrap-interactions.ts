@@ -58,6 +58,12 @@ export interface BootstrapSystems {
 	readonly conversation: {
 		isLocked(entityId: string): boolean;
 	};
+	readonly trust?: {
+		getTrustTier(agentName: string): "supervised" | "trusted" | "autonomous";
+	};
+	readonly inventory?: {
+		hasItem(entityId: string, itemId: string): boolean;
+	};
 	readonly talk?: {
 		triggerReactive(entityId: string, trigger: string): void;
 	};
@@ -119,9 +125,16 @@ function createPrerequisiteChecker(
 				const currentPhase = systems.dayClock.getPhase() as DayPhase;
 				return prereq.phases.includes(currentPhase);
 			}
-			case "trust-tier":
-			case "has-item":
-				return true; // deferred to future implementation
+			case "trust-tier": {
+				const tier = systems.trust?.getTrustTier(interaction.initiator.id);
+				if (!tier) return true;
+				const order = ["supervised", "trusted", "autonomous"];
+				return order.indexOf(tier) >= order.indexOf(prereq.minTier);
+			}
+			case "has-item": {
+				if (!systems.inventory) return true;
+				return systems.inventory.hasItem(interaction.initiator.id, prereq.itemId);
+			}
 			default:
 				return true;
 		}

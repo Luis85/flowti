@@ -138,16 +138,16 @@ export function BrowseMerchant(ext: BTAgentExtensionDeps): State {
 export function ExecuteMerchantPurchase(ext: BTAgentExtensionDeps): State {
 	if (!ext.deps.merchant) return fromNodeState("failed");
 
-	const itemId = ext.deps.merchant.getAutoPurchaseItemId(ext.context.name);
-	if (!itemId) return fromNodeState("failed");
+	const item = ext.deps.merchant.getAutoPurchaseItem(ext.context.name);
+	if (!item) return fromNodeState("failed");
 
 	// Fire-and-forget async purchase — BT actions are synchronous, so we
 	// collect the action immediately and let the purchase resolve in the
 	// background (same pattern as QueryLLM fire-and-poll but simpler since
 	// we don't need to wait for a result to continue).
-	void ext.deps.merchant.purchase(ext.context.name, itemId);
+	void ext.deps.merchant.purchase(ext.context.name, item.id);
 
-	ext.collect("merchant-purchase", { itemId });
+	ext.collect("merchant-purchase", { itemId: item.id, itemName: item.name });
 
 	// Mark this cycle as visited so the subtree won't re-trigger
 	ext.context.lastMerchantVisitCycle = ext.deps.merchant.getCycleCount();
