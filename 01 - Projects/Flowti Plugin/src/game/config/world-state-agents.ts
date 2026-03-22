@@ -65,7 +65,7 @@ function mapEntityToDashboardAgent(entity: WorldEntity): DashboardAgent | null {
 	const behaviors = extractStringArray(c["behaviors"]);
 	const goals = extractGoals(c["goals"]);
 	const skills = extractSkills(c["skills"]);
-	const xp = typeof c["xp"] === "number" ? c["xp"] : (typeof c["experience"] === "number" ? c["experience"] : undefined);
+	const xp = typeof c["xp"] === "number" ? c["xp"] : undefined;
 
 	return {
 		name: entity.id,

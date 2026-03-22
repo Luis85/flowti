@@ -110,7 +110,7 @@ export class DashboardStore extends EventTarget {
 			...(data.trustTier !== undefined && { trustTier: data.trustTier as "supervised" | "trusted" | "autonomous" }),
 			...(data.capabilities !== undefined && { capabilities: data.capabilities }),
 		};
-		this.agents = [...this.agents.slice(0, idx), updated, ...this.agents.slice(idx + 1)] as unknown as readonly DashboardAgent[];
+		this.agents = [...this.agents.slice(0, idx), updated, ...this.agents.slice(idx + 1)];
 		this.notify();
 	}
 

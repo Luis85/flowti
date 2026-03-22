@@ -434,9 +434,15 @@ describe("buildDashboardAgent", () => {
 	});
 
 	it("includes name field in goals alongside text and priority", () => {
-		const agent = createMockAgent({ goals: [{ name: "complete-review", priority: 2 }] });
+		const agent = createMockAgent({ goals: [{ name: "complete-review", priority: 2, condition: "All items reviewed" }] });
 		const result = buildDashboardAgent(agent, { status: "idle" });
-		expect(result.goals).toEqual([{ name: "complete-review", text: "complete-review", priority: "2" }]);
+		expect(result.goals).toEqual([{ name: "complete-review", text: "All items reviewed", priority: "2" }]);
+	});
+
+	it("falls back to name for goals text when condition is absent", () => {
+		const agent = createMockAgent({ goals: [{ name: "patrol-area", priority: 1 }] });
+		const result = buildDashboardAgent(agent, { status: "idle" });
+		expect(result.goals).toEqual([{ name: "patrol-area", text: "patrol-area", priority: "1" }]);
 	});
 });
 

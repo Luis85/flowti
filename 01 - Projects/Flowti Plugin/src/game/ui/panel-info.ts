@@ -221,34 +221,7 @@ export class PanelInfo extends FlowtiElement {
 				font-size: 10px;
 			}
 
-			.xp-row {
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				margin-bottom: 12px;
-			}
-
-			.xp-label {
-				font-size: 10px;
-				color: var(--text-dim);
-				white-space: nowrap;
-			}
-
-			.xp-bar {
-				flex: 1;
-				height: 4px;
-				background: rgba(255, 255, 255, 0.06);
-				border-radius: 2px;
-				overflow: hidden;
-			}
-
-			.xp-fill {
-				height: 100%;
-				border-radius: 2px;
-				background: linear-gradient(90deg, #8b5cf6, #a78bfa);
-			}
-
-			.empty {
+.empty {
 				color: var(--text-muted);
 				font-style: italic;
 				text-align: center;
@@ -285,7 +258,7 @@ export class PanelInfo extends FlowtiElement {
 			return html`<div class="empty">No agent selected.</div>`;
 		}
 
-		const { attributes, xp } = this.agent;
+		const { attributes } = this.agent;
 
 		return html`
 			${this.renderHero()}
@@ -293,7 +266,6 @@ export class PanelInfo extends FlowtiElement {
 			<ft-game-panel-vitals .needs="${this.needs}"></ft-game-panel-vitals>
 			<ft-game-panel-economy .agent="${this.agent}"></ft-game-panel-economy>
 			${this.renderStats(attributes)}
-			${xp !== undefined ? this.renderXp(xp) : nothing}
 			${this.renderListSection("Skills", this.agent.skills, (s) => html`
 				<div class="skill"><span class="skill-name">${s.name}</span><span class="skill-level">${s.level}</span></div>
 			`)}
@@ -384,17 +356,6 @@ export class PanelInfo extends FlowtiElement {
 		`;
 	}
 
-	private renderXp(xp: number) {
-		const level = Math.floor(xp / 100);
-		const pct = xp % 100;
-		return html`
-			<div class="xp-row">
-				<span class="xp-label">Lv ${level}</span>
-				<div class="xp-bar"><div class="xp-fill" style="width:${pct}%"></div></div>
-				<span class="xp-label">${xp} XP</span>
-			</div>
-		`;
-	}
 }
 
 if (!customElements.get("ft-game-panel-info")) customElements.define("ft-game-panel-info", PanelInfo);

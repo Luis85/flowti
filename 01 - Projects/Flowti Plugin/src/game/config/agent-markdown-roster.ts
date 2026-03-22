@@ -153,7 +153,7 @@ function buildOptionalFields(fm: Record<string, unknown>): Record<string, unknow
 	if (behaviors) result.behaviors = behaviors;
 	const skills = parseSkills(fm.skills);
 	if (skills) result.skills = skills;
-	if (typeof fm.experience === "number") result.xp = fm.experience;
+	if (typeof fm.xp === "number") result.xp = fm.xp;
 	if (Array.isArray(fm.suggestedTasks)) {
 		const tasks = (fm.suggestedTasks as string[]).map(parseSuggestedTask);
 		if (tasks.length > 0) result.suggestedTasks = tasks;

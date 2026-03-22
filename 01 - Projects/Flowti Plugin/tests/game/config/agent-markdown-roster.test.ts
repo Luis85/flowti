@@ -69,11 +69,11 @@ describe("dashboardAgentFromFrontmatter", () => {
 		]);
 	});
 
-	it("maps xp from frontmatter experience number", () => {
+	it("maps xp from frontmatter number", () => {
 		const row = dashboardAgentFromFrontmatter({
 			type: "Agent",
 			name: "Archie",
-			experience: 42,
+			xp: 42,
 		});
 		expect(row?.xp).toBe(42);
 	});

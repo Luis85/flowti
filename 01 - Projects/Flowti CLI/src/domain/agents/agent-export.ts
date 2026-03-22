@@ -279,7 +279,7 @@ export function buildDashboardAgent(
 		skills: agent.skills.length > 0 ? agent.skills : undefined,
 		relationships: agent.relationships,
 		suggestedTasks: agent.suggestedTasks,
-		goals: agent.goals?.map(g => ({ name: g.name, text: g.name, priority: String(g.priority ?? 0) })),
+		goals: agent.goals?.map(g => ({ name: g.name, text: g.condition ?? g.name, priority: String(g.priority ?? 0) })),
 		behaviors: agent.behaviors,
 		level: economy?.level,
 		xp: economy?.xp,
