@@ -108,7 +108,7 @@ describe("editComponent", () => {
 
 	it("returns error when file has no frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("# No frontmatter");
+		vi.mocked(disk.readFileSync).mockReturnValue("# No frontmatter" as never);
 		const result = editComponent("Test", { "prop.status": "active" }, "/project", editDeps());
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.error).toContain("No frontmatter");
@@ -117,7 +117,7 @@ describe("editComponent", () => {
 	it("updates frontmatter properties and preserves existing ones", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(
-			"---\ntype: component\nstatus: draft\ncreated: 2026-01-01\n---\n\n# Auth Service\n",
+			"---\ntype: component\nstatus: draft\ncreated: 2026-01-01\n---\n\n# Auth Service\n" as never,
 		);
 
 		const result = editComponent(
@@ -140,7 +140,7 @@ describe("editComponent", () => {
 
 	it("uses kebab-case for file lookup", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\n---\n\n# Test\n");
+		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\n---\n\n# Test\n" as never);
 
 		editComponent("My Component", { "prop.status": "active" }, "/project", editDeps());
 
@@ -149,7 +149,7 @@ describe("editComponent", () => {
 
 	it("returns kebab and propList on success", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\n---\n\n# Test\n");
+		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\n---\n\n# Test\n" as never);
 
 		const result = editComponent("Test", { "prop.status": "active" }, "/project", editDeps());
 

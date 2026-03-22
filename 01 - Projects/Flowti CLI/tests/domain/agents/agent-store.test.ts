@@ -241,7 +241,7 @@ describe("agentToJson", () => {
 			behaviors: ["patrol", "guard"],
 			components: [{ name: "movement", type: "behavior" }],
 			goals: [{ name: "complete-review", priority: 2 }],
-			ai: { model: "claude-sonnet-4-20250514", provider: "anthropic" },
+			ai: { provider: "anthropic" },
 			relationships: [{ target: "Human Lead", type: "reports-to" }],
 		});
 		expect(json.domain).toBe("development");
@@ -258,7 +258,7 @@ describe("companion JSON definition", () => {
 		const jsonDef = JSON.stringify({
 			components: [{ name: "tool-caller", type: "actuator" }],
 			goals: [{ name: "assist-user", priority: 1 }],
-			ai: { model: "gpt-4o", provider: "openai" },
+			ai: { provider: "openai" },
 			relationships: [{ target: "Supervisor", type: "reports-to" }],
 		});
 		const deps = makeDeps({
@@ -281,7 +281,7 @@ describe("companion JSON definition", () => {
 			name: "SmartBot", agentType: "ai", description: "",
 			skills: [], tools: [], roles: [],
 			components: [{ name: "perception", type: "sensor" }],
-			ai: { model: "claude-sonnet-4-20250514", provider: "anthropic" },
+			ai: { provider: "anthropic" },
 		};
 		createAgent(deps, "/proj", def);
 		// Should have written both .md and .json
@@ -415,7 +415,7 @@ describe("removeArrayItem", () => {
 describe("updateAgentJson", () => {
 	it("creates companion JSON when none exists", () => {
 		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
-		const ok = updateAgentJson(deps, "/proj", "CodeBot", { ai: { model: "claude-sonnet-4-20250514", provider: "anthropic" } });
+		const ok = updateAgentJson(deps, "/proj", "CodeBot", { ai: { provider: "anthropic" } });
 		expect(ok).toBe(true);
 		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 		const parsed = JSON.parse(written);
@@ -429,11 +429,11 @@ describe("updateAgentJson", () => {
 			"/proj/docs/agents/code-bot.md": AGENT_MD,
 			"/proj/docs/agents/code-bot.json": existingJson,
 		});
-		updateAgentJson(deps, "/proj", "CodeBot", { ai: { model: "gpt-4o" } });
+		updateAgentJson(deps, "/proj", "CodeBot", { ai: { provider: "gpt-4o" } });
 		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 		const parsed = JSON.parse(written);
 		expect(parsed.components).toEqual([{ name: "tool-caller" }]);
-		expect(parsed.ai).toEqual({ model: "gpt-4o" });
+		expect(parsed.ai).toEqual({ provider: "gpt-4o" });
 	});
 });
 

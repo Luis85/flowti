@@ -106,11 +106,11 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	// Restore default implementations that may be overridden by specific tests
 	vi.mocked(disk.existsSync).mockReturnValue(false);
-	vi.mocked(disk.readFileSync).mockReturnValue("");
+	vi.mocked(disk.readFileSync).mockReturnValue("" as never);
 	vi.mocked(disk.writeFileSync).mockImplementation(() => {});
 	vi.mocked(disk.mkdirSync).mockImplementation(() => "");
 	vi.mocked(disk.rmSync).mockImplementation(() => {});
-	vi.mocked(disk.readdirSync).mockReturnValue([] as unknown as ReturnType<typeof disk.readdirSync>);
+	vi.mocked(disk.readdirSync).mockReturnValue([] as unknown as ReturnType<typeof disk.readdirSync> as never);
 	vi.mocked(disk.copyFileSync).mockImplementation(() => {});
 	vi.mocked(generateJourneyReport).mockReturnValue({ title: "Journey Test", status: "pass", content: "# Journey" });
 	vi.mocked(generateJourneyCanvas).mockReturnValue({ nodes: [], edges: [], metadata: { version: "1", frontmatter: {}, startNode: "" } });
@@ -412,7 +412,7 @@ describe("e2e-report-summary", () => {
 				if (p === "/results/journey-a/Journey Test-config.json") return true;
 				return false;
 			});
-			vi.mocked(disk.readFileSync).mockReturnValue('{"config": true}');
+			vi.mocked(disk.readFileSync).mockReturnValue('{"config": true}' as never);
 
 			writeJourneyOutputs(
 				"/results/journey-a",

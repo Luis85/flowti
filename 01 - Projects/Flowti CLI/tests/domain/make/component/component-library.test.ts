@@ -141,7 +141,7 @@ describe("importLibraryDefinition", () => {
 	it("returns error when JSON is invalid", () => {
 		const deps = mockDeps();
 		vi.mocked(deps.disk.existsSync).mockReturnValue(true);
-		vi.mocked(deps.disk.readFileSync).mockReturnValue("not json");
+		vi.mocked(deps.disk.readFileSync).mockReturnValue("not json" as never);
 
 		const result = importLibraryDefinition("/project", "lib", "bad.json", deps);
 		expect(result.errors).toHaveLength(1);
@@ -151,7 +151,7 @@ describe("importLibraryDefinition", () => {
 	it("returns error when type is unknown", () => {
 		const deps = mockDeps();
 		vi.mocked(deps.disk.existsSync).mockReturnValue(true);
-		vi.mocked(deps.disk.readFileSync).mockReturnValue('{"name":"X","type":"unknown-type"}');
+		vi.mocked(deps.disk.readFileSync).mockReturnValue('{"name":"X","type":"unknown-type"}' as never);
 
 		const result = importLibraryDefinition("/project", "lib", "x.json", deps);
 		expect(result.errors[0]).toContain("Unknown type");
@@ -160,7 +160,7 @@ describe("importLibraryDefinition", () => {
 	it("generates files for a valid definition", () => {
 		const deps = mockDeps();
 		vi.mocked(deps.disk.existsSync).mockReturnValue(false); // no existing files
-		vi.mocked(deps.disk.readFileSync).mockReturnValue('{"name":"Accordion","type":"component","id":"accordion"}');
+		vi.mocked(deps.disk.readFileSync).mockReturnValue('{"name":"Accordion","type":"component","id":"accordion"}' as never);
 
 		const result = importLibraryDefinition("/project", "prime-ng", "accordion.json", deps);
 		expect(result.errors).toHaveLength(0);
@@ -171,7 +171,7 @@ describe("importLibraryDefinition", () => {
 	it("moves the JSON into the subfolder during import", () => {
 		const deps = mockDeps();
 		vi.mocked(deps.disk.existsSync).mockReturnValue(false);
-		vi.mocked(deps.disk.readFileSync).mockReturnValue('{"name":"Btn","type":"component","id":"btn"}');
+		vi.mocked(deps.disk.readFileSync).mockReturnValue('{"name":"Btn","type":"component","id":"btn"}' as never);
 
 		importLibraryDefinition("/project", "lib", "btn.json", deps);
 

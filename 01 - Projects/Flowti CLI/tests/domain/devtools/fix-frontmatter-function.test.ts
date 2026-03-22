@@ -6,6 +6,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 
 import { fixFrontmatter } from "../../../src/domain/devtools/fix-frontmatter.js";
 import type { FrontmatterFixOpts } from "../../../src/domain/devtools/fix-frontmatter.js";
+import type { CliDeps } from "../../../src/infrastructure/deps.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -44,11 +45,11 @@ function makeDeps(files: Record<string, string> = {}) {
 				.filter((f) => f.startsWith(prefix) && !f.slice(prefix.length).includes("/"))
 				.map((f) => f.slice(prefix.length));
 		}),
-	};
+	} as unknown as CliDeps["disk"] & { readFileSync: ReturnType<typeof vi.fn>; writeFileSync: ReturnType<typeof vi.fn>; readdirSync: ReturnType<typeof vi.fn> };
 
 	const paths = {
 		join: (...args: string[]) => args.join("/"),
-	};
+	} as unknown as CliDeps["paths"];
 
 	const log = vi.fn();
 

@@ -73,8 +73,8 @@ function capDeps(fs: IFileSystem) {
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(filesystemMod, { disk: mockFs });
 	const deps = createTestDeps();
-	(deps as Record<string, unknown>).disk = mockFs;
-	(deps as Record<string, unknown>).log = log;
+	(deps as unknown as Record<string, unknown>).disk = mockFs;
+	(deps as unknown as Record<string, unknown>).log = log;
 	initializeDeps(deps);
 }
 
@@ -87,7 +87,7 @@ describe("commands['capture:idea']", () => {
 	it("creates a file with the idea text", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:idea"]({ text: "My great idea" });
+		commands["capture:idea"]({ text: "My great idea" }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes("My great idea"));
 		expect(created).toBeDefined();
@@ -97,7 +97,7 @@ describe("commands['capture:idea']", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 		const longText = "A".repeat(100);
-		commands["capture:idea"]({ text: longText });
+		commands["capture:idea"]({ text: longText }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes(".md"));
 		expect(created).toBeDefined();
@@ -109,7 +109,7 @@ describe("commands['capture:idea']", () => {
 	it("errors when --text flag is missing", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:idea"]({});
+		commands["capture:idea"]({}, []);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Missing --text flag");
 	});
@@ -117,7 +117,7 @@ describe("commands['capture:idea']", () => {
 	it("errors when --text is a boolean", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:idea"]({ text: true });
+		commands["capture:idea"]({ text: true }, []);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Missing --text flag");
 	});
@@ -127,7 +127,7 @@ describe("commands['capture:idea']", () => {
 			"/mock/vault/inbox/idea/My idea.md": "existing",
 		});
 		setDisk(fs);
-		commands["capture:idea"]({ text: "My idea" });
+		commands["capture:idea"]({ text: "My idea" }, []);
 		expect(fs.files.get("/mock/vault/inbox/idea/My idea.md")).toBe("existing");
 	});
 });
@@ -136,7 +136,7 @@ describe("commands['capture:note']", () => {
 	it("creates a note file with the given type and title", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ type: "task", title: "Fix login" });
+		commands["capture:note"]({ type: "task", title: "Fix login" }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes("Fix login"));
 		expect(created).toBeDefined();
@@ -147,7 +147,7 @@ describe("commands['capture:note']", () => {
 	it("normalizes type casing", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ type: "BUG", title: "Crash" });
+		commands["capture:note"]({ type: "BUG", title: "Crash" }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes("Crash"));
 		expect(created).toBeDefined();
@@ -158,7 +158,7 @@ describe("commands['capture:note']", () => {
 	it("errors when --type is missing", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ title: "No type" });
+		commands["capture:note"]({ title: "No type" }, []);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Missing --type");
 	});
@@ -166,7 +166,7 @@ describe("commands['capture:note']", () => {
 	it("errors when --title is missing", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ type: "task" });
+		commands["capture:note"]({ type: "task" }, []);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Missing --type");
 	});
@@ -174,7 +174,7 @@ describe("commands['capture:note']", () => {
 	it("errors on invalid note type", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ type: "invalid", title: "Test" });
+		commands["capture:note"]({ type: "invalid", title: "Test" }, []);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Invalid type");
 	});
@@ -184,7 +184,7 @@ describe("commands['capture:note']", () => {
 		for (const type of types) {
 			const fs = createMockFs();
 			setDisk(fs);
-			commands["capture:note"]({ type, title: `Test-${type}` });
+			commands["capture:note"]({ type, title: `Test-${type}` }, []);
 			const files = [...fs.files.keys()];
 			expect(files.some(f => f.includes(`Test-${type}`))).toBe(true);
 		}
@@ -193,7 +193,7 @@ describe("commands['capture:note']", () => {
 	it("errors when --type is a boolean", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ type: true, title: "Test" });
+		commands["capture:note"]({ type: true, title: "Test" }, []);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Missing --type");
 	});
@@ -201,7 +201,7 @@ describe("commands['capture:note']", () => {
 	it("errors when --title is a boolean", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ type: "task", title: true });
+		commands["capture:note"]({ type: "task", title: true }, []);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Missing --type");
 	});
@@ -209,7 +209,7 @@ describe("commands['capture:note']", () => {
 	it("shows valid types in error message for invalid type", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ type: "invalid", title: "Test" });
+		commands["capture:note"]({ type: "invalid", title: "Test" }, []);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Task");
 		expect(output).toContain("Bug");
@@ -220,7 +220,7 @@ describe("commands['capture:idea'] — filename sanitization", () => {
 	it("strips special characters from filename", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:idea"]({ text: 'My idea: with "special" chars?' });
+		commands["capture:idea"]({ text: 'My idea: with "special" chars?' }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes(".md"));
 		expect(created).toBeDefined();
@@ -232,7 +232,7 @@ describe("commands['capture:idea'] — filename sanitization", () => {
 	it("collapses multiple spaces in filename", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:idea"]({ text: "idea   with   spaces" });
+		commands["capture:idea"]({ text: "idea   with   spaces" }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes(".md"));
 		expect(created).toBeDefined();
@@ -243,7 +243,7 @@ describe("commands['capture:idea'] — filename sanitization", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 		const longText = "A".repeat(100);
-		commands["capture:idea"]({ text: longText });
+		commands["capture:idea"]({ text: longText }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes(".md"));
 		const basename = created!.split("/").pop()!.replace(".md", "");
@@ -257,7 +257,7 @@ describe("capture:idea --tags", () => {
 	it("adds tags to frontmatter", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:idea"]({ text: "Tagged idea", tags: "urgent,feature" });
+		commands["capture:idea"]({ text: "Tagged idea", tags: "urgent,feature" }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes("Tagged idea"));
 		expect(created).toBeDefined();
@@ -269,7 +269,7 @@ describe("capture:idea --tags", () => {
 	it("handles empty tags gracefully", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:idea"]({ text: "No tags" });
+		commands["capture:idea"]({ text: "No tags" }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes("No tags"));
 		expect(created).toBeDefined();
@@ -280,7 +280,7 @@ describe("capture:idea --tags", () => {
 	it("trims whitespace from tags", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:idea"]({ text: "Spaced tags", tags: " urgent , bug " });
+		commands["capture:idea"]({ text: "Spaced tags", tags: " urgent , bug " }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes("Spaced tags"));
 		const content = fs.files.get(created!)!;
@@ -293,7 +293,7 @@ describe("capture:note --tags", () => {
 	it("adds tags to note frontmatter", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		commands["capture:note"]({ type: "task", title: "Tagged task", tags: "p1,backend" });
+		commands["capture:note"]({ type: "task", title: "Tagged task", tags: "p1,backend" }, []);
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes("Tagged task"));
 		expect(created).toBeDefined();

@@ -72,7 +72,7 @@ describe("generateCodebaseReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateCodebaseReport("/project", mockDeps);
 
@@ -95,7 +95,7 @@ describe("generateCodebaseReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateCodebaseReport("/project", mockDeps);
 
@@ -104,7 +104,7 @@ describe("generateCodebaseReport", () => {
 
 	it("handles empty codebase with no children", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}) as never);
 
 		const result = generateCodebaseReport("/project", mockDeps);
 
@@ -117,7 +117,7 @@ describe("generateCodebaseReport", () => {
 
 	it("passes pipeline context log messages", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}) as never);
 
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };
@@ -139,7 +139,7 @@ describe("generateCodebaseReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateCodebaseReport("/project", mockDeps);
 

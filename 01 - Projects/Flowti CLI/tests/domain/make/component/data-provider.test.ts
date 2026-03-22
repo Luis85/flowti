@@ -54,7 +54,7 @@ describe("listDataProviders", () => {
 			return true;
 		});
 		mockDisk.readdirSync.mockReturnValue(["users.json", "products.json"] as never);
-		mockDisk.readFileSync.mockReturnValue(JSON.stringify([{ id: 1 }, { id: 2 }]));
+		mockDisk.readFileSync.mockReturnValue(JSON.stringify([{ id: 1 }, { id: 2 }]) as never);
 
 		const providers = listDataProviders("/project", deps());
 		expect(providers).toHaveLength(2);
@@ -65,7 +65,7 @@ describe("listDataProviders", () => {
 	it("reports record count from array data", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readdirSync.mockReturnValue(["items.json"] as never);
-		mockDisk.readFileSync.mockReturnValue(JSON.stringify([1, 2, 3]));
+		mockDisk.readFileSync.mockReturnValue(JSON.stringify([1, 2, 3]) as never);
 
 		const providers = listDataProviders("/project", deps());
 		expect(providers[0].recordCount).toBe(3);
@@ -74,7 +74,7 @@ describe("listDataProviders", () => {
 	it("reports key count from object data", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readdirSync.mockReturnValue(["config.json"] as never);
-		mockDisk.readFileSync.mockReturnValue(JSON.stringify({ a: 1, b: 2 }));
+		mockDisk.readFileSync.mockReturnValue(JSON.stringify({ a: 1, b: 2 }) as never);
 
 		const providers = listDataProviders("/project", deps());
 		expect(providers[0].recordCount).toBe(2);
@@ -83,7 +83,7 @@ describe("listDataProviders", () => {
 	it("reports hasDictionary based on md file existence", () => {
 		mockDisk.existsSync.mockImplementation((p: string) => !String(p).endsWith(".md"));
 		mockDisk.readdirSync.mockReturnValue(["data.json"] as never);
-		mockDisk.readFileSync.mockReturnValue("[]");
+		mockDisk.readFileSync.mockReturnValue("[]" as never);
 
 		const providers = listDataProviders("/project", deps());
 		expect(providers[0].hasDictionary).toBe(false);
@@ -93,7 +93,7 @@ describe("listDataProviders", () => {
 describe("readDataProvider", () => {
 	it("returns parsed JSON when file exists", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue(JSON.stringify([{ id: 1 }]));
+		mockDisk.readFileSync.mockReturnValue(JSON.stringify([{ id: 1 }]) as never);
 		expect(readDataProvider("/project", "users", deps())).toEqual([{ id: 1 }]);
 	});
 
@@ -104,7 +104,7 @@ describe("readDataProvider", () => {
 
 	it("returns null on parse error", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("not json");
+		mockDisk.readFileSync.mockReturnValue("not json" as never);
 		expect(readDataProvider("/project", "users", deps())).toBeNull();
 	});
 });
@@ -195,7 +195,7 @@ describe("generateDataDictionary", () => {
 describe("regenerateDataDictionary", () => {
 	it("regenerates md from existing json", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue(JSON.stringify([{ id: 1 }]));
+		mockDisk.readFileSync.mockReturnValue(JSON.stringify([{ id: 1 }]) as never);
 
 		const ok = regenerateDataDictionary("/project", "users", deps());
 		expect(ok).toBe(true);

@@ -59,25 +59,25 @@ describe("generateCycleReport", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toBeTruthy();
+		expect((result as { error?: string }).error).toBeTruthy();
 	});
 
 	it("returns failure when no 'done' cycle found", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 10.md"] as any);
+		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 10.md"] as any as never);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({ cycle: 10, stage: "in-progress" });
 
 		const result = generateCycleReport("/project", mockDeps);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toBeTruthy();
+		expect((result as { error?: string }).error).toBeTruthy();
 	});
 
 	it("generates report from latest done cycle", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 5.md"] as any);
-		vi.mocked(disk.readFileSync).mockReturnValue("---\ncycle: 5\nstage: done\n---");
+		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 5.md"] as any as never);
+		vi.mocked(disk.readFileSync).mockReturnValue("---\ncycle: 5\nstage: done\n---" as never);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({
 			cycle: 5,
 			stage: "done",
@@ -108,8 +108,8 @@ describe("generateCycleReport", () => {
 
 	it("picks highest cycle number when multiple done cycles exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 3.md", "Cycle 7.md", "Cycle 5.md"] as any);
-		vi.mocked(disk.readFileSync).mockReturnValue("---\nstage: done\n---");
+		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 3.md", "Cycle 7.md", "Cycle 5.md"] as any as never);
+		vi.mocked(disk.readFileSync).mockReturnValue("---\nstage: done\n---" as never);
 		vi.mocked(parseFrontmatterContent).mockImplementation((content: string) => {
 			if (content === "---\nstage: done\n---") {
 				// Called three times, return cycle values matching file order
@@ -140,8 +140,8 @@ describe("generateCycleReport", () => {
 
 	it("includes PBIs and tech debt in metrics", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 12.md"] as any);
-		vi.mocked(disk.readFileSync).mockReturnValue("cycle12");
+		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 12.md"] as any as never);
+		vi.mocked(disk.readFileSync).mockReturnValue("cycle12" as never);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({
 			cycle: 12,
 			stage: "done",
@@ -165,8 +165,8 @@ describe("generateCycleReport", () => {
 
 	it("passes pipeline context log messages", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 1.md"] as any);
-		vi.mocked(disk.readFileSync).mockReturnValue("cycle1");
+		vi.mocked(disk.readdirSync).mockReturnValue(["Cycle 1.md"] as any as never);
+		vi.mocked(disk.readFileSync).mockReturnValue("cycle1" as never);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({
 			cycle: 1,
 			stage: "done",

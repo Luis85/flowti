@@ -32,7 +32,7 @@ describe("listProducts", () => {
 			{ name: "Zeta Platform", isDirectory: () => true },
 			{ name: "Alpha Service", isDirectory: () => true },
 			{ name: "README.md", isDirectory: () => false },
-		]);
+		] as never);
 		expect(listProducts("/vault/02 - Products", deps)).toEqual(["Alpha Service", "Zeta Platform"]);
 	});
 });
@@ -47,7 +47,7 @@ describe("listFeatures", () => {
 		mockDisk.readdirSync.mockReturnValue([
 			{ name: "User Auth", isDirectory: () => true },
 			{ name: "Search", isDirectory: () => true },
-		]);
+		] as never);
 		expect(listFeatures("/vault/03 - Features", deps)).toEqual(["Search", "User Auth"]);
 	});
 });

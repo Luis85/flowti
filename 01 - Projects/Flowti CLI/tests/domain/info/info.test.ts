@@ -17,12 +17,12 @@ const mockReadFileSync = vi.fn((p: string) => {
 const mockReaddirSync = vi.fn(() => []);
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
-	log: (...args: unknown[]) => mockLog(...args),
+	log: mockLog,
 }));
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", YELLOW: "", RED: "", CYAN: "",
-	printHeader: (...args: unknown[]) => mockPrintHeader(...args),
+	printHeader: mockPrintHeader,
 }));
 
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
@@ -38,7 +38,7 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {
 		run: vi.fn(() => 0),
-		runSilent: (...args: unknown[]) => mockRunSilent(...args),
+		runSilent: mockRunSilent,
 	},
 }));
 
@@ -59,7 +59,7 @@ vi.mock("../../../src/infrastructure/state.js", () => ({
 }));
 
 vi.mock("../../../src/infrastructure/fs.js", () => ({
-	countFiles: (...args: unknown[]) => mockCountFiles(...args),
+	countFiles: mockCountFiles,
 }));
 
 const defaultCtx = {

@@ -30,8 +30,8 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 const mockRunGenerator = vi.fn();
 const mockHasGenerator = vi.fn();
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
-	runGenerator: (...args: unknown[]) => mockRunGenerator(...args),
-	hasGenerator: (...args: unknown[]) => mockHasGenerator(...args),
+	runGenerator: mockRunGenerator,
+	hasGenerator: mockHasGenerator,
 }));
 
 vi.mock("../../../src/domain/reports/report-phases.js", async () => {

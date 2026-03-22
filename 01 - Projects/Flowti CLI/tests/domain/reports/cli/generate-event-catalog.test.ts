@@ -79,7 +79,7 @@ describe("generateEventCatalog", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toMatch(/source not configured/i);
+		expect((result as { error?: string }).error).toMatch(/source not configured/i);
 	});
 
 	it("returns failure when catalog source not found", () => {
@@ -89,7 +89,7 @@ describe("generateEventCatalog", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toMatch(/catalog\.ts not found/i);
+		expect((result as { error?: string }).error).toMatch(/catalog\.ts not found/i);
 	});
 
 	it("returns failure when no events extracted", () => {
@@ -101,7 +101,7 @@ describe("generateEventCatalog", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toMatch(/no events extracted/i);
+		expect((result as { error?: string }).error).toMatch(/no events extracted/i);
 	});
 
 	it("generates report from valid catalog data", () => {

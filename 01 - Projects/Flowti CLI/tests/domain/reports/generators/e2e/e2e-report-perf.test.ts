@@ -54,7 +54,7 @@ describe("e2e-report-perf", () => {
 
 		it("returns null when no trace files", () => {
 			vi.mocked(disk.existsSync).mockReturnValue(true);
-			vi.mocked(disk.readdirSync).mockReturnValue([] as any);
+			vi.mocked(disk.readdirSync).mockReturnValue([] as any as never);
 
 			const result = readLatestEventTrace("/traces", mockDeps);
 
@@ -67,9 +67,9 @@ describe("e2e-report-perf", () => {
 				"2026-03-09-Event Trace.json",
 				"2026-03-11-Event Trace.json",
 				"2026-03-10-Event Trace.json",
-			] as any);
+			] as any as never);
 			const traceData = { summary: { totalEvents: 42 }, events: [] };
-			vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(traceData));
+			vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(traceData) as never);
 
 			const result = readLatestEventTrace("/traces", mockDeps);
 
@@ -82,8 +82,8 @@ describe("e2e-report-perf", () => {
 
 		it("returns null on parse error", () => {
 			vi.mocked(disk.existsSync).mockReturnValue(true);
-			vi.mocked(disk.readdirSync).mockReturnValue(["2026-03-10-Event Trace.json"] as any);
-			vi.mocked(disk.readFileSync).mockReturnValue("not valid json {{");
+			vi.mocked(disk.readdirSync).mockReturnValue(["2026-03-10-Event Trace.json"] as any as never);
+			vi.mocked(disk.readFileSync).mockReturnValue("not valid json {{" as never);
 
 			const result = readLatestEventTrace("/traces", mockDeps);
 
@@ -102,13 +102,13 @@ describe("e2e-report-perf", () => {
 
 		it("returns startup history and size from valid data.json", () => {
 			vi.mocked(disk.existsSync).mockReturnValue(true);
-			vi.mocked(disk.statSync).mockReturnValue({ size: 8192 } as any);
+			vi.mocked(disk.statSync).mockReturnValue({ size: 8192 } as any as never);
 			const dataJson = {
 				perfAggregator: {
 					startupHistory: [120, 140, 130],
 				},
 			};
-			vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(dataJson));
+			vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(dataJson) as never);
 
 			const result = readStartupPerf(["/vault/data.json"], mockDeps);
 

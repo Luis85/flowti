@@ -59,7 +59,7 @@ describe("readAgentState", () => {
 
 	it("slugifies agent name for file path", () => {
 		const deps = makeDeps();
-		deps.files["/var/data-software-architect.json"] = JSON.stringify({ name: "Software Architect", status: "idle", tasks: [], briefs: [] });
+		deps.files["/var/data-software-architect.json"] = JSON.stringify({ name: "Software Architect", status: "idle", tasks: [], briefs: [], grants: [], pendingPermissions: [] });
 		const state = readAgentState(deps, "/var", "Software Architect");
 		expect(state.name).toBe("Software Architect");
 	});
@@ -69,7 +69,7 @@ describe("writeAgentState", () => {
 	it("writes state as JSON to var directory", () => {
 		const deps = makeDeps();
 		deps.dirs.add("/var");
-		const state: AgentState = { name: "Dev", status: "active", tasks: [], briefs: [] };
+		const state: AgentState = { name: "Dev", status: "active", tasks: [], briefs: [], grants: [], pendingPermissions: [] };
 		writeAgentState(deps, "/var", "Dev", state);
 		expect(deps.files["/var/data-dev.json"]).toBeDefined();
 		const parsed = JSON.parse(deps.files["/var/data-dev.json"]);
@@ -79,7 +79,7 @@ describe("writeAgentState", () => {
 
 	it("creates var directory if missing", () => {
 		const deps = makeDeps();
-		const state: AgentState = { name: "Dev", status: "idle", tasks: [], briefs: [] };
+		const state: AgentState = { name: "Dev", status: "idle", tasks: [], briefs: [], grants: [], pendingPermissions: [] };
 		writeAgentState(deps, "/var", "Dev", state);
 		expect(deps.dirs.has("/var")).toBe(true);
 	});
@@ -87,7 +87,7 @@ describe("writeAgentState", () => {
 
 describe("recordInteraction", () => {
 	it("updates lastInteraction and sets status to active", () => {
-		const state: AgentState = { name: "Dev", status: "idle", tasks: [], briefs: [] };
+		const state: AgentState = { name: "Dev", status: "idle", tasks: [], briefs: [], grants: [], pendingPermissions: [] };
 		const updated = recordInteraction(state, "talk", "2026-03-15T10:00:00Z");
 		expect(updated.lastInteraction).toBe("2026-03-15T10:00:00Z");
 		expect(updated.lastInteractionType).toBe("talk");
@@ -97,7 +97,7 @@ describe("recordInteraction", () => {
 
 describe("addTask", () => {
 	it("appends task and sets status to busy", () => {
-		const state: AgentState = { name: "Dev", status: "idle", tasks: [], briefs: [] };
+		const state: AgentState = { name: "Dev", status: "idle", tasks: [], briefs: [], grants: [], pendingPermissions: [] };
 		const updated = addTask(state, { name: "Build it", assignedAt: "2026-03-15T10:00:00Z", status: "pending" });
 		expect(updated.tasks).toHaveLength(1);
 		expect(updated.tasks[0].name).toBe("Build it");
@@ -110,7 +110,7 @@ describe("completeTask", () => {
 		const state: AgentState = {
 			name: "Dev", status: "busy",
 			tasks: [{ name: "Build it", assignedAt: "2026-03-15T10:00:00Z", status: "pending" }],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const updated = completeTask(state, "Build it");
 		expect(updated.tasks[0].status).toBe("done");
@@ -124,7 +124,7 @@ describe("completeTask", () => {
 				{ name: "Build it", assignedAt: "2026-03-15", status: "pending" },
 				{ name: "Test it", assignedAt: "2026-03-15", status: "pending" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const updated = completeTask(state, "Build it");
 		expect(updated.tasks[0].status).toBe("done");
@@ -141,7 +141,7 @@ describe("completeFirstTask", () => {
 				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
 				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = completeFirstTask(state, "deploy");
 		expect(result.tasks[0].status).toBe("done");
@@ -155,7 +155,7 @@ describe("completeFirstTask", () => {
 				{ name: "deploy", assignedAt: "2026-03-15", status: "done" },
 				{ name: "deploy", assignedAt: "2026-03-15", status: "in-progress" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = completeFirstTask(state, "deploy");
 		expect(result.tasks[0].status).toBe("done");
@@ -169,7 +169,7 @@ describe("completeFirstTask", () => {
 				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
 				{ name: "test", assignedAt: "2026-03-15", status: "pending" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = completeFirstTask(state, "deploy");
 		expect(result.tasks[0].status).toBe("done");
@@ -183,7 +183,7 @@ describe("completeFirstTask", () => {
 				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
 				{ name: "test", assignedAt: "2026-03-15", status: "done" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = completeFirstTask(state, "deploy");
 		expect(result.status).toBe("idle");
@@ -196,7 +196,7 @@ describe("completeFirstTask", () => {
 				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
 				{ name: "test", assignedAt: "2026-03-15", status: "pending" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = completeFirstTask(state, "deploy");
 		expect(result.status).toBe("busy");
@@ -208,7 +208,7 @@ describe("completeFirstTask", () => {
 			tasks: [
 				{ name: "test", assignedAt: "2026-03-15", status: "pending" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = completeFirstTask(state, "deploy");
 		expect(result).toBe(state);
@@ -223,7 +223,7 @@ describe("removeTask", () => {
 				{ name: "Build", assignedAt: "t1", status: "pending" },
 				{ name: "Build", assignedAt: "t2", status: "pending" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = removeTask(state, "Build");
 		expect(result.tasks).toHaveLength(1);
@@ -237,7 +237,7 @@ describe("removeTask", () => {
 				{ name: "Build", assignedAt: "t1", status: "done" },
 				{ name: "Build", assignedAt: "t2", status: "pending" },
 			],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = removeTask(state, "Build");
 		expect(result.tasks).toHaveLength(1);
@@ -248,7 +248,7 @@ describe("removeTask", () => {
 		const state: AgentState = {
 			name: "Dev", status: "idle",
 			tasks: [{ name: "Build", assignedAt: "t1", status: "done" }],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = removeTask(state, "Build");
 		expect(result).toEqual(state);
@@ -258,7 +258,7 @@ describe("removeTask", () => {
 		const state: AgentState = {
 			name: "Dev", status: "idle",
 			tasks: [{ name: "Test", assignedAt: "t1", status: "pending" }],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = removeTask(state, "Build");
 		expect(result).toEqual(state);
@@ -267,7 +267,7 @@ describe("removeTask", () => {
 
 describe("addBrief", () => {
 	it("appends brief reference", () => {
-		const state: AgentState = { name: "Dev", status: "active", tasks: [], briefs: [] };
+		const state: AgentState = { name: "Dev", status: "active", tasks: [], briefs: [], grants: [], pendingPermissions: [] };
 		const updated = addBrief(state, { path: "/briefs/dev.md", generatedAt: "2026-03-15T10:00:00Z", autonomous: false });
 		expect(updated.briefs).toHaveLength(1);
 		expect(updated.briefs[0].path).toBe("/briefs/dev.md");
@@ -276,7 +276,7 @@ describe("addBrief", () => {
 
 describe("waiting status", () => {
 	it("recordInteraction preserves waiting status", () => {
-		const state: AgentState = { name: "Dev", status: "waiting", tasks: [], briefs: [] };
+		const state: AgentState = { name: "Dev", status: "waiting", tasks: [], briefs: [], grants: [], pendingPermissions: [] };
 		const result = recordInteraction(state, "talk", "2026-01-01");
 		expect(result.status).toBe("waiting");
 	});
@@ -285,7 +285,7 @@ describe("waiting status", () => {
 		const state: AgentState = {
 			name: "Dev", status: "waiting",
 			tasks: [{ name: "Build", assignedAt: "t1", status: "pending" }],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = completeFirstTask(state, "Build");
 		expect(result.status).toBe("waiting");
@@ -295,7 +295,7 @@ describe("waiting status", () => {
 		const state: AgentState = {
 			name: "Dev", status: "waiting",
 			tasks: [{ name: "Build", assignedAt: "t1", status: "pending" }],
-			briefs: [],
+			briefs: [], grants: [], pendingPermissions: [],
 		};
 		const result = completeTask(state, "Build");
 		expect(result.status).toBe("waiting");
@@ -303,7 +303,7 @@ describe("waiting status", () => {
 
 	it("pendingQuestion is preserved through state transitions", () => {
 		const pq: AgentPendingQuestion = { question: "What?", briefPath: "/b.md", task: "Build" };
-		const state: AgentState = { name: "Dev", status: "waiting", tasks: [], briefs: [], pendingQuestion: pq };
+		const state: AgentState = { name: "Dev", status: "waiting", tasks: [], briefs: [], grants: [], pendingPermissions: [], pendingQuestion: pq };
 		const result = recordInteraction(state, "talk", "2026-01-01");
 		expect(result.pendingQuestion).toEqual(pq);
 	});

@@ -43,12 +43,13 @@ const fakeE2e: E2EPaths = {
 	pluginArtifacts: ["main.js", "manifest.json", "styles.css"],
 	dataJsonPath: "/e2e-vault/.obsidian/plugins/flowti-ibde/data.json",
 	review: {} as E2EPaths["review"],
-} as E2EPaths;
+} as unknown as E2EPaths;
 
 function createMockContext(): PipelineContext {
 	const stepData = new Map<string, Record<string, unknown>>();
 	return {
 		projectPath: "/project",
+		deps: {} as never,
 		pushResult: vi.fn(),
 		getResults: vi.fn(() => []),
 		getStepResult: vi.fn(),
@@ -57,7 +58,7 @@ function createMockContext(): PipelineContext {
 		log: vi.fn(),
 		setStepData: vi.fn((id, data) => stepData.set(id, data)),
 		getStepData: vi.fn((id) => stepData.get(id)),
-	};
+	} as unknown as PipelineContext;
 }
 
 beforeEach(() => {

@@ -64,7 +64,7 @@ describe("generateCoverageReport", () => {
 				b: { "0": [1, 0] },
 				f: { "0": 1, "1": 0 },
 			},
-		}));
+		}) as never);
 
 		const result = generateCoverageReport("/project", mockDeps);
 
@@ -85,7 +85,7 @@ describe("generateCoverageReport", () => {
 				b: { "0": [1, 1] },
 				f: { "0": 1 },
 			},
-		}));
+		}) as never);
 
 		const result = generateCoverageReport("/project", mockDeps);
 
@@ -103,7 +103,7 @@ describe("generateCoverageReport", () => {
 				b: {},
 				f: {},
 			},
-		}));
+		}) as never);
 
 		const result = generateCoverageReport("/project", mockDeps);
 
@@ -120,7 +120,7 @@ describe("generateCoverageReport", () => {
 				b: { "0": [1, 0], "1": [0, 0], "2": [0, 0] },
 				f: { "0": 1 },
 			},
-		}));
+		}) as never);
 
 		const result = generateCoverageReport("/project", mockDeps);
 
@@ -130,7 +130,7 @@ describe("generateCoverageReport", () => {
 
 	it("handles empty coverage entries", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}) as never);
 
 		const result = generateCoverageReport("/project", mockDeps);
 
@@ -144,7 +144,7 @@ describe("generateCoverageReport", () => {
 			"/project/src/a.ts": {
 				path: "/project/src/a.ts",
 			},
-		}));
+		}) as never);
 
 		const result = generateCoverageReport("/project", mockDeps);
 
@@ -153,7 +153,7 @@ describe("generateCoverageReport", () => {
 
 	it("passes pipeline context log messages", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}) as never);
 
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };

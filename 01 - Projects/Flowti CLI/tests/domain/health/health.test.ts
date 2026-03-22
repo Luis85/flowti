@@ -42,7 +42,7 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 }));
 
 // Use a ref that gets populated after imports
-const logRef = { fn: null as null | ((...args: unknown[]) => void) };
+const logRef = { fn: null as null | ((...args: never[]) => void) };
 vi.mock("../../../src/infrastructure/output.js", () => ({
 	resolveFormat: vi.fn((flags: Record<string, string | boolean>) => flags.format === "json" ? "json" : "text"),
 	printOutput: vi.fn((format: string, data: unknown, renderer: (d: unknown) => void) => {
@@ -87,8 +87,8 @@ function makeCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockDisk.existsSync.mockReturnValue(false);
-	mockDisk.readdirSync.mockReturnValue([]);
-	mockDisk.readFileSync.mockReturnValue("");
+	mockDisk.readdirSync.mockReturnValue([] as never);
+	mockDisk.readFileSync.mockReturnValue("" as never);
 	mockShell.runSilent.mockReturnValue(null);
 	mockCountFiles.mockReturnValue(0);
 	mockParseFM.mockReturnValue(null);
@@ -188,8 +188,8 @@ describe("collectHealth", () => {
 
 	it("counts components from components/", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("components"));
-		mockDisk.readdirSync.mockReturnValue(["button", "card", ".storybook"] as unknown as ReturnType<typeof disk.readdirSync>);
-		mockDisk.statSync.mockReturnValue({ isDirectory: () => true } as ReturnType<typeof disk.statSync>);
+		mockDisk.readdirSync.mockReturnValue(["button", "card", ".storybook"] as unknown as ReturnType<typeof disk.readdirSync> as never);
+		mockDisk.statSync.mockReturnValue({ isDirectory: () => true } as ReturnType<typeof disk.statSync> as never);
 
 		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.components).toBe(2);

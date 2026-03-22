@@ -12,7 +12,7 @@ vi.mock("../../../../../src/infrastructure/document.js", () => ({
 }));
 
 vi.mock("../../../../../src/domain/reports/generators/e2e/e2e-report-utils.js", () => ({
-	buildStepsSummary: vi.fn((...args: unknown[]) => `${args[0]}/${args[1]} steps`),
+	buildStepsSummary: vi.fn((...args: never[]) => `${args[0]}/${args[1]} steps`),
 	formatDuration: vi.fn((ms: number) => `${ms}ms`),
 	resolveStatus: vi.fn(() => "pass"),
 	statusCallout: vi.fn(() => "success"),
@@ -45,30 +45,15 @@ import type {
 	VitestSuite,
 } from "../../../../../src/domain/reports/generators/e2e/e2e-report-types.js";
 
-interface MockDoc {
-	heading: ReturnType<typeof vi.fn>;
-	addBlank: ReturnType<typeof vi.fn>;
-	callout: ReturnType<typeof vi.fn>;
-	text: ReturnType<typeof vi.fn>;
-	addSeparator: ReturnType<typeof vi.fn>;
-	table: ReturnType<typeof vi.fn>;
-}
+import type { Document } from "../../../../../src/infrastructure/document.js";
+
+type MockDoc = Record<string, ReturnType<typeof vi.fn>> & Document;
 
 function createDoc(): MockDoc {
-	const doc: MockDoc = {
-		heading: vi.fn(),
-		addBlank: vi.fn(),
-		callout: vi.fn(),
-		text: vi.fn(),
-		addSeparator: vi.fn(),
-		table: vi.fn(),
-	};
-	doc.heading.mockReturnValue(doc);
-	doc.addBlank.mockReturnValue(doc);
-	doc.callout.mockReturnValue(doc);
-	doc.text.mockReturnValue(doc);
-	doc.addSeparator.mockReturnValue(doc);
-	doc.table.mockReturnValue(doc);
+	const doc = {} as MockDoc;
+	for (const m of ["heading", "addBlank", "callout", "text", "addSeparator", "table"] as const) {
+		doc[m] = vi.fn().mockReturnValue(doc);
+	}
 	return doc;
 }
 

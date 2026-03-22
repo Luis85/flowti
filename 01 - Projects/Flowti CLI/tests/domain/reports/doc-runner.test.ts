@@ -28,7 +28,7 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 // Mock the generator registry
 const mockRunReference = vi.fn();
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
-	runReference: (...args: unknown[]) => mockRunReference(...args),
+	runReference: mockRunReference,
 }));
 
 import { runAllDocs } from "../../../src/domain/reports/pipeline/doc-runner.js";

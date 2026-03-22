@@ -88,7 +88,7 @@ describe("performTeardown", () => {
 
 	it("resets data.json installer state", async () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ installer: { installed: true } }));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ installer: { installed: true } }) as never);
 		const log = vi.fn();
 		await performTeardown(e2e, { ...deps, log });
 		expect(disk.writeFileSync).toHaveBeenCalledWith(
@@ -110,7 +110,7 @@ describe("performTeardown", () => {
 		vi.mocked(disk.existsSync).mockImplementation((p: string) =>
 			p === e2e.dataJsonPath,
 		);
-		vi.mocked(disk.readFileSync).mockReturnValue("not json");
+		vi.mocked(disk.readFileSync).mockReturnValue("not json" as never);
 		const log = vi.fn();
 		await performTeardown(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to reset"));

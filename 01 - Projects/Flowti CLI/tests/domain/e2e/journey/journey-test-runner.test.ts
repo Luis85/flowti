@@ -96,7 +96,7 @@ describe("createDefaultDeps", () => {
 	});
 
 	it("readFile delegates to disk.readFileSync", () => {
-		vi.mocked(disk.readFileSync).mockReturnValue("content");
+		vi.mocked(disk.readFileSync).mockReturnValue("content" as never);
 		const deps = createDefaultDeps(cliDeps);
 		expect(deps.readFile("/test.txt")).toBe("content");
 	});

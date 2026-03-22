@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { toolFrontmatter } from "../../../../src/domain/e2e/journey/journey-tools.js";
+import { toolFrontmatter as _toolFrontmatter } from "../../../../src/domain/e2e/journey/journey-tools.js";
 import type { ToolDeps } from "../../../../src/domain/e2e/journey/journey-executor.js";
-import type { JourneyExecutorOptions } from "../../../../src/domain/e2e/journey/journey-types.js";
+import type { ActionResult, JourneyExecutorOptions } from "../../../../src/domain/e2e/journey/journey-types.js";
+
+const toolFrontmatter = (...args: Parameters<typeof _toolFrontmatter>): ActionResult => _toolFrontmatter(...args) as ActionResult;
 
 function mockDeps(overrides?: Partial<ToolDeps>): ToolDeps {
 	return {

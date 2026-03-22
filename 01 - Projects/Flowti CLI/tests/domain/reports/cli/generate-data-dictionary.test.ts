@@ -101,7 +101,7 @@ describe("generateDataDictionary", () => {
 		const result = generateDataDictionary("/project", mockDeps);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toMatch(/source not configured/i);
+		expect((result as { error?: string }).error).toMatch(/source not configured/i);
 	});
 
 	it("returns failure when registry source not found", () => {
@@ -111,24 +111,24 @@ describe("generateDataDictionary", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toMatch(/entityTypeRegistry\.ts not found/i);
+		expect((result as { error?: string }).error).toMatch(/entityTypeRegistry\.ts not found/i);
 	});
 
 	it("returns failure when no entity types extracted", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("// empty registry source");
+		vi.mocked(disk.readFileSync).mockReturnValue("// empty registry source" as never);
 		vi.mocked(extractEntityTypes).mockReturnValue([]);
 
 		const result = generateDataDictionary("/project", mockDeps, createMockCtx("src/domain/docs/entityTypeRegistry.ts") as any);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toMatch(/no entity types extracted/i);
+		expect((result as { error?: string }).error).toMatch(/no entity types extracted/i);
 	});
 
 	it("generates report from valid entity data", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("// registry source");
+		vi.mocked(disk.readFileSync).mockReturnValue("// registry source" as never);
 		vi.mocked(extractEntityTypes).mockReturnValue(sampleEntities as any);
 
 		const result = generateDataDictionary("/project", mockDeps, createMockCtx("src/domain/docs/entityTypeRegistry.ts") as any);
@@ -144,7 +144,7 @@ describe("generateDataDictionary", () => {
 
 	it("counts total fields across all entities", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("// registry source");
+		vi.mocked(disk.readFileSync).mockReturnValue("// registry source" as never);
 		vi.mocked(extractEntityTypes).mockReturnValue(sampleEntities as any);
 
 		const result = generateDataDictionary("/project", mockDeps, createMockCtx("src/domain/docs/entityTypeRegistry.ts") as any);
@@ -156,7 +156,7 @@ describe("generateDataDictionary", () => {
 
 	it("passes pipeline context log messages", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("// registry source");
+		vi.mocked(disk.readFileSync).mockReturnValue("// registry source" as never);
 		vi.mocked(extractEntityTypes).mockReturnValue(sampleEntities as any);
 
 		const ctx = createMockCtx("src/domain/docs/entityTypeRegistry.ts");

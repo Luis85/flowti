@@ -69,7 +69,7 @@ function createMockDisk(): AgentProcessLoopDeps["disk"] & { files: Record<string
 		readFileSync: vi.fn((p: string) => {
 			if (files[p] === undefined) throw new Error(`File not found: ${p}`);
 			return files[p];
-		}) as AgentProcessLoopDeps["disk"]["readFileSync"],
+		}) as unknown as AgentProcessLoopDeps["disk"]["readFileSync"],
 		writeFileSync: vi.fn((p: string, c: string) => { files[p] = c; }),
 		existsSync: vi.fn((p: string) => files[p] !== undefined || dirs.has(p)),
 		mkdirSync: vi.fn((p: string) => { dirs.add(p); }),

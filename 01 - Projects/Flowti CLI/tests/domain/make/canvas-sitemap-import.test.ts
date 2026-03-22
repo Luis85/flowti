@@ -106,7 +106,7 @@ describe("parseCanvasToSitemap", () => {
 		expect(sitemap.pages["home"].kind).toBe("component");
 		expect(sitemap.pages["home"].actions).toHaveLength(1);
 		expect(sitemap.pages["home"].actions[0].target).toBe("foo:bar");
-		expect((sitemap.pages["home"] as Record<string, unknown>).dataSources).toBeDefined();
+		expect((sitemap.pages["home"] as unknown as Record<string, unknown>).dataSources).toBeDefined();
 		expect(sitemap.pages["new-page"]).toBeDefined();
 		expect(added).toBe(1);
 		expect(updated).toBe(1);

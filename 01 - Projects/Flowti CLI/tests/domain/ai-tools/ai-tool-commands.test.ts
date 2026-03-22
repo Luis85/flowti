@@ -152,7 +152,7 @@ describe("ai:validate", () => {
 	it("reads JSON, validates, and logs checkmark for valid file", () => {
 		vi.mocked(discoverToolFiles).mockReturnValue(["/vault/.flowti/ai-tools/good.json"]);
 		vi.mocked(disk.readFileSync).mockReturnValue(
-			JSON.stringify({ name: "good", description: "ok", run: "echo" }),
+			JSON.stringify({ name: "good", description: "ok", run: "echo" }) as never,
 		);
 		vi.mocked(validateToolDefinition).mockReturnValue({
 			valid: true,
@@ -194,7 +194,7 @@ describe("ai:list --json", () => {
 	it("outputs JSON array with tool metadata", () => {
 		const tools: LoadedAiTool[] = [
 			{
-				definition: { name: "search", description: "Search docs", run: "grep", version: "1.0", params: [{ name: "query", type: "string", required: true }], tags: ["search"] },
+				definition: { name: "search", description: "Search docs", run: "grep", version: "1.0", params: [{ name: "query", type: "string", required: true, description: "Search query" }], tags: ["search"] },
 				path: "/vault/.flowti/ai-tools/search.json",
 				valid: true,
 				errors: [],
@@ -223,7 +223,7 @@ describe("ai:validate --json", () => {
 	it("outputs JSON validation results with --format=json", () => {
 		vi.mocked(discoverToolFiles).mockReturnValue(["/vault/.flowti/ai-tools/good.json"]);
 		vi.mocked(disk.readFileSync).mockReturnValue(
-			JSON.stringify({ name: "good", description: "ok", run: "echo" }),
+			JSON.stringify({ name: "good", description: "ok", run: "echo" }) as never,
 		);
 		vi.mocked(validateToolDefinition).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
@@ -304,7 +304,7 @@ describe("substituteParams", () => {
 
 describe("ai:run", () => {
 	const validTool: LoadedAiTool = {
-		definition: { name: "search", description: "Search files", run: "grep {{query}} .", params: [{ name: "query", type: "string", required: true }] },
+		definition: { name: "search", description: "Search files", run: "grep {{query}} .", params: [{ name: "query", type: "string", required: true, description: "Search query" }] },
 		path: "/vault/.flowti/ai-tools/search.json",
 		valid: true,
 		errors: [],
@@ -417,7 +417,7 @@ describe("toToolListItems", () => {
 					description: "Search docs",
 					run: "grep {{q}} .",
 					version: "1.0",
-					params: [{ name: "q", type: "string", required: true }],
+					params: [{ name: "q", type: "string", required: true, description: "Query" }],
 					tags: ["search", "util"],
 				},
 				path: "/vault/.flowti/ai-tools/search.json",
@@ -433,7 +433,7 @@ describe("toToolListItems", () => {
 		expect(items[0].version).toBe("1.0");
 		expect(items[0].description).toBe("Search docs");
 		expect(items[0].run).toBe("grep {{q}} .");
-		expect(items[0].params).toEqual([{ name: "q", type: "string", required: true }]);
+		expect(items[0].params).toEqual([{ name: "q", type: "string", required: true, description: "Query" }]);
 		expect(items[0].tags).toEqual(["search", "util"]);
 		expect(items[0].valid).toBe(true);
 		expect(items[0].errors).toEqual([]);
@@ -578,7 +578,7 @@ describe("toToolValidationItems", () => {
 			"/vault/.flowti/ai-tools/search.json",
 		]);
 		vi.mocked(disk.readFileSync).mockReturnValue(
-			JSON.stringify({ name: "search", description: "s", run: "grep" }),
+			JSON.stringify({ name: "search", description: "s", run: "grep" }) as never,
 		);
 		vi.mocked(validateToolDefinition).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
@@ -597,7 +597,7 @@ describe("toToolValidationItems", () => {
 		vi.mocked(discoverToolFiles).mockReturnValue([
 			"/vault/.flowti/ai-tools/bad.json",
 		]);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ name: "bad" }));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ name: "bad" }) as never);
 		vi.mocked(validateToolDefinition).mockReturnValue({
 			valid: false,
 			errors: ["Missing run field"],
@@ -648,7 +648,7 @@ describe("toToolValidationItems", () => {
 			"/vault/.flowti/ai-tools/bad.json",
 		]);
 		vi.mocked(disk.readFileSync)
-			.mockReturnValueOnce(JSON.stringify({ name: "good" }))
+			.mockReturnValueOnce(JSON.stringify({ name: "good" }) as never)
 			.mockImplementationOnce(() => { throw new SyntaxError("parse fail"); });
 		vi.mocked(validateToolDefinition).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
@@ -667,7 +667,7 @@ describe("toToolValidationItems", () => {
 		vi.mocked(discoverToolFiles).mockReturnValue([
 			"/vault/.flowti/ai-tools/t.json",
 		]);
-		vi.mocked(disk.readFileSync).mockReturnValue("{}");
+		vi.mocked(disk.readFileSync).mockReturnValue("{}" as never);
 		vi.mocked(validateToolDefinition).mockReturnValue({
 			valid: false,
 			errors: origErrors,

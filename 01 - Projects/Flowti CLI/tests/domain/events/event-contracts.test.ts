@@ -62,7 +62,7 @@ import type {
 } from "../../../src/domain/events/event-contracts.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 
-const contractDeps = { paths: { join: (...parts: string[]) => parts.join("/") } } as const;
+const contractDeps = { paths: { join: (...parts: string[]) => parts.join("/"), resolve: (...parts: string[]) => parts.join("/"), dirname: (p: string) => p, basename: (p: string) => p.split("/").pop() ?? p, relative: (_f: string, t: string) => t, extname: (p: string) => { const m = p.match(/\.[^.]+$/); return m ? m[0] : ""; }, isAbsolute: (p: string) => p.startsWith("/"), sep: "/" as const } };
 
 beforeEach(() => {
 	for (const key of Object.keys(mockFiles)) delete mockFiles[key];

@@ -174,7 +174,7 @@ describe("plugin:validate --json", () => {
 	it("outputs JSON validation results with --format=json", () => {
 		vi.mocked(discoverPluginFiles).mockReturnValue(["/vault/.flowti/plugins/good/manifest.json"]);
 		vi.mocked(disk.readFileSync).mockReturnValue(
-			JSON.stringify({ name: "good", description: "ok" }),
+			JSON.stringify({ name: "good", description: "ok" }) as never,
 		);
 		vi.mocked(validateManifest).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
@@ -304,7 +304,7 @@ describe("toPluginValidationItems", () => {
 			"/vault/.flowti/plugins/my-plugin/manifest.json",
 		]);
 		vi.mocked(disk.readFileSync).mockReturnValue(
-			JSON.stringify({ name: "my-plugin", description: "ok", commands: {} }),
+			JSON.stringify({ name: "my-plugin", description: "ok", commands: {} }) as never,
 		);
 		vi.mocked(validateManifest).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
@@ -323,7 +323,7 @@ describe("toPluginValidationItems", () => {
 		vi.mocked(discoverPluginFiles).mockReturnValue([
 			"/vault/.flowti/plugins/broken/manifest.json",
 		]);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ name: "broken" }));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ name: "broken" }) as never);
 		vi.mocked(validateManifest).mockReturnValue({
 			valid: false,
 			errors: ["Missing commands field"],
@@ -393,7 +393,7 @@ describe("toPluginValidationItems", () => {
 		vi.mocked(discoverPluginFiles).mockReturnValue([
 			"/vault/.flowti/plugins/p/manifest.json",
 		]);
-		vi.mocked(disk.readFileSync).mockReturnValue("{}");
+		vi.mocked(disk.readFileSync).mockReturnValue("{}" as never);
 		vi.mocked(validateManifest).mockReturnValue({
 			valid: false,
 			errors: origErrors,

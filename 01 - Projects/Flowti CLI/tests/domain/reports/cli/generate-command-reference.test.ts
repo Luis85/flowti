@@ -73,7 +73,7 @@ describe("generateCommandReference", () => {
 		const result = generateCommandReference("/project", mockDeps);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toBe("Source not configured");
+		expect((result as { error?: string }).error).toBe("Source not configured");
 	});
 
 	it("returns failure when registry source not found", () => {
@@ -83,23 +83,23 @@ describe("generateCommandReference", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toContain("CommandRegistry source not found");
+		expect((result as { error?: string }).error).toContain("CommandRegistry source not found");
 	});
 
 	it("returns failure when no commands extracted", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("const x = 1;");
+		vi.mocked(disk.readFileSync).mockReturnValue("const x = 1;" as never);
 
 		const result = generateCommandReference("/project", mockDeps, createMockCtx("src/infrastructure/commands/registry.ts") as any);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
-		expect(result.error).toContain("No commands extracted from registry");
+		expect((result as { error?: string }).error).toContain("No commands extracted from registry");
 	});
 
 	it("generates report from valid registry source", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(VALID_REGISTRY_SOURCE);
+		vi.mocked(disk.readFileSync).mockReturnValue(VALID_REGISTRY_SOURCE as never);
 
 		const result = generateCommandReference("/project", mockDeps, createMockCtx("src/infrastructure/commands/registry.ts") as any);
 
@@ -113,7 +113,7 @@ describe("generateCommandReference", () => {
 
 	it("groups commands by domain", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(VALID_REGISTRY_SOURCE);
+		vi.mocked(disk.readFileSync).mockReturnValue(VALID_REGISTRY_SOURCE as never);
 
 		const result = generateCommandReference("/project", mockDeps, createMockCtx("src/infrastructure/commands/registry.ts") as any);
 
@@ -123,7 +123,7 @@ describe("generateCommandReference", () => {
 
 	it("passes pipeline context log messages", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(VALID_REGISTRY_SOURCE);
+		vi.mocked(disk.readFileSync).mockReturnValue(VALID_REGISTRY_SOURCE as never);
 
 		const ctx = createMockCtx("src/infrastructure/commands/registry.ts");
 

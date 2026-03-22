@@ -15,14 +15,14 @@ function createDeps(files: Record<string, string>): HelpLoaderDeps {
 				return match ? match[1] : "";
 			},
 			readdirSync: () => Object.keys(files),
-		},
+		} as unknown as HelpLoaderDeps["disk"],
 		paths: {
 			join: (...args: string[]) => args.join("/"),
 			basename: (p: string, ext?: string) => {
 				const name = p.split("/").pop() ?? p;
 				return ext && name.endsWith(ext) ? name.slice(0, -ext.length) : name;
 			},
-		},
+		} as unknown as HelpLoaderDeps["paths"],
 	};
 }
 

@@ -9,10 +9,10 @@ const mockMkdirSync = vi.fn();
 
 vi.mock("../../../../src/infrastructure/filesystem.js", () => ({
 	disk: {
-		existsSync: (...a: unknown[]) => mockExistsSync(...a),
-		readFileSync: (...a: unknown[]) => mockReadFileSync(...a),
-		writeFileSync: (...a: unknown[]) => mockWriteFileSync(...a),
-		mkdirSync: (...a: unknown[]) => mockMkdirSync(...a),
+		existsSync: mockExistsSync,
+		readFileSync: mockReadFileSync,
+		writeFileSync: mockWriteFileSync,
+		mkdirSync: mockMkdirSync,
 	},
 }));
 

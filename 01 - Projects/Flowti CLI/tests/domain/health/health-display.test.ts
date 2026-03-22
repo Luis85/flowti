@@ -81,8 +81,8 @@ const emptySnapshot: HealthSnapshot = {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockDisk.existsSync.mockReturnValue(false);
-	mockDisk.readdirSync.mockReturnValue([]);
-	mockDisk.readFileSync.mockReturnValue("");
+	mockDisk.readdirSync.mockReturnValue([] as never);
+	mockDisk.readFileSync.mockReturnValue("" as never);
 	mockShell.runSilent.mockReturnValue(null);
 	mockCountFiles.mockReturnValue(0);
 	mockParseFM.mockReturnValue(null);
@@ -188,8 +188,8 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("components"));
 		mockDisk.readdirSync.mockReturnValue([
 			"button", "card", "modal", ".storybook",
-		] as unknown as ReturnType<typeof disk.readdirSync>);
-		vi.mocked(disk.statSync).mockReturnValue({ isDirectory: () => true } as ReturnType<typeof disk.statSync>);
+		] as unknown as ReturnType<typeof disk.readdirSync> as never);
+		vi.mocked(disk.statSync).mockReturnValue({ isDirectory: () => true } as ReturnType<typeof disk.statSync> as never);
 
 		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.components).toBe(3);

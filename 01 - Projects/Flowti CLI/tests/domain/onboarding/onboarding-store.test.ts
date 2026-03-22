@@ -27,7 +27,7 @@ const mockClock = {
 	iso: () => "2026-03-15T10:00:00.000Z",
 };
 
-const deps = { disk: mockDisk as Parameters<typeof readProgress>[1]["disk"], paths: mockPaths as Parameters<typeof readProgress>[1]["paths"], clock: mockClock as Parameters<typeof createInitialProgress>[1]["clock"] };
+const deps = { disk: mockDisk as unknown as Parameters<typeof readProgress>[1]["disk"], paths: mockPaths as unknown as Parameters<typeof readProgress>[1]["paths"], clock: mockClock as unknown as Parameters<typeof createInitialProgress>[1]["clock"] };
 
 beforeEach(() => {
 	vi.clearAllMocks();

@@ -44,7 +44,7 @@ const THRESHOLDS: Required<SummaryThresholds> = {
 	eslintWarnings: 0,
 	lintCommand: "npm run lint",
 	typedocCommand: "npm run typedoc",
-	typedocWarnings: 0,
+	typedocWarnings: 0, maxFileDecisionPoints: 50,
 };
 
 const EMPTY_JSON: JsonDataSources = {};

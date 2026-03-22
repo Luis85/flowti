@@ -82,7 +82,7 @@ describe("resourceStore.list", () => {
 
 	it("parses resource files from directory", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["jane-doe.md", "server.md"]);
+		mockDisk.readdirSync.mockReturnValue(["jane-doe.md", "server.md"] as never);
 		mockDisk.readFileSync
 			.mockReturnValueOnce("---\nname: Jane Doe\nresourceType: human\nprice: 100\namount: 1\nconsumed: 0.5\n---")
 			.mockReturnValueOnce("---\nname: Server\nresourceType: material\nprice: 500\namount: 3\nconsumed: 1\n---");
@@ -100,7 +100,7 @@ describe("resourceStore.list", () => {
 
 	it("sorts resources alphabetically", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["z-resource.md", "a-resource.md"]);
+		mockDisk.readdirSync.mockReturnValue(["z-resource.md", "a-resource.md"] as never);
 		mockDisk.readFileSync
 			.mockReturnValueOnce("---\nname: Zeta\nresourceType: human\nprice: 0\namount: 0\nconsumed: 0\n---")
 			.mockReturnValueOnce("---\nname: Alpha\nresourceType: human\nprice: 0\namount: 0\nconsumed: 0\n---");
@@ -153,7 +153,7 @@ describe("updateConsumption", () => {
 
 	it("updates consumed field in file content", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nconsumed: 0.5\n---\nNotes");
+		mockDisk.readFileSync.mockReturnValue("---\nconsumed: 0.5\n---\nNotes" as never);
 
 		const result = updateConsumption(deps, "/project", "Jane", 1.5);
 

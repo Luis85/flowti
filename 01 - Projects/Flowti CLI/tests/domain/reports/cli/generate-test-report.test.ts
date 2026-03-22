@@ -65,7 +65,7 @@ describe("generateTestReport", () => {
 			numTotalTestSuites: 20,
 			success: false,
 			startTime: 999000,
-		}));
+		}) as never);
 
 		const result = generateTestReport("/project", mockDeps);
 
@@ -88,7 +88,7 @@ describe("generateTestReport", () => {
 			numPendingTests: 0,
 			numTotalTests: 13,
 			success: false,
-		}));
+		}) as never);
 
 		const result = generateTestReport("/project", mockDeps);
 
@@ -104,7 +104,7 @@ describe("generateTestReport", () => {
 			numPendingTests: 0,
 			numTotalTests: 10,
 			success: true,
-		}));
+		}) as never);
 
 		const result = generateTestReport("/project", mockDeps);
 
@@ -122,7 +122,7 @@ describe("generateTestReport", () => {
 				{ name: "b.test.ts", status: "passed", assertionResults: [{ status: "passed" }] },
 			],
 			success: true,
-		}));
+		}) as never);
 
 		const result = generateTestReport("/project", mockDeps);
 
@@ -136,7 +136,7 @@ describe("generateTestReport", () => {
 			numFailedTests: 0,
 			numPendingTests: 0,
 			success: true,
-		}));
+		}) as never);
 
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };

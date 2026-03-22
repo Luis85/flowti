@@ -88,9 +88,9 @@ describe("capaStore.list", () => {
 
 	it("parses CAPA items from directory", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["process-failure.md"]);
+		mockDisk.readdirSync.mockReturnValue(["process-failure.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: Process Failure\nid: CAPA-001\ncapaType: corrective\nstatus: open\nseverity: high\nsource: audit\nowner: Jane\ndueDate: 2026-04-01\n---\nDescription",
+			"---\nname: Process Failure\nid: CAPA-001\ncapaType: corrective\nstatus: open\nseverity: high\nsource: audit\nowner: Jane\ndueDate: 2026-04-01\n---\nDescription" as never,
 		);
 
 		const result = capaStore.list(deps, "/project");
@@ -107,7 +107,7 @@ describe("capaStore.list", () => {
 
 	it("sorts items alphabetically", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["z-item.md", "a-item.md"]);
+		mockDisk.readdirSync.mockReturnValue(["z-item.md", "a-item.md"] as never);
 		mockDisk.readFileSync
 			.mockReturnValueOnce("---\nname: Zeta\nid: CAPA-002\ncapaType: corrective\nstatus: open\nseverity: low\n---")
 			.mockReturnValueOnce("---\nname: Alpha\nid: CAPA-001\ncapaType: preventive\nstatus: open\nseverity: medium\n---");
@@ -151,7 +151,7 @@ describe("capaStore.updateField (status)", () => {
 
 	it("updates status in file content", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: open\nseverity: high\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue("---\nstatus: open\nseverity: high\n---\nBody" as never);
 
 		const result = capaStore.updateField(deps, "/project", "Test Issue", "status", "investigating");
 

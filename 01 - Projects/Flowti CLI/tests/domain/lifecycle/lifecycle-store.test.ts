@@ -81,10 +81,10 @@ describe("listLifecycleItems", () => {
 
 	it("lists items from subdirectories", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["user-auth"]);
-		mockDisk.statSync.mockReturnValue({ isDirectory: () => true });
+		mockDisk.readdirSync.mockReturnValue(["user-auth"] as never);
+		mockDisk.statSync.mockReturnValue({ isDirectory: () => true } as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: User Auth\nentityType: feature\ncurrentState: development\ntransitionCount: 2\ncreatedDate: 2026-01-01\n---\nBody",
+			"---\nname: User Auth\nentityType: feature\ncurrentState: development\ntransitionCount: 2\ncreatedDate: 2026-01-01\n---\nBody" as never,
 		);
 
 		const result = listLifecycleItems(deps, "/project", "docs/features");
@@ -106,7 +106,7 @@ describe("readLifecycleItem", () => {
 	it("reads lifecycle record with history", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: User Auth\nentityType: feature\ncurrentState: development\ncreatedDate: 2026-01-01\nlastTransitionDate: 2026-01-02\n---\n\n# User Auth\n\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|\n| 2026-01-02 | specification | development | Spec approved |\n| 2026-01-01 | ideation | specification | Kickoff |\n",
+			"---\nname: User Auth\nentityType: feature\ncurrentState: development\ncreatedDate: 2026-01-01\nlastTransitionDate: 2026-01-02\n---\n\n# User Auth\n\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|\n| 2026-01-02 | specification | development | Spec approved |\n| 2026-01-01 | ideation | specification | Kickoff |\n" as never,
 		);
 
 		const record = readLifecycleItem(deps, "/project", "User Auth", "docs/features");
@@ -159,7 +159,7 @@ describe("transitionLifecycleItem", () => {
 	it("validates and performs valid transition", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: User Auth\nentityType: feature\ncurrentState: ideation\ntransitionCount: 0\nlastTransitionDate: \n---\n\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|\n",
+			"---\nname: User Auth\nentityType: feature\ncurrentState: ideation\ntransitionCount: 0\nlastTransitionDate: \n---\n\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|\n" as never,
 		);
 
 		const result = transitionLifecycleItem(deps, "/project", "User Auth", "specification" as any, "Spec ready", "docs/features");
@@ -178,7 +178,7 @@ describe("transitionLifecycleItem", () => {
 	it("rejects invalid transition", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: User Auth\nentityType: feature\ncurrentState: ideation\ntransitionCount: 0\n---\n",
+			"---\nname: User Auth\nentityType: feature\ncurrentState: ideation\ntransitionCount: 0\n---\n" as never,
 		);
 
 		const result = transitionLifecycleItem(deps, "/project", "User Auth", "release" as any, "Skip", "docs/features");
@@ -198,7 +198,7 @@ describe("getLifecycleHistory", () => {
 	it("parses history from markdown table", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: Test\n---\n\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|\n| 2026-01-02 | ideation | specification | Done |\n",
+			"---\nname: Test\n---\n\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|\n| 2026-01-02 | ideation | specification | Done |\n" as never,
 		);
 
 		const history = getLifecycleHistory(deps, "/project", "Test", "docs/features");

@@ -51,6 +51,8 @@ const KIND: Record<string, number> = {
 
 import { countByKind } from "../../../../src/domain/reports/generators/codebase-report.js";
 
+interface TypeDocNode { kind?: number; name?: string; schemaVersion?: string; children?: TypeDocNode[] }
+
 function countOf(counts: Record<number, number>, kind: number): number {
 	return counts[kind] || 0;
 }

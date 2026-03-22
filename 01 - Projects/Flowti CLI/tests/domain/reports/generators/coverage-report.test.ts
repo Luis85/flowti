@@ -43,6 +43,8 @@ beforeEach(() => {
 
 import { collectCovCounts, computeCoverage } from "../../../../src/domain/reports/generators/coverage-report.js";
 
+interface CoverageEntry { path?: string; s?: Record<string, number>; b?: Record<string, number[]>; f?: Record<string, number> }
+
 describe("coverage-report generator", () => {
 	describe("collectCovCounts logic", () => {
 		it("collects statement counts", () => {

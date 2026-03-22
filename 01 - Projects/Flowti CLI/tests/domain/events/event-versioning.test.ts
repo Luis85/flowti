@@ -55,8 +55,8 @@ describe("versionEvent", () => {
 
 	it("returns failure when event name is not found", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["other-event.md"]);
-		mockDisk.readFileSync.mockReturnValue("---\nname: other.event\nversion: 1.0.0\n---\n");
+		mockDisk.readdirSync.mockReturnValue(["other-event.md"] as never);
+		mockDisk.readFileSync.mockReturnValue("---\nname: other.event\nversion: 1.0.0\n---\n" as never);
 		const result = versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Added email");
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("Event not found");
@@ -64,9 +64,9 @@ describe("versionEvent", () => {
 
 	it("updates the version in frontmatter", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["user-created.md"]);
+		mockDisk.readdirSync.mockReturnValue(["user-created.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n",
+			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n" as never as never,
 		);
 
 		const result = versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Added email field");
@@ -81,9 +81,9 @@ describe("versionEvent", () => {
 
 	it("appends version history section when none exists", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["user-created.md"]);
+		mockDisk.readdirSync.mockReturnValue(["user-created.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n",
+			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n" as never as never,
 		);
 
 		versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Changed payload");
@@ -96,9 +96,9 @@ describe("versionEvent", () => {
 
 	it("prepends to existing version history", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["user-created.md"]);
+		mockDisk.readdirSync.mockReturnValue(["user-created.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n\n## Version History\n\n- **v1.0.0** — 2026-01-01\n",
+			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n\n## Version History\n\n- **v1.0.0** — 2026-01-01\n" as never as never,
 		);
 
 		versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Changed payload");
@@ -113,9 +113,9 @@ describe("versionEvent", () => {
 
 	it("removes old previous_version and migration_notes before adding new", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["user-created.md"]);
+		mockDisk.readdirSync.mockReturnValue(["user-created.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: user.created\nversion: 1.5.0\nprevious_version: 1.0.0\nmigration_notes: Old notes\n---\n\n# user.created\n",
+			"---\nname: user.created\nversion: 1.5.0\nprevious_version: 1.0.0\nmigration_notes: Old notes\n---\n\n# user.created\n" as never as never,
 		);
 
 		versionEvent(verDeps, "/proj", "user.created", "2.0.0", "New notes");

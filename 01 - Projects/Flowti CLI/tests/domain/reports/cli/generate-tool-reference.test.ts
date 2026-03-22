@@ -93,7 +93,7 @@ describe("generateToolReference", () => {
 		const result = generateToolReference("/project", mockDeps);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toContain("Source not configured");
+		expect((result as { error?: string }).error).toContain("Source not configured");
 	});
 
 	it("returns failure when catalog source file not found", () => {
@@ -103,23 +103,23 @@ describe("generateToolReference", () => {
 		const result = generateToolReference("/project", mockDeps, ctx as any);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toContain("Tool catalog source not found");
+		expect((result as { error?: string }).error).toContain("Tool catalog source not found");
 	});
 
 	it("returns failure when no tools extracted", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("const x = 1;");
+		vi.mocked(disk.readFileSync).mockReturnValue("const x = 1;" as never);
 		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
 
 		const result = generateToolReference("/project", mockDeps, ctx as any);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toContain("No tools extracted from catalog");
+		expect((result as { error?: string }).error).toContain("No tools extracted from catalog");
 	});
 
 	it("generates report from valid catalog source with tool metadata", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE);
+		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE as never);
 		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
 
 		const result = generateToolReference("/project", mockDeps, ctx as any);
@@ -134,7 +134,7 @@ describe("generateToolReference", () => {
 
 	it("resolves source path relative to project path", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE);
+		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE as never);
 		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
 
 		generateToolReference("/project", mockDeps, ctx as any);
@@ -147,7 +147,7 @@ describe("generateToolReference", () => {
 
 	it("passes pipeline context log messages", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE);
+		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE as never);
 		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
 
 		generateToolReference("/project", mockDeps, ctx as any);

@@ -27,11 +27,11 @@ function makeDeps(files: Record<string, string> = {}) {
 			readFileSync: vi.fn((p: string, _enc?: string) => store[p] ?? ""),
 			writeFileSync: vi.fn((p: string, c: string, _enc?: string) => { store[p] = c; }),
 			mkdirSync: vi.fn((p: string, _opts?: unknown) => { dirs.add(p); }),
-		},
+		} as never,
 		paths: {
 			join: (...segs: string[]) => segs.join("/"),
 			dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
-		},
+		} as never,
 		_store: store,
 	};
 }

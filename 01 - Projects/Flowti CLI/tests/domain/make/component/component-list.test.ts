@@ -53,8 +53,8 @@ describe("listProjectComponents", () => {
 	it("discovers components from subdirectory markdown frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readdirSync).mockReturnValue(["auth-service", "user-profile"] as never);
-		vi.mocked(disk.statSync).mockReturnValue(mockDir());
-		vi.mocked(disk.readFileSync).mockImplementation((path: string) => {
+		vi.mocked(disk.statSync).mockReturnValue(mockDir() as never);
+		(vi.mocked(disk.readFileSync) as unknown as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
 			if (path.includes("auth-service")) {
 				return "---\ntype: c4-component\nstatus: active\nname: Auth Service\n---\n# Auth Service\n";
 			}
@@ -81,7 +81,7 @@ describe("listProjectComponents", () => {
 			return true;
 		});
 		vi.mocked(disk.readdirSync).mockReturnValue(["no-md-dir"] as never);
-		vi.mocked(disk.statSync).mockReturnValue(mockDir());
+		vi.mocked(disk.statSync).mockReturnValue(mockDir() as never);
 
 		const components = listProjectComponents("/project", listDeps());
 		expect(components).toHaveLength(0);
@@ -94,7 +94,7 @@ describe("listProjectComponents", () => {
 			if (String(p).includes("package.json")) return mockFile();
 			return mockDir();
 		});
-		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
+		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n" as never);
 
 		const components = listProjectComponents("/project", listDeps());
 		expect(components).toHaveLength(1);
@@ -104,8 +104,8 @@ describe("listProjectComponents", () => {
 	it("sorts components alphabetically", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readdirSync).mockReturnValue(["zebra", "alpha", "middle"] as never);
-		vi.mocked(disk.statSync).mockReturnValue(mockDir());
-		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
+		vi.mocked(disk.statSync).mockReturnValue(mockDir() as never);
+		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n" as never);
 
 		const components = listProjectComponents("/project", listDeps());
 		expect(components.map((c) => c.name)).toEqual(["alpha", "middle", "zebra"]);
@@ -114,9 +114,9 @@ describe("listProjectComponents", () => {
 	it("reads containedBy from frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readdirSync).mockReturnValue(["api-service"] as never);
-		vi.mocked(disk.statSync).mockReturnValue(mockDir());
+		vi.mocked(disk.statSync).mockReturnValue(mockDir() as never);
 		vi.mocked(disk.readFileSync).mockReturnValue(
-			"---\ntype: c4-component\nstatus: active\ncontainedBy: Backend\nc4Level: 3\n---\n",
+			"---\ntype: c4-component\nstatus: active\ncontainedBy: Backend\nc4Level: 3\n---\n" as never as never,
 		);
 
 		const components = listProjectComponents("/project", listDeps());
@@ -127,8 +127,8 @@ describe("listProjectComponents", () => {
 	it("omits containedBy and c4Level when not in frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readdirSync).mockReturnValue(["plain"] as never);
-		vi.mocked(disk.statSync).mockReturnValue(mockDir());
-		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
+		vi.mocked(disk.statSync).mockReturnValue(mockDir() as never);
+		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n" as never);
 
 		const components = listProjectComponents("/project", listDeps());
 		expect(components[0].containedBy).toBeUndefined();
@@ -254,8 +254,8 @@ describe("enrichComponentRelationships", () => {
 	it("is called automatically by listProjectComponents", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readdirSync).mockReturnValue(["parent", "child"] as never);
-		vi.mocked(disk.statSync).mockReturnValue(mockDir());
-		vi.mocked(disk.readFileSync).mockImplementation((path: string) => {
+		vi.mocked(disk.statSync).mockReturnValue(mockDir() as never);
+		(vi.mocked(disk.readFileSync) as unknown as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
 			if (path.includes("parent")) {
 				return "---\ntype: system\nstatus: active\nname: Parent\n---\n";
 			}

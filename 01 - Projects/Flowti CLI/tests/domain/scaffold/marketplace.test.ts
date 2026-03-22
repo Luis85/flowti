@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn((...args: unknown[]) => console.log(...args)),
+	log: vi.fn((...args: never[]) => console.log(...args)),
 }));
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
@@ -26,6 +26,9 @@ const testPaths = {
 	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
 	resolve: (...args: string[]) => args.join("/"),
 	relative: (_from: string, to: string) => to,
+	extname: (p: string) => { const m = p.match(/\.[^.]+$/); return m ? m[0] : ""; },
+	isAbsolute: (p: string) => p.startsWith("/"),
+	sep: "/" as const,
 };
 
 const testPathsDeps = { paths: testPaths } as const;
@@ -100,7 +103,7 @@ function createMockFs(files: Record<string, string> = {}, dirs: Set<string> = ne
 					return rel.length > 0 && !rel.includes("/");
 				})
 				.map(f => f.slice(prefix.length));
-		}) as IFileSystem["readdirSync"],
+		}) as unknown as IFileSystem["readdirSync"],
 		copyFileSync: vi.fn(),
 		rmSync: vi.fn(),
 		unlinkSync: vi.fn(),
