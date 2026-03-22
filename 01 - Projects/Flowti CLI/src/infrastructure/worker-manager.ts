@@ -130,10 +130,6 @@ export function createWorkerManager(
 			status: { state: "idle" },
 		});
 
-		if (agent.agentType === "ai") {
-			primeWorker(worker);
-		}
-
 		return worker;
 	}
 
@@ -412,6 +408,14 @@ export function createWorkerManager(
 
 			if (pool) pool.cancel(agentName);
 			setWorkerState(worker, "stopped", worldState);
+		},
+
+		prime(agentName: string): void {
+			const worker = workers.get(agentName);
+			if (!worker) return;
+			if (worker.agent.agentType !== "ai") return;
+			if (worker.session?.alive) return;
+			primeWorker(worker);
 		},
 
 		stopAll(): void {

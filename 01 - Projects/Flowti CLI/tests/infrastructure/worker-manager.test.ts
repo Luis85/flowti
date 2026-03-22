@@ -651,25 +651,24 @@ describe("WorkerManager", () => {
 
 	// ── Session lifecycle ────────────────────────────────────────────
 
-	it("spawn primes AI agent with startup prompt via session", async () => {
+	it("spawn does NOT prime AI agent automatically", async () => {
 		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const session = makeMockSession();
 		const runner = makeProcessRunner(undefined, session);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
-		await vi.waitFor(() => expect(session.send).toHaveBeenCalled());
-		const prompt = session.send.mock.calls[0][0] as string;
-		expect(prompt).toContain("Bob");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(session.send).not.toHaveBeenCalled();
 	});
 
-	it("reuses session for subsequent messages", async () => {
+	it("prime then send reuses session", async () => {
 		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const session = makeMockSession("Hi");
 		const runner = makeProcessRunner(undefined, session);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
+		mgr.prime("Bob");
 		await vi.waitFor(() => expect(session.send).toHaveBeenCalledTimes(1));
-
 		mgr.send("Bob", "Hello");
 		await vi.waitFor(() => expect(session.send).toHaveBeenCalledTimes(2));
 		expect(runner.spawn).not.toHaveBeenCalled();
@@ -684,6 +683,42 @@ describe("WorkerManager", () => {
 		await vi.waitFor(() => expect(runner.spawn).toHaveBeenCalled());
 	});
 
+	it("prime acquires session and sends startup prompt", async () => {
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
+		const session = makeMockSession();
+		const runner = makeProcessRunner(undefined, session);
+		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
+		mgr.spawnAll();
+		mgr.prime("Bob");
+		await vi.waitFor(() => expect(session.send).toHaveBeenCalledTimes(1));
+		const prompt = session.send.mock.calls[0][0] as string;
+		expect(prompt).toContain("Bob");
+	});
+
+	it("prime is no-op when session already alive", async () => {
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
+		const session = makeMockSession();
+		const runner = makeProcessRunner(undefined, session);
+		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
+		mgr.spawnAll();
+		mgr.prime("Bob");
+		await vi.waitFor(() => expect(session.send).toHaveBeenCalledTimes(1));
+		mgr.prime("Bob");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(session.send).toHaveBeenCalledTimes(1);
+	});
+
+	it("prime is no-op for NPC agents", async () => {
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent({ name: "Guard", agentType: "human" })]);
+		const session = makeMockSession();
+		const runner = makeProcessRunner(undefined, session);
+		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
+		mgr.spawnAll();
+		mgr.prime("Guard");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(runner.acquireSession).not.toHaveBeenCalled();
+	});
+
 	// ── Decay timer ─────────────────────────────────────────────────
 
 	it("stop enters decaying state when session is alive", async () => {
@@ -693,6 +728,7 @@ describe("WorkerManager", () => {
 		const ws = makeWorldState();
 		const mgr = createWorkerManager(makeDeps(), ws, runner, "/vault", undefined);
 		mgr.spawnAll();
+		mgr.prime("Bob");
 		await vi.waitFor(() => expect(session.send).toHaveBeenCalled());
 		mgr.stop("Bob");
 		const worker = mgr.getWorker("Bob");
@@ -706,6 +742,7 @@ describe("WorkerManager", () => {
 		const runner = makeProcessRunner(undefined, session);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
+		mgr.prime("Bob");
 		await vi.waitFor(() => expect(session.send).toHaveBeenCalledTimes(1));
 
 		mgr.stop("Bob");
@@ -721,6 +758,7 @@ describe("WorkerManager", () => {
 		const runner = makeProcessRunner(undefined, session);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
+		mgr.prime("Bob");
 		await vi.waitFor(() => expect(session.send).toHaveBeenCalled());
 		mgr.stopAll();
 		expect(session.kill).toHaveBeenCalled();
@@ -744,6 +782,7 @@ describe("WorkerManager", () => {
 		const runner = makeProcessRunner(undefined, session);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
+		mgr.prime("Bob");
 		await vi.waitFor(() => expect(session.send).toHaveBeenCalledTimes(1));
 
 		// Simulate session death
@@ -751,7 +790,7 @@ describe("WorkerManager", () => {
 
 		// Next message should trigger re-acquisition
 		mgr.send("Bob", "Are you there?");
-		await vi.waitFor(() => expect(runner.acquireSession).toHaveBeenCalledTimes(2)); // 1 from spawn + 1 from re-acquire
+		await vi.waitFor(() => expect(runner.acquireSession).toHaveBeenCalledTimes(2)); // 1 from prime + 1 from re-acquire
 	});
 
 	it("decay timer fires and kills session after timeout", async () => {
@@ -761,6 +800,7 @@ describe("WorkerManager", () => {
 		const runner = makeProcessRunner(undefined, session);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", { decayTimeoutMs: 1000 });
 		mgr.spawnAll();
+		mgr.prime("Bob");
 		await vi.waitFor(() => expect(session.send).toHaveBeenCalled());
 
 		mgr.stop("Bob");

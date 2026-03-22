@@ -204,7 +204,26 @@ interface KillInput {
 	readonly type: "kill";
 }
 
-type StdinMessage = MessageInput | StopGenerationInput | GrantPermissionInput | KillInput;
+interface AgentSelectedInput {
+	readonly type: "agent-selected";
+}
+
+interface AgentDeselectedInput {
+	readonly type: "agent-deselected";
+}
+
+interface BtActionInput {
+	readonly type: "bt-action";
+	readonly action: string;
+	readonly data: {
+		readonly goal?: string;
+		readonly goalType?: string;
+		readonly context?: string;
+		readonly task?: string;
+	};
+}
+
+type StdinMessage = MessageInput | StopGenerationInput | GrantPermissionInput | KillInput | AgentSelectedInput | AgentDeselectedInput | BtActionInput;
 
 function parseStdinMessage(line: string): StdinMessage | null {
 	try {
@@ -273,6 +292,56 @@ function handleGrantPermission(deps: AgentProcessLoopDeps, msg: GrantPermissionI
 	});
 }
 
+function handleAgentSelected(deps: AgentProcessLoopDeps): void {
+	const mgr = deps.workerManager as IWorkerManager & { prime?: (name: string) => void };
+	mgr.prime?.(deps.agentName);
+}
+
+function handleAgentDeselected(deps: AgentProcessLoopDeps): void {
+	deps.workerManager.stop(deps.agentName);
+}
+
+function handleBtAction(deps: AgentProcessLoopDeps, msg: BtActionInput): void {
+	if (msg.action !== "goal-started" && msg.action !== "task-started") return;
+	const subject = msg.data.goal ?? msg.data.task ?? "";
+	if (!subject) return;
+	const contextPrefix = msg.data.context ? `${msg.data.context}\n\n` : "";
+	const fullMessage = contextPrefix + subject;
+	let lastToolName = "";
+	let lastToolEmitted = false;
+	deps.workerManager.send(deps.agentName, fullMessage, {
+		task: msg.data.task,
+		onEvent(event: AgentStreamEvent) {
+			if (event.kind === "text") return;
+			const type = mapStreamEventToType(event);
+			const text = extractText(event);
+			const meta = extractToolMeta(event);
+			if (event.kind === "tool-start") {
+				lastToolName = event.name;
+				lastToolEmitted = false;
+				return;
+			}
+			if (event.kind === "tool-input") {
+				if (!lastToolEmitted) {
+					const summary = summarizeToolInput(lastToolName, event.json);
+					if (summary) {
+						writeEvent(deps, "using-tool", summary, { tool: lastToolName });
+						lastToolEmitted = true;
+					}
+				}
+				return;
+			}
+			if (event.kind === "tool-end" && !lastToolEmitted) {
+				writeEvent(deps, "using-tool", lastToolName, { tool: lastToolName });
+			}
+			writeEvent(deps, type, text, meta);
+		},
+		onResponse(response) {
+			writeEvent(deps, "response", textFromWorkerResponsePayload(response));
+		},
+	});
+}
+
 function dispatch(deps: AgentProcessLoopDeps, disposeFn: () => void, msg: StdinMessage): void {
 	switch (msg.type) {
 		case "message":
@@ -287,6 +356,15 @@ function dispatch(deps: AgentProcessLoopDeps, disposeFn: () => void, msg: StdinM
 		case "kill":
 			disposeFn();
 			deps.exit(0);
+			break;
+		case "agent-selected":
+			handleAgentSelected(deps);
+			break;
+		case "agent-deselected":
+			handleAgentDeselected(deps);
+			break;
+		case "bt-action":
+			handleBtAction(deps, msg as BtActionInput);
 			break;
 	}
 }

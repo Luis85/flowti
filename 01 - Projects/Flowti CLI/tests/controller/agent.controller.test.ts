@@ -125,6 +125,7 @@ describe("agent.controller", () => {
 				spawnAll: vi.fn(),
 				stop: vi.fn(),
 				stopAll: vi.fn(),
+				prime: vi.fn(),
 				getWorker: vi.fn(() => null),
 				listWorkers: vi.fn(() => []),
 				send: vi.fn(),

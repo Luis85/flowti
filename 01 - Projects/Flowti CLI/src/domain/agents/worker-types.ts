@@ -73,6 +73,8 @@ export interface IWorkerManager {
 	spawn(agentName: string): AgentWorker | null;
 	stop(agentName: string): void;
 	stopAll(): void;
+	/** Acquire LLM session and prime the agent. Called on agent-selected or on-demand by brain. */
+	prime(agentName: string): void;
 	getWorker(agentName: string): AgentWorker | null;
 	listWorkers(): AgentWorker[];
 	send(agentName: string, message: string, opts?: SendOptions): void;
