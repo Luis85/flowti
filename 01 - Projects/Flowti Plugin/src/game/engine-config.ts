@@ -262,8 +262,6 @@ export const LOADING_FADE_DURATION = 600;
 /** Action dedup TTL — how long an action ID is remembered (ms). */
 export const ACTION_DEDUP_TTL = 5000;
 
-/** Pet proximity reaction cooldown (ms). */
-export const PET_REACTION_COOLDOWN = 30000;
 
 /** Minimum distance squared for particle trail emission. */
 export const TRAIL_DISTANCE_SQ = 64;
@@ -301,17 +299,6 @@ export const CAT_STRESS_MORALE_THRESHOLD = 30;
 /** Object attraction arrival delay before applying effects (ms). */
 export const OBJECT_EFFECT_DELAY = 5000;
 
-/** Pet share cooldown — how long before the same agent-pet pair can share again (ms). */
-export const PET_SHARE_COOLDOWN = 30000;
-
-/** Multiplier for pet share — pet gets this fraction of the station's effects. */
-export const PET_SHARE_EFFECT_RATIO = 0.5;
-
-/** Social bonus an agent gets when sharing food/drink with a pet. */
-export const PET_SHARE_SOCIAL_BONUS = 3;
-
-/** Object types that are food or drink stations (eligible for pet sharing). */
-export const FOOD_DRINK_OBJECT_TYPES = new Set(["food", "drink", "appliance"]);
 
 /** Frustrated bubble phrases shown when a pet steals an agent's station. */
 export const PET_STEAL_PHRASES = [

@@ -342,12 +342,30 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		bubble: bubbleSystem,
 	});
 	interactionLockQuery = (entityId) => interactionBootstrap.system.isEntityLocked(entityId);
-	worldEventScheduler.setInteractionSubmitter((interaction) => {
-		interactionBootstrap.system.getBus().submit(interaction as unknown as Interaction);
-	});
-
 	const registry = new SceneRegistry();
 	registry.setEntityRoom("npc-merchant", "hub");
+
+	// Wire world events to interaction bus — deferred after registry so we can resolve targets
+	worldEventScheduler.setInteractionSubmitter((raw) => {
+		const hubAgents = registry.getEntitiesInRoom("hub")
+			.filter(id => !id.startsWith("npc-") && !id.startsWith("room-"))
+			.map(id => ({ id, entityType: "agent" as const }));
+		if (hubAgents.length === 0) return;
+		const interaction: Interaction = {
+			id: raw.id as string,
+			initiator: raw.initiator as Interaction["initiator"],
+			targets: hubAgents,
+			cardinality: "one-to-many",
+			category: "reactive",
+			action: raw.action as string,
+			priority: 70,
+			context: { templateId: raw.action as string },
+			cooldownMs: 300000,
+			effects: [],
+			timestamp: Date.now(),
+		};
+		interactionBootstrap.system.getBus().submit(interaction);
+	});
 	const btSystem = new BtSystem();
 	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
 	const cycleConversationCounts = new Map<string, number>();
@@ -422,7 +440,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				cooldownMs: 45000,
 			},
 		],
-		getNearby: () => [...socialSystem.getNearbyEntities("npc-merchant")],
+		getNearby: () => {
+			// Merchant is not a SocialSystem entity — find agents in hub room instead
+			const hubAgents = registry.getEntitiesInRoom("hub");
+			return hubAgents
+				.filter(id => !id.startsWith("npc-") && !id.startsWith("room-"))
+				.map(id => ({ id, entityType: "agent", distance: 3 }));
+		},
 		getCooldown: () => interactionBootstrap.system.getBus().getCooldown("npc-merchant", "npc", "merchant-pitch"),
 		now: () => Date.now(),
 	});
@@ -439,7 +463,23 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const roomResolver = createRoomIntentResolver({
 			roomId: roomCfg.id,
 			roomType: roomCfg.type,
-			rules: [],
+			rules: [
+				{
+					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 300000,
+					conditions: [{ type: "occupancy" as const, op: ">" as const, value: 4 }],
+					interaction: { category: "reactive" as const, action: "crowded-room-tension", cardinality: "one-to-many" as const, effects: [], cooldownMs: 300000 },
+				},
+				{
+					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 240000,
+					conditions: [{ type: "occupancy" as const, op: "<" as const, value: 2 }],
+					interaction: { category: "environmental" as const, action: "empty-room-peace", cardinality: "one-to-many" as const, effects: [], cooldownMs: 240000 },
+				},
+				{
+					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 300000,
+					conditions: [{ type: "collective-mood" as const, mood: "stressed", threshold: 40 }],
+					interaction: { category: "environmental" as const, action: "crunch-time-pressure", cardinality: "one-to-many" as const, effects: [], cooldownMs: 300000 },
+				},
+			],
 			getOccupancy: () => registry.getEntitiesInRoom(roomCfg.roomName).length,
 			getOccupantIds: () => registry.getEntitiesInRoom(roomCfg.roomName),
 			getCollectiveMood: () => {
