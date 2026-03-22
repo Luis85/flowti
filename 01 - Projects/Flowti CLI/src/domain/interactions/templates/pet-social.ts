@@ -9,7 +9,7 @@ export const PET_SOCIAL_TEMPLATES: readonly InteractionTemplate[] = [
 		initiatorTypes: ["pet"],
 		targetTypes: ["agent"],
 		prerequisites: [
-			{ type: "need-threshold", need: "energy", op: ">", value: 80 },
+			{ type: "need-threshold", need: "energy", op: ">=", value: 80 },
 		],
 		weight: 2,
 		tags: ["playful", "pet", "disruption"],

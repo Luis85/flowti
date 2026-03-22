@@ -30,10 +30,14 @@ export function renderInteractionActions(
 					phrasePool: string;
 					templateVars?: Record<string, string>;
 				};
-				if (params.phrasePool.startsWith("reactive:") && systems.talk) {
-					systems.talk.triggerReactive(action.entityId, params.phrasePool.replace("reactive:", ""));
-				} else if (systems.bubble) {
-					systems.bubble.showBubble(action.entityId, params.bubbleKind, params.phrasePool);
+				// Route all bubbles through TalkEngine reactive triggers.
+				// phrasePool values are either "reactive:<trigger>" or template-specific IDs.
+				// TalkEngine handles unknown triggers gracefully (no-op).
+				const trigger = params.phrasePool.startsWith("reactive:")
+					? params.phrasePool.replace("reactive:", "")
+					: params.phrasePool;
+				if (systems.talk) {
+					systems.talk.triggerReactive(action.entityId, trigger);
 				}
 				break;
 			}

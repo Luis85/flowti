@@ -439,6 +439,36 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				weight: 30,
 				cooldownMs: 45000,
 			},
+		{
+				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
+				interaction: { category: "social" as const, action: "merchant-comment-on-pair", cardinality: "one-to-many" as const, effects: [], cooldownMs: 90000 },
+				weight: 15, cooldownMs: 90000,
+			},
+			{
+				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
+				interaction: { category: "commerce" as const, action: "merchant-special-offer", cardinality: "one-to-one" as const, effects: [], cooldownMs: 300000 },
+				weight: 5, cooldownMs: 300000,
+			},
+			{
+				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
+				interaction: { category: "commerce" as const, action: "merchant-haggle", cardinality: "one-to-one" as const, effects: [], cooldownMs: 120000 },
+				weight: 20, cooldownMs: 120000,
+			},
+			{
+				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
+				interaction: { category: "commerce" as const, action: "merchant-show-new-stock", cardinality: "one-to-one" as const, effects: [], cooldownMs: 180000 },
+				weight: 15, cooldownMs: 180000,
+			},
+			{
+				npcRole: "merchant", trigger: "event" as const, conditions: [],
+				interaction: { category: "social" as const, action: "merchant-loyalty-thanks", cardinality: "one-to-one" as const, effects: [], cooldownMs: 600000 },
+				weight: 5, cooldownMs: 600000,
+			},
+			{
+				npcRole: "merchant", trigger: "event" as const, conditions: [],
+				interaction: { category: "reactive" as const, action: "merchant-warn-of-danger", cardinality: "one-to-one" as const, effects: [], cooldownMs: 300000 },
+				weight: 3, cooldownMs: 300000,
+			},
 		],
 		getNearby: () => {
 			// Merchant is not a SocialSystem entity — find agents in hub room instead
