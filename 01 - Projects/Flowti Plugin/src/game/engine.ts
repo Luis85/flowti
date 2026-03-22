@@ -65,7 +65,6 @@ import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { NarrativeSystem } from "./systems/narrative-system.js";
 import { bootstrapInteractionSystem, registerPetResolver, createNPCIntentResolver, createRoomIntentResolver } from "./systems/interaction/bootstrap-interactions.js";
-import type { InteractionBootstrap } from "./systems/interaction/bootstrap-interactions.js";
 import type { Interaction } from "../../../Flowti CLI/src/domain/interactions/interaction-types.js";
 import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
@@ -293,98 +292,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		});
 	}
 
-	// ── Fragment composer + enriched talk engine ─────
-	const fragmentComposer = new FragmentComposer(ALL_FRAGMENT_POOLS);
-
-	const talkEngine = new TalkEngine({
-		showBubble: (agentName, kind, text) => {
-			const isSelected = store.selectedAgent === agentName;
-			if (isSelected) {
-				// Selected agent: chatter goes to chat panel only, no overhead bubble
-				store.pushAgentThought(agentName, text);
-			} else {
-				// Unselected agent: show bubble over head as usual
-				bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
-			}
-			// Also pipe to chat if LLM is thinking (even if not selected)
-			if (!isSelected) {
-				const llmStatus = store.llmStatus.get(agentName);
-				if (llmStatus?.state === "thinking") {
-					store.pushAgentThought(agentName, text);
-				}
-			}
-		},
-		isIdle: (name) => brainSystem.getState(name)?.state === "idle",
-		isOnScene: (name) => findCurrentSceneActor(name) !== undefined,
-	}, {
-		composer: fragmentComposer,
-		getTier: (a, b) => relationshipSystem.getTier(a, b),
-		getEchoBias: (agent) => echoStore.getDialogueBias(agent),
-	});
-
-	// ── Conversation engine ─────────────────────────
-	let interactionLockQuery: ((entityId: string) => boolean) | undefined;
-
-	const conversationEngine = new ConversationEngine({
-		showBubble: (agentName, kind, text) => {
-			bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
-		},
-		getTier: (a, b) => relationshipSystem.getTier(a, b),
-		silenceTalk: (agentName) => talkEngine.silence(agentName),
-		recordConversation: (a, b) => {
-			relationshipSystem.recordConversation(a, b);
-			const tier = relationshipSystem.getTier(a, b);
-			echoProducer.onConversation(a, b, tier, dayClock.getCycleCount());
-		},
-		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
-		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),
-		externalLockQuery: (entityId) => interactionLockQuery?.(entityId) ?? false,
-	});
-	conversationEngine.registerScripts([
-		...RIVAL_SCRIPTS, ...ACQUAINTANCE_SCRIPTS, ...COLLEAGUE_SCRIPTS,
-		...FRIEND_SCRIPTS, ...BESTFRIEND_SCRIPTS,
-		...GOSSIP_SCRIPTS, ...DRAMA_SCRIPTS, ...PET_CATALYST_SCRIPTS,
-		...MERCHANT_SCRIPTS, ...OFFLINE_RETURN_SCRIPTS,
-	]);
-	conversationEngine.registerJokes([...RUNNING_JOKES]);
-
-	// ── Interaction system ──────────────────────────────
-	const interactionBootstrap = bootstrapInteractionSystem({
-		social: {
-			getNearbyEntities: (entityId: string) => [...socialSystem.getNearbyEntities(entityId)],
-		},
-		relationship: relationshipSystem,
-		needs: needsSystem,
-		dayClock,
-		conversation: conversationEngine,
-		talk: talkEngine,
-		bubble: bubbleSystem,
-	});
-	interactionLockQuery = (entityId) => interactionBootstrap.system.isEntityLocked(entityId);
 	const registry = new SceneRegistry();
 	registry.setEntityRoom("npc-merchant", "hub");
 
-	// Wire world events to interaction bus — deferred after registry so we can resolve targets
-	worldEventScheduler.setInteractionSubmitter((raw) => {
-		const hubAgents = registry.getEntitiesInRoom("hub")
-			.filter(id => !id.startsWith("npc-") && !id.startsWith("room-"))
-			.map(id => ({ id, entityType: "agent" as const }));
-		if (hubAgents.length === 0) return;
-		const interaction: Interaction = {
-			id: raw.id as string,
-			initiator: raw.initiator as Interaction["initiator"],
-			targets: hubAgents,
-			cardinality: "one-to-many",
-			category: "reactive",
-			action: raw.action as string,
-			priority: 70,
-			context: { templateId: raw.action as string },
-			cooldownMs: 300000,
-			effects: [],
-			timestamp: Date.now(),
-		};
-		interactionBootstrap.system.getBus().submit(interaction);
-	});
 	const btSystem = new BtSystem();
 	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
 	const cycleConversationCounts = new Map<string, number>();
@@ -400,153 +310,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const pets = createPets();
 	for (const [pet, def] of getPetBTPairs(pets)) {
 		btSystem.registerPet(pet.entityId, createPetBT(pet.entityId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed, pet.petType));
-	}
-
-	// ── Pet interaction resolvers ──────────────────────────
-	for (const pet of pets) {
-		if (pet.petType === "fish") continue;
-		registerPetResolver(interactionBootstrap, pet.entityId, {
-			social: {
-				getNearbyEntities: (entityId: string) => [...socialSystem.getNearbyEntities(entityId)],
-			},
-			relationship: relationshipSystem,
-			needs: needsSystem,
-			dayClock,
-			conversation: conversationEngine,
-		}, () => ({
-			hunger: pet.getHunger(),
-			thirst: pet.getThirst(),
-			energy: 80,
-			affinity: new Map(pet.getBondedAgent() ? [[pet.getBondedAgent()!, pet.getAffection()]] : []),
-		}));
-	}
-
-	// ── NPC interaction resolver (merchant) ────────────
-	const merchantResolver = createNPCIntentResolver({
-		npcId: "npc-merchant",
-		npcRole: "merchant",
-		rules: [
-			{
-				npcRole: "merchant",
-				trigger: "proximity" as const,
-				conditions: [],
-				interaction: {
-					category: "commerce" as const,
-					action: "merchant-pitch",
-					cardinality: "one-to-one" as const,
-					effects: [{ type: "bubble" as const, target: "initiator" as const, bubbleKind: "speech", phrasePool: "merchant-pitch" }],
-					cooldownMs: 60000,
-				},
-				weight: 50,
-				cooldownMs: 60000,
-			},
-			{
-				npcRole: "merchant",
-				trigger: "idle-timeout" as const,
-				conditions: [],
-				interaction: {
-					category: "reactive" as const,
-					action: "merchant-idle-grumble",
-					cardinality: "entity-to-environment" as const,
-					effects: [{ type: "bubble" as const, target: "initiator" as const, bubbleKind: "thought", phrasePool: "merchant-idle-grumble" }],
-					cooldownMs: 45000,
-				},
-				weight: 30,
-				cooldownMs: 45000,
-			},
-		{
-				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
-				interaction: { category: "social" as const, action: "merchant-comment-on-pair", cardinality: "one-to-many" as const, effects: [], cooldownMs: 90000 },
-				weight: 15, cooldownMs: 90000,
-			},
-			{
-				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
-				interaction: { category: "commerce" as const, action: "merchant-special-offer", cardinality: "one-to-one" as const, effects: [], cooldownMs: 300000 },
-				weight: 5, cooldownMs: 300000,
-			},
-			{
-				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
-				interaction: { category: "commerce" as const, action: "merchant-haggle", cardinality: "one-to-one" as const, effects: [], cooldownMs: 120000 },
-				weight: 20, cooldownMs: 120000,
-			},
-			{
-				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
-				interaction: { category: "commerce" as const, action: "merchant-show-new-stock", cardinality: "one-to-one" as const, effects: [], cooldownMs: 180000 },
-				weight: 15, cooldownMs: 180000,
-			},
-			{
-				npcRole: "merchant", trigger: "event" as const, conditions: [],
-				interaction: { category: "social" as const, action: "merchant-loyalty-thanks", cardinality: "one-to-one" as const, effects: [], cooldownMs: 600000 },
-				weight: 5, cooldownMs: 600000,
-			},
-			{
-				npcRole: "merchant", trigger: "event" as const, conditions: [],
-				interaction: { category: "reactive" as const, action: "merchant-warn-of-danger", cardinality: "one-to-one" as const, effects: [], cooldownMs: 300000 },
-				weight: 3, cooldownMs: 300000,
-			},
-		],
-		getNearby: () => {
-			// Merchant is not a SocialSystem entity — find agents in hub room instead
-			const hubAgents = registry.getEntitiesInRoom("hub");
-			return hubAgents
-				.filter(id => !id.startsWith("npc-") && !id.startsWith("room-"))
-				.map(id => ({ id, entityType: "agent", distance: 3 }));
-		},
-		getCooldown: () => interactionBootstrap.system.getBus().getCooldown("npc-merchant", "npc", "merchant-pitch"),
-		now: () => Date.now(),
-	});
-	interactionBootstrap.resolvers.entities.set("npc-merchant", merchantResolver);
-
-	// ── Room interaction resolvers ─────────────────────
-	const ROOM_CONFIGS = [
-		{ id: "room-hub", roomName: "hub", type: "break-room" },
-		{ id: "room-office", roomName: "office", type: "office" },
-		{ id: "room-village", roomName: "village", type: "village" },
-		{ id: "room-station", roomName: "station", type: "station" },
-	];
-	for (const roomCfg of ROOM_CONFIGS) {
-		const roomResolver = createRoomIntentResolver({
-			roomId: roomCfg.id,
-			roomType: roomCfg.type,
-			rules: [
-				{
-					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 300000,
-					conditions: [{ type: "occupancy" as const, op: ">" as const, value: 4 }],
-					interaction: { category: "reactive" as const, action: "crowded-room-tension", cardinality: "one-to-many" as const, effects: [], cooldownMs: 300000 },
-				},
-				{
-					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 240000,
-					conditions: [{ type: "occupancy" as const, op: "<" as const, value: 2 }],
-					interaction: { category: "environmental" as const, action: "empty-room-peace", cardinality: "one-to-many" as const, effects: [], cooldownMs: 240000 },
-				},
-				{
-					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 300000,
-					conditions: [{ type: "collective-mood" as const, mood: "stressed", threshold: 40 }],
-					interaction: { category: "environmental" as const, action: "crunch-time-pressure", cardinality: "one-to-many" as const, effects: [], cooldownMs: 300000 },
-				},
-			],
-			getOccupancy: () => registry.getEntitiesInRoom(roomCfg.roomName).length,
-			getOccupantIds: () => registry.getEntitiesInRoom(roomCfg.roomName),
-			getCollectiveMood: () => {
-				const occupants = registry.getEntitiesInRoom(roomCfg.roomName);
-				if (occupants.length === 0) return { mood: "neutral", intensity: 50 };
-				let totalMorale = 0;
-				let count = 0;
-				for (const id of occupants) {
-					try {
-						totalMorale += needsSystem.getNeeds(id).morale;
-						count++;
-					} catch {
-						// pet/npc entities don't have needs — skip
-					}
-				}
-				const avg = count > 0 ? totalMorale / count : 50;
-				const mood = avg < 30 ? "stressed" : avg > 80 ? "energized" : avg > 60 ? "relaxed" : "neutral";
-				return { mood, intensity: avg };
-			},
-			getPhase: () => dayClock.getPhase(),
-		});
-		interactionBootstrap.resolvers.entities.set(roomCfg.id, roomResolver);
 	}
 
 	// ── Agent select handler ────────────────────────────
@@ -707,6 +470,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}, {
 		composer: fragmentComposer,
 		getTier: (a, b) => relationshipSystem.getTier(a, b),
+		getEchoBias: (agent) => echoStore.getDialogueBias(agent),
 	});
 
 	for (const pet of pets) {
@@ -722,7 +486,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 		getTier: (a, b) => relationshipSystem.getTier(a, b),
 		silenceTalk: (agentName) => talkEngine.silence(agentName),
-		recordConversation: (a, b) => relationshipSystem.recordConversation(a, b),
+		recordConversation: (a, b) => {
+			relationshipSystem.recordConversation(a, b);
+			const tier = relationshipSystem.getTier(a, b);
+			echoProducer.onConversation(a, b, tier, dayClock.getCycleCount());
+		},
 		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
 		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),
 		externalLockQuery: (entityId) => interactionLockBridge.query?.(entityId) ?? false,
@@ -747,6 +515,175 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		bubble: bubbleSystem,
 	});
 	interactionLockBridge.query = (entityId) => interactionBootstrap.system.isEntityLocked(entityId);
+
+	// Wire world events to interaction bus — after bootstrap so the bus exists
+	worldEventScheduler.setInteractionSubmitter((raw) => {
+		const hubAgents = registry.getEntitiesInRoom("hub")
+			.filter(id => !id.startsWith("npc-") && !id.startsWith("room-"))
+			.map(id => ({ id, entityType: "agent" as const }));
+		if (hubAgents.length === 0) return;
+		const interaction: Interaction = {
+			id: raw.id as string,
+			initiator: raw.initiator as Interaction["initiator"],
+			targets: hubAgents,
+			cardinality: "one-to-many",
+			category: "reactive",
+			action: raw.action as string,
+			priority: 70,
+			context: { templateId: raw.action as string },
+			cooldownMs: 300000,
+			effects: [],
+			timestamp: Date.now(),
+		};
+		interactionBootstrap.system.getBus().submit(interaction);
+	});
+
+	// ── Pet interaction resolvers ──────────────────────────
+	for (const pet of pets) {
+		if (pet.petType === "fish") continue;
+		registerPetResolver(interactionBootstrap, pet.entityId, {
+			social: {
+				getNearbyEntities: (entityId: string) => [...socialSystem.getNearbyEntities(entityId)],
+			},
+			relationship: relationshipSystem,
+			needs: needsSystem,
+			dayClock,
+			conversation: conversationEngine,
+		}, () => ({
+			hunger: pet.getHunger(),
+			thirst: pet.getThirst(),
+			energy: 80,
+			affinity: new Map(pet.getBondedAgent() ? [[pet.getBondedAgent()!, pet.getAffection()]] : []),
+		}));
+	}
+
+	// ── NPC interaction resolver (merchant) ────────────
+	const merchantResolver = createNPCIntentResolver({
+		npcId: "npc-merchant",
+		npcRole: "merchant",
+		rules: [
+			{
+				npcRole: "merchant",
+				trigger: "proximity" as const,
+				conditions: [],
+				interaction: {
+					category: "commerce" as const,
+					action: "merchant-pitch",
+					cardinality: "one-to-one" as const,
+					effects: [{ type: "bubble" as const, target: "initiator" as const, bubbleKind: "speech", phrasePool: "merchant-pitch" }],
+					cooldownMs: 60000,
+				},
+				weight: 50,
+				cooldownMs: 60000,
+			},
+			{
+				npcRole: "merchant",
+				trigger: "idle-timeout" as const,
+				conditions: [],
+				interaction: {
+					category: "reactive" as const,
+					action: "merchant-idle-grumble",
+					cardinality: "entity-to-environment" as const,
+					effects: [{ type: "bubble" as const, target: "initiator" as const, bubbleKind: "thought", phrasePool: "merchant-idle-grumble" }],
+					cooldownMs: 45000,
+				},
+				weight: 30,
+				cooldownMs: 45000,
+			},
+			{
+				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
+				interaction: { category: "social" as const, action: "merchant-comment-on-pair", cardinality: "one-to-many" as const, effects: [], cooldownMs: 90000 },
+				weight: 15, cooldownMs: 90000,
+			},
+			{
+				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
+				interaction: { category: "commerce" as const, action: "merchant-special-offer", cardinality: "one-to-one" as const, effects: [], cooldownMs: 300000 },
+				weight: 5, cooldownMs: 300000,
+			},
+			{
+				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
+				interaction: { category: "commerce" as const, action: "merchant-haggle", cardinality: "one-to-one" as const, effects: [], cooldownMs: 120000 },
+				weight: 20, cooldownMs: 120000,
+			},
+			{
+				npcRole: "merchant", trigger: "proximity" as const, conditions: [],
+				interaction: { category: "commerce" as const, action: "merchant-show-new-stock", cardinality: "one-to-one" as const, effects: [], cooldownMs: 180000 },
+				weight: 15, cooldownMs: 180000,
+			},
+			{
+				npcRole: "merchant", trigger: "event" as const, conditions: [],
+				interaction: { category: "social" as const, action: "merchant-loyalty-thanks", cardinality: "one-to-one" as const, effects: [], cooldownMs: 600000 },
+				weight: 5, cooldownMs: 600000,
+			},
+			{
+				npcRole: "merchant", trigger: "event" as const, conditions: [],
+				interaction: { category: "reactive" as const, action: "merchant-warn-of-danger", cardinality: "one-to-one" as const, effects: [], cooldownMs: 300000 },
+				weight: 3, cooldownMs: 300000,
+			},
+		],
+		getNearby: () => {
+			// Merchant is not a SocialSystem entity — find agents in hub room instead
+			const hubAgents = registry.getEntitiesInRoom("hub");
+			return hubAgents
+				.filter(id => !id.startsWith("npc-") && !id.startsWith("room-"))
+				.map(id => ({ id, entityType: "agent", distance: 3 }));
+		},
+		getCooldown: () => interactionBootstrap.system.getBus().getCooldown("npc-merchant", "npc", "merchant-pitch"),
+		now: () => Date.now(),
+	});
+	interactionBootstrap.resolvers.entities.set("npc-merchant", merchantResolver);
+
+	// ── Room interaction resolvers ─────────────────────
+	const ROOM_CONFIGS = [
+		{ id: "room-hub", roomName: "hub", type: "break-room" },
+		{ id: "room-office", roomName: "office", type: "office" },
+		{ id: "room-village", roomName: "village", type: "village" },
+		{ id: "room-station", roomName: "station", type: "station" },
+	];
+	for (const roomCfg of ROOM_CONFIGS) {
+		const roomResolver = createRoomIntentResolver({
+			roomId: roomCfg.id,
+			roomType: roomCfg.type,
+			rules: [
+				{
+					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 300000,
+					conditions: [{ type: "occupancy" as const, op: ">" as const, value: 4 }],
+					interaction: { category: "reactive" as const, action: "crowded-room-tension", cardinality: "one-to-many" as const, effects: [], cooldownMs: 300000 },
+				},
+				{
+					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 240000,
+					conditions: [{ type: "occupancy" as const, op: "<" as const, value: 2 }],
+					interaction: { category: "environmental" as const, action: "empty-room-peace", cardinality: "one-to-many" as const, effects: [], cooldownMs: 240000 },
+				},
+				{
+					roomType: roomCfg.type, layer: "reactive" as const, cooldownMs: 300000,
+					conditions: [{ type: "collective-mood" as const, mood: "stressed", threshold: 40 }],
+					interaction: { category: "environmental" as const, action: "crunch-time-pressure", cardinality: "one-to-many" as const, effects: [], cooldownMs: 300000 },
+				},
+			],
+			getOccupancy: () => registry.getEntitiesInRoom(roomCfg.roomName).length,
+			getOccupantIds: () => registry.getEntitiesInRoom(roomCfg.roomName),
+			getCollectiveMood: () => {
+				const occupants = registry.getEntitiesInRoom(roomCfg.roomName);
+				if (occupants.length === 0) return { mood: "neutral", intensity: 50 };
+				let totalMorale = 0;
+				let count = 0;
+				for (const id of occupants) {
+					try {
+						totalMorale += needsSystem.getNeeds(id).morale;
+						count++;
+					} catch {
+						// pet/npc entities don't have needs — skip
+					}
+				}
+				const avg = count > 0 ? totalMorale / count : 50;
+				const mood = avg < 30 ? "stressed" : avg > 80 ? "energized" : avg > 60 ? "relaxed" : "neutral";
+				return { mood, intensity: avg };
+			},
+			getPhase: () => dayClock.getPhase(),
+		});
+		interactionBootstrap.resolvers.entities.set(roomCfg.id, roomResolver);
+	}
 
 	const registrationSystems: RegistrationSystems = {
 		brain: brainSystem, bubble: bubbleSystem, talk: talkEngine,
