@@ -267,6 +267,7 @@ export class PanelDebug extends FlowtiElement {
 	];
 
 	agent?: DashboardAgent;
+	private trustOverrides: Map<string, string> = new Map();
 
 	private dispatch(type: string, detail: Record<string, unknown>): void {
 		this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));

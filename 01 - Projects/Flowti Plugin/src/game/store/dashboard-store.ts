@@ -611,7 +611,7 @@ export class DashboardStore extends EventTarget {
 
 		runOneShotCommand(
 			nodeBin, cliBin,
-			["economy:reward", `--agent=${agentName}`, `--task=${taskName}`, "--format=json"],
+			["economy:reward", `--agent=${agentName}`, "--format=json"],
 			this.vaultBasePath,
 		)
 			.then((output) => {
@@ -627,8 +627,8 @@ export class DashboardStore extends EventTarget {
 					xp: reward.totalXp,
 					tokens: this.getAgentEconomy(agentName)?.tokens ?? 0,
 				});
-				// Re-dispatch task-completed with economy data for floating text
-				this.dispatchEvent(new CustomEvent("task-completed", {
+				// Dispatch reward-specific event for floating economy text (separate from task-completed)
+				this.dispatchEvent(new CustomEvent("task-reward-earned", {
 					detail: { agentName, task: taskName, xp: reward.xp, coin: reward.coin },
 				}));
 				// Fire level-up if applicable

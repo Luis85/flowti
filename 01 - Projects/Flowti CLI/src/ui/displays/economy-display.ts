@@ -53,9 +53,9 @@ export function renderLedger(data: LedgerModel, log: LogFn): void {
 	log(`${BOLD}Transaction log for ${data.agent}${RESET} (${data.entries.length} entries)\n`);
 	for (const e of data.entries) {
 		const parts = [e.ts, e.type];
-		if (e.xp) parts.push(`+${e.xp}xp`);
-		if (e.coin) parts.push(`${e.coin > 0 ? "+" : ""}${e.coin}c`);
-		if (e.tokens) parts.push(`${e.tokens}t`);
+		if (e.xp !== undefined) parts.push(`+${e.xp}xp`);
+		if (e.coin !== undefined) parts.push(`${e.coin > 0 ? "+" : ""}${e.coin}c`);
+		if (e.tokens !== undefined) parts.push(`${e.tokens}t`);
 		log(`  ${DIM}${parts.join("  ")}${RESET}`);
 	}
 }
