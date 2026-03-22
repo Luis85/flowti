@@ -8,6 +8,7 @@
  */
 
 import * as ex from "excalibur";
+import { Entity } from "excalibur";
 import type { DashboardAgent } from "../data/types.js";
 import type { SceneEntity } from "../data/scene-entity.js";
 import type { GameSceneConfig, OverlayConfig } from "../data/scene-configs.js";
@@ -22,6 +23,21 @@ import { WORKSTATION_COLS, WORKSTATION_SPACING, WORKSTATION_START } from "../con
 import { resolveSettingForDomain } from "../config/domain-map.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Tear down an {@link ex.Actor} without Excalibur's console warning:
+ * `Actor.kill()` warns when `scene` is null (already removed from the world graph,
+ * e.g. after a parent entity is processed or a double-teardown). {@link Entity.kill}
+ * only flips `isActive` and unparents — sufficient when the actor is no longer in a scene.
+ */
+function deactivateActor(actor: ex.Actor): void {
+	if (actor.isKilled()) return;
+	if (actor.scene) {
+		actor.kill();
+	} else {
+		Entity.prototype.kill.call(actor);
+	}
+}
 
 function createOverlayLabel(x: number, y: number, text: string, size: number, color: string, textAlign: ex.TextAlign, anchor: ex.Vector, z: number): ex.Label {
 	const label = new ex.Label({
@@ -266,7 +282,7 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		const ws = this.workstations.find((w) => w.occupantName === name);
 		if (ws) ws.vacate();
 
-		actor.kill();
+		deactivateActor(actor);
 		this.agentActors.delete(name);
 	}
 
@@ -358,7 +374,7 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		// Remove stale agent actors (skip entities managed by Phase 3)
 		for (const [name, actor] of this.agentActors) {
 			if (!incoming.has(name)) {
-				actor.kill();
+				deactivateActor(actor);
 				this.agentActors.delete(name);
 			}
 		}
@@ -440,7 +456,7 @@ export class GameScene extends ex.Scene implements SceneHandle {
 			entity.onExitScene();
 			// kill() is immediate (sets isKilled=true, stops rendering).
 			// remove() is deferred and never processes on non-active scenes.
-			if (actor) actor.kill();
+			if (actor) deactivateActor(actor);
 			this.sceneEntities.delete(entityId);
 		}
 
@@ -449,7 +465,7 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		if (oldActor) {
 			const ws = this.workstations.find((w) => w.occupantName === entityId);
 			if (ws) ws.vacate();
-			oldActor.kill();
+			deactivateActor(oldActor);
 			this.agentActors.delete(entityId);
 		}
 
