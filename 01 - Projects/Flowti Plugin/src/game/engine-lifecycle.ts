@@ -43,6 +43,69 @@ import type { NarrativeSystem } from "./systems/narrative-system.js";
 import type { BriefingPanel } from "./ui/briefing-panel.js";
 import { findNodeBinary } from "../infrastructure/agents/cli-executor.js";
 import { runOneShotCommand } from "../infrastructure/agents/cli-executor-helpers.js";
+import type { OfflineResults } from "./systems/offline-progress.js";
+
+/** Per-agent `economy:reward` must not block world startup (stuck CLI = infinite loading). */
+const OFFLINE_REWARD_CLI_TIMEOUT_MS = 25_000;
+
+async function applyOfflineEconomyRewards(
+	results: OfflineResults,
+	store: DashboardStore,
+	vaultBasePath: string,
+	narrativeSystem: NarrativeSystem,
+): Promise<void> {
+	const nodeBin = findNodeBinary();
+	const cliBin = join(vaultBasePath, ".flowti", "bin", "main.mjs");
+	for (const agentResult of results.agentResults) {
+		if (agentResult.xpEarned <= 0 && agentResult.coinEarned <= 0) continue;
+		const current = store.getAgentEconomy(agentResult.name);
+		if (!current) continue;
+		let usedCliTotals = false;
+		if (nodeBin && existsSync(cliBin)) {
+			try {
+				const output = await runOneShotCommand(
+					nodeBin, cliBin,
+					["economy:reward", `--agent=${agentResult.name}`, `--xp=${agentResult.xpEarned}`, `--coin=${agentResult.coinEarned}`, "--format=json"],
+					vaultBasePath,
+					OFFLINE_REWARD_CLI_TIMEOUT_MS,
+				);
+				const reward = output as {
+					totalXp?: number; totalCoin?: number; level?: number;
+				};
+				if (reward.totalXp !== undefined && reward.totalCoin !== undefined) {
+					store.setAgentEconomy(agentResult.name, {
+						coin: reward.totalCoin,
+						xp: reward.totalXp,
+						level: reward.level ?? agentResult.currentLevel,
+					});
+					usedCliTotals = true;
+				}
+			} catch {
+				// CLI not available or timed out — fall through to store-only update
+			}
+		}
+		if (!usedCliTotals) {
+			store.setAgentEconomy(agentResult.name, {
+				coin: current.coin + agentResult.coinEarned,
+				xp: current.xp + agentResult.xpEarned,
+				level: agentResult.currentLevel,
+			});
+		}
+		narrativeSystem.recordBeat({
+			timestamp: Date.now(),
+			phase: "morning-arrival",
+			category: "economy",
+			actors: [agentResult.name],
+			event: "reward-earned",
+			detail: {
+				agent: agentResult.name,
+				coin: agentResult.coinEarned,
+				xp: agentResult.xpEarned,
+				reason: `offline progress (${results.cyclesSimulated} cycle${results.cyclesSimulated === 1 ? "" : "s"})`,
+			},
+		});
+	}
+}
 
 export interface StartEngineDeps {
 	engine: ex.Engine;
@@ -102,25 +165,29 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 	await engine.start();
 	void engine.goToScene("hub");
 
-	// Preload all character sprites
+	// Preload character sprites, room animated props, and provider init in parallel (independent I/O).
 	const ASSET_BASE = `${spriteBasePath}/assets/Actor/Characters/`;
 	const allCharacters = [...new Set(Object.values(DOMAIN_POOLS).flat())];
-	const spriteRegistry = await preloadSpriteRegistry(allCharacters, ASSET_BASE);
+	const ANIM_BASE = `${spriteBasePath}/assets`;
+	const sceneByRoom: Record<string, GameScene> = {
+		hub: hubScene, office: officeScene, village: villageScene, station: stationScene,
+	};
+
+	const [spriteRegistry] = await Promise.all([
+		preloadSpriteRegistry(allCharacters, ASSET_BASE),
+		Promise.all(
+			Object.entries(sceneByRoom).map(async ([roomId, scene]) => {
+				const actors = await loadRoomElements(roomId, ANIM_BASE);
+				for (const actor of actors) scene.add(actor);
+			}),
+		),
+		provider.start(),
+	]);
 
 	hubScene.setSpriteRegistry(spriteRegistry);
 	officeScene.setSpriteRegistry(spriteRegistry);
 	villageScene.setSpriteRegistry(spriteRegistry);
 	stationScene.setSpriteRegistry(spriteRegistry);
-
-	// Load animated background elements for each room
-	const ANIM_BASE = `${spriteBasePath}/assets`;
-	const sceneByRoom: Record<string, GameScene> = { hub: hubScene, office: officeScene, village: villageScene, station: stationScene };
-	await Promise.all(
-		Object.entries(sceneByRoom).map(async ([roomId, scene]) => {
-			const actors = await loadRoomElements(roomId, ANIM_BASE);
-			for (const actor of actors) scene.add(actor);
-		}),
-	);
 
 	// Camera system (after engine.start so camera is initialised)
 	const cameraSystem = createCameraSystem(
@@ -161,7 +228,6 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 	currentLight.b = initLight.b;
 	currentLight.opacity = initLight.opacity;
 
-	await provider.start();
 	const initialAgents = await provider.getDashboardAgents();
 	doRegisterAgents(initialAgents);
 
@@ -237,6 +303,11 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 		);
 	});
 
+	const dismissLoadingOverlay = (): void => {
+		loadingOverlay.classList.add("ft-world-fade-out");
+		setTimeout(() => loadingOverlay.remove(), LOADING_FADE_DURATION);
+	};
+
 	// ── Offline progress briefing ────────────────────────
 	if (clockLastUpdated !== null) {
 		const elapsedMs = Date.now() - clockLastUpdated;
@@ -266,64 +337,18 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 				container.appendChild(panel);
 			}
 
-			// Apply offline earnings (XP + Coin) to each agent's economy state
-			const nodeBin = findNodeBinary();
-			const cliBin = vaultBasePath ? join(vaultBasePath, ".flowti", "bin", "main.mjs") : null;
-			for (const agentResult of results.agentResults) {
-				if (agentResult.xpEarned <= 0 && agentResult.coinEarned <= 0) continue;
-				const current = store.getAgentEconomy(agentResult.name);
-				if (!current) continue;
-				// Persist to CLI ledger first (CLI is data authority)
-				let usedCliTotals = false;
-				if (nodeBin && cliBin && vaultBasePath && existsSync(cliBin)) {
-					try {
-						const output = await runOneShotCommand(
-							nodeBin, cliBin,
-							["economy:reward", `--agent=${agentResult.name}`, `--xp=${agentResult.xpEarned}`, `--coin=${agentResult.coinEarned}`, "--format=json"],
-							vaultBasePath,
-						);
-						const reward = output as {
-							totalXp?: number; totalCoin?: number; level?: number;
-						};
-						if (reward.totalXp !== undefined && reward.totalCoin !== undefined) {
-							store.setAgentEconomy(agentResult.name, {
-								coin: reward.totalCoin,
-								xp: reward.totalXp,
-								level: reward.level ?? agentResult.currentLevel,
-							});
-							usedCliTotals = true;
-						}
-					} catch {
-						// CLI not available — fall through to store-only update
-					}
-				}
-				if (!usedCliTotals) {
-					store.setAgentEconomy(agentResult.name, {
-						coin: current.coin + agentResult.coinEarned,
-						xp: current.xp + agentResult.xpEarned,
-						level: agentResult.currentLevel,
-					});
-				}
-				// Record narrative beat for offline earnings
-				narrativeSystem.recordBeat({
-					timestamp: Date.now(),
-					phase: "morning-arrival",
-					category: "economy",
-					actors: [agentResult.name],
-					event: "reward-earned",
-					detail: {
-						agent: agentResult.name,
-						coin: agentResult.coinEarned,
-						xp: agentResult.xpEarned,
-						reason: `offline progress (${results.cyclesSimulated} cycle${results.cyclesSimulated === 1 ? "" : "s"})`,
-					},
-				});
-			}
-		}
-	}
+			// Dismiss loading before CLI work: `economy:reward` can hang if the CLI never exits.
+			dismissLoadingOverlay();
 
-	loadingOverlay.classList.add("ft-world-fade-out");
-	setTimeout(() => loadingOverlay.remove(), LOADING_FADE_DURATION);
+			if (vaultBasePath) {
+				void applyOfflineEconomyRewards(results, store, vaultBasePath, narrativeSystem);
+			}
+		} else {
+			dismissLoadingOverlay();
+		}
+	} else {
+		dismissLoadingOverlay();
+	}
 
 	return () => { rosterUnsub(); };
 }
