@@ -13,11 +13,7 @@ const LEVEL_THRESHOLDS: readonly number[] = LEVEL_TABLE.map(e => e.xpRequired);
 const LEVEL_TITLES: readonly string[] = ["", ...LEVEL_TABLE.map(e => e.title)];
 const NEXT_UNLOCK: readonly string[] = ["", ...LEVEL_TABLE.slice(1).map(e => e.unlocks.join(", ")), ""];
 
-const TRUST_TIER_COLORS: Record<string, string> = {
-	supervised: "#f59e0b",
-	trusted: "#22c55e",
-	autonomous: "#8b5cf6",
-};
+import { TRUST_TIER_COLORS } from "./game-ui-constants.js";
 
 export class PanelEconomy extends LitElement {
 	static properties = {

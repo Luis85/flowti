@@ -112,13 +112,16 @@ export class BtTreeView extends FlowtiElement {
 
 	collapsed: Set<string> = new Set();
 
+	willUpdate(): void {
+		if (this.snapshot) {
+			this.autoExpandRunning(this.snapshot.root);
+		}
+	}
+
 	protected renderContent() {
 		if (!this.snapshot) {
 			return html`<div class="empty-msg">No BT data</div>`;
 		}
-
-		// Auto-expand active path before rendering
-		this.autoExpandRunning(this.snapshot.root);
 
 		return html`
 			<div class="tree-container">

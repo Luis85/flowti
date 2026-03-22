@@ -16,16 +16,14 @@ import type { AgentNeeds } from "../systems/needs-system.js";
 
 const COUNCIL_SLOTS = 5;
 
+import { TRUST_TIER_COLORS, STATUS_DOT_COLORS } from "./game-ui-constants.js";
+
 function trustBorderColor(tier: DashboardAgent["trustTier"]): string {
-	if (tier === "autonomous") return "#d9aa4e";
-	if (tier === "trusted") return "#4e8bd9";
-	return "#6b7280";
+	return TRUST_TIER_COLORS[tier ?? "supervised"] ?? "#6b7280";
 }
 
 function statusDotColor(status: DashboardAgent["status"]): string {
-	if (status === "idle") return "#22c55e";
-	if (status === "busy") return "#f59e0b";
-	return "#6b7280";
+	return STATUS_DOT_COLORS[status] ?? "#6b7280";
 }
 
 function lowestNeed(needs: AgentNeeds | undefined): number {
@@ -239,7 +237,7 @@ export class CouncilSidebar extends FlowtiElement {
 
 	private renderEmptySlot() {
 		return html`
-			<div class="slot empty-slot">
+			<div class="slot empty-slot" @click=${this.handleManageClick}>
 				<div class="portrait">
 					<span class="plus">+</span>
 				</div>

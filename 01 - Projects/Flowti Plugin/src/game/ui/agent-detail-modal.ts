@@ -55,11 +55,7 @@ const DOMAIN_COLORS: Record<string, string> = {
 	orchestration: "#ec4899",
 };
 
-const TRUST_TIER_COLORS: Record<string, string> = {
-	supervised: "#f59e0b",
-	trusted: "#22c55e",
-	autonomous: "#8b5cf6",
-};
+import { TRUST_TIER_COLORS } from "./game-ui-constants.js";
 
 export class AgentDetailModal extends FlowtiElement {
 	static properties = {
@@ -428,7 +424,7 @@ export class AgentDetailModal extends FlowtiElement {
 			.stat-fill {
 				height: 100%;
 				border-radius: 1px;
-				background: #3b82f6;
+				background: var(--accent-blue);
 			}
 
 			.section {
@@ -496,6 +492,7 @@ export class AgentDetailModal extends FlowtiElement {
 	}
 
 	private handleClose(): void {
+		if (!this.store?.selectedAgent) return;
 		this.store.stopFollow();
 		this.store.selectAgent(null);
 	}

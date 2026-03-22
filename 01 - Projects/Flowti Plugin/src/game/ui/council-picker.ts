@@ -310,6 +310,10 @@ export class CouncilPicker extends FlowtiElement {
 		this.dragSourceIndex = -1;
 	}
 
+	private handleDragEnd(): void {
+		this.dragSourceIndex = -1;
+	}
+
 	/* ── Add / remove ──────────────────────────────────────────── */
 
 	private handleAddAgent(name: string): void {
@@ -361,6 +365,7 @@ export class CouncilPicker extends FlowtiElement {
 				class="council-slot filled"
 				draggable="true"
 				@dragstart=${(e: DragEvent) => this.handleDragStart(index, e)}
+				@dragend=${() => this.handleDragEnd()}
 				@dragover=${(e: DragEvent) => this.handleDragOver(e)}
 				@dragleave=${(e: DragEvent) => this.handleDragLeave(e)}
 				@drop=${(e: DragEvent) => this.handleDrop(index, e)}

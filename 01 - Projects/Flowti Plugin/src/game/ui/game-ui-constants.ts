@@ -25,6 +25,18 @@ export const NEED_META: ReadonlyArray<{ label: string; key: keyof AgentNeeds; co
 	{ label: "Morale",  key: "morale",  color: "#ec4899" },
 ];
 
+export const TRUST_TIER_COLORS: Record<string, string> = {
+	supervised: "#f59e0b",
+	trusted: "#22c55e",
+	autonomous: "#8b5cf6",
+};
+
+export const STATUS_DOT_COLORS: Record<string, string> = {
+	busy: "#22c55e",
+	idle: "#3b82f6",
+	unassigned: "#6b7280",
+};
+
 export function relativeTime(ms: number): string {
 	const sec = Math.floor(ms / 1000);
 	if (sec < 60) return `${sec}s`;
