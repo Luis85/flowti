@@ -35,6 +35,7 @@ describe("vault-ops-types", () => {
 					readdirSync: () => [],
 					statSync: () => ({ mtimeMs: 0 }),
 					rmSync: () => undefined,
+					copyFileSync: () => undefined,
 				},
 				clock: { iso: () => "2026-03-22T00:00:00Z" },
 				paths: {

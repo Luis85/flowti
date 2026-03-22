@@ -11,7 +11,8 @@ export interface VaultOpsDeps {
 		renameSync(from: string, to: string): void;
 		readdirSync(p: string, opts?: { withFileTypes?: boolean; recursive?: boolean }): unknown[];
 		statSync(p: string): { mtimeMs: number };
-		rmSync(p: string, opts?: { recursive?: boolean }): void;
+		rmSync(p: string, opts?: { recursive?: boolean; force?: boolean }): void;
+		copyFileSync(src: string, dest: string): void;
 	};
 	readonly clock: { iso(): string };
 	readonly paths: {

@@ -56,6 +56,10 @@ function makeDeps(files: Record<string, string> = {}): VaultOpsDeps {
 			rmSync: (p: string) => {
 				delete store[p];
 			},
+			copyFileSync: (src: string, dest: string) => {
+				if (!(src in store)) throw new Error(`ENOENT: ${src}`);
+				store[dest] = store[src];
+			},
 		},
 		clock: { iso: () => "2026-03-21T10:00:00Z" },
 		paths: {
