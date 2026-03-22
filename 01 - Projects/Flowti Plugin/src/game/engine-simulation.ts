@@ -28,6 +28,15 @@ import { selectPetVoice } from "./systems/talk/pet-voice-selector.js";
 import {
 	PET_INSTINCT_FRAGMENTS, PET_ELOQUENT_FRAGMENTS, PET_GREMLIN_FRAGMENTS,
 } from "./systems/talk/templates/index.js";
+import type { CascadeReaction } from "./systems/echo/cascade-resolver.js";
+
+// ── Cascade queue — reactions enqueued by echo threshold crossings ────
+const cascadeQueue: CascadeReaction[] = [];
+
+/** Push a cascade reaction into the queue (called from EchoProducer's onCascade callback). */
+export function pushCascadeReaction(reaction: CascadeReaction): void {
+	cascadeQueue.push(reaction);
+}
 
 // ── Composite tick — called from engine.ts preframe hook ─────────────
 
@@ -110,7 +119,12 @@ export function tickClock(ctx: EngineContext): void {
 		}
 		sys.worldEvent.onCycleReset();
 		state.firedReactiveTriggers.clear();
-		sys.relationship.onCycleEnd();
+		sys.relationship.onCycleEnd(sys.echo);
+
+		// Echo system — decay all echoes and reset cascade budget at cycle boundary
+		sys.echo.decayAll(sys.dayClock.getCycleCount());
+		sys.echo.resetCascadeBudget();
+		ctx.cascadeResolver.resetCycle();
 	}
 
 	sys.worldEvent.update(state.deltaMs);
@@ -143,6 +157,28 @@ export function tickNeeds(ctx: EngineContext): void {
 			const mood = sys.needs.getMood(agentName);
 			sys.brain.updateMood(agentName, mood);
 			sys.emote.updateMood(agentName, mood);
+
+			// Echo spatial preference: idle agents gravitate toward bonded agents
+			const bondTarget = sys.echo.getStrongest(agentName, "bond");
+			if (bondTarget?.target && Math.random() < 0.4) {
+				const targetActor = ctx.lookups.findAgentActor(bondTarget.target);
+				if (targetActor) {
+					sys.brain.setWanderHint(agentName, {
+						x: targetActor.pos.x + (Math.random() - 0.5) * 60,
+						y: targetActor.pos.y + (Math.random() - 0.5) * 60,
+					});
+				}
+			} else {
+				sys.brain.setWanderHint(agentName, null);
+			}
+
+			// Echo producer — morale threshold echo generation
+			const morale = sys.needs.getNeeds(agentName).morale;
+			ctx.echoProducer.onMorale(agentName, morale, sys.dayClock.getCycleCount());
+
+			// Echo break threshold — negative mood-residue lowers breakThreshold
+			const moodResidueWeight = sys.echo.queryWeight(agentName, "mood-residue");
+			sys.brain.setBreakThresholdBias(agentName, moodResidueWeight);
 
 			// Feed rich context to talk engine
 			const nearby = getNearbyAgents(ctx, agentName);
@@ -389,6 +425,17 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			btAgent.context.needs.social = live.social;
 			btAgent.context.needs.focus = live.focus;
 			btAgent.context.needs.morale = live.morale;
+			btAgent.context.echoStore = sys.echo;
+			btAgent.context.currentRoom = sys.registry.getEntityRoom(agentName);
+		}
+	}
+
+	// Refresh pet BT echo context
+	for (const petName of sys.bt.getPetNames()) {
+		const petCtx = sys.bt.getPetContext(petName);
+		if (petCtx) {
+			petCtx.echoStore = sys.echo;
+			petCtx.currentRoom = sys.registry.getEntityRoom(petName);
 		}
 	}
 
@@ -547,6 +594,49 @@ export function tickInteractions(ctx: EngineContext): void {
 
 export function tickSocial(ctx: EngineContext): void {
 	const { systems: sys, state } = ctx;
+
+	// ── Process cascade queue — reactions queued by echo threshold crossings ──
+	const currentCycle = sys.dayClock.getCycleCount();
+	while (cascadeQueue.length > 0) {
+		const reaction = cascadeQueue.shift()!;
+		switch (reaction.type) {
+			case "vent": {
+				// Frustrated conversation with nearest agent
+				const nearest = ctx.lookups.findNearestAgent(reaction.agent);
+				if (nearest && reaction.target) {
+					const domainA = ctx.store.agents.find((a) => a.name === reaction.agent)?.domain ?? "";
+					const domainB = ctx.store.agents.find((a) => a.name === reaction.target)?.domain ?? "";
+					sys.conversation.tryScript(reaction.agent, reaction.target, "proximity", { domainA, domainB });
+				}
+				break;
+			}
+			case "seek-proximity": {
+				// Walk toward bond target
+				if (reaction.target) {
+					const targetPos = sys.brain.getPosition(reaction.target);
+					if (targetPos) sys.brain.walkTo(reaction.agent, targetPos);
+				}
+				break;
+			}
+			case "force-break":
+				if (sys.brain.getState(reaction.agent)?.state !== "on-break") {
+					sys.brain.applyEvent(reaction.agent, "break");
+				}
+				break;
+			case "avoid-room":
+				// Handled passively by echo preferences — no active action needed
+				break;
+			case "adjust-opinion":
+				if (reaction.target) {
+					sys.echo.addEcho(reaction.agent, {
+						kind: "opinion", source: "reputation", target: reaction.target,
+						weight: reaction.weight, decay: 2, tags: ["social", "gossip"],
+					}, currentCycle);
+				}
+				break;
+		}
+	}
+
 	runTimedGameSystem(ctx, "ritual", () => {
 		sys.ritual.update(state.deltaMs, (name) => sys.brain.getState(name)?.state ?? "idle");
 	});
@@ -791,7 +881,13 @@ function tryGossipTrigger(ctx: EngineContext): void {
 		const agentB = agents[1];
 		const domainA = ctx.store.agents.find((a) => a.name === agentA)?.domain ?? "";
 		const domainB = ctx.store.agents.find((a) => a.name === agentB)?.domain ?? "";
-		sys.conversation.gossipAbout(agentA, agentB, absent, { domainA, domainB });
+		const gossipStarted = sys.conversation.gossipAbout(agentA, agentB, absent, { domainA, domainB });
+		if (gossipStarted) {
+			const cycle = sys.dayClock.getCycleCount();
+			// Both agents hear gossip about the absent agent
+			ctx.echoProducer.onGossipHeard(agentA, agentB, absent, cycle);
+			ctx.echoProducer.onGossipHeard(agentB, agentA, absent, cycle);
+		}
 		break;
 	}
 }

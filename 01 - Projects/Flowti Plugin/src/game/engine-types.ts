@@ -43,6 +43,9 @@ import type { DashboardStore } from "./store/dashboard-store.js";
 import type { CameraSystem } from "./systems/camera-system.js";
 import type { InteractionSystem } from "./systems/interaction/interaction-system.js";
 import type { InteractionBootstrap } from "./systems/interaction/bootstrap-interactions.js";
+import type { IEchoStore } from "./systems/echo/echo-types.js";
+import type { EchoProducer } from "./systems/echo/echo-producer.js";
+import type { CascadeResolver } from "./systems/echo/cascade-resolver.js";
 import type { GameScene } from "./scenes/game-scene.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import type { InteractableActor } from "./actors/interactable-actor.js";
@@ -108,6 +111,7 @@ export interface EngineSystems {
 	readonly narrative: NarrativeSystem;
 	cameraSystem: CameraSystem | null;
 	readonly interactions?: InteractionSystem;
+	readonly echo: IEchoStore;
 }
 
 export interface EngineScenes {
@@ -194,4 +198,8 @@ export interface EngineContext {
 	readonly btBridge: BtBridge;
 	readonly state: EngineMutableState;
 	readonly lookups: EngineLookups;
+
+	// ── Echo system helpers ─────────────────────────────
+	readonly echoProducer: EchoProducer;
+	readonly cascadeResolver: CascadeResolver;
 }

@@ -48,6 +48,7 @@ import { WorldAmbience } from "./systems/world-ambience.js";
 import { MemorySystem } from "./systems/memory-system.js";
 import { QuirkSystem } from "./systems/quirk-system.js";
 import { RelationshipSystem } from "./systems/relationship-system.js";
+import { EchoStore, EchoProducer, CascadeResolver } from "./systems/echo/index.js";
 import { ConversationEngine } from "./systems/talk/conversation-engine.js";
 import { FragmentComposer } from "./systems/talk/fragment-composer.js";
 import {
@@ -88,7 +89,7 @@ import {
 import { createBtBridges, createFindNearestAgent } from "./engine-systems-init.js";
 import { createPostframeHandler } from "./engine-postframe.js";
 import { startEngine, createAgentSelectHandler } from "./engine-lifecycle.js";
-import { tickSimulation } from "./engine-simulation.js";
+import { tickSimulation, pushCascadeReaction } from "./engine-simulation.js";
 import { registerAgents, type RegistrationSystems } from "./engine-startup.js";
 
 // Side-effect imports — register Lit custom elements
@@ -254,6 +255,18 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const worldEventScheduler = new WorldEventScheduler();
 	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
 
+	// ── Echo system ──────────────────────────────────
+	const echoStore = new EchoStore();
+	const cascadeResolver = new CascadeResolver(echoStore);
+	const echoProducer = new EchoProducer(echoStore, (agent, result) => {
+		if (!cascadeResolver.shouldCascade(agent, result.echo)) return;
+		if (!echoStore.consumeCascade()) return;
+		const reaction = cascadeResolver.selectReaction(agent, result.echo);
+		if (!reaction) return;
+		cascadeResolver.recordAgentCascade(agent);
+		pushCascadeReaction(reaction);
+	});
+
 	// ── Narrative system ──────────────────────────────
 	const narrativeDir = deps.vaultBasePath
 		? join(deps.vaultBasePath, "03 - Resources", "Narrative")
@@ -305,6 +318,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}, {
 		composer: fragmentComposer,
 		getTier: (a, b) => relationshipSystem.getTier(a, b),
+		getEchoBias: (agent) => echoStore.getDialogueBias(agent),
 	});
 
 	// ── Conversation engine ─────────────────────────
@@ -316,7 +330,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 		getTier: (a, b) => relationshipSystem.getTier(a, b),
 		silenceTalk: (agentName) => talkEngine.silence(agentName),
-		recordConversation: (a, b) => relationshipSystem.recordConversation(a, b),
+		recordConversation: (a, b) => {
+			relationshipSystem.recordConversation(a, b);
+			const tier = relationshipSystem.getTier(a, b);
+			echoProducer.onConversation(a, b, tier, dayClock.getCycleCount());
+		},
 		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
 		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),
 		externalLockQuery: (entityId) => interactionLockQuery?.(entityId) ?? false,
@@ -695,6 +713,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		brain: brainSystem,
 		registry,
 		pets,
+		echo: echoStore,
 	};
 
 	// ── Position writer (tick-based, flushes every ~5s) ──
@@ -738,6 +757,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			narrative: narrativeSystem,
 			cameraSystem: cameraRef.current,
 			interactions: interactionBootstrap.system,
+			echo: echoStore,
 		},
 		scenes: {
 			hub: hubScene,
@@ -788,6 +808,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			handleAgentSelect,
 			handleSceneChange: sceneConfig.onSceneChange,
 		},
+		echoProducer,
+		cascadeResolver,
 	};
 	const cleanupEvents = wireEvents(ctx);
 

@@ -7,6 +7,7 @@
  */
 
 import { checkOpinionClash, type AgentOpinion } from "../data/opinion-topics.js";
+import type { IEchoStore } from "./echo/echo-types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ export class RelationshipSystem {
 
 	// ── Cycle end ────────────────────────────────────────────────
 
-	onCycleEnd(): void {
+	onCycleEnd(echoStore?: IEchoStore): void {
 		for (const [key, entry] of this.relationships) {
 			if (this.interactedThisCycle.has(key)) continue;
 			// Decay toward 0
@@ -169,6 +170,20 @@ export class RelationshipSystem {
 			}
 		}
 		this.interactedThisCycle.clear();
+
+		// Echo-driven affinity drift
+		if (echoStore) {
+			for (const [, entry] of this.relationships) {
+				const opinionAtoB = echoStore.queryWeight(entry.agentA, "opinion", entry.agentB);
+				const opinionBtoA = echoStore.queryWeight(entry.agentB, "opinion", entry.agentA);
+				const netOpinion = opinionAtoB + opinionBtoA;
+				if (netOpinion > 0) {
+					entry.affinity = Math.min(100, entry.affinity + 1);
+				} else if (netOpinion < 0) {
+					entry.affinity = Math.max(-100, entry.affinity - 1);
+				}
+			}
+		}
 	}
 
 	// ── Persistence ──────────────────────────────────────────────

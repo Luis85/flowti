@@ -17,6 +17,7 @@ import type {
 	INeedsBridge,
 	IWorldStateManager,
 } from "../brain/behavior-tree/bt-types.js";
+import type { PetBTContext } from "../brain/behavior-tree/pet-bt.js";
 import type { AgentAction, DashboardAgent } from "../data/types.js";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -151,6 +152,17 @@ export class BtSystem {
 		const entry = this.entries.get(name);
 		// FullAgentBT.agent is typed as BTAgentObject — no cast needed.
 		return entry?.bt.agent;
+	}
+
+	/** Get a pet's BT context (for echo/room injection). */
+	getPetContext(name: string): PetBTContext | undefined {
+		const entry = this.petEntries.get(name);
+		return entry?.bt.agent.context as PetBTContext | undefined;
+	}
+
+	/** Get all registered pet names. */
+	getPetNames(): string[] {
+		return [...this.petEntries.keys()];
 	}
 
 	/** Register a pet BT. */

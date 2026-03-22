@@ -19,14 +19,8 @@ describe("supporting subtrees", () => {
 			expect(IDLE_SUBTREE).toContain("root [IdleBehavior]");
 		});
 
-		it("uses a lotto node for random selection", () => {
-			expect(IDLE_SUBTREE).toContain("lotto [1,1,1]");
-		});
-
-		it("contains all three idle actions", () => {
-			expect(IDLE_SUBTREE).toContain("action [Wander]");
-			expect(IDLE_SUBTREE).toContain("action [Emote]");
-			expect(IDLE_SUBTREE).toContain("action [Chatter]");
+		it("uses EchoBiasedIdle action", () => {
+			expect(IDLE_SUBTREE).toContain("action [EchoBiasedIdle]");
 		});
 	});
 

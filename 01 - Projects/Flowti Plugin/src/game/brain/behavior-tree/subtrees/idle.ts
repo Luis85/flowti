@@ -7,10 +7,6 @@
 
 export const IDLE_SUBTREE = `
 root [IdleBehavior] {
-	lotto [1,1,1] {
-		action [Wander]
-		action [Emote]
-		action [Chatter]
-	}
+	action [EchoBiasedIdle]
 }
 `.trim();
