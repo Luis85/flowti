@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import type { ConversationScript } from "../../../../src/game/systems/talk/conversation-types.js";
 import { RIVAL_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-rival.js";
 import { ACQUAINTANCE_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-acquaintance.js";
+import { COLLEAGUE_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-colleague.js";
+import { FRIEND_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-friend.js";
+import { BESTFRIEND_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-bestfriend.js";
 
 function validateScripts(scripts: readonly ConversationScript[]): void {
 	it("has at least 10 scripts", () => {
@@ -34,3 +37,6 @@ function validateScripts(scripts: readonly ConversationScript[]): void {
 
 describe("rival scripts", () => { validateScripts(RIVAL_SCRIPTS); });
 describe("acquaintance scripts", () => { validateScripts(ACQUAINTANCE_SCRIPTS); });
+describe("colleague scripts", () => { validateScripts(COLLEAGUE_SCRIPTS); });
+describe("friend scripts", () => { validateScripts(FRIEND_SCRIPTS); });
+describe("best-friend scripts", () => { validateScripts(BESTFRIEND_SCRIPTS); });
