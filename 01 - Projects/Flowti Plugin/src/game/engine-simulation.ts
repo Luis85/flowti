@@ -682,15 +682,16 @@ export function tickSocial(ctx: EngineContext): void {
 				break;
 			}
 			case "seek-proximity": {
-				// Walk toward bond target
-				if (reaction.target) {
+				// Walk toward bond target — skip BT agents (BT owns their movement)
+				if (reaction.target && !sys.bt.has(reaction.agent)) {
 					const targetPos = sys.brain.getPosition(reaction.target);
 					if (targetPos) sys.brain.walkTo(reaction.agent, targetPos);
 				}
 				break;
 			}
 			case "force-break":
-				if (sys.brain.getState(reaction.agent)?.state !== "on-break") {
+				// Skip BT agents — BT handles energy needs via NeedsEnergy subtree
+				if (!sys.bt.has(reaction.agent) && sys.brain.getState(reaction.agent)?.state !== "on-break") {
 					sys.brain.applyEvent(reaction.agent, "break");
 				}
 				break;
