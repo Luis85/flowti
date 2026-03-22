@@ -7,7 +7,7 @@
  * echoes on the same agent in the same cycle.
  */
 
-import type { EchoInput, IEchoStore } from "./echo-types.js";
+import type { AddResult, EchoInput, IEchoStore } from "./echo-types.js";
 
 // ── Friendship Tiers ───────────────────────────────────────────────
 
@@ -17,17 +17,25 @@ const FRIEND_TIERS = new Set(["friend", "best-friend"]);
 
 export class EchoProducer {
 	private readonly cooldowns = new Map<string, number>();
+	private readonly store: IEchoStore;
+	private readonly onCascade?: (agent: string, result: AddResult) => void;
 
-	constructor(private readonly store: IEchoStore) {}
+	constructor(store: IEchoStore, onCascade?: (agent: string, result: AddResult) => void) {
+		this.store = store;
+		this.onCascade = onCascade;
+	}
 
 	// ── Cooldown Guard ─────────────────────────────────────────────
 
-	private tryAdd(agent: string, echo: EchoInput, cycle: number): boolean {
-		const key = `${agent}:${echo.source}:${echo.target ?? ""}`;
-		if (this.cooldowns.get(key) === cycle) return false;
+	private tryAdd(agent: string, echo: EchoInput, cycle: number): AddResult | null {
+		const key = `${agent}:${echo.kind}:${echo.source}:${echo.target ?? ""}`;
+		if (this.cooldowns.get(key) === cycle) return null;
 		this.cooldowns.set(key, cycle);
-		this.store.addEcho(agent, echo, cycle);
-		return true;
+		const result = this.store.addEcho(agent, echo, cycle);
+		if (result.cascadeTriggered && this.onCascade) {
+			this.onCascade(agent, result);
+		}
+		return result;
 	}
 
 	// ── Event Handlers ─────────────────────────────────────────────

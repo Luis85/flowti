@@ -97,6 +97,7 @@ export class CascadeResolver {
 			};
 		}
 
+		// TODO: distinguish room vs pet vs task aversion for different reaction types
 		if (echo.kind === "aversion" && Math.abs(echo.weight) > 15) {
 			return {
 				type: "avoid-room",

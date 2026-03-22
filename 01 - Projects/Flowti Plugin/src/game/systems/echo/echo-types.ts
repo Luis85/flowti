@@ -86,7 +86,7 @@ export interface IEchoStore {
 	addEcho(agent: string, echo: EchoInput, cycle: number): AddResult;
 	queryWeight(agent: string, kind: EchoKind, target?: string): number;
 	getDialogueBias(agent: string): DialogueBias;
-	getPreferences(agent: string, cycle?: number): readonly EchoSummary[];
+	getPreferences(agent: string, cycle: number): readonly EchoSummary[];
 	getStrongest(agent: string, kind: EchoKind): Echo | undefined;
 	decayAll(cycle: number): DecayResult;
 	getCascadeBudget(): number;

@@ -27,12 +27,6 @@ export const MAX_CASCADE_BUDGET = 5;
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-let nextId = 1;
-
-function generateId(): string {
-	return `echo-${nextId++}`;
-}
-
 function clampWeight(w: number): number {
 	return Math.max(-MAX_WEIGHT, Math.min(MAX_WEIGHT, w));
 }
@@ -61,6 +55,7 @@ export class EchoStore implements IEchoStore {
 	private readonly agents = new Map<string, Echo[]>();
 	private readonly pendingHabits: Echo[] = [];
 	private cascadeBudget = MAX_CASCADE_BUDGET;
+	private nextId = 1;
 
 	// ── Add / Merge ─────────────────────────────────────────────────
 
@@ -123,7 +118,7 @@ export class EchoStore implements IEchoStore {
 	): AddResult {
 		const weight = clampWeight(input.weight);
 		const echo: Echo = {
-			id: generateId(),
+			id: `echo-${this.nextId++}`,
 			kind: input.kind,
 			source: input.source,
 			target: input.target,
@@ -215,7 +210,7 @@ export class EchoStore implements IEchoStore {
 
 	// ── Preferences ─────────────────────────────────────────────────
 
-	getPreferences(agent: string, cycle = 0): readonly EchoSummary[] {
+	getPreferences(agent: string, cycle: number): readonly EchoSummary[] {
 		const echoes = this.agents.get(agent);
 		if (!echoes) return [];
 
@@ -257,7 +252,7 @@ export class EchoStore implements IEchoStore {
 
 	// ── Decay ───────────────────────────────────────────────────────
 
-	decayAll(cycle: number): DecayResult {
+	decayAll(_cycle: number): DecayResult {
 		const evicted: Echo[] = [];
 		const thresholdsCrossed: Echo[] = [];
 		const habitsFormed = [...this.pendingHabits];
@@ -282,11 +277,9 @@ export class EchoStore implements IEchoStore {
 					continue;
 				}
 
+				// Only downward crossing possible during decay — upward crossing detected in addEcho
 				const newAbs = Math.abs(newWeight);
 				if (prevAbs > 30 && newAbs <= 30) {
-					thresholdsCrossed.push(decayed);
-				}
-				if (prevAbs <= 30 && newAbs > 30) {
 					thresholdsCrossed.push(decayed);
 				}
 
@@ -296,7 +289,6 @@ export class EchoStore implements IEchoStore {
 			this.agents.set(agent, kept);
 		}
 
-		void cycle;
 		return { evicted, thresholdsCrossed, habitsFormed };
 	}
 
@@ -328,11 +320,15 @@ export class EchoStore implements IEchoStore {
 
 	restore(data: Record<string, Echo[]>): void {
 		this.agents.clear();
+		this.pendingHabits.length = 0;
+		let maxId = 0;
 		for (const [agent, echoes] of Object.entries(data)) {
-			this.agents.set(
-				agent,
-				echoes.map((e) => ({ ...e })),
-			);
+			this.agents.set(agent, echoes.map((e) => ({ ...e })));
+			for (const e of echoes) {
+				const m = /^echo-(\d+)$/.exec(e.id);
+				if (m) maxId = Math.max(maxId, parseInt(m[1], 10));
+			}
 		}
+		if (maxId >= this.nextId) this.nextId = maxId + 1;
 	}
 }

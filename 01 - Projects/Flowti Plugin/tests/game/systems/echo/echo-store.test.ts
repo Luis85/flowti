@@ -349,7 +349,7 @@ describe("EchoStore", () => {
 
 	describe("getPreferences", () => {
 		it("returns empty for unknown agent", () => {
-			expect(store.getPreferences("nobody")).toEqual([]);
+			expect(store.getPreferences("nobody", 0)).toEqual([]);
 		});
 
 		it("filters out echoes with |weight| < 5", () => {
