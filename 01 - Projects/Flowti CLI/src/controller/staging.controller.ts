@@ -7,13 +7,12 @@
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types-config.js";
 import type { CliDeps } from "../infrastructure/deps.js";
-import type { IFileSystem, IPaths } from "../infrastructure/types.js";
 import { listPendingReviews, readManifest, approveStaged as applyStagedFiles, rejectStaged } from "../domain/tasks/staging.js";
+import type { StagingDeps } from "../domain/tasks/staging.js";
 import { approveStaged as recordApproval } from "../domain/vault-ops/vault-executor.js";
 import { loadTrustProfile, saveTrustProfile } from "../domain/trust/trust-manager.js";
 import { readLedger, writeLedger } from "../domain/economy/economy-ledger.js";
 import { DEFAULT_TRUST_CONFIG } from "../domain/trust/trust-types.js";
-import type { VaultOperation } from "../domain/trust/trust-types.js";
 import { taskStore } from "../domain/tasks/task-store.js";
 import { renderStagingList, renderStagingReview, renderStagingAction } from "../ui/displays/staging-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
@@ -21,12 +20,9 @@ import { VAULT_ROOT } from "../infrastructure/config.js";
 // ── Helpers ───────────────────────────────────────────────────────
 
 /** Build a StagingDeps-compatible object from CliDeps. */
-function stagingDeps(deps: CliDeps): {
-	disk: Pick<IFileSystem, "existsSync" | "readFileSync" | "writeFileSync" | "mkdirSync" | "readdirSync" | "copyFileSync" | "rmSync">;
-	paths: Pick<IPaths, "join" | "dirname">;
-} {
+function stagingDeps(deps: CliDeps): StagingDeps {
 	return {
-		disk: deps.disk,
+		disk: deps.disk as unknown as StagingDeps["disk"],
 		paths: deps.paths,
 	};
 }
@@ -138,8 +134,8 @@ export const commands: Record<string, CommandHandler> = {
 			}
 
 			// Copy staged files to their final destinations
-			const success = applyStagedFiles(sd, VAULT_ROOT, taskId);
-			if (!success) {
+			const approvedManifest = applyStagedFiles(sd, VAULT_ROOT, taskId);
+			if (!approvedManifest) {
 				return { taskId, action: "approved" as const, success: false };
 			}
 
@@ -177,7 +173,7 @@ export const commands: Record<string, CommandHandler> = {
 				profile,
 				DEFAULT_TRUST_CONFIG,
 				ledger,
-				manifest.operation as VaultOperation,
+				manifest.operation,
 				manifest.agentName,
 			);
 
@@ -203,15 +199,15 @@ export const commands: Record<string, CommandHandler> = {
 			const taskId = ctx.flags.id as string;
 			const reason = ctx.flags.reason as string;
 			const sd = stagingDeps(ctx.deps);
-			const success = rejectStaged(sd, VAULT_ROOT, taskId);
+			const result = rejectStaged(sd, VAULT_ROOT, taskId);
 
 			// Transition task status back to pending
-			if (success) {
+			if (result) {
 				const tsd = taskStoreDeps(ctx.deps);
 				taskStore.updateField(tsd, VAULT_ROOT, taskId, "status", "pending");
 			}
 
-			return { taskId, action: "rejected" as const, success, reason };
+			return { taskId, action: "rejected" as const, success: result !== null, reason };
 		},
 		renderer: renderStagingAction,
 	}),

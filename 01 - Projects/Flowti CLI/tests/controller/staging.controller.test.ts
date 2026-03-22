@@ -55,8 +55,8 @@ vi.mock("../../src/infrastructure/ui.js", () => ({
 vi.mock("../../src/domain/tasks/staging.js", () => ({
 	listPendingReviews: vi.fn(() => []),
 	readManifest: vi.fn(() => null),
-	approveStaged: vi.fn(() => true),
-	rejectStaged: vi.fn(() => true),
+	approveStaged: vi.fn(() => ({ taskId: "task-1", agentName: "auditor", operation: "vault-tag", files: [], createdAt: "2026-03-21T00:00:00Z", status: "approved" })),
+	rejectStaged: vi.fn(() => ({ taskId: "task-1", agentName: "auditor", operation: "vault-tag", files: [], createdAt: "2026-03-21T00:00:00Z", status: "rejected" })),
 }));
 
 // Mock domain modules — task store
@@ -71,7 +71,6 @@ vi.mock("../../src/domain/vault-ops/vault-executor.js", () => ({
 			tier: "supervised",
 			operations: {},
 			promotionLog: [],
-			successCounts: {},
 		},
 		ledger: { version: 1, updatedAt: "", accounts: {} },
 	})),
@@ -83,7 +82,6 @@ vi.mock("../../src/domain/trust/trust-manager.js", () => ({
 		tier: "supervised",
 		operations: {},
 		promotionLog: [],
-		successCounts: {},
 	})),
 	saveTrustProfile: vi.fn(),
 }));
@@ -289,7 +287,7 @@ describe("staging.controller", () => {
 				createdAt: "2026-03-21T00:00:00.000Z",
 				status: "pending",
 			});
-			(applyStagedFiles as ReturnType<typeof vi.fn>).mockReturnValue(false);
+			(applyStagedFiles as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
 			commands["staging:approve"]({ id: "task-1", format: "json" }, [], "staging:approve", undefined);
 
@@ -330,7 +328,7 @@ describe("staging.controller", () => {
 		});
 
 		it("returns success false when staging area not found", () => {
-			(rejectStaged as ReturnType<typeof vi.fn>).mockReturnValue(false);
+			(rejectStaged as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
 			commands["staging:reject"]({ id: "nonexistent", reason: "test", format: "json" }, [], "staging:reject", undefined);
 
