@@ -4,6 +4,11 @@ export type VaultOperation =
 	| "vault-read" | "vault-search" | "vault-tag"
 	| "vault-create" | "vault-edit" | "vault-move" | "vault-link";
 
+export interface OperationTrust {
+	readonly operation: VaultOperation;
+	readonly level: TrustLevel;
+}
+
 export interface PromotionLogEntry {
 	readonly op: VaultOperation;
 	readonly from: TrustLevel;
@@ -16,7 +21,6 @@ export interface AgentTrustProfile {
 	readonly tier: "supervised" | "trusted" | "autonomous";
 	readonly operations: Record<VaultOperation, TrustLevel>;
 	readonly promotionLog: readonly PromotionLogEntry[];
-	readonly successCounts: Partial<Record<VaultOperation, number>>;
 }
 
 export interface TrustThreshold {
