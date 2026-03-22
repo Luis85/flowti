@@ -239,9 +239,13 @@ When two interactions target the same entity:
 
 Chained interactions (`spawn-interaction` effects) are capped at depth 3. Depth is tracked on each interaction via `chainDepth`. This prevents runaway cascades while allowing rich multi-step sequences.
 
-### Lock Ownership
+### Lock Ownership (Cooperative Model)
 
-The InteractionBus is the **sole lock authority**. ConversationEngine (from the Rich Dialogue Expansion spec) must be built lock-free — it queries the bus for lock state via `getActive()` rather than maintaining its own `Set<string>()`. This is a reconciliation with the Rich Dialogue Expansion spec: the lock model described there is superseded by the bus.
+The Rich Dialogue Expansion is now implemented. ConversationEngine owns `Set<string>` locks for multi-turn scripted conversations. Rather than replacing CE's lock model, the bus uses a **cooperative lock query**:
+
+- **Bus side:** Accepts an `externalLockQuery` callback that checks `ConversationEngine.isLocked()`. The bus treats CE-locked entities the same as bus-locked entities during prerequisite validation.
+- **CE side (deferred):** A small follow-up should add `bus.isEntityLocked()` check inside `tryScript()` so CE respects bus locks before starting scripts.
+- **Override band (91-100):** Director force-commands can still preempt both bus and CE locks.
 
 ---
 

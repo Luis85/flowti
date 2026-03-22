@@ -4,11 +4,43 @@
 
 **Goal:** Build a universal interaction bus that lets any entity (agent, pet, NPC, director, room) interact with any other at any cardinality, creating emergent storytelling through cascading interaction chains.
 
-**Architecture:** CLI domain owns all types, bus logic, templates, and persistence (pure functions, injected deps). Plugin wires the bus into the Excalibur tick loop, implements IntentResolvers per entity type, and renders visual effects. The InteractionBus is the sole coordination point — existing systems (TalkEngine, RelationshipSystem, SocialSystem) become inputs/outputs, not competitors.
+**Architecture:** CLI domain owns all types, bus logic, templates, and persistence (pure functions, injected deps). Plugin wires the bus into the Excalibur tick loop, implements IntentResolvers per entity type, and renders visual effects. The InteractionBus coordinates with (not replaces) the existing Rich Dialogue system — ConversationEngine keeps its own lock model for multi-turn scripts; the bus and CE use a cooperative lock query model.
 
 **Tech Stack:** TypeScript (strict, no `any`), Vitest, mistreevous MDSL (BT subtrees), ExcaliburJS (Plugin actors)
 
 **Spec:** `01 - Projects/Flowti CLI/docs/specs/2026-03-22-interaction-system-design.md`
+
+### Rich Dialogue System (Completed — Integration Context)
+
+The Rich Dialogue Expansion is fully implemented. The interaction system must integrate with, not replace, these components:
+
+| Component | Location | What It Does | Interaction System Relationship |
+|-----------|----------|--------------|-------------------------------|
+| **ConversationEngine** | `systems/talk/conversation-engine.ts` | Multi-turn scripted conversations (168 scripts + 15 running jokes). Owns `Set<string>` lock per participant. | **Cooperative locks**: Bus checks `CE.isLocked()` in prerequisites; CE checks `bus.isEntityLocked()` before starting scripts. |
+| **TalkEngine** | `systems/talk/talk-engine.ts` | 10-step ambient chatter pipeline, reactive triggers, dedup. | Bus `bubble` effects call `TalkEngine.triggerReactive()` or direct `showBubble()`. |
+| **FragmentComposer** | `systems/talk/fragment-composer.ts` | 500+ fragments, 4 composition patterns, mood/domain/tier-filtered. | Interaction templates can reference fragment pools in `bubble` effects via `phrasePool`. |
+| **RelationshipSystem** | `systems/relationship-system.ts` | `getAffinity()`, `getTier()`, `recordConversation()`, `onTierChange()`, joke play counts. | Prerequisite checker uses `getAffinity()`/`getTier()` directly. `affinity-change` effects call `recordConversation()`. |
+| **Pet Voice System** | `templates/pet-phrases.ts`, `pet-reactive-phrases.ts`, `pet-phrase-chains.ts` | Instinct/eloquent/gremlin three-voice inner monologue, 7 reactive triggers, 10 phrase chains. | Pet IntentResolver triggers pet reactive phrases via `TalkEngine.triggerReactive()`. |
+| **Tier Modifiers** | `templates/tier-modifiers.ts` | 150+ prefix/suffix fragments per tier, 15% chance wrapping in TalkEngine. | No direct interaction — operates within TalkEngine's existing pipeline. |
+
+**Lock Model (Cooperative, NOT Replacement):**
+```
+InteractionBus.isEntityLocked(id, type) ←→ ConversationEngine.isLocked(name)
+
+Before bus accepts interaction:
+  1. Check bus's own active locks
+  2. Query CE.isLocked() for each participant
+  → If either locked, reject (unless Override priority 91+)
+
+Before CE starts conversation:
+  1. Check CE's own locked set
+  2. Query bus.isEntityLocked() for each participant
+  → If either locked, tryScript() returns false
+```
+
+**Conversation triggering split:**
+- **ConversationEngine owns:** proximity-triggered multi-turn scripted conversations (168 scripts, running jokes, pet-catalyst scripts)
+- **InteractionBus owns:** all other interaction types — NPC commerce, room reactions, director commands, cross-entity chains, environmental events, work/care/playful interactions that don't map to CE scripts
 
 ---
 
@@ -348,9 +380,10 @@ Expected: FAIL — module not found
 
 Create `src/domain/interactions/interaction-bus.ts`:
 
-The bus accepts two optional injected dependencies at creation:
+The bus accepts three optional injected dependencies at creation:
 - `prerequisiteChecker` — callback that evaluates external prerequisites (proximity, affinity) the bus can't check internally
 - `templateRegistry` — for resolving `spawn-interaction` template IDs into full interactions
+- `externalLockQuery` — callback to check ConversationEngine's lock state (cooperative lock model)
 
 ```typescript
 import type {
@@ -369,9 +402,13 @@ interface TemplateRegistryRef {
 	getById(id: string): InteractionTemplate | undefined;
 }
 
+// External lock query — checks ConversationEngine's lock state (cooperative lock model)
+type ExternalLockQuery = (entityId: string) => boolean;
+
 interface BusOptions {
 	checkPrerequisite?: PrerequisiteChecker;
 	templateRegistry?: TemplateRegistryRef;
+	externalLockQuery?: ExternalLockQuery;
 }
 
 export function createInteractionBus(options: BusOptions = {}) {
@@ -385,12 +422,17 @@ export function createInteractionBus(options: BusOptions = {}) {
 
 	// --- internal helpers: entityKey, isLocked, lockEntity, unlockEntity, emit ---
 
+	// Cooperative lock: checks BOTH bus locks AND ConversationEngine locks
+	function isEffectivelyLocked(id: string, type: string): boolean {
+		return isLocked(id, type) || (options.externalLockQuery?.(id) ?? false);
+	}
+
 	function checkAllPrerequisites(interaction: Interaction): boolean {
 		if (!interaction.prerequisites?.length) return true;
 		for (const prereq of interaction.prerequisites) {
 			// Built-in checks the bus owns:
 			if (prereq.type === "not-locked") {
-				const anyLocked = interaction.targets.some((t) => isLocked(t.id, t.entityType));
+				const anyLocked = interaction.targets.some((t) => isEffectivelyLocked(t.id, t.entityType));
 				if (anyLocked) return false;
 				continue;
 			}
@@ -1481,50 +1523,49 @@ git commit -m "feat(plugin): add tickInteractions phase to engine simulation loo
 
 ---
 
-### Task 11: SocialSystem Simplification
+### Task 11: SocialSystem — Add Proximity API for IntentResolvers
 
 **Files:**
 - Modify: `01 - Projects/Flowti Plugin/src/game/systems/social-system.ts`
 
+**Important:** Do NOT remove conversation triggering from SocialSystem. The CE + SocialSystem flow (`onConversation → CE.tryScript()`) works well for proximity-based multi-turn conversations (168 scripts). The InteractionBus handles *new* interaction types (NPC, room, director, cross-entity) — it complements, not replaces, the existing conversation flow.
+
 - [ ] **Step 1: Read current social-system.ts**
 
 Read: `01 - Projects/Flowti Plugin/src/game/systems/social-system.ts`
-Identify: proximity detection (keep), conversation triggering (remove), cooldown management (remove), cluster detection (keep).
+Understand: proximity detection, timer thresholds, `onConversation` callback, cluster detection.
 
-- [ ] **Step 2: Add persistent proximity tracking + getNearbyEntities method**
+- [ ] **Step 2: Add persistent proximity cache + getNearbyEntities method**
 
-The SocialSystem currently computes pairwise distances inside `update()` using local variables. Add a class field to persist this:
+The SocialSystem computes pairwise distances inside `update()` using local variables. Add a field to persist this for IntentResolvers:
 
 ```typescript
 // New field on the SocialSystem class:
 private readonly nearbyCache = new Map<string, Array<{ id: string; entityType: string; distance: number }>>();
 
-// Public method for IntentResolvers:
+// Public method for IntentResolvers to query:
 getNearbyEntities(entityId: string): Array<{ id: string; entityType: string; distance: number }> {
 	return this.nearbyCache.get(entityId) ?? [];
 }
+
+// Public method for cluster data:
+getCluster(entityId: string): string[] {
+	// Return IDs of all entities in the same proximity cluster
+}
 ```
 
-Inside the existing `update()` loop where pairwise distances are computed, populate `nearbyCache` with entities within `socialRadius`.
+Inside the existing `update()` loop where pairwise distances are computed, populate `nearbyCache` with entities within `socialRadius`. Clear and rebuild each tick.
 
-- [ ] **Step 3: Remove conversation triggering, retain proximity + cluster detection**
-
-Specifically:
-- Remove the `onConversation()` callback invocations inside the proximity timer threshold logic — the InteractionBus replaces this
-- Keep the proximity timer tracking (`proximityTimers` map) — IntentResolvers need "how long have these two been near each other"
-- Keep the cluster detection logic and expose cluster membership via `getCluster(entityId): string[]`
-- Do NOT remove the `onConversation` callback parameter from the constructor — set a deprecation comment. Existing callers may still reference it.
-
-- [ ] **Step 4: Run plugin tests**
+- [ ] **Step 3: Run plugin tests**
 
 Run: `cd "01 - Projects/Flowti Plugin" && npm test`
-Expected: PASS (some social system tests may need updating if they assert on onConversation calls)
+Expected: PASS — no existing behavior changed, only new methods added.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Flowti Plugin/src/game/systems/social-system.ts"
-git commit -m "refactor(plugin): simplify SocialSystem — retain proximity, delegate conversations to bus"
+git commit -m "feat(plugin): add getNearbyEntities() and getCluster() to SocialSystem for IntentResolvers"
 ```
 
 ---
@@ -1969,39 +2010,49 @@ git commit -m "feat(plugin): director IntentResolver — event-driven interactio
 
 - [ ] **Step 1: Implement effect renderer**
 
-Maps `InteractionAction[]` to visual system calls:
+Maps `InteractionAction[]` to the Rich Dialogue system's visual APIs.
+
+**Key integration points with the completed dialogue system:**
+- `bubble` actions → `TalkEngine.triggerReactive()` for reactive phrases, or direct bubble rendering for interaction-specific text
+- `particle` actions → particle pool manager (existing)
+- State mutations (affinity, needs, economy) are already handled by the CLI domain `applyEffect()` inside the bus tick — the renderer only handles visual effects
 
 ```typescript
 export function renderInteractionActions(
 	actions: InteractionAction[],
 	systems: {
-		talk: { showBubble: (name: string, kind: string, text: string) => void };
-		relationship: { adjustAffinity: (from: string, to: string, amount: number) => void };
-		needs: { adjustNeed: (name: string, need: string, amount: number) => void };
+		talk: TalkEngine;        // triggerReactive(), showBubble() — existing API
+		bubble: BubbleSystem;    // direct bubble rendering
 	},
 ): void {
 	for (const action of actions) {
 		switch (action.actionType) {
-			case "bubble":
-				systems.talk.showBubble(
-					action.entityId,
-					(action.params as Record<string, unknown>).bubbleKind as string,
-					(action.params as Record<string, unknown>).phrasePool as string,
-				);
+			case "bubble": {
+				const { bubbleKind, phrasePool, templateVars } = action.params as {
+					bubbleKind: string; phrasePool: string; templateVars?: Record<string, string>;
+				};
+				// Use TalkEngine's reactive trigger for phrase pool resolution
+				// (leverages existing 10-step pipeline, tier modifiers, fragment composer)
+				if (phrasePool.startsWith("reactive:")) {
+					systems.talk.triggerReactive(action.entityId, phrasePool.replace("reactive:", ""));
+				} else {
+					// Direct bubble for interaction-specific text
+					systems.bubble.showBubble(action.entityId, bubbleKind, phrasePool);
+				}
 				break;
-			case "affinity-change":
-				// Handled by CLI domain effect applicator — skip visual-only
-				break;
+			}
 			case "particle":
-				// Future: trigger particle effect on entity
+				// Future: trigger particle effect on entity via particle pool manager
 				break;
-			// ... other visual effect types
+			case "sound":
+				// Future: audio system integration
+				break;
+			// affinity-change, need-change, economy-transaction, etc.
+			// → already handled by EffectState in InteractionSystem.tick()
 		}
 	}
 }
 ```
-
-This is deliberately thin — it bridges CLI domain state changes to Plugin visual systems. The actual state mutations (affinity, needs, economy) are handled by the CLI domain `applyEffect()` function called inside the bus tick.
 
 - [ ] **Step 2: Type check**
 
@@ -2084,6 +2135,7 @@ export function bootstrapInteractionSystem(systems: {
 	relationship: RelationshipSystem;
 	needs: NeedsSystem;
 	dayClock: DayClock;
+	conversation: ConversationEngine;
 }) {
 	// 1. Load all templates into a single registry
 	const allTemplates = [
@@ -2130,8 +2182,12 @@ export function bootstrapInteractionSystem(systems: {
 		}
 	};
 
-	// 3. Create bus with injected dependencies
-	const bus = createInteractionBus({ checkPrerequisite, templateRegistry: registry });
+	// 3. Create bus with injected dependencies (including CE cooperative lock query)
+	const bus = createInteractionBus({
+		checkPrerequisite,
+		templateRegistry: registry,
+		externalLockQuery: (entityId) => systems.conversation.isLocked(entityId),
+	});
 
 	// 4. Create resolvers (each receives registry + relevant system queries)
 	const agentResolver = createAgentIntentResolver({ /* ... */ });
@@ -2169,13 +2225,15 @@ git commit -m "feat(plugin): bootstrap wiring — assemble bus, registry, resolv
 
 These integrations are **not in scope** for this plan but should be addressed in follow-up work:
 
-1. **ConversationEngine lock reconciliation** — When the Rich Dialogue Expansion spec is implemented, ConversationEngine must be built lock-free, querying `bus.getActive()` instead of maintaining its own `Set<string>()`. This is documented in both specs.
+1. **ConversationEngine ← bus lock query** — CE currently checks only its own `Set<string>` before starting scripts. A small follow-up should add `bus.isEntityLocked()` check inside `tryScript()` so CE respects bus locks. This is the CE side of the cooperative lock model (the bus side is handled in this plan via `externalLockQuery`).
 
 2. **WorldEventScheduler as interaction producer** — Modify `world-event-scheduler.ts` to submit interactions to the bus instead of directly orchestrating multi-agent reactions. Deferred because the scheduler needs to be refactored alongside the interaction system once the bus is stable.
 
-3. **Template expansion to ~150** — The seed templates (~35 total) demonstrate all interaction patterns. Expanding to the full ~150 templates is content work that can be done incrementally after the system is running.
+3. **Template expansion to ~150** — The seed templates (~35 total) demonstrate all interaction patterns. Expanding to the full ~150 templates is content work that can be done incrementally after the system is running. The 168 conversation scripts in CE are a separate content layer — interaction templates cover entity types and cardinalities that CE doesn't handle (NPC, room, director, environment).
 
 4. **Trust tier and has-item prerequisites** — The prerequisite checker stubs these as `return true`. Implement when the economy system's trust tiers and inventory are in place.
+
+5. **CE trigger migration** — Long-term, proximity-triggered agent-agent conversations could migrate from `SocialSystem → CE.tryScript()` to `AgentIntentResolver → InteractionBus → CE as effect executor`. Not urgent — the current direct triggering works well and CE has 168 scripts optimized for it.
 
 ---
 
