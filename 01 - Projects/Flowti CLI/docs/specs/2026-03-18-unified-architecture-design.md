@@ -11,13 +11,34 @@
 Flowti is one system with three presentation layers:
 
 - **Flowti Core** — the brain. Command-driven, manages agents, projects, world state, pipelines. Pure TypeScript, zero platform dependencies.
-- **Flowti CLI** — terminal interface. TUI + non-interactive commands. Provides Node.js adapters (filesystem, shell, process spawning, LLM providers).
-- **Flowti Plugin** — Obsidian interface. Provides vault adapters, Lit web components, and Obsidian-native features (sessions, data exchange, analytics, canvas, journeys). Sits on top of core, bundles CLI.
+- **Flowti CLI** — **command-only, non-interactive** terminal surface: subcommands, flags, predictable stdout/stderr, stable exit codes. Intended for CI, scripts, and **subprocess invocation from the Plugin** (e.g. `.flowti/bin/main.mjs`). Provides Node.js adapters (filesystem, shell, process spawning, LLM providers). Discoverability lives in **`help`**, generated command-surface docs (e.g. `docs:cli-surface` → `docs/cli-command-surface.md`), not a terminal UI framework.
+- **Flowti Plugin** — Obsidian interface. Provides vault adapters, Lit web components, and Obsidian-native features (sessions, data exchange, analytics, canvas, journeys). Consumes shared core types/logic where applicable; **rich UX** (navigation, notifications, editing) lives here—not in the CLI.
 - **Agent World** — 2D RPG visualization of the environment via ExcaliburJS. Agents as characters, project state as world.
 
 Input is vault-native: users express intent through markdown, canvas, frontmatter, CSV, JSON, YAML. The system reads and reacts. Project management is executed by agents, driven by user input.
 
-The CLI comes bundled with the Plugin but works as a standalone binary. The Plugin adds its own features on top of core.
+The CLI ships as a standalone bundle under `.flowti/bin/` and may be distributed alongside the Plugin; day-to-day integration favors **vault files, `.flowti/` artifacts, and CLI subprocesses** rather than a second full-screen HTTP “project API” inside the plugin.
+
+### Vault, Plugin, and CLI (today)
+
+```mermaid
+flowchart LR
+  subgraph vaultLayer [VaultAndFlowtiFiles]
+    md[MarkdownCanvasCSV]
+    flowtiDir[".flowti artifacts"]
+  end
+  subgraph cliLayer [FlowtiCLI]
+    mainMjs[main.mjs commands]
+  end
+  subgraph pluginLayer [FlowtiPlugin]
+    obsidian[Obsidian adapters Lit]
+  end
+  vaultLayer <--> obsidian
+  obsidian -->|spawn subprocess| mainMjs
+  mainMjs -->|read write| vaultLayer
+```
+
+Optional future **remote control plane** (HTTP/SSE, WebSocket, or in-process `IEventTransport` between Plugin and core) should appear as a **narrow adapter** behind ports—not as a replacement for vault-native authority.
 
 ---
 
@@ -111,7 +132,7 @@ interface IShell {
 
 - Core's `IShell` is intentionally minimal — only `run()` and `spawn()`. Most shell usage stays in CLI controllers/infrastructure (builds, tests, e2e), not in core domains.
 - CLI extends this with its own richer `ICliShell extends IShell` (adding `runSilent`, `runCapture`, `runCaptureDetailed`, `spawnBackground`, `runAsync`, `runParallel`). These remain CLI-only.
-- Plugin: does not provide `IShell`. Shell operations route through `IEventTransport` command requests to CLI.
+- Plugin: does not expose `IShell` to core as a general-purpose port. **Project and tooling flows** use Obsidian/vault I/O plus **local `child_process` spawns** (shell, Node, Flowti CLI under `.flowti/bin`) — not an in-plugin HTTP project server. Optional future transports may forward `command.request`-style work to a CLI or core instance; that remains adapter-specific.
 
 ### IEventTransport
 
@@ -125,7 +146,7 @@ interface IEventTransport {
 
 Note: `emit` returns `Promise<void>` to accommodate async handlers (Plugin's existing EventBus is async). The CLI's direct transport can resolve immediately if all handlers are sync, but the interface must not prevent async subscribers.
 
-Three implementations (see Communication section).
+Possible implementations include in-process direct calls, HTTP/SSE, or WebSocket (see **Transport implementations** below). **Shipping priority** follows whatever integration is actually used: today, vault + CLI subprocess; optional wire transports when a real consumer needs them.
 
 ### Utility Ports
 
@@ -165,7 +186,7 @@ interface CoreDeps {
 }
 ```
 
-CLI extends with `CliDeps extends CoreDeps` (adds TUI, input, process). Plugin extends with `PluginDeps extends CoreDeps` (adds Obsidian app, EventBus bridge, Lit rendering context). The `disk` naming matches the CLI's existing convention — no mass rename needed. ISP subsets (`Pick<CoreDeps, ...>`) continue the existing pattern.
+CLI extends with `CliDeps extends CoreDeps` — adds **`proc`** (current process / env), **logging**, **event bus**, optional **`agentShell`** / **LLM provider registry**, and **`IInput`** only where legacy or exceptional stdin prompts still exist. **New commands must not depend on interactive stdin**; prefer flags, env vars, and vault files. Plugin extends with `PluginDeps extends CoreDeps` (adds Obsidian app, EventBus bridge, Lit rendering context). The `disk` naming matches the CLI's existing convention — no mass rename needed. ISP subsets (`Pick<CoreDeps, ...>`) continue the existing pattern.
 
 ---
 
@@ -239,8 +260,9 @@ As domains migrate from Plugin to core (Wave 4), their event maps get added to `
 
 | Transport | When used | How it works |
 |-----------|-----------|-------------|
-| **Direct** | Plugin bundles CLI (embedded mode) | In-process function calls. Zero latency, full type safety. Default for Obsidian users. |
-| **HTTP/SSE** | CLI standalone + Plugin connects (remote mode) | Current architecture wrapped behind `IEventTransport`. `command.request`/`command.response` makes it bidirectional. |
+| **Vault + subprocess CLI (default today)** | Plugin drives tooling and automation | Plugin reads/writes the vault and `.flowti/` via Obsidian adapters; runs **`main.mjs`** (and other local processes) with structured args. No requirement for an in-plugin HTTP server. |
+| **Direct (in-process)** | Future: Plugin and core share one runtime | In-process `IEventTransport` (function calls). Useful when `@flowti/core` runs inside the Plugin bundle and domains are wired without a wire protocol. |
+| **HTTP/SSE** | Optional remote control plane | Same `command.request` / `command.response` pattern over HTTP/SSE if a separate CLI or service process is the integration point. |
 | **WebSocket** | Agent World in browser | Future. Same event map, different wire protocol. |
 
 ### Bidirectional Commands
@@ -301,7 +323,7 @@ The CLI's current `IFileSystem` is fully synchronous (332 sync FS usages across 
 | Pipeline engine | Generic linear/DAG pipeline runner |
 | Command engine | `adaptDescriptor()` — declarative command definitions |
 
-**After wave 3:** Plugin's `HttpProjectService` simplifies dramatically — calls core directly in embedded mode.
+**After wave 3:** Plugin's vault-backed project service (e.g. `IProjectService` / `VaultProjectService`) simplifies — fewer duplicated types and more shared command/project logic from core, whether invoked in-process or via CLI subprocess.
 
 ### Wave 4 — Plugin Domains Migrate Inward (long tail)
 
@@ -321,11 +343,11 @@ Each follows the pattern: move pure domain logic to core, leave platform I/O as 
 | CLI only | Plugin only |
 |----------|-------------|
 | Node adapters (`node:fs`, `node:child_process`) | Obsidian adapters (vault API, metadata cache, workspace) |
-| TUI rendering (Ink) | Lit web components, CSS layers, views |
-| CLI entry point, flag parsing | Obsidian plugin lifecycle (`onload`/`onunload`) |
+| Command registry, dispatch, flag parsing, **non-interactive** stdout/stderr contract | Lit web components, CSS layers, views |
+| **`help`, generated CLI surface documentation** (e.g. `docs:cli-surface`) | Obsidian plugin lifecycle (`onload`/`onunload`) |
 | LLM provider infrastructure (Claude, Cursor, Ollama) | EventBridge (Obsidian events → core events) |
 | Process pool, agent process spawning | Sitemap bootstrap, view registration |
-| HTTP/SSE server (remote mode) | Server launcher (remote mode) |
+| Optional HTTP/SSE server (**remote / future** control plane only) | Optional client/launcher for that remote mode (**if** shipped) |
 
 ---
 
@@ -343,14 +365,17 @@ Core never produces its own bundle. It gets tree-shaken into each consumer by es
 
 ### Distribution Modes
 
-**Embedded mode (default Obsidian):**
-Plugin imports `@flowti/core` directly. Core domains run in-process inside Electron. `IEventTransport` uses direct (function call) implementation. No HTTP server needed. Agent processes still spawn via `node:child_process` (available in Electron).
+**Obsidian + vault (primary today):**
+Plugin uses Obsidian APIs for vault I/O and spawns **Flowti CLI** (and other tools) as subprocesses. Authority for project summaries, agent dashboards, and world artifacts remains **files under the vault and `.flowti/`**, unless a future adapter explicitly adds a network control plane.
 
-**Remote mode (CLI standalone):**
-User runs `flowti serve`. Plugin detects running server via `.flowti/var/server-registry.json`, switches to HTTP/SSE transport. Same core events, different wire.
+**In-process core (optional / future):**
+Plugin imports `@flowti/core` and runs selected domains inside Electron with a **direct** `IEventTransport`. Agent or worker processes may still use `node:child_process` where Electron allows it.
+
+**Remote mode (optional / future):**
+User runs a long-lived CLI or service (e.g. `flowti serve`). Plugin (or another client) connects via HTTP/SSE (or similar) using the same typed event/command patterns. Same conceptual model as today’s `command.request` / `command.response`, different wire.
 
 **Standalone CLI (no Plugin):**
-`flowti` binary works as today. Ships as `.flowti/bin/main.mjs`. Bundles core at build time. TUI runs in terminal.
+Ships as `.flowti/bin/main.mjs`. **Command-only**: subcommands and flags, stable exit codes, human-oriented stdout/stderr (and optional machine-readable output where commands define it). **Discoverability** via `help` and **generated command-surface documentation** (e.g. `flowti docs:cli-surface` → `docs/cli-command-surface.md`). **Subprocess contract** for callers (including the Plugin): document expected flags, stderr for errors, and exit codes for automation.
 
 ### Plugin Package Contents
 
@@ -386,7 +411,7 @@ Domain tests move with their domains. Core has its own vitest config with the sa
 
 - Plugin tests that tested duplicated domain logic (e.g., agent card mapping) are deleted — core tests cover it
 - Plugin retains integration tests for Obsidian adapters and Lit component tests
-- `StubAgentService` evolves to stub the core `IEventTransport` instead of HTTP calls
+- `StubAgentService` (and similar test doubles) evolve to stub **core ports / `IEventTransport`** or **vault + CLI fixtures** instead of ad hoc HTTP bridges
 
 ### Build ordering in CI
 
@@ -438,7 +463,7 @@ The spec assumes `node:child_process` is available in Obsidian's Electron runtim
 - Obsidian may restrict Node.js APIs in future versions
 - `child_process.spawn` in Electron needs the correct Node binary path
 
-**Mitigation:** Validate embedded agent spawning as a Wave 2 acceptance criterion. If Obsidian restricts it, fall back to remote mode (CLI as separate process).
+**Mitigation:** Validate embedded agent spawning as a Wave 2 acceptance criterion. If Obsidian restricts it, fall back to **CLI (or a small helper process) as a separate subprocess** — aligned with the subprocess-first integration model already used for vault tooling.
 
 ### 2. Plugin domains with third-party dependencies
 
@@ -472,10 +497,13 @@ Plugin depends on `@flowti/core`. CLI depends on `@flowti/core`. Plugin never im
 If a domain is actively being designed (e.g., journey executor), leave it where it is. Extract only when the domain's API surface is settled. Premature extraction creates churn in core that ripples to both consumers.
 
 ### 6. Don't break standalone CLI
-Every core domain must work with `IShell` being `undefined` (Plugin embedded mode has no shell). Every core domain must work without Obsidian (CLI runs headless). Port interfaces enforce this naturally.
+Every core domain must work with `IShell` being `undefined` when core runs inside Plugin without a shell port. Every core domain must work without Obsidian (CLI runs headless, command-only). Port interfaces enforce this naturally.
 
 ### 7. Don't build transport before domains
-The HTTP/SSE bridge works today. Start with wave 1 (shared types) and wave 2 (agents). Keep using HTTP/SSE. Swap in direct transport later when Plugin actually bundles core. Infrastructure without a consumer is waste.
+Start with wave 1 (shared types) and wave 2 (agents). Prefer the **integration path you actually ship** (vault + CLI subprocess today). Add HTTP/SSE, WebSocket, or in-process direct `IEventTransport` only when a concrete feature needs that adapter — infrastructure without a consumer is waste.
+
+### 8. Don't add terminal UI frameworks for product UX
+Rich interaction belongs in the **Plugin** (Obsidian/Lit), **Agent World**, and **vault content** — not Ink, Blessed, or similar in the CLI. The CLI stays a thin, scriptable, documented command surface.
 
 ---
 
@@ -485,7 +513,10 @@ The HTTP/SSE bridge works today. Start with wave 1 (shared types) and wave 2 (ag
 - [ ] Both CLI and Plugin compile against shared types from core
 - [ ] Agent types exist in one place — no duplicate `AgentCard`, `WorldEntity`, `ProjectSummary`
 - [ ] CLI rename of an agent field causes a compile error in Plugin (not silent degradation)
-- [ ] Plugin can operate in embedded mode (direct transport) or remote mode (HTTP/SSE)
-- [ ] CLI works standalone without Obsidian
+- [ ] Plugin integrates via **vault + `.flowti/` + CLI subprocess** as the default story; optional **in-process core** or **remote HTTP/SSE** adapters are documented when shipped, not assumed
+- [ ] CLI works standalone without Obsidian (**command-only**, no TUI / interactive mode in the product narrative)
+- [ ] **Documented command surface** is generated or maintained in-repo (aligned with `docs:cli-surface` and `docs/cli-command-surface.md` as referenced from the CLI entrypoint)
+- [ ] **Subprocess contract** is clear for automation: stable exit codes, errors on stderr, flags documented for Plugin and CI callers
+- [ ] Any remaining **stdin / interactive** behavior is **exceptional, bounded, and documented**; new commands avoid prompts in favor of flags and files
 - [ ] Core tests run without any platform adapter (pure mock injection)
 - [ ] Each migration wave is independently shippable
