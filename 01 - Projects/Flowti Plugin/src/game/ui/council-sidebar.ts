@@ -6,7 +6,7 @@
  * show a dashed "+" placeholder. A "Manage" button at the bottom opens the picker.
  */
 
-import { html, css, nothing } from "lit";
+import { html, css } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import { resolveCharacter } from "../sprites/character-pool.js";

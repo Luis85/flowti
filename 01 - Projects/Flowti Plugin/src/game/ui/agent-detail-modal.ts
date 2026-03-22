@@ -534,7 +534,7 @@ export class AgentDetailModal extends FlowtiElement {
 	// ── Profile tab (inline) ──────────────────────────────────────
 
 	private renderProfileTab(agent: DashboardAgent) {
-		const { attributes, domain, mood, status, agentType, persona, personality } = agent;
+		const { attributes, domain, mood, status, agentType, personality } = agent;
 		const domainColor = DOMAIN_COLORS[domain ?? ""] ?? "#64748b";
 		const needs = this.store.getAgentNeeds(agent.name);
 
