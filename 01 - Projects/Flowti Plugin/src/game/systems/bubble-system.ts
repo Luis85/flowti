@@ -79,13 +79,15 @@ export class BubbleSystem {
 		// Global cap: limit total visible bubbles to reduce clutter
 		if (!priority && this.countActiveBubbles() >= MAX_CONCURRENT_BUBBLES) return;
 
-		entry.lastBubbleTime = now;
-
 		const actor = getActor(agentName);
 		if (!actor) return;
 
+		entry.lastBubbleTime = now;
+
 		// Kill any existing bubble — one at a time, no stacking
-		for (const b of entry.bubbles) b.kill();
+		for (const b of entry.bubbles) {
+			if (b.scene) b.kill();
+		}
 		entry.bubbles.length = 0;
 
 		const localY = BUBBLE_Y_OFFSET;

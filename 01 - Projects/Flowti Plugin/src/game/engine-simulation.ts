@@ -888,11 +888,17 @@ export function getNearbyAgents(ctx: EngineContext, name: string): string[] {
 
 // ── Helper: processThresholds ────────────────────────────────────────
 
-/** Process behavior thresholds — needs-driven state overrides. */
+/**
+ * Process behavior thresholds — needs-driven state overrides.
+ * Agents with an active BT are skipped: the BT is their single
+ * decision-maker and already handles needs via its own subtrees
+ * (NeedsEnergy, NeedsSocial, NeedsFocus, NeedsMorale).
+ */
 function processThresholds(ctx: EngineContext): void {
 	const { systems: sys } = ctx;
 	for (const agentName of sys.needs.getAgentNames()) {
 		if (sys.registry.isInTransit(agentName)) continue;
+		if (sys.bt.has(agentName)) continue;
 		const actions = sys.needs.checkThresholds(agentName);
 		for (const action of actions) {
 			switch (action.type) {

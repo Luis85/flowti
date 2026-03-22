@@ -166,6 +166,7 @@ function createMockContext(): EngineContext {
 				update: vi.fn(() => []),
 				getPetNames: vi.fn(() => []),
 				getPetContext: vi.fn(() => null),
+				has: vi.fn(() => false),
 			},
 			registry: {
 				getEntityRoom: vi.fn(() => "office"),
