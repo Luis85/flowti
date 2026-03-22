@@ -327,6 +327,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			relationshipSystem.recordConversation(a, b);
 			const tier = relationshipSystem.getTier(a, b);
 			echoProducer.onConversation(a, b, tier, dayClock.getCycleCount());
+			// Echo cascade gap: onConversation discards AddResult — see engine-simulation.ts
 		},
 		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
 		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),

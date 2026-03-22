@@ -28,6 +28,10 @@ import { selectPetVoice } from "./systems/talk/pet-voice-selector.js";
 import {
 	PET_INSTINCT_FRAGMENTS, PET_ELOQUENT_FRAGMENTS, PET_GREMLIN_FRAGMENTS,
 } from "./systems/talk/templates/index.js";
+import type { CascadeReaction } from "./systems/echo/cascade-resolver.js";
+
+// ── Cascade queue — reactions enqueued by echo threshold crossings ────
+const cascadeQueue: CascadeReaction[] = [];
 
 // ── Composite tick — called from engine.ts preframe hook ─────────────
 
@@ -149,9 +153,27 @@ export function tickNeeds(ctx: EngineContext): void {
 			sys.brain.updateMood(agentName, mood);
 			sys.emote.updateMood(agentName, mood);
 
+			// Echo spatial preference: idle agents could gravitate toward bonded agents.
+			// The wander target is resolved in brain-system.updateIdle → resolveIdleTarget,
+			// which is private and uses habits.socialDrift. To integrate echo bonds,
+			// brain-system would need an echo-aware overload or a public socialDrift setter
+			// so we can bias: sys.echo.getStrongest(agentName, "bond") → 40% chance to
+			// move toward bonded agent's position. Deferred until brain-system exposes this.
+
 			// Echo producer — morale threshold echo generation
 			const morale = sys.needs.getNeeds(agentName).morale;
 			ctx.echoProducer.onMorale(agentName, morale, sys.dayClock.getCycleCount());
+			// Echo cascade gap: EchoProducer.onMorale calls store.addEcho internally
+			// and discards the AddResult. Cascade evaluation requires the AddResult
+			// to check cascadeTriggered. Extending EchoProducer to return AddResults
+			// would enable wiring: evaluateCascade(agentName, result, sys, ctx).
+
+			// Echo break threshold: negative mood-residue should lower breakThreshold
+			// so agents take breaks earlier when stressed. The threshold lives in
+			// entry.habits.breakThreshold but is recomputed each frame by updateMood →
+			// computeHabits. To integrate: computeHabits would need an echo weight
+			// parameter, or brain-system needs a post-habit modifier API. Query would be:
+			// sys.echo.queryWeight(agentName, "mood-residue") → adjust breakThreshold.
 
 			// Feed rich context to talk engine
 			const nearby = getNearbyAgents(ctx, agentName);
@@ -556,6 +578,49 @@ export function tickInteractions(ctx: EngineContext): void {
 
 export function tickSocial(ctx: EngineContext): void {
 	const { systems: sys, state } = ctx;
+
+	// ── Process cascade queue — reactions queued by echo threshold crossings ──
+	const currentCycle = sys.dayClock.getCycleCount();
+	while (cascadeQueue.length > 0) {
+		const reaction = cascadeQueue.shift()!;
+		switch (reaction.type) {
+			case "vent": {
+				// Frustrated conversation with nearest agent
+				const nearest = ctx.lookups.findNearestAgent(reaction.agent);
+				if (nearest && reaction.target) {
+					const domainA = ctx.store.agents.find((a) => a.name === reaction.agent)?.domain ?? "";
+					const domainB = ctx.store.agents.find((a) => a.name === reaction.target)?.domain ?? "";
+					sys.conversation.tryScript(reaction.agent, reaction.target, "proximity", { domainA, domainB });
+				}
+				break;
+			}
+			case "seek-proximity": {
+				// Walk toward bond target
+				if (reaction.target) {
+					const targetPos = sys.brain.getPosition(reaction.target);
+					if (targetPos) sys.brain.walkTo(reaction.agent, targetPos);
+				}
+				break;
+			}
+			case "force-break":
+				if (sys.brain.getState(reaction.agent)?.state !== "on-break") {
+					sys.brain.applyEvent(reaction.agent, "break");
+				}
+				break;
+			case "avoid-room":
+				// Handled passively by echo preferences — no active action needed
+				break;
+			case "adjust-opinion":
+				if (reaction.target) {
+					sys.echo.addEcho(reaction.agent, {
+						kind: "opinion", source: "reputation", target: reaction.target,
+						weight: reaction.weight, decay: 2, tags: ["social", "gossip"],
+					}, currentCycle);
+				}
+				break;
+		}
+	}
+
 	runTimedGameSystem(ctx, "ritual", () => {
 		sys.ritual.update(state.deltaMs, (name) => sys.brain.getState(name)?.state ?? "idle");
 	});
@@ -806,6 +871,8 @@ function tryGossipTrigger(ctx: EngineContext): void {
 			// Both agents hear gossip about the absent agent
 			ctx.echoProducer.onGossipHeard(agentA, agentB, absent, cycle);
 			ctx.echoProducer.onGossipHeard(agentB, agentA, absent, cycle);
+			// Echo cascade gap: EchoProducer.onGossipHeard discards AddResult.
+			// Same limitation as onMorale — cascade wiring needs AddResult exposure.
 		}
 		break;
 	}
