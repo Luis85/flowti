@@ -124,6 +124,11 @@ export class ConversationEngine {
 		return true;
 	}
 
+	/** Convenience wrapper: trigger a gossip conversation about an absent third agent. */
+	gossipAbout(agentA: string, agentB: string, subject: string, ctx: TryScriptContext): boolean {
+		return this.tryScript(agentA, agentB, "gossip", { ...ctx, agentC: subject });
+	}
+
 	private buildVars(agentA: string, agentB: string, ctx: TryScriptContext): Record<string, string> {
 		return {
 			agentA,

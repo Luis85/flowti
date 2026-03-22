@@ -493,6 +493,11 @@ export function tickSocial(ctx: EngineContext): void {
 		);
 	});
 
+	// Gossip chance: when 2+ agents cluster in the same room and a 3rd is elsewhere
+	if (Math.random() < 0.0015) {
+		tryGossipTrigger(ctx);
+	}
+
 	runTimedGameSystem(ctx, "conversation", () => {
 		sys.conversation.update(state.deltaMs);
 	});
@@ -684,5 +689,37 @@ function updateParticleTrails(ctx: EngineContext): void {
 				if (actor) sys.particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + TRAIL_Y_OFFSET, agentParticleColor(ctx, name));
 			}
 		}
+	}
+}
+
+// ── Helper: tryGossipTrigger ─────────────────────────────────────────
+
+/** When 2+ agents share a room and a 3rd is elsewhere, trigger gossip about the absent agent. */
+function tryGossipTrigger(ctx: EngineContext): void {
+	const { systems: sys } = ctx;
+	const allAgents = sys.needs.getAgentNames();
+	if (allAgents.length < 3) return;
+
+	// Build room → agent[] map
+	const roomAgents = new Map<string, string[]>();
+	for (const name of allAgents) {
+		const room = sys.registry.getEntityRoom(name) ?? "";
+		const list = roomAgents.get(room);
+		if (list) list.push(name);
+		else roomAgents.set(room, [name]);
+	}
+
+	// Find a room with 2+ agents
+	for (const [room, agents] of roomAgents) {
+		if (agents.length < 2) continue;
+		// Find an agent NOT in this room
+		const absent = allAgents.find((n) => (sys.registry.getEntityRoom(n) ?? "") !== room);
+		if (!absent) continue;
+		const agentA = agents[0];
+		const agentB = agents[1];
+		const domainA = ctx.store.agents.find((a) => a.name === agentA)?.domain ?? "";
+		const domainB = ctx.store.agents.find((a) => a.name === agentB)?.domain ?? "";
+		sys.conversation.gossipAbout(agentA, agentB, absent, { domainA, domainB });
+		break;
 	}
 }
