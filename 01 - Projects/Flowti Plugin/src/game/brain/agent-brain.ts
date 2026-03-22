@@ -10,6 +10,8 @@ type TransitionFn = (event: BrainEvent) => BrainResult | null;
 const TRANSITIONS: Record<string, TransitionFn> = {
 	"task-started": () => ({ state: "walking-to", target: TO_WORKSTATION }),
 	"task-completed": () => ({ state: "idle", target: NO_MOVE }),
+	"goal-started": () => ({ state: "walking-to", target: TO_WORKSTATION }),
+	"goal-completed": () => ({ state: "idle", target: NO_MOVE }),
 	"speaking": () => ({ state: "talking", target: { kind: "agent" } }),
 	"thinking": () => ({ state: "working", target: TO_WORKSTATION }),
 	"asking": () => ({ state: "waiting", target: NO_MOVE }),
