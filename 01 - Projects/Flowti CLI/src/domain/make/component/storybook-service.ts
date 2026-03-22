@@ -35,6 +35,7 @@ export {
 export interface StorybookStartResult {
 	started: boolean;
 	url: string;
+	pid?: number;
 	error?: string;
 }
 
@@ -204,7 +205,7 @@ export async function startStorybookDev(
 		activeProcess.unref();
 	}
 
-	return { started: true, url };
+	return { started: true, url, pid: activeProcess.pid };
 }
 
 export function runStorybookBuild(projectPath: string, config: ComponentsConfig, deps: Pick<StorybookDeps, "disk" | "paths" | "shell">, render: StorybookRenderer = nullStorybookRenderer): void {

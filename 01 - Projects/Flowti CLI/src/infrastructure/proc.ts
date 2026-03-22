@@ -5,6 +5,8 @@
  * should go through this service for testability.
  */
 
+import { execSync } from "node:child_process";
+import net from "node:net";
 import type { IProcess, IPidOps } from "./types.js";
 
 class NodeProcess implements IProcess {
@@ -26,9 +28,6 @@ class NodeProcess implements IProcess {
 }
 
 export const proc: IProcess = new NodeProcess();
-
-import { execSync } from "node:child_process";
-import net from "node:net";
 
 class NodePidOps implements IPidOps {
 	isPidAlive(pid: number): boolean {

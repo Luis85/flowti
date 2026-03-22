@@ -3,8 +3,7 @@
  */
 
 import type { ProcessEntry } from "../../domain/processes/process-registry.js";
-
-type Log = (msg?: string) => void;
+import type { Log } from "../../infrastructure/deps.js";
 
 const DIM = "\x1b[2m";
 const RESET = "\x1b[0m";
