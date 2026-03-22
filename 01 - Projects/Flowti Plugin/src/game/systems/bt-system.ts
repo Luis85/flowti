@@ -42,7 +42,7 @@ interface PetBtEntry {
 
 // ── DashboardAgent → BTAgentDef mapping ──────────────────────────────
 
-function toBTAgentDef(agent: DashboardAgent): BTAgentDef {
+function toBTAgentDef(agent: DashboardAgent, quirks?: readonly string[]): BTAgentDef {
 	return {
 		name: agent.name,
 		agentType: agent.agentType,
@@ -58,6 +58,7 @@ function toBTAgentDef(agent: DashboardAgent): BTAgentDef {
 		})),
 		behaviors: agent.behaviors,
 		trustTier: agent.trustTier,
+		quirks,
 	};
 }
 
@@ -97,12 +98,12 @@ export class BtSystem {
 	private lastActions: AgentAction[] = [];
 
 	/** Register a BT for an agent that has behaviors defined. */
-	register(agent: DashboardAgent, deps: AgentToolDeps): void {
+	register(agent: DashboardAgent, deps: AgentToolDeps, quirks?: readonly string[]): void {
 		if (this.entries.has(agent.name)) return;
 		if (agent.agentType === "npc") return; // NPCs don't get behavior trees
 		if (!agent.behaviors || agent.behaviors.length === 0) return;
 
-		const def = toBTAgentDef(agent);
+		const def = toBTAgentDef(agent, quirks);
 		const bt = createAgentBT(def, deps);
 		this.entries.set(agent.name, { bt, accumulator: 0 });
 	}

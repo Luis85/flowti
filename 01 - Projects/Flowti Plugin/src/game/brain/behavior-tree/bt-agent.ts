@@ -24,6 +24,8 @@ import {
 	SeekFoodStation, SeekDrinkStation, Eat, Drink, ExecuteJourney,
 	IsMerchantEligible, HasNotVisitedMerchantThisCycle, HasAutoPurchaseAvailable,
 	SeekMerchantStall, BrowseMerchant, ExecuteMerchantPurchase,
+	HasPreferredFoodStation, HasPreferredDrinkStation,
+	SeekPreferredFoodStation, SeekPreferredDrinkStation,
 } from "./bt-agent-extensions.js";
 
 function hasLLMProvider(registry?: IProviderRegistry): boolean {
@@ -62,6 +64,8 @@ export interface BTAgentObject {
 	IsHungry(): boolean; IsThirsty(): boolean; IsEnergyOk(): boolean; IsFocusOk(): boolean;
 	HasWorkGoal(): boolean; HasJourneyTask(): boolean;
 	IsMerchantEligible(): boolean; HasNotVisitedMerchantThisCycle(): boolean; HasAutoPurchaseAvailable(): boolean;
+	// Preference conditions
+	HasPreferredFoodStation(): boolean; HasPreferredDrinkStation(): boolean;
 	// Interaction conditions
 	NotInInteraction(): boolean; HasNearbyEntity(): boolean;
 	// Actions
@@ -71,6 +75,7 @@ export interface BTAgentObject {
 	// Needs-driven + journey actions
 	SeekRestSpot(): State; SeekNearbyAgent(): State; SeekQuietCorner(): State;
 	SeekFoodStation(): State; SeekDrinkStation(): State; Eat(): State; Drink(): State;
+	SeekPreferredFoodStation(): State; SeekPreferredDrinkStation(): State;
 	WanderSad(): State; GoToWorkstation(): State; DoWork(): State; LeaveWorkstation(): State;
 	ExecuteJourney(): State;
 	SeekMerchantStall(): State; BrowseMerchant(): State; ExecuteMerchantPurchase(): State;
@@ -96,6 +101,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		attributes: attr,
 		personality: agent.personality ?? [],
 		experience: agent.experience ?? 0,
+		quirks: agent.quirks ?? [],
 		needs: createDefaultNeeds(),
 		goals: agent.goals ?? [],
 		activeGoal: null,
@@ -536,12 +542,16 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 			context, () => deps.merchant?.getCycleCount() ?? 0,
 		),
 		HasAutoPurchaseAvailable: () => HasAutoPurchaseAvailable(extDeps),
+		HasPreferredFoodStation: () => HasPreferredFoodStation(context),
+		HasPreferredDrinkStation: () => HasPreferredDrinkStation(context),
 		PickGoal, PickGoalFile, ReadFile, WriteFile, OpenInVault,
 		QueryLLM, GenerateFromTemplate, DropArtifact, SpeakBubble,
 		Wander, Emote, Chatter, Socialize, Rest, HandleEvent,
 		SeekRestSpot, SeekNearbyAgent, SeekQuietCorner,
 		SeekFoodStation: () => SeekFoodStation(extDeps),
 		SeekDrinkStation: () => SeekDrinkStation(extDeps),
+		SeekPreferredFoodStation: () => SeekPreferredFoodStation(extDeps),
+		SeekPreferredDrinkStation: () => SeekPreferredDrinkStation(extDeps),
 		Eat: () => Eat(context, collect),
 		Drink: () => Drink(context, collect),
 		WanderSad,
