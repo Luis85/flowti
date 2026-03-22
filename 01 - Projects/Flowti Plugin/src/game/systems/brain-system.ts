@@ -258,8 +258,20 @@ export class BrainSystem {
 		const result = transition(entry.state, { type: eventType as AgentActionType });
 		entry.state = result.state;
 		entry.target = result.target;
-		entry.targetPos = null;
 		entry.stateTimer = 0;
+
+		// Movement states need an actual target position; resolve one.
+		if (result.state === "walking-to" || result.state === "wandering") {
+			if (result.target.kind === "workstation") {
+				const ws = this.config.onWorkstationResolve?.(name, entry.habits.preferredWorkstationId);
+				entry.targetPos = ws ?? null;
+			} else {
+				entry.targetPos = resolveIdleTarget(entry.habits, this.getNearbyAgentPositions(name), this.targetBounds, Math.random, entry.position);
+			}
+		} else {
+			entry.targetPos = null;
+		}
+
 		if (previousState === "working" && result.state !== "working") {
 			this.config.onWorkstationChange?.(name, "vacate", entry.position);
 		}
