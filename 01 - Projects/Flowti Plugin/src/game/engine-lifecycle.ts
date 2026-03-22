@@ -40,6 +40,8 @@ import { afterNextPaint } from "./after-next-paint.js";
 import { shouldShowBriefing, calculateOfflineProgress, type AgentOfflineInput } from "./systems/offline-progress.js";
 import type { NarrativeSystem } from "./systems/narrative-system.js";
 import type { BriefingPanel } from "./ui/briefing-panel.js";
+import { findNodeBinary } from "../infrastructure/agents/cli-executor.js";
+import { runOneShotCommand } from "../infrastructure/agents/cli-executor-helpers.js";
 
 export interface StartEngineDeps {
 	engine: ex.Engine;
@@ -254,12 +256,27 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 			}
 
 			// Apply offline earnings (XP + Coin) to each agent's economy state
+			const nodeBin = findNodeBinary();
+			const cliBin = vaultBasePath ? join(vaultBasePath, ".flowti", "bin", "main.mjs") : null;
 			for (const agentResult of results.agentResults) {
 				if (agentResult.xpEarned <= 0 && agentResult.coinEarned <= 0) continue;
 				const current = store.getAgentEconomy(agentResult.name);
 				if (!current) continue;
+				// Persist to CLI ledger first (CLI is data authority)
+				if (nodeBin && cliBin && vaultBasePath && existsSync(cliBin)) {
+					try {
+						await runOneShotCommand(
+							nodeBin, cliBin,
+							["economy:reward", `--agent=${agentResult.name}`, `--xp=${agentResult.xpEarned}`, `--coin=${agentResult.coinEarned}`, "--format=json"],
+							vaultBasePath,
+						);
+					} catch {
+						// CLI not available — fall through to store-only update
+					}
+				}
 				store.setAgentEconomy(agentResult.name, {
 					coin: current.coin + agentResult.coinEarned,
+					xp: current.xp + agentResult.xpEarned,
 					level: agentResult.currentLevel,
 				});
 				// Record narrative beat for offline earnings
