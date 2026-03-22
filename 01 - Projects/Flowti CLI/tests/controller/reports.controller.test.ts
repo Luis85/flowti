@@ -114,9 +114,10 @@ describe("reports.controller", () => {
 			disk, shell, paths,
 			clock: { iso: () => "", now: () => new Date(), ms: () => 0, safeIso: () => "" },
 			proc: { exit: vi.fn() as never, argv: () => [], cwd: () => "/", env: () => ({}) },
-			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
+			worldState: {} as never, workerManager: {} as never, processRunner: {} as never,
 		});
 	});
 
@@ -177,7 +178,7 @@ describe("reports.controller", () => {
 		});
 
 		it("exports HTML when .md files exist", () => {
-			vi.mocked(disk.readdirSync).mockReturnValue(["test-report.md", "coverage-report.md"] as unknown as string[]);
+			(disk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue(["test-report.md", "coverage-report.md"]);
 			commands["reports:html"]({}, [], "reports:html", mockProject);
 			expect(disk.readdirSync).toHaveBeenCalled();
 		});

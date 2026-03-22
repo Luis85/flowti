@@ -109,9 +109,10 @@ describe("capa.controller", () => {
 		vi.clearAllMocks();
 		initializeDeps({
 			disk, shell, paths, clock, proc,
-			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
+			worldState: {} as never, workerManager: {} as never, processRunner: {} as never,
 		});
 	});
 

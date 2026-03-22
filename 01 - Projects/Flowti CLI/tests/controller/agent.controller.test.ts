@@ -100,7 +100,7 @@ describe("agent.controller", () => {
 		initializeDeps({
 			disk, paths, clock, proc,
 			shell: { run: vi.fn(), runSilent: vi.fn(), check: vi.fn(() => false) } as never,
-			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
 			worldState: {
@@ -121,7 +121,7 @@ describe("agent.controller", () => {
 				removeActionListener: vi.fn(),
 			},
 			workerManager: {
-				spawn: vi.fn(() => ({ name: "Architect", agent: {}, state: "idle", messageQueue: [], send: vi.fn(), stop: vi.fn() })),
+				spawn: vi.fn(() => ({ name: "Architect", agent: {} as never, state: "idle" as const, messageQueue: [] as readonly string[], send: vi.fn(), stop: vi.fn() })),
 				spawnAll: vi.fn(),
 				stop: vi.fn(),
 				stopAll: vi.fn(),

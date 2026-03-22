@@ -31,9 +31,10 @@ beforeEach(() => {
 		paths: { join: (...a: string[]) => a.join("/"), resolve: (...a: string[]) => a.join("/"), dirname: (p: string) => p, basename: (p: string) => p.split("/").pop() ?? p, relative: (_: string, b: string) => b, extname: () => "", isAbsolute: () => false, sep: "/" },
 		clock: { iso: () => "2026-03-15T10:00:00.000Z", now: () => new Date(), ms: () => 0, safeIso: () => "2026-03-15" },
 		proc: { exit: vi.fn() as never, argv: () => [], cwd: () => "/", env: () => ({}) },
-		input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+		input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 		bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
-		log: mockLog, warn: vi.fn(),
+		log: mockLog as (msg?: string) => void, warn: vi.fn() as (msg: string) => void,
+		worldState: {} as never, workerManager: {} as never, processRunner: {} as never,
 	});
 });
 

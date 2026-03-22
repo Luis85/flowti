@@ -104,7 +104,7 @@ import { proc } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
 
 const logMock = log as ReturnType<typeof vi.fn>;
-const diskMock = disk as Record<string, ReturnType<typeof vi.fn>>;
+const diskMock = disk as unknown as Record<string, ReturnType<typeof vi.fn>>;
 
 const mockWorldState = {
 	emitAction: vi.fn(),
@@ -125,7 +125,7 @@ describe("debug.controller", () => {
 		initializeDeps({
 			disk, paths, clock, proc,
 			shell: { run: vi.fn(), runSilent: vi.fn(), check: vi.fn(() => false) } as never,
-			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
 			worldState: mockWorldState,
@@ -156,7 +156,7 @@ describe("debug.controller", () => {
 		});
 
 		it("overwrites xp and coin and returns changes as JSON", () => {
-			commands["debug:set"]({ agent: "Architect", xp: 500, coin: 300, level: -1, format: "json" }, [], "debug:set", undefined);
+			commands["debug:set"]({ agent: "Architect", xp: "500", coin: "300", level: "-1", format: "json" }, [], "debug:set", undefined);
 
 			expect(readLedger).toHaveBeenCalledOnce();
 			expect(writeLedger).toHaveBeenCalledOnce();
@@ -170,7 +170,7 @@ describe("debug.controller", () => {
 		});
 
 		it("logs debug transaction type", () => {
-			commands["debug:set"]({ agent: "Architect", xp: 100, coin: -1, level: -1, format: "json" }, [], "debug:set", undefined);
+			commands["debug:set"]({ agent: "Architect", xp: "100", coin: "-1", level: "-1", format: "json" }, [], "debug:set", undefined);
 
 			const tx = (appendTransaction as ReturnType<typeof vi.fn>).mock.calls[0][2];
 			expect(tx).toHaveProperty("type", "debug");
@@ -178,7 +178,7 @@ describe("debug.controller", () => {
 		});
 
 		it("does not include unchanged fields in changes array", () => {
-			commands["debug:set"]({ agent: "Architect", xp: -1, coin: 50, level: -1, format: "json" }, [], "debug:set", undefined);
+			commands["debug:set"]({ agent: "Architect", xp: "-1", coin: "50", level: "-1", format: "json" }, [], "debug:set", undefined);
 
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output.changes).not.toContain("xp");
@@ -186,7 +186,7 @@ describe("debug.controller", () => {
 		});
 
 		it("returns error when --agent is missing", () => {
-			commands["debug:set"]({ xp: 100, format: "json" }, [], "debug:set", undefined);
+			commands["debug:set"]({ xp: "100", format: "json" }, [], "debug:set", undefined);
 
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("error");
@@ -237,7 +237,7 @@ describe("debug.controller", () => {
 		});
 
 		it("updates world state entity and returns model as JSON", () => {
-			commands["debug:needs"]({ agent: "Architect", energy: 80, hunger: 60, thirst: -1, format: "json" }, [], "debug:needs", undefined);
+			commands["debug:needs"]({ agent: "Architect", energy: "80", hunger: "60", thirst: "-1", format: "json" }, [], "debug:needs", undefined);
 
 			expect(mockWorldState.updateEntity).toHaveBeenCalledOnce();
 			const [entityId, entityType, components] = mockWorldState.updateEntity.mock.calls[0];
@@ -254,7 +254,7 @@ describe("debug.controller", () => {
 		});
 
 		it("logs debug transaction", () => {
-			commands["debug:needs"]({ agent: "Architect", energy: 50, hunger: -1, thirst: -1, format: "json" }, [], "debug:needs", undefined);
+			commands["debug:needs"]({ agent: "Architect", energy: "50", hunger: "-1", thirst: "-1", format: "json" }, [], "debug:needs", undefined);
 
 			expect(appendTransaction).toHaveBeenCalledOnce();
 			const tx = (appendTransaction as ReturnType<typeof vi.fn>).mock.calls[0][2];
@@ -262,7 +262,7 @@ describe("debug.controller", () => {
 		});
 
 		it("returns error when --agent is missing", () => {
-			commands["debug:needs"]({ energy: 80, format: "json" }, [], "debug:needs", undefined);
+			commands["debug:needs"]({ energy: "80", format: "json" }, [], "debug:needs", undefined);
 
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("error");

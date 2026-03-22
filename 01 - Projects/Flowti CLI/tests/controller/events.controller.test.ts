@@ -113,12 +113,12 @@ describe("events.controller", () => {
 		] as ReturnType<typeof listEvents>);
 		vi.mocked(createEventFile).mockReturnValue("/project/docs/events/user.created.json");
 		vi.mocked(loadEventContracts).mockReturnValue([
-			{ name: "user.created", domain: "user", version: "1.0.0", payload: [{ name: "id", type: "string", required: true }] },
+			{ name: "user.created", domain: "user", version: "1.0.0", description: "", producers: [], consumers: [], payload: [{ field: "id", type: "string", required: true, description: "" }] },
 		] as ReturnType<typeof loadEventContracts>);
-		vi.mocked(validateContracts).mockReturnValue({ valid: true, errors: [], warnings: [] });
+		vi.mocked(validateContracts).mockReturnValue({ valid: true, issues: [] });
 		vi.mocked(generateContractsJson).mockReturnValue('{"contracts":[]}');
 		vi.mocked(validatePayload).mockReturnValue({ valid: true, errors: [] });
-		vi.mocked(findContract).mockReturnValue({ name: "user.created", payload: [{ name: "id", type: "string", required: true }] } as ReturnType<typeof findContract>);
+		vi.mocked(findContract).mockReturnValue({ name: "user.created", domain: "user", version: "1.0.0", description: "", producers: [], consumers: [], payload: [{ field: "id", type: "string", required: true, description: "" }] } as ReturnType<typeof findContract>);
 		vi.mocked(generateEventTypes).mockReturnValue("export type Events = {};");
 		vi.mocked(saveEventFlowDoc).mockReturnValue("/project/docs/events/flow.md");
 	});
