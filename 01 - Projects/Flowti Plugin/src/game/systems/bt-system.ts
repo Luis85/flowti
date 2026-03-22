@@ -14,6 +14,7 @@ import type {
 	BTAgentDef,
 	IBrainBridge,
 	IClock,
+	IMerchantBridge,
 	INeedsBridge,
 	IWorldStateManager,
 } from "../brain/behavior-tree/bt-types.js";
@@ -70,6 +71,7 @@ export function createStubDeps(
 	clock: IClock,
 	needs?: INeedsBridge,
 	brain?: IBrainBridge,
+	merchant?: IMerchantBridge,
 ): AgentToolDeps {
 	return {
 		disk: {
@@ -88,6 +90,7 @@ export function createStubDeps(
 		checkPermission: () => "allowed" as const,
 		...(needs && { needs }),
 		...(brain && { brain }),
+		...(merchant && { merchant }),
 	};
 }
 

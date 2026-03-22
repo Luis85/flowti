@@ -42,6 +42,9 @@ export class SensorSystem {
 	/** Events queued via pushFeedback() to be processed on the next frame. */
 	private feedbackQueue: SensorEventData[] = [];
 
+	/** Agents that had a reaction emitted on the current frame. Cleared at start of update(). */
+	private readonly frameReactions = new Set<string>();
+
 	// ── Registration ────────────────────────────────────────────────
 
 	register(agentName: string, domain: string): void {
@@ -61,6 +64,11 @@ export class SensorSystem {
 	offReaction(cb: (reaction: SensorReaction) => void): void {
 		const idx = this.reactionCallbacks.indexOf(cb);
 		if (idx >= 0) this.reactionCallbacks.splice(idx, 1);
+	}
+
+	/** Whether an agent had a sensor reaction emitted this frame. */
+	hasPendingReaction(agentName: string): boolean {
+		return this.frameReactions.has(agentName);
 	}
 
 	// ── Event ingestion ─────────────────────────────────────────────
@@ -92,6 +100,8 @@ export class SensorSystem {
 	// ── Update ──────────────────────────────────────────────────────
 
 	update(deltaMs: number): void {
+		this.frameReactions.clear();
+
 		// Drain global cooldown
 		if (this.globalCooldownRemaining > 0) {
 			this.globalCooldownRemaining = Math.max(0, this.globalCooldownRemaining - deltaMs);
@@ -151,6 +161,7 @@ export class SensorSystem {
 
 				const reaction = this.buildReaction(agentName, rule);
 				this.emit(reaction);
+				this.frameReactions.add(agentName);
 
 				// Apply per-agent cooldown when a bubble was produced
 				if (rule.reaction.bubble) {
