@@ -96,21 +96,22 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	setAgentEconomy(name: string, data: { level?: number; coin?: number; tokens?: number; trustTier?: string; capabilities?: string[] }): void {
+	setAgentEconomy(name: string, data: { level?: number; coin?: number; tokens?: number; xp?: number; trustTier?: string; capabilities?: string[] }): void {
 		const agent = this.agents.find(a => a.name === name);
 		if (!agent) return;
 		if (data.level !== undefined) agent.level = data.level;
 		if (data.coin !== undefined) agent.coin = data.coin;
 		if (data.tokens !== undefined) agent.tokens = data.tokens;
+		if (data.xp !== undefined) agent.xp = data.xp;
 		if (data.trustTier !== undefined) agent.trustTier = data.trustTier as "supervised" | "trusted" | "autonomous";
 		if (data.capabilities !== undefined) agent.capabilities = data.capabilities;
 		this.notify();
 	}
 
-	getAgentEconomy(name: string): { level: number; coin: number; tokens: number; trustTier: string; capabilities: string[] } | undefined {
+	getAgentEconomy(name: string): { level: number; coin: number; tokens: number; xp: number; trustTier: string; capabilities: string[] } | undefined {
 		const agent = this.agents.find(a => a.name === name);
 		if (!agent) return undefined;
-		return { level: agent.level ?? 1, coin: agent.coin ?? 0, tokens: agent.tokens ?? 0, trustTier: agent.trustTier ?? "supervised", capabilities: agent.capabilities ?? [] };
+		return { level: agent.level ?? 1, coin: agent.coin ?? 0, tokens: agent.tokens ?? 0, xp: agent.xp ?? 0, trustTier: agent.trustTier ?? "supervised", capabilities: agent.capabilities ?? [] };
 	}
 
 	currentScene: Setting = "hub";
