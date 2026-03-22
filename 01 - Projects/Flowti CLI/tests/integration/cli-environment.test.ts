@@ -226,7 +226,7 @@ describe("Phase 1: Prerequisites", () => {
 		const sh = createMockShell({
 			outputs: { "node --version": "v22.0.0" },
 		});
-		checkPrerequisites(16, { shell: sh, proc: { exit } });
+		checkPrerequisites(16, { shell: sh, proc: { exit: exit as unknown as (code: number) => never, argv: () => [], cwd: () => "/mock", env: () => ({}) } });
 		expect(exit).not.toHaveBeenCalled();
 	});
 
@@ -236,7 +236,7 @@ describe("Phase 1: Prerequisites", () => {
 			failChecks: ["git --version"],
 			outputs: { "node --version": "v22.0.0" },
 		});
-		checkPrerequisites(16, { shell: sh, proc: { exit } });
+		checkPrerequisites(16, { shell: sh, proc: { exit: exit as unknown as (code: number) => never, argv: () => [], cwd: () => "/mock", env: () => ({}) } });
 		expect(exit).toHaveBeenCalledWith(2);
 	});
 
@@ -245,7 +245,7 @@ describe("Phase 1: Prerequisites", () => {
 		const sh = createMockShell({
 			outputs: { "node --version": "v14.0.0" },
 		});
-		checkPrerequisites(16, { shell: sh, proc: { exit } });
+		checkPrerequisites(16, { shell: sh, proc: { exit: exit as unknown as (code: number) => never, argv: () => [], cwd: () => "/mock", env: () => ({}) } });
 		expect(exit).toHaveBeenCalledWith(2);
 	});
 });

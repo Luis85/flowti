@@ -28,9 +28,9 @@ describe("startSpinner", () => {
 		const spinner = startSpinner("Loading...");
 		spinner.stop("Done!");
 		// Should have written the final message
-		const calls = writeSpy.mock.calls.map(c => c[0] as string);
+		const calls = writeSpy.mock.calls.map((c: unknown[]) => c[0] as string);
 		const lastCalls = calls.slice(-2);
-		expect(lastCalls.some(c => c.includes("Done!"))).toBe(true);
+		expect(lastCalls.some((c: string) => c.includes("Done!"))).toBe(true);
 	});
 
 	it("returns no-op when enabled is false", () => {
@@ -52,8 +52,8 @@ describe("startSpinner", () => {
 		const spinner = startSpinner("Loading...");
 		spinner.update("Still loading...");
 		spinner.stop("Updated");
-		const calls = writeSpy.mock.calls.map(c => c[0] as string);
-		expect(calls.some(c => c.includes("Updated"))).toBe(true);
+		const calls = writeSpy.mock.calls.map((c: unknown[]) => c[0] as string);
+		expect(calls.some((c: string) => c.includes("Updated"))).toBe(true);
 	});
 });
 
@@ -81,8 +81,8 @@ describe("createProgressBar", () => {
 		bar.tick("Step 1");
 		bar.tick("Step 2");
 		bar.complete("All done!");
-		const calls = writeSpy.mock.calls.map(c => c[0] as string);
-		expect(calls.some(c => c.includes("All done!"))).toBe(true);
+		const calls = writeSpy.mock.calls.map((c: unknown[]) => c[0] as string);
+		expect(calls.some((c: string) => c.includes("All done!"))).toBe(true);
 	});
 
 	it("returns no-op when enabled is false", () => {
@@ -111,7 +111,7 @@ describe("createProgressBar", () => {
 		const bar = createProgressBar(2, "X");
 		bar.tick();
 		bar.tick();
-		const calls = writeSpy.mock.calls.map(c => c[0] as string);
-		expect(calls.some(c => c.includes("100%"))).toBe(true);
+		const calls = writeSpy.mock.calls.map((c: unknown[]) => c[0] as string);
+		expect(calls.some((c: string) => c.includes("100%"))).toBe(true);
 	});
 });

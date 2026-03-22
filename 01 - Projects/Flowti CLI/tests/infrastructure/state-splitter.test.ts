@@ -7,7 +7,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../src/infrastructure/filesystem.js", () => ({ disk: {} }));
 vi.mock("../../src/infrastructure/ui.js", () => ({ RESET: "", DIM: "", GREEN: "", CYAN: "", BOLD: "", RED: "", YELLOW: "" }));
 
-import { createStateSplitter, type IStateSplitter } from "../../src/infrastructure/state-splitter.js";
+import { createStateSplitter, type IStateSplitter, type SplitterDeps } from "../../src/infrastructure/state-splitter.js";
+
+function asDeps(deps: ReturnType<typeof createMockDeps>): SplitterDeps {
+	return deps as unknown as SplitterDeps;
+}
 
 function createMockDeps() {
 	const files = new Map<string, string>();
@@ -20,16 +24,16 @@ function createMockDeps() {
 			copyFileSync: (from: string, to: string) => files.set(to, files.get(from) ?? ""),
 			mkdirSync: (p: string) => dirs.add(p),
 			readdirSync: () => [],
-		} as never,
+		},
 		dirs,
 		paths: {
 			join: (...parts: string[]) => parts.join("/"),
 			resolve: (p: string) => p,
 			dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
-		} as never,
+		},
 		shell: {
 			runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })),
-		} as never,
+		},
 		files,
 	};
 }
@@ -48,7 +52,7 @@ describe("StateSplitter", () => {
 		files.set("/vault/.flowti/var/data-bob.json", '{"name":"bob","status":"idle","tasks":[]}');
 		files.set("/vault/.flowti/var/world-state.json", '{"version":1,"entities":{}}');
 
-		splitter = createStateSplitter(deps, "/vault");
+		splitter = createStateSplitter(asDeps(deps), "/vault");
 	});
 
 	it("copies CLAUDE.md to workspace root", () => {
@@ -86,7 +90,7 @@ describe("StateSplitter", () => {
 		deps.dirs.add("/vault/.claude");
 		files.set("/vault/CLAUDE.md", "# Claude instructions");
 		files.set("/vault/.claude/rules/foo.md", "rule");
-		splitter = createStateSplitter(deps, "/vault");
+		splitter = createStateSplitter(asDeps(deps), "/vault");
 
 		splitter.inject("bob", "/workspace");
 		expect(deps.shell.runCaptureDetailed).toHaveBeenCalledWith(
@@ -97,7 +101,7 @@ describe("StateSplitter", () => {
 	it("skips missing files without error", () => {
 		const deps = createMockDeps();
 		// No files at all — should not throw
-		splitter = createStateSplitter(deps, "/empty-vault");
+		splitter = createStateSplitter(asDeps(deps), "/empty-vault");
 		expect(() => splitter.inject("bob", "/workspace")).not.toThrow();
 	});
 

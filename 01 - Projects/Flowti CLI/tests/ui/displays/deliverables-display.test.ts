@@ -24,8 +24,8 @@ describe("renderDeliverableList", () => {
 
 	it("renders deliverable count in header", () => {
 		const items: DeliverableSummary[] = [
-			{ name: "API Spec", status: "done", completionPct: 100, dueDate: "2026-03-01", assignee: "Bob" },
-			{ name: "UI Mockup", status: "in-progress", completionPct: 40, dueDate: "", assignee: "" },
+			{ name: "API Spec", status: "done", completionPct: 100, dueDate: "2026-03-01", assignee: "Bob", file: "" },
+			{ name: "UI Mockup", status: "in-progress", completionPct: 40, dueDate: "", assignee: "", file: "" },
 		];
 		renderDeliverableList(items, log);
 		expect(output()).toContain("Deliverables (2)");
@@ -33,7 +33,7 @@ describe("renderDeliverableList", () => {
 
 	it("renders deliverable details", () => {
 		const items: DeliverableSummary[] = [
-			{ name: "API Spec", status: "done", completionPct: 100, dueDate: "2026-03-01", assignee: "Bob" },
+			{ name: "API Spec", status: "done", completionPct: 100, dueDate: "2026-03-01", assignee: "Bob", file: "" },
 		];
 		renderDeliverableList(items, log);
 		const out = output();
@@ -46,7 +46,7 @@ describe("renderDeliverableList", () => {
 
 	it("omits due and assignee tags when absent", () => {
 		const items: DeliverableSummary[] = [
-			{ name: "Draft", status: "planned", completionPct: 0, dueDate: "", assignee: "" },
+			{ name: "Draft", status: "planned", completionPct: 0, dueDate: "", assignee: "", file: "" },
 		];
 		renderDeliverableList(items, log);
 		const out = output();

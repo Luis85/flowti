@@ -6,8 +6,13 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({ paths: {} }));
 vi.mock("../../../src/infrastructure/clock.js", () => ({ clock: {} }));
 vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 
-import { createClaudeProvider } from "../../../src/infrastructure/llm/claude-provider.js";
+import { createClaudeProvider, type ClaudeProviderDeps } from "../../../src/infrastructure/llm/claude-provider.js";
 import type { LLMRequest } from "../../../src/domain/agents/llm-types.js";
+
+type MockDeps = ReturnType<typeof makeDeps>;
+function asDeps(deps: MockDeps): ClaudeProviderDeps {
+	return deps as unknown as ClaudeProviderDeps;
+}
 
 function makeDeps() {
 	const outputCallbacks: Array<(line: string) => void> = [];
@@ -20,10 +25,10 @@ function makeDeps() {
 		waitForOutput: vi.fn(),
 	};
 	return {
-		disk: { writeFileSync: vi.fn(), unlinkSync: vi.fn() } as never,
-		paths: { join: vi.fn((...a: string[]) => a.join("/")), resolve: vi.fn((...a: string[]) => a.join("/")) } as never,
-		clock: { ms: vi.fn(() => 1234) } as never,
-		shell: { spawnBackground: vi.fn(() => mockProc) } as never,
+		disk: { writeFileSync: vi.fn(), unlinkSync: vi.fn() },
+		paths: { join: vi.fn((...a: string[]) => a.join("/")), resolve: vi.fn((...a: string[]) => a.join("/")) },
+		clock: { ms: vi.fn(() => 1234) },
+		shell: { spawnBackground: vi.fn(() => mockProc) },
 		log: vi.fn(),
 		_mockProc: mockProc,
 		_outputCallbacks: outputCallbacks,
@@ -32,12 +37,12 @@ function makeDeps() {
 
 describe("createClaudeProvider", () => {
 	it("has name 'anthropic'", () => {
-		const provider = createClaudeProvider(makeDeps());
+		const provider = createClaudeProvider(asDeps(makeDeps()));
 		expect(provider.name).toBe("anthropic");
 	});
 
 	it("reports full capabilities", () => {
-		const provider = createClaudeProvider(makeDeps());
+		const provider = createClaudeProvider(asDeps(makeDeps()));
 		const caps = provider.capabilities();
 		expect(caps.streaming).toBe(true);
 		expect(caps.thinking).toBe(true);
@@ -47,7 +52,7 @@ describe("createClaudeProvider", () => {
 
 	it("execute spawns claude with stream-json flags", () => {
 		const deps = makeDeps();
-		const provider = createClaudeProvider(deps);
+		const provider = createClaudeProvider(asDeps(deps));
 		const request: LLMRequest = { prompt: { message: "hello" } };
 		provider.execute(request);
 		expect(deps.shell.spawnBackground).toHaveBeenCalledWith(
@@ -61,7 +66,7 @@ describe("createClaudeProvider", () => {
 
 	it("execute writes prompt to temp file", () => {
 		const deps = makeDeps();
-		const provider = createClaudeProvider(deps);
+		const provider = createClaudeProvider(asDeps(deps));
 		provider.execute({ prompt: { message: "hello world" } });
 		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
 			expect.stringContaining(".flowti-prompt-"),
@@ -72,7 +77,7 @@ describe("createClaudeProvider", () => {
 
 	it("execute includes --allowedTools when tools provided", () => {
 		const deps = makeDeps();
-		const provider = createClaudeProvider(deps);
+		const provider = createClaudeProvider(asDeps(deps));
 		provider.execute({ prompt: { message: "hello" }, tools: ["Bash", "Read"] });
 		const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
 		expect(cmd).toContain("--allowedTools");
@@ -81,14 +86,14 @@ describe("createClaudeProvider", () => {
 
 	it("execute passes cwd when provided", () => {
 		const deps = makeDeps();
-		const provider = createClaudeProvider(deps);
+		const provider = createClaudeProvider(asDeps(deps));
 		provider.execute({ prompt: { message: "hello" }, cwd: "/work" });
 		expect(deps.shell.spawnBackground).toHaveBeenCalledWith(expect.any(String), { cwd: "/work" });
 	});
 
 	it("result accumulates text events", async () => {
 		const deps = makeDeps();
-		const provider = createClaudeProvider(deps);
+		const provider = createClaudeProvider(asDeps(deps));
 		const proc = provider.execute({ prompt: { message: "hello" } });
 		for (const cb of deps._outputCallbacks) {
 			cb(JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "Hi!" }] } }));
@@ -100,7 +105,7 @@ describe("createClaudeProvider", () => {
 
 	it("emits events to subscribers", () => {
 		const deps = makeDeps();
-		const provider = createClaudeProvider(deps);
+		const provider = createClaudeProvider(asDeps(deps));
 		const proc = provider.execute({ prompt: { message: "hello" } });
 		const events: unknown[] = [];
 		proc.onEvent((e) => events.push(e));
@@ -113,7 +118,7 @@ describe("createClaudeProvider", () => {
 
 	it("uses pre-formatted prompt when envelope is message-only", () => {
 		const deps = makeDeps();
-		const provider = createClaudeProvider(deps);
+		const provider = createClaudeProvider(asDeps(deps));
 		provider.execute({ prompt: { message: "pre-built prompt string" } });
 		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
 			expect.any(String),
@@ -124,7 +129,7 @@ describe("createClaudeProvider", () => {
 
 	it("uses formatPrompt when envelope has identity", () => {
 		const deps = makeDeps();
-		const provider = createClaudeProvider(deps);
+		const provider = createClaudeProvider(asDeps(deps));
 		provider.execute({ prompt: { message: "hello", identity: { name: "Bot" } } });
 		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 		expect(written).toContain("You are **Bot**");

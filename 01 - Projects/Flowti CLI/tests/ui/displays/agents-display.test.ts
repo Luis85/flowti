@@ -142,7 +142,7 @@ describe("renderAgentDeleted", () => {
 
 describe("renderAgentState", () => {
 	function makeState(overrides: Partial<AgentState> = {}): AgentState {
-		return { name: "Bob", status: "idle", tasks: [], briefs: [], ...overrides };
+		return { name: "Bob", status: "idle", tasks: [], briefs: [], grants: [], pendingPermissions: [], ...overrides };
 	}
 
 	it("shows status", () => {

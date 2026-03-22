@@ -6,7 +6,7 @@ vi.mock("../../src/infrastructure/paths.js", () => ({ paths: {} }));
 vi.mock("../../src/infrastructure/clock.js", () => ({ clock: {} }));
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 
-import { createProcessRunner } from "../../src/infrastructure/agent-process-runner.js";
+import { createProcessRunner, type ProcessRunnerDeps } from "../../src/infrastructure/agent-process-runner.js";
 import type { AgentSummary } from "../../src/domain/agents/agent-types.js";
 
 function makeDeps() {
@@ -20,14 +20,18 @@ function makeDeps() {
 		waitForOutput: vi.fn(),
 	};
 	return {
-		disk: { writeFileSync: vi.fn(), unlinkSync: vi.fn(), existsSync: vi.fn(() => true), mkdirSync: vi.fn() } as never,
-		paths: { join: vi.fn((...a: string[]) => a.join("/")), resolve: vi.fn((...a: string[]) => a.join("/")) } as never,
-		clock: { ms: vi.fn(() => 1234), iso: vi.fn(() => "2026-03-15T12:00:00Z") } as never,
-		shell: { spawnBackground: vi.fn(() => mockProc) } as never,
+		disk: { writeFileSync: vi.fn(), unlinkSync: vi.fn(), existsSync: vi.fn(() => true), mkdirSync: vi.fn() },
+		paths: { join: vi.fn((...a: string[]) => a.join("/")), resolve: vi.fn((...a: string[]) => a.join("/")) },
+		clock: { ms: vi.fn(() => 1234), iso: vi.fn(() => "2026-03-15T12:00:00Z") },
+		shell: { spawnBackground: vi.fn(() => mockProc) },
 		log: vi.fn(),
 		_mockProc: mockProc,
 		_outputCallbacks: outputCallbacks,
 	};
+}
+
+function asDeps(deps: ReturnType<typeof makeDeps>): ProcessRunnerDeps {
+	return deps as unknown as ProcessRunnerDeps;
 }
 
 function makeAgent(overrides?: Partial<AgentSummary>): AgentSummary {
@@ -37,7 +41,7 @@ function makeAgent(overrides?: Partial<AgentSummary>): AgentSummary {
 describe("createProcessRunner", () => {
 	it("spawn creates a process and returns AgentProcess", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		expect(proc).toHaveProperty("onEvent");
 		expect(proc).toHaveProperty("result");
@@ -46,7 +50,7 @@ describe("createProcessRunner", () => {
 
 	it("writes prompt to temp file", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		runner.spawn(makeAgent(), "Hello world");
 		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
 			expect.stringContaining(".flowti-prompt-"),
@@ -57,7 +61,7 @@ describe("createProcessRunner", () => {
 
 	it("spawns claude binary by default", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		runner.spawn(makeAgent(), "Hello");
 		expect(deps.shell.spawnBackground).toHaveBeenCalledWith(
 			expect.stringContaining("claude"),
@@ -67,7 +71,7 @@ describe("createProcessRunner", () => {
 
 	it("result resolves with text and exit code", async () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		// Simulate text output via CLI format
 		for (const cb of deps._outputCallbacks) {
@@ -80,7 +84,7 @@ describe("createProcessRunner", () => {
 
 	it("collects thinking text from stream events", async () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		for (const cb of deps._outputCallbacks) {
 			cb(JSON.stringify({ type: "assistant", message: { content: [{ type: "thinking", thinking: "Let me think..." }] } }));
@@ -93,7 +97,7 @@ describe("createProcessRunner", () => {
 
 	it("kill stops the process", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		proc.kill();
 		expect(deps._mockProc.kill).toHaveBeenCalled();
@@ -101,7 +105,7 @@ describe("createProcessRunner", () => {
 
 	it("cleans up temp file after kill", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		proc.kill();
 		expect(deps.disk.unlinkSync).toHaveBeenCalledWith(
@@ -111,7 +115,7 @@ describe("createProcessRunner", () => {
 
 	it("cleans up temp file after result resolves", async () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		await proc.result;
 		expect(deps.disk.unlinkSync).toHaveBeenCalledWith(
@@ -121,7 +125,7 @@ describe("createProcessRunner", () => {
 
 	it("onEvent notifies subscribers of stream events", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		const events: unknown[] = [];
 		proc.onEvent((e) => events.push(e));
@@ -134,7 +138,7 @@ describe("createProcessRunner", () => {
 
 	it("unsubscribe stops notifications", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		const events: unknown[] = [];
 		const unsub = proc.onEvent((e) => events.push(e));
@@ -147,7 +151,7 @@ describe("createProcessRunner", () => {
 
 	it("includes allowedTools in spawn command", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const agent = makeAgent({ ai: { allowedTools: ["Read", "Write"] } });
 		runner.spawn(agent, "Hello");
 		const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
@@ -157,7 +161,7 @@ describe("createProcessRunner", () => {
 
 	it("uses configured provider binary", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, { provider: "cursor" });
+		const runner = createProcessRunner(asDeps(deps), { provider: "cursor" });
 		runner.spawn(makeAgent(), "Hello");
 		const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
 		expect(cmd).toContain("cursor");
@@ -165,7 +169,7 @@ describe("createProcessRunner", () => {
 
 	it("agent-level provider overrides global provider", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, { provider: "anthropic" });
+		const runner = createProcessRunner(asDeps(deps), { provider: "anthropic" });
 		const agent = makeAgent({ ai: { provider: "cursor" } });
 		runner.spawn(agent, "Hello");
 		const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
@@ -175,7 +179,7 @@ describe("createProcessRunner", () => {
 	it("returns exitCode 1 when process rejects", async () => {
 		const deps = makeDeps();
 		deps._mockProc.waitForExit.mockReturnValue(Promise.reject(new Error("timeout")));
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		const result = await proc.result;
 		expect(result.exitCode).toBe(1);
@@ -186,7 +190,7 @@ describe("createProcessRunner", () => {
 		const deps = makeDeps();
 		let counter = 0;
 		(deps.clock.ms as ReturnType<typeof vi.fn>).mockImplementation(() => ++counter);
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		runner.spawn(makeAgent(), "Hello");
 		runner.spawn(makeAgent(), "World");
 		const calls = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls;
@@ -195,7 +199,7 @@ describe("createProcessRunner", () => {
 
 	it("ignores invalid JSON lines without crashing", () => {
 		const deps = makeDeps();
-		const runner = createProcessRunner(deps, undefined);
+		const runner = createProcessRunner(asDeps(deps), undefined);
 		const proc = runner.spawn(makeAgent(), "Hello");
 		const events: unknown[] = [];
 		proc.onEvent((e) => events.push(e));
@@ -224,7 +228,7 @@ describe("createProcessRunner", () => {
 			list: vi.fn(() => []),
 			select: vi.fn(() => ({ provider: mockProvider, reason: "configured" as const })),
 		};
-		const runner = createProcessRunner(deps, undefined, mockRegistry);
+		const runner = createProcessRunner(asDeps(deps), undefined, mockRegistry);
 		runner.spawn(makeAgent(), "Hello");
 		expect(mockRegistry.select).toHaveBeenCalledWith(
 			expect.objectContaining({ taskType: "conversation", required: { streaming: true } }),

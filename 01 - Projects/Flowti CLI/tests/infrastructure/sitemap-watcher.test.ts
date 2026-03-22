@@ -143,7 +143,7 @@ describe("SitemapWatcher", () => {
 		it("returns errors when validation fails", () => {
 			const newContent = JSON.stringify({ version: 99 });
 			const fs = stubFs({ "/sitemap.json": newContent });
-			vi.mocked(validateSitemap).mockReturnValue({ ok: false, errors: ["bad version"] });
+			vi.mocked(validateSitemap).mockReturnValue({ ok: false, errors: ["bad version"], warnings: [] });
 
 			const watcher = new SitemapWatcher("/sitemap.json", fs, hash);
 			const result = watcher.reload();
@@ -154,7 +154,7 @@ describe("SitemapWatcher", () => {
 			const newSitemap = { version: 2, pages: { home: { kind: "page", label: "Home", description: "", actions: [] } } };
 			const newContent = JSON.stringify(newSitemap);
 			const fs = stubFs({ "/sitemap.json": newContent });
-			vi.mocked(validateSitemap).mockReturnValue({ ok: true, sitemap: newSitemap as any, errors: [] });
+			vi.mocked(validateSitemap).mockReturnValue({ ok: true, sitemap: newSitemap as never, errors: [], warnings: [] });
 
 			const watcher = new SitemapWatcher("/sitemap.json", fs, hash);
 			const result = watcher.reload();
@@ -166,7 +166,7 @@ describe("SitemapWatcher", () => {
 		it("updates hash after successful reload", () => {
 			const newContent = JSON.stringify({ version: 2, pages: { x: { kind: "page", label: "X", description: "", actions: [] } } });
 			const fs = stubFs({ "/sitemap.json": newContent });
-			vi.mocked(validateSitemap).mockReturnValue({ ok: true, sitemap: {} as any, errors: [] });
+			vi.mocked(validateSitemap).mockReturnValue({ ok: true, sitemap: {} as never, errors: [], warnings: [] });
 
 			const watcher = new SitemapWatcher("/sitemap.json", fs, hash);
 			watcher.reload();

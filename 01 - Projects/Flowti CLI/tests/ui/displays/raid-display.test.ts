@@ -24,8 +24,8 @@ describe("renderRAIDList", () => {
 
 	it("renders item count in header", () => {
 		const items: RAIDSummary[] = [
-			{ name: "Server outage", itemType: "risk", severity: "critical", status: "open", owner: "Alice", dueDate: "2026-04-01" },
-			{ name: "Vendor delay", itemType: "issue", severity: "high", status: "resolved", owner: "Bob", dueDate: "" },
+			{ name: "Server outage", itemType: "risk", severity: "critical", status: "open", owner: "Alice", dueDate: "2026-04-01", file: "" },
+			{ name: "Vendor delay", itemType: "issue", severity: "high", status: "resolved", owner: "Bob", dueDate: "", file: "" },
 		];
 		renderRAIDList(items, log);
 		expect(output()).toContain("RAID Log (2)");
@@ -33,7 +33,7 @@ describe("renderRAIDList", () => {
 
 	it("renders item details", () => {
 		const items: RAIDSummary[] = [
-			{ name: "Server outage", itemType: "risk", severity: "critical", status: "open", owner: "Alice", dueDate: "2026-04-01" },
+			{ name: "Server outage", itemType: "risk", severity: "critical", status: "open", owner: "Alice", dueDate: "2026-04-01", file: "" },
 		];
 		renderRAIDList(items, log);
 		const out = output();
@@ -46,7 +46,7 @@ describe("renderRAIDList", () => {
 
 	it("marks closed/resolved statuses with green tag", () => {
 		const items: RAIDSummary[] = [
-			{ name: "Fixed bug", itemType: "issue", severity: "low", status: "closed", owner: "", dueDate: "" },
+			{ name: "Fixed bug", itemType: "issue", severity: "low", status: "closed", owner: "", dueDate: "", file: "" },
 		];
 		renderRAIDList(items, log);
 		expect(output()).toContain("[closed]");
@@ -54,7 +54,7 @@ describe("renderRAIDList", () => {
 
 	it("omits owner and due tags when absent", () => {
 		const items: RAIDSummary[] = [
-			{ name: "Minor risk", itemType: "risk", severity: "low", status: "open", owner: "", dueDate: "" },
+			{ name: "Minor risk", itemType: "risk", severity: "low", status: "open", owner: "", dueDate: "", file: "" },
 		];
 		renderRAIDList(items, log);
 		const out = output();

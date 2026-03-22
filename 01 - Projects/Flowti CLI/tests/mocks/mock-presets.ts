@@ -24,21 +24,23 @@
  *   - createMockProc()  from ./mock-proc.ts
  */
 
-import { vi } from "vitest";
+import { vi, type Mock } from "vitest";
 
 // ── Filesystem ──────────────────────────────────────────────────────
 
+type MockFn = Mock<(...args: unknown[]) => unknown>;
+
 export interface DiskPreset {
 	disk: {
-		existsSync: ReturnType<typeof vi.fn>;
-		readFileSync: ReturnType<typeof vi.fn>;
-		writeFileSync: ReturnType<typeof vi.fn>;
-		mkdirSync: ReturnType<typeof vi.fn>;
-		readdirSync: ReturnType<typeof vi.fn>;
-		copyFileSync: ReturnType<typeof vi.fn>;
-		rmSync: ReturnType<typeof vi.fn>;
-		unlinkSync: ReturnType<typeof vi.fn>;
-		statSync: ReturnType<typeof vi.fn>;
+		existsSync: MockFn;
+		readFileSync: MockFn;
+		writeFileSync: MockFn;
+		mkdirSync: MockFn;
+		readdirSync: MockFn;
+		copyFileSync: MockFn;
+		rmSync: MockFn;
+		unlinkSync: MockFn;
+		statSync: MockFn;
 	};
 }
 
@@ -68,16 +70,16 @@ export function mockDiskEmpty(): { disk: Record<string, never> } {
 
 export interface ShellPreset {
 	shell: {
-		run: ReturnType<typeof vi.fn>;
-		runSilent: ReturnType<typeof vi.fn>;
-		check: ReturnType<typeof vi.fn>;
-		runCapture: ReturnType<typeof vi.fn>;
-		execFile: ReturnType<typeof vi.fn>;
-		runCaptureStatus: ReturnType<typeof vi.fn>;
-		runCaptureDetailed: ReturnType<typeof vi.fn>;
-		spawnBackground: ReturnType<typeof vi.fn>;
-		runAsync: ReturnType<typeof vi.fn>;
-		runParallel: ReturnType<typeof vi.fn>;
+		run: MockFn;
+		runSilent: MockFn;
+		check: MockFn;
+		runCapture: MockFn;
+		execFile: MockFn;
+		runCaptureStatus: MockFn;
+		runCaptureDetailed: MockFn;
+		spawnBackground: MockFn;
+		runAsync: MockFn;
+		runParallel: MockFn;
 	};
 }
 
@@ -91,7 +93,7 @@ export function mockShellPreset(overrides: Partial<ShellPreset["shell"]> = {}): 
 			execFile: vi.fn(() => null),
 			runCaptureStatus: vi.fn(() => ({ output: "", exitCode: 0 })),
 			runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })),
-			spawnBackground: vi.fn(() => ({ running: false, output: [], onOutput: () => () => {}, kill: () => {}, waitForOutput: () => Promise.resolve(null) })),
+			spawnBackground: vi.fn(() => ({ running: false, output: [], onOutput: () => () => {}, kill: () => {}, waitForOutput: () => Promise.resolve(null), waitForExit: () => Promise.resolve(0) })),
 			runAsync: vi.fn(async () => ({ output: "", exitCode: 0 })),
 			runParallel: vi.fn(async () => []),
 			...overrides,
