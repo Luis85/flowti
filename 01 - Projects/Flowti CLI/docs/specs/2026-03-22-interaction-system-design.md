@@ -123,6 +123,8 @@ type InteractionPrerequisite =
   | { type: "has-item"; itemId: string }
   | { type: "trust-tier"; minTier: "supervised" | "trusted" | "autonomous" };
 
+// Implementation note: import DayPhase from the existing day clock types
+// rather than redefining — listed here for spec clarity
 type DayPhase =
   | "morning-arrival" | "productive-morning" | "lunch"
   | "afternoon" | "afternoon-slump" | "wind-down" | "evening-departure";
@@ -185,7 +187,7 @@ interface InteractionAction {
   entityId: string;
   entityType: InteractionEntityType;
   actionType: string;              // maps to visual handler (e.g. "bubble", "particle", "movement")
-  params: Record<string, unknown>; // renderer-specific payload
+  params: Record<string, unknown>; // intentionally loose — bridges to diverse Plugin visual handlers
   timestamp: number;
 }
 ```
@@ -327,7 +329,7 @@ interface RoomInteractionRule {
 type EnvironmentCondition =
   | { type: "occupancy"; op: ">" | "<" | "=="; value: number }
   | { type: "collective-mood"; mood: string; threshold: number }
-  | { type: "phase"; phases: string[] }
+  | { type: "phase"; phases: DayPhase[] }
   | { type: "event-recent"; eventType: string; withinMs: number }
   | { type: "weather"; weather: string };
 ```
@@ -426,7 +428,7 @@ Wires CLI domain logic into the Excalibur game loop.
 
 | File | Responsibility |
 |------|----------------|
-| `interaction-system.ts` | Owns `InteractionBus` instance. Calls `bus.tick()` each frame. Routes `CollectedAction[]` to EventBus. |
+| `interaction-system.ts` | Owns `InteractionBus` instance. Calls `bus.tick()` each frame. Routes `InteractionAction[]` to EventBus. |
 | `agent-intent-resolver.ts` | Reads BT context + world state, produces agent interactions. Plugs into `[InteractionIntent]` subtree. |
 | `pet-intent-resolver.ts` | Reads pet BT context, produces pet interactions. |
 | `npc-intent-resolver.ts` | Evaluates NPC rule tables against world state. |
@@ -436,7 +438,7 @@ Wires CLI domain logic into the Excalibur game loop.
 
 ### Tick Integration
 
-Slots into the existing 12-phase engine loop (from `engine-simulation.ts`). The interaction bus tick goes between `tickBrain` (phase 9, where BT produces intents) and `tickSocial` (phase 10):
+Slots into the existing engine loop (from `engine-simulation.ts`), expanding it from 12 to 13 phases. The interaction bus tick goes between `tickBrain` (phase 9, where BT produces intents) and `tickSocial` (phase 11):
 
 ```
  1. tickClock
