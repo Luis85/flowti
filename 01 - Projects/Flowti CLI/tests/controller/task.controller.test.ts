@@ -166,9 +166,12 @@ describe("task.controller", () => {
 		initializeDeps({
 			disk, paths, clock, proc,
 			shell: { run: vi.fn(), runSilent: vi.fn(), check: vi.fn(() => false) } as never,
-			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			input: { ask: vi.fn() as never, askAbortable: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
+			worldState: { load: vi.fn(), save: vi.fn(), update: vi.fn() } as never,
+			workerManager: { start: vi.fn(), stop: vi.fn(), getWorker: vi.fn() } as never,
+			processRunner: { spawn: vi.fn(), kill: vi.fn() } as never,
 		});
 	});
 
