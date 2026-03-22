@@ -13,6 +13,7 @@ import type { BrainParams } from "../brain/brain-types.js";
 
 const DEFAULT_DURATION = 5000;
 const MIN_BUBBLE_GAP = 1500;
+const MAX_CONCURRENT_BUBBLES = 3;
 const BUBBLE_Y_OFFSET = -10;
 const AGENT_SCALE = 2;
 
@@ -68,6 +69,10 @@ export class BubbleSystem {
 		// Throttle: enforce gap between bubbles to prevent burst spam
 		const now = performance.now();
 		if (!priority && entry.lastBubbleTime && now - entry.lastBubbleTime < MIN_BUBBLE_GAP) return;
+
+		// Global cap: limit total visible bubbles to reduce clutter
+		if (!priority && this.countActiveBubbles() >= MAX_CONCURRENT_BUBBLES) return;
+
 		entry.lastBubbleTime = now;
 
 		const actor = getActor(agentName);
@@ -106,6 +111,16 @@ export class BubbleSystem {
 		for (const [name] of this.entries) {
 			this.cleanupDead(name);
 		}
+	}
+
+	private countActiveBubbles(): number {
+		let count = 0;
+		for (const entry of this.entries.values()) {
+			for (const b of entry.bubbles) {
+				if (!b.isKilled()) count++;
+			}
+		}
+		return count;
 	}
 
 	private cleanupDead(agentName: string): void {

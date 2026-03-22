@@ -518,18 +518,21 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			const snippet = detail.length > maxDetail ? `${detail.slice(0, maxDetail)}…` : detail;
 			const text = snippet ? `${summary} (${snippet})` : summary;
 			sys.bubble.showBubble(action.agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 6500);
-		} else if (action.type === "seek-rest") {
-			sys.bubble.showBubble(action.agentName, "thought", "Need a break...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
-		} else if (action.type === "seek-merchant") {
-			sys.bubble.showBubble(action.agentName, "thought", "Off to the shop...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
-		} else if (action.type === "seek-food") {
-			sys.bubble.showBubble(action.agentName, "thought", "Getting hungry...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
-		} else if (action.type === "seek-drink") {
-			sys.bubble.showBubble(action.agentName, "thought", "Need something to drink...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
-		} else if (action.type === "seek-agent") {
-			sys.bubble.showBubble(action.agentName, "thought", "Looking for company...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
-		} else if (action.type === "seek-quiet") {
-			sys.bubble.showBubble(action.agentName, "thought", "Need some quiet...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-rest" || action.type === "seek-merchant"
+			|| action.type === "seek-food" || action.type === "seek-drink"
+			|| action.type === "seek-agent" || action.type === "seek-quiet") {
+			// Show seek thoughts sparingly — these fire every BT tick while needs are low
+			if (Math.random() < 0.3) {
+				const SEEK_PHRASES: Record<string, string> = {
+					"seek-rest": "Need a break...",
+					"seek-merchant": "Off to the shop...",
+					"seek-food": "Getting hungry...",
+					"seek-drink": "Need something to drink...",
+					"seek-agent": "Looking for company...",
+					"seek-quiet": "Need some quiet...",
+				};
+				sys.bubble.showBubble(action.agentName, "thought", SEEK_PHRASES[action.type] ?? "", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+			}
 		}
 
 		// Forward CLI-relevant BT actions for AI agents
