@@ -65,8 +65,8 @@ const mockLog = vi.mocked(log);
 function setupShell(opts?: Parameters<typeof createMockShell>[0]) {
 	const sh = createMockShell(opts);
 	const deps = createTestDeps();
-	(deps as Record<string, unknown>).shell = sh;
-	(deps as Record<string, unknown>).log = log;
+	(deps as unknown as Record<string, unknown>).shell = sh;
+	(deps as unknown as Record<string, unknown>).log = log;
 	initializeDeps(deps);
 	return sh;
 }

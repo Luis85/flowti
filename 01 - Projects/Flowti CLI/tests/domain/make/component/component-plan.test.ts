@@ -77,7 +77,7 @@ describe("buildComponentPlan", () => {
 			files: [{ path: "{{pascal}}/{{kebab}}.ts", templateId: "doc" }],
 		});
 		const registry = makeRegistry({ doc: () => "" });
-		const plan = buildComponentPlan(makeVars(), def, registry);
+		const plan = buildComponentPlan(makeVars(), def, registry, mockDeps);
 		expect(plan[0].path).toBe("UserProfile/user-profile.ts");
 	});
 });

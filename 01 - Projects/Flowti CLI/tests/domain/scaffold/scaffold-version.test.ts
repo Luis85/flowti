@@ -8,8 +8,8 @@ import {
 	markConflict,
 	resolveUpdates,
 	type ScaffoldManifest,
-	type FileEntry,
 } from "../../../src/domain/scaffold/scaffold-version.js";
+import type { FileEntry } from "../../../src/domain/scaffold/scaffold-types.js";
 
 const testClock = { clock: { iso: () => "2026-03-09", now: () => new Date(), ms: () => 0, safeIso: () => "2026-03-09" } };
 

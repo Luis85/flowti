@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import {
 	loadConversation, saveConversation, createThread, appendTurn, getActiveHistory,
-	type ConversationFile, type ConversationTurn,
+	type ConversationFile, type ConversationTurn, type ConversationStoreDeps,
 } from "../../../src/domain/agents/agent-conversation-store.js";
 
-function makeDeps(files: Record<string, string> = {}) {
+function makeDeps(files: Record<string, string> = {}): ConversationStoreDeps {
 	const store: Record<string, string> = { ...files };
 	return {
 		disk: {
@@ -28,7 +28,7 @@ function makeDeps(files: Record<string, string> = {}) {
 			isAbsolute: () => true,
 			sep: "/",
 		},
-	};
+	} as unknown as ConversationStoreDeps;
 }
 
 function makeTurn(role: "user" | "agent", content: string, ts = "2026-01-01T00:00:00.000Z"): ConversationTurn {

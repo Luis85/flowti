@@ -13,6 +13,9 @@ function mockDeps(files: Record<string, string> = {}): StoreDeps {
 			resolve: (...parts: string[]) => parts.join("/"),
 			basename: (p: string) => p.split("/").pop() ?? "",
 			relative: (from: string, to: string) => to,
+			extname: (p: string) => { const m = p.match(/\.[^.]+$/); return m ? m[0] : ""; },
+			isAbsolute: (p: string) => p.startsWith("/"),
+			sep: "/" as const,
 		},
 	};
 }

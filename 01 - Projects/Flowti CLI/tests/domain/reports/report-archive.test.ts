@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { createMockFs } from "../../mocks/mock-fs.js";
 import { discoverArchiveCategories } from "../../../src/domain/reports/export/report-archive.js";
+import type { IPaths } from "../../../src/infrastructure/types.js";
 import path from "node:path";
 
 function makeDeps(files: Record<string, string> = {}) {
 	return {
 		disk: createMockFs(files),
-		paths: { ...path, sep: "/" } as typeof import("../../../src/infrastructure/types.js").IPaths extends never ? never : { join: (...args: string[]) => string; resolve: (...args: string[]) => string; dirname: (p: string) => string; basename: (p: string, ext?: string) => string; relative: (from: string, to: string) => string; extname: (p: string) => string; isAbsolute: (p: string) => boolean; sep: string },
+		paths: { ...path, sep: "/" } as unknown as IPaths,
 	};
 }
 

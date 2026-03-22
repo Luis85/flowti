@@ -11,6 +11,7 @@ function makeDeps(answers: string[] = [], yesNoAnswers: boolean[] = []): FormRun
 	return {
 		input: {
 			ask: vi.fn(async () => answers[askIdx++] ?? ""),
+			askAbortable: vi.fn((q: string) => ({ promise: Promise.resolve(q), abort: () => {} })),
 			askYesNo: vi.fn(async () => yesNoAnswers[ynIdx++] ?? false),
 			waitForEnter: vi.fn(async () => {}),
 		},

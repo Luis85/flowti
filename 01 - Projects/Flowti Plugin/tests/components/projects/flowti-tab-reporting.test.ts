@@ -18,7 +18,7 @@ describe("flowti-tab-reporting", () => {
 		expect(customElements.get("flowti-tab-reporting")).toBeDefined();
 	});
 
-	it("renders pipeline nodes from generators", async () => {
+	it("renders generator labels from generators", async () => {
 		el.generators = [
 			{ id: "test", label: "Test Report" },
 			{ id: "coverage", label: "Coverage Report" },
@@ -30,55 +30,59 @@ describe("flowti-tab-reporting", () => {
 		expect(el.shadowRoot!.textContent).toContain("Status Report");
 	});
 
-	it("shows empty state when no generators", async () => {
+	it("shows no generator rows when generators empty", async () => {
 		el.generators = [];
 		await el.updateComplete;
-		expect(el.shadowRoot!.textContent).toContain("No report generators configured");
+		const gens = el.shadowRoot!.querySelectorAll(".gen");
+		expect(gens.length).toBe(0);
 	});
 
-	it("renders Run All button", async () => {
+	it("renders Run all button", async () => {
 		el.generators = [{ id: "test", label: "Test" }];
 		await el.updateComplete;
-		const btn = el.shadowRoot!.querySelector(".run-all-btn");
-		expect(btn).not.toBeNull();
+		const btns = Array.from(el.shadowRoot!.querySelectorAll("button"));
+		const runAll = btns.find((b) => b.textContent?.trim() === "Run all");
+		expect(runAll).toBeDefined();
 	});
 
-	it("dispatches report-run-all on Run All click", async () => {
+	it("dispatches report-run-all on Run all click", async () => {
 		el.generators = [{ id: "test", label: "Test" }];
 		await el.updateComplete;
 		let fired = false;
 		el.addEventListener("report-run-all", () => { fired = true; });
-		const btn = el.shadowRoot!.querySelector(".run-all-btn") as HTMLElement;
-		btn?.click();
+		const btns = Array.from(el.shadowRoot!.querySelectorAll("button"));
+		const runAll = btns.find((b) => b.textContent?.trim() === "Run all") as HTMLElement;
+		runAll?.click();
 		expect(fired).toBe(true);
 	});
 
-	it("dispatches report-run on individual node Run click", async () => {
+	it("dispatches report-run on individual generator button click", async () => {
 		el.generators = [{ id: "test", label: "Test" }];
 		await el.updateComplete;
 		let detail: unknown = null;
 		el.addEventListener("report-run", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const btn = el.shadowRoot!.querySelector(".node-run-btn") as HTMLElement;
-		btn?.click();
+		const genBtn = el.shadowRoot!.querySelector(".gen button") as HTMLElement;
+		genBtn?.click();
 		expect(detail).toEqual({ generatorId: "test" });
 	});
 
-	it("shows node status badges", async () => {
+	it("shows node state text", async () => {
 		el.generators = [{ id: "test", label: "Test" }];
 		el.nodeStates = { test: "passed" };
 		await el.updateComplete;
-		const badge = el.shadowRoot!.querySelector(".node-badge--passed");
-		expect(badge).not.toBeNull();
+		const state = el.shadowRoot!.querySelector(".state");
+		expect(state).not.toBeNull();
+		expect(state!.textContent).toContain("passed");
 	});
 
-	it("arranges nodes in topological layers", async () => {
+	it("renders one gen row per generator", async () => {
 		el.generators = [
 			{ id: "a", label: "A" },
 			{ id: "b", label: "B" },
 			{ id: "c", label: "C", dependencies: ["a", "b"] },
 		];
 		await el.updateComplete;
-		const layers = el.shadowRoot!.querySelectorAll(".dag-layer");
-		expect(layers.length).toBe(2);
+		const gens = el.shadowRoot!.querySelectorAll(".gen");
+		expect(gens.length).toBe(3);
 	});
 });

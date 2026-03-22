@@ -211,9 +211,9 @@ describe("sitemapToComponents", () => {
 		const components = sitemapToComponents(sitemap);
 		const mgmt = components.find((c) => c.id === "management")!;
 
-		expect(mgmt.children).toHaveLength(2);
-		expect(mgmt.children[0]).toEqual({ name: "resources", slot: "navigation", optional: false });
-		expect(mgmt.children[1]).toEqual({ name: "timelog", slot: "navigation", optional: false });
+		expect(mgmt.children!).toHaveLength(2);
+		expect(mgmt.children![0]).toEqual({ name: "resources", slot: "navigation", optional: false });
+		expect(mgmt.children![1]).toEqual({ name: "timelog", slot: "navigation", optional: false });
 	});
 
 	it("does not override navigate-derived children with parent-derived ones", () => {
@@ -234,7 +234,7 @@ describe("sitemapToComponents", () => {
 		const hub = components.find((c) => c.id === "hub")!;
 
 		// hub already has navigate-derived children, so parent-derived ones are NOT added
-		expect(hub.children).toHaveLength(1);
-		expect(hub.children[0].name).toBe("child-a");
+		expect(hub.children!).toHaveLength(1);
+		expect(hub.children![0].name).toBe("child-a");
 	});
 });

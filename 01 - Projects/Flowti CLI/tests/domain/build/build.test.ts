@@ -18,7 +18,7 @@ import type { ProjectContext } from "../../../src/infrastructure/types.js";
 function setupShell(opts?: Parameters<typeof createMockShell>[0]) {
 	const sh = createMockShell(opts);
 	const deps = createTestDeps();
-	(deps as Record<string, unknown>).shell = sh;
+	(deps as unknown as Record<string, unknown>).shell = sh;
 	initializeDeps(deps);
 	return sh;
 }

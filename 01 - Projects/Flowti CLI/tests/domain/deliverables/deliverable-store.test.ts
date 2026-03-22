@@ -74,9 +74,9 @@ describe("deliverableStore.list", () => {
 
 	it("parses deliverables from directory", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["mvp.md"]);
+		mockDisk.readdirSync.mockReturnValue(["mvp.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: MVP Release\nstatus: in-progress\ndueDate: 2026-04-01\nassignee: Jane\ncompletionPct: 65\n---\nDescription",
+			"---\nname: MVP Release\nstatus: in-progress\ndueDate: 2026-04-01\nassignee: Jane\ncompletionPct: 65\n---\nDescription" as never,
 		);
 
 		const result = deliverableStore.list(deps, "/project");
@@ -133,7 +133,7 @@ describe("updateDeliverableStatus", () => {
 
 	it("updates only status when completionPct not provided", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: planned\ncompletionPct: 50\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue("---\nstatus: planned\ncompletionPct: 50\n---\nBody" as never);
 
 		updateDeliverableStatus(deps, "/project", "MVP", "in-progress");
 

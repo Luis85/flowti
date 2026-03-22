@@ -241,14 +241,14 @@ describe("agentToJson", () => {
 			behaviors: ["patrol", "guard"],
 			components: [{ name: "movement", type: "behavior" }],
 			goals: [{ name: "complete-review", priority: 2 }],
-			ai: { model: "claude-sonnet-4-20250514", provider: "anthropic" },
+			ai: { provider: "anthropic" },
 			relationships: [{ target: "Human Lead", type: "reports-to" }],
 		});
 		expect(json.domain).toBe("development");
 		expect(json.behaviors).toEqual(["patrol", "guard"]);
 		expect(json.components).toEqual([{ name: "movement", type: "behavior" }]);
 		expect(json.goals).toEqual([{ name: "complete-review", priority: 2 }]);
-		expect(json.ai).toEqual({ model: "claude-sonnet-4-20250514", provider: "anthropic" });
+		expect(json.ai).toEqual({ provider: "anthropic" });
 		expect(json.relationships).toEqual([{ target: "Human Lead", type: "reports-to" }]);
 	});
 });
@@ -258,7 +258,7 @@ describe("companion JSON definition", () => {
 		const jsonDef = JSON.stringify({
 			components: [{ name: "tool-caller", type: "actuator" }],
 			goals: [{ name: "assist-user", priority: 1 }],
-			ai: { model: "gpt-4o", provider: "openai" },
+			ai: { provider: "openai" },
 			relationships: [{ target: "Supervisor", type: "reports-to" }],
 		});
 		const deps = makeDeps({
@@ -271,7 +271,7 @@ describe("companion JSON definition", () => {
 		expect(agent).toBeDefined();
 		expect(agent!.components).toEqual([{ name: "tool-caller", type: "actuator" }]);
 		expect(agent!.goals).toEqual([{ name: "assist-user", priority: 1 }]);
-		expect(agent!.ai).toEqual({ model: "gpt-4o", provider: "openai" });
+		expect(agent!.ai).toEqual({ provider: "openai" });
 		expect(agent!.relationships).toEqual([{ target: "Supervisor", type: "reports-to" }]);
 	});
 
@@ -281,7 +281,7 @@ describe("companion JSON definition", () => {
 			name: "SmartBot", agentType: "ai", description: "",
 			skills: [], tools: [], roles: [],
 			components: [{ name: "perception", type: "sensor" }],
-			ai: { model: "claude-sonnet-4-20250514", provider: "anthropic" },
+			ai: { provider: "anthropic" },
 		};
 		createAgent(deps, "/proj", def);
 		// Should have written both .md and .json
@@ -290,7 +290,7 @@ describe("companion JSON definition", () => {
 		expect(jsonCall).toBeDefined();
 		const parsed = JSON.parse(jsonCall![1] as string);
 		expect(parsed.components).toEqual([{ name: "perception", type: "sensor" }]);
-		expect(parsed.ai).toEqual({ model: "claude-sonnet-4-20250514", provider: "anthropic" });
+		expect(parsed.ai).toEqual({ provider: "anthropic" });
 	});
 
 	it("creates agent with domain and behaviors in frontmatter", () => {
@@ -415,11 +415,10 @@ describe("removeArrayItem", () => {
 describe("updateAgentJson", () => {
 	it("creates companion JSON when none exists", () => {
 		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
-		const ok = updateAgentJson(deps, "/proj", "CodeBot", { ai: { model: "claude-sonnet-4-20250514", provider: "anthropic" } });
+		const ok = updateAgentJson(deps, "/proj", "CodeBot", { ai: { provider: "anthropic" } });
 		expect(ok).toBe(true);
 		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 		const parsed = JSON.parse(written);
-		expect(parsed.ai.model).toBe("claude-sonnet-4-20250514");
 		expect(parsed.ai.provider).toBe("anthropic");
 	});
 
@@ -429,11 +428,11 @@ describe("updateAgentJson", () => {
 			"/proj/docs/agents/code-bot.md": AGENT_MD,
 			"/proj/docs/agents/code-bot.json": existingJson,
 		});
-		updateAgentJson(deps, "/proj", "CodeBot", { ai: { model: "gpt-4o" } });
+		updateAgentJson(deps, "/proj", "CodeBot", { ai: { provider: "gpt-4o" } });
 		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 		const parsed = JSON.parse(written);
 		expect(parsed.components).toEqual([{ name: "tool-caller" }]);
-		expect(parsed.ai).toEqual({ model: "gpt-4o" });
+		expect(parsed.ai).toEqual({ provider: "gpt-4o" });
 	});
 });
 

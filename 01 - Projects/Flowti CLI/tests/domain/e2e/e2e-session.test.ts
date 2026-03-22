@@ -81,16 +81,16 @@ describe("loadJourneyEntries", () => {
 	});
 
 	it("returns empty array when no journey files", () => {
-		vi.mocked(disk.readdirSync).mockReturnValue([] as unknown as ReturnType<typeof disk.readdirSync>);
+		vi.mocked(disk.readdirSync).mockReturnValue([] as unknown as ReturnType<typeof disk.readdirSync> as never);
 		const entries = loadJourneyEntries(mockE2e, deps);
 		expect(entries).toEqual([]);
 	});
 
 	it("parses journey files correctly", () => {
-		vi.mocked(disk.readdirSync).mockReturnValue(["login.journey", "setup.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
+		vi.mocked(disk.readdirSync).mockReturnValue(["login.journey", "setup.journey"] as unknown as ReturnType<typeof disk.readdirSync> as never);
 		vi.mocked(disk.readFileSync)
-			.mockReturnValueOnce(JSON.stringify({ journey: "Login Flow", chapter: 1, description: "Test login", steps: [{ id: 1 }, { id: 2 }] }))
-			.mockReturnValueOnce(JSON.stringify({ journey: "Setup", chapter: 2, description: "Test setup", steps: [{ id: 1 }] }));
+			.mockReturnValueOnce(JSON.stringify({ journey: "Login Flow", chapter: 1, description: "Test login", steps: [{ id: 1 }, { id: 2 }] }) as never)
+			.mockReturnValueOnce(JSON.stringify({ journey: "Setup", chapter: 2, description: "Test setup", steps: [{ id: 1 }] }) as never);
 
 		const entries = loadJourneyEntries(mockE2e, deps);
 		expect(entries).toHaveLength(2);
@@ -103,16 +103,16 @@ describe("loadJourneyEntries", () => {
 	});
 
 	it("filters to only .journey files", () => {
-		vi.mocked(disk.readdirSync).mockReturnValue(["test.journey", "readme.md", "config.json"] as unknown as ReturnType<typeof disk.readdirSync>);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ journey: "Test", steps: [] }));
+		vi.mocked(disk.readdirSync).mockReturnValue(["test.journey", "readme.md", "config.json"] as unknown as ReturnType<typeof disk.readdirSync> as never);
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ journey: "Test", steps: [] }) as never);
 
 		const entries = loadJourneyEntries(mockE2e, deps);
 		expect(entries).toHaveLength(1);
 	});
 
 	it("uses slug as name when journey field is missing", () => {
-		vi.mocked(disk.readdirSync).mockReturnValue(["unnamed.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ steps: [] }));
+		vi.mocked(disk.readdirSync).mockReturnValue(["unnamed.journey"] as unknown as ReturnType<typeof disk.readdirSync> as never);
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ steps: [] }) as never);
 
 		const entries = loadJourneyEntries(mockE2e, deps);
 		expect(entries[0].name).toBe("unnamed");

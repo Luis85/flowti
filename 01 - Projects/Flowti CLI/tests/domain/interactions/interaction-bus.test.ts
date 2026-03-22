@@ -95,8 +95,8 @@ describe("tick — locking", () => {
 		bus.submit(interaction);
 		bus.tick(0);
 
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(true);
-		expect(bus.isEntityLocked("agent-2", "agent")).toBe(true);
+		expect(bus.isEntityLocked("agent-1")).toBe(true);
+		expect(bus.isEntityLocked("agent-2")).toBe(true);
 	});
 
 	it("rejects interaction when target is locked", () => {
@@ -134,12 +134,12 @@ describe("tick — locking", () => {
 		bus.submit(interaction);
 		bus.tick(0);
 
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(true);
+		expect(bus.isEntityLocked("agent-1")).toBe(true);
 
 		bus.tick(2000);
 
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(false);
-		expect(bus.isEntityLocked("agent-2", "agent")).toBe(false);
+		expect(bus.isEntityLocked("agent-1")).toBe(false);
+		expect(bus.isEntityLocked("agent-2")).toBe(false);
 	});
 
 	it("watchdog releases lock at MAX_LOCK_DURATION", () => {
@@ -147,11 +147,11 @@ describe("tick — locking", () => {
 		bus.submit(interaction);
 		bus.tick(0);
 
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(true);
+		expect(bus.isEntityLocked("agent-1")).toBe(true);
 
 		bus.tick(MAX_LOCK_DURATION);
 
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(false);
+		expect(bus.isEntityLocked("agent-1")).toBe(false);
 	});
 
 	it("does not lock participants when duration is 0", () => {
@@ -159,8 +159,8 @@ describe("tick — locking", () => {
 		bus.submit(interaction);
 		bus.tick(0);
 
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(false);
-		expect(bus.isEntityLocked("agent-2", "agent")).toBe(false);
+		expect(bus.isEntityLocked("agent-1")).toBe(false);
+		expect(bus.isEntityLocked("agent-2")).toBe(false);
 	});
 
 	it("does not lock participants when duration is undefined", () => {
@@ -168,7 +168,7 @@ describe("tick — locking", () => {
 		bus.submit(interaction);
 		bus.tick(0);
 
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(false);
+		expect(bus.isEntityLocked("agent-1")).toBe(false);
 	});
 });
 
@@ -654,8 +654,8 @@ describe("cooperative locks", () => {
 		const externalLockQuery = vi.fn((entityId: string) => entityId === "agent-2");
 		const bus = createInteractionBus({ externalLockQuery });
 
-		expect(bus.isEntityLocked("agent-2", "agent")).toBe(true);
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(false);
+		expect(bus.isEntityLocked("agent-2")).toBe(true);
+		expect(bus.isEntityLocked("agent-1")).toBe(false);
 	});
 
 	it("isEntityLocked reflects both internal and external locks", () => {
@@ -667,10 +667,10 @@ describe("cooperative locks", () => {
 		bus.tick(0);
 
 		// agent-1 locked internally, agent-3 locked externally
-		expect(bus.isEntityLocked("agent-1", "agent")).toBe(true);
-		expect(bus.isEntityLocked("agent-3", "agent")).toBe(true);
+		expect(bus.isEntityLocked("agent-1")).toBe(true);
+		expect(bus.isEntityLocked("agent-3")).toBe(true);
 		// agent-4 not locked anywhere
-		expect(bus.isEntityLocked("agent-4", "agent")).toBe(false);
+		expect(bus.isEntityLocked("agent-4")).toBe(false);
 	});
 });
 

@@ -7,6 +7,7 @@
  * Run via: npx vitest run --config configs/vitest.vault.config.ts tests/vault-journeys/tier-3-ecosystem.test.ts
  */
 
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadAllJourneys } from "../../src/domain/e2e/journey/journey-loader.js";
@@ -18,8 +19,9 @@ import {
 import { createVaultTestProvider } from "../../src/domain/e2e/journey/providers/vault-test-provider.js";
 import { createDefaultDeps as createInfraDeps } from "../../src/infrastructure/deps.js";
 import { BASE_TOOLS } from "../../src/domain/e2e/journey/journey-tools.js";
-import type { JourneyExecutorOptions } from "../../src/domain/e2e/journey/journey-types.js";
+import type { JourneyExecutorOptions, JourneyStep } from "../../src/domain/e2e/journey/journey-types.js";
 import type { ResolvedEnvironment } from "../../src/domain/e2e/journey/journey-executor.js";
+import { isRefStep } from "../../src/domain/e2e/journey/journey-types.js";
 
 const readFile = (p: string) => readFileSync(p, "utf-8");
 const listFiles = (d: string) =>
@@ -49,8 +51,10 @@ for (const journey of journeys) {
 		});
 
 		for (const step of journey.steps) {
-			it(step.title, async () => {
-				const result = await runStep(step, opts, strippedEnv);
+			if (isRefStep(step)) continue;
+			const concreteStep = step as JourneyStep;
+			it(concreteStep.title, async () => {
+				const result = await runStep(concreteStep, opts, strippedEnv);
 				expect(result.status).toBe("pass");
 			});
 		}

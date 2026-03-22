@@ -112,7 +112,7 @@ describe("publish.controller", () => {
 		});
 
 		it("blocks publish when quality gates fail", () => {
-			vi.mocked(evaluateQualityGates).mockReturnValue({ passed: false, results: [] } as ReturnType<typeof evaluateQualityGates>);
+			vi.mocked(evaluateQualityGates).mockReturnValue({ passed: false, scoreCheck: null, rules: [] } as ReturnType<typeof evaluateQualityGates>);
 			commands["publish"]({}, [], "publish", mockProject);
 			expect(shell.run).not.toHaveBeenCalled();
 		});
@@ -142,7 +142,7 @@ describe("publish.controller", () => {
 	// ── publish:all ───────────────────────────────────────────────
 	describe("publish:all", () => {
 		it("runs build then test commands sequentially", () => {
-			vi.mocked(evaluateQualityGates).mockReturnValue({ passed: true, results: [] } as ReturnType<typeof evaluateQualityGates>);
+			vi.mocked(evaluateQualityGates).mockReturnValue({ passed: true, scoreCheck: null, rules: [] } as ReturnType<typeof evaluateQualityGates>);
 			commands["publish:all"]({}, [], "publish:all", mockProject);
 			expect(shell.run).toHaveBeenCalledTimes(2);
 			expect(shell.run).toHaveBeenNthCalledWith(1, "npm run build:prod", expect.objectContaining({ label: "Step 1/2: Building..." }));
@@ -150,7 +150,7 @@ describe("publish.controller", () => {
 		});
 
 		it("blocks when quality gates fail", () => {
-			vi.mocked(evaluateQualityGates).mockReturnValue({ passed: false, results: [] } as ReturnType<typeof evaluateQualityGates>);
+			vi.mocked(evaluateQualityGates).mockReturnValue({ passed: false, scoreCheck: null, rules: [] } as ReturnType<typeof evaluateQualityGates>);
 			commands["publish:all"]({}, [], "publish:all", mockProject);
 			expect(shell.run).not.toHaveBeenCalled();
 		});

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn((...args: unknown[]) => console.log(...args)),
+	log: vi.fn((...args: never[]) => console.log(...args)),
 }));
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
@@ -26,6 +26,9 @@ const testPaths = {
 	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
 	resolve: (...args: string[]) => args.join("/"),
 	relative: (_from: string, to: string) => to,
+	extname: (p: string) => { const m = p.match(/\.[^.]+$/); return m ? m[0] : ""; },
+	isAbsolute: (p: string) => p.startsWith("/"),
+	sep: "/" as const,
 };
 
 const testPathsDeps = { paths: testPaths } as const;
@@ -84,7 +87,7 @@ function createMockFs(files: Record<string, string> = {}, dirs: Set<string> = ne
 			const n = norm(path);
 			if (normalizedFiles.has(n)) return normalizedFiles.get(n)!;
 			throw new Error(`ENOENT: ${path}`);
-		}),
+		}) as never,
 		writeFileSync: vi.fn(),
 		existsSync: vi.fn((path: string) => {
 			const n = norm(path);
@@ -100,7 +103,7 @@ function createMockFs(files: Record<string, string> = {}, dirs: Set<string> = ne
 					return rel.length > 0 && !rel.includes("/");
 				})
 				.map(f => f.slice(prefix.length));
-		}) as IFileSystem["readdirSync"],
+		}) as unknown as IFileSystem["readdirSync"],
 		copyFileSync: vi.fn(),
 		rmSync: vi.fn(),
 		unlinkSync: vi.fn(),
@@ -347,7 +350,7 @@ describe("renderMarketplace", () => {
 	it("shows empty message when no entries", () => {
 		renderMarketplace({ entries: [] }, logSpy as never);
 		expect(logSpy).toHaveBeenCalled();
-		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
+		const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("No scaffold definitions found");
 	});
 
@@ -375,7 +378,7 @@ describe("renderMarketplace", () => {
 		];
 
 		renderMarketplace({ entries }, logSpy as never);
-		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
+		const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("Bundled");
 		expect(output).toContain("Local");
 		expect(output).toContain("bundled-one");
@@ -396,7 +399,7 @@ describe("renderMarketplace", () => {
 		];
 
 		renderMarketplace({ entries }, logSpy as never);
-		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
+		const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("invalid");
 		expect(output).toContain("Missing field: id");
 	});
@@ -408,7 +411,7 @@ describe("renderMarketplace", () => {
 		];
 
 		renderMarketplace({ entries }, logSpy as never);
-		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
+		const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("1 valid");
 		expect(output).toContain("1 invalid");
 	});

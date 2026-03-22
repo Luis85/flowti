@@ -31,7 +31,7 @@ vi.mock("../../../src/infrastructure/document.js", () => {
 import { exportSitemapToMarkdown } from "../../../src/domain/sitemap/sitemap-export.js";
 import type { Sitemap, PageObject } from "../../../src/infrastructure/sitemap-types.js";
 
-const { _getDocuments, _clearDocuments } = await import("../../../src/infrastructure/document.js") as {
+const { _getDocuments, _clearDocuments } = await import("../../../src/infrastructure/document.js") as unknown as {
 	_getDocuments: () => Map<string, { fm: Record<string, unknown>; body: string[] }>;
 	_clearDocuments: () => void;
 };

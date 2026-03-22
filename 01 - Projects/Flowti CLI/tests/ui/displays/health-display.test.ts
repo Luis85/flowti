@@ -31,7 +31,7 @@ const baseSnapshot: HealthSnapshot = {
 	coverage: { lines: 85.2, branches: 72.0, functions: 90.1 },
 	build: { success: true, durationMs: 3500 },
 	lint: { errors: 0, warnings: 2 },
-	security: { total: 3, critical: 0, high: 0, moderate: 2, low: 1 },
+	security: { total: 3, critical: 0, high: 0, moderate: 2, low: 1, info: 0 },
 	git: { branch: "main", status: "clean" },
 };
 
@@ -104,7 +104,7 @@ describe("displayHealth", () => {
 	it("renders security with critical/high counts", () => {
 		displayHealth({
 			...baseSnapshot,
-			security: { total: 5, critical: 1, high: 2, moderate: 1, low: 1 },
+			security: { total: 5, critical: 1, high: 2, moderate: 1, low: 1, info: 0 },
 		}, log);
 		const out = output();
 		expect(out).toContain("Critical");
@@ -115,8 +115,8 @@ describe("displayHealth", () => {
 describe("formatTrendLine", () => {
 	it("formats trend deltas", () => {
 		const result = formatTrendLine([
-			{ metric: "tests.passed", delta: 5, indicator: "▲" },
-			{ metric: "coverage.lines", delta: -2.3, indicator: "▼" },
+			{ metric: "tests.passed", delta: 5, indicator: "▲", previous: 93, current: 98 },
+			{ metric: "coverage.lines", delta: -2.3, indicator: "▼", previous: 87.5, current: 85.2 },
 		]);
 		expect(result).toContain("+5");
 		expect(result).toContain("-2.3");
@@ -127,6 +127,8 @@ describe("formatTrendLine", () => {
 			metric: `m.${i}`,
 			delta: i,
 			indicator: "▲" as const,
+			previous: 0,
+			current: i,
 		}));
 		const result = formatTrendLine(deltas);
 		const parts = result.split("  ");
@@ -135,7 +137,7 @@ describe("formatTrendLine", () => {
 
 	it("handles zero delta", () => {
 		const result = formatTrendLine([
-			{ metric: "tests.total", delta: 0, indicator: "=" as never },
+			{ metric: "tests.total", delta: 0, indicator: "=", previous: 50, current: 50 },
 		]);
 		expect(result).toContain("0");
 	});
@@ -157,7 +159,7 @@ describe("renderHealthDashboard", () => {
 		renderHealthDashboard({
 			...baseSnapshot,
 			score: { overall: 90, grade: "A" },
-			trend: [{ metric: "tests.passed", delta: 10, indicator: "▲" }],
+			trend: [{ metric: "tests.passed", delta: 10, indicator: "▲", previous: 88, current: 98 }],
 		} as never, log);
 		expect(output()).toContain("Trend");
 	});

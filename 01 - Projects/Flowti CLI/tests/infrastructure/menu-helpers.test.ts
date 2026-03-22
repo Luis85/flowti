@@ -7,6 +7,7 @@ function mockInput(answers: string[]): IInput {
 	let i = 0;
 	return {
 		ask: vi.fn(async () => answers[i++] ?? ""),
+		askAbortable: vi.fn((q: string) => ({ promise: Promise.resolve(q), abort: () => {} })),
 		askYesNo: vi.fn(async () => false),
 		waitForEnter: vi.fn(async () => {}),
 	};

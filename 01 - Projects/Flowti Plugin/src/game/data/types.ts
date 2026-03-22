@@ -8,7 +8,8 @@ export type AgentActionType =
 	| "artifact-dropped" | "file-read" | "file-written" | "file-opened"
 	| "goal-started" | "goal-completed" | "template-generated"
 	| "seek-rest" | "seek-agent" | "seek-quiet" | "wander-sad"
-	| "seek-merchant" | "merchant-purchase";
+	| "seek-merchant" | "merchant-purchase"
+	| "seek-preferred-food" | "seek-preferred-drink";
 
 export interface AgentAction {
 	readonly id: string;

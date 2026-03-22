@@ -51,6 +51,9 @@ const testPaths = {
 	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
 	resolve: (...args: string[]) => args.join("/"),
 	relative: (_from: string, to: string) => to,
+	extname: (p: string) => { const m = p.match(/\.[^.]+$/); return m ? m[0] : ""; },
+	isAbsolute: (p: string) => p.startsWith("/"),
+	sep: "/" as const,
 };
 
 const testClock = { iso: () => "2026-03-09", now: () => new Date(), ms: () => 0, safeIso: () => "2026-03-09" };

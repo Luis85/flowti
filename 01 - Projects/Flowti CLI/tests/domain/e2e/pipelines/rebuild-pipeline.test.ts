@@ -3,6 +3,7 @@ import type { MockedFunction } from "vitest";
 import type { E2EPaths } from "../../../../src/domain/e2e/e2e-paths.js";
 import type { IFileSystem, IShell, IPaths, IProcess } from "../../../../src/infrastructure/types.js";
 import type { PipelineStep } from "../../../../src/infrastructure/pipeline/pipeline-types.js";
+import type { CliDeps } from "../../../../src/infrastructure/deps.js";
 
 vi.mock("../../../../src/domain/e2e/steps/index.js", () => ({
 	createTeardownStep: vi.fn(() => ({ id: "e2e:teardown", label: "Teardown", execute: vi.fn(() => ({ success: true })) })),
@@ -32,14 +33,14 @@ const mockE2e: E2EPaths = {
 	dataJsonCandidates: [],
 };
 
-function createMockDeps() {
+function createMockDeps(): Pick<CliDeps, "disk" | "shell" | "paths" | "proc" | "log"> & { env: Record<string, string | undefined> } {
 	const mockEnv: Record<string, string | undefined> = {};
 	return {
 		disk: {} as IFileSystem,
 		shell: {} as IShell,
 		paths: {} as IPaths,
 		proc: { env: () => mockEnv, exit: vi.fn(), argv: vi.fn(() => []), cwd: vi.fn(() => "/mock") } as unknown as IProcess,
-		log: vi.fn() as (msg: string) => void,
+		log: vi.fn() as (msg?: string) => void,
 		env: mockEnv,
 	};
 }
@@ -73,7 +74,7 @@ describe("buildRebuildPipeline", () => {
 		const steps = buildRebuildPipeline(mockE2e, mockDeps);
 		const envStep = steps.find((s) => s.id === "e2e:rebuild-env") as PipelineStep;
 
-		envStep.execute();
+		envStep.execute({} as never);
 
 		expect(mockDeps.env.E2E_JOURNEY).toBe("prerequisites,installer");
 		expect(mockDeps.env.E2E_RUN_PREREQUISITES).toBe("true");
@@ -85,8 +86,8 @@ describe("buildRebuildPipeline", () => {
 		const envStep = steps.find((s) => s.id === "e2e:rebuild-env") as PipelineStep;
 		const cleanupStep = steps.find((s) => s.id === "e2e:rebuild-env-cleanup") as PipelineStep;
 
-		envStep.execute();
-		cleanupStep.execute();
+		envStep.execute({} as never);
+		cleanupStep.execute({} as never);
 
 		expect(mockDeps.env.E2E_JOURNEY).toBeUndefined();
 		expect(mockDeps.env.E2E_RUN_PREREQUISITES).toBeUndefined();
@@ -96,13 +97,13 @@ describe("buildRebuildPipeline", () => {
 	it("rebuild-env step returns success", () => {
 		const steps = buildRebuildPipeline(mockE2e, mockDeps);
 		const envStep = steps.find((s) => s.id === "e2e:rebuild-env") as PipelineStep;
-		expect(envStep.execute()).toEqual({ success: true });
+		expect(envStep.execute({} as never)).toEqual({ success: true });
 	});
 
 	it("rebuild-env-cleanup step returns success", () => {
 		const steps = buildRebuildPipeline(mockE2e, mockDeps);
 		const cleanupStep = steps.find((s) => s.id === "e2e:rebuild-env-cleanup") as PipelineStep;
-		expect(cleanupStep.execute()).toEqual({ success: true });
+		expect(cleanupStep.execute({} as never)).toEqual({ success: true });
 	});
 
 	it("calls step factories with correct arguments", () => {

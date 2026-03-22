@@ -27,17 +27,15 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 });
 
 // Mock the generator registry — return controlled outputs
-const mockRunGenerator = vi.fn();
-const mockHasGenerator = vi.fn();
+const { mockRunGenerator, mockHasGenerator } = vi.hoisted(() => ({
+	mockRunGenerator: vi.fn(),
+	mockHasGenerator: vi.fn(),
+}));
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
-	runGenerator: (...args: unknown[]) => mockRunGenerator(...args),
-	hasGenerator: (...args: unknown[]) => mockHasGenerator(...args),
+	runGenerator: mockRunGenerator,
+	hasGenerator: mockHasGenerator,
 }));
 
-vi.mock("../../../src/domain/reports/report-phases.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/domain/reports/report-phases.js")>("../../../src/domain/reports/report-phases.js");
-	return actual;
-});
 
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), writeFileSync: vi.fn() },

@@ -198,6 +198,10 @@ describe("rebuildCli", () => {
 			execFile: () => null,
 			runCapture: () => "",
 			runCaptureStatus: () => ({ output: "", exitCode: 0 }),
+			runCaptureDetailed: () => ({ stdout: "", stderr: "", exitCode: 0 }),
+			spawnBackground: () => ({ waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, running: false, output: [] }),
+			runAsync: async () => ({ output: "", exitCode: 0 }),
+			runParallel: async () => [],
 		};
 
 		const code = rebuildCli("/project", mockShell);
@@ -216,6 +220,10 @@ describe("rebuildCli", () => {
 			execFile: () => null,
 			runCapture: () => "",
 			runCaptureStatus: () => ({ output: "", exitCode: 0 }),
+			runCaptureDetailed: () => ({ stdout: "", stderr: "", exitCode: 0 }),
+			spawnBackground: () => ({ waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, running: false, output: [] }),
+			runAsync: async () => ({ output: "", exitCode: 0 }),
+			runParallel: async () => [],
 		};
 
 		expect(rebuildCli("/project", mockShell)).toBe(1);

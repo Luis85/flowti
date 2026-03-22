@@ -27,9 +27,10 @@ describe("renderLifecycleStatus", () => {
 	it("renders record details", () => {
 		const record: LifecycleRecord = {
 			name: "Alpha Release",
-			entityType: "release",
+			entityType: "iteration",
 			currentState: "execution",
 			history: [{ from: "planning", to: "execution", date: "2026-02-01", reason: "Kicked off" }],
+			createdDate: "2026-01-01",
 			lastTransitionDate: "2026-02-01",
 			description: "First public release",
 		};
@@ -49,6 +50,7 @@ describe("renderLifecycleStatus", () => {
 			entityType: "project",
 			currentState: "inception",
 			history: [],
+			createdDate: "2026-01-01",
 			lastTransitionDate: "",
 			description: "",
 		};
@@ -112,14 +114,14 @@ describe("renderLifecycleList", () => {
 
 	it("renders item list", () => {
 		const items: LifecycleSummary[] = [
-			{ name: "Alpha", entityType: "release", currentState: "execution", transitionCount: 3 },
-			{ name: "Beta", entityType: "feature", currentState: "planning", transitionCount: 1 },
+			{ name: "Alpha", entityType: "iteration", currentState: "execution", transitionCount: 3, createdDate: "2026-01-01", file: "" },
+			{ name: "Beta", entityType: "feature", currentState: "planning", transitionCount: 1, createdDate: "2026-01-15", file: "" },
 		];
 		renderLifecycleList(items, log);
 		const out = output();
 		expect(out).toContain("Lifecycle Items (2)");
 		expect(out).toContain("Alpha");
-		expect(out).toContain("[release]");
+		expect(out).toContain("[iteration]");
 		expect(out).toContain("[execution]");
 		expect(out).toContain("3 transitions");
 		expect(out).toContain("Beta");

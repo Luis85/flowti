@@ -1,35 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockLog = vi.fn();
-const mockPrintHeader = vi.fn();
-const mockCountFiles = vi.fn(() => 42);
-const mockGetSelectedProject = vi.fn(() => "test-project");
-const mockRunSilent = vi.fn(() => "main");
-
-// Shared mock filesystem state
-const files = new Map<string, string>();
-const dirs = new Set<string>();
-const mockExistsSync = vi.fn((p: string) => files.has(p) || dirs.has(p));
-const mockReadFileSync = vi.fn((p: string) => {
-	if (files.has(p)) return files.get(p)!;
-	throw new Error(`ENOENT: ${p}`);
-});
-const mockReaddirSync = vi.fn(() => []);
+const {
+	mockLog, mockPrintHeader, mockCountFiles, mockGetSelectedProject, mockRunSilent,
+	files, dirs, mockExistsSync, mockReadFileSync, mockReaddirSync,
+} = vi.hoisted(() => ({
+	mockLog: vi.fn(),
+	mockPrintHeader: vi.fn(),
+	mockCountFiles: vi.fn(() => 42),
+	mockGetSelectedProject: vi.fn((): string | undefined => "test-project"),
+	mockRunSilent: vi.fn((_cmd?: string): string | null => "main"),
+	files: new Map<string, string>(),
+	dirs: new Set<string>(),
+	mockExistsSync: vi.fn((p: string) => files.has(p) || dirs.has(p)),
+	mockReadFileSync: vi.fn((p: string, _enc?: string) => {
+		if (files.has(p)) return files.get(p)!;
+		throw new Error(`ENOENT: ${p}`);
+	}),
+	mockReaddirSync: vi.fn((_p?: string) => [] as string[]),
+}));
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
-	log: (...args: unknown[]) => mockLog(...args),
+	log: mockLog,
 }));
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", YELLOW: "", RED: "", CYAN: "",
-	printHeader: (...args: unknown[]) => mockPrintHeader(...args),
+	printHeader: mockPrintHeader,
 }));
 
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: {
 		existsSync: (p: string) => mockExistsSync(p),
-		readFileSync: (p: string, e: string) => mockReadFileSync(p, e),
-		readdirSync: (p: string) => mockReaddirSync(p),
+		readFileSync: (p: string, e?: string) => mockReadFileSync(p, e),
+		readdirSync: (p?: string) => mockReaddirSync(p),
 	},
 }));
 
@@ -38,7 +41,7 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {
 		run: vi.fn(() => 0),
-		runSilent: (...args: unknown[]) => mockRunSilent(...args),
+		runSilent: mockRunSilent,
 	},
 }));
 
@@ -59,7 +62,7 @@ vi.mock("../../../src/infrastructure/state.js", () => ({
 }));
 
 vi.mock("../../../src/infrastructure/fs.js", () => ({
-	countFiles: (...args: unknown[]) => mockCountFiles(...args),
+	countFiles: mockCountFiles,
 }));
 
 const defaultCtx = {
@@ -179,10 +182,10 @@ describe("showInfo", () => {
 	});
 
 	it("detects dirty git status", () => {
-		mockRunSilent.mockImplementation((cmd: string) => {
-			if (cmd.includes("status --porcelain")) return "M src/file.ts";
-			if (cmd.includes("rev-parse --abbrev-ref")) return "main";
-			if (cmd.includes("rev-parse --short")) return "abc123";
+		mockRunSilent.mockImplementation((cmd?: string) => {
+			if (cmd?.includes("status --porcelain")) return "M src/file.ts";
+			if (cmd?.includes("rev-parse --abbrev-ref")) return "main";
+			if (cmd?.includes("rev-parse --short")) return "abc123";
 			return "";
 		});
 		showInfo(infoDeps);
@@ -190,10 +193,10 @@ describe("showInfo", () => {
 	});
 
 	it("detects clean git status", () => {
-		mockRunSilent.mockImplementation((cmd: string) => {
-			if (cmd.includes("status --porcelain")) return "";
-			if (cmd.includes("rev-parse --abbrev-ref")) return "main";
-			if (cmd.includes("rev-parse --short")) return "abc123";
+		mockRunSilent.mockImplementation((cmd?: string) => {
+			if (cmd?.includes("status --porcelain")) return "";
+			if (cmd?.includes("rev-parse --abbrev-ref")) return "main";
+			if (cmd?.includes("rev-parse --short")) return "abc123";
 			return "";
 		});
 		showInfo(infoDeps);

@@ -93,6 +93,8 @@ describe("PanelTasks interaction logic", () => {
 		executeTask: ReturnType<typeof vi.fn>;
 		addEventListener: ReturnType<typeof vi.fn>;
 		removeEventListener: ReturnType<typeof vi.fn>;
+		cliSessionAvailable: boolean;
+		cliSessionBlockedReason: string;
 	};
 
 	beforeEach(async () => {
@@ -104,6 +106,8 @@ describe("PanelTasks interaction logic", () => {
 			executeTask: vi.fn(),
 			addEventListener: vi.fn(),
 			removeEventListener: vi.fn(),
+			cliSessionAvailable: true,
+			cliSessionBlockedReason: "",
 		};
 		(el as unknown as Record<string, unknown>).store = mockStore;
 		(el as unknown as Record<string, unknown>).agent = {

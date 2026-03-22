@@ -33,7 +33,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("checkPrerequisites", () => {
 	it("passes when git and node are available", () => {
-		const proc = { exit: vi.fn() };
+		const proc = { exit: vi.fn(), argv: () => [] as string[], cwd: () => "/", env: () => ({} as Record<string, string | undefined>) } as unknown as import("../../../src/infrastructure/types.js").IProcess;
 		const shell = createMockShell({
 			outputs: { "node --version": "v20.0.0" },
 		});
@@ -42,7 +42,7 @@ describe("checkPrerequisites", () => {
 	});
 
 	it("exits when git is missing", () => {
-		const proc = { exit: vi.fn() };
+		const proc = { exit: vi.fn(), argv: () => [] as string[], cwd: () => "/", env: () => ({} as Record<string, string | undefined>) } as unknown as import("../../../src/infrastructure/types.js").IProcess;
 		const shell = createMockShell({
 			failChecks: ["git --version"],
 			outputs: { "node --version": "v20.0.0" },
@@ -52,14 +52,14 @@ describe("checkPrerequisites", () => {
 	});
 
 	it("exits when node is missing", () => {
-		const proc = { exit: vi.fn() };
+		const proc = { exit: vi.fn(), argv: () => [] as string[], cwd: () => "/", env: () => ({} as Record<string, string | undefined>) } as unknown as import("../../../src/infrastructure/types.js").IProcess;
 		const shell = createMockShell({ failChecks: [] });
 		checkPrerequisites(16, { shell, proc });
 		expect(proc.exit).toHaveBeenCalledWith(2);
 	});
 
 	it("exits when node version is too old", () => {
-		const proc = { exit: vi.fn() };
+		const proc = { exit: vi.fn(), argv: () => [] as string[], cwd: () => "/", env: () => ({} as Record<string, string | undefined>) } as unknown as import("../../../src/infrastructure/types.js").IProcess;
 		const shell = createMockShell({
 			outputs: { "node --version": "v14.0.0" },
 		});
@@ -105,7 +105,7 @@ describe("ensureDependencies", () => {
 	it("skips when node_modules exists", () => {
 		const disk = createMockFs({ "/plugin/node_modules/placeholder": "" });
 		const shell = createMockShell();
-		const proc = { exit: vi.fn() };
+		const proc = { exit: vi.fn(), argv: () => [] as string[], cwd: () => "/", env: () => ({} as Record<string, string | undefined>) } as unknown as import("../../../src/infrastructure/types.js").IProcess;
 		ensureDependencies("/plugin", { disk, shell, paths: mockPaths, proc });
 		expect(shell.calls).toHaveLength(0);
 	});
@@ -113,7 +113,7 @@ describe("ensureDependencies", () => {
 	it("runs npm install when node_modules is missing", () => {
 		const disk = createMockFs();
 		const shell = createMockShell();
-		const proc = { exit: vi.fn() };
+		const proc = { exit: vi.fn(), argv: () => [] as string[], cwd: () => "/", env: () => ({} as Record<string, string | undefined>) } as unknown as import("../../../src/infrastructure/types.js").IProcess;
 		ensureDependencies("/plugin", { disk, shell, paths: mockPaths, proc });
 		expect(shell.calls).toHaveLength(1);
 		expect(shell.calls[0].cmd).toBe("npm install");
@@ -124,7 +124,7 @@ describe("ensureDependencies", () => {
 	it("exits on npm install failure", () => {
 		const disk = createMockFs();
 		const shell = createMockShell({ exitCodes: { "npm install": 1 } });
-		const proc = { exit: vi.fn() };
+		const proc = { exit: vi.fn(), argv: () => [] as string[], cwd: () => "/", env: () => ({} as Record<string, string | undefined>) } as unknown as import("../../../src/infrastructure/types.js").IProcess;
 		ensureDependencies("/plugin", { disk, shell, paths: mockPaths, proc });
 		expect(proc.exit).toHaveBeenCalledWith(1);
 	});

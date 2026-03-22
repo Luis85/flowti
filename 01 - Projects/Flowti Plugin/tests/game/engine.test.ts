@@ -462,6 +462,7 @@ vi.mock("../../src/game/systems/quirk-system.js", () => {
 vi.mock("../../src/game/systems/world-event-scheduler.js", () => {
 	function MockWorldEventScheduler(this: Record<string, unknown>) {
 		const self = this;
+		self.setInteractionSubmitter = vi.fn();
 		self.registerHandler = vi.fn();
 		self.recordSensorEvent = vi.fn();
 		self.onPhaseChange = vi.fn();

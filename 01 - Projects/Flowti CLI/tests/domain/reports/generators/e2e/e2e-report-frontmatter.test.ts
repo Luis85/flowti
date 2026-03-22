@@ -270,7 +270,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyReportLinks: [],
 				journeyCanvasLinks: [],
 				journeyCount: 1,
-				trace: { summary: { totalEvents: 500, perfEvents: 50 }, events: [] },
+				trace: { summary: { totalEvents: 500, perfEvents: 50 } },
 				startupPerf: null,
 			}, mockProcDeps);
 

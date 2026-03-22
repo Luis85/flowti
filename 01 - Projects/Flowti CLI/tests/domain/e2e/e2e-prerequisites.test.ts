@@ -23,9 +23,9 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-const mockExit = vi.fn();
+const { mockExit } = vi.hoisted(() => ({ mockExit: vi.fn() }));
 vi.mock("../../../src/infrastructure/proc.js", () => ({
-	proc: { exit: (...args: unknown[]) => mockExit(...args) },
+	proc: { exit: mockExit },
 }));
 
 // Must mock the re-export to avoid importing real UI module
@@ -140,7 +140,7 @@ describe("checkPrerequisites", () => {
 		});
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({
 			installer: { installed: true },
-		}));
+		}) as never);
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
 		const results = checkPrerequisites(mockE2e, deps);
@@ -153,7 +153,7 @@ describe("checkPrerequisites", () => {
 			if (p === mockE2e.dataJsonPath) return true;
 			return false;
 		});
-		vi.mocked(disk.readFileSync).mockReturnValue("not json");
+		vi.mocked(disk.readFileSync).mockReturnValue("not json" as never);
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
 		const results = checkPrerequisites(mockE2e, deps);

@@ -11,6 +11,7 @@ const STUB_VARS: ScaffoldVariables = {
 	pascal: "MyTool",
 	camel: "myTool",
 	author: "Test Author",
+	date: "2026-03-22",
 };
 
 function createStubDef(overrides?: Partial<ScaffoldDefinition>): ScaffoldDefinition {

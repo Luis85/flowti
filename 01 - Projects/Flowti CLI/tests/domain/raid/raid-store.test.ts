@@ -74,9 +74,9 @@ describe("raidStore.list", () => {
 
 	it("parses RAID items from directory", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["db-migration-risk.md"]);
+		mockDisk.readdirSync.mockReturnValue(["db-migration-risk.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: DB Migration Risk\nitemType: risk\nstatus: open\nseverity: high\nowner: Jane\ndueDate: 2026-04-01\n---\nDescription",
+			"---\nname: DB Migration Risk\nitemType: risk\nstatus: open\nseverity: high\nowner: Jane\ndueDate: 2026-04-01\n---\nDescription" as never,
 		);
 
 		const result = raidStore.list(deps, "/project");
@@ -91,7 +91,7 @@ describe("raidStore.list", () => {
 
 	it("sorts items alphabetically", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["z-item.md", "a-item.md"]);
+		mockDisk.readdirSync.mockReturnValue(["z-item.md", "a-item.md"] as never);
 		mockDisk.readFileSync
 			.mockReturnValueOnce("---\nname: Zeta\nitemType: risk\nstatus: open\nseverity: low\n---")
 			.mockReturnValueOnce("---\nname: Alpha\nitemType: issue\nstatus: open\nseverity: medium\n---");
@@ -135,7 +135,7 @@ describe("raidStore.updateField (status)", () => {
 
 	it("updates status in file content", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: open\nseverity: high\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue("---\nstatus: open\nseverity: high\n---\nBody" as never);
 
 		const result = raidStore.updateField(deps, "/project", "Test Risk", "status", "mitigated");
 

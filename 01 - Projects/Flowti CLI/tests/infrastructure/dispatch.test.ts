@@ -5,7 +5,7 @@ import type { CommandHandler, ProjectContext } from "../../src/infrastructure/ty
 // ── Helpers ──────────────────────────────────────────────────────────
 
 const noop: CommandHandler = () => {};
-const project: ProjectContext = { name: "test-project", path: "/projects/test" };
+const project: ProjectContext = { path: "/projects/test", pkg: null, config: {} as ProjectContext["config"], scripts: {} };
 
 function makeHandlers(entries: Record<string, CommandHandler> = {}): Record<string, CommandHandler> {
 	return entries;

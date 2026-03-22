@@ -74,7 +74,7 @@ describe("generatePerformanceReport", () => {
 			perfAggregator: {
 				startupHistory: [100, 200, 150, 180, 120],
 			},
-		}));
+		}) as never);
 
 		const result = generatePerformanceReport("/project", mockDeps);
 
@@ -92,7 +92,7 @@ describe("generatePerformanceReport", () => {
 			perfAggregator: {
 				startupHistory: [],
 			},
-		}));
+		}) as never);
 
 		const result = generatePerformanceReport("/project", mockDeps);
 
@@ -107,7 +107,7 @@ describe("generatePerformanceReport", () => {
 			perfAggregator: {
 				startupHistory: [6000, 7000, 8000],
 			},
-		}));
+		}) as never);
 
 		const result = generatePerformanceReport("/project", mockDeps);
 
@@ -122,7 +122,7 @@ describe("generatePerformanceReport", () => {
 			perfAggregator: {
 				startupHistory: [100, 200, 150, 180, 120],
 			},
-		}));
+		}) as never);
 
 		const result = generatePerformanceReport("/project", mockDeps);
 
@@ -136,7 +136,7 @@ describe("generatePerformanceReport", () => {
 			perfAggregator: {
 				startupHistory: [100, 200, 150, 180, 120],
 			},
-		}));
+		}) as never);
 
 		const logFn = vi.fn();
 		const ctx = {

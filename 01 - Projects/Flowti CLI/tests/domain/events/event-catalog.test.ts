@@ -136,7 +136,7 @@ import { disk } from "../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../src/infrastructure/paths.js";
 import { clock } from "../../../src/infrastructure/clock.js";
 
-const mockInput = input as { ask: ReturnType<typeof vi.fn> };
+const mockInput = input as unknown as { ask: ReturnType<typeof vi.fn> };
 const eventDeps = { disk, paths, clock } as const;
 
 function makeEventDef(overrides: Partial<EventDefinition> = {}): EventDefinition {

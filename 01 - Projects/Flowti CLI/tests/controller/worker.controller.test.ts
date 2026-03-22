@@ -129,7 +129,7 @@ import { proc } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
 
 const logMock = log as ReturnType<typeof vi.fn>;
-const diskMock = disk as Record<string, ReturnType<typeof vi.fn>>;
+const diskMock = disk as unknown as Record<string, ReturnType<typeof vi.fn>>;
 
 // ── Tests ────────────────────────────────────────────────────────
 
@@ -140,7 +140,7 @@ describe("worker.controller", () => {
 		initializeDeps({
 			disk, paths, clock, proc,
 			shell: { run: vi.fn(), runSilent: vi.fn(), check: vi.fn(() => false) } as never,
-			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
 			worldState: {
@@ -158,7 +158,7 @@ describe("worker.controller", () => {
 				stop: vi.fn(),
 				stopAll: vi.fn(),
 				getWorker: vi.fn(() => null),
-				listWorkers: vi.fn(() => [{ name: "Architect", agent: {}, state: "idle", messageQueue: [], send: vi.fn(), stop: vi.fn() }]),
+				listWorkers: vi.fn(() => [{ name: "Architect", agent: {} as never, state: "idle" as const, messageQueue: [] as readonly string[], send: vi.fn(), stop: vi.fn() }]),
 				send: vi.fn(),
 				dispatchWorldEvent: vi.fn(),
 			},

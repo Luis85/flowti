@@ -113,7 +113,7 @@ describe("restorePluginState", () => {
 
 	it("resets installer when installed=false", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ installer: { installed: false } }));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ installer: { installed: false } }) as never);
 		restorePluginState(e2e, deps);
 		expect(disk.writeFileSync).toHaveBeenCalledWith(
 			e2e.dataJsonPath,
@@ -124,7 +124,7 @@ describe("restorePluginState", () => {
 
 	it("does not modify data.json when installer already true", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ installer: { installed: true } }));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ installer: { installed: true } }) as never);
 		restorePluginState(e2e, deps);
 		// writeFileSync should not have been called with data.json path
 		for (const call of vi.mocked(disk.writeFileSync).mock.calls) {
@@ -147,7 +147,7 @@ describe("restorePluginState", () => {
 
 	it("handles JSON parse errors gracefully", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("not json");
+		vi.mocked(disk.readFileSync).mockReturnValue("not json" as never);
 		expect(() => restorePluginState(e2e, deps)).not.toThrow();
 	});
 });

@@ -1,16 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockCountFiles = vi.fn(() => 0);
-const mockRunSilent = vi.fn(() => null as string | null);
+const { mockCountFiles, mockRunSilent, fileStore, dirStore } = vi.hoisted(() => ({
+	mockCountFiles: vi.fn((_dir: string, _ext: string) => 0),
+	mockRunSilent: vi.fn((_cmd: string) => null as string | null),
+	fileStore: new Map<string, string>(),
+	dirStore: new Set<string>(),
+}));
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", YELLOW: "", RED: "", CYAN: "",
 	printHeader: vi.fn(),
 }));
-
-const fileStore = new Map<string, string>();
-const dirStore = new Set<string>();
 
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: {
@@ -28,7 +29,7 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {
 		run: vi.fn(() => 0),
-		runSilent: (...args: unknown[]) => mockRunSilent(...(args as [string])),
+		runSilent: mockRunSilent,
 	},
 }));
 
@@ -48,7 +49,7 @@ vi.mock("../../../src/infrastructure/state.js", () => ({
 }));
 
 vi.mock("../../../src/infrastructure/fs.js", () => ({
-	countFiles: (...args: unknown[]) => mockCountFiles(...(args as [string, string])),
+	countFiles: mockCountFiles,
 }));
 
 vi.mock("../../../src/infrastructure/output.js", () => ({

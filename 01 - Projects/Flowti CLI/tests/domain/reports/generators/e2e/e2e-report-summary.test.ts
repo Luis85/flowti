@@ -106,11 +106,11 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	// Restore default implementations that may be overridden by specific tests
 	vi.mocked(disk.existsSync).mockReturnValue(false);
-	vi.mocked(disk.readFileSync).mockReturnValue("");
+	vi.mocked(disk.readFileSync).mockReturnValue("" as never);
 	vi.mocked(disk.writeFileSync).mockImplementation(() => {});
 	vi.mocked(disk.mkdirSync).mockImplementation(() => "");
 	vi.mocked(disk.rmSync).mockImplementation(() => {});
-	vi.mocked(disk.readdirSync).mockReturnValue([] as unknown as ReturnType<typeof disk.readdirSync>);
+	vi.mocked(disk.readdirSync).mockReturnValue([] as unknown as ReturnType<typeof disk.readdirSync> as never);
 	vi.mocked(disk.copyFileSync).mockImplementation(() => {});
 	vi.mocked(generateJourneyReport).mockReturnValue({ title: "Journey Test", status: "pass", content: "# Journey" });
 	vi.mocked(generateJourneyCanvas).mockReturnValue({ nodes: [], edges: [], metadata: { version: "1", frontmatter: {}, startNode: "" } });
@@ -194,6 +194,7 @@ describe("e2e-report-summary", () => {
 				totalSkipped: 5,
 				totalDev: 2,
 				totalTests: 52,
+				durationMs: 0,
 				suites: [],
 			});
 
@@ -412,7 +413,7 @@ describe("e2e-report-summary", () => {
 				if (p === "/results/journey-a/Journey Test-config.json") return true;
 				return false;
 			});
-			vi.mocked(disk.readFileSync).mockReturnValue('{"config": true}');
+			vi.mocked(disk.readFileSync).mockReturnValue('{"config": true}' as never);
 
 			writeJourneyOutputs(
 				"/results/journey-a",
@@ -645,7 +646,7 @@ describe("e2e-report-summary", () => {
 	describe("computeReconciledTotals (edge cases)", () => {
 		it("uses vitest durationMs when provided", () => {
 			vi.mocked(reconcileResults).mockReturnValue({
-				totalPassed: 10, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 10, suites: [],
+				totalPassed: 10, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 10, durationMs: 0, suites: [],
 			});
 
 			const vitest = {
@@ -659,7 +660,7 @@ describe("e2e-report-summary", () => {
 		});
 
 		it("defaults durationMs to 0 when vitest is null", () => {
-			vi.mocked(reconcileResults).mockReturnValue(null);
+			vi.mocked(reconcileResults).mockReturnValue(null as never);
 
 			const result = computeReconciledTotals(null, [], mockDeps);
 
@@ -668,7 +669,7 @@ describe("e2e-report-summary", () => {
 
 		it("detects journey warnings in steps", () => {
 			vi.mocked(reconcileResults).mockReturnValue({
-				totalPassed: 5, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 5, suites: [],
+				totalPassed: 5, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 5, durationMs: 0, suites: [],
 			});
 
 			const journeys = [

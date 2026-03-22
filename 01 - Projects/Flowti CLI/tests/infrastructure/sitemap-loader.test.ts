@@ -37,7 +37,7 @@ function stubFs(files: Record<string, string>): IFileSystem {
 		writeFileSync: () => {},
 		mkdirSync: () => "",
 		readdirSync: () => [],
-	} as IFileSystem;
+	} as unknown as IFileSystem;
 }
 
 // ── validateSitemap ─────────────────────────────────────────────────

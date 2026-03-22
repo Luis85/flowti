@@ -68,7 +68,7 @@ beforeEach(() => {
 describe("generateProjectStatusReport", () => {
 	it("generates status report when all sub-reports exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("# Report\nSome content");
+		vi.mocked(disk.readFileSync).mockReturnValue("# Report\nSome content" as never);
 
 		const result = generateProjectStatusReport("/project", mockDeps);
 
@@ -79,7 +79,7 @@ describe("generateProjectStatusReport", () => {
 
 	it("generates missing sub-reports before building status", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
-		vi.mocked(disk.readFileSync).mockReturnValue("");
+		vi.mocked(disk.readFileSync).mockReturnValue("" as never);
 
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };
@@ -105,7 +105,7 @@ describe("generateProjectStatusReport", () => {
 			callCount++;
 			return true;
 		});
-		vi.mocked(disk.readFileSync).mockReturnValue("# Test\nBody content");
+		vi.mocked(disk.readFileSync).mockReturnValue("# Test\nBody content" as never);
 
 		const result = generateProjectStatusReport("/project", mockDeps);
 
@@ -125,7 +125,7 @@ describe("generateProjectStatusReport", () => {
 
 	it("passes pipeline context log messages", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("");
+		vi.mocked(disk.readFileSync).mockReturnValue("" as never);
 
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };

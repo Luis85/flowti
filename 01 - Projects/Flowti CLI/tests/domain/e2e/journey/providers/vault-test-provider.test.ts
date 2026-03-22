@@ -1,3 +1,5 @@
+import { describe, it, expect, vi } from "vitest";
+
 vi.mock("../../../../../src/infrastructure/filesystem.js", () => ({ disk: {} }));
 vi.mock("../../../../../src/infrastructure/shell.js", () => ({ sh: {} }));
 vi.mock("../../../../../src/infrastructure/paths.js", () => ({ paths: {} }));

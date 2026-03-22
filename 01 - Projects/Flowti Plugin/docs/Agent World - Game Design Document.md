@@ -122,15 +122,6 @@ Needs create rhythm and create situations. A hungry agent at the coffee machine.
 | **Interaction System** | Stable | Resolvers, effect renderer, merchant/rival rules |
 | **Pet Utility Roles** | Stable | Role types, bonding, morale bonus |
 
-### Current Increment: "The Working Agent" (in-progress)
-
-| System | Status | Description |
-|--------|--------|-------------|
-| **Reward Loop Wiring** | In Progress | Task completion triggers economy:reward CLI command, live XP/Coin feedback |
-| **Economy Boot Sync** | In Progress | Read economy.json at Plugin boot, persist offline earnings via CLI |
-| **Debug Tab Wiring** | In Progress | Wire debug panel events to CLI debug commands |
-| **Food Preferences** | In Progress | Quirk-based station preferences with echo feedback |
-
 ### Future (roadmap below)
 
 | System | Description |
@@ -408,13 +399,20 @@ CLI↔Plugin communication uses file-watch (world-state.json) + subprocess JSONL
 - Narrative system, offline progress, echo system, interaction system
 - Visual progression, debug panel, pet utility roles
 
-### Increment 3: "The Working Agent" (current — 2026-03-22)
+### Increment 3: "The Working Agent" (completed 2026-03-22)
 
-Close the execution-to-reward gap so agents earn real XP/Coin from task completion, with live visual feedback in the game world:
+Closed the execution-to-reward gap so agents earn real XP/Coin from task completion, with live visual feedback in the game world:
 - Reward loop wiring (task completion triggers economy:reward CLI command)
 - Economy boot sync (read economy.json at Plugin boot)
 - Debug tab wiring (CLI debug commands from Plugin UI)
 - Food preferences (quirk-based station choice with echo feedback)
+
+### Increment 3.5: "Polish Pass" (current — 2026-03-22)
+
+Stabilization pass across the full codebase:
+- Fix all ESLint warnings, TypeScript errors, and broken test assertions
+- Unify experience/xp display path in economy panels
+- Update GDD to reflect completed increments
 
 ### Increment 4: "Autonomy & Execution" (next)
 

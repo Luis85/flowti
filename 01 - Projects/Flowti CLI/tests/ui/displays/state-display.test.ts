@@ -21,7 +21,7 @@ describe("renderWorldStateSummary", () => {
 	it("renders agents section", () => {
 		const log = vi.fn();
 		const state = emptyState();
-		(state as Record<string, unknown>).entities = {
+		(state as unknown as Record<string, unknown>).entities = {
 			Bob: { id: "Bob", type: "agent", components: { identity: { agentType: "ai" }, status: { state: "idle" } } },
 		};
 		renderWorldStateSummary(state, log);

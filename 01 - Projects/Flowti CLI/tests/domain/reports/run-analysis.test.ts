@@ -25,7 +25,7 @@ vi.mock("../../../src/infrastructure/paths.js", async () => {
 // See tests/mocks/mock-presets.ts for the standard mockShellPreset() factory.
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {
-		runCaptureStatus: vi.fn(() => ({ exitCode: 0, stdout: "", stderr: "" })),
+		runCaptureStatus: vi.fn(() => ({ exitCode: 0, output: "" })),
 	},
 }));
 
@@ -317,20 +317,20 @@ describe("run-analysis module", () => {
 
 describe("pipeline steps", () => {
 	it("run helper logs and runs shell command via runCaptureStatus", () => {
-		mockShellRunCaptureStatus.mockReturnValue({ exitCode: 0, stdout: "", stderr: "" });
+		mockShellRunCaptureStatus.mockReturnValue({ exitCode: 0, output: "" });
 		const result = shell.runCaptureStatus("npx vitest run", { cwd: "/mock/cli-project", timeout: 120_000 });
 		expect(result.exitCode).toBe(0);
 	});
 
 	it("analyzeComplexity returns expected structure", () => {
-		const result = mockAnalyzeComplexity("/mock/cli-project/src", "/mock/cli-project");
+		const result = mockAnalyzeComplexity("/mock/cli-project/src", "/mock/cli-project", {} as never);
 		expect(result.summary.totalFunctions).toBe(2);
 		expect(result.functions).toHaveLength(2);
 		expect(result.files).toHaveLength(2);
 	});
 
 	it("analyzeComplexity includes decision points", () => {
-		const result = mockAnalyzeComplexity("/mock/cli-project/src", "/mock/cli-project");
+		const result = mockAnalyzeComplexity("/mock/cli-project/src", "/mock/cli-project", {} as never);
 		const mainFile = result.files.find((f) => f.file === "src/main.ts");
 		expect(mainFile).toBeDefined();
 		expect(mainFile!.decisionPointCount).toBe(4);

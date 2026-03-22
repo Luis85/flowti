@@ -448,7 +448,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 					});
 			});
 
-		new Setting(containerEl).setName("Agents & Cursor").setHeading();
+		new Setting(containerEl).setName("Agents & Cursor").setHeading(); // eslint-disable-line obsidianmd/ui/sentence-case -- Cursor is a proper noun (Cursor IDE)
 
 		new Setting(containerEl)
 			.setName("Cursor rules workspace root")

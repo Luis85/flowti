@@ -53,7 +53,7 @@ describe("shouldOnboard", () => {
 	it("returns false when projects exist", () => {
 		(mockDisk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
 		(mockDisk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue([
-			{ name: "my-project", isDirectory: () => true } satisfies DirEntry,
+			{ name: "my-project", isDirectory: () => true, isFile: () => false } satisfies DirEntry,
 		]);
 		expect(shouldOnboard("/vault", "/vault/projects", deps)).toBe(false);
 	});
@@ -61,7 +61,7 @@ describe("shouldOnboard", () => {
 	it("returns false when both flag and projects exist", () => {
 		(mockDisk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
 		(mockDisk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue([
-			{ name: "my-project", isDirectory: () => true } satisfies DirEntry,
+			{ name: "my-project", isDirectory: () => true, isFile: () => false } satisfies DirEntry,
 		]);
 		expect(shouldOnboard("/vault", "/vault/projects", deps)).toBe(false);
 	});

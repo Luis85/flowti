@@ -7,8 +7,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../src/infrastructure/filesystem.js", () => ({ disk: {} }));
 vi.mock("../../src/infrastructure/ui.js", () => ({ RESET: "", DIM: "" }));
 
-import { createStateCollector, type IStateCollector } from "../../src/infrastructure/state-collector.js";
+import { createStateCollector, type IStateCollector, type CollectorDeps } from "../../src/infrastructure/state-collector.js";
 import type { AgentWorkspace } from "../../src/domain/agents/agent-workspace.js";
+
+function asDeps(deps: ReturnType<typeof createMockDeps>): CollectorDeps {
+	return deps as unknown as CollectorDeps;
+}
 
 function createMockDeps(filesData: Record<string, string> = {}) {
 	const files = new Map(Object.entries(filesData));
@@ -18,13 +22,13 @@ function createMockDeps(filesData: Record<string, string> = {}) {
 			readFileSync: (p: string) => files.get(p) ?? "",
 			writeFileSync: (p: string, c: string) => files.set(p, c),
 			mkdirSync: () => {},
-		} as never,
+		},
 		paths: {
 			join: (...parts: string[]) => parts.join("/"),
-		} as never,
+		},
 		shell: {
 			runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })),
-		} as never,
+		},
 		files,
 	};
 }
@@ -48,7 +52,7 @@ describe("StateCollector", () => {
 			"/workspace/.flowti/var/data-bob.json": '{"name":"bob","status":"active","tasks":[{"name":"auth"}]}',
 			"/vault/.flowti/var/data-bob.json": '{"name":"bob","status":"idle","tasks":[]}',
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		await collector.collect(baseWs);
 		const central = JSON.parse(deps.files.get("/vault/.flowti/var/data-bob.json")!);
 		expect(central.status).toBe("active");
@@ -59,7 +63,7 @@ describe("StateCollector", () => {
 			"/workspace/.flowti/var/data-bob.json": '{"name":"bob","status":"active"}',
 			"/vault/.flowti/var/data-bob.json": '{"name":"bob","status":"idle","xp":42}',
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		await collector.collect(baseWs);
 		const central = JSON.parse(deps.files.get("/vault/.flowti/var/data-bob.json")!);
 		expect(central.xp).toBe(42);
@@ -70,7 +74,7 @@ describe("StateCollector", () => {
 		const deps = createMockDeps({
 			"/workspace/.flowti/var/data-bob.json": '{"name":"bob","status":"done"}',
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		await collector.collect(baseWs);
 		const central = JSON.parse(deps.files.get("/vault/.flowti/var/data-bob.json")!);
 		expect(central.status).toBe("done");
@@ -80,7 +84,7 @@ describe("StateCollector", () => {
 		const deps = createMockDeps({
 			"/vault/.flowti/var/data-bob.json": '{"name":"bob","status":"idle"}',
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		const result = await collector.collect(baseWs);
 		expect(result.runtimeState).toEqual({});
 	});
@@ -99,7 +103,7 @@ describe("StateCollector", () => {
 			}
 			return { stdout: "", stderr: "", exitCode: 0 };
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		const result = await collector.collect(baseWs);
 		expect(result.commits).toEqual(["abc1234", "def5678"]);
 	});
@@ -118,7 +122,7 @@ describe("StateCollector", () => {
 			}
 			return { stdout: "", stderr: "", exitCode: 0 };
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		const result = await collector.collect(baseWs);
 		expect(result.filesChanged).toBe(5);
 	});
@@ -129,7 +133,7 @@ describe("StateCollector", () => {
 			"/vault/.flowti/var/data-bob.json": '{"name":"bob","status":"idle"}',
 		});
 		(deps.shell.runCaptureDetailed as ReturnType<typeof vi.fn>).mockReturnValue({ stdout: "", stderr: "error", exitCode: 1 });
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		const result = await collector.collect(baseWs);
 		expect(result.commits).toEqual([]);
 		expect(result.errors).toContain("git scan failed");
@@ -142,7 +146,7 @@ describe("StateCollector", () => {
 			"/workspace/.flowti/var/conversations/bob.json": '{"threads":[{"role":"user","content":"hello"}]}',
 			"/vault/.flowti/var/conversations/bob.json": '{"threads":[]}',
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		const result = await collector.collect(baseWs);
 		const central = JSON.parse(deps.files.get("/vault/.flowti/var/conversations/bob.json")!);
 		expect(central.threads).toHaveLength(1);
@@ -155,7 +159,7 @@ describe("StateCollector", () => {
 			"/vault/.flowti/var/data-bob.json": '{"name":"bob","status":"idle"}',
 			"/workspace/.flowti/var/conversations/bob.json": '{"threads":[{"role":"user","content":"hi"},{"role":"assistant","content":"hey"}]}',
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		const result = await collector.collect(baseWs);
 		const central = JSON.parse(deps.files.get("/vault/.flowti/var/conversations/bob.json")!);
 		expect(central.threads).toHaveLength(2);
@@ -167,7 +171,7 @@ describe("StateCollector", () => {
 			"/workspace/.flowti/var/data-bob.json": '{"name":"bob","status":"idle"}',
 			"/vault/.flowti/var/data-bob.json": '{"name":"bob","status":"idle"}',
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		const result = await collector.collect(baseWs);
 		expect(result.conversationTurns).toBe(0);
 	});
@@ -177,7 +181,7 @@ describe("StateCollector", () => {
 			"/workspace/.flowti/var/data-bob.json": '{"name":"bob","status":"idle"}',
 			"/vault/.flowti/var/data-bob.json": '{"name":"bob","status":"idle"}',
 		});
-		const collector = createStateCollector(deps, "/vault");
+		const collector = createStateCollector(asDeps(deps), "/vault");
 		const result = await collector.collect(baseWs);
 		expect(result.commits).toEqual([]);
 		expect(result.filesChanged).toBe(0);

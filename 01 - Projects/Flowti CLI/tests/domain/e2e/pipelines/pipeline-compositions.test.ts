@@ -42,6 +42,10 @@ import { buildRebuildPipeline } from "../../../../src/domain/e2e/pipelines/rebui
 import { buildSuitePipeline } from "../../../../src/domain/e2e/pipelines/suite-pipeline.js";
 import type { E2EPaths } from "../../../../src/domain/e2e/e2e-paths.js";
 import type { SessionConfig, PrerequisiteResults } from "../../../../src/domain/e2e/e2e-types.js";
+import type { CliDeps } from "../../../../src/infrastructure/deps.js";
+import { createTestDeps } from "../../../mocks/mock-deps.js";
+
+const mockDeps = createTestDeps();
 
 const mockE2e: E2EPaths = {
 	projectRoot: "/project",
@@ -83,7 +87,7 @@ describe("buildSessionPipeline", () => {
 			entries: [],
 			prereqResults: mockPrereqs,
 			startTime: Date.now(),
-		});
+		}, mockDeps);
 
 		expect(steps).toHaveLength(6);
 		expect(steps.map((s) => s.id)).toEqual([
@@ -99,7 +103,7 @@ describe("buildSessionPipeline", () => {
 	it("all steps have labels", () => {
 		const steps = buildSessionPipeline(mockE2e, {
 			config: mockConfig, entries: [], prereqResults: mockPrereqs, startTime: Date.now(),
-		});
+		}, mockDeps);
 		for (const step of steps) {
 			expect(step.label).toBeTruthy();
 		}
@@ -110,7 +114,7 @@ describe("buildSessionPipeline", () => {
 
 describe("buildIncrementPipeline", () => {
 	it("returns 2 steps: teardown → increment build", () => {
-		const steps = buildIncrementPipeline(mockE2e);
+		const steps = buildIncrementPipeline(mockE2e, mockDeps);
 		expect(steps).toHaveLength(2);
 		expect(steps[0].id).toBe("e2e:teardown");
 		expect(steps[1].id).toBe("e2e:increment-build");
@@ -121,7 +125,7 @@ describe("buildIncrementPipeline", () => {
 
 describe("buildPublishPipeline", () => {
 	it("returns 1 step: publish", () => {
-		const steps = buildPublishPipeline(mockE2e);
+		const steps = buildPublishPipeline(mockE2e, mockDeps);
 		expect(steps).toHaveLength(1);
 		expect(steps[0].id).toBe("e2e:publish");
 	});
@@ -131,7 +135,7 @@ describe("buildPublishPipeline", () => {
 
 describe("buildRebuildPipeline", () => {
 	it("returns 6 steps in correct order", () => {
-		const steps = buildRebuildPipeline(mockE2e);
+		const steps = buildRebuildPipeline(mockE2e, mockDeps);
 		expect(steps).toHaveLength(6);
 		expect(steps.map((s) => s.id)).toEqual([
 			"e2e:teardown",
@@ -148,7 +152,7 @@ describe("buildRebuildPipeline", () => {
 
 describe("buildSuitePipeline", () => {
 	it("returns 2 steps: vitest → report", () => {
-		const steps = buildSuitePipeline(mockE2e);
+		const steps = buildSuitePipeline(mockE2e, mockDeps);
 		expect(steps).toHaveLength(2);
 		expect(steps[0].id).toBe("e2e:vitest");
 		expect(steps[1].id).toBe("e2e:report");
@@ -161,13 +165,13 @@ describe("pipeline step ID uniqueness", () => {
 	it("session pipeline has unique step IDs", () => {
 		const steps = buildSessionPipeline(mockE2e, {
 			config: mockConfig, entries: [], prereqResults: mockPrereqs, startTime: Date.now(),
-		});
+		}, mockDeps);
 		const ids = steps.map((s) => s.id);
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 
 	it("rebuild pipeline has unique step IDs", () => {
-		const steps = buildRebuildPipeline(mockE2e);
+		const steps = buildRebuildPipeline(mockE2e, mockDeps);
 		const ids = steps.map((s) => s.id);
 		expect(new Set(ids).size).toBe(ids.length);
 	});

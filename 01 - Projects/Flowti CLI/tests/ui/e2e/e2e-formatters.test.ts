@@ -14,6 +14,16 @@ import {
 	printIncrementMenu,
 } from "../../../src/ui/e2e/e2e-formatters.js";
 import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
+import type { BuildStats } from "../../../src/domain/e2e/e2e-types.js";
+
+function makeStats(overrides: Partial<BuildStats> = {}): BuildStats {
+	return {
+		build: null, test: null, coverage: null, performance: null,
+		cycle: null, e2e: null, traceability: null,
+		unitTests: { totalTests: 0, passed: 0, failed: 0, skipped: 0 },
+		...overrides,
+	};
+}
 
 const mockLog = vi.fn();
 const output = () => mockLog.mock.calls.map((c: unknown[]) => c[0] ?? "").join("\n");
@@ -159,7 +169,7 @@ describe("printSessionSummary", () => {
 
 describe("printIncrementSummary", () => {
 	it("prints pass status when exit code 0", () => {
-		printIncrementSummary(0, "3.5", { build: { total_bytes: 51200 }, unitTests: { totalTests: 50, passed: 50, failed: 0, skipped: 0 }, coverage: { line_pct: 85 } }, mockLog);
+		printIncrementSummary(0, "3.5", makeStats({ build: { total_bytes: 51200 }, unitTests: { totalTests: 50, passed: 50, failed: 0, skipped: 0 }, coverage: { line_pct: 85 } }), mockLog);
 		const out = output();
 		expect(out).toContain("Increment Build Results");
 		expect(out).toContain("PASS");
@@ -169,13 +179,13 @@ describe("printIncrementSummary", () => {
 	});
 
 	it("prints fail status when exit code non-zero", () => {
-		printIncrementSummary(1, "2.0", { unitTests: { totalTests: 10, passed: 8, failed: 2, skipped: 0 } }, mockLog);
+		printIncrementSummary(1, "2.0", makeStats({ unitTests: { totalTests: 10, passed: 8, failed: 2, skipped: 0 } }), mockLog);
 		const out = output();
 		expect(out).toContain("FAIL");
 	});
 
 	it("handles missing build and coverage", () => {
-		printIncrementSummary(0, "1.0", { unitTests: { totalTests: 0, passed: 0, failed: 0, skipped: 0 } }, mockLog);
+		printIncrementSummary(0, "1.0", makeStats(), mockLog);
 		const out = output();
 		expect(out).toContain("Increment Build Results");
 	});
@@ -183,7 +193,7 @@ describe("printIncrementSummary", () => {
 
 describe("printPublishSummary", () => {
 	it("prints publish results", () => {
-		printPublishSummary(0, "4.0", { build: { total_bytes: 102400, warnings_count: 1 }, unitTests: { totalTests: 100, passed: 100, failed: 0, skipped: 0 } }, mockLog);
+		printPublishSummary(0, "4.0", makeStats({ build: { total_bytes: 102400, warnings_count: 1 }, unitTests: { totalTests: 100, passed: 100, failed: 0, skipped: 0 } }), mockLog);
 		const out = output();
 		expect(out).toContain("Publish Results");
 		expect(out).toContain("PASS");

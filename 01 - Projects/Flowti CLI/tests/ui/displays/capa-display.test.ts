@@ -24,8 +24,8 @@ describe("renderCAPAList", () => {
 
 	it("renders item count in header", () => {
 		const items: CAPASummary[] = [
-			{ id: "CAPA-001", name: "Fix valve leak", capaType: "corrective", severity: "high", status: "open", owner: "Alice", dueDate: "2026-04-01" },
-			{ id: "CAPA-002", name: "Update SOP", capaType: "preventive", severity: "low", status: "closed", owner: "", dueDate: "" },
+			{ id: "CAPA-001", name: "Fix valve leak", capaType: "corrective", severity: "high", status: "open", owner: "Alice", dueDate: "2026-04-01", source: "", file: "" },
+			{ id: "CAPA-002", name: "Update SOP", capaType: "preventive", severity: "low", status: "closed", owner: "", dueDate: "", source: "", file: "" },
 		];
 		renderCAPAList(items, log);
 		const out = output();
@@ -34,7 +34,7 @@ describe("renderCAPAList", () => {
 
 	it("renders item details", () => {
 		const items: CAPASummary[] = [
-			{ id: "CAPA-001", name: "Fix valve leak", capaType: "corrective", severity: "critical", status: "open", owner: "Alice", dueDate: "2026-04-01" },
+			{ id: "CAPA-001", name: "Fix valve leak", capaType: "corrective", severity: "critical", status: "open", owner: "Alice", dueDate: "2026-04-01", source: "", file: "" },
 		];
 		renderCAPAList(items, log);
 		const out = output();
@@ -46,18 +46,18 @@ describe("renderCAPAList", () => {
 		expect(out).toContain("due 2026-04-01");
 	});
 
-	it("marks closed/verified statuses with green tag", () => {
+	it("marks closed/verification statuses with green tag", () => {
 		const items: CAPASummary[] = [
-			{ id: "CAPA-003", name: "Verified item", capaType: "corrective", severity: "medium", status: "verified", owner: "", dueDate: "" },
+			{ id: "CAPA-003", name: "Verified item", capaType: "corrective", severity: "medium", status: "verification", owner: "", dueDate: "", source: "", file: "" },
 		];
 		renderCAPAList(items, log);
 		const out = output();
-		expect(out).toContain("[verified]");
+		expect(out).toContain("[verification]");
 	});
 
 	it("omits owner and due tags when absent", () => {
 		const items: CAPASummary[] = [
-			{ id: "CAPA-004", name: "No owner", capaType: "preventive", severity: "low", status: "open", owner: "", dueDate: "" },
+			{ id: "CAPA-004", name: "No owner", capaType: "preventive", severity: "low", status: "open", owner: "", dueDate: "", source: "", file: "" },
 		];
 		renderCAPAList(items, log);
 		const out = output();

@@ -83,7 +83,7 @@ describe("generateComplexityReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateComplexityReport("/project", mockDeps);
 
@@ -103,7 +103,7 @@ describe("generateComplexityReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateComplexityReport("/project", mockDeps);
 
@@ -120,7 +120,7 @@ describe("generateComplexityReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateComplexityReport("/project", mockDeps);
 
@@ -136,7 +136,7 @@ describe("generateComplexityReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateComplexityReport("/project", mockDeps);
 
@@ -151,7 +151,7 @@ describe("generateComplexityReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateComplexityReport("/project", mockDeps);
 
@@ -180,7 +180,7 @@ describe("generateComplexityReport", () => {
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const result = generateComplexityReport("/project", mockDeps);
 
@@ -193,7 +193,7 @@ describe("generateComplexityReport", () => {
 			files: [{ file: "/project/src/a.ts", decisionPointCount: 1, decisionPoints: [] }],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data) as never);
 
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };

@@ -272,7 +272,7 @@ describe("buildProjectEnvironment", () => {
 	it("maps resources to lightweight EnvResource", () => {
 		mockListResources.mockReturnValue([
 			{ name: "Dev Hours", resourceType: "human", price: 100, amount: 160, consumed: 40, remaining: 120, totalCost: 16000, consumedCost: 4000, file: "f.md" },
-		] as ReturnType<typeof listResources>);
+		] as never);
 		const project: ProjectEntry = { name: "P", path: "/p", config: { name: "P" } };
 		const env = buildProjectEnvironment(project, mockDeps);
 		expect(env.resources).toEqual([{ name: "Dev Hours", resourceType: "human", amount: 160, consumed: 40 }]);
@@ -281,7 +281,7 @@ describe("buildProjectEnvironment", () => {
 	it("maps RAID items to lightweight EnvRAIDItem", () => {
 		mockListRAIDItems.mockReturnValue([
 			{ name: "API outage", itemType: "risk", status: "open", severity: "high", owner: "Bob", dueDate: "2026-04-01", file: "f.md" },
-		] as ReturnType<typeof listRAIDItems>);
+		] as never);
 		const project: ProjectEntry = { name: "P", path: "/p", config: { name: "P" } };
 		const env = buildProjectEnvironment(project, mockDeps);
 		expect(env.raidItems).toEqual([{ name: "API outage", itemType: "risk", status: "open", severity: "high" }]);

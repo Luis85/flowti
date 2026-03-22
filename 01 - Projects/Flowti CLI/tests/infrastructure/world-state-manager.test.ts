@@ -5,7 +5,7 @@ vi.mock("../../src/infrastructure/paths.js", () => ({ paths: {} }));
 vi.mock("../../src/infrastructure/clock.js", () => ({ clock: {} }));
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 
-import { createWorldStateManager } from "../../src/infrastructure/world-state-manager.js";
+import { createWorldStateManager, type WorldStateDeps } from "../../src/infrastructure/world-state-manager.js";
 import type { AgentAction, IWorldStateManager } from "../../src/domain/agents/world-state-types.js";
 
 function makeDeps() {
@@ -27,7 +27,7 @@ function makeDeps() {
 			iso: vi.fn(() => "2026-03-15T12:00:00Z"),
 			safeIso: vi.fn(() => "2026-03-15"),
 		},
-	} as never;
+	};
 }
 
 describe("WorldStateManager", () => {
@@ -37,7 +37,7 @@ describe("WorldStateManager", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		deps = makeDeps();
-		mgr = createWorldStateManager(deps, "/vault");
+		mgr = createWorldStateManager(deps as unknown as WorldStateDeps, "/vault");
 	});
 
 	afterEach(() => {

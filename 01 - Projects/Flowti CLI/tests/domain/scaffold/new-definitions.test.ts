@@ -20,6 +20,7 @@ const VARS: ScaffoldVariables = {
 	pascal: "TestProject",
 	camel: "testProject",
 	author: "Test Author",
+	date: "2026-03-22",
 };
 
 function createDefaultRegistry() {

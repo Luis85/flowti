@@ -134,9 +134,10 @@ describe("shop.controller", () => {
 		initializeDeps({
 			disk, paths, clock, proc,
 			shell: { run: vi.fn(), runSilent: vi.fn(), check: vi.fn(() => false) } as never,
-			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
+			worldState: {} as never, workerManager: {} as never, processRunner: {} as never,
 		});
 	});
 
@@ -239,7 +240,7 @@ describe("shop.controller", () => {
 		});
 
 		it("adds item and writes catalog", () => {
-			commands["shop:catalog:add"]({ id: "new-item", name: "New Item", cost: 75, category: "resource", format: "json" }, [], "shop:catalog:add", undefined);
+			commands["shop:catalog:add"]({ id: "new-item", name: "New Item", cost: "75", category: "resource", format: "json" }, [], "shop:catalog:add", undefined);
 
 			expect(readCatalog).toHaveBeenCalledOnce();
 			expect(writeCatalog).toHaveBeenCalledOnce();
@@ -249,7 +250,7 @@ describe("shop.controller", () => {
 		});
 
 		it("returns error when --id flag is missing", () => {
-			commands["shop:catalog:add"]({ name: "Item", cost: 10, category: "resource", format: "json" }, [], "shop:catalog:add", undefined);
+			commands["shop:catalog:add"]({ name: "Item", cost: "10", category: "resource", format: "json" }, [], "shop:catalog:add", undefined);
 
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("error");
@@ -272,7 +273,7 @@ describe("shop.controller", () => {
 		});
 
 		it("updates item cost and writes catalog", () => {
-			commands["shop:catalog:edit"]({ id: "token-pack-5k", cost: 120, format: "json" }, [], "shop:catalog:edit", undefined);
+			commands["shop:catalog:edit"]({ id: "token-pack-5k", cost: "120", format: "json" }, [], "shop:catalog:edit", undefined);
 
 			expect(readCatalog).toHaveBeenCalledOnce();
 			expect(writeCatalog).toHaveBeenCalledOnce();
@@ -282,7 +283,7 @@ describe("shop.controller", () => {
 		});
 
 		it("returns error when --id flag is missing", () => {
-			commands["shop:catalog:edit"]({ cost: 50, format: "json" }, [], "shop:catalog:edit", undefined);
+			commands["shop:catalog:edit"]({ cost: "50", format: "json" }, [], "shop:catalog:edit", undefined);
 
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("error");

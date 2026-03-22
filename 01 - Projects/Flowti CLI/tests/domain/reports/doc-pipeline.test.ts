@@ -31,9 +31,9 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 });
 
 // Mock the generator registry
-const mockRunReference = vi.fn();
+const { mockRunReference } = vi.hoisted(() => ({ mockRunReference: vi.fn() }));
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
-	runReference: (...args: unknown[]) => mockRunReference(...args),
+	runReference: mockRunReference,
 }));
 
 import { toDocStep, toReferenceStep, buildDocSteps, runDocPipeline } from "../../../src/domain/reports/pipeline/doc-pipeline.js";

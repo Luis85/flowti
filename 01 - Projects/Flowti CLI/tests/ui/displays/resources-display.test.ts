@@ -24,7 +24,7 @@ describe("renderResourceList", () => {
 
 	it("renders budget resource with percentage", () => {
 		const resources: ResourceSummary[] = [
-			{ name: "Dev Budget", resourceType: "budget", amount: 10000, consumed: 7500, price: 0 },
+			{ name: "Dev Budget", resourceType: "budget", amount: 10000, consumed: 7500, remaining: 2500, totalCost: 10000, consumedCost: 7500, price: 0, file: "" },
 		];
 		renderResourceList(resources, log);
 		const out = output();
@@ -37,31 +37,31 @@ describe("renderResourceList", () => {
 
 	it("renders non-budget resource with price", () => {
 		const resources: ResourceSummary[] = [
-			{ name: "Cloud Servers", resourceType: "compute", amount: 20, consumed: 5, price: 100 },
+			{ name: "Cloud Servers", resourceType: "material", amount: 20, consumed: 5, remaining: 15, totalCost: 2000, consumedCost: 500, price: 100, file: "" },
 		];
 		renderResourceList(resources, log);
 		const out = output();
 		expect(out).toContain("Cloud Servers");
-		expect(out).toContain("[compute]");
+		expect(out).toContain("[material]");
 		expect(out).toContain("5/20");
 		expect(out).toContain("@ 100/u");
 	});
 
 	it("renders multiple resources", () => {
 		const resources: ResourceSummary[] = [
-			{ name: "Budget A", resourceType: "budget", amount: 5000, consumed: 4500, price: 0 },
-			{ name: "Licenses", resourceType: "license", amount: 10, consumed: 3, price: 50 },
+			{ name: "Budget A", resourceType: "budget", amount: 5000, consumed: 4500, remaining: 500, totalCost: 5000, consumedCost: 4500, price: 0, file: "" },
+			{ name: "Roles", resourceType: "role", amount: 10, consumed: 3, remaining: 7, totalCost: 500, consumedCost: 150, price: 50, file: "" },
 		];
 		renderResourceList(resources, log);
 		const out = output();
 		expect(out).toContain("Resources (2)");
 		expect(out).toContain("Budget A");
-		expect(out).toContain("Licenses");
+		expect(out).toContain("Roles");
 	});
 
 	it("handles zero-amount budget without division error", () => {
 		const resources: ResourceSummary[] = [
-			{ name: "Empty Budget", resourceType: "budget", amount: 0, consumed: 0, price: 0 },
+			{ name: "Empty Budget", resourceType: "budget", amount: 0, consumed: 0, remaining: 0, totalCost: 0, consumedCost: 0, price: 0, file: "" },
 		];
 		renderResourceList(resources, log);
 		const out = output();
@@ -79,8 +79,10 @@ describe("renderFinancialSummary", () => {
 			totalRemaining: 20000,
 			burnRate: 0.6,
 			byType: {
-				development: { budget: 30000, consumed: 20000 },
-				infrastructure: { budget: 20000, consumed: 10000 },
+				human: { budget: 30000, consumed: 20000 },
+				material: { budget: 20000, consumed: 10000 },
+				role: { budget: 0, consumed: 0 },
+				budget: { budget: 0, consumed: 0 },
 			},
 		};
 		renderFinancialSummary(summary, log);
@@ -90,8 +92,8 @@ describe("renderFinancialSummary", () => {
 		expect(out).toContain("30000.00");
 		expect(out).toContain("20000.00");
 		expect(out).toContain("60.0%");
-		expect(out).toContain("development:");
-		expect(out).toContain("infrastructure:");
+		expect(out).toContain("human:");
+		expect(out).toContain("material:");
 	});
 
 	it("skips zero-value type breakdowns", () => {
@@ -101,14 +103,16 @@ describe("renderFinancialSummary", () => {
 			totalRemaining: 500,
 			burnRate: 0.5,
 			byType: {
-				active: { budget: 1000, consumed: 500 },
-				empty: { budget: 0, consumed: 0 },
+				human: { budget: 1000, consumed: 500 },
+				material: { budget: 0, consumed: 0 },
+				role: { budget: 0, consumed: 0 },
+				budget: { budget: 0, consumed: 0 },
 			},
 		};
 		renderFinancialSummary(summary, log);
 		const out = output();
-		expect(out).toContain("active:");
-		expect(out).not.toContain("empty:");
+		expect(out).toContain("human:");
+		expect(out).not.toContain("material:");
 	});
 });
 

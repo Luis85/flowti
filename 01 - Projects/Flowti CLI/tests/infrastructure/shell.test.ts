@@ -107,7 +107,7 @@ describe("shell.run", () => {
 
 describe("shell.runSilent", () => {
 	it("returns trimmed output on success", () => {
-		mockedExec.mockReturnValue("  v24.12.0\n" as unknown as Buffer);
+		mockedExec.mockReturnValue("  v24.12.0\n" as never);
 		expect(shell.runSilent("node --version")).toBe("v24.12.0");
 	});
 
@@ -117,7 +117,7 @@ describe("shell.runSilent", () => {
 	});
 
 	it("uses CLI_PROJECT as default cwd", () => {
-		mockedExec.mockReturnValue("output" as unknown as Buffer);
+		mockedExec.mockReturnValue("output" as never);
 		shell.runSilent("git status");
 		expect(mockedExec).toHaveBeenCalledWith("git status", expect.objectContaining({ cwd: "/project" }));
 	});

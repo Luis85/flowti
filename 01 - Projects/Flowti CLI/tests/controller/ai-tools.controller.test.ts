@@ -102,7 +102,7 @@ const mockProject = {
 describe("ai-tools.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		initializeDeps({ disk, shell, paths, clock, proc, input, bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never, log, warn: vi.fn() });
+		initializeDeps({ disk, shell, paths, clock, proc, input, bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never, log, warn: vi.fn(), worldState: {} as never, workerManager: {} as never, processRunner: {} as never });
 	});
 
 	describe("ai:list", () => {
@@ -127,7 +127,7 @@ describe("ai-tools.controller", () => {
 					},
 					valid: true,
 					errors: [],
-					filePath: "/vault/.flowti/ai-tools/lint-fix.json",
+					path: "/vault/.flowti/ai-tools/lint-fix.json",
 				},
 			]);
 
@@ -150,7 +150,7 @@ describe("ai-tools.controller", () => {
 			vi.mocked(discoverToolFiles).mockReturnValue([
 				"/vault/.flowti/ai-tools/my-tool.json",
 			]);
-			vi.mocked(disk.readFileSync).mockReturnValue(
+			(disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
 				JSON.stringify({ name: "my-tool", description: "A tool", run: "echo hello" }),
 			);
 			vi.mocked(validateToolDefinition).mockReturnValue({
@@ -172,7 +172,7 @@ describe("ai-tools.controller", () => {
 			vi.mocked(discoverToolFiles).mockReturnValue([
 				"/vault/.flowti/ai-tools/bad.json",
 			]);
-			vi.mocked(disk.readFileSync).mockReturnValue("not valid json {{{");
+			(disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue("not valid json {{{");
 
 			// Should not throw
 			commands["ai:validate"]({}, [], "ai:validate", mockProject);

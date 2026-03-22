@@ -93,9 +93,9 @@ describe("requirementStore.list", () => {
 
 	it("parses requirements from directory", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["user-auth.md"]);
+		mockDisk.readdirSync.mockReturnValue(["user-auth.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\ntype: Requirement\nname: User Auth\nid: REQ-001\nrequirementType: functional\nstatus: approved\npriority: must\n---\nDescription",
+			"---\ntype: Requirement\nname: User Auth\nid: REQ-001\nrequirementType: functional\nstatus: approved\npriority: must\n---\nDescription" as never,
 		);
 
 		const result = requirementStore.list(deps, "/project");
@@ -109,8 +109,8 @@ describe("requirementStore.list", () => {
 
 	it("skips non-Requirement type files", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["readme.md"]);
-		mockDisk.readFileSync.mockReturnValue("---\ntype: Other\nname: Readme\n---");
+		mockDisk.readdirSync.mockReturnValue(["readme.md"] as never);
+		mockDisk.readFileSync.mockReturnValue("---\ntype: Other\nname: Readme\n---" as never);
 
 		const result = requirementStore.list(deps, "/project");
 		expect(result).toHaveLength(0);
@@ -151,7 +151,7 @@ describe("requirementStore.updateField (status)", () => {
 
 	it("updates status in file content", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: draft\npriority: must\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue("---\nstatus: draft\npriority: must\n---\nBody" as never);
 
 		const result = requirementStore.updateField(deps, "/project", "Test", "status", "approved");
 
@@ -172,9 +172,9 @@ describe("useCaseStore.list", () => {
 
 	it("parses use cases from subdirectory", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["user-login.md"]);
+		mockDisk.readdirSync.mockReturnValue(["user-login.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\ntype: UseCase\nname: User Login\nid: UC-001\nactor: End User\n---\nFlow",
+			"---\ntype: UseCase\nname: User Login\nid: UC-001\nactor: End User\n---\nFlow" as never,
 		);
 
 		const result = useCaseStore.list(deps, "/project", { dir: `${REQ_DEFAULT_DIR}/use-cases` });
@@ -207,9 +207,9 @@ describe("userStoryStore.list", () => {
 
 	it("parses user stories from subdirectory", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["login-story.md"]);
+		mockDisk.readdirSync.mockReturnValue(["login-story.md"] as never);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\ntype: UserStory\nname: Login Story\nid: US-001\nrole: User\nstatus: backlog\nstoryPoints: 5\n---\nCriteria",
+			"---\ntype: UserStory\nname: Login Story\nid: US-001\nrole: User\nstatus: backlog\nstoryPoints: 5\n---\nCriteria" as never,
 		);
 
 		const result = userStoryStore.list(deps, "/project", { dir: `${REQ_DEFAULT_DIR}/user-stories` });

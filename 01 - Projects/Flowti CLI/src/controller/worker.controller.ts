@@ -7,12 +7,28 @@
 
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types-config.js";
+import type { CliDeps } from "../infrastructure/deps.js";
 import { taskStore } from "../domain/tasks/task-store.js";
 import { agentStore } from "../domain/agents/agent-store.js";
 import { renderWorkerStatus, renderWorkerQueue, renderWorkerReassigned, renderWorkerPaused, renderWorkerResumed } from "../ui/displays/worker-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 
 const PAUSE_FLAG_PATH = ".flowti/var/worker-paused.json";
+
+/** Build a TaskStoreDeps-compatible object from CliDeps. */
+function taskDeps(deps: CliDeps) {
+	return {
+		disk: {
+			existsSync: (p: string) => deps.disk.existsSync(p),
+			readFileSync: (p: string, enc?: string) => deps.disk.readFileSync(p, (enc ?? "utf-8") as BufferEncoding),
+			writeFileSync: (p: string, c: string) => deps.disk.writeFileSync(p, c, "utf-8"),
+			mkdirSync: (p: string, opts?: { recursive?: boolean }) => deps.disk.mkdirSync(p, opts),
+			readdirSync: (p: string) => deps.disk.readdirSync(p) as string[],
+			unlinkSync: (p: string) => deps.disk.unlinkSync(p),
+		},
+		paths: deps.paths,
+	};
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -42,7 +58,7 @@ export const commands: Record<string, CommandHandler> = {
 		flags: {},
 		handler: (ctx) => {
 			const agents = agentStore.list(ctx.deps, VAULT_ROOT);
-			const tasks = taskStore.list(ctx.deps, VAULT_ROOT);
+			const tasks = taskStore.list(taskDeps(ctx.deps), VAULT_ROOT);
 			const paused = readPausedSet(ctx.deps);
 			const liveWorkers = ctx.deps.workerManager.listWorkers();
 			const workerStateMap = new Map(liveWorkers.map(w => [w.name, w.state]));
@@ -68,7 +84,7 @@ export const commands: Record<string, CommandHandler> = {
 	"worker:queue": adaptDescriptor({
 		flags: {},
 		handler: (ctx) => {
-			const all = taskStore.list(ctx.deps, VAULT_ROOT);
+			const all = taskStore.list(taskDeps(ctx.deps), VAULT_ROOT);
 			const queued = all.filter(t => t.status === "pending" || t.status === "assigned");
 			return {
 				tasks: queued.map(t => ({
@@ -91,9 +107,9 @@ export const commands: Record<string, CommandHandler> = {
 		handler: (ctx) => {
 			const id = ctx.flags.id as string;
 			const to = ctx.flags.to as string;
-			const task = taskStore.read(ctx.deps, VAULT_ROOT, id);
+			const task = taskStore.read(taskDeps(ctx.deps), VAULT_ROOT, id);
 			if (!task) return { id, to, ok: false, error: "task not found" };
-			taskStore.updateField(ctx.deps, VAULT_ROOT, task.id, "assignee", to);
+			taskStore.updateField(taskDeps(ctx.deps), VAULT_ROOT, task.id, "assignee", to);
 			return { id: task.id, to, ok: true };
 		},
 		renderer: renderWorkerReassigned,

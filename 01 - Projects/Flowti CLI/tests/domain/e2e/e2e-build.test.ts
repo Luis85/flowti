@@ -107,7 +107,7 @@ describe("readTestStats", () => {
 			numPassedTests: 95,
 			numFailedTests: 3,
 			numPendingTests: 2,
-		}));
+		}) as never);
 
 		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 100, passed: 95, failed: 3, skipped: 2 });
@@ -131,7 +131,7 @@ describe("readTestStats", () => {
 					],
 				},
 			],
-		}));
+		}) as never);
 
 		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 5, passed: 3, failed: 1, skipped: 1 });
@@ -144,7 +144,7 @@ describe("readTestStats", () => {
 				{ name: "no-results" },
 				{ assertionResults: [{ status: "passed" }] },
 			],
-		}));
+		}) as never);
 
 		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 1, passed: 1, failed: 0, skipped: 0 });
@@ -152,7 +152,7 @@ describe("readTestStats", () => {
 
 	it("returns zeros on malformed JSON", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("not json");
+		vi.mocked(disk.readFileSync).mockReturnValue("not json" as never);
 
 		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 0, passed: 0, failed: 0, skipped: 0 });
@@ -160,7 +160,7 @@ describe("readTestStats", () => {
 
 	it("returns zeros for empty report object", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readFileSync).mockReturnValue("{}");
+		vi.mocked(disk.readFileSync).mockReturnValue("{}" as never);
 
 		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 0, passed: 0, failed: 0, skipped: 0 });
@@ -185,7 +185,7 @@ describe("readBuildStats", () => {
 	});
 
 	it("reads frontmatter from latest report files", () => {
-		vi.mocked(disk.readdirSync).mockReturnValue(["2026-03-01.md", "2026-03-08.md"] as unknown as ReturnType<typeof disk.readdirSync>);
+		vi.mocked(disk.readdirSync).mockReturnValue(["2026-03-01.md", "2026-03-08.md"] as unknown as ReturnType<typeof disk.readdirSync> as never);
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({ plugin_version: "1.0.0" });
 
@@ -219,7 +219,7 @@ describe("collectReportSources", () => {
 	});
 
 	it("collects timestamped and stable report sources", () => {
-		vi.mocked(disk.readdirSync).mockReturnValue(["report.md"] as unknown as ReturnType<typeof disk.readdirSync>);
+		vi.mocked(disk.readdirSync).mockReturnValue(["report.md"] as unknown as ReturnType<typeof disk.readdirSync> as never);
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({ status: "pass" });
 

@@ -242,7 +242,7 @@ describe("storybook:canvas-import", () => {
 		});
 		const ctx = createProjectContext({ command: "storybook:canvas-import", flags: {} });
 		ctx.deps.disk.existsSync = vi.fn((p: string) => String(p).includes("sitemap.canvas"));
-		ctx.deps.disk.readFileSync = vi.fn(() => canvasJson);
+		ctx.deps.disk.readFileSync = vi.fn(() => canvasJson) as never;
 		ctx.deps.disk.writeFileSync = vi.fn();
 		ctx.deps.disk.mkdirSync = vi.fn();
 		const result = handler(ctx) as Record<string, unknown>;
@@ -259,7 +259,7 @@ describe("storybook:canvas-import", () => {
 		const existingSitemap = JSON.stringify({ version: 2, pages: { "old": { kind: "page", label: "Old", description: "", actions: [] } } });
 		const ctx = createProjectContext({ command: "storybook:canvas-import", flags: { merge: true } });
 		ctx.deps.disk.existsSync = vi.fn(() => true);
-		ctx.deps.disk.readFileSync = vi.fn((p: string) => String(p).includes("sitemap.json") ? existingSitemap : canvasJson);
+		ctx.deps.disk.readFileSync = vi.fn((p: string) => String(p).includes("sitemap.json") ? existingSitemap : canvasJson) as never;
 		ctx.deps.disk.writeFileSync = vi.fn();
 		ctx.deps.disk.mkdirSync = vi.fn();
 		const result = handler(ctx) as Record<string, unknown>;

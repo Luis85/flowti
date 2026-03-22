@@ -180,8 +180,8 @@ describe("generateReadme", () => {
 				config: makeConfig({
 					reports: {
 						generators: [
-							{ label: "Coverage Report", type: "coverage" as never, outputDir: "reports" },
-							{ label: "Summary Report", type: "summary" as never, outputDir: "reports" },
+							{ label: "Coverage Report" },
+							{ label: "Summary Report" },
 						],
 					},
 				}),
@@ -241,7 +241,7 @@ describe("generateReadme", () => {
 					build: { commands: { fast: "esbuild" } },
 					test: { commands: { unit: "vitest" } },
 					reports: {
-						generators: [{ label: "Summary", type: "summary" as never, outputDir: "out" }],
+						generators: [{ label: "Summary" }],
 					},
 				}),
 				scripts: { build: "tsc" },

@@ -5,7 +5,7 @@ import type { WatchFn } from "../../src/infrastructure/sitemap-watcher.js";
 
 function mockFs(content = "initial content"): IFileSystem {
 	return {
-		readFileSync: vi.fn(() => content),
+		readFileSync: vi.fn(() => content) as unknown as IFileSystem["readFileSync"],
 		writeFileSync: vi.fn(),
 		existsSync: vi.fn(() => true),
 		mkdirSync: vi.fn(),

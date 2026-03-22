@@ -25,7 +25,7 @@ beforeEach(() => {
 
 describe("disk.readFileSync", () => {
 	it("delegates to fs.readFileSync", () => {
-		mocked.readFileSync.mockReturnValue("file content" as unknown as Buffer);
+		mocked.readFileSync.mockReturnValue("file content" as never);
 		const result = disk.readFileSync("/path/to/file.txt", "utf-8");
 		expect(result).toBe("file content");
 		expect(mocked.readFileSync).toHaveBeenCalledWith("/path/to/file.txt", "utf-8");

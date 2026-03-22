@@ -29,6 +29,9 @@ describe("componentDocTemplate property frontmatter", () => {
 				{ key: "variant", type: "string", default: "default", description: "Visual variant" },
 				{ key: "disabled", type: "boolean", default: false, description: "Whether disabled" },
 			],
+			actions: [],
+			variants: [],
+			states: [],
 			nextSteps: [],
 		};
 
@@ -65,6 +68,9 @@ describe("componentDocTemplate property frontmatter", () => {
 			properties: [
 				{ key: "priority", type: "string", description: "Component priority" },
 			],
+			actions: [],
+			variants: [],
+			states: [],
 			nextSteps: [],
 		};
 
@@ -128,6 +134,9 @@ describe("c4DocTemplate property frontmatter", () => {
 			properties: [
 				{ key: "region", type: "string", default: "us-east", description: "Deployment region" },
 			],
+			actions: [],
+			variants: [],
+			states: [],
 			nextSteps: [],
 		};
 

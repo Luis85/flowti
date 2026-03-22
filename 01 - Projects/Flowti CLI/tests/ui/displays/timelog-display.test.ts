@@ -24,8 +24,8 @@ describe("renderTimeLogList", () => {
 
 	it("renders entry count and details", () => {
 		const entries: TimeLogEntry[] = [
-			{ date: "2026-03-10", person: "Alice", hours: 4, task: "API development", category: "dev" },
-			{ date: "2026-03-11", person: "Bob", hours: 2.5, task: "Code review", category: "review" },
+			{ date: "2026-03-10", person: "Alice", hours: 4, task: "API development", category: "dev", description: "" },
+			{ date: "2026-03-11", person: "Bob", hours: 2.5, task: "Code review", category: "review", description: "" },
 		];
 		renderTimeLogList(entries, log);
 		const out = output();
@@ -42,7 +42,7 @@ describe("renderTimeLogList", () => {
 
 	it("omits category tag when absent", () => {
 		const entries: TimeLogEntry[] = [
-			{ date: "2026-03-10", person: "Alice", hours: 1, task: "Misc", category: "" },
+			{ date: "2026-03-10", person: "Alice", hours: 1, task: "Misc", category: "", description: "" },
 		];
 		renderTimeLogList(entries, log);
 		const out = output();
@@ -59,6 +59,7 @@ describe("renderTimeLogSummary", () => {
 			totalHours: 42,
 			byPerson: { Alice: 24, Bob: 18 },
 			byCategory: { dev: 30, review: 12 },
+			entries: [],
 		};
 		renderTimeLogSummary(summary, log);
 		const out = output();
@@ -77,6 +78,7 @@ describe("renderTimeLogSummary", () => {
 			totalHours: 0,
 			byPerson: {},
 			byCategory: {},
+			entries: [],
 		};
 		renderTimeLogSummary(summary, log);
 		const out = output();

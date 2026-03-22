@@ -30,17 +30,19 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 });
 
 // Mock the unified generator registry
-const mockRunGenerator = vi.fn();
-const mockHasGenerator = vi.fn();
+const { mockRunGenerator, mockHasGenerator, mockRunAllDocs } = vi.hoisted(() => ({
+	mockRunGenerator: vi.fn(),
+	mockHasGenerator: vi.fn(),
+	mockRunAllDocs: vi.fn(),
+}));
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
-	runGenerator: (...args: unknown[]) => mockRunGenerator(...args),
-	hasGenerator: (...args: unknown[]) => mockHasGenerator(...args),
+	runGenerator: mockRunGenerator,
+	hasGenerator: mockHasGenerator,
 }));
 
 // Mock the doc runner (docs command now delegates to pipeline)
-const mockRunAllDocs = vi.fn();
 vi.mock("../../../src/domain/reports/pipeline/doc-runner.js", () => ({
-	runAllDocs: (...args: unknown[]) => mockRunAllDocs(...args),
+	runAllDocs: mockRunAllDocs,
 }));
 
 vi.mock("../../../src/infrastructure/paths.js", () => ({
@@ -108,7 +110,7 @@ beforeEach(() => {
 	mockRunGenerator.mockReturnValue({ success: true, outputPath: "/test/report.md", metrics: {} });
 	mockRunAllDocs.mockResolvedValue({ generators: [], totalDurationMs: 100, passed: 2, failed: 0 });
 	const deps = createTestDeps();
-	(deps as Record<string, unknown>).log = log;
+	(deps as unknown as Record<string, unknown>).log = log;
 	initializeDeps(deps);
 });
 
@@ -182,8 +184,8 @@ describe("reports commands", () => {
 		mockHasGenerator.mockReturnValue(false);
 		const sh = createMockShell();
 		const deps = createTestDeps();
-		(deps as Record<string, unknown>).shell = sh;
-		(deps as Record<string, unknown>).log = log;
+		(deps as unknown as Record<string, unknown>).shell = sh;
+		(deps as unknown as Record<string, unknown>).log = log;
 		initializeDeps(deps);
 
 		const project = makeProject({
@@ -201,8 +203,8 @@ describe("reports commands", () => {
 		mockHasGenerator.mockReturnValue(false);
 		const sh = createMockShell();
 		const deps = createTestDeps();
-		(deps as Record<string, unknown>).shell = sh;
-		(deps as Record<string, unknown>).log = log;
+		(deps as unknown as Record<string, unknown>).shell = sh;
+		(deps as unknown as Record<string, unknown>).log = log;
 		initializeDeps(deps);
 		const mockLog = log as ReturnType<typeof vi.fn>;
 		const project = makeProject({

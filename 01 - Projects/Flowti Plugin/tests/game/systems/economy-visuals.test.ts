@@ -23,10 +23,10 @@ describe("economy-visuals", () => {
 			expect(cue!.duration).toBe(2000);
 		});
 
-		it("returns level-up cue with firework particle preset", () => {
+		it("returns level-up cue with confetti particle preset", () => {
 			const cue = getCueForTrigger("level-up");
 			expect(cue).toBeDefined();
-			expect(cue!.particlePreset).toBe("firework");
+			expect(cue!.particlePreset).toBe("confetti");
 			expect(cue!.bubbleText).toBe("Level {level}!");
 			expect(cue!.duration).toBe(3000);
 		});

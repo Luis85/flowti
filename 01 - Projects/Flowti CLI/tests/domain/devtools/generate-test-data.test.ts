@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createTestDeps } from "../../mocks/mock-deps.js";
+import { createMockFs } from "../../mocks/mock-fs.js";
 import { generateTestData } from "../../../src/domain/devtools/generate-test-data.js";
 import type { TestDataOpts } from "../../../src/domain/devtools/generate-test-data.js";
 
+type MockFs = ReturnType<typeof createMockFs>;
+
 function makeDeps() {
 	const deps = createTestDeps({ clock: "2025-06-15T10:30:00.000Z" });
-	return { fs: deps.disk, clock: deps.clock, log: deps.log, deps };
+	return { fs: deps.disk as MockFs, clock: deps.clock, log: vi.mocked(deps.log), deps };
 }
 
 function defaultOpts(overrides: Partial<TestDataOpts> = {}): TestDataOpts {

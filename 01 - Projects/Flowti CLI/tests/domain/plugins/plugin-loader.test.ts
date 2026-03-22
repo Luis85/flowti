@@ -30,6 +30,9 @@ const testPaths = {
 	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
 	resolve: (...args: string[]) => args.join("/"),
 	relative: (_from: string, to: string) => to,
+	extname: (p: string) => { const m = p.match(/\.[^.]+$/); return m ? m[0] : ""; },
+	isAbsolute: (p: string) => p.startsWith("/"),
+	sep: "/" as const,
 };
 
 const testDeps = { paths: testPaths } as const;

@@ -30,8 +30,8 @@ describe("renderRequirementList", () => {
 
 	it("renders requirement count and details", () => {
 		const reqs: RequirementSummary[] = [
-			{ id: "REQ-001", name: "User auth", requirementType: "functional", priority: "must", status: "approved" },
-			{ id: "REQ-002", name: "Performance", requirementType: "non-functional", priority: "should", status: "draft" },
+			{ id: "REQ-001", name: "User auth", requirementType: "functional", priority: "must", status: "approved", file: "" },
+			{ id: "REQ-002", name: "Performance", requirementType: "non-functional", priority: "should", status: "draft", file: "" },
 		];
 		renderRequirementList(reqs, log);
 		const out = output();
@@ -56,8 +56,8 @@ describe("renderUseCaseList", () => {
 
 	it("renders use case details", () => {
 		const useCases: UseCaseSummary[] = [
-			{ id: "UC-001", name: "Login", actor: "End User" },
-			{ id: "UC-002", name: "Export Report", actor: "Admin" },
+			{ id: "UC-001", name: "Login", actor: "End User", file: "" },
+			{ id: "UC-002", name: "Export Report", actor: "Admin", file: "" },
 		];
 		renderUseCaseList(useCases, log);
 		const out = output();
@@ -80,8 +80,8 @@ describe("renderUserStoryList", () => {
 
 	it("renders story details with points", () => {
 		const stories: UserStorySummary[] = [
-			{ id: "US-001", name: "Login flow", status: "done", role: "end-user", storyPoints: 5 },
-			{ id: "US-002", name: "Dashboard", status: "in-progress", role: "admin", storyPoints: 8 },
+			{ id: "US-001", name: "Login flow", status: "done", role: "end-user", storyPoints: 5, file: "" },
+			{ id: "US-002", name: "Dashboard", status: "in-progress", role: "admin", storyPoints: 8, file: "" },
 		];
 		renderUserStoryList(stories, log);
 		const out = output();
@@ -98,7 +98,7 @@ describe("renderUserStoryList", () => {
 
 	it("omits points when zero", () => {
 		const stories: UserStorySummary[] = [
-			{ id: "US-003", name: "No points", status: "backlog", role: "user", storyPoints: 0 },
+			{ id: "US-003", name: "No points", status: "backlog", role: "user", storyPoints: 0, file: "" },
 		];
 		renderUserStoryList(stories, log);
 		expect(output()).not.toContain("pts");

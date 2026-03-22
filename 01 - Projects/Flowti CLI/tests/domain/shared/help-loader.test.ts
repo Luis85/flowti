@@ -15,14 +15,14 @@ function createDeps(files: Record<string, string>): HelpLoaderDeps {
 				return match ? match[1] : "";
 			},
 			readdirSync: () => Object.keys(files),
-		},
+		} as unknown as HelpLoaderDeps["disk"],
 		paths: {
 			join: (...args: string[]) => args.join("/"),
 			basename: (p: string, ext?: string) => {
 				const name = p.split("/").pop() ?? p;
 				return ext && name.endsWith(ext) ? name.slice(0, -ext.length) : name;
 			},
-		},
+		} as unknown as HelpLoaderDeps["paths"],
 	};
 }
 
@@ -46,7 +46,7 @@ describe("loadHelpSection", () => {
 		let readCount = 0;
 		const deps = createDeps({ "main.md": "# MAIN" });
 		const origRead = deps.disk.readFileSync;
-		deps.disk.readFileSync = (...args: [string, string]) => { readCount++; return origRead(...args); };
+		deps.disk.readFileSync = ((...args: [string, BufferEncoding]) => { readCount++; return origRead(...args); }) as unknown as typeof deps.disk.readFileSync;
 
 		loadHelpSection("/help", "main", deps);
 		loadHelpSection("/help", "main", deps);
@@ -57,7 +57,7 @@ describe("loadHelpSection", () => {
 		let readCount = 0;
 		const deps = createDeps({ "main.md": "# MAIN" });
 		const origRead = deps.disk.readFileSync;
-		deps.disk.readFileSync = (...args: [string, string]) => { readCount++; return origRead(...args); };
+		deps.disk.readFileSync = ((...args: [string, BufferEncoding]) => { readCount++; return origRead(...args); }) as unknown as typeof deps.disk.readFileSync;
 
 		loadHelpSection("/help", "main", deps);
 		clearHelpCache();

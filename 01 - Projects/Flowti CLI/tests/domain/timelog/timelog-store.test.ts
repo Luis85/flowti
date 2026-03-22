@@ -76,8 +76,8 @@ describe("timelogStore.list", () => {
 
 	it("parses entries from directory", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["2026-03-12-jane.md"]);
-		mockDisk.readFileSync.mockReturnValue("---\ndate: 2026-03-12\nperson: Jane\nhours: 4\ncategory: dev\ntask: Feature\n---\nSome notes");
+		mockDisk.readdirSync.mockReturnValue(["2026-03-12-jane.md"] as never);
+		mockDisk.readFileSync.mockReturnValue("---\ndate: 2026-03-12\nperson: Jane\nhours: 4\ncategory: dev\ntask: Feature\n---\nSome notes" as never);
 
 		const entries = timelogStore.list(deps, "/project");
 
@@ -90,7 +90,7 @@ describe("timelogStore.list", () => {
 
 	it("sorts entries by date descending", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["a.md", "b.md"]);
+		mockDisk.readdirSync.mockReturnValue(["a.md", "b.md"] as never);
 		mockDisk.readFileSync
 			.mockReturnValueOnce("---\ndate: 2026-03-10\nperson: A\nhours: 1\ncategory: dev\ntask: Old\n---")
 			.mockReturnValueOnce("---\ndate: 2026-03-12\nperson: B\nhours: 2\ncategory: dev\ntask: New\n---");
