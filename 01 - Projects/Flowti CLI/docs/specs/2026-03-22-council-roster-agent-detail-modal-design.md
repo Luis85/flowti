@@ -32,7 +32,7 @@ New components are built alongside the existing agent panel. The old panel is re
 ### Layout
 - Position: `fixed`, left edge, full height (minus bottom roster bar)
 - Width: ~80px
-- Z-index: 100
+- Z-index: 90 (below camera HUD at 100)
 - 5 vertical slots, evenly spaced
 - "Manage" button at bottom opens the Roster Picker
 
@@ -120,8 +120,8 @@ New components are built alongside the existing agent panel. The old panel is re
 - If another modal is open, swaps to new agent (no stacking)
 
 ### On Close
-- Backdrop click or close button
-- `store.selectAgent(null)` clears selection
+- Backdrop click, close button, or Escape key
+- `store.stopFollow()` + `store.selectAgent(null)` clears selection and camera lock
 - LLM process stays running (agent continues working in world)
 
 ---
@@ -158,9 +158,28 @@ New components are built alongside the existing agent panel. The old panel is re
 - Auto-expands the active path (root → currently running leaf)
 
 ### Data Contract
-- New store field: `btTreeState: Map<string, BTTreeSnapshot>`
-- `BTTreeSnapshot`: `{ nodes: BTNodeState[] }` where each node has `id, label, type, status, children, depth`
-- BT system emits snapshot every 2-3 seconds (throttled to avoid UI churn)
+
+```typescript
+type BTNodeType = "selector" | "sequence" | "condition" | "action";
+type BTNodeStatus = "running" | "success" | "failure" | "idle";
+
+interface BTNodeState {
+  readonly id: string;           // Dot-path from root, e.g. "root.0.2.1"
+  readonly label: string;        // Display name, e.g. "SeekFood"
+  readonly type: BTNodeType;     // Mapped from mistreevous node kinds
+  readonly status: BTNodeStatus; // Last tick result
+  readonly children: BTNodeState[];  // Nested tree (not flat IDs)
+}
+
+interface BTTreeSnapshot {
+  readonly root: BTNodeState;    // Single root node with nested children
+  readonly tick: number;         // Monotonic tick counter
+}
+```
+
+**Mistreevous mapping:** `Selector`/`Lotto`/`Priority` → `"selector"`, `Sequence` → `"sequence"`, `Condition`/`Wait`/`Guard` → `"condition"`, `Action`/`Flip`/`Succeed`/`Fail` → `"action"`.
+
+**Emit frequency:** Snapshot emits on each BT tick (`BT_TICK_INTERVAL_MS = 3000`), only when the tree state has changed since last emit (dirty check by comparing status values).
 
 ### Integration
 - Brain tab layout: radar chart + tree view (top), decision narrative timeline (bottom)
@@ -168,6 +187,20 @@ New components are built alongside the existing agent panel. The old panel is re
 ---
 
 ## 5. Store Changes
+
+### TabName Type Change
+
+Current:
+```typescript
+type TabName = "info" | "talk" | "tasks" | "permissions" | "brain" | "monitor" | "debug";
+```
+
+New:
+```typescript
+type TabName = "profile" | "talk" | "tasks" | "permissions" | "brain" | "debug";
+```
+
+**Migration:** `"info"` → `"profile"`, `"monitor"` removed (process metrics fold into Profile as a collapsible section). Any unrecognised `selectedTab` value falls back to `"profile"`.
 
 ### New Fields
 ```
@@ -185,10 +218,12 @@ btTreeState: Map<string, BTTreeSnapshot>   — per-agent BT tree snapshots
 ### Persistence
 - Council stored in localStorage key `flowti-council` as JSON array
 - On load, silently drop names that no longer exist in `store.agents`
+- Agent rename is out of scope — renamed agents are treated as "no longer exists" and dropped from Council. User re-adds them.
+- Immediate-persist on picker close is intentional — no dirty-state warning needed, changes are trivially reversible via the picker.
 
 ### Selection Flow
 - `store.selectAgent(name)` — unchanged API, but now consumed by the detail modal instead of the old panel
-- `store.selectTab(tab)` — reused as-is
+- `store.selectTab(tab)` — reused with updated `TabName` union
 
 ### LLM Auto-Start
 - On modal open, call `getOrStartProcess(agentName)` if not running
@@ -210,8 +245,8 @@ btTreeState: Map<string, BTTreeSnapshot>   — per-agent BT tree snapshots
 - `panel-debug.ts` → Debug tab
 
 ### Reworked
-- `panel-brain.ts` — keeps radar + decision timeline, gains BT tree renderer integration
-- `panel-info.ts` — hero/stats/personality rendering migrates into modal Profile tab directly
+- `panel-brain.ts` — keeps needs radar + decision log (renamed "Decision Narrative" for consistency), gains `bt-tree-view.ts` integration
+- `panel-info.ts` — **deleted**. Its hero section, personality traits, D&D stat grid, skills list, relationships, goals, and behaviors rendering are inlined into `agent-detail-modal.ts`'s Profile tab. The sub-components it imported (`panel-vitals.ts`, `panel-economy.ts`) are imported directly by the modal instead.
 
 ### New Components (4)
 | Component | File | Purpose |
@@ -233,7 +268,9 @@ btTreeState: Map<string, BTTreeSnapshot>   — per-agent BT tree snapshots
 | Canvas background | 0 | ExcaliburJS |
 | Dashboard overlays | 10 | Movement arrows |
 | Roster bar | 50 | Bottom scene nav |
-| Council sidebar | 100 | Left party bar |
+| Council sidebar | 90 | Left party bar |
+| Agent panel (legacy, during transition) | 100 | Right-side panel (retired post-migration) |
+| Camera HUD | 100 | Top-center follow indicator |
 | Agent detail modal | 150 | Right 60% split |
 | Ask Bob panel | 200 | Top-left launcher |
 | Merchant panel | 299-300 | Shop overlay |
@@ -249,3 +286,5 @@ btTreeState: Map<string, BTTreeSnapshot>   — per-agent BT tree snapshots
 - **Multi-agent chat** — Each modal shows one agent's conversation, no group chat
 - **Persistent BT tree recording** — Tree snapshots are live-only, not stored to disk
 - **Custom portrait uploads** — Portraits use existing sprite registry thumbnails
+- **Full accessibility/ARIA** — Deferred. Escape key closes modals (implemented), but full keyboard navigation (arrow keys for Council reorder, tab focus management) is follow-on work
+- **Agent rename handling** — Renamed agents are dropped from Council on next load; user re-adds them
