@@ -34,6 +34,7 @@ import type { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import type { MemorySystem } from "./systems/memory-system.js";
 import type { QuirkSystem } from "./systems/quirk-system.js";
 import type { RelationshipSystem } from "./systems/relationship-system.js";
+import type { ConversationEngine } from "./systems/talk/conversation-engine.js";
 import type { BtSystem } from "./systems/bt-system.js";
 import type { SceneRegistry } from "./systems/scene-registry.js";
 import type { RoomSwitcher } from "./systems/room-switcher.js";
@@ -97,6 +98,7 @@ export interface EngineSystems {
 	readonly memory: MemorySystem;
 	readonly quirk: QuirkSystem;
 	readonly relationship: RelationshipSystem;
+	readonly conversation: ConversationEngine;
 	readonly bt: BtSystem;
 	readonly registry: SceneRegistry;
 	readonly roomSwitcher: RoomSwitcher;

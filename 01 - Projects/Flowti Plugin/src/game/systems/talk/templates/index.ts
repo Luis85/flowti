@@ -27,3 +27,27 @@ export { coreTemplates } from "./core.js";
 
 /** Social templates — used when agents are near each other. */
 export { socialTemplates } from "./social.js";
+
+// Conversation scripts
+export { RIVAL_SCRIPTS } from "./conversation-scripts-rival.js";
+export { ACQUAINTANCE_SCRIPTS } from "./conversation-scripts-acquaintance.js";
+export { COLLEAGUE_SCRIPTS } from "./conversation-scripts-colleague.js";
+export { FRIEND_SCRIPTS } from "./conversation-scripts-friend.js";
+export { BESTFRIEND_SCRIPTS } from "./conversation-scripts-bestfriend.js";
+export { GOSSIP_SCRIPTS } from "./conversation-scripts-gossip.js";
+export { DRAMA_SCRIPTS } from "./conversation-scripts-drama.js";
+export { PET_CATALYST_SCRIPTS } from "./conversation-scripts-pet.js";
+
+// Running jokes
+export { RUNNING_JOKES } from "./running-jokes.js";
+
+// Pet phrases
+export { PET_INSTINCT_FRAGMENTS, PET_ELOQUENT_FRAGMENTS, PET_GREMLIN_FRAGMENTS } from "./pet-phrases.js";
+export { PET_REACTIVE_PHRASES } from "./pet-reactive-phrases.js";
+export { PET_PHRASE_CHAINS } from "./pet-phrase-chains.js";
+
+// Composable fragments
+export { ALL_FRAGMENT_POOLS } from "./fragment-pools.js";
+
+// Tier modifiers
+export { TIER_PREFIXES, TIER_SUFFIXES } from "./tier-modifiers.js";

@@ -18,6 +18,7 @@ export interface RelationshipEntry {
 	lastInteraction: number;
 	sharedMemories: string[];
 	opinion: string | null;
+	jokePlayCounts: Record<string, number>;
 }
 
 export type RelationshipTier = "rival" | "acquaintance" | "colleague" | "friend" | "best-friend";
@@ -25,6 +26,7 @@ export type RelationshipTier = "rival" | "acquaintance" | "colleague" | "friend"
 interface PersistenceData {
 	relationships: RelationshipEntry[];
 	opinions: Record<string, AgentOpinion[]>;
+	petAffinity: Record<string, number>;
 }
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -37,6 +39,7 @@ const DEFAULT_BICKER_CHANCE = 0.3;
 export class RelationshipSystem {
 	private readonly relationships = new Map<string, RelationshipEntry>();
 	private readonly agentOpinions = new Map<string, AgentOpinion[]>();
+	private readonly petAffinity = new Map<string, number>();
 	private readonly bickerChance: number;
 	private readonly tierCallbacks: Array<(agentA: string, agentB: string, tier: RelationshipTier) => void> = [];
 	private interactedThisCycle = new Set<string>();
@@ -119,6 +122,29 @@ export class RelationshipSystem {
 		return Math.random() < this.bickerChance;
 	}
 
+	// ── Pet affinity ────────────────────────────────────────────
+
+	getPetAffinity(agentName: string): number {
+		return this.petAffinity.get(agentName) ?? 50;
+	}
+
+	changePetAffinity(agentName: string, delta: number): void {
+		const current = this.getPetAffinity(agentName);
+		this.petAffinity.set(agentName, Math.max(0, Math.min(100, current + delta)));
+	}
+
+	// ── Joke play counts ────────────────────────────────────────
+
+	getJokePlayCount(a: string, b: string, jokeId: string): number {
+		const entry = this.getOrCreate(a, b);
+		return entry.jokePlayCounts[jokeId] ?? 0;
+	}
+
+	incrementJokePlayCount(a: string, b: string, jokeId: string): void {
+		const entry = this.getOrCreate(a, b);
+		entry.jokePlayCounts[jokeId] = (entry.jokePlayCounts[jokeId] ?? 0) + 1;
+	}
+
 	// ── Cycle end ────────────────────────────────────────────────
 
 	onCycleEnd(): void {
@@ -139,21 +165,30 @@ export class RelationshipSystem {
 	serialize(): PersistenceData {
 		const relationships: RelationshipEntry[] = [];
 		for (const entry of this.relationships.values()) {
-			relationships.push({ ...entry, sharedMemories: [...entry.sharedMemories] });
+			relationships.push({ ...entry, sharedMemories: [...entry.sharedMemories], jokePlayCounts: { ...entry.jokePlayCounts } });
 		}
 		const opinions: Record<string, AgentOpinion[]> = {};
 		for (const [name, ops] of this.agentOpinions) {
 			opinions[name] = [...ops];
 		}
-		return { relationships, opinions };
+		const petAffinity: Record<string, number> = {};
+		for (const [name, val] of this.petAffinity) {
+			petAffinity[name] = val;
+		}
+		return { relationships, opinions, petAffinity };
 	}
 
 	restore(data: PersistenceData): void {
 		for (const entry of data.relationships) {
-			this.relationships.set(this.pairKey(entry.agentA, entry.agentB), { ...entry });
+			this.relationships.set(this.pairKey(entry.agentA, entry.agentB), { ...entry, jokePlayCounts: entry.jokePlayCounts ?? {} });
 		}
 		for (const [name, ops] of Object.entries(data.opinions)) {
 			this.agentOpinions.set(name, ops);
+		}
+		if (data.petAffinity) {
+			for (const [name, val] of Object.entries(data.petAffinity)) {
+				this.petAffinity.set(name, val);
+			}
 		}
 	}
 
@@ -175,6 +210,7 @@ export class RelationshipSystem {
 				lastInteraction: 0,
 				sharedMemories: [],
 				opinion: null,
+				jokePlayCounts: {},
 			};
 			this.relationships.set(key, entry);
 		}

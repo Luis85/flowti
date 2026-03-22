@@ -178,4 +178,60 @@ describe("RelationshipSystem", () => {
 			expect(sys2.getOpinions("Atlas")).toHaveLength(1);
 		});
 	});
+
+	describe("petAffinity", () => {
+		it("starts at 50 for unknown agents", () => {
+			const sys = new RelationshipSystem();
+			expect(sys.getPetAffinity("Atlas")).toBe(50);
+		});
+
+		it("changePetAffinity adjusts and clamps 0-100", () => {
+			const sys = new RelationshipSystem();
+			sys.changePetAffinity("Atlas", 30);
+			expect(sys.getPetAffinity("Atlas")).toBe(80);
+			sys.changePetAffinity("Atlas", 30);
+			expect(sys.getPetAffinity("Atlas")).toBe(100);
+			sys.changePetAffinity("Atlas", -150);
+			expect(sys.getPetAffinity("Atlas")).toBe(0);
+		});
+
+		it("serializes and restores petAffinity", () => {
+			const sys = new RelationshipSystem();
+			sys.changePetAffinity("Atlas", 10);
+			const data = sys.serialize();
+			const sys2 = new RelationshipSystem();
+			sys2.restore(data);
+			expect(sys2.getPetAffinity("Atlas")).toBe(60);
+		});
+	});
+
+	describe("jokePlayCounts", () => {
+		it("getJokePlayCount returns 0 for unplayed jokes", () => {
+			const sys = new RelationshipSystem();
+			sys.register("Atlas", []);
+			sys.register("Rex", []);
+			expect(sys.getJokePlayCount("Atlas", "Rex", "joke:tabs")).toBe(0);
+		});
+
+		it("incrementJokePlayCount tracks per-pair per-joke", () => {
+			const sys = new RelationshipSystem();
+			sys.register("Atlas", []);
+			sys.register("Rex", []);
+			sys.incrementJokePlayCount("Atlas", "Rex", "joke:tabs");
+			sys.incrementJokePlayCount("Atlas", "Rex", "joke:tabs");
+			expect(sys.getJokePlayCount("Atlas", "Rex", "joke:tabs")).toBe(2);
+			expect(sys.getJokePlayCount("Atlas", "Rex", "joke:other")).toBe(0);
+		});
+
+		it("jokePlayCounts survive serialize/restore", () => {
+			const sys = new RelationshipSystem();
+			sys.register("Atlas", []);
+			sys.register("Rex", []);
+			sys.incrementJokePlayCount("Atlas", "Rex", "joke:tabs");
+			const data = sys.serialize();
+			const sys2 = new RelationshipSystem();
+			sys2.restore(data);
+			expect(sys2.getJokePlayCount("Atlas", "Rex", "joke:tabs")).toBe(1);
+		});
+	});
 });

@@ -39,4 +39,14 @@ export interface TemplateVars {
 	readonly streak: string;
 	readonly friend_name: string;
 	readonly mood: string;
+	// Pet-specific fields (empty string for non-pet entries)
+	readonly pet_name: string;
+	readonly pet_type: string;
+	readonly owner_name: string;
+	readonly nearby_agent_mood: string;
+	readonly hunger_level: string;
+	readonly affection_level: string;
 }
+
+/** Pet voice mode — determines inner monologue tone. */
+export type PetVoice = "instinct" | "eloquent" | "gremlin";

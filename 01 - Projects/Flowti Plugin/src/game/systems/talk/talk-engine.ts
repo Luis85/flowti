@@ -6,10 +6,12 @@
  *   1. Active phrase chain (if one is playing)
  *   2. Reactive trigger (immediate, event-driven)
  *   3. Mood-flavored variant (15% chance, based on current mood)
- *   4. Crossover templates (when nearby agent is from a different domain)
- *   5. Agent's own domain templates (highest weight)
- *   6. Social templates (if nearby agents exist)
- *   7. Core templates (fallback)
+ *   4. Tier-modified phrase (15% chance, wraps base with tier prefix/suffix)
+ *   5. Composed fragment (25% chance, assembled from fragment pools)
+ *   6. Crossover templates (when nearby agent is from a different domain)
+ *   7. Agent's own domain templates (highest weight)
+ *   8. Social templates (if nearby agents exist)
+ *   9. Core templates (fallback)
  *
  * Features:
  *   - Conversational memory: avoids repeating recent phrases (last 15)
@@ -30,6 +32,9 @@ import { REACTIVE_TEMPLATES, type ReactiveTrigger } from "./templates/reactive-p
 import { PHRASE_CHAINS, type PhraseChain } from "./templates/phrase-chains.js";
 import { findCrossover } from "./templates/crossover-templates.js";
 import { MOOD_VARIANTS, type AgentMood } from "./templates/mood-variants.js";
+import type { FragmentComposer, ComposeContext } from "./fragment-composer.js";
+import { TIER_PREFIXES, TIER_SUFFIXES } from "./templates/tier-modifiers.js";
+import type { RelationshipTier } from "../relationship-system.js";
 
 // ── Per-agent chatter state ─────────────────────────────────────────
 
@@ -60,6 +65,8 @@ const DEDUP_BUFFER_SIZE = 25;
 const CHAIN_CHANCE = 0.08;
 const MOOD_CHANCE = 0.15;
 const CROSSOVER_CHANCE = 0.25;
+const TIER_MODIFIER_CHANCE = 0.15;
+const COMPOSE_CHANCE = 0.25;
 
 // ── Variable interpolation ──────────────────────────────────────────
 
@@ -119,6 +126,12 @@ function defaultVars(domain: string): TemplateVars {
 		streak: "0",
 		friend_name: "",
 		mood: "neutral",
+		pet_name: "",
+		pet_type: "",
+		owner_name: "",
+		nearby_agent_mood: "",
+		hunger_level: "",
+		affection_level: "",
 	};
 }
 
@@ -181,6 +194,45 @@ function resolveCorePhrase(entry: ChatterEntry): string | null {
 	return picked ? interpolate(picked.template, entry.vars) : null;
 }
 
+function resolveTierPhrase(
+	agentName: string,
+	entry: ChatterEntry,
+	getTier: (a: string, b: string) => RelationshipTier,
+): string | null {
+	if (!entry.vars.nearby_agent || Math.random() >= TIER_MODIFIER_CHANCE) return null;
+	const tier = getTier(agentName, entry.vars.nearby_agent);
+	const prefixes = TIER_PREFIXES[tier];
+	const suffixes = TIER_SUFFIXES[tier];
+	if (!prefixes || !suffixes) return null;
+
+	const base = resolveDomainPhrase(entry) ?? resolveCorePhrase(entry);
+	if (!base) return null;
+
+	if (Math.random() < 0.5) {
+		const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+		return interpolate(prefix, entry.vars) + " " + base;
+	}
+	const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+	return base + " " + suffix;
+}
+
+function resolveComposedPhrase(
+	agentName: string,
+	entry: ChatterEntry,
+	composer: FragmentComposer,
+	getTier?: (a: string, b: string) => RelationshipTier,
+): string | null {
+	if (Math.random() >= COMPOSE_CHANCE) return null;
+	const context: ComposeContext = {
+		mood: entry.vars.mood || undefined,
+		domain: entry.domain,
+		tier: entry.vars.nearby_agent && agentName && getTier
+			? getTier(agentName, entry.vars.nearby_agent)
+			: undefined,
+	};
+	return composer.compose(context, entry.recentlyUsed);
+}
+
 // ── TalkEngine ──────────────────────────────────────────────────────
 
 export interface TalkEngineCallbacks {
@@ -193,13 +245,20 @@ export interface TalkEngineCallbacks {
 /** Minimum gap between any two agents talking (prevents exact-same-frame stacking). */
 const MIN_GAP = 2000;
 
+export interface TalkEngineEnrichment {
+	readonly composer?: FragmentComposer;
+	readonly getTier?: (a: string, b: string) => RelationshipTier;
+}
+
 export class TalkEngine {
 	private readonly entries = new Map<string, ChatterEntry>();
 	private readonly callbacks: TalkEngineCallbacks;
+	private readonly enrichment: TalkEngineEnrichment;
 	private lastGlobalTalk = 0;
 
-	constructor(callbacks: TalkEngineCallbacks) {
+	constructor(callbacks: TalkEngineCallbacks, enrichment?: TalkEngineEnrichment) {
 		this.callbacks = callbacks;
+		this.enrichment = enrichment ?? {};
 	}
 
 	register(name: string, domain: string, personality: readonly string[], charisma: number): void {
@@ -345,7 +404,7 @@ export class TalkEngine {
 			}
 		}
 
-		const phrase = this.resolvePhrase(entry);
+		const phrase = this.resolvePhrase(name, entry);
 		this.callbacks.showBubble(name, "thought", phrase);
 		this.recordPhrase(entry, phrase);
 		this.lastGlobalTalk = now;
@@ -353,9 +412,15 @@ export class TalkEngine {
 
 	// ── Template resolution ─────────────────────────────────────────
 
-	private resolvePhrase(entry: ChatterEntry): string {
+	private resolvePhrase(agentName: string, entry: ChatterEntry): string {
 		return resolveActivatedPhrase(entry)
 			?? resolveMoodPhrase(entry)
+			?? (this.enrichment.getTier
+				? resolveTierPhrase(agentName, entry, this.enrichment.getTier)
+				: null)
+			?? (this.enrichment.composer
+				? resolveComposedPhrase(agentName, entry, this.enrichment.composer, this.enrichment.getTier)
+				: null)
 			?? resolveCrossoverPhrase(entry)
 			?? resolvePersonalityPhrase(entry)
 			?? resolveSocialPhrase(entry)
