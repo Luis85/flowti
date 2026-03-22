@@ -81,7 +81,7 @@ describe("dashboardAgentsFromWorldState", () => {
 		expect(dashboardAgentsFromWorldState(state)[0]?.name).toBe("a1");
 	});
 
-	it("maps behaviors, goals, skills, and experience from components", () => {
+	it("maps behaviors, goals, skills, and xp from components", () => {
 		const state: WorldState = {
 			version: 1,
 			updatedAt: "2026-01-01T00:00:00Z",
@@ -94,7 +94,7 @@ describe("dashboardAgentsFromWorldState", () => {
 						behaviors: ["behavior-tree"],
 						goals: [{ name: "review architecture", priority: 10 }],
 						skills: [{ name: "TypeScript", level: "expert" }],
-						experience: 42,
+						xp: 42,
 					},
 				},
 			},
@@ -105,7 +105,7 @@ describe("dashboardAgentsFromWorldState", () => {
 		expect(rows[0].behaviors).toEqual(["behavior-tree"]);
 		expect(rows[0].goals).toEqual([{ text: "review architecture", priority: "10" }]);
 		expect(rows[0].skills).toEqual([{ name: "TypeScript", level: "expert" }]);
-		expect(rows[0].experience).toBe(42);
+		expect(rows[0].xp).toBe(42);
 	});
 
 	it("omits BT fields when not in components", () => {
@@ -122,6 +122,6 @@ describe("dashboardAgentsFromWorldState", () => {
 		expect(rows[0].behaviors).toBeUndefined();
 		expect(rows[0].goals).toBeUndefined();
 		expect(rows[0].skills).toBeUndefined();
-		expect(rows[0].experience).toBeUndefined();
+		expect(rows[0].xp).toBeUndefined();
 	});
 });

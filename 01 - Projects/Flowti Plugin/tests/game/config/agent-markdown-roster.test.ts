@@ -69,23 +69,23 @@ describe("dashboardAgentFromFrontmatter", () => {
 		]);
 	});
 
-	it("maps experience from frontmatter number", () => {
+	it("maps xp from frontmatter experience number", () => {
 		const row = dashboardAgentFromFrontmatter({
 			type: "Agent",
 			name: "Archie",
 			experience: 42,
 		});
-		expect(row?.experience).toBe(42);
+		expect(row?.xp).toBe(42);
 	});
 
-	it("omits behaviors/skills/experience when absent", () => {
+	it("omits behaviors/skills/xp when absent", () => {
 		const row = dashboardAgentFromFrontmatter({
 			type: "Agent",
 			name: "Archie",
 		});
 		expect(row?.behaviors).toBeUndefined();
 		expect(row?.skills).toBeUndefined();
-		expect(row?.experience).toBeUndefined();
+		expect(row?.xp).toBeUndefined();
 	});
 });
 
