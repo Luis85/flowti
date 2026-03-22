@@ -69,6 +69,7 @@ export interface BrainSystemConfig {
 	readonly bounds: Bounds;
 	readonly onWorkstationChange?: (agentName: string, action: "occupy" | "vacate" | "claim", position: { x: number; y: number }) => void;
 	readonly onWorkstationResolve?: (agentName: string, preferredId: string | null) => { x: number; y: number } | null;
+	readonly onStationResolve?: (agentName: string, need: "food" | "drink" | "rest") => { x: number; y: number } | null;
 }
 
 export class BrainSystem {
@@ -256,6 +257,15 @@ export class BrainSystem {
 		if (!entry) return;
 		const previousState = entry.state;
 		const result = transition(entry.state, { type: eventType as AgentActionType });
+
+		// Don't interrupt an agent already moving toward a valid target with
+		// a redundant transition to the same movement state — preserves walk
+		// progress and prevents stateTimer reset on repeated seek calls.
+		const isMoving = previousState === "walking-to" || previousState === "wandering";
+		if (isMoving && result.state === previousState && entry.targetPos) {
+			return;
+		}
+
 		entry.state = result.state;
 		entry.target = result.target;
 		entry.stateTimer = 0;
@@ -265,6 +275,25 @@ export class BrainSystem {
 			if (result.target.kind === "workstation") {
 				const ws = this.config.onWorkstationResolve?.(name, entry.habits.preferredWorkstationId);
 				entry.targetPos = ws ?? null;
+			} else if (eventType === "seek-food" || eventType === "seek-drink") {
+				const need = eventType === "seek-food" ? "food" : "drink" as const;
+				entry.targetPos = this.config.onStationResolve?.(name, need) ?? null;
+			} else if (eventType === "seek-rest") {
+				// Rest spot — try couch station, fall back to random quiet spot
+				entry.targetPos = this.config.onStationResolve?.(name, "rest") ?? resolveIdleTarget(entry.habits, [], this.targetBounds, Math.random, entry.position);
+			} else if (eventType === "seek-agent") {
+				// Walk toward nearest agent in the same room
+				const nearby = this.getNearbyAgentPositions(name);
+				if (nearby.length > 0) {
+					const t = nearby[0];
+					const offsetAngle = Math.random() * Math.PI * 2;
+					entry.targetPos = {
+						x: Math.max(this.targetBounds.minX, Math.min(this.targetBounds.maxX, t.x + Math.cos(offsetAngle) * 40)),
+						y: Math.max(this.targetBounds.minY, Math.min(this.targetBounds.maxY, t.y + Math.sin(offsetAngle) * 40)),
+					};
+				} else {
+					entry.targetPos = resolveIdleTarget(entry.habits, [], this.targetBounds, Math.random, entry.position);
+				}
 			} else {
 				entry.targetPos = resolveIdleTarget(entry.habits, this.getNearbyAgentPositions(name), this.targetBounds, Math.random, entry.position);
 			}

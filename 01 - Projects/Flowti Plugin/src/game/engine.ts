@@ -256,6 +256,28 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			}
 			return null;
 		},
+		onStationResolve: (agentName, need) => {
+			const foodStations = [envObjects.snackTable, envObjects.foodBowlHub, envObjects.foodBowlVillage];
+			const drinkStations = [envObjects.coffeeMachine, envObjects.waterCooler, envObjects.waterBowlOffice, envObjects.waterBowlStation];
+			const restStations = [envObjects.couch];
+			const candidates = need === "food" ? foodStations : need === "drink" ? drinkStations : restStations;
+			let nearest: { x: number; y: number } | null = null;
+			let minDist = Infinity;
+			for (const room of Object.values(roomScenes)) {
+				const actor = room.getAgentActor(agentName);
+				if (!actor) continue;
+				for (const station of candidates) {
+					if (!station || station.isOccupied()) continue;
+					const point = station.getInteractionPoint();
+					const dx = point.x - actor.pos.x;
+					const dy = point.y - actor.pos.y;
+					const dist = dx * dx + dy * dy;
+					if (dist < minDist) { minDist = dist; nearest = point; }
+				}
+				break;
+			}
+			return nearest;
+		},
 	});
 
 	const bubbleSystem = new BubbleSystem();
