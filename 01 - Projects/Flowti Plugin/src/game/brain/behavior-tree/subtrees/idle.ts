@@ -1,7 +1,9 @@
 /**
  * idle.ts — MDSL subtree for idle behavior.
  *
- * Agents with no active goal wander, emote, or chatter (randomly weighted).
+ * Fallback when no needs, goals, or social triggers are active.
+ * Emits "idle" — the brain's autonomous cycle handles wander pacing
+ * and the talk engine handles ambient chatter independently.
  * Exported as IDLE_SUBTREE for use by bt-factory.
  */
 

@@ -51,7 +51,7 @@ describe("createAgentBT", () => {
 		const { tree, agent } = createAgentBT(makeAgent({ goals: [] }), makeDeps());
 		tree.step();
 		// With no goals, ActiveGoal branch fails, should fall through to idle behavior
-		const idleTypes = new Set(["idle", "wander", "chatter", "speaking"]);
+		const idleTypes = new Set(["idle", "speaking"]);
 		const hasIdleAction = agent.collectedActions.some((a) => idleTypes.has(a.type));
 		expect(hasIdleAction || agent.collectedActions.length === 0).toBe(true);
 	});
