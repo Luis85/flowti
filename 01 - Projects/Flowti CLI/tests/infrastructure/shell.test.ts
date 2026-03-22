@@ -530,6 +530,84 @@ describe("shell.spawnBackground", () => {
 	});
 });
 
+// ── spawnBackground stdin ────────────────────────────────────────────
+
+describe("shell.spawnBackground with stdin", () => {
+	it("uses pipe for stdin when stdin option is true", () => {
+		shell.spawnBackground("node server.js", { stdin: true });
+
+		expect(mockedSpawn).toHaveBeenCalledWith(
+			"node server.js",
+			expect.objectContaining({
+				stdio: ["pipe", "pipe", "pipe"],
+			}),
+		);
+	});
+
+	it("uses ignore for stdin by default", () => {
+		shell.spawnBackground("node server.js");
+
+		expect(mockedSpawn).toHaveBeenCalledWith(
+			"node server.js",
+			expect.objectContaining({
+				stdio: ["ignore", "pipe", "pipe"],
+			}),
+		);
+	});
+
+	it("writeStdin writes data to child stdin", () => {
+		const mockStdinWrite = vi.fn();
+		mockedSpawn.mockReturnValue({
+			stdout: { on: vi.fn(), off: vi.fn() },
+			stderr: { on: vi.fn(), off: vi.fn() },
+			on: vi.fn(),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+			stdin: { write: mockStdinWrite, destroyed: false },
+		} as any);
+
+		const proc = shell.spawnBackground("node server.js", { stdin: true });
+		proc.writeStdin("hello\n");
+
+		expect(mockStdinWrite).toHaveBeenCalledWith("hello\n");
+	});
+
+	it("writeStdin is no-op when child has no stdin", () => {
+		mockedSpawn.mockReturnValue({
+			stdout: { on: vi.fn(), off: vi.fn() },
+			stderr: { on: vi.fn(), off: vi.fn() },
+			on: vi.fn(),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+			stdin: null,
+		} as any);
+
+		const proc = shell.spawnBackground("node server.js");
+		// Should not throw
+		proc.writeStdin("data");
+	});
+
+	it("writeStdin is no-op when stdin is destroyed", () => {
+		const mockStdinWrite = vi.fn();
+		mockedSpawn.mockReturnValue({
+			stdout: { on: vi.fn(), off: vi.fn() },
+			stderr: { on: vi.fn(), off: vi.fn() },
+			on: vi.fn(),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+			stdin: { write: mockStdinWrite, destroyed: true },
+		} as any);
+
+		const proc = shell.spawnBackground("node server.js", { stdin: true });
+		proc.writeStdin("data");
+
+		expect(mockStdinWrite).not.toHaveBeenCalled();
+	});
+});
+
 // ── runAsync ─────────────────────────────────────────────────────────
 
 describe("shell.runAsync", () => {
