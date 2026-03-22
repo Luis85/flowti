@@ -23,6 +23,7 @@ function makeDeps(files: Record<string, string> = {}): VaultOpsDeps {
 			readdirSync: () => [],
 			statSync: () => ({ mtimeMs: 0 }),
 			rmSync: () => undefined,
+			copyFileSync: () => undefined,
 		},
 		clock: { iso: () => "2026-03-22T12:00:00Z" },
 		paths: {

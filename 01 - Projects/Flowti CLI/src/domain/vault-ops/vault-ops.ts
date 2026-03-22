@@ -145,7 +145,7 @@ export function vaultEdit(
 ): { path: string } {
 	const absPath = deps.paths.join(deps.vaultRoot, req.path);
 	const raw = deps.disk.readFileSync(absPath, "utf-8");
-	const { frontmatter, body: _body } = parseFrontmatter(raw);
+	const { frontmatter } = parseFrontmatter(raw);
 
 	const hasFrontmatter = Object.keys(frontmatter).length > 0;
 	if (hasFrontmatter) {
