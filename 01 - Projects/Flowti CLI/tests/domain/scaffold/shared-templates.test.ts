@@ -17,6 +17,7 @@ const VARS: ScaffoldVariables = {
 	pascal: "TestProject",
 	camel: "testProject",
 	author: "Author",
+	date: "2026-03-22",
 };
 
 const DEF: ScaffoldDefinition = {
@@ -30,7 +31,7 @@ const DEF: ScaffoldDefinition = {
 		devDependencies: { typescript: "^5.9.0", vitest: "^4.0.0" },
 	},
 	flowtiConfig: {
-		tools: { build: "npm run build" },
+		publish: { build: "npm run build" },
 	},
 	directories: [],
 	files: [],

@@ -67,7 +67,7 @@ describe("generateSitemapReference", () => {
 
 	it("generates successfully with valid sitemap", () => {
 		setDisk(createMockFs());
-		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [] });
+		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [], warnings: [] } as never);
 
 		const result = generateSitemapReference("/mock/project", mockDeps);
 
@@ -79,7 +79,7 @@ describe("generateSitemapReference", () => {
 	it("includes page index table", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [] });
+		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [], warnings: [] } as never);
 
 		generateSitemapReference("/mock/project", mockDeps);
 		const content = [...fs.files.entries()].find(([k]) => k.endsWith(".md"))![1];
@@ -92,7 +92,7 @@ describe("generateSitemapReference", () => {
 	it("includes navigation graph", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [] });
+		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [], warnings: [] } as never);
 
 		generateSitemapReference("/mock/project", mockDeps);
 		const content = [...fs.files.entries()].find(([k]) => k.endsWith(".md"))![1];
@@ -104,7 +104,7 @@ describe("generateSitemapReference", () => {
 	it("writes frontmatter with type and pages count", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [] });
+		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [], warnings: [] } as never);
 
 		generateSitemapReference("/mock/project", mockDeps);
 		const content = [...fs.files.entries()].find(([k]) => k.endsWith(".md"))![1];

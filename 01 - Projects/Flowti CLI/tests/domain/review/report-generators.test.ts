@@ -29,7 +29,7 @@ function mockDeps(): ReportDeps & { written: { path: string; content: string }[]
 			dirname: vi.fn((p: string) => p.split("/").slice(0, -1).join("/")),
 			join: vi.fn((...parts: string[]) => parts.join("/")),
 		} as unknown as ReportDeps["paths"],
-		clock: { iso: () => "2026-03-12T10:00:00.000Z" },
+		clock: { iso: () => "2026-03-12T10:00:00.000Z", now: () => new Date("2026-03-12T10:00:00.000Z"), ms: () => new Date("2026-03-12T10:00:00.000Z").getTime(), safeIso: () => "2026-03-12T10-00-00" },
 	};
 }
 

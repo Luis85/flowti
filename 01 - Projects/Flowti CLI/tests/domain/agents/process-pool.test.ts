@@ -118,7 +118,7 @@ describe("ProcessPool", () => {
 
 		// Verify onEvent was forwarded to the real process
 		expect(runner.spawn).toHaveBeenCalledTimes(2);
-		expect(runner.spawn.mock.results[1].value.onEvent).toHaveBeenCalled();
+		expect(vi.mocked(runner.spawn).mock.results[1].value.onEvent).toHaveBeenCalled();
 	});
 
 	// ── Release ────────────────────────────────────────────────────

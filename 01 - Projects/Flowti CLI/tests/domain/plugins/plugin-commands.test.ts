@@ -374,7 +374,7 @@ describe("toPluginValidationItems", () => {
 			"/vault/.flowti/plugins/bad/manifest.json",
 		]);
 		vi.mocked(disk.readFileSync)
-			.mockReturnValueOnce(JSON.stringify({ name: "good" }))
+			.mockReturnValueOnce(JSON.stringify({ name: "good" }) as never)
 			.mockImplementationOnce(() => { throw new SyntaxError("bad JSON"); });
 		vi.mocked(validateManifest).mockReturnValue({ valid: true, errors: [], warnings: [] });
 

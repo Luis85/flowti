@@ -10,6 +10,7 @@ function createMockBackgroundProcess(overrides?: Partial<BackgroundProcess>): Ba
 		kill: vi.fn(),
 		onOutput: vi.fn(() => vi.fn()),
 		waitForOutput: vi.fn().mockResolvedValue("Storybook ready!"),
+		waitForExit: vi.fn().mockResolvedValue(0),
 		...overrides,
 	};
 }

@@ -26,7 +26,7 @@ function makeDeps(overrides?: {
 		...mockDisk(overrides?.disk),
 		...mockPathsPreset(),
 		...mockClockPreset(overrides?.clockIso ?? "2025-06-15T10:30:00.000Z"),
-	};
+	} as unknown as EvidenceDeps;
 }
 
 // ── Fixtures ─────────────────────────────────────────────────────────

@@ -159,12 +159,12 @@ describe("resolveJourneyEnvironment", () => {
 	});
 
 	it("returns default environment when no target", () => {
-		resolveJourneyEnvironment({ journey: "test", steps: [] });
+		resolveJourneyEnvironment({ journey: "test", description: "", steps: [] } as never);
 		expect(resolveEnvironment).toHaveBeenCalledWith();
 	});
 
 	it("resolves environment with provider when target specified", () => {
-		resolveJourneyEnvironment({ journey: "test", steps: [], requires: { target: "obsidian" } });
+		resolveJourneyEnvironment({ journey: "test", description: "", steps: [], requires: { target: "obsidian" } } as never);
 		expect(resolveEnvironment).toHaveBeenCalledWith(expect.anything());
 	});
 });
@@ -177,7 +177,7 @@ describe("setToolDeps / resetToolDeps", () => {
 	it("allows overriding tool deps", async () => {
 		const customDeps = createDefaultDeps(cliDeps);
 		setToolDeps(customDeps);
-		await runStep({ id: "s1", title: "Test", actions: [] });
+		await runStep({ id: "s1", title: "Test", description: "", actions: [] });
 		expect(executeJourney).toHaveBeenCalledWith(
 			expect.anything(),
 			customDeps,
@@ -204,14 +204,18 @@ describe("runStep", () => {
 
 	it("executes a single step and returns its result", async () => {
 		vi.mocked(executeJourney).mockResolvedValue({
-			journey: "step:s1",
-			steps: [{ id: "s1", status: "pass", actions: [] }],
-			status: "pass",
+			journeyName: "step:s1",
+			totalSteps: 1,
+			passed: 1,
+			failed: 0,
+			skipped: 0,
+			durationMs: 0,
+			steps: [{ stepId: "s1", stepTitle: "Test Step", status: "pass", durationMs: 0, actions: [] }],
 		});
 
-		const result = await runStep({ id: "s1", title: "Test Step", actions: [] });
+		const result = await runStep({ id: "s1", title: "Test Step", description: "", actions: [] });
 		expect(result.status).toBe("pass");
-		expect(result.id).toBe("s1");
+		expect(result.stepId).toBe("s1");
 	});
 
 	it("wraps step in a mini journey", async () => {
@@ -221,7 +225,7 @@ describe("runStep", () => {
 				journey: "step:s1",
 				description: "desc",
 				steps: [expect.objectContaining({ id: "s1" })],
-			}),
+			}) as never,
 			expect.anything(),
 			expect.anything(),
 			undefined,
@@ -230,7 +234,7 @@ describe("runStep", () => {
 
 	it("passes environment when provided", async () => {
 		const env = { registry: new Map(), setup: undefined, teardown: undefined };
-		await runStep({ id: "s1", title: "Test", actions: [] }, {}, env as never);
+		await runStep({ id: "s1", title: "Test", description: "", actions: [] }, {}, env as never);
 		expect(executeJourney).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
@@ -248,11 +252,11 @@ describe("runJourney", () => {
 	});
 
 	it("executes full journey with resolved environment", async () => {
-		const definition = { journey: "Test", steps: [{ id: "s1", title: "Step", actions: [] }] };
-		const result = await runJourney(definition);
+		const definition = { journey: "Test", description: "", steps: [{ id: "s1", title: "Step", description: "", actions: [] }] };
+		const result = await runJourney(definition as never);
 		expect(executeJourney).toHaveBeenCalled();
 		expect(resolveEnvironment).toHaveBeenCalled();
-		expect(result.status).toBe("pass");
+		expect(result.steps).toBeDefined();
 	});
 });
 

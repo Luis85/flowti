@@ -34,10 +34,6 @@ vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	hasGenerator: mockHasGenerator,
 }));
 
-vi.mock("../../../src/domain/reports/report-phases.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/domain/reports/report-phases.js")>("../../../src/domain/reports/report-phases.js");
-	return actual;
-});
 
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), writeFileSync: vi.fn() },

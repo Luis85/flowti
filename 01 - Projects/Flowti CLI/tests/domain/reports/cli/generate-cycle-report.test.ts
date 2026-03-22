@@ -119,12 +119,12 @@ describe("generateCycleReport", () => {
 		});
 
 		// Return different frontmatter based on file path by using mockImplementation on readFileSync
-		vi.mocked(disk.readFileSync).mockImplementation((filePath: string) => {
+		vi.mocked(disk.readFileSync).mockImplementation(((filePath: string) => {
 			if (String(filePath).includes("Cycle 3.md")) return "cycle3";
 			if (String(filePath).includes("Cycle 7.md")) return "cycle7";
 			if (String(filePath).includes("Cycle 5.md")) return "cycle5";
 			return "{}";
-		});
+		}) as never);
 		vi.mocked(parseFrontmatterContent).mockImplementation((content: string) => {
 			if (content === "cycle3") return { cycle: 3, stage: "done", pbis: [], tech_debt: [] };
 			if (content === "cycle7") return { cycle: 7, stage: "done", pbis: [], tech_debt: [] };

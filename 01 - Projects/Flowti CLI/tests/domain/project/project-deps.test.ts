@@ -581,7 +581,7 @@ describe("project:deps --json", () => {
 		});
 		setDisk(mockFs);
 
-		getCommands()["project:deps"]({ format: "json" }, []);
+		getCommands()["project:deps"]({ format: "json" });
 
 		expect(capturedJson).toHaveLength(1);
 		const graph = capturedJson[0] as DependencyGraph;
@@ -598,7 +598,7 @@ describe("project:deps --json", () => {
 		});
 		setDisk(mockFs);
 
-		getCommands()["project:deps"]({}, []);
+		getCommands()["project:deps"]({});
 
 		expect(capturedJson).toHaveLength(0);
 		expect(vi.mocked(log)).toHaveBeenCalled();

@@ -491,7 +491,7 @@ describe("toToolListItems", () => {
 					name: "t",
 					description: "",
 					run: "echo",
-					params: [{ name: "x", type: "string" }],
+					params: [{ name: "x", type: "string", description: "" }],
 				},
 				path: "/p",
 				valid: true,

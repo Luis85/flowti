@@ -194,6 +194,7 @@ describe("e2e-report-summary", () => {
 				totalSkipped: 5,
 				totalDev: 2,
 				totalTests: 52,
+				durationMs: 0,
 				suites: [],
 			});
 
@@ -645,7 +646,7 @@ describe("e2e-report-summary", () => {
 	describe("computeReconciledTotals (edge cases)", () => {
 		it("uses vitest durationMs when provided", () => {
 			vi.mocked(reconcileResults).mockReturnValue({
-				totalPassed: 10, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 10, suites: [],
+				totalPassed: 10, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 10, durationMs: 0, suites: [],
 			});
 
 			const vitest = {
@@ -659,7 +660,7 @@ describe("e2e-report-summary", () => {
 		});
 
 		it("defaults durationMs to 0 when vitest is null", () => {
-			vi.mocked(reconcileResults).mockReturnValue(null);
+			vi.mocked(reconcileResults).mockReturnValue(null as never);
 
 			const result = computeReconciledTotals(null, [], mockDeps);
 
@@ -668,7 +669,7 @@ describe("e2e-report-summary", () => {
 
 		it("detects journey warnings in steps", () => {
 			vi.mocked(reconcileResults).mockReturnValue({
-				totalPassed: 5, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 5, suites: [],
+				totalPassed: 5, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 5, durationMs: 0, suites: [],
 			});
 
 			const journeys = [

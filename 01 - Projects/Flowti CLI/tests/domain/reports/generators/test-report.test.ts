@@ -157,7 +157,7 @@ describe("test-report generator", () => {
 	});
 
 	it("builds correct output filename for flow build type", () => {
-		const buildType = "flow";
+		const buildType: string = "flow";
 		const safeTimestamp = "2026-03-10T12-00-00";
 		const prefix = buildType === "full" ? "" : `${buildType}-`;
 		const outputPath = `${safeTimestamp}-${prefix}test-report.md`;

@@ -147,7 +147,7 @@ describe("analyzeComplexity", () => {
 		mockReaddirSync.mockReturnValue([
 			{ name: filename, isFile: () => true, isDirectory: () => false },
 		] as any);
-		mockReadFileSync.mockReturnValue(content);
+		mockReadFileSync.mockReturnValue(content as never);
 	}
 
 	it("returns empty result for empty directory", () => {
@@ -343,7 +343,7 @@ describe("analyzeComplexity", () => {
 		mockReaddirSync.mockReturnValue([
 			{ name: "main.ts", isFile: () => true, isDirectory: () => false },
 		] as any);
-		mockReadFileSync.mockReturnValue("function x() {}");
+		mockReadFileSync.mockReturnValue("function x() {}" as never);
 		const result = analyzeComplexity("/project/src", "/project", analyzerDeps());
 		expect(result.functions[0].file).toBe("src/main.ts");
 	});

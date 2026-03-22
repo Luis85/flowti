@@ -46,7 +46,7 @@ describe("loadHelpSection", () => {
 		let readCount = 0;
 		const deps = createDeps({ "main.md": "# MAIN" });
 		const origRead = deps.disk.readFileSync;
-		deps.disk.readFileSync = (...args: [string, string]) => { readCount++; return origRead(...args); };
+		deps.disk.readFileSync = ((...args: [string, BufferEncoding]) => { readCount++; return origRead(...args); }) as unknown as typeof deps.disk.readFileSync;
 
 		loadHelpSection("/help", "main", deps);
 		loadHelpSection("/help", "main", deps);
@@ -57,7 +57,7 @@ describe("loadHelpSection", () => {
 		let readCount = 0;
 		const deps = createDeps({ "main.md": "# MAIN" });
 		const origRead = deps.disk.readFileSync;
-		deps.disk.readFileSync = (...args: [string, string]) => { readCount++; return origRead(...args); };
+		deps.disk.readFileSync = ((...args: [string, BufferEncoding]) => { readCount++; return origRead(...args); }) as unknown as typeof deps.disk.readFileSync;
 
 		loadHelpSection("/help", "main", deps);
 		clearHelpCache();

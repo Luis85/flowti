@@ -40,7 +40,7 @@ function createMockDeps(): Pick<CliDeps, "disk" | "shell" | "paths" | "proc" | "
 		shell: {} as IShell,
 		paths: {} as IPaths,
 		proc: { env: () => mockEnv, exit: vi.fn(), argv: vi.fn(() => []), cwd: vi.fn(() => "/mock") } as unknown as IProcess,
-		log: vi.fn() as (msg: string) => void,
+		log: vi.fn() as (msg?: string) => void,
 		env: mockEnv,
 	};
 }

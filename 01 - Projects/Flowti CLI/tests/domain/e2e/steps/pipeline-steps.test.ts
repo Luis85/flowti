@@ -239,7 +239,7 @@ describe("createSessionNoteStep", () => {
 			config: { sessionName: "s", selectedSlugs: [], includeInstaller: false, includePrerequisites: false, stepFilter: {} },
 			entries: [], prereqResults: { vaultExists: true, artifactsPresent: true, missingArtifacts: [], cliResponsive: true, vaultInstalled: true, testDataPresent: true },
 			startTime: Date.now(),
-		});
+		}, mockDeps);
 
 		const output = exec(step, ctx);
 		expect(output.success).toBe(true);

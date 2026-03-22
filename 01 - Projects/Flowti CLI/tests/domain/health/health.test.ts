@@ -42,7 +42,7 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 }));
 
 // Use a ref that gets populated after imports
-const logRef = { fn: null as null | ((...args: never[]) => void) };
+const logRef = { fn: null as null | ((...args: unknown[]) => void) };
 vi.mock("../../../src/infrastructure/output.js", () => ({
 	resolveFormat: vi.fn((flags: Record<string, string | boolean>) => flags.format === "json" ? "json" : "text"),
 	printOutput: vi.fn((format: string, data: unknown, renderer: (d: unknown) => void) => {

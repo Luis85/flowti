@@ -111,7 +111,7 @@ describe("coverage-report generator", () => {
 
 	describe("output filename", () => {
 		it("uses flow prefix by default", () => {
-			const buildType = "flow";
+			const buildType: string = "flow";
 			const safeTimestamp = "2026-03-10T12-00-00";
 			const prefix = buildType === "full" ? "" : `${buildType}-`;
 			const filename = `${safeTimestamp}-${prefix}coverage-report.md`;

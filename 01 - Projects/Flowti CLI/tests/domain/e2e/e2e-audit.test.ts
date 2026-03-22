@@ -66,7 +66,7 @@ describe("generateAudit", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.mocked(collectReportSources).mockReturnValue({});
-		vi.mocked(input.ask).mockImplementation(async (_p: string, d: string) => d);
+		vi.mocked(input.ask).mockImplementation(async (_p: string, d?: string) => d ?? "");
 		vi.mocked(disk.mkdirSync).mockReturnValue(undefined);
 		vi.mocked(disk.writeFileSync).mockReturnValue(undefined);
 		vi.mocked(shell.runSilent).mockReturnValue("ok");

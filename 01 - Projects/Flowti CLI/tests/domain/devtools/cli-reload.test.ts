@@ -9,7 +9,7 @@ beforeEach(() => {
 function makeDeps(sh: ReturnType<typeof createMockShell>): Pick<import("../../../src/infrastructure/deps.js").CliDeps, "warn" | "shell" | "log"> & { shell: ReturnType<typeof createMockShell> } {
 	return {
 		shell: sh,
-		log: vi.fn() as (msg: string) => void,
+		log: vi.fn() as (msg?: string) => void,
 		warn: vi.fn() as (msg: string) => void,
 	};
 }

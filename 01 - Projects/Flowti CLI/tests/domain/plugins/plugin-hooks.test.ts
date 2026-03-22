@@ -225,22 +225,22 @@ describe("wrapWithHooks", () => {
 	});
 
 	it("runs onAfterCommand even when command fails", () => {
-		const shell = { run: vi.fn().mockReturnValue(0) } as never;
+		const shell = { run: vi.fn().mockReturnValue(0) } as unknown as import("../../../src/infrastructure/types.js").IShell;
 		const originalRun = vi.fn().mockReturnValue(1);
 		const hooks: PluginHooks = { onAfterCommand: "echo cleanup" };
 		const wrapped = wrapWithHooks(hooks, shell, "/cwd", originalRun);
 		const result = wrapped();
 		expect(result).toBe(1);
-		expect(shell.run).toHaveBeenCalled();
+		expect(vi.mocked(shell.run)).toHaveBeenCalled();
 	});
 
 	it("passes command exit code as env to onAfterCommand", () => {
-		const shell = { run: vi.fn().mockReturnValue(0) } as never;
+		const shell = { run: vi.fn().mockReturnValue(0) } as unknown as import("../../../src/infrastructure/types.js").IShell;
 		const originalRun = vi.fn().mockReturnValue(42);
 		const hooks: PluginHooks = { onAfterCommand: "echo done" };
 		const wrapped = wrapWithHooks(hooks, shell, "/cwd", originalRun);
 		wrapped();
-		expect(shell.run).toHaveBeenCalledWith(
+		expect(vi.mocked(shell.run)).toHaveBeenCalledWith(
 			expect.stringContaining("FLOWTI_COMMAND_EXIT_CODE=42"),
 			expect.anything(),
 		);

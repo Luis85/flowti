@@ -13,7 +13,7 @@ const edge = (from: string, to: string): CanvasData["edges"][number] =>
 
 describe("parseCanvasToSitemap", () => {
 	it("converts a text node to a component page (default kind)", () => {
-		const canvas: CanvasData = { nodes: [text("n1", "Header")], edges: [] };
+		const canvas: CanvasData = { nodes: [text("n1", "Header", 0, 0)], edges: [] };
 		const { sitemap } = parseCanvasToSitemap(canvas);
 		expect(sitemap.version).toBe(2);
 		expect(sitemap.pages["header"]).toBeDefined();

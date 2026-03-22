@@ -3,18 +3,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockLog = vi.fn();
 const mockPrintHeader = vi.fn();
 const mockCountFiles = vi.fn(() => 42);
-const mockGetSelectedProject = vi.fn(() => "test-project");
-const mockRunSilent = vi.fn(() => "main");
+const mockGetSelectedProject = vi.fn((): string | undefined => "test-project");
+const mockRunSilent = vi.fn((_cmd?: string): string | null => "main");
 
 // Shared mock filesystem state
 const files = new Map<string, string>();
 const dirs = new Set<string>();
 const mockExistsSync = vi.fn((p: string) => files.has(p) || dirs.has(p));
-const mockReadFileSync = vi.fn((p: string) => {
+const mockReadFileSync = vi.fn((p: string, _enc?: string) => {
 	if (files.has(p)) return files.get(p)!;
 	throw new Error(`ENOENT: ${p}`);
 });
-const mockReaddirSync = vi.fn(() => []);
+const mockReaddirSync = vi.fn((_p?: string) => [] as string[]);
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: mockLog,
@@ -28,8 +28,8 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: {
 		existsSync: (p: string) => mockExistsSync(p),
-		readFileSync: (p: string, e: string) => mockReadFileSync(p, e),
-		readdirSync: (p: string) => mockReaddirSync(p),
+		readFileSync: (p: string, e?: string) => mockReadFileSync(p, e),
+		readdirSync: (p?: string) => mockReaddirSync(p),
 	},
 }));
 
@@ -179,10 +179,10 @@ describe("showInfo", () => {
 	});
 
 	it("detects dirty git status", () => {
-		mockRunSilent.mockImplementation((cmd: string) => {
-			if (cmd.includes("status --porcelain")) return "M src/file.ts";
-			if (cmd.includes("rev-parse --abbrev-ref")) return "main";
-			if (cmd.includes("rev-parse --short")) return "abc123";
+		mockRunSilent.mockImplementation((cmd?: string) => {
+			if (cmd?.includes("status --porcelain")) return "M src/file.ts";
+			if (cmd?.includes("rev-parse --abbrev-ref")) return "main";
+			if (cmd?.includes("rev-parse --short")) return "abc123";
 			return "";
 		});
 		showInfo(infoDeps);
@@ -190,10 +190,10 @@ describe("showInfo", () => {
 	});
 
 	it("detects clean git status", () => {
-		mockRunSilent.mockImplementation((cmd: string) => {
-			if (cmd.includes("status --porcelain")) return "";
-			if (cmd.includes("rev-parse --abbrev-ref")) return "main";
-			if (cmd.includes("rev-parse --short")) return "abc123";
+		mockRunSilent.mockImplementation((cmd?: string) => {
+			if (cmd?.includes("status --porcelain")) return "";
+			if (cmd?.includes("rev-parse --abbrev-ref")) return "main";
+			if (cmd?.includes("rev-parse --short")) return "abc123";
 			return "";
 		});
 		showInfo(infoDeps);

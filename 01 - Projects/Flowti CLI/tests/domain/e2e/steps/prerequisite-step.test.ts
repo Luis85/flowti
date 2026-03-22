@@ -30,10 +30,10 @@ const mockDeps = {
 };
 
 function createMockRenderer(): E2ERenderer & { prerequisites: ReturnType<typeof vi.fn> } {
-	return { ...nullRenderer, prerequisites: vi.fn() };
+	return { ...nullRenderer, prerequisites: vi.fn() } as E2ERenderer & { prerequisites: ReturnType<typeof vi.fn> };
 }
 
-const fakeE2e: E2EPaths = {
+const fakeE2e = {
 	projectRoot: "/dev/flowti",
 	pluginId: "flowti-ibde",
 	journeysDir: "/dev/flowti/tests/e2e/journeys",
@@ -42,8 +42,14 @@ const fakeE2e: E2EPaths = {
 	pluginDir: "/e2e-vault/.obsidian/plugins/flowti-ibde",
 	pluginArtifacts: ["main.js", "manifest.json", "styles.css"],
 	dataJsonPath: "/e2e-vault/.obsidian/plugins/flowti-ibde/data.json",
-	review: {} as E2EPaths["review"],
-} as unknown as E2EPaths;
+	testDataCsv: "/e2e-vault/test-data.csv",
+	reportsDir: "/dev/flowti/reports",
+	devRunsDir: "/dev/flowti/runs",
+	devTracesDir: "/dev/flowti/traces",
+	devJourneysDir: "/dev/flowti/journeys",
+	vitestResults: "/dev/flowti/vitest-results.json",
+	dataJsonCandidates: [],
+} as E2EPaths;
 
 function createMockContext(): PipelineContext {
 	const stepData = new Map<string, Record<string, unknown>>();
