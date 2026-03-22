@@ -67,6 +67,33 @@ describe("DayClock", () => {
 		});
 	});
 
+	describe("cycleEnd callbacks", () => {
+		it("fires onCycleEnd when cycle wraps", () => {
+			const cb = vi.fn();
+			const clock = new DayClock(1_000);
+			clock.onCycleEnd(cb);
+			clock.update(1_001);
+			expect(cb).toHaveBeenCalledOnce();
+		});
+
+		it("does not fire mid-cycle", () => {
+			const cb = vi.fn();
+			const clock = new DayClock(10_000);
+			clock.onCycleEnd(cb);
+			clock.update(5_000);
+			expect(cb).not.toHaveBeenCalled();
+		});
+
+		it("offCycleEnd unsubscribes correctly", () => {
+			const cb = vi.fn();
+			const clock = new DayClock(1_000);
+			clock.onCycleEnd(cb);
+			clock.offCycleEnd(cb);
+			clock.update(1_001);
+			expect(cb).not.toHaveBeenCalled();
+		});
+	});
+
 	describe("getProgress", () => {
 		it("returns 0-1 progress within current phase", () => {
 			const clock = new DayClock(100_000); // 100s

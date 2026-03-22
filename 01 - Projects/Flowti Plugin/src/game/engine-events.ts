@@ -204,6 +204,17 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 	sys.social.onConversation((nameA, nameB, lineA, lineB) => {
 		// Skip if either agent is walking to a door
 		if (sys.registry.isInTransit(nameA) || sys.registry.isInTransit(nameB)) return;
+		// Record narrative beat for social conversation
+		const convBeat = {
+			timestamp: Date.now(),
+			phase: sys.dayClock.getPhase(),
+			category: "social" as const,
+			actors: [nameA, nameB],
+			event: "conversation",
+			detail: { agentA: nameA, agentB: nameB, topic: lineA.slice(0, 40) },
+		};
+		sys.narrative.recordBeat(convBeat);
+		ctx.store.pushNarrativeBeat(convBeat);
 		// Track conversations for memory streaks
 		state.cycleConversationCounts.set(nameA, (state.cycleConversationCounts.get(nameA) ?? 0) + 1);
 		state.cycleConversationCounts.set(nameB, (state.cycleConversationCounts.get(nameB) ?? 0) + 1);
@@ -468,6 +479,125 @@ function wireProviderEvents(ctx: EngineContext): () => void {
 	};
 }
 
+// ── Narrative beat recording ──────────────────────────────────────────
+
+function wireNarrativeEvents(ctx: EngineContext): () => void {
+	const { systems: sys } = ctx;
+	const handlers: Array<{ event: string; handler: EventListener }> = [];
+
+	const addStoreListener = (event: string, handler: EventListener): void => {
+		ctx.store.addEventListener(event, handler);
+		handlers.push({ event, handler });
+	};
+
+	/** Record a beat in the narrative system and push it to the store feed. */
+	const recordBeat = (beat: Parameters<typeof sys.narrative.recordBeat>[0]): void => {
+		sys.narrative.recordBeat(beat);
+		ctx.store.pushNarrativeBeat(beat);
+	};
+
+	// Task completion → narrative beat
+	addStoreListener("task-completed", ((e: CustomEvent) => {
+		const { agentName, task, domain: taskDomain, count: taskCount } = e.detail;
+		const agent = ctx.store.agents.find((a) => a.name === agentName);
+		const domain = typeof taskDomain === "string" ? taskDomain : (agent?.domain ?? "general");
+		const count = typeof taskCount === "number" ? taskCount : 1;
+		const plural = count === 1 ? "" : "s";
+		recordBeat({
+			timestamp: Date.now(),
+			phase: sys.dayClock.getPhase(),
+			category: "task",
+			actors: [agentName],
+			event: "task-completed",
+			detail: { agent: agentName, task: typeof task === "string" ? task : "a task", domain, count, plural },
+		});
+	}) as EventListener);
+
+	// Level-up → narrative beat
+	addStoreListener("level-up", ((e: CustomEvent) => {
+		const { agentName, level, xp: eventXp } = e.detail;
+		const agent = ctx.store.agents.find((a) => a.name === agentName);
+		const xp = typeof eventXp === "number" ? eventXp : (agent?.experience ?? 0);
+		recordBeat({
+			timestamp: Date.now(),
+			phase: sys.dayClock.getPhase(),
+			category: "economy",
+			actors: [agentName],
+			event: "level-up",
+			detail: { agent: agentName, level: typeof level === "number" ? level : 1, xp },
+		});
+	}) as EventListener);
+
+	// Trust promotion → narrative beat
+	addStoreListener("trust-promoted", ((e: CustomEvent) => {
+		const { agentName, tier } = e.detail;
+		const title = typeof tier === "string" ? tier : "trusted";
+		recordBeat({
+			timestamp: Date.now(),
+			phase: sys.dayClock.getPhase(),
+			category: "economy",
+			actors: [agentName],
+			event: "trust-promoted",
+			detail: { agent: agentName, title },
+		});
+	}) as EventListener);
+
+	// Ritual phases → narrative beat (only on gather, captures the full ritual)
+	const ritualCb = (phase: RitualPhase) => {
+		if (phase.kind !== "gather") return;
+		recordBeat({
+			timestamp: Date.now(),
+			phase: sys.dayClock.getPhase(),
+			category: "ritual",
+			actors: [...phase.participants],
+			event: "ritual-started",
+			detail: { participants: phase.participants.join(", ") },
+		});
+	};
+	sys.ritual.onPhase(ritualCb);
+
+	return () => {
+		for (const { event, handler } of handlers) {
+			ctx.store.removeEventListener(event, handler);
+		}
+		sys.ritual.offPhase(ritualCb);
+	};
+}
+
+// ── Merchant stall click (opens merchant panel) ──────────────────────
+
+function wireMerchantStallClick(ctx: EngineContext): () => void {
+	const handler = () => {
+		const container = ctx.engine.canvas.parentElement;
+		if (!container) return;
+
+		let panel = container.querySelector("ft-game-merchant-panel") as
+			HTMLElement & { visible: boolean; agents: unknown[]; selectedAgent: string } | null;
+
+		if (!panel) {
+			panel = document.createElement("ft-game-merchant-panel") as
+				HTMLElement & { visible: boolean; agents: unknown[]; selectedAgent: string };
+			panel.addEventListener("merchant-close", () => { panel!.visible = false; });
+			container.appendChild(panel);
+		}
+
+		// Populate agent data from store
+		const agents = ctx.store.agents.map((a) => ({
+			name: a.name,
+			coin: a.coin ?? 0,
+			level: a.level ?? 1,
+		}));
+		panel.agents = agents;
+		if (agents.length > 0 && !panel.selectedAgent) {
+			panel.selectedAgent = agents[0].name;
+		}
+		panel.visible = true;
+	};
+
+	ctx.engine.canvas.addEventListener("merchant-stall-click", handler);
+	return () => ctx.engine.canvas.removeEventListener("merchant-stall-click", handler);
+}
+
 // ── Composite wiring ─────────────────────────────────────────────────
 
 export function wireEvents(ctx: EngineContext): () => void {
@@ -482,6 +612,8 @@ export function wireEvents(ctx: EngineContext): () => void {
 		wireToolEvents(ctx),
 		wireProviderEvents(ctx),
 		wireStoreEvents(ctx),
+		wireNarrativeEvents(ctx),
+		wireMerchantStallClick(ctx),
 	];
 	return () => unsubs.forEach((fn) => fn());
 }
