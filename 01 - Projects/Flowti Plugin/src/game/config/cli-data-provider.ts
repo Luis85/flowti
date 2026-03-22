@@ -111,7 +111,24 @@ export function createCliDataProvider(
 	}
 
 	function applyRosterFromWatchPayload(data: { agents?: DashboardAgent[] }): void {
-		agents = Array.isArray(data.agents) ? data.agents : [];
+		const incoming = Array.isArray(data.agents) ? data.agents : [];
+		const economyMap = new Map(agents.map(a => [a.name, {
+			level: a.level, coin: a.coin, tokens: a.tokens,
+			xp: a.xp, trustTier: a.trustTier, capabilities: a.capabilities,
+		}]));
+		agents = incoming.map(a => {
+			const eco = economyMap.get(a.name);
+			if (!eco) return a;
+			return {
+				...a,
+				level: a.level ?? eco.level,
+				coin: a.coin ?? eco.coin,
+				tokens: a.tokens ?? eco.tokens,
+				xp: a.xp ?? eco.xp,
+				trustTier: a.trustTier ?? eco.trustTier,
+				capabilities: a.capabilities ?? eco.capabilities,
+			};
+		});
 		applyRosterFallbacksFromSyncSources();
 		notifyRosterSubscribers();
 	}

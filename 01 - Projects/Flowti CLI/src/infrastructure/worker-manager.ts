@@ -177,7 +177,7 @@ export function createWorkerManager(
 			state: impl.state,
 			messageQueue: [...impl.messageQueue],
 			send(message: string, opts?: SendOptions) { handleSend(impl, message, opts); },
-			stop() { impl.state = "stopped"; },
+			stop() { setWorkerState(impl, "stopped", worldState); },
 		};
 	}
 

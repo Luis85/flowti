@@ -25,7 +25,10 @@ export type AgentActionType =
 	| "file-opened"
 	| "goal-started"
 	| "goal-completed"
-	| "template-generated";
+	| "template-generated"
+	| "queued"
+	| "seek-rest" | "seek-agent" | "seek-quiet" | "wander-sad"
+	| "seek-merchant" | "merchant-purchase";
 
 export interface AgentAction {
 	readonly id: string;
