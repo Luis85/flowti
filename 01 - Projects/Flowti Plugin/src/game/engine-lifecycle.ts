@@ -102,25 +102,27 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 	await engine.start();
 	void engine.goToScene("hub");
 
-	// Preload all character sprites
+	// Parallel asset loading — sprites, room elements, and data provider are independent
 	const ASSET_BASE = `${spriteBasePath}/assets/Actor/Characters/`;
+	const ANIM_BASE = `${spriteBasePath}/assets`;
 	const allCharacters = [...new Set(Object.values(DOMAIN_POOLS).flat())];
-	const spriteRegistry = await preloadSpriteRegistry(allCharacters, ASSET_BASE);
+	const sceneByRoom: Record<string, GameScene> = { hub: hubScene, office: officeScene, village: villageScene, station: stationScene };
+
+	const [spriteRegistry, , ] = await Promise.all([
+		preloadSpriteRegistry(allCharacters, ASSET_BASE),
+		Promise.all(
+			Object.entries(sceneByRoom).map(async ([roomId, scene]) => {
+				const actors = await loadRoomElements(roomId, ANIM_BASE);
+				for (const actor of actors) scene.add(actor);
+			}),
+		),
+		provider.start(),
+	]);
 
 	hubScene.setSpriteRegistry(spriteRegistry);
 	officeScene.setSpriteRegistry(spriteRegistry);
 	villageScene.setSpriteRegistry(spriteRegistry);
 	stationScene.setSpriteRegistry(spriteRegistry);
-
-	// Load animated background elements for each room
-	const ANIM_BASE = `${spriteBasePath}/assets`;
-	const sceneByRoom: Record<string, GameScene> = { hub: hubScene, office: officeScene, village: villageScene, station: stationScene };
-	await Promise.all(
-		Object.entries(sceneByRoom).map(async ([roomId, scene]) => {
-			const actors = await loadRoomElements(roomId, ANIM_BASE);
-			for (const actor of actors) scene.add(actor);
-		}),
-	);
 
 	// Camera system (after engine.start so camera is initialised)
 	const cameraSystem = createCameraSystem(
@@ -161,7 +163,6 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 	currentLight.b = initLight.b;
 	currentLight.opacity = initLight.opacity;
 
-	await provider.start();
 	const initialAgents = await provider.getDashboardAgents();
 	doRegisterAgents(initialAgents);
 
