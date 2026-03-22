@@ -40,10 +40,9 @@ describe("BT integration — full tick cycle", () => {
 			allActions.push(...actions);
 		}
 
-		// WorkCycle: PickGoal → GoToWorkstation → DoWork → LeaveWorkstation → SpeakBubble
+		// WorkCycle: PickGoal → GoToWorkstation → DoWork → LeaveWorkstation
 		expect(allActions.some((a) => a.type === "goal-started")).toBe(true);
 		expect(allActions.some((a) => a.type === "goal-completed")).toBe(true);
-		expect(allActions.some((a) => a.type === "speaking")).toBe(true);
 	});
 
 	it("agent with low energy seeks rest instead of working", () => {

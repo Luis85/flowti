@@ -518,6 +518,18 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			const snippet = detail.length > maxDetail ? `${detail.slice(0, maxDetail)}…` : detail;
 			const text = snippet ? `${summary} (${snippet})` : summary;
 			sys.bubble.showBubble(action.agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 6500);
+		} else if (action.type === "seek-rest") {
+			sys.bubble.showBubble(action.agentName, "thought", "Need a break...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-merchant") {
+			sys.bubble.showBubble(action.agentName, "thought", "Off to the shop...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-food") {
+			sys.bubble.showBubble(action.agentName, "thought", "Getting hungry...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-drink") {
+			sys.bubble.showBubble(action.agentName, "thought", "Need something to drink...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-agent") {
+			sys.bubble.showBubble(action.agentName, "thought", "Looking for company...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		} else if (action.type === "seek-quiet") {
+			sys.bubble.showBubble(action.agentName, "thought", "Need some quiet...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
 		}
 	}
 }
