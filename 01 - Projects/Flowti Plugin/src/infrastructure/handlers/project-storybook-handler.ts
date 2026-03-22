@@ -25,6 +25,10 @@ export class ProjectStorybookHandler {
 		this.deps = deps;
 	}
 
+	dispose(): void {
+		// AbortController handles cancellation; no per-listener cleanup needed
+	}
+
 	// ── Internal helpers ──────────────────────────────────────────────────────
 
 	private startWork(label: string): void {

@@ -5,13 +5,12 @@
  * Returns a dispose function for cleanup on view close.
  */
 
-import type { IProjectService } from "../../domain/projects/types.js";
+import type { IProjectService, ProjectDetailElement } from "../../domain/projects/types.js";
 import type { VaultFileAdapter } from "../vault-adapter.js";
-import {
-	wireStorybookEvents, wireScaffoldAndRegenerateEvents,
-	wireGitImportEvents, wireConfigAndCatalogEvents,
-	type ProjectEventContext,
-} from "./project-handler-events.js";
+import { ProjectStorybookHandler } from "./project-storybook-handler.js";
+import { ProjectGitHandler } from "./project-git-handler.js";
+import { ConfigCatalogHandler } from "./project-config-handler.js";
+import { TeamHandler } from "./project-team-handler.js";
 
 // Side-effect import: register the Lit custom element
 import "../../components/projects/flowti-project-detail.js";
@@ -29,21 +28,24 @@ export interface ProjectHandlerDeps {
 
 export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerDeps): () => void {
 	const { projectService } = deps;
-	const el = document.createElement("flowti-project-detail") as HTMLElement & Record<string, unknown>;
+	const controller = new AbortController();
+	const { signal } = controller;
+	const el = document.createElement("flowti-project-detail") as unknown as ProjectDetailElement;
 	let currentProject = deps.projectName;
 
 	async function loadProjectList(): Promise<void> {
 		const projects = await projectService.listProjects();
+		if (signal.aborted) return;
 		el.projects = [...projects];
 		el.cliConnected = true;
 	}
 
 	async function loadProject(name: string): Promise<void> {
+		if (signal.aborted) return;
 		currentProject = name;
-		storybookLines.length = 0;
+		projectHubLines.length = 0;
 		el.storybookOutput = [];
 		el.storybookError = "";
-		projectHubLines.length = 0;
 		el.projectHubOutput = [];
 		el.projectHubError = "";
 		el.actionSuccess = "";
@@ -60,6 +62,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.roleSlots = [];
 		el.vaultAgents = [];
 		const detail = await projectService.getProject(name);
+		if (signal.aborted) return;
 		if (!detail) {
 			el.projectName = name;
 			el.projectType = "unknown";
@@ -81,15 +84,25 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.brief = detail.brief;
 		el.roleSlots = [...(detail.config?.roleSlots ?? [])];
 
-		void projectService.getHealth(name).then((r) => { if (r.ok && r.score) el.healthScore = r.score; });
-		void projectService.getTodos(name).then((r) => { el.todos = r.items; el.todosExist = r.exists; });
-		void projectService.listComponents(name).then((c) => { el.components = c; });
-		void projectService.getReportGenerators(name).then((g) => { el.reportGenerators = g; });
-		void projectService.listEntities(name, "domains").then((entities) => { el.catalogEntities = entities; });
+		void projectService.getHealth(name)
+			.then((r) => { if (!signal.aborted && r.ok && r.score) el.healthScore = r.score; })
+			.catch(() => { if (!signal.aborted) el.healthError = "Health check unavailable"; });
+		void projectService.getTodos(name)
+			.then((r) => { if (!signal.aborted) { el.todos = r.items; el.todosExist = r.exists; } })
+			.catch(() => { if (!signal.aborted) console.warn("[Flowti] Failed to load TODOs"); });
+		void projectService.listComponents(name)
+			.then((c) => { if (!signal.aborted) el.components = c; })
+			.catch(() => { if (!signal.aborted) console.warn("[Flowti] Failed to load components"); });
+		void projectService.getReportGenerators(name)
+			.then((g) => { if (!signal.aborted) el.reportGenerators = g; })
+			.catch(() => { if (!signal.aborted) console.warn("[Flowti] Failed to load report generators"); });
+		void projectService.listEntities(name, "domains")
+			.then((entities) => { if (!signal.aborted) el.catalogEntities = entities; })
+			.catch(() => { if (!signal.aborted) console.warn("[Flowti] Failed to load catalog entities"); });
 		try {
 			el.vaultAgents = [...await projectService.listVaultAgents()];
 		} catch {
-			el.vaultAgents = [];
+			if (!signal.aborted) el.vaultAgents = [];
 		}
 	}
 
@@ -109,7 +122,15 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		el.projectHubOutput = [];
 		el.projectHubError = "";
 		el.actionSuccess = "";
-		void loadProjectList();
+		el.gitImportStep = "form";
+		el.gitImportError = "";
+		el.gitImportOutputLines = [];
+		el.gitImportDetected = null;
+		el.configSaveStatus = "";
+		el.configSourcePath = "";
+		void loadProjectList().catch(() => {
+			if (!signal.aborted) el.projectHubError = "Failed to load project list";
+		});
 	}) as EventListener);
 
 	el.addEventListener("open-project-note", ((e: CustomEvent) => { deps.openNote?.(String(e.detail.path)); }) as EventListener);
@@ -118,12 +139,13 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		const name = String(e.detail.name);
 		void (async () => {
 			await deps.createNote?.(name).catch(() => { /* timeout — proceed anyway */ });
+			if (signal.aborted) return;
 			if (currentProject) await loadProject(currentProject);
 			else await loadProjectList();
 		})();
 	}) as EventListener);
 
-	const storybookLines: string[] = [];
+	// ── Shared project-hub work-queue helpers (used by Git, Config, Team handlers) ──
 	const projectHubLines: string[] = [];
 	let lastProjectHubLabel = "";
 
@@ -142,34 +164,8 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		return stripped.length > 0 ? `${stripped} — finished` : "Done.";
 	}
 
-	function startStorybookWork(label: string): void {
-		storybookLines.length = 0;
-		el.storybookBusy = true;
-		el.storybookBusyLabel = label;
-		el.storybookOutput = [];
-		el.storybookError = "";
-	}
-
-	function appendStorybookLog(line: string): void {
-		console.debug("[Flowti:Components/Storybook]", line);
-		storybookLines.push(line);
-		if (storybookLines.length > 200) storybookLines.shift();
-		el.storybookOutput = [...storybookLines];
-	}
-
-	function clearStorybookLogBuffer(): void {
-		storybookLines.length = 0;
-		el.storybookOutput = [];
-	}
-
-	function endStorybookWork(result: { ok: boolean; error?: string }): void {
-		el.storybookBusy = false;
-		el.storybookBusyLabel = "";
-		if (!result.ok && result.error) el.storybookError = result.error;
-		void loadProject(currentProject);
-	}
-
 	function startProjectHubWork(label: string): void {
+		if (signal.aborted) return;
 		projectHubLines.length = 0;
 		lastProjectHubLabel = label;
 		el.projectHubBusy = true;
@@ -181,6 +177,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	}
 
 	function appendProjectHubLog(line: string): void {
+		if (signal.aborted) return;
 		console.debug("[Flowti:Project]", line);
 		projectHubLines.push(line);
 		if (projectHubLines.length > 200) projectHubLines.shift();
@@ -188,6 +185,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	}
 
 	function endProjectHubWork(result: { ok: boolean; error?: string }): void {
+		if (signal.aborted) return;
 		el.projectHubBusy = false;
 		el.projectHubBusyLabel = "";
 		if (!result.ok && result.error) {
@@ -196,35 +194,58 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		} else {
 			const msg = projectHubSuccessMessage(lastProjectHubLabel);
 			el.actionSuccess = msg;
-			setTimeout(() => { if (el.actionSuccess === msg) el.actionSuccess = ""; }, 4000);
+			setTimeout(() => { if (!signal.aborted && el.actionSuccess === msg) el.actionSuccess = ""; }, 4000);
 		}
 		void loadProject(currentProject);
 	}
 
-	// ── Wire all event groups via extracted helpers ──
-	const ctx: ProjectEventContext = {
-		el, projectService,
+	// ── Instantiate four handler classes ──
+	const storybook = new ProjectStorybookHandler({
+		el, signal, projectService,
 		getCurrentProject: () => currentProject,
-		loadProject, loadProjectList,
-		startStorybookWork, appendStorybookLog, endStorybookWork, clearStorybookLogBuffer,
-		startProjectHubWork, appendProjectHubLog, endProjectHubWork,
-		openNote: deps.openNote,
-		createNote: deps.createNote,
+		loadProject,
 		revealFolder: deps.revealFolder,
 		pickFolder: deps.pickFolder,
-	};
+	});
+	storybook.register();
 
-	wireStorybookEvents(ctx);
-	wireScaffoldAndRegenerateEvents(ctx);
-	wireGitImportEvents(ctx);
-	wireConfigAndCatalogEvents(ctx);
+	const git = new ProjectGitHandler({
+		el, signal, projectService,
+		getCurrentProject: () => currentProject,
+		loadProject, loadProjectList,
+		startProjectHubWork, appendProjectHubLog, endProjectHubWork,
+		createNote: deps.createNote,
+	});
+
+	const config = new ConfigCatalogHandler({
+		el, signal, projectService,
+		getCurrentProject: () => currentProject,
+		startProjectHubWork, appendProjectHubLog, endProjectHubWork,
+		openNote: deps.openNote,
+		pickFolder: deps.pickFolder,
+	});
+
+	const team = new TeamHandler({
+		el, signal, projectService,
+		getCurrentProject: () => currentProject,
+		startProjectHubWork, appendProjectHubLog, endProjectHubWork,
+	});
 
 	container.appendChild(el);
 	if (currentProject) {
 		void loadProject(currentProject);
 	} else {
-		void loadProjectList().then(() => { el.cliConnected = true; });
+		void loadProjectList().catch(() => {
+			if (!signal.aborted) el.projectHubError = "Failed to load project list";
+		});
 	}
 
-	return () => { el.remove(); };
+	return () => {
+		controller.abort();
+		storybook.dispose();
+		git.dispose();
+		config.dispose();
+		team.dispose();
+		el.remove();
+	};
 }

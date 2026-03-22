@@ -8,7 +8,7 @@ import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { projectDetailStyles } from "./flowti-project-detail-styles.js";
-import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo, TeamRoleSlot, VaultAgentSummary, GitDetectResult } from "../../domain/projects/types.js";
+import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo, TeamRoleSlot, VaultAgentSummary, GitDetectResult, ProjectBrief } from "../../domain/projects/types.js";
 
 // Side-effect imports to register child custom elements
 import "./flowti-tab-overview.js";
@@ -108,7 +108,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	hasCanvas = false;
 	canvasChanged = false;
 	canvasPreset = "";
-	brief: Record<string, string | undefined> | undefined = undefined;
+	brief: ProjectBrief | undefined = undefined;
 	showGitModal = false;
 	gitModalMode: "submodule" | "template" = "submodule";
 	gitImportStep: "form" | "progress" | "detect" | "configure" | "done" = "form";

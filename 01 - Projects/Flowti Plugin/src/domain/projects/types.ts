@@ -312,7 +312,7 @@ export interface ProjectDetailElement extends HTMLElement {
 	hasCanvas: boolean;
 	canvasChanged: boolean;
 	canvasPreset: string;
-	brief: Record<string, string | undefined> | undefined;
+	brief: ProjectBrief | undefined;
 	showScaffoldModal: boolean;
 	showGitModal: boolean;
 	gitModalMode: "submodule" | "template";

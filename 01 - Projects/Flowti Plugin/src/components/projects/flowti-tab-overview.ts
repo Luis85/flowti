@@ -2,7 +2,7 @@ import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { css } from "lit";
-import type { ProjectConfig, HealthScore, TodoItem } from "../../domain/projects/types.js";
+import type { ProjectConfig, HealthScore, TodoItem, ProjectBrief } from "../../domain/projects/types.js";
 import { SITEMAP_CANVAS_PRESETS } from "../../domain/projects/sitemap-canvas-presets.js";
 
 const styles = css`
@@ -102,7 +102,7 @@ export class FlowtiTabOverview extends FlowtiElement {
 
 	projectName = "";
 	notePath = "";
-	brief: Record<string, string | undefined> | undefined;
+	brief: ProjectBrief | undefined;
 	config: ProjectConfig | undefined;
 	healthScore: HealthScore | null = null;
 	healthError = "";
