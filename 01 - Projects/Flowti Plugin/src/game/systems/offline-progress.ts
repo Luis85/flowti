@@ -6,6 +6,8 @@
  * and rest status per agent.
  */
 
+import { LEVEL_TABLE, levelForXp as _cliLevelForXp } from "../../../../Flowti CLI/src/domain/economy/leveling.js";
+
 // ── Constants ────────────────────────────────────────────────────────
 
 export const CYCLE_DURATION_MS = 25 * 60 * 1000;
@@ -13,8 +15,7 @@ export const MAX_SIMULATION_MS = 8 * 60 * 60 * 1000;
 export const MIN_BRIEFING_MS = 5 * 60 * 1000;
 export const BASE_XP_PER_TASK = 50;
 export const BASE_COIN_PER_TASK = 25;
-import { LEVEL_TABLE, levelForXp as _cliLevelForXp } from "../../../../Flowti CLI/src/domain/economy/leveling.js";
-export const LEVEL_THRESHOLDS = LEVEL_TABLE.map(e => e.xpRequired) as readonly number[];
+export const LEVEL_THRESHOLDS: readonly number[] = LEVEL_TABLE.map(e => e.xpRequired);
 
 // ── Types ────────────────────────────────────────────────────────────
 

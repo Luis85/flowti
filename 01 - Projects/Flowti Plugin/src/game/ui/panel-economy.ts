@@ -9,9 +9,9 @@ import type { DashboardAgent } from "../data/types.js";
 
 import { LEVEL_TABLE } from "../../../../Flowti CLI/src/domain/economy/leveling.js";
 
-const LEVEL_THRESHOLDS = LEVEL_TABLE.map(e => e.xpRequired);
-const LEVEL_TITLES = ["", ...LEVEL_TABLE.map(e => e.title)];
-const NEXT_UNLOCK = ["", ...LEVEL_TABLE.slice(1).map(e => e.unlocks.join(", ")), ""];
+const LEVEL_THRESHOLDS: readonly number[] = LEVEL_TABLE.map(e => e.xpRequired);
+const LEVEL_TITLES: readonly string[] = ["", ...LEVEL_TABLE.map(e => e.title)];
+const NEXT_UNLOCK: readonly string[] = ["", ...LEVEL_TABLE.slice(1).map(e => e.unlocks.join(", ")), ""];
 
 const TRUST_TIER_COLORS: Record<string, string> = {
 	supervised: "#f59e0b",
