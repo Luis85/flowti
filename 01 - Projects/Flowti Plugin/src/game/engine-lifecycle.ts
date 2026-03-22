@@ -5,6 +5,8 @@
  * and the `handleAgentSelect` interaction handler.
  */
 
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import * as ex from "excalibur";
 import type { BrainSystem } from "./systems/brain-system.js";
 import type { BubbleSystem } from "./systems/bubble-system.js";
@@ -174,6 +176,31 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 	const worldState = await provider.getWorldState();
 	if (worldState?.activityLog) {
 		store.setActivityLog(worldState.activityLog);
+	}
+
+	// ── Enrich agents with CLI economy data ──────────────
+	if (vaultBasePath) {
+		try {
+			const economyPath = join(vaultBasePath, ".flowti", "var", "economy.json");
+			if (existsSync(economyPath)) {
+				const raw = readFileSync(economyPath, "utf-8");
+				const ledger = JSON.parse(raw) as {
+					accounts?: Record<string, { xp?: number; level?: number; coin?: number; tokens?: number }>;
+				};
+				if (ledger.accounts) {
+					for (const [name, account] of Object.entries(ledger.accounts)) {
+						store.setAgentEconomy(name, {
+							xp: account.xp,
+							level: account.level,
+							coin: account.coin,
+							tokens: account.tokens,
+						});
+					}
+				}
+			}
+		} catch {
+			// economy.json may not exist or be malformed — continue without it
+		}
 	}
 
 	let rosterSnapshot = [...initialAgents];
