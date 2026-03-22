@@ -100,7 +100,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		domain: agent.domain,
 		attributes: attr,
 		personality: agent.personality ?? [],
-		experience: agent.experience ?? 0,
+		xp: agent.xp ?? 0,
 		level: agent.level ?? 1,
 		quirks: agent.quirks ?? [],
 		needs: createDefaultNeeds(),

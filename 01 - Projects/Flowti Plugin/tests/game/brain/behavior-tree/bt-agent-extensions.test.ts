@@ -15,7 +15,7 @@ function makeContext(overrides: Partial<BTAgentContext> = {}): BTAgentContext {
 		agentType: "ai",
 		goals: [{ name: "review plan", priority: 10 }],
 		needs: { energy: 80, hunger: 80, thirst: 80, social: 80, focus: 80, morale: 80 },
-		experience: 100,
+		xp: 100,
 		lastMerchantVisitCycle: 0,
 		...overrides,
 	} as BTAgentContext;

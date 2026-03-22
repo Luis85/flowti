@@ -54,3 +54,13 @@ export function isEligible(level: number, capability: string): boolean {
 	const minLevel = CAPABILITY_MIN_LEVEL[capability];
 	return minLevel !== undefined && level >= minLevel;
 }
+
+export function capabilitiesForLevel(level: number): string[] {
+	const caps: string[] = [];
+	for (const entry of LEVEL_TABLE) {
+		if (level >= entry.level) {
+			caps.push(...entry.unlocks);
+		}
+	}
+	return caps;
+}

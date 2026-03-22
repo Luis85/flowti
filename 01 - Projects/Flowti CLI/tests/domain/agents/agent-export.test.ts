@@ -37,6 +37,20 @@ vi.mock("../../../src/domain/raid/raid-store.js", () => ({
 	listRAIDItems: vi.fn(() => []),
 }));
 
+vi.mock("../../../src/domain/economy/economy-ledger.js", () => ({
+	readLedger: vi.fn(() => ({ version: 1, updatedAt: "", accounts: {} })),
+	getAccount: vi.fn(() => ({ xp: 0, level: 1, coin: 0, tokens: 0, totalEarned: { xp: 0, coin: 0 }, totalSpent: { coin: 0, tokens: 0 } })),
+}));
+
+vi.mock("../../../src/domain/trust/trust-manager.js", () => ({
+	loadTrustProfile: vi.fn(() => ({ tier: "supervised", operations: {}, promotionLog: [] })),
+	deriveTier: vi.fn(() => "supervised"),
+}));
+
+vi.mock("../../../src/domain/economy/leveling.js", () => ({
+	capabilitiesForLevel: vi.fn(() => ["vault-read", "simple-tasks"]),
+}));
+
 import { agentStore } from "../../../src/domain/agents/agent-store.js";
 import { listIterations } from "../../../src/domain/iterations/iteration-store.js";
 import { listProjectComponents } from "../../../src/domain/make/component/component-list.js";
@@ -45,6 +59,9 @@ import { resourceStore } from "../../../src/domain/resources/resource-store.js";
 import { deliverableStore } from "../../../src/domain/deliverables/deliverable-store.js";
 import { raidStore } from "../../../src/domain/raid/raid-store.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
+import { readLedger, getAccount } from "../../../src/domain/economy/economy-ledger.js";
+import { loadTrustProfile, deriveTier } from "../../../src/domain/trust/trust-manager.js";
+import { capabilitiesForLevel } from "../../../src/domain/economy/leveling.js";
 
 const mockListAgents = vi.mocked(agentStore.list);
 const mockListIterations = vi.mocked(listIterations);
@@ -53,6 +70,11 @@ const mockListEvents = vi.mocked(listEvents);
 const mockListResources = vi.mocked(resourceStore.list);
 const mockListDeliverables = vi.mocked(deliverableStore.list);
 const mockListRAIDItems = vi.mocked(raidStore.list);
+const mockReadLedger = vi.mocked(readLedger);
+const mockGetAccount = vi.mocked(getAccount);
+const mockLoadTrustProfile = vi.mocked(loadTrustProfile);
+const mockDeriveTier = vi.mocked(deriveTier);
+const mockCapabilitiesForLevel = vi.mocked(capabilitiesForLevel);
 
 function makeAgent(name: string, agentType: "human" | "ai" = "human", domain?: string): AgentSummary {
 	return { name, agentType, description: "", domain, skills: [], tools: [], roles: [], file: `${name}.md` };
@@ -156,6 +178,17 @@ describe("exportAgentDashboardData", () => {
 		mockListResources.mockReset();
 		mockListDeliverables.mockReset();
 		mockListRAIDItems.mockReset();
+		mockReadLedger.mockReset();
+		mockGetAccount.mockReset();
+		mockLoadTrustProfile.mockReset();
+		mockDeriveTier.mockReset();
+		mockCapabilitiesForLevel.mockReset();
+		// Re-apply defaults after reset
+		mockReadLedger.mockReturnValue({ version: 1, updatedAt: "", accounts: {} });
+		mockGetAccount.mockReturnValue({ xp: 0, level: 1, coin: 0, tokens: 0, totalEarned: { xp: 0, coin: 0 }, totalSpent: { coin: 0, tokens: 0 } });
+		mockLoadTrustProfile.mockReturnValue({ tier: "supervised", operations: {} as never, promotionLog: [] });
+		mockDeriveTier.mockReturnValue("supervised");
+		mockCapabilitiesForLevel.mockReturnValue(["vault-read", "simple-tasks"]);
 	});
 
 	it("returns empty data when no agents and no projects", () => {
@@ -215,6 +248,30 @@ describe("exportAgentDashboardData", () => {
 		const data = exportAgentDashboardData("/vault", undefined, [], mockDeps);
 		expect(data.agents[0].agentType).toBe("ai");
 		expect(data.agents[0].domain).toBe("engineering");
+	});
+
+	it("enriches agents with economy data from ledger and trust profile", () => {
+		mockListAgents.mockReturnValue([makeAgent("Bob", "ai")]);
+		mockGetAccount.mockReturnValue({ xp: 500, level: 4, coin: 80, tokens: 15, totalEarned: { xp: 500, coin: 80 }, totalSpent: { coin: 0, tokens: 0 } });
+		mockDeriveTier.mockReturnValue("trusted");
+		mockCapabilitiesForLevel.mockReturnValue(["vault-read", "simple-tasks", "standing-orders", "vault-write", "self-proposed", "delegation", "journey"]);
+
+		const data = exportAgentDashboardData("/vault", undefined, [], mockDeps);
+		expect(data.agents[0].level).toBe(4);
+		expect(data.agents[0].xp).toBe(500);
+		expect(data.agents[0].coin).toBe(80);
+		expect(data.agents[0].tokens).toBe(15);
+		expect(data.agents[0].trustTier).toBe("trusted");
+		expect(data.agents[0].capabilities).toContain("delegation");
+	});
+
+	it("uses default economy values when no ledger entry exists", () => {
+		mockListAgents.mockReturnValue([makeAgent("Eve", "ai")]);
+
+		const data = exportAgentDashboardData("/vault", undefined, [], mockDeps);
+		expect(data.agents[0].level).toBe(1);
+		expect(data.agents[0].xp).toBe(0);
+		expect(data.agents[0].trustTier).toBe("supervised");
 	});
 });
 
@@ -316,7 +373,7 @@ describe("buildDashboardAgent", () => {
 		expect(result.persona).toBe("Bobby");
 		expect(result.mood).toBe("cheerful");
 		expect(result.attributes?.int).toBe(14);
-		expect(result.experience).toBe(150);
+		expect("experience" in result).toBe(false);
 	});
 
 	it("omits skills when agent has no skills", () => {
@@ -338,11 +395,54 @@ describe("buildDashboardAgent", () => {
 		expect(result.mood).toBeUndefined();
 		expect(result.personality).toBeUndefined();
 		expect(result.attributes).toBeUndefined();
-		expect(result.experience).toBeUndefined();
+		expect("experience" in result).toBe(false);
 		expect(result.goals).toBeUndefined();
 		expect(result.behaviors).toBeUndefined();
 		expect(result.relationships).toBeUndefined();
 		expect(result.suggestedTasks).toBeUndefined();
+	});
+
+	it("includes economy fields when economy snapshot is provided", () => {
+		const agent = createMockAgent();
+		const economy = { level: 3, xp: 350, coin: 50, tokens: 10, trustTier: "trusted" as const, capabilities: ["vault-read", "simple-tasks", "standing-orders", "vault-write", "self-proposed"] };
+		const result = buildDashboardAgent(agent, { status: "idle" }, economy);
+		expect(result.level).toBe(3);
+		expect(result.xp).toBe(350);
+		expect(result.coin).toBe(50);
+		expect(result.tokens).toBe(10);
+		expect(result.trustTier).toBe("trusted");
+		expect(result.capabilities).toEqual(["vault-read", "simple-tasks", "standing-orders", "vault-write", "self-proposed"]);
+	});
+
+	it("economy fields are undefined when no snapshot provided", () => {
+		const agent = createMockAgent();
+		const result = buildDashboardAgent(agent, { status: "idle" });
+		expect(result.level).toBeUndefined();
+		expect(result.xp).toBeUndefined();
+		expect(result.coin).toBeUndefined();
+		expect(result.tokens).toBeUndefined();
+		expect(result.trustTier).toBeUndefined();
+		expect(result.capabilities).toBeUndefined();
+	});
+
+	it("does not include experience field", () => {
+		const agent = createMockAgent({ experience: 500 });
+		const economy = { level: 5, xp: 1000, coin: 100, tokens: 20, trustTier: "autonomous" as const, capabilities: [] };
+		const result = buildDashboardAgent(agent, { status: "idle" }, economy);
+		expect("experience" in result).toBe(false);
+		expect(result.xp).toBe(1000);
+	});
+
+	it("includes name field in goals alongside text and priority", () => {
+		const agent = createMockAgent({ goals: [{ name: "complete-review", priority: 2, condition: "All items reviewed" }] });
+		const result = buildDashboardAgent(agent, { status: "idle" });
+		expect(result.goals).toEqual([{ name: "complete-review", text: "All items reviewed", priority: "2" }]);
+	});
+
+	it("falls back to name for goals text when condition is absent", () => {
+		const agent = createMockAgent({ goals: [{ name: "patrol-area", priority: 1 }] });
+		const result = buildDashboardAgent(agent, { status: "idle" });
+		expect(result.goals).toEqual([{ name: "patrol-area", text: "patrol-area", priority: "1" }]);
 	});
 });
 

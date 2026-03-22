@@ -28,7 +28,9 @@ export type AgentActionType =
 	| "template-generated"
 	| "queued"
 	| "seek-rest" | "seek-agent" | "seek-quiet" | "wander-sad"
-	| "seek-merchant" | "merchant-purchase";
+	| "seek-merchant" | "merchant-purchase"
+	| "seek-food" | "seek-drink"
+	| "seek-preferred-food" | "seek-preferred-drink";
 
 export interface AgentAction {
 	readonly id: string;

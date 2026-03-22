@@ -10,6 +10,8 @@ type TransitionFn = (event: BrainEvent) => BrainResult | null;
 const TRANSITIONS: Record<string, TransitionFn> = {
 	"task-started": () => ({ state: "walking-to", target: TO_WORKSTATION }),
 	"task-completed": () => ({ state: "idle", target: NO_MOVE }),
+	"goal-started": () => ({ state: "walking-to", target: TO_WORKSTATION }),
+	"goal-completed": () => ({ state: "idle", target: NO_MOVE }),
 	"speaking": () => ({ state: "talking", target: { kind: "agent" } }),
 	"thinking": () => ({ state: "working", target: TO_WORKSTATION }),
 	"asking": () => ({ state: "waiting", target: NO_MOVE }),
@@ -59,6 +61,14 @@ export function computeParams(attrs: AgentAttributes): BrainParams {
 	};
 }
 
+export function deriveMovementStyle(dex: number): AgentHabits["movementStyle"] {
+	return dex <= 7 ? "deliberate" : dex <= 13 ? "brisk" : "darting";
+}
+
+export function deriveIdleStyle(con: number): AgentHabits["idleStyle"] {
+	return con <= 7 ? "fidgety" : con <= 13 ? "restless" : "calm";
+}
+
 /** Derive personality habits from attributes, mood, and domain. */
 export function computeHabits(attrs: AgentAttributes, mood: string, domain: string): AgentHabits {
 	const dex = attrs.dex ?? DEFAULT_ATTR;
@@ -67,11 +77,8 @@ export function computeHabits(attrs: AgentAttributes, mood: string, domain: stri
 	const con = attrs.con ?? DEFAULT_ATTR;
 	const wis = attrs.wis ?? DEFAULT_ATTR;
 
-	const movementStyle: AgentHabits["movementStyle"] =
-		dex <= 7 ? "deliberate" : dex <= 13 ? "brisk" : "darting";
-
-	const idleStyle: AgentHabits["idleStyle"] =
-		con <= 7 ? "fidgety" : con <= 13 ? "restless" : "calm";
+	const movementStyle = deriveMovementStyle(dex);
+	const idleStyle = deriveIdleStyle(con);
 
 	let socialDrift = cha / 20;
 	let breakThreshold = 10 + con * 2;

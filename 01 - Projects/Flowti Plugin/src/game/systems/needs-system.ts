@@ -39,7 +39,7 @@ interface NeedsEntry {
 
 // ── Decay/restore rates (per second) ─────────────────────────────────
 
-const DECAY = {
+export const DECAY = {
 	working: { energy: -0.8, social: -0.3, focus: -1.2, morale: 0.5, hunger: -0.6, thirst: -0.8 },
 	idle: { energy: 0.5, social: -0.1, focus: 0.3, morale: -0.1, hunger: -0.2, thirst: -0.3 },
 	wandering: { energy: 0.3, social: -0.1, focus: 0.2, morale: 0, hunger: -0.3, thirst: -0.4 },

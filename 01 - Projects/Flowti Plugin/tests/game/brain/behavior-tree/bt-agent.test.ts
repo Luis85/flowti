@@ -22,7 +22,7 @@ function makeAgent(overrides: Partial<BTAgentDef> = {}): BTAgentDef {
 		persona: "The Architect",
 		mood: "focused",
 		personality: ["analytical", "methodical"],
-		experience: 100,
+		xp: 100,
 		goals: [{ name: "review iteration plan", priority: 10 }],
 		...overrides,
 	};

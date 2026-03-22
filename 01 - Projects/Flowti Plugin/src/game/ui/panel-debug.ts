@@ -325,7 +325,7 @@ export class PanelDebug extends FlowtiElement {
 	private renderStatsOverride() {
 		const stats = [
 			{ key: "level", label: "Level", current: this.agent!.level ?? 1 },
-			{ key: "xp", label: "XP", current: this.agent!.xp ?? this.agent!.experience ?? 0 },
+			{ key: "xp", label: "XP", current: this.agent!.xp ?? 0 },
 			{ key: "coin", label: "Coin", current: this.agent!.coin ?? 0 },
 			{ key: "tokens", label: "Tokens", current: this.agent!.tokens ?? 0 },
 		];

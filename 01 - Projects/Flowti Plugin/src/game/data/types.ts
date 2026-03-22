@@ -74,7 +74,6 @@ export interface DashboardAgent {
 	readonly mood?: string;
 	readonly personality?: readonly string[];
 	readonly attributes?: AgentAttributes;
-	readonly experience?: number;
 	readonly skills?: readonly { name: string; level: string }[];
 	readonly relationships?: readonly { target: string; type: string }[];
 	readonly suggestedTasks?: readonly { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }[];
@@ -83,12 +82,12 @@ export interface DashboardAgent {
 	readonly project?: string;
 	readonly iteration?: string;
 	readonly phase?: string;
-	level?: number;
-	coin?: number;
-	tokens?: number;
-	xp?: number;
-	trustTier?: "supervised" | "trusted" | "autonomous";
-	capabilities?: string[];
+	readonly level?: number;
+	readonly coin?: number;
+	readonly tokens?: number;
+	readonly xp?: number;
+	readonly trustTier?: "supervised" | "trusted" | "autonomous";
+	readonly capabilities?: readonly string[];
 }
 
 export type TaskStatus = "proposed" | "pending" | "assigned" | "in-progress" | "review" | "completed" | "failed";

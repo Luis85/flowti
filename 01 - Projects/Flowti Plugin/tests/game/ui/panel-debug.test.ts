@@ -77,7 +77,7 @@ describe("PanelDebug event dispatching", () => {
 			agentType: "ai",
 			status: "idle" as const,
 			level: 3,
-			experience: 250,
+			xp: 250,
 			coin: 100,
 			tokens: 5000,
 		};
