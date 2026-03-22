@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { levelForXp, xpForLevel, titleForLevel, isEligible, LEVEL_TABLE } from "../../../src/domain/economy/leveling.js";
+import { levelForXp, xpForLevel, titleForLevel, isEligible, capabilitiesForLevel, LEVEL_TABLE } from "../../../src/domain/economy/leveling.js";
 
 describe("leveling", () => {
 	describe("levelForXp", () => {
@@ -69,6 +69,31 @@ describe("leveling", () => {
 	describe("LEVEL_TABLE", () => {
 		it("has 8 levels", () => {
 			expect(LEVEL_TABLE).toHaveLength(8);
+		});
+	});
+
+	describe("capabilitiesForLevel", () => {
+		it("returns vault-read and simple-tasks for level 1", () => {
+			expect(capabilitiesForLevel(1)).toEqual(["vault-read", "simple-tasks"]);
+		});
+
+		it("returns cumulative unlocks for level 4", () => {
+			expect(capabilitiesForLevel(4)).toEqual([
+				"vault-read", "simple-tasks",
+				"standing-orders",
+				"vault-write", "self-proposed",
+				"delegation", "journey",
+			]);
+		});
+
+		it("returns all unlocks for level 8", () => {
+			expect(capabilitiesForLevel(8)).toHaveLength(13);
+			expect(capabilitiesForLevel(8)).toContain("full-autonomy");
+			expect(capabilitiesForLevel(8)).toContain("economy-influence");
+		});
+
+		it("returns empty for level 0", () => {
+			expect(capabilitiesForLevel(0)).toEqual([]);
 		});
 	});
 });
