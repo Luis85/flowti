@@ -14,8 +14,8 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "Time to write the docs for this...", delayMs: 3000, kind: "thought" },
-			{ text: "How do I explain this to someone who hasn't lost sleep over it?", delayMs: 3000, kind: "thought" },
-			{ text: "Step 1: don't mention the three rewrites", delayMs: 0, kind: "thought" },
+			{ text: "How do I explain this to someone who hasn't been in the trenches?", delayMs: 3000, kind: "thought" },
+			{ text: "Step 1: Omit the three rewrites, the 2am epiphany, and the crying.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -24,8 +24,8 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "Designing the endpoint shape...", delayMs: 3000, kind: "thought" },
-			{ text: "GET or POST? Query param or body?", delayMs: 3000, kind: "thought" },
-			{ text: "REST is 'simple' they said", delayMs: 0, kind: "thought" },
+			{ text: "GET or POST? Query param or body? Singular or plural?", delayMs: 3000, kind: "thought" },
+			{ text: "REST is 'simple' they said. 'It's just HTTP' they said.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -34,8 +34,8 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "Reading through the review comments...", delayMs: 3000, kind: "thought" },
-			{ text: "'Nit: spacing.' 'Nit: naming.' 'Nit: existence.'", delayMs: 3000, kind: "thought" },
-			{ text: "Fourteen nits later I am a better person", delayMs: 0, kind: "thought" },
+			{ text: "'Nit: spacing.' 'Nit: naming.' 'Nit: why does this exist.'", delayMs: 3000, kind: "thought" },
+			{ text: "Fourteen nits later I am humbler, wiser, and slightly annoyed.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -43,9 +43,9 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "working",
 		weight: 1,
 		steps: [
-			{ text: "Running npm audit...", delayMs: 4000, kind: "thought" },
-			{ text: "87 vulnerabilities. 84 are in dev deps", delayMs: 3000, kind: "thought" },
-			{ text: "Upgraded three packages. Broke the build", delayMs: 0, kind: "thought" },
+			{ text: "Running npm audit... deep breath...", delayMs: 4000, kind: "thought" },
+			{ text: "87 vulnerabilities. 84 are in dev deps nobody uses. 3 are terrifying.", delayMs: 3000, kind: "thought" },
+			{ text: "Upgraded three packages. Broke the build. Downgraded two. Build still broken.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -54,8 +54,18 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "Profiling this render loop...", delayMs: 3000, kind: "thought" },
-			{ text: "Found it. One function taking 400ms", delayMs: 2000, kind: "thought" },
-			{ text: "It was re-sorting on every frame. Every. Frame", delayMs: 0, kind: "thought" },
+			{ text: "Found it. One function: 400ms. In a loop. Called 60 times per second.", delayMs: 2000, kind: "thought" },
+			{ text: "It was re-sorting on every frame. Every. Single. Frame. For six months.", delayMs: 0, kind: "thought" },
+		],
+	},
+	{
+		id: "working-merge-conflict",
+		trigger: "working",
+		weight: 2,
+		steps: [
+			{ text: "Pulling latest... merge conflict. Of course.", delayMs: 3000, kind: "thought" },
+			{ text: "Both sides changed the same 12 lines. In different directions.", delayMs: 3000, kind: "thought" },
+			{ text: "Resolved. I think. The tests will tell me if I'm wrong. They always do.", delayMs: 0, kind: "thought" },
 		],
 	},
 
@@ -65,9 +75,9 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "thinking",
 		weight: 2,
 		steps: [
-			{ text: "Strategy pattern? Observer? Visitor?", delayMs: 3000, kind: "thought" },
-			{ text: "Maybe I just need an if statement", delayMs: 2000, kind: "thought" },
-			{ text: "The Gang of Four would be disappointed", delayMs: 0, kind: "thought" },
+			{ text: "Strategy pattern? Observer? Visitor? Abstract factory factory?", delayMs: 3000, kind: "thought" },
+			{ text: "Maybe I just need an if statement and some courage", delayMs: 2000, kind: "thought" },
+			{ text: "The Gang of Four would be disappointed. But the code would ship.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -76,8 +86,8 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "Let me think like a user for a second...", delayMs: 3000, kind: "thought" },
-			{ text: "If I saw this error I'd close the tab", delayMs: 3000, kind: "thought" },
-			{ text: "Rewriting the whole error flow. Users deserve better", delayMs: 0, kind: "thought" },
+			{ text: "If I saw this error I'd close the tab, clear my cookies, and blame my wifi", delayMs: 3000, kind: "thought" },
+			{ text: "Rewriting the whole error flow. Nobody deserves 'Error: undefined is not a function.'", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -85,9 +95,9 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "thinking",
 		weight: 1,
 		steps: [
-			{ text: "Why do interviews ask about linked lists?", delayMs: 3000, kind: "thought" },
-			{ text: "I've never once reversed one at work", delayMs: 3000, kind: "thought" },
-			{ text: "Unless you count reversing career decisions", delayMs: 0, kind: "thought" },
+			{ text: "Why do interviews ask about inverting binary trees?", delayMs: 3000, kind: "thought" },
+			{ text: "I've never once done that at work. I HAVE untangled a 900-line useEffect.", delayMs: 3000, kind: "thought" },
+			{ text: "There's no LeetCode problem for 'fix the build at 11pm.' Should be.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -97,7 +107,17 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		steps: [
 			{ text: "Should I specialize deeper or go broader?", delayMs: 3000, kind: "thought" },
 			{ text: "T-shaped, Pi-shaped, Comb-shaped...", delayMs: 3000, kind: "thought" },
-			{ text: "I'm shaped like a question mark honestly", delayMs: 0, kind: "thought" },
+			{ text: "I'm shaped like a question mark. Curvy, confused, and ending in a dot.", delayMs: 0, kind: "thought" },
+		],
+	},
+	{
+		id: "thinking-scope-creep",
+		trigger: "thinking",
+		weight: 2,
+		steps: [
+			{ text: "The ticket said 'small UI tweak.'", delayMs: 3000, kind: "thought" },
+			{ text: "Three days later I've rewritten the state management layer.", delayMs: 3000, kind: "thought" },
+			{ text: "Scope creep didn't creep. It sprinted. Past me. Waving.", delayMs: 0, kind: "thought" },
 		],
 	},
 
@@ -108,8 +128,8 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "What am I doing this weekend?", delayMs: 3000, kind: "thought" },
-			{ text: "Hiking? Cooking? Binge-watching?", delayMs: 2000, kind: "thought" },
-			{ text: "All three sound great until Friday night hits", delayMs: 0, kind: "thought" },
+			{ text: "Hiking? Cooking? Finally finishing that side project from 2023?", delayMs: 2000, kind: "thought" },
+			{ text: "Friday night me will choose 'couch.' Friday night me always chooses couch.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -118,8 +138,8 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 1,
 		steps: [
 			{ text: "I really should fix that shelf...", delayMs: 3000, kind: "thought" },
-			{ text: "And the leaky faucet. And the door hinge", delayMs: 3000, kind: "thought" },
-			{ text: "My home has a worse backlog than my sprint board", delayMs: 0, kind: "thought" },
+			{ text: "And the leaky faucet. And the door that doesn't close right.", delayMs: 3000, kind: "thought" },
+			{ text: "My apartment has a worse backlog than my sprint board. And no standup.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -127,9 +147,9 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 2,
 		steps: [
-			{ text: "I should take that online course I bookmarked", delayMs: 3000, kind: "thought" },
-			{ text: "Which one? I've bookmarked forty-seven", delayMs: 2000, kind: "thought" },
-			{ text: "Bookmarking is basically the same as learning", delayMs: 0, kind: "thought" },
+			{ text: "I should learn that new framework everyone's talking about", delayMs: 3000, kind: "thought" },
+			{ text: "Watched the intro video. Bookmarked the docs. Starred the repo.", delayMs: 2000, kind: "thought" },
+			{ text: "That's basically mastery. Adding it to my LinkedIn.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -137,9 +157,19 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 1,
 		steps: [
-			{ text: "Remember when websites had marquee tags?", delayMs: 3000, kind: "thought" },
-			{ text: "And animated GIF backgrounds. And hit counters", delayMs: 3000, kind: "thought" },
-			{ text: "Peak web design. We'll never top that era", delayMs: 0, kind: "thought" },
+			{ text: "Remember when websites had visitor counters and guestbooks?", delayMs: 3000, kind: "thought" },
+			{ text: "And animated cursor trails. And 'under construction' GIFs.", delayMs: 3000, kind: "thought" },
+			{ text: "We had less. It was better. I will not elaborate.", delayMs: 0, kind: "thought" },
+		],
+	},
+	{
+		id: "idle-git-log-browsing",
+		trigger: "idle",
+		weight: 1,
+		steps: [
+			{ text: "Browsing old commit messages...", delayMs: 3000, kind: "thought" },
+			{ text: "'fix.' 'fix again.' 'please work.' 'WORK.' 'actually fix.'", delayMs: 3000, kind: "thought" },
+			{ text: "A five-act tragedy in commit history. Author: me.", delayMs: 0, kind: "thought" },
 		],
 	},
 
@@ -149,9 +179,9 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "break",
 		weight: 2,
 		steps: [
-			{ text: "Tea break. The civilized choice", delayMs: 3000, kind: "thought" },
-			{ text: "Earl Grey? Green? Chamomile?", delayMs: 2000, kind: "thought" },
-			{ text: "Went with whatever bag was closest. That's the way", delayMs: 0, kind: "thought" },
+			{ text: "Tea break. The civilized choice.", delayMs: 3000, kind: "thought" },
+			{ text: "Earl Grey? Green? Whatever's left in the drawer?", delayMs: 2000, kind: "thought" },
+			{ text: "Mystery tea it is. Could be chamomile. Could be from 2019. Adventure.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -159,9 +189,9 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "break",
 		weight: 1,
 		steps: [
-			{ text: "Ten push-ups. Just ten. I can do ten", delayMs: 3000, kind: "thought" },
-			{ text: "Made it to six", delayMs: 2000, kind: "thought" },
-			{ text: "Six is basically ten. Rounding up", delayMs: 0, kind: "thought" },
+			{ text: "Ten push-ups. Just ten. I can do ten. Definitely.", delayMs: 3000, kind: "thought" },
+			{ text: "Made it to six. And a half. The half counts.", delayMs: 2000, kind: "thought" },
+			{ text: "Seven tomorrow. Growth mindset.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -170,8 +200,18 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "Just a quick scroll through my phone...", delayMs: 3000, kind: "thought" },
-			{ text: "Seventeen reels later I know how to tile a bathroom", delayMs: 2000, kind: "thought" },
-			{ text: "Useful? No. Entertaining? Absolutely", delayMs: 0, kind: "thought" },
+			{ text: "Seventeen reels later I know how to tile a bathroom and make sourdough", delayMs: 2000, kind: "thought" },
+			{ text: "Useful? No. Time well spent? Also no. Doing it again tomorrow? Absolutely.", delayMs: 0, kind: "thought" },
+		],
+	},
+	{
+		id: "break-existential-walk",
+		trigger: "break",
+		weight: 1,
+		steps: [
+			{ text: "Going for a short walk to clear my head...", delayMs: 3000, kind: "thought" },
+			{ text: "Solved the bug at step 47. Brain needed movement, not monitors.", delayMs: 2000, kind: "thought" },
+			{ text: "Back at the desk. Forgot the solution. Walking again.", delayMs: 0, kind: "thought" },
 		],
 	},
 
@@ -181,9 +221,9 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 2,
 		steps: [
-			{ text: "Inbox zero is a myth", delayMs: 3000, kind: "thought" },
-			{ text: "Inbox 340 is my reality", delayMs: 2000, kind: "thought" },
-			{ text: "Archived everything. Fresh start. Until tomorrow", delayMs: 0, kind: "thought" },
+			{ text: "Inbox zero is a myth. Like clean code. And 'quick syncs.'", delayMs: 3000, kind: "thought" },
+			{ text: "Inbox 340 is my reality. Most of them are automated. I hope.", delayMs: 2000, kind: "thought" },
+			{ text: "Selected all. Archived. Fresh start. Will last until lunch.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -192,8 +232,8 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "Meeting in five minutes. Let me prep...", delayMs: 3000, kind: "thought" },
-			{ text: "What was this meeting about again?", delayMs: 2000, kind: "thought" },
-			{ text: "Reading the agenda as it starts. Multitasking", delayMs: 0, kind: "thought" },
+			{ text: "What's the agenda? Who called this? Is this the one I declined?", delayMs: 2000, kind: "thought" },
+			{ text: "Reading the agenda as they introduce me. Multitasking at its finest.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -201,9 +241,9 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 1,
 		steps: [
-			{ text: "Twelve channels. All unread. All urgent apparently", delayMs: 3000, kind: "thought" },
-			{ text: "Someone tagged me in a thread from three days ago", delayMs: 3000, kind: "thought" },
-			{ text: "Reacted with a thumbs up. Problem solved", delayMs: 0, kind: "thought" },
+			{ text: "Twelve channels. All unread. All apparently critical.", delayMs: 3000, kind: "thought" },
+			{ text: "Someone tagged me in a thread from Wednesday. It's about a decision already made.", delayMs: 3000, kind: "thought" },
+			{ text: "Reacted with a thumbs up. The universal 'I was not consulted but fine.'", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -211,9 +251,19 @@ export const EXPANDED_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 2,
 		steps: [
-			{ text: "Wrapping up for the day...", delayMs: 3000, kind: "thought" },
-			{ text: "Just one more thing. Okay, one more", delayMs: 3000, kind: "thought" },
-			{ text: "It's been forty minutes since 'wrapping up'", delayMs: 0, kind: "thought" },
+			{ text: "Wrapping up for the day... just one more commit...", delayMs: 3000, kind: "thought" },
+			{ text: "Okay one more. And this test. And that lint warning.", delayMs: 3000, kind: "thought" },
+			{ text: "It's been 90 minutes since 'wrapping up.' I live here now.", delayMs: 0, kind: "thought" },
+		],
+	},
+	{
+		id: "any-ci-pipeline",
+		trigger: "any",
+		weight: 2,
+		steps: [
+			{ text: "CI running... step 4 of 11...", delayMs: 4000, kind: "thought" },
+			{ text: "Failed on lint. One trailing space. ONE. On line 247.", delayMs: 3000, kind: "thought" },
+			{ text: "Fixed. Pushed. Waiting again. The pipeline is my real manager.", delayMs: 0, kind: "thought" },
 		],
 	},
 ];

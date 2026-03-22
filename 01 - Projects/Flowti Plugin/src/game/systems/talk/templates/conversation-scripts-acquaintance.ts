@@ -47,9 +47,10 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 60000,
 		tags: ["small-talk", "weekend"],
 		turns: [
-			{ speaker: "A", text: "Do anything good over the weekend, {agentB}?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Not much. Just relaxed, you know.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "That's the move. I went to the park. It was... a park.", delayMs: 2500, kind: "speech" },
+			{ speaker: "A", text: "Do anything fun this weekend, {agentB}?", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "Not really. Cleaned the apartment. Exciting stuff.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Hey, a clean apartment is underrated. I went to a park. It was... a park.", delayMs: 2500, kind: "speech" },
+			{ speaker: "B", text: "Parks are good.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -61,10 +62,10 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 60000,
 		tags: ["awkward", "small-talk"],
 		turns: [
-			{ speaker: "A", text: "Hey! {agentB}.", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Hey! {agentA}.", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "Good chat.", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "Absolutely.", delayMs: 1000, kind: "speech" },
+			{ speaker: "A", text: "Hey! ...{agentB}, right?", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "Yeah! And you're {agentA}.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "That's me. Cool. Good talk.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "...yep.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -93,8 +94,9 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["small-talk", "warming-up"],
 		turns: [
 			{ speaker: "A", text: "Coffee run. You want anything?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Oh! That's really nice of you, {agentA}. A black coffee would be great.", delayMs: 2500, kind: "speech" },
-			{ speaker: "A", text: "I'll see what they have.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "Oh! That's really nice. Um, black coffee? If it's not too much trouble.", delayMs: 2500, kind: "speech" },
+			{ speaker: "A", text: "No trouble. Be right back.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "Thanks, {agentA}. I owe you one.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -106,9 +108,10 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 50000,
 		tags: ["small-talk", "warming-up"],
 		turns: [
-			{ speaker: "A", text: "Hey {agentB}, do you use any good diff tools?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "The built-in one, mostly. You?", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "Same actually. Okay cool, just checking.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Hey {agentB}, random question — do you use any good diff tools?", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "The built-in one, mostly. Why, is there something better?", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "I don't know, I was hoping you'd tell me. Same here actually.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Ha. Well. At least we're consistent.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -120,10 +123,10 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 55000,
 		tags: ["small-talk", "polite"],
 		turns: [
-			{ speaker: "A", text: "{agentB}, do you have a charger I could borrow?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "What kind?", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "The... standard kind?", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "I'll check my bag.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "Sorry to bother you — {agentB}, right? Do you have a charger I could borrow?", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "What kind do you need?", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "Um. The... I actually don't know what kind mine is. The normal one?", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Let me check my bag. I think I have a spare.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -135,9 +138,10 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 60000,
 		tags: ["small-talk", "polite"],
 		turns: [
-			{ speaker: "A", text: "Are you going to the team lunch on Friday?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Probably? You?", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "Yeah, I think so. Should be good.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Are you going to the team thing on Friday?", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "Probably? I wasn't sure if it was optional or 'optional.'", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "I'm going with 'show my face for thirty minutes' energy.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Solid strategy. I might steal that.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -150,9 +154,9 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["warming-up", "small-talk"],
 		turns: [
 			{ speaker: "A", text: "Rough morning, {agentB}?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Can you tell? I've been fighting a null pointer since nine.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "I've been there. Good luck.", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "Thanks. I might need it.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "That obvious? I've been fighting a null pointer since nine.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Oof. Those ones are personal. Good luck with it.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Thanks. I'll need every bit of it.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -164,10 +168,10 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 45000,
 		tags: ["polite", "warming-up"],
 		turns: [
-			{ speaker: "A", text: "Good meeting.", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Yeah, pretty useful.", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "That bit about the architecture was interesting.", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "Yeah, I was thinking the same thing.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Well. That was a meeting.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "It sure was.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "That bit about the architecture was interesting though.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Yeah, I had the same thought. Didn't want to say it in the room though.", delayMs: 2000, kind: "speech" },
 		],
 	},
 
@@ -181,7 +185,8 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		turns: [
 			{ speaker: "A", text: "Is the CI pipeline being slow for you too, {agentB}?", delayMs: 0, kind: "speech" },
 			{ speaker: "B", text: "Oh thank goodness, I thought it was my machine.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "Nope, equally miserable for everyone today.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Nope, equally miserable for everyone.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Weirdly comforting.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -194,8 +199,8 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["small-talk", "polite"],
 		turns: [
 			{ speaker: "A", text: "Oh, I didn't know you sat over here, {agentB}.", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Just moved. It's quieter.", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "Nice. Good call.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "Just moved last week. It's quieter on this side.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "Smart. I'm next to the kitchen. I hear every microwave beep.", delayMs: 2000, kind: "speech" },
 		],
 	},
 
@@ -208,8 +213,8 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["polite", "warming-up"],
 		turns: [
 			{ speaker: "A", text: "You look like you're deep in something, {agentB}. Need a second pair of eyes?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Oh, that's kind. Maybe in a bit, I'm nearly through it.", delayMs: 2500, kind: "speech" },
-			{ speaker: "A", text: "Sure, just say the word.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "Oh, that's kind of you. Maybe in a bit? I'm... almost through it. I think.", delayMs: 2500, kind: "speech" },
+			{ speaker: "A", text: "Sure thing. I'll be around.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -223,8 +228,8 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		turns: [
 			{ speaker: "A", text: "What stack are you mostly working in, {agentB}?", delayMs: 0, kind: "speech" },
 			{ speaker: "B", text: "TypeScript, mostly. You?", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "Same! Finally, someone who gets it.", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "Ha. Yeah, it's a whole thing.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "Same! Oh nice. How long have you been using it?", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Long enough to have opinions. Not long enough to be right about them.", delayMs: 2000, kind: "speech" },
 		],
 	},
 
@@ -237,8 +242,8 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["small-talk", "commiseration"],
 		turns: [
 			{ speaker: "A", text: "{agentB}, is the printer working for you?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "It has never worked for anyone at any time.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "Right, yes. I knew that.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "Bold of you to assume the printer has ever worked.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Fair. I'll email it instead.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -251,8 +256,9 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["polite", "warming-up"],
 		turns: [
 			{ speaker: "A", text: "Hey {agentB}, quick one — is standup at 9 or 9:30 today?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "I think 9? Check the calendar though, I'm not sure.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "Classic. Alright, I'll check. Thanks.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "I want to say 9? But I've been wrong before.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Same. I'll check the calendar. Thanks.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "If you find out, let me know too.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -264,10 +270,10 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 55000,
 		tags: ["warming-up", "small-talk"],
 		turns: [
-			{ speaker: "A", text: "Hey, you were at the talk last Thursday, right?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "The one about distributed systems? Yeah!", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "Same. I recognized you from there. Good talk.", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "Really good. That bit about consensus algorithms was wild.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Hey, were you at the talk last Thursday?", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "The distributed systems one? Yeah, I was in the back.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "I thought I saw you. That bit about consensus algorithms was intense.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Right? I'm still thinking about it honestly.", delayMs: 2000, kind: "speech" },
 		],
 	},
 
@@ -279,9 +285,9 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 50000,
 		tags: ["warming-up", "polite"],
 		turns: [
-			{ speaker: "A", text: "Hey {agentB}, I saw your PR this morning. Really clean structure.", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Oh, thanks. That means a lot.", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "No worries. I learned something from it actually.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Hey {agentB}, I glanced at your PR this morning. Really clean stuff.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "Oh wow, thanks. I wasn't sure anyone actually looked at those.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "I learned something from it, actually. The way you handled the — anyway. It was good.", delayMs: 2000, kind: "speech" },
 		],
 	},
 
@@ -294,9 +300,38 @@ export const ACQUAINTANCE_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["awkward", "polite"],
 		turns: [
 			{ speaker: "A", text: "Oh sorry {agentB}, didn't mean to startle you.", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "No no, I just had headphones in. You're fine.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "Right, yeah. I'll come back.", delayMs: 1500, kind: "speech" },
-			{ speaker: "B", text: "No it's okay! What did you need?", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "No no, I just had headphones in. I didn't hear you coming.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "I'll come back, it's not urgent—", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "No stay, what's up? I needed a break from this anyway.", delayMs: 1500, kind: "speech" },
+		],
+	},
+
+	{
+		id: "acq-lunch-proximity",
+		tierRange: ["acquaintance", "acquaintance"],
+		trigger: "proximity",
+		weight: 2,
+		cooldownMs: 50000,
+		tags: ["awkward", "warming-up"],
+		turns: [
+			{ speaker: "A", text: "Oh, same lunch spot. We have taste.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "Ha. Or we both just defaulted to the closest option.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "That's... also taste. Of a kind.", delayMs: 2000, kind: "speech" },
+		],
+	},
+
+	{
+		id: "acq-joke-test",
+		tierRange: ["acquaintance", "acquaintance"],
+		trigger: "proximity",
+		weight: 1,
+		cooldownMs: 55000,
+		tags: ["awkward", "warming-up"],
+		turns: [
+			{ speaker: "A", text: "They should call it a 'standup' because that's what my back does after sitting all day.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "...", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Tough crowd.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "No, I was — that was funny. Sorry. I'm on a two second delay today.", delayMs: 2000, kind: "speech" },
 		],
 	},
 ];
