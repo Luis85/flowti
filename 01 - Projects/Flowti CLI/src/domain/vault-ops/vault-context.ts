@@ -189,6 +189,7 @@ export function buildVaultContext(
 	const cache = loadOrBuildCache(deps, existingCache);
 
 	// Build recentChanges from fileIndex sorted by mtime desc
+	// mtime-only scan cannot distinguish create/modify/delete — always report "modified"
 	const sorted = [...cache.fileIndex].sort((a, b) => b.mtimeMs - a.mtimeMs);
 	const recentChanges: RecentChange[] = sorted.slice(0, MAX_RECENT).map((entry) => ({
 		path: entry.path,

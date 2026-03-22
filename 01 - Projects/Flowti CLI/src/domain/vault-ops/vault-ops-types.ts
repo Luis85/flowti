@@ -151,7 +151,7 @@ export interface VaultContextCache {
 
 export interface VaultEvent {
 	readonly folder: string;
-	readonly type: VaultOperation;
+	readonly type: string;
 	readonly path: string;
 	readonly at: string;
 }

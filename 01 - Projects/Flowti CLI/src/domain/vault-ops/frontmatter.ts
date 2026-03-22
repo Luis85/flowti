@@ -44,6 +44,7 @@ function serializeValue(value: unknown): string {
 
 /** Parse YAML frontmatter delimited by `---` from markdown content. */
 export function parseFrontmatter(content: string): ParsedFrontmatter {
+	content = content.replace(/\r\n/g, "\n");
 	if (!content.startsWith("---")) {
 		return { frontmatter: {}, body: content };
 	}

@@ -87,6 +87,14 @@ vi.mock("../../src/domain/vault-ops/standing-order-evaluator.js", () => ({
 	evaluateEvent: vi.fn(() => []),
 }));
 
+vi.mock("../../src/domain/tasks/task-store.js", () => ({
+	taskStore: { list: vi.fn(() => []) },
+}));
+
+vi.mock("../../src/domain/vault-ops/frontmatter.js", () => ({
+	parseFrontmatter: vi.fn(() => ({ frontmatter: {}, body: "" })),
+}));
+
 vi.mock("../../src/domain/trust/trust-manager.js", () => ({
 	loadTrustProfile: vi.fn(() => ({
 		tier: "supervised",

@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../../src/domain/trust/trust-manager.js", () => ({
+	canPerform: vi.fn((profile, operation) => {
+		const level = profile.operations[operation];
+		if (level === "auto") return { allowed: true, level };
+		if (level === "review") return { allowed: true, level };
+		return { allowed: false, level, reason: "requires Director" };
+	}),
 	recordSuccess: vi.fn(),
 }));
 

@@ -95,6 +95,16 @@ describe("parseFrontmatter", () => {
 		const result = parseFrontmatter(content);
 		expect(result.body).toBe("\n\nParagraph after blank line.");
 	});
+
+	it("handles Windows \\r\\n line endings", () => {
+		const content = "---\r\ntitle: Windows Note\r\ntags:\r\n  - alpha\r\n  - beta\r\n---\r\nBody text here.";
+		const result = parseFrontmatter(content);
+		expect(result.frontmatter).toEqual({
+			title: "Windows Note",
+			tags: ["alpha", "beta"],
+		});
+		expect(result.body).toBe("\nBody text here.");
+	});
 });
 
 describe("serializeFrontmatter", () => {

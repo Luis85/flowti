@@ -83,16 +83,7 @@ export function evaluateEvent(
 	const requests: AnyVaultOpRequest[] = [];
 
 	for (const order of matched) {
-		let payload: StandingOrderPayload;
-		try {
-			const payloadPath = deps.paths.join(deps.vaultRoot, "docs/tasks", `${order.taskId}.json`);
-			const raw = deps.disk.readFileSync(payloadPath, "utf-8");
-			payload = JSON.parse(raw) as StandingOrderPayload;
-		} catch {
-			continue;
-		}
-
-		const result = evaluateRules(payload.rules, event.path, deps);
+		const result = evaluateRules(order.rules, event.path, deps);
 		if (result && result.action === "tag") {
 			const tagRequest: VaultTagRequest = {
 				operation: "vault-tag",

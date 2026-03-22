@@ -16,7 +16,7 @@ import type {
 import type { VaultOperation, AgentTrustProfile, TrustConfig } from "../trust/trust-types.js";
 import type { EconomyLedger } from "../economy/economy-types.js";
 import type { StagingManifest, StagedFile } from "../tasks/staging.js";
-import { recordSuccess } from "../trust/trust-manager.js";
+import { canPerform, recordSuccess } from "../trust/trust-manager.js";
 import { creditReward } from "../economy/economy-ledger.js";
 import { calculateReward } from "../economy/economy-rules.js";
 import { createStagingArea } from "../tasks/staging.js";
@@ -47,8 +47,11 @@ const BASE_REWARD = { xp: 50, coin: 25 } as const;
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function asStagingDeps(deps: VaultOpsDeps): Parameters<typeof createStagingArea>[0] {
+	// VaultOpsDeps.disk methods structurally overlap StagingDeps.disk (Pick<IFileSystem, ...>)
+	// but IFileSystem has overloaded signatures that prevent direct assignment.
+	const d = deps.disk;
 	return {
-		disk: deps.disk as unknown as Parameters<typeof createStagingArea>[0]["disk"],
+		disk: d as unknown as Parameters<typeof createStagingArea>[0]["disk"],
 		paths: deps.paths,
 	};
 }
@@ -153,10 +156,10 @@ export function executeVaultOp(
 	}
 
 	// Step 2: Trust level check
-	const trustLevel = profile.operations[req.operation];
+	const trust = canPerform(profile, req.operation);
 
 	// Step 3a: Manual — queue for Director
-	if (trustLevel === "manual") {
+	if (trust.level === "manual") {
 		return {
 			result: {
 				outcome: "queued",
@@ -170,8 +173,8 @@ export function executeVaultOp(
 	}
 
 	// Step 3b: Review — stage for approval
-	if (trustLevel === "review") {
-		const taskId = req.taskId ?? `staged-${Date.now()}`;
+	if (trust.level === "review") {
+		const taskId = req.taskId ?? `staged-${deps.clock.iso()}`;
 		try {
 			const stagedFiles = buildStagedFiles(req, taskId);
 			const manifest: StagingManifest = {

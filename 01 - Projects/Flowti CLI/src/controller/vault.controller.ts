@@ -7,7 +7,8 @@
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types-config.js";
 import type { CliDeps } from "../infrastructure/deps.js";
-import type { AnyVaultOpRequest, VaultEvent } from "../domain/vault-ops/vault-ops-types.js";
+import type { AnyVaultOpRequest, VaultEvent, VaultScope } from "../domain/vault-ops/vault-ops-types.js";
+import type { AgentTrustProfile } from "../domain/trust/trust-types.js";
 import type { VaultOperation } from "../domain/trust/trust-types.js";
 import { DEFAULT_TRUST_CONFIG } from "../domain/trust/trust-types.js";
 import { executeVaultOp } from "../domain/vault-ops/vault-executor.js";
@@ -15,6 +16,8 @@ import { buildVaultContext, invalidateContextCache } from "../domain/vault-ops/v
 import { evaluateEvent } from "../domain/vault-ops/standing-order-evaluator.js";
 import { loadTrustProfile, saveTrustProfile } from "../domain/trust/trust-manager.js";
 import { readLedger, writeLedger } from "../domain/economy/economy-ledger.js";
+import { taskStore } from "../domain/tasks/task-store.js";
+import { parseFrontmatter } from "../domain/vault-ops/frontmatter.js";
 import { renderVaultExecResult, renderVaultContext, renderEvaluateResult } from "../ui/displays/vault-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 
@@ -54,6 +57,28 @@ function validateOp(op: string): VaultOperation {
 		throw new Error(`Invalid vault operation: ${op}. Valid: ${[...VALID_OPS].join(", ")}`);
 	}
 	return op as VaultOperation;
+}
+
+/** Load vault scope from an agent's markdown frontmatter, if defined. */
+function loadAgentScope(deps: CliDeps, agentName: string): VaultScope | undefined {
+	const agentPath = deps.paths.join(VAULT_ROOT, "docs/agents", `${agentName}.md`);
+	if (!deps.disk.existsSync(agentPath)) return undefined;
+	try {
+		const content = deps.disk.readFileSync(agentPath, "utf-8");
+		const { frontmatter } = parseFrontmatter(content);
+		const raw = frontmatter["vaultScope"];
+		if (!raw || typeof raw !== "object") return undefined;
+		const scope = raw as Record<string, unknown>;
+		const folders = Array.isArray(scope["folders"])
+			? scope["folders"].filter((f): f is string => typeof f === "string")
+			: undefined;
+		const tags = Array.isArray(scope["tags"])
+			? scope["tags"].filter((t): t is string => typeof t === "string")
+			: undefined;
+		return (folders || tags) ? { folders, tags } : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 function buildRequest(flags: Record<string, unknown>, op: VaultOperation): AnyVaultOpRequest {
@@ -141,10 +166,18 @@ export const commands: Record<string, CommandHandler> = {
 				paths: ctx.deps.paths,
 				clock: ctx.deps.clock,
 			};
-			const profile = loadTrustProfile(ldeps, VAULT_ROOT, ctx.flags.agent as string);
+			let profile: AgentTrustProfile = loadTrustProfile(ldeps, VAULT_ROOT, ctx.flags.agent as string);
 			const ledger = readLedger(ldeps, VAULT_ROOT);
+			if (ctx.flags["bypass-trust"]) {
+				const ops = { ...profile.operations };
+				for (const key of Object.keys(ops)) {
+					ops[key as VaultOperation] = "auto";
+				}
+				profile = { ...profile, operations: ops };
+			}
+			const scope = loadAgentScope(ctx.deps, ctx.flags.agent as string);
 			const { result, profile: updatedProfile, ledger: updatedLedger } = executeVaultOp(
-				request, vd, profile, DEFAULT_TRUST_CONFIG, ledger,
+				request, vd, profile, DEFAULT_TRUST_CONFIG, ledger, scope,
 			);
 			saveTrustProfile(ldeps, VAULT_ROOT, ctx.flags.agent as string, updatedProfile);
 			writeLedger(ldeps, VAULT_ROOT, updatedLedger);
@@ -163,7 +196,8 @@ export const commands: Record<string, CommandHandler> = {
 			if (ctx.flags.rebuild) {
 				invalidateContextCache(vd);
 			}
-			return buildVaultContext(vd);
+			const scope = loadAgentScope(ctx.deps, ctx.flags.agent as string);
+			return buildVaultContext(vd, scope);
 		},
 		renderer: renderVaultContext,
 	}),
@@ -179,11 +213,23 @@ export const commands: Record<string, CommandHandler> = {
 			const folder = ctx.deps.paths.dirname(eventPath);
 			const vaultEvent: VaultEvent = {
 				folder,
-				type: ctx.flags.event as VaultOperation,
+				type: ctx.flags.event as string,
 				path: eventPath,
 				at: ctx.deps.clock.iso(),
 			};
-			const requests = evaluateEvent(vaultEvent, [], vd);
+			const tsDeps = {
+				disk: {
+					existsSync: (p: string) => ctx.deps.disk.existsSync(p),
+					readFileSync: (p: string, enc?: string) => ctx.deps.disk.readFileSync(p, (enc ?? "utf-8") as BufferEncoding),
+					writeFileSync: (p: string, c: string, enc?: string) => ctx.deps.disk.writeFileSync(p, c, (enc ?? "utf-8") as BufferEncoding),
+					mkdirSync: (p: string, opts?: { recursive?: boolean }) => ctx.deps.disk.mkdirSync(p, opts),
+					readdirSync: (p: string) => ctx.deps.disk.readdirSync(p) as string[],
+					unlinkSync: (p: string) => ctx.deps.disk.unlinkSync(p),
+				},
+				paths: ctx.deps.paths,
+			};
+			const tasks = taskStore.list(tsDeps, VAULT_ROOT);
+			const requests = evaluateEvent(vaultEvent, tasks, vd);
 			return { matched: requests.length, dispatched: [] };
 		},
 		renderer: renderEvaluateResult,
