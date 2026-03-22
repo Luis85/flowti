@@ -736,4 +736,38 @@ describe("WorkerManager", () => {
 		const worker = mgr.getWorker("Bob");
 		expect(worker!.state).toBe("stopped");
 	});
+
+	it("re-acquires session when existing session dies", async () => {
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
+		const session = makeMockSession("Hi");
+		const runner = makeProcessRunner(undefined, session);
+		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
+		mgr.spawnAll();
+		await vi.waitFor(() => expect(session.send).toHaveBeenCalledTimes(1));
+
+		// Simulate session death
+		session.alive = false;
+
+		// Next message should trigger re-acquisition
+		mgr.send("Bob", "Are you there?");
+		await vi.waitFor(() => expect(runner.acquireSession).toHaveBeenCalledTimes(2)); // 1 from spawn + 1 from re-acquire
+	});
+
+	it("decay timer fires and kills session after timeout", async () => {
+		vi.useFakeTimers();
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
+		const session = makeMockSession();
+		const runner = makeProcessRunner(undefined, session);
+		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", { decayTimeoutMs: 1000 });
+		mgr.spawnAll();
+		await vi.waitFor(() => expect(session.send).toHaveBeenCalled());
+
+		mgr.stop("Bob");
+		expect(mgr.getWorker("Bob")!.state).toBe("decaying");
+
+		vi.advanceTimersByTime(1001);
+		expect(session.kill).toHaveBeenCalled();
+		expect(mgr.getWorker("Bob")!.state).toBe("stopped");
+		vi.useRealTimers();
+	});
 });

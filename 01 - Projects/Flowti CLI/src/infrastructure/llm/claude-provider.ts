@@ -118,6 +118,21 @@ export function createClaudeProvider(deps: ClaudeProviderDeps): ILLMProvider {
 				}
 			});
 
+			// Resolve pending promise if process dies without emitting "done"
+			proc.waitForExit(request.timeout ?? 3_600_000).then((exitCode) => {
+				if (resolveResponse) {
+					resolveResponse({ text: textBuffer.join(""), thinking: thinkingBuffer.join(""), exitCode });
+					resolveResponse = null;
+				}
+				killed = true;
+			}).catch(() => {
+				if (resolveResponse) {
+					resolveResponse({ text: "", thinking: "", exitCode: 1 });
+					resolveResponse = null;
+				}
+				killed = true;
+			});
+
 			return {
 				send(message: string): LLMProcess {
 					textBuffer = [];

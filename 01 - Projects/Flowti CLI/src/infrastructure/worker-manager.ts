@@ -157,6 +157,7 @@ export function createWorkerManager(
 			if (result.text) {
 				const parsed = parseAgentResponse(result.text);
 				const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
+				worker.conversation = appendStoreTurn(worker.conversation, { role: "user", content: "[system] Agent session started", ts: deps.clock.iso() });
 				worker.conversation = appendStoreTurn(worker.conversation, { role: "agent", content: parsed.message, ts: deps.clock.iso() });
 				saveConversation(deps, varDir, worker.name, worker.conversation);
 			}
@@ -239,8 +240,9 @@ export function createWorkerManager(
 			return;
 		}
 
-		// Try to acquire a new session (session died or first fallback attempt)
-		if (!worker.session) {
+		// Try to acquire a new session (session died or never acquired)
+		if (!worker.session?.alive) {
+			worker.session = null;
 			const { resolvedTools } = resolveAgentPermissions(deps, vaultRoot, worker);
 			worker.session = processRunner.acquireSession?.(worker.agent, resolvedTools) ?? null;
 			if (worker.session) {
