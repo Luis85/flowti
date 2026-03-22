@@ -36,7 +36,7 @@ export const RIVAL_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "A", text: "Your approach is... interesting, {agentB}.", delayMs: 0, kind: "speech" },
 			{ speaker: "B", text: "Thanks. I worked hard on it.", delayMs: 1500, kind: "speech" },
 			{ speaker: "A", text: "I didn't mean it as a compliment.", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "I knew exactly what you meant.", delayMs: 1000, kind: "thought" },
+			{ speaker: "B", text: "...", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -52,7 +52,8 @@ export const RIVAL_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "B", text: "I closed 11.", delayMs: 1500, kind: "speech" },
 			{ speaker: "A", text: "Mine were harder.", delayMs: 1500, kind: "speech" },
 			{ speaker: "B", text: "Mine had more edge cases.", delayMs: 1500, kind: "speech" },
-			{ speaker: "A", text: "Mine required deep architectural knowledge.", delayMs: 1500, kind: "thought" },
+			{ speaker: "A", text: "Mine required deep architectural knowledge.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "Are we really doing this right now?", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -100,7 +101,7 @@ export const RIVAL_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "B", text: "It was in the communal area.", delayMs: 1500, kind: "speech" },
 			{ speaker: "A", text: "My name is on it.", delayMs: 1500, kind: "speech" },
 			{ speaker: "B", text: "...oh. It says 'World's Okayest Developer.'", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "And it fits you so well.", delayMs: 1500, kind: "thought" },
+			{ speaker: "A", text: "Exactly.", delayMs: 1200, kind: "speech" },
 		],
 	},
 
@@ -205,7 +206,6 @@ export const RIVAL_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "A", text: "Just wanted to say I saw your demo, {agentB}.", delayMs: 0, kind: "speech" },
 			{ speaker: "B", text: "Oh? What did you think?", delayMs: 1500, kind: "speech" },
 			{ speaker: "A", text: "I thought it was fine.", delayMs: 2500, kind: "speech" },
-			{ speaker: "B", text: "'Fine.' Right.", delayMs: 1500, kind: "thought" },
 		],
 	},
 
@@ -266,7 +266,8 @@ export const RIVAL_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "A", text: "Performance reviews next week.", delayMs: 0, kind: "speech" },
 			{ speaker: "B", text: "I know. I'm ready.", delayMs: 1500, kind: "speech" },
 			{ speaker: "A", text: "I'm sure you are.", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "That was ominous.", delayMs: 1500, kind: "thought" },
+			{ speaker: "B", text: "What do you know that I don't?", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "Nothing! Good luck.", delayMs: 1200, kind: "speech" },
 		],
 	},
 
@@ -358,7 +359,8 @@ export const RIVAL_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "A", text: "Good morning, {agentB}! Love the energy today.", delayMs: 0, kind: "speech" },
 			{ speaker: "B", text: "Thank you? You're being very... warm.", delayMs: 2000, kind: "speech" },
 			{ speaker: "A", text: "Just a great day to be alive and productive!", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "They want something.", delayMs: 1500, kind: "thought" },
+			{ speaker: "B", text: "Okay. What do you need.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "Can't a person just be nice?", delayMs: 1500, kind: "speech" },
 		],
 	},
 

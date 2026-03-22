@@ -72,9 +72,9 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 		maxEscalation: 4,
 		callbackChance: 0.10,
 		callbackLines: [
-			"And then what happened?",
+			"Three hats. The dog had THREE hats. And you never explained why.",
 			"Still waiting on the ending, just so you know.",
-			"You never did finish that story.",
+			"You never did finish that story. The dog, the vest, the market...",
 		],
 		variants: [
 			// variant 0 — first interruption
@@ -268,8 +268,8 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 		callbackChance: 0.10,
 		callbackLines: [
 			"How's the commit message coming?",
-			"'fix stuff' is always available as a fallback.",
-			"The commit will outlive us all. Choose wisely.",
+			"I saw a 'fix stuff' in the log. I'm not saying it was yours but...",
+			"The post-mortem team sends their regards.",
 		],
 		variants: [
 			// variant 0 — agonizing over message
@@ -311,9 +311,9 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 		maxEscalation: 4,
 		callbackChance: 0.12,
 		callbackLines: [
-			"The good machine is free. Move.",
+			"*stands up for no reason, then sits back down* ...false alarm.",
 			"I heard footsteps — I ran.",
-			"It was the good machine. We both know what we did.",
+			"Don't look at me like that. You know what this is about.",
 		],
 		variants: [
 			// variant 0 — first race
@@ -323,28 +323,28 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 				{ speaker: "A", text: "I was going to the good one.", delayMs: 1200, kind: "speech" },
 				{ speaker: "B", text: "Then we have a problem.", delayMs: 1000, kind: "speech" },
 			],
-			// variant 1 — escalating competitive awareness
+			// variant 1 — A develops countermeasures
 			[
-				{ speaker: "A", text: "I saw you stand up. I stood up faster.", delayMs: 0, kind: "speech" },
-				{ speaker: "B", text: "I walked faster.", delayMs: 1000, kind: "speech" },
-				{ speaker: "A", text: "I took the shortcut past the server rack.", delayMs: 1200, kind: "speech" },
-				{ speaker: "B", text: "I got there first.", delayMs: 1000, kind: "speech" },
-				{ speaker: "A", text: "I'm aware.", delayMs: 800, kind: "thought" },
+				{ speaker: "A", text: "I've started pre-making coffee at 9:02 before you even think about it.", delayMs: 0, kind: "speech" },
+				{ speaker: "B", text: "I switched to 8:58.", delayMs: 1000, kind: "speech" },
+				{ speaker: "A", text: "You can't just move the goalposts.", delayMs: 1200, kind: "speech" },
+				{ speaker: "B", text: "I didn't move them. I arrived before them.", delayMs: 1000, kind: "speech" },
 			],
-			// variant 2 — pre-emptive strategy
+			// variant 2 — REVERSAL: A catches themselves becoming what they mocked
 			[
-				{ speaker: "A", text: "I've started getting up every time you look tired.", delayMs: 0, kind: "speech" },
-				{ speaker: "B", text: "As a prevention strategy.", delayMs: 1000, kind: "speech" },
-				{ speaker: "A", text: "As a prevention strategy.", delayMs: 800, kind: "speech" },
-				{ speaker: "B", text: "I respect it.", delayMs: 1200, kind: "speech" },
-				{ speaker: "B", text: "I've started taking the stairs to confuse you.", delayMs: 1500, kind: "speech" },
+				{ speaker: "A", text: "I just — I just sprinted to the machine.", delayMs: 0, kind: "speech" },
+				{ speaker: "B", text: "I know. I watched.", delayMs: 1200, kind: "speech" },
+				{ speaker: "A", text: "I used to judge people who did that.", delayMs: 1500, kind: "speech" },
+				{ speaker: "B", text: "Welcome to my world. How does it feel?", delayMs: 1200, kind: "speech" },
+				{ speaker: "A", text: "The coffee is excellent.", delayMs: 1000, kind: "speech" },
 			],
-			// variant 3 — fully meta standoff
+			// variant 3 — B has given up, A feels empty
 			[
-				{ speaker: "A", text: "We're both standing next to our chairs. Neither of us has moved.", delayMs: 0, kind: "speech" },
-				{ speaker: "B", text: "First one to sit down loses the machine.", delayMs: 1500, kind: "speech" },
-				{ speaker: "A", text: "This is what our careers have become.", delayMs: 1500, kind: "thought" },
-				{ speaker: "B", text: "Mine tastes better under pressure anyway.", delayMs: 1500, kind: "speech" },
+				{ speaker: "B", text: "I bought a French press. For my desk. The race is over.", delayMs: 0, kind: "speech" },
+				{ speaker: "A", text: "You... what?", delayMs: 1500, kind: "speech" },
+				{ speaker: "B", text: "I don't need the good machine anymore.", delayMs: 1200, kind: "speech" },
+				{ speaker: "A", text: "But I — then who am I racing?", delayMs: 1500, kind: "speech" },
+				{ speaker: "B", text: "Yourself, apparently.", delayMs: 1200, kind: "speech" },
 			],
 		],
 	},
@@ -360,9 +360,9 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 		maxEscalation: 3,
 		callbackChance: 0.10,
 		callbackLines: [
-			"Did you do the ritual?",
+			"I saw someone new tapping the rack. It's spreading.",
 			"The deploy gods demand respect.",
-			"No ritual, no uptime. That's just how it works.",
+			"*taps desk twice* What? It's unrelated.",
 		],
 		variants: [
 			// variant 0 — first superstition
@@ -373,21 +373,21 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 				{ speaker: "B", text: "That's correlation, not—", delayMs: 1000, kind: "speech" },
 				{ speaker: "A", text: "Zero outages.", delayMs: 800, kind: "speech" },
 			],
-			// variant 1 — ritual expands
+			// variant 1 — CONTAGION: B has been infected
 			[
-				{ speaker: "A", text: "I added a new step. I tap the server rack three times.", delayMs: 0, kind: "speech" },
-				{ speaker: "B", text: "Why three?", delayMs: 1200, kind: "speech" },
-				{ speaker: "A", text: "Two didn't feel right. Four was excessive.", delayMs: 1500, kind: "speech" },
-				{ speaker: "B", text: "You understand this is fully irrational.", delayMs: 1200, kind: "speech" },
-				{ speaker: "A", text: "The uptime speaks for itself.", delayMs: 800, kind: "speech" },
+				{ speaker: "B", text: "I tapped the rack before the deploy today.", delayMs: 0, kind: "speech" },
+				{ speaker: "A", text: "YOU tapped the rack?", delayMs: 1200, kind: "speech" },
+				{ speaker: "B", text: "I didn't plan to. My hand just — it felt right.", delayMs: 1500, kind: "speech" },
+				{ speaker: "A", text: "It IS right. The rack has good energy.", delayMs: 1200, kind: "speech" },
+				{ speaker: "B", text: "I can't believe I'm saying this but... the deploy went perfectly.", delayMs: 1800, kind: "speech" },
 			],
-			// variant 2 — whole team has adopted it
+			// variant 2 — CONTAGION: it's spread to people they don't know
 			[
-				{ speaker: "A", text: "I noticed {agentB} tapped the rack before the deploy.", delayMs: 0, kind: "speech" },
-				{ speaker: "B", text: "I didn't — it was an accident.", delayMs: 1200, kind: "speech" },
-				{ speaker: "A", text: "Three times.", delayMs: 800, kind: "speech" },
-				{ speaker: "B", text: "...", delayMs: 600, kind: "thought" },
-				{ speaker: "B", text: "The rack has good energy. That's all I'm saying.", delayMs: 1500, kind: "speech" },
+				{ speaker: "A", text: "Someone from the other team asked me about the rack tapping.", delayMs: 0, kind: "speech" },
+				{ speaker: "B", text: "It's spreading?", delayMs: 1000, kind: "speech" },
+				{ speaker: "A", text: "They said they saw us and started doing it too. Their deploys have been clean for two weeks.", delayMs: 2000, kind: "speech" },
+				{ speaker: "B", text: "We've created a religion.", delayMs: 1500, kind: "speech" },
+				{ speaker: "A", text: "We've created infrastructure stability.", delayMs: 1200, kind: "speech" },
 			],
 		],
 	},
@@ -589,8 +589,8 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 		maxEscalation: 3,
 		callbackChance: 0.10,
 		callbackLines: [
-			"It was just one small addition.",
-			"The ticket said 'minor tweak'. It was not minor.",
+			"*reads ticket* 'Minor tweak.' Sure. We've heard that before.",
+			"I timed it. Forty-three minutes from 'small change' to 'full redesign'.",
 			"The scope has creeped. We proceed.",
 		],
 		variants: [
@@ -671,8 +671,8 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 		maxEscalation: 3,
 		callbackChance: 0.08,
 		callbackLines: [
-			"Still refactoring?",
-			"The refactor will be done soon. It's always almost done.",
+			"Don't ask about the refactor. Just... don't.",
+			"The branch has its own branch now. That's all I'll say.",
 			"I heard the refactor branch is now older than the feature.",
 		],
 		variants: [
@@ -683,21 +683,23 @@ export const RUNNING_JOKES: readonly RunningJoke[] = [
 				{ speaker: "A", text: "It's genuinely small this time.", delayMs: 1200, kind: "speech" },
 				{ speaker: "B", text: "I'll check back in a week.", delayMs: 1000, kind: "speech" },
 			],
-			// variant 1 — a week later
+			// variant 1 — META-AWARENESS: A realizes the pattern
 			[
 				{ speaker: "B", text: "How's the refactor?", delayMs: 0, kind: "speech" },
-				{ speaker: "A", text: "I found some deeply concerning structural issues while I was in there.", delayMs: 1500, kind: "speech" },
-				{ speaker: "B", text: "So it's grown.", delayMs: 1000, kind: "speech" },
-				{ speaker: "A", text: "It's found its true scope.", delayMs: 1200, kind: "speech" },
+				{ speaker: "A", text: "I — okay. I'm going to say something and I need you to not react.", delayMs: 1500, kind: "speech" },
+				{ speaker: "B", text: "...go on.", delayMs: 1200, kind: "speech" },
+				{ speaker: "A", text: "I think this is the same refactor from last month. I just keep finding new layers.", delayMs: 2000, kind: "speech" },
+				{ speaker: "B", text: "You've been refactoring the same thing for a month?", delayMs: 1500, kind: "speech" },
+				{ speaker: "A", text: "I don't know how to stop. Every time I fix one thing I see another thing.", delayMs: 1800, kind: "speech" },
 			],
-			// variant 2 — the refactor has outlived the feature
+			// variant 2 — META-AWARENESS: they try to break the cycle
 			[
-				{ speaker: "B", text: "The feature you were refactoring shipped two weeks ago.", delayMs: 0, kind: "speech" },
-				{ speaker: "A", text: "I know.", delayMs: 800, kind: "speech" },
-				{ speaker: "B", text: "You're refactoring something that's already in production.", delayMs: 1500, kind: "speech" },
-				{ speaker: "A", text: "I'm improving it retroactively.", delayMs: 1200, kind: "speech" },
-				{ speaker: "B", text: "Is that something you can do?", delayMs: 1000, kind: "speech" },
-				{ speaker: "A", text: "Watch me.", delayMs: 600, kind: "speech" },
+				{ speaker: "A", text: "I'm closing the refactor branch. Right now. It's done.", delayMs: 0, kind: "speech" },
+				{ speaker: "B", text: "Really?", delayMs: 1000, kind: "speech" },
+				{ speaker: "A", text: "I merged it. It's over. I'm free.", delayMs: 1200, kind: "speech" },
+				{ speaker: "B", text: "How do you feel?", delayMs: 1200, kind: "speech" },
+				{ speaker: "A", text: "...I already see something I could improve in the merge commit.", delayMs: 2000, kind: "speech" },
+				{ speaker: "B", text: "Step away from the keyboard.", delayMs: 1000, kind: "speech" },
 			],
 		],
 	},

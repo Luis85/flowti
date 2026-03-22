@@ -315,4 +315,96 @@ export const BESTFRIEND_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "A", text: "Yeah.", delayMs: 1000, kind: "speech" },
 		],
 	},
+
+	// ── Light-hearted / comfortable nonsense ────────────────────────
+
+	{
+		id: "bff-petty-complaint",
+		tierRange: ["best-friend", "best-friend"],
+		trigger: "proximity",
+		weight: 3,
+		cooldownMs: 30000,
+		tags: ["humor", "petty"],
+		turns: [
+			{ speaker: "A", text: "Why does the coffee machine do that thing where it pauses for no reason?", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "I KNOW. I've been saying this for months.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "It's like it's judging your order.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "It absolutely is. That pause is personal.", delayMs: 1500, kind: "speech" },
+		],
+	},
+
+	{
+		id: "bff-absurd-in-joke",
+		tierRange: ["best-friend", "best-friend"],
+		trigger: "proximity",
+		weight: 2,
+		cooldownMs: 35000,
+		tags: ["humor", "in-joke"],
+		turns: [
+			{ speaker: "A", text: "You know what, {agentB}? Seventeen.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "Ha! Seventeen. Classic.", delayMs: 1200, kind: "speech" },
+			{ speaker: "A", text: "Gets me every time.", delayMs: 1000, kind: "speech" },
+		],
+	},
+
+	{
+		id: "bff-comfortable-silence",
+		tierRange: ["best-friend", "best-friend"],
+		trigger: "proximity",
+		weight: 2,
+		cooldownMs: 40000,
+		tags: ["humor", "nonverbal"],
+		turns: [
+			{ speaker: "A", text: "...", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "...", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Good talk.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Best one yet.", delayMs: 1200, kind: "speech" },
+		],
+	},
+
+	{
+		id: "bff-competitive-loving",
+		tierRange: ["best-friend", "best-friend"],
+		trigger: "proximity",
+		weight: 2,
+		cooldownMs: 35000,
+		tags: ["humor", "competition"],
+		turns: [
+			{ speaker: "A", text: "Bet I can fix this faster than you.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "You're on. Loser buys lunch.", delayMs: 1200, kind: "speech" },
+			{ speaker: "A", text: "You're going to lose so bad.", delayMs: 1200, kind: "speech" },
+			{ speaker: "B", text: "I'm already halfway done.", delayMs: 1000, kind: "speech" },
+			{ speaker: "A", text: "You are NOT.", delayMs: 800, kind: "speech" },
+		],
+	},
+
+	{
+		id: "bff-guilty-pleasure",
+		tierRange: ["best-friend", "best-friend"],
+		trigger: "proximity",
+		weight: 2,
+		cooldownMs: 40000,
+		tags: ["humor", "confession"],
+		turns: [
+			{ speaker: "A", text: "Don't tell anyone but I still use console.log for debugging.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "...same.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "We never speak of this.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "Speak of what?", delayMs: 1000, kind: "speech" },
+		],
+	},
+
+	{
+		id: "bff-shared-enemy",
+		tierRange: ["best-friend", "best-friend"],
+		trigger: "proximity",
+		weight: 2,
+		cooldownMs: 35000,
+		tags: ["humor", "petty"],
+		turns: [
+			{ speaker: "A", text: "The printer is making that noise again.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "The judgmental one or the dying one?", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "New noise. I think it's plotting something.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "I've always said that printer has an agenda.", delayMs: 1500, kind: "speech" },
+		],
+	},
 ];
