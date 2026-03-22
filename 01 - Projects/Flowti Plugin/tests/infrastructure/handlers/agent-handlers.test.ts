@@ -35,6 +35,7 @@ function mockAgentProcess(agentName: string): AgentProcess & { _triggerEvent: (e
 		running: true,
 		getPid: vi.fn(() => null),
 		send: vi.fn(),
+		sendRaw: vi.fn(),
 		onEvent: vi.fn((cb: (event: CliEvent) => void) => {
 			callbacks.add(cb);
 			return () => { callbacks.delete(cb); };

@@ -531,6 +531,14 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 		} else if (action.type === "seek-quiet") {
 			sys.bubble.showBubble(action.agentName, "thought", "Need some quiet...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
 		}
+
+		// Forward CLI-relevant BT actions for AI agents
+		if (["goal-started", "task-started"].includes(action.type)) {
+			const agent = ctx.store.agents.find((a) => a.name === action.agentName);
+			if (agent?.agentType === "ai") {
+				ctx.store.forwardBtAction(action.agentName, action.type, action.data ?? {});
+			}
+		}
 	}
 }
 
@@ -983,4 +991,22 @@ function tryGossipTrigger(ctx: EngineContext): void {
 		}
 		break;
 	}
+}
+
+// ── CLI ↔ Brain bridge — subscribe store cli-brain-event to brain system ──
+
+/** Wire CLI brain events from the store to the brain system. Call once during engine init. */
+export function wireCliBrainBridge(ctx: EngineContext): () => void {
+	const handler = ((e: CustomEvent) => {
+		const { agent, action } = e.detail as { agent: string; action: string };
+		ctx.systems.brain.applyEvent(agent, action);
+		if (action === "done") {
+			const entry = ctx.systems.brain.getState(agent);
+			if (entry && entry.state === "working") {
+				ctx.systems.brain.applyEvent(agent, "task-completed");
+			}
+		}
+	}) as EventListener;
+	ctx.store.addEventListener("cli-brain-event", handler);
+	return () => ctx.store.removeEventListener("cli-brain-event", handler);
 }

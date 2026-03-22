@@ -9,6 +9,7 @@
  */
 
 import type { EngineContext } from "./engine-types.js";
+import { wireCliBrainBridge } from "./engine-simulation.js";
 import { wireStoreEvents } from "./engine-events-store.js";
 import type { AgentAction, DashboardAgent, WorldEntity } from "./data/types.js";
 import type { DayPhase } from "./data/day-phase-config.js";
@@ -627,6 +628,7 @@ export function wireEvents(ctx: EngineContext): () => void {
 		wireStoreEvents(ctx),
 		wireNarrativeEvents(ctx),
 		wireMerchantStallClick(ctx),
+		wireCliBrainBridge(ctx),
 	];
 	return () => unsubs.forEach((fn) => fn());
 }

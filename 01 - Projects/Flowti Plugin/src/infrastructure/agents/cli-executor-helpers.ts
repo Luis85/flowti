@@ -44,6 +44,8 @@ export interface AgentProcess {
 	/** Child process id while running; use for OS-level metrics. */
 	getPid(): number | null;
 	send(message: string, context?: string): void;
+	/** Send a raw JSONL payload to the CLI subprocess stdin. */
+	sendRaw(payload: Record<string, unknown>): void;
 	onEvent(cb: (event: CliEvent) => void): () => void;
 	replayFrom(offset: number): CliEvent[];
 	stopGeneration(): void;

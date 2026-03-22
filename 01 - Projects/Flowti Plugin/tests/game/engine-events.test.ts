@@ -458,17 +458,18 @@ describe("engine-events", () => {
 	describe("wireStoreEvents", () => {
 		it("registers multiple store event listeners", () => {
 			wireEvents(ctx);
-			// 15 store listeners: scene-change, agent-message-sent, agent-response-received,
+			// 16 store listeners: scene-change, agent-message-sent, agent-response-received,
 			// task-assigned, task-completed, task-reward-earned, level-up, trust-promoted,
 			// permission-decided, agent-using-tool, agent-tool-complete, state-changed
 			// + narrative: task-completed, level-up, trust-promoted
-			expect(ctx.store.addEventListener).toHaveBeenCalledTimes(15);
+			// + cli-brain-event (autonomy bridge)
+			expect(ctx.store.addEventListener).toHaveBeenCalledTimes(16);
 		});
 
 		it("cleanup removes all store event listeners", () => {
 			const cleanup = wireEvents(ctx);
 			cleanup();
-			expect(ctx.store.removeEventListener).toHaveBeenCalledTimes(15);
+			expect(ctx.store.removeEventListener).toHaveBeenCalledTimes(16);
 		});
 
 		it("registered event names match expected set", () => {
