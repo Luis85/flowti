@@ -211,11 +211,11 @@ describe("EchoStore", () => {
 		});
 
 		it("reports threshold crossing at |30| boundary", () => {
-			store.addEcho("Atlas", opinion("Rex", 33), 1);
+			store.addEcho("Atlas", { kind: "opinion", source: "conversation", target: "Rex", weight: 35, decay: 8, tags: ["social"] }, 1);
 			const result = store.decayAll(2);
 
 			expect(result.thresholdsCrossed.length).toBe(1);
-			expect(result.thresholdsCrossed[0].weight).toBe(30);
+			expect(result.thresholdsCrossed[0].weight).toBe(27);
 		});
 
 		it("does not report threshold crossing when not crossing 30", () => {

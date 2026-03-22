@@ -33,6 +33,11 @@ import type { CascadeReaction } from "./systems/echo/cascade-resolver.js";
 // ── Cascade queue — reactions enqueued by echo threshold crossings ────
 const cascadeQueue: CascadeReaction[] = [];
 
+/** Push a cascade reaction into the queue (called from EchoProducer's onCascade callback). */
+export function pushCascadeReaction(reaction: CascadeReaction): void {
+	cascadeQueue.push(reaction);
+}
+
 // ── Composite tick — called from engine.ts preframe hook ─────────────
 
 /** Run one simulation phase and record duration when `ctx.state.perfSampler` is set. */
@@ -153,27 +158,27 @@ export function tickNeeds(ctx: EngineContext): void {
 			sys.brain.updateMood(agentName, mood);
 			sys.emote.updateMood(agentName, mood);
 
-			// Echo spatial preference: idle agents could gravitate toward bonded agents.
-			// The wander target is resolved in brain-system.updateIdle → resolveIdleTarget,
-			// which is private and uses habits.socialDrift. To integrate echo bonds,
-			// brain-system would need an echo-aware overload or a public socialDrift setter
-			// so we can bias: sys.echo.getStrongest(agentName, "bond") → 40% chance to
-			// move toward bonded agent's position. Deferred until brain-system exposes this.
+			// Echo spatial preference: idle agents gravitate toward bonded agents
+			const bondTarget = sys.echo.getStrongest(agentName, "bond");
+			if (bondTarget?.target && Math.random() < 0.4) {
+				const targetActor = ctx.lookups.findAgentActor(bondTarget.target);
+				if (targetActor) {
+					sys.brain.setWanderHint(agentName, {
+						x: targetActor.pos.x + (Math.random() - 0.5) * 60,
+						y: targetActor.pos.y + (Math.random() - 0.5) * 60,
+					});
+				}
+			} else {
+				sys.brain.setWanderHint(agentName, null);
+			}
 
 			// Echo producer — morale threshold echo generation
 			const morale = sys.needs.getNeeds(agentName).morale;
 			ctx.echoProducer.onMorale(agentName, morale, sys.dayClock.getCycleCount());
-			// Echo cascade gap: EchoProducer.onMorale calls store.addEcho internally
-			// and discards the AddResult. Cascade evaluation requires the AddResult
-			// to check cascadeTriggered. Extending EchoProducer to return AddResults
-			// would enable wiring: evaluateCascade(agentName, result, sys, ctx).
 
-			// Echo break threshold: negative mood-residue should lower breakThreshold
-			// so agents take breaks earlier when stressed. The threshold lives in
-			// entry.habits.breakThreshold but is recomputed each frame by updateMood →
-			// computeHabits. To integrate: computeHabits would need an echo weight
-			// parameter, or brain-system needs a post-habit modifier API. Query would be:
-			// sys.echo.queryWeight(agentName, "mood-residue") → adjust breakThreshold.
+			// Echo break threshold — negative mood-residue lowers breakThreshold
+			const moodResidueWeight = sys.echo.queryWeight(agentName, "mood-residue");
+			sys.brain.setBreakThresholdBias(agentName, moodResidueWeight);
 
 			// Feed rich context to talk engine
 			const nearby = getNearbyAgents(ctx, agentName);
@@ -420,6 +425,17 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			btAgent.context.needs.social = live.social;
 			btAgent.context.needs.focus = live.focus;
 			btAgent.context.needs.morale = live.morale;
+			btAgent.context.echoStore = sys.echo;
+			btAgent.context.currentRoom = sys.registry.getEntityRoom(agentName);
+		}
+	}
+
+	// Refresh pet BT echo context
+	for (const petName of sys.bt.getPetNames()) {
+		const petCtx = sys.bt.getPetContext(petName);
+		if (petCtx) {
+			petCtx.echoStore = sys.echo;
+			petCtx.currentRoom = sys.registry.getEntityRoom(petName);
 		}
 	}
 
@@ -871,8 +887,6 @@ function tryGossipTrigger(ctx: EngineContext): void {
 			// Both agents hear gossip about the absent agent
 			ctx.echoProducer.onGossipHeard(agentA, agentB, absent, cycle);
 			ctx.echoProducer.onGossipHeard(agentB, agentA, absent, cycle);
-			// Echo cascade gap: EchoProducer.onGossipHeard discards AddResult.
-			// Same limitation as onMorale — cascade wiring needs AddResult exposure.
 		}
 		break;
 	}

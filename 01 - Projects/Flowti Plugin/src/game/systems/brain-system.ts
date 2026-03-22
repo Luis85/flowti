@@ -78,6 +78,8 @@ export class BrainSystem {
 	private readonly targetBounds: Bounds;
 	private readonly config: BrainSystemConfig;
 	private readonly quirkOverrides = new Map<string, Record<string, number>>();
+	private readonly wanderHints = new Map<string, { x: number; y: number }>();
+	private readonly breakThresholdBiases = new Map<string, number>();
 
 	constructor(config: BrainSystemConfig) {
 		this.bounds = config.bounds;
@@ -190,6 +192,24 @@ export class BrainSystem {
 			focusDuration: p.focusDuration,
 			quoteFrequency: p.quoteFrequency,
 		};
+	}
+
+	/** Set a per-agent wander hint — when set, idle target resolution prefers this position. */
+	setWanderHint(name: string, target: { x: number; y: number } | null): void {
+		if (target) {
+			this.wanderHints.set(name, target);
+		} else {
+			this.wanderHints.delete(name);
+		}
+	}
+
+	/** Set a break threshold bias from echo mood-residue weight. Negative values lower the threshold. */
+	setBreakThresholdBias(name: string, bias: number): void {
+		if (bias === 0) {
+			this.breakThresholdBiases.delete(name);
+		} else {
+			this.breakThresholdBiases.set(name, bias);
+		}
 	}
 
 	/** Get the current brain state for an agent. */
@@ -359,6 +379,17 @@ export class BrainSystem {
 		if (entry.stateTimer < entry.params.idleResistance * entry.habits.idleResistanceMult) return;
 		entry.state = "wandering";
 		entry.stateTimer = 0;
+
+		// Wander hint: echo-driven spatial preference (e.g. bond target)
+		const hint = this.wanderHints.get(name);
+		if (hint) {
+			const clampedX = Math.max(this.targetBounds.minX, Math.min(this.targetBounds.maxX, hint.x));
+			const clampedY = Math.max(this.targetBounds.minY, Math.min(this.targetBounds.maxY, hint.y));
+			entry.targetPos = { x: clampedX, y: clampedY };
+			entry.target = { kind: "wander", x: clampedX, y: clampedY };
+			return;
+		}
+
 		const dest = resolveIdleTarget(entry.habits, this.getNearbyAgentPositions(name), this.targetBounds, Math.random, entry.position);
 		if (dest) { entry.targetPos = dest; entry.target = { kind: "wander", x: dest.x, y: dest.y }; }
 		else { entry.state = "idle"; }
@@ -404,7 +435,9 @@ export class BrainSystem {
 
 	private updateWorking(entry: AgentBrainEntry, name: string): void {
 		if (entry.taskLocked) return;
-		const breakThresholdMs = entry.habits.breakThreshold * 1000;
+		const bias = this.breakThresholdBiases.get(name) ?? 0;
+		const biasedThreshold = Math.max(1, entry.habits.breakThreshold + bias);
+		const breakThresholdMs = biasedThreshold * 1000;
 		if (entry.stateTimer >= breakThresholdMs && breakThresholdMs < entry.params.focusDuration) {
 			// Break time
 			entry.state = "on-break";

@@ -89,7 +89,7 @@ import {
 import { createBtBridges, createFindNearestAgent } from "./engine-systems-init.js";
 import { createPostframeHandler } from "./engine-postframe.js";
 import { startEngine, createAgentSelectHandler } from "./engine-lifecycle.js";
-import { tickSimulation } from "./engine-simulation.js";
+import { tickSimulation, pushCascadeReaction } from "./engine-simulation.js";
 import { registerAgents, type RegistrationSystems } from "./engine-startup.js";
 
 // Side-effect imports — register Lit custom elements
@@ -257,8 +257,15 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Echo system ──────────────────────────────────
 	const echoStore = new EchoStore();
-	const echoProducer = new EchoProducer(echoStore);
 	const cascadeResolver = new CascadeResolver(echoStore);
+	const echoProducer = new EchoProducer(echoStore, (agent, result) => {
+		if (!cascadeResolver.shouldCascade(agent, result.echo)) return;
+		if (!echoStore.consumeCascade()) return;
+		const reaction = cascadeResolver.selectReaction(agent, result.echo);
+		if (!reaction) return;
+		cascadeResolver.recordAgentCascade(agent);
+		pushCascadeReaction(reaction);
+	});
 
 	// ── Narrative system ──────────────────────────────
 	const narrativeDir = deps.vaultBasePath
@@ -327,7 +334,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			relationshipSystem.recordConversation(a, b);
 			const tier = relationshipSystem.getTier(a, b);
 			echoProducer.onConversation(a, b, tier, dayClock.getCycleCount());
-			// Echo cascade gap: onConversation discards AddResult — see engine-simulation.ts
 		},
 		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
 		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { EchoProducer } from "../../../../src/game/systems/echo/echo-producer.js";
 import { EchoStore } from "../../../../src/game/systems/echo/echo-store.js";
+import type { AddResult } from "../../../../src/game/systems/echo/echo-types.js";
 
 // ── Tests ───────────────────────────────────────────────────────────
 
@@ -266,6 +267,59 @@ describe("EchoProducer", () => {
 			producer.onOfflineReturn("Atlas", 1);
 
 			expect(store.queryWeight("Atlas", "mood-residue")).toBe(5);
+		});
+	});
+
+	// ── Cascade callback ───────────────────────────────────────────
+
+	describe("cascade callback", () => {
+		it("fires when echo crosses cascade threshold", () => {
+			const cascades: Array<{ agent: string; result: AddResult }> = [];
+			const callbackProducer = new EchoProducer(store, (agent, result) => {
+				cascades.push({ agent, result });
+			});
+
+			// Drama creates weight 15 which equals CASCADE_THRESHOLD (15)
+			callbackProducer.onDrama("Atlas", "Rex", true, 1);
+
+			// Both agents get weight 15 echoes — both should trigger cascade
+			expect(cascades.length).toBe(2);
+			expect(cascades[0].agent).toBe("Atlas");
+			expect(cascades[0].result.cascadeTriggered).toBe(true);
+			expect(cascades[1].agent).toBe("Rex");
+		});
+
+		it("does not fire for sub-threshold echoes", () => {
+			const cascades: Array<{ agent: string; result: AddResult }> = [];
+			const callbackProducer = new EchoProducer(store, (agent, result) => {
+				cascades.push({ agent, result });
+			});
+
+			// Conversation creates weight 5 which is below threshold
+			callbackProducer.onConversation("Atlas", "Rex", "friend", 1);
+
+			expect(cascades.length).toBe(0);
+		});
+
+		it("does not fire when cooldown blocks the echo", () => {
+			const cascades: Array<{ agent: string; result: AddResult }> = [];
+			const callbackProducer = new EchoProducer(store, (agent, result) => {
+				cascades.push({ agent, result });
+			});
+
+			callbackProducer.onDrama("Atlas", "Rex", true, 1);
+			const firstCount = cascades.length;
+
+			// Same cycle — cooldown blocks
+			callbackProducer.onDrama("Atlas", "Rex", true, 1);
+			expect(cascades.length).toBe(firstCount);
+		});
+
+		it("works without callback (backward compatible)", () => {
+			const noCallbackProducer = new EchoProducer(store);
+			// Should not throw
+			noCallbackProducer.onDrama("Atlas", "Rex", true, 1);
+			expect(store.queryWeight("Atlas", "opinion", "Rex")).toBe(15);
 		});
 	});
 });

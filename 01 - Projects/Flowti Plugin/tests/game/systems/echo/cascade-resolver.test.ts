@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { CascadeResolver } from "src/game/systems/echo/cascade-resolver.js";
-import type { Echo, IEchoStore } from "src/game/systems/echo/echo-types.js";
+import { CascadeResolver } from "../../../../src/game/systems/echo/cascade-resolver.js";
+import type { Echo, IEchoStore } from "../../../../src/game/systems/echo/echo-types.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -167,6 +167,13 @@ describe("CascadeResolver", () => {
 			const echo = makeEcho({ kind: "preference", weight: 5 });
 			const reaction = resolver.selectReaction("atlas", echo);
 			expect(reaction).toBeUndefined();
+		});
+
+		it("selects adjust-opinion for reputation echo", () => {
+			const echo = makeEcho({ kind: "reputation", weight: -20, target: "nova" });
+			const reaction = resolver.selectReaction("atlas", echo);
+			expect(reaction?.type).toBe("adjust-opinion");
+			expect(reaction?.weight).toBeCloseTo(-10); // 0.5x multiplier
 		});
 	});
 
