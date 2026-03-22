@@ -74,7 +74,7 @@ describe("bt-agent-extensions — hunger/thirst conditions", () => {
 describe("bt-agent-extensions — hunger/thirst actions", () => {
 	it("SeekFoodStation collects seek-food and applies brain event", () => {
 		const brain = { applyEvent: vi.fn() };
-		const ext = makeExtDeps({ deps: makeDeps({ brain } as Partial<AgentToolDeps>) });
+		const ext = makeExtDeps({ deps: makeDeps({ brain } as unknown as Partial<AgentToolDeps>) });
 		const result = SeekFoodStation(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ext.collect).toHaveBeenCalledWith("seek-food");
@@ -83,7 +83,7 @@ describe("bt-agent-extensions — hunger/thirst actions", () => {
 
 	it("SeekDrinkStation collects seek-drink and applies brain event", () => {
 		const brain = { applyEvent: vi.fn() };
-		const ext = makeExtDeps({ deps: makeDeps({ brain } as Partial<AgentToolDeps>) });
+		const ext = makeExtDeps({ deps: makeDeps({ brain } as unknown as Partial<AgentToolDeps>) });
 		const result = SeekDrinkStation(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ext.collect).toHaveBeenCalledWith("seek-drink");
@@ -166,7 +166,7 @@ describe("bt-agent-extensions — merchant conditions", () => {
 describe("bt-agent-extensions — merchant actions", () => {
 	it("SeekMerchantStall collects seek-merchant", () => {
 		const brain = { applyEvent: vi.fn() };
-		const ext = makeExtDeps({ deps: makeDeps({ brain } as Partial<AgentToolDeps>) });
+		const ext = makeExtDeps({ deps: makeDeps({ brain } as unknown as Partial<AgentToolDeps>) });
 		const result = SeekMerchantStall(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ext.collect).toHaveBeenCalledWith("seek-merchant");
@@ -191,7 +191,7 @@ describe("bt-agent-extensions — merchant actions", () => {
 			purchase: vi.fn(),
 			getCycleCount: vi.fn(() => 1),
 		};
-		const ext = makeExtDeps({ deps: makeDeps({ merchant } as Partial<AgentToolDeps>) });
+		const ext = makeExtDeps({ deps: makeDeps({ merchant } as unknown as Partial<AgentToolDeps>) });
 		expect(ExecuteMerchantPurchase(ext)).toBe(fromNodeState("failed"));
 	});
 
@@ -202,7 +202,7 @@ describe("bt-agent-extensions — merchant actions", () => {
 			purchase: vi.fn(() => Promise.resolve()),
 			getCycleCount: vi.fn(() => 5),
 		};
-		const ext = makeExtDeps({ deps: makeDeps({ merchant } as Partial<AgentToolDeps>) });
+		const ext = makeExtDeps({ deps: makeDeps({ merchant } as unknown as Partial<AgentToolDeps>) });
 		const result = ExecuteMerchantPurchase(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(merchant.purchase).toHaveBeenCalledWith("Atlas", "potion-01");

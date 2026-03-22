@@ -65,6 +65,10 @@ function createMockSystems(): StateSystems {
 				getThirst: vi.fn(() => 72),
 			},
 		],
+		echo: {
+			restore: vi.fn(),
+			serialize: vi.fn(() => ({})),
+		},
 	} as unknown as StateSystems;
 }
 
@@ -99,6 +103,7 @@ describe("restoreWorldState", () => {
 			"world-memory.json",
 			"world-relationships.json",
 			"world-positions.json",
+			"world-echoes.json",
 		]);
 		expect(result.skipped).toEqual([]);
 		expect(ctx.dayClock.restore).toHaveBeenCalledWith({ cycle: 5 });
@@ -135,6 +140,7 @@ describe("restoreWorldState", () => {
 			"world-memory.json",
 			"world-relationships.json",
 			"world-positions.json",
+			"world-echoes.json",
 		]);
 		expect(result.savedPositions).toBeNull();
 	});
@@ -190,13 +196,13 @@ describe("restoreAgentState", () => {
 // ── flushWorldState ──────────────────────────────────────────────────
 
 describe("flushWorldState", () => {
-	it("calls writeFileSync for all 6 files", () => {
+	it("calls writeFileSync for all 7 files", () => {
 		vi.mocked(existsSync).mockReturnValue(true);
 
 		const ctx = createMockSystems();
 		flushWorldState(ctx, VAULT);
 
-		expect(writeFileSync).toHaveBeenCalledTimes(6);
+		expect(writeFileSync).toHaveBeenCalledTimes(7);
 
 		const writtenPaths = vi.mocked(writeFileSync).mock.calls.map(
 			(call) => String(call[0]).replace(/\\/g, "/"),
@@ -208,6 +214,7 @@ describe("flushWorldState", () => {
 		expect(writtenPaths).toContain(`${VAR_DIR}/world-relationships.json`);
 		expect(writtenPaths).toContain(`${VAR_DIR}/world-needs.json`);
 		expect(writtenPaths).toContain(`${VAR_DIR}/world-positions.json`);
+		expect(writtenPaths).toContain(`${VAR_DIR}/world-echoes.json`);
 	});
 
 	it("creates var directory if missing", () => {

@@ -85,7 +85,7 @@ describe("Event Catalog", () => {
 	describe("getEventsByCategory", () => {
 		it("should return entries for a valid category", () => {
 			const entries = getEventsByCategory("Plugin Lifecycle");
-			expect(entries.length).toBe(5);
+			expect(entries.length).toBe(6);
 			expect(entries.every((e) => e.category === "Plugin Lifecycle")).toBe(true);
 		});
 
