@@ -383,7 +383,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function Chatter(): State {
-		collect("chatter", {});
+		collect("idle", {});
 		return fromNodeState("succeeded");
 	}
 
@@ -448,33 +448,10 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 
 	// ── Echo-biased idle ────────────────────────────────────────────
 
-	function echoBiasedWeightedRandom(weights: number[]): number {
-		const total = weights.reduce((s, w) => s + w, 0);
-		let roll = Math.random() * total;
-		for (let i = 0; i < weights.length; i++) {
-			roll -= weights[i];
-			if (roll <= 0) return i;
-		}
-		return weights.length - 1;
-	}
-
+	/** Idle fallback — the brain's autonomous cycle handles wander pacing
+	 *  and the talk engine handles ambient chatter independently. */
 	function EchoBiasedIdle(): State {
-		const bondBias = context.echoStore
-			? context.echoStore.queryWeight(context.name, "bond") : 0;
-		const prefBias = context.echoStore
-			? context.echoStore.queryWeight(context.name, "preference", context.currentRoom ?? "") : 0;
-		const clampedBond = Math.max(-50, Math.min(50, bondBias));
-		const clampedPref = Math.max(-50, Math.min(50, prefBias));
-		const wanderWeight = 1 + clampedPref / 100;
-		const socialWeight = 1 + clampedBond / 100;
-		const pick = echoBiasedWeightedRandom([wanderWeight, 1, socialWeight]);
-		if (pick === 2) {
-			collect("chatter", {});
-		} else {
-			// Emit "idle" and let the brain's autonomous idle→wander cycle
-			// handle movement pacing (~8s idle then smooth wander).
-			collect("idle", {});
-		}
+		collect("idle", {});
 		return fromNodeState("succeeded");
 	}
 
@@ -491,8 +468,9 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 			collect("seek-agent", {});
 			deps.brain?.applyEvent(context.name, "seek-agent");
 		} else {
+			// "speaking" is an intent action — the bridge forwards it to
+			// brainSystem.applyEvent("speaking") → talking state.
 			collect("speaking", { text: "", source: "social", target: context.nearbyAgents[0] });
-			deps.brain?.applyEvent(context.name, "talking");
 		}
 		return fromNodeState("succeeded");
 	}

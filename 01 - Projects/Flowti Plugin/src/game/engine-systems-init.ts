@@ -37,9 +37,19 @@ export function createBtBridges(
 	btClock: BtClockBridge;
 	btDeps: ReturnType<typeof createStubDeps>;
 } {
+	// Only intent actions go through the bridge to the brain. Seek actions
+	// are applied directly by the BT action functions via deps.brain. Passive
+	// actions (idle, chatter, file ops) are invisible to the brain — the
+	// brain's autonomous idle→wander cycle handles movement pacing.
+	const BT_INTENT_ACTIONS: ReadonlySet<string> = new Set([
+		"thinking", "asking", "using-tool",
+		"speaking", "error",
+	]);
 	const btWorldState: BtWorldStateBridge = {
 		emitAction: (action) => {
-			brainSystem.applyEvent(action.agentName, action.type);
+			if (BT_INTENT_ACTIONS.has(action.type)) {
+				brainSystem.applyEvent(action.agentName, action.type);
+			}
 		},
 		updateEntity: () => {},
 	};
