@@ -207,7 +207,6 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		revealFolder: deps.revealFolder,
 		pickFolder: deps.pickFolder,
 	});
-	storybook.register();
 
 	const git = new ProjectGitHandler({
 		el, signal, projectService,

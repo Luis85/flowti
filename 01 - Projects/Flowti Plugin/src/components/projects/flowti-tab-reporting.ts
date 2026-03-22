@@ -14,8 +14,6 @@ const styles = css`
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
-		margin-right: 8px;
-		margin-bottom: 8px;
 		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
 	}
 	.btn:hover { background: var(--background-modifier-hover, #333); transform: translateY(-0.5px); }
@@ -27,7 +25,8 @@ const styles = css`
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
-	.gen { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: var(--flowti-font-sm, 0.85em); }
+	.report-list { display: flex; flex-direction: column; gap: 6px; }
+	.gen { display: flex; align-items: center; gap: 8px; font-size: var(--flowti-font-sm, 0.85em); }
 	.state { font-size: 0.75em; opacity: 0.8; }
 	pre.log { font-size: 11px; max-height: 200px; overflow: auto; background: var(--background-secondary, #262626); padding: 8px; border-radius: var(--hub-radius, 6px); }
 `;
@@ -53,22 +52,24 @@ export class FlowtiTabReporting extends FlowtiElement {
 	protected renderContent() {
 		return html`
 			<h3>Reports</h3>
-			<button type="button" class="btn" ?disabled="${this.busy}" @click="${() => this.emit("report-run-all", {})}">Run all</button>
-			${this.generators.map((g) => {
-				const runId = (g.id ?? "").trim();
-				return html`
-				<div class="gen">
-					<button
-						type="button"
-						class="btn"
-						?disabled="${this.busy || !runId}"
-						title="${runId ? `Run ${g.label}` : "Generator has no id in config"}"
-						@click="${() => runId && this.emit("report-run", { generatorId: runId })}"
-					>${g.label}</button>
-					<span class="state">${this.nodeStates[runId] ?? ""}</span>
-				</div>
-			`;
-			})}
+			<div class="report-list">
+				<button type="button" class="btn" ?disabled="${this.busy}" @click="${() => this.emit("report-run-all", {})}">Run all</button>
+				${this.generators.map((g) => {
+					const runId = (g.id ?? "").trim();
+					return html`
+					<div class="gen">
+						<button
+							type="button"
+							class="btn"
+							?disabled="${this.busy || !runId}"
+							title="${runId ? `Run ${g.label}` : "Generator has no id in config"}"
+							@click="${() => runId && this.emit("report-run", { generatorId: runId })}"
+						>${g.label}</button>
+						<span class="state">${this.nodeStates[runId] ?? ""}</span>
+					</div>
+				`;
+				})}
+			</div>
 			${this.outputLines.length > 0 ? html`<pre class="log">${this.outputLines.join("\n")}</pre>` : ""}
 		`;
 	}

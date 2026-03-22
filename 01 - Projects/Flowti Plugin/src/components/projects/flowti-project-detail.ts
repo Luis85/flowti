@@ -266,19 +266,19 @@ export class FlowtiProjectDetail extends FlowtiElement {
 							class="search-input"
 							type="text"
 							placeholder="Project name"
-							@keydown="${(e: KeyboardEvent) => { if (e.key === "Enter") this.submitNamePrompt(e); }}"
+							@keydown="${(e: KeyboardEvent) => { if (e.key === "Enter") this.submitNamePrompt(); }}"
 						/>
 					</div>
 					<div class="modal-actions">
 						<button class="btn" @click="${() => { this.showNamePrompt = false; }}">Cancel</button>
-						<button class="btn btn--primary" @click="${(e: Event) => this.submitNamePrompt(e)}">Create</button>
+						<button class="btn btn--primary" @click="${() => this.submitNamePrompt()}">Create</button>
 					</div>
 				</div>
 			</div>
 		`;
 	}
 
-	private submitNamePrompt(e: Event): void {
+	private submitNamePrompt(): void {
 		const input = this.shadowRoot?.querySelector<HTMLInputElement>(".overlay .search-input");
 		const name = input?.value.trim();
 		if (!name) return;

@@ -23,7 +23,7 @@ export class ConfigCatalogHandler {
 	dispose(): void {}
 
 	private wireEvents(): void {
-		const { el } = this.deps;
+		const { el, signal } = this.deps;
 
 		// Config save
 		el.addEventListener("config-save", ((e: CustomEvent) => {
@@ -38,7 +38,7 @@ export class ConfigCatalogHandler {
 				el.configSaveStatus = msg;
 				setTimeout(() => { if (!this.deps.signal.aborted && el.configSaveStatus === msg) el.configSaveStatus = ""; }, 3000);
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Config browse folder
 		el.addEventListener("config-browse-folder", (() => {
@@ -47,7 +47,7 @@ export class ConfigCatalogHandler {
 				if (folder === null) return;
 				if (!this.deps.signal.aborted) el.configSourcePath = folder;
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Canvas generate
 		el.addEventListener("canvas-generate", ((e: CustomEvent) => {
@@ -61,7 +61,7 @@ export class ConfigCatalogHandler {
 				this.deps.endProjectHubWork(r);
 				if (r.ok) this.deps.openNote?.(`01 - Projects/${this.deps.getCurrentProject()}/sitemap.canvas`);
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Canvas merge
 		el.addEventListener("canvas-merge", (() => {
@@ -70,12 +70,12 @@ export class ConfigCatalogHandler {
 			void this.deps.projectService.importCanvasSitemap(this.deps.getCurrentProject(), (l) => this.deps.appendProjectHubLog(l), { merge: true }).then((r) => {
 				if (!this.deps.signal.aborted) this.deps.endProjectHubWork(r);
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Canvas open
 		el.addEventListener("canvas-open", (() => {
 			this.deps.openNote?.(`01 - Projects/${this.deps.getCurrentProject()}/sitemap.canvas`);
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Health refresh
 		el.addEventListener("health-refresh", (() => {
@@ -84,7 +84,7 @@ export class ConfigCatalogHandler {
 				if (r.ok && r.score) { el.healthScore = r.score; el.healthError = ""; }
 				else { el.healthError = r.error ?? "Health check failed"; }
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// TODOs
 		const refreshTodos = () => {
@@ -97,26 +97,26 @@ export class ConfigCatalogHandler {
 			void this.deps.projectService.addTodo(this.deps.getCurrentProject(), String(e.detail?.text ?? "")).then(() => {
 				if (!this.deps.signal.aborted) refreshTodos();
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("todo-toggle", ((e: CustomEvent) => {
 			void this.deps.projectService.toggleTodo(this.deps.getCurrentProject(), Number(e.detail?.index ?? 0)).then(() => {
 				if (!this.deps.signal.aborted) refreshTodos();
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("todo-delete", ((e: CustomEvent) => {
 			void this.deps.projectService.deleteTodo(this.deps.getCurrentProject(), Number(e.detail?.index ?? 0)).then(() => {
 				if (!this.deps.signal.aborted) refreshTodos();
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Catalog list refresh
 		el.addEventListener("catalog-list-refresh", ((e: CustomEvent) => {
 			void this.deps.projectService.listEntities(this.deps.getCurrentProject(), String(e.detail?.entityType ?? "domains") as CatalogEntityType).then((entities) => {
 				if (!this.deps.signal.aborted) el.catalogEntities = entities;
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Catalog entity create
 		el.addEventListener("catalog-entity-create", ((e: CustomEvent) => {
@@ -129,7 +129,7 @@ export class ConfigCatalogHandler {
 					});
 				}
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Report run
 		el.addEventListener("report-run", ((e: CustomEvent) => {
@@ -146,7 +146,7 @@ export class ConfigCatalogHandler {
 				el.reportNodeStates = { ...(el.reportNodeStates as Record<string, string>), [id]: r.ok ? "passed" : "failed" };
 				el.reportBusy = false;
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		// Report run all
 		el.addEventListener("report-run-all", (() => {
@@ -162,6 +162,6 @@ export class ConfigCatalogHandler {
 			}).then(() => {
 				if (!this.deps.signal.aborted) el.reportBusy = false;
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 	}
 }

@@ -21,7 +21,7 @@ export class TeamHandler {
 	dispose(): void {}
 
 	private wireEvents(): void {
-		const { el } = this.deps;
+		const { el, signal } = this.deps;
 
 		el.addEventListener("team-roster-save", ((e: CustomEvent) => {
 			if (el.projectHubBusy) return;
@@ -29,7 +29,7 @@ export class TeamHandler {
 			this.deps.startProjectHubWork("Saving team roster");
 			void this.deps.projectService.saveTeamRoster(this.deps.getCurrentProject(), slots, (l) => this.deps.appendProjectHubLog(l))
 				.then((r) => this.deps.endProjectHubWork(r));
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("team-create-agent", ((e: CustomEvent) => {
 			if (el.projectHubBusy) return;
@@ -44,19 +44,19 @@ export class TeamHandler {
 				.createAgentFromRole(this.deps.getCurrentProject(), roleId, agentName, (l) => this.deps.appendProjectHubLog(l), slots)
 				.then((r) => this.deps.endProjectHubWork(r))
 				.finally(() => { if (!this.deps.signal.aborted) el.agentCreationContext = null; });
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("team-refresh-agents", (() => {
 			void this.deps.projectService.listVaultAgents().then((a) => {
 				if (!this.deps.signal.aborted) el.vaultAgents = [...a];
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("team-roster-error", ((e: CustomEvent) => {
 			if (this.deps.signal.aborted) return;
 			const msg = String((e.detail as { message?: string })?.message ?? "Team roster error");
 			el.statusMessage = msg;
 			setTimeout(() => { if (!this.deps.signal.aborted && el.statusMessage === msg) el.statusMessage = ""; }, 5000);
-		}) as EventListener);
+		}) as EventListener, { signal });
 	}
 }

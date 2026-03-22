@@ -42,13 +42,15 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 				};
 
 				const unsub = deps.eventBus.on("doc.created", (event) => {
+					if (event.payload.docType !== "ProjectBrief") return;
 					cleanup();
-					void deps.app.workspace.openLinkText(event.payload.docType === "ProjectBrief" ? event.payload.path : projectPath, "", false);
+					void deps.app.workspace.openLinkText(event.payload.path, "", false);
 					resolve();
 				});
 				const unsubExists = deps.eventBus.on("doc.exists", (event) => {
+					if (event.payload.docType !== "ProjectBrief") return;
 					cleanup();
-					void deps.app.workspace.openLinkText(event.payload.docType === "ProjectBrief" ? event.payload.path : projectPath, "", false);
+					void deps.app.workspace.openLinkText(event.payload.path, "", false);
 					resolve();
 				});
 

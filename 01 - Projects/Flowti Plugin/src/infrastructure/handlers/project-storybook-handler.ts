@@ -23,15 +23,18 @@ export class ProjectStorybookHandler {
 
 	constructor(deps: StorybookHandlerDeps) {
 		this.deps = deps;
+		this.wireStorybookEvents();
+		this.wireScaffoldAndRegenerateEvents();
 	}
 
 	dispose(): void {
-		// AbortController handles cancellation; no per-listener cleanup needed
+		// AbortController signal auto-removes all listeners registered with { signal }
 	}
 
 	// ── Internal helpers ──────────────────────────────────────────────────────
 
 	private startWork(label: string): void {
+		if (this.deps.signal.aborted) return;
 		this.storybookLines = [];
 		this.deps.el.storybookBusy = true;
 		this.deps.el.storybookBusyLabel = label;
@@ -40,6 +43,7 @@ export class ProjectStorybookHandler {
 	}
 
 	private appendLog(line: string): void {
+		if (this.deps.signal.aborted) return;
 		console.debug("[Flowti:Components/Storybook]", line);
 		this.storybookLines.push(line);
 		if (this.storybookLines.length > 200) this.storybookLines.shift();
@@ -47,6 +51,7 @@ export class ProjectStorybookHandler {
 	}
 
 	private endWork(result: { ok: boolean; error?: string }): void {
+		if (this.deps.signal.aborted) return;
 		this.deps.el.storybookBusy = false;
 		this.deps.el.storybookBusyLabel = "";
 		if (!result.ok && result.error) this.deps.el.storybookError = result.error;
@@ -54,20 +59,12 @@ export class ProjectStorybookHandler {
 	}
 
 	private clearLogBuffer(): void {
+		if (this.deps.signal.aborted) return;
 		this.storybookLines = [];
 		this.deps.el.storybookOutput = [];
 	}
 
 	// ── Event registration ────────────────────────────────────────────────────
-
-	/**
-	 * Register all storybook and scaffold event listeners on `deps.el`.
-	 * Listeners respect `deps.signal` — they no-op when aborted.
-	 */
-	register(): void {
-		this.wireStorybookEvents();
-		this.wireScaffoldAndRegenerateEvents();
-	}
 
 	private wireStorybookEvents(): void {
 		const { el, projectService, signal } = this.deps;
@@ -82,7 +79,7 @@ export class ProjectStorybookHandler {
 					this.appendLog(`Error: ${msg}`);
 					this.endWork({ ok: false, error: msg });
 				});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-start", (() => {
 			if (signal.aborted) return;
@@ -147,7 +144,7 @@ export class ProjectStorybookHandler {
 					this.appendLog(`Error: ${msg}`);
 					this.endWork({ ok: false, error: msg });
 				});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-stop", (() => {
 			if (signal.aborted) return;
@@ -157,7 +154,7 @@ export class ProjectStorybookHandler {
 					const msg = err instanceof Error ? err.message : String(err);
 					this.endWork({ ok: false, error: msg });
 				});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-build", (() => {
 			if (signal.aborted) return;
@@ -169,7 +166,7 @@ export class ProjectStorybookHandler {
 					this.appendLog(`Error: ${msg}`);
 					this.endWork({ ok: false, error: msg });
 				});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-import", (() => {
 			if (signal.aborted) return;
@@ -197,19 +194,19 @@ export class ProjectStorybookHandler {
 						this.endWork({ ok: false, error: msg });
 					});
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-view", ((e: CustomEvent) => {
 			if (signal.aborted) return;
 			const url = String(e.detail?.url ?? "http://localhost:6006");
 			void projectService.openStorybookUrl(this.deps.getCurrentProject(), url, this.appendLog.bind(this));
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-open-folder", (() => {
 			if (signal.aborted) return;
 			const config = (el.config as { storybookDir?: string } | undefined);
 			this.deps.revealFolder?.(`01 - Projects/${this.deps.getCurrentProject()}/${config?.storybookDir ?? "components"}`);
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-preview", (() => {
 			if (signal.aborted) return;
@@ -217,18 +214,18 @@ export class ProjectStorybookHandler {
 				if (r.ok && r.url) void projectService.openStorybookUrl(this.deps.getCurrentProject(), r.url, this.appendLog.bind(this));
 				else if (r.error) el.storybookError = r.error;
 			});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-dismiss-output", (() => {
 			if (signal.aborted) return;
 			el.storybookOutput = [];
 			this.clearLogBuffer();
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-dismiss-error", (() => {
 			if (signal.aborted) return;
 			el.storybookError = "";
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-canvas-import", (() => {
 			if (signal.aborted) return;
@@ -243,12 +240,12 @@ export class ProjectStorybookHandler {
 					this.appendLog(`Error: ${msg}`);
 					this.endWork({ ok: false, error: msg });
 				});
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("components-refresh", (() => {
 			if (signal.aborted) return;
 			void projectService.listComponents(this.deps.getCurrentProject()).then((c) => { el.components = c; });
-		}) as EventListener);
+		}) as EventListener, { signal });
 	}
 
 	private wireScaffoldAndRegenerateEvents(): void {
@@ -293,12 +290,12 @@ export class ProjectStorybookHandler {
 					el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
 				});
 			}
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("scaffold-dismiss", (() => {
 			if (signal.aborted) return;
 			el.showScaffoldModal = false;
-		}) as EventListener);
+		}) as EventListener, { signal });
 
 		el.addEventListener("storybook-regenerate-confirmed", (() => {
 			if (signal.aborted) return;
@@ -317,6 +314,6 @@ export class ProjectStorybookHandler {
 				this.endWork(scaffoldResult);
 				el.dispatchEvent(new CustomEvent("storybook-start", { bubbles: true, composed: true }));
 			}).catch(() => { this.endWork({ ok: false, error: "Regeneration failed unexpectedly" }); });
-		}) as EventListener);
+		}) as EventListener, { signal });
 	}
 }
