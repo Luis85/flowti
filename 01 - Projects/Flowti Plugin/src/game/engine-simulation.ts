@@ -17,7 +17,7 @@ import {
 	ROOM_OFFSETS, UNKNOWN_ROOM_OFFSET,
 	OBJECT_ATTRACTION_RULES,
 	TRAIL_DISTANCE_SQ, TRAIL_Y_OFFSET,
-	WEATHER_PARTICLE_CHANCE, WEATHER_PARTICLE_LIFETIME, WEATHER_PARTICLE_OPACITY,
+	WEATHER_PARTICLE_CHANCE, WEATHER_PARTICLE_LIFETIME, WEATHER_PARTICLE_OPACITY, AMBIENT_PARTICLE_CHANCE,
 	DOG_FOLLOW_CHANCE, CAT_FOLLOW_STRESSED_CHANCE, CAT_STRESS_MORALE_THRESHOLD,
 	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS,
 } from "./engine-config.js";
@@ -782,6 +782,20 @@ export function tickVisuals(ctx: EngineContext): void {
 		state.currentLight.g += (targetLight.g - state.currentLight.g) * lerpT;
 		state.currentLight.b += (targetLight.b - state.currentLight.b) * lerpT;
 		state.currentLight.opacity += (targetLight.opacity - state.currentLight.opacity) * lerpT;
+
+		// Ambient room particles
+		if (Math.random() < AMBIENT_PARTICLE_CHANCE) {
+			const cur = ctx.engine.currentScene;
+			if (cur === ctx.scenes.hub) {
+				sys.particlePool.spawnPreset("dust-motes", Math.random() * ENGINE_WIDTH, Math.random() * ENGINE_HEIGHT);
+			} else if (cur === ctx.scenes.office) {
+				sys.particlePool.spawnPreset("dust-motes", Math.random() * ENGINE_WIDTH, 60 + Math.random() * 380);
+			} else if (cur === ctx.scenes.village) {
+				sys.particlePool.spawnPreset("leaf-drift", Math.random() * ENGINE_WIDTH, Math.random() * ENGINE_HEIGHT);
+			} else if (cur === ctx.scenes.station) {
+				sys.particlePool.spawnPreset("embers", 560 + Math.random() * 120, 160 + Math.random() * 100);
+			}
+		}
 	});
 
 	runTimedGameSystem(ctx, "workstations", () => {

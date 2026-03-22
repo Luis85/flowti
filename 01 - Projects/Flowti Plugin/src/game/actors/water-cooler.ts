@@ -1,5 +1,5 @@
 /**
- * water-cooler.ts — Water cooler environmental object.
+ * water-cooler.ts — Water Barrel environmental object.
  * The classic social gathering spot for casual conversations.
  * Boosts social on interaction.
  */
@@ -22,44 +22,71 @@ export class WaterCooler extends InteractableActor {
 			width: this.width,
 			height: this.height,
 			draw: (ctx) => {
-				// Stand / base
-				ctx.fillStyle = "#6b7280";
-				ctx.fillRect(4, 24, 16, 16);
-
-				// Stand front panel
-				ctx.fillStyle = "#9ca3af";
-				ctx.fillRect(6, 26, 12, 12);
-
-				// Tap / spigot
-				ctx.fillStyle = "#4b5563";
-				ctx.fillRect(9, 24, 6, 3);
-
-				// Water bottle
-				ctx.fillStyle = "#bfdbfe";
+				// Barrel body (rounded rectangle shape)
+				ctx.fillStyle = "#5c4a35";
 				ctx.beginPath();
-				ctx.moveTo(6, 22);
-				ctx.lineTo(6, 6);
-				ctx.quadraticCurveTo(6, 2, 12, 2);
-				ctx.quadraticCurveTo(18, 2, 18, 6);
-				ctx.lineTo(18, 22);
+				ctx.moveTo(4, 6);
+				ctx.quadraticCurveTo(2, 6, 2, 10);
+				ctx.lineTo(1, 20);
+				ctx.quadraticCurveTo(1, 36, 4, 38);
+				ctx.lineTo(20, 38);
+				ctx.quadraticCurveTo(23, 36, 23, 20);
+				ctx.lineTo(22, 10);
+				ctx.quadraticCurveTo(22, 6, 20, 6);
 				ctx.closePath();
 				ctx.fill();
 
-				// Bottle cap
+				// Barrel plank shading (vertical lines)
+				ctx.strokeStyle = "#4e3d2a";
+				ctx.lineWidth = 0.5;
+				ctx.beginPath();
+				ctx.moveTo(8, 7);
+				ctx.lineTo(7, 37);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(12, 6);
+				ctx.lineTo(12, 38);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(16, 7);
+				ctx.lineTo(17, 37);
+				ctx.stroke();
+
+				// Metal band — top
+				ctx.fillStyle = "#6a6a6a";
+				ctx.fillRect(2, 9, 20, 2);
+
+				// Metal band — middle
+				ctx.fillRect(1, 20, 22, 2);
+
+				// Metal band — bottom
+				ctx.fillRect(2, 32, 20, 2);
+
+				// Band rivets (small dots)
+				ctx.fillStyle = "#8a8a8a";
+				ctx.beginPath();
+				ctx.arc(5, 10, 0.8, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.beginPath();
+				ctx.arc(19, 10, 0.8, 0, Math.PI * 2);
+				ctx.fill();
+
+				// Barrel lid / top rim
+				ctx.fillStyle = "#4e3d2a";
+				ctx.fillRect(3, 5, 18, 3);
+
+				// Tap / spigot
+				ctx.fillStyle = "#4a4a4a";
+				ctx.fillRect(21, 22, 3, 2);
+				ctx.fillRect(22, 21, 2, 4);
+
+				// Water droplet below tap
 				ctx.fillStyle = "#3b82f6";
-				ctx.fillRect(9, 0, 6, 4);
-
-				// Water level inside bottle
-				ctx.fillStyle = "#93c5fd";
-				ctx.fillRect(7, 12, 10, 10);
-
-				// Water level shine
-				ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-				ctx.fillRect(8, 6, 3, 14);
-
-				// Drip cup
-				ctx.fillStyle = "#d1d5db";
-				ctx.fillRect(8, 36, 8, 3);
+				ctx.beginPath();
+				ctx.moveTo(23, 26);
+				ctx.quadraticCurveTo(24, 28, 23, 29);
+				ctx.quadraticCurveTo(22, 28, 23, 26);
+				ctx.fill();
 
 				// Label
 				ctx.fillStyle = "#f5f5f4";

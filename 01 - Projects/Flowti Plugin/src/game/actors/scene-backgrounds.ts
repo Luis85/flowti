@@ -4,6 +4,12 @@
  * Each function paints a full-scene background styled after the
  * Ninja Adventure tileset aesthetic — blocky shapes, limited palette,
  * warm lighting, and hand-placed furniture elements.
+ *
+ * Rooms:
+ *   Hub     → Tavern       (warm wood, stone walls, barrels, lanterns)
+ *   Office  → Dojo         (tatami floors, paper walls, weapon racks)
+ *   Village → Market Square (cobblestone, stalls, crates, fabrics)
+ *   Station → Workshop     (dark stone, forge, tool racks, embers)
  */
 
 // ── Shared helpers ───────────────────────────────────────────────────
@@ -48,375 +54,540 @@ function drawStoneWall(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
 	}
 }
 
-// ── Office — Tech Studio Interior ────────────────────────────────────
-
-export function drawOfficeFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-	// Floor — dark wood planks
-	drawWoodPlanks(ctx, 0, 50, w, h - 50, "#1e1a14", "#1a1610", 16);
-
-	// Back wall — stone
-	drawStoneWall(ctx, 0, 0, w, 54, "#2a2a3a", "#24243a", 32, 18);
-
-	// Wall baseboard
-	pxRect(ctx, 0, 50, w, 4, "#3a3540");
-
-	// Right wall — thinner strip
-	drawStoneWall(ctx, w - 28, 0, 28, h, "#28283a", "#222238", 28, 18);
-
-	// Windows on back wall — two light-blue panes
-	for (const wx of [200, 460]) {
-		// Window frame
-		pxRect(ctx, wx - 2, 8, 84, 38, "#3a3540");
-		// Glass panes (2×1)
-		pxRect(ctx, wx, 10, 38, 34, "#1a3a5a");
-		pxRect(ctx, wx + 42, 10, 38, 34, "#1a3a5a");
-		// Mullion
-		pxRect(ctx, wx + 38, 10, 4, 34, "#3a3540");
-		pxRect(ctx, wx, 25, 80, 3, "#3a3540");
-		// Light glow from window
-		const grad = ctx.createRadialGradient(wx + 40, 44, 0, wx + 40, 44, 80);
-		grad.addColorStop(0, "rgba(100, 160, 220, 0.08)");
-		grad.addColorStop(1, "rgba(100, 160, 220, 0)");
-		ctx.fillStyle = grad;
-		ctx.fillRect(wx - 40, 44, 160, 100);
-	}
-
-	// Bookshelf on right wall
-	const shelfX = w - 26;
-	pxRect(ctx, shelfX, 60, 24, 120, "#3d2a1e");
-	// Shelves
-	for (const sy of [60, 90, 120, 150]) {
-		pxRect(ctx, shelfX, sy, 24, 3, "#4a3525");
-		// Books
-		const bookColors = ["#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#06b6d4"];
-		let bx = shelfX + 2;
-		for (let i = 0; i < 4 && bx < shelfX + 20; i++) {
-			const bw = 3 + Math.floor(Math.random() * 3);
-			ctx.fillStyle = bookColors[Math.floor(Math.random() * bookColors.length)];
-			ctx.fillRect(bx, sy + 3, bw, 26);
-			bx += bw + 1;
+/** Draw a cobblestone pattern with rounded stones. */
+function drawCobblestones(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, colors: readonly string[], stoneSize: number): void {
+	let row = 0;
+	for (let sy = y; sy < y + h; sy += stoneSize) {
+		const offset = row % 2 === 0 ? 0 : stoneSize / 2;
+		for (let sx = x - stoneSize; sx < x + w + stoneSize; sx += stoneSize) {
+			const rx = sx + offset;
+			if (rx + stoneSize <= x || rx >= x + w) continue;
+			const cx = rx + stoneSize / 2;
+			const cy = sy + stoneSize / 2;
+			ctx.fillStyle = colors[(row + Math.floor((sx - x) / stoneSize)) % colors.length];
+			ctx.beginPath();
+			ctx.ellipse(cx, cy, stoneSize / 2 - 1, stoneSize / 2 - 1, 0, 0, Math.PI * 2);
+			ctx.fill();
+			// Mortar shadow
+			ctx.strokeStyle = "rgba(0,0,0,0.25)";
+			ctx.lineWidth = 1;
+			ctx.stroke();
 		}
-	}
-
-	// Floor rug under desk area
-	pxRect(ctx, 120, 120, 420, 240, "#1a2540");
-	pxRect(ctx, 124, 124, 412, 232, "#16203a");
-	// Rug border pattern
-	ctx.strokeStyle = "#2a3a5a";
-	ctx.lineWidth = 1;
-	ctx.setLineDash([4, 4]);
-	ctx.strokeRect(128, 128, 404, 224);
-	ctx.setLineDash([]);
-
-	// Wall clock on back wall
-	pxRect(ctx, 370, 14, 20, 20, "#2a2018");
-	ctx.fillStyle = "#f5f0e0";
-	ctx.beginPath();
-	ctx.arc(380, 24, 8, 0, Math.PI * 2);
-	ctx.fill();
-	ctx.strokeStyle = "#1a1510";
-	ctx.lineWidth = 1;
-	ctx.beginPath();
-	ctx.moveTo(380, 24);
-	ctx.lineTo(380, 18);
-	ctx.moveTo(380, 24);
-	ctx.lineTo(384, 24);
-	ctx.stroke();
-
-	// Floor cable conduit
-	ctx.strokeStyle = "#2a2520";
-	ctx.lineWidth = 3;
-	ctx.beginPath();
-	ctx.moveTo(600, h);
-	ctx.lineTo(600, 300);
-	ctx.lineTo(w - 28, 300);
-	ctx.stroke();
-
-	// Ambient glow from monitors
-	for (const gx of [180, 340, 500]) {
-		const grad = ctx.createRadialGradient(gx, 170, 0, gx, 170, 40);
-		grad.addColorStop(0, "rgba(59, 130, 246, 0.06)");
-		grad.addColorStop(1, "rgba(59, 130, 246, 0)");
-		ctx.fillStyle = grad;
-		ctx.beginPath();
-		ctx.arc(gx, 170, 40, 0, Math.PI * 2);
-		ctx.fill();
+		row++;
 	}
 }
 
-// ── Village — Garden Workshop ────────────────────────────────────────
+/** Draw a lantern with warm glow. */
+function drawLantern(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+	// Bracket
+	pxRect(ctx, x - 2, y - 8, 4, 6, "#5c4033");
+	// Lantern body
+	pxRect(ctx, x - 4, y - 2, 8, 10, "#5c4033");
+	pxRect(ctx, x - 3, y, 6, 6, "#fbbf24");
+	// Warm glow
+	const grad = ctx.createRadialGradient(x, y + 2, 0, x, y + 2, radius);
+	grad.addColorStop(0, "rgba(251, 191, 36, 0.12)");
+	grad.addColorStop(0.5, "rgba(251, 146, 20, 0.06)");
+	grad.addColorStop(1, "rgba(251, 146, 20, 0)");
+	ctx.fillStyle = grad;
+	ctx.beginPath();
+	ctx.arc(x, y + 2, radius, 0, Math.PI * 2);
+	ctx.fill();
+}
 
-export function drawVillageFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-	// Grass base — two-tone green
-	for (let y = 0; y < h; y += 16) {
-		for (let x = 0; x < w; x += 16) {
-			const shade = ((x + y) / 16) % 3 === 0 ? "#1a2a12" : ((x + y) / 16) % 3 === 1 ? "#1e2e16" : "#1a2810";
-			pxRect(ctx, x, y, 16, 16, shade);
+/** Draw a barrel shape. */
+function drawBarrel(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+	// Body
+	pxRect(ctx, x - 8, y, 16, 20, "#6b5940");
+	pxRect(ctx, x - 9, y + 4, 18, 2, "#5c4a35");
+	pxRect(ctx, x - 9, y + 14, 18, 2, "#5c4a35");
+	// Stave lines
+	ctx.fillStyle = "rgba(0,0,0,0.12)";
+	ctx.fillRect(x - 4, y, 1, 20);
+	ctx.fillRect(x + 3, y, 1, 20);
+	// Top rim
+	pxRect(ctx, x - 7, y - 2, 14, 3, "#4e3d2a");
+	// Highlight
+	ctx.fillStyle = "rgba(255,255,255,0.06)";
+	ctx.fillRect(x - 6, y + 2, 3, 14);
+}
+
+/** Draw a simple crate. */
+function drawCrate(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+	pxRect(ctx, x, y, size, size, "#5c4033");
+	pxRect(ctx, x + 1, y + 1, size - 2, size - 2, "#6b5240");
+	// Cross bracing
+	ctx.strokeStyle = "#4a3525";
+	ctx.lineWidth = 1;
+	ctx.beginPath();
+	ctx.moveTo(x, y);
+	ctx.lineTo(x + size, y + size);
+	ctx.moveTo(x + size, y);
+	ctx.lineTo(x, y + size);
+	ctx.stroke();
+	// Nail dots
+	ctx.fillStyle = "#8a7a6a";
+	ctx.fillRect(x + 2, y + 2, 2, 2);
+	ctx.fillRect(x + size - 4, y + 2, 2, 2);
+}
+
+// ── Hub — Tavern ─────────────────────────────────────────────────────
+
+export function drawTavernFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+	// Floor — warm wood planks
+	drawWoodPlanks(ctx, 0, 56, w, h - 56, "#5c4a35", "#4e3d2a", 14);
+
+	// Plank stagger — offset darker strips for visual interest
+	for (let py = 56; py < h; py += 28) {
+		const stripX = ((py - 56) / 28) % 2 === 0 ? 100 : 260;
+		pxRect(ctx, stripX, py, 2, 14, "rgba(0,0,0,0.08)");
+		pxRect(ctx, stripX + 200, py, 2, 14, "rgba(0,0,0,0.08)");
+	}
+
+	// Back wall — stone blocks
+	drawStoneWall(ctx, 0, 0, w, 58, "#3a3a4a", "#2e2e3a", 28, 18);
+	// Mortar accent line at wall base
+	pxRect(ctx, 0, 54, w, 4, "#1a1a24");
+
+	// Right wall — wood panelling
+	drawWoodPlanks(ctx, w - 30, 0, 30, h, "#4a3a28", "#3e3020", 20);
+	pxRect(ctx, w - 32, 0, 2, h, "#2e2418");
+
+	// Wall-mounted shelves on back wall
+	for (const shelfX of [140, 400, 580]) {
+		pxRect(ctx, shelfX, 30, 60, 4, "#5c4033");
+		pxRect(ctx, shelfX, 34, 60, 2, "#4a3525");
+		// Bottles/mugs
+		const bottleColors = ["#22c55e", "#ef4444", "#f59e0b", "#3b82f6"];
+		for (let i = 0; i < 3; i++) {
+			const bx = shelfX + 8 + i * 18;
+			ctx.fillStyle = bottleColors[i % bottleColors.length];
+			ctx.fillRect(bx, 20, 4, 10);
+			ctx.fillStyle = "#4a3a28";
+			ctx.fillRect(bx - 1, 18, 6, 3);
 		}
 	}
 
-	// Grass tufts — small random lighter patches
-	ctx.fillStyle = "#2a3e1a";
-	for (let i = 0; i < 30; i++) {
-		const gx = Math.floor(Math.random() * w / 8) * 8;
-		const gy = Math.floor(Math.random() * h / 8) * 8 + 60;
-		if (gy < h - 40) {
-			ctx.fillRect(gx, gy, 4, 2);
-			ctx.fillRect(gx + 2, gy - 2, 2, 2);
+	// Lanterns on back wall
+	drawLantern(ctx, 80, 22, 50);
+	drawLantern(ctx, 340, 22, 50);
+	drawLantern(ctx, 700, 22, 50);
+
+	// Barrels in corners
+	drawBarrel(ctx, 50, 80);
+	drawBarrel(ctx, 70, 100);
+	drawBarrel(ctx, w - 50, 400);
+
+	// Large floor rug — warm rug under center area
+	pxRect(ctx, 160, 140, 360, 220, "#4a2020");
+	pxRect(ctx, 164, 144, 352, 212, "#3e1a1a");
+	// Rug border pattern
+	ctx.strokeStyle = "#6a3030";
+	ctx.lineWidth = 2;
+	ctx.setLineDash([6, 4]);
+	ctx.strokeRect(168, 148, 344, 204);
+	ctx.setLineDash([]);
+	// Rug center motif
+	ctx.strokeStyle = "#7a4040";
+	ctx.lineWidth = 1;
+	ctx.beginPath();
+	ctx.arc(340, 250, 30, 0, Math.PI * 2);
+	ctx.stroke();
+
+	// Fireplace on right wall
+	const fpX = w - 28;
+	pxRect(ctx, fpX - 20, 160, 18, 28, "#2a2a2a");
+	pxRect(ctx, fpX - 18, 162, 14, 24, "#1a0a0a");
+	// Fire glow
+	const fireGrad = ctx.createRadialGradient(fpX - 11, 178, 0, fpX - 11, 178, 40);
+	fireGrad.addColorStop(0, "rgba(239, 68, 68, 0.12)");
+	fireGrad.addColorStop(0.5, "rgba(245, 158, 11, 0.06)");
+	fireGrad.addColorStop(1, "rgba(245, 158, 11, 0)");
+	ctx.fillStyle = fireGrad;
+	ctx.beginPath();
+	ctx.arc(fpX - 11, 178, 40, 0, Math.PI * 2);
+	ctx.fill();
+	// Ember flickers
+	ctx.fillStyle = "#f59e0b";
+	ctx.fillRect(fpX - 16, 176, 3, 3);
+	ctx.fillStyle = "#ef4444";
+	ctx.fillRect(fpX - 10, 180, 2, 2);
+	ctx.fillStyle = "#fbbf24";
+	ctx.fillRect(fpX - 12, 172, 2, 4);
+
+	// Bottom border — timber
+	pxRect(ctx, 0, h - 6, w, 6, "#3e3020");
+	pxRect(ctx, 0, h - 8, w, 2, "#4a3a28");
+}
+
+// ── Office — Dojo ────────────────────────────────────────────────────
+
+export function drawDojoFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+	// Tatami grid floor
+	const tatW = 48;
+	const tatH = 24;
+	for (let ty = 56; ty < h; ty += tatH) {
+		for (let tx = 0; tx < w; tx += tatW) {
+			const isAlt = ((tx / tatW + ty / tatH) % 2 === 0);
+			pxRect(ctx, tx, ty, tatW, tatH, isAlt ? "#7a6a4a" : "#6e5e40");
+			// Tatami edge border
+			ctx.strokeStyle = "#5a4a30";
+			ctx.lineWidth = 1;
+			ctx.strokeRect(tx + 0.5, ty + 0.5, tatW - 1, tatH - 1);
+			// Weave texture lines
+			ctx.fillStyle = "rgba(0,0,0,0.04)";
+			for (let line = tx + 4; line < tx + tatW; line += 8) {
+				ctx.fillRect(line, ty + 1, 1, tatH - 2);
+			}
 		}
 	}
 
-	// Stone path from door to work area
-	const pathY = h / 2;
-	for (let px = 20; px < 550; px += 24) {
-		const stoneY = pathY - 12 + Math.sin(px * 0.05) * 4;
-		const stoneColors = ["#4a4a42", "#3e3e38", "#44443c"];
-		ctx.fillStyle = stoneColors[Math.floor(Math.random() * stoneColors.length)];
-		ctx.beginPath();
-		ctx.ellipse(px, stoneY, 14, 8, 0, 0, Math.PI * 2);
-		ctx.fill();
-		ctx.strokeStyle = "rgba(0,0,0,0.3)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
+	// Dark border strip around tatami
+	pxRect(ctx, 0, 54, w, 3, "#3a2a18");
+
+	// Back wall — paper screen panels with wood frames
+	pxRect(ctx, 0, 0, w, 56, "#b0a080");
+	// Wood frame grid
+	for (let fx = 0; fx < w; fx += 100) {
+		pxRect(ctx, fx, 0, 4, 56, "#5c4033");
+	}
+	pxRect(ctx, 0, 0, w, 4, "#5c4033");
+	pxRect(ctx, 0, 52, w, 4, "#5c4033");
+	pxRect(ctx, 0, 26, w, 3, "#5c4033");
+	// Paper screen fill — subtle variation
+	for (let fx = 4; fx < w; fx += 100) {
+		const panelW = Math.min(96, w - fx);
+		pxRect(ctx, fx, 4, panelW, 22, "#9a8a70");
+		pxRect(ctx, fx, 29, panelW, 23, "#a09078");
 	}
 
-	// Wooden fence along top
-	pxRect(ctx, 0, 0, w, 8, "#3d2a1e");
-	pxRect(ctx, 0, 8, w, 4, "#5c4033");
-	pxRect(ctx, 0, 32, w, 4, "#5c4033");
-	// Fence posts
-	for (let fx = 30; fx < w; fx += 60) {
-		pxRect(ctx, fx - 3, 0, 6, 44, "#4a3525");
-		pxRect(ctx, fx - 1, 0, 2, 4, "#5c4a3a");
+	// Right wall — wood panelling
+	pxRect(ctx, w - 28, 0, 28, h, "#5c4033");
+	pxRect(ctx, w - 30, 0, 2, h, "#4a3525");
+	// Vertical slat pattern
+	for (let sy = 0; sy < h; sy += 24) {
+		pxRect(ctx, w - 26, sy, 22, 1, "rgba(0,0,0,0.1)");
 	}
 
-	// Trees at corners (back-right and back-left edges)
-	for (const [tx, ty] of [[w - 70, 50], [w - 120, 70], [80, 60]] as const) {
-		// Trunk
-		pxRect(ctx, tx - 4, ty, 8, 20, "#4a3525");
-		pxRect(ctx, tx - 3, ty + 2, 6, 16, "#5c4033");
-		// Canopy — layered circles
-		for (const [ox, oy, r] of [[0, -10, 18], [-8, -4, 12], [8, -4, 12]] as const) {
-			ctx.fillStyle = "#1a4a1a";
+	// Weapon rack on right wall
+	const rackX = w - 24;
+	pxRect(ctx, rackX, 70, 18, 4, "#4a3525");
+	pxRect(ctx, rackX, 130, 18, 4, "#4a3525");
+	// Weapons — katana-style lines
+	ctx.strokeStyle = "#a0a0b0";
+	ctx.lineWidth = 2;
+	ctx.beginPath();
+	ctx.moveTo(rackX + 2, 74);
+	ctx.lineTo(rackX + 16, 74);
+	ctx.stroke();
+	ctx.strokeStyle = "#8090a0";
+	ctx.beginPath();
+	ctx.moveTo(rackX + 2, 134);
+	ctx.lineTo(rackX + 16, 134);
+	ctx.stroke();
+	// Weapon handles
+	ctx.fillStyle = "#3d2a1e";
+	ctx.fillRect(rackX + 14, 72, 4, 4);
+	ctx.fillRect(rackX + 14, 132, 4, 4);
+
+	// Hanging scroll banners on back wall
+	for (const [sx, color] of [[180, "#c0392b"], [500, "#2e4a8a"]] as const) {
+		// Banner pole
+		pxRect(ctx, sx - 1, 8, 22, 3, "#5c4033");
+		// Banner body
+		pxRect(ctx, sx + 2, 11, 16, 36, color);
+		pxRect(ctx, sx + 3, 12, 14, 34, color);
+		// Kanji-like markings
+		ctx.fillStyle = "#f5e6c8";
+		ctx.fillRect(sx + 7, 16, 6, 2);
+		ctx.fillRect(sx + 8, 20, 4, 8);
+		ctx.fillRect(sx + 7, 30, 6, 2);
+		// Banner fringe
+		pxRect(ctx, sx + 4, 47, 12, 2, "#fbbf24");
+	}
+
+	// Floor cushion circle (meditation area hint)
+	ctx.fillStyle = "#8b2020";
+	ctx.beginPath();
+	ctx.ellipse(400, 340, 24, 12, 0, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.strokeStyle = "#6a1818";
+	ctx.lineWidth = 1;
+	ctx.stroke();
+	// Cushion highlight
+	ctx.fillStyle = "rgba(255,255,255,0.06)";
+	ctx.beginPath();
+	ctx.ellipse(398, 336, 16, 6, 0, 0, Math.PI * 2);
+	ctx.fill();
+
+	// Incense burner near back wall
+	const incX = 350;
+	pxRect(ctx, incX, 42, 8, 8, "#4a3a2a");
+	pxRect(ctx, incX + 1, 43, 6, 6, "#3a2a1a");
+	// Smoke wisps
+	ctx.strokeStyle = "rgba(200, 200, 200, 0.08)";
+	ctx.lineWidth = 1;
+	ctx.beginPath();
+	ctx.moveTo(incX + 4, 42);
+	ctx.quadraticCurveTo(incX + 8, 32, incX + 3, 22);
+	ctx.stroke();
+	ctx.strokeStyle = "rgba(200, 200, 200, 0.05)";
+	ctx.beginPath();
+	ctx.moveTo(incX + 4, 42);
+	ctx.quadraticCurveTo(incX - 2, 34, incX + 5, 24);
+	ctx.stroke();
+
+	// Bottom border — raised platform edge
+	pxRect(ctx, 0, h - 6, w, 6, "#4a3525");
+	pxRect(ctx, 0, h - 8, w, 2, "#5c4033");
+}
+
+// ── Village — Market Square ──────────────────────────────────────────
+
+export function drawMarketSquareFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+	// Cobblestone floor
+	drawCobblestones(ctx, 0, 50, w, h - 50, ["#5a5a5a", "#4a4a4a", "#6a6a6a", "#555555"], 14);
+
+	// Back wall — timber-frame facade
+	pxRect(ctx, 0, 0, w, 54, "#5c4a35");
+	drawStoneWall(ctx, 0, 4, w, 46, "#7a6a55", "#6a5a48", 24, 14);
+	// Timber frame
+	pxRect(ctx, 0, 0, w, 4, "#5c4033");
+	pxRect(ctx, 0, 50, w, 4, "#5c4033");
+	for (let fx = 0; fx < w; fx += 120) {
+		pxRect(ctx, fx, 0, 6, 54, "#5c4033");
+	}
+
+	// Right wall — stone pillar
+	drawStoneWall(ctx, w - 28, 0, 28, h, "#4a4a4a", "#3e3e3e", 28, 16);
+	pxRect(ctx, w - 30, 0, 2, h, "#2a2a2a");
+
+	// Market stall awnings on back wall
+	for (const [ax, aw, color] of [[80, 140, "#7b2d8b"], [320, 120, "#3b82f6"], [540, 130, "#c0392b"]] as const) {
+		// Support posts
+		pxRect(ctx, ax, 40, 4, 60, "#5c4033");
+		pxRect(ctx, ax + aw - 4, 40, 4, 60, "#5c4033");
+		// Awning — scalloped fabric
+		pxRect(ctx, ax, 40, aw, 6, color);
+		pxRect(ctx, ax, 46, aw, 3, color + "cc");
+		// Scallop fringe
+		for (let scx = ax; scx < ax + aw; scx += 10) {
+			ctx.fillStyle = color;
 			ctx.beginPath();
-			ctx.arc(tx + ox, ty + oy, r, 0, Math.PI * 2);
+			ctx.arc(scx + 5, 49, 4, 0, Math.PI);
 			ctx.fill();
 		}
-		// Highlight
-		ctx.fillStyle = "#2a5a2a";
+		// Counter shelf
+		pxRect(ctx, ax + 4, 88, aw - 8, 6, "#5c4033");
+		pxRect(ctx, ax + 4, 94, aw - 8, 2, "#4a3525");
+	}
+
+	// Wares on stall counters
+	// Stall 1 — potions / bottles
+	const bottleColors = ["#22c55e", "#3b82f6", "#ef4444", "#f59e0b"];
+	for (let i = 0; i < 4; i++) {
+		ctx.fillStyle = bottleColors[i];
+		ctx.fillRect(92 + i * 24, 78, 5, 10);
+		pxRect(ctx, 90 + i * 24, 76, 9, 3, "#4a3a2a");
+	}
+	// Stall 2 — scrolls
+	for (let i = 0; i < 3; i++) {
+		pxRect(ctx, 332 + i * 30, 80, 16, 8, "#f5e6c8");
+		pxRect(ctx, 332 + i * 30, 80, 16, 2, "#c0392b");
+	}
+	// Stall 3 — fruit / produce
+	const fruitColors = ["#ef4444", "#f59e0b", "#22c55e", "#ef4444"];
+	for (let i = 0; i < 4; i++) {
+		ctx.fillStyle = fruitColors[i];
 		ctx.beginPath();
-		ctx.arc(tx - 4, ty - 14, 8, 0, Math.PI * 2);
+		ctx.arc(556 + i * 20, 84, 4, 0, Math.PI * 2);
 		ctx.fill();
 	}
 
-	// Flower patches
-	const flowerColors = ["#ef4444", "#f59e0b", "#ec4899", "#a855f7", "#f97316"];
-	for (const [fx, fy] of [[650, 400], [700, 420], [720, 380], [100, 400], [140, 380], [660, 100], [700, 120]] as const) {
-		// Stem
-		ctx.fillStyle = "#2a4a1a";
-		ctx.fillRect(fx, fy - 4, 2, 6);
-		// Petals
-		ctx.fillStyle = flowerColors[Math.floor(Math.random() * flowerColors.length)];
-		ctx.beginPath();
-		ctx.arc(fx + 1, fy - 6, 3, 0, Math.PI * 2);
-		ctx.fill();
-		// Center
-		ctx.fillStyle = "#fbbf24";
-		ctx.beginPath();
-		ctx.arc(fx + 1, fy - 6, 1, 0, Math.PI * 2);
-		ctx.fill();
+	// Crate stacks around the edges
+	drawCrate(ctx, 40, 120, 16);
+	drawCrate(ctx, 42, 104, 14);
+	drawCrate(ctx, 660, 380, 18);
+	drawCrate(ctx, 680, 376, 14);
+	drawCrate(ctx, 670, 360, 12);
+
+	// Barrel groups
+	drawBarrel(ctx, 60, 380);
+	drawBarrel(ctx, 80, 390);
+	drawBarrel(ctx, w - 55, 120);
+
+	// Hanging fabrics / banners between stalls
+	for (const [bx, color] of [[260, "#f59e0b"], [470, "#8b5cf6"]] as const) {
+		pxRect(ctx, bx, 16, 3, 32, "#5c4033");
+		pxRect(ctx, bx - 6, 18, 14, 24, color);
+		// Fabric pattern — simple stripes
+		ctx.fillStyle = "rgba(255,255,255,0.12)";
+		ctx.fillRect(bx - 4, 24, 10, 2);
+		ctx.fillRect(bx - 4, 32, 10, 2);
 	}
 
-	// Wooden awning/canopy over work area
-	pxRect(ctx, 140, 100, 380, 6, "#5c4033");
-	pxRect(ctx, 140, 106, 380, 3, "#4a3525");
-	// Support posts
-	for (const px of [144, 516]) {
-		pxRect(ctx, px, 100, 6, 180, "#4a3525");
-		pxRect(ctx, px + 1, 102, 4, 176, "#5c4033");
+	// Ground details — scattered leaves / debris
+	const debrisColors = ["#5c4a35", "#4a3a28", "#6b5a45"];
+	for (let i = 0; i < 15; i++) {
+		const dx = 40 + (i * 47) % (w - 80);
+		const dy = 100 + (i * 31) % (h - 140);
+		ctx.fillStyle = debrisColors[i % debrisColors.length];
+		ctx.fillRect(dx, dy, 3, 2);
 	}
-
-	// Wooden platform under work area
-	drawWoodPlanks(ctx, 150, 270, 360, 60, "#3d2a1e", "#4a3525", 12);
 
 	// Lantern posts
-	for (const [lx, ly] of [[60, 180], [w - 60, 300]] as const) {
-		// Post
-		pxRect(ctx, lx - 2, ly, 4, 40, "#4a3525");
-		// Lantern
-		pxRect(ctx, lx - 5, ly - 4, 10, 8, "#5c4033");
-		pxRect(ctx, lx - 3, ly - 2, 6, 4, "#fbbf24");
-		// Glow
-		const grad = ctx.createRadialGradient(lx, ly, 0, lx, ly, 50);
-		grad.addColorStop(0, "rgba(251, 191, 36, 0.1)");
-		grad.addColorStop(1, "rgba(251, 191, 36, 0)");
-		ctx.fillStyle = grad;
+	drawLantern(ctx, 30, 60, 40);
+	drawLantern(ctx, w - 45, 300, 40);
+
+	// Bottom border — curb edge
+	pxRect(ctx, 0, h - 8, w, 8, "#3a3a3a");
+	pxRect(ctx, 0, h - 10, w, 2, "#4a4a4a");
+}
+
+// ── Station — Workshop / Forge ───────────────────────────────────────
+
+export function drawWorkshopFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+	// Dark brick floor
+	const brickW = 24;
+	const brickH = 12;
+	let row = 0;
+	for (let by = 56; by < h; by += brickH) {
+		const offset = row % 2 === 0 ? 0 : brickW / 2;
+		for (let bx = -brickW; bx < w + brickW; bx += brickW) {
+			const rx = bx + offset;
+			if (rx + brickW <= 0 || rx >= w) continue;
+			const clippedX = Math.max(rx, 0);
+			const clippedW = Math.min(rx + brickW, w) - clippedX;
+			const shade = (row + Math.floor(bx / brickW)) % 3;
+			const colors = ["#3a2a2a", "#2e2020", "#4a3030"];
+			ctx.fillStyle = colors[shade];
+			ctx.fillRect(clippedX, by, clippedW, Math.min(brickH, h - by));
+			// Mortar
+			ctx.fillStyle = "rgba(0,0,0,0.15)";
+			ctx.fillRect(clippedX, by + brickH - 1, clippedW, 1);
+			ctx.fillRect(clippedX + clippedW - 1, by, 1, Math.min(brickH, h - by));
+		}
+		row++;
+	}
+
+	// Back wall — heavy stone
+	drawStoneWall(ctx, 0, 0, w, 58, "#2a2a2a", "#1e1e1e", 32, 18);
+	// Brick accent band
+	pxRect(ctx, 0, 50, w, 3, "#4a2a2a");
+	pxRect(ctx, 0, 53, w, 5, "#1a1010");
+
+	// Right wall — dark stone with soot marks
+	drawStoneWall(ctx, w - 30, 0, 30, h, "#2a2a2a", "#222222", 30, 18);
+	pxRect(ctx, w - 32, 0, 2, h, "#1a1a1a");
+	// Soot stains
+	ctx.fillStyle = "rgba(0,0,0,0.15)";
+	ctx.fillRect(w - 28, 80, 20, 40);
+	ctx.fillStyle = "rgba(0,0,0,0.1)";
+	ctx.fillRect(w - 26, 120, 18, 30);
+
+	// Forge structure — back wall center
+	const forgeX = 340;
+	const forgeY = 8;
+	// Stone frame
+	pxRect(ctx, forgeX, forgeY, 80, 44, "#1e1e1e");
+	pxRect(ctx, forgeX + 2, forgeY + 2, 76, 40, "#0e0808");
+	// Fire pit
+	pxRect(ctx, forgeX + 10, forgeY + 14, 60, 26, "#1a0a0a");
+	// Ember glow
+	const forgeGrad = ctx.createRadialGradient(forgeX + 40, forgeY + 30, 0, forgeX + 40, forgeY + 30, 60);
+	forgeGrad.addColorStop(0, "rgba(239, 68, 68, 0.18)");
+	forgeGrad.addColorStop(0.3, "rgba(245, 158, 11, 0.10)");
+	forgeGrad.addColorStop(1, "rgba(245, 158, 11, 0)");
+	ctx.fillStyle = forgeGrad;
+	ctx.beginPath();
+	ctx.arc(forgeX + 40, forgeY + 30, 60, 0, Math.PI * 2);
+	ctx.fill();
+	// Fire shapes
+	ctx.fillStyle = "#ef4444";
+	ctx.fillRect(forgeX + 18, forgeY + 28, 6, 8);
+	ctx.fillStyle = "#f59e0b";
+	ctx.fillRect(forgeX + 30, forgeY + 24, 8, 12);
+	ctx.fillStyle = "#fbbf24";
+	ctx.fillRect(forgeX + 44, forgeY + 26, 6, 10);
+	ctx.fillStyle = "#ef4444";
+	ctx.fillRect(forgeX + 54, forgeY + 30, 4, 6);
+	// Chimney flue
+	pxRect(ctx, forgeX + 30, forgeY - 4, 20, 6, "#1a1a1a");
+	// Smoke wisps
+	ctx.strokeStyle = "rgba(100, 100, 100, 0.06)";
+	ctx.lineWidth = 2;
+	ctx.beginPath();
+	ctx.moveTo(forgeX + 40, forgeY - 4);
+	ctx.quadraticCurveTo(forgeX + 50, forgeY - 20, forgeX + 38, forgeY - 30);
+	ctx.stroke();
+
+	// Tool rack on right wall
+	const toolX = w - 26;
+	pxRect(ctx, toolX, 70, 18, 4, "#3a3a3a");
+	pxRect(ctx, toolX, 140, 18, 4, "#3a3a3a");
+	// Hammer
+	pxRect(ctx, toolX + 2, 74, 3, 30, "#5c4033");
+	pxRect(ctx, toolX, 74, 7, 6, "#8a8a8a");
+	// Tongs
+	ctx.strokeStyle = "#6a6a6a";
+	ctx.lineWidth = 2;
+	ctx.beginPath();
+	ctx.moveTo(toolX + 10, 74);
+	ctx.lineTo(toolX + 10, 100);
+	ctx.lineTo(toolX + 14, 104);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.moveTo(toolX + 12, 74);
+	ctx.lineTo(toolX + 12, 100);
+	ctx.lineTo(toolX + 8, 104);
+	ctx.stroke();
+
+	// Anvil shape on floor
+	const anvilX = 180;
+	const anvilY = 300;
+	pxRect(ctx, anvilX, anvilY, 30, 8, "#5a5a5a");
+	pxRect(ctx, anvilX + 4, anvilY + 8, 22, 12, "#4a4a4a");
+	pxRect(ctx, anvilX + 2, anvilY + 20, 26, 6, "#3a3a3a");
+	// Highlight
+	ctx.fillStyle = "rgba(255,255,255,0.06)";
+	ctx.fillRect(anvilX + 2, anvilY, 26, 3);
+
+	// Water quench barrel
+	drawBarrel(ctx, 240, 280);
+	// Water surface hint
+	ctx.fillStyle = "rgba(59, 130, 246, 0.15)";
+	ctx.beginPath();
+	ctx.ellipse(240, 282, 6, 3, 0, 0, Math.PI * 2);
+	ctx.fill();
+
+	// Scattered metal ingots on floor
+	for (const [ix, iy, color] of [[500, 350, "#8a8a8a"], [520, 360, "#6a6a6a"], [510, 340, "#9a7a3a"]] as const) {
+		pxRect(ctx, ix, iy, 10, 6, color);
+		ctx.fillStyle = "rgba(255,255,255,0.08)";
+		ctx.fillRect(ix, iy, 10, 2);
+	}
+
+	// Coal pile near forge
+	ctx.fillStyle = "#1a1a1a";
+	for (let i = 0; i < 8; i++) {
+		const cx = 460 + (i % 4) * 8;
+		const cy = 80 + Math.floor(i / 4) * 6;
 		ctx.beginPath();
-		ctx.arc(lx, ly, 50, 0, Math.PI * 2);
+		ctx.arc(cx, cy, 4, 0, Math.PI * 2);
 		ctx.fill();
 	}
+	// Coal glow
+	ctx.fillStyle = "rgba(239, 68, 68, 0.04)";
+	ctx.fillRect(456, 72, 40, 24);
 
-	// Bottom border — dirt path
-	pxRect(ctx, 0, h - 20, w, 20, "#2a2018");
-	pxRect(ctx, 0, h - 22, w, 2, "#3d2a1e");
-}
+	// Ember glow from forge — extends onto floor
+	const floorGrad = ctx.createRadialGradient(forgeX + 40, 80, 0, forgeX + 40, 80, 120);
+	floorGrad.addColorStop(0, "rgba(245, 158, 11, 0.06)");
+	floorGrad.addColorStop(1, "rgba(245, 158, 11, 0)");
+	ctx.fillStyle = floorGrad;
+	ctx.fillRect(forgeX - 80, 56, 240, 140);
 
-// ── Station — Command Center ─────────────────────────────────────────
-
-export function drawStationFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-	// Metal tile floor
-	const tileSize = 32;
-	for (let y = 0; y < h; y += tileSize) {
-		for (let x = 0; x < w; x += tileSize) {
-			const shade = ((x / tileSize + y / tileSize) % 2 === 0) ? "#0e1218" : "#10141a";
-			pxRect(ctx, x, y, tileSize, tileSize, shade);
-			// Tile border
-			ctx.strokeStyle = "rgba(100,120,140,0.1)";
-			ctx.lineWidth = 0.5;
-			ctx.strokeRect(x + 0.5, y + 0.5, tileSize - 1, tileSize - 1);
-		}
-	}
-
-	// Warning stripes along bottom edge
-	const stripeW = 16;
-	for (let sx = 0; sx < w; sx += stripeW * 2) {
-		pxRect(ctx, sx, h - 12, stripeW, 12, "#f59e0b");
-		pxRect(ctx, sx + stripeW, h - 12, stripeW, 12, "#1a1a1a");
-	}
-	pxRect(ctx, 0, h - 14, w, 2, "#2a2a2a");
-
-	// Back wall — dark panels with glow seams
-	pxRect(ctx, 0, 0, w, 56, "#0a0e14");
-	// Horizontal light strip
-	pxRect(ctx, 0, 52, w, 2, "#06b6d4");
-	ctx.globalAlpha = 0.3;
-	pxRect(ctx, 0, 54, w, 2, "#06b6d4");
-	ctx.globalAlpha = 1;
-
-	// Wall-mounted screens on back wall
-	for (const [sx, sw] of [[120, 100], [300, 160], [560, 100]] as const) {
-		// Screen bezel
-		pxRect(ctx, sx - 3, 8, sw + 6, 40, "#1a1e24");
-		// Screen
-		pxRect(ctx, sx, 10, sw, 36, "#0a1a2a");
-		// Scan line effect
-		for (let ly = 12; ly < 44; ly += 4) {
-			ctx.fillStyle = "rgba(6, 182, 212, 0.04)";
-			ctx.fillRect(sx + 2, ly, sw - 4, 1);
-		}
-		// Status bar at bottom of screen
-		pxRect(ctx, sx + 4, 38, sw - 8, 4, "#0e2a3a");
-		// Blinking dots
-		for (let dx = 0; dx < 4; dx++) {
-			ctx.fillStyle = dx < 3 ? "#22c55e" : "#ef4444";
-			ctx.beginPath();
-			ctx.arc(sx + 10 + dx * 8, 40, 1.5, 0, Math.PI * 2);
-			ctx.fill();
-		}
-		// Screen glow
-		const grad = ctx.createRadialGradient(sx + sw / 2, 30, 0, sx + sw / 2, 56, 60);
-		grad.addColorStop(0, "rgba(6, 182, 212, 0.06)");
-		grad.addColorStop(1, "rgba(6, 182, 212, 0)");
-		ctx.fillStyle = grad;
-		ctx.fillRect(sx - 20, 30, sw + 40, 80);
-	}
-
-	// Right wall — server rack strip
-	pxRect(ctx, w - 32, 0, 32, h, "#0e1218");
-	pxRect(ctx, w - 34, 0, 2, h, "#06b6d4");
-	ctx.globalAlpha = 0.2;
-	pxRect(ctx, w - 36, 0, 2, h, "#06b6d4");
-	ctx.globalAlpha = 1;
-
-	// Server rack units on right wall
-	for (let ry = 60; ry < h - 60; ry += 30) {
-		pxRect(ctx, w - 28, ry, 24, 24, "#141a22");
-		pxRect(ctx, w - 26, ry + 2, 20, 20, "#0a1018");
-		// Rack indicator LEDs
-		for (let led = 0; led < 3; led++) {
-			const ledColor = Math.random() > 0.3 ? "#22c55e" : "#ef4444";
-			ctx.fillStyle = ledColor;
-			ctx.beginPath();
-			ctx.arc(w - 22 + led * 6, ry + 6, 1.5, 0, Math.PI * 2);
-			ctx.fill();
-		}
-		// Ventilation lines
-		for (let vl = 0; vl < 3; vl++) {
-			ctx.fillStyle = "#1a2030";
-			ctx.fillRect(w - 24, ry + 12 + vl * 4, 16, 1);
-		}
-	}
-
-	// Central hologram projector pad
-	ctx.fillStyle = "#0e2030";
-	ctx.beginPath();
-	ctx.ellipse(400, 350, 40, 20, 0, 0, Math.PI * 2);
-	ctx.fill();
-	ctx.strokeStyle = "#06b6d4";
-	ctx.lineWidth = 1;
-	ctx.stroke();
-	// Inner ring
-	ctx.strokeStyle = "rgba(6, 182, 212, 0.5)";
-	ctx.beginPath();
-	ctx.ellipse(400, 350, 25, 12, 0, 0, Math.PI * 2);
-	ctx.stroke();
-	// Glow
-	const holoGrad = ctx.createRadialGradient(400, 350, 0, 400, 350, 50);
-	holoGrad.addColorStop(0, "rgba(6, 182, 212, 0.08)");
-	holoGrad.addColorStop(1, "rgba(6, 182, 212, 0)");
-	ctx.fillStyle = holoGrad;
-	ctx.beginPath();
-	ctx.arc(400, 350, 50, 0, Math.PI * 2);
-	ctx.fill();
-
-	// Floor markings — dashed guide lines
-	ctx.strokeStyle = "rgba(6, 182, 212, 0.08)";
-	ctx.lineWidth = 1;
-	ctx.setLineDash([8, 8]);
-	ctx.beginPath();
-	ctx.moveTo(60, h / 2);
-	ctx.lineTo(w - 40, h / 2);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.moveTo(w / 2, 56);
-	ctx.lineTo(w / 2, h - 14);
-	ctx.stroke();
-	ctx.setLineDash([]);
-}
-
-// ── Hub — Central Gathering Floor ─────────────────────────────────────
-
-export function drawHubFloor(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-	// Base floor
-	ctx.fillStyle = "#0d1117";
-	ctx.fillRect(0, 0, w, h);
-
-	// Subtle grid
-	ctx.strokeStyle = "#1b2332";
-	ctx.lineWidth = 0.5;
-	for (let x = 0; x < w; x += 40) {
-		ctx.beginPath();
-		ctx.moveTo(x, 0);
-		ctx.lineTo(x, h);
-		ctx.stroke();
-	}
-	for (let y = 0; y < h; y += 40) {
-		ctx.beginPath();
-		ctx.moveTo(0, y);
-		ctx.lineTo(w, y);
-		ctx.stroke();
-	}
-
-	// Center radial glow
-	const gradient = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, 180);
-	gradient.addColorStop(0, "rgba(30, 41, 59, 0.3)");
-	gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-	ctx.fillStyle = gradient;
-	ctx.fillRect(0, 0, w, h);
-
-	// Top border accent
-	ctx.fillStyle = "#1e293b";
-	ctx.fillRect(0, 0, w, 3);
-	// Bottom border accent
-	ctx.fillRect(0, h - 3, w, 3);
+	// Bottom border — sooty edge
+	pxRect(ctx, 0, h - 6, w, 6, "#1a1010");
+	pxRect(ctx, 0, h - 8, w, 2, "#2a1a1a");
 }

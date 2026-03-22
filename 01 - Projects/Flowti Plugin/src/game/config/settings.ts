@@ -8,10 +8,10 @@ export interface SceneTheme {
 }
 
 export const SCENE_THEMES: Record<Setting, SceneTheme> = {
-	hub: { background: "#0a0a0f", workstationColor: "#1e293b", floorColor: "#111827", label: "Hub" },
-	office: { background: "#0f172a", workstationColor: "#1e3a5f", floorColor: "#0c1524", label: "Office" },
-	village: { background: "#1a1510", workstationColor: "#3d2e1a", floorColor: "#15120d", label: "Village" },
-	station: { background: "#0a0f1a", workstationColor: "#0e3d4a", floorColor: "#080d14", label: "Station" },
+	hub: { background: "#1a1208", workstationColor: "#1e293b", floorColor: "#1a1208", label: "Tavern" },
+	office: { background: "#1a1508", workstationColor: "#4e3e20", floorColor: "#1a1508", label: "Dojo" },
+	village: { background: "#1a1a1a", workstationColor: "#5c4033", floorColor: "#1a1a1a", label: "Market Square" },
+	station: { background: "#0e0808", workstationColor: "#4a2a1a", floorColor: "#0e0808", label: "Workshop" },
 };
 
 export const WORKSTATION_COLS = 3;

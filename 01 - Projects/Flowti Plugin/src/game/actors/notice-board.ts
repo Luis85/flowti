@@ -1,5 +1,5 @@
 /**
- * notice-board.ts — Notice board environmental object.
+ * notice-board.ts — Quest Board environmental object.
  * Displays project metrics and announcements on click.
  * No direct needs effects — serves as an information hub.
  */
@@ -22,79 +22,105 @@ export class NoticeBoard extends InteractableActor {
 			width: this.width,
 			height: this.height,
 			draw: (ctx) => {
-				// Frame
-				ctx.fillStyle = "#92400e";
-				ctx.fillRect(0, 0, 48, 40);
+				// Wooden board back
+				ctx.fillStyle = "#5c4033";
+				ctx.fillRect(2, 2, 44, 36);
 
-				// Cork surface
-				ctx.fillStyle = "#d97706";
-				ctx.fillRect(3, 3, 42, 34);
+				// Wooden frame — outer
+				ctx.strokeStyle = "#3a2a1f";
+				ctx.lineWidth = 2;
+				ctx.strokeRect(1, 1, 46, 38);
 
-				// Cork texture dots
-				ctx.fillStyle = "#b45309";
-				for (let i = 0; i < 8; i++) {
-					const dotX = 6 + (i % 4) * 10;
-					const dotY = 6 + Math.floor(i / 4) * 16;
-					ctx.beginPath();
-					ctx.arc(dotX, dotY, 0.5, 0, Math.PI * 2);
-					ctx.fill();
-				}
+				// Title bar at top
+				ctx.fillStyle = "#3a2a1f";
+				ctx.fillRect(2, 2, 44, 8);
 
-				// Sticky note 1 (yellow, top-left)
-				ctx.fillStyle = "#fbbf24";
-				ctx.fillRect(5, 5, 12, 10);
+				// Title text
+				ctx.fillStyle = "#d4a017";
+				ctx.font = "6px sans-serif";
+				ctx.textAlign = "center";
+				ctx.fillText("QUESTS", 24, 9);
 
-				// Sticky note 2 (blue, top-right)
-				ctx.fillStyle = "#60a5fa";
-				ctx.fillRect(22, 6, 14, 9);
+				// Parchment sheet 1 (top-left)
+				ctx.fillStyle = "#d4c4a0";
+				ctx.fillRect(5, 13, 14, 10);
+				ctx.strokeStyle = "#b0a080";
+				ctx.lineWidth = 0.5;
+				ctx.strokeRect(5, 13, 14, 10);
 
-				// Sticky note 3 (red, bottom-left)
-				ctx.fillStyle = "#f87171";
-				ctx.fillRect(8, 20, 11, 12);
+				// Parchment sheet 2 (top-right)
+				ctx.fillStyle = "#c4b090";
+				ctx.fillRect(22, 12, 16, 11);
+				ctx.strokeStyle = "#b0a080";
+				ctx.strokeRect(22, 12, 16, 11);
 
-				// Sticky note 4 (green, bottom-right)
-				ctx.fillStyle = "#34d399";
-				ctx.fillRect(24, 22, 16, 10);
+				// Parchment sheet 3 (bottom-left)
+				ctx.fillStyle = "#d4c4a0";
+				ctx.fillRect(6, 26, 12, 10);
+				ctx.strokeStyle = "#b0a080";
+				ctx.strokeRect(6, 26, 12, 10);
 
-				// Small note (white, center)
-				ctx.fillStyle = "#fef3c7";
-				ctx.fillRect(38, 5, 6, 8);
+				// Parchment sheet 4 (bottom-right, larger)
+				ctx.fillStyle = "#c8b898";
+				ctx.fillRect(21, 26, 18, 10);
+				ctx.strokeStyle = "#b0a080";
+				ctx.strokeRect(21, 26, 18, 10);
 
-				// Pin dots on notes
+				// Text lines on sheets
+				ctx.strokeStyle = "#5c4a35";
+				ctx.lineWidth = 0.5;
+				ctx.beginPath();
+				ctx.moveTo(7, 17);
+				ctx.lineTo(17, 17);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(7, 19);
+				ctx.lineTo(15, 19);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(24, 16);
+				ctx.lineTo(36, 16);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(24, 18);
+				ctx.lineTo(34, 18);
+				ctx.stroke();
+
+				// Push pin dots
 				ctx.fillStyle = "#ef4444";
 				ctx.beginPath();
-				ctx.arc(11, 6, 1.5, 0, Math.PI * 2);
+				ctx.arc(12, 14, 1.5, 0, Math.PI * 2);
 				ctx.fill();
 				ctx.fillStyle = "#3b82f6";
 				ctx.beginPath();
-				ctx.arc(29, 7, 1.5, 0, Math.PI * 2);
+				ctx.arc(30, 13, 1.5, 0, Math.PI * 2);
 				ctx.fill();
-				ctx.fillStyle = "#fbbf24";
+				ctx.fillStyle = "#ef4444";
 				ctx.beginPath();
-				ctx.arc(13, 21, 1.5, 0, Math.PI * 2);
+				ctx.arc(12, 27, 1.5, 0, Math.PI * 2);
 				ctx.fill();
-				ctx.fillStyle = "#10b981";
+				ctx.fillStyle = "#3b82f6";
 				ctx.beginPath();
-				ctx.arc(32, 23, 1.5, 0, Math.PI * 2);
+				ctx.arc(30, 27, 1.5, 0, Math.PI * 2);
 				ctx.fill();
 
-				// Scribble lines on yellow note
-				ctx.strokeStyle = "#92400e";
-				ctx.lineWidth = 0.5;
+				// Wood grain texture
+				ctx.strokeStyle = "rgba(58, 42, 31, 0.2)";
+				ctx.lineWidth = 0.3;
 				ctx.beginPath();
-				ctx.moveTo(6, 9);
-				ctx.lineTo(15, 9);
+				ctx.moveTo(3, 15);
+				ctx.lineTo(3, 35);
 				ctx.stroke();
 				ctx.beginPath();
-				ctx.moveTo(6, 11);
-				ctx.lineTo(13, 11);
+				ctx.moveTo(45, 15);
+				ctx.lineTo(45, 35);
 				ctx.stroke();
 
 				// Label
 				ctx.fillStyle = "#f5f5f4";
 				ctx.font = "8px sans-serif";
 				ctx.textAlign = "center";
-				ctx.fillText("Notices", this.width / 2, this.height + 10);
+				ctx.fillText("Quests", this.width / 2, this.height + 10);
 			},
 		});
 		this.graphics.use(canvas);

@@ -28,7 +28,15 @@ vi.mock("excalibur", () => {
 				strokeStyle: "",
 				lineWidth: 0,
 				moveTo: vi.fn(),
+				lineTo: vi.fn(),
+				closePath: vi.fn(),
 				quadraticCurveTo: vi.fn(),
+				createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+				createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+				save: vi.fn(),
+				restore: vi.fn(),
+				clip: vi.fn(),
+				globalAlpha: 1,
 			};
 			opts.draw(ctx);
 			return this;

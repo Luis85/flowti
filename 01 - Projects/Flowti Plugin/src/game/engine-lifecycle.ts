@@ -35,6 +35,7 @@ import type { DayClock } from "./systems/day-clock.js";
 import type { SceneRegistry } from "./systems/scene-registry.js";
 import { AGENT_WAKE_DELAY } from "./engine-config.js";
 import { afterNextPaint } from "./after-next-paint.js";
+import { loadRoomElements } from "./sprites/animated-elements.js";
 import { shouldShowBriefing, calculateOfflineProgress, type AgentOfflineInput } from "./systems/offline-progress.js";
 import type { NarrativeSystem } from "./systems/narrative-system.js";
 import type { BriefingPanel } from "./ui/briefing-panel.js";
@@ -106,6 +107,16 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 	officeScene.setSpriteRegistry(spriteRegistry);
 	villageScene.setSpriteRegistry(spriteRegistry);
 	stationScene.setSpriteRegistry(spriteRegistry);
+
+	// Load animated background elements for each room
+	const ANIM_BASE = `${spriteBasePath}/assets`;
+	const sceneByRoom: Record<string, GameScene> = { hub: hubScene, office: officeScene, village: villageScene, station: stationScene };
+	await Promise.all(
+		Object.entries(sceneByRoom).map(async ([roomId, scene]) => {
+			const actors = await loadRoomElements(roomId, ANIM_BASE);
+			for (const actor of actors) scene.add(actor);
+		}),
+	);
 
 	// Camera system (after engine.start so camera is initialised)
 	const cameraSystem = createCameraSystem(

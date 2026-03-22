@@ -27,7 +27,7 @@ export interface SpawnOpts {
 	vy?: number;
 }
 
-export type ParticlePreset = "steam" | "confetti" | "sparkle" | "alert" | "scribble" | "hearts" | "thunder" | "rain" | "sunny";
+export type ParticlePreset = "steam" | "confetti" | "sparkle" | "alert" | "scribble" | "hearts" | "thunder" | "rain" | "sunny" | "embers" | "dust-motes" | "leaf-drift" | "fireplace-sparks";
 
 const PRESET_CONFIGS: Record<ParticlePreset, { count: number; colorRange: string[]; lifetime: number; speed: number; radius: number; spread: number }> = {
 	steam:    { count: 6,  colorRange: ["rgba(200,200,220,0.4)"], lifetime: 2000, speed: 20, radius: 1.5, spread: 0.5 },
@@ -39,6 +39,10 @@ const PRESET_CONFIGS: Record<ParticlePreset, { count: number; colorRange: string
 	thunder:  { count: 5,  colorRange: ["rgba(120,120,140,0.5)"], lifetime: 2000, speed: 10, radius: 2.5, spread: 0.6 },
 	rain:     { count: 1,  colorRange: ["rgba(150,170,220,0.4)"], lifetime: 1500, speed: 120, radius: 0.5, spread: 0.3 },
 	sunny:    { count: 1,  colorRange: ["rgba(255,220,100,0.3)"], lifetime: 2000, speed: 15, radius: 1, spread: Math.PI * 2 },
+	embers:   { count: 2,  colorRange: ["rgba(255,140,50,0.4)", "rgba(255,100,30,0.3)"], lifetime: 3000, speed: 8, radius: 1, spread: 0.8 },
+	"dust-motes": { count: 1, colorRange: ["rgba(255,220,150,0.2)"], lifetime: 4000, speed: 3, radius: 0.5, spread: Math.PI * 2 },
+	"leaf-drift": { count: 1, colorRange: ["rgba(100,160,60,0.3)", "rgba(140,120,60,0.3)"], lifetime: 5000, speed: 5, radius: 1.5, spread: 0.5 },
+	"fireplace-sparks": { count: 1, colorRange: ["rgba(255,180,50,0.5)", "rgba(255,120,30,0.4)"], lifetime: 1500, speed: 15, radius: 0.5, spread: 0.4 },
 };
 
 const DUST_COUNT_MIN = 4;

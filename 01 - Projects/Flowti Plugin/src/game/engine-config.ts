@@ -281,6 +281,9 @@ export const EMOJI_REACTION_CHANCE = 0.5;
 /** Weather particle spawn chance per frame (0-1). */
 export const WEATHER_PARTICLE_CHANCE = 0.3;
 
+/** Ambient room particle spawn chance per frame (0-1). */
+export const AMBIENT_PARTICLE_CHANCE = 0.003;
+
 /** Weather particle lifetime (ms). */
 export const WEATHER_PARTICLE_LIFETIME = 1500;
 
