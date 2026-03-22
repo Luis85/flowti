@@ -321,6 +321,7 @@ export class DashboardStore extends EventTarget {
 	}
 
 	selectAgent(name: string | null): void {
+		if (name === this.selectedAgent) return;
 		const prev = this.selectedAgent;
 		if (prev && prev !== name) {
 			this.deselectAgent(prev);

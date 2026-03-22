@@ -293,8 +293,7 @@ function handleGrantPermission(deps: AgentProcessLoopDeps, msg: GrantPermissionI
 }
 
 function handleAgentSelected(deps: AgentProcessLoopDeps): void {
-	const mgr = deps.workerManager as IWorkerManager & { prime?: (name: string) => void };
-	mgr.prime?.(deps.agentName);
+	deps.workerManager.prime(deps.agentName);
 }
 
 function handleAgentDeselected(deps: AgentProcessLoopDeps): void {
