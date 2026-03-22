@@ -18,7 +18,8 @@ export type ConversationTrigger =
 	| "mood-event"
 	| "gossip"
 	| "pet-catalyst"
-	| "tier-change";
+	| "tier-change"
+	| "offline-return";
 
 // ── Turn conditions ─────────────────────────────────────────────────
 
