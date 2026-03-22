@@ -76,6 +76,8 @@ export interface BTAgentObject {
 	SeekMerchantStall(): State; BrowseMerchant(): State; ExecuteMerchantPurchase(): State;
 	// Interaction actions
 	EvaluateInteraction(): State; SubmitInteraction(): State;
+	// Echo-biased idle
+	EchoBiasedIdle(): State;
 }
 
 export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentObject {
@@ -437,6 +439,36 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return fromNodeState("failed");
 	}
 
+	// ── Echo-biased idle ────────────────────────────────────────────
+
+	function echoBiasedWeightedRandom(weights: number[]): number {
+		const total = weights.reduce((s, w) => s + w, 0);
+		let roll = Math.random() * total;
+		for (let i = 0; i < weights.length; i++) {
+			roll -= weights[i];
+			if (roll <= 0) return i;
+		}
+		return weights.length - 1;
+	}
+
+	function EchoBiasedIdle(): State {
+		const bondBias = context.echoStore
+			? context.echoStore.queryWeight(context.name, "bond") : 0;
+		const prefBias = context.echoStore
+			? context.echoStore.queryWeight(context.name, "preference", context.currentRoom ?? "") : 0;
+		const clampedBond = Math.max(-50, Math.min(50, bondBias));
+		const clampedPref = Math.max(-50, Math.min(50, prefBias));
+		const wanderWeight = 1 + clampedPref / 100;
+		const socialWeight = 1 + clampedBond / 100;
+		const pick = echoBiasedWeightedRandom([wanderWeight, 1, socialWeight]);
+		if (pick === 2) {
+			collect("speaking", { text: "", source: "chatter" });
+		} else {
+			collect("idle", {});
+		}
+		return fromNodeState("succeeded");
+	}
+
 	// ── Needs-driven actions ────────────────────────────────────────
 
 	function SeekRestSpot(): State {
@@ -519,5 +551,6 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		BrowseMerchant: () => BrowseMerchant(extDeps),
 		ExecuteMerchantPurchase: () => ExecuteMerchantPurchase(extDeps),
 		EvaluateInteraction, SubmitInteraction,
+		EchoBiasedIdle,
 	};
 }

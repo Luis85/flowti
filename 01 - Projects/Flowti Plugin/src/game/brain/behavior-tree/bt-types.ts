@@ -6,6 +6,7 @@
  */
 
 import type { AgentAttributes, AgentGoal } from "../../data/types.js";
+import type { IEchoStore } from "../../systems/echo/echo-types.js";
 
 // ── Deps interfaces (Plugin-native) ──────────────────────────────────
 
@@ -176,6 +177,8 @@ export interface BTAgentContext {
 	lastMerchantVisitCycle: number;
 	activeInteraction: { id: string; action: string } | null;
 	interactionHooks?: InteractionHooks;
+	echoStore?: IEchoStore;
+	currentRoom?: string;
 }
 
 // ── Goal Subtree Config ──────────────────────────────────────────────
