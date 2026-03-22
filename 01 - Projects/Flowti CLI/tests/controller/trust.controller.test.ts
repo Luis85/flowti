@@ -64,6 +64,7 @@ const mockProfile = {
 	promotionLog: [
 		{ op: "vault-tag", from: "manual" as const, to: "review" as const, at: "2026-03-20T00:00:00.000Z", reason: "good behavior" },
 	],
+	successCounts: { "vault-read": 5, "vault-search": 3 },
 };
 
 vi.mock("../../src/domain/trust/trust-manager.js", () => ({
@@ -86,6 +87,7 @@ vi.mock("../../src/ui/displays/trust-display.js", () => ({
 	renderTrustProfile: vi.fn(),
 	renderTrustUpdated: vi.fn(),
 	renderTrustHistory: vi.fn(),
+	renderTrustReset: vi.fn(),
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
@@ -206,6 +208,52 @@ describe("trust.controller", () => {
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("error");
 			expect(output.error).toContain("--op");
+		});
+	});
+
+	// ── trust:reset ─────────────────────────────────────────────
+	describe("trust:reset", () => {
+		it("is defined", () => {
+			expect(commands["trust:reset"]).toBeDefined();
+		});
+
+		it("resets operations to defaults and clears counts", () => {
+			commands["trust:reset"]({ agent: "Architect", format: "json" }, [], "trust:reset", undefined);
+
+			expect(loadTrustProfile).toHaveBeenCalledOnce();
+			expect(saveTrustProfile).toHaveBeenCalledOnce();
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output).toHaveProperty("agent", "Architect");
+			expect(output.operations).toEqual({
+				"vault-read": "auto",
+				"vault-search": "auto",
+				"vault-tag": "review",
+				"vault-create": "review",
+				"vault-edit": "manual",
+				"vault-move": "manual",
+				"vault-link": "review",
+			});
+			expect(output.successCounts).toEqual({});
+			expect(output.promotionLog).toHaveLength(1);
+		});
+
+		it("preserves promotion log for audit trail", () => {
+			commands["trust:reset"]({ agent: "Architect", format: "json" }, [], "trust:reset", undefined);
+
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output.promotionLog[0]).toHaveProperty("op", "vault-tag");
+			expect(output.promotionLog[0]).toHaveProperty("reason", "good behavior");
+		});
+
+		it("returns error when --agent flag is missing", () => {
+			commands["trust:reset"]({ format: "json" }, [], "trust:reset", undefined);
+
+			expect(loadTrustProfile).not.toHaveBeenCalled();
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output).toHaveProperty("error");
+			expect(output.error).toContain("--agent");
 		});
 	});
 
