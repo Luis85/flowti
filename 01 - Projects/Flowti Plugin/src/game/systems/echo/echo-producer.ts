@@ -38,7 +38,8 @@ export class EchoProducer {
 		return result;
 	}
 
-	// ── Event Handlers ─────────────────────────────────────────────
+	// ── Social Events ──────────────────────────────────────────────
+	// onConversation, onRivalConversation, onDrama, onGossipHeard, onGossipOverheard, onRunningJoke
 
 	onConversation(agentA: string, agentB: string, tier: string, cycle: number): void {
 		if (!FRIEND_TIERS.has(tier)) return;
@@ -104,48 +105,6 @@ export class EchoProducer {
 		}, cycle);
 	}
 
-	onTaskComplete(agent: string, taskType: string, success: boolean, cycle: number): void {
-		if (success) {
-			this.tryAdd(agent, {
-				kind: "preference",
-				source: "task-complete",
-				target: taskType,
-				weight: 10,
-				decay: 2,
-				tags: ["work"],
-			}, cycle);
-		} else {
-			this.tryAdd(agent, {
-				kind: "aversion",
-				source: "task-complete",
-				target: taskType,
-				weight: -15,
-				decay: 2,
-				tags: ["work"],
-			}, cycle);
-		}
-	}
-
-	onMorale(agent: string, morale: number, cycle: number): void {
-		if (morale < 20) {
-			this.tryAdd(agent, {
-				kind: "mood-residue",
-				source: "morale",
-				weight: -10,
-				decay: 3,
-				tags: ["mood"],
-			}, cycle);
-		} else if (morale > 80) {
-			this.tryAdd(agent, {
-				kind: "mood-residue",
-				source: "morale",
-				weight: 8,
-				decay: 4,
-				tags: ["mood"],
-			}, cycle);
-		}
-	}
-
 	onGossipHeard(listener: string, gossiper: string, subject: string, cycle: number): void {
 		this.tryAdd(listener, {
 			kind: "reputation",
@@ -165,39 +124,6 @@ export class EchoProducer {
 			weight: -12,
 			decay: 1,
 			tags: ["social", "gossip"],
-		}, cycle);
-	}
-
-	onPetComfort(agent: string, petId: string, cycle: number): void {
-		this.tryAdd(agent, {
-			kind: "bond",
-			source: "pet-comfort",
-			target: petId,
-			weight: 10,
-			decay: 1,
-			tags: ["pet"],
-		}, cycle);
-	}
-
-	onSnackStolen(agent: string, petId: string, cycle: number): void {
-		this.tryAdd(agent, {
-			kind: "aversion",
-			source: "snack-stolen",
-			target: petId,
-			weight: -8,
-			decay: 4,
-			tags: ["pet"],
-		}, cycle);
-	}
-
-	onFedByDirector(agent: string, cycle: number): void {
-		this.tryAdd(agent, {
-			kind: "bond",
-			source: "fed-by-director",
-			target: "director",
-			weight: 8,
-			decay: 2,
-			tags: ["care"],
 		}, cycle);
 	}
 
@@ -221,6 +147,31 @@ export class EchoProducer {
 		}, cycle);
 	}
 
+	// ── Work Events ────────────────────────────────────────────────
+	// onTaskComplete, onPairedWork
+
+	onTaskComplete(agent: string, taskType: string, success: boolean, cycle: number): void {
+		if (success) {
+			this.tryAdd(agent, {
+				kind: "preference",
+				source: "task-complete",
+				target: taskType,
+				weight: 10,
+				decay: 2,
+				tags: ["work"],
+			}, cycle);
+		} else {
+			this.tryAdd(agent, {
+				kind: "aversion",
+				source: "task-complete",
+				target: taskType,
+				weight: -15,
+				decay: 2,
+				tags: ["work"],
+			}, cycle);
+		}
+	}
+
 	onPairedWork(agentA: string, agentB: string, cycle: number): void {
 		this.tryAdd(agentA, {
 			kind: "preference",
@@ -241,25 +192,37 @@ export class EchoProducer {
 		}, cycle);
 	}
 
-	onRitual(agent: string, ritualType: string, cycle: number): void {
-		this.tryAdd(agent, {
-			kind: "preference",
-			source: "ritual",
-			target: ritualType,
-			weight: 3,
-			decay: 4,
-			tags: ["social", "ritual"],
-		}, cycle);
+	// ── Care & Needs Events ────────────────────────────────────────
+	// onMorale, onFedByDirector, onNeedsNeglected, onPetComfort, onSnackStolen
+
+	onMorale(agent: string, morale: number, cycle: number): void {
+		if (morale < 20) {
+			this.tryAdd(agent, {
+				kind: "mood-residue",
+				source: "morale",
+				weight: -10,
+				decay: 3,
+				tags: ["mood"],
+			}, cycle);
+		} else if (morale > 80) {
+			this.tryAdd(agent, {
+				kind: "mood-residue",
+				source: "morale",
+				weight: 8,
+				decay: 4,
+				tags: ["mood"],
+			}, cycle);
+		}
 	}
 
-	onMerchantPurchase(agent: string, cycle: number): void {
+	onFedByDirector(agent: string, cycle: number): void {
 		this.tryAdd(agent, {
-			kind: "opinion",
-			source: "merchant-purchase",
+			kind: "bond",
+			source: "fed-by-director",
 			target: "director",
-			weight: 6,
-			decay: 3,
-			tags: ["economy"],
+			weight: 8,
+			decay: 2,
+			tags: ["care"],
 		}, cycle);
 	}
 
@@ -274,6 +237,64 @@ export class EchoProducer {
 		}, cycle);
 	}
 
+	onPetComfort(agent: string, petId: string, cycle: number): void {
+		this.tryAdd(agent, {
+			kind: "bond",
+			source: "pet-comfort",
+			target: petId,
+			weight: 10,
+			decay: 1,
+			tags: ["pet"],
+		}, cycle);
+	}
+
+	onPetNapNearby(agent: string, petId: string, cycle: number): void {
+		this.tryAdd(agent, {
+			kind: "bond",
+			source: "pet-nap-nearby",
+			target: petId,
+			weight: 3,
+			decay: 4,
+			tags: ["pet"],
+		}, cycle);
+	}
+
+	onPetWanderNearby(agent: string, petId: string, cycle: number): void {
+		this.tryAdd(agent, {
+			kind: "mood-residue",
+			source: "pet-wander-nearby",
+			target: petId,
+			weight: 2,
+			decay: 5,
+			tags: ["pet"],
+		}, cycle);
+	}
+
+	onSnackStolen(agent: string, petId: string, cycle: number): void {
+		this.tryAdd(agent, {
+			kind: "aversion",
+			source: "snack-stolen",
+			target: petId,
+			weight: -8,
+			decay: 4,
+			tags: ["pet"],
+		}, cycle);
+	}
+
+	// ── Economy & Progression Events ───────────────────────────────
+	// onMerchantPurchase, onLevelUp, onRitual
+
+	onMerchantPurchase(agent: string, cycle: number): void {
+		this.tryAdd(agent, {
+			kind: "opinion",
+			source: "merchant-purchase",
+			target: "director",
+			weight: 6,
+			decay: 3,
+			tags: ["economy"],
+		}, cycle);
+	}
+
 	onLevelUp(agent: string, cycle: number): void {
 		this.tryAdd(agent, {
 			kind: "mood-residue",
@@ -283,6 +304,20 @@ export class EchoProducer {
 			tags: ["economy", "milestone"],
 		}, cycle);
 	}
+
+	onRitual(agent: string, ritualType: string, cycle: number): void {
+		this.tryAdd(agent, {
+			kind: "preference",
+			source: "ritual",
+			target: ritualType,
+			weight: 3,
+			decay: 4,
+			tags: ["social", "ritual"],
+		}, cycle);
+	}
+
+	// ── Offline Events ─────────────────────────────────────────────
+	// onOfflineReturn
 
 	onOfflineReturn(agent: string, cycle: number): void {
 		this.tryAdd(agent, {

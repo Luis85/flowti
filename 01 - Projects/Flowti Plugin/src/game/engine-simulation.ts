@@ -180,6 +180,22 @@ export function tickNeeds(ctx: EngineContext): void {
 			const moodResidueWeight = sys.echo.queryWeight(agentName, "mood-residue");
 			sys.brain.setBreakThresholdBias(agentName, moodResidueWeight);
 
+			// Echo room avoidance — strong aversion echoes targeting rooms drive agents away
+			const roomAversion = sys.echo.getStrongest(agentName, "aversion");
+			const allRooms = sys.registry.getAllSceneIds();
+			if (roomAversion?.target && allRooms.includes(roomAversion.target)) {
+				sys.brain.setRoomAvoidance(agentName, roomAversion.target);
+				// If currently in the avoided room, request a transfer out
+				const currentRoom = sys.registry.getEntityRoom(agentName);
+				if (currentRoom === roomAversion.target && allRooms.length > 1) {
+					const otherRooms = allRooms.filter((r) => r !== currentRoom);
+					const targetRoom = otherRooms[Math.floor(Math.random() * otherRooms.length)];
+					sys.roomSwitcher.requestTransfer({ entityId: agentName, targetRoom, reason: "purpose" });
+				}
+			} else {
+				sys.brain.setRoomAvoidance(agentName, null);
+			}
+
 			// Feed rich context to talk engine
 			const nearby = getNearbyAgents(ctx, agentName);
 			const nearbyAgent = nearby[0] ?? "";
@@ -326,6 +342,22 @@ export function tickPets(ctx: EngineContext): void {
 
 			updatePetFollow(ctx, pet, petRoom);
 			tryPetAutoFollow(ctx, pet, petRoom);
+
+			// Pet echo production — napping or wandering near agents
+			if (petRoom) {
+				const petState = pet.getState();
+				if (petState === "sleeping" || petState === "wandering") {
+					const cycle = ctx.systems.dayClock.getCycleCount();
+					for (const agentName of ctx.systems.needs.getAgentNames()) {
+						if (ctx.systems.registry.getEntityRoom(agentName) !== petRoom) continue;
+						if (petState === "sleeping") {
+							ctx.echoProducer.onPetNapNearby(agentName, pet.entityId, cycle);
+						} else {
+							ctx.echoProducer.onPetWanderNearby(agentName, pet.entityId, cycle);
+						}
+					}
+				}
+			}
 
 			// PetSceneEntity draws a proxy Actor; PetActor.pos is updated here. Without syncing,
 			// sprites stay at spawn until a room transfer recenters them at the door.
@@ -624,7 +656,9 @@ export function tickSocial(ctx: EngineContext): void {
 				}
 				break;
 			case "avoid-room":
-				// Handled passively by echo preferences — no active action needed
+				if (reaction.target) {
+					sys.brain.setRoomAvoidance(reaction.agent, reaction.target);
+				}
 				break;
 			case "adjust-opinion":
 				if (reaction.target) {
@@ -632,7 +666,24 @@ export function tickSocial(ctx: EngineContext): void {
 						kind: "opinion", source: "reputation", target: reaction.target,
 						weight: reaction.weight, decay: 2, tags: ["social", "gossip"],
 					}, currentCycle);
+					// Gossip forwarding: 30% chance to pass gossip along to another agent
+					if (ctx.cascadeResolver.shouldForwardGossip()) {
+						const room = sys.registry.getEntityRoom(reaction.agent);
+						if (room) {
+							const roommates = sys.needs.getAgentNames().filter(
+								(n) => n !== reaction.agent && n !== reaction.target
+									&& sys.registry.getEntityRoom(n) === room,
+							);
+							if (roommates.length > 0) {
+								const forwarder = roommates[Math.floor(Math.random() * roommates.length)];
+								ctx.echoProducer.onGossipHeard(forwarder, reaction.agent, reaction.target, currentCycle);
+							}
+						}
+					}
 				}
+				break;
+			default:
+				// Unhandled reaction type — silently skip
 				break;
 		}
 	}

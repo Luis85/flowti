@@ -79,6 +79,10 @@ export class EchoStore implements IEchoStore {
 		return this.createEcho(echoes, input, cycle);
 	}
 
+	// Merge: same kind+source+target → add weights (cap ±100),
+	// increment reinforcements, reset decay to incoming value,
+	// update lastReinforcedCycle. This models repeated experiences
+	// reinforcing preferences rather than creating duplicates.
 	private mergeEcho(
 		echoes: Echo[],
 		existing: Echo,

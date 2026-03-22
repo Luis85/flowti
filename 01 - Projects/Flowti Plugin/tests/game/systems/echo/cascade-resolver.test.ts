@@ -177,6 +177,81 @@ describe("CascadeResolver", () => {
 		});
 	});
 
+	// ── adjust-opinion reaction (reputation echo) ─────────────────
+
+	describe("adjust-opinion reaction", () => {
+		it("applies 0.5x weight multiplier for reputation echo", () => {
+			const echo = makeEcho({ kind: "reputation", weight: -20, target: "nova" });
+			const reaction = resolver.selectReaction("atlas", echo);
+
+			expect(reaction).toBeDefined();
+			expect(reaction!.type).toBe("adjust-opinion");
+			expect(reaction!.weight).toBeCloseTo(-10);
+		});
+	});
+
+	// ── createChain / extendChain ──────────────────────────────────
+
+	describe("createChain and extendChain", () => {
+		it("createChain starts at depth 0 with empty visited set", () => {
+			const chain = resolver.createChain("root-1");
+
+			expect(chain.depth).toBe(0);
+			expect(chain.visited.size).toBe(0);
+			expect(chain.rootEchoId).toBe("root-1");
+		});
+
+		it("extendChain increments depth by 1", () => {
+			const chain = resolver.createChain("root-1");
+			const echo = makeEcho();
+			const extended = resolver.extendChain(chain, echo);
+
+			expect(extended.depth).toBe(1);
+		});
+
+		it("extendChain grows visited set with echo key", () => {
+			const chain = resolver.createChain("root-1");
+			const echo = makeEcho({ kind: "opinion", source: "conversation", target: "atlas" });
+			const extended = resolver.extendChain(chain, echo);
+
+			expect(extended.visited.size).toBe(1);
+			expect(extended.visited.has("opinion:conversation:atlas")).toBe(true);
+		});
+
+		it("extendChain preserves rootEchoId from original chain", () => {
+			const chain = resolver.createChain("root-1");
+			const echo = makeEcho();
+			const extended = resolver.extendChain(chain, echo);
+
+			expect(extended.rootEchoId).toBe("root-1");
+		});
+
+		it("sequential extends accumulate visited entries", () => {
+			const chain = resolver.createChain("root-1");
+			const echoA = makeEcho({ kind: "opinion", source: "a", target: "x" });
+			const echoB = makeEcho({ kind: "bond", source: "b", target: "y" });
+
+			const ext1 = resolver.extendChain(chain, echoA);
+			const ext2 = resolver.extendChain(ext1, echoB);
+
+			expect(ext2.depth).toBe(2);
+			expect(ext2.visited.size).toBe(2);
+		});
+	});
+
+	// ── gossip forwarding ──────────────────────────────────────────
+
+	describe("gossip forwarding", () => {
+		it("shouldForwardGossip returns true ~30% of the time", () => {
+			let forwards = 0;
+			for (let i = 0; i < 1000; i++) {
+				if (resolver.shouldForwardGossip()) forwards++;
+			}
+			expect(forwards).toBeGreaterThan(200); // ~30% - margin
+			expect(forwards).toBeLessThan(400);    // ~30% + margin
+		});
+	});
+
 	// ── resetCycle ──────────────────────────────────────────────────
 
 	describe("resetCycle", () => {
