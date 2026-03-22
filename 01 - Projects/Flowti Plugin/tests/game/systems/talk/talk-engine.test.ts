@@ -17,6 +17,16 @@ describe("TalkEngine", () => {
 		engine.register("Atlas", "engineering", ["Focused"], 10);
 	});
 
+	it("registers a pet entity with pet-specific vars", () => {
+		engine.register("cat-whiskers", "pet", [], 5);
+		engine.updateVars("cat-whiskers", {
+			pet_name: "Whiskers",
+			pet_type: "cat",
+			hunger_level: "70",
+		});
+		// No error means pet registration works
+	});
+
 	it("silence prevents chatter", () => {
 		engine.register("Atlas", "engineering", ["Focused"], 10);
 		engine.silence("Atlas");

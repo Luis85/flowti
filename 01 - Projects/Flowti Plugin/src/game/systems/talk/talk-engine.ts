@@ -119,6 +119,12 @@ function defaultVars(domain: string): TemplateVars {
 		streak: "0",
 		friend_name: "",
 		mood: "neutral",
+		pet_name: "",
+		pet_type: "",
+		owner_name: "",
+		nearby_agent_mood: "",
+		hunger_level: "",
+		affection_level: "",
 	};
 }
 
