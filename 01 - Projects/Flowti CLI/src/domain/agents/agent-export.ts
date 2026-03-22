@@ -215,7 +215,9 @@ export function exportAgentDashboardData(
 ): DashboardData {
 	const allAgents = agentStore.list(deps, vaultRoot, vaultAgentsConfig ? { dir: vaultAgentsConfig.dir } : undefined);
 
-	const ledger = readLedger(deps, vaultRoot);
+	const narrowDisk = { existsSync: deps.disk.existsSync, readFileSync: deps.disk.readFileSync, writeFileSync: (p: string, c: string) => deps.disk.writeFileSync(p, c, "utf-8"), mkdirSync: deps.disk.mkdirSync };
+	const narrowDeps = { disk: narrowDisk, paths: deps.paths };
+	const ledger = readLedger(narrowDeps, vaultRoot);
 
 	const projectRosters = new Map<string, string[]>();
 	const activeIterations = new Map<string, IterationSummary[]>();
@@ -240,7 +242,7 @@ export function exportAgentDashboardData(
 	const dashboardAgents: DashboardAgent[] = allAgents.map((agent) => {
 		const derived = deriveAgentStatus(agent.name, projectRosters, activeIterations);
 		const account = getAccount(ledger, agent.name);
-		const trust = loadTrustProfile(deps, vaultRoot, agent.name);
+		const trust = loadTrustProfile(narrowDeps, vaultRoot, agent.name);
 		const tier = deriveTier(trust);
 		const caps = capabilitiesForLevel(account.level);
 		const economy: EconomySnapshot = {
