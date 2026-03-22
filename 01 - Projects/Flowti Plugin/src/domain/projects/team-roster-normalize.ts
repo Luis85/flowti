@@ -23,6 +23,7 @@ export function normalizeTeamRoleSlots(slots: readonly TeamRoleSlot[]): TeamRole
 			...(typeof s.roleFte === "number" && Number.isFinite(s.roleFte) ? { roleFte: s.roleFte } : {}),
 			...(s.roleStart?.trim() ? { roleStart: s.roleStart.trim() } : {}),
 			...(s.roleEnd?.trim() ? { roleEnd: s.roleEnd.trim() } : {}),
+			...(typeof s.hourlyRate === "number" && Number.isFinite(s.hourlyRate) && s.hourlyRate >= 0 ? { hourlyRate: s.hourlyRate } : {}),
 		} satisfies TeamRoleSlot;
 	});
 }

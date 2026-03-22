@@ -140,14 +140,14 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		if (!this.projectName) return this.renderProjectList();
 		return html`
 			${this.renderHeader()}
+			${this.renderTabBar()}
 			${this.renderActivityBar()}
 			${this.statusMessage
 				? html`<div class="status-banner" role="status" aria-live="polite">${this.statusMessage}</div>`
 				: ""}
+			${this.renderActiveTab()}
 			${this.renderStorybookCliLog()}
 			${this.renderProjectHubLog()}
-			${this.renderTabBar()}
-			${this.renderActiveTab()}
 			${this.showScaffoldModal ? this.renderScaffoldModal() : ""}
 		`;
 	}

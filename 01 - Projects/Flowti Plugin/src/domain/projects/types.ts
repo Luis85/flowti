@@ -98,6 +98,8 @@ export interface TeamRoleSlot {
 	readonly roleStart?: string;
 	/** Planned end date `YYYY-MM-DD` (frontmatter `end`). */
 	readonly roleEnd?: string;
+	/** Hourly rate for the role (optional). */
+	readonly hourlyRate?: number;
 }
 
 export interface ProjectConfig {

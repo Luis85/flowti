@@ -4,6 +4,7 @@
  */
 
 import type { App, TFolder, TFile } from "obsidian";
+import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -90,7 +91,6 @@ export class VaultProjectService implements IProjectService {
 	}
 
 	async startStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; url?: string; pid?: number; error?: string }> {
-		const { spawn } = await import("node:child_process");
 		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
 		const port = 6006; const url = `http://localhost:${port}`;
 		const configDir = findStorybookDir(cwd);
@@ -390,6 +390,7 @@ export class VaultProjectService implements IProjectService {
 				fte: slot.roleFte,
 				start: slot.roleStart,
 				end: slot.roleEnd,
+				hourlyRate: slot.hourlyRate,
 			});
 			writeFileSync(absFile, md, "utf-8");
 		}
@@ -408,6 +409,7 @@ export class VaultProjectService implements IProjectService {
 			const row: Record<string, unknown> = { id: s.id, title: s.title, need: s.need, roleNotePath: s.roleNotePath };
 			if (s.assignee) row.assignee = s.assignee;
 			if (s.blueprint && Object.keys(s.blueprint).length > 0) row.blueprint = JSON.parse(JSON.stringify(s.blueprint)) as Record<string, unknown>;
+			if (typeof s.hourlyRate === "number" && Number.isFinite(s.hourlyRate)) row.hourlyRate = s.hourlyRate;
 			return row;
 		});
 		management.agents = agents;

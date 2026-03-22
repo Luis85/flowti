@@ -557,6 +557,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 		const summaryId = `${sid}-summary`;
 		const bodyId = `${sid}-body`;
 		const fteId = `${sid}-fte`;
+		const rateId = `${sid}-rate`;
 		const startId = `${sid}-start`;
 		const endId = `${sid}-end`;
 		const rolePath = slot.roleNotePath ?? projectRoleNoteRelativePath(this.projectName, slot.id);
@@ -607,6 +608,16 @@ export class FlowtiTabTeam extends FlowtiElement {
 							aria-describedby="${staffingHintId}"
 							?disabled="${lock}"
 							@change="${(e: Event) => this.onFteChange(slot.id, (e.target as HTMLInputElement).value)}"
+						/>
+						<input
+							id="${rateId}"
+							type="number"
+							min="0"
+							step="1"
+							.value="${slot.hourlyRate != null && Number.isFinite(slot.hourlyRate) ? String(slot.hourlyRate) : ""}"
+							placeholder="Rate/hr"
+							?disabled="${lock}"
+							@change="${(e: Event) => this.onHourlyRateChange(slot.id, (e.target as HTMLInputElement).value)}"
 						/>
 						<div class="staffing-dates">
 							<div class="staffing-date-field">
@@ -795,6 +806,16 @@ export class FlowtiTabTeam extends FlowtiElement {
 		}
 		const n = Number(t);
 		this.patchSlot(id, { roleFte: Number.isFinite(n) && n >= 0 ? n : undefined });
+	}
+
+	private onHourlyRateChange(id: string, raw: string): void {
+		const t = raw.trim();
+		if (!t) {
+			this.patchSlot(id, { hourlyRate: undefined });
+			return;
+		}
+		const n = Number(t);
+		this.patchSlot(id, { hourlyRate: Number.isFinite(n) && n >= 0 ? n : undefined });
 	}
 
 	private onDateField(id: string, key: "roleStart" | "roleEnd", value: string): void {

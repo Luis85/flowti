@@ -202,6 +202,7 @@ export function enrichRoleSlotsWithRoleNotes(
 				roleFte: parsed.fte ?? s.roleFte,
 				roleStart: parsed.start ?? s.roleStart,
 				roleEnd: parsed.end ?? s.roleEnd,
+				hourlyRate: parsed.hourlyRate ?? s.hourlyRate,
 			};
 		} catch {
 			return { ...s, roleNotePath: path };

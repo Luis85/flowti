@@ -20,6 +20,8 @@ export interface ParsedProjectRole {
 	readonly start?: string;
 	/** ISO date `YYYY-MM-DD` when the need ends. */
 	readonly end?: string;
+	/** Hourly rate for the role, if set. */
+	readonly hourlyRate?: number;
 }
 
 /** Split user skills line: "Requirements Engineering 5; Team Player; IREB Certified" */
@@ -75,8 +77,9 @@ export function parseProjectRoleMarkdown(md: string): ParsedProjectRole | null {
 	const fte = parseFrontmatterNumber(block, "fte");
 	const start = parseFrontmatterScalar(block, "start");
 	const end = parseFrontmatterScalar(block, "end");
+	const hourlyRate = parseFrontmatterNumber(block, "hourlyRate");
 
-	return { id, role, need, skills, summary, body, ...spreadStaffing(fte, start, end) };
+	return { id, role, need, skills, summary, body, ...spreadStaffing(fte, start, end, hourlyRate) };
 }
 
 function parseFrontmatterNumber(block: string, key: string): number | undefined {
@@ -95,11 +98,12 @@ function parseFrontmatterScalar(block: string, key: string): string | undefined 
 	return t || undefined;
 }
 
-function spreadStaffing(fte: number | undefined, start: string | undefined, end: string | undefined): Pick<ParsedProjectRole, "fte" | "start" | "end"> {
-	const o: { fte?: number; start?: string; end?: string } = {};
+function spreadStaffing(fte: number | undefined, start: string | undefined, end: string | undefined, hourlyRate: number | undefined): Pick<ParsedProjectRole, "fte" | "start" | "end" | "hourlyRate"> {
+	const o: { fte?: number; start?: string; end?: string; hourlyRate?: number } = {};
 	if (fte !== undefined) o.fte = fte;
 	if (start) o.start = start;
 	if (end) o.end = end;
+	if (hourlyRate !== undefined) o.hourlyRate = hourlyRate;
 	return o;
 }
 
@@ -144,6 +148,8 @@ export interface BuildProjectRoleInput {
 	readonly start?: string;
 	/** `YYYY-MM-DD` (omit when not set). */
 	readonly end?: string;
+	/** Hourly rate (omit when not set). */
+	readonly hourlyRate?: number;
 }
 
 function yamlScalar(s: string): string {
@@ -162,6 +168,7 @@ export function buildProjectRoleMarkdown(input: BuildProjectRoleInput): string {
 	if (typeof input.fte === "number" && Number.isFinite(input.fte)) staffing.push(`fte: ${input.fte}`);
 	if (input.start?.trim()) staffing.push(`start: ${yamlScalar(input.start.trim())}`);
 	if (input.end?.trim()) staffing.push(`end: ${yamlScalar(input.end.trim())}`);
+	if (typeof input.hourlyRate === "number" && Number.isFinite(input.hourlyRate) && input.hourlyRate >= 0) staffing.push(`hourlyRate: ${input.hourlyRate}`);
 
 	const fm = [
 		"---",
