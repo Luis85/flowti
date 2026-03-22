@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/clock.js", () => ({ clock: {} }));
 vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 
 import { createClaudeProvider } from "../../../src/infrastructure/llm/claude-provider.js";
-import type { LLMRequest } from "../../../src/domain/agents/llm-types.js";
+import type { LLMRequest, LLMSessionRequest } from "../../../src/domain/agents/llm-types.js";
 
 function makeDeps() {
 	const outputCallbacks: Array<(line: string) => void> = [];
@@ -15,6 +15,7 @@ function makeDeps() {
 		waitForExit: vi.fn(() => Promise.resolve(0)),
 		onOutput: vi.fn((cb: (line: string) => void) => { outputCallbacks.push(cb); return () => {}; }),
 		kill: vi.fn(),
+		writeStdin: vi.fn(),
 		running: true,
 		output: [],
 		waitForOutput: vi.fn(),
@@ -128,5 +129,67 @@ describe("createClaudeProvider", () => {
 		provider.execute({ prompt: { message: "hello", identity: { name: "Bot" } } });
 		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 		expect(written).toContain("You are **Bot**");
+	});
+
+	describe("createSession", () => {
+		it("reports persistentSession capability", () => {
+			const provider = createClaudeProvider(makeDeps());
+			expect(provider.capabilities().persistentSession).toBe(true);
+		});
+
+		it("spawns claude without -p flag, with stdin true and --dangerously-skip-permissions", () => {
+			const deps = makeDeps();
+			const provider = createClaudeProvider(deps);
+			const request: LLMSessionRequest = { cwd: "/work" };
+			provider.createSession!(request);
+			expect(deps.shell.spawnBackground).toHaveBeenCalledWith(
+				expect.any(String),
+				{ cwd: "/work", stdin: true },
+			);
+			const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+			expect(cmd).toContain("--dangerously-skip-permissions");
+			expect(cmd).toContain("--output-format");
+			expect(cmd).toContain("stream-json");
+			const parts = cmd.split(" ");
+			expect(parts).not.toContain("-p");
+		});
+
+		it("send writes message to stdin and returns LLMProcess", () => {
+			const deps = makeDeps();
+			const provider = createClaudeProvider(deps);
+			const session = provider.createSession!({});
+			const proc = session.send("hello");
+			expect(deps._mockProc.writeStdin).toHaveBeenCalledWith("hello\n");
+			expect(proc).toHaveProperty("result");
+			expect(proc).toHaveProperty("onEvent");
+			expect(proc).toHaveProperty("kill");
+		});
+
+		it("send resolves on done event", async () => {
+			const deps = makeDeps();
+			const provider = createClaudeProvider(deps);
+			const session = provider.createSession!({});
+			const proc = session.send("hello");
+
+			for (const cb of deps._outputCallbacks) {
+				cb(JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "Hi!" }] } }));
+				cb(JSON.stringify({ type: "result", subtype: "success" }));
+			}
+
+			const result = await proc.result;
+			expect(result.text).toBe("Hi!");
+			expect(result.exitCode).toBe(0);
+		});
+
+		it("kill sets alive to false", () => {
+			const deps = makeDeps();
+			deps._mockProc.running = true;
+			const provider = createClaudeProvider(deps);
+			const session = provider.createSession!({});
+			expect(session.alive).toBe(true);
+			session.kill();
+			expect(session.alive).toBe(false);
+			expect(deps._mockProc.kill).toHaveBeenCalled();
+		});
 	});
 });

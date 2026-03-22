@@ -234,4 +234,51 @@ describe("createProcessRunner", () => {
 		);
 		expect(deps.shell.spawnBackground).not.toHaveBeenCalled();
 	});
+
+	// ── acquireSession ──────────────────────────────────────────────
+
+	it("acquireSession returns null when no registry", () => {
+		const runner = createProcessRunner(makeDeps(), undefined);
+		const result = runner.acquireSession!(makeAgent());
+		expect(result).toBeNull();
+	});
+
+	it("acquireSession returns session when provider supports persistentSession", () => {
+		const mockSession = { send: vi.fn(), kill: vi.fn(), alive: true };
+		const mockProvider = {
+			name: "test",
+			capabilities: () => ({ streaming: true, thinking: false, toolUse: false, structuredOutput: false, persistentSession: true }),
+			execute: vi.fn(),
+			createSession: vi.fn(() => mockSession),
+		};
+		const registry = { register: vi.fn(), get: vi.fn(), list: vi.fn(), select: vi.fn(() => ({ provider: mockProvider, reason: "configured" as const })) };
+		const runner = createProcessRunner(makeDeps(), undefined, registry);
+		const result = runner.acquireSession!(makeAgent());
+		expect(result).toBe(mockSession);
+		expect(mockProvider.createSession).toHaveBeenCalled();
+	});
+
+	it("acquireSession returns null when provider lacks persistentSession", () => {
+		const mockProvider = {
+			name: "test",
+			capabilities: () => ({ streaming: true, thinking: false, toolUse: false, structuredOutput: false, persistentSession: false }),
+			execute: vi.fn(),
+		};
+		const registry = { register: vi.fn(), get: vi.fn(), list: vi.fn(), select: vi.fn(() => ({ provider: mockProvider, reason: "configured" as const })) };
+		const runner = createProcessRunner(makeDeps(), undefined, registry);
+		const result = runner.acquireSession!(makeAgent());
+		expect(result).toBeNull();
+	});
+
+	it("acquireSession returns null when provider has no createSession method", () => {
+		const mockProvider = {
+			name: "test",
+			capabilities: () => ({ streaming: true, thinking: false, toolUse: false, structuredOutput: false, persistentSession: true }),
+			execute: vi.fn(),
+		};
+		const registry = { register: vi.fn(), get: vi.fn(), list: vi.fn(), select: vi.fn(() => ({ provider: mockProvider, reason: "configured" as const })) };
+		const runner = createProcessRunner(makeDeps(), undefined, registry);
+		const result = runner.acquireSession!(makeAgent());
+		expect(result).toBeNull();
+	});
 });

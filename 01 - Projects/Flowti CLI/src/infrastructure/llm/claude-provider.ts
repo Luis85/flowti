@@ -5,7 +5,7 @@
  * Reuses parseStreamEvents() from agent-stream.ts.
  */
 
-import type { ILLMProvider, LLMRequest, LLMProcess, LLMEvent, LLMResult, ProviderCapabilities } from "../../domain/agents/llm-types.js";
+import type { ILLMProvider, LLMRequest, LLMProcess, LLMEvent, LLMResult, ProviderCapabilities, LLMSession, LLMSessionRequest } from "../../domain/agents/llm-types.js";
 import { parseStreamEvents, createStreamState, updateStreamState } from "../../domain/agents/agent-stream.js";
 import { formatPrompt, isPreFormatted } from "../../domain/agents/llm-prompt.js";
 import { writePromptFile, cleanupPromptFile } from "./prompt-file.js";
@@ -21,6 +21,7 @@ const CAPABILITIES: ProviderCapabilities = {
 	thinking: true,
 	toolUse: true,
 	structuredOutput: true,
+	persistentSession: true,
 };
 
 export function createClaudeProvider(deps: ClaudeProviderDeps): ILLMProvider {
@@ -81,6 +82,73 @@ export function createClaudeProvider(deps: ClaudeProviderDeps): ILLMProvider {
 				kill() {
 					proc.kill();
 					cleanupPromptFile(deps, tempPath);
+				},
+			};
+		},
+
+		createSession(request: LLMSessionRequest): LLMSession {
+			const args = ["--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"];
+			if (request.tools && request.tools.length > 0) {
+				args.push("--allowedTools", request.tools.join(","));
+			}
+
+			const cmd = ["claude", ...args.map((a) => a.includes(" ") ? `"${a}"` : a)].join(" ");
+			const proc = deps.shell.spawnBackground(cmd, { cwd: request.cwd, stdin: true });
+
+			let streamState = createStreamState();
+			let killed = false;
+
+			let textBuffer: string[] = [];
+			let thinkingBuffer: string[] = [];
+			let resolveResponse: ((result: LLMResult) => void) | null = null;
+			let currentSubscribers = new Set<(event: LLMEvent) => void>();
+
+			proc.onOutput((line: string) => {
+				streamState = updateStreamState(streamState, line);
+				for (const event of parseStreamEvents(line, streamState)) {
+					if (event.kind === "thinking") thinkingBuffer.push(event.text);
+					if (event.kind === "text") textBuffer.push(event.text);
+					for (const cb of currentSubscribers) {
+						try { cb(event); } catch { /* subscriber error */ }
+					}
+					if (event.kind === "done" && resolveResponse) {
+						resolveResponse({ text: textBuffer.join(""), thinking: thinkingBuffer.join(""), exitCode: 0 });
+						resolveResponse = null;
+					}
+				}
+			});
+
+			return {
+				send(message: string): LLMProcess {
+					textBuffer = [];
+					thinkingBuffer = [];
+					const subscribers = new Set<(event: LLMEvent) => void>();
+					currentSubscribers = subscribers;
+
+					const resultPromise = new Promise<LLMResult>((resolve) => {
+						resolveResponse = resolve;
+					});
+
+					proc.writeStdin(message + "\n");
+
+					return {
+						onEvent(callback) {
+							subscribers.add(callback);
+							return () => { subscribers.delete(callback); };
+						},
+						result: resultPromise,
+						kill() {
+							proc.kill();
+							killed = true;
+						},
+					};
+				},
+				kill() {
+					proc.kill();
+					killed = true;
+				},
+				get alive() {
+					return !killed && proc.running;
 				},
 			};
 		},
