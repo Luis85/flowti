@@ -7,6 +7,7 @@
  */
 
 import { html, nothing, css } from "lit";
+import type { PropertyValues } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./game-styles.js";
 import type { CatalogItem } from "../systems/merchant-system.js";
@@ -17,6 +18,8 @@ export interface MerchantAgent {
 	readonly name: string;
 	readonly coin: number;
 	readonly level: number;
+	/** Economy / leveling unlocks — used to mark one-time catalog items as owned. */
+	readonly capabilities?: readonly string[];
 }
 
 type CategoryFilter = "capability" | "resource" | "cosmetic" | "pet-cosmetic" | "room";
@@ -431,6 +434,27 @@ export class MerchantPanel extends FlowtiElement {
 		this.clearFeedbackTimer();
 	}
 
+	updated(changed: PropertyValues<this>): void {
+		super.updated(changed);
+		if (
+			changed.has("visible")
+			|| changed.has("selectedAgent")
+			|| changed.has("agents")
+			|| changed.has("catalog")
+		) {
+			this.recomputeOwnedItems();
+		}
+	}
+
+	/** One-time items already granted via agent capabilities (from dashboard / economy sync). */
+	private recomputeOwnedItems(): void {
+		const agent = this.agents.find((a) => a.name === this.selectedAgent);
+		const caps = new Set(agent?.capabilities ?? []);
+		this.ownedItems = new Set(
+			this.catalog.filter((item) => item.oneTime && caps.has(item.id)).map((item) => item.id),
+		);
+	}
+
 	protected renderContent() {
 		if (!this.visible) return html``;
 
@@ -581,6 +605,7 @@ export class MerchantPanel extends FlowtiElement {
 	private handleAgentChange(e: Event): void {
 		const select = e.target as HTMLSelectElement;
 		this.selectedAgent = select.value;
+		this.recomputeOwnedItems();
 	}
 
 	private requestPurchase(item: CatalogItem): void {

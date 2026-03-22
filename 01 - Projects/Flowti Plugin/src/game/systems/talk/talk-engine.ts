@@ -68,8 +68,6 @@ const MOOD_CHANCE = 0.15;
 const CROSSOVER_CHANCE = 0.25;
 const TIER_MODIFIER_CHANCE = 0.15;
 const COMPOSE_CHANCE = 0.25;
-/** When no template resolves, stay silent most of the time; rarely show a quiet "..." beat. */
-const ELLIPSIS_FALLBACK_CHANCE = 0.07;
 
 // ── Variable interpolation ──────────────────────────────────────────
 
@@ -438,6 +436,10 @@ export class TalkEngine {
 		}
 
 		const phrase = this.resolvePhrase(name, entry);
+		if (!phrase.trim()) {
+			this.lastGlobalTalk = now;
+			return;
+		}
 		this.callbacks.showBubble(name, "thought", phrase);
 		this.recordPhrase(entry, phrase);
 		this.lastGlobalTalk = now;

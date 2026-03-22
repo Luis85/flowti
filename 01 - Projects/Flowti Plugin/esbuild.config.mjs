@@ -193,6 +193,8 @@ const syncAssets = () => {
 		if (safeExists(src)) safeCopyFile(src, path.join(OUTDIR, file));
 	}
 	syncSprites();
+	// Room animated props + tile art (see animated-elements.ts / scenes) — must ship with plugin
+	syncBackgroundAssets();
 };
 
 const listFilesRecursive = (rootDir) => {
@@ -231,6 +233,14 @@ const copyDirRecursive = (srcDir, destDir, options = {}) => {
 		const absDest = path.join(destDir, rel);
 		safeCopyFile(absSrc, absDest);
 	}
+};
+
+/** Copy Ninja Adventure background pack used by Excalibur animated layers (flags, plants, ripples, …). */
+const syncBackgroundAssets = () => {
+	const srcDir = path.resolve(__dirname, "assets", "Backgrounds");
+	if (!safeExists(srcDir)) return;
+	const destDir = path.join(OUTDIR, "assets", "Backgrounds");
+	copyDirRecursive(srcDir, destDir);
 };
 
 // ==================================================
