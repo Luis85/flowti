@@ -110,7 +110,7 @@ export function tickClock(ctx: EngineContext): void {
 		}
 		sys.worldEvent.onCycleReset();
 		state.firedReactiveTriggers.clear();
-		sys.relationship.onCycleEnd();
+		sys.relationship.onCycleEnd(sys.echo);
 
 		// Echo system — decay all echoes and reset cascade budget at cycle boundary
 		sys.echo.decayAll(sys.dayClock.getCycleCount());
