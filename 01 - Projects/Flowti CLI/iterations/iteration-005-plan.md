@@ -154,8 +154,8 @@ LLM session lifecycle must be decoupled from user selection. The brain/BT must b
 
 **Vision:** CLI is the orchestrator, Plugin is the UI on top. CLI bundled with Plugin on build.
 
-#### C0: BLOCKER — Plugin Views Crash (must fix first)
-- [ ] Fix: Plugin views crash (`getViewType` TypeError after migration) — plugin is completely unusable
+#### C0: Plugin Hardening
+- [ ] Harden Plugin view lifecycle (edge cases, error recovery, graceful degradation)
 
 #### ~~C1: TUI Regression Fix~~ — DROPPED (TUI removed by design, Plugin is sole UI)
 

@@ -32,7 +32,7 @@ completionRate: 57%
 
 | # | Item | Priority | Rationale |
 |---|------|----------|-----------|
-| C0 | Fix Plugin views crash (`getViewType` TypeError) | P0 | Blocker — plugin completely unusable |
+| C0 | Plugin hardening (view lifecycle, error recovery, graceful degradation) | P1 | Plugin works but needs hardening for edge cases |
 | BT | Wire all 7 BT→Brain transitions (seek-food/drink/rest/merchant/agent/quiet, break) | P1 | Agents need autonomous needs-driven behavior |
 | B3 | Task execution: wire CLI agent runner (real work, not simulated) | P1 | Agents must actually do work |
 | B1 | Data export: goals, behaviors, project, iteration, phase | P1 | Agents need full context to be productive |
