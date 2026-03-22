@@ -9,16 +9,7 @@ import { resetStyles, colorStyles, fontStyles, scrollStyles } from "./game-style
 import { AGENT_RESOURCES_CHANGED_EVENT, type DashboardStore } from "../store/dashboard-store.js";
 import type { IEventBus, EventPayload } from "../../infrastructure/events/types.js";
 import { CANVAS_SLICE_ORDER, CANVAS_SLICE_LABELS, formatCanvasPerfMs } from "./canvas-perf-labels.js";
-
-const STATE_COLORS: Record<string, string> = {
-	idle: "#3b82f6",
-	wandering: "#6b7280",
-	working: "#22c55e",
-	"walking-to": "#f59e0b",
-	"on-break": "#a855f7",
-	talking: "#06b6d4",
-	waiting: "#f59e0b",
-};
+import { STATE_COLORS, relativeTime } from "./game-ui-constants.js";
 
 const EVENT_COLORS: Record<string, string> = {
 	response: "#22c55e",
@@ -30,14 +21,6 @@ const EVENT_COLORS: Record<string, string> = {
 	"task-completed": "#3b82f6",
 	"permission-request": "#f59e0b",
 };
-
-function relativeTime(ms: number): string {
-	const sec = Math.floor(ms / 1000);
-	if (sec < 60) return `${sec}s`;
-	const min = Math.floor(sec / 60);
-	if (min < 60) return `${min}m`;
-	return `${Math.floor(min / 60)}h`;
-}
 
 function capitalize(s: string): string {
 	return s.charAt(0).toUpperCase() + s.slice(1);

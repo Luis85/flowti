@@ -16,6 +16,7 @@ import "./panel-talk.js";
 import "./panel-tasks.js";
 import "./panel-permissions.js";
 import "./panel-monitor.js";
+import "./panel-brain.js";
 import "./panel-debug.js";
 
 const TAB_LABELS: ReadonlyArray<{ name: TabName; label: string }> = [
@@ -23,6 +24,7 @@ const TAB_LABELS: ReadonlyArray<{ name: TabName; label: string }> = [
 	{ name: "talk", label: "Talk" },
 	{ name: "tasks", label: "Tasks" },
 	{ name: "permissions", label: "Permissions" },
+	{ name: "brain", label: "Brain" },
 	{ name: "monitor", label: "Monitor" },
 	{ name: "debug", label: "Debug" },
 ];
@@ -51,7 +53,7 @@ export class AgentPanel extends FlowtiElement {
 				top: 8px;
 				right: 8px;
 				bottom: 52px;
-				width: 340px;
+				width: 420px;
 				background: var(--bg-panel);
 				border: 1px solid var(--border);
 				border-left: 1px solid var(--border-glow);
@@ -234,6 +236,7 @@ export class AgentPanel extends FlowtiElement {
 			.panel-content ft-game-panel-talk,
 			.panel-content ft-game-panel-tasks,
 			.panel-content ft-game-panel-permissions,
+			.panel-content ft-game-panel-brain,
 			.panel-content ft-game-panel-monitor,
 			.panel-content ft-game-panel-debug {
 				display: flex;
@@ -247,6 +250,7 @@ export class AgentPanel extends FlowtiElement {
 			.panel-content ft-game-panel-info,
 			.panel-content ft-game-panel-tasks,
 			.panel-content ft-game-panel-permissions,
+			.panel-content ft-game-panel-brain,
 			.panel-content ft-game-panel-monitor,
 			.panel-content ft-game-panel-debug {
 				overflow-y: auto;
@@ -328,6 +332,8 @@ export class AgentPanel extends FlowtiElement {
 				return html`<ft-game-panel-tasks .store="${this.store}" .agent="${agent}"></ft-game-panel-tasks>`;
 			case "permissions":
 				return html`<ft-game-panel-permissions .store="${this.store}" agentName="${agent.name}"></ft-game-panel-permissions>`;
+			case "brain":
+				return html`<ft-game-panel-brain .store="${this.store}" .agent="${agent}"></ft-game-panel-brain>`;
 			case "monitor":
 				return html`<ft-game-panel-monitor .store="${this.store}" .eventBus="${this.eventBus}" agentName="${agent.name}"></ft-game-panel-monitor>`;
 			case "debug":
