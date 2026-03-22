@@ -16,7 +16,7 @@ const styles = css`
 	.modal {
 		background: var(--background-primary, #1e1e1e);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 8px;
+		border-radius: var(--hub-radius-lg, 10px);
 		padding: var(--flowti-space-md, 16px);
 		max-width: 420px;
 		width: calc(100% - 24px);
@@ -26,12 +26,18 @@ const styles = css`
 	.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 	.btn {
 		padding: 6px 14px;
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #333);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
+	}
+	.btn:hover { background: var(--background-modifier-hover, #333); transform: translateY(-0.5px); }
+	.btn:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
 	}
 	.btn--primary {
 		background: var(--interactive-accent, #7c3aed);

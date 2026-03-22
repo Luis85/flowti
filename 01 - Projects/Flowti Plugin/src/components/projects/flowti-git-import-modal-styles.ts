@@ -18,7 +18,7 @@ export const gitImportModalStyles = css`
 	.modal {
 		background: var(--background-primary, #1e1e1e);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 8px;
+		border-radius: var(--hub-radius-lg, 10px);
 		padding: var(--flowti-space-md, 16px);
 		max-width: 520px;
 		width: calc(100% - 24px);
@@ -48,15 +48,22 @@ export const gitImportModalStyles = css`
 	.btn {
 		padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
 	}
 
 	.btn:hover {
 		background: var(--background-modifier-hover, #333);
+		transform: translateY(-0.5px);
+	}
+
+	.btn:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
 	}
 
 	.btn--primary {
@@ -90,16 +97,16 @@ export const gitImportModalStyles = css`
 	.form-field input {
 		padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		font-family: inherit;
 	}
 
-	.form-field input:focus {
-		outline: none;
-		border-color: var(--interactive-accent, #7c3aed);
+	.form-field input:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
 	}
 
 	.form-field .hint {
@@ -163,11 +170,12 @@ export const gitImportModalStyles = css`
 	.framework-btn {
 		padding: 2px var(--flowti-space-sm, 8px);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: 0.75em;
 		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease);
 	}
 
 	.framework-btn--selected {
@@ -179,7 +187,7 @@ export const gitImportModalStyles = css`
 	.summary-card {
 		background: var(--background-secondary, #262626);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
 		margin-bottom: var(--flowti-space-md, 16px);
 		font-size: var(--flowti-font-sm, 0.85em);

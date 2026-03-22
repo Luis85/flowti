@@ -10,13 +10,15 @@ const styles = css`
 	.row { display: flex; flex-wrap: wrap; gap: 8px; }
 	.btn {
 		padding: 6px 12px;
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #333);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
 	}
+	.btn:hover { background: var(--background-modifier-hover, #333); transform: translateY(-0.5px); }
 	.btn--primary {
 		background: var(--interactive-accent, #7c3aed);
 		border-color: var(--interactive-accent, #7c3aed);
@@ -59,7 +61,7 @@ const styles = css`
 		gap: 8px 12px;
 		margin: 0 0 10px;
 		padding: 8px 10px;
-		border-radius: 6px;
+		border-radius: var(--hub-radius, 6px);
 		font-size: var(--flowti-font-sm, 0.85em);
 		background: color-mix(in srgb, var(--color-red, #e53935) 12%, transparent);
 		color: color-mix(in srgb, var(--color-red, #f87171) 90%, var(--text-normal, #ddd));

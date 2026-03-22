@@ -8,7 +8,7 @@ const styles = css`
 	h3 { font-size: 0.95em; margin: 0 0 8px; color: var(--text-muted, #999); }
 	.btn {
 		padding: 6px 12px;
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #333);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
@@ -16,7 +16,9 @@ const styles = css`
 		cursor: pointer;
 		margin-right: 8px;
 		margin-bottom: 8px;
+		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
 	}
+	.btn:hover { background: var(--background-modifier-hover, #333); transform: translateY(-0.5px); }
 	.btn:focus-visible {
 		outline: 2px solid var(--interactive-accent, #7c3aed);
 		outline-offset: 2px;
@@ -27,7 +29,7 @@ const styles = css`
 	}
 	.gen { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: var(--flowti-font-sm, 0.85em); }
 	.state { font-size: 0.75em; opacity: 0.8; }
-	pre.log { font-size: 11px; max-height: 200px; overflow: auto; background: var(--background-secondary, #262626); padding: 8px; border-radius: 4px; }
+	pre.log { font-size: 11px; max-height: 200px; overflow: auto; background: var(--background-secondary, #262626); padding: 8px; border-radius: var(--hub-radius, 6px); }
 `;
 
 export class FlowtiTabReporting extends FlowtiElement {

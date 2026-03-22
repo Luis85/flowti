@@ -8,17 +8,19 @@ const styles = css`
 	h3 { font-size: 0.95em; margin: 0 0 8px; color: var(--text-muted, #999); }
 	.field { margin-bottom: 10px; }
 	label { display: block; font-size: var(--flowti-font-sm, 0.85em); color: var(--text-muted, #999); margin-bottom: 4px; }
-	input, select { width: 100%; box-sizing: border-box; font-size: var(--flowti-font-sm, 0.85em); padding: 6px 8px; background: var(--background-primary, #1e1e1e); color: var(--text-normal, #ddd); border: 1px solid var(--background-modifier-border, #333); border-radius: 4px; }
+	input, select { width: 100%; box-sizing: border-box; font-size: var(--flowti-font-sm, 0.85em); padding: 6px 8px; background: var(--background-primary, #1e1e1e); color: var(--text-normal, #ddd); border: 1px solid var(--background-modifier-border, #333); border-radius: var(--hub-radius, 6px); }
 	.row { display: flex; gap: 8px; align-items: center; }
 	.btn {
 		padding: 6px 12px;
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #333);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
 	}
+	.btn:hover { background: var(--background-modifier-hover, #333); transform: translateY(-0.5px); }
 	.btn:focus-visible,
 	input:focus-visible,
 	select:focus-visible {

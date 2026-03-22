@@ -7,13 +7,15 @@ const styles = css`
 	.wrap { position: relative; display: inline-block; }
 	.trigger {
 		padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #444);
 		background: var(--interactive-accent, #7c3aed);
 		color: #fff;
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
 	}
+	.trigger:hover { filter: brightness(1.1); transform: translateY(-0.5px); }
 	.menu {
 		display: none;
 		position: absolute;
@@ -23,7 +25,7 @@ const styles = css`
 		min-width: 200px;
 		background: var(--background-primary, #1e1e1e);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 6px;
+		border-radius: var(--hub-radius, 6px);
 		padding: 4px;
 		z-index: 50;
 		box-shadow: 0 4px 12px rgba(0,0,0,0.4);
@@ -39,7 +41,8 @@ const styles = css`
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
+		transition: background var(--hub-transition, 150ms ease);
 	}
 	.menu button:hover { background: var(--background-modifier-hover, #333); }
 	.trigger:focus-visible,

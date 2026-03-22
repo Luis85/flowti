@@ -12,14 +12,15 @@ const styles = css`
 	.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 	.btn {
 		padding: 6px 12px;
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #333);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
 	}
-	.btn:hover { background: var(--background-modifier-hover, #333); }
+	.btn:hover { background: var(--background-modifier-hover, #333); transform: translateY(-0.5px); }
 	.btn:disabled {
 		opacity: 0.45;
 		cursor: not-allowed;
@@ -32,7 +33,7 @@ const styles = css`
 		flex: 1;
 		min-width: 140px;
 		padding: 6px 10px;
-		border-radius: 6px;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #333);
 		background: var(--background-primary, #1e1e1e);
 		color: var(--text-normal, #ddd);

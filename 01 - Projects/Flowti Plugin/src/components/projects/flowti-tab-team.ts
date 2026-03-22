@@ -90,7 +90,7 @@ const styles = css`
 	.lead code {
 		font-size: 0.92em;
 		padding: 1px 5px;
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		background: var(--background-modifier-hover, #333);
 	}
 	.summary-bar {
@@ -131,13 +131,13 @@ const styles = css`
 	}
 	.btn {
 		padding: 6px 14px;
-		border-radius: 6px;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #333);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
-		transition: background 0.12s ease, border-color 0.12s ease;
+		transition: background var(--hub-transition, 150ms ease), border-color var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
 	}
 	.btn:hover:not(:disabled) {
 		background: var(--background-modifier-hover, #333);
@@ -233,7 +233,7 @@ const styles = css`
 		background: var(--background-primary, #1e1e1e);
 		color: var(--text-normal, #ddd);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 6px;
+		border-radius: var(--hub-radius, 6px);
 		width: 100%;
 		max-width: 100%;
 		box-sizing: border-box;
@@ -348,7 +348,7 @@ const styles = css`
 		color: color-mix(in srgb, var(--color-yellow, #e5a00d) 90%, var(--text-normal, #ddd));
 		margin: 0 0 12px;
 		padding: 8px 10px;
-		border-radius: 6px;
+		border-radius: var(--hub-radius, 6px);
 		background: color-mix(in srgb, var(--color-yellow, #e5a00d) 10%, transparent);
 		border: 1px solid color-mix(in srgb, var(--color-yellow, #e5a00d) 25%, transparent);
 	}
