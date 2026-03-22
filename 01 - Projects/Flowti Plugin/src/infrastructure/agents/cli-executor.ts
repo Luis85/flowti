@@ -60,6 +60,10 @@ class AgentProcessImpl implements IAgentProcess {
 		this.writeStdin(JSON.stringify(payload));
 	}
 
+	sendRaw(payload: Record<string, unknown>): void {
+		this.writeStdin(JSON.stringify(payload));
+	}
+
 	onEvent(cb: (event: CliEvent) => void): () => void {
 		this.tracked.eventCallbacks.add(cb);
 		return () => { this.tracked.eventCallbacks.delete(cb); };

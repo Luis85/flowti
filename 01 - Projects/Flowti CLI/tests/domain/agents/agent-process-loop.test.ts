@@ -36,6 +36,7 @@ function createMockWorkerManager(): IWorkerManager & { lastSend: { name: string;
 		spawn: vi.fn(() => null),
 		stop: vi.fn(),
 		stopAll: vi.fn(),
+		prime: vi.fn(),
 		getWorker: vi.fn(() => null),
 		listWorkers: vi.fn(() => []),
 		send: vi.fn((name: string, message: string, opts?: SendOptions) => {
@@ -369,6 +370,153 @@ describe("createAgentProcessLoop", () => {
 			handle.dispose();
 			handle.dispose();
 			expect(disk.unlinkSync).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe("agent-selected input", () => {
+		it("calls workerManager.prime() when prime exists", () => {
+			const { deps, lineReader, workerManager } = makeDeps();
+			const primeFn = vi.fn();
+			(workerManager as unknown as Record<string, unknown>).prime = primeFn;
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({ type: "agent-selected" }));
+			expect(primeFn).toHaveBeenCalledWith("Architect");
+		});
+
+		it("does not throw when prime is not available", () => {
+			const { deps, lineReader } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			expect(() => {
+				lineReader.simulateLine(JSON.stringify({ type: "agent-selected" }));
+			}).not.toThrow();
+		});
+	});
+
+	describe("agent-deselected input", () => {
+		it("calls workerManager.stop() with agent name", () => {
+			const { deps, lineReader, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({ type: "agent-deselected" }));
+			expect(workerManager.stop).toHaveBeenCalledWith("Architect");
+		});
+	});
+
+	describe("bt-action input", () => {
+		it("sends goal text to workerManager for goal-started action", () => {
+			const { deps, lineReader, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({
+				type: "bt-action",
+				action: "goal-started",
+				data: { goal: "Fix the build", goalType: "fix", context: "Project is broken" },
+			}));
+			expect(workerManager.send).toHaveBeenCalledWith(
+				"Architect",
+				"Project is broken\n\nFix the build",
+				expect.objectContaining({
+					onEvent: expect.any(Function),
+					onResponse: expect.any(Function),
+				}),
+			);
+		});
+
+		it("sends task text to workerManager for task-started action", () => {
+			const { deps, lineReader, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({
+				type: "bt-action",
+				action: "task-started",
+				data: { task: "Run unit tests" },
+			}));
+			expect(workerManager.send).toHaveBeenCalledWith(
+				"Architect",
+				"Run unit tests",
+				expect.objectContaining({
+					task: "Run unit tests",
+					onEvent: expect.any(Function),
+					onResponse: expect.any(Function),
+				}),
+			);
+		});
+
+		it("passes task field in send options", () => {
+			const { deps, lineReader, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({
+				type: "bt-action",
+				action: "goal-started",
+				data: { goal: "Deploy app", task: "deploy-1" },
+			}));
+			expect(workerManager.lastSend?.opts?.task).toBe("deploy-1");
+		});
+
+		it("ignores unknown bt-action actions", () => {
+			const { deps, lineReader, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({
+				type: "bt-action",
+				action: "goal-completed",
+				data: { goal: "Done" },
+			}));
+			expect(workerManager.send).not.toHaveBeenCalled();
+		});
+
+		it("ignores bt-action with empty subject", () => {
+			const { deps, lineReader, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({
+				type: "bt-action",
+				action: "goal-started",
+				data: {},
+			}));
+			expect(workerManager.send).not.toHaveBeenCalled();
+		});
+
+		it("forwards stream events to stdout via onEvent callback", () => {
+			const { deps, lineReader, lineWriter, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({
+				type: "bt-action",
+				action: "goal-started",
+				data: { goal: "Fix bug" },
+			}));
+
+			const sendOpts = workerManager.lastSend?.opts;
+			expect(sendOpts?.onEvent).toBeDefined();
+			sendOpts!.onEvent!({ kind: "thinking", text: "analyzing..." });
+
+			expect(lineWriter.lines.length).toBeGreaterThanOrEqual(1);
+			const parsed = JSON.parse(lineWriter.lines[0].trim());
+			expect(parsed.type).toBe("thinking");
+			expect(parsed.agent).toBe("Architect");
+			expect(parsed.text).toBe("analyzing...");
+		});
+
+		it("forwards response to stdout via onResponse callback", () => {
+			const { deps, lineReader, lineWriter, workerManager } = makeDeps();
+			const handle = createAgentProcessLoop(deps);
+			handle.start();
+			lineReader.simulateLine(JSON.stringify({
+				type: "bt-action",
+				action: "task-started",
+				data: { task: "Build project" },
+			}));
+
+			const sendOpts = workerManager.lastSend?.opts;
+			sendOpts!.onResponse!({ message: "Build succeeded.", status: "message" });
+
+			const parsed = JSON.parse(lineWriter.lines[0].trim());
+			expect(parsed.type).toBe("response");
+			expect(parsed.text).toBe("Build succeeded.");
 		});
 	});
 

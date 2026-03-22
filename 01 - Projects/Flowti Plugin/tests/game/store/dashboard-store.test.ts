@@ -8,6 +8,7 @@ function createMockExecutor(): ICliExecutor {
 		running: true,
 		getPid: vi.fn(() => null),
 		send: vi.fn(),
+		sendRaw: vi.fn(),
 		onEvent: vi.fn(() => () => {}),
 		replayFrom: vi.fn(() => []),
 		stopGeneration: vi.fn(),

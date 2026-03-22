@@ -321,8 +321,38 @@ export class DashboardStore extends EventTarget {
 	}
 
 	selectAgent(name: string | null): void {
+		const prev = this.selectedAgent;
+		if (prev && prev !== name) {
+			this.deselectAgent(prev);
+		}
 		this.selectedAgent = name;
+		if (name) {
+			const proc = this.getOrStartProcess(name);
+			if (proc) {
+				proc.sendRaw({ type: "agent-selected" });
+			}
+		}
 		this.notify();
+	}
+
+	deselectAgent(agentName: string): void {
+		const proc = this.agentProcesses.get(agentName);
+		if (proc?.running) {
+			proc.sendRaw({ type: "agent-deselected" });
+		}
+		if (this.selectedAgent === agentName) {
+			this.selectedAgent = null;
+		}
+		this.notify();
+	}
+
+	forwardBtAction(agentName: string, action: string, data: Record<string, unknown>): void {
+		const agent = this.agents.find((a) => a.name === agentName);
+		if (!agent || agent.agentType !== "ai") return;
+		const proc = this.getOrStartProcess(agentName);
+		if (proc) {
+			proc.sendRaw({ type: "bt-action", action, data });
+		}
 	}
 
 	selectTab(tab: TabName): void {
@@ -573,6 +603,14 @@ export class DashboardStore extends EventTarget {
 			case "task-started": this.handleTaskStarted(agentName); break;
 			case "done": this.handleDone(agentName); break;
 			case "task-completed": break;
+		}
+
+		// Dispatch brain-relevant events for engine wiring
+		const brainEvents = ["thinking", "using-tool", "idle", "error", "done", "speaking", "queued", "response"];
+		if (brainEvents.includes(event.type)) {
+			this.dispatchEvent(new CustomEvent("cli-brain-event", {
+				detail: { agent: agentName, action: event.type },
+			}));
 		}
 	}
 

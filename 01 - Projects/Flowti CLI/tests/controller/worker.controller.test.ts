@@ -157,6 +157,7 @@ describe("worker.controller", () => {
 				spawnAll: vi.fn(),
 				stop: vi.fn(),
 				stopAll: vi.fn(),
+				prime: vi.fn(),
 				getWorker: vi.fn(() => null),
 				listWorkers: vi.fn(() => [{ name: "Architect", agent: {} as never, state: "idle" as const, messageQueue: [] as readonly string[], send: vi.fn(), stop: vi.fn() }]),
 				send: vi.fn(),
