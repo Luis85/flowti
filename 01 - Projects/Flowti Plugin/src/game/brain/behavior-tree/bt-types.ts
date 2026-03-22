@@ -129,7 +129,7 @@ export interface IBrainBridge {
 
 export interface IMerchantBridge {
 	shouldAutoPurchase: (agentName: string) => boolean;
-	getAutoPurchaseItemId: (agentName: string) => string | undefined;
+	getAutoPurchaseItem: (agentName: string) => { id: string; name: string; cost: number } | undefined;
 	purchase: (agentName: string, itemId: string) => Promise<{ success: boolean; message: string }>;
 	getCycleCount: () => number;
 }

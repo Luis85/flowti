@@ -7,7 +7,7 @@
  */
 
 import http from "node:http";
-import type { ILLMProvider, LLMRequest, LLMProcess, LLMEvent, LLMResult, ProviderCapabilities } from "../../domain/agents/llm-types.js";
+import type { ILLMProvider, LLMRequest, LLMProcess, LLMEvent, LLMResult, ProviderCapabilities, LLMSession, LLMSessionRequest } from "../../domain/agents/llm-types.js";
 import { formatPrompt, isPreFormatted } from "../../domain/agents/llm-prompt.js";
 
 const CAPABILITIES: ProviderCapabilities = {
@@ -15,6 +15,7 @@ const CAPABILITIES: ProviderCapabilities = {
 	thinking: false,
 	toolUse: false,
 	structuredOutput: false,
+	persistentSession: true,
 };
 
 const DEFAULT_MODEL = "llama3.1";
@@ -98,6 +99,101 @@ export function createOllamaProvider(model?: string): ILLMProvider {
 				result: resultPromise,
 				kill() {
 					if (req) req.destroy();
+				},
+			};
+		},
+
+		createSession(_request: LLMSessionRequest): LLMSession {
+			const messages: Array<{ role: string; content: string }> = [];
+			let aborted = false;
+			let activeReq: http.ClientRequest | null = null;
+
+			return {
+				send(message: string): LLMProcess {
+					messages.push({ role: "user", content: message });
+
+					const textBuffer: string[] = [];
+					const subscribers = new Set<(event: LLMEvent) => void>();
+
+					function emit(event: LLMEvent): void {
+						for (const cb of subscribers) {
+							try { cb(event); } catch { /* subscriber error */ }
+						}
+					}
+
+					const body = JSON.stringify({ model: modelName, messages, stream: true });
+
+					const resultPromise = new Promise<LLMResult>((resolve) => {
+						if (aborted) {
+							resolve({ text: "", thinking: "", exitCode: 1 });
+							return;
+						}
+
+						activeReq = http.request(
+							{ hostname: "localhost", port: 11434, path: "/api/chat", method: "POST", headers: { "Content-Type": "application/json" } },
+							(res) => {
+								if (res.statusCode !== 200) {
+									emit({ kind: "error", message: `Ollama returned status ${res.statusCode}` });
+									resolve({ text: "", thinking: "", exitCode: 1 });
+									return;
+								}
+								let lineBuffer = "";
+								res.on("data", (chunk: Buffer) => {
+									lineBuffer += chunk.toString();
+									const lines = lineBuffer.split("\n");
+									lineBuffer = lines.pop() ?? "";
+									for (const line of lines) {
+										if (!line.trim()) continue;
+										try {
+											const parsed = JSON.parse(line) as Record<string, unknown>;
+											const msg = parsed.message as Record<string, unknown> | undefined;
+											if (msg && typeof msg.content === "string" && msg.content) {
+												textBuffer.push(msg.content);
+												emit({ kind: "text", text: msg.content });
+											}
+											if (parsed.done === true) {
+												emit({ kind: "done" });
+											}
+										} catch { /* invalid JSON line */ }
+									}
+								});
+								res.on("end", () => {
+									const fullResponse = textBuffer.join("");
+									messages.push({ role: "assistant", content: fullResponse });
+									resolve({ text: fullResponse, thinking: "", exitCode: 0 });
+								});
+								res.on("error", () => {
+									resolve({ text: textBuffer.join(""), thinking: "", exitCode: 1 });
+								});
+							},
+						);
+						activeReq.on("error", (err) => {
+							emit({ kind: "error", message: err.message });
+							resolve({ text: "", thinking: "", exitCode: 1 });
+						});
+						activeReq.write(body);
+						activeReq.end();
+					});
+
+					return {
+						onEvent(callback) {
+							subscribers.add(callback);
+							return () => { subscribers.delete(callback); };
+						},
+						result: resultPromise,
+						kill() {
+							if (activeReq) activeReq.destroy();
+						},
+					};
+				},
+
+				kill() {
+					aborted = true;
+					if (activeReq) activeReq.destroy();
+				},
+
+				get alive() {
+					return !aborted;
 				},
 			};
 		},

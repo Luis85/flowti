@@ -247,6 +247,8 @@ export interface AgentsConfig {
 	processTimeoutMs?: number;
 	provider?: string;
 	maxConcurrent?: number;
+	/** How long idle agent LLM processes stay alive after deselect, in ms. Default: 300000 (5 min). */
+	decayTimeoutMs?: number;
 }
 
 export interface WorkspacesConfig {

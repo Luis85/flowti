@@ -83,4 +83,66 @@ describe("createOllamaProvider", () => {
 		proc.kill();
 		expect(mockReq.destroy).toHaveBeenCalled();
 	});
+
+	it("reports persistentSession capability", () => {
+		const caps = createOllamaProvider().capabilities();
+		expect(caps.persistentSession).toBe(true);
+	});
+
+	describe("createSession", () => {
+		it("returns a session object with send, kill, alive", () => {
+			const provider = createOllamaProvider();
+			const session = provider.createSession!({});
+			expect(typeof session.send).toBe("function");
+			expect(typeof session.kill).toBe("function");
+			expect(session.alive).toBe(true);
+		});
+
+		it("session.alive is true initially", () => {
+			const provider = createOllamaProvider();
+			const session = provider.createSession!({});
+			expect(session.alive).toBe(true);
+		});
+
+		it("session.kill sets alive to false", () => {
+			const provider = createOllamaProvider();
+			const session = provider.createSession!({});
+			expect(session.alive).toBe(true);
+			session.kill();
+			expect(session.alive).toBe(false);
+		});
+
+		it("send posts to /api/chat with messages history", async () => {
+			setupMockResponse([
+				JSON.stringify({ message: { role: "assistant", content: "Hello!" }, done: false }),
+				JSON.stringify({ message: { role: "assistant", content: "" }, done: true }),
+			]);
+			const provider = createOllamaProvider();
+			const session = provider.createSession!({});
+			const proc = session.send("hi");
+			const result = await proc.result;
+			expect(result.text).toBe("Hello!");
+			expect(result.exitCode).toBe(0);
+			expect(mockRequest).toHaveBeenCalledWith(
+				expect.objectContaining({ hostname: "localhost", port: 11434, path: "/api/chat", method: "POST" }),
+				expect.any(Function),
+			);
+		});
+
+		it("emits text events during session send", async () => {
+			setupMockResponse([
+				JSON.stringify({ message: { role: "assistant", content: "chunk1" }, done: false }),
+				JSON.stringify({ message: { role: "assistant", content: "chunk2" }, done: false }),
+				JSON.stringify({ message: { role: "assistant", content: "" }, done: true }),
+			]);
+			const provider = createOllamaProvider();
+			const session = provider.createSession!({});
+			const proc = session.send("hello");
+			const events: LLMEvent[] = [];
+			proc.onEvent((e) => events.push(e));
+			await proc.result;
+			const textEvents = events.filter((e) => e.kind === "text");
+			expect(textEvents).toHaveLength(2);
+		});
+	});
 });

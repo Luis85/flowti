@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { readCatalog, writeCatalog, getAvailableItems, purchaseItem } from "../../../src/domain/merchant/merchant-catalog.js";
 import type { MerchantCatalog } from "../../../src/domain/merchant/merchant-types.js";
 import type { EconomyLedger } from "../../../src/domain/economy/economy-types.js";
+import { LEVEL_TABLE } from "../../../src/domain/economy/leveling.js";
 
 function makeDeps(files: Record<string, string> = {}) {
 	const store: Record<string, string> = { ...files };
@@ -33,7 +34,7 @@ describe("merchant-catalog", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
 			expect(catalog.version).toBe(1);
-			expect(catalog.items).toHaveLength(5);
+			expect(catalog.items).toHaveLength(17);
 			expect(catalog.buyback).toBe(0.5);
 			expect(catalog.restockCycle).toBe("daily");
 		});
@@ -42,11 +43,11 @@ describe("merchant-catalog", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
 			const ids = catalog.items.map((i) => i.id);
-			expect(ids).toContain("tool-vault-write");
-			expect(ids).toContain("token-pack-5k");
-			expect(ids).toContain("title-senior");
-			expect(ids).toContain("pet-hat-tophat");
-			expect(ids).toContain("delegation-license");
+			expect(ids).toContain("vault-read");
+			expect(ids).toContain("vault-write");
+			expect(ids).toContain("delegation");
+			expect(ids).toContain("focus-drink");
+			expect(ids).toContain("title-sage");
 		});
 
 		it("parses existing catalog file", () => {
@@ -81,20 +82,20 @@ describe("merchant-catalog", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
 			const items = getAvailableItems(catalog, 10);
-			expect(items).toHaveLength(5);
+			expect(items).toHaveLength(17);
 		});
 
 		it("filters out items requiring higher level", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
-			// Level 1: no requiresLevel items (tool-vault-write=3, title-senior=5, delegation-license=4 are filtered)
+			// Level 1: vault-write=3, title-sage=5, delegation=4 are filtered out
 			const items = getAvailableItems(catalog, 1);
 			const ids = items.map((i) => i.id);
-			expect(ids).not.toContain("tool-vault-write");
-			expect(ids).not.toContain("title-senior");
-			expect(ids).not.toContain("delegation-license");
-			expect(ids).toContain("token-pack-5k");
-			expect(ids).toContain("pet-hat-tophat");
+			expect(ids).not.toContain("vault-write");
+			expect(ids).not.toContain("title-sage");
+			expect(ids).not.toContain("delegation");
+			expect(ids).toContain("focus-drink");
+			expect(ids).toContain("vault-read");
 		});
 
 		it("includes items exactly at agent level", () => {
@@ -102,8 +103,8 @@ describe("merchant-catalog", () => {
 			const catalog = readCatalog(deps, "/vault");
 			const items = getAvailableItems(catalog, 3);
 			const ids = items.map((i) => i.id);
-			expect(ids).toContain("tool-vault-write");
-			expect(ids).not.toContain("title-senior");
+			expect(ids).toContain("vault-write");
+			expect(ids).not.toContain("auto-trust");
 		});
 	});
 
@@ -112,16 +113,16 @@ describe("merchant-catalog", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
 			const ledger = makeLedger({ alice: makeAccount(500, 5) });
-			const result = purchaseItem(catalog, ledger, "alice", "token-pack-5k", 5);
+			const result = purchaseItem(catalog, ledger, "alice", "focus-drink", 5);
 			expect(result).not.toBeNull();
-			expect(result!.ledger.accounts.alice.coin).toBe(400);
+			expect(result!.ledger.accounts.alice.coin).toBe(475);
 		});
 
 		it("fails when agent has insufficient coin", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
-			const ledger = makeLedger({ alice: makeAccount(50, 5) });
-			const result = purchaseItem(catalog, ledger, "alice", "token-pack-5k", 5);
+			const ledger = makeLedger({ alice: makeAccount(10, 5) });
+			const result = purchaseItem(catalog, ledger, "alice", "focus-drink", 5);
 			expect(result).toBeNull();
 		});
 
@@ -129,8 +130,8 @@ describe("merchant-catalog", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
 			const ledger = makeLedger({ alice: makeAccount(1000, 1) });
-			// tool-vault-write requires level 3
-			const result = purchaseItem(catalog, ledger, "alice", "tool-vault-write", 1);
+			// vault-write requires level 3
+			const result = purchaseItem(catalog, ledger, "alice", "vault-write", 1);
 			expect(result).toBeNull();
 		});
 
@@ -146,8 +147,8 @@ describe("merchant-catalog", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
 			const ledger = makeLedger({ alice: makeAccount(1000, 5) });
-			const purchased = { alice: ["tool-vault-write"] as readonly string[] };
-			const result = purchaseItem(catalog, ledger, "alice", "tool-vault-write", 5, purchased);
+			const purchased = { alice: ["vault-write"] as readonly string[] };
+			const result = purchaseItem(catalog, ledger, "alice", "vault-write", 5, purchased);
 			expect(result).toBeNull();
 		});
 
@@ -155,9 +156,9 @@ describe("merchant-catalog", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
 			const ledger = makeLedger({ alice: makeAccount(1000, 5) });
-			const purchased = { alice: ["token-pack-5k"] as readonly string[] };
-			// token-pack-5k has oneTime: false — should succeed
-			const result = purchaseItem(catalog, ledger, "alice", "token-pack-5k", 5, purchased);
+			const purchased = { alice: ["focus-drink"] as readonly string[] };
+			// focus-drink has no oneTime — should succeed
+			const result = purchaseItem(catalog, ledger, "alice", "focus-drink", 5, purchased);
 			expect(result).not.toBeNull();
 		});
 
@@ -165,10 +166,22 @@ describe("merchant-catalog", () => {
 			const deps = makeDeps();
 			const catalog = readCatalog(deps, "/vault");
 			const ledger = makeLedger({ alice: makeAccount(500, 5) });
-			// title-senior costs 150, requires level 5
-			const result = purchaseItem(catalog, ledger, "alice", "title-senior", 5);
+			// title-sage costs 300, requires level 5
+			const result = purchaseItem(catalog, ledger, "alice", "title-sage", 5);
 			expect(result).not.toBeNull();
-			expect(result!.ledger.accounts.alice.coin).toBe(350);
+			expect(result!.ledger.accounts.alice.coin).toBe(200);
+		});
+	});
+
+	describe("DEFAULT_CATALOG alignment", () => {
+		it("every leveling unlock key has a matching catalog capability item", () => {
+			const deps = makeDeps();
+			const catalog = readCatalog(deps, "/vault");
+			const catalogIds = new Set(catalog.items.filter(i => i.category === "capability").map(i => i.id));
+			const unlockKeys = LEVEL_TABLE.flatMap(e => e.unlocks);
+			for (const key of unlockKeys) {
+				expect(catalogIds.has(key), `missing catalog item for unlock key "${key}"`).toBe(true);
+			}
 		});
 	});
 });

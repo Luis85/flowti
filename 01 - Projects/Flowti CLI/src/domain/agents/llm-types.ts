@@ -16,6 +16,8 @@ export interface ProviderCapabilities {
 	readonly toolUse: boolean;
 	readonly structuredOutput: boolean;
 	readonly maxContextTokens?: number;
+	/** Whether the provider supports long-running interactive sessions. */
+	readonly persistentSession: boolean;
 }
 
 // ── Prompt ──────────────────────────────────────────────────────────
@@ -91,6 +93,23 @@ export interface LLMProcess {
 	kill(): void;
 }
 
+/** A persistent LLM session that can handle multiple messages. */
+export interface LLMSession {
+	/** Send a message and get a process handle for this specific response. */
+	send(message: string): LLMProcess;
+	/** Terminate the underlying process or connection. */
+	kill(): void;
+	/** Whether the session is still accepting messages. */
+	readonly alive: boolean;
+}
+
+/** Request to create a persistent session. */
+export interface LLMSessionRequest {
+	readonly tools?: readonly string[];
+	readonly timeout?: number;
+	readonly cwd?: string;
+}
+
 // ── Provider interface ──────────────────────────────────────────────
 
 /** Contract every LLM adapter implements. DI boundary — like IFileSystem. */
@@ -98,6 +117,8 @@ export interface ILLMProvider {
 	readonly name: string;
 	capabilities(model?: string): ProviderCapabilities;
 	execute(request: LLMRequest): LLMProcess;
+	/** Create a persistent session. Only when capabilities().persistentSession is true. */
+	createSession?(request: LLMSessionRequest): LLMSession;
 }
 
 // ── Registry ────────────────────────────────────────────────────────

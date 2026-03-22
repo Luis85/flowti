@@ -648,12 +648,13 @@ export function tickSocial(ctx: EngineContext): void {
 		const reaction = cascadeQueue.shift()!;
 		switch (reaction.type) {
 			case "vent": {
-				// Frustrated conversation with nearest agent
-				const nearest = ctx.lookups.findNearestAgent(reaction.agent);
-				if (nearest && reaction.target) {
-					const domainA = ctx.store.agents.find((a) => a.name === reaction.agent)?.domain ?? "";
-					const domainB = ctx.store.agents.find((a) => a.name === reaction.target)?.domain ?? "";
-					sys.conversation.tryScript(reaction.agent, reaction.target, "proximity", { domainA, domainB });
+				if (reaction.target) {
+					const targetActor = ctx.lookups.findAgentActor(reaction.target);
+					if (targetActor) {
+						const domainA = ctx.store.agents.find((a) => a.name === reaction.agent)?.domain ?? "";
+						const domainB = ctx.store.agents.find((a) => a.name === reaction.target)?.domain ?? "";
+						sys.conversation.tryScript(reaction.agent, reaction.target, "proximity", { domainA, domainB });
+					}
 				}
 				break;
 			}
@@ -750,7 +751,7 @@ export function tickDirector(ctx: EngineContext): void {
 		() => sys.director.getPresence(),
 		(name) => sys.needs.getNeeds(name),
 		(name) => sys.brain.getState(name)?.state ?? "idle",
-		(_name) => false,
+		(name) => sys.sensor.hasPendingReaction(name),
 	);
 
 	sys.engagement.setContext({

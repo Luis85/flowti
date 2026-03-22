@@ -108,12 +108,12 @@ class NodeShell implements IShell {
 		}
 	}
 
-	spawnBackground(cmd: string, opts: { cwd?: string; env?: Record<string, string> } = {}): BackgroundProcess {
+	spawnBackground(cmd: string, opts: { cwd?: string; env?: Record<string, string>; stdin?: boolean } = {}): BackgroundProcess {
 		const child = spawn(cmd, {
 			cwd: opts.cwd ?? CLI_PROJECT,
 			shell: true,
 			windowsHide: true,
-			stdio: ["ignore", "pipe", "pipe"],
+			stdio: [opts.stdin ? "pipe" : "ignore", "pipe", "pipe"],
 			env: opts.env ? { ...process.env, ...opts.env } : undefined,
 		});
 
@@ -141,6 +141,11 @@ class NodeShell implements IShell {
 			onOutput(callback: (line: string) => void): () => void {
 				listeners.add(callback);
 				return () => { listeners.delete(callback); };
+			},
+			writeStdin(data: string): void {
+				if (child.stdin && !child.stdin.destroyed) {
+					child.stdin.write(data);
+				}
 			},
 			kill() {
 				if (running) {

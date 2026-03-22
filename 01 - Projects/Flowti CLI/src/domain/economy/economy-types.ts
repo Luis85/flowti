@@ -42,9 +42,3 @@ export interface RewardResult {
 	readonly leveledUp: boolean;
 	readonly newLevel?: number;
 }
-
-export type EconomyDeps = {
-	readonly disk: import("../../infrastructure/types.js").IFileSystem;
-	readonly paths: import("../../infrastructure/types.js").IPaths;
-	readonly clock: import("../../infrastructure/types.js").IClock;
-};

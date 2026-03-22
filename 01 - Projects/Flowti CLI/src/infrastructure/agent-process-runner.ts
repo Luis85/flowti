@@ -10,7 +10,7 @@ import type { AgentsConfig } from "./types-config.js";
 import type { AgentSummary } from "../domain/agents/agent-types.js";
 import type { AgentStreamEvent } from "../domain/agents/agent-stream.js";
 import type { AgentProcess, IAgentProcessRunner, SpawnOptions } from "../domain/agents/worker-types.js";
-import type { IProviderRegistry } from "../domain/agents/llm-types.js";
+import type { IProviderRegistry, LLMSession } from "../domain/agents/llm-types.js";
 import {
 	parseStreamEvents,
 	createStreamState,
@@ -147,6 +147,22 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 					try { deps.disk.unlinkSync(tempPath); } catch { /* cleanup */ }
 				},
 			};
+		},
+
+		acquireSession(agent: AgentSummary, resolvedTools?: readonly string[], opts?: SpawnOptions): LLMSession | null {
+			if (!registry) return null;
+			const selection = registry.select({
+				preferred: agent.ai?.provider,
+				taskType: "conversation",
+				required: { streaming: true },
+			});
+			const caps = selection.provider.capabilities();
+			if (!caps.persistentSession || !selection.provider.createSession) return null;
+			return selection.provider.createSession({
+				tools: resolvedTools,
+				timeout: processTimeout,
+				cwd: opts?.cwd,
+			});
 		},
 	};
 }
