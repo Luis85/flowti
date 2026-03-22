@@ -241,7 +241,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 							: html`<span>No matches</span>`
 					}
 				</div>`
-				: html`<div class="project-list">${filtered.map((p) => this.renderProjectItem(p))}</div>`
+				: html`<div class="project-list">${filtered.map((p, i) => this.renderProjectItem(p, i))}</div>`
 			}
 			${this.showGitModal ? html`
 				<flowti-git-import-modal
@@ -286,9 +286,9 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		this.dispatchEvent(new CustomEvent("create-empty-project", { detail: { name }, bubbles: true, composed: true }));
 	}
 
-	private renderProjectItem(p: ProjectSummary) {
+	private renderProjectItem(p: ProjectSummary, index = 0) {
 		return html`
-			<button class="project-item" @click="${() => this.selectProject(p.name)}">
+			<button class="project-item" style="--i: ${index}" @click="${() => this.selectProject(p.name)}">
 				<span class="project-item__name">${p.name}</span>
 				<span class="project-item__badges">
 					${p.hasNote ? html`<span class="badge badge--type">${p.type}</span>` : ""}

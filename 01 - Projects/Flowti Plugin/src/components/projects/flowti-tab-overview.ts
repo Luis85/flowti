@@ -2,6 +2,7 @@ import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { css } from "lit";
+import "./flowti-health-gauge.js";
 import type { ProjectConfig, HealthScore, TodoItem, ProjectBrief } from "../../domain/projects/types.js";
 import { SITEMAP_CANVAS_PRESETS } from "../../domain/projects/sitemap-canvas-presets.js";
 
@@ -55,7 +56,6 @@ const styles = css`
 		clip: rect(0, 0, 0, 0);
 		border: 0;
 	}
-	.score { font-size: 1.5em; font-weight: 600; color: var(--interactive-accent, #7c3aed); }
 	.preset-row {
 		display: flex;
 		flex-wrap: wrap;
@@ -115,7 +115,6 @@ export class FlowtiTabOverview extends FlowtiElement {
 	canvasPreset = "";
 
 	protected renderContent() {
-		const h = this.healthScore;
 		return html`
 			<div class="section">
 				<h3>Project</h3>
@@ -158,9 +157,8 @@ export class FlowtiTabOverview extends FlowtiElement {
 				<h3>Health</h3>
 				<div class="row">
 					<button type="button" class="btn" @click="${() => this.emit("health-refresh", {})}">Refresh</button>
-					${h ? html`<span class="score">${h.overall}</span><span class="muted">${h.grade}</span>` : ""}
-					${this.healthError ? html`<span class="muted">${this.healthError}</span>` : ""}
 				</div>
+				<flowti-health-gauge .score="${this.healthScore}" .gaugeError="${this.healthError}"></flowti-health-gauge>
 			</div>
 			<div class="section">
 				<h3>TODOs</h3>

@@ -6,6 +6,25 @@ export const projectDetailStyles = css`
 		flex-direction: column;
 		gap: var(--flowti-space-md, 16px);
 		padding: var(--flowti-space-md, 16px);
+
+		/* Elevation layers (luminous dark) */
+		--hub-surface-0: var(--background-primary, #141414);
+		--hub-surface-1: var(--background-secondary, #1a1a1a);
+		--hub-surface-2: color-mix(in srgb, var(--background-secondary, #1a1a1a) 85%, white);
+
+		/* Glow accents */
+		--hub-glow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 25%, transparent),
+		            0 0 12px color-mix(in srgb, var(--interactive-accent) 8%, transparent);
+		--hub-glow-success: 0 0 0 1px color-mix(in srgb, var(--color-green) 25%, transparent),
+		                    0 0 12px color-mix(in srgb, var(--color-green) 8%, transparent);
+
+		/* Unified radius */
+		--hub-radius: 6px;
+		--hub-radius-lg: 10px;
+
+		/* Transitions */
+		--hub-transition: 150ms ease;
+		--hub-transition-slow: 300ms ease;
 	}
 
 	.header {
@@ -21,7 +40,7 @@ export const projectDetailStyles = css`
 		width: 28px;
 		height: 28px;
 		border: 1px solid var(--background-modifier-border, #444);
-		border-radius: var(--flowti-radius-sm, 4px);
+		border-radius: var(--hub-radius, 6px);
 		background: none;
 		color: var(--text-muted, #999);
 		cursor: pointer;
@@ -63,7 +82,7 @@ export const projectDetailStyles = css`
 	.modal {
 		background: var(--background-primary, #1e1e1e);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 8px;
+		border-radius: var(--hub-radius-lg, 10px);
 		padding: var(--flowti-space-md, 16px);
 		max-width: 360px;
 		width: calc(100% - 24px);
@@ -89,7 +108,7 @@ export const projectDetailStyles = css`
 	.btn {
 		padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 4px;
+		border-radius: var(--hub-radius, 6px);
 		background: var(--background-secondary, #262626);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
@@ -120,7 +139,7 @@ export const projectDetailStyles = css`
 		box-sizing: border-box;
 		padding: var(--flowti-space-xs, 4px) var(--flowti-space-sm, 8px);
 		border: 1px solid var(--background-modifier-border, #444);
-		border-radius: var(--flowti-radius-sm, 4px);
+		border-radius: var(--hub-radius, 6px);
 		background: var(--background-primary, #1e1e1e);
 		color: var(--text-normal, #ddd);
 		font-size: var(--flowti-font-sm, 0.85em);
@@ -137,18 +156,31 @@ export const projectDetailStyles = css`
 		align-items: center;
 		gap: var(--flowti-space-sm, 8px);
 		padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
-		border-radius: var(--flowti-radius-sm, 4px);
+		border-radius: var(--hub-radius, 6px);
 		cursor: pointer;
-		border: none;
-		background: none;
+		border: 1px solid var(--background-modifier-border, #333);
+		background: var(--hub-surface-1, var(--background-secondary, #1a1a1a));
 		color: var(--text-normal, #ddd);
 		text-align: left;
 		width: 100%;
 		font-size: var(--flowti-font-sm, 0.85em);
+		box-sizing: border-box;
+		transition: border-color var(--hub-transition, 150ms ease),
+		            box-shadow var(--hub-transition, 150ms ease),
+		            transform var(--hub-transition, 150ms ease);
+		animation: card-enter 200ms ease both;
+		animation-delay: calc(var(--i, 0) * 30ms);
 	}
 
 	.project-item:hover {
-		background: var(--background-modifier-hover, #333);
+		border-color: color-mix(in srgb, var(--interactive-accent, #7c3aed) 30%, var(--background-modifier-border, #333));
+		box-shadow: var(--hub-glow);
+		transform: translateY(-1px);
+	}
+
+	@keyframes card-enter {
+		from { opacity: 0; transform: translateY(4px); }
+		to { opacity: 1; transform: translateY(0); }
 	}
 
 	.project-item__name {
@@ -219,7 +251,7 @@ export const projectDetailStyles = css`
 
 	.status-banner {
 		padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
-		border-radius: var(--flowti-radius-sm, 4px);
+		border-radius: var(--hub-radius, 6px);
 		background: color-mix(in srgb, var(--color-yellow, #e5a00d) 12%, transparent);
 		color: var(--text-muted, #999);
 		font-size: var(--flowti-font-sm, 0.85em);
@@ -228,13 +260,15 @@ export const projectDetailStyles = css`
 	.hub-cli-log {
 		margin-bottom: var(--flowti-space-sm, 8px);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: var(--flowti-radius-sm, 4px);
+		border-radius: var(--hub-radius, 6px);
 		background: var(--background-secondary, #1a1a1a);
 		overflow: hidden;
+		transition: border-color var(--hub-transition, 150ms ease),
+		            box-shadow var(--hub-transition, 150ms ease);
 	}
 
 	.hub-cli-log--active {
-		border-color: color-mix(in srgb, var(--interactive-accent, #7c3aed) 45%, var(--background-modifier-border, #333));
+		border-left: 3px solid var(--interactive-accent, #7c3aed);
 		box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent, #7c3aed) 20%, transparent);
 	}
 
@@ -250,18 +284,22 @@ export const projectDetailStyles = css`
 	}
 
 	.hub-cli-log__title {
-		font-weight: 500;
-		color: var(--text-normal, #ccc);
+		font-size: 0.75em;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--text-muted, #999);
 	}
 
 	.hub-cli-log__clear {
 		padding: 2px 8px;
-		font-size: 0.85em;
-		border-radius: 4px;
+		font-size: 0.8em;
+		border-radius: var(--hub-radius, 6px);
 		border: 1px solid var(--background-modifier-border, #444);
 		background: var(--background-primary, #1e1e1e);
 		color: var(--text-muted, #aaa);
 		cursor: pointer;
+		transition: color var(--hub-transition, 150ms ease);
 	}
 
 	.hub-cli-log__clear:hover:not(:disabled) {
@@ -283,10 +321,12 @@ export const projectDetailStyles = css`
 		padding: 8px 10px;
 		max-height: 200px;
 		overflow: auto;
+		font-family: var(--font-monospace, monospace);
 		font-size: 11px;
-		line-height: 1.4;
+		line-height: 1.5;
 		color: var(--text-muted, #bbb);
-		background: var(--background-primary, #141414);
+		background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 3%, var(--background-primary, #141414));
+		box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 	}
 
 	.tab-bar {
@@ -294,7 +334,11 @@ export const projectDetailStyles = css`
 		gap: 0;
 		border-bottom: 1px solid var(--background-modifier-border, #333);
 		margin-bottom: var(--flowti-space-sm, 8px);
+		overflow-x: auto;
+		scrollbar-width: none;
 	}
+
+	.tab-bar::-webkit-scrollbar { display: none; }
 
 	.tab-btn {
 		padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
@@ -304,10 +348,16 @@ export const projectDetailStyles = css`
 		color: var(--text-muted, #999);
 		font-size: var(--flowti-font-sm, 0.85em);
 		cursor: pointer;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		white-space: nowrap;
+		transition: color var(--hub-transition, 150ms ease),
+		            border-bottom-color var(--hub-transition, 150ms ease);
 	}
 
 	.tab-btn:hover {
 		color: var(--text-normal, #ddd);
+		border-bottom-color: color-mix(in srgb, var(--interactive-accent, #7c3aed) 40%, transparent);
 	}
 
 	.tab-btn:focus-visible {
@@ -319,7 +369,8 @@ export const projectDetailStyles = css`
 	.tab-btn--active {
 		color: var(--interactive-accent, #7c3aed);
 		border-bottom-color: var(--interactive-accent, #7c3aed);
-		font-weight: 500;
+		font-weight: 600;
+		text-shadow: 0 0 8px color-mix(in srgb, var(--interactive-accent, #7c3aed) 40%, transparent);
 	}
 
 	.activity-bar {
@@ -327,8 +378,10 @@ export const projectDetailStyles = css`
 		align-items: center;
 		gap: var(--flowti-space-sm, 8px);
 		padding: var(--flowti-space-sm, 8px) var(--flowti-space-md, 16px);
-		border-radius: var(--flowti-radius-sm, 4px);
+		border-radius: var(--hub-radius, 6px);
 		font-size: var(--flowti-font-sm, 0.85em);
+		transition: background var(--hub-transition, 150ms ease),
+		            box-shadow var(--hub-transition, 150ms ease);
 	}
 
 	.activity-bar--busy {
@@ -337,13 +390,15 @@ export const projectDetailStyles = css`
 	}
 
 	.activity-bar--success {
-		background: color-mix(in srgb, var(--color-green, #4caf50) 12%, transparent);
+		background: color-mix(in srgb, var(--color-green, #4caf50) 25%, transparent);
 		color: var(--color-green, #4caf50);
+		animation: success-flash 600ms ease forwards;
 	}
 
 	.activity-bar--error {
 		background: color-mix(in srgb, var(--color-red, #e53935) 12%, transparent);
 		color: var(--color-red, #e53935);
+		animation: shake 300ms ease;
 	}
 
 	.activity-spinner {
@@ -353,12 +408,32 @@ export const projectDetailStyles = css`
 		border: 2px solid currentColor;
 		border-top-color: transparent;
 		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
+		animation: spinner-enter 200ms ease both, spin 0.8s linear 200ms infinite;
 		flex-shrink: 0;
 	}
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	@keyframes success-flash {
+		0% { background: color-mix(in srgb, var(--color-green, #4caf50) 25%, transparent); }
+		100% { background: color-mix(in srgb, var(--color-green, #4caf50) 12%, transparent); }
+	}
+
+	@keyframes shake {
+		0%, 100% { transform: translateX(0); }
+		25% { transform: translateX(-2px); }
+		75% { transform: translateX(2px); }
+	}
+
+	@keyframes spinner-enter {
+		from { opacity: 0; transform: scale(0.5) rotate(0deg); }
+		to { opacity: 1; transform: scale(1) rotate(0deg); }
+	}
+
+	@keyframes fade-in {
+		to { opacity: 0.6; }
 	}
 
 	.activity-dismiss {
@@ -369,7 +444,8 @@ export const projectDetailStyles = css`
 		cursor: pointer;
 		font-size: 1.1em;
 		padding: 0 4px;
-		opacity: 0.6;
+		opacity: 0;
+		animation: fade-in 150ms ease 150ms forwards;
 	}
 
 	.activity-dismiss:hover {
