@@ -55,7 +55,7 @@ export function loadHistory(
 			const parsed = JSON.parse(trimmed) as Record<string, unknown>;
 			const { v: _v, ...rest } = parsed;
 			void _v;
-			const candidate = rest as Interaction;
+			const candidate = rest as unknown as Interaction;
 			if (isValidInteraction(candidate)) {
 				entries.push(candidate);
 			}

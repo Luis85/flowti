@@ -23,7 +23,7 @@ interface ReportSection {
 	generator: GeneratorFn;
 }
 
-function buildSections(svc: ReportService, projectPath: string): ReportSection[] {
+function buildSections(svc: ReportService, _projectPath: string): ReportSection[] {
 	return [
 		{
 			label: "Test",

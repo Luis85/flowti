@@ -134,7 +134,7 @@ function collectSecurityDebt(snapshot: HealthSnapshot, items: DebtItem[]): void 
 
 // ── Estimation ──────────────────────────────────────────────────────
 
-export function estimateDebt(snapshot: HealthSnapshot, score: HealthScore): DebtEstimate {
+export function estimateDebt(snapshot: HealthSnapshot, _score: HealthScore): DebtEstimate {
 	const items: DebtItem[] = [];
 
 	collectTestDebt(snapshot, items);

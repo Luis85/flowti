@@ -70,11 +70,12 @@ export function createMockShell(opts: MockShellOptions = {}): IShell & {
 		spawnBackground(cmd: string, spawnOpts?: { cwd?: string; env?: Record<string, string> }) {
 			calls.push({ method: "spawnBackground", cmd, opts: spawnOpts });
 			return {
-				running: false,
-				output: [],
+				running: false as boolean,
+				output: [] as string[],
 				onOutput: () => () => {},
 				kill: () => {},
-				waitForOutput: () => Promise.resolve(null),
+				waitForOutput: (_pattern?: RegExp, _timeoutMs?: number) => Promise.resolve(null as string | null),
+				waitForExit: (_timeoutMs?: number) => Promise.resolve(0),
 			};
 		},
 
