@@ -12,9 +12,10 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 2,
 		steps: [
-			{ text: "something... moving...", delayMs: 2000, kind: "thought" },
+			{ text: "something... moving... on the screen...", delayMs: 2000, kind: "thought" },
+			{ text: "it's small. it's fast. it MOCKS me.", delayMs: 2000, kind: "thought" },
 			{ text: "POUNCE", delayMs: 1500, kind: "speech" },
-			{ text: "...it was a shadow. play it cool.", delayMs: 0, kind: "thought" },
+			{ text: "...it was the cursor. I regret nothing.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -23,8 +24,8 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "observing the screen...", delayMs: 3000, kind: "thought" },
-			{ text: "that's a lot of red squiggles", delayMs: 2500, kind: "thought" },
-			{ text: "I could do better. if I had thumbs.", delayMs: 0, kind: "thought" },
+			{ text: "that's a lot of red squiggles. more than yesterday.", delayMs: 2500, kind: "thought" },
+			{ text: "I could do better. if I had thumbs. and literacy.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -33,8 +34,9 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "zzz...", delayMs: 4000, kind: "thought" },
+			{ text: "...dreaming of a world where the bowl is always full...", delayMs: 3000, kind: "thought" },
 			{ text: "...what year is it", delayMs: 2000, kind: "thought" },
-			{ text: "false alarm. back to sleep.", delayMs: 0, kind: "thought" },
+			{ text: "doesn't matter. back to sleep.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -43,9 +45,9 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "the arrow moves...", delayMs: 2000, kind: "thought" },
-			{ text: "tracking target...", delayMs: 2000, kind: "thought" },
-			{ text: "CONTACT", delayMs: 1500, kind: "speech" },
-			{ text: "...it's under my paw now", delayMs: 0, kind: "thought" },
+			{ text: "tracking... tracking... steady now...", delayMs: 2000, kind: "thought" },
+			{ text: "CONTACT", delayMs: 1000, kind: "speech" },
+			{ text: "it's under my paw. I am the apex predator.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -53,10 +55,10 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 1,
 		steps: [
-			{ text: "what's this surface...", delayMs: 2000, kind: "thought" },
-			{ text: "ooh keys", delayMs: 1500, kind: "thought" },
-			{ text: "hgsdjfk", delayMs: 2000, kind: "speech" },
-			{ text: "that was art", delayMs: 0, kind: "thought" },
+			{ text: "what's this warm flat surface...", delayMs: 2000, kind: "thought" },
+			{ text: "ooh it clicks when I step", delayMs: 1500, kind: "thought" },
+			{ text: "asdfjkl;qwerty", delayMs: 1500, kind: "speech" },
+			{ text: "the human is screaming. my work here is done.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -65,8 +67,8 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "a box!", delayMs: 1500, kind: "speech" },
-			{ text: "must investigate...", delayMs: 2500, kind: "thought" },
-			{ text: "I fit. therefore I sit.", delayMs: 0, kind: "thought" },
+			{ text: "it is too small. I am too large. these are facts.", delayMs: 2500, kind: "thought" },
+			{ text: "facts are irrelevant. I fit. because I MUST fit.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -75,8 +77,8 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		weight: 2,
 		steps: [
 			{ text: "checking the bowl...", delayMs: 2000, kind: "thought" },
-			{ text: "still empty", delayMs: 2000, kind: "thought" },
-			{ text: "will check again in 30 seconds", delayMs: 0, kind: "thought" },
+			{ text: "I can see the bottom. the BOTTOM. of MY bowl.", delayMs: 2000, kind: "thought" },
+			{ text: "this is starvation. I will check again in 30 seconds.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -86,8 +88,8 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		steps: [
 			{ text: "bird...", delayMs: 1500, kind: "thought" },
 			{ text: "BIRD!", delayMs: 1000, kind: "speech" },
-			{ text: "chattering intensifies", delayMs: 3000, kind: "thought" },
-			{ text: "it left. I am bereft.", delayMs: 0, kind: "thought" },
+			{ text: "ek ek ek ek ek ek", delayMs: 2000, kind: "speech" },
+			{ text: "it left. I scared it away with my power.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -95,9 +97,9 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 2,
 		steps: [
-			{ text: "lap detected...", delayMs: 2000, kind: "thought" },
-			{ text: "approaching...", delayMs: 2500, kind: "thought" },
-			{ text: "the lap has been claimed. this is law.", delayMs: 0, kind: "thought" },
+			{ text: "lap detected. range: 2 meters.", delayMs: 2000, kind: "thought" },
+			{ text: "approaching casually. I am not desperate. I am strategic.", delayMs: 2500, kind: "thought" },
+			{ text: "the lap has been claimed. do not stand up. EVER.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -105,10 +107,10 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 2,
 		steps: [
-			{ text: "energy levels rising...", delayMs: 2000, kind: "thought" },
-			{ text: "cannot contain...", delayMs: 1500, kind: "thought" },
-			{ text: "ZOOM", delayMs: 2000, kind: "speech" },
-			{ text: "ok done. nap time.", delayMs: 0, kind: "thought" },
+			{ text: "something is building inside me...", delayMs: 2000, kind: "thought" },
+			{ text: "the ancient call... the primal urge...", delayMs: 1500, kind: "thought" },
+			{ text: "ZOOM ZOOM ZOOM", delayMs: 1500, kind: "speech" },
+			{ text: "why did I do that. doesn't matter. nap time.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -116,9 +118,9 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 2,
 		steps: [
-			{ text: "deploying sad eyes...", delayMs: 2500, kind: "thought" },
-			{ text: "increasing intensity...", delayMs: 3000, kind: "thought" },
-			{ text: "TREATS ACQUIRED. strategy: effective.", delayMs: 0, kind: "thought" },
+			{ text: "deploying sad eyes... 40% power...", delayMs: 2500, kind: "thought" },
+			{ text: "no response. increasing to 80%... adding head tilt...", delayMs: 3000, kind: "thought" },
+			{ text: "TREAT ACQUIRED. emotional manipulation: still undefeated.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -126,10 +128,10 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 2,
 		steps: [
-			{ text: "new thing in room.", delayMs: 2000, kind: "thought" },
-			{ text: "suspicious.", delayMs: 2000, kind: "thought" },
-			{ text: "must sniff.", delayMs: 1500, kind: "thought" },
-			{ text: "acceptable. barely.", delayMs: 0, kind: "thought" },
+			{ text: "new thing appeared in room. was NOT here yesterday.", delayMs: 2000, kind: "thought" },
+			{ text: "approaching from downwind. sniffing perimeter.", delayMs: 2000, kind: "thought" },
+			{ text: "must touch with one paw. THE BRAVEST PAW.", delayMs: 1500, kind: "thought" },
+			{ text: "acceptable. barely. I will allow it to remain.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -137,10 +139,10 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 2,
 		steps: [
-			{ text: "warmth...", delayMs: 2000, kind: "thought" },
-			{ text: "the golden patch...", delayMs: 2000, kind: "thought" },
-			{ text: "I have found paradise", delayMs: 2000, kind: "thought" },
-			{ text: "don't move. ever.", delayMs: 0, kind: "thought" },
+			{ text: "warmth on the floor... is it...?", delayMs: 2000, kind: "thought" },
+			{ text: "THE GOLDEN PATCH HAS RETURNED", delayMs: 2000, kind: "thought" },
+			{ text: "lying in it. becoming one with the sun.", delayMs: 2000, kind: "thought" },
+			{ text: "it moved. I must follow. this is my life now.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -148,10 +150,10 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 1,
 		steps: [
-			{ text: "entering the bag...", delayMs: 2500, kind: "thought" },
-			{ text: "this is my domain now", delayMs: 2000, kind: "thought" },
-			{ text: "CRINKLE", delayMs: 1500, kind: "speech" },
-			{ text: "I have alerted everyone. mission success.", delayMs: 0, kind: "thought" },
+			{ text: "entering the bag... for science...", delayMs: 2500, kind: "thought" },
+			{ text: "I am inside. it is dark. it is MAGNIFICENT.", delayMs: 2000, kind: "thought" },
+			{ text: "CRINKLE CRINKLE CRINKLE", delayMs: 1500, kind: "speech" },
+			{ text: "everyone is looking. good. witness me.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -159,9 +161,9 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 1,
 		steps: [
-			{ text: "why do they stare at the box all day", delayMs: 3000, kind: "thought" },
-			{ text: "what do they see", delayMs: 3000, kind: "thought" },
-			{ text: "I see nothing. I understand everything.", delayMs: 0, kind: "thought" },
+			{ text: "why do they stare at the glowing rectangle all day", delayMs: 3000, kind: "thought" },
+			{ text: "sometimes the rectangle makes them happy. sometimes angry.", delayMs: 3000, kind: "thought" },
+			{ text: "I understand nothing. and yet I understand everything.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -169,9 +171,9 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 1,
 		steps: [
-			{ text: "a sock.", delayMs: 1500, kind: "thought" },
-			{ text: "...a SECOND sock.", delayMs: 2000, kind: "thought" },
-			{ text: "acquiring both. reasons: mine.", delayMs: 0, kind: "thought" },
+			{ text: "a sock. unattended. this is an invitation.", delayMs: 1500, kind: "thought" },
+			{ text: "...a SECOND sock. it's a PAIR. jackpot.", delayMs: 2000, kind: "thought" },
+			{ text: "acquiring both. hiding separately. maximum chaos.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -179,9 +181,9 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 2,
 		steps: [
-			{ text: "they are doing the talking thing again.", delayMs: 3000, kind: "thought" },
-			{ text: "many words. zero snacks.", delayMs: 2500, kind: "thought" },
-			{ text: "I have walked through. meeting improved.", delayMs: 0, kind: "thought" },
+			{ text: "they are doing the talking-at-screens thing again.", delayMs: 3000, kind: "thought" },
+			{ text: "many words. zero treats. zero belly rubs. pointless.", delayMs: 2500, kind: "thought" },
+			{ text: "walked across the keyboard mid-call. meeting improved 300%.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -189,9 +191,10 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 2,
 		steps: [
-			{ text: "wait. something is following me.", delayMs: 2000, kind: "thought" },
-			{ text: "IT IS MY OWN TAIL", delayMs: 1500, kind: "speech" },
-			{ text: "pursuing. cannot stop. will not stop.", delayMs: 0, kind: "thought" },
+			{ text: "wait. something behind me. following me.", delayMs: 2000, kind: "thought" },
+			{ text: "IT IS MY OWN TAIL. THE BETRAYAL.", delayMs: 1500, kind: "speech" },
+			{ text: "three laps. still can't catch it. it's too good.", delayMs: 2000, kind: "thought" },
+			{ text: "we will meet again, tail. this isn't over.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -199,9 +202,9 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "idle",
 		weight: 1,
 		steps: [
-			{ text: "the plant. green and alive.", delayMs: 2000, kind: "thought" },
-			{ text: "perhaps just a small bite.", delayMs: 2500, kind: "thought" },
-			{ text: "worth it. absolutely worth it.", delayMs: 0, kind: "thought" },
+			{ text: "the plant. green. alive. taunting me.", delayMs: 2000, kind: "thought" },
+			{ text: "perhaps just a small bite. for research.", delayMs: 2500, kind: "thought" },
+			{ text: "eaten. immediately regretted. would do again tomorrow.", delayMs: 0, kind: "thought" },
 		],
 	},
 	{
@@ -209,9 +212,43 @@ export const PET_PHRASE_CHAINS: readonly PhraseChain[] = [
 		trigger: "any",
 		weight: 2,
 		steps: [
-			{ text: "the human stands up.", delayMs: 1500, kind: "thought" },
-			{ text: "they have DISTURBED the lap.", delayMs: 2000, kind: "thought" },
-			{ text: "this will be noted. and remembered.", delayMs: 0, kind: "thought" },
+			{ text: "the human is shifting. no. NO.", delayMs: 1500, kind: "thought" },
+			{ text: "they stood up. they ABANDONED the lap. with me ON it.", delayMs: 2000, kind: "thought" },
+			{ text: "this betrayal will echo through generations.", delayMs: 0, kind: "thought" },
+		],
+	},
+	{
+		id: "pet-desk-clearing",
+		trigger: "any",
+		weight: 1,
+		steps: [
+			{ text: "pen on desk. right on the edge.", delayMs: 2000, kind: "thought" },
+			{ text: "extending paw... slowly... carefully...", delayMs: 2000, kind: "thought" },
+			{ text: "*tap*", delayMs: 1000, kind: "speech" },
+			{ text: "it fell. gravity works. science is beautiful.", delayMs: 2000, kind: "thought" },
+			{ text: "there's another pen. commencing phase two.", delayMs: 0, kind: "thought" },
+		],
+	},
+	{
+		id: "pet-deploy-observer",
+		trigger: "any",
+		weight: 1,
+		steps: [
+			{ text: "the humans are very tense right now.", delayMs: 3000, kind: "thought" },
+			{ text: "they keep saying 'deploying' and 'please work'", delayMs: 2500, kind: "thought" },
+			{ text: "sat on the keyboard to help. they did NOT appreciate it.", delayMs: 2000, kind: "thought" },
+			{ text: "apparently I 'cancelled the pipeline.' you're welcome.", delayMs: 0, kind: "thought" },
+		],
+	},
+	{
+		id: "pet-cursor-obsession",
+		trigger: "idle",
+		weight: 1,
+		steps: [
+			{ text: "the tiny arrow. it moves. it stops. it moves again.", delayMs: 2000, kind: "thought" },
+			{ text: "I have been watching for eleven minutes. I cannot look away.", delayMs: 3000, kind: "thought" },
+			{ text: "it went behind a window. WHERE DID IT GO.", delayMs: 2000, kind: "speech" },
+			{ text: "...it came back. I am exhausted.", delayMs: 0, kind: "thought" },
 		],
 	},
 ];
