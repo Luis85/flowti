@@ -1,30 +1,12 @@
 import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { hubButton } from "../shared-styles.js";
 import { css } from "lit";
 import type { ReportGeneratorInfo } from "../../domain/projects/types.js";
 
 const styles = css`
 	h3 { font-size: 0.95em; margin: 0 0 8px; color: var(--text-muted, #999); }
-	.btn {
-		padding: 6px 12px;
-		border-radius: var(--hub-radius, 6px);
-		border: 1px solid var(--background-modifier-border, #333);
-		background: var(--background-secondary, #262626);
-		color: var(--text-normal, #ddd);
-		font-size: var(--flowti-font-sm, 0.85em);
-		cursor: pointer;
-		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
-	}
-	.btn:hover { background: var(--background-modifier-hover, #333); transform: translateY(-0.5px); }
-	.btn:focus-visible {
-		outline: 2px solid var(--interactive-accent, #7c3aed);
-		outline-offset: 2px;
-	}
-	.btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
 	.report-list { display: flex; flex-direction: column; gap: 6px; }
 	.gen { display: flex; align-items: center; gap: 8px; font-size: var(--flowti-font-sm, 0.85em); }
 	.state { font-size: 0.75em; opacity: 0.8; }
@@ -41,7 +23,7 @@ export class FlowtiTabReporting extends FlowtiElement {
 		busy: { type: Boolean },
 	};
 
-	static styles = [tokens, styles];
+	static styles = [tokens, hubButton, styles];
 
 	projectName = "";
 	generators: ReportGeneratorInfo[] = [];
@@ -53,14 +35,14 @@ export class FlowtiTabReporting extends FlowtiElement {
 		return html`
 			<h3>Reports</h3>
 			<div class="report-list">
-				<button type="button" class="btn" ?disabled="${this.busy}" @click="${() => this.emit("report-run-all", {})}">Run all</button>
+				<button type="button" class="hub-btn" ?disabled="${this.busy}" @click="${() => this.emit("report-run-all", {})}">Run all</button>
 				${this.generators.map((g) => {
 					const runId = (g.id ?? "").trim();
 					return html`
 					<div class="gen">
 						<button
 							type="button"
-							class="btn"
+							class="hub-btn"
 							?disabled="${this.busy || !runId}"
 							title="${runId ? `Run ${g.label}` : "Generator has no id in config"}"
 							@click="${() => runId && this.emit("report-run", { generatorId: runId })}"

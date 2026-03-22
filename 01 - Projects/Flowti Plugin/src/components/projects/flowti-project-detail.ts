@@ -7,6 +7,7 @@
 import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { hubButton, emptyState } from "../shared-styles.js";
 import { projectDetailStyles } from "./flowti-project-detail-styles.js";
 import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo, TeamRoleSlot, VaultAgentSummary, GitDetectResult, ProjectBrief } from "../../domain/projects/types.js";
 
@@ -80,6 +81,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	static styles = [
 		...FlowtiElement.styles,
 		tokens,
+		hubButton,
+		emptyState,
 		projectDetailStyles,
 	];
 
@@ -270,8 +273,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 						/>
 					</div>
 					<div class="modal-actions">
-						<button class="btn" @click="${() => { this.showNamePrompt = false; }}">Cancel</button>
-						<button class="btn btn--primary" @click="${() => this.submitNamePrompt()}">Create</button>
+						<button class="hub-btn" @click="${() => { this.showNamePrompt = false; }}">Cancel</button>
+						<button class="hub-btn hub-btn--primary" @click="${() => this.submitNamePrompt()}">Create</button>
 					</div>
 				</div>
 			</div>

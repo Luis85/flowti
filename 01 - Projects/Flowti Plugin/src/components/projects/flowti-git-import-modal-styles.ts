@@ -45,42 +45,6 @@ export const gitImportModalStyles = css`
 		justify-content: flex-end;
 	}
 
-	.btn {
-		padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
-		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: var(--hub-radius, 6px);
-		background: var(--background-secondary, #262626);
-		color: var(--text-normal, #ddd);
-		font-size: var(--flowti-font-sm, 0.85em);
-		cursor: pointer;
-		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
-	}
-
-	.btn:hover {
-		background: var(--background-modifier-hover, #333);
-		transform: translateY(-0.5px);
-	}
-
-	.btn:focus-visible {
-		outline: 2px solid var(--interactive-accent, #7c3aed);
-		outline-offset: 2px;
-	}
-
-	.btn--primary {
-		background: var(--interactive-accent, #7c3aed);
-		border-color: var(--interactive-accent, #7c3aed);
-		color: #fff;
-	}
-
-	.btn--primary:hover {
-		filter: brightness(1.1);
-	}
-
-	.btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
 	.form-field {
 		display: flex;
 		flex-direction: column;

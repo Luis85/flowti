@@ -1,27 +1,13 @@
 import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { hubButton } from "../shared-styles.js";
 import { css } from "lit";
 import type { CatalogEntity, CatalogEntityDef } from "../../domain/projects/types.js";
 
 const styles = css`
 	h3 { font-size: 0.95em; margin: 0 0 8px; color: var(--text-muted, #999); }
 	.row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
-	.btn {
-		padding: 6px 12px;
-		border-radius: var(--hub-radius, 6px);
-		border: 1px solid var(--background-modifier-border, #333);
-		background: var(--background-secondary, #262626);
-		color: var(--text-normal, #ddd);
-		font-size: var(--flowti-font-sm, 0.85em);
-		cursor: pointer;
-		transition: background var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
-	}
-	.btn:hover { background: var(--background-modifier-hover, #333); transform: translateY(-0.5px); }
-	.btn:focus-visible {
-		outline: 2px solid var(--interactive-accent, #7c3aed);
-		outline-offset: 2px;
-	}
 	select, input { font-size: var(--flowti-font-sm, 0.85em); padding: 4px 8px; background: var(--background-primary, #1e1e1e); color: var(--text-normal, #ddd); border: 1px solid var(--background-modifier-border, #333); border-radius: var(--hub-radius, 6px); }
 	select:focus-visible, input:focus-visible {
 		outline: 2px solid var(--interactive-accent, #7c3aed);
@@ -37,7 +23,7 @@ export class FlowtiTabEventCatalog extends FlowtiElement {
 		entities: { type: Array },
 	};
 
-	static styles = [tokens, styles];
+	static styles = [tokens, hubButton, styles];
 
 	projectName = "";
 	entities: CatalogEntity[] = [];
@@ -53,11 +39,11 @@ export class FlowtiTabEventCatalog extends FlowtiElement {
 					<option value="events">Events</option>
 					<option value="flows">Flows</option>
 				</select>
-				<button type="button" class="btn" @click="${this.refresh}">Refresh</button>
+				<button type="button" class="hub-btn" @click="${this.refresh}">Refresh</button>
 			</div>
 			<div class="row">
 				<input id="ce-name" placeholder="New entity name" />
-				<button type="button" class="btn" @click="${this.createEntity}">Create</button>
+				<button type="button" class="hub-btn" @click="${this.createEntity}">Create</button>
 			</div>
 			<div class="list">
 				${this.entities.map((e) => html`<div>${e.name} <span style="opacity:0.6">${e.status}</span></div>`)}

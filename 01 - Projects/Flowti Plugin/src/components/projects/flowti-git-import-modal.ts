@@ -12,6 +12,7 @@
 import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { hubButton } from "../shared-styles.js";
 import { gitImportModalStyles } from "./flowti-git-import-modal-styles.js";
 import "../shared/ft-process-log.js";
 import type { GitDetectResult } from "../../domain/projects/types.js";
@@ -36,6 +37,7 @@ export class FlowtiGitImportModal extends FlowtiElement {
 
 	static styles = [
 		tokens,
+		hubButton,
 		gitImportModalStyles,
 	];
 
@@ -110,9 +112,9 @@ export class FlowtiGitImportModal extends FlowtiElement {
 					${this.errorNote ? html`<div class="error-note">${this.errorNote}</div>` : ""}
 
 					<div class="modal-actions">
-						<button class="btn" @click="${this.dispatchCancel}">Cancel</button>
+						<button class="hub-btn" @click="${this.dispatchCancel}">Cancel</button>
 						<button
-							class="btn btn--primary"
+							class="hub-btn hub-btn--primary"
 							?disabled="${!this.isUrlValid || !this.projectName}"
 							@click="${this.dispatchSetup}"
 						>Setup</button>
@@ -136,7 +138,7 @@ export class FlowtiGitImportModal extends FlowtiElement {
 					</div>
 					${this.errorNote ? html`<div class="error-note">${this.errorNote}</div>` : ""}
 					<div class="modal-actions">
-						<button class="btn" @click="${this.dispatchAbort}">Cancel</button>
+						<button class="hub-btn" @click="${this.dispatchAbort}">Cancel</button>
 					</div>
 				</div>
 			</div>
@@ -159,8 +161,8 @@ export class FlowtiGitImportModal extends FlowtiElement {
 					</dl>
 					${this.errorNote ? html`<div class="error-note">${this.errorNote}</div>` : ""}
 					<div class="modal-actions">
-						<button class="btn" @click="${this.goToConfigure}">Configure</button>
-						<button class="btn btn--primary" @click="${this.dispatchFinish}">Finish</button>
+						<button class="hub-btn" @click="${this.goToConfigure}">Configure</button>
+						<button class="hub-btn hub-btn--primary" @click="${this.dispatchFinish}">Finish</button>
 					</div>
 				</div>
 			</div>
@@ -220,8 +222,8 @@ export class FlowtiGitImportModal extends FlowtiElement {
 					</div>
 
 					<div class="modal-actions">
-						<button class="btn" @click="${this.goToDetect}">Back</button>
-						<button class="btn btn--primary" @click="${this.dispatchConfigure}">Finish</button>
+						<button class="hub-btn" @click="${this.goToDetect}">Back</button>
+						<button class="hub-btn hub-btn--primary" @click="${this.dispatchConfigure}">Finish</button>
 					</div>
 				</div>
 			</div>
@@ -240,8 +242,8 @@ export class FlowtiGitImportModal extends FlowtiElement {
 						<div class="detail">${this.detected?.framework || this.configFramework || this.detected?.type || "Project"} &middot; ${this.mode === "template" ? "template" : "submodule"}</div>
 					</div>
 					<div class="modal-actions">
-						<button class="btn" @click="${this.dispatchCancel}">Close</button>
-						<button class="btn btn--primary" @click="${this.dispatchOpenProject}">Open Project</button>
+						<button class="hub-btn" @click="${this.dispatchCancel}">Close</button>
+						<button class="hub-btn hub-btn--primary" @click="${this.dispatchOpenProject}">Open Project</button>
 					</div>
 				</div>
 			</div>

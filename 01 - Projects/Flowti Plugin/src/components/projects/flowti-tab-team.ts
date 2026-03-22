@@ -1,6 +1,7 @@
 import { html, type PropertyValues } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { hubButton } from "../shared-styles.js";
 import { css } from "lit";
 import type { TeamRoleSlot, VaultAgentSummary, AgentBlueprint } from "../../domain/projects/types.js";
 import { formatSkillsLineForEditor, parseSkillsLine, projectRoleNoteRelativePath } from "../../domain/projects/project-role-markdown.js";
@@ -129,46 +130,12 @@ const styles = css`
 		flex: 1;
 		min-width: 8px;
 	}
-	.btn {
-		padding: 6px 14px;
-		border-radius: var(--hub-radius, 6px);
-		border: 1px solid var(--background-modifier-border, #333);
-		background: var(--background-secondary, #262626);
-		color: var(--text-normal, #ddd);
-		font-size: var(--flowti-font-sm, 0.85em);
-		cursor: pointer;
-		transition: background var(--hub-transition, 150ms ease), border-color var(--hub-transition, 150ms ease), transform var(--hub-transition, 150ms ease);
-	}
-	.btn:hover:not(:disabled) {
-		background: var(--background-modifier-hover, #333);
-	}
-	.btn:focus-visible {
-		outline: 2px solid var(--interactive-accent, #7c3aed);
-		outline-offset: 2px;
-	}
-	.btn:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-	.btn--primary {
-		background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 22%, var(--background-secondary, #262626));
-		border-color: var(--interactive-accent, #7c3aed);
-		color: var(--text-normal, #eee);
-	}
-	.btn--primary:hover:not(:disabled) {
-		background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 35%, var(--background-secondary, #262626));
-	}
-	.btn--danger {
+	.hub-btn--danger {
 		border-color: color-mix(in srgb, var(--color-red, #e53935) 55%, transparent);
 		color: var(--color-red, #f87171);
 	}
-	.btn--danger:hover:not(:disabled) {
+	.hub-btn--danger:hover:not(:disabled) {
 		background: color-mix(in srgb, var(--color-red, #e53935) 12%, transparent);
-	}
-	.btn--compact {
-		padding: 4px 10px;
-		font-size: 0.85em;
-		margin-left: 8px;
 	}
 	.card {
 		border: 1px solid var(--background-modifier-border, #333);
@@ -440,7 +407,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 		agentCreationContext: { type: Object },
 	};
 
-	static styles = [tokens, styles];
+	static styles = [tokens, hubButton, styles];
 
 	projectName = "";
 	roleSlots: TeamRoleSlot[] = [];
@@ -534,20 +501,20 @@ export class FlowtiTabTeam extends FlowtiElement {
 			<div class="toolbar">
 				<button
 					type="button"
-					class="btn"
+					class="hub-btn"
 					title="Reload Agent definitions from the vault folder"
 					?disabled="${this.actionsLocked}"
 					@click="${this.refreshAgents}"
 				>
 					Refresh agent list
 				</button>
-				<button type="button" class="btn" title="Add another staffing role to this project" ?disabled="${this.actionsLocked}" @click="${this.addSlot}">
+				<button type="button" class="hub-btn" title="Add another staffing role to this project" ?disabled="${this.actionsLocked}" @click="${this.addSlot}">
 					Add role
 				</button>
 				<span class="toolbar__spacer"></span>
 				<button
 					type="button"
-					class="btn btn--primary"
+					class="hub-btn hub-btn--primary"
 					title="Write role notes, flowti.config.json, and sync the agent dashboard"
 					?disabled="${this.actionsLocked}"
 					@click="${this.saveAll}"
@@ -710,7 +677,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 					Role note: <code style="font-size:0.9em">${rolePath}</code>
 					<button
 						type="button"
-						class="btn btn--compact"
+						class="hub-btn hub-btn--compact"
 						title="Open this role note in the vault"
 						?disabled="${lock || !this.projectName}"
 						@click="${() => this.openRoleNote(rolePath)}"
@@ -749,7 +716,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 					</select>
 					<button
 						type="button"
-						class="btn"
+						class="hub-btn"
 						?disabled="${!hasAssignee || lock}"
 						title="Remove this assignee and update the roster (saves immediately)"
 						@click="${() => this.clearAssignee(slot.id)}"
@@ -788,7 +755,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 						/>
 						<button
 							type="button"
-							class="btn btn--primary"
+							class="hub-btn hub-btn--primary"
 							?disabled="${!canCreate || lock}"
 							title="Create an Agent note from this role, assign it, save roster, and sync the dashboard"
 							@click="${() => this.emitCreate(slot.id)}"
@@ -797,7 +764,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 						</button>
 						<button
 							type="button"
-							class="btn btn--danger"
+							class="hub-btn hub-btn--danger"
 							title="Remove this role and its ProjectRole note from the project"
 							?disabled="${lock}"
 							@click="${() => this.removeSlot(slot.id)}"

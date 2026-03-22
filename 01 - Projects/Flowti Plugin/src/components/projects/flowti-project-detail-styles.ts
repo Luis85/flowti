@@ -105,26 +105,6 @@ export const projectDetailStyles = css`
 		justify-content: flex-end;
 	}
 
-	.btn {
-		padding: var(--flowti-space-xs, 4px) var(--flowti-space-md, 16px);
-		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: var(--hub-radius, 6px);
-		background: var(--background-secondary, #262626);
-		color: var(--text-normal, #ddd);
-		font-size: var(--flowti-font-sm, 0.85em);
-		cursor: pointer;
-	}
-
-	.btn:hover {
-		background: var(--background-modifier-hover, #333);
-	}
-
-	.btn--primary {
-		background: var(--interactive-accent, #7c3aed);
-		border-color: var(--interactive-accent, #7c3aed);
-		color: #fff;
-	}
-
 	.list-header {
 		display: flex;
 		justify-content: space-between;
@@ -226,13 +206,6 @@ export const projectDetailStyles = css`
 		text-align: center;
 		color: var(--text-muted, #999);
 		font-size: var(--flowti-font-sm, 0.85em);
-	}
-
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--flowti-space-sm, 8px);
 	}
 
 	.empty-pulse {

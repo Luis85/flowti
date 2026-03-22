@@ -36,9 +36,7 @@ export class FlowtiHealthGauge extends FlowtiElement {
 	score: HealthScore | null = null;
 	gaugeError = "";
 
-	// Override render() directly so the base-class error-intercept does not
-	// swallow the gauge's own error display (which lives inside the SVG).
-	override render() {
+	protected renderContent() {
 		if (this.gaugeError) return html`<span class="error">${this.gaugeError}</span>`;
 		if (!this.score) return html`<span class="muted">—</span>`;
 
@@ -63,10 +61,6 @@ export class FlowtiHealthGauge extends FlowtiElement {
 				`}
 			</svg>
 		`;
-	}
-
-	protected renderContent() {
-		return html``;
 	}
 }
 
