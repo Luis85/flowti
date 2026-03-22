@@ -119,3 +119,52 @@ export const searchBar = css`
 		color: var(--text-normal);
 	}
 `;
+
+/** Card pattern for project hub — uses --hub-* tokens (fallbacks for standalone use). */
+export const hubCard = css`
+	.hub-card {
+		background: var(--hub-surface-1, var(--background-secondary));
+		border: 1px solid var(--background-modifier-border, #333);
+		border-radius: var(--hub-radius-lg, 10px);
+		padding: var(--flowti-space-md);
+		transition: border-color var(--hub-transition, 150ms ease),
+		            box-shadow var(--hub-transition, 150ms ease),
+		            transform var(--hub-transition, 150ms ease);
+	}
+	.hub-card:hover {
+		border-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border));
+		box-shadow: var(--hub-glow, none);
+		transform: translateY(-1px);
+	}
+`;
+
+/** Button pattern for project hub — uses --hub-* tokens (fallbacks for standalone use). */
+export const hubButton = css`
+	.hub-btn {
+		padding: 6px 14px;
+		border: 1px solid var(--background-modifier-border, #333);
+		border-radius: var(--hub-radius, 6px);
+		background: var(--background-secondary, #262626);
+		color: var(--text-normal, #ddd);
+		font-size: var(--flowti-font-sm, 0.85em);
+		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease),
+		            transform var(--hub-transition, 150ms ease);
+	}
+	.hub-btn:hover {
+		background: var(--background-modifier-hover, #333);
+		transform: translateY(-0.5px);
+	}
+	.hub-btn:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
+	}
+	.hub-btn--primary {
+		background: var(--interactive-accent, #7c3aed);
+		border-color: var(--interactive-accent, #7c3aed);
+		color: #fff;
+	}
+	.hub-btn--compact {
+		padding: 4px 10px;
+	}
+`;

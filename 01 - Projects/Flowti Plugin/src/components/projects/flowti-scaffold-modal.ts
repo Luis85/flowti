@@ -1,6 +1,7 @@
 import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { hubButton } from "../shared-styles.js";
 import { css } from "lit";
 
 const styles = css`
@@ -16,7 +17,7 @@ const styles = css`
 	.modal {
 		background: var(--background-primary, #1e1e1e);
 		border: 1px solid var(--background-modifier-border, #333);
-		border-radius: 8px;
+		border-radius: var(--hub-radius-lg, 10px);
 		padding: var(--flowti-space-md, 16px);
 		max-width: 420px;
 		width: calc(100% - 24px);
@@ -24,20 +25,6 @@ const styles = css`
 	.modal-title { font-weight: 600; margin-bottom: var(--flowti-space-sm, 8px); }
 	.modal-body { color: var(--text-muted, #999); font-size: var(--flowti-font-sm, 0.85em); margin-bottom: var(--flowti-space-md, 16px); }
 	.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-	.btn {
-		padding: 6px 14px;
-		border-radius: 4px;
-		border: 1px solid var(--background-modifier-border, #333);
-		background: var(--background-secondary, #262626);
-		color: var(--text-normal, #ddd);
-		font-size: var(--flowti-font-sm, 0.85em);
-		cursor: pointer;
-	}
-	.btn--primary {
-		background: var(--interactive-accent, #7c3aed);
-		border-color: var(--interactive-accent, #7c3aed);
-		color: #fff;
-	}
 `;
 
 export class FlowtiScaffoldModal extends FlowtiElement {
@@ -49,7 +36,7 @@ export class FlowtiScaffoldModal extends FlowtiElement {
 		canvasChanged: { type: Boolean },
 	};
 
-	static styles = [tokens, styles];
+	static styles = [tokens, hubButton, styles];
 
 	hasSitemap = false;
 	hasMarkdownSource = false;
@@ -65,14 +52,14 @@ export class FlowtiScaffoldModal extends FlowtiElement {
 						Scaffold ties your component library to <strong>configs/sitemap.json</strong>. Prefer sketching <strong>sitemap.canvas</strong> on Overview, syncing to JSON, then scaffolding — or import markdown if that is how you maintain the map.
 					</div>
 					<div class="actions">
-						<button type="button" class="btn" @click="${() => this.emitDismiss()}">Cancel</button>
+						<button type="button" class="hub-btn" @click="${() => this.emitDismiss()}">Cancel</button>
 						${this.hasCanvas && this.canvasChanged
-							? html`<button type="button" class="btn btn--primary" @click="${() => this.confirm({ canvasImport: true })}">Sync canvas → JSON, then scaffold</button>`
+							? html`<button type="button" class="hub-btn hub-btn--primary" @click="${() => this.confirm({ canvasImport: true })}">Sync canvas → JSON, then scaffold</button>`
 							: ""}
 						${this.hasMarkdownSource
-							? html`<button type="button" class="btn btn--primary" @click="${() => this.confirm({ importFirst: true })}">Import markdown → JSON, then scaffold</button>`
+							? html`<button type="button" class="hub-btn hub-btn--primary" @click="${() => this.confirm({ importFirst: true })}">Import markdown → JSON, then scaffold</button>`
 							: ""}
-						<button type="button" class="btn btn--primary" @click="${() => this.confirm({})}">Scaffold now</button>
+						<button type="button" class="hub-btn hub-btn--primary" @click="${() => this.confirm({})}">Scaffold now</button>
 					</div>
 				</div>
 			</div>

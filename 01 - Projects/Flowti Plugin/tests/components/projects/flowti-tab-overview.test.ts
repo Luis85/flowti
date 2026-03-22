@@ -29,7 +29,10 @@ describe("flowti-tab-overview", () => {
 	it("renders health score when available", async () => {
 		el.healthScore = { overall: 85, grade: "B", categories: { tests: 90, coverage: 80, build: 100, lint: 70, security: 85, git: 90 } };
 		await el.updateComplete;
-		expect(el.shadowRoot!.textContent).toContain("85");
+		const gauge = el.shadowRoot!.querySelector("flowti-health-gauge") as LitEl;
+		expect(gauge).not.toBeNull();
+		await gauge.updateComplete;
+		expect(gauge.shadowRoot!.textContent).toContain("85");
 	});
 
 	it("shows health Refresh button", async () => {
@@ -120,8 +123,10 @@ describe("flowti-tab-overview", () => {
 	it("shows health error when healthError set", async () => {
 		el.healthError = "Connection failed";
 		await el.updateComplete;
-		const shadow = el.shadowRoot!;
-		expect(shadow.textContent).toContain("Connection failed");
+		const gauge = el.shadowRoot!.querySelector("flowti-health-gauge") as LitEl;
+		expect(gauge).not.toBeNull();
+		await gauge.updateComplete;
+		expect(gauge.shadowRoot!.textContent).toContain("Connection failed");
 	});
 
 	it("shows no-todo message when todosExist is false and no todos", async () => {
@@ -141,8 +146,11 @@ describe("flowti-tab-overview", () => {
 	it("renders score value with styling", async () => {
 		el.healthScore = { overall: 85, grade: "B", categories: { tests: 90, coverage: 80, build: 100, lint: 70, security: 85, git: 90 } };
 		await el.updateComplete;
-		const score = el.shadowRoot!.querySelector(".score");
-		expect(score).not.toBeNull();
-		expect(score!.textContent).toContain("85");
+		const gauge = el.shadowRoot!.querySelector("flowti-health-gauge") as LitEl;
+		expect(gauge).not.toBeNull();
+		await gauge.updateComplete;
+		const scoreText = gauge.shadowRoot!.querySelector(".score-text");
+		expect(scoreText).not.toBeNull();
+		expect(scoreText!.textContent).toContain("85");
 	});
 });

@@ -267,3 +267,72 @@ export interface VaultAgentSummary {
 	readonly name: string;
 	readonly path: string;
 }
+
+/** Detection result from project-from-git wizard. */
+export interface GitDetectResult {
+	readonly ok: boolean;
+	readonly type?: string;
+	readonly framework?: string;
+	readonly packageManager?: string;
+	readonly testFramework?: string;
+	readonly hasConfig?: boolean;
+	readonly buildCommand?: string;
+	readonly testCommand?: string;
+	readonly lintCommand?: string;
+}
+
+/**
+ * Typed bridge interface for the handler → Lit component contract.
+ * Mirrors the public reactive properties of FlowtiProjectDetail.
+ * The handler casts `document.createElement("flowti-project-detail")` to this type.
+ */
+export interface ProjectDetailElement extends HTMLElement {
+	projectName: string;
+	projectType: string;
+	hasNote: boolean;
+	notePath: string;
+	projects: ProjectSummary[];
+	searchQuery: string;
+	cliConnected: boolean;
+	storybook: StorybookStatus;
+	storybookBusy: boolean;
+	storybookBusyLabel: string;
+	storybookOutput: string[];
+	storybookError: string;
+	components: ComponentEntry[];
+	projectHubBusy: boolean;
+	projectHubBusyLabel: string;
+	projectHubOutput: string[];
+	projectHubError: string;
+	actionSuccess: string;
+	statusMessage: string;
+	config: ProjectConfig | undefined;
+	hasSitemap: boolean;
+	hasMarkdownSource: boolean;
+	hasCanvas: boolean;
+	canvasChanged: boolean;
+	canvasPreset: string;
+	brief: ProjectBrief | undefined;
+	showScaffoldModal: boolean;
+	showGitModal: boolean;
+	gitModalMode: "submodule" | "template";
+	showNamePrompt: boolean;
+	gitImportStep: "form" | "progress" | "detect" | "configure" | "done";
+	gitImportError: string;
+	gitImportOutputLines: string[];
+	gitImportDetected: GitDetectResult | null;
+	configSaveStatus: string;
+	configSourcePath: string;
+	healthScore: HealthScore | null;
+	healthError: string;
+	todos: TodoItem[];
+	todosExist: boolean;
+	catalogEntities: CatalogEntity[];
+	reportGenerators: ReportGeneratorInfo[];
+	reportNodeStates: Record<string, string>;
+	reportOutput: string[];
+	reportBusy: boolean;
+	roleSlots: TeamRoleSlot[];
+	vaultAgents: VaultAgentSummary[];
+	agentCreationContext: { roleId: string; agentName: string } | null;
+}

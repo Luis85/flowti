@@ -12,7 +12,7 @@ import { VIEW_TYPE_PROJECT_DETAIL } from "./types.js";
 export interface ProjectDetailDeps {
 	readonly projectService: IProjectService;
 	readonly openNote: (path: string) => void;
-	readonly createNote: (name: string) => void;
+	readonly createNote: (name: string) => Promise<void>;
 	readonly navigateBack: () => void;
 	readonly pickFolder: () => Promise<string | null>;
 	readonly revealFolder: (path: string) => void;

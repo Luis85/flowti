@@ -1,6 +1,7 @@
 import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { hubButton } from "../shared-styles.js";
 import { css } from "lit";
 import type { ProjectConfig, TeamRoleSlot } from "../../domain/projects/types.js";
 
@@ -8,31 +9,12 @@ const styles = css`
 	h3 { font-size: 0.95em; margin: 0 0 8px; color: var(--text-muted, #999); }
 	.field { margin-bottom: 10px; }
 	label { display: block; font-size: var(--flowti-font-sm, 0.85em); color: var(--text-muted, #999); margin-bottom: 4px; }
-	input, select { width: 100%; box-sizing: border-box; font-size: var(--flowti-font-sm, 0.85em); padding: 6px 8px; background: var(--background-primary, #1e1e1e); color: var(--text-normal, #ddd); border: 1px solid var(--background-modifier-border, #333); border-radius: 4px; }
+	input, select { width: 100%; box-sizing: border-box; font-size: var(--flowti-font-sm, 0.85em); padding: 6px 8px; background: var(--background-primary, #1e1e1e); color: var(--text-normal, #ddd); border: 1px solid var(--background-modifier-border, #333); border-radius: var(--hub-radius, 6px); }
 	.row { display: flex; gap: 8px; align-items: center; }
-	.btn {
-		padding: 6px 12px;
-		border-radius: 4px;
-		border: 1px solid var(--background-modifier-border, #333);
-		background: var(--background-secondary, #262626);
-		color: var(--text-normal, #ddd);
-		font-size: var(--flowti-font-sm, 0.85em);
-		cursor: pointer;
-	}
-	.btn:focus-visible,
 	input:focus-visible,
 	select:focus-visible {
 		outline: 2px solid var(--interactive-accent, #7c3aed);
 		outline-offset: 2px;
-	}
-	.btn:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-	.btn--primary {
-		background: var(--interactive-accent, #7c3aed);
-		border-color: var(--interactive-accent, #7c3aed);
-		color: #fff;
 	}
 	.status { font-size: var(--flowti-font-sm, 0.85em); color: var(--color-green, #4caf50); margin-top: 8px; }
 `;
@@ -51,7 +33,7 @@ export class FlowtiTabConfig extends FlowtiElement {
 		requiredFields: { type: String },
 	};
 
-	static styles = [tokens, styles];
+	static styles = [tokens, hubButton, styles];
 
 	projectName = "";
 	config: ProjectConfig | undefined;
@@ -92,7 +74,7 @@ export class FlowtiTabConfig extends FlowtiElement {
 				<label>Source folder (vault-relative or absolute)</label>
 				<div class="row">
 					<input type="text" .value="${this.sourcePath}" @input="${(e: Event) => { this.sourcePath = (e.target as HTMLInputElement).value; }}" />
-					<button type="button" class="btn" @click="${() => this.emit("config-browse-folder", {})}">Browse</button>
+					<button type="button" class="hub-btn" @click="${() => this.emit("config-browse-folder", {})}">Browse</button>
 				</div>
 			</div>
 			<div class="field">
@@ -107,7 +89,7 @@ export class FlowtiTabConfig extends FlowtiElement {
 				<label>Required fields (comma-separated)</label>
 				<input type="text" .value="${this.requiredFields}" @input="${(e: Event) => { this.requiredFields = (e.target as HTMLInputElement).value; }}" />
 			</div>
-			<button type="button" class="btn btn--primary" ?disabled="${this.hubLocked}" @click="${this.save}">Save markdown source config</button>
+			<button type="button" class="hub-btn hub-btn--primary" ?disabled="${this.hubLocked}" @click="${this.save}">Save markdown source config</button>
 			${this.saveStatus ? html`<div class="status">${this.saveStatus}</div>` : ""}
 			<hr style="border:none;border-top:1px solid var(--background-modifier-border,#333);margin:16px 0" />
 			<p style="font-size:var(--flowti-font-sm,0.85em);color:var(--text-muted,#999)">
@@ -115,8 +97,8 @@ export class FlowtiTabConfig extends FlowtiElement {
 			</p>
 			${this.hasCanvas ? html`
 				<div style="margin-top:12px">
-					<button type="button" class="btn" @click="${() => this.emit("canvas-open", {})}">Open sitemap.canvas</button>
-					<button type="button" class="btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Sync canvas → sitemap.json</button>
+					<button type="button" class="hub-btn" @click="${() => this.emit("canvas-open", {})}">Open sitemap.canvas</button>
+					<button type="button" class="hub-btn" ?disabled="${this.hubLocked}" @click="${() => this.emit("canvas-merge", {})}">Sync canvas → sitemap.json</button>
 				</div>
 			` : ""}
 		`;

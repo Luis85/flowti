@@ -1,6 +1,7 @@
 import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
+import { hubButton } from "../shared-styles.js";
 import { css } from "lit";
 import type { ComponentEntry } from "../../domain/projects/types.js";
 
@@ -8,27 +9,8 @@ const styles = css`
 	.section { margin-bottom: var(--flowti-space-md, 16px); }
 	h3 { font-size: 0.95em; margin: 0 0 8px; color: var(--text-muted, #999); }
 	.row { display: flex; flex-wrap: wrap; gap: 8px; }
-	.btn {
-		padding: 6px 12px;
-		border-radius: 4px;
-		border: 1px solid var(--background-modifier-border, #333);
-		background: var(--background-secondary, #262626);
-		color: var(--text-normal, #ddd);
-		font-size: var(--flowti-font-sm, 0.85em);
-		cursor: pointer;
-	}
-	.btn--primary {
-		background: var(--interactive-accent, #7c3aed);
-		border-color: var(--interactive-accent, #7c3aed);
-		color: #fff;
-	}
 	.muted { color: var(--text-muted, #999); font-size: var(--flowti-font-sm, 0.85em); }
 	.list { font-size: var(--flowti-font-sm, 0.85em); max-height: 200px; overflow: auto; }
-	.btn:focus-visible {
-		outline: 2px solid var(--interactive-accent, #7c3aed);
-		outline-offset: 2px;
-	}
-	.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 	.intro { line-height: 1.45; margin: 0 0 14px; max-width: 52em; }
 	.storybook-status {
 		display: flex;
@@ -59,15 +41,11 @@ const styles = css`
 		gap: 8px 12px;
 		margin: 0 0 10px;
 		padding: 8px 10px;
-		border-radius: 6px;
+		border-radius: var(--hub-radius, 6px);
 		font-size: var(--flowti-font-sm, 0.85em);
 		background: color-mix(in srgb, var(--color-red, #e53935) 12%, transparent);
 		color: color-mix(in srgb, var(--color-red, #f87171) 90%, var(--text-normal, #ddd));
 		border: 1px solid color-mix(in srgb, var(--color-red, #e53935) 35%, transparent);
-	}
-	.btn--tiny {
-		padding: 4px 10px;
-		font-size: 0.85em;
 	}
 `;
 
@@ -87,7 +65,7 @@ export class FlowtiTabComponents extends FlowtiElement {
 		hasSitemap: { type: Boolean },
 	};
 
-	static styles = [tokens, styles];
+	static styles = [tokens, hubButton, styles];
 
 	projectName = "";
 	components: ComponentEntry[] = [];
@@ -122,31 +100,31 @@ export class FlowtiTabComponents extends FlowtiElement {
 					? html`
 						<div class="storybook-error" role="alert">
 							<span>${this.storybookError}</span>
-							<button type="button" class="btn btn--tiny" @click="${() => this.emit("storybook-dismiss-error", {})}">Dismiss</button>
+							<button type="button" class="hub-btn hub-btn--compact" @click="${() => this.emit("storybook-dismiss-error", {})}">Dismiss</button>
 						</div>
 					`
 					: ""}
 				<div class="row">
 					${!this.storybookInstalled
 						? html`
-							<button type="button" class="btn btn--primary" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "html" })}">Install (HTML)</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "react" })}">React</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "vue3" })}">Vue</button>
+							<button type="button" class="hub-btn hub-btn--primary" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "html" })}">Install (HTML)</button>
+							<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "react" })}">React</button>
+							<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("storybook-install", { framework: "vue3" })}">Vue</button>
 						`
 						: html`
-							<button type="button" class="btn btn--primary" ?disabled="${sb}" @click="${() => this.emit("storybook-start", {})}">Start</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-stop", {})}">Stop</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-build", {})}">Build</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-view", { url: this.storybookUrl || "http://localhost:6006" })}">Open</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-preview", {})}">Preview static</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-import", {})}">Import markdown → sitemap.json</button>
-							<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("storybook-regenerate-confirmed", {})}">Regenerate</button>
+							<button type="button" class="hub-btn hub-btn--primary" ?disabled="${sb}" @click="${() => this.emit("storybook-start", {})}">Start</button>
+							<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("storybook-stop", {})}">Stop</button>
+							<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("storybook-build", {})}">Build</button>
+							<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("storybook-view", { url: this.storybookUrl || "http://localhost:6006" })}">Open</button>
+							<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("storybook-preview", {})}">Preview static</button>
+							<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("storybook-import", {})}">Import markdown → sitemap.json</button>
+							<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("storybook-regenerate-confirmed", {})}">Regenerate</button>
 						`}
 				</div>
 			</div>
 			<div class="section">
 				<h3>Components (${this.components.length})</h3>
-				<button type="button" class="btn" ?disabled="${sb}" @click="${() => this.emit("components-refresh", {})}">Refresh list</button>
+				<button type="button" class="hub-btn" ?disabled="${sb}" @click="${() => this.emit("components-refresh", {})}">Refresh list</button>
 				<div class="list">
 					${this.components.map((c) => html`<div>${c.name} <span class="muted">(${c.category})</span></div>`)}
 				</div>
