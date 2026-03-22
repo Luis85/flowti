@@ -270,6 +270,22 @@ describe("EchoProducer", () => {
 		});
 	});
 
+	// ── Cooldown key includes kind ─────────────────────────────────
+
+	describe("cooldown key includes kind", () => {
+		it("allows different echo kinds with same source/target in same cycle", () => {
+			// onTaskComplete(success) produces kind=preference, source=task-complete
+			// onTaskComplete(failure) produces kind=aversion, source=task-complete
+			// Different kinds should both fire in the same cycle
+			producer.onTaskComplete("Atlas", "coding", true, 1);
+			producer.onTaskComplete("Atlas", "coding", false, 1);
+
+			// Both echoes should have been added (preference + aversion)
+			expect(store.queryWeight("Atlas", "preference", "coding")).toBe(10);
+			expect(store.queryWeight("Atlas", "aversion", "coding")).toBe(-15);
+		});
+	});
+
 	// ── Cascade callback ───────────────────────────────────────────
 
 	describe("cascade callback", () => {

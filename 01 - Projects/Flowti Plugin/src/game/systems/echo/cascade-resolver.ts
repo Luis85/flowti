@@ -14,6 +14,7 @@ const MAX_CASCADE_DEPTH = 3;
 const BASE_PROBABILITY = 0.3;
 const MAX_PROBABILITY = 0.6;
 const DAMPEN_FACTOR = 0.6;
+const GOSSIP_FORWARD_CHANCE = 0.3;
 
 // ── CascadeReaction ─────────────────────────────────────────────────
 
@@ -97,7 +98,10 @@ export class CascadeResolver {
 			};
 		}
 
-		// TODO: distinguish room vs pet vs task aversion for different reaction types
+		// Aversion reactions are currently uniform (avoid-room for all targets).
+		// Future: discriminate by target type — room aversions trigger room avoidance,
+		// pet aversions reduce pet catalyst probability, task aversions reduce
+		// task acceptance weight in BT. This requires target-type metadata on echoes.
 		if (echo.kind === "aversion" && Math.abs(echo.weight) > 15) {
 			return {
 				type: "avoid-room",
@@ -117,6 +121,13 @@ export class CascadeResolver {
 		}
 
 		return undefined;
+	}
+
+	// ── Gossip Forwarding ──────────────────────────────────────────
+
+	/** 30% chance an agent forwards gossip to another agent next cycle. */
+	shouldForwardGossip(): boolean {
+		return Math.random() < GOSSIP_FORWARD_CHANCE;
 	}
 
 	// ── Cooldown Management ─────────────────────────────────────────

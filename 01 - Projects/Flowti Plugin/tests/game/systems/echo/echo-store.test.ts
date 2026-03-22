@@ -251,6 +251,14 @@ describe("EchoStore", () => {
 
 			expect(result.evicted.length).toBe(1);
 		});
+
+		it("crosses threshold decisively past 30 (38 → 28)", () => {
+			store.addEcho("Atlas", { kind: "opinion", source: "conversation", target: "Rex", weight: 38, decay: 10, tags: ["social"] }, 1);
+			const result = store.decayAll(2);
+
+			expect(result.thresholdsCrossed.length).toBe(1);
+			expect(result.thresholdsCrossed[0].weight).toBe(28);
+		});
 	});
 
 	// ── serialize / restore ─────────────────────────────────────────
@@ -284,6 +292,20 @@ describe("EchoStore", () => {
 			store.restore({});
 
 			expect(store.queryWeight("Atlas", "opinion", "Rex")).toBe(0);
+		});
+
+		it("restore clears pending habits", () => {
+			// Trigger habit: 3 merges → pendingHabits gets an entry
+			store.addEcho("Atlas", opinion("Rex", 10), 1);
+			store.addEcho("Atlas", opinion("Rex", 10), 2);
+			store.addEcho("Atlas", opinion("Rex", 10), 3);
+
+			// Restore wipes everything, including pendingHabits
+			store.restore({});
+
+			// decayAll should report zero habitsFormed since restore cleared them
+			const result = store.decayAll(4);
+			expect(result.habitsFormed.length).toBe(0);
 		});
 	});
 
@@ -423,6 +445,16 @@ describe("EchoStore", () => {
 
 			const strongest = store.getStrongest("Atlas", "opinion");
 			expect(strongest?.target).toBe("Rex");
+		});
+
+		it("returns highest |weight| among multiple echoes of same kind", () => {
+			store.addEcho("Atlas", { kind: "opinion", source: "a", target: "Rex", weight: 10, decay: 1, tags: [] }, 1);
+			store.addEcho("Atlas", { kind: "opinion", source: "b", target: "Chip", weight: -40, decay: 1, tags: [] }, 1);
+			store.addEcho("Atlas", { kind: "opinion", source: "c", target: "Nova", weight: 25, decay: 1, tags: [] }, 1);
+
+			const strongest = store.getStrongest("Atlas", "opinion");
+			expect(strongest?.target).toBe("Chip");
+			expect(strongest?.weight).toBe(-40);
 		});
 	});
 
