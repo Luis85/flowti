@@ -12,6 +12,7 @@
 import type {
 	ConversationScript, ConversationTrigger, ConversationTurn, RunningJoke,
 } from "./conversation-types.js";
+import type { BubbleKind } from "./talk-types.js";
 import type { RelationshipTier } from "../relationship-system.js";
 
 // ── Tier ordering for range checks ──────────────────────────────────
@@ -40,7 +41,7 @@ function interpolate(text: string, vars: Record<string, string>): string {
 // ── Callbacks ───────────────────────────────────────────────────────
 
 export interface ConversationEngineCallbacks {
-	readonly showBubble: (agentName: string, kind: string, text: string) => void;
+	readonly showBubble: (agentName: string, kind: BubbleKind, text: string) => void;
 	readonly getTier: (a: string, b: string) => RelationshipTier;
 	readonly silenceTalk: (agentName: string) => void;
 	readonly recordConversation: (a: string, b: string) => void;

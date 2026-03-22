@@ -48,6 +48,14 @@ import { WorldAmbience } from "./systems/world-ambience.js";
 import { MemorySystem } from "./systems/memory-system.js";
 import { QuirkSystem } from "./systems/quirk-system.js";
 import { RelationshipSystem } from "./systems/relationship-system.js";
+import { ConversationEngine } from "./systems/talk/conversation-engine.js";
+import { FragmentComposer } from "./systems/talk/fragment-composer.js";
+import {
+	RIVAL_SCRIPTS, ACQUAINTANCE_SCRIPTS, COLLEAGUE_SCRIPTS, FRIEND_SCRIPTS, BESTFRIEND_SCRIPTS,
+	GOSSIP_SCRIPTS, DRAMA_SCRIPTS, PET_CATALYST_SCRIPTS,
+	RUNNING_JOKES,
+	ALL_FRAGMENT_POOLS,
+} from "./systems/talk/templates/index.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
@@ -220,6 +228,25 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	const bubbleSystem = new BubbleSystem();
+	const particlePool = new ParticlePool(PARTICLE_POOL_SIZE);
+	const emoteSystem = new EmoteSystem();
+	const socialSystem = new SocialSystem();
+	const needsSystem = new NeedsSystem();
+	const directorSystem = new DirectorSystem();
+	const sensorSystem = new SensorSystem();
+	const engagementSystem = new EngagementSystem();
+	const ritualSystem = new RitualSystem();
+	const toolExecutor = new ToolExecutor();
+	toolExecutor.registerTools(DEFAULT_TOOLS);
+	const dayClock = new DayClock(DEFAULT_WORLD_CONFIG.dayCycle.durationMs);
+	const worldAmbience = new WorldAmbience(DEFAULT_WORLD_CONFIG.weather.cycleLengthInDayCycles);
+	const memorySystem = new MemorySystem();
+	const quirkSystem = new QuirkSystem();
+	const worldEventScheduler = new WorldEventScheduler();
+	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
+
+	// ── Fragment composer + enriched talk engine ─────
+	const fragmentComposer = new FragmentComposer(ALL_FRAGMENT_POOLS);
 
 	const talkEngine = new TalkEngine({
 		showBubble: (agentName, kind, text) => {
@@ -241,24 +268,27 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 		isIdle: (name) => brainSystem.getState(name)?.state === "idle",
 		isOnScene: (name) => findCurrentSceneActor(name) !== undefined,
+	}, {
+		composer: fragmentComposer,
+		getTier: (a, b) => relationshipSystem.getTier(a, b),
 	});
 
-	const particlePool = new ParticlePool(PARTICLE_POOL_SIZE);
-	const emoteSystem = new EmoteSystem();
-	const socialSystem = new SocialSystem();
-	const needsSystem = new NeedsSystem();
-	const directorSystem = new DirectorSystem();
-	const sensorSystem = new SensorSystem();
-	const engagementSystem = new EngagementSystem();
-	const ritualSystem = new RitualSystem();
-	const toolExecutor = new ToolExecutor();
-	toolExecutor.registerTools(DEFAULT_TOOLS);
-	const dayClock = new DayClock(DEFAULT_WORLD_CONFIG.dayCycle.durationMs);
-	const worldAmbience = new WorldAmbience(DEFAULT_WORLD_CONFIG.weather.cycleLengthInDayCycles);
-	const memorySystem = new MemorySystem();
-	const quirkSystem = new QuirkSystem();
-	const worldEventScheduler = new WorldEventScheduler();
-	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
+	// ── Conversation engine ─────────────────────────
+	const conversationEngine = new ConversationEngine({
+		showBubble: (agentName, kind, text) => {
+			bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
+		},
+		getTier: (a, b) => relationshipSystem.getTier(a, b),
+		silenceTalk: (agentName) => talkEngine.silence(agentName),
+		recordConversation: (a, b) => relationshipSystem.recordConversation(a, b),
+	});
+	conversationEngine.registerScripts([
+		...RIVAL_SCRIPTS, ...ACQUAINTANCE_SCRIPTS, ...COLLEAGUE_SCRIPTS,
+		...FRIEND_SCRIPTS, ...BESTFRIEND_SCRIPTS,
+		...GOSSIP_SCRIPTS, ...DRAMA_SCRIPTS, ...PET_CATALYST_SCRIPTS,
+	]);
+	conversationEngine.registerJokes([...RUNNING_JOKES]);
+
 	const registry = new SceneRegistry();
 	const btSystem = new BtSystem();
 	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
@@ -275,6 +305,10 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const pets = createPets();
 	for (const [pet, def] of getPetBTPairs(pets)) {
 		btSystem.registerPet(pet.entityId, createPetBT(pet.entityId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed, pet.petType));
+	}
+	// Register pets in talk engine so they have ambient chatter (core/composed phrases)
+	for (const pet of pets) {
+		talkEngine.register(pet.entityId, "pet", [], 10);
 	}
 
 	// ── Agent select handler ────────────────────────────
@@ -474,6 +508,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			memory: memorySystem,
 			quirk: quirkSystem,
 			relationship: relationshipSystem,
+			conversation: conversationEngine,
 			bt: btSystem,
 			registry,
 			roomSwitcher,
