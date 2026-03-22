@@ -21,7 +21,7 @@ import type {
 import type { PetBTContext } from "../brain/behavior-tree/pet-bt.js";
 import type { AgentAction, DashboardAgent } from "../data/types.js";
 import type { BTTreeSnapshot, BTNodeState, BTNodeType, BTNodeStatus } from "../store/dashboard-store.js";
-import type { NodeDetails } from "mistreevous";
+import { getTreeNodeDetails, type TreeNodeDetails } from "../brain/behavior-tree/bt-service.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -120,7 +120,7 @@ function mapNodeStatus(mistreevousState: string): BTNodeStatus {
 	return STATE_TO_STATUS[mistreevousState] ?? "idle";
 }
 
-function walkNodeDetails(nd: NodeDetails): BTNodeState {
+function walkNodeDetails(nd: TreeNodeDetails): BTNodeState {
 	return {
 		id: nd.id,
 		label: nd.name,
@@ -175,7 +175,7 @@ export class BtSystem {
 
 	/** Build a BTTreeSnapshot from a BtEntry's current tree state. */
 	buildSnapshot(entry: BtEntry): BTTreeSnapshot {
-		const details = entry.bt.tree.getTreeNodeDetails();
+		const details = getTreeNodeDetails(entry.bt.tree);
 		return { root: walkNodeDetails(details), tick: this.tickCount };
 	}
 

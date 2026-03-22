@@ -45,5 +45,21 @@ export function resetTree(tree: BehaviourTree): void {
 	tree.reset();
 }
 
+// ── Tree introspection ────────────────────────────────────────
+
+/** Vendor-neutral node details for BT tree visualization. */
+export interface TreeNodeDetails {
+	readonly id: string;
+	readonly type: string;
+	readonly name: string;
+	readonly state: string;
+	readonly children?: TreeNodeDetails[];
+}
+
+/** Get a recursive snapshot of the tree's node structure and state. */
+export function getTreeNodeDetails(tree: BehaviourTree): TreeNodeDetails {
+	return tree.getTreeNodeDetails() as TreeNodeDetails;
+}
+
 // Re-export opaque types for consumer signatures
 export type { BehaviourTree, State };
