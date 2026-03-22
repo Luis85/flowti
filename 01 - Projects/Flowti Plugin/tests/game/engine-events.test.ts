@@ -488,4 +488,68 @@ describe("engine-events", () => {
 			expect(eventNames).toContain("state-changed");
 		});
 	});
+
+	describe("wireCouncilAutoWake", () => {
+		it("wakes an AI agent when selectAgent sets a new selectedAgent", () => {
+			const store = ctx.store as Record<string, unknown>;
+			store.wakeAgent = vi.fn(() => Promise.resolve());
+			store.agents = [{ name: "Alice", agentType: "ai", mood: "happy", domain: "engineering" }];
+			store.selectedAgent = null;
+
+			// Capture the state-changed handler registered by wireCouncilAutoWake
+			const addCalls = (ctx.store.addEventListener as ReturnType<typeof vi.fn>).mock.calls;
+			wireEvents(ctx);
+			const stateChangedHandlers = addCalls
+				.filter((call: unknown[]) => call[0] === "state-changed")
+				.map((call: unknown[]) => call[1] as () => void);
+			// The last state-changed handler is from wireCouncilAutoWake
+			const autoWakeHandler = stateChangedHandlers[stateChangedHandlers.length - 1];
+
+			// Simulate selecting an AI agent
+			store.selectedAgent = "Alice";
+			autoWakeHandler();
+			expect(store.wakeAgent).toHaveBeenCalledWith("Alice");
+		});
+
+		it("does NOT wake when selectedAgent is null (deselect)", () => {
+			const store = ctx.store as Record<string, unknown>;
+			store.wakeAgent = vi.fn(() => Promise.resolve());
+			store.agents = [{ name: "Alice", agentType: "ai", mood: "happy", domain: "engineering" }];
+			store.selectedAgent = null;
+
+			const addCalls = (ctx.store.addEventListener as ReturnType<typeof vi.fn>).mock.calls;
+			wireEvents(ctx);
+			const stateChangedHandlers = addCalls
+				.filter((call: unknown[]) => call[0] === "state-changed")
+				.map((call: unknown[]) => call[1] as () => void);
+			const autoWakeHandler = stateChangedHandlers[stateChangedHandlers.length - 1];
+
+			// selectedAgent stays null
+			autoWakeHandler();
+			expect(store.wakeAgent).not.toHaveBeenCalled();
+		});
+
+		it("does NOT wake when the same agent is re-selected (no change)", () => {
+			const store = ctx.store as Record<string, unknown>;
+			store.wakeAgent = vi.fn(() => Promise.resolve());
+			store.agents = [{ name: "Alice", agentType: "ai", mood: "happy", domain: "engineering" }];
+			store.selectedAgent = null;
+
+			const addCalls = (ctx.store.addEventListener as ReturnType<typeof vi.fn>).mock.calls;
+			wireEvents(ctx);
+			const stateChangedHandlers = addCalls
+				.filter((call: unknown[]) => call[0] === "state-changed")
+				.map((call: unknown[]) => call[1] as () => void);
+			const autoWakeHandler = stateChangedHandlers[stateChangedHandlers.length - 1];
+
+			// First select — should wake
+			store.selectedAgent = "Alice";
+			autoWakeHandler();
+			expect(store.wakeAgent).toHaveBeenCalledTimes(1);
+
+			// Same agent still selected — should NOT wake again
+			autoWakeHandler();
+			expect(store.wakeAgent).toHaveBeenCalledTimes(1);
+		});
+	});
 });

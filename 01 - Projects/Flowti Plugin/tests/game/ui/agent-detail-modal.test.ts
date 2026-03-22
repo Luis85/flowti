@@ -26,6 +26,7 @@ vi.mock("../../../src/components/flowti-element.js", () => {
 		connectedCallback() {}
 		disconnectedCallback() {}
 		requestUpdate() {}
+		addController() {}
 		protected renderContent() { return null; }
 	}
 	if (!customElements.get("flowti-element")) {
@@ -33,6 +34,10 @@ vi.mock("../../../src/components/flowti-element.js", () => {
 	}
 	return { FlowtiElement };
 });
+
+vi.mock("../../../src/game/ui/store-controller.js", () => ({
+	StoreController: class { constructor() {} hostConnected() {} hostDisconnected() {} },
+}));
 
 vi.mock("../../../src/game/ui/game-styles.js", () => ({
 	resetStyles: {},

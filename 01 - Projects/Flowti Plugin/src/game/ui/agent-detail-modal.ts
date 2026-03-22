@@ -7,6 +7,7 @@
 import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, buttonStyles, scrollStyles } from "./game-styles.js";
+import { StoreController } from "./store-controller.js";
 import type { DashboardStore, TabName } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
 
@@ -466,22 +467,16 @@ export class AgentDetailModal extends FlowtiElement {
 
 	store!: DashboardStore;
 
-	private storeHandler = () => { this.requestUpdate(); };
+	private storeCtrl = new StoreController(this, () => this.store);
 	private keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") this.handleClose(); };
 
 	connectedCallback(): void {
 		super.connectedCallback();
-		if (this.store) {
-			this.store.addEventListener("state-changed", this.storeHandler);
-		}
 		document.addEventListener("keydown", this.keyHandler);
 	}
 
 	disconnectedCallback(): void {
 		super.disconnectedCallback();
-		if (this.store) {
-			this.store.removeEventListener("state-changed", this.storeHandler);
-		}
 		document.removeEventListener("keydown", this.keyHandler);
 	}
 

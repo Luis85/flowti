@@ -10,6 +10,7 @@ import { html, css } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import { resolveCharacter } from "../sprites/character-pool.js";
+import { StoreController } from "./store-controller.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
@@ -174,19 +175,7 @@ export class CouncilSidebar extends FlowtiElement {
 
 	store!: DashboardStore;
 
-	private unsubscribe: (() => void) | null = null;
-
-	connectedCallback(): void {
-		super.connectedCallback();
-		const handler = () => this.requestUpdate();
-		this.store?.addEventListener("state-changed", handler);
-		this.unsubscribe = () => this.store?.removeEventListener("state-changed", handler);
-	}
-
-	disconnectedCallback(): void {
-		super.disconnectedCallback();
-		this.unsubscribe?.();
-	}
+	private storeCtrl = new StoreController(this, () => this.store);
 
 	private get councilAgents(): (DashboardAgent | null)[] {
 		const names = this.store?.council ?? [];

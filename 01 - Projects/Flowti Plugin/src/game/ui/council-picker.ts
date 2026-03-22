@@ -10,6 +10,7 @@ import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./game-styles.js";
 import { resolveCharacter } from "../sprites/character-pool.js";
+import { StoreController } from "./store-controller.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
 
@@ -245,20 +246,16 @@ export class CouncilPicker extends FlowtiElement {
 
 	store!: DashboardStore;
 
-	private unsubscribe: (() => void) | null = null;
+	private storeCtrl = new StoreController(this, () => this.store);
 	private dragSourceIndex = -1;
 
 	connectedCallback(): void {
 		super.connectedCallback();
-		const handler = () => this.requestUpdate();
-		this.store?.addEventListener("state-changed", handler);
-		this.unsubscribe = () => this.store?.removeEventListener("state-changed", handler);
 		document.addEventListener("keydown", this.handleKeydown);
 	}
 
 	disconnectedCallback(): void {
 		super.disconnectedCallback();
-		this.unsubscribe?.();
 		document.removeEventListener("keydown", this.handleKeydown);
 	}
 

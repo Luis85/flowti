@@ -187,6 +187,81 @@ describe("BtSystem", () => {
 		});
 	});
 
+	describe("onSnapshot dirty-check", () => {
+		it("fires onSnapshot on first tick", () => {
+			const agent = makeAgent();
+			const deps = createStubDeps(worldState, clock);
+			system.register(agent, deps);
+
+			const snapshots: Array<{ name: string; tick: number }> = [];
+			system.onSnapshot = (name, snap) => {
+				snapshots.push({ name, tick: snap.tick });
+			};
+
+			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			expect(snapshots.length).toBe(1);
+			expect(snapshots[0].name).toBe("Atlas");
+		});
+
+		it("does NOT fire onSnapshot when status is unchanged between ticks", () => {
+			const agent = makeAgent();
+			const deps = createStubDeps(worldState, clock);
+			system.register(agent, deps);
+
+			const snapshots: Array<{ name: string; tick: number }> = [];
+			system.onSnapshot = (name, snap) => {
+				snapshots.push({ name, tick: snap.tick });
+			};
+
+			// First tick — fires
+			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			expect(snapshots.length).toBe(1);
+
+			// Second tick — tree is deterministic with same world state, so snapshot
+			// status values should be identical, meaning onSnapshot should NOT fire again
+			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			expect(snapshots.length).toBe(1);
+		});
+
+		it("does not fire onSnapshot when callback is not set", () => {
+			const agent = makeAgent();
+			const deps = createStubDeps(worldState, clock);
+			system.register(agent, deps);
+
+			// No onSnapshot assigned — should not throw
+			expect(() => system.update(BT_TICK_INTERVAL_MS, worldState, clock)).not.toThrow();
+		});
+
+		it("buildSnapshot returns a valid BTTreeSnapshot structure", () => {
+			const agent = makeAgent();
+			const deps = createStubDeps(worldState, clock);
+			system.register(agent, deps);
+
+			// Tick once so the tree has state
+			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+
+			// Access the entry via getAgent to confirm it exists, then use buildSnapshot
+			expect(system.getAgent("Atlas")).toBeDefined();
+
+			// Use onSnapshot to capture the snapshot and verify its shape
+			let captured: { root: { id: string; label: string; type: string; status: string } } | null = null;
+			system.onSnapshot = (_name, snap) => {
+				captured = snap as typeof captured;
+			};
+
+			// Unregister and re-register to clear lastSnapshots, forcing a new emit
+			system.unregister("Atlas");
+			system.register(agent, deps);
+			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+
+			expect(captured).not.toBeNull();
+			expect(captured!.root).toBeDefined();
+			expect(typeof captured!.root.id).toBe("string");
+			expect(typeof captured!.root.type).toBe("string");
+			expect(typeof captured!.root.status).toBe("string");
+		});
+	});
+
 	describe("createStubDeps()", () => {
 		it("returns deps with stub disk that throws on read", () => {
 			const deps = createStubDeps(worldState, clock);
