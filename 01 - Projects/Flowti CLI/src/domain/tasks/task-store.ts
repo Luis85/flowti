@@ -116,4 +116,10 @@ export const taskStore = {
 		const path = deps.paths.join(dir, `${id}${MD}`);
 		if (deps.disk.existsSync(path)) deps.disk.unlinkSync(path);
 	},
+
+	countCompletedByAgent(deps: TaskStoreDeps, projectPath: string, agentName: string): number {
+		return this.list(deps, projectPath)
+			.filter(t => t.status === "completed" && t.assignee === agentName)
+			.length;
+	},
 };
