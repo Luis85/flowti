@@ -52,6 +52,7 @@ export function renderStreamEvent(event: AgentStreamEvent, thinkingDisplay: Thin
 		"tool-end": () => log(`  ${DIM}  done${RESET}`),
 		error: () => log(`  ${RED}Error: ${(event as AgentStreamEvent & { kind: "error" }).message}${RESET}`),
 		usage: () => { const e = event as AgentStreamEvent & { kind: "usage" }; log(`\n  ${DIM}tokens: ${e.inputTokens} in / ${e.outputTokens} out${RESET}`); },
+		session: () => { /* session_id captured internally — no display needed */ },
 		done: () => log(`\n  ${GREEN}Agent finished${RESET}`),
 	};
 	renderers[event.kind]();

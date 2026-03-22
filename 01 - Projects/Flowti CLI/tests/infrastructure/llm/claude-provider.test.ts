@@ -142,35 +142,44 @@ describe("createClaudeProvider", () => {
 			expect(provider.capabilities().persistentSession).toBe(true);
 		});
 
-		it("spawns claude without -p flag, with stdin true and --dangerously-skip-permissions", () => {
+		it("first send spawns claude -p with stream-json and dangerously-skip-permissions", () => {
 			const deps = makeDeps();
 			const provider = createClaudeProvider(asDeps(deps));
-			const request: LLMSessionRequest = { cwd: "/work" };
-			provider.createSession!(request);
-			expect(deps.shell.spawnBackground).toHaveBeenCalledWith(
-				expect.any(String),
-				{ cwd: "/work", stdin: true },
-			);
+			const session = provider.createSession!({ cwd: "/work" });
+			const proc = session.send("hello");
+			expect(proc).toHaveProperty("result");
+			expect(proc).toHaveProperty("onEvent");
+			expect(deps.shell.spawnBackground).toHaveBeenCalled();
 			const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-			expect(cmd).toContain("--dangerously-skip-permissions");
+			expect(cmd).toContain("-p");
 			expect(cmd).toContain("--output-format");
 			expect(cmd).toContain("stream-json");
-			const parts = cmd.split(" ");
-			expect(parts).not.toContain("-p");
+			expect(cmd).toContain("--dangerously-skip-permissions");
+			expect(cmd).not.toContain("--resume");
 		});
 
-		it("send writes message to stdin and returns LLMProcess", () => {
+		it("second send includes --resume with captured session_id", async () => {
 			const deps = makeDeps();
 			const provider = createClaudeProvider(asDeps(deps));
 			const session = provider.createSession!({});
-			const proc = session.send("hello");
-			expect(deps._mockProc.writeStdin).toHaveBeenCalledWith("hello\n");
-			expect(proc).toHaveProperty("result");
-			expect(proc).toHaveProperty("onEvent");
-			expect(proc).toHaveProperty("kill");
+
+			// First send — emit system event with session_id
+			session.send("hello");
+			for (const cb of deps._outputCallbacks) {
+				cb(JSON.stringify({ type: "system", subtype: "init", session_id: "sess-abc" }));
+				cb(JSON.stringify({ type: "result", subtype: "success" }));
+			}
+			// Wait for first result to resolve
+			await new Promise((r) => setTimeout(r, 10));
+
+			// Second send should include --resume
+			session.send("follow up");
+			const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[1][0] as string;
+			expect(cmd).toContain("--resume");
+			expect(cmd).toContain("sess-abc");
 		});
 
-		it("send resolves on done event", async () => {
+		it("send resolves on process exit with accumulated text", async () => {
 			const deps = makeDeps();
 			const provider = createClaudeProvider(asDeps(deps));
 			const session = provider.createSession!({});
@@ -178,7 +187,6 @@ describe("createClaudeProvider", () => {
 
 			for (const cb of deps._outputCallbacks) {
 				cb(JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "Hi!" }] } }));
-				cb(JSON.stringify({ type: "result", subtype: "success" }));
 			}
 
 			const result = await proc.result;
@@ -188,13 +196,11 @@ describe("createClaudeProvider", () => {
 
 		it("kill sets alive to false", () => {
 			const deps = makeDeps();
-			deps._mockProc.running = true;
 			const provider = createClaudeProvider(asDeps(deps));
 			const session = provider.createSession!({});
 			expect(session.alive).toBe(true);
 			session.kill();
 			expect(session.alive).toBe(false);
-			expect(deps._mockProc.kill).toHaveBeenCalled();
 		});
 	});
 });

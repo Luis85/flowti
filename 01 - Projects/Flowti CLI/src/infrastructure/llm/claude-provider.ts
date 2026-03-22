@@ -1,8 +1,9 @@
 /**
  * claude-provider.ts — Claude CLI adapter implementing ILLMProvider.
  *
- * Spawns `claude -p --output-format stream-json --verbose`, parses NDJSON output.
- * Reuses parseStreamEvents() from agent-stream.ts.
+ * One-shot: `claude -p "<prompt>" --output-format stream-json`
+ * Session: captures session_id from first call, uses `--resume <id>` for follow-ups.
+ * Uses the CLI's own OAuth login — no API key needed.
  */
 
 import type { ILLMProvider, LLMRequest, LLMProcess, LLMEvent, LLMResult, ProviderCapabilities, LLMSession, LLMSessionRequest } from "../../domain/agents/llm-types.js";
@@ -24,6 +25,79 @@ const CAPABILITIES: ProviderCapabilities = {
 	persistentSession: true,
 };
 
+/** Build the base claude args shared by execute and session. */
+function baseArgs(tools?: readonly string[]): string[] {
+	const args = ["-p", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"];
+	if (tools && tools.length > 0) {
+		args.push("--allowedTools", tools.join(","));
+	}
+	return args;
+}
+
+/** Spawn a single `claude -p` invocation, parse stream-json, return LLMProcess. */
+function spawnOnce(
+	deps: ClaudeProviderDeps,
+	prompt: string,
+	extraArgs: readonly string[],
+	cwd?: string,
+	timeout?: number,
+): { process: LLMProcess; sessionIdPromise: Promise<string | null> } {
+	const tempPath = writePromptFile(deps, prompt);
+	const quotedPath = `"${tempPath}"`;
+	const cmd = ["claude", ...extraArgs.map((a) => a.includes(" ") ? `"${a}"` : a)].join(" ") + ` < ${quotedPath}`;
+	const proc = deps.shell.spawnBackground(cmd, cwd ? { cwd } : undefined);
+	const exitPromise = proc.waitForExit(timeout ?? 3_600_000);
+
+	let streamState = createStreamState();
+	const textBuffer: string[] = [];
+	const thinkingBuffer: string[] = [];
+	const subscribers = new Set<(event: LLMEvent) => void>();
+
+	let capturedSessionId: string | null = null;
+	let resolveSessionId: ((id: string | null) => void) | null = null;
+	const sessionIdPromise = new Promise<string | null>((resolve) => { resolveSessionId = resolve; });
+
+	proc.onOutput((line: string) => {
+		streamState = updateStreamState(streamState, line);
+		for (const event of parseStreamEvents(line, streamState)) {
+			if (event.kind === "session" && !capturedSessionId) {
+				capturedSessionId = event.sessionId;
+				resolveSessionId?.(event.sessionId);
+				resolveSessionId = null;
+			}
+			if (event.kind === "thinking") thinkingBuffer.push(event.text);
+			if (event.kind === "text") textBuffer.push(event.text);
+			for (const cb of subscribers) {
+				try { cb(event); } catch { /* subscriber error */ }
+			}
+		}
+	});
+
+	const llmProcess: LLMProcess = {
+		onEvent(callback) {
+			subscribers.add(callback);
+			return () => { subscribers.delete(callback); };
+		},
+		result: exitPromise.then((exitCode) => {
+			cleanupPromptFile(deps, tempPath);
+			// Resolve sessionId if process exited before emitting one
+			if (resolveSessionId) { resolveSessionId(capturedSessionId); resolveSessionId = null; }
+			return { text: textBuffer.join(""), thinking: thinkingBuffer.join(""), exitCode } as LLMResult;
+		}).catch(() => {
+			proc.kill();
+			cleanupPromptFile(deps, tempPath);
+			if (resolveSessionId) { resolveSessionId(null); resolveSessionId = null; }
+			return { text: "", thinking: "", exitCode: 1 } as LLMResult;
+		}),
+		kill() {
+			proc.kill();
+			cleanupPromptFile(deps, tempPath);
+		},
+	};
+
+	return { process: llmProcess, sessionIdPromise };
+}
+
 export function createClaudeProvider(deps: ClaudeProviderDeps): ILLMProvider {
 	return {
 		name: "anthropic",
@@ -36,134 +110,55 @@ export function createClaudeProvider(deps: ClaudeProviderDeps): ILLMProvider {
 			const prompt = isPreFormatted(request.prompt)
 				? request.prompt.message
 				: formatPrompt(request.prompt, CAPABILITIES);
-
-			const tempPath = writePromptFile(deps, prompt);
-
-			const args = ["-p", "--output-format", "stream-json", "--verbose"];
-			if (request.tools && request.tools.length > 0) {
-				args.push("--allowedTools", request.tools.join(","));
-			}
-
-			const quotedPath = `"${tempPath}"`;
-			const cmd = ["claude", ...args.map((a) => a.includes(" ") ? `"${a}"` : a)].join(" ") + ` < ${quotedPath}`;
-			const proc = deps.shell.spawnBackground(cmd, request.cwd ? { cwd: request.cwd } : undefined);
-			const timeout = request.timeout ?? 3_600_000;
-			const exitPromise = proc.waitForExit(timeout);
-
-			let streamState = createStreamState();
-			const textBuffer: string[] = [];
-			const thinkingBuffer: string[] = [];
-			const subscribers = new Set<(event: LLMEvent) => void>();
-
-			proc.onOutput((line: string) => {
-				streamState = updateStreamState(streamState, line);
-				for (const event of parseStreamEvents(line, streamState)) {
-					if (event.kind === "thinking") thinkingBuffer.push(event.text);
-					if (event.kind === "text") textBuffer.push(event.text);
-					for (const cb of subscribers) {
-						try { cb(event); } catch { /* subscriber error */ }
-					}
-				}
-			});
-
-			return {
-				onEvent(callback) {
-					subscribers.add(callback);
-					return () => { subscribers.delete(callback); };
-				},
-				result: exitPromise.then((exitCode) => {
-					cleanupPromptFile(deps, tempPath);
-					return { text: textBuffer.join(""), thinking: thinkingBuffer.join(""), exitCode } as LLMResult;
-				}).catch(() => {
-					proc.kill();
-					cleanupPromptFile(deps, tempPath);
-					return { text: "", thinking: "", exitCode: 1 } as LLMResult;
-				}),
-				kill() {
-					proc.kill();
-					cleanupPromptFile(deps, tempPath);
-				},
-			};
+			const args = baseArgs(request.tools);
+			return spawnOnce(deps, prompt, args, request.cwd, request.timeout).process;
 		},
 
 		createSession(request: LLMSessionRequest): LLMSession {
-			const args = ["--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"];
-			if (request.tools && request.tools.length > 0) {
-				args.push("--allowedTools", request.tools.join(","));
-			}
-
-			const cmd = ["claude", ...args.map((a) => a.includes(" ") ? `"${a}"` : a)].join(" ");
-			const proc = deps.shell.spawnBackground(cmd, { cwd: request.cwd, stdin: true });
-
-			let streamState = createStreamState();
+			let sessionId: string | null = null;
 			let killed = false;
-
-			let textBuffer: string[] = [];
-			let thinkingBuffer: string[] = [];
-			let resolveResponse: ((result: LLMResult) => void) | null = null;
-			let currentSubscribers = new Set<(event: LLMEvent) => void>();
-
-			proc.onOutput((line: string) => {
-				streamState = updateStreamState(streamState, line);
-				for (const event of parseStreamEvents(line, streamState)) {
-					if (event.kind === "thinking") thinkingBuffer.push(event.text);
-					if (event.kind === "text") textBuffer.push(event.text);
-					for (const cb of currentSubscribers) {
-						try { cb(event); } catch { /* subscriber error */ }
-					}
-					if (event.kind === "done" && resolveResponse) {
-						resolveResponse({ text: textBuffer.join(""), thinking: thinkingBuffer.join(""), exitCode: 0 });
-						resolveResponse = null;
-					}
-				}
-			});
-
-			// Resolve pending promise if process dies without emitting "done"
-			proc.waitForExit(request.timeout ?? 3_600_000).then((exitCode) => {
-				if (resolveResponse) {
-					resolveResponse({ text: textBuffer.join(""), thinking: thinkingBuffer.join(""), exitCode });
-					resolveResponse = null;
-				}
-				killed = true;
-			}).catch(() => {
-				if (resolveResponse) {
-					resolveResponse({ text: "", thinking: "", exitCode: 1 });
-					resolveResponse = null;
-				}
-				killed = true;
-			});
+			let activeProcess: LLMProcess | null = null;
 
 			return {
 				send(message: string): LLMProcess {
-					textBuffer = [];
-					thinkingBuffer = [];
-					const subscribers = new Set<(event: LLMEvent) => void>();
-					currentSubscribers = subscribers;
+					// Kill any in-flight process from a previous send
+					if (activeProcess) {
+						try { activeProcess.kill(); } catch { /* already done */ }
+					}
 
-					const resultPromise = new Promise<LLMResult>((resolve) => {
-						resolveResponse = resolve;
+					const args = baseArgs(request.tools);
+					if (sessionId) {
+						args.push("--resume", sessionId);
+					}
+
+					const { process: proc, sessionIdPromise } = spawnOnce(deps, message, args, request.cwd, request.timeout);
+					activeProcess = proc;
+
+					// Capture session_id from first invocation for subsequent --resume calls
+					if (!sessionId) {
+						void sessionIdPromise.then((id) => {
+							if (id) sessionId = id;
+						});
+					}
+
+					// When this process finishes, clear activeProcess
+					void proc.result.then(() => {
+						if (activeProcess === proc) activeProcess = null;
 					});
 
-					proc.writeStdin(message + "\n");
+					return proc;
+				},
 
-					return {
-						onEvent(callback) {
-							subscribers.add(callback);
-							return () => { subscribers.delete(callback); };
-						},
-						result: resultPromise,
-						kill() {
-							proc.kill();
-							killed = true;
-						},
-					};
-				},
 				kill() {
-					proc.kill();
 					killed = true;
+					if (activeProcess) {
+						try { activeProcess.kill(); } catch { /* already done */ }
+						activeProcess = null;
+					}
 				},
+
 				get alive() {
-					return !killed && proc.running;
+					return !killed;
 				},
 			};
 		},

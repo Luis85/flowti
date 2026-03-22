@@ -16,6 +16,7 @@ export type AgentStreamEvent =
 	| { readonly kind: "tool-end"; readonly id: string }
 	| { readonly kind: "error"; readonly message: string }
 	| { readonly kind: "usage"; readonly inputTokens: number; readonly outputTokens: number }
+	| { readonly kind: "session"; readonly sessionId: string }
 	| { readonly kind: "done" };
 
 // Backward compat — AgentStreamEvent is now an alias for LLMEvent
@@ -190,7 +191,11 @@ export function parseStreamEvents(line: string, state: StreamState): readonly Ag
 		const e = parseCliResult(parsed);
 		return e ? [e] : [];
 	}
-	if (type === "system" || type === "rate_limit_event" || type === "user") return [];
+	if (type === "system") {
+		const sessionId = parsed.session_id as string | undefined;
+		return sessionId ? [{ kind: "session" as const, sessionId }] : [];
+	}
+	if (type === "rate_limit_event" || type === "user") return [];
 	if (type === "tool_call") return [...parseCursorToolCallLine(parsed)];
 
 	const e = parseApiSseEvent(type, parsed, state);

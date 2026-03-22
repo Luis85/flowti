@@ -77,6 +77,7 @@ export type LLMEvent =
 	| { readonly kind: "tool-end"; readonly id: string }
 	| { readonly kind: "error"; readonly message: string }
 	| { readonly kind: "usage"; readonly inputTokens: number; readonly outputTokens: number }
+	| { readonly kind: "session"; readonly sessionId: string }
 	| { readonly kind: "done" };
 
 /** Accumulated output from an LLM invocation. */
