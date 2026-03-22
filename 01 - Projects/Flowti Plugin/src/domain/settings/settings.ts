@@ -194,6 +194,8 @@ export const FlowtiSettingsSchema = z.object({
 	featuresFolder: z.string().default("Development/flowti/docs/features"),
 	processesFolder: z.string().default("docs/processes"),
 	testReportPath: z.string().default("Development/flowti/docs/reports/tests/testreport.json"),
+	/** Absolute path to the repo/workspace where `.cursor/rules` should be written; empty = use vault folder (adapter base path). */
+	cursorRulesWorkspaceRoot: z.string().default(""),
 	startPage: z.enum(["none", "user-hub", "event-catalog", "data-exchange-hub", "analytics-hub", "train-hub"]).default("none"),
 	userHubConfig: z.object({
 		kpiMeasures: z.array(z.string()).max(3).default([]),

@@ -11,6 +11,8 @@ export interface AgentCard {
 	readonly mood?: string;
 	readonly intStat?: number;
 	readonly chaStat?: number;
+	/** LLM provider from companion JSON (`ai.provider`), e.g. cursor / anthropic. */
+	readonly provider?: string;
 	readonly activity: "idle" | "thinking" | "speaking" | "using-tool";
 	readonly suggestedTasks?: readonly { name: string; phases: string[]; input?: { type: "text"; prompt: string }; tool?: { command: string } }[];
 }

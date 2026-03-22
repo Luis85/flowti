@@ -181,7 +181,7 @@ export function enrichRoleSlotsWithRoleNotes(
 	projectFolderName: string,
 	slots: readonly TeamRoleSlot[] | undefined,
 ): TeamRoleSlot[] | undefined {
-	if (!slots?.length) return slots;
+	if (!slots?.length) return slots ? [...slots] : undefined;
 	return slots.map((s) => {
 		const path = s.roleNotePath ?? projectRoleNoteRelativePath(projectFolderName, s.id);
 		const abs = join(vaultBasePath, path);

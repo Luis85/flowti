@@ -4,13 +4,22 @@
  * Returns a dispose function for cleanup on view close.
  */
 
+import type { App } from "obsidian";
 import type { IEventBus } from "../events/types.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../agents/cli-executor.js";
 import type { IContextProvider } from "../../domain/agents/context-provider.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { AgentCard, ConversationMode } from "../../domain/agents/types.js";
+import type { AgentBlueprint } from "../../domain/projects/types.js";
+import type { FlowtiSettings } from "../../domain/settings/settings.js";
 import { extractAgentMessage } from "../../game/data/message-utils.js";
 import { parseFrontmatter, parseSuggestedTask } from "../../game/config/agent-markdown-roster.js";
+import {
+	agentVaultPaths,
+	bodyAfterAgentFrontmatter,
+} from "../../domain/projects/agent-note-builder.js";
+import { saveAgentDefinition, deleteAgentDefinition } from "../agents/agent-vault-write.js";
+import type { FlowtiAgentManage } from "../../components/agents/flowti-agent-manage.js";
 import type { VaultFileAdapter } from "../vault-adapter.js";
 
 export { parseSuggestedTask } from "../../game/config/agent-markdown-roster.js";
@@ -37,6 +46,78 @@ export interface AgentHandlerDeps {
 	readonly vaultAdapter?: VaultFileAdapter;
 	readonly agentsDir?: string;
 	readonly vaultBasePath?: string;
+	readonly app: App;
+	readonly getSettings: () => FlowtiSettings;
+}
+
+function parseCompanionJsonRecord(text: string): Record<string, unknown> {
+	try {
+		return JSON.parse(text) as Record<string, unknown>;
+	} catch {
+		return {};
+	}
+}
+
+function blueprintAiFromCompanion(aiRaw: unknown): AgentBlueprint["ai"] | undefined {
+	if (!aiRaw || typeof aiRaw !== "object") return undefined;
+	const o = aiRaw as Record<string, unknown>;
+	const modeRaw = (o.permissions as Record<string, unknown> | undefined)?.mode;
+	const mode =
+		modeRaw === "ask" || modeRaw === "auto-allow" || modeRaw === "trust" ? modeRaw : undefined;
+	return {
+		provider: typeof o.provider === "string" ? o.provider : undefined,
+		systemPrompt: typeof o.systemPrompt === "string" ? o.systemPrompt : undefined,
+		allowedTools: Array.isArray(o.allowedTools)
+			? o.allowedTools.filter((x): x is string => typeof x === "string")
+			: undefined,
+		...(mode ? { permissions: { mode } } : {}),
+	};
+}
+
+function stringListFromCompanionField(value: unknown): string[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const list = value.filter((x): x is string => typeof x === "string");
+	return list.length > 0 ? list : undefined;
+}
+
+function rpgAttributesFromFrontmatter(attrs: Record<string, number> | undefined): Record<string, number> | undefined {
+	if (!attrs) return undefined;
+	const nums: Record<string, number> = {};
+	for (const k of ["str", "int", "wis", "cha", "dex", "con"] as const) {
+		if (typeof attrs[k] === "number") nums[k] = attrs[k];
+	}
+	return Object.keys(nums).length > 0 ? nums : undefined;
+}
+
+async function loadAgentBlueprintForEdit(adapter: VaultFileAdapter, displayName: string): Promise<AgentBlueprint | null> {
+	const { md, json } = agentVaultPaths(displayName);
+	let mdText: string;
+	try {
+		mdText = await adapter.read(md);
+	} catch {
+		return null;
+	}
+	const fm = parseFrontmatter(mdText);
+	let companion: Record<string, unknown> = {};
+	try {
+		companion = parseCompanionJsonRecord(await adapter.read(json));
+	} catch {
+		/* no companion file */
+	}
+	const attrs = fm.attributes as Record<string, number> | undefined;
+	const rawTasks = Array.isArray(fm.suggestedTasks) ? (fm.suggestedTasks as string[]) : undefined;
+	const desc = bodyAfterAgentFrontmatter(mdText);
+	return {
+		agentType: typeof fm.agentType === "string" ? fm.agentType : "ai",
+		domain: typeof fm.domain === "string" ? fm.domain : undefined,
+		persona: typeof fm.persona === "string" ? fm.persona : undefined,
+		mood: typeof fm.mood === "string" ? fm.mood : undefined,
+		attributes: rpgAttributesFromFrontmatter(attrs),
+		suggestedTasks: rawTasks,
+		description: desc || undefined,
+		ai: blueprintAiFromCompanion(companion.ai),
+		cursorRuleGlobs: stringListFromCompanionField(companion.cursorRuleGlobs),
+	};
 }
 
 /** Load AgentCard[] from vault agent definition .md files. */
@@ -55,12 +136,22 @@ async function loadAgentCards(adapter: VaultFileAdapter, agentsDir: string): Pro
 			const suggestedTasks = Array.isArray(fm.suggestedTasks)
 				? (fm.suggestedTasks as string[]).map(parseSuggestedTask)
 				: undefined;
+			const jsonPath = filePath.replace(/\.md$/i, ".json");
+			let provider: string | undefined;
+			try {
+				const jt = await adapter.read(jsonPath);
+				const j = JSON.parse(jt) as { ai?: { provider?: string } };
+				if (typeof j.ai?.provider === "string") provider = j.ai.provider;
+			} catch {
+				/* no sidecar */
+			}
 			cards.push({
 				name: String(fm.name ?? ""),
 				persona,
 				mood: typeof fm.mood === "string" ? fm.mood : undefined,
 				intStat: attrs?.int,
 				chaStat: attrs?.cha,
+				provider,
 				activity: "idle",
 				suggestedTasks,
 			});
@@ -72,7 +163,7 @@ async function loadAgentCards(adapter: VaultFileAdapter, agentsDir: string): Pro
 }
 
 export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDeps): () => void {
-	const { cliExecutor, eventBus, contextProvider, worldContext, vaultAdapter, agentsDir } = deps;
+	const { cliExecutor, eventBus, contextProvider, worldContext, vaultAdapter, agentsDir, app, getSettings } = deps;
 	const el = document.createElement("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 	const unsubscribes: (() => void)[] = [];
 
@@ -114,6 +205,9 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 	function applyAgents(agents: AgentCard[]): void {
 		el.agents = agents;
 		if (!activeAgent && agents.length > 0) activeAgent = agents[0].name;
+		if (activeAgent && agents.length > 0 && !agents.some((a) => a.name === activeAgent)) {
+			activeAgent = agents[0].name;
+		}
 		el.activeAgent = activeAgent;
 		el.activeMode = activeMode;
 		el.teamMode = teamMode;
@@ -122,8 +216,22 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 			: [...getConversation(activeAgent)];
 	}
 
+	function getManagePanel(): FlowtiAgentManage | null {
+		return el.shadowRoot?.querySelector("flowti-agent-manage") as FlowtiAgentManage | null;
+	}
+
+	function setManageStatus(msg: string): void {
+		const manage = getManagePanel();
+		if (manage) manage.statusMessage = msg;
+	}
+
+	function invalidateAgentCacheAndReload(): void {
+		cachedAgents = null;
+		refresh();
+	}
+
 	function refresh(): void {
-		if (cachedAgents) {
+		if (cachedAgents !== null) {
 			applyAgents(cachedAgents);
 			return;
 		}
@@ -263,6 +371,54 @@ export function mountAgentSidepanel(container: HTMLElement, deps: AgentHandlerDe
 		void eventBus.emit("agent.canvas.synced", {
 			canvasPath: String(e.detail.canvasPath ?? ""),
 			nodeCount: Number(e.detail.nodeCount ?? 0),
+		});
+	}) as EventListener);
+
+	// ── Agent definition CRUD (vault + dashboard sync + Cursor rules) ──
+	el.addEventListener("agent-definition-request-edit", ((e: CustomEvent) => {
+		const displayName = String(e.detail?.displayName ?? "");
+		if (!vaultAdapter || !displayName) return;
+		void loadAgentBlueprintForEdit(vaultAdapter, displayName).then((bp) => {
+			const manage = getManagePanel();
+			if (bp && manage) manage.loadForEdit(displayName, bp);
+		});
+	}) as EventListener);
+
+	el.addEventListener("agent-definition-save", ((e: CustomEvent) => {
+		const previousName = typeof e.detail?.previousName === "string" ? e.detail.previousName : undefined;
+		const displayName = String(e.detail?.displayName ?? "");
+		const blueprint = e.detail?.blueprint as AgentBlueprint | undefined;
+		if (!displayName || !blueprint) {
+			setManageStatus("Error: invalid save payload.");
+			return;
+		}
+		if (!deps.vaultBasePath) {
+			setManageStatus("Error: vault path unavailable.");
+			return;
+		}
+		void saveAgentDefinition(
+			app,
+			deps.vaultBasePath,
+			displayName,
+			blueprint,
+			getSettings,
+			undefined,
+			previousName ? { previousDisplayName: previousName } : undefined,
+		).then((res) => {
+			setManageStatus(res.ok ? "Saved." : `Error: ${res.error ?? "save failed"}`);
+			if (res.ok) invalidateAgentCacheAndReload();
+		});
+	}) as EventListener);
+
+	el.addEventListener("agent-definition-delete", ((e: CustomEvent) => {
+		const displayName = String(e.detail?.displayName ?? "");
+		if (!displayName || !deps.vaultBasePath) return;
+		void deleteAgentDefinition(app, deps.vaultBasePath, displayName, getSettings).then((res) => {
+			setManageStatus(res.ok ? "Deleted." : `Error: ${res.error ?? "delete failed"}`);
+			if (res.ok) {
+				invalidateAgentCacheAndReload();
+				getManagePanel()?.resetForNew();
+			}
 		});
 	}) as EventListener);
 

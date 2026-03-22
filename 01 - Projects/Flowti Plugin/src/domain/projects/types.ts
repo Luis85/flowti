@@ -47,6 +47,14 @@ export interface MarkdownSourceConfig {
 	readonly requiredFields: readonly string[];
 }
 
+/** AI block persisted in companion JSON (aligns with Flowti CLI AgentJson.ai). */
+export interface AgentBlueprintAI {
+	readonly provider?: string;
+	readonly systemPrompt?: string;
+	readonly allowedTools?: readonly string[];
+	readonly permissions?: { readonly mode?: "ask" | "auto-allow" | "trust" };
+}
+
 /** RPG-style defaults for materializing an Agent note from a project role slot. */
 export interface AgentBlueprint {
 	readonly agentType?: string;
@@ -60,6 +68,9 @@ export interface AgentBlueprint {
 	readonly behaviors?: readonly string[];
 	readonly suggestedTasks?: readonly string[];
 	readonly goals?: readonly { readonly name: string; readonly priority?: number }[];
+	readonly ai?: AgentBlueprintAI;
+	/** Optional globs for `.cursor/rules/*.mdc` frontmatter (comma-separated in UI). */
+	readonly cursorRuleGlobs?: readonly string[];
 }
 
 /** Staffing slot on a project: need + optional blueprint; assignee links to vault Agent name. */
@@ -181,6 +192,18 @@ export interface HealthScore {
 	};
 }
 
+/**
+ * Project hub operations for the Obsidian plugin.
+ *
+ * **Data authority:** The production implementation is `VaultProjectService` only. It reads
+ * and writes the vault via Obsidian’s API and runs tooling by spawning local processes (shell /
+ * Node, including the Flowti CLI under `.flowti/bin`). There is **no** in-plugin HTTP server and no
+ * requirement for a remote project API — agent roster, dashboard JSON, and world state continue to
+ * flow from vault + `.flowti/` files and CLI subprocesses as described in agent-world docs.
+ *
+ * If a future integration needs a remote control plane, introduce a **separate** adapter behind a
+ * narrow interface rather than resurrecting a second full `IProjectService` implementation.
+ */
 export interface IProjectService {
 	listProjects(): Promise<ProjectSummary[]>;
 	getProject(name: string): Promise<ProjectDetail | undefined>;

@@ -31,6 +31,23 @@ function resolveProviderLegacy(globalDefault?: string, agentProvider?: string): 
 	}
 }
 
+/**
+ * Vendor flags so Obsidian-driven / CI agent sessions do not block on interactive permission prompts.
+ * - Claude Code: --dangerously-skip-permissions (non-interactive tool approval)
+ * - Cursor print mode: --force (apply file changes without confirmation in headless flows)
+ * See code comments when upgrading CLIs.
+ */
+function withFullAgentCliPermissions(binary: string, baseArgs: readonly string[]): string[] {
+	const args = [...baseArgs];
+	const leaf = binary.toLowerCase().split(/[/\\]/).pop() ?? binary.toLowerCase();
+	if (leaf === "claude") {
+		args.push("--dangerously-skip-permissions");
+	} else if (leaf === "cursor") {
+		args.push("--force");
+	}
+	return args;
+}
+
 let idCounter = 0;
 
 // ── Factory ─────────────────────────────────────────────────────────
@@ -64,14 +81,14 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 			);
 			deps.disk.writeFileSync(tempPath, prompt, "utf-8");
 
-			const args = [...provider.args];
+			let args = withFullAgentCliPermissions(provider.binary, provider.args);
 			// If permission engine resolved tools, use them; otherwise fall back to
 			// the agent's defined tools so it can actually function.
 			const tools = (resolvedTools && resolvedTools.length > 0)
 				? [...resolvedTools]
 				: (agent.ai?.allowedTools ?? []);
 			if (tools.length > 0) {
-				args.push("--allowedTools", tools.join(","));
+				args = [...args, "--allowedTools", tools.join(",")];
 			}
 
 			const quotedPath = `"${tempPath}"`;

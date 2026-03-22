@@ -374,6 +374,7 @@ vi.mock("../../src/game/store/dashboard-store.js", () => {
 		self.setAgentState = vi.fn();
 		self.addEventListener = vi.fn();
 		self.removeEventListener = vi.fn();
+		self.syncCliSessionFromEnvironment = vi.fn();
 	});
 	return { DashboardStore: MockDashboardStore };
 });
@@ -616,9 +617,11 @@ function createMockProvider(): DataProvider {
 		stop: vi.fn(),
 		getWorldState: vi.fn().mockResolvedValue(null),
 		getDashboardAgents: vi.fn().mockResolvedValue([]),
+		reloadDashboardAgents: vi.fn().mockResolvedValue([]),
 		onAction: vi.fn().mockReturnValue(() => {}),
 		onEntityUpdate: vi.fn().mockReturnValue(() => {}),
 		onConnectionStatus: vi.fn().mockReturnValue(() => {}),
+		onDashboardAgentsChange: vi.fn().mockReturnValue(() => {}),
 		assetBasePath: "",
 	};
 }

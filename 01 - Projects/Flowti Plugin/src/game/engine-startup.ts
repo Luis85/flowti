@@ -28,6 +28,10 @@ import type { PetSceneEntity } from "./actors/pet-scene-entity.js";
 import { assignOpinions } from "./data/opinion-topics.js";
 import { resolveSettingForDomain } from "./config/domain-map.js";
 import { DEFAULT_PET_ROOMS } from "./engine-config.js";
+import type { DashboardStore } from "./store/dashboard-store.js";
+import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
+import { resolveCharacter } from "./sprites/character-pool.js";
+import type { AgentSprites } from "./sprites/sprite-loader.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -118,6 +122,71 @@ export function registerAgents(agents: readonly DashboardAgent[], hubScene: Game
 	for (const agent of agents) {
 		registerSingleAgent(agent, sys);
 	}
+}
+
+/** Tear down one agent across simulation systems (roster removal). */
+export function unregisterAgentFromSimulation(name: string, sys: RegistrationSystems): void {
+	sys.brain.unregister(name);
+	sys.bubble.unregister(name);
+	sys.talk.unregister(name);
+	sys.emote.unregister(name);
+	sys.social.unregister(name);
+	sys.needs.remove(name);
+	sys.sensor.unregister(name);
+	sys.engagement.unregister(name);
+	sys.ritual.unregister(name);
+	sys.memory.unregister(name);
+	sys.quirk.unregister(name);
+	sys.relationship.unregister(name);
+	sys.bt.unregister(name);
+	sys.knownEntities.delete(name);
+}
+
+export interface RosterReconcileExtras {
+	readonly spriteRegistry: ReadonlyMap<string, AgentSprites>;
+	readonly brainSystem: BrainSystem;
+	readonly handleAgentSelect: (name: string) => void;
+	readonly allEntities: Map<string, SceneEntity>;
+}
+
+/**
+ * Apply a new dashboard roster while the world is running: remove dropped agents,
+ * register and place newcomers, refresh hub grid.
+ */
+export function reconcileSimulationRoster(
+	prev: readonly DashboardAgent[],
+	next: readonly DashboardAgent[],
+	hubScene: GameScene,
+	roomScenes: Record<string, GameScene>,
+	store: DashboardStore,
+	sys: RegistrationSystems,
+	ctx: PlacementContext,
+	extras: RosterReconcileExtras,
+): void {
+	const prevNames = new Set(prev.map((a) => a.name));
+	const nextNames = new Set(next.map((a) => a.name));
+	for (const name of prevNames) {
+		if (nextNames.has(name)) continue;
+		unregisterAgentFromSimulation(name, sys);
+		hubScene.removeAgent(name);
+		for (const room of Object.values(roomScenes)) {
+			room.removeAgent(name);
+		}
+		extras.allEntities.delete(name);
+	}
+	const newcomers = next.filter((a) => !prevNames.has(a.name));
+	for (const agent of newcomers) {
+		registerSingleAgent(agent, sys);
+		const charName = resolveCharacter(agent.name, agent.domain ?? "");
+		const sprites = extras.spriteRegistry.get(charName);
+		if (sprites) {
+			const entity = new AgentSceneEntity(agent, sprites, extras.brainSystem, extras.handleAgentSelect);
+			extras.allEntities.set(agent.name, entity);
+		}
+	}
+	store.setAgents(next);
+	hubScene.updateAgents(next);
+	routeAgentsToRooms(newcomers, null, ctx);
 }
 
 // ── Agent routing ────────────────────────────────────────────────────

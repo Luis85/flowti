@@ -26,7 +26,7 @@ import { DOMAIN_POOLS, resolveCharacter } from "./sprites/character-pool.js";
 import { preloadSpriteRegistry } from "./sprites/sprite-loader.js";
 import { restoreWorldState, restoreAgentState } from "./engine-state.js";
 import { ENGINE_WIDTH, ENGINE_HEIGHT, LOADING_FADE_DURATION } from "./engine-config.js";
-import { routeAgentsToRooms, placePets } from "./engine-startup.js";
+import { routeAgentsToRooms, placePets, reconcileSimulationRoster } from "./engine-startup.js";
 import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
 import { PetSceneEntity } from "./actors/pet-scene-entity.js";
 import type { PetActor } from "./actors/pet-actor.js";
@@ -68,8 +68,9 @@ export interface StartEngineDeps {
 /**
  * Performs async engine startup: sprite preload, camera init, state restore,
  * agent registration, and loading overlay fade-out.
+ * @returns Cleanup for roster subscription (call before provider.stop in dispose).
  */
-export async function startEngine(deps: StartEngineDeps): Promise<void> {
+export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 	const {
 		engine, spriteBasePath, provider, vaultBasePath,
 		hubScene, officeScene, villageScene, stationScene, roomScenes,
@@ -77,6 +78,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 		brainSystem, directorSystem, cursorSpirits, store,
 		handleAgentSelect, allEntities, pets, registry,
 		loadingOverlay, doRegisterAgents, cameraRef,
+		registrationSystems,
 	} = deps;
 
 	// Inject pixel-art font — loaded dynamically since game may not always be active
@@ -170,8 +172,31 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 		store.setActivityLog(worldState.activityLog);
 	}
 
+	let rosterSnapshot = [...initialAgents];
+	const rosterUnsub = provider.onDashboardAgentsChange((next) => {
+		const prev = rosterSnapshot;
+		rosterSnapshot = [...next];
+		reconcileSimulationRoster(
+			prev,
+			next,
+			hubScene,
+			roomScenes,
+			store,
+			registrationSystems,
+			placementCtx,
+			{
+				spriteRegistry,
+				brainSystem,
+				handleAgentSelect,
+				allEntities,
+			},
+		);
+	});
+
 	loadingOverlay.classList.add("ft-world-fade-out");
 	setTimeout(() => loadingOverlay.remove(), LOADING_FADE_DURATION);
+
+	return () => { rosterUnsub(); };
 }
 
 export interface AgentSelectDeps {

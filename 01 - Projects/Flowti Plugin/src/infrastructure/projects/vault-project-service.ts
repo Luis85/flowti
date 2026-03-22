@@ -10,7 +10,13 @@ import { dirname, join } from "node:path";
 import type { IProjectService, ProjectSummary, ProjectDetail, StorybookFramework, OutputCallback, MarkdownSourceConfig, TodoItem, CatalogEntity, CatalogEntityType, CatalogEntityDef, ReportGeneratorInfo, ComponentEntry, HealthScore, TeamRoleSlot, VaultAgentSummary } from "../../domain/projects/types.js";
 import { reconcileProjectRoster, teamRoleSlotsHaveInvalidDateRange } from "../../domain/projects/team-roster.js";
 import { normalizeTeamRoleSlots } from "../../domain/projects/team-roster-normalize.js";
-import { buildAgentMarkdownFile, buildAgentCompanionJson, agentVaultPaths } from "../../domain/projects/agent-note-builder.js";
+import {
+	buildAgentMarkdownFile,
+	buildAgentCompanionJson,
+	agentVaultPaths,
+	mergeAgentBlueprintFromRoleSlot,
+} from "../../domain/projects/agent-note-builder.js";
+import { buildProjectRoleMarkdown, projectRoleNoteRelativePath } from "../../domain/projects/project-role-markdown.js";
 import { listVaultAgentSummaries } from "../../domain/projects/agent-vault-scan.js";
 import { parseTodos, addTodoLine, toggleTodoLine, deleteTodoLine } from "../../domain/projects/todo-service.js";
 import { parseEntityFromMarkdown, generateDomainMarkdown, generateServiceMarkdown, generateEventMarkdown, generateFlowMarkdown, toKebabCase } from "../../domain/projects/catalog-service.js";
@@ -24,27 +30,11 @@ import {
 	shellQuote,
 	runAsync,
 	findStorybookDir,
-	FLOWTI_CLI_TIMEOUT_MS,
 	STORYBOOK_BUILD_TIMEOUT_MS,
 	GIT_COMMAND_TIMEOUT_MS,
 	SHORT_SHELL_COMMAND_TIMEOUT_MS,
 } from "./vault-project-cli.js";
-import { ensureFlowtiCliRuntimeDeps, resolveFlowtiCliEntry } from "./flowti-cli-runtime.js";
-
-/**
- * Run the Flowti vault CLI (`main.mjs`) after ensuring `.flowti/bin` exists and the bundle entry is present.
- */
-async function runFlowtiCli(
-	vaultBase: string,
-	cliSubArgs: string[],
-	onOutput?: OutputCallback,
-): Promise<{ ok: boolean; error?: string }> {
-	const binDir = join(vaultBase, ".flowti", "bin");
-	const ensured = await ensureFlowtiCliRuntimeDeps(binDir, onOutput);
-	if (!ensured.ok) return ensured;
-	const entry = resolveFlowtiCliEntry(binDir);
-	return runAsync("node", [entry, ...cliSubArgs], vaultBase, onOutput, { timeoutMs: FLOWTI_CLI_TIMEOUT_MS });
-}
+import { runFlowtiCli } from "./flowti-cli-run.js";
 
 export class VaultProjectService implements IProjectService {
 	private app: App;

@@ -70,6 +70,10 @@ export class MemorySystem {
 		}
 	}
 
+	unregister(name: string): void {
+		this.agents.delete(name);
+	}
+
 	getMemory(name: string): AgentMemory {
 		return this.agents.get(name) ?? createDefaultMemory();
 	}

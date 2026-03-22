@@ -202,6 +202,11 @@ export class TalkEngine {
 		this.callbacks = callbacks;
 	}
 
+	/** Remove an agent from ambient chatter (roster removed). */
+	unregister(name: string): void {
+		this.entries.delete(name);
+	}
+
 	register(name: string, domain: string, personality: readonly string[], charisma: number): void {
 		if (this.entries.has(name)) return;
 		const interval = MIN_INTERVAL + Math.random() * (MAX_INTERVAL - MIN_INTERVAL);

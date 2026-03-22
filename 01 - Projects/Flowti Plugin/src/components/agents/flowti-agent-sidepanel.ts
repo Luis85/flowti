@@ -16,6 +16,7 @@ import "./flowti-conversational-mode.js";
 import "./flowti-document-mode.js";
 import "./flowti-canvas-mode.js";
 import "./flowti-input-bar.js";
+import "./flowti-agent-manage.js";
 
 export class FlowtiAgentSidepanel extends FlowtiElement {
 	static properties = {
@@ -27,6 +28,7 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 		teamMode: { type: Boolean },
 		processing: { type: Boolean },
 		error: { type: String },
+		manageOpen: { type: Boolean },
 	};
 
 	static styles = [
@@ -71,6 +73,28 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 				line-height: 1.5;
 			}
 
+			.sidepanel-root {
+				position: relative;
+				display: flex;
+				flex-direction: column;
+				flex: 1;
+				min-height: 0;
+				overflow: hidden;
+			}
+
+			.toolbar {
+				flex-shrink: 0;
+				padding: var(--flowti-space-xs, 6px) var(--flowti-space-sm, 8px);
+				border-bottom: 1px solid var(--background-modifier-border);
+			}
+
+			.manage-btn {
+				font-size: var(--flowti-font-sm, 0.85em);
+				padding: 4px 10px;
+				border-radius: var(--flowti-radius, 6px);
+				cursor: pointer;
+			}
+
 		`,
 	];
 
@@ -81,6 +105,7 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 	teamMode = false;
 	processing = false;
 	error = "";
+	manageOpen = false;
 
 	protected renderContent() {
 		const offline = this.agents.length === 0;
@@ -91,30 +116,37 @@ export class FlowtiAgentSidepanel extends FlowtiElement {
 				? "Offline"
 				: `Talking to ${activeCard?.persona ?? this.activeAgent}`;
 
-		if (offline) {
-			return html`
-				<div class="offline-cta">
-					<span class="icon">&#x1F30D;</span>
-					<p>No agents found.<br/>Define agents in your project to get started.</p>
-				</div>
-			`;
-		}
-
 		return html`
-			${this.error ? html`<div class="error-banner">${this.error}</div>` : ""}
-			<flowti-agent-roster
-				.agents="${this.agents}"
-				.activeAgent="${this.activeAgent}"
-				.teamMode="${this.teamMode}"
-			></flowti-agent-roster>
-			<flowti-mode-bar
-				.activeMode="${this.activeMode}"
-			></flowti-mode-bar>
-			${this.renderActiveMode()}
-			<flowti-input-bar
-				.agentLabel="${label}"
-				.processing="${this.processing}"
-			></flowti-input-bar>
+			<div class="sidepanel-root">
+				<div class="toolbar">
+					<button type="button" class="manage-btn" @click=${() => { this.manageOpen = true; }}>
+						Manage agents
+					</button>
+				</div>
+				${this.error ? html`<div class="error-banner">${this.error}</div>` : ""}
+				${offline
+			? html`
+						<div class="offline-cta">
+							<span class="icon">&#x1F30D;</span>
+							<p>No agents found.<br/>Use <strong>Manage agents</strong> to create one.</p>
+						</div>
+					`
+			: html`
+						<flowti-agent-roster
+							.agents="${this.agents}"
+							.activeAgent="${this.activeAgent}"
+							.teamMode="${this.teamMode}"
+						></flowti-agent-roster>
+						<flowti-mode-bar .activeMode="${this.activeMode}"></flowti-mode-bar>
+						${this.renderActiveMode()}
+						<flowti-input-bar .agentLabel="${label}" .processing="${this.processing}"></flowti-input-bar>
+					`}
+				<flowti-agent-manage
+					.open=${this.manageOpen}
+					.agents=${this.agents}
+					@manage-close=${() => { this.manageOpen = false; }}
+				></flowti-agent-manage>
+			</div>
 		`;
 	}
 

@@ -15,6 +15,10 @@ interface AgentQuirkEntry {
 export class QuirkSystem {
 	private readonly agents = new Map<string, AgentQuirkEntry>();
 
+	unregister(name: string): void {
+		this.agents.delete(name);
+	}
+
 	/** Register an agent. If savedQuirks is empty, rolls new quirks. */
 	register(name: string, attrs: Record<string, number>, domain: string, savedQuirks: string[]): void {
 		const quirks = savedQuirks.length > 0 ? savedQuirks : rollQuirks(attrs, domain);

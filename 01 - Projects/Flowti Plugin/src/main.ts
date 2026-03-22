@@ -195,7 +195,12 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.handlerRegistry = this.registerSitemapHandlers();
 
 			// ── Agent domain ──
-			this.agentSetup = setupAgentDomain({ plugin: this, app: this.app, eventBus: this.eventBus });
+			this.agentSetup = setupAgentDomain({
+				plugin: this,
+				app: this.app,
+				eventBus: this.eventBus,
+				getSettings: () => this.settings,
+			});
 			this.addRibbonIcon("bot", "Open agent panel", () => { this.activateAgentPanel(); });
 
 			// ── Project domain ──
