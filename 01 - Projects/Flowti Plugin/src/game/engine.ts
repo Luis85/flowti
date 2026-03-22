@@ -323,7 +323,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 		getTier: (a, b) => relationshipSystem.getTier(a, b),
 		silenceTalk: (agentName) => talkEngine.silence(agentName),
-		recordConversation: (a, b) => relationshipSystem.recordConversation(a, b),
+		recordConversation: (a, b) => {
+			relationshipSystem.recordConversation(a, b);
+			const tier = relationshipSystem.getTier(a, b);
+			echoProducer.onConversation(a, b, tier, dayClock.getCycleCount());
+		},
 		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
 		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),
 		externalLockQuery: (entityId) => interactionLockQuery?.(entityId) ?? false,

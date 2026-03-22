@@ -111,6 +111,11 @@ export function tickClock(ctx: EngineContext): void {
 		sys.worldEvent.onCycleReset();
 		state.firedReactiveTriggers.clear();
 		sys.relationship.onCycleEnd();
+
+		// Echo system — decay all echoes and reset cascade budget at cycle boundary
+		sys.echo.decayAll(sys.dayClock.getCycleCount());
+		sys.echo.resetCascadeBudget();
+		ctx.cascadeResolver.resetCycle();
 	}
 
 	sys.worldEvent.update(state.deltaMs);
@@ -143,6 +148,10 @@ export function tickNeeds(ctx: EngineContext): void {
 			const mood = sys.needs.getMood(agentName);
 			sys.brain.updateMood(agentName, mood);
 			sys.emote.updateMood(agentName, mood);
+
+			// Echo producer — morale threshold echo generation
+			const morale = sys.needs.getNeeds(agentName).morale;
+			ctx.echoProducer.onMorale(agentName, morale, sys.dayClock.getCycleCount());
 
 			// Feed rich context to talk engine
 			const nearby = getNearbyAgents(ctx, agentName);
@@ -791,7 +800,13 @@ function tryGossipTrigger(ctx: EngineContext): void {
 		const agentB = agents[1];
 		const domainA = ctx.store.agents.find((a) => a.name === agentA)?.domain ?? "";
 		const domainB = ctx.store.agents.find((a) => a.name === agentB)?.domain ?? "";
-		sys.conversation.gossipAbout(agentA, agentB, absent, { domainA, domainB });
+		const gossipStarted = sys.conversation.gossipAbout(agentA, agentB, absent, { domainA, domainB });
+		if (gossipStarted) {
+			const cycle = sys.dayClock.getCycleCount();
+			// Both agents hear gossip about the absent agent
+			ctx.echoProducer.onGossipHeard(agentA, agentB, absent, cycle);
+			ctx.echoProducer.onGossipHeard(agentB, agentA, absent, cycle);
+		}
 		break;
 	}
 }
