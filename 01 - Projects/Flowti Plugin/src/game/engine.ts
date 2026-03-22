@@ -653,7 +653,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				brainSystem, directorSystem, cursorSpirits, store,
 				registrationSystems, handleAgentSelect, allEntities, pets, registry,
 				loadingOverlay, doRegisterAgents,
-				cameraRef,
+				cameraRef, narrativeSystem,
 			});
 			if (deps.eventBus) {
 				void deps.eventBus.emit("perf.agentWorld.engine.start", {

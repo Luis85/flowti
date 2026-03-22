@@ -45,6 +45,8 @@ export interface RestoreResult {
 	loaded: string[];
 	skipped: string[];
 	savedPositions: Record<string, SavedPosition> | null;
+	/** Raw lastUpdated timestamp from persisted clock — used for offline progress. */
+	clockLastUpdated: number | null;
 }
 
 // ── State persistence subset ─────────────────────────────────────────
@@ -82,14 +84,18 @@ export function restoreWorldState(ctx: StateSystems, vaultPath: string): Restore
 	const loaded: string[] = [];
 	const skipped: string[] = [];
 	let savedPositions: Record<string, SavedPosition> | null = null;
+	let clockLastUpdated: number | null = null;
 
 	try {
 		const dir = varDir(vaultPath);
 
 		const clockPath = join(dir, "world-clock.json");
-		const clockData = loadJson(clockPath);
-		if (clockData) { ctx.dayClock.restore(clockData as Parameters<typeof ctx.dayClock.restore>[0]); loaded.push("world-clock.json"); }
-		else { skipped.push("world-clock.json"); }
+		const clockData = loadJson(clockPath) as { lastUpdated?: number } | null;
+		if (clockData) {
+			clockLastUpdated = clockData.lastUpdated ?? null;
+			ctx.dayClock.restore(clockData as Parameters<typeof ctx.dayClock.restore>[0]);
+			loaded.push("world-clock.json");
+		} else { skipped.push("world-clock.json"); }
 
 		const weatherPath = join(dir, "world-weather.json");
 		const weatherData = loadJson(weatherPath);
@@ -114,7 +120,7 @@ export function restoreWorldState(ctx: StateSystems, vaultPath: string): Restore
 		// non-critical — start fresh
 	}
 
-	return { loaded, skipped, savedPositions };
+	return { loaded, skipped, savedPositions, clockLastUpdated };
 }
 
 // ── Phase 2: Restore agent state (after registration) ────────────────

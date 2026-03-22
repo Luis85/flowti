@@ -35,6 +35,9 @@ import type { DayClock } from "./systems/day-clock.js";
 import type { SceneRegistry } from "./systems/scene-registry.js";
 import { AGENT_WAKE_DELAY } from "./engine-config.js";
 import { afterNextPaint } from "./after-next-paint.js";
+import { shouldShowBriefing, calculateOfflineProgress, type AgentOfflineInput } from "./systems/offline-progress.js";
+import type { NarrativeSystem } from "./systems/narrative-system.js";
+import type { BriefingPanel } from "./ui/briefing-panel.js";
 
 export interface StartEngineDeps {
 	engine: ex.Engine;
@@ -63,6 +66,7 @@ export interface StartEngineDeps {
 	loadingOverlay: HTMLElement;
 	doRegisterAgents: (agents: readonly DashboardAgent[]) => void;
 	cameraRef: { current: CameraSystem | null };
+	narrativeSystem: NarrativeSystem;
 }
 
 /**
@@ -76,7 +80,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 		ctx, stateSystems, dayClock, worldAmbience, currentLight,
 		brainSystem, directorSystem, cursorSpirits, store,
 		handleAgentSelect, allEntities, pets, registry,
-		loadingOverlay, doRegisterAgents, cameraRef,
+		loadingOverlay, doRegisterAgents, cameraRef, narrativeSystem,
 	} = deps;
 
 	// Inject pixel-art font — loaded dynamically since game may not always be active
@@ -128,9 +132,9 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 	});
 
 	// Restore persisted Living World state
-	const { savedPositions } = vaultBasePath
+	const { savedPositions, clockLastUpdated } = vaultBasePath
 		? restoreWorldState(stateSystems, vaultBasePath)
-		: { savedPositions: null };
+		: { savedPositions: null, clockLastUpdated: null as number | null };
 	ctx.state.prevCycleCount = dayClock.getCycleCount();
 
 	// Initialize lighting to current phase (no pop on first frame)
@@ -168,6 +172,37 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 	const worldState = await provider.getWorldState();
 	if (worldState?.activityLog) {
 		store.setActivityLog(worldState.activityLog);
+	}
+
+	// ── Offline progress briefing ────────────────────────
+	if (clockLastUpdated !== null) {
+		const elapsedMs = Date.now() - clockLastUpdated;
+		if (shouldShowBriefing(elapsedMs)) {
+			const agentInputs: AgentOfflineInput[] = initialAgents.map((a) => ({
+				name: a.name,
+				level: a.level ?? 1,
+				xp: a.experience ?? 0,
+				coin: a.coin ?? 0,
+				assignedTasks: (a.suggestedTasks?.length ?? 0),
+				avgTasksPerCycle: 1,
+			}));
+
+			const results = calculateOfflineProgress(elapsedMs, agentInputs);
+			const narrativeText = narrativeSystem.composeOfflineNarrative(results);
+
+			// Side-effect import ensures the custom element is registered
+			await import("./ui/briefing-panel.js");
+
+			const container = engine.canvas.parentElement;
+			if (container) {
+				const panel = document.createElement("ft-game-briefing") as BriefingPanel;
+				panel.results = results;
+				panel.narrativeText = narrativeText;
+				panel.visible = true;
+				panel.addEventListener("briefing-dismissed", () => panel.remove(), { once: true });
+				container.appendChild(panel);
+			}
+		}
 	}
 
 	loadingOverlay.classList.add("ft-world-fade-out");
