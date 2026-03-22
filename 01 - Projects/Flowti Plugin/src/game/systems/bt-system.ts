@@ -20,6 +20,8 @@ import type {
 } from "../brain/behavior-tree/bt-types.js";
 import type { PetBTContext } from "../brain/behavior-tree/pet-bt.js";
 import type { AgentAction, DashboardAgent } from "../data/types.js";
+import type { BTTreeSnapshot, BTNodeState, BTNodeType, BTNodeStatus } from "../store/dashboard-store.js";
+import type { NodeDetails } from "mistreevous";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -94,12 +96,65 @@ export function createStubDeps(
 	};
 }
 
+// ── Snapshot mapping helpers ─────────────────────────────────────────
+
+const NODE_TYPE_MAP: Record<string, BTNodeType> = {
+	selector: "selector",
+	sequence: "sequence",
+	action: "action",
+	condition: "condition",
+};
+
+const STATE_TO_STATUS: Record<string, BTNodeStatus> = {
+	"mistreevous.running": "running",
+	"mistreevous.succeeded": "success",
+	"mistreevous.failed": "failure",
+	"mistreevous.ready": "idle",
+};
+
+function mapNodeType(mistreevousType: string): BTNodeType {
+	return NODE_TYPE_MAP[mistreevousType] ?? "sequence";
+}
+
+function mapNodeStatus(mistreevousState: string): BTNodeStatus {
+	return STATE_TO_STATUS[mistreevousState] ?? "idle";
+}
+
+function walkNodeDetails(nd: NodeDetails): BTNodeState {
+	return {
+		id: nd.id,
+		label: nd.name,
+		type: mapNodeType(nd.type),
+		status: mapNodeStatus(nd.state),
+		children: (nd.children ?? []).map(walkNodeDetails),
+	};
+}
+
+/** Compare two snapshots by status values only (ignoring tick counter). */
+function snapshotsEqual(a: BTTreeSnapshot, b: BTTreeSnapshot): boolean {
+	return nodesEqual(a.root, b.root);
+}
+
+function nodesEqual(a: BTNodeState, b: BTNodeState): boolean {
+	if (a.id !== b.id || a.status !== b.status) return false;
+	if (a.children.length !== b.children.length) return false;
+	for (let i = 0; i < a.children.length; i++) {
+		if (!nodesEqual(a.children[i], b.children[i])) return false;
+	}
+	return true;
+}
+
 // ── BtSystem ─────────────────────────────────────────────────────────
 
 export class BtSystem {
 	private readonly entries = new Map<string, BtEntry>();
 	private readonly petEntries = new Map<string, PetBtEntry>();
 	private lastActions: AgentAction[] = [];
+	private lastSnapshots = new Map<string, BTTreeSnapshot>();
+	private tickCount = 0;
+
+	/** Called when a BT snapshot changes (status values differ from previous). */
+	onSnapshot?: (agentName: string, snapshot: BTTreeSnapshot) => void;
 
 	/** Register a BT for an agent that has behaviors defined. */
 	register(agent: DashboardAgent, deps: AgentToolDeps, quirks?: readonly string[]): void {
@@ -115,6 +170,13 @@ export class BtSystem {
 	/** Remove an agent's BT. */
 	unregister(name: string): void {
 		this.entries.delete(name);
+		this.lastSnapshots.delete(name);
+	}
+
+	/** Build a BTTreeSnapshot from a BtEntry's current tree state. */
+	buildSnapshot(entry: BtEntry): BTTreeSnapshot {
+		const details = entry.bt.tree.getTreeNodeDetails();
+		return { root: walkNodeDetails(details), tick: this.tickCount };
 	}
 
 	/** Advance all BT accumulators. Tick trees when interval exceeded.
@@ -122,13 +184,24 @@ export class BtSystem {
 	update(deltaMs: number, worldState: IWorldStateManager, clock: IClock): AgentAction[] {
 		const actions: AgentAction[] = [];
 
-		for (const [, entry] of this.entries) {
+		for (const [name, entry] of this.entries) {
 			entry.accumulator += deltaMs;
 			if (entry.accumulator >= BT_TICK_INTERVAL_MS) {
 				entry.accumulator -= BT_TICK_INTERVAL_MS;
+				this.tickCount++;
 				const emitted = btTick(entry.bt.tree, entry.bt.agent, worldState, clock);
 				for (const action of emitted) {
 					actions.push(action);
+				}
+
+				// Build snapshot and emit only when status values changed
+				if (this.onSnapshot) {
+					const snap = this.buildSnapshot(entry);
+					const prev = this.lastSnapshots.get(name);
+					if (!prev || !snapshotsEqual(prev, snap)) {
+						this.lastSnapshots.set(name, snap);
+						this.onSnapshot(name, snap);
+					}
 				}
 			}
 		}

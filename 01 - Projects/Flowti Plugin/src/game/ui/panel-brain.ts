@@ -4,6 +4,7 @@
  */
 
 import { html, css, nothing } from "lit";
+import "./bt-tree-view.js";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import { STATE_COLORS, NEED_META, relativeTime } from "./game-ui-constants.js";
@@ -336,11 +337,16 @@ export class PanelBrain extends FlowtiElement {
 		const name = this.agent.name;
 		const needs = this.store.getAgentNeeds(name);
 		const brainState: BrainState = this.store.agentStates.get(name) ?? "idle";
+		const btSnapshot = this.store.btTreeState.get(name);
 
 		return html`
 			${this.renderStateMachine(brainState)}
 			${needs ? this.renderNeedsRadar(needs) : nothing}
 			${needs ? this.renderNeedsBars(needs, brainState) : nothing}
+			<div class="section">
+				<div class="section-title">Behavior Tree</div>
+				<ft-game-bt-tree-view .snapshot=${btSnapshot}></ft-game-bt-tree-view>
+			</div>
 			${this.renderDecisionLog()}
 			${this.renderHabits()}
 		`;
@@ -456,7 +462,7 @@ export class PanelBrain extends FlowtiElement {
 		if (recent.length === 0) {
 			return html`
 				<div class="section">
-					<div class="section-title">Decision Log</div>
+					<div class="section-title">Decision Narrative</div>
 					<div class="empty-msg">No brain decisions yet.</div>
 				</div>
 			`;
@@ -465,7 +471,7 @@ export class PanelBrain extends FlowtiElement {
 		const now = Date.now();
 		return html`
 			<div class="section">
-				<div class="section-title">Decision Log</div>
+				<div class="section-title">Decision Narrative</div>
 				<div class="decision-log">
 					${recent.map((entry) => {
 						const color = BT_EVENT_COLORS[entry.type] ?? "#6b7280";
