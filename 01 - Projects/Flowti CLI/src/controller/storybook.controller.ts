@@ -194,7 +194,7 @@ export const commands: Record<string, CommandHandler> = {
 		requires: "project",
 		handler: (ctx) => {
 			const { disk, paths, clock, pidOps, log } = ctx.deps;
-			const projectName = ctx.project!.name;
+			const projectName = paths.basename(ctx.project!.path);
 			const processDeps = { disk, paths, clock, pidOps };
 			const entry = getProcess(processDeps, "storybook", projectName);
 			if (entry) {

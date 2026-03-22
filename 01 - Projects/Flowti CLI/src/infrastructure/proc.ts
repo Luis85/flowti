@@ -31,6 +31,7 @@ export const proc: IProcess = new NodeProcess();
 
 class NodePidOps implements IPidOps {
 	isPidAlive(pid: number): boolean {
+		if (pid <= 0) return false;
 		try {
 			process.kill(pid, 0);
 			return true;
@@ -50,6 +51,7 @@ class NodePidOps implements IPidOps {
 	}
 
 	killPid(pid: number): boolean {
+		if (pid <= 0) return false;
 		try {
 			if (process.platform === "win32") {
 				execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore", windowsHide: true });

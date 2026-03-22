@@ -33,6 +33,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 
 import { commands } from "../../src/controller/info.controller.js";
@@ -43,7 +44,7 @@ import { log } from "../../src/infrastructure/logger.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
-import { proc } from "../../src/infrastructure/proc.js";
+import { proc, pidOps } from "../../src/infrastructure/proc.js";
 
 const mockProject = {
 	name: "test-project",
@@ -57,7 +58,7 @@ describe("info.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		initializeDeps({
-			disk, shell, paths, proc,
+			disk, shell, paths, proc, pidOps,
 			clock: { iso: () => "", now: () => new Date(), ms: () => 0, safeIso: () => "" },
 			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,

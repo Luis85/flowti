@@ -29,8 +29,12 @@ export interface ProcessEntry {
 
 const REGISTRY_DIR = ".flowti/var/processes";
 
+function safeName(s: string): string {
+	return s.replace(/[/\\:*?"<>|]/g, "_");
+}
+
 function entryPath(deps: ProcessDeps, type: string, name: string): string {
-	return deps.paths.join(REGISTRY_DIR, `${type}-${name}.json`);
+	return deps.paths.join(REGISTRY_DIR, `${safeName(type)}-${safeName(name)}.json`);
 }
 
 function ensureDir(deps: ProcessDeps): void {

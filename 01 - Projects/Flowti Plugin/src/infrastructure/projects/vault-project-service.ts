@@ -86,7 +86,7 @@ export class VaultProjectService implements IProjectService {
 	async startStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; url?: string; pid?: number; error?: string }> {
 		const vaultBase = getVaultBasePath(this.app);
 		const lines: string[] = [];
-		const result = await runFlowtiCli(vaultBase, ["storybook:start", `--project=${project}`], (line) => {
+		const result = await runFlowtiCli(vaultBase, ["storybook:start", `--project=${project}`, "--format=json"], (line) => {
 			if (line !== "Done.") lines.push(line);
 			onOutput?.(line);
 		});

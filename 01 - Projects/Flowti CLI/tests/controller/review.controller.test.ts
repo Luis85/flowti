@@ -35,6 +35,7 @@ vi.mock("../../src/infrastructure/config.js", () => ({
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn() },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 vi.mock("../../src/infrastructure/output.js", () => ({
 	output: { write: vi.fn() },
@@ -108,7 +109,7 @@ import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
-import { proc } from "../../src/infrastructure/proc.js";
+import { proc, pidOps } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { renderPipelineResult, renderGateResult, renderTraceabilityMatrix, renderCoverageReport, renderEvidenceList } from "../../src/ui/displays/review-display.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../../src/domain/review/change-analysis.js";
@@ -132,7 +133,7 @@ describe("review.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		initializeDeps({
-			disk, shell, paths, proc,
+			disk, shell, paths, proc, pidOps,
 			clock: { iso: () => "", now: () => new Date(), ms: () => 0, safeIso: () => "" },
 			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,

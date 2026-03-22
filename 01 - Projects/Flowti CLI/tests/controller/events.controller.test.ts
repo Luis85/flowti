@@ -36,6 +36,7 @@ vi.mock("../../src/infrastructure/input.js", () => ({
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 vi.mock("../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
@@ -97,7 +98,7 @@ import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { clock } from "../../src/infrastructure/clock.js";
 import { log } from "../../src/infrastructure/logger.js";
-import { proc } from "../../src/infrastructure/proc.js";
+import { proc, pidOps } from "../../src/infrastructure/proc.js";
 import { renderEventFlowCreated, renderContractsGenerated, renderCodegenGenerated } from "../../src/ui/displays/events-display.js";
 
 const mockProject = {
@@ -111,7 +112,7 @@ describe("events.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		initializeDeps({
-			disk, shell, paths, clock, proc,
+			disk, shell, paths, clock, proc, pidOps,
 			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), once: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),

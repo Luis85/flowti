@@ -38,6 +38,7 @@ vi.mock("../../src/infrastructure/clock.js", () => ({
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 vi.mock("../../src/infrastructure/input.js", () => ({
 	input: { ask: vi.fn(async () => ""), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
@@ -135,7 +136,7 @@ import { parseFrontmatter } from "../../src/domain/vault-ops/frontmatter.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { clock } from "../../src/infrastructure/clock.js";
-import { proc } from "../../src/infrastructure/proc.js";
+import { proc, pidOps } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
 
 const logMock = log as ReturnType<typeof vi.fn>;
@@ -146,7 +147,7 @@ describe("vault.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		initializeDeps({
-			disk, paths, clock, proc,
+			disk, paths, clock, proc, pidOps,
 			shell: { run: vi.fn(), runSilent: vi.fn(), check: vi.fn(() => false) } as never,
 			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,

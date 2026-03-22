@@ -168,7 +168,7 @@ export async function startStorybookDev(
 
 	const activeProcess = deps.shell.spawnBackground(
 		"npm run storybook",
-		{ cwd: sbDir, env: { CI: "true", NG_CLI_ANALYTICS: "false" } },
+		{ cwd: sbDir, env: { CI: "true", NG_CLI_ANALYTICS: "false" }, detached: Boolean(processDeps) },
 	);
 	setActiveProcess(activeProcess);
 

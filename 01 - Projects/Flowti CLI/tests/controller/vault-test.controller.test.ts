@@ -29,6 +29,7 @@ vi.mock("../../src/infrastructure/clock.js", () => ({
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 vi.mock("../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
@@ -45,7 +46,7 @@ import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { clock } from "../../src/infrastructure/clock.js";
-import { proc } from "../../src/infrastructure/proc.js";
+import { proc, pidOps } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
 
 describe("vault-test controller", () => {
@@ -57,6 +58,7 @@ describe("vault-test controller", () => {
 			paths,
 			clock,
 			proc,
+			pidOps,
 			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log,
