@@ -67,6 +67,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		reportBusy: { type: Boolean },
 		roleSlots: { type: Array },
 		vaultAgents: { type: Array },
+		/** Set while "Create agent from role" is running (highlights the role card). */
+		agentCreationContext: { type: Object },
 	};
 
 	static styles = [
@@ -117,6 +119,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	reportBusy = false;
 	roleSlots: TeamRoleSlot[] = [];
 	vaultAgents: VaultAgentSummary[] = [];
+	agentCreationContext: { roleId: string; agentName: string } | null = null;
 
 	protected renderContent() {
 		if (!this.projectName) return this.renderProjectList();
@@ -152,7 +155,7 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.canvasChanged="${this.canvasChanged}"
 					.canvasPreset="${this.canvasPreset}"
 				></flowti-tab-overview>`;
-			case "components": return html`<flowti-tab-components .projectName="${this.projectName}" .components="${this.components}" .storybookInstalled="${this.storybook?.installed ?? false}" .storybookFramework="${this.storybook?.framework ?? ""}" .storybookRunning="${this.storybook?.running ?? false}" .storybookUrl="${this.storybook?.url ?? ""}" .storybookBusy="${this.storybookBusy}" .storybookBusyLabel="${this.storybookBusyLabel}" .storybookOutput="${this.storybookOutput}" .storybookError="${this.storybookError}" .hasSitemap="${this.hasSitemap}"></flowti-tab-components>`;
+			case "components": return html`<flowti-tab-components .projectName="${this.projectName}" .components="${this.components}" .storybookInstalled="${this.storybook?.installed ?? false}" .storybookFramework="${this.storybook?.framework ?? ""}" .storybookRunning="${this.storybook?.running ?? false}" .storybookUrl="${this.storybook?.url ?? ""}" .storybookBusy="${this.storybookBusy}" .storybookBusyLabel="${this.storybookBusyLabel}" .storybookError="${this.storybookError}" .hasSitemap="${this.hasSitemap}"></flowti-tab-components>`;
 			case "catalog": return html`<flowti-tab-event-catalog .projectName="${this.projectName}" .entities="${this.catalogEntities}"></flowti-tab-event-catalog>`;
 			case "reporting": return html`<flowti-tab-reporting .projectName="${this.projectName}" .generators="${this.reportGenerators}" .nodeStates="${this.reportNodeStates}" .outputLines="${this.reportOutput}" .busy="${this.reportBusy}"></flowti-tab-reporting>`;
 			case "team":
@@ -161,6 +164,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.roleSlots="${this.roleSlots}"
 					.vaultAgents="${this.vaultAgents}"
 					.actionsLocked="${this.projectHubBusy}"
+					.hubBusy="${this.projectHubBusy}"
+					.hubBusyLabel="${this.projectHubBusyLabel}"
+					.hubOutputLines="${this.projectHubOutput}"
+					.agentCreationContext="${this.agentCreationContext}"
 				></flowti-tab-team>`;
 			case "config":
 				return html`<flowti-tab-config
@@ -341,14 +348,17 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	}
 
 	private renderProjectHubLog() {
-		if (this.projectHubOutput.length === 0) return "";
+		if (!this.projectHubBusy && this.projectHubOutput.length === 0) return "";
+		const body = this.projectHubOutput.length > 0
+			? this.projectHubOutput.join("\n")
+			: (this.projectHubBusy ? "Waiting for output…" : "");
 		return html`
-			<div class="hub-cli-log" role="region" aria-label="Project CLI output">
+			<div class="hub-cli-log ${this.projectHubBusy ? "hub-cli-log--active" : ""}" role="region" aria-label="Project CLI output">
 				<div class="hub-cli-log__head">
 					<span class="hub-cli-log__title">Project CLI output</span>
-					<button type="button" class="hub-cli-log__clear" @click="${this.clearProjectHubLog}">Clear</button>
+					<button type="button" class="hub-cli-log__clear" ?disabled="${this.projectHubBusy}" @click="${this.clearProjectHubLog}">Clear</button>
 				</div>
-				<pre class="hub-cli-log__pre">${this.projectHubOutput.join("\n")}</pre>
+				<pre class="hub-cli-log__pre">${body}</pre>
 			</div>
 		`;
 	}

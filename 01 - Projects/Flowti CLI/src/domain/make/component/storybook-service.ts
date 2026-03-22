@@ -25,6 +25,7 @@ export {
 	extractLocalUrl,
 	isStorybookRunning,
 	stopStorybook,
+	openStorybookUrl,
 } from "./storybook-browser.js";
 
 // ── Non-interactive result type ──────────────────────────────────────

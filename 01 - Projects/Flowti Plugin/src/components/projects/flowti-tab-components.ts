@@ -24,7 +24,6 @@ const styles = css`
 	}
 	.muted { color: var(--text-muted, #999); font-size: var(--flowti-font-sm, 0.85em); }
 	.list { font-size: var(--flowti-font-sm, 0.85em); max-height: 200px; overflow: auto; }
-	pre.log { font-size: 11px; max-height: 180px; overflow: auto; background: var(--background-secondary, #262626); padding: 8px; border-radius: 4px; margin: 0; }
 	.btn:focus-visible {
 		outline: 2px solid var(--interactive-accent, #7c3aed);
 		outline-offset: 2px;
@@ -83,7 +82,6 @@ export class FlowtiTabComponents extends FlowtiElement {
 		storybookUrl: { type: String },
 		storybookBusy: { type: Boolean },
 		storybookBusyLabel: { type: String },
-		storybookOutput: { type: Array },
 		storybookError: { type: String },
 		/** When false, nudge toward Overview / markdown import before Storybook work. */
 		hasSitemap: { type: Boolean },
@@ -99,7 +97,6 @@ export class FlowtiTabComponents extends FlowtiElement {
 	storybookUrl = "";
 	storybookBusy = false;
 	storybookBusyLabel = "";
-	storybookOutput: string[] = [];
 	storybookError = "";
 	hasCanvas = false;
 	hasSitemap = false;
@@ -154,14 +151,6 @@ export class FlowtiTabComponents extends FlowtiElement {
 					${this.components.map((c) => html`<div>${c.name} <span class="muted">(${c.category})</span></div>`)}
 				</div>
 			</div>
-			${this.storybookOutput.length > 0
-				? html`
-					<div class="section">
-						<h3>Storybook CLI log <button type="button" class="btn" @click="${() => this.emit("storybook-dismiss-output", {})}">Clear</button></h3>
-						<pre class="log">${this.storybookOutput.join("\n")}</pre>
-					</div>
-				`
-				: ""}
 			</div>
 		`;
 	}

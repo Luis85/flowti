@@ -21,7 +21,6 @@ export interface ProjectHandlerDeps {
 	readonly projectName: string;
 	readonly openNote?: (path: string) => void;
 	readonly createNote?: (name: string) => void;
-	readonly openInWebviewer?: (url: string) => void;
 	readonly navigateBack?: () => void;
 	readonly pickFolder?: () => Promise<string | null>;
 	readonly revealFolder?: (path: string) => void;
@@ -87,7 +86,11 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		void projectService.listComponents(name).then((c) => { el.components = c; });
 		void projectService.getReportGenerators(name).then((g) => { el.reportGenerators = g; });
 		void projectService.listEntities(name, "domains").then((entities) => { el.catalogEntities = entities; });
-		void projectService.listVaultAgents().then((agents) => { el.vaultAgents = [...agents]; });
+		try {
+			el.vaultAgents = [...await projectService.listVaultAgents()];
+		} catch {
+			el.vaultAgents = [];
+		}
 	}
 
 	// ── Core navigation events ──
@@ -96,6 +99,7 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("back-to-list", (() => {
 		currentProject = "";
 		el.projectName = "";
+		el.agentCreationContext = null;
 		el.storybookBusy = false;
 		el.storybookBusyLabel = "";
 		el.storybookOutput = [];
@@ -202,7 +206,6 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 		startProjectHubWork, appendProjectHubLog, endProjectHubWork,
 		openNote: deps.openNote,
 		createNote: deps.createNote,
-		openInWebviewer: deps.openInWebviewer,
 		revealFolder: deps.revealFolder,
 		pickFolder: deps.pickFolder,
 	};

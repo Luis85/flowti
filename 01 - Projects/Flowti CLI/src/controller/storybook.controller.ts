@@ -18,6 +18,7 @@ import {
 	startStorybookDev,
 	runStorybookBuild,
 	resolveStorybookDir,
+	openStorybookUrl,
 } from "../domain/make/component/storybook-service.js";
 import { getFramework, setFramework, writeComponentsConfig } from "../domain/make/component/storybook-settings.js";
 import { createStorybookRenderer } from "../ui/renderers/storybook-renderer-impl.js";
@@ -159,6 +160,32 @@ export const commands: Record<string, CommandHandler> = {
 			);
 		},
 		renderer: renderStorybookStartResult,
+	}),
+
+	/** Open a Storybook URL via Obsidian CLI `web` when in-vault + CLI available, else system browser. */
+	"storybook:open": adaptDescriptor<{ url: string }, Record<string, never>>({
+		requires: "project",
+		flags: {
+			url: {
+				type: "string",
+				required: true,
+				hint: "--url=http://localhost:6006",
+			},
+		},
+		handler: (ctx) => {
+			const url = String(ctx.flags.url ?? "").trim();
+			if (url) {
+				openStorybookUrl(
+					ctx.project!.path,
+					url,
+					VAULT_ROOT,
+					createStorybookRenderer(ctx.deps.log),
+					ctx.deps,
+				);
+			}
+			return {};
+		},
+		renderer: () => {},
 	}),
 
 	"storybook:stop": adaptDescriptor<Record<string, unknown>, StorybookStopResultModel>({

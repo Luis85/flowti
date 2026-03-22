@@ -217,6 +217,8 @@ export interface IProjectService {
 	cleanStorybook(project: string): Promise<{ ok: boolean; error?: string }>;
 	importCanvasSitemap(project: string, onOutput?: OutputCallback, opts?: { merge?: boolean }): Promise<{ ok: boolean; error?: string }>;
 	previewStorybook(project: string): Promise<{ ok: boolean; url?: string; error?: string }>;
+	/** Delegates to Flowti CLI `storybook:open` (Obsidian `web` when available, else OS default browser). */
+	openStorybookUrl(project: string, url: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
 	stopPreview(project: string): Promise<{ ok: boolean; error?: string }>;
 	generateSitemapCanvas(project: string, onOutput?: OutputCallback, opts?: { preset?: string; force?: boolean }): Promise<{ ok: boolean; error?: string }>;
 	importFromGit(url: string, name: string, mode: "submodule" | "template", onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
@@ -248,7 +250,16 @@ export interface IProjectService {
 	// Team roster (role slots + vault agents)
 	listVaultAgents(): Promise<VaultAgentSummary[]>;
 	saveTeamRoster(project: string, roleSlots: readonly TeamRoleSlot[], onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
-	createAgentFromRole(project: string, roleId: string, agentName: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }>;
+	/**
+	 * @param slotsSnapshot — Current Team tab slots (including unsaved edits). When omitted, reads from `flowti.config.json` only.
+	 */
+	createAgentFromRole(
+		project: string,
+		roleId: string,
+		agentName: string,
+		onOutput?: OutputCallback,
+		slotsSnapshot?: readonly TeamRoleSlot[],
+	): Promise<{ ok: boolean; error?: string }>;
 }
 
 /** Minimal info for assigning existing agents to a role. */

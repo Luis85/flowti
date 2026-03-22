@@ -8,19 +8,84 @@ import { teamRoleSlotDateRangeInvalid, teamRoleSlotsHaveInvalidDateRange } from 
 
 const styles = css`
 	:host {
-		--flowti-team-radius: 8px;
+		--flowti-team-radius: 10px;
+		display: block;
 	}
-	h3 {
-		font-size: 1em;
-		margin: 0 0 6px;
-		color: var(--text-normal, #ddd);
+	.team-page-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 10px;
+	}
+	.team-page-head__titles h3 {
+		margin: 0 0 4px;
+		font-size: 1.05em;
 		font-weight: 600;
+		color: var(--text-normal, #eaeaea);
+		letter-spacing: -0.01em;
+	}
+	.team-page-head__subtitle {
+		margin: 0;
+		font-size: var(--flowti-font-sm, 0.82em);
+		color: var(--text-muted, #888);
+		line-height: 1.4;
+		max-width: 42em;
+	}
+	.hub-inline-progress {
+		margin-bottom: 14px;
+		border-radius: var(--flowti-team-radius);
+		border: 1px solid color-mix(in srgb, var(--interactive-accent, #7c3aed) 35%, var(--background-modifier-border, #333));
+		background: color-mix(in srgb, var(--interactive-accent, #7c3aed) 6%, var(--background-secondary, #1c1c1c));
+		overflow: hidden;
+	}
+	.hub-inline-progress__head {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 10px 12px;
+		border-bottom: 1px solid var(--background-modifier-border, #333);
+		font-size: var(--flowti-font-sm, 0.85em);
+		font-weight: 500;
+		color: var(--interactive-accent, #c4b5fd);
+	}
+	.hub-inline-spinner {
+		width: 16px;
+		height: 16px;
+		border: 2px solid color-mix(in srgb, var(--interactive-accent, #7c3aed) 35%, transparent);
+		border-top-color: var(--interactive-accent, #a78bfa);
+		border-radius: 50%;
+		animation: teamspin 0.75s linear infinite;
+		flex-shrink: 0;
+	}
+	@keyframes teamspin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	.hub-inline-progress__label {
+		flex: 1;
+		min-width: 0;
+		line-height: 1.35;
+	}
+	.hub-inline-progress__log {
+		margin: 0;
+		padding: 8px 12px 10px;
+		max-height: 140px;
+		overflow: auto;
+		font-family: var(--font-monospace, ui-monospace, monospace);
+		font-size: 11px;
+		line-height: 1.45;
+		color: color-mix(in srgb, var(--text-normal, #ddd) 88%, var(--text-muted, #999));
+		background: var(--background-primary, #141414);
+		white-space: pre-wrap;
+		word-break: break-word;
 	}
 	.lead {
 		font-size: var(--flowti-font-sm, 0.85em);
 		color: var(--text-muted, #999);
 		line-height: 1.45;
-		margin: 0 0 12px;
+		margin: 0 0 14px;
 	}
 	.lead code {
 		font-size: 0.92em;
@@ -52,8 +117,17 @@ const styles = css`
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: 8px;
-		margin-bottom: 14px;
+		margin-bottom: 16px;
+		padding: 10px 12px;
+		border-radius: var(--flowti-team-radius);
+		background: color-mix(in srgb, var(--background-secondary, #262626) 92%, transparent);
+		border: 1px solid var(--background-modifier-border, #333);
+	}
+	.toolbar__spacer {
+		flex: 1;
+		min-width: 8px;
 	}
 	.btn {
 		padding: 6px 14px;
@@ -99,9 +173,27 @@ const styles = css`
 	.card {
 		border: 1px solid var(--background-modifier-border, #333);
 		border-radius: var(--flowti-team-radius);
-		padding: 12px 14px;
-		margin-bottom: 12px;
+		padding: 14px 16px;
+		margin-bottom: 14px;
 		background: var(--background-secondary, #1a1a1a);
+		transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	}
+	.card:hover {
+		border-color: color-mix(in srgb, var(--background-modifier-border, #333) 70%, var(--text-muted, #666));
+	}
+	.card--creating {
+		border-color: color-mix(in srgb, var(--interactive-accent, #7c3aed) 55%, var(--background-modifier-border, #333));
+		box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent, #7c3aed) 18%, transparent);
+		animation: cardcreating 1.6s ease-in-out infinite;
+	}
+	@keyframes cardcreating {
+		0%,
+		100% {
+			box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent, #7c3aed) 12%, transparent);
+		}
+		50% {
+			box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent, #7c3aed) 28%, transparent);
+		}
 	}
 	.card-title {
 		margin: 0 0 10px;
@@ -272,13 +364,56 @@ const styles = css`
 		line-height: 1.35;
 	}
 	.empty {
-		padding: 20px 14px;
+		padding: 24px 16px;
 		text-align: center;
-		border: 1px dashed var(--background-modifier-border, #444);
+		border: 1px dashed color-mix(in srgb, var(--background-modifier-border, #444) 85%, var(--interactive-accent, #7c3aed));
 		border-radius: var(--flowti-team-radius);
 		color: var(--text-muted, #999);
 		font-size: var(--flowti-font-sm, 0.85em);
-		line-height: 1.5;
+		line-height: 1.55;
+	}
+	.materialize-box {
+		margin-top: 12px;
+		padding-top: 12px;
+		border-top: 1px solid var(--background-modifier-border, #333);
+	}
+	.materialize-box__label {
+		font-size: 0.72em;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--text-muted, #888);
+		margin: 0 0 8px;
+	}
+	.materialize-box__row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+	}
+	.creating-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: var(--flowti-font-sm, 0.8em);
+		color: var(--interactive-accent, #c4b5fd);
+		margin-bottom: 8px;
+	}
+	.creating-pill__dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--interactive-accent, #a78bfa);
+		animation: pulse 1.2s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		0%,
+		100% {
+			opacity: 0.35;
+		}
+		50% {
+			opacity: 1;
+		}
 	}
 `;
 
@@ -299,6 +434,10 @@ export class FlowtiTabTeam extends FlowtiElement {
 		vaultAgents: { type: Array },
 		/** True while project hub runs an async action (save roster, create agent, …). */
 		actionsLocked: { type: Boolean, attribute: "actions-locked" },
+		hubBusy: { type: Boolean },
+		hubBusyLabel: { type: String },
+		hubOutputLines: { type: Array },
+		agentCreationContext: { type: Object },
 	};
 
 	static styles = [tokens, styles];
@@ -307,6 +446,10 @@ export class FlowtiTabTeam extends FlowtiElement {
 	roleSlots: TeamRoleSlot[] = [];
 	vaultAgents: VaultAgentSummary[] = [];
 	actionsLocked = false;
+	hubBusy = false;
+	hubBusyLabel = "";
+	hubOutputLines: string[] = [];
+	agentCreationContext: { roleId: string; agentName: string } | null = null;
 	private _slots: TeamRoleSlot[] = [];
 	private _createNameByRole: Record<string, string> = {};
 	/** Role id whose blueprint JSON failed to parse (inline error). */
@@ -355,7 +498,15 @@ export class FlowtiTabTeam extends FlowtiElement {
 		const nAgents = this.vaultAgents.length;
 		const nSlots = this._slots.length;
 		return html`
-			<h3>Team roster</h3>
+			<header class="team-page-head">
+				<div class="team-page-head__titles">
+					<h3>Team roster</h3>
+					<p class="team-page-head__subtitle">
+						Staff roles as markdown notes, assign people, or materialize new vault agents. Progress and CLI output appear below while an operation runs.
+					</p>
+				</div>
+			</header>
+			${this.renderHubProgress()}
 			<p class="lead">
 				Each <strong>role</strong> is a <code>ProjectRole</code> note under <code>team/roles/</code> (title, need, <strong>FTE</strong>, optional dates, skills, narrative).
 				<code>flowti.config.json</code> keeps the slot list and assignees. <strong>Save roster</strong> writes every note and runs <code>agent:dashboard-sync</code>.
@@ -393,6 +544,7 @@ export class FlowtiTabTeam extends FlowtiElement {
 				<button type="button" class="btn" title="Add another staffing role to this project" ?disabled="${this.actionsLocked}" @click="${this.addSlot}">
 					Add role
 				</button>
+				<span class="toolbar__spacer"></span>
 				<button
 					type="button"
 					class="btn btn--primary"
@@ -404,8 +556,24 @@ export class FlowtiTabTeam extends FlowtiElement {
 				</button>
 			</div>
 			${nSlots === 0
-				? html`<div class="empty">No role slots yet. Add a role to capture requirements in markdown, then assign someone or create a new agent.</div>`
+				? html`<div class="empty">No role slots yet. Use <strong>Add role</strong> to capture requirements, then assign someone or create a new agent from the role.</div>`
 				: this._slots.map((slot) => this.renderCard(slot))}
+		`;
+	}
+
+	private renderHubProgress() {
+		const lines = [...(this.hubOutputLines ?? [])].slice(-12);
+		if (!this.hubBusy && lines.length === 0) return "";
+		const body = lines.length > 0 ? lines.join("\n") : "Waiting for the next step…";
+		const label = this.hubBusy ? (this.hubBusyLabel || "Working…") : "Recent project CLI output";
+		return html`
+			<div class="hub-inline-progress" role="status" aria-live="polite" aria-busy="${this.hubBusy}">
+				<div class="hub-inline-progress__head">
+					${this.hubBusy ? html`<span class="hub-inline-spinner" aria-hidden="true"></span>` : ""}
+					<span class="hub-inline-progress__label">${label}</span>
+				</div>
+				<pre class="hub-inline-progress__log">${body}</pre>
+			</div>
 		`;
 	}
 
@@ -431,9 +599,10 @@ export class FlowtiTabTeam extends FlowtiElement {
 		const lock = this.actionsLocked;
 		const staffingHintId = `${sid}-staffing-hint`;
 		const badDates = teamRoleSlotDateRangeInvalid(slot);
+		const creatingHere = this.agentCreationContext?.roleId === slot.id;
 
 		return html`
-			<div class="card" data-role="${slot.id}">
+			<div class="card ${creatingHere ? "card--creating" : ""}" data-role="${slot.id}">
 				<div class="card-title">Role</div>
 				<div class="field">
 					<label for="${titleId}">Role title</label>
@@ -588,45 +757,54 @@ export class FlowtiTabTeam extends FlowtiElement {
 						Unassign
 					</button>
 				</div>
-				<div class="row row--tight">
-					<label class="sr-only" for="${createId}">New agent display name for ${slot.title}</label>
-					<input
-						id="${createId}"
-						type="text"
-						style="flex:1;min-width:140px;max-width:280px"
-						placeholder="New agent display name"
-						.value="${createName}"
-						autocomplete="off"
-						?disabled="${lock}"
-						@input="${(e: Event) => {
-							this._createNameByRole = { ...this._createNameByRole, [slot.id]: (e.target as HTMLInputElement).value };
-							this.requestUpdate();
-						}}"
-						@keydown="${(e: KeyboardEvent) => {
-							if (e.key === "Enter") {
-								e.preventDefault();
-								this.emitCreate(slot.id);
-							}
-						}}"
-					/>
-					<button
-						type="button"
-						class="btn btn--primary"
-						?disabled="${!canCreate || lock}"
-						title="Create an Agent note from this role and assign it (saves roster)"
-						@click="${() => this.emitCreate(slot.id)}"
-					>
-						Create agent from role
-					</button>
-					<button
-						type="button"
-						class="btn btn--danger"
-						title="Remove this role and its ProjectRole note from the project"
-						?disabled="${lock}"
-						@click="${() => this.removeSlot(slot.id)}"
-					>
-						Remove role
-					</button>
+				<div class="materialize-box">
+					<p class="materialize-box__label">New vault agent</p>
+					${creatingHere
+						? html`<div class="creating-pill" role="status">
+								<span class="creating-pill__dot" aria-hidden="true"></span>
+								<span>Creating <strong>${this.agentCreationContext?.agentName ?? "agent"}</strong> — watch the log above for steps.</span>
+						  </div>`
+						: ""}
+					<div class="materialize-box__row">
+						<label class="sr-only" for="${createId}">New agent display name for ${slot.title}</label>
+						<input
+							id="${createId}"
+							type="text"
+							style="flex:1;min-width:140px;max-width:280px"
+							placeholder="Display name (e.g. Alex — Product)"
+							.value="${createName}"
+							autocomplete="off"
+							?disabled="${lock}"
+							@input="${(e: Event) => {
+								this._createNameByRole = { ...this._createNameByRole, [slot.id]: (e.target as HTMLInputElement).value };
+								this.requestUpdate();
+							}}"
+							@keydown="${(e: KeyboardEvent) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									this.emitCreate(slot.id);
+								}
+							}}"
+						/>
+						<button
+							type="button"
+							class="btn btn--primary"
+							?disabled="${!canCreate || lock}"
+							title="Create an Agent note from this role, assign it, save roster, and sync the dashboard"
+							@click="${() => this.emitCreate(slot.id)}"
+						>
+							Create agent from role
+						</button>
+						<button
+							type="button"
+							class="btn btn--danger"
+							title="Remove this role and its ProjectRole note from the project"
+							?disabled="${lock}"
+							@click="${() => this.removeSlot(slot.id)}"
+						>
+							Remove role
+						</button>
+					</div>
 				</div>
 			</div>
 		`;
@@ -752,7 +930,13 @@ export class FlowtiTabTeam extends FlowtiElement {
 			this.dispatchEvent(new CustomEvent("team-roster-error", { detail: { message: "Enter a display name before creating an agent." }, bubbles: true, composed: true }));
 			return;
 		}
-		this.dispatchEvent(new CustomEvent("team-create-agent", { detail: { roleId, agentName: name }, bubbles: true, composed: true }));
+		this.dispatchEvent(
+			new CustomEvent("team-create-agent", {
+				detail: { roleId, agentName: name, slots: this._slots },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 }
 
