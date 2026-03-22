@@ -14,6 +14,7 @@ import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { gitImportModalStyles } from "./flowti-git-import-modal-styles.js";
 import "../shared/ft-process-log.js";
+import type { GitDetectResult } from "../../domain/projects/types.js";
 
 type ModalStep = "form" | "progress" | "detect" | "configure" | "done";
 
@@ -26,11 +27,7 @@ export class FlowtiGitImportModal extends FlowtiElement {
 		name: { type: String },
 		outputLines: { type: Array },
 		errorNote: { type: String },
-		detectedType: { type: String },
-		detectedFramework: { type: String },
-		detectedPackageManager: { type: String },
-		detectedTestFramework: { type: String },
-		detectedHasConfig: { type: Boolean },
+		detected: { type: Object },
 		configBuildCommand: { type: String },
 		configTestCommand: { type: String },
 		configLintCommand: { type: String },
@@ -48,11 +45,7 @@ export class FlowtiGitImportModal extends FlowtiElement {
 	name = "";
 	outputLines: string[] = [];
 	errorNote = "";
-	detectedType = "";
-	detectedFramework = "";
-	detectedPackageManager = "";
-	detectedTestFramework = "";
-	detectedHasConfig = false;
+	detected: GitDetectResult | null = null;
 	configBuildCommand = "";
 	configTestCommand = "";
 	configLintCommand = "";
@@ -158,11 +151,11 @@ export class FlowtiGitImportModal extends FlowtiElement {
 					<div class="modal-title">Project detected</div>
 					${steps}
 					<dl class="detect-grid">
-						<dt>Type</dt><dd>${this.detectedType || "unknown"}</dd>
-						<dt>Framework</dt><dd>${this.detectedFramework || "none"}</dd>
-						<dt>Package manager</dt><dd>${this.detectedPackageManager || "none"}</dd>
-						<dt>Test framework</dt><dd>${this.detectedTestFramework || "none"}</dd>
-						<dt>Existing config</dt><dd>${this.detectedHasConfig ? "yes" : "no"}</dd>
+						<dt>Type</dt><dd>${this.detected?.type ?? "unknown"}</dd>
+						<dt>Framework</dt><dd>${this.detected?.framework ?? "none"}</dd>
+						<dt>Package manager</dt><dd>${this.detected?.packageManager ?? "none"}</dd>
+						<dt>Test framework</dt><dd>${this.detected?.testFramework ?? "none"}</dd>
+						<dt>Existing config</dt><dd>${this.detected?.hasConfig ? "yes" : "no"}</dd>
 					</dl>
 					${this.errorNote ? html`<div class="error-note">${this.errorNote}</div>` : ""}
 					<div class="modal-actions">
@@ -244,7 +237,7 @@ export class FlowtiGitImportModal extends FlowtiElement {
 					${steps}
 					<div class="summary-card">
 						<div class="name">${this.projectName}</div>
-						<div class="detail">${this.detectedFramework || this.configFramework || this.detectedType || "Project"} &middot; ${this.mode === "template" ? "template" : "submodule"}</div>
+						<div class="detail">${this.detected?.framework || this.configFramework || this.detected?.type || "Project"} &middot; ${this.mode === "template" ? "template" : "submodule"}</div>
 					</div>
 					<div class="modal-actions">
 						<button class="btn" @click="${this.dispatchCancel}">Close</button>
@@ -366,7 +359,7 @@ export class FlowtiGitImportModal extends FlowtiElement {
 		this.dispatchEvent(new CustomEvent("wizard-configure", {
 			detail: {
 				name: this.projectName,
-				framework: this.detectedFramework,
+				framework: this.detected?.framework ?? "",
 				buildCommand: this.configBuildCommand,
 				testCommand: this.configTestCommand,
 				lintCommand: this.configLintCommand,
@@ -379,7 +372,7 @@ export class FlowtiGitImportModal extends FlowtiElement {
 		this.dispatchEvent(new CustomEvent("wizard-configure", {
 			detail: {
 				name: this.projectName,
-				framework: this.configFramework || this.detectedFramework,
+				framework: this.configFramework || this.detected?.framework || "",
 				buildCommand: this.configBuildCommand,
 				testCommand: this.configTestCommand,
 				lintCommand: this.configLintCommand,
@@ -398,10 +391,10 @@ export class FlowtiGitImportModal extends FlowtiElement {
 	// ── Navigation ──────────────────────────────────────────
 
 	private goToConfigure(): void {
-		this.configBuildCommand = this.configBuildCommand || "";
-		this.configTestCommand = this.configTestCommand || "";
-		this.configLintCommand = this.configLintCommand || "";
-		this.configFramework = this.configFramework || this.detectedFramework || "";
+		this.configBuildCommand = this.configBuildCommand || this.detected?.buildCommand || "";
+		this.configTestCommand = this.configTestCommand || this.detected?.testCommand || "";
+		this.configLintCommand = this.configLintCommand || this.detected?.lintCommand || "";
+		this.configFramework = this.configFramework || this.detected?.framework || "";
 		this.step = "configure";
 	}
 

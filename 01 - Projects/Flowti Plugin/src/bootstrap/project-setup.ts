@@ -29,26 +29,40 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 		openNote: (path: string) => {
 			void deps.app.workspace.openLinkText(path, "", false);
 		},
-		createNote: (name: string) => {
+		createNote: (name: string): Promise<void> => {
 			const projectPath = `01 - Projects/${name}/${name}.md`;
 
-			// Listen for result before emitting
-			const unsub = deps.eventBus.on("doc.created", (event) => {
-				unsub();
-				unsubExists();
-				void deps.app.workspace.openLinkText(event.payload.path, "", false);
-			});
-			const unsubExists = deps.eventBus.on("doc.exists", (event) => {
-				unsub();
-				unsubExists();
-				void deps.app.workspace.openLinkText(event.payload.path, "", false);
-			});
+			return new Promise<void>((resolve, reject) => {
+				let timer: ReturnType<typeof setTimeout> | null = null;
 
-			void deps.eventBus.emit("doc.create", {
-				docType: "ProjectBrief",
-				name,
-				path: projectPath,
-				source: "ProjectSetup",
+				const cleanup = () => {
+					if (timer !== null) { clearTimeout(timer); timer = null; }
+					unsub();
+					unsubExists();
+				};
+
+				const unsub = deps.eventBus.on("doc.created", (event) => {
+					cleanup();
+					void deps.app.workspace.openLinkText(event.payload.docType === "ProjectBrief" ? event.payload.path : projectPath, "", false);
+					resolve();
+				});
+				const unsubExists = deps.eventBus.on("doc.exists", (event) => {
+					cleanup();
+					void deps.app.workspace.openLinkText(event.payload.docType === "ProjectBrief" ? event.payload.path : projectPath, "", false);
+					resolve();
+				});
+
+				timer = setTimeout(() => {
+					cleanup();
+					reject(new Error("createNote timeout"));
+				}, 5000);
+
+				void deps.eventBus.emit("doc.create", {
+					docType: "ProjectBrief",
+					name,
+					path: projectPath,
+					source: "ProjectSetup",
+				});
 			});
 		},
 		navigateBack: () => {

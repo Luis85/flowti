@@ -8,7 +8,7 @@ import { html } from "lit";
 import { FlowtiElement } from "../flowti-element.js";
 import { tokens } from "../tokens.js";
 import { projectDetailStyles } from "./flowti-project-detail-styles.js";
-import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo, TeamRoleSlot, VaultAgentSummary } from "../../domain/projects/types.js";
+import type { StorybookStatus, ProjectSummary, ProjectConfig, HealthScore, TodoItem, CatalogEntity, ComponentEntry, ReportGeneratorInfo, TeamRoleSlot, VaultAgentSummary, GitDetectResult } from "../../domain/projects/types.js";
 
 // Side-effect imports to register child custom elements
 import "./flowti-tab-overview.js";
@@ -53,6 +53,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		brief: { type: Object },
 		showGitModal: { type: Boolean },
 		gitModalMode: { type: String },
+		gitImportStep: { type: String },
+		gitImportError: { type: String },
+		gitImportOutputLines: { type: Array },
+		gitImportDetected: { type: Object },
 		showNamePrompt: { type: Boolean },
 		cliConnected: { type: Boolean },
 		healthScore: { type: Object },
@@ -69,6 +73,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 		vaultAgents: { type: Array },
 		/** Set while "Create agent from role" is running (highlights the role card). */
 		agentCreationContext: { type: Object },
+		configSaveStatus: { type: String },
+		configSourcePath: { type: String },
 	};
 
 	static styles = [
@@ -105,6 +111,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	brief: Record<string, string | undefined> | undefined = undefined;
 	showGitModal = false;
 	gitModalMode: "submodule" | "template" = "submodule";
+	gitImportStep: "form" | "progress" | "detect" | "configure" | "done" = "form";
+	gitImportError = "";
+	gitImportOutputLines: string[] = [];
+	gitImportDetected: GitDetectResult | null = null;
 	showNamePrompt = false;
 	cliConnected = false;
 	healthScore: HealthScore | null = null;
@@ -120,6 +130,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 	roleSlots: TeamRoleSlot[] = [];
 	vaultAgents: VaultAgentSummary[] = [];
 	agentCreationContext: { roleId: string; agentName: string } | null = null;
+	configSaveStatus = "";
+	configSourcePath = "";
 
 	protected renderContent() {
 		if (!this.projectName) return this.renderProjectList();
@@ -175,6 +187,8 @@ export class FlowtiProjectDetail extends FlowtiElement {
 					.config="${this.config}"
 					.hasCanvas="${this.hasCanvas}"
 					.hubLocked="${this.projectHubBusy}"
+					.saveStatus="${this.configSaveStatus}"
+					.sourcePath="${this.configSourcePath}"
 				></flowti-tab-config>`;
 			default: return "";
 		}
@@ -232,6 +246,10 @@ export class FlowtiProjectDetail extends FlowtiElement {
 			${this.showGitModal ? html`
 				<flowti-git-import-modal
 					.mode="${this.gitModalMode}"
+					.step="${this.gitImportStep}"
+					.errorNote="${this.gitImportError}"
+					.outputLines="${this.gitImportOutputLines}"
+					.detected="${this.gitImportDetected}"
 				></flowti-git-import-modal>
 			` : ""}
 			${this.showNamePrompt ? this.renderNamePrompt() : ""}

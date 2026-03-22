@@ -5,7 +5,7 @@
  * {@link ProjectEventContext.startProjectHubWork}. Extracted from project-handlers.ts to stay under max-lines.
  */
 
-import type { IProjectService, StorybookFramework, MarkdownSourceConfig, CatalogEntityType, CatalogEntityDef, TeamRoleSlot } from "../../domain/projects/types.js";
+import type { IProjectService, StorybookFramework, MarkdownSourceConfig, CatalogEntityType, CatalogEntityDef, TeamRoleSlot, GitDetectResult } from "../../domain/projects/types.js";
 
 export interface ProjectEventContext {
 	el: HTMLElement & Record<string, unknown>;
@@ -24,7 +24,7 @@ export interface ProjectEventContext {
 	appendProjectHubLog: (line: string) => void;
 	endProjectHubWork: (result: { ok: boolean; error?: string }) => void;
 	openNote?: (path: string) => void;
-	createNote?: (name: string) => void;
+	createNote?: (name: string) => Promise<void>;
 	revealFolder?: (path: string) => void;
 	pickFolder?: () => Promise<string | null>;
 }
@@ -255,26 +255,28 @@ export function wireGitImportEvents(ctx: ProjectEventContext): void {
 		const mode = String(e.detail?.mode);
 		if (mode === "empty") { el.showNamePrompt = true; return; }
 		el.gitModalMode = mode === "template" ? "template" : "submodule";
+		el.gitImportStep = "form";
+		el.gitImportError = "";
+		el.gitImportOutputLines = [];
+		el.gitImportDetected = null;
 		el.showGitModal = true;
 	}) as EventListener);
 
 	el.addEventListener("import-setup", ((e: CustomEvent) => {
 		const { url, name, mode } = e.detail as { url: string; name: string; mode: string };
 		ctx.startProjectHubWork("Cloning repository…");
-		const modal = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
-		if (modal) { modal.step = "progress"; modal.errorNote = ""; }
+		el.gitImportStep = "progress";
+		el.gitImportError = "";
 		const gitOutputLines: string[] = [];
 		const gitAppend = (line: string) => {
 			gitOutputLines.push(line);
 			if (gitOutputLines.length > 200) gitOutputLines.shift();
-			const m = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
-			if (m) m.outputLines = [...gitOutputLines];
+			el.gitImportOutputLines = [...gitOutputLines];
 		};
 		void projectService.importFromGit(url, name, mode as "submodule" | "template", gitAppend).then((r) => {
 			if (!r.ok) {
 				el.projectHubBusy = false; el.projectHubBusyLabel = "";
-				const m = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
-				if (m) m.errorNote = r.error ?? "Clone failed";
+				el.gitImportError = r.error ?? "Clone failed";
 				return;
 			}
 			gitAppend("Detecting project...");
@@ -282,17 +284,19 @@ export function wireGitImportEvents(ctx: ProjectEventContext): void {
 		}).then((detectResult) => {
 			if (!detectResult) return;
 			el.projectHubBusy = false; el.projectHubBusyLabel = "";
-			const m = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
-			if (m && detectResult.ok !== false) {
-				m.step = "detect";
-				m.detectedType = (detectResult as Record<string, unknown>).type ?? "";
-				m.detectedFramework = (detectResult as Record<string, unknown>).framework ?? "";
-				m.detectedPackageManager = (detectResult as Record<string, unknown>).packageManager ?? "";
-				m.detectedTestFramework = (detectResult as Record<string, unknown>).testFramework ?? "";
-				m.detectedHasConfig = (detectResult as Record<string, unknown>).hasConfig ?? false;
-				m.configBuildCommand = (detectResult as Record<string, unknown>).buildCommand ?? "";
-				m.configTestCommand = (detectResult as Record<string, unknown>).testCommand ?? "";
-				m.configLintCommand = (detectResult as Record<string, unknown>).lintCommand ?? "";
+			if (detectResult.ok !== false) {
+				el.gitImportStep = "detect";
+				el.gitImportDetected = {
+					ok: detectResult.ok,
+					type: detectResult.type,
+					framework: detectResult.framework,
+					packageManager: detectResult.packageManager,
+					testFramework: detectResult.testFramework,
+					hasConfig: detectResult.hasConfig,
+					buildCommand: detectResult.buildCommand,
+					testCommand: detectResult.testCommand,
+					lintCommand: detectResult.lintCommand,
+				};
 			}
 		});
 	}) as EventListener);
@@ -305,8 +309,7 @@ export function wireGitImportEvents(ctx: ProjectEventContext): void {
 			lint: detail.lintCommand, storybook: detail.framework,
 		}).then((r) => {
 			ctx.endProjectHubWork(r);
-			const m = el.shadowRoot?.querySelector("flowti-git-import-modal") as HTMLElement & Record<string, unknown> | null;
-			if (m && r.ok) m.step = "done";
+			if (r.ok) el.gitImportStep = "done";
 		});
 	}) as EventListener);
 
@@ -342,8 +345,9 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 		ctx.startProjectHubWork("Saving markdown source config…");
 		void projectService.saveMarkdownSourceConfig(ctx.getCurrentProject(), config, ctx.appendProjectHubLog).then((r) => {
 			ctx.endProjectHubWork(r);
-			const configTab = el.shadowRoot?.querySelector("flowti-tab-config") as HTMLElement & { saveStatus: string } | null;
-			if (configTab) { configTab.saveStatus = r.ok ? "Saved" : (r.error ?? "Save failed"); setTimeout(() => { if (configTab) configTab.saveStatus = ""; }, 3000); }
+			const msg = r.ok ? "Saved" : (r.error ?? "Save failed");
+			el.configSaveStatus = msg;
+			setTimeout(() => { if (el.configSaveStatus === msg) el.configSaveStatus = ""; }, 3000);
 		});
 	}) as EventListener);
 
@@ -351,8 +355,7 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 		if (!ctx.pickFolder) return;
 		void ctx.pickFolder().then((folder) => {
 			if (folder === null) return;
-			const configTab = el.shadowRoot?.querySelector("flowti-tab-config") as HTMLElement & { sourcePath: string } | null;
-			if (configTab) configTab.sourcePath = folder;
+			el.configSourcePath = folder;
 		});
 	}) as EventListener);
 

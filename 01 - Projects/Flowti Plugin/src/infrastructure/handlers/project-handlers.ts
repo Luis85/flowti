@@ -20,7 +20,7 @@ export interface ProjectHandlerDeps {
 	readonly projectService: IProjectService;
 	readonly projectName: string;
 	readonly openNote?: (path: string) => void;
-	readonly createNote?: (name: string) => void;
+	readonly createNote?: (name: string) => Promise<void>;
 	readonly navigateBack?: () => void;
 	readonly pickFolder?: () => Promise<string | null>;
 	readonly revealFolder?: (path: string) => void;
@@ -115,8 +115,12 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 	el.addEventListener("open-project-note", ((e: CustomEvent) => { deps.openNote?.(String(e.detail.path)); }) as EventListener);
 	el.addEventListener("open-project-folder", ((e: CustomEvent) => { deps.revealFolder?.(`01 - Projects/${String(e.detail.name)}`); }) as EventListener);
 	el.addEventListener("create-project-note", ((e: CustomEvent) => {
-		deps.createNote?.(String(e.detail.name));
-		setTimeout(() => { if (currentProject) void loadProject(currentProject); else void loadProjectList(); }, 500);
+		const name = String(e.detail.name);
+		void (async () => {
+			await deps.createNote?.(name).catch(() => { /* timeout — proceed anyway */ });
+			if (currentProject) await loadProject(currentProject);
+			else await loadProjectList();
+		})();
 	}) as EventListener);
 
 	const storybookLines: string[] = [];
