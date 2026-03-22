@@ -15,6 +15,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { EngineContext } from "./engine-types.js";
 import { POSITION_FLUSH_INTERVAL } from "./engine-config.js";
+import type { IEchoStore } from "./systems/echo/echo-types.js";
+import type { Echo } from "./systems/echo/echo-types.js";
 
 // ── Minimal engine interface for postupdate wiring ───────────────────
 // Avoids importing the full excalibur module at the type level.
@@ -61,6 +63,7 @@ export interface StateSystems {
 	readonly brain: EngineContext["systems"]["brain"];
 	readonly registry: EngineContext["systems"]["registry"];
 	readonly pets: EngineContext["pets"];
+	readonly echo: IEchoStore;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -116,6 +119,11 @@ export function restoreWorldState(ctx: StateSystems, vaultPath: string): Restore
 		const posData = loadJson(posPath) as { positions?: Record<string, SavedPosition> } | null;
 		if (posData?.positions) { savedPositions = posData.positions; loaded.push("world-positions.json"); }
 		else { skipped.push("world-positions.json"); }
+
+		const echoPath = join(dir, "world-echoes.json");
+		const echoData = loadJson(echoPath) as Record<string, Echo[]> | null;
+		if (echoData) { ctx.echo.restore(echoData); loaded.push("world-echoes.json"); }
+		else { skipped.push("world-echoes.json"); }
 	} catch {
 		// non-critical — start fresh
 	}
@@ -172,6 +180,7 @@ export function flushWorldState(ctx: StateSystems, vaultPath: string): void {
 
 		const positions = collectPositions(ctx);
 		saveJson(join(dir, "world-positions.json"), { updatedAt: new Date().toISOString(), positions });
+		saveJson(join(dir, "world-echoes.json"), ctx.echo.serialize());
 	} catch {
 		// non-critical — skip silently
 	}
