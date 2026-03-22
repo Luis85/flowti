@@ -42,6 +42,16 @@ export function buildResponsePrompt(
 	return buildConversationPrompt(agentName, systemPrompt, history, message, character);
 }
 
+/** Build a priming prompt for session startup — system + character + history, no user message needed. */
+export function buildPrimingPrompt(
+	agentName: string,
+	systemPrompt: string | null,
+	character: AgentCharacter | undefined,
+	history: readonly ConversationTurn[],
+): string {
+	return buildConversationPrompt(agentName, systemPrompt, history, "You are now active. Confirm you are ready.", character);
+}
+
 function formatPendingTasks(tasks: Array<{ name: string; status: string }>): string[] {
 	if (tasks.length === 0) return ["I have no pending tasks."];
 	const header = `I have ${tasks.length} task${tasks.length > 1 ? "s" : ""}:`;
