@@ -5,7 +5,7 @@ import type { IProviderRegistry, ILLMProvider } from "../../../src/domain/agents
 function mockProvider(name: string): ILLMProvider {
 	return {
 		name,
-		capabilities: () => ({ streaming: true, thinking: false, toolUse: false, structuredOutput: false }),
+		capabilities: () => ({ streaming: true, thinking: false, toolUse: false, structuredOutput: false, persistentSession: false }),
 		execute: () => ({ onEvent: () => () => {}, result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: () => {} }),
 	};
 }

@@ -74,13 +74,13 @@ describe("createCursorProvider", () => {
 
 	describe("createSession", () => {
 		it("reports persistentSession capability", () => {
-			const caps = createCursorProvider(makeDeps()).capabilities();
+			const caps = createCursorProvider(asDeps(makeDeps())).capabilities();
 			expect(caps.persistentSession).toBe(true);
 		});
 
 		it("spawns agent (not claude) without -p flag, with stdin: true, with --force --trust", () => {
 			const deps = makeDeps();
-			const provider = createCursorProvider(deps);
+			const provider = createCursorProvider(asDeps(deps));
 			provider.createSession!({ cwd: "/work" });
 			const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
 			expect(cmd).toMatch(/^agent\b/);
@@ -95,7 +95,7 @@ describe("createCursorProvider", () => {
 
 		it("send writes message to stdin and returns LLMProcess", () => {
 			const deps = makeDeps();
-			const provider = createCursorProvider(deps);
+			const provider = createCursorProvider(asDeps(deps));
 			const session = provider.createSession!({ cwd: "/work" });
 			const proc = session.send("hello");
 			expect(deps._mockProc.writeStdin).toHaveBeenCalledWith("hello\n");
@@ -106,7 +106,7 @@ describe("createCursorProvider", () => {
 
 		it("kill sets alive to false", () => {
 			const deps = makeDeps();
-			const provider = createCursorProvider(deps);
+			const provider = createCursorProvider(asDeps(deps));
 			const session = provider.createSession!({ cwd: "/work" });
 			expect(session.alive).toBe(true);
 			session.kill();

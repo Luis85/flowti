@@ -3,7 +3,7 @@ import { createProviderRegistry } from "../../../src/infrastructure/llm/provider
 import type { ILLMProvider, ProviderCapabilities } from "../../../src/domain/agents/llm-types.js";
 
 function mockProvider(name: string, caps: Partial<ProviderCapabilities> = {}): ILLMProvider {
-	const defaults: ProviderCapabilities = { streaming: true, thinking: false, toolUse: false, structuredOutput: false };
+	const defaults: ProviderCapabilities = { streaming: true, thinking: false, toolUse: false, structuredOutput: false, persistentSession: false };
 	return {
 		name,
 		capabilities: () => ({ ...defaults, ...caps }),

@@ -5,7 +5,7 @@ import type { IProviderRegistry, ILLMProvider, ProviderCapabilities, SelectOptio
 function mockProvider(name: string, caps: Partial<ProviderCapabilities> = {}): ILLMProvider {
 	return {
 		name,
-		capabilities: () => ({ streaming: true, thinking: false, toolUse: false, structuredOutput: false, ...caps }),
+		capabilities: () => ({ streaming: true, thinking: false, toolUse: false, structuredOutput: false, persistentSession: false, ...caps }),
 		execute: () => ({ onEvent: () => () => {}, result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: () => {} }),
 	};
 }

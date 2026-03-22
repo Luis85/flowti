@@ -12,7 +12,8 @@ vi.mock("../../src/domain/agents/agent-store.js", () => ({
 import { createWorkerManager } from "../../src/infrastructure/worker-manager.js";
 import { agentStore } from "../../src/domain/agents/agent-store.js";
 import type { AgentSummary } from "../../src/domain/agents/agent-types.js";
-import type { AgentProcess, IAgentProcessRunner, SendOptions } from "../../src/domain/agents/worker-types.js";
+import type { AgentProcess, IAgentProcessRunner, SendOptions, SpawnOptions } from "../../src/domain/agents/worker-types.js";
+import type { LLMSession } from "../../src/domain/agents/llm-types.js";
 import type { IWorldStateManager, AgentAction, WorldEntity } from "../../src/domain/agents/world-state-types.js";
 import type { AgentStreamEvent } from "../../src/domain/agents/agent-stream.js";
 import type { AgentResponse } from "../../src/domain/agents/agent-conversation.js";
@@ -75,7 +76,7 @@ function makeProcessRunner(resultOverride?: Partial<{ text: string; thinking: st
 			};
 			return lastProc;
 		}),
-		acquireSession: vi.fn(() => sessionOverride ?? null),
+		acquireSession: vi.fn((_agent: AgentSummary, _tools?: readonly string[], _opts?: SpawnOptions): LLMSession | null => (sessionOverride as LLMSession | null) ?? null),
 		get _lastProc() { return lastProc; },
 	};
 }
