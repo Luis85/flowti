@@ -8,10 +8,8 @@ import type { AgentStreamEvent } from "./agent-stream.js";
 import type { AgentAction } from "./world-state-types.js";
 import type { IClock } from "../../infrastructure/types.js";
 
-let actionCounter = 0;
-
 export function mapStreamEventToAction(agentName: string, event: AgentStreamEvent, clock: IClock): AgentAction | null {
-	const base = { id: `action-${clock.ms()}-${++actionCounter}`, agentName, timestamp: clock.iso() };
+	const base = { id: `action-${clock.ms()}-${Math.random().toString(36).slice(2, 8)}`, agentName, timestamp: clock.iso() };
 	switch (event.kind) {
 		case "thinking": return { ...base, type: "thinking", data: { text: event.text } };
 		case "text": return { ...base, type: "speaking", data: { text: event.text } };

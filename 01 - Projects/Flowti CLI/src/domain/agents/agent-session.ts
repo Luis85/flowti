@@ -1,7 +1,6 @@
 /** agent-session.ts — Session tracking for autonomous agent runs. */
 
 import type { CliDeps } from "../../infrastructure/deps.js";
-import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { AgentStreamEvent } from "./agent-stream.js";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -19,7 +18,9 @@ export interface AgentSession {
 	readonly outputLines: readonly string[];
 }
 
-export type SessionStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
+export type SessionStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock"> & {
+	readonly parseFrontmatter: (content: string) => Record<string, unknown> | null;
+};
 
 // ── Utilities ────────────────────────────────────────────────────────
 
@@ -122,8 +123,8 @@ function fmString(fm: Record<string, unknown> | null, key: string, fallback: str
 	return val !== undefined && val !== null ? String(val) : fallback;
 }
 
-function parseSessionFromContent(content: string, fallbackId: string): AgentSession {
-	const fm = parseFrontmatterContent(content);
+function parseSessionFromContent(deps: SessionStoreDeps, content: string, fallbackId: string): AgentSession {
+	const fm = deps.parseFrontmatter(content);
 	return {
 		id: fmString(fm, "id", fallbackId),
 		agentName: fmString(fm, "agent", "unknown"),
@@ -141,7 +142,7 @@ export function getSession(deps: SessionStoreDeps, iterDir: string, sessionId: s
 	const dir = deps.paths.join(iterDir, "sessions");
 	const filePath = deps.paths.join(dir, sessionFileName(sessionId));
 	if (!deps.disk.existsSync(filePath)) return null;
-	return parseSessionFromContent(deps.disk.readFileSync(filePath, "utf-8"), sessionId);
+	return parseSessionFromContent(deps, deps.disk.readFileSync(filePath, "utf-8"), sessionId);
 }
 
 /** List all sessions, optionally filtered by iteration number. */
@@ -152,7 +153,7 @@ export function listSessions(deps: SessionStoreDeps, iterDir: string, iterationN
 	const sessions: AgentSession[] = [];
 	for (const file of files) {
 		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const session = parseSessionFromContent(content, file.replace(/^session-|\.md$/g, ""));
+		const session = parseSessionFromContent(deps, content, file.replace(/^session-|\.md$/g, ""));
 		if (iterationNumber === undefined || session.iterationNumber === iterationNumber) {
 			sessions.push(session);
 		}

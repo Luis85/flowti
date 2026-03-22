@@ -7,6 +7,21 @@ import {
 import type { BriefStoreDeps, RosterEntry } from "../../../src/domain/agents/brief-store.js";
 import type { IterationSummary } from "../../../src/domain/iterations/iteration-types.js";
 
+function simpleParseFrontmatter(content: string): Record<string, unknown> | null {
+	const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	if (!match) return null;
+	const fm: Record<string, unknown> = {};
+	for (const line of match[1].split(/\r?\n/)) {
+		const kv = line.match(/^(\w[\w_]*)\s*:\s*(.*)$/);
+		if (kv) {
+			const raw = kv[2].trim();
+			if (/^-?\d+$/.test(raw)) fm[kv[1]] = parseInt(raw, 10);
+			else fm[kv[1]] = raw;
+		}
+	}
+	return fm;
+}
+
 function makeDeps(): BriefStoreDeps & { files: Record<string, string>; dirs: Set<string> } {
 	const files: Record<string, string> = {};
 	const dirs = new Set<string>();
@@ -32,6 +47,7 @@ function makeDeps(): BriefStoreDeps & { files: Record<string, string>; dirs: Set
 			dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
 			relative: (_from: string, to: string) => to,
 		} as unknown as BriefStoreDeps["paths"],
+		parseFrontmatter: simpleParseFrontmatter,
 	};
 }
 

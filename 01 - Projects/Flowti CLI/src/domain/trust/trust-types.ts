@@ -17,8 +17,10 @@ export interface PromotionLogEntry {
 	readonly reason: string;
 }
 
+export type TrustTier = "supervised" | "trusted" | "autonomous";
+
 export interface AgentTrustProfile {
-	readonly tier: "supervised" | "trusted" | "autonomous";
+	readonly tier: TrustTier;
 	readonly operations: Record<VaultOperation, TrustLevel>;
 	readonly promotionLog: readonly PromotionLogEntry[];
 }

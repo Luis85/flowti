@@ -167,6 +167,11 @@ function writeEvent(deps: AgentProcessLoopDeps, type: string, text: string, extr
 	appendToEventLog(deps, line);
 }
 
+/**
+ * Append a line to the event log.
+ * NOTE: Uses read-then-write pattern (O(n²) for long sessions).
+ * Should migrate to appendFileSync when IFileSystem supports it.
+ */
 function appendToEventLog(deps: AgentProcessLoopDeps, line: string): void {
 	const logPath = eventLogPath(deps);
 	if (deps.disk.existsSync(logPath)) {

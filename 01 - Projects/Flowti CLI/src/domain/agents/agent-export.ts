@@ -7,7 +7,7 @@
 
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
-import type { AgentSummary, AgentAttributes, AgentSkill, AgentRelationship, SuggestedTask, AgentGoal } from "./agent-types.js";
+import type { AgentSummary, AgentAttributes, AgentSkill, AgentRelationship, SuggestedTask } from "./agent-types.js";
 import type { IterationSummary } from "../iterations/iteration-types.js";
 import { agentStore } from "./agent-store.js";
 import { listIterations } from "../iterations/iteration-store.js";
@@ -37,7 +37,7 @@ export interface DashboardAgent {
 	readonly skills?: readonly AgentSkill[];
 	readonly relationships?: readonly AgentRelationship[];
 	readonly suggestedTasks?: readonly SuggestedTask[];
-	readonly goals?: readonly AgentGoal[];
+	readonly goals?: readonly { text: string; priority: string }[];
 	readonly behaviors?: readonly string[];
 }
 
@@ -246,7 +246,7 @@ export function buildDashboardAgent(
 		skills: agent.skills.length > 0 ? agent.skills : undefined,
 		relationships: agent.relationships,
 		suggestedTasks: agent.suggestedTasks,
-		goals: agent.goals,
+		goals: agent.goals?.map(g => ({ text: g.name, priority: String(g.priority ?? 0) })),
 		behaviors: agent.behaviors,
 	};
 }

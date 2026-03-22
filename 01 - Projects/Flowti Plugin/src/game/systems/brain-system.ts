@@ -336,6 +336,14 @@ export class BrainSystem {
 				this.updateOnBreak(entry, actor, deltaMs, name);
 				this.updateIdlePoseCycle(entry, deltaMs, actor);
 				break;
+			case "talking":
+			case "waiting":
+				if (entry.stateTimer > 10_000) {
+					entry.state = "idle";
+					entry.stateTimer = 0;
+					entry.target = { kind: "none" };
+				}
+				break;
 		}
 	}
 

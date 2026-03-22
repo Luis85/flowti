@@ -17,6 +17,13 @@ const TRANSITIONS: Record<string, TransitionFn> = {
 	"idle": () => ({ state: "idle", target: NO_MOVE }),
 	"error": () => ({ state: "idle", target: NO_MOVE }),
 	"queued": () => ({ state: "waiting" as BrainState, target: NO_MOVE }),
+	"seek-rest": () => ({ state: "walking-to" as BrainState, target: { kind: "custom" } as MovementTarget }),
+	"seek-food": () => ({ state: "walking-to" as BrainState, target: { kind: "custom" } as MovementTarget }),
+	"seek-drink": () => ({ state: "walking-to" as BrainState, target: { kind: "custom" } as MovementTarget }),
+	"seek-merchant": () => ({ state: "walking-to" as BrainState, target: { kind: "custom" } as MovementTarget }),
+	"seek-agent": () => ({ state: "walking-to" as BrainState, target: { kind: "agent" } as MovementTarget }),
+	"seek-quiet": () => ({ state: "wandering" as BrainState, target: NO_MOVE }),
+	"break": () => ({ state: "on-break" as BrainState, target: NO_MOVE }),
 };
 
 const WAITING_OVERRIDES: Record<string, TransitionFn> = {
