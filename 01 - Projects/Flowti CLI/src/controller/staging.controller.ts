@@ -7,20 +7,28 @@
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types-config.js";
 import type { CliDeps } from "../infrastructure/deps.js";
+import type { IFileSystem, IPaths } from "../infrastructure/types.js";
 import { listPendingReviews, readManifest, approveStaged as applyStagedFiles, rejectStaged } from "../domain/tasks/staging.js";
 import { approveStaged as recordApproval } from "../domain/vault-ops/vault-executor.js";
 import { loadTrustProfile, saveTrustProfile } from "../domain/trust/trust-manager.js";
 import { readLedger, writeLedger } from "../domain/economy/economy-ledger.js";
 import { DEFAULT_TRUST_CONFIG } from "../domain/trust/trust-types.js";
 import type { VaultOperation } from "../domain/trust/trust-types.js";
+import { taskStore } from "../domain/tasks/task-store.js";
 import { renderStagingList, renderStagingReview, renderStagingAction } from "../ui/displays/staging-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 
 // ── Helpers ───────────────────────────────────────────────────────
 
 /** Build a StagingDeps-compatible object from CliDeps. */
-function stagingDeps(deps: CliDeps) {
-	return { disk: deps.disk, paths: deps.paths };
+function stagingDeps(deps: CliDeps): {
+	disk: Pick<IFileSystem, "existsSync" | "readFileSync" | "writeFileSync" | "mkdirSync" | "readdirSync" | "copyFileSync" | "rmSync">;
+	paths: Pick<IPaths, "join" | "dirname">;
+} {
+	return {
+		disk: deps.disk,
+		paths: deps.paths,
+	};
 }
 
 /** Build a TrustDeps-compatible object from CliDeps. */
@@ -48,6 +56,21 @@ function ledgerDeps(deps: CliDeps) {
 		},
 		paths: deps.paths,
 		clock: deps.clock,
+	};
+}
+
+/** Build a TaskStoreDeps-compatible object from CliDeps. */
+function taskStoreDeps(deps: CliDeps) {
+	return {
+		disk: {
+			existsSync: (p: string) => deps.disk.existsSync(p),
+			readFileSync: (p: string, enc?: string) => deps.disk.readFileSync(p, (enc ?? "utf-8") as BufferEncoding),
+			writeFileSync: (p: string, c: string, enc?: string) => deps.disk.writeFileSync(p, c, (enc ?? "utf-8") as BufferEncoding),
+			mkdirSync: (p: string, opts?: { recursive?: boolean }) => deps.disk.mkdirSync(p, opts),
+			readdirSync: (p: string) => deps.disk.readdirSync(p) as string[],
+			unlinkSync: (p: string) => deps.disk.unlinkSync(p),
+		},
+		paths: deps.paths,
 	};
 }
 
@@ -125,10 +148,27 @@ export const commands: Record<string, CommandHandler> = {
 			const ld = ledgerDeps(ctx.deps);
 			const profile = loadTrustProfile(td, VAULT_ROOT, manifest.agentName);
 			const ledger = readLedger(ld, VAULT_ROOT);
+			const rawDisk = ctx.deps.disk as unknown as Record<string, unknown>;
 			const vaultOpsDeps = {
-				disk: sd.disk as never,
+				disk: {
+					existsSync: (p: string) => ctx.deps.disk.existsSync(p),
+					readFileSync: (p: string, enc: string) => ctx.deps.disk.readFileSync(p, enc as BufferEncoding) as string,
+					writeFileSync: (p: string, data: string, enc?: string) => ctx.deps.disk.writeFileSync(p, data, (enc ?? "utf-8") as BufferEncoding),
+					mkdirSync: (p: string, opts?: { recursive?: boolean }) => ctx.deps.disk.mkdirSync(p, opts),
+					renameSync: (from: string, to: string) => (rawDisk["renameSync"] as (f: string, t: string) => void)(from, to),
+					readdirSync: (p: string, opts?: { withFileTypes?: boolean; recursive?: boolean }) =>
+						(rawDisk["readdirSync"] as (p: string, o?: Record<string, unknown>) => unknown[])(p, opts),
+					statSync: (p: string) => ctx.deps.disk.statSync(p),
+					rmSync: (p: string, opts?: { recursive?: boolean; force?: boolean }) => ctx.deps.disk.rmSync(p, opts),
+					copyFileSync: (src: string, dest: string) => ctx.deps.disk.copyFileSync(src, dest),
+				},
 				clock: ctx.deps.clock,
-				paths: ctx.deps.paths as never,
+				paths: {
+					join: (...segs: string[]) => ctx.deps.paths.join(...segs),
+					dirname: (p: string) => ctx.deps.paths.dirname(p),
+					basename: (p: string) => ctx.deps.paths.basename(p),
+					relative: (from: string, to: string) => ctx.deps.paths.relative(from, to),
+				},
 				vaultRoot: VAULT_ROOT,
 			};
 			const { profile: updatedProfile, ledger: updatedLedger } = recordApproval(
@@ -145,6 +185,10 @@ export const commands: Record<string, CommandHandler> = {
 			saveTrustProfile(td, VAULT_ROOT, manifest.agentName, updatedProfile);
 			writeLedger(ld, VAULT_ROOT, updatedLedger);
 
+			// Transition task status to completed
+			const tsd = taskStoreDeps(ctx.deps);
+			taskStore.updateField(tsd, VAULT_ROOT, taskId, "status", "completed");
+
 			return { taskId, action: "approved" as const, success: true };
 		},
 		renderer: renderStagingAction,
@@ -160,6 +204,13 @@ export const commands: Record<string, CommandHandler> = {
 			const reason = ctx.flags.reason as string;
 			const sd = stagingDeps(ctx.deps);
 			const success = rejectStaged(sd, VAULT_ROOT, taskId);
+
+			// Transition task status back to pending
+			if (success) {
+				const tsd = taskStoreDeps(ctx.deps);
+				taskStore.updateField(tsd, VAULT_ROOT, taskId, "status", "pending");
+			}
+
 			return { taskId, action: "rejected" as const, success, reason };
 		},
 		renderer: renderStagingAction,

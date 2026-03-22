@@ -47,11 +47,12 @@ const BASE_REWARD = { xp: 50, coin: 25 } as const;
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function asStagingDeps(deps: VaultOpsDeps): Parameters<typeof createStagingArea>[0] {
-	// VaultOpsDeps.disk methods structurally overlap StagingDeps.disk (Pick<IFileSystem, ...>)
-	// but IFileSystem has overloaded signatures that prevent direct assignment.
-	const d = deps.disk;
+	// VaultOpsDeps.disk has single-signature methods while StagingDeps.disk uses
+	// Pick<IFileSystem, ...> which carries overloaded signatures (readFileSync,
+	// readdirSync). The runtime behavior is identical — staging only uses the
+	// string-encoding overloads — so we bridge via unknown at this boundary.
 	return {
-		disk: d as unknown as Parameters<typeof createStagingArea>[0]["disk"],
+		disk: deps.disk as unknown as Parameters<typeof createStagingArea>[0]["disk"],
 		paths: deps.paths,
 	};
 }

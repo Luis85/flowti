@@ -59,6 +59,11 @@ vi.mock("../../src/domain/tasks/staging.js", () => ({
 	rejectStaged: vi.fn(() => true),
 }));
 
+// Mock domain modules — task store
+vi.mock("../../src/domain/tasks/task-store.js", () => ({
+	taskStore: { updateField: vi.fn(() => true), list: vi.fn(() => []) },
+}));
+
 // Mock domain modules — vault-executor
 vi.mock("../../src/domain/vault-ops/vault-executor.js", () => ({
 	approveStaged: vi.fn(() => ({
@@ -111,6 +116,7 @@ import { commands } from "../../src/controller/staging.controller.js";
 import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { listPendingReviews, readManifest, approveStaged as applyStagedFiles, rejectStaged } from "../../src/domain/tasks/staging.js";
 import { approveStaged as recordApproval } from "../../src/domain/vault-ops/vault-executor.js";
+import { taskStore } from "../../src/domain/tasks/task-store.js";
 import { loadTrustProfile, saveTrustProfile } from "../../src/domain/trust/trust-manager.js";
 import { readLedger, writeLedger } from "../../src/domain/economy/economy-ledger.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
@@ -254,6 +260,9 @@ describe("staging.controller", () => {
 			expect(recordApproval).toHaveBeenCalledOnce();
 			expect(saveTrustProfile).toHaveBeenCalledOnce();
 			expect(writeLedger).toHaveBeenCalledOnce();
+			expect(taskStore.updateField).toHaveBeenCalledWith(
+				expect.anything(), "/vault", "task-1", "status", "completed",
+			);
 
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("taskId", "task-1");
@@ -310,6 +319,9 @@ describe("staging.controller", () => {
 			commands["staging:reject"]({ id: "task-1", reason: "Incorrect content", format: "json" }, [], "staging:reject", undefined);
 
 			expect(rejectStaged).toHaveBeenCalledOnce();
+			expect(taskStore.updateField).toHaveBeenCalledWith(
+				expect.anything(), "/vault", "task-1", "status", "pending",
+			);
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("taskId", "task-1");
 			expect(output).toHaveProperty("action", "rejected");
@@ -324,6 +336,7 @@ describe("staging.controller", () => {
 
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("success", false);
+			expect(taskStore.updateField).not.toHaveBeenCalled();
 		});
 
 		it("returns error when --id flag is missing", () => {

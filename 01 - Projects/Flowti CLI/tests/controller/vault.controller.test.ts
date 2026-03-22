@@ -133,6 +133,7 @@ import { buildVaultContext, invalidateContextCache } from "../../src/domain/vaul
 import { evaluateEvent } from "../../src/domain/vault-ops/standing-order-evaluator.js";
 import { loadTrustProfile, saveTrustProfile } from "../../src/domain/trust/trust-manager.js";
 import { readLedger, writeLedger } from "../../src/domain/economy/economy-ledger.js";
+import { parseFrontmatter } from "../../src/domain/vault-ops/frontmatter.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { clock } from "../../src/infrastructure/clock.js";
@@ -229,6 +230,64 @@ describe("vault.controller", () => {
 			const request = (executeVaultOp as ReturnType<typeof vi.fn>).mock.calls[0][0];
 			expect(request).toHaveProperty("taskId", "task-42");
 		});
+
+		it("with bypass-trust, passes a profile where all operations are auto", () => {
+			commands["vault:exec"](
+				{ agent: "auditor", op: "vault-read", path: "docs/readme.md", "bypass-trust": true, format: "json" },
+				[], "vault:exec", undefined,
+			);
+
+			expect(executeVaultOp).toHaveBeenCalledOnce();
+			const profile = (executeVaultOp as ReturnType<typeof vi.fn>).mock.calls[0][2];
+			for (const level of Object.values(profile.operations)) {
+				expect(level).toBe("auto");
+			}
+		});
+
+		it("without bypass-trust, passes profile unchanged", () => {
+			commands["vault:exec"](
+				{ agent: "auditor", op: "vault-read", path: "docs/readme.md", format: "json" },
+				[], "vault:exec", undefined,
+			);
+
+			expect(executeVaultOp).toHaveBeenCalledOnce();
+			const profile = (executeVaultOp as ReturnType<typeof vi.fn>).mock.calls[0][2];
+			expect(profile.operations["vault-edit"]).toBe("manual");
+			expect(profile.operations["vault-tag"]).toBe("review");
+			expect(profile.operations["vault-read"]).toBe("auto");
+		});
+
+		it("invalidates cache after a write operation executes", () => {
+			(executeVaultOp as ReturnType<typeof vi.fn>).mockReturnValue({
+				result: { outcome: "executed", operation: "vault-create", agentName: "auditor", data: {} },
+				profile: {
+					tier: "supervised",
+					operations: {
+						"vault-read": "auto", "vault-search": "auto", "vault-tag": "review",
+						"vault-create": "auto", "vault-edit": "manual", "vault-move": "manual", "vault-link": "review",
+					},
+					promotionLog: [],
+					successCounts: {},
+				},
+				ledger: { version: 1, updatedAt: "", accounts: {} },
+			});
+
+			commands["vault:exec"](
+				{ agent: "auditor", op: "vault-create", path: "docs/new.md", body: "test", format: "json" },
+				[], "vault:exec", undefined,
+			);
+
+			expect(invalidateContextCache).toHaveBeenCalledOnce();
+		});
+
+		it("does not invalidate cache after a read operation executes", () => {
+			commands["vault:exec"](
+				{ agent: "auditor", op: "vault-read", path: "docs/readme.md", format: "json" },
+				[], "vault:exec", undefined,
+			);
+
+			expect(invalidateContextCache).not.toHaveBeenCalled();
+		});
 	});
 
 	// ── vault:context ───────────────────────────────────────────
@@ -282,6 +341,58 @@ describe("vault.controller", () => {
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output).toHaveProperty("error");
 			expect(output.error).toContain("--agent");
+		});
+
+		it("passes vaultScope from agent frontmatter to buildVaultContext", () => {
+			const mockDisk = disk as unknown as Record<string, ReturnType<typeof vi.fn>>;
+			mockDisk.existsSync.mockReturnValue(true);
+			mockDisk.readFileSync.mockReturnValue("---\nvaultScope:\n  folders:\n  - docs\n  tags:\n  - project\n---\nBody");
+			(parseFrontmatter as ReturnType<typeof vi.fn>).mockReturnValue({
+				frontmatter: { vaultScope: { folders: ["docs"], tags: ["project"] } },
+				body: "Body",
+			});
+
+			commands["vault:context"](
+				{ agent: "scoped-agent", format: "json" },
+				[], "vault:context", undefined,
+			);
+
+			expect(buildVaultContext).toHaveBeenCalledOnce();
+			const scopeArg = (buildVaultContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(scopeArg).toEqual({ folders: ["docs"], tags: ["project"] });
+		});
+
+		it("passes undefined scope when agent has no vaultScope", () => {
+			const mockDisk = disk as unknown as Record<string, ReturnType<typeof vi.fn>>;
+			mockDisk.existsSync.mockReturnValue(true);
+			mockDisk.readFileSync.mockReturnValue("---\ntitle: Agent\n---\nBody");
+			(parseFrontmatter as ReturnType<typeof vi.fn>).mockReturnValue({
+				frontmatter: { title: "Agent" },
+				body: "Body",
+			});
+
+			commands["vault:context"](
+				{ agent: "no-scope-agent", format: "json" },
+				[], "vault:context", undefined,
+			);
+
+			expect(buildVaultContext).toHaveBeenCalledOnce();
+			const scopeArg = (buildVaultContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(scopeArg).toBeUndefined();
+		});
+
+		it("passes undefined scope when agent file not found", () => {
+			const mockDisk = disk as unknown as Record<string, ReturnType<typeof vi.fn>>;
+			mockDisk.existsSync.mockReturnValue(false);
+
+			commands["vault:context"](
+				{ agent: "missing-agent", format: "json" },
+				[], "vault:context", undefined,
+			);
+
+			expect(buildVaultContext).toHaveBeenCalledOnce();
+			const scopeArg = (buildVaultContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(scopeArg).toBeUndefined();
 		});
 	});
 

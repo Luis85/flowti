@@ -7,7 +7,7 @@
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types-config.js";
 import type { CliDeps } from "../infrastructure/deps.js";
-import type { AnyVaultOpRequest, VaultEvent, VaultScope } from "../domain/vault-ops/vault-ops-types.js";
+import type { AnyVaultOpRequest, VaultEvent, VaultScope, VaultOpResult } from "../domain/vault-ops/vault-ops-types.js";
 import type { AgentTrustProfile } from "../domain/trust/trust-types.js";
 import type { VaultOperation } from "../domain/trust/trust-types.js";
 import { DEFAULT_TRUST_CONFIG } from "../domain/trust/trust-types.js";
@@ -26,6 +26,10 @@ import { VAULT_ROOT } from "../infrastructure/config.js";
 const VALID_OPS = new Set<string>([
 	"vault-read", "vault-search", "vault-tag",
 	"vault-create", "vault-edit", "vault-move", "vault-link",
+]);
+
+const WRITE_OPS = new Set<string>([
+	"vault-tag", "vault-create", "vault-edit", "vault-move", "vault-link",
 ]);
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -94,6 +98,7 @@ function buildRequest(flags: Record<string, unknown>, op: VaultOperation): AnyVa
 				query: {
 					tags: flags.tags ? (flags.tags as string).split(",").map(t => t.trim()) : undefined,
 					folder: flags.folder as string | undefined,
+					pattern: flags.pattern as string | undefined,
 				},
 			};
 		case "vault-tag":
@@ -149,6 +154,7 @@ export const commands: Record<string, CommandHandler> = {
 			"remove-links": { type: "string", hint: "--remove-links=<link1,link2>" },
 			folder: { type: "string", hint: "--folder=<path>" },
 			tags: { type: "string", hint: "--tags=<tag1,tag2>" },
+			pattern: { type: "string", hint: "--pattern=<regex>" },
 			task: { type: "string", hint: "--task=<taskId>" },
 			"bypass-trust": { type: "boolean", default: false, hint: "--bypass-trust" },
 		},
@@ -181,6 +187,9 @@ export const commands: Record<string, CommandHandler> = {
 			);
 			saveTrustProfile(ldeps, VAULT_ROOT, ctx.flags.agent as string, updatedProfile);
 			writeLedger(ldeps, VAULT_ROOT, updatedLedger);
+			if (result.outcome === "executed" && WRITE_OPS.has(operation)) {
+				invalidateContextCache(vd);
+			}
 			return result;
 		},
 		renderer: renderVaultExecResult,
@@ -228,9 +237,37 @@ export const commands: Record<string, CommandHandler> = {
 				},
 				paths: ctx.deps.paths,
 			};
+			const ldeps = {
+				disk: {
+					existsSync: (p: string) => ctx.deps.disk.existsSync(p),
+					readFileSync: (p: string, enc?: string) => ctx.deps.disk.readFileSync(p, (enc ?? "utf-8") as BufferEncoding),
+					writeFileSync: (p: string, c: string) => ctx.deps.disk.writeFileSync(p, c, "utf-8"),
+					mkdirSync: (p: string, opts?: { recursive?: boolean }) => ctx.deps.disk.mkdirSync(p, opts),
+				},
+				paths: ctx.deps.paths,
+				clock: ctx.deps.clock,
+			};
 			const tasks = taskStore.list(tsDeps, VAULT_ROOT);
 			const requests = evaluateEvent(vaultEvent, tasks, vd);
-			return { matched: requests.length, dispatched: [] };
+			const dispatched: VaultOpResult[] = [];
+			for (const request of requests) {
+				const agentName = request.agentName;
+				const profile = loadTrustProfile(ldeps, VAULT_ROOT, agentName);
+				const ledger = readLedger(ldeps, VAULT_ROOT);
+				const scope = loadAgentScope(ctx.deps, agentName);
+				const { result, profile: updatedProfile, ledger: updatedLedger } = executeVaultOp(
+					request, vd, profile, DEFAULT_TRUST_CONFIG, ledger, scope,
+				);
+				saveTrustProfile(ldeps, VAULT_ROOT, agentName, updatedProfile);
+				writeLedger(ldeps, VAULT_ROOT, updatedLedger);
+				if (result.outcome === "executed" && !WRITE_OPS.has(request.operation)) {
+					// read-only op: no cache invalidation needed
+				} else if (result.outcome === "executed") {
+					invalidateContextCache(vd);
+				}
+				dispatched.push(result);
+			}
+			return { matched: requests.length, dispatched };
 		},
 		renderer: renderEvaluateResult,
 	}),

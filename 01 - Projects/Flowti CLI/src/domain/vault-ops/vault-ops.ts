@@ -228,15 +228,12 @@ export function vaultLink(
 
 	// Write back
 	const hasFrontmatter = Object.keys(frontmatter).length > 0;
-	if (hasFrontmatter) {
-		const content = serializeFrontmatter(frontmatter, updatedBody);
-		deps.disk.writeFileSync(absPath, content);
-	} else {
-		deps.disk.writeFileSync(absPath, updatedBody);
-	}
+	const finalContent = hasFrontmatter
+		? serializeFrontmatter(frontmatter, updatedBody)
+		: updatedBody;
+	deps.disk.writeFileSync(absPath, finalContent);
 
-	// Collect all [[...]] links from final content
-	const finalContent = deps.disk.readFileSync(absPath, "utf-8");
+	// Collect all [[...]] links from in-memory content
 	const linkRegex = /\[\[([^\]]+)\]\]/g;
 	const links: string[] = [];
 	let match = linkRegex.exec(finalContent);
