@@ -373,7 +373,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function Wander(): State {
-		collect("wander", {});
+		collect("idle", {});
 		return fromNodeState("succeeded");
 	}
 
@@ -470,9 +470,9 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		const pick = echoBiasedWeightedRandom([wanderWeight, 1, socialWeight]);
 		if (pick === 2) {
 			collect("chatter", {});
-		} else if (pick === 0) {
-			collect("wander", {});
 		} else {
+			// Emit "idle" and let the brain's autonomous idle→wander cycle
+			// handle movement pacing (~8s idle then smooth wander).
 			collect("idle", {});
 		}
 		return fromNodeState("succeeded");
@@ -504,7 +504,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function WanderSad(): State {
-		collect("wander", {});
+		collect("idle", {});
 		return fromNodeState("succeeded");
 	}
 

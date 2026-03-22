@@ -109,7 +109,10 @@ export class BtSystem {
 
 		const def = toBTAgentDef(agent, quirks);
 		const bt = createAgentBT(def, deps);
-		this.entries.set(agent.name, { bt, accumulator: 0 });
+		// Stagger initial accumulator so agents don't all tick simultaneously.
+		// Uses entry count as a simple hash to spread ticks evenly.
+		const stagger = (this.entries.size * 397) % BT_TICK_INTERVAL_MS;
+		this.entries.set(agent.name, { bt, accumulator: stagger });
 	}
 
 	/** Remove an agent's BT. */
