@@ -15,17 +15,15 @@ import "./panel-info.js";
 import "./panel-talk.js";
 import "./panel-tasks.js";
 import "./panel-permissions.js";
-import "./panel-monitor.js";
 import "./panel-brain.js";
 import "./panel-debug.js";
 
 const TAB_LABELS: ReadonlyArray<{ name: TabName; label: string }> = [
-	{ name: "info", label: "Info" },
+	{ name: "profile", label: "Profile" },
 	{ name: "talk", label: "Talk" },
 	{ name: "tasks", label: "Tasks" },
 	{ name: "permissions", label: "Permissions" },
 	{ name: "brain", label: "Brain" },
-	{ name: "monitor", label: "Monitor" },
 	{ name: "debug", label: "Debug" },
 ];
 
@@ -324,7 +322,7 @@ export class AgentPanel extends FlowtiElement {
 		const tab = this.store.selectedTab;
 
 		switch (tab) {
-			case "info":
+			case "profile":
 				return html`<ft-game-panel-info .agent="${agent}" .needs="${this.store.getAgentNeeds(agent.name)}"></ft-game-panel-info>`;
 			case "talk":
 				return html`<ft-game-panel-talk .store="${this.store}" agentName="${agent.name}"></ft-game-panel-talk>`;
@@ -334,8 +332,6 @@ export class AgentPanel extends FlowtiElement {
 				return html`<ft-game-panel-permissions .store="${this.store}" agentName="${agent.name}"></ft-game-panel-permissions>`;
 			case "brain":
 				return html`<ft-game-panel-brain .store="${this.store}" .agent="${agent}"></ft-game-panel-brain>`;
-			case "monitor":
-				return html`<ft-game-panel-monitor .store="${this.store}" .eventBus="${this.eventBus}" agentName="${agent.name}"></ft-game-panel-monitor>`;
 			case "debug":
 				return html`<ft-game-panel-debug .agent="${agent}"></ft-game-panel-debug>`;
 			default:

@@ -143,7 +143,7 @@ export class AskBob extends FlowtiElement {
 		if (name) {
 			this.store.beginBatch();
 			this.store.selectAgent(name);
-			this.store.selectTab("info");
+			this.store.selectTab("profile");
 			this.store.endBatch();
 			this.activeTab = "agent";
 			// Match canvas path: delay wake, then run spawn/context after next paint (see `wakeAgent` + `afterNextPaint`).

@@ -33,7 +33,25 @@ export interface Point {
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
-export type TabName = "info" | "talk" | "tasks" | "permissions" | "brain" | "monitor" | "debug";
+export type TabName = "profile" | "talk" | "tasks" | "permissions" | "brain" | "debug";
+
+// ── Behavior-tree snapshot types ─────────────────────────────────
+
+export type BTNodeType = "selector" | "sequence" | "condition" | "action";
+export type BTNodeStatus = "running" | "success" | "failure" | "idle";
+
+export interface BTNodeState {
+	readonly id: string;
+	readonly label: string;
+	readonly type: BTNodeType;
+	readonly status: BTNodeStatus;
+	readonly children: BTNodeState[];
+}
+
+export interface BTTreeSnapshot {
+	readonly root: BTNodeState;
+	readonly tick: number;
+}
 
 export interface LlmStatus {
 	readonly state: "idle" | "queued" | "thinking" | "error";
@@ -63,7 +81,7 @@ export class DashboardStore extends EventTarget {
 	agentStates: Map<string, BrainState> = new Map();
 
 	selectedAgent: string | null = null;
-	selectedTab: TabName = "info";
+	selectedTab: TabName = "profile";
 	followedAgent: string | null = null;
 
 	connectionStatus: ConnectionStatus = "disconnected";
@@ -78,6 +96,8 @@ export class DashboardStore extends EventTarget {
 	agentResourceMetrics: Map<string, AgentProcessResources> = new Map();
 	taskLockedAgents: Set<string> = new Set();
 	agentNeeds: Map<string, AgentNeeds> = new Map();
+	council: string[] = [];
+	btTreeState: Map<string, BTTreeSnapshot> = new Map();
 
 	setAgentNeeds(name: string, needs: AgentNeeds): void { this.agentNeeds.set(name, needs); }
 	getAgentNeeds(name: string): AgentNeeds | undefined { return this.agentNeeds.get(name); }
@@ -358,11 +378,53 @@ export class DashboardStore extends EventTarget {
 		}
 	}
 
+	private static readonly VALID_TABS: ReadonlySet<TabName> = new Set<TabName>(["profile", "talk", "tasks", "permissions", "brain", "debug"]);
+
 	selectTab(tab: TabName): void {
-		this.selectedTab = tab;
+		this.selectedTab = DashboardStore.VALID_TABS.has(tab) ? tab : "profile";
 		if (tab === "talk" && this.selectedAgent) {
 			this.unreadAgents.delete(this.selectedAgent);
 		}
+		this.notify();
+	}
+
+	// ── Council management ───────────────────────────────────────
+
+	addToCouncil(name: string): void {
+		if (this.council.length >= 5 || this.council.includes(name)) return;
+		this.council = [...this.council, name];
+		this.persistCouncil();
+		this.notify();
+	}
+
+	removeFromCouncil(name: string): void {
+		const filtered = this.council.filter(n => n !== name);
+		if (filtered.length === this.council.length) return;
+		this.council = filtered;
+		this.persistCouncil();
+		this.notify();
+	}
+
+	setCouncil(names: string[]): void {
+		this.council = names.slice(0, 5);
+		this.persistCouncil();
+		this.notify();
+	}
+
+	reorderCouncil(names: string[]): void {
+		this.council = names.slice(0, 5);
+		this.persistCouncil();
+		this.notify();
+	}
+
+	private persistCouncil(): void {
+		try { localStorage.setItem("flowti-council", JSON.stringify(this.council)); } catch { /* localStorage unavailable */ }
+	}
+
+	// ── BT tree state ────────────────────────────────────────────
+
+	updateBtTree(agentName: string, snapshot: BTTreeSnapshot): void {
+		this.btTreeState.set(agentName, snapshot);
 		this.notify();
 	}
 
