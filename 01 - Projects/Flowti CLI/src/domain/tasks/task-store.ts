@@ -1,19 +1,8 @@
 import type { TaskDefinition, TaskSummary, TaskType, TaskStatus, TaskPriority, TaskTrustTier } from "./task-types.js";
 
 type TaskStoreDeps = {
-	readonly disk: {
-		existsSync(p: string): boolean;
-		readFileSync(p: string, enc?: string): string;
-		writeFileSync(p: string, c: string, enc?: string): void;
-		mkdirSync(p: string, opts?: { recursive?: boolean }): void;
-		readdirSync(p: string): string[];
-		unlinkSync(p: string): void;
-	};
-	readonly paths: {
-		join(...segs: string[]): string;
-		basename(p: string, ext?: string): string;
-		dirname(p: string): string;
-	};
+	readonly disk: { existsSync(p: string): boolean; readFileSync(p: string, enc?: string): string; writeFileSync(p: string, c: string): void; mkdirSync(p: string, opts?: { recursive?: boolean }): void; readdirSync(p: string): string[]; unlinkSync(p: string): void };
+	readonly paths: { join(...segs: string[]): string; basename(p: string, ext?: string): string; dirname(p: string): string };
 };
 
 const DIR = "docs/tasks";
@@ -36,25 +25,21 @@ function parseArrayField(raw: string): string[] {
 	return trimmed.split(",").map(s => s.trim());
 }
 
-function str(fm: Record<string, string>, key: string, fallback = ""): string {
-	return fm[key] ?? fallback;
-}
-
 function toSummary(fm: Record<string, string>, file: string): TaskSummary {
 	return {
-		id: str(fm, "id"),
-		type: str(fm, "taskType", "one-off") as TaskType,
-		title: str(fm, "title"),
-		assignee: str(fm, "assignee"),
-		creator: str(fm, "creator"),
-		priority: str(fm, "priority", "normal") as TaskPriority,
-		trustTier: str(fm, "trustTier", "review") as TaskTrustTier,
-		status: str(fm, "status", "pending") as TaskStatus,
+		id: fm.id ?? "",
+		type: (fm.taskType ?? "one-off") as TaskType,
+		title: fm.title ?? "",
+		assignee: fm.assignee ?? "",
+		creator: fm.creator ?? "",
+		priority: (fm.priority ?? "normal") as TaskPriority,
+		trustTier: (fm.trustTier ?? "review") as TaskTrustTier,
+		status: (fm.status ?? "pending") as TaskStatus,
 		reward: { xp: Number(fm.rewardXp) || 0, coin: Number(fm.rewardCoin) || 0 },
-		tags: parseArrayField(str(fm, "tags")),
-		createdAt: str(fm, "createdAt"),
-		completedAt: str(fm, "completedAt"),
-		journeyId: str(fm, "journeyId"),
+		tags: parseArrayField(fm.tags ?? ""),
+		createdAt: fm.createdAt ?? "",
+		completedAt: fm.completedAt ?? "",
+		journeyId: fm.journeyId ?? "",
 		file,
 	};
 }
@@ -66,7 +51,7 @@ function buildMd(def: TaskDefinition): string {
 		`id: ${def.id}`,
 		`taskType: ${def.type}`,
 		`title: ${def.title}`,
-		def.assignee ? `assignee: ${def.assignee}` : null,
+		def.assignee ? `assignee: ${def.assignee}` : "",
 		`creator: ${def.creator}`,
 		`priority: ${def.priority}`,
 		`trustTier: ${def.trustTier}`,
@@ -75,8 +60,8 @@ function buildMd(def: TaskDefinition): string {
 		`rewardCoin: ${def.reward.coin}`,
 		`tags: [${def.tags.join(", ")}]`,
 		`createdAt: ${def.createdAt}`,
-		def.completedAt ? `completedAt: ${def.completedAt}` : null,
-		def.journeyId ? `journeyId: ${def.journeyId}` : null,
+		def.completedAt ? `completedAt: ${def.completedAt}` : "",
+		def.journeyId ? `journeyId: ${def.journeyId}` : "",
 		"---",
 		"",
 		`# ${def.title}`,

@@ -21,6 +21,7 @@ export function calculateReward(
 	if (ctx.isFirstCompletion) multiplier *= 1.5;
 	if (ctx.isStandingOrder) multiplier *= 0.3;
 	if (ctx.isDelegation) multiplier *= 0.2;
+
 	return {
 		xp: Math.round(base.xp * multiplier),
 		coin: Math.round(base.coin * multiplier),

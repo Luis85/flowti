@@ -51,3 +51,5 @@ export interface StandingOrderRule {
 	readonly action: string;
 	readonly value: string;
 }
+
+export type StoreDeps = { readonly disk: import("../../infrastructure/types.js").IFileSystem; readonly paths: import("../../infrastructure/types.js").IPaths };

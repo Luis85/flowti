@@ -113,7 +113,7 @@ import { proc } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
 
 const logMock = log as ReturnType<typeof vi.fn>;
-const diskMock = disk as Record<string, ReturnType<typeof vi.fn>>;
+const diskMock = disk as unknown as Record<string, ReturnType<typeof vi.fn>>;
 
 // ── Tests ────────────────────────────────────────────────────────
 
@@ -123,9 +123,12 @@ describe("economy.controller", () => {
 		initializeDeps({
 			disk, paths, clock, proc,
 			shell: { run: vi.fn(), runSilent: vi.fn(), check: vi.fn(() => false) } as never,
-			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
+			worldState: { load: vi.fn(), save: vi.fn(), update: vi.fn() } as never,
+			workerManager: { start: vi.fn(), stop: vi.fn(), getWorker: vi.fn() } as never,
+			processRunner: { spawn: vi.fn(), kill: vi.fn() } as never,
 		});
 	});
 
@@ -212,7 +215,7 @@ describe("economy.controller", () => {
 			diskMock.existsSync.mockReturnValue(true);
 			diskMock.readFileSync.mockReturnValue(lines + "\n");
 
-			commands["economy:ledger"]({ agent: "Architect", limit: 5, format: "json" }, [], "economy:ledger", undefined);
+			commands["economy:ledger"]({ agent: "Architect", limit: "5", format: "json" }, [], "economy:ledger", undefined);
 
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output.entries).toHaveLength(5);
@@ -244,7 +247,7 @@ describe("economy.controller", () => {
 		});
 
 		it("grants resources and returns model as JSON", () => {
-			commands["economy:grant"]({ agent: "Architect", coin: 100, tokens: 20, format: "json" }, [], "economy:grant", undefined);
+			commands["economy:grant"]({ agent: "Architect", coin: "100", tokens: "20", format: "json" }, [], "economy:grant", undefined);
 
 			expect(readLedger).toHaveBeenCalledOnce();
 			expect(grantResources).toHaveBeenCalledOnce();
@@ -258,7 +261,7 @@ describe("economy.controller", () => {
 		});
 
 		it("appends a grant transaction with correct type", () => {
-			commands["economy:grant"]({ agent: "Architect", coin: 50, tokens: 5, format: "json" }, [], "economy:grant", undefined);
+			commands["economy:grant"]({ agent: "Architect", coin: "50", tokens: "5", format: "json" }, [], "economy:grant", undefined);
 
 			expect(appendTransaction).toHaveBeenCalledOnce();
 			const tx = (appendTransaction as ReturnType<typeof vi.fn>).mock.calls[0][2];
@@ -269,7 +272,7 @@ describe("economy.controller", () => {
 		});
 
 		it("returns error when --agent flag is missing", () => {
-			commands["economy:grant"]({ coin: 100, format: "json" }, [], "economy:grant", undefined);
+			commands["economy:grant"]({ coin: "100", format: "json" }, [], "economy:grant", undefined);
 
 			expect(readLedger).not.toHaveBeenCalled();
 			expect(logMock).toHaveBeenCalledOnce();
