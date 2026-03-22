@@ -215,6 +215,8 @@ export function exportAgentDashboardData(
 ): DashboardData {
 	const allAgents = agentStore.list(deps, vaultRoot, vaultAgentsConfig ? { dir: vaultAgentsConfig.dir } : undefined);
 
+	const ledger = readLedger(deps, vaultRoot);
+
 	const projectRosters = new Map<string, string[]>();
 	const activeIterations = new Map<string, IterationSummary[]>();
 	const dashboardProjects: DashboardProject[] = [];
@@ -237,7 +239,19 @@ export function exportAgentDashboardData(
 
 	const dashboardAgents: DashboardAgent[] = allAgents.map((agent) => {
 		const derived = deriveAgentStatus(agent.name, projectRosters, activeIterations);
-		return buildDashboardAgent(agent, derived);
+		const account = getAccount(ledger, agent.name);
+		const trust = loadTrustProfile(deps, vaultRoot, agent.name);
+		const tier = deriveTier(trust);
+		const caps = capabilitiesForLevel(account.level);
+		const economy: EconomySnapshot = {
+			level: account.level,
+			xp: account.xp,
+			coin: account.coin,
+			tokens: account.tokens,
+			trustTier: tier,
+			capabilities: caps,
+		};
+		return buildDashboardAgent(agent, derived, economy);
 	});
 
 	return { agents: dashboardAgents, projects: dashboardProjects };

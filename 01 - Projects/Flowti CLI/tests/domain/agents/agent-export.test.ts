@@ -37,6 +37,20 @@ vi.mock("../../../src/domain/raid/raid-store.js", () => ({
 	listRAIDItems: vi.fn(() => []),
 }));
 
+vi.mock("../../../src/domain/economy/economy-ledger.js", () => ({
+	readLedger: vi.fn(() => ({ version: 1, updatedAt: "", accounts: {} })),
+	getAccount: vi.fn(() => ({ xp: 0, level: 1, coin: 0, tokens: 0, totalEarned: { xp: 0, coin: 0 }, totalSpent: { coin: 0, tokens: 0 } })),
+}));
+
+vi.mock("../../../src/domain/trust/trust-manager.js", () => ({
+	loadTrustProfile: vi.fn(() => ({ tier: "supervised", operations: {}, promotionLog: [] })),
+	deriveTier: vi.fn(() => "supervised"),
+}));
+
+vi.mock("../../../src/domain/economy/leveling.js", () => ({
+	capabilitiesForLevel: vi.fn(() => ["vault-read", "simple-tasks"]),
+}));
+
 import { agentStore } from "../../../src/domain/agents/agent-store.js";
 import { listIterations } from "../../../src/domain/iterations/iteration-store.js";
 import { listProjectComponents } from "../../../src/domain/make/component/component-list.js";
@@ -45,6 +59,9 @@ import { resourceStore } from "../../../src/domain/resources/resource-store.js";
 import { deliverableStore } from "../../../src/domain/deliverables/deliverable-store.js";
 import { raidStore } from "../../../src/domain/raid/raid-store.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
+import { readLedger, getAccount } from "../../../src/domain/economy/economy-ledger.js";
+import { loadTrustProfile, deriveTier } from "../../../src/domain/trust/trust-manager.js";
+import { capabilitiesForLevel } from "../../../src/domain/economy/leveling.js";
 
 const mockListAgents = vi.mocked(agentStore.list);
 const mockListIterations = vi.mocked(listIterations);
@@ -53,6 +70,11 @@ const mockListEvents = vi.mocked(listEvents);
 const mockListResources = vi.mocked(resourceStore.list);
 const mockListDeliverables = vi.mocked(deliverableStore.list);
 const mockListRAIDItems = vi.mocked(raidStore.list);
+const mockReadLedger = vi.mocked(readLedger);
+const mockGetAccount = vi.mocked(getAccount);
+const mockLoadTrustProfile = vi.mocked(loadTrustProfile);
+const mockDeriveTier = vi.mocked(deriveTier);
+const mockCapabilitiesForLevel = vi.mocked(capabilitiesForLevel);
 
 function makeAgent(name: string, agentType: "human" | "ai" = "human", domain?: string): AgentSummary {
 	return { name, agentType, description: "", domain, skills: [], tools: [], roles: [], file: `${name}.md` };
@@ -156,6 +178,17 @@ describe("exportAgentDashboardData", () => {
 		mockListResources.mockReset();
 		mockListDeliverables.mockReset();
 		mockListRAIDItems.mockReset();
+		mockReadLedger.mockReset();
+		mockGetAccount.mockReset();
+		mockLoadTrustProfile.mockReset();
+		mockDeriveTier.mockReset();
+		mockCapabilitiesForLevel.mockReset();
+		// Re-apply defaults after reset
+		mockReadLedger.mockReturnValue({ version: 1, updatedAt: "", accounts: {} });
+		mockGetAccount.mockReturnValue({ xp: 0, level: 1, coin: 0, tokens: 0, totalEarned: { xp: 0, coin: 0 }, totalSpent: { coin: 0, tokens: 0 } });
+		mockLoadTrustProfile.mockReturnValue({ tier: "supervised", operations: {} as never, promotionLog: [] });
+		mockDeriveTier.mockReturnValue("supervised");
+		mockCapabilitiesForLevel.mockReturnValue(["vault-read", "simple-tasks"]);
 	});
 
 	it("returns empty data when no agents and no projects", () => {
@@ -215,6 +248,30 @@ describe("exportAgentDashboardData", () => {
 		const data = exportAgentDashboardData("/vault", undefined, [], mockDeps);
 		expect(data.agents[0].agentType).toBe("ai");
 		expect(data.agents[0].domain).toBe("engineering");
+	});
+
+	it("enriches agents with economy data from ledger and trust profile", () => {
+		mockListAgents.mockReturnValue([makeAgent("Bob", "ai")]);
+		mockGetAccount.mockReturnValue({ xp: 500, level: 4, coin: 80, tokens: 15, totalEarned: { xp: 500, coin: 80 }, totalSpent: { coin: 0, tokens: 0 } });
+		mockDeriveTier.mockReturnValue("trusted");
+		mockCapabilitiesForLevel.mockReturnValue(["vault-read", "simple-tasks", "standing-orders", "vault-write", "self-proposed", "delegation", "journey"]);
+
+		const data = exportAgentDashboardData("/vault", undefined, [], mockDeps);
+		expect(data.agents[0].level).toBe(4);
+		expect(data.agents[0].xp).toBe(500);
+		expect(data.agents[0].coin).toBe(80);
+		expect(data.agents[0].tokens).toBe(15);
+		expect(data.agents[0].trustTier).toBe("trusted");
+		expect(data.agents[0].capabilities).toContain("delegation");
+	});
+
+	it("uses default economy values when no ledger entry exists", () => {
+		mockListAgents.mockReturnValue([makeAgent("Eve", "ai")]);
+
+		const data = exportAgentDashboardData("/vault", undefined, [], mockDeps);
+		expect(data.agents[0].level).toBe(1);
+		expect(data.agents[0].xp).toBe(0);
+		expect(data.agents[0].trustTier).toBe("supervised");
 	});
 });
 
