@@ -93,7 +93,7 @@ function registerSingleAgent(agent: DashboardAgent, sys: RegistrationSystems): v
 	sys.memory.register(name);
 
 	registerQuirksAndOpinions(agent, sys);
-	sys.bt.register(agent, sys.btDeps);
+	sys.bt.register(agent, sys.btDeps, sys.quirk.getQuirks(agent.name));
 
 	// Wire interaction resolver + BT hooks
 	if (sys.interactionBootstrap) {

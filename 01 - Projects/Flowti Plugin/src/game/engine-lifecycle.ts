@@ -5,6 +5,8 @@
  * and the `handleAgentSelect` interaction handler.
  */
 
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import * as ex from "excalibur";
 import type { BrainSystem } from "./systems/brain-system.js";
 import type { BubbleSystem } from "./systems/bubble-system.js";
@@ -39,6 +41,8 @@ import { loadRoomElements } from "./sprites/animated-elements.js";
 import { shouldShowBriefing, calculateOfflineProgress, type AgentOfflineInput } from "./systems/offline-progress.js";
 import type { NarrativeSystem } from "./systems/narrative-system.js";
 import type { BriefingPanel } from "./ui/briefing-panel.js";
+import { findNodeBinary } from "../infrastructure/agents/cli-executor.js";
+import { runOneShotCommand } from "../infrastructure/agents/cli-executor-helpers.js";
 
 export interface StartEngineDeps {
 	engine: ex.Engine;
@@ -187,6 +191,31 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 		store.setActivityLog(worldState.activityLog);
 	}
 
+	// ── Enrich agents with CLI economy data ──────────────
+	if (vaultBasePath) {
+		try {
+			const economyPath = join(vaultBasePath, ".flowti", "var", "economy.json");
+			if (existsSync(economyPath)) {
+				const raw = readFileSync(economyPath, "utf-8");
+				const ledger = JSON.parse(raw) as {
+					accounts?: Record<string, { xp?: number; level?: number; coin?: number; tokens?: number }>;
+				};
+				if (ledger.accounts) {
+					for (const [name, account] of Object.entries(ledger.accounts)) {
+						store.setAgentEconomy(name, {
+							xp: account.xp,
+							level: account.level,
+							coin: account.coin,
+							tokens: account.tokens,
+						});
+					}
+				}
+			}
+		} catch {
+			// economy.json may not exist or be malformed — continue without it
+		}
+	}
+
 	let rosterSnapshot = [...initialAgents];
 	const rosterUnsub = provider.onDashboardAgentsChange((next) => {
 		const prev = rosterSnapshot;
@@ -238,12 +267,27 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 			}
 
 			// Apply offline earnings (XP + Coin) to each agent's economy state
+			const nodeBin = findNodeBinary();
+			const cliBin = vaultBasePath ? join(vaultBasePath, ".flowti", "bin", "main.mjs") : null;
 			for (const agentResult of results.agentResults) {
 				if (agentResult.xpEarned <= 0 && agentResult.coinEarned <= 0) continue;
 				const current = store.getAgentEconomy(agentResult.name);
 				if (!current) continue;
+				// Persist to CLI ledger first (CLI is data authority)
+				if (nodeBin && cliBin && vaultBasePath && existsSync(cliBin)) {
+					try {
+						await runOneShotCommand(
+							nodeBin, cliBin,
+							["economy:reward", `--agent=${agentResult.name}`, `--xp=${agentResult.xpEarned}`, `--coin=${agentResult.coinEarned}`, "--format=json"],
+							vaultBasePath,
+						);
+					} catch {
+						// CLI not available — fall through to store-only update
+					}
+				}
 				store.setAgentEconomy(agentResult.name, {
 					coin: current.coin + agentResult.coinEarned,
+					xp: current.xp + agentResult.xpEarned,
 					level: agentResult.currentLevel,
 				});
 				// Record narrative beat for offline earnings

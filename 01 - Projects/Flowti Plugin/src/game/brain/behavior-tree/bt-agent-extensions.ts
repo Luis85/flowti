@@ -7,6 +7,7 @@
 
 import { fromNodeState, type State } from "./bt-service.js";
 import type { AgentToolDeps, BTAgentContext, CollectedAction } from "./bt-types.js";
+import { getPreferredFoodStation, getPreferredDrinkStation } from "../../data/food-preferences.js";
 
 export interface BTAgentExtensionDeps {
 	context: BTAgentContext;
@@ -55,6 +56,34 @@ export function Eat(ctx: BTAgentContext, collect: (type: string, data?: Record<s
 export function Drink(ctx: BTAgentContext, collect: (type: string, data?: Record<string, unknown>) => void): State {
 	ctx.needs.thirst = Math.min(100, ctx.needs.thirst + 30);
 	collect("idle");
+	return fromNodeState("succeeded");
+}
+
+// ── Preference-based station conditions ──────────────────────────────────
+
+export function HasPreferredFoodStation(ctx: BTAgentContext): boolean {
+	return getPreferredFoodStation(ctx.quirks) !== null;
+}
+
+export function HasPreferredDrinkStation(ctx: BTAgentContext): boolean {
+	return getPreferredDrinkStation(ctx.quirks) !== null;
+}
+
+// ── Preference-based station actions ─────────────────────────────────────
+
+export function SeekPreferredFoodStation(ext: BTAgentExtensionDeps): State {
+	const station = getPreferredFoodStation(ext.context.quirks);
+	if (!station) return fromNodeState("failed");
+	ext.collect("seek-preferred-food", { station });
+	ext.deps.brain?.applyEvent(ext.context.name, "seek-food");
+	return fromNodeState("succeeded");
+}
+
+export function SeekPreferredDrinkStation(ext: BTAgentExtensionDeps): State {
+	const station = getPreferredDrinkStation(ext.context.quirks);
+	if (!station) return fromNodeState("failed");
+	ext.collect("seek-preferred-drink", { station });
+	ext.deps.brain?.applyEvent(ext.context.name, "seek-drink");
 	return fromNodeState("succeeded");
 }
 
