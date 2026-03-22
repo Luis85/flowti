@@ -1,6 +1,6 @@
 /**
  * Debug tab — admin controls for overriding agent stats, needs, trust, and economy.
- * Emits custom events that the parent agent-panel catches and relays to the store/CLI.
+ * Emits custom events that the parent agent-detail-modal catches and relays to the store/CLI.
  */
 
 import { html, css } from "lit";

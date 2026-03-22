@@ -98,7 +98,6 @@ import "./ui/dashboard-overlays.js";
 import "./ui/ask-bob.js";
 import "./ui/roster-bar.js";
 import "./ui/camera-hud.js";
-import "./ui/agent-panel.js";
 import "./ui/merchant-panel.js";
 import "./ui/council-sidebar.js";
 import "./ui/council-picker.js";
@@ -153,12 +152,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Reactive store + Lit overlays ─────────────────────
 	const store = new DashboardStore(deps.cliExecutor, deps.worldContext, deps.vaultBasePath);
 	store.syncCliSessionFromEnvironment();
-	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-agent-panel", "ft-game-ask-bob"]) {
+	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-ask-bob"]) {
 		const el = document.createElement(tag) as HTMLElement & { store: DashboardStore };
 		el.store = store;
-		if (tag === "ft-game-agent-panel" && deps.eventBus) {
-			(el as HTMLElement & { eventBus?: IEventBus }).eventBus = deps.eventBus;
-		}
 		if (tag === "ft-game-ask-bob") {
 			const bob = el as HTMLElement & {
 				store: DashboardStore;

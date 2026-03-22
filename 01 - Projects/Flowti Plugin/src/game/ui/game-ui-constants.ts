@@ -1,6 +1,6 @@
 /**
  * Shared constants and helpers for game UI panel components.
- * Extracted to avoid duplication across panel-brain, panel-monitor, panel-vitals.
+ * Extracted to avoid duplication across panel-brain, panel-vitals, and agent-detail-modal.
  */
 
 import type { BrainState } from "../brain/brain-types.js";

@@ -1,6 +1,6 @@
 /**
  * Economy sub-component — renders level, trust tier, XP progress, coin/tokens, and capability badges.
- * Used inside panel-info.ts.
+ * Used inside agent-detail-modal.ts (Profile tab).
  */
 
 import { LitElement, html, css, nothing } from "lit";
