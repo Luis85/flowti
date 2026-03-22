@@ -153,7 +153,7 @@ describe("bt-agent-extensions — merchant conditions", () => {
 	it("HasAutoPurchaseAvailable delegates to merchant.shouldAutoPurchase", () => {
 		const merchant = {
 			shouldAutoPurchase: vi.fn(() => true),
-			getAutoPurchaseItemId: vi.fn(),
+			getAutoPurchaseItem: vi.fn(),
 			purchase: vi.fn(),
 			getCycleCount: vi.fn(() => 1),
 		};
@@ -187,7 +187,7 @@ describe("bt-agent-extensions — merchant actions", () => {
 	it("ExecuteMerchantPurchase returns failed when no item to purchase", () => {
 		const merchant = {
 			shouldAutoPurchase: vi.fn(),
-			getAutoPurchaseItemId: vi.fn(() => null),
+			getAutoPurchaseItem: vi.fn(() => undefined),
 			purchase: vi.fn(),
 			getCycleCount: vi.fn(() => 1),
 		};
@@ -198,7 +198,7 @@ describe("bt-agent-extensions — merchant actions", () => {
 	it("ExecuteMerchantPurchase fires purchase and updates cycle", () => {
 		const merchant = {
 			shouldAutoPurchase: vi.fn(),
-			getAutoPurchaseItemId: vi.fn(() => "potion-01"),
+			getAutoPurchaseItem: vi.fn(() => ({ id: "potion-01", name: "Potion", cost: 10 })),
 			purchase: vi.fn(() => Promise.resolve()),
 			getCycleCount: vi.fn(() => 5),
 		};
@@ -206,7 +206,7 @@ describe("bt-agent-extensions — merchant actions", () => {
 		const result = ExecuteMerchantPurchase(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(merchant.purchase).toHaveBeenCalledWith("Atlas", "potion-01");
-		expect(ext.collect).toHaveBeenCalledWith("merchant-purchase", { itemId: "potion-01" });
+		expect(ext.collect).toHaveBeenCalledWith("merchant-purchase", { itemId: "potion-01", itemName: "Potion" });
 		expect(ext.context.lastMerchantVisitCycle).toBe(5);
 	});
 });

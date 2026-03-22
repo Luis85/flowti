@@ -126,5 +126,24 @@ describe("createDirectorIntentResolver", () => {
 			expect(interaction).not.toBeNull();
 			expect(interaction!.context.templateId).toBe("tpl-director-meeting");
 		});
+
+		it("copies prerequisites from template", () => {
+			const tpl = makeTemplate({
+				prerequisites: [{ type: "proximity", maxDistance: 5 }],
+			});
+			const config = makeConfig({
+				templates: {
+					getAll: () => [tpl],
+					getById: (id: string) => id === tpl.id ? tpl : undefined,
+				},
+			});
+			const { createDirectorInteraction } = createDirectorIntentResolver(config);
+
+			const interaction = createDirectorInteraction(tpl.id, [
+				{ id: "agent-1", entityType: "agent" },
+			]);
+
+			expect(interaction?.prerequisites).toEqual(tpl.prerequisites);
+		});
 	});
 });
