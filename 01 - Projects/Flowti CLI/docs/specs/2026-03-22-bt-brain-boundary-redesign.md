@@ -112,7 +112,9 @@ The "skip redundant transition" guard added in commit 9ce280d1 is removed. With 
 
 ### Legacy System Guards
 
-`processThresholds` and `tryObjectAttraction` in `tickBehaviorThresholds` skip agents with a registered BT (`sys.bt.has(agentName)`). Already implemented.
+`processThresholds` skips agents with a registered BT (`sys.bt.has(agentName)`) — the BT handles needs thresholds via its own subtrees.
+
+`tryObjectAttraction` runs for ALL agents including BT agents — it is the physical interaction layer that walks idle/wandering agents to interactable objects (food stations, coffee machines, couches) and applies NeedsSystem effects. It only fires for idle/wandering agents, so it does not compete with BT-driven movement. The BT's hunger/thirst subtrees detect low needs, but `tryObjectAttraction` handles the actual station visit and need recovery.
 
 ### Staggered BT Ticks
 
