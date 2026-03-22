@@ -9,6 +9,7 @@
 import { createTree, fromNodeState, type State } from "./bt-service.js";
 import type { AgentBT } from "./bt-factory.js";
 import type { CollectedAction } from "./bt-types.js";
+import type { IEchoStore } from "../../systems/echo/echo-types.js";
 
 export type PetState = "idle" | "wandering" | "sleeping" | "following" | "exiting";
 
@@ -30,6 +31,7 @@ export interface PetBTContext {
 	thirst: number;
 	nearbyAgentCount?: number;
 	nearbyAgents?: string[];
+	echoStore?: IEchoStore;
 }
 
 export interface PetBTObject {
@@ -176,7 +178,10 @@ export function createPetBT(
 	}
 
 	function CatalystChanceRoll(): boolean {
-		return context.state === "idle" && Math.random() < 0.02;
+		const bondBias = context.echoStore
+			? context.echoStore.queryWeight(context.name, "bond") : 0;
+		const multiplier = 1 + Math.max(-50, Math.min(50, bondBias)) / 100;
+		return context.state === "idle" && Math.random() < 0.02 * multiplier;
 	}
 
 	// ── Actions ─────────────────────────────────────────────
