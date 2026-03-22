@@ -11,7 +11,7 @@ import type { StorybookRenderer } from "./storybook-renderer.js";
 import { nullStorybookRenderer } from "./storybook-renderer.js";
 import type { StorybookDeps } from "./storybook-installer.js";
 
-const DEFAULT_STORYBOOK_PORT = 6006;
+export const DEFAULT_STORYBOOK_PORT = 6006;
 const LOCAL_URL_PATTERN = /https?:\/\/localhost:\d+/;
 
 // ── Vault detection ──────────────────────────────────────────────────

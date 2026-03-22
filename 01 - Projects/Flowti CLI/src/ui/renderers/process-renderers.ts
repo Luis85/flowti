@@ -4,9 +4,7 @@
 
 import type { ProcessEntry } from "../../domain/processes/process-registry.js";
 import type { Log } from "../../infrastructure/deps.js";
-
-const DIM = "\x1b[2m";
-const RESET = "\x1b[0m";
+import { DIM, RESET } from "../../infrastructure/ui.js";
 
 export interface ProcessListResultModel {
 	readonly entries: ProcessEntry[];

@@ -23,6 +23,7 @@ export {
 } from "./storybook-installer.js";
 
 export {
+	DEFAULT_STORYBOOK_PORT,
 	isInsideVault,
 	extractLocalUrl,
 	isStorybookRunning,
@@ -44,6 +45,7 @@ export interface StorybookStartResult {
 import type { StorybookDeps } from "./storybook-installer.js";
 import { resolveStorybookDir, isStorybookInstalled } from "./storybook-installer.js";
 import {
+	DEFAULT_STORYBOOK_PORT,
 	extractLocalUrl,
 	openStorybookUrl,
 	isStorybookRunning,
@@ -155,9 +157,9 @@ export async function startStorybookDev(
 			render.alreadyRunning();
 			return { started: false, url: existing.url ?? "", error: "already-running" };
 		}
-		if (await processDeps.pidOps.isPortListening(6006)) {
+		if (await processDeps.pidOps.isPortListening(DEFAULT_STORYBOOK_PORT)) {
 			render.alreadyRunning();
-			return { started: false, url: "http://localhost:6006", error: "port-in-use" };
+			return { started: false, url: `http://localhost:${DEFAULT_STORYBOOK_PORT}`, error: "port-in-use" };
 		}
 	} else if (isStorybookRunning()) {
 		render.alreadyRunning();
@@ -198,7 +200,7 @@ export async function startStorybookDev(
 			type: "storybook",
 			name: projectName,
 			pid: activeProcess.pid,
-			port: 6006,
+			port: DEFAULT_STORYBOOK_PORT,
 			url,
 			startedAt: processDeps.clock.iso(),
 		});

@@ -41,6 +41,21 @@ function ensureDir(deps: ProcessDeps): void {
 	deps.disk.mkdirSync(REGISTRY_DIR, { recursive: true });
 }
 
+/** Read and validate a single entry file. Returns null if missing, corrupt, or stale (PID dead). Cleans up stale files. */
+function readEntry(deps: ProcessDeps, filePath: string): ProcessEntry | null {
+	try {
+		const raw = deps.disk.readFileSync(filePath, "utf-8");
+		const entry = JSON.parse(raw) as ProcessEntry;
+		if (!deps.pidOps.isPidAlive(entry.pid)) {
+			try { deps.disk.unlinkSync(filePath); } catch { /* ok */ }
+			return null;
+		}
+		return entry;
+	} catch {
+		return null;
+	}
+}
+
 export function registerProcess(deps: ProcessDeps, entry: ProcessEntry): void {
 	ensureDir(deps);
 	const target = entryPath(deps, entry.type, entry.name);
@@ -55,19 +70,7 @@ export function unregisterProcess(deps: ProcessDeps, type: string, name: string)
 }
 
 export function getProcess(deps: ProcessDeps, type: string, name: string): ProcessEntry | null {
-	const path = entryPath(deps, type, name);
-	if (!deps.disk.existsSync(path)) return null;
-	try {
-		const raw = deps.disk.readFileSync(path, "utf-8");
-		const entry = JSON.parse(raw) as ProcessEntry;
-		if (!deps.pidOps.isPidAlive(entry.pid)) {
-			try { deps.disk.unlinkSync(path); } catch { /* ok */ }
-			return null;
-		}
-		return entry;
-	} catch {
-		return null;
-	}
+	return readEntry(deps, entryPath(deps, type, name));
 }
 
 export function listProcesses(deps: ProcessDeps, type?: string): ProcessEntry[] {
@@ -75,16 +78,10 @@ export function listProcesses(deps: ProcessDeps, type?: string): ProcessEntry[] 
 	const files = deps.disk.readdirSync(REGISTRY_DIR).filter((f) => f.endsWith(".json") && !f.endsWith(".tmp"));
 	const entries: ProcessEntry[] = [];
 	for (const file of files) {
-		try {
-			const raw = deps.disk.readFileSync(deps.paths.join(REGISTRY_DIR, file), "utf-8");
-			const entry = JSON.parse(raw) as ProcessEntry;
-			if (type && entry.type !== type) continue;
-			if (!deps.pidOps.isPidAlive(entry.pid)) {
-				try { deps.disk.unlinkSync(deps.paths.join(REGISTRY_DIR, file)); } catch { /* ok */ }
-				continue;
-			}
-			entries.push(entry);
-		} catch { /* skip corrupt */ }
+		const entry = readEntry(deps, deps.paths.join(REGISTRY_DIR, file));
+		if (!entry) continue;
+		if (type && entry.type !== type) continue;
+		entries.push(entry);
 	}
 	return entries;
 }

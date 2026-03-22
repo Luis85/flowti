@@ -20,7 +20,7 @@ import {
 	resolveStorybookDir,
 	openStorybookUrl,
 } from "../domain/make/component/storybook-service.js";
-import { getProcess, killProcess } from "../domain/processes/process-registry.js";
+import { getProcess, unregisterProcess } from "../domain/processes/process-registry.js";
 import { getFramework, setFramework, writeComponentsConfig } from "../domain/make/component/storybook-settings.js";
 import { createStorybookRenderer } from "../ui/renderers/storybook-renderer-impl.js";
 
@@ -198,7 +198,8 @@ export const commands: Record<string, CommandHandler> = {
 			const processDeps = { disk, paths, clock, pidOps };
 			const entry = getProcess(processDeps, "storybook", projectName);
 			if (entry) {
-				killProcess(processDeps, "storybook", projectName);
+				pidOps.killPid(entry.pid);
+				unregisterProcess(processDeps, "storybook", projectName);
 				return { stopped: true, wasRunning: true };
 			}
 			const wasRunning = isStorybookRunning();
