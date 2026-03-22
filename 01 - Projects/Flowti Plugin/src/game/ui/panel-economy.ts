@@ -171,7 +171,7 @@ export class PanelEconomy extends LitElement {
 		if (level === undefined && coin === undefined && tokens === undefined) return nothing;
 
 		const lvl = level ?? 1;
-		const xp = this.agent.xp ?? this.agent.experience ?? 0;
+		const xp = this.agent.xp ?? 0;
 		const currentThreshold = LEVEL_THRESHOLDS[lvl - 1] ?? 0;
 		const nextThreshold = LEVEL_THRESHOLDS[lvl] ?? currentThreshold;
 		const xpProgress = nextThreshold > currentThreshold

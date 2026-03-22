@@ -33,7 +33,7 @@ export interface Point {
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
-export type TabName = "info" | "talk" | "tasks" | "permissions" | "monitor" | "debug";
+export type TabName = "info" | "talk" | "tasks" | "permissions" | "brain" | "monitor" | "debug";
 
 export interface LlmStatus {
 	readonly state: "idle" | "queued" | "thinking" | "error";
@@ -101,13 +101,15 @@ export class DashboardStore extends EventTarget {
 		const idx = this.agents.findIndex(a => a.name === name);
 		if (idx === -1) return;
 		const agent = this.agents[idx];
-		const updated = { ...agent } as DashboardAgent;
-		if (data.level !== undefined) updated.level = data.level;
-		if (data.coin !== undefined) updated.coin = data.coin;
-		if (data.tokens !== undefined) updated.tokens = data.tokens;
-		if (data.xp !== undefined) updated.xp = data.xp;
-		if (data.trustTier !== undefined) updated.trustTier = data.trustTier as "supervised" | "trusted" | "autonomous";
-		if (data.capabilities !== undefined) updated.capabilities = data.capabilities;
+		const updated: DashboardAgent = {
+			...agent,
+			...(data.level !== undefined && { level: data.level }),
+			...(data.coin !== undefined && { coin: data.coin }),
+			...(data.tokens !== undefined && { tokens: data.tokens }),
+			...(data.xp !== undefined && { xp: data.xp }),
+			...(data.trustTier !== undefined && { trustTier: data.trustTier as "supervised" | "trusted" | "autonomous" }),
+			...(data.capabilities !== undefined && { capabilities: data.capabilities }),
+		};
 		this.agents = [...this.agents.slice(0, idx), updated, ...this.agents.slice(idx + 1)] as unknown as readonly DashboardAgent[];
 		this.notify();
 	}
@@ -115,7 +117,7 @@ export class DashboardStore extends EventTarget {
 	getAgentEconomy(name: string): { level: number; coin: number; tokens: number; xp: number; trustTier: string; capabilities: string[] } | undefined {
 		const agent = this.agents.find(a => a.name === name);
 		if (!agent) return undefined;
-		return { level: agent.level ?? 1, coin: agent.coin ?? 0, tokens: agent.tokens ?? 0, xp: agent.xp ?? 0, trustTier: agent.trustTier ?? "supervised", capabilities: agent.capabilities ?? [] };
+		return { level: agent.level ?? 1, coin: agent.coin ?? 0, tokens: agent.tokens ?? 0, xp: agent.xp ?? 0, trustTier: agent.trustTier ?? "supervised", capabilities: [...(agent.capabilities ?? [])] };
 	}
 
 	currentScene: Setting = "hub";

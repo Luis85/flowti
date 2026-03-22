@@ -519,7 +519,7 @@ function wireNarrativeEvents(ctx: EngineContext): () => void {
 	addStoreListener("level-up", ((e: CustomEvent) => {
 		const { agentName, level, xp: eventXp } = e.detail;
 		const agent = ctx.store.agents.find((a) => a.name === agentName);
-		const xp = typeof eventXp === "number" ? eventXp : (agent?.experience ?? 0);
+		const xp = typeof eventXp === "number" ? eventXp : (agent?.xp ?? 0);
 		recordBeat({
 			timestamp: Date.now(),
 			phase: sys.dayClock.getPhase(),

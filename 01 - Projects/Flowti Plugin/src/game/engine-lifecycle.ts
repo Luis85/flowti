@@ -244,7 +244,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 			const agentInputs: AgentOfflineInput[] = initialAgents.map((a) => ({
 				name: a.name,
 				level: a.level ?? 1,
-				xp: a.xp ?? a.experience ?? 0,
+				xp: a.xp ?? 0,
 				coin: a.coin ?? 0,
 				assignedTasks: (a.suggestedTasks?.length ?? 0),
 				avgTasksPerCycle: 1,

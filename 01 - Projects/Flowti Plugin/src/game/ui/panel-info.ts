@@ -285,7 +285,7 @@ export class PanelInfo extends FlowtiElement {
 			return html`<div class="empty">No agent selected.</div>`;
 		}
 
-		const { attributes, experience } = this.agent;
+		const { attributes, xp } = this.agent;
 
 		return html`
 			${this.renderHero()}
@@ -293,7 +293,7 @@ export class PanelInfo extends FlowtiElement {
 			<ft-game-panel-vitals .needs="${this.needs}"></ft-game-panel-vitals>
 			<ft-game-panel-economy .agent="${this.agent}"></ft-game-panel-economy>
 			${this.renderStats(attributes)}
-			${experience !== undefined ? this.renderXp(experience) : nothing}
+			${xp !== undefined ? this.renderXp(xp) : nothing}
 			${this.renderListSection("Skills", this.agent.skills, (s) => html`
 				<div class="skill"><span class="skill-name">${s.name}</span><span class="skill-level">${s.level}</span></div>
 			`)}
