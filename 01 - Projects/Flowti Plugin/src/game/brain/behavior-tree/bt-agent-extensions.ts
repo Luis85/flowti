@@ -104,7 +104,7 @@ export function IsMerchantEligible(
 	ctx: BTAgentContext,
 	trustTier: string | undefined,
 ): boolean {
-	if (ctx.experience < MERCHANT_MIN_LEVEL) return false;
+	if (ctx.level < MERCHANT_MIN_LEVEL) return false;
 	return TRUSTED_TIERS.has(trustTier ?? "supervised");
 }
 

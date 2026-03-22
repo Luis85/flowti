@@ -56,6 +56,7 @@ export interface BTAgentDef {
 	readonly mood?: string;
 	readonly personality?: readonly string[];
 	readonly experience?: number;
+	readonly level?: number;
 	readonly attributes?: AgentAttributes;
 	readonly goals?: readonly AgentGoal[];
 	readonly behaviors?: readonly string[];
@@ -162,6 +163,7 @@ export interface BTAgentContext {
 	readonly attributes: AgentAttributes;
 	readonly personality: readonly string[];
 	readonly experience: number;
+	readonly level: number;
 	readonly quirks: readonly string[];
 
 	needs: AgentNeeds;

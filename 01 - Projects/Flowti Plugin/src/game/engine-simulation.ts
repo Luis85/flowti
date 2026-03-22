@@ -457,6 +457,8 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			btAgent.context.needs.social = live.social;
 			btAgent.context.needs.focus = live.focus;
 			btAgent.context.needs.morale = live.morale;
+			btAgent.context.needs.hunger = live.hunger;
+			btAgent.context.needs.thirst = live.thirst;
 			btAgent.context.echoStore = sys.echo;
 			btAgent.context.currentRoom = sys.registry.getEntityRoom(agentName);
 		}
@@ -500,6 +502,14 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			const station = String(action.data.station ?? "");
 			if (station) {
 				ctx.echoProducer.onPreferredStation(action.agentName, station, sys.dayClock.getCycleCount());
+				const prefPhrases: Record<string, string[]> = {
+					"CoffeeMachine": ["Need my coffee...", "Coffee time!", "Can't think without caffeine..."],
+					"SnackTable": ["Snack break!", "I could use a bite...", "Snack time!"],
+					"WaterCooler": ["Need to hydrate...", "Water break!", "Staying healthy..."],
+				};
+				const stationPhrases = prefPhrases[station] ?? ["Heading to my favorite spot..."];
+				const phrase = stationPhrases[Math.floor(Math.random() * stationPhrases.length)];
+				sys.bubble.showBubble(action.agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 			}
 		} else if (action.type === "error") {
 			const summary = String(action.data.summary ?? "Something went wrong in my behavior.");

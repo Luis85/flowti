@@ -51,6 +51,7 @@ function toBTAgentDef(agent: DashboardAgent, quirks?: readonly string[]): BTAgen
 		mood: agent.mood,
 		personality: agent.personality,
 		experience: agent.experience,
+		level: agent.level,
 		attributes: agent.attributes,
 		goals: agent.goals?.map((g) => ({
 			name: g.text,

@@ -110,28 +110,28 @@ describe("bt-agent-extensions — hunger/thirst actions", () => {
 });
 
 describe("bt-agent-extensions — merchant conditions", () => {
-	it("IsMerchantEligible returns false when experience below level 5", () => {
-		const ctx = makeContext({ experience: 3 });
+	it("IsMerchantEligible returns false when level below 5", () => {
+		const ctx = makeContext({ level: 3 });
 		expect(IsMerchantEligible(ctx, "trusted")).toBe(false);
 	});
 
-	it("IsMerchantEligible returns true when experience >= 5 and trust is trusted", () => {
-		const ctx = makeContext({ experience: 10 });
+	it("IsMerchantEligible returns true when level >= 5 and trust is trusted", () => {
+		const ctx = makeContext({ level: 10 });
 		expect(IsMerchantEligible(ctx, "trusted")).toBe(true);
 	});
 
 	it("IsMerchantEligible returns true for autonomous trust tier", () => {
-		const ctx = makeContext({ experience: 10 });
+		const ctx = makeContext({ level: 10 });
 		expect(IsMerchantEligible(ctx, "autonomous")).toBe(true);
 	});
 
 	it("IsMerchantEligible returns false for supervised trust tier", () => {
-		const ctx = makeContext({ experience: 10 });
+		const ctx = makeContext({ level: 10 });
 		expect(IsMerchantEligible(ctx, "supervised")).toBe(false);
 	});
 
 	it("IsMerchantEligible defaults to supervised when trust is undefined", () => {
-		const ctx = makeContext({ experience: 10 });
+		const ctx = makeContext({ level: 10 });
 		expect(IsMerchantEligible(ctx, undefined)).toBe(false);
 	});
 

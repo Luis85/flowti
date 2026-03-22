@@ -98,7 +98,7 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 	}) as EventListener);
 
 	addStoreListener("task-completed", ((e: CustomEvent) => {
-		const { agentName, result, xp, coin } = e.detail;
+		const { agentName, result } = e.detail;
 		sys.brain.releaseWork(agentName);
 		ctx.store.taskLockedAgents.delete(agentName);
 		sys.talk.silence(agentName);
@@ -107,7 +107,10 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 		if (actor) { actor.hideLlmIndicator(); actor.hideToolIndicator(); }
 		// Show completion bubble
 		sys.bubble.showBubble(agentName, "speech", typeof result === "string" ? result.slice(0, 80) : "Task complete.", ctx.engine.currentScene, ctx.lookups.findAgentActor, 5000);
-		// Economy visual — floating "+{xp}XP +{coin}C"
+	}) as EventListener);
+
+	addStoreListener("task-reward-earned", ((e: CustomEvent) => {
+		const { agentName, xp, coin } = e.detail;
 		showEconomyCue(ctx, "task-completed", agentName, {
 			xp: typeof xp === "number" ? xp : 10,
 			coin: typeof coin === "number" ? coin : 1,
@@ -125,6 +128,8 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 		const selfRaw = LEVEL_UP_SELF[Math.floor(Math.random() * LEVEL_UP_SELF.length)];
 		const selfPhrase = selfRaw.replace("{level}", String(lvl));
 		sys.bubble.showBubble(agentName, "speech", selfPhrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3500);
+		// Echo producer — level-up mood residue
+		ctx.echoProducer.onLevelUp(agentName, sys.dayClock.getCycleCount());
 		// Nearby agents congratulate — up to 2, staggered
 		const nearby = getNearbyAgents(ctx, agentName).slice(0, 2);
 		nearby.forEach((name, i) => {

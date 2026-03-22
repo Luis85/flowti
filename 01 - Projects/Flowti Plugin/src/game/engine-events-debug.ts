@@ -152,13 +152,15 @@ export function wireDebugEvents(ctx: EngineContext, vaultBasePath?: string): () 
 		if (!agentName) return;
 		const { stat, value } = e.detail as { stat: string; value: number };
 
+		// Read BEFORE updating so delta is correct
+		const current = ctx.store.getAgentEconomy(agentName);
+		const prev = current ? (current[stat as keyof typeof current] as number ?? 0) : 0;
+
 		// Immediate store update
 		ctx.store.setAgentEconomy(agentName, { [stat]: Math.max(0, value) });
 
 		// Persist via CLI: compute delta from current and grant
 		if (vaultBasePath && stat !== "level") {
-			const current = ctx.store.getAgentEconomy(agentName);
-			const prev = current ? (current[stat as keyof typeof current] as number ?? 0) : 0;
 			const delta = value - prev;
 			if (delta !== 0) {
 				const args = statToGrantArgs(stat, delta);

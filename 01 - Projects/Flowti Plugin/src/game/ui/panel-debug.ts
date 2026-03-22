@@ -267,6 +267,7 @@ export class PanelDebug extends FlowtiElement {
 	];
 
 	agent?: DashboardAgent;
+	private trustOverrides: Map<string, string> = new Map();
 
 	private dispatch(type: string, detail: Record<string, unknown>): void {
 		this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
@@ -299,6 +300,8 @@ export class PanelDebug extends FlowtiElement {
 	}
 
 	private handleTrustMode(op: string, mode: TrustMode): void {
+		this.trustOverrides.set(op, mode);
+		this.requestUpdate();
 		this.dispatch("debug-trust-mode", { op, mode });
 	}
 
@@ -390,6 +393,7 @@ export class PanelDebug extends FlowtiElement {
 									class="mode-btn"
 									data-op="${op}"
 									data-mode="${mode}"
+									data-active="${this.trustOverrides.get(op) === mode}"
 									@click="${() => { this.handleTrustMode(op, mode); }}"
 								>${mode}</button>
 							`)}
