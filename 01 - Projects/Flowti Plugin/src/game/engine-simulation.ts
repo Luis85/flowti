@@ -269,6 +269,7 @@ export function tickBehaviorThresholds(ctx: EngineContext): void {
 		const petEntityIds = new Set(ctx.pets.map((p) => p.entityId));
 		const currentPhase = sys.dayClock.getPhase();
 		for (const agentName of sys.needs.getAgentNames()) {
+			if (sys.bt.has(agentName)) continue;
 			const state = sys.brain.getState(agentName)?.state;
 			if (state !== "idle" && state !== "wandering") continue;
 			const needs = sys.needs.getNeeds(agentName);

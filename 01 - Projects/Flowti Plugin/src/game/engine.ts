@@ -477,6 +477,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	bubbleSystem.setSceneFilter(isEntityOnCurrentScene);
 
 	for (const pet of pets) {
+		if (pet.petType === "fish") continue; // fish don't think or talk
 		bubbleSystem.register(pet.entityId, [], petBubbleParams);
 		talkEngine.register(pet.entityId, "pet", [], 10);
 	}

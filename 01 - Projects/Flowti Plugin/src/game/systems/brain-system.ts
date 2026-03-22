@@ -256,6 +256,17 @@ export class BrainSystem {
 		if (!entry) return;
 		const previousState = entry.state;
 		const result = transition(entry.state, { type: eventType as AgentActionType });
+
+		// Don't interrupt the current state with a redundant transition:
+		// - Moving agents keep their current walk target
+		// - Idle agents keep their stateTimer (needed for idle→wander threshold)
+		if (result.state === previousState) {
+			const isMoving = previousState === "walking-to" || previousState === "wandering";
+			if ((isMoving && entry.targetPos) || previousState === "idle") {
+				return;
+			}
+		}
+
 		entry.state = result.state;
 		entry.target = result.target;
 		entry.stateTimer = 0;
