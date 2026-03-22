@@ -496,6 +496,11 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			} else if (text) {
 				sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 			}
+		} else if (action.type === "seek-preferred-food" || action.type === "seek-preferred-drink") {
+			const station = String(action.data.station ?? "");
+			if (station) {
+				ctx.echoProducer.onPreferredStation(action.agentName, station, sys.dayClock.getCycleCount());
+			}
 		} else if (action.type === "error") {
 			const summary = String(action.data.summary ?? "Something went wrong in my behavior.");
 			const detail = String(action.data.detail ?? "");

@@ -84,6 +84,7 @@ export interface DashboardAgent {
 	level?: number;
 	coin?: number;
 	tokens?: number;
+	xp?: number;
 	trustTier?: "supervised" | "trusted" | "autonomous";
 	capabilities?: string[];
 }

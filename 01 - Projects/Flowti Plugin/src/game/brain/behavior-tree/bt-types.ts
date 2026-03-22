@@ -60,6 +60,7 @@ export interface BTAgentDef {
 	readonly goals?: readonly AgentGoal[];
 	readonly behaviors?: readonly string[];
 	readonly trustTier?: "supervised" | "trusted" | "autonomous";
+	readonly quirks?: readonly string[];
 }
 
 // ── Goal Types ───────────────────────────────────────────────────────
@@ -161,6 +162,7 @@ export interface BTAgentContext {
 	readonly attributes: AgentAttributes;
 	readonly personality: readonly string[];
 	readonly experience: number;
+	readonly quirks: readonly string[];
 
 	needs: AgentNeeds;
 	goals: readonly AgentGoal[];

@@ -112,4 +112,23 @@ describe("taskStore", () => {
 			expect(result).toBe(true);
 		});
 	});
+
+	describe("countCompletedByAgent", () => {
+		it("returns 0 when no completed tasks", () => {
+			const deps = makeDeps();
+			expect(taskStore.countCompletedByAgent(deps, "/proj", "auditor")).toBe(0);
+		});
+
+		it("counts completed tasks for specific agent", () => {
+			const completedMd = TASK_MD.replace("status: pending", "status: completed");
+			const otherMd = TASK_MD.replace("id: task-001", "id: task-002")
+				.replace("assignee: auditor", "assignee: builder")
+				.replace("status: pending", "status: completed");
+			const deps = makeDeps({
+				"/proj/docs/tasks/task-001.md": completedMd,
+				"/proj/docs/tasks/task-002.md": otherMd,
+			});
+			expect(taskStore.countCompletedByAgent(deps, "/proj", "auditor")).toBe(1);
+		});
+	});
 });

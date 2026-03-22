@@ -328,4 +328,15 @@ export class EchoProducer {
 			tags: ["offline"],
 		}, cycle);
 	}
+
+	onPreferredStation(agent: string, station: string, cycle: number): void {
+		this.tryAdd(agent, {
+			kind: "preference",
+			source: "preferred-station",
+			target: station,
+			weight: 4,
+			decay: 5,
+			tags: ["needs", "quirk"],
+		}, cycle);
+	}
 }

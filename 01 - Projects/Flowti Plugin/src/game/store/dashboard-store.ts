@@ -6,6 +6,7 @@ import type { AgentNeeds } from "../systems/needs-system.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
 import { findNodeBinary } from "../../infrastructure/agents/cli-executor.js";
+import { runOneShotCommand } from "../../infrastructure/agents/cli-executor-helpers.js";
 import {
 	sampleManyAgentProcessResourcesAsync,
 	type AgentProcessResources,
@@ -96,21 +97,22 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	setAgentEconomy(name: string, data: { level?: number; coin?: number; tokens?: number; trustTier?: string; capabilities?: string[] }): void {
+	setAgentEconomy(name: string, data: { level?: number; coin?: number; tokens?: number; xp?: number; trustTier?: string; capabilities?: string[] }): void {
 		const agent = this.agents.find(a => a.name === name);
 		if (!agent) return;
 		if (data.level !== undefined) agent.level = data.level;
 		if (data.coin !== undefined) agent.coin = data.coin;
 		if (data.tokens !== undefined) agent.tokens = data.tokens;
+		if (data.xp !== undefined) agent.xp = data.xp;
 		if (data.trustTier !== undefined) agent.trustTier = data.trustTier as "supervised" | "trusted" | "autonomous";
 		if (data.capabilities !== undefined) agent.capabilities = data.capabilities;
 		this.notify();
 	}
 
-	getAgentEconomy(name: string): { level: number; coin: number; tokens: number; trustTier: string; capabilities: string[] } | undefined {
+	getAgentEconomy(name: string): { level: number; coin: number; tokens: number; xp: number; trustTier: string; capabilities: string[] } | undefined {
 		const agent = this.agents.find(a => a.name === name);
 		if (!agent) return undefined;
-		return { level: agent.level ?? 1, coin: agent.coin ?? 0, tokens: agent.tokens ?? 0, trustTier: agent.trustTier ?? "supervised", capabilities: agent.capabilities ?? [] };
+		return { level: agent.level ?? 1, coin: agent.coin ?? 0, tokens: agent.tokens ?? 0, xp: agent.xp ?? 0, trustTier: agent.trustTier ?? "supervised", capabilities: agent.capabilities ?? [] };
 	}
 
 	currentScene: Setting = "hub";
@@ -591,11 +593,58 @@ export class DashboardStore extends EventTarget {
 			this.markTaskStatus(agentName, activeTask.name, "completed");
 			this.unreadAgents.add(agentName);
 			this.dispatchEvent(new CustomEvent("task-completed", { detail: { agentName, task: activeTask.name, result: summary, path: savedPath } }));
+
+			// Credit reward via CLI (async — fire and forget, show reward when ready)
+			this.creditTaskReward(agentName, activeTask.name);
 		}
 		this.thinkingAgents.delete(agentName);
 		this.llmStatus.set(agentName, { state: "idle", since: Date.now() });
 		this.pushEventLog(agentName, "done", "Turn complete");
 		this.notify();
+	}
+
+	/** Call economy:reward CLI command after task completion. Fire-and-forget. */
+	private creditTaskReward(agentName: string, taskName: string): void {
+		const nodeBin = findNodeBinary();
+		const cliBin = this.vaultBasePath ? join(this.vaultBasePath, ".flowti", "bin", "main.mjs") : null;
+		if (!nodeBin || !cliBin || !this.vaultBasePath || !existsSync(cliBin)) return;
+
+		runOneShotCommand(
+			nodeBin, cliBin,
+			["economy:reward", `--agent=${agentName}`, `--task=${taskName}`, "--format=json"],
+			this.vaultBasePath,
+		)
+			.then((output) => {
+				const reward = output as {
+					xp?: number; coin?: number; totalXp?: number; totalCoin?: number;
+					level?: number; leveledUp?: boolean; newLevel?: number; newTitle?: string;
+					trustPromoted?: { agentName: string; op: string; from: string; to: string };
+				};
+				// Update store with new economy state
+				this.setAgentEconomy(agentName, {
+					level: reward.level,
+					coin: reward.totalCoin,
+					xp: reward.totalXp,
+					tokens: this.getAgentEconomy(agentName)?.tokens ?? 0,
+				});
+				// Re-dispatch task-completed with economy data for floating text
+				this.dispatchEvent(new CustomEvent("task-completed", {
+					detail: { agentName, task: taskName, xp: reward.xp, coin: reward.coin },
+				}));
+				// Fire level-up if applicable
+				if (reward.leveledUp) {
+					this.dispatchEvent(new CustomEvent("level-up", {
+						detail: { agentName, level: reward.newLevel, title: reward.newTitle },
+					}));
+				}
+				// Fire trust-promoted if applicable
+				if (reward.trustPromoted) {
+					this.dispatchEvent(new CustomEvent("trust-promoted", {
+						detail: reward.trustPromoted,
+					}));
+				}
+			})
+			.catch(() => { /* CLI not available — no reward this time */ });
 	}
 
 	async sendMessage(agentName: string, message: string): Promise<{ ok: boolean; error?: string }> {

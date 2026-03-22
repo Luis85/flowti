@@ -1,7 +1,7 @@
 # Agent World — Game Design Document
 
-> **Version:** 1.0
-> **Date:** 2026-03-21
+> **Version:** 1.1
+> **Date:** 2026-03-22
 > **Status:** Living document — updated as systems are designed and implemented
 
 ---
@@ -81,7 +81,7 @@ Needs create rhythm and create situations. A hungry agent at the coffee machine.
 
 ## Systems Inventory
 
-### Implemented (as of 2026-03-21)
+### Implemented (as of 2026-03-22)
 
 | System | Status | Description |
 |--------|--------|-------------|
@@ -104,37 +104,46 @@ Needs create rhythm and create situations. A hungry agent at the coffee machine.
 | **Particle System** | Stable | Particle pool (200), preset-based effects |
 | **Sensor System** | Stable | Real project data events promote/suppress simulated events |
 | **Director System** | Stable | Click-to-interact with objects, agent selection |
-| **Dashboard Store** | Stable | Reactive state center, SSE integration, task tracking |
+| **Dashboard Store** | Stable | Reactive state center, file-watch integration, task tracking |
 | **Room Switcher** | Stable | Cross-room agent/pet transfers |
 | **Camera System** | Stable | Agent-following camera across room switches |
+| **Hunger & Thirst** | Stable | Energy sub-drivers, food/drink stations (coffee machine, snack table, water cooler, pet bowls), steal/share mechanic, eating/drinking bubbles, quirk-modulated thresholds |
+| **Visual Progression** | Stable | Level glow/aura tint in agent-actor, economy particles (firework on level-up, sparkle on trust-promoted), trust bubble, pet affection tint + bond heart indicator |
+| **Task Engine** | Stable | CRUD, 7-state lifecycle, standing orders, staging, delegation, journey checkpoint |
+| **Economy** | Stable | XP/Coin/Tokens ledger, 8-level leveling, reward rules |
+| **Progressive Trust** | Stable | 7 vault ops x 3 tiers, auto-promotion |
+| **Merchant NPC** | Stable | Catalog, shop UI, auto-purchase BT, merchant panel, stall actor |
+| **Task Routing** | Stable | Priority router, concurrency pool, dequeue pipeline, task scoring |
+| **Process Pool** | Stable | maxConcurrent, FIFO queue |
+| **Debug Panel** | Stable | CLI commands + Plugin debug tab |
+| **Narrative System** | Stable | Beat collection, composition, vault markdown |
+| **Offline Progress** | Stable | Bounded simulation, briefing panel |
+| **Echo System** | Stable | Echo store, producer, cascade resolver, dialogue bias, BT idle bias |
+| **Interaction System** | Stable | Resolvers, effect renderer, merchant/rival rules |
+| **Pet Utility Roles** | Stable | Role types, bonding, morale bonus |
 
-### Current Increment (in-progress)
+### Current Increment: "The Working Agent" (in-progress)
 
 | System | Status | Description |
 |--------|--------|-------------|
-| **Hunger & Thirst** | Stable | Energy sub-drivers, food/drink stations (coffee machine, snack table, water cooler, pet bowls), steal/share mechanic, eating/drinking bubbles, quirk-modulated thresholds |
-| **Visual Progression** | Stable | Level glow/aura tint in agent-actor, economy particles (firework on level-up, sparkle on trust-promoted), trust bubble, pet affection tint + bond heart indicator |
-| **Task Engine** | In Progress | Task lifecycle events (assigned/completed/standing-order), taskLocked flag, standing-order loop icon — task CRUD and 7-state lifecycle pending |
-| **Economy** | In Progress | XP/Coin events wired (task-completed, level-up), floating reward bubble — ledger, leveling tiers, full reward rules pending |
-| **Progressive Trust** | In Progress | trust-promoted event fires bubble + sparkle particle — per-operation tiers and auto-promotion logic pending |
-| **Merchant NPC** | Planned | Catalog-driven shop, capability purchases, NPC agent type |
-| **Vault Operations** | Planned | 7 operation types, staging area, scoped awareness |
-| **Task Routing** | Planned | WorkerManager extension, capacity, attribute scoring, auto-dequeue |
-| **Process Pool** | Planned | maxConcurrent limit, queued state, timeout reaping |
-| **Debug Panel** | Planned | Admin controls for agents, NPCs, pets |
-| **Pet Utility Roles** | Planned | Scout (cat), Fetch (dog), Audit (owl), Echo (parrot), Triage (fox) |
+| **Reward Loop Wiring** | In Progress | Task completion triggers economy:reward CLI command, live XP/Coin feedback |
+| **Economy Boot Sync** | In Progress | Read economy.json at Plugin boot, persist offline earnings via CLI |
+| **Debug Tab Wiring** | In Progress | Wire debug panel events to CLI debug commands |
+| **Food Preferences** | In Progress | Quirk-based station preferences with echo feedback |
 
 ### Future (roadmap below)
 
 | System | Description |
 |--------|-------------|
-| **Offline Progress** | "Agents kept working while you were away" |
-| **Emergent Narrative** | Running text story of agent activities |
-| **Task Forecasting** | Predict completion time from historical performance |
+| **Vault Operation Execution** | First real file I/O — agents execute vault ops with trust-gated staging |
+| **WorkerManager Live Routing** | Live task routing to running agent subprocesses |
+| **Journey Executor Integration** | Multi-step journey execution via CLI subprocesses |
+| **Pet Utility Execution** | Vault-aware pet actions (scout, fetch, audit, echo, triage) |
 | **Production Chains** | Multi-step workflows where agent outputs feed other agents |
-| **Agent Interviews** | Chat with agents about completed work |
 | **Session Replay** | Rewind and watch what happened |
+| **Task Forecasting** | Predict completion time from historical performance |
 | **Task Marketplace** | Agents bid on tasks (evolution of manager-mediated routing) |
+| **Agent Interviews** | Chat with agents about completed work |
 
 ---
 
@@ -344,15 +353,17 @@ CLI (data authority)              Plugin (presentation + execution)
 ├── Economy ledger (JSON)         ├── Behavior trees (mistreevous)
 ├── Trust profiles (JSON)         ├── DashboardStore (reactive)
 ├── Merchant catalog (JSON)       ├── Lit components (UI panels)
-├── WorkerManager (routing)       ├── SSE client (receives state)
+├── WorkerManager (routing)       ├── File-watch (world-state.json)
 └── Agent subprocesses (LLM)      └── EventBus (vault operations)
          │                                    │
-         └──── SSE bridge (HTTP+SSE) ────────┘
+         └── file-watch + subprocess JSONL ──┘
 ```
+
+CLI↔Plugin communication uses file-watch (world-state.json) + subprocess JSONL events. No server or SSE. CLI writes state to `.flowti/var/`; Plugin reads at boot and watches for changes. Agent work runs as CLI subprocesses with real-time JSONL event streams.
 
 **CLI owns data.** Task definitions, economy ledger, trust rules, and routing decisions all live in CLI domain code. Pure, testable, no I/O imports.
 
-**Plugin owns presentation.** BT execution, game rendering, UI panels, and vault file operations. Receives state updates via SSE.
+**Plugin owns presentation.** BT execution, game rendering, UI panels, and vault file operations. Reads CLI state files at boot and watches for changes.
 
 **WorkerManager is CLI-side.** It manages agent subprocesses, routes tasks, tracks capacity, and deducts tokens at the point of LLM execution.
 
@@ -386,29 +397,37 @@ CLI (data authority)              Plugin (presentation + execution)
 - DayClock, Environmental Objects, Micro-Events, Agent Quirks
 - Evolving Relationships, Ambient Visuals, Agent Memory
 
-### Increment 2: "Sustenance & Economy" (current — 2026-03-21)
+### Increment 2: "Sustenance & Economy" (completed 2026-03-22)
 
-62 tasks across 5 chunks. The gameplay loop:
+62 tasks across 5 chunks. The full gameplay loop:
 - Hunger/thirst needs with food/drink stations and pet steal/share
-- Task engine with lifecycle, standing orders, and vault operations
-- Economy (XP/Coin/Tokens), leveling, Merchant NPC
-- Progressive trust system with auto-promotion
-- Task routing with attribute scoring, auto-dequeue, process pool
+- Task engine with CRUD, 7-state lifecycle, standing orders, delegation
+- Economy (XP/Coin/Tokens), 8-level leveling, Merchant NPC
+- Progressive trust with 7 vault ops x 3 tiers, auto-promotion
+- Task routing with priority router, concurrency pool, task scoring
+- Narrative system, offline progress, echo system, interaction system
 - Visual progression, debug panel, pet utility roles
 
-### Increment 3: "Autonomy & Narrative" (next)
+### Increment 3: "The Working Agent" (current — 2026-03-22)
 
-Agents become self-directed. The world tells stories.
+Close the execution-to-reward gap so agents earn real XP/Coin from task completion, with live visual feedback in the game world:
+- Reward loop wiring (task completion triggers economy:reward CLI command)
+- Economy boot sync (read economy.json at Plugin boot)
+- Debug tab wiring (CLI debug commands from Plugin UI)
+- Food preferences (quirk-based station choice with echo feedback)
+
+### Increment 4: "Autonomy & Execution" (next)
+
+Agents perform real vault work and route tasks live.
 
 | Feature | Description | Depends On |
 |---------|------------|-----------|
-| **Offline Progress** | "Agents kept working while you were away." On return, summary of completed tasks, XP earned, events that happened. The killer idle-game return hook. | Economy + task queue stable |
-| **Emergent Narrative Log** | Running text story: "Auditor tagged 12 notes, then took a coffee break. Analyst noticed a stale document and flagged it. They argued about tabs vs spaces at the water cooler." RimWorld-style storytelling. | Memory system + task history |
-| **Task Forecasting** | Predict task completion time based on historical agent performance. "Auditor typically completes tagging tasks in 3 min." Show estimate in task assignment UI. | Economy ledger with enough data |
-| **Post-hoc Agent Interviews** | Click a completed task → "Ask about this" → Agent explains what they did and why, drawing on their memory system. Lightweight LLM call with task context. | Memory system + task completion |
-| **Agent Food Preferences** | Agents prefer certain stations based on quirks. Coffee-addict quirk → always picks CoffeeMachine over WaterCooler. Snacker quirk → gravitates to SnackTable. Ties into economy: buy preferred food from Merchant. | Hunger/thirst + quirk system |
+| **Vault Operation Execution** | First real file I/O — agents execute vault ops (tag, create, edit) with trust-gated staging and review flow. | Trust system + task engine stable |
+| **WorkerManager Live Routing** | Live task routing to running agent subprocesses with capacity tracking and attribute scoring. | Task routing + process pool stable |
+| **Journey Executor Integration** | Multi-step journey execution via CLI subprocesses, with checkpoint persistence and rollback. | Vault operations + task engine |
+| **Pet Utility Execution** | Vault-aware pet actions — scout (find untagged notes), fetch (contextual notes), audit (stale content), echo (reminders), triage (inbox sorting). | Pet utility roles + vault operations |
 
-### Increment 4: "Production Chains & Collaboration"
+### Increment 5: "Production Chains & Collaboration"
 
 Agents work together on complex multi-step workflows.
 
@@ -420,7 +439,7 @@ Agents work together on complex multi-step workflows.
 | **Cooking Mechanics** | Agents can prepare food at stations, requiring ingredients purchased from Merchant. Full crafting loop: buy ingredients → cook → higher-quality food → better hunger restore. | Merchant + hunger/thirst |
 | **Cross-Room Transport** | Agents physically carry task artifacts between rooms. Visual: agent walks from office to village carrying a document sprite. Inspired by Numbercruncher's transport system. | Room switcher + task engine |
 
-### Increment 5: "The Observatory"
+### Increment 6: "The Observatory"
 
 Deep observation and insight tools.
 
@@ -429,7 +448,7 @@ Deep observation and insight tools.
 | **Session Replay** | Rewind and watch what agents did during a period. Scrubber UI over the game world. See task execution in real-time playback. | Comprehensive activity logging |
 | **Agent Scorecards** | Weekly/monthly report per agent: tasks completed, XP earned, trust promotions, relationship changes, quirk triggers. Generated as vault notes. | Economy + memory + relationships |
 | **Life Reports** | Long-form auto-generated narrative of an agent's journey: "Auditor started as a Novice 3 weeks ago. They've completed 47 tasks, reached Level 5 Senior, and formed a best-friend bond with Analyst." | All systems mature |
-| **Dashboard Widgets** | Embeddable Obsidian widgets: economy balance, task queue, agent status grid. For users who want data without opening the game world. | Economy + SSE bridge |
+| **Dashboard Widgets** | Embeddable Obsidian widgets: economy balance, task queue, agent status grid. For users who want data without opening the game world. | Economy + file-watch bridge |
 | **Team Analytics** | Cross-agent metrics: team velocity, task distribution, trust progression curves, economy flow diagrams. | All economy data accumulated |
 
 ---
@@ -474,3 +493,5 @@ Deep observation and insight tools.
 | Agent Task Execution Spec | `01 - Projects/Flowti CLI/docs/specs/2026-03-19-agent-task-execution-design.md` |
 | Task Queue Orchestrator Spec | `01 - Projects/Flowti CLI/docs/specs/2026-03-15-task-queue-orchestrator-design.md` |
 | Stability Spec | `01 - Projects/Flowti CLI/docs/specs/2026-03-17-agent-world-stability-design.md` |
+| Working Agent Spec | `01 - Projects/Flowti CLI/docs/specs/2026-03-22-working-agent-design.md` |
+| Working Agent Plan | `01 - Projects/Flowti CLI/docs/plans/2026-03-22-working-agent.md` |

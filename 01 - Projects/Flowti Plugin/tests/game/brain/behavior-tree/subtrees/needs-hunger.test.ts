@@ -8,4 +8,10 @@ describe("NeedsHunger subtree", () => {
 		expect(NEEDS_HUNGER_SUBTREE).toContain("SeekFoodStation");
 		expect(NEEDS_HUNGER_SUBTREE).toContain("Eat");
 	});
+
+	it("includes preference-first selector branch", () => {
+		expect(NEEDS_HUNGER_SUBTREE).toContain("HasPreferredFoodStation");
+		expect(NEEDS_HUNGER_SUBTREE).toContain("SeekPreferredFoodStation");
+		expect(NEEDS_HUNGER_SUBTREE).toContain("selector");
+	});
 });

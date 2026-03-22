@@ -27,6 +27,19 @@ interface GrantModel {
 	readonly tokens: number;
 }
 
+interface RewardModel {
+	readonly agent: string;
+	readonly xp: number;
+	readonly coin: number;
+	readonly totalXp: number;
+	readonly totalCoin: number;
+	readonly level: number;
+	readonly leveledUp: boolean;
+	readonly newLevel?: number;
+	readonly newTitle?: string;
+	readonly trustPromoted?: { agentName: string; op: string; from: string; to: string };
+}
+
 // ── Renderers ────────────────────────────────────────────────────────
 
 export function renderBalance(data: BalanceModel, log: LogFn): void {
@@ -49,4 +62,14 @@ export function renderLedger(data: LedgerModel, log: LogFn): void {
 
 export function renderGrant(data: GrantModel, log: LogFn): void {
 	log(`${GREEN}Granted${RESET} to ${BOLD}${data.agent}${RESET}: +${data.coin} Coin, +${data.tokens} Tokens`);
+}
+
+export function renderReward(data: RewardModel, log: LogFn): void {
+	log(`${GREEN}Rewarded${RESET} ${BOLD}${data.agent}${RESET}: +${data.xp} XP, +${data.coin} Coin`);
+	if (data.leveledUp && data.newTitle) {
+		log(`  ${YELLOW}Level up!${RESET} Now Level ${data.newLevel} — ${data.newTitle}`);
+	}
+	if (data.trustPromoted) {
+		log(`  ${CYAN}Trust promoted:${RESET} ${data.trustPromoted.op} ${data.trustPromoted.from} → ${data.trustPromoted.to}`);
+	}
 }
