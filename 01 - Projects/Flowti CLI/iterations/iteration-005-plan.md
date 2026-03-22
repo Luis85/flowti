@@ -120,9 +120,35 @@ Phase B was delivered across 4 implementation plans, evolving from canvas-drawn 
 - [ ] Data export: game-side DashboardAgent missing `goals`, `behaviors`, `project`, `iteration`, `phase`
 - [ ] World state reconciliation: `onStateDiff` handler is a stub
 - [ ] Task execution: visual-only, no actual CLI agent runner integration
-- [ ] Game feel: no particles, emotes, or workstation glow
-- [ ] Social interaction: facing only, no proximity conversations
+- [ ] Game feel: no particles, emotes, or workstation glow — STRETCH GOAL
+- [ ] Social interaction: facing only, no proximity conversations — STRETCH GOAL
 - [ ] Interactive waiting: agents make small talk while LLM generates responses (talk engine expansion)
+
+### Phase D: BT→Brain Autonomous Behavior — NEW (from review #3)
+
+- [ ] Wire `seek-food` BT action → Brain TRANSITIONS
+- [ ] Wire `seek-drink` BT action → Brain TRANSITIONS
+- [ ] Wire `seek-rest` BT action → Brain TRANSITIONS
+- [ ] Wire `seek-merchant` BT action → Brain TRANSITIONS
+- [ ] Wire `seek-agent` BT action → Brain TRANSITIONS
+- [ ] Wire `seek-quiet` BT action → Brain TRANSITIONS
+- [ ] Wire `break` BT action → Brain TRANSITIONS
+
+### Phase E: Brain-Initiated LLM Sessions — NEW (from review #3)
+
+LLM session lifecycle must be decoupled from user selection. The brain/BT must be able to acquire and use an LLM session autonomously when an agent self-assigns a task or receives one while not selected.
+
+- [ ] Brain can request LLM session via worker manager when BT evaluates "execute-task"
+- [ ] Multiple agents can hold active LLM sessions concurrently (respect `maxConcurrent`)
+- [ ] Decay timer applies to brain-initiated sessions same as user-initiated
+- [ ] Decouple session acquisition from `spawnWorker()` — make it available to any spawned worker on demand
+
+### Live Testing & Validation — NEW (from review #3)
+
+- [ ] Live test: LLM persistent sessions (priming, session reuse, decay, re-acquisition)
+- [ ] Live test: Task & Economy engine (XP rewards, coin flow, trust progression)
+- [ ] Live test: Interaction templates (click-to-interact end-to-end)
+- [ ] Live test: Agent World visual overhaul (BT sync, debug, merchant)
 
 ### Phase C: CLI-Plugin Unified Architecture — NEW (from increment review)
 
@@ -131,12 +157,9 @@ Phase B was delivered across 4 implementation plans, evolving from canvas-drawn 
 #### C0: BLOCKER — Plugin Views Crash (must fix first)
 - [ ] Fix: Plugin views crash (`getViewType` TypeError after migration) — plugin is completely unusable
 
-#### C1: TUI Regression Fix
-- [ ] Fix: TUI Ink migration regression (missing project, agent, storybook functionality)
+#### ~~C1: TUI Regression Fix~~ — DROPPED (TUI removed by design, Plugin is sole UI)
 
-#### C2: CLI Bundling
-- [ ] Plugin build copies latest CLI build artifact into the plugin bundle
-- [ ] Plugin ships with embedded CLI (no external installation required)
+#### ~~C2: CLI Bundling~~ — DROPPED (infrastructure, deferred to next iteration)
 
 #### C3: Flowti CLI View (Main Entry Point)
 - [ ] Dedicated Flowti CLI View in Obsidian — main user interface for CLI
@@ -146,18 +169,14 @@ Phase B was delivered across 4 implementation plans, evolving from canvas-drawn 
 - [ ] Projects Hub tab — project management, build, test, reports
 - [ ] Plugin can execute ALL CLI functions and display output in this view
 
-#### C4: Skill Execution from Plugin
+#### C4: Skill Execution from Plugin — STRETCH GOAL
 - [ ] Ribbon icon / button to launch skill picker
 - [ ] Skill picker lists available skills from agent roster / skill map
 - [ ] CLI-Plugin bidirectional streaming (LLM output → Plugin, user input → CLI)
 - [ ] Interactive modal for LLM conversation (display output, present questions, accept input)
 - [ ] Output persistence (session transcript / artifacts saved)
 
-#### C5: Storybook Integration (Reworked)
-- [ ] Right-click sitemap → "Generate Component Library" action
-- [ ] Auto-scaffold Storybook environment + files from sitemap (no project-specific config)
-- [ ] Framework templates: CLI App, HTML (Lit), Vue, Angular, React
-- [ ] Opt-in — good-looking baseline out of the box, no generators needed
+#### ~~C5: Storybook Integration (Reworked)~~ — DROPPED (not agent world)
 
 ---
 
