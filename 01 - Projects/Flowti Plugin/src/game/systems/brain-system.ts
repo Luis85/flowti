@@ -80,6 +80,7 @@ export class BrainSystem {
 	private readonly quirkOverrides = new Map<string, Record<string, number>>();
 	private readonly wanderHints = new Map<string, { x: number; y: number }>();
 	private readonly breakThresholdBiases = new Map<string, number>();
+	private readonly roomAvoidances = new Map<string, string>();
 
 	constructor(config: BrainSystemConfig) {
 		this.bounds = config.bounds;
@@ -201,6 +202,20 @@ export class BrainSystem {
 		} else {
 			this.wanderHints.delete(name);
 		}
+	}
+
+	/** Set the room an agent should avoid. When idling in the avoided room, the agent will wander away. */
+	setRoomAvoidance(name: string, room: string | null): void {
+		if (room) {
+			this.roomAvoidances.set(name, room);
+		} else {
+			this.roomAvoidances.delete(name);
+		}
+	}
+
+	/** Get the room the agent is currently avoiding, if any. */
+	getRoomAvoidance(name: string): string | null {
+		return this.roomAvoidances.get(name) ?? null;
 	}
 
 	/** Set a break threshold bias from echo mood-residue weight. Negative values lower the threshold. */
