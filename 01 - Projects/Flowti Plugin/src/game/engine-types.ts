@@ -148,10 +148,6 @@ export interface EngineMutableState {
 	readonly prevWalkingState: Map<string, boolean>;
 	/** Last trail particle position per agent. */
 	readonly lastTrailPos: Map<string, { x: number; y: number }>;
-	/** Cooldown tracking for pet proximity reactions. */
-	readonly petReactionCooldowns: Map<string, number>;
-	/** Cooldown tracking for pet food/drink share interactions. */
-	readonly petShareCooldowns: Map<string, number>;
 	/** Known entity IDs to distinguish initial adds from updates. */
 	readonly knownEntities: Set<string>;
 	/** Dedup guard for EventBus / external action relay. */

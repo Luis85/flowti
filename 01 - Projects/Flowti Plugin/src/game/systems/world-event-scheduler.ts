@@ -22,6 +22,11 @@ export class WorldEventScheduler {
 	private activeEvent: MicroEventDefinition | null = null;
 	private activeRemainingMs = 0;
 	private gapRemainingMs = 0;
+	private submitInteraction?: (interaction: Record<string, unknown>) => void;
+
+	setInteractionSubmitter(fn: (interaction: Record<string, unknown>) => void): void {
+		this.submitInteraction = fn;
+	}
 
 	registerHandler(eventType: string, handler: () => void): void {
 		this.handlers.set(eventType, handler);
@@ -103,6 +108,21 @@ export class WorldEventScheduler {
 			this.firedThisCycle.add(next.definition.type);
 			const handler = this.handlers.get(next.definition.type);
 			if (handler) handler();
+			if (this.submitInteraction) {
+				this.submitInteraction({
+					id: `world-event-${next.definition.type}-${Date.now()}`,
+					initiator: { id: "room-hub", entityType: "room" },
+					targets: [],
+					cardinality: "one-to-many",
+					category: "reactive",
+					action: next.definition.type,
+					priority: 70,
+					context: { templateId: next.definition.type },
+					cooldownMs: 300000,
+					effects: [],
+					timestamp: Date.now(),
+				});
+			}
 		}
 	}
 }

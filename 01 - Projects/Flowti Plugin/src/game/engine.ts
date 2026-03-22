@@ -62,8 +62,9 @@ import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { NarrativeSystem } from "./systems/narrative-system.js";
-import { bootstrapInteractionSystem } from "./systems/interaction/bootstrap-interactions.js";
+import { bootstrapInteractionSystem, registerPetResolver, createNPCIntentResolver, createRoomIntentResolver } from "./systems/interaction/bootstrap-interactions.js";
 import type { InteractionBootstrap } from "./systems/interaction/bootstrap-interactions.js";
+import type { Interaction } from "../../../Flowti CLI/src/domain/interactions/interaction-types.js";
 import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
 import { createEnvironmentalObjects, registerEnvironmentalObjects, createPets, getPetBTPairs } from "./engine-objects.js";
@@ -341,8 +342,12 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		bubble: bubbleSystem,
 	});
 	interactionLockQuery = (entityId) => interactionBootstrap.system.isEntityLocked(entityId);
+	worldEventScheduler.setInteractionSubmitter((interaction) => {
+		interactionBootstrap.system.getBus().submit(interaction as unknown as Interaction);
+	});
 
 	const registry = new SceneRegistry();
+	registry.setEntityRoom("npc-merchant", "hub");
 	const btSystem = new BtSystem();
 	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
 	const cycleConversationCounts = new Map<string, number>();
@@ -362,6 +367,101 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// Register pets in talk engine so they have ambient chatter (core/composed phrases)
 	for (const pet of pets) {
 		talkEngine.register(pet.entityId, "pet", [], 10);
+	}
+
+	// ── Pet interaction resolvers ──────────────────────────
+	for (const pet of pets) {
+		if (pet.petType === "fish") continue;
+		registerPetResolver(interactionBootstrap, pet.entityId, {
+			social: {
+				getNearbyEntities: (entityId: string) => [...socialSystem.getNearbyEntities(entityId)],
+			},
+			relationship: relationshipSystem,
+			needs: needsSystem,
+			dayClock,
+			conversation: conversationEngine,
+		}, () => ({
+			hunger: pet.getHunger(),
+			thirst: pet.getThirst(),
+			energy: 80,
+			affinity: new Map(pet.getBondedAgent() ? [[pet.getBondedAgent()!, pet.getAffection()]] : []),
+		}));
+	}
+
+	// ── NPC interaction resolver (merchant) ────────────
+	const merchantResolver = createNPCIntentResolver({
+		npcId: "npc-merchant",
+		npcRole: "merchant",
+		rules: [
+			{
+				npcRole: "merchant",
+				trigger: "proximity" as const,
+				conditions: [],
+				interaction: {
+					category: "commerce" as const,
+					action: "merchant-pitch",
+					cardinality: "one-to-one" as const,
+					effects: [{ type: "bubble" as const, target: "initiator" as const, bubbleKind: "speech", phrasePool: "merchant-pitch" }],
+					cooldownMs: 60000,
+				},
+				weight: 50,
+				cooldownMs: 60000,
+			},
+			{
+				npcRole: "merchant",
+				trigger: "idle-timeout" as const,
+				conditions: [],
+				interaction: {
+					category: "reactive" as const,
+					action: "merchant-idle-grumble",
+					cardinality: "entity-to-environment" as const,
+					effects: [{ type: "bubble" as const, target: "initiator" as const, bubbleKind: "thought", phrasePool: "merchant-idle-grumble" }],
+					cooldownMs: 45000,
+				},
+				weight: 30,
+				cooldownMs: 45000,
+			},
+		],
+		getNearby: () => [...socialSystem.getNearbyEntities("npc-merchant")],
+		getCooldown: () => interactionBootstrap.system.getBus().getCooldown("npc-merchant", "npc", "merchant-pitch"),
+		now: () => Date.now(),
+	});
+	interactionBootstrap.resolvers.entities.set("npc-merchant", merchantResolver);
+
+	// ── Room interaction resolvers ─────────────────────
+	const ROOM_CONFIGS = [
+		{ id: "room-hub", roomName: "hub", type: "break-room" },
+		{ id: "room-office", roomName: "office", type: "office" },
+		{ id: "room-village", roomName: "village", type: "village" },
+		{ id: "room-station", roomName: "station", type: "station" },
+	];
+	for (const roomCfg of ROOM_CONFIGS) {
+		const roomResolver = createRoomIntentResolver({
+			roomId: roomCfg.id,
+			roomType: roomCfg.type,
+			rules: [],
+			getOccupancy: () => registry.getEntitiesInRoom(roomCfg.roomName).length,
+			getOccupantIds: () => registry.getEntitiesInRoom(roomCfg.roomName),
+			getCollectiveMood: () => {
+				const occupants = registry.getEntitiesInRoom(roomCfg.roomName);
+				if (occupants.length === 0) return { mood: "neutral", intensity: 50 };
+				let totalMorale = 0;
+				let count = 0;
+				for (const id of occupants) {
+					try {
+						totalMorale += needsSystem.getNeeds(id).morale;
+						count++;
+					} catch {
+						// pet/npc entities don't have needs — skip
+					}
+				}
+				const avg = count > 0 ? totalMorale / count : 50;
+				const mood = avg < 30 ? "stressed" : avg > 80 ? "energized" : avg > 60 ? "relaxed" : "neutral";
+				return { mood, intensity: avg };
+			},
+			getPhase: () => dayClock.getPhase(),
+		});
+		interactionBootstrap.resolvers.entities.set(roomCfg.id, roomResolver);
 	}
 
 	// ── Agent select handler ────────────────────────────
@@ -468,7 +568,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Pre-update loop state ───────────────────────────
 	const lastTime = performance.now();
 	const prevWalkingState = new Map<string, boolean>();
-	const lastTrailPos = new Map<string, { x: number; y: number }>(); const petReactionCooldowns = new Map<string, number>(); const petShareCooldowns = new Map<string, number>();
+	const lastTrailPos = new Map<string, { x: number; y: number }>();
 
 	// ── Particle renderers + environmental objects + lighting ────────
 	for (const scene of [hubScene, officeScene, villageScene, stationScene]) {
@@ -603,8 +703,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			firedReactiveTriggers,
 			prevWalkingState,
 			lastTrailPos,
-			petReactionCooldowns,
-			petShareCooldowns,
 			knownEntities,
 			recentActionIds,
 			perfSampler,

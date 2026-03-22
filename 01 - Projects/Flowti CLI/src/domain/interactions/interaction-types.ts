@@ -28,7 +28,8 @@ export type DayPhase =
 	| "afternoon"
 	| "afternoon-slump"
 	| "wind-down"
-	| "evening-departure";
+	| "evening-departure"
+	| "night-owl";
 
 // ── Interaction Context ─────────────────────────────────────────────
 

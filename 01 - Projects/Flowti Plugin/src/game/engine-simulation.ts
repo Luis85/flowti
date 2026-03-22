@@ -11,18 +11,16 @@ import type { InteractableActor } from "./actors/interactable-actor.js";
 import { renderInteractionActions } from "./systems/interaction/interaction-effect-renderer.js";
 import { PetSceneEntity } from "./actors/pet-scene-entity.js";
 import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
-import { PET_DEFINITIONS } from "./data/pet-definitions.js";
 import {
 	DOMAIN_PARTICLE_COLORS, DEFAULT_PARTICLE_COLOR,
 	LIGHT_LERP_SPEED, ENGINE_WIDTH, ENGINE_HEIGHT,
 	ROOM_OFFSETS, UNKNOWN_ROOM_OFFSET,
 	OBJECT_ATTRACTION_RULES,
-	PET_REACTION_COOLDOWN, TRAIL_DISTANCE_SQ, TRAIL_Y_OFFSET,
+	TRAIL_DISTANCE_SQ, TRAIL_Y_OFFSET,
 	WEATHER_PARTICLE_CHANCE, WEATHER_PARTICLE_LIFETIME, WEATHER_PARTICLE_OPACITY,
 	DOG_FOLLOW_CHANCE, CAT_FOLLOW_STRESSED_CHANCE, CAT_STRESS_MORALE_THRESHOLD,
 	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS,
 } from "./engine-config.js";
-import { checkPetShareInteraction } from "./engine-pet-share.js";
 import {
 	HUNGER_PHRASES, THIRST_PHRASES, EATING_PHRASES, DRINKING_PHRASES, STEAL_REACTIONS,
 } from "./systems/talk/templates/sustenance-phrases.js";
@@ -272,6 +270,19 @@ export function tickPets(ctx: EngineContext): void {
 	runTimedGameSystem(ctx, "pets", () => {
 		for (const pet of ctx.pets) {
 			pet.updateBehavior(ctx.state.deltaMs);
+
+			// Tick pet interaction resolver
+			if (ctx.interactionBootstrap) {
+				const petResolver = ctx.interactionBootstrap.resolvers.entities.get(pet.entityId);
+				if (petResolver) {
+					const petInteractions = petResolver.resolve();
+					const bus = ctx.interactionBootstrap.system.getBus();
+					for (const interaction of petInteractions) {
+						bus.submit(interaction);
+					}
+				}
+			}
+
 			const petRoom = ctx.systems.registry.getEntityRoom(pet.entityId);
 
 			// Update pet voice based on state — drives persona_quirk for talk engine
@@ -279,9 +290,6 @@ export function tickPets(ctx: EngineContext): void {
 
 			updatePetFollow(ctx, pet, petRoom);
 			tryPetAutoFollow(ctx, pet, petRoom);
-			checkPetProximityReactions(ctx, pet, petRoom);
-			checkPetShareInteraction(ctx, pet, petRoom);
-			tryPetCatalystConversation(ctx, pet, petRoom);
 
 			// PetSceneEntity draws a proxy Actor; PetActor.pos is updated here. Without syncing,
 			// sprites stay at spawn until a room transfer recenters them at the door.
@@ -358,66 +366,6 @@ function tryPetAutoFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js
 			pet.setFollowTarget(candidates[Math.floor(Math.random() * candidates.length)]);
 		}
 	}
-}
-
-/** Check agent proximity reactions for a pet (thought bubbles + needs effects). */
-function checkPetProximityReactions(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
-	const { systems: sys, state } = ctx;
-	if (pet.getState() === "sleeping" || !petRoom) return;
-
-	for (const agentName of sys.needs.getAgentNames()) {
-		if (sys.registry.getEntityRoom(agentName) !== petRoom) continue;
-		const agentPos = sys.brain.getPosition(agentName);
-		if (!agentPos) continue;
-		const dx = pet.pos.x - agentPos.x;
-		const dy = pet.pos.y - agentPos.y;
-		const dist = Math.sqrt(dx * dx + dy * dy);
-		if (dist >= pet.getInteractRadius()) continue;
-
-		// Track proximity time for bonding — always accumulate, not gated by reaction cooldown
-		pet.trackProximity(agentName, state.deltaMs);
-
-		const cooldownKey = `${agentName}:${pet.petType}`;
-		const lastReaction = state.petReactionCooldowns.get(cooldownKey) ?? 0;
-		if (performance.now() - lastReaction <= PET_REACTION_COOLDOWN) continue;
-
-		state.petReactionCooldowns.set(cooldownKey, performance.now());
-		sys.needs.applyEffect(agentName, pet.getNeedsEffects());
-		const def = PET_DEFINITIONS.find((d) => d.type === pet.petType);
-		if (def && def.phrases.length > 0) {
-			const phrase = def.phrases[Math.floor(Math.random() * def.phrases.length)];
-			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
-		}
-		sys.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
-	}
-}
-
-/** Pet catalyst conversations — when a pet is near two agents, try to trigger a pet-catalyst script. */
-const PET_CATALYST_CHANCE = 0.0005;
-
-function tryPetCatalystConversation(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
-	const { systems: sys } = ctx;
-	if (pet.getState() === "sleeping" || !petRoom) return;
-	if (Math.random() >= PET_CATALYST_CHANCE) return;
-
-	// Find two nearby agents in the same room
-	const nearby: string[] = [];
-	for (const agentName of sys.needs.getAgentNames()) {
-		if (sys.registry.getEntityRoom(agentName) !== petRoom) continue;
-		const agentPos = sys.brain.getPosition(agentName);
-		if (!agentPos) continue;
-		const dx = pet.pos.x - agentPos.x;
-		const dy = pet.pos.y - agentPos.y;
-		if (dx * dx + dy * dy < 10000) nearby.push(agentName); // ~100px radius
-		if (nearby.length >= 2) break;
-	}
-	if (nearby.length < 2) return;
-
-	const domainA = ctx.store.agents.find((a) => a.name === nearby[0])?.domain ?? "";
-	const domainB = ctx.store.agents.find((a) => a.name === nearby[1])?.domain ?? "";
-	sys.conversation.tryScript(nearby[0], nearby[1], "pet-catalyst", {
-		domainA, domainB, pet: pet.entityId,
-	});
 }
 
 // ── 7. tickRoomTransit — room switching via RoomSwitcher ─────────────
@@ -578,6 +526,19 @@ export function tickInteractions(ctx: EngineContext): void {
 					},
 				},
 			});
+		}
+
+		// ── Tick NPC/room resolvers and submit results ────────────
+		if (ctx.interactionBootstrap) {
+			for (const [id, resolver] of ctx.interactionBootstrap.resolvers.entities) {
+				if (id.startsWith("npc-") || id.startsWith("room-")) {
+					const interactions = resolver.resolve();
+					const bus = ctx.interactionBootstrap.system.getBus();
+					for (const interaction of interactions) {
+						bus.submit(interaction);
+					}
+				}
+			}
 		}
 	});
 }
