@@ -665,8 +665,9 @@ export class FlowtiTabTeam extends FlowtiElement {
 		if (this.actionsLocked) return;
 		this._slots = this._slots.map((s) => {
 			if (s.id !== id) return s;
-			const { assignee: _a, ...rest } = s;
-			return rest as TeamRoleSlot;
+			const next = { ...s };
+			delete (next as { assignee?: string }).assignee;
+			return next as TeamRoleSlot;
 		});
 		this.requestUpdate();
 		this.dispatchEvent(new CustomEvent("team-roster-save", { detail: { slots: this._slots }, bubbles: true, composed: true }));

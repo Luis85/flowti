@@ -360,6 +360,7 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 		if (el.projectHubBusy) return;
 		const preset = e.detail?.preset ? String(e.detail.preset) : undefined;
 		if (!preset) { ctx.openNote?.(`01 - Projects/${ctx.getCurrentProject()}/sitemap.canvas`); return; }
+		el.canvasPreset = preset;
 		ctx.startProjectHubWork("Generating sitemap canvas…");
 		void projectService.generateSitemapCanvas(ctx.getCurrentProject(), ctx.appendProjectHubLog, { preset, force: true }).then((r) => {
 			ctx.endProjectHubWork(r);
