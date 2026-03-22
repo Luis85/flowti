@@ -272,6 +272,7 @@ export function tickPets(ctx: EngineContext): void {
 			tryPetAutoFollow(ctx, pet, petRoom);
 			checkPetProximityReactions(ctx, pet, petRoom);
 			checkPetShareInteraction(ctx, pet, petRoom);
+			tryPetCatalystConversation(ctx, pet, petRoom);
 
 			// PetSceneEntity draws a proxy Actor; PetActor.pos is updated here. Without syncing,
 			// sprites stay at spawn until a room transfer recenters them at the door.
@@ -355,6 +356,34 @@ function checkPetProximityReactions(ctx: EngineContext, pet: import("./actors/pe
 	}
 }
 
+/** Pet catalyst conversations — when a pet is near two agents, try to trigger a pet-catalyst script. */
+const PET_CATALYST_CHANCE = 0.0005;
+
+function tryPetCatalystConversation(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
+	const { systems: sys } = ctx;
+	if (pet.getState() === "sleeping" || !petRoom) return;
+	if (Math.random() >= PET_CATALYST_CHANCE) return;
+
+	// Find two nearby agents in the same room
+	const nearby: string[] = [];
+	for (const agentName of sys.needs.getAgentNames()) {
+		if (sys.registry.getEntityRoom(agentName) !== petRoom) continue;
+		const agentPos = sys.brain.getPosition(agentName);
+		if (!agentPos) continue;
+		const dx = pet.pos.x - agentPos.x;
+		const dy = pet.pos.y - agentPos.y;
+		if (dx * dx + dy * dy < 10000) nearby.push(agentName); // ~100px radius
+		if (nearby.length >= 2) break;
+	}
+	if (nearby.length < 2) return;
+
+	const domainA = ctx.store.agents.find((a) => a.name === nearby[0])?.domain ?? "";
+	const domainB = ctx.store.agents.find((a) => a.name === nearby[1])?.domain ?? "";
+	sys.conversation.tryScript(nearby[0], nearby[1], "pet-catalyst", {
+		domainA, domainB, pet: pet.entityId,
+	});
+}
+
 // ── 7. tickRoomTransit — room switching via RoomSwitcher ─────────────
 
 export function tickRoomTransit(ctx: EngineContext): void {
@@ -386,8 +415,22 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 		} else if (action.type === "goal-completed" || action.type === "artifact-dropped") {
 			sys.brain.releaseWork(action.agentName);
 		} else if (action.type === "speaking") {
+			const source = String(action.data.source ?? "");
 			const text = String(action.data.text ?? "");
-			if (text) {
+			if (source === "social") {
+				// Route social interactions through ConversationEngine first
+				const target = String(action.data.target ?? "");
+				if (target) {
+					const domainA = ctx.store.agents.find((a) => a.name === action.agentName)?.domain ?? "";
+					const domainB = ctx.store.agents.find((a) => a.name === target)?.domain ?? "";
+					const started = sys.conversation.tryScript(action.agentName, target, "proximity", {
+						domainA, domainB,
+					});
+					if (!started && text) {
+						sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+					}
+				}
+			} else if (text) {
 				sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
 			}
 		}
@@ -448,6 +491,10 @@ export function tickSocial(ctx: EngineContext): void {
 			(name) => sys.brain.getState(name)?.state ?? "idle",
 			(name) => sys.needs.getNeeds(name),
 		);
+	});
+
+	runTimedGameSystem(ctx, "conversation", () => {
+		sys.conversation.update(state.deltaMs);
 	});
 
 	const onSlice = ctx.state.perfSampler?.onAgentSlice;
