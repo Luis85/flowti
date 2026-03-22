@@ -62,6 +62,8 @@ import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { NarrativeSystem } from "./systems/narrative-system.js";
+import { bootstrapInteractionSystem } from "./systems/interaction/bootstrap-interactions.js";
+import type { InteractionBootstrap } from "./systems/interaction/bootstrap-interactions.js";
 import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
 import { createEnvironmentalObjects, registerEnvironmentalObjects, createPets, getPetBTPairs } from "./engine-objects.js";
@@ -305,6 +307,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	});
 
 	// ── Conversation engine ─────────────────────────
+	let interactionLockQuery: ((entityId: string) => boolean) | undefined;
+
 	const conversationEngine = new ConversationEngine({
 		showBubble: (agentName, kind, text) => {
 			bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
@@ -314,6 +318,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		recordConversation: (a, b) => relationshipSystem.recordConversation(a, b),
 		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
 		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),
+		externalLockQuery: (entityId) => interactionLockQuery?.(entityId) ?? false,
 	});
 	conversationEngine.registerScripts([
 		...RIVAL_SCRIPTS, ...ACQUAINTANCE_SCRIPTS, ...COLLEAGUE_SCRIPTS,
@@ -322,6 +327,20 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		...MERCHANT_SCRIPTS, ...OFFLINE_RETURN_SCRIPTS,
 	]);
 	conversationEngine.registerJokes([...RUNNING_JOKES]);
+
+	// ── Interaction system ──────────────────────────────
+	const interactionBootstrap = bootstrapInteractionSystem({
+		social: {
+			getNearbyEntities: (entityId: string) => [...socialSystem.getNearbyEntities(entityId)],
+		},
+		relationship: relationshipSystem,
+		needs: needsSystem,
+		dayClock,
+		conversation: conversationEngine,
+		talk: talkEngine,
+		bubble: bubbleSystem,
+	});
+	interactionLockQuery = (entityId) => interactionBootstrap.system.isEntityLocked(entityId);
 
 	const registry = new SceneRegistry();
 	const btSystem = new BtSystem();
@@ -436,7 +455,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		emote: emoteSystem, social: socialSystem, needs: needsSystem,
 		sensor: sensorSystem, engagement: engagementSystem, ritual: ritualSystem,
 		memory: memorySystem, quirk: quirkSystem, relationship: relationshipSystem,
-		bt: btSystem, btDeps, knownEntities,
+		bt: btSystem, btDeps, knownEntities, interactionBootstrap,
 	};
 
 	function doRegisterAgents(agents: readonly DashboardAgent[]): void {
@@ -548,6 +567,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			roomSwitcher,
 			narrative: narrativeSystem,
 			cameraSystem: cameraRef.current,
+			interactions: interactionBootstrap.system,
 		},
 		scenes: {
 			hub: hubScene,
@@ -571,6 +591,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			waterBowlStation,
 		},
 		pets,
+		interactionBootstrap,
 		btBridge: {
 			worldState: btWorldState,
 			clock: btClock,

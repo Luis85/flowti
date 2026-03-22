@@ -8,6 +8,7 @@
 
 import type { EngineContext } from "./engine-types.js";
 import type { InteractableActor } from "./actors/interactable-actor.js";
+import { renderInteractionActions } from "./systems/interaction/interaction-effect-renderer.js";
 import { PetSceneEntity } from "./actors/pet-scene-entity.js";
 import type { ReactiveTrigger } from "./systems/talk/templates/reactive-phrases.js";
 import { PET_DEFINITIONS } from "./data/pet-definitions.js";
@@ -521,7 +522,63 @@ export function tickInteractions(ctx: EngineContext): void {
 	if (!interactionSystem) return;
 
 	runTimedGameSystem(ctx, "interactions", () => {
-		interactionSystem.tick(ctx.state.deltaMs);
+		const { actions, state: effectState } = interactionSystem.tick(ctx.state.deltaMs);
+		const { systems: sys } = ctx;
+
+		// ── Apply affinity changes ─────────────────────────────────
+		// RelationshipSystem has no public adjustAffinity(a, b, amount) method.
+		// Use recordConversation (+2) for positive and recordBicker (-3) for negative
+		// as best-fit proxies; fine-grained per-amount adjustment deferred until
+		// RelationshipSystem exposes a public adjustAffinity API.
+		for (const change of effectState.affinityChanges) {
+			if (change.amount > 0) {
+				sys.relationship.recordConversation(change.from, change.to);
+			} else if (change.amount < 0) {
+				sys.relationship.recordBicker(change.from, change.to);
+			}
+		}
+
+		// ── Apply need changes ─────────────────────────────────────
+		for (const change of effectState.needChanges) {
+			const needEffect: Partial<AgentNeeds> = { [change.need]: change.amount } as Partial<AgentNeeds>;
+			sys.needs.applyEffect(change.entityId, needEffect);
+		}
+
+		// ── Apply mood changes ─────────────────────────────────────
+		// NeedsSystem derives mood from needs state; no setMood API exists.
+		// Mood changes from interactions are skipped — mood will shift
+		// organically as need effects propagate.
+
+		// ── Record memories ────────────────────────────────────────
+		for (const record of effectState.memoryRecords) {
+			sys.memory.recordEvent(record.entityId, {
+				cycle: sys.dayClock.getCycleCount(),
+				type: "interaction",
+				summary: record.memory,
+			});
+		}
+
+		// ── Route actions to effect renderer ───────────────────────
+		if (actions.length > 0) {
+			renderInteractionActions(actions, {
+				talk: {
+					triggerReactive(entityId: string, trigger: string) {
+						sys.talk.triggerReactive(entityId, trigger as ReactiveTrigger);
+					},
+				},
+				bubble: {
+					showBubble(entityId: string, kind: string, text: string) {
+						sys.bubble.showBubble(
+							entityId,
+							kind as "speech" | "thought" | "question",
+							text,
+							ctx.engine.currentScene,
+							ctx.lookups.findAgentActor,
+						);
+					},
+				},
+			});
+		}
 	});
 }
 
