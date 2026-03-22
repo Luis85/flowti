@@ -107,59 +107,25 @@ export class ConversationEngine {
 		const tier = this.callbacks.getTier(agentA, agentB);
 		const now = performance.now();
 
-		const eligible = this.scripts.filter((s) => {
-			if (s.trigger !== trigger) return false;
-			if (!tierInRange(tier, s.tierRange)) return false;
-			if (s.domainFilter) {
-				const pair = [ctx.domainA, ctx.domainB].sort();
-				const filterPair = [...s.domainFilter].sort();
-				if (pair[0] !== filterPair[0] || pair[1] !== filterPair[1]) return false;
-			}
-			const lastUsed = this.cooldowns.get(s.id) ?? 0;
-			if (now - lastUsed < s.cooldownMs) return false;
-			return true;
-		});
-
-		// Also search jokes
-		const eligibleJokes = this.jokes.filter((j) => {
-			if (j.trigger !== trigger) return false;
-			if (!tierInRange(tier, j.tierRange)) return false;
-			if (j.domainFilter) {
-				const pair = [ctx.domainA, ctx.domainB].sort();
-				const filterPair = [...j.domainFilter].sort();
-				if (pair[0] !== filterPair[0] || pair[1] !== filterPair[1]) return false;
-			}
-			const lastUsed = this.cooldowns.get(j.id) ?? 0;
-			if (now - lastUsed < j.cooldownMs) return false;
-			return true;
-		});
+		const eligible = this.filterEligibleScripts(trigger, tier, ctx, now);
+		const eligibleJokes = this.filterEligibleJokes(trigger, tier, ctx, now);
 
 		if (eligible.length === 0 && eligibleJokes.length === 0) return false;
 
-		// If we have eligible jokes, try them with some probability
 		if (eligibleJokes.length > 0 && (eligible.length === 0 || Math.random() < 0.3)) {
-			const joke = this.weightedPickJoke(eligibleJokes);
-			if (joke) {
-				const playCount = this.callbacks.getJokePlayCount?.(agentA, agentB, joke.id) ?? 0;
-				const variantIndex = Math.min(playCount, joke.maxEscalation - 1);
-				const turns = joke.variants[variantIndex];
-				const vars: Record<string, string> = {
-					agentA,
-					agentB,
-					domain_a: ctx.domainA,
-					domain_b: ctx.domainB,
-					pet: ctx.pet ?? "",
-					agentC: ctx.agentC ?? "",
-				};
-				this.startJoke(joke, agentA, agentB, turns, vars, ctx.pet);
-				return true;
-			}
+			if (this.tryPlayJoke(eligibleJokes, agentA, agentB, ctx)) return true;
 		}
 
 		const script = this.weightedPick(eligible);
 		if (!script) return false;
 
-		const vars: Record<string, string> = {
+		const vars = this.buildVars(agentA, agentB, ctx);
+		this.startScript(script, agentA, agentB, vars, ctx.pet);
+		return true;
+	}
+
+	private buildVars(agentA: string, agentB: string, ctx: TryScriptContext): Record<string, string> {
+		return {
 			agentA,
 			agentB,
 			domain_a: ctx.domainA,
@@ -167,8 +133,16 @@ export class ConversationEngine {
 			pet: ctx.pet ?? "",
 			agentC: ctx.agentC ?? "",
 		};
+	}
 
-		this.startScript(script, agentA, agentB, vars, ctx.pet);
+	private tryPlayJoke(eligibleJokes: RunningJoke[], agentA: string, agentB: string, ctx: TryScriptContext): boolean {
+		const joke = this.weightedPickJoke(eligibleJokes);
+		if (!joke) return false;
+		const playCount = this.callbacks.getJokePlayCount?.(agentA, agentB, joke.id) ?? 0;
+		const variantIndex = Math.min(playCount, joke.maxEscalation - 1);
+		const turns = joke.variants[variantIndex];
+		const vars = this.buildVars(agentA, agentB, ctx);
+		this.startJoke(joke, agentA, agentB, turns, vars, ctx.pet);
 		return true;
 	}
 
@@ -277,6 +251,34 @@ export class ConversationEngine {
 				timer: 0,
 			});
 		}
+	}
+
+	private filterEligibleScripts(trigger: ConversationTrigger, tier: RelationshipTier, ctx: TryScriptContext, now: number): ConversationScript[] {
+		return this.scripts.filter((s) => {
+			if (s.trigger !== trigger) return false;
+			if (!tierInRange(tier, s.tierRange)) return false;
+			if (s.domainFilter) {
+				const pair = [ctx.domainA, ctx.domainB].sort();
+				const filterPair = [...s.domainFilter].sort();
+				if (pair[0] !== filterPair[0] || pair[1] !== filterPair[1]) return false;
+			}
+			const lastUsed = this.cooldowns.get(s.id) ?? 0;
+			return now - lastUsed >= s.cooldownMs;
+		});
+	}
+
+	private filterEligibleJokes(trigger: ConversationTrigger, tier: RelationshipTier, ctx: TryScriptContext, now: number): RunningJoke[] {
+		return this.jokes.filter((j) => {
+			if (j.trigger !== trigger) return false;
+			if (!tierInRange(tier, j.tierRange)) return false;
+			if (j.domainFilter) {
+				const pair = [ctx.domainA, ctx.domainB].sort();
+				const filterPair = [...j.domainFilter].sort();
+				if (pair[0] !== filterPair[0] || pair[1] !== filterPair[1]) return false;
+			}
+			const lastUsed = this.cooldowns.get(j.id) ?? 0;
+			return now - lastUsed >= j.cooldownMs;
+		});
 	}
 
 	private weightedPick(scripts: readonly ConversationScript[]): ConversationScript | undefined {

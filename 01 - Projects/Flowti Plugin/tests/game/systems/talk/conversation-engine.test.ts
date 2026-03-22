@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Mock } from "vitest";
 import { ConversationEngine } from "../../../../src/game/systems/talk/conversation-engine.js";
+import type { ConversationEngineCallbacks } from "../../../../src/game/systems/talk/conversation-engine.js";
 import type { ConversationScript } from "../../../../src/game/systems/talk/conversation-types.js";
 
 const TEST_SCRIPT: ConversationScript = {
@@ -17,10 +19,10 @@ const TEST_SCRIPT: ConversationScript = {
 };
 
 describe("ConversationEngine", () => {
-	let showBubble: ReturnType<typeof vi.fn>;
-	let getTier: ReturnType<typeof vi.fn>;
-	let silenceTalk: ReturnType<typeof vi.fn>;
-	let recordConversation: ReturnType<typeof vi.fn>;
+	let showBubble: Mock<ConversationEngineCallbacks["showBubble"]>;
+	let getTier: Mock<ConversationEngineCallbacks["getTier"]>;
+	let silenceTalk: Mock<ConversationEngineCallbacks["silenceTalk"]>;
+	let recordConversation: Mock<ConversationEngineCallbacks["recordConversation"]>;
 	let engine: ConversationEngine;
 
 	beforeEach(() => {

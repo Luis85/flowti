@@ -98,13 +98,17 @@ export class FragmentComposer {
 		return pool[Math.floor(Math.random() * pool.length)];
 	}
 
+	private passesFilter<T>(allowed: readonly T[] | undefined, value: T | undefined): boolean {
+		if (!allowed || !value) return true;
+		return allowed.includes(value);
+	}
+
 	private matchesFilters(pool: FragmentPool, context: ComposeContext): boolean {
 		const { filters } = pool;
-		if (filters.mood && context.mood && !filters.mood.includes(context.mood as AgentMood)) return false;
-		if (filters.domain && context.domain && !filters.domain.includes(context.domain)) return false;
-		if (filters.tier && context.tier && !filters.tier.includes(context.tier)) return false;
-		if (filters.petVoice && context.petVoice && !filters.petVoice.includes(context.petVoice)) return false;
-		if (filters.timeOfDay && context.timeOfDay && !filters.timeOfDay.includes(context.timeOfDay)) return false;
-		return true;
+		return this.passesFilter(filters.mood, context.mood as AgentMood | undefined)
+			&& this.passesFilter(filters.domain, context.domain)
+			&& this.passesFilter(filters.tier, context.tier)
+			&& this.passesFilter(filters.petVoice, context.petVoice)
+			&& this.passesFilter(filters.timeOfDay, context.timeOfDay);
 	}
 }
