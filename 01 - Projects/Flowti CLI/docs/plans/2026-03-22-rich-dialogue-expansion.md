@@ -2328,20 +2328,26 @@ const talkEngine = new TalkEngine(callbacks, {
 
 Import `PET_PHRASE_CHAINS` and append them to the phrase chains registry.
 
-- [ ] **Step 4: Populate pet reactive trigger arrays**
+- [ ] **Step 4: Populate pet reactive trigger arrays at module level (static initialization)**
 
-Import `PET_REACTIVE_PHRASES` and merge into `REACTIVE_TEMPLATES`:
+**IMPORTANT:** Do NOT use runtime push/mutation of `REACTIVE_TEMPLATES` — this breaks test isolation (module-level state mutated after import). Instead, go back to `reactive-phrases.ts` (modified in Task 4) and replace the empty arrays with direct imports from `pet-reactive-phrases.ts`:
+
+In `src/game/systems/talk/templates/reactive-phrases.ts`, change the empty pet trigger arrays to import from the pet content file:
 
 ```typescript
-for (const [trigger, phrases] of Object.entries(PET_REACTIVE_PHRASES)) {
-	const existing = REACTIVE_TEMPLATES[trigger as ReactiveTrigger];
-	if (existing && Array.isArray(existing)) {
-		(existing as WeightedTemplate[]).push(...phrases);
-	}
-}
+import { PET_REACTIVE_PHRASES } from "./pet-reactive-phrases.js";
+
+// Then in the REACTIVE_TEMPLATES object:
+	"pet-hungry": PET_REACTIVE_PHRASES["pet-hungry"],
+	"pet-sleepy": PET_REACTIVE_PHRASES["pet-sleepy"],
+	"pet-bored": PET_REACTIVE_PHRASES["pet-bored"],
+	"pet-startled": PET_REACTIVE_PHRASES["pet-startled"],
+	"pet-affectionate": PET_REACTIVE_PHRASES["pet-affectionate"],
+	"pet-jealous": PET_REACTIVE_PHRASES["pet-jealous"],
+	"pet-zoomies": PET_REACTIVE_PHRASES["pet-zoomies"],
 ```
 
-Or alternatively, populate the empty arrays added in Task 4 at module level.
+This follows the same static-declaration pattern used by all other reactive triggers.
 
 - [ ] **Step 5: Run full test suite**
 
@@ -2369,10 +2375,11 @@ Add to `tests/game/brain/behavior-tree/pet-bt.test.ts`:
 
 ```typescript
 	it("DragToy collects pet-drag-toy action", () => {
+		// Note: Write this test AFTER Task 20 Step 2 adds nearbyAgentCount to PetBTContext
 		const { agent } = createPetBT("cat-whiskers", 0.3, 100, 2);
-		// Set up context for catalyst
-		(agent.context as any).nearbyAgentCount = 2;
-		const result = agent.DragToy();
+		agent.context.nearbyAgentCount = 2;
+		agent.context.nearbyAgents = ["Atlas", "Rex"];
+		agent.DragToy();
 		expect(agent.collectedActions).toContainEqual(
 			expect.objectContaining({ type: "pet-drag-toy" }),
 		);
@@ -2380,8 +2387,8 @@ Add to `tests/game/brain/behavior-tree/pet-bt.test.ts`:
 
 	it("ComfortSadAgent collects pet-comfort action", () => {
 		const { agent } = createPetBT("cat-whiskers", 0.3, 100, 2);
-		(agent.context as any).nearbyAgentMorale = 20;
-		const result = agent.ComfortSadAgent();
+		agent.context.nearbyAgentMorale = 20;
+		agent.ComfortSadAgent();
 		expect(agent.collectedActions).toContainEqual(
 			expect.objectContaining({ type: "pet-comfort" }),
 		);
