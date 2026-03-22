@@ -612,6 +612,24 @@ function wireMerchantStallClick(ctx: EngineContext): () => void {
 	return () => ctx.engine.canvas.removeEventListener("merchant-stall-click", handler);
 }
 
+// ── Council auto-wake (LLM start on modal open) ──────────────────────
+
+function wireCouncilAutoWake(ctx: EngineContext): () => void {
+	let prevSelected: string | null = null;
+	const handler = () => {
+		const current = ctx.store.selectedAgent;
+		if (current && current !== prevSelected) {
+			const agent = ctx.store.agents.find((a) => a.name === current);
+			if (agent?.agentType === "ai") {
+				void ctx.store.wakeAgent(current);
+			}
+		}
+		prevSelected = current;
+	};
+	ctx.store.addEventListener("state-changed", handler as EventListener);
+	return () => ctx.store.removeEventListener("state-changed", handler as EventListener);
+}
+
 // ── Composite wiring ─────────────────────────────────────────────────
 
 export function wireEvents(ctx: EngineContext): () => void {
@@ -629,6 +647,7 @@ export function wireEvents(ctx: EngineContext): () => void {
 		wireNarrativeEvents(ctx),
 		wireMerchantStallClick(ctx),
 		wireCliBrainBridge(ctx),
+		wireCouncilAutoWake(ctx),
 	];
 	return () => unsubs.forEach((fn) => fn());
 }

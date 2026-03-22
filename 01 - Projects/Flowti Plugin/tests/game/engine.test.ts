@@ -604,7 +604,6 @@ vi.mock("../../src/game/ui/dashboard-overlays.js", () => ({}));
 vi.mock("../../src/game/ui/ask-bob.js", () => ({}));
 vi.mock("../../src/game/ui/roster-bar.js", () => ({}));
 vi.mock("../../src/game/ui/camera-hud.js", () => ({}));
-vi.mock("../../src/game/ui/agent-panel.js", () => ({}));
 
 import { createAgentWorld } from "../../src/game/engine.js";
 import type { DataProvider } from "../../src/game/config/data-provider.js";
@@ -650,8 +649,8 @@ describe("createAgentWorld", () => {
 	it("mounts overlay elements into container", () => {
 		const container = document.createElement("div");
 		createAgentWorld({ container, provider: createMockProvider(), spriteBasePath: "/test" });
-		// Canvas + loading overlay + 5 Lit overlay elements = 7 children
-		expect(container.children.length).toBe(7);
+		// Canvas + loading overlay + 4 Lit overlays + council sidebar + detail modal = 8 children
+		expect(container.children.length).toBe(8);
 	});
 
 	it("keyboard listeners are on document (not container)", () => {

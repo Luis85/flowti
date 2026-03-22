@@ -380,7 +380,7 @@ export function createAgentSelectHandler(deps: AgentSelectDeps): (agentName: str
 			//    on Excalibur camera/brain/bubble work in the same task.
 			store.beginBatch();
 			store.selectAgent(agentName);
-			store.selectTab("info");
+			store.selectTab("profile");
 			store.endBatch();
 
 			// 2) After the next paint, apply canvas-side selection (freeze, follow, bubble, wake).

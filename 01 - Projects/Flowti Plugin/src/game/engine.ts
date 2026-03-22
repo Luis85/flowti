@@ -98,8 +98,10 @@ import "./ui/dashboard-overlays.js";
 import "./ui/ask-bob.js";
 import "./ui/roster-bar.js";
 import "./ui/camera-hud.js";
-import "./ui/agent-panel.js";
 import "./ui/merchant-panel.js";
+import "./ui/council-sidebar.js";
+import "./ui/council-picker.js";
+import "./ui/agent-detail-modal.js";
 
 // ── Public interface ─────────────────────────────────────────────────
 
@@ -150,12 +152,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Reactive store + Lit overlays ─────────────────────
 	const store = new DashboardStore(deps.cliExecutor, deps.worldContext, deps.vaultBasePath);
 	store.syncCliSessionFromEnvironment();
-	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-agent-panel", "ft-game-ask-bob"]) {
+	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-ask-bob"]) {
 		const el = document.createElement(tag) as HTMLElement & { store: DashboardStore };
 		el.store = store;
-		if (tag === "ft-game-agent-panel" && deps.eventBus) {
-			(el as HTMLElement & { eventBus?: IEventBus }).eventBus = deps.eventBus;
-		}
 		if (tag === "ft-game-ask-bob") {
 			const bob = el as HTMLElement & {
 				store: DashboardStore;
@@ -169,6 +168,27 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		}
 		container.appendChild(el);
 	}
+
+	// ── Council UI components ────────────────────────────
+	const councilSidebar = document.createElement("ft-game-council-sidebar") as HTMLElement & { store: DashboardStore };
+	councilSidebar.store = store;
+	container.appendChild(councilSidebar);
+
+	const detailModal = document.createElement("ft-game-agent-detail-modal") as HTMLElement & { store: DashboardStore; eventBus?: IEventBus };
+	detailModal.store = store;
+	if (deps.eventBus) detailModal.eventBus = deps.eventBus;
+	container.appendChild(detailModal);
+
+	let councilPicker: (HTMLElement & { store: DashboardStore }) | null = null;
+	container.addEventListener("open-picker", () => {
+		if (councilPicker) return;
+		councilPicker = document.createElement("ft-game-council-picker") as HTMLElement & { store: DashboardStore };
+		councilPicker.store = store;
+		container.appendChild(councilPicker);
+	});
+	container.addEventListener("close-picker", () => {
+		if (councilPicker) { councilPicker.remove(); councilPicker = null; }
+	});
 
 	let cancelAgentResourcePoll: (() => void) | null = null;
 	if (deps.cliExecutor) {
@@ -297,6 +317,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	registry.setEntityRoom("npc-merchant", "hub");
 
 	const btSystem = new BtSystem();
+	btSystem.onSnapshot = (name, snapshot) => store.updateBtTree(name, snapshot);
 	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
 	const cycleConversationCounts = new Map<string, number>();
 	const firedReactiveTriggers = new Map<string, Set<string>>();
@@ -699,6 +720,15 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	function doRegisterAgents(agents: readonly DashboardAgent[]): void {
 		registerAgents(agents, hubScene, store, registrationSystems);
+		// Restore persisted council membership
+		try {
+			const saved = localStorage.getItem("flowti-council");
+			if (saved) {
+				const names = JSON.parse(saved) as string[];
+				const valid = names.filter((n: string) => store.agents.some((a) => a.name === n));
+				if (valid.length > 0) store.setCouncil(valid);
+			}
+		} catch { /* ignore corrupt or unavailable localStorage */ }
 	}
 
 	const roomSwitcher = new RoomSwitcher({
