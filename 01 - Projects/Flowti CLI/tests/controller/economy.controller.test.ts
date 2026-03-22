@@ -69,6 +69,10 @@ vi.mock("../../src/domain/economy/economy-ledger.js", () => ({
 	getAccount: vi.fn((ledger, agent) => {
 		return ledger.accounts[agent] ?? { xp: 0, level: 1, coin: 0, tokens: 0, totalEarned: { xp: 0, coin: 0 }, totalSpent: { coin: 0, tokens: 0 } };
 	}),
+	creditReward: vi.fn((ledger, _agent, reward) => ({
+		ledger,
+		reward: { xp: reward.xp, coin: reward.coin, leveledUp: false, newLevel: undefined },
+	})),
 	grantResources: vi.fn((ledger, agent, grant) => ({
 		...ledger,
 		accounts: {
@@ -90,11 +94,33 @@ vi.mock("../../src/domain/economy/leveling.js", () => ({
 	}),
 }));
 
+// Mock additional domain modules (imported by economy:reward command)
+vi.mock("../../src/domain/economy/economy-rules.js", () => ({
+	calculateReward: vi.fn((base: { xp: number; coin: number }) => ({ xp: base.xp, coin: base.coin })),
+}));
+vi.mock("../../src/domain/tasks/task-store.js", () => ({
+	taskStore: {
+		list: vi.fn(() => []),
+		read: vi.fn(() => undefined),
+		create: vi.fn(),
+		updateField: vi.fn(),
+		remove: vi.fn(),
+		countCompletedByAgent: vi.fn(() => 0),
+	},
+}));
+vi.mock("../../src/domain/trust/trust-manager.js", () => ({
+	loadTrustProfile: vi.fn(),
+	saveTrustProfile: vi.fn(),
+	checkAutoPromotion: vi.fn(() => ({ shouldPromote: false })),
+	promote: vi.fn(),
+}));
+
 // Mock UI modules
 vi.mock("../../src/ui/displays/economy-display.js", () => ({
 	renderBalance: vi.fn(),
 	renderLedger: vi.fn(),
 	renderGrant: vi.fn(),
+	renderReward: vi.fn(),
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
