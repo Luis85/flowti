@@ -74,7 +74,7 @@ export const commands: Record<string, CommandHandler> = {
 			const agentName = ctx.flags.agent as string;
 			const profile = loadTrustProfile(deps, VAULT_ROOT, agentName);
 			const from = profile.operations[ctx.flags.op as keyof typeof profile.operations] ?? "manual";
-			const updated = promote(profile, validateOp(ctx.flags.op as string), validateLevel(ctx.flags.to as string), ctx.flags.reason as string, ctx.deps.clock);
+			const updated = promote(profile, validateOp(ctx.flags.op as string), validateLevel(ctx.flags.to as string), ctx.flags.reason as string, ctx.deps.clock.iso());
 			saveTrustProfile(deps, VAULT_ROOT, agentName, updated);
 			return {
 				agent: agentName,
@@ -99,7 +99,7 @@ export const commands: Record<string, CommandHandler> = {
 			const agentName = ctx.flags.agent as string;
 			const profile = loadTrustProfile(deps, VAULT_ROOT, agentName);
 			const from = profile.operations[ctx.flags.op as keyof typeof profile.operations] ?? "auto";
-			const updated = demote(profile, validateOp(ctx.flags.op as string), validateLevel(ctx.flags.to as string), ctx.flags.reason as string, ctx.deps.clock);
+			const updated = demote(profile, validateOp(ctx.flags.op as string), validateLevel(ctx.flags.to as string), ctx.flags.reason as string, ctx.deps.clock.iso());
 			saveTrustProfile(deps, VAULT_ROOT, agentName, updated);
 			return {
 				agent: agentName,
@@ -122,13 +122,11 @@ export const commands: Record<string, CommandHandler> = {
 				tier: "supervised",
 				operations: { ...DEFAULT_OPERATION_TRUST },
 				promotionLog: profile.promotionLog,
-				successCounts: {},
 			};
 			saveTrustProfile(td, VAULT_ROOT, agentName, resetProfile);
 			return {
 				agent: agentName,
 				operations: resetProfile.operations,
-				successCounts: resetProfile.successCounts,
 				promotionLog: resetProfile.promotionLog,
 			};
 		},
