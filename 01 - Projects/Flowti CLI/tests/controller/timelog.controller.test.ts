@@ -34,6 +34,7 @@ vi.mock("../../src/infrastructure/config.js", () => ({
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 
 // Mock domain modules
@@ -93,6 +94,7 @@ describe("timelog.controller", () => {
 		initializeDeps({
 			disk, shell, paths,
 			proc: { exit: vi.fn() as never, argv: () => [], cwd: () => "/", env: () => ({}) },
+			pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 			clock: { iso: () => "2026-01-15T00:00:00.000Z", now: () => new Date(), ms: () => 0, safeIso: () => "" },
 			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,

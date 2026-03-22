@@ -6,7 +6,7 @@
  * Production code uses createDefaultDeps(); tests use createTestDeps().
  */
 
-import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IWorldStateManager, IWorkerManager, IAgentProcessRunner } from "./types.js";
+import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IWorldStateManager, IWorkerManager, IAgentProcessRunner, IPidOps } from "./types.js";
 import type { ICliBus } from "./event-bus.js";
 import type { IAgentShell } from "../domain/agents/agent-shell.js";
 import type { IProviderRegistry } from "../domain/agents/llm-types.js";
@@ -14,7 +14,7 @@ import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
 import { paths } from "./paths.js";
 import { clock } from "./clock.js";
-import { proc } from "./proc.js";
+import { proc, pidOps } from "./proc.js";
 import { input } from "./input.js";
 import { log, warn } from "./logger.js";
 import { createCliBus } from "./event-bus.js";
@@ -43,6 +43,7 @@ export interface CliDeps {
 	readonly paths: IPaths;
 	readonly clock: IClock;
 	readonly proc: IProcess;
+	readonly pidOps: IPidOps;
 	readonly input: IInput;
 	readonly bus: ICliBus;
 	readonly log: (msg?: string) => void;
@@ -107,6 +108,9 @@ export type WorkspaceDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" |
 /** Deps for TUI action handlers — includes shell for effects, excludes input/log (no terminal I/O). */
 export type TuiActionDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell">;
 
+/** Dependencies for process registry operations. */
+export type ProcessDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "pidOps">;
+
 /** Log function type for renderers. */
 export type Log = (msg?: string) => void;
 
@@ -146,5 +150,5 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 		worldState,
 	}) : undefined;
 
-	return { disk, shell, paths, clock, proc, input, bus, log, warn, worldState, workerManager, processRunner, providerRegistry, agentShell };
+	return { disk, shell, paths, clock, proc, pidOps, input, bus, log, warn, worldState, workerManager, processRunner, providerRegistry, agentShell };
 }

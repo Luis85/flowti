@@ -5,9 +5,11 @@ import { nullStorybookRenderer } from "../../../../src/domain/make/component/sto
 
 function createMockBackgroundProcess(overrides?: Partial<BackgroundProcess>): BackgroundProcess {
 	return {
+		pid: 1234,
 		running: true,
 		output: [],
 		kill: vi.fn(),
+		unref: vi.fn(),
 		onOutput: vi.fn(() => vi.fn()),
 		waitForOutput: vi.fn().mockResolvedValue("Storybook ready!"),
 		waitForExit: vi.fn().mockResolvedValue(0),

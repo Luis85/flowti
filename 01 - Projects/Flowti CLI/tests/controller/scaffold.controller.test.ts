@@ -45,6 +45,7 @@ vi.mock("../../src/infrastructure/suggestions.js", () => ({
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 vi.mock("../../src/domain/scaffold/marketplace.js", () => ({
 	buildMarketplaceListing: vi.fn(() => []),
@@ -73,7 +74,7 @@ import { log } from "../../src/infrastructure/logger.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { clock } from "../../src/infrastructure/clock.js";
-import { proc } from "../../src/infrastructure/proc.js";
+import { proc, pidOps } from "../../src/infrastructure/proc.js";
 
 const logMock = log as ReturnType<typeof vi.fn>;
 
@@ -89,7 +90,7 @@ describe("scaffold.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		initializeDeps({
-			disk, shell: {} as never, paths, clock, proc,
+			disk, shell: {} as never, paths, clock, proc, pidOps,
 			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),

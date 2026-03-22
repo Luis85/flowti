@@ -125,6 +125,7 @@ export function renderStorybookInstallResult(data: StorybookInstallResultModel, 
 export interface StorybookStartResultModel {
 	started: boolean;
 	url: string;
+	pid?: number;
 	error?: string;
 }
 

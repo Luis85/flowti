@@ -108,11 +108,12 @@ class NodeShell implements IShell {
 		}
 	}
 
-	spawnBackground(cmd: string, opts: { cwd?: string; env?: Record<string, string>; stdin?: boolean } = {}): BackgroundProcess {
+	spawnBackground(cmd: string, opts: { cwd?: string; env?: Record<string, string>; stdin?: boolean; detached?: boolean } = {}): BackgroundProcess {
 		const child = spawn(cmd, {
 			cwd: opts.cwd ?? CLI_PROJECT,
 			shell: true,
 			windowsHide: true,
+			detached: opts.detached ?? false,
 			stdio: [opts.stdin ? "pipe" : "ignore", "pipe", "pipe"],
 			env: opts.env ? { ...process.env, ...opts.env } : undefined,
 		});
@@ -136,6 +137,7 @@ class NodeShell implements IShell {
 		child.on("exit", () => { running = false; });
 
 		return {
+			get pid() { return child.pid ?? 0; },
 			get running() { return running; },
 			get output() { return outputLines; },
 			onOutput(callback: (line: string) => void): () => void {
@@ -158,6 +160,9 @@ class NodeShell implements IShell {
 					}
 					running = false;
 				}
+			},
+			unref() {
+				try { child.unref(); } catch { /* already unref'd */ }
 			},
 			waitForExit(timeoutMs = 300_000): Promise<number> {
 				return new Promise((resolve, reject) => {

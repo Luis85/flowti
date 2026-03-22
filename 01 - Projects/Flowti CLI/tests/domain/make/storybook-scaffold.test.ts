@@ -19,6 +19,7 @@ function createMockDeps(fileContent: string): ScaffoldDeps {
 			rmSync: vi.fn(),
 			unlinkSync: vi.fn(),
 			statSync: vi.fn() as unknown as ScaffoldDeps["disk"]["statSync"],
+			renameSync: vi.fn(),
 		},
 		paths: {
 			join: (...args: string[]) => args.join("/"),

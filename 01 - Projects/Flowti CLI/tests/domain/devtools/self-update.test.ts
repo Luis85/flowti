@@ -69,6 +69,7 @@ function buildMockFs(tree: Record<string, MockEntry[]>, existingPaths?: Set<stri
 		copyFileSync: vi.fn(),
 		rmSync: vi.fn(),
 		unlinkSync: vi.fn(),
+		renameSync: vi.fn(),
 	};
 }
 
@@ -199,7 +200,7 @@ describe("rebuildCli", () => {
 			runCapture: () => "",
 			runCaptureStatus: () => ({ output: "", exitCode: 0 }),
 			runCaptureDetailed: () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			spawnBackground: () => ({ waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, running: false, output: [], writeStdin: () => {} }),
+			spawnBackground: () => ({ pid: 0, waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, unref: () => {}, running: false, output: [], writeStdin: () => {} }),
 			runAsync: async () => ({ output: "", exitCode: 0 }),
 			runParallel: async () => [],
 		};
@@ -221,7 +222,7 @@ describe("rebuildCli", () => {
 			runCapture: () => "",
 			runCaptureStatus: () => ({ output: "", exitCode: 0 }),
 			runCaptureDetailed: () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			spawnBackground: () => ({ waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, running: false, output: [], writeStdin: () => {} }),
+			spawnBackground: () => ({ pid: 0, waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, unref: () => {}, running: false, output: [], writeStdin: () => {} }),
 			runAsync: async () => ({ output: "", exitCode: 0 }),
 			runParallel: async () => [],
 		};

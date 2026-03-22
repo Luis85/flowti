@@ -41,6 +41,7 @@ vi.mock("../../src/infrastructure/input.js", () => ({
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn() },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 vi.mock("../../src/infrastructure/output.js", () => ({
 	output: { write: vi.fn() },
@@ -85,7 +86,7 @@ import { disk } from "../../src/infrastructure/filesystem.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { clock } from "../../src/infrastructure/clock.js";
-import { proc } from "../../src/infrastructure/proc.js";
+import { proc, pidOps } from "../../src/infrastructure/proc.js";
 import { input } from "../../src/infrastructure/input.js";
 import { log } from "../../src/infrastructure/logger.js";
 
@@ -102,7 +103,7 @@ const mockProject = {
 describe("ai-tools.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		initializeDeps({ disk, shell, paths, clock, proc, input, bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never, log, warn: vi.fn(), worldState: {} as never, workerManager: {} as never, processRunner: {} as never });
+		initializeDeps({ disk, shell, paths, clock, proc, pidOps, input, bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never, log, warn: vi.fn(), worldState: {} as never, workerManager: {} as never, processRunner: {} as never });
 	});
 
 	describe("ai:list", () => {

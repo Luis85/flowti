@@ -91,6 +91,11 @@ export function createTestDeps(opts: TestDepsOptions = {}): CliDeps {
 		paths: createMockPaths(),
 		clock: createMockClock(opts.clock),
 		proc: createMockProc(opts.proc),
+		pidOps: {
+			isPidAlive: vi.fn(() => false),
+			isPortListening: vi.fn(async () => false),
+			killPid: vi.fn(() => false),
+		},
 		input: createMockInput(),
 		bus: createCliBus(),
 		log: vi.fn(),

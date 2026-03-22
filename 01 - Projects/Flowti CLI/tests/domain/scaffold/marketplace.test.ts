@@ -108,6 +108,7 @@ function createMockFs(files: Record<string, string> = {}, dirs: Set<string> = ne
 		rmSync: vi.fn(),
 		unlinkSync: vi.fn(),
 		statSync: vi.fn() as IFileSystem["statSync"],
+		renameSync: vi.fn() as IFileSystem["renameSync"],
 	};
 }
 

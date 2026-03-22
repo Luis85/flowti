@@ -9,6 +9,8 @@
 import type { ComponentsConfig } from "../../../infrastructure/types.js";
 import type { StorybookRenderer } from "./storybook-renderer.js";
 import { nullStorybookRenderer } from "./storybook-renderer.js";
+import { getProcess, registerProcess } from "../../processes/process-registry.js";
+import type { ProcessDeps } from "../../../infrastructure/deps.js";
 
 // ── Re-exports (backward compatibility) ─────────────────────────────
 
@@ -21,6 +23,7 @@ export {
 } from "./storybook-installer.js";
 
 export {
+	DEFAULT_STORYBOOK_PORT,
 	isInsideVault,
 	extractLocalUrl,
 	isStorybookRunning,
@@ -33,6 +36,7 @@ export {
 export interface StorybookStartResult {
 	started: boolean;
 	url: string;
+	pid?: number;
 	error?: string;
 }
 
@@ -41,6 +45,7 @@ export interface StorybookStartResult {
 import type { StorybookDeps } from "./storybook-installer.js";
 import { resolveStorybookDir, isStorybookInstalled } from "./storybook-installer.js";
 import {
+	DEFAULT_STORYBOOK_PORT,
 	extractLocalUrl,
 	openStorybookUrl,
 	isStorybookRunning,
@@ -128,6 +133,7 @@ export async function startStorybookDev(
 	vaultRoot: string,
 	deps: Omit<StorybookDeps, "input">,
 	render: StorybookRenderer = nullStorybookRenderer,
+	processDeps?: ProcessDeps,
 ): Promise<StorybookStartResult> {
 	const sbDir = resolveStorybookDir(projectPath, config, deps);
 	if (!isStorybookInstalled(projectPath, config, deps)) {
@@ -144,7 +150,18 @@ export async function startStorybookDev(
 		return { started: false, url: "", error: "deps-not-installed" };
 	}
 
-	if (isStorybookRunning()) {
+	if (processDeps) {
+		const projectName = deps.paths.basename(projectPath);
+		const existing = getProcess(processDeps, "storybook", projectName);
+		if (existing) {
+			render.alreadyRunning();
+			return { started: false, url: existing.url ?? "", error: "already-running" };
+		}
+		if (await processDeps.pidOps.isPortListening(DEFAULT_STORYBOOK_PORT)) {
+			render.alreadyRunning();
+			return { started: false, url: `http://localhost:${DEFAULT_STORYBOOK_PORT}`, error: "port-in-use" };
+		}
+	} else if (isStorybookRunning()) {
 		render.alreadyRunning();
 		return { started: false, url: "", error: "already-running" };
 	}
@@ -153,7 +170,7 @@ export async function startStorybookDev(
 
 	const activeProcess = deps.shell.spawnBackground(
 		"npm run storybook",
-		{ cwd: sbDir, env: { CI: "true", NG_CLI_ANALYTICS: "false" } },
+		{ cwd: sbDir, env: { CI: "true", NG_CLI_ANALYTICS: "false" }, detached: Boolean(processDeps) },
 	);
 	setActiveProcess(activeProcess);
 
@@ -176,7 +193,21 @@ export async function startStorybookDev(
 	const url = extractLocalUrl(activeProcess.output);
 	render.ready(url);
 	openStorybookUrl(projectPath, url, vaultRoot, render, deps);
-	return { started: true, url };
+
+	if (processDeps) {
+		const projectName = deps.paths.basename(projectPath);
+		registerProcess(processDeps, {
+			type: "storybook",
+			name: projectName,
+			pid: activeProcess.pid,
+			port: DEFAULT_STORYBOOK_PORT,
+			url,
+			startedAt: processDeps.clock.iso(),
+		});
+		activeProcess.unref();
+	}
+
+	return { started: true, url, pid: activeProcess.pid };
 }
 
 export function runStorybookBuild(projectPath: string, config: ComponentsConfig, deps: Pick<StorybookDeps, "disk" | "paths" | "shell">, render: StorybookRenderer = nullStorybookRenderer): void {

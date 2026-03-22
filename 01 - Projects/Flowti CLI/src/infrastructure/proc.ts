@@ -5,7 +5,9 @@
  * should go through this service for testability.
  */
 
-import type { IProcess } from "./types.js";
+import { execSync } from "node:child_process";
+import net from "node:net";
+import type { IProcess, IPidOps } from "./types.js";
 
 class NodeProcess implements IProcess {
 	exit(code: number): never {
@@ -26,3 +28,41 @@ class NodeProcess implements IProcess {
 }
 
 export const proc: IProcess = new NodeProcess();
+
+class NodePidOps implements IPidOps {
+	isPidAlive(pid: number): boolean {
+		if (pid <= 0) return false;
+		try {
+			process.kill(pid, 0);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	isPortListening(port: number): Promise<boolean> {
+		return new Promise((resolve) => {
+			const sock = net.createConnection({ port, host: "127.0.0.1" });
+			sock.setTimeout(1000);
+			sock.on("connect", () => { sock.destroy(); resolve(true); });
+			sock.on("error", () => { resolve(false); });
+			sock.on("timeout", () => { sock.destroy(); resolve(false); });
+		});
+	}
+
+	killPid(pid: number): boolean {
+		if (pid <= 0) return false;
+		try {
+			if (process.platform === "win32") {
+				execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore", windowsHide: true });
+			} else {
+				process.kill(pid, "SIGTERM");
+			}
+			return true;
+		} catch {
+			return false;
+		}
+	}
+}
+
+export const pidOps: IPidOps = new NodePidOps();

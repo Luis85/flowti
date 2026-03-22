@@ -17,6 +17,7 @@ function makeDeps(overrides: {
 			rmSync: vi.fn(),
 			unlinkSync: vi.fn(),
 			statSync: vi.fn() as unknown as CliDeps["disk"]["statSync"],
+			renameSync: vi.fn(),
 		},
 	};
 }

@@ -84,60 +84,9 @@ export class ProjectStorybookHandler {
 		el.addEventListener("storybook-start", (() => {
 			if (signal.aborted) return;
 			this.startWork("Starting Storybook…");
-			let resolved = false;
-			let detectedUrl = "http://localhost:6006";
-
-			const resolveStorybook = (cb: () => void): void => {
-				if (resolved) return;
-				resolved = true;
-				cb();
-			};
-
-			const watchingAppend = (line: string): void => {
-				this.appendLog(line);
-				if (resolved) return;
-				const urlMatch = line.match(/Local:\s*(https?:\/\/localhost:\d+)/i);
-				if (urlMatch) detectedUrl = urlMatch[1];
-				const lower = line.toLowerCase();
-				if (lower.includes("storybook") && (lower.includes("ready") || lower.includes("started"))) {
-					resolveStorybook(() => {
-						this.appendLog(`\nStorybook ready at ${detectedUrl}`);
-						el.storybookBusy = false;
-						el.storybookBusyLabel = "";
-						void projectService.openStorybookUrl(this.deps.getCurrentProject(), detectedUrl, this.appendLog.bind(this));
-						void this.deps.loadProject(this.deps.getCurrentProject());
-					});
-				}
-			};
-
-			void projectService.startStorybook(this.deps.getCurrentProject(), watchingAppend)
-				.then(async (result) => {
-					if (!result.ok) { this.endWork(result); return; }
-					const deadline = Date.now() + 90000;
-					while (!resolved && Date.now() < deadline) {
-						await new Promise<void>((r) => setTimeout(r, 3000));
-						if (signal.aborted) return;
-						if (resolved) return;
-						const detail = await projectService.getProject(this.deps.getCurrentProject());
-						if (detail && !detail.storybook.running) {
-							resolveStorybook(() => {
-								el.storybookBusy = false;
-								el.storybookBusyLabel = "";
-								queueMicrotask(() => {
-									el.storybookError = "Storybook process exited. See output log for details.";
-								});
-								void this.deps.loadProject(this.deps.getCurrentProject());
-							});
-							return;
-						}
-					}
-					if (!resolved) {
-						resolveStorybook(() => {
-							this.appendLog("Timeout (90s) — Storybook may still be starting.");
-							el.storybookBusy = false;
-							void this.deps.loadProject(this.deps.getCurrentProject());
-						});
-					}
+			void projectService.startStorybook(this.deps.getCurrentProject(), this.appendLog.bind(this))
+				.then((result) => {
+					this.endWork(result);
 				})
 				.catch((err: unknown) => {
 					const msg = err instanceof Error ? err.message : String(err);

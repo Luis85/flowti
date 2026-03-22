@@ -52,6 +52,10 @@ class NodeFileSystem implements IFileSystem {
 	statSync(path: string): fsNode.Stats {
 		return fsNode.statSync(path);
 	}
+
+	renameSync(oldPath: string, newPath: string): void {
+		fsNode.renameSync(oldPath, newPath);
+	}
 }
 
 export const disk: IFileSystem = new NodeFileSystem();

@@ -181,23 +181,12 @@ describe("ProjectStorybookHandler", () => {
 			expect(el.storybookError).toBe("port in use");
 		});
 
-		it("resolves early when log detects ready message", async () => {
-			(service.startStorybook as ReturnType<typeof vi.fn>).mockImplementation(async (_p: string, onOutput: (line: string) => void) => {
-				onOutput("Local: http://localhost:9009");
-				onOutput("Storybook is ready");
-				return { ok: true };
-			});
-			// Keep running to avoid poll-exit path
-			(service.getProject as ReturnType<typeof vi.fn>).mockResolvedValue({
-				name: "TestProj", type: "typescript", hasNote: true, notePath: "/p",
-				projectPath: "/p", hasSitemap: false, hasCanvas: false, canvasChanged: false,
-				storybook: { installed: true, framework: "react", running: true, url: "http://localhost:9009", pid: 1, hasStaticBuild: false },
-			});
+		it("on success calls endWork and reloads project", async () => {
 			createHandler();
 			el.dispatchEvent(new CustomEvent("storybook-start"));
 			await settle();
 			expect(el.storybookBusy).toBe(false);
-			expect(service.openStorybookUrl).toHaveBeenCalledWith("TestProj", "http://localhost:9009", expect.any(Function));
+			expect(loadProject).toHaveBeenCalledWith("TestProj");
 		});
 
 		it("on thrown error sets storybookError", async () => {

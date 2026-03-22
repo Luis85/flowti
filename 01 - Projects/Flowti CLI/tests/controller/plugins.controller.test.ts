@@ -89,6 +89,7 @@ describe("plugins.controller", () => {
 		initializeDeps({
 			disk, shell, paths, clock, input,
 			proc: { exit: vi.fn() as never, argv: () => [], cwd: () => "/", env: () => ({}) },
+			pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
 			log, warn: vi.fn(),
 			worldState: {} as never, workerManager: {} as never, processRunner: {} as never,

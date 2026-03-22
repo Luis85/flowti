@@ -104,6 +104,7 @@ vi.mock("../../../src/infrastructure/input.js", () => ({
 
 vi.mock("../../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), cwd: () => "/mock" },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 
 vi.mock("../../../src/infrastructure/output.js", () => ({
