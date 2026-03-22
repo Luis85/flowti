@@ -36,6 +36,7 @@ export class DayClock {
 	private cycleCount = 0;
 	private currentPhaseIndex = 0;
 	private readonly callbacks: Array<(phase: DayPhase) => void> = [];
+	private readonly cycleEndCallbacks: Array<() => void> = [];
 
 	constructor(durationMs = 1_500_000) {
 		this.durationMs = durationMs;
@@ -80,6 +81,15 @@ export class DayClock {
 		if (idx >= 0) this.callbacks.splice(idx, 1);
 	}
 
+	onCycleEnd(cb: () => void): void {
+		this.cycleEndCallbacks.push(cb);
+	}
+
+	offCycleEnd(cb: () => void): void {
+		const idx = this.cycleEndCallbacks.indexOf(cb);
+		if (idx >= 0) this.cycleEndCallbacks.splice(idx, 1);
+	}
+
 	// ── Update ─────────────────────────────────────────────────
 
 	update(deltaMs: number): void {
@@ -87,6 +97,7 @@ export class DayClock {
 
 		// Check for cycle completion
 		if (this.elapsedMs >= this.durationMs) {
+			for (const cb of this.cycleEndCallbacks) cb();
 			this.cycleCount++;
 			this.elapsedMs = this.elapsedMs % this.durationMs;
 			if (this.currentPhaseIndex !== 0) {

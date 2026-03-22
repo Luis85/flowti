@@ -7,7 +7,8 @@ export type AgentActionType =
 	| "queued"
 	| "artifact-dropped" | "file-read" | "file-written" | "file-opened"
 	| "goal-started" | "goal-completed" | "template-generated"
-	| "seek-rest" | "seek-agent" | "seek-quiet" | "wander-sad";
+	| "seek-rest" | "seek-agent" | "seek-quiet" | "wander-sad"
+	| "seek-merchant" | "merchant-purchase";
 
 export interface AgentAction {
 	readonly id: string;

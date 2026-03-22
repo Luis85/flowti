@@ -58,6 +58,7 @@ export interface BTAgentDef {
 	readonly attributes?: AgentAttributes;
 	readonly goals?: readonly AgentGoal[];
 	readonly behaviors?: readonly string[];
+	readonly trustTier?: "supervised" | "trusted" | "autonomous";
 }
 
 // ── Goal Types ───────────────────────────────────────────────────────
@@ -123,6 +124,13 @@ export interface IBrainBridge {
 	getState: (name: string) => string;
 }
 
+export interface IMerchantBridge {
+	shouldAutoPurchase: (agentName: string) => boolean;
+	getAutoPurchaseItemId: (agentName: string) => string | undefined;
+	purchase: (agentName: string, itemId: string) => Promise<{ success: boolean; message: string }>;
+	getCycleCount: () => number;
+}
+
 export interface AgentToolDeps {
 	readonly disk: IFileSystem;
 	readonly paths: IPaths;
@@ -132,6 +140,7 @@ export interface AgentToolDeps {
 	readonly checkPermission: (tool: string) => PermissionVerdict;
 	readonly needs?: INeedsBridge;
 	readonly brain?: IBrainBridge;
+	readonly merchant?: IMerchantBridge;
 }
 
 // ── BTAgent Context (Blackboard) ─────────────────────────────────────
@@ -156,6 +165,7 @@ export interface BTAgentContext {
 	lastWrittenPath: string | null;
 	workingFilePath: string | null;
 	llmSlot: LLMSlot;
+	lastMerchantVisitCycle: number;
 }
 
 // ── Goal Subtree Config ──────────────────────────────────────────────
