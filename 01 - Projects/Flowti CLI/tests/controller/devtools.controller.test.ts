@@ -39,6 +39,7 @@ vi.mock("../../src/infrastructure/config.js", () => ({
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn() },
+	pidOps: { isPidAlive: vi.fn(() => false), isPortListening: vi.fn(async () => false), killPid: vi.fn(() => false) },
 }));
 vi.mock("../../src/infrastructure/output.js", () => ({
 	output: { write: vi.fn() },

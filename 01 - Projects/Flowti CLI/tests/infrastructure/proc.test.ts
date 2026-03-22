@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockProc, MockExitError } from "../mocks/mock-proc.js";
+import { pidOps } from "../../src/infrastructure/proc.js";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -86,5 +87,31 @@ describe("IProcess interface contract", () => {
 		expect(() => p.exit(1)).toThrow(MockExitError);
 		expect(() => p.exit(127)).toThrow(MockExitError);
 		expect(p.exits).toEqual([0, 1, 127]);
+	});
+});
+
+// ── pidOps ─────────────────────────────────────────────────────────
+
+describe("pidOps", () => {
+	describe("isPidAlive", () => {
+		it("returns true for the current process PID", () => {
+			expect(pidOps.isPidAlive(process.pid)).toBe(true);
+		});
+
+		it("returns false for an obviously dead PID", () => {
+			expect(pidOps.isPidAlive(999999)).toBe(false);
+		});
+	});
+
+	describe("killPid", () => {
+		it("returns false for a non-existent PID", () => {
+			expect(pidOps.killPid(999999)).toBe(false);
+		});
+	});
+
+	describe("isPortListening", () => {
+		it("returns false for an unbound port", async () => {
+			expect(await pidOps.isPortListening(59999)).toBe(false);
+		});
 	});
 });

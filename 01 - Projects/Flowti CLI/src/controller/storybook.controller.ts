@@ -20,6 +20,7 @@ import {
 	resolveStorybookDir,
 	openStorybookUrl,
 } from "../domain/make/component/storybook-service.js";
+import { getProcess, killProcess } from "../domain/processes/process-registry.js";
 import { getFramework, setFramework, writeComponentsConfig } from "../domain/make/component/storybook-settings.js";
 import { createStorybookRenderer } from "../ui/renderers/storybook-renderer-impl.js";
 
@@ -151,12 +152,13 @@ export const commands: Record<string, CommandHandler> = {
 	"storybook:start": adaptDescriptor<Record<string, unknown>, StorybookStartResultModel>({
 		requires: "project",
 		handler: async (ctx) => {
-			const { disk, paths, shell, log } = ctx.deps;
+			const { disk, paths, shell, log, clock, pidOps } = ctx.deps;
 			const config = ctx.project!.config.components ?? {};
 			return startStorybookDev(
 				ctx.project!.path, config, VAULT_ROOT,
 				{ disk, paths, shell },
 				createStorybookRenderer(log),
+				{ disk, paths, clock, pidOps },
 			);
 		},
 		renderer: renderStorybookStartResult,
@@ -191,8 +193,16 @@ export const commands: Record<string, CommandHandler> = {
 	"storybook:stop": adaptDescriptor<Record<string, unknown>, StorybookStopResultModel>({
 		requires: "project",
 		handler: (ctx) => {
+			const { disk, paths, clock, pidOps, log } = ctx.deps;
+			const projectName = ctx.project!.name;
+			const processDeps = { disk, paths, clock, pidOps };
+			const entry = getProcess(processDeps, "storybook", projectName);
+			if (entry) {
+				killProcess(processDeps, "storybook", projectName);
+				return { stopped: true, wasRunning: true };
+			}
 			const wasRunning = isStorybookRunning();
-			if (wasRunning) stopStorybook(createStorybookRenderer(ctx.deps.log));
+			if (wasRunning) stopStorybook(createStorybookRenderer(log));
 			return { stopped: wasRunning, wasRunning };
 		},
 		renderer: renderStorybookStopResult,

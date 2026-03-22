@@ -9,6 +9,8 @@
 import type { ComponentsConfig } from "../../../infrastructure/types.js";
 import type { StorybookRenderer } from "./storybook-renderer.js";
 import { nullStorybookRenderer } from "./storybook-renderer.js";
+import { getProcess, registerProcess } from "../../processes/process-registry.js";
+import type { ProcessDeps } from "../../../infrastructure/deps.js";
 
 // ── Re-exports (backward compatibility) ─────────────────────────────
 
@@ -128,6 +130,7 @@ export async function startStorybookDev(
 	vaultRoot: string,
 	deps: Omit<StorybookDeps, "input">,
 	render: StorybookRenderer = nullStorybookRenderer,
+	processDeps?: ProcessDeps,
 ): Promise<StorybookStartResult> {
 	const sbDir = resolveStorybookDir(projectPath, config, deps);
 	if (!isStorybookInstalled(projectPath, config, deps)) {
@@ -144,7 +147,18 @@ export async function startStorybookDev(
 		return { started: false, url: "", error: "deps-not-installed" };
 	}
 
-	if (isStorybookRunning()) {
+	if (processDeps) {
+		const projectName = deps.paths.basename(projectPath);
+		const existing = getProcess(processDeps, "storybook", projectName);
+		if (existing) {
+			render.alreadyRunning();
+			return { started: false, url: existing.url ?? "", error: "already-running" };
+		}
+		if (await processDeps.pidOps.isPortListening(6006)) {
+			render.alreadyRunning();
+			return { started: false, url: "http://localhost:6006", error: "port-in-use" };
+		}
+	} else if (isStorybookRunning()) {
 		render.alreadyRunning();
 		return { started: false, url: "", error: "already-running" };
 	}
@@ -176,6 +190,20 @@ export async function startStorybookDev(
 	const url = extractLocalUrl(activeProcess.output);
 	render.ready(url);
 	openStorybookUrl(projectPath, url, vaultRoot, render, deps);
+
+	if (processDeps) {
+		const projectName = deps.paths.basename(projectPath);
+		registerProcess(processDeps, {
+			type: "storybook",
+			name: projectName,
+			pid: activeProcess.pid,
+			port: 6006,
+			url,
+			startedAt: processDeps.clock.iso(),
+		});
+		activeProcess.unref();
+	}
+
 	return { started: true, url };
 }
 

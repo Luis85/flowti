@@ -35,6 +35,7 @@ import { commands as workspaceCmds } from "../controller/workspace.controller.js
 import { commands as onboardingCmds } from "../controller/onboarding.controller.js";
 import { commands as vaultTestCmds } from "../controller/vault-test.controller.js";
 import { commands as storybookCmds } from "../controller/storybook.controller.js";
+import { commands as processCmds } from "../controller/process.controller.js";
 import { commands as agentCmds } from "../controller/agent.controller.js";
 import { commands as taskCmds } from "../controller/task.controller.js";
 import { commands as economyCmds } from "../controller/economy.controller.js";
@@ -167,6 +168,7 @@ export function registerBuiltinDomains(registry: CommandRegistry): void {
 		commands: storybookCmds,
 		projectFree: ["storybook:scaffold"],
 	});
+	registry.registerDomain({ domain: "processes", commands: processCmds, projectFree: ["process:list"] });
 	registry.registerDomain({
 		domain: "agent",
 		commands: agentCmds,

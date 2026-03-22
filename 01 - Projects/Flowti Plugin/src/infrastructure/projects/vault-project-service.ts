@@ -4,7 +4,6 @@
  */
 
 import type { App, TFolder, TFile } from "obsidian";
-import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -22,16 +21,12 @@ import { listVaultAgentSummaries } from "../../domain/projects/agent-vault-scan.
 import { parseTodos, addTodoLine, toggleTodoLine, deleteTodoLine } from "../../domain/projects/todo-service.js";
 import { parseEntityFromMarkdown, generateDomainMarkdown, generateServiceMarkdown, generateEventMarkdown, generateFlowMarkdown, toKebabCase } from "../../domain/projects/catalog-service.js";
 import { parseFrontmatter } from "../../domain/projects/frontmatter.js";
-import { resolveNoteInfoAsync, readBrief, mergeRunningStatus, readTypeFromConfig, parseProjectConfig, checkSitemapFiles, detectProjectFromDisk, enrichProjectConfigRoleSlots, enrichRoleSlotsWithRoleNotes } from "./vault-project-helpers.js";
+import { resolveNoteInfoAsync, readBrief, readTypeFromConfig, parseProjectConfig, checkSitemapFiles, detectProjectFromDisk, enrichProjectConfigRoleSlots, enrichRoleSlotsWithRoleNotes } from "./vault-project-helpers.js";
 import {
 	PROJECTS_FOLDER,
 	detectStorybookOnDisk,
 	getVaultBasePath,
-	stripAnsi,
-	shellQuote,
 	runAsync,
-	findStorybookDir,
-	STORYBOOK_BUILD_TIMEOUT_MS,
 	GIT_COMMAND_TIMEOUT_MS,
 	SHORT_SHELL_COMMAND_TIMEOUT_MS,
 } from "./vault-project-cli.js";
@@ -40,8 +35,6 @@ import { upsertVaultTextFile } from "../agents/agent-vault-write.js";
 
 export class VaultProjectService implements IProjectService {
 	private app: App;
-	private runningProcesses = new Map<string, { pid: number; url: string }>();
-
 	constructor(app: App) { this.app = app; }
 
 	async listProjects(): Promise<ProjectSummary[]> {
@@ -59,7 +52,7 @@ export class VaultProjectService implements IProjectService {
 			const notePath = `${PROJECTS_FOLDER}/${name}/${name}.md`;
 			const noteInfo = await resolveNoteInfoAsync(this.app, notePath, basePath);
 			const absPath = join(basePath, PROJECTS_FOLDER, name);
-			const storybook = mergeRunningStatus(detectStorybookOnDisk(absPath), this.runningProcesses.get(name));
+			const storybook = detectStorybookOnDisk(absPath);
 			const type = readTypeFromConfig(absPath, noteInfo.type);
 			projects.push({ name, type, hasNote: noteInfo.hasNote, storybook });
 		}
@@ -76,7 +69,7 @@ export class VaultProjectService implements IProjectService {
 		const noteInfo = await resolveNoteInfoAsync(this.app, notePath, basePath);
 		const noteFile = this.app.vault.getAbstractFileByPath(notePath) as TFile | null;
 		const brief = noteFile && noteInfo.hasNote ? readBrief(this.app, noteFile) : undefined;
-		let storybook = mergeRunningStatus(detectStorybookOnDisk(absPath), this.runningProcesses.get(name));
+		let storybook = detectStorybookOnDisk(absPath);
 		const parsed = parseProjectConfig(absPath);
 		const type = parsed.type ?? noteInfo.type;
 		if (parsed.framework) storybook = { ...storybook, framework: parsed.framework };
@@ -91,40 +84,30 @@ export class VaultProjectService implements IProjectService {
 	}
 
 	async startStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; url?: string; pid?: number; error?: string }> {
-		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
-		const port = 6006; const url = `http://localhost:${port}`;
-		const configDir = findStorybookDir(cwd);
+		const vaultBase = getVaultBasePath(this.app);
+		const lines: string[] = [];
+		const result = await runFlowtiCli(vaultBase, ["storybook:start", `--project=${project}`], (line) => {
+			if (line !== "Done.") lines.push(line);
+			onOutput?.(line);
+		});
+		if (!result.ok) return { ok: false, error: result.error };
 		try {
-			const sbParent = join(configDir, "..");
-			const child = spawn("npx", ["storybook", "dev", "-p", String(port), "--no-open", "--ci", "--config-dir", configDir].map(shellQuote), {
-				cwd: sbParent, stdio: "pipe", shell: true, windowsHide: true,
-				env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=4096" },
-			});
-			const pid = child.pid ?? 0;
-			if (pid > 0) this.runningProcesses.set(project, { pid, url });
-			child.stdout?.on("data", (chunk: Buffer) => { for (const line of stripAnsi(chunk.toString()).split("\n").filter(Boolean)) onOutput?.(line); });
-			child.stderr?.on("data", (chunk: Buffer) => { for (const line of stripAnsi(chunk.toString()).split("\n").filter(Boolean)) onOutput?.(line); });
-			child.on("error", (err) => { onOutput?.(`Error: ${err.message}`); this.runningProcesses.delete(project); });
-			child.on("close", (code) => { if (code !== 0) onOutput?.(`Process exited with code ${code}`); this.runningProcesses.delete(project); });
-			child.unref();
-			return { ok: true, url, pid };
-		} catch (err) { return { ok: false, error: err instanceof Error ? err.message : "Start failed" }; }
+			const parsed = JSON.parse(lines.join("")) as { started?: boolean; url?: string; pid?: number; error?: string };
+			return { ok: parsed.started ?? true, url: parsed.url, pid: parsed.pid, error: parsed.error };
+		} catch {
+			return { ok: true };
+		}
 	}
 
 	async stopStorybook(project: string): Promise<{ ok: boolean; error?: string }> {
-		const running = this.runningProcesses.get(project);
-		const port = 6006;
-		if (running?.pid) await runAsync("taskkill", ["/F", "/T", "/PID", String(running.pid)], ".", undefined, { timeoutMs: SHORT_SHELL_COMMAND_TIMEOUT_MS });
-		if (process.platform === "win32") {
-			await runAsync("powershell", ["-Command", `Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }`], ".", undefined, { timeoutMs: SHORT_SHELL_COMMAND_TIMEOUT_MS });
-		} else { await runAsync("sh", ["-c", `lsof -ti:${port} | xargs kill -9 2>/dev/null`], ".", undefined, { timeoutMs: SHORT_SHELL_COMMAND_TIMEOUT_MS }); }
-		this.runningProcesses.delete(project);
-		return { ok: true };
+		const vaultBase = getVaultBasePath(this.app);
+		return runFlowtiCli(vaultBase, ["storybook:stop", `--project=${project}`]);
 	}
 
 	async buildStorybook(project: string, onOutput?: OutputCallback): Promise<{ ok: boolean; outputDir?: string; error?: string }> {
-		const cwd = join(getVaultBasePath(this.app), PROJECTS_FOLDER, project);
-		const result = await runAsync("npx", ["storybook", "build", "--config-dir", findStorybookDir(cwd)], cwd, onOutput, { timeoutMs: STORYBOOK_BUILD_TIMEOUT_MS });
+		const vaultBase = getVaultBasePath(this.app);
+		const cwd = join(vaultBase, PROJECTS_FOLDER, project);
+		const result = await runFlowtiCli(vaultBase, ["storybook:build", `--project=${project}`], onOutput);
 		return result.ok ? { ...result, outputDir: join(cwd, "storybook-static") } : result;
 	}
 

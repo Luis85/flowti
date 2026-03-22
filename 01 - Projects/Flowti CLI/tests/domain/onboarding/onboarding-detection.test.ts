@@ -16,6 +16,7 @@ const mockDisk = {
 	rmSync: vi.fn() as IFileSystem["rmSync"],
 	unlinkSync: vi.fn() as IFileSystem["unlinkSync"],
 	statSync: vi.fn() as IFileSystem["statSync"],
+	renameSync: vi.fn() as IFileSystem["renameSync"],
 } satisfies IFileSystem;
 
 const mockPaths: IPaths = {

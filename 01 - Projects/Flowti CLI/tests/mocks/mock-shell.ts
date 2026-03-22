@@ -67,13 +67,15 @@ export function createMockShell(opts: MockShellOptions = {}): IShell & {
 			return { stdout: outputs[cmd] ?? "", stderr: "", exitCode: exitCodes[cmd] ?? 0 };
 		},
 
-		spawnBackground(cmd: string, spawnOpts?: { cwd?: string; env?: Record<string, string>; stdin?: boolean }) {
+		spawnBackground(cmd: string, spawnOpts?: { cwd?: string; env?: Record<string, string>; stdin?: boolean; detached?: boolean }) {
 			calls.push({ method: "spawnBackground", cmd, opts: spawnOpts });
 			return {
+				pid: 0,
 				running: false as boolean,
 				output: [] as string[],
 				onOutput: () => () => {},
 				kill: () => {},
+				unref: () => {},
 				waitForOutput: (_pattern?: RegExp, _timeoutMs?: number) => Promise.resolve(null as string | null),
 				waitForExit: (_timeoutMs?: number) => Promise.resolve(0),
 				writeStdin: () => {},

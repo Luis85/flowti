@@ -24,6 +24,7 @@ export interface IFileSystem {
 	rmSync(path: string, options?: fs.RmOptions): void;
 	unlinkSync(path: string): void;
 	statSync(path: string): fs.Stats;
+	renameSync(oldPath: string, newPath: string): void;
 }
 
 // ── Shell execution abstraction ──────────────────────────────────────
@@ -39,10 +40,14 @@ export interface BackgroundProcess {
 	kill(): void;
 	/** Whether the process is still running. */
 	readonly running: boolean;
+	/** OS process ID. */
+	readonly pid: number;
 	/** Collected output lines (stdout + stderr) for diagnostics. */
 	readonly output: string[];
 	/** Write data to the process stdin. Only available when spawned with stdin: true. */
 	writeStdin(data: string): void;
+	/** Unreference the child process so the parent can exit while child runs. Only meaningful for detached processes. */
+	unref(): void;
 }
 
 export interface IShell {
@@ -61,7 +66,7 @@ export interface IShell {
 	/** Run a command capturing stdout, stderr, and exit code separately. */
 	runCaptureDetailed(cmd: string, opts?: { cwd?: string; timeout?: number; env?: Record<string, string> }): { stdout: string; stderr: string; exitCode: number };
 	/** Spawn a command in the background with piped stdout/stderr. */
-	spawnBackground(cmd: string, opts?: { cwd?: string; env?: Record<string, string>; stdin?: boolean }): BackgroundProcess;
+	spawnBackground(cmd: string, opts?: { cwd?: string; env?: Record<string, string>; stdin?: boolean; detached?: boolean }): BackgroundProcess;
 	/** Run a command asynchronously, return exit code and captured output. Optionally pipe `input` to stdin and stream lines via `onLine`. */
 	runAsync(cmd: string, opts?: { cwd?: string; timeout?: number; input?: string; onLine?: (line: string) => void }): Promise<{ output: string; exitCode: number }>;
 	/** Run multiple commands in parallel, return results in order. */
@@ -79,6 +84,17 @@ export interface IProcess {
 	cwd(): string;
 	/** Environment variables. */
 	env(): Record<string, string | undefined>;
+}
+
+// ── PID operations abstraction ───────────────────────────────────────
+
+export interface IPidOps {
+	/** Check if a process with the given PID is alive. */
+	isPidAlive(pid: number): boolean;
+	/** Check if a TCP port is currently listening. */
+	isPortListening(port: number): Promise<boolean>;
+	/** Kill a process by PID. Returns true if the process was found and killed. */
+	killPid(pid: number): boolean;
 }
 
 // ── Path operations abstraction ──────────────────────────────────────

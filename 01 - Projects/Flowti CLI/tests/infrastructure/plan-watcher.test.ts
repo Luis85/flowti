@@ -14,6 +14,7 @@ function mockFs(content = "initial content"): IFileSystem {
 		rmSync: vi.fn(),
 		unlinkSync: vi.fn(),
 		statSync: vi.fn() as any,
+		renameSync: vi.fn(),
 	};
 }
 
