@@ -76,6 +76,7 @@ import { RoomSwitcher } from "./systems/room-switcher.js";
 import type { SceneEntity } from "./data/scene-entity.js";
 import { flushWorldState, startPeriodicFlush, type StateSystems } from "./engine-state.js";
 import { wireEvents } from "./engine-events.js";
+import { wireDebugEvents } from "./engine-events-debug.js";
 import type { EngineContext } from "./engine-types.js";
 import {
 	ENGINE_WIDTH, ENGINE_HEIGHT,
@@ -904,6 +905,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		cascadeResolver,
 	};
 	const cleanupEvents = wireEvents(ctx);
+	const cleanupDebugEvents = wireDebugEvents(ctx, deps.vaultBasePath);
 
 	// ── Pre-frame hook: tick all systems ─────────────────
 	engine.on("preframe", () => {
@@ -988,6 +990,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			if (cancelAgentResourcePoll) cancelAgentResourcePoll();
 			// Tear down all event subscriptions
 			cleanupEvents();
+			cleanupDebugEvents();
 			// Flush persistent state before shutdown
 			if (deps.vaultBasePath) {
 				flushWorldState(stateSystems, deps.vaultBasePath);
