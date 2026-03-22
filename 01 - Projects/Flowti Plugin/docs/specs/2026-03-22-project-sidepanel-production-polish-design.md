@@ -21,10 +21,10 @@ The Projects Sidepanel is a 6-tab Lit component tree inside an Obsidian ItemView
 
 ## Non-Goals
 
-- Changing the Lit component tree or tab structure
+- Changing the Lit component tree or tab structure (tabs stay as-is, hierarchy unchanged)
 - Adding test coverage (follow-up increment)
 - Modifying VaultProjectService or infrastructure helpers
-- Changing styles or visual design
+- Adding new features or tab content — visual polish is cosmetic + consistency only
 
 ---
 
@@ -487,7 +487,184 @@ Listeners are cleaned up in every path: success, already-exists, and 5s timeout.
 
 ---
 
+## 7. Visual Polish — Luminous Dashboard
+
+### Aesthetic Direction
+
+**Luminous dark**: Dark base with heightened contrast. Cards with slightly lighter backgrounds, glowing accent borders on active states, health gauges with vivid color fills, status badges that pop. Feels like a premium control panel embedded in Obsidian.
+
+The visual polish respects Obsidian's theme system (all colors via CSS custom properties) while giving the Projects hub a recognizable Flowti identity: consistent glow language, micro-interactions on state changes, and dashboard-grade data visualization.
+
+### 7a: Design Tokens Extension
+
+Dashboard-specific tokens scoped to the project detail host (not in shared `tokens.ts`):
+
+```css
+:host {
+	/* Elevation layers (luminous dark) */
+	--hub-surface-0: var(--background-primary, #141414);
+	--hub-surface-1: var(--background-secondary, #1a1a1a);
+	--hub-surface-2: color-mix(in srgb, var(--background-secondary, #1a1a1a) 85%, white);
+
+	/* Glow accents */
+	--hub-glow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 25%, transparent),
+	            0 0 12px color-mix(in srgb, var(--interactive-accent) 8%, transparent);
+	--hub-glow-success: 0 0 0 1px color-mix(in srgb, var(--color-green) 25%, transparent),
+	                    0 0 12px color-mix(in srgb, var(--color-green) 8%, transparent);
+
+	/* Unified radius */
+	--hub-radius: 6px;
+	--hub-radius-lg: 10px;
+
+	/* Transitions */
+	--hub-transition: 150ms ease;
+	--hub-transition-slow: 300ms ease;
+}
+```
+
+Unifies the 4px/6px/8px/10px spread into two tiers. Every interactive element gets a consistent glow language.
+
+### 7b: Project List Cards
+
+Replace flat button rows with luminous cards:
+
+- Card base: `--hub-surface-1` background, `--hub-radius` corners, 1px border
+- Hover: border transitions to accent-tinted, subtle `translateY(-1px)` lift, `--hub-glow` shadow
+- Type badge: faint glow matching accent
+- Storybook "running" badge: pulsing green dot (reuse `pulse` keyframe, green, 6px)
+- `+ brief` badge: ghost button with dashed border, solidifies on hover
+- Entrance animation: cards stagger in with `opacity 0→1` and `translateY(4px→0)` over 200ms, each delayed 30ms via `animation-delay: calc(var(--i, 0) * 30ms)`
+
+### 7c: Health Score Gauge
+
+New micro-component `<flowti-health-gauge>` replacing the plain text score:
+
+- SVG-based 270-degree arc with score percentage filled
+- Color transitions: red (<40) → yellow (40-70) → green (>70), using `--color-red/yellow/green`
+- Score number large and centered inside the arc
+- Subtle glow on the filled portion matching score color
+- Arc animates from 0 to target on mount (500ms ease-out) via CSS `stroke-dashoffset` transition
+- Graceful degradation: falls back to plain text score if SVG not supported
+
+Component API:
+
+```html
+<flowti-health-gauge
+	.score="${this.healthScore}"
+	.error="${this.healthError}"
+></flowti-health-gauge>
+```
+
+Purely presentational, used inside `flowti-tab-overview`. Approximately 80 lines (template + styles).
+
+### 7d: Tab Bar Polish
+
+Upgrade the underline tabs to a dashboard nav:
+
+- Active tab: glowing bottom border (2px solid accent + faint `box-shadow: 0 2px 8px` downward)
+- Tab switch: underline position transition via per-tab `border-bottom-color` with `--hub-transition`
+- Hover: text color transitions smoothly (150ms), faint background tint `color-mix(accent 5%, transparent)`
+- Typography: `text-transform: uppercase`, `letter-spacing: 0.03em`, `font-size: 0.8em`
+- Active tab: `font-weight: 600` (up from 500)
+- Tab overflow: `overflow-x: auto` with hidden scrollbar for narrow viewports
+
+### 7e: Activity Bar State Transitions
+
+Smooth animated transitions between busy/success/error/idle:
+
+- Background color crossfade: `transition: background var(--hub-transition-slow), color var(--hub-transition-slow)`
+- Spinner entrance: `scale(0.5)→scale(1)` with `opacity 0→1` over 150ms
+- Success state: brief green glow flash (200ms brighter, then settle to normal)
+- Error state: subtle shake animation (`@keyframes shake { 0%,100% { translateX(0) } 25% { translateX(-2px) } 75% { translateX(2px) } }`, 300ms)
+- Dismiss button: `opacity 0→0.6` with 150ms delay after state change
+- Appear/disappear: `max-height` transition (0→auto via `grid-template-rows: 0fr→1fr` trick) for smooth reveal
+
+### 7f: CLI Log Terminal Feel
+
+Make log containers feel like embedded terminals:
+
+- Inset appearance: `box-shadow: inset 0 2px 4px rgba(0,0,0,0.2)` on the pre area
+- Monospace font with faint accent tint on background: `color-mix(in srgb, var(--interactive-accent) 3%, var(--hub-surface-0))`
+- Active log: 3px solid accent left-border bar (replace full border glow for cleaner look)
+- Auto-scroll behavior: `scroll-snap-align: end` on a sentinel element for smooth follow
+- Log head title: `text-transform: uppercase`, `letter-spacing: 0.04em`, `font-size: 0.75em` for a terminal-chrome feel
+
+### 7g: Consistency Pass
+
+Unify all tabs to the same patterns:
+
+| What | Before | After |
+|------|--------|-------|
+| Border radius | 4px/6px/8px/10px mixed | `--hub-radius` (6px) for controls, `--hub-radius-lg` (10px) for cards |
+| Button padding | Mixed (6px 12px, 4px 16px, 2px 8px) | `6px 14px` standard, `4px 10px` compact |
+| Focus style | Mixed (outline vs border-color) | Unified: `2px solid accent, 2px offset` everywhere |
+| Spacing | Mixed hardcoded px + tokens | All spacing via `--flowti-space-*` tokens |
+| Button hover | Background swap | Background + `translateY(-0.5px)` micro-lift, `--hub-transition` |
+| Section gaps | Mixed margin-bottom vs gap | All flex containers use `gap` |
+| Empty states | Inline text | Use shared `emptyState` pattern from `shared-styles.ts` |
+| Status badges | Per-component reimplementation | Use shared `statusBadge` pattern from `shared-styles.ts` |
+| Reporting tab | Margin-based spacing | Gap-based flexbox, consistent with all other tabs |
+
+### 7h: New Shared Styles
+
+Add to `shared-styles.ts` (used by multiple tab components):
+
+```ts
+export const hubCard = css`
+	.hub-card {
+		background: var(--hub-surface-1, var(--background-secondary));
+		border: 1px solid var(--background-modifier-border, #333);
+		border-radius: var(--hub-radius-lg, 10px);
+		padding: var(--flowti-space-md);
+		transition: border-color var(--hub-transition, 150ms ease),
+		            box-shadow var(--hub-transition, 150ms ease),
+		            transform var(--hub-transition, 150ms ease);
+	}
+	.hub-card:hover {
+		border-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border));
+		box-shadow: var(--hub-glow, none);
+		transform: translateY(-1px);
+	}
+`;
+
+export const hubButton = css`
+	.hub-btn {
+		padding: 6px 14px;
+		border: 1px solid var(--background-modifier-border, #333);
+		border-radius: var(--hub-radius, 6px);
+		background: var(--background-secondary, #262626);
+		color: var(--text-normal, #ddd);
+		font-size: var(--flowti-font-sm, 0.85em);
+		cursor: pointer;
+		transition: background var(--hub-transition, 150ms ease),
+		            transform var(--hub-transition, 150ms ease);
+	}
+	.hub-btn:hover {
+		background: var(--background-modifier-hover, #333);
+		transform: translateY(-0.5px);
+	}
+	.hub-btn:focus-visible {
+		outline: 2px solid var(--interactive-accent, #7c3aed);
+		outline-offset: 2px;
+	}
+	.hub-btn--primary {
+		background: var(--interactive-accent, #7c3aed);
+		border-color: var(--interactive-accent, #7c3aed);
+		color: #fff;
+	}
+	.hub-btn--compact {
+		padding: 4px 10px;
+	}
+`;
+```
+
+Tab components import these shared styles instead of reimplementing button/card patterns.
+
+---
+
 ## File Change Summary
+
+### Structural (Sections 1–6)
 
 | File | Action | Description |
 |------|--------|-------------|
@@ -505,4 +682,21 @@ Listeners are cleaned up in every path: success, already-exists, and 5s timeout.
 | `tests/infrastructure/handlers/project-handlers.test.ts` | Modify | Update for new handler structure |
 | `tests/components/projects/flowti-project-detail.test.ts` | Modify | Update for new properties |
 
-**Files untouched**: VaultProjectService, vault-project-helpers, vault-project-cli, flowti-cli-run, flowti-cli-runtime, all 6 tab components (except template binding additions to config tab), styles.
+### Visual (Section 7)
+
+| File | Action | Description |
+|------|--------|-------------|
+| `components/projects/flowti-project-detail-styles.ts` | Modify | Hub tokens, card styles, tab bar, activity bar transitions, log terminal |
+| `components/projects/flowti-project-detail.ts` | Modify | Staggered card entrance, activity bar transition markup, tab bar uppercase |
+| `components/projects/flowti-health-gauge.ts` | Create | SVG arc gauge micro-component (~80 lines) |
+| `components/projects/flowti-tab-overview.ts` | Modify | Health gauge integration, spacing consistency, shared patterns |
+| `components/projects/flowti-tab-components.ts` | Modify | Radius/spacing/button consistency, shared styles |
+| `components/projects/flowti-tab-event-catalog.ts` | Modify | Radius/spacing/button consistency, shared empty state |
+| `components/projects/flowti-tab-reporting.ts` | Modify | Margin→gap, radius/spacing consistency, log terminal style |
+| `components/projects/flowti-tab-config.ts` | Modify | Form field consistency, radius/spacing, save status bindings |
+| `components/projects/flowti-tab-team.ts` | Modify | Align card radius to `--hub-radius-lg`, unify button styles |
+| `components/projects/flowti-scaffold-modal.ts` | Modify | Radius consistency, shared button styles |
+| `components/projects/flowti-add-project-dropdown.ts` | Modify | Radius consistency, glow on open |
+| `components/shared-styles.ts` | Modify | Add `hubCard` and `hubButton` shared style exports |
+
+**Files untouched**: VaultProjectService, vault-project-helpers, vault-project-cli, flowti-cli-run, flowti-cli-runtime.
