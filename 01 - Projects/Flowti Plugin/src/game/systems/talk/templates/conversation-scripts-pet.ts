@@ -122,7 +122,7 @@ export const PET_CATALYST_SCRIPTS: readonly ConversationScript[] = [
 		turns: [
 			{ speaker: "A", text: "Okay, I'm a little mad at you right now, {agentB}.", delayMs: 0, kind: "speech" },
 			{ speaker: "pet", text: "I chose this seat strategically. They will never know.", delayMs: 1500, kind: "thought" },
-			{ speaker: "B", text: "She's judging us both equally.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "The jury has spoken. We're both guilty.", delayMs: 2000, kind: "speech" },
 			{ speaker: "A", text: "...we can't fight in front of the cat.", delayMs: 2000, kind: "speech" },
 		],
 	},
@@ -172,7 +172,7 @@ export const PET_CATALYST_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "A", text: "She brought you a gift again. She never brings me anything.", delayMs: 2000, kind: "speech" },
 			{ speaker: "B", text: "I gave her half my lunch last week.", delayMs: 2000, kind: "speech" },
 			{ speaker: "A", text: "That's— that's just bribery.", delayMs: 1500, kind: "speech" },
-			{ speaker: "B", text: "Clearly I have superior energy.", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "I must emit the right frequencies.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -237,7 +237,7 @@ export const PET_CATALYST_SCRIPTS: readonly ConversationScript[] = [
 		turns: [
 			{ speaker: "pet", text: "The large one is troubled. Deploying strategic purr.", delayMs: 0, kind: "thought" },
 			{ speaker: "B", text: "She's been sitting on my notes for ten minutes.", delayMs: 2500, kind: "speech" },
-			{ speaker: "A", text: "She has better EQ than half this team.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "That cat reads the room better than most humans I know.", delayMs: 2000, kind: "speech" },
 			{ speaker: "B", text: "She's warm and she smells like sunlight and I refuse to move her.", delayMs: 2000, kind: "speech" },
 			{ speaker: "A", text: "The notes can wait.", delayMs: 1500, kind: "speech" },
 		],
