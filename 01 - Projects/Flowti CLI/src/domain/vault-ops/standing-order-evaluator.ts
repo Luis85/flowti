@@ -7,7 +7,7 @@
  */
 
 import { parseFrontmatter } from "./frontmatter.js";
-import { buildIndex, matchEvent } from "../tasks/standing-order-index.js";
+import type { IndexedOrder } from "../tasks/standing-order-index.js";
 import type { VaultOpsDeps, VaultEvent, AnyVaultOpRequest, VaultTagRequest } from "./vault-ops-types.js";
 import type { StandingOrderRule, StandingOrderPayload } from "../tasks/task-types.js";
 
@@ -19,6 +19,31 @@ interface IndexableTask {
 	readonly status: string;
 	readonly assignee?: string;
 	readonly standingOrder?: StandingOrderPayload;
+}
+
+function buildPayloadIndex(tasks: readonly IndexableTask[]): IndexedOrder[] {
+	const orders: IndexedOrder[] = [];
+	for (const task of tasks) {
+		if (task.type !== "standing-order") continue;
+		if (task.status !== "assigned") continue;
+		if (!task.standingOrder) continue;
+		orders.push({
+			taskId: task.id,
+			assignee: task.assignee ?? "",
+			watchFolder: task.standingOrder.watch.folder,
+			watchEvent: task.standingOrder.watch.event,
+			rules: task.standingOrder.rules,
+		});
+	}
+	return orders;
+}
+
+function matchPayloadEvent(orders: readonly IndexedOrder[], event: { folder: string; type: string }): IndexedOrder[] {
+	return orders.filter(
+		(o) =>
+			event.folder.startsWith(o.watchFolder) &&
+			o.watchEvent === event.type,
+	);
 }
 
 function matchesTagsMissing(fileTags: readonly string[], required: readonly string[]): boolean {
@@ -78,8 +103,8 @@ export function evaluateEvent(
 	tasks: readonly IndexableTask[],
 	deps: VaultOpsDeps,
 ): AnyVaultOpRequest[] {
-	const index = buildIndex(tasks as IndexableTask[]);
-	const matched = matchEvent(index, { folder: event.folder, type: event.type });
+	const orders = buildPayloadIndex(tasks);
+	const matched = matchPayloadEvent(orders, { folder: event.folder, type: event.type });
 	const requests: AnyVaultOpRequest[] = [];
 
 	for (const order of matched) {
