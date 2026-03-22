@@ -316,7 +316,7 @@ describe("buildDashboardAgent", () => {
 		expect(result.persona).toBe("Bobby");
 		expect(result.mood).toBe("cheerful");
 		expect(result.attributes?.int).toBe(14);
-		expect(result.experience).toBe(150);
+		expect("experience" in result).toBe(false);
 	});
 
 	it("omits skills when agent has no skills", () => {
@@ -338,11 +338,48 @@ describe("buildDashboardAgent", () => {
 		expect(result.mood).toBeUndefined();
 		expect(result.personality).toBeUndefined();
 		expect(result.attributes).toBeUndefined();
-		expect(result.experience).toBeUndefined();
+		expect("experience" in result).toBe(false);
 		expect(result.goals).toBeUndefined();
 		expect(result.behaviors).toBeUndefined();
 		expect(result.relationships).toBeUndefined();
 		expect(result.suggestedTasks).toBeUndefined();
+	});
+
+	it("includes economy fields when economy snapshot is provided", () => {
+		const agent = createMockAgent();
+		const economy = { level: 3, xp: 350, coin: 50, tokens: 10, trustTier: "trusted" as const, capabilities: ["vault-read", "simple-tasks", "standing-orders", "vault-write", "self-proposed"] };
+		const result = buildDashboardAgent(agent, { status: "idle" }, economy);
+		expect(result.level).toBe(3);
+		expect(result.xp).toBe(350);
+		expect(result.coin).toBe(50);
+		expect(result.tokens).toBe(10);
+		expect(result.trustTier).toBe("trusted");
+		expect(result.capabilities).toEqual(["vault-read", "simple-tasks", "standing-orders", "vault-write", "self-proposed"]);
+	});
+
+	it("economy fields are undefined when no snapshot provided", () => {
+		const agent = createMockAgent();
+		const result = buildDashboardAgent(agent, { status: "idle" });
+		expect(result.level).toBeUndefined();
+		expect(result.xp).toBeUndefined();
+		expect(result.coin).toBeUndefined();
+		expect(result.tokens).toBeUndefined();
+		expect(result.trustTier).toBeUndefined();
+		expect(result.capabilities).toBeUndefined();
+	});
+
+	it("does not include experience field", () => {
+		const agent = createMockAgent({ experience: 500 });
+		const economy = { level: 5, xp: 1000, coin: 100, tokens: 20, trustTier: "autonomous" as const, capabilities: [] };
+		const result = buildDashboardAgent(agent, { status: "idle" }, economy);
+		expect("experience" in result).toBe(false);
+		expect(result.xp).toBe(1000);
+	});
+
+	it("includes name field in goals alongside text and priority", () => {
+		const agent = createMockAgent({ goals: [{ name: "complete-review", priority: 2 }] });
+		const result = buildDashboardAgent(agent, { status: "idle" });
+		expect(result.goals).toEqual([{ name: "complete-review", text: "complete-review", priority: "2" }]);
 	});
 });
 

@@ -16,10 +16,22 @@ import { listEvents } from "../events/event-catalog.js";
 import { resourceStore } from "../resources/resource-store.js";
 import { deliverableStore } from "../deliverables/deliverable-store.js";
 import { raidStore } from "../raid/raid-store.js";
+import { readLedger, getAccount } from "../economy/economy-ledger.js";
+import { loadTrustProfile, deriveTier } from "../trust/trust-manager.js";
+import { capabilitiesForLevel } from "../economy/leveling.js";
 
 // ── Export types ─────────────────────────────────────────────────────
 
 export type AgentStatus = "busy" | "idle" | "unassigned";
+
+interface EconomySnapshot {
+	readonly level: number;
+	readonly xp: number;
+	readonly coin: number;
+	readonly tokens: number;
+	readonly trustTier: "supervised" | "trusted" | "autonomous";
+	readonly capabilities: readonly string[];
+}
 
 export interface DashboardAgent {
 	readonly name: string;
@@ -33,12 +45,17 @@ export interface DashboardAgent {
 	readonly mood?: string;
 	readonly personality?: readonly string[];
 	readonly attributes?: AgentAttributes;
-	readonly experience?: number;
 	readonly skills?: readonly AgentSkill[];
 	readonly relationships?: readonly AgentRelationship[];
 	readonly suggestedTasks?: readonly SuggestedTask[];
-	readonly goals?: readonly { text: string; priority: string }[];
+	readonly goals?: readonly { name: string; text: string; priority: string }[];
 	readonly behaviors?: readonly string[];
+	readonly level?: number;
+	readonly xp?: number;
+	readonly coin?: number;
+	readonly tokens?: number;
+	readonly trustTier?: "supervised" | "trusted" | "autonomous";
+	readonly capabilities?: readonly string[];
 }
 
 /** Lightweight component snapshot for the dashboard environment. */
@@ -229,6 +246,7 @@ export function exportAgentDashboardData(
 export function buildDashboardAgent(
 	agent: AgentSummary,
 	derived: { status: AgentStatus; project?: string; iteration?: string; phase?: string },
+	economy?: EconomySnapshot,
 ): DashboardAgent {
 	return {
 		name: agent.name,
@@ -242,12 +260,17 @@ export function buildDashboardAgent(
 		mood: agent.mood,
 		personality: agent.personality,
 		attributes: agent.attributes,
-		experience: agent.experience,
 		skills: agent.skills.length > 0 ? agent.skills : undefined,
 		relationships: agent.relationships,
 		suggestedTasks: agent.suggestedTasks,
-		goals: agent.goals?.map(g => ({ text: g.name, priority: String(g.priority ?? 0) })),
+		goals: agent.goals?.map(g => ({ name: g.name, text: g.name, priority: String(g.priority ?? 0) })),
 		behaviors: agent.behaviors,
+		level: economy?.level,
+		xp: economy?.xp,
+		coin: economy?.coin,
+		tokens: economy?.tokens,
+		trustTier: economy?.trustTier,
+		capabilities: economy?.capabilities ? [...economy.capabilities] : undefined,
 	};
 }
 
