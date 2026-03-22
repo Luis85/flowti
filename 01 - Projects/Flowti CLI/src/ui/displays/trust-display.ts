@@ -68,6 +68,20 @@ export function renderTrustUpdated(data: TrustUpdatedModel, log: LogFn): void {
 	log(`${actionWord} ${BOLD}${data.agent}${RESET} [${data.op}]: ${DIM}${data.from}${RESET} -> ${BOLD}${data.to}${RESET}`);
 }
 
+interface TrustResetModel {
+	readonly agent: string;
+	readonly operations: Record<string, string>;
+	readonly successCounts: Record<string, number>;
+	readonly promotionLog: readonly unknown[];
+}
+
+export function renderTrustReset(data: TrustResetModel, log: LogFn): void {
+	log(`${GREEN}RESET${RESET} trust profile for ${BOLD}${data.agent}${RESET}`);
+	log(`  Operations restored to defaults`);
+	log(`  Success counts cleared`);
+	log(`  Promotion log preserved (${data.promotionLog.length} entries)`);
+}
+
 export function renderTrustHistory(data: TrustHistoryModel, log: LogFn): void {
 	if (data.entries.length === 0) {
 		log(`${DIM}No promotion history for ${data.agent}.${RESET}`);
