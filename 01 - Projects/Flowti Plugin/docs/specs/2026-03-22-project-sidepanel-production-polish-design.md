@@ -22,7 +22,7 @@ The Projects Sidepanel is a 6-tab Lit component tree inside an Obsidian ItemView
 ## Non-Goals
 
 - Changing the Lit component tree or tab structure (tabs stay as-is, hierarchy unchanged)
-- Adding test coverage (follow-up increment)
+- Adding test coverage (follow-up increment — includes new components like `flowti-health-gauge`)
 - Modifying VaultProjectService or infrastructure helpers
 - Adding new features or tab content — visual polish is cosmetic + consistency only
 
@@ -533,7 +533,7 @@ Replace flat button rows with luminous cards:
 - Type badge: faint glow matching accent
 - Storybook "running" badge: pulsing green dot (reuse `pulse` keyframe, green, 6px)
 - `+ brief` badge: ghost button with dashed border, solidifies on hover
-- Entrance animation: cards stagger in with `opacity 0→1` and `translateY(4px→0)` over 200ms, each delayed 30ms via `animation-delay: calc(var(--i, 0) * 30ms)`
+- Entrance animation: cards stagger in with `opacity 0→1` and `translateY(4px→0)` over 200ms, each delayed 30ms via `animation-delay: calc(var(--i, 0) * 30ms)`. The `--i` variable is set per card via an inline `style` binding in the `renderProjectItem` map call: `style="--i: ${index}"`. Without this, all cards animate simultaneously.
 
 ### 7c: Health Score Gauge
 
@@ -544,7 +544,7 @@ New micro-component `<flowti-health-gauge>` replacing the plain text score:
 - Score number large and centered inside the arc
 - Subtle glow on the filled portion matching score color
 - Arc animates from 0 to target on mount (500ms ease-out) via CSS `stroke-dashoffset` transition
-- Graceful degradation: falls back to plain text score if SVG not supported
+- No SVG fallback needed — Obsidian runs in Electron which always supports SVG
 
 Component API:
 
@@ -566,7 +566,7 @@ Upgrade the underline tabs to a dashboard nav:
 - Hover: text color transitions smoothly (150ms), faint background tint `color-mix(accent 5%, transparent)`
 - Typography: `text-transform: uppercase`, `letter-spacing: 0.03em`, `font-size: 0.8em`
 - Active tab: `font-weight: 600` (up from 500)
-- Tab overflow: `overflow-x: auto` with hidden scrollbar for narrow viewports
+- Tab overflow: `overflow-x: auto` with hidden scrollbar for narrow viewports. At Obsidian's default ~300px sidepanel width, 6 uppercase tabs with letter-spacing may overflow — the hidden scrollbar allows horizontal swipe/drag without visual scrollbar clutter. If this proves awkward, `text-transform` can be dropped as a fallback.
 
 ### 7e: Activity Bar State Transitions
 
@@ -579,6 +579,8 @@ Smooth animated transitions between busy/success/error/idle:
 - Dismiss button: `opacity 0→0.6` with 150ms delay after state change
 - Appear/disappear: `max-height` transition (0→auto via `grid-template-rows: 0fr→1fr` trick) for smooth reveal
 
+All activity bar transitions are **CSS-only** — they use `transition` properties on the `.activity-bar` element that trigger when the class changes (e.g., `--busy` → `--success`). No JS timing or handler coordination is needed. The green flash uses a CSS `@keyframes` animation applied on state entry via the class, not a programmatic "set class then remove" pattern.
+
 ### 7f: CLI Log Terminal Feel
 
 Make log containers feel like embedded terminals:
@@ -586,7 +588,7 @@ Make log containers feel like embedded terminals:
 - Inset appearance: `box-shadow: inset 0 2px 4px rgba(0,0,0,0.2)` on the pre area
 - Monospace font with faint accent tint on background: `color-mix(in srgb, var(--interactive-accent) 3%, var(--hub-surface-0))`
 - Active log: 3px solid accent left-border bar (replace full border glow for cleaner look)
-- Auto-scroll behavior: `scroll-snap-align: end` on a sentinel element for smooth follow
+- Auto-scroll behavior: JS-based via Lit's `updated()` lifecycle — `scrollTop = scrollHeight` on append, with a `userScrolledUp` flag (set on manual scroll-up, cleared when user scrolls back to bottom) to avoid fighting the user
 - Log head title: `text-transform: uppercase`, `letter-spacing: 0.04em`, `font-size: 0.75em` for a terminal-chrome feel
 
 ### 7g: Consistency Pass
@@ -601,7 +603,7 @@ Unify all tabs to the same patterns:
 | Spacing | Mixed hardcoded px + tokens | All spacing via `--flowti-space-*` tokens |
 | Button hover | Background swap | Background + `translateY(-0.5px)` micro-lift, `--hub-transition` |
 | Section gaps | Mixed margin-bottom vs gap | All flex containers use `gap` |
-| Empty states | Inline text | Use shared `emptyState` pattern from `shared-styles.ts` |
+| Empty states | Inline text + local `.empty-state` | Import shared `emptyState` from `shared-styles.ts`, remove local `.empty-state` from `flowti-project-detail-styles.ts` |
 | Status badges | Per-component reimplementation | Use shared `statusBadge` pattern from `shared-styles.ts` |
 | Reporting tab | Margin-based spacing | Gap-based flexbox, consistent with all other tabs |
 
@@ -697,6 +699,8 @@ Tab components import these shared styles instead of reimplementing button/card 
 | `components/projects/flowti-tab-team.ts` | Modify | Align card radius to `--hub-radius-lg`, unify button styles |
 | `components/projects/flowti-scaffold-modal.ts` | Modify | Radius consistency, shared button styles |
 | `components/projects/flowti-add-project-dropdown.ts` | Modify | Radius consistency, glow on open |
-| `components/shared-styles.ts` | Modify | Add `hubCard` and `hubButton` shared style exports |
+| `components/projects/flowti-git-import-modal-styles.ts` | Modify | Radius/button consistency to match hub tokens |
+| `components/projects/flowti-storybook-section.ts` | Modify | Button/badge consistency (used inside components tab) |
+| `components/shared-styles.ts` | Modify | Add `hubCard` and `hubButton` shared style exports (note: `--hub-*` tokens come from project detail host; fallback values ensure standalone use) |
 
 **Files untouched**: VaultProjectService, vault-project-helpers, vault-project-cli, flowti-cli-run, flowti-cli-runtime.
