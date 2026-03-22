@@ -55,7 +55,9 @@ describe("economy-ledger", () => {
 				...EMPTY_LEDGER,
 				accounts: { auditor: { xp: 500, level: 3, coin: 200, tokens: 3000, totalEarned: { xp: 500, coin: 300 }, totalSpent: { coin: 100, tokens: 1000 } } },
 			};
-			expect(getAccount(ledger, "auditor").xp).toBe(500);
+			const account = getAccount(ledger, "auditor");
+			expect(account.xp).toBe(500);
+			expect(account.level).toBe(3);
 		});
 	});
 
@@ -64,6 +66,8 @@ describe("economy-ledger", () => {
 			const result = creditReward(EMPTY_LEDGER, "auditor", { xp: 50, coin: 25 });
 			expect(result.ledger.accounts.auditor.xp).toBe(50);
 			expect(result.ledger.accounts.auditor.coin).toBe(25);
+			expect(result.reward.xp).toBe(50);
+			expect(result.reward.coin).toBe(25);
 		});
 
 		it("triggers level-up when XP crosses threshold", () => {

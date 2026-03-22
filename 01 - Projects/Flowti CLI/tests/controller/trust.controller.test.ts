@@ -64,7 +64,6 @@ const mockProfile = {
 	promotionLog: [
 		{ op: "vault-tag", from: "manual" as const, to: "review" as const, at: "2026-03-20T00:00:00.000Z", reason: "good behavior" },
 	],
-	successCounts: { "vault-read": 5, "vault-search": 3 },
 };
 
 vi.mock("../../src/domain/trust/trust-manager.js", () => ({
@@ -237,7 +236,6 @@ describe("trust.controller", () => {
 				"vault-move": "manual",
 				"vault-link": "review",
 			});
-			expect(output.successCounts).toEqual({});
 			expect(output.promotionLog).toHaveLength(1);
 		});
 

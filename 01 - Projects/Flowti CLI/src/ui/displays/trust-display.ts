@@ -71,14 +71,12 @@ export function renderTrustUpdated(data: TrustUpdatedModel, log: LogFn): void {
 interface TrustResetModel {
 	readonly agent: string;
 	readonly operations: Record<string, string>;
-	readonly successCounts: Record<string, number>;
 	readonly promotionLog: readonly unknown[];
 }
 
 export function renderTrustReset(data: TrustResetModel, log: LogFn): void {
 	log(`${GREEN}RESET${RESET} trust profile for ${BOLD}${data.agent}${RESET}`);
 	log(`  Operations restored to defaults`);
-	log(`  Success counts cleared`);
 	log(`  Promotion log preserved (${data.promotionLog.length} entries)`);
 }
 

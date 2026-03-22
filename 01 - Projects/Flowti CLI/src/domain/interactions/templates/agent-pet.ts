@@ -1,0 +1,62 @@
+import type { InteractionTemplate } from "../interaction-types.js";
+
+export const AGENT_PET_TEMPLATES: readonly InteractionTemplate[] = [
+	{
+		id: "sneak-treat",
+		category: "care",
+		action: "sneak-treat",
+		cardinality: "one-to-one",
+		initiatorTypes: ["agent"],
+		targetTypes: ["pet"],
+		prerequisites: [
+			{ type: "proximity", maxDistance: 2 },
+		],
+		weight: 1,
+		tags: ["care", "food"],
+		priority: 30,
+		cooldownMs: 300000,
+		duration: 5000,
+		effects: [
+			{ type: "bubble", target: "initiator", bubbleKind: "emote", phrasePool: "sneak-treat" },
+			{ type: "need-change", target: "targets", need: "hunger", amount: 15 },
+		],
+		chainTemplates: ["caught-sneaking-treat"],
+		chainChance: 0.3,
+	},
+	{
+		id: "pet-greeting",
+		category: "social",
+		action: "pet-greeting",
+		cardinality: "one-to-one",
+		initiatorTypes: ["agent"],
+		targetTypes: ["pet"],
+		prerequisites: [],
+		weight: 1,
+		tags: ["social", "pet"],
+		priority: 25,
+		cooldownMs: 120000,
+		duration: 4000,
+		effects: [
+			{ type: "bubble", target: "initiator", bubbleKind: "speech", phrasePool: "pet-greeting" },
+			{ type: "affinity-change", target: "targets", amount: 2 },
+		],
+	},
+	{
+		id: "play-with-pet",
+		category: "playful",
+		action: "play-with-pet",
+		cardinality: "one-to-one",
+		initiatorTypes: ["agent"],
+		targetTypes: ["pet"],
+		prerequisites: [],
+		weight: 1,
+		tags: ["playful", "pet"],
+		priority: 30,
+		cooldownMs: 180000,
+		duration: 10000,
+		effects: [
+			{ type: "bubble", target: "initiator", bubbleKind: "emote", phrasePool: "play-with-pet" },
+			{ type: "need-change", target: "initiator", need: "social", amount: 5 },
+		],
+	},
+] as const;

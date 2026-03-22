@@ -16,7 +16,7 @@ import type {
 import type { VaultOperation, AgentTrustProfile, TrustConfig } from "../trust/trust-types.js";
 import type { EconomyLedger } from "../economy/economy-types.js";
 import type { StagingManifest, StagedFile } from "../tasks/staging.js";
-import { canPerform, recordSuccess } from "../trust/trust-manager.js";
+import { canPerform, checkAutoPromotion, promote } from "../trust/trust-manager.js";
 import { creditReward } from "../economy/economy-ledger.js";
 import { calculateReward } from "../economy/economy-rules.js";
 import { createStagingArea } from "../tasks/staging.js";
@@ -219,10 +219,13 @@ export function executeVaultOp(
 	try {
 		const data = dispatchOp(req, deps);
 
-		// Step 4: Record success
+		// Step 4: Record success — check auto-promotion
 		const account = ledger.accounts[req.agentName];
 		const agentLevel = account?.level ?? 1;
-		const { profile: updatedProfile } = recordSuccess(profile, req.operation, agentLevel, config);
+		const promo = checkAutoPromotion(profile, req.operation, agentLevel, 1, config);
+		const updatedProfile = promo.shouldPromote && promo.newLevel
+			? promote(profile, req.operation, promo.newLevel, "auto-promoted after success", deps.clock.iso())
+			: profile;
 
 		// Step 5: Reward (only when taskId present)
 		let updatedLedger = ledger;
@@ -275,7 +278,10 @@ export function approveStaged(
 ): { profile: AgentTrustProfile; ledger: EconomyLedger } {
 	const account = ledger.accounts[agentName];
 	const agentLevel = account?.level ?? 1;
-	const { profile: updatedProfile } = recordSuccess(profile, operation, agentLevel, config);
+	const promo = checkAutoPromotion(profile, operation, agentLevel, 1, config);
+	const updatedProfile = promo.shouldPromote && promo.newLevel
+		? promote(profile, operation, promo.newLevel, "auto-promoted after approval", _deps.clock.iso())
+		: profile;
 
 	const reward = calculateReward(BASE_REWARD, {
 		trustTier: "review",

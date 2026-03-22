@@ -116,7 +116,7 @@ export function ExecuteMerchantPurchase(ext: BTAgentExtensionDeps): State {
 	// collect the action immediately and let the purchase resolve in the
 	// background (same pattern as QueryLLM fire-and-poll but simpler since
 	// we don't need to wait for a result to continue).
-	ext.deps.merchant.purchase(ext.context.name, itemId).then();
+	void ext.deps.merchant.purchase(ext.context.name, itemId);
 
 	ext.collect("merchant-purchase", { itemId });
 

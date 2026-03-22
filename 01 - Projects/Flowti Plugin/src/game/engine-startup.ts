@@ -32,6 +32,9 @@ import type { DashboardStore } from "./store/dashboard-store.js";
 import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
 import { resolveCharacter } from "./sprites/character-pool.js";
 import type { AgentSprites } from "./sprites/sprite-loader.js";
+import type { InteractionBootstrap } from "./systems/interaction/bootstrap-interactions.js";
+import { registerAgentResolver } from "./systems/interaction/bootstrap-interactions.js";
+import type { InteractionHooks } from "./brain/behavior-tree/bt-types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -51,6 +54,7 @@ export interface RegistrationSystems {
 	readonly bt: BtSystem;
 	readonly btDeps: Parameters<BtSystem["register"]>[1];
 	readonly knownEntities: Set<string>;
+	readonly interactionBootstrap?: InteractionBootstrap;
 }
 
 export interface PlacementContext {
@@ -90,6 +94,39 @@ function registerSingleAgent(agent: DashboardAgent, sys: RegistrationSystems): v
 
 	registerQuirksAndOpinions(agent, sys);
 	sys.bt.register(agent, sys.btDeps);
+
+	// Wire interaction resolver + BT hooks
+	if (sys.interactionBootstrap) {
+		const resolver = registerAgentResolver(sys.interactionBootstrap, name, {
+			social: {
+				getNearbyEntities: (entityId: string) => [...sys.social.getNearbyEntities(entityId)],
+			},
+			relationship: sys.relationship,
+			needs: sys.needs,
+			dayClock: { getPhase: () => "" },
+			conversation: { isLocked: () => false },
+		});
+
+		const btAgent = sys.bt.getAgent(name);
+		if (btAgent) {
+			const bus = sys.interactionBootstrap.system.getBus();
+			const hooks: InteractionHooks = {
+				getNearby: () => sys.social.getNearbyEntities(name).map(e => ({
+					id: e.id,
+					entityType: e.entityType,
+					distance: e.distance,
+				})),
+				resolve: () => resolver.resolve().map(i => ({ id: i.id, action: i.action })),
+				submit: (interaction) => {
+					const full = resolver.resolve().find(i => i.id === interaction.id);
+					if (!full) return false;
+					return bus.submit(full).status === "enqueued";
+				},
+			};
+			btAgent.context.interactionHooks = hooks;
+		}
+	}
+
 	sys.knownEntities.add(name);
 }
 

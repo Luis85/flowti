@@ -62,6 +62,8 @@ export interface BTAgentObject {
 	IsHungry(): boolean; IsThirsty(): boolean; IsEnergyOk(): boolean; IsFocusOk(): boolean;
 	HasWorkGoal(): boolean; HasJourneyTask(): boolean;
 	IsMerchantEligible(): boolean; HasNotVisitedMerchantThisCycle(): boolean; HasAutoPurchaseAvailable(): boolean;
+	// Interaction conditions
+	NotInInteraction(): boolean; HasNearbyEntity(): boolean;
 	// Actions
 	PickGoal(): State; PickGoalFile(): State; ReadFile(): State; WriteFile(): State; OpenInVault(): State;
 	QueryLLM(): State; GenerateFromTemplate(): State; DropArtifact(): State; SpeakBubble(): State;
@@ -72,6 +74,8 @@ export interface BTAgentObject {
 	WanderSad(): State; GoToWorkstation(): State; DoWork(): State; LeaveWorkstation(): State;
 	ExecuteJourney(): State;
 	SeekMerchantStall(): State; BrowseMerchant(): State; ExecuteMerchantPurchase(): State;
+	// Interaction actions
+	EvaluateInteraction(): State; SubmitInteraction(): State;
 }
 
 export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentObject {
@@ -102,6 +106,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		workingFilePath: null,
 		llmSlot: createIdleLLMSlot(),
 		lastMerchantVisitCycle: -1,
+		activeInteraction: null,
 	};
 
 	const collectedActions: CollectedAction[] = [];
@@ -392,6 +397,46 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return fromNodeState("succeeded");
 	}
 
+	// ── Interaction conditions + actions ──────────────────────────────
+
+	function NotInInteraction(): boolean {
+		return context.activeInteraction === null;
+	}
+
+	function HasNearbyEntity(): boolean {
+		const hooks = context.interactionHooks;
+		if (!hooks) return true;
+		return hooks.getNearby().length > 0;
+	}
+
+	function EvaluateInteraction(): State {
+		const hooks = context.interactionHooks;
+		if (!hooks) return fromNodeState("succeeded");
+
+		const candidates = hooks.resolve();
+		if (candidates.length === 0) return fromNodeState("failed");
+
+		(context as { activeInteraction: { id: string; action: string } }).activeInteraction = candidates[0];
+		collect("interaction-evaluated", { id: candidates[0].id, action: candidates[0].action });
+		return fromNodeState("succeeded");
+	}
+
+	function SubmitInteraction(): State {
+		const interaction = context.activeInteraction;
+		if (!interaction) return fromNodeState("failed");
+
+		const hooks = context.interactionHooks;
+		const accepted = hooks ? hooks.submit(interaction) : true;
+
+		(context as { activeInteraction: null }).activeInteraction = null;
+
+		if (accepted) {
+			collect("interaction-submitted", { id: interaction.id, action: interaction.action });
+			return fromNodeState("succeeded");
+		}
+		return fromNodeState("failed");
+	}
+
 	// ── Needs-driven actions ────────────────────────────────────────
 
 	function SeekRestSpot(): State {
@@ -452,7 +497,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		IsEnergyLow, IsSocialLow, IsFocusLow, IsMoraleLow,
 		IsHungry: () => IsHungry(context),
 		IsThirsty: () => IsThirsty(context),
-		IsEnergyOk, IsFocusOk, HasWorkGoal,
+		IsEnergyOk, IsFocusOk, HasWorkGoal, NotInInteraction, HasNearbyEntity,
 		HasJourneyTask: () => HasJourneyTask(context),
 		IsMerchantEligible: () => IsMerchantEligible(context, trustTier),
 		HasNotVisitedMerchantThisCycle: () => HasNotVisitedMerchantThisCycle(
@@ -473,5 +518,6 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		SeekMerchantStall: () => SeekMerchantStall(extDeps),
 		BrowseMerchant: () => BrowseMerchant(extDeps),
 		ExecuteMerchantPurchase: () => ExecuteMerchantPurchase(extDeps),
+		EvaluateInteraction, SubmitInteraction,
 	};
 }

@@ -182,6 +182,61 @@ describe("ConversationEngine", () => {
 		expect(showBubble).toHaveBeenCalledWith("Atlas", "speech", "Have you noticed Sage?");
 	});
 
+	it("tryScript returns false when externalLockQuery reports a participant locked", () => {
+		const externalLockQuery = vi.fn((id: string) => id === "Rex");
+		const lockedEngine = new ConversationEngine({
+			showBubble,
+			getTier,
+			silenceTalk,
+			recordConversation,
+			externalLockQuery,
+		});
+		lockedEngine.registerScripts([TEST_SCRIPT]);
+		const result = lockedEngine.tryScript("Atlas", "Rex", "proximity", {
+			domainA: "engineering",
+			domainB: "design",
+		});
+		expect(result).toBe(false);
+		expect(showBubble).not.toHaveBeenCalled();
+	});
+
+	it("tryScript proceeds normally when externalLockQuery returns false", () => {
+		const externalLockQuery = vi.fn(() => false);
+		const unlockedEngine = new ConversationEngine({
+			showBubble,
+			getTier,
+			silenceTalk,
+			recordConversation,
+			externalLockQuery,
+		});
+		unlockedEngine.registerScripts([TEST_SCRIPT]);
+		const result = unlockedEngine.tryScript("Atlas", "Rex", "proximity", {
+			domainA: "engineering",
+			domainB: "design",
+		});
+		expect(result).toBe(true);
+		expect(showBubble).toHaveBeenCalledWith("Atlas", "speech", "Hey Rex!");
+	});
+
+	it("tryScript returns false when pet is externally locked", () => {
+		const externalLockQuery = vi.fn((id: string) => id === "Whiskers");
+		const petEngine = new ConversationEngine({
+			showBubble,
+			getTier,
+			silenceTalk,
+			recordConversation,
+			externalLockQuery,
+		});
+		petEngine.registerScripts([TEST_SCRIPT]);
+		const result = petEngine.tryScript("Atlas", "Rex", "proximity", {
+			domainA: "engineering",
+			domainB: "design",
+			pet: "Whiskers",
+		});
+		expect(result).toBe(false);
+		expect(showBubble).not.toHaveBeenCalled();
+	});
+
 	it("cooldown prevents same script from replaying too soon", () => {
 		vi.useFakeTimers();
 		try {

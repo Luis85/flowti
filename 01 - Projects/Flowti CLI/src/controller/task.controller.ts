@@ -16,6 +16,21 @@ import { VAULT_ROOT } from "../infrastructure/config.js";
 
 // ── Helpers ───────────────────────────────────────────────────────
 
+/** Build a TaskStoreDeps-compatible object from CliDeps. */
+function taskDeps(deps: CliDeps) {
+	return {
+		disk: {
+			existsSync: (p: string) => deps.disk.existsSync(p),
+			readFileSync: (p: string, enc?: string) => deps.disk.readFileSync(p, (enc ?? "utf-8") as BufferEncoding) as string,
+			writeFileSync: (p: string, c: string) => deps.disk.writeFileSync(p, c, "utf-8"),
+			mkdirSync: (p: string, opts?: { recursive?: boolean }) => deps.disk.mkdirSync(p, opts),
+			readdirSync: (p: string) => deps.disk.readdirSync(p) as string[],
+			unlinkSync: (p: string) => deps.disk.unlinkSync(p),
+		},
+		paths: deps.paths,
+	};
+}
+
 /** Build a LedgerDeps-compatible object from CliDeps. */
 function ledgerDeps(deps: CliDeps) {
 	return {
@@ -39,7 +54,7 @@ export const commands: Record<string, CommandHandler> = {
 			assignee: { type: "string", default: "", hint: "--assignee=<name>" },
 		},
 		handler: (ctx) => {
-			const all = taskStore.list(ctx.deps, VAULT_ROOT);
+			const all = taskStore.list(taskDeps(ctx.deps), VAULT_ROOT);
 			const filtered = all.filter(t => {
 				if (ctx.flags.status && t.status !== ctx.flags.status) return false;
 				if (ctx.flags.assignee && (t.assignee ?? "") !== ctx.flags.assignee) return false;
@@ -85,7 +100,7 @@ export const commands: Record<string, CommandHandler> = {
 				tags: [],
 				createdAt: ctx.deps.clock.iso(),
 			};
-			taskStore.create(ctx.deps, VAULT_ROOT, def);
+			taskStore.create(taskDeps(ctx.deps), VAULT_ROOT, def);
 			return { id, title: def.title };
 		},
 		renderer: renderTaskCreated,
@@ -97,11 +112,12 @@ export const commands: Record<string, CommandHandler> = {
 			to: { type: "string", required: true, hint: "--to=<agent-name>" },
 		},
 		handler: (ctx) => {
-			const task = taskStore.read(ctx.deps, VAULT_ROOT, ctx.flags.id as string);
+			const td = taskDeps(ctx.deps);
+			const task = taskStore.read(td, VAULT_ROOT, ctx.flags.id as string);
 			if (!task) return { id: ctx.flags.id as string, field: "error", value: "task not found" };
 			if (!canTransition(task.status, "assigned")) return { id: task.id, field: "error", value: `cannot assign from status ${task.status}` };
-			taskStore.updateField(ctx.deps, VAULT_ROOT, task.id, "assignee", ctx.flags.to as string);
-			taskStore.updateField(ctx.deps, VAULT_ROOT, task.id, "status", "assigned");
+			taskStore.updateField(td, VAULT_ROOT, task.id, "assignee", ctx.flags.to as string);
+			taskStore.updateField(td, VAULT_ROOT, task.id, "status", "assigned");
 			return { id: task.id, field: "assignee", value: ctx.flags.to as string };
 		},
 		renderer: renderTaskUpdated,
@@ -110,7 +126,7 @@ export const commands: Record<string, CommandHandler> = {
 	"task:review": adaptDescriptor({
 		flags: {},
 		handler: (ctx) => {
-			const all = taskStore.list(ctx.deps, VAULT_ROOT);
+			const all = taskStore.list(taskDeps(ctx.deps), VAULT_ROOT);
 			const tasks = all.filter(t => t.status === "review");
 			return {
 				tasks: tasks.map(t => ({
@@ -132,7 +148,8 @@ export const commands: Record<string, CommandHandler> = {
 			id: { type: "string", required: true, hint: "--id=<task-id>" },
 		},
 		handler: (ctx) => {
-			const task = taskStore.read(ctx.deps, VAULT_ROOT, ctx.flags.id as string);
+			const td = taskDeps(ctx.deps);
+			const task = taskStore.read(td, VAULT_ROOT, ctx.flags.id as string);
 			if (!task) return { id: ctx.flags.id as string, ok: false, error: "task not found", xp: 0, coin: 0 };
 			if (!canTransition(task.status, "completed")) return { id: task.id, ok: false, error: `cannot approve from status ${task.status}`, xp: 0, coin: 0 };
 			const deps = ledgerDeps(ctx.deps);
@@ -148,8 +165,8 @@ export const commands: Record<string, CommandHandler> = {
 				xp: reward.xp,
 				coin: reward.coin,
 			});
-			taskStore.updateField(ctx.deps, VAULT_ROOT, task.id, "status", "completed");
-			taskStore.updateField(ctx.deps, VAULT_ROOT, task.id, "completedAt", ctx.deps.clock.iso());
+			taskStore.updateField(td, VAULT_ROOT, task.id, "status", "completed");
+			taskStore.updateField(td, VAULT_ROOT, task.id, "completedAt", ctx.deps.clock.iso());
 			return { id: task.id, ok: true, xp: reward.xp, coin: reward.coin };
 		},
 		renderer: renderTaskApproved,
@@ -161,10 +178,11 @@ export const commands: Record<string, CommandHandler> = {
 			reason: { type: "string", default: "", hint: "--reason=<text>" },
 		},
 		handler: (ctx) => {
-			const task = taskStore.read(ctx.deps, VAULT_ROOT, ctx.flags.id as string);
+			const td = taskDeps(ctx.deps);
+			const task = taskStore.read(td, VAULT_ROOT, ctx.flags.id as string);
 			if (!task) return { id: ctx.flags.id as string, ok: false, reason: ctx.flags.reason as string };
 			if (!canTransition(task.status, "pending")) return { id: task.id, ok: false, reason: `cannot reject from status ${task.status}` };
-			taskStore.updateField(ctx.deps, VAULT_ROOT, task.id, "status", "pending");
+			taskStore.updateField(td, VAULT_ROOT, task.id, "status", "pending");
 			return { id: task.id, ok: true, reason: ctx.flags.reason as string };
 		},
 		renderer: renderTaskRejected,
@@ -175,7 +193,7 @@ export const commands: Record<string, CommandHandler> = {
 			assignee: { type: "string", default: "", hint: "--assignee=<name>" },
 		},
 		handler: (ctx) => {
-			const all = taskStore.list(ctx.deps, VAULT_ROOT);
+			const all = taskStore.list(taskDeps(ctx.deps), VAULT_ROOT);
 			const orders = all.filter(t => {
 				if (t.type !== "standing-order") return false;
 				if (ctx.flags.assignee && (t.assignee ?? "") !== ctx.flags.assignee) return false;

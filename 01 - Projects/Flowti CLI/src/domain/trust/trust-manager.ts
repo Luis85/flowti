@@ -1,141 +1,110 @@
-import type { AgentTrustProfile, TrustLevel, TrustConfig, VaultOperation, PromotionLogEntry } from "./trust-types.js";
+import type { AgentTrustProfile, TrustLevel, VaultOperation, TrustConfig, PromotionLogEntry } from "./trust-types.js";
 import { DEFAULT_OPERATION_TRUST, DEFAULT_TRUST_CONFIG } from "./trust-types.js";
 
-const TRUST_PATH_PREFIX = ".flowti/var/trust-";
-
 type TrustDeps = {
-	readonly disk: {
-		existsSync(p: string): boolean;
-		readFileSync(p: string, enc?: string): string;
-		writeFileSync(p: string, c: string): void;
-		mkdirSync(p: string, opts?: { recursive?: boolean }): void;
-	};
+	readonly disk: { existsSync(p: string): boolean; readFileSync(p: string, enc?: string): string; writeFileSync(p: string, c: string): void; mkdirSync(p: string, opts?: { recursive?: boolean }): void };
 	readonly paths: { join(...segs: string[]): string; dirname(p: string): string };
-	readonly clock?: { iso(): string };
 };
 
+const TRUST_DIR = ".flowti/var/trust";
+
+export function defaultProfile(): AgentTrustProfile {
+	return {
+		tier: "supervised",
+		operations: { ...DEFAULT_OPERATION_TRUST },
+		promotionLog: [],
+	};
+}
+
 export function loadTrustProfile(deps: TrustDeps, vaultRoot: string, agentName: string): AgentTrustProfile {
-	const path = deps.paths.join(vaultRoot, `${TRUST_PATH_PREFIX}${agentName}.json`);
-	if (!deps.disk.existsSync(path)) {
-		return buildDefaultProfile();
-	}
+	const path = deps.paths.join(vaultRoot, TRUST_DIR, `${agentName}.json`);
+	if (!deps.disk.existsSync(path)) return defaultProfile();
 	const raw = deps.disk.readFileSync(path, "utf-8");
 	return JSON.parse(raw) as AgentTrustProfile;
 }
 
 export function saveTrustProfile(deps: TrustDeps, vaultRoot: string, agentName: string, profile: AgentTrustProfile): void {
-	const path = deps.paths.join(vaultRoot, `${TRUST_PATH_PREFIX}${agentName}.json`);
-	const dir = deps.paths.dirname(path);
+	const dir = deps.paths.join(vaultRoot, TRUST_DIR);
 	deps.disk.mkdirSync(dir, { recursive: true });
+	const path = deps.paths.join(dir, `${agentName}.json`);
 	deps.disk.writeFileSync(path, JSON.stringify(profile, null, "\t"));
 }
 
-export function canPerform(
-	profile: AgentTrustProfile,
-	operation: VaultOperation,
-): { allowed: boolean; level: TrustLevel; reason?: string } {
+export function canPerform(profile: AgentTrustProfile, operation: VaultOperation): { allowed: boolean; level: TrustLevel; reason?: string } {
 	const level = profile.operations[operation];
 	if (level === "auto") return { allowed: true, level };
-	if (level === "review") return { allowed: true, level };
-	return { allowed: false, level, reason: "requires Director" };
+	if (level === "review") return { allowed: true, level, reason: "requires review after completion" };
+	return { allowed: false, level, reason: "requires Director approval" };
 }
 
 export function promote(
 	profile: AgentTrustProfile,
 	operation: VaultOperation,
-	level: TrustLevel,
+	newLevel: TrustLevel,
 	reason: string,
-	clock?: { iso(): string },
+	iso: string,
 ): AgentTrustProfile {
-	const from = profile.operations[operation];
 	const entry: PromotionLogEntry = {
 		op: operation,
-		from,
-		to: level,
-		at: clock?.iso() ?? new Date().toISOString(),
+		from: profile.operations[operation],
+		to: newLevel,
+		at: iso,
 		reason,
 	};
-	const updatedProfile: AgentTrustProfile = {
+	return {
 		...profile,
-		operations: { ...profile.operations, [operation]: level },
+		operations: { ...profile.operations, [operation]: newLevel },
 		promotionLog: [...profile.promotionLog, entry],
+		tier: deriveTier({ ...profile, operations: { ...profile.operations, [operation]: newLevel } }),
 	};
-	return { ...updatedProfile, tier: deriveTier(updatedProfile) };
 }
 
 export function demote(
 	profile: AgentTrustProfile,
 	operation: VaultOperation,
-	level: TrustLevel,
+	newLevel: TrustLevel,
 	reason: string,
-	clock?: { iso(): string },
+	iso: string,
 ): AgentTrustProfile {
-	const from = profile.operations[operation];
 	const entry: PromotionLogEntry = {
 		op: operation,
-		from,
-		to: level,
-		at: clock?.iso() ?? new Date().toISOString(),
+		from: profile.operations[operation],
+		to: newLevel,
+		at: iso,
 		reason,
 	};
-	const updatedProfile: AgentTrustProfile = {
+	return {
 		...profile,
-		operations: { ...profile.operations, [operation]: level },
+		operations: { ...profile.operations, [operation]: newLevel },
 		promotionLog: [...profile.promotionLog, entry],
+		tier: deriveTier({ ...profile, operations: { ...profile.operations, [operation]: newLevel } }),
 	};
-	return { ...updatedProfile, tier: deriveTier(updatedProfile) };
-}
-
-export function recordSuccess(
-	profile: AgentTrustProfile,
-	operation: VaultOperation,
-	agentLevel: number,
-	config: TrustConfig = DEFAULT_TRUST_CONFIG,
-): { profile: AgentTrustProfile; promoted: boolean } {
-	const counts = profile.successCounts ?? {};
-	const count = (counts[operation] ?? 0) + 1;
-	const updatedCounts = { ...counts, [operation]: count };
-	let updatedProfile: AgentTrustProfile = { ...profile, successCounts: updatedCounts };
-
-	const shouldPromote = checkAutoPromotion(updatedProfile, operation, agentLevel, config, count);
-	if (shouldPromote && updatedProfile.operations[operation] === "review") {
-		updatedProfile = promote(updatedProfile, operation, "auto", `Auto-promoted after ${count} successes`);
-		return { profile: updatedProfile, promoted: true };
-	}
-
-	return { profile: updatedProfile, promoted: false };
 }
 
 export function checkAutoPromotion(
 	profile: AgentTrustProfile,
 	operation: VaultOperation,
 	agentLevel: number,
-	config: TrustConfig,
 	successCount: number,
-): boolean {
-	if (!config.autoPromote) return false;
+	config: TrustConfig = DEFAULT_TRUST_CONFIG,
+): { shouldPromote: boolean; newLevel?: TrustLevel } {
+	if (!config.autoPromote) return { shouldPromote: false };
 	const threshold = config.thresholds[operation];
-	if (!threshold) return false;
-	return successCount >= threshold.successes && agentLevel >= threshold.minLevel;
+	if (!threshold) return { shouldPromote: false };
+	if (agentLevel < threshold.minLevel) return { shouldPromote: false };
+	if (successCount < threshold.successes) return { shouldPromote: false };
+
+	const currentLevel = profile.operations[operation];
+	if (currentLevel === "auto") return { shouldPromote: false };
+	const nextLevel: TrustLevel = currentLevel === "manual" ? "review" : "auto";
+	return { shouldPromote: true, newLevel: nextLevel };
 }
 
 export function deriveTier(profile: AgentTrustProfile): "supervised" | "trusted" | "autonomous" {
-	const ops = Object.values(profile.operations) as TrustLevel[];
-	const total = ops.length;
-	if (total === 0) return "supervised";
+	const ops = Object.values(profile.operations);
 	const autoCount = ops.filter(l => l === "auto").length;
-	const ratio = autoCount / total;
+	const ratio = autoCount / ops.length;
 	if (ratio >= 0.8) return "autonomous";
 	if (ratio >= 0.5) return "trusted";
 	return "supervised";
-}
-
-function buildDefaultProfile(): AgentTrustProfile {
-	const profile: Omit<AgentTrustProfile, "tier"> & { tier: "supervised" | "trusted" | "autonomous" } = {
-		tier: "supervised",
-		operations: { ...DEFAULT_OPERATION_TRUST },
-		promotionLog: [],
-		successCounts: {},
-	};
-	return { ...profile, tier: deriveTier(profile) };
 }

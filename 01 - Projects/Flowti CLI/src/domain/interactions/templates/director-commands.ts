@@ -1,0 +1,58 @@
+import type { InteractionTemplate } from "../interaction-types.js";
+
+export const DIRECTOR_COMMAND_TEMPLATES: readonly InteractionTemplate[] = [
+	{
+		id: "director-praise",
+		category: "directive",
+		action: "director-praise",
+		cardinality: "one-to-one",
+		initiatorTypes: ["director"],
+		targetTypes: ["agent"],
+		prerequisites: [],
+		weight: 1,
+		tags: ["directive", "praise"],
+		priority: 95,
+		cooldownMs: 60000,
+		duration: 5000,
+		effects: [
+			{ type: "need-change", target: "targets", need: "morale", amount: 15 },
+			{ type: "memory-record", target: "targets", memory: "Praised by director" },
+		],
+	},
+	{
+		id: "director-team-huddle",
+		category: "directive",
+		action: "director-team-huddle",
+		cardinality: "one-to-many",
+		initiatorTypes: ["director"],
+		targetTypes: ["agent"],
+		prerequisites: [],
+		weight: 1,
+		tags: ["directive", "team"],
+		priority: 95,
+		cooldownMs: 120000,
+		duration: 20000,
+		effects: [
+			{ type: "need-change", target: "targets", need: "social", amount: 10 },
+			{ type: "need-change", target: "targets", need: "focus", amount: 5 },
+			{ type: "memory-record", target: "targets", memory: "Attended team huddle" },
+		],
+	},
+	{
+		id: "director-assign-task",
+		category: "directive",
+		action: "director-assign-task",
+		cardinality: "one-to-one",
+		initiatorTypes: ["director"],
+		targetTypes: ["agent"],
+		prerequisites: [],
+		weight: 1,
+		tags: ["directive", "task"],
+		priority: 95,
+		cooldownMs: 30000,
+		duration: 3000,
+		effects: [
+			{ type: "state-change", target: "targets", key: "assigned", value: true },
+		],
+	},
+] as const;

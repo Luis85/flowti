@@ -86,6 +86,12 @@ function isClusterStillTogether(members: string[], eligible: string[], proximate
 
 // ── SocialSystem ─────────────────────────────────────────────────────
 
+export interface NearbyEntry {
+	readonly id: string;
+	readonly entityType: string;
+	readonly distance: number;
+}
+
 export class SocialSystem {
 	private readonly entries = new Map<string, SocialEntry>();
 	private readonly pairCooldowns = new Map<string, number>();
@@ -95,6 +101,10 @@ export class SocialSystem {
 	private readonly clusterTimers = new Map<string, number>();
 	/** Cooldowns for cluster compositions already fired. */
 	private readonly clusterCooldowns = new Map<string, number>();
+	/** Cached nearby entities per entity (refreshed each update). */
+	private readonly nearbyCache = new Map<string, NearbyEntry[]>();
+	/** Current connected-component clusters (refreshed each update). */
+	private currentClusters: string[][] = [];
 
 	onConversation(cb: ConversationCallback): void {
 		this.callback = cb;
@@ -144,6 +154,9 @@ export class SocialSystem {
 		/** Adjacency set of pairs within social radius (used for cluster detection). */
 		const proximatePairs = new Set<string>();
 
+		// Reset nearby cache for this frame
+		this.nearbyCache.clear();
+
 		for (let i = 0; i < names.length; i++) {
 			const nameA = names[i];
 			const entryA = this.entries.get(nameA)!;
@@ -171,6 +184,14 @@ export class SocialSystem {
 				// Within radius — track for both pair conversations and cluster detection
 				proximatePairs.add(pairKey);
 
+				// Populate nearby cache (bidirectional)
+				let cacheA = this.nearbyCache.get(nameA);
+				if (!cacheA) { cacheA = []; this.nearbyCache.set(nameA, cacheA); }
+				cacheA.push({ id: nameB, entityType: "agent", distance: dist });
+				let cacheB = this.nearbyCache.get(nameB);
+				if (!cacheB) { cacheB = []; this.nearbyCache.set(nameB, cacheB); }
+				cacheB.push({ id: nameA, entityType: "agent", distance: dist });
+
 				if (!this.pairCooldowns.has(pairKey)) {
 					const timer = (entryA.proximityTimers.get(nameB) ?? 0) + deltaMs;
 					entryA.proximityTimers.set(nameB, timer);
@@ -188,9 +209,7 @@ export class SocialSystem {
 		}
 
 		// Cluster detection — find connected components of 3+ idle, high-focus agents
-		if (this.clusterCallback) {
-			this.updateClusters(deltaMs, names, proximatePairs, getState, getNeeds);
-		}
+		this.updateClusters(deltaMs, names, proximatePairs, getState, getNeeds);
 	}
 
 	private updateClusters(
@@ -206,6 +225,9 @@ export class SocialSystem {
 
 		const adjacency = buildAdjacency(eligible, proximatePairs);
 		const components = findConnectedComponents(eligible, adjacency);
+
+		// Store current clusters for getCluster() queries
+		this.currentClusters = components.filter((c) => c.length >= CLUSTER_MIN_SIZE);
 
 		// Update cluster timers and fire callback when threshold met
 		for (const component of components) {
@@ -230,6 +252,19 @@ export class SocialSystem {
 				this.clusterTimers.delete(key);
 			}
 		}
+	}
+
+	/** Get entities within social radius of the given entity (cached from last update). */
+	getNearbyEntities(entityId: string): readonly NearbyEntry[] {
+		return this.nearbyCache.get(entityId) ?? [];
+	}
+
+	/** Get the cluster (connected component) that entityId belongs to, or empty array. */
+	getCluster(entityId: string): string[] {
+		for (const cluster of this.currentClusters) {
+			if (cluster.includes(entityId)) return [...cluster];
+		}
+		return [];
 	}
 
 	private pickLine(domain: string, personality: readonly string[]): string {
