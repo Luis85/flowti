@@ -1,5 +1,6 @@
 node_modules
 .angular
+.cursor
 
 /.obsidian/plugins
 /.obsidian/snippets
