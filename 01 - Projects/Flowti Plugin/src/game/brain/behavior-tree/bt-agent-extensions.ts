@@ -3,6 +3,11 @@
  *
  * Extracted from bt-agent.ts to keep that file within the line-count limit.
  * All functions receive the agent context and deps by closure from createBTAgent.
+ *
+ * Seek actions call `deps.brain?.applyEvent()` directly rather than relying
+ * on the worldState bridge. The bridge whitelist only forwards intent actions
+ * (thinking, speaking, etc.); seek actions bypass it to avoid double-calls.
+ * See `engine-systems-init.ts` BT_INTENT_ACTIONS for the whitelist.
  */
 
 import { fromNodeState, type State } from "./bt-service.js";

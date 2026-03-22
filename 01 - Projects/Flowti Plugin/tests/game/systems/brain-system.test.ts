@@ -356,4 +356,51 @@ describe("BrainSystem", () => {
 			expect(onWorkstationChange).toHaveBeenCalledWith("Alice", "vacate", expect.anything());
 		});
 	});
+
+	describe("autonomous idle→wander cycle", () => {
+		it("transitions from idle to wandering after idleResistance threshold", () => {
+			// CON=10 → idleResistance = 8000ms, idleResistanceMult = 1.0 (neutral mood)
+			// Mock Math.random to 0 so initialTimer starts at 0
+			const origRandom = Math.random;
+			Math.random = () => 0;
+			system.register("Alice", makeAttributes({ con: 10 }));
+			Math.random = origRandom;
+			expect(system.getState("Alice")?.state).toBe("idle");
+
+			const actor = { pos: { x: 400, y: 300 }, updateFromBrain: vi.fn(), setWalkDirection: vi.fn(), setIdlePose: vi.fn(), walkSpeedMultiplier: 1 };
+			const getActor = () => actor as never;
+
+			// Advance just under threshold — should stay idle
+			system.update(7999, getActor);
+			expect(system.getState("Alice")?.state).toBe("idle");
+
+			// Push past threshold — should transition to wandering
+			system.update(2000, getActor);
+			expect(system.getState("Alice")?.state).toBe("wandering");
+		});
+
+		it("returns to idle after reaching wander target", () => {
+			const origRandom = Math.random;
+			Math.random = () => 0;
+			system.register("Alice", makeAttributes({ con: 10 }));
+			Math.random = origRandom;
+			const actor = { pos: { x: 400, y: 300 }, updateFromBrain: vi.fn(), setWalkDirection: vi.fn(), setIdlePose: vi.fn(), walkSpeedMultiplier: 1 };
+			const getActor = () => actor as never;
+
+			// Trigger wandering
+			system.update(10000, getActor);
+			expect(system.getState("Alice")?.state).toBe("wandering");
+
+			// Move actor to the target position (simulate arrival)
+			const entry = [...system.getAllEntries()].find(([n]) => n === "Alice")?.[1];
+			if (entry?.targetPos) {
+				actor.pos.x = entry.targetPos.x;
+				actor.pos.y = entry.targetPos.y;
+			}
+
+			// Next update should detect arrival and transition to idle
+			system.update(16, getActor);
+			expect(system.getState("Alice")?.state).toBe("idle");
+		});
+	});
 });

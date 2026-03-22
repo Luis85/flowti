@@ -25,7 +25,6 @@ const TRANSITIONS: Record<string, TransitionFn> = {
 	"seek-merchant": () => ({ state: "walking-to" as BrainState, target: { kind: "custom" } as MovementTarget }),
 	"seek-agent": () => ({ state: "walking-to" as BrainState, target: { kind: "agent" } as MovementTarget }),
 	"seek-quiet": () => ({ state: "wandering" as BrainState, target: NO_MOVE }),
-	"wander": () => ({ state: "wandering" as BrainState, target: { kind: "wander" } as MovementTarget }),
 	"break": () => ({ state: "on-break" as BrainState, target: NO_MOVE }),
 };
 
