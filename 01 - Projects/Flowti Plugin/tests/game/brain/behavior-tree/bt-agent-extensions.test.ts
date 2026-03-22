@@ -96,7 +96,7 @@ describe("bt-agent-extensions — hunger/thirst actions", () => {
 		const result = Eat(ctx, collect);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ctx.needs.hunger).toBe(100);
-		expect(collect).toHaveBeenCalledWith("idle");
+		expect(collect).not.toHaveBeenCalled();
 	});
 
 	it("Drink increases thirst by 30, capped at 100", () => {
@@ -105,7 +105,7 @@ describe("bt-agent-extensions — hunger/thirst actions", () => {
 		const result = Drink(ctx, collect);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ctx.needs.thirst).toBe(100);
-		expect(collect).toHaveBeenCalledWith("idle");
+		expect(collect).not.toHaveBeenCalled();
 	});
 });
 
@@ -172,11 +172,11 @@ describe("bt-agent-extensions — merchant actions", () => {
 		expect(ext.collect).toHaveBeenCalledWith("seek-merchant");
 	});
 
-	it("BrowseMerchant collects idle with browsing-merchant activity", () => {
+	it("BrowseMerchant collects browsing-merchant", () => {
 		const ext = makeExtDeps();
 		const result = BrowseMerchant(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
-		expect(ext.collect).toHaveBeenCalledWith("idle", { activity: "browsing-merchant" });
+		expect(ext.collect).toHaveBeenCalledWith("browsing-merchant", {});
 	});
 
 	it("ExecuteMerchantPurchase returns failed when no merchant dep", () => {

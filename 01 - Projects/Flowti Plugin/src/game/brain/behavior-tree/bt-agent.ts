@@ -395,7 +395,6 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 
 	function Rest(): State {
 		context.needs.energy = Math.min(100, context.needs.energy + 5);
-		collect("idle", {});
 		return fromNodeState("succeeded");
 	}
 
@@ -505,8 +504,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function WanderSad(): State {
-		collect("wander-sad", {});
-		collect("idle", {});
+		collect("wander", {});
 		return fromNodeState("succeeded");
 	}
 

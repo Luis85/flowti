@@ -47,15 +47,13 @@ export function SeekDrinkStation(ext: BTAgentExtensionDeps): State {
 	return fromNodeState("succeeded");
 }
 
-export function Eat(ctx: BTAgentContext, collect: (type: string, data?: Record<string, unknown>) => void): State {
+export function Eat(ctx: BTAgentContext, _collect: (type: string, data?: Record<string, unknown>) => void): State {
 	ctx.needs.hunger = Math.min(100, ctx.needs.hunger + 30);
-	collect("idle");
 	return fromNodeState("succeeded");
 }
 
-export function Drink(ctx: BTAgentContext, collect: (type: string, data?: Record<string, unknown>) => void): State {
+export function Drink(ctx: BTAgentContext, _collect: (type: string, data?: Record<string, unknown>) => void): State {
 	ctx.needs.thirst = Math.min(100, ctx.needs.thirst + 30);
-	collect("idle");
 	return fromNodeState("succeeded");
 }
 
@@ -131,7 +129,7 @@ export function SeekMerchantStall(ext: BTAgentExtensionDeps): State {
 }
 
 export function BrowseMerchant(ext: BTAgentExtensionDeps): State {
-	ext.collect("idle", { activity: "browsing-merchant" });
+	ext.collect("browsing-merchant", {});
 	return fromNodeState("succeeded");
 }
 
