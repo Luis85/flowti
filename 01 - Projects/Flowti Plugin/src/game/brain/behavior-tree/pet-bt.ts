@@ -181,7 +181,16 @@ export function createPetBT(
 		const bondBias = context.echoStore
 			? context.echoStore.queryWeight(context.name, "bond") : 0;
 		const multiplier = 1 + Math.max(-50, Math.min(50, bondBias)) / 100;
-		return context.state === "idle" && Math.random() < 0.02 * multiplier;
+
+		// Boost catalyst probability when a nearby agent has negative mood-residue
+		// (pet senses sadness and is more likely to intervene)
+		const nearbyAgent = context.nearbyAgents?.[0];
+		const sadAgentBias = context.echoStore && nearbyAgent
+			? Math.max(0, -context.echoStore.queryWeight(nearbyAgent, "mood-residue")) / 100
+			: 0;
+		const comfortMultiplier = 1 + sadAgentBias * 0.5;
+
+		return context.state === "idle" && Math.random() < 0.02 * multiplier * comfortMultiplier;
 	}
 
 	// ── Actions ─────────────────────────────────────────────

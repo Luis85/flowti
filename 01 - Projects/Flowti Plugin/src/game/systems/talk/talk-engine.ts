@@ -421,6 +421,18 @@ export class TalkEngine {
 					mood_adj: bias.moodOverride === "tired" ? "drained" : "energized",
 				};
 			}
+
+			// Memory boost — set friend_name to strongest shared memory partner
+			if (bias.memoryBoosts.size > 0) {
+				let bestMemory = "";
+				let bestWeight = 0;
+				for (const [target, weight] of bias.memoryBoosts) {
+					if (weight > bestWeight) { bestMemory = target; bestWeight = weight; }
+				}
+				if (bestMemory) {
+					entry.vars = { ...entry.vars, friend_name: bestMemory };
+				}
+			}
 		}
 
 		const phrase = this.resolvePhrase(name, entry);
