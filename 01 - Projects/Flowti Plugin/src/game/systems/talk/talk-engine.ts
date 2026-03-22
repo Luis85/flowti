@@ -35,6 +35,7 @@ import { MOOD_VARIANTS, type AgentMood } from "./templates/mood-variants.js";
 import type { FragmentComposer, ComposeContext } from "./fragment-composer.js";
 import { TIER_PREFIXES, TIER_SUFFIXES } from "./templates/tier-modifiers.js";
 import type { RelationshipTier } from "../relationship-system.js";
+import type { DialogueBias } from "../echo/echo-types.js";
 
 // ── Per-agent chatter state ─────────────────────────────────────────
 
@@ -248,6 +249,7 @@ const MIN_GAP = 2000;
 export interface TalkEngineEnrichment {
 	readonly composer?: FragmentComposer;
 	readonly getTier?: (a: string, b: string) => RelationshipTier;
+	readonly getEchoBias?: (agent: string) => DialogueBias;
 }
 
 export class TalkEngine {

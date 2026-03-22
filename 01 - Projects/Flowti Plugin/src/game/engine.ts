@@ -48,6 +48,7 @@ import { WorldAmbience } from "./systems/world-ambience.js";
 import { MemorySystem } from "./systems/memory-system.js";
 import { QuirkSystem } from "./systems/quirk-system.js";
 import { RelationshipSystem } from "./systems/relationship-system.js";
+import { EchoStore, EchoProducer, CascadeResolver } from "./systems/echo/index.js";
 import { ConversationEngine } from "./systems/talk/conversation-engine.js";
 import { FragmentComposer } from "./systems/talk/fragment-composer.js";
 import {
@@ -254,6 +255,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const worldEventScheduler = new WorldEventScheduler();
 	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
 
+	// ── Echo system ──────────────────────────────────
+	const echoStore = new EchoStore();
+	const echoProducer = new EchoProducer(echoStore);
+	const cascadeResolver = new CascadeResolver(echoStore);
+
 	// ── Narrative system ──────────────────────────────
 	const narrativeDir = deps.vaultBasePath
 		? join(deps.vaultBasePath, "03 - Resources", "Narrative")
@@ -305,6 +311,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}, {
 		composer: fragmentComposer,
 		getTier: (a, b) => relationshipSystem.getTier(a, b),
+		getEchoBias: (agent) => echoStore.getDialogueBias(agent),
 	});
 
 	// ── Conversation engine ─────────────────────────
@@ -695,6 +702,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		brain: brainSystem,
 		registry,
 		pets,
+		echo: echoStore,
 	};
 
 	// ── Position writer (tick-based, flushes every ~5s) ──
@@ -738,6 +746,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			narrative: narrativeSystem,
 			cameraSystem: cameraRef.current,
 			interactions: interactionBootstrap.system,
+			echo: echoStore,
 		},
 		scenes: {
 			hub: hubScene,
@@ -788,6 +797,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			handleAgentSelect,
 			handleSceneChange: sceneConfig.onSceneChange,
 		},
+		echoProducer,
+		cascadeResolver,
 	};
 	const cleanupEvents = wireEvents(ctx);
 
