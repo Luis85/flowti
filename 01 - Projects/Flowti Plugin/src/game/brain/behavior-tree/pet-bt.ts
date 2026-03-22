@@ -28,6 +28,8 @@ export interface PetBTContext {
 	currentRoom?: string;
 	hunger: number;
 	thirst: number;
+	nearbyAgentCount?: number;
+	nearbyAgents?: string[];
 }
 
 export interface PetBTObject {
@@ -40,6 +42,9 @@ export interface PetBTObject {
 	WanderChanceRoll(): boolean;
 	IsHungry(): boolean;
 	IsThirsty(): boolean;
+	HasNearbyAgents(): boolean;
+	HasSadNearbyAgent(): boolean;
+	CatalystChanceRoll(): boolean;
 	WalkToExit(): State;
 	FollowAgent(): State;
 	ReturnHome(): State;
@@ -51,6 +56,12 @@ export interface PetBTObject {
 	PetEat(): State;
 	PetDrink(): State;
 	Idle(): State;
+	DragToy(): State;
+	SitBetween(): State;
+	BringGift(): State;
+	StealSpotlight(): State;
+	ComfortSadAgent(): State;
+	PickSide(): State;
 }
 
 const PET_MASTER_MDSL = `root {
@@ -83,6 +94,17 @@ const PET_MASTER_MDSL = `root {
 			condition [WanderChanceRoll]
 			action [PickWanderPoint]
 			action [WalkToPoint]
+		}
+		sequence {
+			condition [CatalystChanceRoll]
+			condition [HasNearbyAgents]
+			selector {
+				sequence {
+					condition [HasSadNearbyAgent]
+					action [ComfortSadAgent]
+				}
+				action [DragToy]
+			}
 		}
 		action [Idle]
 	}
@@ -143,6 +165,18 @@ export function createPetBT(
 
 	function IsThirsty(): boolean {
 		return context.thirst < 35;
+	}
+
+	function HasNearbyAgents(): boolean {
+		return (context.nearbyAgentCount ?? 0) >= 2;
+	}
+
+	function HasSadNearbyAgent(): boolean {
+		return (context.nearbyAgentMorale ?? 100) < 30;
+	}
+
+	function CatalystChanceRoll(): boolean {
+		return context.state === "idle" && Math.random() < 0.02;
 	}
 
 	// ── Actions ─────────────────────────────────────────────
@@ -213,16 +247,50 @@ export function createPetBT(
 		return fromNodeState("succeeded");
 	}
 
+	// ── Catalyst Actions ────────────────────────────────────
+
+	function DragToy(): State {
+		collect("pet-drag-toy", { name: context.name, targets: context.nearbyAgents });
+		return fromNodeState("succeeded");
+	}
+
+	function SitBetween(): State {
+		collect("pet-sit-between", { name: context.name, targets: context.nearbyAgents });
+		return fromNodeState("succeeded");
+	}
+
+	function BringGift(): State {
+		collect("pet-bring-gift", { name: context.name, targets: context.nearbyAgents });
+		return fromNodeState("succeeded");
+	}
+
+	function StealSpotlight(): State {
+		collect("pet-steal-spotlight", { name: context.name, targets: context.nearbyAgents });
+		return fromNodeState("succeeded");
+	}
+
+	function ComfortSadAgent(): State {
+		collect("pet-comfort", { name: context.name, targets: context.nearbyAgents, morale: context.nearbyAgentMorale });
+		return fromNodeState("succeeded");
+	}
+
+	function PickSide(): State {
+		collect("pet-pick-side", { name: context.name, targets: context.nearbyAgents });
+		return fromNodeState("succeeded");
+	}
+
 	const agent: PetBTObject = {
 		context,
 		collectedActions,
 		HasExitTarget, HasFollowTarget, FollowTimeElapsed,
 		SleepChanceRoll, WanderChanceRoll,
 		IsHungry, IsThirsty,
+		HasNearbyAgents, HasSadNearbyAgent, CatalystChanceRoll,
 		WalkToExit, FollowAgent, ReturnHome,
 		Nap, PickWanderPoint, WalkToPoint,
 		SeekFoodBowl, SeekWaterBowl, PetEat, PetDrink,
 		Idle,
+		DragToy, SitBetween, BringGift, StealSpotlight, ComfortSadAgent, PickSide,
 	};
 
 	const tree = createTree(PET_MASTER_MDSL, agent);

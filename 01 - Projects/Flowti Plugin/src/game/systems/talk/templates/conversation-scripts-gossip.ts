@@ -20,8 +20,9 @@ export const GOSSIP_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["gossip", "positive"],
 		turns: [
 			{ speaker: "A", text: "Have you noticed {agentC} has been absolutely killing it lately?", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "Right? Every ticket just... done. No drama.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "I don't know what changed but I want whatever they're on.", delayMs: 2500, kind: "speech" },
+			{ speaker: "B", text: "I KNOW, right? Every ticket just... done. Zero drama. It's wild.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Honestly they're carrying this sprint and I don't think anyone's said it out loud yet.", delayMs: 2500, kind: "speech" },
+			{ speaker: "B", text: "Someone should. Actually, I might.", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -49,9 +50,9 @@ export const GOSSIP_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["gossip", "positive"],
 		turns: [
 			{ speaker: "A", text: "I think everyone on the team has noticed {agentC}'s output this quarter.", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "The quality, not just the quantity. That's the part that stands out.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "I heard the lead is going to say something publicly.", delayMs: 2000, kind: "speech" },
-			{ speaker: "B", text: "Deserved. Genuinely.", delayMs: 1000, kind: "speech" },
+			{ speaker: "B", text: "The quality, not just the quantity. That's what gets me.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "I heard the lead is going to say something publicly. I'm genuinely excited for them.", delayMs: 2500, kind: "speech" },
+			{ speaker: "B", text: "So deserved. Can we be there when they find out?", delayMs: 1500, kind: "speech" },
 		],
 	},
 
@@ -78,9 +79,9 @@ export const GOSSIP_SCRIPTS: readonly ConversationScript[] = [
 		tags: ["gossip", "positive"],
 		turns: [
 			{ speaker: "A", text: "Half of what {agentC} does nobody even sees. They just fix things quietly.", delayMs: 0, kind: "speech" },
-			{ speaker: "B", text: "I know. I only found out because I inherited one of their modules.", delayMs: 2000, kind: "speech" },
-			{ speaker: "A", text: "It was clean? No horrors?", delayMs: 1500, kind: "speech" },
-			{ speaker: "B", text: "Spotless. I actually said 'who wrote this' out loud to nobody.", delayMs: 2500, kind: "speech" },
+			{ speaker: "B", text: "I KNOW. I inherited one of their modules and — okay, don't laugh — I said 'who wrote this' out loud. To nobody.", delayMs: 2500, kind: "speech" },
+			{ speaker: "A", text: "Was it clean?", delayMs: 1200, kind: "speech" },
+			{ speaker: "B", text: "Spotless. I felt like I was reading a love letter to maintainability.", delayMs: 2000, kind: "speech" },
 		],
 	},
 
@@ -185,6 +186,54 @@ export const GOSSIP_SCRIPTS: readonly ConversationScript[] = [
 			{ speaker: "B", text: "I... think so? Though maybe they just worded it poorly.", delayMs: 2000, kind: "speech" },
 			{ speaker: "A", text: "Maybe. Giving the benefit of the doubt.", delayMs: 2000, kind: "speech" },
 			{ speaker: "B", text: "It stings a bit though. Especially after the hours everyone put in.", delayMs: 2500, kind: "speech" },
+		],
+	},
+
+	// ── Disagreement gossip ──────────────────────────────────────────
+
+	{
+		id: "gossip-disagree-struggling",
+		tierRange: ["colleague", "best-friend"],
+		trigger: "gossip",
+		weight: 2,
+		cooldownMs: 50000,
+		tags: ["gossip", "disagreement"],
+		turns: [
+			{ speaker: "A", text: "I think {agentC} is struggling. The last few PRs had a lot of issues.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "I don't know. They just moved teams, right? New codebase, new patterns.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "Maybe. But the test coverage was way below threshold.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "Give it a sprint. I've seen them ramp before — they get there.", delayMs: 2000, kind: "speech" },
+		],
+	},
+
+	{
+		id: "gossip-disagree-impressed",
+		tierRange: ["colleague", "best-friend"],
+		trigger: "gossip",
+		weight: 2,
+		cooldownMs: 50000,
+		tags: ["gossip", "disagreement"],
+		turns: [
+			{ speaker: "A", text: "I'm really impressed with {agentC}'s architecture proposal. It's solid.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "Eh. It looks good on paper but I've seen that pattern fail at scale.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "You don't think they've accounted for that?", delayMs: 1500, kind: "speech" },
+			{ speaker: "B", text: "I think they'll find out in production. We all do eventually.", delayMs: 2000, kind: "speech" },
+		],
+	},
+
+	{
+		id: "gossip-disagree-leaving",
+		tierRange: ["colleague", "best-friend"],
+		trigger: "gossip",
+		weight: 1,
+		cooldownMs: 60000,
+		tags: ["gossip", "disagreement"],
+		turns: [
+			{ speaker: "A", text: "I heard {agentC} might be leaving. Someone mentioned interviews.", delayMs: 0, kind: "speech" },
+			{ speaker: "B", text: "No way. They just got promoted.", delayMs: 1500, kind: "speech" },
+			{ speaker: "A", text: "People leave after promotions all the time. Better leverage.", delayMs: 2000, kind: "speech" },
+			{ speaker: "B", text: "I don't buy it. They seemed genuinely happy last week.", delayMs: 2000, kind: "speech" },
+			{ speaker: "A", text: "I hope you're right.", delayMs: 1500, kind: "speech" },
 		],
 	},
 ];
