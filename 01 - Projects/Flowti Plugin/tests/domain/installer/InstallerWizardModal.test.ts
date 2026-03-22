@@ -13,6 +13,7 @@ import type { IInstallerService } from "../../../src/domain/installer/types";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { App } from "obsidian";
 import { App as StubApp } from "../../mocks/obsidian-stub";
+import { DEFAULT_FOLDER_CONFIG, getTopLevelEntries } from "../../../src/domain/installer/folderConfig";
 
 function createMockInstallerService(): IInstallerService {
 	return {
@@ -245,22 +246,20 @@ describe("InstallerWizardModal", () => {
 	});
 
 	describe("expandable folder tree", () => {
-		it("shows all top-level folders", () => {
+		it("shows all top-level folders from config", () => {
 			goToPage("review");
 			const text = modal.contentEl.textContent ?? "";
-			expect(text).toContain("00 - Connectivity");
-			expect(text).toContain("01 - Projects");
-			expect(text).toContain("02 - Areas");
-			expect(text).toContain("03 - Resources");
-			expect(text).toContain("04 - Archive");
-			expect(text).toContain("var");
+			const topLevel = getTopLevelEntries(DEFAULT_FOLDER_CONFIG);
+			for (const entry of topLevel) {
+				expect(text).toContain(entry.path);
+			}
 		});
 
 		it("shows total folder count in header", () => {
 			goToPage("review");
 			const text = modal.contentEl.textContent ?? "";
 			expect(text).toContain("Folder Structure");
-			expect(text).toContain("25 folders");
+			expect(text).toContain(`${DEFAULT_FOLDER_CONFIG.folders.length} folders`);
 		});
 
 		it("shows child count badges on expandable folders", () => {
