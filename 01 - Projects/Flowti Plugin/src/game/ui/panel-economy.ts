@@ -7,11 +7,11 @@ import { LitElement, html, css, nothing } from "lit";
 import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
 import type { DashboardAgent } from "../data/types.js";
 
-const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2200, 3000] as const;
+import { LEVEL_TABLE } from "../../../../Flowti CLI/src/domain/economy/leveling.js";
 
-const LEVEL_TITLES = ["", "Novice", "Apprentice", "Journeyman", "Artisan", "Senior", "Expert", "Master", "Grandmaster"] as const;
-
-const NEXT_UNLOCK = ["", "Standing orders", "Vault write", "Delegation", "Auto-trust", "Cross-domain", "Mentoring", "Full autonomy", ""] as const;
+const LEVEL_THRESHOLDS = LEVEL_TABLE.map(e => e.xpRequired);
+const LEVEL_TITLES = ["", ...LEVEL_TABLE.map(e => e.title)];
+const NEXT_UNLOCK = ["", ...LEVEL_TABLE.slice(1).map(e => e.unlocks.join(", ")), ""];
 
 const TRUST_TIER_COLORS: Record<string, string> = {
 	supervised: "#f59e0b",
