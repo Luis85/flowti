@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { formatPrompt, shouldRequestJson, isPreFormatted } from "../../../src/domain/agents/llm-prompt.js";
 import type { PromptEnvelope, ProviderCapabilities } from "../../../src/domain/agents/llm-types.js";
 
-const FULL_CAPS: ProviderCapabilities = { streaming: true, thinking: true, toolUse: true, structuredOutput: true };
-const NO_STRUCTURED: ProviderCapabilities = { streaming: true, thinking: false, toolUse: false, structuredOutput: false };
+const FULL_CAPS: ProviderCapabilities = { streaming: true, thinking: true, toolUse: true, structuredOutput: true, persistentSession: false };
+const NO_STRUCTURED: ProviderCapabilities = { streaming: true, thinking: false, toolUse: false, structuredOutput: false, persistentSession: false };
 
 describe("isPreFormatted", () => {
 	it("returns true when only message is set", () => {

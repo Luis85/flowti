@@ -138,13 +138,13 @@ describe("createClaudeProvider", () => {
 
 	describe("createSession", () => {
 		it("reports persistentSession capability", () => {
-			const provider = createClaudeProvider(makeDeps());
+			const provider = createClaudeProvider(asDeps(makeDeps()));
 			expect(provider.capabilities().persistentSession).toBe(true);
 		});
 
 		it("spawns claude without -p flag, with stdin true and --dangerously-skip-permissions", () => {
 			const deps = makeDeps();
-			const provider = createClaudeProvider(deps);
+			const provider = createClaudeProvider(asDeps(deps));
 			const request: LLMSessionRequest = { cwd: "/work" };
 			provider.createSession!(request);
 			expect(deps.shell.spawnBackground).toHaveBeenCalledWith(
@@ -161,7 +161,7 @@ describe("createClaudeProvider", () => {
 
 		it("send writes message to stdin and returns LLMProcess", () => {
 			const deps = makeDeps();
-			const provider = createClaudeProvider(deps);
+			const provider = createClaudeProvider(asDeps(deps));
 			const session = provider.createSession!({});
 			const proc = session.send("hello");
 			expect(deps._mockProc.writeStdin).toHaveBeenCalledWith("hello\n");
@@ -172,7 +172,7 @@ describe("createClaudeProvider", () => {
 
 		it("send resolves on done event", async () => {
 			const deps = makeDeps();
-			const provider = createClaudeProvider(deps);
+			const provider = createClaudeProvider(asDeps(deps));
 			const session = provider.createSession!({});
 			const proc = session.send("hello");
 
@@ -189,7 +189,7 @@ describe("createClaudeProvider", () => {
 		it("kill sets alive to false", () => {
 			const deps = makeDeps();
 			deps._mockProc.running = true;
-			const provider = createClaudeProvider(deps);
+			const provider = createClaudeProvider(asDeps(deps));
 			const session = provider.createSession!({});
 			expect(session.alive).toBe(true);
 			session.kill();

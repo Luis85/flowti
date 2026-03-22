@@ -9,6 +9,7 @@ export type AgentActionType =
 	| "goal-started" | "goal-completed" | "template-generated"
 	| "seek-rest" | "seek-agent" | "seek-quiet" | "wander-sad"
 	| "seek-merchant" | "merchant-purchase"
+	| "seek-food" | "seek-drink"
 	| "seek-preferred-food" | "seek-preferred-drink";
 
 export interface AgentAction {

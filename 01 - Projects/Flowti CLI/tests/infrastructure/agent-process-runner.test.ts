@@ -18,6 +18,7 @@ function makeDeps() {
 		running: true,
 		output: [],
 		waitForOutput: vi.fn(),
+		writeStdin: vi.fn(),
 	};
 	return {
 		disk: { writeFileSync: vi.fn(), unlinkSync: vi.fn(), existsSync: vi.fn(() => true), mkdirSync: vi.fn() },
@@ -219,7 +220,7 @@ describe("createProcessRunner", () => {
 		}));
 		const mockProvider = {
 			name: "anthropic",
-			capabilities: () => ({ streaming: true, thinking: true, toolUse: true, structuredOutput: true }),
+			capabilities: () => ({ streaming: true, thinking: true, toolUse: true, structuredOutput: true, persistentSession: false }),
 			execute: mockExecute,
 		};
 		const mockRegistry = {
@@ -242,7 +243,7 @@ describe("createProcessRunner", () => {
 	// ── acquireSession ──────────────────────────────────────────────
 
 	it("acquireSession returns null when no registry", () => {
-		const runner = createProcessRunner(makeDeps(), undefined);
+		const runner = createProcessRunner(asDeps(makeDeps()), undefined);
 		const result = runner.acquireSession!(makeAgent());
 		expect(result).toBeNull();
 	});
@@ -256,7 +257,7 @@ describe("createProcessRunner", () => {
 			createSession: vi.fn(() => mockSession),
 		};
 		const registry = { register: vi.fn(), get: vi.fn(), list: vi.fn(), select: vi.fn(() => ({ provider: mockProvider, reason: "configured" as const })) };
-		const runner = createProcessRunner(makeDeps(), undefined, registry);
+		const runner = createProcessRunner(asDeps(makeDeps()), undefined, registry);
 		const result = runner.acquireSession!(makeAgent());
 		expect(result).toBe(mockSession);
 		expect(mockProvider.createSession).toHaveBeenCalled();
@@ -269,7 +270,7 @@ describe("createProcessRunner", () => {
 			execute: vi.fn(),
 		};
 		const registry = { register: vi.fn(), get: vi.fn(), list: vi.fn(), select: vi.fn(() => ({ provider: mockProvider, reason: "configured" as const })) };
-		const runner = createProcessRunner(makeDeps(), undefined, registry);
+		const runner = createProcessRunner(asDeps(makeDeps()), undefined, registry);
 		const result = runner.acquireSession!(makeAgent());
 		expect(result).toBeNull();
 	});
@@ -281,7 +282,7 @@ describe("createProcessRunner", () => {
 			execute: vi.fn(),
 		};
 		const registry = { register: vi.fn(), get: vi.fn(), list: vi.fn(), select: vi.fn(() => ({ provider: mockProvider, reason: "configured" as const })) };
-		const runner = createProcessRunner(makeDeps(), undefined, registry);
+		const runner = createProcessRunner(asDeps(makeDeps()), undefined, registry);
 		const result = runner.acquireSession!(makeAgent());
 		expect(result).toBeNull();
 	});

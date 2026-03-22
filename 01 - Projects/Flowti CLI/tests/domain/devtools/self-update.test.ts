@@ -199,7 +199,7 @@ describe("rebuildCli", () => {
 			runCapture: () => "",
 			runCaptureStatus: () => ({ output: "", exitCode: 0 }),
 			runCaptureDetailed: () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			spawnBackground: () => ({ waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, running: false, output: [] }),
+			spawnBackground: () => ({ waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, running: false, output: [], writeStdin: () => {} }),
 			runAsync: async () => ({ output: "", exitCode: 0 }),
 			runParallel: async () => [],
 		};
@@ -221,7 +221,7 @@ describe("rebuildCli", () => {
 			runCapture: () => "",
 			runCaptureStatus: () => ({ output: "", exitCode: 0 }),
 			runCaptureDetailed: () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			spawnBackground: () => ({ waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, running: false, output: [] }),
+			spawnBackground: () => ({ waitForOutput: async () => null, waitForExit: async () => 0, onOutput: () => () => {}, kill: () => {}, running: false, output: [], writeStdin: () => {} }),
 			runAsync: async () => ({ output: "", exitCode: 0 }),
 			runParallel: async () => [],
 		};
