@@ -359,7 +359,8 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function SpeakBubble(): State {
-		const text = context.lastLLMResult?.slice(0, 120) ?? "...";
+		const raw = context.lastLLMResult;
+		const text = raw && raw.trim() ? raw.slice(0, 120) : "";
 		collect("speaking", { text, source: "bt" });
 		return fromNodeState("succeeded");
 	}
