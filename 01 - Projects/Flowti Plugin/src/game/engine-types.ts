@@ -43,6 +43,7 @@ import type { DashboardStore } from "./store/dashboard-store.js";
 import type { CameraSystem } from "./systems/camera-system.js";
 import type { InteractionSystem } from "./systems/interaction/interaction-system.js";
 import type { InteractionBootstrap } from "./systems/interaction/bootstrap-interactions.js";
+import type { IEchoStore } from "./systems/echo/echo-types.js";
 import type { GameScene } from "./scenes/game-scene.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import type { InteractableActor } from "./actors/interactable-actor.js";
@@ -108,6 +109,7 @@ export interface EngineSystems {
 	readonly narrative: NarrativeSystem;
 	cameraSystem: CameraSystem | null;
 	readonly interactions?: InteractionSystem;
+	readonly echo: IEchoStore;
 }
 
 export interface EngineScenes {
