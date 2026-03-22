@@ -474,6 +474,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		getEchoBias: (agent) => echoStore.getDialogueBias(agent),
 	});
 
+	bubbleSystem.setSceneFilter(isEntityOnCurrentScene);
+
 	for (const pet of pets) {
 		bubbleSystem.register(pet.entityId, [], petBubbleParams);
 		talkEngine.register(pet.entityId, "pet", [], 10);

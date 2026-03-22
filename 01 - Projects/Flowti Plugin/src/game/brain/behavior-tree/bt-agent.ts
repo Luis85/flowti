@@ -373,7 +373,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function Wander(): State {
-		collect("idle", {});
+		collect("wander", {});
 		return fromNodeState("succeeded");
 	}
 
@@ -383,7 +383,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function Chatter(): State {
-		collect("speaking", { text: "", source: "chatter" });
+		collect("chatter", {});
 		return fromNodeState("succeeded");
 	}
 
@@ -470,7 +470,9 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		const socialWeight = 1 + clampedBond / 100;
 		const pick = echoBiasedWeightedRandom([wanderWeight, 1, socialWeight]);
 		if (pick === 2) {
-			collect("speaking", { text: "", source: "chatter" });
+			collect("chatter", {});
+		} else if (pick === 0) {
+			collect("wander", {});
 		} else {
 			collect("idle", {});
 		}

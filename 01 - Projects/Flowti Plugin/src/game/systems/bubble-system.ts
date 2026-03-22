@@ -31,6 +31,12 @@ interface AgentBubbleEntry {
 
 export class BubbleSystem {
 	private readonly entries = new Map<string, AgentBubbleEntry>();
+	private isOnScene: ((name: string) => boolean) | null = null;
+
+	/** Set a callback that checks whether an agent is on the currently visible scene. */
+	setSceneFilter(fn: (name: string) => boolean): void {
+		this.isOnScene = fn;
+	}
 
 	/** Register an entity for bubble management (roster agent or pet id). */
 	register(name: string, personality: readonly string[], params: BrainParams): void {
@@ -115,7 +121,10 @@ export class BubbleSystem {
 
 	private countActiveBubbles(): number {
 		let count = 0;
-		for (const entry of this.entries.values()) {
+		for (const [name, entry] of this.entries) {
+			// Only count bubbles for agents on the current scene — off-screen
+			// agents should not consume the cap visible to the user.
+			if (this.isOnScene && !this.isOnScene(name)) continue;
 			for (const b of entry.bubbles) {
 				if (!b.isKilled()) count++;
 			}

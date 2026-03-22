@@ -184,6 +184,7 @@ vi.mock("../../src/game/systems/bubble-system.js", () => {
 		self.register = vi.fn();
 		self.showBubble = vi.fn();
 		self.update = vi.fn();
+		self.setSceneFilter = vi.fn();
 	}
 	return { BubbleSystem: MockBubbleSystem };
 });

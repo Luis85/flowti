@@ -78,9 +78,8 @@ describe("BT integration — full tick cycle", () => {
 
 		// With no goals, ActiveGoal branch fails -> should fall to idle or social
 		expect(actions.length).toBeGreaterThan(0);
-		const hasIdleOrSpeech = actions.some(
-			(a) => a.type === "idle" || a.type === "speaking",
-		);
+		const idleTypes = new Set(["idle", "wander", "chatter", "speaking"]);
+		const hasIdleOrSpeech = actions.some((a) => idleTypes.has(a.type));
 		expect(hasIdleOrSpeech).toBe(true);
 	});
 
