@@ -1,16 +1,39 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { App } from "obsidian";
 import "../../../src/components/agents/flowti-agent-sidepanel.js";
 import { mountAgentSidepanel, parseSuggestedTask } from "../../../src/infrastructure/handlers/agent-handlers.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../../src/infrastructure/agents/cli-executor.js";
 import type { IContextProvider, FileContext } from "../../../src/domain/agents/context-provider.js";
+import type { FlowtiSettings } from "../../../src/domain/settings/settings.js";
 import type { VaultFileAdapter } from "../../../src/infrastructure/handlers/agent-handlers.js";
+
+function mockAppForAgentHandlers(): App {
+	return {
+		vault: {
+			getAbstractFileByPath: vi.fn(() => null),
+			create: vi.fn(async () => ({})),
+			modify: vi.fn(async () => {}),
+			delete: vi.fn(async () => {}),
+		},
+	} as unknown as App;
+}
+
+function mockGetSettings(): FlowtiSettings {
+	return { cursorRulesWorkspaceRoot: "" } as FlowtiSettings;
+}
+
+const agentHandlerVaultDeps = () => ({
+	app: mockAppForAgentHandlers(),
+	getSettings: mockGetSettings,
+});
 
 function mockAgentProcess(agentName: string): AgentProcess & { _triggerEvent: (e: CliEvent) => void } {
 	const callbacks = new Set<(event: CliEvent) => void>();
 	return {
 		agentName,
 		running: true,
+		getPid: vi.fn(() => null),
 		send: vi.fn(),
 		onEvent: vi.fn((cb: (event: CliEvent) => void) => {
 			callbacks.add(cb);
@@ -100,7 +123,11 @@ describe("mountAgentSidepanel", () => {
 	afterEach(() => { container.remove(); });
 
 	it("mounts flowti-agent-sidepanel element into container", () => {
-		const dispose = mountAgentSidepanel(container, { eventBus: mockEventBus(), cliExecutor: createMockCliExecutor().executor });
+		const dispose = mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			cliExecutor: createMockCliExecutor().executor,
+			...agentHandlerVaultDeps(),
+		});
 		expect(container.querySelector("flowti-agent-sidepanel")).toBeTruthy();
 		dispose();
 	});
@@ -114,6 +141,7 @@ describe("mountAgentSidepanel", () => {
 			cliExecutor: createMockCliExecutor().executor,
 			vaultAdapter: adapter,
 			agentsDir: "03 - Resources/Agents",
+			...agentHandlerVaultDeps(),
 		});
 		await vi.waitFor(() => {
 			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
@@ -124,7 +152,11 @@ describe("mountAgentSidepanel", () => {
 	});
 
 	it("dispose removes element", () => {
-		const dispose = mountAgentSidepanel(container, { eventBus: mockEventBus(), cliExecutor: createMockCliExecutor().executor });
+		const dispose = mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			cliExecutor: createMockCliExecutor().executor,
+			...agentHandlerVaultDeps(),
+		});
 		dispose();
 		expect(container.querySelector("flowti-agent-sidepanel")).toBeNull();
 	});
@@ -138,6 +170,7 @@ describe("mountAgentSidepanel", () => {
 			cliExecutor: createMockCliExecutor().executor,
 			vaultAdapter: adapter,
 			agentsDir: "03 - Resources/Agents",
+			...agentHandlerVaultDeps(),
 		});
 		await vi.waitFor(() => {
 			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
@@ -147,7 +180,11 @@ describe("mountAgentSidepanel", () => {
 
 	it("handles team-toggled event", () => {
 		const bus = mockEventBus();
-		mountAgentSidepanel(container, { eventBus: bus, cliExecutor: createMockCliExecutor().executor });
+		mountAgentSidepanel(container, {
+			eventBus: bus,
+			cliExecutor: createMockCliExecutor().executor,
+			...agentHandlerVaultDeps(),
+		});
 		const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement;
 		el.dispatchEvent(new CustomEvent("team-toggled", { detail: { enabled: true }, bubbles: true, composed: true }));
 		expect((bus as unknown as { emit: ReturnType<typeof vi.fn> }).emit).toHaveBeenCalledWith("agent.team.toggled", { enabled: true });
@@ -163,6 +200,7 @@ describe("mountAgentSidepanel", () => {
 			cliExecutor: executor,
 			vaultAdapter: adapter,
 			agentsDir: "03 - Resources/Agents",
+			...agentHandlerVaultDeps(),
 		});
 
 		await vi.waitFor(() => {
@@ -190,6 +228,7 @@ describe("mountAgentSidepanel", () => {
 			contextProvider: ctx,
 			vaultAdapter: adapter,
 			agentsDir: "03 - Resources/Agents",
+			...agentHandlerVaultDeps(),
 		});
 
 		await vi.waitFor(() => {
@@ -215,6 +254,7 @@ describe("mountAgentSidepanel", () => {
 			cliExecutor: executor,
 			vaultAdapter: adapter,
 			agentsDir: "03 - Resources/Agents",
+			...agentHandlerVaultDeps(),
 		});
 
 		await vi.waitFor(() => {
@@ -239,6 +279,7 @@ describe("mountAgentSidepanel", () => {
 			eventBus: mockEventBus(),
 			vaultAdapter: adapter,
 			agentsDir: "03 - Resources/Agents",
+			...agentHandlerVaultDeps(),
 		});
 		await vi.waitFor(() => {
 			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
@@ -263,12 +304,31 @@ describe("mountAgentSidepanel", () => {
 			eventBus: mockEventBus(),
 			vaultAdapter: adapter,
 			agentsDir: "agents",
+			...agentHandlerVaultDeps(),
 		});
 		await vi.waitFor(() => {
 			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
 			const agents = el.agents as { name: string }[];
 			expect(agents.length).toBe(1);
 			expect(agents[0].name).toBe("Atlas");
+		});
+	});
+
+	it("reads ai.provider from companion JSON", async () => {
+		const adapter = mockVaultAdapter({
+			"03 - Resources/Agents/atlas.md": ATLAS_MD,
+			"03 - Resources/Agents/atlas.json": JSON.stringify({ ai: { provider: "cursor" } }),
+		});
+		mountAgentSidepanel(container, {
+			eventBus: mockEventBus(),
+			vaultAdapter: adapter,
+			agentsDir: "03 - Resources/Agents",
+			...agentHandlerVaultDeps(),
+		});
+		await vi.waitFor(() => {
+			const el = container.querySelector("flowti-agent-sidepanel") as HTMLElement & Record<string, unknown>;
+			const agents = el.agents as { name: string; provider?: string }[];
+			expect(agents[0].provider).toBe("cursor");
 		});
 	});
 });

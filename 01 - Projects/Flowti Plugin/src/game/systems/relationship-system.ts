@@ -54,6 +54,17 @@ export class RelationshipSystem {
 		this.agentOpinions.set(name, opinions);
 	}
 
+	/** Drop an agent and any pairwise rows that reference them. */
+	unregister(name: string): void {
+		this.agentOpinions.delete(name);
+		for (const key of [...this.relationships.keys()]) {
+			const e = this.relationships.get(key);
+			if (e && (e.agentA === name || e.agentB === name)) {
+				this.relationships.delete(key);
+			}
+		}
+	}
+
 	getOpinions(name: string): AgentOpinion[] {
 		return this.agentOpinions.get(name) ?? [];
 	}

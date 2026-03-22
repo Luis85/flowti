@@ -614,10 +614,12 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Lifecycle handle ────────────────────────────────
 
+	let rosterReconcileUnsub: (() => void) | null = null;
+
 	return {
 		async start(): Promise<void> {
 			const t0 = performance.now();
-			await startEngine({
+			rosterReconcileUnsub = await startEngine({
 				engine, spriteBasePath, provider, vaultBasePath: deps.vaultBasePath,
 				hubScene, officeScene, villageScene, stationScene, roomScenes,
 				ctx, stateSystems, dayClock, worldAmbience, currentLight,
@@ -643,6 +645,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 		dispose(): void {
 			perfSampler?.dispose();
+			rosterReconcileUnsub?.();
+			rosterReconcileUnsub = null;
 			// Cancel periodic position flush
 			if (cancelPeriodicFlush) cancelPeriodicFlush();
 			if (cancelAgentResourcePoll) cancelAgentResourcePoll();

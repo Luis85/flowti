@@ -29,6 +29,25 @@ function hasLLMProvider(registry?: IProviderRegistry): boolean {
 	return registry.list().length > 0;
 }
 
+/** Non-empty trimmed string, or undefined if missing/invalid. */
+function trimmedGoalName(name: unknown): string | undefined {
+	if (typeof name !== "string") return undefined;
+	const t = name.trim();
+	return t.length > 0 ? t : undefined;
+}
+
+/**
+ * Filename stem: words after the first (goal type token). If only one word,
+ * slugify the full name so we never produce ".md".
+ */
+function stemFromGoalName(trimmed: string): string {
+	const words = trimmed.split(/\s+/);
+	const tail = words.slice(1);
+	if (tail.length > 0) return tail.join("-");
+	const slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+	return slug || "goal";
+}
+
 export interface BTAgentObject {
 	readonly context: BTAgentContext;
 	readonly collectedActions: CollectedAction[];
@@ -178,9 +197,9 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 
 	function PickGoalFile(): State {
 		if (!context.activeGoal) return fromNodeState("failed");
-		const goalName = context.activeGoal.name;
-		const words = goalName.split(/\s+/).slice(1);
-		const fileName = words.join("-") + ".md";
+		const trimmed = trimmedGoalName(context.activeGoal.name);
+		if (!trimmed) return fromNodeState("failed");
+		const fileName = `${stemFromGoalName(trimmed)}.md`;
 		(context as { activeGoalFile: string }).activeGoalFile = fileName;
 		(context as { workingFilePath: string }).workingFilePath = fileName;
 		return fromNodeState("succeeded");
@@ -210,7 +229,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		const content = context.lastLLMResult;
 		if (!content) return fromNodeState("failed");
 
-		const goalType = context.activeGoal ? (parseGoalType(context.activeGoal.name) ?? "note") : "note";
+		const goalType = parseGoalType(trimmedGoalName(context.activeGoal?.name) ?? "") ?? "note";
 		const outPath = deps.paths.join("artifacts", `${context.name}-${goalType}-${deps.clock.ms()}.md`);
 
 		try {
@@ -240,7 +259,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 				taskType: "autonomous",
 			});
 
-			const goalType = context.activeGoal ? (parseGoalType(context.activeGoal.name) ?? "review") : "review";
+			const goalType = parseGoalType(trimmedGoalName(context.activeGoal?.name) ?? "") ?? "review";
 			const prompt = assemblePrompt(context, goalType, int_);
 
 			const process = selection.provider.execute({
@@ -284,7 +303,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function GenerateFromTemplate(): State {
-		const goalType = context.activeGoal ? (parseGoalType(context.activeGoal.name) ?? "review") : "review";
+		const goalType = parseGoalType(trimmedGoalName(context.activeGoal?.name) ?? "") ?? "review";
 		const result = generateFromTemplate({
 			goalType,
 			fileName: context.activeGoalFile ?? "unknown",
@@ -301,7 +320,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 
 	function DropArtifact(): State {
 		if (!context.lastWrittenPath) return fromNodeState("failed");
-		const goalType = context.activeGoal ? (parseGoalType(context.activeGoal.name) ?? "note") : "note";
+		const goalType = parseGoalType(trimmedGoalName(context.activeGoal?.name) ?? "") ?? "note";
 		const entityId = `artifact-${context.name}-${deps.clock.ms()}`;
 
 		deps.worldState.updateEntity(entityId, "artifact", {

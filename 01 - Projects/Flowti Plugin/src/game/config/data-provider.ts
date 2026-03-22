@@ -23,6 +23,9 @@ export interface DataProvider {
 	/** Load the initial agent roster. */
 	getDashboardAgents(): Promise<DashboardAgent[]>;
 
+	/** Re-read roster from disk (dashboard JSON + fallbacks) and notify roster subscribers. */
+	reloadDashboardAgents(): Promise<DashboardAgent[]>;
+
 	/**
 	 * Subscribe to agent action events (e.g. from CLI-written world state or in-proc bridges).
 	 * Returns an unsubscribe function.
@@ -40,6 +43,12 @@ export interface DataProvider {
 	 * Returns an unsubscribe function.
 	 */
 	onConnectionStatus(cb: (status: ConnectionStatus) => void): () => void;
+
+	/**
+	 * Subscribe to agent roster changes (e.g. `.flowti/agents/data/agent-dashboard.json` updated).
+	 * Returns an unsubscribe function.
+	 */
+	onDashboardAgentsChange(cb: (agents: readonly DashboardAgent[]) => void): () => void;
 
 	/** Base URL (or empty string) used to resolve sprite asset paths. */
 	readonly assetBasePath: string;

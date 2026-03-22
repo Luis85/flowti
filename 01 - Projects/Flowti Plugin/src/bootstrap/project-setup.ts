@@ -51,9 +51,6 @@ export function setupProjectDomain(deps: ProjectSetupDeps): ProjectSetupResult {
 				source: "ProjectSetup",
 			});
 		},
-		openInWebviewer: (url: string) => {
-			window.open(url);
-		},
 		navigateBack: () => {
 			const leaves = deps.app.workspace.getLeavesOfType(VIEW_TYPE_PROJECT_DETAIL);
 			for (const leaf of leaves) leaf.detach();

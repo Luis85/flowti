@@ -25,7 +25,6 @@ export interface ProjectEventContext {
 	endProjectHubWork: (result: { ok: boolean; error?: string }) => void;
 	openNote?: (path: string) => void;
 	createNote?: (name: string) => void;
-	openInWebviewer?: (url: string) => void;
 	revealFolder?: (path: string) => void;
 	pickFolder?: () => Promise<string | null>;
 }
@@ -60,7 +59,7 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 				originalAppend(`\nStorybook ready at ${detectedUrl}`);
 				el.storybookBusy = false;
 				el.storybookBusyLabel = "";
-				ctx.openInWebviewer?.(detectedUrl);
+				void projectService.openStorybookUrl(ctx.getCurrentProject(), detectedUrl, originalAppend);
 				void ctx.loadProject(ctx.getCurrentProject());
 			}
 		};
@@ -142,7 +141,8 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 	}) as EventListener);
 
 	el.addEventListener("storybook-view", ((e: CustomEvent) => {
-		ctx.openInWebviewer?.(String(e.detail?.url ?? "http://localhost:6006"));
+		const url = String(e.detail?.url ?? "http://localhost:6006");
+		void projectService.openStorybookUrl(ctx.getCurrentProject(), url, ctx.appendStorybookLog);
 	}) as EventListener);
 
 	el.addEventListener("storybook-open-folder", (() => {
@@ -152,7 +152,7 @@ export function wireStorybookEvents(ctx: ProjectEventContext): void {
 
 	el.addEventListener("storybook-preview", (() => {
 		void projectService.previewStorybook(ctx.getCurrentProject()).then((r) => {
-			if (r.ok && r.url) ctx.openInWebviewer?.(r.url);
+			if (r.ok && r.url) void projectService.openStorybookUrl(ctx.getCurrentProject(), r.url, ctx.appendStorybookLog);
 			else if (r.error) el.storybookError = r.error;
 		});
 	}) as EventListener);
@@ -433,10 +433,17 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 
 	el.addEventListener("team-create-agent", ((e: CustomEvent) => {
 		if (el.projectHubBusy) return;
-		const roleId = String((e.detail as { roleId?: string })?.roleId ?? "");
-		const agentName = String((e.detail as { agentName?: string })?.agentName ?? "");
-		ctx.startProjectHubWork("Creating agent");
-		void projectService.createAgentFromRole(ctx.getCurrentProject(), roleId, agentName, ctx.appendProjectHubLog).then((r) => ctx.endProjectHubWork(r));
+		const d = e.detail as { roleId?: string; agentName?: string; slots?: TeamRoleSlot[] };
+		const roleId = String(d?.roleId ?? "");
+		const agentName = String(d?.agentName ?? "");
+		const slots = Array.isArray(d?.slots) ? d.slots : undefined;
+		el.agentCreationContext = { roleId, agentName };
+		ctx.startProjectHubWork(`Creating agent "${agentName}"…`);
+		ctx.appendProjectHubLog(`Starting — materializing "${agentName}" and updating the roster.`);
+		void projectService
+			.createAgentFromRole(ctx.getCurrentProject(), roleId, agentName, ctx.appendProjectHubLog, slots)
+			.then((r) => ctx.endProjectHubWork(r))
+			.finally(() => { el.agentCreationContext = null; });
 	}) as EventListener);
 
 	el.addEventListener("team-refresh-agents", (() => {

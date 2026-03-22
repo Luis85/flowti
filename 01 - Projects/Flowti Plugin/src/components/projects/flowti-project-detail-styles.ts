@@ -233,6 +233,11 @@ export const projectDetailStyles = css`
 		overflow: hidden;
 	}
 
+	.hub-cli-log--active {
+		border-color: color-mix(in srgb, var(--interactive-accent, #7c3aed) 45%, var(--background-modifier-border, #333));
+		box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent, #7c3aed) 20%, transparent);
+	}
+
 	.hub-cli-log__head {
 		display: flex;
 		align-items: center;
@@ -259,8 +264,13 @@ export const projectDetailStyles = css`
 		cursor: pointer;
 	}
 
-	.hub-cli-log__clear:hover {
+	.hub-cli-log__clear:hover:not(:disabled) {
 		color: var(--text-normal, #ddd);
+	}
+
+	.hub-cli-log__clear:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
 	}
 
 	.hub-cli-log__clear:focus-visible {

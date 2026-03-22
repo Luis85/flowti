@@ -448,6 +448,23 @@ export class FlowtiSettingTab extends PluginSettingTab {
 					});
 			});
 
+		new Setting(containerEl).setName("Agents & Cursor").setHeading();
+
+		new Setting(containerEl)
+			.setName("Cursor rules workspace root")
+			.setDesc(
+				"Absolute path to the folder where .cursor/rules is written when saving agents from the agent panel (Flowti-managed .mdc files). Leave empty to use the vault folder.",
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("e.g. C:\\Projects\\my-repo")
+					.setValue(this.deps.getSettings().cursorRulesWorkspaceRoot ?? "")
+					.onChange(async (value) => {
+						this.deps.getSettings().cursorRulesWorkspaceRoot = value;
+						await this.deps.saveSettings();
+					}),
+			);
+
 		new Setting(containerEl).setName("Advanced").setHeading();
 
 		new Setting(containerEl)

@@ -6,6 +6,7 @@ function createMockExecutor(): ICliExecutor {
 	const mockProc: AgentProcess = {
 		agentName: "atlas",
 		running: true,
+		getPid: vi.fn(() => null),
 		send: vi.fn(),
 		onEvent: vi.fn(() => () => {}),
 		replayFrom: vi.fn(() => []),

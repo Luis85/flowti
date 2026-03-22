@@ -467,6 +467,13 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			} else if (text) {
 				sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
 			}
+		} else if (action.type === "error") {
+			const summary = String(action.data.summary ?? "Something went wrong in my behavior.");
+			const detail = String(action.data.detail ?? "");
+			const maxDetail = 140;
+			const snippet = detail.length > maxDetail ? `${detail.slice(0, maxDetail)}…` : detail;
+			const text = snippet ? `${summary} (${snippet})` : summary;
+			sys.bubble.showBubble(action.agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 6500);
 		}
 	}
 }

@@ -57,8 +57,15 @@ export class FlowtiAddProjectDropdown extends FlowtiElement {
 
 	protected renderContent() {
 		return html`
-			<div class="wrap">
-				<button type="button" class="trigger" @click="${() => { this.open = !this.open; }}">+ Add project</button>
+			<div class="wrap" @click="${(e: Event) => e.stopPropagation()}">
+				<button
+					type="button"
+					class="trigger"
+					@click="${(e: Event) => {
+						e.stopPropagation();
+						this.open = !this.open;
+					}}"
+				>+ Add project</button>
 				<div class="menu ${this.open ? "open" : ""}" @click="${(e: Event) => e.stopPropagation()}">
 					<button type="button" @click="${() => this.pick("empty")}">Empty project</button>
 					<button type="button" @click="${() => this.pick("submodule")}">Import from Git (submodule)</button>

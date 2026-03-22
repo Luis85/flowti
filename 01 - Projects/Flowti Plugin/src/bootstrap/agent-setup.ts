@@ -12,6 +12,7 @@
 
 import type { IEventBus } from "../infrastructure/events/types.js";
 import type { App, Plugin, WorkspaceLeaf } from "obsidian";
+import type { FlowtiSettings } from "../domain/settings/settings.js";
 import { CliExecutor } from "../infrastructure/agents/cli-executor.js";
 import { ObsidianContextProvider } from "../infrastructure/agents/obsidian-context-provider.js";
 import { AgentSidepanelView, type AgentSidepanelDeps } from "../ui/agents/agent-sidepanel-view.js";
@@ -25,6 +26,7 @@ export interface AgentSetupDeps {
 	readonly plugin: Plugin;
 	readonly app: App;
 	readonly eventBus: IEventBus;
+	readonly getSettings: () => FlowtiSettings;
 }
 
 export interface AgentSetupResult {
@@ -63,6 +65,8 @@ export function setupAgentDomain(deps: AgentSetupDeps): AgentSetupResult {
 		vaultAdapter,
 		agentsDir: "03 - Resources/Agents",
 		vaultBasePath,
+		app: deps.app,
+		getSettings: deps.getSettings,
 	};
 
 	// Register view immediately — Obsidian needs the factory to restore layout

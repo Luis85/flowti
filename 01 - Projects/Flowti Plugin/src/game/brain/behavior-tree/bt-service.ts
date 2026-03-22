@@ -40,5 +40,10 @@ export function stepTree(tree: BehaviourTree): void {
 	tree.step();
 }
 
+/** Reset every node to READY — use after a step throws so the next tick starts clean. */
+export function resetTree(tree: BehaviourTree): void {
+	tree.reset();
+}
+
 // Re-export opaque types for consumer signatures
 export type { BehaviourTree, State };

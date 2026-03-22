@@ -10,7 +10,13 @@ import { dirname, join } from "node:path";
 import type { IProjectService, ProjectSummary, ProjectDetail, StorybookFramework, OutputCallback, MarkdownSourceConfig, TodoItem, CatalogEntity, CatalogEntityType, CatalogEntityDef, ReportGeneratorInfo, ComponentEntry, HealthScore, TeamRoleSlot, VaultAgentSummary } from "../../domain/projects/types.js";
 import { reconcileProjectRoster, teamRoleSlotsHaveInvalidDateRange } from "../../domain/projects/team-roster.js";
 import { normalizeTeamRoleSlots } from "../../domain/projects/team-roster-normalize.js";
-import { buildAgentMarkdownFile, buildAgentCompanionJson, agentVaultPaths } from "../../domain/projects/agent-note-builder.js";
+import {
+	buildAgentMarkdownFile,
+	buildAgentCompanionJson,
+	agentVaultPaths,
+	mergeAgentBlueprintFromRoleSlot,
+} from "../../domain/projects/agent-note-builder.js";
+import { buildProjectRoleMarkdown, projectRoleNoteRelativePath } from "../../domain/projects/project-role-markdown.js";
 import { listVaultAgentSummaries } from "../../domain/projects/agent-vault-scan.js";
 import { parseTodos, addTodoLine, toggleTodoLine, deleteTodoLine } from "../../domain/projects/todo-service.js";
 import { parseEntityFromMarkdown, generateDomainMarkdown, generateServiceMarkdown, generateEventMarkdown, generateFlowMarkdown, toKebabCase } from "../../domain/projects/catalog-service.js";
@@ -24,27 +30,11 @@ import {
 	shellQuote,
 	runAsync,
 	findStorybookDir,
-	FLOWTI_CLI_TIMEOUT_MS,
 	STORYBOOK_BUILD_TIMEOUT_MS,
 	GIT_COMMAND_TIMEOUT_MS,
 	SHORT_SHELL_COMMAND_TIMEOUT_MS,
 } from "./vault-project-cli.js";
-import { ensureFlowtiCliRuntimeDeps, resolveFlowtiCliEntry } from "./flowti-cli-runtime.js";
-
-/**
- * Run the Flowti vault CLI (`main.mjs`) after ensuring `.flowti/bin` exists and the bundle entry is present.
- */
-async function runFlowtiCli(
-	vaultBase: string,
-	cliSubArgs: string[],
-	onOutput?: OutputCallback,
-): Promise<{ ok: boolean; error?: string }> {
-	const binDir = join(vaultBase, ".flowti", "bin");
-	const ensured = await ensureFlowtiCliRuntimeDeps(binDir, onOutput);
-	if (!ensured.ok) return ensured;
-	const entry = resolveFlowtiCliEntry(binDir);
-	return runAsync("node", [entry, ...cliSubArgs], vaultBase, onOutput, { timeoutMs: FLOWTI_CLI_TIMEOUT_MS });
-}
+import { runFlowtiCli } from "./flowti-cli-run.js";
 
 export class VaultProjectService implements IProjectService {
 	private app: App;
@@ -218,6 +208,13 @@ export class VaultProjectService implements IProjectService {
 	}
 
 	private previewServers = new Map<string, { close: () => void; url: string }>();
+
+	async openStorybookUrl(project: string, url: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+		const vaultBase = getVaultBasePath(this.app);
+		const u = url.trim();
+		if (!u) return { ok: false, error: "Missing URL" };
+		return runFlowtiCli(vaultBase, ["storybook:open", `--project=${project}`, `--url=${u}`], onOutput);
+	}
 
 	async previewStorybook(project: string): Promise<{ ok: boolean; url?: string; error?: string }> {
 		const existing = this.previewServers.get(project);
@@ -418,11 +415,19 @@ export class VaultProjectService implements IProjectService {
 		return runFlowtiCli(vaultBase, ["agent:dashboard-sync"], onOutput);
 	}
 
-	async createAgentFromRole(project: string, roleId: string, agentName: string, onOutput?: OutputCallback): Promise<{ ok: boolean; error?: string }> {
+	async createAgentFromRole(
+		project: string,
+		roleId: string,
+		agentName: string,
+		onOutput?: OutputCallback,
+		slotsSnapshot?: readonly TeamRoleSlot[],
+	): Promise<{ ok: boolean; error?: string }> {
 		const name = agentName.trim();
 		if (!name) return { ok: false, error: "Agent name is required." };
+		onOutput?.(`Preparing agent "${name}" from role…`);
 		const parsed = parseProjectConfig(this.resolveProjectPath(project));
-		const slots = parsed.config?.roleSlots ?? [];
+		const fromDisk = parsed.config?.roleSlots ?? [];
+		const slots = slotsSnapshot && slotsSnapshot.length > 0 ? [...slotsSnapshot] : fromDisk;
 		const vaultBase = getVaultBasePath(this.app);
 		const enriched = enrichRoleSlotsWithRoleNotes(vaultBase, project, slots) ?? slots;
 		const slot = enriched.find((s) => s.id === roleId);
@@ -432,18 +437,23 @@ export class VaultProjectService implements IProjectService {
 		await mkdir(join(vaultBase, "03 - Resources", "Agents"), { recursive: true });
 		const blueprint = mergeAgentBlueprintFromRoleSlot(slot);
 		const mdBody = buildAgentMarkdownFile(name, Object.keys(blueprint).length > 0 ? blueprint : undefined);
+		onOutput?.("Writing agent markdown note…");
 		try {
 			await this.app.vault.create(mdPath, mdBody);
 		} catch (e) {
 			return { ok: false, error: e instanceof Error ? e.message : "Failed to create agent note." };
 		}
+		onOutput?.(`Created ${mdPath}`);
 		const companion = buildAgentCompanionJson(Object.keys(blueprint).length > 0 ? blueprint : undefined);
 		if (companion && !this.app.vault.getAbstractFileByPath(jsonPath)) {
+			onOutput?.("Writing companion JSON (ai.provider / tools)…");
 			try {
 				await this.app.vault.create(jsonPath, companion);
+				onOutput?.(`Created ${jsonPath}`);
 			} catch { /* optional */ }
 		}
-		const nextSlots = normalizeTeamRoleSlots(slots.map((s) => (s.id === roleId ? { ...s, assignee: name } : s)));
+		onOutput?.("Assigning agent to role, saving roster, syncing dashboard…");
+		const nextSlots = normalizeTeamRoleSlots(enriched.map((s) => (s.id === roleId ? { ...s, assignee: name } : s)));
 		return this.saveTeamRoster(project, nextSlots, onOutput);
 	}
 }

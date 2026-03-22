@@ -20,6 +20,12 @@ function emitAttributes(attrs: Record<string, number>): string[] {
 }
 
 /** Serialize blueprint + name into markdown body + frontmatter block. */
+/** Markdown body after the closing `---` of agent frontmatter (description / freeform content). */
+export function bodyAfterAgentFrontmatter(md: string): string {
+	const m = md.match(/^---\r?\n[\s\S]*?\r?\n---\s*\r?\n([\s\S]*)$/);
+	return (m ? m[1] : md).trim();
+}
+
 export function buildAgentMarkdownFile(name: string, blueprint: AgentBlueprint | undefined): string {
 	const bp = blueprint ?? {};
 	const lines: string[] = ["---", "type: Agent", `name: ${yamlEscape(name)}`];
@@ -56,14 +62,41 @@ export function buildAgentMarkdownFile(name: string, blueprint: AgentBlueprint |
 	return lines.join("\n");
 }
 
-/** Goals and other companion fields not stored in frontmatter. */
+const DEFAULT_TRUST_PERMISSIONS = { mode: "trust" as const };
+
+/** Goals, ai config, and other companion fields not stored in frontmatter. */
 export function buildAgentCompanionJson(blueprint: AgentBlueprint | undefined): string | null {
-	if (!blueprint?.goals || !Array.isArray(blueprint.goals) || blueprint.goals.length === 0) return null;
-	const goals = blueprint.goals
-		.filter((g): g is { name: string; priority?: number } => g && typeof (g as { name?: string }).name === "string")
-		.map((g) => ({ name: g.name, priority: typeof g.priority === "number" ? g.priority : 0 }));
-	if (goals.length === 0) return null;
-	return JSON.stringify({ goals }, null, "\t");
+	const goals =
+		blueprint?.goals && Array.isArray(blueprint.goals)
+			? blueprint.goals
+				.filter((g): g is { name: string; priority?: number } => g && typeof (g as { name?: string }).name === "string")
+				.map((g) => ({ name: g.name, priority: typeof g.priority === "number" ? g.priority : 0 }))
+			: [];
+	const ai = blueprint?.ai;
+	let aiOut: Record<string, unknown> | undefined;
+	if (ai && typeof ai === "object") {
+		const permissions =
+			ai.permissions?.mode === "ask" || ai.permissions?.mode === "auto-allow" || ai.permissions?.mode === "trust"
+				? { mode: ai.permissions.mode }
+				: DEFAULT_TRUST_PERMISSIONS;
+		aiOut = {
+			permissions,
+			...(typeof ai.provider === "string" && ai.provider.trim() ? { provider: ai.provider.trim() } : {}),
+			...(typeof ai.systemPrompt === "string" && ai.systemPrompt.trim() ? { systemPrompt: ai.systemPrompt } : {}),
+			...(Array.isArray(ai.allowedTools) && ai.allowedTools.length > 0 ? { allowedTools: [...ai.allowedTools] } : {}),
+		};
+	}
+	const globs =
+		blueprint?.cursorRuleGlobs?.filter((g) => typeof g === "string" && g.trim()) ?? [];
+	const hasGoals = goals.length > 0;
+	const hasAi = aiOut && Object.keys(aiOut).length > 0;
+	const hasGlobs = globs.length > 0;
+	if (!hasGoals && !hasAi && !hasGlobs) return null;
+	const payload: Record<string, unknown> = {};
+	if (hasGoals) payload.goals = goals;
+	if (hasAi) payload.ai = aiOut;
+	if (hasGlobs) payload.cursorRuleGlobs = globs;
+	return JSON.stringify(payload, null, "\t");
 }
 
 export function agentVaultPaths(displayName: string): { md: string; json: string } {

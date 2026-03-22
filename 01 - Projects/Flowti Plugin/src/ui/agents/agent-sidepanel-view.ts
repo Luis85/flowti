@@ -5,11 +5,12 @@
  */
 
 import { ItemView } from "obsidian";
-import type { WorkspaceLeaf } from "obsidian";
+import type { App, WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types.js";
 import type { ICliExecutor } from "../../infrastructure/agents/cli-executor.js";
 import type { IContextProvider } from "../../domain/agents/context-provider.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
+import type { FlowtiSettings } from "../../domain/settings/settings.js";
 import { VIEW_TYPE_AGENT_SIDEBAR } from "./types.js";
 
 export interface AgentSidepanelDeps {
@@ -20,6 +21,8 @@ export interface AgentSidepanelDeps {
 	readonly vaultAdapter?: { list(path: string): Promise<{ files: string[]; folders: string[] }>; read(path: string): Promise<string> };
 	readonly agentsDir?: string;
 	readonly vaultBasePath?: string;
+	readonly app: App;
+	readonly getSettings: () => FlowtiSettings;
 }
 
 export class AgentSidepanelView extends ItemView {
