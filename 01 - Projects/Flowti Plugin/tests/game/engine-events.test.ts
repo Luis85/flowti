@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { wireEvents } from "../../src/game/engine-events.js";
 import type { EngineContext } from "../../src/game/engine-types.js";
@@ -25,6 +26,11 @@ function createMockContext(): EngineContext {
 			currentScene: {
 				camera: { pos: { x: 400, y: 250 } },
 			},
+			canvas: {
+				addEventListener: vi.fn(),
+				removeEventListener: vi.fn(),
+				parentElement: null,
+			},
 		},
 		provider: {
 			onAction: vi.fn(() => noop),
@@ -47,6 +53,7 @@ function createMockContext(): EngineContext {
 			pushAgentThought: vi.fn(),
 			addEventListener: vi.fn(),
 			removeEventListener: vi.fn(),
+			pushNarrativeBeat: vi.fn(),
 		},
 		systems: {
 			brain: {
@@ -107,6 +114,8 @@ function createMockContext(): EngineContext {
 			dayClock: {
 				onPhaseChange: vi.fn(),
 				offPhaseChange: vi.fn(),
+				getPhase: vi.fn(() => "morning"),
+				getCycleCount: vi.fn(() => 0),
 			},
 			worldAmbience: {
 				getWeather: vi.fn(() => "clear"),
@@ -132,6 +141,9 @@ function createMockContext(): EngineContext {
 				getScene: vi.fn(),
 			},
 			roomSwitcher: {},
+			narrative: {
+				recordBeat: vi.fn(),
+			},
 			cameraSystem: null,
 		},
 		scenes: {
@@ -159,6 +171,9 @@ function createMockContext(): EngineContext {
 			waterBowlOffice: {},
 			waterBowlStation: {},
 		},
+		echoProducer: {
+			onLevelUp: vi.fn(),
+		},
 		pets: [],
 		btBridge: {
 			worldState: {},
@@ -183,6 +198,7 @@ function createMockContext(): EngineContext {
 		lookups: {
 			findAgentActor: vi.fn(() => actor),
 			findCurrentSceneActor: vi.fn(() => actor),
+			findBubbleAnchor: vi.fn(),
 			findNearestAgent: vi.fn(() => null),
 			handleAgentSelect: vi.fn(),
 			handleSceneChange: vi.fn(),
@@ -354,7 +370,7 @@ describe("engine-events", () => {
 	describe("wireRitualEvents", () => {
 		it("subscribes to ritual phases", () => {
 			wireEvents(ctx);
-			expect(ctx.systems.ritual.onPhase).toHaveBeenCalledTimes(1);
+			expect(ctx.systems.ritual.onPhase).toHaveBeenCalledTimes(2);
 		});
 
 		it("gather phase transitions participants to speaking", () => {
@@ -442,16 +458,17 @@ describe("engine-events", () => {
 	describe("wireStoreEvents", () => {
 		it("registers multiple store event listeners", () => {
 			wireEvents(ctx);
-			// 11 store listeners: scene-change, agent-message-sent, agent-response-received,
-			// task-assigned, task-completed, level-up, trust-promoted,
+			// 15 store listeners: scene-change, agent-message-sent, agent-response-received,
+			// task-assigned, task-completed, task-reward-earned, level-up, trust-promoted,
 			// permission-decided, agent-using-tool, agent-tool-complete, state-changed
-			expect(ctx.store.addEventListener).toHaveBeenCalledTimes(11);
+			// + narrative: task-completed, level-up, trust-promoted
+			expect(ctx.store.addEventListener).toHaveBeenCalledTimes(15);
 		});
 
 		it("cleanup removes all store event listeners", () => {
 			const cleanup = wireEvents(ctx);
 			cleanup();
-			expect(ctx.store.removeEventListener).toHaveBeenCalledTimes(11);
+			expect(ctx.store.removeEventListener).toHaveBeenCalledTimes(15);
 		});
 
 		it("registered event names match expected set", () => {

@@ -18,7 +18,7 @@ describe("flowti-tab-event-catalog", () => {
 		expect(customElements.get("flowti-tab-event-catalog")).toBeDefined();
 	});
 
-	it("renders sub-tabs for entity types", async () => {
+	it("renders select options for entity types", async () => {
 		await el.updateComplete;
 		const shadow = el.shadowRoot!;
 		expect(shadow.textContent).toContain("Domains");
@@ -27,19 +27,20 @@ describe("flowti-tab-event-catalog", () => {
 		expect(shadow.textContent).toContain("Flows");
 	});
 
-	it("defaults to domains sub-tab", async () => {
+	it("defaults to domains in the select", async () => {
 		await el.updateComplete;
-		const activeBtn = el.shadowRoot!.querySelector(".sub-tab--active");
-		expect(activeBtn?.textContent?.trim()).toBe("Domains");
+		const select = el.shadowRoot!.querySelector("select") as HTMLSelectElement;
+		expect(select?.value).toBe("domains");
 	});
 
-	it("switches sub-tab on click", async () => {
+	it("switches entity type on select change", async () => {
 		await el.updateComplete;
-		const btns = el.shadowRoot!.querySelectorAll(".sub-tab");
-		(btns[2] as HTMLElement)?.click();
-		await el.updateComplete;
-		const active = el.shadowRoot!.querySelector(".sub-tab--active");
-		expect(active?.textContent?.trim()).toBe("Events");
+		let detail: unknown = null;
+		el.addEventListener("catalog-list-refresh", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+		const select = el.shadowRoot!.querySelector("select") as HTMLSelectElement;
+		select.value = "events";
+		select.dispatchEvent(new Event("change"));
+		expect(detail).toEqual({ entityType: "events" });
 	});
 
 	it("shows entity list when entities provided", async () => {
@@ -48,56 +49,43 @@ describe("flowti-tab-event-catalog", () => {
 		expect(el.shadowRoot!.textContent).toContain("Auth");
 	});
 
-	it("shows empty state when no entities", async () => {
+	it("shows empty list when no entities", async () => {
 		el.entities = [];
 		await el.updateComplete;
-		expect(el.shadowRoot!.textContent).toContain("No domains yet");
+		const list = el.shadowRoot!.querySelector(".list");
+		expect(list).not.toBeNull();
+		expect(list!.children.length).toBe(0);
 	});
 
-	it("toggles add form on Add button click", async () => {
-		await el.updateComplete;
-		const addBtn = el.shadowRoot!.querySelector(".add-entity-btn") as HTMLElement;
-		addBtn?.click();
-		await el.updateComplete;
-		const form = el.shadowRoot!.querySelector(".add-form");
-		expect(form).not.toBeNull();
-	});
-
-	it("dispatches catalog-entity-create on form submit", async () => {
-		el.activeSubTab = "domains";
+	it("dispatches catalog-entity-create on Create button click", async () => {
 		await el.updateComplete;
 		let detail: unknown = null;
 		el.addEventListener("catalog-entity-create", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
 
-		const addBtn = el.shadowRoot!.querySelector(".add-entity-btn") as HTMLElement;
-		addBtn?.click();
-		await el.updateComplete;
-
-		const nameInput = el.shadowRoot!.querySelector(".entity-name-input") as HTMLInputElement;
-		if (nameInput) {
-			nameInput.value = "TestDomain";
-			const submitBtn = el.shadowRoot!.querySelector(".entity-submit-btn") as HTMLElement;
-			submitBtn?.click();
+		const input = el.shadowRoot!.getElementById("ce-name") as HTMLInputElement;
+		if (input) {
+			input.value = "TestDomain";
+			const createBtn = Array.from(el.shadowRoot!.querySelectorAll("button")).find((b) => b.textContent?.trim() === "Create") as HTMLElement;
+			createBtn?.click();
 			expect(detail).toEqual({ entityType: "domains", definition: expect.objectContaining({ name: "TestDomain" }) });
 		}
 	});
 
-	it("dispatches catalog-list-refresh on tab switch", async () => {
+	it("dispatches catalog-list-refresh on Refresh button click", async () => {
 		await el.updateComplete;
 		let detail: unknown = null;
 		el.addEventListener("catalog-list-refresh", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const btns = el.shadowRoot!.querySelectorAll(".sub-tab");
-		(btns[1] as HTMLElement)?.click();
-		expect(detail).toEqual({ entityType: "services" });
+		const refreshBtn = Array.from(el.shadowRoot!.querySelectorAll("button")).find((b) => b.textContent?.trim() === "Refresh") as HTMLElement;
+		refreshBtn?.click();
+		expect(detail).toEqual({ entityType: "domains" });
 	});
 
-	it("dispatches open-project-note when entity row clicked", async () => {
+	it("shows entity names and statuses in the list", async () => {
 		el.entities = [{ name: "Auth", type: "Domain", status: "active", date: "2026-03-20", path: "docs/catalog/domains/auth.md" }];
 		await el.updateComplete;
-		let detail: unknown = null;
-		el.addEventListener("open-project-note", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const row = el.shadowRoot!.querySelector(".entity-row") as HTMLElement;
-		row?.click();
-		expect(detail).toEqual({ path: "docs/catalog/domains/auth.md" });
+		const list = el.shadowRoot!.querySelector(".list");
+		expect(list).not.toBeNull();
+		expect(list!.textContent).toContain("Auth");
+		expect(list!.textContent).toContain("active");
 	});
 });

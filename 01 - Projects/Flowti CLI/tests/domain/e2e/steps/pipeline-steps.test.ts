@@ -34,7 +34,7 @@ vi.mock("../../../../src/ui/e2e/e2e-formatters.js", () => ({
 vi.mock("../../../../src/domain/e2e/e2e-helpers.js", () => ({ yamlStr: (s: string) => s }));
 
 // Mock domain dependencies used by steps
-const mockRunVitest = vi.fn(() => 0);
+const { mockRunVitest } = vi.hoisted(() => ({ mockRunVitest: vi.fn(() => 0) }));
 vi.mock("../../../../src/domain/e2e/e2e-runner.js", () => ({
 	runVitest: mockRunVitest,
 	generateReport: vi.fn(() => "/vault-e2e/E2E Report.md"),

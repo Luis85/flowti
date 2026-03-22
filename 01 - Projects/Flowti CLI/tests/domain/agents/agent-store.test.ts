@@ -248,7 +248,7 @@ describe("agentToJson", () => {
 		expect(json.behaviors).toEqual(["patrol", "guard"]);
 		expect(json.components).toEqual([{ name: "movement", type: "behavior" }]);
 		expect(json.goals).toEqual([{ name: "complete-review", priority: 2 }]);
-		expect(json.ai).toEqual({ model: "claude-sonnet-4-20250514", provider: "anthropic" });
+		expect(json.ai).toEqual({ provider: "anthropic" });
 		expect(json.relationships).toEqual([{ target: "Human Lead", type: "reports-to" }]);
 	});
 });
@@ -271,7 +271,7 @@ describe("companion JSON definition", () => {
 		expect(agent).toBeDefined();
 		expect(agent!.components).toEqual([{ name: "tool-caller", type: "actuator" }]);
 		expect(agent!.goals).toEqual([{ name: "assist-user", priority: 1 }]);
-		expect(agent!.ai).toEqual({ model: "gpt-4o", provider: "openai" });
+		expect(agent!.ai).toEqual({ provider: "openai" });
 		expect(agent!.relationships).toEqual([{ target: "Supervisor", type: "reports-to" }]);
 	});
 
@@ -290,7 +290,7 @@ describe("companion JSON definition", () => {
 		expect(jsonCall).toBeDefined();
 		const parsed = JSON.parse(jsonCall![1] as string);
 		expect(parsed.components).toEqual([{ name: "perception", type: "sensor" }]);
-		expect(parsed.ai).toEqual({ model: "claude-sonnet-4-20250514", provider: "anthropic" });
+		expect(parsed.ai).toEqual({ provider: "anthropic" });
 	});
 
 	it("creates agent with domain and behaviors in frontmatter", () => {
@@ -419,7 +419,6 @@ describe("updateAgentJson", () => {
 		expect(ok).toBe(true);
 		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 		const parsed = JSON.parse(written);
-		expect(parsed.ai.model).toBe("claude-sonnet-4-20250514");
 		expect(parsed.ai.provider).toBe("anthropic");
 	});
 

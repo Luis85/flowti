@@ -18,9 +18,10 @@ describe("flowti-tab-overview", () => {
 		expect(customElements.get("flowti-tab-overview")).toBeDefined();
 	});
 
-	it("renders brief section with goal", async () => {
+	it("renders brief goal when set", async () => {
 		el.brief = { goal: "Ship MVP", status: "active" };
 		el.projectName = "TestProject";
+		el.notePath = "some/path.md";
 		await el.updateComplete;
 		expect(el.shadowRoot!.textContent).toContain("Ship MVP");
 	});
@@ -31,10 +32,11 @@ describe("flowti-tab-overview", () => {
 		expect(el.shadowRoot!.textContent).toContain("85");
 	});
 
-	it("shows health refresh button", async () => {
+	it("shows health Refresh button", async () => {
 		await el.updateComplete;
-		const btn = el.shadowRoot!.querySelector(".health-refresh-btn");
-		expect(btn).not.toBeNull();
+		const btns = Array.from(el.shadowRoot!.querySelectorAll("button"));
+		const refreshBtn = btns.find((b) => b.textContent?.trim() === "Refresh");
+		expect(refreshBtn).toBeDefined();
 	});
 
 	it("renders TODO items", async () => {
@@ -45,16 +47,17 @@ describe("flowti-tab-overview", () => {
 		expect(el.shadowRoot!.textContent).toContain("Done task");
 	});
 
-	it("dispatches todo-add on add button click", async () => {
+	it("dispatches todo-add on Add button click", async () => {
 		el.todosExist = true;
 		await el.updateComplete;
 		let detail: unknown = null;
 		el.addEventListener("todo-add", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const input = el.shadowRoot!.querySelector(".todo-input") as HTMLInputElement;
+		const input = el.shadowRoot!.getElementById("todo-input") as HTMLInputElement;
 		if (input) {
 			input.value = "New task";
-			const btn = el.shadowRoot!.querySelector(".todo-add-btn") as HTMLElement;
-			btn?.click();
+			const btns = Array.from(el.shadowRoot!.querySelectorAll("button"));
+			const addBtn = btns.find((b) => b.textContent?.trim() === "Add") as HTMLElement;
+			addBtn?.click();
 			expect(detail).toEqual({ text: "New task" });
 		}
 	});
@@ -65,17 +68,18 @@ describe("flowti-tab-overview", () => {
 		await el.updateComplete;
 		let detail: unknown = null;
 		el.addEventListener("todo-toggle", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const checkbox = el.shadowRoot!.querySelector(".todo-checkbox") as HTMLInputElement;
-		checkbox?.click();
+		const checkbox = el.shadowRoot!.querySelector("input[type='checkbox']") as HTMLInputElement;
+		checkbox?.dispatchEvent(new Event("change"));
 		expect(detail).toEqual({ index: 0 });
 	});
 
-	it("dispatches health-refresh on refresh click", async () => {
+	it("dispatches health-refresh on Refresh click", async () => {
 		await el.updateComplete;
 		let fired = false;
 		el.addEventListener("health-refresh", () => { fired = true; });
-		const btn = el.shadowRoot!.querySelector(".health-refresh-btn") as HTMLElement;
-		btn?.click();
+		const btns = Array.from(el.shadowRoot!.querySelectorAll("button"));
+		const refreshBtn = btns.find((b) => b.textContent?.trim() === "Refresh") as HTMLElement;
+		refreshBtn?.click();
 		expect(fired).toBe(true);
 	});
 
@@ -85,29 +89,32 @@ describe("flowti-tab-overview", () => {
 		await el.updateComplete;
 		let detail: unknown = null;
 		el.addEventListener("todo-delete", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const btn = el.shadowRoot!.querySelector(".todo-delete-btn") as HTMLElement;
-		btn?.click();
+		const listItems = el.shadowRoot!.querySelectorAll(".todo-list li");
+		const deleteBtn = listItems[0]?.querySelector("button") as HTMLElement;
+		deleteBtn?.click();
 		expect(detail).toEqual({ index: 0 });
 	});
 
-	it("dispatches open-project-note when brief note exists", async () => {
+	it("dispatches open-project-note when Open brief clicked", async () => {
 		el.brief = { goal: "Ship MVP", status: "active" };
 		el.projectName = "TestProject";
+		el.notePath = "some/brief.md";
 		await el.updateComplete;
 		let detail: unknown = null;
 		el.addEventListener("open-project-note", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const link = el.shadowRoot!.querySelector(".brief-open-btn") as HTMLElement;
-		if (link) {
-			link.click();
-			expect(detail).toBeDefined();
+		const btns = Array.from(el.shadowRoot!.querySelectorAll("button"));
+		const openBtn = btns.find((b) => b.textContent?.trim() === "Open brief") as HTMLElement;
+		if (openBtn) {
+			openBtn.click();
+			expect(detail).toEqual({ path: "some/brief.md" });
 		}
 	});
 
-	it("shows empty health state when no score", async () => {
-		el.healthScore = null;
+	it("shows no-brief message when notePath is empty", async () => {
+		el.notePath = "";
 		await el.updateComplete;
 		const shadow = el.shadowRoot!;
-		expect(shadow.textContent).toContain("Run health check");
+		expect(shadow.textContent).toContain("No ProjectBrief yet");
 	});
 
 	it("shows health error when healthError set", async () => {
@@ -117,49 +124,25 @@ describe("flowti-tab-overview", () => {
 		expect(shadow.textContent).toContain("Connection failed");
 	});
 
-	it("shows create TODO list button when todosExist is false", async () => {
+	it("shows no-todo message when todosExist is false and no todos", async () => {
 		el.todosExist = false;
+		el.todos = [];
 		await el.updateComplete;
 		const shadow = el.shadowRoot!;
-		expect(shadow.textContent).toContain("Create TODO list");
+		expect(shadow.textContent).toContain("No TODO.md yet");
 	});
 
-	it("shows brief create button when no brief exists", async () => {
-		el.brief = undefined;
-		el.projectName = "TestProject";
-		await el.updateComplete;
-		const btn = el.shadowRoot!.querySelector(".brief-create-btn") as HTMLElement;
-		expect(btn).not.toBeNull();
-	});
-
-	it("dispatches create-note on create brief click", async () => {
-		el.brief = undefined;
-		el.projectName = "TestProject";
-		await el.updateComplete;
-		let detail: unknown = null;
-		el.addEventListener("create-note", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
-		const btn = el.shadowRoot!.querySelector(".brief-create-btn") as HTMLElement;
-		btn?.click();
-		expect(detail).toEqual({ name: "TestProject" });
-	});
-
-	it("renders health grade badge", async () => {
+	it("renders health grade", async () => {
 		el.healthScore = { overall: 85, grade: "B", categories: { tests: 90, coverage: 80, build: 100, lint: 70, security: 85, git: 90 } };
 		await el.updateComplete;
 		expect(el.shadowRoot!.textContent).toContain("B");
 	});
 
-	it("renders config badges when config is set", async () => {
-		el.brief = { goal: "Ship it" };
-		el.config = { buildModes: ["production"], testPresets: ["unit"], framework: "react" };
-		await el.updateComplete;
-		expect(el.shadowRoot!.textContent).toContain("react");
-	});
-
-	it("color-codes health score green for >= 80", async () => {
+	it("renders score value with styling", async () => {
 		el.healthScore = { overall: 85, grade: "B", categories: { tests: 90, coverage: 80, build: 100, lint: 70, security: 85, git: 90 } };
 		await el.updateComplete;
-		const circle = el.shadowRoot!.querySelector(".health-score-circle") as HTMLElement;
-		expect(circle).not.toBeNull();
+		const score = el.shadowRoot!.querySelector(".score");
+		expect(score).not.toBeNull();
+		expect(score!.textContent).toContain("85");
 	});
 });

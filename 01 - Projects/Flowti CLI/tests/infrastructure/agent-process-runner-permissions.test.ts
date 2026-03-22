@@ -74,7 +74,7 @@ describe("createProcessRunner full-permission CLI flags (legacy path)", () => {
 		const runner = createProcessRunner(deps as never, undefined, undefined);
 		runner.spawn(minimalAgent({ ai: { provider: "cursor" } }), "hello", [], {});
 		expect(cmds.length).toBe(1);
-		expect(cmds[0]).toContain("cursor");
+		expect(cmds[0]).toContain("agent");
 		expect(cmds[0]).toContain("--force");
 	});
 

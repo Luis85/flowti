@@ -1,20 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockLog = vi.fn();
-const mockPrintHeader = vi.fn();
-const mockCountFiles = vi.fn(() => 42);
-const mockGetSelectedProject = vi.fn((): string | undefined => "test-project");
-const mockRunSilent = vi.fn((_cmd?: string): string | null => "main");
-
-// Shared mock filesystem state
-const files = new Map<string, string>();
-const dirs = new Set<string>();
-const mockExistsSync = vi.fn((p: string) => files.has(p) || dirs.has(p));
-const mockReadFileSync = vi.fn((p: string, _enc?: string) => {
-	if (files.has(p)) return files.get(p)!;
-	throw new Error(`ENOENT: ${p}`);
-});
-const mockReaddirSync = vi.fn((_p?: string) => [] as string[]);
+const {
+	mockLog, mockPrintHeader, mockCountFiles, mockGetSelectedProject, mockRunSilent,
+	files, dirs, mockExistsSync, mockReadFileSync, mockReaddirSync,
+} = vi.hoisted(() => ({
+	mockLog: vi.fn(),
+	mockPrintHeader: vi.fn(),
+	mockCountFiles: vi.fn(() => 42),
+	mockGetSelectedProject: vi.fn((): string | undefined => "test-project"),
+	mockRunSilent: vi.fn((_cmd?: string): string | null => "main"),
+	files: new Map<string, string>(),
+	dirs: new Set<string>(),
+	mockExistsSync: vi.fn((p: string) => files.has(p) || dirs.has(p)),
+	mockReadFileSync: vi.fn((p: string, _enc?: string) => {
+		if (files.has(p)) return files.get(p)!;
+		throw new Error(`ENOENT: ${p}`);
+	}),
+	mockReaddirSync: vi.fn((_p?: string) => [] as string[]),
+}));
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: mockLog,

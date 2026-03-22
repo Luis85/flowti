@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
 	tickSimulation,
@@ -53,6 +54,10 @@ function createMockContext(): EngineContext {
 			setDayPhase: vi.fn(),
 			pushWorldEvent: vi.fn(),
 		},
+		echoProducer: {
+			onMorale: vi.fn(),
+			onPreferredStation: vi.fn(),
+		},
 		systems: {
 			brain: {
 				getState: vi.fn((name: string) => brainEntries.get(name)),
@@ -64,6 +69,21 @@ function createMockContext(): EngineContext {
 				walkTo: vi.fn(),
 				assignWork: vi.fn(),
 				releaseWork: vi.fn(),
+				setWanderHint: vi.fn(),
+				setBreakThresholdBias: vi.fn(),
+				setRoomAvoidance: vi.fn(),
+			},
+			echo: {
+				getStrongest: vi.fn(() => null),
+				decayAll: vi.fn(),
+				resetCascadeBudget: vi.fn(),
+				queryWeight: vi.fn(() => 0),
+				addEcho: vi.fn(),
+			},
+			conversation: {
+				update: vi.fn(),
+				tryScript: vi.fn(() => false),
+				gossipAbout: vi.fn(() => false),
 			},
 			bubble: {
 				showBubble: vi.fn(),
@@ -133,21 +153,28 @@ function createMockContext(): EngineContext {
 			memory: {
 				onCycleEnd: vi.fn(),
 				getMemory: vi.fn(() => ({ workStreak: 0, quirks: [], opinions: [] })),
+				recordEvent: vi.fn(),
 			},
 			quirk: { hasQuirk: vi.fn(() => false) },
 			relationship: {
 				onCycleEnd: vi.fn(),
+				recordConversation: vi.fn(),
+				recordBicker: vi.fn(),
 			},
 			bt: {
 				getAgent: vi.fn(() => null),
 				update: vi.fn(() => []),
+				getPetNames: vi.fn(() => []),
+				getPetContext: vi.fn(() => null),
 			},
 			registry: {
 				getEntityRoom: vi.fn(() => "office"),
 				isInTransit: vi.fn(() => false),
+				getAllSceneIds: vi.fn(() => ["hub", "office", "village", "station"]),
 			},
 			roomSwitcher: {
 				update: vi.fn(),
+				requestTransfer: vi.fn(),
 			},
 			cameraSystem: null,
 		},
@@ -280,8 +307,13 @@ function createMockContext(): EngineContext {
 			findAgentActor: vi.fn(),
 			findCurrentSceneActor: vi.fn(),
 			findNearestAgent: vi.fn(() => null),
+			findBubbleAnchor: vi.fn(),
 			handleAgentSelect: vi.fn(),
 			handleSceneChange: vi.fn(),
+		},
+		cascadeResolver: {
+			resetCycle: vi.fn(),
+			shouldForwardGossip: vi.fn(() => false),
 		},
 	} as unknown as EngineContext;
 }
@@ -466,6 +498,8 @@ describe("tickPets", () => {
 			getNeedsEffects: vi.fn(() => ({ morale: 5 })),
 			setFollowTarget: vi.fn(),
 			moveToward: vi.fn(),
+			getHunger: vi.fn(() => 50),
+			getThirst: vi.fn(() => 50),
 		};
 		(ctx as { pets: unknown[] }).pets = [mockPet];
 		tickPets(ctx);
@@ -530,7 +564,7 @@ describe("tickBehaviorTree", () => {
 		tickBehaviorTree(ctx);
 		expect(ctx.systems.bubble.showBubble).toHaveBeenCalledWith(
 			"alice", "speech", "Hello world",
-			ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000,
+			ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000,
 		);
 	});
 });
@@ -553,7 +587,7 @@ describe("tickBrain", () => {
 		tickBrain(ctx);
 
 		expect(updateOrder).toEqual(["brain-update"]);
-		expect(ctx.systems.brain.update).toHaveBeenCalledWith(16, ctx.lookups.findAgentActor, expect.any(Function));
+		expect(ctx.systems.brain.update).toHaveBeenCalledWith(16, ctx.lookups.findAgentActor, expect.any(Function), undefined);
 	});
 
 	it("detects walking state for wandering agents", () => {
@@ -574,7 +608,7 @@ describe("tickSocial", () => {
 		tickSocial(ctx);
 		expect(ctx.systems.ritual.update).toHaveBeenCalled();
 		expect(ctx.systems.social.update).toHaveBeenCalled();
-		expect(ctx.systems.talk.update).toHaveBeenCalledWith(16);
+		expect(ctx.systems.talk.update).toHaveBeenCalledWith(16, undefined);
 	});
 
 	it("applies room offsets for social system positions", () => {

@@ -87,11 +87,15 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/events.controller.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { listEvents, createEventFile } from "../../src/domain/events/event-catalog.js";
 import { loadEventContracts, validateContracts, findContract, validatePayload, generateContractsJson } from "../../src/domain/events/event-contracts.js";
 import { saveEventFlowDoc } from "../../src/domain/events/event-flow.js";
 import { generateEventTypes } from "../../src/domain/events/event-codegen.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { shell } from "../../src/infrastructure/shell.js";
+import { clock } from "../../src/infrastructure/clock.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { proc } from "../../src/infrastructure/proc.js";
 import { renderEventFlowCreated, renderContractsGenerated, renderCodegenGenerated } from "../../src/ui/displays/events-display.js";
@@ -105,8 +109,14 @@ const mockProject = {
 
 describe("events.controller", () => {
 	beforeEach(() => {
-		vi.restoreAllMocks();
-		// Re-apply factory mocks cleared by restoreAllMocks
+		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell, paths, clock, proc,
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never, askAbortable: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), once: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+			worldState: {} as never, workerManager: {} as never, processRunner: {} as never,
+		});
 		vi.mocked(listEvents).mockReturnValue([
 			{ name: "user.created", domain: "user", version: "1.0.0" },
 			{ name: "order.placed", domain: "order", version: "1.0.0" },

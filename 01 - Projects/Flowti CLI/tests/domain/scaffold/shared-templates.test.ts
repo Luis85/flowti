@@ -142,9 +142,9 @@ describe("flowtiConfigTemplate", () => {
 		expect(result.name).toBe("test-project");
 	});
 
-	it("includes tools from definition", () => {
+	it("includes publish from definition", () => {
 		const result = JSON.parse(flowtiConfigTemplate(VARS, DEF));
-		expect(result.tools.build).toBe("npm run build");
+		expect(result.publish.build).toBe("npm run build");
 	});
 });
 

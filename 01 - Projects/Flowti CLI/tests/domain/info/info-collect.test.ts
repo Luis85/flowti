@@ -1,16 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockCountFiles = vi.fn((_dir: string, _ext: string) => 0);
-const mockRunSilent = vi.fn((_cmd: string) => null as string | null);
+const { mockCountFiles, mockRunSilent, fileStore, dirStore } = vi.hoisted(() => ({
+	mockCountFiles: vi.fn((_dir: string, _ext: string) => 0),
+	mockRunSilent: vi.fn((_cmd: string) => null as string | null),
+	fileStore: new Map<string, string>(),
+	dirStore: new Set<string>(),
+}));
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", YELLOW: "", RED: "", CYAN: "",
 	printHeader: vi.fn(),
 }));
-
-const fileStore = new Map<string, string>();
-const dirStore = new Set<string>();
 
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: {

@@ -23,7 +23,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-const mockExit = vi.fn();
+const { mockExit } = vi.hoisted(() => ({ mockExit: vi.fn() }));
 vi.mock("../../../src/infrastructure/proc.js", () => ({
 	proc: { exit: mockExit },
 }));

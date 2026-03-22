@@ -164,7 +164,7 @@ describe("createProcessRunner", () => {
 		const runner = createProcessRunner(asDeps(deps), { provider: "cursor" });
 		runner.spawn(makeAgent(), "Hello");
 		const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-		expect(cmd).toContain("cursor");
+		expect(cmd).toContain("agent");
 	});
 
 	it("agent-level provider overrides global provider", () => {
@@ -173,7 +173,7 @@ describe("createProcessRunner", () => {
 		const agent = makeAgent({ ai: { provider: "cursor" } });
 		runner.spawn(agent, "Hello");
 		const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-		expect(cmd).toContain("cursor");
+		expect(cmd).toContain("agent");
 	});
 
 	it("returns exitCode 1 when process rejects", async () => {

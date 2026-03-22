@@ -27,8 +27,10 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 });
 
 // Mock the generator registry — return controlled outputs
-const mockRunGenerator = vi.fn();
-const mockHasGenerator = vi.fn();
+const { mockRunGenerator, mockHasGenerator } = vi.hoisted(() => ({
+	mockRunGenerator: vi.fn(),
+	mockHasGenerator: vi.fn(),
+}));
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	runGenerator: mockRunGenerator,
 	hasGenerator: mockHasGenerator,

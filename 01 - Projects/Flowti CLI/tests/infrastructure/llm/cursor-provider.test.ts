@@ -48,20 +48,24 @@ describe("createCursorProvider", () => {
 		expect(caps.structuredOutput).toBe(true);
 	});
 
-	it("spawns cursor binary with --print --json flags", () => {
+	it("spawns agent binary with stream-json flags", () => {
 		const deps = makeDeps();
 		createCursorProvider(asDeps(deps)).execute({ prompt: { message: "hello" } });
 		const cmd = (deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-		expect(cmd).toContain("cursor");
-		expect(cmd).toContain("--print");
-		expect(cmd).toContain("--json");
+		expect(cmd).toContain("agent");
+		expect(cmd).toContain("--output-format");
+		expect(cmd).toContain("stream-json");
 	});
 
 	it("accumulates text from output lines", async () => {
 		const deps = makeDeps();
 		const proc = createCursorProvider(asDeps(deps)).execute({ prompt: { message: "hello" } });
+		const ndjsonLine = JSON.stringify({
+			type: "assistant",
+			message: { content: [{ type: "text", text: "Hello from Cursor!" }] },
+		});
 		for (const cb of deps._outputCallbacks) {
-			cb("Hello from Cursor!");
+			cb(ndjsonLine);
 		}
 		const result = await proc.result;
 		expect(result.text).toBe("Hello from Cursor!");

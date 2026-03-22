@@ -8,5 +8,6 @@ export default defineConfig({
 	root,
 	test: {
 		include: ["tests/**/*.test.ts"],
+		exclude: ["tests/vault-journeys/**", "tests/vault-template/**"],
 	},
 });

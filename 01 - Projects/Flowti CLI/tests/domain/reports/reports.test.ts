@@ -30,15 +30,17 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 });
 
 // Mock the unified generator registry
-const mockRunGenerator = vi.fn();
-const mockHasGenerator = vi.fn();
+const { mockRunGenerator, mockHasGenerator, mockRunAllDocs } = vi.hoisted(() => ({
+	mockRunGenerator: vi.fn(),
+	mockHasGenerator: vi.fn(),
+	mockRunAllDocs: vi.fn(),
+}));
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	runGenerator: mockRunGenerator,
 	hasGenerator: mockHasGenerator,
 }));
 
 // Mock the doc runner (docs command now delegates to pipeline)
-const mockRunAllDocs = vi.fn();
 vi.mock("../../../src/domain/reports/pipeline/doc-runner.js", () => ({
 	runAllDocs: mockRunAllDocs,
 }));
