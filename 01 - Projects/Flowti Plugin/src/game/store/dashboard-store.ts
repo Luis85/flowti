@@ -122,11 +122,6 @@ export class DashboardStore extends EventTarget {
 	cliSessionAvailable = true;
 	/** User-facing explanation when {@link cliSessionAvailable} is false. */
 	cliSessionBlockedReason = "";
-	/**
-	 * Shown when AI agents are present and a CLI session *could* start: reminds that the configured LLM (e.g. Claude Code)
-	 * must exist on the host where the subprocess runs.
-	 */
-	llmBackendReminder = "";
 
 	// ── Living World state ────────────────────────────────────────
 	dayPhase = "morning-arrival";
@@ -244,7 +239,6 @@ export class DashboardStore extends EventTarget {
 
 	setAgents(agents: readonly DashboardAgent[]): void {
 		this.agents = agents;
-		this.refreshLlmBackendReminder();
 		this.notify();
 	}
 
@@ -256,7 +250,6 @@ export class DashboardStore extends EventTarget {
 			this.cliSessionAvailable = false;
 			this.cliSessionBlockedReason =
 				"No CLI executor is attached to this view. The world can still show agents from vault files; Talk and CLI-backed tasks are disabled.";
-			this.refreshLlmBackendReminder();
 			this.notify();
 			return;
 		}
@@ -265,7 +258,6 @@ export class DashboardStore extends EventTarget {
 		if (readiness) {
 			this.cliSessionAvailable = readiness.canSpawnAgents;
 			this.cliSessionBlockedReason = readiness.canSpawnAgents ? "" : readiness.issues.join(" ");
-			this.refreshLlmBackendReminder();
 			this.notify();
 			return;
 		}
@@ -288,16 +280,7 @@ export class DashboardStore extends EventTarget {
 			this.cliSessionAvailable = true;
 			this.cliSessionBlockedReason = "";
 		}
-		this.refreshLlmBackendReminder();
 		this.notify();
-	}
-
-	private refreshLlmBackendReminder(): void {
-		const hasAi = this.agents.some((a) => (a.agentType ?? "ai") === "ai");
-		this.llmBackendReminder =
-			hasAi && this.cliSessionAvailable
-				? "Roster agents expect an LLM CLI on this machine (often Claude Code or similar). Without it, the Talk tab stays quiet after you send — but the canvas still runs: movement, moods, and template chatter need no subprocess. Install the CLI where Flowti spawns agent processes."
-				: "";
 	}
 
 	/** @internal visible for tests */

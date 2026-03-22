@@ -87,7 +87,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		}
 		agents.forEach((name, i) => {
 			setTimeout(() => {
-				sys.bubble.showBubble(name, "thought", pickTemplate(STANDUP_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+				sys.bubble.showBubble(name, "thought", pickTemplate(STANDUP_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 			}, i * 2000);
 		});
 		setTimeout(() => {
@@ -99,7 +99,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		const agents = sys.needs.getAgentNames();
 		const celebrant = agents[Math.floor(Math.random() * agents.length)];
 		if (celebrant) {
-			sys.bubble.showBubble(celebrant, "speech", pickTemplate(DEPLOY_SUCCESS_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+			sys.bubble.showBubble(celebrant, "speech", pickTemplate(DEPLOY_SUCCESS_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 			const actor = ctx.lookups.findAgentActor(celebrant);
 			if (actor) sys.particlePool.spawnPreset("confetti", actor.pos.x, actor.pos.y - 20);
 			sys.needs.applyEffect(celebrant, { morale: 5 });
@@ -111,13 +111,13 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		const teaGroup = idle.slice(0, 3);
 		for (const name of teaGroup) {
 			sys.brain.walkTo(name, ctx.envObjects.coffeeMachine.getInteractionPoint());
-			sys.bubble.showBubble(name, "thought", pickTemplate(TEA_TIME_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+			sys.bubble.showBubble(name, "thought", pickTemplate(TEA_TIME_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 		}
 	});
 
 	registerWorldEventTracked("end-of-day", "End of Day", () => {
 		for (const name of sys.needs.getAgentNames()) {
-			sys.bubble.showBubble(name, "thought", pickTemplate(END_OF_DAY_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+			sys.bubble.showBubble(name, "thought", pickTemplate(END_OF_DAY_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 		}
 	});
 
@@ -125,7 +125,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		const working = sys.needs.getAgentNames().filter((n) => sys.brain.getState(n)?.state === "working");
 		if (working.length > 0) {
 			const agent = working[Math.floor(Math.random() * working.length)];
-			sys.bubble.showBubble(agent, "speech", pickTemplate(EUREKA_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+			sys.bubble.showBubble(agent, "speech", pickTemplate(EUREKA_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 			const actor = ctx.lookups.findAgentActor(agent);
 			if (actor) sys.particlePool.spawnPreset("sparkle", actor.pos.x, actor.pos.y - 20);
 			sys.needs.applyEffect(agent, { morale: 8, focus: 5 });
@@ -134,13 +134,13 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 
 	registerWorldEventTracked("build-break", "Build Break", () => {
 		for (const name of sys.needs.getAgentNames()) {
-			sys.bubble.showBubble(name, "thought", pickTemplate(BUILD_BREAK_REACTION_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 2000);
+			sys.bubble.showBubble(name, "thought", pickTemplate(BUILD_BREAK_REACTION_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2000);
 			sys.needs.applyEffect(name, { morale: -3 });
 		}
 		sys.particlePool.spawnPreset("alert", 400, 250);
 		setTimeout(() => {
 			const resolver = sys.needs.getAgentNames()[0];
-			if (resolver) sys.bubble.showBubble(resolver, "speech", pickTemplate(BUILD_BREAK_RESOLVE_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+			if (resolver) sys.bubble.showBubble(resolver, "speech", pickTemplate(BUILD_BREAK_RESOLVE_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 		}, 10_000);
 	});
 
@@ -148,7 +148,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		const agents = sys.needs.getAgentNames();
 		const birthdayAgent = agents[Math.floor(Math.random() * agents.length)];
 		if (birthdayAgent) {
-			sys.bubble.showBubble(birthdayAgent, "speech", pickTemplate(BIRTHDAY_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+			sys.bubble.showBubble(birthdayAgent, "speech", pickTemplate(BIRTHDAY_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 			sys.particlePool.spawnPreset("confetti", ctx.envObjects.snackTable.pos.x, ctx.envObjects.snackTable.pos.y - 20);
 			for (const name of agents) sys.needs.applyEffect(name, { morale: 3 });
 		}
@@ -156,11 +156,11 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 
 	registerWorldEventTracked("power-flicker", "Power Flicker", () => {
 		for (const name of sys.needs.getAgentNames()) {
-			sys.bubble.showBubble(name, "thought", pickTemplate(POWER_FLICKER_REACTION_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 1500);
+			sys.bubble.showBubble(name, "thought", pickTemplate(POWER_FLICKER_REACTION_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 1500);
 		}
 		setTimeout(() => {
 			const ops = sys.needs.getAgentNames()[0];
-			if (ops) sys.bubble.showBubble(ops, "speech", pickTemplate(POWER_FLICKER_RESOLVE_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+			if (ops) sys.bubble.showBubble(ops, "speech", pickTemplate(POWER_FLICKER_RESOLVE_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 		}, 2000);
 	});
 
@@ -170,7 +170,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		if (author) {
 			sys.brain.walkTo(author, ctx.envObjects.whiteboard.getInteractionPoint());
 			setTimeout(() => {
-				sys.bubble.showBubble(author, "thought", pickTemplate(NEW_PR_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+				sys.bubble.showBubble(author, "thought", pickTemplate(NEW_PR_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 				sys.particlePool.spawnPreset("scribble", ctx.envObjects.whiteboard.pos.x, ctx.envObjects.whiteboard.pos.y);
 			}, 3000);
 		}
@@ -192,7 +192,7 @@ function wireEmoteEvents(ctx: EngineContext): () => void {
 		const mood = agent?.mood ?? "neutral";
 		const texts = MOOD_TEXTS[mood] ?? MOOD_TEXTS["neutral"]!;
 		const text = texts[Math.floor(Math.random() * texts.length)];
-		sys.bubble.showBubble(name, "thought", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+		sys.bubble.showBubble(name, "thought", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
 	});
 	return () => sys.emote.offEmote();
 }
@@ -230,10 +230,10 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 				text.replace(/\{opinionA\}/g, clash?.opinionA ?? "my way")
 					.replace(/\{opinionB\}/g, clash?.opinionB ?? "your way");
 			setTimeout(() => {
-				sys.bubble.showBubble(nameA, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+				sys.bubble.showBubble(nameA, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 			}, 500);
 			setTimeout(() => {
-				sys.bubble.showBubble(nameB, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+				sys.bubble.showBubble(nameB, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 			}, 2000);
 		}
 		sys.brain.applyEvent(nameA, "speaking");
@@ -246,19 +246,19 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 		if (actorB) actorB.focus();
 
 		// Agent A speaks first
-		sys.bubble.showBubble(nameA, "speech", lineA, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+		sys.bubble.showBubble(nameA, "speech", lineA, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 
 		// Agent B responds with delay + occasional emoji
 		const bDelay = 1000 + Math.random() * 800;
 		setTimeout(() => {
 			const prefix = Math.random() < SOCIAL_EMOJI_CHANCE ? `${pick(SOCIAL_EMOJIS)} ` : "";
-			sys.bubble.showBubble(nameB, "speech", `${prefix}${lineB}`, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+			sys.bubble.showBubble(nameB, "speech", `${prefix}${lineB}`, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 		}, bDelay);
 
 		// 50% chance: Agent A reacts with an emoji thought bubble
 		if (Math.random() < EMOJI_REACTION_CHANCE) {
 			setTimeout(() => {
-				sys.bubble.showBubble(nameA, "thought", pick(REACTION_EMOJIS), ctx.engine.currentScene, ctx.lookups.findAgentActor, 2000);
+				sys.bubble.showBubble(nameA, "thought", pick(REACTION_EMOJIS), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2000);
 			}, bDelay + 1500 + Math.random() * 1000);
 		}
 
@@ -266,7 +266,7 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 		if (Math.random() < FOLLOW_UP_CHANCE) {
 			const follower = Math.random() < 0.5 ? nameA : nameB;
 			setTimeout(() => {
-				sys.bubble.showBubble(follower, "speech", pick(FOLLOW_UP_STRINGS), ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+				sys.bubble.showBubble(follower, "speech", pick(FOLLOW_UP_STRINGS), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
 			}, bDelay + 2500 + Math.random() * 1000);
 		}
 
@@ -297,7 +297,7 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 
 			sys.brain.applyEvent(name, "speaking");
 			setTimeout(() => {
-				sys.bubble.showBubble(name, "speech", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+				sys.bubble.showBubble(name, "speech", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 			}, i * 1500);
 		});
 
@@ -318,7 +318,7 @@ function wireSensorEvents(ctx: EngineContext): () => void {
 	const { systems: sys } = ctx;
 	const cb = (reaction: SensorReaction) => {
 		if (reaction.bubble) {
-			sys.bubble.showBubble(reaction.agentName, reaction.bubble.kind, reaction.bubble.text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 5000, true);
+			sys.bubble.showBubble(reaction.agentName, reaction.bubble.kind, reaction.bubble.text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 5000, true);
 		}
 		if (reaction.needsEffect) {
 			sys.needs.applyEffect(reaction.agentName, reaction.needsEffect);
@@ -338,7 +338,7 @@ function wireEngagementEvents(ctx: EngineContext): () => void {
 			const cam = ctx.engine.currentScene.camera;
 			sys.brain.walkTo(e.agentName, { x: cam.pos.x - 50, y: cam.pos.y });
 		}
-		sys.bubble.showBubble(e.agentName, e.bubbleKind, e.text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 5000, true);
+		sys.bubble.showBubble(e.agentName, e.bubbleKind, e.text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 5000, true);
 	};
 	sys.engagement.onEngagement(cb);
 	return () => sys.engagement.offEngagement(cb);
@@ -355,7 +355,7 @@ function wireRitualEvents(ctx: EngineContext): () => void {
 			}
 		}
 		if (phase.kind === "line") {
-			if (!sys.registry.isInTransit(phase.agentName)) sys.bubble.showBubble(phase.agentName, "speech", phase.text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000, true);
+			if (!sys.registry.isInTransit(phase.agentName)) sys.bubble.showBubble(phase.agentName, "speech", phase.text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000, true);
 		}
 		if (phase.kind === "disperse") {
 			for (const name of phase.participants) {
@@ -376,7 +376,7 @@ function wireToolEvents(ctx: EngineContext): () => void {
 		const eventType = result.success ? "test-pass" : "test-fail";
 		sys.sensor.pushFeedback({ type: eventType, data: { output: result.output } });
 		sys.needs.applyEffect(result.agentName, { morale: result.success ? 3 : -2, energy: -5 });
-		sys.bubble.showBubble(result.agentName, "speech", result.success ? "Done! All good." : "Something went wrong...", ctx.engine.currentScene, ctx.lookups.findAgentActor, 5000, true);
+		sys.bubble.showBubble(result.agentName, "speech", result.success ? "Done! All good." : "Something went wrong...", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 5000, true);
 	};
 	sys.tool.onResult(cb);
 	return () => sys.tool.offResult(cb);
@@ -410,15 +410,15 @@ function wireProviderEvents(ctx: EngineContext): () => void {
 				const text = extractAgentMessage(rawText);
 				const bubbleKind = action.type === "asking" ? "question" : "speech";
 				const currentScene = ctx.engine.currentScene;
-				sys.bubble.showBubble(action.agentName, bubbleKind, text, currentScene, ctx.lookups.findAgentActor);
+				sys.bubble.showBubble(action.agentName, bubbleKind, text, currentScene, ctx.lookups.findBubbleAnchor);
 			} else if (action.type === "thinking") {
 				const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
 				const text = extractAgentMessage(rawText);
 				const currentScene = ctx.engine.currentScene;
-				sys.bubble.showBubble(action.agentName, "thought", text, currentScene, ctx.lookups.findAgentActor);
+				sys.bubble.showBubble(action.agentName, "thought", text, currentScene, ctx.lookups.findBubbleAnchor);
 			} else if (action.type === "requesting-permission") {
 				const currentScene = ctx.engine.currentScene;
-				sys.bubble.showBubble(action.agentName, "question", "?", currentScene, ctx.lookups.findAgentActor);
+				sys.bubble.showBubble(action.agentName, "question", "?", currentScene, ctx.lookups.findBubbleAnchor);
 
 				// Auto-open panel to Permissions tab via store (single notify)
 				ctx.store.beginBatch();
@@ -458,7 +458,7 @@ function wireProviderEvents(ctx: EngineContext): () => void {
 			ctx.scenes.hub.updateAgents([...ctx.store.agents]);
 			sys.brain.register(agentData.name, {}, undefined, agentData.domain);
 			state.knownEntities.add(entity.id);
-			sys.bubble.showBubble(entity.id, "speech", "Hello! I just arrived.", ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+			sys.bubble.showBubble(entity.id, "speech", "Hello! I just arrived.", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 		} else {
 			// Existing agent entity changed — only react if state actually changed
 			const statusComp = entity.components["status"];

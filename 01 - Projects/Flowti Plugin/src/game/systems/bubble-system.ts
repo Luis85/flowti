@@ -5,8 +5,8 @@
  * Bubbles are added as children of the agent actor so they follow automatically.
  */
 
+import * as ex from "excalibur";
 import { BubbleActor, type BubbleKind } from "../actors/bubble-actor.js";
-import type { AgentActor } from "../actors/agent-actor.js";
 import type { BrainParams } from "../brain/brain-types.js";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ interface AgentBubbleEntry {
 export class BubbleSystem {
 	private readonly entries = new Map<string, AgentBubbleEntry>();
 
-	/** Register an agent for bubble management. */
+	/** Register an entity for bubble management (roster agent or pet id). */
 	register(name: string, personality: readonly string[], params: BrainParams): void {
 		if (this.entries.has(name)) return;
 		this.entries.set(name, {
@@ -58,7 +58,7 @@ export class BubbleSystem {
 		kind: BubbleKind,
 		text: string,
 		_scene: unknown,
-		getActor: (name: string) => AgentActor | undefined,
+		getActor: (name: string) => ex.Actor | undefined,
 		duration: number = DEFAULT_DURATION,
 		priority?: boolean,
 	): void {
@@ -101,7 +101,7 @@ export class BubbleSystem {
 		_deltaMs: number,
 		_isIdle: (name: string) => boolean,
 		_scene: unknown,
-		_getActor: (name: string) => AgentActor | undefined,
+		_getActor: (name: string) => ex.Actor | undefined,
 	): void {
 		for (const [name] of this.entries) {
 			this.cleanupDead(name);

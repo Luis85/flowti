@@ -11,7 +11,12 @@ import type { AgentSummary } from "../domain/agents/agent-types.js";
 import type { AgentStreamEvent } from "../domain/agents/agent-stream.js";
 import type { AgentProcess, IAgentProcessRunner, SpawnOptions } from "../domain/agents/worker-types.js";
 import type { IProviderRegistry } from "../domain/agents/llm-types.js";
-import { parseStreamLine, createStreamState, updateStreamState } from "../domain/agents/agent-stream.js";
+import {
+	parseStreamEvents,
+	createStreamState,
+	updateStreamState,
+	appendAssistantTextSkipFullDuplicate,
+} from "../domain/agents/agent-stream.js";
 
 export type ProcessRunnerDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
@@ -26,7 +31,10 @@ function resolveProviderLegacy(globalDefault?: string, agentProvider?: string): 
 	const provider = agentProvider ?? globalDefault ?? "anthropic";
 	switch (provider) {
 		case "anthropic": return { binary: "claude", args: ["-p", "--output-format", "stream-json", "--verbose"] };
-		case "cursor": return { binary: "cursor", args: ["--print", "--json"] };
+		case "cursor": return {
+			binary: "agent",
+			args: ["-p", "--output-format", "stream-json", "--stream-partial-output", "--force", "--trust"],
+		};
 		default: return { binary: provider, args: ["-p"] };
 	}
 }
@@ -87,7 +95,8 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 			const tools = (resolvedTools && resolvedTools.length > 0)
 				? [...resolvedTools]
 				: (agent.ai?.allowedTools ?? []);
-			if (tools.length > 0) {
+			// Claude Code supports --allowedTools; Cursor Agent CLI does not document this flag.
+			if (tools.length > 0 && provider.binary === "claude") {
 				args = [...args, "--allowedTools", tools.join(",")];
 			}
 
@@ -105,14 +114,18 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 			const thinkingBuffer: string[] = [];
 			const subscribers = new Set<(event: AgentStreamEvent) => void>();
 
+			const dedupeText = provider.binary === "agent";
 			proc.onOutput((line: string) => {
 				streamState = updateStreamState(streamState, line);
-				const event = parseStreamLine(line, streamState);
-				if (!event) return;
-				if (event.kind === "thinking") thinkingBuffer.push(event.text);
-				if (event.kind === "text") textBuffer.push(event.text);
-				for (const cb of subscribers) {
-					try { cb(event); } catch { /* subscriber error */ }
+				for (const event of parseStreamEvents(line, streamState)) {
+					if (event.kind === "thinking") thinkingBuffer.push(event.text);
+					if (event.kind === "text") {
+						if (dedupeText) appendAssistantTextSkipFullDuplicate(textBuffer, event.text);
+						else textBuffer.push(event.text);
+					}
+					for (const cb of subscribers) {
+						try { cb(event); } catch { /* subscriber error */ }
+					}
 				}
 			});
 

@@ -35,6 +35,7 @@ import {
 	SHORT_SHELL_COMMAND_TIMEOUT_MS,
 } from "./vault-project-cli.js";
 import { runFlowtiCli } from "./flowti-cli-run.js";
+import { upsertVaultTextFile } from "../agents/agent-vault-write.js";
 
 export class VaultProjectService implements IProjectService {
 	private app: App;
@@ -433,24 +434,26 @@ export class VaultProjectService implements IProjectService {
 		const slot = enriched.find((s) => s.id === roleId);
 		if (!slot) return { ok: false, error: "Role slot not found." };
 		const { md: mdPath, json: jsonPath } = agentVaultPaths(name);
-		if (this.app.vault.getAbstractFileByPath(mdPath)) return { ok: false, error: "An agent note with this filename already exists." };
 		await mkdir(join(vaultBase, "03 - Resources", "Agents"), { recursive: true });
 		const blueprint = mergeAgentBlueprintFromRoleSlot(slot);
 		const mdBody = buildAgentMarkdownFile(name, Object.keys(blueprint).length > 0 ? blueprint : undefined);
-		onOutput?.("Writing agent markdown note…");
+		const hadMd = Boolean(this.app.vault.getAbstractFileByPath(mdPath));
+		onOutput?.(hadMd ? "Updating agent markdown note…" : "Writing agent markdown note…");
 		try {
-			await this.app.vault.create(mdPath, mdBody);
+			await upsertVaultTextFile(this.app, mdPath, mdBody);
 		} catch (e) {
-			return { ok: false, error: e instanceof Error ? e.message : "Failed to create agent note." };
+			return { ok: false, error: e instanceof Error ? e.message : "Failed to save agent note." };
 		}
-		onOutput?.(`Created ${mdPath}`);
+		onOutput?.(`${hadMd ? "Updated" : "Created"} ${mdPath}`);
 		const companion = buildAgentCompanionJson(Object.keys(blueprint).length > 0 ? blueprint : undefined);
-		if (companion && !this.app.vault.getAbstractFileByPath(jsonPath)) {
+		if (companion) {
 			onOutput?.("Writing companion JSON (ai.provider / tools)…");
 			try {
-				await this.app.vault.create(jsonPath, companion);
-				onOutput?.(`Created ${jsonPath}`);
-			} catch { /* optional */ }
+				await upsertVaultTextFile(this.app, jsonPath, companion);
+				onOutput?.(`Saved ${jsonPath}`);
+			} catch (e) {
+				onOutput?.(`Warning: companion JSON not saved — ${e instanceof Error ? e.message : String(e)}`);
+			}
 		}
 		onOutput?.("Assigning agent to role, saving roster, syncing dashboard…");
 		const nextSlots = normalizeTeamRoleSlots(enriched.map((s) => (s.id === roleId ? { ...s, assignee: name } : s)));

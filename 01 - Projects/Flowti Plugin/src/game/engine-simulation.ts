@@ -190,11 +190,11 @@ export function tickReactiveTriggers(ctx: EngineContext): void {
 				const thirstThreshold = sys.quirk.hasQuirk(agentName, "coffee-addict") ? 45 : 30;
 				if (needs.hunger < hungerThreshold && Math.random() < 0.001) {
 					const phrase = HUNGER_PHRASES[Math.floor(Math.random() * HUNGER_PHRASES.length)];
-					sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+					sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 				}
 				if (needs.thirst < thirstThreshold && Math.random() < 0.001) {
 					const phrase = THIRST_PHRASES[Math.floor(Math.random() * THIRST_PHRASES.length)];
-					sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+					sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 				}
 			});
 		}
@@ -238,7 +238,7 @@ function tryObjectAttraction(ctx: EngineContext, agentName: string, needs: Agent
 		if (obj.isOccupied() && petEntityIds.has(obj.getOccupant()!)) {
 			if (!ruleMatches || Math.random() >= rule.chance) continue;
 			const phrase = STEAL_REACTIONS[Math.floor(Math.random() * STEAL_REACTIONS.length)];
-			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
 			break;
 		}
 		if (obj.isOccupied() || !ruleMatches || Math.random() >= rule.chance) continue;
@@ -254,10 +254,10 @@ function tryObjectAttraction(ctx: EngineContext, agentName: string, needs: Agent
 			// Show eating/drinking completion bubble
 			if (isFoodStation) {
 				const phrase = EATING_PHRASES[Math.floor(Math.random() * EATING_PHRASES.length)];
-				sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+				sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
 			} else if (isDrinkStation) {
 				const phrase = DRINKING_PHRASES[Math.floor(Math.random() * DRINKING_PHRASES.length)];
-				sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 2500);
+				sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
 			}
 		}, OBJECT_EFFECT_DELAY);
 		break;
@@ -384,14 +384,15 @@ function checkPetProximityReactions(ctx: EngineContext, pet: import("./actors/pe
 		const def = PET_DEFINITIONS.find((d) => d.type === pet.petType);
 		if (def && def.phrases.length > 0) {
 			const phrase = def.phrases[Math.floor(Math.random() * def.phrases.length)];
-			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findAgentActor, 3000);
+			sys.bubble.showBubble(agentName, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 		}
 		sys.particlePool.spawnPreset("hearts", (pet.pos.x + agentPos.x) / 2, (pet.pos.y + agentPos.y) / 2);
 	}
 }
 
 /** Pet catalyst conversations — when a pet is near two agents, try to trigger a pet-catalyst script. */
-const PET_CATALYST_CHANCE = 0.0005;
+/** Per-tick roll while pet is awake near agents — kept low to avoid script spam. */
+const PET_CATALYST_CHANCE = 0.002;
 
 function tryPetCatalystConversation(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
 	const { systems: sys } = ctx;
@@ -461,11 +462,11 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 						domainA, domainB,
 					});
 					if (!started && text) {
-						sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+						sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 					}
 				}
 			} else if (text) {
-				sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 4000);
+				sys.bubble.showBubble(action.agentName, "speech", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 			}
 		} else if (action.type === "error") {
 			const summary = String(action.data.summary ?? "Something went wrong in my behavior.");
@@ -473,7 +474,7 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			const maxDetail = 140;
 			const snippet = detail.length > maxDetail ? `${detail.slice(0, maxDetail)}…` : detail;
 			const text = snippet ? `${summary} (${snippet})` : summary;
-			sys.bubble.showBubble(action.agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findAgentActor, 6500);
+			sys.bubble.showBubble(action.agentName, "thought", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 6500);
 		}
 	}
 }
@@ -625,7 +626,7 @@ export function tickVisuals(ctx: EngineContext): void {
 			state.deltaMs,
 			(name) => sys.brain.getState(name)?.state === "idle",
 			ctx.engine.currentScene,
-			ctx.lookups.findAgentActor,
+			ctx.lookups.findBubbleAnchor,
 		);
 	});
 

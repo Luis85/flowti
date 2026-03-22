@@ -33,14 +33,52 @@ async function trashVaultFileIfExists(app: App, vaultRelativePath: string): Prom
 	}
 }
 
-/** Create or overwrite a text file at a vault-relative path. */
-async function writeVaultTextFile(app: App, vaultRelativePath: string, body: string): Promise<void> {
-	const existing = app.vault.getAbstractFileByPath(vaultRelativePath);
+function normalizeVaultRelativePath(vaultRelativePath: string): string {
+	return vaultRelativePath.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+/**
+ * Create or overwrite a note at a vault-relative path.
+ * Resolves Obsidian missing the file in its index (case mismatch, sync lag) when `create` would throw "already exists".
+ */
+export async function upsertVaultTextFile(app: App, vaultRelativePath: string, body: string): Promise<void> {
+	const pathNorm = normalizeVaultRelativePath(vaultRelativePath);
+	let existing = app.vault.getAbstractFileByPath(pathNorm);
+	if (existing && "children" in existing) {
+		throw new Error(`Expected a file at "${pathNorm}" but found a folder.`);
+	}
 	if (existing instanceof TFile) {
 		await app.vault.modify(existing, body);
-	} else {
-		await app.vault.create(vaultRelativePath, body);
+		return;
 	}
+	const lower = pathNorm.toLowerCase();
+	const byPath = app.vault.getFiles().find((f) => f.path.toLowerCase() === lower);
+	if (byPath) {
+		await app.vault.modify(byPath, body);
+		return;
+	}
+	try {
+		await app.vault.create(pathNorm, body);
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : String(e);
+		if (!/exists|already exist/i.test(msg)) throw e;
+		existing = app.vault.getAbstractFileByPath(pathNorm);
+		if (existing instanceof TFile) {
+			await app.vault.modify(existing, body);
+			return;
+		}
+		const retry = app.vault.getFiles().find((f) => f.path.toLowerCase() === lower);
+		if (retry) {
+			await app.vault.modify(retry, body);
+			return;
+		}
+		throw e;
+	}
+}
+
+/** @internal */
+async function writeVaultTextFile(app: App, vaultRelativePath: string, body: string): Promise<void> {
+	await upsertVaultTextFile(app, vaultRelativePath, body);
 }
 
 /** Write companion JSON, or move an existing JSON note to trash when the payload is empty. */

@@ -24,6 +24,7 @@ import { TalkEngine } from "./systems/talk/talk-engine.js";
 import type { DashboardAgent } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import { preferredWorkstation } from "./brain/movement.js";
+import { computeParams } from "./brain/agent-brain.js";
 import { createCameraSystem } from "./systems/camera-system.js";
 import { DashboardStore } from "./store/dashboard-store.js";
 import { ParticlePool } from "./systems/particle-system.js";
@@ -276,53 +277,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		});
 	}
 
-	// ── Fragment composer + enriched talk engine ─────
-	const fragmentComposer = new FragmentComposer(ALL_FRAGMENT_POOLS);
-
-	const talkEngine = new TalkEngine({
-		showBubble: (agentName, kind, text) => {
-			const isSelected = store.selectedAgent === agentName;
-			if (isSelected) {
-				// Selected agent: chatter goes to chat panel only, no overhead bubble
-				store.pushAgentThought(agentName, text);
-			} else {
-				// Unselected agent: show bubble over head as usual
-				bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
-			}
-			// Also pipe to chat if LLM is thinking (even if not selected)
-			if (!isSelected) {
-				const llmStatus = store.llmStatus.get(agentName);
-				if (llmStatus?.state === "thinking") {
-					store.pushAgentThought(agentName, text);
-				}
-			}
-		},
-		isIdle: (name) => brainSystem.getState(name)?.state === "idle",
-		isOnScene: (name) => findCurrentSceneActor(name) !== undefined,
-	}, {
-		composer: fragmentComposer,
-		getTier: (a, b) => relationshipSystem.getTier(a, b),
-	});
-
-	// ── Conversation engine ─────────────────────────
-	const conversationEngine = new ConversationEngine({
-		showBubble: (agentName, kind, text) => {
-			bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findAgentActor, 5000);
-		},
-		getTier: (a, b) => relationshipSystem.getTier(a, b),
-		silenceTalk: (agentName) => talkEngine.silence(agentName),
-		recordConversation: (a, b) => relationshipSystem.recordConversation(a, b),
-		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
-		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),
-	});
-	conversationEngine.registerScripts([
-		...RIVAL_SCRIPTS, ...ACQUAINTANCE_SCRIPTS, ...COLLEAGUE_SCRIPTS,
-		...FRIEND_SCRIPTS, ...BESTFRIEND_SCRIPTS,
-		...GOSSIP_SCRIPTS, ...DRAMA_SCRIPTS, ...PET_CATALYST_SCRIPTS,
-		...MERCHANT_SCRIPTS, ...OFFLINE_RETURN_SCRIPTS,
-	]);
-	conversationEngine.registerJokes([...RUNNING_JOKES]);
-
 	const registry = new SceneRegistry();
 	const btSystem = new BtSystem();
 	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
@@ -339,10 +293,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const pets = createPets();
 	for (const [pet, def] of getPetBTPairs(pets)) {
 		btSystem.registerPet(pet.entityId, createPetBT(pet.entityId, def.behaviors.sleepChance, def.behaviors.wanderRadius, def.speed, pet.petType));
-	}
-	// Register pets in talk engine so they have ambient chatter (core/composed phrases)
-	for (const pet of pets) {
-		talkEngine.register(pet.entityId, "pet", [], 10);
 	}
 
 	// ── Agent select handler ────────────────────────────
@@ -430,19 +380,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const findNearestAgent = createFindNearestAgent(brainSystem, registry);
 	const knownEntities = new Set<string>();
 
-	// ── Registration systems context ─────────────────────
-	const registrationSystems: RegistrationSystems = {
-		brain: brainSystem, bubble: bubbleSystem, talk: talkEngine,
-		emote: emoteSystem, social: socialSystem, needs: needsSystem,
-		sensor: sensorSystem, engagement: engagementSystem, ritual: ritualSystem,
-		memory: memorySystem, quirk: quirkSystem, relationship: relationshipSystem,
-		bt: btSystem, btDeps, knownEntities,
-	};
-
-	function doRegisterAgents(agents: readonly DashboardAgent[]): void {
-		registerAgents(agents, hubScene, store, registrationSystems);
-	}
-
 	// ── Dedup guard for provider action relay ────────────
 	const recentActionIds = new Set<string>();
 
@@ -462,6 +399,97 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── SceneEntity registry + unified room switcher ──
 	const allEntities = new Map<string, SceneEntity>();
 
+	/** Resolve roster {@link AgentActor} or pet scene proxy for bubble attachment. */
+	function findBubbleAnchor(name: string): ex.Actor | undefined {
+		const agent = findAgentActor(name);
+		if (agent) return agent;
+		return allEntities.get(name)?.getActor() ?? undefined;
+	}
+
+	const petBubbleParams = computeParams({
+		str: 10, dex: 10, con: 10, int: 10, wis: 12, cha: 10,
+	});
+
+	const fragmentComposer = new FragmentComposer(ALL_FRAGMENT_POOLS);
+
+	function isEntityIdleForTalk(name: string): boolean {
+		const pet = pets.find((p) => p.entityId === name);
+		if (pet) {
+			const s = pet.getState();
+			return s === "idle" || s === "wandering" || s === "following";
+		}
+		return brainSystem.getState(name)?.state === "idle";
+	}
+
+	function isEntityOnCurrentScene(name: string): boolean {
+		if (findCurrentSceneActor(name)) return true;
+		const pet = pets.find((p) => p.entityId === name);
+		if (!pet) return false;
+		const room = registry.getEntityRoom(name);
+		if (!room) return false;
+		const cur = engine.currentScene;
+		if (room === "hub") return cur === hubScene;
+		const rs = roomScenes[room];
+		return rs !== undefined && cur === rs;
+	}
+
+	const talkEngine = new TalkEngine({
+		showBubble: (agentName, kind, text) => {
+			const isSelected = store.selectedAgent === agentName;
+			if (isSelected) {
+				store.pushAgentThought(agentName, text);
+			} else {
+				bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findBubbleAnchor, 5000);
+			}
+			if (!isSelected) {
+				const llmStatus = store.llmStatus.get(agentName);
+				if (llmStatus?.state === "thinking") {
+					store.pushAgentThought(agentName, text);
+				}
+			}
+		},
+		isIdle: isEntityIdleForTalk,
+		isOnScene: isEntityOnCurrentScene,
+	}, {
+		composer: fragmentComposer,
+		getTier: (a, b) => relationshipSystem.getTier(a, b),
+	});
+
+	for (const pet of pets) {
+		bubbleSystem.register(pet.entityId, [], petBubbleParams);
+		talkEngine.register(pet.entityId, "pet", [], 10);
+	}
+
+	const conversationEngine = new ConversationEngine({
+		showBubble: (agentName, kind, text) => {
+			bubbleSystem.showBubble(agentName, kind, text, engine.currentScene, findBubbleAnchor, 5000);
+		},
+		getTier: (a, b) => relationshipSystem.getTier(a, b),
+		silenceTalk: (agentName) => talkEngine.silence(agentName),
+		recordConversation: (a, b) => relationshipSystem.recordConversation(a, b),
+		getJokePlayCount: (a, b, jokeId) => relationshipSystem.getJokePlayCount(a, b, jokeId),
+		incrementJokePlayCount: (a, b, jokeId) => relationshipSystem.incrementJokePlayCount(a, b, jokeId),
+	});
+	conversationEngine.registerScripts([
+		...RIVAL_SCRIPTS, ...ACQUAINTANCE_SCRIPTS, ...COLLEAGUE_SCRIPTS,
+		...FRIEND_SCRIPTS, ...BESTFRIEND_SCRIPTS,
+		...GOSSIP_SCRIPTS, ...DRAMA_SCRIPTS, ...PET_CATALYST_SCRIPTS,
+		...MERCHANT_SCRIPTS, ...OFFLINE_RETURN_SCRIPTS,
+	]);
+	conversationEngine.registerJokes([...RUNNING_JOKES]);
+
+	const registrationSystems: RegistrationSystems = {
+		brain: brainSystem, bubble: bubbleSystem, talk: talkEngine,
+		emote: emoteSystem, social: socialSystem, needs: needsSystem,
+		sensor: sensorSystem, engagement: engagementSystem, ritual: ritualSystem,
+		memory: memorySystem, quirk: quirkSystem, relationship: relationshipSystem,
+		bt: btSystem, btDeps, knownEntities,
+	};
+
+	function doRegisterAgents(agents: readonly DashboardAgent[]): void {
+		registerAgents(agents, hubScene, store, registrationSystems);
+	}
+
 	const roomSwitcher = new RoomSwitcher({
 		registry,
 		getEntity: (id) => allEntities.get(id),
@@ -474,7 +502,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		isTaskLocked: (id) => store.taskLockedAgents.has(id),
 		onTransferComplete: (entityId, _from, to) => {
 			const label = to.charAt(0).toUpperCase() + to.slice(1);
-			bubbleSystem.showBubble(entityId, "thought", `Visiting ${label}...`, engine.currentScene, findAgentActor, 3000);
+			bubbleSystem.showBubble(entityId, "thought", `Visiting ${label}...`, engine.currentScene, findBubbleAnchor, 3000);
 			store.pushWorldEvent("room-switch", `${entityId} moved to ${label}`);
 
 			// If following this entity, switch scene to follow them
@@ -594,6 +622,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 		lookups: {
 			findAgentActor,
+			findBubbleAnchor,
 			findCurrentSceneActor,
 			findNearestAgent,
 			handleAgentSelect,

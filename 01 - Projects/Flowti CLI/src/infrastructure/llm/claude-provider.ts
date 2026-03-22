@@ -2,11 +2,11 @@
  * claude-provider.ts — Claude CLI adapter implementing ILLMProvider.
  *
  * Spawns `claude -p --output-format stream-json --verbose`, parses NDJSON output.
- * Reuses existing parseStreamLine() from agent-stream.ts.
+ * Reuses parseStreamEvents() from agent-stream.ts.
  */
 
 import type { ILLMProvider, LLMRequest, LLMProcess, LLMEvent, LLMResult, ProviderCapabilities } from "../../domain/agents/llm-types.js";
-import { parseStreamLine, createStreamState, updateStreamState } from "../../domain/agents/agent-stream.js";
+import { parseStreamEvents, createStreamState, updateStreamState } from "../../domain/agents/agent-stream.js";
 import { formatPrompt, isPreFormatted } from "../../domain/agents/llm-prompt.js";
 import { writePromptFile, cleanupPromptFile } from "./prompt-file.js";
 import type { PromptFileDeps } from "./prompt-file.js";
@@ -56,12 +56,12 @@ export function createClaudeProvider(deps: ClaudeProviderDeps): ILLMProvider {
 
 			proc.onOutput((line: string) => {
 				streamState = updateStreamState(streamState, line);
-				const event = parseStreamLine(line, streamState);
-				if (!event) return;
-				if (event.kind === "thinking") thinkingBuffer.push(event.text);
-				if (event.kind === "text") textBuffer.push(event.text);
-				for (const cb of subscribers) {
-					try { cb(event); } catch { /* subscriber error */ }
+				for (const event of parseStreamEvents(line, streamState)) {
+					if (event.kind === "thinking") thinkingBuffer.push(event.text);
+					if (event.kind === "text") textBuffer.push(event.text);
+					for (const cb of subscribers) {
+						try { cb(event); } catch { /* subscriber error */ }
+					}
 				}
 			});
 
