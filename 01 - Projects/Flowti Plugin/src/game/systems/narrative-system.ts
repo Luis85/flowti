@@ -260,7 +260,8 @@ export class NarrativeSystem {
 		lines.push("highlights:");
 		if (highlights.length > 0) {
 			for (const h of highlights) {
-				lines.push(`  - "${h}"`);
+				const escaped = h.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+				lines.push(`  - "${escaped}"`);
 			}
 		} else {
 			lines.push("  - \"A quiet day at the office.\"");

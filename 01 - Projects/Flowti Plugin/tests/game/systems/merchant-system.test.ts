@@ -139,6 +139,35 @@ describe("MerchantSystem", () => {
 			const result = await system.purchase("Atlas", "cap-1");
 			expect(result.success).toBe(true);
 		});
+
+		it("returns failure without calling runCli when canPurchase fails", async () => {
+			const runCli = vi.fn().mockResolvedValue('{"success":true}');
+			const deps = makeDeps({
+				runCli,
+				getBalance: () => ({ coin: 10, level: 5 }), // insufficient coin for cap-1 (cost 50)
+			});
+			const system = new MerchantSystem(deps);
+
+			const result = await system.purchase("Atlas", "cap-1");
+
+			expect(result.success).toBe(false);
+			expect(result.message).toMatch(/coin/i);
+			expect(runCli).not.toHaveBeenCalled();
+		});
+
+		it("returns failure when runCli rejects", async () => {
+			const runCli = vi.fn().mockRejectedValue(new Error("network error"));
+			const deps = makeDeps({
+				runCli,
+				getBalance: () => ({ coin: 200, level: 5 }),
+			});
+			const system = new MerchantSystem(deps);
+
+			const result = await system.purchase("Atlas", "cap-1");
+
+			expect(result.success).toBe(false);
+			expect(result.message).toBe("CLI purchase command failed");
+		});
 	});
 
 	describe("shouldAutoPurchase", () => {

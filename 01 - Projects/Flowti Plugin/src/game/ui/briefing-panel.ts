@@ -19,16 +19,30 @@ const AUTO_DISMISS_MS = 30_000;
 
 function formatDuration(ms: number): string {
 	const totalMinutes = Math.floor(ms / 60_000);
-	if (totalMinutes < 60) return `${totalMinutes} minute${totalMinutes === 1 ? "" : "s"}`;
 	const hours = Math.floor(totalMinutes / 60);
-	const minutes = totalMinutes % 60;
-	if (minutes === 0) return `${hours} hour${hours === 1 ? "" : "s"}`;
-	return `${hours}h ${minutes}m`;
+	const days = Math.floor(hours / 24);
+	if (days > 0) return `${days}d ${hours % 24}h`;
+	if (hours > 0) return `${hours}h ${totalMinutes % 60}m`;
+	return `${totalMinutes}m`;
 }
 
 function pickRandom<T>(items: readonly T[]): T {
 	return items[Math.floor(Math.random() * items.length)];
 }
+
+function stripMarkdown(text: string): string {
+	return text
+		.replace(/^###?\s+/gm, "")
+		.replace(/\*\*([^*]+)\*\*/g, "$1")
+		.replace(/^\s*[-*]\s+/gm, "\u2022 ")
+		.trim();
+}
+
+const IDLE_HEADLINES = [
+	"The team rested while you were away.",
+	"A quiet period \u2014 your agents were idle.",
+	"No tasks were picked up \u2014 everyone took it easy.",
+] as const;
 
 function buildHeadlines(agentResults: readonly AgentOfflineResult[]): string[] {
 	const headlines: string[] = [];
@@ -41,15 +55,25 @@ function buildHeadlines(agentResults: readonly AgentOfflineResult[]): string[] {
 	if (topPerformer && topPerformer.tasksCompleted > 0) {
 		headlines.push(`${topPerformer.name} completed ${topPerformer.tasksCompleted} task${topPerformer.tasksCompleted === 1 ? "" : "s"}`);
 	}
+	if (headlines.length === 0) {
+		headlines.push(pickRandom(IDLE_HEADLINES));
+	}
 	return headlines.slice(0, 3);
 }
 
 const COLOR_COMMENTARY = [
 	"The team kept the lights on while you were away.",
-	"No incidents to report — just steady progress.",
+	"No incidents to report \u2014 just steady progress.",
 	"Your agents proved they can handle themselves.",
 	"A quiet stretch. Sometimes that's the best kind.",
 	"The office hummed along nicely in your absence.",
+	"Someone left fresh coffee on your desk. Still warm, even.",
+	"Honestly? They barely noticed you were gone.",
+	"Morale is good. Suspiciously good, actually.",
+	"Everything's in order. Almost too orderly, if you ask me.",
+	"A couple of close calls, but nothing broke. This time.",
+	"The overnight crew sends their regards.",
+	"Steady hands, steady ship. Welcome back, Director.",
 ] as const;
 
 // ── Styles ───────────────────────────────────────────────────────────
@@ -223,20 +247,10 @@ const briefingStyles = css`
 	.footer {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		justify-content: flex-end;
 		padding: 10px 16px;
 		border-top: 1px solid var(--border);
 		background: var(--bg-primary);
-	}
-	.report-link {
-		font-size: 10px;
-		color: var(--accent-blue);
-		cursor: pointer;
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-	.report-link:hover {
-		color: var(--text-primary);
 	}
 	.dismiss-btn {
 		font-size: 11px;
@@ -279,15 +293,18 @@ export class BriefingPanel extends FlowtiElement {
 		this.clearAutoDismiss();
 	}
 
-	render() {
-		if (!this.visible || !this.results) return html``;
+	protected willUpdate(): void {
+		this.isEmpty = !this.visible || !this.results;
+	}
 
-		const { results, narrativeText } = this;
+	protected renderContent() {
+		const results = this.results!;
 		const headlines = buildHeadlines(results.agentResults);
 		const totalTasks = results.agentResults.reduce((s, a) => s + a.tasksCompleted, 0);
 		const totalXp = results.agentResults.reduce((s, a) => s + a.xpEarned, 0);
 		const totalCoin = results.agentResults.reduce((s, a) => s + a.coinEarned, 0);
 		const commentary = pickRandom(COLOR_COMMENTARY);
+		const narrative = this.narrativeText ? stripMarkdown(this.narrativeText) : "";
 
 		return html`
 			<div class="overlay" @click=${this.dismiss}></div>
@@ -335,17 +352,16 @@ export class BriefingPanel extends FlowtiElement {
 
 					${results.rested ? html`
 						<div class="rest-notice">
-							The team took some downtime — everyone's refreshed.
+							The team took some downtime \u2014 everyone's refreshed.
 						</div>
 					` : nothing}
 
-					${narrativeText ? html`
-						<div class="narrative-section">${narrativeText}</div>
+					${narrative ? html`
+						<div class="narrative-section">${narrative}</div>
 					` : nothing}
 				</div>
 
 				<div class="footer">
-					<span class="report-link">View Full Report</span>
 					<button class="dismiss-btn primary" @click=${this.dismiss}>Dismiss</button>
 				</div>
 			</div>

@@ -8,7 +8,7 @@
 
 import { html, nothing, css } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
-import { resetStyles, colorStyles, fontStyles } from "./game-styles.js";
+import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./game-styles.js";
 import type { CatalogItem } from "../systems/merchant-system.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ const CATEGORY_LABELS: Record<CategoryFilter, string> = {
 	capability: "Capability",
 	resource: "Resource",
 	cosmetic: "Cosmetic",
-	"pet-cosmetic": "Pet Cosmetic",
+	"pet-cosmetic": "Pet Items",
 	room: "Room",
 };
 
@@ -33,19 +33,31 @@ const CATEGORIES: readonly CategoryFilter[] = [
 	"capability", "resource", "cosmetic", "pet-cosmetic", "room",
 ];
 
+const FEEDBACK_TIMEOUT_MS = 2_500;
+
 // ── Styles ────────────────────────────────────────────────────────────
 
 const merchantPanelStyles = css`
 	:host {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		z-index: 300;
+		position: fixed;
+		inset: 0;
+		z-index: 299;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		pointer-events: auto;
 	}
 
+	.overlay {
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		z-index: 299;
+	}
+
 	.merchant-panel {
+		position: relative;
+		z-index: 300;
 		width: min(440px, calc(100vw - 32px));
 		max-height: min(560px, calc(100vh - 48px));
 		background: var(--bg-panel);
@@ -129,14 +141,19 @@ const merchantPanelStyles = css`
 	/* -- Category tabs --------------------------- */
 	.category-tabs {
 		display: flex;
-		flex-wrap: wrap;
 		gap: 0;
 		border-bottom: 1px solid var(--border);
 		background: var(--bg-primary);
 		padding: 0 4px;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.category-tabs::-webkit-scrollbar {
+		display: none;
 	}
 	.cat-btn {
 		flex: 1;
+		flex-shrink: 0;
 		min-width: 60px;
 		background: transparent;
 		border: none;
@@ -149,6 +166,7 @@ const merchantPanelStyles = css`
 		letter-spacing: 0.05em;
 		padding: 8px 4px;
 		cursor: pointer;
+		white-space: nowrap;
 		transition: color 0.15s, border-color 0.15s;
 	}
 	.cat-btn:hover { color: var(--text-primary); }
@@ -245,6 +263,8 @@ const merchantPanelStyles = css`
 		color: var(--accent-green);
 		letter-spacing: 0.04em;
 	}
+
+	/* -- Buy button (merchant-specific gold accent) -- */
 	.buy-btn {
 		flex-shrink: 0;
 		background: var(--btn-primary);
@@ -276,6 +296,71 @@ const merchantPanelStyles = css`
 	.buy-btn[disabled]:hover {
 		background: var(--btn-primary);
 		box-shadow: none;
+	}
+
+	/* -- Confirmation row ----------------------- */
+	.confirm-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 10px;
+		color: var(--text-secondary);
+		flex-shrink: 0;
+	}
+	.confirm-btn {
+		background: var(--btn-primary);
+		border: 1px solid var(--accent-gold);
+		border-radius: 4px;
+		color: var(--accent-gold);
+		font-family: inherit;
+		font-size: 9px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		padding: 4px 10px;
+		cursor: pointer;
+		transition: background 0.15s, box-shadow 0.15s;
+	}
+	.confirm-btn:hover {
+		background: var(--btn-primary-hover);
+		box-shadow: 0 0 12px rgba(217, 170, 78, 0.15);
+	}
+	.cancel-btn {
+		background: var(--bg-tertiary);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		color: var(--text-muted);
+		font-family: inherit;
+		font-size: 9px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		padding: 4px 10px;
+		cursor: pointer;
+		transition: background 0.15s, color 0.15s;
+	}
+	.cancel-btn:hover {
+		background: var(--btn-primary);
+		color: var(--text-primary);
+	}
+
+	/* -- Purchase feedback ---------------------- */
+	.purchase-feedback {
+		font-size: 9px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		padding: 2px 8px;
+		border-radius: 3px;
+		flex-shrink: 0;
+	}
+	.purchase-feedback[data-success] {
+		color: var(--accent-green);
+		background: rgba(78, 217, 122, 0.12);
+	}
+	.purchase-feedback[data-fail] {
+		color: var(--accent-red);
+		background: rgba(217, 78, 78, 0.12);
 	}
 
 	.empty-catalog {
@@ -317,6 +402,8 @@ export class MerchantPanel extends FlowtiElement {
 		selectedCategory: { state: true },
 		ownedItems: { attribute: false },
 		visible: { type: Boolean, reflect: true },
+		pendingPurchase: { state: true },
+		lastPurchaseResult: { state: true },
 	};
 
 	static styles = [
@@ -324,6 +411,7 @@ export class MerchantPanel extends FlowtiElement {
 		resetStyles,
 		colorStyles,
 		fontStyles,
+		buttonStyles,
 		merchantPanelStyles,
 	];
 
@@ -333,14 +421,28 @@ export class MerchantPanel extends FlowtiElement {
 	selectedCategory: CategoryFilter = "capability";
 	ownedItems: Set<string> = new Set();
 	visible = false;
+	pendingPurchase: CatalogItem | null = null;
+	lastPurchaseResult: { item: string; success: boolean } | null = null;
+
+	private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+	disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.clearFeedbackTimer();
+	}
 
 	protected renderContent() {
 		if (!this.visible) return html``;
 
 		const agent = this.agents.find((a) => a.name === this.selectedAgent);
-		const filtered = this.catalog.filter((item) => item.category === this.selectedCategory);
+		const selectedLevel = agent?.level ?? 0;
+		const filtered = this.catalog.filter(
+			(item) => item.category === this.selectedCategory
+				&& (item.requiresLevel === undefined || item.requiresLevel <= selectedLevel),
+		);
 
 		return html`
+			<div class="overlay" @click=${this.handleClose}></div>
 			<div class="merchant-panel">
 				${this.renderHeader()}
 				${this.renderAgentSelector()}
@@ -410,6 +512,8 @@ export class MerchantPanel extends FlowtiElement {
 		const levelMet = agent ? (item.requiresLevel === undefined || agent.level >= item.requiresLevel) : true;
 		const canAfford = agent ? agent.coin >= item.cost : false;
 		const canBuy = !owned && levelMet && canAfford;
+		const isPending = this.pendingPurchase?.id === item.id;
+		const hasFeedback = this.lastPurchaseResult?.item === item.id;
 
 		let disabledReason = "";
 		if (owned) disabledReason = "Already owned";
@@ -429,12 +533,30 @@ export class MerchantPanel extends FlowtiElement {
 						${owned ? html`<span class="owned-badge">Owned</span>` : nothing}
 					</div>
 				</div>
-				<button
-					class="buy-btn"
-					?disabled=${!canBuy}
-					title=${disabledReason || "Purchase this item"}
-					@click=${() => { if (canBuy) this.handlePurchase(item.id); }}
-				>Buy</button>
+				${isPending
+					? html`
+						<div class="confirm-row">
+							<span>${item.cost} Coin?</span>
+							<button class="confirm-btn" @click=${() => { this.confirmPurchase(item); }}>Confirm</button>
+							<button class="cancel-btn" @click=${() => { this.cancelPurchase(); }}>Cancel</button>
+						</div>
+					`
+					: hasFeedback
+						? html`
+							<span
+								class="purchase-feedback"
+								?data-success=${this.lastPurchaseResult!.success}
+								?data-fail=${!this.lastPurchaseResult!.success}
+							>${this.lastPurchaseResult!.success ? "Purchased!" : "Failed"}</span>
+						`
+						: html`
+							<button
+								class="buy-btn"
+								?disabled=${!canBuy}
+								title=${disabledReason || "Purchase this item"}
+								@click=${() => { if (canBuy) this.requestPurchase(item); }}
+							>Buy</button>
+						`}
 			</div>
 		`;
 	}
@@ -461,17 +583,49 @@ export class MerchantPanel extends FlowtiElement {
 		this.selectedAgent = select.value;
 	}
 
-	private handlePurchase(itemId: string): void {
+	private requestPurchase(item: CatalogItem): void {
+		this.pendingPurchase = item;
+	}
+
+	private confirmPurchase(item: CatalogItem): void {
+		this.pendingPurchase = null;
 		this.dispatchEvent(
 			new CustomEvent("merchant-purchase", {
 				bubbles: true,
 				composed: true,
-				detail: { agent: this.selectedAgent, itemId },
+				detail: { agent: this.selectedAgent, itemId: item.id },
 			}),
 		);
+		this.showPurchaseFeedback(item.id, true);
+	}
+
+	private cancelPurchase(): void {
+		this.pendingPurchase = null;
+	}
+
+	private showPurchaseFeedback(itemId: string, success: boolean): void {
+		this.clearFeedbackTimer();
+		this.lastPurchaseResult = { item: itemId, success };
+		this.feedbackTimer = setTimeout(() => {
+			this.lastPurchaseResult = null;
+			this.feedbackTimer = null;
+		}, FEEDBACK_TIMEOUT_MS);
+	}
+
+	private clearFeedbackTimer(): void {
+		if (this.feedbackTimer !== null) {
+			clearTimeout(this.feedbackTimer);
+			this.feedbackTimer = null;
+		}
 	}
 }
 
-if (!customElements.get("flowti-merchant-panel")) {
-	customElements.define("flowti-merchant-panel", MerchantPanel);
+if (!customElements.get("ft-game-merchant-panel")) {
+	customElements.define("ft-game-merchant-panel", MerchantPanel);
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		"ft-game-merchant-panel": MerchantPanel;
+	}
 }

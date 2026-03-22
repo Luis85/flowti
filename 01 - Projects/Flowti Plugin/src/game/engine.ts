@@ -56,6 +56,8 @@ import {
 	RUNNING_JOKES,
 	ALL_FRAGMENT_POOLS,
 } from "./systems/talk/templates/index.js";
+import { MERCHANT_SCRIPTS } from "./systems/talk/templates/conversation-scripts-merchant.js";
+import { OFFLINE_RETURN_SCRIPTS } from "./systems/talk/templates/conversation-scripts-offline.js";
 import { WorldEventScheduler } from "./systems/world-event-scheduler.js";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -92,6 +94,7 @@ import "./ui/ask-bob.js";
 import "./ui/roster-bar.js";
 import "./ui/camera-hud.js";
 import "./ui/agent-panel.js";
+import "./ui/merchant-panel.js";
 
 // ── Public interface ─────────────────────────────────────────────────
 
@@ -269,7 +272,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// Register narrative flush at end of each day cycle
 	if (deps.vaultBasePath) {
 		dayClock.onCycleEnd(() => {
-			narrativeSystem.flushToVault(dayClock.getCycleCount());
+			narrativeSystem.flushToVault(dayClock.getCycleCount() + 1);
 		});
 	}
 
@@ -316,6 +319,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		...RIVAL_SCRIPTS, ...ACQUAINTANCE_SCRIPTS, ...COLLEAGUE_SCRIPTS,
 		...FRIEND_SCRIPTS, ...BESTFRIEND_SCRIPTS,
 		...GOSSIP_SCRIPTS, ...DRAMA_SCRIPTS, ...PET_CATALYST_SCRIPTS,
+		...MERCHANT_SCRIPTS, ...OFFLINE_RETURN_SCRIPTS,
 	]);
 	conversationEngine.registerJokes([...RUNNING_JOKES]);
 

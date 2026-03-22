@@ -202,6 +202,31 @@ export async function startEngine(deps: StartEngineDeps): Promise<void> {
 				panel.addEventListener("briefing-dismissed", () => panel.remove(), { once: true });
 				container.appendChild(panel);
 			}
+
+			// Apply offline earnings (XP + Coin) to each agent's economy state
+			for (const agentResult of results.agentResults) {
+				if (agentResult.xpEarned <= 0 && agentResult.coinEarned <= 0) continue;
+				const current = store.getAgentEconomy(agentResult.name);
+				if (!current) continue;
+				store.setAgentEconomy(agentResult.name, {
+					coin: current.coin + agentResult.coinEarned,
+					level: agentResult.currentLevel,
+				});
+				// Record narrative beat for offline earnings
+				narrativeSystem.recordBeat({
+					timestamp: Date.now(),
+					phase: "morning-arrival",
+					category: "economy",
+					actors: [agentResult.name],
+					event: "reward-earned",
+					detail: {
+						agent: agentResult.name,
+						coin: agentResult.coinEarned,
+						xp: agentResult.xpEarned,
+						reason: `offline progress (${results.cyclesSimulated} cycle${results.cyclesSimulated === 1 ? "" : "s"})`,
+					},
+				});
+			}
 		}
 	}
 

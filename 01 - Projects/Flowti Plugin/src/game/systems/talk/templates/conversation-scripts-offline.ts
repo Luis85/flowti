@@ -1,5 +1,5 @@
 /**
- * conversation-scripts-offline.ts — Offline-return conversation scripts for Merchant NPC.
+ * conversation-scripts-offline.ts \u2014 Offline-return conversation scripts for Merchant NPC.
  *
  * Single-speaker monologues delivered by the Merchant when the Director returns
  * after being away. Scripts are categorised by absence duration:
@@ -8,14 +8,15 @@
  *   - Long   (> 8 hours)
  *   - Level-up highlight
  *
- * The caller passes the Merchant as agentA. Variable interpolation uses {var}
- * syntax handled by the ConversationEngine.
+ * The caller passes the Merchant as agentA. All dialogue is self-contained
+ * and uses only the standard variables provided by ConversationEngine.buildVars()
+ * ({agentA}, {agentB}, {domain_a}, {domain_b}, {pet}, {agentC}).
  */
 
 import type { ConversationScript } from "../conversation-types.js";
 
 export const OFFLINE_RETURN_SCRIPTS: readonly ConversationScript[] = [
-	// ── Short absence (< 1 hour) ────────────────────────────────────
+	// \u2500\u2500 Short absence (< 1 hour) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 	{
 		id: "off-short-casual",
@@ -41,7 +42,7 @@ export const OFFLINE_RETURN_SCRIPTS: readonly ConversationScript[] = [
 		],
 	},
 
-	// ── Medium absence (1-8 hours) ──────────────────────────────────
+	// \u2500\u2500 Medium absence (1-8 hours) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 	{
 		id: "off-medium-summary",
@@ -51,8 +52,8 @@ export const OFFLINE_RETURN_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 120000,
 		tags: ["offline-return", "medium-absence", "summary"],
 		turns: [
-			{ speaker: "A", text: "Welcome back. {highlight_agent} was particularly productive \u2014 {tasks_completed} tasks handled.", delayMs: 0, kind: "speech" },
-			{ speaker: "A", text: "Nothing caught fire while you were out. Always a good sign.", delayMs: 2500, kind: "speech" },
+			{ speaker: "A", text: "Welcome back. The crew was productive while you were out.", delayMs: 0, kind: "speech" },
+			{ speaker: "A", text: "Nothing caught fire while you were away. Always a good sign.", delayMs: 2500, kind: "speech" },
 		],
 	},
 
@@ -64,12 +65,12 @@ export const OFFLINE_RETURN_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 120000,
 		tags: ["offline-return", "medium-absence", "stats"],
 		turns: [
-			{ speaker: "A", text: "The team knocked out {tasks_completed} tasks. {total_xp} XP earned across the board.", delayMs: 0, kind: "speech" },
+			{ speaker: "A", text: "The team kept busy while you were gone. Solid output all around.", delayMs: 0, kind: "speech" },
 			{ speaker: "A", text: "Not bad for unsupervised work, if I do say so myself.", delayMs: 2000, kind: "speech" },
 		],
 	},
 
-	// ── Long absence (> 8 hours) ────────────────────────────────────
+	// \u2500\u2500 Long absence (> 8 hours) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 	{
 		id: "off-long-rested",
@@ -92,12 +93,12 @@ export const OFFLINE_RETURN_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 180000,
 		tags: ["offline-return", "long-absence", "highlight"],
 		turns: [
-			{ speaker: "A", text: "While you were away, {highlight_agent} hit Level {highlight_level}. {highlight_title} \u2014 not bad.", delayMs: 0, kind: "speech" },
+			{ speaker: "A", text: "While you were away, one of your agents made great progress. Impressive stuff.", delayMs: 0, kind: "speech" },
 			{ speaker: "A", text: "The rest of the crew kept pace too. Solid progress all around.", delayMs: 2500, kind: "speech" },
 		],
 	},
 
-	// ── Level-up highlight ──────────────────────────────────────────
+	// \u2500\u2500 Level-up highlight \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 	{
 		id: "off-levelup-news",
@@ -107,7 +108,7 @@ export const OFFLINE_RETURN_SCRIPTS: readonly ConversationScript[] = [
 		cooldownMs: 300000,
 		tags: ["offline-return", "level-up", "highlight"],
 		turns: [
-			{ speaker: "A", text: "Big news \u2014 {highlight_agent} reached {highlight_title}. About time, if you ask me.", delayMs: 0, kind: "speech" },
+			{ speaker: "A", text: "Big news \u2014 someone on the team leveled up while you were out. About time, if you ask me.", delayMs: 0, kind: "speech" },
 			{ speaker: "A", text: "You might want to check in with them. A little recognition goes a long way.", delayMs: 3000, kind: "speech" },
 		],
 	},

@@ -498,40 +498,47 @@ function wireNarrativeEvents(ctx: EngineContext): () => void {
 
 	// Task completion → narrative beat
 	addStoreListener("task-completed", ((e: CustomEvent) => {
-		const { agentName, task } = e.detail;
+		const { agentName, task, domain: taskDomain, count: taskCount } = e.detail;
+		const agent = ctx.store.agents.find((a) => a.name === agentName);
+		const domain = typeof taskDomain === "string" ? taskDomain : (agent?.domain ?? "general");
+		const count = typeof taskCount === "number" ? taskCount : 1;
+		const plural = count === 1 ? "" : "s";
 		recordBeat({
 			timestamp: Date.now(),
 			phase: sys.dayClock.getPhase(),
 			category: "task",
 			actors: [agentName],
 			event: "task-completed",
-			detail: { agent: agentName, task: typeof task === "string" ? task : "a task" },
+			detail: { agent: agentName, task: typeof task === "string" ? task : "a task", domain, count, plural },
 		});
 	}) as EventListener);
 
 	// Level-up → narrative beat
 	addStoreListener("level-up", ((e: CustomEvent) => {
-		const { agentName, level } = e.detail;
+		const { agentName, level, xp: eventXp } = e.detail;
+		const agent = ctx.store.agents.find((a) => a.name === agentName);
+		const xp = typeof eventXp === "number" ? eventXp : (agent?.experience ?? 0);
 		recordBeat({
 			timestamp: Date.now(),
 			phase: sys.dayClock.getPhase(),
 			category: "economy",
 			actors: [agentName],
 			event: "level-up",
-			detail: { agent: agentName, level: typeof level === "number" ? level : 1 },
+			detail: { agent: agentName, level: typeof level === "number" ? level : 1, xp },
 		});
 	}) as EventListener);
 
 	// Trust promotion → narrative beat
 	addStoreListener("trust-promoted", ((e: CustomEvent) => {
 		const { agentName, tier } = e.detail;
+		const title = typeof tier === "string" ? tier : "trusted";
 		recordBeat({
 			timestamp: Date.now(),
 			phase: sys.dayClock.getPhase(),
 			category: "economy",
 			actors: [agentName],
 			event: "trust-promoted",
-			detail: { agent: agentName, tier: typeof tier === "string" ? tier : "trusted" },
+			detail: { agent: agentName, title },
 		});
 	}) as EventListener);
 
@@ -557,6 +564,40 @@ function wireNarrativeEvents(ctx: EngineContext): () => void {
 	};
 }
 
+// ── Merchant stall click (opens merchant panel) ──────────────────────
+
+function wireMerchantStallClick(ctx: EngineContext): () => void {
+	const handler = () => {
+		const container = ctx.engine.canvas.parentElement;
+		if (!container) return;
+
+		let panel = container.querySelector("ft-game-merchant-panel") as
+			HTMLElement & { visible: boolean; agents: unknown[]; selectedAgent: string } | null;
+
+		if (!panel) {
+			panel = document.createElement("ft-game-merchant-panel") as
+				HTMLElement & { visible: boolean; agents: unknown[]; selectedAgent: string };
+			panel.addEventListener("merchant-close", () => { panel!.visible = false; });
+			container.appendChild(panel);
+		}
+
+		// Populate agent data from store
+		const agents = ctx.store.agents.map((a) => ({
+			name: a.name,
+			coin: a.coin ?? 0,
+			level: a.level ?? 1,
+		}));
+		panel.agents = agents;
+		if (agents.length > 0 && !panel.selectedAgent) {
+			panel.selectedAgent = agents[0].name;
+		}
+		panel.visible = true;
+	};
+
+	ctx.engine.canvas.addEventListener("merchant-stall-click", handler);
+	return () => ctx.engine.canvas.removeEventListener("merchant-stall-click", handler);
+}
+
 // ── Composite wiring ─────────────────────────────────────────────────
 
 export function wireEvents(ctx: EngineContext): () => void {
@@ -572,6 +613,7 @@ export function wireEvents(ctx: EngineContext): () => void {
 		wireProviderEvents(ctx),
 		wireStoreEvents(ctx),
 		wireNarrativeEvents(ctx),
+		wireMerchantStallClick(ctx),
 	];
 	return () => unsubs.forEach((fn) => fn());
 }

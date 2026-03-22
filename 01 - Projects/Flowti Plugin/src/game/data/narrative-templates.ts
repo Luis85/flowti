@@ -31,9 +31,9 @@ export const NARRATIVE_TEMPLATES: readonly NarrativeTemplate[] = [
 		event: "task-completed",
 		significance: "detail",
 		templates: [
-			"${agent} finished work on ${domain} — another one off the board.",
-			"${agent} wrapped up a ${domain} task and pushed the results.",
-			"${agent} quietly closed out the ${domain} work. ${count} task${plural} done today.",
+			"${agent} finished work on ${task} \u2014 another one off the board.",
+			"${agent} wrapped up ${task} and pushed the results.",
+			"${agent} quietly closed out ${task}. Good progress today.",
 		],
 	},
 	{
@@ -53,7 +53,7 @@ export const NARRATIVE_TEMPLATES: readonly NarrativeTemplate[] = [
 		significance: "headline",
 		templates: [
 			"${agent} leveled up to ${level}! The team gathered to celebrate.",
-			"Level ${level} — ${agent} earned it with ${xp} XP of hard work.",
+			"Level ${level} \u2014 ${agent} earned it with hard work and dedication.",
 			"${agent} hit level ${level}. Even the pets noticed.",
 		],
 	},
@@ -63,7 +63,7 @@ export const NARRATIVE_TEMPLATES: readonly NarrativeTemplate[] = [
 		significance: "headline",
 		templates: [
 			"${agent} earned the title of ${title}. Trust well placed.",
-			"Promotion! ${agent} is now a ${title} — new permissions unlocked.",
+			"Promotion! ${agent} is now ${title} \u2014 new permissions unlocked.",
 		],
 	},
 	{
@@ -91,8 +91,8 @@ export const NARRATIVE_TEMPLATES: readonly NarrativeTemplate[] = [
 		event: "conversation",
 		significance: "color",
 		templates: [
-			"${agent1} and ${agent2} chatted near ${location} for a while.",
-			"${agent1} pulled ${agent2} aside for a quick word about ${domain}.",
+			"${agentA} and ${agentB} chatted for a while.",
+			"${agentA} pulled ${agentB} aside for a quick word about ${topic}.",
 		],
 	},
 	{
