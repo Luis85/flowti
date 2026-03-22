@@ -10,7 +10,8 @@ import type { CliDeps } from "../infrastructure/deps.js";
 import { loadTrustProfile, saveTrustProfile, promote, demote } from "../domain/trust/trust-manager.js";
 import type { VaultOperation, TrustLevel } from "../domain/trust/trust-types.js";
 import { DEFAULT_OPERATION_TRUST } from "../domain/trust/trust-types.js";
-import { renderTrustProfile, renderTrustUpdated, renderTrustHistory } from "../ui/displays/trust-display.js";
+import type { AgentTrustProfile } from "../domain/trust/trust-types.js";
+import { renderTrustProfile, renderTrustUpdated, renderTrustHistory, renderTrustReset } from "../ui/displays/trust-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 
 const VALID_OPS = new Set(Object.keys(DEFAULT_OPERATION_TRUST));
@@ -109,6 +110,29 @@ export const commands: Record<string, CommandHandler> = {
 			};
 		},
 		renderer: renderTrustUpdated,
+	}),
+
+	"trust:reset": adaptDescriptor({
+		flags: { agent: { type: "string", required: true, hint: "--agent=<name>" } },
+		handler: (ctx) => {
+			const td = trustDeps(ctx.deps);
+			const agentName = ctx.flags.agent as string;
+			const profile = loadTrustProfile(td, VAULT_ROOT, agentName);
+			const resetProfile: AgentTrustProfile = {
+				tier: "supervised",
+				operations: { ...DEFAULT_OPERATION_TRUST },
+				promotionLog: profile.promotionLog,
+				successCounts: {},
+			};
+			saveTrustProfile(td, VAULT_ROOT, agentName, resetProfile);
+			return {
+				agent: agentName,
+				operations: resetProfile.operations,
+				successCounts: resetProfile.successCounts,
+				promotionLog: resetProfile.promotionLog,
+			};
+		},
+		renderer: renderTrustReset,
 	}),
 
 	"trust:history": adaptDescriptor({

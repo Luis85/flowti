@@ -39,6 +39,8 @@ import { commands as agentCmds } from "../controller/agent.controller.js";
 import { commands as taskCmds } from "../controller/task.controller.js";
 import { commands as economyCmds } from "../controller/economy.controller.js";
 import { commands as trustCmds } from "../controller/trust.controller.js";
+import { commands as stagingCmds } from "../controller/staging.controller.js";
+import { commands as vaultCmds } from "../controller/vault.controller.js";
 import { commands as shopCmds } from "../controller/shop.controller.js";
 import { commands as workerCmds } from "../controller/worker.controller.js";
 import { commands as debugCmds } from "../controller/debug.controller.js";
@@ -183,7 +185,17 @@ export function registerBuiltinDomains(registry: CommandRegistry): void {
 	registry.registerDomain({
 		domain: "trust",
 		commands: trustCmds,
-		projectFree: ["trust:show", "trust:promote", "trust:demote", "trust:history"],
+		projectFree: ["trust:show", "trust:promote", "trust:demote", "trust:history", "trust:reset"],
+	});
+	registry.registerDomain({
+		domain: "staging",
+		commands: stagingCmds,
+		projectFree: ["staging:list", "staging:review", "staging:approve", "staging:reject"],
+	});
+	registry.registerDomain({
+		domain: "vault",
+		commands: vaultCmds,
+		projectFree: ["vault:exec", "vault:context", "task:evaluate"],
 	});
 	registry.registerDomain({
 		domain: "shop",
