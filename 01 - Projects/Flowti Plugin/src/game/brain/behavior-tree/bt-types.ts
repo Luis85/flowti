@@ -143,6 +143,14 @@ export interface AgentToolDeps {
 	readonly merchant?: IMerchantBridge;
 }
 
+// ── Interaction Hooks (optional — wired when interaction system is active) ──
+
+export interface InteractionHooks {
+	getNearby: () => Array<{ id: string; entityType: string; distance: number }>;
+	resolve: () => Array<{ id: string; action: string }>;
+	submit: (interaction: { id: string; action: string }) => boolean;
+}
+
 // ── BTAgent Context (Blackboard) ─────────────────────────────────────
 
 export interface BTAgentContext {
@@ -166,6 +174,8 @@ export interface BTAgentContext {
 	workingFilePath: string | null;
 	llmSlot: LLMSlot;
 	lastMerchantVisitCycle: number;
+	activeInteraction: { id: string; action: string } | null;
+	interactionHooks?: InteractionHooks;
 }
 
 // ── Goal Subtree Config ──────────────────────────────────────────────

@@ -29,6 +29,7 @@ import { NEEDS_MORALE_SUBTREE } from "./subtrees/needs-morale.js";
 import { WORK_CYCLE_SUBTREE } from "./subtrees/work-cycle.js";
 import { JOURNEY_EXECUTION_SUBTREE } from "./subtrees/journey-execution.js";
 import { MERCHANT_VISIT_SUBTREE } from "./subtrees/merchant-visit.js";
+import { INTERACTION_SUBTREE } from "./subtrees/interaction.js";
 
 export interface AgentBT {
 	readonly tree: BehaviourTree;
@@ -73,6 +74,7 @@ function buildMasterMDSL(): string {
 				branch [ReportGoal]
 			}
 		}
+		branch [InteractionIntent]
 		branch [SocialBehavior]
 		branch [IdleBehavior]
 	}
@@ -98,6 +100,7 @@ function collectSubtrees(): string {
 		IMPLEMENT_SUBTREE,
 		MONITOR_SUBTREE,
 		REPORT_SUBTREE,
+		INTERACTION_SUBTREE,
 		SOCIAL_SUBTREE,
 		IDLE_SUBTREE,
 	].join("\n\n");

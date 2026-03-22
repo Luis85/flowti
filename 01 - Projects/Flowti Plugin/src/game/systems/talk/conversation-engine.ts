@@ -47,6 +47,7 @@ export interface ConversationEngineCallbacks {
 	readonly recordConversation: (a: string, b: string) => void;
 	readonly getJokePlayCount?: (a: string, b: string, jokeId: string) => number;
 	readonly incrementJokePlayCount?: (a: string, b: string, jokeId: string) => void;
+	readonly externalLockQuery?: (entityId: string) => boolean;
 }
 
 // ── Active conversation state ───────────────────────────────────────
@@ -103,6 +104,11 @@ export class ConversationEngine {
 
 	tryScript(agentA: string, agentB: string, trigger: ConversationTrigger, ctx: TryScriptContext): boolean {
 		if (this.locked.has(agentA) || this.locked.has(agentB)) return false;
+
+		if (this.callbacks.externalLockQuery) {
+			if (this.callbacks.externalLockQuery(agentA) || this.callbacks.externalLockQuery(agentB)) return false;
+			if (ctx.pet && this.callbacks.externalLockQuery(ctx.pet)) return false;
+		}
 
 		const tier = this.callbacks.getTier(agentA, agentB);
 		const now = performance.now();

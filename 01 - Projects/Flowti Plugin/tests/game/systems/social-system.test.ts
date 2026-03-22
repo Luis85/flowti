@@ -139,4 +139,137 @@ describe("SocialSystem", () => {
 			expect(cb).toHaveBeenCalledTimes(1);
 		});
 	});
+
+	describe("getNearbyEntities()", () => {
+		it("returns empty array before any update", () => {
+			expect(system.getNearbyEntities("Alice")).toEqual([]);
+		});
+
+		it("returns nearby agents within social radius after update", () => {
+			system.register("Alice", makeSocialAgent({ socialRadius: 100 }));
+			system.register("Bob", makeSocialAgent({ socialRadius: 100 }));
+
+			const getPosition = (name: string) => name === "Alice" ? { x: 0, y: 0 } : { x: 50, y: 0 };
+			const getState = (_name: string): BrainState => "idle";
+			const getNeeds = (_name: string) => makeNeeds();
+
+			system.update(16, getPosition, getState, getNeeds);
+
+			const nearbyAlice = system.getNearbyEntities("Alice");
+			expect(nearbyAlice.length).toBe(1);
+			expect(nearbyAlice[0].id).toBe("Bob");
+			expect(nearbyAlice[0].entityType).toBe("agent");
+			expect(nearbyAlice[0].distance).toBe(50);
+
+			const nearbyBob = system.getNearbyEntities("Bob");
+			expect(nearbyBob.length).toBe(1);
+			expect(nearbyBob[0].id).toBe("Alice");
+		});
+
+		it("returns empty array for agents out of range", () => {
+			system.register("Alice", makeSocialAgent({ socialRadius: 50 }));
+			system.register("Bob", makeSocialAgent({ socialRadius: 50 }));
+
+			const getPosition = (name: string) => name === "Alice" ? { x: 0, y: 0 } : { x: 200, y: 0 };
+			const getState = (_name: string): BrainState => "idle";
+			const getNeeds = (_name: string) => makeNeeds();
+
+			system.update(16, getPosition, getState, getNeeds);
+			expect(system.getNearbyEntities("Alice")).toEqual([]);
+		});
+
+		it("returns empty for unknown entity", () => {
+			expect(system.getNearbyEntities("unknown")).toEqual([]);
+		});
+
+		it("refreshes cache on each update", () => {
+			system.register("Alice", makeSocialAgent({ socialRadius: 100 }));
+			system.register("Bob", makeSocialAgent({ socialRadius: 100 }));
+
+			const getState = (_name: string): BrainState => "idle";
+			const getNeeds = (_name: string) => makeNeeds();
+
+			// First update — close together
+			system.update(16, (name: string) => name === "Alice" ? { x: 0, y: 0 } : { x: 50, y: 0 }, getState, getNeeds);
+			expect(system.getNearbyEntities("Alice").length).toBe(1);
+
+			// Second update — far apart
+			system.update(16, (name: string) => name === "Alice" ? { x: 0, y: 0 } : { x: 500, y: 0 }, getState, getNeeds);
+			expect(system.getNearbyEntities("Alice").length).toBe(0);
+		});
+	});
+
+	describe("getCluster()", () => {
+		it("returns empty array when not in a cluster", () => {
+			system.register("Alice", makeSocialAgent({ socialRadius: 200 }));
+			system.register("Bob", makeSocialAgent({ socialRadius: 200 }));
+
+			const getPosition = (_name: string) => ({ x: 0, y: 0 });
+			const getState = (_name: string): BrainState => "idle";
+			const getNeeds = (_name: string) => makeNeeds({ focus: 50 });
+
+			system.update(16, getPosition, getState, getNeeds);
+
+			// Only 2 agents — not enough for a cluster (min 3)
+			expect(system.getCluster("Alice")).toEqual([]);
+		});
+
+		it("returns cluster members when 3+ agents are proximate", () => {
+			system.register("Alice", makeSocialAgent({ socialRadius: 200 }));
+			system.register("Bob", makeSocialAgent({ socialRadius: 200 }));
+			system.register("Carol", makeSocialAgent({ socialRadius: 200 }));
+
+			const getPosition = (_name: string) => ({ x: 0, y: 0 });
+			const getState = (_name: string): BrainState => "idle";
+			const getNeeds = (_name: string) => makeNeeds({ focus: 50 });
+
+			system.update(16, getPosition, getState, getNeeds);
+
+			const cluster = system.getCluster("Alice");
+			expect(cluster).toContain("Alice");
+			expect(cluster).toContain("Bob");
+			expect(cluster).toContain("Carol");
+			expect(cluster.length).toBe(3);
+		});
+
+		it("returns empty for unknown entity", () => {
+			expect(system.getCluster("unknown")).toEqual([]);
+		});
+
+		it("returns empty when entity is not in a qualifying cluster", () => {
+			system.register("Alice", makeSocialAgent({ socialRadius: 200 }));
+			system.register("Bob", makeSocialAgent({ socialRadius: 200 }));
+			system.register("Carol", makeSocialAgent({ socialRadius: 200 }));
+
+			const getPosition = (name: string) => {
+				if (name === "Carol") return { x: 500, y: 500 };
+				return { x: 0, y: 0 };
+			};
+			const getState = (_name: string): BrainState => "idle";
+			const getNeeds = (_name: string) => makeNeeds({ focus: 50 });
+
+			system.update(16, getPosition, getState, getNeeds);
+
+			// Carol is far away, so no cluster of 3+
+			expect(system.getCluster("Alice")).toEqual([]);
+			expect(system.getCluster("Carol")).toEqual([]);
+		});
+
+		it("works without onCluster callback being set", () => {
+			// Ensure getCluster works independently of the callback system
+			system.register("Alice", makeSocialAgent({ socialRadius: 200 }));
+			system.register("Bob", makeSocialAgent({ socialRadius: 200 }));
+			system.register("Carol", makeSocialAgent({ socialRadius: 200 }));
+
+			const getPosition = (_name: string) => ({ x: 0, y: 0 });
+			const getState = (_name: string): BrainState => "idle";
+			const getNeeds = (_name: string) => makeNeeds({ focus: 50 });
+
+			// No onCluster callback registered
+			system.update(16, getPosition, getState, getNeeds);
+
+			const cluster = system.getCluster("Bob");
+			expect(cluster.length).toBe(3);
+		});
+	});
 });

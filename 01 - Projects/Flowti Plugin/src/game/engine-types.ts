@@ -41,6 +41,7 @@ import type { RoomSwitcher } from "./systems/room-switcher.js";
 import type { NarrativeSystem } from "./systems/narrative-system.js";
 import type { DashboardStore } from "./store/dashboard-store.js";
 import type { CameraSystem } from "./systems/camera-system.js";
+import type { InteractionSystem } from "./systems/interaction/interaction-system.js";
 import type { GameScene } from "./scenes/game-scene.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import type { InteractableActor } from "./actors/interactable-actor.js";
@@ -105,6 +106,7 @@ export interface EngineSystems {
 	readonly roomSwitcher: RoomSwitcher;
 	readonly narrative: NarrativeSystem;
 	cameraSystem: CameraSystem | null;
+	readonly interactions?: InteractionSystem;
 }
 
 export interface EngineScenes {

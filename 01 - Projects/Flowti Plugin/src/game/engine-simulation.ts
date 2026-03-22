@@ -78,6 +78,7 @@ export function tickSimulation(ctx: EngineContext): void {
 	runTimedPhase(ctx, "roomTransit", tickRoomTransit);
 	runTimedPhase(ctx, "behaviorTree", tickBehaviorTree);
 	runTimedPhase(ctx, "brain", tickBrain);
+	runTimedPhase(ctx, "interactions", tickInteractions);
 	runTimedPhase(ctx, "social", tickSocial);
 	runTimedPhase(ctx, "director", tickDirector);
 	runTimedPhase(ctx, "visuals", tickVisuals);
@@ -509,6 +510,18 @@ export function tickBrain(ctx: EngineContext): void {
 				actor.setStandingOrderActive(isActive);
 			}
 		}
+	});
+}
+
+// ── 9b. tickInteractions — interaction bus processing ─────────────────
+// OPTIONAL: only runs when ctx.systems.interactions is wired up.
+
+export function tickInteractions(ctx: EngineContext): void {
+	const interactionSystem = ctx.systems.interactions;
+	if (!interactionSystem) return;
+
+	runTimedGameSystem(ctx, "interactions", () => {
+		interactionSystem.tick(ctx.state.deltaMs);
 	});
 }
 
