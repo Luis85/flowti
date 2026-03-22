@@ -264,7 +264,7 @@ export function executeVaultOp(
 }
 
 export function approveStaged(
-	taskId: string,
+	_taskId: string,
 	_deps: VaultOpsDeps,
 	profile: AgentTrustProfile,
 	config: TrustConfig,
