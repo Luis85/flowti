@@ -161,6 +161,27 @@ describe("ConversationEngine", () => {
 		expect(calls).not.toContain("meow");
 	});
 
+	it("gossipAbout delegates to tryScript with gossip trigger and agentC", () => {
+		engine.registerScripts([{
+			id: "test-gossip",
+			tierRange: ["acquaintance", "best-friend"],
+			domainFilter: null,
+			trigger: "gossip",
+			weight: 10,
+			cooldownMs: 0,
+			tags: ["gossip"],
+			turns: [
+				{ speaker: "A", text: "Have you noticed {agentC}?", delayMs: 0, kind: "speech" },
+				{ speaker: "B", text: "Yeah, {agentC} has been quiet.", delayMs: 1000, kind: "speech" },
+			],
+		}]);
+		const result = engine.gossipAbout("Atlas", "Rex", "Sage", {
+			domainA: "engineering", domainB: "design",
+		});
+		expect(result).toBe(true);
+		expect(showBubble).toHaveBeenCalledWith("Atlas", "speech", "Have you noticed Sage?");
+	});
+
 	it("cooldown prevents same script from replaying too soon", () => {
 		vi.useFakeTimers();
 		try {

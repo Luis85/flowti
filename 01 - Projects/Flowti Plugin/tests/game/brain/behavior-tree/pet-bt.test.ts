@@ -159,4 +159,105 @@ describe("createPetBT", () => {
 		pet.PetDrink();
 		expect(pet.context.thirst).toBe(100);
 	});
+
+	// ── Catalyst conditions ─────────────────────────────────
+
+	it("HasNearbyAgents returns false when no nearby agents", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		expect(pet.HasNearbyAgents()).toBe(false);
+	});
+
+	it("HasNearbyAgents returns true when 2+ agents nearby", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgentCount = 2;
+		pet.context.nearbyAgents = ["Atlas", "Rex"];
+		expect(pet.HasNearbyAgents()).toBe(true);
+	});
+
+	it("HasSadNearbyAgent returns true when morale below 30", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgentMorale = 20;
+		expect(pet.HasSadNearbyAgent()).toBe(true);
+	});
+
+	it("HasSadNearbyAgent returns false when morale is high", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgentMorale = 80;
+		expect(pet.HasSadNearbyAgent()).toBe(false);
+	});
+
+	it("CatalystChanceRoll returns false when not idle", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.state = "wandering";
+		expect(pet.CatalystChanceRoll()).toBe(false);
+	});
+
+	// ── Catalyst actions ────────────────────────────────────
+
+	it("DragToy collects pet-drag-toy action when nearby agents present", () => {
+		const bt = createPetBT("cat-whiskers", 0.3, 100, 2);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgentCount = 2;
+		pet.context.nearbyAgents = ["Atlas", "Rex"];
+		pet.DragToy();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-drag-toy" }),
+		);
+	});
+
+	it("SitBetween collects pet-sit-between action", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgents = ["Atlas", "Rex"];
+		pet.SitBetween();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-sit-between" }),
+		);
+	});
+
+	it("BringGift collects pet-bring-gift action", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgents = ["Atlas"];
+		pet.BringGift();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-bring-gift" }),
+		);
+	});
+
+	it("StealSpotlight collects pet-steal-spotlight action", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgents = ["Atlas", "Rex"];
+		pet.StealSpotlight();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-steal-spotlight" }),
+		);
+	});
+
+	it("ComfortSadAgent collects pet-comfort action with morale", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgentMorale = 15;
+		pet.context.nearbyAgents = ["Atlas"];
+		pet.ComfortSadAgent();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-comfort", data: expect.objectContaining({ morale: 15 }) }),
+		);
+	});
+
+	it("PickSide collects pet-pick-side action", () => {
+		const bt = createPetBT("cat", 0, 120, 0.4);
+		const pet = getPetContext(bt);
+		pet.context.nearbyAgents = ["Atlas", "Rex"];
+		pet.PickSide();
+		expect(pet.collectedActions).toContainEqual(
+			expect.objectContaining({ type: "pet-pick-side" }),
+		);
+	});
 });

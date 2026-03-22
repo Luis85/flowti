@@ -322,7 +322,13 @@ A modal-style Lit component:
 
 ### 4.4 Template Source
 
-Briefing templates live in `narrative-templates.ts` alongside story templates. The Merchant's voice is one template set — a future NPC could narrate differently.
+Briefing content is generated via two dialogue system APIs:
+
+1. **ConversationEngine** — The `"offline-return"` trigger fires a scripted Merchant NPC monologue (from `conversation-scripts-offline.ts`). Scripts are tier-independent (Merchant has a fixed shopkeeper personality). Context variables: `{days_offline}`, `{total_xp}`, `{highlight_agent}`, `{highlight_event}`.
+
+2. **FragmentComposer** — For the color commentary section, compose a personality-flavored observation using merchant-domain fragments. The `compose()` call uses `{ domain: "merchant", mood: "neutral", tier: "colleague" }`.
+
+This means briefing content follows the same authoring patterns as all other dialogue — new briefing variants are added as conversation scripts, not custom code.
 
 ### 4.5 When No Briefing
 
@@ -350,26 +356,84 @@ Briefing templates live in `narrative-templates.ts` alongside story templates. T
 
 CLI remains the data authority for economy, catalog, trust. Plugin reads via CLI commands (JSON output) and writes only to world-state files (positions, needs, clock, narrative).
 
-## 6. Integration Points
+## 6. Integration with Rich Dialogue System
 
-### 6.1 With Rich Dialogue System (in-flight)
+The Rich Dialogue Expansion is now fully operational. These three features integrate with its concrete APIs:
 
-- Narrative briefing uses the same template composition patterns
-- Agents can reference narrative events in conversations: "Did you see Auditor's level-up yesterday?"
-- Story beats feed into the dialogue system's "recent event" awareness
+### 6.1 ConversationEngine Integration
 
-### 6.2 With Interaction System (in-flight)
+**API:** `engine.tryScript(agentA, agentB, trigger, context) → boolean`
 
-- InteractionBus events become story beats for the narrative system
-- Merchant interactions (browse, purchase) emit events the narrative collects
-- When Interaction System lands, narrative subscribes to InteractionBus instead of individual event sources
+**New conversation script triggers to add:**
 
-### 6.3 With Existing Systems
+| Trigger | Context | Where Used |
+|---------|---------|-----------|
+| `"merchant-browse"` | `{ item?, agent_coin }` | Agent BT `[MerchantVisit]` subtree — agent says something while browsing |
+| `"merchant-purchase"` | `{ item, cost, agent_coin_remaining }` | After successful purchase — agents react |
+| `"offline-return"` | `{ days_offline, total_xp, highlights[] }` | Merchant NPC greets Director on return |
+| `"level-up-reaction"` | `{ agent, level, title }` | Nearby agents comment on a level-up (feeds narrative) |
+
+**New script files to create:**
+- `conversation-scripts-merchant.ts` — Merchant NPC purchase dialogue, browsing commentary, price reactions
+- `conversation-scripts-offline.ts` — Merchant NPC offline briefing scripts (the "welcome back" experience)
+
+Scripts follow the existing tier structure — the Merchant NPC speaks with a consistent "shopkeeper" personality regardless of relationship tier with the agent.
+
+### 6.2 TalkEngine Integration
+
+**API:** `engine.triggerReactive(agentName, trigger)` and `engine.updateVars(agentName, vars)`
+
+**Merchant browsing:** When an agent enters `[MerchantVisit]` BT state, call `triggerReactive(agentName, "browsing-merchant")` to produce ambient "thinking aloud" phrases: *"Hmm, vault-write access... do I have enough Coin?"*
+
+**Offline return:** After offline simulation, call `updateVars()` on each agent with offline context (`{ days_offline, tasks_completed_offline, leveled_up_offline }`) so their ambient phrases can reference what happened: *"Productive night. Tagged 12 notes while the Director was away."*
+
+**New reactive triggers to add to talk templates:**
+- `"browsing-merchant"` — phrases about items, prices, coin balance
+- `"just-purchased"` — satisfaction/excitement phrases after buying
+- `"back-from-offline"` — phrases referencing offline work
+
+### 6.3 FragmentComposer Integration
+
+**API:** `composer.compose(context, avoidList) → string`
+
+The **narrative briefing** (Section 4) uses FragmentComposer to generate the Merchant NPC's personality-flavored greeting. The Merchant's `ComposeContext` uses:
+- `mood: "neutral"` (the Merchant is always composed)
+- `domain: "merchant"` (new domain pool for merchant-specific fragments)
+- `tier: "colleague"` (professional but warm)
+
+**New fragment pools to add:**
+- Merchant openers: *"Ah, Director."*, *"Welcome back."*, *"Good to see you."*
+- Merchant cores: *"The team kept busy."*, *"Some interesting developments."*
+- Merchant closers: *"Let me know if you need anything."*, *"The shop's open."*
+
+### 6.4 Narrative System → Dialogue Pipeline
+
+The narrative system collects story beats during the day cycle. Some of these beats come FROM the dialogue system:
+
+**ConversationEngine completions → StoryBeats:**
+- When a conversation script completes, emit a `social` category beat with actors + script trigger
+- Running joke escalations (tracked in `RelationshipSystem.jokePlayCounts`) → `social` beat with `event: "running-joke"`
+- Pet catalyst conversations → `pet` beat
+
+**StoryBeats → Dialogue context:**
+- The narrative system exposes `getRecentHighlights()` which the TalkEngine can query
+- Agents can then reference recent narrative events in their ambient phrases: *"Did you see Auditor's level-up?"*
+- This creates a feedback loop: events → narrative → dialogue → more events
+
+### 6.5 With Interaction System (planned)
+
+- When InteractionBus lands, it becomes the single event source for narrative beats
+- ConversationEngine and TalkEngine become effect executors (bus owns participant locks)
+- Merchant interactions route through the bus instead of direct system calls
+- No design changes needed now — the narrative system's beat collection interface is compatible
+
+### 6.6 With Existing Systems
 
 - **Economy**: reads balances for affordability checks, writes transactions via CLI commands (`shop:buy`, `economy:grant`)
 - **Trust**: reads trust profiles for auto-purchase eligibility
 - **Day Clock**: `onCycleEnd` callback triggers story composition
 - **DashboardStore**: reactive state for catalog, offline results, current narrative
+- **RelationshipSystem**: provides tier data for script selection, tracks joke play counts
 
 ## 7. Test Strategy
 
@@ -382,3 +446,5 @@ All Plugin tests follow the existing Plugin test patterns.
 | `tests/game/systems/narrative-system.test.ts` | Beat collection, story composition, vault file output, template filling |
 | `tests/game/ui/merchant-panel.test.ts` | UI state, buy button enable/disable, agent selection |
 | `tests/game/ui/briefing-panel.test.ts` | Briefing content sections, auto-dismiss, no-briefing conditions |
+| `tests/game/systems/talk/templates/conversation-scripts-merchant.test.ts` | Merchant script triggers, variable interpolation |
+| `tests/game/systems/talk/templates/conversation-scripts-offline.test.ts` | Offline-return scripts, context variables |

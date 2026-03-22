@@ -25,6 +25,10 @@ import { checkPetShareInteraction } from "./engine-pet-share.js";
 import {
 	HUNGER_PHRASES, THIRST_PHRASES, EATING_PHRASES, DRINKING_PHRASES, STEAL_REACTIONS,
 } from "./systems/talk/templates/sustenance-phrases.js";
+import { selectPetVoice } from "./systems/talk/pet-voice-selector.js";
+import {
+	PET_INSTINCT_FRAGMENTS, PET_ELOQUENT_FRAGMENTS, PET_GREMLIN_FRAGMENTS,
+} from "./systems/talk/templates/index.js";
 
 // ── Composite tick — called from engine.ts preframe hook ─────────────
 
@@ -268,6 +272,9 @@ export function tickPets(ctx: EngineContext): void {
 			pet.updateBehavior(ctx.state.deltaMs);
 			const petRoom = ctx.systems.registry.getEntityRoom(pet.entityId);
 
+			// Update pet voice based on state — drives persona_quirk for talk engine
+			updatePetVoice(ctx, pet, petRoom);
+
 			updatePetFollow(ctx, pet, petRoom);
 			tryPetAutoFollow(ctx, pet, petRoom);
 			checkPetProximityReactions(ctx, pet, petRoom);
@@ -284,6 +291,33 @@ export function tickPets(ctx: EngineContext): void {
 				}
 			}
 		}
+	});
+}
+
+/** Select pet voice based on state and update talk engine persona_quirk. */
+function updatePetVoice(ctx: EngineContext, pet: import("./actors/pet-actor.js").PetActor, petRoom: string | undefined): void {
+	const { systems: sys } = ctx;
+	// Find nearest agent morale for empathy check
+	let nearbyMorale: number | undefined;
+	if (petRoom) {
+		for (const agentName of sys.needs.getAgentNames()) {
+			if (sys.registry.getEntityRoom(agentName) !== petRoom) continue;
+			nearbyMorale = sys.needs.getNeeds(agentName).morale;
+			break;
+		}
+	}
+
+	const voice = selectPetVoice({
+		hunger: pet.getHunger(),
+		thirst: pet.getThirst(),
+		nearbyAgentMorale: nearbyMorale,
+		state: pet.getState(),
+	});
+	const voicePhrases = voice === "instinct" ? PET_INSTINCT_FRAGMENTS
+		: voice === "eloquent" ? PET_ELOQUENT_FRAGMENTS
+		: PET_GREMLIN_FRAGMENTS;
+	sys.talk.updateVars(pet.entityId, {
+		persona_quirk: voicePhrases[Math.floor(Math.random() * voicePhrases.length)],
 	});
 }
 
@@ -500,6 +534,11 @@ export function tickSocial(ctx: EngineContext): void {
 		);
 	});
 
+	// Gossip chance: when 2+ agents cluster in the same room and a 3rd is elsewhere
+	if (Math.random() < 0.0015) {
+		tryGossipTrigger(ctx);
+	}
+
 	runTimedGameSystem(ctx, "conversation", () => {
 		sys.conversation.update(state.deltaMs);
 	});
@@ -691,5 +730,37 @@ function updateParticleTrails(ctx: EngineContext): void {
 				if (actor) sys.particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + TRAIL_Y_OFFSET, agentParticleColor(ctx, name));
 			}
 		}
+	}
+}
+
+// ── Helper: tryGossipTrigger ─────────────────────────────────────────
+
+/** When 2+ agents share a room and a 3rd is elsewhere, trigger gossip about the absent agent. */
+function tryGossipTrigger(ctx: EngineContext): void {
+	const { systems: sys } = ctx;
+	const allAgents = sys.needs.getAgentNames();
+	if (allAgents.length < 3) return;
+
+	// Build room → agent[] map
+	const roomAgents = new Map<string, string[]>();
+	for (const name of allAgents) {
+		const room = sys.registry.getEntityRoom(name) ?? "";
+		const list = roomAgents.get(room);
+		if (list) list.push(name);
+		else roomAgents.set(room, [name]);
+	}
+
+	// Find a room with 2+ agents
+	for (const [room, agents] of roomAgents) {
+		if (agents.length < 2) continue;
+		// Find an agent NOT in this room
+		const absent = allAgents.find((n) => (sys.registry.getEntityRoom(n) ?? "") !== room);
+		if (!absent) continue;
+		const agentA = agents[0];
+		const agentB = agents[1];
+		const domainA = ctx.store.agents.find((a) => a.name === agentA)?.domain ?? "";
+		const domainB = ctx.store.agents.find((a) => a.name === agentB)?.domain ?? "";
+		sys.conversation.gossipAbout(agentA, agentB, absent, { domainA, domainB });
+		break;
 	}
 }
