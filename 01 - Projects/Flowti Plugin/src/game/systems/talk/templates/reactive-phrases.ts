@@ -6,6 +6,7 @@
  */
 
 import type { WeightedTemplate } from "../talk-types.js";
+import { PET_REACTIVE_PHRASES } from "./pet-reactive-phrases.js";
 
 export type ReactiveTrigger =
 	| "morale-boost"      // morale just increased significantly
@@ -317,12 +318,12 @@ export const REACTIVE_TEMPLATES: Record<ReactiveTrigger, readonly WeightedTempla
 		{ template: "Our code reviews are going to be legendary", weight: 2, category: "thinking" },
 		{ template: "The gauntlet has been thrown. Picking it up", weight: 1, category: "thinking" },
 	],
-	// Pet reactive triggers — content populated in pet-reactive-phrases.ts (Task 10)
-	"pet-hungry": [],
-	"pet-sleepy": [],
-	"pet-bored": [],
-	"pet-startled": [],
-	"pet-affectionate": [],
-	"pet-jealous": [],
-	"pet-zoomies": [],
+	// Pet reactive triggers — populated from pet-reactive-phrases.ts
+	"pet-hungry": PET_REACTIVE_PHRASES["pet-hungry"],
+	"pet-sleepy": PET_REACTIVE_PHRASES["pet-sleepy"],
+	"pet-bored": PET_REACTIVE_PHRASES["pet-bored"],
+	"pet-startled": PET_REACTIVE_PHRASES["pet-startled"],
+	"pet-affectionate": PET_REACTIVE_PHRASES["pet-affectionate"],
+	"pet-jealous": PET_REACTIVE_PHRASES["pet-jealous"],
+	"pet-zoomies": PET_REACTIVE_PHRASES["pet-zoomies"],
 };
