@@ -611,7 +611,7 @@ export class DashboardStore extends EventTarget {
 
 		runOneShotCommand(
 			nodeBin, cliBin,
-			["economy:reward", `--agent=${agentName}`, "--format=json"],
+			["economy:reward", `--agent=${agentName}`, `--task=${taskName}`, "--format=json"],
 			this.vaultBasePath,
 		)
 			.then((output) => {
