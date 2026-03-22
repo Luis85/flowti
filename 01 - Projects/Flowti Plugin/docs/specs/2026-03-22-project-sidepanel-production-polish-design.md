@@ -83,7 +83,7 @@ export interface ProjectDetailElement extends HTMLElement {
 	showNamePrompt: boolean;
 
 	// Git import modal state (replaces shadow DOM piercing)
-	gitImportStep: "form" | "progress" | "detect" | "done";
+	gitImportStep: "form" | "progress" | "detect" | "configure" | "done";
 	gitImportError: string;
 	gitImportOutputLines: string[];
 	gitImportDetected: GitDetectResult | null;
@@ -238,7 +238,7 @@ Move child-specific state up to the root `ProjectDetailElement` as reactive prop
 
 | Property | Type | Replaces |
 |----------|------|----------|
-| `gitImportStep` | `"form" \| "progress" \| "detect" \| "done"` | `modal.step = "progress"` |
+| `gitImportStep` | `"form" \| "progress" \| "detect" \| "configure" \| "done"` | `modal.step = "progress"` |
 | `gitImportError` | `string` | `modal.errorNote = "Clone failed"` |
 | `gitImportOutputLines` | `string[]` | `modal.outputLines = [...]` |
 | `gitImportDetected` | `GitDetectResult \| null` | `modal.detectedType`, `.detectedFramework`, etc. |
@@ -292,6 +292,8 @@ export interface GitDetectResult {
 ```
 
 All `shadowRoot?.querySelector(...)` calls in the handler layer are removed.
+
+**Modal-side changes for GitDetectResult**: `FlowtiGitImportModal` currently declares 6 loose `detected*` properties (`detectedType`, `detectedFramework`, etc.). These are replaced by a single `detected: GitDetectResult | null` property. The modal's template references change from `this.detectedType` to `this.detected?.type` etc. The 6 old property declarations and their `static properties` entries are removed, replaced by one `detected: { type: Object }` entry.
 
 ---
 
@@ -414,7 +416,11 @@ export function mountProjectDetail(container: HTMLElement, deps: ProjectHandlerD
 }
 ```
 
-The work queue helpers (`startStorybookWork`, `endStorybookWork`, `startProjectHubWork`, `endProjectHubWork`, `appendStorybookLog`, `appendProjectHubLog`) stay in the orchestrator and are passed to handlers via deps. They check `signal.aborted` before writing to the element.
+**Buffer and work-queue ownership**: Each handler owns its internal line buffer and exposes its own `start`, `append`, and `end` work-queue methods. For example, `StorybookHandler` owns `storybookLines[]` and provides `startWork(label)`, `appendLog(line)`, `endWork(result)`, and `clearLogBuffer()`. These methods write directly to the typed `el` properties and check `signal.aborted` before writing. The orchestrator does **not** own these buffers — each handler is self-contained.
+
+The orchestrator provides `loadProject` and `loadProjectList` via deps (shared across handlers), but per-domain busy state (`storybookBusy`, `projectHubBusy`) is managed by the handler that owns that domain. `StorybookHandler` manages `el.storybookBusy`; the other three handlers share `el.projectHubBusy` — the orchestrator provides a shared `startProjectHubWork` / `endProjectHubWork` pair that those three handlers receive via deps.
+
+**Dismiss clears internal buffer**: The `storybook-dismiss-output` handler in `StorybookHandler` clears both `el.storybookOutput` and the internal `storybookLines[]` buffer. This fixes a pre-existing bug where dismissing the log surface and then triggering a new append would repopulate old lines.
 
 ---
 
@@ -477,7 +483,7 @@ await loadProject(name);
 createNote?: (name: string) => Promise<void>;
 ```
 
-Listeners are cleaned up in every path: success, already-exists, 5s timeout, and panel-close abort.
+Listeners are cleaned up in every path: success, already-exists, and 5s timeout. On panel-close abort, the handler wraps the `createNote` call with the abort signal — if `signal.aborted` is true before the call, it skips; if the signal fires during the EventBus wait, the handler's `.catch()` handles the rejection and the 5s timeout eventually cleans up the listeners. The abort signal does not need to be threaded into `project-setup.ts` itself — the orchestrator-level guard is sufficient.
 
 ---
 
@@ -495,6 +501,7 @@ Listeners are cleaned up in every path: success, already-exists, 5s timeout, and
 | `components/projects/flowti-project-detail.ts` | Modify | Add git modal + config tab properties, update template bindings |
 | `components/projects/flowti-git-import-modal.ts` | Modify | Accept `detected` as single typed prop instead of 6 loose props |
 | `bootstrap/project-setup.ts` | Modify | Promise-based `createNote` |
+| `ui/projects/project-detail-view.ts` | Modify | Update `ProjectDetailDeps.createNote` signature to `Promise<void>` |
 | `tests/infrastructure/handlers/project-handlers.test.ts` | Modify | Update for new handler structure |
 | `tests/components/projects/flowti-project-detail.test.ts` | Modify | Update for new properties |
 
