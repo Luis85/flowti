@@ -5,6 +5,8 @@ import { ACQUAINTANCE_SCRIPTS } from "../../../../src/game/systems/talk/template
 import { COLLEAGUE_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-colleague.js";
 import { FRIEND_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-friend.js";
 import { BESTFRIEND_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-bestfriend.js";
+import { GOSSIP_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-gossip.js";
+import { DRAMA_SCRIPTS } from "../../../../src/game/systems/talk/templates/conversation-scripts-drama.js";
 
 function validateScripts(scripts: readonly ConversationScript[]): void {
 	it("has at least 10 scripts", () => {
@@ -40,3 +42,5 @@ describe("acquaintance scripts", () => { validateScripts(ACQUAINTANCE_SCRIPTS); 
 describe("colleague scripts", () => { validateScripts(COLLEAGUE_SCRIPTS); });
 describe("friend scripts", () => { validateScripts(FRIEND_SCRIPTS); });
 describe("best-friend scripts", () => { validateScripts(BESTFRIEND_SCRIPTS); });
+describe("gossip scripts", () => { validateScripts(GOSSIP_SCRIPTS); });
+describe("drama scripts", () => { validateScripts(DRAMA_SCRIPTS); });
