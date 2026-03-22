@@ -120,19 +120,19 @@ Phase B was delivered across 4 implementation plans, evolving from canvas-drawn 
 - [ ] Data export: game-side DashboardAgent missing `goals`, `behaviors`, `project`, `iteration`, `phase`
 - [ ] World state reconciliation: `onStateDiff` handler is a stub
 - [ ] Task execution: visual-only, no actual CLI agent runner integration
-- [ ] Game feel: no particles, emotes, or workstation glow — STRETCH GOAL
-- [ ] Social interaction: facing only, no proximity conversations — STRETCH GOAL
-- [ ] Interactive waiting: agents make small talk while LLM generates responses (talk engine expansion)
+- [ ] ~~Game feel: no particles, emotes, or workstation glow~~ — DEFERRED to Iteration 6
+- [ ] ~~Social interaction: facing only, no proximity conversations~~ — DEFERRED to Iteration 6
+- [ ] ~~Interactive waiting: agents make small talk while LLM generates~~ — DEFERRED to Iteration 6
 
-### Phase D: BT→Brain Autonomous Behavior — NEW (from review #3)
+### Phase D: BT→Brain Autonomous Behavior — DONE (verified 2026-03-22)
 
-- [ ] Wire `seek-food` BT action → Brain TRANSITIONS
-- [ ] Wire `seek-drink` BT action → Brain TRANSITIONS
-- [ ] Wire `seek-rest` BT action → Brain TRANSITIONS
-- [ ] Wire `seek-merchant` BT action → Brain TRANSITIONS
-- [ ] Wire `seek-agent` BT action → Brain TRANSITIONS
-- [ ] Wire `seek-quiet` BT action → Brain TRANSITIONS
-- [ ] Wire `break` BT action → Brain TRANSITIONS
+- [x] Wire `seek-food` BT action → Brain TRANSITIONS
+- [x] Wire `seek-drink` BT action → Brain TRANSITIONS
+- [x] Wire `seek-rest` BT action → Brain TRANSITIONS
+- [x] Wire `seek-merchant` BT action → Brain TRANSITIONS
+- [x] Wire `seek-agent` BT action → Brain TRANSITIONS
+- [x] Wire `seek-quiet` BT action → Brain TRANSITIONS
+- [x] Wire `break` BT action → Brain TRANSITIONS
 
 ### Phase E: Brain-Initiated LLM Sessions — NEW (from review #3)
 
@@ -225,6 +225,7 @@ B10: Setting Themes (parallel with B4+)
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-22 | in-progress | in-progress | Three Amigos review — Phase D marked done, Phase E stays in scope, deferred stretch goals + C4 to Iteration 6, prioritized live testing → E → B gaps → C0 → C3 |
 | 2026-03-20 | in-progress | in-progress | Increment review #2 — Phase A + Storybook accepted, Phase B accepted-with-notes (needs polish), G1-G6 carry over for design, Cursor CLI integration requirement filed |
 | 2026-03-17 | in-review | in-progress | Increment review — 0/3 phases accepted, added Phase C (CLI-Plugin integration), 2 critical bugs filed |
 | 2026-03-17 | in-progress | in-review | Increment review ceremony initiated |
