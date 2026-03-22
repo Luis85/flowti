@@ -230,6 +230,7 @@ export class ConversationEngine {
 
 		this.callbacks.silenceTalk(agentA);
 		this.callbacks.silenceTalk(agentB);
+		if (pet) this.callbacks.silenceTalk(pet);
 
 		this.cooldowns.set(script.id, performance.now());
 
@@ -319,6 +320,7 @@ export class ConversationEngine {
 
 		this.callbacks.silenceTalk(agentA);
 		this.callbacks.silenceTalk(agentB);
+		if (pet) this.callbacks.silenceTalk(pet);
 
 		this.cooldowns.set(joke.id, performance.now());
 

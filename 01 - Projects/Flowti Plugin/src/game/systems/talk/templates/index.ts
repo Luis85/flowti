@@ -9,6 +9,7 @@ import type { TemplateSet } from "../talk-types.js";
 import { engineeringTemplates, qualityTemplates, operationsTemplates } from "./engineering.js";
 import { designTemplates, analysisTemplates } from "./design.js";
 import { productTemplates, managementTemplates, orchestrationTemplates } from "./product.js";
+import { petDomainTemplates } from "./pet-domain-templates.js";
 
 /** All domain-specific template sets, keyed by domain name. */
 export const DOMAIN_TEMPLATES: ReadonlyMap<string, TemplateSet> = new Map<string, TemplateSet>([
@@ -20,6 +21,7 @@ export const DOMAIN_TEMPLATES: ReadonlyMap<string, TemplateSet> = new Map<string
 	["product", productTemplates],
 	["management", managementTemplates],
 	["orchestration", orchestrationTemplates],
+	["pet", petDomainTemplates],
 ]);
 
 /** Core templates — universal fallback for any agent. */

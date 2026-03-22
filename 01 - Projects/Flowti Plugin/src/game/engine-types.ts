@@ -175,6 +175,8 @@ export interface EngineMutableState {
 
 export interface EngineLookups {
 	readonly findAgentActor: (name: string) => AgentActor | undefined;
+	/** Agent {@link AgentActor} or pet scene proxy — use for bubbles / speech UI. */
+	readonly findBubbleAnchor: (name: string) => ex.Actor | undefined;
 	readonly findCurrentSceneActor: (name: string) => AgentActor | undefined;
 	readonly findNearestAgent: (agentName: string) => { x: number; y: number } | null;
 	readonly handleAgentSelect: (agentName: string) => void;

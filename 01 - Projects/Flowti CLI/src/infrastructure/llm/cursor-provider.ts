@@ -1,11 +1,20 @@
 /**
- * cursor-provider.ts — Cursor CLI adapter implementing ILLMProvider.
+ * cursor-provider.ts — Cursor Agent CLI adapter implementing ILLMProvider.
  *
- * Spawns `cursor --print --json`, parses output.
- * Cursor outputs plain text or JSON — adapter normalizes to LLMEvent.
+ * Spawns `agent -p --output-format stream-json` (NDJSON), same event shapes as
+ * Claude-compatible NDJSON (`assistant` / `result` / Cursor `tool_call`) — uses parseStreamEvents.
+ *
+ * Do not invoke the `cursor` desktop shim here; on Windows it is Electron and ignores
+ * these flags. The headless binary is `agent` (see Cursor CLI docs).
  */
 
 import type { ILLMProvider, LLMRequest, LLMProcess, LLMEvent, LLMResult, ProviderCapabilities } from "../../domain/agents/llm-types.js";
+import {
+	parseStreamEvents,
+	createStreamState,
+	updateStreamState,
+	appendAssistantTextSkipFullDuplicate,
+} from "../../domain/agents/agent-stream.js";
 import { formatPrompt, isPreFormatted } from "../../domain/agents/llm-prompt.js";
 import { writePromptFile, cleanupPromptFile } from "./prompt-file.js";
 import type { PromptFileDeps } from "./prompt-file.js";
@@ -36,21 +45,37 @@ export function createCursorProvider(deps: CursorProviderDeps): ILLMProvider {
 				: formatPrompt(request.prompt, CAPABILITIES);
 
 			const tempPath = writePromptFile(deps, prompt);
+
+			const args = [
+				"-p",
+				"--output-format", "stream-json",
+				"--stream-partial-output",
+				"--force",
+				"--trust",
+			];
+			if (request.cwd) {
+				args.push("--workspace", request.cwd);
+			}
+
 			const quotedPath = `"${tempPath}"`;
-			const cmd = `cursor --print --json < ${quotedPath}`;
+			const cmd = ["agent", ...args.map((a) => a.includes(" ") ? `"${a}"` : a)].join(" ") + ` < ${quotedPath}`;
 			const proc = deps.shell.spawnBackground(cmd, request.cwd ? { cwd: request.cwd } : undefined);
 			const timeout = request.timeout ?? 3_600_000;
 			const exitPromise = proc.waitForExit(timeout);
 
+			let streamState = createStreamState();
 			const textBuffer: string[] = [];
+			const thinkingBuffer: string[] = [];
 			const subscribers = new Set<(event: LLMEvent) => void>();
 
 			proc.onOutput((line: string) => {
-				if (!line.trim()) return;
-				textBuffer.push(line);
-				const event: LLMEvent = { kind: "text", text: line };
-				for (const cb of subscribers) {
-					try { cb(event); } catch { /* subscriber error */ }
+				streamState = updateStreamState(streamState, line);
+				for (const event of parseStreamEvents(line, streamState)) {
+					if (event.kind === "thinking") thinkingBuffer.push(event.text);
+					if (event.kind === "text") appendAssistantTextSkipFullDuplicate(textBuffer, event.text);
+					for (const cb of subscribers) {
+						try { cb(event); } catch { /* subscriber error */ }
+					}
 				}
 			});
 
@@ -61,7 +86,7 @@ export function createCursorProvider(deps: CursorProviderDeps): ILLMProvider {
 				},
 				result: exitPromise.then((exitCode) => {
 					cleanupPromptFile(deps, tempPath);
-					return { text: textBuffer.join(""), thinking: "", exitCode } as LLMResult;
+					return { text: textBuffer.join(""), thinking: thinkingBuffer.join(""), exitCode } as LLMResult;
 				}).catch(() => {
 					proc.kill();
 					cleanupPromptFile(deps, tempPath);

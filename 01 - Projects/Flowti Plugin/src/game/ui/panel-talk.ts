@@ -305,7 +305,6 @@ export class PanelTalk extends FlowtiElement {
 		const cliOk = this.store.cliSessionAvailable;
 		const canSend = cliOk && isAiBacked;
 		const blockReason = this.store.cliSessionBlockedReason;
-		const llmNote = this.store.llmBackendReminder;
 
 		return html`
 			${!isAiBacked
@@ -324,9 +323,6 @@ export class PanelTalk extends FlowtiElement {
 						The world simulation still runs; only this chat pane and CLI-backed tasks need Node + bundle + your configured LLM.
 					</div>
 				`
-				: nothing}
-			${isAiBacked && cliOk && llmNote
-				? html`<div class="talk-banner talk-banner--note"><strong>LLM backend</strong>${llmNote}</div>`
 				: nothing}
 			<div class="thread">
 				${this.renderThread(isAiBacked, cliOk)}

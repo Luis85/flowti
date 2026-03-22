@@ -438,8 +438,8 @@ export function wireConfigAndCatalogEvents(ctx: ProjectEventContext): void {
 		const agentName = String(d?.agentName ?? "");
 		const slots = Array.isArray(d?.slots) ? d.slots : undefined;
 		el.agentCreationContext = { roleId, agentName };
-		ctx.startProjectHubWork(`Creating agent "${agentName}"…`);
-		ctx.appendProjectHubLog(`Starting — materializing "${agentName}" and updating the roster.`);
+		ctx.startProjectHubWork(`Saving agent "${agentName}"…`);
+		ctx.appendProjectHubLog(`Starting — create or update vault note for "${agentName}", then refresh the roster.`);
 		void projectService
 			.createAgentFromRole(ctx.getCurrentProject(), roleId, agentName, ctx.appendProjectHubLog, slots)
 			.then((r) => ctx.endProjectHubWork(r))

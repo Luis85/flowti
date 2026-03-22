@@ -1,8 +1,9 @@
 /**
- * agent-stream.ts — Stream-JSON event parser for Claude CLI output.
+ * agent-stream.ts — Stream-JSON event parser for Claude and Cursor Agent CLIs.
  *
- * Parses NDJSON lines from `claude --output-format stream-json` into typed
- * domain events. Pure functions — no I/O, no side effects.
+ * Parses NDJSON from `claude -p --output-format stream-json` and
+ * `agent -p --output-format stream-json` into typed domain events.
+ * Pure functions — no I/O, no side effects.
  */
 
 // ── Event types ──────────────────────────────────────────────────────
@@ -112,20 +113,105 @@ function parseApiSseEvent(type: string, parsed: Record<string, unknown>, state: 
 	return null;
 }
 
-export function parseStreamLine(line: string, state: StreamState): AgentStreamEvent | null {
-	if (!line) return null;
+/** Cursor Agent CLI `tool_call` NDJSON — map to the same events as Claude tool_use streaming. */
+function describeCursorToolCall(toolCall: Record<string, unknown>): { name: string; args: Record<string, unknown> } {
+	const read = toolCall.readToolCall as Record<string, unknown> | undefined;
+	if (read && typeof read === "object") {
+		const args = (read.args as Record<string, unknown>) ?? {};
+		const path = args.path;
+		return { name: "Read", args: { path, file_path: path } };
+	}
+	const write = toolCall.writeToolCall as Record<string, unknown> | undefined;
+	if (write && typeof write === "object") {
+		const args = (write.args as Record<string, unknown>) ?? {};
+		const path = args.path;
+		return {
+			name: "Write",
+			args: { path, file_path: path, fileText: args.fileText },
+		};
+	}
+	const fn = toolCall.function as Record<string, unknown> | undefined;
+	if (fn && typeof fn === "object") {
+		const name = typeof fn.name === "string" ? fn.name : "function";
+		let args: Record<string, unknown> = {};
+		if (typeof fn.arguments === "string") {
+			try {
+				args = JSON.parse(fn.arguments) as Record<string, unknown>;
+			} catch {
+				args = { raw: fn.arguments };
+			}
+		}
+		return { name, args };
+	}
+	const keys = Object.keys(toolCall).filter((k) => k !== "args");
+	if (keys.length === 1) {
+		const k = keys[0];
+		const inner = toolCall[k] as Record<string, unknown> | undefined;
+		const args = inner && typeof inner === "object" ? (inner.args as Record<string, unknown>) ?? {} : {};
+		return { name: k, args };
+	}
+	return { name: "tool", args: {} };
+}
+
+function parseCursorToolCallLine(parsed: Record<string, unknown>): readonly AgentStreamEvent[] {
+	const subtype = parsed.subtype as string | undefined;
+	const callId = parsed.call_id as string | undefined;
+	const toolCall = parsed.tool_call as Record<string, unknown> | undefined;
+	if (!callId || !toolCall || typeof toolCall !== "object") return [];
+
+	if (subtype === "started") {
+		const { name, args } = describeCursorToolCall(toolCall);
+		const start: AgentStreamEvent = { kind: "tool-start", id: callId, name };
+		const input: AgentStreamEvent = { kind: "tool-input", index: 0, json: JSON.stringify(args) };
+		return [start, input];
+	}
+	if (subtype === "completed") {
+		return [{ kind: "tool-end", id: callId }];
+	}
+	return [];
+}
+
+/**
+ * Parse one NDJSON line into zero or more stream events.
+ * Cursor may emit two events from a single `tool_call` line (start + input args).
+ */
+export function parseStreamEvents(line: string, state: StreamState): readonly AgentStreamEvent[] {
+	if (!line?.trim()) return [];
 	let parsed: Record<string, unknown>;
-	try { parsed = JSON.parse(line) as Record<string, unknown>; } catch { return null; }
+	try { parsed = JSON.parse(line) as Record<string, unknown>; } catch { return []; }
 	const type = parsed.type as string | undefined;
-	if (!type) return null;
+	if (!type) return [];
 
-	// ── Claude CLI format ────────────────────────────────────────────
-	if (type === "assistant") return parseCliAssistant(parsed);
-	if (type === "result") return parseCliResult(parsed);
-	if (type === "system" || type === "rate_limit_event") return null;
+	if (type === "assistant") {
+		const e = parseCliAssistant(parsed);
+		return e ? [e] : [];
+	}
+	if (type === "result") {
+		const e = parseCliResult(parsed);
+		return e ? [e] : [];
+	}
+	if (type === "system" || type === "rate_limit_event" || type === "user") return [];
+	if (type === "tool_call") return [...parseCursorToolCallLine(parsed)];
 
-	// ── Raw API SSE format (future-proofing) ─────────────────────────
-	return parseApiSseEvent(type, parsed, state);
+	const e = parseApiSseEvent(type, parsed, state);
+	return e ? [e] : [];
+}
+
+/** Prefer {@link parseStreamEvents} — one line can yield multiple events (e.g. Cursor `tool_call`). */
+export function parseStreamLine(line: string, state: StreamState): AgentStreamEvent | null {
+	const evs = parseStreamEvents(line, state);
+	return evs[0] ?? null;
+}
+
+/**
+ * Cursor Agent `stream-json` can emit the same full assistant line twice (especially with
+ * `--stream-partial-output`). Skipping when `chunk === buffer.join("")` avoids doubled Talk replies.
+ * Do not use for Claude `text_delta` streams — those are incremental slices, not full-message repeats.
+ */
+export function appendAssistantTextSkipFullDuplicate(buffer: string[], chunk: string): void {
+	if (!chunk.trim()) return;
+	if (chunk === buffer.join("")) return;
+	buffer.push(chunk);
 }
 
 // ── CLI format helpers ──────────────────────────────────────────────

@@ -454,9 +454,6 @@ export class PanelMonitor extends FlowtiElement {
 			${!this.store.cliSessionAvailable && this.store.cliSessionBlockedReason
 				? html`<p class="resource-hint" style="margin-top:0">${this.store.cliSessionBlockedReason}</p>`
 				: nothing}
-			${this.store.cliSessionAvailable && this.store.llmBackendReminder
-				? html`<p class="resource-hint" style="margin-top:0">${this.store.llmBackendReminder}</p>`
-				: nothing}
 			${this.renderStatusGrid()}
 			<div class="section-title">System resources</div>
 			${this.renderResources()}
