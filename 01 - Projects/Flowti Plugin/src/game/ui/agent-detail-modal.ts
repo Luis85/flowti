@@ -645,7 +645,7 @@ export class AgentDetailModal extends FlowtiElement {
 		const innerContent = html`
 			<div class="modal-header">
 				<div class="header-left">
-					<div class="portrait">${renderPortrait(agent.name, agent.domain ?? "fallback", 64, trustTier)}</div>
+					<div class="portrait">${renderPortrait(agent.name, agent.domain ?? "fallback", 64, trustTier, this.store?.spriteBasePath)}</div>
 					<div class="name-block">
 						<span class="agent-name">${agent.name}</span>
 						${agent.persona ? html`<span class="agent-persona">${agent.persona}</span>` : nothing}

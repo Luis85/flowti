@@ -145,6 +145,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Reactive store + Lit overlays ─────────────────────
 	const store = new DashboardStore(deps.cliExecutor, deps.worldContext, deps.vaultBasePath);
+	store.spriteBasePath = spriteBasePath;
 	store.syncCliSessionFromEnvironment();
 	for (const tag of ["ft-game-overlays", "ft-game-camera-hud"]) {
 		const el = document.createElement(tag) as HTMLElement & { store: DashboardStore };

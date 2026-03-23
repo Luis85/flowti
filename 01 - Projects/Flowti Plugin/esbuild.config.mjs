@@ -172,7 +172,14 @@ const syncSprites = () => {
 	for (const entry of entries) {
 		if (!entry.isDirectory()) continue;
 
-		const animDir = path.join(charsDir, entry.name, "SeparateAnim");
+		const charDir = path.join(charsDir, entry.name);
+		const facesetSrc = path.join(charDir, "Faceset.png");
+		if (safeExists(facesetSrc)) {
+			const facesetDest = path.join(OUTDIR, "assets", "Actor", "Characters", entry.name, "Faceset.png");
+			safeCopyFile(facesetSrc, facesetDest);
+		}
+
+		const animDir = path.join(charDir, "SeparateAnim");
 		if (!safeExists(animDir)) continue;
 
 		for (const sprite of ["Idle.png", "Walk.png"]) {

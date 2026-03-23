@@ -12,8 +12,12 @@ import { TRUST_TIER_COLORS } from "./game-ui-constants.js";
 
 /* ── Pure helpers ─────────────────────────────────────────────────── */
 
-export function portraitSrc(characterName: string): string {
-	return `assets/Actor/Characters/${characterName}/Faceset.png`;
+/** Join plugin resource base with a relative asset path (handles trailing slashes). */
+export function portraitSrc(characterName: string, pluginBaseUrl?: string): string {
+	const rel = `assets/Actor/Characters/${characterName}/Faceset.png`;
+	if (!pluginBaseUrl) return rel;
+	const base = pluginBaseUrl.replace(/\/$/, "");
+	return `${base}/${rel}`;
 }
 
 export function fallbackInitial(name: string): string {
@@ -27,9 +31,10 @@ export function renderPortrait(
 	domain: string,
 	size: number,
 	trustTier?: string,
+	pluginBaseUrl?: string,
 ): TemplateResult {
 	const character = resolveCharacter(agentName, domain);
-	const src = portraitSrc(character);
+	const src = portraitSrc(character, pluginBaseUrl);
 	const initial = fallbackInitial(agentName);
 	const borderColor = trustTier ? (TRUST_TIER_COLORS[trustTier] ?? "#6b7280") : "#6b7280";
 
