@@ -225,6 +225,7 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 }
 
 function findNearestUnoccupiedStation(ctx: EngineContext, agentName: string, candidates: InteractableActor[]): { x: number; y: number } | null {
+	const agentRoom = ctx.systems.registry.getEntityRoom(agentName);
 	for (const room of Object.values(ctx.scenes.map)) {
 		const actor = room.getAgentActor(agentName);
 		if (!actor) continue;
@@ -232,6 +233,9 @@ function findNearestUnoccupiedStation(ctx: EngineContext, agentName: string, can
 		let minDist = Infinity;
 		for (const station of candidates) {
 			if (!station || station.isOccupied()) continue;
+			// Only consider stations in the agent's current room
+			const stationRoom = ctx.systems.registry.getObjectRoom(station.objectId);
+			if (stationRoom && stationRoom !== agentRoom) continue;
 			const point = station.getInteractionPoint();
 			const dx = point.x - actor.pos.x;
 			const dy = point.y - actor.pos.y;
@@ -569,6 +573,8 @@ export function tickLocomotion(ctx: EngineContext): void {
 			actor.pos.x = entry.position.x;
 			actor.pos.y = entry.position.y;
 			bb.arrived = entry.arrived;
+			bb.isMoving = entry.command !== "none";
+			actor.updateIntent(bb.intent);
 		}
 	});
 

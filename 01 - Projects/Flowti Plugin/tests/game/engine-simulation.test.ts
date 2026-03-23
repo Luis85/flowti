@@ -566,6 +566,7 @@ describe("tickLocomotion", () => {
 			intentComponent: { intent: "idle", detail: "" },
 			isStandingOrderActive: vi.fn(() => false),
 			setStandingOrderActive: vi.fn(),
+			updateIntent: vi.fn(),
 		};
 		vi.mocked(ctx.lookups.findAgentActor).mockReturnValue(mockActor as never);
 

@@ -105,6 +105,10 @@ export class SceneRegistry {
 		return this.objects.filter((o) => o.type === type);
 	}
 
+	getObjectRoom(objectId: string): string | undefined {
+		return this.objects.find((o) => o.id === objectId)?.room;
+	}
+
 	getObjectsInRoom(room: string): ObjectEntry[] {
 		return this.objects.filter((o) => o.room === room);
 	}
