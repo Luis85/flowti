@@ -42,6 +42,12 @@ export class EmoteSystem {
 		this.callback = null;
 	}
 
+	/** Fire a specific emote index for an agent, bypassing mood mapping. */
+	triggerEmote(agentName: string, emoteIndex: number): void {
+		if (!this.entries.has(agentName)) return;
+		this.callback?.(agentName, emoteIndex);
+	}
+
 	register(name: string, mood: string, quoteFrequency: number): void {
 		this.entries.set(name, {
 			mood,
