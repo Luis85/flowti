@@ -68,6 +68,15 @@ export interface AgentBlackboard {
 
 	// ── Written by BT, read by presentation ──────────
 	speechRequest: { text: string; kind: BubbleKind } | null;
+
+	// ── Written by visual feedback system ────────────
+	facingDirection: "left" | "right";
+	urgencySpeedBoost: number;
+	lastIntentTransition: {
+		from: string;
+		to: string;
+		timestamp: number;
+	} | null;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────
@@ -95,6 +104,9 @@ export function createDefaultBlackboard(): AgentBlackboard {
 		roomAvoidance: null,
 		breakThresholdBias: 0,
 		speechRequest: null,
+		facingDirection: "right",
+		urgencySpeedBoost: 1.0,
+		lastIntentTransition: null,
 	};
 }
 

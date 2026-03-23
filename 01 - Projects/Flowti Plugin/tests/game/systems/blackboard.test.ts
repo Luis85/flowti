@@ -110,6 +110,15 @@ describe("BlackboardManager", () => {
 		});
 	});
 
+	describe("visual feedback fields", () => {
+		it("createDefaultBlackboard includes visual feedback defaults", () => {
+			const bb = createDefaultBlackboard();
+			expect(bb.facingDirection).toBe("right");
+			expect(bb.urgencySpeedBoost).toBe(1.0);
+			expect(bb.lastIntentTransition).toBeNull();
+		});
+	});
+
 	describe("push", () => {
 		it("syncs movement command to actor component", () => {
 			const mgr = new BlackboardManager();
