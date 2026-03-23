@@ -30,6 +30,7 @@ export interface BubbleActorConfig {
 	readonly y: number;
 	readonly duration?: number;
 	readonly scale?: number;
+	readonly iconPath?: string;
 }
 
 /** Wrap text to fit within maxWidth, return lines. */

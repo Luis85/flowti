@@ -68,6 +68,7 @@ export class BubbleSystem {
 		getActor: (name: string) => ex.Actor | undefined,
 		duration: number = DEFAULT_DURATION,
 		priority?: boolean,
+		iconPath?: string,
 	): void {
 		const entry = this.entries.get(agentName);
 		if (!entry) return;
@@ -99,6 +100,7 @@ export class BubbleSystem {
 			y: localY,
 			duration,
 			scale: 1 / AGENT_SCALE,
+			iconPath,
 		});
 		actor.addChild(bubble);
 		entry.bubbles.push(bubble);
