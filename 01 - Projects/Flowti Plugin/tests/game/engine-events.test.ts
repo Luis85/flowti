@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { wireEvents } from "../../src/game/engine-events.js";
 import type { EngineContext } from "../../src/game/engine-types.js";
+import { BlackboardManager } from "../../src/game/systems/blackboard.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -58,14 +59,7 @@ function createMockContext(): EngineContext {
 			activePanel: null,
 		},
 		systems: {
-			brain: {
-				applyEvent: vi.fn(),
-				getState: vi.fn(() => ({ state: "idle", params: { socialRadius: 100, quoteFrequency: 0.5 } })),
-				walkTo: vi.fn(),
-				assignWork: vi.fn(),
-				releaseWork: vi.fn(),
-				register: vi.fn(),
-			},
+			blackboards: new BlackboardManager(),
 			bubble: {
 				showBubble: vi.fn(),
 			},
@@ -263,7 +257,7 @@ describe("engine-events", () => {
 		});
 
 		it("standup handler transitions idle agents to speaking", () => {
-			(ctx.systems.brain.getState as ReturnType<typeof vi.fn>).mockReturnValue({ state: "idle" });
+			ctx.systems.blackboards.register("alice");
 			wireEvents(ctx);
 			const registerHandler = ctx.systems.worldEvent.registerHandler as ReturnType<typeof vi.fn>;
 			const standupCall = registerHandler.mock.calls.find(
@@ -273,7 +267,7 @@ describe("engine-events", () => {
 			// Execute the handler
 			standupCall![1]();
 			expect(ctx.store.pushWorldEvent).toHaveBeenCalledWith("standup", "Morning Standup");
-			expect(ctx.systems.brain.applyEvent).toHaveBeenCalledWith("alice", "speaking");
+			expect(ctx.systems.blackboards.get("alice").intent).toBe("talking");
 		});
 	});
 
@@ -302,11 +296,13 @@ describe("engine-events", () => {
 		});
 
 		it("conversation callback transitions agents to speaking", () => {
+			ctx.systems.blackboards.register("alice");
+			ctx.systems.blackboards.register("bob");
 			wireEvents(ctx);
 			const cb = (ctx.systems.social.onConversation as ReturnType<typeof vi.fn>).mock.calls[0][0];
 			cb("alice", "bob", "Hello!", "Hey!");
-			expect(ctx.systems.brain.applyEvent).toHaveBeenCalledWith("alice", "speaking");
-			expect(ctx.systems.brain.applyEvent).toHaveBeenCalledWith("bob", "speaking");
+			expect(ctx.systems.blackboards.get("alice").intent).toBe("talking");
+			expect(ctx.systems.blackboards.get("bob").intent).toBe("talking");
 			expect(ctx.systems.bubble.showBubble).toHaveBeenCalled();
 		});
 
@@ -315,10 +311,12 @@ describe("engine-events", () => {
 			wireEvents(ctx);
 			const cb = (ctx.systems.social.onConversation as ReturnType<typeof vi.fn>).mock.calls[0][0];
 			cb("alice", "bob", "Hello!", "Hey!");
-			expect(ctx.systems.brain.applyEvent).not.toHaveBeenCalled();
+			expect(ctx.systems.bubble.showBubble).not.toHaveBeenCalled();
 		});
 
 		it("conversation tracks cycle counts", () => {
+			ctx.systems.blackboards.register("alice");
+			ctx.systems.blackboards.register("bob");
 			wireEvents(ctx);
 			const cb = (ctx.systems.social.onConversation as ReturnType<typeof vi.fn>).mock.calls[0][0];
 			cb("alice", "bob", "Hello!", "Hey!");
@@ -362,10 +360,13 @@ describe("engine-events", () => {
 		});
 
 		it("tier 2+ engagement walks agent toward camera", () => {
+			ctx.systems.blackboards.register("alice");
 			wireEvents(ctx);
 			const cb = (ctx.systems.engagement.onEngagement as ReturnType<typeof vi.fn>).mock.calls[0][0];
 			cb({ agentName: "alice", tier: 2, bubbleKind: "speech", text: "Come here!" });
-			expect(ctx.systems.brain.walkTo).toHaveBeenCalledWith("alice", expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }));
+			const bb = ctx.systems.blackboards.get("alice");
+			expect(bb.movementCommand).toBe("walk-to");
+			expect(bb.movementTarget).toEqual(expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }));
 		});
 	});
 
@@ -376,18 +377,23 @@ describe("engine-events", () => {
 		});
 
 		it("gather phase transitions participants to speaking", () => {
+			ctx.systems.blackboards.register("alice");
+			ctx.systems.blackboards.register("bob");
 			wireEvents(ctx);
 			const cb = (ctx.systems.ritual.onPhase as ReturnType<typeof vi.fn>).mock.calls[0][0];
 			cb({ kind: "gather", participants: ["alice", "bob"] });
-			expect(ctx.systems.brain.applyEvent).toHaveBeenCalledWith("alice", "speaking");
-			expect(ctx.systems.brain.applyEvent).toHaveBeenCalledWith("bob", "speaking");
+			expect(ctx.systems.blackboards.get("alice").intent).toBe("talking");
+			expect(ctx.systems.blackboards.get("bob").intent).toBe("talking");
 		});
 
 		it("disperse phase transitions to idle and applies social effects", () => {
+			ctx.systems.blackboards.register("alice");
+			// Set intent to non-idle so we can verify it transitions back
+			ctx.systems.blackboards.get("alice").intent = "talking";
 			wireEvents(ctx);
 			const cb = (ctx.systems.ritual.onPhase as ReturnType<typeof vi.fn>).mock.calls[0][0];
 			cb({ kind: "disperse", participants: ["alice"] });
-			expect(ctx.systems.brain.applyEvent).toHaveBeenCalledWith("alice", "idle");
+			expect(ctx.systems.blackboards.get("alice").intent).toBe("idle");
 			expect(ctx.systems.needs.applyEffect).toHaveBeenCalledWith("alice", { social: 8, morale: 5 });
 		});
 	});
@@ -440,12 +446,18 @@ describe("engine-events", () => {
 		});
 
 		it("action handler deduplicates by action id", () => {
+			ctx.systems.blackboards.register("alice");
+			// Set intent to non-idle so we can detect the first write
+			ctx.systems.blackboards.get("alice").intent = "working";
 			wireEvents(ctx);
 			const cb = (ctx.provider.onAction as ReturnType<typeof vi.fn>).mock.calls[0][0];
-			cb({ id: "a1", agentName: "alice", type: "idle", data: {} });
-			cb({ id: "a1", agentName: "alice", type: "idle", data: {} });
-			// brain.applyEvent should only be called once (dedup)
-			expect(ctx.systems.brain.applyEvent).toHaveBeenCalledTimes(1);
+			cb({ id: "a1", agentName: "alice", type: "speaking", data: { text: "hi" } });
+			expect(ctx.systems.blackboards.get("alice").intent).toBe("talking");
+			// Reset to verify second call is deduped
+			ctx.systems.blackboards.get("alice").intent = "working";
+			cb({ id: "a1", agentName: "alice", type: "speaking", data: { text: "hi" } });
+			// Should still be "working" because dedup skipped the second call
+			expect(ctx.systems.blackboards.get("alice").intent).toBe("working");
 		});
 
 		it("connection status callback updates hub and store", () => {

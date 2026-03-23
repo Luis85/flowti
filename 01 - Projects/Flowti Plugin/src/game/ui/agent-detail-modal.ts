@@ -638,7 +638,7 @@ export class AgentDetailModal extends FlowtiElement {
 		if (!agent) return html``;
 
 		const selectedTab = this.store.selectedTab;
-		const brainState = this.store.agentStates.get(agent.name);
+		const brainState = this.store.agentIntents.get(agent.name);
 		const trustTier = agent.trustTier ?? "supervised";
 		const trustColor = TRUST_TIER_COLORS[trustTier] ?? "#f59e0b";
 

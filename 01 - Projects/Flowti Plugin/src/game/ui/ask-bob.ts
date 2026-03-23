@@ -891,7 +891,7 @@ export class AskBob extends FlowtiElement {
 		}
 
 		const agent = this.store.agents.find((a) => a.name === name);
-		const brainState = this.store.agentStates.get(name) ?? "idle";
+		const brainState = this.store.agentIntents.get(name) ?? "idle";
 		const stateColor = AGENT_STATE_COLORS[brainState] ?? AGENT_STATE_COLORS.idle;
 		const processAlive = this.store.isProcessAlive(name);
 		const llm = this.store.llmStatus.get(name);

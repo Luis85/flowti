@@ -7,7 +7,7 @@
 
 import * as ex from "excalibur";
 import type { DashboardAgent } from "../data/types.js";
-import type { BrainState } from "../brain/brain-types.js";
+import type { AgentBlackboard } from "../systems/blackboard.js";
 import type { AgentSprites } from "../sprites/sprite-loader.js";
 import { getVisualForLevel } from "../data/progression-visuals.js";
 
@@ -27,7 +27,7 @@ export interface AgentActorConfig {
 
 export class AgentActor extends ex.Actor {
 	public agentData: DashboardAgent;
-	public brainState: BrainState = "idle";
+	public intent: AgentBlackboard["intent"] = "idle";
 	public level = 1;
 
 	private readonly onSelect: (agentName: string) => void;
@@ -83,7 +83,7 @@ export class AgentActor extends ex.Actor {
 	onPreUpdate(_engine: ex.Engine, delta: number): void {
 		// Gentle bob when idle — offset only the sprite graphic, not the actor
 		// position, so child actors (label, badge) stay still.
-		if (this.brainState === "idle" || this.brainState === "waiting" || this.brainState === "on-break") {
+		if (this.intent === "idle" || this.intent === "waiting" || this.intent === "on-break") {
 			this.bobPhase += delta * 0.0015;
 			this.graphics.offset = ex.vec(0, Math.sin(this.bobPhase) * 0.5);
 		} else {
@@ -145,7 +145,7 @@ export class AgentActor extends ex.Actor {
 
 	/** Snap to idle. Called when selected. */
 	focus(): void {
-		this.brainState = "idle";
+		this.intent = "idle";
 	}
 
 	/** No-op — direction logic removed for now. */
@@ -153,12 +153,12 @@ export class AgentActor extends ex.Actor {
 		// Will be re-added with proper animation system
 	}
 
-	/** Update brain state for idle bob logic. No animation switching. */
-	updateFromBrain(state: BrainState): void {
-		if (state !== this.brainState) {
+	/** Update intent for idle bob logic. No animation switching. */
+	updateIntent(intent: AgentBlackboard["intent"]): void {
+		if (intent !== this.intent) {
 			this.bobPhase = 0;
 		}
-		this.brainState = state;
+		this.intent = intent;
 	}
 
 	/** Show lightbulb indicator — LLM is thinking. */

@@ -33,11 +33,13 @@ import {
 	PET_INSTINCT_FRAGMENTS, PET_ELOQUENT_FRAGMENTS, PET_GREMLIN_FRAGMENTS,
 } from "./systems/talk/templates/index.js";
 import type { CascadeReaction } from "./systems/echo/cascade-resolver.js";
+import type { AgentBlackboard, AgentNeeds } from "./systems/blackboard.js";
+import type { BrainState } from "./brain/brain-types.js";
 
 // ── Blackboard helpers ────────────────────────────────────────────────
 
 /** Read agent intent from blackboard (replaces brain.getState). */
-function getIntent(ctx: EngineContext, name: string): string {
+function getIntent(ctx: EngineContext, name: string): AgentBlackboard["intent"] {
 	return ctx.systems.blackboards.has(name) ? ctx.systems.blackboards.get(name).intent : "idle";
 }
 
@@ -487,7 +489,7 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 		btAgent.context.needs.thirst = bb.needs.thirst;
 		btAgent.context.echoStore = sys.echo;
 		btAgent.context.currentRoom = bb.currentRoom;
-		(btAgent.context as { nearbyAgents: string[] }).nearbyAgents = bb.nearbyAgents;
+		(btAgent.context as { nearbyAgents: readonly string[] }).nearbyAgents = bb.nearbyAgents;
 		// Reset arrived flag so BT can detect fresh arrivals
 		bb.arrived = false;
 	}
@@ -547,27 +549,27 @@ export function tickLocomotion(ctx: EngineContext): void {
 			const actor = ctx.lookups.findAgentActor(name);
 			if (!actor) continue;
 
-			// Build locomotion entry from blackboard + component
-			const mc = actor.movementComponent;
-			if (!mc) continue;
-
-			sys.locomotion.updateAgent({
-				command: mc.command,
-				target: mc.target,
-				arrived: mc.arrived,
-				speed: mc.speed,
-				movementStyle: mc.movementStyle,
+			// Build locomotion entry from blackboard data
+			const entry = {
+				command: bb.movementCommand,
+				target: bb.movementTarget,
+				arrived: bb.arrived,
+				speed: 40,
+				movementStyle: "brisk" as const,
 				position: { x: actor.pos.x, y: actor.pos.y },
-				socialDrift: 0.3, // TODO: derive from personality
+				socialDrift: 0.3,
 				focusDrift: 0.1,
-				idleStyle: "restless",
+				idleStyle: "restless" as const,
 				idlePoseTimer: 0,
 				idlePoseIndex: 0,
-			}, state.deltaMs);
+			};
 
-			// Write locomotion results back to component
-			mc.arrived = mc.arrived; // preserved from updateAgent
-			actor.pos.x = actor.pos.x; // position updated in-place by locomotion
+			sys.locomotion.updateAgent(entry, state.deltaMs);
+
+			// Write locomotion results back to actor + blackboard
+			actor.pos.x = entry.position.x;
+			actor.pos.y = entry.position.y;
+			bb.arrived = entry.arrived;
 		}
 	});
 
@@ -739,7 +741,7 @@ export function tickSocial(ctx: EngineContext): void {
 	}
 
 	runTimedGameSystem(ctx, "ritual", () => {
-		sys.ritual.update(state.deltaMs, (name) => getIntent(ctx, name));
+		sys.ritual.update(state.deltaMs, (name) => getIntent(ctx, name) as BrainState);
 	});
 
 	runTimedGameSystem(ctx, "social", () => {
@@ -751,7 +753,7 @@ export function tickSocial(ctx: EngineContext): void {
 				const offset = ROOM_OFFSETS[room] ?? UNKNOWN_ROOM_OFFSET;
 				return { x: pos.x + offset, y: pos.y + offset };
 			},
-			(name) => getIntent(ctx, name),
+			(name) => getIntent(ctx, name) as BrainState,
 			(name) => sys.needs.getNeeds(name),
 		);
 	});
@@ -784,7 +786,7 @@ export function tickDirector(ctx: EngineContext): void {
 		state.deltaMs,
 		() => sys.director.getPresence(),
 		(name) => sys.needs.getNeeds(name),
-		(name) => getIntent(ctx, name),
+		(name) => getIntent(ctx, name) as BrainState,
 		(name) => sys.sensor.hasPendingReaction(name),
 	);
 
@@ -800,7 +802,7 @@ export function tickDirector(ctx: EngineContext): void {
 export function tickVisuals(ctx: EngineContext): void {
 	const { systems: sys, state } = ctx;
 	runTimedGameSystem(ctx, "emote", () => {
-		sys.emote.update(state.deltaMs, (name) => getIntent(ctx, name));
+		sys.emote.update(state.deltaMs, (name) => getIntent(ctx, name) as BrainState);
 	});
 
 	runTimedGameSystem(ctx, "particlePool", () => {
@@ -927,7 +929,7 @@ function updateParticleTrails(ctx: EngineContext): void {
 			const dx = x - prev.x;
 			const dy = y - prev.y;
 			if (dx * dx + dy * dy >= TRAIL_DISTANCE_SQ) {
-				sys.particlePool.spawnTrail(x, y, agentParticleColor(ctx, name), entry.state === "walking-to");
+				sys.particlePool.spawnTrail(x, y, agentParticleColor(ctx, name), bb.movementCommand === "walk-to");
 				state.lastTrailPos.set(name, { x, y });
 			}
 		} else {

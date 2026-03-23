@@ -6,11 +6,10 @@ import {
 	tickSensor,
 	tickNeeds,
 	tickReactiveTriggers,
-	tickBehaviorThresholds,
 	tickPets,
 	tickRoomTransit,
 	tickBehaviorTree,
-	tickBrain,
+	tickLocomotion,
 	tickSocial,
 	tickDirector,
 	tickVisuals,
@@ -18,24 +17,26 @@ import {
 } from "../../src/game/engine-simulation.js";
 import type { EngineContext } from "../../src/game/engine-types.js";
 import type { BTAgentObject } from "../../src/game/brain/behavior-tree/bt-agent.js";
+import { BlackboardManager } from "../../src/game/systems/blackboard.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function createMockContext(): EngineContext {
-	const brainEntries = new Map([
-		["alice", {
-			state: "idle",
-			position: { x: 100, y: 100 },
-			targetPos: null,
-			params: { socialRadius: 100, quoteFrequency: 0.5 },
-		}],
-		["bob", {
-			state: "wandering",
-			position: { x: 200, y: 200 },
-			targetPos: null,
-			params: { socialRadius: 100, quoteFrequency: 0.5 },
-		}],
-	]);
+	const blackboards = new BlackboardManager();
+	blackboards.register("alice");
+	blackboards.register("bob");
+
+	// Set positions to match old brain entries
+	const aliceBb = blackboards.get("alice");
+	aliceBb.position = { x: 100, y: 100 };
+	aliceBb.intent = "idle";
+	aliceBb.isMoving = false;
+
+	const bobBb = blackboards.get("bob");
+	bobBb.position = { x: 200, y: 200 };
+	bobBb.intent = "idle";
+	bobBb.isMoving = true;
+	bobBb.movementCommand = "wander";
 
 	return {
 		engine: {
@@ -59,19 +60,9 @@ function createMockContext(): EngineContext {
 			onPreferredStation: vi.fn(),
 		},
 		systems: {
-			brain: {
-				getState: vi.fn((name: string) => brainEntries.get(name)),
-				getPosition: vi.fn((name: string) => brainEntries.get(name)?.position),
-				getAllEntries: vi.fn(() => brainEntries),
-				update: vi.fn(),
-				updateMood: vi.fn(),
-				applyEvent: vi.fn(),
-				walkTo: vi.fn(),
-				assignWork: vi.fn(),
-				releaseWork: vi.fn(),
-				setWanderHint: vi.fn(),
-				setBreakThresholdBias: vi.fn(),
-				setRoomAvoidance: vi.fn(),
+			blackboards,
+			locomotion: {
+				updateAgent: vi.fn(),
 			},
 			echo: {
 				getStrongest: vi.fn(() => null),
@@ -111,7 +102,7 @@ function createMockContext(): EngineContext {
 			needs: {
 				getAgentNames: vi.fn(() => ["alice", "bob"]),
 				update: vi.fn(),
-				getNeeds: vi.fn(() => ({ energy: 50, social: 50, focus: 50, morale: 50 })),
+				getNeeds: vi.fn(() => ({ energy: 50, social: 50, focus: 50, morale: 50, hunger: 80, thirst: 80 })),
 				getMood: vi.fn(() => "neutral"),
 				applyEffect: vi.fn(),
 				checkThresholds: vi.fn(() => []),
@@ -122,6 +113,7 @@ function createMockContext(): EngineContext {
 			},
 			sensor: {
 				update: vi.fn(),
+				hasPendingReaction: vi.fn(() => false),
 			},
 			engagement: {
 				update: vi.fn(),
@@ -163,7 +155,8 @@ function createMockContext(): EngineContext {
 			},
 			bt: {
 				getAgent: vi.fn(() => null),
-				update: vi.fn(() => []),
+				update: vi.fn(),
+				updatePets: vi.fn(),
 				getPetNames: vi.fn(() => []),
 				getPetContext: vi.fn(() => null),
 				has: vi.fn(() => false),
@@ -177,6 +170,9 @@ function createMockContext(): EngineContext {
 				update: vi.fn(),
 				requestTransfer: vi.fn(),
 			},
+			narrative: {
+				update: vi.fn(),
+			},
 			cameraSystem: null,
 		},
 		scenes: {
@@ -185,9 +181,9 @@ function createMockContext(): EngineContext {
 			village: {},
 			station: {},
 			map: {
-				office: { getWorkstations: vi.fn(() => []) },
-				village: { getWorkstations: vi.fn(() => []) },
-				station: { getWorkstations: vi.fn(() => []) },
+				office: { getWorkstations: vi.fn(() => []), getAgentActor: vi.fn(() => null) },
+				village: { getWorkstations: vi.fn(() => []), getAgentActor: vi.fn(() => null) },
+				station: { getWorkstations: vi.fn(() => []), getAgentActor: vi.fn(() => null) },
 			},
 		},
 		envObjects: {
@@ -277,17 +273,10 @@ function createMockContext(): EngineContext {
 			},
 		},
 		pets: [],
-		btBridge: {
-			worldState: {
-				emitAction: vi.fn(),
-				updateEntity: vi.fn(),
-			},
-			clock: {
-				now: vi.fn(() => Date.now()),
-				ms: vi.fn(() => Date.now()),
-				iso: vi.fn(() => new Date().toISOString()),
-			},
-			deps: {},
+		btClock: {
+			now: vi.fn(() => Date.now()),
+			ms: vi.fn(() => Date.now()),
+			iso: vi.fn(() => new Date().toISOString()),
 		},
 		state: {
 			allEntities: new Map(),
@@ -299,6 +288,7 @@ function createMockContext(): EngineContext {
 			petShareCooldowns: new Map<string, number>(),
 			knownEntities: new Set<string>(),
 			recentActionIds: new Set<string>(),
+			perfSampler: null,
 			prevCycleCount: 0,
 			deltaMs: 16,
 			lastTime: 0,
@@ -329,15 +319,14 @@ beforeEach(() => {
 // ── tickSimulation ───────────────────────────────────────────────────
 
 describe("tickSimulation", () => {
-	it("calls all 12 tick functions without errors", () => {
+	it("calls all tick functions without errors", () => {
 		expect(() => tickSimulation(ctx)).not.toThrow();
 	});
 
-	it("updates sensor, needs, brain, and social systems", () => {
+	it("updates sensor, needs, and social systems", () => {
 		tickSimulation(ctx);
 		expect(ctx.systems.sensor.update).toHaveBeenCalledWith(16);
 		expect(ctx.systems.needs.update).toHaveBeenCalled();
-		expect(ctx.systems.brain.update).toHaveBeenCalled();
 		expect(ctx.systems.social.update).toHaveBeenCalled();
 	});
 });
@@ -413,10 +402,9 @@ describe("tickNeeds", () => {
 		expect(call[0]).toBe(16);
 	});
 
-	it("propagates mood to brain and emote systems", () => {
+	it("propagates mood to emote system", () => {
 		vi.mocked(ctx.systems.needs.getMood).mockReturnValue("happy");
 		tickNeeds(ctx);
-		expect(ctx.systems.brain.updateMood).toHaveBeenCalledWith("alice", "happy");
 		expect(ctx.systems.emote.updateMood).toHaveBeenCalledWith("alice", "happy");
 	});
 
@@ -457,29 +445,6 @@ describe("tickReactiveTriggers", () => {
 	});
 });
 
-// ── tickBehaviorThresholds ───────────────────────────────────────────
-
-describe("tickBehaviorThresholds", () => {
-	it("calls checkThresholds for each agent", () => {
-		tickBehaviorThresholds(ctx);
-		expect(ctx.systems.needs.checkThresholds).toHaveBeenCalledWith("alice");
-		expect(ctx.systems.needs.checkThresholds).toHaveBeenCalledWith("bob");
-	});
-
-	it("applies force-break when threshold triggers", () => {
-		vi.mocked(ctx.systems.needs.checkThresholds).mockReturnValue([{ type: "force-break" }]);
-		tickBehaviorThresholds(ctx);
-		expect(ctx.systems.brain.applyEvent).toHaveBeenCalledWith("alice", "break");
-	});
-
-	it("skips in-transit agents for thresholds", () => {
-		vi.mocked(ctx.systems.registry.isInTransit).mockReturnValue(true);
-		vi.mocked(ctx.systems.needs.checkThresholds).mockReturnValue([{ type: "force-break" }]);
-		tickBehaviorThresholds(ctx);
-		expect(ctx.systems.brain.applyEvent).not.toHaveBeenCalled();
-	});
-});
-
 // ── tickPets ─────────────────────────────────────────────────────────
 
 describe("tickPets", () => {
@@ -501,6 +466,7 @@ describe("tickPets", () => {
 			moveToward: vi.fn(),
 			getHunger: vi.fn(() => 50),
 			getThirst: vi.fn(() => 50),
+			getBondedAgent: vi.fn(() => null),
 		};
 		(ctx as { pets: unknown[] }).pets = [mockPet];
 		tickPets(ctx);
@@ -520,14 +486,20 @@ describe("tickRoomTransit", () => {
 // ── tickBehaviorTree ─────────────────────────────────────────────────
 
 describe("tickBehaviorTree", () => {
-	it("refreshes BT needs snapshots before update", () => {
+	it("refreshes BT needs snapshots from blackboard before update", () => {
+		// Pre-populate blackboard needs for alice
+		const aliceBb = ctx.systems.blackboards.get("alice");
+		aliceBb.needs = { energy: 75, social: 60, focus: 80, morale: 90, hunger: 70, thirst: 65 };
+
 		const mockBtAgent = {
 			context: {
-				needs: { energy: 0, social: 0, focus: 0, morale: 0 },
+				needs: { energy: 0, social: 0, focus: 0, morale: 0, hunger: 0, thirst: 0 },
 			},
 		};
-		vi.mocked(ctx.systems.bt.getAgent).mockReturnValue(mockBtAgent as unknown as BTAgentObject);
-		vi.mocked(ctx.systems.needs.getNeeds).mockReturnValue({ energy: 75, social: 60, focus: 80, morale: 90, hunger: 80, thirst: 80 });
+		// Only return mock BT agent for alice so bob does not overwrite
+		vi.mocked(ctx.systems.bt.getAgent).mockImplementation((name: string) =>
+			name === "alice" ? mockBtAgent as unknown as BTAgentObject : undefined as unknown as BTAgentObject,
+		);
 
 		tickBehaviorTree(ctx);
 
@@ -537,68 +509,70 @@ describe("tickBehaviorTree", () => {
 		expect(mockBtAgent.context.needs.morale).toBe(90);
 	});
 
-	it("ticks BT system", () => {
+	it("ticks BT system with blackboards", () => {
 		tickBehaviorTree(ctx);
-		expect(ctx.systems.bt.update).toHaveBeenCalledWith(16, ctx.btBridge.worldState, ctx.btBridge.clock);
+		expect(ctx.systems.bt.update).toHaveBeenCalledWith(16, ctx.systems.blackboards);
 	});
 
-	it("assigns work on goal-started action", () => {
-		vi.mocked(ctx.systems.bt.update).mockReturnValue([
-			{ type: "goal-started", agentName: "alice", data: {}, id: "1", timestamp: "2026-01-01" },
-		]);
-		tickBehaviorTree(ctx);
-		expect(ctx.systems.brain.assignWork).toHaveBeenCalledWith("alice");
-	});
+	it("shows bubble when speechRequest is set on blackboard", () => {
+		const aliceBb = ctx.systems.blackboards.get("alice");
+		aliceBb.speechRequest = { text: "Hello world", kind: "speech" };
 
-	it("releases work on goal-completed action", () => {
-		vi.mocked(ctx.systems.bt.update).mockReturnValue([
-			{ type: "goal-completed", agentName: "alice", data: {}, id: "1", timestamp: "2026-01-01" },
-		]);
 		tickBehaviorTree(ctx);
-		expect(ctx.systems.brain.releaseWork).toHaveBeenCalledWith("alice");
-	});
 
-	it("shows bubble on speaking action", () => {
-		vi.mocked(ctx.systems.bt.update).mockReturnValue([
-			{ type: "speaking", agentName: "alice", data: { text: "Hello world" }, id: "1", timestamp: "2026-01-01" },
-		]);
-		tickBehaviorTree(ctx);
 		expect(ctx.systems.bubble.showBubble).toHaveBeenCalledWith(
 			"alice", "speech", "Hello world",
 			ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000,
 		);
 	});
+
+	it("clears speechRequest after processing", () => {
+		const aliceBb = ctx.systems.blackboards.get("alice");
+		aliceBb.speechRequest = { text: "Hello world", kind: "speech" };
+
+		tickBehaviorTree(ctx);
+
+		expect(aliceBb.speechRequest).toBeNull();
+	});
 });
 
-// ── tickBrain ────────────────────────────────────────────────────────
+// ── tickLocomotion ──────────────────────────────────────────────────
 
-describe("tickBrain", () => {
-	it("snapshots walking state before brain update", () => {
-		// Verify prevWalkingState is captured BEFORE brainSystem.update
-		const updateOrder: string[] = [];
+describe("tickLocomotion", () => {
+	it("snapshots walking state from blackboard before locomotion", () => {
+		// bob.isMoving is true (set in createMockContext)
+		// alice.isMoving is false (set in createMockContext)
+		tickLocomotion(ctx);
 
-		// Override brain.update to record when it's called
-		vi.mocked(ctx.systems.brain.update).mockImplementation(() => {
-			updateOrder.push("brain-update");
-			// At this point, prevWalkingState should already be set
-			expect(ctx.state.prevWalkingState.get("bob")).toBe(true); // bob is "wandering"
-			expect(ctx.state.prevWalkingState.get("alice")).toBe(false); // alice is "idle"
-		});
-
-		tickBrain(ctx);
-
-		expect(updateOrder).toEqual(["brain-update"]);
-		expect(ctx.systems.brain.update).toHaveBeenCalledWith(16, ctx.lookups.findAgentActor, expect.any(Function), undefined);
+		expect(ctx.state.prevWalkingState.get("bob")).toBe(true);
+		expect(ctx.state.prevWalkingState.get("alice")).toBe(false);
 	});
 
-	it("detects walking state for wandering agents", () => {
-		tickBrain(ctx);
+	it("detects walking state for moving agents", () => {
+		tickLocomotion(ctx);
 		expect(ctx.state.prevWalkingState.get("bob")).toBe(true);
 	});
 
 	it("detects non-walking state for idle agents", () => {
-		tickBrain(ctx);
+		tickLocomotion(ctx);
 		expect(ctx.state.prevWalkingState.get("alice")).toBe(false);
+	});
+
+	it("pushes blackboard to ECS components via push()", () => {
+		// Provide a mock actor for the push call
+		const mockActor = {
+			pos: { x: 0, y: 0 },
+			movementComponent: { command: "none" as const, target: null, arrived: false },
+			intentComponent: { intent: "idle", detail: "" },
+			isStandingOrderActive: vi.fn(() => false),
+			setStandingOrderActive: vi.fn(),
+		};
+		vi.mocked(ctx.lookups.findAgentActor).mockReturnValue(mockActor as never);
+
+		tickLocomotion(ctx);
+
+		// Locomotion should have been called
+		expect(ctx.systems.locomotion.updateAgent).toHaveBeenCalled();
 	});
 });
 
@@ -616,11 +590,11 @@ describe("tickSocial", () => {
 		tickSocial(ctx);
 		const positionFn = vi.mocked(ctx.systems.social.update).mock.calls[0][1] as (name: string) => { x: number; y: number };
 		vi.mocked(ctx.systems.registry.getEntityRoom).mockReturnValue("office");
-		vi.mocked(ctx.systems.brain.getPosition).mockReturnValue({ x: 100, y: 200 });
+		// Position comes from blackboard — alice is at (100,100)
 		const pos = positionFn("alice");
 		// Office offset is 10000
 		expect(pos.x).toBe(10100);
-		expect(pos.y).toBe(10200);
+		expect(pos.y).toBe(10100);
 	});
 });
 
@@ -634,8 +608,9 @@ describe("tickDirector", () => {
 		expect(ctx.systems.tool.update).toHaveBeenCalledWith(16);
 	});
 
-	it("sets engagement context with agent count", () => {
+	it("sets engagement context with agent count from blackboards", () => {
 		tickDirector(ctx);
+		// BlackboardManager has 2 registered agents
 		expect(ctx.systems.engagement.setContext).toHaveBeenCalledWith({ agentCount: "2" });
 	});
 });
@@ -729,7 +704,7 @@ describe("getNearbyAgents", () => {
 		// Both alice and bob are in "office" (mock returns "office" for all)
 		// alice is at (100,100), bob at (200,200) — distance ~141
 		const nearby = getNearbyAgents(ctx, "alice");
-		// socialRadius is 100, but sqrt(100^2 + 100^2) ≈ 141 > 100
+		// socialRadius is 100, but sqrt(100^2 + 100^2) ~= 141 > 100
 		expect(nearby).toEqual([]);
 	});
 
@@ -738,8 +713,9 @@ describe("getNearbyAgents", () => {
 		expect(nearby).toEqual([]);
 	});
 
-	it("returns empty when agent has no position", () => {
-		vi.mocked(ctx.systems.brain.getPosition).mockReturnValue(undefined);
+	it("returns empty when agent is not registered", () => {
+		// Unregister alice from blackboard
+		ctx.systems.blackboards.unregister("alice");
 		const nearby = getNearbyAgents(ctx, "alice");
 		expect(nearby).toEqual([]);
 	});

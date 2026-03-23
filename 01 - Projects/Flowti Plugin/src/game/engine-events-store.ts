@@ -87,8 +87,11 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 
 	addStoreListener("task-assigned", ((e: CustomEvent) => {
 		const { agentName, task } = e.detail;
-		sys.brain.applyEvent(agentName, "task-started");
-		sys.brain.assignWork(agentName);
+		if (sys.blackboards.has(agentName)) {
+			const bb = sys.blackboards.get(agentName);
+			bb.intent = "working";
+			bb.intentDetail = task ?? "";
+		}
 		ctx.store.taskLockedAgents.add(agentName);
 		sys.talk.activate(agentName);
 		sys.bubble.showBubble(agentName, "thought", `Starting: ${task}`, ctx.engine.currentScene, ctx.lookups.findAgentActor);
@@ -99,7 +102,13 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 
 	addStoreListener("task-completed", ((e: CustomEvent) => {
 		const { agentName, result } = e.detail;
-		sys.brain.releaseWork(agentName);
+		if (sys.blackboards.has(agentName)) {
+			const bb = sys.blackboards.get(agentName);
+			bb.intent = "idle";
+			bb.intentDetail = "";
+			bb.movementCommand = "none";
+			bb.movementTarget = null;
+		}
 		ctx.store.taskLockedAgents.delete(agentName);
 		sys.talk.silence(agentName);
 		sys.engagement.markTaskCompleted(agentName);

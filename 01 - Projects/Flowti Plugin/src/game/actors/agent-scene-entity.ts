@@ -1,14 +1,14 @@
 /**
  * agent-scene-entity.ts — SceneEntity wrapper for agent actors.
  *
- * Holds stable agent identity, sprite registry ref, and brain system ref.
+ * Holds stable agent identity, sprite registry ref, and blackboard ref.
  * Creates fresh AgentActor instances on each scene enter (kill-and-recreate pattern).
  */
 
 import type { SceneEntity } from "../data/scene-entity.js";
 import type { DashboardAgent } from "../data/types.js";
 import type { AgentSprites } from "../sprites/sprite-loader.js";
-import type { BrainSystem } from "../systems/brain-system.js";
+import type { BlackboardManager } from "../systems/blackboard.js";
 import { AgentActor } from "./agent-actor.js";
 import type * as ex from "excalibur";
 
@@ -20,7 +20,7 @@ export class AgentSceneEntity implements SceneEntity {
 	constructor(
 		readonly agent: DashboardAgent,
 		private readonly sprites: AgentSprites,
-		private readonly brainSystem: BrainSystem,
+		private readonly blackboards: BlackboardManager,
 		private readonly onSelect: (name: string) => void,
 	) {
 		this.entityId = agent.name;
@@ -42,12 +42,19 @@ export class AgentSceneEntity implements SceneEntity {
 	}
 
 	moveTo(x: number, y: number): void {
-		this.brainSystem.walkTo(this.entityId, { x, y });
+		if (this.blackboards.has(this.entityId)) {
+			const bb = this.blackboards.get(this.entityId);
+			bb.movementCommand = "walk-to";
+			bb.movementTarget = { x, y };
+		}
 	}
 
 	getPosition(): { x: number; y: number } {
 		if (this.actor) return { x: this.actor.pos.x, y: this.actor.pos.y };
-		return this.brainSystem.getPosition(this.entityId) ?? { x: 0, y: 0 };
+		if (this.blackboards.has(this.entityId)) {
+			return { ...this.blackboards.get(this.entityId).position };
+		}
+		return { x: 0, y: 0 };
 	}
 
 	onExitScene(): void {
@@ -59,10 +66,10 @@ export class AgentSceneEntity implements SceneEntity {
 			this.actor.pos.x = x;
 			this.actor.pos.y = y;
 		}
-		const brainPos = this.brainSystem.getPosition(this.entityId);
-		if (brainPos) {
-			brainPos.x = x;
-			brainPos.y = y;
+		if (this.blackboards.has(this.entityId)) {
+			const bb = this.blackboards.get(this.entityId);
+			bb.position.x = x;
+			bb.position.y = y;
 		}
 	}
 }

@@ -86,7 +86,7 @@ import {
 	setupKeyboardHandlers,
 	type LightState,
 } from "./engine-rendering.js";
-import { createBtDeps } from "./systems/bt-system.js";
+import { computeParams } from "./brain/agent-brain.js";
 import { createPostframeHandler } from "./engine-postframe.js";
 import { startEngine, createAgentSelectHandler } from "./engine-lifecycle.js";
 import { tickSimulation, pushCascadeReaction } from "./engine-simulation.js";
@@ -277,7 +277,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Agent select handler ────────────────────────────
 	const handleAgentSelect = createAgentSelectHandler({
-		store, blackboardManager as never /* TODO: remove brain dependency */, bubbleSystem, directorSystem, engagementSystem, engine,
+		store, blackboards: blackboardManager, bubbleSystem, directorSystem, engagementSystem, engine,
 		findAgentActor, getCameraSystem: () => cameraRef.current,
 	});
 
@@ -323,7 +323,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const roomScenes: Record<string, GameScene> = { office: officeScene, village: villageScene, station: stationScene };
 	const sceneEntries: [string, GameScene][] = [["hub", hubScene], ["office", officeScene], ["village", villageScene], ["station", stationScene]];
 	for (const [name, scene] of sceneEntries) { registry.registerScene(name, scene); engine.addScene(name, scene); }
-	for (const room of Object.values(roomScenes)) room.setBrainSystem(blackboardManager as never /* TODO: remove brain dependency */);
+	for (const room of Object.values(roomScenes)) room.setBlackboards(blackboardManager);
 
 	// ── Actor lookups ───────────────────────────────────
 
@@ -667,11 +667,11 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	const registrationSystems: RegistrationSystems = {
-		brain: blackboardManager as never /* TODO: remove brain dependency */, bubble: bubbleSystem, talk: talkEngine,
+		blackboards: blackboardManager, bubble: bubbleSystem, talk: talkEngine,
 		emote: emoteSystem, social: socialSystem, needs: needsSystem,
 		sensor: sensorSystem, engagement: engagementSystem, ritual: ritualSystem,
 		memory: memorySystem, quirk: quirkSystem, relationship: relationshipSystem,
-		bt: btSystem, btDeps, knownEntities, interactionBootstrap,
+		bt: btSystem, btClock, knownEntities, interactionBootstrap,
 	};
 
 	function doRegisterAgents(agents: readonly DashboardAgent[]): void {
@@ -851,7 +851,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Post-frame adapter: push positions/targets/states to store ──
 	const postframeHandler = createPostframeHandler({
-		engine, store, blackboardManager as never /* TODO: remove brain dependency */, needsSystem, findCurrentSceneActor,
+		engine, store, blackboards: blackboardManager, needsSystem, findCurrentSceneActor,
 		perfSampler,
 	});
 	engine.on("postframe", () => {
@@ -884,7 +884,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				engine, spriteBasePath, provider, vaultBasePath: deps.vaultBasePath,
 				hubScene, officeScene, villageScene, stationScene, roomScenes,
 				ctx, stateSystems, dayClock, worldAmbience, currentLight,
-				blackboardManager as never /* TODO: remove brain dependency */, directorSystem, cursorSpirits, store,
+				blackboards: blackboardManager, directorSystem, cursorSpirits, store,
 				registrationSystems, handleAgentSelect, allEntities, pets, registry,
 				loadingOverlay, doRegisterAgents,
 				cameraRef, narrativeSystem,

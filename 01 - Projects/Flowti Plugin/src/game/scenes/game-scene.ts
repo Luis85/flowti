@@ -16,7 +16,7 @@ import type { DoorConfig, SceneHandle } from "../systems/scene-registry.js";
 import { AgentActor } from "../actors/agent-actor.js";
 import { WorkstationActor } from "../actors/workstation-actor.js";
 import { DoorwayActor } from "../actors/doorway-actor.js";
-import type { BrainSystem } from "../systems/brain-system.js";
+import type { BlackboardManager } from "../systems/blackboard.js";
 import { resolveCharacter } from "../sprites/character-pool.js";
 import type { AgentSprites } from "../sprites/sprite-loader.js";
 import { WORKSTATION_COLS, WORKSTATION_SPACING, WORKSTATION_START } from "../config/settings.js";
@@ -69,7 +69,7 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	private readonly agentActors = new Map<string, AgentActor>();
 	private readonly sceneEntities = new Map<string, SceneEntity>();
 	private readonly transferredOut = new Set<string>();
-	private brainSystem: BrainSystem | null = null;
+	private blackboards: BlackboardManager | null = null;
 	private spriteRegistry: Map<string, AgentSprites> = new Map();
 
 	// Overlay references (created only when config.overlays includes them)
@@ -210,20 +210,19 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	}
 
 	onActivate(): void {
-		if (!this.brainSystem) return;
+		if (!this.blackboards) return;
 		for (const [name, actor] of this.agentActors) {
-			const pos = this.brainSystem.getPosition(name);
-			if (pos) {
-				actor.pos.x = pos.x;
-				actor.pos.y = pos.y;
-			}
+			if (!this.blackboards.has(name)) continue;
+			const bb = this.blackboards.get(name);
+			actor.pos.x = bb.position.x;
+			actor.pos.y = bb.position.y;
 		}
 	}
 
 	// ── OLD APIs (backward-compatible) ──────────────────────────────
 
-	setBrainSystem(brain: BrainSystem): void {
-		this.brainSystem = brain;
+	setBlackboards(blackboards: BlackboardManager): void {
+		this.blackboards = blackboards;
 	}
 
 	setSpriteRegistry(registry: Map<string, AgentSprites>): void {

@@ -83,8 +83,13 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 	registerWorldEventTracked("standup", "Morning Standup", () => {
 		const agents = sys.needs.getAgentNames().filter((n) => !sys.registry.isInTransit(n));
 		for (const name of agents) {
-			const state = sys.brain.getState(name)?.state;
-			if (state === "idle" || state === "wandering") sys.brain.applyEvent(name, "speaking");
+			if (!sys.blackboards.has(name)) continue;
+			const bb = sys.blackboards.get(name);
+			if (bb.intent === "idle") {
+				bb.intent = "talking";
+				bb.movementCommand = "none";
+				bb.movementTarget = null;
+			}
 		}
 		agents.forEach((name, i) => {
 			setTimeout(() => {
@@ -92,7 +97,13 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 			}, i * 2000);
 		});
 		setTimeout(() => {
-			for (const name of agents) sys.brain.applyEvent(name, "idle");
+			for (const name of agents) {
+				if (!sys.blackboards.has(name)) continue;
+				const bb = sys.blackboards.get(name);
+				bb.intent = "idle";
+				bb.movementCommand = "none";
+				bb.movementTarget = null;
+			}
 		}, agents.length * 2000 + 2000);
 	});
 
@@ -108,10 +119,12 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 	});
 
 	registerWorldEventTracked("tea-time", "Tea Time", () => {
-		const idle = sys.needs.getAgentNames().filter((n) => sys.brain.getState(n)?.state === "idle");
+		const idle = sys.needs.getAgentNames().filter((n) => sys.blackboards.has(n) && sys.blackboards.get(n).intent === "idle");
 		const teaGroup = idle.slice(0, 3);
 		for (const name of teaGroup) {
-			sys.brain.walkTo(name, ctx.envObjects.coffeeMachine.getInteractionPoint());
+			const bb = sys.blackboards.get(name);
+			bb.movementCommand = "walk-to";
+			bb.movementTarget = ctx.envObjects.coffeeMachine.getInteractionPoint();
 			sys.bubble.showBubble(name, "thought", pickTemplate(TEA_TIME_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 		}
 	});
@@ -123,7 +136,7 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 	});
 
 	registerWorldEventTracked("eureka", "Eureka Moment", () => {
-		const working = sys.needs.getAgentNames().filter((n) => sys.brain.getState(n)?.state === "working");
+		const working = sys.needs.getAgentNames().filter((n) => sys.blackboards.has(n) && sys.blackboards.get(n).intent === "working");
 		if (working.length > 0) {
 			const agent = working[Math.floor(Math.random() * working.length)];
 			sys.bubble.showBubble(agent, "speech", pickTemplate(EUREKA_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
@@ -168,8 +181,10 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 	registerWorldEventTracked("new-pr", "New PR", () => {
 		const agents = sys.needs.getAgentNames();
 		const author = agents[Math.floor(Math.random() * agents.length)];
-		if (author) {
-			sys.brain.walkTo(author, ctx.envObjects.whiteboard.getInteractionPoint());
+		if (author && sys.blackboards.has(author)) {
+			const bb = sys.blackboards.get(author);
+			bb.movementCommand = "walk-to";
+			bb.movementTarget = ctx.envObjects.whiteboard.getInteractionPoint();
 			setTimeout(() => {
 				sys.bubble.showBubble(author, "thought", pickTemplate(NEW_PR_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 				sys.particlePool.spawnPreset("scribble", ctx.envObjects.whiteboard.pos.x, ctx.envObjects.whiteboard.pos.y);
@@ -237,8 +252,8 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 				sys.bubble.showBubble(nameB, "speech", resolveOpinions(pickTemplate(BICKER_TEMPLATES)), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 			}, 2000);
 		}
-		sys.brain.applyEvent(nameA, "speaking");
-		sys.brain.applyEvent(nameB, "speaking");
+		if (sys.blackboards.has(nameA)) sys.blackboards.get(nameA).intent = "talking";
+		if (sys.blackboards.has(nameB)) sys.blackboards.get(nameB).intent = "talking";
 
 		// Face each other
 		const actorA = ctx.lookups.findAgentActor(nameA);
@@ -272,8 +287,18 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 		}
 
 		setTimeout(() => {
-			sys.brain.applyEvent(nameA, "idle");
-			sys.brain.applyEvent(nameB, "idle");
+			if (sys.blackboards.has(nameA)) {
+				const bbA = sys.blackboards.get(nameA);
+				bbA.intent = "idle";
+				bbA.movementCommand = "none";
+				bbA.movementTarget = null;
+			}
+			if (sys.blackboards.has(nameB)) {
+				const bbB = sys.blackboards.get(nameB);
+				bbB.intent = "idle";
+				bbB.movementCommand = "none";
+				bbB.movementTarget = null;
+			}
 		}, 6000 + Math.random() * 2000);
 	});
 
@@ -296,14 +321,20 @@ function wireConversationEvents(ctx: EngineContext): () => void {
 			const moodAdj = mood === "neutral" ? "optimistic" : mood;
 			const text = interpolateTemplate(lines[i], { domain, mood_adj: moodAdj });
 
-			sys.brain.applyEvent(name, "speaking");
+			if (sys.blackboards.has(name)) sys.blackboards.get(name).intent = "talking";
 			setTimeout(() => {
 				sys.bubble.showBubble(name, "speech", text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
 			}, i * 1500);
 		});
 
 		setTimeout(() => {
-			for (const name of available) sys.brain.applyEvent(name, "idle");
+			for (const name of available) {
+				if (!sys.blackboards.has(name)) continue;
+				const bb = sys.blackboards.get(name);
+				bb.intent = "idle";
+				bb.movementCommand = "none";
+				bb.movementTarget = null;
+			}
 		}, speakCount * 1500 + 3000);
 	});
 
@@ -335,9 +366,11 @@ function wireEngagementEvents(ctx: EngineContext): () => void {
 	const { systems: sys } = ctx;
 	const cb = (e: EngagementEvent) => {
 		if (sys.registry.isInTransit(e.agentName)) return;
-		if (e.tier >= 2) {
+		if (e.tier >= 2 && sys.blackboards.has(e.agentName)) {
 			const cam = ctx.engine.currentScene.camera;
-			sys.brain.walkTo(e.agentName, { x: cam.pos.x - 50, y: cam.pos.y });
+			const bb = sys.blackboards.get(e.agentName);
+			bb.movementCommand = "walk-to";
+			bb.movementTarget = { x: cam.pos.x - 50, y: cam.pos.y };
 		}
 		sys.bubble.showBubble(e.agentName, e.bubbleKind, e.text, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 5000, true);
 	};
@@ -352,7 +385,9 @@ function wireRitualEvents(ctx: EngineContext): () => void {
 	const cb = (phase: RitualPhase) => {
 		if (phase.kind === "gather") {
 			for (const name of phase.participants) {
-				if (!sys.registry.isInTransit(name)) sys.brain.applyEvent(name, "speaking");
+				if (!sys.registry.isInTransit(name) && sys.blackboards.has(name)) {
+					sys.blackboards.get(name).intent = "talking";
+				}
 			}
 		}
 		if (phase.kind === "line") {
@@ -360,7 +395,12 @@ function wireRitualEvents(ctx: EngineContext): () => void {
 		}
 		if (phase.kind === "disperse") {
 			for (const name of phase.participants) {
-				sys.brain.applyEvent(name, "idle");
+				if (sys.blackboards.has(name)) {
+					const bb = sys.blackboards.get(name);
+					bb.intent = "idle";
+					bb.movementCommand = "none";
+					bb.movementTarget = null;
+				}
 				sys.needs.applyEffect(name, { social: 8, morale: 5 });
 			}
 		}
@@ -395,8 +435,35 @@ function wireProviderEvents(ctx: EngineContext): () => void {
 				setTimeout(() => state.recentActionIds.delete(action.id), ACTION_DEDUP_TTL);
 			}
 
-			// Transition brain state
-			sys.brain.applyEvent(action.agentName, action.type);
+			// Transition blackboard intent based on action type
+			if (sys.blackboards.has(action.agentName)) {
+				const bb = sys.blackboards.get(action.agentName);
+				switch (action.type) {
+					case "thinking":
+					case "using-tool":
+					case "task-started":
+						bb.intent = "working";
+						break;
+					case "speaking":
+					case "asking":
+						bb.intent = "talking";
+						break;
+					case "idle":
+					case "task-completed":
+						bb.intent = "idle";
+						bb.movementCommand = "none";
+						bb.movementTarget = null;
+						break;
+					case "queued":
+						bb.intent = "working";
+						break;
+					case "requesting-permission":
+						bb.intent = "waiting";
+						break;
+					default:
+						break;
+				}
+			}
 
 			// Silence talk engine and hide lightbulb when LLM responds
 			if (action.type === "speaking" || action.type === "asking") {
@@ -457,17 +524,26 @@ function wireProviderEvents(ctx: EngineContext): () => void {
 			}
 			ctx.store.setAgents([...ctx.store.agents, agentData]);
 			ctx.scenes.hub.updateAgents([...ctx.store.agents]);
-			sys.brain.register(agentData.name, {}, undefined, agentData.domain);
+			sys.blackboards.register(agentData.name);
 			state.knownEntities.add(entity.id);
 			sys.bubble.showBubble(entity.id, "speech", "Hello! I just arrived.", ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 		} else {
 			// Existing agent entity changed — only react if state actually changed
 			const statusComp = entity.components["status"];
-			if (typeof statusComp === "object" && statusComp !== null && "state" in statusComp) {
+			if (typeof statusComp === "object" && statusComp !== null && "state" in statusComp && sys.blackboards.has(entity.id)) {
 				const newState = (statusComp as { state: string }).state;
-				const currentState = sys.brain.getState(entity.id)?.state;
-				if (newState !== currentState) {
-					sys.brain.applyEvent(entity.id, newState as AgentAction["type"]);
+				const bb = sys.blackboards.get(entity.id);
+				const stateToIntent: Record<string, string> = {
+					"idle": "idle", "wandering": "idle", "walking-to": "seeking",
+					"working": "working", "talking": "talking", "waiting": "waiting", "on-break": "on-break",
+				};
+				const mappedIntent = stateToIntent[newState] ?? "idle";
+				if (mappedIntent !== bb.intent) {
+					bb.intent = mappedIntent as typeof bb.intent;
+					if (mappedIntent === "idle") {
+						bb.movementCommand = "none";
+						bb.movementTarget = null;
+					}
 				}
 			}
 		}
