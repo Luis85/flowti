@@ -9,7 +9,7 @@
  * fire emotes. Duration and cooldown limits prevent ritual spam.
  */
 
-import type { BrainState } from "../brain/brain-types.js";
+import type { AgentIntent } from "./blackboard.js";
 
 // ── RitualDefinition ──────────────────────────────────────────────────
 
@@ -218,7 +218,7 @@ export class RitualSystem {
 
 	// ── Update ────────────────────────────────────────────────────────
 
-	update(deltaMs: number, getBrainState: (name: string) => BrainState): void {
+	update(deltaMs: number, getAgentIntent: (name: string) => AgentIntent): void {
 		// Drain cooldowns
 		for (const [name, remaining] of this.cooldowns) {
 			const updated = remaining - deltaMs;
@@ -238,7 +238,7 @@ export class RitualSystem {
 			return;
 		}
 
-		this.advanceStep(deltaMs, getBrainState);
+		this.advanceStep(deltaMs, getAgentIntent);
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────
@@ -263,7 +263,7 @@ export class RitualSystem {
 		this.emit({ kind: "gather", participants });
 	}
 
-	private advanceStep(deltaMs: number, getBrainState: (name: string) => BrainState): void {
+	private advanceStep(deltaMs: number, getAgentIntent: (name: string) => AgentIntent): void {
 		const run = this.activeRun!;
 		const { ritual } = run;
 		const step = run.step;
@@ -351,8 +351,8 @@ export class RitualSystem {
 		if (p === "all") return allNames;
 
 		if (p === "idle") {
-			// Without getBrainState access at trigger time, return all registered
-			// The BrainState filter is applied during update; here we pre-select all
+			// Without getAgentIntent access at trigger time, return all registered
+			// The AgentIntent filter is applied during update; here we pre-select all
 			return allNames;
 		}
 

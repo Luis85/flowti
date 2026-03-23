@@ -30,6 +30,9 @@ export interface AgentNeeds {
 	thirst: number;
 }
 
+/** High-level agent intent — replaces the old BrainState union. */
+export type AgentIntent = "idle" | "working" | "talking" | "waiting" | "on-break" | "seeking";
+
 // ── Agent Blackboard ─────────────────────────────────────────────
 
 export interface AgentBlackboard {
@@ -38,7 +41,7 @@ export interface AgentBlackboard {
 	movementTarget: { x: number; y: number } | null;
 
 	// ── Written by BT, read by presentation ──────────
-	intent: "idle" | "working" | "talking" | "waiting" | "on-break" | "seeking";
+	intent: AgentIntent;
 	intentDetail: string;
 
 	// ── Written by locomotion, read by BT ────────────

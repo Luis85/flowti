@@ -3,7 +3,7 @@
  * Pure logic — no ExcaliburJS imports. Render adapter in main.ts.
  */
 
-import type { BrainState } from "../brain/brain-types.js";
+import type { AgentIntent } from "./blackboard.js";
 
 /** Maps mood strings to Ninja Adventure emote sprite indices (1-30). */
 export const MOOD_EMOTE_MAP: Record<string, number[]> = {
@@ -20,7 +20,7 @@ export const MOOD_EMOTE_MAP: Record<string, number[]> = {
 };
 
 const FALLBACK_EMOTES = [7];
-const IDLE_STATES: readonly BrainState[] = ["idle", "on-break", "waiting"];
+const IDLE_STATES: readonly AgentIntent[] = ["idle", "on-break", "waiting"];
 
 interface AgentEmoteEntry {
 	mood: string;
@@ -59,7 +59,7 @@ export class EmoteSystem {
 		if (entry) entry.mood = mood;
 	}
 
-	update(deltaMs: number, getState: (name: string) => BrainState): void {
+	update(deltaMs: number, getState: (name: string) => AgentIntent): void {
 		for (const [name, entry] of this.entries) {
 			entry.timer += deltaMs;
 			if (entry.timer < entry.cooldown) continue;

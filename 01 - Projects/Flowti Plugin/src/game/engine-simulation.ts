@@ -34,18 +34,17 @@ import {
 } from "./systems/talk/templates/index.js";
 import type { CascadeReaction } from "./systems/echo/cascade-resolver.js";
 import type { AgentBlackboard, AgentNeeds } from "./systems/blackboard.js";
-import type { BrainState } from "./brain/brain-types.js";
 
 // ── Blackboard helpers ────────────────────────────────────────────────
 
 /** Read agent intent from blackboard (replaces brain.getState). */
 function getIntent(ctx: EngineContext, name: string): AgentBlackboard["intent"] {
-	return ctx.systems.blackboards.has(name) ? ctx.systems.blackboards.get(name).intent : "idle";
+	return ctx.systems.blackboards.tryGet(name)?.intent ?? "idle";
 }
 
 /** Read agent position from blackboard (replaces brain.getPosition). */
 function getPosition(ctx: EngineContext, name: string): { x: number; y: number } | null {
-	return ctx.systems.blackboards.has(name) ? ctx.systems.blackboards.get(name).position : null;
+	return ctx.systems.blackboards.tryGet(name)?.position ?? null;
 }
 
 // ── Cascade queue — reactions enqueued by echo threshold crossings ────
@@ -741,7 +740,7 @@ export function tickSocial(ctx: EngineContext): void {
 	}
 
 	runTimedGameSystem(ctx, "ritual", () => {
-		sys.ritual.update(state.deltaMs, (name) => getIntent(ctx, name) as BrainState);
+		sys.ritual.update(state.deltaMs, (name) => getIntent(ctx, name));
 	});
 
 	runTimedGameSystem(ctx, "social", () => {
@@ -753,7 +752,7 @@ export function tickSocial(ctx: EngineContext): void {
 				const offset = ROOM_OFFSETS[room] ?? UNKNOWN_ROOM_OFFSET;
 				return { x: pos.x + offset, y: pos.y + offset };
 			},
-			(name) => getIntent(ctx, name) as BrainState,
+			(name) => getIntent(ctx, name),
 			(name) => sys.needs.getNeeds(name),
 		);
 	});
@@ -786,7 +785,7 @@ export function tickDirector(ctx: EngineContext): void {
 		state.deltaMs,
 		() => sys.director.getPresence(),
 		(name) => sys.needs.getNeeds(name),
-		(name) => getIntent(ctx, name) as BrainState,
+		(name) => getIntent(ctx, name),
 		(name) => sys.sensor.hasPendingReaction(name),
 	);
 
@@ -802,7 +801,7 @@ export function tickDirector(ctx: EngineContext): void {
 export function tickVisuals(ctx: EngineContext): void {
 	const { systems: sys, state } = ctx;
 	runTimedGameSystem(ctx, "emote", () => {
-		sys.emote.update(state.deltaMs, (name) => getIntent(ctx, name) as BrainState);
+		sys.emote.update(state.deltaMs, (name) => getIntent(ctx, name));
 	});
 
 	runTimedGameSystem(ctx, "particlePool", () => {

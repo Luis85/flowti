@@ -3,7 +3,7 @@
  * Pure logic — no ExcaliburJS imports. Render adapter in main.ts.
  */
 
-import type { BrainState } from "../brain/brain-types.js";
+import type { AgentIntent } from "./blackboard.js";
 import type { AgentNeeds } from "./needs-system.js";
 import { CONVERSATION_LINES } from "./social-conversation-lines.js";
 
@@ -20,7 +20,7 @@ interface SocialEntry extends SocialAgent {
 
 const PROXIMITY_THRESHOLD_MS = 4000;
 const PAIR_COOLDOWN_MS = 60000;
-const IDLE_STATES: readonly BrainState[] = ["idle", "on-break", "waiting"];
+const IDLE_STATES: readonly AgentIntent[] = ["idle", "on-break", "waiting"];
 
 const CLUSTER_THRESHOLD_MS = 6000;
 const CLUSTER_COOLDOWN_MS = 180000;
@@ -133,7 +133,7 @@ export class SocialSystem {
 	update(
 		deltaMs: number,
 		getPosition: (name: string) => { x: number; y: number },
-		getState: (name: string) => BrainState,
+		getState: (name: string) => AgentIntent,
 		getNeeds: (name: string) => AgentNeeds,
 	): void {
 		// Decrement pair cooldowns
@@ -216,7 +216,7 @@ export class SocialSystem {
 		deltaMs: number,
 		names: string[],
 		proximatePairs: Set<string>,
-		getState: (name: string) => BrainState,
+		getState: (name: string) => AgentIntent,
 		getNeeds: (name: string) => AgentNeeds,
 	): void {
 		const eligible = names.filter(

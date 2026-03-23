@@ -20,6 +20,9 @@ import { MONITOR_SUBTREE } from "./subtrees/goal-monitor.js";
 import { REPORT_SUBTREE } from "./subtrees/goal-report.js";
 import { SOCIAL_SUBTREE } from "./subtrees/social.js";
 import { IDLE_SUBTREE } from "./subtrees/idle.js";
+import { IDLE_WANDER_SUBTREE } from "./subtrees/idle-wander.js";
+import { BREAK_ROUTINE_SUBTREE } from "./subtrees/break-routine.js";
+import { TALKING_TIMEOUT_SUBTREE } from "./subtrees/talking-timeout.js";
 import { NEEDS_ENERGY_SUBTREE } from "./subtrees/needs-energy.js";
 import { NEEDS_HUNGER_SUBTREE } from "./subtrees/needs-hunger.js";
 import { NEEDS_THIRST_SUBTREE } from "./subtrees/needs-thirst.js";
@@ -51,6 +54,8 @@ function buildMasterMDSL(): string {
 	return `root {
 	selector {
 		branch [UrgentReaction]
+		branch [TalkingTimeout]
+		branch [BreakRoutine]
 		branch [NeedsEnergy]
 		branch [NeedsHunger]
 		branch [NeedsThirst]
@@ -77,6 +82,7 @@ function buildMasterMDSL(): string {
 		branch [InteractionIntent]
 		branch [SocialBehavior]
 		branch [IdleBehavior]
+		branch [IdleWander]
 	}
 }`;
 }
@@ -103,6 +109,9 @@ function collectSubtrees(): string {
 		INTERACTION_SUBTREE,
 		SOCIAL_SUBTREE,
 		IDLE_SUBTREE,
+		IDLE_WANDER_SUBTREE,
+		BREAK_ROUTINE_SUBTREE,
+		TALKING_TIMEOUT_SUBTREE,
 	].join("\n\n");
 }
 
