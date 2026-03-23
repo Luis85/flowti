@@ -14,6 +14,7 @@ export interface Particle {
 	opacity: number;
 	startOpacity: number;
 	radius: number;
+	sprite?: string;
 }
 
 export interface SpawnOpts {
@@ -45,6 +46,26 @@ const PRESET_CONFIGS: Record<ParticlePreset, { count: number; colorRange: string
 	"fireplace-sparks": { count: 1, colorRange: ["rgba(255,180,50,0.5)", "rgba(255,120,30,0.4)"], lifetime: 1500, speed: 15, radius: 0.5, spread: 0.4 },
 };
 
+// ── Sprite-based particle presets ────────────────────────────────
+
+export type SpritePreset = "sprite-sparkle" | "sprite-smoke" | "sprite-heart" | "sprite-aura" | "sprite-leaf";
+
+const SPRITE_PRESET_CONFIGS: Record<SpritePreset, {
+	readonly count: number;
+	readonly lifetime: number;
+	readonly speed: number;
+	readonly spread: number;
+	readonly sprite: string;
+}> = {
+	"sprite-sparkle": { count: 6, lifetime: 500, speed: 30, spread: 15, sprite: "assets/FX/Magic/Spark/SpriteSheet.png" },
+	"sprite-smoke": { count: 3, lifetime: 300, speed: 10, spread: 10, sprite: "assets/FX/Smoke/SpriteSheet.png" },
+	"sprite-heart": { count: 2, lifetime: 600, speed: 15, spread: 12, sprite: "assets/Items/Potion/Heart.png" },
+	"sprite-aura": { count: 1, lifetime: 800, speed: 0, spread: 0, sprite: "assets/FX/Magic/Aura/SpriteSheet.png" },
+	"sprite-leaf": { count: 4, lifetime: 500, speed: 20, spread: 20, sprite: "assets/FX/Particle/Leaf.png" },
+};
+
+const MAX_SPRITE_PARTICLES = 30;
+
 const DUST_COUNT_MIN = 4;
 const DUST_COUNT_MAX = 6;
 const DUST_SPEED_MIN = 30;
@@ -57,6 +78,7 @@ const TRAIL_OPACITY_WALK = 0.6;
 export class ParticlePool {
 	private readonly particles: Particle[] = [];
 	private readonly maxSize: number;
+	private spriteParticleCount = 0;
 
 	constructor(maxSize = 400) {
 		this.maxSize = maxSize;
@@ -128,12 +150,39 @@ export class ParticlePool {
 		}
 	}
 
+	/** Spawn a burst of sprite-based particles at a position. */
+	spriteBurst(opts: { preset: SpritePreset; x: number; y: number }): void {
+		const config = SPRITE_PRESET_CONFIGS[opts.preset];
+		if (!config) return;
+		const toSpawn = Math.min(config.count, MAX_SPRITE_PARTICLES - this.spriteParticleCount);
+		for (let i = 0; i < toSpawn; i++) {
+			const angle = (Math.PI * 2 * i) / config.count;
+			const ox = Math.cos(angle) * config.spread * Math.random();
+			const oy = Math.sin(angle) * config.spread * Math.random();
+			this.particles.push({
+				x: opts.x + ox,
+				y: opts.y + oy,
+				vx: Math.cos(angle) * config.speed,
+				vy: Math.sin(angle) * config.speed - 10,
+				lifetime: config.lifetime,
+				age: 0,
+				opacity: 1,
+				startOpacity: 1,
+				color: "#ffffff",
+				radius: 3,
+				sprite: config.sprite,
+			});
+			this.spriteParticleCount++;
+		}
+	}
+
 	update(deltaMs: number): void {
 		const deltaSec = deltaMs / 1000;
 		for (let i = this.particles.length - 1; i >= 0; i--) {
 			const p = this.particles[i];
 			p.age += deltaMs;
 			if (p.age >= p.lifetime) {
+				if (p.sprite) this.spriteParticleCount--;
 				this.particles.splice(i, 1);
 				continue;
 			}
