@@ -28,9 +28,7 @@ export class IntentIconActor extends ex.Actor {
 
 	/** Apply a pre-loaded sprite to this actor. Called by render adapter. */
 	applySprite(sprite: ex.Sprite): void {
-		const scaled = sprite.clone();
-		scaled.scale = ex.vec(0.5, 0.5);
-		this.graphics.use(scaled);
+		this.graphics.use(sprite.clone());
 	}
 
 	/** Advance the bob animation. Called each frame by the render adapter. */

@@ -21,9 +21,7 @@ export class ItemPopActor extends ex.Actor {
 
 	/** Apply a pre-loaded sprite. Called by render adapter before play(). */
 	applySprite(sprite: ex.Sprite): void {
-		const scaled = sprite.clone();
-		scaled.scale = ex.vec(0.5, 0.5);
-		this.graphics.use(scaled);
+		this.graphics.use(sprite.clone());
 	}
 
 	/** Start the float-up-and-fade animation. Self-destructs on completion. */

@@ -222,12 +222,31 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
 
 	// ── Visual Feedback system ───────────────────────
+	// Lazy sprite cache — loads on first use, caches for subsequent calls
+	const vfSpriteCache = new Map<string, ex.Sprite>();
+	const vfSpriteLoading = new Set<string>();
+	function getOrLoadSprite(path: string, cb: (sprite: ex.Sprite) => void): void {
+		const cached = vfSpriteCache.get(path);
+		if (cached) { cb(cached); return; }
+		if (vfSpriteLoading.has(path)) return; // already loading
+		vfSpriteLoading.add(path);
+		const source = new ex.ImageSource(`${spriteBasePath}/${path}`);
+		source.load().then(() => {
+			const sprite = source.toSprite();
+			sprite.scale = ex.vec(0.5, 0.5);
+			vfSpriteCache.set(path, sprite);
+			vfSpriteLoading.delete(path);
+			cb(sprite);
+		}).catch(() => { vfSpriteLoading.delete(path); });
+	}
+
 	const visualFeedbackSystem = new VisualFeedbackSystem({
 		onShowIntentIcon: (agentName, spritePath, _pos) => {
 			const actor = findAgentActor(agentName);
 			if (!actor) return;
 			const icon = new IntentIconActor(spritePath);
 			actor.addChild(icon);
+			getOrLoadSprite(spritePath, (sprite) => icon.applySprite(sprite));
 			icon.fadeIn();
 		},
 		onHideIntentIcon: (agentName) => {
@@ -241,6 +260,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 		onItemPop: (_agentName, spritePath, fromPos) => {
 			const pop = new ItemPopActor(spritePath, fromPos.x, fromPos.y);
+			getOrLoadSprite(spritePath, (sprite) => pop.applySprite(sprite));
 			engine.currentScene.add(pop);
 			pop.play();
 		},
