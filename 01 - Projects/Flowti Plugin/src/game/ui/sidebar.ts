@@ -232,7 +232,7 @@ export class GameSidebar extends FlowtiElement {
 				class="council-slot"
 				@click=${() => this.handleCouncilClick(agent)}
 			>
-				${renderPortrait(agent.name, agent.domain ?? "fallback", 40, agent.trustTier)}
+				${renderPortrait(agent.name, agent.domain ?? "fallback", 40, agent.trustTier, this.store?.spriteBasePath)}
 			</div>
 		`;
 	}

@@ -27,6 +27,18 @@ describe("portraitSrc", () => {
 			"assets/Actor/Characters/SorcererBlack/Faceset.png",
 		);
 	});
+
+	it("prefixes plugin resource URL when provided", () => {
+		expect(portraitSrc("NinjaBlue", "app://obsidian.md/.obsidian/plugins/flowti-ibde")).toBe(
+			"app://obsidian.md/.obsidian/plugins/flowti-ibde/assets/Actor/Characters/NinjaBlue/Faceset.png",
+		);
+	});
+
+	it("strips trailing slash from plugin base", () => {
+		expect(portraitSrc("Samurai", "app://x/plugin/")).toBe(
+			"app://x/plugin/assets/Actor/Characters/Samurai/Faceset.png",
+		);
+	});
 });
 
 describe("fallbackInitial", () => {
@@ -66,6 +78,14 @@ describe("renderPortrait", () => {
 		};
 		const imgSrc = result.values.find(v => typeof v === "string" && v.includes("Faceset.png"));
 		expect(imgSrc).toBeDefined();
+	});
+
+	it("prefixes Faceset src with plugin base when passed", () => {
+		const result = renderPortrait("Atlas", "engineering", 48, undefined, "app://p/root") as {
+			values: unknown[];
+		};
+		const imgSrc = result.values.find(v => typeof v === "string" && v.includes("Faceset.png")) as string;
+		expect(imgSrc).toContain("app://p/root/assets/Actor/Characters/");
 	});
 
 	it("includes agent name as alt text", () => {

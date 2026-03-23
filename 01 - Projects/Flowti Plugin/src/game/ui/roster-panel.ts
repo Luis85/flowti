@@ -332,7 +332,7 @@ export class RosterPanel extends FlowtiElement {
 				@dragleave=${(e: DragEvent) => this.handleDragLeave(e)}
 				@drop=${(e: DragEvent) => this.handleDrop(index, e)}
 			>
-				${renderPortrait(agent.name, agent.domain ?? "fallback", 48, agent.trustTier)}
+				${renderPortrait(agent.name, agent.domain ?? "fallback", 48, agent.trustTier, this.store?.spriteBasePath)}
 				<span class="council-name">${agent.name}</span>
 				<button
 					class="remove-btn"
@@ -360,7 +360,7 @@ export class RosterPanel extends FlowtiElement {
 
 		return html`
 			<div class="agent-row" @click=${() => this.handleAgentClick(agent)}>
-				${renderPortrait(agent.name, agent.domain ?? "fallback", 32)}
+				${renderPortrait(agent.name, agent.domain ?? "fallback", 32, undefined, this.store?.spriteBasePath)}
 				<div class="agent-info">
 					<div class="agent-row-name">${agent.name}</div>
 					<span class="domain-badge">${agent.domain ?? "general"}</span>

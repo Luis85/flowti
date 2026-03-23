@@ -104,6 +104,12 @@ export class DashboardStore extends EventTarget {
 	council: string[] = [];
 	btTreeState: Map<string, BTTreeSnapshot> = new Map();
 
+	/**
+	 * Obsidian plugin root URL (via {@link VaultAdapter.getResourcePath}), no trailing slash.
+	 * Used so Lit `<img>` portraits resolve under the plugin like Excalibur sprite paths.
+	 */
+	spriteBasePath = "";
+
 	setAgentNeeds(name: string, needs: AgentNeeds): void { this.agentNeeds.set(name, needs); }
 	getAgentNeeds(name: string): AgentNeeds | undefined { return this.agentNeeds.get(name); }
 
