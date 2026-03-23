@@ -227,25 +227,40 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 
 function findNearestUnoccupiedStation(ctx: EngineContext, agentName: string, candidates: InteractableActor[]): { x: number; y: number } | null {
 	const agentRoom = ctx.systems.registry.getEntityRoom(agentName);
+	let agentPos: { x: number; y: number } | null = null;
+
+	// Find agent position from any room they're in
 	for (const room of Object.values(ctx.scenes.map)) {
 		const actor = room.getAgentActor(agentName);
-		if (!actor) continue;
-		let nearest: { x: number; y: number } | null = null;
-		let minDist = Infinity;
-		for (const station of candidates) {
-			if (!station || station.isOccupied()) continue;
-			// Only consider stations in the agent's current room
-			const stationRoom = ctx.systems.registry.getObjectRoom(station.objectId);
-			if (stationRoom && stationRoom !== agentRoom) continue;
-			const point = station.getInteractionPoint();
-			const dx = point.x - actor.pos.x;
-			const dy = point.y - actor.pos.y;
-			const dist = dx * dx + dy * dy;
-			if (dist < minDist) { minDist = dist; nearest = point; }
-		}
-		return nearest;
+		if (actor) { agentPos = { x: actor.pos.x, y: actor.pos.y }; break; }
 	}
-	return null;
+	if (!agentPos) return null;
+
+	// First pass: prefer stations in the agent's current room
+	let nearest: { x: number; y: number } | null = null;
+	let minDist = Infinity;
+	for (const station of candidates) {
+		if (!station || station.isOccupied()) continue;
+		const stationRoom = ctx.systems.registry.getObjectRoom(station.objectId);
+		if (stationRoom && stationRoom !== agentRoom) continue;
+		const point = station.getInteractionPoint();
+		const dx = point.x - agentPos.x;
+		const dy = point.y - agentPos.y;
+		const dist = dx * dx + dy * dy;
+		if (dist < minDist) { minDist = dist; nearest = point; }
+	}
+	if (nearest) return nearest;
+
+	// Second pass: fall back to any unoccupied station in any room
+	for (const station of candidates) {
+		if (!station || station.isOccupied()) continue;
+		const point = station.getInteractionPoint();
+		const dx = point.x - agentPos.x;
+		const dy = point.y - agentPos.y;
+		const dist = dx * dx + dy * dy;
+		if (dist < minDist) { minDist = dist; nearest = point; }
+	}
+	return nearest;
 }
 
 // ── 3. tickNeeds — decay/restore needs + mood propagation ────────────

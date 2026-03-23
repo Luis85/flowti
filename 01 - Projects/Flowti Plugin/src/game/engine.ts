@@ -233,7 +233,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		const source = new ex.ImageSource(`${spriteBasePath}/${path}`);
 		source.load().then(() => {
 			const sprite = source.toSprite();
-			sprite.scale = ex.vec(0.5, 0.5);
+			sprite.scale = ex.vec(1.5, 1.5);
 			vfSpriteCache.set(path, sprite);
 			vfSpriteLoading.delete(path);
 			cb(sprite);

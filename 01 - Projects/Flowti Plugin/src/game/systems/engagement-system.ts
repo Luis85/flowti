@@ -211,7 +211,7 @@ export class EngagementSystem {
 	private buildEvent(tier: number, agentName: string, domain: string): EngagementEvent {
 		const templates = tier >= 3 ? TIER3_TEMPLATES : tier === 2 ? TIER2_TEMPLATES : TIER1_TEMPLATES;
 		const template = templates[Math.floor(Math.random() * templates.length)];
-		const text = interpolateTemplate(template.text, { domain, task: "current task", ...this.context });
+		const text = interpolateTemplate(template.text, { domain, task: "current task", mood_adj: "focused", ...this.context });
 
 		const bubbleKind: "thought" | "speech" = tier === 1 ? "thought" : "speech";
 
