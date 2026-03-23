@@ -4,20 +4,17 @@
  * Extracted from bt-agent.ts to keep that file within the line-count limit.
  * All functions receive the agent context and deps by closure from createBTAgent.
  *
- * Seek actions call `deps.brain?.applyEvent()` directly rather than relying
- * on the worldState bridge. The bridge whitelist only forwards intent actions
- * (thinking, speaking, etc.); seek actions bypass it to avoid double-calls.
- * See `engine-systems-init.ts` BT_INTENT_ACTIONS for the whitelist.
+ * Actions write to the blackboard (via deps.blackboard) — no collect(), no
+ * brain bridge. The blackboard is the single data bus between BT and all
+ * other systems.
  */
 
 import { fromNodeState, type State } from "./bt-service.js";
-import type { AgentToolDeps, BTAgentContext, CollectedAction } from "./bt-types.js";
+import type { AgentToolDeps, BTAgentContext } from "./bt-types.js";
 import { getPreferredFoodStation, getPreferredDrinkStation } from "../../data/food-preferences.js";
 
 export interface BTAgentExtensionDeps {
 	context: BTAgentContext;
-	collectedActions: CollectedAction[];
-	collect: (type: string, data?: Record<string, unknown>) => void;
 	deps: AgentToolDeps;
 }
 
@@ -41,23 +38,29 @@ export function HasJourneyTask(_ctx: BTAgentContext): boolean {
 // ── Hunger/thirst actions ─────────────────────────────────────────────
 
 export function SeekFoodStation(ext: BTAgentExtensionDeps): State {
-	ext.collect("seek-food");
-	ext.deps.brain?.applyEvent(ext.context.name, "seek-food");
+	const bb = ext.deps.blackboard;
+	bb.intent = "seeking";
+	bb.intentDetail = "seek-food";
+	bb.movementCommand = "walk-to";
+	bb.movementTarget = bb.nearestFoodStation;
 	return fromNodeState("succeeded");
 }
 
 export function SeekDrinkStation(ext: BTAgentExtensionDeps): State {
-	ext.collect("seek-drink");
-	ext.deps.brain?.applyEvent(ext.context.name, "seek-drink");
+	const bb = ext.deps.blackboard;
+	bb.intent = "seeking";
+	bb.intentDetail = "seek-drink";
+	bb.movementCommand = "walk-to";
+	bb.movementTarget = bb.nearestDrinkStation;
 	return fromNodeState("succeeded");
 }
 
-export function Eat(ctx: BTAgentContext, _collect: (type: string, data?: Record<string, unknown>) => void): State {
+export function Eat(ctx: BTAgentContext): State {
 	ctx.needs.hunger = Math.min(100, ctx.needs.hunger + 30);
 	return fromNodeState("succeeded");
 }
 
-export function Drink(ctx: BTAgentContext, _collect: (type: string, data?: Record<string, unknown>) => void): State {
+export function Drink(ctx: BTAgentContext): State {
 	ctx.needs.thirst = Math.min(100, ctx.needs.thirst + 30);
 	return fromNodeState("succeeded");
 }
@@ -77,16 +80,22 @@ export function HasPreferredDrinkStation(ctx: BTAgentContext): boolean {
 export function SeekPreferredFoodStation(ext: BTAgentExtensionDeps): State {
 	const station = getPreferredFoodStation(ext.context.quirks);
 	if (!station) return fromNodeState("failed");
-	ext.collect("seek-preferred-food", { station });
-	ext.deps.brain?.applyEvent(ext.context.name, "seek-food");
+	const bb = ext.deps.blackboard;
+	bb.intent = "seeking";
+	bb.intentDetail = `seek-preferred-food:${station}`;
+	bb.movementCommand = "walk-to";
+	bb.movementTarget = bb.nearestFoodStation;
 	return fromNodeState("succeeded");
 }
 
 export function SeekPreferredDrinkStation(ext: BTAgentExtensionDeps): State {
 	const station = getPreferredDrinkStation(ext.context.quirks);
 	if (!station) return fromNodeState("failed");
-	ext.collect("seek-preferred-drink", { station });
-	ext.deps.brain?.applyEvent(ext.context.name, "seek-drink");
+	const bb = ext.deps.blackboard;
+	bb.intent = "seeking";
+	bb.intentDetail = `seek-preferred-drink:${station}`;
+	bb.movementCommand = "walk-to";
+	bb.movementTarget = bb.nearestDrinkStation;
 	return fromNodeState("succeeded");
 }
 
@@ -102,7 +111,6 @@ export function ExecuteJourney(): State {
 const MERCHANT_MIN_LEVEL = 5;
 const TRUSTED_TIERS: ReadonlySet<string> = new Set(["trusted", "autonomous"]);
 
-/** Agent must be level 5+ and have "trusted" or "autonomous" trust tier. */
 export function IsMerchantEligible(
 	ctx: BTAgentContext,
 	trustTier: string | undefined,
@@ -111,7 +119,6 @@ export function IsMerchantEligible(
 	return TRUSTED_TIERS.has(trustTier ?? "supervised");
 }
 
-/** Ensures only one merchant visit per day cycle. */
 export function HasNotVisitedMerchantThisCycle(
 	ctx: BTAgentContext,
 	getCycleCount: () => number,
@@ -119,7 +126,6 @@ export function HasNotVisitedMerchantThisCycle(
 	return ctx.lastMerchantVisitCycle < getCycleCount();
 }
 
-/** Delegates to MerchantSystem.shouldAutoPurchase via the merchant bridge. */
 export function HasAutoPurchaseAvailable(ext: BTAgentExtensionDeps): boolean {
 	if (!ext.deps.merchant) return false;
 	return ext.deps.merchant.shouldAutoPurchase(ext.context.name);
@@ -128,13 +134,16 @@ export function HasAutoPurchaseAvailable(ext: BTAgentExtensionDeps): boolean {
 // ── Merchant actions ─────────────────────────────────────────────────
 
 export function SeekMerchantStall(ext: BTAgentExtensionDeps): State {
-	ext.collect("seek-merchant");
-	ext.deps.brain?.applyEvent(ext.context.name, "seek-merchant");
+	const bb = ext.deps.blackboard;
+	bb.intent = "seeking";
+	bb.intentDetail = "seek-merchant";
+	bb.movementCommand = "walk-to";
+	bb.movementTarget = null; // merchant stall position resolved by sensor phase
 	return fromNodeState("succeeded");
 }
 
 export function BrowseMerchant(ext: BTAgentExtensionDeps): State {
-	ext.collect("browsing-merchant", {});
+	ext.deps.blackboard.intentDetail = "browsing-merchant";
 	return fromNodeState("succeeded");
 }
 
@@ -144,15 +153,7 @@ export function ExecuteMerchantPurchase(ext: BTAgentExtensionDeps): State {
 	const item = ext.deps.merchant.getAutoPurchaseItem(ext.context.name);
 	if (!item) return fromNodeState("failed");
 
-	// Fire-and-forget async purchase — BT actions are synchronous, so we
-	// collect the action immediately and let the purchase resolve in the
-	// background (same pattern as QueryLLM fire-and-poll but simpler since
-	// we don't need to wait for a result to continue).
 	void ext.deps.merchant.purchase(ext.context.name, item.id);
-
-	ext.collect("merchant-purchase", { itemId: item.id, itemName: item.name });
-
-	// Mark this cycle as visited so the subtree won't re-trigger
 	ext.context.lastMerchantVisitCycle = ext.deps.merchant.getCycleCount();
 
 	return fromNodeState("succeeded");
