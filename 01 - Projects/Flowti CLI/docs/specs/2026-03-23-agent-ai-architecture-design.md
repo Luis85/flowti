@@ -67,6 +67,8 @@ interface AgentBlackboard {
     wanderHint: { x: number; y: number } | null;
     cascadeHint: string | null;   // "seek-proximity" | "force-break" | null
     cascadeTarget: { x: number; y: number } | null;
+    roomAvoidance: string | null; // room ID to avoid (echo aversion)
+    breakThresholdBias: number;   // echo mood-residue weight, lowers break threshold
 
     // ── Written by BT, read by presentation ──────────
     speechRequest: { text: string; kind: BubbleKind } | null;
@@ -91,7 +93,6 @@ Attached to `AgentActor`. Excalibur owns their lifecycle.
 
 ```typescript
 class MovementComponent extends ex.Component {
-    type = "movement";
     command: "none" | "walk-to" | "wander" = "none";
     target: { x: number; y: number } | null = null;
     arrived = false;
@@ -104,13 +105,14 @@ class MovementComponent extends ex.Component {
 
 ```typescript
 class IntentComponent extends ex.Component {
-    type = "intent";
     intent: string = "idle";
     detail?: string;
     idlePose: string = "idle";
     idlePoseTimer = 0;
 }
 ```
+
+Note: Modern Excalibur queries components by constructor (`world.query([MovementComponent])`), not by a `type` string. No `type` property is needed.
 
 File: `src/game/components/agent-components.ts`
 
@@ -264,29 +266,55 @@ function tickPresentation(ctx: EngineContext): void {
 
 ## Engine Simulation Restructure
 
-`engine-simulation.ts` simplifies from 12 entangled tick functions to 6 clean phases:
+The current 12 entangled tick functions are reorganized into a clear pipeline. The brain/BT pipeline is replaced by the blackboard + locomotion pattern. All other systems (room transit, interactions, social, director, visuals) remain as explicit phases in the correct order.
+
+### Locomotion: Manual Call, Not Excalibur System
+
+`tickSimulation` runs entirely inside the `preframe` event handler — BEFORE Excalibur's own system update loop. To keep push/pull timing simple, LocomotionSystem is called manually within the simulation loop rather than registered as an Excalibur `System`. Components still live on actors (ECS data model), but the processing is explicit.
 
 ```typescript
 export function tickSimulation(ctx: EngineContext): void {
-    tickClock(ctx);              // Day cycle, world events, cycle boundary
-    tickNeeds(ctx);              // Decay/restore needs based on intent
-    tickSensors(ctx);            // Write sensor data to blackboards
-    tickBehaviorTree(ctx);       // BT reads blackboard, writes intent + commands
-    ctx.blackboards.push();      // Sync blackboard → ECS components
-    // — Excalibur update runs LocomotionSystem here (per-frame) —
-    ctx.blackboards.pull();      // Sync ECS components → blackboard
-    tickPresentation(ctx);       // Talk, bubbles, emotes, particles, camera
+    // ── World time ───────────────────────────────────
+    tickClock(ctx);                // Day cycle, world events, cycle boundary
+
+    // ── Sensors (write to blackboard) ────────────────
+    tickNeeds(ctx);                // Decay/restore needs, mood propagation
+    tickSensorCooldowns(ctx);      // Existing SensorSystem cooldowns + queued feedback
+    tickSensors(ctx);              // NEW: write needs, nearby, stations, echo hints to blackboard
+
+    // ── Decisions (BT reads/writes blackboard) ───────
+    tickPets(ctx);                 // Pet BT + behavior (writes to PetBlackboard)
+    tickBehaviorTree(ctx);         // Agent BT reads blackboard, writes intent + commands
+
+    // ── Execution (blackboard → components → movement) ─
+    ctx.blackboards.push();        // Sync blackboard → MovementComponent + IntentComponent
+    tickLocomotion(ctx);           // Walk toward target, arrival, separation, social facing
+    ctx.blackboards.pull();        // Sync arrived/position → blackboard
+
+    // ── World systems (read intent/position) ─────────
+    tickRoomTransit(ctx);          // Room switcher — transfers between scenes
+    tickInteractions(ctx);         // Interaction bus — affinity, need effects, memory
+    tickSocial(ctx);               // Cascade queue, ritual, social proximity, gossip, conversation
+
+    // ── Presentation (read intent, show effects) ─────
+    tickDirector(ctx);             // Director presence, engagement, tool executor
+    tickPresentation(ctx);         // Talk engine, bubbles, reactive triggers, emotes, particles, camera
 }
 ```
 
-Note: Excalibur's own system update (which runs LocomotionSystem) happens between `push()` and `pull()` — this is handled by the engine's update cycle, not by our tick function. The `push()` call prepares components before Excalibur processes them, and `pull()` reads back results after.
+This is 13 explicit phases grouped into 5 stages. Each stage has clear data dependencies:
+- **Sensors** write to blackboard (no reads from downstream systems)
+- **Decisions** read blackboard, write intent/commands
+- **Execution** reads commands, writes physical state
+- **World systems** read intent/position, apply effects
+- **Presentation** reads intent, produces visuals
 
 ### What Gets Deleted
 
 | Current File/Function | Disposition |
 |----------------------|-------------|
-| `brain-system.ts` | **Deleted** — movement → LocomotionSystem, decisions → BT, state → blackboard |
-| `agent-brain.ts` | **Deleted** — TRANSITIONS table, computeParams, computeHabits absorbed into blackboard init + BT |
+| `brain-system.ts` | **Deleted** — movement → locomotion-system.ts, decisions → BT, state → blackboard |
+| `agent-brain.ts` | **Deleted** — TRANSITIONS table, computeParams, computeHabits absorbed into blackboard init + locomotion config |
 | `brain-types.ts` | **Deleted** — BrainState, BrainEvent, BrainResult replaced by blackboard + component types |
 | `engine-systems-init.ts` createBtBridges | **Deleted** — no bridge needed, BT writes to blackboard directly |
 | `processThresholds()` | **Deleted** — BT needs subtrees handle all thresholds |
@@ -295,31 +323,79 @@ Note: Excalibur's own system update (which runs LocomotionSystem) happens betwee
 | `collect()` / `collectedActions` | **Deleted** — BT writes to blackboard directly |
 | `worldState.emitAction()` bridge | **Deleted** — no bridge |
 | `tickBehaviorThresholds()` | **Deleted** — absorbed into tickSensors + BT |
-| `tickReactiveTriggers()` | **Moved** — into tickPresentation (cosmetic bubbles only) |
-| 12 tick functions | **Replaced** — by 6 clean phases |
 
 ### What Gets Created
 
 | New File | Purpose |
 |----------|---------|
-| `src/game/systems/blackboard.ts` | AgentBlackboard, BlackboardManager |
-| `src/game/components/agent-components.ts` | MovementComponent, IntentComponent |
-| `src/game/systems/locomotion-system.ts` | Excalibur System for per-frame movement |
-| `src/game/systems/sensor-phase.ts` | Per-frame sensor data gathering |
+| `src/game/systems/blackboard.ts` | AgentBlackboard, PetBlackboard, BlackboardManager |
+| `src/game/components/agent-components.ts` | MovementComponent, IntentComponent (ECS data, manual processing) |
+| `src/game/systems/locomotion-system.ts` | Per-frame movement, arrival, separation, social facing, idle pose cycling |
+| `src/game/systems/sensor-phase.ts` | Per-frame sensor data gathering (needs, nearby, stations, echo hints) |
 | `src/game/brain/behavior-tree/subtrees/idle-wander.ts` | BT idle timer + wander command |
 | `src/game/brain/behavior-tree/subtrees/break-routine.ts` | BT break management |
 
-### What Stays Unchanged
+### What Stays Unchanged (with update call location)
 
-| System | Why |
-|--------|-----|
-| `NeedsSystem` | Already a clean sensor — reads brain state (now reads intent from blackboard), writes needs |
-| `TalkEngine` | Already reads `isIdle` — now reads `IntentComponent.intent === "idle"` |
-| `EchoStore` / `EchoProducer` | Fully decoupled — writes to blackboard via sensor phase |
-| `BubbleSystem` | Already a presentation system — reads speech requests |
-| `RelationshipSystem` | Reads conversations, writes tiers — no brain dependency |
-| `BtSystem` core | Tree evaluation unchanged — only the action interface (collect → blackboard) changes |
-| `ConversationEngine` | Drives dialogue scripts — reads intent, no brain dependency |
+| System | Phase | Change |
+|--------|-------|--------|
+| `NeedsSystem` | tickNeeds | Reads `intent` from blackboard instead of brain state |
+| `SensorSystem` (cooldowns) | tickSensorCooldowns | No change — existing cooldown/feedback system |
+| `TalkEngine` | tickPresentation | Reads `IntentComponent.intent === "idle"` instead of brain state |
+| `EchoStore` / `EchoProducer` | tickSensors (read), tickSocial (write) | Echo hints written to blackboard via sensor phase |
+| `BubbleSystem` | tickPresentation | Reads speech requests from blackboard |
+| `RelationshipSystem` | tickInteractions / tickSocial | No brain dependency |
+| `ConversationEngine` | tickSocial | No brain dependency |
+| `RoomSwitcher` | tickRoomTransit | No change |
+| `DirectorSystem` | tickDirector | No change |
+| `EngagementSystem` | tickDirector | No change |
+| `ToolExecutor` | tickDirector | No change |
+| `RitualSystem` | tickSocial | No change |
+| `SocialSystem` | tickSocial | Reads position from blackboard instead of brain |
+| `MemorySystem` | tickClock (cycle boundary) | No brain dependency |
+| `QuirkSystem` | tickSensors (quirk overrides feed personality params) | Quirk overrides applied to blackboard init, not brain params |
+| `CameraSystem` | tickPresentation | No change |
+| `EmoteSystem` | tickPresentation | Reads intent from blackboard |
+| `ParticlePool` | tickPresentation | No change |
+| `BtSystem` core | tickBehaviorTree | Action interface changes (collect → blackboard), tree evaluation unchanged |
+
+### Workstation Lifecycle
+
+Currently `assignWork`/`releaseWork` runs through brain system callbacks (`onWorkstationChange`). After migration:
+
+1. BT writes `intent: "working"` + `movementCommand: "walk-to"` + `movementTarget: workstation` to blackboard
+2. Locomotion walks agent to workstation, sets `arrived = true`
+3. BT detects arrival, writes `intent: "working"` (agent is at desk)
+4. BlackboardManager's push detects `intent === "working"` transition → fires `onWorkstationOccupy(name, position)` callback
+5. On intent leaving "working" → fires `onWorkstationVacate(name, position)` callback
+
+The occupy/vacate callbacks move from BrainSystem to BlackboardManager. Same scene-level effects (workstation glow, actor seated pose), different trigger point.
+
+### CLI Brain Bridge
+
+The current `wireCliBrainBridge` in engine-simulation.ts dispatches CLI-originated events to `brainSystem.applyEvent()`. After migration, it writes to the blackboard:
+
+```typescript
+// Old: wireCliBrainBridge → brainSystem.applyEvent(name, type)
+// New: wireCliBrainBridge → blackboard.get(name).intent = mapCliEventToIntent(type)
+```
+
+CLI events (`task-started`, `task-completed`, `thinking`, `speaking`, etc.) map directly to blackboard intent values.
+
+### Store / Postframe Adapter
+
+The postframe handler currently reads `brain.getAllEntries()` and `brain.getState()` to push positions/states to the DashboardStore. After migration, it reads from the BlackboardManager:
+
+```typescript
+// Old: brain.getAllEntries() → { state, position, ... }
+// New: blackboards.getAll() → { intent, position, isMoving, ... }
+```
+
+BlackboardManager exposes `getAll(): ReadonlyMap<string, AgentBlackboard>` for the store adapter.
+
+### Performance Instrumentation
+
+The current per-phase and per-agent perf sampling (`runTimedPhase`, `runTimedGameSystem`, `runAgentSlice`, `perfSampler`) carries over to the new phases. Each of the 13 phases gets its own timing label. Per-agent slicing applies within tickBehaviorTree, tickLocomotion, and tickSensors.
 
 ## Needs System Adaptation
 
