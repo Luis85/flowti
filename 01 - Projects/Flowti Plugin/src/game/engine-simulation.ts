@@ -565,6 +565,7 @@ export function tickLocomotion(ctx: EngineContext): void {
 				idleStyle: "restless" as const,
 				idlePoseTimer: 0,
 				idlePoseIndex: 0,
+				urgencySpeedBoost: bb.urgencySpeedBoost,
 			};
 
 			sys.locomotion.updateAgent(entry, state.deltaMs);

@@ -118,4 +118,31 @@ describe("LocomotionSystem", () => {
 			expect(moving.position.x).toBe(origX); // moving agent not nudged
 		});
 	});
+
+	describe("urgencySpeedBoost", () => {
+		it("multiplies movement speed by urgencySpeedBoost", () => {
+			const sys = new LocomotionSystem(BOUNDS);
+			const entry = createLocomotionEntry({
+				command: "walk-to",
+				target: { x: 200, y: 0 },
+				position: { x: 0, y: 0 },
+				urgencySpeedBoost: 1.4,
+			});
+			sys.updateAgent(entry, 1000);
+			// Base speed 40 * brisk 1.0 * boost 1.4 = 56px/s
+			expect(entry.position.x).toBeCloseTo(56, 0);
+		});
+
+		it("defaults to 1.0 when urgencySpeedBoost is not set", () => {
+			const sys = new LocomotionSystem(BOUNDS);
+			const entry = createLocomotionEntry({
+				command: "walk-to",
+				target: { x: 200, y: 0 },
+				position: { x: 0, y: 0 },
+			});
+			sys.updateAgent(entry, 1000);
+			// Base speed 40 * brisk 1.0 * boost 1.0 = 40px/s
+			expect(entry.position.x).toBeCloseTo(40, 0);
+		});
+	});
 });

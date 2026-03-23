@@ -52,6 +52,8 @@ export interface LocomotionEntry {
 	idleStyle: "fidgety" | "calm" | "restless";
 	idlePoseTimer: number;
 	idlePoseIndex: number;
+	// Visual feedback urgency
+	urgencySpeedBoost: number;
 }
 
 export function createLocomotionEntry(overrides: Partial<LocomotionEntry> = {}): LocomotionEntry {
@@ -67,6 +69,7 @@ export function createLocomotionEntry(overrides: Partial<LocomotionEntry> = {}):
 		idleStyle: "restless",
 		idlePoseTimer: 0,
 		idlePoseIndex: 0,
+		urgencySpeedBoost: 1.0,
 		...overrides,
 	};
 }
@@ -116,7 +119,8 @@ export class LocomotionSystem {
 			}
 
 			const speedMult = SPEED_MAP[entry.movementStyle] ?? 1.0;
-			const speed = entry.speed * speedMult * (deltaMs / 1000);
+			const urgencyBoost = entry.urgencySpeedBoost ?? 1.0;
+			const speed = entry.speed * speedMult * urgencyBoost * (deltaMs / 1000);
 			const move = Math.min(speed, dist);
 			entry.position.x += (dx / dist) * move;
 			entry.position.y += (dy / dist) * move;
