@@ -1,14 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 import { createAgentBT } from "../../../../src/game/brain/behavior-tree/bt-factory.js";
 import type { AgentToolDeps, BTAgentDef } from "../../../../src/game/brain/behavior-tree/bt-types.js";
+import { createDefaultBlackboard } from "../../../../src/game/systems/blackboard.js";
 
 function makeDeps(): AgentToolDeps {
 	return {
 		disk: { readFileSync: vi.fn(), writeFileSync: vi.fn(), existsSync: vi.fn(), mkdirSync: vi.fn() },
 		paths: { join: (...s: string[]) => s.join("/"), dirname: (p: string) => p, basename: (p: string) => p },
 		clock: { now: () => 1000, ms: () => 1000, iso: () => "2026-03-20T10:00:00Z" },
-		worldState: { emitAction: vi.fn(), updateEntity: vi.fn() },
 		checkPermission: vi.fn(() => "allowed" as const),
+		blackboard: createDefaultBlackboard(),
 	};
 }
 
@@ -39,20 +40,18 @@ describe("createAgentBT", () => {
 		expect(agent.context.goals).toHaveLength(1);
 	});
 
-	it("tree step collects actions on agent", () => {
-		const { tree, agent } = createAgentBT(makeAgent(), makeDeps());
+	it("tree step runs without error", () => {
+		const { tree } = createAgentBT(makeAgent(), makeDeps());
 		tree.step();
 		// After one step, the tree should have attempted the ActiveGoal branch
-		// which starts with PickGoal. At minimum, goal-started should be collected.
-		expect(agent.collectedActions.length).toBeGreaterThanOrEqual(0);
+		// which starts with PickGoal — no error means the BT evaluated correctly.
 	});
 
 	it("handles agent with no goals (falls to idle)", () => {
 		const { tree, agent } = createAgentBT(makeAgent({ goals: [] }), makeDeps());
 		tree.step();
 		// With no goals, ActiveGoal branch fails, should fall through to idle behavior
-		const idleTypes = new Set(["idle", "speaking"]);
-		const hasIdleAction = agent.collectedActions.some((a) => idleTypes.has(a.type));
-		expect(hasIdleAction || agent.collectedActions.length === 0).toBe(true);
+		// The agent context should remain valid after the tick
+		expect(agent.context.name).toBe("Atlas");
 	});
 });

@@ -76,7 +76,7 @@ const MIN_WANDER_DISTANCE = 100;
 
 /** Resolve an idle target based on personality habits. Priority: social → focus → wander. */
 export function resolveIdleTarget(
-	habits: AgentHabits,
+	habits: Pick<AgentHabits, "socialDrift" | "focusDrift">,
 	nearbyAgents: readonly Position[],
 	bounds: Bounds,
 	rng: () => number,

@@ -7,7 +7,13 @@
 
 import type { AgentAttributes, AgentGoal } from "../../data/types.js";
 import type { IEchoStore } from "../../systems/echo/echo-types.js";
-import type { AgentBlackboard } from "../../systems/blackboard.js";
+import type { AgentBlackboard, AgentNeeds } from "../../systems/blackboard.js";
+
+/** Action collected during a BT tick (used by pet-bt). */
+export interface CollectedAction {
+	readonly type: string;
+	readonly data: Record<string, unknown>;
+}
 
 // ── Deps interfaces (Plugin-native) ──────────────────────────────────
 

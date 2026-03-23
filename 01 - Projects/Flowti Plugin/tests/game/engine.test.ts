@@ -78,6 +78,7 @@ vi.mock("../../src/game/scenes/game-scene.js", () => {
 		self.spawnAgentAtDoorway = vi.fn();
 		self.setBrainSystem = vi.fn();
 		self.setSpriteRegistry = vi.fn();
+		self.setBlackboards = vi.fn();
 		self.registerEntity = vi.fn();
 		self.camera = { move: vi.fn(), pos: { x: 0, y: 0 }, zoom: 1 };
 	}
@@ -301,10 +302,10 @@ vi.mock("../../src/game/systems/bt-system.js", () => {
 		const self = this;
 		self.register = vi.fn();
 		self.registerPet = vi.fn();
-		self.update = vi.fn(() => []);
+		self.update = vi.fn();
 		self.getAgent = vi.fn();
 	}
-	return { BtSystem: MockBtSystem, createStubDeps: vi.fn(() => ({})) };
+	return { BtSystem: MockBtSystem, createBtDeps: vi.fn(() => ({ blackboard: {} })) };
 });
 
 vi.mock("../../src/game/brain/behavior-tree/pet-bt.js", () => ({

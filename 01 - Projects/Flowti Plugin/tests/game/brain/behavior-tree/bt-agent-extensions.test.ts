@@ -8,6 +8,7 @@ import {
 	type BTAgentExtensionDeps,
 } from "../../../../src/game/brain/behavior-tree/bt-agent-extensions.js";
 import type { AgentToolDeps, BTAgentContext } from "../../../../src/game/brain/behavior-tree/bt-types.js";
+import { createDefaultBlackboard } from "../../../../src/game/systems/blackboard.js";
 
 function makeContext(overrides: Partial<BTAgentContext> = {}): BTAgentContext {
 	return {
@@ -26,8 +27,8 @@ function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 		disk: { readFileSync: vi.fn(), writeFileSync: vi.fn(), existsSync: vi.fn(), mkdirSync: vi.fn() },
 		paths: { join: (...s: string[]) => s.join("/"), dirname: (p: string) => p, basename: (p: string) => p },
 		clock: { now: () => 1000, ms: () => 1000, iso: () => "2026-03-20T10:00:00Z" },
-		worldState: { emitAction: vi.fn(), updateEntity: vi.fn() },
 		checkPermission: vi.fn(() => "allowed" as const),
+		blackboard: createDefaultBlackboard(),
 		...overrides,
 	} as AgentToolDeps;
 }
@@ -35,8 +36,6 @@ function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 function makeExtDeps(overrides: Partial<BTAgentExtensionDeps> = {}): BTAgentExtensionDeps {
 	return {
 		context: makeContext(),
-		collectedActions: [],
-		collect: vi.fn(),
 		deps: makeDeps(),
 		...overrides,
 	};
@@ -72,40 +71,36 @@ describe("bt-agent-extensions — hunger/thirst conditions", () => {
 });
 
 describe("bt-agent-extensions — hunger/thirst actions", () => {
-	it("SeekFoodStation collects seek-food and applies brain event", () => {
-		const brain = { applyEvent: vi.fn() };
-		const ext = makeExtDeps({ deps: makeDeps({ brain } as unknown as Partial<AgentToolDeps>) });
+	it("SeekFoodStation writes seeking intent to blackboard", () => {
+		const bb = createDefaultBlackboard();
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
 		const result = SeekFoodStation(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
-		expect(ext.collect).toHaveBeenCalledWith("seek-food");
-		expect(brain.applyEvent).toHaveBeenCalledWith("Atlas", "seek-food");
+		expect(bb.intent).toBe("seeking");
+		expect(bb.intentDetail).toBe("seek-food");
 	});
 
-	it("SeekDrinkStation collects seek-drink and applies brain event", () => {
-		const brain = { applyEvent: vi.fn() };
-		const ext = makeExtDeps({ deps: makeDeps({ brain } as unknown as Partial<AgentToolDeps>) });
+	it("SeekDrinkStation writes seeking intent to blackboard", () => {
+		const bb = createDefaultBlackboard();
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
 		const result = SeekDrinkStation(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
-		expect(ext.collect).toHaveBeenCalledWith("seek-drink");
-		expect(brain.applyEvent).toHaveBeenCalledWith("Atlas", "seek-drink");
+		expect(bb.intent).toBe("seeking");
+		expect(bb.intentDetail).toBe("seek-drink");
 	});
 
 	it("Eat increases hunger by 30, capped at 100", () => {
 		const ctx = makeContext({ needs: { hunger: 80 } } as Partial<BTAgentContext>);
-		const collect = vi.fn();
-		const result = Eat(ctx, collect);
+		const result = Eat(ctx);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ctx.needs.hunger).toBe(100);
-		expect(collect).not.toHaveBeenCalled();
 	});
 
 	it("Drink increases thirst by 30, capped at 100", () => {
 		const ctx = makeContext({ needs: { thirst: 80 } } as Partial<BTAgentContext>);
-		const collect = vi.fn();
-		const result = Drink(ctx, collect);
+		const result = Drink(ctx);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ctx.needs.thirst).toBe(100);
-		expect(collect).not.toHaveBeenCalled();
 	});
 });
 
@@ -164,19 +159,21 @@ describe("bt-agent-extensions — merchant conditions", () => {
 });
 
 describe("bt-agent-extensions — merchant actions", () => {
-	it("SeekMerchantStall collects seek-merchant", () => {
-		const brain = { applyEvent: vi.fn() };
-		const ext = makeExtDeps({ deps: makeDeps({ brain } as unknown as Partial<AgentToolDeps>) });
+	it("SeekMerchantStall writes seeking intent to blackboard", () => {
+		const bb = createDefaultBlackboard();
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
 		const result = SeekMerchantStall(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
-		expect(ext.collect).toHaveBeenCalledWith("seek-merchant");
+		expect(bb.intent).toBe("seeking");
+		expect(bb.intentDetail).toBe("seek-merchant");
 	});
 
-	it("BrowseMerchant collects browsing-merchant", () => {
-		const ext = makeExtDeps();
+	it("BrowseMerchant writes browsing-merchant to blackboard", () => {
+		const bb = createDefaultBlackboard();
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
 		const result = BrowseMerchant(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
-		expect(ext.collect).toHaveBeenCalledWith("browsing-merchant", {});
+		expect(bb.intentDetail).toBe("browsing-merchant");
 	});
 
 	it("ExecuteMerchantPurchase returns failed when no merchant dep", () => {
@@ -206,7 +203,6 @@ describe("bt-agent-extensions — merchant actions", () => {
 		const result = ExecuteMerchantPurchase(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(merchant.purchase).toHaveBeenCalledWith("Atlas", "potion-01");
-		expect(ext.collect).toHaveBeenCalledWith("merchant-purchase", { itemId: "potion-01", itemName: "Potion" });
 		expect(ext.context.lastMerchantVisitCycle).toBe(5);
 	});
 });
