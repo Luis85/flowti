@@ -202,6 +202,8 @@ const syncAssets = () => {
 	syncSprites();
 	// Room animated props + tile art (see animated-elements.ts / scenes) — must ship with plugin
 	syncBackgroundAssets();
+	// Item + FX sprites for visual feedback system (intent icons, item pop, particles)
+	syncVisualFeedbackAssets();
 };
 
 const listFilesRecursive = (rootDir) => {
@@ -248,6 +250,16 @@ const syncBackgroundAssets = () => {
 	if (!safeExists(srcDir)) return;
 	const destDir = path.join(OUTDIR, "assets", "Backgrounds");
 	copyDirRecursive(srcDir, destDir);
+};
+
+/** Copy Ninja Adventure item + FX sprites used by the visual feedback system. */
+const syncVisualFeedbackAssets = () => {
+	for (const sub of ["Items", "FX"]) {
+		const srcDir = path.resolve(__dirname, "assets", sub);
+		if (!safeExists(srcDir)) continue;
+		const destDir = path.join(OUTDIR, "assets", sub);
+		copyDirRecursive(srcDir, destDir);
+	}
 };
 
 // ==================================================
