@@ -26,7 +26,13 @@ import { getTreeNodeDetails, type TreeNodeDetails } from "../brain/behavior-tree
 // ── Constants ────────────────────────────────────────────────────────
 
 export const BT_TICK_INTERVAL_MS = 3000;
+const BT_TICK_MIN_MS = 2500;
+const BT_TICK_MAX_MS = 4000;
 export const PET_TICK_INTERVAL_MS = 1000;
+
+function randomTickInterval(): number {
+	return BT_TICK_MIN_MS + Math.random() * (BT_TICK_MAX_MS - BT_TICK_MIN_MS);
+}
 
 // ── Per-agent entry ──────────────────────────────────────────────────
 
@@ -35,6 +41,7 @@ interface BtEntry {
 	// the typed reference for needs-snapshot refresh without any cast.
 	readonly bt: FullAgentBT;
 	accumulator: number;
+	tickInterval: number;
 }
 
 interface PetBtEntry {
@@ -164,10 +171,11 @@ export class BtSystem {
 
 		const def = toBTAgentDef(agent, quirks);
 		const bt = createAgentBT(def, deps);
-		// Stagger initial accumulator so agents don't all tick simultaneously.
-		// Uses entry count as a simple hash to spread ticks evenly.
-		const stagger = (this.entries.size * 397) % BT_TICK_INTERVAL_MS;
-		this.entries.set(agent.name, { bt, accumulator: stagger });
+		// Each agent gets its own randomized tick interval (2.5–4s) and
+		// staggered initial accumulator so ticks spread naturally.
+		const tickInterval = randomTickInterval();
+		const stagger = (this.entries.size * 397) % tickInterval;
+		this.entries.set(agent.name, { bt, accumulator: stagger, tickInterval });
 	}
 
 	/** Remove an agent's BT. */
@@ -189,8 +197,9 @@ export class BtSystem {
 
 		for (const [name, entry] of this.entries) {
 			entry.accumulator += deltaMs;
-			if (entry.accumulator >= BT_TICK_INTERVAL_MS) {
-				entry.accumulator -= BT_TICK_INTERVAL_MS;
+			if (entry.accumulator >= entry.tickInterval) {
+				entry.accumulator -= entry.tickInterval;
+				entry.tickInterval = randomTickInterval();
 				this.tickCount++;
 				const emitted = btTick(entry.bt.tree, entry.bt.agent, worldState, clock);
 				for (const action of emitted) {

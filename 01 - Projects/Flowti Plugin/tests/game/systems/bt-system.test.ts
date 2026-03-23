@@ -93,12 +93,15 @@ describe("BtSystem", () => {
 
 	describe("update()", () => {
 		it("does not tick before interval reached", () => {
+			const origRandom = Math.random;
+			Math.random = () => 0; // tick interval = BT_TICK_MIN (2500ms), stagger = 0
 			const agent = makeAgent();
 			const deps = createStubDeps(worldState, clock);
 			system.register(agent, deps);
+			Math.random = origRandom;
 
-			const actions = system.update(BT_TICK_INTERVAL_MS - 1, worldState, clock);
-			// No tick should have happened — accumulator not yet full
+			// 2499ms is below the minimum interval (2500ms)
+			const actions = system.update(2499, worldState, clock);
 			expect(actions).toHaveLength(0);
 		});
 
@@ -108,7 +111,7 @@ describe("BtSystem", () => {
 			system.register(agent, deps);
 
 			// Accumulate exactly the interval
-			const actions = system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			const actions = system.update(5000, worldState, clock);
 			// After one tick, tree.step() runs and produces actions (at minimum idle/speaking)
 			expect(actions.length).toBeGreaterThanOrEqual(0);
 		});
@@ -139,7 +142,7 @@ describe("BtSystem", () => {
 			const deps = createStubDeps(worldState, clock);
 			system.register(agent, deps);
 
-			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			system.update(5000, worldState, clock);
 			const actions = system.getActions();
 			// Should match what update() returned
 			expect(Array.isArray(actions)).toBe(true);
@@ -198,7 +201,7 @@ describe("BtSystem", () => {
 				snapshots.push({ name, tick: snap.tick });
 			};
 
-			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			system.update(5000, worldState, clock);
 			expect(snapshots.length).toBe(1);
 			expect(snapshots[0].name).toBe("Atlas");
 		});
@@ -214,12 +217,12 @@ describe("BtSystem", () => {
 			};
 
 			// First tick — fires
-			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			system.update(5000, worldState, clock);
 			expect(snapshots.length).toBe(1);
 
 			// Second tick — tree is deterministic with same world state, so snapshot
 			// status values should be identical, meaning onSnapshot should NOT fire again
-			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			system.update(5000, worldState, clock);
 			expect(snapshots.length).toBe(1);
 		});
 
@@ -238,7 +241,7 @@ describe("BtSystem", () => {
 			system.register(agent, deps);
 
 			// Tick once so the tree has state
-			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			system.update(5000, worldState, clock);
 
 			// Access the entry via getAgent to confirm it exists, then use buildSnapshot
 			expect(system.getAgent("Atlas")).toBeDefined();
@@ -252,7 +255,7 @@ describe("BtSystem", () => {
 			// Unregister and re-register to clear lastSnapshots, forcing a new emit
 			system.unregister("Atlas");
 			system.register(agent, deps);
-			system.update(BT_TICK_INTERVAL_MS, worldState, clock);
+			system.update(5000, worldState, clock);
 
 			expect(captured).not.toBeNull();
 			expect(captured!.root).toBeDefined();
