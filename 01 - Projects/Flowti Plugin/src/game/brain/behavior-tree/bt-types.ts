@@ -7,6 +7,7 @@
 
 import type { AgentAttributes, AgentGoal } from "../../data/types.js";
 import type { IEchoStore } from "../../systems/echo/echo-types.js";
+import type { AgentBlackboard } from "../../systems/blackboard.js";
 
 // ── Deps interfaces (Plugin-native) ──────────────────────────────────
 
@@ -116,17 +117,6 @@ export function createIdleLLMSlot(): LLMSlot {
 
 // ── Tool Dependencies ────────────────────────────────────────────────
 
-export interface INeedsBridge {
-	getNeeds: (name: string) => AgentNeeds;
-}
-
-export interface IBrainBridge {
-	assignWork: (name: string) => void;
-	releaseWork: (name: string) => void;
-	applyEvent: (name: string, event: string) => void;
-	getState: (name: string) => string;
-}
-
 export interface IMerchantBridge {
 	shouldAutoPurchase: (agentName: string) => boolean;
 	getAutoPurchaseItem: (agentName: string) => { id: string; name: string; cost: number } | undefined;
@@ -139,10 +129,8 @@ export interface AgentToolDeps {
 	readonly paths: IPaths;
 	readonly clock: IClock;
 	readonly providerRegistry?: IProviderRegistry;
-	readonly worldState: IWorldStateManager;
 	readonly checkPermission: (tool: string) => PermissionVerdict;
-	readonly needs?: INeedsBridge;
-	readonly brain?: IBrainBridge;
+	readonly blackboard: AgentBlackboard;
 	readonly merchant?: IMerchantBridge;
 }
 
@@ -183,6 +171,11 @@ export interface BTAgentContext {
 	interactionHooks?: InteractionHooks;
 	echoStore?: IEchoStore;
 	currentRoom?: string;
+
+	/** Accumulated time in current intent state (ms). Used by idle-wander and talking-timeout. */
+	intentTimer: number;
+	/** Personality-driven idle resistance threshold (ms). */
+	idleResistance: number;
 }
 
 // ── Goal Subtree Config ──────────────────────────────────────────────
@@ -193,18 +186,10 @@ export interface GoalSubtreeConfig {
 	readonly promptInstruction: string;
 }
 
-// ── Collected Actions ────────────────────────────────────────────────
-
-export interface CollectedAction {
-	readonly type: string;
-	readonly data: Record<string, unknown>;
-}
-
 // ── Minimal BT agent contract for the tick system ───────────────────
 // AgentBT.agent is typed as BtAgentBase so PetBTObject (which has no
 // full BTAgentObject method set) can satisfy it without unsafe casts.
 
 export interface BtAgentBase {
-	readonly collectedActions: CollectedAction[];
 	readonly context: { readonly name: string };
 }
