@@ -33,12 +33,12 @@ import {
 	PET_INSTINCT_FRAGMENTS, PET_ELOQUENT_FRAGMENTS, PET_GREMLIN_FRAGMENTS,
 } from "./systems/talk/templates/index.js";
 import type { CascadeReaction } from "./systems/echo/cascade-resolver.js";
-import type { AgentBlackboard, AgentNeeds } from "./systems/blackboard.js";
+import type { AgentBlackboard, AgentIntent, AgentNeeds } from "./systems/blackboard.js";
 
 // ── Blackboard helpers ────────────────────────────────────────────────
 
 /** Read agent intent from blackboard (replaces brain.getState). */
-function getIntent(ctx: EngineContext, name: string): AgentBlackboard["intent"] {
+function getIntent(ctx: EngineContext, name: string): AgentIntent {
 	return ctx.systems.blackboards.tryGet(name)?.intent ?? "idle";
 }
 

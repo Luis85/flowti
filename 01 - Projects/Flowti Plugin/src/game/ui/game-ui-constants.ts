@@ -3,11 +3,11 @@
  * Extracted to avoid duplication across panel-brain, panel-vitals, and agent-detail-modal.
  */
 
-import type { AgentBlackboard } from "../systems/blackboard.js";
+import type { AgentIntent } from "../systems/blackboard.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
 import type { DashboardAgent } from "../data/types.js";
 
-export const STATE_COLORS: Partial<Record<AgentBlackboard["intent"], string>> = {
+export const STATE_COLORS: Partial<Record<AgentIntent, string>> = {
 	idle: "#3b82f6",
 	seeking: "#6b7280",
 	working: "#22c55e",

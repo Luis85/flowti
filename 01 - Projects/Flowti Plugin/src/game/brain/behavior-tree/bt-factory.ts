@@ -91,6 +91,8 @@ function buildMasterMDSL(): string {
 function collectSubtrees(): string {
 	return [
 		URGENT_SUBTREE,
+		TALKING_TIMEOUT_SUBTREE,
+		BREAK_ROUTINE_SUBTREE,
 		NEEDS_ENERGY_SUBTREE,
 		NEEDS_HUNGER_SUBTREE,
 		NEEDS_THIRST_SUBTREE,
@@ -110,8 +112,6 @@ function collectSubtrees(): string {
 		SOCIAL_SUBTREE,
 		IDLE_SUBTREE,
 		IDLE_WANDER_SUBTREE,
-		BREAK_ROUTINE_SUBTREE,
-		TALKING_TIMEOUT_SUBTREE,
 	].join("\n\n");
 }
 

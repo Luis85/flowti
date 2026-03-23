@@ -1,7 +1,6 @@
 /**
  * talking-timeout.ts — BT subtree for conversation timeout.
  *
- * Replaces brain-system's talking/waiting timeout (10s → idle).
  * When an agent has been in talking intent too long, resets to idle.
  */
 

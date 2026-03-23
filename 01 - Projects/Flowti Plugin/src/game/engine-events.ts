@@ -35,7 +35,7 @@ import { interpolateTemplate } from "./data/engagement-templates.js";
 import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
 import { findClashLabels } from "./data/opinion-topics.js";
 import { resolveSettingForDomain } from "./config/domain-map.js";
-import type { AgentBlackboard } from "./systems/blackboard.js";
+import type { AgentBlackboard, AgentIntent } from "./systems/blackboard.js";
 import { resetToIdle, walkTo, stopMovement } from "./systems/blackboard.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ import { resetToIdle, walkTo, stopMovement } from "./systems/blackboard.js";
 const pick = (arr: readonly string[]) => arr[Math.floor(Math.random() * arr.length)];
 
 /** Maps provider entity state strings to blackboard intents. */
-const stateToIntent: Record<string, AgentBlackboard["intent"]> = {
+const stateToIntent: Record<string, AgentIntent> = {
 	"idle": "idle", "wandering": "idle", "walking-to": "seeking",
 	"working": "working", "talking": "talking", "waiting": "waiting", "on-break": "on-break",
 };

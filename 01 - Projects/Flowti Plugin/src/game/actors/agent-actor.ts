@@ -7,7 +7,7 @@
 
 import * as ex from "excalibur";
 import type { DashboardAgent } from "../data/types.js";
-import type { AgentBlackboard } from "../systems/blackboard.js";
+import type { AgentIntent } from "../systems/blackboard.js";
 import type { AgentSprites } from "../sprites/sprite-loader.js";
 import { getVisualForLevel } from "../data/progression-visuals.js";
 
@@ -27,7 +27,7 @@ export interface AgentActorConfig {
 
 export class AgentActor extends ex.Actor {
 	public agentData: DashboardAgent;
-	public intent: AgentBlackboard["intent"] = "idle";
+	public intent: AgentIntent = "idle";
 	public level = 1;
 
 	private readonly onSelect: (agentName: string) => void;
@@ -154,7 +154,7 @@ export class AgentActor extends ex.Actor {
 	}
 
 	/** Update intent for idle bob logic. No animation switching. */
-	updateIntent(intent: AgentBlackboard["intent"]): void {
+	updateIntent(intent: AgentIntent): void {
 		if (intent !== this.intent) {
 			this.bobPhase = 0;
 		}

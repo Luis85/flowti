@@ -13,7 +13,7 @@ import { deriveMovementStyle, deriveIdleStyle } from "../brain/agent-brain.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
-import type { AgentBlackboard } from "../systems/blackboard.js";
+import type { AgentIntent } from "../systems/blackboard.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -336,7 +336,7 @@ export class PanelBrain extends FlowtiElement {
 
 		const name = this.agent.name;
 		const needs = this.store.getAgentNeeds(name);
-		const agentIntent: AgentBlackboard["intent"] = this.store.agentIntents.get(name) ?? "idle";
+		const agentIntent: AgentIntent = this.store.agentIntents.get(name) ?? "idle";
 		const btSnapshot = this.store.btTreeState.get(name);
 
 		return html`
@@ -352,7 +352,7 @@ export class PanelBrain extends FlowtiElement {
 		`;
 	}
 
-	private renderStateMachine(agentIntent: AgentBlackboard["intent"]) {
+	private renderStateMachine(agentIntent: AgentIntent) {
 		const stateColor = STATE_COLORS[agentIntent] ?? STATE_COLORS["idle"];
 		const llmStatus = this.store.llmStatus.get(this.agent.name);
 		const llmState = llmStatus?.state ?? "idle";
@@ -430,7 +430,7 @@ export class PanelBrain extends FlowtiElement {
 		`;
 	}
 
-	private renderNeedsBars(needs: AgentNeeds, agentIntent: AgentBlackboard["intent"]) {
+	private renderNeedsBars(needs: AgentNeeds, agentIntent: AgentIntent) {
 		const rates = DECAY[agentIntent] ?? {};
 
 		return html`
