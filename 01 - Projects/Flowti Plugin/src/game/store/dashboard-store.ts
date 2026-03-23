@@ -23,6 +23,7 @@ import {
 } from "./dashboard-store-actions.js";
 import { afterNextPaint } from "../after-next-paint.js";
 import type { StoryBeat } from "../systems/narrative-system.js";
+import type { OfflineResults } from "../systems/offline-progress.js";
 
 // ── Exported helper types ──────────────────────────────────────────
 
@@ -34,6 +35,8 @@ export interface Point {
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
 export type TabName = "profile" | "talk" | "tasks" | "permissions" | "brain" | "debug";
+
+export type PanelMode = "agent-detail" | "bob" | "roster" | "merchant" | "briefing";
 
 // ── Behavior-tree snapshot types ─────────────────────────────────
 
@@ -82,6 +85,8 @@ export class DashboardStore extends EventTarget {
 
 	selectedAgent: string | null = null;
 	selectedTab: TabName = "profile";
+	activePanel: PanelMode | null = null;
+	briefingData: { results: OfflineResults; narrativeText: string } | null = null;
 	followedAgent: string | null = null;
 
 	connectionStatus: ConnectionStatus = "disconnected";
@@ -344,6 +349,7 @@ export class DashboardStore extends EventTarget {
 
 	selectAgent(name: string | null): void {
 		if (name === this.selectedAgent) return;
+		const wasOpen = this.activePanel !== null;
 		const prev = this.selectedAgent;
 		if (prev && prev !== name) {
 			this.deselectAgent(prev);
@@ -355,6 +361,16 @@ export class DashboardStore extends EventTarget {
 				proc.sendRaw({ type: "agent-selected" });
 			}
 		}
+		if (name) {
+			this.activePanel = "agent-detail";
+		} else if (this.activePanel === "agent-detail") {
+			this.activePanel = null;
+		}
+		// Emit panel-changed only on open/close transitions
+		const nowOpen = this.activePanel !== null;
+		if (wasOpen !== nowOpen) {
+			this.dispatchEvent(new CustomEvent("panel-changed", { detail: { activePanel: this.activePanel } }));
+		}
 		this.notify();
 	}
 
@@ -365,6 +381,10 @@ export class DashboardStore extends EventTarget {
 		}
 		if (this.selectedAgent === agentName) {
 			this.selectedAgent = null;
+		}
+		if (this.activePanel === "agent-detail") {
+			this.activePanel = null;
+			this.dispatchEvent(new CustomEvent("panel-changed", { detail: { activePanel: null } }));
 		}
 		this.notify();
 	}
@@ -384,6 +404,16 @@ export class DashboardStore extends EventTarget {
 		this.selectedTab = DashboardStore.VALID_TABS.has(tab) ? tab : "profile";
 		if (tab === "talk" && this.selectedAgent) {
 			this.unreadAgents.delete(this.selectedAgent);
+		}
+		this.notify();
+	}
+
+	setActivePanel(mode: PanelMode | null): void {
+		const wasOpen = this.activePanel !== null;
+		const isOpen = mode !== null;
+		this.activePanel = mode;
+		if (wasOpen !== isOpen) {
+			this.dispatchEvent(new CustomEvent("panel-changed", { detail: { activePanel: mode } }));
 		}
 		this.notify();
 	}

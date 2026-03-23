@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { DashboardStore } from "../../../src/game/store/dashboard-store.js";
+import type { PanelMode } from "../../../src/game/store/dashboard-store.js";
 import type { ICliExecutor, AgentProcess } from "../../../src/infrastructure/agents/cli-executor.js";
 
 function createMockExecutor(): ICliExecutor {
@@ -141,5 +142,87 @@ describe("isProcessAlive", () => {
 	it("returns false when no process exists", () => {
 		const store = new DashboardStore();
 		expect(store.isProcessAlive("atlas")).toBe(false);
+	});
+});
+
+describe("activePanel", () => {
+	it("defaults to null", () => {
+		const store = new DashboardStore();
+		expect(store.activePanel).toBeNull();
+	});
+
+	it("setActivePanel sets mode and emits state-changed", () => {
+		const store = new DashboardStore();
+		const events: string[] = [];
+		store.addEventListener("state-changed", () => events.push("state-changed"));
+		store.setActivePanel("roster");
+		expect(store.activePanel).toBe("roster");
+		expect(events).toContain("state-changed");
+	});
+
+	it("emits panel-changed on open (null to non-null)", () => {
+		const store = new DashboardStore();
+		let detail: { activePanel: PanelMode | null } | null = null;
+		store.addEventListener("panel-changed", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+		store.setActivePanel("bob");
+		expect(detail).toEqual({ activePanel: "bob" });
+	});
+
+	it("emits panel-changed on close (non-null to null)", () => {
+		const store = new DashboardStore();
+		store.setActivePanel("roster");
+		let detail: { activePanel: PanelMode | null } | null = null;
+		store.addEventListener("panel-changed", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+		store.setActivePanel(null);
+		expect(detail).toEqual({ activePanel: null });
+	});
+
+	it("does NOT emit panel-changed on swap (non-null to non-null)", () => {
+		const store = new DashboardStore();
+		store.setActivePanel("roster");
+		let panelChangedFired = false;
+		store.addEventListener("panel-changed", () => { panelChangedFired = true; });
+		store.setActivePanel("bob");
+		expect(store.activePanel).toBe("bob");
+		expect(panelChangedFired).toBe(false);
+	});
+
+	it("panel-changed fires before state-changed", () => {
+		const store = new DashboardStore();
+		const order: string[] = [];
+		store.addEventListener("panel-changed", () => order.push("panel-changed"));
+		store.addEventListener("state-changed", () => order.push("state-changed"));
+		store.setActivePanel("merchant");
+		expect(order).toEqual(["panel-changed", "state-changed"]);
+	});
+
+	it("selectAgent sets activePanel to agent-detail", () => {
+		const store = new DashboardStore();
+		store.selectAgent("atlas");
+		expect(store.activePanel).toBe("agent-detail");
+	});
+
+	it("selectAgent(null) clears activePanel when showing agent-detail", () => {
+		const store = new DashboardStore();
+		store.selectAgent("atlas");
+		expect(store.activePanel).toBe("agent-detail");
+		store.selectAgent(null);
+		expect(store.activePanel).toBeNull();
+	});
+
+	it("selectAgent(null) does NOT clear activePanel when showing bob", () => {
+		const store = new DashboardStore();
+		store.selectAgent("atlas");
+		store.setActivePanel("bob");
+		store.selectAgent(null);
+		expect(store.activePanel).toBe("bob");
+	});
+
+	it("deselectAgent clears activePanel when showing agent-detail", () => {
+		const store = new DashboardStore();
+		store.selectAgent("atlas");
+		expect(store.activePanel).toBe("agent-detail");
+		store.deselectAgent("atlas");
+		expect(store.activePanel).toBeNull();
 	});
 });
