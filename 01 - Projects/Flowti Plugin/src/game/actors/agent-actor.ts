@@ -148,9 +148,9 @@ export class AgentActor extends ex.Actor {
 		this.intent = "idle";
 	}
 
-	/** No-op — direction logic removed for now. */
-	setWalkDirection(_targetX: number, _targetY: number): void {
-		// Will be re-added with proper animation system
+	/** Apply directional facing from blackboard. */
+	applyFacing(direction: "left" | "right"): void {
+		this.graphics.flipHorizontal = direction === "left";
 	}
 
 	/** Update intent for idle bob logic. No animation switching. */

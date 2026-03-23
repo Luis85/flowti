@@ -7,7 +7,7 @@ vi.mock("excalibur", () => {
 		this.scale = { x: 1, y: 1 };
 		this.z = opts?.z ?? 0;
 		this.body = { collisionType: 0 };
-		this.graphics = { use: vi.fn(), add: vi.fn(), offset: { x: 0, y: 0 } };
+		this.graphics = { use: vi.fn(), add: vi.fn(), offset: { x: 0, y: 0 }, flipHorizontal: false };
 		this.addChild = vi.fn();
 		this.on = vi.fn();
 	}
@@ -115,8 +115,23 @@ describe("AgentActor", () => {
 		expect(() => actor.updateVisualStatus("busy")).not.toThrow();
 	});
 
-	it("setWalkDirection() is a no-op (does not throw)", () => {
-		expect(() => actor.setWalkDirection(50, 80)).not.toThrow();
+	describe("facingDirection", () => {
+		it("applyFacing left flips sprite horizontally", () => {
+			actor.applyFacing("left");
+			expect(actor.graphics.flipHorizontal).toBe(true);
+		});
+
+		it("applyFacing right does not flip sprite", () => {
+			actor.applyFacing("right");
+			expect(actor.graphics.flipHorizontal).toBe(false);
+		});
+
+		it("applyFacing toggles between directions", () => {
+			actor.applyFacing("left");
+			expect(actor.graphics.flipHorizontal).toBe(true);
+			actor.applyFacing("right");
+			expect(actor.graphics.flipHorizontal).toBe(false);
+		});
 	});
 
 	describe("standing order indicator", () => {
