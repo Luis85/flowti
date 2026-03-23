@@ -54,6 +54,7 @@ import type { SceneEntity } from "./data/scene-entity.js";
 import type { IClock } from "./brain/behavior-tree/bt-types.js";
 import type { BlackboardManager } from "./systems/blackboard.js";
 import type { LocomotionSystem } from "./systems/locomotion-system.js";
+import type { VisualFeedbackSystem } from "./systems/visual-feedback-system.js";
 import type { AgentWorldPerfSink } from "./performance/agent-world-perf.js";
 
 export interface BtClock extends IClock {
@@ -101,6 +102,7 @@ export interface EngineSystems {
 	cameraSystem: CameraSystem | null;
 	readonly interactions?: InteractionSystem;
 	readonly echo: IEchoStore;
+	readonly visualFeedback?: VisualFeedbackSystem;
 }
 
 export interface EngineScenes {

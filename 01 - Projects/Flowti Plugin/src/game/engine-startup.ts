@@ -38,6 +38,7 @@ import type { AgentSprites } from "./sprites/sprite-loader.js";
 import type { InteractionBootstrap } from "./systems/interaction/bootstrap-interactions.js";
 import { registerAgentResolver } from "./systems/interaction/bootstrap-interactions.js";
 import type { InteractionHooks } from "./brain/behavior-tree/bt-types.js";
+import type { VisualFeedbackSystem } from "./systems/visual-feedback-system.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ export interface RegistrationSystems {
 	readonly btClock: IClock;
 	readonly knownEntities: Set<string>;
 	readonly interactionBootstrap?: InteractionBootstrap;
+	readonly visualFeedback?: VisualFeedbackSystem;
 }
 
 export interface PlacementContext {
@@ -94,6 +96,7 @@ function registerSingleAgent(agent: DashboardAgent, sys: RegistrationSystems): v
 	sys.engagement.register(name, { domain, cha: attrs.cha ?? 10 });
 	sys.ritual.register(name, { domain });
 	sys.memory.register(name);
+	sys.visualFeedback?.register(name, agent.quirks ?? []);
 
 	registerQuirksAndOpinions(agent, sys);
 	const btDeps = createBtDeps(sys.blackboards.get(name), sys.btClock);

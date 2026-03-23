@@ -809,6 +809,17 @@ export function tickDirector(ctx: EngineContext): void {
 
 export function tickVisuals(ctx: EngineContext): void {
 	const { systems: sys, state } = ctx;
+
+	// Visual feedback system — intent telegraphs, arrival payoff, idle micro-actions
+	if (sys.visualFeedback) {
+		runTimedGameSystem(ctx, "visualFeedback", () => {
+			const now = performance.now();
+			for (const [name, bb] of sys.blackboards.getAll()) {
+				sys.visualFeedback!.tick(name, bb, now, state.deltaMs);
+			}
+		});
+	}
+
 	runTimedGameSystem(ctx, "emote", () => {
 		sys.emote.update(state.deltaMs, (name) => getIntent(ctx, name));
 	});

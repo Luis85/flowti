@@ -71,6 +71,9 @@ import { createEnvironmentalObjects, registerEnvironmentalObjects, createPets, g
 import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
 import { SceneRegistry } from "./systems/scene-registry.js";
 import { RoomSwitcher } from "./systems/room-switcher.js";
+import { VisualFeedbackSystem } from "./systems/visual-feedback-system.js";
+import { IntentIconActor } from "./actors/intent-icon-actor.js";
+import { ItemPopActor } from "./actors/item-pop-actor.js";
 import type { SceneEntity } from "./data/scene-entity.js";
 import { flushWorldState, startPeriodicFlush, type StateSystems } from "./engine-state.js";
 import { wireEvents } from "./engine-events.js";
@@ -217,6 +220,46 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const quirkSystem = new QuirkSystem();
 	const worldEventScheduler = new WorldEventScheduler();
 	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
+
+	// ── Visual Feedback system ───────────────────────
+	const visualFeedbackSystem = new VisualFeedbackSystem({
+		onShowIntentIcon: (agentName, spritePath, _pos) => {
+			const actor = findAgentActor(agentName);
+			if (!actor) return;
+			const icon = new IntentIconActor(spritePath);
+			actor.addChild(icon);
+			icon.fadeIn();
+		},
+		onHideIntentIcon: (agentName) => {
+			const actor = findAgentActor(agentName);
+			if (!actor) return;
+			for (const child of actor.children) {
+				if (child instanceof IntentIconActor) {
+					(child as IntentIconActor).fadeOut(true);
+				}
+			}
+		},
+		onItemPop: (_agentName, spritePath, fromPos) => {
+			const pop = new ItemPopActor(spritePath, fromPos.x, fromPos.y);
+			engine.currentScene.add(pop);
+			pop.play();
+		},
+		onParticleBurst: (preset, position) => {
+			particlePool.spriteBurst({ preset: preset as Parameters<typeof particlePool.spriteBurst>[0]["preset"], x: position.x, y: position.y });
+		},
+		onEmoteFlash: (agentName, emoteIndex) => {
+			emoteSystem.triggerEmote(agentName, emoteIndex);
+		},
+		onThoughtBubble: (agentName, text, iconPath, duration) => {
+			bubbleSystem.showBubble(agentName, "thought", text, null, (n) => findAgentActor(n), duration, false, iconPath);
+		},
+		onFacingChange: (agentName, direction) => {
+			const bb = blackboardManager.tryGet(agentName);
+			if (bb) bb.facingDirection = direction;
+			const actor = findAgentActor(agentName);
+			if (actor) actor.applyFacing(direction);
+		},
+	});
 
 	// ── Echo system ──────────────────────────────────
 	const echoStore = new EchoStore();
@@ -673,6 +716,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		sensor: sensorSystem, engagement: engagementSystem, ritual: ritualSystem,
 		memory: memorySystem, quirk: quirkSystem, relationship: relationshipSystem,
 		bt: btSystem, btClock, knownEntities, interactionBootstrap,
+		visualFeedback: visualFeedbackSystem,
 	};
 
 	function doRegisterAgents(agents: readonly DashboardAgent[]): void {
@@ -778,6 +822,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			cameraSystem: cameraRef.current,
 			interactions: interactionBootstrap.system,
 			echo: echoStore,
+			visualFeedback: visualFeedbackSystem,
 		},
 		scenes: {
 			hub: hubScene,
