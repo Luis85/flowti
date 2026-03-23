@@ -7,7 +7,7 @@
  * to access via closure variables.
  *
  * Organised into semantic sub-interfaces:
- *   systems  — all game systems (brain, bubble, talk, ...)
+ *   systems  — all game systems (blackboard, locomotion, bubble, talk, ...)
  *   scenes   — the four room scenes + lookup map
  *   envObjects — environmental interactable objects
  *   btBridge — behavior-tree bridge types

@@ -430,7 +430,7 @@ function updatePetFollow(ctx: EngineContext, pet: import("./actors/pet-actor.js"
 	if (!target) return;
 	const targetRoom = ctx.systems.registry.getEntityRoom(target);
 	if (targetRoom === petRoom) {
-		const targetPos = ctx.systems.brain.getPosition(target);
+		const targetPos = getPosition(ctx, target);
 		if (targetPos) pet.moveToward(targetPos.x, targetPos.y, ctx.state.deltaMs);
 	} else {
 		pet.setFollowTarget(null);
@@ -978,18 +978,29 @@ function tryGossipTrigger(ctx: EngineContext): void {
 	}
 }
 
-// ── CLI ↔ Brain bridge — subscribe store cli-brain-event to brain system ──
+// ── CLI ↔ Blackboard bridge — subscribe store cli-brain-event to blackboard ──
 
-/** Wire CLI brain events from the store to the brain system. Call once during engine init. */
+/** Wire CLI events from the store to the blackboard. Call once during engine init. */
 export function wireCliBrainBridge(ctx: EngineContext): () => void {
+	const INTENT_MAP: Record<string, string> = {
+		"task-started": "working",
+		"thinking": "working",
+		"speaking": "talking",
+		"asking": "waiting",
+		"using-tool": "working",
+		"task-completed": "idle",
+		"done": "idle",
+		"error": "idle",
+		"idle": "idle",
+	};
 	const handler = ((e: CustomEvent) => {
 		const { agent, action } = e.detail as { agent: string; action: string };
-		ctx.systems.brain.applyEvent(agent, action);
-		if (action === "done") {
-			const entry = ctx.systems.brain.getState(agent);
-			if (entry && entry.state === "working") {
-				ctx.systems.brain.applyEvent(agent, "task-completed");
-			}
+		if (!ctx.systems.blackboards.has(agent)) return;
+		const bb = ctx.systems.blackboards.get(agent);
+		const intent = INTENT_MAP[action];
+		if (intent) {
+			bb.intent = intent as typeof bb.intent;
+			bb.intentDetail = action;
 		}
 	}) as EventListener;
 	ctx.store.addEventListener("cli-brain-event", handler);
