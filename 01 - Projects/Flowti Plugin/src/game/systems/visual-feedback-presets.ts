@@ -64,7 +64,6 @@ export const COOLDOWNS = {
 	ambientEmoteMinMs: 8000,
 	ambientEmoteMaxMs: 15000,
 	proximityPairCooldownMs: 15000,
-	longIdleCooldownMs: 45000,
 	longIdleThresholdMs: 60000,
 	roomEntryLookDurationMs: 600,
 	facingTransitionDelayMs: 200,

@@ -8,6 +8,7 @@
  */
 
 import type { AgentBlackboard } from "./blackboard.js";
+import type { SpritePreset } from "./particle-system.js";
 import {
 	resolveThreshold,
 	computeUrgency,
@@ -28,7 +29,7 @@ export interface VisualFeedbackCallbacks {
 	onShowIntentIcon: (agentName: string, spritePath: string, position: { x: number; y: number }) => void;
 	onHideIntentIcon: (agentName: string) => void;
 	onItemPop: (agentName: string, spritePath: string, fromPos: { x: number; y: number }) => void;
-	onParticleBurst: (preset: string, position: { x: number; y: number }) => void;
+	onParticleBurst: (preset: SpritePreset, position: { x: number; y: number }) => void;
 	onEmoteFlash: (agentName: string, emoteIndex: number) => void;
 	onThoughtBubble: (agentName: string, text: string, iconPath?: string, duration?: number) => void;
 	onFacingChange: (agentName: string, direction: "left" | "right") => void;
@@ -62,7 +63,7 @@ function createAgentVisualState(quirks: readonly string[]): AgentVisualState {
 		lastPayoffTimestamp: -Infinity,
 		lastAmbientEmoteTimestamp: -Infinity,
 		ambientEmoteCooldown: randomCooldown(),
-		idleSinceTimestamp: 0,
+		idleSinceTimestamp: -Infinity,
 		longIdleFired: false,
 		previousRoom: "",
 		lastFacingDirection: "right",
@@ -275,6 +276,8 @@ export class VisualFeedbackSystem {
 			state.activeVisualPriority = 0;
 		}
 
+		// Initialize idle start on first idle tick
+		if (!isFinite(state.idleSinceTimestamp)) state.idleSinceTimestamp = now;
 		const idleDuration = now - state.idleSinceTimestamp;
 
 		// Long idle (> 60s): sleep emote
@@ -289,18 +292,24 @@ export class VisualFeedbackSystem {
 		if (now - state.lastAmbientEmoteTimestamp < state.ambientEmoteCooldown) return;
 
 		// Context-driven ambient emotes
+		let fired = false;
 		if (bb.needs.energy < IDLE_AWARENESS.lowEnergyThreshold) {
 			this.cb.onEmoteFlash?.(agentName, EMOTE_INDICES.sleep);
 			this.cb.onThoughtBubble?.(agentName, "zzz", undefined, 1500);
+			fired = true;
 		} else if (bb.needs.morale < IDLE_AWARENESS.lowMoraleThreshold) {
 			this.cb.onEmoteFlash?.(agentName, pickRandom(EMOTE_INDICES.distressed));
+			fired = true;
 		} else if (bb.needs.social < IDLE_AWARENESS.highSocialNeedThreshold && bb.nearbyAgents.length > 0) {
 			this.cb.onEmoteFlash?.(agentName, EMOTE_INDICES.alert);
 			this.cb.onFacingChange?.(agentName, "right");
+			fired = true;
 		} else if (bb.needs.focus > IDLE_AWARENESS.highFocusThreshold) {
 			this.cb.onEmoteFlash?.(agentName, pickRandom(EMOTE_INDICES.determined));
+			fired = true;
 		}
 
+		if (!fired) return;
 		state.lastAmbientEmoteTimestamp = now;
 		state.ambientEmoteCooldown = randomCooldown();
 		state.activeVisualPriority = 1;
@@ -309,12 +318,11 @@ export class VisualFeedbackSystem {
 	// ── Room transition ──────────────────────────────────────────
 
 	private handleRoomTransition(
-		agentName: string,
+		_agentName: string,
 		bb: AgentBlackboard,
 		_state: AgentVisualState,
 	): void {
 		this.cb.onParticleBurst?.("sprite-leaf", bb.position);
-		this.cb.onFacingChange?.(agentName, "left");
 	}
 
 	// ── Helpers ──────────────────────────────────────────────────

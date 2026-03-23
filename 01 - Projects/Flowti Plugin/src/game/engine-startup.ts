@@ -179,6 +179,7 @@ export function unregisterAgentFromSimulation(name: string, sys: RegistrationSys
 	sys.relationship.unregister(name);
 	sys.bt.unregister(name);
 	sys.knownEntities.delete(name);
+	sys.visualFeedback?.unregister(name);
 }
 
 export interface RosterReconcileExtras {

@@ -76,7 +76,6 @@ describe("visual-feedback-presets", () => {
 		expect(COOLDOWNS.ambientEmoteMinMs).toBe(8000);
 		expect(COOLDOWNS.ambientEmoteMaxMs).toBe(15000);
 		expect(COOLDOWNS.proximityPairCooldownMs).toBe(15000);
-		expect(COOLDOWNS.longIdleCooldownMs).toBe(45000);
 		expect(COOLDOWNS.longIdleThresholdMs).toBe(60000);
 		expect(COOLDOWNS.roomEntryLookDurationMs).toBe(600);
 		expect(COOLDOWNS.facingTransitionDelayMs).toBe(200);

@@ -245,7 +245,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			pop.play();
 		},
 		onParticleBurst: (preset, position) => {
-			particlePool.spriteBurst({ preset: preset as Parameters<typeof particlePool.spriteBurst>[0]["preset"], x: position.x, y: position.y });
+			particlePool.spriteBurst({ preset, x: position.x, y: position.y });
 		},
 		onEmoteFlash: (agentName, emoteIndex) => {
 			emoteSystem.triggerEmote(agentName, emoteIndex);
