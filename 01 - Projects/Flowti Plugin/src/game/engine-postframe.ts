@@ -50,7 +50,7 @@ export function createPostframeHandler(deps: PostframeDeps): () => void {
 			} else {
 				store.clearAgentTarget(name);
 			}
-			store.setAgentState(name, bb.intent);
+			store.setAgentIntent(name, bb.intent);
 		}
 		perfSampler?.onGameSystem("store.agentLayout", performance.now() - tLayout);
 

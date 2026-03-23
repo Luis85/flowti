@@ -25,9 +25,8 @@ const BOB_AGENT_NAME = "Bob";
 
 const AGENT_STATE_COLORS: Record<string, string> = {
 	idle: "#3b82f6",
-	wandering: "#6b7280",
+	seeking: "#6b7280",
 	working: "#22c55e",
-	"walking-to": "#f59e0b",
 	"on-break": "#a855f7",
 	talking: "#06b6d4",
 	waiting: "#f59e0b",
@@ -891,8 +890,8 @@ export class AskBob extends FlowtiElement {
 		}
 
 		const agent = this.store.agents.find((a) => a.name === name);
-		const brainState = this.store.agentIntents.get(name) ?? "idle";
-		const stateColor = AGENT_STATE_COLORS[brainState] ?? AGENT_STATE_COLORS.idle;
+		const agentIntent = this.store.agentIntents.get(name) ?? "idle";
+		const stateColor = AGENT_STATE_COLORS[agentIntent] ?? AGENT_STATE_COLORS.idle;
 		const processAlive = this.store.isProcessAlive(name);
 		const llm = this.store.llmStatus.get(name);
 		const llmState = llm?.state ?? "idle";
@@ -924,7 +923,7 @@ export class AskBob extends FlowtiElement {
 				<div class="bob-status-grid">
 					<span class="bob-status-label">Brain</span>
 					<span class="bob-status-value">
-						<span class="bob-state-badge" style="background:${stateColor}">${brainState}</span>
+						<span class="bob-state-badge" style="background:${stateColor}">${agentIntent}</span>
 						${taskLocked ? " \u{1F512}" : nothing}
 					</span>
 

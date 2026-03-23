@@ -638,7 +638,7 @@ export class AgentDetailModal extends FlowtiElement {
 		if (!agent) return html``;
 
 		const selectedTab = this.store.selectedTab;
-		const brainState = this.store.agentIntents.get(agent.name);
+		const agentIntent = this.store.agentIntents.get(agent.name);
 		const trustTier = agent.trustTier ?? "supervised";
 		const trustColor = TRUST_TIER_COLORS[trustTier] ?? "#f59e0b";
 
@@ -654,7 +654,7 @@ export class AgentDetailModal extends FlowtiElement {
 						<span class="badge badge-type">${agent.agentType}</span>
 						<span class="badge badge-trust" style="color:${trustColor}; border-color:${trustColor}; background:${trustColor}1a">${trustTier}</span>
 						<span class="badge badge-level">Lv ${agent.level ?? 1}</span>
-						${brainState ? html`<span class="brain-state">${brainState}</span>` : nothing}
+						${agentIntent ? html`<span class="brain-state">${agentIntent}</span>` : nothing}
 						${this.renderLlmBadge(agent.name)}
 					</div>
 				</div>

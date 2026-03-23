@@ -9,6 +9,7 @@ import type { SceneEntity } from "../data/scene-entity.js";
 import type { DashboardAgent } from "../data/types.js";
 import type { AgentSprites } from "../sprites/sprite-loader.js";
 import type { BlackboardManager } from "../systems/blackboard.js";
+import { walkTo } from "../systems/blackboard.js";
 import { AgentActor } from "./agent-actor.js";
 import type * as ex from "excalibur";
 
@@ -42,18 +43,14 @@ export class AgentSceneEntity implements SceneEntity {
 	}
 
 	moveTo(x: number, y: number): void {
-		if (this.blackboards.has(this.entityId)) {
-			const bb = this.blackboards.get(this.entityId);
-			bb.movementCommand = "walk-to";
-			bb.movementTarget = { x, y };
-		}
+		const bb = this.blackboards.tryGet(this.entityId);
+		if (bb) walkTo(bb, { x, y });
 	}
 
 	getPosition(): { x: number; y: number } {
 		if (this.actor) return { x: this.actor.pos.x, y: this.actor.pos.y };
-		if (this.blackboards.has(this.entityId)) {
-			return { ...this.blackboards.get(this.entityId).position };
-		}
+		const bb = this.blackboards.tryGet(this.entityId);
+		if (bb) return { ...bb.position };
 		return { x: 0, y: 0 };
 	}
 
@@ -66,10 +63,7 @@ export class AgentSceneEntity implements SceneEntity {
 			this.actor.pos.x = x;
 			this.actor.pos.y = y;
 		}
-		if (this.blackboards.has(this.entityId)) {
-			const bb = this.blackboards.get(this.entityId);
-			bb.position.x = x;
-			bb.position.y = y;
-		}
+		const bb = this.blackboards.tryGet(this.entityId);
+		if (bb) { bb.position.x = x; bb.position.y = y; }
 	}
 }

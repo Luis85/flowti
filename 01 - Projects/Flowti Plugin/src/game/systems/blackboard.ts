@@ -115,6 +115,27 @@ export interface SyncableActor {
 	intentComponent?: IntentComponentData;
 }
 
+// ── Blackboard helpers ───────────────────────────────────────────
+
+/** Stop movement without changing intent. */
+export function stopMovement(bb: AgentBlackboard): void {
+	bb.movementCommand = "none";
+	bb.movementTarget = null;
+}
+
+/** Reset an agent to idle: clear intent, detail, and movement. */
+export function resetToIdle(bb: AgentBlackboard): void {
+	bb.intent = "idle";
+	bb.intentDetail = "";
+	stopMovement(bb);
+}
+
+/** Command an agent to walk to a target position. */
+export function walkTo(bb: AgentBlackboard, target: { x: number; y: number }): void {
+	bb.movementCommand = "walk-to";
+	bb.movementTarget = target;
+}
+
 // ── BlackboardManager ────────────────────────────────────────────
 
 export class BlackboardManager {
@@ -136,6 +157,11 @@ export class BlackboardManager {
 		const bb = this.boards.get(name);
 		if (!bb) throw new Error(`No blackboard for agent "${name}"`);
 		return bb;
+	}
+
+	/** Get an agent's blackboard, or undefined if not registered. */
+	tryGet(name: string): AgentBlackboard | undefined {
+		return this.boards.get(name);
 	}
 
 	/** Check if an agent is registered. */

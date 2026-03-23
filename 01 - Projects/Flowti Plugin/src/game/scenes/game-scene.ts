@@ -212,8 +212,8 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	onActivate(): void {
 		if (!this.blackboards) return;
 		for (const [name, actor] of this.agentActors) {
-			if (!this.blackboards.has(name)) continue;
-			const bb = this.blackboards.get(name);
+			const bb = this.blackboards?.tryGet(name);
+			if (!bb) continue;
 			actor.pos.x = bb.position.x;
 			actor.pos.y = bb.position.y;
 		}

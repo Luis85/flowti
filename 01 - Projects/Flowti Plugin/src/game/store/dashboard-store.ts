@@ -25,6 +25,10 @@ import { afterNextPaint } from "../after-next-paint.js";
 import type { StoryBeat } from "../systems/narrative-system.js";
 import type { OfflineResults } from "../systems/offline-progress.js";
 
+// ── Module-level constants ────────────────────────────────────────
+
+const CLI_INTENT_EVENTS = new Set(["thinking", "using-tool", "idle", "error", "done", "speaking", "queued", "response"]);
+
 // ── Exported helper types ──────────────────────────────────────────
 
 export interface Point {
@@ -551,7 +555,7 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	setAgentState(agentName: string, intent: AgentBlackboard["intent"]): void {
+	setAgentIntent(agentName: string, intent: AgentBlackboard["intent"]): void {
 		if (this.agentIntents.get(agentName) === intent) return;
 		this.agentIntents.set(agentName, intent);
 		this.notify();
@@ -701,8 +705,7 @@ export class DashboardStore extends EventTarget {
 		}
 
 		// Dispatch CLI events that drive BT intent changes
-		const brainEvents = ["thinking", "using-tool", "idle", "error", "done", "speaking", "queued", "response"];
-		if (brainEvents.includes(event.type)) {
+		if (CLI_INTENT_EVENTS.has(event.type)) {
 			this.dispatchEvent(new CustomEvent("cli-brain-event", {
 				detail: { agent: agentName, action: event.type },
 			}));

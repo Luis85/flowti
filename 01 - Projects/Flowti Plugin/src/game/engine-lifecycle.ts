@@ -9,6 +9,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import * as ex from "excalibur";
 import type { BlackboardManager } from "./systems/blackboard.js";
+import { resetToIdle } from "./systems/blackboard.js";
 import type { BubbleSystem } from "./systems/bubble-system.js";
 import type { DirectorSystem } from "./systems/director-system.js";
 import type { EngagementSystem } from "./systems/engagement-system.js";
@@ -377,12 +378,8 @@ export function createAgentSelectHandler(deps: AgentSelectDeps): (agentName: str
 			afterNextPaint(() => {
 				if (store.selectedAgent !== agentName) return;
 				if (actor) {
-					if (blackboards.has(agentName)) {
-						const bb = blackboards.get(agentName);
-						bb.intent = "idle";
-						bb.movementCommand = "none";
-						bb.movementTarget = null;
-					}
+					const bb = blackboards.tryGet(agentName);
+					if (bb) resetToIdle(bb);
 					actor.focus();
 					if (cameraSystem) cameraSystem.startFollow(actor);
 					store.startFollow(agentName);

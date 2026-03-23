@@ -143,11 +143,6 @@ function registerQuirksAndOpinions(agent: DashboardAgent, sys: RegistrationSyste
 	if (savedQuirks.length === 0) {
 		sys.memory.getMemory(name).quirks = sys.quirk.getQuirks(name);
 	}
-	// Quirk overrides → blackboard wiring deferred to P2 (quirk multipliers
-	// like socialRadiusMultiplier / moveSpeedMultiplier will be applied to
-	// blackboard fields once the locomotion layer consumes them).
-	sys.quirk.getOverrides(name);
-
 	const savedOpinions = sys.memory.getMemory(name).opinions;
 	const opinions = savedOpinions.length > 0 ? savedOpinions : assignOpinions();
 	if (savedOpinions.length === 0) {
