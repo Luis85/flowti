@@ -491,7 +491,7 @@ describe("engine-events", () => {
 
 	describe("wireCouncilAutoWake", () => {
 		it("wakes an AI agent when selectAgent sets a new selectedAgent", () => {
-			const store = ctx.store as Record<string, unknown>;
+			const store = ctx.store as unknown as Record<string, unknown>;
 			store.wakeAgent = vi.fn(() => Promise.resolve());
 			store.agents = [{ name: "Alice", agentType: "ai", mood: "happy", domain: "engineering" }];
 			store.selectedAgent = null;
@@ -512,7 +512,7 @@ describe("engine-events", () => {
 		});
 
 		it("does NOT wake when selectedAgent is null (deselect)", () => {
-			const store = ctx.store as Record<string, unknown>;
+			const store = ctx.store as unknown as Record<string, unknown>;
 			store.wakeAgent = vi.fn(() => Promise.resolve());
 			store.agents = [{ name: "Alice", agentType: "ai", mood: "happy", domain: "engineering" }];
 			store.selectedAgent = null;
@@ -530,7 +530,7 @@ describe("engine-events", () => {
 		});
 
 		it("does NOT wake when the same agent is re-selected (no change)", () => {
-			const store = ctx.store as Record<string, unknown>;
+			const store = ctx.store as unknown as Record<string, unknown>;
 			store.wakeAgent = vi.fn(() => Promise.resolve());
 			store.agents = [{ name: "Alice", agentType: "ai", mood: "happy", domain: "engineering" }];
 			store.selectedAgent = null;
