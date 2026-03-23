@@ -40,7 +40,6 @@ import { afterNextPaint } from "./after-next-paint.js";
 import { loadRoomElements } from "./sprites/animated-elements.js";
 import { shouldShowBriefing, calculateOfflineProgress, type AgentOfflineInput } from "./systems/offline-progress.js";
 import type { NarrativeSystem } from "./systems/narrative-system.js";
-import type { BriefingPanel } from "./ui/briefing-panel.js";
 import { findNodeBinary } from "../infrastructure/agents/cli-executor.js";
 import { runOneShotCommand } from "../infrastructure/agents/cli-executor-helpers.js";
 import type { OfflineResults } from "./systems/offline-progress.js";
@@ -322,18 +321,9 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 			const results = calculateOfflineProgress(elapsedMs, agentInputs);
 			const narrativeText = narrativeSystem.composeOfflineNarrative(results);
 
-			// Side-effect import ensures the custom element is registered
-			await import("./ui/briefing-panel.js");
-
-			const container = engine.canvas.parentElement;
-			if (container) {
-				const panel = document.createElement("ft-game-briefing") as BriefingPanel;
-				panel.results = results;
-				panel.narrativeText = narrativeText;
-				panel.visible = true;
-				panel.addEventListener("briefing-dismissed", () => panel.remove(), { once: true });
-				container.appendChild(panel);
-			}
+			// Route briefing through the sidebar via store
+			store.briefingData = { results, narrativeText };
+			store.setActivePanel("briefing");
 
 			// Dismiss loading before CLI work: `economy:reward` can hang if the CLI never exits.
 			dismissLoadingOverlay();

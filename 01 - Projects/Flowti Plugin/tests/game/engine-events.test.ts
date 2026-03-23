@@ -54,6 +54,8 @@ function createMockContext(): EngineContext {
 			addEventListener: vi.fn(),
 			removeEventListener: vi.fn(),
 			pushNarrativeBeat: vi.fn(),
+			setActivePanel: vi.fn(),
+			activePanel: null,
 		},
 		systems: {
 			brain: {

@@ -95,13 +95,8 @@ import { registerAgents, type RegistrationSystems } from "./engine-startup.js";
 
 // Side-effect imports — register Lit custom elements
 import "./ui/dashboard-overlays.js";
-import "./ui/ask-bob.js";
-import "./ui/roster-bar.js";
 import "./ui/camera-hud.js";
-import "./ui/merchant-panel.js";
-import "./ui/council-sidebar.js";
-import "./ui/council-picker.js";
-import "./ui/agent-detail-modal.js";
+import "./ui/sidebar.js";
 
 // ── Public interface ─────────────────────────────────────────────────
 
@@ -152,42 +147,31 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Reactive store + Lit overlays ─────────────────────
 	const store = new DashboardStore(deps.cliExecutor, deps.worldContext, deps.vaultBasePath);
 	store.syncCliSessionFromEnvironment();
-	for (const tag of ["ft-game-overlays", "ft-game-roster-bar", "ft-game-camera-hud", "ft-game-ask-bob"]) {
+	for (const tag of ["ft-game-overlays", "ft-game-camera-hud"]) {
 		const el = document.createElement(tag) as HTMLElement & { store: DashboardStore };
 		el.store = store;
-		if (tag === "ft-game-ask-bob") {
-			const bob = el as HTMLElement & {
-				store: DashboardStore;
-				eventBus?: IEventBus;
-				perfDashboard?: IAgentWorldPerfDashboard;
-				getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
-			};
-			if (deps.eventBus) bob.eventBus = deps.eventBus;
-			if (deps.perfDashboard) bob.perfDashboard = deps.perfDashboard;
-			if (deps.getPerfDashboard) bob.getPerfDashboard = deps.getPerfDashboard;
-		}
 		container.appendChild(el);
 	}
 
-	// ── Council UI components ────────────────────────────
-	const councilSidebar = document.createElement("ft-game-council-sidebar") as HTMLElement & { store: DashboardStore };
-	councilSidebar.store = store;
-	container.appendChild(councilSidebar);
+	// ── Sidebar — single component replaces council-sidebar, detail-modal, picker, roster-bar, ask-bob ──
+	const sidebar = document.createElement("ft-game-sidebar") as HTMLElement & {
+		store: typeof store;
+		eventBus?: IEventBus;
+		getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
+	};
+	sidebar.store = store;
+	if (deps.eventBus) sidebar.eventBus = deps.eventBus;
+	if (deps.getPerfDashboard) sidebar.getPerfDashboard = deps.getPerfDashboard;
+	container.appendChild(sidebar);
 
-	const detailModal = document.createElement("ft-game-agent-detail-modal") as HTMLElement & { store: DashboardStore; eventBus?: IEventBus };
-	detailModal.store = store;
-	if (deps.eventBus) detailModal.eventBus = deps.eventBus;
-	container.appendChild(detailModal);
-
-	let councilPicker: (HTMLElement & { store: DashboardStore }) | null = null;
-	container.addEventListener("open-picker", () => {
-		if (councilPicker) return;
-		councilPicker = document.createElement("ft-game-council-picker") as HTMLElement & { store: DashboardStore };
-		councilPicker.store = store;
-		container.appendChild(councilPicker);
-	});
-	container.addEventListener("close-picker", () => {
-		if (councilPicker) { councilPicker.remove(); councilPicker = null; }
+	// Wire panel-changed → camera offset
+	const cameraRef: { current: ReturnType<typeof createCameraSystem> | null } = { current: null };
+	store.addEventListener("panel-changed", () => {
+		const cam = cameraRef.current;
+		if (!cam) return;
+		const panelOpen = store.activePanel !== null;
+		const offset = panelOpen ? Math.round(ENGINE_WIDTH * 0.3) : 0;
+		cam.setPanelOffset(offset);
 	});
 
 	let cancelAgentResourcePoll: (() => void) | null = null;
@@ -213,7 +197,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	// ── Systems ─────────────────────────────────────────
-	const cameraRef: { current: ReturnType<typeof createCameraSystem> | null } = { current: null };
 	const brainSystem = new BrainSystem({
 		bounds: BRAIN_BOUNDS,
 		onWorkstationChange: (agentName, action, position) => {

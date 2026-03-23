@@ -15,6 +15,7 @@ import { renderPortrait } from "./portrait.js";
 import type { DashboardStore, PanelMode } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
 import type { IEventBus } from "../../infrastructure/events/types.js";
+import { MERCHANT_CATALOG } from "../data/merchant-catalog.js";
 
 // Side-effect imports to register child components
 import "./slide-panel.js";
@@ -190,7 +191,14 @@ export class GameSidebar extends FlowtiElement {
 				></ft-game-roster-panel>`;
 			case "merchant":
 				return html`<ft-game-merchant-panel
-					.store=${this.store}
+					.agents=${this.store.agents.map(a => ({
+						name: a.name,
+						coin: a.coin ?? 0,
+						level: a.level ?? 1,
+						capabilities: a.capabilities,
+					}))}
+					.catalog=${[...MERCHANT_CATALOG]}
+					.selectedAgent=${this.store.agents[0]?.name ?? ""}
 					embedded
 				></ft-game-merchant-panel>`;
 			case "briefing":
