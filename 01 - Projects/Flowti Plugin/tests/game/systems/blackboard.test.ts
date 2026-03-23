@@ -20,6 +20,7 @@ describe("createDefaultBlackboard", () => {
 		expect(bb.nearestFoodStation).toBeNull();
 		expect(bb.nearestDrinkStation).toBeNull();
 		expect(bb.nearestRestStation).toBeNull();
+		expect(bb.nearestWorkstation).toBeNull();
 		expect(bb.wanderHint).toBeNull();
 		expect(bb.cascadeHint).toBeNull();
 		expect(bb.cascadeTarget).toBeNull();

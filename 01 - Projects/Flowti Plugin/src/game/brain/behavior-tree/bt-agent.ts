@@ -216,7 +216,8 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	// ── Break condition (replaces brain.updateWorking break threshold) ──
 
 	function NeedsBreak(): boolean {
-		return bb.intent === "working" && context.needs.energy < (30 - con / 2);
+		const threshold = (30 - con / 2) + bb.breakThresholdBias;
+		return bb.intent === "working" && context.needs.energy < threshold;
 	}
 
 	// ── Actions ──────────────────────────────────────────────────────
@@ -457,7 +458,13 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	// ── New subtree actions (idle-wander, break, talking timeout) ────
 
 	function CommandWander(): State {
-		bb.movementCommand = "wander";
+		// Prefer echo-driven wander hint (bond target) when available
+		if (bb.wanderHint) {
+			bb.movementCommand = "walk-to";
+			bb.movementTarget = bb.wanderHint;
+		} else {
+			bb.movementCommand = "wander";
+		}
 		context.intentTimer = 0;
 		return fromNodeState("succeeded");
 	}
@@ -516,9 +523,8 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	function GoToWorkstation(): State {
 		bb.intent = "working";
 		bb.intentDetail = `goal-${context.activeGoal?.name ?? "work"}`;
-		// Workstation target will be resolved by the locomotion/blackboard push
 		bb.movementCommand = "walk-to";
-		bb.movementTarget = null; // resolved by station resolver
+		bb.movementTarget = bb.nearestWorkstation;
 		return fromNodeState("succeeded");
 	}
 
@@ -566,7 +572,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		Drink: () => Drink(context),
 		WanderSad,
 		GoToWorkstation, DoWork, LeaveWorkstation,
-		ExecuteJourney,
+		ExecuteJourney: () => ExecuteJourney(),
 		SeekMerchantStall: () => SeekMerchantStall(extDeps),
 		BrowseMerchant: () => BrowseMerchant(extDeps),
 		ExecuteMerchantPurchase: () => ExecuteMerchantPurchase(extDeps),

@@ -185,6 +185,21 @@ export class BtSystem {
 	 */
 	update(deltaMs: number, blackboards: BlackboardManager): void {
 		for (const [name, entry] of this.entries) {
+			// Advance intentTimer every frame (used by IsIdleLongEnough, IsTalkingTooLong).
+			// Reset when intent changes so timers track duration in current state.
+			if (blackboards.has(name)) {
+				const bb = blackboards.get(name);
+				const ctx = entry.bt.agent.context as { intentTimer?: number; _lastIntent?: string };
+				if (typeof ctx.intentTimer === "number") {
+					const currentIntent = bb.intent;
+					if (ctx._lastIntent !== undefined && ctx._lastIntent !== currentIntent) {
+						ctx.intentTimer = 0;
+					}
+					ctx.intentTimer += deltaMs;
+					ctx._lastIntent = currentIntent;
+				}
+			}
+
 			entry.accumulator += deltaMs;
 			if (entry.accumulator >= entry.tickInterval) {
 				entry.accumulator -= entry.tickInterval;

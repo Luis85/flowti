@@ -16,7 +16,8 @@
  * flows through the blackboard.
  */
 
-import type { BubbleKind } from "./talk/talk-types.js";
+/** Bubble visual kind — inlined to avoid coupling blackboard to talk subsystem. */
+export type BubbleKind = "speech" | "thought" | "question";
 
 // ── Agent Needs ──────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ export interface AgentBlackboard {
 	nearestFoodStation: { x: number; y: number } | null;
 	nearestDrinkStation: { x: number; y: number } | null;
 	nearestRestStation: { x: number; y: number } | null;
+	nearestWorkstation: { x: number; y: number } | null;
 
 	// ── Written by echo/social, read by BT ───────────
 	wanderHint: { x: number; y: number } | null;
@@ -83,6 +85,7 @@ export function createDefaultBlackboard(): AgentBlackboard {
 		nearestFoodStation: null,
 		nearestDrinkStation: null,
 		nearestRestStation: null,
+		nearestWorkstation: null,
 		wanderHint: null,
 		cascadeHint: null,
 		cascadeTarget: null,

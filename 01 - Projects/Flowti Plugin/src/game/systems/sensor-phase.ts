@@ -25,8 +25,10 @@ export interface SensorDeps {
 	getNearbyAgents(name: string): string[];
 	/** Entity IDs within interaction radius, same room. */
 	getNearbyEntities(name: string): string[];
-	/** Nearest unoccupied food station position in agent's room (null if none). */
+	/** Nearest unoccupied food/drink/rest station position in agent's room (null if none). */
 	getNearestStation(name: string, need: "food" | "drink" | "rest"): { x: number; y: number } | null;
+	/** Nearest unoccupied workstation position in agent's room (null if none). */
+	getNearestWorkstation(name: string): { x: number; y: number } | null;
 	/** Echo-driven wander hint toward bonded agent (null if no bond or probability miss). */
 	getWanderHint(name: string): { x: number; y: number } | null;
 	/** Pending cascade hint from echo system (null if none). */
@@ -68,6 +70,7 @@ function writeSensorData(bb: AgentBlackboard, name: string, deps: SensorDeps): v
 	bb.nearestFoodStation = deps.getNearestStation(name, "food");
 	bb.nearestDrinkStation = deps.getNearestStation(name, "drink");
 	bb.nearestRestStation = deps.getNearestStation(name, "rest");
+	bb.nearestWorkstation = deps.getNearestWorkstation(name);
 
 	// Echo-driven hints
 	bb.wanderHint = deps.getWanderHint(name);

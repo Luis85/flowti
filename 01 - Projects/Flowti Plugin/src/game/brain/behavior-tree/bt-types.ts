@@ -77,18 +77,11 @@ export function parseGoalType(goalName: string): GoalType | undefined {
 	return GOAL_TYPES.find((t) => lower.startsWith(t));
 }
 
-// ── Agent Needs (Phase 2 — liveness-systems prerequisite) ────────────
+// ── Agent Needs — re-exported from blackboard (single canonical source) ──
 
-export interface AgentNeeds {
-	energy: number;
-	social: number;
-	focus: number;
-	morale: number;
-	hunger: number;
-	thirst: number;
-}
+export type { AgentNeeds } from "../../systems/blackboard.js";
 
-export function createDefaultNeeds(): AgentNeeds {
+export function createDefaultNeeds(): import("../../systems/blackboard.js").AgentNeeds {
 	return { energy: 80, social: 60, focus: 70, morale: 75, hunger: 80, thirst: 80 };
 }
 
@@ -174,6 +167,8 @@ export interface BTAgentContext {
 
 	/** Accumulated time in current intent state (ms). Used by idle-wander and talking-timeout. */
 	intentTimer: number;
+	/** Tracks previous intent for timer reset on change. */
+	_lastIntent?: string;
 	/** Personality-driven idle resistance threshold (ms). */
 	idleResistance: number;
 }
