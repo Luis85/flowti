@@ -266,6 +266,7 @@ export class BriefingPanel extends FlowtiElement {
 		results: { attribute: false },
 		narrativeText: { attribute: false },
 		visible: { type: Boolean, reflect: true },
+		embedded: { type: Boolean, reflect: true },
 	};
 
 	static styles = [
@@ -280,12 +281,13 @@ export class BriefingPanel extends FlowtiElement {
 	results: OfflineResults | null = null;
 	narrativeText = "";
 	visible = false;
+	embedded = false;
 
 	private dismissTimer: ReturnType<typeof setTimeout> | null = null;
 
 	connectedCallback(): void {
 		super.connectedCallback();
-		this.startAutoDismiss();
+		if (this.results) this.startAutoDismiss();
 	}
 
 	disconnectedCallback(): void {
@@ -293,12 +295,16 @@ export class BriefingPanel extends FlowtiElement {
 		this.clearAutoDismiss();
 	}
 
-	protected willUpdate(): void {
-		this.isEmpty = !this.visible || !this.results;
+	protected willUpdate(changed: Map<string, unknown>): void {
+		this.isEmpty = (!this.visible && !this.embedded) || !this.results;
+		if (changed.has("results") && this.results && !this.dismissTimer) {
+			this.startAutoDismiss();
+		}
 	}
 
 	protected renderContent() {
-		const results = this.results!;
+		if (!this.results) return html``;
+		const results = this.results;
 		const headlines = buildHeadlines(results.agentResults);
 		const totalTasks = results.agentResults.reduce((s, a) => s + a.tasksCompleted, 0);
 		const totalXp = results.agentResults.reduce((s, a) => s + a.xpEarned, 0);
@@ -306,70 +312,82 @@ export class BriefingPanel extends FlowtiElement {
 		const commentary = pickRandom(COLOR_COMMENTARY);
 		const narrative = this.narrativeText ? stripMarkdown(this.narrativeText) : "";
 
+		const cardContent = html`
+			<div class="header">
+				<span class="npc-icon">${"\u{1F3EA}"}</span>
+				<div class="header-text">
+					<span class="header-title">Welcome back, Director</span>
+					<span class="header-subtitle">Merchant Briefing</span>
+				</div>
+			</div>
+
+			<div class="body">
+				${headlines.length > 0 ? html`
+					<div class="headlines">
+						${headlines.map((h) => html`
+							<div class="headline-item">
+								<span class="headline-dot"></span>
+								<span>${h}</span>
+							</div>
+						`)}
+					</div>
+				` : nothing}
+
+				<div class="stats">
+					<div class="stat">
+						<div class="stat-value">${formatDuration(results.elapsedMs)}</div>
+						<div class="stat-label">Time Away</div>
+					</div>
+					<div class="stat">
+						<div class="stat-value">${totalTasks}</div>
+						<div class="stat-label">Tasks</div>
+					</div>
+					<div class="stat">
+						<div class="stat-value">${totalXp}</div>
+						<div class="stat-label">XP</div>
+					</div>
+					<div class="stat">
+						<div class="stat-value">${totalCoin}</div>
+						<div class="stat-label">Coin</div>
+					</div>
+				</div>
+
+				<div class="commentary">${commentary}</div>
+
+				${results.rested ? html`
+					<div class="rest-notice">
+						The team took some downtime \u2014 everyone's refreshed.
+					</div>
+				` : nothing}
+
+				${narrative ? html`
+					<div class="narrative-section">${narrative}</div>
+				` : nothing}
+			</div>
+
+			<div class="footer">
+				<button class="dismiss-btn primary" @click=${this.dismiss}>Dismiss</button>
+			</div>
+		`;
+
+		if (this.embedded) {
+			return html`<div class="card" @click=${this.onInteraction}>${cardContent}</div>`;
+		}
+
 		return html`
 			<div class="overlay" @click=${this.dismiss}></div>
 			<div class="card" @click=${this.onInteraction}>
-				<div class="header">
-					<span class="npc-icon">${"\u{1F3EA}"}</span>
-					<div class="header-text">
-						<span class="header-title">Welcome back, Director</span>
-						<span class="header-subtitle">Merchant Briefing</span>
-					</div>
-				</div>
-
-				<div class="body">
-					${headlines.length > 0 ? html`
-						<div class="headlines">
-							${headlines.map((h) => html`
-								<div class="headline-item">
-									<span class="headline-dot"></span>
-									<span>${h}</span>
-								</div>
-							`)}
-						</div>
-					` : nothing}
-
-					<div class="stats">
-						<div class="stat">
-							<div class="stat-value">${formatDuration(results.elapsedMs)}</div>
-							<div class="stat-label">Time Away</div>
-						</div>
-						<div class="stat">
-							<div class="stat-value">${totalTasks}</div>
-							<div class="stat-label">Tasks</div>
-						</div>
-						<div class="stat">
-							<div class="stat-value">${totalXp}</div>
-							<div class="stat-label">XP</div>
-						</div>
-						<div class="stat">
-							<div class="stat-value">${totalCoin}</div>
-							<div class="stat-label">Coin</div>
-						</div>
-					</div>
-
-					<div class="commentary">${commentary}</div>
-
-					${results.rested ? html`
-						<div class="rest-notice">
-							The team took some downtime \u2014 everyone's refreshed.
-						</div>
-					` : nothing}
-
-					${narrative ? html`
-						<div class="narrative-section">${narrative}</div>
-					` : nothing}
-				</div>
-
-				<div class="footer">
-					<button class="dismiss-btn primary" @click=${this.dismiss}>Dismiss</button>
-				</div>
+				${cardContent}
 			</div>
 		`;
 	}
 
 	private dismiss = (): void => {
 		this.clearAutoDismiss();
+		if (this.embedded) {
+			this.dispatchEvent(new CustomEvent("panel-close", { bubbles: true, composed: true }));
+			return;
+		}
 		this.visible = false;
 		this.dispatchEvent(new CustomEvent("briefing-dismissed", { bubbles: true, composed: true }));
 	};

@@ -57,11 +57,13 @@ const DOMAIN_COLORS: Record<string, string> = {
 };
 
 import { TRUST_TIER_COLORS } from "./game-ui-constants.js";
+import { renderPortrait } from "./portrait.js";
 
 export class AgentDetailModal extends FlowtiElement {
 	static properties = {
 		...FlowtiElement.properties,
 		store: { attribute: false },
+		embedded: { type: Boolean, reflect: true },
 	};
 
 	static styles = [
@@ -466,9 +468,10 @@ export class AgentDetailModal extends FlowtiElement {
 	];
 
 	store!: DashboardStore;
+	embedded = false;
 
 	private storeCtrl = new StoreController(this, () => this.store);
-	private keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") this.handleClose(); };
+	private keyHandler = (e: KeyboardEvent) => { if (!this.embedded && e.key === "Escape") this.handleClose(); };
 
 	connectedCallback(): void {
 		super.connectedCallback();
@@ -487,6 +490,10 @@ export class AgentDetailModal extends FlowtiElement {
 	}
 
 	private handleClose(): void {
+		if (this.embedded) {
+			this.dispatchEvent(new CustomEvent("panel-close", { bubbles: true, composed: true }));
+			return;
+		}
 		if (!this.store?.selectedAgent) return;
 		this.store.stopFollow();
 		this.store.selectAgent(null);
@@ -635,46 +642,54 @@ export class AgentDetailModal extends FlowtiElement {
 		const trustTier = agent.trustTier ?? "supervised";
 		const trustColor = TRUST_TIER_COLORS[trustTier] ?? "#f59e0b";
 
+		const innerContent = html`
+			<div class="modal-header">
+				<div class="header-left">
+					<div class="portrait">${renderPortrait(agent.name, agent.domain ?? "fallback", 64, trustTier)}</div>
+					<div class="name-block">
+						<span class="agent-name">${agent.name}</span>
+						${agent.persona ? html`<span class="agent-persona">${agent.persona}</span>` : nothing}
+					</div>
+					<div class="badges">
+						<span class="badge badge-type">${agent.agentType}</span>
+						<span class="badge badge-trust" style="color:${trustColor}; border-color:${trustColor}; background:${trustColor}1a">${trustTier}</span>
+						<span class="badge badge-level">Lv ${agent.level ?? 1}</span>
+						${brainState ? html`<span class="brain-state">${brainState}</span>` : nothing}
+						${this.renderLlmBadge(agent.name)}
+					</div>
+				</div>
+				${this.embedded ? nothing : html`<button
+					class="close-btn"
+					data-testid="modal-close"
+					@click="${this.handleClose}"
+				>&#xD7;</button>`}
+			</div>
+
+			<div class="tab-bar" role="tablist">
+				${TAB_LABELS.map(({ name, label }) => html`
+					<button
+						class="tab-btn"
+						role="tab"
+						data-tab="${name}"
+						data-active="${selectedTab === name}"
+						@click="${() => { this.handleTabClick(name); }}"
+					>${label}</button>
+				`)}
+			</div>
+
+			<div class="tab-content">
+				${this.renderTabContent(agent)}
+			</div>
+		`;
+
+		if (this.embedded) {
+			return innerContent;
+		}
+
 		return html`
 			<div class="backdrop" @click="${this.handleClose}"></div>
 			<div class="modal" data-testid="agent-detail-modal">
-				<div class="modal-header">
-					<div class="header-left">
-						<div class="portrait">${(agent.persona ?? agent.name).charAt(0).toUpperCase()}</div>
-						<div class="name-block">
-							<span class="agent-name">${agent.name}</span>
-							${agent.persona ? html`<span class="agent-persona">${agent.persona}</span>` : nothing}
-						</div>
-						<div class="badges">
-							<span class="badge badge-type">${agent.agentType}</span>
-							<span class="badge badge-trust" style="color:${trustColor}; border-color:${trustColor}; background:${trustColor}1a">${trustTier}</span>
-							<span class="badge badge-level">Lv ${agent.level ?? 1}</span>
-							${brainState ? html`<span class="brain-state">${brainState}</span>` : nothing}
-							${this.renderLlmBadge(agent.name)}
-						</div>
-					</div>
-					<button
-						class="close-btn"
-						data-testid="modal-close"
-						@click="${this.handleClose}"
-					>&#xD7;</button>
-				</div>
-
-				<div class="tab-bar" role="tablist">
-					${TAB_LABELS.map(({ name, label }) => html`
-						<button
-							class="tab-btn"
-							role="tab"
-							data-tab="${name}"
-							data-active="${selectedTab === name}"
-							@click="${() => { this.handleTabClick(name); }}"
-						>${label}</button>
-					`)}
-				</div>
-
-				<div class="tab-content">
-					${this.renderTabContent(agent)}
-				</div>
+				${innerContent}
 			</div>
 		`;
 	}

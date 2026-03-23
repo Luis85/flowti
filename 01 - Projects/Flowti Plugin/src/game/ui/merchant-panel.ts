@@ -411,6 +411,7 @@ export class MerchantPanel extends FlowtiElement {
 		selectedCategory: { state: true },
 		ownedItems: { attribute: false },
 		visible: { type: Boolean, reflect: true },
+		embedded: { type: Boolean, reflect: true },
 		pendingPurchase: { state: true },
 		lastPurchaseResult: { state: true },
 	};
@@ -430,6 +431,7 @@ export class MerchantPanel extends FlowtiElement {
 	selectedCategory: CategoryFilter = "capability";
 	ownedItems: Set<string> = new Set();
 	visible = false;
+	embedded = false;
 	pendingPurchase: CatalogItem | null = null;
 	lastPurchaseResult: { item: string; success: boolean } | null = null;
 
@@ -462,7 +464,7 @@ export class MerchantPanel extends FlowtiElement {
 	}
 
 	protected renderContent() {
-		if (!this.visible) return html``;
+		if (!this.embedded && !this.visible) return html``;
 
 		const agent = this.agents.find((a) => a.name === this.selectedAgent);
 		const selectedLevel = agent?.level ?? 0;
@@ -471,14 +473,22 @@ export class MerchantPanel extends FlowtiElement {
 				&& (item.requiresLevel === undefined || item.requiresLevel <= selectedLevel),
 		);
 
+		const panelContent = html`
+			${this.renderHeader()}
+			${this.renderAgentSelector()}
+			${this.renderCategoryTabs()}
+			${this.renderItemList(filtered, agent)}
+			${this.renderFooter(agent)}
+		`;
+
+		if (this.embedded) {
+			return html`<div class="merchant-panel">${panelContent}</div>`;
+		}
+
 		return html`
 			<div class="overlay" @click=${this.handleClose}></div>
 			<div class="merchant-panel">
-				${this.renderHeader()}
-				${this.renderAgentSelector()}
-				${this.renderCategoryTabs()}
-				${this.renderItemList(filtered, agent)}
-				${this.renderFooter(agent)}
+				${panelContent}
 			</div>
 		`;
 	}
@@ -487,7 +497,9 @@ export class MerchantPanel extends FlowtiElement {
 		return html`
 			<div class="merchant-header">
 				<span class="merchant-title">Merchant Shop</span>
-				<button class="close-btn" @click=${this.handleClose} title="Close shop">&times;</button>
+				${this.embedded ? nothing : html`
+					<button class="close-btn" @click=${this.handleClose} title="Close shop">&times;</button>
+				`}
 			</div>
 		`;
 	}
@@ -605,6 +617,10 @@ export class MerchantPanel extends FlowtiElement {
 	// ── Event handlers ────────────────────────────────────────────────
 
 	private handleClose(): void {
+		if (this.embedded) {
+			this.dispatchEvent(new CustomEvent("panel-close", { bubbles: true, composed: true }));
+			return;
+		}
 		this.visible = false;
 		this.dispatchEvent(new CustomEvent("merchant-close", { bubbles: true, composed: true }));
 	}

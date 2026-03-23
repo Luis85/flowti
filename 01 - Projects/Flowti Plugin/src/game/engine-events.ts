@@ -35,7 +35,6 @@ import { interpolateTemplate } from "./data/engagement-templates.js";
 import { BICKER_TEMPLATES } from "./data/relationship-templates.js";
 import { findClashLabels } from "./data/opinion-topics.js";
 import { resolveSettingForDomain } from "./config/domain-map.js";
-import { MERCHANT_CATALOG } from "./data/merchant-catalog.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -570,44 +569,8 @@ function wireNarrativeEvents(ctx: EngineContext): () => void {
 
 function wireMerchantStallClick(ctx: EngineContext): () => void {
 	const handler = () => {
-		const container = ctx.engine.canvas.parentElement;
-		if (!container) return;
-
-		let panel = container.querySelector("ft-game-merchant-panel") as
-			HTMLElement & {
-				visible: boolean;
-				agents: unknown[];
-				selectedAgent: string;
-				catalog: unknown[];
-			} | null;
-
-		if (!panel) {
-			panel = document.createElement("ft-game-merchant-panel") as
-				HTMLElement & {
-					visible: boolean;
-					agents: unknown[];
-					selectedAgent: string;
-					catalog: unknown[];
-				};
-			panel.addEventListener("merchant-close", () => { panel!.visible = false; });
-			container.appendChild(panel);
-		}
-
-		// Populate agent data from store
-		const agents = ctx.store.agents.map((a) => ({
-			name: a.name,
-			coin: a.coin ?? 0,
-			level: a.level ?? 1,
-			capabilities: a.capabilities,
-		}));
-		panel.agents = agents;
-		if (agents.length > 0 && !panel.selectedAgent) {
-			panel.selectedAgent = agents[0].name;
-		}
-		panel.catalog = [...MERCHANT_CATALOG];
-		panel.visible = true;
+		ctx.store.setActivePanel("merchant");
 	};
-
 	ctx.engine.canvas.addEventListener("merchant-stall-click", handler);
 	return () => ctx.engine.canvas.removeEventListener("merchant-stall-click", handler);
 }

@@ -649,8 +649,8 @@ describe("createAgentWorld", () => {
 	it("mounts overlay elements into container", () => {
 		const container = document.createElement("div");
 		createAgentWorld({ container, provider: createMockProvider(), spriteBasePath: "/test" });
-		// Canvas + loading overlay + 4 Lit overlays + council sidebar + detail modal = 8 children
-		expect(container.children.length).toBe(8);
+		// Canvas + loading overlay + overlays + camera-hud + sidebar = 5 children
+		expect(container.children.length).toBe(5);
 	});
 
 	it("keyboard listeners are on document (not container)", () => {

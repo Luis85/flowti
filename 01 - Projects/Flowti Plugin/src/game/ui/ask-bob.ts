@@ -62,6 +62,7 @@ export class AskBob extends FlowtiElement {
 		store: { attribute: false },
 		eventBus: { attribute: false },
 		perfDashboard: { attribute: false },
+		embedded: { type: Boolean, reflect: true },
 		open: { state: true },
 		conversation: { state: true },
 		thinking: { state: true },
@@ -78,6 +79,7 @@ export class AskBob extends FlowtiElement {
 
 
 	store!: DashboardStore;
+	embedded = false;
 	/** When set (via `createAgentWorld` deps), enables live `perf.agentWorld.*` subscription. */
 	eventBus?: IEventBus;
 	/** Optional static ref (e.g. tests). Production uses {@link getPerfDashboard}. */
@@ -520,6 +522,10 @@ export class AskBob extends FlowtiElement {
 	}
 
 	private handleClose(): void {
+		if (this.embedded) {
+			this.dispatchEvent(new CustomEvent("panel-close", { bubbles: true, composed: true }));
+			return;
+		}
 		this.open = false;
 	}
 
@@ -1037,8 +1043,115 @@ export class AskBob extends FlowtiElement {
 		`;
 	}
 
-	protected renderContent() {
+	private renderPanelBody() {
 		const sel = this.store.selectedAgent;
+		return html`
+			<div class="chat-header">
+				<div class="chat-title-block">
+					<div class="chat-title">
+						<span class="name">Bob</span>
+						<span class="role">World narrator</span>
+					</div>
+					<p class="chat-subtitle">
+						${this.activeTab === "overview"
+							? "Simulation snapshot, roster, and costs."
+							: this.activeTab === "chat"
+								? "Ask questions about the world and agents."
+								: this.activeTab === "agent"
+									? sel
+										? `Focused on ${sel}.`
+										: "Select an agent for live status and stream."
+									: this.activeTab === "systems"
+										? "Resources, performance, and full logs."
+										: "Raw LLM prompts and responses (developers)."}
+					</p>
+				</div>
+				${this.embedded ? nothing : html`
+					<button type="button" class="close-btn" @click=${this.handleClose} aria-label="Close panel">
+						&times;
+					</button>
+				`}
+			</div>
+			<div class="tab-row" role="tablist" aria-label="Bob panel sections">
+				<button
+					type="button"
+					class="tab-btn"
+					role="tab"
+					?data-active=${this.activeTab === "overview"}
+					@click=${() => this.switchTab("overview")}
+				>
+					Overview
+				</button>
+				<button
+					type="button"
+					class="tab-btn"
+					role="tab"
+					?data-active=${this.activeTab === "chat"}
+					@click=${() => this.switchTab("chat")}
+				>
+					Chat
+				</button>
+				<button
+					type="button"
+					class="tab-btn"
+					role="tab"
+					?data-active=${this.activeTab === "agent"}
+					?data-badge=${Boolean(sel)}
+					@click=${() => this.switchTab("agent")}
+				>
+					Agent
+				</button>
+				<button
+					type="button"
+					class="tab-btn"
+					role="tab"
+					?data-active=${this.activeTab === "systems"}
+					@click=${() => this.switchTab("systems")}
+				>
+					Systems
+				</button>
+				<button
+					type="button"
+					class="tab-btn"
+					role="tab"
+					?data-active=${this.activeTab === "debug"}
+					@click=${() => this.switchTab("debug")}
+				>
+					Debug
+				</button>
+			</div>
+			${this.activeTab === "chat"
+				? html`
+					<div class="thread" role="log" aria-live="polite">
+						${this.renderThread()}
+					</div>
+					<div class="input-row">
+						<input
+							class="chat-input"
+							type="text"
+							placeholder="e.g. Who is busy? What phase are we in?"
+							aria-label="Message to Bob"
+							@keydown=${this.handleKeydown}
+						/>
+						<button type="button" class="send-btn" @click=${this.handleSend}>Send</button>
+					</div>
+				`
+				: this.activeTab === "overview"
+					? this.renderOverviewTab()
+					: this.activeTab === "agent"
+						? this.renderAgentTab()
+						: this.activeTab === "systems"
+							? this.renderSystemsTab()
+							: html`<div class="bob-debug-panel">${this.renderDebugLog()}</div>`}
+		`;
+	}
+
+	protected renderContent() {
+		if (this.embedded) {
+			this.syncFromStore();
+			return this.renderPanelBody();
+		}
+
 		return html`
 			${this.open
 				? html`
@@ -1050,101 +1163,7 @@ export class AskBob extends FlowtiElement {
 						aria-label="Bob — world command center"
 						@keydown=${this.handleOverlayKeydown}
 					>
-						<div class="chat-header">
-							<div class="chat-title-block">
-								<div class="chat-title">
-									<span class="name">Bob</span>
-									<span class="role">World narrator</span>
-								</div>
-								<p class="chat-subtitle">
-									${this.activeTab === "overview"
-										? "Simulation snapshot, roster, and costs."
-										: this.activeTab === "chat"
-											? "Ask questions about the world and agents."
-											: this.activeTab === "agent"
-												? sel
-													? `Focused on ${sel}.`
-													: "Select an agent for live status and stream."
-												: this.activeTab === "systems"
-													? "Resources, performance, and full logs."
-													: "Raw LLM prompts and responses (developers)."}
-								</p>
-							</div>
-							<button type="button" class="close-btn" @click=${this.handleClose} aria-label="Close panel">
-								&times;
-							</button>
-						</div>
-						<div class="tab-row" role="tablist" aria-label="Bob panel sections">
-							<button
-								type="button"
-								class="tab-btn"
-								role="tab"
-								?data-active=${this.activeTab === "overview"}
-								@click=${() => this.switchTab("overview")}
-							>
-								Overview
-							</button>
-							<button
-								type="button"
-								class="tab-btn"
-								role="tab"
-								?data-active=${this.activeTab === "chat"}
-								@click=${() => this.switchTab("chat")}
-							>
-								Chat
-							</button>
-							<button
-								type="button"
-								class="tab-btn"
-								role="tab"
-								?data-active=${this.activeTab === "agent"}
-								?data-badge=${Boolean(sel)}
-								@click=${() => this.switchTab("agent")}
-							>
-								Agent
-							</button>
-							<button
-								type="button"
-								class="tab-btn"
-								role="tab"
-								?data-active=${this.activeTab === "systems"}
-								@click=${() => this.switchTab("systems")}
-							>
-								Systems
-							</button>
-							<button
-								type="button"
-								class="tab-btn"
-								role="tab"
-								?data-active=${this.activeTab === "debug"}
-								@click=${() => this.switchTab("debug")}
-							>
-								Debug
-							</button>
-						</div>
-						${this.activeTab === "chat"
-							? html`
-								<div class="thread" role="log" aria-live="polite">
-									${this.renderThread()}
-								</div>
-								<div class="input-row">
-									<input
-										class="chat-input"
-										type="text"
-										placeholder="e.g. Who is busy? What phase are we in?"
-										aria-label="Message to Bob"
-										@keydown=${this.handleKeydown}
-									/>
-									<button type="button" class="send-btn" @click=${this.handleSend}>Send</button>
-								</div>
-							`
-							: this.activeTab === "overview"
-								? this.renderOverviewTab()
-								: this.activeTab === "agent"
-									? this.renderAgentTab()
-									: this.activeTab === "systems"
-										? this.renderSystemsTab()
-										: html`<div class="bob-debug-panel">${this.renderDebugLog()}</div>`}
+						${this.renderPanelBody()}
 					</div>
 				`
 				: nothing}
