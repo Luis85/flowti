@@ -22,11 +22,20 @@ export interface CameraSystem {
 	getFollowedName(): string | null;
 	checkDespawn(): void;
 	onSceneActivate(findActor: (name: string) => AgentActor | undefined, sceneCamera: ex.Camera): void;
+	setPanelOffset(offset: number): void;
 	handleZoom(wheelDelta: number): void;
 	applyZoom(deltaMs: number): void;
 	updatePan(deltaMs: number): void;
 	handleKeyDown(key: string): void;
 	handleKeyUp(key: string): void;
+}
+
+export class OffsetFollowStrategy implements ex.CameraStrategy<ex.Actor> {
+	constructor(public target: ex.Actor, public offset: number) {}
+	action = (target: ex.Actor, _cam: ex.Camera, _eng: ex.Engine, _elapsed: number): ex.Vector => {
+		const center = target.center;
+		return new ex.Vector(center.x - this.offset, center.y);
+	};
 }
 
 export function createCameraSystem(
@@ -36,6 +45,7 @@ export function createCameraSystem(
 	let camera = initialCamera;
 	let followedActor: AgentActor | null = null;
 	let followedName: string | null = null;
+	let panelOffset = 0;
 	let targetZoom = camera.zoom;
 	const center = sceneCenter;
 
@@ -47,11 +57,14 @@ export function createCameraSystem(
 	}
 
 	function startFollow(actor: AgentActor): void {
-		stopFollow();
 		followedActor = actor;
 		followedName = actor.agentData.name;
 		camera.clearAllStrategies();
-		camera.addStrategy(new ex.LockCameraToActorStrategy(actor));
+		if (panelOffset > 0) {
+			camera.addStrategy(new OffsetFollowStrategy(actor, panelOffset));
+		} else {
+			camera.addStrategy(new ex.LockCameraToActorStrategy(actor));
+		}
 	}
 
 	function stopFollow(): void {
@@ -74,11 +87,21 @@ export function createCameraSystem(
 		if (!followedName) return;
 		const actor = findActor(followedName);
 		if (actor) {
-			followedActor = actor;
-			camera.clearAllStrategies();
-			camera.addStrategy(new ex.LockCameraToActorStrategy(actor));
+			startFollow(actor);
 		} else {
 			stopFollow();
+		}
+	}
+
+	function setPanelOffset(offset: number): void {
+		panelOffset = offset;
+		if (followedActor) {
+			camera.clearAllStrategies();
+			if (offset > 0) {
+				camera.addStrategy(new OffsetFollowStrategy(followedActor, offset));
+			} else {
+				camera.addStrategy(new ex.LockCameraToActorStrategy(followedActor));
+			}
 		}
 	}
 
@@ -126,6 +149,7 @@ export function createCameraSystem(
 		getFollowedName: () => followedName,
 		checkDespawn,
 		onSceneActivate,
+		setPanelOffset,
 		handleZoom,
 		applyZoom,
 		updatePan,
