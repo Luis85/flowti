@@ -57,6 +57,7 @@ const DOMAIN_COLORS: Record<string, string> = {
 };
 
 import { TRUST_TIER_COLORS } from "./game-ui-constants.js";
+import { renderPortrait } from "./portrait.js";
 
 export class AgentDetailModal extends FlowtiElement {
 	static properties = {
@@ -470,7 +471,7 @@ export class AgentDetailModal extends FlowtiElement {
 	embedded = false;
 
 	private storeCtrl = new StoreController(this, () => this.store);
-	private keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") this.handleClose(); };
+	private keyHandler = (e: KeyboardEvent) => { if (!this.embedded && e.key === "Escape") this.handleClose(); };
 
 	connectedCallback(): void {
 		super.connectedCallback();
@@ -644,7 +645,7 @@ export class AgentDetailModal extends FlowtiElement {
 		const innerContent = html`
 			<div class="modal-header">
 				<div class="header-left">
-					<div class="portrait">${(agent.persona ?? agent.name).charAt(0).toUpperCase()}</div>
+					<div class="portrait">${renderPortrait(agent.name, agent.domain ?? "fallback", 64, trustTier)}</div>
 					<div class="name-block">
 						<span class="agent-name">${agent.name}</span>
 						${agent.persona ? html`<span class="agent-persona">${agent.persona}</span>` : nothing}

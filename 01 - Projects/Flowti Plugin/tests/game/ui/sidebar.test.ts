@@ -42,6 +42,18 @@ vi.mock("../../../src/game/ui/store-controller.js", () => ({
 vi.mock("../../../src/game/ui/game-ui-constants.js", () => ({
 	TRUST_TIER_COLORS: { supervised: "#f59e0b", trusted: "#22c55e", autonomous: "#8b5cf6" },
 	STATUS_DOT_COLORS: { busy: "#22c55e", idle: "#3b82f6", unassigned: "#6b7280" },
+	COUNCIL_SLOT_COUNT: 5,
+	NEED_META: [],
+	STATE_COLORS: {},
+	getCouncilSlots: (names: string[], agents: { name: string }[]) => {
+		const slots: ({ name: string } | null)[] = [];
+		for (let i = 0; i < 5; i++) {
+			const name = names[i];
+			slots.push(name ? (agents.find(a => a.name === name) ?? null) : null);
+		}
+		return slots;
+	},
+	relativeTime: () => "0s",
 }));
 
 vi.mock("../../../src/game/ui/game-styles.js", () => ({
@@ -66,6 +78,12 @@ vi.mock("../../../src/game/ui/portrait.js", () => ({
 // Stub side-effect child component registrations
 vi.mock("../../../src/game/ui/slide-panel.js", () => ({}));
 vi.mock("../../../src/game/ui/roster-panel.js", () => ({}));
+vi.mock("../../../src/game/ui/agent-detail-modal.js", () => ({}));
+vi.mock("../../../src/game/ui/ask-bob.js", () => ({}));
+vi.mock("../../../src/game/ui/merchant-panel.js", () => ({}));
+vi.mock("../../../src/game/ui/briefing-panel.js", () => ({}));
+vi.mock("../../../src/game/data/merchant-catalog.js", () => ({ MERCHANT_CATALOG: [] }));
+vi.mock("../../../src/infrastructure/services/perfTypes.js", () => ({}));
 
 // Import triggers custom element registration
 import "../../../src/game/ui/sidebar.js";
@@ -172,7 +190,7 @@ describe("GameSidebar (ft-game-sidebar)", () => {
 		expect(store.setActivePanel).toHaveBeenCalledWith(null);
 	});
 
-	it("handlePanelClose calls store.stopFollow when closing agent-detail", () => {
+	it("handlePanelClose calls store.stopFollow and selectAgent(null) when closing agent-detail", () => {
 		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
 		const store = createMockStore();
 		store.activePanel = "agent-detail";
@@ -180,6 +198,19 @@ describe("GameSidebar (ft-game-sidebar)", () => {
 
 		el.handlePanelClose();
 		expect(store.stopFollow).toHaveBeenCalled();
+		expect(store.selectAgent).toHaveBeenCalledWith(null);
+		expect(store.setActivePanel).toHaveBeenCalledWith(null);
+	});
+
+	it("handlePanelClose clears briefingData when closing briefing", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		const store = createMockStore();
+		store.activePanel = "briefing";
+		store.briefingData = { results: {}, narrativeText: "test" };
+		el.store = store;
+
+		el.handlePanelClose();
+		expect(store.briefingData).toBeNull();
 		expect(store.setActivePanel).toHaveBeenCalledWith(null);
 	});
 
@@ -237,15 +268,23 @@ describe("GameSidebar (ft-game-sidebar)", () => {
 		expect(typeof result).not.toBe("symbol");
 	});
 
-	it("renderPanelContent returns template for each panel mode", () => {
+	it("renderPanelContent returns correct element for each panel mode", () => {
 		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
 		const store = createMockStore();
 		store.briefingData = { results: {}, narrativeText: "Hello" };
 		el.store = store;
 
-		for (const mode of ["agent-detail", "bob", "roster", "merchant", "briefing"]) {
-			const result = el.renderPanelContent(mode);
-			expect(result).toBeDefined();
+		const expected: Record<string, string> = {
+			"agent-detail": "ft-game-agent-detail-modal",
+			bob: "ft-game-ask-bob",
+			roster: "ft-game-roster-panel",
+			merchant: "ft-game-merchant-panel",
+			briefing: "ft-game-briefing",
+		};
+
+		for (const [mode, tag] of Object.entries(expected)) {
+			const result = el.renderPanelContent(mode) as { strings: TemplateStringsArray };
+			expect(result.strings.join("")).toContain(tag);
 		}
 	});
 });

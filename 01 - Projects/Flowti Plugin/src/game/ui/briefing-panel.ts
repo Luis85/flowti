@@ -287,7 +287,7 @@ export class BriefingPanel extends FlowtiElement {
 
 	connectedCallback(): void {
 		super.connectedCallback();
-		this.startAutoDismiss();
+		if (this.results) this.startAutoDismiss();
 	}
 
 	disconnectedCallback(): void {
@@ -295,12 +295,16 @@ export class BriefingPanel extends FlowtiElement {
 		this.clearAutoDismiss();
 	}
 
-	protected willUpdate(): void {
+	protected willUpdate(changed: Map<string, unknown>): void {
 		this.isEmpty = (!this.visible && !this.embedded) || !this.results;
+		if (changed.has("results") && this.results && !this.dismissTimer) {
+			this.startAutoDismiss();
+		}
 	}
 
 	protected renderContent() {
-		const results = this.results!;
+		if (!this.results) return html``;
+		const results = this.results;
 		const headlines = buildHeadlines(results.agentResults);
 		const totalTasks = results.agentResults.reduce((s, a) => s + a.tasksCompleted, 0);
 		const totalXp = results.agentResults.reduce((s, a) => s + a.xpEarned, 0);

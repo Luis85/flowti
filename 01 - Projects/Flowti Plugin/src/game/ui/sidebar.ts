@@ -12,16 +12,20 @@ import { FlowtiElement } from "../../components/flowti-element.js";
 import { StoreController } from "./store-controller.js";
 import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./game-styles.js";
 import { renderPortrait } from "./portrait.js";
+import { getCouncilSlots } from "./game-ui-constants.js";
 import type { DashboardStore, PanelMode } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
 import type { IEventBus } from "../../infrastructure/events/types.js";
+import type { IAgentWorldPerfDashboard } from "../../infrastructure/services/perfTypes.js";
 import { MERCHANT_CATALOG } from "../data/merchant-catalog.js";
 
 // Side-effect imports to register child components
 import "./slide-panel.js";
 import "./roster-panel.js";
-
-const COUNCIL_SLOTS = 5;
+import "./agent-detail-modal.js";
+import "./ask-bob.js";
+import "./merchant-panel.js";
+import "./briefing-panel.js";
 
 export class GameSidebar extends FlowtiElement {
 	static properties = {
@@ -117,25 +121,14 @@ export class GameSidebar extends FlowtiElement {
 
 	store!: DashboardStore;
 	eventBus?: IEventBus;
-	getPerfDashboard?: () => unknown;
+	getPerfDashboard?: () => IAgentWorldPerfDashboard | undefined;
 
 	private storeCtrl = new StoreController(this, () => this.store);
 
 	/* ── Computed helpers ──────────────────────────────────────── */
 
 	private get councilAgents(): (DashboardAgent | null)[] {
-		const names = this.store?.council ?? [];
-		const agents = this.store?.agents ?? [];
-		const slots: (DashboardAgent | null)[] = [];
-		for (let i = 0; i < COUNCIL_SLOTS; i++) {
-			const name = names[i];
-			if (name) {
-				slots.push(agents.find(a => a.name === name) ?? null);
-			} else {
-				slots.push(null);
-			}
-		}
-		return slots;
+		return getCouncilSlots(this.store?.council ?? [], this.store?.agents ?? []);
 	}
 
 	/* ── Council slot handlers ─────────────────────────────────── */
@@ -155,6 +148,10 @@ export class GameSidebar extends FlowtiElement {
 	private handlePanelClose(): void {
 		if (this.store.activePanel === "agent-detail") {
 			this.store.stopFollow();
+			this.store.selectAgent(null);
+		}
+		if (this.store.activePanel === "briefing") {
+			this.store.briefingData = null;
 		}
 		this.store.setActivePanel(null);
 	}
@@ -198,7 +195,7 @@ export class GameSidebar extends FlowtiElement {
 						capabilities: a.capabilities,
 					}))}
 					.catalog=${[...MERCHANT_CATALOG]}
-					.selectedAgent=${this.store.agents[0]?.name ?? ""}
+					.selectedAgent=${this.store.selectedAgent ?? this.store.agents[0]?.name ?? ""}
 					embedded
 				></ft-game-merchant-panel>`;
 			case "briefing":

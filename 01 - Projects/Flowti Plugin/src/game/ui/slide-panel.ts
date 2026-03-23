@@ -6,7 +6,7 @@
  * Content is projected via a default `<slot>`.
  */
 
-import { html, css, nothing } from "lit";
+import { html, css } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./game-styles.js";
 
@@ -133,8 +133,6 @@ export class SlidePanel extends FlowtiElement {
 	}
 
 	protected renderContent() {
-		if (!this.open) return nothing;
-
 		return html`
 			<div class="panel-backdrop" @click=${() => this.handleBackdropClick()}></div>
 			<div class="panel">

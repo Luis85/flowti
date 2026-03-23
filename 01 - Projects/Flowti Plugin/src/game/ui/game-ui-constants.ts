@@ -5,6 +5,7 @@
 
 import type { BrainState } from "../brain/brain-types.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
+import type { DashboardAgent } from "../data/types.js";
 
 export const STATE_COLORS: Partial<Record<BrainState, string>> = {
 	idle: "#3b82f6",
@@ -36,6 +37,20 @@ export const STATUS_DOT_COLORS: Record<string, string> = {
 	idle: "#3b82f6",
 	unassigned: "#6b7280",
 };
+
+export const COUNCIL_SLOT_COUNT = 5;
+
+export function getCouncilSlots(
+	councilNames: readonly string[],
+	agents: readonly DashboardAgent[],
+): (DashboardAgent | null)[] {
+	const slots: (DashboardAgent | null)[] = [];
+	for (let i = 0; i < COUNCIL_SLOT_COUNT; i++) {
+		const name = councilNames[i];
+		slots.push(name ? (agents.find(a => a.name === name) ?? null) : null);
+	}
+	return slots;
+}
 
 export function relativeTime(ms: number): string {
 	const sec = Math.floor(ms / 1000);

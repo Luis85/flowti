@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { DashboardStore } from "../../../src/game/store/dashboard-store.js";
 import type { PanelMode } from "../../../src/game/store/dashboard-store.js";
 import type { ICliExecutor, AgentProcess } from "../../../src/infrastructure/agents/cli-executor.js";
+import type { DashboardAgent } from "../../../src/game/data/types.js";
 
 function createMockExecutor(): ICliExecutor {
 	const mockProc: AgentProcess = {
@@ -30,7 +31,7 @@ function createMockExecutor(): ICliExecutor {
 describe("DashboardStore", () => {
 	it("sets and retrieves agents", () => {
 		const store = new DashboardStore();
-		store.setAgents([{ name: "Atlas", agentType: "ai", status: "idle" }] as any);
+		store.setAgents([{ name: "Atlas", agentType: "ai", status: "idle" } as DashboardAgent]);
 		expect(store.agents).toHaveLength(1);
 		expect(store.agents[0].name).toBe("Atlas");
 	});
@@ -224,5 +225,22 @@ describe("activePanel", () => {
 		expect(store.activePanel).toBe("agent-detail");
 		store.deselectAgent("atlas");
 		expect(store.activePanel).toBeNull();
+	});
+
+	it("selectAgent emits panel-changed on open transition", () => {
+		const store = new DashboardStore();
+		let detail: { activePanel: PanelMode | null } | null = null;
+		store.addEventListener("panel-changed", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+		store.selectAgent("atlas");
+		expect(detail).toEqual({ activePanel: "agent-detail" });
+	});
+
+	it("selectAgent(null) emits panel-changed on close transition", () => {
+		const store = new DashboardStore();
+		store.selectAgent("atlas");
+		let detail: { activePanel: PanelMode | null } | null = null;
+		store.addEventListener("panel-changed", ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+		store.selectAgent(null);
+		expect(detail).toEqual({ activePanel: null });
 	});
 });

@@ -17,7 +17,7 @@ export function portraitSrc(characterName: string): string {
 }
 
 export function fallbackInitial(name: string): string {
-	return (name ?? "?").charAt(0).toUpperCase();
+	return (name || "?").charAt(0).toUpperCase();
 }
 
 /* ── Lit render ───────────────────────────────────────────────────── */

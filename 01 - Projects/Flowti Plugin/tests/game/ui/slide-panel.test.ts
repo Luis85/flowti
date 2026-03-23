@@ -72,11 +72,11 @@ describe("SlidePanel (ft-game-slide-panel)", () => {
 		expect(() => document.createElement("ft-game-slide-panel")).not.toThrow();
 	});
 
-	it("renders nothing when open is false", () => {
+	it("always renders panel structure (visibility controlled by CSS)", () => {
 		const el = createElement();
 		el.open = false;
-		const result = el.renderContent();
-		expect(typeof result).toBe("symbol");
+		const result = el.renderContent() as { strings: TemplateStringsArray };
+		expect(result.strings).toBeDefined();
 	});
 
 	it("renders panel structure when open is true", () => {

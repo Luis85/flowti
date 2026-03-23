@@ -118,4 +118,27 @@ describe("camera-offset", () => {
 			expect(result.y).toBe(150);
 		});
 	});
+
+	describe("checkDespawn", () => {
+		it("calls stopFollow when actor is killed", () => {
+			const actor = mockActor();
+			(actor.isKilled as ReturnType<typeof vi.fn>).mockReturnValue(true);
+			sys.startFollow(actor);
+			camera.clearAllStrategies.mockClear();
+
+			sys.checkDespawn();
+
+			expect(camera.clearAllStrategies).toHaveBeenCalled();
+		});
+
+		it("does not stop follow when actor is alive", () => {
+			const actor = mockActor();
+			sys.startFollow(actor);
+			camera.clearAllStrategies.mockClear();
+
+			sys.checkDespawn();
+
+			expect(camera.clearAllStrategies).not.toHaveBeenCalled();
+		});
+	});
 });

@@ -10,12 +10,11 @@ import { html, css, nothing } from "lit";
 import { FlowtiElement } from "../../components/flowti-element.js";
 import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./game-styles.js";
 import { renderPortrait } from "./portrait.js";
+import { getCouncilSlots, COUNCIL_SLOT_COUNT } from "./game-ui-constants.js";
 import { resolveSettingForDomain } from "../config/domain-map.js";
 import { StoreController } from "./store-controller.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
-
-const COUNCIL_MAX = 5;
 
 export class RosterPanel extends FlowtiElement {
 	static properties = {
@@ -96,7 +95,7 @@ export class RosterPanel extends FlowtiElement {
 				font-family: inherit;
 			}
 			.remove-btn:hover {
-				color: #d94e4e;
+				color: var(--accent-red, #d94e4e);
 			}
 
 			.empty-portrait {
@@ -232,22 +231,11 @@ export class RosterPanel extends FlowtiElement {
 	}
 
 	private get councilAgents(): (DashboardAgent | null)[] {
-		const names = this.councilNames;
-		const agents = this.store?.agents ?? [];
-		const slots: (DashboardAgent | null)[] = [];
-		for (let i = 0; i < COUNCIL_MAX; i++) {
-			const name = names[i];
-			if (name) {
-				slots.push(agents.find(a => a.name === name) ?? null);
-			} else {
-				slots.push(null);
-			}
-		}
-		return slots;
+		return getCouncilSlots(this.councilNames, this.store?.agents ?? []);
 	}
 
 	private get isFull(): boolean {
-		return this.councilNames.length >= COUNCIL_MAX;
+		return this.councilNames.length >= COUNCIL_SLOT_COUNT;
 	}
 
 	private get councilSet(): Set<string> {
