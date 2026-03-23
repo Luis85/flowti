@@ -202,6 +202,7 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 			}
 			return null;
 		},
+		getNearestMerchantStall: (name) => findNearestUnoccupiedStation(ctx, name, [ctx.envObjects.merchantStall]),
 		getWanderHint: (name) => {
 			const bondTarget = sys.echo.getStrongest(name, "bond");
 			if (!bondTarget?.target || Math.random() >= 0.4) return null;
@@ -493,8 +494,6 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 		btAgent.context.echoStore = sys.echo;
 		btAgent.context.currentRoom = bb.currentRoom;
 		(btAgent.context as { nearbyAgents: readonly string[] }).nearbyAgents = bb.nearbyAgents;
-		// Reset arrived flag so BT can detect fresh arrivals
-		bb.arrived = false;
 	}
 
 	// Refresh pet BT echo context
@@ -811,10 +810,16 @@ export function tickVisuals(ctx: EngineContext): void {
 	const { systems: sys, state } = ctx;
 
 	// Visual feedback system — intent telegraphs, arrival payoff, idle micro-actions
+	// Only tick agents in the current scene to avoid cross-room visual bleed
 	if (sys.visualFeedback) {
 		runTimedGameSystem(ctx, "visualFeedback", () => {
 			const now = performance.now();
+			const currentRoom = ctx.scenes.hub === ctx.engine.currentScene ? "hub"
+				: ctx.scenes.office === ctx.engine.currentScene ? "office"
+				: ctx.scenes.village === ctx.engine.currentScene ? "village"
+				: ctx.scenes.station === ctx.engine.currentScene ? "station" : "";
 			for (const [name, bb] of sys.blackboards.getAll()) {
+				if (currentRoom && bb.currentRoom !== currentRoom) continue;
 				sys.visualFeedback!.tick(name, bb, now, state.deltaMs);
 			}
 		});

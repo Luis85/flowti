@@ -242,7 +242,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	const visualFeedbackSystem = new VisualFeedbackSystem({
 		onShowIntentIcon: (agentName, spritePath, _pos) => {
-			const actor = findAgentActor(agentName);
+			const actor = findCurrentSceneActor(agentName);
 			if (!actor) return;
 			const icon = new IntentIconActor(spritePath);
 			actor.addChild(icon);
@@ -250,7 +250,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			icon.fadeIn();
 		},
 		onHideIntentIcon: (agentName) => {
-			const actor = findAgentActor(agentName);
+			const actor = findCurrentSceneActor(agentName);
 			if (!actor) return;
 			for (const child of actor.children) {
 				if (child instanceof IntentIconActor) {
@@ -258,7 +258,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				}
 			}
 		},
-		onItemPop: (_agentName, spritePath, fromPos) => {
+		onItemPop: (agentName, spritePath, fromPos) => {
+			if (!findCurrentSceneActor(agentName)) return;
 			const pop = new ItemPopActor(spritePath, fromPos.x, fromPos.y);
 			getOrLoadSprite(spritePath, (sprite) => pop.applySprite(sprite));
 			engine.currentScene.add(pop);
@@ -268,15 +269,17 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			particlePool.spriteBurst({ preset, x: position.x, y: position.y });
 		},
 		onEmoteFlash: (agentName, emoteIndex) => {
+			if (!findCurrentSceneActor(agentName)) return;
 			emoteSystem.triggerEmote(agentName, emoteIndex);
 		},
 		onThoughtBubble: (agentName, text, iconPath, duration) => {
-			bubbleSystem.showBubble(agentName, "thought", text, null, (n) => findAgentActor(n), duration, false, iconPath);
+			if (!findCurrentSceneActor(agentName)) return;
+			bubbleSystem.showBubble(agentName, "thought", text, null, (n) => findCurrentSceneActor(n), duration, false, iconPath);
 		},
 		onFacingChange: (agentName, direction) => {
 			const bb = blackboardManager.tryGet(agentName);
 			if (bb) bb.facingDirection = direction;
-			const actor = findAgentActor(agentName);
+			const actor = findCurrentSceneActor(agentName);
 			if (actor) actor.applyFacing(direction);
 		},
 	});
