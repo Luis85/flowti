@@ -2,8 +2,9 @@
  * bt-system.ts — Behavior tree tick system for the game engine.
  *
  * Creates and ticks behavior trees for agents with behaviors[] defined.
- * Throttled to tick every BT_TICK_INTERVAL_MS of game time (not every frame).
- * Produces actions that drive the brain system and world state.
+ * Throttled to tick at randomized intervals (2.5-4s) per agent.
+ * BT actions write directly to the agent's blackboard — no collected
+ * actions, no worldState bridge.
  */
 
 import { createAgentBT, type AgentBT, type FullAgentBT } from "../brain/behavior-tree/bt-factory.js";
@@ -12,16 +13,14 @@ import type { BTAgentObject } from "../brain/behavior-tree/bt-agent.js";
 import type {
 	AgentToolDeps,
 	BTAgentDef,
-	IBrainBridge,
 	IClock,
 	IMerchantBridge,
-	INeedsBridge,
-	IWorldStateManager,
 } from "../brain/behavior-tree/bt-types.js";
 import type { PetBTContext } from "../brain/behavior-tree/pet-bt.js";
-import type { AgentAction, DashboardAgent } from "../data/types.js";
+import type { DashboardAgent } from "../data/types.js";
 import type { BTTreeSnapshot, BTNodeState, BTNodeType, BTNodeStatus } from "../store/dashboard-store.js";
 import { getTreeNodeDetails, type TreeNodeDetails } from "../brain/behavior-tree/bt-service.js";
+import type { AgentBlackboard, BlackboardManager } from "./blackboard.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -37,8 +36,6 @@ function randomTickInterval(): number {
 // ── Per-agent entry ──────────────────────────────────────────────────
 
 interface BtEntry {
-	// FullAgentBT preserves the concrete BTAgentObject so getAgent() can return
-	// the typed reference for needs-snapshot refresh without any cast.
 	readonly bt: FullAgentBT;
 	accumulator: number;
 	tickInterval: number;
@@ -73,19 +70,17 @@ function toBTAgentDef(agent: DashboardAgent, quirks?: readonly string[]): BTAgen
 	};
 }
 
-// ── Stub deps for Phase 1 ────────────────────────────────────────────
+// ── Create deps for BT agent ─────────────────────────────────────────
 
-export function createStubDeps(
-	worldState: IWorldStateManager,
+export function createBtDeps(
+	blackboard: AgentBlackboard,
 	clock: IClock,
-	needs?: INeedsBridge,
-	brain?: IBrainBridge,
 	merchant?: IMerchantBridge,
 ): AgentToolDeps {
 	return {
 		disk: {
-			readFileSync: () => { throw new Error("disk not available in Phase 1"); },
-			writeFileSync: () => { throw new Error("disk not available in Phase 1"); },
+			readFileSync: () => { throw new Error("disk not available"); },
+			writeFileSync: () => { throw new Error("disk not available"); },
 			existsSync: () => false,
 			mkdirSync: () => {},
 		},
@@ -95,10 +90,8 @@ export function createStubDeps(
 			basename: (p: string) => p.substring(p.lastIndexOf("/") + 1),
 		},
 		clock,
-		worldState,
 		checkPermission: () => "allowed" as const,
-		...(needs && { needs }),
-		...(brain && { brain }),
+		blackboard,
 		...(merchant && { merchant }),
 	};
 }
@@ -137,7 +130,6 @@ function walkNodeDetails(nd: TreeNodeDetails): BTNodeState {
 	};
 }
 
-/** Compare two snapshots by status values only (ignoring tick counter). */
 function snapshotsEqual(a: BTTreeSnapshot, b: BTTreeSnapshot): boolean {
 	return nodesEqual(a.root, b.root);
 }
@@ -156,7 +148,6 @@ function nodesEqual(a: BTNodeState, b: BTNodeState): boolean {
 export class BtSystem {
 	private readonly entries = new Map<string, BtEntry>();
 	private readonly petEntries = new Map<string, PetBtEntry>();
-	private lastActions: AgentAction[] = [];
 	private lastSnapshots = new Map<string, BTTreeSnapshot>();
 	private tickCount = 0;
 
@@ -166,13 +157,11 @@ export class BtSystem {
 	/** Register a BT for an agent that has behaviors defined. */
 	register(agent: DashboardAgent, deps: AgentToolDeps, quirks?: readonly string[]): void {
 		if (this.entries.has(agent.name)) return;
-		if (agent.agentType === "npc") return; // NPCs don't get behavior trees
+		if (agent.agentType === "npc") return;
 		if (!agent.behaviors || agent.behaviors.length === 0) return;
 
 		const def = toBTAgentDef(agent, quirks);
 		const bt = createAgentBT(def, deps);
-		// Each agent gets its own randomized tick interval (2.5–4s) and
-		// staggered initial accumulator so ticks spread naturally.
 		const tickInterval = randomTickInterval();
 		const stagger = (this.entries.size * 397) % tickInterval;
 		this.entries.set(agent.name, { bt, accumulator: stagger, tickInterval });
@@ -190,21 +179,21 @@ export class BtSystem {
 		return { root: walkNodeDetails(details), tick: this.tickCount };
 	}
 
-	/** Advance all BT accumulators. Tick trees when interval exceeded.
-	 *  Returns collected actions from this update. */
-	update(deltaMs: number, worldState: IWorldStateManager, clock: IClock): AgentAction[] {
-		const actions: AgentAction[] = [];
-
+	/**
+	 * Advance all BT accumulators. Tick trees when interval exceeded.
+	 * BT actions write directly to blackboards during evaluation.
+	 */
+	update(deltaMs: number, blackboards: BlackboardManager): void {
 		for (const [name, entry] of this.entries) {
 			entry.accumulator += deltaMs;
 			if (entry.accumulator >= entry.tickInterval) {
 				entry.accumulator -= entry.tickInterval;
 				entry.tickInterval = randomTickInterval();
 				this.tickCount++;
-				const emitted = btTick(entry.bt.tree, entry.bt.agent, worldState, clock);
-				for (const action of emitted) {
-					actions.push(action);
-				}
+
+				// Get the agent's blackboard for this tick
+				const bb = blackboards.has(name) ? blackboards.get(name) : undefined;
+				btTick(entry.bt.tree, entry.bt.agent, bb);
 
 				// Build snapshot and emit only when status values changed
 				if (this.onSnapshot) {
@@ -217,14 +206,6 @@ export class BtSystem {
 				}
 			}
 		}
-
-		this.lastActions = actions;
-		return actions;
-	}
-
-	/** Return actions from the most recent update. */
-	getActions(): AgentAction[] {
-		return this.lastActions;
 	}
 
 	/** Check whether an agent has a registered BT. */
@@ -237,10 +218,9 @@ export class BtSystem {
 		return this.entries.size;
 	}
 
-	/** Get an agent's BT object (for needs snapshot refresh). */
+	/** Get an agent's BT object (for context refresh). */
 	getAgent(name: string): BTAgentObject | undefined {
 		const entry = this.entries.get(name);
-		// FullAgentBT.agent is typed as BTAgentObject — no cast needed.
 		return entry?.bt.agent;
 	}
 
@@ -266,20 +246,15 @@ export class BtSystem {
 		this.petEntries.delete(name);
 	}
 
-	/** Tick pet BTs at PET_TICK_INTERVAL_MS. Returns collected actions. */
-	updatePets(deltaMs: number, worldState: IWorldStateManager, clock: IClock): AgentAction[] {
-		const actions: AgentAction[] = [];
+	/** Tick pet BTs at PET_TICK_INTERVAL_MS. */
+	updatePets(deltaMs: number): void {
 		for (const [, entry] of this.petEntries) {
 			entry.accumulator += deltaMs;
 			if (entry.accumulator >= PET_TICK_INTERVAL_MS) {
 				entry.accumulator -= PET_TICK_INTERVAL_MS;
-				const emitted = btTick(entry.bt.tree, entry.bt.agent, worldState, clock);
-				for (const action of emitted) {
-					actions.push(action);
-				}
+				btTick(entry.bt.tree, entry.bt.agent);
 			}
 		}
-		return actions;
 	}
 
 	/** Number of registered pet BTs. */
