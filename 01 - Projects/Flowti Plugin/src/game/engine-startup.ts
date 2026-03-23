@@ -7,7 +7,10 @@
 
 import type { DashboardAgent } from "./data/types.js";
 import type { SavedPosition } from "./engine-state.js";
-import type { BrainSystem } from "./systems/brain-system.js";
+import type { BlackboardManager } from "./systems/blackboard.js";
+import { computeParams } from "./brain/agent-brain.js";
+import { createBtDeps } from "./systems/bt-system.js";
+import type { IClock } from "./brain/behavior-tree/bt-types.js";
 import type { BubbleSystem } from "./systems/bubble-system.js";
 import type { TalkEngine } from "./systems/talk/talk-engine.js";
 import type { EmoteSystem } from "./systems/emote-system.js";
@@ -39,7 +42,7 @@ import type { InteractionHooks } from "./brain/behavior-tree/bt-types.js";
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface RegistrationSystems {
-	readonly brain: BrainSystem;
+	readonly blackboards: BlackboardManager;
 	readonly bubble: BubbleSystem;
 	readonly talk: TalkEngine;
 	readonly emote: EmoteSystem;
@@ -52,7 +55,7 @@ export interface RegistrationSystems {
 	readonly quirk: QuirkSystem;
 	readonly relationship: RelationshipSystem;
 	readonly bt: BtSystem;
-	readonly btDeps: Parameters<BtSystem["register"]>[1];
+	readonly btClock: IClock;
 	readonly knownEntities: Set<string>;
 	readonly interactionBootstrap?: InteractionBootstrap;
 }
@@ -74,14 +77,14 @@ function registerSingleAgent(agent: DashboardAgent, sys: RegistrationSystems): v
 	const attrs = agent.attributes ?? {};
 	const personality = agent.personality ?? [];
 
-	sys.brain.register(name, attrs, agent.mood, domain);
-	const brainState = sys.brain.getState(name)!;
+	sys.blackboards.register(name);
+	const params = computeParams(attrs);
 
-	sys.bubble.register(name, personality, brainState.params);
+	sys.bubble.register(name, personality, params);
 	sys.talk.register(name, domain, personality, attrs.cha ?? 10);
-	sys.emote.register(name, agent.mood ?? "neutral", brainState.params.quoteFrequency);
+	sys.emote.register(name, agent.mood ?? "neutral", params.quoteFrequency);
 	sys.social.register(name, {
-		socialRadius: brainState.params.socialRadius,
+		socialRadius: params.socialRadius,
 		personality,
 		domain,
 		relationships: agent.relationships ?? [],
@@ -93,7 +96,8 @@ function registerSingleAgent(agent: DashboardAgent, sys: RegistrationSystems): v
 	sys.memory.register(name);
 
 	registerQuirksAndOpinions(agent, sys);
-	sys.bt.register(agent, sys.btDeps, sys.quirk.getQuirks(agent.name));
+	const btDeps = createBtDeps(sys.blackboards.get(name), sys.btClock);
+	sys.bt.register(agent, btDeps, sys.quirk.getQuirks(agent.name));
 
 	// Wire interaction resolver + BT hooks
 	if (sys.interactionBootstrap) {
@@ -139,11 +143,6 @@ function registerQuirksAndOpinions(agent: DashboardAgent, sys: RegistrationSyste
 	if (savedQuirks.length === 0) {
 		sys.memory.getMemory(name).quirks = sys.quirk.getQuirks(name);
 	}
-	const overrides = sys.quirk.getOverrides(name);
-	if (Object.keys(overrides).length > 0) {
-		sys.brain.applyQuirkOverrides(name, overrides as Record<string, number>);
-	}
-
 	const savedOpinions = sys.memory.getMemory(name).opinions;
 	const opinions = savedOpinions.length > 0 ? savedOpinions : assignOpinions();
 	if (savedOpinions.length === 0) {
@@ -163,7 +162,7 @@ export function registerAgents(agents: readonly DashboardAgent[], hubScene: Game
 
 /** Tear down one agent across simulation systems (roster removal). */
 export function unregisterAgentFromSimulation(name: string, sys: RegistrationSystems): void {
-	sys.brain.unregister(name);
+	sys.blackboards.unregister(name);
 	sys.bubble.unregister(name);
 	sys.talk.unregister(name);
 	sys.emote.unregister(name);
@@ -181,7 +180,7 @@ export function unregisterAgentFromSimulation(name: string, sys: RegistrationSys
 
 export interface RosterReconcileExtras {
 	readonly spriteRegistry: ReadonlyMap<string, AgentSprites>;
-	readonly brainSystem: BrainSystem;
+	readonly blackboards: BlackboardManager;
 	readonly handleAgentSelect: (name: string) => void;
 	readonly allEntities: Map<string, SceneEntity>;
 }
@@ -217,7 +216,7 @@ export function reconcileSimulationRoster(
 		const charName = resolveCharacter(agent.name, agent.domain ?? "");
 		const sprites = extras.spriteRegistry.get(charName);
 		if (sprites) {
-			const entity = new AgentSceneEntity(agent, sprites, extras.brainSystem, extras.handleAgentSelect);
+			const entity = new AgentSceneEntity(agent, sprites, extras.blackboards, extras.handleAgentSelect);
 			extras.allEntities.set(agent.name, entity);
 		}
 	}

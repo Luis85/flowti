@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { createAgentBT } from "../../../../src/game/brain/behavior-tree/bt-factory.js";
 import { btTick } from "../../../../src/game/brain/behavior-tree/bt-tick.js";
 import type { AgentToolDeps, BTAgentDef } from "../../../../src/game/brain/behavior-tree/bt-types.js";
+import { createDefaultBlackboard } from "../../../../src/game/systems/blackboard.js";
 
 function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 	return {
@@ -13,15 +14,16 @@ function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 		},
 		paths: { join: (...s: string[]) => s.join("/"), dirname: (p: string) => p, basename: (p: string) => p },
 		clock: { now: () => 1000, ms: () => 1000, iso: () => "2026-03-20T10:00:00Z" },
-		worldState: { emitAction: vi.fn(), updateEntity: vi.fn() },
 		checkPermission: vi.fn(() => "allowed" as const),
+		blackboard: createDefaultBlackboard(),
 		...overrides,
 	};
 }
 
 describe("BT integration — full tick cycle", () => {
 	it("agent with goals goes through work cycle (needs-driven priority)", () => {
-		const deps = makeDeps();
+		const bb = createDefaultBlackboard();
+		const deps = makeDeps({ blackboard: bb });
 		const agent: BTAgentDef = {
 			name: "Atlas",
 			agentType: "ai",
@@ -32,21 +34,18 @@ describe("BT integration — full tick cycle", () => {
 		};
 
 		const { tree, agent: btAgent } = createAgentBT(agent, deps);
+		const initialFocus = btAgent.context.needs.focus;
 
-		// Tick several times — WorkCycle branch fires before LLM goal sequence
-		const allActions: ReturnType<typeof btTick> = [];
-		for (let i = 0; i < 5; i++) {
-			const actions = btTick(tree, btAgent, deps.worldState, deps.clock);
-			allActions.push(...actions);
-		}
+		// Single tick — WorkCycle: PickGoal → GoToWorkstation → DoWork → LeaveWorkstation
+		btTick(tree, btAgent, bb);
 
-		// WorkCycle: PickGoal → GoToWorkstation → DoWork → LeaveWorkstation
-		expect(allActions.some((a) => a.type === "goal-started")).toBe(true);
-		expect(allActions.some((a) => a.type === "goal-completed")).toBe(true);
+		// DoWork reduces focus by 5, proving the work cycle executed
+		expect(btAgent.context.needs.focus).toBe(initialFocus - 5);
 	});
 
 	it("agent with low energy seeks rest instead of working", () => {
-		const deps = makeDeps();
+		const bb = createDefaultBlackboard();
+		const deps = makeDeps({ blackboard: bb });
 		const agent: BTAgentDef = {
 			name: "Scout",
 			agentType: "ai",
@@ -57,16 +56,17 @@ describe("BT integration — full tick cycle", () => {
 		// Set energy below threshold — NeedsEnergy branch fires
 		btAgent.context.needs.energy = 10;
 
-		const allActions: ReturnType<typeof btTick> = [];
-		for (let i = 0; i < 5; i++) {
-			allActions.push(...btTick(tree, btAgent, deps.worldState, deps.clock));
-		}
+		// Single tick — NeedsEnergy branch should fire before WorkCycle
+		btTick(tree, btAgent, bb);
 
-		expect(allActions.some((a) => a.type === "seek-rest")).toBe(true);
+		// Low energy should trigger seeking/rest intent on blackboard
+		expect(bb.intent).toBe("seeking");
+		expect(bb.intentDetail).toBe("seek-rest");
 	});
 
 	it("agent with no goals falls to idle behavior", () => {
-		const deps = makeDeps();
+		const bb = createDefaultBlackboard();
+		const deps = makeDeps({ blackboard: bb });
 		const agent: BTAgentDef = {
 			name: "Idle",
 			agentType: "human",
@@ -74,18 +74,16 @@ describe("BT integration — full tick cycle", () => {
 		};
 
 		const { tree, agent: btAgent } = createAgentBT(agent, deps);
-		const actions = btTick(tree, btAgent, deps.worldState, deps.clock);
+		btTick(tree, btAgent, bb);
 
-		// With no goals, ActiveGoal branch fails -> should fall to idle or social
-		expect(actions.length).toBeGreaterThan(0);
-		const idleTypes = new Set(["idle", "speaking"]);
-		const hasIdleOrSpeech = actions.some((a) => idleTypes.has(a.type));
-		expect(hasIdleOrSpeech).toBe(true);
+		// With no goals, ActiveGoal branch fails -> should fall to idle
+		expect(bb.intent).toBe("idle");
 	});
 
 	it("permission denied on WriteFile causes graceful fallback", () => {
+		const bb = createDefaultBlackboard();
 		const checkPermission = vi.fn((tool: string) => tool === "Write" ? "denied" as const : "allowed" as const);
-		const deps = makeDeps({ checkPermission });
+		const deps = makeDeps({ checkPermission, blackboard: bb });
 		const agent: BTAgentDef = {
 			name: "Blocked",
 			agentType: "ai",
@@ -96,7 +94,7 @@ describe("BT integration — full tick cycle", () => {
 
 		// Should not throw even when WriteFile is denied
 		expect(() => {
-			for (let i = 0; i < 5; i++) btTick(tree, btAgent, deps.worldState, deps.clock);
+			for (let i = 0; i < 5; i++) btTick(tree, btAgent, bb);
 		}).not.toThrow();
 	});
 });

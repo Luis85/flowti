@@ -2,8 +2,10 @@
  * bt-agent.ts — BTAgent object factory.
  *
  * Creates the agent object that mistreevous binds to. Contains all action
- * methods, condition methods, and the shared context (blackboard).
- * Domain-layer pure — all I/O via injected deps.
+ * methods, condition methods, and the shared context.
+ * Actions write to the agent's blackboard (via deps.blackboard) instead of
+ * collecting actions. The blackboard is the single data bus between the BT
+ * and all other systems (locomotion, presentation, needs).
  */
 
 import { fromNodeState, type State } from "./bt-service.js";
@@ -16,7 +18,6 @@ import {
 	type AgentToolDeps,
 	type BTAgentContext,
 	type BTAgentDef,
-	type CollectedAction,
 	type IProviderRegistry,
 } from "./bt-types.js";
 import {
@@ -54,7 +55,6 @@ function stemFromGoalName(trimmed: string): string {
 
 export interface BTAgentObject {
 	readonly context: BTAgentContext;
-	readonly collectedActions: CollectedAction[];
 	// Conditions
 	HasEnoughEnergy(): boolean; HasEnoughFocus(): boolean; HasEnoughMorale(): boolean;
 	HasActiveGoal(): boolean; HasGoalFile(): boolean; HasLLMProvider(): boolean;
@@ -68,6 +68,12 @@ export interface BTAgentObject {
 	HasPreferredFoodStation(): boolean; HasPreferredDrinkStation(): boolean;
 	// Interaction conditions
 	NotInInteraction(): boolean; HasNearbyEntity(): boolean;
+	// Idle-wander conditions
+	IsIdleLongEnough(): boolean;
+	// Talking timeout condition
+	IsTalkingTooLong(): boolean;
+	// Break condition
+	NeedsBreak(): boolean;
 	// Actions
 	PickGoal(): State; PickGoalFile(): State; ReadFile(): State; WriteFile(): State; OpenInVault(): State;
 	QueryLLM(): State; GenerateFromTemplate(): State; DropArtifact(): State; SpeakBubble(): State;
@@ -81,8 +87,8 @@ export interface BTAgentObject {
 	SeekMerchantStall(): State; BrowseMerchant(): State; ExecuteMerchantPurchase(): State;
 	// Interaction actions
 	EvaluateInteraction(): State; SubmitInteraction(): State;
-	// Echo-biased idle
-	EchoBiasedIdle(): State;
+	// Idle fallback + new subtree actions
+	EchoBiasedIdle(): State; CommandWander(): State; StartBreak(): State; StopTalking(): State;
 }
 
 export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentObject {
@@ -93,6 +99,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	const str = attr.str ?? 10;
 
 	const trustTier = agent.trustTier;
+	const bb = deps.blackboard;
 
 	const context: BTAgentContext = {
 		name: agent.name,
@@ -116,13 +123,9 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		llmSlot: createIdleLLMSlot(),
 		lastMerchantVisitCycle: -1,
 		activeInteraction: null,
+		intentTimer: 0,
+		idleResistance: 4000 + (con / 20) * 8000,
 	};
-
-	const collectedActions: CollectedAction[] = [];
-
-	function collect(type: string, data: Record<string, unknown> = {}): void {
-		collectedActions.push({ type, data });
-	}
 
 	// ── Conditions ───────────────────────────────────────────────────
 
@@ -198,6 +201,25 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 			&& context.needs.focus > 40;
 	}
 
+	// ── Idle-wander condition (replaces brain.updateIdle timer) ──────
+
+	function IsIdleLongEnough(): boolean {
+		return bb.intent === "idle" && !bb.isMoving && context.intentTimer >= context.idleResistance;
+	}
+
+	// ── Talking timeout condition (replaces brain talking/waiting 10s timeout) ──
+
+	function IsTalkingTooLong(): boolean {
+		return bb.intent === "talking" && context.intentTimer > 10_000;
+	}
+
+	// ── Break condition (replaces brain.updateWorking break threshold) ──
+
+	function NeedsBreak(): boolean {
+		const threshold = (30 - con / 2) + bb.breakThresholdBias;
+		return bb.intent === "working" && context.needs.energy < threshold;
+	}
+
 	// ── Actions ──────────────────────────────────────────────────────
 
 	function PickGoal(): State {
@@ -212,7 +234,8 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		}
 
 		(context as { activeGoal: typeof picked }).activeGoal = picked;
-		collect("goal-started", { goalName: picked.name });
+		bb.intent = "working";
+		bb.intentDetail = `goal-${picked.name}`;
 		return fromNodeState("succeeded");
 	}
 
@@ -236,7 +259,6 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		try {
 			const content = deps.disk.readFileSync(filePath, "utf-8");
 			(context as { lastFileContent: string }).lastFileContent = content;
-			collect("file-read", { filePath });
 			return fromNodeState("succeeded");
 		} catch {
 			return fromNodeState("failed");
@@ -256,7 +278,6 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		try {
 			deps.disk.writeFileSync(outPath, content, "utf-8");
 			(context as { lastWrittenPath: string }).lastWrittenPath = outPath;
-			collect("file-written", { filePath: outPath });
 			return fromNodeState("succeeded");
 		} catch {
 			return fromNodeState("failed");
@@ -266,12 +287,10 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	function OpenInVault(): State {
 		const filePath = context.lastWrittenPath ?? context.workingFilePath;
 		if (!filePath) return fromNodeState("failed");
-		collect("file-opened", { filePath });
 		return fromNodeState("succeeded");
 	}
 
 	function QueryLLM(): State {
-		// Guard: only start once
 		if (context.llmSlot.state === "idle") {
 			if (!deps.providerRegistry) return fromNodeState("failed");
 
@@ -302,11 +321,11 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 					context.llmSlot.state = "failed";
 				});
 
-			collect("thinking", {});
+			bb.intent = "working";
+			bb.intentDetail = "thinking";
 			return fromNodeState("running");
 		}
 
-		// Poll
 		if (context.llmSlot.state === "pending") return fromNodeState("running");
 
 		if (context.llmSlot.state === "resolved") {
@@ -317,7 +336,6 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 			return fromNodeState("succeeded");
 		}
 
-		// Failed
 		context.llmSlot.state = "idle";
 		context.llmSlot.process = null;
 		return fromNodeState("failed");
@@ -335,61 +353,48 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 			timestamp: deps.clock.iso(),
 		});
 		(context as { lastLLMResult: string }).lastLLMResult = result;
-		collect("template-generated", { goalType });
 		return fromNodeState("succeeded");
 	}
 
 	function DropArtifact(): State {
 		if (!context.lastWrittenPath) return fromNodeState("failed");
-		const goalType = parseGoalType(trimmedGoalName(context.activeGoal?.name) ?? "") ?? "note";
-		const entityId = `artifact-${context.name}-${deps.clock.ms()}`;
-
-		deps.worldState.updateEntity(entityId, "artifact", {
-			filePath: context.lastWrittenPath,
-			droppedBy: context.name,
-			droppedAt: deps.clock.iso(),
-			goalType,
-			position: "near-agent",
-			picked: false,
-		});
-
-		collect("artifact-dropped", {
-			filePath: context.lastWrittenPath,
-			goalType,
-			entityId,
-		});
-
-		// STR >= 14: auto-open assertiveness
 		if (str >= 14) OpenInVault();
-
+		bb.intent = "idle";
+		bb.intentDetail = "";
 		return fromNodeState("succeeded");
 	}
 
 	function SpeakBubble(): State {
 		const raw = context.lastLLMResult;
 		const text = raw && raw.trim() ? raw.slice(0, 120) : "";
-		collect("speaking", { text, source: "bt" });
+		if (text) {
+			bb.speechRequest = { text, kind: "speech" };
+		}
 		return fromNodeState("succeeded");
 	}
 
 	function Wander(): State {
-		collect("idle", {});
+		bb.intent = "idle";
+		bb.intentDetail = "";
 		return fromNodeState("succeeded");
 	}
 
 	function Emote(): State {
-		collect("idle", {});
+		bb.intent = "idle";
+		bb.intentDetail = "";
 		return fromNodeState("succeeded");
 	}
 
 	function Chatter(): State {
-		collect("idle", {});
+		bb.intent = "idle";
+		bb.intentDetail = "";
 		return fromNodeState("succeeded");
 	}
 
 	function Socialize(): State {
 		if (context.nearbyAgents.length === 0) return fromNodeState("failed");
-		collect("speaking", { text: "", source: "social", target: context.nearbyAgents[0] });
+		bb.intent = "talking";
+		bb.intentDetail = "social";
 		return fromNodeState("succeeded");
 	}
 
@@ -402,7 +407,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		if (!context.pendingEvent) return fromNodeState("failed");
 		const event = context.pendingEvent;
 		(context as { pendingEvent: null }).pendingEvent = null;
-		collect("speaking", { text: `Reacting to ${event.type}`, source: "event" });
+		bb.speechRequest = { text: `Reacting to ${event.type}`, kind: "speech" };
 		return fromNodeState("succeeded");
 	}
 
@@ -426,7 +431,6 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		if (candidates.length === 0) return fromNodeState("failed");
 
 		(context as { activeInteraction: { id: string; action: string } }).activeInteraction = candidates[0];
-		collect("interaction-evaluated", { id: candidates[0].id, action: candidates[0].action });
 		return fromNodeState("succeeded");
 	}
 
@@ -439,56 +443,88 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 
 		(context as { activeInteraction: null }).activeInteraction = null;
 
-		if (accepted) {
-			collect("interaction-submitted", { id: interaction.id, action: interaction.action });
-			return fromNodeState("succeeded");
-		}
+		if (accepted) return fromNodeState("succeeded");
 		return fromNodeState("failed");
 	}
 
-	// ── Echo-biased idle ────────────────────────────────────────────
+	// ── Idle fallback ────────────────────────────────────────────────
 
-	/** Idle fallback — the brain's autonomous cycle handles wander pacing
-	 *  and the talk engine handles ambient chatter independently. */
 	function EchoBiasedIdle(): State {
-		collect("idle", {});
+		bb.intent = "idle";
+		bb.intentDetail = "";
+		return fromNodeState("succeeded");
+	}
+
+	// ── New subtree actions (idle-wander, break, talking timeout) ────
+
+	function CommandWander(): State {
+		// Prefer echo-driven wander hint (bond target) when available
+		if (bb.wanderHint) {
+			bb.movementCommand = "walk-to";
+			bb.movementTarget = bb.wanderHint;
+		} else {
+			bb.movementCommand = "wander";
+		}
+		context.intentTimer = 0;
+		return fromNodeState("succeeded");
+	}
+
+	function StartBreak(): State {
+		bb.intent = "on-break";
+		bb.intentDetail = "break";
+		bb.movementCommand = "walk-to";
+		bb.movementTarget = bb.nearestRestStation;
+		return fromNodeState("succeeded");
+	}
+
+	function StopTalking(): State {
+		bb.intent = "idle";
+		bb.intentDetail = "";
+		context.intentTimer = 0;
 		return fromNodeState("succeeded");
 	}
 
 	// ── Needs-driven actions ────────────────────────────────────────
 
 	function SeekRestSpot(): State {
-		collect("seek-rest", {});
-		deps.brain?.applyEvent(context.name, "seek-rest");
+		bb.intent = "seeking";
+		bb.intentDetail = "seek-rest";
+		bb.movementCommand = "walk-to";
+		bb.movementTarget = bb.nearestRestStation;
 		return fromNodeState("succeeded");
 	}
 
 	function SeekNearbyAgent(): State {
 		if (context.nearbyAgents.length === 0) {
-			collect("seek-agent", {});
-			deps.brain?.applyEvent(context.name, "seek-agent");
+			bb.intent = "seeking";
+			bb.intentDetail = "seek-agent";
+			bb.movementCommand = "wander";
 		} else {
-			// "speaking" is an intent action — the bridge forwards it to
-			// brainSystem.applyEvent("speaking") → talking state.
-			collect("speaking", { text: "", source: "social", target: context.nearbyAgents[0] });
+			bb.intent = "talking";
+			bb.intentDetail = "social";
 		}
 		return fromNodeState("succeeded");
 	}
 
 	function SeekQuietCorner(): State {
-		collect("seek-quiet", {});
-		deps.brain?.applyEvent(context.name, "seek-quiet");
+		bb.intent = "seeking";
+		bb.intentDetail = "seek-quiet";
+		bb.movementCommand = "wander";
 		return fromNodeState("succeeded");
 	}
 
 	function WanderSad(): State {
-		collect("idle", {});
+		bb.intent = "idle";
+		bb.intentDetail = "demoralized";
+		bb.movementCommand = "wander";
 		return fromNodeState("succeeded");
 	}
 
 	function GoToWorkstation(): State {
-		collect("goal-started", { goalName: context.activeGoal?.name ?? "work" });
-		deps.brain?.assignWork(context.name);
+		bb.intent = "working";
+		bb.intentDetail = `goal-${context.activeGoal?.name ?? "work"}`;
+		bb.movementCommand = "walk-to";
+		bb.movementTarget = bb.nearestWorkstation;
 		return fromNodeState("succeeded");
 	}
 
@@ -499,16 +535,15 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function LeaveWorkstation(): State {
-		collect("goal-completed", { goalName: context.activeGoal?.name ?? "work" });
-		deps.brain?.releaseWork(context.name);
+		bb.intent = "idle";
+		bb.intentDetail = "";
 		(context as { activeGoal: null }).activeGoal = null;
 		return fromNodeState("succeeded");
 	}
 
-	const extDeps = { context, collectedActions, collect, deps };
+	const extDeps = { context, deps };
 	return {
 		context,
-		collectedActions,
 		HasEnoughEnergy, HasEnoughFocus, HasEnoughMorale,
 		HasActiveGoal, HasGoalFile, HasLLMProvider,
 		HasNearbyAgent, HasPendingEvent, HasFileContent, HasLLMResult,
@@ -516,6 +551,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		IsHungry: () => IsHungry(context),
 		IsThirsty: () => IsThirsty(context),
 		IsEnergyOk, IsFocusOk, HasWorkGoal, NotInInteraction, HasNearbyEntity,
+		IsIdleLongEnough, IsTalkingTooLong, NeedsBreak,
 		HasJourneyTask: () => HasJourneyTask(context),
 		IsMerchantEligible: () => IsMerchantEligible(context, trustTier),
 		HasNotVisitedMerchantThisCycle: () => HasNotVisitedMerchantThisCycle(
@@ -532,15 +568,16 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		SeekDrinkStation: () => SeekDrinkStation(extDeps),
 		SeekPreferredFoodStation: () => SeekPreferredFoodStation(extDeps),
 		SeekPreferredDrinkStation: () => SeekPreferredDrinkStation(extDeps),
-		Eat: () => Eat(context, collect),
-		Drink: () => Drink(context, collect),
+		Eat: () => Eat(context),
+		Drink: () => Drink(context),
 		WanderSad,
 		GoToWorkstation, DoWork, LeaveWorkstation,
-		ExecuteJourney,
+		ExecuteJourney: () => ExecuteJourney(),
 		SeekMerchantStall: () => SeekMerchantStall(extDeps),
 		BrowseMerchant: () => BrowseMerchant(extDeps),
 		ExecuteMerchantPurchase: () => ExecuteMerchantPurchase(extDeps),
 		EvaluateInteraction, SubmitInteraction,
 		EchoBiasedIdle,
+		CommandWander, StartBreak, StopTalking,
 	};
 }

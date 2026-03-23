@@ -76,37 +76,35 @@ describe("AgentActor", () => {
 		});
 	});
 
-	it("initialises brainState to idle", () => {
-		expect(actor.brainState).toBe("idle");
+	it("initialises intent to idle", () => {
+		expect(actor.intent).toBe("idle");
 	});
 
 	it("stores the agent data on construction", () => {
 		expect(actor.agentData.name).toBe("TestAgent");
 	});
 
-	it("focus() sets brainState to idle", () => {
-		actor.brainState = "working";
+	it("focus() sets intent to idle", () => {
+		actor.intent = "working";
 		actor.focus();
-		expect(actor.brainState).toBe("idle");
+		expect(actor.intent).toBe("idle");
 	});
 
-	it("updateFromBrain() updates brainState", () => {
-		actor.updateFromBrain("working");
-		expect(actor.brainState).toBe("working");
+	it("updateIntent() updates intent", () => {
+		actor.updateIntent("working");
+		expect(actor.intent).toBe("working");
 	});
 
-	it("updateFromBrain() resets bobPhase when state changes", () => {
-		// Pre-populate by calling update with idle → wandering transition
-		actor.updateFromBrain("idle");
-		actor.updateFromBrain("wandering");
-		// Just verifying no error is thrown and state is set
-		expect(actor.brainState).toBe("wandering");
+	it("updateIntent() resets bobPhase when intent changes", () => {
+		actor.updateIntent("idle");
+		actor.updateIntent("seeking");
+		expect(actor.intent).toBe("seeking");
 	});
 
-	it("updateFromBrain() does not reset bobPhase when state is unchanged", () => {
-		actor.updateFromBrain("idle");
-		actor.updateFromBrain("idle");
-		expect(actor.brainState).toBe("idle");
+	it("updateIntent() does not reset bobPhase when intent is unchanged", () => {
+		actor.updateIntent("idle");
+		actor.updateIntent("idle");
+		expect(actor.intent).toBe("idle");
 	});
 
 	it("setIdlePose() is a no-op (does not throw)", () => {

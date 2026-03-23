@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting, TrackedTask } from "../data/types.js";
-import type { BrainState } from "../brain/brain-types.js";
+import type { AgentIntent } from "../systems/blackboard.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
 import type { ICliExecutor, AgentProcess, CliEvent } from "../../infrastructure/agents/cli-executor.js";
@@ -24,6 +24,10 @@ import {
 import { afterNextPaint } from "../after-next-paint.js";
 import type { StoryBeat } from "../systems/narrative-system.js";
 import type { OfflineResults } from "../systems/offline-progress.js";
+
+// ── Module-level constants ────────────────────────────────────────
+
+const CLI_INTENT_EVENTS = new Set(["thinking", "using-tool", "idle", "error", "done", "speaking", "queued", "response"]);
 
 // ── Exported helper types ──────────────────────────────────────────
 
@@ -81,7 +85,7 @@ export class DashboardStore extends EventTarget {
 	agents: readonly DashboardAgent[] = [];
 	agentPositions: Map<string, Point> = new Map();
 	agentTargets: Map<string, Point> = new Map();
-	agentStates: Map<string, BrainState> = new Map();
+	agentIntents: Map<string, AgentIntent> = new Map();
 
 	selectedAgent: string | null = null;
 	selectedTab: TabName = "profile";
@@ -551,9 +555,9 @@ export class DashboardStore extends EventTarget {
 		this.notify();
 	}
 
-	setAgentState(agentName: string, state: BrainState): void {
-		if (this.agentStates.get(agentName) === state) return;
-		this.agentStates.set(agentName, state);
+	setAgentIntent(agentName: string, intent: AgentIntent): void {
+		if (this.agentIntents.get(agentName) === intent) return;
+		this.agentIntents.set(agentName, intent);
 		this.notify();
 	}
 
@@ -700,9 +704,8 @@ export class DashboardStore extends EventTarget {
 			case "task-completed": break;
 		}
 
-		// Dispatch brain-relevant events for engine wiring
-		const brainEvents = ["thinking", "using-tool", "idle", "error", "done", "speaking", "queued", "response"];
-		if (brainEvents.includes(event.type)) {
+		// Dispatch CLI events that drive BT intent changes
+		if (CLI_INTENT_EVENTS.has(event.type)) {
 			this.dispatchEvent(new CustomEvent("cli-brain-event", {
 				detail: { agent: agentName, action: event.type },
 			}));

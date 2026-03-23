@@ -15,8 +15,22 @@ import {
 	startPeriodicFlush,
 } from "../../src/game/engine-state.js";
 import type { StateSystems } from "../../src/game/engine-state.js";
+import { BlackboardManager } from "../../src/game/systems/blackboard.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+function createMockBlackboards(): BlackboardManager {
+	const bb = new BlackboardManager();
+	bb.register("alice");
+	bb.register("bob");
+	const aliceBb = bb.get("alice");
+	aliceBb.position = { x: 100.7, y: 200.3 };
+	aliceBb.intent = "idle";
+	const bobBb = bb.get("bob");
+	bobBb.position = { x: 300.1, y: 400.9 };
+	bobBb.intent = "working";
+	return bb;
+}
 
 function createMockSystems(): StateSystems {
 	return {
@@ -40,12 +54,7 @@ function createMockSystems(): StateSystems {
 			restore: vi.fn(),
 			serialize: vi.fn(() => ({ needsData: {} })),
 		},
-		brain: {
-			getAllEntries: vi.fn(() => new Map([
-				["alice", { position: { x: 100.7, y: 200.3 }, state: "idle" }],
-				["bob", { position: { x: 300.1, y: 400.9 }, state: "working" }],
-			])),
-		},
+		blackboards: createMockBlackboards(),
 		registry: {
 			getEntityRoom: vi.fn((id: string) => {
 				const rooms: Record<string, string> = {

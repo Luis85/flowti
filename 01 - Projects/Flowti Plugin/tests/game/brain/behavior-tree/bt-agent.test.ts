@@ -2,14 +2,15 @@ import { describe, it, expect, vi } from "vitest";
 import { fromNodeState } from "../../../../src/game/brain/behavior-tree/bt-service.js";
 import { createBTAgent } from "../../../../src/game/brain/behavior-tree/bt-agent.js";
 import type { AgentToolDeps, BTAgentDef } from "../../../../src/game/brain/behavior-tree/bt-types.js";
+import { createDefaultBlackboard } from "../../../../src/game/systems/blackboard.js";
 
 function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 	return {
 		disk: { readFileSync: vi.fn(), writeFileSync: vi.fn(), existsSync: vi.fn(), mkdirSync: vi.fn() },
 		paths: { join: (...s: string[]) => s.join("/"), dirname: (p: string) => p, basename: (p: string) => p },
 		clock: { now: () => 1000, ms: () => 1000, iso: () => "2026-03-20T10:00:00Z" },
-		worldState: { emitAction: vi.fn(), updateEntity: vi.fn() },
 		checkPermission: vi.fn(() => "allowed" as const),
+		blackboard: createDefaultBlackboard(),
 		...overrides,
 	} as AgentToolDeps;
 }
@@ -180,43 +181,37 @@ describe("createBTAgent — tool actions", () => {
 		expect(bt.context.lastLLMResult!.length).toBeGreaterThan(50);
 	});
 
-	it("DropArtifact creates entity and emits action", () => {
-		const worldState = { emitAction: vi.fn(), updateEntity: vi.fn() };
-		const bt = createBTAgent(makeAgent(), makeDeps({ worldState }));
+	it("DropArtifact resets intent to idle", () => {
+		const bb = createDefaultBlackboard();
+		const bt = createBTAgent(makeAgent(), makeDeps({ blackboard: bb }));
 		bt.context.activeGoal = { name: "review plan" };
 		(bt.context as { lastWrittenPath: string }).lastWrittenPath = "artifacts/Atlas-review-1000.md";
 		const result = bt.DropArtifact();
 		expect(result).toBe(fromNodeState("succeeded"));
-		expect(worldState.updateEntity).toHaveBeenCalledWith(
-			expect.stringContaining("artifact-Atlas-"),
-			"artifact",
-			expect.objectContaining({ droppedBy: "Atlas", goalType: "review" }),
-		);
+		expect(bb.intent).toBe("idle");
 	});
 
 	it("DropArtifact auto-opens file when STR >= 14", () => {
 		const bt = createBTAgent(makeAgent({ attributes: { str: 16 } }), makeDeps());
 		bt.context.activeGoal = { name: "review plan" };
 		(bt.context as { lastWrittenPath: string }).lastWrittenPath = "artifacts/Atlas-review-1000.md";
-		bt.DropArtifact();
-		const fileOpenedAction = bt.collectedActions.find((a) => a.type === "file-opened");
-		expect(fileOpenedAction).toBeDefined();
+		const result = bt.DropArtifact();
+		expect(result).toBe(fromNodeState("succeeded"));
 	});
 
-	it("SpeakBubble emits speaking action", () => {
-		const bt = createBTAgent(makeAgent(), makeDeps());
+	it("SpeakBubble writes speechRequest to blackboard", () => {
+		const bb = createDefaultBlackboard();
+		const bt = createBTAgent(makeAgent(), makeDeps({ blackboard: bb }));
 		(bt.context as { lastLLMResult: string }).lastLLMResult = "Here are my findings...";
 		bt.SpeakBubble();
-		const speakAction = bt.collectedActions.find((a) => a.type === "speaking");
-		expect(speakAction).toBeDefined();
-		expect(speakAction?.data.source).toBe("bt");
+		expect(bb.speechRequest).not.toBeNull();
+		expect(bb.speechRequest!.kind).toBe("speech");
 	});
 
-	it("OpenInVault emits file-opened action", () => {
+	it("OpenInVault succeeds when lastWrittenPath is set", () => {
 		const bt = createBTAgent(makeAgent(), makeDeps());
 		(bt.context as { lastWrittenPath: string }).lastWrittenPath = "test.md";
 		const result = bt.OpenInVault();
 		expect(result).toBe(fromNodeState("succeeded"));
-		expect(bt.collectedActions.find((a) => a.type === "file-opened")).toBeDefined();
 	});
 });

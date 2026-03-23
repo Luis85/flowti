@@ -9,6 +9,7 @@
 import type { EngineContext } from "./engine-types.js";
 import { getCueForTrigger, formatBubbleText } from "./systems/economy-visuals.js";
 import { getNearbyAgents } from "./engine-simulation.js";
+import { resetToIdle } from "./systems/blackboard.js";
 
 // ── Level-up celebration phrases ─────────────────────────────────────
 
@@ -87,8 +88,11 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 
 	addStoreListener("task-assigned", ((e: CustomEvent) => {
 		const { agentName, task } = e.detail;
-		sys.brain.applyEvent(agentName, "task-started");
-		sys.brain.assignWork(agentName);
+		const bb = sys.blackboards.tryGet(agentName);
+		if (bb) {
+			bb.intent = "working";
+			bb.intentDetail = task ?? "";
+		}
 		ctx.store.taskLockedAgents.add(agentName);
 		sys.talk.activate(agentName);
 		sys.bubble.showBubble(agentName, "thought", `Starting: ${task}`, ctx.engine.currentScene, ctx.lookups.findAgentActor);
@@ -99,7 +103,8 @@ export function wireStoreEvents(ctx: EngineContext): () => void {
 
 	addStoreListener("task-completed", ((e: CustomEvent) => {
 		const { agentName, result } = e.detail;
-		sys.brain.releaseWork(agentName);
+		const bb = sys.blackboards.tryGet(agentName);
+		if (bb) resetToIdle(bb);
 		ctx.store.taskLockedAgents.delete(agentName);
 		sys.talk.silence(agentName);
 		sys.engagement.markTaskCompleted(agentName);

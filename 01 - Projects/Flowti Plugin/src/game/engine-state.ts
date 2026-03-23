@@ -60,7 +60,7 @@ export interface StateSystems {
 	readonly memory: EngineContext["systems"]["memory"];
 	readonly relationship: EngineContext["systems"]["relationship"];
 	readonly needs: EngineContext["systems"]["needs"];
-	readonly brain: EngineContext["systems"]["brain"];
+	readonly blackboards: EngineContext["systems"]["blackboards"];
 	readonly registry: EngineContext["systems"]["registry"];
 	readonly pets: EngineContext["pets"];
 	readonly echo: IEchoStore;
@@ -147,12 +147,12 @@ export function restoreAgentState(ctx: StateSystems, vaultPath: string): void {
 
 function collectPositions(ctx: StateSystems): Record<string, SavedPosition> {
 	const positions: Record<string, SavedPosition> = {};
-	for (const [name, entry] of ctx.brain.getAllEntries()) {
+	for (const [name, bb] of ctx.blackboards.getAll()) {
 		positions[name] = {
-			x: Math.round(entry.position.x),
-			y: Math.round(entry.position.y),
+			x: Math.round(bb.position.x),
+			y: Math.round(bb.position.y),
 			scene: ctx.registry.getEntityRoom(name) ?? "office",
-			state: entry.state,
+			state: bb.intent,
 		};
 	}
 	for (const pet of ctx.pets) {

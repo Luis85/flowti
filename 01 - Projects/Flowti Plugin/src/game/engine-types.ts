@@ -7,7 +7,7 @@
  * to access via closure variables.
  *
  * Organised into semantic sub-interfaces:
- *   systems  — all game systems (brain, bubble, talk, ...)
+ *   systems  — all game systems (blackboard, locomotion, bubble, talk, ...)
  *   scenes   — the four room scenes + lookup map
  *   envObjects — environmental interactable objects
  *   btBridge — behavior-tree bridge types
@@ -16,7 +16,6 @@
  */
 
 import type * as ex from "excalibur";
-import type { BrainSystem } from "./systems/brain-system.js";
 import type { BubbleSystem } from "./systems/bubble-system.js";
 import type { TalkEngine } from "./systems/talk/talk-engine.js";
 import type { ParticlePool } from "./systems/particle-system.js";
@@ -52,21 +51,10 @@ import type { InteractableActor } from "./actors/interactable-actor.js";
 import type { PetActor } from "./actors/pet-actor.js";
 import type { DataProvider } from "./config/data-provider.js";
 import type { SceneEntity } from "./data/scene-entity.js";
-import type { AgentToolDeps, IClock, IWorldStateManager } from "./brain/behavior-tree/bt-types.js";
+import type { IClock } from "./brain/behavior-tree/bt-types.js";
+import type { BlackboardManager } from "./systems/blackboard.js";
+import type { LocomotionSystem } from "./systems/locomotion-system.js";
 import type { AgentWorldPerfSink } from "./performance/agent-world-perf.js";
-
-// ── BT bridge types (defined inline in engine.ts) ────────────────────
-
-export interface BtWorldState extends IWorldStateManager {
-	emitAction: (action: {
-		id: string;
-		agentName: string;
-		timestamp: string;
-		type: string;
-		data: Record<string, unknown>;
-	}) => void;
-	updateEntity: () => void;
-}
 
 export interface BtClock extends IClock {
 	now: () => number;
@@ -86,7 +74,8 @@ export interface LightState {
 // ── Sub-interfaces ───────────────────────────────────────────────────
 
 export interface EngineSystems {
-	readonly brain: BrainSystem;
+	readonly blackboards: BlackboardManager;
+	readonly locomotion: LocomotionSystem;
 	readonly bubble: BubbleSystem;
 	readonly talk: TalkEngine;
 	readonly particlePool: ParticlePool;
@@ -137,11 +126,8 @@ export interface EngineEnvObjects {
 	readonly waterBowlStation: InteractableActor;
 }
 
-export interface BtBridge {
-	readonly worldState: BtWorldState;
-	readonly clock: BtClock;
-	readonly deps: AgentToolDeps;
-}
+// BtBridge removed — BT writes to blackboard directly. Only the clock
+// is needed for timestamp generation in error recovery.
 
 export interface EngineMutableState {
 	/** Conversation count per agent in the current day cycle. */
@@ -197,7 +183,7 @@ export interface EngineContext {
 	readonly envObjects: EngineEnvObjects;
 	readonly pets: PetActor[];
 	readonly interactionBootstrap?: InteractionBootstrap;
-	readonly btBridge: BtBridge;
+	readonly btClock: BtClock;
 	readonly state: EngineMutableState;
 	readonly lookups: EngineLookups;
 

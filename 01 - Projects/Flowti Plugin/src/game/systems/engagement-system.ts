@@ -20,7 +20,7 @@
 
 import type { DirectorPresence } from "./director-system.js";
 import type { AgentNeeds } from "./needs-system.js";
-import type { BrainState } from "../brain/brain-types.js";
+import type { AgentIntent } from "./blackboard.js";
 import { DEFAULT_WORLD_CONFIG } from "../data/world-config.js";
 import { TIER1_TEMPLATES, TIER2_TEMPLATES, TIER3_TEMPLATES, interpolateTemplate } from "../data/engagement-templates.js";
 
@@ -43,7 +43,7 @@ interface AgentEntry {
 
 // ── Idle states eligible for engagement ──────────────────────────────
 
-const IDLE_ELIGIBLE = new Set<BrainState>(["idle", "on-break", "waiting"]);
+const IDLE_ELIGIBLE = new Set<AgentIntent>(["idle", "on-break", "waiting"]);
 
 // ── EngagementSystem ──────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ export class EngagementSystem {
 		deltaMs: number,
 		getPresence: () => DirectorPresence,
 		getNeeds: (name: string) => AgentNeeds,
-		getBrainState: (name: string) => BrainState,
+		getAgentIntent: (name: string) => AgentIntent,
 		hasPendingSensor: (name: string) => boolean,
 	): void {
 		const presence = getPresence();
@@ -147,7 +147,7 @@ export class EngagementSystem {
 		if (this.timeSinceLastEngagement < frequencyMs) return;
 
 		// Select best agent
-		const agentName = this.selectAgent(getNeeds, getBrainState, hasPendingSensor);
+		const agentName = this.selectAgent(getNeeds, getAgentIntent, hasPendingSensor);
 		if (!agentName) return;
 
 		// Build and emit engagement event
@@ -179,11 +179,11 @@ export class EngagementSystem {
 
 	private selectAgent(
 		getNeeds: (name: string) => AgentNeeds,
-		getBrainState: (name: string) => BrainState,
+		getAgentIntent: (name: string) => AgentIntent,
 		hasPendingSensor: (name: string) => boolean,
 	): string | null {
 		const eligible = [...this.agents.keys()].filter(
-			(name) => IDLE_ELIGIBLE.has(getBrainState(name)),
+			(name) => IDLE_ELIGIBLE.has(getAgentIntent(name)),
 		);
 
 		if (eligible.length === 0) return null;

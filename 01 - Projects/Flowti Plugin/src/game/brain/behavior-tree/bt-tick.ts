@@ -1,20 +1,14 @@
 /**
  * bt-tick.ts — Tick orchestration for behavior tree agents.
  *
- * Steps the tree once, collects emitted actions, forwards them
- * as AgentActions to the world state manager.
- * Domain-layer pure — receives all deps as arguments.
+ * Steps the tree once. BT actions write directly to the agent's
+ * blackboard during tree evaluation — no collected actions, no
+ * worldState bridge. Error recovery resets the tree and LLM slot.
  */
 
 import { resetTree, stepTree, type BehaviourTree } from "./bt-service.js";
-import type { AgentAction } from "../../data/types.js";
-import type { BTAgentContext, BtAgentBase, IClock, IWorldStateManager } from "./bt-types.js";
-
-let tickSeq = 0;
-
-function normalizeStepErrorMessage(message: string): string {
-	return message.replace(/^error stepping tree:\s*/i, "").trim();
-}
+import type { BTAgentContext, BtAgentBase } from "./bt-types.js";
+import type { AgentBlackboard } from "../../systems/blackboard.js";
 
 function resetLlmSlotIfPresent(context: BtAgentBase["context"]): void {
 	if (!("llmSlot" in context)) return;
@@ -32,25 +26,22 @@ function resetLlmSlotIfPresent(context: BtAgentBase["context"]): void {
 	slot.result = null;
 }
 
+/**
+ * Step the behavior tree once. BT actions write to the blackboard
+ * during evaluation. On error, the tree is reset and the blackboard
+ * gets an error speech request.
+ */
 export function btTick(
 	tree: BehaviourTree,
 	agent: BtAgentBase,
-	worldState: IWorldStateManager,
-	clock: IClock,
-): AgentAction[] {
-	tickSeq++;
-
-	const emitted: AgentAction[] = [];
-
+	blackboard?: AgentBlackboard,
+): void {
 	try {
 		stepTree(tree);
 	} catch (err) {
 		const raw = err instanceof Error ? err.message : String(err);
-		const detail = normalizeStepErrorMessage(raw);
-
 		console.warn(`[BT] ${agent.context.name}: ${raw}`);
 
-		agent.collectedActions.length = 0;
 		resetLlmSlotIfPresent(agent.context);
 
 		try {
@@ -59,33 +50,17 @@ export function btTick(
 			/* mistreevous reset should not throw; ignore if it does */
 		}
 
-		const action: AgentAction = {
-			id: `bt-${agent.context.name}-${tickSeq}-err`,
-			agentName: agent.context.name,
-			timestamp: clock.iso(),
-			type: "error",
-			data: {
-				summary: "I hit a snag in my plan — I'll try again next tick.",
-				detail,
-			},
-		};
-		worldState.emitAction(action);
-		emitted.push(action);
-		return emitted;
+		// Write error to blackboard for presentation
+		if (blackboard) {
+			blackboard.intent = "idle";
+			blackboard.intentDetail = "";
+			const detail = raw.replace(/^error stepping tree:\s*/i, "").trim();
+			const maxDetail = 140;
+			const snippet = detail.length > maxDetail ? `${detail.slice(0, maxDetail)}…` : detail;
+			blackboard.speechRequest = {
+				text: `I hit a snag — ${snippet}`,
+				kind: "thought",
+			};
+		}
 	}
-
-	for (const collected of agent.collectedActions) {
-		const action: AgentAction = {
-			id: `bt-${agent.context.name}-${tickSeq}-${emitted.length}`,
-			agentName: agent.context.name,
-			timestamp: clock.iso(),
-			type: collected.type as AgentAction["type"],
-			data: collected.data,
-		};
-		worldState.emitAction(action);
-		emitted.push(action);
-	}
-
-	agent.collectedActions.length = 0;
-	return emitted;
 }

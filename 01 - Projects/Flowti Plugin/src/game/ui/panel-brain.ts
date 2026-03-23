@@ -13,7 +13,7 @@ import { deriveMovementStyle, deriveIdleStyle } from "../brain/agent-brain.js";
 import type { DashboardStore } from "../store/dashboard-store.js";
 import type { DashboardAgent } from "../data/types.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
-import type { BrainState } from "../brain/brain-types.js";
+import type { AgentIntent } from "../systems/blackboard.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -336,13 +336,13 @@ export class PanelBrain extends FlowtiElement {
 
 		const name = this.agent.name;
 		const needs = this.store.getAgentNeeds(name);
-		const brainState: BrainState = this.store.agentStates.get(name) ?? "idle";
+		const agentIntent: AgentIntent = this.store.agentIntents.get(name) ?? "idle";
 		const btSnapshot = this.store.btTreeState.get(name);
 
 		return html`
-			${this.renderStateMachine(brainState)}
+			${this.renderStateMachine(agentIntent)}
 			${needs ? this.renderNeedsRadar(needs) : nothing}
-			${needs ? this.renderNeedsBars(needs, brainState) : nothing}
+			${needs ? this.renderNeedsBars(needs, agentIntent) : nothing}
 			<div class="section">
 				<div class="section-title">Behavior Tree</div>
 				<ft-game-bt-tree-view .snapshot=${btSnapshot}></ft-game-bt-tree-view>
@@ -352,8 +352,8 @@ export class PanelBrain extends FlowtiElement {
 		`;
 	}
 
-	private renderStateMachine(brainState: BrainState) {
-		const stateColor = STATE_COLORS[brainState] ?? STATE_COLORS["idle"];
+	private renderStateMachine(agentIntent: AgentIntent) {
+		const stateColor = STATE_COLORS[agentIntent] ?? STATE_COLORS["idle"];
 		const llmStatus = this.store.llmStatus.get(this.agent.name);
 		const llmState = llmStatus?.state ?? "idle";
 
@@ -377,7 +377,7 @@ export class PanelBrain extends FlowtiElement {
 					<span
 						class="state-badge state-glow"
 						style="background:${stateColor};--glow-color:${stateColor}44"
-					>${brainState}</span>
+					>${agentIntent}</span>
 				</div>
 				<div class="state-detail">
 					<span class="state-label">Goal</span>
@@ -430,12 +430,12 @@ export class PanelBrain extends FlowtiElement {
 		`;
 	}
 
-	private renderNeedsBars(needs: AgentNeeds, brainState: BrainState) {
-		const rates = DECAY[brainState] ?? {};
+	private renderNeedsBars(needs: AgentNeeds, agentIntent: AgentIntent) {
+		const rates = DECAY[agentIntent] ?? {};
 
 		return html`
 			<div class="section">
-				<div class="section-title">Needs &amp; Decay (${brainState})</div>
+				<div class="section-title">Needs &amp; Decay (${agentIntent})</div>
 				${NEED_META.map(({ label, key, color }) => {
 					const pct = Math.round(needs[key]);
 					const rate = rates[key] ?? 0;

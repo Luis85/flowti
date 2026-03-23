@@ -8,7 +8,8 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import * as ex from "excalibur";
-import type { BrainSystem } from "./systems/brain-system.js";
+import type { BlackboardManager } from "./systems/blackboard.js";
+import { resetToIdle } from "./systems/blackboard.js";
 import type { BubbleSystem } from "./systems/bubble-system.js";
 import type { DirectorSystem } from "./systems/director-system.js";
 import type { EngagementSystem } from "./systems/engagement-system.js";
@@ -121,7 +122,7 @@ export interface StartEngineDeps {
 	dayClock: DayClock;
 	worldAmbience: WorldAmbience;
 	currentLight: LightState;
-	brainSystem: BrainSystem;
+	blackboards: BlackboardManager;
 	directorSystem: DirectorSystem;
 	cursorSpirits: CursorSpirit[];
 	store: DashboardStore;
@@ -146,7 +147,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 		engine, spriteBasePath, provider, vaultBasePath,
 		hubScene, officeScene, villageScene, stationScene, roomScenes,
 		ctx, stateSystems, dayClock, worldAmbience, currentLight,
-		brainSystem, directorSystem, cursorSpirits, store,
+		blackboards, directorSystem, cursorSpirits, store,
 		handleAgentSelect, allEntities, pets, registry,
 		loadingOverlay, doRegisterAgents, cameraRef, narrativeSystem,
 		registrationSystems,
@@ -233,7 +234,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 		const charName = resolveCharacter(agent.name, agent.domain ?? "");
 		const sprites = spriteRegistry.get(charName);
 		if (!sprites) continue;
-		const entity = new AgentSceneEntity(agent, sprites, brainSystem, handleAgentSelect);
+		const entity = new AgentSceneEntity(agent, sprites, blackboards, handleAgentSelect);
 		allEntities.set(agent.name, entity);
 	}
 	for (const pet of pets) {
@@ -293,7 +294,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 			placementCtx,
 			{
 				spriteRegistry,
-				brainSystem,
+				blackboards,
 				handleAgentSelect,
 				allEntities,
 			},
@@ -343,7 +344,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 
 export interface AgentSelectDeps {
 	store: DashboardStore;
-	brainSystem: BrainSystem;
+	blackboards: BlackboardManager;
 	bubbleSystem: BubbleSystem;
 	directorSystem: DirectorSystem;
 	engagementSystem: EngagementSystem;
@@ -356,7 +357,7 @@ export interface AgentSelectDeps {
  * Creates the handleAgentSelect callback for agent click interactions.
  */
 export function createAgentSelectHandler(deps: AgentSelectDeps): (agentName: string) => void {
-	const { store, brainSystem, bubbleSystem, directorSystem, engagementSystem, engine, findAgentActor, getCameraSystem } = deps;
+	const { store, blackboards, bubbleSystem, directorSystem, engagementSystem, engine, findAgentActor, getCameraSystem } = deps;
 
 	return (agentName: string) => {
 		const actor = findAgentActor(agentName);
@@ -367,17 +368,18 @@ export function createAgentSelectHandler(deps: AgentSelectDeps): (agentName: str
 			store.stopFollow();
 		} else {
 			// 1) Update dashboard store in one batch so the agent panel can render without waiting
-			//    on Excalibur camera/brain/bubble work in the same task.
+			//    on Excalibur camera/blackboard work in the same task.
 			store.beginBatch();
 			store.selectAgent(agentName);
 			store.selectTab("profile");
 			store.endBatch();
 
-			// 2) After the next paint, apply canvas-side selection (freeze, follow, bubble, wake).
+			// 2) After the next paint, apply canvas-side selection (idle, follow, bubble, wake).
 			afterNextPaint(() => {
 				if (store.selectedAgent !== agentName) return;
 				if (actor) {
-					brainSystem.freeze(agentName);
+					const bb = blackboards.tryGet(agentName);
+					if (bb) resetToIdle(bb);
 					actor.focus();
 					if (cameraSystem) cameraSystem.startFollow(actor);
 					store.startFollow(agentName);
