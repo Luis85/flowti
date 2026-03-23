@@ -572,6 +572,8 @@ export function tickLocomotion(ctx: EngineContext): void {
 			// Write locomotion results back to actor + blackboard
 			actor.pos.x = entry.position.x;
 			actor.pos.y = entry.position.y;
+			bb.movementCommand = entry.command;
+			bb.movementTarget = entry.target;
 			bb.arrived = entry.arrived;
 			bb.isMoving = entry.command !== "none";
 			actor.updateIntent(bb.intent);
