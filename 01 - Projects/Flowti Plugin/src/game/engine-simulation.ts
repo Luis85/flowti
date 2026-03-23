@@ -829,10 +829,10 @@ export function tickVisuals(ctx: EngineContext): void {
 	if (sys.visualFeedback) {
 		runTimedGameSystem(ctx, "visualFeedback", () => {
 			const now = performance.now();
-			const currentRoom = ctx.scenes.hub === ctx.engine.currentScene ? "hub"
-				: ctx.scenes.office === ctx.engine.currentScene ? "office"
-				: ctx.scenes.village === ctx.engine.currentScene ? "village"
-				: ctx.scenes.station === ctx.engine.currentScene ? "station" : "";
+			let currentRoom = "";
+			for (const [id, scene] of Object.entries(ctx.scenes.map)) {
+				if (scene === ctx.engine.currentScene) { currentRoom = id; break; }
+			}
 			for (const [name, bb] of sys.blackboards.getAll()) {
 				if (currentRoom && bb.currentRoom !== currentRoom) continue;
 				sys.visualFeedback!.tick(name, bb, now, state.deltaMs);
