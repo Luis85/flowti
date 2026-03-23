@@ -18,13 +18,12 @@
 import * as ex from "excalibur";
 import { GameScene } from "./scenes/game-scene.js";
 import { SCENE_CONFIGS } from "./data/scene-configs.js";
-import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
 import { TalkEngine } from "./systems/talk/talk-engine.js";
 import type { DashboardAgent } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
-import { preferredWorkstation } from "./brain/movement.js";
-import { computeParams } from "./brain/agent-brain.js";
+import { BlackboardManager } from "./systems/blackboard.js";
+import { LocomotionSystem } from "./systems/locomotion-system.js";
 import { createCameraSystem } from "./systems/camera-system.js";
 import { DashboardStore } from "./store/dashboard-store.js";
 import { ParticlePool } from "./systems/particle-system.js";
@@ -87,7 +86,7 @@ import {
 	setupKeyboardHandlers,
 	type LightState,
 } from "./engine-rendering.js";
-import { createBtBridges, createFindNearestAgent } from "./engine-systems-init.js";
+import { createBtDeps } from "./systems/bt-system.js";
 import { createPostframeHandler } from "./engine-postframe.js";
 import { startEngine, createAgentSelectHandler } from "./engine-lifecycle.js";
 import { tickSimulation, pushCascadeReaction } from "./engine-simulation.js";
@@ -197,71 +196,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	// ── Systems ─────────────────────────────────────────
-	const brainSystem = new BrainSystem({
-		bounds: BRAIN_BOUNDS,
-		onWorkstationChange: (agentName, action, position) => {
-			for (const room of Object.values(roomScenes)) {
-				const actor = room.getAgentActor(agentName);
-				if (!actor) continue;
-
-				if (action === "occupy") {
-					const workstations = room.getWorkstations();
-					let nearest = workstations[0];
-					let minDist = Infinity;
-					for (const ws of workstations) {
-						const dx = ws.pos.x - position.x;
-						const dy = ws.pos.y - position.y;
-						const dist = dx * dx + dy * dy;
-						if (dist < minDist && !ws.occupied) {
-							minDist = dist;
-							nearest = ws;
-						}
-					}
-					if (nearest && !nearest.occupied) {
-						nearest.occupy(agentName);
-					}
-				} else {
-					const workstations = room.getWorkstations();
-					const ws = workstations.find((w) => w.occupantName === agentName);
-					if (ws) ws.vacate();
-				}
-				break;
-			}
-		},
-		onWorkstationResolve: (agentName, preferredId) => {
-			for (const room of Object.values(roomScenes)) {
-				const actor = room.getAgentActor(agentName);
-				if (!actor) continue;
-				const workstations = room.getWorkstations().map((ws) => ({
-					id: ws.workstationId, x: ws.pos.x, y: ws.pos.y, occupied: ws.occupied,
-				}));
-				return preferredWorkstation({ x: actor.pos.x, y: actor.pos.y }, workstations, preferredId);
-			}
-			return null;
-		},
-		onStationResolve: (agentName, need) => {
-			const foodStations = [envObjects.snackTable, envObjects.foodBowlHub, envObjects.foodBowlVillage];
-			const drinkStations = [envObjects.coffeeMachine, envObjects.waterCooler, envObjects.waterBowlOffice, envObjects.waterBowlStation];
-			const restStations = [envObjects.couch];
-			const candidates = need === "food" ? foodStations : need === "drink" ? drinkStations : restStations;
-			let nearest: { x: number; y: number } | null = null;
-			let minDist = Infinity;
-			for (const room of Object.values(roomScenes)) {
-				const actor = room.getAgentActor(agentName);
-				if (!actor) continue;
-				for (const station of candidates) {
-					if (!station || station.isOccupied()) continue;
-					const point = station.getInteractionPoint();
-					const dx = point.x - actor.pos.x;
-					const dy = point.y - actor.pos.y;
-					const dist = dx * dx + dy * dy;
-					if (dist < minDist) { minDist = dist; nearest = point; }
-				}
-				break;
-			}
-			return nearest;
-		},
-	});
+	const blackboardManager = new BlackboardManager();
+	const locomotionSystem = new LocomotionSystem(BRAIN_BOUNDS);
 
 	const bubbleSystem = new BubbleSystem();
 	const particlePool = new ParticlePool(PARTICLE_POOL_SIZE);
@@ -323,7 +259,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	const btSystem = new BtSystem();
 	btSystem.onSnapshot = (name, snapshot) => store.updateBtTree(name, snapshot);
-	const { btWorldState, btClock, btDeps } = createBtBridges(brainSystem, needsSystem);
+	const btClock = { now: () => Date.now(), ms: () => Date.now(), iso: () => new Date().toISOString() };
 	const cycleConversationCounts = new Map<string, number>();
 	const firedReactiveTriggers = new Map<string, Set<string>>();
 	const prevCycleCount = 0;
@@ -341,7 +277,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Agent select handler ────────────────────────────
 	const handleAgentSelect = createAgentSelectHandler({
-		store, brainSystem, bubbleSystem, directorSystem, engagementSystem, engine,
+		store, blackboardManager as never /* TODO: remove brain dependency */, bubbleSystem, directorSystem, engagementSystem, engine,
 		findAgentActor, getCameraSystem: () => cameraRef.current,
 	});
 
@@ -387,7 +323,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const roomScenes: Record<string, GameScene> = { office: officeScene, village: villageScene, station: stationScene };
 	const sceneEntries: [string, GameScene][] = [["hub", hubScene], ["office", officeScene], ["village", villageScene], ["station", stationScene]];
 	for (const [name, scene] of sceneEntries) { registry.registerScene(name, scene); engine.addScene(name, scene); }
-	for (const room of Object.values(roomScenes)) room.setBrainSystem(brainSystem);
+	for (const room of Object.values(roomScenes)) room.setBrainSystem(blackboardManager as never /* TODO: remove brain dependency */);
 
 	// ── Actor lookups ───────────────────────────────────
 
@@ -421,7 +357,22 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		return undefined;
 	}
 
-	const findNearestAgent = createFindNearestAgent(brainSystem, registry);
+	const findNearestAgent = (agentName: string): { x: number; y: number } | null => {
+		if (!blackboardManager.has(agentName)) return null;
+		const pos = blackboardManager.get(agentName).position;
+		const myRoom = registry.getEntityRoom(agentName);
+		let closest: { x: number; y: number } | null = null;
+		let minDist = Infinity;
+		for (const [name, bb] of blackboardManager.getAll()) {
+			if (name === agentName) continue;
+			if (registry.getEntityRoom(name) !== myRoom) continue;
+			const dx = pos.x - bb.position.x;
+			const dy = pos.y - bb.position.y;
+			const dist = dx * dx + dy * dy;
+			if (dist < minDist) { minDist = dist; closest = { x: bb.position.x, y: bb.position.y }; }
+		}
+		return closest;
+	};
 	const knownEntities = new Set<string>();
 
 	// ── Dedup guard for provider action relay ────────────
@@ -462,7 +413,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			const s = pet.getState();
 			return s === "idle" || s === "wandering" || s === "following";
 		}
-		return brainSystem.getState(name)?.state === "idle";
+		return blackboardManager.has(name) ? blackboardManager.get(name).intent === "idle" : false;
 	}
 
 	function isEntityOnCurrentScene(name: string): boolean {
@@ -716,7 +667,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	const registrationSystems: RegistrationSystems = {
-		brain: brainSystem, bubble: bubbleSystem, talk: talkEngine,
+		brain: blackboardManager as never /* TODO: remove brain dependency */, bubble: bubbleSystem, talk: talkEngine,
 		emote: emoteSystem, social: socialSystem, needs: needsSystem,
 		sensor: sensorSystem, engagement: engagementSystem, ritual: ritualSystem,
 		memory: memorySystem, quirk: quirkSystem, relationship: relationshipSystem,
@@ -740,7 +691,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		registry,
 		getEntity: (id) => allEntities.get(id),
 		getEntityState: (id) => {
-			const brainState = brainSystem.getState(id)?.state;
+			const brainState = (blackboardManager.has(id) ? blackboardManager.get(id).intent : undefined);
 			if (brainState) return brainState;
 			const pet = pets.find((p) => p.entityId === id);
 			return pet?.getState() ?? "idle";
@@ -777,7 +728,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		memory: memorySystem,
 		relationship: relationshipSystem,
 		needs: needsSystem,
-		brain: brainSystem,
+		blackboards: blackboardManager,
 		registry,
 		pets,
 		echo: echoStore,
@@ -799,7 +750,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		provider,
 		store,
 		systems: {
-			brain: brainSystem,
+			blackboards: blackboardManager,
+			locomotion: locomotionSystem,
 			bubble: bubbleSystem,
 			talk: talkEngine,
 			particlePool,
@@ -849,11 +801,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 		},
 		pets,
 		interactionBootstrap,
-		btBridge: {
-			worldState: btWorldState,
-			clock: btClock,
-			deps: btDeps,
-		},
+		btClock,
 		state: {
 			allEntities,
 			cycleConversationCounts,
@@ -894,7 +842,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			const sceneName = getCurrentSceneIdForPerf();
 			perfSampler.onFrameMeta({
 				deltaMs: ctx.state.deltaMs,
-				agentCount: brainSystem.getAllEntries().size,
+				agentCount: blackboardManager.size,
 				sceneName,
 			});
 			perfSampler.onSimulationEnd(simMs);
@@ -903,7 +851,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 
 	// ── Post-frame adapter: push positions/targets/states to store ──
 	const postframeHandler = createPostframeHandler({
-		engine, store, brainSystem, needsSystem, findCurrentSceneActor,
+		engine, store, blackboardManager as never /* TODO: remove brain dependency */, needsSystem, findCurrentSceneActor,
 		perfSampler,
 	});
 	engine.on("postframe", () => {
@@ -936,7 +884,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 				engine, spriteBasePath, provider, vaultBasePath: deps.vaultBasePath,
 				hubScene, officeScene, villageScene, stationScene, roomScenes,
 				ctx, stateSystems, dayClock, worldAmbience, currentLight,
-				brainSystem, directorSystem, cursorSpirits, store,
+				blackboardManager as never /* TODO: remove brain dependency */, directorSystem, cursorSpirits, store,
 				registrationSystems, handleAgentSelect, allEntities, pets, registry,
 				loadingOverlay, doRegisterAgents,
 				cameraRef, narrativeSystem,
