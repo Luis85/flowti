@@ -52,21 +52,23 @@ describe("bt-agent-extensions — journey", () => {
 	});
 });
 
+const BASE_NEEDS = { energy: 80, hunger: 80, thirst: 80, social: 80, focus: 80, morale: 80 };
+
 describe("bt-agent-extensions — hunger/thirst conditions", () => {
 	it("IsHungry returns true when hunger below 35", () => {
-		expect(IsHungry(makeContext({ needs: { hunger: 20 } } as Partial<BTAgentContext>))).toBe(true);
+		expect(IsHungry(makeContext({ needs: { ...BASE_NEEDS, hunger: 20 } }))).toBe(true);
 	});
 
 	it("IsHungry returns false when hunger at or above 35", () => {
-		expect(IsHungry(makeContext({ needs: { hunger: 50 } } as Partial<BTAgentContext>))).toBe(false);
+		expect(IsHungry(makeContext({ needs: { ...BASE_NEEDS, hunger: 50 } }))).toBe(false);
 	});
 
 	it("IsThirsty returns true when thirst below 30", () => {
-		expect(IsThirsty(makeContext({ needs: { thirst: 15 } } as Partial<BTAgentContext>))).toBe(true);
+		expect(IsThirsty(makeContext({ needs: { ...BASE_NEEDS, thirst: 15 } }))).toBe(true);
 	});
 
 	it("IsThirsty returns false when thirst at or above 30", () => {
-		expect(IsThirsty(makeContext({ needs: { thirst: 50 } } as Partial<BTAgentContext>))).toBe(false);
+		expect(IsThirsty(makeContext({ needs: { ...BASE_NEEDS, thirst: 50 } }))).toBe(false);
 	});
 });
 
@@ -90,14 +92,14 @@ describe("bt-agent-extensions — hunger/thirst actions", () => {
 	});
 
 	it("Eat increases hunger by 30, capped at 100", () => {
-		const ctx = makeContext({ needs: { hunger: 80 } } as Partial<BTAgentContext>);
+		const ctx = makeContext({ needs: { ...BASE_NEEDS, hunger: 80 } });
 		const result = Eat(ctx);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ctx.needs.hunger).toBe(100);
 	});
 
 	it("Drink increases thirst by 30, capped at 100", () => {
-		const ctx = makeContext({ needs: { thirst: 80 } } as Partial<BTAgentContext>);
+		const ctx = makeContext({ needs: { ...BASE_NEEDS, thirst: 80 } });
 		const result = Drink(ctx);
 		expect(result).toBe(fromNodeState("succeeded"));
 		expect(ctx.needs.thirst).toBe(100);

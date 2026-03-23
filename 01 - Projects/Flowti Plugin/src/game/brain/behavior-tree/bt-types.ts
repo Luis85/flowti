@@ -87,7 +87,7 @@ export function parseGoalType(goalName: string): GoalType | undefined {
 
 export type { AgentNeeds } from "../../systems/blackboard.js";
 
-export function createDefaultNeeds(): import("../../systems/blackboard.js").AgentNeeds {
+export function createDefaultNeeds(): AgentNeeds {
 	return { energy: 80, social: 60, focus: 70, morale: 75, hunger: 80, thirst: 80 };
 }
 
