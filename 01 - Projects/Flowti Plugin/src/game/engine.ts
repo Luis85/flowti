@@ -67,7 +67,9 @@ import { bootstrapInteractionSystem, registerPetResolver, createNPCIntentResolve
 import type { Interaction } from "../../../Flowti CLI/src/domain/interactions/interaction-types.js";
 import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
-import { createEnvironmentalObjects, registerEnvironmentalObjects, createPets, getPetBTPairs } from "./engine-objects.js";
+import { createPets, getPetBTPairs } from "./engine-objects.js";
+import { createAllSceneObjects } from "./systems/scene-object-factory.js";
+import sceneObjectsConfig from "../../configs/scene-objects.json";
 import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
 import { SceneRegistry } from "./systems/scene-registry.js";
 import { RoomSwitcher } from "./systems/room-switcher.js";
@@ -332,10 +334,12 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const firedReactiveTriggers = new Map<string, Set<string>>();
 	const prevCycleCount = 0;
 
-	// ── Environmental objects ────────────────────────────
-	const envObjects = createEnvironmentalObjects();
-	registerEnvironmentalObjects(envObjects, registry);
-	const { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, merchantStall, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation, foodBowlOffice, foodBowlStation, waterBowlHub } = envObjects;
+	// ── Environmental objects (declarative) ──────────────
+	const objectMap = createAllSceneObjects(sceneObjectsConfig.objects as import("./data/scene-object-schema.js").SceneObjectConfig[], {
+		registry,
+		scenes: { hub: hubScene, office: officeScene, village: villageScene, station: stationScene },
+		engine,
+	});
 
 	// ── Office pets ──────────────────────────────────────
 	const pets = createPets();
@@ -454,10 +458,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	for (const scene of [hubScene, officeScene, villageScene, stationScene]) {
 		scene.add(createParticleRenderer(particlePool, ENGINE_WIDTH, ENGINE_HEIGHT));
 	}
-	officeScene.add(coffeeMachine); officeScene.add(whiteboard); villageScene.add(snackTable); villageScene.add(waterCooler);
-	stationScene.add(couch); hubScene.add(plant); hubScene.add(noticeBoard); hubScene.add(merchantStall);
-	hubScene.add(foodBowlHub); villageScene.add(foodBowlVillage); officeScene.add(waterBowlOffice); stationScene.add(waterBowlStation);
-	officeScene.add(foodBowlOffice); stationScene.add(foodBowlStation); hubScene.add(waterBowlHub);
+	// Environmental objects are added to scenes by createAllSceneObjects above.
 
 	// ── SceneEntity registry + unified room switcher ──
 	const allEntities = new Map<string, SceneEntity>();
@@ -851,20 +852,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			station: stationScene,
 			map: roomScenes,
 		},
-		envObjects: {
-			coffeeMachine,
-			whiteboard,
-			snackTable,
-			waterCooler,
-			couch,
-			plant,
-			noticeBoard,
-			merchantStall,
-			foodBowlHub,
-			foodBowlVillage,
-			waterBowlOffice,
-			waterBowlStation,
-		},
+		objectMap,
 		pets,
 		interactionBootstrap,
 		btClock,
