@@ -34,6 +34,7 @@ export class GameSidebar extends FlowtiElement {
 		store: { attribute: false },
 		eventBus: { attribute: false },
 		getPerfDashboard: { attribute: false },
+		expanded: { type: Boolean, reflect: true },
 	};
 
 	static styles = [
@@ -302,9 +303,9 @@ export class GameSidebar extends FlowtiElement {
 		}
 	};
 
-	/* ── Collapse/expand state (private, not in DashboardStore) ─── */
+	/* ── Collapse/expand state (local, not in DashboardStore) ──── */
 
-	private expanded = false;
+	expanded = false;
 	private expandedBeforePanel: boolean | null = null;
 	private previousActivePanel: string | null = null;
 
@@ -337,19 +338,15 @@ export class GameSidebar extends FlowtiElement {
 		if (prev === null && current !== null) {
 			this.expandedBeforePanel = this.expanded;
 			this.expanded = false;
-			this.removeAttribute("expanded");
 		} else if (prev !== null && current === null) {
 			this.expanded = this.expandedBeforePanel ?? false;
 			this.expandedBeforePanel = null;
-			if (this.expanded) this.setAttribute("expanded", ""); else this.removeAttribute("expanded");
 		}
 		this.previousActivePanel = current;
 	}
 
 	private toggleExpand(): void {
 		this.expanded = !this.expanded;
-		if (this.expanded) this.setAttribute("expanded", ""); else this.removeAttribute("expanded");
-		this.requestUpdate();
 	}
 
 	/* ── Lifecycle — auto-collapse before render ───────────────── */
