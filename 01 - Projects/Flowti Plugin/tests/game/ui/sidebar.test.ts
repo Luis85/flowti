@@ -43,8 +43,17 @@ vi.mock("../../../src/game/ui/game-ui-constants.js", () => ({
 	TRUST_TIER_COLORS: { supervised: "#f59e0b", trusted: "#22c55e", autonomous: "#8b5cf6" },
 	STATUS_DOT_COLORS: { busy: "#22c55e", idle: "#3b82f6", unassigned: "#6b7280" },
 	COUNCIL_SLOT_COUNT: 5,
-	NEED_META: [],
-	STATE_COLORS: {},
+	NEED_META: [
+		{ label: "Energy", key: "energy", color: "#22c55e" },
+		{ label: "Hunger", key: "hunger", color: "#f97316" },
+		{ label: "Thirst", key: "thirst", color: "#06b6d4" },
+		{ label: "Focus", key: "focus", color: "#a855f7" },
+		{ label: "Social", key: "social", color: "#f59e0b" },
+		{ label: "Morale", key: "morale", color: "#ec4899" },
+	],
+	STATE_COLORS: { idle: "#3b82f6", working: "#22c55e", "on-break": "#a855f7", talking: "#06b6d4", seeking: "#6b7280", waiting: "#f59e0b" },
+	NEED_WARN_THRESHOLD: 60,
+	NEED_CRITICAL_THRESHOLD: 25,
 	getCouncilSlots: (names: string[], agents: { name: string }[]) => {
 		const slots: ({ name: string } | null)[] = [];
 		for (let i = 0; i < 5; i++) {
@@ -75,6 +84,10 @@ vi.mock("../../../src/game/ui/portrait.js", () => ({
 	})),
 }));
 
+vi.mock("../../../src/game/ui/needs-radar.js", () => ({
+	renderNeedsRadar: vi.fn(() => ({ strings: ["<radar-mock>"], values: [] })),
+}));
+
 // Stub side-effect child component registrations
 vi.mock("../../../src/game/ui/slide-panel.js", () => ({}));
 vi.mock("../../../src/game/ui/roster-panel.js", () => ({}));
@@ -90,12 +103,21 @@ import "../../../src/game/ui/sidebar.js";
 import type { GameSidebar } from "../../../src/game/ui/sidebar.js";
 
 type SidebarInternal = GameSidebar & {
+	expanded: boolean;
+	expandedBeforePanel: boolean | null;
+	previousActivePanel: string | null;
 	handleCouncilClick(agent: { name: string }): void;
 	togglePanel(mode: string): void;
+	toggleExpand(): void;
 	handlePanelClose(): void;
 	panelTitle(mode: string): string;
+	panelAccent(mode: string): string;
 	renderPanel(): unknown;
 	renderPanelContent(mode: string): unknown;
+	checkAutoCollapse(): void;
+	hasLowNeed(name: string): boolean;
+	getIntentColor(name: string): string;
+	getAgentIntent(name: string): string;
 	councilAgents: ({ name: string } | null)[];
 };
 
@@ -109,10 +131,13 @@ function createMockStore() {
 		selectedAgent: null as string | null,
 		activePanel: null as string | null,
 		briefingData: null as { results: unknown; narrativeText: string } | null,
+		agentIntents: new Map([["Alice", "working"], ["Bob", "idle"]]),
 		selectAgent: vi.fn(),
 		setActivePanel: vi.fn(),
 		stopFollow: vi.fn(),
-		getAgentNeeds: vi.fn(() => ({ energy: 0.8, hunger: 0.6, thirst: 0.7, focus: 0.5, social: 0.9, morale: 0.7 })),
+		getAgentNeeds: vi.fn((name: string) => name === "Alice"
+			? { energy: 80, hunger: 70, thirst: 90, focus: 60, social: 75, morale: 65 }
+			: { energy: 20, hunger: 50, thirst: 50, focus: 50, social: 50, morale: 50 }),
 		addEventListener: vi.fn(),
 		removeEventListener: vi.fn(),
 	};
@@ -286,5 +311,93 @@ describe("GameSidebar (ft-game-sidebar)", () => {
 			const result = el.renderPanelContent(mode) as { strings: TemplateStringsArray };
 			expect(result.strings.join("")).toContain(tag);
 		}
+	});
+
+	/* ── Expand/collapse state ──────────────────────────────── */
+
+	it("starts collapsed by default", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		expect(el.expanded).toBe(false);
+	});
+
+	it("toggleExpand flips expanded state", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		const store = createMockStore();
+		el.store = store;
+		el.toggleExpand();
+		expect(el.expanded).toBe(true);
+		el.toggleExpand();
+		expect(el.expanded).toBe(false);
+	});
+
+	it("auto-collapses when panel opens", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		const store = createMockStore();
+		el.store = store;
+		el.expanded = true;
+		el.previousActivePanel = null;
+		store.activePanel = "bob";
+		el.checkAutoCollapse();
+		expect(el.expanded).toBe(false);
+		expect(el.expandedBeforePanel).toBe(true);
+	});
+
+	it("restores expanded state when panel closes", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		const store = createMockStore();
+		el.store = store;
+		el.expanded = false;
+		el.expandedBeforePanel = true;
+		el.previousActivePanel = "bob";
+		store.activePanel = null;
+		el.checkAutoCollapse();
+		expect(el.expanded).toBe(true);
+		expect(el.expandedBeforePanel).toBeNull();
+	});
+
+	/* ── Agent data helpers ─────────────────────────────────── */
+
+	it("hasLowNeed detects critical needs", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		const store = createMockStore();
+		el.store = store;
+		// Bob has energy: 20 which is < 25
+		expect(el.hasLowNeed("Bob")).toBe(true);
+		// Alice has all needs >= 60
+		expect(el.hasLowNeed("Alice")).toBe(false);
+	});
+
+	it("getAgentIntent returns intent from store", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		const store = createMockStore();
+		el.store = store;
+		expect(el.getAgentIntent("Alice")).toBe("working");
+		expect(el.getAgentIntent("Bob")).toBe("idle");
+	});
+
+	it("getAgentIntent defaults to idle for unknown agent", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		const store = createMockStore();
+		el.store = store;
+		expect(el.getAgentIntent("Unknown")).toBe("idle");
+	});
+
+	it("getIntentColor returns color for known intent", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		const store = createMockStore();
+		el.store = store;
+		expect(el.getIntentColor("Alice")).toBe("#22c55e"); // working
+		expect(el.getIntentColor("Bob")).toBe("#3b82f6"); // idle
+	});
+
+	/* ── Panel accent colors ────────────────────────────────── */
+
+	it("panelAccent returns correct color per mode", () => {
+		const el = document.createElement("ft-game-sidebar") as unknown as SidebarInternal;
+		expect(el.panelAccent("bob")).toBe("var(--accent-blue)");
+		expect(el.panelAccent("roster")).toBe("var(--accent-green)");
+		expect(el.panelAccent("merchant")).toBe("var(--accent-gold)");
+		expect(el.panelAccent("briefing")).toBe("var(--accent-purple)");
+		expect(el.panelAccent("agent-detail")).toBe("var(--text-primary)");
 	});
 });
