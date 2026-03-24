@@ -33,7 +33,6 @@ import {
 // ── Whim tuning constants ────────────────────────────────────────────
 const WHIM_COOLDOWN_MS = 6000;
 const WHIM_NEEDS_FLOOR = 40;
-const WHIM_BOND_WEIGHT_FLOOR = 15;
 const WHIM_PREFERENCE_WEIGHT_FLOOR = 10;
 const WHIM_AVERSION_WEIGHT_CEIL = -10;
 const WHIM_MOOD_CELEBRATE_FLOOR = 20;
@@ -42,6 +41,8 @@ const WHIM_BASE_PROBABILITY = 0.15;
 const WHIM_MAX_PROBABILITY = 0.4;
 const WHIM_PROBABILITY_SCALE = 200;
 const WHIM_ECHO_KINDS = ["bond", "preference", "aversion", "mood-residue"] as const;
+const CELEBRATE_PHRASES = ["Feeling great!", "What a day!", "Things are looking up!", "Life is good!"];
+const MOPE_PHRASES = ["*sigh*", "Not my best day...", "Could be better..."];
 
 function hasLLMProvider(registry?: IProviderRegistry): boolean {
 	if (!registry) return false;
@@ -564,12 +565,13 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		if (mood && mood.weight > WHIM_MOOD_CELEBRATE_FLOOR) {
 			bb.intent = "idle";
 			bb.intentDetail = "celebrating";
-			bb.speechRequest = { text: "Feeling great!", kind: "speech" };
+			bb.speechRequest = { text: CELEBRATE_PHRASES[Math.floor(Math.random() * CELEBRATE_PHRASES.length)], kind: "speech" };
 			return fromNodeState("succeeded");
 		}
 		if (mood && mood.weight < WHIM_MOOD_MOPE_CEIL) {
 			bb.intent = "idle";
 			bb.intentDetail = "moping";
+			bb.speechRequest = { text: MOPE_PHRASES[Math.floor(Math.random() * MOPE_PHRASES.length)], kind: "thought" };
 			bb.movementCommand = "wander";
 			return fromNodeState("succeeded");
 		}
