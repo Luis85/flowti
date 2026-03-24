@@ -30,6 +30,19 @@ import {
 	SeekPreferredFoodStation, SeekPreferredDrinkStation,
 } from "./bt-agent-extensions.js";
 
+// ── Whim tuning constants ────────────────────────────────────────────
+const WHIM_COOLDOWN_MS = 6000;
+const WHIM_NEEDS_FLOOR = 40;
+const WHIM_BOND_WEIGHT_FLOOR = 15;
+const WHIM_PREFERENCE_WEIGHT_FLOOR = 10;
+const WHIM_AVERSION_WEIGHT_CEIL = -10;
+const WHIM_MOOD_CELEBRATE_FLOOR = 20;
+const WHIM_MOOD_MOPE_CEIL = -10;
+const WHIM_BASE_PROBABILITY = 0.15;
+const WHIM_MAX_PROBABILITY = 0.4;
+const WHIM_PROBABILITY_SCALE = 200;
+const WHIM_ECHO_KINDS = ["bond", "preference", "aversion", "mood-residue"] as const;
+
 function hasLLMProvider(registry?: IProviderRegistry): boolean {
 	if (!registry) return false;
 	return registry.list().length > 0;
@@ -510,71 +523,58 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 
 	function HasWhim(): boolean {
 		if (!context.echoStore) return false;
-		if (context.needs.energy < 40 || context.needs.hunger < 40) return false;
-		const now = deps.clock.ms();
-		if (now - context.lastWhimTick < 6000) return false;
+		if (context.needs.energy < WHIM_NEEDS_FLOOR || context.needs.hunger < WHIM_NEEDS_FLOOR) return false;
+		if (deps.clock.ms() - context.lastWhimTick < WHIM_COOLDOWN_MS) return false;
 
-		const kinds: Array<"bond" | "preference" | "aversion" | "mood-residue"> = ["bond", "preference", "aversion", "mood-residue"];
 		let strongest = 0;
-		for (const kind of kinds) {
+		for (const kind of WHIM_ECHO_KINDS) {
 			const echo = context.echoStore.getStrongest(context.name, kind);
 			if (echo && Math.abs(echo.weight) > strongest) strongest = Math.abs(echo.weight);
 		}
-		const probability = Math.min(0.4, 0.15 + strongest / 200);
+		if (strongest === 0) return false;
+		const probability = Math.min(WHIM_MAX_PROBABILITY, WHIM_BASE_PROBABILITY + strongest / WHIM_PROBABILITY_SCALE);
 		return Math.random() < probability;
 	}
 
 	function ExecuteWhim(): State {
 		context.lastWhimTick = deps.clock.ms();
 
-		if (!context.echoStore) {
-			bb.movementCommand = "wander";
-			return fromNodeState("succeeded");
-		}
+		if (!context.echoStore) return CommandWander();
 
-		// Bond whim: visit bonded agent
-		const bond = context.echoStore.getStrongest(context.name, "bond");
-		if (bond && bond.weight > 15 && bond.target && bb.nearbyAgents.includes(bond.target) && bb.whimTarget) {
+		// Bond whim: sensor already validated weight > 15 + same room → bb.whimTarget
+		if (bb.whimTarget) {
 			return seekStation(bb, bb.whimTarget, "seeking", "whim-visit");
 		}
 
 		// Preference whim: browse merchant
 		const pref = context.echoStore.getStrongest(context.name, "preference");
-		if (pref && pref.weight > 10 && pref.tags.includes("shop") && bb.nearestMerchantStall) {
+		if (pref && pref.weight > WHIM_PREFERENCE_WEIGHT_FLOOR && pref.tags.includes("shop") && bb.nearestMerchantStall) {
 			return seekStation(bb, bb.nearestMerchantStall, "seeking", "whim-shop");
 		}
 
 		// Aversion whim: leave current room
 		const aversion = context.echoStore.getStrongest(context.name, "aversion");
-		if (aversion && aversion.weight < -10 && aversion.target === bb.currentRoom) {
+		if (aversion && aversion.weight < WHIM_AVERSION_WEIGHT_CEIL && aversion.target === bb.currentRoom) {
 			bb.roomAvoidance = bb.currentRoom;
 			return fromNodeState("succeeded");
 		}
 
 		// Mood whims
 		const mood = context.echoStore.getStrongest(context.name, "mood-residue");
-		if (mood && mood.weight > 20) {
+		if (mood && mood.weight > WHIM_MOOD_CELEBRATE_FLOOR) {
 			bb.intent = "idle";
 			bb.intentDetail = "celebrating";
 			bb.speechRequest = { text: "Feeling great!", kind: "speech" };
 			return fromNodeState("succeeded");
 		}
-		if (mood && mood.weight < -10) {
+		if (mood && mood.weight < WHIM_MOOD_MOPE_CEIL) {
 			bb.intent = "idle";
 			bb.intentDetail = "moping";
 			bb.movementCommand = "wander";
 			return fromNodeState("succeeded");
 		}
 
-		// Fallback: random wander (same as CommandWander)
-		if (bb.wanderHint) {
-			bb.movementCommand = "walk-to";
-			bb.movementTarget = bb.wanderHint;
-		} else {
-			bb.movementCommand = "wander";
-		}
-		context.intentTimer = 0;
-		return fromNodeState("succeeded");
+		return CommandWander();
 	}
 
 	// ── Needs-driven actions ────────────────────────────────────────

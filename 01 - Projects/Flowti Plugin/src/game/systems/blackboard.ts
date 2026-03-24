@@ -19,6 +19,9 @@
 /** Bubble visual kind — inlined to avoid coupling blackboard to talk subsystem. */
 export type BubbleKind = "speech" | "thought" | "question";
 
+/** Cascade hint kinds that require BT-driven movement (others handled imperatively by tickSocial). */
+export type CascadeHintKind = "seek-proximity" | "force-break";
+
 // ── Agent Needs ──────────────────────────────────────────────────
 
 export interface AgentNeeds {
@@ -63,7 +66,7 @@ export interface AgentBlackboard {
 
 	// ── Written by echo/social, read by BT ───────────
 	wanderHint: { x: number; y: number } | null;
-	cascadeHint: string | null;
+	cascadeHint: CascadeHintKind | null;
 	cascadeTarget: { x: number; y: number } | null;
 	roomAvoidance: string | null;
 	breakThresholdBias: number;

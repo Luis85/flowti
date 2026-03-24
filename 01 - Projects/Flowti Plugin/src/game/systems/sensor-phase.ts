@@ -10,7 +10,7 @@
  * to the full EngineContext.
  */
 
-import type { AgentBlackboard, AgentNeeds, BlackboardManager } from "./blackboard.js";
+import type { AgentBlackboard, AgentNeeds, BlackboardManager, CascadeHintKind } from "./blackboard.js";
 
 // ── Dependency interfaces ────────────────────────────────────────
 
@@ -36,7 +36,7 @@ export interface SensorDeps {
 	/** Echo-driven wander hint toward bonded agent (null if no bond or probability miss). */
 	getWanderHint(name: string): { x: number; y: number } | null;
 	/** Pending cascade hint from echo system (null if none). */
-	getCascadeHint(name: string): { hint: string; target: { x: number; y: number } | null } | null;
+	getCascadeHint(name: string): { hint: CascadeHintKind; target: { x: number; y: number } | null } | null;
 	/** Room the agent should avoid (echo aversion). */
 	getRoomAvoidance(name: string): string | null;
 	/** Echo mood-residue weight for break threshold bias. */

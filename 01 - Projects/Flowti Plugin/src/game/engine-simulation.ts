@@ -211,7 +211,7 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 			const agentRoom = sys.registry.getEntityRoom(name);
 			const targetRoom = sys.registry.getEntityRoom(bond.target);
 			if (agentRoom !== targetRoom) return null;
-			return { x: targetBb.position.x, y: targetBb.position.y };
+			return targetBb.position;
 		},
 		getWanderHint: (name) => {
 			const bondTarget = sys.echo.getStrongest(name, "bond");
