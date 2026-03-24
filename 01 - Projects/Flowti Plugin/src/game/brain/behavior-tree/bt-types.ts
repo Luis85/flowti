@@ -131,6 +131,7 @@ export interface AgentToolDeps {
 	readonly checkPermission: (tool: string) => PermissionVerdict;
 	readonly blackboard: AgentBlackboard;
 	readonly merchant?: IMerchantBridge;
+	readonly applyNeedsEffect?: (effect: Partial<AgentNeeds>) => void;
 }
 
 // ── Interaction Hooks (optional — wired when interaction system is active) ──
@@ -177,6 +178,8 @@ export interface BTAgentContext {
 	_lastIntent?: string;
 	/** Personality-driven idle resistance threshold (ms). */
 	idleResistance: number;
+	/** Wall-clock ms of last whim execution (cooldown gate). */
+	lastWhimTick: number;
 }
 
 // ── Goal Subtree Config ──────────────────────────────────────────────

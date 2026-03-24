@@ -11,6 +11,7 @@ import { createAgentBT, type AgentBT, type FullAgentBT } from "../brain/behavior
 import { btTick } from "../brain/behavior-tree/bt-tick.js";
 import type { BTAgentObject } from "../brain/behavior-tree/bt-agent.js";
 import type {
+	AgentNeeds,
 	AgentToolDeps,
 	BTAgentDef,
 	IClock,
@@ -75,7 +76,10 @@ function toBTAgentDef(agent: DashboardAgent, quirks?: readonly string[]): BTAgen
 export function createBtDeps(
 	blackboard: AgentBlackboard,
 	clock: IClock,
-	merchant?: IMerchantBridge,
+	options?: {
+		merchant?: IMerchantBridge;
+		applyNeedsEffect?: (effect: Partial<AgentNeeds>) => void;
+	},
 ): AgentToolDeps {
 	return {
 		disk: {
@@ -92,7 +96,8 @@ export function createBtDeps(
 		clock,
 		checkPermission: () => "allowed" as const,
 		blackboard,
-		...(merchant && { merchant }),
+		...(options?.merchant && { merchant: options.merchant }),
+		...(options?.applyNeedsEffect && { applyNeedsEffect: options.applyNeedsEffect }),
 	};
 }
 

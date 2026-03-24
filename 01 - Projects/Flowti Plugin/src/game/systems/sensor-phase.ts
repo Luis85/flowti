@@ -29,6 +29,10 @@ export interface SensorDeps {
 	getNearestStation(name: string, need: "food" | "drink" | "rest"): { x: number; y: number } | null;
 	/** Nearest unoccupied workstation position in agent's room (null if none). */
 	getNearestWorkstation(name: string): { x: number; y: number } | null;
+	/** Nearest unoccupied merchant stall position in agent's room (null if none). */
+	getNearestMerchantStall(name: string): { x: number; y: number } | null;
+	/** Bond-driven whim target position (deterministic, weight > 15 bond in same room). */
+	getWhimTarget(name: string): { x: number; y: number } | null;
 	/** Echo-driven wander hint toward bonded agent (null if no bond or probability miss). */
 	getWanderHint(name: string): { x: number; y: number } | null;
 	/** Pending cascade hint from echo system (null if none). */
@@ -71,6 +75,8 @@ function writeSensorData(bb: AgentBlackboard, name: string, deps: SensorDeps): v
 	bb.nearestDrinkStation = deps.getNearestStation(name, "drink");
 	bb.nearestRestStation = deps.getNearestStation(name, "rest");
 	bb.nearestWorkstation = deps.getNearestWorkstation(name);
+	bb.nearestMerchantStall = deps.getNearestMerchantStall(name);
+	bb.whimTarget = deps.getWhimTarget(name);
 
 	// Echo-driven hints
 	bb.wanderHint = deps.getWanderHint(name);

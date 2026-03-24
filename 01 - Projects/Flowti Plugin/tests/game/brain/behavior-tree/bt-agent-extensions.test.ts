@@ -73,36 +73,86 @@ describe("bt-agent-extensions — hunger/thirst conditions", () => {
 });
 
 describe("bt-agent-extensions — hunger/thirst actions", () => {
-	it("SeekFoodStation writes seeking intent to blackboard", () => {
+	it("SeekFoodStation returns running and writes seeking intent on first call", () => {
 		const bb = createDefaultBlackboard();
+		bb.nearestFoodStation = { x: 100, y: 200 };
 		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
 		const result = SeekFoodStation(ext);
-		expect(result).toBe(fromNodeState("succeeded"));
+		expect(result).toBe(fromNodeState("running"));
 		expect(bb.intent).toBe("seeking");
 		expect(bb.intentDetail).toBe("seek-food");
+		expect(bb.movementCommand).toBe("walk-to");
+		expect(bb.movementTarget).toEqual({ x: 100, y: 200 });
+		expect(bb.arrived).toBe(false);
 	});
 
-	it("SeekDrinkStation writes seeking intent to blackboard", () => {
+	it("SeekFoodStation returns succeeded on re-entry after arrival", () => {
 		const bb = createDefaultBlackboard();
+		bb.nearestFoodStation = { x: 100, y: 200 };
+		bb.intentDetail = "seek-food";
+		bb.arrived = true;
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
+		expect(SeekFoodStation(ext)).toBe(fromNodeState("succeeded"));
+	});
+
+	it("SeekFoodStation returns failed when no station available", () => {
+		const bb = createDefaultBlackboard();
+		bb.nearestFoodStation = null;
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
+		expect(SeekFoodStation(ext)).toBe(fromNodeState("failed"));
+	});
+
+	it("SeekDrinkStation returns running and writes seeking intent on first call", () => {
+		const bb = createDefaultBlackboard();
+		bb.nearestDrinkStation = { x: 50, y: 75 };
 		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
 		const result = SeekDrinkStation(ext);
-		expect(result).toBe(fromNodeState("succeeded"));
+		expect(result).toBe(fromNodeState("running"));
 		expect(bb.intent).toBe("seeking");
 		expect(bb.intentDetail).toBe("seek-drink");
+		expect(bb.movementCommand).toBe("walk-to");
+		expect(bb.movementTarget).toEqual({ x: 50, y: 75 });
+		expect(bb.arrived).toBe(false);
 	});
 
-	it("Eat increases hunger by 30, capped at 100", () => {
-		const ctx = makeContext({ needs: { ...BASE_NEEDS, hunger: 80 } });
-		const result = Eat(ctx);
-		expect(result).toBe(fromNodeState("succeeded"));
-		expect(ctx.needs.hunger).toBe(100);
+	it("SeekDrinkStation returns succeeded on re-entry after arrival", () => {
+		const bb = createDefaultBlackboard();
+		bb.nearestDrinkStation = { x: 50, y: 75 };
+		bb.intentDetail = "seek-drink";
+		bb.arrived = true;
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
+		expect(SeekDrinkStation(ext)).toBe(fromNodeState("succeeded"));
 	});
 
-	it("Drink increases thirst by 30, capped at 100", () => {
-		const ctx = makeContext({ needs: { ...BASE_NEEDS, thirst: 80 } });
-		const result = Drink(ctx);
+	it("SeekDrinkStation returns failed when no station available", () => {
+		const bb = createDefaultBlackboard();
+		bb.nearestDrinkStation = null;
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
+		expect(SeekDrinkStation(ext)).toBe(fromNodeState("failed"));
+	});
+
+	it("Eat calls applyNeedsEffect with hunger +30", () => {
+		const applyNeedsEffect = vi.fn();
+		const ext = makeExtDeps({ deps: makeDeps({ applyNeedsEffect }) });
+		const result = Eat(ext);
 		expect(result).toBe(fromNodeState("succeeded"));
-		expect(ctx.needs.thirst).toBe(100);
+		expect(applyNeedsEffect).toHaveBeenCalledWith({ hunger: 30 });
+	});
+
+	it("Drink calls applyNeedsEffect with thirst +30", () => {
+		const applyNeedsEffect = vi.fn();
+		const ext = makeExtDeps({ deps: makeDeps({ applyNeedsEffect }) });
+		const result = Drink(ext);
+		expect(result).toBe(fromNodeState("succeeded"));
+		expect(applyNeedsEffect).toHaveBeenCalledWith({ thirst: 30 });
+	});
+
+	it("Eat succeeds even when applyNeedsEffect is absent", () => {
+		expect(Eat(makeExtDeps())).toBe(fromNodeState("succeeded"));
+	});
+
+	it("Drink succeeds even when applyNeedsEffect is absent", () => {
+		expect(Drink(makeExtDeps())).toBe(fromNodeState("succeeded"));
 	});
 });
 
@@ -161,13 +211,32 @@ describe("bt-agent-extensions — merchant conditions", () => {
 });
 
 describe("bt-agent-extensions — merchant actions", () => {
-	it("SeekMerchantStall writes seeking intent to blackboard", () => {
+	it("SeekMerchantStall returns running and writes seeking intent when stall available", () => {
 		const bb = createDefaultBlackboard();
+		bb.nearestMerchantStall = { x: 300, y: 60 };
 		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
 		const result = SeekMerchantStall(ext);
-		expect(result).toBe(fromNodeState("succeeded"));
+		expect(result).toBe(fromNodeState("running"));
 		expect(bb.intent).toBe("seeking");
 		expect(bb.intentDetail).toBe("seek-merchant");
+		expect(bb.movementCommand).toBe("walk-to");
+		expect(bb.movementTarget).toEqual({ x: 300, y: 60 });
+	});
+
+	it("SeekMerchantStall returns succeeded on re-entry after arrival", () => {
+		const bb = createDefaultBlackboard();
+		bb.nearestMerchantStall = { x: 300, y: 60 };
+		bb.intentDetail = "seek-merchant";
+		bb.arrived = true;
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
+		expect(SeekMerchantStall(ext)).toBe(fromNodeState("succeeded"));
+	});
+
+	it("SeekMerchantStall returns failed when no stall available", () => {
+		const bb = createDefaultBlackboard();
+		bb.nearestMerchantStall = null;
+		const ext = makeExtDeps({ deps: makeDeps({ blackboard: bb }) });
+		expect(SeekMerchantStall(ext)).toBe(fromNodeState("failed"));
 	});
 
 	it("BrowseMerchant writes browsing-merchant to blackboard", () => {

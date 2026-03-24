@@ -15,6 +15,8 @@ function makeDeps(overrides: Partial<SensorDeps> = {}): SensorDeps {
 		getRoomAvoidance: vi.fn(() => null),
 		getBreakThresholdBias: vi.fn(() => 0),
 		getNearestWorkstation: vi.fn(() => ({ x: 350, y: 250 })),
+		getNearestMerchantStall: vi.fn(() => null),
+		getWhimTarget: vi.fn(() => null),
 		...overrides,
 	};
 }

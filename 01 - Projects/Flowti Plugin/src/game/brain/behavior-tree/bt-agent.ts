@@ -21,6 +21,7 @@ import {
 	type IProviderRegistry,
 } from "./bt-types.js";
 import {
+	seekStation,
 	IsHungry, IsThirsty, HasJourneyTask,
 	SeekFoodStation, SeekDrinkStation, Eat, Drink, ExecuteJourney,
 	IsMerchantEligible, HasNotVisitedMerchantThisCycle, HasAutoPurchaseAvailable,
@@ -87,6 +88,10 @@ export interface BTAgentObject {
 	SeekMerchantStall(): State; BrowseMerchant(): State; ExecuteMerchantPurchase(): State;
 	// Interaction actions
 	EvaluateInteraction(): State; SubmitInteraction(): State;
+	// Cascade reaction
+	HasCascadeHint(): boolean; ReactToCascade(): State;
+	// Whim
+	HasWhim(): boolean; ExecuteWhim(): State;
 	// Idle fallback + new subtree actions
 	EchoBiasedIdle(): State; CommandWander(): State; StartBreak(): State; StopTalking(): State;
 }
@@ -125,6 +130,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		activeInteraction: null,
 		intentTimer: 0,
 		idleResistance: 4000 + (con / 20) * 8000,
+		lastWhimTick: 0,
 	};
 
 	// ── Conditions ───────────────────────────────────────────────────
@@ -399,7 +405,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function Rest(): State {
-		context.needs.energy = Math.min(100, context.needs.energy + 5);
+		deps.applyNeedsEffect?.({ energy: 5 });
 		return fromNodeState("succeeded");
 	}
 
@@ -470,11 +476,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function StartBreak(): State {
-		bb.intent = "on-break";
-		bb.intentDetail = "break";
-		bb.movementCommand = "walk-to";
-		bb.movementTarget = bb.nearestRestStation;
-		return fromNodeState("succeeded");
+		return seekStation(bb, bb.nearestRestStation, "on-break", "break");
 	}
 
 	function StopTalking(): State {
@@ -484,14 +486,101 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return fromNodeState("succeeded");
 	}
 
+	// ── Cascade reaction (reads hints written by tickSocial) ──────────
+
+	function HasCascadeHint(): boolean {
+		return bb.cascadeHint === "seek-proximity" || bb.cascadeHint === "force-break";
+	}
+
+	function ReactToCascade(): State {
+		const hint = bb.cascadeHint;
+		const target = bb.cascadeTarget;
+		bb.cascadeHint = null;
+		bb.cascadeTarget = null;
+		if (hint === "seek-proximity" && target) {
+			return seekStation(bb, target, "seeking", "cascade-seek");
+		}
+		if (hint === "force-break") {
+			return seekStation(bb, bb.nearestRestStation, "on-break", "cascade-break");
+		}
+		return fromNodeState("failed");
+	}
+
+	// ── Whim (spontaneous echo-driven activity) ───────────────────
+
+	function HasWhim(): boolean {
+		if (!context.echoStore) return false;
+		if (context.needs.energy < 40 || context.needs.hunger < 40) return false;
+		const now = deps.clock.ms();
+		if (now - context.lastWhimTick < 6000) return false;
+
+		const kinds: Array<"bond" | "preference" | "aversion" | "mood-residue"> = ["bond", "preference", "aversion", "mood-residue"];
+		let strongest = 0;
+		for (const kind of kinds) {
+			const echo = context.echoStore.getStrongest(context.name, kind);
+			if (echo && Math.abs(echo.weight) > strongest) strongest = Math.abs(echo.weight);
+		}
+		const probability = Math.min(0.4, 0.15 + strongest / 200);
+		return Math.random() < probability;
+	}
+
+	function ExecuteWhim(): State {
+		context.lastWhimTick = deps.clock.ms();
+
+		if (!context.echoStore) {
+			bb.movementCommand = "wander";
+			return fromNodeState("succeeded");
+		}
+
+		// Bond whim: visit bonded agent
+		const bond = context.echoStore.getStrongest(context.name, "bond");
+		if (bond && bond.weight > 15 && bond.target && bb.nearbyAgents.includes(bond.target) && bb.whimTarget) {
+			return seekStation(bb, bb.whimTarget, "seeking", "whim-visit");
+		}
+
+		// Preference whim: browse merchant
+		const pref = context.echoStore.getStrongest(context.name, "preference");
+		if (pref && pref.weight > 10 && pref.tags.includes("shop") && bb.nearestMerchantStall) {
+			return seekStation(bb, bb.nearestMerchantStall, "seeking", "whim-shop");
+		}
+
+		// Aversion whim: leave current room
+		const aversion = context.echoStore.getStrongest(context.name, "aversion");
+		if (aversion && aversion.weight < -10 && aversion.target === bb.currentRoom) {
+			bb.roomAvoidance = bb.currentRoom;
+			return fromNodeState("succeeded");
+		}
+
+		// Mood whims
+		const mood = context.echoStore.getStrongest(context.name, "mood-residue");
+		if (mood && mood.weight > 20) {
+			bb.intent = "idle";
+			bb.intentDetail = "celebrating";
+			bb.speechRequest = { text: "Feeling great!", kind: "speech" };
+			return fromNodeState("succeeded");
+		}
+		if (mood && mood.weight < -10) {
+			bb.intent = "idle";
+			bb.intentDetail = "moping";
+			bb.movementCommand = "wander";
+			return fromNodeState("succeeded");
+		}
+
+		// Fallback: random wander (same as CommandWander)
+		if (bb.wanderHint) {
+			bb.movementCommand = "walk-to";
+			bb.movementTarget = bb.wanderHint;
+		} else {
+			bb.movementCommand = "wander";
+		}
+		context.intentTimer = 0;
+		return fromNodeState("succeeded");
+	}
+
 	// ── Needs-driven actions ────────────────────────────────────────
 
 	function SeekRestSpot(): State {
-		bb.intent = "seeking";
-		bb.intentDetail = "seek-rest";
-		bb.movementCommand = "walk-to";
-		bb.movementTarget = bb.nearestRestStation;
-		return fromNodeState("succeeded");
+		return seekStation(bb, bb.nearestRestStation, "seeking", "seek-rest");
 	}
 
 	function SeekNearbyAgent(): State {
@@ -521,16 +610,11 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 	}
 
 	function GoToWorkstation(): State {
-		bb.intent = "working";
-		bb.intentDetail = `goal-${context.activeGoal?.name ?? "work"}`;
-		bb.movementCommand = "walk-to";
-		bb.movementTarget = bb.nearestWorkstation;
-		return fromNodeState("succeeded");
+		return seekStation(bb, bb.nearestWorkstation, "working", `goal-${context.activeGoal?.name ?? "work"}`);
 	}
 
 	function DoWork(): State {
-		context.needs.focus = Math.max(0, context.needs.focus - 5);
-		context.needs.morale = Math.min(100, context.needs.morale + 1);
+		deps.applyNeedsEffect?.({ focus: -5, morale: 1 });
 		return fromNodeState("succeeded");
 	}
 
@@ -568,8 +652,8 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		SeekDrinkStation: () => SeekDrinkStation(extDeps),
 		SeekPreferredFoodStation: () => SeekPreferredFoodStation(extDeps),
 		SeekPreferredDrinkStation: () => SeekPreferredDrinkStation(extDeps),
-		Eat: () => Eat(context),
-		Drink: () => Drink(context),
+		Eat: () => Eat(extDeps),
+		Drink: () => Drink(extDeps),
 		WanderSad,
 		GoToWorkstation, DoWork, LeaveWorkstation,
 		ExecuteJourney: () => ExecuteJourney(),
@@ -577,6 +661,8 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		BrowseMerchant: () => BrowseMerchant(extDeps),
 		ExecuteMerchantPurchase: () => ExecuteMerchantPurchase(extDeps),
 		EvaluateInteraction, SubmitInteraction,
+		HasCascadeHint, ReactToCascade,
+		HasWhim, ExecuteWhim,
 		EchoBiasedIdle,
 		CommandWander, StartBreak, StopTalking,
 	};

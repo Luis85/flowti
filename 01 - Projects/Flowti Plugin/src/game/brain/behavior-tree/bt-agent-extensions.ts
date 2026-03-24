@@ -11,6 +11,7 @@
 
 import { fromNodeState, type State } from "./bt-service.js";
 import type { AgentToolDeps, BTAgentContext } from "./bt-types.js";
+import { walkTo, type AgentBlackboard, type AgentIntent } from "../../systems/blackboard.js";
 import { getPreferredFoodStation, getPreferredDrinkStation } from "../../data/food-preferences.js";
 
 export interface BTAgentExtensionDeps {
@@ -35,33 +36,40 @@ export function HasJourneyTask(_ctx: BTAgentContext): boolean {
 	return false;
 }
 
+// ── Seek helper — shared by all walk-to-station BT actions ───────────
+
+export function seekStation(
+	bb: AgentBlackboard,
+	target: { x: number; y: number } | null,
+	intent: AgentIntent,
+	detail: string,
+): State {
+	if (!target) return fromNodeState("failed");
+	if (bb.intentDetail === detail && bb.arrived) return fromNodeState("succeeded");
+	bb.intent = intent;
+	bb.intentDetail = detail;
+	walkTo(bb, target);
+	bb.arrived = false; // clear stale arrival from a previous destination
+	return fromNodeState("running");
+}
+
 // ── Hunger/thirst actions ─────────────────────────────────────────────
 
 export function SeekFoodStation(ext: BTAgentExtensionDeps): State {
-	const bb = ext.deps.blackboard;
-	bb.intent = "seeking";
-	bb.intentDetail = "seek-food";
-	bb.movementCommand = "walk-to";
-	bb.movementTarget = bb.nearestFoodStation;
-	return fromNodeState("succeeded");
+	return seekStation(ext.deps.blackboard, ext.deps.blackboard.nearestFoodStation, "seeking", "seek-food");
 }
 
 export function SeekDrinkStation(ext: BTAgentExtensionDeps): State {
-	const bb = ext.deps.blackboard;
-	bb.intent = "seeking";
-	bb.intentDetail = "seek-drink";
-	bb.movementCommand = "walk-to";
-	bb.movementTarget = bb.nearestDrinkStation;
+	return seekStation(ext.deps.blackboard, ext.deps.blackboard.nearestDrinkStation, "seeking", "seek-drink");
+}
+
+export function Eat(ext: BTAgentExtensionDeps): State {
+	ext.deps.applyNeedsEffect?.({ hunger: 30 });
 	return fromNodeState("succeeded");
 }
 
-export function Eat(ctx: BTAgentContext): State {
-	ctx.needs.hunger = Math.min(100, ctx.needs.hunger + 30);
-	return fromNodeState("succeeded");
-}
-
-export function Drink(ctx: BTAgentContext): State {
-	ctx.needs.thirst = Math.min(100, ctx.needs.thirst + 30);
+export function Drink(ext: BTAgentExtensionDeps): State {
+	ext.deps.applyNeedsEffect?.({ thirst: 30 });
 	return fromNodeState("succeeded");
 }
 
@@ -80,23 +88,13 @@ export function HasPreferredDrinkStation(ctx: BTAgentContext): boolean {
 export function SeekPreferredFoodStation(ext: BTAgentExtensionDeps): State {
 	const station = getPreferredFoodStation(ext.context.quirks);
 	if (!station) return fromNodeState("failed");
-	const bb = ext.deps.blackboard;
-	bb.intent = "seeking";
-	bb.intentDetail = `seek-preferred-food:${station}`;
-	bb.movementCommand = "walk-to";
-	bb.movementTarget = bb.nearestFoodStation;
-	return fromNodeState("succeeded");
+	return seekStation(ext.deps.blackboard, ext.deps.blackboard.nearestFoodStation, "seeking", `seek-preferred-food:${station}`);
 }
 
 export function SeekPreferredDrinkStation(ext: BTAgentExtensionDeps): State {
 	const station = getPreferredDrinkStation(ext.context.quirks);
 	if (!station) return fromNodeState("failed");
-	const bb = ext.deps.blackboard;
-	bb.intent = "seeking";
-	bb.intentDetail = `seek-preferred-drink:${station}`;
-	bb.movementCommand = "walk-to";
-	bb.movementTarget = bb.nearestDrinkStation;
-	return fromNodeState("succeeded");
+	return seekStation(ext.deps.blackboard, ext.deps.blackboard.nearestDrinkStation, "seeking", `seek-preferred-drink:${station}`);
 }
 
 // ── Journey action ─────────────────────────────────────────────────────
@@ -134,12 +132,7 @@ export function HasAutoPurchaseAvailable(ext: BTAgentExtensionDeps): boolean {
 // ── Merchant actions ─────────────────────────────────────────────────
 
 export function SeekMerchantStall(ext: BTAgentExtensionDeps): State {
-	const bb = ext.deps.blackboard;
-	bb.intent = "seeking";
-	bb.intentDetail = "seek-merchant";
-	bb.movementCommand = "walk-to";
-	bb.movementTarget = null; // merchant stall position resolved by sensor phase
-	return fromNodeState("succeeded");
+	return seekStation(ext.deps.blackboard, ext.deps.blackboard.nearestMerchantStall, "seeking", "seek-merchant");
 }
 
 export function BrowseMerchant(ext: BTAgentExtensionDeps): State {

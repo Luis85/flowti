@@ -23,7 +23,9 @@ function makeDeps(overrides: Partial<AgentToolDeps> = {}): AgentToolDeps {
 describe("BT integration — full tick cycle", () => {
 	it("agent with goals goes through work cycle (needs-driven priority)", () => {
 		const bb = createDefaultBlackboard();
-		const deps = makeDeps({ blackboard: bb });
+		bb.nearestWorkstation = { x: 100, y: 100 };
+		const applyNeedsEffect = vi.fn();
+		const deps = makeDeps({ blackboard: bb, applyNeedsEffect });
 		const agent: BTAgentDef = {
 			name: "Atlas",
 			agentType: "ai",
@@ -34,17 +36,25 @@ describe("BT integration — full tick cycle", () => {
 		};
 
 		const { tree, agent: btAgent } = createAgentBT(agent, deps);
-		const initialFocus = btAgent.context.needs.focus;
 
-		// Single tick — WorkCycle: PickGoal → GoToWorkstation → DoWork → LeaveWorkstation
+		// Tick 1 — WorkCycle: PickGoal → GoToWorkstation returns "running" (walking)
+		btTick(tree, btAgent, bb);
+		expect(bb.intent).toBe("working");
+		expect(bb.movementCommand).toBe("walk-to");
+
+		// Simulate arrival at workstation
+		bb.arrived = true;
+
+		// Tick 2 — GoToWorkstation → succeeded → DoWork → LeaveWorkstation
 		btTick(tree, btAgent, bb);
 
-		// DoWork reduces focus by 5, proving the work cycle executed
-		expect(btAgent.context.needs.focus).toBe(initialFocus - 5);
+		// DoWork calls applyNeedsEffect, proving the work cycle completed
+		expect(applyNeedsEffect).toHaveBeenCalledWith({ focus: -5, morale: 1 });
 	});
 
 	it("agent with low energy seeks rest instead of working", () => {
 		const bb = createDefaultBlackboard();
+		bb.nearestRestStation = { x: 50, y: 50 };
 		const deps = makeDeps({ blackboard: bb });
 		const agent: BTAgentDef = {
 			name: "Scout",
@@ -56,12 +66,13 @@ describe("BT integration — full tick cycle", () => {
 		// Set energy below threshold — NeedsEnergy branch fires
 		btAgent.context.needs.energy = 10;
 
-		// Single tick — NeedsEnergy branch should fire before WorkCycle
+		// Single tick — NeedsEnergy branch fires: SeekRestSpot returns "running"
 		btTick(tree, btAgent, bb);
 
 		// Low energy should trigger seeking/rest intent on blackboard
 		expect(bb.intent).toBe("seeking");
 		expect(bb.intentDetail).toBe("seek-rest");
+		expect(bb.movementCommand).toBe("walk-to");
 	});
 
 	it("agent with no goals falls to idle behavior", () => {
@@ -78,6 +89,44 @@ describe("BT integration — full tick cycle", () => {
 
 		// With no goals, ActiveGoal branch fails -> should fall to idle
 		expect(bb.intent).toBe("idle");
+	});
+
+	it("cascade hint triggers CascadeReaction before idle", () => {
+		const bb = createDefaultBlackboard();
+		bb.cascadeHint = "seek-proximity";
+		bb.cascadeTarget = { x: 200, y: 150 };
+		const deps = makeDeps({ blackboard: bb });
+		const agent: BTAgentDef = {
+			name: "Scout",
+			agentType: "ai",
+			goals: [],
+		};
+
+		const { tree, agent: btAgent } = createAgentBT(agent, deps);
+		btTick(tree, btAgent, bb);
+
+		expect(bb.intent).toBe("seeking");
+		expect(bb.intentDetail).toBe("cascade-seek");
+		expect(bb.movementCommand).toBe("walk-to");
+		// Cascade hint should be cleared after acting
+		expect(bb.cascadeHint).toBeNull();
+	});
+
+	it("whim is suppressed when needs are critical", () => {
+		const bb = createDefaultBlackboard();
+		const deps = makeDeps({ blackboard: bb });
+		const agent: BTAgentDef = {
+			name: "Tired",
+			agentType: "ai",
+			goals: [],
+		};
+
+		const { tree, agent: btAgent } = createAgentBT(agent, deps);
+		btAgent.context.needs.energy = 20; // Below 40 threshold
+		btTick(tree, btAgent, bb);
+
+		// Should NOT be a whim — should be idle or needs-driven
+		expect(bb.intentDetail).not.toContain("whim");
 	});
 
 	it("permission denied on WriteFile causes graceful fallback", () => {

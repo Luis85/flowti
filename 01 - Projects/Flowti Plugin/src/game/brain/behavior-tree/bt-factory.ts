@@ -33,6 +33,8 @@ import { WORK_CYCLE_SUBTREE } from "./subtrees/work-cycle.js";
 import { JOURNEY_EXECUTION_SUBTREE } from "./subtrees/journey-execution.js";
 import { MERCHANT_VISIT_SUBTREE } from "./subtrees/merchant-visit.js";
 import { INTERACTION_SUBTREE } from "./subtrees/interaction.js";
+import { CASCADE_REACTION_SUBTREE } from "./subtrees/cascade-reaction.js";
+import { WHIM_SUBTREE } from "./subtrees/whim.js";
 
 export interface AgentBT {
 	readonly tree: BehaviourTree;
@@ -54,6 +56,7 @@ function buildMasterMDSL(): string {
 	return `root {
 	selector {
 		branch [UrgentReaction]
+		branch [CascadeReaction]
 		branch [TalkingTimeout]
 		branch [BreakRoutine]
 		branch [NeedsEnergy]
@@ -65,6 +68,7 @@ function buildMasterMDSL(): string {
 		branch [JourneyExecution]
 		branch [WorkCycle]
 		branch [MerchantVisit]
+		branch [Whim]
 		sequence {
 			condition [HasEnoughEnergy]
 			condition [HasEnoughFocus]
@@ -81,8 +85,8 @@ function buildMasterMDSL(): string {
 		}
 		branch [InteractionIntent]
 		branch [SocialBehavior]
-		branch [IdleBehavior]
 		branch [IdleWander]
+		branch [IdleBehavior]
 	}
 }`;
 }
@@ -91,6 +95,7 @@ function buildMasterMDSL(): string {
 function collectSubtrees(): string {
 	return [
 		URGENT_SUBTREE,
+		CASCADE_REACTION_SUBTREE,
 		TALKING_TIMEOUT_SUBTREE,
 		BREAK_ROUTINE_SUBTREE,
 		NEEDS_ENERGY_SUBTREE,
@@ -102,6 +107,7 @@ function collectSubtrees(): string {
 		JOURNEY_EXECUTION_SUBTREE,
 		WORK_CYCLE_SUBTREE,
 		MERCHANT_VISIT_SUBTREE,
+		WHIM_SUBTREE,
 		REVIEW_SUBTREE,
 		SUMMARIZE_SUBTREE,
 		PLAN_SUBTREE,

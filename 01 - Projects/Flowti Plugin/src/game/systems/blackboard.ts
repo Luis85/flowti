@@ -58,6 +58,8 @@ export interface AgentBlackboard {
 	nearestDrinkStation: { x: number; y: number } | null;
 	nearestRestStation: { x: number; y: number } | null;
 	nearestWorkstation: { x: number; y: number } | null;
+	nearestMerchantStall: { x: number; y: number } | null;
+	whimTarget: { x: number; y: number } | null;
 
 	// ── Written by echo/social, read by BT ───────────
 	wanderHint: { x: number; y: number } | null;
@@ -98,6 +100,8 @@ export function createDefaultBlackboard(): AgentBlackboard {
 		nearestDrinkStation: null,
 		nearestRestStation: null,
 		nearestWorkstation: null,
+		nearestMerchantStall: null,
+		whimTarget: null,
 		wanderHint: null,
 		cascadeHint: null,
 		cascadeTarget: null,
