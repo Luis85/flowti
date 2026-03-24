@@ -53,6 +53,7 @@ export interface CliDeps {
 	readonly processRunner: IAgentProcessRunner;
 	readonly providerRegistry?: IProviderRegistry;
 	readonly agentShell?: IAgentShell;
+	readonly dispatcher?: import("../domain/tasks/task-dispatcher.js").TaskDispatcher;
 }
 
 // ── Domain-specific subsets (ISP) ───────────────────────────────────
