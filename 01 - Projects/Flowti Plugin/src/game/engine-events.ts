@@ -128,7 +128,8 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		const teaGroup = idle.slice(0, 3);
 		for (const name of teaGroup) {
 			const bb = sys.blackboards.get(name);
-			walkTo(bb, ctx.envObjects.coffeeMachine.getInteractionPoint());
+			const coffeeMachine = ctx.objectMap.get("coffee-machine");
+			if (coffeeMachine) walkTo(bb, coffeeMachine.getInteractionPoint());
 			sys.bubble.showBubble(name, "thought", pickTemplate(TEA_TIME_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
 		}
 	});
@@ -167,7 +168,8 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		const birthdayAgent = agents[Math.floor(Math.random() * agents.length)];
 		if (birthdayAgent) {
 			sys.bubble.showBubble(birthdayAgent, "speech", pickTemplate(BIRTHDAY_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 4000);
-			sys.particlePool.spawnPreset("confetti", ctx.envObjects.snackTable.pos.x, ctx.envObjects.snackTable.pos.y - 20);
+			const snackTable = ctx.objectMap.get("snack-table");
+			if (snackTable) sys.particlePool.spawnPreset("confetti", snackTable.pos.x, snackTable.pos.y - 20);
 			for (const name of agents) sys.needs.applyEffect(name, { morale: 3 });
 		}
 	});
@@ -186,11 +188,12 @@ function wireWorldEvents(ctx: EngineContext): () => void {
 		const agents = sys.needs.getAgentNames();
 		const author = agents[Math.floor(Math.random() * agents.length)];
 		const bb = author ? sys.blackboards.tryGet(author) : undefined;
-		if (author && bb) {
-			walkTo(bb, ctx.envObjects.whiteboard.getInteractionPoint());
+		const whiteboard = ctx.objectMap.get("whiteboard");
+		if (author && bb && whiteboard) {
+			walkTo(bb, whiteboard.getInteractionPoint());
 			setTimeout(() => {
 				sys.bubble.showBubble(author, "thought", pickTemplate(NEW_PR_TEMPLATES), ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 3000);
-				sys.particlePool.spawnPreset("scribble", ctx.envObjects.whiteboard.pos.x, ctx.envObjects.whiteboard.pos.y);
+				sys.particlePool.spawnPreset("scribble", whiteboard.pos.x, whiteboard.pos.y);
 			}, 3000);
 		}
 	});
@@ -628,14 +631,17 @@ function wireNarrativeEvents(ctx: EngineContext): () => void {
 	};
 }
 
-// ── Merchant stall click (opens merchant panel) ──────────────────────
+// ── Merchant interaction (opens merchant panel) ──────────────────────
 
-function wireMerchantStallClick(ctx: EngineContext): () => void {
-	const handler = () => {
-		ctx.store.setActivePanel("merchant");
+function wireMerchantInteraction(ctx: EngineContext): () => void {
+	const handler = (e: Event) => {
+		const detail = (e as CustomEvent).detail;
+		if (detail?.objectId === "merchant-stall") {
+			ctx.store.setActivePanel("merchant");
+		}
 	};
-	ctx.engine.canvas.addEventListener("merchant-stall-click", handler);
-	return () => ctx.engine.canvas.removeEventListener("merchant-stall-click", handler);
+	ctx.engine.canvas.addEventListener("object-interact", handler);
+	return () => ctx.engine.canvas.removeEventListener("object-interact", handler);
 }
 
 // ── Council auto-wake (LLM start on modal open) ──────────────────────
@@ -671,7 +677,7 @@ export function wireEvents(ctx: EngineContext): () => void {
 		wireProviderEvents(ctx),
 		wireStoreEvents(ctx),
 		wireNarrativeEvents(ctx),
-		wireMerchantStallClick(ctx),
+		wireMerchantInteraction(ctx),
 		wireCliBrainBridge(ctx),
 		wireCouncilAutoWake(ctx),
 	];

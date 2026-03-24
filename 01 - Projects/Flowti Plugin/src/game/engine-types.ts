@@ -9,7 +9,7 @@
  * Organised into semantic sub-interfaces:
  *   systems  — all game systems (blackboard, locomotion, bubble, talk, ...)
  *   scenes   — the four room scenes + lookup map
- *   envObjects — environmental interactable objects
+ *   objectMap  — declarative environmental objects (from scene-objects.json)
  *   btBridge — behavior-tree bridge types
  *   state    — mutable per-frame / per-cycle tracking maps & scalars
  *   lookups  — actor/scene lookup functions and callbacks
