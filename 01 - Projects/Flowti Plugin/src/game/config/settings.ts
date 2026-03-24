@@ -1,4 +1,4 @@
-import type { Setting } from "../data/types.js";
+import type { RoomId } from "../data/scene-configs.js";
 
 export interface SceneTheme {
 	readonly background: string;
@@ -7,7 +7,7 @@ export interface SceneTheme {
 	readonly label: string;
 }
 
-export const SCENE_THEMES: Record<Setting, SceneTheme> = {
+export const SCENE_THEMES: Record<RoomId, SceneTheme> = {
 	hub: { background: "#1a1208", workstationColor: "#1e293b", floorColor: "#1a1208", label: "Tavern" },
 	office: { background: "#1a1508", workstationColor: "#4e3e20", floorColor: "#1a1508", label: "Dojo" },
 	village: { background: "#1a1a1a", workstationColor: "#5c4033", floorColor: "#1a1a1a", label: "Market Square" },

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { DashboardAgent, ActivityEntry, PermissionEntry, Setting, TrackedTask } from "../data/types.js";
+import type { DashboardAgent, ActivityEntry, PermissionEntry, TrackedTask } from "../data/types.js";
+import type { RoomId } from "../data/scene-configs.js";
 import type { AgentIntent } from "../systems/blackboard.js";
 import type { AgentNeeds } from "../systems/needs-system.js";
 import type { WorldContext } from "../../domain/agents/world-context.js";
@@ -155,7 +156,7 @@ export class DashboardStore extends EventTarget {
 		return { level: agent.level ?? 1, coin: agent.coin ?? 0, tokens: agent.tokens ?? 0, xp: agent.xp ?? 0, trustTier: agent.trustTier ?? "supervised", capabilities: [...(agent.capabilities ?? [])] };
 	}
 
-	currentScene: Setting = "hub";
+	currentScene: RoomId = "hub";
 
 	/**
 	 * When false, Talk / AI task assignment cannot spawn `agent:start` (no executor, missing Node, or missing CLI bundle).
@@ -636,7 +637,7 @@ export class DashboardStore extends EventTarget {
 
 	// ── Scene management ──────────────────────────────────────────
 
-	changeScene(setting: Setting): void {
+	changeScene(setting: RoomId): void {
 		this.currentScene = setting;
 		this.dispatchEvent(new CustomEvent("scene-change", { detail: { setting } }));
 		this.notify();
