@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
 	ENGINE_WIDTH, ENGINE_HEIGHT, DOMAIN_PARTICLE_COLORS, DEFAULT_PARTICLE_COLOR,
-	LIGHT_LERP_SPEED, OBJECT_POSITIONS, BRAIN_BOUNDS, PARTICLE_POOL_SIZE,
+	LIGHT_LERP_SPEED, BRAIN_BOUNDS, PARTICLE_POOL_SIZE,
 	SOCIAL_EMOJIS, REACTION_EMOJIS, MOOD_TEXTS, FOLLOW_UP_STRINGS,
 	ROOM_OFFSETS, UNKNOWN_ROOM_OFFSET, DEFAULT_PET_ROOMS,
 	OBJECT_ATTRACTION_RULES, POSITION_FLUSH_INTERVAL,
@@ -11,7 +11,6 @@ import {
 	WEATHER_PARTICLE_CHANCE, WEATHER_PARTICLE_LIFETIME, WEATHER_PARTICLE_OPACITY,
 	DOG_FOLLOW_CHANCE, CAT_FOLLOW_STRESSED_CHANCE, CAT_STRESS_MORALE_THRESHOLD,
 	OBJECT_EFFECT_DELAY, REACTIVE_THRESHOLDS, PET_SPAWN_CONFIGS,
-	OBJECT_SCENE_ASSIGNMENTS,
 } from "../../src/game/engine-config.js";
 
 describe("engine-config", () => {
@@ -48,41 +47,8 @@ describe("engine-config", () => {
 		});
 	});
 
-	describe("object positions", () => {
-		it("has 15 environmental objects", () => {
-			expect(Object.keys(OBJECT_POSITIONS)).toHaveLength(15);
-		});
-
-		it("all positions have x and y as numbers", () => {
-			for (const pos of Object.values(OBJECT_POSITIONS)) {
-				expect(typeof pos.x).toBe("number");
-				expect(typeof pos.y).toBe("number");
-			}
-		});
-
-		it("all positions are within engine bounds", () => {
-			for (const pos of Object.values(OBJECT_POSITIONS)) {
-				expect(pos.x).toBeGreaterThanOrEqual(0);
-				expect(pos.x).toBeLessThanOrEqual(ENGINE_WIDTH);
-				expect(pos.y).toBeGreaterThanOrEqual(0);
-				expect(pos.y).toBeLessThanOrEqual(ENGINE_HEIGHT);
-			}
-		});
-	});
-
-	describe("object scene assignments", () => {
-		it("maps every object to a valid scene", () => {
-			const validScenes = new Set(["hub", "office", "village", "station"]);
-			for (const scene of Object.values(OBJECT_SCENE_ASSIGNMENTS)) {
-				expect(validScenes.has(scene)).toBe(true);
-			}
-		});
-
-		it("has same keys as OBJECT_POSITIONS", () => {
-			expect(Object.keys(OBJECT_SCENE_ASSIGNMENTS).sort())
-				.toEqual(Object.keys(OBJECT_POSITIONS).sort());
-		});
-	});
+	// Object positions and scene assignments moved to configs/scene-objects.json
+	// See tests/game/data/scene-objects-json.test.ts for validation tests
 
 	describe("brain bounds", () => {
 		it("forms valid bounds within engine dimensions", () => {

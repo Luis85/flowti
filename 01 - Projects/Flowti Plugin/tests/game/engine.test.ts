@@ -115,32 +115,9 @@ vi.mock("../../src/game/engine-simulation.js", () => ({
 vi.mock("../../src/game/engine-config.js", () => ({
 	ENGINE_WIDTH: 800,
 	ENGINE_HEIGHT: 500,
-	OBJECT_POSITIONS: {
-		coffeeMachine: { x: 200, y: 300 },
-		whiteboard: { x: 400, y: 200 },
-		snackTable: { x: 300, y: 350 },
-		waterCooler: { x: 500, y: 250 },
-		couch: { x: 600, y: 300 },
-		plant: { x: 100, y: 200 },
-		noticeBoard: { x: 700, y: 150 },
-		merchantStall: { x: 300, y: 60 },
-		foodBowlHub: { x: 200, y: 380 },
-		foodBowlVillage: { x: 250, y: 350 },
-		waterBowlOffice: { x: 580, y: 120 },
-		waterBowlStation: { x: 550, y: 350 },
-		foodBowlOffice: { x: 200, y: 380 },
-		foodBowlStation: { x: 200, y: 350 },
-		waterBowlHub: { x: 600, y: 380 },
-	},
 	BRAIN_BOUNDS: { x: 0, y: 0, width: 800, height: 500 },
 	PARTICLE_POOL_SIZE: 100,
 	DEFAULT_PET_ROOMS: {},
-	OBJECT_SCENE_ASSIGNMENTS: {
-		coffeeMachine: "office", whiteboard: "office", snackTable: "village", waterCooler: "village",
-		couch: "station", plant: "hub", noticeBoard: "hub", merchantStall: "hub",
-		foodBowlHub: "hub", foodBowlVillage: "village", waterBowlOffice: "office", waterBowlStation: "station",
-		foodBowlOffice: "office", foodBowlStation: "station", waterBowlHub: "hub",
-	},
 	AGENT_WAKE_DELAY: 100,
 	SCENE_TRANSITION_DURATION: 300,
 	LOADING_FADE_DURATION: 300,
@@ -152,6 +129,8 @@ vi.mock("../../src/game/systems/scene-registry.js", () => {
 		const self = this;
 		self.registerScene = vi.fn();
 		self.registerObject = vi.fn();
+		self.registerInteractable = vi.fn();
+		self.getInteractablesOfType = vi.fn(() => []);
 		self.getScene = vi.fn();
 		self.setEntityRoom = vi.fn();
 		self.getEntityRoom = vi.fn();

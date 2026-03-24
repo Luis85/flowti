@@ -1,0 +1,165 @@
+{
+	"$schema": "./scene-object-schema.json",
+	"objects": [
+		{
+			"id": "coffee-machine",
+			"type": "drink",
+			"room": "office",
+			"position": { "x": 680, "y": 120 },
+			"size": { "width": 32, "height": 40 },
+			"interactionOffset": { "x": 0, "y": 24 },
+			"needsEffects": { "energy": 15, "focus": 5, "thirst": 20 },
+			"graphic": "coffee-machine"
+		},
+		{
+			"id": "whiteboard",
+			"type": "focus",
+			"room": "office",
+			"position": { "x": 400, "y": 60 },
+			"size": { "width": 64, "height": 48 },
+			"interactionOffset": { "x": 0, "y": 30 },
+			"needsEffects": { "social": 5, "focus": 3, "morale": 2 },
+			"graphic": "whiteboard"
+		},
+		{
+			"id": "snack-table",
+			"type": "food",
+			"room": "village",
+			"position": { "x": 400, "y": 380 },
+			"size": { "width": 48, "height": 40 },
+			"interactionOffset": { "x": 0, "y": 24 },
+			"needsEffects": { "energy": 10, "social": 8, "morale": 3, "hunger": 25 },
+			"graphic": "snack-table"
+		},
+		{
+			"id": "water-cooler",
+			"type": "drink",
+			"room": "village",
+			"position": { "x": 600, "y": 380 },
+			"size": { "width": 24, "height": 40 },
+			"interactionOffset": { "x": 0, "y": 24 },
+			"needsEffects": { "social": 10, "thirst": 15 },
+			"graphic": "water-cooler"
+		},
+		{
+			"id": "couch",
+			"type": "rest",
+			"room": "station",
+			"position": { "x": 400, "y": 380 },
+			"size": { "width": 64, "height": 36 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "energy": 20, "morale": 5 },
+			"graphic": "couch"
+		},
+		{
+			"id": "plant",
+			"type": "focus",
+			"room": "hub",
+			"position": { "x": 100, "y": 60 },
+			"size": { "width": 20, "height": 28 },
+			"interactionOffset": { "x": 0, "y": 16 },
+			"needsEffects": {},
+			"graphic": "plant"
+		},
+		{
+			"id": "notice-board",
+			"type": "morale",
+			"room": "hub",
+			"position": { "x": 680, "y": 60 },
+			"size": { "width": 48, "height": 40 },
+			"interactionOffset": { "x": 0, "y": 24 },
+			"needsEffects": {},
+			"graphic": "notice-board"
+		},
+		{
+			"id": "merchant-stall",
+			"type": "shop",
+			"room": "hub",
+			"position": { "x": 300, "y": 60 },
+			"size": { "width": 48, "height": 48 },
+			"interactionOffset": { "x": 0, "y": 24 },
+			"needsEffects": {},
+			"graphic": "merchant-stall"
+		},
+		{
+			"id": "food-bowl-hub",
+			"type": "food",
+			"room": "hub",
+			"position": { "x": 200, "y": 380 },
+			"size": { "width": 32, "height": 32 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "hunger": 30 },
+			"graphic": "food-bowl"
+		},
+		{
+			"id": "food-bowl-village",
+			"type": "food",
+			"room": "village",
+			"position": { "x": 250, "y": 350 },
+			"size": { "width": 32, "height": 32 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "hunger": 30 },
+			"graphic": "food-bowl"
+		},
+		{
+			"id": "food-bowl-office",
+			"type": "food",
+			"room": "office",
+			"position": { "x": 200, "y": 380 },
+			"size": { "width": 32, "height": 32 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "hunger": 30 },
+			"graphic": "food-bowl"
+		},
+		{
+			"id": "food-bowl-station",
+			"type": "food",
+			"room": "station",
+			"position": { "x": 200, "y": 350 },
+			"size": { "width": 32, "height": 32 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "hunger": 30 },
+			"graphic": "food-bowl"
+		},
+		{
+			"id": "water-bowl-office",
+			"type": "drink",
+			"room": "office",
+			"position": { "x": 580, "y": 120 },
+			"size": { "width": 32, "height": 32 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "thirst": 25 },
+			"graphic": "water-bowl"
+		},
+		{
+			"id": "water-bowl-station",
+			"type": "drink",
+			"room": "station",
+			"position": { "x": 550, "y": 350 },
+			"size": { "width": 32, "height": 32 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "thirst": 25 },
+			"graphic": "water-bowl"
+		},
+		{
+			"id": "water-bowl-hub",
+			"type": "drink",
+			"room": "hub",
+			"position": { "x": 600, "y": 380 },
+			"size": { "width": 32, "height": 32 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "thirst": 25 },
+			"graphic": "water-bowl"
+		},
+		{
+			"id": "water-bowl-village",
+			"type": "drink",
+			"room": "village",
+			"position": { "x": 350, "y": 350 },
+			"size": { "width": 32, "height": 32 },
+			"interactionOffset": { "x": 0, "y": 20 },
+			"needsEffects": { "thirst": 25 },
+			"graphic": "water-bowl"
+		}
+	]
+}

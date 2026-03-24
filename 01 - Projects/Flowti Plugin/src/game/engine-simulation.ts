@@ -177,10 +177,8 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 		getNearbyAgents: (name) => getNearbyAgents(ctx, name),
 		getNearbyEntities: (name) => [], // TODO: wire interaction entity query
 		getNearestStation: (name, need) => {
-			const foodStations = [ctx.envObjects.snackTable, ctx.envObjects.foodBowlHub, ctx.envObjects.foodBowlVillage, ctx.envObjects.foodBowlOffice, ctx.envObjects.foodBowlStation];
-			const drinkStations = [ctx.envObjects.coffeeMachine, ctx.envObjects.waterCooler, ctx.envObjects.waterBowlOffice, ctx.envObjects.waterBowlStation, ctx.envObjects.waterBowlHub];
-			const restStations = [ctx.envObjects.couch];
-			const candidates = need === "food" ? foodStations : need === "drink" ? drinkStations : restStations;
+			const type = need === "food" ? "food" : need === "drink" ? "drink" : "rest";
+			const candidates = sys.registry.getInteractablesOfType(type);
 			return findNearestUnoccupiedStation(ctx, name, candidates);
 		},
 		getNearestWorkstation: (name) => {
@@ -202,7 +200,10 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 			}
 			return null;
 		},
-		getNearestMerchantStall: (name) => findNearestUnoccupiedStation(ctx, name, [ctx.envObjects.merchantStall]),
+		getNearestMerchantStall: (name) => {
+			const stalls = sys.registry.getInteractablesOfType("shop");
+			return findNearestUnoccupiedStation(ctx, name, stalls);
+		},
 		getWhimTarget: (name) => {
 			const bond = sys.echo.getStrongest(name, "bond");
 			if (!bond?.target || bond.weight <= 15) return null;

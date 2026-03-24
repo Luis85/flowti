@@ -84,4 +84,55 @@ describe("SceneRegistry", () => {
 			expect(registry.getObjectsInRoom("office")).toHaveLength(2);
 		});
 	});
+
+	describe("actor references", () => {
+		it("registerInteractable stores actor reference", () => {
+			const reg = new SceneRegistry();
+			reg.registerObject("desk-01", "office", "desk", { x: 100, y: 200 });
+			const mockActor = { objectId: "desk-01", objectType: "desk" } as any;
+			reg.registerInteractable("desk-01", mockActor);
+			const result = reg.getInteractablesOfType("desk");
+			expect(result).toHaveLength(1);
+			expect(result[0]).toBe(mockActor);
+		});
+
+		it("getInteractablesOfType filters by type", () => {
+			const reg = new SceneRegistry();
+			reg.registerObject("food-01", "hub", "food", { x: 100, y: 200 });
+			reg.registerObject("drink-01", "hub", "drink", { x: 200, y: 200 });
+			const foodActor = { objectId: "food-01", objectType: "food" } as any;
+			const drinkActor = { objectId: "drink-01", objectType: "drink" } as any;
+			reg.registerInteractable("food-01", foodActor);
+			reg.registerInteractable("drink-01", drinkActor);
+			expect(reg.getInteractablesOfType("food")).toEqual([foodActor]);
+			expect(reg.getInteractablesOfType("drink")).toEqual([drinkActor]);
+		});
+
+		it("getInteractablesOfType filters by room", () => {
+			const reg = new SceneRegistry();
+			reg.registerObject("food-hub", "hub", "food", { x: 100, y: 200 });
+			reg.registerObject("food-office", "office", "food", { x: 200, y: 200 });
+			const hubFood = { objectId: "food-hub" } as any;
+			const officeFood = { objectId: "food-office" } as any;
+			reg.registerInteractable("food-hub", hubFood);
+			reg.registerInteractable("food-office", officeFood);
+			expect(reg.getInteractablesOfType("food", "hub")).toEqual([hubFood]);
+			expect(reg.getInteractablesOfType("food", "office")).toEqual([officeFood]);
+		});
+
+		it("returns empty array when no matches", () => {
+			const reg = new SceneRegistry();
+			expect(reg.getInteractablesOfType("nonexistent")).toEqual([]);
+		});
+
+		it("works alongside existing registerObject metadata", () => {
+			const reg = new SceneRegistry();
+			reg.registerObject("food-01", "hub", "food", { x: 100, y: 200 });
+			const actor = { objectId: "food-01" } as any;
+			reg.registerInteractable("food-01", actor);
+			expect(reg.findObject("food")).toBeDefined();
+			expect(reg.getObjectRoom("food-01")).toBe("hub");
+			expect(reg.getInteractablesOfType("food")).toEqual([actor]);
+		});
+	});
 });

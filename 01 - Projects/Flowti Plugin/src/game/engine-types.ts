@@ -9,7 +9,7 @@
  * Organised into semantic sub-interfaces:
  *   systems  — all game systems (blackboard, locomotion, bubble, talk, ...)
  *   scenes   — the four room scenes + lookup map
- *   envObjects — environmental interactable objects
+ *   objectMap  — declarative environmental objects (from scene-objects.json)
  *   btBridge — behavior-tree bridge types
  *   state    — mutable per-frame / per-cycle tracking maps & scalars
  *   lookups  — actor/scene lookup functions and callbacks
@@ -113,20 +113,7 @@ export interface EngineScenes {
 	readonly map: Record<string, GameScene>;
 }
 
-export interface EngineEnvObjects {
-	readonly coffeeMachine: InteractableActor;
-	readonly whiteboard: InteractableActor;
-	readonly snackTable: InteractableActor;
-	readonly waterCooler: InteractableActor;
-	readonly couch: InteractableActor;
-	readonly plant: InteractableActor;
-	readonly noticeBoard: InteractableActor;
-	readonly merchantStall: InteractableActor;
-	readonly foodBowlHub: InteractableActor;
-	readonly foodBowlVillage: InteractableActor;
-	readonly waterBowlOffice: InteractableActor;
-	readonly waterBowlStation: InteractableActor;
-}
+// EngineEnvObjects removed — replaced by objectMap (declarative scene objects)
 
 // BtBridge removed — BT writes to blackboard directly. Only the clock
 // is needed for timestamp generation in error recovery.
@@ -182,7 +169,7 @@ export interface EngineContext {
 	// ── Semantic groups ─────────────────────────────────
 	readonly systems: EngineSystems;
 	readonly scenes: EngineScenes;
-	readonly envObjects: EngineEnvObjects;
+	readonly objectMap: ReadonlyMap<string, InteractableActor>;
 	readonly pets: PetActor[];
 	readonly interactionBootstrap?: InteractionBootstrap;
 	readonly btClock: BtClock;
