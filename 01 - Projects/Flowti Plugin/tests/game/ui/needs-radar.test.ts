@@ -81,7 +81,7 @@ describe("renderNeedsRadar", () => {
 	});
 
 	it("handles undefined needs gracefully", () => {
-		const result = renderNeedsRadar(undefined as any, 30);
+		const result = renderNeedsRadar(undefined, 30);
 		expect(result).toBeDefined();
 	});
 });

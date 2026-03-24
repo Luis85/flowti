@@ -8,7 +8,7 @@
 
 import { html, type TemplateResult } from "lit";
 import { NEED_META, NEED_WARN_THRESHOLD, NEED_CRITICAL_THRESHOLD } from "./game-ui-constants.js";
-import type { AgentNeeds } from "../systems/blackboard.js";
+import type { AgentNeeds } from "../systems/needs-system.js";
 
 const FILL_OPACITY: Record<string, number> = { green: 0.35, amber: 0.35, red: 0.4 };
 const STROKE_OPACITY: Record<string, number> = { green: 0.8, amber: 0.8, red: 0.9 };

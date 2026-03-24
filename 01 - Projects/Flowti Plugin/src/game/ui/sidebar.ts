@@ -76,6 +76,7 @@ export class GameSidebar extends FlowtiElement {
 			:host([expanded]) .council-slots {
 				padding: 0 8px;
 				align-items: stretch;
+				gap: 6px;
 			}
 
 			/* ── Collapsed portrait slot ────────────────────── */
@@ -283,6 +284,24 @@ export class GameSidebar extends FlowtiElement {
 
 	private storeCtrl = new StoreController(this, () => this.store);
 
+	connectedCallback(): void {
+		super.connectedCallback();
+		this.addEventListener("dblclick", this.handleDblClick);
+	}
+
+	disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.removeEventListener("dblclick", this.handleDblClick);
+	}
+
+	private handleDblClick = (e: MouseEvent): void => {
+		// Only toggle on background double-click (not on buttons/cards)
+		const target = e.target as HTMLElement;
+		if (target === this || target.classList.contains("spacer") || target.classList.contains("council-slots")) {
+			this.toggleExpand();
+		}
+	};
+
 	/* ── Collapse/expand state (private, not in DashboardStore) ─── */
 
 	private expanded = false;
@@ -331,6 +350,12 @@ export class GameSidebar extends FlowtiElement {
 		this.expanded = !this.expanded;
 		if (this.expanded) this.setAttribute("expanded", ""); else this.removeAttribute("expanded");
 		this.requestUpdate();
+	}
+
+	/* ── Lifecycle — auto-collapse before render ───────────────── */
+
+	protected willUpdate(_changed: Map<string, unknown>): void {
+		this.checkAutoCollapse();
 	}
 
 	/* ── Council slot handlers ─────────────────────────────────── */
@@ -544,7 +569,6 @@ export class GameSidebar extends FlowtiElement {
 	/* ── Main render ───────────────────────────────────────────── */
 
 	protected renderContent() {
-		this.checkAutoCollapse();
 		const slots = this.councilAgents;
 		const active = this.store?.activePanel ?? null;
 
