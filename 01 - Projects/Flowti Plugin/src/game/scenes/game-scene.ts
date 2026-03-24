@@ -75,7 +75,6 @@ export class GameScene extends ex.Scene implements SceneHandle {
 	// Overlay references (created only when config.overlays includes them)
 	private connectionLabel: ex.Label | null = null;
 	private iterationLabel: ex.Label | null = null;
-	private hubHintLabel: ex.Label | null = null;
 
 	constructor(config: GameSceneConfig, callbacks: GameSceneCallbacks) {
 		super();
@@ -189,24 +188,8 @@ export class GameScene extends ex.Scene implements SceneHandle {
 			}
 		}
 
-		// ── Hub hint label (always created for hub scenes) ─────
-		if (this.sceneConfig.workstationCount === 0) {
-			this.hubHintLabel = new ex.Label({
-				text: "",
-				pos: ex.vec(w / 2, 52),
-				font: new ex.Font({
-					family: "system-ui, sans-serif",
-					size: 10,
-					unit: ex.FontUnit.Px,
-					color: ex.Color.fromHex("#64748b"),
-					textAlign: ex.TextAlign.Center,
-				}),
-				anchor: ex.vec(0.5, 0.5),
-				z: 5,
-			});
-			this.hubHintLabel.body.collisionType = ex.CollisionType.PreventCollision;
-			this.add(this.hubHintLabel);
-		}
+		// Hub hint label removed — agents wander between rooms dynamically,
+		// so a static count is misleading.
 	}
 
 	onActivate(): void {
@@ -346,8 +329,6 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		const incoming = new Set<string>();
 
 		const hubAgents = agents.filter((a) => resolveSettingForDomain(a.domain) === "hub");
-		const offHubCount = agents.length - hubAgents.length;
-		this.updateHubHint(agents.length, hubAgents.length, offHubCount);
 
 		const w = this.engine?.drawWidth ?? 1200;
 		const h = this.engine?.drawHeight ?? 700;
@@ -379,19 +360,6 @@ export class GameScene extends ex.Scene implements SceneHandle {
 		}
 	}
 
-	/** Update hub hint label based on agent counts. */
-	private updateHubHint(totalCount: number, hubCount: number, offHubCount: number): void {
-		if (!this.hubHintLabel) return;
-		if (totalCount === 0) {
-			this.hubHintLabel.text = "No roster yet — run `flowti agent:dashboard-sync` or add .flowti/agents/data/agent-dashboard.json.";
-		} else if (offHubCount > 0 && hubCount === 0) {
-			this.hubHintLabel.text = `${offHubCount} agent(s) are in side rooms by domain — click the doors on the right (Office / Village / Station).`;
-		} else if (offHubCount > 0) {
-			this.hubHintLabel.text = `+${offHubCount} more in side rooms → use doors`;
-		} else {
-			this.hubHintLabel.text = "";
-		}
-	}
 
 	/** Create or update a single hub agent actor. */
 	private upsertHubAgent(agent: DashboardAgent, x: number, y: number): void {
