@@ -152,6 +152,8 @@ vi.mock("../../src/game/systems/scene-registry.js", () => {
 		const self = this;
 		self.registerScene = vi.fn();
 		self.registerObject = vi.fn();
+		self.registerInteractable = vi.fn();
+		self.getInteractablesOfType = vi.fn(() => []);
 		self.getScene = vi.fn();
 		self.setEntityRoom = vi.fn();
 		self.getEntityRoom = vi.fn();

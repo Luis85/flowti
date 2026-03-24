@@ -334,13 +334,6 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const firedReactiveTriggers = new Map<string, Set<string>>();
 	const prevCycleCount = 0;
 
-	// ── Environmental objects (declarative) ──────────────
-	const objectMap = createAllSceneObjects(sceneObjectsConfig.objects as import("./data/scene-object-schema.js").SceneObjectConfig[], {
-		registry,
-		scenes: { hub: hubScene, office: officeScene, village: villageScene, station: stationScene },
-		engine,
-	});
-
 	// ── Office pets ──────────────────────────────────────
 	const pets = createPets();
 	for (const [pet, def] of getPetBTPairs(pets)) {
@@ -396,6 +389,13 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const sceneEntries: [string, GameScene][] = [["hub", hubScene], ["office", officeScene], ["village", villageScene], ["station", stationScene]];
 	for (const [name, scene] of sceneEntries) { registry.registerScene(name, scene); engine.addScene(name, scene); }
 	for (const room of Object.values(roomScenes)) room.setBlackboards(blackboardManager);
+
+	// ── Environmental objects (declarative) ──────────────
+	const objectMap = createAllSceneObjects(sceneObjectsConfig.objects as import("./data/scene-object-schema.js").SceneObjectConfig[], {
+		registry,
+		scenes: { hub: hubScene, office: officeScene, village: villageScene, station: stationScene },
+		engine,
+	});
 
 	// ── Actor lookups ───────────────────────────────────
 
@@ -458,7 +458,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	for (const scene of [hubScene, officeScene, villageScene, stationScene]) {
 		scene.add(createParticleRenderer(particlePool, ENGINE_WIDTH, ENGINE_HEIGHT));
 	}
-	// Environmental objects are added to scenes by createAllSceneObjects above.
+	// Environmental objects are added to scenes by createAllSceneObjects (above, after scene creation).
 
 	// ── SceneEntity registry + unified room switcher ──
 	const allEntities = new Map<string, SceneEntity>();
