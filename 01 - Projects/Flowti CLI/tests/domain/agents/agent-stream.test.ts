@@ -67,11 +67,22 @@ describe("parseStreamEvents", () => {
 		});
 	});
 
-	it("ignores Cursor user and system lines", () => {
+	it("ignores Cursor user lines", () => {
 		const state = createStreamState();
 		expect(parseStreamEvents(JSON.stringify({ type: "user", message: {} }), state)).toEqual([]);
+	});
+
+	it("extracts session from Cursor system init line", () => {
+		const state = createStreamState();
 		expect(
 			parseStreamEvents(JSON.stringify({ type: "system", subtype: "init", session_id: "x" }), state),
+		).toEqual([{ kind: "session", sessionId: "x" }]);
+	});
+
+	it("ignores system lines without session_id", () => {
+		const state = createStreamState();
+		expect(
+			parseStreamEvents(JSON.stringify({ type: "system", subtype: "other" }), state),
 		).toEqual([]);
 	});
 

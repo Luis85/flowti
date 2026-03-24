@@ -1,0 +1,43 @@
+import type { TrustTier } from "../trust/trust-types.js";
+import type { TaskTrustTier, TaskPriority } from "./task-types.js";
+
+export type TaskSource = "standing-order" | "bt-action" | "director" | "self-proposed" | "delegated";
+
+export interface TaskEntry {
+	readonly taskId: string;
+	readonly title: string;
+	readonly priority: TaskPriority;
+	readonly requiredCapabilities: readonly string[];
+	readonly requiredAgentTier: TrustTier;
+	readonly taskTrustTier: TaskTrustTier;
+	readonly reward: { readonly xp: number; readonly coin: number };
+	readonly submittedAt: number;
+	readonly source: TaskSource;
+	readonly targetAgent?: string;
+	readonly retryCount: number;
+	readonly tags: readonly string[];
+	readonly type: string;
+}
+
+export interface TaskHistoryEntry {
+	readonly tags: readonly string[];
+	readonly type: string;
+	readonly assignee: string;
+}
+
+export interface DispatcherMetrics {
+	readonly queueDepth: { readonly urgent: number; readonly high: number; readonly normal: number };
+	readonly activeAssignments: number;
+	readonly agentsOnCooldown: number;
+	readonly agentsIdle: number;
+	readonly tasksCompleted: number;
+	readonly tasksFailed: number;
+	readonly avgWaitTimeMs: number;
+	readonly avgExecutionTimeMs: number;
+	readonly agentStats: Record<string, {
+		readonly completed: number;
+		readonly failed: number;
+		readonly avgExecutionTimeMs: number;
+		readonly lastTaskAt: number;
+	}>;
+}

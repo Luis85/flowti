@@ -12,7 +12,12 @@ import { taskStore } from "../domain/tasks/task-store.js";
 import { canTransition } from "../domain/tasks/task-lifecycle.js";
 import { readLedger, writeLedger, creditReward, appendTransaction } from "../domain/economy/economy-ledger.js";
 import { renderTaskList, renderTaskCreated, renderTaskUpdated, renderTaskReview, renderTaskApproved, renderTaskRejected, renderStandingOrders } from "../ui/displays/task-display.js";
+import { renderDispatchStatus, renderDispatchMetrics, renderDispatchQueue, renderDispatchHistory } from "../ui/displays/dispatch-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
+
+function getDispatcher(deps: CliDeps) {
+	return deps.dispatcher ?? null;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -210,5 +215,43 @@ export const commands: Record<string, CommandHandler> = {
 			};
 		},
 		renderer: renderStandingOrders,
+	}),
+
+	"dispatch:status": adaptDescriptor({
+		handler: (ctx) => {
+			const dispatcher = getDispatcher(ctx.deps);
+			if (!dispatcher) return { error: "Dispatcher not initialized" };
+			return { ...dispatcher.metrics() };
+		},
+		renderer: renderDispatchStatus,
+	}),
+
+	"dispatch:metrics": adaptDescriptor({
+		handler: (ctx) => {
+			const dispatcher = getDispatcher(ctx.deps);
+			if (!dispatcher) return { error: "Dispatcher not initialized" };
+			return { ...dispatcher.metrics() };
+		},
+		renderer: renderDispatchMetrics,
+	}),
+
+	"dispatch:queue": adaptDescriptor({
+		handler: (ctx) => {
+			const dispatcher = getDispatcher(ctx.deps);
+			if (!dispatcher) return { error: "Dispatcher not initialized" };
+			return { lanes: dispatcher.listQueue() };
+		},
+		renderer: renderDispatchQueue,
+	}),
+
+	"dispatch:history": adaptDescriptor({
+		flags: { agent: { type: "string", default: "", hint: "--agent=<name>" } },
+		handler: (ctx) => {
+			const dispatcher = getDispatcher(ctx.deps);
+			if (!dispatcher) return { error: "Dispatcher not initialized" };
+			const agentName = (ctx.flags.agent as string) || undefined;
+			return { entries: dispatcher.listHistory(agentName) };
+		},
+		renderer: renderDispatchHistory,
 	}),
 };

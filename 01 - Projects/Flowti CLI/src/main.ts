@@ -161,6 +161,7 @@ async function handleCliArgs(deps: import("./infrastructure/deps.js").CliDeps): 
 			lineReader: createStdinLineReader(),
 			lineWriter: createStdoutLineWriter(),
 			exit: exitProcess,
+			dispatcher: deps.dispatcher,
 		});
 		session.start();
 		return true;
