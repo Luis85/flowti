@@ -49,6 +49,9 @@ export const OBJECT_POSITIONS = {
 	foodBowlVillage: { x: 250, y: 350 },
 	waterBowlOffice: { x: 580, y: 120 },
 	waterBowlStation: { x: 550, y: 350 },
+	foodBowlOffice: { x: 200, y: 380 },
+	foodBowlStation: { x: 200, y: 350 },
+	waterBowlHub: { x: 600, y: 380 },
 } as const;
 
 // ── Object-to-scene assignments ──────────────────────────────────────
@@ -68,6 +71,9 @@ export const OBJECT_SCENE_ASSIGNMENTS: Record<string, RoomId> = {
 	foodBowlVillage: "village",
 	waterBowlOffice: "office",
 	waterBowlStation: "station",
+	foodBowlOffice: "office",
+	foodBowlStation: "station",
+	waterBowlHub: "hub",
 };
 
 // ── Pet positions and room assignments ───────────────────────────────

@@ -177,8 +177,8 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 		getNearbyAgents: (name) => getNearbyAgents(ctx, name),
 		getNearbyEntities: (name) => [], // TODO: wire interaction entity query
 		getNearestStation: (name, need) => {
-			const foodStations = [ctx.envObjects.snackTable, ctx.envObjects.foodBowlHub, ctx.envObjects.foodBowlVillage];
-			const drinkStations = [ctx.envObjects.coffeeMachine, ctx.envObjects.waterCooler, ctx.envObjects.waterBowlOffice, ctx.envObjects.waterBowlStation];
+			const foodStations = [ctx.envObjects.snackTable, ctx.envObjects.foodBowlHub, ctx.envObjects.foodBowlVillage, ctx.envObjects.foodBowlOffice, ctx.envObjects.foodBowlStation];
+			const drinkStations = [ctx.envObjects.coffeeMachine, ctx.envObjects.waterCooler, ctx.envObjects.waterBowlOffice, ctx.envObjects.waterBowlStation, ctx.envObjects.waterBowlHub];
 			const restStations = [ctx.envObjects.couch];
 			const candidates = need === "food" ? foodStations : need === "drink" ? drinkStations : restStations;
 			return findNearestUnoccupiedStation(ctx, name, candidates);
@@ -253,17 +253,6 @@ function findNearestUnoccupiedStation(ctx: EngineContext, agentName: string, can
 		if (!station || station.isOccupied()) continue;
 		const stationRoom = ctx.systems.registry.getObjectRoom(station.objectId);
 		if (stationRoom && stationRoom !== agentRoom) continue;
-		const point = station.getInteractionPoint();
-		const dx = point.x - agentPos.x;
-		const dy = point.y - agentPos.y;
-		const dist = dx * dx + dy * dy;
-		if (dist < minDist) { minDist = dist; nearest = point; }
-	}
-	if (nearest) return nearest;
-
-	// Second pass: fall back to any unoccupied station in any room
-	for (const station of candidates) {
-		if (!station || station.isOccupied()) continue;
 		const point = station.getInteractionPoint();
 		const dx = point.x - agentPos.x;
 		const dy = point.y - agentPos.y;
@@ -661,6 +650,16 @@ export function tickInteractions(ctx: EngineContext): void {
 				type: "interaction",
 				summary: record.memory,
 			});
+		}
+
+		// ── Feed interaction results into echo system (feedback loop) ──
+		const cycle = sys.dayClock.getCycleCount();
+		for (const change of effectState.affinityChanges) {
+			if (change.amount > 0) {
+				ctx.echoProducer.onConversation(change.from, change.to, "friend", cycle);
+			} else if (change.amount < 0) {
+				ctx.echoProducer.onRivalConversation(change.from, change.to, cycle);
+			}
 		}
 
 		// ── Route actions to effect renderer ───────────────────────

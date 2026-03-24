@@ -36,6 +36,9 @@ export interface EnvironmentalObjects {
 	readonly foodBowlVillage: FoodBowl;
 	readonly waterBowlOffice: WaterBowl;
 	readonly waterBowlStation: WaterBowl;
+	readonly foodBowlOffice: FoodBowl;
+	readonly foodBowlStation: FoodBowl;
+	readonly waterBowlHub: WaterBowl;
 }
 
 /** Create all environmental objects, positioned from engine-config. */
@@ -65,7 +68,14 @@ export function createEnvironmentalObjects(): EnvironmentalObjects {
 	const waterBowlStation = new WaterBowl("water-bowl-station");
 	waterBowlStation.pos = ex.vec(OBJECT_POSITIONS.waterBowlStation.x, OBJECT_POSITIONS.waterBowlStation.y);
 
-	return { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, merchantStall, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation };
+	const foodBowlOffice = new FoodBowl("food-bowl-office");
+	foodBowlOffice.pos = ex.vec(OBJECT_POSITIONS.foodBowlOffice.x, OBJECT_POSITIONS.foodBowlOffice.y);
+	const foodBowlStation = new FoodBowl("food-bowl-station");
+	foodBowlStation.pos = ex.vec(OBJECT_POSITIONS.foodBowlStation.x, OBJECT_POSITIONS.foodBowlStation.y);
+	const waterBowlHub = new WaterBowl("water-bowl-hub");
+	waterBowlHub.pos = ex.vec(OBJECT_POSITIONS.waterBowlHub.x, OBJECT_POSITIONS.waterBowlHub.y);
+
+	return { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, merchantStall, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation, foodBowlOffice, foodBowlStation, waterBowlHub };
 }
 
 /** Register all environmental objects in the scene registry. */

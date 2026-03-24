@@ -29,7 +29,7 @@ export interface VisualFeedbackCallbacks {
 	onShowIntentIcon: (agentName: string, spritePath: string, position: { x: number; y: number }) => void;
 	onHideIntentIcon: (agentName: string) => void;
 	onItemPop: (agentName: string, spritePath: string, fromPos: { x: number; y: number }) => void;
-	onParticleBurst: (preset: SpritePreset, position: { x: number; y: number }) => void;
+	onParticleBurst: (agentName: string, preset: SpritePreset, position: { x: number; y: number }) => void;
 	onEmoteFlash: (agentName: string, emoteIndex: number) => void;
 	onThoughtBubble: (agentName: string, text: string, iconPath?: string, duration?: number) => void;
 	onFacingChange: (agentName: string, direction: "left" | "right") => void;
@@ -203,7 +203,7 @@ export class VisualFeedbackSystem {
 			}
 
 			if (tier === "high") {
-				this.cb.onParticleBurst?.("sprite-smoke", bb.position);
+				this.cb.onParticleBurst?.(agentName, "sprite-smoke", bb.position);
 			}
 		}
 
@@ -240,8 +240,8 @@ export class VisualFeedbackSystem {
 
 		// Satisfaction emote + particles
 		this.cb.onEmoteFlash?.(agentName, pickRandom(EMOTE_INDICES.happy));
-		this.cb.onParticleBurst?.("sprite-sparkle", bb.position);
-		this.cb.onParticleBurst?.("sprite-heart", bb.position);
+		this.cb.onParticleBurst?.(agentName, "sprite-sparkle", bb.position);
+		this.cb.onParticleBurst?.(agentName, "sprite-heart", bb.position);
 
 		state.lastPayoffTimestamp = now;
 		state.activeVisualPriority = 3;
@@ -318,11 +318,11 @@ export class VisualFeedbackSystem {
 	// ── Room transition ──────────────────────────────────────────
 
 	private handleRoomTransition(
-		_agentName: string,
+		agentName: string,
 		bb: AgentBlackboard,
 		_state: AgentVisualState,
 	): void {
-		this.cb.onParticleBurst?.("sprite-leaf", bb.position);
+		this.cb.onParticleBurst?.(agentName, "sprite-leaf", bb.position);
 	}
 
 	// ── Helpers ──────────────────────────────────────────────────

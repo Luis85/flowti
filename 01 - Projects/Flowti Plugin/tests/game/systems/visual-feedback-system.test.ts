@@ -118,7 +118,7 @@ describe("VisualFeedbackSystem — urgency", () => {
 		system.tick("Atlas", bb, 16, 16);
 
 		expect(callbacks.onEmoteFlash).toHaveBeenCalled();
-		expect(callbacks.onParticleBurst).toHaveBeenCalledWith("sprite-smoke", expect.any(Object));
+		expect(callbacks.onParticleBurst).toHaveBeenCalledWith("Atlas", "sprite-smoke", expect.any(Object));
 	});
 
 	it("sets urgencySpeedBoost on blackboard based on urgency tier", () => {
@@ -183,7 +183,7 @@ describe("VisualFeedbackSystem — arrival payoff", () => {
 
 		expect(callbacks.onItemPop).toHaveBeenCalled();
 		expect(callbacks.onEmoteFlash).toHaveBeenCalled();
-		expect(callbacks.onParticleBurst).toHaveBeenCalledWith("sprite-sparkle", expect.any(Object));
+		expect(callbacks.onParticleBurst).toHaveBeenCalledWith("Atlas", "sprite-sparkle", expect.any(Object));
 	});
 
 	it("fires payoff for seek-preferred-food variant", () => {
@@ -266,7 +266,7 @@ describe("VisualFeedbackSystem — idle behavior", () => {
 		bb.currentRoom = "village";
 		system.tick("Atlas", bb, 16, 16);
 
-		expect(callbacks.onParticleBurst).toHaveBeenCalledWith("sprite-leaf", expect.any(Object));
+		expect(callbacks.onParticleBurst).toHaveBeenCalledWith("Atlas", "sprite-leaf", expect.any(Object));
 	});
 
 	it("does not fire room transition on first room assignment", () => {

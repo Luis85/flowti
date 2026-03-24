@@ -265,7 +265,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 			engine.currentScene.add(pop);
 			pop.play();
 		},
-		onParticleBurst: (preset, position) => {
+		onParticleBurst: (agentName, preset, position) => {
+			if (!findCurrentSceneActor(agentName)) return;
 			particlePool.spriteBurst({ preset, x: position.x, y: position.y });
 		},
 		onEmoteFlash: (agentName, emoteIndex) => {
@@ -334,7 +335,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	// ── Environmental objects ────────────────────────────
 	const envObjects = createEnvironmentalObjects();
 	registerEnvironmentalObjects(envObjects, registry);
-	const { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, merchantStall, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation } = envObjects;
+	const { coffeeMachine, whiteboard, snackTable, waterCooler, couch, plant, noticeBoard, merchantStall, foodBowlHub, foodBowlVillage, waterBowlOffice, waterBowlStation, foodBowlOffice, foodBowlStation, waterBowlHub } = envObjects;
 
 	// ── Office pets ──────────────────────────────────────
 	const pets = createPets();
@@ -456,6 +457,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	officeScene.add(coffeeMachine); officeScene.add(whiteboard); villageScene.add(snackTable); villageScene.add(waterCooler);
 	stationScene.add(couch); hubScene.add(plant); hubScene.add(noticeBoard); hubScene.add(merchantStall);
 	hubScene.add(foodBowlHub); villageScene.add(foodBowlVillage); officeScene.add(waterBowlOffice); stationScene.add(waterBowlStation);
+	officeScene.add(foodBowlOffice); stationScene.add(foodBowlStation); hubScene.add(waterBowlHub);
 
 	// ── SceneEntity registry + unified room switcher ──
 	const allEntities = new Map<string, SceneEntity>();
