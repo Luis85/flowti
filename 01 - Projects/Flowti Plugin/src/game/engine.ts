@@ -67,7 +67,7 @@ import { bootstrapInteractionSystem, registerPetResolver, createNPCIntentResolve
 import type { Interaction } from "../../../Flowti CLI/src/domain/interactions/interaction-types.js";
 import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
-import { createPets, getPetBTPairs } from "./engine-objects.js";
+import { createPets, getPetBTPairs } from "./engine-pets.js";
 import { createAllSceneObjects } from "./systems/scene-object-factory.js";
 import sceneObjectsConfig from "../../configs/scene-objects.json";
 import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";

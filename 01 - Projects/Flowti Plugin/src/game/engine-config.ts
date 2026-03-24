@@ -34,48 +34,6 @@ export const DEFAULT_PARTICLE_COLOR = "#64748b";
 /** Per-millisecond lerp factor for day/night lighting transitions. */
 export const LIGHT_LERP_SPEED = 0.0015;
 
-// ── Environmental object positions ───────────────────────────────────
-
-export const OBJECT_POSITIONS = {
-	coffeeMachine: { x: 680, y: 120 },
-	whiteboard: { x: 400, y: 60 },
-	snackTable: { x: 400, y: 380 },
-	waterCooler: { x: 600, y: 380 },
-	couch: { x: 400, y: 380 },
-	plant: { x: 100, y: 60 },
-	noticeBoard: { x: 680, y: 60 },
-	merchantStall: { x: 300, y: 60 },
-	foodBowlHub: { x: 200, y: 380 },
-	foodBowlVillage: { x: 250, y: 350 },
-	waterBowlOffice: { x: 580, y: 120 },
-	waterBowlStation: { x: 550, y: 350 },
-	foodBowlOffice: { x: 200, y: 380 },
-	foodBowlStation: { x: 200, y: 350 },
-	waterBowlHub: { x: 600, y: 380 },
-} as const;
-
-// ── Object-to-scene assignments ──────────────────────────────────────
-
-import type { RoomId } from "./data/scene-configs.js";
-
-export const OBJECT_SCENE_ASSIGNMENTS: Record<string, RoomId> = {
-	coffeeMachine: "office",
-	whiteboard: "office",
-	snackTable: "village",
-	waterCooler: "village",
-	couch: "station",
-	plant: "hub",
-	noticeBoard: "hub",
-	merchantStall: "hub",
-	foodBowlHub: "hub",
-	foodBowlVillage: "village",
-	waterBowlOffice: "office",
-	waterBowlStation: "station",
-	foodBowlOffice: "office",
-	foodBowlStation: "station",
-	waterBowlHub: "hub",
-};
-
 // ── Pet positions and room assignments ───────────────────────────────
 
 export const PET_SPAWN_CONFIGS = [
