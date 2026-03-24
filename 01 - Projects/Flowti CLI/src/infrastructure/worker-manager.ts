@@ -103,7 +103,8 @@ export function createWorkerManager(
 	vaultRoot: string,
 	config: AgentsConfig | undefined,
 	pool?: IProcessPool,
-): IWorkerManager {
+): IWorkerManager & { setDispatcher(d: import("../domain/tasks/task-dispatcher.js").TaskDispatcher): void } {
+	let dispatcher: import("../domain/tasks/task-dispatcher.js").TaskDispatcher | undefined;
 	const workers = new Map<string, WorkerImpl>();
 
 	function spawnWorker(agent: AgentSummary): WorkerImpl {
@@ -232,8 +233,10 @@ export function createWorkerManager(
 
 				worker.failureCount = 0;
 				opts?.onResponse?.(parsed);
+				if (opts?.task) dispatcher?.complete(worker.name, undefined, parsed.message);
 			} catch {
 				worker.failureCount++;
+				if (opts?.task) dispatcher?.fail(worker.name, undefined, "session error");
 			}
 
 			if (worker.state !== "stopped") {
@@ -274,8 +277,10 @@ export function createWorkerManager(
 
 					worker.failureCount = 0;
 					opts?.onResponse?.(parsed);
+					if (opts?.task) dispatcher?.complete(worker.name, undefined, parsed.message);
 				} catch {
 					worker.failureCount++;
+					if (opts?.task) dispatcher?.fail(worker.name, undefined, "session error");
 				}
 
 				if (worker.state !== "stopped") {
@@ -323,9 +328,11 @@ export function createWorkerManager(
 			saveConversation(deps, varDir, worker.name, worker.conversation);
 
 			opts?.onResponse?.(parsed);
+			if (opts?.task) dispatcher?.complete(worker.name, undefined, parsed.message);
 		} catch {
 			worker.failureCount++;
 			if (pool) pool.release(worker.name);
+			if (opts?.task) dispatcher?.fail(worker.name, undefined, "execution error");
 		}
 
 		if (worker.state !== "stopped") {
@@ -459,6 +466,10 @@ export function createWorkerManager(
 				if (worker.name === event.agentName) continue;
 				handleWorldEvent(worker, event);
 			}
+		},
+
+		setDispatcher(d: import("../domain/tasks/task-dispatcher.js").TaskDispatcher): void {
+			dispatcher = d;
 		},
 	};
 }

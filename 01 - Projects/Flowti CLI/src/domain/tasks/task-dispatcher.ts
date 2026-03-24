@@ -23,8 +23,8 @@ export interface DispatcherDeps {
 export interface TaskDispatcher {
 	submit(task: TaskEntry): void;
 	drain(): void;
-	complete(agentName: string, taskId: string, result: string): void;
-	fail(agentName: string, taskId: string, error: string): void;
+	complete(agentName: string, taskId: string | undefined, result: string): void;
+	fail(agentName: string, taskId: string | undefined, error: string): void;
 	metrics(): DispatcherMetrics;
 	listQueue(): { readonly lane: string; readonly tasks: readonly TaskEntry[] }[];
 	listHistory(agentName?: string): readonly { readonly agentName: string; readonly taskId: string; readonly completedAt: number }[];
@@ -122,10 +122,11 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 		drain();
 	}
 
-	function complete(agentName: string, taskId: string, result: string): void {
+	function complete(agentName: string, taskId: string | undefined, result: string): void {
 		const now = deps.clock.ms();
 		const entry = assignments.get(agentName);
 		assignments.delete(agentName);
+		const resolvedTaskId = taskId ?? entry?.task.taskId;
 
 		if (entry) {
 			const { task, assignedAt } = entry;
@@ -134,11 +135,13 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 			totalWaitMs += waitMs;
 			totalExecMs += execMs;
 
-			if (task.taskTrustTier === "auto") {
-				deps.updateTaskStatus(taskId, "completed");
-				deps.awardReward(agentName, task.reward);
-			} else {
-				deps.updateTaskStatus(taskId, "review");
+			if (resolvedTaskId) {
+				if (task.taskTrustTier === "auto") {
+					deps.updateTaskStatus(resolvedTaskId, "completed");
+					deps.awardReward(agentName, task.reward);
+				} else {
+					deps.updateTaskStatus(resolvedTaskId, "review");
+				}
 			}
 
 			tasksCompleted++;
@@ -149,25 +152,26 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 			agentStats[agentName].totalExecMs += execMs;
 			agentStats[agentName].lastTaskAt = now;
 
-			recentHistory.push({ agentName, taskId, completedAt: now });
+			recentHistory.push({ agentName, taskId: resolvedTaskId ?? "", completedAt: now });
 			if (recentHistory.length > 100) recentHistory.shift();
 		}
 
-		deps.emit("task:completed", { agent: agentName, taskId, result });
+		deps.emit("task:completed", { agent: agentName, taskId: resolvedTaskId, result });
 		deps.writeAgentEvent(agentName, "done", "");
 		startCooldown(agentName);
 	}
 
-	function fail(agentName: string, taskId: string, error: string): void {
+	function fail(agentName: string, taskId: string | undefined, error: string): void {
 		const task = assignments.get(agentName)?.task;
+		const resolvedTaskId = taskId ?? task?.taskId;
 		assignments.delete(agentName);
 
-		deps.updateTaskStatus(taskId, "failed");
+		if (resolvedTaskId) deps.updateTaskStatus(resolvedTaskId, "failed");
 
 		if (task && task.retryCount < deps.maxRetries) {
 			submit({ ...task, retryCount: task.retryCount + 1 });
 		} else {
-			deps.emit("task:failed", { agent: agentName, taskId, error });
+			deps.emit("task:failed", { agent: agentName, taskId: resolvedTaskId, error });
 			deps.writeAgentEvent(agentName, "error", error);
 			tasksFailed++;
 			if (!agentStats[agentName]) {

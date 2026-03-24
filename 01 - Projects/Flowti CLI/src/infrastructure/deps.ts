@@ -33,6 +33,8 @@ import { createProviderRegistry } from "./llm/provider-registry.js";
 import { createClaudeProvider } from "./llm/claude-provider.js";
 import { createCursorProvider } from "./llm/cursor-provider.js";
 import { createOllamaProvider } from "./llm/ollama-provider.js";
+import { createDispatcher } from "../domain/tasks/task-dispatcher.js";
+import { agentStore } from "../domain/agents/agent-store.js";
 
 // ── Full dependency container ───────────────────────────────────────
 
@@ -136,6 +138,29 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 	const workerManager = createWorkerManager(baseDeps, worldState, processRunner, resolvedRoot, agentsConfig, pool);
 	worldState.addActionListener((action) => workerManager.dispatchWorldEvent(action));
 
+	// ── Task dispatcher (optional — only when agents are configured) ──
+	let taskDispatcher: import("../domain/tasks/task-dispatcher.js").TaskDispatcher | undefined;
+	if (agentsConfig) {
+		const agentList = agentStore.list(baseDeps, resolvedRoot, agentsConfig.dir ? { dir: agentsConfig.dir } : undefined);
+		const agentNames = agentList.map((a) => a.name);
+		taskDispatcher = createDispatcher({
+			clock,
+			loadTrustProfile: () => null,
+			getAgentCapabilities: () => [],
+			getTaskHistory: () => [],
+			getWorkerState: (name: string) => workerManager.getWorker(name)?.state ?? "stopped",
+			updateTaskStatus: () => {},
+			awardReward: () => {},
+			emit: () => {},
+			writeAgentEvent: () => {},
+			sendToWorker: (name, msg, opts) => workerManager.send(name, msg, opts),
+			schedule: (fn, ms) => { setTimeout(fn, ms); },
+			cooldownMs: agentsConfig.decayTimeoutMs ?? 15000,
+			maxRetries: 1,
+		}, agentNames);
+		workerManager.setDispatcher(taskDispatcher);
+	}
+
 	// Workspace-based agent shell (optional — only when workspacesConfig provided)
 	const workspacesConfig = undefined as WorkspacesConfig | undefined;
 	const agentShell = workspacesConfig ? createAgentShell({
@@ -151,5 +176,5 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 		worldState,
 	}) : undefined;
 
-	return { disk, shell, paths, clock, proc, pidOps, input, bus, log, warn, worldState, workerManager, processRunner, providerRegistry, agentShell };
+	return { disk, shell, paths, clock, proc, pidOps, input, bus, log, warn, worldState, workerManager, processRunner, providerRegistry, agentShell, dispatcher: taskDispatcher };
 }
