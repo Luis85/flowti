@@ -307,4 +307,116 @@ describe("createDispatcher", () => {
 			expect(d.listHistory("agent-b")).toHaveLength(0);
 		});
 	});
+
+	describe("edge cases", () => {
+		it("submit with zero registered agents queues the task", () => {
+			const deps = makeDeps();
+			const d = createDispatcher(deps, []);
+
+			d.submit(makeTask());
+
+			expect(deps.sendToWorker).not.toHaveBeenCalled();
+			expect(d.metrics().queueDepth.normal).toBe(1);
+		});
+
+		it("complete for agent with no active assignment is a no-op", () => {
+			const deps = makeDeps();
+			const d = createDispatcher(deps, ["agent-a"]);
+
+			d.complete("agent-a", undefined, "done");
+
+			expect(deps.updateTaskStatus).not.toHaveBeenCalled();
+			expect(deps.awardReward).not.toHaveBeenCalled();
+			expect(deps.writeAgentEvent).toHaveBeenCalledWith("agent-a", "done", "");
+		});
+
+		it("complete with undefined taskId resolves from assignments", () => {
+			const deps = makeDeps();
+			const d = createDispatcher(deps, ["agent-a"]);
+			d.submit(makeTask({ taskId: "resolved-task" }));
+
+			d.complete("agent-a", undefined, "done");
+
+			expect(deps.updateTaskStatus).toHaveBeenCalledWith("resolved-task", "completed");
+		});
+
+		it("fail with undefined taskId resolves from assignments", () => {
+			const deps = makeDeps();
+			const d = createDispatcher(deps, ["agent-a"]);
+			d.submit(makeTask({ taskId: "fail-task", retryCount: 1 }));
+
+			d.fail("agent-a", undefined, "timeout");
+
+			expect(deps.updateTaskStatus).toHaveBeenCalledWith("fail-task", "failed");
+		});
+
+		it("drain assigns multiple tasks to multiple agents in one pass", () => {
+			const deps = makeDeps();
+			const d = createDispatcher(deps, ["agent-a", "agent-b"]);
+			deps.getWorkerState.mockReturnValue("working");
+
+			d.submit(makeTask({ taskId: "t1", title: "Task 1" }));
+			d.submit(makeTask({ taskId: "t2", title: "Task 2" }));
+
+			// Both idle now
+			deps.getWorkerState.mockReturnValue("idle");
+			d.drain();
+
+			// Both agents should get one task each
+			expect(deps.sendToWorker).toHaveBeenCalledTimes(2);
+			expect(d.metrics().activeAssignments).toBe(2);
+			expect(d.metrics().queueDepth.normal).toBe(0);
+		});
+
+		it("drain does not double-assign the same agent", () => {
+			const deps = makeDeps();
+			const d = createDispatcher(deps, ["agent-a"]);
+			deps.getWorkerState.mockReturnValue("working");
+
+			d.submit(makeTask({ taskId: "t1" }));
+			d.submit(makeTask({ taskId: "t2" }));
+
+			deps.getWorkerState.mockReturnValue("idle");
+			d.drain();
+
+			// Only one task assigned — agent-a can only take one
+			expect(deps.sendToWorker).toHaveBeenCalledTimes(1);
+			expect(d.metrics().queueDepth.normal).toBe(1);
+		});
+
+		it("cascading failure: retry also fails exhausts retries", () => {
+			const deps = makeDeps();
+			const d = createDispatcher(deps, ["agent-a"]);
+			d.submit(makeTask({ retryCount: 0 }));
+
+			// First failure — retries (retryCount becomes 1)
+			d.fail("agent-a", "task-001", "error 1");
+			expect(deps.sendToWorker).toHaveBeenCalledTimes(2); // original + retry
+
+			// Second failure — retries exhausted (retryCount is now 1 >= maxRetries 1)
+			d.fail("agent-a", undefined, "error 2");
+			expect(deps.emit).toHaveBeenCalledWith("task:failed", expect.objectContaining({ error: "error 2" }));
+			expect(d.metrics().tasksFailed).toBe(1);
+		});
+
+		it("wait time and exec time are computed separately", () => {
+			let now = 1000;
+			const deps = makeDeps({ clock: { ms: () => now, iso: () => "", safeIso: () => "" } });
+			const d = createDispatcher(deps, ["agent-a"]);
+
+			// Task submitted at t=1000
+			d.submit(makeTask({ submittedAt: 1000 }));
+			// Simulate assignment happened at t=1000 (same tick)
+
+			// Complete at t=5000
+			now = 5000;
+			d.complete("agent-a", "task-001", "done");
+
+			const m = d.metrics();
+			// waitMs = assignedAt(1000) - submittedAt(1000) = 0
+			expect(m.avgWaitTimeMs).toBe(0);
+			// execMs = now(5000) - assignedAt(1000) = 4000
+			expect(m.avgExecutionTimeMs).toBe(4000);
+		});
+	});
 });
