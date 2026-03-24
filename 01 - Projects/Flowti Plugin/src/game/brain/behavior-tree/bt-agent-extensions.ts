@@ -65,11 +65,15 @@ export function SeekDrinkStation(ext: BTAgentExtensionDeps): State {
 
 export function Eat(ext: BTAgentExtensionDeps): State {
 	ext.deps.applyNeedsEffect?.({ hunger: 30 });
+	ext.deps.blackboard.intent = "idle";
+	ext.deps.blackboard.intentDetail = "";
 	return fromNodeState("succeeded");
 }
 
 export function Drink(ext: BTAgentExtensionDeps): State {
 	ext.deps.applyNeedsEffect?.({ thirst: 30 });
+	ext.deps.blackboard.intent = "idle";
+	ext.deps.blackboard.intentDetail = "";
 	return fromNodeState("succeeded");
 }
 

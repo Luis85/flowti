@@ -44,6 +44,7 @@ export const DECAY = {
 	idle: { energy: 0.5, social: -0.1, focus: 0.3, morale: -0.1, hunger: -0.2, thirst: -0.3 },
 	wandering: { energy: 0.3, social: -0.1, focus: 0.2, morale: 0, hunger: -0.3, thirst: -0.4 },
 	"walking-to": { energy: -0.2, social: 0, focus: 0, morale: 0, hunger: -0.2, thirst: -0.3 },
+	seeking: { energy: -0.2, social: -0.1, focus: 0, morale: -0.15, hunger: -0.2, thirst: -0.3 },
 	talking: { energy: -0.3, social: 1.5, focus: -0.2, morale: 0.3, hunger: -0.3, thirst: -0.5 },
 	"on-break": { energy: 1.2, social: 0, focus: 0.5, morale: 0.2, hunger: -0.1, thirst: -0.1 },
 } as Record<string, Record<string, number>>;

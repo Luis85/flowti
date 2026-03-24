@@ -64,6 +64,13 @@ export interface AgentBlackboard {
 	nearestMerchantStall: { x: number; y: number } | null;
 	whimTarget: { x: number; y: number } | null;
 
+	// ── Cross-room station hints (sensor writes, BT reads) ──
+	foodStationRoom: string | null;
+	drinkStationRoom: string | null;
+
+	// ── Room transfer request (BT writes, engine reads) ──
+	roomTransferTarget: string | null;
+
 	// ── Written by echo/social, read by BT ───────────
 	wanderHint: { x: number; y: number } | null;
 	cascadeHint: CascadeHintKind | null;
@@ -73,6 +80,9 @@ export interface AgentBlackboard {
 
 	// ── Written by BT, read by presentation ──────────
 	speechRequest: { text: string; kind: BubbleKind } | null;
+
+	// ── Throttle for seek thought bubbles ────────────
+	lastSeekBubbleMs: number;
 
 	// ── Written by visual feedback system ────────────
 	facingDirection: "left" | "right";
@@ -105,12 +115,16 @@ export function createDefaultBlackboard(): AgentBlackboard {
 		nearestWorkstation: null,
 		nearestMerchantStall: null,
 		whimTarget: null,
+		foodStationRoom: null,
+		drinkStationRoom: null,
+		roomTransferTarget: null,
 		wanderHint: null,
 		cascadeHint: null,
 		cascadeTarget: null,
 		roomAvoidance: null,
 		breakThresholdBias: 0,
 		speechRequest: null,
+		lastSeekBubbleMs: 0,
 		facingDirection: "right",
 		urgencySpeedBoost: 1.0,
 		lastIntentTransition: null,

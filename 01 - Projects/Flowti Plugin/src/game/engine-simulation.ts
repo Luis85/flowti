@@ -219,6 +219,15 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 			}
 			return nearest;
 		},
+		getStationRoom: (name, need) => {
+			const agentRoom = sys.registry.getEntityRoom(name);
+			const type = need === "food" ? "food" : "drink";
+			const entries = sys.registry.findObjectsOfType(type);
+			for (const entry of entries) {
+				if (entry.room !== agentRoom) return entry.room;
+			}
+			return null;
+		},
 		getNearestMerchantStall: (name) => {
 			const stalls = sys.registry.getInteractablesOfType("shop");
 			return findNearestUnoccupiedStation(ctx, name, stalls);
@@ -273,17 +282,6 @@ function findNearestUnoccupiedStation(ctx: EngineContext, agentName: string, can
 		if (!station || station.isOccupied()) continue;
 		const stationRoom = ctx.systems.registry.getObjectRoom(station.objectId);
 		if (stationRoom && stationRoom !== agentRoom) continue;
-		const point = station.getInteractionPoint();
-		const dx = point.x - agentPos.x;
-		const dy = point.y - agentPos.y;
-		const dist = dx * dx + dy * dy;
-		if (dist < minDist) { minDist = dist; nearest = point; }
-	}
-	if (nearest) return nearest;
-
-	// Fallback: find nearest station in any room
-	for (const station of candidates) {
-		if (!station || station.isOccupied()) continue;
 		const point = station.getInteractionPoint();
 		const dx = point.x - agentPos.x;
 		const dy = point.y - agentPos.y;
@@ -561,18 +559,39 @@ export function tickBehaviorTree(ctx: EngineContext): void {
 			bb.speechRequest = null;
 		}
 
-		// Show seek thoughts sparingly
-		if (bb.intent === "seeking" && bb.intentDetail && Math.random() < 0.15) {
-			const SEEK_PHRASES: Record<string, string> = {
-				"seek-rest": "Need a break...",
-				"seek-merchant": "Off to the shop...",
-				"seek-food": "Getting hungry...",
-				"seek-drink": "Need something to drink...",
-				"seek-agent": "Looking for company...",
-				"seek-quiet": "Need some quiet...",
-			};
-			const phrase = SEEK_PHRASES[bb.intentDetail];
-			if (phrase) sys.bubble.showBubble(name, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+		// Process cross-room transfer requests written by BT
+		if (bb.roomTransferTarget) {
+			const currentRoom = sys.registry.getEntityRoom(name);
+			if (currentRoom && currentRoom !== bb.roomTransferTarget) {
+				sys.roomSwitcher.requestTransfer({
+					entityId: name,
+					targetRoom: bb.roomTransferTarget,
+					reason: "purpose",
+				});
+			}
+			bb.roomTransferTarget = null;
+		}
+
+		// Show seek thoughts with a per-agent cooldown (~once per 8-12s)
+		const SEEK_BUBBLE_COOLDOWN_MS = 8000;
+		if (bb.intent === "seeking" && bb.intentDetail) {
+			const now = Date.now();
+			const jitter = Math.random() * 4000;
+			if (now - bb.lastSeekBubbleMs > SEEK_BUBBLE_COOLDOWN_MS + jitter) {
+				const SEEK_PHRASES: Record<string, string> = {
+					"seek-rest": "Need a break...",
+					"seek-merchant": "Off to the shop...",
+					"seek-food": "Getting hungry...",
+					"seek-drink": "Need something to drink...",
+					"seek-agent": "Looking for company...",
+					"seek-quiet": "Need some quiet...",
+				};
+				const phrase = SEEK_PHRASES[bb.intentDetail];
+				if (phrase) {
+					sys.bubble.showBubble(name, "thought", phrase, ctx.engine.currentScene, ctx.lookups.findBubbleAnchor, 2500);
+					bb.lastSeekBubbleMs = now;
+				}
+			}
 		}
 	}
 }

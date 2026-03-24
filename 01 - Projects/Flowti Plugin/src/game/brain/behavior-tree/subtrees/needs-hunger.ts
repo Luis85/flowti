@@ -1,23 +1,35 @@
 /**
  * needs-hunger.ts — MDSL subtree for hunger satisfaction.
  *
- * When hunger is low, agent seeks a food station and eats.
- * Quirk-based preferences are tried first (e.g. snacker → SnackTable),
- * falling back to nearest available station.
+ * Priority order:
+ *   1. Same-room station (preferred → nearest) → Eat
+ *   2. Cross-room transfer to a room that has a food station
+ *   3. Wander seeking food (last resort, e.g. single-room scene)
  */
 
 export const NEEDS_HUNGER_SUBTREE = `
 root [NeedsHunger] {
-	sequence {
-		condition [IsHungry]
-		selector {
-			sequence {
-				condition [HasPreferredFoodStation]
-				action [SeekPreferredFoodStation]
+	selector {
+		sequence {
+			condition [IsHungry]
+			selector {
+				sequence {
+					condition [HasPreferredFoodStation]
+					action [SeekPreferredFoodStation]
+				}
+				action [SeekFoodStation]
 			}
-			action [SeekFoodStation]
+			action [Eat]
 		}
-		action [Eat]
+		sequence {
+			condition [IsHungry]
+			condition [HasFoodStationInOtherRoom]
+			action [SeekFoodStationRoom]
+		}
+		sequence {
+			condition [IsHungry]
+			action [WanderHungry]
+		}
 	}
 }
 `.trim();

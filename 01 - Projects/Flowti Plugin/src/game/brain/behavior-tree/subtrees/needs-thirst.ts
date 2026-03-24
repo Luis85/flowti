@@ -1,23 +1,35 @@
 /**
  * needs-thirst.ts — MDSL subtree for thirst satisfaction.
  *
- * When thirst is low, agent seeks a drink station and drinks.
- * Quirk-based preferences are tried first (e.g. coffee-addict → CoffeeMachine),
- * falling back to nearest available station.
+ * Priority order:
+ *   1. Same-room station (preferred → nearest) → Drink
+ *   2. Cross-room transfer to a room that has a drink station
+ *   3. Wander seeking a drink (last resort, e.g. single-room scene)
  */
 
 export const NEEDS_THIRST_SUBTREE = `
 root [NeedsThirst] {
-	sequence {
-		condition [IsThirsty]
-		selector {
-			sequence {
-				condition [HasPreferredDrinkStation]
-				action [SeekPreferredDrinkStation]
+	selector {
+		sequence {
+			condition [IsThirsty]
+			selector {
+				sequence {
+					condition [HasPreferredDrinkStation]
+					action [SeekPreferredDrinkStation]
+				}
+				action [SeekDrinkStation]
 			}
-			action [SeekDrinkStation]
+			action [Drink]
 		}
-		action [Drink]
+		sequence {
+			condition [IsThirsty]
+			condition [HasDrinkStationInOtherRoom]
+			action [SeekDrinkStationRoom]
+		}
+		sequence {
+			condition [IsThirsty]
+			action [WanderThirsty]
+		}
 	}
 }
 `.trim();
