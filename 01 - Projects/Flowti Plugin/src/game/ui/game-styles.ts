@@ -35,6 +35,8 @@ export const colorStyles = css`
 		--status-unassigned: #5a5649;
 		--glow-warm: 0 0 12px rgba(217, 170, 78, 0.08);
 		--panel-shadow: -4px 0 20px rgba(0, 0, 0, 0.6), inset 1px 0 0 var(--border-glow);
+		--rail-width-collapsed: 56px;
+		--rail-width-expanded: 200px;
 	}
 `;
 
