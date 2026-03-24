@@ -51,6 +51,9 @@ export function getCouncilSlots(
 	return slots;
 }
 
+export const NEED_WARN_THRESHOLD = 60;
+export const NEED_CRITICAL_THRESHOLD = 25;
+
 export function relativeTime(ms: number): string {
 	const sec = Math.floor(ms / 1000);
 	if (sec < 60) return `${sec}s`;
