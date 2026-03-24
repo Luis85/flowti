@@ -15,6 +15,7 @@ export class SlidePanel extends FlowtiElement {
 		...FlowtiElement.properties,
 		open: { type: Boolean, reflect: true },
 		title: { type: String },
+		accent: { type: String },
 	};
 
 	static styles = [
@@ -39,7 +40,14 @@ export class SlidePanel extends FlowtiElement {
 				position: absolute;
 				inset: 0;
 				background: rgba(0, 0, 0, 0.4);
+				backdrop-filter: blur(4px);
+				-webkit-backdrop-filter: blur(4px);
 				z-index: 140;
+			}
+
+			.panel-accent-bar {
+				height: 2px;
+				flex-shrink: 0;
 			}
 
 			.panel {
@@ -101,6 +109,7 @@ export class SlidePanel extends FlowtiElement {
 
 	open = false;
 	title = "";
+	accent = "";
 
 	private boundEscHandler = this.handleEscKey.bind(this);
 
@@ -136,6 +145,7 @@ export class SlidePanel extends FlowtiElement {
 		return html`
 			<div class="panel-backdrop" @click=${() => this.handleBackdropClick()}></div>
 			<div class="panel">
+				<div class="panel-accent-bar" style="background:${this.accent || "transparent"}"></div>
 				<div class="panel-header">
 					<span class="panel-title">${this.title}</span>
 					<button class="close-btn" @click=${() => this.handleCloseClick()}>&times;</button>
