@@ -17,9 +17,9 @@ import { resolveIdleTarget, computeSeparation, type Bounds, type Position } from
 const ARRIVAL_THRESHOLD = 4;
 const SPRITE_MARGIN = 16;
 
-import { DEFAULT_WORLD_CONFIG } from "../data/world-config.js";
+import { WORLD_CONFIG } from "../data/world-config.js";
 
-const SPEED_MAP: Record<string, number> = DEFAULT_WORLD_CONFIG.behavior.speedMap;
+const SPEED_MAP: Record<string, number> = WORLD_CONFIG.behavior.speedMap;
 
 const IDLE_CYCLES: Record<string, readonly string[]> = {
 	fidgety: ["idle", "look-around", "stretch", "idle"],
@@ -27,7 +27,7 @@ const IDLE_CYCLES: Record<string, readonly string[]> = {
 	restless: ["idle", "look-around", "idle", "look-around", "stretch"],
 };
 
-const IDLE_TIMERS: Record<string, { min: number; max: number }> = DEFAULT_WORLD_CONFIG.behavior.idleTimers;
+const IDLE_TIMERS: Record<string, { min: number; max: number }> = WORLD_CONFIG.behavior.idleTimers;
 
 // ── Per-agent locomotion entry ───────────────────────────────────
 

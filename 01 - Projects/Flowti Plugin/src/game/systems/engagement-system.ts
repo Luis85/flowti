@@ -5,7 +5,7 @@
  * selects the best available idle agent to deliver a contextually appropriate
  * thought or speech bubble.
  *
- * Escalation tiers (idleMs thresholds from DEFAULT_WORLD_CONFIG.engagement):
+ * Escalation tiers (idleMs thresholds from WORLD_CONFIG.engagement):
  *   Tier 0 (Passive)  — idleMs < 30 s    → no engagement
  *   Tier 1 (Ambient)  — idleMs >= 30 s   → thought bubble, 1 / 45 s
  *   Tier 2 (Nudge)    — idleMs >= 90 s   → speech bubble, 1 / 90 s
@@ -21,7 +21,7 @@
 import type { DirectorPresence } from "./director-system.js";
 import type { AgentNeeds } from "./needs-system.js";
 import type { AgentIntent } from "./blackboard.js";
-import { DEFAULT_WORLD_CONFIG } from "../data/world-config.js";
+import { WORLD_CONFIG } from "../data/world-config.js";
 import { TIER1_TEMPLATES, TIER2_TEMPLATES, TIER3_TEMPLATES, interpolateTemplate } from "../data/engagement-templates.js";
 
 // ── Public interfaces ─────────────────────────────────────────────────
@@ -131,7 +131,7 @@ export class EngagementSystem {
 		if (this.engagementActive) {
 			this.timeSinceLastEngagement += deltaMs;
 			// Auto-dismiss after engagementDuration
-			if (this.timeSinceLastEngagement >= DEFAULT_WORLD_CONFIG.engagement.engagementDuration) {
+			if (this.timeSinceLastEngagement >= WORLD_CONFIG.engagement.engagementDuration) {
 				this.engagementActive = false;
 			}
 			return;
@@ -163,7 +163,7 @@ export class EngagementSystem {
 	// ── Private helpers ─────────────────────────────────────────────
 
 	private computeTier(idleMs: number): number {
-		const { ambient, nudge, offer } = DEFAULT_WORLD_CONFIG.engagement.tiers;
+		const { ambient, nudge, offer } = WORLD_CONFIG.engagement.tiers;
 		if (idleMs >= offer.idleThresholdMs) return 3;
 		if (idleMs >= nudge.idleThresholdMs) return 2;
 		if (idleMs >= ambient.idleThresholdMs) return 1;
@@ -171,7 +171,7 @@ export class EngagementSystem {
 	}
 
 	private tierFrequencyMs(tier: number): number {
-		const { ambient, nudge, offer } = DEFAULT_WORLD_CONFIG.engagement.tiers;
+		const { ambient, nudge, offer } = WORLD_CONFIG.engagement.tiers;
 		if (tier >= 3) return offer.durationMs;
 		if (tier === 2) return nudge.durationMs;
 		return ambient.durationMs;

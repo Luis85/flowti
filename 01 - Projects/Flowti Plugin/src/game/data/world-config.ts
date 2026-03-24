@@ -362,6 +362,13 @@ function mergeBehavior(overrides: DeepPartial<BehaviorConfig> | undefined): Beha
 	};
 }
 
+/**
+ * Resolved config singleton — initialized from game-config.json at import time.
+ * All game systems should read from this instead of DEFAULT_WORLD_CONFIG directly.
+ */
+import gameConfigJson from "../../../configs/game-config.json";
+export const WORLD_CONFIG: WorldConfig = mergeWorldConfig(gameConfigJson);
+
 /** Utility type for deep-partial WorldConfig overrides. */
 type DeepPartial<T> = {
 	readonly [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];

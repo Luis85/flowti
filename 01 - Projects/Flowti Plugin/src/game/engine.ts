@@ -71,7 +71,7 @@ import { createPets, getPetBTPairs } from "./engine-pets.js";
 import { createAllSceneObjects } from "./systems/scene-object-factory.js";
 import type { SceneObjectConfig } from "./data/scene-object-schema.js";
 import sceneObjectsConfig from "../../configs/scene-objects.json";
-import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
+import { WORLD_CONFIG } from "./data/world-config.js";
 import { SceneRegistry } from "./systems/scene-registry.js";
 import { RoomSwitcher } from "./systems/room-switcher.js";
 import { VisualFeedbackSystem } from "./systems/visual-feedback-system.js";
@@ -217,12 +217,12 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	const ritualSystem = new RitualSystem();
 	const toolExecutor = new ToolExecutor();
 	toolExecutor.registerTools(DEFAULT_TOOLS);
-	const dayClock = new DayClock(DEFAULT_WORLD_CONFIG.dayCycle.durationMs);
-	const worldAmbience = new WorldAmbience(DEFAULT_WORLD_CONFIG.weather.cycleLengthInDayCycles);
+	const dayClock = new DayClock(WORLD_CONFIG.dayCycle.durationMs);
+	const worldAmbience = new WorldAmbience(WORLD_CONFIG.weather.cycleLengthInDayCycles);
 	const memorySystem = new MemorySystem();
 	const quirkSystem = new QuirkSystem();
 	const worldEventScheduler = new WorldEventScheduler();
-	const relationshipSystem = new RelationshipSystem(DEFAULT_WORLD_CONFIG.relationships.bickerChance);
+	const relationshipSystem = new RelationshipSystem(WORLD_CONFIG.relationships.bickerChance);
 
 	// ── Visual Feedback system ───────────────────────
 	// Lazy sprite cache — loads on first use, caches for subsequent calls
