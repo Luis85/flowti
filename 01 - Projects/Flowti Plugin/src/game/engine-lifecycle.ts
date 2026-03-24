@@ -10,6 +10,7 @@ import { join } from "node:path";
 import * as ex from "excalibur";
 import type { BlackboardManager } from "./systems/blackboard.js";
 import { resetToIdle } from "./systems/blackboard.js";
+import { DEFAULT_ROOM } from "./data/scene-configs.js";
 import type { BubbleSystem } from "./systems/bubble-system.js";
 import type { DirectorSystem } from "./systems/director-system.js";
 import type { EngagementSystem } from "./systems/engagement-system.js";
@@ -163,7 +164,7 @@ export async function startEngine(deps: StartEngineDeps): Promise<() => void> {
 	}
 
 	await engine.start();
-	void engine.goToScene("hub");
+	void engine.goToScene(DEFAULT_ROOM);
 
 	// Parallel asset loading — sprites, room elements, and data provider are independent
 	const ASSET_BASE = `${spriteBasePath}/assets/Actor/Characters/`;

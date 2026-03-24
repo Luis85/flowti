@@ -17,7 +17,7 @@
 
 import * as ex from "excalibur";
 import { GameScene } from "./scenes/game-scene.js";
-import { SCENE_CONFIGS } from "./data/scene-configs.js";
+import { SCENE_CONFIGS, ROOM_IDS, DEFAULT_ROOM } from "./data/scene-configs.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
 import { TalkEngine } from "./systems/talk/talk-engine.js";
 import type { DashboardAgent } from "./data/types.js";
@@ -322,7 +322,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	}
 
 	const registry = new SceneRegistry();
-	registry.setEntityRoom("npc-merchant", "hub");
+	registry.setEntityRoom("npc-merchant", DEFAULT_ROOM);
 
 	const btSystem = new BtSystem();
 	btSystem.onSnapshot = (name, snapshot) => store.updateBtTree(name, snapshot);
@@ -397,10 +397,9 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	/** Perf / Ask Bob monitor — `Scene.name` is not the `addScene` key in Excalibur; use instance identity. */
 	function getCurrentSceneIdForPerf(): string {
 		const cur = engine.currentScene;
-		if (cur === hubScene) return "hub";
-		if (cur === officeScene) return "office";
-		if (cur === villageScene) return "village";
-		if (cur === stationScene) return "station";
+		for (const [id, scene] of sceneEntries) {
+			if (cur === scene) return id;
+		}
 		const n = (cur as unknown as { name?: string })?.name;
 		return typeof n === "string" && n.length > 0 ? n : "unknown";
 	}
@@ -682,12 +681,8 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	interactionBootstrap.resolvers.entities.set("npc-merchant", merchantResolver);
 
 	// ── Room interaction resolvers ─────────────────────
-	const ROOM_CONFIGS = [
-		{ id: "room-hub", roomName: "hub", type: "break-room" },
-		{ id: "room-office", roomName: "office", type: "office" },
-		{ id: "room-village", roomName: "village", type: "village" },
-		{ id: "room-station", roomName: "station", type: "station" },
-	];
+	const ROOM_TYPE_MAP: Record<string, string> = { hub: "break-room", office: "office", village: "village", station: "station" };
+	const ROOM_CONFIGS = ROOM_IDS.map((id) => ({ id: `room-${id}`, roomName: id, type: ROOM_TYPE_MAP[id] ?? id }));
 	for (const roomCfg of ROOM_CONFIGS) {
 		const roomResolver = createRoomIntentResolver({
 			roomId: roomCfg.id,

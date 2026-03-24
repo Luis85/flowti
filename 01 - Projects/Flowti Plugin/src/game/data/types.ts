@@ -105,6 +105,7 @@ export interface DashboardData {
 	readonly projects: readonly { name: string; agents: string[] }[];
 }
 
-export type Setting = "office" | "village" | "station" | "hub";
+/** @deprecated Use RoomId from scene-configs.ts instead. */
+export type { RoomId as Setting } from "./scene-configs.js";
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";

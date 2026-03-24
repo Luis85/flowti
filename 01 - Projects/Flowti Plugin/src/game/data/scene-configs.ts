@@ -25,7 +25,16 @@ export interface GameSceneConfig {
 	readonly overlays?: readonly OverlayConfig[];
 }
 
-export const SCENE_CONFIGS: Record<string, GameSceneConfig> = {
+// ── Canonical room IDs — single source of truth ─────────────────
+// All room name references in the codebase should import from here.
+
+export const ROOM_IDS = ["hub", "office", "village", "station"] as const;
+export type RoomId = typeof ROOM_IDS[number];
+
+/** Default/fallback room when no room is specified. */
+export const DEFAULT_ROOM: RoomId = "hub";
+
+export const SCENE_CONFIGS: Record<RoomId, GameSceneConfig> = {
 	hub: {
 		id: "hub",
 		label: "Tavern",

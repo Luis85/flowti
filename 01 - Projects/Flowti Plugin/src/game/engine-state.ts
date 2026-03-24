@@ -15,6 +15,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { EngineContext } from "./engine-types.js";
 import { POSITION_FLUSH_INTERVAL } from "./engine-config.js";
+import { DEFAULT_ROOM } from "./data/scene-configs.js";
 import type { IEchoStore } from "./systems/echo/echo-types.js";
 import type { Echo } from "./systems/echo/echo-types.js";
 
@@ -151,7 +152,7 @@ function collectPositions(ctx: StateSystems): Record<string, SavedPosition> {
 		positions[name] = {
 			x: Math.round(bb.position.x),
 			y: Math.round(bb.position.y),
-			scene: ctx.registry.getEntityRoom(name) ?? "office",
+			scene: ctx.registry.getEntityRoom(name) ?? DEFAULT_ROOM,
 			state: bb.intent,
 		};
 	}
@@ -159,7 +160,7 @@ function collectPositions(ctx: StateSystems): Record<string, SavedPosition> {
 		positions[pet.entityId] = {
 			x: Math.round(pet.pos.x),
 			y: Math.round(pet.pos.y),
-			scene: ctx.registry.getEntityRoom(pet.entityId) ?? "hub",
+			scene: ctx.registry.getEntityRoom(pet.entityId) ?? DEFAULT_ROOM,
 			state: pet.getState(),
 			hunger: Math.round(pet.getHunger()),
 			thirst: Math.round(pet.getThirst()),

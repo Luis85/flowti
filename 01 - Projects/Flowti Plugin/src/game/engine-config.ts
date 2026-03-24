@@ -53,7 +53,9 @@ export const OBJECT_POSITIONS = {
 
 // ── Object-to-scene assignments ──────────────────────────────────────
 
-export const OBJECT_SCENE_ASSIGNMENTS = {
+import type { RoomId } from "./data/scene-configs.js";
+
+export const OBJECT_SCENE_ASSIGNMENTS: Record<string, RoomId> = {
 	coffeeMachine: "office",
 	whiteboard: "office",
 	snackTable: "village",
@@ -66,7 +68,7 @@ export const OBJECT_SCENE_ASSIGNMENTS = {
 	foodBowlVillage: "village",
 	waterBowlOffice: "office",
 	waterBowlStation: "station",
-} as const;
+};
 
 // ── Pet positions and room assignments ───────────────────────────────
 
@@ -96,7 +98,7 @@ export const DEFAULT_PET_ROOMS: Record<string, string> = {
 // ── Room offsets for social isolation ─────────────────────────────────
 
 /** Large positional offsets so agents in different rooms never appear "nearby". */
-export const ROOM_OFFSETS: Record<string, number> = {
+export const ROOM_OFFSETS: Record<RoomId, number> = {
 	hub: 0,
 	office: 10000,
 	village: 20000,

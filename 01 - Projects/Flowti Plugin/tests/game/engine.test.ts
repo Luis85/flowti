@@ -92,6 +92,8 @@ vi.mock("../../src/game/data/scene-configs.js", () => ({
 		village: { name: "village", bgColor: "#000" },
 		station: { name: "station", bgColor: "#000" },
 	},
+	ROOM_IDS: ["hub", "office", "village", "station"],
+	DEFAULT_ROOM: "hub",
 }));
 
 // ── Engine extraction mocks ─────────────────────────────────────────
@@ -130,6 +132,11 @@ vi.mock("../../src/game/engine-config.js", () => ({
 	BRAIN_BOUNDS: { x: 0, y: 0, width: 800, height: 500 },
 	PARTICLE_POOL_SIZE: 100,
 	DEFAULT_PET_ROOMS: {},
+	OBJECT_SCENE_ASSIGNMENTS: {
+		coffeeMachine: "office", whiteboard: "office", snackTable: "village", waterCooler: "village",
+		couch: "station", plant: "hub", noticeBoard: "hub", merchantStall: "hub",
+		foodBowlHub: "hub", foodBowlVillage: "village", waterBowlOffice: "office", waterBowlStation: "station",
+	},
 	AGENT_WAKE_DELAY: 100,
 	SCENE_TRANSITION_DURATION: 300,
 	LOADING_FADE_DURATION: 300,

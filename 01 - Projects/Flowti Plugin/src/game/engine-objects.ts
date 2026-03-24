@@ -18,7 +18,7 @@ import { FoodBowl } from "./actors/food-bowl.js";
 import { WaterBowl } from "./actors/water-bowl.js";
 import { PetActor } from "./actors/pet-actor.js";
 import { PET_DEFINITIONS } from "./data/pet-definitions.js";
-import { OBJECT_POSITIONS } from "./engine-config.js";
+import { OBJECT_POSITIONS, OBJECT_SCENE_ASSIGNMENTS } from "./engine-config.js";
 import type { SceneRegistry } from "./systems/scene-registry.js";
 
 // ── Environmental objects ────────────────────────────────────────────
@@ -70,18 +70,11 @@ export function createEnvironmentalObjects(): EnvironmentalObjects {
 
 /** Register all environmental objects in the scene registry. */
 export function registerEnvironmentalObjects(objects: EnvironmentalObjects, registry: SceneRegistry): void {
-	registry.registerObject(objects.coffeeMachine.objectId, "office", objects.coffeeMachine.objectType, objects.coffeeMachine.pos);
-	registry.registerObject(objects.whiteboard.objectId, "office", objects.whiteboard.objectType, objects.whiteboard.pos);
-	registry.registerObject(objects.snackTable.objectId, "village", objects.snackTable.objectType, objects.snackTable.pos);
-	registry.registerObject(objects.waterCooler.objectId, "village", objects.waterCooler.objectType, objects.waterCooler.pos);
-	registry.registerObject(objects.couch.objectId, "station", objects.couch.objectType, objects.couch.pos);
-	registry.registerObject(objects.plant.objectId, "hub", objects.plant.objectType, objects.plant.pos);
-	registry.registerObject(objects.noticeBoard.objectId, "hub", objects.noticeBoard.objectType, objects.noticeBoard.pos);
-	registry.registerObject(objects.merchantStall.objectId, "hub", objects.merchantStall.objectType, objects.merchantStall.pos);
-	registry.registerObject(objects.foodBowlHub.objectId, "hub", objects.foodBowlHub.objectType, objects.foodBowlHub.pos);
-	registry.registerObject(objects.foodBowlVillage.objectId, "village", objects.foodBowlVillage.objectType, objects.foodBowlVillage.pos);
-	registry.registerObject(objects.waterBowlOffice.objectId, "office", objects.waterBowlOffice.objectType, objects.waterBowlOffice.pos);
-	registry.registerObject(objects.waterBowlStation.objectId, "station", objects.waterBowlStation.objectType, objects.waterBowlStation.pos);
+	const assignments = OBJECT_SCENE_ASSIGNMENTS;
+	for (const [key, room] of Object.entries(assignments)) {
+		const obj = objects[key as keyof EnvironmentalObjects];
+		if (obj) registry.registerObject(obj.objectId, room, obj.objectType, obj.pos);
+	}
 }
 
 // ── Pets ─────────────────────────────────────────────────────────────

@@ -31,6 +31,7 @@ import type { PetSceneEntity } from "./actors/pet-scene-entity.js";
 import { assignOpinions } from "./data/opinion-topics.js";
 import { resolveSettingForDomain } from "./config/domain-map.js";
 import { DEFAULT_PET_ROOMS } from "./engine-config.js";
+import { DEFAULT_ROOM } from "./data/scene-configs.js";
 import type { DashboardStore } from "./store/dashboard-store.js";
 import { AgentSceneEntity } from "./actors/agent-scene-entity.js";
 import { resolveCharacter } from "./sprites/character-pool.js";
@@ -99,7 +100,9 @@ function registerSingleAgent(agent: DashboardAgent, sys: RegistrationSystems): v
 	sys.visualFeedback?.register(name, agent.quirks ?? []);
 
 	registerQuirksAndOpinions(agent, sys);
-	const btDeps = createBtDeps(sys.blackboards.get(name), sys.btClock);
+	const btDeps = createBtDeps(sys.blackboards.get(name), sys.btClock, {
+		applyNeedsEffect: (effect) => sys.needs.applyEffect(name, effect),
+	});
 	sys.bt.register(agent, btDeps, sys.quirk.getQuirks(agent.name));
 
 	// Wire interaction resolver + BT hooks
@@ -251,8 +254,8 @@ function placeAgentInRoom(
 	saved: SavedPosition | undefined,
 	ctx: PlacementContext,
 ): void {
-	if (targetRoom === "hub") {
-		ctx.registry.setEntityRoom(agent.name, "hub");
+	if (targetRoom === DEFAULT_ROOM) {
+		ctx.registry.setEntityRoom(agent.name, DEFAULT_ROOM);
 		if (saved) {
 			const actor = ctx.hubScene.getAgentActor(agent.name);
 			if (actor) { actor.pos.x = saved.x; actor.pos.y = saved.y; }
@@ -277,8 +280,8 @@ export function placePets(
 ): void {
 	for (const pet of ctx.pets) {
 		const saved = savedPositions?.[pet.entityId];
-		const targetRoom = saved?.scene ?? DEFAULT_PET_ROOMS[pet.entityId] ?? "hub";
-		const scene = targetRoom === "hub" ? ctx.hubScene : (ctx.roomScenes[targetRoom] ?? ctx.hubScene);
+		const targetRoom = saved?.scene ?? DEFAULT_PET_ROOMS[pet.entityId] ?? DEFAULT_ROOM;
+		const scene = targetRoom === DEFAULT_ROOM ? ctx.hubScene : (ctx.roomScenes[targetRoom] ?? ctx.hubScene);
 		const petEntity = ctx.allEntities.get(pet.entityId)!;
 
 		scene.enter(petEntity as SceneEntity, null);

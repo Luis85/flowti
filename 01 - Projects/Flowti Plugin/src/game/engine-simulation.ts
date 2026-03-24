@@ -203,6 +203,16 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 			return null;
 		},
 		getNearestMerchantStall: (name) => findNearestUnoccupiedStation(ctx, name, [ctx.envObjects.merchantStall]),
+		getWhimTarget: (name) => {
+			const bond = sys.echo.getStrongest(name, "bond");
+			if (!bond?.target || bond.weight <= 15) return null;
+			if (!sys.blackboards.has(bond.target)) return null;
+			const targetBb = sys.blackboards.get(bond.target);
+			const agentRoom = sys.registry.getEntityRoom(name);
+			const targetRoom = sys.registry.getEntityRoom(bond.target);
+			if (agentRoom !== targetRoom) return null;
+			return { x: targetBb.position.x, y: targetBb.position.y };
+		},
 		getWanderHint: (name) => {
 			const bondTarget = sys.echo.getStrongest(name, "bond");
 			if (!bondTarget?.target || Math.random() >= 0.4) return null;
@@ -408,7 +418,7 @@ export function tickPets(ctx: EngineContext): void {
 			// PetSceneEntity draws a proxy Actor; PetActor.pos is updated here. Without syncing,
 			// sprites stay at spawn until a room transfer recenters them at the door.
 			if (petRoom) {
-				const sceneForPet = ctx.scenes.map[petRoom] ?? (petRoom === "hub" ? ctx.scenes.hub : undefined);
+				const sceneForPet = ctx.scenes.map[petRoom];
 				if (sceneForPet === ctx.engine.currentScene) {
 					const wrapper = ctx.state.allEntities.get(pet.entityId);
 					if (wrapper instanceof PetSceneEntity) wrapper.syncVisual();
