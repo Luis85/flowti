@@ -15,7 +15,7 @@ export interface DispatcherDeps {
 	readonly emit: (event: string, data: unknown) => void;
 	readonly writeAgentEvent: (agentName: string, type: string, text: string) => void;
 	readonly sendToWorker: (agentName: string, message: string, opts?: { readonly task?: string }) => void;
-	readonly schedule: (fn: () => void, ms: number) => void;
+	readonly schedule: (fn: () => void, ms: number) => () => void;
 	readonly cooldownMs: number;
 	readonly maxRetries: number;
 }
@@ -28,6 +28,7 @@ export interface TaskDispatcher {
 	metrics(): DispatcherMetrics;
 	listQueue(): { readonly lane: string; readonly tasks: readonly TaskEntry[] }[];
 	listHistory(agentName?: string): readonly { readonly agentName: string; readonly taskId: string; readonly completedAt: number }[];
+	dispose(): void;
 }
 
 const PRIORITY_LANES: readonly TaskPriority[] = ["urgent", "high", "normal"];
@@ -42,6 +43,7 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 	let totalExecMs = 0;
 	const agentStats: Record<string, { completed: number; failed: number; totalExecMs: number; lastTaskAt: number }> = {};
 	const recentHistory: Array<{ agentName: string; taskId: string; completedAt: number }> = [];
+	const pendingTimers: Array<() => void> = [];
 
 	function isOnCooldown(name: string): boolean {
 		const expires = cooldowns.get(name);
@@ -77,11 +79,12 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 
 	function startCooldown(agentName: string): void {
 		cooldowns.set(agentName, deps.clock.ms() + deps.cooldownMs);
-		deps.schedule(() => {
+		const cancel = deps.schedule(() => {
 			cooldowns.delete(agentName);
 			deps.emit("agent:available", { agent: agentName });
 			drain();
 		}, deps.cooldownMs);
+		pendingTimers.push(cancel);
 	}
 
 	function drain(): void {
@@ -227,5 +230,10 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 		return [...recentHistory];
 	}
 
-	return { submit, drain, complete, fail, metrics, listQueue, listHistory };
+	function dispose(): void {
+		for (const cancel of pendingTimers) cancel();
+		pendingTimers.length = 0;
+	}
+
+	return { submit, drain, complete, fail, metrics, listQueue, listHistory, dispose };
 }

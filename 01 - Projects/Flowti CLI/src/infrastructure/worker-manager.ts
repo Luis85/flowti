@@ -210,13 +210,6 @@ export function createWorkerManager(
 
 		const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
 
-		// TODO(autonomy-bridge): trust-tier-based execution mode selection
-		// When opts.task is set, should branch on agent's TrustTier:
-		// - supervised → session.send with no tools
-		// - trusted → session.send with Read/Write tools
-		// - autonomous → agentShell.dispatch() for full workspace
-		// Deferred to follow-on: needs loadTrustProfile dep + IAgentShell injection
-
 		// Session path — reuse live session
 		if (worker.session?.alive) {
 			setWorkerState(worker, "thinking", worldState);

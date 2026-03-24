@@ -154,7 +154,7 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 			emit: () => {},
 			writeAgentEvent: () => {},
 			sendToWorker: (name, msg, opts) => workerManager.send(name, msg, opts),
-			schedule: (fn, ms) => { setTimeout(fn, ms); },
+			schedule: (fn: () => void, ms: number) => { const id = setTimeout(fn, ms); return () => clearTimeout(id); },
 			cooldownMs: agentsConfig.decayTimeoutMs ?? 15000,
 			maxRetries: 1,
 		}, agentNames);

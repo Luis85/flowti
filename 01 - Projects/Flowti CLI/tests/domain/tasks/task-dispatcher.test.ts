@@ -1,24 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createDispatcher } from "../../../src/domain/tasks/task-dispatcher.js";
-import type { TaskEntry } from "../../../src/domain/tasks/task-dispatcher-types.js";
-
-function makeTask(overrides: Partial<TaskEntry> = {}): TaskEntry {
-	return {
-		taskId: "task-001",
-		title: "Test task",
-		priority: "normal",
-		requiredCapabilities: [],
-		requiredAgentTier: "supervised",
-		taskTrustTier: "auto",
-		reward: { xp: 10, coin: 5 },
-		submittedAt: 1000,
-		source: "director",
-		retryCount: 0,
-		tags: [],
-		type: "one-off",
-		...overrides,
-	};
-}
+import { makeTask } from "./task-test-utils.js";
 
 function makeDeps(overrides: Record<string, unknown> = {}) {
 	return {
@@ -32,7 +14,7 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
 		emit: vi.fn(),
 		writeAgentEvent: vi.fn(),
 		sendToWorker: vi.fn(),
-		schedule: vi.fn().mockImplementation((fn: () => void, _ms: number) => setTimeout(fn, _ms)),
+		schedule: vi.fn().mockImplementation((fn: () => void, _ms: number) => { const id = setTimeout(fn, _ms); return () => clearTimeout(id); }),
 		cooldownMs: 15000,
 		maxRetries: 1,
 		...overrides,

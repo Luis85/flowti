@@ -1,24 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { scoreAgents, computeAffinity, type AgentInfo } from "../../../src/domain/tasks/task-scorer.js";
-import type { TaskEntry, TaskHistoryEntry } from "../../../src/domain/tasks/task-dispatcher-types.js";
-
-function makeTask(overrides: Partial<TaskEntry> = {}): TaskEntry {
-	return {
-		taskId: "task-001",
-		title: "Test task",
-		priority: "normal",
-		requiredCapabilities: [],
-		requiredAgentTier: "supervised",
-		taskTrustTier: "auto",
-		reward: { xp: 10, coin: 5 },
-		submittedAt: 1000,
-		source: "director",
-		retryCount: 0,
-		tags: [],
-		type: "one-off",
-		...overrides,
-	};
-}
+import type { TaskHistoryEntry } from "../../../src/domain/tasks/task-dispatcher-types.js";
+import { makeTask } from "./task-test-utils.js";
 
 function makeAgent(overrides: Partial<AgentInfo> = {}): AgentInfo {
 	return {
