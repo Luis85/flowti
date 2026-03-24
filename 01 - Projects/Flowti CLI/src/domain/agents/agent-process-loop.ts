@@ -308,15 +308,16 @@ function handleBtAction(deps: AgentProcessLoopDeps, msg: BtActionInput): void {
 
 	// Route through task dispatcher when available
 	if (deps.dispatcher) {
+		const now = deps.clock.ms();
 		deps.dispatcher.submit({
-			taskId: `bt-${deps.clock.ms()}`,
+			taskId: `bt-${now}`,
 			title: subject,
 			priority: "normal",
 			requiredCapabilities: [],
 			requiredAgentTier: "supervised",
 			taskTrustTier: "auto",
 			reward: { xp: 10, coin: 5 },
-			submittedAt: deps.clock.ms(),
+			submittedAt: now,
 			source: "bt-action",
 			targetAgent: deps.agentName,
 			retryCount: 0,

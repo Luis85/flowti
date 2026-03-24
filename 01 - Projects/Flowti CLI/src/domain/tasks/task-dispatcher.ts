@@ -1,7 +1,8 @@
 import { scoreAgents, type AgentInfo } from "./task-scorer.js";
-import type { TaskEntry, TaskHistoryEntry, DispatcherMetrics, TaskPriorityLane } from "./task-dispatcher-types.js";
+import type { TaskEntry, TaskHistoryEntry, DispatcherMetrics } from "./task-dispatcher-types.js";
 import type { AgentTrustProfile } from "../trust/trust-types.js";
 import type { WorkerState } from "../agents/worker-types.js";
+import type { TaskStatus, TaskPriority } from "./task-types.js";
 
 export interface DispatcherDeps {
 	readonly clock: { ms(): number; iso(): string; safeIso(): string };
@@ -9,11 +10,12 @@ export interface DispatcherDeps {
 	readonly getAgentCapabilities: (agentName: string) => readonly string[];
 	readonly getTaskHistory: (agentName: string) => readonly TaskHistoryEntry[];
 	readonly getWorkerState: (agentName: string) => WorkerState;
-	readonly updateTaskStatus: (taskId: string, status: string) => void;
+	readonly updateTaskStatus: (taskId: string, status: TaskStatus) => void;
 	readonly awardReward: (agentName: string, reward: { readonly xp: number; readonly coin: number }) => void;
 	readonly emit: (event: string, data: unknown) => void;
 	readonly writeAgentEvent: (agentName: string, type: string, text: string) => void;
 	readonly sendToWorker: (agentName: string, message: string, opts?: { readonly task?: string }) => void;
+	readonly schedule: (fn: () => void, ms: number) => void;
 	readonly cooldownMs: number;
 	readonly maxRetries: number;
 }
@@ -28,14 +30,16 @@ export interface TaskDispatcher {
 	listHistory(agentName?: string): readonly { readonly agentName: string; readonly taskId: string; readonly completedAt: number }[];
 }
 
+const PRIORITY_LANES: readonly TaskPriority[] = ["urgent", "high", "normal"];
+
 export function createDispatcher(deps: DispatcherDeps, agentNames: readonly string[]): TaskDispatcher {
-	const queues: Record<TaskPriorityLane, TaskEntry[]> = { urgent: [], high: [], normal: [] };
+	const queues: Record<TaskPriority, TaskEntry[]> = { urgent: [], high: [], normal: [] };
 	const cooldowns = new Map<string, number>();
-	const assignments = new Map<string, TaskEntry>();
-	const completionTimes: number[] = [];
-	const waitTimes: number[] = [];
+	const assignments = new Map<string, { task: TaskEntry; assignedAt: number }>();
 	let tasksCompleted = 0;
 	let tasksFailed = 0;
+	let totalWaitMs = 0;
+	let totalExecMs = 0;
 	const agentStats: Record<string, { completed: number; failed: number; totalExecMs: number; lastTaskAt: number }> = {};
 	const recentHistory: Array<{ agentName: string; taskId: string; completedAt: number }> = [];
 
@@ -54,7 +58,7 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 			const profile = deps.loadTrustProfile(name);
 			return {
 				name,
-				capabilities: [...deps.getAgentCapabilities(name)],
+				capabilities: deps.getAgentCapabilities(name),
 				trustTier: profile?.tier ?? "supervised",
 				workerState: deps.getWorkerState(name),
 				onCooldown: isOnCooldown(name),
@@ -64,7 +68,7 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 	}
 
 	function assign(agentName: string, task: TaskEntry): void {
-		assignments.set(agentName, task);
+		assignments.set(agentName, { task, assignedAt: deps.clock.ms() });
 		deps.updateTaskStatus(task.taskId, "assigned");
 		deps.emit("task:assigned", { agent: agentName, task });
 		deps.writeAgentEvent(agentName, "task-started", task.title);
@@ -73,7 +77,7 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 
 	function startCooldown(agentName: string): void {
 		cooldowns.set(agentName, deps.clock.ms() + deps.cooldownMs);
-		setTimeout(() => {
+		deps.schedule(() => {
 			cooldowns.delete(agentName);
 			deps.emit("agent:available", { agent: agentName });
 			drain();
@@ -81,16 +85,19 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 	}
 
 	function drain(): void {
-		const lanes: TaskPriorityLane[] = ["urgent", "high", "normal"];
-		for (const lane of lanes) {
+		const agents = buildAgentInfos();
+		const assignedThisPass = new Set<string>();
+
+		for (const lane of PRIORITY_LANES) {
 			while (queues[lane].length > 0) {
 				const task = queues[lane][0];
-				const agents = buildAgentInfos();
+				const available = agents.filter((a) => !assignedThisPass.has(a.name));
 				const winner = task.targetAgent
-					? agents.find((a) => a.name === task.targetAgent && a.workerState === "idle" && !a.onCooldown) ?? null
-					: scoreAgents(agents, task);
+					? available.find((a) => a.name === task.targetAgent && a.workerState === "idle" && !a.onCooldown) ?? null
+					: scoreAgents(available, task);
 
 				if (!winner) break;
+				assignedThisPass.add(winner.name);
 				queues[lane].shift();
 				assign(winner.name, task);
 			}
@@ -116,13 +123,16 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 	}
 
 	function complete(agentName: string, taskId: string, result: string): void {
-		const task = assignments.get(agentName);
+		const now = deps.clock.ms();
+		const entry = assignments.get(agentName);
 		assignments.delete(agentName);
 
-		if (task) {
-			const execMs = deps.clock.ms() - task.submittedAt;
-			waitTimes.push(execMs);
-			completionTimes.push(execMs);
+		if (entry) {
+			const { task, assignedAt } = entry;
+			const waitMs = assignedAt - task.submittedAt;
+			const execMs = now - assignedAt;
+			totalWaitMs += waitMs;
+			totalExecMs += execMs;
 
 			if (task.taskTrustTier === "auto") {
 				deps.updateTaskStatus(taskId, "completed");
@@ -137,9 +147,9 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 			}
 			agentStats[agentName].completed++;
 			agentStats[agentName].totalExecMs += execMs;
-			agentStats[agentName].lastTaskAt = deps.clock.ms();
+			agentStats[agentName].lastTaskAt = now;
 
-			recentHistory.push({ agentName, taskId, completedAt: deps.clock.ms() });
+			recentHistory.push({ agentName, taskId, completedAt: now });
 			if (recentHistory.length > 100) recentHistory.shift();
 		}
 
@@ -149,7 +159,7 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 	}
 
 	function fail(agentName: string, taskId: string, error: string): void {
-		const task = assignments.get(agentName);
+		const task = assignments.get(agentName)?.task;
 		assignments.delete(agentName);
 
 		deps.updateTaskStatus(taskId, "failed");
@@ -174,9 +184,6 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 			deps.getWorkerState(n) === "idle" && !isOnCooldown(n) && !assignments.has(n),
 		).length;
 
-		const avgWait = waitTimes.length > 0 ? waitTimes.reduce((a, b) => a + b, 0) / waitTimes.length : 0;
-		const avgExec = completionTimes.length > 0 ? completionTimes.reduce((a, b) => a + b, 0) / completionTimes.length : 0;
-
 		const statsOut: DispatcherMetrics["agentStats"] = {};
 		for (const [name, s] of Object.entries(agentStats)) {
 			statsOut[name] = {
@@ -198,14 +205,14 @@ export function createDispatcher(deps: DispatcherDeps, agentNames: readonly stri
 			agentsIdle: idleCount,
 			tasksCompleted,
 			tasksFailed,
-			avgWaitTimeMs: avgWait,
-			avgExecutionTimeMs: avgExec,
+			avgWaitTimeMs: tasksCompleted > 0 ? totalWaitMs / tasksCompleted : 0,
+			avgExecutionTimeMs: tasksCompleted > 0 ? totalExecMs / tasksCompleted : 0,
 			agentStats: statsOut,
 		};
 	}
 
 	function listQueue() {
-		return (["urgent", "high", "normal"] as const).map((lane) => ({
+		return PRIORITY_LANES.map((lane) => ({
 			lane,
 			tasks: [...queues[lane]],
 		}));

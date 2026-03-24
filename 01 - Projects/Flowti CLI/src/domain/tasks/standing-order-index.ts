@@ -49,15 +49,16 @@ export function buildEntriesFromMatches(
 	matches: readonly IndexedOrder[],
 	clock: { ms(): number },
 ): TaskEntry[] {
+	const now = clock.ms();
 	return matches.map((order, i) => ({
-		taskId: `so-${clock.ms()}-${i}`,
+		taskId: `so-${now}-${i}`,
 		title: `Standing order: ${order.watchEvent} on ${order.watchFolder}`,
 		priority: "normal" as const,
 		requiredCapabilities: [],
 		requiredAgentTier: "supervised" as const,
 		taskTrustTier: "auto" as const,
 		reward: { xp: 10, coin: 5 },
-		submittedAt: clock.ms(),
+		submittedAt: now,
 		source: "standing-order" as const,
 		targetAgent: order.assignee || undefined,
 		retryCount: 0,

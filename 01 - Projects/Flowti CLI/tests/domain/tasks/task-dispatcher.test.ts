@@ -32,6 +32,7 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
 		emit: vi.fn(),
 		writeAgentEvent: vi.fn(),
 		sendToWorker: vi.fn(),
+		schedule: vi.fn().mockImplementation((fn: () => void, _ms: number) => setTimeout(fn, _ms)),
 		cooldownMs: 15000,
 		maxRetries: 1,
 		...overrides,

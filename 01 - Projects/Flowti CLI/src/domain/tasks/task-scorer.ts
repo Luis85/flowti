@@ -37,17 +37,19 @@ export function scoreAgents(
 	agents: readonly AgentInfo[],
 	task: TaskEntry,
 ): AgentInfo | null {
-	const capSet = new Set(task.requiredCapabilities);
 	const requiredTierLevel = TIER_ORDER[task.requiredAgentTier];
-
 	const candidates: Array<{ agent: AgentInfo; affinity: number }> = [];
 
 	for (const agent of agents) {
-		if ([...capSet].some((c) => !agent.capabilities.includes(c))) continue;
+		let missingCap = false;
+		for (const c of task.requiredCapabilities) {
+			if (!agent.capabilities.includes(c)) { missingCap = true; break; }
+		}
+		if (missingCap) continue;
 		if (TIER_ORDER[agent.trustTier] < requiredTierLevel) continue;
 		if (agent.workerState !== "idle" || agent.onCooldown) continue;
 
-		const affinity = computeAffinity(agent.history, [...task.tags], task.type);
+		const affinity = computeAffinity(agent.history, task.tags, task.type);
 		candidates.push({ agent, affinity });
 	}
 

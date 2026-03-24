@@ -12,9 +12,12 @@ import { taskStore } from "../domain/tasks/task-store.js";
 import { canTransition } from "../domain/tasks/task-lifecycle.js";
 import { readLedger, writeLedger, creditReward, appendTransaction } from "../domain/economy/economy-ledger.js";
 import { renderTaskList, renderTaskCreated, renderTaskUpdated, renderTaskReview, renderTaskApproved, renderTaskRejected, renderStandingOrders } from "../ui/displays/task-display.js";
-import type { TaskDispatcher } from "../domain/tasks/task-dispatcher.js";
 import { renderDispatchStatus, renderDispatchMetrics, renderDispatchQueue, renderDispatchHistory } from "../ui/displays/dispatch-display.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
+
+function getDispatcher(deps: CliDeps) {
+	return deps.dispatcher ?? null;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -216,7 +219,7 @@ export const commands: Record<string, CommandHandler> = {
 
 	"dispatch:status": adaptDescriptor({
 		handler: (ctx) => {
-			const dispatcher = (ctx.deps as CliDeps & { dispatcher?: TaskDispatcher }).dispatcher;
+			const dispatcher = getDispatcher(ctx.deps);
 			if (!dispatcher) return { error: "Dispatcher not initialized" };
 			return { ...dispatcher.metrics() };
 		},
@@ -225,7 +228,7 @@ export const commands: Record<string, CommandHandler> = {
 
 	"dispatch:metrics": adaptDescriptor({
 		handler: (ctx) => {
-			const dispatcher = (ctx.deps as CliDeps & { dispatcher?: TaskDispatcher }).dispatcher;
+			const dispatcher = getDispatcher(ctx.deps);
 			if (!dispatcher) return { error: "Dispatcher not initialized" };
 			return { ...dispatcher.metrics() };
 		},
@@ -234,7 +237,7 @@ export const commands: Record<string, CommandHandler> = {
 
 	"dispatch:queue": adaptDescriptor({
 		handler: (ctx) => {
-			const dispatcher = (ctx.deps as CliDeps & { dispatcher?: TaskDispatcher }).dispatcher;
+			const dispatcher = getDispatcher(ctx.deps);
 			if (!dispatcher) return { error: "Dispatcher not initialized" };
 			return { lanes: dispatcher.listQueue() };
 		},
@@ -244,7 +247,7 @@ export const commands: Record<string, CommandHandler> = {
 	"dispatch:history": adaptDescriptor({
 		flags: { agent: { type: "string", default: "", hint: "--agent=<name>" } },
 		handler: (ctx) => {
-			const dispatcher = (ctx.deps as CliDeps & { dispatcher?: TaskDispatcher }).dispatcher;
+			const dispatcher = getDispatcher(ctx.deps);
 			if (!dispatcher) return { error: "Dispatcher not initialized" };
 			const agentName = (ctx.flags.agent as string) || undefined;
 			return { entries: dispatcher.listHistory(agentName) };

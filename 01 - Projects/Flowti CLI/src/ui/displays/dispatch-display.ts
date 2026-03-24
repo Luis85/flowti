@@ -1,7 +1,9 @@
-import type { DispatcherMetrics } from "../../domain/tasks/task-dispatcher-types.js";
-import type { TaskEntry } from "../../domain/tasks/task-dispatcher-types.js";
+import type { DispatcherMetrics, TaskEntry } from "../../domain/tasks/task-dispatcher-types.js";
 
-export function renderDispatchStatus(data: Record<string, unknown>, log: (msg?: string) => void): void {
+type LogFn = (msg?: string) => void;
+type DataModel = Record<string, unknown>;
+
+export function renderDispatchStatus(data: DataModel, log: LogFn): void {
 	if (data.error) { log(data.error as string); return; }
 	const m = data as unknown as DispatcherMetrics;
 	log("Dispatch Status");
@@ -9,7 +11,7 @@ export function renderDispatchStatus(data: Record<string, unknown>, log: (msg?: 
 	log(`  Active: ${m.activeAssignments}  Cooldown: ${m.agentsOnCooldown}  Idle: ${m.agentsIdle}`);
 }
 
-export function renderDispatchMetrics(data: Record<string, unknown>, log: (msg?: string) => void): void {
+export function renderDispatchMetrics(data: DataModel, log: LogFn): void {
 	if (data.error) { log(data.error as string); return; }
 	const m = data as unknown as DispatcherMetrics;
 	log("Dispatch Metrics");
@@ -23,7 +25,7 @@ export function renderDispatchMetrics(data: Record<string, unknown>, log: (msg?:
 	}
 }
 
-export function renderDispatchQueue(data: Record<string, unknown>, log: (msg?: string) => void): void {
+export function renderDispatchQueue(data: DataModel, log: LogFn): void {
 	if (data.error) { log(data.error as string); return; }
 	const lanes = data.lanes as { lane: string; tasks: TaskEntry[] }[];
 	log("Dispatch Queue");
@@ -38,7 +40,7 @@ export function renderDispatchQueue(data: Record<string, unknown>, log: (msg?: s
 	if (total === 0) log("  (empty)");
 }
 
-export function renderDispatchHistory(data: Record<string, unknown>, log: (msg?: string) => void): void {
+export function renderDispatchHistory(data: DataModel, log: LogFn): void {
 	if (data.error) { log(data.error as string); return; }
 	const entries = data.entries as { agentName: string; taskId: string; completedAt: number }[];
 	log("Recent Completions");

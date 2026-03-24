@@ -1,13 +1,12 @@
 import type { TrustTier } from "../trust/trust-types.js";
-import type { TaskTrustTier } from "./task-types.js";
+import type { TaskTrustTier, TaskPriority } from "./task-types.js";
 
-export type TaskPriorityLane = "urgent" | "high" | "normal";
 export type TaskSource = "standing-order" | "bt-action" | "director" | "self-proposed" | "delegated";
 
 export interface TaskEntry {
 	readonly taskId: string;
 	readonly title: string;
-	readonly priority: TaskPriorityLane;
+	readonly priority: TaskPriority;
 	readonly requiredCapabilities: readonly string[];
 	readonly requiredAgentTier: TrustTier;
 	readonly taskTrustTier: TaskTrustTier;
@@ -24,21 +23,6 @@ export interface TaskHistoryEntry {
 	readonly tags: readonly string[];
 	readonly type: string;
 	readonly assignee: string;
-}
-
-export interface AgentScore {
-	readonly name: string;
-	readonly capable: boolean;
-	readonly trustMet: boolean;
-	readonly affinityScore: number;
-	readonly idle: boolean;
-	readonly onCooldown: boolean;
-}
-
-export interface DispatcherQueues {
-	readonly urgent: TaskEntry[];
-	readonly high: TaskEntry[];
-	readonly normal: TaskEntry[];
 }
 
 export interface DispatcherMetrics {
