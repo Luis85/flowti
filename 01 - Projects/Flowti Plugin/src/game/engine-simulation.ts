@@ -182,23 +182,42 @@ export function tickBlackboardSensors(ctx: EngineContext): void {
 			return findNearestUnoccupiedStation(ctx, name, candidates);
 		},
 		getNearestWorkstation: (name) => {
-			// Delegate to scene workstation resolver
-			for (const room of Object.values(ctx.scenes.map)) {
+			let agentPos: { x: number; y: number } | null = null;
+			let agentRoomId: string | null = null;
+
+			// Find agent position and room
+			for (const [roomId, room] of Object.entries(ctx.scenes.map)) {
 				const actor = room.getAgentActor(name);
-				if (!actor) continue;
-				const workstations = room.getWorkstations();
-				let nearest: { x: number; y: number } | null = null;
-				let minDist = Infinity;
-				for (const ws of workstations) {
+				if (actor) { agentPos = { x: actor.pos.x, y: actor.pos.y }; agentRoomId = roomId; break; }
+			}
+			if (!agentPos) return null;
+
+			// First pass: same-room workstations
+			let nearest: { x: number; y: number } | null = null;
+			let minDist = Infinity;
+			const sameRoom = ctx.scenes.map[agentRoomId!];
+			if (sameRoom) {
+				for (const ws of sameRoom.getWorkstations()) {
 					if (ws.occupied) continue;
-					const dx = ws.pos.x - actor.pos.x;
-					const dy = ws.pos.y - actor.pos.y;
+					const dx = ws.pos.x - agentPos.x;
+					const dy = ws.pos.y - agentPos.y;
 					const dist = dx * dx + dy * dy;
 					if (dist < minDist) { minDist = dist; nearest = { x: ws.pos.x, y: ws.pos.y }; }
 				}
-				return nearest;
 			}
-			return null;
+			if (nearest) return nearest;
+
+			// Fallback: workstations in any room
+			for (const room of Object.values(ctx.scenes.map)) {
+				for (const ws of room.getWorkstations()) {
+					if (ws.occupied) continue;
+					const dx = ws.pos.x - agentPos.x;
+					const dy = ws.pos.y - agentPos.y;
+					const dist = dx * dx + dy * dy;
+					if (dist < minDist) { minDist = dist; nearest = { x: ws.pos.x, y: ws.pos.y }; }
+				}
+			}
+			return nearest;
 		},
 		getNearestMerchantStall: (name) => {
 			const stalls = sys.registry.getInteractablesOfType("shop");
@@ -254,6 +273,17 @@ function findNearestUnoccupiedStation(ctx: EngineContext, agentName: string, can
 		if (!station || station.isOccupied()) continue;
 		const stationRoom = ctx.systems.registry.getObjectRoom(station.objectId);
 		if (stationRoom && stationRoom !== agentRoom) continue;
+		const point = station.getInteractionPoint();
+		const dx = point.x - agentPos.x;
+		const dy = point.y - agentPos.y;
+		const dist = dx * dx + dy * dy;
+		if (dist < minDist) { minDist = dist; nearest = point; }
+	}
+	if (nearest) return nearest;
+
+	// Fallback: find nearest station in any room
+	for (const station of candidates) {
+		if (!station || station.isOccupied()) continue;
 		const point = station.getInteractionPoint();
 		const dx = point.x - agentPos.x;
 		const dy = point.y - agentPos.y;
