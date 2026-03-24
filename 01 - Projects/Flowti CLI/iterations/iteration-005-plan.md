@@ -154,14 +154,14 @@ LLM session lifecycle must be decoupled from user selection. The brain/BT must b
 
 **Vision:** CLI is the orchestrator, Plugin is the UI on top. CLI bundled with Plugin on build.
 
-#### C0: Plugin Hardening
-- [ ] Harden Plugin view lifecycle (edge cases, error recovery, graceful degradation)
+#### C0: Plugin Hardening — DONE (verified 2026-03-24)
+- [x] Harden Plugin view lifecycle (edge cases, error recovery, graceful degradation)
 
 #### ~~C1: TUI Regression Fix~~ — DROPPED (TUI removed by design, Plugin is sole UI)
 
 #### ~~C2: CLI Bundling~~ — DROPPED (infrastructure, deferred to next iteration)
 
-#### C3: Flowti CLI View (Main Entry Point)
+#### ~~C3: Flowti CLI View (Main Entry Point)~~ — DEFERRED to Iteration 6 (multi-week scope, 4 days remaining)
 - [ ] Dedicated Flowti CLI View in Obsidian — main user interface for CLI
 - [ ] CLI Hub tab — easy-to-access features, primary entry point
 - [ ] Raw terminal tab — emulates terminal for direct CLI interaction
@@ -169,7 +169,7 @@ LLM session lifecycle must be decoupled from user selection. The brain/BT must b
 - [ ] Projects Hub tab — project management, build, test, reports
 - [ ] Plugin can execute ALL CLI functions and display output in this view
 
-#### C4: Skill Execution from Plugin — STRETCH GOAL
+#### ~~C4: Skill Execution from Plugin~~ — DEFERRED to Iteration 6
 - [ ] Ribbon icon / button to launch skill picker
 - [ ] Skill picker lists available skills from agent roster / skill map
 - [ ] CLI-Plugin bidirectional streaming (LLM output → Plugin, user input → CLI)
@@ -225,6 +225,7 @@ B10: Setting Themes (parallel with B4+)
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-24 | in-progress | in-progress | Three Amigos review #2 — C0 done, C3+C4 formally deferred to Iteration 6, priority: live testing → B gaps → E (attempt), data export AC under review |
 | 2026-03-22 | in-progress | in-progress | Three Amigos review — Phase D marked done, Phase E stays in scope, deferred stretch goals + C4 to Iteration 6, prioritized live testing → E → B gaps → C0 → C3 |
 | 2026-03-20 | in-progress | in-progress | Increment review #2 — Phase A + Storybook accepted, Phase B accepted-with-notes (needs polish), G1-G6 carry over for design, Cursor CLI integration requirement filed |
 | 2026-03-17 | in-review | in-progress | Increment review — 0/3 phases accepted, added Phase C (CLI-Plugin integration), 2 critical bugs filed |
