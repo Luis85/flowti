@@ -5,6 +5,7 @@
  * and scene references. Replaces scattered maps in engine.ts.
  */
 
+import type { InteractableActor } from "../actors/interactable-actor.js";
 import type { SceneEntity } from "../data/scene-entity.js";
 
 export interface ObjectEntry {
@@ -12,6 +13,7 @@ export interface ObjectEntry {
 	readonly room: string;
 	readonly type: string;
 	readonly position: { readonly x: number; readonly y: number };
+	actor?: InteractableActor;
 }
 
 export interface DoorConfig {
@@ -111,6 +113,17 @@ export class SceneRegistry {
 
 	getObjectsInRoom(room: string): ObjectEntry[] {
 		return this.objects.filter((o) => o.room === room);
+	}
+
+	registerInteractable(id: string, actor: InteractableActor): void {
+		const entry = this.objects.find((o) => o.id === id);
+		if (entry) entry.actor = actor;
+	}
+
+	getInteractablesOfType(type: string, room?: string): InteractableActor[] {
+		return this.objects
+			.filter((o) => o.type === type && (!room || o.room === room) && o.actor)
+			.map((o) => o.actor!);
 	}
 
 	// ── Scene access ─────────────────────────────────────
