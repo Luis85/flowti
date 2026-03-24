@@ -25,13 +25,14 @@ import type { AgentBlackboard, BlackboardManager } from "./blackboard.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
-export const BT_TICK_INTERVAL_MS = 3000;
-const BT_TICK_MIN_MS = 2500;
-const BT_TICK_MAX_MS = 4000;
+import { DEFAULT_WORLD_CONFIG } from "../data/world-config.js";
+
+export const BT_TICK_INTERVAL_MS = DEFAULT_WORLD_CONFIG.behavior.btTickMinMs;
 export const PET_TICK_INTERVAL_MS = 1000;
 
 function randomTickInterval(): number {
-	return BT_TICK_MIN_MS + Math.random() * (BT_TICK_MAX_MS - BT_TICK_MIN_MS);
+	const { btTickMinMs, btTickMaxMs } = DEFAULT_WORLD_CONFIG.behavior;
+	return btTickMinMs + Math.random() * (btTickMaxMs - btTickMinMs);
 }
 
 // ── Per-agent entry ──────────────────────────────────────────────────

@@ -153,6 +153,32 @@ export interface RelationshipsConfig {
 	readonly maxSharedMemories: number;
 }
 
+/** Agent behavior tuning — movement pacing, idle rhythm, decision timing. */
+export interface BehaviorConfig {
+	/** Base idle time (ms) before wandering. Scaled by CON attribute. */
+	readonly idleResistanceBase: number;
+	/** Additional idle time (ms) scaled by CON/20. */
+	readonly idleResistanceCONScale: number;
+	/** Minimum BT tick interval (ms). */
+	readonly btTickMinMs: number;
+	/** Maximum BT tick interval (ms). */
+	readonly btTickMaxMs: number;
+	/** Minimum wander distance (px) from current position. */
+	readonly minWanderDistance: number;
+	/** Idle pose timer range per style (ms). */
+	readonly idleTimers: {
+		readonly fidgety: { readonly min: number; readonly max: number };
+		readonly calm: { readonly min: number; readonly max: number };
+		readonly restless: { readonly min: number; readonly max: number };
+	};
+	/** Movement speed multipliers by style. */
+	readonly speedMap: {
+		readonly deliberate: number;
+		readonly brisk: number;
+		readonly darting: number;
+	};
+}
+
 /** Top-level configuration bag for all Agent World systems. */
 export interface WorldConfig {
 	readonly needs: NeedsConfig;
@@ -164,6 +190,7 @@ export interface WorldConfig {
 	readonly dayCycle: DayCycleConfig;
 	readonly weather: WeatherWorldConfig;
 	readonly relationships: RelationshipsConfig;
+	readonly behavior: BehaviorConfig;
 }
 
 /** Sensible defaults for all WorldConfig values. */
@@ -232,6 +259,23 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 		bickerChance: 0.3,
 		maxSharedMemories: 5,
 	},
+	behavior: {
+		idleResistanceBase: 8000,
+		idleResistanceCONScale: 12000,
+		btTickMinMs: 4000,
+		btTickMaxMs: 6000,
+		minWanderDistance: 150,
+		idleTimers: {
+			fidgety:  { min: 5000, max: 9000 },
+			calm:     { min: 12000, max: 20000 },
+			restless: { min: 8000, max: 14000 },
+		},
+		speedMap: {
+			deliberate: 0.7,
+			brisk: 1.0,
+			darting: 1.4,
+		},
+	},
 };
 
 /** Merge needs config, including nested decay sub-objects. */
@@ -297,6 +341,24 @@ export function mergeWorldConfig(overrides: DeepPartial<WorldConfig>): WorldConf
 		dayCycle: { ...DEFAULT_WORLD_CONFIG.dayCycle, ...overrides.dayCycle },
 		weather: { ...DEFAULT_WORLD_CONFIG.weather, ...overrides.weather },
 		relationships: { ...DEFAULT_WORLD_CONFIG.relationships, ...overrides.relationships },
+		behavior: mergeBehavior(overrides.behavior),
+	};
+}
+
+function mergeBehavior(overrides: DeepPartial<BehaviorConfig> | undefined): BehaviorConfig {
+	const base = DEFAULT_WORLD_CONFIG.behavior;
+	return {
+		idleResistanceBase: overrides?.idleResistanceBase ?? base.idleResistanceBase,
+		idleResistanceCONScale: overrides?.idleResistanceCONScale ?? base.idleResistanceCONScale,
+		btTickMinMs: overrides?.btTickMinMs ?? base.btTickMinMs,
+		btTickMaxMs: overrides?.btTickMaxMs ?? base.btTickMaxMs,
+		minWanderDistance: overrides?.minWanderDistance ?? base.minWanderDistance,
+		idleTimers: {
+			fidgety:  { ...base.idleTimers.fidgety,  ...overrides?.idleTimers?.fidgety },
+			calm:     { ...base.idleTimers.calm,     ...overrides?.idleTimers?.calm },
+			restless: { ...base.idleTimers.restless, ...overrides?.idleTimers?.restless },
+		},
+		speedMap: { ...base.speedMap, ...overrides?.speedMap },
 	};
 }
 

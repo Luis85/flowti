@@ -72,7 +72,9 @@ export function resolveAgentTarget(
 	return null;
 }
 
-const MIN_WANDER_DISTANCE = 100;
+import { DEFAULT_WORLD_CONFIG } from "../data/world-config.js";
+
+const MIN_WANDER_DISTANCE = DEFAULT_WORLD_CONFIG.behavior.minWanderDistance;
 
 /** Resolve an idle target based on personality habits. Priority: social → focus → wander. */
 export function resolveIdleTarget(
