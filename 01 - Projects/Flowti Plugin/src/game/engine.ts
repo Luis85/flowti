@@ -69,6 +69,7 @@ import { BtSystem } from "./systems/bt-system.js";
 import { createPetBT } from "./brain/behavior-tree/pet-bt.js";
 import { createPets, getPetBTPairs } from "./engine-pets.js";
 import { createAllSceneObjects } from "./systems/scene-object-factory.js";
+import type { SceneObjectConfig } from "./data/scene-object-schema.js";
 import sceneObjectsConfig from "../../configs/scene-objects.json";
 import { DEFAULT_WORLD_CONFIG } from "./data/world-config.js";
 import { SceneRegistry } from "./systems/scene-registry.js";
@@ -391,7 +392,7 @@ export function createAgentWorld(deps: AgentWorldDeps): AgentWorldHandle {
 	for (const room of Object.values(roomScenes)) room.setBlackboards(blackboardManager);
 
 	// ── Environmental objects (declarative) ──────────────
-	const objectMap = createAllSceneObjects(sceneObjectsConfig.objects as import("./data/scene-object-schema.js").SceneObjectConfig[], {
+	const objectMap = createAllSceneObjects(sceneObjectsConfig.objects as SceneObjectConfig[], {
 		registry,
 		scenes: { hub: hubScene, office: officeScene, village: villageScene, station: stationScene },
 		engine,

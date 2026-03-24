@@ -3,7 +3,7 @@
 	"objects": [
 		{
 			"id": "coffee-machine",
-			"type": "energy",
+			"type": "drink",
 			"room": "office",
 			"position": { "x": 680, "y": 120 },
 			"size": { "width": 32, "height": 40 },
