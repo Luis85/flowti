@@ -10,7 +10,12 @@ Adding a new interactive object to the game world requires touching 5+ files: a 
 
 ## Goal
 
-A single JSON config file (`configs/scene-objects.json`) declares all interactive objects. The engine reads it at startup and creates, registers, and places objects automatically. Adding a new object = one JSON entry + optionally one draw function. No TypeScript interface changes, no test updates.
+A single JSON config file (`configs/scene-objects.json`) declares all interactive objects. The engine reads it at startup and creates, registers, and places objects automatically. Adding a new object = one JSON entry + optionally one draw function.
+
+## Scope
+
+- **In scope**: All 15 interactive `InteractableActor` instances created from 10 actor classes
+- **Out of scope**: WorkstationActors (already declarative via scene config), PetActors (separate lifecycle), AgentActors (created from agent definitions), DoorwayActors (navigation infrastructure)
 
 ## Architecture
 
@@ -27,8 +32,19 @@ A single JSON config file (`configs/scene-objects.json`) declares all interactiv
       "room": "hub",
       "position": { "x": 200, "y": 380 },
       "size": { "width": 32, "height": 32 },
+      "interactionOffset": { "x": 0, "y": 20 },
       "needsEffects": { "hunger": 30 },
       "graphic": "food-bowl"
+    },
+    {
+      "id": "coffee-machine",
+      "type": "energy",
+      "room": "office",
+      "position": { "x": 680, "y": 120 },
+      "size": { "width": 32, "height": 40 },
+      "interactionOffset": { "x": 0, "y": 24 },
+      "needsEffects": { "energy": 15, "focus": 5, "thirst": 20 },
+      "graphic": "coffee-machine"
     },
     {
       "id": "new-shrine",
@@ -46,12 +62,13 @@ A single JSON config file (`configs/scene-objects.json`) declares all interactiv
 
 **Field rules:**
 - Required: `id` (unique string), `type` (food | drink | energy | rest | social | focus | morale | shop), `room` (valid RoomId), `position` ({x, y}), `size` ({width, height})
+- Optional: `interactionOffset` ({x, y}, defaults to `{x: 0, y: 0}`) — where agents stand relative to the object center. Existing objects use y offsets of 16-30px so agents stand below/in front of the object rather than overlapping it.
 - Optional: `needsEffects` (partial AgentNeeds, defaults to `{}`)
 - Graphics: exactly one of `graphic` (canvas registry name) or `sprite` + optional `spriteRect` (asset path + tile region)
 
 ### GenericInteractable Actor
 
-A single class replaces all 9 specific actor classes:
+A single class replaces all 10 specific actor classes:
 
 ```typescript
 class GenericInteractable extends InteractableActor {
@@ -61,15 +78,13 @@ class GenericInteractable extends InteractableActor {
             objectType: config.type,
             width: config.size.width,
             height: config.size.height,
-            interactionOffset: { x: 0, y: 0 },
+            interactionOffset: config.interactionOffset ?? { x: 0, y: 0 },
             needsEffects: config.needsEffects ?? {},
         });
         this.graphics.use(graphic);
     }
 }
 ```
-
-No interaction offset — agents walk to the actor's position directly and the locomotion arrival threshold handles proximity.
 
 ### Interaction Events
 
@@ -83,11 +98,11 @@ new CustomEvent("object-interact", {
 })
 ```
 
-**Hover** — dispatches `object-hover` and applies universal glow:
+**Hover** — dispatches `object-hover`, applies glow, and rebuilds graphic if parameterized:
 ```typescript
 // pointerenter
 engine.canvas.classList.add("ft-cursor-pointer");
-// Apply brightness/opacity boost
+actor.setHovered(true);   // triggers graphic rebuild with hover state
 new CustomEvent("object-hover", {
     bubbles: true,
     detail: { objectId, objectType, hover: true },
@@ -95,21 +110,25 @@ new CustomEvent("object-hover", {
 
 // pointerleave
 engine.canvas.classList.remove("ft-cursor-pointer");
-// Remove brightness/opacity boost
+actor.setHovered(false);
 new CustomEvent("object-hover", {
     bubbles: true,
     detail: { objectId, objectType, hover: false },
 })
 ```
 
+`GenericInteractable.setHovered(hovered: boolean)` stores the hover state and rebuilds the graphic. Canvas draw functions receive the hover state as a parameter so they can adjust colors (e.g., merchant stall's gold border on hover). Sprite-based objects get a generic opacity/tint boost.
+
 The merchant UI subscribes to `object-interact` and filters by `objectId === "merchant-stall"`. This replaces the MerchantStall's custom `merchant-stall-click` event. Future interactive panels (quest board, training dummy stats) filter the same way.
 
 ### Graphic Registry
 
-`actors/graphic-registry.ts` — a `Map<string, (width: number, height: number) => ex.Canvas>`:
+`actors/graphic-registry.ts` — a `Map<string, (width: number, height: number, hovered: boolean) => ex.Canvas>`:
 
-Extracts the 9 existing canvas draw functions from old actor files:
+Extracts the 10 existing canvas draw functions from old actor files:
 - `"food-bowl"`, `"water-bowl"`, `"coffee-machine"`, `"snack-table"`, `"water-cooler"`, `"couch"`, `"plant"`, `"notice-board"`, `"merchant-stall"`, `"whiteboard"`
+
+Draw functions receive a `hovered` boolean parameter to support per-graphic hover effects (e.g., merchant stall changes border color, others can adjust brightness).
 
 New canvas graphics = add one function. Sprite-based objects skip the registry entirely.
 
@@ -142,48 +161,62 @@ SceneObjectFactory.createAll()
     |-- resolve graphic (registry) or sprite (loadItemSprite)
     |-- create GenericInteractable(config, graphic)
     |-- wire pointer events (click, hover)
-    |-- register in SceneRegistry
+    |-- register in SceneRegistry (metadata + actor ref)
     |-- add to correct GameScene
     | returns
 Map<string, GenericInteractable>  (keyed by objectId)
 ```
 
-**Validation at startup:**
-- `id` is unique
-- `room` is a valid `RoomId`
-- Either `graphic` exists in the registry or `sprite` path is loadable
-- `size.width` and `size.height` are positive
-- Logs warning and skips invalid entries (non-fatal)
+**Validation** (hand-written, no schema library — zero runtime deps):
+- `id` is unique across all entries
+- `room` is a valid `RoomId` from `ROOM_IDS`
+- Either `graphic` exists in the registry or `sprite` path is non-empty
+- `size.width` and `size.height` are positive numbers
+- Invalid entries: logged to console as warnings with the object `id` and reason, then skipped (non-fatal)
 
 ### Registry Changes
 
-`SceneRegistry` gets one new method for station lookups:
+`SceneRegistry` stores actor references alongside existing metadata. The `ObjectEntry` type gains an optional `actor` field:
+
+```typescript
+interface ObjectEntry {
+    readonly id: string;
+    readonly room: string;
+    readonly type: string;
+    readonly position: { readonly x: number; readonly y: number };
+    readonly actor?: InteractableActor;  // set by factory, used for lookups
+}
+```
+
+New method for station lookups:
 
 ```typescript
 getInteractablesOfType(type: string, room?: string): InteractableActor[]
 ```
 
-The factory stores actor references in the registry alongside metadata. This replaces hardcoded station arrays in `engine-simulation.ts`:
-
-```typescript
-// Before:
-const foodStations = [ctx.envObjects.snackTable, ctx.envObjects.foodBowlHub, ...];
-
-// After:
-const foodStations = ctx.systems.registry.getInteractablesOfType("food");
-```
+Returns `entry.actor` for all entries matching the type (and optionally room). This replaces the existing `findObjectsOfType()` (metadata-only) for use cases that need the live actor. Both methods coexist — metadata queries remain available for cases that don't need actor references.
 
 ### Engine Integration
 
-`engine-types.ts`:
-- `EngineEnvObjects` interface replaced with `ReadonlyMap<string, GenericInteractable>` (or removed entirely if all access goes through the registry)
+**`engine-types.ts`**:
+- Remove `EngineEnvObjects` interface entirely. All object access goes through the registry or the `Map<string, GenericInteractable>` returned by the factory (stored as `ctx.objectMap`).
 
-`engine.ts`:
-- Replace the object creation block (~30 lines of manual instantiation + scene.add) with a single `factory.createAll()` call
+**`engine.ts`**:
+- Replace the object creation block (~40 lines of manual instantiation + `scene.add`) with `factory.createAll()`
+- Store the returned map as `ctx.objectMap` for any direct-by-id lookups
 
-`engine-simulation.ts`:
-- Station lookups in `getNearestStation` use `registry.getInteractablesOfType(type)` filtered by room
+**`engine-simulation.ts`**:
+- `getNearestStation` uses `registry.getInteractablesOfType(type)` filtered to the agent's room
 - No more hardcoded station arrays
+
+**`engine-events.ts`** — 5 named object references to migrate:
+- Line 131: `ctx.envObjects.coffeeMachine.getInteractionPoint()` (tea-time) → `ctx.objectMap.get("coffee-machine")?.getInteractionPoint()`
+- Line 170: `ctx.envObjects.snackTable.pos` (birthday confetti) → `ctx.objectMap.get("snack-table")?.pos`
+- Line 190: `ctx.envObjects.whiteboard.getInteractionPoint()` (new-PR walk) → `ctx.objectMap.get("whiteboard")?.getInteractionPoint()`
+- Line 193: `ctx.envObjects.whiteboard.pos` (new-PR particles) → `ctx.objectMap.get("whiteboard")?.pos`
+- Merchant click handler → subscribe to `object-interact` event, filter by `detail.objectId === "merchant-stall"`
+
+All map lookups use optional chaining — if an object is removed from the JSON config, the event handler gracefully no-ops instead of crashing.
 
 ---
 
@@ -193,11 +226,11 @@ const foodStations = ctx.systems.registry.getInteractablesOfType("food");
 
 | File | Purpose |
 |------|---------|
-| `configs/scene-objects.json` | Object definitions (15 entries) |
-| `data/scene-object-schema.ts` | TypeScript types + validation for JSON schema |
-| `actors/generic-interactable.ts` | Single actor class (~30 lines) |
-| `actors/graphic-registry.ts` | 10 named canvas draw functions extracted from old actors |
-| `systems/scene-object-factory.ts` | Read JSON, create actors, register, place in scenes |
+| `configs/scene-objects.json` | All 15 object definitions |
+| `data/scene-object-schema.ts` | TypeScript types + hand-written validation |
+| `actors/generic-interactable.ts` | Single actor class with hover support (~40 lines) |
+| `actors/graphic-registry.ts` | 10 named canvas draw functions with hover parameter |
+| `systems/scene-object-factory.ts` | Read JSON, validate, create actors, register, place in scenes |
 
 ### Deleted Files
 
@@ -212,30 +245,35 @@ const foodStations = ctx.systems.registry.getInteractablesOfType("food");
 | `actors/plant-actor.ts` | Draw function extracted to graphic-registry |
 | `actors/notice-board.ts` | Draw function extracted to graphic-registry |
 | `actors/whiteboard-actor.ts` | Draw function extracted to graphic-registry |
-| `actors/merchant-stall.ts` | Draw function extracted; click handler moves to event system |
+| `actors/merchant-stall.ts` | Draw function extracted; click/hover behavior now generic |
+
+### Renamed Files
+
+| From | To | Reason |
+|------|----|--------|
+| `engine-objects.ts` | `engine-pets.ts` | Only pet creation remains after removing object factory |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `engine.ts` | Replace object creation block with `factory.createAll()` |
-| `engine-objects.ts` | Remove `EnvironmentalObjects` + factory; keep pet creation |
-| `engine-types.ts` | Replace `EngineEnvObjects` with map or remove |
+| `engine.ts` | Replace object creation with `factory.createAll()`, store `objectMap` |
+| `engine-types.ts` | Remove `EngineEnvObjects`, add `objectMap: ReadonlyMap<string, GenericInteractable>` to context |
 | `engine-config.ts` | Remove `OBJECT_POSITIONS`, `OBJECT_SCENE_ASSIGNMENTS` |
 | `engine-simulation.ts` | Station lookups via `registry.getInteractablesOfType()` |
-| `systems/scene-registry.ts` | Add `getInteractablesOfType()`, store actor refs |
-| `engine-events.ts` | Merchant click handler subscribes to `object-interact` event |
+| `systems/scene-registry.ts` | Add `actor` to ObjectEntry, add `getInteractablesOfType()` |
+| `engine-events.ts` | Migrate 4 named object refs to `objectMap.get()`, merchant handler to `object-interact` event |
 
 ### Test Files
 
 | File | Coverage |
 |------|----------|
-| `actors/generic-interactable.test.ts` | Construction, graphic application, event wiring |
-| `actors/graphic-registry.test.ts` | All 10 named graphics resolve, unknown name returns undefined |
-| `systems/scene-object-factory.test.ts` | JSON parsing, validation, creation, registration, invalid entry handling |
-| `systems/scene-registry.test.ts` | Extend with `getInteractablesOfType` tests |
+| `actors/generic-interactable.test.ts` | Construction, graphic application, hover toggle, event wiring |
+| `actors/graphic-registry.test.ts` | All 10 named graphics resolve with hovered=true/false, unknown name returns undefined |
+| `systems/scene-object-factory.test.ts` | JSON parsing, validation, creation, registration, invalid entry skip + warning |
+| `systems/scene-registry.test.ts` | Extend with `getInteractablesOfType` tests (with/without room filter) |
 
-Old actor tests (`food-bowl.test.ts`, `water-bowl.test.ts`, `interactable-actor.test.ts`) are deleted or migrated to test `GenericInteractable`.
+Old actor tests (`food-bowl.test.ts`, `water-bowl.test.ts`, etc.) are deleted. `interactable-actor.test.ts` is retained (base class unchanged).
 
 ---
 
