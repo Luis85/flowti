@@ -89,6 +89,13 @@ const briefingStyles = css`
 		pointer-events: auto;
 	}
 
+	:host([embedded]) {
+		position: relative;
+		inset: auto;
+		z-index: auto;
+		display: block;
+	}
+
 	.overlay {
 		position: absolute;
 		inset: 0;
@@ -108,6 +115,15 @@ const briefingStyles = css`
 		flex-direction: column;
 		overflow: hidden;
 		animation: briefing-enter 0.35s ease-out;
+	}
+
+	:host([embedded]) .card {
+		width: 100%;
+		max-height: none;
+		border-radius: 0;
+		border: none;
+		border-top: none;
+		box-shadow: none;
 	}
 
 	@keyframes briefing-enter {

@@ -57,6 +57,14 @@ const merchantPanelStyles = css`
 		pointer-events: auto;
 	}
 
+	:host([embedded]) {
+		position: relative;
+		inset: auto;
+		z-index: auto;
+		display: block;
+		pointer-events: auto;
+	}
+
 	.overlay {
 		position: absolute;
 		inset: 0;
@@ -73,6 +81,15 @@ const merchantPanelStyles = css`
 		border: 1px solid var(--border);
 		border-radius: 8px;
 		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 var(--border-glow);
+	}
+
+	:host([embedded]) .merchant-panel {
+		width: 100%;
+		max-height: none;
+		border-radius: 0;
+		border: none;
+		box-shadow: none;
+		z-index: auto;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
