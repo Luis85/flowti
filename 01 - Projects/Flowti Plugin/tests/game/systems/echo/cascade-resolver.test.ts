@@ -58,8 +58,8 @@ describe("CascadeResolver", () => {
 			expect(exhausted.shouldCascade("atlas", echo, 1.0)).toBe(false);
 		});
 
-		it("returns false when |weight| < 15", () => {
-			const echo = makeEcho({ weight: 10 });
+		it("returns false when |weight| < 10", () => {
+			const echo = makeEcho({ weight: 8 });
 			expect(resolver.shouldCascade("atlas", echo, 1.0)).toBe(false);
 		});
 
@@ -78,8 +78,8 @@ describe("CascadeResolver", () => {
 	// ── computeProbability ──────────────────────────────────────────
 
 	describe("computeProbability", () => {
-		it("returns 0.45 at weight 15", () => {
-			expect(resolver.computeProbability(15)).toBeCloseTo(0.45);
+		it("returns 0.55 at weight 15", () => {
+			expect(resolver.computeProbability(15)).toBeCloseTo(0.55);
 		});
 
 		it("caps at 0.60 for weight 30", () => {
@@ -90,8 +90,8 @@ describe("CascadeResolver", () => {
 			expect(resolver.computeProbability(100)).toBeCloseTo(0.60);
 		});
 
-		it("handles negative weight -20 as 0.50", () => {
-			expect(resolver.computeProbability(-20)).toBeCloseTo(0.50);
+		it("handles negative weight -20 as 0.60", () => {
+			expect(resolver.computeProbability(-20)).toBeCloseTo(0.60);
 		});
 	});
 
@@ -242,13 +242,13 @@ describe("CascadeResolver", () => {
 	// ── gossip forwarding ──────────────────────────────────────────
 
 	describe("gossip forwarding", () => {
-		it("shouldForwardGossip returns true ~30% of the time", () => {
+		it("shouldForwardGossip returns true ~50% of the time", () => {
 			let forwards = 0;
 			for (let i = 0; i < 1000; i++) {
 				if (resolver.shouldForwardGossip()) forwards++;
 			}
-			expect(forwards).toBeGreaterThan(200); // ~30% - margin
-			expect(forwards).toBeLessThan(400);    // ~30% + margin
+			expect(forwards).toBeGreaterThan(400); // ~50% - margin
+			expect(forwards).toBeLessThan(600);    // ~50% + margin
 		});
 	});
 

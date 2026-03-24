@@ -295,7 +295,7 @@ describe("EchoProducer", () => {
 				cascades.push({ agent, result });
 			});
 
-			// Drama creates weight 15 which equals CASCADE_THRESHOLD (15)
+			// Drama creates weight 15 which exceeds CASCADE_THRESHOLD (10)
 			callbackProducer.onDrama("Atlas", "Rex", true, 1);
 
 			// Both agents get weight 15 echoes — both should trigger cascade

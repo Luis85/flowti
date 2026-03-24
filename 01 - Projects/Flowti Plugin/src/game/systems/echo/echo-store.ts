@@ -20,7 +20,7 @@ import type {
 
 export const MAX_ECHOES = 20;
 export const MAX_WEIGHT = 100;
-export const CASCADE_THRESHOLD = 15;
+export const CASCADE_THRESHOLD = 10;
 export const EVICTION_THRESHOLD = 2;
 export const DISPLAY_THRESHOLD = 5;
 export const MAX_CASCADE_BUDGET = 5;

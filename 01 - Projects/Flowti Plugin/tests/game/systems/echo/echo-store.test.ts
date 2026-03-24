@@ -107,9 +107,9 @@ describe("EchoStore", () => {
 			expect(weights).not.toContain(10);
 		});
 
-		it("sets cascadeTriggered when |weight| crosses 15 threshold", () => {
-			store.addEcho("Atlas", opinion("Rex", 10), 1);
-			const result = store.addEcho("Atlas", opinion("Rex", 6), 2);
+		it("sets cascadeTriggered when |weight| crosses 10 threshold", () => {
+			store.addEcho("Atlas", opinion("Rex", 6), 1);
+			const result = store.addEcho("Atlas", opinion("Rex", 5), 2);
 
 			expect(result.cascadeTriggered).toBe(true);
 		});
@@ -126,8 +126,8 @@ describe("EchoStore", () => {
 			expect(result.cascadeTriggered).toBe(true);
 		});
 
-		it("does not cascade on new echo when |weight| < 15", () => {
-			const result = store.addEcho("Atlas", opinion("Rex", 10), 1);
+		it("does not cascade on new echo when |weight| < 10", () => {
+			const result = store.addEcho("Atlas", opinion("Rex", 8), 1);
 			expect(result.cascadeTriggered).toBe(false);
 		});
 

@@ -9,12 +9,12 @@ import type { CascadeChain, Echo, IEchoStore } from "./echo-types.js";
 
 // ── Constants ───────────────────────────────────────────────────────
 
-const CASCADE_WEIGHT_THRESHOLD = 15;
+const CASCADE_WEIGHT_THRESHOLD = 10;
 const MAX_CASCADE_DEPTH = 3;
-const BASE_PROBABILITY = 0.3;
+const BASE_PROBABILITY = 0.4;
 const MAX_PROBABILITY = 0.6;
 const DAMPEN_FACTOR = 0.6;
-const GOSSIP_FORWARD_CHANCE = 0.3;
+const GOSSIP_FORWARD_CHANCE = 0.5;
 
 // ── CascadeReaction ─────────────────────────────────────────────────
 
