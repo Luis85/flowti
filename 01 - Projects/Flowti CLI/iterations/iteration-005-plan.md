@@ -143,12 +143,12 @@ LLM session lifecycle must be decoupled from user selection. The brain/BT must b
 - [ ] Decay timer applies to brain-initiated sessions same as user-initiated
 - [ ] Decouple session acquisition from `spawnWorker()` — make it available to any spawned worker on demand
 
-### Live Testing & Validation — NEW (from review #3)
+### Live Testing & Validation — DONE (verified 2026-03-24)
 
-- [ ] Live test: LLM persistent sessions (priming, session reuse, decay, re-acquisition)
-- [ ] Live test: Task & Economy engine (XP rewards, coin flow, trust progression)
-- [ ] Live test: Interaction templates (click-to-interact end-to-end)
-- [ ] Live test: Agent World visual overhaul (BT sync, debug, merchant)
+- [x] Live test: LLM persistent sessions (priming, session reuse, decay, re-acquisition)
+- [x] Live test: Task & Economy engine (XP rewards, coin flow, trust progression)
+- [x] Live test: Interaction templates (click-to-interact end-to-end)
+- [x] Live test: Agent World visual overhaul (BT sync, debug, merchant)
 
 ### Phase C: CLI-Plugin Unified Architecture — NEW (from increment review)
 

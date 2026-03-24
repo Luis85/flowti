@@ -2,7 +2,8 @@
 type: RAID
 category: issue
 severity: critical
-status: open
+status: closed
+resolution: TUI dropped by design — Plugin is sole UI. No regression.
 source: increment-review
 iteration: 5
 date: 2026-03-17
