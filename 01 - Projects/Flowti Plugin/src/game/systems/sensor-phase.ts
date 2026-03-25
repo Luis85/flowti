@@ -27,6 +27,8 @@ export interface SensorDeps {
 	getNearbyEntities(name: string): string[];
 	/** Nearest unoccupied food/drink/rest station position in agent's room (null if none). */
 	getNearestStation(name: string, need: "food" | "drink" | "rest"): { x: number; y: number } | null;
+	/** Room that contains a station of the given type, excluding the agent's current room (null if none). */
+	getStationRoom(name: string, need: "food" | "drink"): string | null;
 	/** Nearest unoccupied workstation position in agent's room (null if none). */
 	getNearestWorkstation(name: string): { x: number; y: number } | null;
 	/** Nearest unoccupied merchant stall position in agent's room (null if none). */
@@ -74,6 +76,10 @@ function writeSensorData(bb: AgentBlackboard, name: string, deps: SensorDeps): v
 	bb.nearestFoodStation = deps.getNearestStation(name, "food");
 	bb.nearestDrinkStation = deps.getNearestStation(name, "drink");
 	bb.nearestRestStation = deps.getNearestStation(name, "rest");
+
+	// Cross-room station hints (only populated when no same-room station exists)
+	bb.foodStationRoom = bb.nearestFoodStation ? null : deps.getStationRoom(name, "food");
+	bb.drinkStationRoom = bb.nearestDrinkStation ? null : deps.getStationRoom(name, "drink");
 	bb.nearestWorkstation = deps.getNearestWorkstation(name);
 	bb.nearestMerchantStall = deps.getNearestMerchantStall(name);
 	bb.whimTarget = deps.getWhimTarget(name);

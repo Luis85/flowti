@@ -97,6 +97,10 @@ export interface BTAgentObject {
 	SeekRestSpot(): State; SeekNearbyAgent(): State; SeekQuietCorner(): State;
 	SeekFoodStation(): State; SeekDrinkStation(): State; Eat(): State; Drink(): State;
 	SeekPreferredFoodStation(): State; SeekPreferredDrinkStation(): State;
+	WanderHungry(): State; WanderThirsty(): State;
+	// Cross-room station seeking
+	HasFoodStationInOtherRoom(): boolean; HasDrinkStationInOtherRoom(): boolean;
+	SeekFoodStationRoom(): State; SeekDrinkStationRoom(): State;
 	WanderSad(): State; GoToWorkstation(): State; DoWork(): State; LeaveWorkstation(): State;
 	ExecuteJourney(): State;
 	SeekMerchantStall(): State; BrowseMerchant(): State; ExecuteMerchantPurchase(): State;
@@ -143,7 +147,7 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		lastMerchantVisitCycle: -1,
 		activeInteraction: null,
 		intentTimer: 0,
-		idleResistance: 4000 + (con / 20) * 8000,
+		idleResistance: 6000 + (con / 20) * 10000,
 		lastWhimTick: 0,
 	};
 
@@ -604,10 +608,50 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		return fromNodeState("succeeded");
 	}
 
+	function WanderHungry(): State {
+		bb.intent = "seeking";
+		bb.intentDetail = "seek-food";
+		bb.movementCommand = "wander";
+		return fromNodeState("succeeded");
+	}
+
+	function WanderThirsty(): State {
+		bb.intent = "seeking";
+		bb.intentDetail = "seek-drink";
+		bb.movementCommand = "wander";
+		return fromNodeState("succeeded");
+	}
+
+	// ── Cross-room station seeking ──────────────────────────────────
+
+	function HasFoodStationInOtherRoom(): boolean {
+		return bb.foodStationRoom !== null;
+	}
+
+	function HasDrinkStationInOtherRoom(): boolean {
+		return bb.drinkStationRoom !== null;
+	}
+
+	function SeekFoodStationRoom(): State {
+		bb.intent = "seeking";
+		bb.intentDetail = "seek-food";
+		bb.roomTransferTarget = bb.foodStationRoom;
+		return fromNodeState("succeeded");
+	}
+
+	function SeekDrinkStationRoom(): State {
+		bb.intent = "seeking";
+		bb.intentDetail = "seek-drink";
+		bb.roomTransferTarget = bb.drinkStationRoom;
+		return fromNodeState("succeeded");
+	}
+
 	function WanderSad(): State {
 		bb.intent = "idle";
 		bb.intentDetail = "demoralized";
-		bb.movementCommand = "wander";
+		if (Math.random() < 0.5) {
+			bb.movementCommand = "wander";
+		}
 		return fromNodeState("succeeded");
 	}
 
@@ -656,6 +700,12 @@ export function createBTAgent(agent: BTAgentDef, deps: AgentToolDeps): BTAgentOb
 		SeekPreferredDrinkStation: () => SeekPreferredDrinkStation(extDeps),
 		Eat: () => Eat(extDeps),
 		Drink: () => Drink(extDeps),
+		WanderHungry,
+		WanderThirsty,
+		HasFoodStationInOtherRoom,
+		HasDrinkStationInOtherRoom,
+		SeekFoodStationRoom,
+		SeekDrinkStationRoom,
 		WanderSad,
 		GoToWorkstation, DoWork, LeaveWorkstation,
 		ExecuteJourney: () => ExecuteJourney(),
