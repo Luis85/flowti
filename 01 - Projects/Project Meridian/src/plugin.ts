@@ -3,14 +3,18 @@ import { MeridianGameView, MERIDIAN_VIEW_TYPE } from './infrastructure/engine/ga
 import { MeridianSettingsTab } from './infrastructure/settings/settings-tab.js';
 import { createConsoleLogger } from './infrastructure/logger/console-logger.js';
 import { createPerformanceTracker } from './infrastructure/performance/performance-tracker.js';
+import { createEventBus } from './infrastructure/event-bus.js';
+import { GameConfigSchema } from './domain/schemas/game-config-schema.js';
 import { DEFAULT_SETTINGS, type MeridianSettings } from './domain/core/settings.js';
 import type { Logger } from './domain/core/logger.js';
 import type { PerformanceTracker } from './domain/core/performance.js';
+import type { GameCoreDeps } from './domain/core/game-deps.js';
 
 export class MeridianPlugin extends Plugin {
 	private settings: MeridianSettings = { ...DEFAULT_SETTINGS };
 	private logger: Logger | null = null;
 	private performanceTracker: PerformanceTracker | null = null;
+	private gameDeps: GameCoreDeps | null = null;
 
 	async onload(): Promise<void> {
 		// Lightweight registrations only — keep onload fast (Obsidian load-time guide)
@@ -20,7 +24,7 @@ export class MeridianPlugin extends Plugin {
 		this.performanceTracker = createPerformanceTracker(this.logger);
 		this.performanceTracker.setEnabled(this.settings.performanceTracking);
 
-		this.registerView(MERIDIAN_VIEW_TYPE, (leaf) => new MeridianGameView(leaf));
+		this.registerView(MERIDIAN_VIEW_TYPE, (leaf) => new MeridianGameView(leaf, this.gameDeps));
 
 		this.addRibbonIcon('gamepad-2', 'Project Meridian', async () => {
 			const existingLeaves = this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE);
@@ -69,7 +73,20 @@ export class MeridianPlugin extends Plugin {
 	/** Deferred game initialization — called after Obsidian workspace is fully loaded */
 	private initializeGame(): void {
 		this.logger?.info('Meridian', 'Game initialization started');
-		// Phase 1+: GameDeps composition root, VaultSync startup, system registration
+
+		const eventBus = createEventBus();
+		const config = GameConfigSchema.parse({});
+
+		if (this.logger !== null && this.performanceTracker !== null) {
+			this.gameDeps = {
+				logger: this.logger,
+				eventBus,
+				config,
+				performanceTracker: this.performanceTracker,
+				tickCount: 0,
+			};
+		}
+
 		// Vault event listeners MUST be registered here, not in onload() (Obsidian guideline)
 	}
 }

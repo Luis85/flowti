@@ -1,12 +1,22 @@
-import { ItemView } from 'obsidian';
+import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type * as ex from 'excalibur';
 import { createGameEngine, createTestActor } from './game-engine.js';
 import { createGameLoader } from './game-loader.js';
+import { createTickRunner } from './tick-runner.js';
+import { MeridianTickSystem } from './tick-system.js';
+import type { BatchableEventBus } from './batchable-event-bus.js';
+import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 
 export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 
 export class MeridianGameView extends ItemView {
 	private engine: ex.Engine | null = null;
+	private deps: GameCoreDeps | null;
+
+	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null) {
+		super(leaf);
+		this.deps = deps;
+	}
 
 	getViewType(): string {
 		return MERIDIAN_VIEW_TYPE;
@@ -34,10 +44,16 @@ export class MeridianGameView extends ItemView {
 			const testActor = createTestActor({ x: 400, y: 300 });
 			this.engine.currentScene.add(testActor);
 
-			// Fire-and-forget — don't block onOpen() with engine initialization
-			// This prevents the '[Violation] click handler took Xms' browser warning
+			// Wire tick infrastructure if deps are available
+			if (this.deps !== null) {
+				const batchableEventBus = this.deps.eventBus as BatchableEventBus;
+				const tickRunner = createTickRunner(batchableEventBus);
+				const tickSystem = new MeridianTickSystem(tickRunner, this.deps);
+				this.engine.currentScene.world.add(tickSystem);
+				this.deps.logger.info('Meridian', 'Tick system registered');
+			}
+
 			const loader = createGameLoader();
-			// Future: add resources here — loader.addResource(sprite), etc.
 			void this.engine.start(loader).catch((err: unknown) => {
 				this.showError(container, err);
 			});
