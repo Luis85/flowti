@@ -1,15 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { VaultAdapter, NotificationAdapter, CommandRegistry, ModalAdapter, SecretStorageAdapter, PlatformServices } from '../../../src/domain/core/platform.js';
-import type { ResultValue } from '../../../src/domain/core/result.js';
+import { Result } from '../../../src/domain/core/result.js';
 
 describe('Platform interfaces', () => {
 	it('VaultAdapter can be implemented with all required methods', () => {
-		const ok = <T>(value: T): ResultValue<T> => ({ ok: true, value });
-
 		const adapter: VaultAdapter = {
-			readFile: async () => ok('content'),
-			writeFile: async () => ok(undefined),
-			deleteFile: async () => ok(undefined),
+			readFile: async () => Result.ok('content'),
+			writeFile: async () => Result.ok(undefined),
+			deleteFile: async () => Result.ok(undefined),
 			listFiles: async () => [],
 			exists: async () => true,
 		};
@@ -35,9 +33,9 @@ describe('Platform interfaces', () => {
 	it('PlatformServices aggregates all adapter interfaces', () => {
 		const platform: PlatformServices = {
 			vault: {
-				readFile: async () => ({ ok: true, value: '' }),
-				writeFile: async () => ({ ok: true, value: undefined }),
-				deleteFile: async () => ({ ok: true, value: undefined }),
+				readFile: async () => Result.ok(''),
+				writeFile: async () => Result.ok(undefined),
+				deleteFile: async () => Result.ok(undefined),
 				listFiles: async () => [],
 				exists: async () => false,
 			},
