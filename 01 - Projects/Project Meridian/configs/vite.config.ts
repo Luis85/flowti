@@ -41,11 +41,12 @@ export default defineConfig({
 		sourcemap: true,
 		minify: true,
 		rollupOptions: {
-			external: ['obsidian', 'electron'],
+			external: ['obsidian', 'electron', /^@codemirror\//, /^@lezer\//],
 			output: {
 				globals: {
 					obsidian: 'obsidian',
 				},
+				banner: '/* Project Meridian — Obsidian Plugin. Generated file, do not edit. */',
 			},
 		},
 	},

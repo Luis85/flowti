@@ -1,5 +1,6 @@
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+import obsidianmd from 'eslint-plugin-obsidianmd';
 
 export default [
 	{
@@ -12,8 +13,12 @@ export default [
 		},
 		plugins: {
 			'@typescript-eslint': tseslint,
+			'obsidianmd': obsidianmd,
 		},
 		rules: {
+			...obsidianmd.configs?.recommended,
+			// Downgrade: "Project Meridian" is a proper noun, not a sentence-case violation
+			'obsidianmd/ui/sentence-case': 'warn',
 			'@typescript-eslint/no-explicit-any': 'error',
 			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
 			'@typescript-eslint/strict-boolean-expressions': 'error',
