@@ -60,13 +60,10 @@ export class MeridianPlugin extends Plugin {
 
 	/** Apply settings changes at runtime (called when user changes settings) */
 	private applySettings(): void {
-		// Recreate logger with new level
 		this.logger = createConsoleLogger(this.settings.logLevel);
-
-		// Update performance tracking
-		if (this.performanceTracker !== null) {
-			this.performanceTracker.setEnabled(this.settings.performanceTracking);
-		}
+		// Recreate tracker so its closure captures the fresh logger reference
+		this.performanceTracker = createPerformanceTracker(this.logger);
+		this.performanceTracker.setEnabled(this.settings.performanceTracking);
 	}
 
 	/** Deferred game initialization — called after Obsidian workspace is fully loaded */

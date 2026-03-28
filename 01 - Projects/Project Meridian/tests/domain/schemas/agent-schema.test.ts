@@ -94,7 +94,7 @@ describe('AgentSchema', () => {
 	});
 
 	it('requires wallet (no default)', () => {
-		const { wallet: _, ...noWallet } = validAgent;
+		const { wallet: _omitted, ...noWallet } = validAgent;
 		expect(AgentSchema.safeParse(noWallet).success).toBe(false);
 	});
 });

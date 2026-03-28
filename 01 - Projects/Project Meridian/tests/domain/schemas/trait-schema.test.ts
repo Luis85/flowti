@@ -41,7 +41,7 @@ describe('TraitSchema', () => {
 	});
 
 	it('applies defaults for stackable and conflicts_with', () => {
-		const { stackable: _, conflicts_with: __, ...minimal } = validTrait;
+		const { stackable: _s, conflicts_with: _c, ...minimal } = validTrait;
 		const result = TraitSchema.parse(minimal);
 		expect(result.stackable).toBe(false);
 		expect(result.conflicts_with).toEqual([]);

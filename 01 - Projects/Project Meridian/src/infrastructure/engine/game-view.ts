@@ -1,5 +1,4 @@
 import { ItemView } from 'obsidian';
-import type { WorkspaceLeaf } from 'obsidian';
 import type * as ex from 'excalibur';
 import { createGameEngine, createTestActor } from './game-engine.js';
 import { createGameLoader } from './game-loader.js';
@@ -9,10 +8,6 @@ export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 export class MeridianGameView extends ItemView {
 	private engine: ex.Engine | null = null;
 
-	constructor(leaf: WorkspaceLeaf) {
-		super(leaf);
-	}
-
 	getViewType(): string {
 		return MERIDIAN_VIEW_TYPE;
 	}
@@ -21,6 +16,7 @@ export class MeridianGameView extends ItemView {
 		return 'Project Meridian';
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await -- Obsidian ItemView interface requires async
 	async onOpen(): Promise<void> {
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
@@ -44,6 +40,7 @@ export class MeridianGameView extends ItemView {
 		void this.engine.start(loader);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await -- Obsidian ItemView interface requires async
 	async onClose(): Promise<void> {
 		if (this.engine !== null) {
 			this.engine.stop();

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { VaultAdapter, NotificationAdapter, CommandRegistry, ModalAdapter, SecretStorageAdapter, PlatformServices } from '../../../src/domain/core/platform.js';
+import type { VaultAdapter, SecretStorageAdapter, PlatformServices } from '../../../src/domain/core/platform.js';
 import { Result } from '../../../src/domain/core/result.js';
 
 describe('Platform interfaces', () => {

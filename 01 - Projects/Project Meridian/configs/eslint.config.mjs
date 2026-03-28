@@ -2,13 +2,50 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 
+/** Shared TypeScript rules for both src/ and tests/ */
+const sharedTsRules = {
+	'@typescript-eslint/no-explicit-any': 'error',
+	'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+	'@typescript-eslint/strict-boolean-expressions': 'error',
+	'@typescript-eslint/no-floating-promises': 'error',
+	'@typescript-eslint/no-misused-promises': 'error',
+	'@typescript-eslint/require-await': 'error',
+	'@typescript-eslint/await-thenable': 'error',
+	'@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+	// Agentic code quality — catch common AI code-gen mistakes
+	'@typescript-eslint/no-unnecessary-condition': 'error',
+	'@typescript-eslint/no-unsafe-return': 'error',
+	'@typescript-eslint/no-unsafe-assignment': 'error',
+	'@typescript-eslint/no-unsafe-argument': 'error',
+	'@typescript-eslint/no-unsafe-member-access': 'error',
+	'@typescript-eslint/no-unsafe-call': 'error',
+	'@typescript-eslint/no-misused-spread': 'error',
+	'@typescript-eslint/restrict-template-expressions': 'error',
+	'@typescript-eslint/no-base-to-string': 'error',
+	'@typescript-eslint/return-await': ['error', 'in-try-catch'],
+	'@typescript-eslint/only-throw-error': 'error',
+	'@typescript-eslint/no-confusing-void-expression': 'error',
+	'@typescript-eslint/prefer-nullish-coalescing': 'error',
+	'@typescript-eslint/prefer-optional-chain': 'error',
+	'@typescript-eslint/no-unnecessary-type-assertion': 'error',
+	'@typescript-eslint/no-duplicate-type-constituents': 'error',
+	// Additional strict-type-checked rules
+	'@typescript-eslint/no-unnecessary-type-parameters': 'error',
+	'@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
+	'@typescript-eslint/no-redundant-type-constituents': 'error',
+	'@typescript-eslint/no-useless-constructor': 'error',
+	'eqeqeq': ['error', 'always'],
+	'no-var': 'error',
+	'prefer-const': 'error',
+};
+
 export default [
 	{
 		files: ['src/**/*.ts'],
 		languageOptions: {
 			parser: tsparser,
 			parserOptions: {
-				project: './configs/tsconfig.json',
+				project: './configs/tsconfig.lint.json',
 			},
 		},
 		plugins: {
@@ -18,38 +55,11 @@ export default [
 		rules: {
 			...obsidianmd.configs?.recommended,
 			'obsidianmd/ui/sentence-case': ['warn', { brands: ['Project Meridian'] }],
-			'@typescript-eslint/no-explicit-any': 'error',
-			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-			'@typescript-eslint/strict-boolean-expressions': 'error',
-			'@typescript-eslint/no-floating-promises': 'error',
-			'@typescript-eslint/no-misused-promises': 'error',
-			'@typescript-eslint/require-await': 'error',
-			'@typescript-eslint/await-thenable': 'error',
-			'@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
-			// Agentic code quality — catch common AI code-gen mistakes
-			'@typescript-eslint/no-unnecessary-condition': 'error',
-			'@typescript-eslint/no-unsafe-return': 'error',
-			'@typescript-eslint/no-unsafe-assignment': 'error',
-			'@typescript-eslint/no-unsafe-argument': 'error',
-			'@typescript-eslint/no-unsafe-member-access': 'error',
-			'@typescript-eslint/no-unsafe-call': 'error',
-			'@typescript-eslint/no-misused-spread': 'error',
-			'@typescript-eslint/restrict-template-expressions': 'error',
-			'@typescript-eslint/no-base-to-string': 'error',
-			'@typescript-eslint/return-await': ['error', 'in-try-catch'],
-			'@typescript-eslint/only-throw-error': 'error',
-			'@typescript-eslint/no-confusing-void-expression': 'error',
-			'@typescript-eslint/prefer-nullish-coalescing': 'error',
-			'@typescript-eslint/prefer-optional-chain': 'error',
-			'@typescript-eslint/no-unnecessary-type-assertion': 'error',
-			'@typescript-eslint/no-duplicate-type-constituents': 'error',
-			'eqeqeq': ['error', 'always'],
+			...sharedTsRules,
 			// import/no-cycle deferred — eslint-plugin-import lacks stable ESLint 9 flat-config support
 			'max-lines': ['warn', { max: 350, skipBlankLines: true, skipComments: true }],
 			'complexity': ['warn', 10],
 			'no-console': 'warn',
-			'no-var': 'error',
-			'prefer-const': 'error',
 			'no-restricted-properties': [
 				'error',
 				{
@@ -79,18 +89,36 @@ export default [
 		},
 	},
 	{
+		// Type-aware linting for tests
+		files: ['tests/**/*.ts'],
+		languageOptions: {
+			parser: tsparser,
+			parserOptions: {
+				project: './configs/tsconfig.lint.json',
+			},
+		},
+		plugins: {
+			'@typescript-eslint': tseslint,
+		},
+		rules: {
+			...sharedTsRules,
+			'no-console': 'off',
+			// Tests often assign mock values that TypeScript sees as unsafe
+			'@typescript-eslint/no-unsafe-assignment': 'off',
+			'@typescript-eslint/no-unsafe-member-access': 'off',
+			// Tests may have unnecessary conditions in type-narrowing assertions
+			'@typescript-eslint/no-unnecessary-condition': 'off',
+			// Mock implementations of async interfaces don't need await
+			'@typescript-eslint/require-await': 'off',
+			// Tests use destructuring to omit fields: { removed: _omit, ...rest }
+			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+		},
+	},
+	{
 		// Infrastructure boundary code may use try/catch to wrap external APIs that throw
 		files: ['src/infrastructure/**/*.ts'],
 		rules: {
 			'no-restricted-syntax': 'off',
-			'no-console': 'off',
-			'@typescript-eslint/require-await': 'off',
-		},
-	},
-	{
-		// Tests may use console for debugging
-		files: ['tests/**/*.ts'],
-		rules: {
 			'no-console': 'off',
 		},
 	},
