@@ -1,32 +1,6 @@
 import type { Logger } from '../../domain/core/logger.js';
-
-export interface SystemTiming {
-	name: string;
-	durationMs: number;
-}
-
-export interface TickPerformance {
-	tick: number;
-	totalMs: number;
-	systems: SystemTiming[];
-}
-
-export interface PerformanceTracker {
-	/** Whether tracking is enabled */
-	readonly enabled: boolean;
-	/** Enable/disable tracking */
-	setEnabled(enabled: boolean): void;
-	/** Start timing a system */
-	startSystem(name: string): void;
-	/** End timing the current system */
-	endSystem(): void;
-	/** Complete the tick and record the result */
-	completeTick(tick: number): TickPerformance | null;
-	/** Get the last N tick performances */
-	history(limit?: number): TickPerformance[];
-	/** Get average system times over last N ticks */
-	averages(ticks?: number): Map<string, number>;
-}
+import type { PerformanceTracker, TickPerformance, SystemTiming } from '../../domain/core/performance.js';
+export type { PerformanceTracker, TickPerformance, SystemTiming };
 
 const HISTORY_MAX = 100;
 
@@ -37,6 +11,7 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 	let currentSystemName: string | null = null;
 	let currentSystemStart = 0;
 	let tickStart = 0;
+	let tickStartSet = false;
 
 	return {
 		get enabled() { return enabled; },
@@ -50,8 +25,9 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 
 		startSystem(name: string): void {
 			if (!enabled) return;
-			if (currentSystemName === null) {
+			if (!tickStartSet) {
 				tickStart = performance.now();
+				tickStartSet = true;
 			}
 			currentSystemName = name;
 			currentSystemStart = performance.now();
@@ -66,7 +42,9 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 
 		completeTick(tick: number): TickPerformance | null {
 			if (!enabled) return null;
-			const totalMs = Math.round((performance.now() - tickStart) * 100) / 100;
+			const totalMs = tickStartSet
+				? Math.round((performance.now() - tickStart) * 100) / 100
+				: 0;
 			const result: TickPerformance = {
 				tick,
 				totalMs,
@@ -76,6 +54,8 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 			if (tickHistory.length > HISTORY_MAX) tickHistory.shift();
 			currentSystems = [];
 			currentSystemName = null;
+			tickStartSet = false;
+			tickStart = 0;
 			return result;
 		},
 

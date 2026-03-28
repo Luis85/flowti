@@ -136,6 +136,8 @@ tick(deps):
             system.execute(deps)
         catch (err):
             logger.error('TickRunner', 'System failed', err)
+            deps.eventBus.emit({ type: 'SystemError', tick: currentTick,
+                source: 'TickRunner', payload: { systemName, message } })
         finally:
             performanceTracker.endSystem()
             batchableEventBus.flushBatch()
@@ -156,14 +158,14 @@ export interface BatchableEventBus extends EventBus {
 }
 ```
 
-The existing `createEventBus()` implementation is extended to return `BatchableEventBus`. Since it's a superset, all existing code that types it as `EventBus` continues to work. The `GameCoreDeps.eventBus` field stays typed as `EventBus` (domain interface). Only the tick runner holds a `BatchableEventBus` reference.
+The existing `createEventBus()` implementation is extended to return `BatchableEventBus`. Since it's a superset, all existing code that types it as `EventBus` continues to work. The `GameCoreDeps.eventBus` field stays typed as `EventBus` (domain interface). The plugin holds the `BatchableEventBus` reference and passes it explicitly to the game view constructor — no unsafe casts from `EventBus` to `BatchableEventBus`.
 
 **Internal behavior:**
 - `batching: boolean` flag (default `false`)
 - `batchQueue: GameEvent[]` — events queued during batch mode
 - `emit()` when `batching === false`: dispatch immediately (Phase 0 behavior, all existing tests pass)
 - `emit()` when `batching === true`: push to `batchQueue`, add to history, but don't dispatch to handlers
-- `beginBatch()`: set `batching = true`, clear queue
+- `beginBatch()`: throws if already batching (re-entry guard), set `batching = true`, clear queue
 - `flushBatch()`: set `batching = false`, dispatch all queued events in order, clear queue
 
 Events emitted during `flushBatch()` handler execution dispatch immediately (batching is `false` during flush). This allows one level of reactive events but prevents infinite cascading.
@@ -306,26 +308,29 @@ export interface GameCoreDeps {
 private initializeGame(): void {
     this.logger?.info('Meridian', 'Game initialization started');
 
-    // Load game config from vault (or use defaults)
-    // Create EventBus (returns BatchableEventBus but stored as EventBus in deps)
+    // Create BatchableEventBus (stored separately for type-safe passing)
     // Compose GameCoreDeps { logger, eventBus, config, performanceTracker, tickCount: 0 }
-    // Store on plugin instance for game view access
+    // Store both on plugin instance for game view access
 }
 ```
 
-**`game-view.ts` — accepts deps, creates tick infrastructure:**
+**`plugin.ts` — `applySettings()` propagates to live deps:**
+
+When settings change at runtime, `applySettings()` updates `this.gameDeps` in-place via `Object.assign()` so the running tick system sees the new logger/performanceTracker references.
+
+**`game-view.ts` — accepts deps + BatchableEventBus, creates tick infrastructure:**
 
 ```typescript
-// Constructor/factory receives deps
+// Constructor receives deps and batchableEventBus (no unsafe cast needed)
 // onOpen():
 //   Create engine (existing)
-//   Create TickRunner (receives BatchableEventBus)
+//   Create TickRunner (receives batchableEventBus directly)
 //   Create MeridianTickSystem(tickRunner, deps)
 //   Register tick system with scene.world
 //   Start engine
 ```
 
-The `registerView` factory closure captures deps from `initializeGame()`.
+The `registerView` factory closure captures deps and batchableEventBus from `initializeGame()`. Null guards in `game-view.ts` handle the case where deps are not yet initialized.
 
 ## 5. Testing Strategy
 

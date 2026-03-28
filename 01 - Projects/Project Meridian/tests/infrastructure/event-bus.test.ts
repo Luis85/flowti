@@ -160,3 +160,70 @@ describe('EventBus', () => {
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('EventBus batching', () => {
+	it('queues events during batch mode instead of dispatching', () => {
+		const bus = createEventBus();
+		const handler = vi.fn();
+		bus.on('Test', handler);
+
+		bus.beginBatch();
+		bus.emit({ type: 'Test', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+
+		expect(handler).not.toHaveBeenCalled();
+	});
+
+	it('delivers all queued events on flushBatch in order', () => {
+		const bus = createEventBus();
+		const received: number[] = [];
+		bus.on('Seq', (e) => received.push(e.tick));
+
+		bus.beginBatch();
+		bus.emit({ type: 'Seq', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		bus.emit({ type: 'Seq', tick: 2, wallClock: Date.now(), source: 's', payload: {} });
+		bus.emit({ type: 'Seq', tick: 3, wallClock: Date.now(), source: 's', payload: {} });
+		bus.flushBatch();
+
+		expect(received).toEqual([1, 2, 3]);
+	});
+
+	it('dispatches immediately when not in batch mode (regression)', () => {
+		const bus = createEventBus();
+		const handler = vi.fn();
+		bus.on('Test', handler);
+
+		bus.emit({ type: 'Test', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		expect(handler).toHaveBeenCalledOnce();
+	});
+
+	it('events emitted during flushBatch handler execute immediately', () => {
+		const bus = createEventBus();
+		const order: string[] = [];
+
+		bus.on('First', () => {
+			order.push('first-handler');
+			bus.emit({ type: 'Reactive', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		});
+		bus.on('Reactive', () => order.push('reactive-handler'));
+
+		bus.beginBatch();
+		bus.emit({ type: 'First', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		bus.flushBatch();
+
+		expect(order).toEqual(['first-handler', 'reactive-handler']);
+	});
+
+	it('beginBatch + flushBatch with no events is a no-op', () => {
+		const bus = createEventBus();
+		expect(() => {
+			bus.beginBatch();
+			bus.flushBatch();
+		}).not.toThrow();
+	});
+
+	it('throws if beginBatch called while already batching', () => {
+		const bus = createEventBus();
+		bus.beginBatch();
+		expect(() => { bus.beginBatch(); }).toThrow('beginBatch() called while already batching');
+	});
+});
