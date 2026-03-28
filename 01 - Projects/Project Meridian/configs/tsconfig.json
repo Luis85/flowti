@@ -8,6 +8,7 @@
     "noImplicitReturns": true,
     "exactOptionalPropertyTypes": false,
     "esModuleInterop": true,
+    "skipLibCheck": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

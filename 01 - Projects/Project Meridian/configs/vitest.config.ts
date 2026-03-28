@@ -1,9 +1,14 @@
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export default defineConfig({
 	test: {
 		globals: true,
-		root: '..',
+		environment: 'jsdom',
+		root: projectRoot,
 		include: ['tests/**/*.test.ts'],
 		coverage: {
 			provider: 'v8',
