@@ -54,7 +54,7 @@ export class MeridianPlugin extends Plugin {
 	}
 
 	private async loadSettings(): Promise<void> {
-		const data = await this.loadData();
+		const data: unknown = await this.loadData();
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, data as Partial<MeridianSettings> | undefined);
 	}
 
