@@ -9,4 +9,5 @@ export {
 	EquipmentSchema,
 	LLMConfigSchema,
 } from './common.js';
+export { GameConfigSchema, type GameConfig } from './game-config-schema.js';
 export * from './ranges.js';

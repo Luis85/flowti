@@ -1,0 +1,191 @@
+import { z } from 'zod';
+
+/** Zod v4 workaround: .default({}) doesn't cascade inner defaults; function default does */
+function withDefaults<T extends z.ZodType>(schema: T): z.ZodDefault<T> {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- Zod v4 generic .default() type mismatch
+	return schema.default(() => schema.parse({}) as any) as any;
+}
+
+const NeedsConfigSchema = z.object({
+	hunger_decay: z.number().default(0.5),
+	energy_decay: z.number().default(0.25),
+	social_decay: z.number().default(0.15),
+});
+
+const StaminaConfigSchema = z.object({
+	recovery_per_idle_tick: z.number().default(0.05),
+	exhaustion_speed_modifier: z.number().default(0.5),
+	exhaustion_skill_penalty: z.number().default(-2),
+});
+
+const MemoryConfigSchema = z.object({
+	max_entries: z.number().int().default(50),
+	min_lifespan_ticks: z.number().int().default(20),
+});
+
+const EconomyConfigSchema = z.object({
+	tax_rate: z.number().min(0).max(1).default(0.05),
+	price_clamp_min: z.number().default(0.5),
+	price_clamp_max: z.number().default(3.0),
+	recalculation_interval_ticks: z.number().int().default(10),
+	welfare_threshold_gold: z.number().default(10),
+	welfare_reward_min: z.number().default(15),
+	welfare_reward_max: z.number().default(25),
+	max_active_welfare_quests: z.number().int().default(3),
+	treasury_start_sandbox: z.number().default(500),
+	treasury_regen_per_day: z.number().default(1),
+	circulation_floor_per_agent: z.number().default(50),
+	loan_interest_per_day: z.number().default(0.01),
+});
+
+const MoodFactorWeightsSchema = z.object({
+	needs: z.number().default(30),
+	positive_memories: z.number().default(20),
+	negative_memories: z.number().default(20),
+	goal_progress: z.number().default(10),
+	wallet: z.number().default(10),
+	equipment: z.number().default(5),
+	relationships: z.number().default(5),
+});
+
+const MoodConfigSchema = z.object({
+	factor_weights: withDefaults(MoodFactorWeightsSchema),
+	external_modifier_cap: z.number().default(30),
+});
+
+const MortalityConfigSchema = z.object({
+	starvation_collapse_ticks: z.number().int().default(50),
+	starvation_death_ticks: z.number().int().default(100),
+	despair_death_ticks: z.number().int().default(200),
+	quest_danger_mortality_chance: z.number().min(0).max(1).default(0.1),
+});
+
+const PerceptionConfigSchema = z.object({
+	base_multiplier: z.number().default(20),
+	night_multiplier: z.number().default(10),
+});
+
+const TimeRangeSchema = z.object({
+	start: z.number().default(0),
+	end: z.number().default(0),
+});
+
+const DayNightConfigSchema = z.object({
+	dawn: TimeRangeSchema.default({ start: 0, end: 59 }),
+	day: TimeRangeSchema.default({ start: 60, end: 299 }),
+	dusk: TimeRangeSchema.default({ start: 300, end: 359 }),
+	night: TimeRangeSchema.default({ start: 360, end: 479 }),
+});
+
+const GossipConfigSchema = z.object({
+	reliability_tiers: z.array(z.number()).default([1.0, 0.7, 0.5, 0.3]),
+	iq_filter_threshold: z.number().default(12),
+});
+
+const CrimeConfigSchema = z.object({
+	mood_threshold: z.number().default(-20),
+});
+
+const SkillsConfigSchema = z.object({
+	use_thresholds: z.array(z.number().int()).default([10, 25, 50, 100, 200]),
+	max_use_bonus: z.number().int().default(3),
+});
+
+const RestTierSchema = z.object({
+	recovery_rate: z.number().default(1.0),
+	mood_effect: z.number().default(0),
+});
+
+const RestTiersConfigSchema = z.object({
+	owned_home: RestTierSchema.default({ recovery_rate: 2.0, mood_effect: 2 }),
+	public_shelter: RestTierSchema.default({ recovery_rate: 1.5, mood_effect: 0 }),
+	outdoors: RestTierSchema.default({ recovery_rate: 1.0, mood_effect: -3 }),
+});
+
+const SeasonConfigSchema = z.object({
+	days_per_season: z.number().int().default(15),
+});
+
+const CandidatePoolConfigSchema = z.object({
+	size_min: z.number().int().default(3),
+	size_max: z.number().int().default(5),
+	weighted_count: z.number().int().default(2),
+	refresh_days: z.number().int().default(5),
+});
+
+const WorldEventsConfigSchema = z.object({
+	evaluation_interval_ticks: z.number().int().default(50),
+});
+
+const GameLLMConfigSchema = z.object({
+	provider: z.string().default('cursor'),
+	budget_daily_calls: z.number().int().default(50),
+});
+
+const FormulasConfigSchema = z.object({
+	basic_speed_divisor: z.number().default(4),
+	carry_capacity_multiplier: z.number().default(5),
+	trade_modifier_per_chr: z.number().default(0.02),
+	social_reach_multiplier: z.number().default(0.5),
+});
+
+const BTConfigSchema = z.object({
+	quest_wage_skip_multiplier: z.number().default(1.5),
+});
+
+const AgentCreationConfigSchema = z.object({
+	base_cost: z.number().default(50),
+	cost_per_attribute_point: z.number().default(5),
+	candidate_discount: z.number().default(0.7),
+});
+
+const WorldHealthTierSchema = z.object({
+	name: z.string(),
+	max: z.number(),
+	positive_event_multiplier: z.number(),
+	negative_event_multiplier: z.number(),
+});
+
+const WorldHealthConfigSchema = z.object({
+	tiers: z.array(WorldHealthTierSchema).default([
+		{ name: 'critical', max: 20, positive_event_multiplier: 2.0, negative_event_multiplier: 0.3 },
+		{ name: 'struggling', max: 40, positive_event_multiplier: 1.5, negative_event_multiplier: 0.6 },
+		{ name: 'stable', max: 60, positive_event_multiplier: 1.0, negative_event_multiplier: 1.0 },
+		{ name: 'thriving', max: 80, positive_event_multiplier: 0.8, negative_event_multiplier: 1.3 },
+		{ name: 'booming', max: 100, positive_event_multiplier: 0.6, negative_event_multiplier: 1.5 },
+	]),
+});
+
+export const GameConfigSchema = z.object({
+	version: z.string().default('1.0.0'),
+	locale: z.string().default('en'),
+	tick_interval_ms: z.number().int().min(50).default(500),
+	ticks_per_day: z.number().int().min(1).default(480),
+	mortality: z.boolean().default(true),
+	needs: withDefaults(NeedsConfigSchema),
+	stamina: withDefaults(StaminaConfigSchema),
+	memory: withDefaults(MemoryConfigSchema),
+	economy: withDefaults(EconomyConfigSchema),
+	mood: withDefaults(MoodConfigSchema),
+	mortality_config: withDefaults(MortalityConfigSchema),
+	perception: withDefaults(PerceptionConfigSchema),
+	day_night: withDefaults(DayNightConfigSchema),
+	gossip: withDefaults(GossipConfigSchema),
+	crime: withDefaults(CrimeConfigSchema),
+	skills: withDefaults(SkillsConfigSchema),
+	rest_tiers: withDefaults(RestTiersConfigSchema),
+	season: withDefaults(SeasonConfigSchema),
+	candidate_pool: withDefaults(CandidatePoolConfigSchema),
+	world_events: withDefaults(WorldEventsConfigSchema),
+	canvas_checkpoint_interval_ticks: z.number().int().default(50),
+	ui_bridge_snapshot_interval_ticks: z.number().int().default(10),
+	vault_sync_debounce_ms: z.number().int().default(2000),
+	llm: withDefaults(GameLLMConfigSchema),
+	formulas: withDefaults(FormulasConfigSchema),
+	bt: withDefaults(BTConfigSchema),
+	agent_creation: withDefaults(AgentCreationConfigSchema),
+	world_health: withDefaults(WorldHealthConfigSchema),
+	debug: z.boolean().default(false),
+});
+
+export type GameConfig = z.infer<typeof GameConfigSchema>;
