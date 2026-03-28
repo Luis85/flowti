@@ -20,6 +20,24 @@ export default [
 			// import/no-cycle deferred — eslint-plugin-import lacks stable ESLint 9 flat-config support
 			'max-lines': ['warn', { max: 350, skipBlankLines: true, skipComments: true }],
 			'complexity': ['warn', 10],
+			'no-console': 'warn',
+			'no-var': 'error',
+			'prefer-const': 'error',
+			'no-restricted-properties': [
+				'error',
+				{
+					property: 'innerHTML',
+					message: 'Use DOM API (createEl, createDiv, classList.add) instead of innerHTML (Obsidian security guideline)',
+				},
+				{
+					property: 'outerHTML',
+					message: 'Use DOM API instead of outerHTML (Obsidian security guideline)',
+				},
+				{
+					property: 'insertAdjacentHTML',
+					message: 'Use DOM API instead of insertAdjacentHTML (Obsidian security guideline)',
+				},
+			],
 			'no-restricted-syntax': [
 				'error',
 				{
@@ -38,6 +56,14 @@ export default [
 		files: ['src/infrastructure/**/*.ts'],
 		rules: {
 			'no-restricted-syntax': 'off',
+			'no-console': 'off',
+		},
+	},
+	{
+		// Tests may use console for debugging
+		files: ['tests/**/*.ts'],
+		rules: {
+			'no-console': 'off',
 		},
 	},
 	{
