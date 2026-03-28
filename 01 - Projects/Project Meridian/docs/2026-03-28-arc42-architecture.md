@@ -179,6 +179,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | Validation | Zod | Schema definition, runtime validation, TypeScript type inference |
 | Persistence | Obsidian Vault (markdown + Canvas + JSON) | Data-driven world definition and state |
 | LLM | Unified LLMProvider interface | Optional dialogue enrichment (Cursor API first) |
+| API Docs | TypeDoc | Auto-generated API documentation from TSDoc comments |
 | i18n | vue-i18n | Reactive locale switching for Vue UI |
 | Testing | Vitest + Vue Test Utils + MSW + memfs | Unit, integration, component, emergence |
 | Component Dev | Storybook | Isolated Vue component development |

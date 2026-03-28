@@ -3391,6 +3391,7 @@ If any answer is "no," redesign before implementing.
 |Component Dev|Storybook|Isolated Vue component development, visual testing, design system documentation|
 |Linting|ESLint (flat config)|Architecture enforcement, layer boundaries, code quality|
 |Build|Vite|Fast builds, HMR|
+|API Docs|TypeDoc|Auto-generated API documentation from TSDoc comments|
 |i18n|vue-i18n|Reactive locale switching for Vue UI|
 
 ---
