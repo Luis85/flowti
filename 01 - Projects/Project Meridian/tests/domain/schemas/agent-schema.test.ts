@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { AgentSchema } from '../../../src/domain/schemas/agent-schema.js';
+import {
+	ATTRIBUTE_RANGE,
+	STATUS_RANGE,
+	REPUTATION_RANGE,
+	NEED_RANGE,
+	MOOD_RANGE,
+} from '../../../src/domain/schemas/ranges.js';
 
 describe('AgentSchema', () => {
 	const validAgent = {
@@ -16,19 +23,25 @@ describe('AgentSchema', () => {
 	};
 
 	it('validates a well-formed agent', () => {
-		const result = AgentSchema.safeParse(validAgent);
-		expect(result.success).toBe(true);
+		expect(AgentSchema.safeParse(validAgent).success).toBe(true);
 	});
 
 	it('rejects an agent with invalid id prefix', () => {
-		const result = AgentSchema.safeParse({ ...validAgent, id: 'npc-elena' });
+		expect(AgentSchema.safeParse({ ...validAgent, id: 'npc-elena' }).success).toBe(false);
+	});
+
+	it('rejects attributes above max', () => {
+		const result = AgentSchema.safeParse({
+			...validAgent,
+			attributes: { ST: ATTRIBUTE_RANGE.max + 1, DX: 10, IQ: 10, HT: 10 },
+		});
 		expect(result.success).toBe(false);
 	});
 
-	it('rejects attributes outside range 1-20', () => {
+	it('rejects attributes below min', () => {
 		const result = AgentSchema.safeParse({
 			...validAgent,
-			attributes: { ST: 25, DX: 10, IQ: 10, HT: 10 },
+			attributes: { ST: ATTRIBUTE_RANGE.min - 1, DX: 10, IQ: 10, HT: 10 },
 		});
 		expect(result.success).toBe(false);
 	});
@@ -44,37 +57,40 @@ describe('AgentSchema', () => {
 		expect(result.tools).toEqual([]);
 	});
 
-	it('rejects needs outside 0-100 range', () => {
+	it('rejects needs above max', () => {
 		const result = AgentSchema.safeParse({
 			...validAgent,
-			needs: { hunger: 150, energy: 50, social: 50 },
+			needs: { hunger: NEED_RANGE.max + 1, energy: 50, social: 50 },
 		});
 		expect(result.success).toBe(false);
 	});
 
-	it('rejects mood outside -100 to 100 range', () => {
-		const result = AgentSchema.safeParse({ ...validAgent, mood: 200 });
-		expect(result.success).toBe(false);
+	it('rejects mood above max', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, mood: MOOD_RANGE.max + 1 }).success).toBe(false);
 	});
 
-	it('accepts status at boundaries (-4 and 8)', () => {
-		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: -4 } }).success).toBe(true);
-		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: 8 } }).success).toBe(true);
+	it('rejects mood below min', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, mood: MOOD_RANGE.min - 1 }).success).toBe(false);
 	});
 
-	it('rejects status outside boundaries (-5 and 9)', () => {
-		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: -5 } }).success).toBe(false);
-		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: 9 } }).success).toBe(false);
+	it('accepts status at boundaries', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: STATUS_RANGE.min } }).success).toBe(true);
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: STATUS_RANGE.max } }).success).toBe(true);
 	});
 
-	it('accepts reputation at boundaries (-4 and 4)', () => {
-		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: -4 } }).success).toBe(true);
-		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: 4 } }).success).toBe(true);
+	it('rejects status outside boundaries', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: STATUS_RANGE.min - 1 } }).success).toBe(false);
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: STATUS_RANGE.max + 1 } }).success).toBe(false);
 	});
 
-	it('rejects reputation outside boundaries (-5 and 5)', () => {
-		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: -5 } }).success).toBe(false);
-		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: 5 } }).success).toBe(false);
+	it('accepts reputation at boundaries', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: REPUTATION_RANGE.min } }).success).toBe(true);
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: REPUTATION_RANGE.max } }).success).toBe(true);
+	});
+
+	it('rejects reputation outside boundaries', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: REPUTATION_RANGE.min - 1 } }).success).toBe(false);
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: REPUTATION_RANGE.max + 1 } }).success).toBe(false);
 	});
 
 	it('requires wallet (no default)', () => {

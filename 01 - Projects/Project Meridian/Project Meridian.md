@@ -2214,9 +2214,17 @@ If a specific entity causes repeated errors (malformed data, corrupted state):
 
 ### 17.2 Testing Strategy
 
+**Data-Driven Principle:** Tests verify code behavior and schema integrity, not specific GDD balance values. All numeric ranges, enum values, and balance constants live in `src/domain/schemas/ranges.ts` as the single source of truth. Schemas import from `ranges.ts`, tests import from `ranges.ts`. To rebalance: change the constant — schemas, tests, and tick systems all follow. Tests use `RANGE.max + 1` to test rejection, never a magic number like `25`. This means GDD balance changes never require test updates — only the constant file changes.
+
+**What tests verify:**
+- **Schema tests:** validation accepts values within range, rejects values outside range, applies correct defaults — all referencing imported constants
+- **Infrastructure tests:** code behavior (event delivery, logging, performance tracking) — no GDD values
+- **System tests (future):** tick behavior with mock components — use constants for thresholds
+- **Emergence tests:** world-level scenarios — use `createTestWorld()` helpers, not raw numbers
+
 |Layer|Strategy|Tools|
 |---|---|---|
-|Zod Schemas|Unit: validate known-good and known-bad data|Vitest|
+|Zod Schemas|Unit: validate known-good and known-bad data against imported range constants|Vitest|
 |ECS Components|Unit: creation, defaults, serialization|Vitest|
 |Systems|Unit: inject mock Blackboard/components, assert events|Vitest|
 |Result/Command/Saga|Unit: success paths, failure paths, compensation|Vitest|

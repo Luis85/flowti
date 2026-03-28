@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import {
+	SIGNIFICANCE_RANGE,
+	USE_BONUS_RANGE,
+	LLM_TEMPERATURE_RANGE,
+	GOAL_TYPES,
+	GOAL_PRIORITIES,
+	MEMORY_OUTCOMES,
+} from './ranges.js';
 
 export const PositionSchema = z.object({
 	x: z.number(),
@@ -11,19 +19,19 @@ export const MemoryEntrySchema = z.object({
 	type: z.string(),
 	description: z.string(),
 	participants: z.array(z.string()).default([]),
-	outcome: z.enum(['positive', 'negative', 'neutral']),
-	significance: z.number().min(1).max(10),
+	outcome: z.enum(MEMORY_OUTCOMES),
+	significance: z.number().min(SIGNIFICANCE_RANGE.min).max(SIGNIFICANCE_RANGE.max),
 	mood_impact: z.number(),
 	/** Persisted so decay formula can reference it after significance degrades (GDD §4.6) */
-	original_significance: z.number().min(1).max(10).optional(),
+	original_significance: z.number().min(SIGNIFICANCE_RANGE.min).max(SIGNIFICANCE_RANGE.max).optional(),
 });
 
 export const GoalSchema = z.object({
 	id: z.string(),
-	type: z.enum(['aspirational', 'operational']),
+	type: z.enum(GOAL_TYPES),
 	metric: z.string(),
 	target: z.number(),
-	priority: z.enum(['high', 'medium', 'low']),
+	priority: z.enum(GOAL_PRIORITIES),
 	reward_xp: z.number().min(0),
 	progress: z.number().min(0).default(0),
 });
@@ -33,7 +41,7 @@ export const SkillEntrySchema = z.object({
 	id: z.string(),
 	points: z.number().int().min(0).default(0),
 	use_count: z.number().int().min(0).default(0),
-	use_bonus: z.number().int().min(0).max(3).default(0),
+	use_bonus: z.number().int().min(USE_BONUS_RANGE.min).max(USE_BONUS_RANGE.max).default(0),
 });
 
 export const InventoryItemSchema = z.object({
@@ -54,6 +62,6 @@ export const LLMConfigSchema = z.object({
 	enabled: z.boolean().default(false),
 	provider: z.string().default('cursor'),
 	personality: z.union([z.string(), z.record(z.string(), z.string())]).optional(),
-	temperature: z.number().min(0).max(2).default(0.7),
+	temperature: z.number().min(LLM_TEMPERATURE_RANGE.min).max(LLM_TEMPERATURE_RANGE.max).default(0.7),
 	max_tokens: z.number().int().min(1).default(150),
 });

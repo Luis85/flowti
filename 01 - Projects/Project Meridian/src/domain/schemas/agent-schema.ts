@@ -1,5 +1,14 @@
 import { z } from 'zod';
 import {
+	ATTRIBUTE_RANGE,
+	STATUS_RANGE,
+	REPUTATION_RANGE,
+	CHARISMA_RANGE,
+	NEED_RANGE,
+	MOOD_RANGE,
+	MOOD_DEFAULT,
+} from './ranges.js';
+import {
 	PositionSchema,
 	MemoryEntrySchema,
 	GoalSchema,
@@ -14,23 +23,23 @@ export const AgentSchema = z.object({
 	name: z.string().min(1),
 	kind: z.string(),
 	attributes: z.object({
-		ST: z.number().int().min(1).max(20),
-		DX: z.number().int().min(1).max(20),
-		IQ: z.number().int().min(1).max(20),
-		HT: z.number().int().min(1).max(20),
+		ST: z.number().int().min(ATTRIBUTE_RANGE.min).max(ATTRIBUTE_RANGE.max),
+		DX: z.number().int().min(ATTRIBUTE_RANGE.min).max(ATTRIBUTE_RANGE.max),
+		IQ: z.number().int().min(ATTRIBUTE_RANGE.min).max(ATTRIBUTE_RANGE.max),
+		HT: z.number().int().min(ATTRIBUTE_RANGE.min).max(ATTRIBUTE_RANGE.max),
 	}),
 	social: z.object({
-		status: z.number().int().min(-4).max(8),
-		reputation: z.number().int().min(-4).max(4),
-		charisma: z.number().int().min(1).max(20),
+		status: z.number().int().min(STATUS_RANGE.min).max(STATUS_RANGE.max),
+		reputation: z.number().int().min(REPUTATION_RANGE.min).max(REPUTATION_RANGE.max),
+		charisma: z.number().int().min(CHARISMA_RANGE.min).max(CHARISMA_RANGE.max),
 	}),
 	needs: z.object({
-		hunger: z.number().min(0).max(100),
-		energy: z.number().min(0).max(100),
-		social: z.number().min(0).max(100),
+		hunger: z.number().min(NEED_RANGE.min).max(NEED_RANGE.max),
+		energy: z.number().min(NEED_RANGE.min).max(NEED_RANGE.max),
+		social: z.number().min(NEED_RANGE.min).max(NEED_RANGE.max),
 	}),
 	/** Bootstrap sentinel — MoodSystem recalculates from needs/social each tick (GDD §4.5) */
-	mood: z.number().min(-100).max(100).default(50),
+	mood: z.number().min(MOOD_RANGE.min).max(MOOD_RANGE.max).default(MOOD_DEFAULT),
 	memory: z.array(MemoryEntrySchema).default([]),
 	goals: z.array(GoalSchema).default([]),
 	skills: z.array(SkillEntrySchema).default([]),
