@@ -2937,20 +2937,20 @@ All game entities are ExcaliburJS types:
 
 |GDD System|ExcaliburJS Built-In|Custom Work Needed|
 |---|---|---|
-|**ECS Framework**|Full: Entity, Component, System, World, Query, EntityManager, QueryManager|None — use ExcaliburJS ECS directly. Register custom systems via `World.add(system)`. System execution order via `SystemPriority`.|
+|**ECS Framework**|Full: Entity, Component, System, World, Query, EntityManager, QueryManager|None — use ExcaliburJS ECS directly. Register custom systems via `World.add(system)`. System execution order via `SystemPriority`. **NOTE: World is per-scene, NOT shared between scenes.** All 25+ tick systems must be registered in the gameplay scene's World specifically.|
 |**Tick Cycle**|Engine update loop with fixed timestep accumulator (§2.1)|Tick accumulator logic. All GDD systems are ExcaliburJS `System` subclasses with priority ordering.|
 |**MovementSystem**|Actions API: `actor.actions.moveTo(pos, speed)` with easing and chaining. Interrupt via `actor.actions.clearActions()`.|Thin coordinator: BT writes destination → system chains `.moveTo()` actions for multi-hop paths. Region transitions use ExcaliburJS trigger zones (see below).|
 |**PerceptionSystem**|`SparseHashGrid` broadphase collision. Sensor colliders (circular, `CollisionType.Passive`).|Each agent gets a `PerceptionCollider` — a passive circle sized to IQ × 20px (IQ × 10px at night). Overlapping entities are the agent's perceived world. DayNightSystem resizes the collider. Results written to Blackboard.|
-|**Collision**|Full: broadphase (SparseHashGrid), narrowphase, collision types (Active/Fixed/Passive), collision groups, collision events.|Set agents as `CollisionType.Active`. Buildings/walls as `CollisionType.Fixed`. Region boundaries as passive triggers. Agent-agent collision handled automatically.|
+|**Collision**|Full: broadphase (SparseHashGrid), narrowphase, collision types (PreventCollision [default], Active, Fixed, Passive), collision groups, collision events. Physics: Arcade (default, no rotation/friction) or Realistic. Configure via `physics: { solver: SolverStrategy.Arcade, gravity: vec(0,0) }`.|Set agents as `CollisionType.Active` (must be explicit — default is `PreventCollision`). Buildings/walls as `CollisionType.Fixed`. Region boundaries as `Passive` triggers. Agent-agent collision handled automatically. Arcade solver, zero gravity.|
 |**Region Transitions**|Trigger zones: `Actor` with `CollisionType.Passive` at region boundaries. `collisionstart` event fires on entry.|When agent enters a region trigger zone: deduct stamina, update `current_region`, emit `RegionEntered`. No manual position checking.|
 |**Camera**|Full: follow strategies (lockToActor, elasticToActor, radiusAroundActor), zoom with easing, pan, shake, bounds limiting.|Configure strategies: follow selected agent, zoom via UI controls, pan via drag, limit to world bounds. Minimap via second camera to offscreen canvas.|
 |**EventBus**|Typed `EventEmitter` on every ExcaliburJS object. Global `EventDispatcher` possible.|Extend with: priority handler ordering, event history (ring buffer), inter-system batching. Foundation is free.|
-|**Timers (periodic systems)**|`scene.createTimer({ interval, repeating, callback })` synced to game clock. Respects pause.|Replace `if (tick % N === 0)` checks. Economy recalculation, world event evaluation, status evaluation, canvas checkpoint — all as ExcaliburJS timers. Pause-and-plan works automatically.|
+|**Timers (periodic systems)**|`new ex.Timer({ interval, repeating: true, fcn })` + `scene.add(timer)` + `timer.start()`. Synced to game clock. Respects pause.|Replace `if (tick % N === 0)` checks. Economy recalculation, world event evaluation, status evaluation, canvas checkpoint — all as ExcaliburJS timers. Pause-and-plan works automatically.|
 |**Input Handling**|Keyboard (isPressed, wasPressed), pointer (click, hover, drag on actors), gamepad.|Director interactions: click agent to select (Actor pointer events), keyboard shortcuts for speed/pause, pointer for zone painting and object placement.|
-|**Graphics**|Sprite, SpriteSheet, Animation, GraphicsGroup, Text, Circle, Rectangle, Polygon, Canvas. WebGL + Canvas 2D fallback. Z-index ordering.|Agent sprites, mood halos (Circle overlay), needs bars (Rectangle), BT labels (Text), zone overlays (Polygon fill), region boundaries (Rectangle outline). Use `GraphicsGroup` for composite agent visuals (sprite + mood halo + name label).|
-|**Scene Management**|Scene lifecycle (onActivate, onDeactivate, onInitialize), transitions, data passing.|Main menu scene → World Builder scene → Gameplay scene. Scenario loading passes data via scene context.|
+|**Graphics**|Sprite, SpriteSheet, Animation, GraphicsGroup, Text, Circle, Rectangle, Polygon, Canvas. WebGL + Canvas 2D fallback. Z-index ordering. **Default anchor: (0.5, 0.5) — centered, not top-left.** All positioning relative to center of graphic.|Agent sprites, mood halos (Circle overlay), needs bars (Rectangle), BT labels (Text), zone overlays (Polygon fill), region boundaries (Rectangle outline). Use `GraphicsGroup` for composite agent visuals (sprite + mood halo + name label). Offset children relative to center anchor.|
+|**Scene Management**|Scene lifecycle (onInitialize [once], onActivate [each switch, receives context+data], onDeactivate [cleanup], onPreLoad [scene-specific assets]), transitions, data passing. Static scenes via Engine constructor (`scenes: { name: Class }` — lazily instantiated).|Main menu scene → World Builder scene → Gameplay scene. Scenario loading passes data via scene context. Scene-specific assets loaded via `onPreLoad(loader)`.|
 |**Debug**|`engine.isDebug` for collision/broadphase visualization. Chrome DevTools extension for live entity inspection and per-system execution time.|Use built-in for: collision shapes, broadphase grid, system timing. Build custom for: mood halos, BT labels, relationship lines, economic heatmaps, Blackboard inspector.|
-|**Asset Loading**|`Loader` with `ImageSource`, progressive loading, scene-specific `onPreLoad()`.|Load agent sprites, tile textures, UI assets. Scene-specific loading for template worlds.|
+|**Asset Loading**|`DefaultLoader` with `ImageSource`, progressive loading, scene-specific `onPreLoad()`. `addResource`/`addResources`, `progress` getter (0-1), `onUserAction` override for embedded contexts.|Load agent sprites, tile textures, UI assets. Scene-specific loading for template worlds. Custom loader suppresses click prompt for Obsidian (onUserAction auto-resolves).|
 
 ### 30.3 What We Build vs. What ExcaliburJS Provides
 
@@ -3044,11 +3044,13 @@ agent.actions.clearActions(); // cancel journey
 **Periodic System via Timer:**
 ```typescript
 // Economy recalculation every 10 ticks — respects pause automatically
-scene.createTimer({
+const economyTimer = new ex.Timer({
   interval: gameConfig.tick_interval_ms * gameConfig.economy.recalculation_interval_ticks,
   repeating: true,
-  callback: () => economySystem.recalculate()
+  fcn: () => economySystem.recalculate(),
 });
+scene.add(economyTimer);
+economyTimer.start();
 ```
 
 ### 30.5 Pathfinding
