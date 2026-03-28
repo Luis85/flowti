@@ -10,7 +10,8 @@
     "test:unit": "vitest run --config configs/vitest.config.ts",
     "test:watch": "vitest --config configs/vitest.config.ts",
     "typecheck": "tsc --noEmit --project configs/tsconfig.json",
-    "lint": "eslint src/ --config configs/eslint.config.mjs"
+    "lint": "eslint src/ --config configs/eslint.config.mjs",
+    "docs": "typedoc --out docs/api src/ --tsconfig configs/tsconfig.json"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.57.2",
@@ -20,6 +21,7 @@
     "excalibur": "^0.32.0",
     "jsdom": "^29.0.1",
     "obsidian": "^1.12.3",
+    "typedoc": "^0.28.18",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
     "vitest": "^4.1.2",

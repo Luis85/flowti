@@ -74,6 +74,37 @@ describe('EventBus', () => {
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 
+	it('removes handler via off()', () => {
+		const bus = createEventBus();
+		const handler = vi.fn();
+		bus.on('Test', handler);
+
+		bus.emit({ type: 'Test', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		expect(handler).toHaveBeenCalledTimes(1);
+
+		bus.off('Test', handler);
+		bus.emit({ type: 'Test', tick: 2, wallClock: Date.now(), source: 's', payload: {} });
+		expect(handler).toHaveBeenCalledTimes(1);
+	});
+
+	it('history limit returns the last N events', () => {
+		const bus = createEventBus();
+		for (let i = 1; i <= 5; i++) {
+			bus.emit({ type: 'Seq', tick: i, wallClock: Date.now(), source: 's', payload: { i } });
+		}
+		const last2 = bus.history({ limit: 2 });
+		expect(last2).toHaveLength(2);
+		expect(last2[0]?.payload.i).toBe(4);
+		expect(last2[1]?.payload.i).toBe(5);
+	});
+
+	it('does not throw when emitting with no handlers', () => {
+		const bus = createEventBus();
+		expect(() => {
+			bus.emit({ type: 'Nobody', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		}).not.toThrow();
+	});
+
 	it('supports filter-based subscription', () => {
 		const bus = createEventBus();
 		const handler = vi.fn();

@@ -1,5 +1,15 @@
 import type { GameEvent, EventHandler, EventBus, Unsubscribe, EventFilter } from '../domain/core/events.js';
 
+/**
+ * EventBus implementation with priority ordering, history, and filter support.
+ *
+ * NOTE: Event batching (GDD §14.1, ADR-05) is not yet implemented.
+ * Currently, emit() dispatches synchronously to all handlers.
+ * When the tick loop is built, batching should be added so that events
+ * emitted by system N are collected and delivered before system N+1 runs.
+ * This prevents mid-tick event cascades.
+ */
+
 interface PrioritizedHandler {
 	handler: EventHandler;
 	priority: number;
@@ -13,8 +23,9 @@ export function createEventBus(): EventBus {
 	const eventHistory: GameEvent[] = [];
 
 	function addHandler(map: Map<string, PrioritizedHandler[]>, type: string, handler: EventHandler, priority: number): void {
-		if (!map.has(type)) map.set(type, []);
-		const list = map.get(type)!;
+		const existing = map.get(type);
+		const list = existing ?? [];
+		if (existing === undefined) map.set(type, list);
 		list.push({ handler, priority });
 		list.sort((a, b) => a.priority - b.priority);
 	}

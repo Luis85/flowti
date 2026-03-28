@@ -49,6 +49,16 @@ describe('Result', () => {
 		if (final.ok) expect(final.value).toBe('result: 12');
 	});
 
+	it('preserves error identity through map', () => {
+		const error = { code: 'ORIG', message: 'original', system: 's', recoverable: true };
+		const result = Result.err(error);
+		const mapped = result.map(() => 999);
+		if (!mapped.ok) {
+			expect(mapped.error.code).toBe('ORIG');
+			expect(mapped.error.message).toBe('original');
+		}
+	});
+
 	it('short-circuits on error in a chain', () => {
 		const step1 = (n: number) => Result.ok(n + 1);
 		const step2 = (_n: number) => Result.err<number>({
