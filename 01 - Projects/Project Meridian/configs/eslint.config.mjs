@@ -123,6 +123,7 @@ export default [
 		},
 	},
 	{
+		// Domain + systems must use injected GameRNG, never Math.random (ADR-11, §8.11)
 		files: ['src/domain/**/*.ts'],
 		rules: {
 			'no-restricted-imports': [
@@ -132,6 +133,14 @@ export default [
 						{ group: ['../infrastructure/*', '../../infrastructure/*'], message: 'Domain must not import infrastructure (GDD §36.3)' },
 						{ group: ['obsidian', 'node:*', 'excalibur'], message: 'Domain must not import platform modules (GDD §36.3)' },
 					],
+				},
+			],
+			'no-restricted-properties': [
+				'error',
+				{
+					object: 'Math',
+					property: 'random',
+					message: 'Use injected GameRNG for deterministic simulation (ADR-11, §8.11). Math.random breaks replay and emergence tests.',
 				},
 			],
 		},
