@@ -1687,7 +1687,42 @@ EventBus
 
 ## 13 · UI/UX
 
-### 13.1 Layout: Split View
+### 13.1 Obsidian UI Integration
+
+The game UI MUST feel native to Obsidian — not a foreign application dropped into a tab. All UI elements follow Obsidian's theming, styling, and interaction patterns.
+
+**Theming rules:**
+- Use Obsidian CSS custom properties (`--background-primary`, `--text-normal`, `--interactive-accent`, `--text-on-accent`, etc.) for ALL colors — never hardcode hex values in UI components.
+- Respect light/dark mode switching automatically via CSS variables.
+- Use Obsidian's font stack (`--font-interface`, `--font-text`, `--font-monospace`) — never import external fonts.
+- Follow Obsidian's spacing scale (`--size-4-1`, `--size-4-2`, etc.) for margins/padding.
+- Match Obsidian's border radius, shadow, and transition conventions.
+
+**Component styling:**
+- Buttons use Obsidian's `.mod-cta` (primary), `.clickable-icon` (icon buttons), and `.mod-warning` (destructive) classes.
+- Inputs use Obsidian's native `<input>` and `<select>` styling — do not override.
+- Collapsible sections use the same pattern as Obsidian's left sidebar (`.tree-item`, `.tree-item-self`, `.collapse-icon`).
+- Scrollbars inherit Obsidian's themed scrollbar styling.
+- Tooltips use Obsidian's tooltip API (`setTooltip` or `.tooltip` class).
+
+**Layout integration:**
+- The game view is an Obsidian `ItemView` leaf — it participates in workspace layout (split, move, resize, tabs).
+- The management sidebar follows Obsidian's sidebar pattern — it should feel like a natural extension of Obsidian's UI, not a Vue app bolted on.
+- Vue components render inside the Obsidian view container and consume Obsidian's CSS variables for consistent theming.
+
+**CSS architecture:**
+- One `styles.css` file loaded by the plugin (Obsidian convention).
+- CSS uses Obsidian's variable system exclusively for colors, fonts, and spacing.
+- BEM naming convention for custom classes (e.g., `.meridian-agent-list`, `.meridian-agent-list__item`, `.meridian-agent-list__item--selected`).
+- No `!important` overrides of Obsidian styles.
+- Media queries for responsive layout within the view container (not viewport — the view may be split to any size).
+
+**ExcaliburJS canvas styling:**
+- The ExcaliburJS canvas fills the map container but defers to Obsidian's theme for background color.
+- Canvas background should read from `--background-primary` (converted to hex for ExcaliburJS's `backgroundColor` config) so the map matches the vault theme.
+- Debug overlays use semi-transparent colors that work in both light and dark themes.
+
+### 13.2 Layout: Split View
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -1708,7 +1743,7 @@ EventBus
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 13.2 Management Panel — Collapsible Sidebar
+### 13.3 Management Panel — Collapsible Sidebar
 
 The management panel uses a **collapsible sidebar** (matching Obsidian's native UX pattern). Sections expand/collapse independently. Multiple sections can be open simultaneously, allowing the Director to monitor agents and economy at the same time.
 
@@ -1728,7 +1763,7 @@ The management panel uses a **collapsible sidebar** (matching Obsidian's native 
 |**Config**|Global settings. LLM provider config + test. Kind/species editors. Recipe browser. Zone management.|
 |**Debug**|Modifier inspector, Blackboard inspector, performance panel. Visible only when debug mode is on.|
 
-### 13.3 Notification Bar
+### 13.4 Notification Bar
 
 Toolbar displays alert count. Clicking expands a notification dropdown:
 
@@ -1738,7 +1773,7 @@ Toolbar displays alert count. Clicking expands a notification dropdown:
 
 Clicking a notification selects the relevant entity on the map and panel.
 
-### 13.4 Vue Component Architecture
+### 13.5 Vue Component Architecture
 
 ```
 App.vue
@@ -1784,7 +1819,7 @@ App.vue
 └── AppStatusBar.vue
 ```
 
-### 13.5 Pinia Stores
+### 13.6 Pinia Stores
 
 |Store|Responsibility|Source|
 |---|---|---|
@@ -1806,7 +1841,7 @@ App.vue
 |`useStoryStore`|Bookmarks, era names, timeline, agent biographies|DirectorAction events (BookmarkCreated, EraNameAssigned)|
 |`useDebugStore`|Debug overlays, performance metrics, Blackboard inspector|Debug mode toggle|
 
-### 13.6 UIBridge Contract
+### 13.7 UIBridge Contract
 
 The `UIBridgeSystem` (tick position 20) bridges ECS state to Pinia stores. **Hybrid event + snapshot model:**
 

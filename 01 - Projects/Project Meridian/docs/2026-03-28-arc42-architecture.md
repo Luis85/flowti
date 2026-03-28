@@ -771,7 +771,17 @@ Candidate pool generation spans multiple systems:
 - **CandidatePoolRefreshed** event emitted on refresh
 - Candidates stored as transient data (not vault files until hired)
 
-### 8.15 Build Pipeline
+### 8.15 Obsidian UI Integration
+
+All UI MUST feel native to Obsidian:
+- **Colors:** Use Obsidian CSS custom properties (`--background-primary`, `--text-normal`, `--interactive-accent`) — never hardcode hex in UI.
+- **Fonts:** Use Obsidian font stack (`--font-interface`, `--font-text`, `--font-monospace`).
+- **Components:** Buttons use Obsidian's `.mod-cta`/`.clickable-icon` classes. Inputs use native Obsidian styling. Collapsible sections match Obsidian's `.tree-item` pattern.
+- **Layout:** Game view is an Obsidian `ItemView` leaf. Management sidebar follows Obsidian sidebar conventions. Vue components consume Obsidian CSS variables.
+- **ExcaliburJS canvas:** Background reads from `--background-primary` to match vault theme. Debug overlays use semi-transparent colors compatible with both light/dark modes.
+- **CSS:** Single `styles.css`, BEM naming (`.meridian-*`), no `!important`, Obsidian variables only for colors/fonts/spacing.
+
+### 8.16 Build Pipeline
 
 ```
 npm test
