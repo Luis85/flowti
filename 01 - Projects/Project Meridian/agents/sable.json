@@ -14,6 +14,7 @@
 		{ "item_id": "dye-red", "quantity": 2 }
 	],
 	"equipment": { "head": null, "body": "work-apron", "hands": "crafting-gloves", "tool": "awl-set", "accessory": null },
+	"persona": "personas/sable.md",
 	"traits": [],
 	"wallet": { "gold": 45 },
 	"xp": 0,

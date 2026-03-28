@@ -24,6 +24,7 @@
 		{ "item_id": "bread-loaf", "quantity": 2 }
 	],
 	"equipment": { "head": null, "body": "leather-apron", "hands": null, "tool": "merchant-scales", "accessory": "silver-pendant" },
+	"persona": "personas/elena.md",
 	"traits": ["curious", "hardy"],
 	"wallet": { "gold": 120 },
 	"xp": 0,

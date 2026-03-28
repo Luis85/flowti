@@ -32,6 +32,7 @@
 		{ "item_id": "torch", "quantity": 1 }
 	],
 	"equipment": { "head": "iron-helm", "body": "chain-mail", "hands": "leather-gloves", "tool": "iron-spear", "accessory": null },
+	"persona": "personas/marcus.md",
 	"traits": ["brave"],
 	"wallet": { "gold": 35 },
 	"xp": 0,

@@ -24,6 +24,7 @@
 		{ "item_id": "star-chart", "quantity": 1 }
 	],
 	"equipment": { "head": null, "body": "wool-robe", "hands": null, "tool": "magnifying-lens", "accessory": "reading-glasses" },
+	"persona": "personas/wren.md",
 	"traits": ["frail"],
 	"wallet": { "gold": 80 },
 	"xp": 0,
