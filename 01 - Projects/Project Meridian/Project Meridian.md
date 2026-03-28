@@ -994,6 +994,58 @@ The Director paints zones on the map via a zone painting tool in the UI. Flow:
 3. **Canvas:** Zone boundaries written to `config/zones.canvas` as rectangular nodes with zone type metadata on next VaultSync cycle.
 4. **Systems react:** Property prices recalculate. Agents factor zone type into building decisions. Incompatible buildings in rezoned areas get a Chronicler warning.
 
+### 8.8 Obsidian Commands
+
+All Director actions are exposed as Obsidian commands (accessible via command palette, assignable to hotkeys by the user). **No default hotkeys** — they cause conflicts across OS and plugins (Obsidian guideline).
+
+**Architectural pattern:** Command handlers are thin dispatchers. They emit events on the EventBus — zero business logic in the handler. Game systems subscribe to these events and execute the actual work.
+
+```typescript
+// Pattern: command handler emits event, system reacts
+commands.register('toggle-pause', 'Toggle Pause', () => {
+	eventBus.emit({ type: 'SimulationTogglePause', tick, wallClock, source: 'Command', payload: {} });
+});
+// The TickRunner system subscribes to SimulationTogglePause and pauses/resumes
+```
+
+**View Management:**
+
+|Command ID|Name|Event Emitted|
+|---|---|---|
+|`open-game`|Open Game World|Opens/focuses `meridian-game-view` leaf|
+|`open-detail`|Open Detail Panel|Opens/focuses `meridian-detail-view` leaf|
+|`open-chronicler`|Open Chronicler|Opens/focuses `meridian-chronicler-view` leaf|
+|`open-economy`|Open Economy Dashboard|Opens/focuses `meridian-economy-view` leaf|
+|`toggle-debug`|Toggle Debug Panel|Opens/closes `meridian-debug-view` leaf|
+
+**Simulation Control:**
+
+|Command ID|Name|Event Emitted|
+|---|---|---|
+|`toggle-pause`|Toggle Pause/Resume|`SimulationTogglePause`|
+|`speed-slow`|Speed: Slow|`SpeedChanged { speed: 'slow' }`|
+|`speed-normal`|Speed: Normal|`SpeedChanged { speed: 'normal' }`|
+|`speed-fast`|Speed: Fast|`SpeedChanged { speed: 'fast' }`|
+
+**Director Actions:**
+
+|Command ID|Name|Event Emitted|
+|---|---|---|
+|`create-quest`|Create Quest|`DirectorAction { type: 'OpenQuestCreator' }`|
+|`spawn-agent`|Spawn Agent|`DirectorAction { type: 'OpenAgentCreator' }`|
+|`select-next-agent`|Select Next Agent|`EntitySelected` (cycles forward through agent list)|
+|`select-prev-agent`|Select Previous Agent|`EntitySelected` (cycles backward)|
+|`bookmark-moment`|Bookmark This Moment|`BookmarkCreated { tick: current }`|
+
+**Debug:**
+
+|Command ID|Name|Event Emitted|
+|---|---|---|
+|`toggle-debug-overlays`|Toggle Debug Overlays|`DebugToggled`|
+|`export-relationships`|Export Relationship Graph|`RelationshipExportRequested`|
+
+Commands are registered via the `CommandRegistry` interface from `PlatformServices` (§36.4). The Obsidian implementation wraps `plugin.addCommand()`, which automatically prefixes the command ID with the plugin ID.
+
 ---
 
 ## 9 · World System
@@ -2047,7 +2099,10 @@ bus.on('VaultSyncFailed', updateUIAlert, 200);    // display
 |`DialogueRequested`, `DialogueRefused`|DialogueSystem|
 |`FacilityVacancy`|JobSystem|
 |`SupplyShortage`|JobSystem|
-|`EntitySelected`|DirectorAction (game view click)|
+|`EntitySelected`|DirectorAction (game view click or command)|
+|`SimulationTogglePause`|Command|
+|`DebugToggled`|Command|
+|`RelationshipExportRequested`|Command|
 |`RegionEntered`|MovementSystem|
 |`BuildingAbandoned`|AbandonmentSystem|
 |`WorldHealthCalculated`|ChroniclerSystem|
