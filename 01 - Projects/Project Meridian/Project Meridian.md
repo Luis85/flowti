@@ -1705,10 +1705,32 @@ The game UI MUST feel native to Obsidian — not a foreign application dropped i
 - Scrollbars inherit Obsidian's themed scrollbar styling.
 - Tooltips use Obsidian's tooltip API (`setTooltip` or `.tooltip` class).
 
-**Layout integration:**
-- The game view is an Obsidian `ItemView` leaf — it participates in workspace layout (split, move, resize, tabs).
-- The management sidebar follows Obsidian's sidebar pattern — it should feel like a natural extension of Obsidian's UI, not a Vue app bolted on.
-- Vue components render inside the Obsidian view container and consume Obsidian's CSS variables for consistent theming.
+**Layout integration — Multi-Leaf Architecture:**
+
+The game uses multiple Obsidian leaf views, not a single monolithic view. Each view is an independent `ItemView` that the Director can dock, split, tab, resize, and rearrange using Obsidian's native workspace.
+
+|View Type|Purpose|Default Position|
+|---|---|---|
+|`meridian-game-view`|World map (ExcaliburJS canvas), toolbar, speed controls|Center (main pane)|
+|`meridian-detail-view`|Detail panel for selected entity (agent sheet, building info, quest detail, plot info)|Right sidebar or split right|
+|`meridian-chronicler-view`|Chronicler output: observations, digests, reports, milestones|Right sidebar (tabbed)|
+|`meridian-economy-view`|Economy dashboards: price charts, supply chain, treasury ledger|Bottom split or separate tab|
+|`meridian-debug-view`|Debug panel: modifier inspector, Blackboard, performance|Bottom split (hidden by default)|
+
+**How it works:**
+- The **game view** is the primary view. Clicking an agent/object/building on the map opens or updates the **detail view** with that entity's information.
+- The detail view is context-sensitive: selecting an agent shows the agent sheet (needs, mood, memory, skills, equipment); selecting a building shows facility info (operating fund, workers, recipes); selecting a quest shows objectives and progress.
+- Each view type is registered independently in `plugin.ts`. The Director can open multiple instances, rearrange them freely, or close views they don't need.
+- Views communicate via the EventBus: the game view emits `EntitySelected` events; the detail view subscribes and updates its content.
+- This replaces the all-in-one sidebar approach — Obsidian's workspace gives us more flexible window real estate than a fixed sidebar could.
+- When the Director first opens the plugin, a default layout is suggested (game center, detail right), but they can customize freely.
+
+**Obsidian workspace commands:**
+- "Open Game World" — opens/focuses the main game view
+- "Open Detail Panel" — opens the detail view (or focuses if already open)
+- "Open Chronicler" — opens the Chronicler view
+- "Open Economy Dashboard" — opens the economy view
+- "Toggle Debug" — opens/closes the debug view
 
 **CSS architecture:**
 - One `styles.css` file loaded by the plugin (Obsidian convention).
@@ -1743,25 +1765,15 @@ The game UI MUST feel native to Obsidian — not a foreign application dropped i
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 13.3 Management Panel — Collapsible Sidebar
+### 13.3 Multi-Leaf View Interaction
 
-The management panel uses a **collapsible sidebar** (matching Obsidian's native UX pattern). Sections expand/collapse independently. Multiple sections can be open simultaneously, allowing the Director to monitor agents and economy at the same time.
+Views communicate via the shared EventBus and Pinia stores:
 
-**Sidebar Sections:**
-
-|Section|Content|
-|---|---|
-|**Agents**|List with search/filter → detail view (character sheet, needs, mood, traits, memory, skills, inventory, equipment, relationships). Edit → config.|
-|**Quests**|Available / in progress / completed / failed. "New Quest" form. Quest detail with objectives and timer.|
-|**Jobs**|Job list by facility. Assigned agents. Production output. Vacancy indicators.|
-|**Economy**|Price charts (over time). Supply/demand overview. Property registry. Trade log. Treasury ledger.|
-|**Chronicler**|Tick observations, daily digests, seasonal reports, decline warnings, milestone announcements. Searchable and filterable.|
-|**Events**|Real-time EventBus log. Filterable by type/agent/system. Active world events. World event trigger.|
-|**Dialogue**|Agent selection → chat interface. Mode indicator (template/LLM). Mood display. History.|
-|**Scenario**|Active scenario goals, progress bars, scoring. Visible only when a scenario is active.|
-|**Story**|Bookmarks, era names, timeline view, agent biographies. The Director's narrative tools.|
-|**Config**|Global settings. LLM provider config + test. Kind/species editors. Recipe browser. Zone management.|
-|**Debug**|Modifier inspector, Blackboard inspector, performance panel. Visible only when debug mode is on.|
+- **Entity selection:** Director clicks an agent/object/building on the map → game view emits `EntitySelected` event → detail view subscribes and displays that entity's information.
+- **Notification follow:** Clicking a notification in the game toolbar emits `EntitySelected` for the relevant entity — the map centers on it and the detail view updates.
+- **Cross-view actions:** The detail view can trigger Director actions (award trait, post quest) which flow through the game's action queue like any other Director action.
+- **Dialogue:** Talking to an agent opens in the detail view as a dialogue sub-panel — the Director can chat while watching the map.
+- **Config and scenario:** Global settings and scenario management are accessible via Obsidian commands or the game toolbar — they don't need dedicated views (modal dialogs or command palette).
 
 ### 13.4 Notification Bar
 
@@ -1773,50 +1785,77 @@ Toolbar displays alert count. Clicking expands a notification dropdown:
 
 Clicking a notification selects the relevant entity on the map and panel.
 
-### 13.5 Vue Component Architecture
+### 13.5 Vue Component Architecture (Multi-Leaf)
 
+Each Obsidian leaf view hosts its own Vue app instance. Pinia stores are shared across views (singleton per plugin instance).
+
+**Game View (`meridian-game-view`):**
 ```
-App.vue
-├── AppToolbar.vue
-│   ├── NotificationDropdown.vue
+GameViewApp.vue
+├── GameToolbar.vue
+│   ├── SpeedControls.vue
 │   ├── SeasonIndicator.vue
 │   ├── TreasuryDisplay.vue
+│   ├── NotificationDropdown.vue
 │   └── DebugToggle.vue
-├── SplitView.vue
-│   ├── MapContainer.vue
-│   │   └── DebugOverlayLayer.vue (perception, zones, regions, heatmaps)
-│   └── ManagementSidebar.vue (collapsible sections, Obsidian-native pattern)
-│       ├── AgentListPanel.vue → AgentDetailPanel.vue
-│       │   ├── CharacterSheet.vue
-│       │   ├── NeedsBars.vue (+ StaminaBar)
-│       │   ├── MoodIndicator.vue
-│       │   ├── TraitBadges.vue
-│       │   ├── MemoryTimeline.vue
-│       │   ├── SkillsList.vue
-│       │   ├── EquipmentSlots.vue
-│       │   ├── InventoryGrid.vue
-│       │   └── RelationshipMiniGraph.vue
-│       ├── QuestPanel.vue → QuestDetail.vue / QuestCreator.vue
-│       ├── JobPanel.vue → JobDetail.vue
-│       ├── EconomyPanel.vue
-│       │   ├── PriceChart.vue
-│       │   ├── SupplyDemandTable.vue
-│       │   ├── PropertyRegistry.vue
-│       │   └── TreasuryLedger.vue
-│       ├── ChroniclerPanel.vue
-│       │   ├── TickObservations.vue
-│       │   ├── DigestView.vue
-│       │   └── MilestoneLog.vue
-│       ├── ConfigPanel.vue
-│       ├── EventPanel.vue → WorldEventTrigger.vue
-│       ├── DialoguePanel.vue
-│       ├── ScenarioPanel.vue (goals, progress, scoring)
-│       ├── StoryPanel.vue (bookmarks, eras, timeline, biographies)
-│       └── DebugPanel.vue
-│           ├── ModifierInspector.vue
-│           ├── BlackboardInspector.vue
-│           └── PerformancePanel.vue
-└── AppStatusBar.vue
+├── MapContainer.vue
+│   └── DebugOverlayLayer.vue
+└── GameStatusBar.vue
+```
+
+**Detail View (`meridian-detail-view`) — context-sensitive:**
+```
+DetailViewApp.vue
+├── DetailHeader.vue (entity name, type icon, close)
+├── AgentDetailPanel.vue (when agent selected)
+│   ├── CharacterSheet.vue
+│   ├── NeedsBars.vue (+ StaminaBar)
+│   ├── MoodIndicator.vue
+│   ├── TraitBadges.vue
+│   ├── MemoryTimeline.vue
+│   ├── SkillsList.vue
+│   ├── EquipmentSlots.vue
+│   ├── InventoryGrid.vue
+│   └── RelationshipMiniGraph.vue
+├── BuildingDetailPanel.vue (when building selected)
+│   ├── FacilityInfo.vue
+│   ├── OperatingFundBar.vue
+│   └── WorkerList.vue
+├── QuestDetailPanel.vue (when quest selected)
+│   ├── QuestObjectives.vue
+│   └── QuestTimer.vue
+└── PlotDetailPanel.vue (when plot selected)
+```
+
+**Chronicler View (`meridian-chronicler-view`):**
+```
+ChroniclerViewApp.vue
+��── TickObservations.vue
+├── DigestView.vue
+├── SeasonalReport.vue
+├── MilestoneLog.vue
+└── StoryTools.vue (bookmarks, eras, timeline, biographies)
+```
+
+**Economy View (`meridian-economy-view`):**
+```
+EconomyViewApp.vue
+├── PriceChart.vue
+├── SupplyDemandTable.vue
+├── SupplyChainFlow.vue
+├── PropertyRegistry.vue
+├── TreasuryLedger.vue
+└── TradeLog.vue
+```
+
+**Debug View (`meridian-debug-view`):**
+```
+DebugViewApp.vue
+├── ModifierInspector.vue
+├── BlackboardInspector.vue
+├── PerformancePanel.vue
+├── EventLogPanel.vue
+└── EntityBrowser.vue
 ```
 
 ### 13.6 Pinia Stores
@@ -1961,6 +2000,7 @@ bus.on('VaultSyncFailed', updateUIAlert, 200);    // display
 |`DialogueRequested`, `DialogueRefused`|DialogueSystem|
 |`FacilityVacancy`|JobSystem|
 |`SupplyShortage`|JobSystem|
+|`EntitySelected`|DirectorAction (game view click)|
 |`RegionEntered`|MovementSystem|
 |`BuildingAbandoned`|AbandonmentSystem|
 |`WorldHealthCalculated`|ChroniclerSystem|

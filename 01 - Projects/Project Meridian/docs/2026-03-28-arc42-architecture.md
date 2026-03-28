@@ -771,15 +771,27 @@ Candidate pool generation spans multiple systems:
 - **CandidatePoolRefreshed** event emitted on refresh
 - Candidates stored as transient data (not vault files until hired)
 
-### 8.15 Obsidian UI Integration
+### 8.15 Obsidian UI Integration & Multi-Leaf Architecture
 
 All UI MUST feel native to Obsidian:
 - **Colors:** Use Obsidian CSS custom properties (`--background-primary`, `--text-normal`, `--interactive-accent`) — never hardcode hex in UI.
 - **Fonts:** Use Obsidian font stack (`--font-interface`, `--font-text`, `--font-monospace`).
-- **Components:** Buttons use Obsidian's `.mod-cta`/`.clickable-icon` classes. Inputs use native Obsidian styling. Collapsible sections match Obsidian's `.tree-item` pattern.
-- **Layout:** Game view is an Obsidian `ItemView` leaf. Management sidebar follows Obsidian sidebar conventions. Vue components consume Obsidian CSS variables.
-- **ExcaliburJS canvas:** Background reads from `--background-primary` to match vault theme. Debug overlays use semi-transparent colors compatible with both light/dark modes.
+- **Components:** Buttons use Obsidian's `.mod-cta`/`.clickable-icon` classes. Inputs use native Obsidian styling.
 - **CSS:** Single `styles.css`, BEM naming (`.meridian-*`), no `!important`, Obsidian variables only for colors/fonts/spacing.
+
+**Multi-Leaf Architecture:**
+
+The game uses 5 independent Obsidian `ItemView` leaf types, not a single monolithic view:
+
+| View | Purpose | Default Position |
+|------|---------|-----------------|
+| `meridian-game-view` | World map (ExcaliburJS canvas) + toolbar | Center (main pane) |
+| `meridian-detail-view` | Context-sensitive entity detail (agent/building/quest/plot) | Right sidebar |
+| `meridian-chronicler-view` | Chronicler output, reports, story tools | Right sidebar (tabbed) |
+| `meridian-economy-view` | Price charts, supply chain, treasury | Bottom split |
+| `meridian-debug-view` | Modifier/Blackboard/performance inspector | Bottom (hidden by default) |
+
+Views communicate via EventBus (`EntitySelected` triggers detail view update). Each hosts its own Vue app instance; Pinia stores are shared (singleton per plugin). The Director can dock, split, tab, and rearrange views using Obsidian's native workspace.
 
 ### 8.16 Build Pipeline
 
