@@ -22,6 +22,7 @@ export function createGameEngine(
 		height,
 		backgroundColor: ex.Color.fromHex(backgroundColor ?? '#1a1a2e'),
 		suppressPlayButton: true,
+		suppressConsoleBootMessage: true,
 		antialiasing: false,
 	});
 

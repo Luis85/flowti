@@ -37,7 +37,9 @@ export class MeridianGameView extends ItemView {
 		const testActor = createTestActor({ x: 400, y: 300 });
 		this.engine.currentScene.add(testActor);
 
-		await this.engine.start();
+		// Fire-and-forget — don't block onOpen() with engine initialization
+		// This prevents the '[Violation] click handler took Xms' browser warning
+		void this.engine.start();
 	}
 
 	async onClose(): Promise<void> {
