@@ -22,8 +22,7 @@ export class MeridianGameView extends ItemView {
 	async onOpen(): Promise<void> {
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
-		container.style.padding = '0';
-		container.style.overflow = 'hidden';
+		container.classList.add('meridian-game-container');
 
 		const style = getComputedStyle(container);
 		const bgColor = style.getPropertyValue('--background-primary').trim() || '#1a1a2e';
