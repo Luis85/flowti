@@ -32,7 +32,7 @@
 	"position": { "x": 200, "y": 180, "region": "market-square" },
 	"relationships": "graphs/relationships.canvas",
 	"tools": [],
-	"behavior_tree": "bt/merchant.md",
+	"behavior_tree": "bt-merchant",
 	"job": "shopkeeper",
 	"property": ["market-stall-3"]
 }

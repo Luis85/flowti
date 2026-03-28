@@ -22,7 +22,7 @@
 	"position": { "x": 150, "y": 350, "region": "craft-quarter" },
 	"relationships": "graphs/relationships.canvas",
 	"tools": [],
-	"behavior_tree": "bt/artisan.md",
+	"behavior_tree": "bt-artisan",
 	"job": "leatherworker",
 	"property": ["workshop-7"]
 }
