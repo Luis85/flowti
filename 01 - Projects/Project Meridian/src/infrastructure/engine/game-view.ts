@@ -6,6 +6,13 @@ import { createTickRunner } from './tick-runner.js';
 import { MeridianTickSystem } from './tick-system.js';
 import type { BatchableEventBus } from './batchable-event-bus.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
+import { createTraitResolverSystem } from '../systems/trait-resolver-system.js';
+import { createNeedsDecaySystem } from '../systems/needs-decay-system.js';
+import { createMoodSystem } from '../systems/mood-system.js';
+import { createMemoryDecaySystem } from '../systems/memory-decay-system.js';
+import { createAgentSpawner, type VaultReader } from '../entity/agent-spawner.js';
+import type { AgentActor } from '../entity/agent-actor.js';
+import type { TraitDefinition } from '../../domain/systems/trait-resolver.js';
 
 export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 
@@ -13,11 +20,13 @@ export class MeridianGameView extends ItemView {
 	private engine: ex.Engine | null = null;
 	private deps: GameCoreDeps | null;
 	private batchableEventBus: BatchableEventBus | null;
+	private traitDefinitions: Record<string, TraitDefinition>;
 
-	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null, batchableEventBus: BatchableEventBus | null = null) {
+	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null, batchableEventBus: BatchableEventBus | null = null, traitDefinitions: Record<string, TraitDefinition> = {}) {
 		super(leaf);
 		this.deps = deps;
 		this.batchableEventBus = batchableEventBus;
+		this.traitDefinitions = traitDefinitions;
 	}
 
 	getViewType(): string {
@@ -28,7 +37,6 @@ export class MeridianGameView extends ItemView {
 		return 'Project Meridian';
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await -- Obsidian ItemView interface requires async
 	async onOpen(): Promise<void> {
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
@@ -52,6 +60,41 @@ export class MeridianGameView extends ItemView {
 				const tickSystem = new MeridianTickSystem(tickRunner, this.deps);
 				this.engine.currentScene.world.add(tickSystem);
 				this.deps.logger.info('Meridian', 'Tick system registered');
+
+				// Spawn agents from vault
+				const vault = this.app.vault;
+				const vaultAdapter: VaultReader = {
+					list: (path: string): Promise<string[]> => {
+						return Promise.resolve(
+							vault.getFiles()
+								.filter(f => f.path.startsWith(path) && f.path.endsWith('.json'))
+								.map(f => f.path),
+						);
+					},
+					read: async (path: string): Promise<string> => {
+						const file = vault.getFileByPath(path);
+						if (file === null) throw new Error(`File not found: ${path}`);
+						return vault.read(file);
+					},
+				};
+
+				const spawner = createAgentSpawner(this.deps.logger, this.deps.config.mood);
+				const spawnResult = await spawner.spawnFromVault(vaultAdapter, '01 - Projects/Project Meridian/agents');
+
+				const spawnedAgents: AgentActor[] = spawnResult.agents;
+				for (const agent of spawnedAgents) {
+					this.engine.currentScene.add(agent);
+				}
+
+				const getAgents = (): AgentActor[] => spawnedAgents;
+
+				// Register the 4 game systems with the tick runner
+				tickRunner.register(createTraitResolverSystem(getAgents, this.traitDefinitions));
+				tickRunner.register(createNeedsDecaySystem(getAgents));
+				tickRunner.register(createMoodSystem(getAgents));
+				tickRunner.register(createMemoryDecaySystem(getAgents));
+
+				this.deps.logger.info('Meridian', `Game systems registered, ${String(spawnedAgents.length)} agents spawned`);
 			} else {
 				console.warn('[Meridian] Game deps not ready — tick system not registered. View opened before initializeGame() completed.');
 			}
