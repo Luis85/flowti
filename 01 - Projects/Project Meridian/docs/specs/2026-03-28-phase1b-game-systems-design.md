@@ -545,3 +545,78 @@ Phase 1C would build on Phase 1B to add agency — agents that respond to their 
 | Mood skewing positive with only 3 of 7 factors | Medium | Low | Configurable weights. Adjust defaults if needed. Factors zero-out cleanly. |
 | Trait definitions not yet in vault | Low | Low | Use hardcoded defaults for Phase 1B. Vault loading in future phase. |
 | Component dirty flag management burden | Medium | Low | Systems always markDirty() after writes. Established pattern from Phase 1A. |
+
+## 9. Post-Implementation Notes (2026-03-28)
+
+**Status:** Complete. 204 tests (54 new), all green. tsc/eslint/build clean.
+
+### Deviations from Spec
+
+| Section | Spec Said | Implementation | Reason |
+|---------|-----------|----------------|--------|
+| 4.4 AgentActor | `constructor(agent: Agent)` | `constructor(agent: Agent, moodConfig: MoodConfig, memoryMaxEntries = 50)` | Mood bootstrap requires config; maxEntries respects `config.memory.max_entries` |
+| 4.4 AgentSpawner | `createAgentSpawner(logger)` | `createAgentSpawner(logger, moodConfig, memoryMaxEntries)` | Threads mood config + memory cap to AgentActor |
+| 4.2 NeedCritical | Emits when `need < threshold` | Emits only on crossing: `oldValue >= threshold && newValue < threshold` | Prevents flooding — "drops below" implies crossing, not every tick |
+| 4.7 NeedCritical payload | `{ agentId, need, value, threshold }` | `{ agentId, need, oldValue, newValue, value, threshold }` | `value` = `newValue` per spec; `oldValue`/`newValue` also included |
+| 4.8 Plugin wiring | `initializeGame()` creates spawner | `game-view.ts onOpen()` creates spawner | game-view has `this.app.vault` access for VaultReader adapter |
+| 4.8 Entity query | `scene.actors.filter(...)` | Closure over `spawnedAgents` array | Simpler; avoids filtering all actors every tick |
+
+### Post-Merge Additions (not in original spec)
+
+#### Persona Field
+
+`AgentSchema` has `persona: z.string().nullable().default(null)` — path to a markdown file describing the agent's personality. Schema-only for Phase 1B; no system reads it yet. Future LLM/BT systems will load it.
+
+#### Placeholder Visuals
+
+`AgentActor` renders a colored `Circle` (radius 14) + `Label` (agent name) as temporary visuals:
+
+| Kind | Color |
+|------|-------|
+| merchant | `#e6a820` (gold) |
+| guard | `#e94560` (red) |
+| scholar | `#4da6ff` (blue) |
+| artisan | `#50c878` (green) |
+| default | `#b0b0b0` (grey) |
+
+#### Engine Architecture Change
+
+`createGameEngine()` returns `GameEngineResult { engine, dispose }` instead of a bare `Engine`:
+- Uses `DisplayMode.Fixed` (not `FitContainerAndFill`) to prevent WebGL zero-framebuffer errors
+- A `ResizeObserver` updates `engine.screen.resolution` and `viewport` only when container dimensions > 0
+- When Obsidian hides the tab, canvas keeps its last valid size — simulation keeps ticking
+- `dispose()` disconnects the observer (called in `onClose()`)
+
+#### Build Output — Portable Vault Overlay
+
+`vite.config.ts` assembles `dist/` as a vault overlay:
+
+```
+dist/
+  .obsidian/plugins/project-meridian/
+    main.js, main.js.map, manifest.json, styles.css
+  03 - Resources/
+    Agents/    — agent JSON files (copied from agents/)
+    Personas/  — persona markdown files (copied from personas/)
+```
+
+Copy `dist/` contents into any Obsidian vault to install.
+
+#### Agent Data Path
+
+Plugin reads agents from `03 - Resources/Agents` at runtime (not `01 - Projects/Project Meridian/agents/`). Source files in the project's `agents/` directory are copied to `dist/03 - Resources/Agents/` during build.
+
+#### CSS — Fullscreen Game View
+
+`styles.css` scoped to `[data-type="meridian-game-view"]`:
+- Hides `.view-header` for fullscreen canvas
+- Overrides Obsidian's `padding`/`overflow` on `.view-content`
+- Canvas fills container at `100% × 100%`
+
+#### Shared Math Utilities
+
+`domain/core/math-utils.ts` — extracted `clamp()` and `round2()` shared by `needs-decay.ts`, `mood.ts`, and `memory-decay.ts`.
+
+#### `createTestActor` Removed from Production
+
+Moved from `game-engine.ts` (production bundle) to `tests/helpers/test-actors.ts` (test-only).

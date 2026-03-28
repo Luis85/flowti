@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as ex from 'excalibur';
-import { createTestActor } from '../../../src/infrastructure/engine/game-engine.js';
+import { createTestActor } from '../../helpers/test-actors.js';
 
 /**
  * ExcaliburJS Engine requires real WebGL/Canvas2D contexts that jsdom
