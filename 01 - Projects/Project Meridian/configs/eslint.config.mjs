@@ -17,8 +17,7 @@ export default [
 		},
 		rules: {
 			...obsidianmd.configs?.recommended,
-			// Downgrade: "Project Meridian" is a proper noun, not a sentence-case violation
-			'obsidianmd/ui/sentence-case': 'warn',
+			'obsidianmd/ui/sentence-case': ['warn', { brands: ['Project Meridian'] }],
 			'@typescript-eslint/no-explicit-any': 'error',
 			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
 			'@typescript-eslint/strict-boolean-expressions': 'error',
