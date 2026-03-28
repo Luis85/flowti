@@ -813,7 +813,23 @@ All Obsidian capabilities abstracted via `PlatformServices` interface:
 
 This enables: testing without Obsidian mocks, future platform migration (4 adapter files to replace), and no accidental coupling of game logic to Obsidian internals. ESLint enforces the boundary.
 
-### 8.17 Build Pipeline
+### 8.17 Obsidian Plugin Guidelines (enforced)
+
+Derived from Obsidian's official plugin documentation. Key rules enforced via ESLint or architectural patterns:
+
+- **Load time:** `onload()` lightweight only. Heavy init in `onLayoutReady`. Vault listeners in `onLayoutReady`.
+- **No `detachLeavesOfType` in `onunload()`** — views reinitialize at original positions during updates.
+- **No `innerHTML`/`outerHTML`/`insertAdjacentHTML`** — ESLint `no-restricted-properties` enforced.
+- **No inline styles** — CSS classes in `styles.css` with Obsidian variables.
+- **No console logging in production** — ESLint `no-console: warn` (infrastructure exempted for Logger).
+- **Use `this.app`**, not global `app`.
+- **No stored view references** — use `getActiveLeavesOfType()`.
+- **Use `normalizePath()`** for all constructed file paths.
+- **Use Vault API** over Adapter API. Use `FileManager.processFrontMatter()` for YAML.
+- **SecretStorage** for API keys (via `SecretStorageAdapter` in PlatformServices).
+- **Deferred views**: `instanceof` check before accessing, `revealLeaf` before interacting.
+
+### 8.18 Build Pipeline
 
 ```
 npm test

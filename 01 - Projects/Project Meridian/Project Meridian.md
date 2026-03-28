@@ -3570,7 +3570,57 @@ interface ModalAdapter {
 - No accidental coupling to Obsidian internals (notices, modals, commands) in game logic
 - ESLint enforces this at build time (see §36.5)
 
-### 36.5 ESLint Architecture Enforcement
+### 36.5 Obsidian Plugin Guidelines
+
+Rules derived from Obsidian's official plugin documentation. All are enforced either by ESLint or by code review.
+
+**Load Time (onload must be fast):**
+- `onload()` contains ONLY lightweight registrations: `registerView`, `addCommand`, `addRibbonIcon`, `addSettingTab`, markdown post-processors
+- NO computation, NO data fetching, NO file I/O in `onload()`
+- Heavy initialization goes inside `this.app.workspace.onLayoutReady(() => { ... })`
+- `vault.on('create')` listeners MUST be registered inside `onLayoutReady` (fires for every file during vault init)
+- View constructors must be trivial — all heavy work in `onOpen()`
+- Production builds must be minified
+
+**Plugin Guidelines (enforced):**
+- Use `this.app`, never the global `app` variable (debug-only)
+- Minimize console logging — zero `console.*` calls in production code
+- No placeholder class names (`MyPlugin`, `SampleSettingTab`)
+- No `innerHTML`, `outerHTML`, `insertAdjacentHTML` — use DOM API (`createEl`, `createDiv`, `createSpan`, `classList.add`)
+- No inline styles — use CSS classes with Obsidian CSS variables (in `styles.css`)
+- Clean up resources on unload via `registerEvent()` / `addCommand()`
+- Do NOT `detachLeavesOfType` in `onunload()` — views reinitialize at original positions during plugin updates
+- Do NOT store view references — use `getActiveLeavesOfType()` each time
+- Use `const`/`let`, never `var`
+- Use `async`/`await`, never `.then()` chains
+- Use `normalizePath()` for all user/constructed file paths
+- Use Vault API (cached, serial) over Adapter API
+- Use `FileManager.processFrontMatter()` for atomic YAML modifications
+- Use `getFileByPath()`/`getFolderByPath()` for efficient file lookup, not iteration
+
+**Manifest Requirements:**
+- `description`: action statement, under 250 chars, ends with period, no emoji
+- `minAppVersion`: lowest version supporting your API surface
+- `isDesktopOnly: true` if using Canvas/WebGL, Node.js, or Electron APIs
+
+**Deferred Views:**
+- Views load as `DeferredView` initially — use `instanceof` checks before accessing custom properties
+- Use `workspace.revealLeaf(leaf)` before interacting with a view
+- `leaf.loadIfDeferred()` only for advanced cases (sparingly)
+
+**Secret Storage:**
+- Use `app.secretStorage` for API keys/tokens — never store in `data.json`
+- `SecretComponent` for settings UI (lets users select from central secret store)
+- Our `SecretStorageAdapter` in `platform.ts` abstracts this
+
+**Settings:**
+- Extend `PluginSettingTab`, implement `display()`
+- Use `loadData()`/`saveData()` for persistence
+- `Object.assign` with defaults (shallow copy — deep copy nested manually)
+- Sentence case for headings, use `setHeading()` not HTML heading elements
+- No default hotkeys for commands (cause conflicts, vary across OS)
+
+### 36.6 ESLint Architecture Enforcement
 
 ESLint rules enforce architectural boundaries at build time. Violations fail CI.
 
@@ -3591,6 +3641,16 @@ Infrastructure → Domain → Systems → UI
 |`no-restricted-globals`|No bare `fs`, `path`, `process` outside infrastructure|A system using `node:fs` instead of VaultAdapter|
 |`no-restricted-syntax`|No bare `try/catch` in system code|Using `try {} catch {}` instead of Result pattern|
 |Custom rule: `no-cross-system-mutation`|Systems must not directly mutate another system's components|`TradeSystem` directly modifying `MoodComponent` instead of emitting an event|
+
+**Obsidian Plugin Guideline Enforcement (ESLint):**
+
+|Rule|Enforces|Obsidian Guideline|
+|---|---|---|
+|`no-restricted-properties` on `innerHTML`, `outerHTML`, `insertAdjacentHTML`|No direct HTML insertion|Security — use DOM API instead|
+|`no-restricted-syntax` banning `style.` property assignments in non-infrastructure|No inline styles|Use CSS classes with Obsidian variables|
+|`no-console` (warn in src/, off in tests/)|Minimize console logging|Keep developer console clean|
+|`no-var`|Use const/let only|Obsidian coding standard|
+|`prefer-const`|Prefer const over let where possible|Immutability preference|
 
 **Additional ESLint Standards:**
 
