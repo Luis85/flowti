@@ -1,0 +1,9 @@
+{
+  "id": "project-meridian",
+  "name": "Project Meridian",
+  "version": "0.0.1",
+  "minAppVersion": "1.4.0",
+  "description": "Emergent agent-simulation sandbox RPG",
+  "author": "Flowti",
+  "isDesktopOnly": true
+}

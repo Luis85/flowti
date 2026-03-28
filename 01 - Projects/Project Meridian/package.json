@@ -1,0 +1,27 @@
+{
+  "name": "project-meridian",
+  "version": "0.0.1",
+  "description": "Emergent agent-simulation sandbox RPG — Obsidian plugin",
+  "type": "module",
+  "scripts": {
+    "build": "vite build --config configs/vite.config.ts",
+    "build:dev": "vite build --config configs/vite.config.ts --watch",
+    "test": "npm run lint && npm run typecheck && npm run test:unit",
+    "test:unit": "vitest run --config configs/vitest.config.ts",
+    "test:watch": "vitest --config configs/vitest.config.ts",
+    "typecheck": "tsc --noEmit --project configs/tsconfig.json",
+    "lint": "eslint src/ --config configs/eslint.config.mjs"
+  },
+  "devDependencies": {
+    "obsidian": "latest",
+    "excalibur": "^0.32.0",
+    "zod": "^3.23.0",
+    "yaml": "^2.5.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0"
+  }
+}
