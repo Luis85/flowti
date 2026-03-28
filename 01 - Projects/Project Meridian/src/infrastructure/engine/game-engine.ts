@@ -16,7 +16,7 @@ export function createGameEngine(
 
 	const engine = new ex.Engine({
 		canvasElement: canvas,
-		displayMode: ex.DisplayMode.FitScreen,
+		displayMode: ex.DisplayMode.FitContainerAndFill,
 		backgroundColor: ex.Color.fromHex(backgroundColor ?? '#1a1a2e'),
 		suppressPlayButton: true,
 		suppressConsoleBootMessage: true,

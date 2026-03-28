@@ -48,7 +48,7 @@ export class MeridianPlugin extends Plugin {
 		});
 	}
 
-	async onunload(): Promise<void> {
+	onunload(): void {
 		// Do NOT detach leaves — Obsidian reinitializes them at original positions during plugin updates
 		// View-level cleanup (engine stop) happens in MeridianGameView.onClose()
 	}

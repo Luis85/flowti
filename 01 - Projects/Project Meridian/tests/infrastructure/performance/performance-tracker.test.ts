@@ -67,6 +67,31 @@ describe('PerformanceTracker', () => {
 		expect(avg).toBeGreaterThanOrEqual(0);
 	});
 
+	it('resets state after completeTick even if endSystem was not called', () => {
+		const tracker = createPerformanceTracker();
+		tracker.setEnabled(true);
+
+		// Simulate a system that errors before endSystem is called
+		tracker.startSystem('CrashingSystem');
+		// endSystem() NOT called — simulating a throw
+		tracker.completeTick(1);
+
+		// Next tick should still capture tickStart correctly
+		tracker.startSystem('HealthySystem');
+		tracker.endSystem();
+		const result = tracker.completeTick(2);
+
+		expect(result).not.toBeNull();
+		if (result !== null) {
+			expect(result.tick).toBe(2);
+			// totalMs should be small (just the HealthySystem timing), not inflated
+			// by the gap between ticks
+			expect(result.totalMs).toBeLessThan(100);
+			expect(result.systems).toHaveLength(1);
+			expect(result.systems[0]?.name).toBe('HealthySystem');
+		}
+	});
+
 	it('can be toggled on and off', () => {
 		const tracker = createPerformanceTracker();
 		tracker.setEnabled(true);

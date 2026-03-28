@@ -75,6 +75,7 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 			tickHistory.push(result);
 			if (tickHistory.length > HISTORY_MAX) tickHistory.shift();
 			currentSystems = [];
+			currentSystemName = null;
 			return result;
 		},
 

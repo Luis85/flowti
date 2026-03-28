@@ -2768,7 +2768,7 @@ All game entities are ExcaliburJS types:
 |**Region Transitions**|Trigger zones: `Actor` with `CollisionType.Passive` at region boundaries. `collisionstart` event fires on entry.|When agent enters a region trigger zone: deduct stamina, update `current_region`, emit `RegionEntered`. No manual position checking.|
 |**Camera**|Full: follow strategies (lockToActor, elasticToActor, radiusAroundActor), zoom with easing, pan, shake, bounds limiting.|Configure strategies: follow selected agent, zoom via UI controls, pan via drag, limit to world bounds. Minimap via second camera to offscreen canvas.|
 |**EventBus**|Typed `EventEmitter` on every ExcaliburJS object. Global `EventDispatcher` possible.|Extend with: priority handler ordering, event history (ring buffer), inter-system batching. Foundation is free.|
-|**Timers (periodic systems)**|`scene.createTimer({ interval, repeating, callback })` synced to game clock. Respects pause.|Replace `if (tick % N === 0)` checks. Economy recalculation, world event evaluation, status evaluation, canvas checkpoint — all as ExcaliburJS timers. Pause-and-plan works automatically.|
+|**Timers (periodic systems)**|`new ex.Timer({ interval, repeating: true, action })` + `scene.add(timer)` + `timer.start()`. Synced to game clock. Respects pause.|Replace `if (tick % N === 0)` checks. Economy recalculation, world event evaluation, status evaluation, canvas checkpoint — all as ExcaliburJS timers. Pause-and-plan works automatically.|
 |**Input Handling**|Keyboard (isPressed, wasPressed), pointer (click, hover, drag on actors), gamepad.|Director interactions: click agent to select (Actor pointer events), keyboard shortcuts for speed/pause, pointer for zone painting and object placement.|
 |**Graphics**|Sprite, SpriteSheet, Animation, GraphicsGroup, Text, Circle, Rectangle, Polygon, Canvas. WebGL + Canvas 2D fallback. Z-index ordering.|Agent sprites, mood halos (Circle overlay), needs bars (Rectangle), BT labels (Text), zone overlays (Polygon fill), region boundaries (Rectangle outline). Use `GraphicsGroup` for composite agent visuals (sprite + mood halo + name label).|
 |**Scene Management**|Scene lifecycle (onActivate, onDeactivate, onInitialize), transitions, data passing.|Main menu scene → World Builder scene → Gameplay scene. Scenario loading passes data via scene context.|
@@ -2867,11 +2867,13 @@ agent.actions.clearActions(); // cancel journey
 **Periodic System via Timer:**
 ```typescript
 // Economy recalculation every 10 ticks — respects pause automatically
-scene.createTimer({
+const economyTimer = new ex.Timer({
   interval: gameConfig.tick_interval_ms * gameConfig.economy.recalculation_interval_ticks,
   repeating: true,
-  callback: () => economySystem.recalculate()
+  action: () => economySystem.recalculate(),
 });
+scene.add(economyTimer);
+economyTimer.start();
 ```
 
 ### 30.5 Pathfinding

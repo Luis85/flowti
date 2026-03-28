@@ -25,8 +25,9 @@ export function createConsoleLogger(minLevel: LogLevel = 'debug'): Logger {
 			if (LEVELS.warn >= threshold) console.warn(format('warn', system, msg, data));
 		},
 		error(system, msg, err, data) {
+			const extra = typeof data === 'object' && data !== null ? data as Record<string, unknown> : undefined;
 			const errorData = err !== undefined
-				? (data !== undefined ? { error: err.message, ...(data as Record<string, unknown>) } : { error: err.message })
+				? (extra !== undefined ? { error: err.message, ...extra } : { error: err.message })
 				: data;
 			if (LEVELS.error >= threshold) console.error(format('error', system, msg, errorData));
 		},
