@@ -1,8 +1,50 @@
 /* Project Meridian — Obsidian Plugin Styles
- * Uses Obsidian CSS variables exclusively for colors, fonts, spacing.
+ * Scoped to [data-type="meridian-game-view"] to avoid leaking into other views.
  * BEM naming: .meridian-* */
 
-.meridian-game-container {
+/* Hide the view header — game view is fullscreen canvas */
+.workspace-leaf-content[data-type="meridian-game-view"] .view-header {
+	display: none;
+}
+
+/* Override Obsidian's default view-content padding and overflow */
+.workspace-leaf-content[data-type="meridian-game-view"] .view-content {
 	padding: 0;
 	overflow: hidden;
+	height: 100%;
+}
+
+/* Game container fills the entire view */
+.meridian-game-container {
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	overflow: hidden;
+}
+
+/* Canvas fills the container */
+.meridian-game-container canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* Error state */
+.meridian-error {
+	padding: var(--size-4-6);
+	color: var(--text-normal);
+}
+
+.meridian-error h3 {
+	color: var(--text-accent);
+	margin-bottom: var(--size-4-2);
+}
+
+.meridian-error code {
+	display: block;
+	margin: var(--size-4-2) 0;
+	padding: var(--size-4-2);
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	font-size: var(--font-smaller);
 }

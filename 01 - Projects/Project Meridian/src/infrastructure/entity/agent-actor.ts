@@ -1,4 +1,4 @@
-import { Actor } from 'excalibur';
+import { Actor, Circle, Color, Label, Font, FontUnit, vec } from 'excalibur';
 import type { Agent } from '../../domain/schemas/agent-schema.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
@@ -50,5 +50,24 @@ export class AgentActor extends Actor {
 		this.addComponent(new AttributesComponent({ ...agent.attributes }));
 		this.addComponent(new SocialComponent({ ...agent.social }));
 		this.addComponent(new TraitsComponent([...agent.traits]));
+
+		// Placeholder visuals — colored circle per kind + name label
+		const color = AGENT_COLORS[agent.kind] ?? AGENT_COLORS.default;
+		this.graphics.use(new Circle({ radius: 14, color }));
+
+		const label = new Label({
+			text: agent.name,
+			pos: vec(0, -22),
+			font: new Font({ size: 11, unit: FontUnit.Px, color: Color.White }),
+		});
+		this.addChild(label);
 	}
 }
+
+const AGENT_COLORS: Record<string, Color> = {
+	merchant: Color.fromHex('#e6a820'),
+	guard: Color.fromHex('#e94560'),
+	scholar: Color.fromHex('#4da6ff'),
+	artisan: Color.fromHex('#50c878'),
+	default: Color.fromHex('#b0b0b0'),
+};
