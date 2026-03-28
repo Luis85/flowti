@@ -109,9 +109,9 @@ export interface TimeState {
 }
 
 export interface DayNightConfig {
-  ticks_per_cycle: number;
-  phases: {
-    dawn:  { start: number; end: number };  // as fraction of cycle [0, 1)
+  ticks_per_day: number;       // from config root (default 480)
+  day_night: {
+    dawn:  { start: number; end: number };  // absolute tick ranges within cycle
     day:   { start: number; end: number };
     dusk:  { start: number; end: number };
     night: { start: number; end: number };
@@ -132,17 +132,19 @@ export function advanceTime(
 
 **Formula:**
 ```
-tickInCycle = currentTick % ticks_per_cycle
-dayCount = floor(currentTick / ticks_per_cycle)
-fraction = tickInCycle / ticks_per_cycle
-phase = first config.phases entry where fraction >= start AND fraction < end
+tickInCycle = currentTick % ticks_per_day
+dayCount = floor(currentTick / ticks_per_day)
+phase = first config.day_night entry where tickInCycle >= start AND tickInCycle <= end
+fallback: 'night' if no phase matches (misconfigured boundaries)
 ```
 
-Default config at 60 tps, 2-min cycle (7200 ticks):
-- dawn: 0.00–0.15 (0–18s)
-- day: 0.15–0.55 (18s–66s)
-- dusk: 0.55–0.65 (66s–78s)
-- night: 0.65–1.00 (78s–120s)
+Default config (tick_interval_ms=500, ticks_per_day=480 → 4 min real time per day):
+- dawn: ticks 0–59 (0–30s)
+- day: ticks 60–299 (30s–150s)
+- dusk: ticks 300–359 (150s–180s)
+- night: ticks 360–479 (180s–240s)
+
+Note: plugin settings expose `dayCycleDuration` (seconds) which recalculates `ticks_per_day` at runtime as `dayCycleDuration × 1000 / tick_interval_ms`.
 
 #### `domain/systems/perception.ts`
 
@@ -164,13 +166,13 @@ export interface PerceptionResult {
 
 export function resolvePerception(
   input: PerceptionInput,
-  config: { base_radius: number; iq_scaling_base: number; night_multiplier: number },
+  config: { base_multiplier: number; night_multiplier: number },
 ): PerceptionResult
 ```
 
 **Formula:**
 ```
-radius = base_radius × (agentIQ / iq_scaling_base)
+radius = base_multiplier × agentIQ
 if timePhase === 'night': radius *= night_multiplier
 ```
 
@@ -195,7 +197,7 @@ export interface BTContext {
   rng: GameRNG;
 }
 
-export type BTStatus = 'success' | 'failure' | 'running';
+export type BTStatus = 'success' | 'failure';
 
 export interface BTResult {
   status: BTStatus;
@@ -221,7 +223,7 @@ export function evaluateBT(root: BTNode, context: BTContext): BTResult
 | `time_is` | `{ phase }` | current time phase matches |
 | `nearby_location` | `{ locationType }` | perception has a location of given type |
 | `nearby_agent` | `{}` | perception has at least one agent |
-| `chance` | `{ probability }` | rng.chance(probability) — probabilistic branching |
+| `chance` | `{ probability }` | rng.chance(probability) — probabilistic branching. In a `sequence`, a failed roll aborts the sequence (AND semantics) — use inside a `selector` to provide fallback behavior. |
 
 **Built-in actions:**
 | Action | Params | Effect (written to blackboard by system) |
@@ -262,7 +264,7 @@ else:
   newPos = currentPos + direction × stepSize
 ```
 
-Speed is derived by the system wrapper: `agentDX / config.formulas.speed_divisor` (speed_divisor default: 10, so DX 10 → speed 1.0 px/tick).
+Speed is derived by the system wrapper: `agentDX / config.formulas.basic_speed_divisor` (basic_speed_divisor default: 4, so DX 10 → speed 2.5 px/tick).
 
 ### 4.3 Infrastructure GameSystems
 
@@ -311,7 +313,7 @@ export function createBehaviorTreeSystem(
 - Reads `NeedsComponent`, `MoodComponent`, `PerceptionComponent`, `TimeComponent`
 - Constructs `BTContext` per agent
 - Creates per-agent `GameRNG` from `baseSeed XOR tickCount XOR agentIdHash`
-- Calls `evaluateBT()` with the agent's BT definition (looked up by `agent.behavior_tree`)
+- Calls `evaluateBT()` with the agent's BT definition (keyed by `agent.behavior_tree` which must match a loaded BT's `id` field)
 - Writes action result to `BlackboardComponent`:
   - `blackboard.btAction` = action name
   - `blackboard.movementTarget` = `{ x, y }` (resolved from perception) or null
@@ -330,7 +332,7 @@ export function createMovementSystem(
 - Reads `AttributesComponent.DX` for speed calculation
 - Calls `computeMovement()`
 - Updates actor position (`entity.pos`)
-- On arrival: emits `AgentArrived` with `{ agentId, location }`, clears `movementTarget`
+- On arrival: emits `AgentArrived` with `{ agentId, targetId, targetType }`, clears `movementTarget`
 
 ### 4.4 New Components
 
@@ -362,7 +364,7 @@ export class PerceptionComponent extends TrackedComponent {
 
 ### 4.5 Component Data Interfaces (Domain Additions)
 
-Add to `domain/core/component-data.ts`:
+Add to `domain/core/component-data.ts` (source of truth — domain systems import from here, not re-declare):
 
 ```typescript
 export interface TimeState {
@@ -465,11 +467,12 @@ Add to `domain/core/settings.ts`:
 
 ```typescript
 export interface MeridianSettings {
-  logLevel: string;            // existing
+  logLevel: LogLevel;           // existing — import from logger.ts
+  debugMode: boolean;           // existing
   performanceTracking: boolean; // existing
-  tickRate: number;            // NEW — target ticks/second (default 60)
-  dayCycleDuration: number;    // NEW — seconds per cycle (default 120)
-  perceptionRadius: number;    // NEW — base radius in pixels (default 150)
+  tickRate: number;             // NEW — target ticks/second (default 60)
+  dayCycleDuration: number;     // NEW — seconds per full day/night cycle (default 120)
+  perceptionRadius: number;     // NEW — base perception multiplier (default 150)
 }
 ```
 
