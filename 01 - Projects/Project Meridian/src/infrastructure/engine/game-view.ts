@@ -18,6 +18,7 @@ export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 
 export class MeridianGameView extends ItemView {
 	private engine: ex.Engine | null = null;
+	private disposeEngine: (() => void) | null = null;
 	private deps: GameCoreDeps | null;
 	private batchableEventBus: BatchableEventBus | null;
 	private traitDefinitions: Record<string, TraitDefinition>;
@@ -46,9 +47,11 @@ export class MeridianGameView extends ItemView {
 			const style = getComputedStyle(container);
 			const bgColor = style.getPropertyValue('--background-primary').trim() || '#1a1a2e';
 
-			this.engine = createGameEngine(container, {
+			const { engine, dispose } = createGameEngine(container, {
 				backgroundColor: bgColor,
 			});
+			this.engine = engine;
+			this.disposeEngine = dispose;
 
 			// Wire tick infrastructure if deps and event bus are available
 			if (this.deps !== null && this.batchableEventBus !== null) {
@@ -95,16 +98,6 @@ export class MeridianGameView extends ItemView {
 				console.warn('[Meridian] Game deps not ready — tick system not registered. View opened before initializeGame() completed.');
 			}
 
-			// Pause engine when tab loses focus to prevent WebGL zero-size framebuffer errors
-			this.registerEvent(this.app.workspace.on('active-leaf-change', (activeLeaf) => {
-				if (this.engine === null) return;
-				if (activeLeaf === this.leaf) {
-					void this.engine.start();
-				} else {
-					this.engine.stop();
-				}
-			}));
-
 			const loader = createGameLoader();
 			void this.engine.start(loader).catch((err: unknown) => {
 				this.showError(container, err);
@@ -116,6 +109,8 @@ export class MeridianGameView extends ItemView {
 
 	// eslint-disable-next-line @typescript-eslint/require-await -- Obsidian ItemView interface requires async
 	async onClose(): Promise<void> {
+		this.disposeEngine?.();
+		this.disposeEngine = null;
 		if (this.engine !== null) {
 			this.engine.stop();
 			this.engine = null;
