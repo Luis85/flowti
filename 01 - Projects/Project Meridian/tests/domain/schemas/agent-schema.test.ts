@@ -55,6 +55,9 @@ describe('AgentSchema', () => {
 		expect(result.inventory).toEqual([]);
 		expect(result.property).toEqual([]);
 		expect(result.tools).toEqual([]);
+		expect(result.equipment).toEqual({
+			head: null, body: null, hands: null, tool: null, accessory: null,
+		});
 	});
 
 	it('rejects needs above max', () => {

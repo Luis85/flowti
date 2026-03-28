@@ -78,4 +78,22 @@ describe('TraitResolver', () => {
 			expect(result.value.size).toBe(0);
 		}
 	});
+
+	it('detects unilateral conflict (only one side declares)', () => {
+		const unilateralTraits: Record<string, TraitDefinition> = {
+			'trait-alpha': {
+				id: 'trait-alpha',
+				effects: [],
+				conflicts_with: ['trait-beta'],
+			},
+			'trait-beta': {
+				id: 'trait-beta',
+				effects: [],
+				conflicts_with: [],
+			},
+		};
+		const result = resolveTraitModifiers(['trait-alpha', 'trait-beta'], unilateralTraits);
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.code).toBe('TRAIT_CONFLICT');
+	});
 });

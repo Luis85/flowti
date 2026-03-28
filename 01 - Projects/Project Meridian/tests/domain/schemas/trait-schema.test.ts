@@ -46,4 +46,17 @@ describe('TraitSchema', () => {
 		expect(result.stackable).toBe(false);
 		expect(result.conflicts_with).toEqual([]);
 	});
+
+	it('accepts stackable:true and non-empty conflicts_with', () => {
+		const result = TraitSchema.safeParse({
+			...validTrait,
+			stackable: true,
+			conflicts_with: ['trait-pacifist'],
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.stackable).toBe(true);
+			expect(result.data.conflicts_with).toEqual(['trait-pacifist']);
+		}
+	});
 });

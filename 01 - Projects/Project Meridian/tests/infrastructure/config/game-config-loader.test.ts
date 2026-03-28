@@ -72,6 +72,28 @@ describe('GameConfigSchema', () => {
 			expect(result.data.status.evaluation_interval_ticks).toBe(100);
 		}
 	});
+
+	it('accepts custom world_health tiers override', () => {
+		const customTiers = [
+			{ name: 'only', max: 100, positive_event_multiplier: 1.0, negative_event_multiplier: 1.0 },
+		];
+		const result = GameConfigSchema.safeParse({ world_health: { tiers: customTiers } });
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.world_health.tiers).toHaveLength(1);
+			expect(result.data.world_health.tiers[0]?.name).toBe('only');
+		}
+	});
+
+	it('includes default world_health tiers (5 tiers)', () => {
+		const result = GameConfigSchema.safeParse({});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.world_health.tiers).toHaveLength(5);
+			expect(result.data.world_health.tiers[0]?.name).toBe('critical');
+			expect(result.data.world_health.tiers[4]?.name).toBe('booming');
+		}
+	});
 });
 
 describe('loadGameConfig', () => {

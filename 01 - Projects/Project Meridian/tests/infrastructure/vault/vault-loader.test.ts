@@ -41,11 +41,14 @@ Invalid agent.`;
 		expect(loader.quarantined).toContain('agents/bad.md');
 	});
 
-	it('returns error for file with no frontmatter', () => {
+	it('returns error for file with no frontmatter and attaches filePath in context', () => {
 		const loader = createVaultLoader();
 		const result = loader.loadEntity('Just text.', AgentSchema, 'agents/none.md');
 		expect(result.ok).toBe(false);
 		expect(loader.quarantined).toContain('agents/none.md');
+		if (!result.ok) {
+			expect(result.error.context).toEqual({ filePath: 'agents/none.md' });
+		}
 	});
 
 	it('loads a valid trait file', () => {

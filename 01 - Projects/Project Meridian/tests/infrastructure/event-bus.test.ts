@@ -131,6 +131,23 @@ describe('EventBus', () => {
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 
+	it('returns all events when history() called with no filter', () => {
+		const bus = createEventBus();
+		bus.emit({ type: 'A', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		bus.emit({ type: 'B', tick: 2, wallClock: Date.now(), source: 's', payload: {} });
+		expect(bus.history()).toHaveLength(2);
+	});
+
+	it('caps history at 500 entries', () => {
+		const bus = createEventBus();
+		for (let i = 0; i < 510; i++) {
+			bus.emit({ type: 'Flood', tick: i, wallClock: Date.now(), source: 's', payload: {} });
+		}
+		const all = bus.history();
+		expect(all).toHaveLength(500);
+		expect(all[0]?.tick).toBe(10);
+	});
+
 	it('supports filter-based subscription', () => {
 		const bus = createEventBus();
 		const handler = vi.fn();

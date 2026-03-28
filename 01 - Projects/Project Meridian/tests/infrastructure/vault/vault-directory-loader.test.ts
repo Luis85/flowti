@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createVaultDirectoryLoader } from '../../../src/infrastructure/vault/vault-directory-loader.js';
 import { createMemfsVaultAdapter } from '../../../src/infrastructure/vault/memfs-vault-adapter.js';
+import { Result } from '../../../src/domain/core/result.js';
+import type { VaultAdapter } from '../../../src/domain/core/platform.js';
 import { AgentSchema, TraitSchema, TRAIT_CATEGORIES, TRAIT_ASSIGNABLE_BY } from '../../../src/domain/schemas/index.js';
 
 describe('VaultDirectoryLoader', () => {
@@ -78,5 +80,43 @@ conflicts_with: []
 
 		expect(result.loaded).toHaveLength(0);
 		expect(result.quarantined).toHaveLength(0);
+	});
+
+	it('quarantines files that fail to read and continues loading', async () => {
+		const inner = createMemfsVaultAdapter({ 'agents/elena.md': agentElena });
+		const failingAdapter: VaultAdapter = {
+			...inner,
+			readFile(path: string) {
+				if (path === 'agents/corrupt.md') {
+					return Promise.resolve(Result.err({
+						code: 'READ_ERROR', message: 'disk error', system: 'VaultAdapter', recoverable: true,
+					}));
+				}
+				return inner.readFile(path);
+			},
+			listFiles() {
+				return Promise.resolve(['agents/elena.md', 'agents/corrupt.md']);
+			},
+		};
+
+		const loader = createVaultDirectoryLoader(failingAdapter);
+		const result = await loader.loadDirectory('agents/', AgentSchema);
+
+		expect(result.loaded).toHaveLength(1);
+		expect(result.quarantined).toContain('agents/corrupt.md');
+	});
+
+	it('calls logger when provided', async () => {
+		const adapter = createMemfsVaultAdapter({ 'agents/elena.md': agentElena });
+		const mockLogger = {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+		const loader = createVaultDirectoryLoader(adapter, mockLogger);
+		await loader.loadDirectory('agents/', AgentSchema);
+
+		expect(mockLogger.info).toHaveBeenCalledOnce();
 	});
 });

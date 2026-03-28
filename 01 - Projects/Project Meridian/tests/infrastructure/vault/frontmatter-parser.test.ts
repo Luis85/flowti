@@ -49,4 +49,11 @@ describe('parseFrontmatter', () => {
 			expect(attrs.DX).toBe(12);
 		}
 	});
+
+	it('returns FRONTMATTER_NOT_OBJECT when YAML parses to a non-object', () => {
+		const md = '---\njust a string\n---\n';
+		const result = parseFrontmatter(md);
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.code).toBe('FRONTMATTER_NOT_OBJECT');
+	});
 });
