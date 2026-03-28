@@ -1,6 +1,7 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import * as ex from 'excalibur';
 import { createGameEngine, createTestActor } from './game-engine.js';
+import { createGameLoader } from './game-loader.js';
 
 export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 
@@ -39,7 +40,9 @@ export class MeridianGameView extends ItemView {
 
 		// Fire-and-forget — don't block onOpen() with engine initialization
 		// This prevents the '[Violation] click handler took Xms' browser warning
-		void this.engine.start();
+		const loader = createGameLoader();
+		// Future: add resources here — loader.addResource(sprite), etc.
+		void this.engine.start(loader);
 	}
 
 	async onClose(): Promise<void> {
