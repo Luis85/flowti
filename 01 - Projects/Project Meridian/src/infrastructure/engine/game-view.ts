@@ -75,7 +75,7 @@ export class MeridianGameView extends ItemView {
 				};
 
 				const spawner = createAgentSpawner(this.deps.logger, this.deps.config.mood, this.deps.config.memory.max_entries);
-				const spawnResult = await spawner.spawnFromVault(vaultAdapter, '01 - Projects/Project Meridian/agents');
+				const spawnResult = await spawner.spawnFromVault(vaultAdapter, '03 - Resources/Agents');
 
 				const spawnedAgents: AgentActor[] = spawnResult.agents;
 				for (const agent of spawnedAgents) {
