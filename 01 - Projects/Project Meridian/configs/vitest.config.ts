@@ -6,7 +6,6 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export default defineConfig({
 	test: {
-		globals: true,
 		environment: 'jsdom',
 		root: projectRoot,
 		include: ['tests/**/*.test.ts'],
