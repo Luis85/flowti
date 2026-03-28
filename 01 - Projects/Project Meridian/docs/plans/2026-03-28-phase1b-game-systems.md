@@ -36,7 +36,7 @@
 **Files:**
 - Modify: `src/domain/core/component-data.ts`
 
-- [ ] **Step 1: Add AttributesState and SocialState interfaces**
+- [x] **Step 1: Add AttributesState and SocialState interfaces**
 
 Append to `src/domain/core/component-data.ts`:
 
@@ -55,12 +55,12 @@ export interface SocialState {
 }
 ```
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: 0 errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/core/component-data.ts"
@@ -77,7 +77,7 @@ git commit -m "feat(meridian): add AttributesState + SocialState domain interfac
 - Create: `src/infrastructure/components/traits-component.ts`
 - Create: `tests/infrastructure/components/phase1b-components.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/infrastructure/components/phase1b-components.test.ts
@@ -117,12 +117,12 @@ describe('TraitsComponent', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/components/phase1b-components.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — modules not found.
 
-- [ ] **Step 3: Implement all three components**
+- [x] **Step 3: Implement all three components**
 
 ```typescript
 // src/infrastructure/components/attributes-component.ts
@@ -153,17 +153,17 @@ export class TraitsComponent extends TrackedComponent {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/components/phase1b-components.test.ts --config configs/vitest.config.ts`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Run full quality gates**
+- [x] **Step 5: Run full quality gates**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json && npx eslint src/ tests/ --config configs/eslint.config.mjs && npx vitest run --config configs/vitest.config.ts`
 Expected: 0 errors, all tests pass (~153).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/components/attributes-component.ts" "01 - Projects/Project Meridian/src/infrastructure/components/social-component.ts" "01 - Projects/Project Meridian/src/infrastructure/components/traits-component.ts" "01 - Projects/Project Meridian/tests/infrastructure/components/phase1b-components.test.ts"
@@ -180,7 +180,7 @@ git commit -m "feat(meridian): AttributesComponent, SocialComponent, TraitsCompo
 - Create: `src/domain/systems/needs-decay.ts`
 - Create: `tests/domain/systems/needs-decay.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/domain/systems/needs-decay.test.ts
@@ -276,12 +276,12 @@ describe('applyNeedsDecay', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/domain/systems/needs-decay.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement applyNeedsDecay**
+- [x] **Step 3: Implement applyNeedsDecay**
 
 ```typescript
 // src/domain/systems/needs-decay.ts
@@ -388,17 +388,17 @@ export function applyNeedsDecay(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/domain/systems/needs-decay.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (11 tests).
 
-- [ ] **Step 5: Run full quality gates**
+- [x] **Step 5: Run full quality gates**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json && npx eslint src/ tests/ --config configs/eslint.config.mjs`
 Expected: 0 errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/needs-decay.ts" "01 - Projects/Project Meridian/tests/domain/systems/needs-decay.test.ts"
@@ -413,7 +413,7 @@ git commit -m "feat(meridian): applyNeedsDecay pure function with TDD"
 - Create: `src/domain/systems/mood.ts`
 - Create: `tests/domain/systems/mood.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/domain/systems/mood.test.ts
@@ -530,12 +530,12 @@ describe('calculateMood', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/domain/systems/mood.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement calculateMood**
+- [x] **Step 3: Implement calculateMood**
 
 ```typescript
 // src/domain/systems/mood.ts
@@ -610,12 +610,12 @@ export function calculateMood(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/domain/systems/mood.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (8 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/mood.ts" "01 - Projects/Project Meridian/tests/domain/systems/mood.test.ts"
@@ -630,7 +630,7 @@ git commit -m "feat(meridian): calculateMood pure function with TDD"
 - Create: `src/domain/systems/memory-decay.ts`
 - Create: `tests/domain/systems/memory-decay.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/domain/systems/memory-decay.test.ts
@@ -724,12 +724,12 @@ describe('applyMemoryDecay', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/domain/systems/memory-decay.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement applyMemoryDecay**
+- [x] **Step 3: Implement applyMemoryDecay**
 
 ```typescript
 // src/domain/systems/memory-decay.ts
@@ -799,17 +799,17 @@ export function applyMemoryDecay(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/domain/systems/memory-decay.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (8 tests).
 
-- [ ] **Step 5: Run full quality gates**
+- [x] **Step 5: Run full quality gates**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json && npx eslint src/ tests/ --config configs/eslint.config.mjs && npx vitest run --config configs/vitest.config.ts`
 Expected: 0 errors, all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/memory-decay.ts" "01 - Projects/Project Meridian/tests/domain/systems/memory-decay.test.ts"
@@ -825,7 +825,7 @@ git commit -m "feat(meridian): applyMemoryDecay pure function with TDD"
 **Files:**
 - Create: `src/infrastructure/entity/agent-actor.ts`
 
-- [ ] **Step 1: Implement AgentActor**
+- [x] **Step 1: Implement AgentActor**
 
 ```typescript
 // src/infrastructure/entity/agent-actor.ts
@@ -885,12 +885,12 @@ export class AgentActor extends Actor {
 }
 ```
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: 0 errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/entity/agent-actor.ts"
@@ -905,7 +905,7 @@ git commit -m "feat(meridian): AgentActor — ExcaliburJS Actor with all game co
 - Create: `src/infrastructure/entity/agent-spawner.ts`
 - Create: `tests/infrastructure/entity/agent-spawner.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/infrastructure/entity/agent-spawner.test.ts
@@ -1020,12 +1020,12 @@ describe('AgentSpawner', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/entity/agent-spawner.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement agent spawner**
+- [x] **Step 3: Implement agent spawner**
 
 ```typescript
 // src/infrastructure/entity/agent-spawner.ts
@@ -1075,17 +1075,17 @@ export function createAgentSpawner(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/entity/agent-spawner.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (5 tests).
 
-- [ ] **Step 5: Run full quality gates**
+- [x] **Step 5: Run full quality gates**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json && npx eslint src/ tests/ --config configs/eslint.config.mjs && npx vitest run --config configs/vitest.config.ts`
 Expected: 0 errors, all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/entity/" "01 - Projects/Project Meridian/tests/infrastructure/entity/"
@@ -1102,7 +1102,7 @@ git commit -m "feat(meridian): AgentSpawner — vault → schema → ECS entity 
 - Create: `src/infrastructure/systems/trait-resolver-system.ts`
 - Create: `tests/infrastructure/systems/trait-resolver-system.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/infrastructure/systems/trait-resolver-system.test.ts
@@ -1210,12 +1210,12 @@ describe('TraitResolverSystem', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/trait-resolver-system.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement TraitResolverSystem**
+- [x] **Step 3: Implement TraitResolverSystem**
 
 ```typescript
 // src/infrastructure/systems/trait-resolver-system.ts
@@ -1253,12 +1253,12 @@ export function createTraitResolverSystem(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/trait-resolver-system.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/trait-resolver-system.ts" "01 - Projects/Project Meridian/tests/infrastructure/systems/trait-resolver-system.test.ts"
@@ -1273,7 +1273,7 @@ git commit -m "feat(meridian): TraitResolverSystem — ECS wrapper for trait res
 - Create: `src/infrastructure/systems/needs-decay-system.ts`
 - Create: `tests/infrastructure/systems/needs-decay-system.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/infrastructure/systems/needs-decay-system.test.ts
@@ -1391,12 +1391,12 @@ describe('NeedsDecaySystem', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/needs-decay-system.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement NeedsDecaySystem**
+- [x] **Step 3: Implement NeedsDecaySystem**
 
 ```typescript
 // src/infrastructure/systems/needs-decay-system.ts
@@ -1518,12 +1518,12 @@ export function createNeedsDecaySystem(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/needs-decay-system.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/needs-decay-system.ts" "01 - Projects/Project Meridian/tests/infrastructure/systems/needs-decay-system.test.ts"
@@ -1538,7 +1538,7 @@ git commit -m "feat(meridian): NeedsDecaySystem — ECS wrapper with trait modif
 - Create: `src/infrastructure/systems/mood-system.ts`
 - Create: `tests/infrastructure/systems/mood-system.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/infrastructure/systems/mood-system.test.ts
@@ -1641,12 +1641,12 @@ describe('MoodSystem', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/mood-system.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement MoodSystem**
+- [x] **Step 3: Implement MoodSystem**
 
 ```typescript
 // src/infrastructure/systems/mood-system.ts
@@ -1725,12 +1725,12 @@ export function createMoodSystem(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/mood-system.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/mood-system.ts" "01 - Projects/Project Meridian/tests/infrastructure/systems/mood-system.test.ts"
@@ -1745,7 +1745,7 @@ git commit -m "feat(meridian): MoodSystem — ECS wrapper with memory window + b
 - Create: `src/infrastructure/systems/memory-decay-system.ts`
 - Create: `tests/infrastructure/systems/memory-decay-system.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // tests/infrastructure/systems/memory-decay-system.test.ts
@@ -1835,12 +1835,12 @@ describe('MemoryDecaySystem', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/memory-decay-system.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement MemoryDecaySystem**
+- [x] **Step 3: Implement MemoryDecaySystem**
 
 ```typescript
 // src/infrastructure/systems/memory-decay-system.ts
@@ -1884,17 +1884,17 @@ export function createMemoryDecaySystem(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/memory-decay-system.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (3 tests).
 
-- [ ] **Step 5: Run full quality gates**
+- [x] **Step 5: Run full quality gates**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json && npx eslint src/ tests/ --config configs/eslint.config.mjs && npx vitest run --config configs/vitest.config.ts`
 Expected: 0 errors, all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/memory-decay-system.ts" "01 - Projects/Project Meridian/tests/infrastructure/systems/memory-decay-system.test.ts"
@@ -1911,7 +1911,7 @@ git commit -m "feat(meridian): MemoryDecaySystem — ECS wrapper with significan
 - Modify: `src/plugin.ts`
 - Modify: `src/infrastructure/engine/game-view.ts`
 
-- [ ] **Step 1: Update plugin.ts — store trait definitions and mood config**
+- [x] **Step 1: Update plugin.ts — store trait definitions and mood config**
 
 In `initializeGame()`, after creating gameDeps, add:
 
@@ -1924,7 +1924,7 @@ Add field: `private traitDefinitions: Record<string, TraitDefinition> = {};`
 
 Also expose `traitDefinitions` and `moodConfig` (from `config.mood`) for the game view to use when creating systems.
 
-- [ ] **Step 2: Update game-view.ts — spawn agents and register systems**
+- [x] **Step 2: Update game-view.ts — spawn agents and register systems**
 
 After the existing tick system registration block, add:
 
@@ -1959,17 +1959,17 @@ Note: `game-view.ts` `onOpen()` will need to become fully async to support the v
 
 The exact wiring will need careful integration with the existing code. Follow the existing pattern — the changes to `game-view.ts` should be minimal: add imports, call spawner, register systems.
 
-- [ ] **Step 3: Run typecheck + lint**
+- [x] **Step 3: Run typecheck + lint**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json && npx eslint src/ tests/ --config configs/eslint.config.mjs`
 Expected: 0 errors.
 
-- [ ] **Step 4: Run full test suite**
+- [x] **Step 4: Run full test suite**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run --config configs/vitest.config.ts`
 Expected: All tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/plugin.ts" "01 - Projects/Project Meridian/src/infrastructure/engine/game-view.ts"
@@ -1983,7 +1983,7 @@ git commit -m "feat(meridian): wire 4 game systems + agent spawner in plugin/gam
 **Files:**
 - Create: `tests/integration/life-systems-integration.test.ts`
 
-- [ ] **Step 1: Write integration tests**
+- [x] **Step 1: Write integration tests**
 
 ```typescript
 // tests/integration/life-systems-integration.test.ts
@@ -2134,12 +2134,12 @@ describe('Life Systems Integration', () => {
 });
 ```
 
-- [ ] **Step 2: Run integration tests**
+- [x] **Step 2: Run integration tests**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/integration/life-systems-integration.test.ts --config configs/vitest.config.ts`
 Expected: ALL PASS (3 tests).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/tests/integration/life-systems-integration.test.ts"
@@ -2150,7 +2150,7 @@ git commit -m "test(meridian): life systems integration tests — full tick, tra
 
 ### Task E3: Full Verification
 
-- [ ] **Step 1: Run complete quality gate suite**
+- [x] **Step 1: Run complete quality gate suite**
 
 Run:
 ```bash
@@ -2163,7 +2163,7 @@ npm run build
 
 Expected: 0 errors, 0 warnings, ~193 tests pass, build succeeds.
 
-- [ ] **Step 2: Verify exit criteria checklist**
+- [x] **Step 2: Verify exit criteria checklist**
 
 | Criterion | Evidence |
 |-----------|----------|
@@ -2176,7 +2176,7 @@ Expected: 0 errors, 0 warnings, ~193 tests pass, build succeeds.
 | Events emitted correctly | system tests + integration: event payloads verified |
 | Phase 0 + 1A tests pass | Full suite run |
 
-- [ ] **Step 3: Final commit**
+- [x] **Step 3: Final commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/"

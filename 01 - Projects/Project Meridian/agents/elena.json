@@ -1,0 +1,38 @@
+{
+	"id": "agent-elena",
+	"name": "Elena",
+	"kind": "merchant",
+	"attributes": { "ST": 9, "DX": 12, "IQ": 14, "HT": 11 },
+	"social": { "status": 2, "reputation": 1, "charisma": 14 },
+	"needs": { "hunger": 75, "energy": 85, "social": 60 },
+	"mood": 0,
+	"memory": [
+		{
+			"tick": 0,
+			"type": "trade",
+			"description": "Sold a rare herb bundle to a passing traveller",
+			"participants": ["agent-marcus"],
+			"outcome": "positive",
+			"significance": 6,
+			"mood_impact": 5
+		}
+	],
+	"goals": [],
+	"skills": [],
+	"inventory": [
+		{ "item_id": "herb-bundle", "quantity": 3 },
+		{ "item_id": "bread-loaf", "quantity": 2 }
+	],
+	"equipment": { "head": null, "body": "leather-apron", "hands": null, "tool": "merchant-scales", "accessory": "silver-pendant" },
+	"persona": "personas/elena.md",
+	"traits": ["curious", "hardy"],
+	"wallet": { "gold": 120 },
+	"xp": 0,
+	"level": 1,
+	"position": { "x": 200, "y": 180, "region": "market-square" },
+	"relationships": "graphs/relationships.canvas",
+	"tools": [],
+	"behavior_tree": "bt/merchant.md",
+	"job": "shopkeeper",
+	"property": ["market-stall-3"]
+}

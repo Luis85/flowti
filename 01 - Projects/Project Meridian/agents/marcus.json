@@ -1,0 +1,46 @@
+{
+	"id": "agent-marcus",
+	"name": "Marcus",
+	"kind": "guard",
+	"attributes": { "ST": 14, "DX": 11, "IQ": 10, "HT": 13 },
+	"social": { "status": 1, "reputation": 2, "charisma": 9 },
+	"needs": { "hunger": 60, "energy": 45, "social": 80 },
+	"mood": 0,
+	"memory": [
+		{
+			"tick": 0,
+			"type": "patrol",
+			"description": "Caught a pickpocket near the fountain",
+			"participants": [],
+			"outcome": "positive",
+			"significance": 4,
+			"mood_impact": 3
+		},
+		{
+			"tick": 0,
+			"type": "conflict",
+			"description": "Argument with the night watch captain over shift schedules",
+			"participants": ["agent-wren"],
+			"outcome": "negative",
+			"significance": 7,
+			"mood_impact": -8
+		}
+	],
+	"goals": [],
+	"skills": [],
+	"inventory": [
+		{ "item_id": "torch", "quantity": 1 }
+	],
+	"equipment": { "head": "iron-helm", "body": "chain-mail", "hands": "leather-gloves", "tool": "iron-spear", "accessory": null },
+	"persona": "personas/marcus.md",
+	"traits": ["brave"],
+	"wallet": { "gold": 35 },
+	"xp": 0,
+	"level": 1,
+	"position": { "x": 350, "y": 120, "region": "town-gate" },
+	"relationships": "graphs/relationships.canvas",
+	"tools": [],
+	"behavior_tree": "bt/guard.md",
+	"job": "gate-guard",
+	"property": []
+}

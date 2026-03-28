@@ -1,0 +1,38 @@
+{
+	"id": "agent-wren",
+	"name": "Wren",
+	"kind": "scholar",
+	"attributes": { "ST": 8, "DX": 10, "IQ": 16, "HT": 9 },
+	"social": { "status": 3, "reputation": 3, "charisma": 11 },
+	"needs": { "hunger": 90, "energy": 30, "social": 40 },
+	"mood": 0,
+	"memory": [
+		{
+			"tick": 0,
+			"type": "research",
+			"description": "Discovered a pattern in the old star charts",
+			"participants": [],
+			"outcome": "positive",
+			"significance": 9,
+			"mood_impact": 10
+		}
+	],
+	"goals": [],
+	"skills": [],
+	"inventory": [
+		{ "item_id": "quill-pen", "quantity": 1 },
+		{ "item_id": "star-chart", "quantity": 1 }
+	],
+	"equipment": { "head": null, "body": "wool-robe", "hands": null, "tool": "magnifying-lens", "accessory": "reading-glasses" },
+	"persona": "personas/wren.md",
+	"traits": ["frail"],
+	"wallet": { "gold": 80 },
+	"xp": 0,
+	"level": 1,
+	"position": { "x": 480, "y": 300, "region": "library" },
+	"relationships": "graphs/relationships.canvas",
+	"tools": [],
+	"behavior_tree": "bt/scholar.md",
+	"job": "librarian",
+	"property": ["library-desk-2"]
+}

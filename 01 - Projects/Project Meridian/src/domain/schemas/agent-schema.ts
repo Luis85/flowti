@@ -53,6 +53,7 @@ export const AgentSchema = z.object({
 	relationships: z.string().default('graphs/relationships.canvas'),
 	llm: LLMConfigSchema.optional(),
 	tools: z.array(z.string()).default([]),
+	persona: z.string().nullable().default(null),
 	behavior_tree: z.string(),
 	job: z.string().nullable().default(null),
 	property: z.array(z.string()).default([]),

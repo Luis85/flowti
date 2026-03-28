@@ -1,0 +1,28 @@
+{
+	"id": "agent-sable",
+	"name": "Sable",
+	"kind": "artisan",
+	"attributes": { "ST": 11, "DX": 15, "IQ": 12, "HT": 10 },
+	"social": { "status": 0, "reputation": 0, "charisma": 13 },
+	"needs": { "hunger": 50, "energy": 70, "social": 90 },
+	"mood": 0,
+	"memory": [],
+	"goals": [],
+	"skills": [],
+	"inventory": [
+		{ "item_id": "leather-scraps", "quantity": 5 },
+		{ "item_id": "dye-red", "quantity": 2 }
+	],
+	"equipment": { "head": null, "body": "work-apron", "hands": "crafting-gloves", "tool": "awl-set", "accessory": null },
+	"persona": "personas/sable.md",
+	"traits": [],
+	"wallet": { "gold": 45 },
+	"xp": 0,
+	"level": 1,
+	"position": { "x": 150, "y": 350, "region": "craft-quarter" },
+	"relationships": "graphs/relationships.canvas",
+	"tools": [],
+	"behavior_tree": "bt/artisan.md",
+	"job": "leatherworker",
+	"property": ["workshop-7"]
+}
