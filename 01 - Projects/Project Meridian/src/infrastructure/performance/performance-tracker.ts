@@ -11,6 +11,7 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 	let currentSystemName: string | null = null;
 	let currentSystemStart = 0;
 	let tickStart = 0;
+	let tickStartSet = false;
 
 	return {
 		get enabled() { return enabled; },
@@ -24,8 +25,9 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 
 		startSystem(name: string): void {
 			if (!enabled) return;
-			if (currentSystemName === null) {
+			if (!tickStartSet) {
 				tickStart = performance.now();
+				tickStartSet = true;
 			}
 			currentSystemName = name;
 			currentSystemStart = performance.now();
@@ -40,10 +42,9 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 
 		completeTick(tick: number): TickPerformance | null {
 			if (!enabled) return null;
-			// Guard: if no systems ran this tick, tickStart was never set — report 0ms
-			const totalMs = currentSystems.length === 0
-				? 0
-				: Math.round((performance.now() - tickStart) * 100) / 100;
+			const totalMs = tickStartSet
+				? Math.round((performance.now() - tickStart) * 100) / 100
+				: 0;
 			const result: TickPerformance = {
 				tick,
 				totalMs,
@@ -53,6 +54,7 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 			if (tickHistory.length > HISTORY_MAX) tickHistory.shift();
 			currentSystems = [];
 			currentSystemName = null;
+			tickStartSet = false;
 			tickStart = 0;
 			return result;
 		},

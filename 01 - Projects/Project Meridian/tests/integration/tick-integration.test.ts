@@ -6,12 +6,15 @@ import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { GameSystem } from '../../src/domain/core/tick-scheduler.js';
 
-function createIntegrationDeps(eventBus: ReturnType<typeof createEventBus>): GameCoreDeps {
+function createIntegrationDeps(
+	eventBus: ReturnType<typeof createEventBus>,
+	perfTracker = createPerformanceTracker(),
+): GameCoreDeps {
 	return {
 		logger: { debug() {}, info() {}, warn() {}, error() {} },
 		eventBus,
 		config: GameConfigSchema.parse({}),
-		performanceTracker: createPerformanceTracker(),
+		performanceTracker: perfTracker,
 		tickCount: 0,
 	};
 }
@@ -76,8 +79,7 @@ describe('Tick Integration', () => {
 		runner.register({ name: 'Sys1', priority: 1, execute() {} });
 		runner.register({ name: 'Sys2', priority: 2, execute() {} });
 
-		const deps = createIntegrationDeps(eventBus);
-		deps.performanceTracker = perfTracker;
+		const deps = createIntegrationDeps(eventBus, perfTracker);
 		runner.tick(deps);
 
 		const history = perfTracker.history();

@@ -4,10 +4,12 @@ import type { GameConfig } from '../schemas/game-config-schema.js';
 import type { PerformanceTracker } from './performance.js';
 
 export interface GameCoreDeps {
-	readonly logger: Logger;
+	/** Hot-swappable — plugin.applySettings() replaces on settings change */
+	logger: Logger;
 	readonly eventBus: EventBus;
 	readonly config: GameConfig;
-	readonly performanceTracker: PerformanceTracker;
+	/** Hot-swappable — plugin.applySettings() replaces on settings change */
+	performanceTracker: PerformanceTracker;
 	/** Current tick number — set by the tick runner before system execution each tick */
 	tickCount: number;
 }
