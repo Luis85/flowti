@@ -30,6 +30,15 @@ describe('parseFrontmatter', () => {
 		if (result.ok) expect(result.value).toEqual({});
 	});
 
+	it('handles CRLF line endings', () => {
+		const md = '---\r\nid: agent-crlf\r\nname: CRLF Test\r\n---\r\nBody.';
+		const result = parseFrontmatter(md);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value.id).toBe('agent-crlf');
+		}
+	});
+
 	it('handles frontmatter with nested objects', () => {
 		const md = '---\nattributes:\n  ST: 10\n  DX: 12\n---\n';
 		const result = parseFrontmatter(md);

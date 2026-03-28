@@ -2,7 +2,7 @@ import { Result, type ResultValue } from '../../domain/core/result.js';
 import { parse as parseYaml } from 'yaml';
 
 export function parseFrontmatter(markdown: string): ResultValue<Record<string, unknown>> {
-	const match = /^---\r?\n([\s\S]*?)---/.exec(markdown);
+	const match = /^---\r?\n([\s\S]*?\r?\n)?---/.exec(markdown);
 	if (match === null) {
 		return Result.err({
 			code: 'FRONTMATTER_MISSING',

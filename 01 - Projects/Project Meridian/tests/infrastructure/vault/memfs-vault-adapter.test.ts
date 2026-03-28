@@ -55,4 +55,10 @@ describe('MemfsVaultAdapter', () => {
 		expect(result.ok).toBe(true);
 		expect(await adapter.exists('delete-me.md')).toBe(false);
 	});
+
+	it('deleteFile is a no-op for non-existent files (returns ok)', async () => {
+		const adapter = createMemfsVaultAdapter({});
+		const result = await adapter.deleteFile('nonexistent.md');
+		expect(result.ok).toBe(true);
+	});
 });

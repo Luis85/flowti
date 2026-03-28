@@ -16,10 +16,9 @@ export function createVaultDirectoryLoader(
 	adapter: VaultAdapter,
 	logger?: Logger,
 ): VaultDirectoryLoader {
-	const entityLoader = createVaultLoader();
-
 	return {
 		async loadDirectory<T>(directory: string, schema: z.ZodType<T>): Promise<DirectoryLoadResult<T>> {
+			const entityLoader = createVaultLoader();
 			const files = await adapter.listFiles(directory);
 			const loaded: T[] = [];
 			const quarantined: string[] = [];
