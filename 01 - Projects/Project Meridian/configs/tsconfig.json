@@ -14,7 +14,6 @@
     "sourceMap": true,
     "outDir": "../dist",
     "rootDir": "../src",
-    "baseUrl": "../src",
     "types": ["obsidian"],
     "lib": ["ES2022", "DOM"]
   },
