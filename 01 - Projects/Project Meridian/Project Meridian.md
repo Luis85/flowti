@@ -1683,6 +1683,53 @@ EventBus
 - **Outbound:** dirty-flagged → debounced batch (2s) → Zod validate → write. Failed writes → retry queue.
 - **Conflict:** last-write-wins with warning log. Vault is canonical after next sync.
 
+### 12.5 Markdown Creation Service
+
+A domain-level service for creating markdown files with proper YAML frontmatter, with optional template support. This is the **write counterpart** to the frontmatter parser (which reads).
+
+**Interface:**
+
+```typescript
+// src/domain/core/markdown-service.ts
+interface MarkdownService {
+	/** Create a markdown string from a frontmatter object and optional body */
+	serialize(frontmatter: Record<string, unknown>, body?: string): string;
+
+	/** Create a markdown string from a template, substituting variables */
+	fromTemplate(template: string, variables: Record<string, unknown>): ResultValue<string>;
+
+	/** Load a template file via VaultAdapter, fill variables, return complete markdown */
+	renderTemplate(templatePath: string, variables: Record<string, unknown>): Promise<ResultValue<string>>;
+}
+```
+
+**Consumers:**
+- **VaultSyncSystem** — serializes ECS component state back to markdown frontmatter for vault persistence
+- **ChroniclerSystem** — creates eulogy files (`legacy/`), daily digests (`chronicles/`), seasonal reports
+- **QuestSystem** — agent-created quests from templates (`config/quest-templates/`)
+- **Director actions** — creating quests, spawning agents (generates agent markdown file)
+- **WelfareQuestSystem** — Chronicler-generated welfare quests
+
+**Template syntax:** Simple `{{variable}}` substitution in both frontmatter and body text:
+
+```markdown
+---
+id: quest-supply-{{facility_id}}
+title: "Deliver {{quantity}} {{item_name}} to {{facility_name}}"
+type: delivery
+status: available
+posted_to: billboard
+rewards:
+  gold: {{reward_gold}}
+---
+
+{{facility_owner}} needs supplies for their {{facility_type}}.
+```
+
+**Template resolution:** Templates are loaded from vault via `VaultAdapter`, then variables substituted. Unresolved variables (missing from the variables map) return `Result.err` with `TEMPLATE_VARIABLE_MISSING` code.
+
+**Zod validation on output:** After creating a markdown string, the caller can validate the generated frontmatter against the appropriate schema before writing to vault — ensuring generated files are always schema-compliant.
+
 ---
 
 ## 13 · UI/UX
@@ -3315,6 +3362,7 @@ Systems read config via a typed `GameConfig` interface injected at startup. Conf
 |LLM|`LLMProvider`|CursorAPI, ClaudeAPI, OllamaLocal, TemplateFallback|
 |Filesystem|`VaultAdapter`|ObsidianVaultAdapter, MemfsAdapter (test)|
 |Logging|`Logger`|ConsoleLogger, VaultFileLogger, UILogger|
+|Markdown|`MarkdownService`|MarkdownSerializer (serialize + templates)|
 
 Switching providers requires only a config change — no code modification.
 

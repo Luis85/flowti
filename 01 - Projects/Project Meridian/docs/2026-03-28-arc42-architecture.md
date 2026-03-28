@@ -224,7 +224,9 @@ domain/
 │   ├── result.ts           — Result<T, E> with map/flatMap
 │   ├── events.ts           — GameEvent, EventHandler, EventBus interface
 │   ├── logger.ts           — Logger interface
-│   └── vault-adapter.ts    — VaultAdapter interface (read/write/list)
+│   ├── vault-adapter.ts    — VaultAdapter interface (read/write/list)
+│   ├── platform.ts         — PlatformServices interface (vault, notifications, commands, modals)
+│   └── markdown-service.ts — MarkdownService interface (serialize, templates)
 │
 ├── schemas/
 │   ├── common.ts           — Position, MemoryEntry, Goal, Skill, Inventory, Equipment, LLM
@@ -289,6 +291,9 @@ infrastructure/
 │   ├── memfs-vault-adapter.ts   — In-memory VaultAdapter for testing
 │   ├── obsidian-vault-adapter.ts — [Phase 9] Obsidian file system adapter
 │   └── quarantine.ts            — Invalid file tracking
+│
+├── markdown/
+│   └── markdown-serializer.ts   — MarkdownService impl (serialize + template rendering)
 │
 ├── config/
 │   └── game-config-loader.ts    — JSON → Zod validate → GameConfig
