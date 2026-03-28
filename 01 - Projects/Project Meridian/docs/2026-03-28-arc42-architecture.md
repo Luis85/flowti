@@ -722,14 +722,39 @@ Three-layer death spiral recovery:
 2. **Guaranteed recovery events** — when gold circulation drops below floor
 3. **Director loans** — treasury can go negative with interest
 
-### 8.11 Seeded RNG
+### 8.11 Dependency Injection
+
+Manual DI — no framework. All dependencies composed at plugin startup and passed via factory function parameters.
+
+**Root dependency bag:**
+```typescript
+interface GameDeps {
+	config: GameConfig;
+	eventBus: EventBus;
+	logger: Logger;
+	vault: VaultAdapter;
+	rng: GameRNG;
+	spatialQuery: SpatialQueryService;
+}
+```
+
+**Key principles:**
+- **ISP subsets:** Systems declare the minimal interface they need (`NeedsDecayDeps`, not full `GameDeps`)
+- **Factory functions over classes:** `createNeedsDecaySystem(deps)` — simpler, no `this` binding issues
+- **No singletons, no service locator:** Dependencies explicit in function signatures
+- **Composition root:** `plugin.ts onload()` is the ONLY place concrete implementations are chosen
+- **Test swap:** Any dependency replaced with mock/stub by passing different implementations
+
+This enables all backing service abstractions (Factor IV) and makes every system independently testable.
+
+### 8.12 Seeded RNG
 
 All systems consuming randomness (gossip probability, crime opportunity, world events, candidate pool generation) must use an injectable `GameRNG` interface:
 - **Production:** `Math.random()`
 - **Tests:** Seeded RNG for deterministic outcomes
 - Crosscutting architectural constraint enforced at code review.
 
-### 8.12 Dirty-Flag Optimization
+### 8.13 Dirty-Flag Optimization
 
 High-frequency systems (BT evaluation, UIBridge snapshots) use dirty flags to skip unchanged entities:
 - ECS components set a dirty flag when modified
@@ -737,7 +762,7 @@ High-frequency systems (BT evaluation, UIBridge snapshots) use dirty flags to sk
 - UIBridgeSystem skips clean entities during periodic snapshot reconciliation
 - VaultSyncSystem only persists dirty entities
 
-### 8.13 Candidate Pool System
+### 8.14 Candidate Pool System
 
 Candidate pool generation spans multiple systems:
 - **ChroniclerSystem** (tick 18.5): generates 3-5 pre-rolled candidates every N days
@@ -746,7 +771,7 @@ Candidate pool generation spans multiple systems:
 - **CandidatePoolRefreshed** event emitted on refresh
 - Candidates stored as transient data (not vault files until hired)
 
-### 8.14 Build Pipeline
+### 8.15 Build Pipeline
 
 ```
 npm test
@@ -787,6 +812,7 @@ Distribution:
 | ADR-15 | Director-spawned agents only | No immigration. Full Director control over who enters. | Accepted |
 | ADR-16 | World Health rubber-banding | Invisible hand prevents runaway success and unrecoverable collapse. | Accepted |
 | ADR-17 | Pinia as UIBridge intermediate layer | Vue components read Pinia stores, not EventBus directly. Stores aggregate events + periodic snapshots, providing reactive state that survives component remounting. Decouples UI lifecycle from simulation lifecycle. | Accepted |
+| ADR-18 | Manual DI via factory functions, no framework | No InversifyJS/tsyringe. Dependencies composed at plugin startup, passed via typed parameter bags with ISP subsets. Factory functions over classes. Composition root in plugin.ts only. Enables test swap without mocking frameworks. | Accepted |
 
 ---
 

@@ -3255,7 +3255,76 @@ Switching providers requires only a config change — no code modification.
 
 **Factor XI — Log Streams.** Structured log format: `{ tick, system, level, message, data }`. Log level configurable via `game-config.json`. Logs never block the tick cycle. Three targets: console (dev), vault file (`logs/`), UI Event Log panel. The EventBus is the canonical event stream — logging is a subscriber, not a gatekeeper.
 
-### 36.2 Test-Driven Development
+### 36.2 Dependency Injection
+
+All systems receive their dependencies through typed interfaces, never by importing concrete implementations. This is the backbone of testability and the backing service abstraction (Factor IV).
+
+**DI Container:** A lightweight, manual DI container — no framework (no InversifyJS, no tsyringe). Dependencies are composed at plugin startup and passed via constructor or factory function parameters.
+
+**GameDeps — the root dependency bag:**
+
+```typescript
+interface GameDeps {
+	config: GameConfig;
+	eventBus: EventBus;
+	logger: Logger;
+	vault: VaultAdapter;
+	rng: GameRNG;
+	spatialQuery: SpatialQueryService;
+}
+```
+
+Systems receive a subset of `GameDeps` relevant to their function (Interface Segregation). A system that only needs the EventBus and Logger does not receive the full bag:
+
+```typescript
+// System receives only what it needs
+interface NeedsDecayDeps {
+	config: Pick<GameConfig, 'needs' | 'mortality'>;
+	eventBus: EventBus;
+	logger: Logger;
+}
+
+function createNeedsDecaySystem(deps: NeedsDecayDeps): System { ... }
+```
+
+**Composition root (plugin.ts onload):**
+
+```typescript
+// All dependencies composed once at startup
+const config = loadGameConfig(configJson);
+const eventBus = createEventBus();
+const logger = createConsoleLogger(config.debug ? 'debug' : 'info');
+const vault = new ObsidianVaultAdapter(this.app.vault);
+const rng = createGameRNG(config.debug ? 42 : undefined); // seeded in debug
+
+const deps: GameDeps = { config, eventBus, logger, vault, rng, spatialQuery };
+
+// Systems created with their deps
+const needsDecay = createNeedsDecaySystem({ config, eventBus, logger });
+const moodSystem = createMoodSystem({ config, eventBus, logger });
+// ... all systems
+```
+
+**In tests:**
+
+```typescript
+// Swap any dependency with a mock/stub
+const testDeps: NeedsDecayDeps = {
+	config: { needs: { hunger_decay: 0.5 }, mortality: { ... } },
+	eventBus: createEventBus(), // real bus, isolated per test
+	logger: createNoopLogger(), // silent logger for tests
+};
+const system = createNeedsDecaySystem(testDeps);
+```
+
+**Rules:**
+- No global singletons. Every dependency is injected.
+- No service locator pattern. Dependencies are explicit in function signatures.
+- Factory functions (`createXxxSystem`) over classes — simpler, no `this` binding issues.
+- ISP subsets: systems declare the minimal interface they need, not the full `GameDeps`.
+- The composition root in `plugin.ts` is the ONLY place where concrete implementations are chosen.
+
+### 36.3 Test-Driven Development
 
 TDD is the primary development methodology. Every system, component, and feature is built test-first.
 
@@ -3317,7 +3386,7 @@ TDD is the primary development methodology. Every system, component, and feature
 4. **Emergence tests are first-class.** The emergence validation scenarios (§1.7) are implemented as automated tests that seed a world and assert emergent patterns after N ticks.
 5. **Coverage target: 80% statements, 80% lines.** Measured per system, not globally. New systems ship at or above target.
 
-### 36.3 ESLint Architecture Enforcement
+### 36.4 ESLint Architecture Enforcement
 
 ESLint rules enforce architectural boundaries at build time. Violations fail CI.
 
