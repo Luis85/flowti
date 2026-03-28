@@ -1318,7 +1318,7 @@ export interface VaultAdapter {
 ```typescript
 // src/infrastructure/vault/memfs-vault-adapter.ts
 import { Result, type ResultValue } from '../../domain/core/result.js';
-import type { VaultAdapter } from '../../domain/core/vault-adapter.js';
+import type { VaultAdapter } from '../../domain/core/platform.js';
 
 export function createMemfsVaultAdapter(files: Record<string, string>): VaultAdapter {
 	const store = new Map(Object.entries(files));
@@ -1750,7 +1750,7 @@ Expected: FAIL.
 ```typescript
 // src/infrastructure/vault/vault-directory-loader.ts
 import type { ZodSchema } from 'zod';
-import type { VaultAdapter } from '../../domain/core/vault-adapter.js';
+import type { VaultAdapter } from '../../domain/core/platform.js';
 import { createVaultLoader } from './vault-loader.js';
 import type { Logger } from '../../domain/core/logger.js';
 
@@ -2293,7 +2293,8 @@ git commit -m "feat(meridian): Phase 0 Foundation complete — all acceptance cr
 │   │   │   ├── result.ts
 │   │   │   ├── events.ts
 │   │   │   ├── logger.ts
-│   │   │   └── vault-adapter.ts
+│   │   │   ├── platform.ts          # VaultAdapter + PlatformServices (already exists)
+│   │   │   └── markdown-service.ts  # MarkdownService interface (already exists)
 │   │   ├── schemas/
 │   │   │   ├── common.ts
 │   │   │   ├── agent-schema.ts

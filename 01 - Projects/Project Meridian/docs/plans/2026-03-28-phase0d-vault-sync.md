@@ -30,10 +30,11 @@ n**Dependencies:** Chunks A, B, C (schemas + Result type + VaultAdapter interfac
 
 ## Chunk D: VaultSync (Load-Only)
 
-### Task D0: VaultAdapter Interface
+### Task D0: MemfsVaultAdapter Implementation
+
+**NOTE:** The `VaultAdapter` interface already exists in `src/domain/core/platform.ts` (created during KD2 fix). It has 6 methods: `readFile`, `writeFile`, `deleteFile`, `listFiles`, `exists`, `onFileChange?`. This task creates only the in-memory test implementation.
 
 **Files:**
-- Create: `src/domain/core/vault-adapter.ts`
 - Create: `src/infrastructure/vault/memfs-vault-adapter.ts`
 - Create: `tests/infrastructure/vault/memfs-vault-adapter.test.ts`
 
@@ -60,7 +61,7 @@ describe('MemfsVaultAdapter', () => {
 		expect(result.ok).toBe(false);
 	});
 
-	it('lists files matching a glob pattern', async () => {
+	it('lists files in a directory', async () => {
 		const adapter = createMemfsVaultAdapter({
 			'agents/elena.md': '---\nid: a\n---',
 			'agents/marcus.md': '---\nid: b\n---',
@@ -71,6 +72,23 @@ describe('MemfsVaultAdapter', () => {
 		expect(files).toContain('agents/elena.md');
 		expect(files).toContain('agents/marcus.md');
 	});
+
+	it('deletes a file', async () => {
+		const adapter = createMemfsVaultAdapter({
+			'agents/elena.md': '---\nid: a\n---',
+		});
+		const result = await adapter.deleteFile('agents/elena.md');
+		expect(result.ok).toBe(true);
+		expect(await adapter.exists('agents/elena.md')).toBe(false);
+	});
+
+	it('checks if a file exists', async () => {
+		const adapter = createMemfsVaultAdapter({
+			'agents/elena.md': '---\n---',
+		});
+		expect(await adapter.exists('agents/elena.md')).toBe(true);
+		expect(await adapter.exists('agents/nobody.md')).toBe(false);
+	});
 });
 ```
 
@@ -79,23 +97,12 @@ describe('MemfsVaultAdapter', () => {
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/vault/memfs-vault-adapter.test.ts --config configs/vitest.config.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement VaultAdapter interface and MemfsVaultAdapter**
-
-```typescript
-// src/domain/core/vault-adapter.ts
-import type { ResultValue } from './result.js';
-
-export interface VaultAdapter {
-	readFile(path: string): Promise<ResultValue<string>>;
-	listFiles(directory: string): Promise<string[]>;
-	writeFile(path: string, content: string): Promise<ResultValue<void>>;
-}
-```
+- [ ] **Step 3: Implement MemfsVaultAdapter (implements VaultAdapter from platform.ts)**
 
 ```typescript
 // src/infrastructure/vault/memfs-vault-adapter.ts
 import { Result, type ResultValue } from '../../domain/core/result.js';
-import type { VaultAdapter } from '../../domain/core/vault-adapter.js';
+import type { VaultAdapter } from '../../domain/core/platform.js';
 
 export function createMemfsVaultAdapter(files: Record<string, string>): VaultAdapter {
 	const store = new Map(Object.entries(files));
@@ -114,13 +121,30 @@ export function createMemfsVaultAdapter(files: Record<string, string>): VaultAda
 			return Result.ok(content);
 		},
 
+		async writeFile(path: string, content: string): Promise<ResultValue<void>> {
+			store.set(path, content);
+			return Result.ok(undefined);
+		},
+
+		async deleteFile(path: string): Promise<ResultValue<void>> {
+			if (!store.has(path)) {
+				return Result.err({
+					code: 'FILE_NOT_FOUND',
+					message: `File not found: ${path}`,
+					system: 'VaultAdapter',
+					recoverable: true,
+				});
+			}
+			store.delete(path);
+			return Result.ok(undefined);
+		},
+
 		async listFiles(directory: string): Promise<string[]> {
 			return [...store.keys()].filter((key) => key.startsWith(directory));
 		},
 
-		async writeFile(path: string, content: string): Promise<ResultValue<void>> {
-			store.set(path, content);
-			return Result.ok(undefined);
+		async exists(path: string): Promise<boolean> {
+			return store.has(path);
 		},
 	};
 }
@@ -129,13 +153,13 @@ export function createMemfsVaultAdapter(files: Record<string, string>): VaultAda
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/vault/memfs-vault-adapter.test.ts --config configs/vitest.config.ts`
-Expected: PASS (3 tests).
+Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add "01 - Projects/Project Meridian/src/domain/core/vault-adapter.ts" "01 - Projects/Project Meridian/src/infrastructure/vault/memfs-vault-adapter.ts" "01 - Projects/Project Meridian/tests/infrastructure/vault/memfs-vault-adapter.test.ts"
-git commit -m "feat(meridian): VaultAdapter interface + MemfsVaultAdapter for testing"
+git add "01 - Projects/Project Meridian/src/infrastructure/vault/memfs-vault-adapter.ts" "01 - Projects/Project Meridian/tests/infrastructure/vault/memfs-vault-adapter.test.ts"
+git commit -m "feat(meridian): MemfsVaultAdapter implementing VaultAdapter from platform.ts"
 ```
 
 ---
@@ -526,7 +550,7 @@ Expected: FAIL.
 ```typescript
 // src/infrastructure/vault/vault-directory-loader.ts
 import type { ZodSchema } from 'zod';
-import type { VaultAdapter } from '../../domain/core/vault-adapter.js';
+import type { VaultAdapter } from '../../domain/core/platform.js';
 import { createVaultLoader } from './vault-loader.js';
 import type { Logger } from '../../domain/core/logger.js';
 

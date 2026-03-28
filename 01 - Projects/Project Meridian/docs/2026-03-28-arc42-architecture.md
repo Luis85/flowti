@@ -224,9 +224,9 @@ domain/
 │   ├── result.ts           — Result<T, E> with map/flatMap
 │   ├── events.ts           — GameEvent, EventHandler, EventBus interface
 │   ├── logger.ts           — Logger interface
-│   ├── vault-adapter.ts    — VaultAdapter interface (read/write/list)
-│   ├── platform.ts         — PlatformServices interface (vault, notifications, commands, modals)
-│   └── markdown-service.ts — MarkdownService interface (serialize, templates)
+│   ├── platform.ts         — PlatformServices + VaultAdapter + NotificationAdapter + CommandRegistry + ModalAdapter
+│   ├── markdown-service.ts — MarkdownService interface (serialize, templates)
+│   └── result.ts           — GameError, ResultValue<T> (minimal until Chunk B expands with map/flatMap)
 │
 ├── schemas/
 │   ├── common.ts           — Position, MemoryEntry, Goal, Skill, Inventory, Equipment, LLM

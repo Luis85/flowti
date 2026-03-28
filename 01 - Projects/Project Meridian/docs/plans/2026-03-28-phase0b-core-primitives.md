@@ -33,7 +33,7 @@ n**Dependencies:** Chunk A (project scaffold must exist)
 ### Task B1: Result Type
 
 **Files:**
-- Create: `src/domain/core/result.ts`
+- Modify: `src/domain/core/result.ts` (**NOTE:** This file already exists with minimal `GameError` and `ResultValue<T>` type definitions from KD2 fix. Expand it with `map`/`flatMap` methods and `Result.ok()`/`Result.err()` factory functions. Preserve existing types.)
 - Create: `tests/domain/core/result.test.ts`
 
 - [ ] **Step 1: Write failing tests for Result type**
