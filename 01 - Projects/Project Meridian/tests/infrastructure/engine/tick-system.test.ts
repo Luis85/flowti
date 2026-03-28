@@ -62,17 +62,19 @@ describe('MeridianTickSystem', () => {
 		expect(runner.tickCalls).toBe(1);
 	});
 
-	it('clamps accumulator after catch-up and fires on next update', () => {
+	it('clamps accumulator after catch-up — limits leftover to one interval', () => {
 		const runner = createMockTickRunner();
 		const deps = createMockDeps();
 		const system = new MeridianTickSystem(runner, deps);
 
-		// 3000ms = 6 ticks worth at 500ms, but cap is 3
+		// 3000ms = 6 ticks worth at 500ms, but cap is 3 → leaves 1500ms unclamped.
+		// Clamping reduces leftover to 500ms (one interval).
 		system.update(3000);
 		expect(runner.tickCalls).toBe(3);
 
-		// Accumulator was clamped to 500 (one interval), so next update of 1ms fires a tick
-		system.update(1);
+		// Without clamping: accumulator=1500, update(0) → 3 more ticks (1500/500).
+		// With clamping: accumulator=500, update(0) → exactly 1 tick.
+		system.update(0);
 		expect(runner.tickCalls).toBe(4);
 	});
 });

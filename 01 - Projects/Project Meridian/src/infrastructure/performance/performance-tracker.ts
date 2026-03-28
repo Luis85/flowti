@@ -40,7 +40,10 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 
 		completeTick(tick: number): TickPerformance | null {
 			if (!enabled) return null;
-			const totalMs = Math.round((performance.now() - tickStart) * 100) / 100;
+			// Guard: if no systems ran this tick, tickStart was never set — report 0ms
+			const totalMs = currentSystems.length === 0
+				? 0
+				: Math.round((performance.now() - tickStart) * 100) / 100;
 			const result: TickPerformance = {
 				tick,
 				totalMs,
@@ -50,6 +53,7 @@ export function createPerformanceTracker(logger?: Logger): PerformanceTracker {
 			if (tickHistory.length > HISTORY_MAX) tickHistory.shift();
 			currentSystems = [];
 			currentSystemName = null;
+			tickStart = 0;
 			return result;
 		},
 

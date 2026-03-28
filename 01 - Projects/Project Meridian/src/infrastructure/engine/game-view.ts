@@ -52,6 +52,8 @@ export class MeridianGameView extends ItemView {
 				const tickSystem = new MeridianTickSystem(tickRunner, this.deps);
 				this.engine.currentScene.world.add(tickSystem);
 				this.deps.logger.info('Meridian', 'Tick system registered');
+			} else {
+				console.warn('[Meridian] Game deps not ready — tick system not registered. View opened before initializeGame() completed.');
 			}
 
 			const loader = createGameLoader();

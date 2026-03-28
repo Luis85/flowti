@@ -29,6 +29,17 @@ describe('MoodComponent', () => {
 		expect(comp.state.value).toBe(50);
 		expect(comp.state.bucket).toBe('content');
 		expect(comp.dirty).toBe(true);
+		expect(comp).toBeInstanceOf(TrackedComponent);
+	});
+
+	it('supports state mutation with dirty tracking', () => {
+		const comp = new MoodComponent({ value: 50, bucket: 'content' });
+		comp.clearDirty();
+		comp.state.value = 30;
+		comp.state.bucket = 'stressed';
+		comp.markDirty();
+		expect(comp.state.value).toBe(30);
+		expect(comp.dirty).toBe(true);
 	});
 });
 
@@ -38,6 +49,19 @@ describe('MemoryComponent', () => {
 		expect(comp.state.entries).toEqual([]);
 		expect(comp.state.maxEntries).toBe(50);
 		expect(comp.dirty).toBe(true);
+		expect(comp).toBeInstanceOf(TrackedComponent);
+	});
+
+	it('supports state mutation with dirty tracking', () => {
+		const comp = new MemoryComponent({ entries: [], maxEntries: 50 });
+		comp.clearDirty();
+		comp.state.entries.push({
+			tick: 1, type: 'test', description: 'test', participants: [],
+			outcome: 'neutral', significance: 1, mood_impact: 0,
+		});
+		comp.markDirty();
+		expect(comp.state.entries).toHaveLength(1);
+		expect(comp.dirty).toBe(true);
 	});
 });
 
@@ -45,6 +69,16 @@ describe('BlackboardComponent', () => {
 	it('holds BlackboardState and is dirty on creation', () => {
 		const comp = new BlackboardComponent({});
 		expect(comp.state).toEqual({});
+		expect(comp.dirty).toBe(true);
+		expect(comp).toBeInstanceOf(TrackedComponent);
+	});
+
+	it('supports state mutation with dirty tracking', () => {
+		const comp = new BlackboardComponent({});
+		comp.clearDirty();
+		comp.state.target = 'tavern';
+		comp.markDirty();
+		expect(comp.state.target).toBe('tavern');
 		expect(comp.dirty).toBe(true);
 	});
 });

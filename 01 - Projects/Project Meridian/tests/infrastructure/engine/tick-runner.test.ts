@@ -7,8 +7,7 @@ import { SystemPriority } from '../../../src/domain/core/tick-scheduler.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameSystem } from '../../../src/domain/core/tick-scheduler.js';
 
-function createTestDeps(): { deps: GameCoreDeps; eventBus: ReturnType<typeof createEventBus> } {
-	const eventBus = createEventBus();
+function createTestDeps(eventBus = createEventBus()): { deps: GameCoreDeps; eventBus: ReturnType<typeof createEventBus> } {
 	const deps: GameCoreDeps = {
 		logger: { debug() {}, info() {}, warn() {}, error() {} },
 		eventBus,
@@ -81,7 +80,7 @@ describe('TickRunner', () => {
 		runner.register(createMockSystem('A', 1));
 		runner.register(createMockSystem('B', 2));
 
-		const { deps } = createTestDeps();
+		const { deps } = createTestDeps(eventBus);
 		runner.tick(deps);
 
 		expect(beginSpy).toHaveBeenCalledTimes(2);
@@ -96,13 +95,7 @@ describe('TickRunner', () => {
 		const runner = createTickRunner(eventBus);
 		runner.register(createMockSystem('Broken', 1, () => { throw new Error('kaboom'); }));
 
-		const deps: GameCoreDeps = {
-			logger: { debug() {}, info() {}, warn() {}, error() {} },
-			eventBus,
-			config: GameConfigSchema.parse({}),
-			performanceTracker: createPerformanceTracker(),
-			tickCount: 0,
-		};
+		const { deps } = createTestDeps(eventBus);
 		runner.tick(deps);
 
 		expect(errors).toHaveLength(1);
@@ -117,10 +110,25 @@ describe('TickRunner', () => {
 		const runner = createTickRunner(eventBus);
 		runner.register(createMockSystem('Fail', 1, () => { throw new Error('boom'); }));
 
-		const { deps } = createTestDeps();
+		const { deps } = createTestDeps(eventBus);
 		runner.tick(deps);
 
 		expect(flushSpy).toHaveBeenCalledOnce();
+	});
+
+	it('logs error with system name when system fails', () => {
+		const eventBus = createEventBus();
+		const runner = createTickRunner(eventBus);
+		runner.register(createMockSystem('Crasher', 1, () => { throw new Error('oops'); }));
+
+		const { deps } = createTestDeps(eventBus);
+		const errorSpy = vi.spyOn(deps.logger, 'error');
+		runner.tick(deps);
+
+		expect(errorSpy).toHaveBeenCalledOnce();
+		expect(errorSpy.mock.calls[0]?.[0]).toBe('TickRunner');
+		expect(errorSpy.mock.calls[0]?.[1]).toContain('Crasher');
+		expect(errorSpy.mock.calls[0]?.[1]).toContain('oops');
 	});
 
 	it('records performance timing when enabled', () => {
@@ -128,7 +136,7 @@ describe('TickRunner', () => {
 		const runner = createTickRunner(eventBus);
 		runner.register(createMockSystem('Sys', 1));
 
-		const { deps } = createTestDeps();
+		const { deps } = createTestDeps(eventBus);
 		deps.performanceTracker.setEnabled(true);
 		runner.tick(deps);
 
@@ -156,13 +164,7 @@ describe('TickRunner', () => {
 
 		eventBus.on('TestEvent', () => { received = true; });
 
-		const deps: GameCoreDeps = {
-			logger: { debug() {}, info() {}, warn() {}, error() {} },
-			eventBus,
-			config: GameConfigSchema.parse({}),
-			performanceTracker: createPerformanceTracker(),
-			tickCount: 0,
-		};
+		const { deps } = createTestDeps(eventBus);
 		runner.tick(deps);
 
 		expect(received).toBe(true);
