@@ -100,6 +100,7 @@ export function createEventBus(): BatchableEventBus {
 		},
 
 		beginBatch(): void {
+			if (batching) throw new Error('EventBus: beginBatch() called while already batching');
 			batching = true;
 			batchQueue = [];
 		},

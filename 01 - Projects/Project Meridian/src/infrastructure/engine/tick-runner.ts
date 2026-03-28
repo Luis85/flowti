@@ -26,6 +26,13 @@ export function createTickRunner(eventBus: BatchableEventBus): TickScheduler {
 				} catch (err: unknown) {
 					const message = err instanceof Error ? err.message : String(err);
 					deps.logger.error('TickRunner', `System "${system.name}" failed: ${message}`, err instanceof Error ? err : undefined);
+					deps.eventBus.emit({
+						type: 'SystemError',
+						tick: currentTick,
+						wallClock: Date.now(),
+						source: 'TickRunner',
+						payload: { systemName: system.name, message },
+					});
 				} finally {
 					deps.performanceTracker.endSystem();
 					eventBus.flushBatch();

@@ -88,6 +88,28 @@ describe('TickRunner', () => {
 		expect(flushSpy).toHaveBeenCalledTimes(2);
 	});
 
+	it('emits SystemError event when system fails', () => {
+		const eventBus = createEventBus();
+		const errors: { systemName: unknown; message: unknown }[] = [];
+		eventBus.on('SystemError', (e) => { errors.push(e.payload as { systemName: unknown; message: unknown }); });
+
+		const runner = createTickRunner(eventBus);
+		runner.register(createMockSystem('Broken', 1, () => { throw new Error('kaboom'); }));
+
+		const deps: GameCoreDeps = {
+			logger: { debug() {}, info() {}, warn() {}, error() {} },
+			eventBus,
+			config: GameConfigSchema.parse({}),
+			performanceTracker: createPerformanceTracker(),
+			tickCount: 0,
+		};
+		runner.tick(deps);
+
+		expect(errors).toHaveLength(1);
+		expect(errors[0]?.systemName).toBe('Broken');
+		expect(errors[0]?.message).toBe('kaboom');
+	});
+
 	it('flushBatch still called after system failure (finally block)', () => {
 		const eventBus = createEventBus();
 		const flushSpy = vi.spyOn(eventBus, 'flushBatch');
@@ -134,17 +156,69 @@ describe('TickRunner', () => {
 
 		eventBus.on('TestEvent', () => { received = true; });
 
-		const { deps } = createTestDeps();
-		deps.eventBus = eventBus;
+		const deps: GameCoreDeps = {
+			logger: { debug() {}, info() {}, warn() {}, error() {} },
+			eventBus,
+			config: GameConfigSchema.parse({}),
+			performanceTracker: createPerformanceTracker(),
+			tickCount: 0,
+		};
 		runner.tick(deps);
 
 		expect(received).toBe(true);
 	});
 
+	it('deps.tickCount persists after tick completes', () => {
+		const runner = createTickRunner(createEventBus());
+		const { deps } = createTestDeps();
+
+		runner.tick(deps);
+		expect(deps.tickCount).toBe(1);
+
+		runner.tick(deps);
+		expect(deps.tickCount).toBe(2);
+	});
+
+	it('sorts fractional priorities correctly', () => {
+		const order: string[] = [];
+		const runner = createTickRunner(createEventBus());
+		runner.register(createMockSystem('Movement', 5.5, () => order.push('Movement')));
+		runner.register(createMockSystem('BehaviorTree', 5, () => order.push('BehaviorTree')));
+		runner.register(createMockSystem('TraitResolver', 0.5, () => order.push('TraitResolver')));
+
+		const { deps } = createTestDeps();
+		runner.tick(deps);
+
+		expect(order).toEqual(['TraitResolver', 'BehaviorTree', 'Movement']);
+	});
+
 	it('SystemPriority constants match GDD numbering', () => {
+		expect(SystemPriority.TRAIT_RESOLVER).toBe(0.5);
+		expect(SystemPriority.DAY_NIGHT).toBe(0.7);
 		expect(SystemPriority.NEEDS_DECAY).toBe(1);
 		expect(SystemPriority.MOOD).toBe(2);
+		expect(SystemPriority.PERCEPTION).toBe(3);
+		expect(SystemPriority.MEMORY).toBe(4);
 		expect(SystemPriority.BEHAVIOR_TREE).toBe(5);
+		expect(SystemPriority.MOVEMENT).toBe(5.5);
+		expect(SystemPriority.JOB).toBe(6);
+		expect(SystemPriority.QUEST_EVALUATION).toBe(7);
+		expect(SystemPriority.OBJECT_INTERACTION).toBe(8);
+		expect(SystemPriority.TOOL_EXECUTION).toBe(9);
+		expect(SystemPriority.CONSTRUCTION).toBe(10);
+		expect(SystemPriority.TRADE).toBe(11);
+		expect(SystemPriority.DIALOGUE).toBe(12);
+		expect(SystemPriority.PROGRESSION).toBe(13);
+		expect(SystemPriority.RELATIONSHIP).toBe(14);
+		expect(SystemPriority.MORTALITY_CHECK).toBe(14.5);
+		expect(SystemPriority.ITEM_DURABILITY).toBe(15);
+		expect(SystemPriority.ECONOMY).toBe(16);
+		expect(SystemPriority.WORLD_EVENT).toBe(17);
+		expect(SystemPriority.SEASON).toBe(17.5);
+		expect(SystemPriority.NOTIFICATION).toBe(18);
+		expect(SystemPriority.CHRONICLER).toBe(18.5);
+		expect(SystemPriority.SCENARIO).toBe(18.7);
+		expect(SystemPriority.ABANDONMENT).toBe(18.8);
 		expect(SystemPriority.VAULT_SYNC).toBe(19);
 		expect(SystemPriority.UI_BRIDGE).toBe(20);
 	});

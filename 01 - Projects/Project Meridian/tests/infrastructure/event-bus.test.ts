@@ -220,4 +220,10 @@ describe('EventBus batching', () => {
 			bus.flushBatch();
 		}).not.toThrow();
 	});
+
+	it('throws if beginBatch called while already batching', () => {
+		const bus = createEventBus();
+		bus.beginBatch();
+		expect(() => { bus.beginBatch(); }).toThrow('beginBatch() called while already batching');
+	});
 });

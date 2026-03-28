@@ -61,4 +61,18 @@ describe('MeridianTickSystem', () => {
 		system.update(300); // 600 total, 1 tick fires, 100 remains
 		expect(runner.tickCalls).toBe(1);
 	});
+
+	it('clamps accumulator after catch-up and fires on next update', () => {
+		const runner = createMockTickRunner();
+		const deps = createMockDeps();
+		const system = new MeridianTickSystem(runner, deps);
+
+		// 3000ms = 6 ticks worth at 500ms, but cap is 3
+		system.update(3000);
+		expect(runner.tickCalls).toBe(3);
+
+		// Accumulator was clamped to 500 (one interval), so next update of 1ms fires a tick
+		system.update(1);
+		expect(runner.tickCalls).toBe(4);
+	});
 });

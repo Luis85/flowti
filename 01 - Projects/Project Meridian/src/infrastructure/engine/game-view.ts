@@ -12,10 +12,12 @@ export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 export class MeridianGameView extends ItemView {
 	private engine: ex.Engine | null = null;
 	private deps: GameCoreDeps | null;
+	private batchableEventBus: BatchableEventBus | null;
 
-	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null) {
+	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null, batchableEventBus: BatchableEventBus | null = null) {
 		super(leaf);
 		this.deps = deps;
+		this.batchableEventBus = batchableEventBus;
 	}
 
 	getViewType(): string {
@@ -44,10 +46,9 @@ export class MeridianGameView extends ItemView {
 			const testActor = createTestActor({ x: 400, y: 300 });
 			this.engine.currentScene.add(testActor);
 
-			// Wire tick infrastructure if deps are available
-			if (this.deps !== null) {
-				const batchableEventBus = this.deps.eventBus as BatchableEventBus;
-				const tickRunner = createTickRunner(batchableEventBus);
+			// Wire tick infrastructure if deps and event bus are available
+			if (this.deps !== null && this.batchableEventBus !== null) {
+				const tickRunner = createTickRunner(this.batchableEventBus);
 				const tickSystem = new MeridianTickSystem(tickRunner, this.deps);
 				this.engine.currentScene.world.add(tickSystem);
 				this.deps.logger.info('Meridian', 'Tick system registered');
