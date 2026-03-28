@@ -1,5 +1,5 @@
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
-import type * as ex from 'excalibur';
+import * as ex from 'excalibur';
 import { createGameEngine } from './game-engine.js';
 import { createGameLoader } from './game-loader.js';
 import { createTickRunner } from './tick-runner.js';
@@ -13,6 +13,15 @@ import { createMemoryDecaySystem } from '../systems/memory-decay-system.js';
 import { createAgentSpawner, type VaultReader } from '../entity/agent-spawner.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { TraitDefinition } from '../../domain/systems/trait-resolver.js';
+import { TimeComponent } from '../components/time-component.js';
+import { PerceptionComponent } from '../components/perception-component.js';
+import { createLocationLoader } from '../entity/location-loader.js';
+import { createBTLoader } from '../entity/bt-loader.js';
+import { createDayNightSystem } from '../systems/day-night-system.js';
+import { createPerceptionSystem } from '../systems/perception-system.js';
+import { createBehaviorTreeSystem } from '../systems/behavior-tree-system.js';
+import { createMovementSystem } from '../systems/movement-system.js';
+import type { BTNode } from '../../domain/systems/behavior-tree.js';
 
 export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 
@@ -94,6 +103,43 @@ export class MeridianGameView extends ItemView {
 				tickRunner.register(createMemoryDecaySystem(getAgents));
 
 				this.deps.logger.info('Meridian', `Game systems registered, ${String(spawnedAgents.length)} agents spawned`);
+
+				// Phase 1C: Load world data
+				const locationLoader = createLocationLoader(this.deps.logger);
+				const locationResult = await locationLoader.loadFromVault(vaultAdapter, '03 - Resources/Locations');
+				const worldLocations = locationResult.items;
+
+				const btLoaderInstance = createBTLoader(this.deps.logger);
+				const btResult = await btLoaderInstance.loadFromVault(vaultAdapter, '03 - Resources/BehaviorTrees');
+
+				// Build BT definitions map keyed by agent kind (strip "bt-" prefix from BT id)
+				const btDefinitions: Record<string, BTNode> = {};
+				for (const bt of btResult.items) {
+					// BT ids are "bt-merchant", agent kinds are "merchant" — strip prefix to match
+					const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
+					btDefinitions[key] = bt.root;
+				}
+
+				// Create world entity for time state
+				const worldEntity = new ex.Actor();
+				worldEntity.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
+				this.engine.currentScene.add(worldEntity);
+				const getWorldEntity = () => worldEntity;
+
+				// Add PerceptionComponent to each agent
+				for (const agent of spawnedAgents) {
+					agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
+				}
+
+				const getLocations = () => worldLocations;
+
+				// Register Phase 1C systems
+				tickRunner.register(createDayNightSystem(getWorldEntity));
+				tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
+				tickRunner.register(createBehaviorTreeSystem(getAgents, btDefinitions, getWorldEntity, Date.now()));
+				tickRunner.register(createMovementSystem(getAgents, getLocations));
+
+				this.deps.logger.info('Meridian', `Phase 1C: ${String(worldLocations.length)} locations, ${String(btResult.items.length)} BTs loaded`);
 			} else {
 				console.warn('[Meridian] Game deps not ready — tick system not registered. View opened before initializeGame() completed.');
 			}

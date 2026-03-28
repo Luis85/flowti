@@ -60,6 +60,20 @@ function assembleVaultOverlay(): Plugin {
 				resolve(distDir, '03 - Resources/Personas'),
 				'.md',
 			);
+
+			// Location data → 03 - Resources/Locations/
+			copyDir(
+				resolve(projectRoot, 'locations'),
+				resolve(distDir, '03 - Resources/Locations'),
+				'.json',
+			);
+
+			// Behavior trees → 03 - Resources/BehaviorTrees/
+			copyDir(
+				resolve(projectRoot, 'behavior-trees'),
+				resolve(distDir, '03 - Resources/BehaviorTrees'),
+				'.json',
+			);
 		},
 	};
 }

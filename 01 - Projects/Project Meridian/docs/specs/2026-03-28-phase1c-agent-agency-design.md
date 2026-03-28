@@ -629,3 +629,24 @@ Phase 1D would add consequences to actions — agents that arrive at locations a
 | Movement jitter at target | Low | Low | Snap to target within step distance (already in formula). |
 | BT JSON authoring is tedious | Medium | Low | Only 4 BTs needed. Visual BT editor is a future UI feature. |
 | Settings hot-swap causes mid-tick inconsistency | Low | Low | Settings are read once per tick from config object (same as Phase 1B). |
+
+## 9. Post-Implementation Notes (2026-03-29)
+
+**Status:** Complete. 277 tests (73 new), all green. tsc/eslint/build clean.
+
+### Deviations from Spec
+
+| Section | Spec Said | Implementation | Reason |
+|---------|-----------|----------------|--------|
+| 4.3 BT System | Lookup by `agent.behavior_tree` | Lookup by `agent.kind` | AgentActor doesn't expose `behavior_tree`. game-view strips `bt-` prefix from BT ids to match agent kind. |
+| 4.2 Perception | `night_multiplier` from config (default 10) | Default changed to 0.5 | Original default of 10 amplified night perception 10x — inverted the intended mechanic. |
+| 4.2 BT evaluator | Local `BTNode` type | Imports from `behavior-tree-schema.ts` | Eliminated duplicate type to prevent divergence. Re-exported for consumers. |
+| 4.9 Settings | `ticks_per_cycle = tickRate × dayCycleDuration` | Formula: `dayCycleDuration * tickRate` | Equivalent formula, correctly applied in `applySettings()`. |
+| 4.2 Day/Night | `previousPhase: string` | `previousPhase: TimeState['phase']` | Tightened type safety — string was unnecessarily loose. |
+| 4.3 BT System | Built-in actions: `move_to_nearest`, `move_to_agent`, `idle`, `rest`, `eat` | Implemented as: `seek_food`, `seek_rest`, `seek_social`, `seek_work`, `interact`, `socialize`, `idle` | More descriptive action names. `resolveMovementTarget` maps action names to location types via lookup table. |
+
+### Additional Artifacts
+
+- `src/domain/schemas/index.ts` — re-exports LocationSchema, BehaviorTreeSchema, BTNode (added by implementation)
+- Build output now includes `03 - Resources/Locations/` and `03 - Resources/BehaviorTrees/` in the vault overlay
+- Tests include `hashString` coverage and zero-speed movement edge case

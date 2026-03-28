@@ -1,0 +1,25 @@
+{
+	"id": "bt-guard",
+	"root": {
+		"type": "selector",
+		"children": [
+			{
+				"type": "sequence",
+				"children": [
+					{ "type": "condition", "check": "need_critical", "params": { "need": "energy" } },
+					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "rest" } },
+					{ "type": "action", "action": "move_to_nearest", "params": { "locationType": "rest" } }
+				]
+			},
+			{
+				"type": "sequence",
+				"children": [
+					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 30 } },
+					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "food" } },
+					{ "type": "action", "action": "move_to_nearest", "params": { "locationType": "food" } }
+				]
+			},
+			{ "type": "action", "action": "idle", "params": {} }
+		]
+	}
+}

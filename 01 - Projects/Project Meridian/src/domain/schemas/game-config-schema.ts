@@ -85,7 +85,7 @@ const MortalityConfigSchema = z.object({
 
 const PerceptionConfigSchema = z.object({
 	base_multiplier: z.number().default(20),
-	night_multiplier: z.number().default(10),
+	night_multiplier: z.number().default(0.5),
 });
 
 const TimeRangeSchema = z.object({

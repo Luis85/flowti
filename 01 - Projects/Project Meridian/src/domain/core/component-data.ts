@@ -41,3 +41,14 @@ export interface SocialState {
 	reputation: number;
 	charisma: number;
 }
+
+export interface TimeState {
+	phase: 'dawn' | 'day' | 'dusk' | 'night';
+	tickInCycle: number;
+	dayCount: number;
+}
+
+export interface PerceptionState {
+	nearbyAgents: { id: string; distance: number }[];
+	nearbyLocations: { id: string; type: string; distance: number }[];
+}
