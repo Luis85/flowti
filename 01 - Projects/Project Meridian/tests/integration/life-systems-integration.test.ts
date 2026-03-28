@@ -11,7 +11,6 @@ import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
 import { MoodComponent } from '../../src/infrastructure/components/mood-component.js';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
-import type { GameEvent } from '../../src/domain/core/events.js';
 import type { TraitDefinition } from '../../src/domain/systems/trait-resolver.js';
 
 function createTestAgent(overrides: Record<string, unknown> = {}) {
