@@ -8,3 +8,8 @@
 *.ico binary
 *.woff binary
 *.woff2 binary
+
+# Canvas files: always LF to prevent phantom diffs from Obsidian re-serialization
+*.canvas text eol=lf
+# base files: always LF to prevent phantom diffs from Obsidian re-serialization
+*.base text eol=lf

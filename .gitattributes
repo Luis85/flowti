@@ -1,0 +1,5 @@
+# Normalize line endings for text files
+* text=auto
+
+# Canvas files: always LF to prevent phantom diffs from Obsidian re-serialization
+*.canvas text eol=lf
