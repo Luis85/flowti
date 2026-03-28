@@ -1,13 +1,12 @@
-import type { GameEvent, EventHandler, EventBus, Unsubscribe, EventFilter } from '../domain/core/events.js';
+import type { GameEvent, EventHandler, Unsubscribe, EventFilter } from '../domain/core/events.js';
+import type { BatchableEventBus } from './engine/batchable-event-bus.js';
 
 /**
- * EventBus implementation with priority ordering, history, and filter support.
+ * EventBus implementation with priority ordering, history, filter, and batching support.
  *
- * NOTE: Event batching (GDD §14.1, ADR-05) is not yet implemented.
- * Currently, emit() dispatches synchronously to all handlers.
- * When the tick loop is built, batching should be added so that events
- * emitted by system N are collected and delivered before system N+1 runs.
- * This prevents mid-tick event cascades.
+ * Batching: when beginBatch() is called, emit() queues events instead of dispatching.
+ * flushBatch() delivers all queued events and returns to immediate mode.
+ * The tick runner uses this to deliver events between system executions.
  */
 
 interface PrioritizedHandler {
@@ -17,10 +16,12 @@ interface PrioritizedHandler {
 
 const HISTORY_MAX = 500;
 
-export function createEventBus(): EventBus {
+export function createEventBus(): BatchableEventBus {
 	const handlers = new Map<string, PrioritizedHandler[]>();
 	const anyHandlers: PrioritizedHandler[] = [];
 	const eventHistory: GameEvent[] = [];
+	let batching = false;
+	let batchQueue: GameEvent[] = [];
 
 	function addHandler(map: Map<string, PrioritizedHandler[]>, type: string, handler: EventHandler, priority: number): void {
 		const existing = map.get(type);
@@ -30,16 +31,24 @@ export function createEventBus(): EventBus {
 		list.sort((a, b) => a.priority - b.priority);
 	}
 
+	function dispatch(event: GameEvent): void {
+		const typed = handlers.get(event.type);
+		if (typed !== undefined) {
+			for (const { handler } of typed) handler(event);
+		}
+		for (const { handler } of anyHandlers) handler(event);
+	}
+
 	return {
 		emit(event: GameEvent): void {
 			eventHistory.push(event);
 			if (eventHistory.length > HISTORY_MAX) eventHistory.shift();
 
-			const typed = handlers.get(event.type);
-			if (typed !== undefined) {
-				for (const { handler } of typed) handler(event);
+			if (batching) {
+				batchQueue.push(event);
+			} else {
+				dispatch(event);
 			}
-			for (const { handler } of anyHandlers) handler(event);
 		},
 
 		on(type: string, handler: EventHandler, priority = 100): Unsubscribe {
@@ -88,6 +97,20 @@ export function createEventBus(): EventBus {
 			if (filter?.source !== undefined) results = results.filter((e) => e.source === filter.source);
 			if (filter?.limit !== undefined) results = results.slice(-filter.limit);
 			return results;
+		},
+
+		beginBatch(): void {
+			batching = true;
+			batchQueue = [];
+		},
+
+		flushBatch(): void {
+			batching = false;
+			const queued = batchQueue;
+			batchQueue = [];
+			for (const event of queued) {
+				dispatch(event);
+			}
 		},
 	};
 }
