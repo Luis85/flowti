@@ -52,8 +52,9 @@ describe('MoodSystem', () => {
 		system.execute(createDeps());
 
 		const mood = agent.get(MoodComponent);
-		expect(mood.state.value).toBeDefined();
-		expect(mood.state.bucket).toBeDefined();
+		expect(typeof mood.state.value).toBe('number');
+		expect(mood.state.value).not.toBeNaN();
+		expect(mood.state.bucket).toMatch(/^(elated|content|stressed|distressed|breakdown)$/);
 		expect(mood.dirty).toBe(true);
 	});
 

@@ -1,4 +1,5 @@
 import type { NeedsState } from '../core/component-data.js';
+import { clamp, round2 } from '../core/math-utils.js';
 
 export interface NeedsDecayInput {
 	state: NeedsState;
@@ -37,14 +38,6 @@ interface NeedConfig {
 }
 
 const CRITICAL_THRESHOLDS = { hunger: 20, energy: 15, social: 25 } as const;
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.max(min, Math.min(max, value));
-}
-
-function round2(value: number): number {
-	return Math.round(value * 100) / 100;
-}
 
 function eventsForNeed(need: NeedConfig, oldValue: number, newValue: number): NeedEvent[] {
 	const result: NeedEvent[] = [];

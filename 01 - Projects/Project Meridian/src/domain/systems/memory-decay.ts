@@ -1,13 +1,10 @@
 import type { MemoryEntry, MemoryState } from '../core/component-data.js';
+import { round2 } from '../core/math-utils.js';
 
 export interface MemoryDecayResult {
 	state: MemoryState;
 	decayedCount: number;
 	prunedCount: number;
-}
-
-function round2(value: number): number {
-	return Math.round(value * 100) / 100;
 }
 
 export function applyMemoryDecay(

@@ -1,3 +1,5 @@
+import { clamp } from '../core/math-utils.js';
+
 export interface MoodFactors {
 	needsSatisfaction: number;
 	positiveMemories: number;
@@ -26,10 +28,6 @@ export interface MoodResult {
 	value: number;
 	bucket: string;
 	changed: boolean;
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.max(min, Math.min(max, value));
 }
 
 export function calculateMood(
