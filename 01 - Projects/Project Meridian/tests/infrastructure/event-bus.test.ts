@@ -105,6 +105,32 @@ describe('EventBus', () => {
 		}).not.toThrow();
 	});
 
+	it('supports onAny unsubscribe', () => {
+		const bus = createEventBus();
+		const handler = vi.fn();
+		const unsub = bus.onAny(handler);
+
+		bus.emit({ type: 'A', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		expect(handler).toHaveBeenCalledTimes(1);
+
+		unsub();
+		bus.emit({ type: 'B', tick: 2, wallClock: Date.now(), source: 's', payload: {} });
+		expect(handler).toHaveBeenCalledTimes(1);
+	});
+
+	it('supports filter unsubscribe', () => {
+		const bus = createEventBus();
+		const handler = vi.fn();
+		const unsub = bus.filter(() => true, handler);
+
+		bus.emit({ type: 'A', tick: 1, wallClock: Date.now(), source: 's', payload: {} });
+		expect(handler).toHaveBeenCalledTimes(1);
+
+		unsub();
+		bus.emit({ type: 'B', tick: 2, wallClock: Date.now(), source: 's', payload: {} });
+		expect(handler).toHaveBeenCalledTimes(1);
+	});
+
 	it('supports filter-based subscription', () => {
 		const bus = createEventBus();
 		const handler = vi.fn();

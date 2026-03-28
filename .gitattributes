@@ -1,5 +1,10 @@
-# Normalize line endings for text files
-* text=auto
+# Normalize line endings — LF in repo, native on checkout
+* text=auto eol=lf
 
-# Canvas files: always LF to prevent phantom diffs from Obsidian re-serialization
-*.canvas text eol=lf
+# Explicitly binary files
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

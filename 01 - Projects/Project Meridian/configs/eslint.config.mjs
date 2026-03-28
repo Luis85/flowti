@@ -22,6 +22,12 @@ export default [
 			'@typescript-eslint/no-explicit-any': 'error',
 			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
 			'@typescript-eslint/strict-boolean-expressions': 'error',
+			'@typescript-eslint/no-floating-promises': 'error',
+			'@typescript-eslint/no-misused-promises': 'error',
+			'@typescript-eslint/require-await': 'error',
+			'@typescript-eslint/await-thenable': 'error',
+			'@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+			'eqeqeq': ['error', 'always'],
 			// import/no-cycle deferred — eslint-plugin-import lacks stable ESLint 9 flat-config support
 			'max-lines': ['warn', { max: 350, skipBlankLines: true, skipComments: true }],
 			'complexity': ['warn', 10],
@@ -62,6 +68,7 @@ export default [
 		rules: {
 			'no-restricted-syntax': 'off',
 			'no-console': 'off',
+			'@typescript-eslint/require-await': 'off',
 		},
 	},
 	{
@@ -79,7 +86,7 @@ export default [
 				{
 					patterns: [
 						{ group: ['../infrastructure/*', '../../infrastructure/*'], message: 'Domain must not import infrastructure (GDD §36.3)' },
-						{ group: ['obsidian', 'node:*'], message: 'Domain must not import platform modules (GDD §36.3)' },
+						{ group: ['obsidian', 'node:*', 'excalibur'], message: 'Domain must not import platform modules (GDD §36.3)' },
 					],
 				},
 			],

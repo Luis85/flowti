@@ -1,5 +1,6 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
-import * as ex from 'excalibur';
+import { ItemView } from 'obsidian';
+import type { WorkspaceLeaf } from 'obsidian';
+import type * as ex from 'excalibur';
 import { createGameEngine, createTestActor } from './game-engine.js';
 import { createGameLoader } from './game-loader.js';
 

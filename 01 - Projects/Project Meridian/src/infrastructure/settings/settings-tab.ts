@@ -1,4 +1,5 @@
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { PluginSettingTab, Setting } from 'obsidian';
+import type { App, Plugin } from 'obsidian';
 import type { MeridianSettings } from '../../domain/core/settings.js';
 import type { LogLevel } from '../../domain/core/logger.js';
 

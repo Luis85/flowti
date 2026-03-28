@@ -26,7 +26,7 @@ export class MeridianPlugin extends Plugin {
 			const existingLeaves = this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE);
 			const first = existingLeaves[0];
 			if (first !== undefined) {
-				this.app.workspace.revealLeaf(first);
+				await this.app.workspace.revealLeaf(first);
 				return;
 			}
 			const leaf = this.app.workspace.getLeaf('tab');
