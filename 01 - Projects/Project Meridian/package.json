@@ -11,7 +11,7 @@
     "test:watch": "vitest --config configs/vitest.config.ts",
     "typecheck": "tsc --noEmit --project configs/tsconfig.json",
     "lint": "eslint src/ --config configs/eslint.config.mjs",
-    "docs": "typedoc --out docs/api src/ --tsconfig configs/tsconfig.json"
+    "docs": "typedoc --options configs/typedoc.json"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.57.2",
