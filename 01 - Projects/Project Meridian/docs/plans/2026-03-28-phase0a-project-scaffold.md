@@ -33,6 +33,7 @@ n**Dependencies:** None — this is the first chunk.
 ### Task A1: Initialize Obsidian Plugin Project
 
 **Files:**
+- Create: `.gitignore`
 - Create: `package.json`
 - Create: `manifest.json`
 - Create: `configs/tsconfig.json`
@@ -41,7 +42,17 @@ n**Dependencies:** None — this is the first chunk.
 - Create: `src/main.ts`
 - Create: `src/plugin.ts`
 
-- [ ] **Step 1: Create package.json**
+- [ ] **Step 1: Create .gitignore**
+
+```
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.js.map
+```
+
+- [ ] **Step 2: Create package.json**
 
 ```json
 {
@@ -73,7 +84,7 @@ n**Dependencies:** None — this is the first chunk.
 }
 ```
 
-- [ ] **Step 2: Create Obsidian manifest.json**
+- [ ] **Step 3: Create Obsidian manifest.json**
 
 ```json
 {
@@ -87,7 +98,7 @@ n**Dependencies:** None — this is the first chunk.
 }
 ```
 
-- [ ] **Step 3: Create configs/tsconfig.json**
+- [ ] **Step 4: Create configs/tsconfig.json**
 
 ```json
 {
@@ -114,7 +125,7 @@ n**Dependencies:** None — this is the first chunk.
 }
 ```
 
-- [ ] **Step 4: Create configs/vite.config.ts**
+- [ ] **Step 5: Create configs/vite.config.ts**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -142,7 +153,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 5: Create configs/vitest.config.ts**
+- [ ] **Step 6: Create configs/vitest.config.ts**
 
 ```typescript
 import { defineConfig } from 'vitest/config';
@@ -165,13 +176,13 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 6: Create src/main.ts (Obsidian plugin entry)**
+- [ ] **Step 7: Create src/main.ts (Obsidian plugin entry)**
 
 ```typescript
 export { MeridianPlugin as default } from './plugin.js';
 ```
 
-- [ ] **Step 7: Create src/plugin.ts (Obsidian plugin class)**
+- [ ] **Step 8: Create src/plugin.ts (Obsidian plugin class)**
 
 ```typescript
 import { Plugin } from 'obsidian';
@@ -187,15 +198,15 @@ export class MeridianPlugin extends Plugin {
 }
 ```
 
-- [ ] **Step 8: Run npm install and verify build**
+- [ ] **Step 9: Run npm install and verify build**
 
 Run: `cd "01 - Projects/Project Meridian" && npm install && npm run typecheck`
 Expected: No errors.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add "01 - Projects/Project Meridian/package.json" "01 - Projects/Project Meridian/manifest.json" "01 - Projects/Project Meridian/configs/" "01 - Projects/Project Meridian/src/"
+git add "01 - Projects/Project Meridian/.gitignore" "01 - Projects/Project Meridian/package.json" "01 - Projects/Project Meridian/manifest.json" "01 - Projects/Project Meridian/configs/" "01 - Projects/Project Meridian/src/"
 git commit -m "feat(meridian): initialize Obsidian plugin project scaffold"
 ```
 

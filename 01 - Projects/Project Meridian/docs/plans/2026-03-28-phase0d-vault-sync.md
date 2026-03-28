@@ -197,7 +197,6 @@ Expected: FAIL.
 ```typescript
 // src/infrastructure/vault/frontmatter-parser.ts
 import { Result, type ResultValue } from '../../domain/core/result.js';
-import type { GameError } from '../../domain/core/result.js';
 import { parse as parseYaml } from 'yaml';
 
 export function parseFrontmatter(markdown: string): ResultValue<Record<string, unknown>> {
