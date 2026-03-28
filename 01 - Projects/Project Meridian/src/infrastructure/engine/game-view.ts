@@ -95,6 +95,16 @@ export class MeridianGameView extends ItemView {
 				console.warn('[Meridian] Game deps not ready — tick system not registered. View opened before initializeGame() completed.');
 			}
 
+			// Pause engine when tab loses focus to prevent WebGL zero-size framebuffer errors
+			this.registerEvent(this.app.workspace.on('active-leaf-change', (activeLeaf) => {
+				if (this.engine === null) return;
+				if (activeLeaf === this.leaf) {
+					void this.engine.start();
+				} else {
+					this.engine.stop();
+				}
+			}));
+
 			const loader = createGameLoader();
 			void this.engine.start(loader).catch((err: unknown) => {
 				this.showError(container, err);
