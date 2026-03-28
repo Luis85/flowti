@@ -5,7 +5,7 @@ import { createConsoleLogger } from './infrastructure/logger/console-logger.js';
 import { createPerformanceTracker } from './infrastructure/performance/performance-tracker.js';
 import { DEFAULT_SETTINGS, type MeridianSettings } from './domain/core/settings.js';
 import type { Logger } from './domain/core/logger.js';
-import type { PerformanceTracker } from './infrastructure/performance/performance-tracker.js';
+import type { PerformanceTracker } from './domain/core/performance.js';
 
 export class MeridianPlugin extends Plugin {
 	private settings: MeridianSettings = { ...DEFAULT_SETTINGS };
