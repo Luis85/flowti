@@ -28,7 +28,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | 2 | **Resilience** | A single system failure never crashes the simulation or corrupts the vault |
 | 3 | **Data-driven** | All game behavior is configurable via vault files and game-config.json — no code changes for tuning |
 | 4 | **Testability** | Every system is independently testable with mock dependencies |
-| 5 | **Performance** | 300 entities processed within a 500ms tick budget |
+| 5 | **Performance** | 300 entities processed within a 300ms tick budget (within 500ms tick interval) |
 
 ### 1.3 Stakeholders
 
@@ -206,10 +206,13 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 │  │              │  │  llm/        │  │                   │  │
 │  └──────────────┘  └──────────────┘  └───────────────────┘  │
 │                                                              │
-│  Layer direction: Infrastructure → Domain → UI               │
-│  Domain NEVER imports Infrastructure or UI                   │
-│  UI NEVER imports Domain internals (uses Pinia stores)       │
-│  Systems NEVER import other systems (use EventBus)           │
+│  Layer direction: Infrastructure → Domain (core + schemas + systems) → UI │
+│  Domain core: interfaces (Result, EventBus, Logger, VaultAdapter)         │
+│  Domain schemas: Zod schemas (pure data definitions)                      │
+│  Domain systems: tick-processing units (consume components, emit events)  │
+│  Domain NEVER imports Infrastructure or UI                                │
+│  UI NEVER imports Domain internals (uses Pinia stores)                    │
+│  Systems NEVER import other systems (use EventBus)                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -241,11 +244,34 @@ domain/
 │   └── tool-schema.ts      — [Phase 6] ToolSchema
 │
 └── systems/
-    ├── trait-resolver.ts    — Modifier map building + conflict detection
-    ├── needs-decay.ts       — [Phase 1] Hunger/energy/social decay
-    ├── mood.ts              — [Phase 1] Mood calculation + external modifiers
-    ├── memory.ts            — [Phase 1] Decay, pruning, min lifespan
-    ├── ... (25 total systems, built across phases 0-13)
+    ├── trait-resolver.ts         — [Phase 0] Modifier map building + conflict detection
+    ├── day-night.ts              — [Phase 1] TimeOfDay flag (dawn/day/dusk/night)
+    ├── needs-decay.ts            — [Phase 1] Hunger/energy/social decay + modifiers
+    ├── mood.ts                   — [Phase 1] Mood calculation + external modifiers
+    ├── memory.ts                 — [Phase 1] Decay, pruning, min lifespan
+    ├── perception.ts             — [Phase 2] SparseHashGrid spatial queries → Blackboard
+    ├── behavior-tree.ts          — [Phase 1] BT evaluation via Blackboard → ActionIntent
+    ├── movement.ts               — [Phase 2] ActionIntent processing, region transitions, stamina
+    ├── job.ts                    — [Phase 5] Shift eval, production, wages, facility fund
+    ├── quest-evaluation.ts       — [Phase 6] Objective tracking, completion, failure
+    ├── object-interaction.ts     — [Phase 4] World object use, stock depletion
+    ├── tool-execution.ts         — [Phase 6] Vault file ops (Command pattern)
+    ├── construction.ts           — [Phase 7] Building progress, property registration
+    ├── trade.ts                  — [Phase 5] Agent-to-agent exchange (Saga pattern)
+    ├── dialogue.ts               — [Phase 3] Template + LLM dialogue + gossip exchange
+    ├── progression.ts            — [Phase 5] XP, skill-by-use, status evaluation
+    ├── relationship.ts           — [Phase 3] Canvas graph updates (in-memory + checkpoint)
+    ├── mortality-check.ts        — [Phase 1] Starvation/despair/quest-danger → collapse/death/legacy
+    ├── item-durability.ts        — [Phase 4] Equipment wear, breakage, spoilage
+    ├── economy.ts                — [Phase 5] Price recalculation (every N ticks)
+    ├── world-event.ts            — [Phase 12] Random event evaluation + world health modifiers
+    ├── season.ts                 — [Phase 12] Season advancement, seasonal modifier application
+    ├── notification.ts           — [Phase 1] Director alert filtering by severity
+    ├── chronicler.ts             — [Phase 1] Observation, narration, welfare quests, candidate pool
+    ├── scenario.ts               — [Phase 6] Goal tracking, scoring, time limits
+    ├── abandonment.ts            — [Phase 7] Facility abandonment detection
+    ├── vault-sync.ts             — [Phase 0/9] Load-only (Phase 0), bidirectional (Phase 9)
+    └── ui-bridge.ts              — [Phase 8] ECS → Pinia stores (events + periodic snapshot)
 ```
 
 ### 5.3 Level 2 — Infrastructure Layer
@@ -435,6 +461,131 @@ TraitResolverSystem (tick 0.5)
 └─ Result: per-entity ModifierMap consumed by downstream systems
 ```
 
+### 6.5 VaultSync Bidirectional Flow
+
+```
+STARTUP (load-only):
+  Vault files → VaultAdapter.listFiles() → for each file:
+    → VaultAdapter.readFile() → parseFrontmatter() → Zod safeParse()
+      → OK: create ECS Entity/Actor with components
+      → ERR: quarantine file, log warning, emit notification
+  → Full world loaded in ECS. Target: < 3s.
+
+INBOUND (external changes — Phase 9):
+  Obsidian file watcher detects change
+    → VaultAdapter.readFile() → parseFrontmatter() → Zod safeParse()
+      → OK: update ECS component, emit ExternalChangeDetected
+      → ERR: quarantine, notify Director
+
+OUTBOUND (dirty entity persistence):
+  Each tick: systems modify components → dirty flag set
+  VaultSyncSystem (tick 19): collect dirty entities
+    → Zod safeParse (validate before write)
+    → VaultAdapter.writeFile() (debounced 2s batch)
+      → OK: clear dirty flag
+      → ERR: retry queue, emit VaultSyncFailed
+
+SHUTDOWN:
+  → Flush all dirty entities immediately (no debounce)
+  → Relationship graph: full Canvas export
+  → Target: < 1s
+```
+
+### 6.6 Agent BT Decision Loop
+
+```
+PerceptionSystem (tick 3)
+│ Populates Blackboard from ECS components:
+│   needs, stamina, mood, memories, awareness, wallet, skills,
+│   traits, goals, propertyOwned, season, timeOfDay, gossipKnowledge,
+│   nearbyFriendlies, nearbyStrangers, nearbyObjects, nearbyUnguarded,
+│   nearbyRestLocations, jobDetails, ownedFacilityVacancies
+│
+BehaviorTreeSystem (tick 5)
+│ For each agent (dirty-flag optimization — skip unchanged Blackboards):
+│   ├─ Evaluate BT in priority order:
+│   │   1. Breakdown (mood <= -60)
+│   │   2. Survival (critical need)
+│   │   2.5. Crime (critical need + mood <= -20 + opportunity)
+│   │   3. Job Duty (on shift)
+│   │   4. Active Quest (has quest)
+│   │   5. Billboard Scan (near billboard, no quest)
+│   │   6. Goal Pursuit (incomplete goals)
+│   │   7. Social Opportunity (friendly nearby)
+│   │   8. Object Interaction (useful object nearby)
+│   │   9. Idle (wander/wait)
+│   │
+│   └─ Write selectedAction to Blackboard
+│      → Emit ActionIntent event
+│
+MovementSystem (tick 5.5)
+│ Reads ActionIntent events of type 'move_to_region'
+│   → Chain ExcaliburJS Actions API: .moveTo(hop1).callMethod(deductStamina)...
+│   → Region boundary trigger zones handle transitions
+│   → RegionEntered event emitted per hop
+│
+Downstream systems (tick 6-18)
+│ Read other ActionIntent types and execute:
+│   JobSystem processes 'work' intents
+│   QuestEvaluation processes 'quest_action' intents
+│   TradeSystem processes 'trade' intents
+│   DialogueSystem processes 'talk' intents
+```
+
+### 6.7 Director Quest Creation Flow
+
+```
+Director opens Quest Creator in management sidebar
+│
+├─ UI form: title, type, objectives, prerequisites, rewards, time limit
+├─ Reward funded from Director treasury
+├─ Dispatch DirectorAction { type: 'CreateQuest', questData }
+│
+├─ [If paused: queue for next tick]
+│
+├─ Tick: DirectorActionHandler processes queue
+│   ├─ Validate treasury >= reward gold
+│   ├─ Create quest markdown via VaultSync
+│   ├─ Post to billboard (quest status: 'available')
+│   ├─ Deduct treasury gold
+│   ├─ Emit QuestCreated event
+│   └─ Chronicler logs: "New quest posted: {title}"
+│
+├─ Next BT evaluation: agents near billboard evaluate quest
+│   ├─ Score: (reward × goal_weight) - estimated_cost
+│   ├─ Mood gates: distressed agents reject low-reward
+│   └─ Best-scoring agent accepts → QuestAssigned event
+│
+├─ Agent pursues objectives (BT priority 4)
+│   ├─ Move to targets, use tools, interact with agents
+│   ├─ QuestEvaluationSystem tracks completion
+│   └─ QuestCompleted → reward distributed, XP gained, memory logged
+│
+└─ Chronicler narrates outcome. Director observes in sidebar.
+```
+
+### 6.8 Implementation Phasing Roadmap
+
+```
+Phase 0: Foundation          ← Current
+Phase 1: Agent Core
+Phase 2: Spatial
+Phase 3: Social
+Phase 4: Items & Equipment
+Phase 5: Economy
+Phase 6: Quests + Scenarios
+── VERTICAL SLICE GATE ──    ← First playable build
+Phase 7: Property
+Phase 8: Director UI
+Phase 9: Persistence (bidirectional)
+Phase 10: Animals
+Phase 11: LLM
+Phase 12: World Events + Seasons
+Phase 13: Polish
+```
+
+**Vertical Slice exit criteria:** 5 agents with BT, 1 supply chain, 3 job types, quest creation/completion, basic UI (map + sidebar), Chronicler onboarding, treasury with tax, gossip, VaultSync persistence, 3 emergence tests passing.
+
 ---
 
 ## 7 · Deployment View
@@ -482,6 +633,7 @@ Build (Vite)
 | GPU | Integrated (WebGL) | Dedicated for 60 FPS |
 | Storage | SSD required | NVMe SSD |
 | Display | 1280×720 | 1920×1080+ |
+| OS | Windows 10+, macOS 12+, Linux (any Obsidian-supported) | Same |
 | Obsidian | v1.4+ | Latest stable |
 
 ---
@@ -570,6 +722,48 @@ Three-layer death spiral recovery:
 2. **Guaranteed recovery events** — when gold circulation drops below floor
 3. **Director loans** — treasury can go negative with interest
 
+### 8.11 Seeded RNG
+
+All systems consuming randomness (gossip probability, crime opportunity, world events, candidate pool generation) must use an injectable `GameRNG` interface:
+- **Production:** `Math.random()`
+- **Tests:** Seeded RNG for deterministic outcomes
+- Crosscutting architectural constraint enforced at code review.
+
+### 8.12 Dirty-Flag Optimization
+
+High-frequency systems (BT evaluation, UIBridge snapshots) use dirty flags to skip unchanged entities:
+- ECS components set a dirty flag when modified
+- BehaviorTreeSystem skips agents whose Blackboard inputs haven't changed since last evaluation
+- UIBridgeSystem skips clean entities during periodic snapshot reconciliation
+- VaultSyncSystem only persists dirty entities
+
+### 8.13 Candidate Pool System
+
+Candidate pool generation spans multiple systems:
+- **ChroniclerSystem** (tick 18.5): generates 3-5 pre-rolled candidates every N days
+- **EconomySystem** provides: job vacancy data for weighted generation (first 2 weighted, rest random)
+- **Director treasury**: creation fee deducted on hire
+- **CandidatePoolRefreshed** event emitted on refresh
+- Candidates stored as transient data (not vault files until hired)
+
+### 8.14 Build Pipeline
+
+```
+npm test
+├── npm run lint        → ESLint with architecture enforcement
+├── npm run typecheck   → tsc --noEmit (strict mode)
+└── npm run test:unit   → Vitest (80% coverage gate)
+
+npm run build
+└── Vite → CJS bundle (main.js) for Obsidian
+    ├── External: obsidian, electron
+    └── Output: dist/main.js + dist/styles.css
+
+Distribution:
+├── Obsidian Community Plugins (when mature)
+└── GitHub Releases (manual install)
+```
+
 ---
 
 ## 9 · Architecture Decisions
@@ -592,6 +786,7 @@ Three-layer death spiral recovery:
 | ADR-14 | Tier-based gossip reliability | [1.0, 0.7, 0.5, 0.3] fixed tiers. Predictable, no float weirdness. | Accepted |
 | ADR-15 | Director-spawned agents only | No immigration. Full Director control over who enters. | Accepted |
 | ADR-16 | World Health rubber-banding | Invisible hand prevents runaway success and unrecoverable collapse. | Accepted |
+| ADR-17 | Pinia as UIBridge intermediate layer | Vue components read Pinia stores, not EventBus directly. Stores aggregate events + periodic snapshots, providing reactive state that survives component remounting. Decouples UI lifecycle from simulation lifecycle. | Accepted |
 
 ---
 
@@ -630,12 +825,20 @@ Quality
 
 | Scenario | Measure | Target |
 |----------|---------|--------|
-| 100 agents + 50 animals + 100 objects in one tick | Tick processing time | < 300ms |
+| 100 agents + 50 animals + 100 objects + 50 misc in one tick | Tick processing time | < 300ms |
 | LLM provider goes down mid-session | Fallback to template dialogue | < 3 failures before circuit opens |
 | Invalid vault file loaded at startup | Quarantined, world loads without it | 100% of invalid files quarantined |
 | Director places object while paused | Object queued, appears on unpause | Action visible within 1 tick |
 | Mod adds new agent kind via vault files | Agent spawnable without code changes | Zero code modifications |
 | Balance parameter changed in game-config.json | Effect visible next session | No code changes needed |
+| Two agents with negative history meet | BT avoids asking for help (seeded RNG) | Deterministic with fixed seed |
+| Death spiral: gold circulation drops below floor | Guaranteed recovery event fires | Within 1 WorldEvent evaluation cycle |
+| Gossip passes through 4 agents | Reliability degrades to 0.3 at 4th hop | Exact tier match [1.0, 0.7, 0.5, 0.3] |
+| Close vault, reopen | World state matches last VaultSync | Within 1 tick of shutdown state |
+| Balance regression: 1000 ticks with fixed seed | Aggregate metrics (mood, gold, quests) | Within ±5% of golden file |
+| Plugin startup with 350 vault files | Time from onload() to world ready | < 3s |
+| Plugin shutdown | Flush dirty state, clean up | < 1s |
+| Coverage per system | Statements and lines | ≥ 80% statements, ≥ 80% lines |
 
 ---
 
