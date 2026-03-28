@@ -25,9 +25,13 @@ export class MeridianGameView extends ItemView {
 		container.style.padding = '0';
 		container.style.overflow = 'hidden';
 
+		const style = getComputedStyle(container);
+		const bgColor = style.getPropertyValue('--background-primary').trim() || '#1a1a2e';
+
 		this.engine = createGameEngine(container, {
 			width: container.clientWidth,
 			height: container.clientHeight,
+			backgroundColor: bgColor,
 		});
 
 		// Add a test sprite to verify rendering (Phase 0 acceptance criterion 1)

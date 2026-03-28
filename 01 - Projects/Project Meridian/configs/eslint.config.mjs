@@ -67,4 +67,27 @@ export default [
 			],
 		},
 	},
+	{
+		// Obsidian isolation boundary (GDD §36.4, ADR-19)
+		// 'obsidian' import allowed ONLY in: main.ts, *-view.ts, settings-tab.ts, obsidian-*-adapter.ts
+		files: ['src/**/*.ts'],
+		ignores: [
+			'src/main.ts',
+			'src/plugin.ts',
+			'src/infrastructure/engine/*-view.ts',
+			'src/infrastructure/settings/settings-tab.ts',
+			'src/infrastructure/vault/obsidian-*.ts',
+			'src/infrastructure/platform/obsidian-*.ts',
+			'src/domain/**/*.ts',
+			'src/ui/**/*.ts',
+		],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [{ name: 'obsidian', message: 'Obsidian API only allowed in main.ts, views, settings-tab, and obsidian-* adapters (GDD §36.4, ADR-19)' }],
+				},
+			],
+		},
+	},
 ];
