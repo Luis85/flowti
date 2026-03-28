@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createTraitResolverSystem } from '../../../src/infrastructure/systems/trait-resolver-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
-import { TraitsComponent } from '../../../src/infrastructure/components/traits-component.js';
 import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
