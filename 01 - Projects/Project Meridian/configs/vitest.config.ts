@@ -10,6 +10,7 @@ export default defineConfig({
 		environment: 'jsdom',
 		root: projectRoot,
 		include: ['tests/**/*.test.ts'],
+		setupFiles: ['tests/setup/canvas-stub.ts'],
 		coverage: {
 			provider: 'v8',
 			include: ['src/**/*.ts'],

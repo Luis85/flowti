@@ -16,6 +16,8 @@ export default [
 		rules: {
 			'@typescript-eslint/no-explicit-any': 'error',
 			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+			'@typescript-eslint/strict-boolean-expressions': 'error',
+			// import/no-cycle deferred — eslint-plugin-import lacks stable ESLint 9 flat-config support
 			'max-lines': ['warn', { max: 350, skipBlankLines: true, skipComments: true }],
 			'complexity': ['warn', 10],
 			'no-restricted-syntax': [

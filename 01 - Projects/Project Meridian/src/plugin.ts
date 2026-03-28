@@ -8,12 +8,11 @@ export class MeridianPlugin extends Plugin {
 		this.addRibbonIcon('gamepad-2', 'Project Meridian', async () => {
 			const existingLeaves = this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE);
 			const first = existingLeaves[0];
-			if (first) {
+			if (first !== undefined) {
 				this.app.workspace.revealLeaf(first);
 				return;
 			}
 			const leaf = this.app.workspace.getLeaf('tab');
-			if (!leaf) return;
 			await leaf.setViewState({ type: MERIDIAN_VIEW_TYPE, active: true });
 		});
 	}

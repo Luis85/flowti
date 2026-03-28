@@ -38,7 +38,7 @@ export class MeridianGameView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
-		if (this.engine) {
+		if (this.engine !== null) {
 			this.engine.stop();
 			this.engine = null;
 		}
