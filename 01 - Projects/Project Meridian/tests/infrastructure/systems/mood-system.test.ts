@@ -93,4 +93,22 @@ describe('MoodSystem', () => {
 
 		expect(breakdowns.length).toBeGreaterThan(0);
 	});
+
+	it('does not re-emit MoodBreakdown when already in breakdown', () => {
+		const eventBus = createEventBus();
+		const breakdowns: GameEvent[] = [];
+		eventBus.on('MoodBreakdown', (e) => { breakdowns.push(e); });
+
+		const agent = new AgentActor(
+			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0 } }),
+			defaultMoodConfig,
+		);
+		// Agent is already in breakdown — no transition should occur
+		agent.get(MoodComponent).state.bucket = 'breakdown';
+
+		const system = createMoodSystem(() => [agent]);
+		system.execute(createDeps(eventBus));
+
+		expect(breakdowns).toHaveLength(0);
+	});
 });

@@ -16,6 +16,7 @@ export interface SpawnResult {
 export function createAgentSpawner(
 	logger: Logger,
 	moodConfig: MoodConfig,
+	memoryMaxEntries = 50,
 ): { spawnFromVault(vault: VaultReader, agentsPath: string): Promise<SpawnResult> } {
 	return {
 		async spawnFromVault(vault: VaultReader, agentsPath: string): Promise<SpawnResult> {
@@ -29,7 +30,7 @@ export function createAgentSpawner(
 					const content = await vault.read(file);
 					const parsed: unknown = JSON.parse(content);
 					const agent = AgentSchema.parse(parsed);
-					agents.push(new AgentActor(agent, moodConfig));
+					agents.push(new AgentActor(agent, moodConfig, memoryMaxEntries));
 				} catch (err: unknown) {
 					const message = err instanceof Error ? err.message : String(err);
 					logger.warn('AgentSpawner', `Failed to spawn agent from ${file}: ${message}`);

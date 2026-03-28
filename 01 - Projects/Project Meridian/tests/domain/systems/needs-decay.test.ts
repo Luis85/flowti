@@ -33,31 +33,44 @@ describe('applyNeedsDecay', () => {
 		expect(result.state.hunger).toBe(79);
 	});
 
-	it('emits NeedCritical when hunger drops below 20', () => {
+	it('emits NeedCritical when hunger crosses below 20', () => {
 		const result = applyNeedsDecay(makeInput({ state: { hunger: 20 } }), defaultConfig);
 		const critical = result.events.find(e => e.type === 'NeedCritical' && e.need === 'hunger');
 		expect(critical).toBeDefined();
 		expect(critical?.threshold).toBe(20);
+		expect(critical?.value).toBe(critical?.newValue);
 	});
 
-	it('emits NeedCritical when energy drops below 15', () => {
+	it('emits NeedCritical when energy crosses below 15', () => {
 		const result = applyNeedsDecay(makeInput({ state: { energy: 15 } }), defaultConfig);
 		const critical = result.events.find(e => e.type === 'NeedCritical' && e.need === 'energy');
 		expect(critical).toBeDefined();
 		expect(critical?.threshold).toBe(15);
 	});
 
-	it('emits NeedCritical when social drops below 25', () => {
+	it('emits NeedCritical when social crosses below 25', () => {
 		const result = applyNeedsDecay(makeInput({ state: { social: 25 } }), defaultConfig);
 		const critical = result.events.find(e => e.type === 'NeedCritical' && e.need === 'social');
 		expect(critical).toBeDefined();
 		expect(critical?.threshold).toBe(25);
 	});
 
+	it('does not re-emit NeedCritical when already below threshold', () => {
+		const result = applyNeedsDecay(makeInput({ state: { hunger: 10 } }), defaultConfig);
+		const critical = result.events.filter(e => e.type === 'NeedCritical' && e.need === 'hunger');
+		expect(critical).toHaveLength(0);
+	});
+
 	it('emits AgentExhausted when energy reaches 0', () => {
 		const result = applyNeedsDecay(makeInput({ state: { energy: 0.1 } }), defaultConfig);
 		const exhausted = result.events.find(e => e.type === 'AgentExhausted');
 		expect(exhausted).toBeDefined();
+	});
+
+	it('does not emit NeedCritical when energy reaches exactly 0', () => {
+		const result = applyNeedsDecay(makeInput({ state: { energy: 0.1 } }), defaultConfig);
+		const critical = result.events.filter(e => e.type === 'NeedCritical' && e.need === 'energy');
+		expect(critical).toHaveLength(0);
 	});
 
 	it('clamps values to [0, 100]', () => {

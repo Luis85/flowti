@@ -95,12 +95,13 @@ describe('NeedsDecaySystem', () => {
 		expect(events[0]?.payload.agentId).toBe('agent-test');
 	});
 
-	it('emits NeedCritical when need drops below threshold', () => {
+	it('emits NeedCritical when need crosses below threshold', () => {
 		const eventBus = createEventBus();
 		const criticals: GameEvent[] = [];
 		eventBus.on('NeedCritical', (e) => { criticals.push(e); });
 
-		const agent = new AgentActor(createTestAgent({ needs: { hunger: 19.8, energy: 90, social: 70 } }), defaultMoodConfig);
+		// Start at threshold — decay will cross below it
+		const agent = new AgentActor(createTestAgent({ needs: { hunger: 20, energy: 90, social: 70 } }), defaultMoodConfig);
 		const system = createNeedsDecaySystem(() => [agent]);
 		system.execute(createDeps(eventBus));
 

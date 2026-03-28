@@ -19,6 +19,7 @@ export interface NeedEvent {
 	need: 'hunger' | 'energy' | 'social';
 	oldValue: number;
 	newValue: number;
+	value?: number;
 	threshold?: number;
 }
 
@@ -50,8 +51,8 @@ function eventsForNeed(need: NeedConfig, oldValue: number, newValue: number): Ne
 	if (newValue !== oldValue) {
 		result.push({ type: 'NeedChanged', need: need.key, oldValue, newValue });
 	}
-	if (newValue < need.criticalThreshold && newValue > 0) {
-		result.push({ type: 'NeedCritical', need: need.key, oldValue, newValue, threshold: need.criticalThreshold });
+	if (newValue < need.criticalThreshold && newValue > 0 && oldValue >= need.criticalThreshold) {
+		result.push({ type: 'NeedCritical', need: need.key, oldValue, newValue, value: newValue, threshold: need.criticalThreshold });
 	}
 	if (need.key === 'energy' && newValue === 0) {
 		result.push({ type: 'AgentExhausted', need: 'energy', oldValue, newValue });

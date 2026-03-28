@@ -15,7 +15,7 @@ export class AgentActor extends Actor {
 	readonly agentName: string;
 	readonly kind: string;
 
-	constructor(agent: Agent, moodConfig: MoodConfig) {
+	constructor(agent: Agent, moodConfig: MoodConfig, memoryMaxEntries = 50) {
 		super({ x: agent.position.x, y: agent.position.y });
 
 		this.agentId = agent.id;
@@ -44,7 +44,7 @@ export class AgentActor extends Actor {
 
 		this.addComponent(new MemoryComponent({
 			entries: agent.memory.map(m => ({ ...m })),
-			maxEntries: 50,
+			maxEntries: memoryMaxEntries,
 		}));
 		this.addComponent(new BlackboardComponent({}));
 		this.addComponent(new AttributesComponent({ ...agent.attributes }));

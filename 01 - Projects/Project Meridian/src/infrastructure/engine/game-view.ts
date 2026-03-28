@@ -1,6 +1,6 @@
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type * as ex from 'excalibur';
-import { createGameEngine, createTestActor } from './game-engine.js';
+import { createGameEngine } from './game-engine.js';
 import { createGameLoader } from './game-loader.js';
 import { createTickRunner } from './tick-runner.js';
 import { MeridianTickSystem } from './tick-system.js';
@@ -50,10 +50,6 @@ export class MeridianGameView extends ItemView {
 				backgroundColor: bgColor,
 			});
 
-			// Add a test actor to verify rendering (Phase 0 acceptance criterion 1)
-			const testActor = createTestActor({ x: 400, y: 300 });
-			this.engine.currentScene.add(testActor);
-
 			// Wire tick infrastructure if deps and event bus are available
 			if (this.deps !== null && this.batchableEventBus !== null) {
 				const tickRunner = createTickRunner(this.batchableEventBus);
@@ -78,7 +74,7 @@ export class MeridianGameView extends ItemView {
 					},
 				};
 
-				const spawner = createAgentSpawner(this.deps.logger, this.deps.config.mood);
+				const spawner = createAgentSpawner(this.deps.logger, this.deps.config.mood, this.deps.config.memory.max_entries);
 				const spawnResult = await spawner.spawnFromVault(vaultAdapter, '01 - Projects/Project Meridian/agents');
 
 				const spawnedAgents: AgentActor[] = spawnResult.agents;
