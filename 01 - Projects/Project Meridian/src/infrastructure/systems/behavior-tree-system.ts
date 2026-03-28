@@ -74,31 +74,37 @@ export function createBehaviorTreeSystem(
 	};
 }
 
+type PerceptionSnapshot = {
+	nearbyAgents: { id: string; distance: number }[];
+	nearbyLocations: { id: string; type: string; distance: number }[];
+};
+
+const LOCATION_ACTIONS: Record<string, string> = {
+	seek_food: 'food',
+	seek_rest: 'rest',
+	seek_social: 'social',
+	seek_work: 'work',
+};
+
+const AGENT_ACTIONS = new Set(['interact', 'socialize']);
+
 function resolveMovementTarget(
 	action: string,
 	params: Record<string, unknown>,
-	perception: { nearbyAgents: { id: string; distance: number }[]; nearbyLocations: { id: string; type: string; distance: number }[] },
+	perception: PerceptionSnapshot,
 ): { id: string; type: 'agent' | 'location' } | null {
-	// If action params specify a target explicitly
 	if (typeof params.targetId === 'string' && typeof params.targetType === 'string') {
 		const targetType = params.targetType === 'agent' ? 'agent' : 'location';
 		return { id: params.targetId, type: targetType };
 	}
 
-	// Resolve seek_food → nearest food location
-	if (action === 'seek_food') {
-		const food = perception.nearbyLocations.find(l => l.type === 'food');
-		if (food !== undefined) return { id: food.id, type: 'location' };
+	const locationType = LOCATION_ACTIONS[action];
+	if (locationType !== undefined) {
+		const loc = perception.nearbyLocations.find(l => l.type === locationType);
+		if (loc !== undefined) return { id: loc.id, type: 'location' };
 	}
 
-	// Resolve seek_rest → nearest rest location
-	if (action === 'seek_rest') {
-		const rest = perception.nearbyLocations.find(l => l.type === 'rest');
-		if (rest !== undefined) return { id: rest.id, type: 'location' };
-	}
-
-	// Resolve interact → nearest agent
-	if (action === 'interact' || action === 'socialize') {
+	if (AGENT_ACTIONS.has(action)) {
 		const nearest = perception.nearbyAgents[0];
 		if (nearest !== undefined) return { id: nearest.id, type: 'agent' };
 	}

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { createMovementSystem } from '../../../src/infrastructure/systems/movement-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
-import { AttributesComponent } from '../../../src/infrastructure/components/attributes-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -111,7 +110,7 @@ describe('MovementSystem', () => {
 		const system = createMovementSystem(() => [agent], () => []);
 
 		// Should not throw and position should remain unchanged
-		expect(() => system.execute(createDeps())).not.toThrow();
+		expect(() => { system.execute(createDeps()); }).not.toThrow();
 		expect(agent.pos.x).toBeCloseTo(50);
 		expect(agent.pos.y).toBeCloseTo(50);
 	});

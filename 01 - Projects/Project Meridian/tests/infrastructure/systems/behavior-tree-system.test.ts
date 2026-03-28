@@ -169,7 +169,7 @@ describe('BehaviorTreeSystem', () => {
 		const system = createBehaviorTreeSystem(() => [agent], btDefs, () => worldEntity, 42);
 
 		// Should not throw
-		expect(() => system.execute(createDeps())).not.toThrow();
+		expect(() => { system.execute(createDeps()); }).not.toThrow();
 
 		const bb = agent.get(BlackboardComponent);
 		// No action written since no BT found
