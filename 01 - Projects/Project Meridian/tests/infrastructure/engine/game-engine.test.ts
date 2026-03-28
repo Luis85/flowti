@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as ex from 'excalibur';
-import { createTestSprite } from '../../../src/infrastructure/engine/game-engine.js';
+import { createTestActor } from '../../../src/infrastructure/engine/game-engine.js';
 
 /**
  * ExcaliburJS Engine requires real WebGL/Canvas2D contexts that jsdom
@@ -14,17 +14,17 @@ import { createTestSprite } from '../../../src/infrastructure/engine/game-engine
  */
 
 describe('GameEngine', () => {
-	it('creates a test sprite actor at the specified position', () => {
-		const sprite = createTestSprite({ x: 100, y: 200 });
-		expect(sprite).toBeInstanceOf(ex.Actor);
-		expect(sprite.pos.x).toBe(100);
-		expect(sprite.pos.y).toBe(200);
+	it('creates a test actor at the specified position', () => {
+		const actor = createTestActor({ x: 100, y: 200 });
+		expect(actor).toBeInstanceOf(ex.Actor);
+		expect(actor.pos.x).toBe(100);
+		expect(actor.pos.y).toBe(200);
 	});
 
-	it('creates a test sprite with dimensions', () => {
-		const sprite = createTestSprite({ x: 0, y: 0 });
-		expect(sprite.width).toBe(32);
-		expect(sprite.height).toBe(32);
+	it('creates a test actor with dimensions', () => {
+		const actor = createTestActor({ x: 0, y: 0 });
+		expect(actor.width).toBe(32);
+		expect(actor.height).toBe(32);
 	});
 
 	it('exports createGameEngine function', async () => {

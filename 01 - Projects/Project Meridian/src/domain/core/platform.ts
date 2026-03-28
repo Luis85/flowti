@@ -44,6 +44,17 @@ export interface ModalAdapter {
 }
 
 /**
+ * Platform-agnostic secret storage for API keys and tokens.
+ * Obsidian implementation: wraps app.secretStorage (stores in local storage, per-vault)
+ * Test implementation: in-memory map
+ */
+export interface SecretStorageAdapter {
+	get(key: string): Promise<string | null>;
+	set(key: string, value: string): Promise<void>;
+	delete(key: string): Promise<void>;
+}
+
+/**
  * Aggregated platform services — the full set of platform capabilities.
  * Systems receive ISP subsets of this, not the full interface.
  */
@@ -52,4 +63,5 @@ export interface PlatformServices {
 	notifications: NotificationAdapter;
 	commands: CommandRegistry;
 	modals: ModalAdapter;
+	secrets: SecretStorageAdapter;
 }

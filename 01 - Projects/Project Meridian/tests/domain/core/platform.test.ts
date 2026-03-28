@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { VaultAdapter, NotificationAdapter, CommandRegistry, ModalAdapter, PlatformServices } from '../../../src/domain/core/platform.js';
+import type { VaultAdapter, NotificationAdapter, CommandRegistry, ModalAdapter, SecretStorageAdapter, PlatformServices } from '../../../src/domain/core/platform.js';
 import type { ResultValue } from '../../../src/domain/core/result.js';
 
 describe('Platform interfaces', () => {
@@ -20,6 +20,18 @@ describe('Platform interfaces', () => {
 		expect(adapter.exists).toBeDefined();
 	});
 
+	it('SecretStorageAdapter can be implemented with in-memory map', () => {
+		const store = new Map<string, string>();
+		const adapter: SecretStorageAdapter = {
+			get: async (key) => store.get(key) ?? null,
+			set: async (key, value) => { store.set(key, value); },
+			delete: async (key) => { store.delete(key); },
+		};
+		expect(adapter.get).toBeDefined();
+		expect(adapter.set).toBeDefined();
+		expect(adapter.delete).toBeDefined();
+	});
+
 	it('PlatformServices aggregates all adapter interfaces', () => {
 		const platform: PlatformServices = {
 			vault: {
@@ -32,10 +44,12 @@ describe('Platform interfaces', () => {
 			notifications: { show() {}, showError() {} },
 			commands: { register() {} },
 			modals: { confirm: async () => true, prompt: async () => null },
+			secrets: { get: async () => null, set: async () => {}, delete: async () => {} },
 		};
 		expect(platform.vault).toBeDefined();
 		expect(platform.notifications).toBeDefined();
 		expect(platform.commands).toBeDefined();
 		expect(platform.modals).toBeDefined();
+		expect(platform.secrets).toBeDefined();
 	});
 });

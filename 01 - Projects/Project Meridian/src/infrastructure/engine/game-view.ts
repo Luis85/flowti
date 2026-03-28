@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import * as ex from 'excalibur';
-import { createGameEngine, createTestSprite } from './game-engine.js';
+import { createGameEngine, createTestActor } from './game-engine.js';
 
 export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 
@@ -34,9 +34,9 @@ export class MeridianGameView extends ItemView {
 			backgroundColor: bgColor,
 		});
 
-		// Add a test sprite to verify rendering (Phase 0 acceptance criterion 1)
-		const testSprite = createTestSprite({ x: 400, y: 300 });
-		this.engine.currentScene.add(testSprite);
+		// Add a test actor to verify rendering (Phase 0 acceptance criterion 1)
+		const testActor = createTestActor({ x: 400, y: 300 });
+		this.engine.currentScene.add(testActor);
 
 		await this.engine.start();
 	}

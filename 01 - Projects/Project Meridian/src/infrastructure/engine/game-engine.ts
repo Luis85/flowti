@@ -3,6 +3,7 @@ import * as ex from 'excalibur';
 export interface GameEngineConfig {
 	width?: number;
 	height?: number;
+	/** CSS hex color string, e.g. '#1a1a2e'. Read from Obsidian's --background-primary CSS variable. */
 	backgroundColor?: string;
 }
 
@@ -27,7 +28,7 @@ export function createGameEngine(
 	return engine;
 }
 
-export function createTestSprite(pos: { x: number; y: number }): ex.Actor {
+export function createTestActor(pos: { x: number; y: number }): ex.Actor {
 	const actor = new ex.Actor({
 		pos: new ex.Vector(pos.x, pos.y),
 		width: 32,

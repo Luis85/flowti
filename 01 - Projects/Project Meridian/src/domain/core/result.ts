@@ -1,4 +1,3 @@
-// src/domain/core/result.ts (minimal — will be expanded in Chunk B)
 export interface GameError {
 	code: string;
 	message: string;
