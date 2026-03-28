@@ -42,6 +42,36 @@ describe('GameConfigSchema', () => {
 			expect(result.data.needs.energy_decay).toBe(0.25);
 		}
 	});
+
+	it('cascades defaults through doubly-nested mood config', () => {
+		const result = GameConfigSchema.safeParse({ mood: {} });
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.mood.factor_weights.needs).toBe(30);
+			expect(result.data.mood.external_modifier_cap).toBe(30);
+			expect(result.data.mood.buckets).toHaveLength(5);
+			expect(result.data.mood.rock_bottom_threshold).toBe(-40);
+		}
+	});
+
+	it('includes mood buckets and skill_roll_modifiers defaults', () => {
+		const result = GameConfigSchema.safeParse({});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.mood.buckets[0]?.name).toBe('elated');
+			expect(result.data.mood.buckets[4]?.name).toBe('breakdown');
+			expect(result.data.mood.skill_roll_modifiers.elated).toBe(1);
+			expect(result.data.mood.skill_roll_modifiers.breakdown).toBe(-3);
+		}
+	});
+
+	it('includes status section defaults', () => {
+		const result = GameConfigSchema.safeParse({});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.status.evaluation_interval_ticks).toBe(100);
+		}
+	});
 });
 
 describe('loadGameConfig', () => {

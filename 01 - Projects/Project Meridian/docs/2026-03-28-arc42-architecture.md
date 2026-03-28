@@ -236,7 +236,11 @@ domain/
 │   ├── common.ts           — Position, MemoryEntry, Goal, Skill, Inventory, Equipment, LLM
 │   ├── agent-schema.ts     — AgentSchema (all fields reference ranges.ts constants)
 │   ├── trait-schema.ts     — TraitSchema (effects, conflicts, assignable_by)
-│   ├── game-config-schema.ts — GameConfigSchema (complete game tuning)
+│   ├── game-config-schema.ts — GameConfigSchema (29 sections: tick, needs, stamina, economy,
+│   │                            mood+buckets+skill_roll_modifiers, mortality, perception,
+│   │                            day-night, gossip, status, crime, skills, rest tiers, season,
+│   │                            candidate pool, world events, LLM, formulas, BT, agent creation,
+│   │                            world health tiers; withDefaults() for Zod v4 cascade)
 │   ├── item-schema.ts      — [Phase 4] ItemSchema
 │   ├── recipe-schema.ts    — [Phase 5] RecipeSchema
 │   ├── job-schema.ts       — [Phase 5] JobSchema

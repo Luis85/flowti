@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { USE_BONUS_RANGE, MOOD_RANGE } from './ranges.js';
 
 /** Zod v4 workaround: .default({}) doesn't cascade inner defaults; function default does */
 function withDefaults<T extends z.ZodType>(schema: T): z.ZodDefault<T> {
@@ -48,9 +49,31 @@ const MoodFactorWeightsSchema = z.object({
 	relationships: z.number().default(5),
 });
 
+const MoodBucketSchema = z.object({
+	name: z.string(),
+	min: z.number().min(MOOD_RANGE.min).max(MOOD_RANGE.max),
+	max: z.number().min(MOOD_RANGE.min).max(MOOD_RANGE.max),
+});
+
 const MoodConfigSchema = z.object({
 	factor_weights: withDefaults(MoodFactorWeightsSchema),
+	buckets: z.array(MoodBucketSchema).default([
+		{ name: 'elated', min: 60, max: 100 },
+		{ name: 'content', min: 20, max: 59 },
+		{ name: 'stressed', min: -19, max: 19 },
+		{ name: 'distressed', min: -59, max: -20 },
+		{ name: 'breakdown', min: -100, max: -60 },
+	]),
+	skill_roll_modifiers: z.object({
+		elated: z.number().int().default(1),
+		content: z.number().int().default(0),
+		stressed: z.number().int().default(0),
+		distressed: z.number().int().default(-1),
+		breakdown: z.number().int().default(-3),
+	}).default({ elated: 1, content: 0, stressed: 0, distressed: -1, breakdown: -3 }),
 	external_modifier_cap: z.number().default(30),
+	rock_bottom_threshold: z.number().default(-40),
+	rock_bottom_boost: z.number().default(10),
 });
 
 const MortalityConfigSchema = z.object({
@@ -82,13 +105,17 @@ const GossipConfigSchema = z.object({
 	iq_filter_threshold: z.number().default(12),
 });
 
+const StatusConfigSchema = z.object({
+	evaluation_interval_ticks: z.number().int().default(100),
+});
+
 const CrimeConfigSchema = z.object({
 	mood_threshold: z.number().default(-20),
 });
 
 const SkillsConfigSchema = z.object({
 	use_thresholds: z.array(z.number().int()).default([10, 25, 50, 100, 200]),
-	max_use_bonus: z.number().int().default(3),
+	max_use_bonus: z.number().int().default(USE_BONUS_RANGE.max),
 });
 
 const RestTierSchema = z.object({
@@ -171,6 +198,7 @@ export const GameConfigSchema = z.object({
 	perception: withDefaults(PerceptionConfigSchema),
 	day_night: withDefaults(DayNightConfigSchema),
 	gossip: withDefaults(GossipConfigSchema),
+	status: withDefaults(StatusConfigSchema),
 	crime: withDefaults(CrimeConfigSchema),
 	skills: withDefaults(SkillsConfigSchema),
 	rest_tiers: withDefaults(RestTiersConfigSchema),
