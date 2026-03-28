@@ -1,0 +1,8 @@
+/* Project Meridian — Obsidian Plugin Styles
+ * Uses Obsidian CSS variables exclusively for colors, fonts, spacing.
+ * BEM naming: .meridian-* */
+
+.meridian-game-container {
+	padding: 0;
+	overflow: hidden;
+}

@@ -1,0 +1,9 @@
+{
+  "id": "project-meridian",
+  "name": "Project Meridian",
+  "version": "0.0.1",
+  "minAppVersion": "1.4.0",
+  "description": "Run an emergent agent-simulation sandbox RPG inside your Obsidian vault.",
+  "author": "Flowti",
+  "isDesktopOnly": true
+}

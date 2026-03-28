@@ -1,0 +1,12 @@
+{
+	"entryPoints": ["../src/"],
+	"entryPointStrategy": "expand",
+	"out": "../docs/api",
+	"tsconfig": "./tsconfig.json",
+	"exclude": ["**/tests/**", "**/node_modules/**"],
+	"excludePrivate": true,
+	"excludeInternal": true,
+	"readme": "none",
+	"name": "Project Meridian",
+	"includeVersion": true
+}

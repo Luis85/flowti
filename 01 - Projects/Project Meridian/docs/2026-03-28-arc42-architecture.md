@@ -179,7 +179,6 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | Validation | Zod | Schema definition, runtime validation, TypeScript type inference |
 | Persistence | Obsidian Vault (markdown + Canvas + JSON) | Data-driven world definition and state |
 | LLM | Unified LLMProvider interface | Optional dialogue enrichment (Cursor API first) |
-| API Docs | TypeDoc | Auto-generated API documentation from TSDoc comments |
 | i18n | vue-i18n | Reactive locale switching for Vue UI |
 | Testing | Vitest + Vue Test Utils + MSW + memfs | Unit, integration, component, emergence |
 | Component Dev | Storybook | Isolated Vue component development |
@@ -208,7 +207,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 │  └──────────────┘  └──────────────┘  └───────────────────┘  │
 │                                                              │
 │  Layer direction: Infrastructure → Domain (core + schemas + systems) → UI │
-│  Domain core: interfaces (Result, EventBus, Logger, VaultAdapter)         │
+│  Domain core: interfaces (Result, EventBus, Logger, PlatformServices)     │
 │  Domain schemas: Zod schemas (pure data definitions)                      │
 │  Domain systems: tick-processing units (consume components, emit events)  │
 │  Domain NEVER imports Infrastructure or UI                                │
@@ -225,15 +224,23 @@ domain/
 │   ├── result.ts           — Result<T, E> with map/flatMap
 │   ├── events.ts           — GameEvent, EventHandler, EventBus interface
 │   ├── logger.ts           — Logger interface
-│   ├── platform.ts         — PlatformServices + VaultAdapter + NotificationAdapter + CommandRegistry + ModalAdapter
-│   ├── markdown-service.ts — MarkdownService interface (serialize, templates)
-│   └── result.ts           — GameError, ResultValue<T> (minimal until Chunk B expands with map/flatMap)
+│   ├── platform.ts         — PlatformServices aggregate (VaultAdapter, NotificationAdapter,
+│   │                          CommandRegistry, ModalAdapter, SecretStorageAdapter)
+│   ├── markdown-service.ts — MarkdownService interface (serialize, fromTemplate, renderTemplate)
+│   └── settings.ts         — MeridianSettings interface + DEFAULT_SETTINGS
 │
 ├── schemas/
+│   ├── index.ts            — Barrel: re-exports all schemas, types, and range constants
+│   ├── ranges.ts           — Single source of truth for all GDD balance constants
+│   │                          (ATTRIBUTE_RANGE, MOOD_RANGE, TRAIT_CATEGORIES, etc.)
 │   ├── common.ts           — Position, MemoryEntry, Goal, Skill, Inventory, Equipment, LLM
-│   ├── agent-schema.ts     — AgentSchema (27 fields, Zod-validated)
+│   ├── agent-schema.ts     — AgentSchema (all fields reference ranges.ts constants)
 │   ├── trait-schema.ts     — TraitSchema (effects, conflicts, assignable_by)
-│   ├── game-config-schema.ts — GameConfigSchema (complete game tuning)
+│   ├── game-config-schema.ts — GameConfigSchema (29 sections: tick, needs, stamina, economy,
+│   │                            mood+buckets+skill_roll_modifiers, mortality, perception,
+│   │                            day-night, gossip, status, crime, skills, rest tiers, season,
+│   │                            candidate pool, world events, LLM, formulas, BT, agent creation,
+│   │                            world health tiers; withDefaults() for Zod v4 cascade)
 │   ├── item-schema.ts      — [Phase 4] ItemSchema
 │   ├── recipe-schema.ts    — [Phase 5] RecipeSchema
 │   ├── job-schema.ts       — [Phase 5] JobSchema
@@ -282,28 +289,32 @@ domain/
 ```
 infrastructure/
 ├── engine/
-│   ├── game-engine.ts      — ExcaliburJS Engine factory
-│   └── game-view.ts        — Obsidian ItemView wrapping ExcaliburJS
+│   ├── game-engine.ts      — ExcaliburJS Engine factory (FitContainerAndFill, Arcade physics)
+│   ├── game-view.ts        — Obsidian ItemView wrapping ExcaliburJS (error boundary)
+│   └── game-loader.ts      — Custom DefaultLoader (suppresses click prompt for Obsidian)
 │
 ├── vault/
-│   ├── frontmatter-parser.ts    — YAML frontmatter extraction (Result-based)
+│   ├── frontmatter-parser.ts    — YAML frontmatter extraction (Result-based, CRLF-safe)
 │   ├── vault-loader.ts          — Single-file Zod-validated loading + quarantine
 │   ├── vault-directory-loader.ts — Directory scan → validated entity collection
 │   ├── memfs-vault-adapter.ts   — In-memory VaultAdapter for testing
 │   ├── obsidian-vault-adapter.ts — [Phase 9] Obsidian file system adapter
-│   └── quarantine.ts            — Invalid file tracking
-│
-├── markdown/
-│   └── markdown-serializer.ts   — MarkdownService impl (serialize + template rendering)
+│   └── quarantine.ts            — Invalid file tracking (add, has, clear, dedup)
 │
 ├── config/
-│   └── game-config-loader.ts    — JSON → Zod validate → GameConfig
+│   └── game-config-loader.ts    — [Phase 0E] JSON → Zod validate → GameConfig
 │
-├── event-bus.ts    — EventBus implementation (priority, history, filter, batching)
+├── event-bus.ts    — EventBus implementation (priority, history, filter; batching deferred to tick loop)
 │
 ├── logger/
-│   ├── console-logger.ts   — Dev logging target
+│   ├── console-logger.ts   — Dev logging (level-filtered, structured, configurable via settings)
 │   └── vault-logger.ts     — [Phase 9] Vault file logging target
+│
+├── performance/
+│   └── performance-tracker.ts — Per-system tick timing with history and averages
+│
+├── settings/
+│   └── settings-tab.ts     — Obsidian PluginSettingTab (log level, debug mode, perf tracking)
 │
 └── llm/
     ├── llm-provider.ts     — [Phase 11] Unified LLMProvider interface
@@ -728,39 +739,14 @@ Three-layer death spiral recovery:
 2. **Guaranteed recovery events** — when gold circulation drops below floor
 3. **Director loans** — treasury can go negative with interest
 
-### 8.11 Dependency Injection
-
-Manual DI — no framework. All dependencies composed at plugin startup and passed via factory function parameters.
-
-**Root dependency bag:**
-```typescript
-interface GameDeps {
-	config: GameConfig;
-	eventBus: EventBus;
-	logger: Logger;
-	vault: VaultAdapter;
-	rng: GameRNG;
-	spatialQuery: SpatialQueryService;
-}
-```
-
-**Key principles:**
-- **ISP subsets:** Systems declare the minimal interface they need (`NeedsDecayDeps`, not full `GameDeps`)
-- **Factory functions over classes:** `createNeedsDecaySystem(deps)` — simpler, no `this` binding issues
-- **No singletons, no service locator:** Dependencies explicit in function signatures
-- **Composition root:** `plugin.ts onload()` is the ONLY place concrete implementations are chosen
-- **Test swap:** Any dependency replaced with mock/stub by passing different implementations
-
-This enables all backing service abstractions (Factor IV) and makes every system independently testable.
-
-### 8.12 Seeded RNG
+### 8.11 Seeded RNG
 
 All systems consuming randomness (gossip probability, crime opportunity, world events, candidate pool generation) must use an injectable `GameRNG` interface:
 - **Production:** `Math.random()`
 - **Tests:** Seeded RNG for deterministic outcomes
 - Crosscutting architectural constraint enforced at code review.
 
-### 8.13 Dirty-Flag Optimization
+### 8.12 Dirty-Flag Optimization
 
 High-frequency systems (BT evaluation, UIBridge snapshots) use dirty flags to skip unchanged entities:
 - ECS components set a dirty flag when modified
@@ -768,7 +754,7 @@ High-frequency systems (BT evaluation, UIBridge snapshots) use dirty flags to sk
 - UIBridgeSystem skips clean entities during periodic snapshot reconciliation
 - VaultSyncSystem only persists dirty entities
 
-### 8.14 Candidate Pool System
+### 8.13 Candidate Pool System
 
 Candidate pool generation spans multiple systems:
 - **ChroniclerSystem** (tick 18.5): generates 3-5 pre-rolled candidates every N days
@@ -777,60 +763,7 @@ Candidate pool generation spans multiple systems:
 - **CandidatePoolRefreshed** event emitted on refresh
 - Candidates stored as transient data (not vault files until hired)
 
-### 8.15 Obsidian UI Integration & Multi-Leaf Architecture
-
-All UI MUST feel native to Obsidian:
-- **Colors:** Use Obsidian CSS custom properties (`--background-primary`, `--text-normal`, `--interactive-accent`) — never hardcode hex in UI.
-- **Fonts:** Use Obsidian font stack (`--font-interface`, `--font-text`, `--font-monospace`).
-- **Components:** Buttons use Obsidian's `.mod-cta`/`.clickable-icon` classes. Inputs use native Obsidian styling.
-- **CSS:** Single `styles.css`, BEM naming (`.meridian-*`), no `!important`, Obsidian variables only for colors/fonts/spacing.
-
-**Multi-Leaf Architecture:**
-
-The game uses 5 independent Obsidian `ItemView` leaf types, not a single monolithic view:
-
-| View | Purpose | Default Position |
-|------|---------|-----------------|
-| `meridian-game-view` | World map (ExcaliburJS canvas) + toolbar | Center (main pane) |
-| `meridian-detail-view` | Context-sensitive entity detail (agent/building/quest/plot) | Right sidebar |
-| `meridian-chronicler-view` | Chronicler output, reports, story tools | Right sidebar (tabbed) |
-| `meridian-economy-view` | Price charts, supply chain, treasury | Bottom split |
-| `meridian-debug-view` | Modifier/Blackboard/performance inspector | Bottom (hidden by default) |
-
-Views communicate via EventBus (`EntitySelected` triggers detail view update). Each hosts its own Vue app instance; Pinia stores are shared (singleton per plugin). The Director can dock, split, tab, and rearrange views using Obsidian's native workspace.
-
-### 8.16 Obsidian Isolation Boundary (ADR-19)
-
-Obsidian is a hosting platform, not a dependency. The `obsidian` import is restricted to an explicit allowlist:
-
-**Allowed files:** `main.ts`, `*-view.ts`, `settings-tab.ts`, `obsidian-*-adapter.ts`
-**Forbidden everywhere else:** domain, systems, Vue components, schemas, tests (except adapter integration tests)
-
-All Obsidian capabilities abstracted via `PlatformServices` interface:
-- `VaultAdapter` — file read/write/list/watch
-- `NotificationAdapter` — user-facing notices
-- `CommandRegistry` — keyboard command registration
-- `ModalAdapter` — confirmation/input dialogs
-
-This enables: testing without Obsidian mocks, future platform migration (4 adapter files to replace), and no accidental coupling of game logic to Obsidian internals. ESLint enforces the boundary.
-
-### 8.17 Obsidian Plugin Guidelines (enforced)
-
-Derived from Obsidian's official plugin documentation. Key rules enforced via ESLint or architectural patterns:
-
-- **Load time:** `onload()` lightweight only. Heavy init in `onLayoutReady`. Vault listeners in `onLayoutReady`.
-- **No `detachLeavesOfType` in `onunload()`** — views reinitialize at original positions during updates.
-- **No `innerHTML`/`outerHTML`/`insertAdjacentHTML`** — ESLint `no-restricted-properties` enforced.
-- **No inline styles** — CSS classes in `styles.css` with Obsidian variables.
-- **No console logging in production** — ESLint `no-console: warn` (infrastructure exempted for Logger).
-- **Use `this.app`**, not global `app`.
-- **No stored view references** — use `getActiveLeavesOfType()`.
-- **Use `normalizePath()`** for all constructed file paths.
-- **Use Vault API** over Adapter API. Use `FileManager.processFrontMatter()` for YAML.
-- **SecretStorage** for API keys (via `SecretStorageAdapter` in PlatformServices).
-- **Deferred views**: `instanceof` check before accessing, `revealLeaf` before interacting.
-
-### 8.18 Build Pipeline
+### 8.14 Build Pipeline
 
 ```
 npm test
@@ -846,6 +779,62 @@ npm run build
 Distribution:
 ├── Obsidian Community Plugins (when mature)
 └── GitHub Releases (manual install)
+```
+
+### 8.15 Data-Driven Test Strategy
+
+All GDD balance values (ranges, enums, defaults) live in `src/domain/schemas/ranges.ts`. Schemas and tests both import from this single source. Tests verify code behavior against imported constants, never hardcoded magic numbers:
+
+```
+ranges.ts (constants) → Schemas (min/max/enum) → Tests (RANGE.max + 1 = rejected)
+                      → Tick systems (thresholds)
+                      → Future: game-config overrides
+```
+
+**Rebalancing workflow:** Change constant in `ranges.ts` → schemas, tests, and systems all follow. Zero test updates needed.
+
+**Test categories:**
+- Schema tests: validation accepts/rejects at boundaries, defaults apply (data-driven)
+- Infrastructure tests: code behavior (event delivery, logging, vault loading) — no GDD values
+- System tests (future): tick behavior with mock components — import constants for thresholds
+- Emergence tests (future): world-level scenarios — use `createTestWorld()` helpers
+
+### 8.16 ESLint Architecture Enforcement
+
+63 rules on `src/` (28 TypeScript + 25 Obsidian + 10 base), 27 rules on `tests/` (24 TypeScript + 3 base). All type-aware via `tsconfig.lint.json`.
+
+**Architecture boundaries (enforced at lint time):**
+- Domain must not import infrastructure, `obsidian`, `node:*`, or `excalibur`
+- UI must not import domain internals (uses Pinia stores)
+- `obsidian` import allowed only in: `main.ts`, `plugin.ts`, `*-view.ts`, `settings-tab.ts`, `obsidian-*-adapter.ts`
+
+**Agentic code quality rules:** `no-floating-promises`, `no-unsafe-*` (5 rules), `no-misused-spread`, `restrict-template-expressions`, `no-unnecessary-condition`, `prefer-nullish-coalescing`, `consistent-type-imports`, `only-throw-error`, `return-await`. These catch the specific mistakes AI code generation tools tend to make.
+
+**Test-specific relaxations:** `no-unsafe-assignment` off (mocks), `require-await` off (async interface implementations), `no-unnecessary-condition` off (type-narrowing assertions), `varsIgnorePattern: ^_` (omit-via-destructure).
+
+### 8.17 Obsidian Plugin Lifecycle
+
+```
+onload():
+├── loadSettings() → merge loadData() with DEFAULT_SETTINGS
+├── Create logger (configurable level from settings)
+├── Create performance tracker (toggleable from settings)
+├── registerView() → MeridianGameView factory
+├── addRibbonIcon() → open/focus game view
+├── addSettingTab() → MeridianSettingsTab (runtime settings apply)
+└── onLayoutReady() → initializeGame() (deferred heavy init)
+
+applySettings() (called when user changes settings):
+├── Recreate logger with new level
+└── Recreate performance tracker with fresh logger reference
+
+MeridianGameView.onOpen():
+├── Create ExcaliburJS engine (FitContainerAndFill, Arcade physics)
+├── Error boundary: try/catch → showError() on failure
+└── Fire-and-forget engine.start(loader)
+
+onunload():
+└── No-op — Obsidian handles leaf reinit during plugin updates
 ```
 
 ---
@@ -871,8 +860,11 @@ Distribution:
 | ADR-15 | Director-spawned agents only | No immigration. Full Director control over who enters. | Accepted |
 | ADR-16 | World Health rubber-banding | Invisible hand prevents runaway success and unrecoverable collapse. | Accepted |
 | ADR-17 | Pinia as UIBridge intermediate layer | Vue components read Pinia stores, not EventBus directly. Stores aggregate events + periodic snapshots, providing reactive state that survives component remounting. Decouples UI lifecycle from simulation lifecycle. | Accepted |
-| ADR-18 | Manual DI via factory functions, no framework | No InversifyJS/tsyringe. Dependencies composed at plugin startup, passed via typed parameter bags with ISP subsets. Factory functions over classes. Composition root in plugin.ts only. Enables test swap without mocking frameworks. | Accepted |
-| ADR-19 | Obsidian isolation boundary | `obsidian` import allowed ONLY in: main.ts, *-view.ts, settings-tab.ts, obsidian-*-adapter.ts. All Obsidian capabilities (vault, notices, modals, commands) abstracted behind platform-agnostic interfaces (PlatformServices). Enables platform migration and testing without Obsidian mocks. ESLint enforced. | Accepted |
+| ADR-18 | PlatformServices aggregate in platform.ts | All platform abstractions (VaultAdapter, NotificationAdapter, CommandRegistry, ModalAdapter, SecretStorageAdapter) co-located. ISP subsets injected per consumer. | Accepted |
+| ADR-19 | Obsidian isolation boundary (ESLint-enforced) | `obsidian` import restricted to allowlist files only. Prevents platform API leakage into domain/infrastructure. | Accepted |
+| ADR-20 | ranges.ts as balance constant source of truth | All GDD numeric ranges and enums centralized. Schemas, tests, and future systems import from one file. Rebalancing = one constant change. | Accepted |
+| ADR-21 | Synchronous EventBus with deferred batching | EventBus dispatches synchronously. Batching (queue during system, flush between systems) deferred until tick loop exists. Interface stable either way. | Accepted |
+| ADR-22 | Zod v4 with v3-compatible API surface | Project uses Zod v4 (`z.ZodType` not `ZodSchema`, explicit key in `z.record()`, full defaults for nested objects). API patterns validated during Phase 0. | Accepted |
 
 ---
 

@@ -994,58 +994,6 @@ The Director paints zones on the map via a zone painting tool in the UI. Flow:
 3. **Canvas:** Zone boundaries written to `config/zones.canvas` as rectangular nodes with zone type metadata on next VaultSync cycle.
 4. **Systems react:** Property prices recalculate. Agents factor zone type into building decisions. Incompatible buildings in rezoned areas get a Chronicler warning.
 
-### 8.8 Obsidian Commands
-
-All Director actions are exposed as Obsidian commands (accessible via command palette, assignable to hotkeys by the user). **No default hotkeys** — they cause conflicts across OS and plugins (Obsidian guideline).
-
-**Architectural pattern:** Command handlers are thin dispatchers. They emit events on the EventBus — zero business logic in the handler. Game systems subscribe to these events and execute the actual work.
-
-```typescript
-// Pattern: command handler emits event, system reacts
-commands.register('toggle-pause', 'Toggle Pause', () => {
-	eventBus.emit({ type: 'SimulationTogglePause', tick, wallClock, source: 'Command', payload: {} });
-});
-// The TickRunner system subscribes to SimulationTogglePause and pauses/resumes
-```
-
-**View Management:**
-
-|Command ID|Name|Event Emitted|
-|---|---|---|
-|`open-game`|Open Game World|Opens/focuses `meridian-game-view` leaf|
-|`open-detail`|Open Detail Panel|Opens/focuses `meridian-detail-view` leaf|
-|`open-chronicler`|Open Chronicler|Opens/focuses `meridian-chronicler-view` leaf|
-|`open-economy`|Open Economy Dashboard|Opens/focuses `meridian-economy-view` leaf|
-|`toggle-debug`|Toggle Debug Panel|Opens/closes `meridian-debug-view` leaf|
-
-**Simulation Control:**
-
-|Command ID|Name|Event Emitted|
-|---|---|---|
-|`toggle-pause`|Toggle Pause/Resume|`SimulationTogglePause`|
-|`speed-slow`|Speed: Slow|`SpeedChanged { speed: 'slow' }`|
-|`speed-normal`|Speed: Normal|`SpeedChanged { speed: 'normal' }`|
-|`speed-fast`|Speed: Fast|`SpeedChanged { speed: 'fast' }`|
-
-**Director Actions:**
-
-|Command ID|Name|Event Emitted|
-|---|---|---|
-|`create-quest`|Create Quest|`DirectorAction { type: 'OpenQuestCreator' }`|
-|`spawn-agent`|Spawn Agent|`DirectorAction { type: 'OpenAgentCreator' }`|
-|`select-next-agent`|Select Next Agent|`EntitySelected` (cycles forward through agent list)|
-|`select-prev-agent`|Select Previous Agent|`EntitySelected` (cycles backward)|
-|`bookmark-moment`|Bookmark This Moment|`BookmarkCreated { tick: current }`|
-
-**Debug:**
-
-|Command ID|Name|Event Emitted|
-|---|---|---|
-|`toggle-debug-overlays`|Toggle Debug Overlays|`DebugToggled`|
-|`export-relationships`|Export Relationship Graph|`RelationshipExportRequested`|
-
-Commands are registered via the `CommandRegistry` interface from `PlatformServices` (§36.4). The Obsidian implementation wraps `plugin.addCommand()`, which automatically prefixes the command ID with the plugin ID.
-
 ---
 
 ## 9 · World System
@@ -1735,115 +1683,11 @@ EventBus
 - **Outbound:** dirty-flagged → debounced batch (2s) → Zod validate → write. Failed writes → retry queue.
 - **Conflict:** last-write-wins with warning log. Vault is canonical after next sync.
 
-### 12.5 Markdown Creation Service
-
-A domain-level service for creating markdown files with proper YAML frontmatter, with optional template support. This is the **write counterpart** to the frontmatter parser (which reads).
-
-**Interface:**
-
-```typescript
-// src/domain/core/markdown-service.ts
-interface MarkdownService {
-	/** Create a markdown string from a frontmatter object and optional body */
-	serialize(frontmatter: Record<string, unknown>, body?: string): string;
-
-	/** Create a markdown string from a template, substituting variables */
-	fromTemplate(template: string, variables: Record<string, unknown>): ResultValue<string>;
-
-	/** Load a template file via VaultAdapter, fill variables, return complete markdown */
-	renderTemplate(templatePath: string, variables: Record<string, unknown>): Promise<ResultValue<string>>;
-}
-```
-
-**Consumers:**
-- **VaultSyncSystem** — serializes ECS component state back to markdown frontmatter for vault persistence
-- **ChroniclerSystem** — creates eulogy files (`legacy/`), daily digests (`chronicles/`), seasonal reports
-- **QuestSystem** — agent-created quests from templates (`config/quest-templates/`)
-- **Director actions** — creating quests, spawning agents (generates agent markdown file)
-- **WelfareQuestSystem** — Chronicler-generated welfare quests
-
-**Template syntax:** Simple `{{variable}}` substitution in both frontmatter and body text:
-
-```markdown
----
-id: quest-supply-{{facility_id}}
-title: "Deliver {{quantity}} {{item_name}} to {{facility_name}}"
-type: delivery
-status: available
-posted_to: billboard
-rewards:
-  gold: {{reward_gold}}
----
-
-{{facility_owner}} needs supplies for their {{facility_type}}.
-```
-
-**Template resolution:** Templates are loaded from vault via `VaultAdapter`, then variables substituted. Unresolved variables (missing from the variables map) return `Result.err` with `TEMPLATE_VARIABLE_MISSING` code.
-
-**Zod validation on output:** After creating a markdown string, the caller can validate the generated frontmatter against the appropriate schema before writing to vault — ensuring generated files are always schema-compliant.
-
 ---
 
 ## 13 · UI/UX
 
-### 13.1 Obsidian UI Integration
-
-The game UI MUST feel native to Obsidian — not a foreign application dropped into a tab. All UI elements follow Obsidian's theming, styling, and interaction patterns.
-
-**Theming rules:**
-- Use Obsidian CSS custom properties (`--background-primary`, `--text-normal`, `--interactive-accent`, `--text-on-accent`, etc.) for ALL colors — never hardcode hex values in UI components.
-- Respect light/dark mode switching automatically via CSS variables.
-- Use Obsidian's font stack (`--font-interface`, `--font-text`, `--font-monospace`) — never import external fonts.
-- Follow Obsidian's spacing scale (`--size-4-1`, `--size-4-2`, etc.) for margins/padding.
-- Match Obsidian's border radius, shadow, and transition conventions.
-
-**Component styling:**
-- Buttons use Obsidian's `.mod-cta` (primary), `.clickable-icon` (icon buttons), and `.mod-warning` (destructive) classes.
-- Inputs use Obsidian's native `<input>` and `<select>` styling — do not override.
-- Collapsible sections use the same pattern as Obsidian's left sidebar (`.tree-item`, `.tree-item-self`, `.collapse-icon`).
-- Scrollbars inherit Obsidian's themed scrollbar styling.
-- Tooltips use Obsidian's tooltip API (`setTooltip` or `.tooltip` class).
-
-**Layout integration — Multi-Leaf Architecture:**
-
-The game uses multiple Obsidian leaf views, not a single monolithic view. Each view is an independent `ItemView` that the Director can dock, split, tab, resize, and rearrange using Obsidian's native workspace.
-
-|View Type|Purpose|Default Position|
-|---|---|---|
-|`meridian-game-view`|World map (ExcaliburJS canvas), toolbar, speed controls|Center (main pane)|
-|`meridian-detail-view`|Detail panel for selected entity (agent sheet, building info, quest detail, plot info)|Right sidebar or split right|
-|`meridian-chronicler-view`|Chronicler output: observations, digests, reports, milestones|Right sidebar (tabbed)|
-|`meridian-economy-view`|Economy dashboards: price charts, supply chain, treasury ledger|Bottom split or separate tab|
-|`meridian-debug-view`|Debug panel: modifier inspector, Blackboard, performance|Bottom split (hidden by default)|
-
-**How it works:**
-- The **game view** is the primary view. Clicking an agent/object/building on the map opens or updates the **detail view** with that entity's information.
-- The detail view is context-sensitive: selecting an agent shows the agent sheet (needs, mood, memory, skills, equipment); selecting a building shows facility info (operating fund, workers, recipes); selecting a quest shows objectives and progress.
-- Each view type is registered independently in `plugin.ts`. The Director can open multiple instances, rearrange them freely, or close views they don't need.
-- Views communicate via the EventBus: the game view emits `EntitySelected` events; the detail view subscribes and updates its content.
-- This replaces the all-in-one sidebar approach — Obsidian's workspace gives us more flexible window real estate than a fixed sidebar could.
-- When the Director first opens the plugin, a default layout is suggested (game center, detail right), but they can customize freely.
-
-**Obsidian workspace commands:**
-- "Open Game World" — opens/focuses the main game view
-- "Open Detail Panel" — opens the detail view (or focuses if already open)
-- "Open Chronicler" — opens the Chronicler view
-- "Open Economy Dashboard" — opens the economy view
-- "Toggle Debug" — opens/closes the debug view
-
-**CSS architecture:**
-- One `styles.css` file loaded by the plugin (Obsidian convention).
-- CSS uses Obsidian's variable system exclusively for colors, fonts, and spacing.
-- BEM naming convention for custom classes (e.g., `.meridian-agent-list`, `.meridian-agent-list__item`, `.meridian-agent-list__item--selected`).
-- No `!important` overrides of Obsidian styles.
-- Media queries for responsive layout within the view container (not viewport — the view may be split to any size).
-
-**ExcaliburJS canvas styling:**
-- The ExcaliburJS canvas fills the map container but defers to Obsidian's theme for background color.
-- Canvas background should read from `--background-primary` (converted to hex for ExcaliburJS's `backgroundColor` config) so the map matches the vault theme.
-- Debug overlays use semi-transparent colors that work in both light and dark themes.
-
-### 13.2 Layout: Split View
+### 13.1 Layout: Split View
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -1864,17 +1708,27 @@ The game uses multiple Obsidian leaf views, not a single monolithic view. Each v
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 13.3 Multi-Leaf View Interaction
+### 13.2 Management Panel — Collapsible Sidebar
 
-Views communicate via the shared EventBus and Pinia stores:
+The management panel uses a **collapsible sidebar** (matching Obsidian's native UX pattern). Sections expand/collapse independently. Multiple sections can be open simultaneously, allowing the Director to monitor agents and economy at the same time.
 
-- **Entity selection:** Director clicks an agent/object/building on the map → game view emits `EntitySelected` event → detail view subscribes and displays that entity's information.
-- **Notification follow:** Clicking a notification in the game toolbar emits `EntitySelected` for the relevant entity — the map centers on it and the detail view updates.
-- **Cross-view actions:** The detail view can trigger Director actions (award trait, post quest) which flow through the game's action queue like any other Director action.
-- **Dialogue:** Talking to an agent opens in the detail view as a dialogue sub-panel — the Director can chat while watching the map.
-- **Config and scenario:** Global settings and scenario management are accessible via Obsidian commands or the game toolbar — they don't need dedicated views (modal dialogs or command palette).
+**Sidebar Sections:**
 
-### 13.4 Notification Bar
+|Section|Content|
+|---|---|
+|**Agents**|List with search/filter → detail view (character sheet, needs, mood, traits, memory, skills, inventory, equipment, relationships). Edit → config.|
+|**Quests**|Available / in progress / completed / failed. "New Quest" form. Quest detail with objectives and timer.|
+|**Jobs**|Job list by facility. Assigned agents. Production output. Vacancy indicators.|
+|**Economy**|Price charts (over time). Supply/demand overview. Property registry. Trade log. Treasury ledger.|
+|**Chronicler**|Tick observations, daily digests, seasonal reports, decline warnings, milestone announcements. Searchable and filterable.|
+|**Events**|Real-time EventBus log. Filterable by type/agent/system. Active world events. World event trigger.|
+|**Dialogue**|Agent selection → chat interface. Mode indicator (template/LLM). Mood display. History.|
+|**Scenario**|Active scenario goals, progress bars, scoring. Visible only when a scenario is active.|
+|**Story**|Bookmarks, era names, timeline view, agent biographies. The Director's narrative tools.|
+|**Config**|Global settings. LLM provider config + test. Kind/species editors. Recipe browser. Zone management.|
+|**Debug**|Modifier inspector, Blackboard inspector, performance panel. Visible only when debug mode is on.|
+
+### 13.3 Notification Bar
 
 Toolbar displays alert count. Clicking expands a notification dropdown:
 
@@ -1884,80 +1738,53 @@ Toolbar displays alert count. Clicking expands a notification dropdown:
 
 Clicking a notification selects the relevant entity on the map and panel.
 
-### 13.5 Vue Component Architecture (Multi-Leaf)
+### 13.4 Vue Component Architecture
 
-Each Obsidian leaf view hosts its own Vue app instance. Pinia stores are shared across views (singleton per plugin instance).
-
-**Game View (`meridian-game-view`):**
 ```
-GameViewApp.vue
-├── GameToolbar.vue
-│   ├── SpeedControls.vue
+App.vue
+├── AppToolbar.vue
+│   ├── NotificationDropdown.vue
 │   ├── SeasonIndicator.vue
 │   ├── TreasuryDisplay.vue
-│   ├── NotificationDropdown.vue
 │   └── DebugToggle.vue
-├── MapContainer.vue
-│   └── DebugOverlayLayer.vue
-└── GameStatusBar.vue
+├── SplitView.vue
+│   ├── MapContainer.vue
+│   │   └── DebugOverlayLayer.vue (perception, zones, regions, heatmaps)
+│   └── ManagementSidebar.vue (collapsible sections, Obsidian-native pattern)
+│       ├── AgentListPanel.vue → AgentDetailPanel.vue
+│       │   ├── CharacterSheet.vue
+│       │   ├── NeedsBars.vue (+ StaminaBar)
+│       │   ├── MoodIndicator.vue
+│       │   ├── TraitBadges.vue
+│       │   ├── MemoryTimeline.vue
+│       │   ├── SkillsList.vue
+│       │   ├── EquipmentSlots.vue
+│       │   ├── InventoryGrid.vue
+│       │   └── RelationshipMiniGraph.vue
+│       ├── QuestPanel.vue → QuestDetail.vue / QuestCreator.vue
+│       ├── JobPanel.vue → JobDetail.vue
+│       ├── EconomyPanel.vue
+│       │   ├── PriceChart.vue
+│       │   ├── SupplyDemandTable.vue
+│       │   ├── PropertyRegistry.vue
+│       │   └── TreasuryLedger.vue
+│       ├── ChroniclerPanel.vue
+│       │   ├── TickObservations.vue
+│       │   ├── DigestView.vue
+│       │   └── MilestoneLog.vue
+│       ├── ConfigPanel.vue
+│       ├── EventPanel.vue → WorldEventTrigger.vue
+│       ├── DialoguePanel.vue
+│       ├── ScenarioPanel.vue (goals, progress, scoring)
+│       ├── StoryPanel.vue (bookmarks, eras, timeline, biographies)
+│       └── DebugPanel.vue
+│           ├── ModifierInspector.vue
+│           ├── BlackboardInspector.vue
+│           └── PerformancePanel.vue
+└── AppStatusBar.vue
 ```
 
-**Detail View (`meridian-detail-view`) — context-sensitive:**
-```
-DetailViewApp.vue
-├── DetailHeader.vue (entity name, type icon, close)
-├── AgentDetailPanel.vue (when agent selected)
-│   ├── CharacterSheet.vue
-│   ├── NeedsBars.vue (+ StaminaBar)
-│   ├── MoodIndicator.vue
-│   ├── TraitBadges.vue
-│   ├── MemoryTimeline.vue
-│   ├── SkillsList.vue
-│   ├── EquipmentSlots.vue
-│   ├── InventoryGrid.vue
-│   └── RelationshipMiniGraph.vue
-├── BuildingDetailPanel.vue (when building selected)
-│   ├── FacilityInfo.vue
-│   ├── OperatingFundBar.vue
-│   └── WorkerList.vue
-├── QuestDetailPanel.vue (when quest selected)
-│   ├── QuestObjectives.vue
-│   └── QuestTimer.vue
-└── PlotDetailPanel.vue (when plot selected)
-```
-
-**Chronicler View (`meridian-chronicler-view`):**
-```
-ChroniclerViewApp.vue
-��── TickObservations.vue
-├── DigestView.vue
-├── SeasonalReport.vue
-├── MilestoneLog.vue
-└── StoryTools.vue (bookmarks, eras, timeline, biographies)
-```
-
-**Economy View (`meridian-economy-view`):**
-```
-EconomyViewApp.vue
-├── PriceChart.vue
-├── SupplyDemandTable.vue
-├── SupplyChainFlow.vue
-├── PropertyRegistry.vue
-├── TreasuryLedger.vue
-└── TradeLog.vue
-```
-
-**Debug View (`meridian-debug-view`):**
-```
-DebugViewApp.vue
-├── ModifierInspector.vue
-├── BlackboardInspector.vue
-├── PerformancePanel.vue
-├── EventLogPanel.vue
-└── EntityBrowser.vue
-```
-
-### 13.6 Pinia Stores
+### 13.5 Pinia Stores
 
 |Store|Responsibility|Source|
 |---|---|---|
@@ -1979,7 +1806,7 @@ DebugViewApp.vue
 |`useStoryStore`|Bookmarks, era names, timeline, agent biographies|DirectorAction events (BookmarkCreated, EraNameAssigned)|
 |`useDebugStore`|Debug overlays, performance metrics, Blackboard inspector|Debug mode toggle|
 
-### 13.7 UIBridge Contract
+### 13.6 UIBridge Contract
 
 The `UIBridgeSystem` (tick position 20) bridges ECS state to Pinia stores. **Hybrid event + snapshot model:**
 
@@ -2099,10 +1926,6 @@ bus.on('VaultSyncFailed', updateUIAlert, 200);    // display
 |`DialogueRequested`, `DialogueRefused`|DialogueSystem|
 |`FacilityVacancy`|JobSystem|
 |`SupplyShortage`|JobSystem|
-|`EntitySelected`|DirectorAction (game view click or command)|
-|`SimulationTogglePause`|Command|
-|`DebugToggled`|Command|
-|`RelationshipExportRequested`|Command|
 |`RegionEntered`|MovementSystem|
 |`BuildingAbandoned`|AbandonmentSystem|
 |`WorldHealthCalculated`|ChroniclerSystem|
@@ -2391,9 +2214,17 @@ If a specific entity causes repeated errors (malformed data, corrupted state):
 
 ### 17.2 Testing Strategy
 
+**Data-Driven Principle:** Tests verify code behavior and schema integrity, not specific GDD balance values. All numeric ranges, enum values, and balance constants live in `src/domain/schemas/ranges.ts` as the single source of truth. Schemas import from `ranges.ts`, tests import from `ranges.ts`. To rebalance: change the constant — schemas, tests, and tick systems all follow. Tests use `RANGE.max + 1` to test rejection, never a magic number like `25`. This means GDD balance changes never require test updates — only the constant file changes.
+
+**What tests verify:**
+- **Schema tests:** validation accepts values within range, rejects values outside range, applies correct defaults — all referencing imported constants
+- **Infrastructure tests:** code behavior (event delivery, logging, performance tracking) — no GDD values
+- **System tests (future):** tick behavior with mock components — use constants for thresholds
+- **Emergence tests:** world-level scenarios — use `createTestWorld()` helpers, not raw numbers
+
 |Layer|Strategy|Tools|
 |---|---|---|
-|Zod Schemas|Unit: validate known-good and known-bad data|Vitest|
+|Zod Schemas|Unit: validate known-good and known-bad data against imported range constants|Vitest|
 |ECS Components|Unit: creation, defaults, serialization|Vitest|
 |Systems|Unit: inject mock Blackboard/components, assert events|Vitest|
 |Result/Command/Saga|Unit: success paths, failure paths, compensation|Vitest|
@@ -2937,20 +2768,20 @@ All game entities are ExcaliburJS types:
 
 |GDD System|ExcaliburJS Built-In|Custom Work Needed|
 |---|---|---|
-|**ECS Framework**|Full: Entity, Component, System, World, Query, EntityManager, QueryManager|None — use ExcaliburJS ECS directly. Register custom systems via `World.add(system)`. System execution order via `SystemPriority`. **NOTE: World is per-scene, NOT shared between scenes.** All 25+ tick systems must be registered in the gameplay scene's World specifically.|
+|**ECS Framework**|Full: Entity, Component, System, World, Query, EntityManager, QueryManager|None — use ExcaliburJS ECS directly. Register custom systems via `World.add(system)`. System execution order via `SystemPriority`.|
 |**Tick Cycle**|Engine update loop with fixed timestep accumulator (§2.1)|Tick accumulator logic. All GDD systems are ExcaliburJS `System` subclasses with priority ordering.|
 |**MovementSystem**|Actions API: `actor.actions.moveTo(pos, speed)` with easing and chaining. Interrupt via `actor.actions.clearActions()`.|Thin coordinator: BT writes destination → system chains `.moveTo()` actions for multi-hop paths. Region transitions use ExcaliburJS trigger zones (see below).|
 |**PerceptionSystem**|`SparseHashGrid` broadphase collision. Sensor colliders (circular, `CollisionType.Passive`).|Each agent gets a `PerceptionCollider` — a passive circle sized to IQ × 20px (IQ × 10px at night). Overlapping entities are the agent's perceived world. DayNightSystem resizes the collider. Results written to Blackboard.|
-|**Collision**|Full: broadphase (SparseHashGrid), narrowphase, collision types (PreventCollision [default], Active, Fixed, Passive), collision groups, collision events. Physics: Arcade (default, no rotation/friction) or Realistic. Configure via `physics: { solver: SolverStrategy.Arcade, gravity: vec(0,0) }`.|Set agents as `CollisionType.Active` (must be explicit — default is `PreventCollision`). Buildings/walls as `CollisionType.Fixed`. Region boundaries as `Passive` triggers. Agent-agent collision handled automatically. Arcade solver, zero gravity.|
+|**Collision**|Full: broadphase (SparseHashGrid), narrowphase, collision types (Active/Fixed/Passive), collision groups, collision events.|Set agents as `CollisionType.Active`. Buildings/walls as `CollisionType.Fixed`. Region boundaries as passive triggers. Agent-agent collision handled automatically.|
 |**Region Transitions**|Trigger zones: `Actor` with `CollisionType.Passive` at region boundaries. `collisionstart` event fires on entry.|When agent enters a region trigger zone: deduct stamina, update `current_region`, emit `RegionEntered`. No manual position checking.|
 |**Camera**|Full: follow strategies (lockToActor, elasticToActor, radiusAroundActor), zoom with easing, pan, shake, bounds limiting.|Configure strategies: follow selected agent, zoom via UI controls, pan via drag, limit to world bounds. Minimap via second camera to offscreen canvas.|
 |**EventBus**|Typed `EventEmitter` on every ExcaliburJS object. Global `EventDispatcher` possible.|Extend with: priority handler ordering, event history (ring buffer), inter-system batching. Foundation is free.|
-|**Timers (periodic systems)**|`new ex.Timer({ interval, repeating: true, fcn })` + `scene.add(timer)` + `timer.start()`. Synced to game clock. Respects pause.|Replace `if (tick % N === 0)` checks. Economy recalculation, world event evaluation, status evaluation, canvas checkpoint — all as ExcaliburJS timers. Pause-and-plan works automatically.|
+|**Timers (periodic systems)**|`new ex.Timer({ interval, repeating: true, action })` + `scene.add(timer)` + `timer.start()`. Synced to game clock. Respects pause.|Replace `if (tick % N === 0)` checks. Economy recalculation, world event evaluation, status evaluation, canvas checkpoint — all as ExcaliburJS timers. Pause-and-plan works automatically.|
 |**Input Handling**|Keyboard (isPressed, wasPressed), pointer (click, hover, drag on actors), gamepad.|Director interactions: click agent to select (Actor pointer events), keyboard shortcuts for speed/pause, pointer for zone painting and object placement.|
-|**Graphics**|Sprite, SpriteSheet, Animation, GraphicsGroup, Text, Circle, Rectangle, Polygon, Canvas. WebGL + Canvas 2D fallback. Z-index ordering. **Default anchor: (0.5, 0.5) — centered, not top-left.** All positioning relative to center of graphic.|Agent sprites, mood halos (Circle overlay), needs bars (Rectangle), BT labels (Text), zone overlays (Polygon fill), region boundaries (Rectangle outline). Use `GraphicsGroup` for composite agent visuals (sprite + mood halo + name label). Offset children relative to center anchor.|
-|**Scene Management**|Scene lifecycle (onInitialize [once], onActivate [each switch, receives context+data], onDeactivate [cleanup], onPreLoad [scene-specific assets]), transitions, data passing. Static scenes via Engine constructor (`scenes: { name: Class }` — lazily instantiated).|Main menu scene → World Builder scene → Gameplay scene. Scenario loading passes data via scene context. Scene-specific assets loaded via `onPreLoad(loader)`.|
+|**Graphics**|Sprite, SpriteSheet, Animation, GraphicsGroup, Text, Circle, Rectangle, Polygon, Canvas. WebGL + Canvas 2D fallback. Z-index ordering.|Agent sprites, mood halos (Circle overlay), needs bars (Rectangle), BT labels (Text), zone overlays (Polygon fill), region boundaries (Rectangle outline). Use `GraphicsGroup` for composite agent visuals (sprite + mood halo + name label).|
+|**Scene Management**|Scene lifecycle (onActivate, onDeactivate, onInitialize), transitions, data passing.|Main menu scene → World Builder scene → Gameplay scene. Scenario loading passes data via scene context.|
 |**Debug**|`engine.isDebug` for collision/broadphase visualization. Chrome DevTools extension for live entity inspection and per-system execution time.|Use built-in for: collision shapes, broadphase grid, system timing. Build custom for: mood halos, BT labels, relationship lines, economic heatmaps, Blackboard inspector.|
-|**Asset Loading**|`DefaultLoader` with `ImageSource`, progressive loading, scene-specific `onPreLoad()`. `addResource`/`addResources`, `progress` getter (0-1), `onUserAction` override for embedded contexts.|Load agent sprites, tile textures, UI assets. Scene-specific loading for template worlds. Custom loader suppresses click prompt for Obsidian (onUserAction auto-resolves).|
+|**Asset Loading**|`Loader` with `ImageSource`, progressive loading, scene-specific `onPreLoad()`.|Load agent sprites, tile textures, UI assets. Scene-specific loading for template worlds.|
 
 ### 30.3 What We Build vs. What ExcaliburJS Provides
 
@@ -3047,7 +2878,7 @@ agent.actions.clearActions(); // cancel journey
 const economyTimer = new ex.Timer({
   interval: gameConfig.tick_interval_ms * gameConfig.economy.recalculation_interval_ticks,
   repeating: true,
-  fcn: () => economySystem.recalculate(),
+  action: () => economySystem.recalculate(),
 });
 scene.add(economyTimer);
 economyTimer.start();
@@ -3393,7 +3224,6 @@ If any answer is "no," redesign before implementing.
 |Component Dev|Storybook|Isolated Vue component development, visual testing, design system documentation|
 |Linting|ESLint (flat config)|Architecture enforcement, layer boundaries, code quality|
 |Build|Vite|Fast builds, HMR|
-|API Docs|TypeDoc|Auto-generated API documentation from TSDoc comments|
 |i18n|vue-i18n|Reactive locale switching for Vue UI|
 
 ---
@@ -3420,7 +3250,6 @@ Systems read config via a typed `GameConfig` interface injected at startup. Conf
 |LLM|`LLMProvider`|CursorAPI, ClaudeAPI, OllamaLocal, TemplateFallback|
 |Filesystem|`VaultAdapter`|ObsidianVaultAdapter, MemfsAdapter (test)|
 |Logging|`Logger`|ConsoleLogger, VaultFileLogger, UILogger|
-|Markdown|`MarkdownService`|MarkdownSerializer (serialize + templates)|
 
 Switching providers requires only a config change — no code modification.
 
@@ -3436,76 +3265,7 @@ Switching providers requires only a config change — no code modification.
 
 **Factor XI — Log Streams.** Structured log format: `{ tick, system, level, message, data }`. Log level configurable via `game-config.json`. Logs never block the tick cycle. Three targets: console (dev), vault file (`logs/`), UI Event Log panel. The EventBus is the canonical event stream — logging is a subscriber, not a gatekeeper.
 
-### 36.2 Dependency Injection
-
-All systems receive their dependencies through typed interfaces, never by importing concrete implementations. This is the backbone of testability and the backing service abstraction (Factor IV).
-
-**DI Container:** A lightweight, manual DI container — no framework (no InversifyJS, no tsyringe). Dependencies are composed at plugin startup and passed via constructor or factory function parameters.
-
-**GameDeps — the root dependency bag:**
-
-```typescript
-interface GameDeps {
-	config: GameConfig;
-	eventBus: EventBus;
-	logger: Logger;
-	vault: VaultAdapter;
-	rng: GameRNG;
-	spatialQuery: SpatialQueryService;
-}
-```
-
-Systems receive a subset of `GameDeps` relevant to their function (Interface Segregation). A system that only needs the EventBus and Logger does not receive the full bag:
-
-```typescript
-// System receives only what it needs
-interface NeedsDecayDeps {
-	config: Pick<GameConfig, 'needs' | 'mortality'>;
-	eventBus: EventBus;
-	logger: Logger;
-}
-
-function createNeedsDecaySystem(deps: NeedsDecayDeps): System { ... }
-```
-
-**Composition root (plugin.ts onload):**
-
-```typescript
-// All dependencies composed once at startup
-const config = loadGameConfig(configJson);
-const eventBus = createEventBus();
-const logger = createConsoleLogger(config.debug ? 'debug' : 'info');
-const vault = new ObsidianVaultAdapter(this.app.vault);
-const rng = createGameRNG(config.debug ? 42 : undefined); // seeded in debug
-
-const deps: GameDeps = { config, eventBus, logger, vault, rng, spatialQuery };
-
-// Systems created with their deps
-const needsDecay = createNeedsDecaySystem({ config, eventBus, logger });
-const moodSystem = createMoodSystem({ config, eventBus, logger });
-// ... all systems
-```
-
-**In tests:**
-
-```typescript
-// Swap any dependency with a mock/stub
-const testDeps: NeedsDecayDeps = {
-	config: { needs: { hunger_decay: 0.5 }, mortality: { ... } },
-	eventBus: createEventBus(), // real bus, isolated per test
-	logger: createNoopLogger(), // silent logger for tests
-};
-const system = createNeedsDecaySystem(testDeps);
-```
-
-**Rules:**
-- No global singletons. Every dependency is injected.
-- No service locator pattern. Dependencies are explicit in function signatures.
-- Factory functions (`createXxxSystem`) over classes — simpler, no `this` binding issues.
-- ISP subsets: systems declare the minimal interface they need, not the full `GameDeps`.
-- The composition root in `plugin.ts` is the ONLY place where concrete implementations are chosen.
-
-### 36.3 Test-Driven Development
+### 36.2 Test-Driven Development
 
 TDD is the primary development methodology. Every system, component, and feature is built test-first.
 
@@ -3567,118 +3327,7 @@ TDD is the primary development methodology. Every system, component, and feature
 4. **Emergence tests are first-class.** The emergence validation scenarios (§1.7) are implemented as automated tests that seed a world and assert emergent patterns after N ticks.
 5. **Coverage target: 80% statements, 80% lines.** Measured per system, not globally. New systems ship at or above target.
 
-### 36.4 Obsidian Isolation Boundary
-
-Obsidian is a hosting platform, not a dependency. The game MUST be able to run without Obsidian — enabling future platform migration (standalone Electron, web, different note-taking hosts).
-
-**Obsidian API is allowed ONLY in these files:**
-- `src/main.ts` — plugin entry point
-- `src/infrastructure/engine/game-view.ts` — and all other `*-view.ts` ItemView files
-- `src/infrastructure/settings/settings-tab.ts` — Obsidian SettingTab
-- `src/infrastructure/vault/obsidian-vault-adapter.ts` — vault file system adapter
-- `src/infrastructure/platform/obsidian-platform.ts` — platform services adapter
-
-**Obsidian API is FORBIDDEN everywhere else.** No domain code, no system code, no UI components (Vue), no schemas, no tests (except integration tests for the adapters themselves) may import from `'obsidian'`.
-
-**Platform Adapter pattern:**
-
-All Obsidian-specific capabilities are abstracted behind platform-agnostic interfaces:
-
-```typescript
-// src/domain/core/platform.ts — the abstraction
-interface PlatformServices {
-	vault: VaultAdapter;           // file read/write/list/watch
-	notifications: NotificationAdapter; // show user-facing notices
-	commands: CommandRegistry;     // register keyboard commands
-	modals: ModalAdapter;          // show confirmation/input dialogs
-}
-
-interface NotificationAdapter {
-	show(message: string, timeout?: number): void;
-	showError(message: string): void;
-}
-
-interface CommandRegistry {
-	register(id: string, name: string, callback: () => void): void;
-}
-
-interface ModalAdapter {
-	confirm(title: string, message: string): Promise<boolean>;
-	prompt(title: string, placeholder: string): Promise<string | null>;
-}
-```
-
-**Obsidian implementations** (`src/infrastructure/platform/`):
-- `ObsidianVaultAdapter` — wraps `app.vault` API
-- `ObsidianNotificationAdapter` — wraps `new Notice()`
-- `ObsidianCommandRegistry` — wraps `plugin.addCommand()`
-- `ObsidianModalAdapter` — wraps `new Modal()`
-
-**Test implementations** (`tests/setup/` or `src/infrastructure/platform/`):
-- `MemfsVaultAdapter` — in-memory filesystem
-- `NoopNotificationAdapter` — silent, records calls for assertion
-- `NoopCommandRegistry` — records registrations
-- `NoopModalAdapter` — auto-confirms or returns preset values
-
-**Composition root** (`plugin.ts`) assembles the real Obsidian implementations and passes them through `GameDeps`. Every system and UI component receives the platform-agnostic interfaces.
-
-**Why this matters:**
-- Domain code is testable without Obsidian mocks
-- The game could be ported to a standalone Electron app by replacing 4 adapter files
-- No accidental coupling to Obsidian internals (notices, modals, commands) in game logic
-- ESLint enforces this at build time (see §36.5)
-
-### 36.5 Obsidian Plugin Guidelines
-
-Rules derived from Obsidian's official plugin documentation. All are enforced either by ESLint or by code review.
-
-**Load Time (onload must be fast):**
-- `onload()` contains ONLY lightweight registrations: `registerView`, `addCommand`, `addRibbonIcon`, `addSettingTab`, markdown post-processors
-- NO computation, NO data fetching, NO file I/O in `onload()`
-- Heavy initialization goes inside `this.app.workspace.onLayoutReady(() => { ... })`
-- `vault.on('create')` listeners MUST be registered inside `onLayoutReady` (fires for every file during vault init)
-- View constructors must be trivial — all heavy work in `onOpen()`
-- Production builds must be minified
-
-**Plugin Guidelines (enforced):**
-- Use `this.app`, never the global `app` variable (debug-only)
-- Minimize console logging — zero `console.*` calls in production code
-- No placeholder class names (`MyPlugin`, `SampleSettingTab`)
-- No `innerHTML`, `outerHTML`, `insertAdjacentHTML` — use DOM API (`createEl`, `createDiv`, `createSpan`, `classList.add`)
-- No inline styles — use CSS classes with Obsidian CSS variables (in `styles.css`)
-- Clean up resources on unload via `registerEvent()` / `addCommand()`
-- Do NOT `detachLeavesOfType` in `onunload()` — views reinitialize at original positions during plugin updates
-- Do NOT store view references — use `getActiveLeavesOfType()` each time
-- Use `const`/`let`, never `var`
-- Use `async`/`await`, never `.then()` chains
-- Use `normalizePath()` for all user/constructed file paths
-- Use Vault API (cached, serial) over Adapter API
-- Use `FileManager.processFrontMatter()` for atomic YAML modifications
-- Use `getFileByPath()`/`getFolderByPath()` for efficient file lookup, not iteration
-
-**Manifest Requirements:**
-- `description`: action statement, under 250 chars, ends with period, no emoji
-- `minAppVersion`: lowest version supporting your API surface
-- `isDesktopOnly: true` if using Canvas/WebGL, Node.js, or Electron APIs
-
-**Deferred Views:**
-- Views load as `DeferredView` initially — use `instanceof` checks before accessing custom properties
-- Use `workspace.revealLeaf(leaf)` before interacting with a view
-- `leaf.loadIfDeferred()` only for advanced cases (sparingly)
-
-**Secret Storage:**
-- Use `app.secretStorage` for API keys/tokens — never store in `data.json`
-- `SecretComponent` for settings UI (lets users select from central secret store)
-- Our `SecretStorageAdapter` in `platform.ts` abstracts this
-
-**Settings:**
-- Extend `PluginSettingTab`, implement `display()`
-- Use `loadData()`/`saveData()` for persistence
-- `Object.assign` with defaults (shallow copy — deep copy nested manually)
-- Sentence case for headings, use `setHeading()` not HTML heading elements
-- No default hotkeys for commands (cause conflicts, vary across OS)
-
-### 36.6 ESLint Architecture Enforcement
+### 36.3 ESLint Architecture Enforcement
 
 ESLint rules enforce architectural boundaries at build time. Violations fail CI.
 
@@ -3692,23 +3341,12 @@ Infrastructure → Domain → Systems → UI
 
 |Rule|Enforces|Example Violation|
 |---|---|---|
-|`no-restricted-imports` on domain files|Domain must not import infrastructure or `obsidian`|A system importing `ObsidianVaultAdapter` directly instead of using the `VaultAdapter` interface|
-|`no-restricted-imports` on UI files|UI must not import domain internals or `obsidian`|A Vue component importing from `obsidian` or ECS component classes|
-|`no-restricted-imports` on systems|Systems must not import other systems or `obsidian`|`JobSystem` importing `EconomySystem` instead of communicating via EventBus|
-|`no-restricted-imports` on ALL except allowlist|`obsidian` only in: main.ts, *-view.ts, settings-tab.ts, obsidian-*-adapter.ts|Any file outside the allowlist importing from `obsidian` (§36.4)|
+|`no-restricted-imports` on domain files|Domain must not import infrastructure|A system importing `ObsidianVaultAdapter` directly instead of using the `VaultAdapter` interface|
+|`no-restricted-imports` on UI files|UI must not import domain internals|A Vue component importing ECS component classes instead of reading from Pinia stores|
+|`no-restricted-imports` on systems|Systems must not import other systems|`JobSystem` importing `EconomySystem` instead of communicating via EventBus|
 |`no-restricted-globals`|No bare `fs`, `path`, `process` outside infrastructure|A system using `node:fs` instead of VaultAdapter|
 |`no-restricted-syntax`|No bare `try/catch` in system code|Using `try {} catch {}` instead of Result pattern|
 |Custom rule: `no-cross-system-mutation`|Systems must not directly mutate another system's components|`TradeSystem` directly modifying `MoodComponent` instead of emitting an event|
-
-**Obsidian Plugin Guideline Enforcement (ESLint):**
-
-|Rule|Enforces|Obsidian Guideline|
-|---|---|---|
-|`no-restricted-properties` on `innerHTML`, `outerHTML`, `insertAdjacentHTML`|No direct HTML insertion|Security — use DOM API instead|
-|`no-restricted-syntax` banning `style.` property assignments in non-infrastructure|No inline styles|Use CSS classes with Obsidian variables|
-|`no-console` (warn in src/, off in tests/)|Minimize console logging|Keep developer console clean|
-|`no-var`|Use const/let only|Obsidian coding standard|
-|`prefer-const`|Prefer const over let where possible|Immutability preference|
 
 **Additional ESLint Standards:**
 
