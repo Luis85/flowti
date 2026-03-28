@@ -207,7 +207,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 │  └──────────────┘  └──────────────┘  └───────────────────┘  │
 │                                                              │
 │  Layer direction: Infrastructure → Domain (core + schemas + systems) → UI │
-│  Domain core: interfaces (Result, EventBus, Logger, VaultAdapter)         │
+│  Domain core: interfaces (Result, EventBus, Logger, PlatformServices)     │
 │  Domain schemas: Zod schemas (pure data definitions)                      │
 │  Domain systems: tick-processing units (consume components, emit events)  │
 │  Domain NEVER imports Infrastructure or UI                                │
@@ -224,11 +224,17 @@ domain/
 │   ├── result.ts           — Result<T, E> with map/flatMap
 │   ├── events.ts           — GameEvent, EventHandler, EventBus interface
 │   ├── logger.ts           — Logger interface
-│   └── vault-adapter.ts    — VaultAdapter interface (read/write/list)
+│   ├── platform.ts         — PlatformServices aggregate (VaultAdapter, NotificationAdapter,
+│   │                          CommandRegistry, ModalAdapter, SecretStorageAdapter)
+│   ├── markdown-service.ts — MarkdownService interface (serialize, fromTemplate, renderTemplate)
+│   └── settings.ts         — MeridianSettings interface + DEFAULT_SETTINGS
 │
 ├── schemas/
+│   ├── index.ts            — Barrel: re-exports all schemas, types, and range constants
+│   ├── ranges.ts           — Single source of truth for all GDD balance constants
+│   │                          (ATTRIBUTE_RANGE, MOOD_RANGE, TRAIT_CATEGORIES, etc.)
 │   ├── common.ts           — Position, MemoryEntry, Goal, Skill, Inventory, Equipment, LLM
-│   ├── agent-schema.ts     — AgentSchema (27 fields, Zod-validated)
+│   ├── agent-schema.ts     — AgentSchema (all fields reference ranges.ts constants)
 │   ├── trait-schema.ts     — TraitSchema (effects, conflicts, assignable_by)
 │   ├── game-config-schema.ts — GameConfigSchema (complete game tuning)
 │   ├── item-schema.ts      — [Phase 4] ItemSchema
@@ -279,25 +285,32 @@ domain/
 ```
 infrastructure/
 ├── engine/
-│   ├── game-engine.ts      — ExcaliburJS Engine factory
-│   └── game-view.ts        — Obsidian ItemView wrapping ExcaliburJS
+│   ├── game-engine.ts      — ExcaliburJS Engine factory (FitContainerAndFill, Arcade physics)
+│   ├── game-view.ts        — Obsidian ItemView wrapping ExcaliburJS (error boundary)
+│   └── game-loader.ts      — Custom DefaultLoader (suppresses click prompt for Obsidian)
 │
 ├── vault/
-│   ├── frontmatter-parser.ts    — YAML frontmatter extraction (Result-based)
+│   ├── frontmatter-parser.ts    — YAML frontmatter extraction (Result-based, CRLF-safe)
 │   ├── vault-loader.ts          — Single-file Zod-validated loading + quarantine
 │   ├── vault-directory-loader.ts — Directory scan → validated entity collection
 │   ├── memfs-vault-adapter.ts   — In-memory VaultAdapter for testing
 │   ├── obsidian-vault-adapter.ts — [Phase 9] Obsidian file system adapter
-│   └── quarantine.ts            — Invalid file tracking
+│   └── quarantine.ts            — Invalid file tracking (add, has, clear, dedup)
 │
 ├── config/
-│   └── game-config-loader.ts    — JSON → Zod validate → GameConfig
+│   └── game-config-loader.ts    — [Phase 0E] JSON → Zod validate → GameConfig
 │
-├── event-bus.ts    — EventBus implementation (priority, history, filter, batching)
+├── event-bus.ts    — EventBus implementation (priority, history, filter; batching deferred to tick loop)
 │
 ├── logger/
-│   ├── console-logger.ts   — Dev logging target
+│   ├── console-logger.ts   — Dev logging (level-filtered, structured, configurable via settings)
 │   └── vault-logger.ts     — [Phase 9] Vault file logging target
+│
+├── performance/
+│   └── performance-tracker.ts — Per-system tick timing with history and averages
+│
+├── settings/
+│   └── settings-tab.ts     — Obsidian PluginSettingTab (log level, debug mode, perf tracking)
 │
 └── llm/
     ├── llm-provider.ts     — [Phase 11] Unified LLMProvider interface
@@ -764,6 +777,62 @@ Distribution:
 └── GitHub Releases (manual install)
 ```
 
+### 8.15 Data-Driven Test Strategy
+
+All GDD balance values (ranges, enums, defaults) live in `src/domain/schemas/ranges.ts`. Schemas and tests both import from this single source. Tests verify code behavior against imported constants, never hardcoded magic numbers:
+
+```
+ranges.ts (constants) → Schemas (min/max/enum) → Tests (RANGE.max + 1 = rejected)
+                      → Tick systems (thresholds)
+                      → Future: game-config overrides
+```
+
+**Rebalancing workflow:** Change constant in `ranges.ts` → schemas, tests, and systems all follow. Zero test updates needed.
+
+**Test categories:**
+- Schema tests: validation accepts/rejects at boundaries, defaults apply (data-driven)
+- Infrastructure tests: code behavior (event delivery, logging, vault loading) — no GDD values
+- System tests (future): tick behavior with mock components — import constants for thresholds
+- Emergence tests (future): world-level scenarios — use `createTestWorld()` helpers
+
+### 8.16 ESLint Architecture Enforcement
+
+63 rules on `src/` (28 TypeScript + 25 Obsidian + 10 base), 27 rules on `tests/` (24 TypeScript + 3 base). All type-aware via `tsconfig.lint.json`.
+
+**Architecture boundaries (enforced at lint time):**
+- Domain must not import infrastructure, `obsidian`, `node:*`, or `excalibur`
+- UI must not import domain internals (uses Pinia stores)
+- `obsidian` import allowed only in: `main.ts`, `plugin.ts`, `*-view.ts`, `settings-tab.ts`, `obsidian-*-adapter.ts`
+
+**Agentic code quality rules:** `no-floating-promises`, `no-unsafe-*` (5 rules), `no-misused-spread`, `restrict-template-expressions`, `no-unnecessary-condition`, `prefer-nullish-coalescing`, `consistent-type-imports`, `only-throw-error`, `return-await`. These catch the specific mistakes AI code generation tools tend to make.
+
+**Test-specific relaxations:** `no-unsafe-assignment` off (mocks), `require-await` off (async interface implementations), `no-unnecessary-condition` off (type-narrowing assertions), `varsIgnorePattern: ^_` (omit-via-destructure).
+
+### 8.17 Obsidian Plugin Lifecycle
+
+```
+onload():
+├── loadSettings() → merge loadData() with DEFAULT_SETTINGS
+├── Create logger (configurable level from settings)
+├── Create performance tracker (toggleable from settings)
+├── registerView() → MeridianGameView factory
+├── addRibbonIcon() → open/focus game view
+├── addSettingTab() → MeridianSettingsTab (runtime settings apply)
+└── onLayoutReady() → initializeGame() (deferred heavy init)
+
+applySettings() (called when user changes settings):
+├── Recreate logger with new level
+└── Recreate performance tracker with fresh logger reference
+
+MeridianGameView.onOpen():
+├── Create ExcaliburJS engine (FitContainerAndFill, Arcade physics)
+├── Error boundary: try/catch → showError() on failure
+└── Fire-and-forget engine.start(loader)
+
+onunload():
+└── No-op — Obsidian handles leaf reinit during plugin updates
+```
+
 ---
 
 ## 9 · Architecture Decisions
@@ -787,6 +856,11 @@ Distribution:
 | ADR-15 | Director-spawned agents only | No immigration. Full Director control over who enters. | Accepted |
 | ADR-16 | World Health rubber-banding | Invisible hand prevents runaway success and unrecoverable collapse. | Accepted |
 | ADR-17 | Pinia as UIBridge intermediate layer | Vue components read Pinia stores, not EventBus directly. Stores aggregate events + periodic snapshots, providing reactive state that survives component remounting. Decouples UI lifecycle from simulation lifecycle. | Accepted |
+| ADR-18 | PlatformServices aggregate in platform.ts | All platform abstractions (VaultAdapter, NotificationAdapter, CommandRegistry, ModalAdapter, SecretStorageAdapter) co-located. ISP subsets injected per consumer. | Accepted |
+| ADR-19 | Obsidian isolation boundary (ESLint-enforced) | `obsidian` import restricted to allowlist files only. Prevents platform API leakage into domain/infrastructure. | Accepted |
+| ADR-20 | ranges.ts as balance constant source of truth | All GDD numeric ranges and enums centralized. Schemas, tests, and future systems import from one file. Rebalancing = one constant change. | Accepted |
+| ADR-21 | Synchronous EventBus with deferred batching | EventBus dispatches synchronously. Batching (queue during system, flush between systems) deferred until tick loop exists. Interface stable either way. | Accepted |
+| ADR-22 | Zod v4 with v3-compatible API surface | Project uses Zod v4 (`z.ZodType` not `ZodSchema`, explicit key in `z.record()`, full defaults for nested objects). API patterns validated during Phase 0. | Accepted |
 
 ---
 
