@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGameRNG } from '../../../src/domain/core/game-rng.js';
+import { createGameRNG, hashString } from '../../../src/domain/core/game-rng.js';
 
 describe('createGameRNG', () => {
 	it('same seed produces same sequence', () => {
@@ -53,5 +53,19 @@ describe('createGameRNG', () => {
 		const results = Array.from({ length: 200 }, () => rng.chance(0.5));
 		expect(results.some(r => r === true)).toBe(true);
 		expect(results.some(r => r === false)).toBe(true);
+	});
+});
+
+describe('hashString', () => {
+	it('same string produces same hash', () => {
+		expect(hashString('test')).toBe(hashString('test'));
+	});
+
+	it('different strings produce different hashes', () => {
+		expect(hashString('agent-elena')).not.toBe(hashString('agent-marcus'));
+	});
+
+	it('empty string returns a stable value', () => {
+		expect(hashString('')).toBe(0);
 	});
 });

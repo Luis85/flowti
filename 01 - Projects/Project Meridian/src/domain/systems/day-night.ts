@@ -13,7 +13,7 @@ export interface DayNightConfig {
 export interface DayNightResult {
 	state: TimeState;
 	phaseChanged: boolean;
-	previousPhase: string;
+	previousPhase: TimeState['phase'];
 }
 
 const PHASE_ORDER: readonly TimeState['phase'][] = ['dawn', 'day', 'dusk', 'night'];
@@ -28,7 +28,7 @@ function resolvePhase(tickInCycle: number, phases: DayNightConfig['day_night']):
 	return 'night';
 }
 
-function resolvePreviousPhase(tickInCycle: number, ticksPerDay: number, phases: DayNightConfig['day_night']): string {
+function resolvePreviousPhase(tickInCycle: number, ticksPerDay: number, phases: DayNightConfig['day_night']): TimeState['phase'] {
 	const prevTick = tickInCycle === 0 ? ticksPerDay - 1 : tickInCycle - 1;
 	return resolvePhase(prevTick, phases);
 }

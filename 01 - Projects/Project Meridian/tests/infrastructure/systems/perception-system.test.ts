@@ -117,30 +117,21 @@ describe('PerceptionSystem', () => {
 	});
 
 	it('applies night multiplier — reduces perception radius at night', () => {
-		// IQ=10, base_multiplier=20 → day radius=200; night_multiplier=10 → night radius=100 (IQ*10*night_mult? check)
-		// Actually: night_multiplier replaces the multiplier: radius = base_multiplier * IQ * night_multiplier
-		// Per domain: if night: radius *= night_multiplier (so 200 * (10/20)? No: it multiplies by night_multiplier=10... wait)
-		// From perception.ts: radius = base_multiplier * IQ; if night: radius *= night_multiplier
-		// base=20, IQ=10 → radius=200. night: 200 * night_multiplier
-		// BUT config night_multiplier defaults to 10 — that would multiply 200*10=2000?
-		// Actually looking at the schema: night_multiplier default=10. That seems like it'd expand...
-		// Reread perception.ts: "if night: radius *= night_multiplier" where night_multiplier=10 → enormous
-		// This seems intentional or it's a fractional... let's just test directionally:
-		// At night with something at distance 150: should be seen if night_mult >= 1
-		// Test: place something at dist=150, which is < day radius 200, so always visible in both
-		// Instead test: something at distance 250 (> day radius 200) — visible at night (200*10>250), not in day
+		// IQ=10, base_multiplier=20 → day radius=200
+		// night_multiplier=0.5 → night radius=200*0.5=100
+		// Location at distance 150: visible during day (200>150), not visible at night (100<150)
 		const agent = new AgentActor(createTestAgentData(), defaultMoodConfig);
 		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const dayEntity = createWorldEntityWithPhase('day');
 		const nightEntity = createWorldEntityWithPhase('night');
 
-		const locations = [createTestLocation('loc-far-1', 250, 0)];
+		const locations = [createTestLocation('loc-mid-1', 150, 0)];
 		const system = createPerceptionSystem(() => [agent], () => locations, () => dayEntity);
 		system.execute(createDeps());
 		const dayPerception = agent.get(PerceptionComponent);
-		// day radius=200, location at 250 → not visible
-		expect(dayPerception.state.nearbyLocations).toHaveLength(0);
+		// day radius=200, location at 150 → visible
+		expect(dayPerception.state.nearbyLocations).toHaveLength(1);
 
 		// Reset perception
 		agent.get(PerceptionComponent).state = { nearbyAgents: [], nearbyLocations: [] };
@@ -148,7 +139,7 @@ describe('PerceptionSystem', () => {
 		const systemNight = createPerceptionSystem(() => [agent], () => locations, () => nightEntity);
 		systemNight.execute(createDeps());
 		const nightPerception = agent.get(PerceptionComponent);
-		// night radius=200*10=2000, location at 250 → visible
-		expect(nightPerception.state.nearbyLocations).toHaveLength(1);
+		// night radius=200*0.5=100, location at 150 → not visible
+		expect(nightPerception.state.nearbyLocations).toHaveLength(0);
 	});
 });

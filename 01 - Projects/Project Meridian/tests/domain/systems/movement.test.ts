@@ -38,4 +38,15 @@ describe('computeMovement', () => {
 		const result = computeMovement({ currentPos: { x: 0, y: 0 }, targetPos: { x: 100, y: 0 }, speed: 5, deltaTicks: 3 });
 		expect(result.newPos.x).toBeCloseTo(15, 1);
 	});
+
+	it('speed zero keeps agent in place', () => {
+		const result = computeMovement({
+			currentPos: { x: 0, y: 0 },
+			targetPos: { x: 100, y: 0 },
+			speed: 0,
+			deltaTicks: 1,
+		});
+		expect(result.newPos).toEqual({ x: 0, y: 0 });
+		expect(result.arrived).toBe(false);
+	});
 });

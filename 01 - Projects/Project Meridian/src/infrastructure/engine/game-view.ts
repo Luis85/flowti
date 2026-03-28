@@ -112,10 +112,12 @@ export class MeridianGameView extends ItemView {
 				const btLoaderInstance = createBTLoader(this.deps.logger);
 				const btResult = await btLoaderInstance.loadFromVault(vaultAdapter, '03 - Resources/BehaviorTrees');
 
-				// Build BT definitions map keyed by BT id (matches agent.kind)
+				// Build BT definitions map keyed by agent kind (strip "bt-" prefix from BT id)
 				const btDefinitions: Record<string, BTNode> = {};
 				for (const bt of btResult.items) {
-					btDefinitions[bt.id] = bt.root;
+					// BT ids are "bt-merchant", agent kinds are "merchant" — strip prefix to match
+					const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
+					btDefinitions[key] = bt.root;
 				}
 
 				// Create world entity for time state

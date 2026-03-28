@@ -9,6 +9,7 @@ import { MoodComponent } from '../components/mood-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
 import { TimeComponent } from '../components/time-component.js';
+import type { PerceptionState } from '../../domain/core/component-data.js';
 
 export function createBehaviorTreeSystem(
 	agents: () => AgentActor[],
@@ -74,11 +75,6 @@ export function createBehaviorTreeSystem(
 	};
 }
 
-type PerceptionSnapshot = {
-	nearbyAgents: { id: string; distance: number }[];
-	nearbyLocations: { id: string; type: string; distance: number }[];
-};
-
 const LOCATION_ACTIONS: Record<string, string> = {
 	seek_food: 'food',
 	seek_rest: 'rest',
@@ -91,7 +87,7 @@ const AGENT_ACTIONS = new Set(['interact', 'socialize']);
 function resolveMovementTarget(
 	action: string,
 	params: Record<string, unknown>,
-	perception: PerceptionSnapshot,
+	perception: PerceptionState,
 ): { id: string; type: 'agent' | 'location' } | null {
 	if (typeof params.targetId === 'string' && typeof params.targetType === 'string') {
 		const targetType = params.targetType === 'agent' ? 'agent' : 'location';

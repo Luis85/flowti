@@ -1,11 +1,8 @@
 import type { NeedsState, MoodState, PerceptionState } from '../core/component-data.js';
 import type { GameRNG } from '../core/game-rng.js';
+import type { BTNode } from '../schemas/behavior-tree-schema.js';
 
-export type BTNode =
-	| { type: 'selector'; children: BTNode[] }
-	| { type: 'sequence'; children: BTNode[] }
-	| { type: 'condition'; check: string; params: Record<string, unknown> }
-	| { type: 'action'; action: string; params: Record<string, unknown> };
+export type { BTNode } from '../schemas/behavior-tree-schema.js';
 
 export interface BTContext {
 	needs: NeedsState;
