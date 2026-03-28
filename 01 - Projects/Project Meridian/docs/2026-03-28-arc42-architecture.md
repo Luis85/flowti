@@ -793,7 +793,22 @@ The game uses 5 independent Obsidian `ItemView` leaf types, not a single monolit
 
 Views communicate via EventBus (`EntitySelected` triggers detail view update). Each hosts its own Vue app instance; Pinia stores are shared (singleton per plugin). The Director can dock, split, tab, and rearrange views using Obsidian's native workspace.
 
-### 8.16 Build Pipeline
+### 8.16 Obsidian Isolation Boundary (ADR-19)
+
+Obsidian is a hosting platform, not a dependency. The `obsidian` import is restricted to an explicit allowlist:
+
+**Allowed files:** `main.ts`, `*-view.ts`, `settings-tab.ts`, `obsidian-*-adapter.ts`
+**Forbidden everywhere else:** domain, systems, Vue components, schemas, tests (except adapter integration tests)
+
+All Obsidian capabilities abstracted via `PlatformServices` interface:
+- `VaultAdapter` — file read/write/list/watch
+- `NotificationAdapter` — user-facing notices
+- `CommandRegistry` — keyboard command registration
+- `ModalAdapter` — confirmation/input dialogs
+
+This enables: testing without Obsidian mocks, future platform migration (4 adapter files to replace), and no accidental coupling of game logic to Obsidian internals. ESLint enforces the boundary.
+
+### 8.17 Build Pipeline
 
 ```
 npm test
@@ -835,6 +850,7 @@ Distribution:
 | ADR-16 | World Health rubber-banding | Invisible hand prevents runaway success and unrecoverable collapse. | Accepted |
 | ADR-17 | Pinia as UIBridge intermediate layer | Vue components read Pinia stores, not EventBus directly. Stores aggregate events + periodic snapshots, providing reactive state that survives component remounting. Decouples UI lifecycle from simulation lifecycle. | Accepted |
 | ADR-18 | Manual DI via factory functions, no framework | No InversifyJS/tsyringe. Dependencies composed at plugin startup, passed via typed parameter bags with ISP subsets. Factory functions over classes. Composition root in plugin.ts only. Enables test swap without mocking frameworks. | Accepted |
+| ADR-19 | Obsidian isolation boundary | `obsidian` import allowed ONLY in: main.ts, *-view.ts, settings-tab.ts, obsidian-*-adapter.ts. All Obsidian capabilities (vault, notices, modals, commands) abstracted behind platform-agnostic interfaces (PlatformServices). Enables platform migration and testing without Obsidian mocks. ESLint enforced. | Accepted |
 
 ---
 

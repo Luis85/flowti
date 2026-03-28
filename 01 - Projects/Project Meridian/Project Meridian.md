@@ -3461,7 +3461,68 @@ TDD is the primary development methodology. Every system, component, and feature
 4. **Emergence tests are first-class.** The emergence validation scenarios (§1.7) are implemented as automated tests that seed a world and assert emergent patterns after N ticks.
 5. **Coverage target: 80% statements, 80% lines.** Measured per system, not globally. New systems ship at or above target.
 
-### 36.4 ESLint Architecture Enforcement
+### 36.4 Obsidian Isolation Boundary
+
+Obsidian is a hosting platform, not a dependency. The game MUST be able to run without Obsidian — enabling future platform migration (standalone Electron, web, different note-taking hosts).
+
+**Obsidian API is allowed ONLY in these files:**
+- `src/main.ts` — plugin entry point
+- `src/infrastructure/engine/game-view.ts` — and all other `*-view.ts` ItemView files
+- `src/infrastructure/settings/settings-tab.ts` — Obsidian SettingTab
+- `src/infrastructure/vault/obsidian-vault-adapter.ts` — vault file system adapter
+- `src/infrastructure/platform/obsidian-platform.ts` — platform services adapter
+
+**Obsidian API is FORBIDDEN everywhere else.** No domain code, no system code, no UI components (Vue), no schemas, no tests (except integration tests for the adapters themselves) may import from `'obsidian'`.
+
+**Platform Adapter pattern:**
+
+All Obsidian-specific capabilities are abstracted behind platform-agnostic interfaces:
+
+```typescript
+// src/domain/core/platform.ts — the abstraction
+interface PlatformServices {
+	vault: VaultAdapter;           // file read/write/list/watch
+	notifications: NotificationAdapter; // show user-facing notices
+	commands: CommandRegistry;     // register keyboard commands
+	modals: ModalAdapter;          // show confirmation/input dialogs
+}
+
+interface NotificationAdapter {
+	show(message: string, timeout?: number): void;
+	showError(message: string): void;
+}
+
+interface CommandRegistry {
+	register(id: string, name: string, callback: () => void): void;
+}
+
+interface ModalAdapter {
+	confirm(title: string, message: string): Promise<boolean>;
+	prompt(title: string, placeholder: string): Promise<string | null>;
+}
+```
+
+**Obsidian implementations** (`src/infrastructure/platform/`):
+- `ObsidianVaultAdapter` — wraps `app.vault` API
+- `ObsidianNotificationAdapter` — wraps `new Notice()`
+- `ObsidianCommandRegistry` — wraps `plugin.addCommand()`
+- `ObsidianModalAdapter` — wraps `new Modal()`
+
+**Test implementations** (`tests/setup/` or `src/infrastructure/platform/`):
+- `MemfsVaultAdapter` — in-memory filesystem
+- `NoopNotificationAdapter` — silent, records calls for assertion
+- `NoopCommandRegistry` — records registrations
+- `NoopModalAdapter` — auto-confirms or returns preset values
+
+**Composition root** (`plugin.ts`) assembles the real Obsidian implementations and passes them through `GameDeps`. Every system and UI component receives the platform-agnostic interfaces.
+
+**Why this matters:**
+- Domain code is testable without Obsidian mocks
+- The game could be ported to a standalone Electron app by replacing 4 adapter files
+- No accidental coupling to Obsidian internals (notices, modals, commands) in game logic
+- ESLint enforces this at build time (see §36.5)
+
+### 36.5 ESLint Architecture Enforcement
 
 ESLint rules enforce architectural boundaries at build time. Violations fail CI.
 
@@ -3475,9 +3536,10 @@ Infrastructure → Domain → Systems → UI
 
 |Rule|Enforces|Example Violation|
 |---|---|---|
-|`no-restricted-imports` on domain files|Domain must not import infrastructure|A system importing `ObsidianVaultAdapter` directly instead of using the `VaultAdapter` interface|
-|`no-restricted-imports` on UI files|UI must not import domain internals|A Vue component importing ECS component classes instead of reading from Pinia stores|
-|`no-restricted-imports` on systems|Systems must not import other systems|`JobSystem` importing `EconomySystem` instead of communicating via EventBus|
+|`no-restricted-imports` on domain files|Domain must not import infrastructure or `obsidian`|A system importing `ObsidianVaultAdapter` directly instead of using the `VaultAdapter` interface|
+|`no-restricted-imports` on UI files|UI must not import domain internals or `obsidian`|A Vue component importing from `obsidian` or ECS component classes|
+|`no-restricted-imports` on systems|Systems must not import other systems or `obsidian`|`JobSystem` importing `EconomySystem` instead of communicating via EventBus|
+|`no-restricted-imports` on ALL except allowlist|`obsidian` only in: main.ts, *-view.ts, settings-tab.ts, obsidian-*-adapter.ts|Any file outside the allowlist importing from `obsidian` (§36.4)|
 |`no-restricted-globals`|No bare `fs`, `path`, `process` outside infrastructure|A system using `node:fs` instead of VaultAdapter|
 |`no-restricted-syntax`|No bare `try/catch` in system code|Using `try {} catch {}` instead of Result pattern|
 |Custom rule: `no-cross-system-mutation`|Systems must not directly mutate another system's components|`TradeSystem` directly modifying `MoodComponent` instead of emitting an event|
