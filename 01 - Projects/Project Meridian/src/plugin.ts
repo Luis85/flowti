@@ -78,6 +78,12 @@ export class MeridianPlugin extends Plugin {
 				logger: this.logger,
 				performanceTracker: this.performanceTracker,
 			});
+			// Hot-swap simulation settings
+			const config = this.gameDeps.config;
+			config.ticks_per_day = Math.round(
+				this.settings.dayCycleDuration * 1000 / config.tick_interval_ms,
+			);
+			config.perception.base_multiplier = this.settings.perceptionRadius;
 		}
 	}
 

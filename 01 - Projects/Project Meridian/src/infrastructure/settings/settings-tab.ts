@@ -71,5 +71,51 @@ export class MeridianSettingsTab extends PluginSettingTab {
 						await this.deps.saveSettings(settings);
 					}),
 			);
+
+		new Setting(containerEl)
+			.setHeading()
+			.setName('Simulation');
+
+		new Setting(containerEl)
+			.setName('Tick rate')
+			.setDesc('Target ticks per second (simulation speed).')
+			.addSlider((slider) =>
+				slider
+					.setLimits(1, 120, 1)
+					.setValue(settings.tickRate)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						settings.tickRate = value;
+						await this.deps.saveSettings(settings);
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Day cycle duration')
+			.setDesc('Seconds per full day/night cycle.')
+			.addSlider((slider) =>
+				slider
+					.setLimits(30, 600, 10)
+					.setValue(settings.dayCycleDuration)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						settings.dayCycleDuration = value;
+						await this.deps.saveSettings(settings);
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Perception radius')
+			.setDesc('Base perception range multiplier.')
+			.addSlider((slider) =>
+				slider
+					.setLimits(50, 500, 10)
+					.setValue(settings.perceptionRadius)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						settings.perceptionRadius = value;
+						await this.deps.saveSettings(settings);
+					}),
+			);
 	}
 }
