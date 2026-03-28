@@ -29,8 +29,6 @@ export class MeridianGameView extends ItemView {
 		const bgColor = style.getPropertyValue('--background-primary').trim() || '#1a1a2e';
 
 		this.engine = createGameEngine(container, {
-			width: container.clientWidth,
-			height: container.clientHeight,
 			backgroundColor: bgColor,
 		});
 
