@@ -28,3 +28,16 @@ export interface MemoryState {
 export interface BlackboardState {
 	[key: string]: unknown;
 }
+
+export interface AttributesState {
+	ST: number;
+	DX: number;
+	IQ: number;
+	HT: number;
+}
+
+export interface SocialState {
+	status: number;
+	reputation: number;
+	charisma: number;
+}
