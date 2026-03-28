@@ -8,7 +8,7 @@ n**Dependencies:** Chunks A, B, C (schemas + Result type + VaultAdapter interfac
 
 **Architecture:** Obsidian plugin hosting an ExcaliburJS engine in a custom leaf view. TypeScript strict mode, Vite build, ESLint architecture enforcement. All game entities are ExcaliburJS ECS entities/actors with custom components. Vault markdown files are the persistence layer, Zod-validated at load time.
 
-**Tech Stack:** TypeScript (strict), ExcaliburJS v0.29+, Zod, Vitest, Vite, ESLint (flat config), Obsidian Plugin API
+**Tech Stack:** TypeScript (strict), ExcaliburJS v0.32+, Zod, Vitest, Vite, ESLint (flat config), Obsidian Plugin API
 
 **GDD Reference:** `01 - Projects/Project Meridian/Project Meridian.md` — §2, §12, §14, §16, §23, §29, §30, §34, §36
 

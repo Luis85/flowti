@@ -49,7 +49,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | Constraint | Rationale |
 |-----------|-----------|
 | **Obsidian Plugin** | Host environment. Must use Obsidian's Plugin API, file system, and view lifecycle. |
-| **ExcaliburJS v0.29+** | Game engine. Provides ECS, Actor, collision, rendering, camera, input. Already validated via spike. |
+| **ExcaliburJS v0.32+** | Game engine. Provides ECS, Actor, collision, rendering, camera, input. Already validated via spike. |
 | **TypeScript strict mode** | Type safety, Zod integration, no `any` types. |
 | **Single-process Electron** | ExcaliburJS render loop (60 FPS) and tick simulation (2 Hz) share one process. Fixed timestep accumulator pattern. |
 | **Zero runtime npm dependencies** | All deps bundled by Vite. Obsidian and Electron are external. |
@@ -171,7 +171,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | Layer | Technology | Role |
 |-------|-----------|------|
 | Platform | Obsidian Plugin API | Host environment, vault persistence, file system |
-| Runtime/ECS | ExcaliburJS v0.29+ | ECS, Actor, Actions API, collision (SparseHashGrid), camera, EventEmitter, Timer, scenes, debug, input, graphics (WebGL + Canvas fallback) |
+| Runtime/ECS | ExcaliburJS v0.32+ | ECS, Actor, Actions API, collision (SparseHashGrid), camera, EventEmitter, Timer, scenes, debug, input, graphics (WebGL + Canvas fallback) |
 | Pathfinding | @excaliburjs/plugin-pathfinding | A* and Dijkstra for region graph navigation |
 | BT Engine | mistreevous | Behavior tree evaluation (agent + animal decision-making) |
 | UI Framework | Vue 3 (Composition API) | Management sidebar (collapsible sections) |

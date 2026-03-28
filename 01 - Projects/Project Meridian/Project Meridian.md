@@ -2740,7 +2740,7 @@ The vault is the save file. Schema changes between plugin versions must not brea
 
 ## 30 · ExcaliburJS Integration Architecture
 
-This section maps every GDD system to ExcaliburJS v0.29+ capabilities, clarifying what is built-in vs. custom.
+This section maps every GDD system to ExcaliburJS v0.32+ capabilities, clarifying what is built-in vs. custom.
 
 ### 30.1 Entity Mapping
 
@@ -3201,7 +3201,7 @@ If any answer is "no," redesign before implementing.
 |Layer|Technology|Role|
 |---|---|---|
 |Platform|Obsidian Plugin|Host environment, vault persistence, file system APIs|
-|Runtime / ECS|ExcaliburJS v0.29+|ECS framework, Actor system, Actions API, collision (SparseHashGrid), camera strategies, EventEmitter, Timer/Clock, scene management, debug tools, input handling, graphics pipeline (WebGL + Canvas fallback)|
+|Runtime / ECS|ExcaliburJS v0.32+|ECS framework, Actor system, Actions API, collision (SparseHashGrid), camera strategies, EventEmitter, Timer/Clock, scene management, debug tools, input handling, graphics pipeline (WebGL + Canvas fallback)|
 |Pathfinding|@excaliburjs/plugin-pathfinding|A* and Dijkstra for region graph and intra-region navigation|
 |Language|TypeScript (strict)|Type safety, Zod integration|
 |Behavior Trees|mistreevous|Agent and animal decision-making|
