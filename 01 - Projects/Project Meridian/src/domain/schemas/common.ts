@@ -14,6 +14,7 @@ export const MemoryEntrySchema = z.object({
 	outcome: z.enum(['positive', 'negative', 'neutral']),
 	significance: z.number().min(1).max(10),
 	mood_impact: z.number(),
+	/** Persisted so decay formula can reference it after significance degrades (GDD §4.6) */
 	original_significance: z.number().min(1).max(10).optional(),
 });
 
@@ -27,6 +28,7 @@ export const GoalSchema = z.object({
 	progress: z.number().min(0).default(0),
 });
 
+/** Agent's per-skill progress record (not the skill catalog definition in config/skills/) */
 export const SkillEntrySchema = z.object({
 	id: z.string(),
 	points: z.number().int().min(0).default(0),

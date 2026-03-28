@@ -29,6 +29,7 @@ export const AgentSchema = z.object({
 		energy: z.number().min(0).max(100),
 		social: z.number().min(0).max(100),
 	}),
+	/** Bootstrap sentinel — MoodSystem recalculates from needs/social each tick (GDD §4.5) */
 	mood: z.number().min(-100).max(100).default(50),
 	memory: z.array(MemoryEntrySchema).default([]),
 	goals: z.array(GoalSchema).default([]),

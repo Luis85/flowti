@@ -56,4 +56,29 @@ describe('AgentSchema', () => {
 		const result = AgentSchema.safeParse({ ...validAgent, mood: 200 });
 		expect(result.success).toBe(false);
 	});
+
+	it('accepts status at boundaries (-4 and 8)', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: -4 } }).success).toBe(true);
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: 8 } }).success).toBe(true);
+	});
+
+	it('rejects status outside boundaries (-5 and 9)', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: -5 } }).success).toBe(false);
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, status: 9 } }).success).toBe(false);
+	});
+
+	it('accepts reputation at boundaries (-4 and 4)', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: -4 } }).success).toBe(true);
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: 4 } }).success).toBe(true);
+	});
+
+	it('rejects reputation outside boundaries (-5 and 5)', () => {
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: -5 } }).success).toBe(false);
+		expect(AgentSchema.safeParse({ ...validAgent, social: { ...validAgent.social, reputation: 5 } }).success).toBe(false);
+	});
+
+	it('requires wallet (no default)', () => {
+		const { wallet: _, ...noWallet } = validAgent;
+		expect(AgentSchema.safeParse(noWallet).success).toBe(false);
+	});
 });

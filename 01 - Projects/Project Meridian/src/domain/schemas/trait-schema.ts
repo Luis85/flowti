@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const TraitEffectSchema = z.object({
+	/** GDD §23 mandates enum validation — deferred until tick systems are defined (Chunk D+) */
 	system: z.string(),
 	modifier: z.record(z.string(), z.unknown()),
 });
