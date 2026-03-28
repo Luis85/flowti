@@ -79,7 +79,6 @@ export default [
 			'src/infrastructure/vault/obsidian-*.ts',
 			'src/infrastructure/platform/obsidian-*.ts',
 			'src/domain/**/*.ts',
-			'src/ui/**/*.ts',
 		],
 		rules: {
 			'no-restricted-imports': [
