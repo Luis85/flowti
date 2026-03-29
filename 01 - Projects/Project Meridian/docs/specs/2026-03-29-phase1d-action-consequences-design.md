@@ -432,14 +432,14 @@ Phase 1D config values (recovery rates, interaction radius, social cooldown) liv
 **Completed:** 2026-03-29
 
 ### Final Test Count
-- **347 total tests** (309 baseline → +38 new)
+- **349 total tests** (309 baseline → +40 new)
 - 56 test files (49 baseline → +7 new)
 - Breakdown of new tests:
   - `rest.test.ts`: 5 tests (pure domain)
   - `feed.test.ts`: 3 tests (pure domain)
   - `socialize.test.ts`: 6 tests (pure domain)
-  - `rest-system.test.ts`: 6 tests (infrastructure)
-  - `feed-system.test.ts`: 4 tests (infrastructure)
+  - `rest-system.test.ts`: 7 tests (infrastructure, +1 leave-return)
+  - `feed-system.test.ts`: 5 tests (infrastructure, +1 leave-return)
   - `socialize-system.test.ts`: 6 tests (infrastructure)
   - `movement-system.test.ts`: +3 tests (energy drain, exhaustion, event)
   - `consequences-integration.test.ts`: 3 tests (cross-system)
