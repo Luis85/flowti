@@ -86,11 +86,17 @@ function assembleVaultOverlay(): Plugin {
 			copyDir(resolve(projectRoot, 'properties'), resolve(distDir, '03 - Resources/Properties'), '.md');
 			copyDir(resolve(projectRoot, 'graphs'), resolve(distDir, '03 - Resources/Graphs'), '.canvas');
 
-			// Generate README from game data + config constants
-			try {
-				execSync('node scripts/generate-readme.mjs', { cwd: projectRoot, stdio: 'inherit' });
-			} catch {
-				console.warn('[build] README generation failed — skipping');
+			// Generate build artifacts from game data
+			const scripts = [
+				'node scripts/generate-readme.mjs',
+				'node scripts/generate-world-snapshot.mjs',
+			];
+			for (const script of scripts) {
+				try {
+					execSync(script, { cwd: projectRoot, stdio: 'inherit' });
+				} catch {
+					console.warn(`[build] ${script} failed — skipping`);
+				}
 			}
 		},
 	};
