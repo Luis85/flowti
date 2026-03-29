@@ -1,0 +1,8 @@
+{
+	"id": "loc-farm",
+	"name": "Hillside Farm",
+	"type": "food",
+	"position": { "x": 100, "y": 100 },
+	"capacity": 8,
+	"color": "#7cba3f"
+}

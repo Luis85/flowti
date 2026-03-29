@@ -1,0 +1,8 @@
+{
+	"id": "loc-bakery",
+	"name": "Hearthstone Bakery",
+	"type": "food",
+	"position": { "x": 350, "y": 350 },
+	"capacity": 6,
+	"color": "#d2691e"
+}

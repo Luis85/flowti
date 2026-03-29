@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createFeedSystem } from '../../../src/infrastructure/systems/feed-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
+import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -66,14 +67,16 @@ describe('FeedSystem', () => {
 		eventBus.on('FeedStarted', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'seek_food' };
 		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
 
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		// food_recovery_rate = 1.5, starting hunger = 50
-		expect(needs.state.hunger).toBeCloseTo(51.5);
+		// food_recovery_rate = 0.3, starting hunger = 50
+		expect(needs.state.hunger).toBeCloseTo(50.3);
 
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.agentId).toBe('agent-1');
@@ -101,6 +104,8 @@ describe('FeedSystem', () => {
 		eventBus.on('FeedStarted', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'seek_food' };
 		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
 
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);
@@ -113,9 +118,9 @@ describe('FeedSystem', () => {
 		system.execute(createDeps(eventBus, 2));
 		expect(events.length).toBe(1);
 
-		// Hunger should have increased twice (1.5 each tick)
+		// Hunger should have increased twice (0.3 each tick)
 		const needs = agent.get(NeedsComponent);
-		expect(needs.state.hunger).toBeCloseTo(53.0);
+		expect(needs.state.hunger).toBeCloseTo(50.6);
 	});
 
 	it('clears feedingAt when agent leaves food location and re-emits on return', () => {
@@ -124,6 +129,8 @@ describe('FeedSystem', () => {
 		eventBus.on('FeedStarted', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'seek_food' };
 		const foodLoc = createFoodLocation('loc-market', 100, 100);
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);
 		const deps = createDeps(eventBus);
@@ -148,16 +155,56 @@ describe('FeedSystem', () => {
 	it('clamps hunger to 100', () => {
 		const eventBus = createEventBus();
 		const agent = new AgentActor(
-			createTestAgentData('agent-1', 300, 200, { needs: { hunger: 99.5, energy: 50, social: 50 } }),
+			createTestAgentData('agent-1', 300, 200, { needs: { hunger: 99.9, energy: 50, social: 50 } }),
 			defaultMoodConfig,
 		);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'seek_food' };
 		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
 
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		// 99.5 + 1.5 = 101 → clamped to 100
+		// 99.9 + 0.3 = 100.2 → clamped to 100
 		expect(needs.state.hunger).toBe(100);
+	});
+
+	it('skips agent not actively seeking food', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('FeedStarted', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'idle' };
+		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
+
+		const system = createFeedSystem(() => [agent], () => [foodLoc]);
+		system.execute(createDeps(eventBus));
+
+		const needs = agent.get(NeedsComponent);
+		// Agent is at food location but btAction is 'idle' — no recovery
+		expect(needs.state.hunger).toBe(50);
+		expect(events.length).toBe(0);
+	});
+
+	it('recovers hunger when agent btAction is seek_food', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('FeedStarted', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'seek_food' };
+		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
+
+		const system = createFeedSystem(() => [agent], () => [foodLoc]);
+		system.execute(createDeps(eventBus));
+
+		const needs = agent.get(NeedsComponent);
+		// food_recovery_rate = 0.3, starting hunger = 50
+		expect(needs.state.hunger).toBeCloseTo(50.3);
+		expect(events.length).toBe(1);
 	});
 });

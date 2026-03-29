@@ -27,6 +27,13 @@
 					{ "type": "action", "action": "socialize", "params": {} }
 				]
 			},
+			{
+				"type": "sequence",
+				"children": [
+					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "work" } },
+					{ "type": "action", "action": "seek_work", "params": {} }
+				]
+			},
 			{ "type": "action", "action": "idle", "params": {} }
 		]
 	}

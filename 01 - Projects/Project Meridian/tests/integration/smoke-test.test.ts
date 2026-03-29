@@ -136,10 +136,11 @@ describe('Smoke Test — Real Data', () => {
 		const targetLoc = foodLoc ?? restLoc;
 		expect(targetLoc, 'Need at least one food or rest location in shipped data').toBeDefined();
 
-		// Create actors with LOW needs — place first agent directly on the target location
+		// Create actors — place first agent at food location with low hunger + high energy
+		// so BT fires seek_food (not seek_rest), enabling FeedSystem recovery
 		const actors = agentData.map((a, idx) => {
 			const overrides = idx === 0 && targetLoc !== undefined
-				? { needs: { hunger: 20, energy: 10, social: 15 }, position: { ...targetLoc.position, region: 'test' } }
+				? { needs: { hunger: 20, energy: 80, social: 80 }, position: { ...targetLoc.position, region: 'test' } }
 				: { needs: { hunger: 20, energy: 10, social: 15 } };
 			const actor = new AgentActor({ ...a, ...overrides }, defaultMoodConfig);
 			actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
@@ -186,17 +187,13 @@ describe('Smoke Test — Real Data', () => {
 
 		runner.tick(deps);
 
-		// At least one agent should show recovery in at least one need
-		// (agents near food/rest/social locations get recovery that exceeds decay)
-		let anyRecovery = false;
-		for (let i = 0; i < actors.length; i++) {
-			const post = actors[i]!.get(NeedsComponent).state;
-			const pre = preTickNeeds[i]!;
-			if (post.hunger > pre.hunger || post.energy > pre.energy || post.social > pre.social) {
-				anyRecovery = true;
-				break;
-			}
-		}
-		expect(anyRecovery, 'Expected at least one agent to recover a need via consequence systems').toBe(true);
+		// Agent 0 is at food location with btAction='seek_food' (BT fires it).
+		// Feed recovery (0.3) partially offsets hunger decay (0.5), so hunger decreases
+		// less than pure-decay would. Verify feed recovery was applied:
+		// pure decay → hunger=20-0.5=19.5, with feed → 20-0.5+0.3=19.8
+		const post0 = actors[0]!.get(NeedsComponent).state;
+		const pre0 = preTickNeeds[0]!;
+		const pureDecayHunger = pre0.hunger - deps.config.needs.hunger_decay;
+		expect(post0.hunger, 'Feed recovery should partially offset hunger decay').toBeGreaterThan(pureDecayHunger);
 	});
 });

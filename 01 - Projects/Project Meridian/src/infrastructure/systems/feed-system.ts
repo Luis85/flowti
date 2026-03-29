@@ -7,6 +7,13 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
 import { distance } from '../../domain/core/math-utils.js';
 
+function clearFeedingAt(bb: BlackboardComponent): void {
+	if (bb.state.feedingAt !== undefined) {
+		bb.state.feedingAt = undefined;
+		bb.markDirty();
+	}
+}
+
 export function createFeedSystem(
 	agents: () => AgentActor[],
 	locations: () => WorldLocation[],
@@ -32,12 +39,17 @@ export function createFeedSystem(
 					}
 				}
 
+				const bb = agent.get(BlackboardComponent);
+
 				if (nearestFood === undefined) {
-					const bb = agent.get(BlackboardComponent);
-					if (bb.state.feedingAt !== undefined) {
-						bb.state.feedingAt = undefined;
-						bb.markDirty();
-					}
+					clearFeedingAt(bb);
+					continue;
+				}
+
+				// Only recover hunger when actively seeking food
+				const btAction = bb.state.btAction as string | undefined;
+				if (btAction !== 'seek_food') {
+					clearFeedingAt(bb);
 					continue;
 				}
 
@@ -48,7 +60,6 @@ export function createFeedSystem(
 				needs.state = { ...needs.state, hunger: result.newHunger };
 				needs.markDirty();
 
-				const bb = agent.get(BlackboardComponent);
 				const previousFeedingAt = bb.state.feedingAt as string | undefined;
 
 				if (previousFeedingAt !== nearestFood.id) {

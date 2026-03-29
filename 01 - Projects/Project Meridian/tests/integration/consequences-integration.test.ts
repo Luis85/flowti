@@ -83,6 +83,10 @@ describe('Consequence Systems — Integration', () => {
 		const actor = new AgentActor(agentData, defaultMoodConfig);
 		actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
+		// Set btAction to 'seek_food' — FeedSystem requires this for recovery
+		const bb = actor.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'seek_food' };
+
 		const foodLocation: WorldLocation = {
 			id: 'loc-tavern-food', name: 'Tavern Kitchen', type: 'food',
 			position: { x: 100, y: 100, region: 'test' }, capacity: 10, color: '#808080',
@@ -95,6 +99,7 @@ describe('Consequence Systems — Integration', () => {
 		const getLocations = () => locations;
 		const getWorld = () => worldEntity;
 
+		// Omit BehaviorTreeSystem so it does not overwrite btAction
 		const runner = createTickRunner(eventBus);
 		runner.register(createTraitResolverSystem(getAgents, {}));
 		runner.register(createDayNightSystem(getWorld));
@@ -102,19 +107,18 @@ describe('Consequence Systems — Integration', () => {
 		runner.register(createMoodSystem(getAgents));
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
-		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
 		runner.register(createMovementSystem(getAgents, getLocations));
 		runner.register(createRestSystem(getAgents, getLocations));
 		runner.register(createFeedSystem(getAgents, getLocations));
 		runner.register(createSocializeSystem(getAgents));
 
-		const hungerBefore = actor.get(NeedsComponent).state.hunger;
 		const deps = createDeps(eventBus);
 		runner.tick(deps);
 		const hungerAfter = actor.get(NeedsComponent).state.hunger;
 
-		// Feed recovery (1.5) should exceed hunger decay (0.5), so net hunger increases
-		expect(hungerAfter).toBeGreaterThan(hungerBefore);
+		// Feed recovery (0.3) minus hunger decay (0.5) = net -0.2, but recovery still applied
+		// hungerBefore=50, decay=0.5 → without feed: 49.5, with feed: 49.8
+		expect(hungerAfter).toBeCloseTo(49.8);
 	});
 
 	it('agent rests at tavern — energy recovers, RestStarted emitted', () => {

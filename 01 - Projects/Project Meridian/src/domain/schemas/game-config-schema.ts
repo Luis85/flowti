@@ -11,7 +11,7 @@ const NeedsConfigSchema = z.object({
 	hunger_decay: z.number().default(0.5),
 	energy_decay: z.number().default(0.25),
 	social_decay: z.number().default(0.15),
-	food_recovery_rate: z.number().default(1.5),
+	food_recovery_rate: z.number().default(0.3),
 });
 
 const StaminaConfigSchema = z.object({
