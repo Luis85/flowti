@@ -35,5 +35,5 @@
 	"tools": [],
 	"behavior_tree": "bt-scholar",
 	"job": "librarian",
-	"property": ["library-desk-2"]
+	"property": []
 }

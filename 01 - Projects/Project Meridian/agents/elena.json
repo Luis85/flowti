@@ -35,5 +35,5 @@
 	"tools": [],
 	"behavior_tree": "bt-merchant",
 	"job": "shopkeeper",
-	"property": ["market-stall-3"]
+	"property": ["loc-market"]
 }

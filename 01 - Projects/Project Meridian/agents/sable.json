@@ -25,5 +25,5 @@
 	"tools": [],
 	"behavior_tree": "bt-artisan",
 	"job": "leatherworker",
-	"property": ["workshop-7"]
+	"property": ["loc-workshop"]
 }

@@ -29,6 +29,7 @@ export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 export class MeridianGameView extends ItemView {
 	private engine: ex.Engine | null = null;
 	private disposeEngine: (() => void) | null = null;
+	private debugUnsubscribe: (() => void) | null = null;
 	private deps: GameCoreDeps | null;
 	private batchableEventBus: BatchableEventBus | null;
 
@@ -63,6 +64,8 @@ export class MeridianGameView extends ItemView {
 				await this.initializeWorld(this.engine, this.deps, this.batchableEventBus, container);
 			} else {
 				console.warn('[Meridian] Game deps not ready — tick system not registered.');
+				const msg = container.createDiv({ cls: 'meridian-loading' });
+				msg.textContent = 'Simulation initializing... Please reopen this tab.';
 			}
 
 			const loader = createGameLoader();
@@ -99,7 +102,7 @@ export class MeridianGameView extends ItemView {
 		this.populateScene(engine, world, deps, tickRunner);
 
 		// Centralized event debug logging — logs all game events at debug level
-		eventBus.onAny((event) => {
+		this.debugUnsubscribe = eventBus.onAny((event) => {
 			deps.logger.debug(event.source, `[${event.type}] tick ${String(event.tick)}`, event.payload);
 		});
 
@@ -160,6 +163,8 @@ export class MeridianGameView extends ItemView {
 
 	// eslint-disable-next-line @typescript-eslint/require-await -- Obsidian ItemView interface requires async
 	async onClose(): Promise<void> {
+		this.debugUnsubscribe?.();
+		this.debugUnsubscribe = null;
 		this.disposeEngine?.();
 		this.disposeEngine = null;
 		if (this.engine !== null) {

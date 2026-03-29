@@ -8,7 +8,6 @@ export class MeridianTickSystem extends System {
 
 	private accumulator = 0;
 	private prevInterval: number;
-	private readonly maxCatchUp = 3;
 
 	constructor(
 		private tickRunner: TickScheduler,
@@ -29,7 +28,8 @@ export class MeridianTickSystem extends System {
 
 		this.accumulator += elapsed;
 		let steps = 0;
-		while (this.accumulator >= interval && steps < this.maxCatchUp) {
+		const maxCatchUp = this.deps.config.max_catch_up_ticks;
+		while (this.accumulator >= interval && steps < maxCatchUp) {
 			this.tickRunner.tick(this.deps);
 			this.accumulator -= interval;
 			steps++;

@@ -8,8 +8,7 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { clamp, distance } from '../../domain/core/math-utils.js';
 
-/** Snap-to-target when within this fraction of per-tick speed */
-const ARRIVAL_THRESHOLD_MULTIPLIER = 1.5;
+/** Snap-to-target when within this fraction of per-tick speed — value from config.formulas.arrival_threshold_multiplier */
 
 interface MovementTarget {
 	id: string;
@@ -97,7 +96,7 @@ export function createMovementSystem(
 				const speedPerTick = attrs.state.DX / deps.config.formulas.basic_speed_divisor;
 				const speedPerSec = speedPerTick * (1000 / deps.config.tick_interval_ms);
 				const dist = distance(agent.pos.x, agent.pos.y, targetPos.x, targetPos.y);
-				const arrivalThreshold = speedPerTick * ARRIVAL_THRESHOLD_MULTIPLIER;
+				const arrivalThreshold = speedPerTick * deps.config.formulas.arrival_threshold_multiplier;
 
 				if (dist <= arrivalThreshold) {
 					// Arrived — snap to target, stop, emit event

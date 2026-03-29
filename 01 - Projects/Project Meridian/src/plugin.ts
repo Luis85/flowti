@@ -79,14 +79,12 @@ export class MeridianPlugin extends Plugin {
 		this.performanceTracker.setEnabled(this.settings.performanceTracking);
 
 		if (this.gameDeps !== null) {
-			Object.assign(this.gameDeps, {
-				logger: this.logger,
-				performanceTracker: this.performanceTracker,
-			});
+			this.gameDeps.logger = this.logger;
+			this.gameDeps.performanceTracker = this.performanceTracker;
 
 			// Hot-swap simulation settings
 			const config = this.gameDeps.config;
-			config.tick_interval_ms = Math.round(1000 / this.settings.tickRate);
+			config.tick_interval_ms = Math.max(50, Math.round(1000 / this.settings.tickRate));
 			config.ticks_per_day = Math.round(
 				this.settings.dayCycleDuration * this.settings.tickRate,
 			);

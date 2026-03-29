@@ -159,6 +159,7 @@ const FormulasConfigSchema = z.object({
 	carry_capacity_multiplier: z.number().default(5),
 	trade_modifier_per_chr: z.number().default(0.02),
 	social_reach_multiplier: z.number().default(0.5),
+	arrival_threshold_multiplier: z.number().default(1.5),
 });
 
 const BTConfigSchema = z.object({
@@ -199,6 +200,7 @@ export const GameConfigSchema = z.object({
 	version: z.string().default('1.0.0'),
 	locale: z.string().default('en'),
 	tick_interval_ms: z.number().int().min(50).default(500),
+	max_catch_up_ticks: z.number().int().min(1).default(3),
 	ticks_per_day: z.number().int().min(1).default(480),
 	mortality: z.boolean().default(true),
 	needs: withDefaults(NeedsConfigSchema),
