@@ -177,6 +177,9 @@ Systems execute in deterministic order, each inside an **error boundary** using 
 |4|`MemorySystem`|Memory decay, consolidation|
 |5|`BehaviorTreeSystem`|Decision engine (agent + animal BTs via Blackboard)|
 |5.5|`MovementSystem`|Processes move ActionIntents, region transitions, stamina deduction|
+|6.5|`RestSystem`|Recovers energy based on rest location tier (owned_home: +2.0, public_shelter: +1.5, outdoors: +1.0)|
+|6.6|`FeedSystem`|Recovers hunger at food locations (+0.3/tick, only when btAction is seek_food)|
+|6.7|`SocializeSystem`|Recovers social near agents (+0.5/tick), creates mutual memories with 50-tick per-pair cooldown|
 |6|`JobSystem`|Shift eval, production (recipes), wage distribution|
 |7|`QuestEvaluationSystem`|Objective tracking, completion, failure|
 |8|`ObjectInteractionSystem`|World object use, stock depletion|
@@ -243,7 +246,7 @@ Entity (ECS base — Position, Renderable)
 │   ├── Property (owned plots, buildings)
 │   ├── Relationships (Canvas-backed graph)
 │   ├── Traits (data-driven tag array, e.g. ["trait-unkillable", "trait-founder"])
-│   ├── BrainState (mistreevous BT + Blackboard)
+│   ├── BrainState (BT evaluation via custom `evaluateBT()` function + BlackboardComponent (ECS))
 │   ├── DialogueConfig (template + optional LLM)
 │   └── ToolAccess (file ops, skill-gated)
 │
@@ -349,6 +352,24 @@ These rates are configurable in `game-config.json`. The design intent: a single 
 |Outdoors|Anywhere — bench, ground, open field|50% (1.0/tick)|-3 mood ("slept rough")|
 
 Homeless agents always have the worst tier. They can rest but recover slowly and suffer a mood penalty. This creates natural housing demand without locking agents out of rest entirely.
+
+### Action Consequences (Phase 1D)
+
+Actions have tangible effects when agents are within the interaction radius (25px) of relevant locations or agents.
+
+**Rest Recovery:** Energy recovers at rest-type locations. Tier depends on ownership:
+
+|Tier|Rate/tick|Mood|Condition|
+|---|---|---|---|
+|Owned Home|+2.0|+2|Agent owns the location (property[])|
+|Public Shelter|+1.5|0|At rest location, not owned|
+|Outdoors|+1.0|-3|Idle, no rest location nearby|
+
+**Food Recovery:** Hunger recovers at +0.3/tick at food locations, but only when agent's BT action is `seek_food`. Passive proximity doesn't trigger recovery.
+
+**Social Recovery:** Social recovers at +0.5/tick when socializing near another agent. Creates mutual memory entries (significance 3, mood impact +2). Per-pair cooldown of 50 ticks prevents memory flooding.
+
+**Movement Energy Cost:** Moving drains energy at `speed x 0.1/tick`. Exhausted agents (energy < 15) move at 0.5x speed. `AgentExhausted` event emitted when energy crosses 0.
 
 **Aspirational Goals:**
 
@@ -885,6 +906,8 @@ The Director designates zones on the map that constrain land use:
 
 Zone changes emit `ZoneChanged` events. Agents factor zone type into property purchase decisions.
 
+**Current implementation** uses behavioral location types that drive BT actions: `rest`, `food`, `social`, `work`, `market`. The zone-based classification (residential, commercial, etc.) is a Phase 7 concern for property and construction.
+
 ---
 
 ## 8 · Director System
@@ -1387,6 +1410,8 @@ const AgentSchema = z.object({
   id: z.string().regex(/^agent-[a-z0-9-]+$/),
   name: z.string().min(1),
   kind: z.string(),
+  persona: z.string().nullable().default(null),  // path to markdown persona file
+  color: z.string().default('#b0b0b0'),           // hex color for agent visual representation
   attributes: z.object({
     ST: z.number().int().min(1).max(20),
     DX: z.number().int().min(1).max(20),
@@ -1419,7 +1444,7 @@ const AgentSchema = z.object({
   tools: z.array(z.string()).default([]),
   behavior_tree: z.string(),
   job: z.string().nullable().default(null),
-  property: z.array(z.string()).default([]),
+  property: z.array(z.string()).default([]),    // owned location IDs (used for rest tier ownership detection)
 });
 
 type Agent = z.infer<typeof AgentSchema>;
@@ -1467,7 +1492,8 @@ construction_progress: null    # ticks remaining if under_construction
 ---
 id: loc-marketplace
 name: "Marketplace"
-type: commercial               # residential | commercial | agricultural | industrial | public
+type: commercial               # Zone types (Phase 7): residential | commercial | agricultural | industrial | public
+                               # Current behavioral types: rest | food | social | work | market
 position: { x: 400, y: 200 }
 bounds: { width: 200, height: 150 }
 connections: [loc-farm-district, loc-residential-north, loc-forge-quarter]
@@ -1525,12 +1551,14 @@ stamina_cost: 0
   "needs": {
     "hunger_decay": 0.5,
     "energy_decay": 0.25,
-    "social_decay": 0.15
+    "social_decay": 0.15,
+    "food_recovery_rate": 0.3
   },
   "stamina": {
     "recovery_per_idle_tick": 0.05,
     "exhaustion_speed_modifier": 0.5,
-    "exhaustion_skill_penalty": -2
+    "exhaustion_skill_penalty": -2,
+    "movement_energy_cost": 0.1
   },
   "memory": {
     "max_entries": 50,
@@ -1611,7 +1639,14 @@ stamina_cost: 0
   },
   "perception": {
     "base_multiplier": 20,
-    "night_multiplier": 10
+    "night_multiplier": 0.5,
+    "interaction_radius": 25
+  },
+  "social": {
+    "recovery_rate": 0.5,
+    "memory_significance": 3,
+    "memory_mood_impact": 2,
+    "cooldown_ticks": 50
   },
   "formulas": {
     "basic_speed_divisor": 4,
@@ -1671,7 +1706,7 @@ ECS Components (runtime state)
 EventBus
        │
        ├──► VaultSyncSystem: dirty components → serialize → Zod validate → write (retry queue)
-       ├──► UIBridgeSystem: diffs → Pinia stores → Vue reactivity
+       ├──► UIBridgeSystem: diffs → UI state [Phase 8 — not yet implemented]
        ├──► NotificationSystem: filter → Director alerts
        └──► Logger: structured log → console + vault + UI
 ```
@@ -1738,7 +1773,7 @@ Toolbar displays alert count. Clicking expands a notification dropdown:
 
 Clicking a notification selects the relevant entity on the map and panel.
 
-### 13.4 Vue Component Architecture
+### 13.4 Vue Component Architecture [Phase 8 — not yet implemented]
 
 ```
 App.vue
@@ -1784,7 +1819,7 @@ App.vue
 └── AppStatusBar.vue
 ```
 
-### 13.5 Pinia Stores
+### 13.5 Pinia Stores [Phase 8 — not yet implemented]
 
 |Store|Responsibility|Source|
 |---|---|---|
@@ -1808,11 +1843,11 @@ App.vue
 
 ### 13.6 UIBridge Contract
 
-The `UIBridgeSystem` (tick position 20) bridges ECS state to Pinia stores. **Hybrid event + snapshot model:**
+The `UIBridgeSystem` (tick position 20) bridges ECS state to the UI layer. **Hybrid event + snapshot model:** [Phase 8 — Vue/Pinia not yet implemented; game currently runs in ExcaliburJS canvas within Obsidian view]
 
-**High-frequency updates (every tick via events):** Agent positions, need values, mood changes, active BT node. Pushed as lightweight DTOs when the underlying event fires (e.g., `MoodChanged` → `useAgentStore` receives `{ agentId, mood, moodBucket }`). Minimal data, maximum responsiveness.
+**High-frequency updates (every tick via events):** Agent positions, need values, mood changes, active BT node. Pushed as lightweight DTOs when the underlying event fires (e.g., `MoodChanged` → UI store receives `{ agentId, mood, moodBucket }`). Minimal data, maximum responsiveness.
 
-**Consistency snapshot (every N ticks, default 10):** Full reconciliation pass. UIBridgeSystem iterates all dirty-flagged entities, serializes UI-relevant fields into DTOs, and pushes to Pinia stores. This catches any missed events and prevents UI drift.
+**Consistency snapshot (every N ticks, default 10):** Full reconciliation pass. UIBridgeSystem iterates all dirty-flagged entities, serializes UI-relevant fields into DTOs, and pushes to UI stores. This catches any missed events and prevents UI drift.
 
 **DTO format (not full ECS components):**
 
@@ -2076,7 +2111,7 @@ See §11.5. Simpler: Survival > Bond > Alert > Instinct > Idle.
 ### 15.4 BT Customization
 
 - Templates per `kind` in vault config. Director can override per agent.
-- Custom BTs in JSON (mistreevous format), hot-reloaded next tick.
+- Custom BTs in JSON (data-driven format evaluated by custom `evaluateBT()` engine), hot-reloaded next tick.
 
 ---
 
@@ -2229,12 +2264,12 @@ If a specific entity causes repeated errors (malformed data, corrupted state):
 |Systems|Unit: inject mock Blackboard/components, assert events|Vitest|
 |Result/Command/Saga|Unit: success paths, failure paths, compensation|Vitest|
 |Circuit Breaker|Unit: state transitions, cooldown, half-open|Vitest|
-|Behavior Trees|Integration: mock Blackboard → assert selected action|Vitest + mistreevous|
+|Behavior Trees|Integration: mock Blackboard → assert selected action|Vitest + custom BT engine|
 |EventBus|Unit: emit/subscribe, ordering, history, error isolation|Vitest|
 |VaultSync|Integration: mock fs (memfs), assert read/write/quarantine|Vitest + memfs|
 |LLM Adapter|Unit: mock HTTP, assert prompt assembly, Circuit Breaker|Vitest + MSW|
-|Vue Components|Component: mount with mock stores, assert render|Vitest + Vue Test Utils|
-|Vue Components (visual)|Isolated component dev, visual regression, design system docs|Storybook|
+|Vue Components|Component: mount with mock stores, assert render [Phase 8]|Vitest + Vue Test Utils|
+|Vue Components (visual)|Isolated component dev, visual regression, design system docs [Phase 8]|Storybook|
 |Localization|Unit: all locale keys resolve, no missing translations|Vitest|
 |Economy|Integration: seed items/agents, run N ticks, assert prices|Vitest|
 |**Emergence**|**Scenario: seed world, run N ticks, assert pattern**|**Custom harness (Vitest)**|
@@ -2332,24 +2367,35 @@ Emergence tests seed a world, run N ticks, and assert patterns. But BT decisions
 
 ## 18 · Development Phases
 
-|Phase|Scope|Exit Criteria|
-|---|---|---|
-|**0 — Foundation**|ECS, EventBus, Logger, Result type, Zod schemas, VaultSync (load-only), Trait schema + validation|Agents load from vault, events logged, invalid files quarantined, traits validated|
-|**1 — Agent Core**|Components, NeedsDecay, Mood, Memory, basic BT (idle + needs + mood), TraitResolverSystem, mortality toggle, mortality with legacy|Agents wander, seek food/rest, experience mood shifts, traits modify behavior, agents can die and leave legacies|
-|**2 — Spatial**|Map rendering, PerceptionSystem, movement, pathfinding|Agents move between locations, perceive entities|
-|**3 — Social**|DialogueSystem (templates), RelationshipSystem (Canvas), Blackboard, gossip layer|Agents talk, form relationships, remember interactions, spread information|
-|**4 — Items & Equipment**|Item system, equipment slots, durability, inventory|Agents carry, equip, use, and trade items|
-|**5 — Economy**|Recipes, JobSystem, production, pricing, TradeSystem (Saga), Director treasury, tax system, monetary safeguards, welfare quests|Supply chains produce goods, agents trade, Director has resource management|
-|**6 — Quests**|QuestEvaluation, Billboard, ToolExecution (Command), scenario system (goals, scoring, time limits)|Director creates quests, agents complete them, scenarios provide structured challenges|
-|**── VERTICAL SLICE GATE ──**|**First playable build. Everything after enriches.**|**Exit criteria below.**|
+|Phase|Scope|Exit Criteria|Status|
+|---|---|---|---|
+|**0 — Foundation**|ECS, EventBus, Logger, Result type, Zod schemas, VaultSync (load-only), Trait schema + validation|Agents load from vault, events logged, invalid files quarantined, traits validated|**COMPLETE**|
+|**1 — Agent Core**|Components, NeedsDecay, Mood, Memory, basic BT (idle + needs + mood), TraitResolverSystem, mortality toggle, mortality with legacy. Sub-phases: 1A (tick infrastructure), 1B (game systems), 1C (agent agency), 1D (action consequences)|Agents wander, seek food/rest, experience mood shifts, traits modify behavior, agents can die and leave legacies|**COMPLETE**|
+|**2 — Spatial**|Map rendering, PerceptionSystem, movement, pathfinding|Agents move between locations, perceive entities|**PARTIAL** — perception + linear movement implemented, no A* pathfinding|
+|**3 — Social**|DialogueSystem (templates), RelationshipSystem (Canvas), Blackboard, gossip layer|Agents talk, form relationships, remember interactions, spread information|NOT STARTED|
+|**4 — Items & Equipment**|Item system, equipment slots, durability, inventory|Agents carry, equip, use, and trade items|NOT STARTED|
+|**5 — Economy**|Recipes, JobSystem, production, pricing, TradeSystem (Saga), Director treasury, tax system, monetary safeguards, welfare quests|Supply chains produce goods, agents trade, Director has resource management|NOT STARTED|
+|**6 — Quests**|QuestEvaluation, Billboard, ToolExecution (Command), scenario system (goals, scoring, time limits)|Director creates quests, agents complete them, scenarios provide structured challenges|NOT STARTED|
+|**── VERTICAL SLICE GATE ──**|**First playable build. Everything after enriches.**|**Exit criteria below.**||
 
-|**7 — Property**|Land plots, ConstructionSystem, zoning|Agents buy land, build, zones constrain use|
-|**8 — Director UI**|Vue panels, Pinia, split view, notifications, Chronicler panel, data dashboards, world builder, story curation tools, smart notifications|Full management interface with narrative and analytical layers|
-|**9 — Persistence**|VaultSync (continuous bi-directional), retry queue|Changes persist, external edits sync|
-|**10 — Animals**|Animal entities, instinct BT, bond system, species|Pets follow owners, instinct behaviors|
-|**11 — LLM**|Unified adapter, Cursor, Circuit Breaker, personality|LLM-enhanced dialogue with resilient fallback|
-|**12 — World Events**|WorldEventSystem, event definitions, manual triggers, seasonal cycles (4-season model)|Random events and seasonal rhythms create external pressure|
-|**13 — Polish**|Emergence tests, debug overlays, balance, performance, crime layer, milestone tracking, full Chronicler narrator, biography generation|Complete emergence stack validated|
+|**7 — Property**|Land plots, ConstructionSystem, zoning|Agents buy land, build, zones constrain use|NOT STARTED|
+|**8 — Director UI**|Vue 3 panels, Pinia stores, split view, notifications, Chronicler panel, data dashboards, world builder, story curation tools, smart notifications|Full management interface with narrative and analytical layers|NOT STARTED|
+|**9 — Persistence**|VaultSync (continuous bi-directional), retry queue|Changes persist, external edits sync|NOT STARTED|
+|**10 — Animals**|Animal entities, instinct BT, bond system, species|Pets follow owners, instinct behaviors|NOT STARTED|
+|**11 — LLM**|Unified adapter, Cursor, Circuit Breaker, personality|LLM-enhanced dialogue with resilient fallback|NOT STARTED|
+|**12 — World Events**|WorldEventSystem, event definitions, manual triggers, seasonal cycles (4-season model)|Random events and seasonal rhythms create external pressure|NOT STARTED|
+|**13 — Polish**|Emergence tests, debug overlays, balance, performance, crime layer, milestone tracking, full Chronicler narrator, biography generation|Complete emergence stack validated|NOT STARTED|
+
+### Current State (2026-03-29)
+
+- 11 active game systems in tick pipeline
+- 353 tests across 56 test files
+- 77 source files
+- 4 agents, 6 locations, 4 behavior trees, 3 traits
+- 7 BT actions implemented: idle, seek_food, seek_rest, seek_social, seek_work, interact, socialize
+- Custom BT engine (not mistreevous) — pure-function evaluator with data-driven JSON trees
+- No UI layer (Vue/Pinia) — game runs in ExcaliburJS canvas within Obsidian view
+- No economy, quests, crafting, dialogue, or persistence beyond load-on-startup
 
 **Phase Acceptance Criteria (concrete test scenarios per phase):**
 
@@ -2730,7 +2776,7 @@ Project Meridian is implemented as an **Obsidian plugin**. The Obsidian vault _i
 - The Director can inspect and edit any game entity by opening its markdown file directly in Obsidian.
 - The Chronicler's output (chronicles, biographies) is browsable as normal Obsidian notes, linkable and searchable.
 - Relationship graphs are viewable in Obsidian's native Canvas view.
-- The game UI (world map, management panels) renders in a custom Obsidian view (leaf) using ExcaliburJS + Vue.
+- The game UI (world map) renders in a custom Obsidian view (leaf) using ExcaliburJS. Management panels via Vue 3 + Pinia are planned for Phase 8.
 - VaultSync leverages Obsidian's file system APIs for read/write/watch.
 - Plugin settings map to `game-config.json`.
 
@@ -2803,11 +2849,11 @@ All game entities are ExcaliburJS types:
 **We build (game-specific, on top of ExcaliburJS):**
 - All custom components (Needs, Mood, Memory, Skills, Wallet, Goals, Traits, etc.)
 - All simulation systems (NeedsDecay, Mood, Memory, BT, Job, Quest, Trade, Economy, etc.)
-- Behavior Tree integration (mistreevous + Blackboard pattern)
+- Behavior Tree integration (custom BT engine + Blackboard pattern)
 - Modifier pipeline (TraitResolver → Season → WorldEvent → DayNight composition)
 - VaultSync (Obsidian file system ↔ ECS bidirectional sync)
 - Zod validation pipeline (schema → validate → ECS component)
-- Vue management sidebar (Pinia stores bridged from ECS)
+- Vue management sidebar (Pinia stores bridged from ECS) [Phase 8 — not yet implemented]
 - Chronicler system (observation, narration, reports)
 - All game-specific UI (management panel, dashboards, story tools)
 - LLM adapter + Circuit Breaker
@@ -3023,7 +3069,7 @@ Content created by the Director (agent names, quest titles, era names, bookmarks
 
 ### 30.6 Implementation Notes
 
-- Vue UI uses `vue-i18n` for reactive locale switching (no reload required).
+- Vue UI will use `vue-i18n` for reactive locale switching (no reload required). [Phase 8 — not yet implemented]
 - Game systems use a lightweight `i18n.t(key)` / `i18n.name(entityId)` function imported from infrastructure.
 - Locale switch emits `LocaleChanged` event. UIBridgeSystem refreshes all display strings.
 - Shipping locales: `en` (default). Additional locales are community-contributable — adding a locale requires: one JSON file + dialogue template folder + chronicler template folder.
@@ -3146,7 +3192,7 @@ Toggled via toolbar button or keyboard shortcut. Individual overlay categories t
 |Resource|Minimum (300 entities)|Recommended|
 |---|---|---|
 |CPU|4 cores|6+ cores|
-|RAM|8 GB total (Obsidian ~1 GB + plugin ~500 MB for ECS + Vue + ExcaliburJS)|16 GB|
+|RAM|8 GB total (Obsidian ~1 GB + plugin ~500 MB for ECS + ExcaliburJS; Vue/Pinia add ~100 MB in Phase 8)|16 GB|
 |GPU|Integrated graphics (WebGL via Electron's Chromium)|Dedicated GPU for 60 FPS|
 |Storage|SSD required (vault I/O every 2s; spinning disk bottlenecks VaultSync)|NVMe SSD|
 |Display|1280×720 minimum (split view needs horizontal space)|1920×1080+|
@@ -3214,17 +3260,17 @@ If any answer is "no," redesign before implementing.
 |Runtime / ECS|ExcaliburJS v0.32+|ECS framework, Actor system, Actions API, collision (SparseHashGrid), camera strategies, EventEmitter, Timer/Clock, scene management, debug tools, input handling, graphics pipeline (WebGL + Canvas fallback)|
 |Pathfinding|@excaliburjs/plugin-pathfinding|A* and Dijkstra for region graph and intra-region navigation|
 |Language|TypeScript (strict)|Type safety, Zod integration|
-|Behavior Trees|mistreevous|Agent and animal decision-making|
-|UI Framework|Vue 3 (Composition API)|Declarative component-based Director UI|
-|State Management|Pinia|Reactive stores bridging ECS → Vue|
+|Behavior Trees|Custom BT Engine — pure-function evaluator (`src/domain/systems/behavior-tree.ts`), data-driven JSON behavior trees loaded from vault|Agent and animal decision-making|
+|UI Framework|Vue 3 (Composition API) [Phase 8 — not yet implemented]|Declarative component-based Director UI|
+|State Management|Pinia [Phase 8 — not yet implemented]|Reactive stores bridging ECS → Vue|
 |Data Validation|Zod|Schema definition, validation, type inference|
 |Persistence|Obsidian Vault (markdown + Canvas + JSON)|Data-driven world definition and state|
 |LLM|Unified Adapter (Cursor API first)|Optional dialogue enrichment|
-|Testing|Vitest + Vue Test Utils + MSW + memfs|Unit, integration, component, emergence|
-|Component Dev|Storybook|Isolated Vue component development, visual testing, design system documentation|
+|Testing|Vitest + MSW + memfs (Vue Test Utils in Phase 8)|Unit, integration, component, emergence|
+|Component Dev|Storybook [Phase 8 — not yet implemented]|Isolated Vue component development, visual testing, design system documentation|
 |Linting|ESLint (flat config)|Architecture enforcement, layer boundaries, code quality|
 |Build|Vite|Fast builds, HMR|
-|i18n|vue-i18n|Reactive locale switching for Vue UI|
+|i18n|vue-i18n [Phase 8 — not yet implemented]|Reactive locale switching for Vue UI|
 
 ---
 
@@ -3290,8 +3336,8 @@ TDD is the primary development methodology. Every system, component, and feature
 |Data-driven content|Game behavior changes by modifying data files — test different configurations without code changes|
 |Typed DI|Systems receive dependencies via interfaces — swap real implementations for mocks/stubs in tests|
 |VaultAdapter interface|Use `MemfsAdapter` in tests — full vault behavior without touching the real filesystem|
-|Vue + Pinia|Components mount with mock stores — test UI rendering without running the game engine|
-|Storybook|Visual component testing and documentation — each UI component has stories before integration|
+|Vue + Pinia|Components mount with mock stores — test UI rendering without running the game engine [Phase 8]|
+|Storybook|Visual component testing and documentation — each UI component has stories before integration [Phase 8]|
 
 **Test Layers (ordered by speed, innermost first):**
 
@@ -3342,7 +3388,7 @@ Infrastructure → Domain → Systems → UI
 |Rule|Enforces|Example Violation|
 |---|---|---|
 |`no-restricted-imports` on domain files|Domain must not import infrastructure|A system importing `ObsidianVaultAdapter` directly instead of using the `VaultAdapter` interface|
-|`no-restricted-imports` on UI files|UI must not import domain internals|A Vue component importing ECS component classes instead of reading from Pinia stores|
+|`no-restricted-imports` on UI files|UI must not import domain internals|A Vue component importing ECS component classes instead of reading from Pinia stores [Phase 8]|
 |`no-restricted-imports` on systems|Systems must not import other systems|`JobSystem` importing `EconomySystem` instead of communicating via EventBus|
 |`no-restricted-globals`|No bare `fs`, `path`, `process` outside infrastructure|A system using `node:fs` instead of VaultAdapter|
 |`no-restricted-syntax`|No bare `try/catch` in system code|Using `try {} catch {}` instead of Result pattern|
@@ -3378,7 +3424,7 @@ Infrastructure → Domain → Systems → UI
 |**Emergence**|Complex behavior arising from runtime interaction of simple, decoupled systems.|
 |**Vault**|Obsidian-compatible filesystem serving as the game's database.|
 |**Canvas**|Obsidian Canvas format (`.canvas` JSON) used for relationship and zone graphs.|
-|**BT**|Behavior Tree — per-entity decision structure (mistreevous).|
+|**BT**|Behavior Tree — per-entity decision structure (custom pure-function evaluator with data-driven JSON trees).|
 |**Blackboard**|Per-entity key-value store populated from ECS components for BT reading.|
 |**ECS**|Entity-Component-System architecture (ExcaliburJS).|
 |**EventBus**|Typed pub/sub message bus connecting all systems.|

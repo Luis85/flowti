@@ -172,16 +172,16 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 |-------|-----------|------|
 | Platform | Obsidian Plugin API | Host environment, vault persistence, file system |
 | Runtime/ECS | ExcaliburJS v0.32+ | ECS, Actor, Actions API, collision (SparseHashGrid), camera, EventEmitter, Timer, scenes, debug, input, graphics (WebGL + Canvas fallback) |
-| Pathfinding | @excaliburjs/plugin-pathfinding | A* and Dijkstra for region graph navigation |
-| BT Engine | mistreevous | Behavior tree evaluation (agent + animal decision-making) |
-| UI Framework | Vue 3 (Composition API) | Management sidebar (collapsible sections) |
-| State Management | Pinia | Reactive stores bridging ECS → Vue |
+| Pathfinding | @excaliburjs/plugin-pathfinding [Phase 2+] | A* and Dijkstra for region graph navigation |
+| BT Engine | Custom BT Engine | Pure-function behavior tree evaluator (src/domain/systems/behavior-tree.ts) |
+| UI Framework | Vue 3 (Composition API) [Phase 8+] | Management sidebar (collapsible sections) |
+| State Management | Pinia [Phase 8+] | Reactive stores bridging ECS → Vue |
 | Validation | Zod | Schema definition, runtime validation, TypeScript type inference |
 | Persistence | Obsidian Vault (markdown + Canvas + JSON) | Data-driven world definition and state |
 | LLM | Unified LLMProvider interface | Optional dialogue enrichment (Cursor API first) |
-| i18n | vue-i18n | Reactive locale switching for Vue UI |
-| Testing | Vitest + Vue Test Utils + MSW + memfs | Unit, integration, component, emergence |
-| Component Dev | Storybook | Isolated Vue component development |
+| i18n | vue-i18n [Phase 8+] | Reactive locale switching for Vue UI |
+| Testing | Vitest + memfs | Unit, integration, emergence (Vue Test Utils + MSW: Phase 8+) |
+| Component Dev | Storybook [Phase 8+] | Isolated Vue component development |
 | Linting | ESLint (flat config) | Architecture enforcement, layer boundaries |
 | Build | Vite | Fast builds, HMR, CJS output for Obsidian |
 
@@ -291,7 +291,41 @@ infrastructure/
 ├── engine/
 │   ├── game-engine.ts      — ExcaliburJS Engine factory (FitContainerAndFill, Arcade physics)
 │   ├── game-view.ts        — Obsidian ItemView wrapping ExcaliburJS (error boundary)
-│   └── game-loader.ts      — Custom DefaultLoader (suppresses click prompt for Obsidian)
+│   ├── game-loader.ts      — Custom DefaultLoader (suppresses click prompt for Obsidian)
+│   ├── world-loader.ts     — Vault → ECS entity hydration (agents, locations, traits, BTs)
+│   └── batchable-event-bus.ts — EventBus with batch/flush for tick-boundary delivery
+│
+├── systems/                     — GameSystem wrappers (dual-layer pattern)
+│   ├── trait-resolver-system.ts
+│   ├── day-night-system.ts
+│   ├── needs-decay-system.ts
+│   ├── mood-system.ts
+│   ├── perception-system.ts
+│   ├── memory-decay-system.ts
+│   ├── behavior-tree-system.ts
+│   ├── movement-system.ts
+│   ├── rest-system.ts
+│   ├── feed-system.ts
+│   └── socialize-system.ts
+│
+├── components/                  — ECS components (TrackedComponent base)
+│   ├── tracked-component.ts     — Base class with markDirty()/clearDirty()
+│   ├── needs.ts
+│   ├── mood.ts
+│   ├── memory.ts
+│   ├── blackboard.ts
+│   ├── attributes.ts
+│   ├── social.ts
+│   ├── traits.ts
+│   ├── perception.ts
+│   └── time.ts
+│
+├── entity/                      — Entity constructors
+│   ├── agent-actor.ts           — Agent Actor factory
+│   ├── agent-spawner.ts         — Agent spawn orchestration
+│   ├── bt-loader.ts             — BT definition loading from vault
+│   ├── location-loader.ts       — Location entity loading
+│   └── trait-loader.ts          — Trait definition loading
 │
 ├── vault/
 │   ├── frontmatter-parser.ts    — YAML frontmatter extraction (Result-based, CRLF-safe)
@@ -321,6 +355,8 @@ infrastructure/
     ├── cursor-provider.ts  — [Phase 11] Cursor API implementation
     └── circuit-breaker.ts  — [Phase 11] Circuit Breaker wrapper
 ```
+
+**Dual-Layer System Pattern:** Every game system has a pure domain function (e.g., `applyNeedsDecay()` in `domain/systems/needs-decay.ts`) and a corresponding infrastructure wrapper (e.g., `createNeedsDecaySystem()` in `infrastructure/systems/needs-decay-system.ts`) that reads ECS components, calls the pure function, writes results back, and emits events. This separation keeps domain logic independently testable without ECS or EventBus dependencies.
 
 ### 5.4 Level 2 — UI Layer
 
@@ -373,6 +409,9 @@ ExcaliburJS Engine.update(delta)
 │   ├─ BehaviorTreeSystem (5)       — Evaluate all agent BTs via Blackboard
 │   ├─ MovementSystem (5.5)         — Process ActionIntents, region transitions
 │   ├─ JobSystem (6)                — Production, wages, facility fund
+│   ├─ RestSystem (6.5)             — Recovers energy at rest-type locations (3 tiers)
+│   ├─ FeedSystem (6.6)             — Recovers hunger at food-type locations (requires seek_food action)
+│   ├─ SocializeSystem (6.7)        — Recovers social near agents, creates mutual memories
 │   ├─ QuestEvaluationSystem (7)    — Objective tracking
 │   ├─ ObjectInteractionSystem (8)  — World object use
 │   ├─ ToolExecutionSystem (9)      — File ops via Command pattern
@@ -584,9 +623,9 @@ Director opens Quest Creator in management sidebar
 ### 6.8 Implementation Phasing Roadmap
 
 ```
-Phase 0: Foundation          ← Current
-Phase 1: Agent Core
-Phase 2: Spatial
+Phase 0: Foundation          ← COMPLETE
+Phase 1: Agent Core          ← COMPLETE (1A tick infrastructure, 1B game systems, 1C agent agency, 1D action consequences)
+Phase 2: Spatial             ← Partially complete (perception + movement done, A* pathfinding not yet)
 Phase 3: Social
 Phase 4: Items & Equipment
 Phase 5: Economy
@@ -600,6 +639,8 @@ Phase 11: LLM
 Phase 12: World Events + Seasons
 Phase 13: Polish
 ```
+
+**Implementation progress:** 11 of 21 SystemPriority slots are implemented and registered (TraitResolver, DayNight, NeedsDecay, Mood, Perception, MemoryDecay, BehaviorTree, Movement, Rest, Feed, Socialize).
 
 **Vertical Slice exit criteria:** 5 agents with BT, 1 supply chain, 3 job types, quest creation/completion, basic UI (map + sidebar), Chronicler onboarding, treasury with tax, gossip, VaultSync persistence, 3 emergence tests passing.
 
@@ -672,14 +713,18 @@ Result.err(error) → explicit failure, composable via map/flatMap
 
 **Entity suspension:** Repeatedly failing entities are suspended from system processing. `EntitySuspended` event → Director notification. Resume on data correction.
 
-### 8.2 Saga Pattern (Multi-Step Transactions)
+### 8.2 Saga Pattern (Multi-Step Transactions) [Phase 5+]
+
+> **Note:** Phase 5+ — not yet implemented. Design is validated but no production code exists.
 
 Trades, construction, and agent-created quests use the Saga pattern:
 - Ordered Command sequence with compensating actions
 - If any step fails, all prior steps are compensated in reverse
 - Guarantees atomic operations across multiple entity state changes
 
-### 8.3 Circuit Breaker (LLM Protection)
+### 8.3 Circuit Breaker (LLM Protection) [Phase 5+]
+
+> **Note:** Phase 5+ — not yet implemented. Design is validated but no production code exists.
 
 ```
 Closed → (N failures) → Open → (cooldown) → Half-Open → (test call) → Closed/Open
@@ -812,7 +857,28 @@ ranges.ts (constants) → Schemas (min/max/enum) → Tests (RANGE.max + 1 = reje
 
 **Test-specific relaxations:** `no-unsafe-assignment` off (mocks), `require-await` off (async interface implementations), `no-unnecessary-condition` off (type-narrowing assertions), `varsIgnorePattern: ^_` (omit-via-destructure).
 
-### 8.17 Obsidian Plugin Lifecycle
+### 8.17 GameCoreDeps — Dependency Injection Container
+
+All systems receive `GameCoreDeps` which provides:
+- `logger` (hot-swappable) — replaced at runtime when settings change
+- `eventBus` (readonly) — shared EventBus instance
+- `config` (readonly reference, mutable properties) — game configuration
+- `performanceTracker` (hot-swappable) — replaced at runtime when settings change
+- `tickCount` (set per-tick) — current simulation tick number
+
+`applySettings()` in `plugin.ts` mutates `config` properties and replaces `logger`/`performanceTracker` at runtime. Because the `config` object reference is readonly but its properties are mutable, all systems see updated values immediately without re-injection.
+
+### 8.18 TrackedComponent Pattern
+
+All mutable ECS components extend `TrackedComponent` which provides `markDirty()`/`clearDirty()`. Systems must call `markDirty()` after any state mutation. Dirty flags serve two purposes:
+1. **Skip optimization** — systems like BehaviorTree and UIBridge skip processing clean entities
+2. **VaultSync optimization** — only dirty entities are persisted (Phase 9)
+
+### 8.19 MeridianTickSystem — ExcaliburJS Bridge
+
+`MeridianTickSystem extends excalibur.System` bridges the ExcaliburJS render loop with the domain tick scheduler. Uses a fixed-timestep accumulator with configurable interval and `maxCatchUp = 3` to prevent spiral-of-death (where slow ticks cause the accumulator to grow unboundedly, triggering more ticks and further slowing the system). The accumulator resets when the tick interval changes to prevent stale velocity integration from the previous interval.
+
+### 8.20 Obsidian Plugin Lifecycle
 
 ```
 onload():
@@ -848,7 +914,7 @@ onunload():
 | ADR-03 | Vault-as-database | Obsidian-native. Director can inspect/edit files. Zod validates at boundary. | Accepted |
 | ADR-04 | Result type, no try/catch | Explicit error paths. Composable. Infrastructure boundary exempted. | Accepted |
 | ADR-05 | EventBus with priority + batching | Loose coupling. Deterministic event delivery between systems. | Accepted |
-| ADR-06 | BT + Blackboard for agent decisions | Independently testable. BT reads Blackboard, writes ActionIntent. | Accepted |
+| ADR-06 | BT + Blackboard for agent decisions | Independently testable. BT reads Blackboard, writes selectedAction. Event type is `BTActionSelected` (not `ActionIntent`). **Amendment (2026-03-29):** Custom pure-function BT evaluator (`evaluateBT()`) used instead of mistreevous. 4 node types (action, condition, selector, sequence) cover Phases 0–1D. mistreevous remains the target if complexity warrants it at Phase 3+ (parallel, decorator, guard nodes). Review gate at Phase 3 (Social). | Accepted |
 | ADR-07 | Modifier pipeline (multiplicative rates, additive flats) | Composable. Prevents stacking to impossible values via clamping. | Accepted |
 | ADR-08 | Hybrid spatial model (region graph + free movement) | Strategic macro-movement + fluid micro-movement. ExcaliburJS collision for agent blocking. | Accepted |
 | ADR-09 | Supply chains via quest economy | No dedicated logistics system. Facility auto-quests drive supply transport. | Accepted |
