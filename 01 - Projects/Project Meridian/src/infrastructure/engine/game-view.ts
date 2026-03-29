@@ -20,8 +20,12 @@ import { createMovementSystem } from '../systems/movement-system.js';
 import { createRestSystem } from '../systems/rest-system.js';
 import { createFeedSystem } from '../systems/feed-system.js';
 import { createSocializeSystem } from '../systems/socialize-system.js';
+import { createFacilitySystem } from '../systems/facility-system.js';
+import { createTradeSystem } from '../systems/trade-system.js';
 import { TimeComponent } from '../components/time-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
+import { FacilityComponent } from '../components/facility-component.js';
+import { EconomyComponent } from '../components/economy-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 
 export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
@@ -117,33 +121,55 @@ export class MeridianGameView extends ItemView {
 			agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 		}
 
-		// Add location markers
+		// Add location markers and retain references for FacilityComponent queries
+		const locationActors = new Map<string, ex.Actor>();
 		for (const loc of world.locations) {
-			engine.currentScene.add(createLocationMarker(loc));
+			const marker = createLocationMarker(loc);
+			engine.currentScene.add(marker);
+
+			if (loc.production !== null) {
+				marker.addComponent(new FacilityComponent({
+					stock: [],
+					fund: deps.config.economy.facility_start_fund,
+					workProgress: 0,
+					status: 'idle',
+					workerId: null,
+				}));
+			}
+
+			locationActors.set(loc.id, marker);
 		}
 
-		// Create world entity for time state
+		// Create world entity for time state + economy
 		const worldEntity = new ex.Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
+		worldEntity.addComponent(new EconomyComponent({
+			treasury: deps.config.economy.treasury_start_sandbox,
+			ledger: [],
+			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+		}));
 		engine.currentScene.add(worldEntity);
 
 		// Entity queries
 		const getAgents = () => world.agents;
 		const getLocations = () => world.locations;
 		const getWorldEntity = () => worldEntity;
+		const getLocationActors = () => locationActors;
 
 		// Register all systems (priority order handled by tick runner)
 		tickRunner.register(createTraitResolverSystem(getAgents, world.traitDefs));
-		tickRunner.register(createDayNightSystem(getWorldEntity));
+		tickRunner.register(createDayNightSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
 		tickRunner.register(createNeedsDecaySystem(getAgents));
 		tickRunner.register(createMoodSystem(getAgents));
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createMemoryDecaySystem(getAgents));
-		tickRunner.register(createBehaviorTreeSystem(getAgents, world.btDefinitions, getWorldEntity, Date.now()));
+		tickRunner.register(createBehaviorTreeSystem(getAgents, world.btDefinitions, getWorldEntity, Date.now(), getLocationActors, getLocations));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
 		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
+		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity));
+		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(Object.keys(world.btDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
 	}

@@ -120,6 +120,26 @@ export class MeridianPlugin extends Plugin {
 			};
 		}
 
+		// Vault file writer for daily economy reports
+		const vault = this.app.vault;
+		const writeFile = async (path: string, content: string): Promise<void> => {
+			const existing = vault.getFileByPath(path);
+			if (existing !== null) {
+				await vault.modify(existing, content);
+			} else {
+				const folderPath = path.substring(0, path.lastIndexOf('/'));
+				const folder = vault.getFolderByPath(folderPath);
+				if (folder === null) {
+					await vault.createFolder(folderPath);
+				}
+				await vault.create(path, content);
+			}
+		};
+
+		if (this.gameDeps !== null) {
+			this.gameDeps.writeFile = writeFile;
+		}
+
 		// Sync config with saved settings (schema defaults differ from user settings)
 		this.applySettings();
 
