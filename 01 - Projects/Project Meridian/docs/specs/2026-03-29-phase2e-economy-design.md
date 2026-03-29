@@ -138,7 +138,7 @@ interface FacilityState {
 }
 ```
 
-Attached to location markers in `game-view.ts` `populateScene()`. Initialized with `fund` from `economy.facility_start_fund` (default 100).
+Attached to location markers in `game-view.ts` `populateScene()`. Initialized with `fund` from `economy.facility_start_fund` (default 200, matches GDD §6.5).
 
 #### RelationshipComponent (new ECS component)
 
@@ -161,7 +161,7 @@ Attached to each AgentActor. Starts with an empty `entries` array. Entries are c
 ```typescript
 interface LedgerEntry {
 	tick: number;
-	type: 'wage' | 'purchase' | 'tax' | 'consumption';
+	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare';
 	from: string;
 	to: string;
 	itemId: string | null;
@@ -491,7 +491,9 @@ interface DailyReportOutput {
 export function generateDailyReport(input: DailyReportInput): DailyReportOutput;
 ```
 
-Called by DayNightSystem at day boundary. Writes to vault via `deps.writeFile`.
+Called by DayNightSystem at day boundary. Before writing the report, DayNightSystem also runs the **welfare check**: for each agent with `wallet.gold < economy.welfare_threshold_gold`, inject `economy.welfare_reward_min` gold from treasury (if treasury has funds). Append a `welfare` ledger entry. This ensures broke agents get help before the next day's cycle begins.
+
+Writes to vault via `deps.writeFile`.
 
 **File path:** `03 - Resources/Economy/day-${dayCount}.md`
 
@@ -532,6 +534,7 @@ items_consumed: 4
 | `ItemConsumed` | FeedSystem | `agentId, itemId` |
 | `TaxCollected` | FacilitySystem | `amount, workerId, facilityId, source: 'wage'` |
 | `FacilityInsolvent` | FacilitySystem | `facilityId, fund: 0, unpaidWage` |
+| `WelfareGranted` | DayNightSystem | `agentId, amount, treasuryRemaining` |
 | `DailyReportWritten` | DayNightSystem | `dayCount, path` |
 
 All events follow the `GameEvent` interface: `{ type, tick, wallClock, source, payload }`.
