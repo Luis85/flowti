@@ -67,7 +67,7 @@ const hungerBT: BTNode = {
 
 const foodLocation: WorldLocation = {
 	id: 'loc-food', name: 'Food Stall', type: 'food',
-	position: { x: 100, y: 0 }, capacity: 10,
+	position: { x: 100, y: 0 }, capacity: 10, color: '#808080',
 };
 
 function createDeps(eventBus = createEventBus(), tickCount = 60): GameCoreDeps {
@@ -111,9 +111,8 @@ describe('Agency Integration', () => {
 		const deps = createDeps(eventBus, 60);
 		runner.tick(deps);
 
-		// Agent should have moved toward food location (x: 100)
-		// speed = DX(10) / basic_speed_divisor(4) = 2.5 px/tick, starting at x:0
-		expect(agent.pos.x).toBeGreaterThan(0);
+		// Agent should have velocity toward food location (x: 100)
+		expect(agent.vel.x).toBeGreaterThan(0);
 		const bb = agent.get(BlackboardComponent);
 		expect(bb.state.btAction).toBe('seek_food');
 	});
@@ -127,7 +126,7 @@ describe('Agency Integration', () => {
 		// Food at x:10 is outside night radius (2) but inside day radius (20).
 		const farFood: WorldLocation = {
 			id: 'loc-far-food', name: 'Far Food', type: 'food',
-			position: { x: 10, y: 0 }, capacity: 10,
+			position: { x: 10, y: 0 }, capacity: 10, color: '#808080',
 		};
 
 		const agent = new AgentActor(createTestAgent({ needs: { hunger: 30, energy: 90, social: 70 } }), defaultMoodConfig);
@@ -178,7 +177,7 @@ describe('Agency Integration', () => {
 		// speed = DX(10) / 4 = 2.5 px/tick, agent at x:3, food at x:5, distance = 2 < 2.5 → arrives
 		const nearFood: WorldLocation = {
 			id: 'loc-near', name: 'Near Food', type: 'food',
-			position: { x: 5, y: 0 }, capacity: 10,
+			position: { x: 5, y: 0 }, capacity: 10, color: '#808080',
 		};
 
 		const agent = new AgentActor(

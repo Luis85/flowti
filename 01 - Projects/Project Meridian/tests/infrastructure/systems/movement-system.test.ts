@@ -44,7 +44,7 @@ function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string,
 }
 
 function createTestLocation(id: string, x: number, y: number): WorldLocation {
-	return { id, name: id, type: 'food', position: { x, y, region: 'test' }, capacity: 10 };
+	return { id, name: id, type: 'food', position: { x, y, region: 'test' }, capacity: 10, color: '#808080' };
 }
 
 function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
@@ -58,10 +58,9 @@ function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 }
 
 describe('MovementSystem', () => {
-	it('moves agent toward target location', () => {
+	it('sets velocity toward target location', () => {
 		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0), defaultMoodConfig);
 
-		// Set movementTarget to a location
 		const bb = agent.get(BlackboardComponent);
 		bb.state = { ...bb.state, movementTarget: { id: 'loc-food-1', type: 'location' } };
 
@@ -70,10 +69,9 @@ describe('MovementSystem', () => {
 
 		system.execute(createDeps());
 
-		// Agent should have moved toward (100, 0)
-		expect(agent.pos.x).toBeGreaterThan(0);
-		expect(agent.pos.x).toBeLessThan(100);
-		expect(agent.pos.y).toBeCloseTo(0);
+		// Velocity should point toward target (positive x, zero y)
+		expect(agent.vel.x).toBeGreaterThan(0);
+		expect(agent.vel.y).toBeCloseTo(0);
 	});
 
 	it('emits AgentArrived and clears movementTarget on arrival', () => {
@@ -103,19 +101,19 @@ describe('MovementSystem', () => {
 		expect(agent.get(BlackboardComponent).state.movementTarget).toBeUndefined();
 	});
 
-	it('skips agents with no movementTarget', () => {
+	it('zeroes velocity when no movementTarget', () => {
 		const agent = new AgentActor(createTestAgentData('agent-3', 50, 50), defaultMoodConfig);
-		// No movementTarget set in blackboard
 
 		const system = createMovementSystem(() => [agent], () => []);
 
-		// Should not throw and position should remain unchanged
 		expect(() => { system.execute(createDeps()); }).not.toThrow();
+		expect(agent.vel.x).toBe(0);
+		expect(agent.vel.y).toBe(0);
 		expect(agent.pos.x).toBeCloseTo(50);
 		expect(agent.pos.y).toBeCloseTo(50);
 	});
 
-	it('moves agent toward another agent target', () => {
+	it('sets velocity toward another agent target', () => {
 		const agent1 = new AgentActor(createTestAgentData('agent-1', 0, 0), defaultMoodConfig);
 		const agent2 = new AgentActor(createTestAgentData('agent-2', 200, 0), defaultMoodConfig);
 
@@ -126,12 +124,12 @@ describe('MovementSystem', () => {
 
 		system.execute(createDeps());
 
-		// agent1 should have moved toward agent2
-		expect(agent1.pos.x).toBeGreaterThan(0);
-		expect(agent1.pos.x).toBeLessThan(200);
+		// Velocity should point toward agent2 (positive x)
+		expect(agent1.vel.x).toBeGreaterThan(0);
+		expect(agent1.vel.y).toBeCloseTo(0);
 	});
 
-	it('uses DX attribute for speed calculation', () => {
+	it('higher DX produces higher velocity', () => {
 		const slowAgent = new AgentActor(createTestAgentData('slow', 0, 0, { attributes: { ST: 10, DX: 4, IQ: 10, HT: 10 } }), defaultMoodConfig);
 		const fastAgent = new AgentActor(createTestAgentData('fast', 0, 0, { attributes: { ST: 10, DX: 20, IQ: 10, HT: 10 } }), defaultMoodConfig);
 
@@ -146,7 +144,7 @@ describe('MovementSystem', () => {
 
 		system.execute(createDeps());
 
-		// Fast agent moved more than slow agent
-		expect(fastAgent.pos.x).toBeGreaterThan(slowAgent.pos.x);
+		// Fast agent has higher velocity
+		expect(fastAgent.vel.x).toBeGreaterThan(slowAgent.vel.x);
 	});
 });

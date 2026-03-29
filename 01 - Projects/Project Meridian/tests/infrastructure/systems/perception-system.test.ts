@@ -51,7 +51,7 @@ function createWorldEntityWithPhase(phase: 'dawn' | 'day' | 'dusk' | 'night'): A
 }
 
 function createTestLocation(id: string, x: number, y: number): WorldLocation {
-	return { id, name: id, type: 'food', position: { x, y, region: 'test' }, capacity: 10 };
+	return { id, name: id, type: 'food', position: { x, y, region: 'test' }, capacity: 10, color: '#808080' };
 }
 
 function createDeps(tickCount = 1): GameCoreDeps {

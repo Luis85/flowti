@@ -1,6 +1,5 @@
 import { SystemPriority, type GameSystem } from '../../domain/core/tick-scheduler.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
-import { computeMovement } from '../../domain/systems/movement.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
@@ -15,6 +14,12 @@ function isMovementTarget(value: unknown): value is MovementTarget {
 	if (typeof value !== 'object' || value === null) return false;
 	const v = value as Record<string, unknown>;
 	return typeof v.id === 'string' && (v.type === 'agent' || v.type === 'location');
+}
+
+function distance(ax: number, ay: number, bx: number, by: number): number {
+	const dx = bx - ax;
+	const dy = by - ay;
+	return Math.sqrt(dx * dx + dy * dy);
 }
 
 export function createMovementSystem(
@@ -33,10 +38,12 @@ export function createMovementSystem(
 				const bb = agent.get(BlackboardComponent);
 				const rawTarget = bb.state.movementTarget;
 
-				if (!isMovementTarget(rawTarget)) continue;
-
-				const attrs = agent.get(AttributesComponent);
-				const speed = attrs.state.DX / deps.config.formulas.basic_speed_divisor;
+				if (!isMovementTarget(rawTarget)) {
+					// No target — stop moving
+					agent.vel.x = 0;
+					agent.vel.y = 0;
+					continue;
+				}
 
 				let targetPos: { x: number; y: number } | undefined;
 
@@ -46,25 +53,31 @@ export function createMovementSystem(
 						targetPos = { x: targetAgent.pos.x, y: targetAgent.pos.y };
 					}
 				} else {
-					const targetLocation = locationList.find(l => l.id === rawTarget.id);
-					if (targetLocation !== undefined) {
-						targetPos = { x: targetLocation.position.x, y: targetLocation.position.y };
+					const loc = locationList.find(l => l.id === rawTarget.id);
+					if (loc !== undefined) {
+						targetPos = { x: loc.position.x, y: loc.position.y };
 					}
 				}
 
-				if (targetPos === undefined) continue;
+				if (targetPos === undefined) {
+					agent.vel.x = 0;
+					agent.vel.y = 0;
+					continue;
+				}
 
-				const result = computeMovement({
-					currentPos: { x: agent.pos.x, y: agent.pos.y },
-					targetPos,
-					speed,
-					deltaTicks: 1,
-				});
+				const attrs = agent.get(AttributesComponent);
+				const speedPerTick = attrs.state.DX / deps.config.formulas.basic_speed_divisor;
+				const speedPerSec = speedPerTick * (1000 / deps.config.tick_interval_ms);
+				const dist = distance(agent.pos.x, agent.pos.y, targetPos.x, targetPos.y);
+				const arrivalThreshold = speedPerTick * 1.5;
 
-				agent.pos.x = result.newPos.x;
-				agent.pos.y = result.newPos.y;
+				if (dist <= arrivalThreshold) {
+					// Arrived — snap to target, stop, emit event
+					agent.pos.x = targetPos.x;
+					agent.pos.y = targetPos.y;
+					agent.vel.x = 0;
+					agent.vel.y = 0;
 
-				if (result.arrived) {
 					delete bb.state.movementTarget;
 					bb.markDirty();
 
@@ -79,6 +92,12 @@ export function createMovementSystem(
 							targetType: rawTarget.type,
 						},
 					});
+				} else {
+					// Set velocity toward target — ExcaliburJS interpolates between ticks
+					const nx = (targetPos.x - agent.pos.x) / dist;
+					const ny = (targetPos.y - agent.pos.y) / dist;
+					agent.vel.x = nx * speedPerSec;
+					agent.vel.y = ny * speedPerSec;
 				}
 			}
 		},
