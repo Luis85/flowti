@@ -1,6 +1,6 @@
 import { SystemPriority, type GameSystem } from '../../domain/core/tick-scheduler.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
-import { applyFeed } from '../../domain/systems/feed.js';
+import { applyFeed, type FeedConfig } from '../../domain/systems/feed.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { NeedsComponent } from '../components/needs-component.js';
@@ -42,10 +42,8 @@ export function createFeedSystem(
 				}
 
 				const needs = agent.get(NeedsComponent);
-				const result = applyFeed(
-					{ currentHunger: needs.state.hunger },
-					{ recovery_rate: deps.config.needs.food_recovery_rate },
-				);
+				const feedConfig: FeedConfig = { recovery_rate: deps.config.needs.food_recovery_rate };
+				const result = applyFeed({ currentHunger: needs.state.hunger }, feedConfig);
 
 				needs.state = { ...needs.state, hunger: result.newHunger };
 				needs.markDirty();

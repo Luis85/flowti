@@ -85,7 +85,7 @@ describe('Consequence Systems — Integration', () => {
 
 		const foodLocation: WorldLocation = {
 			id: 'loc-tavern-food', name: 'Tavern Kitchen', type: 'food',
-			position: { x: 100, y: 100 }, capacity: 10, color: '#808080',
+			position: { x: 100, y: 100, region: 'test' }, capacity: 10, color: '#808080',
 		};
 
 		const worldEntity = createWorldEntity();
@@ -130,7 +130,7 @@ describe('Consequence Systems — Integration', () => {
 
 		const restLocation: WorldLocation = {
 			id: 'loc-inn-rest', name: 'Village Inn', type: 'rest',
-			position: { x: 200, y: 200 }, capacity: 10, color: '#808080',
+			position: { x: 200, y: 200, region: 'test' }, capacity: 10, color: '#808080',
 		};
 
 		const worldEntity = createWorldEntity();

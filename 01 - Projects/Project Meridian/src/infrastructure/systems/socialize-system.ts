@@ -49,6 +49,11 @@ export function createSocializeSystem(
 				const cooldownKey = `lastSocial_${nearbyAgent.id}`;
 				const lastSocialTick = (bb.state[cooldownKey] as number | undefined) ?? null;
 
+				// Read partner's own cooldown separately
+				const partnerBb = partner.get(BlackboardComponent);
+				const partnerCooldownKey = `lastSocial_${agent.agentId}`;
+				const partnerLastSocialTick = (partnerBb.state[partnerCooldownKey] as number | undefined) ?? null;
+
 				// Apply socialization for initiating agent
 				const result = applySocialize({
 					agentId: agent.agentId,
@@ -74,7 +79,7 @@ export function createSocializeSystem(
 					partnerName: agent.agentName,
 					currentSocial: partnerNeeds.state.social,
 					currentTick: deps.tickCount,
-					lastSocialTick,
+					lastSocialTick: partnerLastSocialTick,
 				}, socialConfig);
 				partnerNeeds.state = { ...partnerNeeds.state, social: partnerResult.newSocial };
 				partnerNeeds.markDirty();
@@ -82,22 +87,27 @@ export function createSocializeSystem(
 				// If memory returned (not on cooldown): append to both agents
 				if (result.memory !== null) {
 					const agentMem = agent.get(MemoryComponent);
-					agentMem.state.entries.push(result.memory);
+					agentMem.state = {
+						...agentMem.state,
+						entries: [...agentMem.state.entries, result.memory],
+					};
 					agentMem.markDirty();
 
 					// Partner gets a reciprocal memory (from partnerResult)
 					if (partnerResult.memory !== null) {
 						const partnerMem = partner.get(MemoryComponent);
-						partnerMem.state.entries.push(partnerResult.memory);
+						partnerMem.state = {
+							...partnerMem.state,
+							entries: [...partnerMem.state.entries, partnerResult.memory],
+						};
 						partnerMem.markDirty();
 					}
 
 					// Update cooldown for both
-					bb.state[cooldownKey] = deps.tickCount;
+					bb.state = { ...bb.state, [cooldownKey]: deps.tickCount };
 					bb.markDirty();
 
-					const partnerBb = partner.get(BlackboardComponent);
-					partnerBb.state[`lastSocial_${agent.agentId}`] = deps.tickCount;
+					partnerBb.state = { ...partnerBb.state, [`lastSocial_${agent.agentId}`]: deps.tickCount };
 					partnerBb.markDirty();
 				}
 
