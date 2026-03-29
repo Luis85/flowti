@@ -129,18 +129,41 @@ function recordCycleComplete(
 			facilityId: loc.id,
 			workerId: worker.agentId,
 			outputItem: loc.production?.output.item_id,
-			outputQuantity: loc.production?.output.quantity,
+			outputQty: loc.production?.output.quantity,
+			wage: result.workerGoldChange,
+			taxCollected: result.taxCollected,
 		},
 	});
 
+	// Tax event
+	if (result.taxCollected > 0) {
+		deps.eventBus.emit({
+			type: 'TaxCollected',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'FacilitySystem',
+			payload: {
+				amount: result.taxCollected,
+				workerId: worker.agentId,
+				facilityId: loc.id,
+				source: 'wage',
+			},
+		});
+	}
+
 	// Insolvency check
 	if (facility.state.fund <= 0) {
+		const production = loc.production;
 		deps.eventBus.emit({
 			type: 'FacilityInsolvent',
 			tick: deps.tickCount,
 			wallClock: Date.now(),
 			source: 'FacilitySystem',
-			payload: { facilityId: loc.id },
+			payload: {
+				facilityId: loc.id,
+				fund: 0,
+				unpaidWage: production !== null ? production.wage - (-result.facilityFundChange) : 0,
+			},
 		});
 	}
 }
@@ -181,7 +204,7 @@ function applyWorkerRelationship(worker: AgentActor, locationId: string): void {
 	const relResult = applyRelationshipUpdate({
 		currentDisposition: facilityRelEntry?.disposition ?? 0,
 		currentFamiliarity: facilityRelEntry?.familiarity ?? 0,
-		dispositionChange: 1,
+		dispositionChange: 0.5,
 		familiarityChange: 1,
 	});
 	const newEntry = { agentId: locationId, disposition: relResult.newDisposition, familiarity: relResult.newFamiliarity };

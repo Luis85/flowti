@@ -139,8 +139,8 @@ function applyBuyerRelationship(agent: AgentActor, facilityState: FacilityState)
 	const relResult = applyRelationshipUpdate({
 		currentDisposition: existingRel?.disposition ?? 0,
 		currentFamiliarity: existingRel?.familiarity ?? 0,
-		dispositionChange: 1,
-		familiarityChange: 1,
+		dispositionChange: 0,
+		familiarityChange: 0.5,
 	});
 	const newEntry = { agentId: workerId, disposition: relResult.newDisposition, familiarity: relResult.newFamiliarity };
 	const updatedEntries = existingRel !== undefined

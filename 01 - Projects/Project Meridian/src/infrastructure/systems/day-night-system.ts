@@ -19,8 +19,11 @@ function processWelfare(
 ): void {
 	const welfareThreshold = deps.config.economy.welfare_threshold_gold;
 	const welfareReward = deps.config.economy.welfare_reward_min;
+	const maxGrants = deps.config.economy.max_active_welfare_quests;
+	let grantCount = 0;
 
 	for (const agent of agentList) {
+		if (grantCount >= maxGrants) break;
 		const wallet = agent.get(WalletComponent);
 		if (wallet.state.gold >= welfareThreshold) continue;
 		if (economy.state.treasury < welfareReward) continue;
@@ -51,8 +54,10 @@ function processWelfare(
 			tick: deps.tickCount,
 			wallClock: Date.now(),
 			source: 'DayNightSystem',
-			payload: { agentId: agent.agentId, amount: welfareReward },
+			payload: { agentId: agent.agentId, amount: welfareReward, treasuryRemaining: economy.state.treasury },
 		});
+
+		grantCount++;
 	}
 }
 
@@ -99,9 +104,10 @@ function writeDailyReport(
 		agents: agentSnapshots,
 	});
 
+	const dayStr = String(dayCount).padStart(DAY_PADDING_WIDTH, '0');
+	const path = `03 - Resources/Economy/day-${dayStr}.md`;
+
 	if (deps.writeFile !== null) {
-		const dayStr = String(dayCount).padStart(DAY_PADDING_WIDTH, '0');
-		const path = `reports/day-${dayStr}.md`;
 		const content = `${report.frontmatter}\n${report.body}`;
 		void deps.writeFile(path, content);
 	}
@@ -111,7 +117,7 @@ function writeDailyReport(
 		tick: deps.tickCount,
 		wallClock: Date.now(),
 		source: 'DayNightSystem',
-		payload: { dayCount },
+		payload: { dayCount, path },
 	});
 }
 
