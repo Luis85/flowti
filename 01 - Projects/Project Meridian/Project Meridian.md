@@ -180,7 +180,7 @@ Systems execute in deterministic order, each inside an **error boundary** using 
 |6.5|`RestSystem`|Recovers energy based on rest location tier (owned_home: +2.0, public_shelter: +1.5, outdoors: +1.0)|
 |6.6|`FeedSystem`|Recovers hunger at food locations (+0.3/tick, only when btAction is seek_food)|
 |6.7|`SocializeSystem`|Recovers social near agents (+0.5/tick), creates mutual memories with 50-tick per-pair cooldown|
-|6|`JobSystem`|Shift eval, production (recipes), wage distribution|
+|6|`FacilitySystem`|Facility-driven production — iterates facilities, checks workers + inputs, produces goods, pays wages. Shift scheduling deferred to Phase 5.|
 |7|`QuestEvaluationSystem`|Objective tracking, completion, failure|
 |8|`ObjectInteractionSystem`|World object use, stock depletion|
 |9|`ToolExecutionSystem`|Vault file ops (via Command pattern)|
@@ -760,12 +760,14 @@ status_requirement: 2
 
 ### 6.3 Production Flow
 
-Each tick during a job shift, the `JobSystem`:
+Each tick, the `FacilitySystem` iterates all facilities (not agents):
 
-1. Checks if agent is at their facility and on-shift.
-2. For product jobs: checks facility inventory for recipe inputs. If available, consumes inputs, produces outputs, adds to facility inventory. Agent earns wage from facility operating fund. Skill use counted.
-3. For service jobs: if a customer agent is present and requesting service, executes service effect. Customer pays `cost_to_consumer` (goes to facility operating fund). Agent earns wage from facility operating fund. Skill use counted.
-4. Emits `ProductionCompleted` or `ServiceProvided` event.
+1. Checks for **worker presence** — at least one agent with a matching job assignment within the facility's interaction radius.
+2. Checks **input materials** — facility stock contains the recipe's required inputs.
+3. If both conditions are met, **increments work progress** on the active recipe. On cycle completion, consumes inputs, produces output goods, and adds them to facility inventory.
+4. **Pays wages** from the facility's operating fund to each contributing worker. If the fund is insufficient, emits `FacilityInsolvent`.
+5. **Collects tax** — a configured percentage of production revenue is deducted and transferred to the Director's treasury.
+6. Emits `ProductionComplete` or `ServiceProvided` event. If no worker is present, emits `FacilityIdle` (reason: `no_worker`). If inputs are missing, emits `FacilityIdle` (reason: `no_input`).
 
 ### 6.4 Supply Chain Logistics
 
@@ -1082,7 +1084,7 @@ A stateless service populated by `PerceptionSystem` (tick 3) each tick via grid 
 
 **Two consumers:**
 - **Agent BTs** read ONLY the Blackboard (pre-categorized: nearbyFriendlies, nearbyObjects, nearbyRestLocations, etc.). Agents see the world through their perception.
-- **Non-BT systems** query the `SpatialQueryService` directly: `findNearest(position, type, radius)`, `entitiesInRegion(regionId)`, `facilitiesOfType(type)`, `hopCount(regionA, regionB)`. Used by EconomySystem (location modifier), JobSystem (facility lookup), ConstructionSystem (material sources).
+- **Non-BT systems** query the `SpatialQueryService` directly: `findNearest(position, type, radius)`, `entitiesInRegion(regionId)`, `facilitiesOfType(type)`, `hopCount(regionA, regionB)`. Used by EconomySystem (location modifier), FacilitySystem (facility lookup), ConstructionSystem (material sources).
 
 ### 9.6 Navigation & Discovery
 
@@ -1134,7 +1136,7 @@ type: environmental
 probability: 0.05          # per evaluation cycle
 duration_ticks: 200
 effects:
-  - system: JobSystem
+  - system: FacilitySystem
     modifier: { production_rate: 0.5 }
     facility_filter: [farm]
   - system: EconomySystem
@@ -1508,7 +1510,7 @@ name: "Spring"
 order: 1
 duration_days: 15
 effects:
-  - system: JobSystem
+  - system: FacilitySystem
     modifier: { production_rate: 1.2 }
     facility_filter: [farm]
   - system: NeedsDecaySystem
@@ -1918,7 +1920,7 @@ bus.on('VaultSyncFailed', updateUIAlert, 200);    // display
 |`MemoryAdded`, `MemoryDecayed`|MemorySystem|
 |`EntitiesPerceived`|Perception|
 |`ActionIntent`|BehaviorTree|
-|`ProductionCompleted`, `ServiceProvided`|JobSystem|
+|`ProductionComplete`, `ServiceProvided`|FacilitySystem|
 |`QuestCreated`, `QuestAssigned`, `QuestCompleted`, `QuestFailed`|QuestEvaluation|
 |`ObjectUsed`, `ObjectDepleted`|ObjectInteraction|
 |`FileOpCompleted`, `FileOpFailed`|ToolExecution|
@@ -1951,7 +1953,7 @@ bus.on('VaultSyncFailed', updateUIAlert, 200);    // display
 |`CandidatePoolRefreshed`|ChroniclerSystem|
 |`StatusChanged`|ProgressionSystem|
 |`TimeOfDayChanged`|DayNightSystem|
-|`FacilityFundDepleted`|JobSystem|
+|`FacilityInsolvent`|FacilitySystem|
 |`AgentExhausted`|NeedsDecaySystem|
 |`LocaleChanged`|UIBridgeSystem|
 |`ConfigChanged`|VaultSyncSystem|
@@ -1959,8 +1961,8 @@ bus.on('VaultSyncFailed', updateUIAlert, 200);    // display
 |`ObjectPlaced`, `ObjectRemoved`|DirectorAction|
 |`SpeedChanged`, `SimulationPaused`, `SimulationResumed`|DirectorAction|
 |`DialogueRequested`, `DialogueRefused`|DialogueSystem|
-|`FacilityVacancy`|JobSystem|
-|`SupplyShortage`|JobSystem|
+|`FacilityIdle` (reason: `no_worker`)|FacilitySystem|
+|`FacilityIdle` (reason: `no_input`)|FacilitySystem|
 |`RegionEntered`|MovementSystem|
 |`BuildingAbandoned`|AbandonmentSystem|
 |`WorldHealthCalculated`|ChroniclerSystem|
@@ -2371,10 +2373,11 @@ Emergence tests seed a world, run N ticks, and assert patterns. But BT decisions
 |---|---|---|---|
 |**0 — Foundation**|ECS, EventBus, Logger, Result type, Zod schemas, VaultSync (load-only), Trait schema + validation|Agents load from vault, events logged, invalid files quarantined, traits validated|**COMPLETE**|
 |**1 — Agent Core**|Components, NeedsDecay, Mood, Memory, basic BT (idle + needs + mood), TraitResolverSystem, mortality toggle, mortality with legacy. Sub-phases: 1A (tick infrastructure), 1B (game systems), 1C (agent agency), 1D (action consequences)|Agents wander, seek food/rest, experience mood shifts, traits modify behavior, agents can die and leave legacies|**COMPLETE**|
+|**2E — Economy Foundation**|FacilitySystem, TradeSystem, inventory consumption, gold costs, relationships, skill progression, economy ledger, daily reports|Agents earn, buy, eat, develop skills. Autonomous economy loop.|DESIGN COMPLETE|
 |**2 — Spatial**|Map rendering, PerceptionSystem, movement, pathfinding|Agents move between locations, perceive entities|**PARTIAL** — perception + linear movement implemented, no A* pathfinding|
 |**3 — Social**|DialogueSystem (templates), RelationshipSystem (Canvas), Blackboard, gossip layer|Agents talk, form relationships, remember interactions, spread information|NOT STARTED|
 |**4 — Items & Equipment**|Item system, equipment slots, durability, inventory|Agents carry, equip, use, and trade items|NOT STARTED|
-|**5 — Economy**|Recipes, JobSystem, production, pricing, TradeSystem (Saga), Director treasury, tax system, monetary safeguards, welfare quests|Supply chains produce goods, agents trade, Director has resource management|NOT STARTED|
+|**5 — Economy**|Recipes, FacilitySystem enhancements (shift scheduling, service jobs), TradeSystem (Saga), Director treasury spending, dynamic pricing, monetary safeguards, welfare quests|Supply chains produce goods, agents trade, Director has resource management|NOT STARTED|
 |**6 — Quests**|QuestEvaluation, Billboard, ToolExecution (Command), scenario system (goals, scoring, time limits)|Director creates quests, agents complete them, scenarios provide structured challenges|NOT STARTED|
 |**── VERTICAL SLICE GATE ──**|**First playable build. Everything after enriches.**|**Exit criteria below.**||
 
@@ -3389,7 +3392,7 @@ Infrastructure → Domain → Systems → UI
 |---|---|---|
 |`no-restricted-imports` on domain files|Domain must not import infrastructure|A system importing `ObsidianVaultAdapter` directly instead of using the `VaultAdapter` interface|
 |`no-restricted-imports` on UI files|UI must not import domain internals|A Vue component importing ECS component classes instead of reading from Pinia stores [Phase 8]|
-|`no-restricted-imports` on systems|Systems must not import other systems|`JobSystem` importing `EconomySystem` instead of communicating via EventBus|
+|`no-restricted-imports` on systems|Systems must not import other systems|`FacilitySystem` importing `EconomySystem` instead of communicating via EventBus|
 |`no-restricted-globals`|No bare `fs`, `path`, `process` outside infrastructure|A system using `node:fs` instead of VaultAdapter|
 |`no-restricted-syntax`|No bare `try/catch` in system code|Using `try {} catch {}` instead of Result pattern|
 |Custom rule: `no-cross-system-mutation`|Systems must not directly mutate another system's components|`TradeSystem` directly modifying `MoodComponent` instead of emitting an event|

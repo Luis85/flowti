@@ -408,7 +408,7 @@ ExcaliburJS Engine.update(delta)
 │   ├─ MemorySystem (4)             — Decay significance, prune
 │   ├─ BehaviorTreeSystem (5)       — Evaluate all agent BTs via Blackboard
 │   ├─ MovementSystem (5.5)         — Process ActionIntents, region transitions
-│   ├─ JobSystem (6)                — Production, wages, facility fund
+│   ├─ FacilitySystem (6)            — Facility-driven production, wages, facility fund
 │   ├─ RestSystem (6.5)             — Recovers energy at rest-type locations (3 tiers)
 │   ├─ FeedSystem (6.6)             — Recovers hunger at food-type locations (requires seek_food action)
 │   ├─ SocializeSystem (6.7)        — Recovers social near agents, creates mutual memories
@@ -469,7 +469,7 @@ Director clicks map position
 ### 6.3 Supply Chain Flow (Wheat → Bread)
 
 ```
-Farm (JobSystem tick 6)
+Farm (FacilitySystem tick 6)
 ├─ Farmer on shift → recipe executes → wheat produced
 ├─ Wheat added to farm inventory
 ├─ ProductionCompleted event emitted
@@ -483,13 +483,13 @@ Available agent scans billboard (BT node 5)
 ├─ Accepts → travels to farm → buys wheat → carries to mill → delivers
 ├─ QuestCompleted event
 
-Mill (JobSystem tick 6)
+Mill (FacilitySystem tick 6)
 ├─ Miller on shift → wheat available → recipe executes → flour produced
 
 Bakery (same pattern)
 ├─ Flour → bread via recipe
 
-Shop (JobSystem tick 6)
+Shop (FacilitySystem tick 6)
 ├─ Shopkeeper sells bread to hungry agents
 ├─ Gold flows: agent → shop operating fund → worker wages → economy
 ├─ TradeCompleted event → 5% tax → Director treasury
@@ -582,7 +582,7 @@ MovementSystem (tick 5.5)
 │
 Downstream systems (tick 6-18)
 │ Read other ActionIntent types and execute:
-│   JobSystem processes 'work' intents
+│   FacilitySystem processes facilities with workers
 │   QuestEvaluation processes 'quest_action' intents
 │   TradeSystem processes 'trade' intents
 │   DialogueSystem processes 'talk' intents
@@ -625,7 +625,7 @@ Director opens Quest Creator in management sidebar
 ```
 Phase 0: Foundation          ← COMPLETE
 Phase 1: Agent Core          ← COMPLETE (1A tick infrastructure, 1B game systems, 1C agent agency, 1D action consequences)
-Phase 2: Spatial             ← Partially complete (perception + movement done, A* pathfinding not yet)
+Phase 2: Spatial             ← Partially complete (perception + movement done, 2E facility-driven production DESIGN COMPLETE, A* pathfinding not yet)
 Phase 3: Social
 Phase 4: Items & Equipment
 Phase 5: Economy
@@ -759,7 +759,7 @@ Resolution order: Traits → Seasons → World Events → Time-of-Day.
 
 Two consumer patterns:
 - **Agent BTs** read the Blackboard (populated by PerceptionSystem from SparseHashGrid)
-- **Non-BT systems** query the SpatialQueryService directly (EconomySystem for hop count, JobSystem for facility lookup)
+- **Non-BT systems** query the SpatialQueryService directly (EconomySystem for hop count, FacilitySystem for facility lookup)
 
 ### 8.7 Persistence Model
 
@@ -931,6 +931,7 @@ onunload():
 | ADR-20 | ranges.ts as balance constant source of truth | All GDD numeric ranges and enums centralized. Schemas, tests, and future systems import from one file. Rebalancing = one constant change. | Accepted |
 | ADR-21 | Synchronous EventBus with deferred batching | EventBus dispatches synchronously. Batching (queue during system, flush between systems) deferred until tick loop exists. Interface stable either way. | Accepted |
 | ADR-22 | Zod v4 with v3-compatible API surface | Project uses Zod v4 (`z.ZodType` not `ZodSchema`, explicit key in `z.record()`, full defaults for nested objects). API patterns validated during Phase 0. | Accepted |
+| ADR-23 | Facility-driven production (FacilitySystem) | Production iterates facilities, not agents. Agents are labor — facilities are units of production with their own state (stock, fund, progress). Uses existing JOB priority slot (6). GDD's JobSystem scope (shifts, service jobs) deferred to Phase 5. | Accepted |
 
 ---
 
