@@ -1,0 +1,11 @@
+{
+  "nodes": [
+    { "id": "wren", "type": "text", "text": "Wren\nScholar (me)", "x": 150, "y": 100, "width": 160, "height": 60, "color": "6" },
+    { "id": "marcus", "type": "text", "text": "Marcus\nGuard", "x": 400, "y": 100, "width": 150, "height": 60 },
+    { "id": "elena", "type": "text", "text": "Elena\nMerchant", "x": 400, "y": 250, "width": 150, "height": 60 },
+    { "id": "sable", "type": "text", "text": "Sable\nArtisan", "x": 150, "y": 250, "width": 150, "height": 60 }
+  ],
+  "edges": [
+    { "id": "e1", "fromNode": "wren", "toNode": "marcus", "label": "tense — night watch schedule dispute" }
+  ]
+}

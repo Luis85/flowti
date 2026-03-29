@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    { "id": "marcus", "type": "text", "text": "Marcus\nGuard (me)", "x": 150, "y": 100, "width": 160, "height": 60, "color": "1" },
+    { "id": "elena", "type": "text", "text": "Elena\nMerchant", "x": 400, "y": 50, "width": 150, "height": 60 },
+    { "id": "wren", "type": "text", "text": "Wren\nScholar", "x": 400, "y": 200, "width": 150, "height": 60 },
+    { "id": "sable", "type": "text", "text": "Sable\nArtisan", "x": 150, "y": 250, "width": 150, "height": 60 }
+  ],
+  "edges": [
+    { "id": "e1", "fromNode": "marcus", "toNode": "elena", "label": "acquaintance — buys supplies from her" },
+    { "id": "e2", "fromNode": "marcus", "toNode": "wren", "label": "tense — argued over shift schedules" }
+  ]
+}

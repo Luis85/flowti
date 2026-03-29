@@ -1,0 +1,9 @@
+{
+  "nodes": [
+    { "id": "sable", "type": "text", "text": "Sable\nArtisan (me)", "x": 150, "y": 100, "width": 160, "height": 60, "color": "5" },
+    { "id": "elena", "type": "text", "text": "Elena\nMerchant", "x": 400, "y": 50, "width": 150, "height": 60 },
+    { "id": "marcus", "type": "text", "text": "Marcus\nGuard", "x": 400, "y": 200, "width": 150, "height": 60 },
+    { "id": "wren", "type": "text", "text": "Wren\nScholar", "x": 150, "y": 250, "width": 150, "height": 60 }
+  ],
+  "edges": []
+}

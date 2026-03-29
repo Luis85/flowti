@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    { "id": "elena", "type": "text", "text": "Elena\nMerchant (me)", "x": 150, "y": 100, "width": 160, "height": 60, "color": "4" },
+    { "id": "marcus", "type": "text", "text": "Marcus\nGuard", "x": 400, "y": 50, "width": 150, "height": 60 },
+    { "id": "wren", "type": "text", "text": "Wren\nScholar", "x": 400, "y": 200, "width": 150, "height": 60 },
+    { "id": "sable", "type": "text", "text": "Sable\nArtisan", "x": 150, "y": 250, "width": 150, "height": 60 }
+  ],
+  "edges": [
+    { "id": "e1", "fromNode": "elena", "toNode": "marcus", "label": "acquaintance — sells him supplies" },
+    { "id": "e2", "fromNode": "elena", "toNode": "sable", "label": "new neighbor — hasn't met yet" }
+  ]
+}
