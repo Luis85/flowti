@@ -3,12 +3,14 @@ import { createFeedSystem } from '../../../src/infrastructure/systems/feed-syste
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
 import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
+import { InventoryComponent } from '../../../src/infrastructure/components/inventory-component.js';
+import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
-import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import { Actor } from 'excalibur';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -18,36 +20,26 @@ const defaultMoodConfig = {
 
 function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string, unknown> = {}) {
 	return {
-		id,
-		name: id,
-		kind: 'merchant',
+		id, name: id, kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
 		needs: { hunger: 50, energy: 50, social: 50 },
-		mood: 0,
-		memory: [],
-		goals: [],
-		skills: [],
-		inventory: [],
+		mood: 0, memory: [], goals: [], skills: [], inventory: [],
 		equipment: { head: null, body: null, hands: null, tool: null, accessory: null },
-		traits: [],
-		wallet: { gold: 50 },
-		xp: 0,
-		level: 1,
-		position: { x, y, region: 'test' },
-		relationships: '',
-		color: '#b0b0b0',
-		persona: null,
-		property: [],
-		tools: [],
-		behavior_tree: 'bt-merchant',
-		job: null,
+		traits: [], wallet: { gold: 50 }, xp: 0, level: 1,
+		position: { x, y, region: 'test' }, relationships: '',
+		color: '#b0b0b0', persona: null, property: [],
+		tools: [], behavior_tree: 'bt-merchant', job: null,
 		...overrides,
 	};
 }
 
-function createFoodLocation(id: string, x: number, y: number): WorldLocation {
-	return { id, name: id, type: 'food', position: { x, y, region: 'test' }, capacity: 10, color: '#808080' };
+function createWorldEntity(): Actor {
+	const entity = new Actor();
+	entity.addComponent(new EconomyComponent({
+		treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+	}));
+	return entity;
 }
 
 function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
@@ -61,151 +53,101 @@ function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 	};
 }
 
-describe('FeedSystem', () => {
-	it('applies food recovery when agent is at food location and emits FeedStarted', () => {
-		const eventBus = createEventBus();
-		const events: GameEvent[] = [];
-		eventBus.on('FeedStarted', (e) => { events.push(e); });
-
-		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'eat' };
-		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
-
-		const system = createFeedSystem(() => [agent], () => [foodLoc]);
-		system.execute(createDeps(eventBus));
-
-		const needs = agent.get(NeedsComponent);
-		// food_recovery_rate = 0.3, starting hunger = 50
-		expect(needs.state.hunger).toBeCloseTo(50.3);
-
-		expect(events.length).toBe(1);
-		expect(events[0]?.payload.agentId).toBe('agent-1');
-		expect(events[0]?.payload.locationId).toBe('loc-tavern');
-	});
-
-	it('skips agent when no food location is nearby', () => {
-		const eventBus = createEventBus();
-		const events: GameEvent[] = [];
-		eventBus.on('FeedStarted', (e) => { events.push(e); });
-
-		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0), defaultMoodConfig);
-
-		const system = createFeedSystem(() => [agent], () => []);
-		system.execute(createDeps(eventBus));
-
-		const needs = agent.get(NeedsComponent);
-		expect(needs.state.hunger).toBe(50);
-		expect(events.length).toBe(0);
-	});
-
-	it('does not emit FeedStarted on second tick at same food location', () => {
-		const eventBus = createEventBus();
-		const events: GameEvent[] = [];
-		eventBus.on('FeedStarted', (e) => { events.push(e); });
-
-		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'eat' };
-		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
-
-		const system = createFeedSystem(() => [agent], () => [foodLoc]);
-
-		// First tick — event emitted
-		system.execute(createDeps(eventBus, 1));
-		expect(events.length).toBe(1);
-
-		// Second tick — no new event
-		system.execute(createDeps(eventBus, 2));
-		expect(events.length).toBe(1);
-
-		// Hunger should have increased twice (0.3 each tick)
-		const needs = agent.get(NeedsComponent);
-		expect(needs.state.hunger).toBeCloseTo(50.6);
-	});
-
-	it('clears feedingAt when agent leaves food location and re-emits on return', () => {
-		const eventBus = createEventBus();
-		const events: GameEvent[] = [];
-		eventBus.on('FeedStarted', (e) => { events.push(e); });
-
-		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'eat' };
-		const foodLoc = createFoodLocation('loc-market', 100, 100);
-		const system = createFeedSystem(() => [agent], () => [foodLoc]);
-		const deps = createDeps(eventBus);
-
-		// Tick 1: agent at food location
-		system.execute(deps);
-		expect(events.length).toBe(1);
-
-		// Move agent away
-		agent.pos.x = 500;
-		agent.pos.y = 500;
-		system.execute(deps);
-
-		// Move agent back
-		agent.pos.x = 100;
-		agent.pos.y = 100;
-		events.length = 0;
-		system.execute(deps);
-		expect(events.length).toBe(1);
-	});
-
-	it('clamps hunger to 100', () => {
-		const eventBus = createEventBus();
+describe('FeedSystem (inventory-based)', () => {
+	it('consumes bread from inventory and recovers hunger', () => {
 		const agent = new AgentActor(
-			createTestAgentData('agent-1', 300, 200, { needs: { hunger: 99.9, energy: 50, social: 50 } }),
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 2 }] }),
 			defaultMoodConfig,
 		);
 		const bb = agent.get(BlackboardComponent);
 		bb.state = { ...bb.state, btAction: 'eat' };
-		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
+		bb.markDirty();
 
-		const system = createFeedSystem(() => [agent], () => [foodLoc]);
-		system.execute(createDeps(eventBus));
-
-		const needs = agent.get(NeedsComponent);
-		// 99.9 + 0.3 = 100.2 → clamped to 100
-		expect(needs.state.hunger).toBe(100);
-	});
-
-	it('skips agent not actively seeking food', () => {
-		const eventBus = createEventBus();
-		const events: GameEvent[] = [];
-		eventBus.on('FeedStarted', (e) => { events.push(e); });
-
-		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'idle' };
-		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
-
-		const system = createFeedSystem(() => [agent], () => [foodLoc]);
-		system.execute(createDeps(eventBus));
+		const worldEntity = createWorldEntity();
+		const deps = createDeps();
+		const system = createFeedSystem(() => [agent], () => worldEntity);
+		system.execute(deps);
 
 		const needs = agent.get(NeedsComponent);
-		// Agent is at food location but btAction is 'idle' — no recovery
-		expect(needs.state.hunger).toBe(50);
-		expect(events.length).toBe(0);
+		expect(needs.state.hunger).toBeGreaterThan(50);
+
+		const inv = agent.get(InventoryComponent);
+		const bread = inv.state.items.find(i => i.item_id === 'bread');
+		expect(bread?.quantity).toBe(1);
 	});
 
-	it('recovers hunger when agent btAction is eat', () => {
-		const eventBus = createEventBus();
-		const events: GameEvent[] = [];
-		eventBus.on('FeedStarted', (e) => { events.push(e); });
-
-		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+	it('does not recover hunger when no food in inventory', () => {
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'torch', quantity: 1 }] }),
+			defaultMoodConfig,
+		);
 		const bb = agent.get(BlackboardComponent);
 		bb.state = { ...bb.state, btAction: 'eat' };
-		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
+		bb.markDirty();
 
-		const system = createFeedSystem(() => [agent], () => [foodLoc]);
-		system.execute(createDeps(eventBus));
+		const worldEntity = createWorldEntity();
+		const deps = createDeps();
+		const system = createFeedSystem(() => [agent], () => worldEntity);
+		system.execute(deps);
 
 		const needs = agent.get(NeedsComponent);
-		// food_recovery_rate = 0.3, starting hunger = 50
-		expect(needs.state.hunger).toBeCloseTo(50.3);
-		expect(events.length).toBe(1);
+		expect(needs.state.hunger).toBe(50);
+	});
+
+	it('emits ItemConsumed event on consumption', () => {
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 1 }] }),
+			defaultMoodConfig,
+		);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'eat' };
+		bb.markDirty();
+
+		const events: GameEvent[] = [];
+		const eventBus = createEventBus();
+		eventBus.on('ItemConsumed', (e: GameEvent) => { events.push(e); });
+
+		const worldEntity = createWorldEntity();
+		const deps = createDeps(eventBus);
+		const system = createFeedSystem(() => [agent], () => worldEntity);
+		system.execute(deps);
+
+		expect(events).toHaveLength(1);
+		expect(events[0].payload.itemId).toBe('bread');
+	});
+
+	it('appends consumption ledger entry', () => {
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 1 }] }),
+			defaultMoodConfig,
+		);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'eat' };
+		bb.markDirty();
+
+		const worldEntity = createWorldEntity();
+		const deps = createDeps();
+		const system = createFeedSystem(() => [agent], () => worldEntity);
+		system.execute(deps);
+
+		const economy = worldEntity.get(EconomyComponent);
+		expect(economy.state.ledger).toHaveLength(1);
+		expect(economy.state.ledger[0].type).toBe('consumption');
+	});
+
+	it('skips agents not eating', () => {
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 5 }] }),
+			defaultMoodConfig,
+		);
+
+		const worldEntity = createWorldEntity();
+		const deps = createDeps();
+		const system = createFeedSystem(() => [agent], () => worldEntity);
+		system.execute(deps);
+
+		const inv = agent.get(InventoryComponent);
+		const bread = inv.state.items.find(i => i.item_id === 'bread');
+		expect(bread?.quantity).toBe(5);
 	});
 });

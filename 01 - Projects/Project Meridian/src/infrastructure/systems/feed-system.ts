@@ -1,22 +1,17 @@
 import { SystemPriority, type GameSystem } from '../../domain/core/tick-scheduler.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { applyFeed, type FeedConfig } from '../../domain/systems/feed.js';
+import { findFoodInInventory, removeFromInventory } from '../../domain/systems/food-items.js';
 import type { AgentActor } from '../entity/agent-actor.js';
-import type { WorldLocation } from '../../domain/schemas/location-schema.js';
+import type { Actor } from 'excalibur';
 import { NeedsComponent } from '../components/needs-component.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
-import { distance } from '../../domain/core/math-utils.js';
-
-function clearFeedingAt(bb: BlackboardComponent): void {
-	if (bb.state.feedingAt !== undefined) {
-		bb.state = { ...bb.state, feedingAt: undefined };
-		bb.markDirty();
-	}
-}
+import { InventoryComponent } from '../components/inventory-component.js';
+import { EconomyComponent } from '../components/economy-component.js';
 
 export function createFeedSystem(
 	agents: () => AgentActor[],
-	locations: () => WorldLocation[],
+	worldEntity: () => Actor,
 ): GameSystem {
 	return {
 		name: 'FeedSystem',
@@ -24,34 +19,34 @@ export function createFeedSystem(
 
 		execute(deps: GameCoreDeps): void {
 			const agentList = agents();
-			const locationList = locations();
-			const radius = deps.config.perception.interaction_radius;
+			const world = worldEntity();
+			const economy = world.get(EconomyComponent);
 
 			for (const agent of agentList) {
-				let nearestFood: WorldLocation | undefined;
-				let nearestDist = Infinity;
-				for (const loc of locationList) {
-					if (loc.type !== 'food') continue;
-					const dist = distance(agent.pos.x, agent.pos.y, loc.position.x, loc.position.y);
-					if (dist <= radius && dist < nearestDist) {
-						nearestDist = dist;
-						nearestFood = loc;
-					}
-				}
-
 				const bb = agent.get(BlackboardComponent);
-
-				if (nearestFood === undefined) {
-					clearFeedingAt(bb);
-					continue;
-				}
-
-				// Only recover hunger when actively eating at a food location
 				const btAction = bb.state.btAction as string | undefined;
+
 				if (btAction !== 'eat') {
-					clearFeedingAt(bb);
+					if (bb.state.feedingAt !== undefined) {
+						bb.state = { ...bb.state, feedingAt: undefined };
+						bb.markDirty();
+					}
 					continue;
 				}
+
+				const inv = agent.get(InventoryComponent);
+				const foodItem = findFoodInInventory(inv.state.items);
+				if (foodItem === null) {
+					if (bb.state.feedingAt !== undefined) {
+						bb.state = { ...bb.state, feedingAt: undefined };
+						bb.markDirty();
+					}
+					continue;
+				}
+
+				const newItems = removeFromInventory(inv.state.items, foodItem.item_id, 1);
+				inv.state = { items: newItems };
+				inv.markDirty();
 
 				const needs = agent.get(NeedsComponent);
 				const feedConfig: FeedConfig = { recovery_rate: deps.config.needs.food_recovery_rate };
@@ -60,10 +55,30 @@ export function createFeedSystem(
 				needs.state = { ...needs.state, hunger: result.newHunger };
 				needs.markDirty();
 
-				const previousFeedingAt = bb.state.feedingAt as string | undefined;
+				economy.state = {
+					...economy.state,
+					ledger: [
+						...economy.state.ledger,
+						{
+							tick: deps.tickCount,
+							type: 'consumption' as const,
+							from: agent.agentId,
+							to: 'consumed',
+							itemId: foodItem.item_id,
+							quantity: 1,
+							gold: 0,
+						},
+					],
+					dailySummary: {
+						...economy.state.dailySummary,
+						totalConsumption: economy.state.dailySummary.totalConsumption + 1,
+					},
+				};
+				economy.markDirty();
 
-				if (previousFeedingAt !== nearestFood.id) {
-					bb.state = { ...bb.state, feedingAt: nearestFood.id };
+				const previousFeedingAt = bb.state.feedingAt as string | undefined;
+				if (previousFeedingAt !== 'inventory') {
+					bb.state = { ...bb.state, feedingAt: 'inventory' };
 					bb.markDirty();
 
 					deps.eventBus.emit({
@@ -71,12 +86,17 @@ export function createFeedSystem(
 						tick: deps.tickCount,
 						wallClock: Date.now(),
 						source: 'FeedSystem',
-						payload: {
-							agentId: agent.agentId,
-							locationId: nearestFood.id,
-						},
+						payload: { agentId: agent.agentId, locationId: null },
 					});
 				}
+
+				deps.eventBus.emit({
+					type: 'ItemConsumed',
+					tick: deps.tickCount,
+					wallClock: Date.now(),
+					source: 'FeedSystem',
+					payload: { agentId: agent.agentId, itemId: foodItem.item_id },
+				});
 			}
 		},
 	};

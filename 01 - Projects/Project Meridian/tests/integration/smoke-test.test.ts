@@ -25,6 +25,7 @@ import { createRestSystem } from '../../src/infrastructure/systems/rest-system.j
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
+import { EconomyComponent } from '../../src/infrastructure/components/economy-component.js';
 import { Actor } from 'excalibur';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { BTNode } from '../../src/domain/schemas/behavior-tree-schema.js';
@@ -138,10 +139,11 @@ describe('Smoke Test — Real Data', () => {
 		expect(targetLoc, 'Need at least one food or rest location in shipped data').toBeDefined();
 
 		// Create actors — place first agent at food location with low hunger + high energy
-		// so BT fires seek_food (not seek_rest), enabling FeedSystem recovery
+		// so BT fires seek_food (not seek_rest), enabling FeedSystem recovery.
+		// Agent 0 gets bread inventory so inventory-based FeedSystem can consume.
 		const actors = agentData.map((a, idx) => {
 			const overrides = idx === 0 && targetLoc !== undefined
-				? { needs: { hunger: 20, energy: 80, social: 80 }, position: { ...targetLoc.position, region: 'test' } }
+				? { needs: { hunger: 20, energy: 80, social: 80 }, position: { ...targetLoc.position, region: 'test' }, inventory: [{ item_id: 'bread', quantity: 5 }] }
 				: { needs: { hunger: 20, energy: 10, social: 15 } };
 			const actor = new AgentActor({ ...a, ...overrides }, defaultMoodConfig);
 			actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
@@ -153,6 +155,9 @@ describe('Smoke Test — Real Data', () => {
 
 		const worldEntity = new Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+		worldEntity.addComponent(new EconomyComponent({
+			treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+		}));
 
 		// Build BT map
 		const btDefs: Record<string, BTNode> = {};
@@ -174,8 +179,8 @@ describe('Smoke Test — Real Data', () => {
 		runner.register(createMemoryDecaySystem(getAgents));
 		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations));
-		runner.register(createFeedSystem(getAgents, getLocations));
+		runner.register(createRestSystem(getAgents, getLocations, getWorld));
+		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 
 		const deps: GameCoreDeps = {

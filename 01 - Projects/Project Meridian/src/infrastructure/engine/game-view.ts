@@ -141,8 +141,8 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		tickRunner.register(createBehaviorTreeSystem(getAgents, world.btDefinitions, getWorldEntity, Date.now()));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
-		tickRunner.register(createRestSystem(getAgents, getLocations));
-		tickRunner.register(createFeedSystem(getAgents, getLocations));
+		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity));
+		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(Object.keys(world.btDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);

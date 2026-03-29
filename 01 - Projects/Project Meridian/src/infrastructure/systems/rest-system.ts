@@ -5,7 +5,10 @@ import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
+import { WalletComponent } from '../components/wallet-component.js';
+import { EconomyComponent } from '../components/economy-component.js';
 import { distance } from '../../domain/core/math-utils.js';
+import type { Actor } from 'excalibur';
 
 type RestTier = 'owned_home' | 'public_shelter' | 'outdoors';
 
@@ -30,9 +33,17 @@ function resolveRestTier(
 	nearestRest: WorldLocation | undefined,
 	agentProperty: string[],
 	btAction: string | undefined,
+	agentGold: number,
+	restPrice: number,
 ): RestTier | null {
 	if (nearestRest !== undefined) {
-		return agentProperty.includes(nearestRest.id) ? 'owned_home' : 'public_shelter';
+		if (agentProperty.includes(nearestRest.id)) {
+			return 'owned_home';
+		}
+		if (agentGold >= restPrice) {
+			return 'public_shelter';
+		}
+		return 'outdoors';
 	}
 	if (btAction === undefined || btAction === 'idle') {
 		return 'outdoors';
@@ -43,6 +54,7 @@ function resolveRestTier(
 export function createRestSystem(
 	agents: () => AgentActor[],
 	locations: () => WorldLocation[],
+	worldEntity: () => Actor,
 ): GameSystem {
 	return {
 		name: 'RestSystem',
@@ -59,7 +71,8 @@ export function createRestSystem(
 				const btAction = bb.state.btAction as string | undefined;
 
 				const nearestRest = findNearestRestLocation(agent.pos.x, agent.pos.y, locationList, radius);
-				const restTier = resolveRestTier(nearestRest, agent.property, btAction);
+				const wallet = agent.get(WalletComponent);
+				const restTier = resolveRestTier(nearestRest, agent.property, btAction, wallet.state.gold, deps.config.economy.rest_price);
 
 				if (restTier === null) {
 					if (bb.state.restingAt !== undefined) {
@@ -82,6 +95,30 @@ export function createRestSystem(
 				if (previousRestingAt !== currentRestingAt) {
 					bb.state = { ...bb.state, restingAt: currentRestingAt };
 					bb.markDirty();
+
+					// Deduct gold on first tick of public shelter stay
+					if (restTier === 'public_shelter') {
+						const world = worldEntity();
+						const economy = world.get(EconomyComponent);
+						wallet.state = { ...wallet.state, gold: wallet.state.gold - deps.config.economy.rest_price };
+						wallet.markDirty();
+						economy.state = {
+							...economy.state,
+							ledger: [
+								...economy.state.ledger,
+								{
+									tick: deps.tickCount,
+									type: 'purchase' as const,
+									from: agent.agentId,
+									to: nearestRest?.id ?? 'outdoors',
+									itemId: null,
+									quantity: 0,
+									gold: deps.config.economy.rest_price,
+								},
+							],
+						};
+						economy.markDirty();
+					}
 
 					deps.eventBus.emit({
 						type: 'RestStarted',

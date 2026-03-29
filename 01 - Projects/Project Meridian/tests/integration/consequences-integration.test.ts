@@ -20,6 +20,7 @@ import { createMovementSystem } from '../../src/infrastructure/systems/movement-
 import { createRestSystem } from '../../src/infrastructure/systems/rest-system.js';
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
+import { EconomyComponent } from '../../src/infrastructure/components/economy-component.js';
 import { Actor } from 'excalibur';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../src/domain/core/events.js';
@@ -62,6 +63,9 @@ const btDefs: Record<string, BTNode> = {
 function createWorldEntity(): Actor {
 	const world = new Actor();
 	world.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+	world.addComponent(new EconomyComponent({
+		treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+	}));
 	return world;
 }
 
@@ -80,7 +84,10 @@ describe('Consequence Systems — Integration', () => {
 	it('hungry agent at food location recovers hunger after tick', () => {
 		const eventBus = createEventBus();
 
-		const agentData = createTestAgent('agent-hungry', 100, 100, { needs: { hunger: 50, energy: 80, social: 80 } });
+		const agentData = createTestAgent('agent-hungry', 100, 100, {
+			needs: { hunger: 50, energy: 80, social: 80 },
+			inventory: [{ item_id: 'bread', quantity: 5 }],
+		});
 		const actor = new AgentActor(agentData, defaultMoodConfig);
 		actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
@@ -109,8 +116,8 @@ describe('Consequence Systems — Integration', () => {
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations));
-		runner.register(createFeedSystem(getAgents, getLocations));
+		runner.register(createRestSystem(getAgents, getLocations, getWorld));
+		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 
 		const deps = createDeps(eventBus);
@@ -154,8 +161,8 @@ describe('Consequence Systems — Integration', () => {
 		runner.register(createMemoryDecaySystem(getAgents));
 		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations));
-		runner.register(createFeedSystem(getAgents, getLocations));
+		runner.register(createRestSystem(getAgents, getLocations, getWorld));
+		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 
 		const restEvents: GameEvent[] = [];
@@ -206,8 +213,8 @@ describe('Consequence Systems — Integration', () => {
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations));
-		runner.register(createFeedSystem(getAgents, getLocations));
+		runner.register(createRestSystem(getAgents, getLocations, getWorld));
+		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 
 		const deps = createDeps(eventBus);

@@ -3,12 +3,15 @@ import { createRestSystem } from '../../../src/infrastructure/systems/rest-syste
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
 import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
+import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
+import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import { Actor } from 'excalibur';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -50,6 +53,14 @@ function createRestLocation(id: string, x: number, y: number): WorldLocation {
 	return { id, name: id, type: 'rest', position: { x, y, region: 'test' }, capacity: 8, color: '#6a5acd' };
 }
 
+function createWorldEntity(): Actor {
+	const entity = new Actor();
+	entity.addComponent(new EconomyComponent({
+		treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+	}));
+	return entity;
+}
+
 function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 	return {
 		logger: { debug() {}, info() {}, warn() {}, error() {} },
@@ -69,8 +80,9 @@ describe('RestSystem', () => {
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
 		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
 
-		const system = createRestSystem(() => [agent], () => [restLoc]);
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
@@ -94,8 +106,9 @@ describe('RestSystem', () => {
 			defaultMoodConfig,
 		);
 		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
 
-		const system = createRestSystem(() => [agent], () => [restLoc]);
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
@@ -112,8 +125,9 @@ describe('RestSystem', () => {
 		eventBus.on('RestStarted', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0), defaultMoodConfig);
+		const worldEntity = createWorldEntity();
 
-		const system = createRestSystem(() => [agent], () => []);
+		const system = createRestSystem(() => [agent], () => [], () => worldEntity);
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
@@ -133,8 +147,9 @@ describe('RestSystem', () => {
 		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0), defaultMoodConfig);
 		const bb = agent.get(BlackboardComponent);
 		bb.state = { ...bb.state, btAction: 'seek_food' };
+		const worldEntity = createWorldEntity();
 
-		const system = createRestSystem(() => [agent], () => []);
+		const system = createRestSystem(() => [agent], () => [], () => worldEntity);
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
@@ -152,8 +167,9 @@ describe('RestSystem', () => {
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
 		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
 
-		const system = createRestSystem(() => [agent], () => [restLoc]);
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
 
 		// First tick — event emitted
 		system.execute(createDeps(eventBus, 1));
@@ -178,7 +194,8 @@ describe('RestSystem', () => {
 		bb.state = { ...bb.state, btAction: 'seek_food' };
 
 		const restLoc = createRestLocation('loc-tavern', 200, 200);
-		const system = createRestSystem(() => [agent], () => [restLoc]);
+		const worldEntity = createWorldEntity();
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
 		const deps = createDeps(eventBus);
 
 		// Tick 1: agent at rest location — nearestRest found, btAction ignored
@@ -207,8 +224,9 @@ describe('RestSystem', () => {
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
 		const restLoc1 = createRestLocation('loc-tavern', 300, 200);
 		const restLoc2 = createRestLocation('loc-inn', 500, 500);
+		const worldEntity = createWorldEntity();
 
-		const system1 = createRestSystem(() => [agent], () => [restLoc1]);
+		const system1 = createRestSystem(() => [agent], () => [restLoc1], () => worldEntity);
 		system1.execute(createDeps(eventBus, 1));
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.locationId).toBe('loc-tavern');
@@ -217,9 +235,50 @@ describe('RestSystem', () => {
 		agent.pos.x = 500;
 		agent.pos.y = 500;
 
-		const system2 = createRestSystem(() => [agent], () => [restLoc2]);
+		const system2 = createRestSystem(() => [agent], () => [restLoc2], () => worldEntity);
 		system2.execute(createDeps(eventBus, 2));
 		expect(events.length).toBe(2);
 		expect(events[1]?.payload.locationId).toBe('loc-inn');
+	});
+
+	it('downgrades to outdoors when agent cannot afford public shelter', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('RestStarted', (e) => { events.push(e); });
+
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 300, 200, { wallet: { gold: 0 } }),
+			defaultMoodConfig,
+		);
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
+		system.execute(createDeps(eventBus));
+
+		const needs = agent.get(NeedsComponent);
+		// outdoors recovery_rate = 1.0 (downgraded from public_shelter)
+		expect(needs.state.energy).toBeCloseTo(51.0);
+
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.tier).toBe('outdoors');
+	});
+
+	it('deducts gold on public shelter entry', () => {
+		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
+		system.execute(createDeps());
+
+		const wallet = agent.get(WalletComponent);
+		// rest_price default = 1, starting gold = 50
+		expect(wallet.state.gold).toBe(49);
+
+		const economy = worldEntity.get(EconomyComponent);
+		expect(economy.state.ledger).toHaveLength(1);
+		expect(economy.state.ledger[0].type).toBe('purchase');
+		expect(economy.state.ledger[0].gold).toBe(1);
 	});
 });
