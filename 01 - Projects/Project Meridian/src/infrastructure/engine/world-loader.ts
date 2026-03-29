@@ -2,9 +2,13 @@ import type { Logger } from '../../domain/core/logger.js';
 import type { TraitDefinition } from '../../domain/systems/trait-resolver.js';
 import type { BTNode } from '../../domain/systems/behavior-tree.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
+import type { WorldRegion } from '../../domain/schemas/region-schema.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { VaultReader } from '../entity/agent-spawner.js';
 import type { MoodConfig } from '../../domain/systems/mood.js';
+import { RegionSchema } from '../../domain/schemas/region-schema.js';
+import { buildRegionGraph, type RegionGraph } from '../../domain/systems/pathfinding.js';
+import { pointInPolygon } from '../../domain/core/polygon.js';
 import { createAgentSpawner } from '../entity/agent-spawner.js';
 import { createTraitLoader } from '../entity/trait-loader.js';
 import { createLocationLoader } from '../entity/location-loader.js';
@@ -14,6 +18,8 @@ export interface WorldData {
 	agents: AgentActor[];
 	traitDefs: Record<string, TraitDefinition>;
 	locations: WorldLocation[];
+	regions: WorldRegion[];
+	regionGraph: RegionGraph;
 	btDefinitions: Record<string, BTNode>;
 	errors: { step: string; file: string; message: string }[];
 }
@@ -48,13 +54,62 @@ const STEPS = [
 	'Loading traits...',
 	'Loading agents...',
 	'Loading locations...',
+	'Loading regions...',
 	'Loading behavior trees...',
 ] as const;
+
+async function loadRegions(
+	vault: VaultReader,
+	path: string,
+): Promise<{ items: WorldRegion[]; errors: { file: string; message: string }[] }> {
+	const items: WorldRegion[] = [];
+	const errors: { file: string; message: string }[] = [];
+	const files = await vault.list(path);
+	for (const file of files) {
+		try {
+			const content = await vault.read(file);
+			const parsed: unknown = JSON.parse(content);
+			items.push(RegionSchema.parse(parsed));
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			errors.push({ file, message });
+		}
+	}
+	return { items, errors };
+}
 
 export function createWorldLoader(
 	logger: Logger,
 	config: WorldLoaderConfig,
 ): { load(vault: VaultReader, onProgress?: LoadProgress): Promise<WorldData> } {
+	function validateLocationRegions(locations: WorldLocation[], regions: WorldRegion[]): void {
+		for (const loc of locations) {
+			if (loc.region !== null) {
+				// Declared region — verify containment
+				const region = regions.find(r => r.id === loc.region);
+				if (region === undefined) {
+					logger.warn('WorldLoader', `Location "${loc.id}" references unknown region "${loc.region}"`);
+					continue;
+				}
+				const inside = pointInPolygon(loc.position.x, loc.position.y, { vertices: region.bounds });
+				if (!inside) {
+					logger.warn('WorldLoader', `Location "${loc.id}" at (${String(loc.position.x)}, ${String(loc.position.y)}) is outside its declared region "${loc.region}"`);
+				}
+			} else {
+				// No region declared — auto-assign by containment
+				const containing = regions.find(r =>
+					pointInPolygon(loc.position.x, loc.position.y, { vertices: r.bounds }),
+				);
+				if (containing !== undefined) {
+					loc.region = containing.id;
+					logger.info('WorldLoader', `Auto-assigned location "${loc.id}" to region "${containing.id}"`);
+				} else {
+					logger.warn('WorldLoader', `Location "${loc.id}" at (${String(loc.position.x)}, ${String(loc.position.y)}) does not fall within any region`);
+				}
+			}
+		}
+	}
+
 	return {
 		async load(vault: VaultReader, onProgress?: LoadProgress): Promise<WorldData> {
 			const total = STEPS.length;
@@ -74,18 +129,28 @@ export function createWorldLoader(
 			collectErrors('locations', locationResult.errors, errors);
 
 			onProgress?.(4, total, STEPS[3]);
+			const regionResult = await loadRegions(vault, 'regions');
+			collectErrors('regions', regionResult.errors, errors);
+			const regionGraph = buildRegionGraph(regionResult.items);
+
+			// Validate location-region containment
+			validateLocationRegions(locationResult.items, regionResult.items);
+
+			onProgress?.(5, total, STEPS[4]);
 			const btResult = await createBTLoader(logger).loadFromVault(vault, '03 - Resources/BehaviorTrees');
 			collectErrors('behavior-trees', btResult.errors, errors);
 
 			if (errors.length > 0) {
 				logger.warn('WorldLoader', `${String(errors.length)} error(s) during world load`);
 			}
-			logger.info('WorldLoader', `World loaded: ${String(traitResult.items.length)} traits, ${String(spawnResult.agents.length)} agents, ${String(locationResult.items.length)} locations, ${String(btResult.items.length)} BTs`);
+			logger.info('WorldLoader', `World loaded: ${String(traitResult.items.length)} traits, ${String(spawnResult.agents.length)} agents, ${String(locationResult.items.length)} locations, ${String(regionResult.items.length)} regions, ${String(btResult.items.length)} BTs`);
 
 			return {
 				agents: spawnResult.agents,
 				traitDefs: buildTraitMap(traitResult.items),
 				locations: locationResult.items,
+				regions: regionResult.items,
+				regionGraph,
 				btDefinitions: buildBTMap(btResult.items),
 				errors,
 			};

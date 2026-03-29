@@ -98,7 +98,7 @@ describe('WorldLoader', () => {
 		expect(result.btDefinitions['merchant']).toBeDefined();
 	});
 
-	it('calls progress callback 4 times with correct step/total/label', async () => {
+	it('calls progress callback 5 times with correct step/total/label', async () => {
 		const vault = createMockVault({});
 		const loader = createWorldLoader(logger, loaderConfig);
 		const calls: [number, number, string][] = [];
@@ -107,11 +107,12 @@ describe('WorldLoader', () => {
 			calls.push([step, total, label]);
 		});
 
-		expect(calls).toHaveLength(4);
-		expect(calls[0]).toEqual([1, 4, 'Loading traits...']);
-		expect(calls[1]).toEqual([2, 4, 'Loading agents...']);
-		expect(calls[2]).toEqual([3, 4, 'Loading locations...']);
-		expect(calls[3]).toEqual([4, 4, 'Loading behavior trees...']);
+		expect(calls).toHaveLength(5);
+		expect(calls[0]).toEqual([1, 5, 'Loading traits...']);
+		expect(calls[1]).toEqual([2, 5, 'Loading agents...']);
+		expect(calls[2]).toEqual([3, 5, 'Loading locations...']);
+		expect(calls[3]).toEqual([4, 5, 'Loading regions...']);
+		expect(calls[4]).toEqual([5, 5, 'Loading behavior trees...']);
 	});
 
 	it('aggregates errors from multiple loaders with step prefix', async () => {

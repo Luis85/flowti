@@ -15,7 +15,11 @@ import { InventoryComponent } from '../components/inventory-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { distance } from '../../domain/core/math-utils.js';
-import type { PerceptionState } from '../../domain/core/component-data.js';
+import type { JourneyState, PerceptionState } from '../../domain/core/component-data.js';
+import { pointInPolygon } from '../../domain/core/polygon.js';
+import { findRegionPath, type RegionGraph } from '../../domain/systems/pathfinding.js';
+import { computeCrossingPoint } from '../../domain/systems/crossing-point.js';
+import type { WorldRegion } from '../../domain/schemas/region-schema.js';
 
 const BT_PREFIX = 'bt-';
 
@@ -26,6 +30,8 @@ export function createBehaviorTreeSystem(
 	baseSeed: number,
 	getLocationActors?: () => Map<string, Actor>,
 	getLocations?: () => WorldLocation[],
+	getRegions?: () => WorldRegion[],
+	regionGraph?: RegionGraph,
 ): GameSystem {
 	return {
 		name: 'BehaviorTreeSystem',
@@ -85,14 +91,31 @@ export function createBehaviorTreeSystem(
 
 				if (result.action !== null) {
 					// Resolve movementTarget from perception if action implies movement
-					const movementTarget = resolveMovementTarget(result.action, result.params, perception.state);
+					let movementTarget = resolveMovementTarget(result.action, result.params, perception.state);
 
 					const prevAction = bb.state.btAction as string | undefined;
-					if (result.action !== prevAction) {
+					const actionChanged = result.action !== prevAction;
+					if (actionChanged) {
 						deps.logger.debug('BT', `${agent.agentName}: ${prevAction ?? 'none'} → ${result.action}`, {
 							needs: needs.state,
 							target: movementTarget?.id ?? null,
 						});
+					}
+
+					// Clear journey when action changes
+					const existingJourney = actionChanged ? undefined : bb.state.journey as JourneyState | undefined;
+
+					// Detect cross-region journey
+					const regionList = getRegions?.() ?? [];
+					let journey: JourneyState | undefined = existingJourney;
+					if (movementTarget !== null && movementTarget.type === 'location' && regionList.length > 0 && regionGraph !== undefined) {
+						const resolved = resolveJourney(
+							agent.pos, bb, movementTarget, locationList, regionList, regionGraph,
+						);
+						if (resolved !== undefined) {
+							journey = resolved;
+							movementTarget = { id: '__journey__', type: 'location' };
+						}
 					}
 
 					bb.state = {
@@ -100,6 +123,7 @@ export function createBehaviorTreeSystem(
 						btAction: result.action,
 						btParams: result.params,
 						...(movementTarget !== null ? { movementTarget } : {}),
+						...(journey !== undefined ? { journey } : actionChanged ? { journey: undefined } : {}),
 					};
 					bb.markDirty();
 
@@ -118,6 +142,84 @@ export function createBehaviorTreeSystem(
 			}
 		},
 	};
+}
+
+export const JOURNEY_SENTINEL = '__journey__';
+
+function resolveJourney(
+	agentPos: { x: number; y: number },
+	bb: { state: Record<string, unknown> },
+	movementTarget: { id: string; type: 'agent' | 'location' },
+	locationList: WorldLocation[],
+	regionList: WorldRegion[],
+	graph: RegionGraph,
+): JourneyState | undefined {
+	// Determine agent's current region
+	const agentRegion = resolveAgentRegion(agentPos, bb, regionList);
+	if (agentRegion === undefined) return undefined;
+
+	// Determine target location's region
+	const targetLoc = locationList.find(l => l.id === movementTarget.id);
+	if (targetLoc === undefined) return undefined;
+	const targetRegion = targetLoc.region ?? undefined;
+	if (targetRegion === undefined) return undefined;
+
+	// Same region — no journey needed
+	if (agentRegion === targetRegion) return undefined;
+
+	// Find path between regions
+	const pathResult = findRegionPath(graph, agentRegion, targetRegion);
+	if (pathResult === null || pathResult.path.length < 2) return undefined;
+
+	// Build waypoints for each hop (skip the first region — that's where the agent already is)
+	const waypoints = [];
+	for (let i = 0; i < pathResult.path.length - 1; i++) {
+		const fromId = pathResult.path[i]!;
+		const toId = pathResult.path[i + 1]!;
+		const fromRegion = regionList.find(r => r.id === fromId);
+		const toRegion = regionList.find(r => r.id === toId);
+		if (fromRegion === undefined || toRegion === undefined) return undefined;
+
+		const crossingPoint = computeCrossingPoint(
+			{ vertices: fromRegion.bounds },
+			{ vertices: toRegion.bounds },
+		);
+
+		// Get travel cost from the connection
+		const conn = fromRegion.connections.find(c => c.regionId === toId);
+		const travelCost = conn?.travel_cost ?? 1;
+
+		waypoints.push({
+			regionId: toId,
+			crossingPoint,
+			travelCost,
+		});
+	}
+
+	return {
+		waypoints,
+		waypointIndex: 0,
+		finalTarget: { id: movementTarget.id, type: movementTarget.type },
+		totalCost: pathResult.totalCost,
+	};
+}
+
+function resolveAgentRegion(
+	agentPos: { x: number; y: number },
+	bb: { state: Record<string, unknown> },
+	regionList: WorldRegion[],
+): string | undefined {
+	// Check blackboard first
+	const bbRegion = bb.state.currentRegion;
+	if (typeof bbRegion === 'string' && bbRegion.length > 0) return bbRegion;
+
+	// Fall back to point-in-polygon test
+	for (const region of regionList) {
+		if (pointInPolygon(agentPos.x, agentPos.y, { vertices: region.bounds })) {
+			return region.id;
+		}
+	}
+	return undefined;
 }
 
 const LOCATION_ACTIONS: Record<string, string> = {

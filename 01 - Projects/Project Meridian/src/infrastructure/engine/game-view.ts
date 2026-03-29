@@ -163,7 +163,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createMoodSystem(getAgents));
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createMemoryDecaySystem(getAgents));
-		tickRunner.register(createBehaviorTreeSystem(getAgents, world.btDefinitions, getWorldEntity, Date.now(), getLocationActors, getLocations));
+		tickRunner.register(createBehaviorTreeSystem(getAgents, world.btDefinitions, getWorldEntity, Date.now(), getLocationActors, getLocations, () => world.regions, world.regionGraph));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
 		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
@@ -171,7 +171,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity));
 		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity));
 
-		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(Object.keys(world.btDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
+		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.btDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
 	}
 
 	/** Toggle ExcaliburJS debug drawing (entity bounds, names, etc.) */

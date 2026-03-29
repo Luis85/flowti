@@ -5,9 +5,13 @@ import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
+import { StaminaComponent } from '../components/stamina-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { clamp, distance } from '../../domain/core/math-utils.js';
 import { resolveArrivalOffset } from '../../domain/systems/arrival-spread.js';
+import { resolveSteeringOffset, type Obstacle } from '../../domain/systems/steering.js';
+import type { JourneyState } from '../../domain/core/component-data.js';
+import { JOURNEY_SENTINEL } from './behavior-tree-system.js';
 
 /** Snap-to-target when within this fraction of per-tick speed — value from config.formulas.arrival_threshold_multiplier */
 
@@ -50,6 +54,90 @@ function drainMovementEnergy(
 	}
 }
 
+function handleJourneyWaypointArrival(
+	agent: AgentActor,
+	journey: JourneyState,
+	bb: BlackboardComponent,
+	deps: GameCoreDeps,
+): void {
+	const waypoint = journey.waypoints[journey.waypointIndex]!;
+	const previousRegion = (bb.state.currentRegion as string | undefined) ?? 'unknown';
+
+	// Deduct stamina for crossing
+	const stamina = agent.get(StaminaComponent);
+	const newStamina = Math.max(0, stamina.state.current - waypoint.travelCost);
+	stamina.state = { ...stamina.state, current: newStamina };
+
+	deps.eventBus.emit({
+		type: 'RegionEntered',
+		tick: deps.tickCount,
+		wallClock: Date.now(),
+		source: 'MovementSystem',
+		payload: {
+			agentId: agent.agentId,
+			fromRegion: previousRegion,
+			toRegion: waypoint.regionId,
+			travelCost: waypoint.travelCost,
+			staminaRemaining: newStamina,
+		},
+	});
+
+	// Exhaustion check — halt journey if stamina depleted
+	if (newStamina <= 0) {
+		bb.state = {
+			...bb.state,
+			currentRegion: waypoint.regionId,
+			journey: undefined,
+			movementTarget: undefined,
+		};
+		bb.markDirty();
+		agent.vel.x = 0;
+		agent.vel.y = 0;
+		return;
+	}
+
+	const nextIndex = journey.waypointIndex + 1;
+	if (nextIndex < journey.waypoints.length) {
+		// More waypoints — continue journey
+		bb.state = {
+			...bb.state,
+			currentRegion: waypoint.regionId,
+			journey: { ...journey, waypointIndex: nextIndex },
+			movementTarget: { id: JOURNEY_SENTINEL, type: 'location' as const },
+		};
+	} else {
+		// Last waypoint — route to final destination
+		bb.state = {
+			...bb.state,
+			currentRegion: waypoint.regionId,
+			journey: undefined,
+			movementTarget: journey.finalTarget,
+		};
+	}
+	bb.markDirty();
+}
+
+function collectObstacles(
+	agentList: AgentActor[],
+	locationList: WorldLocation[],
+	currentAgent: AgentActor,
+	targetId: string,
+): Obstacle[] {
+	const obstacles: Obstacle[] = [];
+	for (const other of agentList) {
+		if (other === currentAgent) continue;
+		const otherBb = other.get(BlackboardComponent);
+		if (otherBb.state.atLocation !== undefined) {
+			obstacles.push({ x: other.pos.x, y: other.pos.y, radius: 14 });
+		}
+	}
+	for (const loc of locationList) {
+		if (loc.id === targetId) continue;
+		obstacles.push({ x: loc.position.x, y: loc.position.y, radius: 10 });
+	}
+	return obstacles;
+}
+
 export function createMovementSystem(
 	agents: () => AgentActor[],
 	locations: () => WorldLocation[],
@@ -80,9 +168,18 @@ export function createMovementSystem(
 					continue;
 				}
 
+				// Check for journey waypoint navigation
+				const journey = bb.state.journey as JourneyState | undefined;
+				const isJourneyMove = journey !== undefined && rawTarget.id === JOURNEY_SENTINEL;
+
 				let targetPos: { x: number; y: number } | undefined;
 
-				if (rawTarget.type === 'agent') {
+				if (isJourneyMove) {
+					const wp = journey.waypoints[journey.waypointIndex];
+					if (wp !== undefined) {
+						targetPos = { x: wp.crossingPoint.x, y: wp.crossingPoint.y };
+					}
+				} else if (rawTarget.type === 'agent') {
 					const targetAgent = agentList.find(a => a.agentId === rawTarget.id);
 					if (targetAgent !== undefined) {
 						targetPos = { x: targetAgent.pos.x, y: targetAgent.pos.y };
@@ -107,46 +204,64 @@ export function createMovementSystem(
 				const arrivalThreshold = speedPerTick * deps.config.formulas.arrival_threshold_multiplier;
 
 				if (dist <= arrivalThreshold) {
-					// Count agents already at this location (for spread offset)
-					const agentsAtLocation = agentList.filter(a => {
-						const abb = a.get(BlackboardComponent);
-						return abb.state.atLocation === rawTarget.id;
-					});
-					const slotIndex = agentsAtLocation.length;
-					const totalAgents = slotIndex + 1;
-					const offset = resolveArrivalOffset(slotIndex, totalAgents, spreadRadius);
+					if (isJourneyMove) {
+						// Arrived at journey waypoint — handle crossing
+						agent.pos.x = targetPos.x;
+						agent.pos.y = targetPos.y;
+						agent.vel.x = 0;
+						agent.vel.y = 0;
+						handleJourneyWaypointArrival(agent, journey, bb, deps);
+					} else {
+						// Count agents already at this location (for spread offset)
+						const agentsAtLocation = agentList.filter(a => {
+							const abb = a.get(BlackboardComponent);
+							return abb.state.atLocation === rawTarget.id;
+						});
+						const slotIndex = agentsAtLocation.length;
+						const totalAgents = slotIndex + 1;
+						const offset = resolveArrivalOffset(slotIndex, totalAgents, spreadRadius);
 
-					// Arrived — snap to target + offset, stop, emit event
-					agent.pos.x = targetPos.x + offset.dx;
-					agent.pos.y = targetPos.y + offset.dy;
-					agent.vel.x = 0;
-					agent.vel.y = 0;
+						// Arrived — snap to target + offset, stop, emit event
+						agent.pos.x = targetPos.x + offset.dx;
+						agent.pos.y = targetPos.y + offset.dy;
+						agent.vel.x = 0;
+						agent.vel.y = 0;
 
-					bb.state = {
-						...bb.state,
-						movementTarget: undefined,
-						atLocation: rawTarget.id,
-						arrivalSlot: slotIndex,
-					};
-					bb.markDirty();
+						bb.state = {
+							...bb.state,
+							movementTarget: undefined,
+							atLocation: rawTarget.id,
+							arrivalSlot: slotIndex,
+						};
+						bb.markDirty();
 
-					deps.eventBus.emit({
-						type: 'AgentArrived',
-						tick: deps.tickCount,
-						wallClock: Date.now(),
-						source: 'MovementSystem',
-						payload: {
-							agentId: agent.agentId,
-							targetId: rawTarget.id,
-							targetType: rawTarget.type,
-						},
-					});
+						deps.eventBus.emit({
+							type: 'AgentArrived',
+							tick: deps.tickCount,
+							wallClock: Date.now(),
+							source: 'MovementSystem',
+							payload: {
+								agentId: agent.agentId,
+								targetId: rawTarget.id,
+								targetType: rawTarget.type,
+							},
+						});
+					}
 				} else {
-					// Set velocity toward target — ExcaliburJS interpolates between ticks
-					const nx = (targetPos.x - agent.pos.x) / dist;
-					const ny = (targetPos.y - agent.pos.y) / dist;
-					agent.vel.x = nx * speedPerSec;
-					agent.vel.y = ny * speedPerSec;
+					// Apply obstacle avoidance steering
+					const obstacles = collectObstacles(agentList, locationList, agent, rawTarget.id);
+					const adjusted = resolveSteeringOffset(agent.pos.x, agent.pos.y, targetPos.x, targetPos.y, obstacles, 14);
+					const adjustedDist = distance(agent.pos.x, agent.pos.y, adjusted.x, adjusted.y);
+
+					if (adjustedDist > 0) {
+						const nx = (adjusted.x - agent.pos.x) / adjustedDist;
+						const ny = (adjusted.y - agent.pos.y) / adjustedDist;
+						agent.vel.x = nx * speedPerSec;
+						agent.vel.y = ny * speedPerSec;
+					} else {
+						agent.vel.x = 0;
+						agent.vel.y = 0;
+					}
 
 					drainMovementEnergy(agent, speedPerTick, deps);
 				}
