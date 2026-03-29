@@ -391,3 +391,36 @@ Phase 1E would add economy and trade:
 | Memory flooding from socialization | Low | Medium | Cooldown prevents more than 1 memory per pair per 50 ticks |
 | Energy drain makes agents unable to reach destinations | Medium | Medium | Exhaustion halves speed, doesn't stop movement. Rest locations are reachable. |
 | Interaction radius too small/large | Low | Low | Config-driven (default 25px), tunable |
+
+## 9. Operational Checklist (Learnings from Phases 1B–1C)
+
+These items must be completed alongside the core implementation:
+
+### README Generator
+Update `scripts/generate-readme.mjs` to document:
+- RestSystem, FeedSystem, SocializeSystem in the system pipeline table
+- Recovery rates (food, rest tiers, social) in a new "Action Consequences" section
+- Energy drain formula and exhaustion mechanics
+- Interaction radius and social memory cooldown
+
+### Integration Safeguards
+Update existing test files:
+- `tests/integration/smoke-test.test.ts` — add a scenario: agent with low hunger at food location → hunger increases after tick
+- `tests/integration/data-validation.test.ts` — no new JSON data types in Phase 1D (config-driven), but verify new `GameConfigSchema` sections parse correctly
+
+### World Snapshot
+Update `scripts/generate-world-snapshot.mjs`:
+- Add interaction radius circles around locations (visual indicator of where agents can interact)
+- Or defer to runtime VaultSync (Phase 1F) — document the decision
+
+### Docs
+After implementation, update Phase 1D Section 9 (post-implementation notes) with:
+- Any deviations from this spec
+- Additional artifacts created
+- Final test count
+
+### AgentActor Property Field
+Add `readonly property: string[]` to `AgentActor` (from `agent.property`). `agent.property` is an array of `WorldLocation.id` strings — ownership check is `agent.property.includes(location.id)`.
+
+### No New Plugin Settings
+Phase 1D config values (recovery rates, interaction radius, social cooldown) live in `GameConfigSchema` defaults. They are tunable via a future `game-config.json` vault file but are NOT exposed as plugin settings sliders (too granular for the settings tab). Document this: "Phase 1D parameters are config-level, not settings-level. A vault-editable `game-config.json` override is a Phase 1F concern."
