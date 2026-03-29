@@ -36,9 +36,16 @@ const bts = loadJsonDir('behavior-trees');
 const CONFIG = {
 	tick_interval_ms: 500,
 	ticks_per_day: 480,
-	needs: { hunger_decay: 0.5, energy_decay: 0.25, social_decay: 0.15 },
-	perception: { base_multiplier: 20, night_multiplier: 0.5 },
+	needs: { hunger_decay: 0.5, energy_decay: 0.25, social_decay: 0.15, food_recovery_rate: 1.5 },
+	stamina: { movement_energy_cost: 0.1, exhaustion_speed_modifier: 0.5 },
+	perception: { base_multiplier: 20, night_multiplier: 0.5, interaction_radius: 25 },
 	formulas: { basic_speed_divisor: 4 },
+	rest_tiers: {
+		owned_home: { recovery_rate: 2.0, mood_effect: 2 },
+		public_shelter: { recovery_rate: 1.5, mood_effect: 0 },
+		outdoors: { recovery_rate: 1.0, mood_effect: -3 },
+	},
+	social: { recovery_rate: 0.5, memory_significance: 3, memory_mood_impact: 2, cooldown_ticks: 50 },
 	memory: { max_entries: 50, min_lifespan_ticks: 20 },
 	mood: {
 		factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -101,7 +108,10 @@ w('| 2 | Mood | Recalculates mood from needs + memories |');
 w('| 3 | Perception | Detects nearby agents and locations |');
 w('| 4 | Memory Decay | Fades old memories, prunes insignificant ones |');
 w('| 5 | Behavior Tree | Evaluates decisions, picks an action |');
-w('| 5.5 | Movement | Walks agent toward chosen target |');
+w('| 5.5 | Movement | Walks agent toward chosen target (drains energy) |');
+w('| 6.5 | Rest | Recovers energy at rest locations (3 tiers) |');
+w('| 6.6 | Feed | Recovers hunger at food locations |');
+w('| 6.7 | Socialize | Recovers social near agents, creates memories |');
 w();
 
 // --- Day/Night ---
@@ -220,6 +230,36 @@ for (const dx of [8, 10, 12, 15]) {
 	const pxSec = (speed * 1000 / CONFIG.tick_interval_ms).toFixed(1);
 	w(`| ${dx} | ${speed.toFixed(1)} | ${pxSec} |`);
 }
+w();
+
+// --- Action Consequences ---
+w('## Action Consequences');
+w();
+w(`Actions have tangible effects when agents are within **${CONFIG.perception.interaction_radius}px** of the relevant location or agent.`);
+w();
+w('### Rest Recovery');
+w();
+w('Agents recover energy at rest locations. The tier depends on ownership:');
+w();
+w('| Tier | Recovery/tick | Mood Effect | Condition |');
+w('|------|-------------|-------------|-----------|');
+w(`| Owned Home | ${CONFIG.rest_tiers.owned_home.recovery_rate} | +${CONFIG.rest_tiers.owned_home.mood_effect} | Agent owns the location |`);
+w(`| Public Shelter | ${CONFIG.rest_tiers.public_shelter.recovery_rate} | ${CONFIG.rest_tiers.public_shelter.mood_effect} | At rest location, not owned |`);
+w(`| Outdoors | ${CONFIG.rest_tiers.outdoors.recovery_rate} | ${CONFIG.rest_tiers.outdoors.mood_effect} | Idle, no rest location nearby |`);
+w();
+w('### Food Recovery');
+w();
+w(`At food locations, hunger recovers at **${CONFIG.needs.food_recovery_rate}/tick**.`);
+w();
+w('### Social Recovery');
+w();
+w(`When an agent socializes near another agent, social recovers at **${CONFIG.social.recovery_rate}/tick**. A memory of the interaction is created (significance: ${CONFIG.social.memory_significance}, mood impact: +${CONFIG.social.memory_mood_impact}).`);
+w();
+w(`Memories have a **${CONFIG.social.cooldown_ticks}-tick cooldown** per pair — social still recovers during cooldown, but no new memory is created.`);
+w();
+w('### Movement Energy Cost');
+w();
+w(`Moving drains energy: **speed × ${CONFIG.stamina.movement_energy_cost}/tick**. Exhausted agents (energy < ${CONFIG.critical_thresholds.energy}) move at **${CONFIG.stamina.exhaustion_speed_modifier}x speed**.`);
 w();
 
 // --- Memory ---
