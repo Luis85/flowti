@@ -17,6 +17,9 @@ import { createDayNightSystem } from '../systems/day-night-system.js';
 import { createPerceptionSystem } from '../systems/perception-system.js';
 import { createBehaviorTreeSystem } from '../systems/behavior-tree-system.js';
 import { createMovementSystem } from '../systems/movement-system.js';
+import { createRestSystem } from '../systems/rest-system.js';
+import { createFeedSystem } from '../systems/feed-system.js';
+import { createSocializeSystem } from '../systems/socialize-system.js';
 import { TimeComponent } from '../components/time-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
@@ -130,6 +133,9 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		tickRunner.register(createBehaviorTreeSystem(getAgents, world.btDefinitions, getWorldEntity, Date.now()));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
+		tickRunner.register(createRestSystem(getAgents, getLocations));
+		tickRunner.register(createFeedSystem(getAgents, getLocations));
+		tickRunner.register(createSocializeSystem(getAgents));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(Object.keys(world.btDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
 	}
