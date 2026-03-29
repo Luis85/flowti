@@ -424,3 +424,55 @@ Add `readonly property: string[]` to `AgentActor` (from `agent.property`). `agen
 
 ### No New Plugin Settings
 Phase 1D config values (recovery rates, interaction radius, social cooldown) live in `GameConfigSchema` defaults. They are tunable via a future `game-config.json` vault file but are NOT exposed as plugin settings sliders (too granular for the settings tab). Document this: "Phase 1D parameters are config-level, not settings-level. A vault-editable `game-config.json` override is a Phase 1F concern."
+
+---
+
+## 9. Post-Implementation Notes
+
+**Completed:** 2026-03-29
+
+### Final Test Count
+- **347 total tests** (309 baseline → +38 new)
+- 56 test files (49 baseline → +7 new)
+- Breakdown of new tests:
+  - `rest.test.ts`: 5 tests (pure domain)
+  - `feed.test.ts`: 3 tests (pure domain)
+  - `socialize.test.ts`: 6 tests (pure domain)
+  - `rest-system.test.ts`: 6 tests (infrastructure)
+  - `feed-system.test.ts`: 4 tests (infrastructure)
+  - `socialize-system.test.ts`: 6 tests (infrastructure)
+  - `movement-system.test.ts`: +3 tests (energy drain, exhaustion, event)
+  - `consequences-integration.test.ts`: 3 tests (cross-system)
+  - `smoke-test.test.ts`: +1 test (needs recovery at locations)
+  - `data-validation.test.ts`: +1 test (new config sections)
+
+### Deviations from Spec
+- **ESLint complexity:** RestSystem, SocializeSystem, and MovementSystem required extracting helper functions to stay within lint's complexity threshold. This improved readability with no behavioral change.
+- **World snapshot update deferred:** `generate-world-snapshot.mjs` was not modified (interaction radius circles). Deferred to Phase 1F as the spec allows.
+- **Test count:** Spec estimated ~25 new tests; actual is 38 due to thorough coverage of edge cases (e.g., pair deduplication, cooldown expiry, location transitions).
+
+### Artifacts Created
+- `src/domain/systems/rest.ts` — pure applyRest function
+- `src/domain/systems/feed.ts` — pure applyFeed function
+- `src/domain/systems/socialize.ts` — pure applySocialize function
+- `src/infrastructure/systems/rest-system.ts` — RestSystem GameSystem wrapper
+- `src/infrastructure/systems/feed-system.ts` — FeedSystem GameSystem wrapper
+- `src/infrastructure/systems/socialize-system.ts` — SocializeSystem GameSystem wrapper
+- `tests/domain/systems/rest.test.ts`
+- `tests/domain/systems/feed.test.ts`
+- `tests/domain/systems/socialize.test.ts`
+- `tests/infrastructure/systems/rest-system.test.ts`
+- `tests/infrastructure/systems/feed-system.test.ts`
+- `tests/infrastructure/systems/socialize-system.test.ts`
+- `tests/integration/consequences-integration.test.ts`
+
+### Modified Files
+- `src/domain/schemas/game-config-schema.ts` — social config, stamina cost, interaction radius, food recovery
+- `src/domain/core/tick-scheduler.ts` — REST, FEED, SOCIALIZE priorities
+- `src/infrastructure/entity/agent-actor.ts` — property field
+- `src/infrastructure/systems/movement-system.ts` — energy drain + exhaustion
+- `src/infrastructure/engine/game-view.ts` — wire 3 new systems
+- `scripts/generate-readme.mjs` — Action Consequences section
+- `tests/infrastructure/systems/movement-system.test.ts` — 3 new tests
+- `tests/integration/smoke-test.test.ts` — 1 new test
+- `tests/integration/data-validation.test.ts` — 1 new test
