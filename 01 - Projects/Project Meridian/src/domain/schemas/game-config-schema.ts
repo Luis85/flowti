@@ -56,6 +56,8 @@ const MoodBucketSchema = z.object({
 });
 
 const MoodConfigSchema = z.object({
+	memory_window_ticks: z.number().int().default(50),
+	memory_saturation_count: z.number().int().default(10),
 	factor_weights: withDefaults(MoodFactorWeightsSchema),
 	buckets: z.array(MoodBucketSchema).default([
 		{ name: 'elated', min: 60, max: 100 },

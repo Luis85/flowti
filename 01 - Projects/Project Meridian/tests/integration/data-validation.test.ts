@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { AgentSchema } from '../../src/domain/schemas/agent-schema.js';
 import { LocationSchema } from '../../src/domain/schemas/location-schema.js';
 import { BehaviorTreeSchema } from '../../src/domain/schemas/behavior-tree-schema.js';
+import { TraitDefinitionSchema } from '../../src/domain/schemas/trait-definition-schema.js';
 import { KNOWN_ACTIONS } from '../../src/domain/systems/bt-actions.js';
 import type { BTNode } from '../../src/domain/schemas/behavior-tree-schema.js';
 
@@ -94,5 +95,22 @@ describe('Shipped Data Validation', () => {
 				});
 			}
 		});
+	});
+
+	describe('traits/', () => {
+		const files = loadJsonFiles('traits');
+
+		it('has at least one trait file', () => {
+			expect(files.length).toBeGreaterThan(0);
+		});
+
+		for (const { name, data } of files) {
+			it(`${name} passes TraitDefinitionSchema validation`, () => {
+				const result = TraitDefinitionSchema.safeParse(data);
+				if (!result.success) {
+					expect.fail(`${name} failed validation: ${result.error.message}`);
+				}
+			});
+		}
 	});
 });

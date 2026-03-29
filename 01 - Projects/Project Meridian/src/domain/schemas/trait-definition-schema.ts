@@ -8,5 +8,3 @@ export const TraitDefinitionSchema = z.object({
 	})).default([]),
 	conflicts_with: z.array(z.string()).default([]),
 });
-
-export type TraitDefinitionData = z.infer<typeof TraitDefinitionSchema>;

@@ -6,9 +6,6 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 
-const MEMORY_WINDOW_TICKS = 50;
-const MEMORY_SATURATION_COUNT = 10;
-
 export function createMoodSystem(
 	entities: () => AgentActor[],
 ): GameSystem {
@@ -17,7 +14,9 @@ export function createMoodSystem(
 		priority: SystemPriority.MOOD,
 
 		execute(deps: GameCoreDeps): void {
-			const tickWindow = deps.tickCount - MEMORY_WINDOW_TICKS;
+			const memoryWindowTicks = deps.config.mood.memory_window_ticks;
+			const memorySaturationCount = deps.config.mood.memory_saturation_count;
+			const tickWindow = deps.tickCount - memoryWindowTicks;
 
 			for (const entity of entities()) {
 				const needs = entity.get(NeedsComponent);
@@ -30,8 +29,8 @@ export function createMoodSystem(
 
 				const factors: MoodFactors = {
 					needsSatisfaction: (needs.state.hunger + needs.state.energy + needs.state.social) / 300,
-					positiveMemories: Math.min(positiveCount / MEMORY_SATURATION_COUNT, 1.0),
-					negativeMemories: Math.min(negativeCount / MEMORY_SATURATION_COUNT, 1.0),
+					positiveMemories: Math.min(positiveCount / memorySaturationCount, 1.0),
+					negativeMemories: Math.min(negativeCount / memorySaturationCount, 1.0),
 					goalProgress: 0,
 					walletHealth: 0,
 					equipmentCondition: 0,

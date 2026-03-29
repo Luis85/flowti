@@ -8,3 +8,6 @@ export const KNOWN_ACTIONS = new Set([
 	'interact',
 	'socialize',
 ]);
+
+/** Actions that target a nearby agent rather than a location. */
+export const AGENT_SOCIAL_ACTIONS = new Set(['interact', 'socialize']);
