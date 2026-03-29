@@ -38,6 +38,10 @@ Make the economy work. Agents earn gold from facility jobs, buy food and rest wi
 | Economy ledger | Append-only log on world entity | EconomyComponent on world entity alongside TimeComponent. Daily summary + transaction log. |
 | Vault reports | DayNightSystem writes markdown at day boundaries | Minimal vault-write capability via new `writeFile` on GameCoreDeps. Not full Phase 9 VaultSync. |
 
+### Phase Positioning Note
+
+This phase is labeled "2E" but implements elements from GDD Phases 3 (relationships), 4 (inventory consumption), and 5 (production, wages, trade). This is a deliberate out-of-order implementation — building a simplified economic foundation bottom-up rather than following the GDD's breadth-first phase sequence. The GDD's Phase 5 (Economy) still requires: full recipe system, Saga-pattern agent-to-agent trade, dynamic pricing, welfare quests, supply chain logistics, and Director treasury spending. Phase 2E builds the minimal autonomous economy loop; Phase 5 will expand it.
+
 ## 4. Detailed Design
 
 ### 4.1 File Map
@@ -68,7 +72,7 @@ Modified infrastructure files:
 Modified schema/config files:
 	domain/schemas/game-config-schema.ts    — economy config additions
 	domain/schemas/location-schema.ts       — ProductionSchema
-	domain/core/tick-scheduler.ts           — FACILITY, TRADE priorities
+	domain/core/tick-scheduler.ts           — rename JOB→FACILITY (reuse slot 6), TRADE already exists at 11
 	domain/core/bt-actions.ts              — new conditions and actions
 
 New test files:
@@ -178,7 +182,22 @@ Added to the existing EconomyConfigSchema.
 writeFile: ((path: string, content: string) => Promise<void>) | null;
 ```
 
-Nullable — `null` in tests, real vault adapter in production. The production implementation uses the Obsidian vault adapter to write files to the vault filesystem.
+Nullable — `null` in tests, real vault adapter in production.
+
+**Wiring in production:** In `game-view.ts`, the `initializeWorld()` method already has access to `this.app.vault`. Construct the write adapter alongside the existing `createVaultAdapter()`:
+
+```typescript
+const writeFile = async (path: string, content: string): Promise<void> => {
+	const existing = vault.getFileByPath(path);
+	if (existing !== null) {
+		await vault.modify(existing, content);
+	} else {
+		await vault.create(path, content);
+	}
+};
+```
+
+Pass `writeFile` when constructing `GameCoreDeps` in `plugin.ts` `initializeGame()`. In tests, pass `writeFile: null` — all existing test `createDeps()` helpers need updating to include `writeFile: null`.
 
 ### 4.3 FacilitySystem (priority 6)
 
@@ -289,7 +308,7 @@ removeFromInventory(agentInventory, foodItem.item_id, 1);
 const result = applyFeed({ currentHunger }, { recovery_rate });
 ```
 
-**Food item identification:** a domain constant `FOOD_ITEMS` set: `new Set(['bread', 'wheat'])`. This is a domain constant like `KNOWN_ACTIONS` — simple, explicit, no over-engineering.
+**Food item identification:** a domain constant `FOOD_ITEMS` set: `new Set(['bread'])`. Only consumable items, not raw materials. Wheat is a production input (category: raw), not a consumable — allowing agents to eat wheat would short-circuit the farm→bakery chain. This is a domain constant like `KNOWN_ACTIONS`.
 
 **Events:** emit `ItemConsumed` event on successful consumption.
 
@@ -302,9 +321,8 @@ The location-based feed from Phase 1D is fully removed. Agents must have food it
 When tier is `public_shelter`:
 
 1. Check agent `gold >= economy.rest_price`
-2. If can afford: deduct gold on entry (one-time charge when `RestStarted` would fire, not per tick)
-3. If cannot afford: fall through to `outdoors` tier
-4. Append ledger entry for rest payment
+2. If can afford: deduct gold on entry (one-time charge when `RestStarted` would fire, not per tick), append ledger entry
+3. If cannot afford: **in-place tier downgrade** to `outdoors` — the agent is still physically at the rest location but receives outdoors-tier recovery (+1.0/tick, -3 mood). They occupy the shelter but can't pay for proper rest. This is NOT a skip — `resolveRestTier` must return `'outdoors'` instead of `'public_shelter'` when gold is insufficient.
 
 `owned_home` and `outdoors` tiers unchanged from Phase 1D.
 
@@ -325,8 +343,8 @@ Add to `CONDITION_CHECKS` in `behavior-tree.ts`:
 #### BTContext Additions
 
 ```typescript
-wallet: number;                                     // agent's gold
-inventory: { item_id: string; quantity: number }[];  // agent's items
+wallet: number;                                     // extracted from agent.wallet.gold (number, not the { gold } object)
+inventory: { item_id: string; quantity: number }[];  // agent's inventory items
 job: string | null;                                  // agent's job
 nearbyFacilities: {
 	id: string;
@@ -335,7 +353,9 @@ nearbyFacilities: {
 }[];
 ```
 
-The `nearbyFacilities` field is populated by BehaviorTreeSystem from FacilityComponents within `interaction_radius`.
+**Translation step:** `BehaviorTreeSystem` reads `FacilityComponent` (infrastructure) from location actors within `interaction_radius` and translates into the pure-domain `nearbyFacilities` struct. This follows the same pattern as reading `NeedsComponent` → `needs` and `PerceptionComponent` → `perception`. The `populateScene()` method must retain references to location actors (see Section 4.15) so BehaviorTreeSystem can query their FacilityComponents.
+
+**Action classification:** `eat`, `rest`, `talk`, `work`, `buy` are all **stationary actions** — they are NOT in `LOCATION_ACTIONS` or `AGENT_SOCIAL_ACTIONS`, so `MovementSystem` ignores them. `eat` specifically requires no location proximity — an agent with food in inventory can eat anywhere. `buy` requires facility proximity (enforced by BT conditions, not by the action type).
 
 #### New Actions
 
@@ -474,7 +494,7 @@ items_consumed: 4
 
 - **Production** — table of facility name, worker, items produced, status
 - **Transactions** — table of tick, type, from, to, item, gold
-- **Agent Balances** — table of agent name, gold, change from previous day
+- **Agent Balances** — table of agent name, gold, change from previous day. `goldChange` is **derived from the ledger** — sum all wage credits minus purchases for that agent within the current day's ledger entries. No snapshot mechanism needed.
 
 **Ledger pruning:** after writing the daily report, prune ledger entries older than `economy.ledger_retention_days` days (measured in ticks via the day-night cycle length).
 
@@ -488,7 +508,8 @@ items_consumed: 4
 | `PurchaseFailed` | TradeSystem | `buyerId, facilityId, reason: 'no_stock' \| 'no_gold'` |
 | `SkillImproved` | FacilitySystem | `agentId, skillId, newUseBonus` |
 | `ItemConsumed` | FeedSystem | `agentId, itemId` |
-| `TaxCollected` | FacilitySystem | `amount, source: 'wage'` |
+| `TaxCollected` | FacilitySystem | `amount, workerId, facilityId, source: 'wage'` |
+| `FacilityInsolvent` | FacilitySystem | `facilityId, fund: 0, unpaidWage` |
 | `DailyReportWritten` | DayNightSystem | `dayCount, path` |
 
 All events follow the `GameEvent` interface: `{ type, tick, wallClock, source, payload }`.
@@ -593,17 +614,34 @@ TradeSystem runs at priority 11 (after all need-recovery systems) so agents who 
 
 `game-view.ts` `populateScene()` additions:
 
-1. Attach `FacilityComponent` to location markers that have `production !== null`
+1. **Retain location actor references:** Currently `createLocationMarker()` returns an actor that's added to the scene but not stored. Refactor to retain references in a `locationActors` map (keyed by location ID), similar to how `world.agents` stores agent actors. This allows `FacilitySystem` and `BehaviorTreeSystem` to query `FacilityComponent` on location actors.
+
+```typescript
+const locationActors = new Map<string, ex.Actor>();
+for (const loc of world.locations) {
+	const marker = createLocationMarker(loc);
+	engine.currentScene.add(marker);
+	if (loc.production !== null) {
+		marker.addComponent(new FacilityComponent({
+			stock: [], fund: deps.config.economy.facility_start_fund,
+			workProgress: 0, status: 'idle', workerId: null,
+		}));
+	}
+	locationActors.set(loc.id, marker);
+}
+const getLocationActors = () => locationActors;
+```
+
 2. Attach `RelationshipComponent` to each AgentActor (empty entries)
 3. Attach `EconomyComponent` to world entity
 4. Register new systems:
 
 ```typescript
-tickRunner.register(createFacilitySystem(getAgents, getLocations, getWorldEntity));
-tickRunner.register(createTradeSystem(getAgents, getLocations, getWorldEntity));
+tickRunner.register(createFacilitySystem(getAgents, getLocationActors, getWorldEntity));
+tickRunner.register(createTradeSystem(getAgents, getLocationActors, getWorldEntity));
 ```
 
-5. Pass `writeFile` on `GameCoreDeps` (nullable, real vault adapter in production)
+5. Pass `writeFile` on `GameCoreDeps` — real vault adapter in production, null in tests (see Section 4.2)
 
 ## 5. Conventions
 
