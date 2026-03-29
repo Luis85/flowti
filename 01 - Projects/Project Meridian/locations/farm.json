@@ -11,5 +11,6 @@
 		"input": null,
 		"wage": 3,
 		"ticks_per_cycle": 30
-	}
+	},
+	"region": "region-farmlands"
 }

@@ -4,5 +4,6 @@
 	"type": "social",
 	"position": { "x": 400, "y": 250 },
 	"capacity": 20,
-	"color": "#20b2aa"
+	"color": "#20b2aa",
+	"region": "region-market-square"
 }

@@ -11,5 +11,6 @@
 		"input": null,
 		"wage": 5,
 		"ticks_per_cycle": 40
-	}
+	},
+	"region": "region-craft-quarter"
 }

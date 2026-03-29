@@ -1,0 +1,14 @@
+{
+	"id": "region-farmlands",
+	"name": "Farmlands",
+	"bounds": [
+		{ "x": 30, "y": 30 },
+		{ "x": 200, "y": 30 },
+		{ "x": 200, "y": 150 },
+		{ "x": 30, "y": 150 }
+	],
+	"connections": [
+		{ "regionId": "region-market-square", "travel_cost": 2 }
+	],
+	"color": "#3a5a2a"
+}

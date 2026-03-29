@@ -1,0 +1,15 @@
+{
+	"id": "region-craft-quarter",
+	"name": "Craft Quarter",
+	"bounds": [
+		{ "x": 80, "y": 280 },
+		{ "x": 250, "y": 280 },
+		{ "x": 250, "y": 420 },
+		{ "x": 80, "y": 420 }
+	],
+	"connections": [
+		{ "regionId": "region-market-square", "travel_cost": 1 },
+		{ "regionId": "region-residential", "travel_cost": 2 }
+	],
+	"color": "#5a4a3a"
+}

@@ -1,0 +1,15 @@
+{
+	"id": "region-residential",
+	"name": "Residential",
+	"bounds": [
+		{ "x": 280, "y": 280 },
+		{ "x": 450, "y": 280 },
+		{ "x": 450, "y": 420 },
+		{ "x": 280, "y": 420 }
+	],
+	"connections": [
+		{ "regionId": "region-market-square", "travel_cost": 1 },
+		{ "regionId": "region-craft-quarter", "travel_cost": 2 }
+	],
+	"color": "#4a3a5a"
+}
