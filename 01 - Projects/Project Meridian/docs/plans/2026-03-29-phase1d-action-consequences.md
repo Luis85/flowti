@@ -446,7 +446,28 @@ Tests should verify:
 - Agent idle but not at rest location → `outdoors` tier
 - Agent with non-idle BT action and not at rest location → skipped
 
-Use AgentActor with `property: ['loc-tavern']` for ownership tests. Create test locations with `type: 'rest'`. Use `deps.config.perception.interaction_radius` for distance check.
+**Test fixture pattern** (use for all system tests in Chunk C):
+
+```typescript
+function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string, unknown> = {}) {
+	return {
+		id, name: id, kind: 'merchant',
+		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
+		social: { status: 0, reputation: 0, charisma: 10 },
+		needs: { hunger: 50, energy: 50, social: 50 },
+		mood: 0, memory: [], goals: [], skills: [], inventory: [],
+		equipment: { head: null, body: null, hands: null, tool: null, accessory: null },
+		traits: [], wallet: { gold: 50 }, xp: 0, level: 1,
+		position: { x, y, region: 'test' }, relationships: '',
+		color: '#b0b0b0', persona: null, property: [],
+		tools: [], behavior_tree: 'bt-merchant', job: null,
+		...overrides,
+	};
+}
+```
+
+For ownership tests: `createTestAgentData('agent-1', 300, 200, { property: ['loc-tavern'] })`.
+For location fixtures: `{ id: 'loc-tavern', name: 'Tavern', type: 'rest', position: { x: 300, y: 200 }, capacity: 8, color: '#6a5acd' }`.
 
 Track "first tick" via `bb.state.restingAt` — set when agent starts resting, clear when agent leaves. Only emit event when `restingAt` was previously undefined.
 
@@ -586,9 +607,62 @@ Expected: 0 errors, 0 warnings, ~334+ tests pass, build succeeds with updated RE
 | No regressions | Full suite run |
 | README updated | Build output check |
 
-- [ ] **Step 3: Final commit**
+- [ ] **Step 3: Verify README contains new "Action Consequences" section**
+
+Run: `npm run build` and check `dist/README.md` contains rest tiers, food recovery, social cooldown, and energy cost sections.
+
+- [ ] **Step 4: Final commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/"
 git commit -m "feat(meridian): Phase 1D complete — action consequences (rest, feed, socialize, energy cost)"
 ```
+
+---
+
+## Learnings-Driven Requirements
+
+These items reflect lessons from Phases 1B–1C. They are NOT optional.
+
+### Test Fixture Requirements
+
+ALL test agent fixtures MUST include these fields (learned from Phase 1C where missing fields caused 34 test failures):
+
+```typescript
+// Required in every createTestAgent / createTestAgentData helper:
+color: '#b0b0b0',
+persona: null,
+property: [],  // NEW in Phase 1D — add to all existing test fixtures too
+```
+
+When adding `property` to AgentActor (Task A1), also update ALL existing test fixture helpers across the codebase to include `property: []`. Grep for `createTestAgent` and `createTestAgentData` across `tests/` — there are ~10 files.
+
+### WorldLoader
+
+No changes to `world-loader.ts` are needed — RestSystem, FeedSystem, and SocializeSystem read from `deps.config` (already available) and entity queries (already wired). State this explicitly when implementing so the subagent doesn't wonder.
+
+### data-validation.test.ts
+
+Add a test verifying the new config sections parse correctly:
+
+```typescript
+it('GameConfigSchema parses with social and stamina defaults', () => {
+	const config = GameConfigSchema.parse({});
+	expect(config.social.recovery_rate).toBe(0.5);
+	expect(config.social.cooldown_ticks).toBe(50);
+	expect(config.stamina.movement_energy_cost).toBe(0.1);
+	expect(config.needs.food_recovery_rate).toBe(1.5);
+	expect(config.perception.interaction_radius).toBe(25);
+});
+```
+
+### Section 9 Documentation
+
+After implementation completes, update the Phase 1D spec (`docs/specs/2026-03-29-phase1d-action-consequences-design.md`) with a Section 9: Post-Implementation Notes covering:
+- Final test count
+- Any deviations from spec
+- Additional artifacts created
+
+### Three Amigos Review + Polish
+
+After all tasks complete and before merging: run a Three Amigos review (PO spec compliance, Architect code quality, Tester coverage gaps) followed by a polishing pass. This is standard procedure — do not skip.
