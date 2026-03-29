@@ -34,6 +34,6 @@
 	"relationships": "03 - Resources/Graphs/wren-relationships.canvas",
 	"tools": [],
 	"behavior_tree": "bt-scholar",
-	"job": "librarian",
+	"job": "baker",
 	"property": []
 }

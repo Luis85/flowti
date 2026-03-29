@@ -23,7 +23,7 @@
 				"type": "sequence",
 				"children": [
 					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 50 } },
-					{ "type": "condition", "check": "at_location", "params": { "locationType": "food" } },
+					{ "type": "condition", "check": "has_item", "params": { "itemId": "bread" } },
 					{ "type": "action", "action": "eat", "params": {} }
 				]
 			},
@@ -31,8 +31,25 @@
 				"type": "sequence",
 				"children": [
 					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 50 } },
+					{ "type": "condition", "check": "can_afford", "params": { "price": 2 } },
+					{ "type": "action", "action": "buy", "params": {} }
+				]
+			},
+			{
+				"type": "sequence",
+				"children": [
+					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 50 } },
+					{ "type": "condition", "check": "has_gold", "params": { "amount": 2 } },
 					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "food" } },
 					{ "type": "action", "action": "seek_food", "params": {} }
+				]
+			},
+			{
+				"type": "sequence",
+				"children": [
+					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 50 } },
+					{ "type": "condition", "check": "has_job_facility", "params": {} },
+					{ "type": "action", "action": "seek_work", "params": {} }
 				]
 			},
 			{
@@ -54,14 +71,17 @@
 			{
 				"type": "sequence",
 				"children": [
-					{ "type": "condition", "check": "at_location", "params": { "locationType": "work" } },
+					{ "type": "condition", "check": "time_is", "params": { "phase": "day" } },
+					{ "type": "condition", "check": "at_location", "params": { "locationType": "food" } },
+					{ "type": "condition", "check": "has_job_facility", "params": {} },
 					{ "type": "action", "action": "work", "params": {} }
 				]
 			},
 			{
 				"type": "sequence",
 				"children": [
-					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "work" } },
+					{ "type": "condition", "check": "time_is", "params": { "phase": "day" } },
+					{ "type": "condition", "check": "has_job_facility", "params": {} },
 					{ "type": "action", "action": "seek_work", "params": {} }
 				]
 			},

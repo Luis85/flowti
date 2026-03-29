@@ -12,6 +12,14 @@ export interface BTContext {
 	timePhase: string;
 	rng: GameRNG;
 	interactionRadius: number;
+	wallet: number;
+	inventory: { item_id: string; quantity: number }[];
+	job: string | null;
+	nearbyFacilities: {
+		id: string;
+		job: string;
+		stock: { item_id: string; quantity: number }[];
+	}[];
 }
 
 export type BTStatus = 'success' | 'failure';
@@ -64,6 +72,29 @@ const CONDITION_CHECKS: Record<string, ConditionCheck> = {
 	},
 	chance(ctx, params) {
 		return ctx.rng.chance(params.probability as number);
+	},
+	has_gold(ctx, params) {
+		const amount = params.amount as number;
+		return ctx.wallet >= amount;
+	},
+	has_item(ctx, params) {
+		const itemId = params.itemId as string;
+		return ctx.inventory.some(i => i.item_id === itemId && i.quantity > 0);
+	},
+	can_afford(ctx, params) {
+		const price = params.price as number;
+		const hasStock = ctx.nearbyFacilities.some(f => f.stock.length > 0);
+		return hasStock && ctx.wallet >= price;
+	},
+	facility_has_stock(ctx, params) {
+		const itemId = params.itemId as string;
+		return ctx.nearbyFacilities.some(f =>
+			f.stock.some(s => s.item_id === itemId && s.quantity > 0),
+		);
+	},
+	has_job_facility(ctx) {
+		if (ctx.job === null) return false;
+		return ctx.nearbyFacilities.some(f => f.job === ctx.job);
 	},
 };
 

@@ -4,5 +4,12 @@
 	"type": "work",
 	"position": { "x": 150, "y": 350 },
 	"capacity": 6,
-	"color": "#8b7355"
+	"color": "#8b7355",
+	"production": {
+		"job": "leatherworker",
+		"output": { "item_id": "leather-goods", "quantity": 1 },
+		"input": null,
+		"wage": 5,
+		"ticks_per_cycle": 40
+	}
 }

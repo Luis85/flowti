@@ -4,5 +4,12 @@
 	"type": "food",
 	"position": { "x": 100, "y": 100 },
 	"capacity": 8,
-	"color": "#7cba3f"
+	"color": "#7cba3f",
+	"production": {
+		"job": "farmer",
+		"output": { "item_id": "wheat", "quantity": 1 },
+		"input": null,
+		"wage": 3,
+		"ticks_per_cycle": 30
+	}
 }

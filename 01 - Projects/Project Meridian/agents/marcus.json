@@ -42,6 +42,6 @@
 	"relationships": "03 - Resources/Graphs/marcus-relationships.canvas",
 	"tools": [],
 	"behavior_tree": "bt-guard",
-	"job": "gate-guard",
+	"job": "farmer",
 	"property": []
 }

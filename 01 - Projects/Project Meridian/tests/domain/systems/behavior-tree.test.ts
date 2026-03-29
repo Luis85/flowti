@@ -11,6 +11,10 @@ function makeContext(overrides: Partial<BTContext> = {}): BTContext {
 		timePhase: 'day',
 		rng: createGameRNG(42),
 		interactionRadius: 25,
+		wallet: 50,
+		inventory: [],
+		job: null,
+		nearbyFacilities: [],
 		...overrides,
 	};
 }
