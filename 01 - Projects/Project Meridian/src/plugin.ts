@@ -116,6 +116,7 @@ export class MeridianPlugin extends Plugin {
 				config,
 				performanceTracker: this.performanceTracker,
 				tickCount: 0,
+				writeFile: null,
 			};
 		}
 

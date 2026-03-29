@@ -12,4 +12,6 @@ export interface GameCoreDeps {
 	performanceTracker: PerformanceTracker;
 	/** Current tick number — set by the tick runner before system execution each tick */
 	tickCount: number;
+	/** Vault file writer — null in tests, real adapter in production */
+	writeFile: ((path: string, content: string) => Promise<void>) | null;
 }

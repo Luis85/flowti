@@ -72,6 +72,7 @@ function createDeps(eventBus: ReturnType<typeof createEventBus>): GameCoreDeps {
 		config: GameConfigSchema.parse({}),
 		performanceTracker: createPerformanceTracker(),
 		tickCount: 60,
+		writeFile: null,
 	};
 }
 

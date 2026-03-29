@@ -7,6 +7,9 @@ import { BlackboardComponent } from '../components/blackboard-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { SocialComponent } from '../components/social-component.js';
 import { TraitsComponent } from '../components/traits-component.js';
+import { WalletComponent } from '../components/wallet-component.js';
+import { InventoryComponent } from '../components/inventory-component.js';
+import { RelationshipComponent } from '../components/relationship-component.js';
 import { calculateMood } from '../../domain/systems/mood.js';
 import type { MoodConfig } from '../../domain/systems/mood.js';
 
@@ -16,6 +19,7 @@ export class AgentActor extends Actor {
 	readonly kind: string;
 	readonly behaviorTree: string;
 	readonly property: string[];
+	readonly job: string | null;
 
 	constructor(agent: Agent, moodConfig: MoodConfig, memoryMaxEntries = 50) {
 		super({ x: agent.position.x, y: agent.position.y });
@@ -25,6 +29,7 @@ export class AgentActor extends Actor {
 		this.kind = agent.kind;
 		this.behaviorTree = agent.behavior_tree;
 		this.property = [...agent.property];
+		this.job = agent.job ?? null;
 
 		this.addComponent(new NeedsComponent({ ...agent.needs }));
 
@@ -54,6 +59,11 @@ export class AgentActor extends Actor {
 		this.addComponent(new AttributesComponent({ ...agent.attributes }));
 		this.addComponent(new SocialComponent({ ...agent.social }));
 		this.addComponent(new TraitsComponent([...agent.traits]));
+		this.addComponent(new WalletComponent({ gold: agent.wallet.gold }));
+		this.addComponent(new InventoryComponent({
+			items: agent.inventory.map(i => ({ item_id: i.item_id, quantity: i.quantity })),
+		}));
+		this.addComponent(new RelationshipComponent({ entries: [] }));
 
 		// Placeholder visuals — colored circle + name label (color from agent data)
 		this.graphics.use(new Circle({ radius: 14, color: Color.fromHex(agent.color) }));

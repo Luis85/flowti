@@ -93,6 +93,7 @@ const LOCATION_ACTIONS: Record<string, string> = {
 	seek_rest: 'rest',
 	seek_social: 'social',
 	seek_work: 'work',
+	seek_market: 'market',
 };
 
 function resolveMovementTarget(

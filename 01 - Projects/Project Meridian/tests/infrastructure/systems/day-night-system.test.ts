@@ -21,6 +21,7 @@ function createDeps(eventBus = createEventBus(), tickCount = 0): GameCoreDeps {
 		config: GameConfigSchema.parse({}),
 		performanceTracker: createPerformanceTracker(),
 		tickCount,
+		writeFile: null,
 	};
 }
 

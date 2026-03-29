@@ -52,3 +52,52 @@ export interface PerceptionState {
 	nearbyAgents: { id: string; distance: number }[];
 	nearbyLocations: { id: string; type: string; distance: number }[];
 }
+
+export interface FacilityState {
+	stock: { item_id: string; quantity: number }[];
+	fund: number;
+	workProgress: number;
+	status: 'idle' | 'producing';
+	workerId: string | null;
+}
+
+export interface RelationshipEntry {
+	agentId: string;
+	disposition: number;
+	familiarity: number;
+}
+
+export interface RelationshipState {
+	entries: RelationshipEntry[];
+}
+
+export interface LedgerEntry {
+	tick: number;
+	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare';
+	from: string;
+	to: string;
+	itemId: string | null;
+	quantity: number;
+	gold: number;
+}
+
+export interface DailySummary {
+	totalWages: number;
+	totalTax: number;
+	totalSales: number;
+	totalConsumption: number;
+}
+
+export interface EconomyState {
+	treasury: number;
+	ledger: LedgerEntry[];
+	dailySummary: DailySummary;
+}
+
+export interface WalletState {
+	gold: number;
+}
+
+export interface InventoryState {
+	items: { item_id: string; quantity: number }[];
+}

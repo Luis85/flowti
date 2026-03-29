@@ -22,6 +22,7 @@ export const SystemPriority = {
 	BEHAVIOR_TREE: 5,
 	MOVEMENT: 5.5,
 	JOB: 6,
+	FACILITY: 6,
 	REST: 6.5,
 	FEED: 6.6,
 	SOCIALIZE: 6.7,

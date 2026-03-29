@@ -39,6 +39,10 @@ const EconomyConfigSchema = z.object({
 	treasury_regen_per_day: z.number().default(1),
 	circulation_floor_per_agent: z.number().default(50),
 	loan_interest_per_day: z.number().default(0.01),
+	food_price: z.number().default(2),
+	rest_price: z.number().default(1),
+	facility_start_fund: z.number().default(200),
+	ledger_retention_days: z.number().int().default(7),
 });
 
 const MoodFactorWeightsSchema = z.object({

@@ -61,6 +61,7 @@ function createDeps(tickCount = 1): GameCoreDeps {
 		config: GameConfigSchema.parse({}),
 		performanceTracker: createPerformanceTracker(),
 		tickCount,
+		writeFile: null,
 	};
 }
 

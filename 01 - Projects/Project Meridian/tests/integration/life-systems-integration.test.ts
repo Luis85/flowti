@@ -62,6 +62,7 @@ describe('Life Systems Integration', () => {
 			config: GameConfigSchema.parse({}),
 			performanceTracker: createPerformanceTracker(),
 			tickCount: 0,
+			writeFile: null,
 		};
 
 		runner.tick(deps);
@@ -99,8 +100,8 @@ describe('Life Systems Integration', () => {
 		runner2.register(createNeedsDecaySystem(() => [agentWithout]));
 
 		const config = GameConfigSchema.parse({});
-		const deps1: GameCoreDeps = { logger: { debug() {}, info() {}, warn() {}, error() {} }, eventBus, config, performanceTracker: createPerformanceTracker(), tickCount: 0 };
-		const deps2: GameCoreDeps = { logger: { debug() {}, info() {}, warn() {}, error() {} }, eventBus: createEventBus(), config, performanceTracker: createPerformanceTracker(), tickCount: 0 };
+		const deps1: GameCoreDeps = { logger: { debug() {}, info() {}, warn() {}, error() {} }, eventBus, config, performanceTracker: createPerformanceTracker(), tickCount: 0, writeFile: null };
+		const deps2: GameCoreDeps = { logger: { debug() {}, info() {}, warn() {}, error() {} }, eventBus: createEventBus(), config, performanceTracker: createPerformanceTracker(), tickCount: 0, writeFile: null };
 
 		runner1.tick(deps1);
 		runner2.tick(deps2);
@@ -132,6 +133,7 @@ describe('Life Systems Integration', () => {
 			config: GameConfigSchema.parse({}),
 			performanceTracker: createPerformanceTracker(),
 			tickCount: 0,
+			writeFile: null,
 		};
 
 		runner.tick(deps);

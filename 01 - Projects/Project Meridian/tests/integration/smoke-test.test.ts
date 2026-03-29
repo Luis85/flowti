@@ -116,6 +116,7 @@ describe('Smoke Test — Real Data', () => {
 			config,
 			performanceTracker: createPerformanceTracker(),
 			tickCount: 60,
+			writeFile: null,
 		};
 
 		runner.tick(deps);
@@ -183,6 +184,7 @@ describe('Smoke Test — Real Data', () => {
 			config,
 			performanceTracker: createPerformanceTracker(),
 			tickCount: 60,
+			writeFile: null,
 		};
 
 		runner.tick(deps);
