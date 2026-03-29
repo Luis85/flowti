@@ -172,11 +172,13 @@ else:
   memory = null  (on cooldown)
 ```
 
-Default config (add to `GameConfigSchema`):
-- `social_recovery_rate`: 0.5/tick
-- `memory_significance`: 3
-- `memory_mood_impact`: 2
-- `cooldown_ticks`: 50
+Default config (add to `GameConfigSchema` under a new `social` section):
+- `social.recovery_rate`: 0.5/tick
+- `social.memory_significance`: 3
+- `social.memory_mood_impact`: 2
+- `social.cooldown_ticks`: 50
+
+The `SocializeConfig` interface mirrors these field names exactly (read from `deps.config.social`).
 
 ### 4.3 Infrastructure GameSystems
 
@@ -192,10 +194,10 @@ export function createRestSystem(
 ```
 
 Each tick, for each agent:
-1. Find nearest rest-type location within interaction radius (`deps.config.interaction_radius`, default 25)
+1. Find nearest rest-type location within interaction radius (`deps.config.perception.interaction_radius`, default 25)
 2. If at a rest location:
-   - Determine tier: agent owns the location (check `AgentActor` property list) → `owned_home`, else → `public_shelter`
-3. If NOT at a rest location but BT action is `idle`:
+   - Determine tier: `agent.property.includes(location.id)` → `owned_home`, else → `public_shelter`
+3. If NOT at a rest location but `bb.state.btAction` is `'idle'` or `undefined`:
    - Tier is `outdoors` (resting in place)
 4. If no rest scenario applies, skip
 5. Call `applyRest()`, write energy to `NeedsComponent`, emit `RestStarted` (only on first tick at location)
@@ -224,7 +226,7 @@ export function createSocializeSystem(
 ): GameSystem
 ```
 
-Each tick, for each agent with `btAction === 'socialize'` or `btAction === 'interact'`:
+Each tick, for each agent whose `btAction` is in `AGENT_SOCIAL_ACTIONS` (from `bt-actions.ts`: `'socialize'`, `'interact'`):
 1. Read `PerceptionComponent.nearbyAgents` — find closest agent
 2. If a partner is within interaction radius:
    - Read `blackboard.lastSocialTick_{partnerId}` for cooldown check
@@ -237,11 +239,12 @@ Each tick, for each agent with `btAction === 'socialize'` or `btAction === 'inte
 
 When an agent has active velocity (is moving):
 ```
-distanceThisTick = speed * (tick_interval_ms / 1000)  // estimated from velocity
-energyCost = distanceThisTick * config.stamina.exhaustion_speed_modifier / 100
+distanceThisTick = speed * (tick_interval_ms / 1000)
+energyCost = distanceThisTick * config.stamina.movement_energy_cost
 needs.energy = clamp(needs.energy - energyCost, 0, 100)
 ```
 
+When energy reaches 0: emit `AgentExhausted` event.
 When energy < critical threshold (15): scale velocity by `config.stamina.exhaustion_speed_modifier` (0.5 → half speed).
 
 ### 4.4 Config Additions
@@ -252,13 +255,18 @@ Add to `GameConfigSchema`:
 // In NeedsConfigSchema:
 food_recovery_rate: z.number().default(1.5),
 
-// New SocialConfigSchema (or add to existing):
-social_recovery_rate: z.number().default(0.5),
-social_memory_significance: z.number().int().default(3),
-social_memory_mood_impact: z.number().default(2),
-social_cooldown_ticks: z.number().int().default(50),
+// In StaminaConfigSchema:
+movement_energy_cost: z.number().default(0.1),  // energy per pixel of movement
 
-// In root config:
+// New SocialConfigSchema:
+const SocialConfigSchema = z.object({
+  recovery_rate: z.number().default(0.5),
+  memory_significance: z.number().int().default(3),
+  memory_mood_impact: z.number().default(2),
+  cooldown_ticks: z.number().int().default(50),
+});
+
+// In PerceptionConfigSchema:
 interaction_radius: z.number().default(25),
 ```
 
@@ -285,8 +293,11 @@ Add `readonly property: string[]` to `AgentActor`, initialized from `agent.prope
 | `RestStarted` | RestSystem | `{ agentId: string, tier: string, locationId: string }` |
 | `FeedStarted` | FeedSystem | `{ agentId: string, locationId: string }` |
 | `SocialInteraction` | SocializeSystem | `{ agentId: string, partnerId: string, memoryCreated: boolean }` |
+| `AgentExhausted` | MovementSystem | `{ agentId: string, energy: number }` |
 
 All events follow the `GameEvent` interface: `{ type, tick, wallClock, source, payload }`.
+
+`AgentExhausted` emits when energy drops to 0 during movement (not every tick — only on the crossing tick).
 
 Events emit only on the FIRST tick of the interaction (not every tick while the agent stays). Track via blackboard: `bb.state.restingAt`, `bb.state.feedingAt` — clear when agent leaves.
 
@@ -294,13 +305,17 @@ Events emit only on the FIRST tick of the interaction (not every tick while the 
 
 ```
 Tick N starts:
-  1–4. [Phase 1B systems: traits, needs decay, mood, perception]
-  5.   BehaviorTreeSystem (5)       — selects action
-  5.5  MovementSystem (5.5)         — moves agent, drains energy, emits AgentArrived
-  6.   MemoryDecaySystem (4)        — [already runs, decays old memories]
-  6.5  RestSystem                   — recovers energy at rest locations
-  6.6  FeedSystem                   — recovers hunger at food locations
-  6.7  SocializeSystem              — recovers social, creates memories
+  0.5  TraitResolverSystem          — [Phase 1B] trait modifiers
+  0.7  DayNightSystem               — [Phase 1C] time phase
+  1    NeedsDecaySystem             — [Phase 1B] decays needs
+  2    MoodSystem                   — [Phase 1B] recalculates mood
+  3    PerceptionSystem             — [Phase 1C] spatial awareness
+  4    MemoryDecaySystem            — [Phase 1B] decays old memories
+  5    BehaviorTreeSystem           — [Phase 1C] selects action
+  5.5  MovementSystem               — [Phase 1C] moves agent, drains energy
+  6.5  RestSystem                   — [Phase 1D] recovers energy at rest locations
+  6.6  FeedSystem                   — [Phase 1D] recovers hunger at food locations
+  6.7  SocializeSystem              — [Phase 1D] recovers social, creates memories
 ```
 
 ### 4.9 Plugin Wiring
