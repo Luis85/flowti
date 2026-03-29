@@ -43,7 +43,7 @@ function createTestAgent(overrides: Record<string, unknown> = {}) {
 		equipment: { head: null, body: null, hands: null, tool: null, accessory: null },
 		traits: [], wallet: { gold: 50 }, xp: 0, level: 1,
 		position: { x: 0, y: 0, region: 'test' }, relationships: '',
-		tools: [], behavior_tree: 'bt-merchant', job: null, property: [],
+		tools: [], color: '#b0b0b0', behavior_tree: 'bt-merchant', job: null, property: [],
 		...overrides,
 	};
 }

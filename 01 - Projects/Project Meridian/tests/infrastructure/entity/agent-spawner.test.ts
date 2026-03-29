@@ -26,7 +26,7 @@ const validAgent = {
 	position: { x: 100, y: 200, region: 'town-square' },
 	relationships: 'graphs/relationships.canvas',
 	tools: [],
-	behavior_tree: 'bt/merchant.md',
+	color: '#b0b0b0', behavior_tree: 'bt/merchant.md',
 	job: null,
 	property: [],
 };

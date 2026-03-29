@@ -2,6 +2,7 @@
 	"id": "agent-wren",
 	"name": "Wren",
 	"kind": "scholar",
+	"color": "#4da6ff",
 	"attributes": { "ST": 8, "DX": 10, "IQ": 16, "HT": 9 },
 	"social": { "status": 3, "reputation": 3, "charisma": 11 },
 	"needs": { "hunger": 90, "energy": 30, "social": 40 },

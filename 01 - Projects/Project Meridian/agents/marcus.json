@@ -2,6 +2,7 @@
 	"id": "agent-marcus",
 	"name": "Marcus",
 	"kind": "guard",
+	"color": "#e94560",
 	"attributes": { "ST": 14, "DX": 11, "IQ": 10, "HT": 13 },
 	"social": { "status": 1, "reputation": 2, "charisma": 9 },
 	"needs": { "hunger": 60, "energy": 45, "social": 80 },

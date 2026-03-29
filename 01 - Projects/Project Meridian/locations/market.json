@@ -3,5 +3,6 @@
 	"name": "Market Square Stalls",
 	"type": "food",
 	"position": { "x": 200, "y": 150 },
-	"capacity": 12
+	"capacity": 12,
+	"color": "#d4a017"
 }

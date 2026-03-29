@@ -54,6 +54,7 @@ export const AgentSchema = z.object({
 	llm: LLMConfigSchema.optional(),
 	tools: z.array(z.string()).default([]),
 	persona: z.string().nullable().default(null),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#b0b0b0'),
 	behavior_tree: z.string(),
 	job: z.string().nullable().default(null),
 	property: z.array(z.string()).default([]),

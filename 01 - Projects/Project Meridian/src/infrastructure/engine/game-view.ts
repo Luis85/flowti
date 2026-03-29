@@ -22,6 +22,7 @@ import { createPerceptionSystem } from '../systems/perception-system.js';
 import { createBehaviorTreeSystem } from '../systems/behavior-tree-system.js';
 import { createMovementSystem } from '../systems/movement-system.js';
 import type { BTNode } from '../../domain/systems/behavior-tree.js';
+import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 
 export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
 
@@ -120,7 +121,12 @@ export class MeridianGameView extends ItemView {
 					btDefinitions[key] = bt.root;
 				}
 
-				// Create world entity for time state
+				// Add location markers to the scene
+					for (const loc of worldLocations) {
+						this.engine.currentScene.add(createLocationMarker(loc));
+					}
+
+					// Create world entity for time state
 				const worldEntity = new ex.Actor();
 				worldEntity.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
 				this.engine.currentScene.add(worldEntity);
@@ -176,4 +182,16 @@ export class MeridianGameView extends ItemView {
 		errorEl.createEl('code', { text: message });
 		errorEl.createEl('p', { text: 'Check the developer console for details.' });
 	}
+}
+
+function createLocationMarker(loc: WorldLocation): ex.Actor {
+	const marker = new ex.Actor({ pos: new ex.Vector(loc.position.x, loc.position.y) });
+	marker.graphics.use(new ex.Rectangle({ width: 20, height: 20, color: ex.Color.fromHex(loc.color) }));
+	const label = new ex.Label({
+		text: loc.name,
+		pos: new ex.Vector(0, -18),
+		font: new ex.Font({ size: 9, unit: ex.FontUnit.Px, color: ex.Color.fromHex('#aaaaaa') }),
+	});
+	marker.addChild(label);
+	return marker;
 }

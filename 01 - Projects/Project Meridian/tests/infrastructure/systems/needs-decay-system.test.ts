@@ -30,7 +30,7 @@ function createTestAgent(overrides: Record<string, unknown> = {}) {
 		position: { x: 0, y: 0, region: 'test' },
 		relationships: '',
 		tools: [],
-		behavior_tree: 'bt/test.md',
+		color: '#b0b0b0', behavior_tree: 'bt/test.md',
 		job: null,
 		property: [],
 		...overrides,

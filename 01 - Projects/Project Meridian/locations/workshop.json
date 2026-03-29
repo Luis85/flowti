@@ -3,5 +3,6 @@
 	"name": "Craft Quarter Workshop",
 	"type": "work",
 	"position": { "x": 150, "y": 350 },
-	"capacity": 6
+	"capacity": 6,
+	"color": "#8b7355"
 }

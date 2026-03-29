@@ -9,6 +9,7 @@ export const LocationSchema = z.object({
 	type: z.enum(LOCATION_TYPES),
 	position: PositionSchema,
 	capacity: z.number().int().min(1).default(10),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#808080'),
 });
 
 export type WorldLocation = z.infer<typeof LocationSchema>;

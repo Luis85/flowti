@@ -51,9 +51,8 @@ export class AgentActor extends Actor {
 		this.addComponent(new SocialComponent({ ...agent.social }));
 		this.addComponent(new TraitsComponent([...agent.traits]));
 
-		// Placeholder visuals — colored circle per kind + name label
-		const color = AGENT_COLORS[agent.kind] ?? AGENT_COLORS.default;
-		this.graphics.use(new Circle({ radius: 14, color }));
+		// Placeholder visuals — colored circle + name label (color from agent data)
+		this.graphics.use(new Circle({ radius: 14, color: Color.fromHex(agent.color) }));
 
 		const label = new Label({
 			text: agent.name,
@@ -63,11 +62,3 @@ export class AgentActor extends Actor {
 		this.addChild(label);
 	}
 }
-
-const AGENT_COLORS: Record<string, Color> = {
-	merchant: Color.fromHex('#e6a820'),
-	guard: Color.fromHex('#e94560'),
-	scholar: Color.fromHex('#4da6ff'),
-	artisan: Color.fromHex('#50c878'),
-	default: Color.fromHex('#b0b0b0'),
-};

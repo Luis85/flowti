@@ -2,6 +2,7 @@
 	"id": "agent-sable",
 	"name": "Sable",
 	"kind": "artisan",
+	"color": "#50c878",
 	"attributes": { "ST": 11, "DX": 15, "IQ": 12, "HT": 10 },
 	"social": { "status": 0, "reputation": 0, "charisma": 13 },
 	"needs": { "hunger": 50, "energy": 70, "social": 90 },
