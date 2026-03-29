@@ -135,6 +135,29 @@ export default [
 				ignoreDefaultValues: true,
 				ignoreClassFieldInitialValues: true,
 			}],
+			// Systems must be independent — no cross-system imports (Phase 1D learning)
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{ group: ['./*-system', './*-system.js'], message: 'Infrastructure systems must not import each other — keeps systems independently testable and prevents coupling.' },
+					],
+				},
+			],
+		},
+	},
+	{
+		// Domain schemas must not import domain systems — prevents circular dependencies
+		files: ['src/domain/schemas/**/*.ts'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{ group: ['../systems/*'], message: 'Schemas must not import systems — schemas define data shapes, systems consume them.' },
+					],
+				},
+			],
 		},
 	},
 	{
