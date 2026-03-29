@@ -21,6 +21,10 @@ import { createDayNightSystem } from '../../src/infrastructure/systems/day-night
 import { createPerceptionSystem } from '../../src/infrastructure/systems/perception-system.js';
 import { createBehaviorTreeSystem } from '../../src/infrastructure/systems/behavior-tree-system.js';
 import { createMovementSystem } from '../../src/infrastructure/systems/movement-system.js';
+import { createRestSystem } from '../../src/infrastructure/systems/rest-system.js';
+import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
+import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
+import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
 import { Actor } from 'excalibur';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { BTNode } from '../../src/domain/schemas/behavior-tree-schema.js';
@@ -120,5 +124,79 @@ describe('Smoke Test — Real Data', () => {
 		const actions = actors.map(a => a.get(BlackboardComponent).state.btAction as string);
 		const nonIdle = actions.filter(a => a !== 'idle' && a !== null && a !== undefined);
 		expect(nonIdle.length, `All agents are idle despite low needs. Actions: ${JSON.stringify(actions)}`).toBeGreaterThan(0);
+	});
+
+	it('agents at locations recover needs after tick', () => {
+		const eventBus = createEventBus();
+		const config = GameConfigSchema.parse({});
+
+		// Find a food or rest location to place an agent on
+		const foodLoc = locations.find(l => l.type === 'food');
+		const restLoc = locations.find(l => l.type === 'rest');
+		const targetLoc = foodLoc ?? restLoc;
+		expect(targetLoc, 'Need at least one food or rest location in shipped data').toBeDefined();
+
+		// Create actors with LOW needs — place first agent directly on the target location
+		const actors = agentData.map((a, idx) => {
+			const overrides = idx === 0 && targetLoc !== undefined
+				? { needs: { hunger: 20, energy: 10, social: 15 }, position: { ...targetLoc.position, region: 'test' } }
+				: { needs: { hunger: 20, energy: 10, social: 15 } };
+			const actor = new AgentActor({ ...a, ...overrides }, defaultMoodConfig);
+			actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
+			return actor;
+		});
+
+		// Snapshot pre-tick needs for comparison
+		const preTickNeeds = actors.map(a => ({ ...a.get(NeedsComponent).state }));
+
+		const worldEntity = new Actor();
+		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+
+		// Build BT map
+		const btDefs: Record<string, BTNode> = {};
+		for (const bt of bts) {
+			const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
+			btDefs[key] = bt.root;
+		}
+
+		const getAgents = () => actors;
+		const getLocations = () => locations;
+		const getWorld = () => worldEntity;
+
+		const runner = createTickRunner(eventBus);
+		runner.register(createTraitResolverSystem(getAgents, {}));
+		runner.register(createDayNightSystem(getWorld));
+		runner.register(createNeedsDecaySystem(getAgents));
+		runner.register(createMoodSystem(getAgents));
+		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
+		runner.register(createMemoryDecaySystem(getAgents));
+		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
+		runner.register(createMovementSystem(getAgents, getLocations));
+		runner.register(createRestSystem(getAgents, getLocations));
+		runner.register(createFeedSystem(getAgents, getLocations));
+		runner.register(createSocializeSystem(getAgents));
+
+		const deps: GameCoreDeps = {
+			logger: { debug() {}, info() {}, warn() {}, error() {} },
+			eventBus,
+			config,
+			performanceTracker: createPerformanceTracker(),
+			tickCount: 60,
+		};
+
+		runner.tick(deps);
+
+		// At least one agent should show recovery in at least one need
+		// (agents near food/rest/social locations get recovery that exceeds decay)
+		let anyRecovery = false;
+		for (let i = 0; i < actors.length; i++) {
+			const post = actors[i]!.get(NeedsComponent).state;
+			const pre = preTickNeeds[i]!;
+			if (post.hunger > pre.hunger || post.energy > pre.energy || post.social > pre.social) {
+				anyRecovery = true;
+				break;
+			}
+		}
+		expect(anyRecovery, 'Expected at least one agent to recover a need via consequence systems').toBe(true);
 	});
 });
