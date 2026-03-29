@@ -10,6 +10,7 @@ import type { Logger } from './domain/core/logger.js';
 import type { PerformanceTracker } from './domain/core/performance.js';
 import type { GameCoreDeps } from './domain/core/game-deps.js';
 import type { BatchableEventBus } from './infrastructure/engine/batchable-event-bus.js';
+import type { LogLevel } from './domain/core/logger.js';
 
 export class MeridianPlugin extends Plugin {
 	private settings: MeridianSettings = { ...DEFAULT_SETTINGS };
@@ -17,6 +18,7 @@ export class MeridianPlugin extends Plugin {
 	private performanceTracker: PerformanceTracker | null = null;
 	private gameDeps: GameCoreDeps | null = null;
 	private batchableEventBus: BatchableEventBus | null = null;
+	private previousLogLevel: LogLevel = DEFAULT_SETTINGS.logLevel;
 
 	async onload(): Promise<void> {
 		// Lightweight registrations only — keep onload fast (Obsidian load-time guide)
@@ -66,22 +68,39 @@ export class MeridianPlugin extends Plugin {
 
 	/** Apply settings changes at runtime (called when user changes settings) */
 	private applySettings(): void {
-		this.logger = createConsoleLogger(this.settings.logLevel);
-		// Recreate tracker so its closure captures the fresh logger reference
-		this.performanceTracker = createPerformanceTracker(this.logger);
+		// Only recreate logger if log level changed
+		if (this.logger === null || this.previousLogLevel !== this.settings.logLevel) {
+			this.logger = createConsoleLogger(this.settings.logLevel);
+			this.previousLogLevel = this.settings.logLevel;
+		}
+
+		// Only recreate tracker if logger changed
+		this.performanceTracker ??= createPerformanceTracker(this.logger);
 		this.performanceTracker.setEnabled(this.settings.performanceTracking);
-		// Propagate to live deps so the running tick system sees new references
+
 		if (this.gameDeps !== null) {
 			Object.assign(this.gameDeps, {
 				logger: this.logger,
 				performanceTracker: this.performanceTracker,
 			});
+
 			// Hot-swap simulation settings
 			const config = this.gameDeps.config;
+			config.tick_interval_ms = Math.round(1000 / this.settings.tickRate);
 			config.ticks_per_day = Math.round(
 				this.settings.dayCycleDuration * this.settings.tickRate,
 			);
 			config.perception.base_multiplier = this.settings.perceptionRadius;
+		}
+
+		// Toggle ExcaliburJS debug mode on active game views
+		this.applyDebugMode();
+	}
+
+	private applyDebugMode(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE)) {
+			const view = leaf.view as MeridianGameView;
+			view.setDebugMode(this.settings.debugMode);
 		}
 	}
 

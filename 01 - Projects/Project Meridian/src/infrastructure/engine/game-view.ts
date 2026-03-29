@@ -134,6 +134,19 @@ export class MeridianGameView extends ItemView {
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(Object.keys(world.btDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
 	}
 
+	/** Toggle ExcaliburJS debug drawing (entity bounds, names, etc.) */
+	setDebugMode(enabled: boolean): void {
+		if (this.engine === null) return;
+		const isCurrentlyDebug = this.engine.isDebug;
+		if (enabled !== isCurrentlyDebug) {
+			this.engine.toggleDebug();
+		}
+		if (enabled) {
+			this.engine.debug.entity.showName = true;
+			this.engine.debug.entity.showId = false;
+		}
+	}
+
 	// eslint-disable-next-line @typescript-eslint/require-await -- Obsidian ItemView interface requires async
 	async onClose(): Promise<void> {
 		this.disposeEngine?.();
