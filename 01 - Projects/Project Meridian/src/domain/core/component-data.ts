@@ -101,3 +101,21 @@ export interface WalletState {
 export interface InventoryState {
 	items: { item_id: string; quantity: number }[];
 }
+
+export interface JourneyWaypoint {
+	regionId: string;
+	crossingPoint: { x: number; y: number };
+	travelCost: number;
+}
+
+export interface JourneyState {
+	waypoints: JourneyWaypoint[];
+	waypointIndex: number;
+	finalTarget: { id: string; type: 'agent' | 'location' };
+	totalCost: number;
+}
+
+export interface StaminaState {
+	current: number;
+	max: number;
+}

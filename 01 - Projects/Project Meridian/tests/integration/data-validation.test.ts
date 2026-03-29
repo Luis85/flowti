@@ -4,6 +4,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AgentSchema } from '../../src/domain/schemas/agent-schema.js';
 import { LocationSchema, ProductionSchema } from '../../src/domain/schemas/location-schema.js';
+import { RegionSchema } from '../../src/domain/schemas/region-schema.js';
 import { BehaviorTreeSchema } from '../../src/domain/schemas/behavior-tree-schema.js';
 import { TraitDefinitionSchema } from '../../src/domain/schemas/trait-definition-schema.js';
 import { KNOWN_ACTIONS } from '../../src/domain/systems/bt-actions.js';
@@ -215,6 +216,58 @@ describe('Shipped Data Validation', () => {
 			});
 			expect(loc.production).not.toBeNull();
 			expect(loc.production?.job).toBe('farmer');
+		});
+	});
+
+	describe('RegionSchema', () => {
+		it('parses a region with polygon bounds', () => {
+			const region = RegionSchema.parse({
+				id: 'region-test',
+				name: 'Test',
+				bounds: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }],
+			});
+			expect(region.bounds).toHaveLength(3);
+			expect(region.connections).toEqual([]);
+			expect(region.rest_tier).toBeNull();
+		});
+
+		it('parses connections with travel_cost', () => {
+			const region = RegionSchema.parse({
+				id: 'region-test',
+				name: 'Test',
+				bounds: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }],
+				connections: [{ regionId: 'region-other', travel_cost: 2 }],
+			});
+			expect(region.connections).toHaveLength(1);
+			expect(region.connections[0].travel_cost).toBe(2);
+		});
+
+		it('defaults travel_cost to 1', () => {
+			const region = RegionSchema.parse({
+				id: 'region-test',
+				name: 'Test',
+				bounds: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }],
+				connections: [{ regionId: 'region-other' }],
+			});
+			expect(region.connections[0].travel_cost).toBe(1);
+		});
+
+		it('rejects fewer than 3 vertices', () => {
+			expect(() => RegionSchema.parse({
+				id: 'region-test',
+				name: 'Test',
+				bounds: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+			})).toThrow();
+		});
+
+		it('parses rest_tier', () => {
+			const region = RegionSchema.parse({
+				id: 'region-test',
+				name: 'Test',
+				bounds: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }],
+				rest_tier: 'outdoors',
+			});
+			expect(region.rest_tier).toBe('outdoors');
 		});
 	});
 });
