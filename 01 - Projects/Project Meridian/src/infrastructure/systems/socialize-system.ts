@@ -111,8 +111,6 @@ export function createSocializeSystem(
 					partnerBb.markDirty();
 				}
 
-				deps.logger.debug('Social', `${agent.agentName} ↔ ${partner.agentName}${result.memory !== null ? ' (memory created)' : ''}`);
-
 				// Emit event
 				deps.eventBus.emit({
 					type: 'SocialInteraction',

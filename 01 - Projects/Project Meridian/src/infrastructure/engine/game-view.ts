@@ -98,6 +98,11 @@ export class MeridianGameView extends ItemView {
 		// Populate scene
 		this.populateScene(engine, world, deps, tickRunner);
 
+		// Centralized event debug logging — logs all game events at debug level
+		eventBus.onAny((event) => {
+			deps.logger.debug(event.source, `[${event.type}] tick ${String(event.tick)}`, event.payload);
+		});
+
 		// Remove overlay
 		overlay.remove();
 	}

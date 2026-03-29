@@ -55,8 +55,6 @@ export function createFeedSystem(
 					bb.state.feedingAt = nearestFood.id;
 					bb.markDirty();
 
-					deps.logger.debug('Feed', `${agent.agentName}: feeding at ${nearestFood.name}, hunger ${needs.state.hunger.toFixed(1)}`);
-
 					deps.eventBus.emit({
 						type: 'FeedStarted',
 						tick: deps.tickCount,
