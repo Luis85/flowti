@@ -7,6 +7,7 @@ import { LocationSchema } from '../../src/domain/schemas/location-schema.js';
 import { BehaviorTreeSchema } from '../../src/domain/schemas/behavior-tree-schema.js';
 import { TraitDefinitionSchema } from '../../src/domain/schemas/trait-definition-schema.js';
 import { KNOWN_ACTIONS } from '../../src/domain/systems/bt-actions.js';
+import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
 import type { BTNode } from '../../src/domain/schemas/behavior-tree-schema.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -112,5 +113,14 @@ describe('Shipped Data Validation', () => {
 				}
 			});
 		}
+	});
+
+	it('GameConfigSchema parses with social and stamina defaults', () => {
+		const config = GameConfigSchema.parse({});
+		expect(config.social.recovery_rate).toBe(0.5);
+		expect(config.social.cooldown_ticks).toBe(50);
+		expect(config.stamina.movement_energy_cost).toBe(0.1);
+		expect(config.needs.food_recovery_rate).toBe(1.5);
+		expect(config.perception.interaction_radius).toBe(25);
 	});
 });

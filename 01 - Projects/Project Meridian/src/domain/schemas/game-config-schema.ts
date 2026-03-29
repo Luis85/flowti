@@ -11,12 +11,14 @@ const NeedsConfigSchema = z.object({
 	hunger_decay: z.number().default(0.5),
 	energy_decay: z.number().default(0.25),
 	social_decay: z.number().default(0.15),
+	food_recovery_rate: z.number().default(1.5),
 });
 
 const StaminaConfigSchema = z.object({
 	recovery_per_idle_tick: z.number().default(0.05),
 	exhaustion_speed_modifier: z.number().default(0.5),
 	exhaustion_skill_penalty: z.number().default(-2),
+	movement_energy_cost: z.number().default(0.1),
 });
 
 const MemoryConfigSchema = z.object({
@@ -88,6 +90,7 @@ const MortalityConfigSchema = z.object({
 const PerceptionConfigSchema = z.object({
 	base_multiplier: z.number().default(20),
 	night_multiplier: z.number().default(0.5),
+	interaction_radius: z.number().default(25),
 });
 
 const TimeRangeSchema = z.object({
@@ -185,6 +188,13 @@ const WorldHealthConfigSchema = z.object({
 	]),
 });
 
+const SocialConfigSchema = z.object({
+	recovery_rate: z.number().default(0.5),
+	memory_significance: z.number().int().default(3),
+	memory_mood_impact: z.number().default(2),
+	cooldown_ticks: z.number().int().default(50),
+});
+
 export const GameConfigSchema = z.object({
 	version: z.string().default('1.0.0'),
 	locale: z.string().default('en'),
@@ -215,6 +225,7 @@ export const GameConfigSchema = z.object({
 	bt: withDefaults(BTConfigSchema),
 	agent_creation: withDefaults(AgentCreationConfigSchema),
 	world_health: withDefaults(WorldHealthConfigSchema),
+	social: withDefaults(SocialConfigSchema),
 	debug: z.boolean().default(false),
 });
 
