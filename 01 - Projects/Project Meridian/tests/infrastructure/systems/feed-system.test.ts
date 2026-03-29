@@ -68,7 +68,7 @@ describe('FeedSystem', () => {
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
 		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'seek_food' };
+		bb.state = { ...bb.state, btAction: 'eat' };
 		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
 
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);
@@ -105,7 +105,7 @@ describe('FeedSystem', () => {
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
 		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'seek_food' };
+		bb.state = { ...bb.state, btAction: 'eat' };
 		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
 
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);
@@ -130,7 +130,7 @@ describe('FeedSystem', () => {
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100), defaultMoodConfig);
 		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'seek_food' };
+		bb.state = { ...bb.state, btAction: 'eat' };
 		const foodLoc = createFoodLocation('loc-market', 100, 100);
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);
 		const deps = createDeps(eventBus);
@@ -159,7 +159,7 @@ describe('FeedSystem', () => {
 			defaultMoodConfig,
 		);
 		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'seek_food' };
+		bb.state = { ...bb.state, btAction: 'eat' };
 		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
 
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);
@@ -189,14 +189,14 @@ describe('FeedSystem', () => {
 		expect(events.length).toBe(0);
 	});
 
-	it('recovers hunger when agent btAction is seek_food', () => {
+	it('recovers hunger when agent btAction is eat', () => {
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];
 		eventBus.on('FeedStarted', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
 		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'seek_food' };
+		bb.state = { ...bb.state, btAction: 'eat' };
 		const foodLoc = createFoodLocation('loc-tavern', 300, 200);
 
 		const system = createFeedSystem(() => [agent], () => [foodLoc]);

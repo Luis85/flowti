@@ -105,7 +105,7 @@ export function createMovementSystem(
 					agent.vel.x = 0;
 					agent.vel.y = 0;
 
-					bb.state.movementTarget = undefined;
+					bb.state = { ...bb.state, movementTarget: undefined };
 					bb.markDirty();
 
 					deps.eventBus.emit({

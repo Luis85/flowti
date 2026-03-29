@@ -7,6 +7,14 @@
 				"type": "sequence",
 				"children": [
 					{ "type": "condition", "check": "need_critical", "params": { "need": "energy" } },
+					{ "type": "condition", "check": "at_location", "params": { "locationType": "rest" } },
+					{ "type": "action", "action": "rest", "params": {} }
+				]
+			},
+			{
+				"type": "sequence",
+				"children": [
+					{ "type": "condition", "check": "need_critical", "params": { "need": "energy" } },
 					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "rest" } },
 					{ "type": "action", "action": "seek_rest", "params": {} }
 				]
@@ -15,8 +23,23 @@
 				"type": "sequence",
 				"children": [
 					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 30 } },
+					{ "type": "condition", "check": "at_location", "params": { "locationType": "food" } },
+					{ "type": "action", "action": "eat", "params": {} }
+				]
+			},
+			{
+				"type": "sequence",
+				"children": [
+					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 30 } },
 					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "food" } },
 					{ "type": "action", "action": "seek_food", "params": {} }
+				]
+			},
+			{
+				"type": "sequence",
+				"children": [
+					{ "type": "condition", "check": "at_location", "params": { "locationType": "work" } },
+					{ "type": "action", "action": "work", "params": {} }
 				]
 			},
 			{

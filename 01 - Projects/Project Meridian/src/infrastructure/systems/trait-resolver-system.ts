@@ -20,10 +20,10 @@ export function createTraitResolverSystem(
 
 				const result = resolveTraitModifiers(traits.traitIds, traitDefinitions);
 				if (result.ok) {
-					bb.state.traitModifiers = result.value;
+					bb.state = { ...bb.state, traitModifiers: result.value };
 				} else {
 					deps.logger.warn('TraitResolverSystem', `Agent ${entity.agentId}: ${result.error.message}`);
-					bb.state.traitModifiers = new Map();
+					bb.state = { ...bb.state, traitModifiers: new Map() };
 				}
 				bb.markDirty();
 			}

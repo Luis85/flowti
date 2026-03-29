@@ -9,7 +9,7 @@ import { distance } from '../../domain/core/math-utils.js';
 
 function clearFeedingAt(bb: BlackboardComponent): void {
 	if (bb.state.feedingAt !== undefined) {
-		bb.state.feedingAt = undefined;
+		bb.state = { ...bb.state, feedingAt: undefined };
 		bb.markDirty();
 	}
 }
@@ -46,9 +46,9 @@ export function createFeedSystem(
 					continue;
 				}
 
-				// Only recover hunger when actively seeking food
+				// Only recover hunger when actively eating at a food location
 				const btAction = bb.state.btAction as string | undefined;
-				if (btAction !== 'seek_food') {
+				if (btAction !== 'eat') {
 					clearFeedingAt(bb);
 					continue;
 				}
@@ -63,7 +63,7 @@ export function createFeedSystem(
 				const previousFeedingAt = bb.state.feedingAt as string | undefined;
 
 				if (previousFeedingAt !== nearestFood.id) {
-					bb.state.feedingAt = nearestFood.id;
+					bb.state = { ...bb.state, feedingAt: nearestFood.id };
 					bb.markDirty();
 
 					deps.eventBus.emit({

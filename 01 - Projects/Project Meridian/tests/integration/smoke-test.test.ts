@@ -187,7 +187,7 @@ describe('Smoke Test — Real Data', () => {
 
 		runner.tick(deps);
 
-		// Agent 0 is at food location with btAction='seek_food' (BT fires it).
+		// Agent 0 is at food location with btAction='eat' (BT fires it via at_location).
 		// Feed recovery (0.3) partially offsets hunger decay (0.5), so hunger decreases
 		// less than pure-decay would. Verify feed recovery was applied:
 		// pure decay → hunger=20-0.5=19.5, with feed → 20-0.5+0.3=19.8

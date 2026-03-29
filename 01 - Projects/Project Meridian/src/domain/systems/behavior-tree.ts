@@ -11,6 +11,7 @@ export interface BTContext {
 	perception: PerceptionState;
 	timePhase: string;
 	rng: GameRNG;
+	interactionRadius: number;
 }
 
 export type BTStatus = 'success' | 'failure';
@@ -49,6 +50,17 @@ const CONDITION_CHECKS: Record<string, ConditionCheck> = {
 	},
 	nearby_agent(ctx) {
 		return ctx.perception.nearbyAgents.length > 0;
+	},
+	at_location(ctx, params) {
+		const type = params.locationType as string;
+		return ctx.perception.nearbyLocations.some(
+			l => l.type === type && l.distance <= ctx.interactionRadius,
+		);
+	},
+	nearby_agent_close(ctx) {
+		return ctx.perception.nearbyAgents.some(
+			a => a.distance <= ctx.interactionRadius,
+		);
 	},
 	chance(ctx, params) {
 		return ctx.rng.chance(params.probability as number);

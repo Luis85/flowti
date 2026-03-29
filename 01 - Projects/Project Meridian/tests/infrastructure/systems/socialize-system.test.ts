@@ -60,7 +60,7 @@ function createDeps(eventBus = createEventBus(), tickCount = 100): GameCoreDeps 
 function setupPair(
 	opts: { agent1Social?: number; agent2Social?: number; distance?: number; btAction1?: string; btAction2?: string } = {},
 ) {
-	const { agent1Social = 50, agent2Social = 50, distance = 10, btAction1 = 'socialize', btAction2 } = opts;
+	const { agent1Social = 50, agent2Social = 50, distance = 10, btAction1 = 'talk', btAction2 } = opts;
 
 	const agent1 = new AgentActor(
 		createTestAgentData('agent-elena', 100, 100, { name: 'Elena', needs: { hunger: 50, energy: 50, social: agent1Social } }),
@@ -138,7 +138,7 @@ describe('SocializeSystem', () => {
 		// Second tick at 110 — within cooldown_ticks (50), no new memory
 		// Reset BT action (it doesn't persist between ticks in a real system)
 		const bb1 = agent1.get(BlackboardComponent);
-		bb1.state = { ...bb1.state, btAction: 'socialize' };
+		bb1.state = { ...bb1.state, btAction: 'talk' };
 
 		const eventBus2 = createEventBus();
 		const events: GameEvent[] = [];
@@ -200,8 +200,8 @@ describe('SocializeSystem', () => {
 		const events: GameEvent[] = [];
 		eventBus.on('SocialInteraction', (e) => { events.push(e); });
 
-		// Both agents have socialize action
-		const { agent1, agent2 } = setupPair({ btAction1: 'socialize', btAction2: 'interact' });
+		// Both agents have talk action
+		const { agent1, agent2 } = setupPair({ btAction1: 'talk', btAction2: 'talk' });
 		const system = createSocializeSystem(() => [agent1, agent2]);
 		system.execute(createDeps(eventBus, 100));
 

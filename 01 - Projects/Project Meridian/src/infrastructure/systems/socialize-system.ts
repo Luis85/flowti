@@ -1,7 +1,6 @@
 import { SystemPriority, type GameSystem } from '../../domain/core/tick-scheduler.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { applySocialize } from '../../domain/systems/socialize.js';
-import { AGENT_SOCIAL_ACTIONS } from '../../domain/systems/bt-actions.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
@@ -29,7 +28,7 @@ export function createSocializeSystem(
 				const bb = agent.get(BlackboardComponent);
 				const btAction = bb.state.btAction as string | undefined;
 
-				if (btAction === undefined || !AGENT_SOCIAL_ACTIONS.has(btAction)) continue;
+				if (btAction !== 'talk') continue;
 
 				// Find nearest agent within interaction radius using PerceptionComponent
 				const perception = agent.get(PerceptionComponent);

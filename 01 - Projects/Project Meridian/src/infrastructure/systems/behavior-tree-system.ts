@@ -12,6 +12,8 @@ import { BlackboardComponent } from '../components/blackboard-component.js';
 import { TimeComponent } from '../components/time-component.js';
 import type { PerceptionState } from '../../domain/core/component-data.js';
 
+const BT_PREFIX = 'bt-';
+
 export function createBehaviorTreeSystem(
 	agents: () => AgentActor[],
 	btDefinitions: Record<string, BTNode>,
@@ -28,7 +30,8 @@ export function createBehaviorTreeSystem(
 			const timePhase = timeComp.state.phase;
 
 			for (const agent of agents()) {
-				const bt = btDefinitions[agent.kind];
+				const btKey = agent.behaviorTree.startsWith(BT_PREFIX) ? agent.behaviorTree.slice(BT_PREFIX.length) : agent.behaviorTree;
+				const bt = btDefinitions[btKey];
 				if (bt === undefined) continue;
 
 				const needs = agent.get(NeedsComponent);
@@ -45,6 +48,7 @@ export function createBehaviorTreeSystem(
 					perception: perception.state,
 					timePhase,
 					rng,
+					interactionRadius: deps.config.perception.interaction_radius,
 				});
 
 				if (result.action !== null) {

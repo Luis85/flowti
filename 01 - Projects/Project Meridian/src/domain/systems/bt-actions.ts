@@ -7,6 +7,10 @@ export const KNOWN_ACTIONS = new Set([
 	'seek_work',
 	'interact',
 	'socialize',
+	'eat',
+	'rest',
+	'talk',
+	'work',
 ]);
 
 /** Actions that target a nearby agent rather than a location. */

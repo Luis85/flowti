@@ -83,9 +83,9 @@ describe('Consequence Systems — Integration', () => {
 		const actor = new AgentActor(agentData, defaultMoodConfig);
 		actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
-		// Set btAction to 'seek_food' — FeedSystem requires this for recovery
+		// Set btAction to 'eat' — FeedSystem requires this for recovery
 		const bb = actor.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'seek_food' };
+		bb.state = { ...bb.state, btAction: 'eat' };
 
 		const foodLocation: WorldLocation = {
 			id: 'loc-tavern-food', name: 'Tavern Kitchen', type: 'food',
@@ -185,9 +185,9 @@ describe('Consequence Systems — Integration', () => {
 		actor1.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 		actor2.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
-		// Set btAction to 'socialize' on first agent so SocializeSystem triggers
+		// Set btAction to 'talk' on first agent so SocializeSystem triggers
 		const bb1 = actor1.get(BlackboardComponent);
-		bb1.state = { ...bb1.state, btAction: 'socialize' };
+		bb1.state = { ...bb1.state, btAction: 'talk' };
 
 		const worldEntity = createWorldEntity();
 		const actors = [actor1, actor2];

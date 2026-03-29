@@ -63,7 +63,7 @@ export function createRestSystem(
 
 				if (restTier === null) {
 					if (bb.state.restingAt !== undefined) {
-						bb.state.restingAt = undefined;
+						bb.state = { ...bb.state, restingAt: undefined };
 						bb.markDirty();
 					}
 					continue;
@@ -80,7 +80,7 @@ export function createRestSystem(
 				const currentRestingAt = nearestRest?.id ?? 'outdoors';
 
 				if (previousRestingAt !== currentRestingAt) {
-					bb.state.restingAt = currentRestingAt;
+					bb.state = { ...bb.state, restingAt: currentRestingAt };
 					bb.markDirty();
 
 					deps.eventBus.emit({

@@ -10,6 +10,7 @@ function makeContext(overrides: Partial<BTContext> = {}): BTContext {
 		perception: { nearbyAgents: [], nearbyLocations: [] },
 		timePhase: 'day',
 		rng: createGameRNG(42),
+		interactionRadius: 25,
 		...overrides,
 	};
 }
