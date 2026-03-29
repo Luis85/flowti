@@ -6,7 +6,7 @@ Make the economy work. Agents earn gold from facility jobs, buy food and rest wi
 
 ## 2. Exit Criteria
 
-1. FacilitySystem iterates facilities, checks worker + input, produces goods, pays wages from facility fund
+1. JobSystem iterates facilities, checks worker + input, produces goods, pays wages from facility fund
 2. Farm produces wheat (single-step), Bakery consumes wheat and produces bread (two-step chain)
 3. Workshop produces tools (single-step)
 4. TradeSystem processes `buy` action — deducts gold from agent, adds item to inventory, adds gold to facility fund
@@ -20,27 +20,47 @@ Make the economy work. Agents earn gold from facility jobs, buy food and rest wi
 12. Skill progression: skill-by-use on production complete, use_bonus increments at thresholds
 13. BTs restructured with economic conditions (`has_gold`, `has_item`, `can_afford`, `facility_has_stock`, `has_job_facility`)
 14. New BT actions: `buy`, `seek_market`
-15. All Phase 0-1D tests still pass (no regressions)
-16. 50+ new tests, all passing
-17. tsc, eslint, build all green
+15. Welfare safety net: treasury subsidizes agents below `welfare_threshold_gold` with direct gold injection
+16. Daytime-only work guard prevents 24/7 production (stand-in for GDD shift scheduling)
+17. All Phase 0-1D tests still pass (no regressions)
+18. 50+ new tests, all passing
+19. tsc, eslint, build all green
 
 ## 3. Key Architectural Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Production unit | Facility-driven — FacilitySystem iterates facilities, not agents | Agents are labor. The facility is the unit of production with its own state (stock, fund, workProgress, status). |
+| Production unit | Facility-driven — JobSystem iterates facilities, not agents | Agents are labor. The facility is the unit of production with its own state (stock, fund, workProgress, status). This is a Phase 2E partial implementation of the GDD's Phase 5 JobSystem, covering product-type jobs only (no shift scheduling or service jobs). |
 | Trade model | Direct facility sales — agents buy from the facility where goods are produced | No separate MarketSystem needed. TradeSystem handles purchase at any facility with stock. |
 | Food consumption | Inventory-based — FeedSystem consumes items from agent inventory | Agents must first buy food (or already have it). Separates commerce (TradeSystem) from consumption (FeedSystem). |
 | Gold costs for needs | Eating costs gold (food_price, default 2). Public shelter rest costs gold (rest_price, default 1, one-time on entry). Owned locations free. | Broke agents can't buy food, creating a natural pressure to work. |
-| Director economy | Passive — tax auto-collected on wages, treasury accumulates | No Director spending tools this phase. Foundation for future phases. |
-| Relationships | Side effects, not a dedicated system | SocializeSystem, FacilitySystem, and TradeSystem update relationship data as side effects of their primary actions. |
-| Skill progression | Side effect of FacilitySystem | Pure domain function called on ProductionComplete. No separate SkillProgressionSystem. |
+| Director economy | Passive — tax auto-collected on wages, treasury accumulates | Tax on wages is a Phase 2E simplification. GDD §20.1 taxes trades, not wages. Phase 5 will migrate tax collection to TradeSystem on completed sales; the wage-tax path will be removed or retained only for non-trade production. |
+| Relationships | Runtime-only ECS component, not Canvas-backed | RelationshipComponent is an in-memory representation updated as side effects. It is NOT persisted to vault and NOT connected to AgentSchema.relationships (which is a Canvas graph path). Phase 3 adds Canvas checkpoint (every 50 ticks per arc42 ADR-10). |
+| Skill progression | Pure function called by JobSystem on ProductionComplete | Phase 2E stub that will be absorbed into ProgressionSystem (priority 13) at Phase 5. Fires at priority 6 inside JobSystem for now, not at the designated ProgressionSystem slot. |
 | Economy ledger | Append-only log on world entity | EconomyComponent on world entity alongside TimeComponent. Daily summary + transaction log. |
 | Vault reports | DayNightSystem writes markdown at day boundaries | Minimal vault-write capability via new `writeFile` on GameCoreDeps. Not full Phase 9 VaultSync. |
+| Welfare safety net | Minimal treasury subsidy when agent gold < welfare_threshold | If agent gold drops below `economy.welfare_threshold_gold` (default 10), treasury injects `economy.welfare_reward_min` (default 15) directly. No quest mechanism — direct injection as Phase 2E stand-in for GDD §20.2 welfare quests. |
 
 ### Phase Positioning Note
 
-This phase is labeled "2E" but implements elements from GDD Phases 3 (relationships), 4 (inventory consumption), and 5 (production, wages, trade). This is a deliberate out-of-order implementation — building a simplified economic foundation bottom-up rather than following the GDD's breadth-first phase sequence. The GDD's Phase 5 (Economy) still requires: full recipe system, Saga-pattern agent-to-agent trade, dynamic pricing, welfare quests, supply chain logistics, and Director treasury spending. Phase 2E builds the minimal autonomous economy loop; Phase 5 will expand it.
+This phase is labeled "2E" but implements elements from GDD Phases 3 (relationships), 4 (inventory consumption), and 5 (production, wages, trade). This is a deliberate out-of-order implementation — building a simplified economic foundation bottom-up rather than following the GDD's breadth-first phase sequence.
+
+### Deferred GDD Requirements
+
+These items are explicitly part of the GDD's economy/job/social design but are NOT implemented in Phase 2E:
+
+| GDD Feature | GDD Section | Deferred To | Notes |
+|-------------|-------------|-------------|-------|
+| Mill step in supply chain (wheat→flour→bread) | §5.4, §18 | Phase 5 | Phase 2E proves two-step pipeline (farm→bakery). Vertical Slice Gate requires adding Mill. |
+| Shift scheduling (start/end ticks, days off) | §6.2 | Phase 5 | Phase 2E uses daytime-only BT guard as stand-in. |
+| Saga-pattern agent-to-agent trade | §7.3 | Phase 5 | Phase 2E uses direct facility purchase. |
+| Dynamic pricing (scarcity, location modifiers) | §7.1 | Phase 5 | Phase 2E uses fixed `food_price` from config. |
+| Full welfare quest system | §20.2 | Phase 5 | Phase 2E uses direct treasury subsidy as stand-in. |
+| Recipe system (multi-input, quality, tools) | §5.3 | Phase 5 | Phase 2E uses simple single-input ProductionSchema. |
+| Canvas-backed relationship persistence | §3.1, ADR-10 | Phase 3 | Phase 2E uses runtime-only RelationshipComponent. |
+| ProgressionSystem at priority 13 | Arc42 §6.1 | Phase 5 | Phase 2E fires skill progression inside JobSystem at priority 6. |
+| Service jobs (bartender, clinic, school) | §6.2 | Phase 5 | Phase 2E covers product jobs only. |
+| Director treasury spending | §20.1 | Phase 6 | Phase 2E treasury is accumulate-only (plus welfare subsidy). |
 
 ## 4. Detailed Design
 
@@ -48,14 +68,14 @@ This phase is labeled "2E" but implements elements from GDD Phases 3 (relationsh
 
 ```
 New domain files:
-	domain/systems/facility.ts              — pure production cycle logic
+	domain/systems/job.ts              — pure production cycle logic
 	domain/systems/trade.ts                 — pure buy/sell logic
 	domain/systems/skill-progression.ts     — pure skill-by-use logic
 	domain/systems/relationship.ts          — pure disposition/familiarity update
 	domain/systems/daily-report.ts          — pure markdown report generator
 
 New infrastructure files:
-	infrastructure/systems/facility-system.ts       — GameSystem wrapper (priority 6)
+	infrastructure/systems/job-system.ts       — GameSystem wrapper (priority 6)
 	infrastructure/systems/trade-system.ts          — GameSystem wrapper (priority 11)
 
 Modified domain files:
@@ -72,16 +92,16 @@ Modified infrastructure files:
 Modified schema/config files:
 	domain/schemas/game-config-schema.ts    — economy config additions
 	domain/schemas/location-schema.ts       — ProductionSchema
-	domain/core/tick-scheduler.ts           — rename JOB→FACILITY (reuse slot 6), TRADE already exists at 11
+	domain/core/tick-scheduler.ts           — reuse existing JOB slot (priority 6), TRADE already exists at 11
 	domain/core/bt-actions.ts              — new conditions and actions
 
 New test files:
-	tests/domain/systems/facility.test.ts
+	tests/domain/systems/job.test.ts
 	tests/domain/systems/trade.test.ts
 	tests/domain/systems/skill-progression.test.ts
 	tests/domain/systems/relationship.test.ts
 	tests/domain/systems/daily-report.test.ts
-	tests/infrastructure/systems/facility-system.test.ts
+	tests/infrastructure/systems/job-system.test.ts
 	tests/infrastructure/systems/trade-system.test.ts
 	tests/infrastructure/systems/feed-system.test.ts         — updated/expanded
 	tests/infrastructure/systems/rest-system.test.ts         — updated/expanded
@@ -170,7 +190,7 @@ Attached to the world entity in `populateScene()` alongside TimeComponent. The `
 ```typescript
 food_price: z.number().default(2),
 rest_price: z.number().default(1),
-facility_start_fund: z.number().default(100),
+facility_start_fund: z.number().default(200),
 ledger_retention_days: z.number().int().default(7),
 ```
 
@@ -199,10 +219,10 @@ const writeFile = async (path: string, content: string): Promise<void> => {
 
 Pass `writeFile` when constructing `GameCoreDeps` in `plugin.ts` `initializeGame()`. In tests, pass `writeFile: null` — all existing test `createDeps()` helpers need updating to include `writeFile: null`.
 
-### 4.3 FacilitySystem (priority 6)
+### 4.3 JobSystem (priority 6)
 
-Pure domain function: `src/domain/systems/facility.ts`
-Infrastructure wrapper: `src/infrastructure/systems/facility-system.ts`
+Pure domain function: `src/domain/systems/job.ts`
+Infrastructure wrapper: `src/infrastructure/systems/job-system.ts`
 
 Iterates all locations that have a FacilityComponent. Per facility per tick:
 
@@ -252,7 +272,7 @@ interface FacilityTickResult {
 	idleReason: 'no_worker' | 'no_input' | null;
 }
 
-export function applyFacilityTick(input: FacilityTickInput): FacilityTickResult;
+export function applyJobTick(input: FacilityTickInput): FacilityTickResult;
 ```
 
 ### 4.4 TradeSystem (priority 11)
@@ -383,9 +403,9 @@ Selector:
 	// Social
 	social < 40 -> nearby_agent_close -> talk
 	social < 40 -> nearby_agent -> socialize
-	// Default work
-	at_location work -> work
-	has_job_facility -> seek_work
+	// Default work (daytime only — stand-in for GDD shift scheduling)
+	time_is day -> at_location work -> work
+	time_is day -> has_job_facility -> seek_work
 	idle
 ```
 
@@ -412,7 +432,9 @@ interface SkillProgressionResult {
 export function applySkillProgression(input: SkillProgressionInput): SkillProgressionResult;
 ```
 
-Called by FacilitySystem when a production cycle completes. The agent's skill matching the facility's `job` field gets +1 point. If `use_count` crosses a threshold, `use_bonus` increments by 1. Emit `SkillImproved` event when `use_bonus` changes.
+Called by JobSystem when a production cycle completes. The agent's skill matching the facility's `job` field gets +1 point. If `use_count` crosses a threshold, `use_bonus` increments by 1. Emit `SkillImproved` event when `use_bonus` changes.
+
+**Skill IDs for Phase 2E jobs:** `farming`, `baking`, `leatherworking`. These match the `production.job` field on facilities. Thresholds and max bonus come from `GameConfigSchema`: `skills.use_thresholds` (default `[10, 25, 50, 100, 200]`) and `skills.max_use_bonus` (default `3`).
 
 ### 4.9 Relationship Updates
 
@@ -439,7 +461,7 @@ Called by:
 | System | Trigger | Disposition | Familiarity |
 |--------|---------|-------------|-------------|
 | SocializeSystem | Social interaction | +1 | +1 |
-| FacilitySystem | ProductionComplete (if multiple workers) | +0.5 | +1 |
+| JobSystem | ProductionComplete (if multiple workers) | +0.5 | +1 |
 | TradeSystem | PurchaseComplete | 0 | +0.5 (buyer toward worker) |
 
 ### 4.10 Daily Economy Report
@@ -496,20 +518,20 @@ items_consumed: 4
 - **Transactions** — table of tick, type, from, to, item, gold
 - **Agent Balances** — table of agent name, gold, change from previous day. `goldChange` is **derived from the ledger** — sum all wage credits minus purchases for that agent within the current day's ledger entries. No snapshot mechanism needed.
 
-**Ledger pruning:** after writing the daily report, prune ledger entries older than `economy.ledger_retention_days` days (measured in ticks via the day-night cycle length).
+**Ledger pruning:** after writing the daily report, prune ledger entries older than `economy.ledger_retention_days` days (measured in ticks via the day-night cycle length). **Ordering is critical:** write report FIRST (which reads the ledger for goldChange derivation), THEN prune old entries.
 
 ### 4.11 Event Catalog
 
 | Event | Source | Payload |
 |-------|--------|---------|
-| `ProductionComplete` | FacilitySystem | `facilityId, workerId, outputItem, outputQty, wage, taxCollected` |
-| `FacilityIdle` | FacilitySystem | `facilityId, reason: 'no_worker' \| 'no_input'` |
+| `ProductionComplete` | JobSystem | `facilityId, workerId, outputItem, outputQty, wage, taxCollected` |
+| `FacilityIdle` | JobSystem | `facilityId, reason: 'no_worker' \| 'no_input'` |
 | `PurchaseComplete` | TradeSystem | `buyerId, facilityId, itemId, quantity, price` |
 | `PurchaseFailed` | TradeSystem | `buyerId, facilityId, reason: 'no_stock' \| 'no_gold'` |
-| `SkillImproved` | FacilitySystem | `agentId, skillId, newUseBonus` |
+| `SkillImproved` | JobSystem | `agentId, skillId, newUseBonus` |
 | `ItemConsumed` | FeedSystem | `agentId, itemId` |
-| `TaxCollected` | FacilitySystem | `amount, workerId, facilityId, source: 'wage'` |
-| `FacilityInsolvent` | FacilitySystem | `facilityId, fund: 0, unpaidWage` |
+| `TaxCollected` | JobSystem | `amount, workerId, facilityId, source: 'wage'` |
+| `FacilityInsolvent` | JobSystem | `facilityId, fund: 0, unpaidWage` |
 | `DailyReportWritten` | DayNightSystem | `dayCount, path` |
 
 All events follow the `GameEvent` interface: `{ type, tick, wallClock, source, payload }`.
@@ -601,7 +623,7 @@ Tick N starts:
 	4    MemoryDecaySystem            — [Phase 1B] decays old memories
 	5    BehaviorTreeSystem           — [Phase 1C] selects action (new conditions)
 	5.5  MovementSystem               — [Phase 1C] moves agent, drains energy
-	6    FacilitySystem               — [Phase 2E] production cycles, wages, tax
+	6    JobSystem               — [Phase 2E] production cycles, wages, tax
 	6.5  RestSystem                   — [Phase 1D] recovers energy (+ gold cost)
 	6.6  FeedSystem                   — [Phase 1D->2E] inventory consumption
 	6.7  SocializeSystem              — [Phase 1D] recovers social, creates memories
@@ -614,7 +636,7 @@ TradeSystem runs at priority 11 (after all need-recovery systems) so agents who 
 
 `game-view.ts` `populateScene()` additions:
 
-1. **Retain location actor references:** Currently `createLocationMarker()` returns an actor that's added to the scene but not stored. Refactor to retain references in a `locationActors` map (keyed by location ID), similar to how `world.agents` stores agent actors. This allows `FacilitySystem` and `BehaviorTreeSystem` to query `FacilityComponent` on location actors.
+1. **Retain location actor references:** Currently `createLocationMarker()` returns an actor that's added to the scene but not stored. Refactor to retain references in a `locationActors` map (keyed by location ID), similar to how `world.agents` stores agent actors. This allows `JobSystem` and `BehaviorTreeSystem` to query `FacilityComponent` on location actors.
 
 ```typescript
 const locationActors = new Map<string, ex.Actor>();
@@ -623,7 +645,7 @@ for (const loc of world.locations) {
 	engine.currentScene.add(marker);
 	if (loc.production !== null) {
 		marker.addComponent(new FacilityComponent({
-			stock: [], fund: deps.config.economy.facility_start_fund,
+			stock: [], fund: deps.config.economy.facility_start_fund, // default 200, matches GDD §6.5
 			workProgress: 0, status: 'idle', workerId: null,
 		}));
 	}
@@ -637,7 +659,7 @@ const getLocationActors = () => locationActors;
 4. Register new systems:
 
 ```typescript
-tickRunner.register(createFacilitySystem(getAgents, getLocationActors, getWorldEntity));
+tickRunner.register(createJobSystem(getAgents, getLocationActors, getWorldEntity));
 tickRunner.register(createTradeSystem(getAgents, getLocationActors, getWorldEntity));
 ```
 
@@ -645,11 +667,11 @@ tickRunner.register(createTradeSystem(getAgents, getLocationActors, getWorldEnti
 
 ## 5. Conventions
 
-- **File naming:** kebab-case (`facility-system.ts`, `daily-report.test.ts`)
+- **File naming:** kebab-case (`job-system.ts`, `daily-report.test.ts`)
 - **Imports:** `.js` extension in all imports (ESM)
 - **Indentation:** tabs
 - **No `any` types**, no `@ts-ignore`, no `TODO`/`FIXME` comments
-- **Tests mirror source:** `src/domain/systems/facility.ts` -> `tests/domain/systems/facility.test.ts`
+- **Tests mirror source:** `src/domain/systems/job.ts` -> `tests/domain/systems/job.test.ts`
 - **TDD:** write failing test, implement, verify, commit
 - **Pure domain functions** wrapped in infrastructure GameSystem wrappers
 - **Config-driven:** no magic numbers in infrastructure systems (all from `GameConfigSchema`)
@@ -682,7 +704,7 @@ tickRunner.register(createTradeSystem(getAgents, getLocationActors, getWorldEnti
 
 ### README Generator
 Update `scripts/generate-readme.mjs` to document:
-- FacilitySystem, TradeSystem in the system pipeline table
+- JobSystem, TradeSystem in the system pipeline table
 - Economy config values (food_price, rest_price, facility_start_fund, tax_rate)
 - Production chain: Farm (wheat) -> Bakery (bread), Workshop (leather-goods)
 - Daily economy reports location
