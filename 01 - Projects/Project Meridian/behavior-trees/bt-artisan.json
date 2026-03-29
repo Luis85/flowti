@@ -24,6 +24,7 @@
 				"children": [
 					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 45 } },
 					{ "type": "condition", "check": "has_gold", "params": { "amount": 2 } },
+					{ "type": "condition", "check": "facility_has_stock", "params": { "itemId": "bread" } },
 					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "food" } },
 					{ "type": "action", "action": "seek_food", "params": {} }
 				]
