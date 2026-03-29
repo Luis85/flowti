@@ -4,6 +4,9 @@ import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
+import { NeedsComponent } from '../components/needs-component.js';
+import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
+import { clamp } from '../../domain/core/math-utils.js';
 
 /** Snap-to-target when within this fraction of per-tick speed */
 const ARRIVAL_THRESHOLD_MULTIPLIER = 1.5;
@@ -23,6 +26,34 @@ function distance(ax: number, ay: number, bx: number, by: number): number {
 	const dx = bx - ax;
 	const dy = by - ay;
 	return Math.sqrt(dx * dx + dy * dy);
+}
+
+function drainMovementEnergy(
+	agent: AgentActor,
+	speedPerTick: number,
+	deps: GameCoreDeps,
+): void {
+	const energyCost = speedPerTick * deps.config.stamina.movement_energy_cost;
+	const needs = agent.get(NeedsComponent);
+	const oldEnergy = needs.state.energy;
+	const newEnergy = clamp(oldEnergy - energyCost, 0, 100);
+	needs.state = { ...needs.state, energy: newEnergy };
+	needs.markDirty();
+
+	if (oldEnergy > 0 && newEnergy <= 0) {
+		deps.eventBus.emit({
+			type: 'AgentExhausted',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'MovementSystem',
+			payload: { agentId: agent.agentId },
+		});
+	}
+
+	if (newEnergy < NEED_CRITICAL_THRESHOLDS.energy) {
+		agent.vel.x *= deps.config.stamina.exhaustion_speed_modifier;
+		agent.vel.y *= deps.config.stamina.exhaustion_speed_modifier;
+	}
 }
 
 export function createMovementSystem(
@@ -101,6 +132,8 @@ export function createMovementSystem(
 					const ny = (targetPos.y - agent.pos.y) / dist;
 					agent.vel.x = nx * speedPerSec;
 					agent.vel.y = ny * speedPerSec;
+
+					drainMovementEnergy(agent, speedPerTick, deps);
 				}
 			}
 		},
