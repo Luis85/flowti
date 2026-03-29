@@ -118,6 +118,33 @@ describe('FeedSystem', () => {
 		expect(needs.state.hunger).toBeCloseTo(53.0);
 	});
 
+	it('clears feedingAt when agent leaves food location and re-emits on return', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('FeedStarted', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100), defaultMoodConfig);
+		const foodLoc = createFoodLocation('loc-market', 100, 100);
+		const system = createFeedSystem(() => [agent], () => [foodLoc]);
+		const deps = createDeps(eventBus);
+
+		// Tick 1: agent at food location
+		system.execute(deps);
+		expect(events.length).toBe(1);
+
+		// Move agent away
+		agent.pos.x = 500;
+		agent.pos.y = 500;
+		system.execute(deps);
+
+		// Move agent back
+		agent.pos.x = 100;
+		agent.pos.y = 100;
+		events.length = 0;
+		system.execute(deps);
+		expect(events.length).toBe(1);
+	});
+
 	it('clamps hunger to 100', () => {
 		const eventBus = createEventBus();
 		const agent = new AgentActor(

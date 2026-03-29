@@ -5,12 +5,7 @@ import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
-
-function distance(ax: number, ay: number, bx: number, by: number): number {
-	const dx = bx - ax;
-	const dy = by - ay;
-	return Math.sqrt(dx * dx + dy * dy);
-}
+import { distance } from '../../domain/core/math-utils.js';
 
 export function createFeedSystem(
 	agents: () => AgentActor[],
@@ -37,7 +32,14 @@ export function createFeedSystem(
 					}
 				}
 
-				if (nearestFood === undefined) continue;
+				if (nearestFood === undefined) {
+					const bb = agent.get(BlackboardComponent);
+					if (bb.state.feedingAt !== undefined) {
+						bb.state.feedingAt = undefined;
+						bb.markDirty();
+					}
+					continue;
+				}
 
 				const needs = agent.get(NeedsComponent);
 				const result = applyFeed(

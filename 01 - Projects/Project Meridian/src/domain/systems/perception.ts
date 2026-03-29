@@ -1,4 +1,5 @@
 import type { PerceptionState } from '../core/component-data.js';
+import { distance } from '../core/math-utils.js';
 
 export interface PerceptionInput {
 	agentPos: { x: number; y: number };
@@ -13,12 +14,6 @@ export interface PerceptionConfig {
 	night_multiplier: number;
 }
 
-function distance(a: { x: number; y: number }, b: { x: number; y: number }): number {
-	const dx = a.x - b.x;
-	const dy = a.y - b.y;
-	return Math.sqrt(dx * dx + dy * dy);
-}
-
 export function resolvePerception(
 	input: PerceptionInput,
 	config: PerceptionConfig,
@@ -29,12 +24,12 @@ export function resolvePerception(
 	}
 
 	const nearbyAgents = input.agents
-		.map(a => ({ id: a.id, distance: distance(input.agentPos, a.pos) }))
+		.map(a => ({ id: a.id, distance: distance(input.agentPos.x, input.agentPos.y, a.pos.x, a.pos.y) }))
 		.filter(a => a.distance <= radius)
 		.sort((a, b) => a.distance - b.distance);
 
 	const nearbyLocations = input.locations
-		.map(l => ({ id: l.id, type: l.type, distance: distance(input.agentPos, l.pos) }))
+		.map(l => ({ id: l.id, type: l.type, distance: distance(input.agentPos.x, input.agentPos.y, l.pos.x, l.pos.y) }))
 		.filter(l => l.distance <= radius)
 		.sort((a, b) => a.distance - b.distance);
 

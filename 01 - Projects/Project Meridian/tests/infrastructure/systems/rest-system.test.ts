@@ -167,6 +167,37 @@ describe('RestSystem', () => {
 		expect(needs.state.energy).toBeCloseTo(53.0);
 	});
 
+	it('clears restingAt when agent leaves rest location and re-emits on return', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('RestStarted', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 200, 200), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'seek_food' };
+
+		const restLoc = createRestLocation('loc-tavern', 200, 200);
+		const system = createRestSystem(() => [agent], () => [restLoc]);
+		const deps = createDeps(eventBus);
+
+		// Tick 1: agent at rest location — nearestRest found, btAction ignored
+		system.execute(deps);
+		expect(events.length).toBe(1);
+
+		// Move agent away (outside interaction radius) — no rest location nearby + non-idle btAction → restTier null → restingAt cleared
+		agent.pos.x = 500;
+		agent.pos.y = 500;
+		system.execute(deps);
+
+		// Move agent back to rest location
+		agent.pos.x = 200;
+		agent.pos.y = 200;
+		events.length = 0;
+		system.execute(deps);
+		// Should emit RestStarted again because restingAt was cleared
+		expect(events.length).toBe(1);
+	});
+
 	it('emits RestStarted again when agent moves to a different rest location', () => {
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];

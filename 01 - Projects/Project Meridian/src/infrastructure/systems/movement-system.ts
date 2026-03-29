@@ -6,7 +6,7 @@ import { BlackboardComponent } from '../components/blackboard-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
-import { clamp } from '../../domain/core/math-utils.js';
+import { clamp, distance } from '../../domain/core/math-utils.js';
 
 /** Snap-to-target when within this fraction of per-tick speed */
 const ARRIVAL_THRESHOLD_MULTIPLIER = 1.5;
@@ -20,12 +20,6 @@ function isMovementTarget(value: unknown): value is MovementTarget {
 	if (typeof value !== 'object' || value === null) return false;
 	const v = value as Record<string, unknown>;
 	return typeof v.id === 'string' && (v.type === 'agent' || v.type === 'location');
-}
-
-function distance(ax: number, ay: number, bx: number, by: number): number {
-	const dx = bx - ax;
-	const dy = by - ay;
-	return Math.sqrt(dx * dx + dy * dy);
 }
 
 function drainMovementEnergy(

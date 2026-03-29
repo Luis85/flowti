@@ -5,14 +5,9 @@ import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
+import { distance } from '../../domain/core/math-utils.js';
 
 type RestTier = 'owned_home' | 'public_shelter' | 'outdoors';
-
-function distance(ax: number, ay: number, bx: number, by: number): number {
-	const dx = bx - ax;
-	const dy = by - ay;
-	return Math.sqrt(dx * dx + dy * dy);
-}
 
 function findNearestRestLocation(
 	agentX: number, agentY: number,
@@ -66,7 +61,13 @@ export function createRestSystem(
 				const nearestRest = findNearestRestLocation(agent.pos.x, agent.pos.y, locationList, radius);
 				const restTier = resolveRestTier(nearestRest, agent.property, btAction);
 
-				if (restTier === null) continue;
+				if (restTier === null) {
+					if (bb.state.restingAt !== undefined) {
+						bb.state.restingAt = undefined;
+						bb.markDirty();
+					}
+					continue;
+				}
 
 				const needs = agent.get(NeedsComponent);
 				const result = applyRest({ currentEnergy: needs.state.energy, restTier }, restConfig);
