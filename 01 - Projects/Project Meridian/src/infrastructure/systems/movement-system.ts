@@ -5,6 +5,9 @@ import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { BlackboardComponent } from '../components/blackboard-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 
+/** Snap-to-target when within this fraction of per-tick speed */
+const ARRIVAL_THRESHOLD_MULTIPLIER = 1.5;
+
 interface MovementTarget {
 	id: string;
 	type: 'agent' | 'location';
@@ -69,7 +72,7 @@ export function createMovementSystem(
 				const speedPerTick = attrs.state.DX / deps.config.formulas.basic_speed_divisor;
 				const speedPerSec = speedPerTick * (1000 / deps.config.tick_interval_ms);
 				const dist = distance(agent.pos.x, agent.pos.y, targetPos.x, targetPos.y);
-				const arrivalThreshold = speedPerTick * 1.5;
+				const arrivalThreshold = speedPerTick * ARRIVAL_THRESHOLD_MULTIPLIER;
 
 				if (dist <= arrivalThreshold) {
 					// Arrived — snap to target, stop, emit event

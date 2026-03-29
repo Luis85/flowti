@@ -81,6 +81,10 @@ export default [
 					selector: 'TryStatement',
 					message: 'Use Result type instead of try/catch (GDD §16.2)',
 				},
+				{
+					selector: "UnaryExpression[operator='delete']",
+					message: 'Use `obj[key] = undefined` instead of delete — consistent mutation pattern',
+				},
 			],
 			'no-restricted-globals': [
 				'error',
@@ -123,6 +127,17 @@ export default [
 		},
 	},
 	{
+		// Infrastructure systems must not hardcode simulation tuning values
+		files: ['src/infrastructure/systems/**/*.ts'],
+		rules: {
+			'no-magic-numbers': ['warn', {
+				ignore: [0, 1, -1, 100, 1000],
+				ignoreDefaultValues: true,
+				ignoreClassFieldInitialValues: true,
+			}],
+		},
+	},
+	{
 		// Domain + systems must use injected GameRNG, never Math.random (ADR-11, §8.11)
 		files: ['src/domain/**/*.ts'],
 		rules: {
@@ -132,6 +147,7 @@ export default [
 					patterns: [
 						{ group: ['../infrastructure/*', '../../infrastructure/*'], message: 'Domain must not import infrastructure (GDD §36.3)' },
 						{ group: ['obsidian', 'node:*', 'excalibur'], message: 'Domain must not import platform modules (GDD §36.3)' },
+						{ group: ['../systems/*'], message: 'Domain systems must not import each other — share types via component-data.ts or ranges.ts' },
 					],
 				},
 			],
