@@ -30,7 +30,7 @@
 	"wallet": { "gold": 80 },
 	"xp": 0,
 	"level": 1,
-	"position": { "x": 480, "y": 300, "region": "library" },
+	"position": { "x": 430, "y": 250, "region": "region-market-square" },
 	"relationships": "03 - Resources/Graphs/wren-relationships.canvas",
 	"tools": [],
 	"behavior_tree": "bt-scholar",

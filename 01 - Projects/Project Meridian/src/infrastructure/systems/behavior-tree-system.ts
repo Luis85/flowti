@@ -105,16 +105,21 @@ export function createBehaviorTreeSystem(
 					// Clear journey when action changes
 					const existingJourney = actionChanged ? undefined : bb.state.journey as JourneyState | undefined;
 
-					// Detect cross-region journey
+					// Detect cross-region journey (skip if already tracking same target)
 					const regionList = getRegions?.() ?? [];
 					let journey: JourneyState | undefined = existingJourney;
 					if (movementTarget !== null && movementTarget.type === 'location' && regionList.length > 0 && regionGraph !== undefined) {
-						const resolved = resolveJourney(
-							agent.pos, bb, movementTarget, locationList, regionList, regionGraph,
-						);
-						if (resolved !== undefined) {
-							journey = resolved;
-							movementTarget = { id: '__journey__', type: 'location' };
+						const alreadyTracking = existingJourney !== undefined && existingJourney.finalTarget.id === movementTarget.id;
+						if (alreadyTracking) {
+							movementTarget = { id: JOURNEY_SENTINEL, type: 'location' };
+						} else {
+							const resolved = resolveJourney(
+								agent.pos, bb, movementTarget, locationList, regionList, regionGraph,
+							);
+							if (resolved !== undefined) {
+								journey = resolved;
+								movementTarget = { id: JOURNEY_SENTINEL, type: 'location' };
+							}
 						}
 					}
 

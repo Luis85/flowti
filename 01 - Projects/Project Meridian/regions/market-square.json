@@ -4,8 +4,8 @@
 	"bounds": [
 		{ "x": 150, "y": 100 },
 		{ "x": 450, "y": 100 },
-		{ "x": 450, "y": 300 },
-		{ "x": 150, "y": 300 }
+		{ "x": 450, "y": 280 },
+		{ "x": 150, "y": 280 }
 	],
 	"connections": [
 		{ "regionId": "region-farmlands", "travel_cost": 2 },

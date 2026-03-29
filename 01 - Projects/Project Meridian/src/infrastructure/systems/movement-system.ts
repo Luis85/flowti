@@ -162,9 +162,18 @@ export function createMovementSystem(
 				}
 
 				if (!isMovementTarget(rawTarget)) {
-					// No target — stop moving
+					// No target — stop moving, recover stamina while idle
 					agent.vel.x = 0;
 					agent.vel.y = 0;
+					const stamina = agent.get(StaminaComponent);
+					if (stamina.state.current < stamina.state.max) {
+						const recovered = Math.min(
+							stamina.state.max,
+							stamina.state.current + deps.config.stamina.recovery_per_idle_tick,
+						);
+						stamina.state = { ...stamina.state, current: recovered };
+						stamina.markDirty();
+					}
 					continue;
 				}
 

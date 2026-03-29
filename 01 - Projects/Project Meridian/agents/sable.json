@@ -20,7 +20,7 @@
 	"wallet": { "gold": 45 },
 	"xp": 0,
 	"level": 1,
-	"position": { "x": 150, "y": 350, "region": "craft-quarter" },
+	"position": { "x": 150, "y": 350, "region": "region-craft-quarter" },
 	"relationships": "03 - Resources/Graphs/sable-relationships.canvas",
 	"tools": [],
 	"behavior_tree": "bt-artisan",
