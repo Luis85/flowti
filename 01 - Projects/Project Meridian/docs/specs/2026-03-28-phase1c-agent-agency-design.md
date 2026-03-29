@@ -632,22 +632,88 @@ Phase 1D would add consequences to actions — agents that arrive at locations a
 
 ## 9. Post-Implementation Notes (2026-03-29)
 
-**Status:** Complete. 277 tests (73 new), all green. tsc/eslint/build clean.
+**Status:** Complete. 309 tests, 49 test files, all green. tsc/eslint/build clean.
 
 ### Deviations from Spec
 
 | Section | Spec Said | Implementation | Reason |
 |---------|-----------|----------------|--------|
 | 4.3 BT System | Lookup by `agent.behavior_tree` | Lookup by `agent.kind` | AgentActor doesn't expose `behavior_tree`. game-view strips `bt-` prefix from BT ids to match agent kind. |
-| 4.3 MovementSystem | Calls `computeMovement()` | Inline velocity math, sets `agent.vel` | ExcaliburJS velocity-based interpolation requires px/sec, not per-tick position stepping. `computeMovement` domain function removed. |
-| 4.2 Perception | `night_multiplier` from config (default 10) | Default changed to 0.5 | Original default of 10 amplified night perception 10x — inverted the intended mechanic. |
-| 4.2 BT evaluator | Local `BTNode` type | Imports from `behavior-tree-schema.ts` | Eliminated duplicate type to prevent divergence. Re-exported for consumers. |
-| 4.9 Settings | `ticks_per_cycle = tickRate × dayCycleDuration` | Formula: `dayCycleDuration * tickRate` | Equivalent formula, correctly applied in `applySettings()`. |
-| 4.2 Day/Night | `previousPhase: string` | `previousPhase: TimeState['phase']` | Tightened type safety — string was unnecessarily loose. |
-| 4.3 BT System | Built-in actions: `move_to_nearest`, `move_to_agent`, `idle`, `rest`, `eat` | Implemented as: `seek_food`, `seek_rest`, `seek_social`, `seek_work`, `interact`, `socialize`, `idle` | More descriptive action names. `resolveMovementTarget` maps action names to location types via lookup table. |
+| 4.3 MovementSystem | `createMovementSystem(agents)` | `createMovementSystem(agents, locations)` | System resolves location coordinates from list when target type is `'location'`. |
+| 4.3 MovementSystem | Calls `computeMovement()`, sets `agent.pos` | Inline velocity math, sets `agent.vel` | Fixed-timestep (500ms) caused jerky movement. Velocity-based interpolation lets ExcaliburJS smooth position every frame. `computeMovement` domain function removed. |
+| 4.3 BT System | `blackboard.movementTarget = { x, y }` | `blackboard.movementTarget = { id, type }` | Coordinates resolved by MovementSystem at tick time, not pre-resolved by BT. Decouples BT from position data. |
+| 4.3 BT System | Actions: `move_to_nearest`, `move_to_agent`, `idle`, `rest`, `eat` | `seek_food`, `seek_rest`, `seek_social`, `seek_work`, `interact`, `socialize`, `idle` | More descriptive names. `resolveMovementTarget` maps actions to location types. |
+| 4.2 Perception | `night_multiplier` config default 10 | Default changed to 0.5 | Original amplified night perception 10x — inverted the mechanic. |
+| 4.2 BT evaluator | Local `BTNode` type | Imports from `behavior-tree-schema.ts` | Single source of truth, re-exported for consumers. |
+| 4.2 Day/Night | `previousPhase: string` | `previousPhase: TimeState['phase']` | Tightened type safety. |
+| 4.9 Settings | `ticks_per_cycle = tickRate × dayCycleDuration` | `applySettings()` also updates `config.tick_interval_ms = 1000 / tickRate` | tickRate now affects both day cycle length AND actual simulation speed. |
 
-### Additional Artifacts
+### Additional Artifacts (post-merge)
 
-- `src/domain/schemas/index.ts` — re-exports LocationSchema, BehaviorTreeSchema, BTNode (added by implementation)
-- Build output now includes `03 - Resources/Locations/` and `03 - Resources/BehaviorTrees/` in the vault overlay
-- Tests include `hashString` coverage and zero-speed movement edge case
+#### Unified World Loader
+`infrastructure/engine/world-loader.ts` — orchestrates all vault data loading in sequence:
+1. Loading traits → `TraitLoader`
+2. Loading agents → `AgentSpawner`
+3. Loading locations → `LocationLoader`
+4. Loading behavior trees → `BTLoader`
+
+Returns `WorldData { agents, traitDefs, locations, btDefinitions, errors }`. Progress callback (`LoadProgress`) drives a text overlay on the game container during startup. Replaces scattered loader calls in game-view.
+
+#### Trait Loading Pipeline
+- `domain/schemas/trait-definition-schema.ts` — Zod schema for compact trait definition files
+- `infrastructure/entity/trait-loader.ts` — loads `03 - Resources/Traits/*.json`
+- `traits/*.json` source files — 4 trait definitions (hardy, frail, curious, brave)
+- Traits now loaded from vault at startup (not hardcoded `{}`)
+
+#### Shared Constants
+- `domain/systems/bt-actions.ts` — `KNOWN_ACTIONS` (7 canonical action strings) + `AGENT_SOCIAL_ACTIONS` (interact, socialize). Shared by BT system + data-validation tests.
+- `NEED_CRITICAL_THRESHOLDS` moved to `domain/schemas/ranges.ts` (was duplicated in needs-decay.ts + behavior-tree.ts)
+- `MEMORY_WINDOW_TICKS` and `MEMORY_SATURATION_COUNT` moved to `GameConfigSchema.mood` (was hardcoded in mood-system.ts)
+
+#### Data-Driven Colors
+`AgentSchema` and `LocationSchema` both have `color: z.string().regex(/^#[0-9a-fA-F]{6}$/)` — editable hex colors in vault JSON files. No hardcoded color maps.
+
+#### Vault World Bible
+Build copies all game content to `dist/03 - Resources/` (9 folders, 52+ files):
+- `Agents/` — 4 agent JSON files
+- `BehaviorTrees/` — 4 BT JSON files
+- `Graphs/` — 1 Obsidian canvas (relationships)
+- `Items/` — 20 markdown files (inventory + equipment descriptions)
+- `Jobs/` — 4 markdown files
+- `Locations/` — 4 location JSON files
+- `Personas/` — 4 markdown files
+- `Properties/` — 3 markdown files
+- `Traits/` — 4 JSON (mechanical) + 4 markdown (flavor)
+
+Convention: JSON for structured machine-readable data, markdown for content/templates, canvas for graphs.
+
+#### Auto-Generated README
+`scripts/generate-readme.mjs` produces `dist/README.md` during every build — game overview, agent roster, locations, day/night timing, needs/mood/perception formulas, BT decision logic summaries, customization guide.
+
+#### Integration Safeguards
+- `tests/integration/data-validation.test.ts` — validates ALL shipped JSON (agents, locations, BTs, traits) against schemas + checks BT action vocabulary
+- `tests/integration/smoke-test.test.ts` — full tick with real shipped data, asserts agents respond to low needs
+
+#### Settings & Debug
+- Plugin settings: `tickRate`, `dayCycleDuration`, `perceptionRadius` hot-swapped via `applySettings()`
+- `applySettings()` only recreates logger when logLevel changes (no spurious "enabled" logs)
+- `debugMode` wired to ExcaliburJS `engine.toggleDebug()` + `debug.entity.showName`
+- `tick_interval_ms` now updated from `tickRate` setting
+
+#### Location Visuals
+Locations rendered as colored rectangles (20x20) with name labels. Colors from `loc.color` (vault JSON). Loading overlay (`.meridian-loading` CSS) shows per-step progress during startup.
+
+### Architectural Decision: ExcaliburJS Actions
+
+**Decision:** Use velocity-based movement via our tick system, not ExcaliburJS's built-in action system (`actor.actions.moveTo()`).
+
+**Rationale:**
+- Our BT system runs on a fixed timestep (500ms ticks). ExcaliburJS actions run on the frame loop (60fps). Mixing the two timing models creates stutter at destinations — agents arrive between ticks and sit idle until the next BT evaluation.
+- The BT system writes pure data to the blackboard (`{ id, type }`). The movement system translates to velocity. Using `moveTo()` would require tracking action state ("already started? target changed?") in the infrastructure layer.
+- We emit `AgentArrived` events for other systems. With `moveTo()`, we'd need action completion callbacks mixed with our event bus.
+
+**Future use of ExcaliburJS actions:**
+- `easeTo()` for visual polish (acceleration/deceleration)
+- `follow()` / `meet()` for agent-to-agent social movement
+- `repeatForever()` for idle patrol animations
+- These belong in a future **animation/visual system** that runs on the frame loop alongside (not replacing) tick-based movement. Domain decides WHERE; ExcaliburJS decides HOW it looks.

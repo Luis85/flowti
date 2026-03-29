@@ -567,17 +567,21 @@ Phase 1C would build on Phase 1B to add agency — agents that respond to their 
 
 `AgentSchema` has `persona: z.string().nullable().default(null)` — path to a markdown file describing the agent's personality. Schema-only for Phase 1B; no system reads it yet. Future LLM/BT systems will load it.
 
-#### Placeholder Visuals
+#### Data-Driven Visuals
 
-`AgentActor` renders a colored `Circle` (radius 14) + `Label` (agent name) as temporary visuals:
+`AgentActor` renders a colored `Circle` (radius 14) + `Label` (agent name). Color read from `agent.color` field in the JSON file (hex string, validated by schema, default `#b0b0b0`). No hardcoded color map — colors are editable in the vault.
 
-| Kind | Color |
-|------|-------|
-| merchant | `#e6a820` (gold) |
-| guard | `#e94560` (red) |
-| scholar | `#4da6ff` (blue) |
-| artisan | `#50c878` (green) |
-| default | `#b0b0b0` (grey) |
+`AgentSchema` also has `color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#b0b0b0')`.
+
+Bootstrap mood uses `needsSatisfaction = (hunger + energy + social) / 300`.
+
+#### GameConfig Forward Declarations
+
+`GameConfigSchema` (`domain/schemas/game-config-schema.ts`) forward-declares ~15 config sections for future phases (economy, stamina, mortality, gossip, skills, rest tiers, seasons, etc.). These exist in the schema with defaults but no system reads them yet. Phase 1B uses only `needs`, `memory`, and `mood`.
+
+#### Shared Constants
+
+`domain/schemas/ranges.ts` — GDD balance constants (`ATTRIBUTE_RANGE`, `NEED_CRITICAL_THRESHOLDS`, `MOOD_DEFAULT`, etc.). Single source of truth imported by schemas and tick systems.
 
 #### Engine Architecture Change
 
