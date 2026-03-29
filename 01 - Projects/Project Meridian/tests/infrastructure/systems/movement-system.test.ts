@@ -72,6 +72,9 @@ describe('MovementSystem', () => {
 		// Velocity should point toward target (positive x, zero y)
 		expect(agent.vel.x).toBeGreaterThan(0);
 		expect(agent.vel.y).toBeCloseTo(0);
+		// DX=10, divisor=4, interval=500ms → speedPerTick=2.5, speedPerSec=5.0
+		expect(agent.vel.x).toBeCloseTo(5.0, 2);
+		expect(agent.vel.y).toBeCloseTo(0, 2);
 	});
 
 	it('emits AgentArrived and clears movementTarget on arrival', () => {
@@ -99,6 +102,10 @@ describe('MovementSystem', () => {
 
 		// movementTarget should be cleared
 		expect(agent.get(BlackboardComponent).state.movementTarget).toBeUndefined();
+
+		// Agent should be snapped to the target position
+		expect(agent.pos.x).toBeCloseTo(1, 1);
+		expect(agent.pos.y).toBeCloseTo(0, 1);
 	});
 
 	it('zeroes velocity when no movementTarget', () => {

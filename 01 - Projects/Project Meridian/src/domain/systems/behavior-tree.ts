@@ -1,6 +1,7 @@
 import type { NeedsState, MoodState, PerceptionState } from '../core/component-data.js';
 import type { GameRNG } from '../core/game-rng.js';
 import type { BTNode } from '../schemas/behavior-tree-schema.js';
+import { NEED_CRITICAL_THRESHOLDS } from '../schemas/ranges.js';
 
 export type { BTNode } from '../schemas/behavior-tree-schema.js';
 
@@ -20,8 +21,6 @@ export interface BTResult {
 	params: Record<string, unknown>;
 }
 
-const CRITICAL_THRESHOLDS: Record<string, number> = { hunger: 20, energy: 15, social: 25 };
-
 type ConditionCheck = (ctx: BTContext, params: Record<string, unknown>) => boolean;
 
 function needValue(needs: NeedsState, key: string): number {
@@ -31,7 +30,7 @@ function needValue(needs: NeedsState, key: string): number {
 const CONDITION_CHECKS: Record<string, ConditionCheck> = {
 	need_critical(ctx, params) {
 		const need = params.need as string;
-		const threshold = CRITICAL_THRESHOLDS[need] ?? 20;
+		const threshold = (NEED_CRITICAL_THRESHOLDS as Record<string, number>)[need] ?? 20;
 		return needValue(ctx.needs, need) < threshold;
 	},
 	need_below(ctx, params) {

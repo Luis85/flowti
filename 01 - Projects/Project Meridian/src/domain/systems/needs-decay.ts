@@ -1,5 +1,6 @@
 import type { NeedsState } from '../core/component-data.js';
 import { clamp, round2 } from '../core/math-utils.js';
+import { NEED_CRITICAL_THRESHOLDS } from '../schemas/ranges.js';
 
 export interface NeedsDecayInput {
 	state: NeedsState;
@@ -37,8 +38,6 @@ interface NeedConfig {
 	criticalThreshold: number;
 }
 
-const CRITICAL_THRESHOLDS = { hunger: 20, energy: 15, social: 25 } as const;
-
 function eventsForNeed(need: NeedConfig, oldValue: number, newValue: number): NeedEvent[] {
 	const result: NeedEvent[] = [];
 	if (newValue !== oldValue) {
@@ -66,21 +65,21 @@ export function applyNeedsDecay(
 			decayRate: config.hunger_decay,
 			attribute: input.hungerAttribute,
 			modifierScale: input.modifiers?.hungerDecayScale ?? 1.0,
-			criticalThreshold: CRITICAL_THRESHOLDS.hunger,
+			criticalThreshold: NEED_CRITICAL_THRESHOLDS.hunger,
 		},
 		{
 			key: 'energy',
 			decayRate: config.energy_decay,
 			attribute: input.energyAttribute,
 			modifierScale: input.modifiers?.energyDecayScale ?? 1.0,
-			criticalThreshold: CRITICAL_THRESHOLDS.energy,
+			criticalThreshold: NEED_CRITICAL_THRESHOLDS.energy,
 		},
 		{
 			key: 'social',
 			decayRate: config.social_decay,
 			attribute: input.socialAttribute,
 			modifierScale: input.modifiers?.socialDecayScale ?? 1.0,
-			criticalThreshold: CRITICAL_THRESHOLDS.social,
+			criticalThreshold: NEED_CRITICAL_THRESHOLDS.social,
 		},
 	];
 

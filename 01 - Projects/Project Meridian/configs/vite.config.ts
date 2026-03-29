@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
-import { resolve, dirname, basename } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';

@@ -639,6 +639,7 @@ Phase 1D would add consequences to actions — agents that arrive at locations a
 | Section | Spec Said | Implementation | Reason |
 |---------|-----------|----------------|--------|
 | 4.3 BT System | Lookup by `agent.behavior_tree` | Lookup by `agent.kind` | AgentActor doesn't expose `behavior_tree`. game-view strips `bt-` prefix from BT ids to match agent kind. |
+| 4.3 MovementSystem | Calls `computeMovement()` | Inline velocity math, sets `agent.vel` | ExcaliburJS velocity-based interpolation requires px/sec, not per-tick position stepping. `computeMovement` domain function removed. |
 | 4.2 Perception | `night_multiplier` from config (default 10) | Default changed to 0.5 | Original default of 10 amplified night perception 10x — inverted the intended mechanic. |
 | 4.2 BT evaluator | Local `BTNode` type | Imports from `behavior-tree-schema.ts` | Eliminated duplicate type to prevent divergence. Re-exported for consumers. |
 | 4.9 Settings | `ticks_per_cycle = tickRate × dayCycleDuration` | Formula: `dayCycleDuration * tickRate` | Equivalent formula, correctly applied in `applySettings()`. |

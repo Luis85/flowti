@@ -64,14 +64,14 @@ function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 	};
 }
 
-/** A simple BT that always selects the 'wander' action */
-const wanderBT: BTNode = {
+/** A simple BT that always selects the 'idle' action */
+const idleBT: BTNode = {
 	type: 'action',
-	action: 'wander',
+	action: 'idle',
 	params: {},
 };
 
-/** A BT that seeks food when hunger is critical (< 20), otherwise wanders */
+/** A BT that seeks food when hunger is critical (< 20), otherwise idles */
 const hungerBT: BTNode = {
 	type: 'selector',
 	children: [
@@ -82,7 +82,7 @@ const hungerBT: BTNode = {
 				{ type: 'action', action: 'seek_food', params: {} },
 			],
 		},
-		{ type: 'action', action: 'wander', params: {} },
+		{ type: 'action', action: 'idle', params: {} },
 	],
 };
 
@@ -92,7 +92,7 @@ describe('BehaviorTreeSystem', () => {
 		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const worldEntity = createWorldEntityWithPhase('day');
-		const btDefs: Record<string, BTNode> = { merchant: wanderBT };
+		const btDefs: Record<string, BTNode> = { merchant: idleBT };
 		const system = createBehaviorTreeSystem(
 			() => [agent],
 			btDefs,
@@ -103,7 +103,7 @@ describe('BehaviorTreeSystem', () => {
 		system.execute(createDeps());
 
 		const bb = agent.get(BlackboardComponent);
-		expect(bb.state.btAction).toBe('wander');
+		expect(bb.state.btAction).toBe('idle');
 	});
 
 	it('emits BTActionSelected event with agentId and action', () => {
@@ -115,14 +115,14 @@ describe('BehaviorTreeSystem', () => {
 		eventBus.on('BTActionSelected', (e) => { events.push(e); });
 
 		const worldEntity = createWorldEntityWithPhase('day');
-		const btDefs: Record<string, BTNode> = { merchant: wanderBT };
+		const btDefs: Record<string, BTNode> = { merchant: idleBT };
 		const system = createBehaviorTreeSystem(() => [agent], btDefs, () => worldEntity, 42);
 
 		system.execute(createDeps(eventBus));
 
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.agentId).toBe('agent-1');
-		expect(events[0]?.payload.action).toBe('wander');
+		expect(events[0]?.payload.action).toBe('idle');
 	});
 
 	it('selects seek_food when hunger is critical', () => {
@@ -145,7 +145,7 @@ describe('BehaviorTreeSystem', () => {
 		expect(agent.get(BlackboardComponent).state.btAction).toBe('seek_food');
 	});
 
-	it('falls back to wander when hunger is not critical', () => {
+	it('falls back to idle when hunger is not critical', () => {
 		const agent = new AgentActor(
 			createTestAgentData('agent-3', 'guard', { needs: { hunger: 80, energy: 90, social: 70 } }),
 			defaultMoodConfig,
@@ -158,7 +158,7 @@ describe('BehaviorTreeSystem', () => {
 
 		system.execute(createDeps());
 
-		expect(agent.get(BlackboardComponent).state.btAction).toBe('wander');
+		expect(agent.get(BlackboardComponent).state.btAction).toBe('idle');
 	});
 
 	it('skips agent when no BT definition exists for its kind', () => {
@@ -166,7 +166,7 @@ describe('BehaviorTreeSystem', () => {
 		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const worldEntity = createWorldEntityWithPhase('day');
-		const btDefs: Record<string, BTNode> = { merchant: wanderBT };
+		const btDefs: Record<string, BTNode> = { merchant: idleBT };
 		const system = createBehaviorTreeSystem(() => [agent], btDefs, () => worldEntity, 42);
 
 		// Should not throw

@@ -89,6 +89,9 @@ export class MeridianGameView extends ItemView {
 
 				const spawner = createAgentSpawner(this.deps.logger, this.deps.config.mood, this.deps.config.memory.max_entries);
 				const spawnResult = await spawner.spawnFromVault(vaultAdapter, '03 - Resources/Agents');
+				if (spawnResult.errors.length > 0) {
+					this.deps.logger.warn('Meridian', `${String(spawnResult.errors.length)} agent(s) failed to load`);
+				}
 
 				const spawnedAgents: AgentActor[] = spawnResult.agents;
 				for (const agent of spawnedAgents) {
@@ -108,10 +111,16 @@ export class MeridianGameView extends ItemView {
 				// Phase 1C: Load world data
 				const locationLoader = createLocationLoader(this.deps.logger);
 				const locationResult = await locationLoader.loadFromVault(vaultAdapter, '03 - Resources/Locations');
+				if (locationResult.errors.length > 0) {
+					this.deps.logger.warn('Meridian', `${String(locationResult.errors.length)} location(s) failed to load`);
+				}
 				const worldLocations = locationResult.items;
 
 				const btLoaderInstance = createBTLoader(this.deps.logger);
 				const btResult = await btLoaderInstance.loadFromVault(vaultAdapter, '03 - Resources/BehaviorTrees');
+				if (btResult.errors.length > 0) {
+					this.deps.logger.warn('Meridian', `${String(btResult.errors.length)} behavior tree(s) failed to load`);
+				}
 
 				// Build BT definitions map keyed by agent kind (strip "bt-" prefix from BT id)
 				const btDefinitions: Record<string, BTNode> = {};
@@ -122,11 +131,11 @@ export class MeridianGameView extends ItemView {
 				}
 
 				// Add location markers to the scene
-					for (const loc of worldLocations) {
-						this.engine.currentScene.add(createLocationMarker(loc));
-					}
+				for (const loc of worldLocations) {
+					this.engine.currentScene.add(createLocationMarker(loc));
+				}
 
-					// Create world entity for time state
+				// Create world entity for time state
 				const worldEntity = new ex.Actor();
 				worldEntity.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
 				this.engine.currentScene.add(worldEntity);

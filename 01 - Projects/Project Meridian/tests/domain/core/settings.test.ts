@@ -6,5 +6,8 @@ describe('MeridianSettings', () => {
 		expect(DEFAULT_SETTINGS.logLevel).toBe('info');
 		expect(DEFAULT_SETTINGS.debugMode).toBe(false);
 		expect(DEFAULT_SETTINGS.performanceTracking).toBe(false);
+		expect(DEFAULT_SETTINGS.tickRate).toBe(60);
+		expect(DEFAULT_SETTINGS.dayCycleDuration).toBe(120);
+		expect(DEFAULT_SETTINGS.perceptionRadius).toBe(150);
 	});
 });
