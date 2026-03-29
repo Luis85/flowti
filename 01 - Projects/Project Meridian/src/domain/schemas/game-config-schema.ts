@@ -164,6 +164,7 @@ const FormulasConfigSchema = z.object({
 	trade_modifier_per_chr: z.number().default(0.02),
 	social_reach_multiplier: z.number().default(0.5),
 	arrival_threshold_multiplier: z.number().default(1.5),
+	arrival_spread_radius: z.number().default(22),
 });
 
 const BTConfigSchema = z.object({

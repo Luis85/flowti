@@ -7,6 +7,7 @@ import { AttributesComponent } from '../components/attributes-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { clamp, distance } from '../../domain/core/math-utils.js';
+import { resolveArrivalOffset } from '../../domain/systems/arrival-spread.js';
 
 /** Snap-to-target when within this fraction of per-tick speed — value from config.formulas.arrival_threshold_multiplier */
 
@@ -60,10 +61,17 @@ export function createMovementSystem(
 		execute(deps: GameCoreDeps): void {
 			const agentList = agents();
 			const locationList = locations();
+			const spreadRadius = deps.config.formulas.arrival_spread_radius;
 
 			for (const agent of agentList) {
 				const bb = agent.get(BlackboardComponent);
 				const rawTarget = bb.state.movementTarget;
+
+				// Clear atLocation when agent starts moving to a new target
+				if (isMovementTarget(rawTarget) && bb.state.atLocation !== undefined) {
+					bb.state = { ...bb.state, atLocation: undefined, arrivalSlot: undefined };
+					bb.markDirty();
+				}
 
 				if (!isMovementTarget(rawTarget)) {
 					// No target — stop moving
@@ -99,13 +107,27 @@ export function createMovementSystem(
 				const arrivalThreshold = speedPerTick * deps.config.formulas.arrival_threshold_multiplier;
 
 				if (dist <= arrivalThreshold) {
-					// Arrived — snap to target, stop, emit event
-					agent.pos.x = targetPos.x;
-					agent.pos.y = targetPos.y;
+					// Count agents already at this location (for spread offset)
+					const agentsAtLocation = agentList.filter(a => {
+						const abb = a.get(BlackboardComponent);
+						return abb.state.atLocation === rawTarget.id;
+					});
+					const slotIndex = agentsAtLocation.length;
+					const totalAgents = slotIndex + 1;
+					const offset = resolveArrivalOffset(slotIndex, totalAgents, spreadRadius);
+
+					// Arrived — snap to target + offset, stop, emit event
+					agent.pos.x = targetPos.x + offset.dx;
+					agent.pos.y = targetPos.y + offset.dy;
 					agent.vel.x = 0;
 					agent.vel.y = 0;
 
-					bb.state = { ...bb.state, movementTarget: undefined };
+					bb.state = {
+						...bb.state,
+						movementTarget: undefined,
+						atLocation: rawTarget.id,
+						arrivalSlot: slotIndex,
+					};
 					bb.markDirty();
 
 					deps.eventBus.emit({
