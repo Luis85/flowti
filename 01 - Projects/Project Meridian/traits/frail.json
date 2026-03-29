@@ -1,0 +1,7 @@
+{
+	"id": "frail",
+	"effects": [
+		{ "system": "NeedsDecaySystem", "modifier": { "hungerDecayScale": 1.5 } }
+	],
+	"conflicts_with": ["hardy"]
+}

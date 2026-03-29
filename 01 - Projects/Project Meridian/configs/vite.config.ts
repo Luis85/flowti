@@ -76,6 +76,16 @@ function assembleVaultOverlay(): Plugin {
 				'.json',
 			);
 
+			// Trait definitions → 03 - Resources/Traits/ (JSON + markdown)
+			copyDir(resolve(projectRoot, 'traits'), resolve(distDir, '03 - Resources/Traits'), '.json');
+			copyDir(resolve(projectRoot, 'traits'), resolve(distDir, '03 - Resources/Traits'), '.md');
+
+			// World documentation → 03 - Resources/
+			copyDir(resolve(projectRoot, 'items'), resolve(distDir, '03 - Resources/Items'), '.md');
+			copyDir(resolve(projectRoot, 'jobs'), resolve(distDir, '03 - Resources/Jobs'), '.md');
+			copyDir(resolve(projectRoot, 'properties'), resolve(distDir, '03 - Resources/Properties'), '.md');
+			copyDir(resolve(projectRoot, 'graphs'), resolve(distDir, '03 - Resources/Graphs'), '.canvas');
+
 			// Generate README from game data + config constants
 			try {
 				execSync('node scripts/generate-readme.mjs', { cwd: projectRoot, stdio: 'inherit' });

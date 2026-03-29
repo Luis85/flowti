@@ -16,6 +16,7 @@ import type { TraitDefinition } from '../../domain/systems/trait-resolver.js';
 import { TimeComponent } from '../components/time-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
 import { createLocationLoader } from '../entity/location-loader.js';
+import { createTraitLoader } from '../entity/trait-loader.js';
 import { createBTLoader } from '../entity/bt-loader.js';
 import { createDayNightSystem } from '../systems/day-night-system.js';
 import { createPerceptionSystem } from '../systems/perception-system.js';
@@ -31,13 +32,11 @@ export class MeridianGameView extends ItemView {
 	private disposeEngine: (() => void) | null = null;
 	private deps: GameCoreDeps | null;
 	private batchableEventBus: BatchableEventBus | null;
-	private traitDefinitions: Record<string, TraitDefinition>;
 
-	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null, batchableEventBus: BatchableEventBus | null = null, traitDefinitions: Record<string, TraitDefinition> = {}) {
+	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null, batchableEventBus: BatchableEventBus | null = null) {
 		super(leaf);
 		this.deps = deps;
 		this.batchableEventBus = batchableEventBus;
-		this.traitDefinitions = traitDefinitions;
 	}
 
 	getViewType(): string {
@@ -100,29 +99,15 @@ export class MeridianGameView extends ItemView {
 		}
 
 		const getAgents = (): AgentActor[] => spawnedAgents;
-		tickRunner.register(createTraitResolverSystem(getAgents, this.traitDefinitions));
+
+		// Load all vault data
+		const { traitDefs, worldLocations, btDefinitions } = await this.loadWorldData(deps, vaultAdapter);
+
+		tickRunner.register(createTraitResolverSystem(getAgents, traitDefs));
 		tickRunner.register(createNeedsDecaySystem(getAgents));
 		tickRunner.register(createMoodSystem(getAgents));
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		deps.logger.info('Meridian', `Phase 1B: ${String(spawnedAgents.length)} agents spawned`);
-
-		// Phase 1C: Load world data + register agency systems
-		const locationResult = await createLocationLoader(deps.logger).loadFromVault(vaultAdapter, '03 - Resources/Locations');
-		if (locationResult.errors.length > 0) {
-			deps.logger.warn('Meridian', `${String(locationResult.errors.length)} location(s) failed to load`);
-		}
-		const worldLocations = locationResult.items;
-
-		const btResult = await createBTLoader(deps.logger).loadFromVault(vaultAdapter, '03 - Resources/BehaviorTrees');
-		if (btResult.errors.length > 0) {
-			deps.logger.warn('Meridian', `${String(btResult.errors.length)} behavior tree(s) failed to load`);
-		}
-
-		const btDefinitions: Record<string, BTNode> = {};
-		for (const bt of btResult.items) {
-			const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
-			btDefinitions[key] = bt.root;
-		}
 
 		for (const loc of worldLocations) {
 			engine.currentScene.add(createLocationMarker(loc));
@@ -142,7 +127,40 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createBehaviorTreeSystem(getAgents, btDefinitions, getWorldEntity, Date.now()));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
-		deps.logger.info('Meridian', `Phase 1C: ${String(worldLocations.length)} locations, ${String(btResult.items.length)} BTs loaded`);
+		deps.logger.info('Meridian', `Phase 1C: ${String(worldLocations.length)} locations, ${String(Object.keys(btDefinitions).length)} BTs registered`);
+	}
+
+	private async loadWorldData(deps: GameCoreDeps, vault: VaultReader): Promise<{
+		traitDefs: Record<string, TraitDefinition>;
+		worldLocations: WorldLocation[];
+		btDefinitions: Record<string, BTNode>;
+	}> {
+		const traitResult = await createTraitLoader(deps.logger).loadFromVault(vault, '03 - Resources/Traits');
+		if (traitResult.errors.length > 0) {
+			deps.logger.warn('Meridian', `${String(traitResult.errors.length)} trait(s) failed to load`);
+		}
+		const traitDefs: Record<string, TraitDefinition> = {};
+		for (const trait of traitResult.items) {
+			traitDefs[trait.id] = trait;
+		}
+
+		const locationResult = await createLocationLoader(deps.logger).loadFromVault(vault, '03 - Resources/Locations');
+		if (locationResult.errors.length > 0) {
+			deps.logger.warn('Meridian', `${String(locationResult.errors.length)} location(s) failed to load`);
+		}
+
+		const btResult = await createBTLoader(deps.logger).loadFromVault(vault, '03 - Resources/BehaviorTrees');
+		if (btResult.errors.length > 0) {
+			deps.logger.warn('Meridian', `${String(btResult.errors.length)} behavior tree(s) failed to load`);
+		}
+		const btDefinitions: Record<string, BTNode> = {};
+		for (const bt of btResult.items) {
+			const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
+			btDefinitions[key] = bt.root;
+		}
+
+		deps.logger.info('Meridian', `World data: ${String(traitResult.items.length)} traits, ${String(locationResult.items.length)} locations, ${String(btResult.items.length)} BTs`);
+		return { traitDefs, worldLocations: locationResult.items, btDefinitions };
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await -- Obsidian ItemView interface requires async
