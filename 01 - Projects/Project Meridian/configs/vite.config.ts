@@ -1,7 +1,8 @@
 import { defineConfig, type Plugin } from 'vite';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
@@ -74,6 +75,13 @@ function assembleVaultOverlay(): Plugin {
 				resolve(distDir, '03 - Resources/BehaviorTrees'),
 				'.json',
 			);
+
+			// Generate README from game data + config constants
+			try {
+				execSync('node scripts/generate-readme.mjs', { cwd: projectRoot, stdio: 'inherit' });
+			} catch {
+				console.warn('[build] README generation failed — skipping');
+			}
 		},
 	};
 }
