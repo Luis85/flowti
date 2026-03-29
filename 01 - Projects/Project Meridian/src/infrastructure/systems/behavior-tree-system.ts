@@ -2,6 +2,7 @@ import { SystemPriority, type GameSystem } from '../../domain/core/tick-schedule
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { evaluateBT, type BTNode } from '../../domain/systems/behavior-tree.js';
 import { createGameRNG, hashString } from '../../domain/core/game-rng.js';
+import { KNOWN_ACTIONS } from '../../domain/systems/bt-actions.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { Actor } from 'excalibur';
 import { NeedsComponent } from '../components/needs-component.js';
@@ -82,7 +83,9 @@ const LOCATION_ACTIONS: Record<string, string> = {
 	seek_work: 'work',
 };
 
-const AGENT_ACTIONS = new Set(['interact', 'socialize']);
+const AGENT_ACTIONS: ReadonlySet<string> = new Set(
+	[...KNOWN_ACTIONS].filter(a => a === 'interact' || a === 'socialize'),
+);
 
 function resolveMovementTarget(
 	action: string,

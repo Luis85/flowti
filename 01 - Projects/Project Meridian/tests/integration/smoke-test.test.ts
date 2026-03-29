@@ -1,0 +1,124 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { AgentSchema } from '../../src/domain/schemas/agent-schema.js';
+import { LocationSchema } from '../../src/domain/schemas/location-schema.js';
+import { BehaviorTreeSchema } from '../../src/domain/schemas/behavior-tree-schema.js';
+import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
+import { createTickRunner } from '../../src/infrastructure/engine/tick-runner.js';
+import { createEventBus } from '../../src/infrastructure/event-bus.js';
+import { createPerformanceTracker } from '../../src/infrastructure/performance/performance-tracker.js';
+import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
+import { PerceptionComponent } from '../../src/infrastructure/components/perception-component.js';
+import { TimeComponent } from '../../src/infrastructure/components/time-component.js';
+import { BlackboardComponent } from '../../src/infrastructure/components/blackboard-component.js';
+import { createTraitResolverSystem } from '../../src/infrastructure/systems/trait-resolver-system.js';
+import { createNeedsDecaySystem } from '../../src/infrastructure/systems/needs-decay-system.js';
+import { createMoodSystem } from '../../src/infrastructure/systems/mood-system.js';
+import { createMemoryDecaySystem } from '../../src/infrastructure/systems/memory-decay-system.js';
+import { createDayNightSystem } from '../../src/infrastructure/systems/day-night-system.js';
+import { createPerceptionSystem } from '../../src/infrastructure/systems/perception-system.js';
+import { createBehaviorTreeSystem } from '../../src/infrastructure/systems/behavior-tree-system.js';
+import { createMovementSystem } from '../../src/infrastructure/systems/movement-system.js';
+import { Actor } from 'excalibur';
+import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
+import type { BTNode } from '../../src/domain/schemas/behavior-tree-schema.js';
+import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = resolve(__dirname, '../..');
+
+function loadAndParse<T>(dir: string, schema: { parse(data: unknown): T }): T[] {
+	const fullPath = resolve(projectRoot, dir);
+	try {
+		return readdirSync(fullPath)
+			.filter(f => f.endsWith('.json'))
+			.map(f => schema.parse(JSON.parse(readFileSync(resolve(fullPath, f), 'utf-8'))));
+	} catch {
+		return [];
+	}
+}
+
+const defaultMoodConfig = {
+	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
+	buckets: [
+		{ name: 'elated', min: 60, max: 100 },
+		{ name: 'content', min: 20, max: 59 },
+		{ name: 'stressed', min: -19, max: 19 },
+		{ name: 'distressed', min: -59, max: -20 },
+		{ name: 'breakdown', min: -100, max: -60 },
+	],
+	external_modifier_cap: 30,
+};
+
+describe('Smoke Test — Real Data', () => {
+	const agentData = loadAndParse('agents', AgentSchema);
+	const locations: WorldLocation[] = loadAndParse('locations', LocationSchema);
+	const bts = loadAndParse('behavior-trees', BehaviorTreeSchema);
+
+	it('loads all shipped data successfully', () => {
+		expect(agentData.length).toBeGreaterThanOrEqual(4);
+		expect(locations.length).toBeGreaterThanOrEqual(4);
+		expect(bts.length).toBeGreaterThanOrEqual(4);
+	});
+
+	it('every agent has a matching BT definition', () => {
+		const btIds = new Set(bts.map(bt => bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id));
+		for (const agent of agentData) {
+			expect(btIds.has(agent.kind), `No BT found for agent kind "${agent.kind}"`).toBe(true);
+		}
+	});
+
+	it('full tick with real data — agents with low needs take action (not all idle)', () => {
+		const eventBus = createEventBus();
+		const config = GameConfigSchema.parse({});
+
+		// Create actors — override needs to be LOW so BTs trigger
+		const actors = agentData.map(a => {
+			const lowNeeds = { ...a, needs: { hunger: 20, energy: 10, social: 15 } };
+			const actor = new AgentActor(lowNeeds, defaultMoodConfig);
+			actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
+			return actor;
+		});
+
+		const worldEntity = new Actor();
+		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+
+		// Build BT map
+		const btDefs: Record<string, BTNode> = {};
+		for (const bt of bts) {
+			const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
+			btDefs[key] = bt.root;
+		}
+
+		const getAgents = () => actors;
+		const getLocations = () => locations;
+		const getWorld = () => worldEntity;
+
+		const runner = createTickRunner(eventBus);
+		runner.register(createTraitResolverSystem(getAgents, {}));
+		runner.register(createDayNightSystem(getWorld));
+		runner.register(createNeedsDecaySystem(getAgents));
+		runner.register(createMoodSystem(getAgents));
+		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
+		runner.register(createMemoryDecaySystem(getAgents));
+		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
+		runner.register(createMovementSystem(getAgents, getLocations));
+
+		const deps: GameCoreDeps = {
+			logger: { debug() {}, info() {}, warn() {}, error() {} },
+			eventBus,
+			config,
+			performanceTracker: createPerformanceTracker(),
+			tickCount: 60,
+		};
+
+		runner.tick(deps);
+
+		// At least some agents should have selected an action other than idle
+		const actions = actors.map(a => a.get(BlackboardComponent).state.btAction as string);
+		const nonIdle = actions.filter(a => a !== 'idle' && a !== null && a !== undefined);
+		expect(nonIdle.length, `All agents are idle despite low needs. Actions: ${JSON.stringify(actions)}`).toBeGreaterThan(0);
+	});
+});
