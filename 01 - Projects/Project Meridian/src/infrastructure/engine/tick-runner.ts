@@ -40,6 +40,11 @@ export function createTickRunner(eventBus: BatchableEventBus): TickScheduler {
 			}
 
 			deps.performanceTracker.completeTick(currentTick);
+
+			if (currentTick % deps.config.ticks_per_day === 0) {
+				deps.logger.info('TickRunner', `Day ${Math.floor(currentTick / deps.config.ticks_per_day)} complete (tick ${String(currentTick)})`);
+			}
+
 			tickCount = currentTick;
 		},
 	};

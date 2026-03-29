@@ -121,6 +121,9 @@ export class MeridianPlugin extends Plugin {
 			};
 		}
 
+		// Sync config with saved settings (schema defaults differ from user settings)
+		this.applySettings();
+
 		// Vault event listeners MUST be registered here, not in onload() (Obsidian guideline)
 	}
 }

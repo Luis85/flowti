@@ -51,6 +51,14 @@ export function createBehaviorTreeSystem(
 					// Resolve movementTarget from perception if action implies movement
 					const movementTarget = resolveMovementTarget(result.action, result.params, perception.state);
 
+					const prevAction = bb.state.btAction as string | undefined;
+					if (result.action !== prevAction) {
+						deps.logger.debug('BT', `${agent.agentName}: ${prevAction ?? 'none'} → ${result.action}`, {
+							needs: needs.state,
+							target: movementTarget?.id ?? null,
+						});
+					}
+
 					bb.state = {
 						...bb.state,
 						btAction: result.action,

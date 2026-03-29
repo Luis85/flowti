@@ -7,16 +7,27 @@ export class MeridianTickSystem extends System {
 	static override priority = 0;
 
 	private accumulator = 0;
+	private prevInterval: number;
 	private readonly maxCatchUp = 3;
 
 	constructor(
 		private tickRunner: TickScheduler,
 		private deps: GameCoreDeps,
-	) { super(); }
+	) {
+		super();
+		this.prevInterval = deps.config.tick_interval_ms;
+	}
 
 	update(elapsed: number): void {
-		this.accumulator += elapsed;
 		const interval = this.deps.config.tick_interval_ms;
+
+		// Reset accumulator when tick interval changes to prevent stale velocity integration
+		if (interval !== this.prevInterval) {
+			this.accumulator = 0;
+			this.prevInterval = interval;
+		}
+
+		this.accumulator += elapsed;
 		let steps = 0;
 		while (this.accumulator >= interval && steps < this.maxCatchUp) {
 			this.tickRunner.tick(this.deps);

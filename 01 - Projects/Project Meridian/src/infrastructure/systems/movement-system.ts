@@ -109,6 +109,8 @@ export function createMovementSystem(
 					bb.state.movementTarget = undefined;
 					bb.markDirty();
 
+					deps.logger.debug('Movement', `${agent.agentName}: arrived at ${rawTarget.id}`);
+
 					deps.eventBus.emit({
 						type: 'AgentArrived',
 						tick: deps.tickCount,

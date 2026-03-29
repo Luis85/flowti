@@ -83,6 +83,8 @@ export function createRestSystem(
 					bb.state.restingAt = currentRestingAt;
 					bb.markDirty();
 
+					deps.logger.debug('Rest', `${agent.agentName}: resting (${restTier}) at ${currentRestingAt}, energy ${needs.state.energy.toFixed(1)}`);
+
 					deps.eventBus.emit({
 						type: 'RestStarted',
 						tick: deps.tickCount,
