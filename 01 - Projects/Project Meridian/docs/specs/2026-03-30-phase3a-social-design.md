@@ -19,7 +19,7 @@ Phase 3A delivers visible social behavior without external dependencies. LLM int
 9. Duplicate gossip (same location/subject) is not re-transferred
 10. Relationship graph `.canvas` file written every N ticks with correct Obsidian Canvas JSON format
 11. Per-agent filtered relationship view generated on demand via event trigger
-12. All existing 502 tests still pass (no regressions)
+12. All existing tests still pass (no regressions)
 13. tsc, eslint, vitest all green
 
 ## 3. Key Architectural Decisions
@@ -84,8 +84,9 @@ Modified files:
   domain/schemas/game-config-schema.ts — Extend GossipConfigSchema with 3 new fields
   infrastructure/engine/game-view.ts — Register 3 new systems
   infrastructure/entity/agent-actor.ts       — Add readonly color field for Canvas serialization
-  infrastructure/systems/facility-system.ts  — Adapt to RelationshipEntry new fields
-  infrastructure/systems/trade-system.ts     — Adapt to RelationshipEntry new fields
+  infrastructure/systems/movement-system.ts   — Populate bb.state.knownLocations on arrival
+  infrastructure/systems/facility-system.ts  — Adapt to RelationshipEntry new fields, add 'worked_with' tag
+  infrastructure/systems/trade-system.ts     — Adapt to RelationshipEntry new fields, add 'traded_with' tag
   infrastructure/systems/socialize-system.ts — Adapt to RelationshipEntry new fields
   domain/systems/relationship.ts             — Adapt to RelationshipEntry new fields
 ```
@@ -136,9 +137,9 @@ interface DialogueResult {
 }
 ```
 
-**Tone determination:**
-- Both agents mood >= `content` AND mutual disposition >= 0 → `positive` (+1 disposition)
-- Either agent mood <= `distressed` OR mutual disposition <= -20 → `negative` (-1 disposition)
+**Tone determination** (uses `minDisposition = Math.min(disposition, partnerDisposition)`):
+- Both agents' mood bucket is `content` or `elated` AND `minDisposition >= 0` → `positive` (+1 disposition)
+- Either agent's mood bucket is `distressed` or `breakdown` OR `minDisposition <= -20` → `negative` (-1 disposition)
 - Otherwise → `neutral` (0 disposition change)
 
 **Line selection:** `Math.floor(rng.range(0, templates.length))` picks from the array for each agent's kind + mood bucket. (`GameRNG.range` returns a float; floor converts to a valid index.)
@@ -153,8 +154,8 @@ interface DialogueResult {
 - **Agent lookup:** If either agent cannot be found in the agent list, skip the pair (defensive null check).
 - For each qualifying event: looks up both agents, reads mood/disposition/familiarity, calls `selectDialogue`
 - **RNG creation:** Per-pair seeded RNG via `createGameRNG((deps.tickCount ^ hashString(pairKey)) >>> 0)` where pairKey is the alphabetically-sorted agent ID pair (same pattern as BehaviorTreeSystem).
-- Creates dialogue memory for both agents (type: `'dialogue'`, description includes the actual line, participants, tone-based outcome and mood_impact)
-- Updates both agents' RelationshipComponent disposition via `applyRelationshipUpdate`
+- **Memory replacement:** Finds and removes the generic `type: 'social'` memory created by SocializeSystem for this pair this tick (match by `type === 'social' && tick === deps.tickCount && participants includes partnerId`). Replaces it with a richer `type: 'dialogue'` memory whose description includes the actual template line, participants, tone-based outcome and mood_impact. This avoids duplicate memories per interaction.
+- Updates both agents' RelationshipComponent disposition via `applyRelationshipUpdate`, with `lastInteractionTick: deps.tickCount` and `tags` array appended with `'talked_with'` (if not already present).
 - If `shouldExchangeGossip`: sets `bb.state.gossipPending = partnerId` on **both agents** (bidirectional — each agent shares gossip with the other)
 - Emits `DialogueCompleted` event with `{ agentId, partnerId, tone, agentLine, partnerLine }`
 
@@ -244,7 +245,7 @@ interface RelationshipGraphInput {
 }
 ```
 
-**Node layout:** Agents arranged in a circle (evenly spaced by index). Fixed `width: 160, height: 60`.
+**Node layout:** Agents arranged in a circle centered at (400, 300) with radius 200 (evenly spaced by index). Fixed node `width: 160, height: 60`.
 
 **Edge rules:**
 - Only include edges where `familiarity > 0` (skip strangers who never interacted)
@@ -265,9 +266,9 @@ Same format, filtered to only edges involving the specified agent. Target agent 
   - Calls `serializeRelationshipGraph`
   - Writes to `03 - Resources/Graphs/relationships.canvas` via `deps.writeFile`
   - Emits `RelationshipGraphCheckpointed` event
-- Listens for `RequestAgentRelationshipView` events (payload: `{ agentId }`)
-  - Calls `serializeAgentRelationshipView`
-  - Writes to `03 - Resources/Graphs/{agentName}-relationships.canvas`
+- **On-demand views:** Reads `deps.eventBus.history()` filtered to `event.tick === deps.tickCount && event.type === 'RequestAgentRelationshipView'` (same pattern as DialogueSystem). For each event:
+  - Calls `serializeAgentRelationshipView` with `payload.agentId`
+  - Writes to `03 - Resources/Graphs/{agentName}-relationships.canvas` via `deps.writeFile`
 
 ### 4.6 Type Extensions
 
@@ -284,6 +285,17 @@ export interface RelationshipEntry {
 ```
 
 All existing code that creates RelationshipEntry objects must add `tags: []` and `lastInteractionTick: 0` (or `deps.tickCount` where appropriate). Callers of `applyRelationshipUpdate` continue to construct the full `RelationshipEntry` — the domain function returns `{ newDisposition, newFamiliarity }` and callers spread in `tags` and `lastInteractionTick` at the call site.
+
+**Tag assignments by system:**
+
+| System | Tag | When |
+|--------|-----|------|
+| DialogueSystem | `'talked_with'` | On dialogue completion |
+| GossipSystem | `'gossiped_about'` | On gossip exchange (added to relationship with the gossip subject, not the conversation partner) |
+| FacilitySystem | `'worked_with'` | On production cycle complete (existing call site) |
+| TradeSystem | `'traded_with'` | On successful purchase (existing call site) |
+
+Tags are append-only and deduplicated (check `!tags.includes(tag)` before pushing). `lastInteractionTick` is set to `deps.tickCount` at every call site that modifies a relationship.
 
 **AgentActor** — add `readonly color: string` to the class, assigned from `agent.color` in the constructor. Needed by RelationshipCheckpointSystem for Canvas node colors.
 
@@ -341,7 +353,7 @@ DialogueSystem and GossipSystem read from `deps.config.gossip.*`. RelationshipCh
 |-------|--------|---------|
 | `SocialInteraction` | SocializeSystem (existing) | `{ agentId, partnerId, memoryCreated }` |
 | `DialogueCompleted` | DialogueSystem (new) | `{ agentId, partnerId, tone, agentLine, partnerLine }` |
-| `GossipExchanged` | GossipSystem (new) | `{ giverId, receiverId, itemCount, types: string[] }` |
+| `GossipExchanged` | GossipSystem (new) | `{ agentAId, agentBId, aToB: number, bToA: number, types: string[] }` |
 | `RelationshipGraphCheckpointed` | RelationshipCheckpointSystem (new) | `{ tickCount, agentCount, edgeCount, path }` |
 | `RequestAgentRelationshipView` | External (Director UI) | `{ agentId }` |
 
