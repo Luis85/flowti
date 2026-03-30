@@ -459,10 +459,10 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	/** Reset home position after being placed in a new room. */
 	resetHome(): void {
 		this.homePos = ex.vec(
-			Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, this.pos.x)),
-			Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, this.pos.y)),
+			WORLD_MIN_X + 50 + Math.random() * (WORLD_MAX_X - WORLD_MIN_X - 100),
+			WORLD_MIN_Y + 50 + Math.random() * (WORLD_MAX_Y - WORLD_MIN_Y - 100),
 		);
-		this.stateTimer = 2000 + Math.random() * 3000; // pause at new location before wandering
+		this.stateTimer = 2000 + Math.random() * 3000;
 	}
 
 	// ── SceneEntity implementation ──────────────────────
@@ -496,8 +496,8 @@ export class PetActor extends ex.Actor implements SceneEntity {
 	}
 
 	onEnterScene(x: number, y: number): void {
-		this.pos.x = x;
-		this.pos.y = y;
+		this.pos.x = Math.max(WORLD_MIN_X, Math.min(WORLD_MAX_X, x));
+		this.pos.y = Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, y));
 		this.resetHome();
 	}
 

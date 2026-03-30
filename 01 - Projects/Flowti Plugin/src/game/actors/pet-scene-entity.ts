@@ -66,12 +66,11 @@ export class PetSceneEntity implements SceneEntity {
 	}
 
 	onEnterScene(x: number, y: number): void {
-		this.pet.pos.x = x;
-		this.pet.pos.y = y;
 		this.pet.onEnterScene(x, y);
+		// Sync visual actor to the pet's clamped position (may differ from raw spawn coords)
 		if (this.actor) {
-			this.actor.pos.x = x;
-			this.actor.pos.y = y;
+			this.actor.pos.x = this.pet.pos.x;
+			this.actor.pos.y = this.pet.pos.y;
 		}
 	}
 }
