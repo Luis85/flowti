@@ -39,12 +39,24 @@ export function createRelationshipCheckpointSystem(
 			ticksSinceCheckpoint++;
 
 			const interval = deps.config.canvas_checkpoint_interval_ticks;
+			const checkpointReached = ticksSinceCheckpoint >= interval;
 
-			if (ticksSinceCheckpoint >= interval) {
+			// Handle on-demand per-agent relationship view requests
+			const viewRequests = deps.eventBus.history({
+				type: 'RequestAgentRelationshipView',
+			}).filter(e => e.tick === deps.tickCount);
+
+			const hasViewRequests = viewRequests.length > 0;
+
+			// Compute graph input once if either branch needs it
+			if (!checkpointReached && !hasViewRequests) return;
+
+			const agentList = agents();
+			const input = collectGraphInput(agentList);
+
+			if (checkpointReached) {
 				ticksSinceCheckpoint = 0;
 
-				const agentList = agents();
-				const input = collectGraphInput(agentList);
 				const content = serializeRelationshipGraph(input);
 
 				// Count edges for the event payload
@@ -69,15 +81,7 @@ export function createRelationshipCheckpointSystem(
 				});
 			}
 
-			// Handle on-demand per-agent relationship view requests
-			const viewRequests = deps.eventBus.history({
-				type: 'RequestAgentRelationshipView',
-			}).filter(e => e.tick === deps.tickCount);
-
-			if (viewRequests.length > 0) {
-				const agentList = agents();
-				const input = collectGraphInput(agentList);
-
+			if (hasViewRequests) {
 				for (const request of viewRequests) {
 					const requestedAgentId = request.payload.agentId as string;
 					const agent = agentList.find(a => a.agentId === requestedAgentId);

@@ -90,9 +90,7 @@ export function exchangeGossip(input: GossipExchangeInput): GossipExchangeResult
 			});
 		}
 
-		const newData: GossipData = item.data.gossipType === 'location'
-			? { ...item.data, reliability: newReliability, hopCount: newHopCount }
-			: { ...item.data, reliability: newReliability, hopCount: newHopCount };
+		const newData: GossipData = { ...item.data, reliability: newReliability, hopCount: newHopCount } as GossipData;
 
 		const memory: MemoryEntry = {
 			tick: input.currentTick,
@@ -124,6 +122,8 @@ export function parseGossipData(entry: MemoryEntry): GossipData | null {
 			typeof meta['locationId'] !== 'string' ||
 			typeof meta['locationType'] !== 'string' ||
 			pos === undefined ||
+			typeof pos.x !== 'number' ||
+			typeof pos.y !== 'number' ||
 			typeof meta['reliability'] !== 'number' ||
 			typeof meta['sourceAgentId'] !== 'string' ||
 			typeof meta['hopCount'] !== 'number'

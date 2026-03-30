@@ -35,8 +35,46 @@ const CENTER_X = 400;
 const CENTER_Y = 300;
 const RADIUS = 200;
 
-function agentColorToCanvasColor(_hexColor: string): string {
-	return '0';
+function agentColorToCanvasColor(hexColor: string): string {
+	const hex = hexColor.replace(/^#/, '');
+	if (hex.length < 6) return '0';
+
+	const r = parseInt(hex.substring(0, 2), 16);
+	const g = parseInt(hex.substring(2, 4), 16);
+	const b = parseInt(hex.substring(4, 6), 16);
+
+	if (isNaN(r) || isNaN(g) || isNaN(b)) return '0';
+
+	const rn = r / 255;
+	const gn = g / 255;
+	const bn = b / 255;
+	const max = Math.max(rn, gn, bn);
+	const min = Math.min(rn, gn, bn);
+	const delta = max - min;
+
+	// Low saturation → grey → "0"
+	const saturation = max === 0 ? 0 : delta / max;
+	if (saturation < 0.15) return '0';
+
+	let hue = 0;
+	if (delta !== 0) {
+		if (max === rn) {
+			hue = 60 * (((gn - bn) / delta) % 6);
+		} else if (max === gn) {
+			hue = 60 * ((bn - rn) / delta + 2);
+		} else {
+			hue = 60 * ((rn - gn) / delta + 4);
+		}
+	}
+	if (hue < 0) hue += 360;
+
+	// Map hue ranges to Obsidian Canvas color indices
+	if (hue >= 330 || hue < 30) return '1';  // red
+	if (hue < 60) return '2';                 // orange
+	if (hue < 90) return '3';                 // yellow
+	if (hue < 180) return '4';                // green
+	if (hue < 270) return '5';                // cyan/blue
+	return '6';                                // purple
 }
 
 function edgeColor(disposition: number): string {

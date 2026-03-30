@@ -160,9 +160,15 @@ export function createGossipSystem(
 					...buildFirstHandLocationGossip(partnerKnownLocs, locationList, partner.agentId, deps.tickCount),
 				];
 
-				// Extract receiver gossip (what they already know)
-				const agentReceiverGossip = extractGossipFromMemory(agentMem.state.entries);
-				const partnerReceiverGossip = extractGossipFromMemory(partnerMem.state.entries);
+				// Extract receiver gossip (what they already know — memory + first-hand locations)
+				const agentReceiverGossip = [
+					...extractGossipFromMemory(agentMem.state.entries),
+					...buildFirstHandLocationGossip(agentKnownLocs, locationList, agent.agentId, deps.tickCount),
+				];
+				const partnerReceiverGossip = [
+					...extractGossipFromMemory(partnerMem.state.entries),
+					...buildFirstHandLocationGossip(partnerKnownLocs, locationList, partner.agentId, deps.tickCount),
+				];
 
 				// A→B: agent gives to partner
 				const aToBResult = exchangeGossip({

@@ -70,6 +70,20 @@ describe('exchangeGossip', () => {
 		expect(meta['hopCount']).toBe(1);
 	});
 
+	it('hopCount 2 transfers at last valid tier (reliability 0.3)', () => {
+		// giverGossip with hopCount 2, default tiers [1.0, 0.7, 0.5, 0.3]
+		// newHopCount = 3, tiers[3] = 0.3 → should transfer (last valid index)
+		const data = makeLocationGossip({ hopCount: 2 });
+		const result = exchangeGossip(baseInput({
+			giverGossip: [{ memory: makeGossipMemory(data), data }],
+		}));
+
+		expect(result.transferred.length).toBe(1);
+		const meta = result.transferred[0]!.memory.metadata as Record<string, unknown>;
+		expect(meta['reliability']).toBe(0.3);
+		expect(meta['hopCount']).toBe(3);
+	});
+
 	it('skips gossip when hop limit exceeded (hopCount 3 → 4 exceeds tiers length)', () => {
 		const data = makeLocationGossip({ hopCount: 3 });
 		const result = exchangeGossip(baseInput({
@@ -127,7 +141,7 @@ describe('exchangeGossip', () => {
 		expect(result.transferred.length).toBe(0);
 	});
 
-	it('max items per exchange: only top 2 transferred', () => {
+	it('max items per exchange: only top 2 by significance transferred', () => {
 		const data1 = makeLocationGossip({ locationId: 'loc-bakery', hopCount: 0 });
 		const data2 = makeLocationGossip({ locationId: 'loc-inn', hopCount: 0 });
 		const data3 = makeLocationGossip({ locationId: 'loc-market', hopCount: 0 });
@@ -141,6 +155,14 @@ describe('exchangeGossip', () => {
 		}));
 
 		expect(result.transferred.length).toBe(2);
+
+		// Verify the two highest-significance items were selected (bakery=10, inn=8)
+		const transferredLocationIds = result.transferred.map(
+			t => (t.memory.metadata as Record<string, unknown>)['locationId'],
+		);
+		expect(transferredLocationIds).toContain('loc-bakery');
+		expect(transferredLocationIds).toContain('loc-inn');
+		expect(transferredLocationIds).not.toContain('loc-market');
 	});
 
 	it('reputation disposition change: dispositionBias * newReliability', () => {
@@ -205,6 +227,47 @@ describe('parseGossipData', () => {
 			outcome: 'positive',
 			significance: 3,
 			mood_impact: 2,
+		};
+		expect(parseGossipData(entry)).toBeNull();
+	});
+
+	it('returns null for unknown gossipType', () => {
+		const entry: MemoryEntry = {
+			tick: 100,
+			type: 'gossip',
+			description: 'Some gossip',
+			participants: ['agent-elena'],
+			outcome: 'neutral',
+			significance: 3,
+			mood_impact: 0,
+			metadata: {
+				gossipType: 'unknown',
+				sourceAgentId: 'agent-elena',
+				hopCount: 0,
+				reliability: 1.0,
+			},
+		};
+		expect(parseGossipData(entry)).toBeNull();
+	});
+
+	it('returns null for location gossip missing locationId', () => {
+		const entry: MemoryEntry = {
+			tick: 100,
+			type: 'gossip',
+			description: 'Some gossip',
+			participants: ['agent-elena'],
+			outcome: 'neutral',
+			significance: 3,
+			mood_impact: 0,
+			metadata: {
+				gossipType: 'location',
+				// locationId intentionally omitted
+				locationType: 'work',
+				position: { x: 100, y: 200 },
+				reliability: 1.0,
+				sourceAgentId: 'agent-elena',
+				hopCount: 0,
+			},
 		};
 		expect(parseGossipData(entry)).toBeNull();
 	});

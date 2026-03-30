@@ -240,6 +240,7 @@ describe('Social Pipeline Integration', () => {
 
 		// Default canvas_checkpoint_interval_ticks is 50 — run 50 ticks
 		for (let i = 0; i < 50; i++) {
+			deps.tickCount = i;
 			runner.tick(deps);
 		}
 

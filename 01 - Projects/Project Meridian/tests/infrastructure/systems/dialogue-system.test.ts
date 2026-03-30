@@ -273,4 +273,125 @@ describe('DialogueSystem', () => {
 		expect(partnerRel!.tags).toContain('talked_with');
 		expect(partnerRel!.lastInteractionTick).toBe(tickCount);
 	});
+
+	it('skips when agent in SocialInteraction event is not found', () => {
+		const eventBus = createEventBus();
+		const tickCount = 100;
+
+		// Emit SocialInteraction with an agentId that doesn't exist in the agent list
+		eventBus.emit({
+			type: 'SocialInteraction',
+			tick: tickCount,
+			wallClock: Date.now(),
+			source: 'SocializeSystem',
+			payload: {
+				agentId: 'agent-nonexistent',
+				partnerId: 'agent-also-nonexistent',
+				memoryCreated: true,
+			},
+		});
+
+		const deps = createDeps(eventBus, tickCount);
+		const events: GameEvent[] = [];
+		eventBus.on('DialogueCompleted', (e) => { events.push(e); });
+
+		// System has an empty agent list — neither agent can be found
+		const system = createDialogueSystem(() => [], 42);
+		system.execute(deps);
+
+		// No DialogueCompleted event emitted, no crash
+		expect(events.length).toBe(0);
+	});
+
+	it('handles first-meeting agents with no existing relationship', () => {
+		const agent = new AgentActor(
+			createTestAgentData('agent-elena', { name: 'Elena', kind: 'merchant' }),
+			defaultMoodConfig,
+		);
+		const partner = new AgentActor(
+			createTestAgentData('agent-marcus', { name: 'Marcus', kind: 'guard' }),
+			defaultMoodConfig,
+		);
+
+		// Both agents have empty relationship entries (first meeting)
+		const agentRelComp = agent.get(RelationshipComponent);
+		agentRelComp.state = { entries: [] };
+
+		const partnerRelComp = partner.get(RelationshipComponent);
+		partnerRelComp.state = { entries: [] };
+
+		// Set moods
+		const agentMood = agent.get(MoodComponent);
+		agentMood.state = { ...agentMood.state, bucket: 'content' };
+
+		const partnerMood = partner.get(MoodComponent);
+		partnerMood.state = { ...partnerMood.state, bucket: 'content' };
+
+		// Add social memory so dialogue system has something to replace
+		const agentMem = agent.get(MemoryComponent);
+		agentMem.state = {
+			...agentMem.state,
+			entries: [{
+				tick: 100,
+				type: 'social',
+				description: 'Talked with Marcus',
+				participants: ['agent-marcus'],
+				outcome: 'positive',
+				significance: 3,
+				mood_impact: 2,
+			}],
+		};
+
+		const partnerMem = partner.get(MemoryComponent);
+		partnerMem.state = {
+			...partnerMem.state,
+			entries: [{
+				tick: 100,
+				type: 'social',
+				description: 'Talked with Elena',
+				participants: ['agent-elena'],
+				outcome: 'positive',
+				significance: 3,
+				mood_impact: 2,
+			}],
+		};
+
+		const eventBus = createEventBus();
+		eventBus.emit({
+			type: 'SocialInteraction',
+			tick: 100,
+			wallClock: Date.now(),
+			source: 'SocializeSystem',
+			payload: {
+				agentId: 'agent-elena',
+				partnerId: 'agent-marcus',
+				memoryCreated: true,
+			},
+		});
+
+		const deps = createDeps(eventBus, 100);
+		const system = createDialogueSystem(() => [agent, partner], 42);
+		system.execute(deps);
+
+		// Dialogue memories should be created
+		const agentMemAfter = agent.get(MemoryComponent).state.entries;
+		const partnerMemAfter = partner.get(MemoryComponent).state.entries;
+		expect(agentMemAfter.length).toBe(1);
+		expect(agentMemAfter[0]?.type).toBe('dialogue');
+		expect(partnerMemAfter.length).toBe(1);
+		expect(partnerMemAfter[0]?.type).toBe('dialogue');
+
+		// New RelationshipEntry should be created for both agents
+		const agentRelAfter = agent.get(RelationshipComponent).state.entries;
+		const partnerRelAfter = partner.get(RelationshipComponent).state.entries;
+		expect(agentRelAfter.length).toBe(1);
+		expect(agentRelAfter[0]?.agentId).toBe('agent-marcus');
+		expect(agentRelAfter[0]?.tags).toContain('talked_with');
+		expect(agentRelAfter[0]?.lastInteractionTick).toBe(100);
+
+		expect(partnerRelAfter.length).toBe(1);
+		expect(partnerRelAfter[0]?.agentId).toBe('agent-elena');
+		expect(partnerRelAfter[0]?.tags).toContain('talked_with');
+		expect(partnerRelAfter[0]?.lastInteractionTick).toBe(100);
+	});
 });
