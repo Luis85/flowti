@@ -210,6 +210,7 @@ describe('TickRunner', () => {
 		expect(SystemPriority.CONSTRUCTION).toBe(10);
 		expect(SystemPriority.TRADE).toBe(11);
 		expect(SystemPriority.DIALOGUE).toBe(12);
+		expect(SystemPriority.GOSSIP).toBe(12.5);
 		expect(SystemPriority.PROGRESSION).toBe(13);
 		expect(SystemPriority.RELATIONSHIP).toBe(14);
 		expect(SystemPriority.MORTALITY_CHECK).toBe(14.5);

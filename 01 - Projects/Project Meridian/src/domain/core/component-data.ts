@@ -18,6 +18,7 @@ export interface MemoryEntry {
 	significance: number;
 	mood_impact: number;
 	original_significance?: number;
+	metadata?: Record<string, unknown>;
 }
 
 export interface MemoryState {
@@ -65,6 +66,8 @@ export interface RelationshipEntry {
 	agentId: string;
 	disposition: number;
 	familiarity: number;
+	tags: string[];
+	lastInteractionTick: number;
 }
 
 export interface RelationshipState {
