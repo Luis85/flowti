@@ -23,7 +23,6 @@ import { createSocializeSystem } from '../systems/socialize-system.js';
 import { createFacilitySystem } from '../systems/facility-system.js';
 import { createTradeSystem } from '../systems/trade-system.js';
 import { TimeComponent } from '../components/time-component.js';
-import { PerceptionComponent } from '../components/perception-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
@@ -118,7 +117,6 @@ export class MeridianGameView extends ItemView {
 		// Add agents to scene
 		for (const agent of world.agents) {
 			engine.currentScene.add(agent);
-			agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 		}
 
 		// Add location markers and retain references for FacilityComponent queries

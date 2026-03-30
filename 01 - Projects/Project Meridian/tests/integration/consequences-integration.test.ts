@@ -7,7 +7,6 @@ import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
 import { BlackboardComponent } from '../../src/infrastructure/components/blackboard-component.js';
 import { MemoryComponent } from '../../src/infrastructure/components/memory-component.js';
-import { PerceptionComponent } from '../../src/infrastructure/components/perception-component.js';
 import { TimeComponent } from '../../src/infrastructure/components/time-component.js';
 import { createTraitResolverSystem } from '../../src/infrastructure/systems/trait-resolver-system.js';
 import { createNeedsDecaySystem } from '../../src/infrastructure/systems/needs-decay-system.js';
@@ -89,7 +88,6 @@ describe('Consequence Systems — Integration', () => {
 			inventory: [{ item_id: 'bread', quantity: 5 }],
 		});
 		const actor = new AgentActor(agentData, defaultMoodConfig);
-		actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		// Set btAction to 'eat' — FeedSystem requires this for recovery
 		const bb = actor.get(BlackboardComponent);
@@ -134,7 +132,6 @@ describe('Consequence Systems — Integration', () => {
 
 		const agentData = createTestAgent('agent-tired', 200, 200, { needs: { hunger: 80, energy: 50, social: 80 } });
 		const actor = new AgentActor(agentData, defaultMoodConfig);
-		actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		// Set btAction to 'idle' so RestSystem triggers outdoors tier at minimum
 		const bb = actor.get(BlackboardComponent);
@@ -190,12 +187,12 @@ describe('Consequence Systems — Integration', () => {
 
 		const actor1 = new AgentActor(agent1Data, defaultMoodConfig);
 		const actor2 = new AgentActor(agent2Data, defaultMoodConfig);
-		actor1.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
-		actor2.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
-		// Set btAction to 'talk' on first agent so SocializeSystem triggers
+		// Set btAction to 'talk' on both agents so SocializeSystem triggers
 		const bb1 = actor1.get(BlackboardComponent);
 		bb1.state = { ...bb1.state, btAction: 'talk' };
+		const bb2 = actor2.get(BlackboardComponent);
+		bb2.state = { ...bb2.state, btAction: 'talk' };
 
 		const worldEntity = createWorldEntity();
 		const actors = [actor1, actor2];

@@ -36,6 +36,10 @@ function resolveRestTier(
 	agentGold: number,
 	restPrice: number,
 ): RestTier | null {
+	// Only apply rest when agent is resting or idle — don't charge agents just passing by
+	const isResting = btAction === undefined || btAction === 'idle' || btAction === 'rest';
+	if (!isResting) return null;
+
 	if (nearestRest !== undefined) {
 		if (agentProperty.includes(nearestRest.id)) {
 			return 'owned_home';
@@ -45,10 +49,7 @@ function resolveRestTier(
 		}
 		return 'outdoors';
 	}
-	if (btAction === undefined || btAction === 'idle') {
-		return 'outdoors';
-	}
-	return null;
+	return 'outdoors';
 }
 
 export function createRestSystem(

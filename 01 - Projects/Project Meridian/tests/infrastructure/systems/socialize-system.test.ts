@@ -61,7 +61,7 @@ function createDeps(eventBus = createEventBus(), tickCount = 100): GameCoreDeps 
 function setupPair(
 	opts: { agent1Social?: number; agent2Social?: number; distance?: number; btAction1?: string; btAction2?: string } = {},
 ) {
-	const { agent1Social = 50, agent2Social = 50, distance = 10, btAction1 = 'talk', btAction2 } = opts;
+	const { agent1Social = 50, agent2Social = 50, distance = 10, btAction1 = 'talk', btAction2 = 'talk' } = opts;
 
 	const agent1 = new AgentActor(
 		createTestAgentData('agent-elena', 100, 100, { name: 'Elena', needs: { hunger: 50, energy: 50, social: agent1Social } }),
@@ -72,9 +72,9 @@ function setupPair(
 		defaultMoodConfig,
 	);
 
-	// Add PerceptionComponent (normally added by game-view, not AgentActor constructor)
-	agent1.addComponent(new PerceptionComponent({ nearbyAgents: [{ id: 'agent-marcus', distance }], nearbyLocations: [] }));
-	agent2.addComponent(new PerceptionComponent({ nearbyAgents: [{ id: 'agent-elena', distance }], nearbyLocations: [] }));
+	// Set perception data (component is added by AgentActor constructor)
+	agent1.get(PerceptionComponent).state = { nearbyAgents: [{ id: 'agent-marcus', distance }], nearbyLocations: [] };
+	agent2.get(PerceptionComponent).state = { nearbyAgents: [{ id: 'agent-elena', distance }], nearbyLocations: [] };
 
 	// Set BT actions
 	const bb1 = agent1.get(BlackboardComponent);
@@ -137,9 +137,11 @@ describe('SocializeSystem', () => {
 		system.execute(createDeps(createEventBus(), 100));
 
 		// Second tick at 110 — within cooldown_ticks (50), no new memory
-		// Reset BT action (it doesn't persist between ticks in a real system)
+		// Reset BT actions (they don't persist between ticks in a real system)
 		const bb1 = agent1.get(BlackboardComponent);
 		bb1.state = { ...bb1.state, btAction: 'talk' };
+		const bb2 = agent2.get(BlackboardComponent);
+		bb2.state = { ...bb2.state, btAction: 'talk' };
 
 		const eventBus2 = createEventBus();
 		const events: GameEvent[] = [];

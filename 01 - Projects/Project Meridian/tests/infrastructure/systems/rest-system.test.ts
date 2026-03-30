@@ -191,18 +191,18 @@ describe('RestSystem', () => {
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 200, 200), defaultMoodConfig);
 		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'seek_food' };
+		bb.state = { ...bb.state, btAction: 'rest' };
 
 		const restLoc = createRestLocation('loc-tavern', 200, 200);
 		const worldEntity = createWorldEntity();
 		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
 		const deps = createDeps(eventBus);
 
-		// Tick 1: agent at rest location — nearestRest found, btAction ignored
+		// Tick 1: agent at rest location with btAction 'rest'
 		system.execute(deps);
 		expect(events.length).toBe(1);
 
-		// Move agent away (outside interaction radius) — no rest location nearby + non-idle btAction → restTier null → restingAt cleared
+		// Move agent away (outside interaction radius) — restTier null → restingAt cleared
 		agent.pos.x = 500;
 		agent.pos.y = 500;
 		system.execute(deps);
@@ -214,6 +214,21 @@ describe('RestSystem', () => {
 		system.execute(deps);
 		// Should emit RestStarted again because restingAt was cleared
 		expect(events.length).toBe(1);
+	});
+
+	it('skips rest for agent with non-rest btAction near a rest location', () => {
+		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, btAction: 'seek_food' };
+
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
+		system.execute(createDeps());
+
+		const needs = agent.get(NeedsComponent);
+		// Energy unchanged — agent is not resting, just passing by
+		expect(needs.state.energy).toBe(50);
 	});
 
 	it('emits RestStarted again when agent moves to a different rest location', () => {

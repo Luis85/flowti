@@ -86,7 +86,6 @@ describe('Agency Integration', () => {
 		const eventBus = createEventBus();
 		// hunger: 30 < 50 threshold, so BT will try to seek_food
 		const agent = new AgentActor(createTestAgent({ needs: { hunger: 30, energy: 90, social: 70 } }), defaultMoodConfig);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		// day phase: tickInCycle=60 falls in day range (60–299)
 		const worldEntity = new Actor();
@@ -131,7 +130,6 @@ describe('Agency Integration', () => {
 		};
 
 		const agent = new AgentActor(createTestAgent({ needs: { hunger: 30, energy: 90, social: 70 } }), defaultMoodConfig);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		// Pre-set night phase in the world entity — skip DayNightSystem so the phase stays 'night'.
 		// (DayNightSystem derives phase from tickCount; tick 1 maps to dawn, not night.)
@@ -188,7 +186,6 @@ describe('Agency Integration', () => {
 			}),
 			defaultMoodConfig,
 		);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const worldEntity = new Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));

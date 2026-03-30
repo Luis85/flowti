@@ -10,7 +10,6 @@ import { createTickRunner } from '../../src/infrastructure/engine/tick-runner.js
 import { createEventBus } from '../../src/infrastructure/event-bus.js';
 import { createPerformanceTracker } from '../../src/infrastructure/performance/performance-tracker.js';
 import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
-import { PerceptionComponent } from '../../src/infrastructure/components/perception-component.js';
 import { TimeComponent } from '../../src/infrastructure/components/time-component.js';
 import { BlackboardComponent } from '../../src/infrastructure/components/blackboard-component.js';
 import { createTraitResolverSystem } from '../../src/infrastructure/systems/trait-resolver-system.js';
@@ -83,7 +82,6 @@ describe('Smoke Test — Real Data', () => {
 		const actors = agentData.map(a => {
 			const lowNeeds = { ...a, needs: { hunger: 20, energy: 10, social: 15 } };
 			const actor = new AgentActor(lowNeeds, defaultMoodConfig);
-			actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 			return actor;
 		});
 
@@ -146,7 +144,6 @@ describe('Smoke Test — Real Data', () => {
 				? { needs: { hunger: 20, energy: 80, social: 80 }, position: { ...targetLoc.position, region: 'test' }, inventory: [{ item_id: 'bread', quantity: 5 }] }
 				: { needs: { hunger: 20, energy: 10, social: 15 } };
 			const actor = new AgentActor({ ...a, ...overrides }, defaultMoodConfig);
-			actor.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 			return actor;
 		});
 

@@ -76,7 +76,7 @@ function applySuccessfulTrade(
 	// Update facility stock and fund
 	updateFacilityAfterSale(target.actor, target.foodItemId, result.facilityFundChange);
 
-	// Record ledger entry
+	// Record ledger entry + update daily sales summary
 	economy.state = {
 		...economy.state,
 		ledger: [
@@ -91,6 +91,10 @@ function applySuccessfulTrade(
 				gold: foodPrice,
 			},
 		],
+		dailySummary: {
+			...economy.state.dailySummary,
+			totalSales: economy.state.dailySummary.totalSales + foodPrice,
+		},
 	};
 	economy.markDirty();
 

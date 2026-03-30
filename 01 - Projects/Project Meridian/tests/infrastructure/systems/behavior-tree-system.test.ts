@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { Actor } from 'excalibur';
 import { createBehaviorTreeSystem } from '../../../src/infrastructure/systems/behavior-tree-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
-import { PerceptionComponent } from '../../../src/infrastructure/components/perception-component.js';
 import { TimeComponent } from '../../../src/infrastructure/components/time-component.js';
 import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
@@ -90,7 +89,6 @@ const hungerBT: BTNode = {
 describe('BehaviorTreeSystem', () => {
 	it('selects action from BT and writes to BlackboardComponent', () => {
 		const agent = new AgentActor(createTestAgentData('agent-1', 'merchant'), defaultMoodConfig);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const worldEntity = createWorldEntityWithPhase('day');
 		const btDefs: Record<string, BTNode> = { merchant: idleBT };
@@ -109,7 +107,6 @@ describe('BehaviorTreeSystem', () => {
 
 	it('emits BTActionSelected event with agentId and action', () => {
 		const agent = new AgentActor(createTestAgentData('agent-1', 'merchant'), defaultMoodConfig);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];
@@ -132,7 +129,6 @@ describe('BehaviorTreeSystem', () => {
 			createTestAgentData('agent-2', 'guard', { needs: { hunger: 5, energy: 90, social: 70 } }),
 			defaultMoodConfig,
 		);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		// Patch the needs state directly so hunger is truly critical
 		agent.get(NeedsComponent).state = { hunger: 5, energy: 90, social: 70 };
@@ -151,7 +147,6 @@ describe('BehaviorTreeSystem', () => {
 			createTestAgentData('agent-3', 'guard', { needs: { hunger: 80, energy: 90, social: 70 } }),
 			defaultMoodConfig,
 		);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const worldEntity = createWorldEntityWithPhase('day');
 		const btDefs: Record<string, BTNode> = { guard: hungerBT };
@@ -164,7 +159,6 @@ describe('BehaviorTreeSystem', () => {
 
 	it('skips agent when no BT definition exists for its kind', () => {
 		const agent = new AgentActor(createTestAgentData('agent-4', 'villager'), defaultMoodConfig);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const worldEntity = createWorldEntityWithPhase('day');
 		const btDefs: Record<string, BTNode> = { merchant: idleBT };

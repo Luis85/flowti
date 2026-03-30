@@ -22,7 +22,12 @@ function processWelfare(
 	const maxGrants = deps.config.economy.max_active_welfare_quests;
 	let grantCount = 0;
 
-	for (const agent of agentList) {
+	// Sort by gold ascending so the poorest agents get welfare first
+	const sorted = [...agentList].sort((a, b) =>
+		a.get(WalletComponent).state.gold - b.get(WalletComponent).state.gold,
+	);
+
+	for (const agent of sorted) {
 		if (grantCount >= maxGrants) break;
 		const wallet = agent.get(WalletComponent);
 		if (wallet.state.gold >= welfareThreshold) continue;
@@ -87,12 +92,14 @@ function writeDailyReport(
 	locationData: WorldLocation[],
 	dayCount: number,
 	deps: GameCoreDeps,
+	previousGold: Map<string, number>,
 ): void {
 	const facilities = collectFacilities(locationData, locationActors);
 
 	const agentSnapshots = agentList.map(a => {
 		const w = a.get(WalletComponent);
-		return { name: a.agentName, gold: w.state.gold, goldChange: 0 };
+		const prev = previousGold.get(a.agentId) ?? w.state.gold;
+		return { name: a.agentName, gold: w.state.gold, goldChange: w.state.gold - prev };
 	});
 
 	const report = generateDailyReport({
@@ -128,6 +135,7 @@ function processDayBoundary(
 	getLocationActors: (() => Map<string, Actor>) | undefined,
 	getLocations: (() => WorldLocation[]) | undefined,
 	deps: GameCoreDeps,
+	previousGold: Map<string, number>,
 ): void {
 	if (!entity.has(EconomyComponent)) return;
 
@@ -140,7 +148,12 @@ function processDayBoundary(
 	// 2. Generate daily report
 	const locationActors = getLocationActors?.() ?? new Map<string, Actor>();
 	const locationData = getLocations?.() ?? [];
-	writeDailyReport(economy, agentList, locationActors, locationData, dayCount, deps);
+	writeDailyReport(economy, agentList, locationActors, locationData, dayCount, deps, previousGold);
+
+	// 3. Snapshot current gold for next day's delta
+	for (const agent of agentList) {
+		previousGold.set(agent.agentId, agent.get(WalletComponent).state.gold);
+	}
 
 	// 3. Prune old ledger entries
 	const retentionTicks = deps.config.economy.ledger_retention_days * deps.config.ticks_per_day;
@@ -163,6 +176,7 @@ export function createDayNightSystem(
 	getLocations?: () => WorldLocation[],
 ): GameSystem {
 	let previousDayCount = -1;
+	const previousGold = new Map<string, number>();
 
 	return {
 		name: 'DayNightSystem',
@@ -200,7 +214,7 @@ export function createDayNightSystem(
 			previousDayCount = result.state.dayCount;
 
 			if (dayIncremented) {
-				processDayBoundary(entity, result.state.dayCount, getAgents, getLocationActors, getLocations, deps);
+				processDayBoundary(entity, result.state.dayCount, getAgents, getLocationActors, getLocations, deps, previousGold);
 			}
 		},
 	};

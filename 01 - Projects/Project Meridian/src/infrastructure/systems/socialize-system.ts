@@ -40,9 +40,11 @@ export function createSocializeSystem(
 				if (processedPairs.has(key)) continue;
 				processedPairs.add(key);
 
-				// Find the partner AgentActor
+				// Find the partner AgentActor — both agents must be willing to talk
 				const partner = agentList.find(a => a.agentId === nearbyAgent.id);
 				if (partner === undefined) continue;
+				const partnerBtAction = partner.get(BlackboardComponent).state.btAction as string | undefined;
+				if (partnerBtAction !== 'talk') continue;
 
 				// Read cooldown for this pair
 				const cooldownKey = `lastSocial_${nearbyAgent.id}`;

@@ -111,6 +111,11 @@ function recordCycleComplete(
 		...economy.state,
 		treasury: economy.state.treasury + result.taxCollected,
 		ledger: [...economy.state.ledger, ...newEntries],
+		dailySummary: {
+			...economy.state.dailySummary,
+			totalWages: economy.state.dailySummary.totalWages + result.workerGoldChange,
+			totalTax: economy.state.dailySummary.totalTax + result.taxCollected,
+		},
 	};
 	economy.markDirty();
 

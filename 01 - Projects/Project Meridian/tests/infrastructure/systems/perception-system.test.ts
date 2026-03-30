@@ -68,7 +68,6 @@ function createDeps(tickCount = 1): GameCoreDeps {
 describe('PerceptionSystem', () => {
 	it('writes PerceptionComponent on each agent', () => {
 		const agent = new AgentActor(createTestAgentData(), defaultMoodConfig);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 		const worldEntity = createWorldEntityWithPhase('day');
 
 		// Place a location within IQ*base_multiplier range (IQ=10, multiplier=20 → radius=200)
@@ -85,11 +84,9 @@ describe('PerceptionSystem', () => {
 
 	it('excludes the agent itself from nearbyAgents', () => {
 		const agent1 = new AgentActor(createTestAgentData({ id: 'agent-1', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
-		agent1.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		// Same position — would appear nearby if not excluded
 		const agent2 = new AgentActor(createTestAgentData({ id: 'agent-2', name: 'Bob', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
-		agent2.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const worldEntity = createWorldEntityWithPhase('day');
 		const system = createPerceptionSystem(() => [agent1, agent2], () => [], () => worldEntity);
@@ -104,10 +101,8 @@ describe('PerceptionSystem', () => {
 	it('handles multiple agents writing perception independently', () => {
 		// Place agents far apart — neither should see the other
 		const agent1 = new AgentActor(createTestAgentData({ id: 'agent-1', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
-		agent1.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const agent2 = new AgentActor(createTestAgentData({ id: 'agent-2', name: 'Bob', position: { x: 5000, y: 5000, region: 'test' } }), defaultMoodConfig);
-		agent2.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const worldEntity = createWorldEntityWithPhase('day');
 		const system = createPerceptionSystem(() => [agent1, agent2], () => [], () => worldEntity);
@@ -122,7 +117,6 @@ describe('PerceptionSystem', () => {
 		// night_multiplier=0.5 → night radius=200*0.5=100
 		// Location at distance 150: visible during day (200>150), not visible at night (100<150)
 		const agent = new AgentActor(createTestAgentData(), defaultMoodConfig);
-		agent.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		const dayEntity = createWorldEntityWithPhase('day');
 		const nightEntity = createWorldEntityWithPhase('night');

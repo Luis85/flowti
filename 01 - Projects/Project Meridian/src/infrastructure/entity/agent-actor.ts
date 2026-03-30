@@ -11,6 +11,7 @@ import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
 import { StaminaComponent } from '../components/stamina-component.js';
+import { PerceptionComponent } from '../components/perception-component.js';
 import { calculateMood } from '../../domain/systems/mood.js';
 import type { MoodConfig } from '../../domain/systems/mood.js';
 
@@ -66,6 +67,7 @@ export class AgentActor extends Actor {
 		}));
 		this.addComponent(new RelationshipComponent({ entries: [] }));
 		this.addComponent(new StaminaComponent({ current: agent.attributes.HT, max: agent.attributes.HT }));
+		this.addComponent(new PerceptionComponent({ nearbyAgents: [], nearbyLocations: [] }));
 
 		// Placeholder visuals — colored circle + name label (color from agent data)
 		this.graphics.use(new Circle({ radius: 14, color: Color.fromHex(agent.color) }));

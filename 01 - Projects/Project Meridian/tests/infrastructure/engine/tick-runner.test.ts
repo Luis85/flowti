@@ -203,7 +203,7 @@ describe('TickRunner', () => {
 		expect(SystemPriority.MEMORY).toBe(4);
 		expect(SystemPriority.BEHAVIOR_TREE).toBe(5);
 		expect(SystemPriority.MOVEMENT).toBe(5.5);
-		expect(SystemPriority.JOB).toBe(6);
+		expect(SystemPriority.JOB).toBe(5.8);
 		expect(SystemPriority.QUEST_EVALUATION).toBe(7);
 		expect(SystemPriority.OBJECT_INTERACTION).toBe(8);
 		expect(SystemPriority.TOOL_EXECUTION).toBe(9);
