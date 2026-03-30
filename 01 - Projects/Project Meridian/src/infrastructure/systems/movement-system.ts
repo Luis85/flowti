@@ -155,6 +155,15 @@ export function createMovementSystem(
 				const bb = agent.get(BlackboardComponent);
 				const rawTarget = bb.state.movementTarget;
 
+				// Already at target — consume movementTarget silently, no re-arrival
+				if (isMovementTarget(rawTarget) && bb.state.atLocation === rawTarget.id) {
+					bb.state = { ...bb.state, movementTarget: undefined };
+					bb.markDirty();
+					agent.vel.x = 0;
+					agent.vel.y = 0;
+					continue;
+				}
+
 				// Clear atLocation when agent starts moving to a new target
 				if (isMovementTarget(rawTarget) && bb.state.atLocation !== undefined) {
 					bb.state = { ...bb.state, atLocation: undefined, arrivalSlot: undefined };

@@ -23,7 +23,7 @@ export function createNeedsDecaySystem(
 				const bb = entity.get(BlackboardComponent);
 
 				const traitModifiers = bb.state.traitModifiers as ModifierMap | undefined;
-				const needsMods = traitModifiers?.get('NeedsDecaySystem') as NeedsModifiers | undefined;
+				const needsMods = traitModifiers?.['NeedsDecaySystem'] as NeedsModifiers | undefined;
 
 				const result = applyNeedsDecay(
 					{

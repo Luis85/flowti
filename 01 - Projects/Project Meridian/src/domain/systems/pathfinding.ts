@@ -58,6 +58,7 @@ export function findRegionPath(
 
 	while (openSet.size > 0) {
 		const current = lowestFScore(openSet, fScore);
+		if (current === null) break;
 		if (current === toId) {
 			return reconstructPath(cameFrom, current, gScore);
 		}
@@ -116,8 +117,8 @@ function heuristic(a: RegionGraphNode, b: RegionGraphNode, scale: number): numbe
 	return distance(a.centroid.x, a.centroid.y, b.centroid.x, b.centroid.y) * scale;
 }
 
-function lowestFScore(openSet: Set<string>, fScore: Map<string, number>): string {
-	let best = '';
+function lowestFScore(openSet: Set<string>, fScore: Map<string, number>): string | null {
+	let best: string | null = null;
 	let bestScore = Infinity;
 	for (const id of openSet) {
 		const score = fScore.get(id) ?? Infinity;

@@ -101,6 +101,17 @@ describe('findRegionPath', () => {
 		expect(findRegionPath(graph, 'region-z', 'region-a')).toBeNull();
 	});
 
+	it('returns null for disconnected nodes without infinite loop', () => {
+		// Both nodes exist but have zero connections — A* must terminate
+		const isolated: WorldRegion[] = [
+			makeRegion('region-a', 0, 0, []),
+			makeRegion('region-b', 200, 0, []),
+		];
+		const graph = buildRegionGraph(isolated);
+		const result = findRegionPath(graph, 'region-a', 'region-b');
+		expect(result).toBeNull();
+	});
+
 	it('handles cycles without infinite loop', () => {
 		// A↔B↔C↔A — all connected in a cycle
 		const cyclic: WorldRegion[] = [

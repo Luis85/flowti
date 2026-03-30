@@ -72,9 +72,9 @@ describe('TraitResolverSystem', () => {
 		system.execute(createDeps());
 
 		const bb = agent.get(BlackboardComponent);
-		const modifiers = bb.state.traitModifiers as Map<string, Record<string, unknown>> | undefined;
+		const modifiers = bb.state.traitModifiers as Record<string, Record<string, unknown>> | undefined;
 		expect(modifiers).toBeDefined();
-		expect(modifiers?.get('NeedsDecaySystem')).toEqual({ hungerDecayScale: 0.8 });
+		expect(modifiers?.['NeedsDecaySystem']).toEqual({ hungerDecayScale: 0.8 });
 	});
 
 	it('writes empty map on trait conflict', () => {
@@ -84,8 +84,8 @@ describe('TraitResolverSystem', () => {
 		system.execute(deps);
 
 		const bb = agent.get(BlackboardComponent);
-		const modifiers = bb.state.traitModifiers as Map<string, unknown> | undefined;
-		expect(modifiers?.size).toBe(0);
+		const modifiers = bb.state.traitModifiers as Record<string, unknown> | undefined;
+		expect(Object.keys(modifiers ?? {})).toHaveLength(0);
 		expect(deps.logger.warn).toHaveBeenCalled();
 	});
 
@@ -95,7 +95,7 @@ describe('TraitResolverSystem', () => {
 		system.execute(createDeps());
 
 		const bb = agent.get(BlackboardComponent);
-		const modifiers = bb.state.traitModifiers as Map<string, unknown> | undefined;
-		expect(modifiers?.size).toBe(0);
+		const modifiers = bb.state.traitModifiers as Record<string, unknown> | undefined;
+		expect(Object.keys(modifiers ?? {})).toHaveLength(0);
 	});
 });

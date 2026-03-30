@@ -23,7 +23,7 @@ export function createTraitResolverSystem(
 					bb.state = { ...bb.state, traitModifiers: result.value };
 				} else {
 					deps.logger.warn('TraitResolverSystem', `Agent ${entity.agentId}: ${result.error.message}`);
-					bb.state = { ...bb.state, traitModifiers: new Map() };
+					bb.state = { ...bb.state, traitModifiers: {} };
 				}
 				bb.markDirty();
 			}

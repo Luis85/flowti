@@ -80,8 +80,8 @@ function assembleVaultOverlay(): Plugin {
 			copyDir(resolve(projectRoot, 'traits'), resolve(distDir, '03 - Resources/Traits'), '.json');
 			copyDir(resolve(projectRoot, 'traits'), resolve(distDir, '03 - Resources/Traits'), '.md');
 
-			// Region data → regions/
-			copyDir(resolve(projectRoot, 'regions'), resolve(distDir, 'regions'), '.json');
+			// Region data → 03 - Resources/Regions/
+			copyDir(resolve(projectRoot, 'regions'), resolve(distDir, '03 - Resources/Regions'), '.json');
 
 			// World documentation → 03 - Resources/
 			copyDir(resolve(projectRoot, 'items'), resolve(distDir, '03 - Resources/Items'), '.md');

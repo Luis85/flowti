@@ -11,7 +11,7 @@ export interface TraitDefinition {
 	conflicts_with: string[];
 }
 
-export type ModifierMap = Map<string, Record<string, unknown>>;
+export type ModifierMap = Record<string, Record<string, unknown>>;
 
 function findConflict(traits: TraitDefinition[]): ResultValue<void> {
 	for (let i = 0; i < traits.length; i++) {
@@ -51,12 +51,12 @@ export function resolveTraitModifiers(
 		return Result.err(conflictCheck.error);
 	}
 
-	const modifierMap: ModifierMap = new Map();
+	const modifierMap: ModifierMap = {};
 
 	for (const trait of activeTraits) {
 		for (const effect of trait.effects) {
-			const existing = modifierMap.get(effect.system) ?? {};
-			modifierMap.set(effect.system, { ...existing, ...effect.modifier });
+			const existing = modifierMap[effect.system] ?? {};
+			modifierMap[effect.system] = { ...existing, ...effect.modifier };
 		}
 	}
 

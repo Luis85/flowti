@@ -190,6 +190,36 @@ describe('MovementSystem', () => {
 		expect(agent.vel.x).toBeCloseTo(2.5, 2);
 	});
 
+	it('does not re-arrive when agent is already at target location', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('AgentArrived', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 10, 0), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		// Agent is already at the target location
+		bb.state = {
+			...bb.state,
+			atLocation: 'loc-food-1',
+			movementTarget: { id: 'loc-food-1', type: 'location' },
+		};
+
+		const locations = [createTestLocation('loc-food-1', 10, 0)];
+		const system = createMovementSystem(() => [agent], () => locations);
+
+		system.execute(createDeps(eventBus));
+
+		// movementTarget should be consumed silently
+		expect(bb.state.movementTarget).toBeUndefined();
+		// atLocation should be preserved
+		expect(bb.state.atLocation).toBe('loc-food-1');
+		// No arrival event — agent was already there
+		expect(events.length).toBe(0);
+		// Agent should not be moving
+		expect(agent.vel.x).toBe(0);
+		expect(agent.vel.y).toBe(0);
+	});
+
 	it('emits AgentExhausted when energy crosses 0', () => {
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];

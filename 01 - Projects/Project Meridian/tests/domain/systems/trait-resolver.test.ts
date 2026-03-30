@@ -32,7 +32,7 @@ describe('TraitResolver', () => {
 		const result = resolveTraitModifiers(['trait-resilient'], traits);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value.get('NeedsDecaySystem')).toEqual({ hunger_decay: 0.5, energy_decay: 0.5 });
+			expect(result.value['NeedsDecaySystem']).toEqual({ hunger_decay: 0.5, energy_decay: 0.5 });
 		}
 	});
 
@@ -40,7 +40,7 @@ describe('TraitResolver', () => {
 		const result = resolveTraitModifiers(['trait-resilient', 'trait-loner'], traits);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			const needsMods = result.value.get('NeedsDecaySystem');
+			const needsMods = result.value['NeedsDecaySystem'];
 			expect(needsMods).toEqual({ hunger_decay: 0.5, energy_decay: 0.5, social_decay: 0 });
 		}
 	});
@@ -49,9 +49,9 @@ describe('TraitResolver', () => {
 		const result = resolveTraitModifiers(['trait-workaholic'], traits);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value.get('JobSystem')).toEqual({ productivity: 1.1 });
-			expect(result.value.get('MoodSystem')).toEqual({ overtime_penalty: 0 });
-			expect(result.value.size).toBe(2);
+			expect(result.value['JobSystem']).toEqual({ productivity: 1.1 });
+			expect(result.value['MoodSystem']).toEqual({ overtime_penalty: 0 });
+			expect(Object.keys(result.value)).toHaveLength(2);
 		}
 	});
 
@@ -67,7 +67,7 @@ describe('TraitResolver', () => {
 		const result = resolveTraitModifiers(['trait-nonexistent'], traits);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value.size).toBe(0);
+			expect(Object.keys(result.value)).toHaveLength(0);
 		}
 	});
 
@@ -75,7 +75,7 @@ describe('TraitResolver', () => {
 		const result = resolveTraitModifiers([], traits);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value.size).toBe(0);
+			expect(Object.keys(result.value)).toHaveLength(0);
 		}
 	});
 

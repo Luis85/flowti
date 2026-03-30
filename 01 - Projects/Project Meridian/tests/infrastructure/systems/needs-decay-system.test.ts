@@ -70,8 +70,7 @@ describe('NeedsDecaySystem', () => {
 	it('reads modifiers from blackboard', () => {
 		const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
 		const bb = agent.get(BlackboardComponent);
-		const modMap = new Map([['NeedsDecaySystem', { hungerDecayScale: 2.0 }]]);
-		bb.state.traitModifiers = modMap;
+		bb.state.traitModifiers = { NeedsDecaySystem: { hungerDecayScale: 2.0 } };
 
 		const system = createNeedsDecaySystem(() => [agent]);
 		const depsNoMod = createDeps();

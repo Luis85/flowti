@@ -129,7 +129,7 @@ export function createWorldLoader(
 			collectErrors('locations', locationResult.errors, errors);
 
 			onProgress?.(4, total, STEPS[3]);
-			const regionResult = await loadRegions(vault, 'regions');
+			const regionResult = await loadRegions(vault, '03 - Resources/Regions');
 			collectErrors('regions', regionResult.errors, errors);
 			const regionGraph = buildRegionGraph(regionResult.items);
 
