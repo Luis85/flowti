@@ -130,18 +130,14 @@ export class RoomSwitcher {
 			this.hopCooldowns.set(entityId, 2000);
 		} else {
 			this.pendingHops.delete(entityId);
-			// Post-arrival movement
-			if (entity.entityType === "agent") {
-				if (pendingHop?.targetObject) {
-					// Purpose transfer — walk to object
-					const obj = registry.getObjectsInRoom(targetRoom).find((o) => o.id === pendingHop.targetObject);
-					if (obj) entity.moveTo(obj.position.x, obj.position.y);
-				} else {
-					// Explore — walk to random center position
-					entity.moveTo(200 + Math.random() * 400, 150 + Math.random() * 200);
-				}
+			// Post-arrival movement — walk into the room (same for agents and creatures)
+			if (entity.entityType === "agent" && pendingHop?.targetObject) {
+				const obj = registry.getObjectsInRoom(targetRoom).find((o) => o.id === pendingHop.targetObject);
+				if (obj) entity.moveTo(obj.position.x, obj.position.y);
+				else entity.moveTo(200 + Math.random() * 400, 150 + Math.random() * 200);
+			} else {
+				entity.moveTo(200 + Math.random() * 400, 150 + Math.random() * 200);
 			}
-			// Creatures just idle at the door (resetHome via onEnterScene)
 		}
 
 		this.config.onTransferComplete?.(entityId, fromRoom, targetRoom, "transfer");
