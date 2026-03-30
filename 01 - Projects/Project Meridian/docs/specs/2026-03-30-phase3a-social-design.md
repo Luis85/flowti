@@ -14,7 +14,7 @@ Phase 3A delivers visible social behavior without external dependencies. LLM int
 4. Gossip exchanges only when `familiarity >= gossip_familiarity_threshold` — strangers don't gossip
 5. Location gossip transfers with reliability degradation (1.0 → 0.7 after one hop)
 6. Reputation gossip shifts receiver's disposition toward subject, scaled by reliability
-7. Agents with IQ > 12 reject gossip below 0.3 reliability
+7. Agents with IQ >= 12 reject gossip below 0.3 reliability
 8. Gossip stops propagating at hop count 4
 9. Duplicate gossip (same location/subject) is not re-transferred
 10. Relationship graph `.canvas` file written every N ticks with correct Obsidian Canvas JSON format
@@ -61,7 +61,7 @@ New systems inserted:
 **Data flow per tick:**
 
 1. **SocializeSystem (6.7)** — detects `talk` pairs, recovers social need, emits `SocialInteraction` event with `{ agentId, partnerId, memoryCreated }`.
-2. **DialogueSystem (12)** — reads `SocialInteraction` events from this tick's event history. For each pair: selects dialogue lines via template registry, creates rich dialogue memories (overwriting the generic "Talked with X"), updates disposition based on tone, sets `bb.state.gossipPending = partnerId` if familiarity meets threshold.
+2. **DialogueSystem (12)** — reads `SocialInteraction` events from this tick via `deps.eventBus.history()` filtered to `event.tick === deps.tickCount && event.type === 'SocialInteraction'`. Skips events where `memoryCreated === false` (agents on cooldown — no dialogue for non-interactions). For each qualifying pair: selects dialogue lines via template registry, creates rich dialogue memories (overwriting the generic "Talked with X"), updates disposition based on tone, sets `bb.state.gossipPending` on both agents (bidirectional gossip exchange) if familiarity meets threshold.
 3. **GossipSystem (12.5)** — iterates agents with `gossipPending` on blackboard. Transfers location knowledge and reputation gossip with reliability degradation. Creates `type: 'gossip'` memories. Applies reputation-based disposition changes. Clears blackboard flag.
 4. **RelationshipCheckpointSystem (19)** — every N ticks, serializes relationship graph to `.canvas` file. Handles `RequestAgentRelationshipView` events for on-demand per-agent views.
 
@@ -81,8 +81,9 @@ New infrastructure files:
 Modified files:
   domain/core/component-data.ts      — RelationshipEntry gains tags + lastInteractionTick
   domain/core/tick-scheduler.ts      — Add GOSSIP (12.5) priority constant
-  domain/schemas/game-config-schema.ts — Add relationships config section
+  domain/schemas/game-config-schema.ts — Extend GossipConfigSchema with 3 new fields
   infrastructure/engine/game-view.ts — Register 3 new systems
+  infrastructure/entity/agent-actor.ts       — Add readonly color field for Canvas serialization
   infrastructure/systems/facility-system.ts  — Adapt to RelationshipEntry new fields
   infrastructure/systems/trade-system.ts     — Adapt to RelationshipEntry new fields
   infrastructure/systems/socialize-system.ts — Adapt to RelationshipEntry new fields
@@ -140,18 +141,21 @@ interface DialogueResult {
 - Either agent mood <= `distressed` OR mutual disposition <= -20 → `negative` (-1 disposition)
 - Otherwise → `neutral` (0 disposition change)
 
-**Line selection:** `rng.nextInt(0, templates.length - 1)` picks from the array for each agent's kind + mood bucket.
+**Line selection:** `Math.floor(rng.range(0, templates.length))` picks from the array for each agent's kind + mood bucket. (`GameRNG.range` returns a float; floor converts to a valid index.)
 
 **Gossip gate:** `shouldExchangeGossip = familiarity >= gossipFamiliarityThreshold`
 
 #### Infrastructure System
 
 - Priority: `SystemPriority.DIALOGUE` (12, already reserved)
-- On each tick: reads event history for `SocialInteraction` events emitted this tick
-- For each event: looks up both agents, reads mood/disposition/familiarity, calls `selectDialogue`
+- **Event reading:** Uses `deps.eventBus.history()` filtered to `event.tick === deps.tickCount && event.type === 'SocialInteraction'`. This is stateless — no subscription needed. Events are already in history because SocializeSystem's batch was flushed before DialogueSystem runs.
+- **Cooldown filter:** Skips events where `payload.memoryCreated === false` (agents on cooldown produce no dialogue).
+- **Agent lookup:** If either agent cannot be found in the agent list, skip the pair (defensive null check).
+- For each qualifying event: looks up both agents, reads mood/disposition/familiarity, calls `selectDialogue`
+- **RNG creation:** Per-pair seeded RNG via `createGameRNG((deps.tickCount ^ hashString(pairKey)) >>> 0)` where pairKey is the alphabetically-sorted agent ID pair (same pattern as BehaviorTreeSystem).
 - Creates dialogue memory for both agents (type: `'dialogue'`, description includes the actual line, participants, tone-based outcome and mood_impact)
 - Updates both agents' RelationshipComponent disposition via `applyRelationshipUpdate`
-- If `shouldExchangeGossip`: sets `bb.state.gossipPending = partnerId` on the initiating agent
+- If `shouldExchangeGossip`: sets `bb.state.gossipPending = partnerId` on **both agents** (bidirectional — each agent shares gossip with the other)
 - Emits `DialogueCompleted` event with `{ agentId, partnerId, tone, agentLine, partnerLine }`
 
 ### 4.4 Gossip System
@@ -172,7 +176,7 @@ interface LocationGossip {
 interface ReputationGossip {
   gossipType: 'reputation';
   subjectAgentId: string;
-  dispositionBias: number;
+  dispositionBias: number;    // range [-10, +10] — small nudge, not absolute override
   reliability: number;
   sourceAgentId: string;
   hopCount: number;
@@ -181,7 +185,7 @@ interface ReputationGossip {
 type GossipData = LocationGossip | ReputationGossip;
 ```
 
-Gossip data is stored in the `description` field of a MemoryEntry as JSON, with `type: 'gossip'`. The `participants` array contains the source agent. The `significance` is set to `reliability * 5` (so high-reliability gossip is more memorable).
+Gossip data is stored in the `metadata` field of a MemoryEntry (see Section 4.6), with `type: 'gossip'`. The `description` holds a human-readable summary. The `participants` array contains the source agent. The `significance` is set to `reliability * 5` (so high-reliability gossip is more memorable and low-reliability gossip naturally decays faster).
 
 #### Domain Function
 
@@ -216,15 +220,16 @@ interface GossipExchangeResult {
 #### Infrastructure System
 
 - Priority: `SystemPriority.GOSSIP` (12.5, new constant)
-- Iterates agents with `bb.state.gossipPending` set
-- Finds partner from `gossipPending` value (partner agent ID)
-- Extracts gossip memories from giver's MemoryComponent (entries where `type === 'gossip'`)
-- Also extracts giver's location knowledge from visited locations (not gossip — direct knowledge at reliability 1.0)
-- Calls `exchangeGossip` domain function
-- Writes transferred gossip to receiver's MemoryComponent
-- Applies reputation disposition changes to receiver's RelationshipComponent
-- Clears `bb.state.gossipPending`
-- Emits `GossipExchanged` event with `{ giverId, receiverId, itemCount, types }`
+- **Bidirectional exchange:** DialogueSystem sets `gossipPending` on both agents. GossipSystem processes each direction independently (A→B and B→A). Uses a `processedPairs` set (same pattern as SocializeSystem) to avoid double-processing when iterating the agent list.
+- For each agent with `bb.state.gossipPending` set (and pair not yet processed):
+  - Finds partner from `gossipPending` value (partner agent ID)
+  - Extracts gossip from giver: (a) gossip-type memories from MemoryComponent (`entry.type === 'gossip'` with `metadata`), and (b) first-hand location knowledge from `bb.state.knownLocations` (converted to location gossip at reliability 1.0, hop count 0)
+  - Calls `exchangeGossip` domain function for A→B direction
+  - Calls `exchangeGossip` domain function for B→A direction
+  - Writes transferred gossip to each receiver's MemoryComponent
+  - Applies reputation disposition changes to each receiver's RelationshipComponent
+  - Clears `bb.state.gossipPending` on both agents
+  - Emits `GossipExchanged` event with `{ agentAId, agentBId, aToB: number, bToA: number, types: string[] }`
 
 ### 4.5 Relationship Checkpoint System
 
@@ -249,7 +254,7 @@ interface RelationshipGraphInput {
 
 **Per-agent view** `serializeAgentRelationshipView(agentId, input) → string`:
 
-Same format, filtered to only edges involving the specified agent. Target agent centered at (0, 0), connected agents arranged in a semicircle.
+Same format, filtered to only edges involving the specified agent. Target agent centered at (400, 300), connected agents arranged in a semicircle. Positive offset ensures all nodes are visible when the Canvas file is opened in Obsidian.
 
 #### Infrastructure System
 
@@ -278,7 +283,31 @@ export interface RelationshipEntry {
 }
 ```
 
-All existing code that creates RelationshipEntry objects must add `tags: []` and `lastInteractionTick: 0` (or `deps.tickCount` where appropriate).
+All existing code that creates RelationshipEntry objects must add `tags: []` and `lastInteractionTick: 0` (or `deps.tickCount` where appropriate). Callers of `applyRelationshipUpdate` continue to construct the full `RelationshipEntry` — the domain function returns `{ newDisposition, newFamiliarity }` and callers spread in `tags` and `lastInteractionTick` at the call site.
+
+**AgentActor** — add `readonly color: string` to the class, assigned from `agent.color` in the constructor. Needed by RelationshipCheckpointSystem for Canvas node colors.
+
+**MemoryEntry** — add optional `metadata` field for structured gossip data:
+
+```typescript
+export interface MemoryEntry {
+  tick: number;
+  type: string;
+  description: string;
+  participants: string[];
+  outcome: 'positive' | 'negative' | 'neutral';
+  significance: number;
+  mood_impact: number;
+  original_significance?: number;
+  metadata?: Record<string, unknown>;  // NEW — structured data for gossip, etc.
+}
+```
+
+Gossip data (`LocationGossip` or `ReputationGossip`) is stored in `metadata` rather than JSON-encoded in `description`. The `description` field holds a human-readable summary (e.g., "Heard from Elena: the bakery is near the market"). The `metadata` field holds the machine-readable gossip payload for programmatic access. Gossip memories participate in normal memory decay — their significance is set to `reliability * 5`, so low-reliability gossip naturally decays faster.
+
+**Location knowledge tracking** — agents track known locations via `bb.state.knownLocations`:
+
+MovementSystem already emits `AgentArrived` events. The existing arrival code in MovementSystem sets `bb.state.atLocation = rawTarget.id`. We extend this: when an agent arrives at a location for the first time, add it to `bb.state.knownLocations` (a `Set<string>` serialized as `string[]` on the blackboard). This is populated by MovementSystem on arrival. GossipSystem reads `knownLocations` to build first-hand location gossip at reliability 1.0 for the giver.
 
 **New SystemPriority constant:**
 
@@ -286,18 +315,25 @@ All existing code that creates RelationshipEntry objects must add `tags: []` and
 GOSSIP: 12.5,   // between DIALOGUE (12) and PROGRESSION (13)
 ```
 
-**New config section** in GameConfigSchema:
+**Config changes** — extend existing sections rather than creating new ones:
+
+The codebase already has a `GossipConfigSchema` with `reliability_tiers` and `iq_filter_threshold`, plus a top-level `canvas_checkpoint_interval_ticks`. Extend these:
 
 ```typescript
-relationships: z.object({
-  checkpoint_interval_ticks: z.number().int().default(50),
-  gossip_familiarity_threshold: z.number().default(3),
-  gossip_max_items_per_exchange: z.number().int().default(2),
-  gossip_reliability_tiers: z.array(z.number()).default([1.0, 0.7, 0.5, 0.3]),
-  gossip_iq_filter_threshold: z.number().int().default(12),
-  gossip_min_reliability: z.number().default(0.3),
-}).default({}),
+// Extend existing GossipConfigSchema (add new fields)
+const GossipConfigSchema = z.object({
+  reliability_tiers: z.array(z.number()).default([1.0, 0.7, 0.5, 0.3]),  // existing
+  iq_filter_threshold: z.number().default(12),                           // existing
+  familiarity_threshold: z.number().default(3),                          // NEW
+  max_items_per_exchange: z.number().int().default(2),                   // NEW
+  min_reliability: z.number().default(0.3),                              // NEW
+});
+
+// Existing top-level field — no change needed:
+// canvas_checkpoint_interval_ticks: z.number().int().default(50)
 ```
+
+DialogueSystem and GossipSystem read from `deps.config.gossip.*`. RelationshipCheckpointSystem reads from `deps.config.canvas_checkpoint_interval_ticks`.
 
 ### 4.7 Event Summary
 
