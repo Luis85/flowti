@@ -95,13 +95,13 @@ describe("BtSystem", () => {
 	describe("update()", () => {
 		it("does not tick before interval reached", () => {
 			const origRandom = Math.random;
-			Math.random = () => 0; // tick interval = BT_TICK_MIN (2500ms), stagger = 0
+			Math.random = () => 0; // tick interval = BT_TICK_MIN, stagger = 0
 			const agent = makeAgent();
 			registerAgent(agent);
 			Math.random = origRandom;
 
-			// 2499ms is below the minimum interval (2500ms)
-			system.update(2499, blackboards);
+			// Well below the minimum tick interval
+			system.update(BT_TICK_INTERVAL_MS - 1, blackboards);
 		});
 
 		it("ticks BT after accumulating enough deltaMs", () => {
@@ -116,11 +116,11 @@ describe("BtSystem", () => {
 			const agent = makeAgent();
 			registerAgent(agent);
 
-			// Three 1-second increments — still under 3s threshold
+			// Three 1-second increments — accumulate toward threshold
 			system.update(1000, blackboards);
 			system.update(1000, blackboards);
 			system.update(1000, blackboards);
-			// 3000ms total — should have ticked, no error
+			// 3000ms total — should not throw regardless of whether tick fires
 		});
 
 		it("does not throw when no agents registered", () => {
@@ -164,22 +164,28 @@ describe("BtSystem", () => {
 
 	describe("onSnapshot dirty-check", () => {
 		it("fires onSnapshot on first tick", () => {
+			const origRandom = Math.random;
+			Math.random = () => 0; // ensure minimum tick interval
 			const agent = makeAgent();
 			registerAgent(agent);
+			Math.random = origRandom;
 
 			const snapshots: Array<{ name: string; tick: number }> = [];
 			system.onSnapshot = (name, snap) => {
 				snapshots.push({ name, tick: snap.tick });
 			};
 
-			system.update(5000, blackboards);
+			system.update(BT_TICK_INTERVAL_MS + 1000, blackboards);
 			expect(snapshots.length).toBe(1);
 			expect(snapshots[0].name).toBe("Atlas");
 		});
 
 		it("does NOT fire onSnapshot when status is unchanged between ticks", () => {
+			const origRandom = Math.random;
+			Math.random = () => 0; // ensure minimum tick interval
 			const agent = makeAgent();
 			registerAgent(agent);
+			Math.random = origRandom;
 
 			const snapshots: Array<{ name: string; tick: number }> = [];
 			system.onSnapshot = (name, snap) => {
@@ -187,12 +193,12 @@ describe("BtSystem", () => {
 			};
 
 			// First tick — fires
-			system.update(5000, blackboards);
+			system.update(BT_TICK_INTERVAL_MS + 1000, blackboards);
 			expect(snapshots.length).toBe(1);
 
 			// Second tick — tree is deterministic with same world state, so snapshot
 			// status values should be identical, meaning onSnapshot should NOT fire again
-			system.update(5000, blackboards);
+			system.update(BT_TICK_INTERVAL_MS + 1000, blackboards);
 			expect(snapshots.length).toBe(1);
 		});
 

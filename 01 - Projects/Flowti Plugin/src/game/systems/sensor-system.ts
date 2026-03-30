@@ -14,7 +14,7 @@
 
 import type { SensorEventData, SensorReaction, SensorRule, SensorRuleOverride } from "../data/sensor-rules.js";
 import { DEFAULT_SENSOR_RULES } from "../data/sensor-rules.js";
-import { DEFAULT_WORLD_CONFIG } from "../data/world-config.js";
+import { WORLD_CONFIG } from "../data/world-config.js";
 
 // ── Internal per-agent entry ──────────────────────────────────────────
 
@@ -165,13 +165,13 @@ export class SensorSystem {
 
 				// Apply per-agent cooldown when a bubble was produced
 				if (rule.reaction.bubble) {
-					entry.agentCooldownRemaining = DEFAULT_WORLD_CONFIG.sensors.perAgentCooldown;
+					entry.agentCooldownRemaining = WORLD_CONFIG.sensors.perAgentCooldown;
 				}
 			}
 
 			// Apply per-rule cooldown and global cooldown
 			this.ruleCooldowns.set(rule.id, rule.cooldown);
-			this.globalCooldownRemaining = DEFAULT_WORLD_CONFIG.sensors.globalCooldown;
+			this.globalCooldownRemaining = WORLD_CONFIG.sensors.globalCooldown;
 
 			// First matching rule wins
 			break;
@@ -201,7 +201,7 @@ export class SensorSystem {
 		if (rule.agentFilter === "domain-match") {
 			// Use file path from event data to determine domain
 			const filePath = typeof data["path"] === "string" ? data["path"] : "";
-			const domainPaths = DEFAULT_WORLD_CONFIG.sensors.domainPaths ?? {};
+			const domainPaths = WORLD_CONFIG.sensors.domainPaths ?? {};
 
 			let matchedDomain: string | null = null;
 			for (const [domain, prefix] of Object.entries(domainPaths)) {

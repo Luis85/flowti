@@ -37,6 +37,7 @@ export interface AgentProcessLoopDeps {
 	readonly lineReader: ILineReader;
 	readonly lineWriter: ILineWriter;
 	readonly exit: (code: number) => void;
+	readonly dispatcher?: import("../tasks/task-dispatcher.js").TaskDispatcher;
 }
 
 // ── Handle ───────────────────────────────────────────────────────────
@@ -304,6 +305,29 @@ function handleBtAction(deps: AgentProcessLoopDeps, msg: BtActionInput): void {
 	if (msg.action !== "goal-started" && msg.action !== "task-started") return;
 	const subject = msg.data.goal ?? msg.data.task ?? "";
 	if (!subject) return;
+
+	// Route through task dispatcher when available
+	if (deps.dispatcher) {
+		const now = deps.clock.ms();
+		deps.dispatcher.submit({
+			taskId: `bt-${now}`,
+			title: subject,
+			priority: "normal",
+			requiredCapabilities: [],
+			requiredAgentTier: "supervised",
+			taskTrustTier: "auto",
+			reward: { xp: 10, coin: 5 },
+			submittedAt: now,
+			source: "bt-action",
+			targetAgent: deps.agentName,
+			retryCount: 0,
+			tags: [],
+			type: msg.data.goalType ?? "bt-goal",
+		});
+		return;
+	}
+
+	// Fallback: direct workerManager.send (backward compat)
 	const contextPrefix = msg.data.context ? `${msg.data.context}\n\n` : "";
 	const fullMessage = contextPrefix + subject;
 	let lastToolName = "";

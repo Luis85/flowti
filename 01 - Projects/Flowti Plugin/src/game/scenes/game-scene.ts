@@ -369,7 +369,7 @@ export class GameScene extends ex.Scene implements SceneHandle {
 			actor.updateVisualStatus(agent.status);
 			return;
 		}
-		if (this.sceneEntities.has(agent.name) || this.transferredOut.has(agent.name)) return;
+		if (this.transferredOut.has(agent.name)) return;
 
 		const charName = resolveCharacter(agent.name, agent.domain ?? "");
 		const sprites = this.spriteRegistry.get(charName);

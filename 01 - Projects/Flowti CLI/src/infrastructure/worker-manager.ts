@@ -103,7 +103,8 @@ export function createWorkerManager(
 	vaultRoot: string,
 	config: AgentsConfig | undefined,
 	pool?: IProcessPool,
-): IWorkerManager {
+): IWorkerManager & { setDispatcher(d: import("../domain/tasks/task-dispatcher.js").TaskDispatcher): void } {
+	let dispatcher: import("../domain/tasks/task-dispatcher.js").TaskDispatcher | undefined;
 	const workers = new Map<string, WorkerImpl>();
 
 	function spawnWorker(agent: AgentSummary): WorkerImpl {
@@ -209,13 +210,6 @@ export function createWorkerManager(
 
 		const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
 
-		// TODO(autonomy-bridge): trust-tier-based execution mode selection
-		// When opts.task is set, should branch on agent's TrustTier:
-		// - supervised → session.send with no tools
-		// - trusted → session.send with Read/Write tools
-		// - autonomous → agentShell.dispatch() for full workspace
-		// Deferred to follow-on: needs loadTrustProfile dep + IAgentShell injection
-
 		// Session path — reuse live session
 		if (worker.session?.alive) {
 			setWorkerState(worker, "thinking", worldState);
@@ -232,8 +226,10 @@ export function createWorkerManager(
 
 				worker.failureCount = 0;
 				opts?.onResponse?.(parsed);
+				if (opts?.task) dispatcher?.complete(worker.name, undefined, parsed.message);
 			} catch {
 				worker.failureCount++;
+				if (opts?.task) dispatcher?.fail(worker.name, undefined, "session error");
 			}
 
 			if (worker.state !== "stopped") {
@@ -274,8 +270,10 @@ export function createWorkerManager(
 
 					worker.failureCount = 0;
 					opts?.onResponse?.(parsed);
+					if (opts?.task) dispatcher?.complete(worker.name, undefined, parsed.message);
 				} catch {
 					worker.failureCount++;
+					if (opts?.task) dispatcher?.fail(worker.name, undefined, "session error");
 				}
 
 				if (worker.state !== "stopped") {
@@ -323,9 +321,11 @@ export function createWorkerManager(
 			saveConversation(deps, varDir, worker.name, worker.conversation);
 
 			opts?.onResponse?.(parsed);
+			if (opts?.task) dispatcher?.complete(worker.name, undefined, parsed.message);
 		} catch {
 			worker.failureCount++;
 			if (pool) pool.release(worker.name);
+			if (opts?.task) dispatcher?.fail(worker.name, undefined, "execution error");
 		}
 
 		if (worker.state !== "stopped") {
@@ -459,6 +459,10 @@ export function createWorkerManager(
 				if (worker.name === event.agentName) continue;
 				handleWorldEvent(worker, event);
 			}
+		},
+
+		setDispatcher(d: import("../domain/tasks/task-dispatcher.js").TaskDispatcher): void {
+			dispatcher = d;
 		},
 	};
 }

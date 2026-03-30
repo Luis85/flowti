@@ -111,7 +111,14 @@ export class SlidePanel extends FlowtiElement {
 	title = "";
 	accent = "";
 
+	private openedAt = 0;
 	private boundEscHandler = this.handleEscKey.bind(this);
+
+	protected willUpdate(changed: Map<string, unknown>): void {
+		if (changed.has("open") && this.open) {
+			this.openedAt = Date.now();
+		}
+	}
 
 	connectedCallback(): void {
 		super.connectedCallback();
@@ -130,6 +137,9 @@ export class SlidePanel extends FlowtiElement {
 	}
 
 	private handleBackdropClick(): void {
+		// Ignore backdrop clicks within 300ms of opening — prevents the same
+		// pointer event that triggered the panel from immediately closing it.
+		if (Date.now() - this.openedAt < 300) return;
 		this.emitClose();
 	}
 

@@ -1,4 +1,5 @@
 import type { TaskSummary, StandingOrderRule } from "./task-types.js";
+import type { TaskEntry } from "./task-dispatcher-types.js";
 
 export interface StandingOrderIndex {
 	readonly orders: readonly IndexedOrder[];
@@ -41,4 +42,27 @@ export function matchEvent(index: StandingOrderIndex, event: { folder: string; t
 
 export function getActiveOrders(index: StandingOrderIndex, agentName: string): IndexedOrder[] {
 	return index.orders.filter(o => o.assignee === agentName);
+}
+
+/** Convert matched standing orders into TaskEntry objects for the dispatcher. */
+export function buildEntriesFromMatches(
+	matches: readonly IndexedOrder[],
+	clock: { ms(): number },
+): TaskEntry[] {
+	const now = clock.ms();
+	return matches.map((order, i) => ({
+		taskId: `so-${now}-${i}`,
+		title: `Standing order: ${order.watchEvent} on ${order.watchFolder}`,
+		priority: "normal" as const,
+		requiredCapabilities: [],
+		requiredAgentTier: "supervised" as const,
+		taskTrustTier: "auto" as const,
+		reward: { xp: 10, coin: 5 },
+		submittedAt: now,
+		source: "standing-order" as const,
+		targetAgent: order.assignee || undefined,
+		retryCount: 0,
+		tags: [],
+		type: "standing-order",
+	}));
 }

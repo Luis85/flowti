@@ -1,0 +1,47 @@
+{
+	"behavior": {
+		"idleResistanceBase": 8000,
+		"idleResistanceCONScale": 12000,
+		"btTickMinMs": 4000,
+		"btTickMaxMs": 6000,
+		"minWanderDistance": 150,
+		"idleTimers": {
+			"fidgety":  { "min": 5000, "max": 9000 },
+			"calm":     { "min": 12000, "max": 20000 },
+			"restless": { "min": 8000, "max": 14000 }
+		},
+		"speedMap": {
+			"deliberate": 0.7,
+			"brisk": 1.0,
+			"darting": 1.4
+		}
+	},
+	"needs": {
+		"hungerThreshold": 40,
+		"thirstThreshold": 30,
+		"hungerInitial": 80,
+		"thirstInitial": 80
+	},
+	"director": {
+		"awareness": {
+			"noticeRadius": 60,
+			"greetRadius": 40
+		}
+	},
+	"engagement": {
+		"tiers": {
+			"ambient": { "idleThresholdMs": 30000, "durationMs": 45000 },
+			"nudge":   { "idleThresholdMs": 90000, "durationMs": 90000 },
+			"offer":   { "idleThresholdMs": 180000, "durationMs": 180000 }
+		},
+		"engagementDuration": 10000
+	},
+	"dayCycle": {
+		"durationMs": 1500000
+	},
+	"relationships": {
+		"affinityDecayPerCycle": 1,
+		"bickerChance": 0.3,
+		"maxSharedMemories": 5
+	}
+}

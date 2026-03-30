@@ -1,6 +1,7 @@
 import type { BrainState, BrainEvent, BrainResult, BrainParams, MovementTarget, AgentHabits } from "./brain-types.js";
 import type { AgentAttributes } from "../data/types.js";
 import { resolveSettingForDomain } from "../config/domain-map.js";
+import { WORLD_CONFIG } from "../data/world-config.js";
 
 const NO_MOVE: MovementTarget = { kind: "none" };
 const TO_WORKSTATION: MovementTarget = { kind: "workstation" };
@@ -56,7 +57,7 @@ export function computeParams(attrs: AgentAttributes): BrainParams {
 		speedMultiplier: MIN_SPEED + ((dex - 1) / 19) * (MAX_SPEED - MIN_SPEED),
 		socialRadius: 50 + (cha / 20) * 150,
 		focusDuration: 5000 + (int / 20) * 25000,
-		idleResistance: 4000 + (con / 20) * 8000,
+		idleResistance: WORLD_CONFIG.behavior.idleResistanceBase + (con / 20) * WORLD_CONFIG.behavior.idleResistanceCONScale,
 		quoteFrequency: 30000 - (wis / 20) * 15000,
 	};
 }
