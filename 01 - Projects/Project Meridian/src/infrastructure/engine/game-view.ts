@@ -129,8 +129,10 @@ export class MeridianGameView extends ItemView {
 			engine.currentScene.add(marker);
 
 			if (loc.production !== null) {
+				// Bootstrap economy: seed each facility with 5 units of its output
+				const startingStock = [{ item_id: loc.production.output.item_id, quantity: 5 }];
 				marker.addComponent(new FacilityComponent({
-					stock: [],
+					stock: startingStock,
 					fund: deps.config.economy.facility_start_fund,
 					workProgress: 0,
 					status: 'idle',

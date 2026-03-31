@@ -22,7 +22,7 @@
 	"skills": [],
 	"inventory": [
 		{ "item_id": "herb-bundle", "quantity": 3 },
-		{ "item_id": "bread-loaf", "quantity": 2 }
+		{ "item_id": "bread", "quantity": 2 }
 	],
 	"equipment": { "head": null, "body": "leather-apron", "hands": null, "tool": "merchant-scales", "accessory": "silver-pendant" },
 	"persona": "personas/elena.md",
