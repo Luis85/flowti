@@ -14,4 +14,5 @@ export const KNOWN_CONDITIONS = new Set([
 	'can_afford',
 	'facility_has_stock',
 	'has_job_facility',
+	'has_job',
 ]);

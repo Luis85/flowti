@@ -48,6 +48,14 @@
 			{
 				"type": "sequence",
 				"children": [
+					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 50 } },
+					{ "type": "condition", "check": "has_job", "params": {} },
+					{ "type": "action", "action": "seek_work", "params": {} }
+				]
+			},
+			{
+				"type": "sequence",
+				"children": [
 					{ "type": "condition", "check": "need_below", "params": { "need": "social", "threshold": 40 } },
 					{ "type": "condition", "check": "nearby_agent_close", "params": {} },
 					{ "type": "action", "action": "talk", "params": {} }

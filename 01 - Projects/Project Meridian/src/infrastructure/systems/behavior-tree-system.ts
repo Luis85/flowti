@@ -91,7 +91,7 @@ export function createBehaviorTreeSystem(
 
 				if (result.action !== null) {
 					// Resolve movementTarget from perception if action implies movement
-					let movementTarget = resolveMovementTarget(result.action, result.params, perception.state);
+					let movementTarget = resolveMovementTarget(result.action, result.params, perception.state, agent.job, locationList);
 
 					const prevAction = bb.state.btAction as string | undefined;
 					const actionChanged = result.action !== prevAction;
@@ -239,10 +239,19 @@ function resolveMovementTarget(
 	action: string,
 	params: Record<string, unknown>,
 	perception: PerceptionState,
+	agentJob: string | null,
+	allLocations: WorldLocation[],
 ): { id: string; type: 'agent' | 'location' } | null {
 	if (typeof params.targetId === 'string' && typeof params.targetType === 'string') {
 		const targetType = params.targetType === 'agent' ? 'agent' : 'location';
 		return { id: params.targetId, type: targetType };
+	}
+
+	// seek_work: find agent's job facility from ALL locations (not just perceived)
+	// Agents must be able to decide to go to work even when the facility is far away
+	if (action === 'seek_work' && agentJob !== null) {
+		const jobFacility = allLocations.find(l => l.production !== null && l.production.job === agentJob);
+		if (jobFacility !== undefined) return { id: jobFacility.id, type: 'location' };
 	}
 
 	const locationType = LOCATION_ACTIONS[action];

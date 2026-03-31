@@ -96,6 +96,9 @@ const CONDITION_CHECKS: Record<string, ConditionCheck> = {
 		if (ctx.job === null) return false;
 		return ctx.nearbyFacilities.some(f => f.job === ctx.job);
 	},
+	has_job(ctx) {
+		return ctx.job !== null;
+	},
 };
 
 const FAILURE: BTResult = { status: 'failure', action: null, params: {} };
