@@ -76,9 +76,14 @@ function checkJobFacilityMatches(agents: WorldValidationAgent[], locations: Worl
 }
 
 function checkBTDefinitions(agents: WorldValidationAgent[], btDefinitions: Record<string, unknown>): ValidationWarning[] {
+	const BT_PREFIX = 'bt-';
 	const warnings: ValidationWarning[] = [];
 	for (const agent of agents) {
-		if (!(agent.behaviorTree in btDefinitions)) {
+		// BT map keys have the 'bt-' prefix stripped (e.g., 'bt-scholar' → 'scholar')
+		const btKey = agent.behaviorTree.startsWith(BT_PREFIX)
+			? agent.behaviorTree.slice(BT_PREFIX.length)
+			: agent.behaviorTree;
+		if (!(btKey in btDefinitions)) {
 			warnings.push({
 				category: 'bt_missing',
 				message: `Agent "${agent.name}" references behavior tree "${agent.behaviorTree}" which is not loaded`,

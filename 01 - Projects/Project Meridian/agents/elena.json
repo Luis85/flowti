@@ -34,6 +34,6 @@
 	"relationships": "03 - Resources/Graphs/elena-relationships.canvas",
 	"tools": [],
 	"behavior_tree": "bt-merchant",
-	"job": "shopkeeper",
+	"job": null,
 	"property": ["loc-market"]
 }

@@ -150,6 +150,16 @@ describe('validateWorldConsistency', () => {
 			const btWarnings = warnings.filter(w => w.category === 'bt_missing');
 			expect(btWarnings).toHaveLength(0);
 		});
+
+		it('strips bt- prefix when checking (bt-scholar matches key "scholar")', () => {
+			const input = makeInput({
+				agents: [makeAgent({ behaviorTree: 'bt-scholar' })],
+				btDefinitions: { scholar: {} },
+			});
+			const warnings = validateWorldConsistency(input);
+			const btWarnings = warnings.filter(w => w.category === 'bt_missing');
+			expect(btWarnings).toHaveLength(0);
+		});
 	});
 
 	describe('supply_chain', () => {

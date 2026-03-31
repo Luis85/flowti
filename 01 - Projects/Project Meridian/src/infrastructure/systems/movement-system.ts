@@ -126,6 +126,7 @@ function collectObstacles(
 	const obstacles: Obstacle[] = [];
 	for (const other of agentList) {
 		if (other === currentAgent) continue;
+		if (other.agentId === targetId) continue;
 		const otherBb = other.get(BlackboardComponent);
 		if (otherBb.state.atLocation !== undefined) {
 			obstacles.push({ x: other.pos.x, y: other.pos.y, radius: 14 });
