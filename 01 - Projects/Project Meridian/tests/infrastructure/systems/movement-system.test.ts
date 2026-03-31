@@ -170,8 +170,8 @@ describe('MovementSystem', () => {
 		system.execute(createDeps());
 
 		const needs = agent.get(NeedsComponent);
-		// DX=10, divisor=4 → speedPerTick=2.5, movement_energy_cost=0.1 → drain=0.25
-		expect(needs.state.energy).toBe(90 - 0.25);
+		// DX=10, divisor=4 → speedPerTick=2.5, movement_energy_cost=0.02 → drain=0.05
+		expect(needs.state.energy).toBe(90 - 0.05);
 	});
 
 	it('exhausted agent moves at half speed', () => {
@@ -254,8 +254,8 @@ describe('MovementSystem', () => {
 		const events: GameEvent[] = [];
 		eventBus.on('AgentExhausted', (e) => { events.push(e); });
 
-		// Start with very low energy that will cross 0
-		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0, { needs: { hunger: 80, energy: 0.1, social: 70 } }), defaultMoodConfig);
+		// Start with very low energy that will cross 0 (drain = speed 2.5 × cost 0.02 = 0.05)
+		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0, { needs: { hunger: 80, energy: 0.01, social: 70 } }), defaultMoodConfig);
 		const bb = agent.get(BlackboardComponent);
 		bb.state = { ...bb.state, movementTarget: { id: 'loc-food-1', type: 'location' } };
 

@@ -98,9 +98,9 @@ describe('SocializeSystem', () => {
 		const system = createSocializeSystem(() => [agent1, agent2]);
 		system.execute(createDeps(eventBus, 100));
 
-		// Both agents should have social recovery (recovery_rate = 0.5)
-		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(50.5);
-		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(50.5);
+		// Both agents should have social recovery (recovery_rate = 3.0)
+		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(53.0);
+		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(53.0);
 
 		// SocialInteraction event emitted
 		expect(events.length).toBe(1);
@@ -136,7 +136,7 @@ describe('SocializeSystem', () => {
 		// First tick at 100 — should create memory
 		system.execute(createDeps(createEventBus(), 100));
 
-		// Second tick at 110 — within cooldown_ticks (50), no new memory
+		// Second tick at 110 — within cooldown_ticks (20), no new memory
 		// Reset BT actions (they don't persist between ticks in a real system)
 		const bb1 = agent1.get(BlackboardComponent);
 		bb1.state = { ...bb1.state, btAction: 'talk' };
@@ -150,9 +150,9 @@ describe('SocializeSystem', () => {
 		system.execute(createDeps(eventBus2, 110));
 
 		// Social should still recover (second tick)
-		// First tick: 50 + 0.5 = 50.5, second tick: 50.5 + 0.5 = 51.0
-		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(51.0);
-		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(51.0);
+		// First tick: 50 + 3.0 = 53.0, second tick: 53.0 + 3.0 = 56.0
+		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(56.0);
+		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(56.0);
 
 		// Memory should NOT have increased — still just 1 entry from first tick
 		expect(agent1.get(MemoryComponent).state.entries.length).toBe(1);
@@ -212,8 +212,8 @@ describe('SocializeSystem', () => {
 		expect(events.length).toBe(1);
 
 		// Both still get social recovery (from the single processing)
-		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(50.5);
-		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(50.5);
+		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(53.0);
+		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(53.0);
 
 		// Both get memory
 		expect(agent1.get(MemoryComponent).state.entries.length).toBe(1);

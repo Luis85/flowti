@@ -122,9 +122,9 @@ describe('Consequence Systems — Integration', () => {
 		runner.tick(deps);
 		const hungerAfter = actor.get(NeedsComponent).state.hunger;
 
-		// Feed recovery (0.3) minus hunger decay (0.5) = net -0.2, but recovery still applied
-		// hungerBefore=50, decay=0.5 → without feed: 49.5, with feed: 49.8
-		expect(hungerAfter).toBeCloseTo(49.8);
+		// Feed recovery (5.0) minus hunger decay (0.15) = net +4.85
+		// hungerBefore=50, decay=0.15 → without feed: 49.85, with feed: 54.85
+		expect(hungerAfter).toBeCloseTo(54.85);
 	});
 
 	it('agent rests at tavern — energy recovers, RestStarted emitted', () => {

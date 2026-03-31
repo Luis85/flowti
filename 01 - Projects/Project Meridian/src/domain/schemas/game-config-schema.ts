@@ -8,17 +8,17 @@ function withDefaults<T extends z.ZodType>(schema: T): z.ZodDefault<T> {
 }
 
 const NeedsConfigSchema = z.object({
-	hunger_decay: z.number().default(0.5),
-	energy_decay: z.number().default(0.25),
-	social_decay: z.number().default(0.15),
-	food_recovery_rate: z.number().default(0.3),
+	hunger_decay: z.number().default(0.15),
+	energy_decay: z.number().default(0.1),
+	social_decay: z.number().default(0.05),
+	food_recovery_rate: z.number().default(5.0),
 });
 
 const StaminaConfigSchema = z.object({
 	recovery_per_idle_tick: z.number().default(0.05),
 	exhaustion_speed_modifier: z.number().default(0.5),
 	exhaustion_skill_penalty: z.number().default(-2),
-	movement_energy_cost: z.number().default(0.1),
+	movement_energy_cost: z.number().default(0.02),
 });
 
 const MemoryConfigSchema = z.object({
@@ -198,10 +198,10 @@ const WorldHealthConfigSchema = z.object({
 });
 
 const SocialConfigSchema = z.object({
-	recovery_rate: z.number().default(0.5),
+	recovery_rate: z.number().default(3.0),
 	memory_significance: z.number().int().default(3),
 	memory_mood_impact: z.number().default(2),
-	cooldown_ticks: z.number().int().default(50),
+	cooldown_ticks: z.number().int().default(20),
 });
 
 export const GameConfigSchema = z.object({

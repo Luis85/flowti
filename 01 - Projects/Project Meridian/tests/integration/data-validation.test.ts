@@ -118,10 +118,10 @@ describe('Shipped Data Validation', () => {
 
 	it('GameConfigSchema parses with social and stamina defaults', () => {
 		const config = GameConfigSchema.parse({});
-		expect(config.social.recovery_rate).toBe(0.5);
-		expect(config.social.cooldown_ticks).toBe(50);
-		expect(config.stamina.movement_energy_cost).toBe(0.1);
-		expect(config.needs.food_recovery_rate).toBe(0.3);
+		expect(config.social.recovery_rate).toBe(3.0);
+		expect(config.social.cooldown_ticks).toBe(20);
+		expect(config.stamina.movement_energy_cost).toBe(0.02);
+		expect(config.needs.food_recovery_rate).toBe(5.0);
 		expect(config.perception.interaction_radius).toBe(25);
 	});
 
