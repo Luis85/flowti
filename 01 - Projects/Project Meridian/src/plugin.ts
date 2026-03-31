@@ -1,11 +1,18 @@
-import { Plugin } from 'obsidian';
+import { Notice, Plugin } from 'obsidian';
 import { MeridianGameView, MERIDIAN_VIEW_TYPE } from './infrastructure/engine/game-view.js';
 import { MeridianSettingsTab } from './infrastructure/settings/settings-tab.js';
 import { createConsoleLogger } from './infrastructure/logger/console-logger.js';
 import { createPerformanceTracker } from './infrastructure/performance/performance-tracker.js';
 import { createEventBus } from './infrastructure/event-bus.js';
 import { GameConfigSchema } from './domain/schemas/game-config-schema.js';
+import { BehaviorTreeSchema } from './domain/schemas/behavior-tree-schema.js';
 import { DEFAULT_SETTINGS, type MeridianSettings } from './domain/core/settings.js';
+import { lintBehaviorTrees } from './domain/systems/bt-lint.js';
+import { KNOWN_ACTIONS, AGENT_SOCIAL_ACTIONS } from './domain/systems/bt-actions.js';
+import { KNOWN_CONDITIONS } from './domain/systems/bt-conditions.js';
+import { FOOD_ITEMS } from './domain/systems/food-items.js';
+import { LOCATION_TYPES } from './domain/schemas/location-schema.js';
+import type { BTNode } from './domain/schemas/behavior-tree-schema.js';
 import type { Logger } from './domain/core/logger.js';
 import type { PerformanceTracker } from './domain/core/performance.js';
 import type { GameCoreDeps } from './domain/core/game-deps.js';
@@ -49,6 +56,55 @@ export class MeridianPlugin extends Plugin {
 				this.applySettings();
 			},
 		}));
+
+		this.addCommand({
+			id: 'lint-behavior-trees',
+			name: 'Lint Behavior Trees',
+			callback: async () => {
+				const btPath = '03 - Resources/BehaviorTrees';
+				const allFiles = this.app.vault.getFiles();
+				const btFiles = allFiles.filter(
+					f => f.path.startsWith(btPath) && f.extension === 'json',
+				);
+
+				const allActions = new Set([...KNOWN_ACTIONS, ...AGENT_SOCIAL_ACTIONS]);
+				const btDefinitions: Record<string, BTNode> = {};
+
+				for (const file of btFiles) {
+					try {
+						const content = await this.app.vault.read(file);
+						const parsed: unknown = JSON.parse(content);
+						const bt = BehaviorTreeSchema.parse(parsed);
+						btDefinitions[bt.id] = bt.root;
+					} catch {
+						new Notice(`BT lint: failed to parse ${file.path}`);
+					}
+				}
+
+				const warnings = lintBehaviorTrees({
+					btDefinitions,
+					knownActions: allActions,
+					knownConditions: KNOWN_CONDITIONS,
+					knownFoodItems: FOOD_ITEMS,
+					locationTypes: [...LOCATION_TYPES],
+				});
+
+				if (warnings.length === 0) {
+					new Notice('BT lint: all clear — 0 warnings');
+				} else {
+					const lines = warnings.slice(0, 5).map(
+						w => `[${w.btId}] ${w.issue}`,
+					);
+					const suffix = warnings.length > 5
+						? `\n… and ${String(warnings.length - 5)} more`
+						: '';
+					new Notice(
+						`BT lint: ${String(warnings.length)} warning(s)\n${lines.join('\n')}${suffix}`,
+						0,
+					);
+				}
+			},
+		});
 
 		// Heavy initialization deferred until workspace is ready
 		this.app.workspace.onLayoutReady(() => {

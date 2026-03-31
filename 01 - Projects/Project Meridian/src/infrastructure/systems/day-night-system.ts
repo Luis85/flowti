@@ -9,6 +9,7 @@ import { WalletComponent } from '../components/wallet-component.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { FacilityComponent } from '../components/facility-component.js';
+import { NeedsComponent } from '../components/needs-component.js';
 
 const DAY_PADDING_WIDTH = 3;
 
@@ -128,6 +129,42 @@ function writeDailyReport(
 	});
 }
 
+function checkEconomyLiveness(
+	agentList: AgentActor[],
+	economy: EconomyComponent,
+	dayCount: number,
+	deps: GameCoreDeps,
+): void {
+	// 1. Starvation detection — all agents at hunger 0
+	if (agentList.length > 0 && agentList.every(a => a.get(NeedsComponent).state.hunger === 0)) {
+		deps.eventBus.emit({
+			type: 'EconomyCollapsed',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'DayNightSystem',
+			payload: { reason: 'all_agents_starving', dayCount },
+		});
+		deps.logger.warn('DayNightSystem', `Economy collapse detected: all agents have hunger at 0 on day ${dayCount}`);
+	}
+
+	// 2. Production stall detection — no wages paid this day
+	if (economy.state.dailySummary.totalWages === 0) {
+		deps.eventBus.emit({
+			type: 'ProductionStalled',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'DayNightSystem',
+			payload: { reason: 'no_production', dayCount },
+		});
+		deps.logger.warn('DayNightSystem', `Production stalled: no wages paid on day ${dayCount}`);
+	}
+
+	// 3. Trade stall detection — no purchases this day (warning only)
+	if (economy.state.dailySummary.totalSales === 0) {
+		deps.logger.warn('DayNightSystem', `No trades occurred on day ${dayCount}`);
+	}
+}
+
 function processDayBoundary(
 	entity: Actor,
 	dayCount: number,
@@ -145,22 +182,25 @@ function processDayBoundary(
 	// 1. Welfare check
 	processWelfare(agentList, economy, deps);
 
-	// 2. Generate daily report
+	// 2. Economy liveness invariant checks
+	checkEconomyLiveness(agentList, economy, dayCount, deps);
+
+	// 3. Generate daily report
 	const locationActors = getLocationActors?.() ?? new Map<string, Actor>();
 	const locationData = getLocations?.() ?? [];
 	writeDailyReport(economy, agentList, locationActors, locationData, dayCount, deps, previousGold);
 
-	// 3. Snapshot current gold for next day's delta
+	// 4. Snapshot current gold for next day's delta
 	for (const agent of agentList) {
 		previousGold.set(agent.agentId, agent.get(WalletComponent).state.gold);
 	}
 
-	// 3. Prune old ledger entries
+	// 5. Prune old ledger entries
 	const retentionTicks = deps.config.economy.ledger_retention_days * deps.config.ticks_per_day;
 	const cutoffTick = deps.tickCount - retentionTicks;
 	const prunedLedger = economy.state.ledger.filter(e => e.tick >= cutoffTick);
 
-	// 4. Reset daily summary
+	// 6. Reset daily summary
 	economy.state = {
 		...economy.state,
 		ledger: prunedLedger,
