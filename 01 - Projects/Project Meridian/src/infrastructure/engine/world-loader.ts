@@ -13,6 +13,10 @@ import { createAgentSpawner } from '../entity/agent-spawner.js';
 import { createTraitLoader } from '../entity/trait-loader.js';
 import { createLocationLoader } from '../entity/location-loader.js';
 import { createBTLoader } from '../entity/bt-loader.js';
+import { validateWorldConsistency } from '../../domain/systems/world-validation.js';
+import { FOOD_ITEMS } from '../../domain/systems/food-items.js';
+import { KNOWN_ACTIONS } from '../../domain/systems/bt-actions.js';
+import { InventoryComponent } from '../components/inventory-component.js';
 
 export interface WorldData {
 	agents: AgentActor[];
@@ -145,13 +149,42 @@ export function createWorldLoader(
 			}
 			logger.info('WorldLoader', `World loaded: ${String(traitResult.items.length)} traits, ${String(spawnResult.agents.length)} agents, ${String(locationResult.items.length)} locations, ${String(regionResult.items.length)} regions, ${String(btResult.items.length)} BTs`);
 
+			// Startup consistency validation
+			const btDefs = buildBTMap(btResult.items);
+			const validationWarnings = validateWorldConsistency({
+				agents: spawnResult.agents.map(a => ({
+					id: a.agentId,
+					name: a.agentName,
+					job: a.job,
+					inventory: a.get(InventoryComponent).state.items,
+					behaviorTree: a.behaviorTree,
+				})),
+				locations: locationResult.items.map(loc => ({
+					id: loc.id,
+					type: loc.type,
+					production: loc.production !== null
+						? {
+							job: loc.production.job,
+							output: { item_id: loc.production.output.item_id },
+							input: loc.production.input !== null ? { item_id: loc.production.input.item_id } : null,
+						}
+						: null,
+				})),
+				btDefinitions: btDefs,
+				knownFoodItems: FOOD_ITEMS,
+				knownActions: KNOWN_ACTIONS,
+			});
+			for (const warning of validationWarnings) {
+				logger.warn('WorldValidation', warning.message);
+			}
+
 			return {
 				agents: spawnResult.agents,
 				traitDefs: buildTraitMap(traitResult.items),
 				locations: locationResult.items,
 				regions: regionResult.items,
 				regionGraph,
-				btDefinitions: buildBTMap(btResult.items),
+				btDefinitions: btDefs,
 				errors,
 			};
 		},

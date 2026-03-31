@@ -12,7 +12,8 @@
 	"skills": [],
 	"inventory": [
 		{ "item_id": "leather-scraps", "quantity": 5 },
-		{ "item_id": "dye-red", "quantity": 2 }
+		{ "item_id": "dye-red", "quantity": 2 },
+		{ "item_id": "bread", "quantity": 3 }
 	],
 	"equipment": { "head": null, "body": "work-apron", "hands": "crafting-gloves", "tool": "awl-set", "accessory": null },
 	"persona": "personas/sable.md",

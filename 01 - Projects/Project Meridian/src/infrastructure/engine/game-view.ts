@@ -22,6 +22,9 @@ import { createFeedSystem } from '../systems/feed-system.js';
 import { createSocializeSystem } from '../systems/socialize-system.js';
 import { createFacilitySystem } from '../systems/facility-system.js';
 import { createTradeSystem } from '../systems/trade-system.js';
+import { createDialogueSystem } from '../systems/dialogue-system.js';
+import { createGossipSystem } from '../systems/gossip-system.js';
+import { createRelationshipCheckpointSystem } from '../systems/relationship-checkpoint-system.js';
 import { TimeComponent } from '../components/time-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
@@ -126,8 +129,10 @@ export class MeridianGameView extends ItemView {
 			engine.currentScene.add(marker);
 
 			if (loc.production !== null) {
+				// Bootstrap economy: seed each facility with 5 units of its output
+				const startingStock = [{ item_id: loc.production.output.item_id, quantity: 5 }];
 				marker.addComponent(new FacilityComponent({
-					stock: [],
+					stock: startingStock,
 					fund: deps.config.economy.facility_start_fund,
 					workProgress: 0,
 					status: 'idle',
@@ -168,6 +173,9 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createSocializeSystem(getAgents));
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity));
 		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity));
+		tickRunner.register(createDialogueSystem(getAgents, Date.now()));
+		tickRunner.register(createGossipSystem(getAgents, getLocations));
+		tickRunner.register(createRelationshipCheckpointSystem(getAgents));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.btDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
 	}

@@ -30,7 +30,8 @@
 	"goals": [],
 	"skills": [],
 	"inventory": [
-		{ "item_id": "torch", "quantity": 1 }
+		{ "item_id": "torch", "quantity": 1 },
+		{ "item_id": "bread", "quantity": 3 }
 	],
 	"equipment": { "head": "iron-helm", "body": "chain-mail", "hands": "leather-gloves", "tool": "iron-spear", "accessory": null },
 	"persona": "personas/marcus.md",

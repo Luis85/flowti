@@ -251,6 +251,13 @@ export function createMovementSystem(
 							atLocation: rawTarget.id,
 							arrivalSlot: slotIndex,
 						};
+
+						// Track known locations for gossip
+						const knownLocations = (bb.state.knownLocations as string[] | undefined) ?? [];
+						if (!knownLocations.includes(rawTarget.id)) {
+							bb.state = { ...bb.state, knownLocations: [...knownLocations, rawTarget.id] };
+						}
+
 						bb.markDirty();
 
 						deps.eventBus.emit({

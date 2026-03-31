@@ -212,7 +212,14 @@ function applyWorkerRelationship(worker: AgentActor, locationId: string): void {
 		dispositionChange: 0.5,
 		familiarityChange: 1,
 	});
-	const newEntry = { agentId: locationId, disposition: relResult.newDisposition, familiarity: relResult.newFamiliarity };
+	const existingTags = facilityRelEntry?.tags ?? [];
+	const newEntry = {
+		agentId: locationId,
+		disposition: relResult.newDisposition,
+		familiarity: relResult.newFamiliarity,
+		tags: existingTags.includes('worked_with') ? [...existingTags] : [...existingTags, 'worked_with'],
+		lastInteractionTick: 0,
+	};
 	const updatedEntries = facilityRelEntry !== undefined
 		? workerRelComp.state.entries.map(e => e.agentId === locationId ? newEntry : { ...e })
 		: [...workerRelComp.state.entries.map(e => ({ ...e })), newEntry];

@@ -146,7 +146,14 @@ function applyBuyerRelationship(agent: AgentActor, facilityState: FacilityState)
 		dispositionChange: 0,
 		familiarityChange: 0.5,
 	});
-	const newEntry = { agentId: workerId, disposition: relResult.newDisposition, familiarity: relResult.newFamiliarity };
+	const existingTags = existingRel?.tags ?? [];
+	const newEntry = {
+		agentId: workerId,
+		disposition: relResult.newDisposition,
+		familiarity: relResult.newFamiliarity,
+		tags: existingTags.includes('traded_with') ? [...existingTags] : [...existingTags, 'traded_with'],
+		lastInteractionTick: 0,
+	};
 	const updatedEntries = existingRel !== undefined
 		? agentRelComp.state.entries.map(e => e.agentId === workerId ? newEntry : { ...e })
 		: [...agentRelComp.state.entries.map(e => ({ ...e })), newEntry];

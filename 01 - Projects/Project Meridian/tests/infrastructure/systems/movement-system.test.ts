@@ -220,6 +220,35 @@ describe('MovementSystem', () => {
 		expect(agent.vel.y).toBe(0);
 	});
 
+	it('populates knownLocations on first arrival at a location', () => {
+		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, movementTarget: { id: 'loc-food-1', type: 'location' } };
+
+		const locations = [createTestLocation('loc-food-1', 1, 0)];
+		const system = createMovementSystem(() => [agent], () => locations);
+
+		system.execute(createDeps());
+
+		const knownLocations = bb.state.knownLocations as string[] | undefined;
+		expect(knownLocations).toBeDefined();
+		expect(knownLocations).toContain('loc-food-1');
+	});
+
+	it('does not duplicate knownLocations on repeat arrival', () => {
+		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0), defaultMoodConfig);
+		const bb = agent.get(BlackboardComponent);
+		bb.state = { ...bb.state, knownLocations: ['loc-food-1'], movementTarget: { id: 'loc-food-1', type: 'location' } };
+
+		const locations = [createTestLocation('loc-food-1', 1, 0)];
+		const system = createMovementSystem(() => [agent], () => locations);
+
+		system.execute(createDeps());
+
+		const knownLocations = bb.state.knownLocations as string[];
+		expect(knownLocations.filter(l => l === 'loc-food-1')).toHaveLength(1);
+	});
+
 	it('emits AgentExhausted when energy crosses 0', () => {
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];

@@ -22,6 +22,7 @@ export class AgentActor extends Actor {
 	readonly behaviorTree: string;
 	readonly property: string[];
 	readonly job: string | null;
+	readonly agentColor: string;
 
 	constructor(agent: Agent, moodConfig: MoodConfig, memoryMaxEntries = 50) {
 		super({ x: agent.position.x, y: agent.position.y });
@@ -32,6 +33,7 @@ export class AgentActor extends Actor {
 		this.behaviorTree = agent.behavior_tree;
 		this.property = [...agent.property];
 		this.job = agent.job ?? null;
+		this.agentColor = agent.color;
 
 		this.addComponent(new NeedsComponent({ ...agent.needs }));
 

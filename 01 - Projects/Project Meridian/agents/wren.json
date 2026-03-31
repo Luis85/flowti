@@ -22,7 +22,8 @@
 	"skills": [],
 	"inventory": [
 		{ "item_id": "quill-pen", "quantity": 1 },
-		{ "item_id": "star-chart", "quantity": 1 }
+		{ "item_id": "star-chart", "quantity": 1 },
+		{ "item_id": "bread", "quantity": 3 }
 	],
 	"equipment": { "head": null, "body": "wool-robe", "hands": null, "tool": "magnifying-lens", "accessory": "reading-glasses" },
 	"persona": "personas/wren.md",
@@ -34,6 +35,6 @@
 	"relationships": "03 - Resources/Graphs/wren-relationships.canvas",
 	"tools": [],
 	"behavior_tree": "bt-scholar",
-	"job": "baker",
+	"job": null,
 	"property": []
 }

@@ -112,6 +112,9 @@ const DayNightConfigSchema = z.object({
 const GossipConfigSchema = z.object({
 	reliability_tiers: z.array(z.number()).default([1.0, 0.7, 0.5, 0.3]),
 	iq_filter_threshold: z.number().default(12),
+	familiarity_threshold: z.number().default(3),
+	max_items_per_exchange: z.number().int().default(2),
+	min_reliability: z.number().default(0.3),
 });
 
 const StatusConfigSchema = z.object({
