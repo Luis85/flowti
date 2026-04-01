@@ -122,3 +122,10 @@ export interface StaminaState {
 	current: number;
 	max: number;
 }
+
+export interface CargoState {
+	itemId: string;
+	quantity: number;
+	source: string;
+	destination: string;
+}
