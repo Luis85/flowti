@@ -126,4 +126,32 @@ describe('TraitResolverSystem', () => {
 		const modifiers = agent.behaviorAgent.traitModifiers as Record<string, unknown> | null;
 		expect(Object.keys(modifiers ?? {})).toHaveLength(0);
 	});
+
+	it('first tick computes trait modifiers', () => {
+		const agent = new AgentActor(createTestAgent(['hardy']), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		const system = createTraitResolverSystem(() => [agent], traitDefs);
+
+		system.execute(createDeps());
+
+		const modifiers = agent.behaviorAgent.traitModifiers as Record<string, Record<string, unknown>> | null;
+		expect(modifiers).not.toBeNull();
+		expect(modifiers?.['NeedsDecaySystem']).toEqual({ hungerDecayScale: 0.8 });
+	});
+
+	it('second tick skips re-computation', () => {
+		const agent = new AgentActor(createTestAgent(['hardy']), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		const system = createTraitResolverSystem(() => [agent], traitDefs);
+
+		system.execute(createDeps());
+
+		// Reset modifiers to detect if system re-computes
+		agent.behaviorAgent.traitModifiers = null;
+
+		system.execute(createDeps());
+
+		// Should still be null because second tick is skipped
+		expect(agent.behaviorAgent.traitModifiers).toBeNull();
+	});
 });

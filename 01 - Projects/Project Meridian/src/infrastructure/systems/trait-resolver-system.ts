@@ -8,11 +8,14 @@ export function createTraitResolverSystem(
 	entities: () => AgentActor[],
 	traitDefinitions: Record<string, TraitDefinition>,
 ): GameSystem {
+	let computed = false;
+
 	return {
 		name: 'TraitResolverSystem',
 		priority: SystemPriority.TRAIT_RESOLVER,
 
 		execute(deps: GameCoreDeps): void {
+			if (computed) return;
 			for (const entity of entities()) {
 				const traits = entity.get(TraitsComponent);
 				const ba = entity.behaviorAgent;
@@ -25,6 +28,7 @@ export function createTraitResolverSystem(
 					ba.traitModifiers = {};
 				}
 			}
+			computed = true;
 		},
 	};
 }
