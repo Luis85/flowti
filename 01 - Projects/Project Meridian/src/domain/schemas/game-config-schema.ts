@@ -27,7 +27,7 @@ const MemoryConfigSchema = z.object({
 });
 
 const EconomyConfigSchema = z.object({
-	tax_rate: z.number().min(0).max(1).default(0.05),
+	tax_base_rate: z.number().min(0).max(1).default(0.10),
 	price_clamp_min: z.number().default(0.5),
 	price_clamp_max: z.number().default(3.0),
 	recalculation_interval_ticks: z.number().int().default(10),
@@ -35,14 +35,18 @@ const EconomyConfigSchema = z.object({
 	welfare_reward_min: z.number().default(15),
 	welfare_reward_max: z.number().default(25),
 	max_active_welfare_quests: z.number().int().default(3),
-	treasury_start_sandbox: z.number().default(500),
-	treasury_regen_per_day: z.number().default(1),
+	treasury_start_sandbox: z.number().default(1000),
+	treasury_regen_per_day: z.number().default(50),
 	circulation_floor_per_agent: z.number().default(50),
 	loan_interest_per_day: z.number().default(0.01),
-	food_price: z.number().default(2),
+	food_price: z.number().default(3),
 	rest_price: z.number().default(1),
 	facility_start_fund: z.number().default(200),
 	ledger_retention_days: z.number().int().default(7),
+	guard_stipend: z.number().default(2),
+	merchant_stipend: z.number().default(8),
+	facility_subsidy_threshold: z.number().default(100),
+	facility_subsidy_per_day: z.number().default(30),
 });
 
 const MoodFactorWeightsSchema = z.object({

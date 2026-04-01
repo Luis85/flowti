@@ -251,7 +251,7 @@ function processFacilityTick(
 		ticksPerCycle: production.ticks_per_cycle,
 		hasRequiredInput: checkRequiredInput(facility, production),
 		wage: production.wage,
-		taxRate: deps.config.economy.tax_rate,
+		taxRate: deps.config.economy.tax_base_rate,
 		facilityFund: facility.state.fund,
 		workerGold: worker !== undefined ? worker.get(WalletComponent).state.gold : 0,
 	});

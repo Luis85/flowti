@@ -120,9 +120,9 @@ describe('TradeSystem', () => {
 		);
 		system.execute(createDeps(eventBus));
 
-		// Agent wallet: 50 - 2 (food_price default) = 48
+		// Agent wallet: 50 - 3 (food_price default) = 47
 		const wallet = agent.get(WalletComponent);
-		expect(wallet.state.gold).toBe(48);
+		expect(wallet.state.gold).toBe(47);
 
 		// Agent inventory: bread added
 		const inv = agent.get(InventoryComponent);
@@ -132,8 +132,8 @@ describe('TradeSystem', () => {
 		const facility = bakeryActor.get(FacilityComponent);
 		expect(facility.state.stock).toContainEqual({ item_id: 'bread', quantity: 4 });
 
-		// Facility fund increased: 100 + 2 = 102
-		expect(facility.state.fund).toBe(102);
+		// Facility fund increased: 100 + 3 = 103
+		expect(facility.state.fund).toBe(103);
 
 		// PurchaseComplete emitted
 		expect(events.length).toBe(1);

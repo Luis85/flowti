@@ -12,7 +12,7 @@ describe('GameConfigSchema', () => {
 			expect(result.data.mortality).toBe(true);
 			expect(result.data.locale).toBe('en');
 			expect(result.data.needs.hunger_decay).toBe(0.15);
-			expect(result.data.economy.tax_rate).toBe(0.05);
+			expect(result.data.economy.tax_base_rate).toBe(0.10);
 		}
 	});
 

@@ -128,7 +128,7 @@ describe('Shipped Data Validation', () => {
 	describe('Phase 2E economy config additions', () => {
 		it('parses with food_price default', () => {
 			const config = GameConfigSchema.parse({});
-			expect(config.economy.food_price).toBe(2);
+			expect(config.economy.food_price).toBe(3);
 		});
 
 		it('parses with rest_price default', () => {
@@ -148,7 +148,7 @@ describe('Shipped Data Validation', () => {
 
 		it('retains existing economy fields', () => {
 			const config = GameConfigSchema.parse({});
-			expect(config.economy.tax_rate).toBe(0.05);
+			expect(config.economy.tax_base_rate).toBe(0.10);
 			expect(config.economy.welfare_threshold_gold).toBe(10);
 			expect(config.economy.welfare_reward_min).toBe(15);
 		});

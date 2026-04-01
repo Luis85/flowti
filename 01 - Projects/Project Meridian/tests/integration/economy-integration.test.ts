@@ -108,7 +108,7 @@ describe('Economy integration', () => {
 		tradeSys.execute(deps);
 
 		const buyerWallet = buyer.get(WalletComponent);
-		expect(buyerWallet.state.gold).toBe(48);
+		expect(buyerWallet.state.gold).toBe(47);
 
 		const buyerInv = buyer.get(InventoryComponent);
 		expect(buyerInv.state.items).toContainEqual({ item_id: 'bread', quantity: 1 });

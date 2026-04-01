@@ -178,13 +178,13 @@ describe('FacilitySystem', () => {
 		// Fund decreased by wage (5)
 		expect(facility.state.fund).toBe(195);
 
-		// Worker paid: wage=5, tax_rate=0.05, tax=0.25, net=4.75
+		// Worker paid: wage=5, tax_base_rate=0.10, tax=0.50, net=4.50
 		const wallet = agent.get(WalletComponent);
-		expect(wallet.state.gold).toBeCloseTo(54.75);
+		expect(wallet.state.gold).toBeCloseTo(54.50);
 
 		// Treasury got tax
 		const economy = world.get(EconomyComponent);
-		expect(economy.state.treasury).toBeCloseTo(500.25);
+		expect(economy.state.treasury).toBeCloseTo(500.50);
 
 		// ProductionComplete emitted
 		expect(events.length).toBe(1);
