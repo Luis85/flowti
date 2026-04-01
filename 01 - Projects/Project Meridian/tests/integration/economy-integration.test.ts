@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
-import { BlackboardComponent } from '../../src/infrastructure/components/blackboard-component.js';
 import { WalletComponent } from '../../src/infrastructure/components/wallet-component.js';
 import { InventoryComponent } from '../../src/infrastructure/components/inventory-component.js';
 import { FacilityComponent } from '../../src/infrastructure/components/facility-component.js';
@@ -12,6 +11,7 @@ import { createEventBus } from '../../src/infrastructure/event-bus.js';
 import { createFacilitySystem } from '../../src/infrastructure/systems/facility-system.js';
 import { createTradeSystem } from '../../src/infrastructure/systems/trade-system.js';
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
+import { attachBehaviorStubs } from './test-behavior-stub.js';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
 import { Actor } from 'excalibur';
@@ -64,8 +64,11 @@ describe('Economy integration', () => {
 		const locations = [farmLoc, bakeryLoc];
 
 		const farmer = new AgentActor(createTestAgentData('agent-farmer', 100, 100, { job: 'farmer' }), defaultMoodConfig);
+		attachBehaviorStubs(farmer, { btAction: 'work' });
 		const baker = new AgentActor(createTestAgentData('agent-baker', 100, 100, { job: 'baker' }), defaultMoodConfig);
+		attachBehaviorStubs(baker, { btAction: 'work' });
 		const buyer = new AgentActor(createTestAgentData('agent-buyer', 100, 100, { inventory: [] }), defaultMoodConfig);
+		attachBehaviorStubs(buyer);
 
 		const farmActor = new Actor({ x: 100, y: 100 });
 		farmActor.addComponent(new FacilityComponent({ stock: [], fund: 200, workProgress: 1, status: 'producing', workerId: null }));
@@ -79,13 +82,6 @@ describe('Economy integration', () => {
 		const allAgents = [farmer, baker, buyer];
 
 		// Phase 1: Workers work (tick to complete cycle)
-		const farmerBb = farmer.get(BlackboardComponent);
-		farmerBb.state = { ...farmerBb.state, btAction: 'work' };
-		farmerBb.markDirty();
-		const bakerBb = baker.get(BlackboardComponent);
-		bakerBb.state = { ...bakerBb.state, btAction: 'work' };
-		bakerBb.markDirty();
-
 		const deps = createDeps();
 		const facilitySys = createFacilitySystem(() => allAgents, () => locations, () => locationActors, () => worldEntity);
 		facilitySys.execute(deps);
@@ -100,9 +96,7 @@ describe('Economy integration', () => {
 		expect(bread?.quantity).toBe(1);
 
 		// Phase 2: Buyer buys bread from bakery
-		const buyerBb = buyer.get(BlackboardComponent);
-		buyerBb.state = { ...buyerBb.state, btAction: 'buy' };
-		buyerBb.markDirty();
+		buyer.behaviorAgent.btAction = 'buy';
 
 		const tradeSys = createTradeSystem(() => allAgents, () => locations, () => locationActors, () => worldEntity);
 		tradeSys.execute(deps);
@@ -114,8 +108,7 @@ describe('Economy integration', () => {
 		expect(buyerInv.state.items).toContainEqual({ item_id: 'bread', quantity: 1 });
 
 		// Phase 3: Buyer eats bread
-		buyerBb.state = { ...buyerBb.state, btAction: 'eat' };
-		buyerBb.markDirty();
+		buyer.behaviorAgent.btAction = 'eat';
 
 		const feedSys = createFeedSystem(() => allAgents, () => worldEntity);
 		feedSys.execute(deps);

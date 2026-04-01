@@ -4,18 +4,17 @@ import { createEventBus } from '../../src/infrastructure/event-bus.js';
 import { createPerformanceTracker } from '../../src/infrastructure/performance/performance-tracker.js';
 import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
 import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
-import { BlackboardComponent } from '../../src/infrastructure/components/blackboard-component.js';
 import { MoodComponent } from '../../src/infrastructure/components/mood-component.js';
 import { MemoryComponent } from '../../src/infrastructure/components/memory-component.js';
 import { RelationshipComponent } from '../../src/infrastructure/components/relationship-component.js';
 import { PerceptionComponent } from '../../src/infrastructure/components/perception-component.js';
-import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
 import { TimeComponent } from '../../src/infrastructure/components/time-component.js';
 import { EconomyComponent } from '../../src/infrastructure/components/economy-component.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { createDialogueSystem } from '../../src/infrastructure/systems/dialogue-system.js';
 import { createGossipSystem } from '../../src/infrastructure/systems/gossip-system.js';
 import { createRelationshipCheckpointSystem } from '../../src/infrastructure/systems/relationship-checkpoint-system.js';
+import { attachBehaviorStubs } from './test-behavior-stub.js';
 import { Actor } from 'excalibur';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
@@ -77,16 +76,9 @@ describe('Social Pipeline Integration', () => {
 		const marcusData = createTestAgent('agent-marcus', 'Marcus', 'guard', 100, 100);
 
 		const elena = new AgentActor(elenaData, defaultMoodConfig);
+		attachBehaviorStubs(elena, { btAction: 'talk', knownLocations: ['loc-bakery'] });
 		const marcus = new AgentActor(marcusData, defaultMoodConfig);
-
-		// Set btAction='talk' on both agents
-		const elenaBb = elena.get(BlackboardComponent);
-		elenaBb.state = { ...elenaBb.state, btAction: 'talk', knownLocations: ['loc-bakery'] };
-		elenaBb.markDirty();
-
-		const marcusBb = marcus.get(BlackboardComponent);
-		marcusBb.state = { ...marcusBb.state, btAction: 'talk' };
-		marcusBb.markDirty();
+		attachBehaviorStubs(marcus, { btAction: 'talk' });
 
 		// Set perception: each agent sees the other at distance 5
 		const elenaPerception = elena.get(PerceptionComponent);
@@ -195,10 +187,8 @@ describe('Social Pipeline Integration', () => {
 		expect(marcusToElena!.tags).toContain('talked_with');
 
 		// Assert: gossipPending cleared on both agents
-		const elenaBbAfter = elena.get(BlackboardComponent);
-		const marcusBbAfter = marcus.get(BlackboardComponent);
-		expect(elenaBbAfter.state.gossipPending).toBeUndefined();
-		expect(marcusBbAfter.state.gossipPending).toBeUndefined();
+		expect(elena.behaviorAgent.gossipPending).toBeNull();
+		expect(marcus.behaviorAgent.gossipPending).toBeNull();
 	});
 
 	it('checkpoint writes canvas after interval', () => {
@@ -208,7 +198,9 @@ describe('Social Pipeline Integration', () => {
 		const marcusData = createTestAgent('agent-marcus', 'Marcus', 'guard', 100, 100);
 
 		const elena = new AgentActor(elenaData, defaultMoodConfig);
+		attachBehaviorStubs(elena);
 		const marcus = new AgentActor(marcusData, defaultMoodConfig);
+		attachBehaviorStubs(marcus);
 
 		// Give them a relationship for the canvas to serialize
 		const elenaRel = elena.get(RelationshipComponent);

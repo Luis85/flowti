@@ -2,16 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BehaviourTree } from 'mistreevous';
 import { AgentSchema } from '../../src/domain/schemas/agent-schema.js';
 import { LocationSchema } from '../../src/domain/schemas/location-schema.js';
-import { BehaviorTreeSchema } from '../../src/domain/schemas/behavior-tree-schema.js';
 import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
 import { createTickRunner } from '../../src/infrastructure/engine/tick-runner.js';
 import { createEventBus } from '../../src/infrastructure/event-bus.js';
 import { createPerformanceTracker } from '../../src/infrastructure/performance/performance-tracker.js';
 import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
 import { TimeComponent } from '../../src/infrastructure/components/time-component.js';
-import { BlackboardComponent } from '../../src/infrastructure/components/blackboard-component.js';
+import { EconomyComponent } from '../../src/infrastructure/components/economy-component.js';
+import { FacilityComponent } from '../../src/infrastructure/components/facility-component.js';
+import { createBehaviorAgent } from '../../src/infrastructure/entity/behavior-agent-factory.js';
 import { createTraitResolverSystem } from '../../src/infrastructure/systems/trait-resolver-system.js';
 import { createNeedsDecaySystem } from '../../src/infrastructure/systems/needs-decay-system.js';
 import { createMoodSystem } from '../../src/infrastructure/systems/mood-system.js';
@@ -24,10 +26,9 @@ import { createRestSystem } from '../../src/infrastructure/systems/rest-system.j
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
-import { EconomyComponent } from '../../src/infrastructure/components/economy-component.js';
+import { createGameRNG, hashString } from '../../src/domain/core/game-rng.js';
 import { Actor } from 'excalibur';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
-import type { BTNode } from '../../src/domain/schemas/behavior-tree-schema.js';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +43,20 @@ function loadAndParse<T>(dir: string, schema: { parse(data: unknown): T }): T[] 
 	} catch {
 		return [];
 	}
+}
+
+function loadMdslDefinitions(): Record<string, string> {
+	const btDir = resolve(projectRoot, 'behavior-trees');
+	const baseContent = readFileSync(resolve(btDir, 'base.mdsl'), 'utf-8');
+	const result: Record<string, string> = {};
+
+	for (const file of readdirSync(btDir)) {
+		if (!file.startsWith('branch-') || !file.endsWith('.mdsl')) continue;
+		const kind = file.replace('branch-', '').replace('.mdsl', '');
+		const branchContent = readFileSync(resolve(btDir, file), 'utf-8');
+		result[kind] = baseContent + '\n\n' + branchContent;
+	}
+	return result;
 }
 
 const defaultMoodConfig = {
@@ -59,18 +74,17 @@ const defaultMoodConfig = {
 describe('Smoke Test — Real Data', () => {
 	const agentData = loadAndParse('agents', AgentSchema);
 	const locations: WorldLocation[] = loadAndParse('locations', LocationSchema);
-	const bts = loadAndParse('behavior-trees', BehaviorTreeSchema);
+	const mdslDefs = loadMdslDefinitions();
 
 	it('loads all shipped data successfully', () => {
 		expect(agentData.length).toBeGreaterThanOrEqual(4);
 		expect(locations.length).toBeGreaterThanOrEqual(4);
-		expect(bts.length).toBeGreaterThanOrEqual(4);
+		expect(Object.keys(mdslDefs).length).toBeGreaterThanOrEqual(4);
 	});
 
-	it('every agent has a matching BT definition', () => {
-		const btIds = new Set(bts.map(bt => bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id));
+	it('every agent has a matching MDSL BT definition', () => {
 		for (const agent of agentData) {
-			expect(btIds.has(agent.kind), `No BT found for agent kind "${agent.kind}"`).toBe(true);
+			expect(mdslDefs[agent.kind], `No MDSL BT found for agent kind "${agent.kind}"`).toBeDefined();
 		}
 	});
 
@@ -78,7 +92,7 @@ describe('Smoke Test — Real Data', () => {
 		const eventBus = createEventBus();
 		const config = GameConfigSchema.parse({});
 
-		// Create actors — override needs to be LOW so BTs trigger
+		// Create actors — override needs to be LOW so BTs trigger survival behavior
 		const actors = agentData.map(a => {
 			const lowNeeds = { ...a, needs: { hunger: 20, energy: 10, social: 15 } };
 			const actor = new AgentActor(lowNeeds, defaultMoodConfig);
@@ -87,17 +101,52 @@ describe('Smoke Test — Real Data', () => {
 
 		const worldEntity = new Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+		worldEntity.addComponent(new EconomyComponent({
+			treasury: 500, ledger: [],
+			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+		}));
 
-		// Build BT map
-		const btDefs: Record<string, BTNode> = {};
-		for (const bt of bts) {
-			const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
-			btDefs[key] = bt.root;
+		// Create location actors with FacilityComponent for production locations
+		const locationActors = new Map<string, Actor>();
+		for (const loc of locations) {
+			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
+			if (loc.production !== null) {
+				marker.addComponent(new FacilityComponent({
+					stock: [{ item_id: loc.production.output.item_id, quantity: 5 }],
+					fund: 200, workProgress: 0, status: 'idle', workerId: null,
+				}));
+			}
+			locationActors.set(loc.id, marker);
 		}
 
 		const getAgents = () => actors;
 		const getLocations = () => locations;
 		const getWorld = () => worldEntity;
+		const getLocationActors = () => locationActors;
+
+		// Wire up BehaviorAgent + BehaviourTree for each actor
+		for (const actor of actors) {
+			const mdsl = mdslDefs[actor.kind];
+			if (mdsl === undefined) continue;
+
+			const behaviorAgent = createBehaviorAgent({
+				actor,
+				worldEntity: getWorld,
+				config,
+				getLocationActors,
+				getLocations,
+				tickCount: () => 60,
+			});
+
+			const rng = createGameRNG(hashString(actor.agentId));
+			const tree = new BehaviourTree(mdsl, behaviorAgent, {
+				random: () => rng.next(),
+				getDeltaTime: () => config.tick_interval_ms / 1000,
+			});
+
+			actor.behaviorAgent = behaviorAgent;
+			actor.behaviorTree = tree;
+		}
 
 		const runner = createTickRunner(eventBus);
 		runner.register(createTraitResolverSystem(getAgents, {}));
@@ -106,7 +155,7 @@ describe('Smoke Test — Real Data', () => {
 		runner.register(createMoodSystem(getAgents));
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
-		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
+		runner.register(createBehaviorTreeSystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
 
 		const deps: GameCoreDeps = {
@@ -121,7 +170,7 @@ describe('Smoke Test — Real Data', () => {
 		runner.tick(deps);
 
 		// At least some agents should have selected an action other than idle
-		const actions = actors.map(a => a.get(BlackboardComponent).state.btAction as string);
+		const actions = actors.map(a => a.behaviorAgent.btAction);
 		const nonIdle = actions.filter(a => a !== 'idle' && a !== null && a !== undefined);
 		expect(nonIdle.length, `All agents are idle despite low needs. Actions: ${JSON.stringify(actions)}`).toBeGreaterThan(0);
 	});
@@ -153,19 +202,51 @@ describe('Smoke Test — Real Data', () => {
 		const worldEntity = new Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
 		worldEntity.addComponent(new EconomyComponent({
-			treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+			treasury: 500, ledger: [],
+			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
 		}));
 
-		// Build BT map
-		const btDefs: Record<string, BTNode> = {};
-		for (const bt of bts) {
-			const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
-			btDefs[key] = bt.root;
+		// Create location actors
+		const locationActors = new Map<string, Actor>();
+		for (const loc of locations) {
+			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
+			if (loc.production !== null) {
+				marker.addComponent(new FacilityComponent({
+					stock: [{ item_id: loc.production.output.item_id, quantity: 5 }],
+					fund: 200, workProgress: 0, status: 'idle', workerId: null,
+				}));
+			}
+			locationActors.set(loc.id, marker);
 		}
 
 		const getAgents = () => actors;
 		const getLocations = () => locations;
 		const getWorld = () => worldEntity;
+		const getLocationActors = () => locationActors;
+
+		// Wire up BehaviorAgent + BehaviourTree for each actor
+		for (const actor of actors) {
+			const mdsl = mdslDefs[actor.kind];
+			if (mdsl === undefined) continue;
+
+			const behaviorAgent = createBehaviorAgent({
+				actor,
+				worldEntity: getWorld,
+				config,
+				getLocationActors,
+				getLocations,
+				tickCount: () => 60,
+			});
+
+			const rng = createGameRNG(hashString(actor.agentId));
+			const tree = new BehaviourTree(mdsl, behaviorAgent, {
+				random: () => rng.next(),
+				getDeltaTime: () => config.tick_interval_ms / 1000,
+			});
+
+			actor.behaviorAgent = behaviorAgent;
+			actor.behaviorTree = tree;
+		}
 
 		const runner = createTickRunner(eventBus);
 		runner.register(createTraitResolverSystem(getAgents, {}));
@@ -174,9 +255,9 @@ describe('Smoke Test — Real Data', () => {
 		runner.register(createMoodSystem(getAgents));
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
-		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
+		runner.register(createBehaviorTreeSystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations, getWorld));
+		runner.register(createRestSystem(getAgents, getLocations, getWorld, getLocationActors));
 		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 

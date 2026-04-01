@@ -299,11 +299,12 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return agent.nearbyFacilities.some(f => f.hasUnmetInput);
 		},
 
-		// ── 16 Action methods (stubs for C1, implemented in C2/C3) ─────────
+		// ── 16 Action methods ──────────────────────────────────────────────
 		Eat(): ActionResult {
-			// C2: Eat implementation
 			const food = findFoodInInventory(agent.inventory);
 			if (food === null) return FAILED;
+
+			btAction = 'eat';
 
 			const result = applyFeed(
 				{ currentHunger: agent.hunger },
@@ -322,7 +323,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		Rest(): ActionResult {
-			// C2: Rest implementation
+			btAction = 'rest';
 			const restTier = atLocation !== null ? 'public_shelter' as const : 'outdoors' as const;
 			const result = applyRest(
 				{ currentEnergy: agent.energy, restTier },
@@ -337,10 +338,10 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		SeekFood(): ActionResult {
-			// C2: SeekFood implementation
 			const foodLocs = agent.nearbyLocations.filter(l => l.type === 'food');
 			if (foodLocs.length === 0) return FAILED;
 
+			btAction = 'seek_food';
 			const nearest = foodLocs.reduce((a, b) => a.distance < b.distance ? a : b);
 			movementTarget = { id: nearest.id, type: 'location' };
 
@@ -349,10 +350,10 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		SeekRest(): ActionResult {
-			// C2: SeekRest implementation
 			const restLocs = agent.nearbyLocations.filter(l => l.type === 'rest');
 			if (restLocs.length === 0) return FAILED;
 
+			btAction = 'seek_rest';
 			const nearest = restLocs.reduce((a, b) => a.distance < b.distance ? a : b);
 			movementTarget = { id: nearest.id, type: 'location' };
 
@@ -361,7 +362,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		Buy(): ActionResult {
-			// C2: Buy implementation
+			btAction = 'buy';
 			const facilitiesWithFood = agent.nearbyFacilities.filter(
 				f => f.stock.some(s => s.item_id === 'bread' && s.quantity > 0),
 			);
@@ -434,16 +435,19 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		Idle(): ActionResult {
+			btAction = 'idle';
 			return RUNNING;
 		},
 
 		Wander(): ActionResult {
+			btAction = 'wander';
 			return RUNNING;
 		},
 
 		// ── C3: Work + merchant actions ────────────────────────────────────
 		Work(): ActionResult {
 			if (atLocation === null || agent.job === null) return FAILED;
+			btAction = 'work';
 			const facilities = agent.nearbyFacilities;
 			const jobFacility = facilities.find(f => f.id === atLocation && f.job === agent.job);
 			if (jobFacility === undefined) return FAILED;
@@ -455,6 +459,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 				a => a.distance < config.perception.interaction_radius,
 			);
 			if (closeAgents.length === 0) return FAILED;
+			btAction = 'talk';
 			return RUNNING;
 		},
 
@@ -466,6 +471,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			);
 			if (jobLoc === undefined) return FAILED;
 
+			btAction = 'seek_work';
 			movementTarget = { id: jobLoc.id, type: 'location' };
 			if (atLocation === jobLoc.id) return SUCCEEDED;
 			return RUNNING;
@@ -475,6 +481,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			const nearby = agent.nearbyAgents;
 			if (nearby.length === 0) return FAILED;
 
+			btAction = 'seek_social';
 			const nearest = nearby.reduce((a, b) => a.distance < b.distance ? a : b);
 			movementTarget = { id: nearest.id, type: 'agent' };
 
@@ -486,6 +493,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			const marketLocs = agent.nearbyLocations.filter(l => l.type === 'market');
 			if (marketLocs.length === 0) return FAILED;
 
+			btAction = 'seek_market';
 			const nearest = marketLocs.reduce((a, b) => a.distance < b.distance ? a : b);
 			movementTarget = { id: nearest.id, type: 'location' };
 
@@ -494,6 +502,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		PickupCargo(): ActionResult {
+			btAction = 'pickup_cargo';
 			// Find nearest facility with output stock
 			const facilitiesWithOutput = agent.nearbyFacilities.filter(
 				f => f.stock.some(s => s.quantity > 0),
@@ -538,6 +547,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		DeliverCargo(): ActionResult {
 			if (haulCargo === null) return FAILED;
 			if (atLocation !== haulCargo.destination) return FAILED;
+			btAction = 'deliver_cargo';
 
 			const locActors = getLocationActors();
 			const destActor = locActors.get(haulCargo.destination);
@@ -558,6 +568,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		SeekDeliveryTarget(): ActionResult {
 			if (haulCargo === null) return FAILED;
+			btAction = 'seek_delivery';
 			movementTarget = { id: haulCargo.destination, type: 'location' };
 			if (atLocation === haulCargo.destination) return SUCCEEDED;
 			return RUNNING;
@@ -567,6 +578,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			// Find nearest facility with unmet input
 			const needyFacilities = agent.nearbyFacilities.filter(f => f.hasUnmetInput);
 			if (needyFacilities.length === 0) return FAILED;
+			btAction = 'seek_supply';
 
 			const needy = needyFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
 
