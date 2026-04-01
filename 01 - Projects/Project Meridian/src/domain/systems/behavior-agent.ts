@@ -43,6 +43,9 @@ export type ActionResult =
 	| 'mistreevous.running';
 
 export interface BehaviorAgent {
+	// Index signature required for mistreevous Agent compatibility
+	[key: string]: unknown;
+
 	// Read-only state properties
 	readonly hunger: number;
 	readonly energy: number;

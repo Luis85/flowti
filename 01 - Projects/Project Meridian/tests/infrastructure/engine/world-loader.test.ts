@@ -42,7 +42,7 @@ const validAgent = {
 	relationships: 'graphs/relationships.canvas',
 	tools: [],
 	color: '#b0b0b0',
-	behavior_tree: 'bt/merchant.md',
+	behavior_tree: 'merchant',
 	job: null,
 	property: [],
 };
@@ -61,10 +61,9 @@ const validLocation = {
 	capacity: 5,
 };
 
-const validBT = {
-	id: 'bt-merchant',
-	root: { type: 'selector', children: [{ type: 'action', action: 'idle', params: {} }] },
-};
+// Minimal valid MDSL for testing — a simple root with one action
+const baseMdsl = 'root {\n    action [Idle]\n}\n';
+const branchMdsl = 'root [Role] {\n    action [Wander]\n}\n';
 
 function createMockVault(files: Record<string, string>): VaultReader {
 	return {
@@ -78,12 +77,16 @@ function createMockVault(files: Record<string, string>): VaultReader {
 }
 
 describe('WorldLoader', () => {
-	it('loads all 4 resource types and returns WorldData', async () => {
+	it('loads all resource types including MDSL behavior trees', async () => {
 		const vault = createMockVault({
 			'03 - Resources/Traits/hardy.json': JSON.stringify(validTrait),
 			'03 - Resources/Agents/elena.json': JSON.stringify(validAgent),
 			'03 - Resources/Locations/tavern.json': JSON.stringify(validLocation),
-			'03 - Resources/BehaviorTrees/merchant.json': JSON.stringify(validBT),
+			'03 - Resources/BehaviorTrees/base.mdsl': baseMdsl,
+			'03 - Resources/BehaviorTrees/branch-guard.mdsl': branchMdsl,
+			'03 - Resources/BehaviorTrees/branch-merchant.mdsl': branchMdsl,
+			'03 - Resources/BehaviorTrees/branch-artisan.mdsl': branchMdsl,
+			'03 - Resources/BehaviorTrees/branch-scholar.mdsl': branchMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
@@ -95,7 +98,8 @@ describe('WorldLoader', () => {
 		expect(result.agents[0]?.agentId).toBe('agent-elena');
 		expect(result.locations).toHaveLength(1);
 		expect(result.locations[0]?.id).toBe('loc-tavern');
-		expect(result.btDefinitions['merchant']).toBeDefined();
+		expect(result.btMdslDefinitions['merchant']).toBeDefined();
+		expect(result.btMdslDefinitions['guard']).toBeDefined();
 	});
 
 	it('calls progress callback 5 times with correct step/total/label', async () => {
@@ -120,41 +124,49 @@ describe('WorldLoader', () => {
 			'03 - Resources/Traits/bad-trait.json': '{"invalid": true}',
 			'03 - Resources/Agents/bad-agent.json': '{"invalid": true}',
 			'03 - Resources/Locations/bad-location.json': '{"invalid": true}',
-			'03 - Resources/BehaviorTrees/bad-bt.json': '{"invalid": true}',
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
 		const result = await loader.load(vault);
 
-		expect(result.errors.length).toBeGreaterThanOrEqual(4);
+		expect(result.errors.length).toBeGreaterThanOrEqual(3);
 		const steps = result.errors.map(e => e.step);
 		expect(steps).toContain('traits');
 		expect(steps).toContain('agents');
 		expect(steps).toContain('locations');
-		expect(steps).toContain('behavior-trees');
 	});
 
-	it('returns empty data with no errors for an empty vault', async () => {
+	it('returns empty data with errors for missing MDSL files', async () => {
 		const vault = createMockVault({});
 		const loader = createWorldLoader(logger, loaderConfig);
 		const result = await loader.load(vault);
 
-		expect(result.errors).toHaveLength(0);
+		// MDSL files missing = errors for each of the 4 kinds (base + branch for each)
+		expect(result.errors.length).toBeGreaterThan(0);
 		expect(result.agents).toHaveLength(0);
 		expect(result.traitDefs).toEqual({});
 		expect(result.locations).toHaveLength(0);
-		expect(result.btDefinitions).toEqual({});
+		expect(result.btMdslDefinitions).toEqual({});
 	});
 
-	it('strips bt- prefix from BT map keys', async () => {
+	it('loads MDSL definitions keyed by kind', async () => {
 		const vault = createMockVault({
-			'03 - Resources/BehaviorTrees/merchant.json': JSON.stringify(validBT),
+			'03 - Resources/BehaviorTrees/base.mdsl': baseMdsl,
+			'03 - Resources/BehaviorTrees/branch-merchant.mdsl': branchMdsl,
+			'03 - Resources/BehaviorTrees/branch-guard.mdsl': branchMdsl,
+			'03 - Resources/BehaviorTrees/branch-artisan.mdsl': branchMdsl,
+			'03 - Resources/BehaviorTrees/branch-scholar.mdsl': branchMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
 		const result = await loader.load(vault);
 
-		expect(result.btDefinitions['merchant']).toBeDefined();
-		expect(result.btDefinitions['bt-merchant']).toBeUndefined();
+		expect(result.btMdslDefinitions['merchant']).toBeDefined();
+		expect(result.btMdslDefinitions['guard']).toBeDefined();
+		expect(result.btMdslDefinitions['artisan']).toBeDefined();
+		expect(result.btMdslDefinitions['scholar']).toBeDefined();
+		// Each definition should be the composed base + branch
+		expect(result.btMdslDefinitions['merchant']).toContain('Idle');
+		expect(result.btMdslDefinitions['merchant']).toContain('Wander');
 	});
 });
