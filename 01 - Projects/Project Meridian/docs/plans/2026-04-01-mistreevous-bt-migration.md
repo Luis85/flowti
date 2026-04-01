@@ -49,7 +49,7 @@ cd "01 - Projects/Project Meridian" && npm install --save-dev mistreevous
 - [ ] **Step 2: Verify installation**
 
 ```bash
-cd "01 - Projects/Project Meridian" && node -e "const m = require('mistreevous'); console.log(typeof m.BehaviourTree)"
+cd "01 - Projects/Project Meridian" && node -e "import('mistreevous').then(m => console.log(typeof m.BehaviourTree))"
 ```
 
 Expected: `function`
@@ -253,6 +253,7 @@ git commit -m "fix(meridian): correct agent roles — unique jobs, no BT mismatc
 **Files:**
 - Modify: `locations/bakery.json`
 - Modify: `locations/workshop.json`
+- Modify: `locations/tavern.json`
 
 - [ ] **Step 1: Update bakery.json**
 
@@ -262,13 +263,17 @@ Add `"auto_process": true` and `"auto_ticks_per_cycle": 40` to the production ob
 
 Change `"wage": 5` to `"wage": 3`.
 
-- [ ] **Step 3: Verify data loads correctly**
+- [ ] **Step 3: Update tavern.json**
+
+The tavern needs fund support for rest payments. Since it has no production, it doesn't use `ProductionSchema`. Instead, game-view.ts will add a `FacilityComponent` with `fund: 0` at runtime (Task D6). No JSON change needed here — but verify the tavern location file is valid and has `"type": "rest"`.
+
+- [ ] **Step 4: Verify data loads correctly**
 
 ```bash
 cd "01 - Projects/Project Meridian" && npx vitest run tests/integration/data-validation.test.ts --config configs/vitest.config.ts
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/locations/"
@@ -1010,20 +1015,9 @@ export class AgentActor extends Actor {
 
 The `!` non-null assertion is used because these are set by the spawner after construction (mistreevous needs the actor to exist before creating the agent object).
 
-- [ ] **Step 2: Verify types compile**
+- [ ] **Step 2: Do NOT commit yet**
 
-```bash
-cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json
-```
-
-Expect: compilation errors in files that import BlackboardComponent from agent-actor — these are fixed in subsequent tasks.
-
-- [ ] **Step 3: Commit (WIP — compilation may have errors until D2-D4 complete)**
-
-```bash
-git add "01 - Projects/Project Meridian/src/infrastructure/entity/agent-actor.ts"
-git commit -m "wip(meridian): AgentActor — remove BlackboardComponent, add BehaviorAgent refs"
-```
+This change will cause compilation errors in files that import BlackboardComponent. Tasks D2-D4 fix all consumers. The entire D1-D4 batch is committed atomically at the end of D4.
 
 ---
 
@@ -1070,19 +1064,31 @@ Write operations follow the same pattern — write directly to the BehaviorAgent
 
 ---
 
-### Task D4: Update remaining systems — socialize, dialogue, gossip, perception
+### Task D4: Update ALL remaining systems that use BlackboardComponent
 
 **Files:**
 - Modify: `src/infrastructure/systems/socialize-system.ts`
 - Modify: `src/infrastructure/systems/dialogue-system.ts`
 - Modify: `src/infrastructure/systems/gossip-system.ts`
 - Modify: `src/infrastructure/systems/perception-system.ts`
+- Modify: `src/infrastructure/systems/needs-decay-system.ts` (reads `traitModifiers` from blackboard)
+- Modify: `src/infrastructure/systems/facility-system.ts` (reads `btAction` from blackboard)
+- Modify: `src/infrastructure/systems/rest-system.ts` (reads `btAction`, `restingAt` from blackboard)
+- Update corresponding test files for all above systems
+
+**Important:** Run `grep -rn "BlackboardComponent\|blackboard" src/ --include="*.ts"` before starting to find ALL references. Every one must be migrated.
 
 - [ ] **Step 1: Replace BlackboardComponent reads in each system**
 
 Each system follows the same pattern: replace `agent.get(BlackboardComponent).state.xxx` with `agent.behaviorAgent.xxx`.
 
-- [ ] **Step 2: Update corresponding tests**
+For `needs-decay-system.ts`: the `traitModifiers` data currently lives on the blackboard. Move it to a property on BehaviorAgent (already defined as BT working memory). The `TraitResolverSystem` writes trait modifiers once at startup — it should write to `agent.behaviorAgent.traitModifiers` instead of the blackboard.
+
+For `facility-system.ts`: reads `btAction` to check if an agent is working. Replace with reading from `agent.behaviorAgent.committedAction`.
+
+For `rest-system.ts`: reads `btAction` and `restingAt`. Replace with BehaviorAgent properties.
+
+- [ ] **Step 2: Update corresponding tests for all modified systems**
 
 - [ ] **Step 3: Verify all tests pass**
 
@@ -1090,9 +1096,16 @@ Each system follows the same pattern: replace `agent.get(BlackboardComponent).st
 cd "01 - Projects/Project Meridian" && npx vitest run --config configs/vitest.config.ts
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Verify types compile**
 
 ```bash
+cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json
+```
+
+- [ ] **Step 5: Atomic commit for entire D1-D4 batch**
+
+```bash
+git add "01 - Projects/Project Meridian/src/" "01 - Projects/Project Meridian/tests/"
 git commit -m "feat(meridian): migrate all systems from BlackboardComponent to BehaviorAgent"
 ```
 
@@ -1114,31 +1127,35 @@ git commit -m "feat(meridian): migrate all systems from BlackboardComponent to B
 - Delete: `behavior-trees/bt-scholar.json`
 - Delete corresponding test files
 
-- [ ] **Step 1: Delete all listed files**
+- [ ] **Step 1: Delete all listed source and test files**
 
 - [ ] **Step 2: Remove BlackboardState from component-data.ts**
 
-- [ ] **Step 3: Remove imports of deleted modules from game-view.ts and other consumers**
+- [ ] **Step 3: Clean up `tests/infrastructure/components/game-components.test.ts`**
 
-- [ ] **Step 4: Verify all tests pass**
+Remove the `BlackboardComponent` import and `describe('BlackboardComponent')` test block from this file.
+
+- [ ] **Step 4: Remove imports of deleted modules from game-view.ts and other consumers**
+
+- [ ] **Step 5: Verify all tests pass**
 
 ```bash
 cd "01 - Projects/Project Meridian" && npx vitest run --config configs/vitest.config.ts
 ```
 
-- [ ] **Step 5: Verify types compile**
+- [ ] **Step 6: Verify types compile**
 
 ```bash
 cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json
 ```
 
-- [ ] **Step 6: Verify lint passes**
+- [ ] **Step 7: Verify lint passes**
 
 ```bash
 cd "01 - Projects/Project Meridian" && npx eslint src/ tests/ --config configs/eslint.config.mjs
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git commit -m "feat(meridian): remove old BT engine, BlackboardComponent, FeedSystem, TradeSystem"
