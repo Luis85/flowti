@@ -59,7 +59,7 @@ Sable works Workshop → produces leather-goods (stored in Workshop stock)
 
 **Bread distribution is passive, not agent-to-agent.** Elena's `DeliverCargo` action deposits goods into a destination facility's stock. Agents buy bread from facilities using the existing `Buy` action. There is no agent-to-agent trade — Elena is a treasury-funded hauler/distributor, not a direct seller. This keeps the trade system simple and avoids the need for a `Sell` action.
 
-**Pickup is free for hauling agents.** Elena doesn't pay for goods she picks up — she's performing a public logistics service funded by her merchant stipend from the treasury. The `PickupCargo` action transfers goods from facility stock to the agent's `haulCargo` without gold exchange.
+**Pickup is free for hauling agents.** Elena doesn't pay for goods she picks up — she's performing a public logistics service funded by her merchant stipend from the treasury. The `PickupCargo` action transfers goods from facility stock to the agent's `haulCargo` without gold exchange. Each `PickupCargo` call picks up 1 unit. Elena makes multiple trips per day — her throughput is limited by travel time, which is emergent.
 
 The bakery problem is solved structurally — wheat arrives via Elena's hauling behavior, not via a broken inter-facility system. If Elena is sick or busy, the bakery runs out of wheat and bread production stalls. That's emergent, not a bug.
 
@@ -525,7 +525,7 @@ Each action follows a three-phase pattern matching mistreevous callbacks:
 | `SeekMarket` | Moving toward market area | Arrives at market | — | — |
 | `Work` | Work progress accumulating | Cycle completes (wage paid) | No input, facility insolvent | `while(IsDaytime)` |
 | `Talk` | Socializing with nearby agent | Social need recovered | Partner walks away | `while(IsLonely)` |
-| `Buy` | At facility, transaction processing | Item purchased | No gold or no stock | — |
+| `Buy` | At facility, transaction processing | Item purchased (gold deducted at `food_price`, 10% trade tariff sent to treasury) | No gold or no stock | — |
 | `PickupCargo` | At source facility | Goods transferred to haulCargo | Facility has no output stock | — |
 | `DeliverCargo` | Moving to destination | Goods deposited at destination | — | — |
 | `SeekDeliveryTarget` | Moving toward delivery dest | Arrives at destination | — | — |
@@ -578,6 +578,8 @@ No sync step is needed — the BehaviorAgent's read-only properties are getters 
 | **Elena** | merchant | merchant | merchant | 120 | 2 bread, herb-bundle |
 | **Sable** | artisan | leatherworker | artisan | 45 | 3 bread, leather-scraps, dye-red |
 | **Marcus** | guard | guard | guard | 35 | 3 bread, torch |
+
+**Note:** Marcus runs a deliberate deficit (~2 gold/day income vs ~4 gold/day expenses). He relies on periodic welfare grants as a safety net — this is by design. His guard stipend keeps him out of permanent poverty but doesn't fully cover costs, creating interesting economic pressure on the treasury. A future guard barracks facility or increased stipend can address this.
 
 ### 5.2 Revised Location JSON
 
@@ -731,5 +733,5 @@ All domain pure logic for needs, mood, memory, day-night, perception, pathfindin
 5. Implement `PickupCargo`, `DeliverCargo`, `SeekSupplySource`, `SeekDeliveryTarget` (merchant branch)
 6. Run Elena through a multi-day simulation — verify she hauls wheat, bakery produces bread, she distributes bread, she eats and rests
 7. Replicate: implement remaining role branches, update other agent JSON files
-8. Fix economy flows: tavern fund, farm pickup fee, guard stipend
+8. Fix economy flows: tavern fund, stipends, facility subsidies, treasury regen, trade tariff
 9. Integration tests: full 4-agent multi-day balance smoke
