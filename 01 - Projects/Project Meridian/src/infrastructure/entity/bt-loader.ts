@@ -1,29 +1,63 @@
+import { convertMDSLToJSON, validateDefinition } from 'mistreevous';
 import type { Logger } from '../../domain/core/logger.js';
 import type { VaultReader } from './agent-spawner.js';
-import { BehaviorTreeSchema, type BehaviorTree } from '../../domain/schemas/behavior-tree-schema.js';
-import type { LoadResult } from './location-loader.js';
 
-export function createBTLoader(
+export interface MDSLLoadResult {
+	mdsl: string | null;
+	valid: boolean;
+	errors: { file: string; message: string }[];
+}
+
+export function createMDSLLoader(
 	logger: Logger,
-): { loadFromVault(vault: VaultReader, path: string): Promise<LoadResult<BehaviorTree>> } {
+): { loadComposed(vault: VaultReader, basePath: string, branchPath: string): Promise<MDSLLoadResult> } {
 	return {
-		async loadFromVault(vault: VaultReader, path: string): Promise<LoadResult<BehaviorTree>> {
-			const items: BehaviorTree[] = [];
+		async loadComposed(vault: VaultReader, basePath: string, branchPath: string): Promise<MDSLLoadResult> {
 			const errors: { file: string; message: string }[] = [];
-			const files = await vault.list(path);
-			for (const file of files) {
-				try {
-					const content = await vault.read(file);
-					const parsed: unknown = JSON.parse(content);
-					items.push(BehaviorTreeSchema.parse(parsed));
-				} catch (err: unknown) {
-					const message = err instanceof Error ? err.message : String(err);
-					logger.warn('BTLoader', `Failed to load ${file}: ${message}`);
-					errors.push({ file, message });
-				}
+
+			let baseContent: string | null = null;
+			let branchContent: string | null = null;
+
+			try {
+				baseContent = await vault.read(basePath);
+			} catch (err: unknown) {
+				const message = err instanceof Error ? err.message : String(err);
+				logger.warn('MDSLLoader', `Failed to read base file ${basePath}: ${message}`);
+				errors.push({ file: basePath, message });
 			}
-			logger.info('BTLoader', `Loaded ${String(items.length)} behavior trees, ${String(errors.length)} errors`);
-			return { items, errors };
+
+			try {
+				branchContent = await vault.read(branchPath);
+			} catch (err: unknown) {
+				const message = err instanceof Error ? err.message : String(err);
+				logger.warn('MDSLLoader', `Failed to read branch file ${branchPath}: ${message}`);
+				errors.push({ file: branchPath, message });
+			}
+
+			if (baseContent === null || branchContent === null) {
+				return { mdsl: null, valid: false, errors };
+			}
+
+			const composed = baseContent + '\n\n' + branchContent;
+
+			try {
+				convertMDSLToJSON(composed);
+				const result = validateDefinition(composed);
+				if (!result.succeeded) {
+					const message = result.errorMessage ?? 'Validation failed';
+					logger.warn('MDSLLoader', `MDSL validation failed: ${message}`);
+					errors.push({ file: basePath, message });
+					return { mdsl: composed, valid: false, errors };
+				}
+			} catch (err: unknown) {
+				const message = err instanceof Error ? err.message : String(err);
+				logger.warn('MDSLLoader', `MDSL parse error: ${message}`);
+				errors.push({ file: basePath, message });
+				return { mdsl: composed, valid: false, errors };
+			}
+
+			logger.info('MDSLLoader', `Composed and validated MDSL from ${basePath} + ${branchPath}`);
+			return { mdsl: composed, valid: true, errors };
 		},
 	};
 }
