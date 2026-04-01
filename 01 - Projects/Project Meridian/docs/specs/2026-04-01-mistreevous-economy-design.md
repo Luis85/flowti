@@ -73,8 +73,7 @@ Treasury (1000 start, +50 regen/day "off-screen trade")
   ├──merchant stipend──▸ Elena (8/day)
   ├──facility subsidy──▸ Any facility with fund < 100 (30/day each)
   ├──welfare──▸ Any agent below threshold (safety net)
-  ├──◂──tax (10%)── All facility wages
-  └──◂──trade tariff (10%)── All purchase transactions
+  └──◂──tax (10%)── All facility wages
 
 Farm fund (200 start)
   ├──wage──▸ Wren (3/cycle × 8 cycles/day = ~24/day)
@@ -99,9 +98,11 @@ Elena's wallet (120 start)
 Every gold transfer is agent-to-facility, facility-to-agent, or treasury-to-agent. No gold vanishes. The rest payment bug is fixed by making the tavern a proper facility with a fund.
 
 **Treasury sustainability at steady state:**
-- Income: 50 regen + ~4.2 wage tax (10% of ~42) + ~1.5 trade tariff ≈ **55.7 gold/day**
+- Income: 50 regen + ~4.2 wage tax (10% of ~42) ≈ **54.2 gold/day**
 - Outflows: 2 guard + 8 merchant + ~30 avg subsidy (farm+workshop intermittent) + ~5 welfare ≈ **45 gold/day**
-- Net: **+10.7 gold/day** — sustainable. As more agents and facilities are added, natural economic activity grows and `treasury_regen` becomes less important.
+- Net: **+9.2 gold/day** — sustainable. As more agents and facilities are added, natural economic activity grows and `treasury_regen` becomes less important.
+
+> **Future compatibility:** The economy depth phase (`2026-04-01-economy-depth-local-information-design.md`) introduces progressive tax (velocity-responsive), admin fees (true gold sinks), and dynamic pricing. The `tax_base_rate` field below is intentionally named to align with that spec's `monetary_policy.tax_base_rate`. The fixed `food_price` will be replaced by per-item `baseValue` + dynamic pricing in that phase.
 
 ### 1.5 Facility Revenue Model
 
@@ -525,7 +526,7 @@ Each action follows a three-phase pattern matching mistreevous callbacks:
 | `SeekMarket` | Moving toward market area | Arrives at market | — | — |
 | `Work` | Work progress accumulating | Cycle completes (wage paid) | No input, facility insolvent | `while(IsDaytime)` |
 | `Talk` | Socializing with nearby agent | Social need recovered | Partner walks away | `while(IsLonely)` |
-| `Buy` | At facility, transaction processing | Item purchased (gold deducted at `food_price`, 10% trade tariff sent to treasury) | No gold or no stock | — |
+| `Buy` | At facility, transaction processing | Item purchased (gold deducted at `food_price`) | No gold or no stock | — |
 | `PickupCargo` | At source facility | Goods transferred to haulCargo | Facility has no output stock | — |
 | `DeliverCargo` | Moving to destination | Goods deposited at destination | — | — |
 | `SeekDeliveryTarget` | Moving toward delivery dest | Arrives at destination | — | — |
@@ -696,7 +697,7 @@ tests/infrastructure/systems/trade-system.test.ts
 ```
 src/domain/core/component-data.ts          ← Remove BlackboardState, add CargoState
 src/domain/schemas/location-schema.ts      ← Add auto_process, auto_ticks_per_cycle to ProductionSchema
-src/domain/schemas/game-config-schema.ts   ← Add guard_stipend, merchant_stipend, facility_subsidy_threshold, facility_subsidy_per_day, treasury_regen_per_day (activate), trade_tariff_rate, food_price: 3, tax_rate: 10%, need thresholds
+src/domain/schemas/game-config-schema.ts   ← Add guard_stipend, merchant_stipend, facility_subsidy_threshold, facility_subsidy_per_day, treasury_regen_per_day (activate), tax_base_rate: 0.10, food_price: 3 (transitional), need thresholds
 src/domain/systems/facility.ts             ← Add auto-process path (no-worker production at slower rate)
 src/infrastructure/entity/agent-actor.ts   ← Remove BlackboardComponent, add BehaviorAgent + BehaviourTree refs
 src/infrastructure/entity/agent-spawner.ts ← Construct BehaviorAgent and BehaviourTree per agent
@@ -706,7 +707,7 @@ src/infrastructure/systems/movement-system.ts   ← Read from BehaviorAgent inst
 src/infrastructure/systems/socialize-system.ts  ← Read from BehaviorAgent instead of BlackboardComponent
 src/infrastructure/systems/dialogue-system.ts   ← Read social state from BehaviorAgent
 src/infrastructure/systems/gossip-system.ts     ← Read state from BehaviorAgent
-src/infrastructure/systems/day-night-system.ts  ← Add stipend payments, facility subsidies, treasury regen, trade tariff
+src/infrastructure/systems/day-night-system.ts  ← Add stipend payments, facility subsidies, treasury regen
 src/infrastructure/systems/perception-system.ts ← Write to BehaviorAgent instead of BlackboardComponent
 src/infrastructure/systems/trait-resolver-system.ts ← Compute once at startup, not per-tick
 
@@ -733,5 +734,5 @@ All domain pure logic for needs, mood, memory, day-night, perception, pathfindin
 5. Implement `PickupCargo`, `DeliverCargo`, `SeekSupplySource`, `SeekDeliveryTarget` (merchant branch)
 6. Run Elena through a multi-day simulation — verify she hauls wheat, bakery produces bread, she distributes bread, she eats and rests
 7. Replicate: implement remaining role branches, update other agent JSON files
-8. Fix economy flows: tavern fund, stipends, facility subsidies, treasury regen, trade tariff
+8. Fix economy flows: tavern fund, stipends, facility subsidies, treasury regen
 9. Integration tests: full 4-agent multi-day balance smoke

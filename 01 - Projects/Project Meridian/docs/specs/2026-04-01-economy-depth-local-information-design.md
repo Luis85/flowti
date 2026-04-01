@@ -322,7 +322,6 @@ Every gold movement is exactly one of three categories:
 - Purchases: agent wallet → facility fund
 - Tax: trade amount → Director treasury
 - Quest rewards: treasury → agent wallet
-- Pickup fees: agent wallet → facility fund
 - Rest payments: agent wallet → tavern fund
 - Welfare: treasury → agent wallet
 
