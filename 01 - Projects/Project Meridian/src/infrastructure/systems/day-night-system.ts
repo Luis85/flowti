@@ -165,6 +165,112 @@ function checkEconomyLiveness(
 	}
 }
 
+function processStipends(
+	agentList: AgentActor[],
+	economy: EconomyComponent,
+	deps: GameCoreDeps,
+): void {
+	for (const agent of agentList) {
+		const job = agent.job;
+		let stipendAmount = 0;
+		if (job === 'guard') {
+			stipendAmount = deps.config.economy.guard_stipend;
+		} else if (job === 'merchant') {
+			stipendAmount = deps.config.economy.merchant_stipend;
+		}
+		if (stipendAmount === 0) continue;
+
+		if (economy.state.treasury < stipendAmount) {
+			deps.eventBus.emit({
+				type: 'StipendSkipped',
+				tick: deps.tickCount,
+				wallClock: Date.now(),
+				source: 'DayNightSystem',
+				payload: { agentId: agent.agentId, job, amount: stipendAmount, treasuryRemaining: economy.state.treasury },
+			});
+			continue;
+		}
+
+		const wallet = agent.get(WalletComponent);
+		wallet.state = { ...wallet.state, gold: wallet.state.gold + stipendAmount };
+		wallet.markDirty();
+
+		economy.state = {
+			...economy.state,
+			treasury: economy.state.treasury - stipendAmount,
+			ledger: [
+				...economy.state.ledger,
+				{
+					tick: deps.tickCount,
+					type: 'stipend' as const,
+					from: 'treasury',
+					to: agent.agentId,
+					itemId: null,
+					quantity: 0,
+					gold: stipendAmount,
+				},
+			],
+		};
+		economy.markDirty();
+
+		deps.eventBus.emit({
+			type: 'StipendPaid',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'DayNightSystem',
+			payload: { agentId: agent.agentId, job, amount: stipendAmount, treasuryRemaining: economy.state.treasury },
+		});
+	}
+}
+
+function processFacilitySubsidies(
+	locationActors: Map<string, Actor>,
+	locationData: WorldLocation[],
+	economy: EconomyComponent,
+	deps: GameCoreDeps,
+): void {
+	const threshold = deps.config.economy.facility_subsidy_threshold;
+	const subsidyAmount = deps.config.economy.facility_subsidy_per_day;
+
+	for (const loc of locationData) {
+		const locActor = locationActors.get(loc.id);
+		if (locActor === undefined) continue;
+		if (!locActor.has(FacilityComponent)) continue;
+		const facility = locActor.get(FacilityComponent);
+		if (facility.state.fund >= threshold) continue;
+		if (economy.state.treasury < subsidyAmount) continue;
+
+		facility.state = { ...facility.state, fund: facility.state.fund + subsidyAmount };
+		facility.markDirty();
+
+		economy.state = {
+			...economy.state,
+			treasury: economy.state.treasury - subsidyAmount,
+			ledger: [
+				...economy.state.ledger,
+				{
+					tick: deps.tickCount,
+					type: 'subsidy' as const,
+					from: 'treasury',
+					to: loc.id,
+					itemId: null,
+					quantity: 0,
+					gold: subsidyAmount,
+				},
+			],
+		};
+		economy.markDirty();
+
+		deps.eventBus.emit({
+			type: 'FacilitySubsidised',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'DayNightSystem',
+			payload: { facilityId: loc.id, amount: subsidyAmount, newFund: facility.state.fund, treasuryRemaining: economy.state.treasury },
+		});
+	}
+}
+
 function processDayBoundary(
 	entity: Actor,
 	dayCount: number,
@@ -179,28 +285,39 @@ function processDayBoundary(
 	const economy = entity.get(EconomyComponent);
 	const agentList = getAgents?.() ?? [];
 
+	// 0. Treasury regen
+	const treasuryRegen = deps.config.economy.treasury_regen_per_day;
+	economy.state = { ...economy.state, treasury: economy.state.treasury + treasuryRegen };
+	economy.markDirty();
+
 	// 1. Welfare check
 	processWelfare(agentList, economy, deps);
 
-	// 2. Economy liveness invariant checks
-	checkEconomyLiveness(agentList, economy, dayCount, deps);
+	// 2. Stipends
+	processStipends(agentList, economy, deps);
 
-	// 3. Generate daily report
+	// 3. Facility subsidies
 	const locationActors = getLocationActors?.() ?? new Map<string, Actor>();
 	const locationData = getLocations?.() ?? [];
+	processFacilitySubsidies(locationActors, locationData, economy, deps);
+
+	// 4. Economy liveness invariant checks
+	checkEconomyLiveness(agentList, economy, dayCount, deps);
+
+	// 5. Generate daily report
 	writeDailyReport(economy, agentList, locationActors, locationData, dayCount, deps, previousGold);
 
-	// 4. Snapshot current gold for next day's delta
+	// 6. Snapshot current gold for next day's delta
 	for (const agent of agentList) {
 		previousGold.set(agent.agentId, agent.get(WalletComponent).state.gold);
 	}
 
-	// 5. Prune old ledger entries
+	// 7. Prune old ledger entries
 	const retentionTicks = deps.config.economy.ledger_retention_days * deps.config.ticks_per_day;
 	const cutoffTick = deps.tickCount - retentionTicks;
 	const prunedLedger = economy.state.ledger.filter(e => e.tick >= cutoffTick);
 
-	// 6. Reset daily summary
+	// 8. Reset daily summary
 	economy.state = {
 		...economy.state,
 		ledger: prunedLedger,
