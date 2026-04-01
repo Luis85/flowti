@@ -210,7 +210,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		tickRunner.register(createBehaviorTreeSystem(getAgents));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
-		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity));
+		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity));

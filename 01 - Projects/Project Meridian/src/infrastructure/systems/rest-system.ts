@@ -6,6 +6,7 @@ import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
+import { FacilityComponent } from '../components/facility-component.js';
 import { distance } from '../../domain/core/math-utils.js';
 import type { Actor } from 'excalibur';
 
@@ -55,6 +56,7 @@ export function createRestSystem(
 	agents: () => AgentActor[],
 	locations: () => WorldLocation[],
 	worldEntity: () => Actor,
+	getLocationActors?: () => Map<string, Actor>,
 ): GameSystem {
 	return {
 		name: 'RestSystem',
@@ -65,6 +67,7 @@ export function createRestSystem(
 			const locationList = locations();
 			const radius = deps.config.perception.interaction_radius;
 			const restConfig: RestConfig = deps.config.rest_tiers;
+			const locationActors = getLocationActors?.() ?? new Map<string, Actor>();
 
 			for (const agent of agentList) {
 				const ba = agent.behaviorAgent;
@@ -98,7 +101,8 @@ export function createRestSystem(
 					if (restTier === 'public_shelter') {
 						const world = worldEntity();
 						const economy = world.get(EconomyComponent);
-						wallet.state = { ...wallet.state, gold: wallet.state.gold - deps.config.economy.rest_price };
+						const restPrice = deps.config.economy.rest_price;
+						wallet.state = { ...wallet.state, gold: wallet.state.gold - restPrice };
 						wallet.markDirty();
 						economy.state = {
 							...economy.state,
@@ -111,11 +115,23 @@ export function createRestSystem(
 									to: nearestRest?.id ?? 'outdoors',
 									itemId: null,
 									quantity: 0,
-									gold: deps.config.economy.rest_price,
+									gold: restPrice,
 								},
 							],
 						};
 						economy.markDirty();
+
+						// Credit tavern facility fund
+						if (nearestRest !== undefined) {
+							const restLocationActor = locationActors.get(nearestRest.id);
+							if (restLocationActor !== undefined) {
+								const facility = restLocationActor.get(FacilityComponent);
+								if (facility !== undefined) {
+									facility.state = { ...facility.state, fund: facility.state.fund + restPrice };
+									facility.markDirty();
+								}
+							}
+						}
 					}
 
 					deps.eventBus.emit({

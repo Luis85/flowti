@@ -4,6 +4,7 @@ import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
+import { FacilityComponent } from '../../../src/infrastructure/components/facility-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -312,5 +313,35 @@ describe('RestSystem', () => {
 		expect(economy.state.ledger).toHaveLength(1);
 		expect(economy.state.ledger[0].type).toBe('purchase');
 		expect(economy.state.ledger[0].gold).toBe(1);
+	});
+
+	it('credits tavern FacilityComponent fund when agent pays for public shelter', () => {
+		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+
+		// Create a location actor with a FacilityComponent
+		const tavernActor = new Actor();
+		tavernActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 100,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+		}));
+		const locationActors = new Map<string, Actor>([['loc-tavern', tavernActor]]);
+
+		const system = createRestSystem(
+			() => [agent],
+			() => [restLoc],
+			() => worldEntity,
+			() => locationActors,
+		);
+		system.execute(createDeps());
+
+		const facility = tavernActor.get(FacilityComponent);
+		expect(facility.state.fund).toBe(101); // 100 + rest_price (1)
+		expect(facility.dirty).toBe(true);
 	});
 });
