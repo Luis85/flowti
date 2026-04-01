@@ -34,7 +34,7 @@
 	"position": { "x": 430, "y": 250, "region": "region-market-square" },
 	"relationships": "03 - Resources/Graphs/wren-relationships.canvas",
 	"tools": [],
-	"behavior_tree": "bt-scholar",
+	"behavior_tree": "scholar",
 	"job": "farmer",
 	"property": []
 }
