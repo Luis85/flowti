@@ -50,68 +50,98 @@ Key changes from current state:
 
 ```
 Wren works Farm → produces wheat (stored in Farm stock)
-Elena picks up wheat from Farm (pays pickup_price: 3) → carries to Bakery → deposits in Bakery stock
+Elena picks up wheat from Farm (free) → carries to Bakery → deposits in Bakery stock
 Bakery auto-produces bread when stocked with wheat (communal oven, no dedicated baker)
-Elena picks up bread from Bakery (pays pickup_price: 1) → carries to Market/Town Square
-Elena deposits bread at destination facility stock → Agents buy bread from facility directly
+Elena picks up bread from Bakery (free) → carries to Market/Town Square
+Elena deposits bread at destination facility stock → Agents buy bread from facility at food_price (3 gold)
 Sable works Workshop → produces leather-goods (stored in Workshop stock)
 ```
 
-**Bread distribution is passive, not agent-to-agent.** Elena's `DeliverCargo` action deposits bread into a destination facility's stock (Market or Bakery). Agents buy bread from facilities using the existing `Buy` action and `TradeSystem`. There is no agent-to-agent trade — Elena is a hauler/distributor, not a direct seller. This keeps the trade system simple and avoids the need for a `Sell` action.
+**Bread distribution is passive, not agent-to-agent.** Elena's `DeliverCargo` action deposits goods into a destination facility's stock. Agents buy bread from facilities using the existing `Buy` action. There is no agent-to-agent trade — Elena is a treasury-funded hauler/distributor, not a direct seller. This keeps the trade system simple and avoids the need for a `Sell` action.
+
+**Pickup is free for hauling agents.** Elena doesn't pay for goods she picks up — she's performing a public logistics service funded by her merchant stipend from the treasury. The `PickupCargo` action transfers goods from facility stock to the agent's `haulCargo` without gold exchange.
 
 The bakery problem is solved structurally — wheat arrives via Elena's hauling behavior, not via a broken inter-facility system. If Elena is sick or busy, the bakery runs out of wheat and bread production stalls. That's emergent, not a bug.
 
 ### 1.4 Gold Flow
 
+**Important: Production rates are daytime-only.** Agents only work during the `day` phase (ticks 60-299 = 240 ticks). All wage/production estimates below use 240 ticks, not 480.
+
 ```
-Treasury (500 start)
+Treasury (1000 start, +50 regen/day "off-screen trade")
   ├──guard stipend──▸ Marcus (2/day)
+  ├──merchant stipend──▸ Elena (8/day)
+  ├──facility subsidy──▸ Any facility with fund < 100 (30/day each)
   ├──welfare──▸ Any agent below threshold (safety net)
-  └──◂──tax (5%)── All facility wages
+  ├──◂──tax (10%)── All facility wages
+  └──◂──trade tariff (10%)── All purchase transactions
 
 Farm fund (200 start)
-  ├──wage──▸ Wren (3/cycle, ~48/day)
-  └──◂──pickup fee──Elena wallet (3/wheat)
+  ├──wage──▸ Wren (3/cycle × 8 cycles/day = ~24/day)
+  └──◂──treasury subsidy when fund < 100 (30/day)
 
 Bakery fund (200 start)
   ├──(no wage — auto-process, no worker)
-  ├──◂──bread sales──Agent wallets (2/bread, direct purchase at bakery)
-  └──◂──pickup fee──Elena wallet (1/bread)
+  └──◂──bread sales──Agent wallets (3/bread)
 
 Workshop fund (200 start)
-  ├──wage──▸ Sable (5/cycle, ~57/day)
-  ├──◂──leather sales── (future: agents buy leather-goods)
-  └──◂──treasury facility subsidy (30/day when fund < 100)
+  ├──wage──▸ Sable (3/cycle × 6 cycles/day = ~18/day)
+  └──◂──treasury subsidy when fund < 100 (30/day)
 
 Tavern fund (0 start)
   └──◂──rest payments──Agent wallets (1/rest)
 
 Elena's wallet (120 start)
-  ├──◂──bread sales to agents
-  └──food/rest/pickup purchases──▸ facilities
+  ├──◂──merchant stipend from treasury (8/day)
+  └──food/rest purchases──▸ facilities
 ```
 
-Every gold transfer is agent-to-facility or facility-to-agent. No gold vanishes. The rest payment bug is fixed by making the tavern a proper facility with a fund.
+Every gold transfer is agent-to-facility, facility-to-agent, or treasury-to-agent. No gold vanishes. The rest payment bug is fixed by making the tavern a proper facility with a fund.
 
-### 1.5 Farm Revenue
+**Treasury sustainability at steady state:**
+- Income: 50 regen + ~4.2 wage tax (10% of ~42) + ~1.5 trade tariff ≈ **55.7 gold/day**
+- Outflows: 2 guard + 8 merchant + ~30 avg subsidy (farm+workshop intermittent) + ~5 welfare ≈ **45 gold/day**
+- Net: **+10.7 gold/day** — sustainable. As more agents and facilities are added, natural economic activity grows and `treasury_regen` becomes less important.
 
-The farm pays Wren ~48 gold/day in wages but would have no income without a revenue mechanism. Elena pays a `pickup_price` (default 3 gold per unit) when collecting wheat from the farm stock. At 16 wheat/day, the farm earns ~48 gold/day from pickups — roughly matching Wren's wages.
+### 1.5 Facility Revenue Model
 
-Elena's profit per bread: bread sale price at market (4 gold to agents) minus wheat pickup cost (3) minus bread pickup cost (1) = 0 gold from the hauling loop alone. However, Elena also earns from direct bread sales at locations she visits, and her starting gold (120) provides a buffer. Future trade expansions (selling leather-goods, higher-demand pricing) create additional merchant revenue.
+At 4 agents, the economy is too small for fully self-sustaining market forces. The treasury acts as a **central bank**, funded by `treasury_regen_per_day` (default 50 gold) representing off-screen economic activity (trade caravans, passing travelers). As more agents and facilities are added, natural circulation grows and regen becomes less important.
 
-If Elena stops buying wheat, the farm fund drains — but so does bread supply. Correct emergent outcome.
+**Farm:** Pays Wren ~24 gold/day in wages (3/cycle × 8 daytime cycles). Has no direct revenue — wheat is picked up for free by Elena. The treasury subsidy (30/day when fund < 100) keeps it solvent. The farm fund oscillates around the subsidy threshold: drains to ~76 by end of day, gets topped up to 106, drains again. Stable.
 
-### 1.5.1 Facility Subsidy Safety Net
+**Bakery:** Auto-produces bread from wheat Elena delivers. No wages paid. Income from direct bread sales to agents at `food_price` (3 gold). Bakery fund grows slowly from sales, no drain. Stable.
 
-Production facilities whose fund drops below `facility_subsidy_threshold` (default 100 gold) receive a `facility_subsidy_per_day` (default 30 gold) from the treasury at day boundary. This prevents permanent insolvency while maintaining economic pressure — the subsidy is a lifeline, not a profit source. It specifically addresses the Workshop, which has no revenue path until leather-goods trading is implemented. The subsidy is paid during `DayNightSystem.processDayBoundary()`, after welfare and before the daily report.
+**Workshop:** Pays Sable ~18 gold/day in wages (3/cycle × 6 daytime cycles). No revenue until leather-goods trading is implemented. Treasury subsidy keeps it solvent, same oscillation pattern as the farm. Stable.
+
+**If Elena stops hauling:** The bakery runs out of wheat, bread production stalls, agents can't buy food, hunger rises, welfare kicks in as a safety net. The supply chain failure is emergent and visible — not a silent bug.
+
+### 1.5.1 Elena's Merchant Economics
+
+Elena has no production facility. She earns a `merchant_stipend` from the treasury (default 8 gold/day), paid at day boundary alongside the guard stipend. This funds her food and rest purchases (~4-6 gold/day in food + rest).
+
+Elena's hauling work is a public service — she picks up goods for free and deposits them at destination facilities for free. Her value is keeping the supply chain running, not direct profit. This is the correct model for a 4-agent village. As the economy scales:
+- Future: merchant markup (Elena buys wholesale, sells retail)
+- Future: hauling fees (source facility pays per delivery)
+- Future: independent trade routes between towns
+
+### 1.5.2 Facility Subsidy Safety Net
+
+Production facilities whose fund drops below `facility_subsidy_threshold` (default 100 gold) receive a `facility_subsidy_per_day` (default 30 gold) from the treasury at day boundary. This prevents permanent insolvency while maintaining economic pressure — the subsidy is a lifeline, not a profit source. The subsidy is paid during `DayNightSystem.processDayBoundary()`, after welfare and before the daily report.
 
 ### 1.6 Bakery Auto-Processing
 
 The bakery has no dedicated worker. When wheat is in stock, it produces bread automatically at a slower rate (`auto_ticks_per_cycle: 40`, double the normal `ticks_per_cycle: 20`). No wages are paid for auto-processing. If a baker agent is added later, they override auto-processing with faster production and earn wages. The facility system handles this via a new `auto_process` flag on the production schema.
 
-### 1.7 Guard Stipend
+### 1.7 Treasury Stipends
 
-Marcus has no production facility. The `DayNightSystem` pays a `guard_stipend` (configurable via `config.economy.guard_stipend`, default 2 gold/day) from the treasury at day boundary. The stipend is paid during `processDayBoundary()`, after welfare processing and before the daily report, using the same ledger pattern as welfare grants. This establishes a pattern for non-production roles: treasury-funded stipends. Future roles (healer, teacher, priest) can use the same mechanism.
+Agents without production facilities receive stipends from the treasury at day boundary, paid during `processDayBoundary()` after welfare processing and before the daily report, using the same ledger pattern as welfare grants.
+
+| Role | Config Key | Default | Justification |
+|------|-----------|---------|---------------|
+| Guard | `config.economy.guard_stipend` | 2 gold/day | Patrol is a public service |
+| Merchant | `config.economy.merchant_stipend` | 8 gold/day | Logistics is a public service, covers food/rest costs |
+
+This establishes a pattern for non-production roles. Future roles (healer, teacher, priest) can use the same mechanism. Stipends are only paid if the treasury has sufficient funds; if the treasury is depleted, stipends are skipped and a `StipendSkipped` event is emitted.
 
 ### 1.8 Tavern as Proper Facility
 
@@ -238,7 +268,7 @@ interface CargoState {
 - **No more `Record<string, unknown>`** — every field is typed at compile time
 - **Actions return State** — `RUNNING` means "I'm doing this, keep going next tick", `SUCCEEDED` means "done", `FAILED` means "can't do this"
 - **Movement is internal to actions** — `SeekFood()` sets `movementTarget` and returns `RUNNING` until arrival, then `SUCCEEDED`. The MovementSystem reads `movementTarget` from the BehaviorAgent, not a blackboard
-- **Cargo system** — `haulCargo` is the new primitive for agent-carried logistics. `PickupCargo()` takes goods from a facility's stock, paying `pickup_price` to the facility fund. `DeliverCargo()` deposits them at the destination
+- **Cargo system** — `haulCargo` is the new primitive for agent-carried logistics. `PickupCargo()` transfers goods from a facility's stock into the agent's cargo (free for hauling agents). `DeliverCargo()` deposits cargo at the destination facility's stock
 - **Conditions use thresholds from GameConfig** — `IsHungry()` reads `config.needs.hunger_threshold`, not a hardcoded value
 - **Getters proxy live state** — read-only properties are implemented as getters that read directly from ECS components. No snapshot sync step is needed
 
@@ -551,7 +581,7 @@ No sync step is needed — the BehaviorAgent's read-only properties are getters 
 
 ### 5.2 Revised Location JSON
 
-**Farm** — add `pickup_price: 3`:
+**Farm** — unchanged production, wage 3/cycle:
 
 ```json
 {
@@ -560,13 +590,12 @@ No sync step is needed — the BehaviorAgent's read-only properties are getters 
         "output": { "item_id": "wheat", "quantity": 1 },
         "input": null,
         "wage": 3,
-        "ticks_per_cycle": 30,
-        "pickup_price": 3
+        "ticks_per_cycle": 30
     }
 }
 ```
 
-**Bakery** — add `auto_process: true, auto_ticks_per_cycle: 40, pickup_price: 1`:
+**Bakery** — add `auto_process: true, auto_ticks_per_cycle: 40`:
 
 ```json
 {
@@ -577,8 +606,21 @@ No sync step is needed — the BehaviorAgent's read-only properties are getters 
         "wage": 4,
         "ticks_per_cycle": 20,
         "auto_process": true,
-        "auto_ticks_per_cycle": 40,
-        "pickup_price": 1
+        "auto_ticks_per_cycle": 40
+    }
+}
+```
+
+**Workshop** — reduce wage to 3/cycle (from 5) to match farm scale:
+
+```json
+{
+    "production": {
+        "job": "leatherworker",
+        "output": { "item_id": "leather-goods", "quantity": 1 },
+        "input": null,
+        "wage": 3,
+        "ticks_per_cycle": 40
     }
 }
 ```
@@ -651,18 +693,18 @@ tests/infrastructure/systems/trade-system.test.ts
 
 ```
 src/domain/core/component-data.ts          ← Remove BlackboardState, add CargoState
-src/domain/schemas/location-schema.ts      ← Add auto_process, auto_ticks_per_cycle, pickup_price
-src/domain/schemas/game-config-schema.ts   ← Add guard_stipend, facility_subsidy_threshold, facility_subsidy_per_day, need thresholds
+src/domain/schemas/location-schema.ts      ← Add auto_process, auto_ticks_per_cycle to ProductionSchema
+src/domain/schemas/game-config-schema.ts   ← Add guard_stipend, merchant_stipend, facility_subsidy_threshold, facility_subsidy_per_day, treasury_regen_per_day (activate), trade_tariff_rate, food_price: 3, tax_rate: 10%, need thresholds
 src/domain/systems/facility.ts             ← Add auto-process path (no-worker production at slower rate)
 src/infrastructure/entity/agent-actor.ts   ← Remove BlackboardComponent, add BehaviorAgent + BehaviourTree refs
 src/infrastructure/entity/agent-spawner.ts ← Construct BehaviorAgent and BehaviourTree per agent
-src/infrastructure/systems/facility-system.ts   ← Add auto-process logic, pickup fee handling on cargo pickup
+src/infrastructure/systems/facility-system.ts   ← Add auto-process logic (no-worker production at slower rate)
 src/infrastructure/systems/rest-system.ts       ← Fix: rest payment credits tavern facility fund (not deleted — gold handling stays in infra)
 src/infrastructure/systems/movement-system.ts   ← Read from BehaviorAgent instead of BlackboardComponent
 src/infrastructure/systems/socialize-system.ts  ← Read from BehaviorAgent instead of BlackboardComponent
 src/infrastructure/systems/dialogue-system.ts   ← Read social state from BehaviorAgent
 src/infrastructure/systems/gossip-system.ts     ← Read state from BehaviorAgent
-src/infrastructure/systems/day-night-system.ts  ← Add guard stipend payment
+src/infrastructure/systems/day-night-system.ts  ← Add stipend payments, facility subsidies, treasury regen, trade tariff
 src/infrastructure/systems/perception-system.ts ← Write to BehaviorAgent instead of BlackboardComponent
 src/infrastructure/systems/trait-resolver-system.ts ← Compute once at startup, not per-tick
 
@@ -670,8 +712,9 @@ agents/marcus.json    ← job: "guard", behavior_tree: "guard"
 agents/elena.json     ← job: "merchant", behavior_tree: "merchant"
 agents/wren.json      ← job: "farmer", behavior_tree: "scholar"
 
-locations/bakery.json ← Add auto_process, auto_ticks_per_cycle, pickup_price
-locations/farm.json   ← Add pickup_price: 3
+locations/bakery.json ← Add auto_process, auto_ticks_per_cycle
+locations/farm.json   ← (unchanged, wage stays 3)
+locations/workshop.json ← Reduce wage to 3 (from 5)
 locations/tavern.json ← Add fund support
 ```
 
