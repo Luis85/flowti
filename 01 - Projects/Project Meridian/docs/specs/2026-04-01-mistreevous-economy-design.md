@@ -50,12 +50,14 @@ Key changes from current state:
 
 ```
 Wren works Farm → produces wheat (stored in Farm stock)
-Elena picks up wheat from Farm → carries to Bakery → deposits in Bakery stock
+Elena picks up wheat from Farm (pays pickup_price: 3) → carries to Bakery → deposits in Bakery stock
 Bakery auto-produces bread when stocked with wheat (communal oven, no dedicated baker)
-Elena picks up bread from Bakery → carries to Market area
-Agents buy bread from Elena (nearby merchant with stock) or from Bakery directly
+Elena picks up bread from Bakery (pays pickup_price: 1) → carries to Market/Town Square
+Elena deposits bread at destination facility stock → Agents buy bread from facility directly
 Sable works Workshop → produces leather-goods (stored in Workshop stock)
 ```
+
+**Bread distribution is passive, not agent-to-agent.** Elena's `DeliverCargo` action deposits bread into a destination facility's stock (Market or Bakery). Agents buy bread from facilities using the existing `Buy` action and `TradeSystem`. There is no agent-to-agent trade — Elena is a hauler/distributor, not a direct seller. This keeps the trade system simple and avoids the need for a `Sell` action.
 
 The bakery problem is solved structurally — wheat arrives via Elena's hauling behavior, not via a broken inter-facility system. If Elena is sick or busy, the bakery runs out of wheat and bread production stalls. That's emergent, not a bug.
 
@@ -69,15 +71,17 @@ Treasury (500 start)
 
 Farm fund (200 start)
   ├──wage──▸ Wren (3/cycle, ~48/day)
-  └──◂──pickup fee──Elena wallet (1/wheat)
+  └──◂──pickup fee──Elena wallet (3/wheat)
 
 Bakery fund (200 start)
   ├──(no wage — auto-process, no worker)
-  └──◂──bread sales──Agent wallets (2/bread)
+  ├──◂──bread sales──Agent wallets (2/bread, direct purchase at bakery)
+  └──◂──pickup fee──Elena wallet (1/bread)
 
 Workshop fund (200 start)
   ├──wage──▸ Sable (5/cycle, ~57/day)
-  └──◂──leather sales── (future: agents buy leather-goods)
+  ├──◂──leather sales── (future: agents buy leather-goods)
+  └──◂──treasury facility subsidy (30/day when fund < 100)
 
 Tavern fund (0 start)
   └──◂──rest payments──Agent wallets (1/rest)
@@ -91,9 +95,15 @@ Every gold transfer is agent-to-facility or facility-to-agent. No gold vanishes.
 
 ### 1.5 Farm Revenue
 
-The farm pays Wren ~48 gold/day in wages but would have no income without a revenue mechanism. Elena pays a `pickup_price` (default 1 gold per unit) when collecting wheat from the farm stock. This gives the farm a revenue stream tied to demand.
+The farm pays Wren ~48 gold/day in wages but would have no income without a revenue mechanism. Elena pays a `pickup_price` (default 3 gold per unit) when collecting wheat from the farm stock. At 16 wheat/day, the farm earns ~48 gold/day from pickups — roughly matching Wren's wages.
 
-Elena's profit per bread: bread sale price (2) minus wheat pickup cost (1) = 1 gold. If Elena stops buying wheat, the farm fund drains — but so does bread supply. Correct emergent outcome.
+Elena's profit per bread: bread sale price at market (4 gold to agents) minus wheat pickup cost (3) minus bread pickup cost (1) = 0 gold from the hauling loop alone. However, Elena also earns from direct bread sales at locations she visits, and her starting gold (120) provides a buffer. Future trade expansions (selling leather-goods, higher-demand pricing) create additional merchant revenue.
+
+If Elena stops buying wheat, the farm fund drains — but so does bread supply. Correct emergent outcome.
+
+### 1.5.1 Facility Subsidy Safety Net
+
+Production facilities whose fund drops below `facility_subsidy_threshold` (default 100 gold) receive a `facility_subsidy_per_day` (default 30 gold) from the treasury at day boundary. This prevents permanent insolvency while maintaining economic pressure — the subsidy is a lifeline, not a profit source. It specifically addresses the Workshop, which has no revenue path until leather-goods trading is implemented. The subsidy is paid during `DayNightSystem.processDayBoundary()`, after welfare and before the daily report.
 
 ### 1.6 Bakery Auto-Processing
 
@@ -101,7 +111,7 @@ The bakery has no dedicated worker. When wheat is in stock, it produces bread au
 
 ### 1.7 Guard Stipend
 
-Marcus has no production facility. The `DayNightSystem` pays a `guard_stipend` (configurable, default 2 gold/day) from the treasury at day boundary. This establishes a pattern for non-production roles: treasury-funded stipends. Future roles (healer, teacher, priest) can use the same mechanism.
+Marcus has no production facility. The `DayNightSystem` pays a `guard_stipend` (configurable via `config.economy.guard_stipend`, default 2 gold/day) from the treasury at day boundary. The stipend is paid during `processDayBoundary()`, after welfare processing and before the daily report, using the same ledger pattern as welfare grants. This establishes a pattern for non-production roles: treasury-funded stipends. Future roles (healer, teacher, priest) can use the same mechanism.
 
 ### 1.8 Tavern as Proper Facility
 
@@ -188,15 +198,51 @@ interface BehaviorAgent {
 }
 ```
 
-### 2.3 Key Design Decisions
+### 2.3 Supporting Types
+
+```typescript
+interface PerceivedAgent {
+    id: string;
+    position: { x: number; y: number };
+    distance: number;
+}
+
+interface PerceivedLocation {
+    id: string;
+    type: string;
+    position: { x: number; y: number };
+    distance: number;
+}
+
+interface PerceivedFacility {
+    id: string;
+    job: string;
+    stock: { item_id: string; quantity: number }[];
+    distance: number;
+    hasUnmetInput: boolean;  // true when facility has input requirement with zero stock
+}
+
+interface CargoState {
+    itemId: string;
+    quantity: number;
+    source: string;       // facility ID where goods were picked up
+    destination: string;  // facility ID where goods should be delivered
+}
+
+// MovementTarget and JourneyState already exist in component-data.ts
+// InventoryItem already exists in common.ts schema
+```
+
+### 2.4 Key Design Decisions
 
 - **No more `Record<string, unknown>`** — every field is typed at compile time
 - **Actions return State** — `RUNNING` means "I'm doing this, keep going next tick", `SUCCEEDED` means "done", `FAILED` means "can't do this"
 - **Movement is internal to actions** — `SeekFood()` sets `movementTarget` and returns `RUNNING` until arrival, then `SUCCEEDED`. The MovementSystem reads `movementTarget` from the BehaviorAgent, not a blackboard
-- **Cargo system** — `haulCargo` is the new primitive for agent-carried logistics. `PickupCargo()` takes goods from a facility's stock. `DeliverCargo()` deposits them
+- **Cargo system** — `haulCargo` is the new primitive for agent-carried logistics. `PickupCargo()` takes goods from a facility's stock, paying `pickup_price` to the facility fund. `DeliverCargo()` deposits them at the destination
 - **Conditions use thresholds from GameConfig** — `IsHungry()` reads `config.needs.hunger_threshold`, not a hardcoded value
+- **Getters proxy live state** — read-only properties are implemented as getters that read directly from ECS components. No snapshot sync step is needed
 
-### 2.4 Factory Function
+### 2.5 Factory Function
 
 ```typescript
 function createBehaviorAgent(
@@ -210,7 +256,7 @@ function createBehaviorAgent(
 
 Created once per agent at world initialization. Read-only properties use getters that proxy live ECS component state. Action methods mutate components and return State values.
 
-### 2.5 Determinism
+### 2.6 Determinism
 
 Mistreevous accepts a `random()` option. We pass the existing `GameRNG` seeded per-agent per-tick:
 
@@ -395,12 +441,13 @@ root [Role] {
 ```
 root [Role] {
     selector {
+        /* Patrol: head to town square, then wander nearby */
         sequence {
-            condition [NearLocation, "social"]
+            condition [AtLocation, "social"]
             action [Wander] while(IsDaytime)
         }
         sequence {
-            action [SeekMarket]
+            action [SeekSocial]
         }
     }
 }
@@ -417,7 +464,9 @@ behavior-trees/
     branch-guard.mdsl
 ```
 
-The loader reads `base.mdsl`, then registers the appropriate `branch-*.mdsl` as the `[Role]` subtree based on the agent's `kind`. Each agent gets their own `BehaviourTree` instance with the composed tree.
+**Composition mechanism:** The loader reads `base.mdsl` and the agent-specific `branch-{kind}.mdsl`, then concatenates them into a single MDSL string. Both files share the name `Role` for the branch reference: `base.mdsl` uses `branch [Role]` and each branch file defines `root [Role] { ... }`. The concatenated string is passed to the `BehaviourTree` constructor. Each agent gets their own `BehaviourTree` instance with the composed tree.
+
+**Validation:** Mistreevous's `validateDefinition()` is called on the composed MDSL before constructing the tree. This replaces the custom `bt-lint.ts` for syntactic validation. Semantic validation (do all referenced condition/action names exist on the BehaviorAgent?) is performed at build time by checking method names against the `BehaviorAgent` interface.
 
 ---
 
@@ -480,11 +529,12 @@ The BehaviorTreeSystem reduces to:
 ```typescript
 execute(deps: GameCoreDeps): void {
     for (const agent of agents()) {
-        agent.behaviorAgent.syncFromComponents(deps);
         agent.behaviorTree.step();
     }
 }
 ```
+
+No sync step is needed — the BehaviorAgent's read-only properties are getters that proxy live ECS component state. Perception data is already updated by `PerceptionSystem` (priority 3) before `BehaviorTreeSystem` (priority 5) runs.
 
 ---
 
@@ -501,7 +551,7 @@ execute(deps: GameCoreDeps): void {
 
 ### 5.2 Revised Location JSON
 
-**Farm** — add `pickup_price: 1`:
+**Farm** — add `pickup_price: 3`:
 
 ```json
 {
@@ -511,12 +561,12 @@ execute(deps: GameCoreDeps): void {
         "input": null,
         "wage": 3,
         "ticks_per_cycle": 30,
-        "pickup_price": 1
+        "pickup_price": 3
     }
 }
 ```
 
-**Bakery** — add `auto_process: true, auto_ticks_per_cycle: 40`:
+**Bakery** — add `auto_process: true, auto_ticks_per_cycle: 40, pickup_price: 1`:
 
 ```json
 {
@@ -527,12 +577,13 @@ execute(deps: GameCoreDeps): void {
         "wage": 4,
         "ticks_per_cycle": 20,
         "auto_process": true,
-        "auto_ticks_per_cycle": 40
+        "auto_ticks_per_cycle": 40,
+        "pickup_price": 1
     }
 }
 ```
 
-**Tavern** — add fund support for rest payments.
+**Tavern** — add fund support for rest payments. The tavern Actor receives a `FacilityComponent` with `production: null` but `fund > 0`. Rest payments from `RestSystem` credit the tavern's facility fund instead of vanishing into the ledger.
 
 ---
 
@@ -578,7 +629,6 @@ src/domain/systems/bt-conditions.ts
 src/domain/systems/bt-lint.ts
 src/infrastructure/components/blackboard-component.ts
 src/infrastructure/systems/feed-system.ts
-src/infrastructure/systems/rest-system.ts
 src/infrastructure/systems/trade-system.ts
 
 behavior-trees/bt-guard.json
@@ -591,8 +641,10 @@ tests/domain/systems/bt-actions.test.ts
 tests/domain/systems/bt-conditions.test.ts
 tests/domain/systems/bt-lint.test.ts
 tests/infrastructure/systems/feed-system.test.ts
-tests/infrastructure/systems/rest-system.test.ts
 tests/infrastructure/systems/trade-system.test.ts
+```
+
+**Note:** All test files that reference `BlackboardComponent` must be updated to use `BehaviorAgent` instead. This affects tests for: `facility-system`, `movement-system`, `socialize-system`, `dialogue-system`, `gossip-system`, `perception-system`, and all integration tests (`smoke-test`, `balance-smoke`, `economy-integration`, `agency-integration`, `social-integration`, etc.).
 ```
 
 ### 6.4 Modified Files
@@ -600,13 +652,12 @@ tests/infrastructure/systems/trade-system.test.ts
 ```
 src/domain/core/component-data.ts          ← Remove BlackboardState, add CargoState
 src/domain/schemas/location-schema.ts      ← Add auto_process, auto_ticks_per_cycle, pickup_price
-src/domain/schemas/game-config-schema.ts   ← Add guard_stipend, need thresholds, pickup defaults
-src/domain/systems/facility.ts             ← Add auto-process path, pickup fee logic
-src/domain/systems/rest.ts                 ← Add facility fund payment (fix gold sink)
-src/domain/systems/trade.ts                ← Support buying from agents (mobile vendor)
+src/domain/schemas/game-config-schema.ts   ← Add guard_stipend, facility_subsidy_threshold, facility_subsidy_per_day, need thresholds
+src/domain/systems/facility.ts             ← Add auto-process path (no-worker production at slower rate)
 src/infrastructure/entity/agent-actor.ts   ← Remove BlackboardComponent, add BehaviorAgent + BehaviourTree refs
 src/infrastructure/entity/agent-spawner.ts ← Construct BehaviorAgent and BehaviourTree per agent
-src/infrastructure/systems/facility-system.ts   ← Add auto-process logic, pickup fee handling
+src/infrastructure/systems/facility-system.ts   ← Add auto-process logic, pickup fee handling on cargo pickup
+src/infrastructure/systems/rest-system.ts       ← Fix: rest payment credits tavern facility fund (not deleted — gold handling stays in infra)
 src/infrastructure/systems/movement-system.ts   ← Read from BehaviorAgent instead of BlackboardComponent
 src/infrastructure/systems/socialize-system.ts  ← Read from BehaviorAgent instead of BlackboardComponent
 src/infrastructure/systems/dialogue-system.ts   ← Read social state from BehaviorAgent
@@ -619,8 +670,8 @@ agents/marcus.json    ← job: "guard", behavior_tree: "guard"
 agents/elena.json     ← job: "merchant", behavior_tree: "merchant"
 agents/wren.json      ← job: "farmer", behavior_tree: "scholar"
 
-locations/bakery.json ← Add auto_process, auto_ticks_per_cycle
-locations/farm.json   ← Add pickup_price
+locations/bakery.json ← Add auto_process, auto_ticks_per_cycle, pickup_price
+locations/farm.json   ← Add pickup_price: 3
 locations/tavern.json ← Add fund support
 ```
 
