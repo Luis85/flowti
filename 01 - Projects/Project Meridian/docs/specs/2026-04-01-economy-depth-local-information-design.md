@@ -61,9 +61,8 @@ Comprehensive data structure library. Import only what's needed — each import 
 | Import | Use Case | Why |
 |--------|----------|-----|
 | `mnemonist/circular-buffer` | Agent price memories | Fixed-size (20 entries), oldest evicted automatically, no GC pressure |
-| `mnemonist/sorted-array` | Demand tracker events (if needed) | O(log n) insert, sorted iteration for window queries |
 
-**Not importing:** Heap (flatqueue covers this), SparseSet (current dirty flags work fine), BiMap, LRUCache.
+**Not importing:** Heap (flatqueue covers this), SortedArray (demand tracker uses plain Map + filter — sufficient at current scale, SortedArray is a future optimization if needed), SparseSet (current dirty flags work fine), BiMap, LRUCache.
 
 ### 1.4 Libraries Evaluated and Rejected
 
@@ -292,6 +291,10 @@ function getDemandRate(
 
 **Event source:** `TradeCompleted` events emitted by the Buy() action (defined in companion spec). EconomySystem listens and calls `recordConsumption()`. No new system coupling.
 
+**Transition from fixed `food_price` to dynamic pricing:** The companion spec defines `food_price: 3` as a fixed config value. This spec's `calculatePostedPrice()` replaces it with dynamic pricing. The `food_price` config field becomes the `baseValue` for bread in the item definition. The config field is deprecated — `baseValue` per item is the source of truth, and the pricing formula applies scarcity, elasticity, and modifiers on top.
+
+**Side-effect note:** `getDemandRate()` prunes expired events as a side effect inside a read function. This is an intentional optimization to avoid a separate pruning pass — acceptable because the DemandTracker is owned by the EconomySystem (infrastructure layer), not a shared domain object.
+
 **Config:** `economy.demand_window_ticks` (default: 500 — approximately 4 in-game days). Shorter = prices respond faster. Longer = smoother prices.
 
 ---
@@ -304,7 +307,7 @@ Every gold movement is exactly one of three categories:
 
 **Faucets (gold enters circulation):**
 - Agent stipend on spawn
-- Treasury regeneration (1g/day minimum — GDD 20.3 Layer 1)
+- Treasury regeneration (configured `treasury_regen_per_day`, default 50 — see companion spec §1.4)
 - Merchant caravan world events
 - Guaranteed recovery events (GDD 20.3 Layer 2)
 
@@ -342,12 +345,12 @@ interface GoldFlow {
 }
 
 interface MonetaryLedger {
-    flows: GoldFlow[];
+    flows: GoldFlow[];      // pruned on each snapshot calculation (flows older than windowSize are dropped)
     windowSize: number;     // ticks for velocity calculation (from config)
 }
 ```
 
-**Event source:** New `GoldFlowed` event type on the EventBus. Every system that moves gold emits this event with the flow data. MonetaryPolicySystem listens and records. One new event type, not a new coupling pattern.
+**Event source:** New `GoldFlowed` event type on the EventBus. Every **system** that moves gold emits this event with the flow data — Buy(), Work(), welfare, stipend, etc. The WalletComponent itself does NOT emit events (components are plain state containers per the TrackedComponent pattern). MonetaryPolicySystem listens and records. One new event type, not a new coupling pattern.
 
 ### 4.3 Velocity Calculation
 
@@ -430,7 +433,7 @@ Layer 1: Welfare Floor (existing — companion spec)
   Source:   companion spec, already designed
 
 Layer 2: Velocity Stimulus (new)
-  Trigger:  velocity < stagnant threshold for N consecutive ticks
+  Trigger:  velocity < stagnant threshold for stimulus_trigger_ticks consecutive ticks (default: 50)
   Action:   treasury regen rate doubles + tax rate halved
   Effect:   injects gold and reduces drain simultaneously
   Duration: stimulus_duration_ticks (default: 100), then re-evaluate
@@ -459,6 +462,8 @@ Extended:
 ```
 
 MonetaryPolicySystem is a new system at priority 16.5. Runs after EconomySystem (needs fresh prices) and before WorldEventSystem (may trigger recovery events). Pure domain function + infrastructure wrapper, consistent with dual-layer pattern.
+
+**Timing confirmation:** TradeCompleted events are emitted by Buy() actions during BT evaluation (priority 5). By priority 16, all trades for the current tick have completed. EconomySystem (16) records consumption in the demand tracker and recalculates prices using fresh demand data. MonetaryPolicySystem (16.5) then reads the updated prices and money supply to compute velocity and evaluate safety net triggers.
 
 ---
 
@@ -520,7 +525,7 @@ interface EconomyStoreState {
     effectiveTaxRate: number;
     inflationTrend: 'deflationary' | 'stable' | 'inflationary';
 
-    // History (ring buffer for sparklines/trends)
+    // History (plain arrays, capped at 50 entries via .shift() on push — no mnemonist needed in UI layer)
     velocityHistory: number[];          // last 50 snapshots
     moneySupplyHistory: number[];
     priceHistory: Record<string, number[]>;
@@ -535,7 +540,7 @@ Available from the economy panel, dispatched as `DirectorAction` events (same pa
 |--------|--------|------|
 | Adjust tax rate override | Set within [0%, 15%] bounds | Free |
 | Trigger caravan manually | Injects gold + goods (faucet) | Treasury gold |
-| Set price cap on item | Hard clamp override on a specific item | Free |
+| Set price cap on item | Adds a `directorPriceCap` override to the facility's item entry; `calculatePostedPrice()` applies `Math.min(result, cap)` as a post-calculation clamp | Free |
 | Subsidize facility | Treasury → facility fund transfer | Treasury gold |
 
 ---
@@ -567,7 +572,8 @@ monetary_policy: z.object({
     velocity_critical: z.number().default(0.1),
     stimulus_duration_ticks: z.number().default(100),
     caravan_cooldown_ticks: z.number().default(500),
-    tax_base_rate: z.number().default(0.05),
+    stimulus_trigger_ticks: z.number().default(50),
+    tax_base_rate: z.number().default(0.10),  // aligned with companion spec's 10% rate
     tax_stagnant_multiplier: z.number().default(0.5),
     tax_overheated_multiplier: z.number().default(1.5),
     admin_fee_rate: z.number().default(0.02),
@@ -602,7 +608,7 @@ monetary_policy: z.object({
 | `domain/schemas/item-schema.ts` | Add `category` field (subsistence/comfort/trade_goods/luxury) |
 | `domain/core/events.ts` | Add `GoldFlowed` event type |
 | `infrastructure/systems/economy-system.ts` | Wire pricing formula + demand tracker + recalc queue |
-| `infrastructure/components/wallet.ts` | Emit `GoldFlowed` events on gold changes |
+| Systems that move gold (Buy, Work, welfare, stipend, etc.) | Emit `GoldFlowed` event after each gold transfer/creation/destruction |
 | `behavior-agent.ts` (from companion spec) | Add `priceMemories`, `KnowsFoodSource()`, `CanAffordRememberedFood()`, `SeekBestFoodSource()` |
 
 ### New Test Files
@@ -633,6 +639,8 @@ Chunk 2: Wire Into Simulation
   ├─ Add economy config (elasticity, demand_window, price_memory)
   ├─ Extend EconomySystem to use pricing.ts + demand tracker
   ├─ Extend BehaviorAgent with priceMemories + condition/action methods
+  ├─ Update MDSL trees: replace `CanAffordFood`/`SeekFood` with `CanAffordRememberedFood`/`SeekBestFoodSource`
+  │   (the remembered-price variants replace the companion spec's fixed-price variants — not additive)
   └─ Integration test: price recalculation responds to consumption
 
 Chunk 3: Monetary Policy
