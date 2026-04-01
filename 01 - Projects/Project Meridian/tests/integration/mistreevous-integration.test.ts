@@ -136,12 +136,16 @@ describe('mistreevous BT integration', () => {
 		}
 
 		// With hunger=20 (<50), BT should trigger survival branch
-		// Elena has gold >= food_price (3), so should seek food
-		expect(actions.has('seek_food') || actions.has('eat'),
-			`Expected seek_food or eat, got: ${JSON.stringify([...actions])}`).toBe(true);
+		// Elena has gold >= food_price (3) and nearby facilities have bread,
+		// so should buy, seek food, or eat
+		expect(actions.has('seek_food') || actions.has('eat') || actions.has('buy'),
+			`Expected seek_food, eat, or buy, got: ${JSON.stringify([...actions])}`).toBe(true);
 
-		// movementTarget should be set (agent wants to move somewhere)
-		expect(behaviorAgent.movementTarget).not.toBeNull();
+		// If agent chose buy (at facility with stock), movementTarget may be null.
+		// If agent chose seek_food, movementTarget should be set.
+		if (actions.has('seek_food')) {
+			expect(behaviorAgent.movementTarget).not.toBeNull();
+		}
 	});
 
 	it('agents commit to actions via RUNNING state', () => {

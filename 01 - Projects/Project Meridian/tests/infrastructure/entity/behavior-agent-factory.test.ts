@@ -737,7 +737,22 @@ describe('BehaviorAgent factory', () => {
 	// ── Action method tests (C2: survival) ─────────────────────────────────
 	describe('survival actions', () => {
 		describe('Eat', () => {
-			it('recovers hunger and decrements inventory when food available', () => {
+			it('sets btAction to eat and returns running when food available', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						needs: { hunger: 40, energy: 90, social: 70 },
+						inventory: [{ item_id: 'bread', quantity: 2 }],
+					}),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor, { config }));
+
+				const result = agent.Eat();
+				expect(result).toBe('mistreevous.running');
+				expect(agent.btAction).toBe('eat');
+			});
+
+			it('does not modify hunger or inventory (system handles that)', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
 						needs: { hunger: 40, energy: 90, social: 70 },
@@ -748,13 +763,12 @@ describe('BehaviorAgent factory', () => {
 				actor.get(NeedsComponent).state = { hunger: 40, energy: 90, social: 70 };
 				const agent = createBehaviorAgent(setupDeps(actor, { config }));
 
-				const result = agent.Eat();
-				expect(result).toBe('mistreevous.running');
-				expect(agent.hunger).toBeGreaterThan(40);
+				agent.Eat();
+				expect(agent.hunger).toBe(40);
 
 				const inv = actor.get(InventoryComponent);
 				const bread = inv.state.items.find(i => i.item_id === 'bread');
-				expect(bread?.quantity).toBe(1);
+				expect(bread?.quantity).toBe(2);
 			});
 
 			it('returns failed when no food in inventory', () => {
@@ -765,7 +779,7 @@ describe('BehaviorAgent factory', () => {
 		});
 
 		describe('Rest', () => {
-			it('recovers energy', () => {
+			it('sets btAction to rest and returns running', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70 } }),
 					defaultMoodConfig,
@@ -775,7 +789,19 @@ describe('BehaviorAgent factory', () => {
 
 				const result = agent.Rest();
 				expect(result).toBe('mistreevous.running');
-				expect(agent.energy).toBeGreaterThan(30);
+				expect(agent.btAction).toBe('rest');
+			});
+
+			it('does not modify energy (system handles that)', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70 } }),
+					defaultMoodConfig,
+				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70 };
+				const agent = createBehaviorAgent(setupDeps(actor, { config }));
+
+				agent.Rest();
+				expect(agent.energy).toBe(30);
 			});
 		});
 
@@ -866,7 +892,6 @@ describe('BehaviorAgent factory', () => {
 				});
 
 				const locActors = new Map<string, Actor>([['loc-market', facActor]]);
-				const world = createWorldEntity();
 
 				return {
 					actor,
@@ -874,33 +899,29 @@ describe('BehaviorAgent factory', () => {
 						config,
 						getLocations: () => locations,
 						getLocationActors: () => locActors,
-						worldEntity: () => world,
 					})),
 					facActor,
-					world,
 				};
 			}
 
-			it('deducts gold and adds bread to inventory', () => {
-				const { actor, agent } = setupBuyScenario();
+			it('sets btAction to buy and returns succeeded when preconditions met', () => {
+				const { agent } = setupBuyScenario();
 				const result = agent.Buy();
 				expect(result).toBe('mistreevous.succeeded');
-				expect(agent.gold).toBe(50 - config.economy.food_price);
-				expect(agent.inventory.some(i => i.item_id === 'bread')).toBe(true);
+				expect(agent.btAction).toBe('buy');
 			});
 
-			it('increments facility fund', () => {
+			it('does not modify gold or inventory (TradeSystem handles that)', () => {
+				const { agent } = setupBuyScenario();
+				agent.Buy();
+				expect(agent.gold).toBe(50);
+				expect(agent.inventory.some(i => i.item_id === 'bread')).toBe(false);
+			});
+
+			it('does not modify facility fund (TradeSystem handles that)', () => {
 				const { agent, facActor } = setupBuyScenario();
 				agent.Buy();
-				expect(facActor.get(FacilityComponent).state.fund).toBe(100 + config.economy.food_price);
-			});
-
-			it('records ledger entry', () => {
-				const { agent, world } = setupBuyScenario();
-				agent.Buy();
-				const ledger = world.get(EconomyComponent).state.ledger;
-				expect(ledger).toHaveLength(1);
-				expect(ledger[0]!.type).toBe('purchase');
+				expect(facActor.get(FacilityComponent).state.fund).toBe(100);
 			});
 
 			it('returns failed when insufficient gold', () => {

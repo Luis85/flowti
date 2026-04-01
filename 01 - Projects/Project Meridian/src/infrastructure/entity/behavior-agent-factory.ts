@@ -9,12 +9,8 @@ import { InventoryComponent } from '../components/inventory-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { TimeComponent } from '../components/time-component.js';
-import { EconomyComponent } from '../components/economy-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
-import { findFoodInInventory, removeFromInventory } from '../../domain/systems/food-items.js';
-import { applyFeed } from '../../domain/systems/feed.js';
-import { applyRest } from '../../domain/systems/rest.js';
-import { applyTrade } from '../../domain/systems/trade.js';
+import { findFoodInInventory } from '../../domain/systems/food-items.js';
 import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
 import type { AgentActor } from './agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
@@ -301,39 +297,14 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		// ── 16 Action methods ──────────────────────────────────────────────
 		Eat(): ActionResult {
-			const food = findFoodInInventory(agent.inventory);
+			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
 			if (food === null) return FAILED;
-
-			btAction = 'eat';
-
-			const result = applyFeed(
-				{ currentHunger: agent.hunger },
-				{ recovery_rate: config.needs.food_recovery_rate },
-			);
-
-			const needs = actor.get(NeedsComponent);
-			needs.state = { ...needs.state, hunger: result.newHunger };
-			needs.markDirty();
-
-			const inv = actor.get(InventoryComponent);
-			inv.state = { ...inv.state, items: removeFromInventory(agent.inventory, food.item_id, 1) };
-			inv.markDirty();
-
+			agent.btAction = 'eat';
 			return RUNNING;
 		},
 
 		Rest(): ActionResult {
-			btAction = 'rest';
-			const restTier = atLocation !== null ? 'public_shelter' as const : 'outdoors' as const;
-			const result = applyRest(
-				{ currentEnergy: agent.energy, restTier },
-				config.rest_tiers,
-			);
-
-			const needs = actor.get(NeedsComponent);
-			needs.state = { ...needs.state, energy: result.newEnergy };
-			needs.markDirty();
-
+			agent.btAction = 'rest';
 			return RUNNING;
 		},
 
@@ -362,75 +333,15 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		Buy(): ActionResult {
-			btAction = 'buy';
-			const facilitiesWithFood = agent.nearbyFacilities.filter(
-				f => f.stock.some(s => s.item_id === 'bread' && s.quantity > 0),
-			);
-			if (facilitiesWithFood.length === 0) return FAILED;
-
-			const facility = facilitiesWithFood[0]!;
-			const tradeResult = applyTrade({
-				agentGold: agent.gold,
-				price: config.economy.food_price,
-				facilityFund: facility.stock.length, // not used by applyTrade
-				itemId: 'bread',
-				quantity: 1,
-			});
-
-			if (!tradeResult.success) return FAILED;
-
-			// Deduct gold from wallet
+			// Check preconditions
 			const wallet = actor.get(WalletComponent);
-			wallet.state = { ...wallet.state, gold: wallet.state.gold + tradeResult.agentGoldChange };
-			wallet.markDirty();
-
-			// Add bread to inventory
-			const inv = actor.get(InventoryComponent);
-			const existingBread = inv.state.items.find(i => i.item_id === 'bread');
-			if (existingBread !== undefined) {
-				inv.state = {
-					...inv.state,
-					items: inv.state.items.map(i =>
-						i.item_id === 'bread' ? { ...i, quantity: i.quantity + 1 } : { ...i },
-					),
-				};
-			} else {
-				inv.state = {
-					...inv.state,
-					items: [...inv.state.items, { item_id: 'bread', quantity: 1 }],
-				};
-			}
-			inv.markDirty();
-
-			// Increment facility fund
-			const locActors = getLocationActors();
-			const facActor = locActors.get(facility.id);
-			if (facActor !== undefined) {
-				const facComp = facActor.get(FacilityComponent);
-				facComp.state = { ...facComp.state, fund: facComp.state.fund + config.economy.food_price };
-				facComp.markDirty();
-			}
-
-			// Record ledger entry on world economy
-			const world = worldEntity();
-			const econ = world.get(EconomyComponent);
-			econ.state = {
-				...econ.state,
-				ledger: [
-					...econ.state.ledger,
-					{
-						tick: tickCount(),
-						type: 'purchase' as const,
-						from: actor.agentId,
-						to: facility.id,
-						itemId: 'bread',
-						quantity: 1,
-						gold: config.economy.food_price,
-					},
-				],
-			};
-			econ.markDirty();
-
+			if (wallet.state.gold < config.economy.food_price) return FAILED;
+			// Check nearby facility has stock
+			const hasStock = agent.nearbyFacilities.some(f =>
+				f.stock.some(s => s.item_id === 'bread' && s.quantity > 0),
+			);
+			if (!hasStock) return FAILED;
+			agent.btAction = 'buy';
 			return SUCCEEDED;
 		},
 
