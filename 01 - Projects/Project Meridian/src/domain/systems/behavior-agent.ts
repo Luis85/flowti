@@ -67,7 +67,7 @@ export interface BehaviorAgent {
 	atLocation: string | null;
 	currentRegion: string;
 	haulCargo: CargoState | null;
-	socialCooldowns: Map<string, number>;
+	readonly socialCooldowns: Map<string, number>;
 	committedAction: string | null;
 
 	// System working memory (migrated from BlackboardComponent)

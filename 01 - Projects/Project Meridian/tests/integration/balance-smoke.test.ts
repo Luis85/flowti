@@ -69,7 +69,7 @@ function loadMdslDefinitions(): Record<string, string> {
 	return result;
 }
 
-describe('Balance Smoke Test — Full Day (480 ticks)', () => {
+describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 	const agentData = loadAndParse('agents', AgentSchema);
 	const locations: WorldLocation[] = loadAndParse('locations', LocationSchema);
 	const mdslDefs = loadMdslDefinitions();
@@ -82,7 +82,7 @@ describe('Balance Smoke Test — Full Day (480 ticks)', () => {
 		return;
 	}
 
-	it('economy survives a full day — agents eat, rest, and transact', () => {
+	it('economy survives two full days — agents eat, rest, and transact', () => {
 		const eventBus = createEventBus();
 		const config = GameConfigSchema.parse({});
 
@@ -195,9 +195,9 @@ describe('Balance Smoke Test — Full Day (480 ticks)', () => {
 			}
 		});
 
-		// Run 480 ticks — one full game day
+		// Run 960 ticks — two full game days (verifies multi-day sustainability)
 		// Note: tick runner manages deps.tickCount internally (1-based, increments each call)
-		for (let tick = 0; tick < 480; tick++) {
+		for (let tick = 0; tick < 960; tick++) {
 			tickRunner.tick(deps);
 		}
 
@@ -240,8 +240,8 @@ describe('Balance Smoke Test — Full Day (480 ticks)', () => {
 		const moodEvents = eventCounts.get('MoodChanged') ?? 0;
 		expect(moodEvents, 'Mood system never recalculated').toBeGreaterThan(0);
 
-		// Simulation completed 480 ticks without throwing (implicit — reaching here proves it)
-		// Tick runner uses 1-based counting internally, so after 480 calls tickCount = 480
-		expect(deps.tickCount).toBe(480);
+		// Simulation completed 960 ticks without throwing (implicit — reaching here proves it)
+		// Tick runner uses 1-based counting internally, so after 960 calls tickCount = 960
+		expect(deps.tickCount).toBe(960);
 	});
 });

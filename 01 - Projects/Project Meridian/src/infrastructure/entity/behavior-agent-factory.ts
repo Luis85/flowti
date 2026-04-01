@@ -19,9 +19,6 @@ const SUCCEEDED: ActionResult = 'mistreevous.succeeded';
 const FAILED: ActionResult = 'mistreevous.failed';
 const RUNNING: ActionResult = 'mistreevous.running';
 
-const DEFAULT_HUNGER_THRESHOLD = 50;
-const DEFAULT_ENERGY_THRESHOLD = 30;
-const DEFAULT_SOCIAL_THRESHOLD = 40;
 
 export interface BehaviorAgentDeps {
 	actor: AgentActor;
@@ -44,6 +41,10 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	const socialCooldowns = new Map<string, number>();
 	let committedAction: string | null = null;
 
+	// Per-tick cache for nearbyFacilities — avoids redundant computation within a single tick
+	let cachedFacilities: PerceivedFacility[] | null = null;
+	let cachedFacilitiesTick = -1;
+
 	// System working memory (migrated from BlackboardComponent)
 	let btAction: string | null = null;
 	let gossipPending: string | null = null;
@@ -56,6 +57,11 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 	// Helper: resolve nearbyFacilities from location actors with FacilityComponent
 	function resolveNearbyFacilities(): PerceivedFacility[] {
+		const currentTick = tickCount();
+		if (currentTick === cachedFacilitiesTick && cachedFacilities !== null) {
+			return cachedFacilities;
+		}
+
 		const locationActorMap = getLocationActors();
 		const locationList = getLocations();
 		const perception = actor.get(PerceptionComponent);
@@ -84,6 +90,9 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 				hasUnmetInput,
 			});
 		}
+
+		cachedFacilities = facilities;
+		cachedFacilitiesTick = currentTick;
 		return facilities;
 	}
 
@@ -179,7 +188,6 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set haulCargo(v: CargoState | null) { haulCargo = v; },
 
 		get socialCooldowns() { return socialCooldowns; },
-		set socialCooldowns(_v: Map<string, number>) { /* noop — use the map directly */ },
 
 		get committedAction() { return committedAction; },
 		set committedAction(v: string | null) { committedAction = v; },
@@ -210,15 +218,15 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		// ── 19 Condition methods ───────────────────────────────────────────
 		IsHungry(): boolean {
-			return agent.hunger < DEFAULT_HUNGER_THRESHOLD;
+			return agent.hunger < config.needs.hunger_threshold;
 		},
 
 		IsExhausted(): boolean {
-			return agent.energy < DEFAULT_ENERGY_THRESHOLD;
+			return agent.energy < config.needs.energy_threshold;
 		},
 
 		IsLonely(): boolean {
-			return agent.social < DEFAULT_SOCIAL_THRESHOLD;
+			return agent.social < config.needs.social_threshold;
 		},
 
 		NeedsCritical(): boolean {
@@ -345,6 +353,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return SUCCEEDED;
 		},
 
+		/** Available for custom BTs — not used in the default tree set. */
 		Idle(): ActionResult {
 			btAction = 'idle';
 			return RUNNING;
