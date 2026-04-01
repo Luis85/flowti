@@ -14,7 +14,7 @@
 			{
 				"type": "sequence",
 				"children": [
-					{ "type": "condition", "check": "need_below", "params": { "need": "energy", "threshold": 40 } },
+					{ "type": "condition", "check": "need_below", "params": { "need": "energy", "threshold": 20 } },
 					{ "type": "condition", "check": "nearby_location", "params": { "locationType": "rest" } },
 					{ "type": "action", "action": "seek_rest", "params": {} }
 				]
@@ -32,6 +32,7 @@
 				"children": [
 					{ "type": "condition", "check": "need_below", "params": { "need": "hunger", "threshold": 50 } },
 					{ "type": "condition", "check": "can_afford", "params": { "price": 2 } },
+					{ "type": "condition", "check": "facility_has_stock", "params": { "itemId": "bread" } },
 					{ "type": "action", "action": "buy", "params": {} }
 				]
 			},
