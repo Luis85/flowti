@@ -13,6 +13,12 @@ root {
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
+                    condition [FacilityHasStock, "bread"]
+                    action [Buy]
+                }
+                sequence {
+                    condition [IsHungry]
+                    condition [CanAffordFood]
                     action [SeekFood] while(IsHungry)
                 }
                 sequence {
@@ -26,14 +32,23 @@ root {
         sequence {
             condition [IsHungry]
             selector {
+                /* Eat from inventory if possible */
                 sequence {
                     condition [HasFood]
                     action [Eat] while(IsHungry)
                 }
+                /* Buy food if at a facility with stock */
                 sequence {
                     condition [CanAffordFood]
-                    action [SeekFood] while(IsHungry)
+                    condition [FacilityHasStock, "bread"]
+                    action [Buy]
                 }
+                /* Go find food to buy */
+                sequence {
+                    condition [CanAffordFood]
+                    action [SeekFood]
+                }
+                /* No food, no money — go work */
                 sequence {
                     condition [HasJob]
                     action [SeekWork]
