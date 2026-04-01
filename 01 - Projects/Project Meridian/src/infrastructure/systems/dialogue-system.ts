@@ -4,7 +4,6 @@ import { selectDialogue } from '../../domain/systems/dialogue.js';
 import { applyRelationshipUpdate } from '../../domain/systems/relationship.js';
 import { createGameRNG, hashString } from '../../domain/core/game-rng.js';
 import type { AgentActor } from '../entity/agent-actor.js';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
@@ -87,13 +86,8 @@ export function createDialogueSystem(
 
 				// Gossip gate
 				if (result.shouldExchangeGossip) {
-					const agentBb = agent.get(BlackboardComponent);
-					agentBb.state = { ...agentBb.state, gossipPending: partner.agentId };
-					agentBb.markDirty();
-
-					const partnerBb = partner.get(BlackboardComponent);
-					partnerBb.state = { ...partnerBb.state, gossipPending: agent.agentId };
-					partnerBb.markDirty();
+					agent.behaviorAgent.gossipPending = partner.agentId;
+					partner.behaviorAgent.gossipPending = agent.agentId;
 				}
 
 				// Emit DialogueCompleted

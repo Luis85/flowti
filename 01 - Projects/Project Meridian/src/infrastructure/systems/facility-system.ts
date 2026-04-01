@@ -7,12 +7,12 @@ import { distance } from '../../domain/core/math-utils.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation, Production } from '../../domain/schemas/location-schema.js';
 import type { Actor } from 'excalibur';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
 import type { LedgerEntry } from '../../domain/core/component-data.js';
+import type { SkillEntry } from '../../domain/systems/behavior-agent.js';
 
 interface StockItem {
 	item_id: string;
@@ -48,8 +48,7 @@ function findWorker(
 	radius: number,
 ): AgentActor | undefined {
 	for (const agent of agentList) {
-		const bb = agent.get(BlackboardComponent);
-		const btAction = bb.state.btAction as string | undefined;
+		const btAction = agent.behaviorAgent.btAction;
 		if (btAction !== 'work') continue;
 		if (agent.job !== facilityJob) continue;
 		const dist = distance(agent.pos.x, agent.pos.y, locX, locY);
@@ -122,7 +121,7 @@ function recordCycleComplete(
 	// Skill progression
 	applyWorkerSkillProgression(worker, loc, deps);
 
-	// Relationship update (facility → worker)
+	// Relationship update (facility -> worker)
 	applyWorkerRelationship(worker, loc.id);
 
 	deps.eventBus.emit({
@@ -173,13 +172,6 @@ function recordCycleComplete(
 	}
 }
 
-interface SkillEntry {
-	id: string;
-	points: number;
-	use_count: number;
-	use_bonus: number;
-}
-
 function upsertSkill(skills: SkillEntry[], skillId: string, updated: SkillEntry): SkillEntry[] {
 	const exists = skills.some(s => s.id === skillId);
 	if (exists) return skills.map(s => s.id === skillId ? updated : { ...s });
@@ -187,8 +179,8 @@ function upsertSkill(skills: SkillEntry[], skillId: string, updated: SkillEntry)
 }
 
 function applyWorkerSkillProgression(worker: AgentActor, loc: WorldLocation, deps: GameCoreDeps): void {
-	const workerBb = worker.get(BlackboardComponent);
-	const agentSkills = (workerBb.state.skills as SkillEntry[] | undefined) ?? [];
+	const ba = worker.behaviorAgent;
+	const agentSkills = ba.skills;
 	const jobSkillId = loc.production?.job ?? '';
 	const existing = agentSkills.find(s => s.id === jobSkillId);
 	const skillResult = applySkillProgression({
@@ -199,8 +191,7 @@ function applyWorkerSkillProgression(worker: AgentActor, loc: WorldLocation, dep
 		maxUseBonus: deps.config.skills.max_use_bonus,
 	});
 	const newSkill: SkillEntry = { id: jobSkillId, points: skillResult.newPoints, use_count: skillResult.newUseCount, use_bonus: skillResult.newUseBonus };
-	workerBb.state = { ...workerBb.state, skills: upsertSkill(agentSkills, jobSkillId, newSkill) };
-	workerBb.markDirty();
+	ba.skills = upsertSkill(agentSkills, jobSkillId, newSkill);
 }
 
 function applyWorkerRelationship(worker: AgentActor, locationId: string): void {

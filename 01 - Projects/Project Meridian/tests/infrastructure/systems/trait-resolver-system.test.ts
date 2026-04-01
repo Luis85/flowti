@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createTraitResolverSystem } from '../../../src/infrastructure/systems/trait-resolver-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { TraitDefinition } from '../../../src/domain/systems/trait-resolver.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 const traitDefs: Record<string, TraitDefinition> = {
 	'hardy': {
@@ -65,37 +65,65 @@ const defaultMoodConfig = {
 	external_modifier_cap: 30,
 };
 
+function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
+	return {
+		hunger: 80, energy: 90, social: 70, gold: 50, mood: 0, moodBucket: 'stressed',
+		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
+		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
+		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
+		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
+		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
+		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
+		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
+		FacilityNeedsSupply: () => false,
+		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
+		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
+		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
+		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
+		...overrides,
+	};
+}
+
 describe('TraitResolverSystem', () => {
-	it('writes modifier map to blackboard', () => {
+	it('writes modifier map to behaviorAgent', () => {
 		const agent = new AgentActor(createTestAgent(['hardy']), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
 		const system = createTraitResolverSystem(() => [agent], traitDefs);
 		system.execute(createDeps());
 
-		const bb = agent.get(BlackboardComponent);
-		const modifiers = bb.state.traitModifiers as Record<string, Record<string, unknown>> | undefined;
-		expect(modifiers).toBeDefined();
+		const modifiers = agent.behaviorAgent.traitModifiers as Record<string, Record<string, unknown>> | null;
+		expect(modifiers).not.toBeNull();
 		expect(modifiers?.['NeedsDecaySystem']).toEqual({ hungerDecayScale: 0.8 });
 	});
 
 	it('writes empty map on trait conflict', () => {
 		const agent = new AgentActor(createTestAgent(['hardy', 'frail']), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
 		const system = createTraitResolverSystem(() => [agent], traitDefs);
 		const deps = createDeps();
 		system.execute(deps);
 
-		const bb = agent.get(BlackboardComponent);
-		const modifiers = bb.state.traitModifiers as Record<string, unknown> | undefined;
+		const modifiers = agent.behaviorAgent.traitModifiers as Record<string, unknown> | null;
 		expect(Object.keys(modifiers ?? {})).toHaveLength(0);
 		expect(deps.logger.warn).toHaveBeenCalled();
 	});
 
 	it('handles agent with no traits', () => {
 		const agent = new AgentActor(createTestAgent([]), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
 		const system = createTraitResolverSystem(() => [agent], traitDefs);
 		system.execute(createDeps());
 
-		const bb = agent.get(BlackboardComponent);
-		const modifiers = bb.state.traitModifiers as Record<string, unknown> | undefined;
+		const modifiers = agent.behaviorAgent.traitModifiers as Record<string, unknown> | null;
 		expect(Object.keys(modifiers ?? {})).toHaveLength(0);
 	});
 });

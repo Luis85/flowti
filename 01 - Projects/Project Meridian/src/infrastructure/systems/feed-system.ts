@@ -5,7 +5,6 @@ import { findFoodInInventory, removeFromInventory } from '../../domain/systems/f
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { Actor } from 'excalibur';
 import { NeedsComponent } from '../components/needs-component.js';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 
@@ -23,13 +22,12 @@ export function createFeedSystem(
 			const economy = world.get(EconomyComponent);
 
 			for (const agent of agentList) {
-				const bb = agent.get(BlackboardComponent);
-				const btAction = bb.state.btAction as string | undefined;
+				const ba = agent.behaviorAgent;
+				const btAction = ba.btAction;
 
 				if (btAction !== 'eat') {
-					if (bb.state.feedingAt !== undefined) {
-						bb.state = { ...bb.state, feedingAt: undefined };
-						bb.markDirty();
+					if (ba.feedingAt !== null) {
+						ba.feedingAt = null;
 					}
 					continue;
 				}
@@ -37,9 +35,8 @@ export function createFeedSystem(
 				const inv = agent.get(InventoryComponent);
 				const foodItem = findFoodInInventory(inv.state.items);
 				if (foodItem === null) {
-					if (bb.state.feedingAt !== undefined) {
-						bb.state = { ...bb.state, feedingAt: undefined };
-						bb.markDirty();
+					if (ba.feedingAt !== null) {
+						ba.feedingAt = null;
 					}
 					continue;
 				}
@@ -76,10 +73,9 @@ export function createFeedSystem(
 				};
 				economy.markDirty();
 
-				const previousFeedingAt = bb.state.feedingAt as string | undefined;
+				const previousFeedingAt = ba.feedingAt;
 				if (previousFeedingAt !== 'inventory') {
-					bb.state = { ...bb.state, feedingAt: 'inventory' };
-					bb.markDirty();
+					ba.feedingAt = 'inventory';
 
 					deps.eventBus.emit({
 						type: 'FeedStarted',

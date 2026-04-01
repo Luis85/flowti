@@ -157,7 +157,7 @@ export function createWorldLoader(
 					name: a.agentName,
 					job: a.job,
 					inventory: a.get(InventoryComponent).state.items,
-					behaviorTree: a.behaviorTree,
+					behaviorTree: a.behaviorTreeDef,
 				})),
 				locations: locationResult.items.map(loc => ({
 					id: loc.id,

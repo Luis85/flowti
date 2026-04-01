@@ -4,7 +4,6 @@ import { applyRest, type RestConfig } from '../../domain/systems/rest.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { NeedsComponent } from '../components/needs-component.js';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { distance } from '../../domain/core/math-utils.js';
@@ -32,12 +31,12 @@ function findNearestRestLocation(
 function resolveRestTier(
 	nearestRest: WorldLocation | undefined,
 	agentProperty: string[],
-	btAction: string | undefined,
+	btAction: string | null,
 	agentGold: number,
 	restPrice: number,
 ): RestTier | null {
 	// Only apply rest when agent is resting or idle — don't charge agents just passing by
-	const isResting = btAction === undefined || btAction === 'idle' || btAction === 'rest';
+	const isResting = btAction === null || btAction === 'idle' || btAction === 'rest';
 	if (!isResting) return null;
 
 	if (nearestRest !== undefined) {
@@ -68,17 +67,16 @@ export function createRestSystem(
 			const restConfig: RestConfig = deps.config.rest_tiers;
 
 			for (const agent of agentList) {
-				const bb = agent.get(BlackboardComponent);
-				const btAction = bb.state.btAction as string | undefined;
+				const ba = agent.behaviorAgent;
+				const btAction = ba.btAction;
 
 				const nearestRest = findNearestRestLocation(agent.pos.x, agent.pos.y, locationList, radius);
 				const wallet = agent.get(WalletComponent);
 				const restTier = resolveRestTier(nearestRest, agent.property, btAction, wallet.state.gold, deps.config.economy.rest_price);
 
 				if (restTier === null) {
-					if (bb.state.restingAt !== undefined) {
-						bb.state = { ...bb.state, restingAt: undefined };
-						bb.markDirty();
+					if (ba.restingAt !== null) {
+						ba.restingAt = null;
 					}
 					continue;
 				}
@@ -90,12 +88,11 @@ export function createRestSystem(
 				needs.markDirty();
 
 				// Track restingAt for first-tick event emission
-				const previousRestingAt = bb.state.restingAt as string | undefined;
+				const previousRestingAt = ba.restingAt;
 				const currentRestingAt = nearestRest?.id ?? 'outdoors';
 
 				if (previousRestingAt !== currentRestingAt) {
-					bb.state = { ...bb.state, restingAt: currentRestingAt };
-					bb.markDirty();
+					ba.restingAt = currentRestingAt;
 
 					// Deduct gold on first tick of public shelter stay
 					if (restTier === 'public_shelter') {

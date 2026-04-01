@@ -3,7 +3,6 @@ import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { applySocialize } from '../../domain/systems/socialize.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import { NeedsComponent } from '../components/needs-component.js';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
 
@@ -25,8 +24,8 @@ export function createSocializeSystem(
 			const processedPairs = new Set<string>();
 
 			for (const agent of agentList) {
-				const bb = agent.get(BlackboardComponent);
-				const btAction = bb.state.btAction as string | undefined;
+				const ba = agent.behaviorAgent;
+				const btAction = ba.btAction;
 
 				if (btAction !== 'talk') continue;
 
@@ -43,17 +42,15 @@ export function createSocializeSystem(
 				// Find the partner AgentActor — both agents must be willing to talk
 				const partner = agentList.find(a => a.agentId === nearbyAgent.id);
 				if (partner === undefined) continue;
-				const partnerBtAction = partner.get(BlackboardComponent).state.btAction as string | undefined;
+				const partnerBtAction = partner.behaviorAgent.btAction;
 				if (partnerBtAction !== 'talk') continue;
 
 				// Read cooldown for this pair
-				const cooldownKey = `lastSocial_${nearbyAgent.id}`;
-				const lastSocialTick = (bb.state[cooldownKey] as number | undefined) ?? null;
+				const lastSocialTick = ba.socialCooldowns.get(nearbyAgent.id) ?? null;
 
 				// Read partner's own cooldown separately
-				const partnerBb = partner.get(BlackboardComponent);
-				const partnerCooldownKey = `lastSocial_${agent.agentId}`;
-				const partnerLastSocialTick = (partnerBb.state[partnerCooldownKey] as number | undefined) ?? null;
+				const partnerBa = partner.behaviorAgent;
+				const partnerLastSocialTick = partnerBa.socialCooldowns.get(agent.agentId) ?? null;
 
 				// Apply socialization for initiating agent
 				const result = applySocialize({
@@ -105,11 +102,8 @@ export function createSocializeSystem(
 					}
 
 					// Update cooldown for both
-					bb.state = { ...bb.state, [cooldownKey]: deps.tickCount };
-					bb.markDirty();
-
-					partnerBb.state = { ...partnerBb.state, [`lastSocial_${agent.agentId}`]: deps.tickCount };
-					partnerBb.markDirty();
+					ba.socialCooldowns.set(nearbyAgent.id, deps.tickCount);
+					partnerBa.socialCooldowns.set(agent.agentId, deps.tickCount);
 				}
 
 				// Emit event

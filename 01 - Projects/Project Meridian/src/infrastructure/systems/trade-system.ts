@@ -7,7 +7,6 @@ import { distance } from '../../domain/core/math-utils.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Actor } from 'excalibur';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
@@ -181,8 +180,7 @@ export function createTradeSystem(
 			const foodPrice = deps.config.economy.food_price;
 
 			for (const agent of agentList) {
-				const bb = agent.get(BlackboardComponent);
-				const btAction = bb.state.btAction as string | undefined;
+				const btAction = agent.behaviorAgent.btAction;
 				if (btAction !== 'buy') continue;
 
 				const target = findNearestFoodFacility(agent, locationList, locationActorMap, radius);

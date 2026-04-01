@@ -3,7 +3,6 @@ import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { resolveTraitModifiers, type TraitDefinition } from '../../domain/systems/trait-resolver.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import { TraitsComponent } from '../components/traits-component.js';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 
 export function createTraitResolverSystem(
 	entities: () => AgentActor[],
@@ -16,16 +15,15 @@ export function createTraitResolverSystem(
 		execute(deps: GameCoreDeps): void {
 			for (const entity of entities()) {
 				const traits = entity.get(TraitsComponent);
-				const bb = entity.get(BlackboardComponent);
+				const ba = entity.behaviorAgent;
 
 				const result = resolveTraitModifiers(traits.traitIds, traitDefinitions);
 				if (result.ok) {
-					bb.state = { ...bb.state, traitModifiers: result.value };
+					ba.traitModifiers = result.value;
 				} else {
 					deps.logger.warn('TraitResolverSystem', `Agent ${entity.agentId}: ${result.error.message}`);
-					bb.state = { ...bb.state, traitModifiers: {} };
+					ba.traitModifiers = {};
 				}
-				bb.markDirty();
 			}
 		},
 	};

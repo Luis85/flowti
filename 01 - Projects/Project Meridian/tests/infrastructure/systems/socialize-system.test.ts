@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { createSocializeSystem } from '../../../src/infrastructure/systems/socialize-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { MemoryComponent } from '../../../src/infrastructure/components/memory-component.js';
 import { PerceptionComponent } from '../../../src/infrastructure/components/perception-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
@@ -10,6 +9,7 @@ import { createPerformanceTracker } from '../../../src/infrastructure/performanc
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -58,6 +58,34 @@ function createDeps(eventBus = createEventBus(), tickCount = 100): GameCoreDeps 
 	};
 }
 
+function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
+	return {
+		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
+		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
+		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
+		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
+		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
+		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
+		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
+		FacilityNeedsSupply: () => false,
+		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
+		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
+		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
+		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
+		...overrides,
+	};
+}
+
 function setupPair(
 	opts: { agent1Social?: number; agent2Social?: number; distance?: number; btAction1?: string; btAction2?: string } = {},
 ) {
@@ -76,14 +104,9 @@ function setupPair(
 	agent1.get(PerceptionComponent).state = { nearbyAgents: [{ id: 'agent-marcus', distance }], nearbyLocations: [] };
 	agent2.get(PerceptionComponent).state = { nearbyAgents: [{ id: 'agent-elena', distance }], nearbyLocations: [] };
 
-	// Set BT actions
-	const bb1 = agent1.get(BlackboardComponent);
-	bb1.state = { ...bb1.state, btAction: btAction1 };
-
-	if (btAction2 !== undefined) {
-		const bb2 = agent2.get(BlackboardComponent);
-		bb2.state = { ...bb2.state, btAction: btAction2 };
-	}
+	// Set BT actions via behaviorAgent
+	agent1.behaviorAgent = createStubBehaviorAgent({ btAction: btAction1 });
+	agent2.behaviorAgent = createStubBehaviorAgent({ btAction: btAction2 });
 
 	return { agent1, agent2 };
 }
@@ -138,10 +161,8 @@ describe('SocializeSystem', () => {
 
 		// Second tick at 110 — within cooldown_ticks (20), no new memory
 		// Reset BT actions (they don't persist between ticks in a real system)
-		const bb1 = agent1.get(BlackboardComponent);
-		bb1.state = { ...bb1.state, btAction: 'talk' };
-		const bb2 = agent2.get(BlackboardComponent);
-		bb2.state = { ...bb2.state, btAction: 'talk' };
+		agent1.behaviorAgent.btAction = 'talk';
+		agent2.behaviorAgent.btAction = 'talk';
 
 		const eventBus2 = createEventBus();
 		const events: GameEvent[] = [];

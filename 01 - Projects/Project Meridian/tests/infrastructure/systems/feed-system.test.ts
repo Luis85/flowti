@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { createFeedSystem } from '../../../src/infrastructure/systems/feed-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { InventoryComponent } from '../../../src/infrastructure/components/inventory-component.js';
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
@@ -11,6 +10,7 @@ import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import { Actor } from 'excalibur';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -30,6 +30,34 @@ function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string,
 		position: { x, y, region: 'test' }, relationships: '',
 		color: '#b0b0b0', persona: null, property: [],
 		tools: [], behavior_tree: 'bt-merchant', job: null,
+		...overrides,
+	};
+}
+
+function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
+	return {
+		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
+		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
+		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
+		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
+		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
+		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
+		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
+		FacilityNeedsSupply: () => false,
+		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
+		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
+		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
+		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
 		...overrides,
 	};
 }
@@ -59,9 +87,7 @@ describe('FeedSystem (inventory-based)', () => {
 			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 2 }] }),
 			defaultMoodConfig,
 		);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'eat' };
-		bb.markDirty();
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'eat' });
 
 		const worldEntity = createWorldEntity();
 		const deps = createDeps();
@@ -81,9 +107,7 @@ describe('FeedSystem (inventory-based)', () => {
 			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'torch', quantity: 1 }] }),
 			defaultMoodConfig,
 		);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'eat' };
-		bb.markDirty();
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'eat' });
 
 		const worldEntity = createWorldEntity();
 		const deps = createDeps();
@@ -99,9 +123,7 @@ describe('FeedSystem (inventory-based)', () => {
 			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 1 }] }),
 			defaultMoodConfig,
 		);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'eat' };
-		bb.markDirty();
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'eat' });
 
 		const events: GameEvent[] = [];
 		const eventBus = createEventBus();
@@ -121,9 +143,7 @@ describe('FeedSystem (inventory-based)', () => {
 			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 1 }] }),
 			defaultMoodConfig,
 		);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'eat' };
-		bb.markDirty();
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'eat' });
 
 		const worldEntity = createWorldEntity();
 		const deps = createDeps();
@@ -140,6 +160,7 @@ describe('FeedSystem (inventory-based)', () => {
 			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 5 }] }),
 			defaultMoodConfig,
 		);
+		agent.behaviorAgent = createStubBehaviorAgent();
 
 		const worldEntity = createWorldEntity();
 		const deps = createDeps();

@@ -5,7 +5,6 @@ import type { GossipData, LocationGossip } from '../../domain/systems/gossip.js'
 import { applyRelationshipUpdate } from '../../domain/systems/relationship.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
@@ -132,9 +131,9 @@ export function createGossipSystem(
 			const processedPairs = new Set<string>();
 
 			for (const agent of agentList) {
-				const bb = agent.get(BlackboardComponent);
-				const partnerId = bb.state.gossipPending as string | undefined;
-				if (partnerId === undefined) continue;
+				const ba = agent.behaviorAgent;
+				const partnerId = ba.gossipPending;
+				if (partnerId === null) continue;
 
 				const key = pairKey(agent.agentId, partnerId);
 				if (processedPairs.has(key)) continue;
@@ -143,18 +142,18 @@ export function createGossipSystem(
 				const partner = agentList.find(a => a.agentId === partnerId);
 				if (partner === undefined) continue;
 
-				// Extract gossip for agent A (giver → receiver B)
+				// Extract gossip for agent A (giver -> receiver B)
 				const agentMem = agent.get(MemoryComponent);
-				const agentKnownLocs = (bb.state.knownLocations as string[] | undefined) ?? [];
+				const agentKnownLocs = ba.knownLocations;
 				const agentGossip = [
 					...extractGossipFromMemory(agentMem.state.entries),
 					...buildFirstHandLocationGossip(agentKnownLocs, locationList, agent.agentId, deps.tickCount),
 				];
 
-				// Extract gossip for partner B (giver → receiver A)
-				const partnerBb = partner.get(BlackboardComponent);
+				// Extract gossip for partner B (giver -> receiver A)
+				const partnerBa = partner.behaviorAgent;
 				const partnerMem = partner.get(MemoryComponent);
-				const partnerKnownLocs = (partnerBb.state.knownLocations as string[] | undefined) ?? [];
+				const partnerKnownLocs = partnerBa.knownLocations;
 				const partnerGossip = [
 					...extractGossipFromMemory(partnerMem.state.entries),
 					...buildFirstHandLocationGossip(partnerKnownLocs, locationList, partner.agentId, deps.tickCount),
@@ -170,7 +169,7 @@ export function createGossipSystem(
 					...buildFirstHandLocationGossip(partnerKnownLocs, locationList, partner.agentId, deps.tickCount),
 				];
 
-				// A→B: agent gives to partner
+				// A->B: agent gives to partner
 				const aToBResult = exchangeGossip({
 					giverGossip: agentGossip,
 					receiverGossip: partnerReceiverGossip,
@@ -182,7 +181,7 @@ export function createGossipSystem(
 					currentTick: deps.tickCount,
 				});
 
-				// B→A: partner gives to agent
+				// B->A: partner gives to agent
 				const bToAResult = exchangeGossip({
 					giverGossip: partnerGossip,
 					receiverGossip: agentReceiverGossip,
@@ -194,7 +193,7 @@ export function createGossipSystem(
 					currentTick: deps.tickCount,
 				});
 
-				// Write A→B gossip to partner's memory
+				// Write A->B gossip to partner's memory
 				if (aToBResult.transferred.length > 0) {
 					const newEntries = aToBResult.transferred.map(t => t.memory);
 					partnerMem.state = {
@@ -209,7 +208,7 @@ export function createGossipSystem(
 					}
 				}
 
-				// Write B→A gossip to agent's memory
+				// Write B->A gossip to agent's memory
 				if (bToAResult.transferred.length > 0) {
 					const newEntries = bToAResult.transferred.map(t => t.memory);
 					agentMem.state = {
@@ -234,10 +233,8 @@ export function createGossipSystem(
 				}
 
 				// Clear gossipPending on both agents
-				bb.state = { ...bb.state, gossipPending: undefined };
-				bb.markDirty();
-				partnerBb.state = { ...partnerBb.state, gossipPending: undefined };
-				partnerBb.markDirty();
+				ba.gossipPending = null;
+				partnerBa.gossipPending = null;
 
 				// Emit event
 				deps.eventBus.emit({

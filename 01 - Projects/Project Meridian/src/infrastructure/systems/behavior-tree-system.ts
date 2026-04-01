@@ -2,9 +2,6 @@ import { SystemPriority, type GameSystem } from '../../domain/core/tick-schedule
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 
-/** @deprecated Retained for movement-system.ts compatibility — will be removed in D3. */
-export const JOURNEY_SENTINEL = '__journey__';
-
 export function createBehaviorTreeSystem(
 	agents: () => AgentActor[],
 ): GameSystem {

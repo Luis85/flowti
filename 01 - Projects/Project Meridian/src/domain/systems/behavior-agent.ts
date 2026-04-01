@@ -28,6 +28,15 @@ export interface MovementTarget {
 	type: 'agent' | 'location';
 }
 
+export interface SkillEntry {
+	id: string;
+	points: number;
+	use_count: number;
+	use_bonus: number;
+}
+
+export type ModifierMap = Record<string, Record<string, unknown>>;
+
 export type ActionResult =
 	| 'mistreevous.succeeded'
 	| 'mistreevous.failed'
@@ -57,6 +66,16 @@ export interface BehaviorAgent {
 	haulCargo: CargoState | null;
 	socialCooldowns: Map<string, number>;
 	committedAction: string | null;
+
+	// System working memory (migrated from BlackboardComponent)
+	btAction: string | null;
+	gossipPending: string | null;
+	knownLocations: string[];
+	traitModifiers: ModifierMap | null;
+	skills: SkillEntry[];
+	feedingAt: string | null;
+	restingAt: string | null;
+	arrivalSlot: number | null;
 
 	// Condition methods (19)
 	IsHungry(): boolean;

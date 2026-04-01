@@ -1,9 +1,10 @@
 import { Actor, Circle, Color, Label, Font, FontUnit, vec } from 'excalibur';
 import type { Agent } from '../../domain/schemas/agent-schema.js';
+import type { BehaviorAgent } from '../../domain/systems/behavior-agent.js';
+import type { BehaviourTree } from 'mistreevous';
 import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { SocialComponent } from '../components/social-component.js';
 import { TraitsComponent } from '../components/traits-component.js';
@@ -19,10 +20,12 @@ export class AgentActor extends Actor {
 	readonly agentId: string;
 	readonly agentName: string;
 	readonly kind: string;
-	readonly behaviorTree: string;
+	readonly behaviorTreeDef: string;
 	readonly property: string[];
 	readonly job: string | null;
 	readonly agentColor: string;
+	behaviorAgent!: BehaviorAgent;
+	behaviorTree!: BehaviourTree;
 
 	constructor(agent: Agent, moodConfig: MoodConfig, memoryMaxEntries = 50) {
 		super({ x: agent.position.x, y: agent.position.y });
@@ -30,7 +33,7 @@ export class AgentActor extends Actor {
 		this.agentId = agent.id;
 		this.agentName = agent.name;
 		this.kind = agent.kind;
-		this.behaviorTree = agent.behavior_tree;
+		this.behaviorTreeDef = agent.behavior_tree;
 		this.property = [...agent.property];
 		this.job = agent.job ?? null;
 		this.agentColor = agent.color;
@@ -59,7 +62,6 @@ export class AgentActor extends Actor {
 			entries: agent.memory.map(m => ({ ...m })),
 			maxEntries: memoryMaxEntries,
 		}));
-		this.addComponent(new BlackboardComponent({}));
 		this.addComponent(new AttributesComponent({ ...agent.attributes }));
 		this.addComponent(new SocialComponent({ ...agent.social }));
 		this.addComponent(new TraitsComponent([...agent.traits]));

@@ -1,5 +1,5 @@
 import type { Actor } from 'excalibur';
-import type { BehaviorAgent, ActionResult, PerceivedAgent, PerceivedLocation, PerceivedFacility, MovementTarget } from '../../domain/systems/behavior-agent.js';
+import type { BehaviorAgent, ActionResult, PerceivedAgent, PerceivedLocation, PerceivedFacility, MovementTarget, SkillEntry, ModifierMap } from '../../domain/systems/behavior-agent.js';
 import type { JourneyState, CargoState } from '../../domain/core/component-data.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
 import { NeedsComponent } from '../components/needs-component.js';
@@ -47,6 +47,16 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let haulCargo: CargoState | null = null;
 	const socialCooldowns = new Map<string, number>();
 	let committedAction: string | null = null;
+
+	// System working memory (migrated from BlackboardComponent)
+	let btAction: string | null = null;
+	let gossipPending: string | null = null;
+	let knownLocations: string[] = [];
+	let traitModifiers: ModifierMap | null = null;
+	let skills: SkillEntry[] = [];
+	let feedingAt: string | null = null;
+	let restingAt: string | null = null;
+	let arrivalSlot: number | null = null;
 
 	// Helper: resolve nearbyFacilities from location actors with FacilityComponent
 	function resolveNearbyFacilities(): PerceivedFacility[] {
@@ -177,6 +187,30 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		get committedAction() { return committedAction; },
 		set committedAction(v: string | null) { committedAction = v; },
+
+		get btAction() { return btAction; },
+		set btAction(v: string | null) { btAction = v; },
+
+		get gossipPending() { return gossipPending; },
+		set gossipPending(v: string | null) { gossipPending = v; },
+
+		get knownLocations() { return knownLocations; },
+		set knownLocations(v: string[]) { knownLocations = v; },
+
+		get traitModifiers() { return traitModifiers; },
+		set traitModifiers(v: ModifierMap | null) { traitModifiers = v; },
+
+		get skills() { return skills; },
+		set skills(v: SkillEntry[]) { skills = v; },
+
+		get feedingAt() { return feedingAt; },
+		set feedingAt(v: string | null) { feedingAt = v; },
+
+		get restingAt() { return restingAt; },
+		set restingAt(v: string | null) { restingAt = v; },
+
+		get arrivalSlot() { return arrivalSlot; },
+		set arrivalSlot(v: number | null) { arrivalSlot = v; },
 
 		// ── 19 Condition methods ───────────────────────────────────────────
 		IsHungry(): boolean {

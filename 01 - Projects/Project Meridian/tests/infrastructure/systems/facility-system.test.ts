@@ -5,13 +5,13 @@ import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { FacilityComponent } from '../../../src/infrastructure/components/facility-component.js';
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -45,6 +45,34 @@ function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string,
 		tools: [],
 		behavior_tree: 'bt-merchant',
 		job: null,
+		...overrides,
+	};
+}
+
+function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
+	return {
+		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
+		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
+		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
+		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
+		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
+		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
+		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
+		FacilityNeedsSupply: () => false,
+		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
+		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
+		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
+		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
 		...overrides,
 	};
 }
@@ -110,8 +138,7 @@ describe('FacilitySystem', () => {
 	it('increments workProgress when worker is at facility with correct job', () => {
 		const eventBus = createEventBus();
 		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100, { job: 'farmer' }), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'work' };
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work' });
 
 		const farm = createFarmLocation();
 		const farmActor = new Actor();
@@ -146,8 +173,7 @@ describe('FacilitySystem', () => {
 		eventBus.on('ProductionComplete', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100, { job: 'farmer' }), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'work' };
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work' });
 
 		const farm = createFarmLocation();
 		const farmActor = new Actor();
@@ -171,22 +197,16 @@ describe('FacilitySystem', () => {
 		system.execute(createDeps(eventBus));
 
 		const facility = farmActor.get(FacilityComponent);
-		// Cycle complete: workProgress resets to 0
 		expect(facility.state.workProgress).toBe(0);
-		// Output produced: wheat +1
 		expect(facility.state.stock).toEqual([{ item_id: 'wheat', quantity: 1 }]);
-		// Fund decreased by wage (5)
 		expect(facility.state.fund).toBe(195);
 
-		// Worker paid: wage=5, tax_base_rate=0.10, tax=0.50, net=4.50
 		const wallet = agent.get(WalletComponent);
 		expect(wallet.state.gold).toBeCloseTo(54.50);
 
-		// Treasury got tax
 		const economy = world.get(EconomyComponent);
 		expect(economy.state.treasury).toBeCloseTo(500.50);
 
-		// ProductionComplete emitted
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.facilityId).toBe('loc-farm');
 		expect(events[0]?.payload.workerId).toBe('agent-1');
@@ -232,8 +252,7 @@ describe('FacilitySystem', () => {
 		eventBus.on('FacilityIdle', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 200, 200, { job: 'baker' }), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'work' };
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work' });
 
 		const bakery = createBakeryLocation();
 		const bakeryActor = new Actor();
@@ -270,8 +289,7 @@ describe('FacilitySystem', () => {
 		eventBus.on('ProductionComplete', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 200, 200, { job: 'baker' }), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'work' };
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work' });
 
 		const bakery = createBakeryLocation();
 		const bakeryActor = new Actor();
@@ -295,9 +313,7 @@ describe('FacilitySystem', () => {
 		system.execute(createDeps(eventBus));
 
 		const facility = bakeryActor.get(FacilityComponent);
-		// Wheat consumed: 2 - 1 = 1
 		expect(facility.state.stock).toContainEqual({ item_id: 'wheat', quantity: 1 });
-		// Bread produced: 0 + 1 = 1
 		expect(facility.state.stock).toContainEqual({ item_id: 'bread', quantity: 1 });
 		expect(facility.state.workProgress).toBe(0);
 
