@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
 import { MoodComponent } from '../../../src/infrastructure/components/mood-component.js';
 import { MemoryComponent } from '../../../src/infrastructure/components/memory-component.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { TrackedComponent } from '../../../src/infrastructure/components/tracked-component.js';
 
 describe('NeedsComponent', () => {
@@ -65,20 +64,3 @@ describe('MemoryComponent', () => {
 	});
 });
 
-describe('BlackboardComponent', () => {
-	it('holds BlackboardState and is dirty on creation', () => {
-		const comp = new BlackboardComponent({});
-		expect(comp.state).toEqual({});
-		expect(comp.dirty).toBe(true);
-		expect(comp).toBeInstanceOf(TrackedComponent);
-	});
-
-	it('supports state mutation with dirty tracking', () => {
-		const comp = new BlackboardComponent({});
-		comp.clearDirty();
-		comp.state.target = 'tavern';
-		comp.markDirty();
-		expect(comp.state.target).toBe('tavern');
-		expect(comp.dirty).toBe(true);
-	});
-});

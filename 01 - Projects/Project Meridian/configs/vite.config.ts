@@ -73,7 +73,7 @@ function assembleVaultOverlay(): Plugin {
 			copyDir(
 				resolve(projectRoot, 'behavior-trees'),
 				resolve(distDir, '03 - Resources/BehaviorTrees'),
-				'.json',
+				'.mdsl',
 			);
 
 			// Trait definitions → 03 - Resources/Traits/ (JSON + markdown)

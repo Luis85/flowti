@@ -1,6 +1,5 @@
 import type { Logger } from '../../domain/core/logger.js';
 import type { TraitDefinition } from '../../domain/systems/trait-resolver.js';
-import type { BTNode } from '../../domain/systems/behavior-tree.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { WorldRegion } from '../../domain/schemas/region-schema.js';
 import type { AgentActor } from '../entity/agent-actor.js';
@@ -12,10 +11,9 @@ import { pointInPolygon } from '../../domain/core/polygon.js';
 import { createAgentSpawner } from '../entity/agent-spawner.js';
 import { createTraitLoader } from '../entity/trait-loader.js';
 import { createLocationLoader } from '../entity/location-loader.js';
-import { createBTLoader } from '../entity/bt-loader.js';
+import { createMDSLLoader } from '../entity/bt-loader.js';
 import { validateWorldConsistency } from '../../domain/systems/world-validation.js';
 import { FOOD_ITEMS } from '../../domain/systems/food-items.js';
-import { KNOWN_ACTIONS } from '../../domain/systems/bt-actions.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 
 export interface WorldData {
@@ -24,7 +22,7 @@ export interface WorldData {
 	locations: WorldLocation[];
 	regions: WorldRegion[];
 	regionGraph: RegionGraph;
-	btDefinitions: Record<string, BTNode>;
+	btMdslDefinitions: Record<string, string>;
 	errors: { step: string; file: string; message: string }[];
 }
 
@@ -45,14 +43,7 @@ function buildTraitMap(items: TraitDefinition[]): Record<string, TraitDefinition
 	return map;
 }
 
-function buildBTMap(items: { id: string; root: BTNode }[]): Record<string, BTNode> {
-	const map: Record<string, BTNode> = {};
-	for (const bt of items) {
-		const key = bt.id.startsWith('bt-') ? bt.id.slice(3) : bt.id;
-		map[key] = bt.root;
-	}
-	return map;
-}
+const BT_KINDS = ['guard', 'merchant', 'artisan', 'scholar'] as const;
 
 const STEPS = [
 	'Loading traits...',
@@ -141,16 +132,27 @@ export function createWorldLoader(
 			validateLocationRegions(locationResult.items, regionResult.items);
 
 			onProgress?.(5, total, STEPS[4]);
-			const btResult = await createBTLoader(logger).loadFromVault(vault, '03 - Resources/BehaviorTrees');
-			collectErrors('behavior-trees', btResult.errors, errors);
+			const btPath = '03 - Resources/BehaviorTrees';
+			const mdslLoader = createMDSLLoader(logger);
+			const btMdslDefinitions: Record<string, string> = {};
+			for (const kind of BT_KINDS) {
+				const result = await mdslLoader.loadComposed(
+					vault,
+					`${btPath}/base.mdsl`,
+					`${btPath}/branch-${kind}.mdsl`,
+				);
+				collectErrors('behavior-trees', result.errors, errors);
+				if (result.mdsl !== null) {
+					btMdslDefinitions[kind] = result.mdsl;
+				}
+			}
 
 			if (errors.length > 0) {
 				logger.warn('WorldLoader', `${String(errors.length)} error(s) during world load`);
 			}
-			logger.info('WorldLoader', `World loaded: ${String(traitResult.items.length)} traits, ${String(spawnResult.agents.length)} agents, ${String(locationResult.items.length)} locations, ${String(regionResult.items.length)} regions, ${String(btResult.items.length)} BTs`);
+			logger.info('WorldLoader', `World loaded: ${String(traitResult.items.length)} traits, ${String(spawnResult.agents.length)} agents, ${String(locationResult.items.length)} locations, ${String(regionResult.items.length)} regions, ${String(Object.keys(btMdslDefinitions).length)} BTs`);
 
 			// Startup consistency validation
-			const btDefs = buildBTMap(btResult.items);
 			const validationWarnings = validateWorldConsistency({
 				agents: spawnResult.agents.map(a => ({
 					id: a.agentId,
@@ -170,9 +172,9 @@ export function createWorldLoader(
 						}
 						: null,
 				})),
-				btDefinitions: btDefs,
+				btDefinitions: btMdslDefinitions,
 				knownFoodItems: FOOD_ITEMS,
-				knownActions: KNOWN_ACTIONS,
+				knownActions: new Set<string>(),
 			});
 			for (const warning of validationWarnings) {
 				logger.warn('WorldValidation', warning.message);
@@ -184,7 +186,7 @@ export function createWorldLoader(
 				locations: locationResult.items,
 				regions: regionResult.items,
 				regionGraph,
-				btDefinitions: btDefs,
+				btMdslDefinitions,
 				errors,
 			};
 		},

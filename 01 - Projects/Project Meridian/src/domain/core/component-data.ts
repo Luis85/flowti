@@ -26,10 +26,6 @@ export interface MemoryState {
 	maxEntries: number;
 }
 
-export interface BlackboardState {
-	[key: string]: unknown;
-}
-
 export interface AttributesState {
 	ST: number;
 	DX: number;

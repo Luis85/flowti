@@ -11,5 +11,4 @@ export {
 } from './common.js';
 export { GameConfigSchema, type GameConfig } from './game-config-schema.js';
 export { LocationSchema, LOCATION_TYPES, type WorldLocation } from './location-schema.js';
-export { BTNodeSchema, BehaviorTreeSchema, type BTNode, type BehaviorTree } from './behavior-tree-schema.js';
 export * from './ranges.js';
