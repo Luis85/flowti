@@ -25,6 +25,7 @@
     "eslint-plugin-obsidianmd": "^0.1.9",
     "excalibur": "^0.32.0",
     "jsdom": "^29.0.1",
+    "mistreevous": "^4.3.1",
     "obsidian": "^1.12.3",
     "typedoc": "^0.28.18",
     "typescript": "^6.0.2",
