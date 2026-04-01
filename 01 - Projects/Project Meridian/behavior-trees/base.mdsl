@@ -1,0 +1,76 @@
+root {
+    selector {
+
+        /* P0: Critical survival — any need at dangerous levels */
+        sequence {
+            condition [NeedsCritical]
+            selector {
+                sequence {
+                    condition [IsHungry]
+                    condition [HasFood]
+                    action [Eat] while(IsHungry)
+                }
+                sequence {
+                    condition [IsHungry]
+                    condition [CanAffordFood]
+                    action [SeekFood] while(IsHungry)
+                }
+                sequence {
+                    condition [IsExhausted]
+                    action [SeekRest] while(IsExhausted)
+                }
+            }
+        }
+
+        /* P1: Hunger — not critical but below comfort threshold */
+        sequence {
+            condition [IsHungry]
+            selector {
+                sequence {
+                    condition [HasFood]
+                    action [Eat] while(IsHungry)
+                }
+                sequence {
+                    condition [CanAffordFood]
+                    action [SeekFood] while(IsHungry)
+                }
+                sequence {
+                    condition [HasJob]
+                    action [SeekWork]
+                }
+            }
+        }
+
+        /* P2: Energy — rest when tired */
+        sequence {
+            condition [IsExhausted]
+            action [SeekRest] while(IsExhausted)
+        }
+
+        /* P3: Role-specific behavior (day) */
+        sequence {
+            condition [IsDaytime]
+            branch [Role]
+        }
+
+        /* P4: Social needs */
+        sequence {
+            condition [IsLonely]
+            condition [NearAgentClose]
+            action [Talk] while(IsLonely)
+        }
+        sequence {
+            condition [IsLonely]
+            action [SeekSocial] while(IsLonely)
+        }
+
+        /* P5: Night behavior */
+        sequence {
+            condition [IsNighttime]
+            action [SeekRest]
+        }
+
+        /* P6: Fallback */
+        action [Wander]
+    }
+}
