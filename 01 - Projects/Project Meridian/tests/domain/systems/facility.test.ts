@@ -14,6 +14,8 @@ function baseInput(overrides: Partial<FacilityTickInput> = {}): FacilityTickInpu
 		taxRate: 0.05,
 		facilityFund: 100,
 		workerGold: 10,
+		autoProcess: false,
+		autoTicksPerCycle: 10,
 		...overrides,
 	};
 }
@@ -84,5 +86,64 @@ describe('applyFacilityTick', () => {
 		const result = applyFacilityTick(baseInput({ workerJob: 'miner', facilityJob: 'baker' }));
 		expect(result.status).toBe('idle');
 		expect(result.idleReason).toBe('no_worker');
+	});
+});
+
+describe('applyFacilityTick — auto-process', () => {
+	function autoInput(overrides: Partial<FacilityTickInput> = {}): FacilityTickInput {
+		return baseInput({
+			hasWorker: false,
+			workerJob: null,
+			autoProcess: true,
+			autoTicksPerCycle: 10,
+			...overrides,
+		});
+	}
+
+	it('produces output when no worker and auto_process is true on cycle completion', () => {
+		const result = applyFacilityTick(autoInput({ workProgress: 9, autoTicksPerCycle: 10 }));
+		expect(result.status).toBe('auto');
+		expect(result.cycleComplete).toBe(true);
+		expect(result.produceOutput).toBe(true);
+		expect(result.consumeInput).toBe(true);
+		expect(result.newWorkProgress).toBe(0);
+	});
+
+	it('does not pay wages on auto-process cycle completion', () => {
+		const result = applyFacilityTick(autoInput({ workProgress: 9, autoTicksPerCycle: 10 }));
+		expect(result.workerGoldChange).toBe(0);
+		expect(result.facilityFundChange).toBe(0);
+		expect(result.taxCollected).toBe(0);
+	});
+
+	it('uses autoTicksPerCycle instead of ticksPerCycle for cycle check', () => {
+		// ticksPerCycle=5 but autoTicksPerCycle=10 — progress 5 should NOT complete when auto
+		const notDone = applyFacilityTick(autoInput({ workProgress: 4, ticksPerCycle: 5, autoTicksPerCycle: 10 }));
+		expect(notDone.cycleComplete).toBe(false);
+		expect(notDone.status).toBe('auto');
+
+		// progress 9 reaches autoTicksPerCycle=10
+		const done = applyFacilityTick(autoInput({ workProgress: 9, ticksPerCycle: 5, autoTicksPerCycle: 10 }));
+		expect(done.cycleComplete).toBe(true);
+	});
+
+	it('increments work progress during auto-process when cycle is not complete', () => {
+		const result = applyFacilityTick(autoInput({ workProgress: 3, autoTicksPerCycle: 10 }));
+		expect(result.newWorkProgress).toBe(4);
+		expect(result.cycleComplete).toBe(false);
+		expect(result.produceOutput).toBe(false);
+	});
+
+	it('returns idle with no_worker when no worker and auto_process is false', () => {
+		const result = applyFacilityTick(baseInput({ hasWorker: false, workerJob: null, autoProcess: false }));
+		expect(result.status).toBe('idle');
+		expect(result.idleReason).toBe('no_worker');
+	});
+
+	it('normal worker production still works (regression)', () => {
+		const result = applyFacilityTick(baseInput({ workProgress: 4, ticksPerCycle: 5 }));
+		expect(result.status).toBe('producing');
+		expect(result.cycleComplete).toBe(true);
+		expect(result.workerGoldChange).toBeCloseTo(2.85);
 	});
 });

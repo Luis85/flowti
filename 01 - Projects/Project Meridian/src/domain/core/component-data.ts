@@ -54,7 +54,7 @@ export interface FacilityState {
 	stock: { item_id: string; quantity: number }[];
 	fund: number;
 	workProgress: number;
-	status: 'idle' | 'producing';
+	status: 'idle' | 'producing' | 'auto';
 	workerId: string | null;
 }
 
@@ -72,7 +72,7 @@ export interface RelationshipState {
 
 export interface LedgerEntry {
 	tick: number;
-	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare';
+	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare' | 'stipend' | 'subsidy';
 	from: string;
 	to: string;
 	itemId: string | null;

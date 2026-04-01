@@ -9,11 +9,13 @@ export interface FacilityTickInput {
 	taxRate: number;
 	facilityFund: number;
 	workerGold: number;
+	autoProcess: boolean;
+	autoTicksPerCycle: number;
 }
 
 export interface FacilityTickResult {
 	newWorkProgress: number;
-	status: 'idle' | 'producing';
+	status: 'idle' | 'producing' | 'auto';
 	cycleComplete: boolean;
 	workerGoldChange: number;
 	facilityFundChange: number;
@@ -36,6 +38,36 @@ const IDLE_RESULT: Omit<FacilityTickResult, 'idleReason'> = {
 
 export function applyFacilityTick(input: FacilityTickInput): FacilityTickResult {
 	if (!input.hasWorker || input.workerJob !== input.facilityJob) {
+		if (input.autoProcess) {
+			if (!input.hasRequiredInput) {
+				return { ...IDLE_RESULT, idleReason: 'no_input' };
+			}
+			const nextProgress = input.workProgress + 1;
+			if (nextProgress >= input.autoTicksPerCycle) {
+				return {
+					newWorkProgress: 0,
+					status: 'auto',
+					cycleComplete: true,
+					workerGoldChange: 0,
+					facilityFundChange: 0,
+					taxCollected: 0,
+					consumeInput: true,
+					produceOutput: true,
+					idleReason: null,
+				};
+			}
+			return {
+				newWorkProgress: nextProgress,
+				status: 'auto',
+				cycleComplete: false,
+				workerGoldChange: 0,
+				facilityFundChange: 0,
+				taxCollected: 0,
+				consumeInput: false,
+				produceOutput: false,
+				idleReason: null,
+			};
+		}
 		return { ...IDLE_RESULT, idleReason: 'no_worker' };
 	}
 	if (!input.hasRequiredInput) {

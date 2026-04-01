@@ -245,6 +245,8 @@ function processFacilityTick(
 		taxRate: deps.config.economy.tax_base_rate,
 		facilityFund: facility.state.fund,
 		workerGold: worker !== undefined ? worker.get(WalletComponent).state.gold : 0,
+		autoProcess: production.auto_process,
+		autoTicksPerCycle: production.auto_ticks_per_cycle,
 	});
 
 	const newStock = applyStockChanges(facility.state.stock, result, production);
@@ -260,6 +262,21 @@ function processFacilityTick(
 
 	if (result.cycleComplete && worker !== undefined) {
 		recordCycleComplete(worker, facility, economy, result, loc, deps);
+	} else if (result.cycleComplete && result.status === 'auto') {
+		deps.eventBus.emit({
+			type: 'ProductionComplete',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'FacilitySystem',
+			payload: {
+				facilityId: loc.id,
+				workerId: null,
+				outputItem: loc.production?.output.item_id,
+				outputQty: loc.production?.output.quantity,
+				wage: 0,
+				taxCollected: 0,
+			},
+		});
 	} else if (result.idleReason !== null) {
 		deps.eventBus.emit({
 			type: 'FacilityIdle',
