@@ -234,13 +234,22 @@ Add `monetarySnapshot?: MonetarySnapshot` to `EconomyState` in `component-data.t
 
 ## 5 · BehaviorAgent Price Memory
 
-### 5.1 New Properties
+### 5.1 Interface Additions
 
-Add to the `BehaviorAgent` interface:
+Add to the `BehaviorAgent` interface in `behavior-agent.ts`:
 
 ```typescript
 // Price memory buffer (capacity from config.economy.price_memory_max)
 priceMemories: CircularBuffer<PriceMemory>;
+
+// Record a price observation (called from TradeSystem on success and failure)
+recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
+
+// Condition: any non-stale price memory for a FOOD_ITEMS item
+KnowsFoodSource(): boolean;
+
+// Action: navigate to cheapest known food source, FAILED if no valid memories
+SeekBestFoodSource(): ActionResult;
 ```
 
 ### 5.2 New Methods
@@ -276,11 +285,25 @@ KnowsFoodSource(): boolean;
 
 ```typescript
 SeekBestFoodSource(): ActionResult;
-// 1. Query priceMemories for cheapest non-stale subsistence item source
-//    using getBestKnownSource()
-// 2. If found: set movementTarget to that location, return RUNNING
-// 3. If not found (no memories or all stale): return FAILED
+// 1. For each itemId in FOOD_ITEMS, call getBestKnownSource(priceMemories, itemId, tick, staleTicks)
+// 2. Collect all non-null results, pick the one with the lowest remembered price
+// 3. If found: set movementTarget to that location, return RUNNING
+// 4. If all null (no memories or all stale): return FAILED
 //    → BT falls through to SeekFood (nearest food facility)
+// Currently FOOD_ITEMS = {'bread'} so iteration is trivial, but this pattern
+// scales when new food items are added.
+```
+
+**Buy() guard update:**
+
+The existing `Buy()` method has its own static guards (`wallet.state.gold < config.economy.food_price` and hardcoded `'bread'` stock check). These must be updated to match the dynamic pricing:
+
+```typescript
+Buy(): ActionResult;
+// Remove the independent wallet check — CanAffordFood already gates this in the BT.
+// Update stock check to use FOOD_ITEMS set instead of hardcoded 'bread'.
+// Buy() remains signal-only: sets btAction = 'buy' and returns SUCCEEDED.
+// The actual price validation happens in TradeSystem where the dynamic price is known.
 ```
 
 ### 5.3 Price Recording in TradeSystem
@@ -300,9 +323,13 @@ agent.behaviorAgent.recordPriceObservation(
 **On failed purchase** (in `TradeSystem.execute`, when the agent is at a facility but can't afford the price or stock is empty):
 ```typescript
 // Agent still learns the price even if they can't buy
+const item = itemRegistry().get(target.foodItemId);
+const observedPrice = facility.state.currentPrices?.[target.foodItemId]
+  ?? item?.baseValue
+  ?? deps.config.economy.food_price;
 agent.behaviorAgent.recordPriceObservation(
   target.foodItemId,
-  facility.state.currentPrices?.[target.foodItemId] ?? item.baseValue,
+  observedPrice,
   target.location.id,
   deps.tickCount,
 );
@@ -445,7 +472,7 @@ Each tick:
 - `src/infrastructure/systems/rest-system.ts` — GoldFlowed event
 - `src/infrastructure/systems/economy-system.ts` — listen for PurchaseComplete → recordConsumption
 - `src/infrastructure/systems/monetary-policy-system.ts` — write monetarySnapshot to EconomyComponent
-- MDSL base tree file — updated survival-buy branch with price-aware selector
+- `03 - Resources/BehaviorTrees/base.mdsl` — updated survival-buy branch with price-aware selector
 
 **Modified test files (~5):**
 - Existing trade-system tests (dynamic price fixtures, price memory recording)
