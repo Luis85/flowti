@@ -1,0 +1,29 @@
+{
+	"id": "agent-settler",
+	"name": "Settler",
+	"kind": "settler",
+	"color": "#66bb6a",
+	"attributes": { "ST": 12, "DX": 12, "IQ": 12, "HT": 12 },
+	"social": { "status": 1, "reputation": 1, "charisma": 10 },
+	"needs": { "hunger": 80, "energy": 80, "social": 50, "thirst": 80 },
+	"mood": 0,
+	"memory": [],
+	"goals": [],
+	"skills": [],
+	"inventory": [
+		{ "item_id": "food", "quantity": 5 },
+		{ "item_id": "waterskin", "quantity": 1, "charges": 3 }
+	],
+	"equipment": { "head": null, "body": null, "hands": null, "tool": null, "accessory": null },
+	"persona": "personas/settler.md",
+	"traits": [],
+	"wallet": { "gold": 50 },
+	"xp": 0,
+	"level": 1,
+	"position": { "x": 250, "y": 200, "region": "region-valley" },
+	"relationships": null,
+	"tools": [],
+	"behavior_tree": "settler",
+	"job": null,
+	"property": []
+}
