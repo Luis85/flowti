@@ -10,16 +10,25 @@ root {
                     condition [HasFood]
                     action [Eat] while(IsHungry)
                 }
+                /* Already at a food facility with stock — buy immediately */
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
                     condition [FacilityHasStock, "bread"]
                     action [Buy]
                 }
+                /* Not at facility — navigate to cheapest known or nearest, then buy */
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
-                    action [SeekFood] while(IsHungry)
+                    selector {
+                        sequence {
+                            condition [KnowsFoodSource]
+                            action [SeekBestFoodSource] while(IsHungry)
+                        }
+                        action [SeekFood] while(IsHungry)
+                    }
+                    action [Buy]
                 }
                 sequence {
                     condition [IsExhausted]
@@ -43,10 +52,17 @@ root {
                     condition [FacilityHasStock, "bread"]
                     action [Buy]
                 }
-                /* Go find food to buy */
+                /* Navigate to cheapest known food source, or nearest, then buy */
                 sequence {
                     condition [CanAffordFood]
-                    action [SeekFood]
+                    selector {
+                        sequence {
+                            condition [KnowsFoodSource]
+                            action [SeekBestFoodSource]
+                        }
+                        action [SeekFood]
+                    }
+                    action [Buy]
                 }
                 /* No food, no money — go work */
                 sequence {
