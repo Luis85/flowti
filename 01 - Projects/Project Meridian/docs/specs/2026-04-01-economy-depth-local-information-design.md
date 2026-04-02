@@ -1,7 +1,9 @@
 # Economy Depth: Local Information & Monetary Policy — Design Spec
 
 > Companion to: `2026-04-01-mistreevous-economy-design.md` (BT migration + base economy loop)
-> Date: 2026-04-01 | Status: Draft
+> Date: 2026-04-01 | Status: Partially Implemented (2026-04-02)
+>
+> **Implementation status:** Chunks 1-3 of the implementation plan are complete (domain foundations, simulation wiring, monetary policy). All pure domain modules, infrastructure wrappers, schemas, and config extensions are implemented with 67 tests. **Deferred:** BehaviorAgent `priceMemories` integration, MDSL tree price-aware variants, item data `category` tagging, `getEffectiveTaxRate()` wiring, GoldFlowed emission from non-trade systems.
 
 ---
 
@@ -93,7 +95,7 @@ Agents observe prices only at facilities they physically visit. Observations are
 **Price memory data structure (per agent, inside BehaviorAgent):**
 
 ```typescript
-import CircularBuffer from 'mnemonist/circular-buffer';
+import { CircularBuffer } from 'mnemonist';
 
 interface PriceMemory {
     itemId: string;
@@ -293,7 +295,7 @@ function getDemandRate(
 
 **Transition from fixed `food_price` to dynamic pricing:** The companion spec defines `food_price: 3` as a fixed config value. This spec's `calculatePostedPrice()` replaces it with dynamic pricing. The `food_price` config field becomes the `baseValue` for bread in the item definition. The config field is deprecated — `baseValue` per item is the source of truth, and the pricing formula applies scarcity, elasticity, and modifiers on top.
 
-**Side-effect note:** `getDemandRate()` prunes expired events as a side effect inside a read function. This is an intentional optimization to avoid a separate pruning pass — acceptable because the DemandTracker is owned by the EconomySystem (infrastructure layer), not a shared domain object.
+**Pruning note:** Both `recordConsumption()` and `getDemandRate()` prune expired events eagerly — on write and on read respectively. The write-side pruning prevents unbounded memory growth when read frequency is lower than write frequency (identified during code review 2026-04-02). Similarly, `recordFlow()` in the monetary ledger prunes eagerly on write.
 
 **Config:** `economy.demand_window_ticks` (default: 500 — approximately 4 in-game days). Shorter = prices respond faster. Longer = smoother prices.
 

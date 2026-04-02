@@ -4,6 +4,14 @@
 
 **Goal:** Add local price information, price elasticity, demand tracking, and monetary policy to Project Meridian's economy, producing emergent economic behavior from simple agent rules.
 
+**Status:** COMPLETE (2026-04-02). All 13 tasks implemented + polish pass. 14 commits on `feature/economy-depth-local-information`, merged to master. 67 tests across 8 test files.
+
+**Post-implementation review findings (addressed in polish commit):**
+- Added eager pruning on write to `demand-tracker.ts` and `monetary-policy.ts` to prevent unbounded memory growth
+- Fixed `economy-system.ts` to re-enqueue missing facilities instead of silently dropping them
+- Replaced unsafe `as` casts in `monetary-policy-system.ts` with runtime payload validation
+- Strengthened 6 tests with exact assertions and missing branch coverage
+
 **Architecture:** Pure domain functions (pricing, demand tracking, monetary policy, price memory) tested independently, then wired into the simulation via infrastructure system wrappers following the existing dual-layer pattern. All balance values are config-driven via `game-config-schema.ts`.
 
 **Tech Stack:** TypeScript (strict), Zod v4, ExcaliburJS ECS, Vitest, flatqueue, mnemonist/circular-buffer
@@ -27,14 +35,14 @@ No game impact yet. Four pure domain modules with full test coverage. No ECS, no
 **Files:**
 - Modify: `package.json`
 
-- [ ] **Step 1: Install flatqueue and mnemonist**
+- [x] **Step 1: Install flatqueue and mnemonist**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npm install flatqueue mnemonist
 ```
 
-- [ ] **Step 2: Verify imports work**
+- [x] **Step 2: Verify imports work**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -44,7 +52,7 @@ node -e "import('mnemonist/circular-buffer.js').then(m => console.log('mnemonist
 
 Expected: Both print OK with `function`.
 
-- [ ] **Step 3: Verify tests still pass**
+- [x] **Step 3: Verify tests still pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -53,7 +61,7 @@ npx vitest run
 
 Expected: All existing tests pass. No regressions.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/package.json" "01 - Projects/Project Meridian/package-lock.json"
@@ -68,7 +76,7 @@ git commit -m "deps(meridian): add flatqueue and mnemonist for economy depth"
 - Create: `src/domain/systems/pricing.ts`
 - Create: `tests/domain/systems/pricing.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/domain/systems/pricing.test.ts`:
 
@@ -153,7 +161,7 @@ describe('calculatePostedPrice', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -162,7 +170,7 @@ npx vitest run tests/domain/systems/pricing.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `src/domain/systems/pricing.ts`:
 
@@ -194,7 +202,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -203,7 +211,7 @@ npx vitest run tests/domain/systems/pricing.test.ts
 
 Expected: All 11 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/pricing.ts" "01 - Projects/Project Meridian/tests/domain/systems/pricing.test.ts"
@@ -218,7 +226,7 @@ git commit -m "feat(meridian): add pricing formula with elasticity and clamping"
 - Create: `src/domain/systems/demand-tracker.ts`
 - Create: `tests/domain/systems/demand-tracker.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/domain/systems/demand-tracker.test.ts`:
 
@@ -283,7 +291,7 @@ describe('DemandTracker', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -292,7 +300,7 @@ npx vitest run tests/domain/systems/demand-tracker.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `src/domain/systems/demand-tracker.ts`:
 
@@ -336,7 +344,7 @@ export function getDemandRate(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -345,7 +353,7 @@ npx vitest run tests/domain/systems/demand-tracker.test.ts
 
 Expected: All 6 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/demand-tracker.ts" "01 - Projects/Project Meridian/tests/domain/systems/demand-tracker.test.ts"
@@ -360,7 +368,7 @@ git commit -m "feat(meridian): add sliding-window demand tracker"
 - Create: `src/domain/systems/price-memory.ts`
 - Create: `tests/domain/systems/price-memory.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/domain/systems/price-memory.test.ts`:
 
@@ -469,7 +477,7 @@ describe('getBestKnownSource', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -478,7 +486,7 @@ npx vitest run tests/domain/systems/price-memory.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `src/domain/systems/price-memory.ts`:
 
@@ -527,7 +535,7 @@ export function getBestKnownSource(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -536,7 +544,7 @@ npx vitest run tests/domain/systems/price-memory.test.ts
 
 Expected: All 11 tests pass.
 
-- [ ] **Step 5: Run full test suite to verify no regressions**
+- [x] **Step 5: Run full test suite to verify no regressions**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -545,7 +553,7 @@ npx vitest run
 
 Expected: All existing tests + new tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/price-memory.ts" "01 - Projects/Project Meridian/tests/domain/systems/price-memory.test.ts"
@@ -571,7 +579,7 @@ Connect the pure domain modules to the ECS simulation. Extends schemas, config, 
 - Modify: `src/domain/schemas/index.ts` (add re-export)
 - Create: `tests/domain/schemas/item-schema.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/domain/schemas/item-schema.test.ts`:
 
@@ -636,7 +644,7 @@ describe('ItemSchema', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -645,7 +653,7 @@ npx vitest run tests/domain/schemas/item-schema.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `src/domain/schemas/item-schema.ts`:
 
@@ -665,7 +673,7 @@ export const ItemSchema = z.object({
 export type Item = z.infer<typeof ItemSchema>;
 ```
 
-- [ ] **Step 4: Add re-export to index.ts**
+- [x] **Step 4: Add re-export to index.ts**
 
 Read `src/domain/schemas/index.ts` and add the item-schema export at the appropriate location.
 
@@ -675,7 +683,7 @@ Add this line to the barrel exports:
 export { ItemSchema, ITEM_CATEGORIES, type Item, type ItemCategory } from './item-schema.js';
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -684,7 +692,7 @@ npx vitest run tests/domain/schemas/item-schema.test.ts
 
 Expected: All 5 tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/schemas/item-schema.ts" "01 - Projects/Project Meridian/src/domain/schemas/index.ts" "01 - Projects/Project Meridian/tests/domain/schemas/item-schema.test.ts"
@@ -699,7 +707,7 @@ git commit -m "feat(meridian): add item schema with category field for price ela
 - Modify: `src/domain/schemas/game-config-schema.ts` (lines 29-46, economy section)
 - Create: `tests/domain/schemas/economy-config.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/domain/schemas/economy-config.test.ts`:
 
@@ -765,7 +773,7 @@ describe('GameConfigSchema economy depth fields', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -774,7 +782,7 @@ npx vitest run tests/domain/schemas/economy-config.test.ts
 
 Expected: FAIL — fields don't exist yet.
 
-- [ ] **Step 3: Add the new fields to game-config-schema.ts**
+- [x] **Step 3: Add the new fields to game-config-schema.ts**
 
 Open `src/domain/schemas/game-config-schema.ts`. Locate the `EconomyConfigSchema` (lines 29-46). Add the new fields after the existing ones (after `ledger_retention_days`):
 
@@ -808,7 +816,7 @@ monetary_policy: z.object({
 
 Note: Zod v4 uses `withDefaults()` in this codebase — check how existing nested objects are wrapped and follow the same pattern.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -817,7 +825,7 @@ npx vitest run tests/domain/schemas/economy-config.test.ts
 
 Expected: All 4 tests pass.
 
-- [ ] **Step 5: Run full test suite**
+- [x] **Step 5: Run full test suite**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -826,7 +834,7 @@ npx vitest run
 
 Expected: No regressions. All existing economy config tests still pass with new defaults.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/schemas/game-config-schema.ts" "01 - Projects/Project Meridian/tests/domain/schemas/economy-config.test.ts"
@@ -841,7 +849,7 @@ git commit -m "feat(meridian): add economy depth config — elasticity, demand w
 - Modify: `src/domain/core/component-data.ts` (add GoldFlow type)
 - Modify: `src/domain/core/events.ts` (document GoldFlowed event shape)
 
-- [ ] **Step 1: Add GoldFlow type to component-data.ts**
+- [x] **Step 1: Add GoldFlow type to component-data.ts**
 
 Open `src/domain/core/component-data.ts`. Add after the `LedgerEntry` interface (around line 85):
 
@@ -858,7 +866,7 @@ export interface GoldFlow {
 }
 ```
 
-- [ ] **Step 2: Verify types compile**
+- [x] **Step 2: Verify types compile**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -867,7 +875,7 @@ npx tsc --noEmit
 
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/core/component-data.ts"
@@ -885,7 +893,7 @@ This task creates the EconomySystem that wires the pricing formula and demand tr
 - Create: `src/infrastructure/systems/economy-system.ts` (infrastructure wrapper)
 - Create: `tests/domain/systems/economy.test.ts`
 
-- [ ] **Step 1: Write the failing tests for the domain function**
+- [x] **Step 1: Write the failing tests for the domain function**
 
 Create `tests/domain/systems/economy.test.ts`:
 
@@ -950,7 +958,7 @@ describe('recalculateFacilityPrices', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -959,7 +967,7 @@ npx vitest run tests/domain/systems/economy.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the domain function**
+- [x] **Step 3: Write the domain function**
 
 Create `src/domain/systems/economy.ts`:
 
@@ -1006,7 +1014,7 @@ export function recalculateFacilityPrices(ctx: FacilityPricingContext): Record<s
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1015,7 +1023,7 @@ npx vitest run tests/domain/systems/economy.test.ts
 
 Expected: All 5 tests pass.
 
-- [ ] **Step 5: Create the infrastructure wrapper**
+- [x] **Step 5: Create the infrastructure wrapper**
 
 Create `src/infrastructure/systems/economy-system.ts`:
 
@@ -1112,7 +1120,7 @@ export function createEconomySystem(
 
 **Note:** This wrapper references `facility.state.currentPrices` — the `FacilityState` interface in `component-data.ts` will need a `currentPrices?: Record<string, number>` field added. Check the existing `FacilityState` shape and add the field.
 
-- [ ] **Step 6: Add `currentPrices` to FacilityState**
+- [x] **Step 6: Add `currentPrices` to FacilityState**
 
 Open `src/domain/core/component-data.ts`, find the `FacilityState` interface, and add:
 
@@ -1122,7 +1130,7 @@ currentPrices?: Record<string, number>;
 
 The field is optional to avoid breaking existing FacilityState construction sites (~10 files). Systems that read it use `facility.state.currentPrices ?? {}`.
 
-- [ ] **Step 7: Verify compilation**
+- [x] **Step 7: Verify compilation**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1131,7 +1139,7 @@ npx tsc --noEmit
 
 Expected: No type errors.
 
-- [ ] **Step 8: Run full test suite**
+- [x] **Step 8: Run full test suite**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1140,7 +1148,7 @@ npx vitest run
 
 Expected: All tests pass. Existing FacilityState usages may need `currentPrices: {}` added to test fixtures.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/economy.ts" "01 - Projects/Project Meridian/src/infrastructure/systems/economy-system.ts" "01 - Projects/Project Meridian/src/domain/core/component-data.ts" "01 - Projects/Project Meridian/tests/domain/systems/economy.test.ts"
@@ -1154,7 +1162,7 @@ git commit -m "feat(meridian): add EconomySystem with pricing recalculation and 
 **Files:**
 - Create: `tests/integration/economy-flow.test.ts`
 
-- [ ] **Step 1: Write the integration test**
+- [x] **Step 1: Write the integration test**
 
 Create `tests/integration/economy-flow.test.ts`:
 
@@ -1227,7 +1235,7 @@ describe('Economy flow integration', () => {
 });
 ```
 
-- [ ] **Step 2: Run integration test**
+- [x] **Step 2: Run integration test**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1236,7 +1244,7 @@ npx vitest run tests/integration/economy-flow.test.ts
 
 Expected: Both tests pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/tests/integration/economy-flow.test.ts"
@@ -1257,7 +1265,7 @@ Velocity tracking, faucet/sink ledger, progressive tax, and three-layer safety n
 - Create: `src/domain/systems/monetary-policy.ts`
 - Create: `tests/domain/systems/monetary-policy.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/domain/systems/monetary-policy.test.ts`:
 
@@ -1393,7 +1401,7 @@ describe('evaluateSafetyNets', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1402,7 +1410,7 @@ npx vitest run tests/domain/systems/monetary-policy.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `src/domain/systems/monetary-policy.ts`:
 
@@ -1490,7 +1498,7 @@ export function evaluateSafetyNets(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1499,7 +1507,7 @@ npx vitest run tests/domain/systems/monetary-policy.test.ts
 
 Expected: All 12 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/monetary-policy.ts" "01 - Projects/Project Meridian/tests/domain/systems/monetary-policy.test.ts"
@@ -1513,7 +1521,7 @@ git commit -m "feat(meridian): add monetary policy — velocity, ledger, tax, sa
 **Files:**
 - Create: `src/infrastructure/systems/monetary-policy-system.ts`
 
-- [ ] **Step 1: Create the infrastructure wrapper**
+- [x] **Step 1: Create the infrastructure wrapper**
 
 Create `src/infrastructure/systems/monetary-policy-system.ts`:
 
@@ -1634,7 +1642,7 @@ export function createMonetaryPolicySystem(
 }
 ```
 
-- [ ] **Step 2: Add SystemPriority constant**
+- [x] **Step 2: Add SystemPriority constant**
 
 Open `src/domain/core/tick-scheduler.ts`. Add between ECONOMY (16) and WORLD_EVENT (17):
 
@@ -1642,7 +1650,7 @@ Open `src/domain/core/tick-scheduler.ts`. Add between ECONOMY (16) and WORLD_EVE
 MONETARY_POLICY: 16.5,
 ```
 
-- [ ] **Step 3: Verify compilation**
+- [x] **Step 3: Verify compilation**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1651,7 +1659,7 @@ npx tsc --noEmit
 
 Expected: No type errors.
 
-- [ ] **Step 4: Run full test suite**
+- [x] **Step 4: Run full test suite**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1660,7 +1668,7 @@ npx vitest run
 
 Expected: All tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/monetary-policy-system.ts" "01 - Projects/Project Meridian/src/domain/core/tick-scheduler.ts"
@@ -1674,7 +1682,7 @@ git commit -m "feat(meridian): add MonetaryPolicySystem infrastructure wrapper a
 **Files:**
 - Modify: `src/infrastructure/systems/trade-system.ts` (emit GoldFlowed after purchase)
 
-- [ ] **Step 1: Add GoldFlowed emission to trade-system.ts**
+- [x] **Step 1: Add GoldFlowed emission to trade-system.ts**
 
 Open `src/infrastructure/systems/trade-system.ts`. In the `applySuccessfulTrade` function, after the existing `PurchaseComplete` event emission (around line 107-118), add:
 
@@ -1699,7 +1707,7 @@ Also add `GoldFlowed` emissions for tax if present. Check the current trade logi
 
 **Scope note:** This task only wires `GoldFlowed` for the trade system (purchases + tax). Other gold-moving systems (facility wages, welfare grants, rest payments, stipends) should emit `GoldFlowed` as well, but are deferred to follow-up tasks. Velocity tracking will be incomplete until all gold flows are instrumented — acceptable for initial implementation since purchases are the dominant transaction type.
 
-- [ ] **Step 2: Verify compilation**
+- [x] **Step 2: Verify compilation**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1708,7 +1716,7 @@ npx tsc --noEmit
 
 Expected: No type errors.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1717,7 +1725,7 @@ npx vitest run
 
 Expected: All tests pass. Existing trade tests should not break since the new event is additive.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/trade-system.ts"
@@ -1731,7 +1739,7 @@ git commit -m "feat(meridian): emit GoldFlowed events from trade system for mone
 **Files:**
 - Modify: `tests/integration/economy-flow.test.ts` (add monetary policy scenario)
 
-- [ ] **Step 1: Add monetary policy integration test**
+- [x] **Step 1: Add monetary policy integration test**
 
 Add to `tests/integration/economy-flow.test.ts`:
 
@@ -1787,7 +1795,7 @@ describe('Monetary policy domain flow', () => {
 **Note:** A full integration test exercising the MonetaryPolicySystem wrapper with a real EventBus (verifying GoldFlowed events flow through `eventBus.history()` → `recordFlow()` → snapshot → intervention events emitted) should be added as a follow-up infrastructure test in `tests/infrastructure/systems/monetary-policy-system.test.ts`. The domain flow test above validates the pure functions. The wrapper test should instantiate `createMonetaryPolicySystem()`, inject a test EventBus preloaded with GoldFlowed events, call `execute()`, and assert that `EconomicStimulusActivated` or `EmergencyCaravanRequested` events are emitted.
 ```
 
-- [ ] **Step 2: Run integration test**
+- [x] **Step 2: Run integration test**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1796,7 +1804,7 @@ npx vitest run tests/integration/economy-flow.test.ts
 
 Expected: All 3 integration tests pass.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1805,7 +1813,7 @@ npx vitest run
 
 Expected: All tests pass. No regressions.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/tests/integration/economy-flow.test.ts"

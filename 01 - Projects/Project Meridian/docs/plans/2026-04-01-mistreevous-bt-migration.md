@@ -4,6 +4,8 @@
 
 **Goal:** Replace the custom BT engine with mistreevous, introduce typed BehaviorAgent objects replacing the stringly-typed blackboard, agent-carried supply chain logistics, and fix the economy loop so 4 agents sustain themselves over multi-day simulation runs.
 
+**Status:** COMPLETE (2026-03-31). Implemented in commit `16bb3800` and preceding commits. All 6 success criteria met: 4 agents sustain over multi-day, supply chains are agent-driven, distinct roles, BT oscillation eliminated, gold sinks/faucets balanced, welfare is safety net not primary income.
+
 **Architecture:** Layered BT composition (shared base MDSL + per-role branch MDSL) with mistreevous's RUNNING state and guard system eliminating oscillation bugs. BehaviorAgent objects serve as the mistreevous agent interface — typed getters proxy ECS component state, action methods return `State.RUNNING`/`SUCCEEDED`/`FAILED`. Three systems (FeedSystem, TradeSystem, old BehaviorTreeSystem) collapse into BehaviorAgent action methods. Economy fixes: tavern gets a proper fund, facilities get treasury subsidies, non-production agents get stipends, bakery auto-processes without a worker.
 
 **Tech Stack:** TypeScript (strict), ExcaliburJS v0.32+ (ECS, Actor), mistreevous 4.3.1 (BT engine), Zod (schema validation), Vitest, ESLint

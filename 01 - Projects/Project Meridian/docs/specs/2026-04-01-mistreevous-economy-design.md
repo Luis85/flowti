@@ -1,7 +1,7 @@
 # Mistreevous BT Migration & Economy Foundation — Design Spec
 
 > **Date:** 2026-04-01
-> **Status:** Approved (brainstorm validated)
+> **Status:** Implemented (2026-03-31, commit 16bb3800)
 > **Scope:** Replace custom BT engine with mistreevous, restructure agent roles, fix economy loop, agent-carried logistics, typed BehaviorAgent replacing stringly-typed blackboard.
 > **Context:** The custom BT has no RUNNING state (causes oscillation), the blackboard is untyped (`Record<string, unknown>`), the bakery supply chain is broken (no inter-facility transfer), agent roles have job/BT mismatches, and gold sinks are buggy. This spec designs a foundational simulation that sustains 4 agents over multi-day runs.
 

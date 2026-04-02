@@ -1,7 +1,7 @@
 # Project Meridian — Arc42 Architecture Document
 
 > Derived from: Game Design Document (Project Meridian.md), Player Depth Design Spec, Phase 0 Implementation Plans
-> Version: 1.0.0 | Date: 2026-03-28
+> Version: 1.1.0 | Date: 2026-04-02 (updated from 1.0.0 2026-03-28)
 
 ---
 
@@ -133,7 +133,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 │       │             ┌──────┴──────┐     │
 │       │             │ System      │     │
 │       │             │ Pipeline    │     │
-│       │             │ (25 systems)│     │
+│       │             │ (34 slots)  │     │
 │       │             └──────┬──────┘     │
 │       │                    │            │
 │       │              EventBus           │
@@ -161,7 +161,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | **EventBus for inter-system communication** | Systems never import each other. All communication via typed events with priority, history, and batching. |
 | **Result type for error handling** | No bare try/catch in domain/system code. Explicit success/failure paths. Composable via map/flatMap. |
 | **Modifier pipeline** | Traits → Seasons → World Events → Time-of-Day. Rate modifiers multiplicative, flat modifiers additive. Clamped. |
-| **BT + Blackboard** | Behavior Trees read a Blackboard populated from ECS components. BT writes selectedAction → systems execute. Independently testable. |
+| **BT + BehaviorAgent** | mistreevous MDSL behavior trees with typed BehaviorAgent interface (replaces untyped blackboard). Layered BT composition (shared base + per-role branch). RUNNING state eliminates oscillation bugs. Agent condition/action methods proxy ECS component state. |
 | **Dual rendering: ExcaliburJS + Vue** | ExcaliburJS renders the world map. Vue renders the management sidebar. Pinia stores bridge ECS → Vue via UIBridgeSystem. |
 | **Circuit Breaker for LLM** | LLM failures don't cascade. Template fallback activates seamlessly. Priority queue: Director > Chronicler > agent-to-agent. |
 | **Seeded RNG for test determinism** | All random decisions consume from injectable GameRNG. Fixed seeds in tests, Math.random in production. |
@@ -173,7 +173,9 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | Platform | Obsidian Plugin API | Host environment, vault persistence, file system |
 | Runtime/ECS | ExcaliburJS v0.32+ | ECS, Actor, Actions API, collision (SparseHashGrid), camera, EventEmitter, Timer, scenes, debug, input, graphics (WebGL + Canvas fallback) |
 | Pathfinding | @excaliburjs/plugin-pathfinding [Phase 2+] | A* and Dijkstra for region graph navigation |
-| BT Engine | mistreevous 4.3.1 | Composable MDSL behavior trees with RUNNING state support (behavior-trees/*.mdsl) |
+| BT Engine | mistreevous 4.3.1 | MDSL behavior tree engine with RUNNING state, guards, parallel nodes. BehaviorAgent typed interface replaces untyped blackboard. (src/domain/systems/behavior-agent.ts) |
+| Priority Queue | flatqueue (~600B) | Binary min-heap for amortized price recalculation scheduling in EconomySystem |
+| Data Structures | mnemonist (tree-shakeable) | CircularBuffer for agent price memories (fixed-size, oldest evicted) |
 | UI Framework | Vue 3 (Composition API) [Phase 8+] | Management sidebar (collapsible sections) |
 | State Management | Pinia [Phase 8+] | Reactive stores bridging ECS → Vue |
 | Validation | Zod | Schema definition, runtime validation, TypeScript type inference |
@@ -241,7 +243,7 @@ domain/
 │   │                            day-night, gossip, status, crime, skills, rest tiers, season,
 │   │                            candidate pool, world events, LLM, formulas, BT, agent creation,
 │   │                            world health tiers; withDefaults() for Zod v4 cascade)
-│   ├── item-schema.ts      — [Phase 4] ItemSchema
+│   ├── item-schema.ts      — ItemSchema (id, name, baseValue, category with elasticity)
 │   ├── recipe-schema.ts    — [Phase 5] RecipeSchema
 │   ├── job-schema.ts       — [Phase 5] JobSchema
 │   ├── quest-schema.ts     — [Phase 6] QuestSchema
@@ -254,38 +256,52 @@ domain/
 │   └── tool-schema.ts      — [Phase 6] ToolSchema
 │
 └── systems/
-    ├── trait-resolver.ts         — [Phase 0] Modifier map building + conflict detection
-    ├── day-night.ts              — [Phase 1] TimeOfDay flag (dawn/day/dusk/night)
-    ├── needs-decay.ts            — [Phase 1] Hunger/energy/social decay + modifiers
-    ├── mood.ts                   — [Phase 1] Mood calculation + external modifiers
-    ├── memory.ts                 — [Phase 1] Decay, pruning, min lifespan
-    ├── perception.ts             — [Phase 2] SparseHashGrid spatial queries → Blackboard
-    ├── behavior-tree.ts          — [Phase 1] BT evaluation via Blackboard → ActionIntent
-    ├── movement.ts               — [Phase 2] ActionIntent processing, region transitions, stamina
-    ├── job.ts                    — [Phase 5] Shift eval, production, wages, facility fund
-    ├── quest-evaluation.ts       — [Phase 6] Objective tracking, completion, failure
-    ├── object-interaction.ts     — [Phase 4] World object use, stock depletion
-    ├── tool-execution.ts         — [Phase 6] Vault file ops (Command pattern)
-    ├── construction.ts           — [Phase 7] Building progress, property registration
-    ├── trade.ts                  — [Phase 5] Agent-to-agent exchange (Saga pattern)
-    ├── dialogue.ts               — [Phase 3] Template + LLM dialogue + gossip exchange
-    ├── progression.ts            — [Phase 5] XP, skill-by-use, status evaluation
-    ├── relationship.ts           — [Phase 3] Canvas graph updates (in-memory + checkpoint)
-    ├── mortality-check.ts        — [Phase 1] Starvation/despair/quest-danger → collapse/death/legacy
-    ├── item-durability.ts        — [Phase 4] Equipment wear, breakage, spoilage
-    ├── economy.ts                — [Phase 5] Price elasticity formula, demand tracking, recalc queue
-    ├── pricing.ts                — [Phase 4] calculatePostedPrice() with elasticity scaling
-    ├── demand-tracker.ts         — [Phase 4] Sliding-window consumption tracking per item
-    ├── price-memory.ts           — [Phase 4] Agent price observations, staleness, best-source queries
-    ├── monetary-policy.ts        — [Phase 4] Velocity calculation, safety nets, progressive tax formula
-    ├── world-event.ts            — [Phase 12] Random event evaluation + world health modifiers
-    ├── season.ts                 — [Phase 12] Season advancement, seasonal modifier application
-    ├── notification.ts           — [Phase 1] Director alert filtering by severity
-    ├── chronicler.ts             — [Phase 1] Observation, narration, welfare quests, candidate pool
-    ├── scenario.ts               — [Phase 6] Goal tracking, scoring, time limits
-    ├── abandonment.ts            — [Phase 7] Facility abandonment detection
-    ├── vault-sync.ts             — [Phase 0/9] Load-only (Phase 0), bidirectional (Phase 9)
-    └── ui-bridge.ts              — [Phase 8] ECS → Pinia stores (events + periodic snapshot)
+    ├── trait-resolver.ts         — Modifier map building + conflict detection
+    ├── day-night.ts              — TimeOfDay flag (dawn/day/dusk/night)
+    ├── needs-decay.ts            — Hunger/energy/social decay + modifiers
+    ├── mood.ts                   — Mood calculation + external modifiers
+    ├── memory-decay.ts           — Decay significance, pruning, min lifespan
+    ├── perception.ts             — SparseHashGrid spatial queries → BehaviorAgent
+    ├── behavior-agent.ts         — Typed BehaviorAgent (20 conditions, 17 actions, replaces blackboard)
+    ├── movement.ts               — ActionIntent processing, region transitions, stamina
+    ├── facility.ts               — Facility production, wages, auto-process, fund management
+    ├── trade.ts                  — Agent-facility purchase (emits GoldFlowed + PurchaseComplete)
+    ├── cargo.ts                  — Agent-carried logistics (pickup, deliver, haul routing)
+    ├── rest.ts                   — Energy recovery at rest-type locations (3 tiers)
+    ├── feed.ts                   — Hunger recovery at food-type locations
+    ├── socialize.ts              — Social need recovery near agents
+    ├── dialogue.ts               — Template + LLM dialogue
+    ├── gossip.ts                 — Gossip exchange between agents
+    ├── relationship.ts           — Relationship disposition updates
+    ├── relationship-canvas.ts    — Canvas graph export
+    ├── skill-progression.ts      — Skill-by-use progression
+    ├── daily-report.ts           — Daily economy summary reporting
+    ├── pricing.ts                — Price elasticity formula (scarcity × elasticity × location × pipeline)
+    ├── demand-tracker.ts         — Sliding-window consumption tracking per item
+    ├── price-memory.ts           — Agent price memories (staleness, best-source queries)
+    ├── economy.ts                — Facility price recalculation orchestration
+    ├── monetary-policy.ts        — Velocity tracking, faucet/sink ledger, tax, safety nets
+    ├── food-items.ts             — Food item definitions
+    ├── arrival-spread.ts         — Agent arrival positioning
+    ├── crossing-point.ts         — Region crossing calculations
+    ├── steering.ts               — Agent steering behaviors
+    ├── pathfinding.ts            — A* region-graph pathfinding
+    ├── world-validation.ts       — World state validation
+    ├── quest-evaluation.ts       — [Future] Objective tracking, completion, failure
+    ├── object-interaction.ts     — [Future] World object use, stock depletion
+    ├── tool-execution.ts         — [Future] Vault file ops (Command pattern)
+    ├── construction.ts           — [Future] Building progress, property registration
+    ├── progression.ts            — [Future] XP, status evaluation
+    ├── mortality-check.ts        — [Future] Starvation/despair → collapse/death/legacy
+    ├── item-durability.ts        — [Future] Equipment wear, breakage, spoilage
+    ├── world-event.ts            — [Future] Random event evaluation + world health modifiers
+    ├── season.ts                 — [Future] Season advancement, seasonal modifier application
+    ├── notification.ts           — [Future] Director alert filtering by severity
+    ├── chronicler.ts             — [Future] Observation, narration, welfare quests
+    ├── scenario.ts               — [Future] Goal tracking, scoring, time limits
+    ├── abandonment.ts            — [Future] Facility abandonment detection
+    ├── vault-sync.ts             — [Future] Bidirectional vault persistence
+    └── ui-bridge.ts              — [Future] ECS → Pinia stores
 ```
 
 ### 5.3 Level 2 — Infrastructure Layer
@@ -299,35 +315,48 @@ infrastructure/
 │   ├── world-loader.ts     — Vault → ECS entity hydration (agents, locations, traits, BTs)
 │   └── batchable-event-bus.ts — EventBus with batch/flush for tick-boundary delivery
 │
-├── systems/                     — GameSystem wrappers (dual-layer pattern)
+├── systems/                     — GameSystem wrappers (dual-layer pattern, 18 systems)
 │   ├── trait-resolver-system.ts
 │   ├── day-night-system.ts
 │   ├── needs-decay-system.ts
 │   ├── mood-system.ts
 │   ├── perception-system.ts
 │   ├── memory-decay-system.ts
-│   ├── behavior-tree-system.ts
+│   ├── behavior-tree-system.ts  — Thin mistreevous step() caller
 │   ├── movement-system.ts
+│   ├── facility-system.ts       — Production, wages, auto-process, subsidies
 │   ├── rest-system.ts
 │   ├── feed-system.ts
-│   └── socialize-system.ts
+│   ├── socialize-system.ts
+│   ├── trade-system.ts          — Purchase flow, emits GoldFlowed events
+│   ├── dialogue-system.ts
+│   ├── gossip-system.ts
+│   ├── relationship-checkpoint-system.ts
+│   ├── economy-system.ts        — FlatQueue-driven price recalculation
+│   └── monetary-policy-system.ts — Velocity tracking, safety net interventions
 │
-├── components/                  — ECS components (TrackedComponent base)
+├── components/                  — ECS components (TrackedComponent base, 15 components)
 │   ├── tracked-component.ts     — Base class with markDirty()/clearDirty()
-│   ├── needs.ts
-│   ├── mood.ts
-│   ├── memory.ts
-│   ├── blackboard.ts
-│   ├── attributes.ts
-│   ├── social.ts
-│   ├── traits.ts
-│   ├── perception.ts
-│   └── time.ts
+│   ├── needs-component.ts
+│   ├── mood-component.ts
+│   ├── memory-component.ts
+│   ├── attributes-component.ts
+│   ├── social-component.ts
+│   ├── traits-component.ts
+│   ├── perception-component.ts
+│   ├── time-component.ts
+│   ├── wallet-component.ts      — Agent gold balance
+│   ├── inventory-component.ts   — Agent item inventory
+│   ├── facility-component.ts    — Facility stock, fund, prices, worker
+│   ├── economy-component.ts     — World economy state (treasury, ledger, daily summary)
+│   ├── relationship-component.ts — Agent relationship entries
+│   └── stamina-component.ts     — Agent movement stamina
 │
 ├── entity/                      — Entity constructors
-│   ├── agent-actor.ts           — Agent Actor factory
+│   ├── agent-actor.ts           — Agent Actor factory (with all components)
 │   ├── agent-spawner.ts         — Agent spawn orchestration
-│   ├── bt-loader.ts             — BT definition loading from vault
+│   ├── behavior-agent-factory.ts — BehaviorAgent construction from ECS components
+│   ├── bt-loader.ts             — MDSL BT definition loading (base + branch composition)
 │   ├── location-loader.ts       — Location entity loading
 │   └── trait-loader.ts          — Trait definition loading
 │
@@ -426,8 +455,8 @@ ExcaliburJS Engine.update(delta)
 │   ├─ RelationshipSystem (14)      — Canvas graph updates (in-memory)
 │   ├─ MortalityCheckSystem (14.5)  — Collapse, death, legacy
 │   ├─ ItemDurabilitySystem (15)    — Wear, breakage, spoilage
-│   ├─ EconomySystem (16)           — Dynamic pricing, demand tracking, recalc queue
-│   ├─ MonetaryPolicySystem (16.5)  — Velocity tracking, snapshot write, safety nets
+│   ├─ EconomySystem (16)           — FlatQueue-driven facility price recalculation, demand tracking
+│   ├─ MonetaryPolicySystem (16.5)  — Velocity tracking, snapshot write, safety net interventions
 │   ├─ WorldEventSystem (17)        — Random events (every M ticks)
 │   ├─ SeasonSystem (17.5)          — Season advancement
 │   ├─ NotificationSystem (18)      — Director alert filtering
@@ -556,41 +585,42 @@ SHUTDOWN:
 
 ```
 PerceptionSystem (tick 3)
-│ Populates Blackboard from ECS components:
-│   needs, stamina, mood, memories, awareness, wallet, skills,
-│   traits, goals, propertyOwned, season, timeOfDay, gossipKnowledge,
-│   nearbyFriendlies, nearbyStrangers, nearbyObjects, nearbyUnguarded,
-│   nearbyRestLocations, jobDetails, ownedFacilityVacancies
+│ Updates BehaviorAgent perception state from ECS spatial queries:
+│   nearbyLocations, nearbyAgents (via SparseHashGrid)
 │
 BehaviorTreeSystem (tick 5)
-│ For each agent (dirty-flag optimization — skip unchanged Blackboards):
-│   ├─ Evaluate BT in priority order:
-│   │   1. Breakdown (mood <= -60)
-│   │   2. Survival (critical need)
-│   │   2.5. Crime (critical need + mood <= -20 + opportunity)
-│   │   3. Job Duty (on shift)
-│   │   4. Active Quest (has quest)
-│   │   5. Billboard Scan (near billboard, no quest)
-│   │   6. Goal Pursuit (incomplete goals)
-│   │   7. Social Opportunity (friendly nearby)
-│   │   8. Object Interaction (useful object nearby)
-│   │   9. Idle (wander/wait)
+│ For each agent with a BehaviourTree:
+│   ├─ Call tree.step() — mistreevous evaluates MDSL tree
+│   │   BehaviorAgent provides typed condition/action methods:
+│   │   Conditions: IsHungry(), IsExhausted(), HasFood(), CanAffordFood(),
+│   │     IsAtFoodFacility(), IsAtRestFacility(), IsAtWorkFacility(), etc.
+│   │   Actions: Eat(), Rest(), Buy(), Work(), PickupCargo(), DeliverCargo(),
+│   │     Patrol(), SeekFood(), SeekRest(), SeekWork(), Idle(), etc.
 │   │
-│   └─ Write selectedAction to Blackboard
-│      → Emit ActionIntent event
+│   ├─ MDSL tree structure (base + per-role branch):
+│   │   1. Survival (critical hunger → seek food → buy → eat)
+│   │   2. Rest (critical energy → seek rest → rest)
+│   │   3. Role branch (guard/merchant/artisan/scholar)
+│   │   4. Idle (wander)
+│   │
+│   └─ Actions return RUNNING (in progress) or SUCCEEDED/FAILED
+│      → Systems execute effects on the next tick
 │
 MovementSystem (tick 5.5)
-│ Reads ActionIntent events of type 'move_to_region'
-│   → Chain ExcaliburJS Actions API: .moveTo(hop1).callMethod(deductStamina)...
-│   → Region boundary trigger zones handle transitions
-│   → RegionEntered event emitted per hop
+│ Processes movement targets set by BehaviorAgent actions
+│   → ExcaliburJS Actions API for pathfinding
+│   → Stamina deduction per hop
 │
 Downstream systems (tick 6-18)
-│ Read other ActionIntent types and execute:
-│   FacilitySystem processes facilities with workers
-│   QuestEvaluation processes 'quest_action' intents
-│   TradeSystem processes 'trade' intents
-│   DialogueSystem processes 'talk' intents
+│ Process signals from BehaviorAgent action methods:
+│   FacilitySystem — production, wages, auto-process, subsidies
+│   RestSystem — energy recovery at rest locations
+│   FeedSystem — hunger recovery from food inventory
+│   TradeSystem — purchase flow (gold exchange, inventory, GoldFlowed events)
+│   DialogueSystem — social dialogue
+│   GossipSystem — information exchange
+│   EconomySystem (16) — price recalculation via demand tracking
+│   MonetaryPolicySystem (16.5) — velocity monitoring, safety nets
 ```
 
 ### 6.7 Director Quest Creation Flow
@@ -629,11 +659,18 @@ Director opens Quest Creator in management sidebar
 
 ```
 Phase 0: Foundation          ← COMPLETE
-Phase 1: Agent Core          ← COMPLETE (1A tick infrastructure, 1B game systems, 1C agent agency, 1D action consequences)
-Phase 2: Spatial             ← Partially complete (perception + movement done, 2E facility-driven production DESIGN COMPLETE, A* pathfinding not yet)
-Phase 3: Social
+Phase 1: Agent Core          ← COMPLETE (1A tick, 1B systems, 1C agency, 1D consequences)
+Phase 2: Spatial + Economy   ← SUBSTANTIALLY COMPLETE
+  - Perception, movement, pathfinding: done
+  - Facility production, wages, auto-process: done
+  - Trade system with GoldFlowed events: done
+  - BT migration to mistreevous: done (BehaviorAgent typed interface)
+  - Supply chain logistics (agent-carried cargo): done
+  - Economy depth (pricing, demand, monetary policy): done (domain + infra)
+  - Remaining: BehaviorAgent price memory integration, dynamic pricing in BT
+Phase 3: Social              ← PARTIALLY COMPLETE (dialogue, gossip, relationship systems exist)
 Phase 4: Items & Equipment
-Phase 5: Economy
+Phase 5: Economy (advanced)  ← See remaining items below
 Phase 6: Quests + Scenarios
 ── VERTICAL SLICE GATE ──    ← First playable build
 Phase 7: Property
@@ -645,7 +682,17 @@ Phase 12: World Events + Seasons
 Phase 13: Polish
 ```
 
-**Implementation progress:** 11 of 21 SystemPriority slots are implemented and registered (TraitResolver, DayNight, NeedsDecay, Mood, Perception, MemoryDecay, BehaviorTree, Movement, Rest, Feed, Socialize).
+**Implementation progress (2026-04-02):** 18 infrastructure system wrappers registered. 34 SystemPriority slots defined. 30 domain system files, 11 schema files, 15 components, 6 entity files. ~500 tests across 86 test files.
+
+**Economy depth remaining items (deferred from economy-depth plan):**
+- Wire `priceMemories` CircularBuffer into BehaviorAgent
+- Add `KnowsFoodSource()` / `CanAffordRememberedFood()` / `SeekBestFoodSource()` conditions to BehaviorAgent
+- Update `Buy()` action to record price memories on completion
+- Update MDSL trees to use remembered-price variants
+- Add `category` field to item data files (schema exists, data not tagged)
+- Wire `getEffectiveTaxRate()` into tax collection path (domain function exists, not consumed)
+- Emit `GoldFlowed` from all gold-moving systems (only trade done — wages, stipends, welfare, rest missing)
+- Infrastructure test for MonetaryPolicySystem wrapper
 
 **Vertical Slice exit criteria:** 5 agents with BT, 1 supply chain, 3 job types, quest creation/completion, basic UI (map + sidebar), Chronicler onboarding, treasury with tax, gossip, VaultSync persistence, 3 emergence tests passing.
 
