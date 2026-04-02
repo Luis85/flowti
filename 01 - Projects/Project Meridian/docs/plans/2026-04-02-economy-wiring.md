@@ -29,6 +29,8 @@ Create item JSON data files, build an item loader following the existing VaultRe
 
 - [ ] **Step 1: Create the items directory and files**
 
+All item files go under the project root `items/` directory (same level as `agents/`, `locations/`). The world-loader will read from this path.
+
 Create `items/bread.json`:
 ```json
 {
@@ -236,7 +238,7 @@ After the behavior trees loading and before the final assembly, add:
 
 ```typescript
 onProgress?.(stepIndex, total, 'Loading items...');
-const itemResult = await createItemLoader(logger).loadFromVault(vault, '03 - Resources/Items');
+const itemResult = await createItemLoader(logger).loadFromVault(vault, 'items');
 collectErrors('items', itemResult.errors, errors);
 const itemRegistry = new Map<string, Item>();
 for (const item of itemResult.items) {
@@ -244,7 +246,7 @@ for (const item of itemResult.items) {
 }
 ```
 
-Note: Check the actual vault path for items. If `items/` is at the project root (not under `03 - Resources/`), use the correct path.
+The items directory is at the project root (`items/`), matching where the JSON files were created in Task 1.
 
 - [ ] **Step 5: Add items to the return object**
 
@@ -779,6 +781,7 @@ SeekBestFoodSource(): ActionResult {
 	}
 
 	if (cheapestLocation === null) return FAILED;
+	btAction = 'seek_food';
 	movementTarget = { id: cheapestLocation, type: 'location' };
 	if (atLocation === cheapestLocation) return SUCCEEDED;
 	return RUNNING;
@@ -864,13 +867,12 @@ agent.behaviorAgent.recordPriceObservation(
 
 - [ ] **Step 2: Record price on failed purchase**
 
-In the `execute()` method, in the `else` branch (around line 218, after the PurchaseFailed event emission), add:
+In the `execute()` method, in the `else` branch (around line 218, after the PurchaseFailed event emission), add. Note: `facility` is already in scope from the dynamic price lookup added in Task 9 Step 2 — reuse it, don't re-fetch:
 
 ```typescript
 // Agent still learns the price even when purchase fails
-const failFacility = target.actor.get(FacilityComponent);
 const failItem = itemRegistry().get(target.foodItemId);
-const observedPrice = failFacility.state.currentPrices?.[target.foodItemId]
+const observedPrice = facility.state.currentPrices?.[target.foodItemId]
 	?? failItem?.baseValue
 	?? deps.config.economy.food_price;
 agent.behaviorAgent.recordPriceObservation(
@@ -920,25 +922,32 @@ In `behavior-trees/base.mdsl`, replace the P0 buy sequences (lines 13-23):
                 }
 ```
 
-With:
+With (spec §6.1 — navigation and buy are separate steps in a sequence):
 
 ```
+                /* Already at a food facility with stock — buy immediately */
+                sequence {
+                    condition [IsHungry]
+                    condition [CanAffordFood]
+                    condition [FacilityHasStock, "bread"]
+                    action [Buy]
+                }
+                /* Not at facility — navigate to cheapest known or nearest, then buy */
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
                     selector {
-                        sequence {
-                            condition [FacilityHasStock, "bread"]
-                            action [Buy]
-                        }
                         sequence {
                             condition [KnowsFoodSource]
                             action [SeekBestFoodSource] while(IsHungry)
                         }
                         action [SeekFood] while(IsHungry)
                     }
+                    action [Buy]
                 }
 ```
+
+The first sequence handles the "already at facility" case (fast path). The second sequence separates navigation (selector chooses cheapest-known vs nearest) from buying (Buy fires after arrival). This matches the spec's intent of navigation → buy as separate sequence steps.
 
 - [ ] **Step 2: Update P1 hunger branch**
 
@@ -967,7 +976,7 @@ With:
                     condition [FacilityHasStock, "bread"]
                     action [Buy]
                 }
-                /* Go to cheapest known food source, or nearest */
+                /* Navigate to cheapest known food source, or nearest, then buy */
                 sequence {
                     condition [CanAffordFood]
                     selector {
@@ -977,6 +986,7 @@ With:
                         }
                         action [SeekFood]
                     }
+                    action [Buy]
                 }
 ```
 
