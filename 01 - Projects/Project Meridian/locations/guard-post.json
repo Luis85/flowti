@@ -1,0 +1,16 @@
+{
+	"id": "loc-guard-post",
+	"name": "Guard Post",
+	"type": "work",
+	"position": { "x": 230, "y": 180, "region": "region-valley" },
+	"color": "#78909c",
+	"production": {
+		"job": "guard",
+		"output": { "item_id": "security", "quantity": 1 },
+		"input": null,
+		"wage": 4,
+		"ticks_per_cycle": 20,
+		"funding": "treasury"
+	},
+	"capacity": 1
+}

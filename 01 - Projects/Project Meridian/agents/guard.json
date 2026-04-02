@@ -1,0 +1,29 @@
+{
+	"id": "agent-guard",
+	"name": "Guard",
+	"kind": "guard",
+	"color": "#5c6bc0",
+	"attributes": { "ST": 14, "DX": 12, "IQ": 10, "HT": 13 },
+	"social": { "status": 1, "reputation": 1, "charisma": 10 },
+	"needs": { "hunger": 80, "energy": 80, "social": 50, "thirst": 80 },
+	"mood": 0,
+	"memory": [],
+	"goals": [],
+	"skills": [],
+	"inventory": [
+		{ "item_id": "food", "quantity": 3 },
+		{ "item_id": "waterskin", "quantity": 1, "charges": 3 }
+	],
+	"equipment": { "head": null, "body": null, "hands": null, "tool": null, "accessory": null },
+	"persona": null,
+	"traits": [],
+	"wallet": { "gold": 30 },
+	"xp": 0,
+	"level": 1,
+	"position": { "x": 260, "y": 220, "region": "region-valley" },
+	"relationships": null,
+	"tools": [],
+	"behavior_tree": "guard",
+	"job": null,
+	"property": []
+}
