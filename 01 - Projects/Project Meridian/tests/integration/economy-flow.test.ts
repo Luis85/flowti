@@ -2,6 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { calculatePostedPrice } from '../../src/domain/systems/pricing.js';
 import { createDemandTracker, recordConsumption, getDemandRate } from '../../src/domain/systems/demand-tracker.js';
 import { recalculateFacilityPrices } from '../../src/domain/systems/economy.js';
+import {
+	createMonetaryLedger,
+	recordFlow,
+	calculateMonetarySnapshot,
+	getEffectiveTaxRate,
+	evaluateSafetyNets,
+} from '../../src/domain/systems/monetary-policy.js';
 
 describe('Economy flow integration', () => {
 	it('price increases when consumption rises', () => {
@@ -62,5 +69,44 @@ describe('Economy flow integration', () => {
 		});
 
 		expect(breadPrice).toBeGreaterThan(gemPrice);
+	});
+});
+
+describe('Monetary policy domain flow', () => {
+	it('velocity drops → stimulus triggers → tax adjusts', () => {
+		const ledger = createMonetaryLedger(100);
+		const balances = [100, 80, 60];
+		const treasury = 200;
+
+		// Healthy economy — lots of transfers
+		for (let tick = 0; tick < 50; tick++) {
+			recordFlow(ledger, {
+				category: 'transfer', subcategory: 'purchase',
+				amount: 5, tick, fromEntity: 'a', toEntity: 'b',
+			});
+		}
+
+		const healthySnap = calculateMonetarySnapshot(ledger, 50, balances, treasury);
+		expect(healthySnap.velocity).toBeGreaterThan(0.2);
+
+		// Economy stagnates — no transfers for 100 ticks
+		const stagnantSnap = calculateMonetarySnapshot(ledger, 200, balances, treasury);
+		expect(stagnantSnap.velocity).toBe(0);
+
+		// Safety nets trigger
+		const interventions = evaluateSafetyNets(
+			stagnantSnap.velocity, 60,
+			{ stagnant: 0.2, critical: 0.1, stimulusTriggerTicks: 50 },
+		);
+		expect(interventions).toContain('stimulus');
+		expect(interventions).toContain('recovery_event');
+
+		// Tax rate adjusts
+		const taxRate = getEffectiveTaxRate(
+			0.10, stagnantSnap.velocity,
+			{ stagnant: 0.2, overheated: 1.5 },
+			{ stagnant: 0.5, overheated: 1.5 },
+		);
+		expect(taxRate).toBeCloseTo(0.05);
 	});
 });
