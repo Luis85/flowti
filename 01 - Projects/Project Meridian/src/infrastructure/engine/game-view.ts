@@ -28,6 +28,8 @@ import { createTradeSystem } from '../systems/trade-system.js';
 import { createDialogueSystem } from '../systems/dialogue-system.js';
 import { createGossipSystem } from '../systems/gossip-system.js';
 import { createRelationshipCheckpointSystem } from '../systems/relationship-checkpoint-system.js';
+import { createEconomySystem } from '../systems/economy-system.js';
+import { createMonetaryPolicySystem } from '../systems/monetary-policy-system.js';
 import { TimeComponent } from '../components/time-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
@@ -219,6 +221,8 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createDialogueSystem(getAgents, Date.now()));
 		tickRunner.register(createGossipSystem(getAgents, getLocations));
 		tickRunner.register(createRelationshipCheckpointSystem(getAgents));
+		tickRunner.register(createEconomySystem(getLocations, getLocationActors, getItemRegistry));
+		tickRunner.register(createMonetaryPolicySystem(getAgents, getWorldEntity));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.btMdslDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
 	}
