@@ -5,19 +5,31 @@ root {
         sequence {
             condition [NeedsCritical]
             selector {
+                /* Drink if thirsty and have water */
+                sequence {
+                    condition [IsThirsty]
+                    condition [HasWater]
+                    action [Drink]
+                }
+                /* Go fill waterskin if thirsty */
+                sequence {
+                    condition [IsThirsty]
+                    action [SeekWater] while(IsThirsty)
+                }
+                /* Eat if hungry and have food */
                 sequence {
                     condition [IsHungry]
                     condition [HasFood]
                     action [Eat] while(IsHungry)
                 }
-                /* Already at a food facility with stock — buy immediately */
+                /* Buy food if hungry */
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
-                    condition [FacilityHasStock, "bread"]
+                    condition [FacilityHasStock, "food"]
                     action [Buy]
                 }
-                /* Not at facility — navigate to cheapest known or nearest, then buy */
+                /* Seek food to buy */
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
@@ -30,6 +42,7 @@ root {
                     }
                     action [Buy]
                 }
+                /* Rest if exhausted */
                 sequence {
                     condition [IsExhausted]
                     action [SeekRest] while(IsExhausted)
@@ -43,22 +56,35 @@ root {
             branch [Role]
         }
 
-        /* P2: Hunger — not critical but below comfort threshold */
+        /* P2: Thirsty — drink or refill */
+        sequence {
+            condition [IsThirsty]
+            selector {
+                sequence {
+                    condition [HasWater]
+                    action [Drink]
+                }
+                sequence {
+                    action [SeekWater]
+                    action [FillWaterskin]
+                    action [Drink]
+                }
+            }
+        }
+
+        /* P3: Hungry — eat or buy */
         sequence {
             condition [IsHungry]
             selector {
-                /* Eat from inventory if possible */
                 sequence {
                     condition [HasFood]
                     action [Eat] while(IsHungry)
                 }
-                /* Buy food if at a facility with stock */
                 sequence {
                     condition [CanAffordFood]
-                    condition [FacilityHasStock, "bread"]
+                    condition [FacilityHasStock, "food"]
                     action [Buy]
                 }
-                /* Navigate to cheapest known food source, or nearest, then buy */
                 sequence {
                     condition [CanAffordFood]
                     selector {
@@ -70,7 +96,6 @@ root {
                     }
                     action [Buy]
                 }
-                /* No food, no money — go work */
                 sequence {
                     condition [HasJob]
                     action [SeekWork]
@@ -78,21 +103,10 @@ root {
             }
         }
 
-        /* P3: Energy — rest when tired */
+        /* P4: Energy — rest when tired */
         sequence {
             condition [IsExhausted]
             action [SeekRest] while(IsExhausted)
-        }
-
-        /* P4: Social needs */
-        sequence {
-            condition [IsLonely]
-            condition [NearAgentClose]
-            action [Talk] while(IsLonely)
-        }
-        sequence {
-            condition [IsLonely]
-            action [SeekSocial] while(IsLonely)
         }
 
         /* P5: Night behavior */
