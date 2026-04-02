@@ -1,0 +1,6 @@
+{
+	"id": "food",
+	"name": "Food",
+	"baseValue": 5,
+	"category": "subsistence"
+}
