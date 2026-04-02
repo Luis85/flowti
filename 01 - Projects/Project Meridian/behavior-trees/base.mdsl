@@ -37,7 +37,13 @@ root {
             }
         }
 
-        /* P1: Hunger — not critical but below comfort threshold */
+        /* P1: Role-specific behavior (work hours: dawn + day) */
+        sequence {
+            condition [IsWorkHours]
+            branch [Role]
+        }
+
+        /* P2: Hunger — not critical but below comfort threshold */
         sequence {
             condition [IsHungry]
             selector {
@@ -72,16 +78,10 @@ root {
             }
         }
 
-        /* P2: Energy — rest when tired */
+        /* P3: Energy — rest when tired */
         sequence {
             condition [IsExhausted]
             action [SeekRest] while(IsExhausted)
-        }
-
-        /* P3: Role-specific behavior (day) */
-        sequence {
-            condition [IsDaytime]
-            branch [Role]
         }
 
         /* P4: Social needs */
