@@ -132,6 +132,20 @@ export function createRestSystem(
 								}
 							}
 						}
+
+						deps.eventBus.emit({
+							type: 'GoldFlowed',
+							tick: deps.tickCount,
+							wallClock: Date.now(),
+							source: 'RestSystem',
+							payload: {
+								category: 'transfer' as const,
+								subcategory: 'rest',
+								amount: restPrice,
+								fromEntity: agent.agentId,
+								toEntity: nearestRest?.id ?? 'outdoors',
+							},
+						});
 					}
 
 					deps.eventBus.emit({

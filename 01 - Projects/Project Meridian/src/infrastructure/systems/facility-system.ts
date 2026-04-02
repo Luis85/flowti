@@ -85,6 +85,20 @@ function recordCycleComplete(
 	workerWallet.state = { ...workerWallet.state, gold: workerWallet.state.gold + result.workerGoldChange };
 	workerWallet.markDirty();
 
+	deps.eventBus.emit({
+		type: 'GoldFlowed',
+		tick: deps.tickCount,
+		wallClock: Date.now(),
+		source: 'FacilitySystem',
+		payload: {
+			category: 'transfer' as const,
+			subcategory: 'wage',
+			amount: result.workerGoldChange,
+			fromEntity: loc.id,
+			toEntity: worker.agentId,
+		},
+	});
+
 	// Collect tax + record ledger
 	const newEntries: LedgerEntry[] = [
 		{
@@ -151,6 +165,20 @@ function recordCycleComplete(
 				workerId: worker.agentId,
 				facilityId: loc.id,
 				source: 'wage',
+			},
+		});
+
+		deps.eventBus.emit({
+			type: 'GoldFlowed',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'FacilitySystem',
+			payload: {
+				category: 'transfer' as const,
+				subcategory: 'tax',
+				amount: result.taxCollected,
+				fromEntity: loc.id,
+				toEntity: 'treasury',
 			},
 		});
 	}
