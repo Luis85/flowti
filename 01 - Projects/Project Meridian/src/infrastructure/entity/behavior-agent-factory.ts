@@ -223,7 +223,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		get priceMemories() { return priceMemories; },
 
-		// ── 20 Condition methods ───────────────────────────────────────────
+		// ── 21 Condition methods ───────────────────────────────────────────
 		IsHungry(): boolean {
 			return agent.hunger < config.needs.hunger_threshold;
 		},
@@ -287,6 +287,10 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		IsNighttime(): boolean {
 			return agent.timePhase === 'night' || agent.timePhase === 'dusk';
+		},
+
+		IsWorkHours(): boolean {
+			return agent.timePhase === 'dawn' || agent.timePhase === 'day';
 		},
 
 		HasJob(): boolean {
