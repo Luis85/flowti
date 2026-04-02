@@ -1,9 +1,0 @@
-{
-	"id": "loc-market",
-	"name": "Market Square Stalls",
-	"type": "market",
-	"position": { "x": 200, "y": 150 },
-	"capacity": 12,
-	"color": "#d4a017",
-	"region": "region-market-square"
-}

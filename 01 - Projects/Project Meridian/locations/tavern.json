@@ -1,9 +1,0 @@
-{
-	"id": "loc-tavern",
-	"name": "The Rusty Anchor",
-	"type": "rest",
-	"position": { "x": 300, "y": 200 },
-	"capacity": 8,
-	"color": "#6a5acd",
-	"region": "region-market-square"
-}
