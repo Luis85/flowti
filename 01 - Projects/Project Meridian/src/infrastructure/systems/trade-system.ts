@@ -115,6 +115,21 @@ function applySuccessfulTrade(
 			price: foodPrice,
 		},
 	});
+
+	// Emit GoldFlowed for monetary policy tracking
+	deps.eventBus.emit({
+		type: 'GoldFlowed',
+		tick: deps.tickCount,
+		wallClock: Date.now(),
+		source: 'TradeSystem',
+		payload: {
+			category: 'transfer' as const,
+			subcategory: 'purchase',
+			amount: foodPrice,
+			fromEntity: agent.agentId,
+			toEntity: target.location.id,
+		},
+	});
 }
 
 function updateFacilityAfterSale(facilityActor: Actor, foodItemId: string, fundChange: number): void {
