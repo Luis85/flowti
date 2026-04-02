@@ -46,7 +46,7 @@ function buildTraitMap(items: TraitDefinition[]): Record<string, TraitDefinition
 	return map;
 }
 
-const BT_KINDS = ['settler'] as const;
+const BT_KINDS = ['settler', 'guard'] as const;
 
 const STEPS = [
 	'Loading traits...',

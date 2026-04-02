@@ -1,0 +1,13 @@
+root [Role] {
+    selector {
+        sequence {
+            condition [AtJobFacility]
+            action [Work] while(IsWorkHours)
+        }
+        sequence {
+            condition [HasJob]
+            action [SeekWork]
+        }
+        action [Wander]
+    }
+}

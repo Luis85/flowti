@@ -7,15 +7,17 @@ root [Role] {
             action [Harvest]
         }
 
-        /* Sell food at market if carrying any */
+        /* Sell excess at market — but only if not hungry and above reserve */
         sequence {
             condition [AtLocation, "market"]
-            condition [HasFood]
+            condition [HasFoodReserve]
+            flip { condition [IsHungry] }
             action [SellAtMarket]
         }
-        /* Go to market to sell if carrying food */
+        /* Go to market to sell if carrying excess and not hungry */
         sequence {
-            condition [HasFood]
+            condition [HasFoodReserve]
+            flip { condition [IsHungry] }
             action [SeekMarket]
         }
 
