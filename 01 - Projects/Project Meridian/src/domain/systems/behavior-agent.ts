@@ -114,10 +114,11 @@ export interface BehaviorAgent {
 	HasNoJob(): boolean;
 	OpenFacilityNearby(): boolean;
 
-	// Action methods (22)
+	// Action methods (23)
 	Eat(): ActionResult;
 	Rest(): ActionResult;
 	Drink(): ActionResult;
+	Harvest(): ActionResult;
 	SeekFood(): ActionResult;
 	SeekRest(): ActionResult;
 	SeekWater(): ActionResult;

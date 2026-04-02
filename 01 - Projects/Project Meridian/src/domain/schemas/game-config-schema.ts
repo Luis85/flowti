@@ -10,7 +10,7 @@ function withDefaults<T extends z.ZodType>(schema: T): z.ZodDefault<T> {
 const NeedsConfigSchema = z.object({
 	hunger_decay: z.number().default(0.15),
 	energy_decay: z.number().default(0.1),
-	social_decay: z.number().default(0.05),
+	social_decay: z.number().default(0),
 	thirst_decay: z.number().default(0.20),
 	food_recovery_rate: z.number().default(5.0),
 	drink_recovery: z.number().default(25),

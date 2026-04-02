@@ -55,6 +55,14 @@ export function createGameEngine(
 
 	return {
 		engine,
-		dispose() { observer.disconnect(); },
+		dispose() {
+			observer.disconnect();
+			// Release WebGL context to prevent "Too many active WebGL contexts" on tab reopen
+			const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+			if (gl !== null) {
+				gl.getExtension('WEBGL_lose_context')?.loseContext();
+			}
+			canvas.remove();
+		},
 	};
 }

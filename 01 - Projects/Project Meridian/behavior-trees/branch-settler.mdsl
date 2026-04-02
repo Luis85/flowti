@@ -1,5 +1,12 @@
 root [Role] {
     selector {
+        /* Harvest food from farm if stock available */
+        sequence {
+            condition [AtJobFacility]
+            condition [FacilityHasStock, "food"]
+            action [Harvest]
+        }
+
         /* Sell food at market if carrying any */
         sequence {
             condition [AtLocation, "market"]

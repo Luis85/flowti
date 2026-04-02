@@ -3,6 +3,7 @@ import * as ex from 'excalibur';
 import { BehaviourTree } from 'mistreevous';
 import { createGameEngine } from './game-engine.js';
 import { createGameLoader } from './game-loader.js';
+import { createDebugOverlay } from './debug-overlay.js';
 import { createWorldLoader, type WorldData } from './world-loader.js';
 import { createTickRunner } from './tick-runner.js';
 import { MeridianTickSystem } from './tick-system.js';
@@ -41,6 +42,7 @@ export class MeridianGameView extends ItemView {
 	private engine: ex.Engine | null = null;
 	private disposeEngine: (() => void) | null = null;
 	private debugUnsubscribe: (() => void) | null = null;
+	private disposeOverlay: (() => void) | null = null;
 	private deps: GameCoreDeps | null;
 	private batchableEventBus: BatchableEventBus | null;
 
@@ -110,7 +112,7 @@ export class MeridianGameView extends ItemView {
 		engine.currentScene.world.add(new MeridianTickSystem(tickRunner, deps));
 
 		// Populate scene
-		this.populateScene(engine, world, deps, tickRunner);
+		this.populateScene(engine, world, deps, tickRunner, container);
 
 		// Centralized event debug logging — logs all game events at debug level
 		this.debugUnsubscribe = eventBus.onAny((event) => {
@@ -121,7 +123,7 @@ export class MeridianGameView extends ItemView {
 		overlay.remove();
 	}
 
-	private populateScene(engine: ex.Engine, world: WorldData, deps: GameCoreDeps, tickRunner: TickScheduler): void {
+	private populateScene(engine: ex.Engine, world: WorldData, deps: GameCoreDeps, tickRunner: TickScheduler, container: HTMLElement): void {
 		// Add agents to scene
 		for (const agent of world.agents) {
 			engine.currentScene.add(agent);
@@ -237,6 +239,16 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createMonetaryPolicySystem(getAgents, getWorldEntity));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.btMdslDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
+
+		// Debug overlay
+		const debugOverlay = createDebugOverlay(container, {
+			getAgents,
+			getWorldEntity,
+			getLocations,
+			getLocationActors,
+			getTickCount: () => deps.tickCount,
+		});
+		this.disposeOverlay = debugOverlay.dispose;
 	}
 
 	/** Toggle ExcaliburJS debug drawing (entity bounds, names, etc.) */
@@ -254,14 +266,17 @@ export class MeridianGameView extends ItemView {
 
 	// eslint-disable-next-line @typescript-eslint/require-await -- Obsidian ItemView interface requires async
 	async onClose(): Promise<void> {
+		this.disposeOverlay?.();
+		this.disposeOverlay = null;
 		this.debugUnsubscribe?.();
 		this.debugUnsubscribe = null;
-		this.disposeEngine?.();
-		this.disposeEngine = null;
 		if (this.engine !== null) {
 			this.engine.stop();
 			this.engine = null;
 		}
+		// Release WebGL context + canvas after engine stops
+		this.disposeEngine?.();
+		this.disposeEngine = null;
 	}
 
 	private showError(container: HTMLElement, err: unknown): void {

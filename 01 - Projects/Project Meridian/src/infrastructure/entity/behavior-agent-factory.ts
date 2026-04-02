@@ -76,14 +76,14 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		for (const nearLoc of perception.state.nearbyLocations) {
 			const locData = locationList.find(l => l.id === nearLoc.id);
-			if (locData === undefined || locData.production === null) continue;
+			if (locData === undefined) continue;
 			const locActor = locationActorMap.get(nearLoc.id);
-			if (locActor === undefined) continue;
+			if (locActor === undefined || !locActor.has(FacilityComponent)) continue;
 			const facility = locActor.get(FacilityComponent);
 
 			// Determine if any input is unmet
 			let hasUnmetInput = false;
-			if (locData.production.input !== null) {
+			if (locData.production?.input !== null && locData.production?.input !== undefined) {
 				const needed = locData.production.input;
 				const inStock = facility.state.stock.find(s => s.item_id === needed.item_id);
 				hasUnmetInput = inStock === undefined || inStock.quantity < needed.quantity;
@@ -91,7 +91,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 			facilities.push({
 				id: nearLoc.id,
-				job: locData.production.job,
+				job: locData.production?.job ?? '',
 				stock: [...facility.state.stock],
 				distance: nearLoc.distance,
 				hasUnmetInput,
@@ -246,7 +246,6 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return (
 				agent.hunger < NEED_CRITICAL_THRESHOLDS.hunger ||
 				agent.energy < NEED_CRITICAL_THRESHOLDS.energy ||
-				agent.social < NEED_CRITICAL_THRESHOLDS.social ||
 				agent.thirst < NEED_CRITICAL_THRESHOLDS.thirst
 			);
 		},
@@ -384,6 +383,35 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return SUCCEEDED;
 		},
 
+		Harvest(): ActionResult {
+			if (atLocation === null) return FAILED;
+			const locationActorMap = getLocationActors();
+			const locActor = locationActorMap.get(atLocation);
+			if (locActor === undefined || !locActor.has(FacilityComponent)) return FAILED;
+			const facility = locActor.get(FacilityComponent);
+			const foodStock = facility.state.stock.find(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0);
+			if (foodStock === undefined) return FAILED;
+			// Move food from facility stock to agent inventory
+			const newStock = facility.state.stock
+				.map(s => {
+					if (s.item_id !== foodStock.item_id) return { ...s };
+					const newQty = s.quantity - 1;
+					return newQty > 0 ? { ...s, quantity: newQty } : null;
+				})
+				.filter((s): s is NonNullable<typeof s> => s !== null);
+			facility.state = { ...facility.state, stock: newStock };
+			facility.markDirty();
+			const inv = actor.get(InventoryComponent);
+			const existingItem = inv.state.items.find(i => i.item_id === foodStock.item_id);
+			const newItems = existingItem !== undefined
+				? inv.state.items.map(i => i.item_id === foodStock.item_id ? { ...i, quantity: i.quantity + 1 } : { ...i })
+				: [...inv.state.items.map(i => ({ ...i })), { item_id: foodStock.item_id, quantity: 1 }];
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+			btAction = 'harvest';
+			return SUCCEEDED;
+		},
+
 		Rest(): ActionResult {
 			btAction = 'rest';
 			return RUNNING;
@@ -492,10 +520,11 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		Buy(): ActionResult {
-			const hasStock = agent.nearbyFacilities.some(f =>
-				f.stock.some(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0),
+			if (atLocation === null) return FAILED;
+			const atFacility = agent.nearbyFacilities.find(f =>
+				f.id === atLocation && f.stock.some(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0),
 			);
-			if (!hasStock) return FAILED;
+			if (atFacility === undefined) return FAILED;
 			btAction = 'buy';
 			return SUCCEEDED;
 		},
@@ -524,7 +553,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		ClaimJob(): ActionResult {
-			const openFacilities = agent.nearbyFacilities.filter(f => f.workerId === null);
+			const openFacilities = agent.nearbyFacilities.filter(f => f.workerId === null && f.job !== '');
 			if (openFacilities.length === 0) return FAILED;
 			const nearest = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
 			actor.job = nearest.job;

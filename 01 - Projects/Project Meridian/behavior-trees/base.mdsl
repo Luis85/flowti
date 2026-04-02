@@ -52,13 +52,21 @@ root {
             }
         }
 
-        /* P1: Role-specific behavior (work hours: dawn + day) */
+        /* P1: Claim a job if unemployed and facility available */
+        sequence {
+            condition [IsWorkHours]
+            condition [HasNoJob]
+            condition [OpenFacilityNearby]
+            action [ClaimJob]
+        }
+
+        /* P2: Role-specific behavior (work hours: dawn + day) */
         sequence {
             condition [IsWorkHours]
             branch [Role]
         }
 
-        /* P2: Thirsty — drink or refill */
+        /* P3: Thirsty — drink or refill */
         sequence {
             condition [IsThirsty]
             selector {
@@ -74,7 +82,7 @@ root {
             }
         }
 
-        /* P3: Hungry — eat or buy */
+        /* P4: Hungry — eat or buy */
         sequence {
             condition [IsHungry]
             selector {
@@ -105,24 +113,16 @@ root {
             }
         }
 
-        /* P4: Energy — rest when tired */
+        /* P5: Energy — rest when tired */
         sequence {
             condition [IsExhausted]
             action [SeekRest] while(IsExhausted)
         }
 
-        /* P5: Night behavior */
+        /* P6: Night behavior */
         sequence {
             condition [IsNighttime]
             action [SeekRest]
-        }
-
-        /* P6: Claim a job if unemployed and facility available */
-        sequence {
-            condition [IsWorkHours]
-            condition [HasNoJob]
-            condition [OpenFacilityNearby]
-            action [ClaimJob]
         }
 
         /* P7: Fallback */

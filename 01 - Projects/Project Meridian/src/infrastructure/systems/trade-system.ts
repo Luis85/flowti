@@ -31,9 +31,8 @@ function findNearestFoodFacility(
 	let nearestDist = Infinity;
 
 	for (const loc of locationList) {
-		if (loc.production === null) continue;
 		const locActor = locationActorMap.get(loc.id);
-		if (locActor === undefined) continue;
+		if (locActor === undefined || !locActor.has(FacilityComponent)) continue;
 		const dist = distance(agent.pos.x, agent.pos.y, loc.position.x, loc.position.y);
 		if (dist > radius || dist >= nearestDist) continue;
 
