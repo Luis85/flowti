@@ -101,7 +101,15 @@ root {
             action [SeekRest]
         }
 
-        /* P6: Fallback */
+        /* P6: Claim a job if unemployed and facility available */
+        sequence {
+            condition [IsWorkHours]
+            condition [HasNoJob]
+            condition [OpenFacilityNearby]
+            action [ClaimJob]
+        }
+
+        /* P7: Fallback */
         action [Wander]
     }
 }
