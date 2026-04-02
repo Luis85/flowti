@@ -68,9 +68,17 @@ describe('Agency Integration', () => {
 		const eventBus = createEventBus();
 		const agent = new AgentActor(createTestAgent({ needs: { hunger: 30, energy: 90, social: 70 } }), defaultMoodConfig);
 
-		// Pre-set BehaviorAgent with seek_food action and movementTarget pointing at food
-		attachBehaviorStubs(agent, { btAction: 'seek_food' });
+		// Attach stubs — BT step() re-sets btAction='seek_food' and movementTarget this tick
+		// (simulates what the real BT would do: reset to null then re-set during step())
+		attachBehaviorStubs(agent);
 		agent.behaviorAgent.movementTarget = { id: 'loc-food', type: 'location' };
+		agent.behaviorTree = {
+			...agent.behaviorTree,
+			step: () => {
+				agent.behaviorAgent.btAction = 'seek_food';
+				agent.behaviorAgent.movementTarget = { id: 'loc-food', type: 'location' };
+			},
+		} as typeof agent.behaviorTree;
 
 		const worldEntity = new Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));

@@ -10,6 +10,7 @@ export function createBehaviorTreeSystem(
 		priority: SystemPriority.BEHAVIOR_TREE,
 		execute(_deps: GameCoreDeps): void {
 			for (const agent of agents()) {
+				agent.behaviorAgent.btAction = null;
 				agent.behaviorTree.step();
 			}
 		},

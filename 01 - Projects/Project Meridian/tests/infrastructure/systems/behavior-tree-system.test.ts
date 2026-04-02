@@ -21,6 +21,7 @@ function createDeps(): GameCoreDeps {
 function createMockAgent(): AgentActor {
 	const stepFn = vi.fn();
 	return {
+		behaviorAgent: { btAction: null as string | null },
 		behaviorTree: { step: stepFn },
 		_stepFn: stepFn,
 	} as unknown as AgentActor & { _stepFn: ReturnType<typeof vi.fn> };
@@ -51,5 +52,32 @@ describe('BehaviorTreeSystem (mistreevous thin wrapper)', () => {
 	it('handles empty agent list', () => {
 		const system = createBehaviorTreeSystem(() => []);
 		expect(() => { system.execute(createDeps()); }).not.toThrow();
+	});
+
+	it('resets btAction to null before each BT step', () => {
+		const agent = createMockAgent();
+		// Simulate a stale btAction from a previous tick
+		agent.behaviorAgent.btAction = 'eat';
+		const system = createBehaviorTreeSystem(() => [agent]);
+
+		system.execute(createDeps());
+
+		// btAction must be null after execute (step() mock doesn't set a new one)
+		expect(agent.behaviorAgent.btAction).toBeNull();
+	});
+
+	it('resets btAction before step() is called, not after', () => {
+		const agent = createMockAgent();
+		agent.behaviorAgent.btAction = 'rest';
+		let btActionDuringStep: string | null = 'not-checked';
+		(agent as unknown as { _stepFn: ReturnType<typeof vi.fn> })._stepFn.mockImplementation(() => {
+			btActionDuringStep = agent.behaviorAgent.btAction;
+		});
+		const system = createBehaviorTreeSystem(() => [agent]);
+
+		system.execute(createDeps());
+
+		// btAction should already be null when step() runs
+		expect(btActionDuringStep).toBeNull();
 	});
 });
