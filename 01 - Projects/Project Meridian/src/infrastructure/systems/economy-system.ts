@@ -1,7 +1,7 @@
 import { SystemPriority, type GameSystem } from '../../domain/core/tick-scheduler.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { shouldRecalculate, recalculateFacilityPrices, type FacilityItemContext } from '../../domain/systems/economy.js';
-import { getDemandRate, createDemandTracker, type DemandTracker } from '../../domain/systems/demand-tracker.js';
+import { getDemandRate, createDemandTracker, recordConsumption, type DemandTracker } from '../../domain/systems/demand-tracker.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
@@ -35,6 +35,16 @@ export function createEconomySystem(
 				}
 				demandTracker.windowSize = config.demand_window_ticks;
 				initialized = true;
+			}
+
+			// Record consumption from completed purchases for demand tracking
+			const purchases = deps.eventBus.history({ type: 'PurchaseComplete' })
+				.filter(e => e.tick === deps.tickCount);
+			for (const e of purchases) {
+				const itemId = e.payload.itemId;
+				if (typeof itemId === 'string') {
+					recordConsumption(demandTracker, itemId, 1, deps.tickCount);
+				}
 			}
 
 			while (recalcQueue.peek() !== undefined && shouldRecalculate(deps.tickCount, recalcQueue.peekValue()!)) {
