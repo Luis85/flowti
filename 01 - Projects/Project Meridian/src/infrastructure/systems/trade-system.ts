@@ -131,6 +131,14 @@ function applySuccessfulTrade(
 			toEntity: target.location.id,
 		},
 	});
+
+	// Record price observation — agent learns current price
+	agent.behaviorAgent.recordPriceObservation(
+		target.foodItemId,
+		foodPrice,
+		target.location.id,
+		deps.tickCount,
+	);
 }
 
 function updateFacilityAfterSale(facilityActor: Actor, foodItemId: string, fundChange: number): void {
@@ -230,6 +238,14 @@ export function createTradeSystem(
 							reason: result.failReason,
 						},
 					});
+
+					// Agent still learns the price even when purchase fails
+					agent.behaviorAgent.recordPriceObservation(
+						target.foodItemId,
+						foodPrice,
+						target.location.id,
+						deps.tickCount,
+					);
 				}
 			}
 		},
