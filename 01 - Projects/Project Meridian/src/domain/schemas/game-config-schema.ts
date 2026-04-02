@@ -7,17 +7,42 @@ function withDefaults<T extends z.ZodType>(schema: T): z.ZodDefault<T> {
 	return schema.default(() => schema.parse({}) as any) as any;
 }
 
+const ActivityCostSchema = z.object({
+	hunger: z.number().default(1),
+	thirst: z.number().default(1),
+	energy: z.number().default(1),
+});
+
 const NeedsConfigSchema = z.object({
-	hunger_decay: z.number().default(0.15),
-	energy_decay: z.number().default(0.1),
+	hunger_decay: z.number().default(0.04),
+	energy_decay: z.number().default(0.06),
 	social_decay: z.number().default(0),
-	thirst_decay: z.number().default(0.20),
-	food_recovery_rate: z.number().default(5.0),
-	drink_recovery: z.number().default(25),
-	hunger_threshold: z.number().default(50),
+	thirst_decay: z.number().default(0.05),
+	food_recovery_rate: z.number().default(30),
+	drink_recovery: z.number().default(30),
+	hunger_threshold: z.number().default(40),
 	energy_threshold: z.number().default(30),
 	social_threshold: z.number().default(40),
-	thirst_threshold: z.number().default(50),
+	thirst_threshold: z.number().default(40),
+	food_reserve: z.number().int().default(3),
+	activity_costs: z.record(z.string(), ActivityCostSchema).default({
+		work:           { hunger: 2.5, thirst: 2.0, energy: 2.0 },
+		harvest:        { hunger: 1.8, thirst: 1.5, energy: 1.5 },
+		seek_work:      { hunger: 1.3, thirst: 1.5, energy: 1.3 },
+		seek_food:      { hunger: 1.3, thirst: 1.5, energy: 1.3 },
+		seek_water:     { hunger: 1.3, thirst: 1.5, energy: 1.3 },
+		seek_rest:      { hunger: 1.2, thirst: 1.3, energy: 1.2 },
+		seek_market:    { hunger: 1.3, thirst: 1.5, energy: 1.3 },
+		wander:         { hunger: 1.1, thirst: 1.2, energy: 1.1 },
+		eat:            { hunger: 0,   thirst: 0.5, energy: 0.3 },
+		drink:          { hunger: 0.5, thirst: 0,   energy: 0.3 },
+		rest:           { hunger: 0.3, thirst: 0.3, energy: 0 },
+		idle:           { hunger: 0.5, thirst: 0.5, energy: 0.3 },
+		sell:           { hunger: 1,   thirst: 1,   energy: 1 },
+		buy:            { hunger: 1,   thirst: 1,   energy: 1 },
+		fill_waterskin: { hunger: 1,   thirst: 1,   energy: 1 },
+		claim_job:      { hunger: 1,   thirst: 1,   energy: 1 },
+	}),
 });
 
 const StaminaConfigSchema = z.object({
@@ -58,7 +83,7 @@ const EconomyConfigSchema = z.object({
 	welfare_reward_max: z.number().default(25),
 	max_active_welfare_quests: z.number().int().default(3),
 	treasury_start_sandbox: z.number().default(1000),
-	treasury_regen_per_day: z.number().default(50),
+	treasury_regen_per_agent_per_day: z.number().default(25),
 	circulation_floor_per_agent: z.number().default(50),
 	loan_interest_per_day: z.number().default(0.01),
 	food_price: z.number().default(3),
@@ -71,6 +96,10 @@ const EconomyConfigSchema = z.object({
 	facility_subsidy_per_day: z.number().default(30),
 	price_memory_max: z.number().default(20),
 	price_memory_stale_ticks: z.number().default(200),
+	reservation_urgency_max: z.number().default(3),
+	reservation_stock_factor: z.number().default(0.5),
+	reservation_budget_cap: z.number().default(0.3),
+	reservation_budget_cap_critical: z.number().default(0.8),
 	demand_window_ticks: z.number().default(500),
 	elasticity: z.record(z.string(), z.number().min(0).max(3)).default({
 		subsistence: 1.5,

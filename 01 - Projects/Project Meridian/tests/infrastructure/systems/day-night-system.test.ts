@@ -238,16 +238,20 @@ function createWorkLocation(id: string): WorldLocation {
 			ticks_per_cycle: 30,
 			auto_process: false,
 			auto_ticks_per_cycle: 60,
+		funding: 'facility' as const,
 		},
 		region: 'region-test',
 	};
 }
 
 describe('DayNightSystem — treasury regen, stipends, subsidies', () => {
-	it('adds treasury_regen_per_day to treasury at day boundary', () => {
+	it('adds treasury_regen_per_agent_per_day * agentCount to treasury at day boundary', () => {
 		const config = GameConfigSchema.parse({});
 		const worldEntity = createWorldWithEconomy();
-		const system = createDayNightSystem(() => worldEntity);
+		const agent1 = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+		const agent2 = new AgentActor(createTestAgentData('a2'), defaultMoodConfig);
+		const agents = [agent1, agent2];
+		const system = createDayNightSystem(() => worldEntity, () => agents);
 
 		system.execute(createDeps(createEventBus(), 0));
 		const before = worldEntity.get(EconomyComponent).state.treasury;
@@ -255,7 +259,7 @@ describe('DayNightSystem — treasury regen, stipends, subsidies', () => {
 		system.execute(createDeps(createEventBus(), config.ticks_per_day));
 		const after = worldEntity.get(EconomyComponent).state.treasury;
 
-		expect(after - before).toBe(config.economy.treasury_regen_per_day);
+		expect(after - before).toBe(config.economy.treasury_regen_per_agent_per_day * agents.length);
 	});
 
 	it('pays guard_stipend to guard agent from treasury', () => {
@@ -319,26 +323,9 @@ describe('DayNightSystem — treasury regen, stipends, subsidies', () => {
 		system.execute(createDeps(eventBus, 0));
 		system.execute(createDeps(eventBus, config.ticks_per_day));
 
-		// After regen, treasury = treasury_regen_per_day (50 default)
-		// guard_stipend = 2, so stipend WILL be paid if treasury_regen > stipend
-		// Drain treasury after regen by setting a very large guard_stipend scenario:
-		// Instead, set treasury to 0 before the boundary tick so regen = 50, stipend = 2 → paid
-		// To test skipped, we need treasury to be 0 after regen AND guard_stipend > 0
-		// So let's use a welfare agent to drain the treasury first via custom config approach
-		// The simplest test: force treasury to 0 AFTER regen by using a negative start
-		// Actually: regen fires first, so treasury = 0 + 50 = 50 after regen, then stipend = 2
-		// To test StipendSkipped properly, set treasury to -(regen) effectively by overriding it post-regen
-		// Easiest: use config with treasury_regen_per_day=0 scenario by checking treasury drain mid-tick is not feasible
-		// The real scenario: treasury starts at 0, regen adds 50, but guard_stipend=2 → it WILL pay
-		// To get StipendSkipped: treasury must be < stipend AFTER regen
-		// Set treasury_regen=0 is not possible without custom config, but we can set treasury low
-		// with treasury=0 + regen=50, stipend=2, the guard gets paid. So this test should verify
-		// StipendSkipped fires when treasury was zero from the start but regen is configured to 0.
-		// Let's re-approach: use a guard with stipend > treasury_regen and start treasury = 0
-		// Default treasury_regen = 50, guard_stipend = 2 → no way to skip with defaults
-		// We need custom config for this. The test as written won't get skipped with defaults.
-		// CORRECT APPROACH: custom config where guard_stipend > treasury (after regen).
-		// We'll set a high stipend guard on a fresh world and drain the treasury before.
+		// treasury_regen_per_agent_per_day * 1 agent = 25. guard_stipend = 2.
+		// After regen treasury = 0 + 25 = 25 → guard gets paid (25 >= 2). No skip.
+		// This test is a placeholder — a real StipendSkipped scenario is in the test below.
 		expect(skipped.length >= 0).toBe(true); // placeholder — real test below
 	});
 
@@ -346,20 +333,33 @@ describe('DayNightSystem — treasury regen, stipends, subsidies', () => {
 		const config = GameConfigSchema.parse({});
 		const worldEntity = createWorldWithEconomy();
 
-		// Set treasury to 0 so after regen (50) it equals treasury_regen_per_day
-		// guard_stipend default = 2, treasury_regen = 50 → guard will always be paid
-		// To force StipendSkipped: treasury must be < stipend after regen
-		// Achievable if we set treasury to -regen - 1 but that's not realistic
-		// Better: drain treasury with multiple agents so the last one doesn't get paid
-		const guards = Array.from({ length: 30 }, (_, i) =>
-			new AgentActor(createTestAgentData(`guard-${i}`, { job: 'guard' }), defaultMoodConfig),
-		);
-
-		// Set a very low treasury (0) — regen adds 50, each guard costs 2
-		// 50 / 2 = 25 guards can be paid, guards 26-30 will be skipped
+		// treasury_regen_per_agent_per_day = 25, guard_stipend = 2
+		// With N guards: regen = N * 25, total stipend cost = N * 2
+		// regen always covers all guards (25 > 2 per agent), so we need a huge number to exhaust
+		// Use 400 guards: regen = 400 * 25 = 10000, stipend cost = 400 * 2 = 800 — not exhausted
+		// Instead start treasury at 0 and use enough guards that stipend > regen per-guard:
+		// This isn't possible with the default 25-per-agent regen and 2-stipend.
+		// So we drive the treasury negative by starting it at -(regen - 1):
+		// With treasury = 0 and no regen (0 agents), guards won't be paid.
+		// We pass guards only as the stipend pool but they also count for regen.
+		// Workaround: set initial treasury very negative so regen doesn't cover all stipends.
+		// With 400 guards: regen = 10000, stipend = 800 → no skip possible.
+		// CORRECT: use a single guard with treasury starting at regen-1 so second guard's
+		// stipend can't be paid. Create 2 guards, treasury = 0 + regen(2*25=50) = 50.
+		// Each guard costs 2 → both paid. Still no skip.
+		// REAL FIX: set treasury to a large negative value so it's 0 after first guard is paid.
+		// treasury_start = -(regen - stipend) = -(2*25 - 2) = -48 → after regen: -48+50=2,
+		// first guard paid: 2-2=0, second guard: skip.
+		const guards = [
+			new AgentActor(createTestAgentData('guard-0', { job: 'guard' }), defaultMoodConfig),
+			new AgentActor(createTestAgentData('guard-1', { job: 'guard' }), defaultMoodConfig),
+		];
+		const regenAmount = config.economy.treasury_regen_per_agent_per_day * guards.length;
+		const stipend = config.economy.guard_stipend;
+		// Set treasury so that after regen only one guard can be paid
 		worldEntity.get(EconomyComponent).state = {
 			...worldEntity.get(EconomyComponent).state,
-			treasury: 0,
+			treasury: -(regenAmount - stipend),
 		};
 
 		const eventBus = createEventBus();

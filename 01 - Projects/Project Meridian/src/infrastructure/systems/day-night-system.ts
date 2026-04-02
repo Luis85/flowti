@@ -314,7 +314,7 @@ function processDayBoundary(
 	const agentList = getAgents?.() ?? [];
 
 	// 0. Treasury regen
-	const treasuryRegen = deps.config.economy.treasury_regen_per_day;
+	const treasuryRegen = deps.config.economy.treasury_regen_per_agent_per_day * agentList.length;
 	economy.state = { ...economy.state, treasury: economy.state.treasury + treasuryRegen };
 	economy.markDirty();
 

@@ -1,0 +1,59 @@
+{
+	"$schema": "Game configuration — single source of truth for simulation tuning",
+	"tick_interval_ms": 500,
+	"ticks_per_day": 480,
+	"needs": {
+		"hunger_decay": 0.04,
+		"energy_decay": 0.06,
+		"social_decay": 0,
+		"thirst_decay": 0.05,
+		"food_recovery_rate": 30,
+		"drink_recovery": 30,
+		"hunger_threshold": 40,
+		"energy_threshold": 30,
+		"social_threshold": 40,
+		"thirst_threshold": 40,
+		"food_reserve": 3,
+		"activity_costs": {
+			"work":           { "hunger": 2.5, "thirst": 2.0, "energy": 2.0 },
+			"harvest":        { "hunger": 1.8, "thirst": 1.5, "energy": 1.5 },
+			"seek_work":      { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 },
+			"seek_food":      { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 },
+			"seek_water":     { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 },
+			"seek_rest":      { "hunger": 1.2, "thirst": 1.3, "energy": 1.2 },
+			"seek_market":    { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 },
+			"wander":         { "hunger": 1.1, "thirst": 1.2, "energy": 1.1 },
+			"eat":            { "hunger": 0,   "thirst": 0.5, "energy": 0.3 },
+			"drink":          { "hunger": 0.5, "thirst": 0,   "energy": 0.3 },
+			"rest":           { "hunger": 0.3, "thirst": 0.3, "energy": 0   },
+			"idle":           { "hunger": 0.5, "thirst": 0.5, "energy": 0.3 },
+			"sell":           { "hunger": 1,   "thirst": 1,   "energy": 1   },
+			"buy":            { "hunger": 1,   "thirst": 1,   "energy": 1   },
+			"fill_waterskin": { "hunger": 1,   "thirst": 1,   "energy": 1   },
+			"claim_job":      { "hunger": 1,   "thirst": 1,   "energy": 1   }
+		}
+	},
+	"economy": {
+		"tax_base_rate": 0.10,
+		"treasury_start_sandbox": 1000,
+		"facility_start_fund": 200,
+		"food_price": 5,
+		"rest_price": 1,
+		"treasury_regen_per_agent_per_day": 25,
+		"reservation_urgency_max": 3,
+		"reservation_stock_factor": 0.5,
+		"reservation_budget_cap": 0.3,
+		"reservation_budget_cap_critical": 0.8,
+		"guard_stipend": 0,
+		"facility_subsidy_threshold": 100,
+		"facility_subsidy_per_day": 30,
+		"welfare_threshold_gold": 10,
+		"welfare_reward_min": 15
+	},
+	"day_night": {
+		"dawn":  { "start": 0,   "end": 59  },
+		"day":   { "start": 60,  "end": 299 },
+		"dusk":  { "start": 300, "end": 359 },
+		"night": { "start": 360, "end": 479 }
+	}
+}
