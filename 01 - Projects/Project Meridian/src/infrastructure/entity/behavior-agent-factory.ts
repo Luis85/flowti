@@ -146,6 +146,9 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		get social(): number {
 			return actor.get(NeedsComponent).state.social;
 		},
+		get thirst(): number {
+			return actor.get(NeedsComponent).state.thirst;
+		},
 		get gold(): number {
 			return actor.get(WalletComponent).state.gold;
 		},
@@ -241,7 +244,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return (
 				agent.hunger < NEED_CRITICAL_THRESHOLDS.hunger ||
 				agent.energy < NEED_CRITICAL_THRESHOLDS.energy ||
-				agent.social < NEED_CRITICAL_THRESHOLDS.social
+				agent.social < NEED_CRITICAL_THRESHOLDS.social ||
+				agent.thirst < NEED_CRITICAL_THRESHOLDS.thirst
 			);
 		},
 

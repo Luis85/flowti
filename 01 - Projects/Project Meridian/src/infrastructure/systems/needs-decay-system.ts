@@ -29,6 +29,7 @@ export function createNeedsDecaySystem(
 						hungerAttribute: attrs.state.HT,
 						energyAttribute: attrs.state.HT,
 						socialAttribute: social.state.charisma,
+						thirstAttribute: attrs.state.HT,
 						modifiers: needsMods ?? null,
 					},
 					deps.config.needs,

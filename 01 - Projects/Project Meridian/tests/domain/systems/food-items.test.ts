@@ -3,8 +3,8 @@ import { FOOD_ITEMS, findFoodInInventory, removeFromInventory } from '../../../s
 import type { InventoryItem } from '../../../src/domain/systems/food-items.js';
 
 describe('FOOD_ITEMS', () => {
-	it('contains bread', () => {
-		expect(FOOD_ITEMS.has('bread')).toBe(true);
+	it('contains food', () => {
+		expect(FOOD_ITEMS.has('food')).toBe(true);
 	});
 
 	it('does not contain raw materials', () => {
@@ -15,13 +15,13 @@ describe('FOOD_ITEMS', () => {
 });
 
 describe('findFoodInInventory', () => {
-	it('finds bread', () => {
+	it('finds food', () => {
 		const inventory: InventoryItem[] = [
 			{ item_id: 'wheat', quantity: 5 },
-			{ item_id: 'bread', quantity: 3 },
+			{ item_id: 'food', quantity: 3 },
 		];
 		const result = findFoodInInventory(inventory);
-		expect(result).toEqual({ item_id: 'bread', quantity: 3 });
+		expect(result).toEqual({ item_id: 'food', quantity: 3 });
 	});
 
 	it('returns null when no food', () => {
@@ -40,48 +40,48 @@ describe('findFoodInInventory', () => {
 describe('removeFromInventory', () => {
 	it('decrements quantity', () => {
 		const inventory: InventoryItem[] = [
-			{ item_id: 'bread', quantity: 5 },
+			{ item_id: 'food', quantity: 5 },
 			{ item_id: 'wheat', quantity: 3 },
 		];
-		const result = removeFromInventory(inventory, 'bread', 2);
+		const result = removeFromInventory(inventory, 'food', 2);
 		expect(result).toEqual([
-			{ item_id: 'bread', quantity: 3 },
+			{ item_id: 'food', quantity: 3 },
 			{ item_id: 'wheat', quantity: 3 },
 		]);
 	});
 
 	it('removes item when quantity reaches zero', () => {
 		const inventory: InventoryItem[] = [
-			{ item_id: 'bread', quantity: 2 },
+			{ item_id: 'food', quantity: 2 },
 			{ item_id: 'wheat', quantity: 3 },
 		];
-		const result = removeFromInventory(inventory, 'bread', 2);
+		const result = removeFromInventory(inventory, 'food', 2);
 		expect(result).toEqual([{ item_id: 'wheat', quantity: 3 }]);
 	});
 
 	it('returns unchanged copy when item not found', () => {
 		const inventory: InventoryItem[] = [
-			{ item_id: 'bread', quantity: 5 },
+			{ item_id: 'food', quantity: 5 },
 		];
 		const result = removeFromInventory(inventory, 'gold_bar', 1);
-		expect(result).toEqual([{ item_id: 'bread', quantity: 5 }]);
+		expect(result).toEqual([{ item_id: 'food', quantity: 5 }]);
 	});
 
 	it('removes item when amount exceeds quantity', () => {
 		const inventory: InventoryItem[] = [
-			{ item_id: 'bread', quantity: 1 },
+			{ item_id: 'food', quantity: 1 },
 			{ item_id: 'wheat', quantity: 3 },
 		];
-		const result = removeFromInventory(inventory, 'bread', 5);
+		const result = removeFromInventory(inventory, 'food', 5);
 		expect(result).toEqual([{ item_id: 'wheat', quantity: 3 }]);
 	});
 
 	it('does not mutate original array', () => {
 		const original: InventoryItem[] = [
-			{ item_id: 'bread', quantity: 5 },
+			{ item_id: 'food', quantity: 5 },
 		];
 		const originalCopy = JSON.parse(JSON.stringify(original)) as InventoryItem[];
-		removeFromInventory(original, 'bread', 2);
+		removeFromInventory(original, 'food', 2);
 		expect(original).toEqual(originalCopy);
 	});
 });

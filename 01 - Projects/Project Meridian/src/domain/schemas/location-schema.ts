@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { PositionSchema } from './common.js';
 
-export const LOCATION_TYPES = ['rest', 'food', 'social', 'work', 'market'] as const;
+export const LOCATION_TYPES = ['rest', 'food', 'social', 'work', 'market', 'water'] as const;
 
 const ProductionOutputSchema = z.object({
 	item_id: z.string(),
@@ -20,7 +20,7 @@ export const ProductionSchema = z.object({
 	wage: z.number().default(5),
 	ticks_per_cycle: z.number().int().default(30),
 	auto_process: z.boolean().default(false),
-	auto_ticks_per_cycle: z.number().int().default(60),
+	auto_ticks_per_cycle: z.number().int().nullable().default(60),
 }).nullable().default(null);
 
 export const LocationSchema = z.object({

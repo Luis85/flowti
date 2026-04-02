@@ -41,7 +41,7 @@ export class AgentActor extends Actor {
 		this.addComponent(new NeedsComponent({ ...agent.needs }));
 
 		// Bootstrap mood from needs — agent.mood (number) is discarded
-		const needsSatisfaction = (agent.needs.hunger + agent.needs.energy + agent.needs.social) / 300;
+		const needsSatisfaction = (agent.needs.hunger + agent.needs.energy + agent.needs.social + agent.needs.thirst) / 400;
 		const initialMood = calculateMood(
 			{
 				needsSatisfaction,

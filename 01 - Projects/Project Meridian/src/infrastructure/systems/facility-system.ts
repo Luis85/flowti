@@ -285,7 +285,7 @@ function processFacilityTick(
 		facilityFund: facility.state.fund,
 		workerGold: worker !== undefined ? worker.get(WalletComponent).state.gold : 0,
 		autoProcess: production.auto_process,
-		autoTicksPerCycle: production.auto_ticks_per_cycle,
+		autoTicksPerCycle: production.auto_ticks_per_cycle ?? production.ticks_per_cycle,
 	});
 
 	const newStock = applyStockChanges(facility.state.stock, result, production);

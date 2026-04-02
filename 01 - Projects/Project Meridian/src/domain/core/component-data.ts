@@ -10,6 +10,7 @@ export interface NeedsState {
 	hunger: number;
 	energy: number;
 	social: number;
+	thirst: number;
 }
 
 export interface MoodState {
@@ -119,7 +120,7 @@ export interface WalletState {
 }
 
 export interface InventoryState {
-	items: { item_id: string; quantity: number }[];
+	items: { item_id: string; quantity: number; charges?: number }[];
 }
 
 export interface JourneyWaypoint {

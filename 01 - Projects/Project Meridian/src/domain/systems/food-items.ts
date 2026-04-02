@@ -1,5 +1,5 @@
 /** Consumable food items — only items agents can eat, not raw materials. */
-export const FOOD_ITEMS = new Set(['bread']);
+export const FOOD_ITEMS = new Set(['food']);
 
 export interface InventoryItem {
 	item_id: string;

@@ -7,6 +7,7 @@ export interface NeedsDecayInput {
 	hungerAttribute: number;
 	energyAttribute: number;
 	socialAttribute: number;
+	thirstAttribute: number;
 	modifiers: NeedsModifiers | null;
 }
 
@@ -14,11 +15,12 @@ export interface NeedsModifiers {
 	hungerDecayScale?: number;
 	energyDecayScale?: number;
 	socialDecayScale?: number;
+	thirstDecayScale?: number;
 }
 
 export interface NeedEvent {
 	type: 'NeedChanged' | 'NeedCritical' | 'AgentExhausted';
-	need: 'hunger' | 'energy' | 'social';
+	need: 'hunger' | 'energy' | 'social' | 'thirst';
 	oldValue: number;
 	newValue: number;
 	value?: number;
@@ -31,7 +33,7 @@ export interface NeedsDecayResult {
 }
 
 interface NeedConfig {
-	key: 'hunger' | 'energy' | 'social';
+	key: 'hunger' | 'energy' | 'social' | 'thirst';
 	decayRate: number;
 	attribute: number;
 	modifierScale: number;
@@ -54,7 +56,7 @@ function eventsForNeed(need: NeedConfig, oldValue: number, newValue: number): Ne
 
 export function applyNeedsDecay(
 	input: NeedsDecayInput,
-	config: { hunger_decay: number; energy_decay: number; social_decay: number },
+	config: { hunger_decay: number; energy_decay: number; social_decay: number; thirst_decay: number },
 ): NeedsDecayResult {
 	const events: NeedEvent[] = [];
 	const state = { ...input.state };
@@ -80,6 +82,13 @@ export function applyNeedsDecay(
 			attribute: input.socialAttribute,
 			modifierScale: input.modifiers?.socialDecayScale ?? 1.0,
 			criticalThreshold: NEED_CRITICAL_THRESHOLDS.social,
+		},
+		{
+			key: 'thirst',
+			decayRate: config.thirst_decay,
+			attribute: input.thirstAttribute,
+			modifierScale: input.modifiers?.thirstDecayScale ?? 1.0,
+			criticalThreshold: NEED_CRITICAL_THRESHOLDS.thirst,
 		},
 	];
 

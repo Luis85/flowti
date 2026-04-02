@@ -37,6 +37,7 @@ export const AgentSchema = z.object({
 		hunger: z.number().min(NEED_RANGE.min).max(NEED_RANGE.max),
 		energy: z.number().min(NEED_RANGE.min).max(NEED_RANGE.max),
 		social: z.number().min(NEED_RANGE.min).max(NEED_RANGE.max),
+		thirst: z.number().min(NEED_RANGE.min).max(NEED_RANGE.max).default(50),
 	}),
 	/** Bootstrap sentinel — MoodSystem recalculates from needs/social each tick (GDD §4.5) */
 	mood: z.number().min(MOOD_RANGE.min).max(MOOD_RANGE.max).default(MOOD_DEFAULT),
@@ -50,7 +51,7 @@ export const AgentSchema = z.object({
 	xp: z.number().min(0).default(0),
 	level: z.number().int().min(1).default(1),
 	position: PositionSchema,
-	relationships: z.string().default('graphs/relationships.canvas'),
+	relationships: z.string().nullable().default('graphs/relationships.canvas'),
 	llm: LLMConfigSchema.optional(),
 	tools: z.array(z.string()).default([]),
 	persona: z.string().nullable().default(null),

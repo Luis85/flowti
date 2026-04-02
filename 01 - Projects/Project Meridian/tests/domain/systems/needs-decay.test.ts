@@ -4,15 +4,16 @@ import type { NeedsState } from '../../../src/domain/core/component-data.js';
 
 function makeInput(overrides: Partial<{ state: Partial<NeedsState>; ht: number; chr: number }> = {}) {
 	return {
-		state: { hunger: 80, energy: 90, social: 70, ...overrides.state },
+		state: { hunger: 80, energy: 90, social: 70, thirst: 50, ...overrides.state },
 		hungerAttribute: overrides.ht ?? 10,
 		energyAttribute: overrides.ht ?? 10,
 		socialAttribute: overrides.chr ?? 10,
+		thirstAttribute: overrides.ht ?? 12,
 		modifiers: null,
 	};
 }
 
-const defaultConfig = { hunger_decay: 0.5, energy_decay: 0.25, social_decay: 0.15 };
+const defaultConfig = { hunger_decay: 0.5, energy_decay: 0.25, social_decay: 0.15, thirst_decay: 0.20 };
 
 describe('applyNeedsDecay', () => {
 	it('decays all three needs with default attributes (HT=10, Chr=10)', () => {
@@ -86,12 +87,12 @@ describe('applyNeedsDecay', () => {
 	it('always emits NeedChanged for each need that changes', () => {
 		const result = applyNeedsDecay(makeInput(), defaultConfig);
 		const changed = result.events.filter(e => e.type === 'NeedChanged');
-		expect(changed).toHaveLength(3);
+		expect(changed).toHaveLength(4);
 	});
 
 	it('does not emit NeedChanged when value is already 0', () => {
 		const result = applyNeedsDecay(
-			makeInput({ state: { hunger: 0, energy: 0, social: 0 } }),
+			makeInput({ state: { hunger: 0, energy: 0, social: 0, thirst: 0 } }),
 			defaultConfig,
 		);
 		const changed = result.events.filter(e => e.type === 'NeedChanged');

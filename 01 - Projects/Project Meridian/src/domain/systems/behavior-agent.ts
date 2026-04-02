@@ -53,6 +53,7 @@ export interface BehaviorAgent {
 	readonly hunger: number;
 	readonly energy: number;
 	readonly social: number;
+	readonly thirst: number;
 	readonly gold: number;
 	readonly mood: number;
 	readonly moodBucket: string;
