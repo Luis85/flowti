@@ -80,6 +80,17 @@ export interface LedgerEntry {
 	gold: number;
 }
 
+export type FlowCategory = 'faucet' | 'sink' | 'transfer';
+
+export interface GoldFlow {
+	category: FlowCategory;
+	subcategory: string;
+	amount: number;
+	tick: number;
+	fromEntity: string | null;
+	toEntity: string | null;
+}
+
 export interface DailySummary {
 	totalWages: number;
 	totalTax: number;
