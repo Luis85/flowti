@@ -85,7 +85,7 @@ export interface BehaviorAgent {
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;
 
-	// Condition methods (20)
+	// Condition methods (21)
 	IsHungry(): boolean;
 	IsExhausted(): boolean;
 	IsLonely(): boolean;
@@ -99,6 +99,7 @@ export interface BehaviorAgent {
 	NearAgentClose(): boolean;
 	IsDaytime(): boolean;
 	IsNighttime(): boolean;
+	IsWorkHours(): boolean;
 	HasJob(): boolean;
 	AtJobFacility(): boolean;
 	FacilityHasStock(itemId: string): boolean;
