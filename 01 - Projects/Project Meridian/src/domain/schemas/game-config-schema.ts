@@ -29,6 +29,22 @@ const MemoryConfigSchema = z.object({
 	min_lifespan_ticks: z.number().int().default(20),
 });
 
+const MonetaryPolicyConfigSchema = z.object({
+	velocity_window_ticks: z.number().default(500),
+	velocity_healthy_min: z.number().default(0.3),
+	velocity_healthy_max: z.number().default(0.8),
+	velocity_stagnant: z.number().default(0.2),
+	velocity_overheated: z.number().default(1.5),
+	velocity_critical: z.number().default(0.1),
+	stimulus_trigger_ticks: z.number().default(50),
+	stimulus_duration_ticks: z.number().default(100),
+	caravan_cooldown_ticks: z.number().default(500),
+	tax_base_rate: z.number().default(0.10),
+	tax_stagnant_multiplier: z.number().default(0.5),
+	tax_overheated_multiplier: z.number().default(1.5),
+	admin_fee_rate: z.number().default(0.02),
+});
+
 const EconomyConfigSchema = z.object({
 	tax_base_rate: z.number().min(0).max(1).default(0.10),
 	price_clamp_min: z.number().default(0.5),
@@ -50,6 +66,16 @@ const EconomyConfigSchema = z.object({
 	merchant_stipend: z.number().default(8),
 	facility_subsidy_threshold: z.number().default(100),
 	facility_subsidy_per_day: z.number().default(30),
+	price_memory_max: z.number().default(20),
+	price_memory_stale_ticks: z.number().default(200),
+	demand_window_ticks: z.number().default(500),
+	elasticity: z.record(z.string(), z.number().min(0).max(3)).default({
+		subsistence: 1.5,
+		comfort: 1.0,
+		trade_goods: 0.7,
+		luxury: 0.4,
+	}),
+	monetary_policy: withDefaults(MonetaryPolicyConfigSchema),
 });
 
 const MoodFactorWeightsSchema = z.object({
