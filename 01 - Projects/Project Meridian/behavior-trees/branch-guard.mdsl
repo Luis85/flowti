@@ -3,7 +3,7 @@ root [Role] {
         /* Patrol: head to town square, then wander nearby */
         sequence {
             condition [AtLocation, "social"]
-            action [Wander] while(IsDaytime)
+            action [Wander] while(IsWorkHours)
         }
         sequence {
             action [SeekSocial]

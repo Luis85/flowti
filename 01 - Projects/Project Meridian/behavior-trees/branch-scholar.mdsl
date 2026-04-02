@@ -2,7 +2,7 @@ root [Role] {
     selector {
         sequence {
             condition [AtJobFacility]
-            action [Work] while(IsDaytime)
+            action [Work] while(IsWorkHours)
         }
         sequence {
             condition [HasJob]
