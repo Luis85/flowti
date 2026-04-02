@@ -10,8 +10,10 @@ import { PerceptionComponent } from '../components/perception-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { TimeComponent } from '../components/time-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
-import { findFoodInInventory } from '../../domain/systems/food-items.js';
+import { findFoodInInventory, FOOD_ITEMS } from '../../domain/systems/food-items.js';
 import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
+import { CircularBuffer } from 'mnemonist';
+import { isPriceStale, getBestKnownSource, getRememberedPrice, type PriceMemory } from '../../domain/systems/price-memory.js';
 import type { AgentActor } from './agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 
@@ -54,6 +56,9 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let feedingAt: string | null = null;
 	let restingAt: string | null = null;
 	let arrivalSlot: number | null = null;
+
+	// Price memory
+	const priceMemories = new CircularBuffer<PriceMemory>(Array, config.economy.price_memory_max);
 
 	// Helper: resolve nearbyFacilities from location actors with FacilityComponent
 	function resolveNearbyFacilities(): PerceivedFacility[] {
@@ -216,7 +221,9 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		get arrivalSlot() { return arrivalSlot; },
 		set arrivalSlot(v: number | null) { arrivalSlot = v; },
 
-		// ── 19 Condition methods ───────────────────────────────────────────
+		get priceMemories() { return priceMemories; },
+
+		// ── 20 Condition methods ───────────────────────────────────────────
 		IsHungry(): boolean {
 			return agent.hunger < config.needs.hunger_threshold;
 		},
@@ -246,7 +253,15 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		CanAffordFood(): boolean {
-			return agent.gold >= config.economy.food_price;
+			const staleTicks = config.economy.price_memory_stale_ticks;
+			const tick = tickCount();
+			let cheapestPrice = config.economy.food_price;
+			for (const mem of priceMemories) {
+				if (FOOD_ITEMS.has(mem.itemId) && !isPriceStale(mem, tick, staleTicks)) {
+					if (mem.price < cheapestPrice) cheapestPrice = mem.price;
+				}
+			}
+			return agent.gold >= cheapestPrice;
 		},
 
 		AtLocation(type: string): boolean {
@@ -303,7 +318,18 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return agent.nearbyFacilities.some(f => f.hasUnmetInput);
 		},
 
-		// ── 16 Action methods ──────────────────────────────────────────────
+		KnowsFoodSource(): boolean {
+			const staleTicks = config.economy.price_memory_stale_ticks;
+			const tick = tickCount();
+			for (const mem of priceMemories) {
+				if (FOOD_ITEMS.has(mem.itemId) && !isPriceStale(mem, tick, staleTicks)) {
+					return true;
+				}
+			}
+			return false;
+		},
+
+		// ── 18 Action methods ──────────────────────────────────────────────
 		Eat(): ActionResult {
 			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
 			if (food === null) return FAILED;
@@ -341,16 +367,35 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		Buy(): ActionResult {
-			// Check preconditions
-			const wallet = actor.get(WalletComponent);
-			if (wallet.state.gold < config.economy.food_price) return FAILED;
-			// Check nearby facility has stock
 			const hasStock = agent.nearbyFacilities.some(f =>
-				f.stock.some(s => s.item_id === 'bread' && s.quantity > 0),
+				f.stock.some(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0),
 			);
 			if (!hasStock) return FAILED;
 			agent.btAction = 'buy';
 			return SUCCEEDED;
+		},
+
+		SeekBestFoodSource(): ActionResult {
+			const staleTicks = config.economy.price_memory_stale_ticks;
+			const tick = tickCount();
+			let cheapestLocation: string | null = null;
+			let cheapestPrice = Infinity;
+
+			for (const foodId of FOOD_ITEMS) {
+				const loc = getBestKnownSource(priceMemories, foodId, tick, staleTicks);
+				if (loc === null) continue;
+				const mem = getRememberedPrice(priceMemories, foodId, tick, staleTicks);
+				if (mem !== null && mem.price < cheapestPrice) {
+					cheapestPrice = mem.price;
+					cheapestLocation = loc;
+				}
+			}
+
+			if (cheapestLocation === null) return FAILED;
+			btAction = 'seek_food';
+			movementTarget = { id: cheapestLocation, type: 'location' };
+			if (atLocation === cheapestLocation) return SUCCEEDED;
+			return RUNNING;
 		},
 
 		/** Available for custom BTs — not used in the default tree set. */
@@ -517,6 +562,11 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			movementTarget = { id: sourceLoc.id, type: 'location' };
 			if (atLocation === sourceLoc.id) return SUCCEEDED;
 			return RUNNING;
+		},
+
+		// ── Utility methods ────────────────────────────────────────────────
+		recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void {
+			priceMemories.push({ itemId, price, locationId, tick });
 		},
 	};
 

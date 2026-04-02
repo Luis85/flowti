@@ -1,4 +1,6 @@
 import type { JourneyState, CargoState } from '../core/component-data.js';
+import type { CircularBuffer } from 'mnemonist';
+import type { PriceMemory } from './price-memory.js';
 
 export type { CargoState } from '../core/component-data.js';
 
@@ -80,7 +82,10 @@ export interface BehaviorAgent {
 	restingAt: string | null;
 	arrivalSlot: number | null;
 
-	// Condition methods (19)
+	// Price memory
+	priceMemories: CircularBuffer<PriceMemory>;
+
+	// Condition methods (20)
 	IsHungry(): boolean;
 	IsExhausted(): boolean;
 	IsLonely(): boolean;
@@ -100,8 +105,9 @@ export interface BehaviorAgent {
 	HasCargo(): boolean;
 	CargoDestinationNearby(): boolean;
 	FacilityNeedsSupply(): boolean;
+	KnowsFoodSource(): boolean;
 
-	// Action methods (16)
+	// Action methods (18)
 	Eat(): ActionResult;
 	Rest(): ActionResult;
 	SeekFood(): ActionResult;
@@ -116,6 +122,10 @@ export interface BehaviorAgent {
 	DeliverCargo(): ActionResult;
 	SeekDeliveryTarget(): ActionResult;
 	SeekSupplySource(): ActionResult;
+	SeekBestFoodSource(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
+
+	// Utility methods
+	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
 }
