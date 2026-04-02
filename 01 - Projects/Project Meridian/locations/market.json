@@ -1,0 +1,13 @@
+{
+	"id": "loc-market",
+	"name": "Market Stall",
+	"type": "market",
+	"position": { "x": 250, "y": 200, "region": "region-valley" },
+	"color": "#ff9800",
+	"production": null,
+	"fund": 100,
+	"stock": [
+		{ "item_id": "food", "quantity": 5 }
+	],
+	"capacity": 1
+}

@@ -1,0 +1,17 @@
+{
+	"id": "loc-farmland",
+	"name": "Farmland",
+	"type": "food",
+	"position": { "x": 100, "y": 100, "region": "region-valley" },
+	"color": "#7cb342",
+	"production": {
+		"job": "farmer",
+		"output": { "item_id": "food", "quantity": 1 },
+		"input": null,
+		"wage": 3,
+		"ticks_per_cycle": 30,
+		"auto_process": false,
+		"auto_ticks_per_cycle": null
+	},
+	"capacity": 1
+}
