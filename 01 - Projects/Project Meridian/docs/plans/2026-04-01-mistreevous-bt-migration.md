@@ -309,8 +309,9 @@ describe('BehaviorAgent interface', () => {
 			'IsDaytime', 'IsNighttime',
 			'HasJob', 'AtJobFacility', 'FacilityHasStock',
 			'HasCargo', 'CargoDestinationNearby', 'FacilityNeedsSupply',
+			'KnowsFoodSource',
 		];
-		expect(conditionNames).toHaveLength(19);
+		expect(conditionNames).toHaveLength(20);
 	});
 
 	it('defines all required action methods', () => {
@@ -318,9 +319,9 @@ describe('BehaviorAgent interface', () => {
 			'Eat', 'Rest', 'SeekFood', 'SeekRest', 'SeekWork',
 			'SeekSocial', 'SeekMarket', 'Work', 'Talk', 'Buy',
 			'PickupCargo', 'DeliverCargo', 'SeekDeliveryTarget',
-			'SeekSupplySource', 'Idle', 'Wander',
+			'SeekSupplySource', 'SeekBestFoodSource', 'Idle', 'Wander',
 		];
-		expect(actionNames).toHaveLength(16);
+		expect(actionNames).toHaveLength(17);
 	});
 
 	it('exports supporting types', () => {
@@ -839,7 +840,7 @@ Expected: FAIL
 
 Create `src/infrastructure/entity/behavior-agent-factory.ts`. Implement the factory function with:
 - Getter-based proxies for all read-only state (hunger, energy, social, gold, mood, etc.)
-- All 19 condition methods reading from the proxied state
+- All 20 condition methods reading from the proxied state (19 original + KnowsFoodSource from economy wiring)
 - Stub action methods (returning `'mistreevous.failed'`) — implemented in Task C2
 
 The factory uses the closure pattern — it captures `actor`, `locations`, `locationActors`, `worldEntity`, `config` and creates an object with getters that read live component state.

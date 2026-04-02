@@ -27,7 +27,7 @@ Create item JSON data files, build an item loader following the existing VaultRe
 - Create: `items/wheat.json`
 - Create: `items/leather-goods.json`
 
-- [ ] **Step 1: Create the items directory and files**
+- [x] **Step 1: Create the items directory and files**
 
 All item files go under the project root `items/` directory (same level as `agents/`, `locations/`). The world-loader will read from this path.
 
@@ -61,7 +61,7 @@ Create `items/leather-goods.json`:
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/items/"
@@ -76,7 +76,7 @@ git commit -m "data(meridian): add item JSON files — bread, wheat, leather-goo
 - Create: `src/infrastructure/entity/item-loader.ts`
 - Create: `tests/infrastructure/entity/item-loader.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/infrastructure/entity/item-loader.test.ts`:
 
@@ -148,7 +148,7 @@ describe('ItemLoader', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -157,7 +157,7 @@ npx vitest run tests/infrastructure/entity/item-loader.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `src/infrastructure/entity/item-loader.ts`:
 
@@ -193,7 +193,7 @@ export function createItemLoader(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -202,7 +202,7 @@ npx vitest run tests/infrastructure/entity/item-loader.test.ts
 
 Expected: All 4 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/entity/item-loader.ts" "01 - Projects/Project Meridian/tests/infrastructure/entity/item-loader.test.ts"
@@ -216,7 +216,7 @@ git commit -m "feat(meridian): add item loader following VaultReader pattern"
 **Files:**
 - Modify: `src/infrastructure/engine/world-loader.ts`
 
-- [ ] **Step 1: Read the current world-loader.ts**
+- [x] **Step 1: Read the current world-loader.ts**
 
 Read `src/infrastructure/engine/world-loader.ts` to find:
 - The `WorldData` interface (line 19)
@@ -224,15 +224,15 @@ Read `src/infrastructure/engine/world-loader.ts` to find:
 - The loading pipeline (lines 113-148)
 - The final return assembly (lines 183-191)
 
-- [ ] **Step 2: Add items to WorldData interface**
+- [x] **Step 2: Add items to WorldData interface**
 
 Add `items: Map<string, Item>` to the `WorldData` interface. Add the import for `Item` from `../../domain/schemas/item-schema.js` and `createItemLoader` from `../entity/item-loader.js`.
 
-- [ ] **Step 3: Add items loading step to STEPS array**
+- [x] **Step 3: Add items loading step to STEPS array**
 
 Add `'Loading items...'` to the STEPS array.
 
-- [ ] **Step 4: Add item loading logic to the pipeline**
+- [x] **Step 4: Add item loading logic to the pipeline**
 
 After the behavior trees loading and before the final assembly, add:
 
@@ -248,11 +248,11 @@ for (const item of itemResult.items) {
 
 The items directory is at the project root (`items/`), matching where the JSON files were created in Task 1.
 
-- [ ] **Step 5: Add items to the return object**
+- [x] **Step 5: Add items to the return object**
 
 Add `items: itemRegistry` to the return statement.
 
-- [ ] **Step 6: Verify types compile**
+- [x] **Step 6: Verify types compile**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -261,7 +261,7 @@ npx tsc --noEmit --project configs/tsconfig.json
 
 Expected: No type errors.
 
-- [ ] **Step 7: Run existing tests to verify no regressions**
+- [x] **Step 7: Run existing tests to verify no regressions**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -270,7 +270,7 @@ npx vitest run tests/domain/
 
 Expected: All existing tests pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/engine/world-loader.ts"
@@ -290,7 +290,7 @@ Complete velocity tracking by emitting GoldFlowed from all gold-moving systems, 
 **Files:**
 - Modify: `src/domain/core/component-data.ts`
 
-- [ ] **Step 1: Add monetarySnapshot field**
+- [x] **Step 1: Add monetarySnapshot field**
 
 In `src/domain/core/component-data.ts`, add to `EconomyState` (after line 105, before the closing `}`):
 
@@ -304,7 +304,7 @@ Add the import at the top of the file:
 import type { MonetarySnapshot } from '../systems/monetary-policy.js';
 ```
 
-- [ ] **Step 2: Verify types compile**
+- [x] **Step 2: Verify types compile**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -313,7 +313,7 @@ npx tsc --noEmit --project configs/tsconfig.json
 
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/core/component-data.ts"
@@ -327,7 +327,7 @@ git commit -m "feat(meridian): add monetarySnapshot to EconomyState for velocity
 **Files:**
 - Modify: `src/infrastructure/systems/monetary-policy-system.ts`
 
-- [ ] **Step 1: Add snapshot write to execute()**
+- [x] **Step 1: Add snapshot write to execute()**
 
 In `monetary-policy-system.ts`, after the `calculateMonetarySnapshot()` call (around line 52-57), add:
 
@@ -337,14 +337,14 @@ economy.state = { ...economy.state, monetarySnapshot: snapshot };
 economy.markDirty();
 ```
 
-- [ ] **Step 2: Verify types compile**
+- [x] **Step 2: Verify types compile**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npx tsc --noEmit --project configs/tsconfig.json
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -353,7 +353,7 @@ npx vitest run tests/domain/
 
 Expected: All tests pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/monetary-policy-system.ts"
@@ -369,7 +369,7 @@ git commit -m "feat(meridian): MonetaryPolicySystem writes velocity snapshot to 
 
 The day-boundary processing is in `day-night-system.ts`, not facility-system.ts. Functions: `processDayBoundary()` (line 274), `processStipends()` (line 168), `processFacilitySubsidies()` (line 226).
 
-- [ ] **Step 1: Add GoldFlowed to treasury regen**
+- [x] **Step 1: Add GoldFlowed to treasury regen**
 
 In `processDayBoundary()`, after line 290 (`economy.state = { ...economy.state, treasury: economy.state.treasury + treasuryRegen }`), add:
 
@@ -389,7 +389,7 @@ deps.eventBus.emit({
 });
 ```
 
-- [ ] **Step 2: Add GoldFlowed to stipends**
+- [x] **Step 2: Add GoldFlowed to stipends**
 
 In `processStipends()`, after the wallet update and ledger recording (after the `economy.markDirty()` around line 214), add:
 
@@ -409,7 +409,7 @@ deps.eventBus.emit({
 });
 ```
 
-- [ ] **Step 3: Add GoldFlowed to facility subsidies**
+- [x] **Step 3: Add GoldFlowed to facility subsidies**
 
 In `processFacilitySubsidies()`, after the `economy.markDirty()` (around line 262), add:
 
@@ -429,14 +429,14 @@ deps.eventBus.emit({
 });
 ```
 
-- [ ] **Step 4: Verify types compile**
+- [x] **Step 4: Verify types compile**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npx tsc --noEmit --project configs/tsconfig.json
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -445,7 +445,7 @@ npx vitest run tests/domain/
 
 Expected: All tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/day-night-system.ts"
@@ -460,7 +460,7 @@ git commit -m "feat(meridian): emit GoldFlowed for treasury regen, stipends, and
 - Modify: `src/infrastructure/systems/facility-system.ts`
 - Modify: `src/infrastructure/systems/rest-system.ts`
 
-- [ ] **Step 1: Add GoldFlowed to facility wages**
+- [x] **Step 1: Add GoldFlowed to facility wages**
 
 In `facility-system.ts`, in `recordCycleComplete()`, after the wallet update (around line 86), add:
 
@@ -480,7 +480,7 @@ deps.eventBus.emit({
 });
 ```
 
-- [ ] **Step 2: Add GoldFlowed to facility tax**
+- [x] **Step 2: Add GoldFlowed to facility tax**
 
 In the same function, after the treasury update (after the `economy.markDirty()` around line 118), add:
 
@@ -502,7 +502,7 @@ if (result.taxCollected > 0) {
 }
 ```
 
-- [ ] **Step 3: Add GoldFlowed to rest payment**
+- [x] **Step 3: Add GoldFlowed to rest payment**
 
 In `rest-system.ts`, after the wallet deduction and tavern fund credit (around line 134), add:
 
@@ -522,14 +522,14 @@ deps.eventBus.emit({
 });
 ```
 
-- [ ] **Step 4: Verify types compile and tests pass**
+- [x] **Step 4: Verify types compile and tests pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npx tsc --noEmit --project configs/tsconfig.json && npx vitest run tests/domain/
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/facility-system.ts" "01 - Projects/Project Meridian/src/infrastructure/systems/rest-system.ts"
@@ -544,7 +544,7 @@ git commit -m "feat(meridian): emit GoldFlowed for wages, tax, and rest payments
 - Modify: `src/infrastructure/systems/facility-system.ts`
 - Modify: `src/infrastructure/systems/economy-system.ts`
 
-- [ ] **Step 1: Wire effective tax rate in facility-system**
+- [x] **Step 1: Wire effective tax rate in facility-system**
 
 Read `src/infrastructure/systems/facility-system.ts` to find where `applyFacilityTick` is called and the tax rate is passed. The domain function `applyFacilityTick()` in `src/domain/systems/facility.ts` receives a `taxRate` input. Find where this is constructed in the infrastructure wrapper and replace the static rate with velocity-driven rate.
 
@@ -572,7 +572,7 @@ taxRate: (() => {
 })(),
 ```
 
-- [ ] **Step 2: Add demand recording to EconomySystem**
+- [x] **Step 2: Add demand recording to EconomySystem**
 
 In `src/infrastructure/systems/economy-system.ts`, inside `execute()`, before the recalc queue loop (after the `initialized` block), add:
 
@@ -590,14 +590,14 @@ for (const e of purchases) {
 
 Add import for `recordConsumption` (it should already be partially imported — check the existing imports).
 
-- [ ] **Step 3: Verify types compile and tests pass**
+- [x] **Step 3: Verify types compile and tests pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npx tsc --noEmit --project configs/tsconfig.json && npx vitest run tests/domain/
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/facility-system.ts" "01 - Projects/Project Meridian/src/infrastructure/systems/economy-system.ts"
@@ -611,7 +611,7 @@ git commit -m "feat(meridian): wire effective tax rate from velocity + demand re
 **Files:**
 - Modify: `src/infrastructure/systems/trade-system.ts`
 
-- [ ] **Step 1: Add itemRegistry parameter to factory**
+- [x] **Step 1: Add itemRegistry parameter to factory**
 
 In `trade-system.ts`, modify the `createTradeSystem` factory signature (line 178) to add `itemRegistry`:
 
@@ -627,7 +627,7 @@ export function createTradeSystem(
 
 Add import: `import type { Item } from '../../domain/schemas/item-schema.js';`
 
-- [ ] **Step 2: Replace static food_price with dynamic price**
+- [x] **Step 2: Replace static food_price with dynamic price**
 
 In the `execute()` method (around line 195), replace:
 
@@ -647,7 +647,7 @@ const foodPrice = facility.state.currentPrices?.[target.foodItemId]
 
 Note: `target.actor.get(FacilityComponent)` is already called later — move the `facility` variable to before the `applyTrade` call to avoid a duplicate `.get()`.
 
-- [ ] **Step 3: Verify types compile**
+- [x] **Step 3: Verify types compile**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -656,18 +656,18 @@ npx tsc --noEmit --project configs/tsconfig.json
 
 There will be a type error where `createTradeSystem` is called (in game-view.ts or world-loader). Update the call site to pass the `itemRegistry` parameter.
 
-- [ ] **Step 4: Fix the call site**
+- [x] **Step 4: Fix the call site**
 
 Find where `createTradeSystem()` is called (likely in `game-view.ts` or wherever systems are registered) and pass the item registry. The world data should now have `items: Map<string, Item>` from Task 3.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npx vitest run tests/domain/
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/trade-system.ts" "01 - Projects/Project Meridian/src/infrastructure/engine/game-view.ts"
@@ -688,7 +688,7 @@ Add price memory to BehaviorAgent, implement price-aware conditions and actions,
 - Modify: `src/domain/systems/behavior-agent.ts`
 - Modify: `src/infrastructure/entity/behavior-agent-factory.ts`
 
-- [ ] **Step 1: Add price memory members to BehaviorAgent interface**
+- [x] **Step 1: Add price memory members to BehaviorAgent interface**
 
 In `behavior-agent.ts`, add imports at the top:
 
@@ -717,7 +717,7 @@ Add new action method and utility (after line 120, with the other actions):
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
 ```
 
-- [ ] **Step 2: Initialize CircularBuffer in factory**
+- [x] **Step 2: Initialize CircularBuffer in factory**
 
 In `behavior-agent-factory.ts`, add imports:
 
@@ -736,7 +736,7 @@ const priceMemories = new CircularBuffer<PriceMemory>(Array, deps.config.economy
 
 Add `priceMemories` to the agent object returned by the factory.
 
-- [ ] **Step 3: Implement recordPriceObservation**
+- [x] **Step 3: Implement recordPriceObservation**
 
 In the factory's agent object, add:
 
@@ -746,7 +746,7 @@ recordPriceObservation(itemId: string, price: number, locationId: string, tick: 
 },
 ```
 
-- [ ] **Step 4: Implement KnowsFoodSource condition**
+- [x] **Step 4: Implement KnowsFoodSource condition**
 
 ```typescript
 KnowsFoodSource(): boolean {
@@ -761,7 +761,7 @@ KnowsFoodSource(): boolean {
 },
 ```
 
-- [ ] **Step 5: Implement SeekBestFoodSource action**
+- [x] **Step 5: Implement SeekBestFoodSource action**
 
 ```typescript
 SeekBestFoodSource(): ActionResult {
@@ -788,7 +788,7 @@ SeekBestFoodSource(): ActionResult {
 },
 ```
 
-- [ ] **Step 6: Update CanAffordFood to use price memories**
+- [x] **Step 6: Update CanAffordFood to use price memories**
 
 Replace the existing `CanAffordFood()` (line 248-250) with:
 
@@ -806,7 +806,7 @@ CanAffordFood(): boolean {
 },
 ```
 
-- [ ] **Step 7: Update Buy() to remove redundant guards**
+- [x] **Step 7: Update Buy() to remove redundant guards**
 
 Replace the existing `Buy()` (lines 343-354) with:
 
@@ -823,21 +823,21 @@ Buy(): ActionResult {
 
 This removes the redundant wallet check (CanAffordFood gates in the BT) and replaces hardcoded `'bread'` with `FOOD_ITEMS`.
 
-- [ ] **Step 8: Verify types compile**
+- [x] **Step 8: Verify types compile**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npx tsc --noEmit --project configs/tsconfig.json
 ```
 
-- [ ] **Step 9: Run tests**
+- [x] **Step 9: Run tests**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npx vitest run tests/domain/
 ```
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/domain/systems/behavior-agent.ts" "01 - Projects/Project Meridian/src/infrastructure/entity/behavior-agent-factory.ts"
@@ -851,7 +851,7 @@ git commit -m "feat(meridian): add price memory to BehaviorAgent — KnowsFoodSo
 **Files:**
 - Modify: `src/infrastructure/systems/trade-system.ts`
 
-- [ ] **Step 1: Record price on successful purchase**
+- [x] **Step 1: Record price on successful purchase**
 
 In `applySuccessfulTrade()` (around line 133, after the GoldFlowed emission), add:
 
@@ -865,7 +865,7 @@ agent.behaviorAgent.recordPriceObservation(
 );
 ```
 
-- [ ] **Step 2: Record price on failed purchase**
+- [x] **Step 2: Record price on failed purchase**
 
 In the `execute()` method, in the `else` branch (around line 218, after the PurchaseFailed event emission), add. Note: `facility` is already in scope from the dynamic price lookup added in Task 9 Step 2 — reuse it, don't re-fetch:
 
@@ -883,14 +883,14 @@ agent.behaviorAgent.recordPriceObservation(
 );
 ```
 
-- [ ] **Step 3: Verify types compile and tests pass**
+- [x] **Step 3: Verify types compile and tests pass**
 
 ```bash
 cd "01 - Projects/Project Meridian"
 npx tsc --noEmit --project configs/tsconfig.json && npx vitest run tests/domain/
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/systems/trade-system.ts"
@@ -904,7 +904,7 @@ git commit -m "feat(meridian): record price observations in TradeSystem — succ
 **Files:**
 - Modify: `behavior-trees/base.mdsl`
 
-- [ ] **Step 1: Update P0 survival branch**
+- [x] **Step 1: Update P0 survival branch**
 
 In `behavior-trees/base.mdsl`, replace the P0 buy sequences (lines 13-23):
 
@@ -949,7 +949,7 @@ With (spec §6.1 — navigation and buy are separate steps in a sequence):
 
 The first sequence handles the "already at facility" case (fast path). The second sequence separates navigation (selector chooses cheapest-known vs nearest) from buying (Buy fires after arrival). This matches the spec's intent of navigation → buy as separate sequence steps.
 
-- [ ] **Step 2: Update P1 hunger branch**
+- [x] **Step 2: Update P1 hunger branch**
 
 Replace the P1 buy sequences (lines 40-50):
 
@@ -990,7 +990,7 @@ With:
                 }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/behavior-trees/base.mdsl"
@@ -1005,7 +1005,7 @@ git commit -m "feat(meridian): MDSL tree — price-aware food source selection v
 - Create: `tests/integration/price-memory-shopping.test.ts`
 - Modify: `tests/integration/economy-flow.test.ts`
 
-- [ ] **Step 1: Write price memory shopping integration test**
+- [x] **Step 1: Write price memory shopping integration test**
 
 Create `tests/integration/price-memory-shopping.test.ts`:
 
@@ -1064,7 +1064,7 @@ describe('Price memory shopping integration', () => {
 });
 ```
 
-- [ ] **Step 2: Add velocity completeness integration test**
+- [x] **Step 2: Add velocity completeness integration test**
 
 Add to `tests/integration/economy-flow.test.ts`:
 
@@ -1094,7 +1094,7 @@ describe('Complete velocity tracking', () => {
 });
 ```
 
-- [ ] **Step 3: Run all integration tests**
+- [x] **Step 3: Run all integration tests**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1103,7 +1103,7 @@ npx vitest run tests/integration/
 
 Expected: All tests pass.
 
-- [ ] **Step 4: Run full domain + integration test suite**
+- [x] **Step 4: Run full domain + integration test suite**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1112,7 +1112,7 @@ npx vitest run tests/domain/ tests/integration/
 
 Expected: All tests pass (same baseline failures from ExcaliburJS window issue).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/tests/integration/price-memory-shopping.test.ts" "01 - Projects/Project Meridian/tests/integration/economy-flow.test.ts"
@@ -1123,7 +1123,7 @@ git commit -m "test(meridian): add price memory shopping + complete velocity tra
 
 ## Final Verification
 
-- [ ] **Run full test suite**
+- [x] **Run full test suite**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1132,7 +1132,7 @@ npx vitest run
 
 Expected: All domain + integration tests pass. Infrastructure test failures are pre-existing ExcaliburJS window issue only.
 
-- [ ] **Verify type compilation**
+- [x] **Verify type compilation**
 
 ```bash
 cd "01 - Projects/Project Meridian"
@@ -1141,7 +1141,7 @@ npx tsc --noEmit --project configs/tsconfig.json
 
 Expected: No type errors.
 
-- [ ] **Verify new file count**
+- [x] **Verify new file count**
 
 New source files: 1 (`item-loader.ts`)
 New test files: 2 (`item-loader.test.ts`, `price-memory-shopping.test.ts`)

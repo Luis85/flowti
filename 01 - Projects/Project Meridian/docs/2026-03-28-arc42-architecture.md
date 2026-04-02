@@ -173,7 +173,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | Platform | Obsidian Plugin API | Host environment, vault persistence, file system |
 | Runtime/ECS | ExcaliburJS v0.32+ | ECS, Actor, Actions API, collision (SparseHashGrid), camera, EventEmitter, Timer, scenes, debug, input, graphics (WebGL + Canvas fallback) |
 | Pathfinding | @excaliburjs/plugin-pathfinding [Phase 2+] | A* and Dijkstra for region graph navigation |
-| BT Engine | Custom BT Engine | Pure-function behavior tree evaluator (src/domain/systems/behavior-tree.ts) |
+| BT Engine | mistreevous 4.3.1 | Composable MDSL behavior trees with RUNNING state support (behavior-trees/*.mdsl) |
 | UI Framework | Vue 3 (Composition API) [Phase 8+] | Management sidebar (collapsible sections) |
 | State Management | Pinia [Phase 8+] | Reactive stores bridging ECS → Vue |
 | Validation | Zod | Schema definition, runtime validation, TypeScript type inference |
@@ -273,7 +273,11 @@ domain/
     ├── relationship.ts           — [Phase 3] Canvas graph updates (in-memory + checkpoint)
     ├── mortality-check.ts        — [Phase 1] Starvation/despair/quest-danger → collapse/death/legacy
     ├── item-durability.ts        — [Phase 4] Equipment wear, breakage, spoilage
-    ├── economy.ts                — [Phase 5] Price recalculation (every N ticks)
+    ├── economy.ts                — [Phase 5] Price elasticity formula, demand tracking, recalc queue
+    ├── pricing.ts                — [Phase 4] calculatePostedPrice() with elasticity scaling
+    ├── demand-tracker.ts         — [Phase 4] Sliding-window consumption tracking per item
+    ├── price-memory.ts           — [Phase 4] Agent price observations, staleness, best-source queries
+    ├── monetary-policy.ts        — [Phase 4] Velocity calculation, safety nets, progressive tax formula
     ├── world-event.ts            — [Phase 12] Random event evaluation + world health modifiers
     ├── season.ts                 — [Phase 12] Season advancement, seasonal modifier application
     ├── notification.ts           — [Phase 1] Director alert filtering by severity
@@ -422,7 +426,8 @@ ExcaliburJS Engine.update(delta)
 │   ├─ RelationshipSystem (14)      — Canvas graph updates (in-memory)
 │   ├─ MortalityCheckSystem (14.5)  — Collapse, death, legacy
 │   ├─ ItemDurabilitySystem (15)    — Wear, breakage, spoilage
-│   ├─ EconomySystem (16)           — Price recalculation (every N ticks)
+│   ├─ EconomySystem (16)           — Dynamic pricing, demand tracking, recalc queue
+│   ├─ MonetaryPolicySystem (16.5)  — Velocity tracking, snapshot write, safety nets
 │   ├─ WorldEventSystem (17)        — Random events (every M ticks)
 │   ├─ SeasonSystem (17.5)          — Season advancement
 │   ├─ NotificationSystem (18)      — Director alert filtering

@@ -289,7 +289,7 @@ function getDemandRate(
 }
 ```
 
-**Event source:** `TradeCompleted` events emitted by the Buy() action (defined in companion spec). EconomySystem listens and calls `recordConsumption()`. No new system coupling.
+**Event source:** `PurchaseComplete` events emitted by the TradeSystem on successful purchase. EconomySystem listens and calls `recordConsumption()`. No new system coupling.
 
 **Transition from fixed `food_price` to dynamic pricing:** The companion spec defines `food_price: 3` as a fixed config value. This spec's `calculatePostedPrice()` replaces it with dynamic pricing. The `food_price` config field becomes the `baseValue` for bread in the item definition. The config field is deprecated — `baseValue` per item is the source of truth, and the pricing formula applies scarcity, elasticity, and modifiers on top.
 
@@ -462,7 +462,7 @@ Extended:
 
 MonetaryPolicySystem is a new system at priority 16.5. Runs after EconomySystem (needs fresh prices) and before WorldEventSystem (may trigger recovery events). Pure domain function + infrastructure wrapper, consistent with dual-layer pattern.
 
-**Timing confirmation:** TradeCompleted events are emitted by Buy() actions during BT evaluation (priority 5). By priority 16, all trades for the current tick have completed. EconomySystem (16) records consumption in the demand tracker and recalculates prices using fresh demand data. MonetaryPolicySystem (16.5) then reads the updated prices and money supply to compute velocity and evaluate safety net triggers.
+**Timing confirmation:** PurchaseComplete events are emitted by TradeSystem (priority 11) during trade execution. By priority 16, all trades for the current tick have completed. EconomySystem (16) records consumption in the demand tracker and recalculates prices using fresh demand data. MonetaryPolicySystem (16.5) then reads the updated prices and money supply to compute velocity and evaluate safety net triggers.
 
 ---
 

@@ -329,7 +329,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return false;
 		},
 
-		// ── 18 Action methods ──────────────────────────────────────────────
+		// ── 17 Action methods ──────────────────────────────────────────────
 		Eat(): ActionResult {
 			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
 			if (food === null) return FAILED;

@@ -107,7 +107,7 @@ export interface BehaviorAgent {
 	FacilityNeedsSupply(): boolean;
 	KnowsFoodSource(): boolean;
 
-	// Action methods (18)
+	// Action methods (17)
 	Eat(): ActionResult;
 	Rest(): ActionResult;
 	SeekFood(): ActionResult;

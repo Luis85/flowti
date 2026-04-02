@@ -2,7 +2,7 @@
 
 > Companion to: `2026-04-01-economy-depth-local-information-design.md` (domain foundations)
 > Prerequisite: Economy depth Chunks 1-3 implemented (pricing, demand tracker, price memory, monetary policy, EconomySystem, MonetaryPolicySystem)
-> Date: 2026-04-02 | Status: Draft
+> Date: 2026-04-02 | Status: Implemented
 
 ---
 
