@@ -138,9 +138,10 @@ export class MeridianGameView extends ItemView {
 			if (loc.production !== null) {
 				// Bootstrap economy: seed each facility with 5 units of its output
 				const startingStock = [{ item_id: loc.production.output.item_id, quantity: 5 }];
+				const fund = loc.production.funding === 'treasury' ? 0 : deps.config.economy.facility_start_fund;
 				marker.addComponent(new FacilityComponent({
 					stock: startingStock,
-					fund: deps.config.economy.facility_start_fund,
+					fund,
 					workProgress: 0,
 					status: 'idle',
 					workerId: null,
@@ -247,6 +248,7 @@ export class MeridianGameView extends ItemView {
 			getLocations,
 			getLocationActors,
 			getTickCount: () => deps.tickCount,
+			getTicksPerDay: () => deps.config.ticks_per_day,
 		});
 		this.disposeOverlay = debugOverlay.dispose;
 	}
