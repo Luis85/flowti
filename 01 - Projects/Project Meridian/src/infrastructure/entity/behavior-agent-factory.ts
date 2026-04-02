@@ -243,6 +243,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		NeedsCritical(): boolean {
+			// Social excluded: no recovery mechanism in single-agent mode (social_decay=0).
+			// Re-add when multi-agent social interactions are implemented.
 			return (
 				agent.hunger < NEED_CRITICAL_THRESHOLDS.hunger ||
 				agent.energy < NEED_CRITICAL_THRESHOLDS.energy ||

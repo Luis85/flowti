@@ -381,28 +381,28 @@ describe('BehaviorAgent factory', () => {
 		describe('NeedsCritical', () => {
 			it('returns true when hunger < critical threshold', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: NEED_CRITICAL_THRESHOLDS.hunger - 1, energy: 90, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: NEED_CRITICAL_THRESHOLDS.hunger - 1, energy: 90, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.NeedsCritical()).toBe(true);
 			});
 
 			it('returns true when energy < critical threshold', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: NEED_CRITICAL_THRESHOLDS.energy - 1, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: NEED_CRITICAL_THRESHOLDS.energy - 1, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.NeedsCritical()).toBe(true);
 			});
 
-			it('returns true when social < critical threshold', () => {
+			it('returns true when thirst < critical threshold', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: NEED_CRITICAL_THRESHOLDS.social - 1 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: NEED_CRITICAL_THRESHOLDS.thirst - 1 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.NeedsCritical()).toBe(true);
 			});
 
 			it('returns false when all needs above critical', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.NeedsCritical()).toBe(false);
 			});
