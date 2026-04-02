@@ -21,6 +21,7 @@ export const ProductionSchema = z.object({
 	ticks_per_cycle: z.number().int().default(30),
 	auto_process: z.boolean().default(false),
 	auto_ticks_per_cycle: z.number().int().nullable().default(60),
+	funding: z.enum(['facility', 'treasury']).default('facility'),
 }).nullable().default(null);
 
 export const LocationSchema = z.object({
