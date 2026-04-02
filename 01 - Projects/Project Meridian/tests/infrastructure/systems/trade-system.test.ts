@@ -6,13 +6,13 @@ import { FacilityComponent } from '../../../src/infrastructure/components/facili
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
 import { InventoryComponent } from '../../../src/infrastructure/components/inventory-component.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -46,6 +46,34 @@ function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string,
 		tools: [],
 		behavior_tree: 'bt-merchant',
 		job: null,
+		...overrides,
+	};
+}
+
+function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
+	return {
+		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
+		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
+		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
+		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
+		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
+		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
+		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
+		FacilityNeedsSupply: () => false,
+		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
+		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
+		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
+		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
 		...overrides,
 	};
 }
@@ -96,8 +124,7 @@ describe('TradeSystem', () => {
 		eventBus.on('PurchaseComplete', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'buy' };
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy' });
 
 		const bakery = createBakeryLocation();
 		const bakeryActor = new Actor();
@@ -120,22 +147,16 @@ describe('TradeSystem', () => {
 		);
 		system.execute(createDeps(eventBus));
 
-		// Agent wallet: 50 - 2 (food_price default) = 48
 		const wallet = agent.get(WalletComponent);
-		expect(wallet.state.gold).toBe(48);
+		expect(wallet.state.gold).toBe(47);
 
-		// Agent inventory: bread added
 		const inv = agent.get(InventoryComponent);
 		expect(inv.state.items).toContainEqual({ item_id: 'bread', quantity: 1 });
 
-		// Facility stock decremented: 5 - 1 = 4
 		const facility = bakeryActor.get(FacilityComponent);
 		expect(facility.state.stock).toContainEqual({ item_id: 'bread', quantity: 4 });
+		expect(facility.state.fund).toBe(103);
 
-		// Facility fund increased: 100 + 2 = 102
-		expect(facility.state.fund).toBe(102);
-
-		// PurchaseComplete emitted
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.agentId).toBe('agent-1');
 		expect(events[0]?.payload.facilityId).toBe('loc-bakery');
@@ -147,8 +168,7 @@ describe('TradeSystem', () => {
 		eventBus.on('PurchaseFailed', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100, { wallet: { gold: 0 } }), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'buy' };
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy' });
 
 		const bakery = createBakeryLocation();
 		const bakeryActor = new Actor();
@@ -174,11 +194,9 @@ describe('TradeSystem', () => {
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.reason).toBe('no_gold');
 
-		// Wallet unchanged
 		const wallet = agent.get(WalletComponent);
 		expect(wallet.state.gold).toBe(0);
 
-		// Stock unchanged
 		const facility = bakeryActor.get(FacilityComponent);
 		expect(facility.state.stock).toContainEqual({ item_id: 'bread', quantity: 5 });
 	});

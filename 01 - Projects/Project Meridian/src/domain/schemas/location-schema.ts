@@ -19,6 +19,8 @@ export const ProductionSchema = z.object({
 	input: ProductionInputSchema.nullable().default(null),
 	wage: z.number().default(5),
 	ticks_per_cycle: z.number().int().default(30),
+	auto_process: z.boolean().default(false),
+	auto_ticks_per_cycle: z.number().int().default(60),
 }).nullable().default(null);
 
 export const LocationSchema = z.object({

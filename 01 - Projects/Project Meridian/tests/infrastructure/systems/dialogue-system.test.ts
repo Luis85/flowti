@@ -3,13 +3,13 @@ import { createDialogueSystem } from '../../../src/infrastructure/systems/dialog
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { MoodComponent } from '../../../src/infrastructure/components/mood-component.js';
 import { MemoryComponent } from '../../../src/infrastructure/components/memory-component.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { RelationshipComponent } from '../../../src/infrastructure/components/relationship-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -58,6 +58,34 @@ function createDeps(eventBus = createEventBus(), tickCount = 100): GameCoreDeps 
 	};
 }
 
+function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
+	return {
+		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
+		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
+		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
+		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
+		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
+		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
+		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
+		FacilityNeedsSupply: () => false,
+		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
+		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
+		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
+		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
+		...overrides,
+	};
+}
+
 function setupPairWithSocialEvent(opts: {
 	agentMoodBucket?: string;
 	partnerMoodBucket?: string;
@@ -85,6 +113,10 @@ function setupPairWithSocialEvent(opts: {
 		createTestAgentData('agent-marcus', { name: 'Marcus', kind: 'guard' }),
 		defaultMoodConfig,
 	);
+
+	// Attach stub behaviorAgent
+	agent.behaviorAgent = createStubBehaviorAgent();
+	partner.behaviorAgent = createStubBehaviorAgent();
 
 	// Set moods
 	const agentMood = agent.get(MoodComponent);
@@ -223,11 +255,8 @@ describe('DialogueSystem', () => {
 		const system = createDialogueSystem(() => [agent, partner], 42);
 		system.execute(deps);
 
-		const agentBb = agent.get(BlackboardComponent);
-		const partnerBb = partner.get(BlackboardComponent);
-
-		expect(agentBb.state.gossipPending).toBe('agent-marcus');
-		expect(partnerBb.state.gossipPending).toBe('agent-elena');
+		expect(agent.behaviorAgent.gossipPending).toBe('agent-marcus');
+		expect(partner.behaviorAgent.gossipPending).toBe('agent-elena');
 	});
 
 	it('does not set gossipPending when familiarity < threshold', () => {
@@ -238,16 +267,11 @@ describe('DialogueSystem', () => {
 		const system = createDialogueSystem(() => [agent, partner], 42);
 		system.execute(deps);
 
-		const agentBb = agent.get(BlackboardComponent);
-		const partnerBb = partner.get(BlackboardComponent);
-
-		expect(agentBb.state.gossipPending).toBeUndefined();
-		expect(partnerBb.state.gossipPending).toBeUndefined();
+		expect(agent.behaviorAgent.gossipPending).toBeNull();
+		expect(partner.behaviorAgent.gossipPending).toBeNull();
 	});
 
 	it('updates disposition on RelationshipComponent', () => {
-		// Use content moods with positive disposition — should be neutral tone (one stressed-like case)
-		// Let us use elated moods for both so tone is positive (+1 disposition)
 		const { agent, partner, eventBus, tickCount } = setupPairWithSocialEvent({
 			agentMoodBucket: 'elated',
 			partnerMoodBucket: 'content',
@@ -262,7 +286,7 @@ describe('DialogueSystem', () => {
 		const agentRel = agent.get(RelationshipComponent).state.entries.find(e => e.agentId === 'agent-marcus');
 		const partnerRel = partner.get(RelationshipComponent).state.entries.find(e => e.agentId === 'agent-elena');
 
-		// Positive tone → +1 disposition change
+		// Positive tone -> +1 disposition change
 		expect(agentRel).toBeDefined();
 		expect(agentRel!.disposition).toBe(11);
 		expect(agentRel!.tags).toContain('talked_with');
@@ -278,7 +302,6 @@ describe('DialogueSystem', () => {
 		const eventBus = createEventBus();
 		const tickCount = 100;
 
-		// Emit SocialInteraction with an agentId that doesn't exist in the agent list
 		eventBus.emit({
 			type: 'SocialInteraction',
 			tick: tickCount,
@@ -295,11 +318,9 @@ describe('DialogueSystem', () => {
 		const events: GameEvent[] = [];
 		eventBus.on('DialogueCompleted', (e) => { events.push(e); });
 
-		// System has an empty agent list — neither agent can be found
 		const system = createDialogueSystem(() => [], 42);
 		system.execute(deps);
 
-		// No DialogueCompleted event emitted, no crash
 		expect(events.length).toBe(0);
 	});
 
@@ -312,6 +333,9 @@ describe('DialogueSystem', () => {
 			createTestAgentData('agent-marcus', { name: 'Marcus', kind: 'guard' }),
 			defaultMoodConfig,
 		);
+
+		agent.behaviorAgent = createStubBehaviorAgent();
+		partner.behaviorAgent = createStubBehaviorAgent();
 
 		// Both agents have empty relationship entries (first meeting)
 		const agentRelComp = agent.get(RelationshipComponent);
@@ -373,7 +397,6 @@ describe('DialogueSystem', () => {
 		const system = createDialogueSystem(() => [agent, partner], 42);
 		system.execute(deps);
 
-		// Dialogue memories should be created
 		const agentMemAfter = agent.get(MemoryComponent).state.entries;
 		const partnerMemAfter = partner.get(MemoryComponent).state.entries;
 		expect(agentMemAfter.length).toBe(1);
@@ -381,7 +404,6 @@ describe('DialogueSystem', () => {
 		expect(partnerMemAfter.length).toBe(1);
 		expect(partnerMemAfter[0]?.type).toBe('dialogue');
 
-		// New RelationshipEntry should be created for both agents
 		const agentRelAfter = agent.get(RelationshipComponent).state.entries;
 		const partnerRelAfter = partner.get(RelationshipComponent).state.entries;
 		expect(agentRelAfter.length).toBe(1);

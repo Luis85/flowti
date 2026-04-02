@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createGossipSystem } from '../../../src/infrastructure/systems/gossip-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { MemoryComponent } from '../../../src/infrastructure/components/memory-component.js';
 import { RelationshipComponent } from '../../../src/infrastructure/components/relationship-component.js';
-import { AttributesComponent } from '../../../src/infrastructure/components/attributes-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -12,6 +10,7 @@ import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
 import type { MemoryEntry } from '../../../src/domain/core/component-data.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -115,6 +114,34 @@ function makeGossipMemory(gossipType: string, extraMeta: Record<string, unknown>
 	};
 }
 
+function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
+	return {
+		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
+		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
+		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
+		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
+		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
+		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
+		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
+		FacilityNeedsSupply: () => false,
+		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
+		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
+		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
+		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
+		...overrides,
+	};
+}
+
 function setupGossipPair(opts: {
 	agent1GossipMemories?: MemoryEntry[];
 	agent2GossipMemories?: MemoryEntry[];
@@ -151,20 +178,16 @@ function setupGossipPair(opts: {
 		mem2.state = { ...mem2.state, entries: [...agent2GossipMemories] };
 	}
 
-	// Set gossipPending on both agents (bidirectional)
-	const bb1 = agent1.get(BlackboardComponent);
-	bb1.state = {
-		...bb1.state,
+	// Set gossipPending and knownLocations on both agents via behaviorAgent
+	agent1.behaviorAgent = createStubBehaviorAgent({
 		gossipPending: 'agent-marcus',
 		knownLocations: agent1KnownLocations,
-	};
+	});
 
-	const bb2 = agent2.get(BlackboardComponent);
-	bb2.state = {
-		...bb2.state,
+	agent2.behaviorAgent = createStubBehaviorAgent({
 		gossipPending: 'agent-elena',
 		knownLocations: agent2KnownLocations,
-	};
+	});
 
 	return { agent1, agent2 };
 }
@@ -205,7 +228,6 @@ describe('GossipSystem', () => {
 		system.execute(createDeps(eventBus, 100));
 
 		expect(events.length).toBe(1);
-		// A→B should transfer bakery, B→A should transfer inn
 		const aToB = events[0]!.payload.aToB as number;
 		const bToA = events[0]!.payload.bToA as number;
 		expect(aToB).toBeGreaterThan(0);
@@ -221,7 +243,6 @@ describe('GossipSystem', () => {
 		const system = createGossipSystem(() => [agent1, agent2], () => [bakery]);
 		system.execute(createDeps(createEventBus(), 100));
 
-		// Partner (agent2) should have received gossip about bakery
 		const partnerEntries = agent2.get(MemoryComponent).state.entries;
 		const gossipEntries = partnerEntries.filter(e => e.type === 'gossip');
 		expect(gossipEntries.length).toBeGreaterThan(0);
@@ -245,7 +266,6 @@ describe('GossipSystem', () => {
 		const system = createGossipSystem(() => [agent1, agent2], () => []);
 		system.execute(createDeps(createEventBus(), 100));
 
-		// Partner should have a relationship entry for the gossip subject
 		const partnerRels = agent2.get(RelationshipComponent).state.entries;
 		const targetRel = partnerRels.find(e => e.agentId === 'agent-target');
 		expect(targetRel).toBeDefined();
@@ -262,8 +282,8 @@ describe('GossipSystem', () => {
 		const system = createGossipSystem(() => [agent1, agent2], () => [bakery]);
 		system.execute(createDeps(createEventBus(), 100));
 
-		expect(agent1.get(BlackboardComponent).state.gossipPending).toBeUndefined();
-		expect(agent2.get(BlackboardComponent).state.gossipPending).toBeUndefined();
+		expect(agent1.behaviorAgent.gossipPending).toBeNull();
+		expect(agent2.behaviorAgent.gossipPending).toBeNull();
 	});
 
 	it('emits GossipExchanged event', () => {
@@ -296,7 +316,6 @@ describe('GossipSystem', () => {
 		const system = createGossipSystem(() => [agent1, agent2], () => [bakery, inn]);
 		system.execute(createDeps(createEventBus(), 100));
 
-		// Partner should have received location gossip (up to max_items_per_exchange = 2)
 		const partnerEntries = agent2.get(MemoryComponent).state.entries;
 		const gossipEntries = partnerEntries.filter(e => e.type === 'gossip');
 		expect(gossipEntries.length).toBe(2);
@@ -312,12 +331,9 @@ describe('GossipSystem', () => {
 		});
 
 		const bakery = createTestLocation('loc-bakery', 'work', 100, 200);
-
-		// Both agents have gossipPending pointing at each other — should only process once
 		const system = createGossipSystem(() => [agent1, agent2], () => [bakery]);
 		system.execute(createDeps(eventBus, 100));
 
-		// Only ONE GossipExchanged event — pair deduplication prevents double-processing
 		expect(events.length).toBe(1);
 	});
 });

@@ -1,5 +1,6 @@
 import { ItemView, type WorkspaceLeaf, type Vault } from 'obsidian';
 import * as ex from 'excalibur';
+import { BehaviourTree } from 'mistreevous';
 import { createGameEngine } from './game-engine.js';
 import { createGameLoader } from './game-loader.js';
 import { createWorldLoader, type WorldData } from './world-loader.js';
@@ -9,6 +10,8 @@ import type { BatchableEventBus } from './batchable-event-bus.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import type { TickScheduler } from '../../domain/core/tick-scheduler.js';
 import type { VaultReader } from '../entity/agent-spawner.js';
+import { createBehaviorAgent } from '../entity/behavior-agent-factory.js';
+import { createGameRNG, hashString } from '../../domain/core/game-rng.js';
 import { createTraitResolverSystem } from '../systems/trait-resolver-system.js';
 import { createNeedsDecaySystem } from '../systems/needs-decay-system.js';
 import { createMoodSystem } from '../systems/mood-system.js';
@@ -140,6 +143,17 @@ export class MeridianGameView extends ItemView {
 				}));
 			}
 
+			// Add fund-only FacilityComponent to tavern (non-production locations that receive gold)
+			if (loc.type === 'rest' && loc.production === null) {
+				marker.addComponent(new FacilityComponent({
+					stock: [],
+					fund: 0,
+					workProgress: 0,
+					status: 'idle',
+					workerId: null,
+				}));
+			}
+
 			locationActors.set(loc.id, marker);
 		}
 
@@ -159,6 +173,34 @@ export class MeridianGameView extends ItemView {
 		const getWorldEntity = () => worldEntity;
 		const getLocationActors = () => locationActors;
 
+		// Create BehaviorAgent + BehaviourTree for each agent
+		for (const agent of world.agents) {
+			const kind = agent.behaviorTreeDef;
+			const mdsl = world.btMdslDefinitions[kind];
+			if (mdsl === undefined) {
+				deps.logger.warn('Meridian', `No MDSL definition for kind "${kind}" — agent "${agent.agentName}" will have no behavior tree`);
+				continue;
+			}
+
+			const behaviorAgent = createBehaviorAgent({
+				actor: agent,
+				worldEntity: getWorldEntity,
+				config: deps.config,
+				getLocationActors,
+				getLocations,
+				tickCount: () => deps.tickCount,
+			});
+
+			const rng = createGameRNG(hashString(agent.agentId));
+			const tree = new BehaviourTree(mdsl, behaviorAgent, {
+				random: () => rng.next(),
+				getDeltaTime: () => deps.config.tick_interval_ms / 1000,
+			});
+
+			agent.behaviorAgent = behaviorAgent;
+			agent.behaviorTree = tree;
+		}
+
 		// Register all systems (priority order handled by tick runner)
 		tickRunner.register(createTraitResolverSystem(getAgents, world.traitDefs));
 		tickRunner.register(createDayNightSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
@@ -166,9 +208,9 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createMoodSystem(getAgents));
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createMemoryDecaySystem(getAgents));
-		tickRunner.register(createBehaviorTreeSystem(getAgents, world.btDefinitions, getWorldEntity, Date.now(), getLocationActors, getLocations, () => world.regions, world.regionGraph));
+		tickRunner.register(createBehaviorTreeSystem(getAgents));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
-		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity));
+		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity));
@@ -177,7 +219,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createGossipSystem(getAgents, getLocations));
 		tickRunner.register(createRelationshipCheckpointSystem(getAgents));
 
-		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.btDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
+		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.btMdslDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
 	}
 
 	/** Toggle ExcaliburJS debug drawing (entity bounds, names, etc.) */

@@ -33,7 +33,7 @@
 	"position": { "x": 200, "y": 180, "region": "region-market-square" },
 	"relationships": "03 - Resources/Graphs/elena-relationships.canvas",
 	"tools": [],
-	"behavior_tree": "bt-merchant",
-	"job": "baker",
+	"behavior_tree": "merchant",
+	"job": "merchant",
 	"property": ["loc-market"]
 }

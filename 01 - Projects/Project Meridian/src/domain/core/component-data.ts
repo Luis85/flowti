@@ -26,10 +26,6 @@ export interface MemoryState {
 	maxEntries: number;
 }
 
-export interface BlackboardState {
-	[key: string]: unknown;
-}
-
 export interface AttributesState {
 	ST: number;
 	DX: number;
@@ -58,7 +54,7 @@ export interface FacilityState {
 	stock: { item_id: string; quantity: number }[];
 	fund: number;
 	workProgress: number;
-	status: 'idle' | 'producing';
+	status: 'idle' | 'producing' | 'auto';
 	workerId: string | null;
 }
 
@@ -76,7 +72,7 @@ export interface RelationshipState {
 
 export interface LedgerEntry {
 	tick: number;
-	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare';
+	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare' | 'stipend' | 'subsidy';
 	from: string;
 	to: string;
 	itemId: string | null;
@@ -121,4 +117,11 @@ export interface JourneyState {
 export interface StaminaState {
 	current: number;
 	max: number;
+}
+
+export interface CargoState {
+	itemId: string;
+	quantity: number;
+	source: string;
+	destination: string;
 }

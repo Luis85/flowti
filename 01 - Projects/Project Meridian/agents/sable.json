@@ -24,7 +24,7 @@
 	"position": { "x": 150, "y": 350, "region": "region-craft-quarter" },
 	"relationships": "03 - Resources/Graphs/sable-relationships.canvas",
 	"tools": [],
-	"behavior_tree": "bt-artisan",
+	"behavior_tree": "artisan",
 	"job": "leatherworker",
 	"property": ["loc-workshop"]
 }

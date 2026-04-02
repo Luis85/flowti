@@ -2,7 +2,6 @@ import { SystemPriority, type GameSystem } from '../../domain/core/tick-schedule
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
-import { BlackboardComponent } from '../components/blackboard-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { StaminaComponent } from '../components/stamina-component.js';
@@ -11,7 +10,9 @@ import { clamp, distance } from '../../domain/core/math-utils.js';
 import { resolveArrivalOffset } from '../../domain/systems/arrival-spread.js';
 import { resolveSteeringOffset, type Obstacle } from '../../domain/systems/steering.js';
 import type { JourneyState } from '../../domain/core/component-data.js';
-import { JOURNEY_SENTINEL } from './behavior-tree-system.js';
+
+/** Sentinel value used by journey waypoint navigation. */
+export const JOURNEY_SENTINEL = '__journey__';
 
 /** Snap-to-target when within this fraction of per-tick speed — value from config.formulas.arrival_threshold_multiplier */
 
@@ -57,11 +58,11 @@ function drainMovementEnergy(
 function handleJourneyWaypointArrival(
 	agent: AgentActor,
 	journey: JourneyState,
-	bb: BlackboardComponent,
 	deps: GameCoreDeps,
 ): void {
+	const ba = agent.behaviorAgent;
 	const waypoint = journey.waypoints[journey.waypointIndex]!;
-	const previousRegion = (bb.state.currentRegion as string | undefined) ?? 'unknown';
+	const previousRegion = ba.currentRegion || 'unknown';
 
 	// Deduct stamina for crossing
 	const stamina = agent.get(StaminaComponent);
@@ -84,13 +85,9 @@ function handleJourneyWaypointArrival(
 
 	// Exhaustion check — halt journey if stamina depleted
 	if (newStamina <= 0) {
-		bb.state = {
-			...bb.state,
-			currentRegion: waypoint.regionId,
-			journey: undefined,
-			movementTarget: undefined,
-		};
-		bb.markDirty();
+		ba.currentRegion = waypoint.regionId;
+		ba.journey = null;
+		ba.movementTarget = null;
 		agent.vel.x = 0;
 		agent.vel.y = 0;
 		return;
@@ -99,22 +96,15 @@ function handleJourneyWaypointArrival(
 	const nextIndex = journey.waypointIndex + 1;
 	if (nextIndex < journey.waypoints.length) {
 		// More waypoints — continue journey
-		bb.state = {
-			...bb.state,
-			currentRegion: waypoint.regionId,
-			journey: { ...journey, waypointIndex: nextIndex },
-			movementTarget: { id: JOURNEY_SENTINEL, type: 'location' as const },
-		};
+		ba.currentRegion = waypoint.regionId;
+		ba.journey = { ...journey, waypointIndex: nextIndex };
+		ba.movementTarget = { id: JOURNEY_SENTINEL, type: 'location' as const };
 	} else {
 		// Last waypoint — route to final destination
-		bb.state = {
-			...bb.state,
-			currentRegion: waypoint.regionId,
-			journey: undefined,
-			movementTarget: journey.finalTarget,
-		};
+		ba.currentRegion = waypoint.regionId;
+		ba.journey = null;
+		ba.movementTarget = journey.finalTarget;
 	}
-	bb.markDirty();
 }
 
 function collectObstacles(
@@ -127,8 +117,7 @@ function collectObstacles(
 	for (const other of agentList) {
 		if (other === currentAgent) continue;
 		if (other.agentId === targetId) continue;
-		const otherBb = other.get(BlackboardComponent);
-		if (otherBb.state.atLocation !== undefined) {
+		if (other.behaviorAgent.atLocation !== null) {
 			obstacles.push({ x: other.pos.x, y: other.pos.y, radius: 14 });
 		}
 	}
@@ -153,22 +142,21 @@ export function createMovementSystem(
 			const spreadRadius = deps.config.formulas.arrival_spread_radius;
 
 			for (const agent of agentList) {
-				const bb = agent.get(BlackboardComponent);
-				const rawTarget = bb.state.movementTarget;
+				const ba = agent.behaviorAgent;
+				const rawTarget = ba.movementTarget;
 
 				// Already at target — consume movementTarget silently, no re-arrival
-				if (isMovementTarget(rawTarget) && bb.state.atLocation === rawTarget.id) {
-					bb.state = { ...bb.state, movementTarget: undefined };
-					bb.markDirty();
+				if (isMovementTarget(rawTarget) && ba.atLocation === rawTarget.id) {
+					ba.movementTarget = null;
 					agent.vel.x = 0;
 					agent.vel.y = 0;
 					continue;
 				}
 
 				// Clear atLocation when agent starts moving to a new target
-				if (isMovementTarget(rawTarget) && bb.state.atLocation !== undefined) {
-					bb.state = { ...bb.state, atLocation: undefined, arrivalSlot: undefined };
-					bb.markDirty();
+				if (isMovementTarget(rawTarget) && ba.atLocation !== null) {
+					ba.atLocation = null;
+					ba.arrivalSlot = null;
 				}
 
 				if (!isMovementTarget(rawTarget)) {
@@ -188,8 +176,8 @@ export function createMovementSystem(
 				}
 
 				// Check for journey waypoint navigation
-				const journey = bb.state.journey as JourneyState | undefined;
-				const isJourneyMove = journey !== undefined && rawTarget.id === JOURNEY_SENTINEL;
+				const journey = ba.journey;
+				const isJourneyMove = journey !== null && rawTarget.id === JOURNEY_SENTINEL;
 
 				let targetPos: { x: number; y: number } | undefined;
 
@@ -229,12 +217,11 @@ export function createMovementSystem(
 						agent.pos.y = targetPos.y;
 						agent.vel.x = 0;
 						agent.vel.y = 0;
-						handleJourneyWaypointArrival(agent, journey, bb, deps);
+						handleJourneyWaypointArrival(agent, journey, deps);
 					} else {
 						// Count agents already at this location (for spread offset)
 						const agentsAtLocation = agentList.filter(a => {
-							const abb = a.get(BlackboardComponent);
-							return abb.state.atLocation === rawTarget.id;
+							return a.behaviorAgent.atLocation === rawTarget.id;
 						});
 						const slotIndex = agentsAtLocation.length;
 						const totalAgents = slotIndex + 1;
@@ -246,20 +233,14 @@ export function createMovementSystem(
 						agent.vel.x = 0;
 						agent.vel.y = 0;
 
-						bb.state = {
-							...bb.state,
-							movementTarget: undefined,
-							atLocation: rawTarget.id,
-							arrivalSlot: slotIndex,
-						};
+						ba.movementTarget = null;
+						ba.atLocation = rawTarget.id;
+						ba.arrivalSlot = slotIndex;
 
 						// Track known locations for gossip
-						const knownLocations = (bb.state.knownLocations as string[] | undefined) ?? [];
-						if (!knownLocations.includes(rawTarget.id)) {
-							bb.state = { ...bb.state, knownLocations: [...knownLocations, rawTarget.id] };
+						if (!ba.knownLocations.includes(rawTarget.id)) {
+							ba.knownLocations = [...ba.knownLocations, rawTarget.id];
 						}
-
-						bb.markDirty();
 
 						deps.eventBus.emit({
 							type: 'AgentArrived',

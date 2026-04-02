@@ -42,7 +42,7 @@
 	"position": { "x": 350, "y": 120, "region": "region-market-square" },
 	"relationships": "03 - Resources/Graphs/marcus-relationships.canvas",
 	"tools": [],
-	"behavior_tree": "bt-guard",
-	"job": "farmer",
+	"behavior_tree": "guard",
+	"job": "guard",
 	"property": []
 }

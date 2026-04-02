@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { createNeedsDecaySystem } from '../../../src/infrastructure/systems/needs-decay-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
-import { BlackboardComponent } from '../../../src/infrastructure/components/blackboard-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 function createTestAgent(overrides: Record<string, unknown> = {}) {
 	return {
@@ -43,6 +43,34 @@ const defaultMoodConfig = {
 	external_modifier_cap: 30,
 };
 
+function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
+	return {
+		hunger: 80, energy: 90, social: 70, gold: 50, mood: 0, moodBucket: 'stressed',
+		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
+		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
+		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
+		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
+		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
+		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
+		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
+		FacilityNeedsSupply: () => false,
+		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
+		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
+		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
+		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
+		...overrides,
+	};
+}
+
 function createDeps(eventBus = createEventBus()): GameCoreDeps {
 	return {
 		logger: { debug() {}, info() {}, warn() {}, error() {} },
@@ -57,6 +85,7 @@ function createDeps(eventBus = createEventBus()): GameCoreDeps {
 describe('NeedsDecaySystem', () => {
 	it('reads NeedsComponent and writes decayed values', () => {
 		const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
 		const system = createNeedsDecaySystem(() => [agent]);
 		system.execute(createDeps());
 
@@ -67,14 +96,16 @@ describe('NeedsDecaySystem', () => {
 		expect(needs.dirty).toBe(true);
 	});
 
-	it('reads modifiers from blackboard', () => {
+	it('reads modifiers from behaviorAgent', () => {
 		const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
-		const bb = agent.get(BlackboardComponent);
-		bb.state.traitModifiers = { NeedsDecaySystem: { hungerDecayScale: 2.0 } };
+		agent.behaviorAgent = createStubBehaviorAgent({
+			traitModifiers: { NeedsDecaySystem: { hungerDecayScale: 2.0 } },
+		});
 
 		const system = createNeedsDecaySystem(() => [agent]);
 		const depsNoMod = createDeps();
 		const agentNoMod = new AgentActor(createTestAgent(), defaultMoodConfig);
+		agentNoMod.behaviorAgent = createStubBehaviorAgent();
 		const systemNoMod = createNeedsDecaySystem(() => [agentNoMod]);
 		systemNoMod.execute(depsNoMod);
 		system.execute(createDeps());
@@ -88,6 +119,7 @@ describe('NeedsDecaySystem', () => {
 		eventBus.on('NeedChanged', (e) => { events.push(e); });
 
 		const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
 		const system = createNeedsDecaySystem(() => [agent]);
 		system.execute(createDeps(eventBus));
 
@@ -102,6 +134,7 @@ describe('NeedsDecaySystem', () => {
 
 		// Start at threshold — decay will cross below it
 		const agent = new AgentActor(createTestAgent({ needs: { hunger: 20, energy: 90, social: 70 } }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
 		const system = createNeedsDecaySystem(() => [agent]);
 		system.execute(createDeps(eventBus));
 

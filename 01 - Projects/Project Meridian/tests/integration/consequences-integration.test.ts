@@ -5,7 +5,6 @@ import { createPerformanceTracker } from '../../src/infrastructure/performance/p
 import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
 import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
-import { BlackboardComponent } from '../../src/infrastructure/components/blackboard-component.js';
 import { MemoryComponent } from '../../src/infrastructure/components/memory-component.js';
 import { TimeComponent } from '../../src/infrastructure/components/time-component.js';
 import { createTraitResolverSystem } from '../../src/infrastructure/systems/trait-resolver-system.js';
@@ -20,11 +19,11 @@ import { createRestSystem } from '../../src/infrastructure/systems/rest-system.j
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { EconomyComponent } from '../../src/infrastructure/components/economy-component.js';
+import { attachBehaviorStubs } from './test-behavior-stub.js';
 import { Actor } from 'excalibur';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../src/domain/core/events.js';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
-import type { BTNode } from '../../src/domain/schemas/behavior-tree-schema.js';
 import type { Agent } from '../../src/domain/schemas/agent-schema.js';
 
 const defaultMoodConfig = {
@@ -55,10 +54,6 @@ function createTestAgent(id: string, x: number, y: number, overrides: Record<str
 	} as Agent;
 }
 
-const btDefs: Record<string, BTNode> = {
-	merchant: { type: 'action', action: 'idle', params: {} },
-};
-
 function createWorldEntity(): Actor {
 	const world = new Actor();
 	world.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
@@ -88,10 +83,7 @@ describe('Consequence Systems — Integration', () => {
 			inventory: [{ item_id: 'bread', quantity: 5 }],
 		});
 		const actor = new AgentActor(agentData, defaultMoodConfig);
-
-		// Set btAction to 'eat' — FeedSystem requires this for recovery
-		const bb = actor.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'eat' };
+		attachBehaviorStubs(actor, { btAction: 'eat' });
 
 		const foodLocation: WorldLocation = {
 			id: 'loc-tavern-food', name: 'Tavern Kitchen', type: 'food',
@@ -132,10 +124,7 @@ describe('Consequence Systems — Integration', () => {
 
 		const agentData = createTestAgent('agent-tired', 200, 200, { needs: { hunger: 80, energy: 50, social: 80 } });
 		const actor = new AgentActor(agentData, defaultMoodConfig);
-
-		// Set btAction to 'idle' so RestSystem triggers outdoors tier at minimum
-		const bb = actor.get(BlackboardComponent);
-		bb.state = { ...bb.state, btAction: 'idle' };
+		attachBehaviorStubs(actor, { btAction: 'idle' });
 
 		const restLocation: WorldLocation = {
 			id: 'loc-inn-rest', name: 'Village Inn', type: 'rest',
@@ -156,7 +145,7 @@ describe('Consequence Systems — Integration', () => {
 		runner.register(createMoodSystem(getAgents));
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
-		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
+		runner.register(createBehaviorTreeSystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
 		runner.register(createRestSystem(getAgents, getLocations, getWorld));
 		runner.register(createFeedSystem(getAgents, getWorld));
@@ -186,13 +175,9 @@ describe('Consequence Systems — Integration', () => {
 		const agent2Data = createTestAgent('agent-social-b', 110, 100, { needs: { hunger: 80, energy: 80, social: 30 } });
 
 		const actor1 = new AgentActor(agent1Data, defaultMoodConfig);
+		attachBehaviorStubs(actor1, { btAction: 'talk' });
 		const actor2 = new AgentActor(agent2Data, defaultMoodConfig);
-
-		// Set btAction to 'talk' on both agents so SocializeSystem triggers
-		const bb1 = actor1.get(BlackboardComponent);
-		bb1.state = { ...bb1.state, btAction: 'talk' };
-		const bb2 = actor2.get(BlackboardComponent);
-		bb2.state = { ...bb2.state, btAction: 'talk' };
+		attachBehaviorStubs(actor2, { btAction: 'talk' });
 
 		const worldEntity = createWorldEntity();
 		const actors = [actor1, actor2];

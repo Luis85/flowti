@@ -1,0 +1,12 @@
+root [Role] {
+    selector {
+        /* Patrol: head to town square, then wander nearby */
+        sequence {
+            condition [AtLocation, "social"]
+            action [Wander] while(IsDaytime)
+        }
+        sequence {
+            action [SeekSocial]
+        }
+    }
+}

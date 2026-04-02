@@ -11,6 +11,7 @@ import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
 import { MoodComponent } from '../../src/infrastructure/components/mood-component.js';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
+import { attachBehaviorStubs } from './test-behavior-stub.js';
 import type { TraitDefinition } from '../../src/domain/systems/trait-resolver.js';
 
 function createTestAgent(overrides: Record<string, unknown> = {}) {
@@ -48,6 +49,7 @@ describe('Life Systems Integration', () => {
 		eventBus.on('MoodChanged', () => { eventLog.push('MoodChanged'); });
 
 		const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
+		attachBehaviorStubs(agent);
 		const getAgents = () => [agent];
 
 		const runner = createTickRunner(eventBus);
@@ -89,7 +91,9 @@ describe('Life Systems Integration', () => {
 		};
 
 		const agentWithTrait = new AgentActor(createTestAgent({ traits: ['hardy'] }), defaultMoodConfig);
+		attachBehaviorStubs(agentWithTrait);
 		const agentWithout = new AgentActor(createTestAgent({ id: 'agent-other' }), defaultMoodConfig);
+		attachBehaviorStubs(agentWithout);
 
 		const runner1 = createTickRunner(eventBus);
 		runner1.register(createTraitResolverSystem(() => [agentWithTrait], traitDefs));
@@ -119,6 +123,7 @@ describe('Life Systems Integration', () => {
 		eventBus.on('MoodChanged', () => { order.push('MoodChanged'); });
 
 		const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
+		attachBehaviorStubs(agent);
 		// Force bucket to something that will change after mood recalculation
 		agent.get(MoodComponent).state.bucket = 'elated';
 

@@ -5,7 +5,6 @@ import { createPerformanceTracker } from '../../src/infrastructure/performance/p
 import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
 import { AgentActor } from '../../src/infrastructure/entity/agent-actor.js';
 import { PerceptionComponent } from '../../src/infrastructure/components/perception-component.js';
-import { BlackboardComponent } from '../../src/infrastructure/components/blackboard-component.js';
 import { TimeComponent } from '../../src/infrastructure/components/time-component.js';
 import { createTraitResolverSystem } from '../../src/infrastructure/systems/trait-resolver-system.js';
 import { createNeedsDecaySystem } from '../../src/infrastructure/systems/needs-decay-system.js';
@@ -15,10 +14,10 @@ import { createDayNightSystem } from '../../src/infrastructure/systems/day-night
 import { createPerceptionSystem } from '../../src/infrastructure/systems/perception-system.js';
 import { createBehaviorTreeSystem } from '../../src/infrastructure/systems/behavior-tree-system.js';
 import { createMovementSystem } from '../../src/infrastructure/systems/movement-system.js';
+import { attachBehaviorStubs } from './test-behavior-stub.js';
 import { Actor } from 'excalibur';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../src/domain/core/events.js';
-import type { BTNode } from '../../src/domain/systems/behavior-tree.js';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
 
 const defaultMoodConfig = {
@@ -48,23 +47,6 @@ function createTestAgent(overrides: Record<string, unknown> = {}) {
 	};
 }
 
-// Hunger-seek BT: if hunger < 50 AND food location nearby → seek_food, else idle
-// seek_food is the action key that maps to 'food' location type in BT system LOCATION_ACTIONS
-const hungerBT: BTNode = {
-	type: 'selector',
-	children: [
-		{
-			type: 'sequence',
-			children: [
-				{ type: 'condition', check: 'need_below', params: { need: 'hunger', threshold: 50 } },
-				{ type: 'condition', check: 'nearby_location', params: { locationType: 'food' } },
-				{ type: 'action', action: 'seek_food', params: {} },
-			],
-		},
-		{ type: 'action', action: 'idle', params: {} },
-	],
-};
-
 const foodLocation: WorldLocation = {
 	id: 'loc-food', name: 'Food Stall', type: 'food',
 	position: { x: 100, y: 0 }, capacity: 10, color: '#808080',
@@ -82,17 +64,17 @@ function createDeps(eventBus = createEventBus(), tickCount = 60): GameCoreDeps {
 }
 
 describe('Agency Integration', () => {
-	it('hungry agent perceives food location and moves toward it', () => {
+	it('agent with seek_food action and movementTarget moves toward food location', () => {
 		const eventBus = createEventBus();
-		// hunger: 30 < 50 threshold, so BT will try to seek_food
 		const agent = new AgentActor(createTestAgent({ needs: { hunger: 30, energy: 90, social: 70 } }), defaultMoodConfig);
 
-		// day phase: tickInCycle=60 falls in day range (60–299)
+		// Pre-set BehaviorAgent with seek_food action and movementTarget pointing at food
+		attachBehaviorStubs(agent, { btAction: 'seek_food' });
+		agent.behaviorAgent.movementTarget = { id: 'loc-food', type: 'location' };
+
 		const worldEntity = new Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
 
-		// btDefinitions keyed by agent.kind ('merchant')
-		const btDefs: Record<string, BTNode> = { merchant: hungerBT };
 		const getAgents = () => [agent];
 		const getLocations = () => [foodLocation];
 		const getWorld = () => worldEntity;
@@ -104,17 +86,15 @@ describe('Agency Integration', () => {
 		runner.register(createMoodSystem(getAgents));
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
-		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
+		runner.register(createBehaviorTreeSystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
 
-		// day perception radius = base_multiplier(20) * IQ(10) = 200 → food at x:100 is within range
 		const deps = createDeps(eventBus, 60);
 		runner.tick(deps);
 
 		// Agent should have velocity toward food location (x: 100)
 		expect(agent.vel.x).toBeGreaterThan(0);
-		const bb = agent.get(BlackboardComponent);
-		expect(bb.state.btAction).toBe('seek_food');
+		expect(agent.behaviorAgent.btAction).toBe('seek_food');
 	});
 
 	it('night reduces perception — agent misses far location', () => {
@@ -130,21 +110,19 @@ describe('Agency Integration', () => {
 		};
 
 		const agent = new AgentActor(createTestAgent({ needs: { hunger: 30, energy: 90, social: 70 } }), defaultMoodConfig);
+		attachBehaviorStubs(agent);
 
 		// Pre-set night phase in the world entity — skip DayNightSystem so the phase stays 'night'.
-		// (DayNightSystem derives phase from tickCount; tick 1 maps to dawn, not night.)
 		const worldEntity = new Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'night', tickInCycle: 400, dayCount: 0 }));
 
-		const btDefs: Record<string, BTNode> = { merchant: hungerBT };
 		const getAgents = () => [agent];
 		const getLocations = () => [farFood];
 		const getWorld = () => worldEntity;
 
-		// Register perception + BT only — no DayNightSystem so phase stays 'night'
+		// Register perception only — no DayNightSystem so phase stays 'night', no BT system
 		const runner = createTickRunner(eventBus);
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
-		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
 		runner.register(createMovementSystem(getAgents, getLocations));
 
 		// Use small base_multiplier so night radius = 2 < food distance (10)
@@ -162,9 +140,8 @@ describe('Agency Integration', () => {
 		const perception = agent.get(PerceptionComponent);
 		expect(perception.state.nearbyLocations).toHaveLength(0);
 
-		// Agent should idle (no food perceived, BT falls through to idle action)
-		const bb = agent.get(BlackboardComponent);
-		expect(bb.state.btAction).toBe('idle');
+		// Agent should idle (no food perceived, no movementTarget set)
+		expect(agent.behaviorAgent.btAction).toBeNull();
 	});
 
 	it('agent arrives at location → AgentArrived emits', () => {
@@ -187,10 +164,13 @@ describe('Agency Integration', () => {
 			defaultMoodConfig,
 		);
 
+		// Pre-set behaviorAgent with seek_food and movementTarget
+		attachBehaviorStubs(agent, { btAction: 'seek_food' });
+		agent.behaviorAgent.movementTarget = { id: 'loc-near', type: 'location' };
+
 		const worldEntity = new Actor();
 		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
 
-		const btDefs: Record<string, BTNode> = { merchant: hungerBT };
 		const getAgents = () => [agent];
 		const getLocations = () => [nearFood];
 		const getWorld = () => worldEntity;
@@ -198,7 +178,7 @@ describe('Agency Integration', () => {
 		const runner = createTickRunner(eventBus);
 		runner.register(createDayNightSystem(getWorld));
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
-		runner.register(createBehaviorTreeSystem(getAgents, btDefs, getWorld, 42));
+		runner.register(createBehaviorTreeSystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
 
 		runner.tick(createDeps(eventBus, 60));
