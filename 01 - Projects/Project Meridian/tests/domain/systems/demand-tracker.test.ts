@@ -49,6 +49,18 @@ describe('DemandTracker', () => {
 		expect(getDemandRate(tracker, 'wheat', 50)).toBe(5);
 	});
 
+	it('includes event exactly at window boundary', () => {
+		const tracker = emptyTracker(100);
+		recordConsumption(tracker, 'bread', 1, 50);
+		expect(getDemandRate(tracker, 'bread', 150)).toBe(1);
+	});
+
+	it('excludes event one tick before window boundary', () => {
+		const tracker = emptyTracker(100);
+		recordConsumption(tracker, 'bread', 1, 49);
+		expect(getDemandRate(tracker, 'bread', 150)).toBe(0);
+	});
+
 	it('handles window size of 0 — only current tick counts', () => {
 		const tracker = emptyTracker(0);
 		recordConsumption(tracker, 'bread', 1, 10);

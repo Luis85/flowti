@@ -40,7 +40,10 @@ export function createEconomySystem(
 			while (recalcQueue.peek() !== undefined && shouldRecalculate(deps.tickCount, recalcQueue.peekValue()!)) {
 				const facilityId = recalcQueue.pop()!;
 				const locActor = locationActorMap.get(facilityId);
-				if (locActor === undefined) continue;
+				if (locActor === undefined) {
+					recalcQueue.push(facilityId, deps.tickCount + config.recalculation_interval_ticks);
+					continue;
+				}
 
 				const facility = locActor.get(FacilityComponent);
 				const facilityItems: FacilityItemContext[] = facility.state.stock.map(s => {

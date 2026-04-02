@@ -21,7 +21,8 @@ export function recordConsumption(
 ): void {
 	const list = tracker.events.get(itemId) ?? [];
 	list.push({ itemId, quantity, tick });
-	tracker.events.set(itemId, list);
+	const cutoff = tick - tracker.windowSize;
+	tracker.events.set(itemId, list.filter(e => e.tick >= cutoff));
 }
 
 export function getDemandRate(

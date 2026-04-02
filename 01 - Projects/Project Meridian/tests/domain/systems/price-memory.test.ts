@@ -29,6 +29,10 @@ describe('isPriceStale', () => {
 	it('returns false at exact boundary', () => {
 		expect(isPriceStale(makeMemory({ tick: 100 }), 300, 200)).toBe(false);
 	});
+
+	it('returns true one tick past boundary', () => {
+		expect(isPriceStale(makeMemory({ tick: 100 }), 301, 200)).toBe(true);
+	});
 });
 
 describe('getRememberedPrice', () => {

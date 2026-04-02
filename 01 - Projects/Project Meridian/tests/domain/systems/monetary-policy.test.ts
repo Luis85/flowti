@@ -126,4 +126,16 @@ describe('evaluateSafetyNets', () => {
 		const result = evaluateSafetyNets(0.1, 30, { stagnant: 0.2, critical: 0.1, stimulusTriggerTicks: 50 });
 		expect(result).not.toContain('stimulus');
 	});
+
+	it('triggers stimulus only when stagnant but above critical', () => {
+		const result = evaluateSafetyNets(0.15, 60, { stagnant: 0.2, critical: 0.1, stimulusTriggerTicks: 50 });
+		expect(result).toContain('stimulus');
+		expect(result).not.toContain('recovery_event');
+	});
+
+	it('triggers recovery_event only when critical but stagnant ticks below threshold', () => {
+		const result = evaluateSafetyNets(0.05, 0, { stagnant: 0.2, critical: 0.1, stimulusTriggerTicks: 50 });
+		expect(result).toContain('recovery_event');
+		expect(result).not.toContain('stimulus');
+	});
 });

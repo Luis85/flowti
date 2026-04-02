@@ -49,6 +49,14 @@ describe('recalculateFacilityPrices', () => {
 		expect(subsistence.bread).toBeGreaterThan(luxury.gem);
 	});
 
+	it('uses fallback elasticity 1.0 for unknown category', () => {
+		const result = recalculateFacilityPrices(baseFacility({
+			items: [{ itemId: 'potion', baseValue: 10, category: 'alchemy', stock: 5 }],
+			demandRates: { potion: 5 },
+		}));
+		expect(result.potion).toBeCloseTo(10);
+	});
+
 	it('handles items with zero stock', () => {
 		const result = recalculateFacilityPrices(baseFacility({
 			items: [{ itemId: 'bread', baseValue: 5, category: 'subsistence', stock: 0 }],

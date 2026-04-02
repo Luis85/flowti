@@ -57,22 +57,22 @@ describe('calculatePostedPrice', () => {
 
 	it('clamps price to minimum', () => {
 		const price = calculatePostedPrice(baseInput({ demandRate: 0, supplyCount: 100, clampMin: 0.5 }));
-		expect(price).toBeGreaterThanOrEqual(10 * 0.5);
+		expect(price).toBeCloseTo(10 * 0.5);
 	});
 
 	it('clamps price to maximum', () => {
 		const price = calculatePostedPrice(baseInput({ demandRate: 100, supplyCount: 1, clampMax: 3.0 }));
-		expect(price).toBeLessThanOrEqual(10 * 3.0);
+		expect(price).toBeCloseTo(10 * 3.0);
 	});
 
 	it('handles zero supply without division error', () => {
 		const price = calculatePostedPrice(baseInput({ supplyCount: 0 }));
-		expect(price).toBeLessThanOrEqual(10 * 3.0);
+		expect(price).toBeCloseTo(10 * 3.0);
 		expect(Number.isFinite(price)).toBe(true);
 	});
 
 	it('handles zero demand', () => {
 		const price = calculatePostedPrice(baseInput({ demandRate: 0 }));
-		expect(price).toBeGreaterThanOrEqual(10 * 0.5);
+		expect(price).toBeCloseTo(10 * 0.5);
 	});
 });

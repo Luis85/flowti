@@ -9,7 +9,6 @@ import {
 } from '../../domain/systems/monetary-policy.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
-import type { FlowCategory } from '../../domain/core/component-data.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { Actor } from 'excalibur';
 
@@ -32,13 +31,16 @@ export function createMonetaryPolicySystem(
 			const goldEvents = deps.eventBus.history({ type: 'GoldFlowed' })
 				.filter(e => e.tick === deps.tickCount);
 			for (const e of goldEvents) {
+				const cat = e.payload.category;
+				if (cat !== 'faucet' && cat !== 'sink' && cat !== 'transfer') continue;
+				const amount = typeof e.payload.amount === 'number' ? e.payload.amount : 0;
 				recordFlow(ledger, {
-					category: e.payload.category as FlowCategory,
-					subcategory: e.payload.subcategory as string,
-					amount: e.payload.amount as number,
+					category: cat,
+					subcategory: typeof e.payload.subcategory === 'string' ? e.payload.subcategory : '',
+					amount,
 					tick: e.tick,
-					fromEntity: (e.payload.fromEntity as string | null) ?? null,
-					toEntity: (e.payload.toEntity as string | null) ?? null,
+					fromEntity: typeof e.payload.fromEntity === 'string' ? e.payload.fromEntity : null,
+					toEntity: typeof e.payload.toEntity === 'string' ? e.payload.toEntity : null,
 				});
 			}
 

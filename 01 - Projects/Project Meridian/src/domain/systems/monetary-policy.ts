@@ -19,6 +19,11 @@ export function createMonetaryLedger(windowSize: number): MonetaryLedger {
 
 export function recordFlow(ledger: MonetaryLedger, flow: GoldFlow): void {
 	ledger.flows.push(flow);
+	const cutoff = flow.tick - ledger.windowSize;
+	const oldest = ledger.flows[0];
+	if (oldest !== undefined && oldest.tick < cutoff) {
+		ledger.flows = ledger.flows.filter(f => f.tick >= cutoff);
+	}
 }
 
 export function calculateMonetarySnapshot(
