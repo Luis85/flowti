@@ -144,6 +144,7 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 				getLocationActors,
 				getLocations,
 				tickCount: () => deps.tickCount,
+				eventBus,
 			});
 
 			const rng = createGameRNG(hashString(actor.agentId));

@@ -16,6 +16,16 @@ import { createBehaviorAgent } from '../../src/infrastructure/entity/behavior-ag
 import { createGameRNG, hashString } from '../../src/domain/core/game-rng.js';
 import { Actor } from 'excalibur';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
+import type { EventBus } from '../../src/domain/core/events.js';
+
+const noopEventBus: EventBus = {
+	emit: () => {},
+	on: () => () => {},
+	off: () => {},
+	onAny: () => () => {},
+	filter: () => () => {},
+	history: () => [],
+};
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '../..');
@@ -105,6 +115,7 @@ describe('mistreevous BT integration', () => {
 			getLocationActors,
 			getLocations,
 			tickCount: () => 60,
+			eventBus: noopEventBus,
 		});
 
 		const rng = createGameRNG(hashString(actor.agentId));
@@ -178,6 +189,7 @@ describe('mistreevous BT integration', () => {
 			getLocationActors,
 			getLocations,
 			tickCount: () => 60,
+			eventBus: noopEventBus,
 		});
 
 		const rng = createGameRNG(hashString(actor.agentId));

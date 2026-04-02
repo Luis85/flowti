@@ -67,7 +67,7 @@ export class AgentActor extends Actor {
 		this.addComponent(new TraitsComponent([...agent.traits]));
 		this.addComponent(new WalletComponent({ gold: agent.wallet.gold }));
 		this.addComponent(new InventoryComponent({
-			items: agent.inventory.map(i => ({ item_id: i.item_id, quantity: i.quantity })),
+			items: agent.inventory.map(i => ({ item_id: i.item_id, quantity: i.quantity, ...(i.charges !== undefined ? { charges: i.charges } : {}) })),
 		}));
 		this.addComponent(new RelationshipComponent({ entries: [] }));
 		this.addComponent(new StaminaComponent({ current: agent.attributes.HT, max: agent.attributes.HT }));

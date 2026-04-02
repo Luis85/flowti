@@ -136,6 +136,7 @@ describe('Smoke Test — Real Data', () => {
 				getLocationActors,
 				getLocations,
 				tickCount: () => 60,
+				eventBus,
 			});
 
 			const rng = createGameRNG(hashString(actor.agentId));
@@ -236,6 +237,7 @@ describe('Smoke Test — Real Data', () => {
 				getLocationActors,
 				getLocations,
 				tickCount: () => 60,
+				eventBus,
 			});
 
 			const rng = createGameRNG(hashString(actor.agentId));

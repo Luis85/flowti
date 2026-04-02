@@ -15,6 +15,16 @@ import { NEED_CRITICAL_THRESHOLDS } from '../../../src/domain/schemas/ranges.js'
 import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 import type { GameConfig } from '../../../src/domain/schemas/game-config-schema.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import type { EventBus } from '../../../src/domain/core/events.js';
+
+const noopEventBus: EventBus = {
+	emit: () => {},
+	on: () => () => {},
+	off: () => {},
+	onAny: () => () => {},
+	filter: () => () => {},
+	history: () => [],
+};
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -96,7 +106,8 @@ function setupDeps(
 	const getLocationActors = overrides.getLocationActors ?? (() => new Map<string, Actor>());
 	const getLocations = overrides.getLocations ?? (() => []);
 	const tickCount = overrides.tickCount ?? (() => 1);
-	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount };
+	const eventBus = overrides.eventBus ?? noopEventBus;
+	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

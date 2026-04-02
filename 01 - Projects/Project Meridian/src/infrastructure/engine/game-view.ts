@@ -156,6 +156,17 @@ export class MeridianGameView extends ItemView {
 				}));
 			}
 
+			// Add FacilityComponent to market-type locations with fund/stock from location data
+			if (loc.type === 'market' && loc.production === null) {
+				marker.addComponent(new FacilityComponent({
+					stock: loc.stock ?? [],
+					fund: loc.fund ?? deps.config.economy.facility_start_fund,
+					workProgress: 0,
+					status: 'idle',
+					workerId: null,
+				}));
+			}
+
 			locationActors.set(loc.id, marker);
 		}
 
@@ -192,6 +203,7 @@ export class MeridianGameView extends ItemView {
 				getLocationActors,
 				getLocations,
 				tickCount: () => deps.tickCount,
+				eventBus: deps.eventBus,
 			});
 
 			const rng = createGameRNG(hashString(agent.agentId));

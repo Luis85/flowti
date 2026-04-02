@@ -11,10 +11,12 @@ root {
                     condition [HasWater]
                     action [Drink]
                 }
-                /* Go fill waterskin if thirsty */
+                /* Go fill waterskin and drink if thirsty */
                 sequence {
                     condition [IsThirsty]
-                    action [SeekWater] while(IsThirsty)
+                    action [SeekWater]
+                    action [FillWaterskin]
+                    action [Drink]
                 }
                 /* Eat if hungry and have food */
                 sequence {

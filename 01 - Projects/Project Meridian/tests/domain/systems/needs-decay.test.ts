@@ -8,7 +8,7 @@ function makeInput(overrides: Partial<{ state: Partial<NeedsState>; ht: number; 
 		hungerAttribute: overrides.ht ?? 10,
 		energyAttribute: overrides.ht ?? 10,
 		socialAttribute: overrides.chr ?? 10,
-		thirstAttribute: overrides.ht ?? 12,
+		thirstAttribute: overrides.ht ?? 10,
 		modifiers: null,
 	};
 }

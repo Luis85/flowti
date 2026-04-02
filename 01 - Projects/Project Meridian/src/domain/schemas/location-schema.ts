@@ -32,6 +32,8 @@ export const LocationSchema = z.object({
 	color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#808080'),
 	production: ProductionSchema,
 	region: z.string().regex(/^region-[a-z0-9-]+$/).nullable().default(null),
+	fund: z.number().optional(),
+	stock: z.array(z.object({ item_id: z.string(), quantity: z.number() })).optional(),
 });
 
 export type WorldLocation = z.infer<typeof LocationSchema>;

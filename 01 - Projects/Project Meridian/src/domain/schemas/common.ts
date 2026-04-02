@@ -48,6 +48,7 @@ export const InventoryItemSchema = z.object({
 	item_id: z.string(),
 	quantity: z.number().int().min(1),
 	spoilage_remaining: z.number().nullable().default(null),
+	charges: z.number().optional(),
 });
 
 export const EquipmentSchema = z.object({

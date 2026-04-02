@@ -14,6 +14,7 @@ import { findFoodInInventory, FOOD_ITEMS } from '../../domain/systems/food-items
 import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
 import { CircularBuffer } from 'mnemonist';
 import { isPriceStale, type PriceMemory } from '../../domain/systems/price-memory.js';
+import type { EventBus } from '../../domain/core/events.js';
 import type { AgentActor } from './agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 
@@ -29,10 +30,11 @@ export interface BehaviorAgentDeps {
 	getLocationActors: () => Map<string, Actor>;
 	getLocations: () => WorldLocation[];
 	tickCount: () => number;
+	eventBus: EventBus;
 }
 
 export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
-	const { actor, worldEntity, config, getLocationActors, getLocations, tickCount } = deps;
+	const { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus } = deps;
 
 	// Working memory — lives on this object, not in ECS
 	let movementTarget: MovementTarget | null = null;
@@ -359,7 +361,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		Eat(): ActionResult {
 			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
 			if (food === null) return FAILED;
-			agent.btAction = 'eat';
+			btAction = 'eat';
 			return RUNNING;
 		},
 
@@ -383,7 +385,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		Rest(): ActionResult {
-			agent.btAction = 'rest';
+			btAction = 'rest';
 			return RUNNING;
 		},
 
@@ -403,7 +405,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			const inv = actor.get(InventoryComponent);
 			const waterskin = inv.state.items.find(i => i.item_id === 'waterskin');
 			if (waterskin === undefined) return FAILED;
-			const maxCharges = 3;
+			const maxCharges = 3; // Hardcoded until itemRegistry is available in BehaviorAgentDeps
 			const newItems = inv.state.items.map(i => {
 				if (i.item_id !== 'waterskin') return { ...i };
 				return { ...i, charges: maxCharges };
@@ -445,6 +447,22 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			const wallet = actor.get(WalletComponent);
 			wallet.state = { ...wallet.state, gold: wallet.state.gold + price };
 			wallet.markDirty();
+
+			// Emit GoldFlowed for monetary policy tracking
+			eventBus.emit({
+				type: 'GoldFlowed',
+				tick: tickCount(),
+				wallClock: Date.now(),
+				source: 'SellAtMarket',
+				payload: {
+					category: 'transfer' as const,
+					subcategory: 'sale',
+					amount: price,
+					fromEntity: atLocation,
+					toEntity: actor.agentId,
+				},
+			});
+
 			btAction = 'sell';
 			return SUCCEEDED;
 		},
@@ -478,7 +496,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 				f.stock.some(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0),
 			);
 			if (!hasStock) return FAILED;
-			agent.btAction = 'buy';
+			btAction = 'buy';
 			return SUCCEEDED;
 		},
 

@@ -1,21 +1,15 @@
 root [Role] {
     selector {
-        /* Haul goods if carrying cargo */
+        /* Sell food at market if carrying any */
         sequence {
-            condition [HasCargo]
-            condition [CargoDestinationNearby]
-            action [DeliverCargo]
+            condition [AtLocation, "market"]
+            condition [HasFood]
+            action [SellAtMarket]
         }
+        /* Go to market to sell if carrying food */
         sequence {
-            condition [HasCargo]
-            action [SeekDeliveryTarget]
-        }
-
-        /* Pick up food from farm and haul to market */
-        sequence {
-            condition [AtJobFacility]
-            condition [FacilityHasStock, "food"]
-            action [PickupCargo]
+            condition [HasFood]
+            action [SeekMarket]
         }
 
         /* Work at facility */

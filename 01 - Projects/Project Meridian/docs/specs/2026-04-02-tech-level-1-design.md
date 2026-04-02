@@ -6,7 +6,7 @@
 
 ## Overview
 
-Strip the simulation to the minimum viable economic loop: one agent, four locations, two items, three needs. The agent must farm food, haul it to market, sell it for gold, buy food to eat, fill a waterskin for water, and sleep at a house or outdoors. Every resource must be physically moved — no teleportation of goods.
+Strip the simulation to the minimum viable economic loop: one agent, four locations, two items, four needs. The agent must farm food, haul it to market, sell it for gold, buy food to eat, fill a waterskin for water, and sleep at a house or outdoors. Every resource must be physically moved — no teleportation of goods.
 
 This establishes the rock-solid foundation ("tech level 1") before scaling to multiple agents and complex supply chains.
 
