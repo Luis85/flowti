@@ -220,6 +220,20 @@ function processStipends(
 			source: 'DayNightSystem',
 			payload: { agentId: agent.agentId, job, amount: stipendAmount, treasuryRemaining: economy.state.treasury },
 		});
+
+		deps.eventBus.emit({
+			type: 'GoldFlowed',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'DayNightSystem',
+			payload: {
+				category: 'transfer' as const,
+				subcategory: 'stipend',
+				amount: stipendAmount,
+				fromEntity: 'treasury',
+				toEntity: agent.agentId,
+			},
+		});
 	}
 }
 
@@ -268,6 +282,20 @@ function processFacilitySubsidies(
 			source: 'DayNightSystem',
 			payload: { facilityId: loc.id, amount: subsidyAmount, newFund: facility.state.fund, treasuryRemaining: economy.state.treasury },
 		});
+
+		deps.eventBus.emit({
+			type: 'GoldFlowed',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'DayNightSystem',
+			payload: {
+				category: 'transfer' as const,
+				subcategory: 'subsidy',
+				amount: subsidyAmount,
+				fromEntity: 'treasury',
+				toEntity: loc.id,
+			},
+		});
 	}
 }
 
@@ -289,6 +317,20 @@ function processDayBoundary(
 	const treasuryRegen = deps.config.economy.treasury_regen_per_day;
 	economy.state = { ...economy.state, treasury: economy.state.treasury + treasuryRegen };
 	economy.markDirty();
+
+	deps.eventBus.emit({
+		type: 'GoldFlowed',
+		tick: deps.tickCount,
+		wallClock: Date.now(),
+		source: 'DayNightSystem',
+		payload: {
+			category: 'faucet' as const,
+			subcategory: 'treasury_regen',
+			amount: treasuryRegen,
+			fromEntity: null,
+			toEntity: 'treasury',
+		},
+	});
 
 	// 1. Welfare check
 	processWelfare(agentList, economy, deps);
