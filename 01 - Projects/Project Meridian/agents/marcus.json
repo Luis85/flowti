@@ -43,6 +43,6 @@
 	"relationships": "03 - Resources/Graphs/marcus-relationships.canvas",
 	"tools": [],
 	"behavior_tree": "guard",
-	"job": "guard",
+	"job": null,
 	"property": []
 }
