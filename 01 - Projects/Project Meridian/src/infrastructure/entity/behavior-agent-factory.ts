@@ -224,7 +224,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		get priceMemories() { return priceMemories; },
 
-		// ── 21 Condition methods ───────────────────────────────────────────
+		// ── 23 Condition methods ───────────────────────────────────────────
 		IsHungry(): boolean {
 			return agent.hunger < config.needs.hunger_threshold;
 		},
@@ -334,7 +334,15 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return false;
 		},
 
-		// ── 17 Action methods ──────────────────────────────────────────────
+		HasNoJob(): boolean {
+			return actor.job === null;
+		},
+
+		OpenFacilityNearby(): boolean {
+			return agent.nearbyFacilities.some(f => f.workerId === null);
+		},
+
+		// ── 18 Action methods ──────────────────────────────────────────────
 		Eat(): ActionResult {
 			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
 			if (food === null) return FAILED;
@@ -401,6 +409,15 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			movementTarget = { id: cheapestLocation, type: 'location' };
 			if (atLocation === cheapestLocation) return SUCCEEDED;
 			return RUNNING;
+		},
+
+		ClaimJob(): ActionResult {
+			const openFacilities = agent.nearbyFacilities.filter(f => f.workerId === null);
+			if (openFacilities.length === 0) return FAILED;
+			const nearest = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
+			actor.job = nearest.job;
+			btAction = 'claim_job';
+			return SUCCEEDED;
 		},
 
 		/** Available for custom BTs — not used in the default tree set. */
