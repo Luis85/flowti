@@ -12,9 +12,11 @@ import { createAgentSpawner } from '../entity/agent-spawner.js';
 import { createTraitLoader } from '../entity/trait-loader.js';
 import { createLocationLoader } from '../entity/location-loader.js';
 import { createMDSLLoader } from '../entity/bt-loader.js';
+import { createItemLoader } from '../entity/item-loader.js';
 import { validateWorldConsistency } from '../../domain/systems/world-validation.js';
 import { FOOD_ITEMS } from '../../domain/systems/food-items.js';
 import { InventoryComponent } from '../components/inventory-component.js';
+import type { Item } from '../../domain/schemas/item-schema.js';
 
 export interface WorldData {
 	agents: AgentActor[];
@@ -23,6 +25,7 @@ export interface WorldData {
 	regions: WorldRegion[];
 	regionGraph: RegionGraph;
 	btMdslDefinitions: Record<string, string>;
+	items: Map<string, Item>;
 	errors: { step: string; file: string; message: string }[];
 }
 
@@ -51,6 +54,7 @@ const STEPS = [
 	'Loading locations...',
 	'Loading regions...',
 	'Loading behavior trees...',
+	'Loading items...',
 ] as const;
 
 async function loadRegions(
@@ -147,6 +151,14 @@ export function createWorldLoader(
 				}
 			}
 
+			onProgress?.(6, total, STEPS[5]);
+			const itemResult = await createItemLoader(logger).loadFromVault(vault, 'items');
+			collectErrors('items', itemResult.errors, errors);
+			const itemRegistry = new Map<string, Item>();
+			for (const item of itemResult.items) {
+				itemRegistry.set(item.id, item);
+			}
+
 			if (errors.length > 0) {
 				logger.warn('WorldLoader', `${String(errors.length)} error(s) during world load`);
 			}
@@ -187,6 +199,7 @@ export function createWorldLoader(
 				regions: regionResult.items,
 				regionGraph,
 				btMdslDefinitions,
+				items: itemRegistry,
 				errors,
 			};
 		},
