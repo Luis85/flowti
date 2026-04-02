@@ -37,7 +37,7 @@ function createTestAgent(overrides: Record<string, unknown> = {}) {
 		id: 'agent-test', name: 'Test', kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 30, energy: 90, social: 70 },
+		needs: { hunger: 30, energy: 90, social: 70, thirst: 80 },
 		mood: 0, memory: [], goals: [], skills: [], inventory: [],
 		equipment: { head: null, body: null, hands: null, tool: null, accessory: null },
 		traits: [], wallet: { gold: 50 }, xp: 0, level: 1,
@@ -158,7 +158,7 @@ describe('Agency Integration', () => {
 
 		const agent = new AgentActor(
 			createTestAgent({
-				needs: { hunger: 30, energy: 90, social: 70 },
+				needs: { hunger: 30, energy: 90, social: 70, thirst: 80 },
 				position: { x: 3, y: 0, region: 'test' },
 			}),
 			defaultMoodConfig,

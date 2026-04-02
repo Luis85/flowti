@@ -39,7 +39,7 @@ function createTestAgentData(id: string, overrides: Record<string, unknown> = {}
 		kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 80, energy: 90, social: 70 },
+		needs: { hunger: 80, energy: 90, social: 70, thirst: 80 },
 		mood: 0,
 		memory: [],
 		goals: [],
@@ -126,22 +126,22 @@ describe('BehaviorAgent factory', () => {
 	// ── Read-only getter proxies ───────────────────────────────────────────
 	describe('getter proxies', () => {
 		it('reads hunger from NeedsComponent', () => {
-			const actor = new AgentActor(createTestAgentData('a1', { needs: { hunger: 42, energy: 90, social: 70 } }), defaultMoodConfig);
-			actor.get(NeedsComponent).state = { hunger: 42, energy: 90, social: 70 };
+			const actor = new AgentActor(createTestAgentData('a1', { needs: { hunger: 42, energy: 90, social: 70, thirst: 80 } }), defaultMoodConfig);
+			actor.get(NeedsComponent).state = { hunger: 42, energy: 90, social: 70, thirst: 80 };
 			const agent = createBehaviorAgent(setupDeps(actor, { config }));
 			expect(agent.hunger).toBe(42);
 		});
 
 		it('reads energy from NeedsComponent', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			actor.get(NeedsComponent).state = { hunger: 80, energy: 55, social: 70 };
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 55, social: 70, thirst: 80 };
 			const agent = createBehaviorAgent(setupDeps(actor));
 			expect(agent.energy).toBe(55);
 		});
 
 		it('reads social from NeedsComponent', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 33 };
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 33, thirst: 80 };
 			const agent = createBehaviorAgent(setupDeps(actor));
 			expect(agent.social).toBe(33);
 		});
@@ -333,14 +333,14 @@ describe('BehaviorAgent factory', () => {
 		describe('IsHungry', () => {
 			it('returns true when hunger < 50', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 30, energy: 90, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 30, energy: 90, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.IsHungry()).toBe(true);
 			});
 
 			it('returns false when hunger >= 50', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 50, energy: 90, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 50, energy: 90, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.IsHungry()).toBe(false);
 			});
@@ -349,14 +349,14 @@ describe('BehaviorAgent factory', () => {
 		describe('IsExhausted', () => {
 			it('returns true when energy < 30', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 20, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 20, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.IsExhausted()).toBe(true);
 			});
 
 			it('returns false when energy >= 30', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.IsExhausted()).toBe(false);
 			});
@@ -365,14 +365,14 @@ describe('BehaviorAgent factory', () => {
 		describe('IsLonely', () => {
 			it('returns true when social < 40', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 25 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 25, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.IsLonely()).toBe(true);
 			});
 
 			it('returns false when social >= 40', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 40 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 40, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.IsLonely()).toBe(false);
 			});
@@ -751,7 +751,7 @@ describe('BehaviorAgent factory', () => {
 			it('sets btAction to eat and returns running when food available', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
-						needs: { hunger: 40, energy: 90, social: 70 },
+						needs: { hunger: 40, energy: 90, social: 70, thirst: 80 },
 						inventory: [{ item_id: 'bread', quantity: 2 }],
 					}),
 					defaultMoodConfig,
@@ -766,12 +766,12 @@ describe('BehaviorAgent factory', () => {
 			it('does not modify hunger or inventory (system handles that)', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
-						needs: { hunger: 40, energy: 90, social: 70 },
+						needs: { hunger: 40, energy: 90, social: 70, thirst: 80 },
 						inventory: [{ item_id: 'bread', quantity: 2 }],
 					}),
 					defaultMoodConfig,
 				);
-				actor.get(NeedsComponent).state = { hunger: 40, energy: 90, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 40, energy: 90, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor, { config }));
 
 				agent.Eat();
@@ -792,10 +792,10 @@ describe('BehaviorAgent factory', () => {
 		describe('Rest', () => {
 			it('sets btAction to rest and returns running', () => {
 				const actor = new AgentActor(
-					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70 } }),
+					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70, thirst: 80 } }),
 					defaultMoodConfig,
 				);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor, { config }));
 
 				const result = agent.Rest();
@@ -805,10 +805,10 @@ describe('BehaviorAgent factory', () => {
 
 			it('does not modify energy (system handles that)', () => {
 				const actor = new AgentActor(
-					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70 } }),
+					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70, thirst: 80 } }),
 					defaultMoodConfig,
 				);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor, { config }));
 
 				agent.Rest();

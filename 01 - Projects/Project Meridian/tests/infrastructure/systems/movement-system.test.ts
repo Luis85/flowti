@@ -23,7 +23,7 @@ function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string,
 		kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 80, energy: 90, social: 70 },
+		needs: { hunger: 80, energy: 90, social: 70, thirst: 80 },
 		mood: 0,
 		memory: [],
 		goals: [],
@@ -63,7 +63,7 @@ function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 
 function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
 	return {
-		hunger: 80, energy: 90, social: 70, gold: 50, mood: 0, moodBucket: 'stressed',
+		hunger: 80, energy: 90, social: 70, thirst: 80, gold: 50, mood: 0, moodBucket: 'stressed',
 		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
 		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
 		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
@@ -188,7 +188,7 @@ describe('MovementSystem', () => {
 	});
 
 	it('moving agent loses energy each tick', () => {
-		const agent = createAgentWithBa('agent-1', 0, 0, { needs: { hunger: 80, energy: 90, social: 70 } }, {
+		const agent = createAgentWithBa('agent-1', 0, 0, { needs: { hunger: 80, energy: 90, social: 70, thirst: 80 } }, {
 			movementTarget: { id: 'loc-food-1', type: 'location' },
 		});
 
@@ -204,7 +204,7 @@ describe('MovementSystem', () => {
 
 	it('exhausted agent moves at half speed', () => {
 		// energy < 15 (NEED_CRITICAL_THRESHOLDS.energy) -> exhaustion_speed_modifier = 0.5
-		const agent = createAgentWithBa('agent-1', 0, 0, { needs: { hunger: 80, energy: 10, social: 70 } }, {
+		const agent = createAgentWithBa('agent-1', 0, 0, { needs: { hunger: 80, energy: 10, social: 70, thirst: 80 } }, {
 			movementTarget: { id: 'loc-food-1', type: 'location' },
 		});
 
@@ -277,7 +277,7 @@ describe('MovementSystem', () => {
 		eventBus.on('AgentExhausted', (e) => { events.push(e); });
 
 		// Start with very low energy that will cross 0 (drain = speed 2.5 * cost 0.02 = 0.05)
-		const agent = createAgentWithBa('agent-1', 0, 0, { needs: { hunger: 80, energy: 0.01, social: 70 } }, {
+		const agent = createAgentWithBa('agent-1', 0, 0, { needs: { hunger: 80, energy: 0.01, social: 70, thirst: 80 } }, {
 			movementTarget: { id: 'loc-food-1', type: 'location' },
 		});
 

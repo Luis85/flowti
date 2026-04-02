@@ -6,14 +6,14 @@ import { TrackedComponent } from '../../../src/infrastructure/components/tracked
 
 describe('NeedsComponent', () => {
 	it('holds NeedsState and is dirty on creation', () => {
-		const comp = new NeedsComponent({ hunger: 80, energy: 90, social: 70 });
+		const comp = new NeedsComponent({ hunger: 80, energy: 90, social: 70, thirst: 80 });
 		expect(comp.state.hunger).toBe(80);
 		expect(comp.dirty).toBe(true);
 		expect(comp).toBeInstanceOf(TrackedComponent);
 	});
 
 	it('supports state mutation with dirty tracking', () => {
-		const comp = new NeedsComponent({ hunger: 80, energy: 90, social: 70 });
+		const comp = new NeedsComponent({ hunger: 80, energy: 90, social: 70, thirst: 80 });
 		comp.clearDirty();
 		comp.state.hunger -= 10;
 		comp.markDirty();

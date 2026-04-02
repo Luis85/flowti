@@ -24,7 +24,7 @@ function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string,
 		kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 50, energy: 50, social: 50 },
+		needs: { hunger: 50, energy: 50, social: 50, thirst: 50 },
 		mood: 0,
 		memory: [],
 		goals: [],
@@ -60,7 +60,7 @@ function createDeps(eventBus = createEventBus(), tickCount = 100): GameCoreDeps 
 
 function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
 	return {
-		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		hunger: 50, energy: 50, social: 50, thirst: 50, gold: 50, mood: 0, moodBucket: 'stressed',
 		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
 		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
 		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
@@ -92,11 +92,11 @@ function setupPair(
 	const { agent1Social = 50, agent2Social = 50, distance = 10, btAction1 = 'talk', btAction2 = 'talk' } = opts;
 
 	const agent1 = new AgentActor(
-		createTestAgentData('agent-elena', 100, 100, { name: 'Elena', needs: { hunger: 50, energy: 50, social: agent1Social } }),
+		createTestAgentData('agent-elena', 100, 100, { name: 'Elena', needs: { hunger: 50, energy: 50, social: agent1Social, thirst: 50 } }),
 		defaultMoodConfig,
 	);
 	const agent2 = new AgentActor(
-		createTestAgentData('agent-marcus', 110, 100, { name: 'Marcus', needs: { hunger: 50, energy: 50, social: agent2Social } }),
+		createTestAgentData('agent-marcus', 110, 100, { name: 'Marcus', needs: { hunger: 50, energy: 50, social: agent2Social, thirst: 50 } }),
 		defaultMoodConfig,
 	);
 

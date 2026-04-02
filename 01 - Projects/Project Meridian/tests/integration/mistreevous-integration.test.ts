@@ -82,7 +82,7 @@ describe('mistreevous BT integration', () => {
 		const mdsl = loadMdsl('merchant');
 
 		// Create Elena with low hunger so BT triggers survival behavior
-		const elenaData = createElenaData({ needs: { hunger: 20, energy: 80, social: 80 } });
+		const elenaData = createElenaData({ needs: { hunger: 20, energy: 80, social: 80, thirst: 80 } });
 		const actor = new AgentActor(elenaData, defaultMoodConfig);
 
 		const worldEntity = new Actor();
@@ -165,7 +165,7 @@ describe('mistreevous BT integration', () => {
 
 		// Elena with low hunger + has bread → Eat action should fire
 		const elenaData = createElenaData({
-			needs: { hunger: 20, energy: 80, social: 80 },
+			needs: { hunger: 20, energy: 80, social: 80, thirst: 80 },
 			inventory: [{ item_id: 'bread', quantity: 5 }],
 		});
 		const actor = new AgentActor(elenaData, defaultMoodConfig);

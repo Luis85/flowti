@@ -39,7 +39,7 @@ function createTestAgent(traits: string[]) {
 		kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 80, energy: 90, social: 70 },
+		needs: { hunger: 80, energy: 90, social: 70, thirst: 80 },
 		mood: 0,
 		memory: [] as never[],
 		goals: [] as never[],
@@ -67,7 +67,7 @@ const defaultMoodConfig = {
 
 function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
 	return {
-		hunger: 80, energy: 90, social: 70, gold: 50, mood: 0, moodBucket: 'stressed',
+		hunger: 80, energy: 90, social: 70, thirst: 80, gold: 50, mood: 0, moodBucket: 'stressed',
 		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
 		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
 		movementTarget: null, journey: null, atLocation: null, currentRegion: '',

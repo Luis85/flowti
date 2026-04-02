@@ -102,7 +102,7 @@ function createTestAgentData(id: string, overrides: Record<string, unknown> = {}
 		id, name: id, kind: 'villager',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 50, energy: 50, social: 50 },
+		needs: { hunger: 50, energy: 50, social: 50, thirst: 50 },
 		mood: 0, memory: [], goals: [], skills: [], inventory: [],
 		equipment: { head: null, body: null, hands: null, tool: null, accessory: null },
 		traits: [], wallet: { gold: 100 }, xp: 0, level: 1,
@@ -124,8 +124,8 @@ describe('DayNightSystem — economy liveness', () => {
 	it('emits EconomyCollapsed when all agents have hunger 0 at day boundary', () => {
 		const config = GameConfigSchema.parse({});
 		const worldEntity = createWorldWithEconomy();
-		const agent1 = new AgentActor(createTestAgentData('a1', { needs: { hunger: 0, energy: 50, social: 50 } }), defaultMoodConfig);
-		const agent2 = new AgentActor(createTestAgentData('a2', { needs: { hunger: 0, energy: 50, social: 50 } }), defaultMoodConfig);
+		const agent1 = new AgentActor(createTestAgentData('a1', { needs: { hunger: 0, energy: 50, social: 50, thirst: 50 } }), defaultMoodConfig);
+		const agent2 = new AgentActor(createTestAgentData('a2', { needs: { hunger: 0, energy: 50, social: 50, thirst: 50 } }), defaultMoodConfig);
 
 		// Verify hunger is actually 0 on both agents
 		expect(agent1.get(NeedsComponent).state.hunger).toBe(0);
@@ -183,8 +183,8 @@ describe('DayNightSystem — economy liveness', () => {
 	it('does not emit EconomyCollapsed when some agents have hunger above 0', () => {
 		const config = GameConfigSchema.parse({});
 		const worldEntity = createWorldWithEconomy();
-		const starving = new AgentActor(createTestAgentData('a1', { needs: { hunger: 0, energy: 50, social: 50 } }), defaultMoodConfig);
-		const healthy = new AgentActor(createTestAgentData('a2', { needs: { hunger: 50, energy: 50, social: 50 } }), defaultMoodConfig);
+		const starving = new AgentActor(createTestAgentData('a1', { needs: { hunger: 0, energy: 50, social: 50, thirst: 50 } }), defaultMoodConfig);
+		const healthy = new AgentActor(createTestAgentData('a2', { needs: { hunger: 50, energy: 50, social: 50, thirst: 50 } }), defaultMoodConfig);
 
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];

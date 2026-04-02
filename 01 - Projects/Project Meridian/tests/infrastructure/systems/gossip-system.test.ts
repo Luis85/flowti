@@ -25,7 +25,7 @@ function createTestAgentData(id: string, overrides: Record<string, unknown> = {}
 		kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 50, energy: 50, social: 50 },
+		needs: { hunger: 50, energy: 50, social: 50, thirst: 50 },
 		mood: 0,
 		memory: [],
 		goals: [],
@@ -116,7 +116,7 @@ function makeGossipMemory(gossipType: string, extraMeta: Record<string, unknown>
 
 function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
 	return {
-		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		hunger: 50, energy: 50, social: 50, thirst: 50, gold: 50, mood: 0, moodBucket: 'stressed',
 		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
 		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
 		movementTarget: null, journey: null, atLocation: null, currentRegion: '',

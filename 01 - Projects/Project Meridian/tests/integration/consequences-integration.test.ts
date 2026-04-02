@@ -43,7 +43,7 @@ function createTestAgent(id: string, x: number, y: number, overrides: Record<str
 		id, name: id, kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 50, energy: 50, social: 50 },
+		needs: { hunger: 50, energy: 50, social: 50, thirst: 50 },
 		mood: 0, memory: [], goals: [], skills: [], inventory: [],
 		equipment: { head: null, body: null, hands: null, tool: null, accessory: null },
 		traits: [], wallet: { gold: 50 }, xp: 0, level: 1,
@@ -79,7 +79,7 @@ describe('Consequence Systems — Integration', () => {
 		const eventBus = createEventBus();
 
 		const agentData = createTestAgent('agent-hungry', 100, 100, {
-			needs: { hunger: 50, energy: 80, social: 80 },
+			needs: { hunger: 50, energy: 80, social: 80, thirst: 80 },
 			inventory: [{ item_id: 'bread', quantity: 5 }],
 		});
 		const actor = new AgentActor(agentData, defaultMoodConfig);
@@ -122,7 +122,7 @@ describe('Consequence Systems — Integration', () => {
 	it('agent rests at tavern — energy recovers, RestStarted emitted', () => {
 		const eventBus = createEventBus();
 
-		const agentData = createTestAgent('agent-tired', 200, 200, { needs: { hunger: 80, energy: 50, social: 80 } });
+		const agentData = createTestAgent('agent-tired', 200, 200, { needs: { hunger: 80, energy: 50, social: 80, thirst: 80 } });
 		const actor = new AgentActor(agentData, defaultMoodConfig);
 		attachBehaviorStubs(actor, { btAction: 'idle' });
 
@@ -171,8 +171,8 @@ describe('Consequence Systems — Integration', () => {
 		const eventBus = createEventBus();
 
 		// Place two agents near each other (within interaction radius 25)
-		const agent1Data = createTestAgent('agent-social-a', 100, 100, { needs: { hunger: 80, energy: 80, social: 30 } });
-		const agent2Data = createTestAgent('agent-social-b', 110, 100, { needs: { hunger: 80, energy: 80, social: 30 } });
+		const agent1Data = createTestAgent('agent-social-a', 100, 100, { needs: { hunger: 80, energy: 80, social: 30, thirst: 80 } });
+		const agent2Data = createTestAgent('agent-social-b', 110, 100, { needs: { hunger: 80, energy: 80, social: 30, thirst: 80 } });
 
 		const actor1 = new AgentActor(agent1Data, defaultMoodConfig);
 		attachBehaviorStubs(actor1, { btAction: 'talk' });

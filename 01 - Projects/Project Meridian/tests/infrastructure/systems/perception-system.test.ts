@@ -23,7 +23,7 @@ function createTestAgentData(overrides: Record<string, unknown> = {}) {
 		kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 80, energy: 90, social: 70 },
+		needs: { hunger: 80, energy: 90, social: 70, thirst: 80 },
 		mood: 0,
 		memory: [],
 		goals: [],

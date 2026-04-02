@@ -23,7 +23,7 @@ function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string,
 		id, name: id, kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 50, energy: 50, social: 50 },
+		needs: { hunger: 50, energy: 50, social: 50, thirst: 50 },
 		mood: 0, memory: [], goals: [], skills: [], inventory: [],
 		equipment: { head: null, body: null, hands: null, tool: null, accessory: null },
 		traits: [], wallet: { gold: 50 }, xp: 0, level: 1,
@@ -36,7 +36,7 @@ function createTestAgentData(id: string, x = 0, y = 0, overrides: Record<string,
 
 function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): BehaviorAgent {
 	return {
-		hunger: 50, energy: 50, social: 50, gold: 50, mood: 0, moodBucket: 'stressed',
+		hunger: 50, energy: 50, social: 50, thirst: 50, gold: 50, mood: 0, moodBucket: 'stressed',
 		timePhase: 'day', job: null, position: { x: 0, y: 0 }, inventory: [],
 		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
 		movementTarget: null, journey: null, atLocation: null, currentRegion: '',

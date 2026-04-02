@@ -12,7 +12,7 @@ const validAgent = {
 	kind: 'merchant',
 	attributes: { ST: 10, DX: 12, IQ: 14, HT: 11 },
 	social: { status: 2, reputation: 1, charisma: 14 },
-	needs: { hunger: 80, energy: 90, social: 70 },
+	needs: { hunger: 80, energy: 90, social: 70, thirst: 80 },
 	mood: 0,
 	memory: [],
 	goals: [],

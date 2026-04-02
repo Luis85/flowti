@@ -13,7 +13,7 @@ function createTestAgent(overrides: Record<string, unknown> = {}) {
 		id: 'agent-test', name: 'Test', kind: 'merchant',
 		attributes: { ST: 10, DX: 10, IQ: 10, HT: 10 },
 		social: { status: 0, reputation: 0, charisma: 10 },
-		needs: { hunger: 80, energy: 90, social: 70 },
+		needs: { hunger: 80, energy: 90, social: 70, thirst: 80 },
 		mood: 0, memory: [], goals: [], skills: [], inventory: [],
 		equipment: { head: null, body: null, hands: null, tool: null, accessory: null },
 		traits: [], wallet: { gold: 50 }, xp: 0, level: 1,
@@ -84,7 +84,7 @@ describe('MoodSystem', () => {
 
 		// Agent with zero needs → mood should be very low
 		const agent = new AgentActor(
-			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0 } }),
+			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0, thirst: 0 } }),
 			defaultMoodConfig,
 		);
 		// Force previous bucket to something other than breakdown
@@ -102,7 +102,7 @@ describe('MoodSystem', () => {
 		eventBus.on('MoodBreakdown', (e) => { breakdowns.push(e); });
 
 		const agent = new AgentActor(
-			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0 } }),
+			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0, thirst: 0 } }),
 			defaultMoodConfig,
 		);
 		// Agent is already in breakdown — no transition should occur
@@ -112,5 +112,24 @@ describe('MoodSystem', () => {
 		system.execute(createDeps(eventBus));
 
 		expect(breakdowns).toHaveLength(0);
+	});
+
+	it('thirst is included in needsSatisfaction — low-thirst agent gets lower mood than high-thirst agent', () => {
+		const highThirst = new AgentActor(
+			createTestAgent({ needs: { hunger: 80, energy: 80, social: 80, thirst: 80 } }),
+			defaultMoodConfig,
+		);
+		const lowThirst = new AgentActor(
+			createTestAgent({ needs: { hunger: 80, energy: 80, social: 80, thirst: 10 } }),
+			defaultMoodConfig,
+		);
+
+		const system = createMoodSystem(() => [highThirst, lowThirst]);
+		system.execute(createDeps());
+
+		const highMood = highThirst.get(MoodComponent).state.value;
+		const lowMood = lowThirst.get(MoodComponent).state.value;
+
+		expect(highMood).toBeGreaterThan(lowMood);
 	});
 });

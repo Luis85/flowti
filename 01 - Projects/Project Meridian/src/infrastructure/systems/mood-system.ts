@@ -6,8 +6,8 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 
-/** 3 needs × 100 max each = 300 */
-const NEEDS_SUM_MAX = 300;
+/** 4 needs x 100 max each = 400 */
+const NEEDS_SUM_MAX = 400;
 
 export function createMoodSystem(
 	entities: () => AgentActor[],
@@ -31,7 +31,7 @@ export function createMoodSystem(
 				const negativeCount = recentEntries.filter(e => e.outcome === 'negative').length;
 
 				const factors: MoodFactors = {
-					needsSatisfaction: (needs.state.hunger + needs.state.energy + needs.state.social) / NEEDS_SUM_MAX,
+					needsSatisfaction: (needs.state.hunger + needs.state.energy + needs.state.social + needs.state.thirst) / NEEDS_SUM_MAX,
 					positiveMemories: Math.min(positiveCount / memorySaturationCount, 1.0),
 					negativeMemories: Math.min(negativeCount / memorySaturationCount, 1.0),
 					goalProgress: 0,
