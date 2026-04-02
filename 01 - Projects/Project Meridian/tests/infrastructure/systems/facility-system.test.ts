@@ -102,6 +102,7 @@ function createFarmLocation(): WorldLocation {
 			input: null,
 			wage: 5,
 			ticks_per_cycle: 30,
+			funding: 'facility' as const,
 		},
 	};
 }
@@ -120,6 +121,7 @@ function createBakeryLocation(): WorldLocation {
 			input: { item_id: 'wheat', quantity: 1 },
 			wage: 5,
 			ticks_per_cycle: 30,
+			funding: 'facility' as const,
 		},
 	};
 }

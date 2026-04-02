@@ -16,6 +16,8 @@ function baseInput(overrides: Partial<FacilityTickInput> = {}): FacilityTickInpu
 		workerGold: 10,
 		autoProcess: false,
 		autoTicksPerCycle: 10,
+		funding: 'facility' as const,
+		treasuryFund: 0,
 		...overrides,
 	};
 }
@@ -145,5 +147,26 @@ describe('applyFacilityTick — auto-process', () => {
 		expect(result.status).toBe('producing');
 		expect(result.cycleComplete).toBe(true);
 		expect(result.workerGoldChange).toBeCloseTo(2.85);
+	});
+});
+
+describe('treasury-funded facility', () => {
+	it('pays full wage from treasury with no tax', () => {
+		const result = applyFacilityTick(baseInput({
+			workProgress: 4, funding: 'treasury', facilityFund: 0, treasuryFund: 500,
+		}));
+		expect(result.cycleComplete).toBe(true);
+		expect(result.workerGoldChange).toBe(3); // full wage (baseInput wage=3), no tax
+		expect(result.facilityFundChange).toBe(0);
+		expect(result.treasuryChange).toBe(-3);
+		expect(result.taxCollected).toBe(0);
+	});
+
+	it('pays partial wage when treasury is low', () => {
+		const result = applyFacilityTick(baseInput({
+			workProgress: 4, funding: 'treasury', facilityFund: 0, treasuryFund: 1,
+		}));
+		expect(result.workerGoldChange).toBe(1);
+		expect(result.treasuryChange).toBe(-1);
 	});
 });

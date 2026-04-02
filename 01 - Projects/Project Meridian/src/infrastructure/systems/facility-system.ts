@@ -86,6 +86,27 @@ function recordCycleComplete(
 	workerWallet.state = { ...workerWallet.state, gold: workerWallet.state.gold + result.workerGoldChange };
 	workerWallet.markDirty();
 
+	// Debit treasury for treasury-funded wages
+	if (result.treasuryChange !== 0) {
+		economy.state = {
+			...economy.state,
+			treasury: economy.state.treasury + result.treasuryChange,
+		};
+		deps.eventBus.emit({
+			type: 'GoldFlowed',
+			tick: deps.tickCount,
+			wallClock: Date.now(),
+			source: 'FacilitySystem',
+			payload: {
+				category: 'transfer' as const,
+				subcategory: 'public_wage',
+				amount: -result.treasuryChange,
+				fromEntity: 'treasury',
+				toEntity: worker.agentId,
+			},
+		});
+	}
+
 	deps.eventBus.emit({
 		type: 'GoldFlowed',
 		tick: deps.tickCount,
@@ -184,8 +205,8 @@ function recordCycleComplete(
 		});
 	}
 
-	// Insolvency check
-	if (facility.state.fund <= 0) {
+	// Insolvency check (treasury-funded facilities always have fund=0 by design — skip)
+	if (facility.state.fund <= 0 && loc.production?.funding !== 'treasury') {
 		const production = loc.production;
 		deps.eventBus.emit({
 			type: 'FacilityInsolvent',
@@ -286,6 +307,8 @@ function processFacilityTick(
 		workerGold: worker !== undefined ? worker.get(WalletComponent).state.gold : 0,
 		autoProcess: production.auto_process,
 		autoTicksPerCycle: production.auto_ticks_per_cycle ?? production.ticks_per_cycle,
+		funding: loc.production!.funding ?? 'facility',
+		treasuryFund: economy.state.treasury,
 	});
 
 	const newStock = applyStockChanges(facility.state.stock, result, production);

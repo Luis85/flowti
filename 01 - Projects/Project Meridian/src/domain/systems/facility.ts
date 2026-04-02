@@ -11,6 +11,8 @@ export interface FacilityTickInput {
 	workerGold: number;
 	autoProcess: boolean;
 	autoTicksPerCycle: number;
+	funding: 'facility' | 'treasury';
+	treasuryFund: number;
 }
 
 export interface FacilityTickResult {
@@ -19,6 +21,7 @@ export interface FacilityTickResult {
 	cycleComplete: boolean;
 	workerGoldChange: number;
 	facilityFundChange: number;
+	treasuryChange: number;
 	taxCollected: number;
 	consumeInput: boolean;
 	produceOutput: boolean;
@@ -31,6 +34,7 @@ const IDLE_RESULT: Omit<FacilityTickResult, 'idleReason'> = {
 	cycleComplete: false,
 	workerGoldChange: 0,
 	facilityFundChange: 0,
+	treasuryChange: 0,
 	taxCollected: 0,
 	consumeInput: false,
 	produceOutput: false,
@@ -50,6 +54,7 @@ export function applyFacilityTick(input: FacilityTickInput): FacilityTickResult 
 					cycleComplete: true,
 					workerGoldChange: 0,
 					facilityFundChange: 0,
+					treasuryChange: 0,
 					taxCollected: 0,
 					consumeInput: true,
 					produceOutput: true,
@@ -62,6 +67,7 @@ export function applyFacilityTick(input: FacilityTickInput): FacilityTickResult 
 				cycleComplete: false,
 				workerGoldChange: 0,
 				facilityFundChange: 0,
+				treasuryChange: 0,
 				taxCollected: 0,
 				consumeInput: false,
 				produceOutput: false,
@@ -75,6 +81,21 @@ export function applyFacilityTick(input: FacilityTickInput): FacilityTickResult 
 	}
 	const nextProgress = input.workProgress + 1;
 	if (nextProgress >= input.ticksPerCycle) {
+		if (input.funding === 'treasury') {
+			const actualWage = Math.min(input.wage, input.treasuryFund);
+			return {
+				newWorkProgress: 0,
+				status: 'producing',
+				cycleComplete: true,
+				workerGoldChange: actualWage,
+				facilityFundChange: 0,
+				treasuryChange: -actualWage,
+				taxCollected: 0,
+				consumeInput: true,
+				produceOutput: true,
+				idleReason: null,
+			};
+		}
 		const actualWage = Math.min(input.wage, input.facilityFund);
 		const tax = actualWage * input.taxRate;
 		const netWage = actualWage - tax;
@@ -84,6 +105,7 @@ export function applyFacilityTick(input: FacilityTickInput): FacilityTickResult 
 			cycleComplete: true,
 			workerGoldChange: netWage,
 			facilityFundChange: actualWage === 0 ? 0 : -actualWage,
+			treasuryChange: 0,
 			taxCollected: tax,
 			consumeInput: true,
 			produceOutput: true,
@@ -96,6 +118,7 @@ export function applyFacilityTick(input: FacilityTickInput): FacilityTickResult 
 		cycleComplete: false,
 		workerGoldChange: 0,
 		facilityFundChange: 0,
+		treasuryChange: 0,
 		taxCollected: 0,
 		consumeInput: false,
 		produceOutput: false,
