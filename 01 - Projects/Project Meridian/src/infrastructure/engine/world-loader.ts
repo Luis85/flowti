@@ -152,7 +152,7 @@ export function createWorldLoader(
 			}
 
 			onProgress?.(6, total, STEPS[5]);
-			const itemResult = await createItemLoader(logger).loadFromVault(vault, 'items');
+			const itemResult = await createItemLoader(logger).loadFromVault(vault, '03 - Resources/Items');
 			collectErrors('items', itemResult.errors, errors);
 			const itemRegistry = new Map<string, Item>();
 			for (const item of itemResult.items) {
