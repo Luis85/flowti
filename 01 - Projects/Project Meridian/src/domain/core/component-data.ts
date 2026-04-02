@@ -56,6 +56,7 @@ export interface FacilityState {
 	workProgress: number;
 	status: 'idle' | 'producing' | 'auto';
 	workerId: string | null;
+	currentPrices?: Record<string, number>;
 }
 
 export interface RelationshipEntry {
