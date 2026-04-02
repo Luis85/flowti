@@ -1,6 +1,10 @@
-import type { MonetarySnapshot } from '../systems/monetary-policy.js';
-
-export type { MonetarySnapshot };
+export interface MonetarySnapshot {
+	moneySupply: number;
+	velocity: number;
+	faucetRate: number;
+	sinkRate: number;
+	netFlow: number;
+}
 
 export interface NeedsState {
 	hunger: number;

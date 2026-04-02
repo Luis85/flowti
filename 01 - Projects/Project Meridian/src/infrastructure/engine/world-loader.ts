@@ -162,7 +162,7 @@ export function createWorldLoader(
 			if (errors.length > 0) {
 				logger.warn('WorldLoader', `${String(errors.length)} error(s) during world load`);
 			}
-			logger.info('WorldLoader', `World loaded: ${String(traitResult.items.length)} traits, ${String(spawnResult.agents.length)} agents, ${String(locationResult.items.length)} locations, ${String(regionResult.items.length)} regions, ${String(Object.keys(btMdslDefinitions).length)} BTs`);
+			logger.info('WorldLoader', `World loaded: ${String(traitResult.items.length)} traits, ${String(spawnResult.agents.length)} agents, ${String(locationResult.items.length)} locations, ${String(regionResult.items.length)} regions, ${String(Object.keys(btMdslDefinitions).length)} BTs, ${String(itemRegistry.size)} items`);
 
 			// Startup consistency validation
 			const validationWarnings = validateWorldConsistency({

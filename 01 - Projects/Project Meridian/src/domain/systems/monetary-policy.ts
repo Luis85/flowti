@@ -1,16 +1,10 @@
-import type { GoldFlow } from '../core/component-data.js';
+import type { GoldFlow, MonetarySnapshot } from '../core/component-data.js';
+
+export type { MonetarySnapshot };
 
 export interface MonetaryLedger {
 	flows: GoldFlow[];
 	windowSize: number;
-}
-
-export interface MonetarySnapshot {
-	moneySupply: number;
-	velocity: number;
-	faucetRate: number;
-	sinkRate: number;
-	netFlow: number;
 }
 
 export function createMonetaryLedger(windowSize: number): MonetaryLedger {

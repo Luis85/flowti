@@ -13,7 +13,7 @@ import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { findFoodInInventory, FOOD_ITEMS } from '../../domain/systems/food-items.js';
 import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
 import { CircularBuffer } from 'mnemonist';
-import { isPriceStale, getBestKnownSource, getRememberedPrice, type PriceMemory } from '../../domain/systems/price-memory.js';
+import { isPriceStale, type PriceMemory } from '../../domain/systems/price-memory.js';
 import type { AgentActor } from './agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 
@@ -381,13 +381,13 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			let cheapestLocation: string | null = null;
 			let cheapestPrice = Infinity;
 
-			for (const foodId of FOOD_ITEMS) {
-				const loc = getBestKnownSource(priceMemories, foodId, tick, staleTicks);
-				if (loc === null) continue;
-				const mem = getRememberedPrice(priceMemories, foodId, tick, staleTicks);
-				if (mem !== null && mem.price < cheapestPrice) {
+			// Single pass over memories — find cheapest non-stale food price across all items
+			for (const mem of priceMemories) {
+				if (!FOOD_ITEMS.has(mem.itemId)) continue;
+				if (isPriceStale(mem, tick, staleTicks)) continue;
+				if (mem.price < cheapestPrice) {
 					cheapestPrice = mem.price;
-					cheapestLocation = loc;
+					cheapestLocation = mem.locationId;
 				}
 			}
 

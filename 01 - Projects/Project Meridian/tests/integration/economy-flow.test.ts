@@ -131,4 +131,30 @@ describe('Monetary policy domain flow', () => {
 		);
 		expect(taxRate).toBeCloseTo(0.05);
 	});
+
+	it('effective tax rate adjusts across velocity regimes', () => {
+		const baseTax = 0.10;
+		const thresholds = { stagnant: 0.2, overheated: 1.5 };
+		const multipliers = { stagnant: 0.5, overheated: 1.5 };
+
+		// Stagnant economy → lower tax to encourage spending
+		const stagnantRate = getEffectiveTaxRate(baseTax, 0.1, thresholds, multipliers);
+		expect(stagnantRate).toBeCloseTo(0.05);
+
+		// Normal economy → base tax rate unchanged
+		const normalRate = getEffectiveTaxRate(baseTax, 0.5, thresholds, multipliers);
+		expect(normalRate).toBeCloseTo(0.10);
+
+		// Overheated economy → higher tax to cool spending
+		const overheatedRate = getEffectiveTaxRate(baseTax, 2.0, thresholds, multipliers);
+		expect(overheatedRate).toBeCloseTo(0.15);
+
+		// Boundary: exactly at stagnant threshold → normal rate
+		const atStagnant = getEffectiveTaxRate(baseTax, 0.2, thresholds, multipliers);
+		expect(atStagnant).toBeCloseTo(0.10);
+
+		// Boundary: exactly at overheated threshold → normal rate
+		const atOverheated = getEffectiveTaxRate(baseTax, 1.5, thresholds, multipliers);
+		expect(atOverheated).toBeCloseTo(0.10);
+	});
 });

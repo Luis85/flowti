@@ -94,7 +94,7 @@ function recordCycleComplete(
 		payload: {
 			category: 'transfer' as const,
 			subcategory: 'wage',
-			amount: result.workerGoldChange,
+			amount: result.workerGoldChange, // net wage after tax
 			fromEntity: loc.id,
 			toEntity: worker.agentId,
 		},
