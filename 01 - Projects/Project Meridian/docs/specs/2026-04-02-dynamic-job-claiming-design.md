@@ -1,6 +1,6 @@
 # Dynamic Job Claiming — Design Spec
 
-> Date: 2026-04-02 | Status: Approved
+> Date: 2026-04-02 | Status: Implemented
 
 ---
 

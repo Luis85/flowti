@@ -262,7 +262,7 @@ domain/
     ├── mood.ts                   — Mood calculation + external modifiers
     ├── memory-decay.ts           — Decay significance, pruning, min lifespan
     ├── perception.ts             — SparseHashGrid spatial queries → BehaviorAgent
-    ├── behavior-agent.ts         — Typed BehaviorAgent (21 conditions, 17 actions, replaces blackboard)
+    ├── behavior-agent.ts         — Typed BehaviorAgent (23 conditions, 18 actions, replaces blackboard)
     ├── movement.ts               — ActionIntent processing, region transitions, stamina
     ├── facility.ts               — Facility production, wages, auto-process, fund management
     ├── trade.ts                  — Agent-facility purchase (emits GoldFlowed + PurchaseComplete)
