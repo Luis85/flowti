@@ -450,16 +450,56 @@ describe('BehaviorAgent factory', () => {
 		});
 
 		describe('CanAffordFood', () => {
-			it('returns true when gold >= food_price', () => {
-				const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 10 } }), defaultMoodConfig);
+			it('returns true when gold >= food_price and hunger is critical', () => {
+				// Critical hunger (10 < 40 threshold) → high reservation price → can afford
+				const actor = new AgentActor(
+					createTestAgentData('a1', { wallet: { gold: 10 }, needs: { hunger: 10, energy: 90, social: 70, thirst: 80 } }),
+					defaultMoodConfig,
+				);
+				actor.get(NeedsComponent).state = { hunger: 10, energy: 90, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor, { config }));
-				expect(agent.CanAffordFood()).toBe(true); // food_price defaults to 3
+				expect(agent.CanAffordFood()).toBe(true);
 			});
 
 			it('returns false when gold < food_price', () => {
 				const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 2 } }), defaultMoodConfig);
 				const agent = createBehaviorAgent(setupDeps(actor, { config }));
 				expect(agent.CanAffordFood()).toBe(false);
+			});
+
+			it('returns false when well-fed (reservation price below food_price)', () => {
+				// hunger=80 → urgency=0.8 → reservationPrice=2.4 < food_price=3 → false
+				const actor = new AgentActor(
+					createTestAgentData('a1', { wallet: { gold: 10 }, needs: { hunger: 80, energy: 90, social: 70, thirst: 80 } }),
+					defaultMoodConfig,
+				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 80 };
+				const agent = createBehaviorAgent(setupDeps(actor, { config }));
+				expect(agent.CanAffordFood()).toBe(false);
+			});
+		});
+
+		describe('HasFoodReserve', () => {
+			it('returns false when inventory has no food', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const agent = createBehaviorAgent(setupDeps(actor, { config }));
+				expect(agent.HasFoodReserve()).toBe(false);
+			});
+
+			it('returns false when food quantity is at or below food_reserve (quantity=3)', () => {
+				// food_reserve defaults to 3, so quantity=3 is NOT above the reserve
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.get(InventoryComponent).state = { items: [{ item_id: 'food', quantity: 3 }] };
+				const agent = createBehaviorAgent(setupDeps(actor, { config }));
+				expect(agent.HasFoodReserve()).toBe(false);
+			});
+
+			it('returns true when food quantity exceeds food_reserve (quantity=5)', () => {
+				// food_reserve defaults to 3, so quantity=5 is above the reserve
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.get(InventoryComponent).state = { items: [{ item_id: 'food', quantity: 5 }] };
+				const agent = createBehaviorAgent(setupDeps(actor, { config }));
+				expect(agent.HasFoodReserve()).toBe(true);
 			});
 		});
 

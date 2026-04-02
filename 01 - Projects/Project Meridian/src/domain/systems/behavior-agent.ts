@@ -95,6 +95,7 @@ export interface BehaviorAgent {
 	HasWater(): boolean;
 	NeedsCritical(): boolean;
 	HasFood(): boolean;
+	HasFoodReserve(): boolean;
 	HasGold(amount: number): boolean;
 	CanAffordFood(): boolean;
 	AtLocation(type: string): boolean;

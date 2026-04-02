@@ -14,6 +14,7 @@ import { findFoodInInventory, FOOD_ITEMS } from '../../domain/systems/food-items
 import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
 import { CircularBuffer } from 'mnemonist';
 import { isPriceStale, type PriceMemory } from '../../domain/systems/price-memory.js';
+import { calculateReservationPrice } from '../../domain/systems/utility.js';
 import type { EventBus } from '../../domain/core/events.js';
 import type { AgentActor } from './agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
@@ -256,6 +257,12 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return findFoodInInventory(agent.inventory) !== null;
 		},
 
+		HasFoodReserve(): boolean {
+			const food = findFoodInInventory(agent.inventory);
+			if (food === null) return false;
+			return food.quantity > config.needs.food_reserve;
+		},
+
 		HasGold(amount: number): boolean {
 			return agent.gold >= amount;
 		},
@@ -269,7 +276,24 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 					if (mem.price < cheapestPrice) cheapestPrice = mem.price;
 				}
 			}
-			return agent.gold >= cheapestPrice;
+			if (agent.gold < cheapestPrice) return false;
+
+			const foodCount = agent.inventory
+				.filter(i => FOOD_ITEMS.has(i.item_id))
+				.reduce((sum, i) => sum + i.quantity, 0);
+
+			const reservationPrice = calculateReservationPrice({
+				baseValue: config.economy.food_price,
+				needLevel: agent.hunger,
+				needThreshold: config.needs.hunger_threshold,
+				currentStock: foodCount,
+				walletGold: agent.gold,
+				urgencyMax: config.economy.reservation_urgency_max,
+				stockFactor: config.economy.reservation_stock_factor,
+				budgetCap: config.economy.reservation_budget_cap,
+				budgetCapCritical: config.economy.reservation_budget_cap_critical,
+			});
+			return cheapestPrice <= reservationPrice;
 		},
 
 		AtLocation(type: string): boolean {
