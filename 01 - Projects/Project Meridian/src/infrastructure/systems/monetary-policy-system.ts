@@ -56,6 +56,9 @@ export function createMonetaryPolicySystem(
 				economy.state.treasury,
 			);
 
+			economy.state = { ...economy.state, monetarySnapshot: snapshot };
+			economy.markDirty();
+
 			if (snapshot.velocity < config.velocity_stagnant) {
 				consecutiveStagnantTicks++;
 			} else {
