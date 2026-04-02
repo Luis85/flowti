@@ -93,6 +93,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 				stock: [...facility.state.stock],
 				distance: nearLoc.distance,
 				hasUnmetInput,
+				workerId: facility.state.workerId,
 			});
 		}
 

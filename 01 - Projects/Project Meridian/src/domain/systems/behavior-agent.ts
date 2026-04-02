@@ -23,6 +23,7 @@ export interface PerceivedFacility {
 	stock: { item_id: string; quantity: number }[];
 	distance: number;
 	hasUnmetInput: boolean;
+	workerId: string | null;
 }
 
 export interface MovementTarget {
