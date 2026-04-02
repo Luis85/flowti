@@ -29,7 +29,7 @@ export function createEconomySystem(
 
 			if (!initialized) {
 				for (const loc of locationList) {
-					if (loc.production !== null) {
+					if (loc.production !== null || loc.type === 'market') {
 						recalcQueue.push(loc.id, deps.tickCount);
 					}
 				}

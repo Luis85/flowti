@@ -457,7 +457,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			const marketActor = locationActorMap.get(atLocation);
 			if (marketActor === undefined) return FAILED;
 			const facility = marketActor.get(FacilityComponent);
-			const price = facility.state.currentPrices?.[food.item_id] ?? 5;
+			const price = facility.state.currentPrices?.[food.item_id] ?? config.economy.food_price;
 			if (facility.state.fund < price) return FAILED;
 			const newItems = inv.state.items
 				.map(i => {
@@ -498,13 +498,23 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		SeekFood(): ActionResult {
+			// Prefer locations with food in stock (market, stocked farm)
+			const stockedFacilities = agent.nearbyFacilities.filter(f =>
+				f.stock.some(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0),
+			);
+			if (stockedFacilities.length > 0) {
+				const nearest = stockedFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
+				btAction = 'seek_food';
+				movementTarget = { id: nearest.id, type: 'location' };
+				if (atLocation === nearest.id) return SUCCEEDED;
+				return RUNNING;
+			}
+			// Fallback: food-type locations (farms)
 			const foodLocs = agent.nearbyLocations.filter(l => l.type === 'food');
 			if (foodLocs.length === 0) return FAILED;
-
 			btAction = 'seek_food';
 			const nearest = foodLocs.reduce((a, b) => a.distance < b.distance ? a : b);
 			movementTarget = { id: nearest.id, type: 'location' };
-
 			if (atLocation === nearest.id) return SUCCEEDED;
 			return RUNNING;
 		},
