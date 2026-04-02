@@ -13,6 +13,7 @@ import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
 import type { FacilityState } from '../../domain/core/component-data.js';
+import type { Item } from '../../domain/schemas/item-schema.js';
 
 interface NearestFoodFacility {
 	location: WorldLocation;
@@ -180,6 +181,7 @@ export function createTradeSystem(
 	locations: () => WorldLocation[],
 	getLocationActors: () => Map<string, Actor>,
 	worldEntity: () => Actor,
+	itemRegistry: () => Map<string, Item>,
 ): GameSystem {
 	return {
 		name: 'TradeSystem',
@@ -192,7 +194,6 @@ export function createTradeSystem(
 			const world = worldEntity();
 			const economy = world.get(EconomyComponent);
 			const radius = deps.config.perception.interaction_radius;
-			const foodPrice = deps.config.economy.food_price;
 
 			for (const agent of agentList) {
 				const btAction = agent.behaviorAgent.btAction;
@@ -201,11 +202,17 @@ export function createTradeSystem(
 				const target = findNearestFoodFacility(agent, locationList, locationActorMap, radius);
 				if (target === undefined) continue;
 
+				const facility = target.actor.get(FacilityComponent);
+				const item = itemRegistry().get(target.foodItemId);
+				const foodPrice = facility.state.currentPrices?.[target.foodItemId]
+					?? item?.baseValue
+					?? deps.config.economy.food_price;
+
 				const wallet = agent.get(WalletComponent);
 				const result = applyTrade({
 					agentGold: wallet.state.gold,
 					price: foodPrice,
-					facilityFund: target.actor.get(FacilityComponent).state.fund,
+					facilityFund: facility.state.fund,
 					itemId: target.foodItemId,
 					quantity: 1,
 				});

@@ -172,6 +172,7 @@ export class MeridianGameView extends ItemView {
 		const getLocations = () => world.locations;
 		const getWorldEntity = () => worldEntity;
 		const getLocationActors = () => locationActors;
+		const getItemRegistry = () => world.items;
 
 		// Create BehaviorAgent + BehaviourTree for each agent
 		for (const agent of world.agents) {
@@ -214,7 +215,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity));
-		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity));
+		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createDialogueSystem(getAgents, Date.now()));
 		tickRunner.register(createGossipSystem(getAgents, getLocations));
 		tickRunner.register(createRelationshipCheckpointSystem(getAgents));
