@@ -66,34 +66,17 @@ Create `items/*.json` in the game data directory alongside `agents/` and `locati
 
 New file: `src/infrastructure/entity/item-loader.ts`
 
-Follows the same pattern as `location-loader.ts` and `trait-loader.ts`:
-- Reads all `.json` files from the `items/` directory via VaultAdapter
+Follows the async VaultReader pattern used by `location-loader.ts` and `trait-loader.ts`:
+- Uses `VaultReader` to list and read files from the `items/` directory
 - Validates each against `ItemSchema` (Zod safeParse)
-- Returns `Map<string, Item>` keyed by item ID
-- Invalid files are quarantined (same pattern as other loaders)
+- Returns items via the standard `LoadResult<Item>` pattern
+- Invalid files are quarantined (same error shape as other loaders)
 
-```typescript
-export function loadItems(
-  files: { path: string; content: string }[],
-): { items: Map<string, Item>; errors: string[] } {
-  const items = new Map<string, Item>();
-  const errors: string[] = [];
-  for (const file of files) {
-    const parsed = JSON.parse(file.content);
-    const result = ItemSchema.safeParse(parsed);
-    if (result.success) {
-      items.set(result.data.id, result.data);
-    } else {
-      errors.push(`${file.path}: ${result.error.message}`);
-    }
-  }
-  return { items, errors };
-}
-```
+The loader is async and uses the same factory pattern: `createItemLoader(logger)`.
 
 ### 1.3 Wiring
 
-In `world-loader.ts` (or wherever the world is hydrated), call `loadItems()` and pass the resulting `Map<string, Item>` to `createEconomySystem()` as the `itemRegistry` parameter. This replaces any hardcoded or empty registry.
+In `world-loader.ts`, add an items loading step to the existing `STEPS` pipeline. The `WorldData` interface gains an `items: Map<string, Item>` field. The loaded item registry is passed to both `createEconomySystem()` and `createTradeSystem()` as the `itemRegistry` parameter.
 
 ---
 
@@ -127,13 +110,26 @@ When a purchase completes, call `recordConsumption()` on the demand tracker so t
 - **(Recommended)** Listen for `PurchaseComplete` events in EconomySystem and record consumption there. No coupling between TradeSystem and EconomySystem — pure event-driven.
 - Alternative: Pass the demand tracker to TradeSystem (creates coupling).
 
-The event-driven approach is cleaner. EconomySystem already has access to the demand tracker and the EventBus. On each tick, before processing the recalc queue, it scans for `PurchaseComplete` events and calls `recordConsumption()`.
+The event-driven approach is cleaner. Inside `execute(deps)`, the EventBus is available via `deps.eventBus`. The pattern is identical to how `MonetaryPolicySystem` already reads `GoldFlowed` events:
+
+```typescript
+// Inside EconomySystem.execute(), before the recalc queue loop:
+const purchases = deps.eventBus.history({ type: 'PurchaseComplete' })
+  .filter(e => e.tick === deps.tickCount);
+for (const e of purchases) {
+  recordConsumption(demandTracker, e.payload.itemId as string, 1, deps.tickCount);
+}
+```
+
+No factory signature change required — `deps.eventBus` is already in scope via `GameCoreDeps`.
 
 ---
 
 ## 3 · GoldFlowed Emission (Complete Velocity Tracking)
 
 ### 3.1 Systems to Wire
+
+**Already done:** `TradeSystem` already emits `GoldFlowed` for purchases (implemented in economy depth plan). This section covers the **remaining** un-wired gold movements.
 
 Every gold movement gets a `GoldFlowed` event with the standard shape:
 
@@ -227,10 +223,12 @@ const taxRate = snapshot !== undefined
 
 Add `monetarySnapshot?: MonetarySnapshot` to `EconomyState` in `component-data.ts`. Import the type from `monetary-policy.ts`.
 
-- **Writer:** `MonetaryPolicySystem` writes the snapshot after computing it each tick.
-- **Reader:** `FacilitySystem` reads it for effective tax rate. Other systems may read it for UI/logging.
+- **Writer:** `MonetaryPolicySystem` (priority 16.5) writes the snapshot after computing it each tick.
+- **Reader:** `FacilitySystem` (priority 6) reads it for effective tax rate. Other systems may read it for UI/logging.
 
-The field is optional — `undefined` until the first MonetaryPolicySystem tick runs, in which case static tax rate is used as fallback.
+**Why on EconomyComponent, not in MonetaryPolicySystem's closure:** Placing the snapshot on EconomyComponent makes it observable to UI systems (UIBridgeSystem), debug panels, and logging — all of which need velocity data. A closure-only reference would require threading it through additional constructor parameters.
+
+**One-tick lag:** FacilitySystem (priority 6) reads the snapshot before MonetaryPolicySystem (priority 16.5) writes it in the same tick. This means the tax rate always uses the **previous tick's** velocity. This is acceptable — monetary velocity changes slowly relative to a single tick. The field is `undefined` until the first MonetaryPolicySystem tick completes, in which case the static `tax_base_rate` is used as fallback. Test authors must account for this lag.
 
 ---
 
@@ -247,7 +245,17 @@ priceMemories: CircularBuffer<PriceMemory>;
 
 ### 5.2 New Methods
 
-**Record observation** (called by `Buy()` action on completion — both success and failure):
+**Updated condition: CanAffordFood** (existing, needs modification):
+
+```typescript
+CanAffordFood(): boolean;
+// Currently checks agent.gold >= config.economy.food_price (static).
+// Updated to: check agent.gold >= cheapest remembered food price from priceMemories.
+// If no memories: fall back to config.economy.food_price.
+// This prevents agents from attempting to buy when dynamic prices have risen above their wallet.
+```
+
+**Record observation** (called from TradeSystem on purchase completion — both success and failure):
 
 ```typescript
 recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
@@ -258,8 +266,10 @@ recordPriceObservation(itemId: string, price: number, locationId: string, tick: 
 
 ```typescript
 KnowsFoodSource(): boolean;
-// Returns true if any non-stale price memory exists for a subsistence item.
-// Uses isPriceStale() with config.economy.price_memory_stale_ticks.
+// Returns true if any non-stale price memory exists for an item in the FOOD_ITEMS set.
+// Iterates priceMemories, filters by FOOD_ITEMS membership and isPriceStale().
+// Uses the existing FOOD_ITEMS set from domain/systems/food-items.ts (already imported
+// in trade-system.ts and world-loader.ts) — no item registry dependency needed.
 ```
 
 **Action: SeekBestFoodSource** (new BT action):
@@ -273,20 +283,32 @@ SeekBestFoodSource(): ActionResult;
 //    → BT falls through to SeekFood (nearest food facility)
 ```
 
-### 5.3 Buy() Modification
+### 5.3 Price Recording in TradeSystem
 
-After the existing `Buy()` action completes (success or failure), if the agent visited a facility, call:
+Price memories are recorded in `trade-system.ts`, not in `Buy()`. The `Buy()` action only sets `btAction = 'buy'` and returns `SUCCEEDED` — the actual trade executes later in `TradeSystem` (priority 11) where the facility, price, and agent are all in scope.
 
+**On successful purchase** (in `applySuccessfulTrade`, after the purchase completes):
 ```typescript
-this.recordPriceObservation(
-  foodItemId,
-  facility.state.currentPrices?.[foodItemId] ?? deps.config.economy.food_price,
-  facilityId,
+agent.behaviorAgent.recordPriceObservation(
+  target.foodItemId,
+  foodPrice,  // the dynamic price actually charged
+  target.location.id,
   deps.tickCount,
 );
 ```
 
-Agents always learn the current price — even if they can't afford to buy. This creates information asymmetry: agents who visit more facilities have broader price knowledge.
+**On failed purchase** (in `TradeSystem.execute`, when the agent is at a facility but can't afford the price or stock is empty):
+```typescript
+// Agent still learns the price even if they can't buy
+agent.behaviorAgent.recordPriceObservation(
+  target.foodItemId,
+  facility.state.currentPrices?.[target.foodItemId] ?? item.baseValue,
+  target.location.id,
+  deps.tickCount,
+);
+```
+
+Both paths record an observation — agents always learn the current price when visiting a facility. This creates information asymmetry: agents who visit more facilities have broader price knowledge.
 
 ### 5.4 Factory Changes
 
@@ -334,6 +356,7 @@ The `selector` tries the price-aware path first. If the agent knows a food sourc
 - **Experienced agents** accumulate memories from visits → prefer cheapest source → travel further if price difference justifies it
 - **Stale memories** expire after `price_memory_stale_ticks` (default 200) → agent may return to a facility expecting old prices, discover they've changed → adapts
 - **Merchant advantage** — Elena visits many facilities via hauling → accumulates broad price knowledge → naturally finds cheap sources. Guards/scholars visit fewer locations → narrower knowledge. Role-based economic advantage emerges from movement patterns, not special code.
+- **Mid-navigation redirect** — If all price memories expire while an agent is traveling to a remembered source, `KnowsFoodSource` returns false on the next tick and the tree falls through to `SeekFood` (nearest facility). This causes an in-flight redirect — intentional emergent behavior, not a bug. The agent adapts to stale information becoming invalid.
 
 ---
 
@@ -356,8 +379,8 @@ Each tick:
 
   TradeSystem (11)
     → reads facility.state.currentPrices for dynamic food price
-    → executes purchase, emits GoldFlowed
-    → Buy() records PriceMemory on agent
+    → executes purchase, emits GoldFlowed (already wired)
+    → records PriceMemory on agent (success and failure paths)
 
   EconomySystem (16)
     → listens for PurchaseComplete events → recordConsumption()
@@ -382,6 +405,8 @@ Each tick:
 - `facility-system` GoldFlowed emission tests — verify events emitted for wages, tax, stipends, subsidies, regen
 - `rest-system` GoldFlowed emission test
 - `trade-system` dynamic pricing test — verify facility.currentPrices used, fallback chain
+- `trade-system` price recording on success — verify agent.priceMemories gets entry after purchase
+- `trade-system` price recording on failure — verify agent.priceMemories gets entry even when purchase fails (can't afford / no stock)
 
 ### 8.2 Integration Tests
 
@@ -410,19 +435,21 @@ Each tick:
 - `tests/infrastructure/entity/item-loader.test.ts`
 - `tests/integration/price-memory-shopping.test.ts`
 
-**Modified source files (~8):**
-- `src/domain/systems/behavior-agent.ts` — add priceMemories, KnowsFoodSource, SeekBestFoodSource, recordPriceObservation
+**Modified source files (~10):**
+- `src/domain/systems/behavior-agent.ts` — add priceMemories, CanAffordFood update, KnowsFoodSource, SeekBestFoodSource, recordPriceObservation
 - `src/domain/core/component-data.ts` — add monetarySnapshot to EconomyState
-- `src/infrastructure/entity/behavior-agent-factory.ts` — initialize CircularBuffer
-- `src/infrastructure/systems/trade-system.ts` — dynamic price lookup, itemRegistry param
-- `src/infrastructure/systems/facility-system.ts` — GoldFlowed events, effective tax rate
+- `src/infrastructure/entity/behavior-agent-factory.ts` — initialize CircularBuffer, update CanAffordFood, implement new conditions/actions
+- `src/infrastructure/engine/world-loader.ts` — add items loading step, update WorldData interface
+- `src/infrastructure/systems/trade-system.ts` — dynamic price lookup, itemRegistry param, price memory recording (success + failure)
+- `src/infrastructure/systems/facility-system.ts` — GoldFlowed events (wages, tax, stipends, subsidies, regen), effective tax rate
 - `src/infrastructure/systems/rest-system.ts` — GoldFlowed event
 - `src/infrastructure/systems/economy-system.ts` — listen for PurchaseComplete → recordConsumption
 - `src/infrastructure/systems/monetary-policy-system.ts` — write monetarySnapshot to EconomyComponent
-- MDSL base tree file — updated survival-buy branch
+- MDSL base tree file — updated survival-buy branch with price-aware selector
 
-**Modified test files (~4):**
-- Existing trade-system tests (dynamic price fixtures)
+**Modified test files (~5):**
+- Existing trade-system tests (dynamic price fixtures, price memory recording)
 - Existing facility-system tests (GoldFlowed assertions)
 - Existing rest-system tests (GoldFlowed assertion)
-- BehaviorAgent tests (new conditions/actions)
+- BehaviorAgent tests (new conditions/actions, CanAffordFood update)
+- Integration tests (tax rate lag, velocity completeness)
