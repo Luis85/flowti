@@ -73,6 +73,28 @@ describe('Economy flow integration', () => {
 });
 
 describe('Monetary policy domain flow', () => {
+	it('monetary snapshot includes all gold flow categories', () => {
+		const ledger = createMonetaryLedger(500);
+
+		// Simulate all flow types
+		recordFlow(ledger, { category: 'transfer', subcategory: 'purchase', amount: 5, tick: 10, fromEntity: 'agent-1', toEntity: 'loc-bakery' });
+		recordFlow(ledger, { category: 'transfer', subcategory: 'wage', amount: 3, tick: 10, fromEntity: 'loc-farm', toEntity: 'agent-2' });
+		recordFlow(ledger, { category: 'transfer', subcategory: 'tax', amount: 0.3, tick: 10, fromEntity: 'loc-farm', toEntity: 'treasury' });
+		recordFlow(ledger, { category: 'transfer', subcategory: 'stipend', amount: 2, tick: 10, fromEntity: 'treasury', toEntity: 'agent-1' });
+		recordFlow(ledger, { category: 'transfer', subcategory: 'subsidy', amount: 30, tick: 10, fromEntity: 'treasury', toEntity: 'loc-bakery' });
+		recordFlow(ledger, { category: 'transfer', subcategory: 'rest', amount: 1, tick: 10, fromEntity: 'agent-1', toEntity: 'loc-tavern' });
+		recordFlow(ledger, { category: 'faucet', subcategory: 'treasury_regen', amount: 50, tick: 10, fromEntity: null, toEntity: 'treasury' });
+
+		const snap = calculateMonetarySnapshot(ledger, 20, [100, 80], 500);
+
+		// All transfers included in velocity
+		expect(snap.velocity).toBeGreaterThan(0);
+		// Faucet tracked
+		expect(snap.faucetRate).toBe(50);
+		// Money supply = agent balances + treasury
+		expect(snap.moneySupply).toBe(680);
+	});
+
 	it('velocity drops → stimulus triggers → tax adjusts', () => {
 		const ledger = createMonetaryLedger(100);
 		const balances = [100, 80, 60];
