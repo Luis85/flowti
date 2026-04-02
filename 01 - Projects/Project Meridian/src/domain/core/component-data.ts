@@ -1,3 +1,7 @@
+import type { MonetarySnapshot } from '../systems/monetary-policy.js';
+
+export type { MonetarySnapshot };
+
 export interface NeedsState {
 	hunger: number;
 	energy: number;
@@ -103,6 +107,7 @@ export interface EconomyState {
 	treasury: number;
 	ledger: LedgerEntry[];
 	dailySummary: DailySummary;
+	monetarySnapshot?: MonetarySnapshot;
 }
 
 export interface WalletState {
