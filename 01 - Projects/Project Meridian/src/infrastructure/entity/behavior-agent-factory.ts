@@ -227,7 +227,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		get priceMemories() { return priceMemories; },
 
-		// ── 23 Condition methods ───────────────────────────────────────────
+		// ── 25 Condition methods ───────────────────────────────────────────
 		IsHungry(): boolean {
 			return agent.hunger < config.needs.hunger_threshold;
 		},
@@ -346,7 +346,16 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return agent.nearbyFacilities.some(f => f.workerId === null);
 		},
 
-		// ── 18 Action methods ──────────────────────────────────────────────
+		IsThirsty(): boolean {
+			return agent.thirst < config.needs.thirst_threshold;
+		},
+
+		HasWater(): boolean {
+			const inv = actor.get(InventoryComponent).state.items;
+			return inv.some(i => i.item_id === 'waterskin' && (i.charges ?? 0) > 0);
+		},
+
+		// ── 22 Action methods ──────────────────────────────────────────────
 		Eat(): ActionResult {
 			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
 			if (food === null) return FAILED;
@@ -354,9 +363,90 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return RUNNING;
 		},
 
+		Drink(): ActionResult {
+			const inv = actor.get(InventoryComponent);
+			const waterskin = inv.state.items.find(i => i.item_id === 'waterskin' && (i.charges ?? 0) > 0);
+			if (waterskin === undefined) return FAILED;
+			const newItems = inv.state.items.map(i => {
+				if (i.item_id !== 'waterskin') return { ...i };
+				return { ...i, charges: (i.charges ?? 0) - 1 };
+			});
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+			const needs = actor.get(NeedsComponent);
+			const recovery = config.needs.drink_recovery;
+			const newThirst = Math.min(100, needs.state.thirst + recovery);
+			needs.state = { ...needs.state, thirst: newThirst };
+			needs.markDirty();
+			btAction = 'drink';
+			return SUCCEEDED;
+		},
+
 		Rest(): ActionResult {
 			agent.btAction = 'rest';
 			return RUNNING;
+		},
+
+		SeekWater(): ActionResult {
+			const waterLocs = agent.nearbyLocations.filter(l => l.type === 'water');
+			if (waterLocs.length === 0) return FAILED;
+			btAction = 'seek_water';
+			const nearest = waterLocs.reduce((a, b) => a.distance < b.distance ? a : b);
+			movementTarget = { id: nearest.id, type: 'location' };
+			if (atLocation === nearest.id) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		FillWaterskin(): ActionResult {
+			const locData = atLocation !== null ? getLocations().find(l => l.id === atLocation) : undefined;
+			if (locData === undefined || locData.type !== 'water') return FAILED;
+			const inv = actor.get(InventoryComponent);
+			const waterskin = inv.state.items.find(i => i.item_id === 'waterskin');
+			if (waterskin === undefined) return FAILED;
+			const maxCharges = 3;
+			const newItems = inv.state.items.map(i => {
+				if (i.item_id !== 'waterskin') return { ...i };
+				return { ...i, charges: maxCharges };
+			});
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+			btAction = 'fill_waterskin';
+			return SUCCEEDED;
+		},
+
+		SellAtMarket(): ActionResult {
+			if (atLocation === null) return FAILED;
+			const locData = getLocations().find(l => l.id === atLocation);
+			if (locData === undefined || locData.type !== 'market') return FAILED;
+			const inv = actor.get(InventoryComponent);
+			const food = inv.state.items.find(i => FOOD_ITEMS.has(i.item_id) && i.quantity > 0);
+			if (food === undefined) return FAILED;
+			const locationActorMap = getLocationActors();
+			const marketActor = locationActorMap.get(atLocation);
+			if (marketActor === undefined) return FAILED;
+			const facility = marketActor.get(FacilityComponent);
+			const price = facility.state.currentPrices?.[food.item_id] ?? 5;
+			if (facility.state.fund < price) return FAILED;
+			const newItems = inv.state.items
+				.map(i => {
+					if (i.item_id !== food.item_id) return { ...i };
+					const newQty = i.quantity - 1;
+					return newQty > 0 ? { ...i, quantity: newQty } : null;
+				})
+				.filter((i): i is NonNullable<typeof i> => i !== null);
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+			const hasItem = facility.state.stock.some(s => s.item_id === food.item_id);
+			const newStock = hasItem
+				? facility.state.stock.map(s => s.item_id === food.item_id ? { ...s, quantity: s.quantity + 1 } : { ...s })
+				: [...facility.state.stock.map(s => ({ ...s })), { item_id: food.item_id, quantity: 1 }];
+			facility.state = { ...facility.state, stock: newStock, fund: facility.state.fund - price };
+			facility.markDirty();
+			const wallet = actor.get(WalletComponent);
+			wallet.state = { ...wallet.state, gold: wallet.state.gold + price };
+			wallet.markDirty();
+			btAction = 'sell';
+			return SUCCEEDED;
 		},
 
 		SeekFood(): ActionResult {

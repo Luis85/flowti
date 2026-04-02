@@ -87,10 +87,12 @@ export interface BehaviorAgent {
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;
 
-	// Condition methods (23)
+	// Condition methods (25)
 	IsHungry(): boolean;
 	IsExhausted(): boolean;
 	IsLonely(): boolean;
+	IsThirsty(): boolean;
+	HasWater(): boolean;
 	NeedsCritical(): boolean;
 	HasFood(): boolean;
 	HasGold(amount: number): boolean;
@@ -112,11 +114,15 @@ export interface BehaviorAgent {
 	HasNoJob(): boolean;
 	OpenFacilityNearby(): boolean;
 
-	// Action methods (18)
+	// Action methods (22)
 	Eat(): ActionResult;
 	Rest(): ActionResult;
+	Drink(): ActionResult;
 	SeekFood(): ActionResult;
 	SeekRest(): ActionResult;
+	SeekWater(): ActionResult;
+	FillWaterskin(): ActionResult;
+	SellAtMarket(): ActionResult;
 	SeekWork(): ActionResult;
 	SeekSocial(): ActionResult;
 	SeekMarket(): ActionResult;
