@@ -22,7 +22,7 @@ export class AgentActor extends Actor {
 	readonly kind: string;
 	readonly behaviorTreeDef: string;
 	readonly property: string[];
-	readonly job: string | null;
+	job: string | null;
 	readonly agentColor: string;
 	behaviorAgent!: BehaviorAgent;
 	behaviorTree!: BehaviourTree;
