@@ -52,6 +52,15 @@
 		"tools_output_multiplier": 2,
 		"equipment_decay_reduction": 0.2
 	},
+	"jobs": {
+		"aptitude_baseline": 12,
+		"desperation_ticks": 200,
+		"definitions": {
+			"settler":   { "primary_attribute": "HT" },
+			"guard":     { "primary_attribute": "ST" },
+			"craftsman": { "primary_attribute": "DX" }
+		}
+	},
 	"day_night": {
 		"dawn":  { "start": 0,   "end": 59  },
 		"day":   { "start": 60,  "end": 299 },

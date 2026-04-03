@@ -50,7 +50,7 @@ const defaultMoodConfig = {
 };
 
 function createSettlerData(overrides: Record<string, unknown> = {}) {
-	const raw = JSON.parse(readFileSync(resolve(projectRoot, 'agents/settler.json'), 'utf-8'));
+	const raw = JSON.parse(readFileSync(resolve(projectRoot, 'agents/aldric.json'), 'utf-8'));
 	const parsed = AgentSchema.parse(raw);
 	return { ...parsed, ...overrides };
 }

@@ -237,6 +237,20 @@ const FormulasConfigSchema = z.object({
 	arrival_spread_radius: z.number().default(22),
 });
 
+const JobDefinitionSchema = z.object({
+	primary_attribute: z.enum(['ST', 'DX', 'IQ', 'HT']),
+});
+
+const JobsConfigSchema = z.object({
+	aptitude_baseline: z.number().default(12),
+	desperation_ticks: z.number().default(200),
+	definitions: z.record(z.string(), JobDefinitionSchema).default({
+		settler: { primary_attribute: 'HT' },
+		guard: { primary_attribute: 'ST' },
+		craftsman: { primary_attribute: 'DX' },
+	}),
+});
+
 const BTConfigSchema = z.object({
 	quest_wage_skip_multiplier: z.number().default(1.5),
 });
@@ -303,6 +317,7 @@ export const GameConfigSchema = z.object({
 	agent_creation: withDefaults(AgentCreationConfigSchema),
 	world_health: withDefaults(WorldHealthConfigSchema),
 	social: withDefaults(SocialConfigSchema),
+	jobs: withDefaults(JobsConfigSchema),
 	debug: z.boolean().default(false),
 });
 

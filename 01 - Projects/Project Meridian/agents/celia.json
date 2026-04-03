@@ -1,9 +1,8 @@
 {
-	"id": "agent-settler",
-	"name": "Settler",
-	"kind": "settler",
-	"color": "#66bb6a",
-	"attributes": { "ST": 12, "DX": 12, "IQ": 12, "HT": 12 },
+	"id": "agent-celia",
+	"name": "Celia",
+	"color": "#ff8a65",
+	"attributes": { "ST": 10, "DX": 14, "IQ": 14, "HT": 11 },
 	"social": { "status": 1, "reputation": 1, "charisma": 10 },
 	"needs": { "hunger": 80, "energy": 80, "social": 50, "thirst": 80 },
 	"mood": 0,
@@ -11,19 +10,17 @@
 	"goals": [],
 	"skills": [],
 	"inventory": [
-		{ "item_id": "food", "quantity": 5 },
+		{ "item_id": "food", "quantity": 3 },
 		{ "item_id": "waterskin", "quantity": 1, "charges": 3 }
 	],
 	"equipment": { "head": null, "body": null, "hands": null, "tool": null, "accessory": null },
-	"persona": "personas/settler.md",
+	"persona": null,
 	"traits": [],
-	"wallet": { "gold": 50 },
+	"wallet": { "gold": 40 },
 	"xp": 0,
 	"level": 1,
-	"position": { "x": 140, "y": 80, "region": "region-farmlands" },
+	"position": { "x": 170, "y": 340, "region": "region-craft-quarter" },
 	"relationships": null,
 	"tools": [],
-	"behavior_tree": "settler",
-	"job": "settler",
 	"property": []
 }
