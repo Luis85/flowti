@@ -640,15 +640,30 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		SeekWork(): ActionResult {
 			if (agent.job === null) return FAILED;
+
+			// Only target facilities that are unoccupied or already assigned to this agent
+			const availableFacility = agent.nearbyFacilities.find(f =>
+				f.job === agent.job && (f.workerId === null || f.workerId === actor.agentId),
+			);
+			if (availableFacility !== undefined) {
+				btAction = 'seek_work';
+				movementTarget = { id: availableFacility.id, type: 'location' };
+				if (atLocation === availableFacility.id) return SUCCEEDED;
+				return RUNNING;
+			}
+
+			// Fallback: search all locations (for facilities outside perception range)
 			const allLocations = getLocations();
 			const jobLoc = allLocations.find(
 				l => l.production !== null && l.production.job === agent.job,
 			);
 			if (jobLoc === undefined) return FAILED;
 
+			// If already at the facility but it's occupied, don't re-target — fail gracefully
+			if (atLocation === jobLoc.id) return FAILED;
+
 			btAction = 'seek_work';
 			movementTarget = { id: jobLoc.id, type: 'location' };
-			if (atLocation === jobLoc.id) return SUCCEEDED;
 			return RUNNING;
 		},
 
