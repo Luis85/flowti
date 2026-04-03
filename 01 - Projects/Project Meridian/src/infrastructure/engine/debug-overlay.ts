@@ -39,6 +39,10 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	seek_market: { emoji: '🏪', label: 'Going to market' },
 	seek_social: { emoji: '👋', label: 'Seeking company' },
 	talk: { emoji: '💬', label: 'Talking' },
+	pickup_cargo: { emoji: '📦', label: 'Picking up cargo' },
+	deliver_cargo: { emoji: '🚚', label: 'Delivering' },
+	seek_delivery: { emoji: '🚶📦', label: 'Going to deliver' },
+	seek_supply: { emoji: '🔍📦', label: 'Finding supplies' },
 };
 
 const PHASE_DISPLAY: Record<string, { emoji: string; label: string }> = {
@@ -140,7 +144,7 @@ export function createDebugOverlay(
 
 			// Update thought bubble on the game canvas
 			const bubble = ensureThoughtBubble(agent);
-			bubble.text = `${actionInfo.emoji}`;
+			bubble.text = `${actionInfo.emoji} ${actionInfo.label}`;
 
 			lines.push('');
 			lines.push(`👤 <b style="color:#89b4fa">${agent.agentName}</b> <span style="color:#6c7086">(${agent.kind})</span>`);
@@ -162,8 +166,8 @@ export function createDebugOverlay(
 			// Gold + inventory
 			lines.push(`  💰 Gold: <b>${wallet.gold.toFixed(1)}g</b>`);
 			const items = inv.items.map(i => {
-				const icon = i.item_id === 'food' ? '🍖' : i.item_id === 'waterskin' ? '🫗' : '📦';
-				if (i.charges !== undefined) return `${icon} ${i.item_id} (${i.charges}/${3}) x${i.quantity}`;
+				const icon = i.item_id === 'food' ? '🍖' : i.item_id === 'waterskin' ? '🫗' : i.item_id === 'tools' ? '🔧' : i.item_id === 'equipment' ? '🛡️' : '📦';
+				if (i.charges !== undefined) return `${icon} ${i.item_id} (${i.charges}) x${i.quantity}`;
 				return `${icon} ${i.item_id} x${i.quantity}`;
 			});
 			lines.push(`  🎒 ${items.length > 0 ? items.join(' &middot; ') : '<span style="color:#6c7086">empty bag</span>'}`);
@@ -208,6 +212,24 @@ export function createDebugOverlay(
 			lines.push(`  ${locIcon} <b>${loc.name}</b>`);
 			lines.push(`    💰 ${fac.state.fund.toFixed(0)}g &middot; 👷 ${workerLabel}${progressLabel}`);
 			lines.push(`    📦 ${stockItems}`);
+		}
+
+		// Market prices
+		const marketLoc = locations.find(l => l.type === 'market');
+		if (marketLoc !== undefined) {
+			const marketActor = locationActors.get(marketLoc.id);
+			if (marketActor !== undefined && marketActor.has(FacilityComponent)) {
+				const market = marketActor.get(FacilityComponent);
+				lines.push('');
+				lines.push('📊 <b style="color:#89b4fa">Market Prices</b>');
+				const prices = market.state.currentPrices ?? {};
+				for (const [itemId, price] of Object.entries(prices)) {
+					lines.push(`  ${itemId}: <b>${Number(price).toFixed(1)}g</b>`);
+				}
+				if (Object.keys(prices).length === 0) {
+					lines.push('  <span style="color:#6c7086">No prices set</span>');
+				}
+			}
 		}
 
 		el.innerHTML = lines.join('<br>');
