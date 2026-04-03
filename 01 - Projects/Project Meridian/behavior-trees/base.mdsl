@@ -60,9 +60,10 @@ root {
             action [ClaimJob]
         }
 
-        /* P2: Role-specific behavior (work hours: dawn + day) */
+        /* P2: Role-specific behavior (work hours: dawn + day, skip if exhausted) */
         sequence {
             condition [IsWorkHours]
+            flip { condition [IsExhausted] }
             branch [Role]
         }
 
