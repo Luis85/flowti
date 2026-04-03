@@ -85,6 +85,7 @@ export interface BehaviorAgent {
 	arrivalSlot: number | null;
 	buyTargetItem: string | null;
 	unemployedTicks: number;
+	recovering: boolean;
 
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;
@@ -92,6 +93,7 @@ export interface BehaviorAgent {
 	// Condition methods (25)
 	IsHungry(): boolean;
 	IsExhausted(): boolean;
+	IsRecovering(): boolean;
 	IsLonely(): boolean;
 	IsThirsty(): boolean;
 	HasWater(): boolean;

@@ -1553,4 +1553,77 @@ describe('BehaviorAgent factory', () => {
 			});
 		});
 	});
+
+	describe('recovery hysteresis', () => {
+		const config = GameConfigSchema.parse({
+			needs: { energy_threshold: 30, recovery_hysteresis: 20 },
+		});
+
+		function makeAgent(energy: number): BehaviorAgent {
+			const actor = new AgentActor(
+				createTestAgentData('agent-test', { needs: { hunger: 80, energy, social: 70, thirst: 80 } }),
+				defaultMoodConfig,
+			);
+			const deps = setupDeps(actor, { config });
+			return createBehaviorAgent(deps);
+		}
+
+		it('IsExhausted sets recovering flag when energy below threshold', () => {
+			const agent = makeAgent(25);
+			expect(agent.IsExhausted()).toBe(true);
+			expect(agent.recovering).toBe(true);
+		});
+
+		it('IsRecovering stays true while energy is between threshold and threshold+hysteresis', () => {
+			const agent = makeAgent(25);
+			agent.IsExhausted(); // triggers recovering=true
+			expect(agent.IsRecovering()).toBe(true);
+		});
+
+		it('IsRecovering clears when energy reaches threshold + hysteresis', () => {
+			const actor = new AgentActor(
+				createTestAgentData('agent-test', { needs: { hunger: 80, energy: 25, social: 70, thirst: 80 } }),
+				defaultMoodConfig,
+			);
+			const deps = setupDeps(actor, { config });
+			const agent = createBehaviorAgent(deps);
+
+			// Trigger recovery mode
+			agent.IsExhausted();
+			expect(agent.recovering).toBe(true);
+
+			// Simulate energy recovery above threshold+hysteresis (50)
+			const needs = actor.get(NeedsComponent);
+			needs.state = { ...needs.state, energy: 51 };
+			needs.markDirty();
+
+			expect(agent.IsRecovering()).toBe(false);
+			expect(agent.recovering).toBe(false);
+		});
+
+		it('IsRecovering returns false when never exhausted', () => {
+			const agent = makeAgent(80);
+			expect(agent.IsRecovering()).toBe(false);
+		});
+
+		it('agent at 35 energy is not exhausted but stays recovering if previously set', () => {
+			const actor = new AgentActor(
+				createTestAgentData('agent-test', { needs: { hunger: 80, energy: 25, social: 70, thirst: 80 } }),
+				defaultMoodConfig,
+			);
+			const deps = setupDeps(actor, { config });
+			const agent = createBehaviorAgent(deps);
+
+			agent.IsExhausted(); // triggers recovering
+			expect(agent.recovering).toBe(true);
+
+			// Energy recovers to 35 (above 30 threshold, below 50 recovered threshold)
+			const needs = actor.get(NeedsComponent);
+			needs.state = { ...needs.state, energy: 35 };
+			needs.markDirty();
+
+			expect(agent.IsExhausted()).toBe(false); // no longer exhausted
+			expect(agent.IsRecovering()).toBe(true);  // still recovering — won't go to work
+		});
+	});
 });

@@ -59,11 +59,13 @@ export function stubBehaviorAgent(
 		arrivalSlot: null,
 		buyTargetItem: null,
 		unemployedTicks: 0,
+		recovering: false,
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 
 		// Condition stubs — all return false
 		IsHungry() { return false; },
 		IsExhausted() { return false; },
+		IsRecovering() { return false; },
 		IsLonely() { return false; },
 		IsThirsty() { return false; },
 		HasWater() { return false; },

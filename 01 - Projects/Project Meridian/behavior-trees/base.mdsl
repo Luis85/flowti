@@ -61,10 +61,10 @@ root {
             action [ClaimBestJob]
         }
 
-        /* P2: Role-specific behavior (work hours: dawn + day, skip if exhausted) */
+        /* P2: Role-specific behavior (work hours: dawn + day, skip if recovering) */
         sequence {
             condition [IsWorkHours]
-            flip { condition [IsExhausted] }
+            flip { condition [IsRecovering] }
             branch [Job]
         }
 
@@ -115,9 +115,9 @@ root {
             }
         }
 
-        /* P4.5: Buy equipment if affordable, available, and not exhausted */
+        /* P4.5: Buy equipment if affordable, available, and not recovering */
         sequence {
-            flip { condition [IsExhausted] }
+            flip { condition [IsRecovering] }
             condition [NeedsEquipment]
             condition [CanAffordItem, "equipment"]
             selector {

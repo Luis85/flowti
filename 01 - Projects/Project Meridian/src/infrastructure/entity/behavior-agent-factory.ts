@@ -64,6 +64,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let arrivalSlot: number | null = null;
 	let buyTargetItem: string | null = null;
 	let unemployedTicks = 0;
+	let recovering = false;
 
 	// Price memory
 	const priceMemories = new CircularBuffer<PriceMemory>(Array, config.economy.price_memory_max);
@@ -239,6 +240,9 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		get unemployedTicks() { return unemployedTicks; },
 		set unemployedTicks(v: number) { unemployedTicks = v; },
 
+		get recovering() { return recovering; },
+		set recovering(v: boolean) { recovering = v; },
+
 		get priceMemories() { return priceMemories; },
 
 		// ── 25 Condition methods ───────────────────────────────────────────
@@ -247,7 +251,19 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		IsExhausted(): boolean {
-			return agent.energy < config.needs.energy_threshold;
+			const exhausted = agent.energy < config.needs.energy_threshold;
+			if (exhausted) recovering = true;
+			return exhausted;
+		},
+
+		IsRecovering(): boolean {
+			if (!recovering) return false;
+			const recoveredThreshold = config.needs.energy_threshold + config.needs.recovery_hysteresis;
+			if (agent.energy >= recoveredThreshold) {
+				recovering = false;
+				return false;
+			}
+			return true;
 		},
 
 		IsLonely(): boolean {

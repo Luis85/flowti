@@ -24,6 +24,7 @@ const NeedsConfigSchema = z.object({
 	energy_threshold: z.number().default(30),
 	social_threshold: z.number().default(40),
 	thirst_threshold: z.number().default(40),
+	recovery_hysteresis: z.number().default(20),
 	food_reserve: z.number().int().default(3),
 	activity_costs: z.record(z.string(), ActivityCostSchema).default({
 		work:           { hunger: 2.5, thirst: 2.0, energy: 2.0 },
