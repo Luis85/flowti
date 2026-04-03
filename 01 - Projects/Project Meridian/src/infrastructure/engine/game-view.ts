@@ -96,10 +96,16 @@ export class MeridianGameView extends ItemView {
 
 		// Load all world data through unified loader
 		const vaultAdapter = createVaultAdapter(this.app.vault);
+
+		// Auto-detect data root: dev vault has project path, deployed vault has 03 - Resources/
+		const devRoot = '01 - Projects/Project Meridian';
+		const devProbe = await vaultAdapter.list(`${devRoot}/agents`);
+		const dataRoot = devProbe.length > 0 ? devRoot : '03 - Resources';
+
 		const worldLoader = createWorldLoader(deps.logger, {
 			moodConfig: deps.config.mood,
 			memoryMaxEntries: deps.config.memory.max_entries,
-			dataRoot: '01 - Projects/Project Meridian',
+			dataRoot,
 		});
 
 		const world = await worldLoader.load(vaultAdapter, (_step, _total, label) => {

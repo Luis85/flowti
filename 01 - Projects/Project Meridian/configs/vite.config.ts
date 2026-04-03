@@ -48,49 +48,22 @@ function assembleVaultOverlay(): Plugin {
 				if (existsSync(rootFile)) unlinkSync(rootFile);
 			}
 
-			// Agent data → 03 - Resources/Agents/
-			copyDir(
-				resolve(projectRoot, 'agents'),
-				resolve(distDir, '03 - Resources/Agents'),
-				'.json',
-			);
-
-			// Persona files → 03 - Resources/Personas/
-			copyDir(
-				resolve(projectRoot, 'personas'),
-				resolve(distDir, '03 - Resources/Personas'),
-				'.md',
-			);
-
-			// Location data → 03 - Resources/Locations/
-			copyDir(
-				resolve(projectRoot, 'locations'),
-				resolve(distDir, '03 - Resources/Locations'),
-				'.json',
-			);
-
-			// Behavior trees → 03 - Resources/BehaviorTrees/
-			copyDir(
-				resolve(projectRoot, 'behavior-trees'),
-				resolve(distDir, '03 - Resources/BehaviorTrees'),
-				'.mdsl',
-			);
-
-			// Trait definitions → 03 - Resources/Traits/ (JSON + markdown)
-			copyDir(resolve(projectRoot, 'traits'), resolve(distDir, '03 - Resources/Traits'), '.json');
-			copyDir(resolve(projectRoot, 'traits'), resolve(distDir, '03 - Resources/Traits'), '.md');
-
-			// Region data → 03 - Resources/Regions/
-			copyDir(resolve(projectRoot, 'regions'), resolve(distDir, '03 - Resources/Regions'), '.json');
-
-			// Item data → 03 - Resources/Items/
-			copyDir(resolve(projectRoot, 'items'), resolve(distDir, '03 - Resources/Items'), '.json');
+			// Game data → 03 - Resources/ (names match world-loader: lowercase, kebab-case)
+			const resDir = resolve(distDir, '03 - Resources');
+			copyDir(resolve(projectRoot, 'agents'), resolve(resDir, 'agents'), '.json');
+			copyDir(resolve(projectRoot, 'locations'), resolve(resDir, 'locations'), '.json');
+			copyDir(resolve(projectRoot, 'behavior-trees'), resolve(resDir, 'behavior-trees'), '.mdsl');
+			copyDir(resolve(projectRoot, 'traits'), resolve(resDir, 'traits'), '.json');
+			copyDir(resolve(projectRoot, 'traits'), resolve(resDir, 'traits'), '.md');
+			copyDir(resolve(projectRoot, 'regions'), resolve(resDir, 'regions'), '.json');
+			copyDir(resolve(projectRoot, 'items'), resolve(resDir, 'items'), '.json');
 
 			// World documentation → 03 - Resources/
-			copyDir(resolve(projectRoot, 'items'), resolve(distDir, '03 - Resources/Items'), '.md');
-			copyDir(resolve(projectRoot, 'jobs'), resolve(distDir, '03 - Resources/Jobs'), '.md');
-			copyDir(resolve(projectRoot, 'properties'), resolve(distDir, '03 - Resources/Properties'), '.md');
-			copyDir(resolve(projectRoot, 'graphs'), resolve(distDir, '03 - Resources/Graphs'), '.canvas');
+			copyDir(resolve(projectRoot, 'personas'), resolve(resDir, 'Personas'), '.md');
+			copyDir(resolve(projectRoot, 'items'), resolve(resDir, 'items'), '.md');
+			copyDir(resolve(projectRoot, 'jobs'), resolve(resDir, 'Jobs'), '.md');
+			copyDir(resolve(projectRoot, 'properties'), resolve(resDir, 'Properties'), '.md');
+			copyDir(resolve(projectRoot, 'graphs'), resolve(resDir, 'Graphs'), '.canvas');
 
 			// Generate build artifacts from game data
 			const scripts = [
