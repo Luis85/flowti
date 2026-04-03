@@ -22,6 +22,21 @@ interface OverlayDeps {
 	getItemRegistry?: () => Map<string, Item>;
 }
 
+type Panel = 'agents' | 'world' | 'economy' | 'stats';
+
+interface Snapshot {
+	tick: number;
+	day: number;
+	treasury: number;
+	agentGold: number[];
+	velocity: number;
+	avgHunger: number;
+	avgEnergy: number;
+	avgThirst: number;
+	totalProduction: number;
+	totalSales: number;
+}
+
 const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	work: { emoji: '⛏️', label: 'Working' },
 	seek_work: { emoji: '🚶', label: 'Going to work' },
@@ -59,6 +74,7 @@ const LOCATION_ICONS: Record<string, string> = {
 	market: '🏪',
 	rest: '🏠',
 	water: '💧',
+	work: '🏭',
 };
 
 function needBar(value: number, label: string, emoji: string): string {
@@ -67,6 +83,275 @@ function needBar(value: number, label: string, emoji: string): string {
 	const barWidth = Math.max(0, Math.min(100, pct));
 	const bar = `<span style="display:inline-block;width:50px;height:6px;background:#313244;border-radius:2px;vertical-align:middle;margin:0 3px"><span style="display:block;width:${String(barWidth)}%;height:100%;background:${color};border-radius:2px"></span></span>`;
 	return `${emoji} <span style="color:${color}">${label}</span>${bar}<span style="color:${color}">${value.toFixed(1)}</span>`;
+}
+
+function renderTabBar(active: Panel): string {
+	const tabs: { id: Panel; label: string; icon: string }[] = [
+		{ id: 'agents', label: 'Agents', icon: '👤' },
+		{ id: 'world', label: 'World', icon: '🗺️' },
+		{ id: 'economy', label: 'Economy', icon: '💰' },
+		{ id: 'stats', label: 'Stats', icon: '📈' },
+	];
+	const parts = tabs.map(t => {
+		const bg = t.id === active ? '#45475a' : 'transparent';
+		const opacity = t.id === active ? '1' : '0.6';
+		return `<span class="meridian-tab" data-tab="${t.id}" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:${bg};opacity:${opacity}">${t.icon} ${t.label}</span>`;
+	});
+	return `<div style="display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid #45475a;padding-bottom:6px">${parts.join('')}</div>`;
+}
+
+function renderWorldHeader(deps: OverlayDeps): string {
+	const world = deps.getWorldEntity();
+	const time = world.get(TimeComponent);
+	const phaseInfo = PHASE_DISPLAY[time.state.phase] ?? { emoji: '❓', label: time.state.phase };
+	const ticksPerDay = deps.getTicksPerDay?.() ?? 480;
+	const tic = time.state.tickInCycle;
+	const cursorPct = Math.round((tic / ticksPerDay) * 100);
+	const phaseBar = `<span style="display:inline-block;width:100px;height:6px;border-radius:3px;vertical-align:middle;margin:0 4px;position:relative;overflow:hidden;background:linear-gradient(to right, #fab387 0% 12.5%, #f9e2af 12.5% 62.5%, #f5c2e7 62.5% 75%, #585b70 75% 100%)"><span style="position:absolute;left:${String(cursorPct)}%;top:0;width:2px;height:100%;background:#fff"></span></span>`;
+	return `${phaseInfo.emoji} Day ${time.state.dayCount} ${phaseBar} <b>${phaseInfo.label}</b> <span style="color:#6c7086">${tic}/${ticksPerDay}</span>`;
+}
+
+function renderAgentsPanel(deps: OverlayDeps): string {
+	const agents = deps.getAgents();
+	const locations = deps.getLocations();
+	const lines: string[] = [];
+
+	for (const agent of agents) {
+		const needs = agent.get(NeedsComponent).state;
+		const wallet = agent.get(WalletComponent).state;
+		const inv = agent.get(InventoryComponent).state;
+		const mood = agent.get(MoodComponent).state;
+		const stamina = agent.get(StaminaComponent).state;
+		const ba = agent.behaviorAgent;
+
+		const action = ba.btAction ?? 'idle';
+		const actionInfo = ACTION_DISPLAY[action] ?? { emoji: '❓', label: action };
+
+		lines.push(`<div style="margin-top:6px;padding:6px;background:#181825;border-radius:4px">`);
+		lines.push(`<b style="color:${agent.agentColor}">${agent.agentName}</b> <span style="color:#6c7086">${agent.kind}</span> &middot; ${actionInfo.emoji} ${actionInfo.label}`);
+
+		// Needs — compact row
+		lines.push(`<div style="margin:3px 0">${needBar(needs.hunger, 'Food', '🍖')} ${needBar(needs.thirst, 'Water', '💧')}</div>`);
+		lines.push(`<div style="margin:3px 0">${needBar(needs.energy, 'Energy', '⚡')} ${needBar(needs.social, 'Social', '👥')}</div>`);
+
+		// Status line
+		const moodEmoji = mood.value > 30 ? '😊' : mood.value > -10 ? '😐' : '😞';
+		lines.push(`${moodEmoji} ${mood.bucket} &middot; 🏃 ${stamina.current.toFixed(0)}/${stamina.max} &middot; 💰 ${wallet.gold.toFixed(0)}g`);
+
+		// Inventory
+		const items = inv.items.map(i => {
+			const icon = i.item_id === 'food' ? '🍖' : i.item_id === 'waterskin' ? '🫗' : i.item_id === 'tools' ? '🔧' : i.item_id === 'equipment' ? '🛡️' : '📦';
+			if (i.charges !== undefined) return `${icon}${i.item_id}(${i.charges})x${i.quantity}`;
+			return `${icon}${i.item_id} x${i.quantity}`;
+		});
+		if (items.length > 0) lines.push(`🎒 ${items.join(' · ')}`);
+
+		// Location
+		const loc = ba.atLocation;
+		const target = ba.movementTarget;
+		if (loc !== null) {
+			const locData = locations.find(l => l.id === loc);
+			lines.push(`📍 At <b>${locData?.name ?? loc}</b>`);
+		} else if (target !== null) {
+			const targetData = locations.find(l => l.id === target.id);
+			lines.push(`→ <b>${targetData?.name ?? target.id}</b>`);
+		}
+
+		lines.push('</div>');
+	}
+
+	return lines.join('<br>');
+}
+
+function renderWorldPanel(deps: OverlayDeps): string {
+	const locations = deps.getLocations();
+	const locationActors = deps.getLocationActors();
+	const lines: string[] = [];
+
+	lines.push('<b style="color:#89b4fa">Facilities</b>');
+
+	for (const loc of locations) {
+		const actor = locationActors.get(loc.id);
+		if (actor === undefined) continue;
+		if (!actor.has(FacilityComponent)) continue;
+		const fac = actor.get(FacilityComponent);
+		const locIcon = LOCATION_ICONS[loc.type] ?? '🏭';
+		const stockItems = fac.state.stock.map(s => `${s.item_id} x${s.quantity}`).join(', ') || '<span style="color:#6c7086">empty</span>';
+		const worker = fac.state.workerId;
+		const workerLabel = worker !== null
+			? `<span style="color:#a6e3a1">✅ ${worker.replace('agent-', '')}</span>`
+			: '<span style="color:#6c7086">—</span>';
+		const progressLabel = fac.state.workProgress > 0
+			? ` ⏳ ${fac.state.workProgress}/${loc.production?.ticks_per_cycle ?? '?'}`
+			: '';
+
+		lines.push(`<div style="margin:4px 0;padding:4px;background:#181825;border-radius:4px">`);
+		lines.push(`${locIcon} <b>${loc.name}</b>${progressLabel}`);
+		lines.push(`💰 ${fac.state.fund.toFixed(0)}g · 👷 ${workerLabel} · 📦 ${stockItems}`);
+		lines.push('</div>');
+	}
+
+	// Non-facility locations
+	const nonFacilities = locations.filter(l => {
+		const a = locationActors.get(l.id);
+		return a === undefined || !a.has(FacilityComponent);
+	});
+	if (nonFacilities.length > 0) {
+		lines.push('<br><b style="color:#89b4fa">Locations</b>');
+		for (const loc of nonFacilities) {
+			const locIcon = LOCATION_ICONS[loc.type] ?? '📍';
+			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.type})</span>`);
+		}
+	}
+
+	return lines.join('<br>');
+}
+
+function renderEconomyPanel(deps: OverlayDeps): string {
+	const world = deps.getWorldEntity();
+	const economy = world.get(EconomyComponent);
+	const agents = deps.getAgents();
+	const locations = deps.getLocations();
+	const locationActors = deps.getLocationActors();
+	const items = deps.getItemRegistry?.();
+	const velocity = economy.state.monetarySnapshot?.velocity ?? 0;
+	const lines: string[] = [];
+
+	// Treasury & velocity
+	lines.push('<b style="color:#89b4fa">Treasury</b>');
+	lines.push(`🏦 <b>${economy.state.treasury.toFixed(0)}g</b>`);
+	const velColor = velocity > 0.2 ? '#a6e3a1' : velocity > 0 ? '#f9e2af' : '#f38ba8';
+	lines.push(`📈 Velocity: <b style="color:${velColor}">${velocity.toFixed(3)}</b> <span style="color:#6c7086">(>0.2 healthy)</span>`);
+
+	// Agent wallets
+	lines.push('<br><b style="color:#89b4fa">Wallets</b>');
+	let totalAgent = 0;
+	for (const agent of agents) {
+		const gold = agent.get(WalletComponent).state.gold;
+		totalAgent += gold;
+		lines.push(`${agent.agentName}: <b>${gold.toFixed(0)}g</b>`);
+	}
+	lines.push(`<span style="color:#6c7086">Total agent gold: ${totalAgent.toFixed(0)}g</span>`);
+
+	// Facility funds
+	let totalFacility = 0;
+	const facLines: string[] = [];
+	for (const loc of locations) {
+		const actor = locationActors.get(loc.id);
+		if (actor === undefined || !actor.has(FacilityComponent)) continue;
+		const fund = actor.get(FacilityComponent).state.fund;
+		totalFacility += fund;
+		facLines.push(`${loc.name}: <b>${fund.toFixed(0)}g</b>`);
+	}
+	if (facLines.length > 0) {
+		lines.push('<br><b style="color:#89b4fa">Facility Funds</b>');
+		lines.push(...facLines);
+		lines.push(`<span style="color:#6c7086">Total facility gold: ${totalFacility.toFixed(0)}g</span>`);
+	}
+
+	// Gold supply
+	const totalGold = economy.state.treasury + totalAgent + totalFacility;
+	lines.push(`<br><b style="color:#89b4fa">Gold Supply</b>`);
+	lines.push(`Total: <b>${totalGold.toFixed(0)}g</b> (treasury ${economy.state.treasury.toFixed(0)} + agents ${totalAgent.toFixed(0)} + facilities ${totalFacility.toFixed(0)})`);
+
+	// Market prices
+	const marketLoc = locations.find(l => l.type === 'market');
+	if (marketLoc !== undefined) {
+		const marketActor = locationActors.get(marketLoc.id);
+		if (marketActor !== undefined && marketActor.has(FacilityComponent)) {
+			const market = marketActor.get(FacilityComponent);
+			const prices = market.state.currentPrices ?? {};
+			const priceEntries = Object.entries(prices);
+			if (priceEntries.length > 0) {
+				lines.push('<br><b style="color:#89b4fa">Market Prices</b>');
+				for (const [itemId, price] of priceEntries) {
+					const p = Number(price);
+					const basePrice = items?.get(itemId)?.baseValue ?? p;
+					const color = p < basePrice ? '#a6e3a1' : p > basePrice ? '#f38ba8' : '#cdd6f4';
+					const arrow = p < basePrice ? '▼' : p > basePrice ? '▲' : '─';
+					lines.push(`<span style="color:${color}">${itemId}: <b>${p.toFixed(1)}g</b> ${arrow}</span>`);
+				}
+			}
+		}
+	}
+
+	// Daily summary
+	const ds = economy.state.dailySummary;
+	lines.push('<br><b style="color:#89b4fa">Today</b>');
+	lines.push(`Wages: ${ds.totalWages.toFixed(0)}g · Tax: ${ds.totalTax.toFixed(0)}g · Sales: ${ds.totalSales.toFixed(0)}g`);
+
+	return lines.join('<br>');
+}
+
+function sparkline(values: number[], width: number, height: number, color: string): string {
+	if (values.length < 2) return '';
+	const min = Math.min(...values);
+	const max = Math.max(...values);
+	const range = max - min || 1;
+	const step = width / (values.length - 1);
+	const points = values.map((v, i) => `${(i * step).toFixed(1)},${(height - ((v - min) / range) * height).toFixed(1)}`).join(' ');
+	return `<svg width="${width}" height="${height}" style="vertical-align:middle;margin:0 4px"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+}
+
+function renderStatsPanel(history: Snapshot[], deps: OverlayDeps): string {
+	const lines: string[] = [];
+	const agents = deps.getAgents();
+
+	if (history.length < 2) {
+		lines.push('<span style="color:#6c7086">Collecting data...</span>');
+		return lines.join('<br>');
+	}
+
+	const latest = history[history.length - 1]!;
+	const first = history[0]!;
+
+	function trend(current: number, initial: number): string {
+		const delta = current - initial;
+		if (Math.abs(delta) < 0.5) return '<span style="color:#6c7086">─</span>';
+		return delta > 0
+			? `<span style="color:#a6e3a1">▲ +${delta.toFixed(0)}</span>`
+			: `<span style="color:#f38ba8">▼ ${delta.toFixed(0)}</span>`;
+	}
+
+	// Treasury trend
+	const treasuryVals = history.map(h => h.treasury);
+	lines.push(`<b style="color:#89b4fa">Treasury</b> ${sparkline(treasuryVals, 80, 16, '#89b4fa')}`);
+	lines.push(`${latest.treasury.toFixed(0)}g ${trend(latest.treasury, first.treasury)}`);
+
+	// Velocity trend
+	const velocityVals = history.map(h => h.velocity);
+	lines.push(`<br><b style="color:#89b4fa">Velocity</b> ${sparkline(velocityVals, 80, 16, '#a6e3a1')}`);
+	lines.push(`${latest.velocity.toFixed(3)} ${trend(latest.velocity, first.velocity)}`);
+
+	// Agent gold trends
+	lines.push(`<br><b style="color:#89b4fa">Agent Gold</b>`);
+	for (let i = 0; i < agents.length; i++) {
+		const agent = agents[i]!;
+		const vals = history.map(h => h.agentGold[i] ?? 0);
+		const current = latest.agentGold[i] ?? 0;
+		const initial = first.agentGold[i] ?? 0;
+		lines.push(`${agent.agentName} ${sparkline(vals, 60, 14, agent.agentColor)} <b>${current.toFixed(0)}g</b> ${trend(current, initial)}`);
+	}
+
+	// Needs averages
+	const hungerVals = history.map(h => h.avgHunger);
+	const energyVals = history.map(h => h.avgEnergy);
+	const thirstVals = history.map(h => h.avgThirst);
+	lines.push(`<br><b style="color:#89b4fa">Avg Needs</b>`);
+	lines.push(`🍖 ${sparkline(hungerVals, 60, 14, '#a6e3a1')} ${latest.avgHunger.toFixed(0)}`);
+	lines.push(`💧 ${sparkline(thirstVals, 60, 14, '#74c7ec')} ${latest.avgThirst.toFixed(0)}`);
+	lines.push(`⚡ ${sparkline(energyVals, 60, 14, '#f9e2af')} ${latest.avgEnergy.toFixed(0)}`);
+
+	// Production & sales
+	const prodVals = history.map(h => h.totalProduction);
+	const salesVals = history.map(h => h.totalSales);
+	lines.push(`<br><b style="color:#89b4fa">Activity</b>`);
+	lines.push(`Production ${sparkline(prodVals, 60, 14, '#fab387')} ${latest.totalProduction.toFixed(0)}g`);
+	lines.push(`Sales ${sparkline(salesVals, 60, 14, '#f5c2e7')} ${latest.totalSales.toFixed(0)}g`);
+
+	lines.push(`<br><span style="color:#6c7086">${history.length} snapshots (since day ${first.day})</span>`);
+
+	return lines.join('<br>');
 }
 
 export function createDebugOverlay(
@@ -78,14 +363,30 @@ export function createDebugOverlay(
 	el.style.cssText = `
 		position: absolute; top: 8px; right: 8px; z-index: 100;
 		background: var(--background-secondary, #1e1e2e); color: var(--text-normal, #cdd6f4);
-		font-family: var(--font-monospace); font-size: 11px; line-height: 1.6;
-		padding: 10px 12px; border-radius: 6px; width: 360px; max-height: 75vh;
+		font-family: var(--font-monospace); font-size: 11px; line-height: 1.5;
+		padding: 10px 12px; border-radius: 6px; width: 320px; max-height: 80vh;
 		overflow-y: auto; overflow-x: hidden;
 		border: 1px solid var(--background-modifier-border, #45475a);
 		opacity: 0.92; pointer-events: auto;
 	`;
 	container.style.position = 'relative';
 	container.appendChild(el);
+
+	let activePanel: Panel = 'agents';
+	const history: Snapshot[] = [];
+	const MAX_HISTORY = 60;
+	let lastSnapshotTick = -1;
+
+	// Tab click handler
+	el.addEventListener('click', (e) => {
+		const target = (e.target as HTMLElement).closest('.meridian-tab') as HTMLElement | null;
+		if (target === null) return;
+		const tab = target.dataset.tab as Panel | undefined;
+		if (tab !== undefined) {
+			activePanel = tab;
+			update();
+		}
+	});
 
 	// Thought bubble labels — one per agent, added as ExcaliburJS child
 	const thoughtLabels = new Map<string, ex.Label>();
@@ -104,142 +405,58 @@ export function createDebugOverlay(
 		return label;
 	}
 
-	function update(): void {
+	function recordSnapshot(): void {
+		const tick = deps.getTickCount();
+		if (tick === lastSnapshotTick) return;
+		lastSnapshotTick = tick;
+
 		const agents = deps.getAgents();
 		const world = deps.getWorldEntity();
-		const locations = deps.getLocations();
-		const locationActors = deps.getLocationActors();
-		const tick = deps.getTickCount();
-
-		const time = world.get(TimeComponent);
 		const economy = world.get(EconomyComponent);
-		const velocity = economy.state.monetarySnapshot?.velocity ?? 0;
-		const phaseInfo = PHASE_DISPLAY[time.state.phase] ?? { emoji: '❓', label: time.state.phase };
-		const ticksPerDay = deps.getTicksPerDay?.() ?? 480;
-		const tic = time.state.tickInCycle;
+		const time = world.get(TimeComponent);
 
-		// Phase bar — shows dawn/day/dusk/night segments with cursor
-		const phasePcts = { dawn: 12.5, day: 50, dusk: 12.5, night: 25 };
-		const cursorPct = Math.round((tic / ticksPerDay) * 100);
-		const phaseBar = `<span style="display:inline-block;width:120px;height:8px;border-radius:3px;vertical-align:middle;margin:0 4px;position:relative;overflow:hidden;background:linear-gradient(to right, #fab387 0% 12.5%, #f9e2af 12.5% 62.5%, #f5c2e7 62.5% 75%, #585b70 75% 100%)"><span style="position:absolute;left:${String(cursorPct)}%;top:0;width:2px;height:100%;background:#fff"></span></span>`;
+		const agentGold = agents.map(a => a.get(WalletComponent).state.gold);
+		const hungers = agents.map(a => a.get(NeedsComponent).state.hunger);
+		const energies = agents.map(a => a.get(NeedsComponent).state.energy);
+		const thirsts = agents.map(a => a.get(NeedsComponent).state.thirst);
+		const avg = (arr: number[]): number => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
-		const lines: string[] = [];
+		history.push({
+			tick,
+			day: time.state.dayCount,
+			treasury: economy.state.treasury,
+			agentGold,
+			velocity: economy.state.monetarySnapshot?.velocity ?? 0,
+			avgHunger: avg(hungers),
+			avgEnergy: avg(energies),
+			avgThirst: avg(thirsts),
+			totalProduction: economy.state.dailySummary.totalWages,
+			totalSales: economy.state.dailySummary.totalSales,
+		});
+		if (history.length > MAX_HISTORY) history.shift();
+	}
 
-		// World header
-		lines.push(`${phaseInfo.emoji} <b style="color:#89b4fa">World</b> &mdash; Day ${time.state.dayCount}`);
-		lines.push(`  ${phaseBar} <b>${phaseInfo.label}</b> (tick ${tic}/${ticksPerDay})`);
-		lines.push(`  🏦 Treasury: <b>${economy.state.treasury.toFixed(0)}g</b>`);
-		const velColor = velocity > 0.2 ? '#a6e3a1' : velocity > 0 ? '#f9e2af' : '#f38ba8';
-		lines.push(`  📈 Velocity: <b style="color:${velColor}">${velocity.toFixed(3)}</b> <span style="color:#6c7086">(>0.2 healthy)</span>`);
-
-		// Agents
-		for (const agent of agents) {
-			const needs = agent.get(NeedsComponent).state;
-			const wallet = agent.get(WalletComponent).state;
-			const inv = agent.get(InventoryComponent).state;
-			const mood = agent.get(MoodComponent).state;
-			const stamina = agent.get(StaminaComponent).state;
-			const ba = agent.behaviorAgent;
-
-			const action = ba.btAction ?? 'idle';
+	function update(): void {
+		// Update thought bubbles regardless of active panel
+		for (const agent of deps.getAgents()) {
+			const action = agent.behaviorAgent.btAction ?? 'idle';
 			const actionInfo = ACTION_DISPLAY[action] ?? { emoji: '❓', label: action };
-
-			// Update thought bubble on the game canvas
 			const bubble = ensureThoughtBubble(agent);
 			bubble.text = `${actionInfo.emoji} ${actionInfo.label}`;
-
-			lines.push('');
-			lines.push(`👤 <b style="color:#89b4fa">${agent.agentName}</b> <span style="color:#6c7086">(${agent.kind})</span>`);
-
-			// Current behavior with emoji
-			lines.push(`  ${actionInfo.emoji} <b>${actionInfo.label}</b>`);
-			lines.push(`  🔧 Job: <b>${agent.job ?? '<span style="color:#6c7086">unemployed</span>'}</b>`);
-
-			// All 4 needs
-			lines.push(`  ${needBar(needs.hunger, 'Food', '🍖')}`);
-			lines.push(`  ${needBar(needs.thirst, 'Water', '💧')}`);
-			lines.push(`  ${needBar(needs.energy, 'Energy', '⚡')}`);
-			lines.push(`  ${needBar(needs.social, 'Social', '👥')}`);
-
-			// Mood + Stamina
-			const moodEmoji = mood.value > 30 ? '😊' : mood.value > -10 ? '😐' : '😞';
-			lines.push(`  ${moodEmoji} Mood: <b>${mood.value}</b> (${mood.bucket}) &middot; 🏃 Stamina: <b>${stamina.current.toFixed(0)}/${stamina.max}</b>`);
-
-			// Gold + inventory
-			lines.push(`  💰 Gold: <b>${wallet.gold.toFixed(1)}g</b>`);
-			const items = inv.items.map(i => {
-				const icon = i.item_id === 'food' ? '🍖' : i.item_id === 'waterskin' ? '🫗' : i.item_id === 'tools' ? '🔧' : i.item_id === 'equipment' ? '🛡️' : '📦';
-				if (i.charges !== undefined) return `${icon} ${i.item_id} (${i.charges}) x${i.quantity}`;
-				return `${icon} ${i.item_id} x${i.quantity}`;
-			});
-			lines.push(`  🎒 ${items.length > 0 ? items.join(' &middot; ') : '<span style="color:#6c7086">empty bag</span>'}`);
-
-			// Location / movement
-			const loc = ba.atLocation;
-			const target = ba.movementTarget;
-			if (loc !== null) {
-				const locData = locations.find(l => l.id === loc);
-				const locIcon = LOCATION_ICONS[locData?.type ?? ''] ?? '📍';
-				lines.push(`  ${locIcon} At: <b>${locData?.name ?? loc}</b>`);
-			} else if (target !== null) {
-				const targetData = locations.find(l => l.id === target.id);
-				const targetIcon = LOCATION_ICONS[targetData?.type ?? ''] ?? '📍';
-				lines.push(`  ${targetIcon} → <b>${targetData?.name ?? target.id}</b>`);
-			} else {
-				lines.push('  🧭 Wandering...');
-			}
-
-			// Position
-			lines.push(`  <span style="color:#6c7086">📐 (${agent.pos.x.toFixed(0)}, ${agent.pos.y.toFixed(0)})</span>`);
 		}
 
-		// Facilities
-		lines.push('');
-		lines.push('🏭 <b style="color:#89b4fa">Facilities</b>');
-		for (const loc of locations) {
-			const actor = locationActors.get(loc.id);
-			if (actor === undefined) continue;
-			if (!actor.has(FacilityComponent)) continue;
-			const fac = actor.get(FacilityComponent);
-			const locIcon = LOCATION_ICONS[loc.type] ?? '🏭';
-			const stockItems = fac.state.stock.map(s => `${s.item_id} x${s.quantity}`).join(', ') || '<span style="color:#6c7086">empty</span>';
-			const worker = fac.state.workerId;
-			const workerLabel = worker !== null
-				? `<span style="color:#a6e3a1">✅ ${worker.replace('agent-', '')}</span>`
-				: '<span style="color:#6c7086">❌ none</span>';
-			const progressLabel = fac.state.workProgress > 0
-				? ` &middot; ⏳ ${fac.state.workProgress}/${loc.production?.ticks_per_cycle ?? '?'}`
-				: '';
+		recordSnapshot();
 
-			lines.push(`  ${locIcon} <b>${loc.name}</b>`);
-			lines.push(`    💰 ${fac.state.fund.toFixed(0)}g &middot; 👷 ${workerLabel}${progressLabel}`);
-			lines.push(`    📦 ${stockItems}`);
+		const header = renderWorldHeader(deps);
+		let body: string;
+		switch (activePanel) {
+			case 'agents': body = renderAgentsPanel(deps); break;
+			case 'world': body = renderWorldPanel(deps); break;
+			case 'economy': body = renderEconomyPanel(deps); break;
+			case 'stats': body = renderStatsPanel(history, deps); break;
 		}
 
-		// Market prices
-		const marketLoc = locations.find(l => l.type === 'market');
-		const items = deps.getItemRegistry?.();
-		if (marketLoc !== undefined) {
-			const marketActor = locationActors.get(marketLoc.id);
-			if (marketActor !== undefined && marketActor.has(FacilityComponent)) {
-				const market = marketActor.get(FacilityComponent);
-				lines.push('');
-				lines.push('📊 <b style="color:#89b4fa">Market Prices</b>');
-				const prices = market.state.currentPrices ?? {};
-				for (const [itemId, price] of Object.entries(prices)) {
-					const p = Number(price);
-					const basePrice = items?.get(itemId)?.baseValue ?? p;
-					const color = p < basePrice ? '#a6e3a1' : p > basePrice ? '#f38ba8' : '#cdd6f4';
-					const arrow = p < basePrice ? '▼' : p > basePrice ? '▲' : '─';
-					lines.push(`  <span style="color:${color}">${itemId}: <b>${p.toFixed(1)}g</b> ${arrow}</span>`);
-				}
-				if (Object.keys(prices).length === 0) {
-					lines.push('  <span style="color:#6c7086">No prices set</span>');
-				}
-			}
-		}
-
-		el.innerHTML = lines.join('<br>');
+		el.innerHTML = `${header}<br>${renderTabBar(activePanel)}${body}`;
 	}
 
 	const interval = setInterval(update, 1000);
