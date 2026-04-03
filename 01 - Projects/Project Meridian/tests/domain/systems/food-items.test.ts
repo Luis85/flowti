@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FOOD_ITEMS, findFoodInInventory, removeFromInventory } from '../../../src/domain/systems/food-items.js';
+import { FOOD_ITEMS, TRADE_GOODS, findFoodInInventory, isTradeGood, removeFromInventory } from '../../../src/domain/systems/food-items.js';
 import type { InventoryItem } from '../../../src/domain/systems/food-items.js';
 
 describe('FOOD_ITEMS', () => {
@@ -11,6 +11,40 @@ describe('FOOD_ITEMS', () => {
 		expect(FOOD_ITEMS.has('wheat')).toBe(false);
 		expect(FOOD_ITEMS.has('flour')).toBe(false);
 		expect(FOOD_ITEMS.has('wood')).toBe(false);
+	});
+});
+
+describe('TRADE_GOODS', () => {
+	it('contains tools', () => {
+		expect(TRADE_GOODS.has('tools')).toBe(true);
+	});
+
+	it('contains equipment', () => {
+		expect(TRADE_GOODS.has('equipment')).toBe(true);
+	});
+
+	it('does not contain food or raw materials', () => {
+		expect(TRADE_GOODS.has('food')).toBe(false);
+		expect(TRADE_GOODS.has('wheat')).toBe(false);
+	});
+});
+
+describe('isTradeGood', () => {
+	it('returns true for tools', () => {
+		expect(isTradeGood('tools')).toBe(true);
+	});
+
+	it('returns true for equipment', () => {
+		expect(isTradeGood('equipment')).toBe(true);
+	});
+
+	it('returns false for food', () => {
+		expect(isTradeGood('food')).toBe(false);
+	});
+
+	it('returns false for unknown items', () => {
+		expect(isTradeGood('wheat')).toBe(false);
+		expect(isTradeGood('')).toBe(false);
 	});
 });
 
