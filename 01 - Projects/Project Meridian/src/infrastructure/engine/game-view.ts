@@ -99,6 +99,7 @@ export class MeridianGameView extends ItemView {
 		const worldLoader = createWorldLoader(deps.logger, {
 			moodConfig: deps.config.mood,
 			memoryMaxEntries: deps.config.memory.max_entries,
+			dataRoot: '01 - Projects/Project Meridian',
 		});
 
 		const world = await worldLoader.load(vaultAdapter, (_step, _total, label) => {
@@ -136,11 +137,11 @@ export class MeridianGameView extends ItemView {
 			engine.currentScene.add(marker);
 
 			if (loc.production !== null) {
-				// Bootstrap economy: seed each facility with 5 units of its output
-				const startingStock = [{ item_id: loc.production.output.item_id, quantity: 5 }];
+				// Production facilities start empty — agents must work to produce.
+				// Non-production facilities (market) get stock from their JSON data.
 				const fund = loc.production.funding === 'treasury' ? 0 : deps.config.economy.facility_start_fund;
 				marker.addComponent(new FacilityComponent({
-					stock: startingStock,
+					stock: [],
 					fund,
 					workProgress: 0,
 					status: 'idle',

@@ -19,6 +19,7 @@ const defaultMoodConfig = {
 const loaderConfig = {
 	moodConfig: defaultMoodConfig,
 	memoryMaxEntries: 50,
+	dataRoot: '01 - Projects/Project Meridian',
 };
 
 const validAgent = {
@@ -79,12 +80,12 @@ function createMockVault(files: Record<string, string>): VaultReader {
 describe('WorldLoader', () => {
 	it('loads all resource types including MDSL behavior trees', async () => {
 		const vault = createMockVault({
-			'03 - Resources/Traits/hardy.json': JSON.stringify(validTrait),
-			'03 - Resources/Agents/elena.json': JSON.stringify(validAgent),
-			'03 - Resources/Locations/tavern.json': JSON.stringify(validLocation),
-			'03 - Resources/BehaviorTrees/base.mdsl': baseMdsl,
-			'03 - Resources/BehaviorTrees/branch-settler.mdsl': branchMdsl,
-			'03 - Resources/BehaviorTrees/branch-guard.mdsl': branchMdsl,
+			'01 - Projects/Project Meridian/traits/hardy.json': JSON.stringify(validTrait),
+			'01 - Projects/Project Meridian/agents/elena.json': JSON.stringify(validAgent),
+			'01 - Projects/Project Meridian/locations/tavern.json': JSON.stringify(validLocation),
+			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
+			'01 - Projects/Project Meridian/behavior-trees/branch-settler.mdsl': branchMdsl,
+			'01 - Projects/Project Meridian/behavior-trees/branch-guard.mdsl': branchMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
@@ -120,9 +121,9 @@ describe('WorldLoader', () => {
 
 	it('aggregates errors from multiple loaders with step prefix', async () => {
 		const vault = createMockVault({
-			'03 - Resources/Traits/bad-trait.json': '{"invalid": true}',
-			'03 - Resources/Agents/bad-agent.json': '{"invalid": true}',
-			'03 - Resources/Locations/bad-location.json': '{"invalid": true}',
+			'01 - Projects/Project Meridian/traits/bad-trait.json': '{"invalid": true}',
+			'01 - Projects/Project Meridian/agents/bad-agent.json': '{"invalid": true}',
+			'01 - Projects/Project Meridian/locations/bad-location.json': '{"invalid": true}',
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
@@ -150,9 +151,9 @@ describe('WorldLoader', () => {
 
 	it('loads MDSL definitions keyed by kind', async () => {
 		const vault = createMockVault({
-			'03 - Resources/BehaviorTrees/base.mdsl': baseMdsl,
-			'03 - Resources/BehaviorTrees/branch-settler.mdsl': branchMdsl,
-			'03 - Resources/BehaviorTrees/branch-guard.mdsl': branchMdsl,
+			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
+			'01 - Projects/Project Meridian/behavior-trees/branch-settler.mdsl': branchMdsl,
+			'01 - Projects/Project Meridian/behavior-trees/branch-guard.mdsl': branchMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);

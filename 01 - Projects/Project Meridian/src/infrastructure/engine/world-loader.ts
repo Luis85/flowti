@@ -34,6 +34,8 @@ export type LoadProgress = (step: number, total: number, label: string) => void;
 interface WorldLoaderConfig {
 	moodConfig: MoodConfig;
 	memoryMaxEntries: number;
+	/** Vault-relative root path for game data (agents/, locations/, etc.) */
+	dataRoot: string;
 }
 
 function collectErrors(step: string, errors: { file: string; message: string }[], target: WorldData['errors']): void {
@@ -115,20 +117,21 @@ export function createWorldLoader(
 			const errors: WorldData['errors'] = [];
 
 			onProgress?.(1, total, STEPS[0]);
-			const traitResult = await createTraitLoader(logger).loadFromVault(vault, '03 - Resources/Traits');
+			const root = config.dataRoot;
+			const traitResult = await createTraitLoader(logger).loadFromVault(vault, `${root}/traits`);
 			collectErrors('traits', traitResult.errors, errors);
 
 			onProgress?.(2, total, STEPS[1]);
 			const spawnResult = await createAgentSpawner(logger, config.moodConfig, config.memoryMaxEntries)
-				.spawnFromVault(vault, '03 - Resources/Agents');
+				.spawnFromVault(vault, `${root}/agents`);
 			collectErrors('agents', spawnResult.errors, errors);
 
 			onProgress?.(3, total, STEPS[2]);
-			const locationResult = await createLocationLoader(logger).loadFromVault(vault, '03 - Resources/Locations');
+			const locationResult = await createLocationLoader(logger).loadFromVault(vault, `${root}/locations`);
 			collectErrors('locations', locationResult.errors, errors);
 
 			onProgress?.(4, total, STEPS[3]);
-			const regionResult = await loadRegions(vault, '03 - Resources/Regions');
+			const regionResult = await loadRegions(vault, `${root}/regions`);
 			collectErrors('regions', regionResult.errors, errors);
 			const regionGraph = buildRegionGraph(regionResult.items);
 
@@ -136,7 +139,7 @@ export function createWorldLoader(
 			validateLocationRegions(locationResult.items, regionResult.items);
 
 			onProgress?.(5, total, STEPS[4]);
-			const btPath = '03 - Resources/BehaviorTrees';
+			const btPath = `${root}/behavior-trees`;
 			const mdslLoader = createMDSLLoader(logger);
 			const btMdslDefinitions: Record<string, string> = {};
 			for (const kind of BT_KINDS) {
@@ -152,7 +155,7 @@ export function createWorldLoader(
 			}
 
 			onProgress?.(6, total, STEPS[5]);
-			const itemResult = await createItemLoader(logger).loadFromVault(vault, '03 - Resources/Items');
+			const itemResult = await createItemLoader(logger).loadFromVault(vault, `${root}/items`);
 			collectErrors('items', itemResult.errors, errors);
 			const itemRegistry = new Map<string, Item>();
 			for (const item of itemResult.items) {
