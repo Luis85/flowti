@@ -257,20 +257,11 @@ export function createMovementSystem(
 						});
 					}
 				} else {
-					// Apply obstacle avoidance steering
-					const obstacles = collectObstacles(agentList, locationList, agent, rawTarget.id);
-					const adjusted = resolveSteeringOffset(agent.pos.x, agent.pos.y, targetPos.x, targetPos.y, obstacles, 14);
-					const adjustedDist = distance(agent.pos.x, agent.pos.y, adjusted.x, adjusted.y);
-
-					if (adjustedDist > 0) {
-						const nx = (adjusted.x - agent.pos.x) / adjustedDist;
-						const ny = (adjusted.y - agent.pos.y) / adjustedDist;
-						agent.vel.x = nx * speedPerSec;
-						agent.vel.y = ny * speedPerSec;
-					} else {
-						agent.vel.x = 0;
-						agent.vel.y = 0;
-					}
+					// Move straight toward target
+					const nx = (targetPos.x - agent.pos.x) / dist;
+					const ny = (targetPos.y - agent.pos.y) / dist;
+					agent.vel.x = nx * speedPerSec;
+					agent.vel.y = ny * speedPerSec;
 
 					drainMovementEnergy(agent, speedPerTick, deps);
 				}
