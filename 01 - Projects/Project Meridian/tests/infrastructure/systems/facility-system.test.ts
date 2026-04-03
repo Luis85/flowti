@@ -5,6 +5,7 @@ import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { FacilityComponent } from '../../../src/infrastructure/components/facility-component.js';
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
+import { InventoryComponent } from '../../../src/infrastructure/components/inventory-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -332,5 +333,95 @@ describe('FacilitySystem', () => {
 
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.outputItem).toBe('bread');
+	});
+
+	it('private zero-wage production routes output to worker inventory, not facility stock', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('craftsman-1', 50, 50, { job: 'craftsman' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'craftsman' });
+
+		const workshopLocation: WorldLocation = {
+			id: 'loc-workshop',
+			name: 'Workshop',
+			type: 'work',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'craftsman',
+				output: { item_id: 'iron_tool', quantity: 1 },
+				input: null,
+				wage: 0,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const workshopActor = new Actor();
+		workshopActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 0,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'craftsman-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-workshop', workshopActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [workshopLocation],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Output must be in worker inventory
+		const inv = agent.get(InventoryComponent);
+		expect(inv.state.items).toContainEqual({ item_id: 'iron_tool', quantity: 1 });
+
+		// Output must NOT be in facility stock
+		const facility = workshopActor.get(FacilityComponent);
+		const stockItem = facility.state.stock.find(s => s.item_id === 'iron_tool');
+		expect(stockItem).toBeUndefined();
+	});
+
+	it('normal waged facility production still routes output to facility stock', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100, { job: 'farmer' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'farmer' });
+
+		const farm = createFarmLocation();
+		const farmActor = new Actor();
+		farmActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 200,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'agent-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-farm', farmActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [farm],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Output must be in facility stock (normal waged behaviour)
+		const facility = farmActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'wheat', quantity: 1 });
+
+		// Worker inventory must NOT contain the output
+		const inv = agent.get(InventoryComponent);
+		const workerWheat = inv.state.items.find(i => i.item_id === 'wheat');
+		expect(workerWheat).toBeUndefined();
 	});
 });

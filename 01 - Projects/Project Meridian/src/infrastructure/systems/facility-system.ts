@@ -12,6 +12,7 @@ import { WalletComponent } from '../components/wallet-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
+import { InventoryComponent } from '../components/inventory-component.js';
 import type { LedgerEntry } from '../../domain/core/component-data.js';
 import type { SkillEntry } from '../../domain/systems/behavior-agent.js';
 
@@ -311,7 +312,33 @@ function processFacilityTick(
 		treasuryFund: economy.state.treasury,
 	});
 
-	const newStock = applyStockChanges(facility.state.stock, result, production);
+	// Apply input consumption always
+	let newStock = [...facility.state.stock.map(s => ({ ...s }))];
+	if (result.consumeInput && production.input !== null) {
+		newStock = updateStock(newStock, production.input.item_id, -production.input.quantity);
+	}
+
+	// Route output based on funding model
+	const isPrivateProduction = production.funding === 'facility' && production.wage === 0;
+	if (result.produceOutput && isPrivateProduction && worker !== undefined) {
+		// Private production — output goes to worker inventory
+		const inv = worker.get(InventoryComponent);
+		const existingItem = inv.state.items.find(i => i.item_id === production.output.item_id);
+		if (existingItem !== undefined) {
+			inv.state = { items: inv.state.items.map(i =>
+				i.item_id === production.output.item_id
+					? { ...i, quantity: i.quantity + production.output.quantity }
+					: { ...i }
+			) };
+		} else {
+			inv.state = { items: [...inv.state.items.map(i => ({ ...i })), { item_id: production.output.item_id, quantity: production.output.quantity }] };
+		}
+		inv.markDirty();
+	} else if (result.produceOutput) {
+		// Normal production — output goes to facility stock
+		newStock = updateStock(newStock, production.output.item_id, production.output.quantity);
+	}
+
 	facility.state = {
 		...facility.state,
 		stock: newStock,
