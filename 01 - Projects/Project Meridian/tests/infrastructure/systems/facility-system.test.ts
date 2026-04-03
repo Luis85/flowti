@@ -424,4 +424,280 @@ describe('FacilitySystem', () => {
 		const workerWheat = inv.state.items.find(i => i.item_id === 'wheat');
 		expect(workerWheat).toBeUndefined();
 	});
+
+	it('worker with tools gets doubled food output and 1 charge consumed', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 50, 50, { job: 'farmer' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'farmer' });
+
+		// Give worker tools with charges
+		const inv = agent.get(InventoryComponent);
+		inv.state = { items: [{ item_id: 'tools', quantity: 1, charges: 5 }] };
+
+		const foodFarm: WorldLocation = {
+			id: 'loc-food-farm',
+			name: 'Food Farm',
+			type: 'food',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'farmer',
+				output: { item_id: 'food', quantity: 1 },
+				input: null,
+				wage: 5,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const farmActor = new Actor();
+		farmActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 200,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'agent-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-food-farm', farmActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [foodFarm],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Output quantity should be doubled (multiplier = 2)
+		const facility = farmActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 2 });
+
+		// Tools charges should be reduced by 1
+		const workerInv = agent.get(InventoryComponent);
+		const toolsItem = workerInv.state.items.find(i => i.item_id === 'tools');
+		expect(toolsItem).toBeDefined();
+		expect(toolsItem?.charges).toBe(4);
+	});
+
+	it('worker without tools gets normal food output quantity', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 50, 50, { job: 'farmer' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'farmer' });
+
+		// Worker has no tools
+		const inv = agent.get(InventoryComponent);
+		inv.state = { items: [] };
+
+		const foodFarm: WorldLocation = {
+			id: 'loc-food-farm',
+			name: 'Food Farm',
+			type: 'food',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'farmer',
+				output: { item_id: 'food', quantity: 1 },
+				input: null,
+				wage: 5,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const farmActor = new Actor();
+		farmActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 200,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'agent-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-food-farm', farmActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [foodFarm],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Output quantity should be 1 (no multiplier)
+		const facility = farmActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 1 });
+	});
+
+	it('tools do not boost non-food production output', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('craftsman-1', 50, 50, { job: 'craftsman' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'craftsman' });
+
+		// Worker has tools with charges
+		const inv = agent.get(InventoryComponent);
+		inv.state = { items: [{ item_id: 'tools', quantity: 1, charges: 5 }] };
+
+		const workshopLocation: WorldLocation = {
+			id: 'loc-workshop',
+			name: 'Workshop',
+			type: 'work',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'craftsman',
+				output: { item_id: 'iron_tool', quantity: 1 },
+				input: null,
+				wage: 0,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const workshopActor = new Actor();
+		workshopActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 0,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'craftsman-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-workshop', workshopActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [workshopLocation],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Output goes to worker inventory (private production), quantity should be 1 (no multiplier for non-food)
+		const workerInv = agent.get(InventoryComponent);
+		expect(workerInv.state.items).toContainEqual({ item_id: 'iron_tool', quantity: 1 });
+
+		// Tools charges should NOT be consumed (no boost for non-food)
+		const toolsItem = workerInv.state.items.find(i => i.item_id === 'tools');
+		expect(toolsItem).toBeDefined();
+		expect(toolsItem?.charges).toBe(5);
+	});
+
+	it('tools with 0 charges do not boost output', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 50, 50, { job: 'farmer' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'farmer' });
+
+		// Worker has tools but with 0 charges
+		const inv = agent.get(InventoryComponent);
+		inv.state = { items: [{ item_id: 'tools', quantity: 1, charges: 0 }] };
+
+		const foodFarm: WorldLocation = {
+			id: 'loc-food-farm',
+			name: 'Food Farm',
+			type: 'food',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'farmer',
+				output: { item_id: 'food', quantity: 1 },
+				input: null,
+				wage: 5,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const farmActor = new Actor();
+		farmActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 200,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'agent-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-food-farm', farmActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [foodFarm],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Output should be normal quantity (tools have 0 charges, no boost)
+		const facility = farmActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 1 });
+	});
+
+	it('tools with 1 charge are removed from inventory after consumption', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 50, 50, { job: 'farmer' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'farmer' });
+
+		// Worker has tools with exactly 1 charge
+		const inv = agent.get(InventoryComponent);
+		inv.state = { items: [{ item_id: 'tools', quantity: 1, charges: 1 }] };
+
+		const foodFarm: WorldLocation = {
+			id: 'loc-food-farm',
+			name: 'Food Farm',
+			type: 'food',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'farmer',
+				output: { item_id: 'food', quantity: 1 },
+				input: null,
+				wage: 5,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const farmActor = new Actor();
+		farmActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 200,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'agent-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-food-farm', farmActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [foodFarm],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Output should be doubled
+		const facility = farmActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 2 });
+
+		// Tools should be removed (charges went to 0)
+		const workerInv = agent.get(InventoryComponent);
+		const toolsItem = workerInv.state.items.find(i => i.item_id === 'tools');
+		expect(toolsItem).toBeUndefined();
+	});
 });

@@ -5,6 +5,7 @@ import { getEffectiveTaxRate } from '../../domain/systems/monetary-policy.js';
 import { applySkillProgression } from '../../domain/systems/skill-progression.js';
 import { applyRelationshipUpdate } from '../../domain/systems/relationship.js';
 import { distance } from '../../domain/core/math-utils.js';
+import { FOOD_ITEMS } from '../../domain/systems/food-items.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation, Production } from '../../domain/schemas/location-schema.js';
 import type { Actor } from 'excalibur';
@@ -318,6 +319,24 @@ function processFacilityTick(
 		newStock = updateStock(newStock, production.input.item_id, -production.input.quantity);
 	}
 
+	// Apply tools multiplier for food production before routing
+	let outputQty = production.output.quantity;
+	if (result.produceOutput && worker !== undefined && FOOD_ITEMS.has(production.output.item_id)) {
+		const workerInv = worker.get(InventoryComponent);
+		const tools = workerInv.state.items.find(i => i.item_id === 'tools' && (i.charges ?? 0) > 0);
+		if (tools !== undefined) {
+			outputQty *= deps.config.economy.tools_output_multiplier;
+			workerInv.state = {
+				items: workerInv.state.items.map(i => {
+					if (i.item_id !== 'tools') return { ...i };
+					const newCharges = (i.charges ?? 0) - 1;
+					return newCharges > 0 ? { ...i, charges: newCharges } : null;
+				}).filter((i): i is NonNullable<typeof i> => i !== null),
+			};
+			workerInv.markDirty();
+		}
+	}
+
 	// Route output based on funding model
 	const isPrivateProduction = production.funding === 'facility' && production.wage === 0;
 	if (result.produceOutput && isPrivateProduction && worker !== undefined) {
@@ -327,16 +346,16 @@ function processFacilityTick(
 		if (existingItem !== undefined) {
 			inv.state = { items: inv.state.items.map(i =>
 				i.item_id === production.output.item_id
-					? { ...i, quantity: i.quantity + production.output.quantity }
+					? { ...i, quantity: i.quantity + outputQty }
 					: { ...i }
 			) };
 		} else {
-			inv.state = { items: [...inv.state.items.map(i => ({ ...i })), { item_id: production.output.item_id, quantity: production.output.quantity }] };
+			inv.state = { items: [...inv.state.items.map(i => ({ ...i })), { item_id: production.output.item_id, quantity: outputQty }] };
 		}
 		inv.markDirty();
 	} else if (result.produceOutput) {
 		// Normal production — output goes to facility stock
-		newStock = updateStock(newStock, production.output.item_id, production.output.quantity);
+		newStock = updateStock(newStock, production.output.item_id, outputQty);
 	}
 
 	facility.state = {
