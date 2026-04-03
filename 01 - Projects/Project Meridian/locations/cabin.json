@@ -1,0 +1,9 @@
+{
+	"id": "loc-cabin",
+	"name": "Cabin",
+	"type": "rest",
+	"position": { "x": 200, "y": 380, "region": "region-craft-quarter" },
+	"color": "#a1887f",
+	"production": null,
+	"capacity": 2
+}
