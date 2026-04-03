@@ -1227,6 +1227,35 @@ describe('BehaviorAgent factory', () => {
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.SeekWork()).toBe('mistreevous.failed');
 			});
+
+			it('returns failed when facility is visibly occupied by another worker', () => {
+				const actor = new AgentActor(createTestAgentData('a1', { job: 'baker' }), defaultMoodConfig);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [{ id: 'loc-bakery', type: 'work', distance: 20 }],
+				};
+
+				const locations = [makeLocation('loc-bakery', 'work', 0, 0, {
+					job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null,
+					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
+				})];
+				const facActor = createLocationActor({
+					stock: [],
+					fund: 100,
+					workProgress: 0,
+					status: 'producing',
+					workerId: 'agent-other',
+				});
+				const locActors = new Map<string, Actor>([['loc-bakery', facActor]]);
+
+				const agent = createBehaviorAgent(setupDeps(actor, {
+					getLocations: () => locations,
+					getLocationActors: () => locActors,
+				}));
+
+				expect(agent.SeekWork()).toBe('mistreevous.failed');
+				expect(agent.movementTarget).toBeNull();
+			});
 		});
 
 		describe('SeekSocial', () => {
