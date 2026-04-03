@@ -152,4 +152,54 @@ describe('NeedsDecaySystem', () => {
 
 		expect(criticals.length).toBeGreaterThan(0);
 	});
+
+	it('equipment with charges reduces all need decay rates', () => {
+		const withEquipment = new AgentActor(
+			createTestAgent({ inventory: [{ item_id: 'equipment', quantity: 1, charges: 10 }] }),
+			defaultMoodConfig,
+		);
+		withEquipment.behaviorAgent = createStubBehaviorAgent();
+
+		const withoutEquipment = new AgentActor(createTestAgent(), defaultMoodConfig);
+		withoutEquipment.behaviorAgent = createStubBehaviorAgent();
+
+		const systemWith = createNeedsDecaySystem(() => [withEquipment]);
+		const systemWithout = createNeedsDecaySystem(() => [withoutEquipment]);
+		const deps = createDeps();
+		systemWith.execute(deps);
+		systemWithout.execute(deps);
+
+		const needsWith = withEquipment.get(NeedsComponent).state;
+		const needsWithout = withoutEquipment.get(NeedsComponent).state;
+
+		// Agent with equipment should decay less (higher values remain)
+		expect(needsWith.hunger).toBeGreaterThan(needsWithout.hunger);
+		expect(needsWith.thirst).toBeGreaterThan(needsWithout.thirst);
+		expect(needsWith.energy).toBeGreaterThan(needsWithout.energy);
+	});
+
+	it('equipment with zero charges does not reduce decay', () => {
+		const withExhaustedEquipment = new AgentActor(
+			createTestAgent({ inventory: [{ item_id: 'equipment', quantity: 1, charges: 0 }] }),
+			defaultMoodConfig,
+		);
+		withExhaustedEquipment.behaviorAgent = createStubBehaviorAgent();
+
+		const withoutEquipment = new AgentActor(createTestAgent(), defaultMoodConfig);
+		withoutEquipment.behaviorAgent = createStubBehaviorAgent();
+
+		const systemWith = createNeedsDecaySystem(() => [withExhaustedEquipment]);
+		const systemWithout = createNeedsDecaySystem(() => [withoutEquipment]);
+		const deps = createDeps();
+		systemWith.execute(deps);
+		systemWithout.execute(deps);
+
+		const needsWith = withExhaustedEquipment.get(NeedsComponent).state;
+		const needsWithout = withoutEquipment.get(NeedsComponent).state;
+
+		// Zero charges: same decay as no equipment
+		expect(needsWith.hunger).toBe(needsWithout.hunger);
+		expect(needsWith.thirst).toBe(needsWithout.thirst);
+		expect(needsWith.energy).toBe(needsWithout.energy);
+	});
 });
