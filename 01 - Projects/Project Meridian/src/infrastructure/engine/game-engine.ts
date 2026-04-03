@@ -57,6 +57,8 @@ export function createGameEngine(
 		engine,
 		dispose() {
 			observer.disconnect();
+			// Suppress ExcaliburJS "WebGL Graphics Lost" fatal log during intentional cleanup
+			canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); }, { once: true });
 			// Release WebGL context to prevent "Too many active WebGL contexts" on tab reopen
 			const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
 			if (gl !== null) {

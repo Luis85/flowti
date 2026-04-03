@@ -6,6 +6,19 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { SocialComponent } from '../components/social-component.js';
 
+function getActivityModifiers(
+	btAction: string | null,
+	activityCosts: Record<string, { hunger: number; thirst: number; energy: number }>,
+): NeedsModifiers {
+	const costs = btAction !== null ? activityCosts[btAction] : undefined;
+	if (costs === undefined) return {};
+	return {
+		hungerDecayScale: costs.hunger,
+		thirstDecayScale: costs.thirst,
+		energyDecayScale: costs.energy,
+	};
+}
+
 export function createNeedsDecaySystem(
 	entities: () => AgentActor[],
 ): GameSystem {
@@ -20,8 +33,14 @@ export function createNeedsDecaySystem(
 				const social = entity.get(SocialComponent);
 				const ba = entity.behaviorAgent;
 
-				const traitModifiers = ba.traitModifiers;
-				const needsMods = traitModifiers?.['NeedsDecaySystem'] as NeedsModifiers | undefined;
+				// Merge trait modifiers with activity modifiers (activity takes precedence)
+				const traitMods = ba.traitModifiers?.['NeedsDecaySystem'] as NeedsModifiers | undefined;
+				const activityMods = getActivityModifiers(ba.btAction, deps.config.needs.activity_costs);
+				const mergedMods: NeedsModifiers = {
+					hungerDecayScale: activityMods.hungerDecayScale ?? traitMods?.hungerDecayScale,
+					thirstDecayScale: activityMods.thirstDecayScale ?? traitMods?.thirstDecayScale,
+					energyDecayScale: activityMods.energyDecayScale ?? traitMods?.energyDecayScale,
+				};
 
 				const result = applyNeedsDecay(
 					{
@@ -30,7 +49,7 @@ export function createNeedsDecaySystem(
 						energyAttribute: attrs.state.HT,
 						socialAttribute: social.state.charisma,
 						thirstAttribute: attrs.state.HT,
-						modifiers: needsMods ?? null,
+						modifiers: mergedMods,
 					},
 					deps.config.needs,
 				);

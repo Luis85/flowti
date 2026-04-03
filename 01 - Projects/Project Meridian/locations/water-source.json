@@ -2,7 +2,7 @@
 	"id": "loc-water-source",
 	"name": "Spring",
 	"type": "water",
-	"position": { "x": 150, "y": 300, "region": "region-valley" },
+	"position": { "x": 220, "y": 250, "region": "region-valley" },
 	"color": "#4da6ff",
 	"production": null,
 	"capacity": 1

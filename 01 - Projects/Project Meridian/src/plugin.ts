@@ -85,9 +85,27 @@ export class MeridianPlugin extends Plugin {
 			// Hot-swap simulation settings
 			const config = this.gameDeps.config;
 			config.tick_interval_ms = Math.max(50, Math.round(1000 / this.settings.tickRate));
-			config.ticks_per_day = Math.round(
+			const newTicksPerDay = Math.round(
 				this.settings.dayCycleDuration * this.settings.tickRate,
 			);
+			// Scale all tick-dependent config proportionally when ticks_per_day changes
+			const scale = newTicksPerDay / config.ticks_per_day;
+			if (scale !== 1) {
+				// Day/night phase ranges
+				for (const phase of ['dawn', 'day', 'dusk', 'night'] as const) {
+					const range = config.day_night[phase];
+					range.start = Math.round(range.start * scale);
+					range.end = Math.round(range.end * scale);
+				}
+				// Needs decay rates — defined for 480-tick day, scale for actual day length
+				config.needs.hunger_decay /= scale;
+				config.needs.energy_decay /= scale;
+				config.needs.thirst_decay /= scale;
+				config.needs.social_decay /= scale;
+				// Stamina movement cost
+				config.stamina.movement_energy_cost /= scale;
+			}
+			config.ticks_per_day = newTicksPerDay;
 			config.perception.base_multiplier = this.settings.perceptionRadius;
 		}
 
@@ -102,12 +120,25 @@ export class MeridianPlugin extends Plugin {
 		}
 	}
 
+	/** Read game-config.json from the vault for simulation tuning overrides */
+	private async loadGameConfig(): Promise<Record<string, unknown>> {
+		const configPath = '01 - Projects/Project Meridian/configs/game-config.json';
+		try {
+			const content = await this.app.vault.adapter.read(configPath);
+			return JSON.parse(content) as Record<string, unknown>;
+		} catch {
+			this.logger?.warn('Meridian', 'No game-config.json found, using schema defaults');
+			return {};
+		}
+	}
+
 	/** Deferred game initialization — called after Obsidian workspace is fully loaded */
-	private initializeGame(): void {
+	private async initializeGame(): Promise<void> {
 		this.logger?.info('Meridian', 'Game initialization started');
 
 		this.batchableEventBus = createEventBus();
-		const config = GameConfigSchema.parse({});
+		const configOverrides = await this.loadGameConfig();
+		const config = GameConfigSchema.parse(configOverrides);
 
 		if (this.logger !== null && this.performanceTracker !== null) {
 			this.gameDeps = {
