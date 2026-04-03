@@ -16,6 +16,7 @@ import { RelationshipComponent } from '../components/relationship-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import type { LedgerEntry } from '../../domain/core/component-data.js';
 import type { SkillEntry } from '../../domain/systems/behavior-agent.js';
+import type { Item } from '../../domain/schemas/item-schema.js';
 
 interface StockItem {
 	item_id: string;
@@ -282,6 +283,7 @@ function processFacilityTick(
 	agentList: AgentActor[],
 	economy: EconomyComponent,
 	deps: GameCoreDeps,
+	itemRegistry?: Map<string, Item>,
 ): void {
 	const radius = deps.config.perception.interaction_radius;
 	const worker = findWorker(agentList, production.job, loc.position.x, loc.position.y, radius);
@@ -342,6 +344,8 @@ function processFacilityTick(
 	if (result.produceOutput && isPrivateProduction && worker !== undefined) {
 		// Private production — output goes to worker inventory
 		const inv = worker.get(InventoryComponent);
+		const itemDef = itemRegistry?.get(production.output.item_id);
+		const maxCharges = itemDef?.maxCharges;
 		const existingItem = inv.state.items.find(i => i.item_id === production.output.item_id);
 		if (existingItem !== undefined) {
 			inv.state = { items: inv.state.items.map(i =>
@@ -350,7 +354,9 @@ function processFacilityTick(
 					: { ...i }
 			) };
 		} else {
-			inv.state = { items: [...inv.state.items.map(i => ({ ...i })), { item_id: production.output.item_id, quantity: outputQty }] };
+			const newItem: { item_id: string; quantity: number; charges?: number } = { item_id: production.output.item_id, quantity: outputQty };
+			if (maxCharges !== undefined) newItem.charges = maxCharges;
+			inv.state = { items: [...inv.state.items.map(i => ({ ...i })), newItem] };
 		}
 		inv.markDirty();
 	} else if (result.produceOutput) {
@@ -401,6 +407,7 @@ export function createFacilitySystem(
 	locations: () => WorldLocation[],
 	getLocationActors: () => Map<string, Actor>,
 	worldEntity: () => Actor,
+	getItemRegistry?: () => Map<string, Item>,
 ): GameSystem {
 	return {
 		name: 'FacilitySystem',
@@ -411,12 +418,13 @@ export function createFacilitySystem(
 			const locationList = locations();
 			const locationActorMap = getLocationActors();
 			const economy = worldEntity().get(EconomyComponent);
+			const items = getItemRegistry?.();
 
 			for (const loc of locationList) {
 				if (loc.production === null) continue;
 				const locActor = locationActorMap.get(loc.id);
 				if (locActor === undefined) continue;
-				processFacilityTick(loc, loc.production, locActor.get(FacilityComponent), agentList, economy, deps);
+				processFacilityTick(loc, loc.production, locActor.get(FacilityComponent), agentList, economy, deps, items);
 			}
 		},
 	};

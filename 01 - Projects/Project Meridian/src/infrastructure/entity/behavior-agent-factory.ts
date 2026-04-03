@@ -395,13 +395,15 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		NeedsTools(): boolean {
-			const tools = agent.inventory.find(i => i.item_id === 'tools');
-			return tools === undefined || tools.quantity === 0;
+			const inv = actor.get(InventoryComponent).state.items;
+			const tools = inv.find(i => i.item_id === 'tools');
+			return tools === undefined || tools.quantity === 0 || (tools.charges ?? 0) === 0;
 		},
 
 		NeedsEquipment(): boolean {
-			const equip = agent.inventory.find(i => i.item_id === 'equipment');
-			return equip === undefined || equip.quantity === 0;
+			const inv = actor.get(InventoryComponent).state.items;
+			const equip = inv.find(i => i.item_id === 'equipment');
+			return equip === undefined || equip.quantity === 0 || (equip.charges ?? 0) === 0;
 		},
 
 		CanAffordItem(itemId: string): boolean {
@@ -601,6 +603,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			);
 			if (atFacility === undefined) return FAILED;
 			btAction = 'buy';
+			buyTargetItem = null;
 			return SUCCEEDED;
 		},
 

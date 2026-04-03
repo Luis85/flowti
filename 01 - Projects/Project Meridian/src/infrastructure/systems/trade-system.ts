@@ -55,20 +55,27 @@ function applySuccessfulTrade(
 	foodPrice: number,
 	economy: EconomyComponent,
 	deps: GameCoreDeps,
+	itemDef?: Item,
 ): void {
 	// Update agent wallet
 	const wallet = agent.get(WalletComponent);
 	wallet.state = { ...wallet.state, gold: wallet.state.gold + result.agentGoldChange };
 	wallet.markDirty();
 
-	// Add item to agent inventory
+	// Add item to agent inventory (initialize charges from item def if applicable)
 	const inv = agent.get(InventoryComponent);
 	const existingItem = inv.state.items.find(i => i.item_id === target.itemId);
-	const updatedItems = existingItem !== undefined
-		? inv.state.items.map(i => i.item_id === target.itemId
+	const maxCharges = itemDef?.maxCharges;
+	let updatedItems;
+	if (existingItem !== undefined) {
+		updatedItems = inv.state.items.map(i => i.item_id === target.itemId
 			? { ...i, quantity: i.quantity + 1 }
-			: { ...i })
-		: [...inv.state.items.map(i => ({ ...i })), { item_id: target.itemId, quantity: 1 }];
+			: { ...i });
+	} else {
+		const newItem: { item_id: string; quantity: number; charges?: number } = { item_id: target.itemId, quantity: 1 };
+		if (maxCharges !== undefined) newItem.charges = maxCharges;
+		updatedItems = [...inv.state.items.map(i => ({ ...i })), newItem];
+	}
 	inv.state = { ...inv.state, items: updatedItems };
 	inv.markDirty();
 
@@ -226,7 +233,7 @@ export function createTradeSystem(
 				});
 
 				if (result.success) {
-					applySuccessfulTrade(agent, result, target, foodPrice, economy, deps);
+					applySuccessfulTrade(agent, result, target, foodPrice, economy, deps, item);
 				} else {
 					deps.eventBus.emit({
 						type: 'PurchaseFailed',

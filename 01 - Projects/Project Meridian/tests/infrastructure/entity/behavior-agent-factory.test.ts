@@ -826,13 +826,22 @@ describe('BehaviorAgent factory', () => {
 				expect(agent.NeedsTools()).toBe(true);
 			});
 
-			it('returns false when agent has tools with quantity > 0', () => {
+			it('returns false when agent has tools with quantity > 0 and charges > 0', () => {
 				const actor = new AgentActor(
-					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 1 }] }),
+					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 1, charges: 5 }] }),
 					defaultMoodConfig,
 				);
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.NeedsTools()).toBe(false);
+			});
+
+			it('returns true when agent has tools with charges 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 1, charges: 0 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.NeedsTools()).toBe(true);
 			});
 		});
 
@@ -852,13 +861,22 @@ describe('BehaviorAgent factory', () => {
 				expect(agent.NeedsEquipment()).toBe(true);
 			});
 
-			it('returns false when agent has equipment with quantity > 0', () => {
+			it('returns false when agent has equipment with quantity > 0 and charges > 0', () => {
 				const actor = new AgentActor(
-					createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1 }] }),
+					createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 10 }] }),
 					defaultMoodConfig,
 				);
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.NeedsEquipment()).toBe(false);
+			});
+
+			it('returns true when agent has equipment with charges 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 0 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.NeedsEquipment()).toBe(true);
 			});
 		});
 
@@ -1106,6 +1124,14 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.Buy()).toBe('mistreevous.failed');
+			});
+
+			it('clears buyTargetItem so TradeSystem defaults to food', () => {
+				const { agent } = setupBuyScenario();
+				agent.atLocation = 'loc-market';
+				agent.buyTargetItem = 'tools'; // stale from a previous BuyItem call
+				agent.Buy();
+				expect(agent.buyTargetItem).toBeNull();
 			});
 		});
 

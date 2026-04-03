@@ -232,7 +232,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
-		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity));
+		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createDialogueSystem(getAgents, Date.now()));
 		tickRunner.register(createGossipSystem(getAgents, getLocations));
@@ -250,6 +250,7 @@ export class MeridianGameView extends ItemView {
 			getLocationActors,
 			getTickCount: () => deps.tickCount,
 			getTicksPerDay: () => deps.config.ticks_per_day,
+			getItemRegistry,
 		});
 		this.disposeOverlay = debugOverlay.dispose;
 	}

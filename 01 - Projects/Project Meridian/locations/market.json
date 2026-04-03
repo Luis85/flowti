@@ -7,7 +7,8 @@
 	"production": null,
 	"fund": 200,
 	"stock": [
-		{ "item_id": "food", "quantity": 5 }
+		{ "item_id": "food", "quantity": 5 },
+		{ "item_id": "equipment", "quantity": 2 }
 	],
 	"capacity": 1
 }

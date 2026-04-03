@@ -10,6 +10,7 @@ import { FacilityComponent } from '../components/facility-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { StaminaComponent } from '../components/stamina-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
+import type { Item } from '../../domain/schemas/item-schema.js';
 
 interface OverlayDeps {
 	getAgents: () => AgentActor[];
@@ -18,6 +19,7 @@ interface OverlayDeps {
 	getLocationActors: () => Map<string, Actor>;
 	getTickCount: () => number;
 	getTicksPerDay?: () => number;
+	getItemRegistry?: () => Map<string, Item>;
 }
 
 const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
@@ -216,6 +218,7 @@ export function createDebugOverlay(
 
 		// Market prices
 		const marketLoc = locations.find(l => l.type === 'market');
+		const items = deps.getItemRegistry?.();
 		if (marketLoc !== undefined) {
 			const marketActor = locationActors.get(marketLoc.id);
 			if (marketActor !== undefined && marketActor.has(FacilityComponent)) {
@@ -224,7 +227,11 @@ export function createDebugOverlay(
 				lines.push('📊 <b style="color:#89b4fa">Market Prices</b>');
 				const prices = market.state.currentPrices ?? {};
 				for (const [itemId, price] of Object.entries(prices)) {
-					lines.push(`  ${itemId}: <b>${Number(price).toFixed(1)}g</b>`);
+					const p = Number(price);
+					const basePrice = items?.get(itemId)?.baseValue ?? p;
+					const color = p < basePrice ? '#a6e3a1' : p > basePrice ? '#f38ba8' : '#cdd6f4';
+					const arrow = p < basePrice ? '▼' : p > basePrice ? '▲' : '─';
+					lines.push(`  <span style="color:${color}">${itemId}: <b>${p.toFixed(1)}g</b> ${arrow}</span>`);
 				}
 				if (Object.keys(prices).length === 0) {
 					lines.push('  <span style="color:#6c7086">No prices set</span>');
