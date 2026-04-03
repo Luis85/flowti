@@ -86,6 +86,7 @@ describe('WorldLoader', () => {
 			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
 			'01 - Projects/Project Meridian/behavior-trees/branch-settler.mdsl': branchMdsl,
 			'01 - Projects/Project Meridian/behavior-trees/branch-guard.mdsl': branchMdsl,
+			'01 - Projects/Project Meridian/behavior-trees/branch-craftsman.mdsl': branchMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
@@ -141,7 +142,7 @@ describe('WorldLoader', () => {
 		const loader = createWorldLoader(logger, loaderConfig);
 		const result = await loader.load(vault);
 
-		// MDSL files missing = errors for each of the 2 kinds (base + branch for each)
+		// MDSL files missing = errors for each of the 3 kinds (base + branch for each)
 		expect(result.errors.length).toBeGreaterThan(0);
 		expect(result.agents).toHaveLength(0);
 		expect(result.traitDefs).toEqual({});

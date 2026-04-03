@@ -1,0 +1,30 @@
+root [Role] {
+    selector {
+        /* Sell goods at market if carrying any and not hungry */
+        sequence {
+            condition [AtLocation, "market"]
+            condition [HasTradeGoods]
+            flip { condition [IsHungry] }
+            action [SellAtMarket]
+        }
+        /* Go to market to sell if carrying trade goods and not hungry */
+        sequence {
+            condition [HasTradeGoods]
+            flip { condition [IsHungry] }
+            action [SeekMarket]
+        }
+
+        /* Work at workshop */
+        sequence {
+            condition [AtJobFacility]
+            action [Work] while(IsWorkHours)
+        }
+        /* Go to work */
+        sequence {
+            condition [HasJob]
+            action [SeekWork]
+        }
+
+        action [Wander]
+    }
+}

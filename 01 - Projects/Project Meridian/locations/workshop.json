@@ -1,0 +1,16 @@
+{
+	"id": "loc-workshop",
+	"name": "Workshop",
+	"type": "work",
+	"position": { "x": 260, "y": 170, "region": "region-valley" },
+	"color": "#ff8a65",
+	"production": {
+		"job": "craftsman",
+		"output": { "item_id": "tools", "quantity": 1 },
+		"input": null,
+		"wage": 0,
+		"ticks_per_cycle": 25,
+		"funding": "facility"
+	},
+	"capacity": 1
+}
