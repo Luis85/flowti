@@ -71,6 +71,8 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
 		FacilityNeedsSupply: () => false, KnowsFoodSource: () => false,
 		HasNoJob: () => true, OpenFacilityNearby: () => false,
+		HasTradeGoods: () => false, NeedsTools: () => true, NeedsEquipment: () => true,
+		CanAffordItem: () => false,
 		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
 		Drink: () => 'mistreevous.failed', Harvest: () => 'mistreevous.failed',
 		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',

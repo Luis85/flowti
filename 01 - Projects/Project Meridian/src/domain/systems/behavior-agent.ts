@@ -115,6 +115,10 @@ export interface BehaviorAgent {
 	KnowsFoodSource(): boolean;
 	HasNoJob(): boolean;
 	OpenFacilityNearby(): boolean;
+	HasTradeGoods(): boolean;
+	NeedsTools(): boolean;
+	NeedsEquipment(): boolean;
+	CanAffordItem(itemId: string): boolean;
 
 	// Action methods (23)
 	Eat(): ActionResult;

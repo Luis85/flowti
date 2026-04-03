@@ -783,6 +783,125 @@ describe('BehaviorAgent factory', () => {
 				expect(agent.FacilityNeedsSupply()).toBe(false);
 			});
 		});
+
+		describe('HasTradeGoods', () => {
+			it('returns true when agent has a TRADE_GOODS item with quantity > 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 2 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.HasTradeGoods()).toBe(true);
+			});
+
+			it('returns false when agent has no TRADE_GOODS items', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'torch', quantity: 1 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.HasTradeGoods()).toBe(false);
+			});
+
+			it('returns false when inventory is empty', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.HasTradeGoods()).toBe(false);
+			});
+		});
+
+		describe('NeedsTools', () => {
+			it('returns true when agent has no tools in inventory', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.NeedsTools()).toBe(true);
+			});
+
+			it('returns true when agent has tools with quantity 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 0 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.NeedsTools()).toBe(true);
+			});
+
+			it('returns false when agent has tools with quantity > 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 1 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.NeedsTools()).toBe(false);
+			});
+		});
+
+		describe('NeedsEquipment', () => {
+			it('returns true when agent has no equipment in inventory', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.NeedsEquipment()).toBe(true);
+			});
+
+			it('returns true when agent has equipment with quantity 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 0 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.NeedsEquipment()).toBe(true);
+			});
+
+			it('returns false when agent has equipment with quantity > 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor));
+				expect(agent.NeedsEquipment()).toBe(false);
+			});
+		});
+
+		describe('CanAffordItem', () => {
+			it('returns true when agent gold >= cheapest known price', () => {
+				const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 20 } }), defaultMoodConfig);
+				const agent = createBehaviorAgent(setupDeps(actor, { tickCount: () => 1 }));
+				agent.priceMemories.push({ itemId: 'tools', price: 8, locationId: 'loc-market', tick: 1 });
+				expect(agent.CanAffordItem('tools')).toBe(true);
+			});
+
+			it('returns false when agent gold < cheapest known price', () => {
+				const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 5 } }), defaultMoodConfig);
+				const agent = createBehaviorAgent(setupDeps(actor, { tickCount: () => 1 }));
+				agent.priceMemories.push({ itemId: 'tools', price: 8, locationId: 'loc-market', tick: 1 });
+				expect(agent.CanAffordItem('tools')).toBe(false);
+			});
+
+			it('falls back to config food_price when no price memory exists', () => {
+				const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 50 } }), defaultMoodConfig);
+				const agent = createBehaviorAgent(setupDeps(actor, { config }));
+				// No price memories — should use food_price fallback (default 3)
+				expect(agent.CanAffordItem('unknown-item')).toBe(true);
+			});
+
+			it('ignores stale price memories and falls back to config food_price', () => {
+				const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 2 } }), defaultMoodConfig);
+				// staleTicks default = 200, set tick to 300 so memory at tick 1 is stale
+				const agent = createBehaviorAgent(setupDeps(actor, { config, tickCount: () => 300 }));
+				agent.priceMemories.push({ itemId: 'tools', price: 8, locationId: 'loc-market', tick: 1 });
+				// Stale memory ignored, fallback food_price = 3, gold = 2 → cannot afford
+				expect(agent.CanAffordItem('tools')).toBe(false);
+			});
+
+			it('uses cheapest of multiple valid price memories', () => {
+				const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 6 } }), defaultMoodConfig);
+				const agent = createBehaviorAgent(setupDeps(actor, { tickCount: () => 1 }));
+				agent.priceMemories.push({ itemId: 'tools', price: 10, locationId: 'loc-a', tick: 1 });
+				agent.priceMemories.push({ itemId: 'tools', price: 5, locationId: 'loc-b', tick: 1 });
+				// cheapest = 5, gold = 6 → can afford
+				expect(agent.CanAffordItem('tools')).toBe(true);
+			});
+		});
 	});
 
 	// ── Action method tests (C2: survival) ─────────────────────────────────

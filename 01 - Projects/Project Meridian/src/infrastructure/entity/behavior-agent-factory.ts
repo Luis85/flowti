@@ -390,6 +390,35 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return inv.some(i => i.item_id === 'waterskin' && (i.charges ?? 0) > 0);
 		},
 
+		HasTradeGoods(): boolean {
+			return agent.inventory.some(i => TRADE_GOODS.has(i.item_id) && i.quantity > 0);
+		},
+
+		NeedsTools(): boolean {
+			const tools = agent.inventory.find(i => i.item_id === 'tools');
+			return tools === undefined || tools.quantity === 0;
+		},
+
+		NeedsEquipment(): boolean {
+			const equip = agent.inventory.find(i => i.item_id === 'equipment');
+			return equip === undefined || equip.quantity === 0;
+		},
+
+		CanAffordItem(itemId: string): boolean {
+			const staleTicks = config.economy.price_memory_stale_ticks;
+			const tick = tickCount();
+			let cheapestPrice = Infinity;
+			for (const mem of priceMemories) {
+				if (mem.itemId === itemId && !isPriceStale(mem, tick, staleTicks)) {
+					if (mem.price < cheapestPrice) cheapestPrice = mem.price;
+				}
+			}
+			if (cheapestPrice === Infinity) {
+				cheapestPrice = config.economy.food_price; // fallback
+			}
+			return agent.gold >= cheapestPrice;
+		},
+
 		// ── 22 Action methods ──────────────────────────────────────────────
 		Eat(): ActionResult {
 			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
