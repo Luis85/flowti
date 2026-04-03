@@ -332,7 +332,11 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		AtJobFacility(): boolean {
 			if (atLocation === null || agent.job === null) return false;
 			const facilities = agent.nearbyFacilities;
-			return facilities.some(f => f.id === atLocation && f.job === agent.job);
+			return facilities.some(f =>
+				f.id === atLocation &&
+				f.job === agent.job &&
+				(f.workerId === null || f.workerId === actor.agentId),
+			);
 		},
 
 		FacilityHasStock(itemId: string): boolean {
@@ -614,10 +618,14 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		// ── C3: Work + merchant actions ────────────────────────────────────
 		Work(): ActionResult {
 			if (atLocation === null || agent.job === null) return FAILED;
-			btAction = 'work';
 			const facilities = agent.nearbyFacilities;
-			const jobFacility = facilities.find(f => f.id === atLocation && f.job === agent.job);
+			const jobFacility = facilities.find(f =>
+				f.id === atLocation &&
+				f.job === agent.job &&
+				(f.workerId === null || f.workerId === actor.agentId),
+			);
 			if (jobFacility === undefined) return FAILED;
+			btAction = 'work';
 			return RUNNING;
 		},
 
