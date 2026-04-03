@@ -115,8 +115,9 @@ root {
             }
         }
 
-        /* P4.5: Buy equipment if affordable and available */
+        /* P4.5: Buy equipment if affordable, available, and not exhausted */
         sequence {
+            flip { condition [IsExhausted] }
             condition [NeedsEquipment]
             condition [CanAffordItem, "equipment"]
             selector {
