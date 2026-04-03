@@ -20,6 +20,11 @@ const loaderConfig = {
 	moodConfig: defaultMoodConfig,
 	memoryMaxEntries: 50,
 	dataRoot: '01 - Projects/Project Meridian',
+	jobDefinitions: {
+		settler: { primary_attribute: 'HT' },
+		guard: { primary_attribute: 'ST' },
+		craftsman: { primary_attribute: 'DX' },
+	},
 };
 
 const validAgent = {
@@ -62,9 +67,9 @@ const validLocation = {
 	capacity: 5,
 };
 
-// Minimal valid MDSL for testing — a simple root with one action
-const baseMdsl = 'root {\n    action [Idle]\n}\n';
-const branchMdsl = 'root [Role] {\n    action [Wander]\n}\n';
+// Minimal valid MDSL for testing — base has branch [Job] that gets composed
+const baseMdsl = 'root {\n    branch [Job]\n}\n';
+const jobMdsl = 'root [Job] {\n    action [Wander]\n}\n';
 
 function createMockVault(files: Record<string, string>): VaultReader {
 	return {
@@ -78,15 +83,15 @@ function createMockVault(files: Record<string, string>): VaultReader {
 }
 
 describe('WorldLoader', () => {
-	it('loads all resource types including MDSL behavior trees', async () => {
+	it('loads all resource types including job MDSL trees', async () => {
 		const vault = createMockVault({
 			'01 - Projects/Project Meridian/traits/hardy.json': JSON.stringify(validTrait),
 			'01 - Projects/Project Meridian/agents/elena.json': JSON.stringify(validAgent),
 			'01 - Projects/Project Meridian/locations/tavern.json': JSON.stringify(validLocation),
 			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
-			'01 - Projects/Project Meridian/behavior-trees/branch-settler.mdsl': branchMdsl,
-			'01 - Projects/Project Meridian/behavior-trees/branch-guard.mdsl': branchMdsl,
-			'01 - Projects/Project Meridian/behavior-trees/branch-craftsman.mdsl': branchMdsl,
+			'01 - Projects/Project Meridian/jobs/settler.mdsl': jobMdsl,
+			'01 - Projects/Project Meridian/jobs/guard.mdsl': jobMdsl,
+			'01 - Projects/Project Meridian/jobs/craftsman.mdsl': jobMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
@@ -98,8 +103,10 @@ describe('WorldLoader', () => {
 		expect(result.agents[0]?.agentId).toBe('agent-elena');
 		expect(result.locations).toHaveLength(1);
 		expect(result.locations[0]?.id).toBe('loc-tavern');
-		expect(result.btMdslDefinitions['settler']).toBeDefined();
-		expect(result.btMdslDefinitions['guard']).toBeDefined();
+		expect(result.jobTrees['settler']).toBeDefined();
+		expect(result.jobTrees['guard']).toBeDefined();
+		expect(result.joblessMdsl).toBeDefined();
+		expect(result.joblessMdsl).toContain('action [Wander]');
 	});
 
 	it('calls progress callback 6 times with correct step/total/label', async () => {
@@ -142,28 +149,28 @@ describe('WorldLoader', () => {
 		const loader = createWorldLoader(logger, loaderConfig);
 		const result = await loader.load(vault);
 
-		// MDSL files missing = errors for each of the 3 kinds (base + branch for each)
+		// MDSL base missing = error, no job trees composed
 		expect(result.errors.length).toBeGreaterThan(0);
 		expect(result.agents).toHaveLength(0);
 		expect(result.traitDefs).toEqual({});
 		expect(result.locations).toHaveLength(0);
-		expect(result.btMdslDefinitions).toEqual({});
+		expect(result.jobTrees).toEqual({});
 	});
 
-	it('loads MDSL definitions keyed by kind', async () => {
+	it('loads job trees keyed by job name', async () => {
 		const vault = createMockVault({
 			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
-			'01 - Projects/Project Meridian/behavior-trees/branch-settler.mdsl': branchMdsl,
-			'01 - Projects/Project Meridian/behavior-trees/branch-guard.mdsl': branchMdsl,
+			'01 - Projects/Project Meridian/jobs/settler.mdsl': jobMdsl,
+			'01 - Projects/Project Meridian/jobs/guard.mdsl': jobMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
 		const result = await loader.load(vault);
 
-		expect(result.btMdslDefinitions['settler']).toBeDefined();
-		expect(result.btMdslDefinitions['guard']).toBeDefined();
-		// Each definition should be the composed base + branch
-		expect(result.btMdslDefinitions['settler']).toContain('Idle');
-		expect(result.btMdslDefinitions['settler']).toContain('Wander');
+		expect(result.jobTrees['settler']).toBeDefined();
+		expect(result.jobTrees['guard']).toBeDefined();
+		// Each definition should be the composed base + job module
+		expect(result.jobTrees['settler']).toContain('Wander');
+		expect(result.joblessMdsl).toContain('action [Wander]');
 	});
 });

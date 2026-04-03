@@ -63,6 +63,7 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
 		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
 		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null, buyTargetItem: null,
+		unemployedTicks: 0,
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
 		IsThirsty: () => false, HasWater: () => false,
@@ -72,7 +73,7 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		IsNighttime: () => false, IsWorkHours: () => false, HasJob: () => false, AtJobFacility: () => false,
 		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
 		FacilityNeedsSupply: () => false, KnowsFoodSource: () => false,
-		HasNoJob: () => true, OpenFacilityNearby: () => false,
+		HasNoJob: () => true, OpenFacilityNearby: () => false, OpenProductionFacilityNearby: () => false,
 		HasTradeGoods: () => false, NeedsTools: () => true, NeedsEquipment: () => true,
 		CanAffordItem: () => false,
 		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
@@ -87,8 +88,9 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
 		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
 		SeekBestFoodSource: () => 'mistreevous.failed', ClaimJob: () => 'mistreevous.failed',
+		ClaimBestJob: () => 'mistreevous.failed' as const, ReleaseJob: () => 'mistreevous.succeeded' as const,
 		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
-		recordPriceObservation: () => {},
+		recordPriceObservation: () => {}, tickUnemployment: () => {},
 		...overrides,
 	};
 }
@@ -128,7 +130,7 @@ function createWorldWithTime(): Actor {
 describe('three-agent economy integration', () => {
 	it('craftsman produces tools into own inventory (private zero-wage)', () => {
 		const craftsman = new AgentActor(
-			createTestAgentData('craftsman-1', 50, 50, { job: 'craftsman' }),
+			createTestAgentData('craftsman-1', 50, 50, { job: 'craftsman', attributes: { ST: 12, DX: 12, IQ: 12, HT: 12 } }),
 			defaultMoodConfig,
 		);
 		craftsman.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'craftsman' });
@@ -182,7 +184,7 @@ describe('three-agent economy integration', () => {
 
 	it('tools multiply farm output and consume a charge', () => {
 		const farmer = new AgentActor(
-			createTestAgentData('farmer-1', 100, 100, { job: 'farmer' }),
+			createTestAgentData('farmer-1', 100, 100, { job: 'farmer', attributes: { ST: 12, DX: 12, IQ: 12, HT: 12 } }),
 			defaultMoodConfig,
 		);
 		farmer.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'farmer' });

@@ -22,7 +22,7 @@ function createMockAgent(): AgentActor {
 	const stepFn = vi.fn();
 	const resetFn = vi.fn();
 	return {
-		behaviorAgent: { btAction: null as string | null },
+		behaviorAgent: { btAction: null as string | null, tickUnemployment: vi.fn() },
 		behaviorTree: { step: stepFn, reset: resetFn },
 		_stepFn: stepFn,
 		_resetFn: resetFn,

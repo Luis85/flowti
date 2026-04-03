@@ -5,7 +5,7 @@ export interface WorldValidationAgent {
 	name: string;
 	job: string | null;
 	inventory: { item_id: string; quantity: number }[];
-	behaviorTree: string;
+	behaviorTree?: string;
 }
 
 export interface WorldValidationLocation {
@@ -79,6 +79,8 @@ function checkBTDefinitions(agents: WorldValidationAgent[], btDefinitions: Recor
 	const BT_PREFIX = 'bt-';
 	const warnings: ValidationWarning[] = [];
 	for (const agent of agents) {
+		// Skip agents without a declared BT (generic agents get BT dynamically via job)
+		if (agent.behaviorTree === undefined || agent.behaviorTree === '') continue;
 		// BT map keys have the 'bt-' prefix stripped (e.g., 'bt-scholar' → 'scholar')
 		const btKey = agent.behaviorTree.startsWith(BT_PREFIX)
 			? agent.behaviorTree.slice(BT_PREFIX.length)

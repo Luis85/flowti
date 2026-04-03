@@ -70,6 +70,7 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
 		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
 		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null, buyTargetItem: null,
+		unemployedTicks: 0,
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
 		IsThirsty: () => false, HasWater: () => false,
@@ -79,7 +80,7 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		IsNighttime: () => false, IsWorkHours: () => false, HasJob: () => false, AtJobFacility: () => false,
 		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
 		FacilityNeedsSupply: () => false, KnowsFoodSource: () => false,
-		HasNoJob: () => true, OpenFacilityNearby: () => false,
+		HasNoJob: () => true, OpenFacilityNearby: () => false, OpenProductionFacilityNearby: () => false,
 		HasTradeGoods: () => false, NeedsTools: () => true, NeedsEquipment: () => true,
 		CanAffordItem: () => false,
 		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
@@ -94,8 +95,9 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
 		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
 		SeekBestFoodSource: () => 'mistreevous.failed', ClaimJob: () => 'mistreevous.failed',
+		ClaimBestJob: () => 'mistreevous.failed' as const, ReleaseJob: () => 'mistreevous.succeeded' as const,
 		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
-		recordPriceObservation: () => {},
+		recordPriceObservation: () => {}, tickUnemployment: () => {},
 		...overrides,
 	};
 }

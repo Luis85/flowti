@@ -59,6 +59,7 @@ function assembleVaultOverlay(): Plugin {
 			copyDir(resolve(projectRoot, 'traits'), resolve(resDir, 'traits'), '.md');
 			copyDir(resolve(projectRoot, 'regions'), resolve(resDir, 'regions'), '.json');
 			copyDir(resolve(projectRoot, 'items'), resolve(resDir, 'items'), '.json');
+			copyDir(resolve(projectRoot, 'jobs'), resolve(resDir, 'jobs'), '.mdsl');
 
 			// World documentation → 03 - Resources/
 			copyDir(resolve(projectRoot, 'personas'), resolve(resDir, 'Personas'), '.md');

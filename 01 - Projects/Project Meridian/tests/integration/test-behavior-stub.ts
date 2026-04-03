@@ -57,6 +57,8 @@ export function stubBehaviorAgent(
 		feedingAt: overrides.feedingAt ?? null,
 		restingAt: overrides.restingAt ?? null,
 		arrivalSlot: null,
+		buyTargetItem: null,
+		unemployedTicks: 0,
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 
 		// Condition stubs — all return false
@@ -86,6 +88,11 @@ export function stubBehaviorAgent(
 		KnowsFoodSource() { return false; },
 		HasNoJob() { return true; },
 		OpenFacilityNearby() { return false; },
+		OpenProductionFacilityNearby() { return false; },
+		HasTradeGoods() { return false; },
+		NeedsTools() { return false; },
+		NeedsEquipment() { return false; },
+		CanAffordItem(_itemId: string) { return false; },
 
 		// Action stubs — all succeed
 		Eat() { return SUCCEEDED; },
@@ -109,10 +116,14 @@ export function stubBehaviorAgent(
 		SeekSupplySource() { return RUNNING; },
 		SeekBestFoodSource() { return RUNNING; },
 		ClaimJob() { return SUCCEEDED; },
+		ClaimBestJob() { return FAILED; },
+		ReleaseJob() { return SUCCEEDED; },
+		BuyItem(_itemId: string) { return SUCCEEDED; },
 		Idle() { return RUNNING; },
 		Wander() { return RUNNING; },
 
 		// Utility
+		tickUnemployment() {},
 		recordPriceObservation() {},
 	};
 

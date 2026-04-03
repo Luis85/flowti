@@ -45,18 +45,21 @@ function loadAndParse<T>(dir: string, schema: { parse(data: unknown): T }): T[] 
 	}
 }
 
-function loadMdslDefinitions(): Record<string, string> {
+function loadJobTrees(): { jobTrees: Record<string, string>; joblessMdsl: string } {
 	const btDir = resolve(projectRoot, 'behavior-trees');
+	const jobsDir = resolve(projectRoot, 'jobs');
 	const baseContent = readFileSync(resolve(btDir, 'base.mdsl'), 'utf-8');
-	const result: Record<string, string> = {};
+	const jobTrees: Record<string, string> = {};
 
-	for (const file of readdirSync(btDir)) {
-		if (!file.startsWith('branch-') || !file.endsWith('.mdsl')) continue;
-		const kind = file.replace('branch-', '').replace('.mdsl', '');
-		const branchContent = readFileSync(resolve(btDir, file), 'utf-8');
-		result[kind] = baseContent + '\n\n' + branchContent;
+	for (const file of readdirSync(jobsDir)) {
+		if (!file.endsWith('.mdsl')) continue;
+		const jobName = file.replace('.mdsl', '');
+		const jobContent = readFileSync(resolve(jobsDir, file), 'utf-8');
+		jobTrees[jobName] = baseContent + '\n\n' + jobContent;
 	}
-	return result;
+
+	const joblessMdsl = baseContent.replace(/branch\s*\[Job\]/, 'action [Wander]');
+	return { jobTrees, joblessMdsl };
 }
 
 const defaultMoodConfig = {
@@ -74,17 +77,17 @@ const defaultMoodConfig = {
 describe('Smoke Test — Real Data', () => {
 	const agentData = loadAndParse('agents', AgentSchema);
 	const locations: WorldLocation[] = loadAndParse('locations', LocationSchema);
-	const mdslDefs = loadMdslDefinitions();
+	const { jobTrees, joblessMdsl } = loadJobTrees();
 
 	it('loads all shipped data successfully', () => {
 		expect(agentData.length).toBeGreaterThanOrEqual(2);
 		expect(locations.length).toBeGreaterThanOrEqual(4);
-		expect(Object.keys(mdslDefs).length).toBeGreaterThanOrEqual(2);
+		expect(Object.keys(jobTrees).length).toBeGreaterThanOrEqual(2);
 	});
 
-	it('every agent has a matching MDSL BT definition', () => {
-		for (const agent of agentData) {
-			expect(mdslDefs[agent.kind], `No MDSL BT found for agent kind "${agent.kind}"`).toBeDefined();
+	it('every job has a matching MDSL job tree', () => {
+		for (const jobName of Object.keys(jobTrees)) {
+			expect(jobTrees[jobName], `No MDSL job tree found for job "${jobName}"`).toBeDefined();
 		}
 	});
 
@@ -124,11 +127,8 @@ describe('Smoke Test — Real Data', () => {
 		const getWorld = () => worldEntity;
 		const getLocationActors = () => locationActors;
 
-		// Wire up BehaviorAgent + BehaviourTree for each actor
+		// Wire up BehaviorAgent + jobless BehaviourTree for each actor
 		for (const actor of actors) {
-			const mdsl = mdslDefs[actor.kind];
-			if (mdsl === undefined) continue;
-
 			const behaviorAgent = createBehaviorAgent({
 				actor,
 				worldEntity: getWorld,
@@ -137,10 +137,11 @@ describe('Smoke Test — Real Data', () => {
 				getLocations,
 				tickCount: () => 60,
 				eventBus,
+				jobsConfig: config.jobs,
 			});
 
 			const rng = createGameRNG(hashString(actor.agentId));
-			const tree = new BehaviourTree(mdsl, behaviorAgent, {
+			const tree = new BehaviourTree(joblessMdsl, behaviorAgent, {
 				random: () => rng.next(),
 				getDeltaTime: () => config.tick_interval_ms / 1000,
 			});
@@ -225,11 +226,8 @@ describe('Smoke Test — Real Data', () => {
 		const getWorld = () => worldEntity;
 		const getLocationActors = () => locationActors;
 
-		// Wire up BehaviorAgent + BehaviourTree for each actor
+		// Wire up BehaviorAgent + jobless BehaviourTree for each actor
 		for (const actor of actors) {
-			const mdsl = mdslDefs[actor.kind];
-			if (mdsl === undefined) continue;
-
 			const behaviorAgent = createBehaviorAgent({
 				actor,
 				worldEntity: getWorld,
@@ -238,10 +236,11 @@ describe('Smoke Test — Real Data', () => {
 				getLocations,
 				tickCount: () => 60,
 				eventBus,
+				jobsConfig: config.jobs,
 			});
 
 			const rng = createGameRNG(hashString(actor.agentId));
-			const tree = new BehaviourTree(mdsl, behaviorAgent, {
+			const tree = new BehaviourTree(joblessMdsl, behaviorAgent, {
 				random: () => rng.next(),
 				getDeltaTime: () => config.tick_interval_ms / 1000,
 			});
