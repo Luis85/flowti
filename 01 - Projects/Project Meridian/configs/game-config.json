@@ -48,7 +48,9 @@
 		"facility_subsidy_threshold": 100,
 		"facility_subsidy_per_day": 30,
 		"welfare_threshold_gold": 10,
-		"welfare_reward_min": 15
+		"welfare_reward_min": 15,
+		"tools_output_multiplier": 2,
+		"equipment_decay_reduction": 0.2
 	},
 	"day_night": {
 		"dawn":  { "start": 0,   "end": 59  },

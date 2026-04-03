@@ -107,6 +107,8 @@ const EconomyConfigSchema = z.object({
 		trade_goods: 0.7,
 		luxury: 0.4,
 	}),
+	tools_output_multiplier: z.number().default(2),
+	equipment_decay_reduction: z.number().default(0.2),
 	monetary_policy: withDefaults(MonetaryPolicyConfigSchema),
 });
 

@@ -56,4 +56,10 @@ describe('GameConfigSchema economy depth fields', () => {
 		});
 		expect(result.success).toBe(false);
 	});
+
+	it('EconomyConfig includes tools and equipment params', () => {
+		const config = GameConfigSchema.parse({});
+		expect(config.economy.tools_output_multiplier).toBe(2);
+		expect(config.economy.equipment_decay_reduction).toBe(0.2);
+	});
 });
