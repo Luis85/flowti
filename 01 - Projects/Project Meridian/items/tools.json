@@ -1,0 +1,7 @@
+{
+	"id": "tools",
+	"name": "Farming Tools",
+	"baseValue": 8,
+	"category": "trade_goods",
+	"maxCharges": 10
+}

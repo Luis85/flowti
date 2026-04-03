@@ -1,0 +1,7 @@
+{
+	"id": "equipment",
+	"name": "Protective Gear",
+	"baseValue": 12,
+	"category": "trade_goods",
+	"maxCharges": 20
+}
