@@ -589,7 +589,10 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		ClaimJob(): ActionResult {
-			const openFacilities = agent.nearbyFacilities.filter(f => f.workerId === null && f.job !== '');
+			const agentKind = actor.kind;
+			const openFacilities = agent.nearbyFacilities.filter(f =>
+				f.workerId === null && f.job !== '' && f.job === agentKind,
+			);
 			if (openFacilities.length === 0) return FAILED;
 			const nearest = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
 			actor.job = nearest.job;
