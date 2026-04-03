@@ -20,7 +20,7 @@
 	"wallet": { "gold": 30 },
 	"xp": 0,
 	"level": 1,
-	"position": { "x": 260, "y": 220, "region": "region-valley" },
+	"position": { "x": 380, "y": 160, "region": "region-market-square" },
 	"relationships": null,
 	"tools": [],
 	"behavior_tree": "guard",

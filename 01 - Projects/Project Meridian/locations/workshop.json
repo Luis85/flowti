@@ -2,7 +2,7 @@
 	"id": "loc-workshop",
 	"name": "Workshop",
 	"type": "work",
-	"position": { "x": 260, "y": 170, "region": "region-valley" },
+	"position": { "x": 160, "y": 350, "region": "region-craft-quarter" },
 	"color": "#ff8a65",
 	"production": {
 		"job": "craftsman",

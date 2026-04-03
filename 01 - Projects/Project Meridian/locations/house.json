@@ -2,7 +2,7 @@
 	"id": "loc-house",
 	"name": "Cottage",
 	"type": "rest",
-	"position": { "x": 280, "y": 250, "region": "region-valley" },
+	"position": { "x": 370, "y": 350, "region": "region-residential" },
 	"color": "#8d6e63",
 	"production": null,
 	"capacity": 3

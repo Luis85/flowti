@@ -2,7 +2,7 @@
 	"id": "loc-farmland",
 	"name": "Farmland",
 	"type": "food",
-	"position": { "x": 200, "y": 150, "region": "region-valley" },
+	"position": { "x": 120, "y": 90, "region": "region-farmlands" },
 	"color": "#7cb342",
 	"production": {
 		"job": "settler",

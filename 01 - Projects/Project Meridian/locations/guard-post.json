@@ -2,7 +2,7 @@
 	"id": "loc-guard-post",
 	"name": "Guard Post",
 	"type": "work",
-	"position": { "x": 230, "y": 180, "region": "region-valley" },
+	"position": { "x": 400, "y": 150, "region": "region-market-square" },
 	"color": "#78909c",
 	"production": {
 		"job": "guard",
