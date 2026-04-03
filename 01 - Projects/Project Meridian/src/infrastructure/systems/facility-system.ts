@@ -14,6 +14,7 @@ import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
+import { AttributesComponent } from '../components/attributes-component.js';
 import type { LedgerEntry } from '../../domain/core/component-data.js';
 import type { SkillEntry } from '../../domain/systems/behavior-agent.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
@@ -288,12 +289,25 @@ function processFacilityTick(
 	const radius = deps.config.perception.interaction_radius;
 	const worker = findWorker(agentList, production.job, loc.position.x, loc.position.y, radius);
 
+	// Aptitude efficiency modifier — mismatched workers produce slower
+	let effectiveTicksPerCycle = production.ticks_per_cycle;
+	if (worker !== undefined) {
+		const jobsConfig = deps.config.jobs;
+		const jobDef = jobsConfig?.definitions[production.job];
+		if (jobDef !== undefined) {
+			const workerAttrs = worker.get(AttributesComponent).state as unknown as Record<string, number>;
+			const attrValue = workerAttrs[jobDef.primary_attribute] ?? jobsConfig.aptitude_baseline;
+			const efficiency = attrValue / jobsConfig.aptitude_baseline;
+			effectiveTicksPerCycle = Math.round(production.ticks_per_cycle / efficiency);
+		}
+	}
+
 	const result = applyFacilityTick({
 		hasWorker: worker !== undefined,
 		workerJob: worker?.job ?? null,
 		facilityJob: production.job,
 		workProgress: facility.state.workProgress,
-		ticksPerCycle: production.ticks_per_cycle,
+		ticksPerCycle: effectiveTicksPerCycle,
 		hasRequiredInput: checkRequiredInput(facility, production),
 		wage: production.wage,
 		taxRate: (() => {
