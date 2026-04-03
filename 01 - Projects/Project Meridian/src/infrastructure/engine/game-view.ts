@@ -106,6 +106,7 @@ export class MeridianGameView extends ItemView {
 			moodConfig: deps.config.mood,
 			memoryMaxEntries: deps.config.memory.max_entries,
 			dataRoot,
+			jobDefinitions: deps.config.jobs.definitions,
 		});
 
 		const world = await worldLoader.load(vaultAdapter, (_step, _total, label) => {
@@ -197,14 +198,23 @@ export class MeridianGameView extends ItemView {
 		const getLocationActors = () => locationActors;
 		const getItemRegistry = () => world.items;
 
-		// Create BehaviorAgent + BehaviourTree for each agent
+		// Create BehaviorAgent + jobless BehaviourTree for each agent
+		const jobTrees = world.jobTrees;
+		const joblessMdsl = world.joblessMdsl;
+
 		for (const agent of world.agents) {
-			const kind = agent.behaviorTreeDef;
-			const mdsl = world.btMdslDefinitions[kind];
-			if (mdsl === undefined) {
-				deps.logger.warn('Meridian', `No MDSL definition for kind "${kind}" — agent "${agent.agentName}" will have no behavior tree`);
-				continue;
-			}
+			const swapBehaviorTree = (jobName: string | null): void => {
+				const mdsl = jobName !== null ? jobTrees[jobName] : joblessMdsl;
+				if (mdsl === undefined) {
+					deps.logger.warn('Meridian', `No job tree for "${String(jobName)}"`);
+					return;
+				}
+				const rng = createGameRNG(hashString(agent.agentId + (jobName ?? 'jobless')));
+				agent.behaviorTree = new BehaviourTree(mdsl, agent.behaviorAgent, {
+					random: () => rng.next(),
+					getDeltaTime: () => deps.config.tick_interval_ms / 1000,
+				});
+			};
 
 			const behaviorAgent = createBehaviorAgent({
 				actor: agent,
@@ -214,10 +224,15 @@ export class MeridianGameView extends ItemView {
 				getLocations,
 				tickCount: () => deps.tickCount,
 				eventBus: deps.eventBus,
+				swapBehaviorTree,
+				jobsConfig: deps.config.jobs,
 			});
 
-			const rng = createGameRNG(hashString(agent.agentId));
-			const tree = new BehaviourTree(mdsl, behaviorAgent, {
+			// Initialize with job-specific tree if agent has a job, otherwise jobless
+			const initJob = agent.job;
+			const initMdsl = initJob !== null ? (jobTrees[initJob] ?? joblessMdsl) : joblessMdsl;
+			const rng = createGameRNG(hashString(agent.agentId + (initJob ?? 'jobless')));
+			const tree = new BehaviourTree(initMdsl, behaviorAgent, {
 				random: () => rng.next(),
 				getDeltaTime: () => deps.config.tick_interval_ms / 1000,
 			});
@@ -246,7 +261,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createEconomySystem(getLocations, getLocationActors, getItemRegistry));
 		tickRunner.register(createMonetaryPolicySystem(getAgents, getWorldEntity));
 
-		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.btMdslDefinitions).length)} BTs, ${String(Object.keys(world.traitDefs).length)} traits`);
+		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.jobTrees).length)} jobs, ${String(Object.keys(world.traitDefs).length)} traits`);
 
 		// Debug overlay
 		const debugOverlay = createDebugOverlay(container, {
