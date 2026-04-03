@@ -8,19 +8,25 @@ export interface MeridianSettings {
 	debugMode: boolean;
 	/** Enable performance tracking (system timing per tick). Default: false */
 	performanceTracking: boolean;
-	/** Target ticks per second. Default: 60 */
-	tickRate: number;
-	/** Seconds per full day/night cycle. Default: 120 */
-	dayCycleDuration: number;
-	/** Base perception radius multiplier. Default: 150 */
-	perceptionRadius: number;
+	/** Game speed multiplier (1 = normal, 2 = double speed, etc.). Default: 1 */
+	gameSpeed: number;
+	/** Hunger decay rate multiplier (1 = normal). Default: 1 */
+	hungerRate: number;
+	/** Thirst decay rate multiplier (1 = normal). Default: 1 */
+	thirstRate: number;
+	/** Energy decay rate multiplier (1 = normal). Default: 1 */
+	energyRate: number;
+	/** Food price override (0 = use config default). Default: 0 */
+	foodPrice: number;
 }
 
 export const DEFAULT_SETTINGS: MeridianSettings = {
 	logLevel: 'info',
 	debugMode: false,
 	performanceTracking: false,
-	tickRate: 60,
-	dayCycleDuration: 120,
-	perceptionRadius: 150,
+	gameSpeed: 1,
+	hungerRate: 1,
+	thirstRate: 1,
+	energyRate: 1,
+	foodPrice: 0,
 };

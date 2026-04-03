@@ -11,6 +11,7 @@ import type { PerformanceTracker } from './domain/core/performance.js';
 import type { GameCoreDeps } from './domain/core/game-deps.js';
 import type { BatchableEventBus } from './infrastructure/engine/batchable-event-bus.js';
 import type { LogLevel } from './domain/core/logger.js';
+import type { GameConfig } from './domain/schemas/game-config-schema.js';
 
 export class MeridianPlugin extends Plugin {
 	private settings: MeridianSettings = { ...DEFAULT_SETTINGS };
@@ -19,6 +20,8 @@ export class MeridianPlugin extends Plugin {
 	private gameDeps: GameCoreDeps | null = null;
 	private batchableEventBus: BatchableEventBus | null = null;
 	private previousLogLevel: LogLevel = DEFAULT_SETTINGS.logLevel;
+	/** Immutable baseline config from game-config.json — never mutated by settings */
+	private baseConfig: GameConfig | null = null;
 
 	async onload(): Promise<void> {
 		// Lightweight registrations only — keep onload fast (Obsidian load-time guide)
@@ -78,35 +81,26 @@ export class MeridianPlugin extends Plugin {
 		this.performanceTracker ??= createPerformanceTracker(this.logger);
 		this.performanceTracker.setEnabled(this.settings.performanceTracking);
 
-		if (this.gameDeps !== null) {
+		if (this.gameDeps !== null && this.baseConfig !== null) {
 			this.gameDeps.logger = this.logger;
 			this.gameDeps.performanceTracker = this.performanceTracker;
 
-			// Hot-swap simulation settings
 			const config = this.gameDeps.config;
-			config.tick_interval_ms = Math.max(50, Math.round(1000 / this.settings.tickRate));
-			const newTicksPerDay = Math.round(
-				this.settings.dayCycleDuration * this.settings.tickRate,
-			);
-			// Scale all tick-dependent config proportionally when ticks_per_day changes
-			const scale = newTicksPerDay / config.ticks_per_day;
-			if (scale !== 1) {
-				// Day/night phase ranges
-				for (const phase of ['dawn', 'day', 'dusk', 'night'] as const) {
-					const range = config.day_night[phase];
-					range.start = Math.round(range.start * scale);
-					range.end = Math.round(range.end * scale);
-				}
-				// Needs decay rates — defined for 480-tick day, scale for actual day length
-				config.needs.hunger_decay /= scale;
-				config.needs.energy_decay /= scale;
-				config.needs.thirst_decay /= scale;
-				config.needs.social_decay /= scale;
-				// Stamina movement cost
-				config.stamina.movement_energy_cost /= scale;
-			}
-			config.ticks_per_day = newTicksPerDay;
-			config.perception.base_multiplier = this.settings.perceptionRadius;
+			const base = this.baseConfig;
+			const speed = this.settings.gameSpeed;
+
+			// Game speed: faster tick interval = more ticks per second
+			config.tick_interval_ms = Math.max(50, Math.round(base.tick_interval_ms / speed));
+
+			// Needs rates: always computed from base * settings multiplier (never cumulative)
+			config.needs.hunger_decay = base.needs.hunger_decay * this.settings.hungerRate;
+			config.needs.thirst_decay = base.needs.thirst_decay * this.settings.thirstRate;
+			config.needs.energy_decay = base.needs.energy_decay * this.settings.energyRate;
+
+			// Economy overrides (0 = use base config)
+			config.economy.food_price = this.settings.foodPrice > 0
+				? this.settings.foodPrice
+				: base.economy.food_price;
 		}
 
 		// Toggle ExcaliburJS debug mode on active game views
@@ -138,6 +132,8 @@ export class MeridianPlugin extends Plugin {
 
 		this.batchableEventBus = createEventBus();
 		const configOverrides = await this.loadGameConfig();
+		this.baseConfig = GameConfigSchema.parse(configOverrides);
+		// Deep clone — live config is mutated by applySettings, base stays immutable
 		const config = GameConfigSchema.parse(configOverrides);
 
 		if (this.logger !== null && this.performanceTracker !== null) {

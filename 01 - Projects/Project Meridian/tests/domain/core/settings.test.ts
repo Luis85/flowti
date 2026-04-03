@@ -6,8 +6,10 @@ describe('MeridianSettings', () => {
 		expect(DEFAULT_SETTINGS.logLevel).toBe('info');
 		expect(DEFAULT_SETTINGS.debugMode).toBe(false);
 		expect(DEFAULT_SETTINGS.performanceTracking).toBe(false);
-		expect(DEFAULT_SETTINGS.tickRate).toBe(60);
-		expect(DEFAULT_SETTINGS.dayCycleDuration).toBe(120);
-		expect(DEFAULT_SETTINGS.perceptionRadius).toBe(150);
+		expect(DEFAULT_SETTINGS.gameSpeed).toBe(1);
+		expect(DEFAULT_SETTINGS.hungerRate).toBe(1);
+		expect(DEFAULT_SETTINGS.thirstRate).toBe(1);
+		expect(DEFAULT_SETTINGS.energyRate).toBe(1);
+		expect(DEFAULT_SETTINGS.foodPrice).toBe(0);
 	});
 });
