@@ -187,11 +187,11 @@ describe('BehaviorAgent factory', () => {
 
 		it('reads inventory from InventoryComponent', () => {
 			const actor = new AgentActor(
-				createTestAgentData('a1', { inventory: [{ item_id: 'bread', quantity: 3 }] }),
+				createTestAgentData('a1', { inventory: [{ item_id: 'food', quantity: 3 }] }),
 				defaultMoodConfig,
 			);
 			const agent = createBehaviorAgent(setupDeps(actor));
-			expect(agent.inventory).toEqual([{ item_id: 'bread', quantity: 3 }]);
+			expect(agent.inventory).toEqual([{ item_id: 'food', quantity: 3 }]);
 		});
 
 		it('reads nearbyAgents from PerceptionComponent', () => {
@@ -409,9 +409,9 @@ describe('BehaviorAgent factory', () => {
 		});
 
 		describe('HasFood', () => {
-			it('returns true when inventory has bread', () => {
+			it('returns true when inventory has food', () => {
 				const actor = new AgentActor(
-					createTestAgentData('a1', { inventory: [{ item_id: 'bread', quantity: 2 }] }),
+					createTestAgentData('a1', { inventory: [{ item_id: 'food', quantity: 2 }] }),
 					defaultMoodConfig,
 				);
 				const agent = createBehaviorAgent(setupDeps(actor));
@@ -698,7 +698,7 @@ describe('BehaviorAgent factory', () => {
 				})];
 
 				const facActor = createLocationActor({
-					stock: [{ item_id: 'bread', quantity: 3 }], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+					stock: [{ item_id: 'food', quantity: 3 }], fund: 100, workProgress: 0, status: 'idle', workerId: null,
 				});
 
 				const agent = createBehaviorAgent(setupDeps(actor, {
@@ -706,13 +706,13 @@ describe('BehaviorAgent factory', () => {
 					getLocationActors: () => new Map([['loc-bakery', facActor]]),
 				}));
 
-				expect(agent.FacilityHasStock('bread')).toBe(true);
+				expect(agent.FacilityHasStock('food')).toBe(true);
 			});
 
 			it('returns false when no nearby facility has that item', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const agent = createBehaviorAgent(setupDeps(actor));
-				expect(agent.FacilityHasStock('bread')).toBe(false);
+				expect(agent.FacilityHasStock('food')).toBe(false);
 			});
 		});
 
@@ -792,7 +792,7 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
 						needs: { hunger: 40, energy: 90, social: 70, thirst: 80 },
-						inventory: [{ item_id: 'bread', quantity: 2 }],
+						inventory: [{ item_id: 'food', quantity: 2 }],
 					}),
 					defaultMoodConfig,
 				);
@@ -807,7 +807,7 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
 						needs: { hunger: 40, energy: 90, social: 70, thirst: 80 },
-						inventory: [{ item_id: 'bread', quantity: 2 }],
+						inventory: [{ item_id: 'food', quantity: 2 }],
 					}),
 					defaultMoodConfig,
 				);
@@ -818,8 +818,8 @@ describe('BehaviorAgent factory', () => {
 				expect(agent.hunger).toBe(40);
 
 				const inv = actor.get(InventoryComponent);
-				const bread = inv.state.items.find(i => i.item_id === 'bread');
-				expect(bread?.quantity).toBe(2);
+				const foodItem = inv.state.items.find(i => i.item_id === 'food');
+				expect(foodItem?.quantity).toBe(2);
 			});
 
 			it('returns failed when no food in inventory', () => {
@@ -930,12 +930,12 @@ describe('BehaviorAgent factory', () => {
 				};
 
 				const locations = [makeLocation('loc-market', 'market', 0, 0, {
-					job: 'shopkeeper', output: { item_id: 'bread', quantity: 1 }, input: null,
+					job: 'shopkeeper', output: { item_id: 'food', quantity: 1 }, input: null,
 					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
 				})];
 
 				const facActor = createLocationActor({
-					stock: [{ item_id: 'bread', quantity: 10 }],
+					stock: [{ item_id: 'food', quantity: 10 }],
 					fund: 100,
 					workProgress: 0,
 					status: 'idle',
@@ -957,6 +957,7 @@ describe('BehaviorAgent factory', () => {
 
 			it('sets btAction to buy and returns succeeded when preconditions met', () => {
 				const { agent } = setupBuyScenario();
+				agent.atLocation = 'loc-market';
 				const result = agent.Buy();
 				expect(result).toBe('mistreevous.succeeded');
 				expect(agent.btAction).toBe('buy');
@@ -964,13 +965,15 @@ describe('BehaviorAgent factory', () => {
 
 			it('does not modify gold or inventory (TradeSystem handles that)', () => {
 				const { agent } = setupBuyScenario();
+				agent.atLocation = 'loc-market';
 				agent.Buy();
 				expect(agent.gold).toBe(50);
-				expect(agent.inventory.some(i => i.item_id === 'bread')).toBe(false);
+				expect(agent.inventory.some(i => i.item_id === 'food')).toBe(false);
 			});
 
 			it('does not modify facility fund (TradeSystem handles that)', () => {
 				const { agent, facActor } = setupBuyScenario();
+				agent.atLocation = 'loc-market';
 				agent.Buy();
 				expect(facActor.get(FacilityComponent).state.fund).toBe(100);
 			});
@@ -980,7 +983,7 @@ describe('BehaviorAgent factory', () => {
 				expect(agent.Buy()).toBe('mistreevous.failed');
 			});
 
-			it('returns failed when no facility has bread stock', () => {
+			it('returns failed when no facility has food stock', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.Buy()).toBe('mistreevous.failed');

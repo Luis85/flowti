@@ -82,9 +82,9 @@ function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 }
 
 describe('FeedSystem (inventory-based)', () => {
-	it('consumes bread from inventory and recovers hunger', () => {
+	it('consumes food from inventory and recovers hunger', () => {
 		const agent = new AgentActor(
-			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 2 }] }),
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'food', quantity: 2 }] }),
 			defaultMoodConfig,
 		);
 		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'eat' });
@@ -98,8 +98,8 @@ describe('FeedSystem (inventory-based)', () => {
 		expect(needs.state.hunger).toBeGreaterThan(50);
 
 		const inv = agent.get(InventoryComponent);
-		const bread = inv.state.items.find(i => i.item_id === 'bread');
-		expect(bread?.quantity).toBe(1);
+		const foodItem = inv.state.items.find(i => i.item_id === 'food');
+		expect(foodItem?.quantity).toBe(1);
 	});
 
 	it('does not recover hunger when no food in inventory', () => {
@@ -120,7 +120,7 @@ describe('FeedSystem (inventory-based)', () => {
 
 	it('emits ItemConsumed event on consumption', () => {
 		const agent = new AgentActor(
-			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 1 }] }),
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'food', quantity: 1 }] }),
 			defaultMoodConfig,
 		);
 		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'eat' });
@@ -135,12 +135,12 @@ describe('FeedSystem (inventory-based)', () => {
 		system.execute(deps);
 
 		expect(events).toHaveLength(1);
-		expect(events[0].payload.itemId).toBe('bread');
+		expect(events[0].payload.itemId).toBe('food');
 	});
 
 	it('appends consumption ledger entry', () => {
 		const agent = new AgentActor(
-			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 1 }] }),
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'food', quantity: 1 }] }),
 			defaultMoodConfig,
 		);
 		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'eat' });
@@ -157,7 +157,7 @@ describe('FeedSystem (inventory-based)', () => {
 
 	it('skips agents not eating', () => {
 		const agent = new AgentActor(
-			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'bread', quantity: 5 }] }),
+			createTestAgentData('agent-1', 0, 0, { inventory: [{ item_id: 'food', quantity: 5 }] }),
 			defaultMoodConfig,
 		);
 		agent.behaviorAgent = createStubBehaviorAgent();
@@ -168,7 +168,7 @@ describe('FeedSystem (inventory-based)', () => {
 		system.execute(deps);
 
 		const inv = agent.get(InventoryComponent);
-		const bread = inv.state.items.find(i => i.item_id === 'bread');
-		expect(bread?.quantity).toBe(5);
+		const foodItem = inv.state.items.find(i => i.item_id === 'food');
+		expect(foodItem?.quantity).toBe(5);
 	});
 });

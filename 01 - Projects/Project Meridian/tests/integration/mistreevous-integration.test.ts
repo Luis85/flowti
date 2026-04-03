@@ -49,8 +49,8 @@ const defaultMoodConfig = {
 	external_modifier_cap: 30,
 };
 
-function createElenaData(overrides: Record<string, unknown> = {}) {
-	const raw = JSON.parse(readFileSync(resolve(projectRoot, 'agents/elena.json'), 'utf-8'));
+function createSettlerData(overrides: Record<string, unknown> = {}) {
+	const raw = JSON.parse(readFileSync(resolve(projectRoot, 'agents/settler.json'), 'utf-8'));
 	const parsed = AgentSchema.parse(raw);
 	return { ...parsed, ...overrides };
 }
@@ -64,7 +64,7 @@ const locations: WorldLocation[] = [
 	LocationSchema.parse({
 		id: 'loc-bakery', name: 'Bakery', type: 'food',
 		position: { x: 200, y: 100 }, capacity: 6, color: '#d2691e',
-		production: { job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: { item_id: 'wheat', quantity: 1 }, wage: 4, ticks_per_cycle: 2 },
+		production: { job: 'baker', output: { item_id: 'food', quantity: 1 }, input: { item_id: 'wheat', quantity: 1 }, wage: 4, ticks_per_cycle: 2 },
 	}),
 	LocationSchema.parse({
 		id: 'loc-market', name: 'Market', type: 'market',
@@ -77,16 +77,16 @@ const locations: WorldLocation[] = [
 ];
 
 describe('mistreevous BT integration', () => {
-	it('Elena selects actions via BT evaluation', () => {
+	it('Settler selects actions via BT evaluation', () => {
 		const config = GameConfigSchema.parse({});
-		const mdsl = loadMdsl('merchant');
+		const mdsl = loadMdsl('settler');
 
-		// Create Elena with low hunger so BT triggers survival behavior
-		const elenaData = createElenaData({ needs: { hunger: 20, energy: 80, social: 80, thirst: 80 } });
+		// Create Settler with low hunger so BT triggers survival behavior
+		const elenaData = createSettlerData({ needs: { hunger: 20, energy: 80, social: 80, thirst: 80 } });
 		const actor = new AgentActor(elenaData, defaultMoodConfig);
 
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'dusk', tickInCycle: 300, dayCount: 0 }));
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: 500, ledger: [],
 			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
@@ -114,7 +114,7 @@ describe('mistreevous BT integration', () => {
 			config,
 			getLocationActors,
 			getLocations,
-			tickCount: () => 60,
+			tickCount: () => 300,
 			eventBus: noopEventBus,
 		});
 
@@ -147,7 +147,7 @@ describe('mistreevous BT integration', () => {
 		}
 
 		// With hunger=20 (<50), BT should trigger survival branch
-		// Elena has gold >= food_price (3) and nearby facilities have bread,
+		// Settler has gold >= food_price (3) and nearby facilities have food,
 		// so should buy, seek food, or eat
 		expect(actions.has('seek_food') || actions.has('eat') || actions.has('buy'),
 			`Expected seek_food, eat, or buy, got: ${JSON.stringify([...actions])}`).toBe(true);
@@ -161,17 +161,18 @@ describe('mistreevous BT integration', () => {
 
 	it('agents commit to actions via RUNNING state', () => {
 		const config = GameConfigSchema.parse({});
-		const mdsl = loadMdsl('merchant');
+		const mdsl = loadMdsl('settler');
 
-		// Elena with low hunger + has bread → Eat action should fire
-		const elenaData = createElenaData({
+		// Settler with low hunger + has food → Eat action should fire
+		// Use dusk phase so work-hours priorities (P1, P2) don't preempt hunger behavior
+		const elenaData = createSettlerData({
 			needs: { hunger: 20, energy: 80, social: 80, thirst: 80 },
-			inventory: [{ item_id: 'bread', quantity: 5 }],
+			inventory: [{ item_id: 'food', quantity: 5 }],
 		});
 		const actor = new AgentActor(elenaData, defaultMoodConfig);
 
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'dusk', tickInCycle: 300, dayCount: 0 }));
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: 500, ledger: [],
 			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
@@ -188,7 +189,7 @@ describe('mistreevous BT integration', () => {
 			config,
 			getLocationActors,
 			getLocations,
-			tickCount: () => 60,
+			tickCount: () => 300,
 			eventBus: noopEventBus,
 		});
 
@@ -206,7 +207,7 @@ describe('mistreevous BT integration', () => {
 		perception.state = { nearbyAgents: [], nearbyLocations: [] };
 		perception.markDirty();
 
-		// Step 1: BT evaluates — should select Eat (has bread, is hungry)
+		// Step 1: BT evaluates — should select Eat (has food, is hungry)
 		tree.step();
 		const firstAction = behaviorAgent.btAction;
 		expect(firstAction, 'First step should select an action').not.toBeNull();

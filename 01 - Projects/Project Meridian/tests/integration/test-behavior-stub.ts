@@ -29,6 +29,7 @@ export function stubBehaviorAgent(
 		get hunger() { return 50; },
 		get energy() { return 50; },
 		get social() { return 50; },
+		get thirst() { return 50; },
 		get gold() { return 50; },
 		get mood() { return 0; },
 		get moodBucket() { return 'content'; },
@@ -56,13 +57,17 @@ export function stubBehaviorAgent(
 		feedingAt: overrides.feedingAt ?? null,
 		restingAt: overrides.restingAt ?? null,
 		arrivalSlot: null,
+		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 
 		// Condition stubs — all return false
 		IsHungry() { return false; },
 		IsExhausted() { return false; },
 		IsLonely() { return false; },
+		IsThirsty() { return false; },
+		HasWater() { return false; },
 		NeedsCritical() { return false; },
 		HasFood() { return false; },
+		HasFoodReserve() { return false; },
 		HasGold(_amount: number) { return false; },
 		CanAffordFood() { return false; },
 		AtLocation(_type: string) { return false; },
@@ -71,18 +76,27 @@ export function stubBehaviorAgent(
 		NearAgentClose() { return false; },
 		IsDaytime() { return true; },
 		IsNighttime() { return false; },
+		IsWorkHours() { return false; },
 		HasJob() { return false; },
 		AtJobFacility() { return false; },
 		FacilityHasStock(_itemId: string) { return false; },
 		HasCargo() { return false; },
 		CargoDestinationNearby() { return false; },
 		FacilityNeedsSupply() { return false; },
+		KnowsFoodSource() { return false; },
+		HasNoJob() { return true; },
+		OpenFacilityNearby() { return false; },
 
 		// Action stubs — all succeed
 		Eat() { return SUCCEEDED; },
 		Rest() { return RUNNING; },
+		Drink() { return SUCCEEDED; },
+		Harvest() { return RUNNING; },
 		SeekFood() { return RUNNING; },
 		SeekRest() { return RUNNING; },
+		SeekWater() { return RUNNING; },
+		FillWaterskin() { return SUCCEEDED; },
+		SellAtMarket() { return SUCCEEDED; },
 		SeekWork() { return RUNNING; },
 		SeekSocial() { return RUNNING; },
 		SeekMarket() { return RUNNING; },
@@ -93,8 +107,13 @@ export function stubBehaviorAgent(
 		DeliverCargo() { return SUCCEEDED; },
 		SeekDeliveryTarget() { return RUNNING; },
 		SeekSupplySource() { return RUNNING; },
+		SeekBestFoodSource() { return RUNNING; },
+		ClaimJob() { return SUCCEEDED; },
 		Idle() { return RUNNING; },
 		Wander() { return RUNNING; },
+
+		// Utility
+		recordPriceObservation() {},
 	};
 
 	return ba;

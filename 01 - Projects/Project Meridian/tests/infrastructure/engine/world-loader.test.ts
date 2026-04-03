@@ -83,10 +83,8 @@ describe('WorldLoader', () => {
 			'03 - Resources/Agents/elena.json': JSON.stringify(validAgent),
 			'03 - Resources/Locations/tavern.json': JSON.stringify(validLocation),
 			'03 - Resources/BehaviorTrees/base.mdsl': baseMdsl,
+			'03 - Resources/BehaviorTrees/branch-settler.mdsl': branchMdsl,
 			'03 - Resources/BehaviorTrees/branch-guard.mdsl': branchMdsl,
-			'03 - Resources/BehaviorTrees/branch-merchant.mdsl': branchMdsl,
-			'03 - Resources/BehaviorTrees/branch-artisan.mdsl': branchMdsl,
-			'03 - Resources/BehaviorTrees/branch-scholar.mdsl': branchMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
@@ -98,11 +96,11 @@ describe('WorldLoader', () => {
 		expect(result.agents[0]?.agentId).toBe('agent-elena');
 		expect(result.locations).toHaveLength(1);
 		expect(result.locations[0]?.id).toBe('loc-tavern');
-		expect(result.btMdslDefinitions['merchant']).toBeDefined();
+		expect(result.btMdslDefinitions['settler']).toBeDefined();
 		expect(result.btMdslDefinitions['guard']).toBeDefined();
 	});
 
-	it('calls progress callback 5 times with correct step/total/label', async () => {
+	it('calls progress callback 6 times with correct step/total/label', async () => {
 		const vault = createMockVault({});
 		const loader = createWorldLoader(logger, loaderConfig);
 		const calls: [number, number, string][] = [];
@@ -111,12 +109,13 @@ describe('WorldLoader', () => {
 			calls.push([step, total, label]);
 		});
 
-		expect(calls).toHaveLength(5);
-		expect(calls[0]).toEqual([1, 5, 'Loading traits...']);
-		expect(calls[1]).toEqual([2, 5, 'Loading agents...']);
-		expect(calls[2]).toEqual([3, 5, 'Loading locations...']);
-		expect(calls[3]).toEqual([4, 5, 'Loading regions...']);
-		expect(calls[4]).toEqual([5, 5, 'Loading behavior trees...']);
+		expect(calls).toHaveLength(6);
+		expect(calls[0]).toEqual([1, 6, 'Loading traits...']);
+		expect(calls[1]).toEqual([2, 6, 'Loading agents...']);
+		expect(calls[2]).toEqual([3, 6, 'Loading locations...']);
+		expect(calls[3]).toEqual([4, 6, 'Loading regions...']);
+		expect(calls[4]).toEqual([5, 6, 'Loading behavior trees...']);
+		expect(calls[5]).toEqual([6, 6, 'Loading items...']);
 	});
 
 	it('aggregates errors from multiple loaders with step prefix', async () => {
@@ -141,7 +140,7 @@ describe('WorldLoader', () => {
 		const loader = createWorldLoader(logger, loaderConfig);
 		const result = await loader.load(vault);
 
-		// MDSL files missing = errors for each of the 4 kinds (base + branch for each)
+		// MDSL files missing = errors for each of the 2 kinds (base + branch for each)
 		expect(result.errors.length).toBeGreaterThan(0);
 		expect(result.agents).toHaveLength(0);
 		expect(result.traitDefs).toEqual({});
@@ -152,21 +151,17 @@ describe('WorldLoader', () => {
 	it('loads MDSL definitions keyed by kind', async () => {
 		const vault = createMockVault({
 			'03 - Resources/BehaviorTrees/base.mdsl': baseMdsl,
-			'03 - Resources/BehaviorTrees/branch-merchant.mdsl': branchMdsl,
+			'03 - Resources/BehaviorTrees/branch-settler.mdsl': branchMdsl,
 			'03 - Resources/BehaviorTrees/branch-guard.mdsl': branchMdsl,
-			'03 - Resources/BehaviorTrees/branch-artisan.mdsl': branchMdsl,
-			'03 - Resources/BehaviorTrees/branch-scholar.mdsl': branchMdsl,
 		});
 
 		const loader = createWorldLoader(logger, loaderConfig);
 		const result = await loader.load(vault);
 
-		expect(result.btMdslDefinitions['merchant']).toBeDefined();
+		expect(result.btMdslDefinitions['settler']).toBeDefined();
 		expect(result.btMdslDefinitions['guard']).toBeDefined();
-		expect(result.btMdslDefinitions['artisan']).toBeDefined();
-		expect(result.btMdslDefinitions['scholar']).toBeDefined();
 		// Each definition should be the composed base + branch
-		expect(result.btMdslDefinitions['merchant']).toContain('Idle');
-		expect(result.btMdslDefinitions['merchant']).toContain('Wander');
+		expect(result.btMdslDefinitions['settler']).toContain('Idle');
+		expect(result.btMdslDefinitions['settler']).toContain('Wander');
 	});
 });

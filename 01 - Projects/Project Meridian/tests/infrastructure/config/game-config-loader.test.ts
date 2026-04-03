@@ -11,7 +11,7 @@ describe('GameConfigSchema', () => {
 			expect(result.data.ticks_per_day).toBe(480);
 			expect(result.data.mortality).toBe(true);
 			expect(result.data.locale).toBe('en');
-			expect(result.data.needs.hunger_decay).toBe(0.15);
+			expect(result.data.needs.hunger_decay).toBe(0.04);
 			expect(result.data.economy.tax_base_rate).toBe(0.10);
 		}
 	});
@@ -28,7 +28,7 @@ describe('GameConfigSchema', () => {
 			expect(result.data.mortality).toBe(false);
 			expect(result.data.locale).toBe('de');
 			// Non-overridden defaults still apply
-			expect(result.data.needs.hunger_decay).toBe(0.15);
+			expect(result.data.needs.hunger_decay).toBe(0.04);
 		}
 	});
 
@@ -39,7 +39,7 @@ describe('GameConfigSchema', () => {
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.data.needs.hunger_decay).toBe(1.0);
-			expect(result.data.needs.energy_decay).toBe(0.1);
+			expect(result.data.needs.energy_decay).toBe(0.06);
 		}
 	});
 

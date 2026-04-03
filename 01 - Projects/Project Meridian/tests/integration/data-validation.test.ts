@@ -82,7 +82,7 @@ describe('Shipped Data Validation', () => {
 		expect(config.social.recovery_rate).toBe(3.0);
 		expect(config.social.cooldown_ticks).toBe(20);
 		expect(config.stamina.movement_energy_cost).toBe(0.02);
-		expect(config.needs.food_recovery_rate).toBe(5.0);
+		expect(config.needs.food_recovery_rate).toBe(30);
 		expect(config.perception.interaction_radius).toBe(25);
 	});
 

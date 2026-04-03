@@ -92,7 +92,8 @@ describe('NeedsDecaySystem', () => {
 		const needs = agent.get(NeedsComponent);
 		expect(needs.state.hunger).toBeLessThan(80);
 		expect(needs.state.energy).toBeLessThan(90);
-		expect(needs.state.social).toBeLessThan(70);
+		// social_decay is 0 by default, so social doesn't decay
+		expect(needs.state.social).toBe(70);
 		expect(needs.dirty).toBe(true);
 	});
 

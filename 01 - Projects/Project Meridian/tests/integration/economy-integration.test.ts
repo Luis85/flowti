@@ -50,7 +50,7 @@ function createDeps(tickCount = 1): GameCoreDeps {
 }
 
 describe('Economy integration', () => {
-	it('full cycle: agent works at farm, earns gold, buys bread, eats', () => {
+	it('full cycle: agent works at farm, earns gold, buys food, eats', () => {
 		const farmLoc: WorldLocation = {
 			id: 'loc-farm', name: 'Farm', type: 'food',
 			position: { x: 100, y: 100 }, capacity: 8, color: '#7cba3f',
@@ -59,7 +59,7 @@ describe('Economy integration', () => {
 		const bakeryLoc: WorldLocation = {
 			id: 'loc-bakery', name: 'Bakery', type: 'food',
 			position: { x: 100, y: 100 }, capacity: 6, color: '#d2691e',
-			production: { job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: { item_id: 'wheat', quantity: 1 }, wage: 4, ticks_per_cycle: 2 },
+			production: { job: 'baker', output: { item_id: 'food', quantity: 1 }, input: { item_id: 'wheat', quantity: 1 }, wage: 4, ticks_per_cycle: 2 },
 		};
 		const locations = [farmLoc, bakeryLoc];
 
@@ -90,24 +90,24 @@ describe('Economy integration', () => {
 		const farmerWallet = farmer.get(WalletComponent);
 		expect(farmerWallet.state.gold).toBeGreaterThan(50);
 
-		// Bakery should have produced bread (wheat consumed)
+		// Bakery should have produced food (wheat consumed)
 		const bakeryFacility = bakeryActor.get(FacilityComponent);
-		const bread = bakeryFacility.state.stock.find(s => s.item_id === 'bread');
-		expect(bread?.quantity).toBe(1);
+		const producedFood = bakeryFacility.state.stock.find(s => s.item_id === 'food');
+		expect(producedFood?.quantity).toBe(1);
 
-		// Phase 2: Buyer buys bread from bakery
+		// Phase 2: Buyer buys food from bakery
 		buyer.behaviorAgent.btAction = 'buy';
 
-		const tradeSys = createTradeSystem(() => allAgents, () => locations, () => locationActors, () => worldEntity);
+		const tradeSys = createTradeSystem(() => allAgents, () => locations, () => locationActors, () => worldEntity, () => new Map());
 		tradeSys.execute(deps);
 
 		const buyerWallet = buyer.get(WalletComponent);
 		expect(buyerWallet.state.gold).toBe(47);
 
 		const buyerInv = buyer.get(InventoryComponent);
-		expect(buyerInv.state.items).toContainEqual({ item_id: 'bread', quantity: 1 });
+		expect(buyerInv.state.items).toContainEqual({ item_id: 'food', quantity: 1 });
 
-		// Phase 3: Buyer eats bread
+		// Phase 3: Buyer eats food
 		buyer.behaviorAgent.btAction = 'eat';
 
 		const feedSys = createFeedSystem(() => allAgents, () => worldEntity);
@@ -117,8 +117,8 @@ describe('Economy integration', () => {
 		expect(buyerNeeds.state.hunger).toBeGreaterThan(40);
 
 		const buyerInvAfter = buyer.get(InventoryComponent);
-		const breadAfter = buyerInvAfter.state.items.find(i => i.item_id === 'bread');
-		expect(breadAfter).toBeUndefined();
+		const foodAfter = buyerInvAfter.state.items.find(i => i.item_id === 'food');
+		expect(foodAfter).toBeUndefined();
 
 		// Ledger should have entries
 		const economy = worldEntity.get(EconomyComponent);

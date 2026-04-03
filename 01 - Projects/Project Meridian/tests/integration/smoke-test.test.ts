@@ -77,9 +77,9 @@ describe('Smoke Test — Real Data', () => {
 	const mdslDefs = loadMdslDefinitions();
 
 	it('loads all shipped data successfully', () => {
-		expect(agentData.length).toBeGreaterThanOrEqual(4);
+		expect(agentData.length).toBeGreaterThanOrEqual(2);
 		expect(locations.length).toBeGreaterThanOrEqual(4);
-		expect(Object.keys(mdslDefs).length).toBeGreaterThanOrEqual(4);
+		expect(Object.keys(mdslDefs).length).toBeGreaterThanOrEqual(2);
 	});
 
 	it('every agent has a matching MDSL BT definition', () => {
@@ -191,7 +191,7 @@ describe('Smoke Test — Real Data', () => {
 		// Agent 0 gets bread inventory so inventory-based FeedSystem can consume.
 		const actors = agentData.map((a, idx) => {
 			const overrides = idx === 0 && targetLoc !== undefined
-				? { needs: { hunger: 20, energy: 80, social: 80, thirst: 80 }, position: { ...targetLoc.position, region: 'test' }, inventory: [{ item_id: 'bread', quantity: 5 }] }
+				? { needs: { hunger: 20, energy: 80, social: 80, thirst: 80 }, position: { ...targetLoc.position, region: 'test' }, inventory: [{ item_id: 'food', quantity: 5 }] }
 				: { needs: { hunger: 20, energy: 10, social: 15, thirst: 20 } };
 			const actor = new AgentActor({ ...a, ...overrides }, defaultMoodConfig);
 			return actor;

@@ -59,21 +59,31 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
 		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
 		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
-		NeedsCritical: () => false, HasFood: () => false, HasGold: () => false,
+		IsThirsty: () => false, HasWater: () => false,
+		NeedsCritical: () => false, HasFood: () => false, HasFoodReserve: () => false,
+		HasGold: () => false,
 		CanAffordFood: () => false, AtLocation: () => false, NearLocation: () => false,
 		NearAgent: () => false, NearAgentClose: () => false, IsDaytime: () => true,
-		IsNighttime: () => false, HasJob: () => false, AtJobFacility: () => false,
+		IsNighttime: () => false, IsWorkHours: () => false,
+		HasJob: () => false, AtJobFacility: () => false,
 		FacilityHasStock: () => false, HasCargo: () => false, CargoDestinationNearby: () => false,
-		FacilityNeedsSupply: () => false,
+		FacilityNeedsSupply: () => false, KnowsFoodSource: () => false,
+		HasNoJob: () => true, OpenFacilityNearby: () => false,
 		Eat: () => 'mistreevous.failed', Rest: () => 'mistreevous.failed',
+		Drink: () => 'mistreevous.failed', Harvest: () => 'mistreevous.failed',
 		SeekFood: () => 'mistreevous.failed', SeekRest: () => 'mistreevous.failed',
+		SeekWater: () => 'mistreevous.failed', FillWaterskin: () => 'mistreevous.failed',
+		SellAtMarket: () => 'mistreevous.failed',
 		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
 		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
 		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
 		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
 		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
+		SeekBestFoodSource: () => 'mistreevous.failed', ClaimJob: () => 'mistreevous.failed',
 		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
+		recordPriceObservation: () => {},
 		...overrides,
 	};
 }
@@ -99,7 +109,7 @@ function createBakeryLocation(): WorldLocation {
 		color: '#808080',
 		production: {
 			job: 'baker',
-			output: { item_id: 'bread', quantity: 1 },
+			output: { item_id: 'food', quantity: 1 },
 			input: { item_id: 'wheat', quantity: 1 },
 			wage: 5,
 			ticks_per_cycle: 30,
@@ -118,7 +128,7 @@ function createWorldEntity(): Actor {
 }
 
 describe('TradeSystem', () => {
-	it('agent buys bread from facility with stock', () => {
+	it('agent buys food from facility with stock', () => {
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];
 		eventBus.on('PurchaseComplete', (e) => { events.push(e); });
@@ -129,7 +139,7 @@ describe('TradeSystem', () => {
 		const bakery = createBakeryLocation();
 		const bakeryActor = new Actor();
 		bakeryActor.addComponent(new FacilityComponent({
-			stock: [{ item_id: 'bread', quantity: 5 }],
+			stock: [{ item_id: 'food', quantity: 5 }],
 			fund: 100,
 			workProgress: 0,
 			status: 'idle',
@@ -144,6 +154,7 @@ describe('TradeSystem', () => {
 			() => [bakery],
 			() => locationActors,
 			() => world,
+			() => new Map(),
 		);
 		system.execute(createDeps(eventBus));
 
@@ -151,10 +162,10 @@ describe('TradeSystem', () => {
 		expect(wallet.state.gold).toBe(47);
 
 		const inv = agent.get(InventoryComponent);
-		expect(inv.state.items).toContainEqual({ item_id: 'bread', quantity: 1 });
+		expect(inv.state.items).toContainEqual({ item_id: 'food', quantity: 1 });
 
 		const facility = bakeryActor.get(FacilityComponent);
-		expect(facility.state.stock).toContainEqual({ item_id: 'bread', quantity: 4 });
+		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 4 });
 		expect(facility.state.fund).toBe(103);
 
 		expect(events.length).toBe(1);
@@ -173,7 +184,7 @@ describe('TradeSystem', () => {
 		const bakery = createBakeryLocation();
 		const bakeryActor = new Actor();
 		bakeryActor.addComponent(new FacilityComponent({
-			stock: [{ item_id: 'bread', quantity: 5 }],
+			stock: [{ item_id: 'food', quantity: 5 }],
 			fund: 100,
 			workProgress: 0,
 			status: 'idle',
@@ -188,6 +199,7 @@ describe('TradeSystem', () => {
 			() => [bakery],
 			() => locationActors,
 			() => world,
+			() => new Map(),
 		);
 		system.execute(createDeps(eventBus));
 
@@ -198,6 +210,6 @@ describe('TradeSystem', () => {
 		expect(wallet.state.gold).toBe(0);
 
 		const facility = bakeryActor.get(FacilityComponent);
-		expect(facility.state.stock).toContainEqual({ item_id: 'bread', quantity: 5 });
+		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 5 });
 	});
 });

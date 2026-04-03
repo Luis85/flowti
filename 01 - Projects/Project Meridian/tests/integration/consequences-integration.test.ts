@@ -80,7 +80,7 @@ describe('Consequence Systems — Integration', () => {
 
 		const agentData = createTestAgent('agent-hungry', 100, 100, {
 			needs: { hunger: 50, energy: 80, social: 80, thirst: 80 },
-			inventory: [{ item_id: 'bread', quantity: 5 }],
+			inventory: [{ item_id: 'food', quantity: 5 }],
 		});
 		const actor = new AgentActor(agentData, defaultMoodConfig);
 		attachBehaviorStubs(actor, { btAction: 'eat' });
@@ -114,9 +114,9 @@ describe('Consequence Systems — Integration', () => {
 		runner.tick(deps);
 		const hungerAfter = actor.get(NeedsComponent).state.hunger;
 
-		// Feed recovery (5.0) minus hunger decay (0.15) = net +4.85
-		// hungerBefore=50, decay=0.15 → without feed: 49.85, with feed: 54.85
-		expect(hungerAfter).toBeCloseTo(54.85);
+		// Eat activity cost: hungerDecayScale=0, so no hunger decay during eating
+		// Feed recovery: food_recovery_rate=30, so hunger = clamp(50 + 30, 0, 100) = 80
+		expect(hungerAfter).toBeCloseTo(80);
 	});
 
 	it('agent rests at tavern — energy recovers, RestStarted emitted', () => {
