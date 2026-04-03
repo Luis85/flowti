@@ -1626,4 +1626,85 @@ describe('BehaviorAgent factory', () => {
 			expect(agent.IsRecovering()).toBe(true);  // still recovering — won't go to work
 		});
 	});
+
+	describe('SeekRest fallback', () => {
+		it('falls back to all locations when no rest in perception range', () => {
+			const actor = new AgentActor(
+				createTestAgentData('agent-faraway', { needs: { hunger: 80, energy: 20, social: 70, thirst: 80 } }),
+				defaultMoodConfig,
+			);
+			// Place agent at (300, 190) — far from rest locations
+			actor.pos.x = 300;
+			actor.pos.y = 190;
+
+			// Empty perception — no nearby locations at all
+			actor.get(PerceptionComponent).state = { nearbyAgents: [], nearbyLocations: [] };
+
+			const restLocation = makeLocation('loc-cabin', 'rest', 200, 380);
+			const deps = setupDeps(actor, {
+				getLocations: () => [restLocation],
+			});
+			const agent = createBehaviorAgent(deps);
+
+			const result = agent.SeekRest();
+			expect(result).toBe('mistreevous.running');
+			expect(agent.movementTarget).toEqual({ id: 'loc-cabin', type: 'location' });
+		});
+
+		it('prefers nearby rest location over distant fallback', () => {
+			const actor = new AgentActor(
+				createTestAgentData('agent-nearby-rest', { needs: { hunger: 80, energy: 20, social: 70, thirst: 80 } }),
+				defaultMoodConfig,
+			);
+
+			// Nearby rest visible in perception
+			actor.get(PerceptionComponent).state = {
+				nearbyAgents: [],
+				nearbyLocations: [{ id: 'loc-cabin', type: 'rest', distance: 50 }],
+			};
+
+			const deps = setupDeps(actor, {
+				getLocations: () => [
+					makeLocation('loc-cabin', 'rest', 200, 380),
+					makeLocation('loc-house', 'rest', 370, 350),
+				],
+			});
+			const agent = createBehaviorAgent(deps);
+
+			const result = agent.SeekRest();
+			expect(result).toBe('mistreevous.running');
+			expect(agent.movementTarget).toEqual({ id: 'loc-cabin', type: 'location' });
+		});
+	});
+
+	describe('work stagger', () => {
+		it('different agents get different wake offsets during dawn', () => {
+			const config = GameConfigSchema.parse({});
+			const world = createWorldEntity('dawn');
+			// Set tickInCycle to 0 — very start of dawn
+			world.get(TimeComponent).state = { phase: 'dawn', tickInCycle: 0, dayCount: 0 };
+
+			const agentA = new AgentActor(createTestAgentData('agent-aldric'), defaultMoodConfig);
+			const agentB = new AgentActor(createTestAgentData('agent-bram'), defaultMoodConfig);
+
+			const baA = createBehaviorAgent(setupDeps(agentA, { config, worldEntity: () => world }));
+			const baB = createBehaviorAgent(setupDeps(agentB, { config, worldEntity: () => world }));
+
+			// At tick 0, at least one should NOT consider it work hours yet
+			// (both can't have offset 0 unless their hashes collide)
+			const aWorks = baA.IsWorkHours();
+			const bWorks = baB.IsWorkHours();
+			expect(aWorks === false || bWorks === false).toBe(true);
+		});
+
+		it('all agents consider day phase as work hours regardless of offset', () => {
+			const config = GameConfigSchema.parse({});
+			const world = createWorldEntity('day');
+
+			const actor = new AgentActor(createTestAgentData('agent-test'), defaultMoodConfig);
+			const ba = createBehaviorAgent(setupDeps(actor, { config, worldEntity: () => world }));
+
+			expect(ba.IsWorkHours()).toBe(true);
+		});
+	});
 });

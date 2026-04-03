@@ -66,6 +66,12 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let unemployedTicks = 0;
 	let recovering = false;
 
+	// Per-agent work stagger — offset into dawn before agent considers it "work hours"
+	// Uses a simple hash of agentId to spread agents across the first half of dawn
+	const dawnDuration = config.day_night.dawn.end - config.day_night.dawn.start + 1;
+	const staggerSeed = actor.agentId.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
+	const wakeOffset = Math.abs(staggerSeed) % Math.floor(dawnDuration / 2);
+
 	// Price memory
 	const priceMemories = new CircularBuffer<PriceMemory>(Array, config.economy.price_memory_max);
 
@@ -349,7 +355,12 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		IsWorkHours(): boolean {
-			return agent.timePhase === 'dawn' || agent.timePhase === 'day';
+			if (agent.timePhase === 'day') return true;
+			if (agent.timePhase === 'dawn') {
+				const time = worldEntity().get(TimeComponent).state;
+				return time.tickInCycle >= config.day_night.dawn.start + wakeOffset;
+			}
+			return false;
 		},
 
 		HasJob(): boolean {
@@ -613,13 +624,25 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		SeekRest(): ActionResult {
 			const restLocs = agent.nearbyLocations.filter(l => l.type === 'rest');
-			if (restLocs.length === 0) return FAILED;
+			if (restLocs.length > 0) {
+				btAction = 'seek_rest';
+				const nearest = restLocs.reduce((a, b) => a.distance < b.distance ? a : b);
+				movementTarget = { id: nearest.id, type: 'location' };
+				if (atLocation === nearest.id) return SUCCEEDED;
+				return RUNNING;
+			}
+
+			// Fallback: search all locations (rest outside perception range, e.g. at night)
+			const allLocations = getLocations();
+			const restLoc = allLocations
+				.filter(l => l.type === 'rest')
+				.map(l => ({ id: l.id, dist: Math.hypot(l.position.x - actor.pos.x, l.position.y - actor.pos.y) }))
+				.sort((a, b) => a.dist - b.dist)[0];
+			if (restLoc === undefined) return FAILED;
 
 			btAction = 'seek_rest';
-			const nearest = restLocs.reduce((a, b) => a.distance < b.distance ? a : b);
-			movementTarget = { id: nearest.id, type: 'location' };
-
-			if (atLocation === nearest.id) return SUCCEEDED;
+			movementTarget = { id: restLoc.id, type: 'location' };
+			if (atLocation === restLoc.id) return SUCCEEDED;
 			return RUNNING;
 		},
 
