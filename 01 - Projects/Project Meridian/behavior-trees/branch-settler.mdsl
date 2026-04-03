@@ -21,6 +21,20 @@ root [Role] {
             action [SeekMarket]
         }
 
+        /* Buy tools from market if needed and affordable */
+        sequence {
+            condition [AtLocation, "market"]
+            condition [NeedsTools]
+            condition [CanAffordItem, "tools"]
+            condition [FacilityHasStock, "tools"]
+            action [BuyItem, "tools"]
+        }
+        sequence {
+            condition [NeedsTools]
+            condition [CanAffordItem, "tools"]
+            action [SeekMarket]
+        }
+
         /* Work at facility */
         sequence {
             condition [AtJobFacility]

@@ -113,6 +113,20 @@ root {
             }
         }
 
+        /* P4.5: Buy equipment if affordable and available */
+        sequence {
+            condition [NeedsEquipment]
+            condition [CanAffordItem, "equipment"]
+            selector {
+                sequence {
+                    condition [AtLocation, "market"]
+                    condition [FacilityHasStock, "equipment"]
+                    action [BuyItem, "equipment"]
+                }
+                action [SeekMarket]
+            }
+        }
+
         /* P5: Energy — rest when tired */
         sequence {
             condition [IsExhausted]
