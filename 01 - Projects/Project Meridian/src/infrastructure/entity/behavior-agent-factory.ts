@@ -8,6 +8,7 @@ import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
+import { AttributesComponent } from '../components/attributes-component.js';
 import { TimeComponent } from '../components/time-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { findFoodInInventory, FOOD_ITEMS, TRADE_GOODS } from '../../domain/systems/food-items.js';
@@ -32,6 +33,8 @@ export interface BehaviorAgentDeps {
 	getLocations: () => WorldLocation[];
 	tickCount: () => number;
 	eventBus: EventBus;
+	swapBehaviorTree?: (jobName: string | null) => void;
+	jobsConfig?: GameConfig['jobs'];
 }
 
 export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
@@ -60,6 +63,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let restingAt: string | null = null;
 	let arrivalSlot: number | null = null;
 	let buyTargetItem: string | null = null;
+	let unemployedTicks = 0;
 
 	// Price memory
 	const priceMemories = new CircularBuffer<PriceMemory>(Array, config.economy.price_memory_max);
@@ -232,6 +236,9 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		get buyTargetItem() { return buyTargetItem; },
 		set buyTargetItem(v: string | null) { buyTargetItem = v; },
 
+		get unemployedTicks() { return unemployedTicks; },
+		set unemployedTicks(v: number) { unemployedTicks = v; },
+
 		get priceMemories() { return priceMemories; },
 
 		// ── 25 Condition methods ───────────────────────────────────────────
@@ -379,6 +386,10 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		OpenFacilityNearby(): boolean {
 			return agent.nearbyFacilities.some(f => f.workerId === null);
+		},
+
+		OpenProductionFacilityNearby(): boolean {
+			return agent.nearbyFacilities.some(f => f.workerId === null && f.job !== '');
 		},
 
 		IsThirsty(): boolean {
@@ -653,6 +664,50 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return SUCCEEDED;
 		},
 
+		ClaimBestJob(): ActionResult {
+			const jobsConfig = deps.jobsConfig ?? deps.config.jobs;
+			const openFacilities = agent.nearbyFacilities.filter(f =>
+				f.workerId === null && f.job !== '',
+			);
+			if (openFacilities.length === 0) return FAILED;
+
+			let chosen: typeof openFacilities[0];
+			if (unemployedTicks >= jobsConfig.desperation_ticks) {
+				// Desperate — take nearest regardless of fit
+				chosen = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
+			} else {
+				// Score by primary attribute aptitude, tiebreak by distance
+				const attrs = actor.get(AttributesComponent).state as unknown as Record<string, number>;
+				chosen = openFacilities.reduce((best, f) => {
+					const jobDef = jobsConfig.definitions[f.job];
+					const fScore = jobDef !== undefined
+						? attrs[jobDef.primary_attribute] ?? 0
+						: 0;
+					const bestDef = jobsConfig.definitions[best.job];
+					const bestScore = bestDef !== undefined
+						? attrs[bestDef.primary_attribute] ?? 0
+						: 0;
+					if (fScore > bestScore) return f;
+					if (fScore === bestScore && f.distance < best.distance) return f;
+					return best;
+				});
+			}
+
+			actor.job = chosen.job;
+			unemployedTicks = 0;
+			btAction = 'claim_job';
+			deps.swapBehaviorTree?.(chosen.job);
+			return SUCCEEDED;
+		},
+
+		ReleaseJob(): ActionResult {
+			actor.job = null;
+			unemployedTicks = 0;
+			btAction = null;
+			deps.swapBehaviorTree?.(null);
+			return SUCCEEDED;
+		},
+
 		/** Available for custom BTs — not used in the default tree set. */
 		Idle(): ActionResult {
 			btAction = 'idle';
@@ -839,6 +894,14 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		},
 
 		// ── Utility methods ────────────────────────────────────────────────
+		tickUnemployment(): void {
+			if (actor.job === null) {
+				unemployedTicks++;
+			} else {
+				unemployedTicks = 0;
+			}
+		},
+
 		recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void {
 			priceMemories.push({ itemId, price, locationId, tick });
 		},

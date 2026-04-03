@@ -57,15 +57,15 @@ root {
         sequence {
             condition [IsWorkHours]
             condition [HasNoJob]
-            condition [OpenFacilityNearby]
-            action [ClaimJob]
+            condition [OpenProductionFacilityNearby]
+            action [ClaimBestJob]
         }
 
         /* P2: Role-specific behavior (work hours: dawn + day, skip if exhausted) */
         sequence {
             condition [IsWorkHours]
             flip { condition [IsExhausted] }
-            branch [Role]
+            branch [Job]
         }
 
         /* P3: Thirsty — drink or refill */

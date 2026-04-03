@@ -1,4 +1,4 @@
-root [Role] {
+root [Job] {
     selector {
         sequence {
             condition [AtJobFacility]

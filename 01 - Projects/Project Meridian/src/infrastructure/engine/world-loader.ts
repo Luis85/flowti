@@ -25,6 +25,8 @@ export interface WorldData {
 	regions: WorldRegion[];
 	regionGraph: RegionGraph;
 	btMdslDefinitions: Record<string, string>;
+	jobTrees: Record<string, string>;
+	joblessMdsl: string;
 	items: Map<string, Item>;
 	errors: { step: string; file: string; message: string }[];
 }
@@ -36,6 +38,8 @@ interface WorldLoaderConfig {
 	memoryMaxEntries: number;
 	/** Vault-relative root path for game data (agents/, locations/, etc.) */
 	dataRoot: string;
+	/** Job definitions from game config — keys are job names */
+	jobDefinitions?: Record<string, { primary_attribute: string }>;
 }
 
 function collectErrors(step: string, errors: { file: string; message: string }[], target: WorldData['errors']): void {
@@ -47,8 +51,6 @@ function buildTraitMap(items: TraitDefinition[]): Record<string, TraitDefinition
 	for (const trait of items) map[trait.id] = trait;
 	return map;
 }
-
-const BT_KINDS = ['settler', 'guard', 'craftsman'] as const;
 
 const STEPS = [
 	'Loading traits...',
@@ -140,19 +142,42 @@ export function createWorldLoader(
 
 			onProgress?.(5, total, STEPS[4]);
 			const btPath = `${root}/behavior-trees`;
+			const jobsPath = `${root}/jobs`;
 			const mdslLoader = createMDSLLoader(logger);
 			const btMdslDefinitions: Record<string, string> = {};
-			for (const kind of BT_KINDS) {
-				const result = await mdslLoader.loadComposed(
-					vault,
-					`${btPath}/base.mdsl`,
-					`${btPath}/branch-${kind}.mdsl`,
-				);
-				collectErrors('behavior-trees', result.errors, errors);
-				if (result.mdsl !== null) {
-					btMdslDefinitions[kind] = result.mdsl;
+			const jobTrees: Record<string, string> = {};
+
+			// Load base BT
+			let baseMdsl = '';
+			try {
+				baseMdsl = await vault.read(`${btPath}/base.mdsl`);
+			} catch {
+				logger.error('WorldLoader', 'Failed to read base.mdsl');
+				errors.push({ step: 'behavior-trees', file: `${btPath}/base.mdsl`, message: 'File not found' });
+			}
+
+			// Compose job trees from config definitions
+			const jobNames = Object.keys(config.jobDefinitions ?? {});
+			if (baseMdsl !== '') {
+				for (const jobName of jobNames) {
+					const result = await mdslLoader.loadComposed(
+						vault,
+						`${btPath}/base.mdsl`,
+						`${jobsPath}/${jobName}.mdsl`,
+					);
+					collectErrors('jobs', result.errors, errors);
+					if (result.mdsl !== null) {
+						jobTrees[jobName] = result.mdsl;
+						btMdslDefinitions[jobName] = result.mdsl; // backward compat
+					}
 				}
 			}
+
+			// Build jobless MDSL variant — replace branch [Job] with action [Wander]
+			const joblessMdsl = baseMdsl.replace(
+				/branch\s*\[Job\]/,
+				'action [Wander]',
+			);
 
 			onProgress?.(6, total, STEPS[5]);
 			const itemResult = await createItemLoader(logger).loadFromVault(vault, `${root}/items`);
@@ -174,7 +199,7 @@ export function createWorldLoader(
 					name: a.agentName,
 					job: a.job,
 					inventory: a.get(InventoryComponent).state.items,
-					behaviorTree: a.behaviorTreeDef,
+					behaviorTree: a.job ?? '',
 				})),
 				locations: locationResult.items.map(loc => ({
 					id: loc.id,
@@ -202,6 +227,8 @@ export function createWorldLoader(
 				regions: regionResult.items,
 				regionGraph,
 				btMdslDefinitions,
+				jobTrees,
+				joblessMdsl,
 				items: itemRegistry,
 				errors,
 			};

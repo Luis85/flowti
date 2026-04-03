@@ -10,6 +10,7 @@ export function createBehaviorTreeSystem(
 		priority: SystemPriority.BEHAVIOR_TREE,
 		execute(_deps: GameCoreDeps): void {
 			for (const agent of agents()) {
+				agent.behaviorAgent.tickUnemployment();
 				agent.behaviorAgent.btAction = null;
 				// Reset before step — forces re-evaluation from root so higher-priority
 				// branches (P0 critical needs) can preempt lower ones (P2 work)

@@ -19,21 +19,22 @@ import type { MoodConfig } from '../../domain/systems/mood.js';
 export class AgentActor extends Actor {
 	readonly agentId: string;
 	readonly agentName: string;
-	readonly kind: string;
-	readonly behaviorTreeDef: string;
 	readonly property: string[];
 	job: string | null;
 	readonly agentColor: string;
 	behaviorAgent!: BehaviorAgent;
 	behaviorTree!: BehaviourTree;
 
+	/** Display-only: derived from current job or 'unemployed' */
+	get kind(): string {
+		return this.job ?? 'unemployed';
+	}
+
 	constructor(agent: Agent, moodConfig: MoodConfig, memoryMaxEntries = 50) {
 		super({ x: agent.position.x, y: agent.position.y });
 
 		this.agentId = agent.id;
 		this.agentName = agent.name;
-		this.kind = agent.kind;
-		this.behaviorTreeDef = agent.behavior_tree;
 		this.property = [...agent.property];
 		this.job = agent.job ?? null;
 		this.agentColor = agent.color;

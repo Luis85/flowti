@@ -84,6 +84,7 @@ export interface BehaviorAgent {
 	restingAt: string | null;
 	arrivalSlot: number | null;
 	buyTargetItem: string | null;
+	unemployedTicks: number;
 
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;
@@ -115,6 +116,7 @@ export interface BehaviorAgent {
 	KnowsFoodSource(): boolean;
 	HasNoJob(): boolean;
 	OpenFacilityNearby(): boolean;
+	OpenProductionFacilityNearby(): boolean;
 	HasTradeGoods(): boolean;
 	NeedsTools(): boolean;
 	NeedsEquipment(): boolean;
@@ -143,9 +145,12 @@ export interface BehaviorAgent {
 	SeekSupplySource(): ActionResult;
 	SeekBestFoodSource(): ActionResult;
 	ClaimJob(): ActionResult;
+	ClaimBestJob(): ActionResult;
+	ReleaseJob(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
 
 	// Utility methods
+	tickUnemployment(): void;
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
 }

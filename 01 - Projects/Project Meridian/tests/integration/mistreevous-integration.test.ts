@@ -30,11 +30,18 @@ const noopEventBus: EventBus = {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '../..');
 
-function loadMdsl(kind: string): string {
+function loadJobMdsl(jobName: string): string {
+	const btDir = resolve(projectRoot, 'behavior-trees');
+	const jobsDir = resolve(projectRoot, 'jobs');
+	const base = readFileSync(resolve(btDir, 'base.mdsl'), 'utf-8');
+	const job = readFileSync(resolve(jobsDir, `${jobName}.mdsl`), 'utf-8');
+	return base + '\n\n' + job;
+}
+
+function loadJoblessMdsl(): string {
 	const btDir = resolve(projectRoot, 'behavior-trees');
 	const base = readFileSync(resolve(btDir, 'base.mdsl'), 'utf-8');
-	const branch = readFileSync(resolve(btDir, `branch-${kind}.mdsl`), 'utf-8');
-	return base + '\n\n' + branch;
+	return base.replace(/branch\s*\[Job\]/, 'action [Wander]');
 }
 
 const defaultMoodConfig = {
@@ -50,7 +57,7 @@ const defaultMoodConfig = {
 };
 
 function createSettlerData(overrides: Record<string, unknown> = {}) {
-	const raw = JSON.parse(readFileSync(resolve(projectRoot, 'agents/settler.json'), 'utf-8'));
+	const raw = JSON.parse(readFileSync(resolve(projectRoot, 'agents/aldric.json'), 'utf-8'));
 	const parsed = AgentSchema.parse(raw);
 	return { ...parsed, ...overrides };
 }
@@ -79,7 +86,7 @@ const locations: WorldLocation[] = [
 describe('mistreevous BT integration', () => {
 	it('Settler selects actions via BT evaluation', () => {
 		const config = GameConfigSchema.parse({});
-		const mdsl = loadMdsl('settler');
+		const mdsl = loadJoblessMdsl();
 
 		// Create Settler with low hunger so BT triggers survival behavior
 		const elenaData = createSettlerData({ needs: { hunger: 20, energy: 80, social: 80, thirst: 80 } });
@@ -161,7 +168,7 @@ describe('mistreevous BT integration', () => {
 
 	it('agents commit to actions via RUNNING state', () => {
 		const config = GameConfigSchema.parse({});
-		const mdsl = loadMdsl('settler');
+		const mdsl = loadJoblessMdsl();
 
 		// Settler with low hunger + has food → Eat action should fire
 		// Use dusk phase so work-hours priorities (P1, P2) don't preempt hunger behavior

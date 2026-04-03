@@ -55,29 +55,32 @@ function loadAndParse<T>(dir: string, schema: { parse(data: unknown): T }): T[] 
 	}
 }
 
-function loadMdslDefinitions(): Record<string, string> {
+function loadJobTrees(): { jobTrees: Record<string, string>; joblessMdsl: string } {
 	const btDir = resolve(projectRoot, 'behavior-trees');
+	const jobsDir = resolve(projectRoot, 'jobs');
 	const baseContent = readFileSync(resolve(btDir, 'base.mdsl'), 'utf-8');
-	const result: Record<string, string> = {};
+	const jobTrees: Record<string, string> = {};
 
-	for (const file of readdirSync(btDir)) {
-		if (!file.startsWith('branch-') || !file.endsWith('.mdsl')) continue;
-		const kind = file.replace('branch-', '').replace('.mdsl', '');
-		const branchContent = readFileSync(resolve(btDir, file), 'utf-8');
-		result[kind] = baseContent + '\n\n' + branchContent;
+	for (const file of readdirSync(jobsDir)) {
+		if (!file.endsWith('.mdsl')) continue;
+		const jobName = file.replace('.mdsl', '');
+		const jobContent = readFileSync(resolve(jobsDir, file), 'utf-8');
+		jobTrees[jobName] = baseContent + '\n\n' + jobContent;
 	}
-	return result;
+
+	const joblessMdsl = baseContent.replace(/branch\s*\[Job\]/, 'action [Wander]');
+	return { jobTrees, joblessMdsl };
 }
 
 describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 	const agentData = loadAndParse('agents', AgentSchema);
 	const locations: WorldLocation[] = loadAndParse('locations', LocationSchema);
-	const mdslDefs = loadMdslDefinitions();
+	const { jobTrees, joblessMdsl } = loadJobTrees();
 	const regions: WorldRegion[] = loadAndParse('regions', RegionSchema);
 	const traitFiles = loadAndParse('traits', TraitDefinitionSchema);
 
 	// Skip if real data files are not available
-	if (agentData.length === 0 || locations.length === 0 || Object.keys(mdslDefs).length === 0) {
+	if (agentData.length === 0 || locations.length === 0 || Object.keys(jobTrees).length === 0) {
 		it.skip('real data files not found — skipping balance smoke test', () => {});
 		return;
 	}
@@ -132,10 +135,17 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		const getWorld = () => worldEntity;
 		const getLocationActors = () => locationActors;
 
-		// Wire up BehaviorAgent + BehaviourTree for each agent (mirroring game-view.ts)
+		// Wire up BehaviorAgent + jobless BehaviourTree for each agent (mirroring game-view.ts)
 		for (const actor of actors) {
-			const mdsl = mdslDefs[actor.kind];
-			if (mdsl === undefined) continue;
+			const swapBehaviorTree = (jobName: string | null): void => {
+				const mdsl = jobName !== null ? jobTrees[jobName] : joblessMdsl;
+				if (mdsl === undefined) return;
+				const rng = createGameRNG(hashString(actor.agentId + (jobName ?? 'jobless')));
+				actor.behaviorTree = new BehaviourTree(mdsl, actor.behaviorAgent, {
+					random: () => rng.next(),
+					getDeltaTime: () => config.tick_interval_ms / 1000,
+				});
+			};
 
 			const behaviorAgent = createBehaviorAgent({
 				actor,
@@ -145,10 +155,12 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 				getLocations,
 				tickCount: () => deps.tickCount,
 				eventBus,
+				swapBehaviorTree,
+				jobsConfig: config.jobs,
 			});
 
-			const rng = createGameRNG(hashString(actor.agentId));
-			const tree = new BehaviourTree(mdsl, behaviorAgent, {
+			const rng = createGameRNG(hashString(actor.agentId + 'jobless'));
+			const tree = new BehaviourTree(joblessMdsl, behaviorAgent, {
 				random: () => rng.next(),
 				getDeltaTime: () => config.tick_interval_ms / 1000,
 			});

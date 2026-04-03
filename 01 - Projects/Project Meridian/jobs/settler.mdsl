@@ -1,4 +1,4 @@
-root [Role] {
+root [Job] {
     selector {
         /* Harvest food from farm if stock available */
         sequence {

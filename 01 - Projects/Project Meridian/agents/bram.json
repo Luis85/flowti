@@ -1,7 +1,6 @@
 {
-	"id": "agent-guard",
-	"name": "Guard",
-	"kind": "guard",
+	"id": "agent-bram",
+	"name": "Bram",
 	"color": "#5c6bc0",
 	"attributes": { "ST": 14, "DX": 12, "IQ": 10, "HT": 13 },
 	"social": { "status": 1, "reputation": 1, "charisma": 10 },
@@ -23,7 +22,5 @@
 	"position": { "x": 380, "y": 160, "region": "region-market-square" },
 	"relationships": null,
 	"tools": [],
-	"behavior_tree": "guard",
-	"job": "guard",
 	"property": []
 }

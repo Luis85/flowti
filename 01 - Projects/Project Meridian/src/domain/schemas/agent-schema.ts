@@ -21,7 +21,7 @@ import {
 export const AgentSchema = z.object({
 	id: z.string().regex(/^agent-[a-z0-9-]+$/),
 	name: z.string().min(1),
-	kind: z.string(),
+	kind: z.string().default(''),
 	attributes: z.object({
 		ST: z.number().int().min(ATTRIBUTE_RANGE.min).max(ATTRIBUTE_RANGE.max),
 		DX: z.number().int().min(ATTRIBUTE_RANGE.min).max(ATTRIBUTE_RANGE.max),
@@ -56,7 +56,7 @@ export const AgentSchema = z.object({
 	tools: z.array(z.string()).default([]),
 	persona: z.string().nullable().default(null),
 	color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#b0b0b0'),
-	behavior_tree: z.string(),
+	behavior_tree: z.string().default(''),
 	job: z.string().nullable().default(null),
 	property: z.array(z.string()).default([]),
 });

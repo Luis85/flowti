@@ -63,3 +63,28 @@ describe('GameConfigSchema economy depth fields', () => {
 		expect(config.economy.equipment_decay_reduction).toBe(0.2);
 	});
 });
+
+describe('GameConfigSchema jobs config', () => {
+	it('provides defaults for aptitude and job definitions', () => {
+		const config = GameConfigSchema.parse({});
+		expect(config.jobs.aptitude_baseline).toBe(12);
+		expect(config.jobs.desperation_ticks).toBe(200);
+		expect(config.jobs.definitions.settler.primary_attribute).toBe('HT');
+		expect(config.jobs.definitions.guard.primary_attribute).toBe('ST');
+		expect(config.jobs.definitions.craftsman.primary_attribute).toBe('DX');
+	});
+
+	it('allows overriding job definitions', () => {
+		const config = GameConfigSchema.parse({
+			jobs: { definitions: { miner: { primary_attribute: 'ST' } } },
+		});
+		expect(config.jobs.definitions.miner.primary_attribute).toBe('ST');
+	});
+
+	it('rejects invalid primary_attribute', () => {
+		const result = GameConfigSchema.safeParse({
+			jobs: { definitions: { miner: { primary_attribute: 'XX' } } },
+		});
+		expect(result.success).toBe(false);
+	});
+});

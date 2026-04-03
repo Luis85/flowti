@@ -1,4 +1,4 @@
-root [Role] {
+root [Job] {
     selector {
         /* Sell goods at market if carrying any and not hungry */
         sequence {
