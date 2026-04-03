@@ -47,7 +47,8 @@ root {
                 /* Rest if exhausted */
                 sequence {
                     condition [IsExhausted]
-                    action [SeekRest] while(IsExhausted)
+                    action [SeekRest]
+                    action [Rest] while(IsExhausted)
                 }
             }
         }
