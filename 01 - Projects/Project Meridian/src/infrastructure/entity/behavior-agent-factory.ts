@@ -711,12 +711,6 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			// If already at the facility but it's occupied, don't re-target — fail gracefully
 			if (atLocation === jobLoc.id) return FAILED;
 
-			// If the facility is in perception range and visibly occupied, don't chase it
-			const occupiedNearby = agent.nearbyFacilities.find(f =>
-				f.id === jobLoc.id && f.workerId !== null && f.workerId !== actor.agentId,
-			);
-			if (occupiedNearby !== undefined) return FAILED;
-
 			btAction = 'seek_work';
 			movementTarget = { id: jobLoc.id, type: 'location' };
 			return RUNNING;
