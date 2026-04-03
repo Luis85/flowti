@@ -10,6 +10,7 @@ import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
+import { InventoryComponent } from '../components/inventory-component.js';
 
 const DAY_PADDING_WIDTH = 3;
 
@@ -338,28 +339,44 @@ function processDayBoundary(
 	// 2. Stipends
 	processStipends(agentList, economy, deps);
 
-	// 3. Facility subsidies
+	// 3. Equipment durability — consume 1 charge per day
+	for (const agent of agentList) {
+		const inv = agent.get(InventoryComponent);
+		const hasEquip = inv.state.items.some(i => i.item_id === 'equipment');
+		if (!hasEquip) continue;
+		const updated = inv.state.items
+			.map(i => {
+				if (i.item_id !== 'equipment') return { ...i };
+				const newCharges = (i.charges ?? 0) - 1;
+				return newCharges > 0 ? { ...i, charges: newCharges } : null;
+			})
+			.filter((i): i is NonNullable<typeof i> => i !== null);
+		inv.state = { items: updated };
+		inv.markDirty();
+	}
+
+	// 4. Facility subsidies
 	const locationActors = getLocationActors?.() ?? new Map<string, Actor>();
 	const locationData = getLocations?.() ?? [];
 	processFacilitySubsidies(locationActors, locationData, economy, deps);
 
-	// 4. Economy liveness invariant checks
+	// 5. Economy liveness invariant checks
 	checkEconomyLiveness(agentList, economy, dayCount, deps);
 
-	// 5. Generate daily report
+	// 6. Generate daily report
 	writeDailyReport(economy, agentList, locationActors, locationData, dayCount, deps, previousGold);
 
-	// 6. Snapshot current gold for next day's delta
+	// 7. Snapshot current gold for next day's delta
 	for (const agent of agentList) {
 		previousGold.set(agent.agentId, agent.get(WalletComponent).state.gold);
 	}
 
-	// 7. Prune old ledger entries
+	// 8. Prune old ledger entries
 	const retentionTicks = deps.config.economy.ledger_retention_days * deps.config.ticks_per_day;
 	const cutoffTick = deps.tickCount - retentionTicks;
 	const prunedLedger = economy.state.ledger.filter(e => e.tick >= cutoffTick);
 
-	// 8. Reset daily summary
+	// 9. Reset daily summary
 	economy.state = {
 		...economy.state,
 		ledger: prunedLedger,

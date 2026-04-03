@@ -6,6 +6,7 @@ import { EconomyComponent } from '../../../src/infrastructure/components/economy
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
 import { FacilityComponent } from '../../../src/infrastructure/components/facility-component.js';
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
+import { InventoryComponent } from '../../../src/infrastructure/components/inventory-component.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
@@ -438,5 +439,82 @@ describe('DayNightSystem — treasury regen, stipends, subsidies', () => {
 		expect(events.length).toBe(0);
 		const facility = locActor.get(FacilityComponent);
 		expect(facility.state.fund).toBe(200);
+	});
+});
+
+describe('DayNightSystem — equipment charge decay', () => {
+	it('decrements equipment charges by 1 at day boundary', () => {
+		const config = GameConfigSchema.parse({});
+		const worldEntity = createWorldWithEconomy();
+		const agent = new AgentActor(
+			createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 5 }] }),
+			defaultMoodConfig,
+		);
+
+		const system = createDayNightSystem(() => worldEntity, () => [agent]);
+		system.execute(createDeps(createEventBus(), 0));
+		system.execute(createDeps(createEventBus(), config.ticks_per_day));
+
+		const inv = agent.get(InventoryComponent);
+		const equip = inv.state.items.find(i => i.item_id === 'equipment');
+		expect(equip).toBeDefined();
+		expect(equip?.charges).toBe(4);
+	});
+
+	it('removes equipment when charges reach 0 after decay', () => {
+		const config = GameConfigSchema.parse({});
+		const worldEntity = createWorldWithEconomy();
+		const agent = new AgentActor(
+			createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 1 }] }),
+			defaultMoodConfig,
+		);
+
+		const system = createDayNightSystem(() => worldEntity, () => [agent]);
+		system.execute(createDeps(createEventBus(), 0));
+		system.execute(createDeps(createEventBus(), config.ticks_per_day));
+
+		const inv = agent.get(InventoryComponent);
+		const equip = inv.state.items.find(i => i.item_id === 'equipment');
+		expect(equip).toBeUndefined();
+	});
+
+	it('does not affect other inventory items during equipment decay', () => {
+		const config = GameConfigSchema.parse({});
+		const worldEntity = createWorldWithEconomy();
+		const agent = new AgentActor(
+			createTestAgentData('a1', {
+				inventory: [
+					{ item_id: 'equipment', quantity: 1, charges: 3 },
+					{ item_id: 'bread', quantity: 2 },
+				],
+			}),
+			defaultMoodConfig,
+		);
+
+		const system = createDayNightSystem(() => worldEntity, () => [agent]);
+		system.execute(createDeps(createEventBus(), 0));
+		system.execute(createDeps(createEventBus(), config.ticks_per_day));
+
+		const inv = agent.get(InventoryComponent);
+		const bread = inv.state.items.find(i => i.item_id === 'bread');
+		expect(bread).toBeDefined();
+		expect(bread?.quantity).toBe(2);
+	});
+
+	it('skips agents without equipment during decay pass', () => {
+		const config = GameConfigSchema.parse({});
+		const worldEntity = createWorldWithEconomy();
+		const agent = new AgentActor(
+			createTestAgentData('a1', { inventory: [{ item_id: 'bread', quantity: 2 }] }),
+			defaultMoodConfig,
+		);
+
+		const system = createDayNightSystem(() => worldEntity, () => [agent]);
+		system.execute(createDeps(createEventBus(), 0));
+		system.execute(createDeps(createEventBus(), config.ticks_per_day));
+
+		const inv = agent.get(InventoryComponent);
+		expect(inv.state.items).toHaveLength(1);
+		expect(inv.state.items[0]?.item_id).toBe('bread');
 	});
 });
