@@ -2,7 +2,6 @@ import { SystemPriority, type GameSystem } from '../../domain/core/tick-schedule
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { applyTrade, type TradeResult } from '../../domain/systems/trade.js';
 import { applyRelationshipUpdate } from '../../domain/systems/relationship.js';
-import { FOOD_ITEMS } from '../../domain/systems/food-items.js';
 import { distance } from '../../domain/core/math-utils.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
@@ -15,19 +14,20 @@ import { RelationshipComponent } from '../components/relationship-component.js';
 import type { FacilityState } from '../../domain/core/component-data.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 
-interface NearestFoodFacility {
+interface NearestFacility {
 	location: WorldLocation;
 	actor: Actor;
-	foodItemId: string;
+	itemId: string;
 }
 
-function findNearestFoodFacility(
+function findNearestFacilityWithItem(
 	agent: AgentActor,
 	locationList: WorldLocation[],
 	locationActorMap: Map<string, Actor>,
 	radius: number,
-): NearestFoodFacility | undefined {
-	let nearest: NearestFoodFacility | undefined;
+	itemId: string,
+): NearestFacility | undefined {
+	let nearest: NearestFacility | undefined;
 	let nearestDist = Infinity;
 
 	for (const loc of locationList) {
@@ -38,9 +38,9 @@ function findNearestFoodFacility(
 
 		const facility = locActor.get(FacilityComponent);
 		for (const stockItem of facility.state.stock) {
-			if (FOOD_ITEMS.has(stockItem.item_id) && stockItem.quantity > 0) {
+			if (stockItem.item_id === itemId && stockItem.quantity > 0) {
 				nearestDist = dist;
-				nearest = { location: loc, actor: locActor, foodItemId: stockItem.item_id };
+				nearest = { location: loc, actor: locActor, itemId: stockItem.item_id };
 				break;
 			}
 		}
@@ -51,7 +51,7 @@ function findNearestFoodFacility(
 function applySuccessfulTrade(
 	agent: AgentActor,
 	result: TradeResult,
-	target: NearestFoodFacility,
+	target: NearestFacility,
 	foodPrice: number,
 	economy: EconomyComponent,
 	deps: GameCoreDeps,
@@ -63,17 +63,17 @@ function applySuccessfulTrade(
 
 	// Add item to agent inventory
 	const inv = agent.get(InventoryComponent);
-	const existingItem = inv.state.items.find(i => i.item_id === target.foodItemId);
+	const existingItem = inv.state.items.find(i => i.item_id === target.itemId);
 	const updatedItems = existingItem !== undefined
-		? inv.state.items.map(i => i.item_id === target.foodItemId
+		? inv.state.items.map(i => i.item_id === target.itemId
 			? { ...i, quantity: i.quantity + 1 }
 			: { ...i })
-		: [...inv.state.items.map(i => ({ ...i })), { item_id: target.foodItemId, quantity: 1 }];
+		: [...inv.state.items.map(i => ({ ...i })), { item_id: target.itemId, quantity: 1 }];
 	inv.state = { ...inv.state, items: updatedItems };
 	inv.markDirty();
 
 	// Update facility stock and fund
-	updateFacilityAfterSale(target.actor, target.foodItemId, result.facilityFundChange);
+	updateFacilityAfterSale(target.actor, target.itemId, result.facilityFundChange);
 
 	// Record ledger entry + update daily sales summary
 	economy.state = {
@@ -85,7 +85,7 @@ function applySuccessfulTrade(
 				type: 'purchase' as const,
 				from: agent.agentId,
 				to: target.location.id,
-				itemId: target.foodItemId,
+				itemId: target.itemId,
 				quantity: 1,
 				gold: foodPrice,
 			},
@@ -111,7 +111,7 @@ function applySuccessfulTrade(
 		payload: {
 			agentId: agent.agentId,
 			facilityId: target.location.id,
-			itemId: target.foodItemId,
+			itemId: target.itemId,
 			price: foodPrice,
 		},
 	});
@@ -133,18 +133,18 @@ function applySuccessfulTrade(
 
 	// Record price observation — agent learns current price
 	agent.behaviorAgent.recordPriceObservation(
-		target.foodItemId,
+		target.itemId,
 		foodPrice,
 		target.location.id,
 		deps.tickCount,
 	);
 }
 
-function updateFacilityAfterSale(facilityActor: Actor, foodItemId: string, fundChange: number): void {
+function updateFacilityAfterSale(facilityActor: Actor, itemId: string, fundChange: number): void {
 	const facilityComp = facilityActor.get(FacilityComponent);
 	const newStock = facilityComp.state.stock
 		.map(item => {
-			if (item.item_id !== foodItemId) return { ...item };
+			if (item.item_id !== itemId) return { ...item };
 			const newQty = item.quantity - 1;
 			return newQty > 0 ? { ...item, quantity: newQty } : null;
 		})
@@ -206,12 +206,13 @@ export function createTradeSystem(
 				const btAction = agent.behaviorAgent.btAction;
 				if (btAction !== 'buy') continue;
 
-				const target = findNearestFoodFacility(agent, locationList, locationActorMap, radius);
+				const targetItem = agent.behaviorAgent.buyTargetItem ?? 'food';
+				const target = findNearestFacilityWithItem(agent, locationList, locationActorMap, radius, targetItem);
 				if (target === undefined) continue;
 
 				const facility = target.actor.get(FacilityComponent);
-				const item = itemRegistry().get(target.foodItemId);
-				const foodPrice = facility.state.currentPrices?.[target.foodItemId]
+				const item = itemRegistry().get(target.itemId);
+				const foodPrice = facility.state.currentPrices?.[target.itemId]
 					?? item?.baseValue
 					?? deps.config.economy.food_price;
 
@@ -220,7 +221,7 @@ export function createTradeSystem(
 					agentGold: wallet.state.gold,
 					price: foodPrice,
 					facilityFund: facility.state.fund,
-					itemId: target.foodItemId,
+					itemId: target.itemId,
 					quantity: 1,
 				});
 
@@ -240,7 +241,7 @@ export function createTradeSystem(
 
 					// Agent still learns the price even when purchase fails
 					agent.behaviorAgent.recordPriceObservation(
-						target.foodItemId,
+						target.itemId,
 						foodPrice,
 						target.location.id,
 						deps.tickCount,

@@ -58,7 +58,7 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
 		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
 		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
-		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null,
+		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null, buyTargetItem: null,
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 		IsHungry: () => false, IsExhausted: () => false, IsLonely: () => false,
 		IsThirsty: () => false, HasWater: () => false,
@@ -79,6 +79,7 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		SeekWork: () => 'mistreevous.failed', SeekSocial: () => 'mistreevous.failed',
 		SeekMarket: () => 'mistreevous.failed', Work: () => 'mistreevous.failed',
 		Talk: () => 'mistreevous.failed', Buy: () => 'mistreevous.failed',
+		BuyItem: () => 'mistreevous.failed',
 		PickupCargo: () => 'mistreevous.failed', DeliverCargo: () => 'mistreevous.failed',
 		SeekDeliveryTarget: () => 'mistreevous.failed', SeekSupplySource: () => 'mistreevous.failed',
 		SeekBestFoodSource: () => 'mistreevous.failed', ClaimJob: () => 'mistreevous.failed',
@@ -208,6 +209,132 @@ describe('TradeSystem', () => {
 
 		const wallet = agent.get(WalletComponent);
 		expect(wallet.state.gold).toBe(0);
+
+		const facility = bakeryActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 5 });
+	});
+
+	it('agent buys tools via BuyItem — generalized TradeSystem handles non-food items', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('PurchaseComplete', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-2', 50, 50), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy', buyTargetItem: 'tools' });
+
+		const workshopLocation: WorldLocation = {
+			id: 'loc-workshop',
+			name: 'Workshop',
+			type: 'work',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'craftsman',
+				output: { item_id: 'tools', quantity: 1 },
+				input: null,
+				wage: 5,
+				ticks_per_cycle: 30,
+			},
+		};
+		const workshopActor = new Actor();
+		workshopActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'tools', quantity: 3 }],
+			fund: 200,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-workshop', workshopActor]]);
+		const world = createWorldEntity();
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [workshopLocation],
+			() => locationActors,
+			() => world,
+			() => new Map(),
+		);
+		system.execute(createDeps(eventBus));
+
+		const inv = agent.get(InventoryComponent);
+		expect(inv.state.items).toContainEqual({ item_id: 'tools', quantity: 1 });
+
+		const facility = workshopActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'tools', quantity: 2 });
+
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.itemId).toBe('tools');
+	});
+
+	it('backward compat — Buy() without buyTargetItem defaults to food', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('PurchaseComplete', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-3', 100, 100), defaultMoodConfig);
+		// btAction='buy' but buyTargetItem is null (backward compat with Buy())
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy', buyTargetItem: null });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'food', quantity: 5 }],
+			fund: 100,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+		const world = createWorldEntity();
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => new Map(),
+		);
+		system.execute(createDeps(eventBus));
+
+		const inv = agent.get(InventoryComponent);
+		expect(inv.state.items).toContainEqual({ item_id: 'food', quantity: 1 });
+
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.itemId).toBe('food');
+	});
+
+	it('does not buy when buyTargetItem is set but facility has different stock', () => {
+		const agent = new AgentActor(createTestAgentData('agent-4', 100, 100), defaultMoodConfig);
+		// Agent wants tools but facility only has food
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy', buyTargetItem: 'tools' });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'food', quantity: 5 }],
+			fund: 100,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+		const world = createWorldEntity();
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => new Map(),
+		);
+		system.execute(createDeps());
+
+		const inv = agent.get(InventoryComponent);
+		expect(inv.state.items).toHaveLength(0);
 
 		const facility = bakeryActor.get(FacilityComponent);
 		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 5 });

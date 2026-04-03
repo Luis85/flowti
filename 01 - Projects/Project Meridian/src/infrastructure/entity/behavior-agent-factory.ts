@@ -59,6 +59,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let feedingAt: string | null = null;
 	let restingAt: string | null = null;
 	let arrivalSlot: number | null = null;
+	let buyTargetItem: string | null = null;
 
 	// Price memory
 	const priceMemories = new CircularBuffer<PriceMemory>(Array, config.economy.price_memory_max);
@@ -227,6 +228,9 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 		get arrivalSlot() { return arrivalSlot; },
 		set arrivalSlot(v: number | null) { arrivalSlot = v; },
+
+		get buyTargetItem() { return buyTargetItem; },
+		set buyTargetItem(v: string | null) { buyTargetItem = v; },
 
 		get priceMemories() { return priceMemories; },
 
@@ -568,6 +572,17 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			);
 			if (atFacility === undefined) return FAILED;
 			btAction = 'buy';
+			return SUCCEEDED;
+		},
+
+		BuyItem(itemId: string): ActionResult {
+			if (atLocation === null) return FAILED;
+			const atFacility = agent.nearbyFacilities.find(f =>
+				f.id === atLocation && f.stock.some(s => s.item_id === itemId && s.quantity > 0),
+			);
+			if (atFacility === undefined) return FAILED;
+			btAction = 'buy';
+			buyTargetItem = itemId;
 			return SUCCEEDED;
 		},
 

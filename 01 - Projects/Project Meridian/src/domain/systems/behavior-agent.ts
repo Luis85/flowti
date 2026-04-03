@@ -83,6 +83,7 @@ export interface BehaviorAgent {
 	feedingAt: string | null;
 	restingAt: string | null;
 	arrivalSlot: number | null;
+	buyTargetItem: string | null;
 
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;
@@ -131,6 +132,7 @@ export interface BehaviorAgent {
 	Work(): ActionResult;
 	Talk(): ActionResult;
 	Buy(): ActionResult;
+	BuyItem(itemId: string): ActionResult;
 	PickupCargo(): ActionResult;
 	DeliverCargo(): ActionResult;
 	SeekDeliveryTarget(): ActionResult;
