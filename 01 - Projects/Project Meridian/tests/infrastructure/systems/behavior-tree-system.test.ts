@@ -20,11 +20,13 @@ function createDeps(): GameCoreDeps {
 
 function createMockAgent(): AgentActor {
 	const stepFn = vi.fn();
+	const resetFn = vi.fn();
 	return {
 		behaviorAgent: { btAction: null as string | null },
-		behaviorTree: { step: stepFn },
+		behaviorTree: { step: stepFn, reset: resetFn },
 		_stepFn: stepFn,
-	} as unknown as AgentActor & { _stepFn: ReturnType<typeof vi.fn> };
+		_resetFn: resetFn,
+	} as unknown as AgentActor & { _stepFn: ReturnType<typeof vi.fn>; _resetFn: ReturnType<typeof vi.fn> };
 }
 
 describe('BehaviorTreeSystem (mistreevous thin wrapper)', () => {
