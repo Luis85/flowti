@@ -41,16 +41,14 @@ function assembleVaultOverlay(): Plugin {
 				const src = resolve(projectRoot, file);
 				if (existsSync(src)) copyFileSync(src, resolve(pluginDir, file));
 			}
+			const gameConfigSrc = resolve(projectRoot, 'configs/game-config.json');
+			if (existsSync(gameConfigSrc)) copyFileSync(gameConfigSrc, resolve(pluginDir, 'game-config.json'));
 
 			// Clean up root-level build artifacts (now inside plugin dir)
 			for (const file of ['main.js', 'main.js.map']) {
 				const rootFile = resolve(distDir, file);
 				if (existsSync(rootFile)) unlinkSync(rootFile);
 			}
-
-			// Game config → vault root for deployed vault
-			const configSrc = resolve(projectRoot, 'configs/game-config.json');
-			if (existsSync(configSrc)) copyFileSync(configSrc, resolve(distDir, 'game-config.json'));
 
 			// Game data → 03 - Resources/ (names match world-loader: lowercase, kebab-case)
 			const resDir = resolve(distDir, '03 - Resources');

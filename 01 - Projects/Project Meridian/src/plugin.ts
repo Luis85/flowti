@@ -114,12 +114,11 @@ export class MeridianPlugin extends Plugin {
 		}
 	}
 
-	/** Read game-config.json from the vault for simulation tuning overrides */
+	/** Read game-config.json from the plugin folder or dev vault path */
 	private async loadGameConfig(): Promise<Record<string, unknown>> {
-		// Try dev vault path first, then deployed vault path
 		const candidates = [
+			`${this.manifest.dir}/game-config.json`,
 			'01 - Projects/Project Meridian/configs/game-config.json',
-			'game-config.json',
 		];
 		for (const configPath of candidates) {
 			try {
