@@ -1313,5 +1313,99 @@ describe('BehaviorAgent factory', () => {
 				expect(agent.SeekSupplySource()).toBe('mistreevous.failed');
 			});
 		});
+
+		describe('SellAtMarket', () => {
+			function setupSellScenario(inventoryItems: { item_id: string; quantity: number }[], fund = 100) {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: inventoryItems }),
+					defaultMoodConfig,
+				);
+
+				const locations = [makeLocation('loc-market', 'market')];
+
+				const facActor = createLocationActor({
+					stock: [],
+					fund,
+					workProgress: 0,
+					status: 'idle',
+					workerId: null,
+				});
+
+				const locActors = new Map<string, Actor>([['loc-market', facActor]]);
+
+				const agent = createBehaviorAgent(setupDeps(actor, {
+					config,
+					getLocations: () => locations,
+					getLocationActors: () => locActors,
+				}));
+				agent.atLocation = 'loc-market';
+
+				return { actor, agent, facActor };
+			}
+
+			it('sells food when agent has food at a market', () => {
+				const { agent, facActor } = setupSellScenario([{ item_id: 'food', quantity: 2 }]);
+				const result = agent.SellAtMarket();
+				expect(result).toBe('mistreevous.succeeded');
+				expect(agent.btAction).toBe('sell');
+				expect(facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'food')?.quantity).toBe(1);
+				expect(agent.inventory.find(i => i.item_id === 'food')?.quantity).toBe(1);
+			});
+
+			it('sells tools (trade goods) when agent has tools at a market', () => {
+				const { agent, actor, facActor } = setupSellScenario([{ item_id: 'tools', quantity: 3 }]);
+				const result = agent.SellAtMarket();
+				expect(result).toBe('mistreevous.succeeded');
+				expect(agent.btAction).toBe('sell');
+				expect(facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'tools')?.quantity).toBe(1);
+				expect(actor.get(InventoryComponent).state.items.find(i => i.item_id === 'tools')?.quantity).toBe(2);
+			});
+
+			it('removes the item entirely when selling the last unit of a trade good', () => {
+				const { agent, actor } = setupSellScenario([{ item_id: 'tools', quantity: 1 }]);
+				agent.SellAtMarket();
+				expect(actor.get(InventoryComponent).state.items.find(i => i.item_id === 'tools')).toBeUndefined();
+			});
+
+			it('credits the agent wallet on sale', () => {
+				const { agent } = setupSellScenario([{ item_id: 'tools', quantity: 1 }]);
+				const goldBefore = agent.gold;
+				agent.SellAtMarket();
+				expect(agent.gold).toBeGreaterThan(goldBefore);
+			});
+
+			it('returns failed when atLocation is null', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 1 }] }),
+					defaultMoodConfig,
+				);
+				const agent = createBehaviorAgent(setupDeps(actor, { config }));
+				expect(agent.SellAtMarket()).toBe('mistreevous.failed');
+			});
+
+			it('returns failed when location is not a market', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 1 }] }),
+					defaultMoodConfig,
+				);
+				const locations = [makeLocation('loc-tavern', 'food')];
+				const agent = createBehaviorAgent(setupDeps(actor, {
+					config,
+					getLocations: () => locations,
+				}));
+				agent.atLocation = 'loc-tavern';
+				expect(agent.SellAtMarket()).toBe('mistreevous.failed');
+			});
+
+			it('returns failed when inventory has no sellable items', () => {
+				const { agent } = setupSellScenario([{ item_id: 'torch', quantity: 2 }]);
+				expect(agent.SellAtMarket()).toBe('mistreevous.failed');
+			});
+
+			it('returns failed when market has insufficient funds', () => {
+				const { agent } = setupSellScenario([{ item_id: 'tools', quantity: 1 }], 0);
+				expect(agent.SellAtMarket()).toBe('mistreevous.failed');
+			});
+		});
 	});
 });

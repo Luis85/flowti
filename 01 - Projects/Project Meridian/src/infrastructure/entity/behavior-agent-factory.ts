@@ -10,7 +10,7 @@ import { PerceptionComponent } from '../components/perception-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { TimeComponent } from '../components/time-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
-import { findFoodInInventory, FOOD_ITEMS } from '../../domain/systems/food-items.js';
+import { findFoodInInventory, FOOD_ITEMS, TRADE_GOODS } from '../../domain/systems/food-items.js';
 import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
 import { CircularBuffer } from 'mnemonist';
 import { isPriceStale, type PriceMemory } from '../../domain/systems/price-memory.js';
@@ -479,27 +479,29 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			const locData = getLocations().find(l => l.id === atLocation);
 			if (locData === undefined || locData.type !== 'market') return FAILED;
 			const inv = actor.get(InventoryComponent);
-			const food = inv.state.items.find(i => FOOD_ITEMS.has(i.item_id) && i.quantity > 0);
-			if (food === undefined) return FAILED;
+			const sellable = inv.state.items.find(i =>
+				(FOOD_ITEMS.has(i.item_id) || TRADE_GOODS.has(i.item_id)) && i.quantity > 0,
+			);
+			if (sellable === undefined) return FAILED;
 			const locationActorMap = getLocationActors();
 			const marketActor = locationActorMap.get(atLocation);
 			if (marketActor === undefined) return FAILED;
 			const facility = marketActor.get(FacilityComponent);
-			const price = facility.state.currentPrices?.[food.item_id] ?? config.economy.food_price;
+			const price = facility.state.currentPrices?.[sellable.item_id] ?? config.economy.food_price;
 			if (facility.state.fund < price) return FAILED;
 			const newItems = inv.state.items
 				.map(i => {
-					if (i.item_id !== food.item_id) return { ...i };
+					if (i.item_id !== sellable.item_id) return { ...i };
 					const newQty = i.quantity - 1;
 					return newQty > 0 ? { ...i, quantity: newQty } : null;
 				})
 				.filter((i): i is NonNullable<typeof i> => i !== null);
 			inv.state = { ...inv.state, items: newItems };
 			inv.markDirty();
-			const hasItem = facility.state.stock.some(s => s.item_id === food.item_id);
+			const hasItem = facility.state.stock.some(s => s.item_id === sellable.item_id);
 			const newStock = hasItem
-				? facility.state.stock.map(s => s.item_id === food.item_id ? { ...s, quantity: s.quantity + 1 } : { ...s })
-				: [...facility.state.stock.map(s => ({ ...s })), { item_id: food.item_id, quantity: 1 }];
+				? facility.state.stock.map(s => s.item_id === sellable.item_id ? { ...s, quantity: s.quantity + 1 } : { ...s })
+				: [...facility.state.stock.map(s => ({ ...s })), { item_id: sellable.item_id, quantity: 1 }];
 			facility.state = { ...facility.state, stock: newStock, fund: facility.state.fund - price };
 			facility.markDirty();
 			const wallet = actor.get(WalletComponent);
