@@ -118,6 +118,8 @@ function collectObstacles(
 		if (other === currentAgent) continue;
 		if (other.agentId === targetId) continue;
 		if (other.behaviorAgent.atLocation !== null) {
+			// Don't block agents heading to the same location — arrival spread handles positioning
+			if (other.behaviorAgent.atLocation === targetId) continue;
 			obstacles.push({ x: other.pos.x, y: other.pos.y, radius: 14 });
 		}
 	}
