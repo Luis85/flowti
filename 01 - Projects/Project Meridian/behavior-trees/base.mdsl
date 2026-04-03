@@ -131,13 +131,15 @@ root {
         /* P5: Energy — rest when tired */
         sequence {
             condition [IsExhausted]
-            action [SeekRest] while(IsExhausted)
+            action [SeekRest]
+            action [Rest] while(IsExhausted)
         }
 
-        /* P6: Night behavior */
+        /* P6: Night — go home and sleep */
         sequence {
             condition [IsNighttime]
             action [SeekRest]
+            action [Rest] while(IsNighttime)
         }
 
         /* P7: Fallback */
