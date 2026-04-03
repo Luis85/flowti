@@ -116,14 +116,21 @@ export class MeridianPlugin extends Plugin {
 
 	/** Read game-config.json from the vault for simulation tuning overrides */
 	private async loadGameConfig(): Promise<Record<string, unknown>> {
-		const configPath = '01 - Projects/Project Meridian/configs/game-config.json';
-		try {
-			const content = await this.app.vault.adapter.read(configPath);
-			return JSON.parse(content) as Record<string, unknown>;
-		} catch {
-			this.logger?.warn('Meridian', 'No game-config.json found, using schema defaults');
-			return {};
+		// Try dev vault path first, then deployed vault path
+		const candidates = [
+			'01 - Projects/Project Meridian/configs/game-config.json',
+			'game-config.json',
+		];
+		for (const configPath of candidates) {
+			try {
+				const content = await this.app.vault.adapter.read(configPath);
+				return JSON.parse(content) as Record<string, unknown>;
+			} catch {
+				// Try next candidate
+			}
 		}
+		this.logger?.warn('Meridian', 'No game-config.json found, using schema defaults');
+		return {};
 	}
 
 	/** Deferred game initialization — called after Obsidian workspace is fully loaded */

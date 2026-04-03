@@ -311,17 +311,14 @@ function createLoadingOverlay(container: HTMLElement): HTMLElement {
 
 function createVaultAdapter(vault: Vault): VaultReader {
 	return {
-		list: (path: string): Promise<string[]> => {
-			return Promise.resolve(
-				vault.getFiles()
-					.filter(f => f.path.startsWith(path) && f.path.endsWith('.json'))
-					.map(f => f.path),
-			);
+		list: async (path: string): Promise<string[]> => {
+			const exists = await vault.adapter.exists(path);
+			if (!exists) return [];
+			const listing = await vault.adapter.list(path);
+			return listing.files.filter(f => f.endsWith('.json'));
 		},
 		read: async (path: string): Promise<string> => {
-			const file = vault.getFileByPath(path);
-			if (file === null) throw new Error(`File not found: ${path}`);
-			return vault.read(file);
+			return vault.adapter.read(path);
 		},
 	};
 }
