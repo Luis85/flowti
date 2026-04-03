@@ -57,23 +57,23 @@ Remove `kind`, `behavior_tree`, and `job` from agent JSON. Agents are defined pu
 
 ### Fields removed
 - `kind` — no mechanical role. Persona handles identity later.
-- `behavior_tree` — all agents use the same base BT.
+- `behavior_tree` — all agents use the same base BT (swapped on job claim).
 - `job` — agents start unemployed, self-select at runtime.
 
 ### Schema changes
-- `AgentSchema`: remove `kind`, `behavior_tree`, `job` as required fields. Make them optional with defaults (`job: null`) for backward compat during migration.
-- `AgentActor`: `kind` becomes an empty string or is derived from current job. `behaviorTreeDef` is removed — all agents load the same base BT.
+- `AgentSchema`: make `kind`, `behavior_tree`, `job` optional with defaults (`null`/empty) for backward compat during migration.
+- `AgentActor`: `kind` derived from current job (for display). `behaviorTreeDef` removed.
 
 ---
 
 ## 2. Job Modules — BT Fragments
 
-Job-specific work behaviors move from `behavior-trees/branch-*.mdsl` to `jobs/*.mdsl`. Each file defines a `root [Job]` subtree that plugs into the base BT's work slot.
+Job-specific work behaviors move from `behavior-trees/branch-*.mdsl` to `jobs/*.mdsl`. Each file defines a `root [Job] { ... }` subtree.
 
 ### File layout
 ```
 jobs/
-  settler.mdsl       — harvest, sell food, work at farm
+  settler.mdsl       — harvest, sell food, buy tools, work at farm
   guard.mdsl         — work at guard post (patrol later)
   craftsman.mdsl     — sell trade goods, work at workshop
 ```
@@ -128,20 +128,35 @@ root [Job] {
 }
 ```
 
-### Loading
-The world loader discovers job modules dynamically by scanning `jobs/*.mdsl` (or the deployed equivalent), instead of iterating a hardcoded `BT_KINDS` array. Each file's name (without extension) becomes the job key. The base BT is composed with each job module to produce a complete tree per job type.
+### BT Composition — Static at Construction, Swapped at Job Change
 
-### Runtime resolution
-`branch [Job]` in the base BT resolves by looking up `agent.job` in the loaded job definitions map. If the agent has no job (`job === null`), the branch node fails and the BT falls through to wander.
+**Critical constraint:** mistreevous resolves `branch [Name]` at tree construction time by inlining the named subtree. It is NOT a runtime lookup. This means:
+
+1. **At world load time**, the loader composes one MDSL per job type: `base.mdsl + jobs/<jobname>.mdsl`. It also composes a "jobless" variant: `base.mdsl` alone, with `branch [Job]` replaced by `action [Wander]` (since there's no `root [Job]` to reference).
+2. **Each composed MDSL is parsed into a tree definition** and stored in a `jobTrees: Record<string, string>` map (key = job name, value = composed MDSL). Plus a `joblessMdsl: string` for unemployed agents.
+3. **Agents start with the jobless tree.** When `ClaimBestJob` fires, the agent's `BehaviourTree` instance is reconstructed from the claimed job's composed MDSL. When a job is released, it swaps back to the jobless tree.
+
+### Runtime BT swap
+
+When `ClaimBestJob` or `ReleaseJob` changes `agent.job`, the system must:
+1. Look up the target MDSL from `jobTrees[newJob]` (or `joblessMdsl` for release)
+2. Create a new `BehaviourTree(mdsl, behaviorAgent)` instance
+3. Assign it to the agent's `behaviorTree` property on `AgentActor`
+
+This swap is cheap — `BehaviourTree` construction is fast (just parsing + node factory). It only happens on job claim/release, not every tick.
+
+### Loading
+The world loader discovers job modules dynamically by scanning `jobs/*.mdsl` (via vault adapter), instead of iterating a hardcoded `BT_KINDS` array. The vault adapter must list `.mdsl` files (not just `.json` — update the `list` function or add an extension parameter).
 
 ---
 
 ## 3. Base BT — One Tree For All
 
-The base BT is shared by every agent. Two changes from current:
+The base BT is shared by every agent. Changes from current:
 
-1. `branch [Role]` → `branch [Job]` — resolves dynamically from `agent.job`
-2. `ClaimJob` → `ClaimBestJob` — uses aptitude scoring
+1. `branch [Role]` → `branch [Job]` — resolved at tree construction time per job type
+2. `ClaimJob` → `ClaimBestJob` — uses aptitude scoring, triggers BT swap
+3. New `ReleaseJob` action — for when facilities close or agents get displaced
 
 ### Updated base.mdsl
 ```
@@ -197,7 +212,7 @@ root {
         sequence {
             condition [IsWorkHours]
             condition [HasNoJob]
-            condition [OpenFacilityNearby]
+            condition [OpenProductionFacilityNearby]
             action [ClaimBestJob]
         }
 
@@ -290,6 +305,21 @@ root {
 }
 ```
 
+### Jobless variant
+
+For unemployed agents, `branch [Job]` has no target. The loader produces a jobless MDSL by replacing P2's `branch [Job]` with `action [Wander]`:
+
+```
+/* P2: No job — wander during work hours */
+sequence {
+    condition [IsWorkHours]
+    flip { condition [IsExhausted] }
+    action [Wander]
+}
+```
+
+This is a string replacement at load time, not a runtime concern.
+
 ---
 
 ## 4. Job Aptitude & Scoring
@@ -314,37 +344,57 @@ Defined in `game-config.json` under a new `jobs` section:
 
 - `primary_attribute` — the attribute used to score aptitude for this job.
 - `aptitude_baseline` — the "average" attribute value (default 12). Used for efficiency calculations.
-- `desperation_ticks` — how many ticks an agent stays unemployed before accepting any job regardless of score.
+- `desperation_ticks` — ticks an agent stays unemployed before accepting any job. At 500ms/tick, 200 ticks = 100 seconds of game time.
 
 ### ClaimBestJob action
 
 Replaces `ClaimJob`. Behavior:
 
-1. Collect all open facilities in perception range (where `workerId === null`).
-2. For each, look up the job's `primary_attribute` from config.
-3. Score = agent's value of that attribute. Higher is better.
+1. Collect all open **production** facilities in perception range (`workerId === null` AND `job !== ''`).
+2. For each, look up the job's `primary_attribute` from `config.jobs.definitions`.
+3. Score = agent's value of that attribute. Higher is better. Tiebreaker: nearest facility wins.
 4. Pick the highest-scoring facility and claim it (`actor.job = facility.job`).
-5. If no open facilities, return FAILED.
+5. **Trigger BT swap:** reconstruct the agent's `BehaviourTree` from the job's composed MDSL.
+6. If no open production facilities, return FAILED.
 
-**Desperation fallback:** Track `unemployedTicks` in working memory. Increment each tick when `HasNoJob`. When `unemployedTicks >= desperation_ticks`, `ClaimBestJob` skips scoring and claims the nearest open facility regardless of fit. Reset to 0 when a job is claimed.
+**Desperation fallback:** Track `unemployedTicks` in BehaviorAgent working memory (add to interface in `behavior-agent.ts` and factory closure in `behavior-agent-factory.ts`). Increment each tick when `HasNoJob` is true. When `unemployedTicks >= config.jobs.desperation_ticks`, `ClaimBestJob` skips scoring and claims the nearest open production facility. Reset to 0 when a job is claimed.
+
+### OpenProductionFacilityNearby condition
+
+Replaces `OpenFacilityNearby`. Same check but filters to facilities with a non-empty `job` field, excluding non-production locations (rest, water, market) that have `production: null`.
+
+```typescript
+OpenProductionFacilityNearby(): boolean {
+    return agent.nearbyFacilities.some(f => f.workerId === null && f.job !== '');
+},
+```
+
+### Job release
+
+New `ReleaseJob` action (not currently in BT, used by systems):
+1. Set `actor.job = null`
+2. Reset `unemployedTicks = 0`
+3. Swap BT back to jobless variant
+
+Triggered by FacilitySystem when a facility's worker is detected at a non-existent or closed facility. Can also be called manually for future displacement mechanics.
 
 ### Productivity modifier
 
-In `FacilitySystem`, when calculating production ticks, apply an efficiency multiplier based on worker aptitude:
+In `FacilitySystem.processFacilityTick`, when calculating production ticks, apply an efficiency multiplier based on worker aptitude:
 
 ```
 efficiency = workerAttribute / aptitude_baseline
-effective_ticks_per_cycle = ticks_per_cycle / efficiency
+effective_ticks_per_cycle = Math.round(ticks_per_cycle / efficiency)
 ```
 
-Where `workerAttribute` is the worker's value for the job's `primary_attribute`.
+Where `workerAttribute` is the worker's value for the job's `primary_attribute`, read from the worker's `AttributesComponent`.
+
+The jobs config is accessed via `deps.config.jobs` (add `jobs` to `GameConfigSchema`). The `processFacilityTick` function already receives `deps: GameCoreDeps` which includes `config`.
 
 **Examples** (baseline = 12, ticks_per_cycle = 25):
-- Agent with DX 14 crafting: `25 / (14/12) = 21.4 ticks` — 17% faster
+- Agent with DX 14 crafting: `25 / (14/12) = 21 ticks` — 17% faster
 - Agent with DX 10 crafting: `25 / (10/12) = 30 ticks` — 20% slower
 - Agent with DX 12 crafting: `25 / (12/12) = 25 ticks` — baseline
-
-No hard caps. The formula naturally produces reasonable ranges for typical attribute values (8-16).
 
 ---
 
@@ -361,20 +411,34 @@ No hard caps. The formula naturally produces reasonable ranges for typical attri
 - `jobs/craftsman.mdsl`
 
 ### Files to modify
-- `behavior-trees/base.mdsl` — `branch [Role]` → `branch [Job]`, `ClaimJob` → `ClaimBestJob`
-- `agents/*.json` — remove `kind`, `behavior_tree`, `job`
-- `configs/game-config.json` — add `jobs` section
-- `src/domain/schemas/game-config-schema.ts` — add `JobsConfigSchema`
-- `src/domain/schemas/agent-schema.ts` — make `kind`, `behavior_tree`, `job` optional
-- `src/infrastructure/entity/agent-actor.ts` — remove `kind` dependency, derive from job
-- `src/infrastructure/entity/behavior-agent-factory.ts` — replace `ClaimJob` with `ClaimBestJob`, add `unemployedTicks` tracking
-- `src/infrastructure/systems/facility-system.ts` — apply aptitude efficiency modifier
-- `src/infrastructure/engine/world-loader.ts` — scan `jobs/` dynamically instead of `BT_KINDS`
-- `src/infrastructure/engine/game-view.ts` — compose base BT with job modules dynamically, resolve `branch [Job]` from `agent.job`
-- `configs/vite.config.ts` — copy `jobs/` to dist
+
+| File | Change |
+|------|--------|
+| `behavior-trees/base.mdsl` | `branch [Role]` → `branch [Job]`, `ClaimJob` → `ClaimBestJob`, `OpenFacilityNearby` → `OpenProductionFacilityNearby` |
+| `agents/*.json` | Remove `kind`, `behavior_tree`, `job` |
+| `configs/game-config.json` | Add `jobs` section with aptitude config |
+| `src/domain/schemas/game-config-schema.ts` | Add `JobsConfigSchema` with `aptitude_baseline`, `desperation_ticks`, `definitions` |
+| `src/domain/schemas/agent-schema.ts` | Make `kind`, `behavior_tree`, `job` optional (backward compat) |
+| `src/domain/systems/behavior-agent.ts` | Add `unemployedTicks: number` to BehaviorAgent interface, add `ClaimBestJob`, `ReleaseJob`, `OpenProductionFacilityNearby` |
+| `src/infrastructure/entity/agent-actor.ts` | Remove `kind` hard field, derive from `job`. Remove `behaviorTreeDef`. Add mutable `behaviorTree` setter for BT swap. |
+| `src/infrastructure/entity/behavior-agent-factory.ts` | Replace `ClaimJob` with `ClaimBestJob` (aptitude scoring + BT swap), add `ReleaseJob`, replace `OpenFacilityNearby` with `OpenProductionFacilityNearby`, add `unemployedTicks` tracking |
+| `src/infrastructure/systems/facility-system.ts` | Apply aptitude efficiency modifier to `ticks_per_cycle` in `processFacilityTick`. Read worker's `AttributesComponent` + `config.jobs.definitions[production.job].primary_attribute`. |
+| `src/infrastructure/engine/world-loader.ts` | Scan `jobs/*.mdsl` dynamically. Compose base + each job module. Produce jobless variant. Return `jobTrees` map + `joblessMdsl`. Remove `BT_KINDS`. |
+| `src/infrastructure/engine/game-view.ts` | Initialize all agents with jobless BT. Store `jobTrees` map. Pass BT swap callback to `BehaviorAgentDeps` so `ClaimBestJob` can reconstruct trees. |
+| `src/infrastructure/engine/debug-overlay.ts` | Replace `agent.kind` with `agent.job ?? 'unemployed'` in display |
+| `src/domain/systems/world-validation.ts` | Remove `behaviorTree` field from agent validation (no longer required) |
+| `configs/vite.config.ts` | Copy `jobs/` to dist (as `.mdsl` files). Update vault adapter `list` to support `.mdsl` extension param or separate listing. |
+
+### Vault adapter change
+
+The `createVaultAdapter.list()` currently filters for `.json` only. The MDSL loader uses `read()` directly (which works), but the new job scanner needs to list `.mdsl` files. Options:
+- Add an extension parameter to `list(path, ext)`
+- Or have the world loader use `read()` with known filenames derived from `config.jobs.definitions` keys
+
+The simpler path: derive job names from `config.jobs.definitions` keys and `read()` each `jobs/<name>.mdsl` directly. No `list()` change needed.
 
 ### Backward compatibility
-During migration, `kind` and `behavior_tree` become optional schema fields that are ignored at runtime. The `job` field defaults to `null` (unemployed). Old agent files still parse but the fields have no effect.
+During migration, `kind`, `behavior_tree`, and `job` become optional schema fields. Old agent files still parse — the fields are simply ignored. `job` defaults to `null` (unemployed).
 
 ---
 
@@ -384,5 +448,5 @@ During migration, `kind` and `behavior_tree` become optional schema fields that 
 - High-attribute agents naturally gravitate to matching jobs
 - Mismatched workers are slower but functional — no dead-stop
 - If a facility opens up, the best available unemployed agent claims it
-- Desperate unemployed agents take whatever's available
+- Desperate unemployed agents take whatever's available after ~100 seconds
 - The economy self-organizes based on attribute distribution
