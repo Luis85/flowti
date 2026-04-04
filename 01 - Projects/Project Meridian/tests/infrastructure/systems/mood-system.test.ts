@@ -114,6 +114,80 @@ describe('MoodSystem', () => {
 		expect(breakdowns).toHaveLength(0);
 	});
 
+	describe('goalProgress mood factor', () => {
+		it('returns 0 for unemployed agent', () => {
+			const agent = new AgentActor(createTestAgent({ job: null }), defaultMoodConfig);
+			const employed = new AgentActor(
+				createTestAgent({ id: 'employed', job: 'farmer', attributes: { ST: 10, DX: 10, IQ: 10, HT: 15 } }),
+				defaultMoodConfig,
+			);
+			const system = createMoodSystem(() => [agent, employed]);
+			const deps = createDeps();
+			deps.config = GameConfigSchema.parse({
+				jobs: { definitions: { farmer: { primary_attribute: 'HT', behavior_tree: 'bt-farmer' } } },
+			});
+			system.execute(deps);
+
+			// Unemployed agent gets lower or equal mood compared to employed with good aptitude
+			const unemployedMood = agent.get(MoodComponent).state.value;
+			const employedMood = employed.get(MoodComponent).state.value;
+			expect(employedMood).toBeGreaterThanOrEqual(unemployedMood);
+		});
+
+		it('returns higher value for agent with matching aptitude', () => {
+			const goodFit = new AgentActor(
+				createTestAgent({ id: 'good', job: 'farmer', attributes: { ST: 10, DX: 10, IQ: 10, HT: 18 } }),
+				defaultMoodConfig,
+			);
+			const poorFit = new AgentActor(
+				createTestAgent({ id: 'poor', job: 'farmer', attributes: { ST: 10, DX: 10, IQ: 10, HT: 3 } }),
+				defaultMoodConfig,
+			);
+			const system = createMoodSystem(() => [goodFit, poorFit]);
+			const deps = createDeps();
+			deps.config = GameConfigSchema.parse({
+				jobs: { definitions: { farmer: { primary_attribute: 'HT', behavior_tree: 'bt-farmer' } } },
+			});
+			system.execute(deps);
+
+			const goodMood = goodFit.get(MoodComponent).state.value;
+			const poorMood = poorFit.get(MoodComponent).state.value;
+			expect(goodMood).toBeGreaterThan(poorMood);
+		});
+	});
+
+	describe('equipmentCondition mood factor', () => {
+		it('returns 0.5 when agent has no chargeable items', () => {
+			const agent = new AgentActor(createTestAgent({ inventory: [{ item_id: 'bread', quantity: 2 }] }), defaultMoodConfig);
+			const system = createMoodSystem(() => [agent]);
+			system.execute(createDeps());
+
+			// Default 0.5 when no chargeable items — mood is the same as an empty-inventory agent
+			const noInvAgent = new AgentActor(createTestAgent({ id: 'empty' }), defaultMoodConfig);
+			const system2 = createMoodSystem(() => [noInvAgent]);
+			system2.execute(createDeps());
+
+			expect(agent.get(MoodComponent).state.value).toBe(noInvAgent.get(MoodComponent).state.value);
+		});
+
+		it('returns higher mood when tools at full charges vs depleted', () => {
+			const fullCharges = new AgentActor(
+				createTestAgent({ id: 'full', inventory: [{ item_id: 'tools', quantity: 1, charges: 5 }] }),
+				defaultMoodConfig,
+			);
+			const emptyCharges = new AgentActor(
+				createTestAgent({ id: 'empty', inventory: [{ item_id: 'tools', quantity: 1, charges: 0 }] }),
+				defaultMoodConfig,
+			);
+			const system = createMoodSystem(() => [fullCharges, emptyCharges]);
+			system.execute(createDeps());
+
+			const fullMood = fullCharges.get(MoodComponent).state.value;
+			const emptyMood = emptyCharges.get(MoodComponent).state.value;
+			expect(fullMood).toBeGreaterThan(emptyMood);
+		});
+	});
+
 	it('thirst is included in needsSatisfaction — low-thirst agent gets lower mood than high-thirst agent', () => {
 		const highThirst = new AgentActor(
 			createTestAgent({ needs: { hunger: 80, energy: 80, social: 80, thirst: 80 } }),

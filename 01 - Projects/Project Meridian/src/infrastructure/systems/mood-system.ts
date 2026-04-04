@@ -6,6 +6,8 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
+import { InventoryComponent } from '../components/inventory-component.js';
+import { AttributesComponent } from '../components/attributes-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
 import { clamp } from '../../domain/core/math-utils.js';
 
@@ -42,13 +44,35 @@ export function createMoodSystem(
 					? clamp((relEntries.reduce((sum, e) => sum + e.disposition, 0) / relEntries.length + 100) / 200, 0, 1)
 					: 0.5;
 
+				// goalProgress: aptitude fit for current job
+				let goalProgress = 0;
+				if (entity.job !== null && deps.config.jobs !== undefined) {
+					const jobDef = deps.config.jobs.definitions[entity.job];
+					if (jobDef !== undefined) {
+						const attrs = entity.get(AttributesComponent).state as unknown as Record<string, number>;
+						const attrValue = attrs[jobDef.primary_attribute] ?? 10;
+						goalProgress = clamp(attrValue / (deps.config.jobs.aptitude_baseline * 2), 0, 1);
+					}
+				}
+
+				// equipmentCondition: average charge level of chargeable items
+				const DEFAULT_MAX_CHARGES = 5;
+				let equipmentCondition = 0.5;
+				const inv = entity.get(InventoryComponent);
+				const chargeable = inv.state.items.filter(i => i.charges !== undefined);
+				if (chargeable.length > 0) {
+					const totalCharges = chargeable.reduce((sum, i) => sum + (i.charges ?? 0), 0);
+					const maxCharges = chargeable.length * DEFAULT_MAX_CHARGES;
+					equipmentCondition = clamp(totalCharges / maxCharges, 0, 1);
+				}
+
 				const factors: MoodFactors = {
 					needsSatisfaction: (needs.state.hunger + needs.state.energy + needs.state.social + needs.state.thirst) / NEEDS_SUM_MAX,
 					positiveMemories: Math.min(positiveCount / memorySaturationCount, 1.0),
 					negativeMemories: Math.min(negativeCount / memorySaturationCount, 1.0),
-					goalProgress: 0,
+					goalProgress,
 					walletHealth,
-					equipmentCondition: 0,
+					equipmentCondition,
 					relationshipQuality,
 				};
 
