@@ -47,7 +47,7 @@ export function createDailyReportSystem(
 			let vacancyCount = 0;
 			for (const loc of locationData) {
 				const locActor = locationActors.get(loc.id);
-				if (locActor === undefined || !locActor.has(FacilityComponent)) continue;
+				if (locActor?.has(FacilityComponent) !== true) continue;
 				const fac = locActor.get(FacilityComponent);
 				facilityWages.push(loc.production?.wage ?? 0);
 				if (fac.state.workerId === null && loc.production?.job !== undefined && loc.production.job !== '') {

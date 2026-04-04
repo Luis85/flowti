@@ -18,7 +18,7 @@ export function createAbandonmentSystem(
 
 			for (const loc of locations) {
 				const locActor = locationActors.get(loc.id);
-				if (locActor === undefined || !locActor.has(FacilityComponent)) continue;
+				if (locActor?.has(FacilityComponent) !== true) continue;
 				const facility = locActor.get(FacilityComponent);
 
 				if (facility.state.status !== 'abandoned' && facility.state.fund <= 0 && facility.state.workerId === null) {

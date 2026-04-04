@@ -33,7 +33,8 @@ export function createPerceptionSystem(
 			const insideFacilitySet = new Set<string>();
 			const agentLocationMap = new Map<string, string>();
 			for (const a of agentList) {
-				if (a.behaviorAgent?.insideFacility) {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- behaviorAgent uses !: but may be unset before init
+				if (a.behaviorAgent?.insideFacility === true) {
 					insideFacilitySet.add(a.agentId);
 					if (a.behaviorAgent.atLocation !== null) {
 						agentLocationMap.set(a.agentId, a.behaviorAgent.atLocation);

@@ -222,9 +222,8 @@ export function createMovementSystem(
 						ba.arrivalSlot = slotIndex;
 
 						// Mark whether the agent entered a facility
-						const locActorMap = locationActors?.();
-						const locActor = locActorMap?.get(rawTarget.id);
-						ba.insideFacility = locActor !== undefined && locActor.has(FacilityComponent);
+						const locActor = locationActors?.().get(rawTarget.id);
+						ba.insideFacility = locActor?.has(FacilityComponent) === true;
 
 						// Track known locations for gossip
 						if (!ba.knownLocations.includes(rawTarget.id)) {
