@@ -11,11 +11,14 @@ import { PerceptionComponent } from '../../../src/infrastructure/components/perc
 import { FacilityComponent } from '../../../src/infrastructure/components/facility-component.js';
 import { TimeComponent } from '../../../src/infrastructure/components/time-component.js';
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
+import { MemoryComponent } from '../../../src/infrastructure/components/memory-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import type { GameConfig } from '../../../src/domain/schemas/game-config-schema.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
 import type { EventBus } from '../../../src/domain/core/events.js';
 import type { PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../../src/domain/systems/behavior-agent.js';
+import type { QuestRuntime } from '../../../src/domain/schemas/quest-schema.js';
+import type { QuestBoardState } from '../../../src/infrastructure/components/quest-board-component.js';
 
 const noopEventBus: EventBus = {
 	emit: () => {},
@@ -1741,6 +1744,502 @@ describe('bt-actions: createActions', () => {
 			const { actions } = setupActions(actor, deps);
 			actions.SwitchJob();
 			expect(swappedTo).toBe('baker');
+		});
+	});
+
+	// ── Quest actions ─────────────────────────────────────────────────────
+	describe('Quest actions', () => {
+		function makeQuest(overrides: Partial<QuestRuntime> = {}): QuestRuntime {
+			return {
+				id: 'q-1',
+				type: 'supply',
+				facilityId: 'loc-market',
+				itemId: 'wheat',
+				quantity: 2,
+				reward: 20,
+				rewardXp: 5,
+				state: 'open',
+				claimedBy: null,
+				createdTick: 0,
+				expiryTicks: 960,
+				repairProgress: 0,
+				...overrides,
+			};
+		}
+
+		function makeQuestBoard(quests: QuestRuntime[]): QuestBoardState {
+			return { quests };
+		}
+
+		describe('ClaimQuest', () => {
+			it('claims cached quest, sets state to claimed, emits QuestClaimed', () => {
+				const quest = makeQuest();
+				const board = makeQuestBoard([quest]);
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+				const spyEventBus: EventBus = {
+					emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+					on: () => () => {},
+					off: () => {},
+					onAny: () => () => {},
+					filter: () => () => {},
+					history: () => [],
+				};
+
+				const { actions, memory } = setupActions(actor, {
+					eventBus: spyEventBus,
+					getQuestBoard: () => board,
+				});
+
+				memory.cachedAvailableQuest = makeQuest();
+
+				const result = actions.ClaimQuest();
+				expect(result).toBe('mistreevous.succeeded');
+				expect(quest.state).toBe('claimed');
+				expect(quest.claimedBy).toBe('a1');
+				expect(memory.activeQuest).toBe(quest);
+				expect(memory.cachedAvailableQuest).toBeNull();
+				expect(memory.btAction).toBe('claim_quest');
+
+				expect(emitted).toHaveLength(1);
+				expect(emitted[0]!.type).toBe('QuestClaimed');
+				expect(emitted[0]!.payload).toEqual({
+					agentId: 'a1',
+					questId: 'q-1',
+					questType: 'supply',
+					facilityId: 'loc-market',
+				});
+			});
+
+			it('fails if quest already claimed by someone else (race condition)', () => {
+				const quest = makeQuest({ state: 'claimed', claimedBy: 'other-agent' });
+				const board = makeQuestBoard([quest]);
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+
+				const { actions, memory } = setupActions(actor, {
+					getQuestBoard: () => board,
+				});
+
+				memory.cachedAvailableQuest = makeQuest();
+
+				const result = actions.ClaimQuest();
+				expect(result).toBe('mistreevous.failed');
+				expect(memory.cachedAvailableQuest).toBeNull();
+			});
+
+			it('fails if no cached quest', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions } = setupActions(actor);
+
+				expect(actions.ClaimQuest()).toBe('mistreevous.failed');
+			});
+
+			it('fails if getQuestBoard is not provided', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.cachedAvailableQuest = makeQuest();
+
+				expect(actions.ClaimQuest()).toBe('mistreevous.failed');
+			});
+
+			it('fails if quest not found on board', () => {
+				const board = makeQuestBoard([]);
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor, {
+					getQuestBoard: () => board,
+				});
+				memory.cachedAvailableQuest = makeQuest();
+
+				expect(actions.ClaimQuest()).toBe('mistreevous.failed');
+				expect(memory.cachedAvailableQuest).toBeNull();
+			});
+		});
+
+		describe('SeekQuestFacility', () => {
+			it('sets movementTarget and returns RUNNING when not at facility', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.activeQuest = makeQuest({ facilityId: 'loc-bakery' });
+
+				const result = actions.SeekQuestFacility();
+				expect(result).toBe('mistreevous.running');
+				expect(memory.btAction).toBe('seek_quest');
+				expect(memory.movementTarget).toEqual({ id: 'loc-bakery', type: 'location' });
+			});
+
+			it('returns SUCCEEDED when already at quest facility', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.activeQuest = makeQuest({ facilityId: 'loc-bakery' });
+				memory.atLocation = 'loc-bakery';
+
+				expect(actions.SeekQuestFacility()).toBe('mistreevous.succeeded');
+			});
+
+			it('returns FAILED when no active quest', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions } = setupActions(actor);
+
+				expect(actions.SeekQuestFacility()).toBe('mistreevous.failed');
+			});
+		});
+
+		describe('WorkRepair', () => {
+			it('sets btAction to repair and returns RUNNING for repair quest', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.activeQuest = makeQuest({ type: 'repair', itemId: null });
+
+				const result = actions.WorkRepair();
+				expect(result).toBe('mistreevous.running');
+				expect(memory.btAction).toBe('repair');
+			});
+
+			it('returns FAILED when no active quest', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions } = setupActions(actor);
+
+				expect(actions.WorkRepair()).toBe('mistreevous.failed');
+			});
+
+			it('returns FAILED when quest is not repair type', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.activeQuest = makeQuest({ type: 'supply' });
+
+				expect(actions.WorkRepair()).toBe('mistreevous.failed');
+			});
+		});
+
+		describe('CompleteQuest', () => {
+			it('supply quest: transfers item, pays reward, creates positive memory', () => {
+				const quest = makeQuest({ type: 'supply', itemId: 'wheat', quantity: 2, reward: 20 });
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [{ item_id: 'wheat', quantity: 5 }],
+						wallet: { gold: 10 },
+					}),
+					defaultMoodConfig,
+				);
+
+				const facActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([['loc-market', facActor]]);
+
+				const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+				const spyEventBus: EventBus = {
+					emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+					on: () => () => {},
+					off: () => {},
+					onAny: () => () => {},
+					filter: () => () => {},
+					history: () => [],
+				};
+
+				const worldEntity = createWorldEntity();
+
+				const { actions, memory } = setupActions(actor, {
+					eventBus: spyEventBus,
+					getLocationActors: () => locActors,
+					worldEntity: () => worldEntity,
+					tickCount: () => 42,
+				});
+
+				memory.activeQuest = quest;
+
+				const result = actions.CompleteQuest();
+				expect(result).toBe('mistreevous.succeeded');
+
+				// Item transferred from agent
+				const agentWheat = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'wheat');
+				expect(agentWheat?.quantity).toBe(3);
+
+				// Item added to facility
+				const facWheat = facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'wheat');
+				expect(facWheat?.quantity).toBe(2);
+
+				// Reward paid
+				expect(actor.get(WalletComponent).state.gold).toBe(30);
+				expect(worldEntity.get(EconomyComponent).state.treasury).toBe(480);
+
+				// Positive memory created
+				const entries = actor.get(MemoryComponent).state.entries;
+				expect(entries).toHaveLength(1);
+				expect(entries[0]!.type).toBe('quest_completed');
+				expect(entries[0]!.outcome).toBe('positive');
+				expect(entries[0]!.mood_impact).toBe(15);
+
+				// Quest marked completed
+				expect(quest.state).toBe('completed');
+				expect(memory.activeQuest).toBeNull();
+
+				// Events: GoldFlowed + QuestCompleted
+				expect(emitted.some(e => e.type === 'GoldFlowed')).toBe(true);
+				expect(emitted.some(e => e.type === 'QuestCompleted')).toBe(true);
+			});
+
+			it('supply quest: removes item entirely when quantity matches', () => {
+				const quest = makeQuest({ type: 'supply', itemId: 'wheat', quantity: 3, reward: 10 });
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [{ item_id: 'wheat', quantity: 3 }],
+					}),
+					defaultMoodConfig,
+				);
+
+				const facActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([['loc-market', facActor]]);
+				const worldEntity = createWorldEntity();
+
+				const { actions, memory } = setupActions(actor, {
+					getLocationActors: () => locActors,
+					worldEntity: () => worldEntity,
+				});
+
+				memory.activeQuest = quest;
+				actions.CompleteQuest();
+
+				// Item fully consumed
+				const agentItems = actor.get(InventoryComponent).state.items;
+				expect(agentItems.find(i => i.item_id === 'wheat')).toBeUndefined();
+			});
+
+			it('supply quest: fails when agent lacks required item', () => {
+				const quest = makeQuest({ type: 'supply', itemId: 'wheat', quantity: 5 });
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [{ item_id: 'wheat', quantity: 2 }],
+					}),
+					defaultMoodConfig,
+				);
+
+				const { actions, memory } = setupActions(actor);
+				memory.activeQuest = quest;
+
+				expect(actions.CompleteQuest()).toBe('mistreevous.failed');
+			});
+
+			it('supply quest: fails when itemId is null', () => {
+				const quest = makeQuest({ type: 'supply', itemId: null });
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.activeQuest = quest;
+
+				expect(actions.CompleteQuest()).toBe('mistreevous.failed');
+			});
+
+			it('repair quest: restores facility and injects fund', () => {
+				const config = GameConfigSchema.parse({});
+				const quest = makeQuest({
+					type: 'repair',
+					itemId: null,
+					reward: 25,
+					repairProgress: config.quests.repair_ticks,
+				});
+				const actor = new AgentActor(
+					createTestAgentData('a1', { wallet: { gold: 0 } }),
+					defaultMoodConfig,
+				);
+
+				const facActor = createLocationActor({
+					stock: [], fund: 0, workProgress: 0, status: 'abandoned' as 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([['loc-market', facActor]]);
+				const worldEntity = createWorldEntity();
+
+				const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+				const spyEventBus: EventBus = {
+					emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+					on: () => () => {},
+					off: () => {},
+					onAny: () => () => {},
+					filter: () => () => {},
+					history: () => [],
+				};
+
+				const { actions, memory } = setupActions(actor, {
+					config,
+					eventBus: spyEventBus,
+					getLocationActors: () => locActors,
+					worldEntity: () => worldEntity,
+				});
+
+				memory.activeQuest = quest;
+
+				const result = actions.CompleteQuest();
+				expect(result).toBe('mistreevous.succeeded');
+
+				// Facility restored
+				const facState = facActor.get(FacilityComponent).state;
+				expect(facState.status).toBe('idle');
+				expect(facState.fund).toBe(config.quests.repair_fund_injection);
+
+				// Reward paid
+				expect(actor.get(WalletComponent).state.gold).toBe(25);
+
+				// Events emitted
+				expect(emitted.some(e => e.type === 'QuestCompleted')).toBe(true);
+			});
+
+			it('repair quest: fails when repair progress insufficient', () => {
+				const quest = makeQuest({ type: 'repair', itemId: null, repairProgress: 5 });
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.activeQuest = quest;
+
+				expect(actions.CompleteQuest()).toBe('mistreevous.failed');
+			});
+
+			it('emits QuestRewardSkipped when treasury is empty', () => {
+				const quest = makeQuest({ type: 'supply', itemId: 'wheat', quantity: 1, reward: 600 });
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [{ item_id: 'wheat', quantity: 5 }],
+						wallet: { gold: 10 },
+					}),
+					defaultMoodConfig,
+				);
+
+				const facActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([['loc-market', facActor]]);
+
+				// World with treasury=500, quest reward=600
+				const worldEntity = createWorldEntity();
+
+				const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+				const spyEventBus: EventBus = {
+					emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+					on: () => () => {},
+					off: () => {},
+					onAny: () => () => {},
+					filter: () => () => {},
+					history: () => [],
+				};
+
+				const { actions, memory } = setupActions(actor, {
+					eventBus: spyEventBus,
+					getLocationActors: () => locActors,
+					worldEntity: () => worldEntity,
+				});
+
+				memory.activeQuest = quest;
+
+				const result = actions.CompleteQuest();
+				expect(result).toBe('mistreevous.succeeded');
+
+				// No gold paid
+				expect(actor.get(WalletComponent).state.gold).toBe(10);
+
+				// QuestRewardSkipped emitted
+				expect(emitted.some(e => e.type === 'QuestRewardSkipped')).toBe(true);
+				const skipped = emitted.find(e => e.type === 'QuestRewardSkipped');
+				expect(skipped!.payload).toEqual({
+					agentId: 'a1',
+					questId: 'q-1',
+					reason: 'treasury_empty',
+				});
+
+				// Quest still completed
+				expect(quest.state).toBe('completed');
+				expect(emitted.some(e => e.type === 'QuestCompleted')).toBe(true);
+			});
+
+			it('returns FAILED when no active quest', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions } = setupActions(actor);
+
+				expect(actions.CompleteQuest()).toBe('mistreevous.failed');
+			});
+
+			it('supply quest: adds to existing facility stock', () => {
+				const quest = makeQuest({ type: 'supply', itemId: 'wheat', quantity: 2, reward: 10 });
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [{ item_id: 'wheat', quantity: 5 }],
+					}),
+					defaultMoodConfig,
+				);
+
+				const facActor = createLocationActor({
+					stock: [{ item_id: 'wheat', quantity: 3 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([['loc-market', facActor]]);
+				const worldEntity = createWorldEntity();
+
+				const { actions, memory } = setupActions(actor, {
+					getLocationActors: () => locActors,
+					worldEntity: () => worldEntity,
+				});
+
+				memory.activeQuest = quest;
+				actions.CompleteQuest();
+
+				const facWheat = facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'wheat');
+				expect(facWheat?.quantity).toBe(5);
+			});
+		});
+
+		describe('AbandonQuest', () => {
+			it('resets quest to open, creates negative memory, emits QuestAbandoned', () => {
+				const quest = makeQuest({ state: 'claimed', claimedBy: 'a1' });
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+
+				const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+				const spyEventBus: EventBus = {
+					emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+					on: () => () => {},
+					off: () => {},
+					onAny: () => () => {},
+					filter: () => () => {},
+					history: () => [],
+				};
+
+				const { actions, memory } = setupActions(actor, {
+					eventBus: spyEventBus,
+					tickCount: () => 100,
+				});
+
+				memory.activeQuest = quest;
+
+				const result = actions.AbandonQuest();
+				expect(result).toBe('mistreevous.succeeded');
+
+				// Quest reset
+				expect(quest.state).toBe('open');
+				expect(quest.claimedBy).toBeNull();
+				expect(quest.repairProgress).toBe(0);
+				expect(memory.activeQuest).toBeNull();
+
+				// Negative memory created
+				const entries = actor.get(MemoryComponent).state.entries;
+				expect(entries).toHaveLength(1);
+				expect(entries[0]!.type).toBe('quest_failed');
+				expect(entries[0]!.outcome).toBe('negative');
+				expect(entries[0]!.mood_impact).toBe(-10);
+				expect(entries[0]!.significance).toBe(5);
+
+				// Event emitted
+				expect(emitted).toHaveLength(1);
+				expect(emitted[0]!.type).toBe('QuestAbandoned');
+				expect(emitted[0]!.payload).toEqual({
+					agentId: 'a1',
+					questId: 'q-1',
+					reason: 'abandoned',
+				});
+			});
+
+			it('returns FAILED when no active quest', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions } = setupActions(actor);
+
+				expect(actions.AbandonQuest()).toBe('mistreevous.failed');
+			});
 		});
 	});
 });
