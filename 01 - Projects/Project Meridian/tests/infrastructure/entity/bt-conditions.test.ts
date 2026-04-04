@@ -1220,4 +1220,52 @@ describe('bt-conditions', () => {
 			expect(conditions.BetterPayAvailable()).toBe(true);
 		});
 	});
+
+	// ── Supply route conditions ──────────────────────────────────────────
+
+	describe('KnowsSupplyRoute', () => {
+		it('returns false when knownLocations is empty', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, {
+				getLocations: () => [],
+			});
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.knownLocations = [];
+			expect(conditions.KnowsSupplyRoute()).toBe(false);
+			expect(memory.supplyRoute).toBeNull();
+		});
+
+		it('returns true and caches route when source and destination match', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const farmLoc = makeLocation('loc-farm', 'food', 100, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 5,
+			}, 'region-test');
+			const millLoc = makeLocation('loc-mill', 'work', 120, 200, {
+				job: 'miller', output: { item_id: 'flour', quantity: 1 }, input: { item_id: 'wheat', quantity: 1 }, ticks_per_cycle: 10, wage: 5,
+			}, 'region-test');
+			const deps = setupDeps(actor, {
+				getLocations: () => [farmLoc, millLoc],
+			});
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.knownLocations = ['loc-farm', 'loc-mill'];
+			expect(conditions.KnowsSupplyRoute()).toBe(true);
+			expect(memory.supplyRoute).not.toBeNull();
+			expect(memory.supplyRoute!.sourceId).toBe('loc-farm');
+			expect(memory.supplyRoute!.destinationId).toBe('loc-mill');
+			expect(memory.supplyRoute!.itemId).toBe('wheat');
+		});
+
+		it('returns false when no facility needs input', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const farmLoc = makeLocation('loc-farm', 'food', 100, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 5,
+			});
+			const deps = setupDeps(actor, {
+				getLocations: () => [farmLoc],
+			});
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.knownLocations = ['loc-farm'];
+			expect(conditions.KnowsSupplyRoute()).toBe(false);
+		});
+	});
 });

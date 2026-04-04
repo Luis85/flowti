@@ -1,6 +1,7 @@
 import type { JourneyState, CargoState } from '../core/component-data.js';
 import type { CircularBuffer } from 'mnemonist';
 import type { PriceMemory } from './price-memory.js';
+import type { SupplyRoute } from './cargo.js';
 
 export type { CargoState } from '../core/component-data.js';
 
@@ -87,6 +88,7 @@ export interface BehaviorAgent {
 	buyTargetItem: string | null;
 	unemployedTicks: number;
 	recovering: boolean;
+	supplyRoute: SupplyRoute | null;
 
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;
@@ -125,6 +127,7 @@ export interface BehaviorAgent {
 	NeedsEquipment(): boolean;
 	CanAffordItem(itemId: string): boolean;
 	BetterPayAvailable(): boolean;
+	KnowsSupplyRoute(): boolean;
 
 	// Action methods (24)
 	Eat(): ActionResult;

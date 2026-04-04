@@ -531,7 +531,17 @@ export function createActions(
 			destFac.state = { ...destFac.state, stock: result.newStock };
 			destFac.markDirty();
 
+			const cargo = memory.haulCargo;
 			memory.haulCargo = null;
+
+			eventBus.emit({
+				type: 'SupplyDelivered',
+				tick: tickCount(),
+				wallClock: Date.now(),
+				source: 'BehaviorAgent',
+				payload: { agentId: actor.agentId, itemId: cargo.itemId, destination: cargo.destination },
+			});
+
 			return SUCCEEDED;
 		},
 

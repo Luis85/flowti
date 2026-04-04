@@ -168,6 +168,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set unemployedTicks(v) { memory.unemployedTicks = v; },
 		get recovering() { return memory.recovering; },
 		set recovering(v) { memory.recovering = v; },
+		get supplyRoute() { return memory.supplyRoute; },
+		set supplyRoute(v) { memory.supplyRoute = v; },
 		get priceMemories() { return memory.priceMemories; },
 
 		// ── Conditions + Actions (spread from extracted modules) ───────────

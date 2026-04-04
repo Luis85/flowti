@@ -12,6 +12,8 @@ import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { findFoodInInventory, FOOD_ITEMS, TRADE_GOODS } from '../../domain/systems/food-items.js';
 import { isPriceStale } from '../../domain/systems/price-memory.js';
 import { calculateReservationPrice } from '../../domain/systems/utility.js';
+import { planSupplyRoute } from '../../domain/systems/cargo.js';
+import type { FacilityData } from '../../domain/systems/cargo.js';
 
 export interface ConditionMethods {
 	IsHungry(): boolean;
@@ -47,6 +49,7 @@ export interface ConditionMethods {
 	NeedsEquipment(): boolean;
 	CanAffordItem(itemId: string): boolean;
 	BetterPayAvailable(): boolean;
+	KnowsSupplyRoute(): boolean;
 }
 
 export function createConditions(
@@ -294,6 +297,30 @@ export function createConditions(
 				if (f.wage * (apt / baseline) > currentEffective) return true;
 			}
 			return false;
+		},
+
+		KnowsSupplyRoute(): boolean {
+			const locations = deps.getLocations();
+			const facilityData = new Map<string, FacilityData>();
+			for (const loc of locations) {
+				if (loc.production === null) continue;
+				facilityData.set(loc.id, {
+					id: loc.id,
+					output: loc.production.output,
+					input: loc.production.input,
+					region: loc.position.region ?? '',
+				});
+			}
+
+			const route = planSupplyRoute(
+				memory.knownLocations,
+				facilityData,
+				memory.currentRegion,
+				new Map(), // regionGraph — empty for now, single-region maps
+			);
+
+			memory.supplyRoute = route;
+			return route !== null;
 		},
 	};
 }

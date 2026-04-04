@@ -1304,6 +1304,42 @@ describe('bt-actions: createActions', () => {
 				expect(stock.find(s => s.item_id === 'wheat')?.quantity).toBe(1);
 			});
 
+			it('emits SupplyDelivered event on successful delivery', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const destActor = createLocationActor({
+					stock: [], fund: 50, workProgress: 0, status: 'idle', workerId: null,
+				});
+
+				const locActors = new Map<string, Actor>([['loc-mill', destActor]]);
+				const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+				const spyEventBus: EventBus = {
+					emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+					on: () => () => {},
+					off: () => {},
+					onAny: () => () => {},
+					filter: () => () => {},
+					history: () => [],
+				};
+
+				const { actions, memory } = setupActions(actor, {
+					getLocationActors: () => locActors,
+					eventBus: spyEventBus,
+				});
+
+				memory.haulCargo = { itemId: 'wheat', quantity: 1, source: 'loc-farm', destination: 'loc-mill' };
+				memory.atLocation = 'loc-mill';
+
+				actions.DeliverCargo();
+
+				expect(emitted).toHaveLength(1);
+				expect(emitted[0]!.type).toBe('SupplyDelivered');
+				expect(emitted[0]!.payload).toEqual({
+					agentId: 'a1',
+					itemId: 'wheat',
+					destination: 'loc-mill',
+				});
+			});
+
 			it('returns failed when not at destination', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions, memory } = setupActions(actor);
