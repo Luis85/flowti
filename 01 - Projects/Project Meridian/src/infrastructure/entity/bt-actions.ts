@@ -1,0 +1,547 @@
+import type { WorkingMemory } from './bt-working-memory.js';
+import type { BehaviorAgentDeps } from './behavior-agent-factory.js';
+import type { AgentActor } from './agent-actor.js';
+import type { ActionResult, PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../domain/systems/behavior-agent.js';
+import type { WorldLocation } from '../../domain/schemas/location-schema.js';
+import { NeedsComponent } from '../components/needs-component.js';
+import { WalletComponent } from '../components/wallet-component.js';
+import { InventoryComponent } from '../components/inventory-component.js';
+import { FacilityComponent } from '../components/facility-component.js';
+import { AttributesComponent } from '../components/attributes-component.js';
+import { findFoodInInventory, FOOD_ITEMS, TRADE_GOODS } from '../../domain/systems/food-items.js';
+import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
+import { isPriceStale } from '../../domain/systems/price-memory.js';
+
+const SUCCEEDED: ActionResult = 'mistreevous.succeeded';
+const FAILED: ActionResult = 'mistreevous.failed';
+const RUNNING: ActionResult = 'mistreevous.running';
+
+export interface ActionMethods {
+	Eat(): ActionResult;
+	Drink(): ActionResult;
+	Harvest(): ActionResult;
+	Rest(): ActionResult;
+	SeekWater(): ActionResult;
+	FillWaterskin(): ActionResult;
+	SellAtMarket(): ActionResult;
+	SeekFood(): ActionResult;
+	SeekRest(): ActionResult;
+	Buy(): ActionResult;
+	BuyItem(itemId: string): ActionResult;
+	SeekBestFoodSource(): ActionResult;
+	ClaimJob(): ActionResult;
+	ClaimBestJob(): ActionResult;
+	ReleaseJob(): ActionResult;
+	Work(): ActionResult;
+	Talk(): ActionResult;
+	SeekWork(): ActionResult;
+	SeekSocial(): ActionResult;
+	SeekMarket(): ActionResult;
+	PickupCargo(): ActionResult;
+	DeliverCargo(): ActionResult;
+	SeekDeliveryTarget(): ActionResult;
+	SeekSupplySource(): ActionResult;
+	Idle(): ActionResult;
+	Wander(): ActionResult;
+	tickUnemployment(): void;
+	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
+}
+
+export function createActions(
+	memory: WorkingMemory,
+	actor: AgentActor,
+	deps: BehaviorAgentDeps,
+	resolveNearbyFacilities: () => PerceivedFacility[],
+	resolveNearbyAgents: () => PerceivedAgent[],
+	resolveNearbyLocations: () => PerceivedLocation[],
+	getAtLocationData: () => WorldLocation | undefined,
+): ActionMethods {
+	const { config, getLocationActors, getLocations, tickCount, eventBus } = deps;
+
+	return {
+		Eat(): ActionResult {
+			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
+			if (food === null) return FAILED;
+			memory.btAction = 'eat';
+			return RUNNING;
+		},
+
+		Drink(): ActionResult {
+			const inv = actor.get(InventoryComponent);
+			const waterskin = inv.state.items.find(i => i.item_id === 'waterskin' && (i.charges ?? 0) > 0);
+			if (waterskin === undefined) return FAILED;
+			const newItems = inv.state.items.map(i => {
+				if (i.item_id !== 'waterskin') return { ...i };
+				return { ...i, charges: (i.charges ?? 0) - 1 };
+			});
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+			const needs = actor.get(NeedsComponent);
+			const recovery = config.needs.drink_recovery;
+			const newThirst = Math.min(100, needs.state.thirst + recovery);
+			needs.state = { ...needs.state, thirst: newThirst };
+			needs.markDirty();
+			memory.btAction = 'drink';
+			return SUCCEEDED;
+		},
+
+		Harvest(): ActionResult {
+			if (memory.atLocation === null) return FAILED;
+			const locationActorMap = getLocationActors();
+			const locActor = locationActorMap.get(memory.atLocation);
+			if (locActor?.has(FacilityComponent) !== true) return FAILED;
+			const facility = locActor.get(FacilityComponent);
+			const foodStock = facility.state.stock.find(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0);
+			if (foodStock === undefined) return FAILED;
+			// Move food from facility stock to agent inventory
+			const newStock = facility.state.stock
+				.map(s => {
+					if (s.item_id !== foodStock.item_id) return { ...s };
+					const newQty = s.quantity - 1;
+					return newQty > 0 ? { ...s, quantity: newQty } : null;
+				})
+				.filter((s): s is NonNullable<typeof s> => s !== null);
+			facility.state = { ...facility.state, stock: newStock };
+			facility.markDirty();
+			const inv = actor.get(InventoryComponent);
+			const existingItem = inv.state.items.find(i => i.item_id === foodStock.item_id);
+			const newItems = existingItem !== undefined
+				? inv.state.items.map(i => i.item_id === foodStock.item_id ? { ...i, quantity: i.quantity + 1 } : { ...i })
+				: [...inv.state.items.map(i => ({ ...i })), { item_id: foodStock.item_id, quantity: 1 }];
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+			memory.btAction = 'harvest';
+			return SUCCEEDED;
+		},
+
+		Rest(): ActionResult {
+			memory.btAction = 'rest';
+			return RUNNING;
+		},
+
+		SeekWater(): ActionResult {
+			const waterLocs = resolveNearbyLocations().filter(l => l.type === 'water');
+			if (waterLocs.length === 0) return FAILED;
+			memory.btAction = 'seek_water';
+			const nearest = waterLocs.reduce((a, b) => a.distance < b.distance ? a : b);
+			memory.movementTarget = { id: nearest.id, type: 'location' };
+			if (memory.atLocation === nearest.id) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		FillWaterskin(): ActionResult {
+			const locData = memory.atLocation !== null ? getLocations().find(l => l.id === memory.atLocation) : undefined;
+			if (locData?.type !== 'water') return FAILED;
+			const inv = actor.get(InventoryComponent);
+			const waterskin = inv.state.items.find(i => i.item_id === 'waterskin');
+			if (waterskin === undefined) return FAILED;
+			const maxCharges = 3; // Hardcoded until itemRegistry is available in BehaviorAgentDeps
+			const newItems = inv.state.items.map(i => {
+				if (i.item_id !== 'waterskin') return { ...i };
+				return { ...i, charges: maxCharges };
+			});
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+			memory.btAction = 'fill_waterskin';
+			return SUCCEEDED;
+		},
+
+		SellAtMarket(): ActionResult {
+			if (memory.atLocation === null) return FAILED;
+			const locData = getLocations().find(l => l.id === memory.atLocation);
+			if (locData?.type !== 'market') return FAILED;
+			const inv = actor.get(InventoryComponent);
+			const sellable = inv.state.items.find(i =>
+				(FOOD_ITEMS.has(i.item_id) || TRADE_GOODS.has(i.item_id)) && i.quantity > 0,
+			);
+			if (sellable === undefined) return FAILED;
+			const locationActorMap = getLocationActors();
+			const marketActor = locationActorMap.get(memory.atLocation);
+			if (marketActor === undefined) return FAILED;
+			const facility = marketActor.get(FacilityComponent);
+			const price = facility.state.currentPrices?.[sellable.item_id] ?? config.economy.food_price;
+			if (facility.state.fund < price) return FAILED;
+			const newItems = inv.state.items
+				.map(i => {
+					if (i.item_id !== sellable.item_id) return { ...i };
+					const newQty = i.quantity - 1;
+					return newQty > 0 ? { ...i, quantity: newQty } : null;
+				})
+				.filter((i): i is NonNullable<typeof i> => i !== null);
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+			const hasItem = facility.state.stock.some(s => s.item_id === sellable.item_id);
+			const newStock = hasItem
+				? facility.state.stock.map(s => s.item_id === sellable.item_id ? { ...s, quantity: s.quantity + 1 } : { ...s })
+				: [...facility.state.stock.map(s => ({ ...s })), { item_id: sellable.item_id, quantity: 1 }];
+			facility.state = { ...facility.state, stock: newStock, fund: facility.state.fund - price };
+			facility.markDirty();
+			const wallet = actor.get(WalletComponent);
+			wallet.state = { ...wallet.state, gold: wallet.state.gold + price };
+			wallet.markDirty();
+
+			// Emit GoldFlowed for monetary policy tracking
+			eventBus.emit({
+				type: 'GoldFlowed',
+				tick: tickCount(),
+				wallClock: Date.now(),
+				source: 'SellAtMarket',
+				payload: {
+					category: 'transfer' as const,
+					subcategory: 'sale',
+					amount: price,
+					fromEntity: memory.atLocation,
+					toEntity: actor.agentId,
+				},
+			});
+
+			memory.btAction = 'sell';
+			return SUCCEEDED;
+		},
+
+		SeekFood(): ActionResult {
+			// Prefer locations with food in stock (market, stocked farm)
+			const stockedFacilities = resolveNearbyFacilities().filter(f =>
+				f.stock.some(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0),
+			);
+			if (stockedFacilities.length > 0) {
+				const nearest = stockedFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
+				memory.btAction = 'seek_food';
+				memory.movementTarget = { id: nearest.id, type: 'location' };
+				if (memory.atLocation === nearest.id) return SUCCEEDED;
+				return RUNNING;
+			}
+			// Fallback: food-type locations (farms)
+			const foodLocs = resolveNearbyLocations().filter(l => l.type === 'food');
+			if (foodLocs.length === 0) return FAILED;
+			memory.btAction = 'seek_food';
+			const nearest = foodLocs.reduce((a, b) => a.distance < b.distance ? a : b);
+			memory.movementTarget = { id: nearest.id, type: 'location' };
+			if (memory.atLocation === nearest.id) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		SeekRest(): ActionResult {
+			const restLocs = resolveNearbyLocations().filter(l => l.type === 'rest');
+			if (restLocs.length > 0) {
+				memory.btAction = 'seek_rest';
+				const nearest = restLocs.reduce((a, b) => a.distance < b.distance ? a : b);
+				memory.movementTarget = { id: nearest.id, type: 'location' };
+				if (memory.atLocation === nearest.id) return SUCCEEDED;
+				return RUNNING;
+			}
+
+			// Fallback: search all locations (rest outside perception range, e.g. at night)
+			const allLocations = getLocations();
+			const restLoc = allLocations
+				.filter(l => l.type === 'rest')
+				.map(l => ({ id: l.id, dist: Math.hypot(l.position.x - actor.pos.x, l.position.y - actor.pos.y) }))
+				.sort((a, b) => a.dist - b.dist)[0];
+			if (restLoc === undefined) return FAILED;
+
+			memory.btAction = 'seek_rest';
+			memory.movementTarget = { id: restLoc.id, type: 'location' };
+			if (memory.atLocation === restLoc.id) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		Buy(): ActionResult {
+			if (memory.atLocation === null) return FAILED;
+			const atFacility = resolveNearbyFacilities().find(f =>
+				f.id === memory.atLocation && f.stock.some(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0),
+			);
+			if (atFacility === undefined) return FAILED;
+			memory.btAction = 'buy';
+			memory.buyTargetItem = null;
+			return SUCCEEDED;
+		},
+
+		BuyItem(itemId: string): ActionResult {
+			if (memory.atLocation === null) return FAILED;
+			const atFacility = resolveNearbyFacilities().find(f =>
+				f.id === memory.atLocation && f.stock.some(s => s.item_id === itemId && s.quantity > 0),
+			);
+			if (atFacility === undefined) return FAILED;
+			memory.btAction = 'buy';
+			memory.buyTargetItem = itemId;
+			return SUCCEEDED;
+		},
+
+		SeekBestFoodSource(): ActionResult {
+			const staleTicks = config.economy.price_memory_stale_ticks;
+			const tick = tickCount();
+			let cheapestLocation: string | null = null;
+			let cheapestPrice = Infinity;
+
+			// Single pass over memories — find cheapest non-stale food price across all items
+			for (const mem of memory.priceMemories) {
+				if (!FOOD_ITEMS.has(mem.itemId)) continue;
+				if (isPriceStale(mem, tick, staleTicks)) continue;
+				if (mem.price < cheapestPrice) {
+					cheapestPrice = mem.price;
+					cheapestLocation = mem.locationId;
+				}
+			}
+
+			if (cheapestLocation === null) return FAILED;
+			memory.btAction = 'seek_food';
+			memory.movementTarget = { id: cheapestLocation, type: 'location' };
+			if (memory.atLocation === cheapestLocation) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		ClaimJob(): ActionResult {
+			const agentKind = actor.kind;
+			const openFacilities = resolveNearbyFacilities().filter(f =>
+				f.workerId === null && f.job !== '' && f.job === agentKind,
+			);
+			if (openFacilities.length === 0) return FAILED;
+			const nearest = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
+			actor.job = nearest.job;
+			memory.btAction = 'claim_job';
+			return SUCCEEDED;
+		},
+
+		ClaimBestJob(): ActionResult {
+			const jobsConfig = deps.jobsConfig ?? deps.config.jobs;
+			const openFacilities = resolveNearbyFacilities().filter(f =>
+				f.workerId === null && f.job !== '',
+			);
+			if (openFacilities.length === 0) return FAILED;
+
+			let chosen: typeof openFacilities[0];
+			if (memory.unemployedTicks >= jobsConfig.desperation_ticks) {
+				// Desperate — take nearest regardless of fit
+				chosen = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
+			} else {
+				// Score by primary attribute aptitude, tiebreak by distance
+				const attrs = actor.get(AttributesComponent).state as unknown as Record<string, number>;
+				chosen = openFacilities.reduce((best, f) => {
+					const jobDef = jobsConfig.definitions[f.job];
+					const fScore = jobDef !== undefined
+						? attrs[jobDef.primary_attribute] ?? 0
+						: 0;
+					const bestDef = jobsConfig.definitions[best.job];
+					const bestScore = bestDef !== undefined
+						? attrs[bestDef.primary_attribute] ?? 0
+						: 0;
+					if (fScore > bestScore) return f;
+					if (fScore === bestScore && f.distance < best.distance) return f;
+					return best;
+				});
+			}
+
+			actor.job = chosen.job;
+			memory.unemployedTicks = 0;
+			memory.btAction = 'claim_job';
+			deps.swapBehaviorTree?.(chosen.job);
+			return SUCCEEDED;
+		},
+
+		ReleaseJob(): ActionResult {
+			actor.job = null;
+			memory.unemployedTicks = 0;
+			memory.btAction = null;
+			deps.swapBehaviorTree?.(null);
+			return SUCCEEDED;
+		},
+
+		/** Available for custom BTs — not used in the default tree set. */
+		Idle(): ActionResult {
+			memory.btAction = 'idle';
+			return RUNNING;
+		},
+
+		Wander(): ActionResult {
+			memory.btAction = 'wander';
+			return RUNNING;
+		},
+
+		// ── C3: Work + merchant actions ────────────────────────────────────
+		Work(): ActionResult {
+			if (memory.atLocation === null || actor.job === null) return FAILED;
+			const facilities = resolveNearbyFacilities();
+			const jobFacility = facilities.find(f =>
+				f.id === memory.atLocation &&
+				f.job === actor.job &&
+				(f.workerId === null || f.workerId === actor.agentId),
+			);
+			if (jobFacility === undefined) return FAILED;
+			memory.btAction = 'work';
+			return RUNNING;
+		},
+
+		Talk(): ActionResult {
+			const closeAgents = resolveNearbyAgents().filter(
+				a => a.distance < config.perception.interaction_radius,
+			);
+			if (closeAgents.length === 0) return FAILED;
+			memory.btAction = 'talk';
+			return RUNNING;
+		},
+
+		SeekWork(): ActionResult {
+			if (actor.job === null) return FAILED;
+
+			// Only target facilities that are unoccupied or already assigned to this agent
+			const availableFacility = resolveNearbyFacilities().find(f =>
+				f.job === actor.job && (f.workerId === null || f.workerId === actor.agentId),
+			);
+			if (availableFacility !== undefined) {
+				memory.btAction = 'seek_work';
+				memory.movementTarget = { id: availableFacility.id, type: 'location' };
+				if (memory.atLocation === availableFacility.id) return SUCCEEDED;
+				return RUNNING;
+			}
+
+			// Fallback: search all locations (for facilities outside perception range)
+			const allLocations = getLocations();
+			const jobLoc = allLocations.find(
+				l => l.production !== null && l.production.job === actor.job,
+			);
+			if (jobLoc === undefined) return FAILED;
+
+			// If already at the facility but it's occupied, don't re-target — fail gracefully
+			if (memory.atLocation === jobLoc.id) return FAILED;
+
+			memory.btAction = 'seek_work';
+			memory.movementTarget = { id: jobLoc.id, type: 'location' };
+			return RUNNING;
+		},
+
+		SeekSocial(): ActionResult {
+			const nearby = resolveNearbyAgents();
+			if (nearby.length === 0) return FAILED;
+
+			memory.btAction = 'seek_social';
+			const nearest = nearby.reduce((a, b) => a.distance < b.distance ? a : b);
+			memory.movementTarget = { id: nearest.id, type: 'agent' };
+
+			if (nearest.distance < config.perception.interaction_radius) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		SeekMarket(): ActionResult {
+			const marketLocs = resolveNearbyLocations().filter(l => l.type === 'market');
+			if (marketLocs.length === 0) return FAILED;
+
+			memory.btAction = 'seek_market';
+			const nearest = marketLocs.reduce((a, b) => a.distance < b.distance ? a : b);
+			memory.movementTarget = { id: nearest.id, type: 'location' };
+
+			if (memory.atLocation === nearest.id) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		PickupCargo(): ActionResult {
+			memory.btAction = 'pickup_cargo';
+			// Find nearest facility with output stock
+			const facilitiesWithOutput = resolveNearbyFacilities().filter(
+				f => f.stock.some(s => s.quantity > 0),
+			);
+			if (facilitiesWithOutput.length === 0) return FAILED;
+
+			const source = facilitiesWithOutput.reduce((a, b) => a.distance < b.distance ? a : b);
+			const stockItem = source.stock.find(s => s.quantity > 0);
+			if (stockItem === undefined) return FAILED;
+
+			// Find destination facility that needs this item as input
+			const allLocations = getLocations();
+			const destLoc = allLocations.find(l => {
+				if (l.id === source.id || l.production?.input === null || l.production?.input === undefined) return false;
+				return l.production.input.item_id === stockItem.item_id;
+			});
+			if (destLoc === undefined) return FAILED;
+
+			const result = pickupCargo({
+				itemId: stockItem.item_id,
+				agentId: actor.agentId,
+				facilityId: source.id,
+				destinationId: destLoc.id,
+				stock: source.stock,
+			});
+
+			if (result.cargo === null) return FAILED;
+
+			// Update facility stock
+			const locActors = getLocationActors();
+			const sourceActor = locActors.get(source.id);
+			if (sourceActor !== undefined) {
+				const facComp = sourceActor.get(FacilityComponent);
+				facComp.state = { ...facComp.state, stock: result.newStock };
+				facComp.markDirty();
+			}
+
+			memory.haulCargo = result.cargo;
+			return SUCCEEDED;
+		},
+
+		DeliverCargo(): ActionResult {
+			if (memory.haulCargo === null) return FAILED;
+			if (memory.atLocation !== memory.haulCargo.destination) return FAILED;
+			memory.btAction = 'deliver_cargo';
+
+			const locActors = getLocationActors();
+			const destActor = locActors.get(memory.haulCargo.destination);
+			if (destActor === undefined) return FAILED;
+
+			const destFac = destActor.get(FacilityComponent);
+			const result = deliverCargo({
+				cargo: memory.haulCargo,
+				destinationStock: destFac.state.stock,
+			});
+
+			destFac.state = { ...destFac.state, stock: result.newStock };
+			destFac.markDirty();
+
+			memory.haulCargo = null;
+			return SUCCEEDED;
+		},
+
+		SeekDeliveryTarget(): ActionResult {
+			if (memory.haulCargo === null) return FAILED;
+			memory.btAction = 'seek_delivery';
+			memory.movementTarget = { id: memory.haulCargo.destination, type: 'location' };
+			if (memory.atLocation === memory.haulCargo.destination) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		SeekSupplySource(): ActionResult {
+			// Find nearest facility with unmet input
+			const needyFacilities = resolveNearbyFacilities().filter(f => f.hasUnmetInput);
+			if (needyFacilities.length === 0) return FAILED;
+			memory.btAction = 'seek_supply';
+
+			const needy = needyFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
+
+			// Find the PRODUCING facility (source) for the needed item
+			const allLocations = getLocations();
+			const needyLoc = allLocations.find(l => l.id === needy.id);
+			if (needyLoc?.production?.input === null || needyLoc?.production?.input === undefined) return FAILED;
+
+			const neededItemId = needyLoc.production.input.item_id;
+			const sourceLoc = allLocations.find(l => {
+				if (l.id === needy.id || l.production === null) return false;
+				return l.production.output.item_id === neededItemId;
+			});
+			if (sourceLoc === undefined) return FAILED;
+
+			memory.movementTarget = { id: sourceLoc.id, type: 'location' };
+			if (memory.atLocation === sourceLoc.id) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		// ── Utility methods ────────────────────────────────────────────────
+		tickUnemployment(): void {
+			if (actor.job === null) {
+				memory.unemployedTicks++;
+			} else {
+				memory.unemployedTicks = 0;
+			}
+		},
+
+		recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void {
+			memory.priceMemories.push({ itemId, price, locationId, tick });
+		},
+	};
+}
