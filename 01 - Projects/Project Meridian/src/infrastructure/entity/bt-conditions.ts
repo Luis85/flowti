@@ -280,20 +280,20 @@ export function createConditions(
 			const facilities = resolveNearbyFacilities();
 			const { jobs: jobsConfig } = deps.config;
 			const baseline = jobsConfig.aptitude_baseline;
-			const attrs = actor.get(AttributesComponent).state as unknown as Record<string, number>;
+			const attrComp = actor.get(AttributesComponent);
 
 			// Current job effective wage
 			const currentFacility = facilities.find(f => f.workerId === actor.agentId);
 			const currentWage = currentFacility?.wage ?? 0;
 			const currentJobDef = jobsConfig.definitions[actor.job];
-			const currentApt = currentJobDef !== undefined ? (attrs[currentJobDef.primary_attribute] ?? baseline) : baseline;
+			const currentApt = currentJobDef !== undefined ? (attrComp.getByName(currentJobDef.primary_attribute) || baseline) : baseline;
 			const currentEffective = currentWage * (currentApt / baseline);
 
 			// Best available open position
 			for (const f of facilities) {
 				if (f.workerId !== null || f.job === '') continue;
 				const jobDef = jobsConfig.definitions[f.job];
-				const apt = jobDef !== undefined ? (attrs[jobDef.primary_attribute] ?? baseline) : baseline;
+				const apt = jobDef !== undefined ? (attrComp.getByName(jobDef.primary_attribute) || baseline) : baseline;
 				if (f.wage * (apt / baseline) > currentEffective) return true;
 			}
 			return false;

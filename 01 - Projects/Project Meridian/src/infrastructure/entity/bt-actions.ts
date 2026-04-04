@@ -315,15 +315,15 @@ export function createActions(
 				chosen = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
 			} else {
 				// Score by primary attribute aptitude, tiebreak by distance
-				const attrs = actor.get(AttributesComponent).state as unknown as Record<string, number>;
+				const attrComp = actor.get(AttributesComponent);
 				chosen = openFacilities.reduce((best, f) => {
 					const jobDef = jobsConfig.definitions[f.job];
 					const fScore = jobDef !== undefined
-						? attrs[jobDef.primary_attribute] ?? 0
+						? attrComp.getByName(jobDef.primary_attribute)
 						: 0;
 					const bestDef = jobsConfig.definitions[best.job];
 					const bestScore = bestDef !== undefined
-						? attrs[bestDef.primary_attribute] ?? 0
+						? attrComp.getByName(bestDef.primary_attribute)
 						: 0;
 					if (fScore > bestScore) return f;
 					if (fScore === bestScore && f.distance < best.distance) return f;
@@ -350,11 +350,11 @@ export function createActions(
 			const facilities = resolveNearbyFacilities();
 			const { jobs: jobsConfig } = deps.config;
 			const baseline = jobsConfig.aptitude_baseline;
-			const attrs = actor.get(AttributesComponent).state as unknown as Record<string, number>;
+			const switchAttrComp = actor.get(AttributesComponent);
 
 			const currentWage = facilities.find(f => f.workerId === actor.agentId)?.wage ?? 0;
 			const currentJobDef = actor.job !== null ? jobsConfig.definitions[actor.job] : undefined;
-			const currentApt = currentJobDef !== undefined ? (attrs[currentJobDef.primary_attribute] ?? baseline) : baseline;
+			const currentApt = currentJobDef !== undefined ? (switchAttrComp.getByName(currentJobDef.primary_attribute) || baseline) : baseline;
 			const currentEffective = currentWage * (currentApt / baseline);
 
 			let bestFacility: PerceivedFacility | null = null;
@@ -362,7 +362,7 @@ export function createActions(
 			for (const f of facilities) {
 				if (f.workerId !== null || f.job === '') continue;
 				const jobDef = jobsConfig.definitions[f.job];
-				const apt = jobDef !== undefined ? (attrs[jobDef.primary_attribute] ?? baseline) : baseline;
+				const apt = jobDef !== undefined ? (switchAttrComp.getByName(jobDef.primary_attribute) || baseline) : baseline;
 				const effective = f.wage * (apt / baseline);
 				if (effective > bestEffective) { bestFacility = f; bestEffective = effective; }
 			}

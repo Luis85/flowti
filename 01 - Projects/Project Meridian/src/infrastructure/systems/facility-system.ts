@@ -281,8 +281,7 @@ function processFacilityTick(
 		const jobsConfig = deps.config.jobs;
 		const jobDef = jobsConfig.definitions[production.job];
 		if (jobDef !== undefined) {
-			const workerAttrs = worker.get(AttributesComponent).state as unknown as Record<string, number>;
-			const attrValue = workerAttrs[jobDef.primary_attribute] ?? jobsConfig.aptitude_baseline;
+			const attrValue = worker.get(AttributesComponent).getByName(jobDef.primary_attribute) || jobsConfig.aptitude_baseline;
 			const efficiency = attrValue / jobsConfig.aptitude_baseline;
 			effectiveTicksPerCycle = Math.round(production.ticks_per_cycle / efficiency);
 		}

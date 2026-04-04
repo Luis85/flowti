@@ -49,8 +49,7 @@ export function createMoodSystem(
 				if (entity.job !== null) {
 					const jobDef = deps.config.jobs.definitions[entity.job];
 					if (jobDef !== undefined) {
-						const attrs = entity.get(AttributesComponent).state as unknown as Record<string, number>;
-						const attrValue = attrs[jobDef.primary_attribute] ?? 10;
+						const attrValue = entity.get(AttributesComponent).getByName(jobDef.primary_attribute) || 10;
 						goalProgress = clamp(attrValue / (deps.config.jobs.aptitude_baseline * 2), 0, 1);
 					}
 				}
