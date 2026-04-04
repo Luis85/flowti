@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { Actor } from 'excalibur';
 import { createMovementSystem, JOURNEY_SENTINEL } from '../../../src/infrastructure/systems/movement-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
 import { StaminaComponent } from '../../../src/infrastructure/components/stamina-component.js';
+import { FacilityComponent } from '../../../src/infrastructure/components/facility-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -74,6 +76,10 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null, buyTargetItem: null,
 		unemployedTicks: 0,
 		recovering: false,
+		supplyRoute: null,
+		activeQuest: null,
+		cachedAvailableQuest: null,
+		insideFacility: false,
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 		IsHungry: () => false, IsExhausted: () => false, IsRecovering: () => false, IsLonely: () => false,
 		IsThirsty: () => false, HasWater: () => false,
@@ -510,5 +516,64 @@ describe('MovementSystem', () => {
 
 		// Already at max — no change
 		expect(stamina.state.current).toBe(100);
+	});
+
+	it('sets insideFacility = true when arriving at location with FacilityComponent', () => {
+		const agent = createAgentWithBa('agent-1', 0, 0, {}, {
+			movementTarget: { id: 'loc-farm', type: 'location' },
+		});
+
+		const locations = [createTestLocation('loc-farm', 1, 0)];
+
+		// Create a location actor with FacilityComponent
+		const locActor = new Actor();
+		locActor.addComponent(new FacilityComponent({
+			stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+		}));
+		const locationActors = new Map<string, Actor>([['loc-farm', locActor]]);
+
+		const system = createMovementSystem(() => [agent], () => locations, () => locationActors);
+		system.execute(createDeps());
+
+		expect(agent.behaviorAgent.atLocation).toBe('loc-farm');
+		expect(agent.behaviorAgent.insideFacility).toBe(true);
+	});
+
+	it('sets insideFacility = false when departing (atLocation cleared)', () => {
+		const agent = createAgentWithBa('agent-1', 10, 0, {}, {
+			atLocation: 'loc-farm',
+			arrivalSlot: 0,
+			insideFacility: true,
+			movementTarget: { id: 'loc-food-2', type: 'location' },
+		});
+
+		const locations = [
+			createTestLocation('loc-farm', 10, 0),
+			createTestLocation('loc-food-2', 200, 0),
+		];
+		const system = createMovementSystem(() => [agent], () => locations);
+		system.execute(createDeps());
+
+		// Agent departed — insideFacility should be cleared
+		expect(agent.behaviorAgent.atLocation).toBeNull();
+		expect(agent.behaviorAgent.insideFacility).toBe(false);
+	});
+
+	it('does not set insideFacility when arriving at non-facility location', () => {
+		const agent = createAgentWithBa('agent-1', 0, 0, {}, {
+			movementTarget: { id: 'loc-plain', type: 'location' },
+		});
+
+		const locations = [createTestLocation('loc-plain', 1, 0)];
+
+		// Location actor without FacilityComponent
+		const locActor = new Actor();
+		const locationActors = new Map<string, Actor>([['loc-plain', locActor]]);
+
+		const system = createMovementSystem(() => [agent], () => locations, () => locationActors);
+		system.execute(createDeps());
+
+		expect(agent.behaviorAgent.atLocation).toBe('loc-plain');
+		expect(agent.behaviorAgent.insideFacility).toBe(false);
 	});
 });
