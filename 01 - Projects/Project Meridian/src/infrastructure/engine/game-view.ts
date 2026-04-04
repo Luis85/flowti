@@ -37,6 +37,7 @@ import { createSubsidySystem } from '../systems/subsidy-system.js';
 import { createEquipmentDecaySystem } from '../systems/equipment-decay-system.js';
 import { createDailyReportSystem } from '../systems/daily-report-system.js';
 import { createAbandonmentSystem } from '../systems/abandonment-system.js';
+import { createQuestEvaluationSystem } from '../systems/quest-evaluation-system.js';
 import { createQuestGenerationSystem } from '../systems/quest-generation-system.js';
 import { TimeComponent } from '../components/time-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
@@ -274,6 +275,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createRelationshipCheckpointSystem(getAgents));
 		tickRunner.register(createEconomySystem(getLocations, getLocationActors, getItemRegistry));
 		tickRunner.register(createMonetaryPolicySystem(getAgents, getWorldEntity));
+		tickRunner.register(createQuestEvaluationSystem(getWorldEntity, getAgents));
 		tickRunner.register(createQuestGenerationSystem(getWorldEntity, getLocationActors, getLocations));
 		tickRunner.register(createAbandonmentSystem(getLocationActors, getLocations));
 
