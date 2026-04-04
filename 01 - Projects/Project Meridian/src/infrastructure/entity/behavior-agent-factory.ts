@@ -1,6 +1,7 @@
 import type { Actor } from 'excalibur';
 import type { BehaviorAgent, PerceivedAgent, PerceivedLocation, PerceivedFacility } from '../../domain/systems/behavior-agent.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
+import type { QuestBoardState } from '../components/quest-board-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
@@ -26,6 +27,7 @@ export interface BehaviorAgentDeps {
 	eventBus: EventBus;
 	swapBehaviorTree?: (jobName: string | null) => void;
 	jobsConfig?: GameConfig['jobs'];
+	getQuestBoard?: () => QuestBoardState;
 }
 
 export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
@@ -170,6 +172,12 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set recovering(v) { memory.recovering = v; },
 		get supplyRoute() { return memory.supplyRoute; },
 		set supplyRoute(v) { memory.supplyRoute = v; },
+		get activeQuest() { return memory.activeQuest; },
+		set activeQuest(v) { memory.activeQuest = v; },
+		get cachedAvailableQuest() { return memory.cachedAvailableQuest; },
+		set cachedAvailableQuest(v) { memory.cachedAvailableQuest = v; },
+		get insideFacility() { return memory.insideFacility; },
+		set insideFacility(v) { memory.insideFacility = v; },
 		get priceMemories() { return memory.priceMemories; },
 
 		// ── Conditions + Actions (spread from extracted modules) ───────────
