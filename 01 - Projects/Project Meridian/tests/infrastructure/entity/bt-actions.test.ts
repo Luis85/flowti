@@ -178,13 +178,6 @@ function makeResolveNearbyLocations(actor: AgentActor, deps: BehaviorAgentDeps):
 	};
 }
 
-function makeGetAtLocationData(memory: WorkingMemory, deps: BehaviorAgentDeps): () => WorldLocation | undefined {
-	return () => {
-		if (memory.atLocation === null) return undefined;
-		return deps.getLocations().find(l => l.id === memory.atLocation);
-	};
-}
-
 /** Helper: create actions from a fresh memory, actor, and deps */
 function setupActions(
 	actor: AgentActor,
@@ -195,7 +188,6 @@ function setupActions(
 	const resolveNearbyFacilities = makeResolveNearbyFacilities(actor, deps);
 	const resolveNearbyAgents = makeResolveNearbyAgents(actor);
 	const resolveNearbyLocations = makeResolveNearbyLocations(actor, deps);
-	const getAtLocationData = makeGetAtLocationData(memory, deps);
 
 	const actions = createActions(
 		memory,
@@ -204,7 +196,6 @@ function setupActions(
 		resolveNearbyFacilities,
 		resolveNearbyAgents,
 		resolveNearbyLocations,
-		getAtLocationData,
 	);
 	return { actions, memory, deps };
 }

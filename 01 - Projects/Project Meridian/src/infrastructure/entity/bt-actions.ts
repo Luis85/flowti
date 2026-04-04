@@ -2,7 +2,7 @@ import type { WorkingMemory } from './bt-working-memory.js';
 import type { BehaviorAgentDeps } from './behavior-agent-factory.js';
 import type { AgentActor } from './agent-actor.js';
 import type { ActionResult, PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../domain/systems/behavior-agent.js';
-import type { WorldLocation } from '../../domain/schemas/location-schema.js';
+
 import { NeedsComponent } from '../components/needs-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
@@ -54,7 +54,6 @@ export function createActions(
 	resolveNearbyFacilities: () => PerceivedFacility[],
 	resolveNearbyAgents: () => PerceivedAgent[],
 	resolveNearbyLocations: () => PerceivedLocation[],
-	getAtLocationData: () => WorldLocation | undefined,
 ): ActionMethods {
 	const { config, getLocationActors, getLocations, tickCount, eventBus } = deps;
 
