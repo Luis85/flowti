@@ -39,7 +39,18 @@ export function createTickRunner(eventBus: BatchableEventBus): TickScheduler {
 				}
 			}
 
-			deps.performanceTracker.completeTick(currentTick);
+			const tickPerf = deps.performanceTracker.completeTick(currentTick);
+			const TICK_BUDGET_MS = 300;
+			if (tickPerf !== null && tickPerf.totalMs > TICK_BUDGET_MS) {
+				deps.eventBus.emit({
+					type: 'TickBudgetExceeded',
+					tick: currentTick,
+					wallClock: Date.now(),
+					source: 'TickRunner',
+					payload: { elapsedMs: tickPerf.totalMs, breakdown: tickPerf.systems },
+				});
+				deps.logger.warn('TickRunner', `Budget exceeded: ${tickPerf.totalMs.toFixed(1)}ms > ${TICK_BUDGET_MS}ms`);
+			}
 
 			if (currentTick % deps.config.ticks_per_day === 0) {
 				deps.logger.info('TickRunner', `Day ${Math.floor(currentTick / deps.config.ticks_per_day)} complete (tick ${String(currentTick)})`);

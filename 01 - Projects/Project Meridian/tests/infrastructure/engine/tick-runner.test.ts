@@ -194,6 +194,43 @@ describe('TickRunner', () => {
 		expect(order).toEqual(['TraitResolver', 'BehaviorTree', 'Movement']);
 	});
 
+	it('emits TickBudgetExceeded when tick exceeds budget', () => {
+		const eventBus = createEventBus();
+		const events: unknown[] = [];
+		eventBus.on('TickBudgetExceeded', (e) => { events.push(e); });
+
+		const runner = createTickRunner(eventBus);
+		// Create a slow system that artificially delays
+		runner.register(createMockSystem('SlowSystem', 1, () => {
+			const start = performance.now();
+			while (performance.now() - start < 350) { /* spin */ }
+		}));
+
+		const { deps } = createTestDeps(eventBus);
+		deps.performanceTracker.setEnabled(true);
+		runner.tick(deps);
+
+		expect(events.length).toBe(1);
+		const event = events[0] as { type: string; payload: { elapsedMs: number } };
+		expect(event.type).toBe('TickBudgetExceeded');
+		expect(event.payload.elapsedMs).toBeGreaterThan(300);
+	});
+
+	it('does not emit TickBudgetExceeded when tick is within budget', () => {
+		const eventBus = createEventBus();
+		const events: unknown[] = [];
+		eventBus.on('TickBudgetExceeded', (e) => { events.push(e); });
+
+		const runner = createTickRunner(eventBus);
+		runner.register(createMockSystem('FastSystem', 1));
+
+		const { deps } = createTestDeps(eventBus);
+		deps.performanceTracker.setEnabled(true);
+		runner.tick(deps);
+
+		expect(events.length).toBe(0);
+	});
+
 	it('SystemPriority constants match GDD numbering', () => {
 		expect(SystemPriority.TRAIT_RESOLVER).toBe(0.5);
 		expect(SystemPriority.DAY_NIGHT).toBe(0.7);
