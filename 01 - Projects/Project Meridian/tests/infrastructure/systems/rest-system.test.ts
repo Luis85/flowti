@@ -358,4 +358,173 @@ describe('RestSystem', () => {
 		expect(facility.state.fund).toBe(101); // 100 + rest_price (1)
 		expect(facility.dirty).toBe(true);
 	});
+
+	it('emits GoldFlowed event on public shelter payment', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('GoldFlowed', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
+		system.execute(createDeps(eventBus));
+
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.subcategory).toBe('rest');
+		expect(events[0]?.payload.amount).toBe(1);
+		expect(events[0]?.payload.fromEntity).toBe('agent-1');
+		expect(events[0]?.payload.toEntity).toBe('loc-tavern');
+	});
+
+	it('applies rest when energy is zero (edge case)', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 0, 0, { needs: { hunger: 50, energy: 0, social: 50, thirst: 50 } }),
+			defaultMoodConfig,
+		);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		const worldEntity = createWorldEntity();
+
+		// No rest location — outdoors fallback (recovery_rate = 1.0)
+		const system = createRestSystem(() => [agent], () => [], () => worldEntity);
+		system.execute(createDeps(eventBus));
+
+		const needs = agent.get(NeedsComponent);
+		expect(needs.state.energy).toBeCloseTo(1.0); // 0 + 1.0 outdoors recovery
+	});
+
+	it('energy does not exceed 100 when resting at owned home with high energy', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 300, 200, {
+				needs: { hunger: 50, energy: 99.5, social: 50, thirst: 50 },
+				property: ['loc-tavern'],
+			}),
+			defaultMoodConfig,
+		);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
+		system.execute(createDeps(eventBus));
+
+		const needs = agent.get(NeedsComponent);
+		// owned_home recovery_rate=2.0, 99.5 + 2.0 = 101.5, clamped to 100
+		expect(needs.state.energy).toBe(100);
+	});
+
+	it('does not deduct gold more than once per shelter stay', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
+
+		// First tick — should deduct gold
+		system.execute(createDeps(eventBus, 1));
+		const walletAfterFirst = agent.get(WalletComponent).state.gold;
+		expect(walletAfterFirst).toBe(49);
+
+		// Second tick at same location — should NOT deduct again
+		system.execute(createDeps(eventBus, 2));
+		const walletAfterSecond = agent.get(WalletComponent).state.gold;
+		expect(walletAfterSecond).toBe(49); // unchanged
+	});
+
+	it('outdoor rest fallback when rest location exists but agent is too far', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('RestStarted', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 0, 0), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		// Rest location is at 1000,1000 — far beyond interaction_radius (default 25)
+		const restLoc = createRestLocation('loc-tavern', 1000, 1000);
+		const worldEntity = createWorldEntity();
+
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
+		system.execute(createDeps(eventBus));
+
+		const needs = agent.get(NeedsComponent);
+		// Outdoors tier, recovery_rate = 1.0
+		expect(needs.state.energy).toBeCloseTo(51.0);
+
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.tier).toBe('outdoors');
+		expect(events[0]?.payload.locationId).toBeNull();
+	});
+
+	it('rest tier recovery rates differ across all three tiers', () => {
+		// Verify the three different recovery rates produce different energy gains
+		const makeAgent = (id: string, x: number, y: number, overrides: Record<string, unknown> = {}) => {
+			const agent = new AgentActor(
+				createTestAgentData(id, x, y, { needs: { hunger: 50, energy: 50, social: 50, thirst: 50 }, ...overrides }),
+				defaultMoodConfig,
+			);
+			agent.behaviorAgent = createStubBehaviorAgent();
+			return agent;
+		};
+
+		// Owned home agent
+		const homeAgent = makeAgent('home', 300, 200, { property: ['loc-tavern'] });
+		// Public shelter agent
+		const shelterAgent = makeAgent('shelter', 300, 200);
+		// Outdoors agent (far from rest)
+		const outdoorsAgent = makeAgent('outdoors', 0, 0);
+
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+
+		const system1 = createRestSystem(() => [homeAgent], () => [restLoc], () => worldEntity);
+		system1.execute(createDeps());
+		const homeEnergy = homeAgent.get(NeedsComponent).state.energy;
+
+		const worldEntity2 = createWorldEntity();
+		const system2 = createRestSystem(() => [shelterAgent], () => [restLoc], () => worldEntity2);
+		system2.execute(createDeps());
+		const shelterEnergy = shelterAgent.get(NeedsComponent).state.energy;
+
+		const worldEntity3 = createWorldEntity();
+		const system3 = createRestSystem(() => [outdoorsAgent], () => [], () => worldEntity3);
+		system3.execute(createDeps());
+		const outdoorsEnergy = outdoorsAgent.get(NeedsComponent).state.energy;
+
+		// owned_home (2.0) > public_shelter (1.5) > outdoors (1.0)
+		expect(homeEnergy).toBeGreaterThan(shelterEnergy);
+		expect(shelterEnergy).toBeGreaterThan(outdoorsEnergy);
+		expect(homeEnergy).toBeCloseTo(52.0);
+		expect(shelterEnergy).toBeCloseTo(51.5);
+		expect(outdoorsEnergy).toBeCloseTo(51.0);
+	});
+
+	it('clears restingAt when agent starts working (non-rest btAction)', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'rest' });
+		const restLoc = createRestLocation('loc-tavern', 300, 200);
+		const worldEntity = createWorldEntity();
+
+		const system = createRestSystem(() => [agent], () => [restLoc], () => worldEntity);
+
+		// First tick — agent rests
+		system.execute(createDeps(eventBus, 1));
+		expect(agent.behaviorAgent.restingAt).toBe('loc-tavern');
+
+		// Agent starts working — btAction changes to 'work'
+		agent.behaviorAgent.btAction = 'work';
+		system.execute(createDeps(eventBus, 2));
+
+		// restingAt should be cleared since btAction is not rest-compatible
+		expect(agent.behaviorAgent.restingAt).toBeNull();
+	});
 });

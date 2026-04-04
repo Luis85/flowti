@@ -703,4 +703,419 @@ describe('FacilitySystem', () => {
 		const toolsItem = workerInv.state.items.find(i => i.item_id === 'tools');
 		expect(toolsItem).toBeUndefined();
 	});
+
+	it('private production adds to existing inventory item quantity', () => {
+		const eventBus = createEventBus();
+
+		const agent = new AgentActor(createTestAgentData('craftsman-1', 50, 50, { job: 'craftsman' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'craftsman' });
+
+		// Pre-populate worker inventory with 3 iron_tools already
+		const inv = agent.get(InventoryComponent);
+		inv.state = { items: [{ item_id: 'iron_tool', quantity: 3 }] };
+
+		const workshopLocation: WorldLocation = {
+			id: 'loc-workshop',
+			name: 'Workshop',
+			type: 'work',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'craftsman',
+				output: { item_id: 'iron_tool', quantity: 1 },
+				input: null,
+				wage: 0,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const workshopActor = new Actor();
+		workshopActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 0,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'craftsman-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-workshop', workshopActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [workshopLocation],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Existing quantity should be incremented
+		const workerInv = agent.get(InventoryComponent);
+		const ironTool = workerInv.state.items.find(i => i.item_id === 'iron_tool');
+		expect(ironTool).toBeDefined();
+		expect(ironTool!.quantity).toBe(4);
+	});
+
+	it('emits FacilityInsolvent when facility fund reaches zero after paying wage', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('FacilityInsolvent', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-1', 100, 100, { job: 'farmer' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'farmer' });
+
+		const farm = createFarmLocation();
+		const farmActor = new Actor();
+		farmActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 5, // Exactly one wage — fund will be 0 after paying
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'agent-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-farm', farmActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [farm],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		const facility = farmActor.get(FacilityComponent);
+		expect(facility.state.fund).toBe(0);
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.facilityId).toBe('loc-farm');
+		expect(events[0]?.payload.fund).toBe(0);
+	});
+
+	it('auto-process facility produces without a worker', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('ProductionComplete', (e) => { events.push(e); });
+
+		const wellLocation: WorldLocation = {
+			id: 'loc-well',
+			name: 'Well',
+			type: 'water',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'none',
+				output: { item_id: 'water', quantity: 1 },
+				input: null,
+				wage: 0,
+				ticks_per_cycle: 30,
+				auto_process: true,
+				auto_ticks_per_cycle: 10,
+				funding: 'facility' as const,
+			},
+		};
+
+		const wellActor = new Actor();
+		wellActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 0,
+			workProgress: 9, // One tick away from auto cycle completion
+			status: 'auto',
+			workerId: null,
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-well', wellActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [], // no agents at all
+			() => [wellLocation],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Auto-process should complete — output in stock
+		const facility = wellActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'water', quantity: 1 });
+		expect(facility.state.workProgress).toBe(0);
+		expect(facility.state.status).toBe('auto');
+
+		// ProductionComplete emitted with workerId=null
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.workerId).toBeNull();
+		expect(events[0]?.payload.facilityId).toBe('loc-well');
+	});
+
+	it('auto-process facility increments progress without completing', () => {
+		const eventBus = createEventBus();
+
+		const wellLocation: WorldLocation = {
+			id: 'loc-well',
+			name: 'Well',
+			type: 'water',
+			position: { x: 50, y: 50, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'none',
+				output: { item_id: 'water', quantity: 1 },
+				input: null,
+				wage: 0,
+				ticks_per_cycle: 30,
+				auto_process: true,
+				auto_ticks_per_cycle: 10,
+				funding: 'facility' as const,
+			},
+		};
+
+		const wellActor = new Actor();
+		wellActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 0,
+			workProgress: 5,
+			status: 'auto',
+			workerId: null,
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-well', wellActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [],
+			() => [wellLocation],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		const facility = wellActor.get(FacilityComponent);
+		expect(facility.state.workProgress).toBe(6);
+		expect(facility.state.status).toBe('auto');
+	});
+
+	it('treasury-funded facility pays wage from treasury, not facility fund', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('GoldFlowed', (e) => {
+			if (e.payload.subcategory === 'public_wage') events.push(e);
+		});
+
+		const agent = new AgentActor(createTestAgentData('guard-1', 100, 100, { job: 'guard' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'guard' });
+
+		const guardPostLocation: WorldLocation = {
+			id: 'loc-guardpost',
+			name: 'Guard Post',
+			type: 'work',
+			position: { x: 100, y: 100, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'guard',
+				output: { item_id: 'safety', quantity: 1 },
+				input: null,
+				wage: 8,
+				ticks_per_cycle: 30,
+				funding: 'treasury' as const,
+			},
+		};
+
+		const guardActor = new Actor();
+		guardActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 0,
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'guard-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-guardpost', guardActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [guardPostLocation],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Worker gets full wage (no tax for treasury-funded)
+		const wallet = agent.get(WalletComponent);
+		expect(wallet.state.gold).toBe(58); // 50 + 8
+
+		// Treasury should be debited
+		const economy = world.get(EconomyComponent);
+		expect(economy.state.treasury).toBe(492); // 500 - 8
+
+		// Public wage event emitted
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.amount).toBe(8);
+	});
+
+	it('aptitude efficiency slows production when worker attribute is below baseline', () => {
+		const eventBus = createEventBus();
+
+		// Settler job uses HT. Set HT to 6 (half of baseline 12) -> efficiency = 0.5 -> doubled ticks
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 100, 100, {
+				job: 'settler',
+				attributes: { ST: 12, DX: 12, IQ: 12, HT: 6 },
+			}),
+			defaultMoodConfig,
+		);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'settler' });
+
+		const farm: WorldLocation = {
+			id: 'loc-farm',
+			name: 'Farm',
+			type: 'work',
+			position: { x: 100, y: 100, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'settler',
+				output: { item_id: 'wheat', quantity: 1 },
+				input: null,
+				wage: 5,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const farmActor = new Actor();
+		farmActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 200,
+			workProgress: 29, // One tick away at normal speed — but with 0.5 efficiency, ticks_per_cycle becomes 60
+			status: 'producing',
+			workerId: 'agent-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-farm', farmActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [farm],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// With effective ticks = 60, progress 29+1=30 < 60 — should NOT complete
+		const facility = farmActor.get(FacilityComponent);
+		expect(facility.state.workProgress).toBe(30);
+		expect(facility.state.status).toBe('producing');
+	});
+
+	it('aptitude efficiency with missing job definition uses baseline (no slowdown)', () => {
+		const eventBus = createEventBus();
+
+		// Use a job name not in the config definitions (default only has settler, guard, craftsman)
+		const agent = new AgentActor(
+			createTestAgentData('agent-1', 100, 100, {
+				job: 'lumberjack',
+				attributes: { ST: 6, DX: 6, IQ: 6, HT: 6 },
+			}),
+			defaultMoodConfig,
+		);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'lumberjack' });
+
+		const lumbermill: WorldLocation = {
+			id: 'loc-lumbermill',
+			name: 'Lumber Mill',
+			type: 'work',
+			position: { x: 100, y: 100, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'lumberjack',
+				output: { item_id: 'wood', quantity: 1 },
+				input: null,
+				wage: 5,
+				ticks_per_cycle: 30,
+				funding: 'facility' as const,
+			},
+		};
+
+		const millActor = new Actor();
+		millActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 200,
+			workProgress: 29, // One tick away from completion
+			status: 'producing',
+			workerId: 'agent-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-lumbermill', millActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [lumbermill],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// No job definition for 'lumberjack' — aptitude block is skipped, uses base ticks_per_cycle=30
+		// Progress 29+1=30 >= 30 — cycle SHOULD complete
+		const facility = millActor.get(FacilityComponent);
+		expect(facility.state.workProgress).toBe(0);
+		expect(facility.state.stock).toContainEqual({ item_id: 'wood', quantity: 1 });
+	});
+
+	it('does not emit FacilityInsolvent for treasury-funded facility with zero fund', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('FacilityInsolvent', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('guard-1', 100, 100, { job: 'guard' }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', job: 'guard' });
+
+		const guardPost: WorldLocation = {
+			id: 'loc-guardpost',
+			name: 'Guard Post',
+			type: 'work',
+			position: { x: 100, y: 100, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: {
+				job: 'guard',
+				output: { item_id: 'safety', quantity: 1 },
+				input: null,
+				wage: 5,
+				ticks_per_cycle: 30,
+				funding: 'treasury' as const,
+			},
+		};
+
+		const guardActor = new Actor();
+		guardActor.addComponent(new FacilityComponent({
+			stock: [],
+			fund: 0, // Treasury-funded, fund=0 by design
+			workProgress: 29,
+			status: 'producing',
+			workerId: 'guard-1',
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-guardpost', guardActor]]);
+		const world = createWorldEntity();
+
+		const system = createFacilitySystem(
+			() => [agent],
+			() => [guardPost],
+			() => locationActors,
+			() => world,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Treasury-funded facilities skip insolvency check — no event
+		expect(events.length).toBe(0);
+	});
 });

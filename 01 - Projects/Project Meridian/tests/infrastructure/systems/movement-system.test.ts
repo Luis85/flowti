@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createMovementSystem } from '../../../src/infrastructure/systems/movement-system.js';
+import { createMovementSystem, JOURNEY_SENTINEL } from '../../../src/infrastructure/systems/movement-system.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
+import { StaminaComponent } from '../../../src/infrastructure/components/stamina-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -9,6 +10,7 @@ import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
 import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
+import type { JourneyState } from '../../../src/domain/core/component-data.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -305,5 +307,208 @@ describe('MovementSystem', () => {
 
 		const needs = agent.get(NeedsComponent);
 		expect(needs.state.energy).toBe(0);
+	});
+
+	it('navigates journey waypoints — advances waypointIndex on arrival', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('RegionEntered', (e) => { events.push(e); });
+
+		const journey: JourneyState = {
+			waypoints: [
+				{ regionId: 'region-forest', crossingPoint: { x: 1, y: 0 }, travelCost: 5 },
+				{ regionId: 'region-mountain', crossingPoint: { x: 50, y: 0 }, travelCost: 10 },
+			],
+			waypointIndex: 0,
+			finalTarget: { id: 'loc-village', type: 'location' },
+			totalCost: 15,
+		};
+
+		const agent = createAgentWithBa('agent-1', 0, 0, {}, {
+			movementTarget: { id: JOURNEY_SENTINEL, type: 'location' },
+			journey,
+			currentRegion: 'region-start',
+		});
+
+		const system = createMovementSystem(() => [agent], () => []);
+		system.execute(createDeps(eventBus));
+
+		// Agent should arrive at first waypoint and advance to waypointIndex 1
+		expect(agent.behaviorAgent.journey).not.toBeNull();
+		expect(agent.behaviorAgent.journey!.waypointIndex).toBe(1);
+		expect(agent.behaviorAgent.currentRegion).toBe('region-forest');
+		expect(agent.behaviorAgent.movementTarget).toEqual({ id: JOURNEY_SENTINEL, type: 'location' });
+
+		// RegionEntered event should be emitted
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.fromRegion).toBe('region-start');
+		expect(events[0]?.payload.toRegion).toBe('region-forest');
+		expect(events[0]?.payload.travelCost).toBe(5);
+	});
+
+	it('completes journey — routes to finalTarget after last waypoint', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('RegionEntered', (e) => { events.push(e); });
+
+		const journey: JourneyState = {
+			waypoints: [
+				{ regionId: 'region-village', crossingPoint: { x: 1, y: 0 }, travelCost: 3 },
+			],
+			waypointIndex: 0,
+			finalTarget: { id: 'loc-market', type: 'location' },
+			totalCost: 3,
+		};
+
+		const agent = createAgentWithBa('agent-1', 0, 0, {}, {
+			movementTarget: { id: JOURNEY_SENTINEL, type: 'location' },
+			journey,
+			currentRegion: 'region-start',
+		});
+
+		const system = createMovementSystem(() => [agent], () => []);
+		system.execute(createDeps(eventBus));
+
+		// Journey complete — should route to final target
+		expect(agent.behaviorAgent.journey).toBeNull();
+		expect(agent.behaviorAgent.movementTarget).toEqual({ id: 'loc-market', type: 'location' });
+		expect(agent.behaviorAgent.currentRegion).toBe('region-village');
+		expect(events.length).toBe(1);
+	});
+
+	it('halts journey when stamina depleted at waypoint arrival', () => {
+		const eventBus = createEventBus();
+
+		const journey: JourneyState = {
+			waypoints: [
+				{ regionId: 'region-far', crossingPoint: { x: 1, y: 0 }, travelCost: 100 },
+				{ regionId: 'region-farther', crossingPoint: { x: 200, y: 0 }, travelCost: 50 },
+			],
+			waypointIndex: 0,
+			finalTarget: { id: 'loc-dest', type: 'location' },
+			totalCost: 150,
+		};
+
+		const agent = createAgentWithBa('agent-1', 0, 0, {}, {
+			movementTarget: { id: JOURNEY_SENTINEL, type: 'location' },
+			journey,
+			currentRegion: 'region-start',
+		});
+		// Set stamina to exactly the cost — will reach 0
+		const stamina = agent.get(StaminaComponent);
+		stamina.state = { current: 100, max: 200 };
+
+		const system = createMovementSystem(() => [agent], () => []);
+		system.execute(createDeps(eventBus));
+
+		// Stamina depleted — journey should be halted, agent stopped
+		expect(stamina.state.current).toBe(0);
+		expect(agent.behaviorAgent.journey).toBeNull();
+		expect(agent.behaviorAgent.movementTarget).toBeNull();
+		expect(agent.behaviorAgent.currentRegion).toBe('region-far');
+		expect(agent.vel.x).toBe(0);
+		expect(agent.vel.y).toBe(0);
+	});
+
+	it('stops and zeroes velocity when movementTarget references non-existent location', () => {
+		const agent = createAgentWithBa('agent-1', 50, 50, {}, {
+			movementTarget: { id: 'loc-nonexistent', type: 'location' },
+		});
+
+		const system = createMovementSystem(() => [agent], () => []);
+		system.execute(createDeps());
+
+		// Target not found — agent should stop
+		expect(agent.vel.x).toBe(0);
+		expect(agent.vel.y).toBe(0);
+		// Position unchanged
+		expect(agent.pos.x).toBe(50);
+		expect(agent.pos.y).toBe(50);
+	});
+
+	it('stops and zeroes velocity when movementTarget references non-existent agent', () => {
+		const agent = createAgentWithBa('agent-1', 30, 40, {}, {
+			movementTarget: { id: 'ghost-agent', type: 'agent' },
+		});
+
+		const system = createMovementSystem(() => [agent], () => []);
+		system.execute(createDeps());
+
+		expect(agent.vel.x).toBe(0);
+		expect(agent.vel.y).toBe(0);
+		expect(agent.pos.x).toBe(30);
+		expect(agent.pos.y).toBe(40);
+	});
+
+	it('assigns unique arrivalSlots when multiple agents arrive at the same location', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('AgentArrived', (e) => { events.push(e); });
+
+		// First agent already at location (simulating prior arrival)
+		const agent1 = createAgentWithBa('agent-1', 10, 0, {}, {
+			atLocation: 'loc-food-1',
+		});
+
+		// Second agent arriving very close to target
+		const agent2 = createAgentWithBa('agent-2', 9.5, 0, {}, {
+			movementTarget: { id: 'loc-food-1', type: 'location' },
+		});
+
+		const locations = [createTestLocation('loc-food-1', 10, 0)];
+		const system = createMovementSystem(() => [agent1, agent2], () => locations);
+		system.execute(createDeps(eventBus));
+
+		// agent2 should arrive with slotIndex=1 (agent1 occupies slot 0)
+		expect(agent2.behaviorAgent.atLocation).toBe('loc-food-1');
+		expect(agent2.behaviorAgent.arrivalSlot).toBe(1);
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.agentId).toBe('agent-2');
+	});
+
+	it('clears atLocation and arrivalSlot when agent starts moving to a new target', () => {
+		const agent = createAgentWithBa('agent-1', 10, 0, {}, {
+			atLocation: 'loc-food-1',
+			arrivalSlot: 0,
+			movementTarget: { id: 'loc-food-2', type: 'location' },
+		});
+
+		const locations = [
+			createTestLocation('loc-food-1', 10, 0),
+			createTestLocation('loc-food-2', 200, 0),
+		];
+		const system = createMovementSystem(() => [agent], () => locations);
+		system.execute(createDeps());
+
+		// atLocation and arrivalSlot should be cleared upon departure
+		expect(agent.behaviorAgent.atLocation).toBeNull();
+		expect(agent.behaviorAgent.arrivalSlot).toBeNull();
+		// Agent should be moving toward the new target
+		expect(agent.vel.x).toBeGreaterThan(0);
+	});
+
+	it('recovers stamina when idle (no movementTarget)', () => {
+		const agent = createAgentWithBa('agent-1', 0, 0);
+		const stamina = agent.get(StaminaComponent);
+		stamina.state = { current: 50, max: 100 };
+
+		const system = createMovementSystem(() => [agent], () => []);
+		const deps = createDeps();
+		system.execute(deps);
+
+		// Should recover by recovery_per_idle_tick (default 0.05)
+		expect(stamina.state.current).toBe(50.05);
+	});
+
+	it('does not recover stamina beyond max when idle', () => {
+		const agent = createAgentWithBa('agent-1', 0, 0);
+		const stamina = agent.get(StaminaComponent);
+		stamina.state = { current: 100, max: 100 };
+
+		const system = createMovementSystem(() => [agent], () => []);
+		system.execute(createDeps());
+
+		// Already at max — no change
+		expect(stamina.state.current).toBe(100);
 	});
 });

@@ -46,7 +46,7 @@ export function createMoodSystem(
 
 				// goalProgress: aptitude fit for current job
 				let goalProgress = 0;
-				if (entity.job !== null && deps.config.jobs !== undefined) {
+				if (entity.job !== null) {
 					const jobDef = deps.config.jobs.definitions[entity.job];
 					if (jobDef !== undefined) {
 						const attrs = entity.get(AttributesComponent).state as unknown as Record<string, number>;

@@ -13,7 +13,7 @@ export function createEquipmentDecaySystem(
 		name: 'EquipmentDecaySystem',
 		priority: SystemPriority.EQUIPMENT_DECAY,
 
-		execute(deps: GameCoreDeps): void {
+		execute(_deps: GameCoreDeps): void {
 			const entity = worldEntity();
 			const time = entity.get(TimeComponent);
 			if (!time.state.dayBoundaryThisTick) return;

@@ -91,7 +91,7 @@ export function planSupplyRoute(
 ): SupplyRoute | null {
 	for (const destId of knownLocations) {
 		const dest = facilityData.get(destId);
-		if (dest === undefined || dest.input === null || dest.input === undefined) continue;
+		if (dest?.input === null || dest?.input === undefined) continue;
 		const neededItem = dest.input.item_id;
 
 		let bestSource: string | null = null;
@@ -100,7 +100,7 @@ export function planSupplyRoute(
 		for (const srcId of knownLocations) {
 			if (srcId === destId) continue;
 			const src = facilityData.get(srcId);
-			if (src === undefined || src.output === undefined) continue;
+			if (src?.output === undefined) continue;
 			if (src.output.item_id !== neededItem) continue;
 
 			const hops = calculateHops(src.region, dest.region, regionGraph);
