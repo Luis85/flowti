@@ -36,6 +36,7 @@ import { createStipendSystem } from '../systems/stipend-system.js';
 import { createSubsidySystem } from '../systems/subsidy-system.js';
 import { createEquipmentDecaySystem } from '../systems/equipment-decay-system.js';
 import { createDailyReportSystem } from '../systems/daily-report-system.js';
+import { createAbandonmentSystem } from '../systems/abandonment-system.js';
 import { TimeComponent } from '../components/time-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
@@ -270,6 +271,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createRelationshipCheckpointSystem(getAgents));
 		tickRunner.register(createEconomySystem(getLocations, getLocationActors, getItemRegistry));
 		tickRunner.register(createMonetaryPolicySystem(getAgents, getWorldEntity));
+		tickRunner.register(createAbandonmentSystem(getLocationActors, getLocations));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.jobTrees).length)} jobs, ${String(Object.keys(world.traitDefs).length)} traits`);
 
