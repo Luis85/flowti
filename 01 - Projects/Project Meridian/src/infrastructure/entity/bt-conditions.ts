@@ -301,9 +301,11 @@ export function createConditions(
 
 		KnowsSupplyRoute(): boolean {
 			const locations = deps.getLocations();
+			const knownSet = new Set(memory.knownLocations);
 			const facilityData = new Map<string, FacilityData>();
 			for (const loc of locations) {
 				if (loc.production === null) continue;
+				if (!knownSet.has(loc.id)) continue;
 				facilityData.set(loc.id, {
 					id: loc.id,
 					output: loc.production.output,

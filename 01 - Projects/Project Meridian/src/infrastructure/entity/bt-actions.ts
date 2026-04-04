@@ -539,7 +539,7 @@ export function createActions(
 				tick: tickCount(),
 				wallClock: Date.now(),
 				source: 'BehaviorAgent',
-				payload: { agentId: actor.agentId, itemId: cargo.itemId, destination: cargo.destination },
+				payload: { agentId: actor.agentId, itemId: cargo.itemId, quantity: cargo.quantity, sourceId: cargo.source, destinationId: cargo.destination },
 			});
 
 			return SUCCEEDED;

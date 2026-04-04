@@ -1336,7 +1336,9 @@ describe('bt-actions: createActions', () => {
 				expect(emitted[0]!.payload).toEqual({
 					agentId: 'a1',
 					itemId: 'wheat',
-					destination: 'loc-mill',
+					quantity: 1,
+					sourceId: 'loc-farm',
+					destinationId: 'loc-mill',
 				});
 			});
 
