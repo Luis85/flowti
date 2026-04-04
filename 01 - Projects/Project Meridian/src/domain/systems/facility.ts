@@ -17,7 +17,7 @@ export interface FacilityTickInput {
 
 export interface FacilityTickResult {
 	newWorkProgress: number;
-	status: 'idle' | 'producing' | 'auto';
+	status: 'idle' | 'producing' | 'auto' | 'abandoned';
 	cycleComplete: boolean;
 	workerGoldChange: number;
 	facilityFundChange: number;

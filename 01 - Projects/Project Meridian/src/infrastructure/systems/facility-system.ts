@@ -423,7 +423,9 @@ export function createFacilitySystem(
 				if (loc.production === null) continue;
 				const locActor = locationActorMap.get(loc.id);
 				if (locActor === undefined) continue;
-				processFacilityTick(loc, loc.production, locActor.get(FacilityComponent), agentList, economy, deps, items);
+				const facility = locActor.get(FacilityComponent);
+				if (facility.state.status === 'abandoned') continue;
+				processFacilityTick(loc, loc.production, facility, agentList, economy, deps, items);
 			}
 		},
 	};

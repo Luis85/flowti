@@ -64,7 +64,7 @@ export interface FacilityState {
 	stock: { item_id: string; quantity: number }[];
 	fund: number;
 	workProgress: number;
-	status: 'idle' | 'producing' | 'auto';
+	status: 'idle' | 'producing' | 'auto' | 'abandoned';
 	workerId: string | null;
 	currentPrices?: Record<string, number>;
 }
