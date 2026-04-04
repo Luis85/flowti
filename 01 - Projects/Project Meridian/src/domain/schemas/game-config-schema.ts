@@ -319,6 +319,15 @@ export const GameConfigSchema = z.object({
 	world_health: withDefaults(WorldHealthConfigSchema),
 	social: withDefaults(SocialConfigSchema),
 	jobs: withDefaults(JobsConfigSchema),
+	items: z.record(z.string(), z.object({
+		name: z.string().default(''),
+		baseValue: z.number().default(0),
+		maxCharges: z.number().optional(),
+	})).default({
+		equipment: { name: 'Equipment', baseValue: 10, maxCharges: 5 },
+		tools: { name: 'Tools', baseValue: 8, maxCharges: 5 },
+		waterskin: { name: 'Waterskin', baseValue: 3, maxCharges: 3 },
+	}),
 	debug: z.boolean().default(false),
 });
 

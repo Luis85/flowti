@@ -55,14 +55,17 @@ export function createMoodSystem(
 				}
 
 				// equipmentCondition: average charge level of chargeable items
-				const DEFAULT_MAX_CHARGES = 5;
+				const itemDefs = deps.config.items;
 				let equipmentCondition = 0.5;
 				const inv = entity.get(InventoryComponent);
 				const chargeable = inv.state.items.filter(i => i.charges !== undefined);
 				if (chargeable.length > 0) {
-					const totalCharges = chargeable.reduce((sum, i) => sum + (i.charges ?? 0), 0);
-					const maxCharges = chargeable.length * DEFAULT_MAX_CHARGES;
-					equipmentCondition = clamp(totalCharges / maxCharges, 0, 1);
+					let totalRatio = 0;
+					for (const item of chargeable) {
+						const maxCh = itemDefs[item.item_id]?.maxCharges ?? 5;
+						totalRatio += (item.charges ?? 0) / maxCh;
+					}
+					equipmentCondition = clamp(totalRatio / chargeable.length, 0, 1);
 				}
 
 				const factors: MoodFactors = {
