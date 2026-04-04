@@ -55,7 +55,7 @@ export class MeridianPlugin extends Plugin {
 
 		// Heavy initialization deferred until workspace is ready
 		this.app.workspace.onLayoutReady(() => {
-			this.initializeGame();
+			void this.initializeGame();
 		});
 	}
 
@@ -121,11 +121,10 @@ export class MeridianPlugin extends Plugin {
 			'01 - Projects/Project Meridian/configs/game-config.json',
 		];
 		for (const configPath of candidates) {
-			try {
+			const exists = await this.app.vault.adapter.exists(configPath);
+			if (exists) {
 				const content = await this.app.vault.adapter.read(configPath);
 				return JSON.parse(content) as Record<string, unknown>;
-			} catch {
-				// Try next candidate
 			}
 		}
 		this.logger?.warn('Meridian', 'No game-config.json found, using schema defaults');

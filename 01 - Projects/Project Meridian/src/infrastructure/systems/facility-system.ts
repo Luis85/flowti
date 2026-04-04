@@ -62,20 +62,6 @@ function findWorker(
 	return undefined;
 }
 
-function applyStockChanges(
-	stock: StockItem[],
-	result: FacilityTickResult,
-	production: NonNullable<Production>,
-): StockItem[] {
-	let newStock = [...stock.map(s => ({ ...s }))];
-	if (result.consumeInput && production.input !== null) {
-		newStock = updateStock(newStock, production.input.item_id, -production.input.quantity);
-	}
-	if (result.produceOutput) {
-		newStock = updateStock(newStock, production.output.item_id, production.output.quantity);
-	}
-	return newStock;
-}
 
 function recordCycleComplete(
 	worker: AgentActor,
@@ -162,7 +148,7 @@ function recordCycleComplete(
 	applyWorkerSkillProgression(worker, loc, deps);
 
 	// Relationship update (facility -> worker)
-	applyWorkerRelationship(worker, loc.id);
+	applyWorkerRelationship(worker, loc.id, deps.tickCount);
 
 	deps.eventBus.emit({
 		type: 'ProductionComplete',
@@ -248,7 +234,7 @@ function applyWorkerSkillProgression(worker: AgentActor, loc: WorldLocation, dep
 	ba.skills = upsertSkill(agentSkills, jobSkillId, newSkill);
 }
 
-function applyWorkerRelationship(worker: AgentActor, locationId: string): void {
+function applyWorkerRelationship(worker: AgentActor, locationId: string, tickCount: number): void {
 	const workerRelComp = worker.get(RelationshipComponent);
 	const facilityRelEntry = workerRelComp.state.entries.find(e => e.agentId === locationId);
 	const relResult = applyRelationshipUpdate({
@@ -263,7 +249,7 @@ function applyWorkerRelationship(worker: AgentActor, locationId: string): void {
 		disposition: relResult.newDisposition,
 		familiarity: relResult.newFamiliarity,
 		tags: existingTags.includes('worked_with') ? [...existingTags] : [...existingTags, 'worked_with'],
-		lastInteractionTick: 0,
+		lastInteractionTick: tickCount,
 	};
 	const updatedEntries = facilityRelEntry !== undefined
 		? workerRelComp.state.entries.map(e => e.agentId === locationId ? newEntry : { ...e })
@@ -293,7 +279,7 @@ function processFacilityTick(
 	let effectiveTicksPerCycle = production.ticks_per_cycle;
 	if (worker !== undefined) {
 		const jobsConfig = deps.config.jobs;
-		const jobDef = jobsConfig?.definitions[production.job];
+		const jobDef = jobsConfig.definitions[production.job];
 		if (jobDef !== undefined) {
 			const workerAttrs = worker.get(AttributesComponent).state as unknown as Record<string, number>;
 			const attrValue = workerAttrs[jobDef.primary_attribute] ?? jobsConfig.aptitude_baseline;
@@ -325,7 +311,7 @@ function processFacilityTick(
 		workerGold: worker !== undefined ? worker.get(WalletComponent).state.gold : 0,
 		autoProcess: production.auto_process,
 		autoTicksPerCycle: production.auto_ticks_per_cycle ?? production.ticks_per_cycle,
-		funding: loc.production!.funding ?? 'facility',
+		funding: loc.production!.funding,
 		treasuryFund: economy.state.treasury,
 	});
 

@@ -23,6 +23,7 @@ export function pointInPolygon(px: number, py: number, polygon: Polygon): boolea
 /** Compute the centroid (average of vertices) of a polygon. */
 export function polygonCentroid(polygon: Polygon): { x: number; y: number } {
 	const { vertices } = polygon;
+	if (vertices.length === 0) return { x: 0, y: 0 };
 	let cx = 0;
 	let cy = 0;
 	for (const v of vertices) {

@@ -1,7 +1,7 @@
 # Project Meridian — Arc42 Architecture Document
 
 > Derived from: Game Design Document (Project Meridian.md), Player Depth Design Spec, Phase 0 Implementation Plans
-> Version: 1.1.0 | Date: 2026-04-02 (updated from 1.0.0 2026-03-28)
+> Version: 1.2.0 | Date: 2026-04-04 (updated from 1.1.0 2026-04-02)
 
 ---
 
@@ -17,8 +17,8 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 - Director-as-player with indirect control (quests, zones, objects, dialogue)
 - Obsidian vault as the persistence layer (markdown, Canvas, JSON)
 - Emergence from system interaction, not hardcoded behavior
-- Resilient runtime (Result types, Circuit Breakers, error boundaries)
-- Multilang support (vue-i18n + locale files)
+- Resilient runtime (Result types, error boundaries) — [PLANNED: Circuit Breakers]
+- [PLANNED] Multilang support (vue-i18n + locale files)
 
 ### 1.2 Quality Goals
 
@@ -28,7 +28,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | 2 | **Resilience** | A single system failure never crashes the simulation or corrupts the vault |
 | 3 | **Data-driven** | All game behavior is configurable via vault files and game-config.json — no code changes for tuning |
 | 4 | **Testability** | Every system is independently testable with mock dependencies |
-| 5 | **Performance** | 300 entities processed within a 300ms tick budget (within 500ms tick interval) |
+| 5 | **Performance** | 300 entities processed within a 300ms tick budget — [TARGET, not yet enforced] |
 
 ### 1.3 Stakeholders
 
@@ -133,7 +133,8 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 │       │             ┌──────┴──────┐     │
 │       │             │ System      │     │
 │       │             │ Pipeline    │     │
-│       │             │ (34 slots)  │     │
+│       │             │(18 active / │     │
+│       │             │ 34 defined) │     │
 │       │             └──────┬──────┘     │
 │       │                    │            │
 │       │              EventBus           │
@@ -146,6 +147,8 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 │                    (Management UI)       │
 └─────────────────────────────────────────┘
 ```
+
+> **Note:** 18 of 34 system pipeline slots are active. 16 priority slots are reserved for future systems (quests, construction, progression, mortality, durability, world events, seasons, notifications, chronicler, scenarios, abandonment, vault sync, UI bridge, etc.). Vue/Pinia UI is [PLANNED — Phase 8+].
 
 ---
 
@@ -200,11 +203,12 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐  │
 │  │  Domain       │  │Infrastructure│  │  UI               │  │
 │  │              │  │              │  │                   │  │
-│  │  core/       │  │  engine/     │  │  Vue sidebar      │  │
-│  │  schemas/    │  │  vault/      │  │  Pinia stores     │  │
-│  │  systems/    │  │  config/     │  │  Storybook        │  │
-│  │              │  │  event-bus   │  │                   │  │
+│  │  core/       │  │  engine/     │  │  [PLANNED]        │  │
+│  │  schemas/    │  │  vault/      │  │  Vue sidebar      │  │
+│  │  systems/    │  │  config/     │  │  Pinia stores     │  │
+│  │              │  │  event-bus   │  │  Storybook        │  │
 │  │              │  │  logger/     │  │                   │  │
+│  │              │  │  [PLANNED]   │  │                   │  │
 │  │              │  │  llm/        │  │                   │  │
 │  └──────────────┘  └──────────────┘  └───────────────────┘  │
 │                                                              │
@@ -261,7 +265,7 @@ domain/
     ├── needs-decay.ts            — Hunger/energy/social decay + modifiers
     ├── mood.ts                   — Mood calculation + external modifiers
     ├── memory-decay.ts           — Decay significance, pruning, min lifespan
-    ├── perception.ts             — SparseHashGrid spatial queries → BehaviorAgent
+    ├── perception.ts             — Spatial queries → BehaviorAgent [PLANNED: SparseHashGrid — currently using O(n²) distance checks]
     ├── behavior-agent.ts         — Typed BehaviorAgent (25 conditions, 22 actions, replaces blackboard)
     ├── movement.ts               — ActionIntent processing, region transitions, stamina
     ├── facility.ts               — Facility production, wages, auto-process, fund management
@@ -287,21 +291,21 @@ domain/
     ├── steering.ts               — Agent steering behaviors
     ├── pathfinding.ts            — A* region-graph pathfinding
     ├── world-validation.ts       — World state validation
-    ├── quest-evaluation.ts       — [Future] Objective tracking, completion, failure
-    ├── object-interaction.ts     — [Future] World object use, stock depletion
-    ├── tool-execution.ts         — [Future] Vault file ops (Command pattern)
-    ├── construction.ts           — [Future] Building progress, property registration
-    ├── progression.ts            — [Future] XP, status evaluation
-    ├── mortality-check.ts        — [Future] Starvation/despair → collapse/death/legacy
-    ├── item-durability.ts        — [Future] Equipment wear, breakage, spoilage
-    ├── world-event.ts            — [Future] Random event evaluation + world health modifiers
-    ├── season.ts                 — [Future] Season advancement, seasonal modifier application
-    ├── notification.ts           — [Future] Director alert filtering by severity
-    ├── chronicler.ts             — [Future] Observation, narration, welfare quests
-    ├── scenario.ts               — [Future] Goal tracking, scoring, time limits
-    ├── abandonment.ts            — [Future] Facility abandonment detection
-    ├── vault-sync.ts             — [Future] Bidirectional vault persistence
-    └── ui-bridge.ts              — [Future] ECS → Pinia stores
+    ├── quest-evaluation.ts       — [PLANNED] Objective tracking, completion, failure
+    ├── object-interaction.ts     — [PLANNED] World object use, stock depletion
+    ├── tool-execution.ts         — [PLANNED] Vault file ops (Command pattern)
+    ├── construction.ts           — [PLANNED] Building progress, property registration
+    ├── progression.ts            — [PLANNED] XP, status evaluation
+    ├── mortality-check.ts        — [PLANNED] Starvation/despair → collapse/death/legacy
+    ├── item-durability.ts        — [PLANNED] Equipment wear, breakage, spoilage
+    ├── world-event.ts            — [PLANNED] Random event evaluation + world health modifiers
+    ├── season.ts                 — [PLANNED] Season advancement, seasonal modifier application
+    ├── notification.ts           — [PLANNED] Director alert filtering by severity
+    ├── chronicler.ts             — [PLANNED] Observation, narration, welfare quests
+    ├── scenario.ts               — [PLANNED] Goal tracking, scoring, time limits
+    ├── abandonment.ts            — [PLANNED] Facility abandonment detection
+    ├── vault-sync.ts             — [PLANNED] Bidirectional vault persistence
+    └── ui-bridge.ts              — [PLANNED] ECS → Pinia stores
 ```
 
 ### 5.3 Level 2 — Infrastructure Layer
@@ -365,7 +369,7 @@ infrastructure/
 │   ├── vault-loader.ts          — Single-file Zod-validated loading + quarantine
 │   ├── vault-directory-loader.ts — Directory scan → validated entity collection
 │   ├── memfs-vault-adapter.ts   — In-memory VaultAdapter for testing
-│   ├── obsidian-vault-adapter.ts — [Phase 9] Obsidian file system adapter
+│   ├── obsidian-vault-adapter.ts — [PLANNED Phase 9] Obsidian file system adapter
 │   └── quarantine.ts            — Invalid file tracking (add, has, clear, dedup)
 │
 ├── config/
@@ -383,10 +387,10 @@ infrastructure/
 ├── settings/
 │   └── settings-tab.ts     — Obsidian PluginSettingTab (log level, debug mode, perf tracking)
 │
-└── llm/
-    ├── llm-provider.ts     — [Phase 11] Unified LLMProvider interface
-    ├── cursor-provider.ts  — [Phase 11] Cursor API implementation
-    └── circuit-breaker.ts  — [Phase 11] Circuit Breaker wrapper
+└── llm/                        — [PLANNED — no implementation exists]
+    ├── llm-provider.ts     — [PLANNED Phase 11] Unified LLMProvider interface
+    ├── cursor-provider.ts  — [PLANNED Phase 11] Cursor API implementation
+    └── circuit-breaker.ts  — [PLANNED Phase 11] Circuit Breaker wrapper
 ```
 
 **Dual-Layer System Pattern:** Every game system has a pure domain function (e.g., `applyNeedsDecay()` in `domain/systems/needs-decay.ts`) and a corresponding infrastructure wrapper (e.g., `createNeedsDecaySystem()` in `infrastructure/systems/needs-decay-system.ts`) that reads ECS components, calls the pure function, writes results back, and emits events. This separation keeps domain logic independently testable without ECS or EventBus dependencies.
@@ -682,7 +686,7 @@ Phase 12: World Events + Seasons
 Phase 13: Polish
 ```
 
-**Implementation progress (2026-04-02):** 18 infrastructure system wrappers registered. 34 SystemPriority slots defined. 30 domain system files, 11 schema files, 15 components, 6 entity files. ~500 tests across 86 test files.
+**Implementation progress (2026-04-04):** 18 infrastructure system wrappers registered. 34 SystemPriority slots defined. 30 domain system files, 11 schema files, 15 components, 6 entity files. ~881 tests across 100 test files. See Appendix §13 for detailed status.
 
 **Economy depth remaining items (deferred from economy-depth plan):**
 - Wire `priceMemories` CircularBuffer into BehaviorAgent
@@ -810,8 +814,10 @@ Resolution order: Traits → Seasons → World Events → Time-of-Day.
 ### 8.6 Spatial Query Architecture
 
 Two consumer patterns:
-- **Agent BTs** read the Blackboard (populated by PerceptionSystem from SparseHashGrid)
+- **Agent BTs** read the Blackboard (populated by PerceptionSystem from spatial queries)
 - **Non-BT systems** query the SpatialQueryService directly (EconomySystem for hop count, FacilitySystem for facility lookup)
+
+> **Current status:** PerceptionSystem uses O(n²) distance checks. [PLANNED: SparseHashGrid for efficient spatial queries at scale.]
 
 ### 8.7 Persistence Model
 
@@ -846,9 +852,9 @@ All systems consuming randomness (gossip probability, crime opportunity, world e
 ### 8.12 Dirty-Flag Optimization
 
 High-frequency systems (BT evaluation, UIBridge snapshots) use dirty flags to skip unchanged entities:
-- ECS components set a dirty flag when modified
-- BehaviorTreeSystem skips agents whose Blackboard inputs haven't changed since last evaluation
-- UIBridgeSystem skips clean entities during periodic snapshot reconciliation
+- ECS components set a dirty flag when modified via `TrackedComponent.markDirty()`
+- [PLANNED] BehaviorTreeSystem skips agents whose Blackboard inputs haven't changed since last evaluation — currently evaluates all agents every tick
+- [PLANNED] UIBridgeSystem skips clean entities during periodic snapshot reconciliation
 - VaultSyncSystem only persists dirty entities
 
 ### 8.13 Candidate Pool System
@@ -999,7 +1005,7 @@ Quality
 ├── Resilience
 │   ├── Result type for all fallible ops
 │   ├── Error boundaries per system
-│   ├── Circuit Breaker for LLM
+│   ├── [PLANNED] Circuit Breaker for LLM
 │   └── Entity suspension for corruption
 ├── Performance
 │   ├── Tick < 300ms (300 entities)
@@ -1045,7 +1051,7 @@ Quality
 
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|-----------|
-| ExcaliburJS performance at 300 entities | Medium | High | Dirty-flag BT evaluation, SparseHashGrid, amortized economy/events. Performance profiling built into debug mode. |
+| ExcaliburJS performance at 300 entities | Medium | High | [PLANNED: Dirty-flag BT evaluation, SparseHashGrid], amortized economy/events. Performance profiling built into debug mode. |
 | Vault I/O bottleneck (800+ files) | Medium | Medium | Debounced batch writes, relationship graph checkpoint, startup validation on-change-only possible. |
 | mistreevous library abandonment | Low | High | Library is MIT-licensed. Can fork if needed. BTs are independently testable regardless. |
 | LLM cost overrun | Medium | Low | Circuit Breaker + priority queue + daily budget cap. Template fallback is full-featured. |
@@ -1079,3 +1085,31 @@ See GDD §37 for the full glossary (42 terms). Key architecture terms:
 | **Quarantine** | Invalid vault files flagged and excluded from ECS loading. Director notified. |
 | **Saga** | Ordered Command sequence with compensating rollback. Used for trades and construction. |
 | **World Health** | Composite score (mood + economy + population) that subtly modulates event probabilities. |
+
+---
+
+## 13 · Appendix: Current Implementation Status (as of 2026-04-04)
+
+| Phase | Name | Status | Notes |
+|-------|------|--------|-------|
+| 0 | Foundation | COMPLETE | Scaffold, primitives, schemas, vault load, config, traits |
+| 1 | Agent Core | COMPLETE | Tick, systems, agency (BT), consequences |
+| 2 | Spatial + Economy | COMPLETE | Pathfinding, regions, facilities, trade, pricing, demand, monetary policy |
+| 3 | Social | PARTIAL | Gossip, relationships, dialogue, canvas export. Missing: full social dynamics |
+| 4-5 | Items & Equipment / Economy (advanced) | NOT STARTED | Schema stubs exist, no runtime code |
+| 6 | Quests & Scenarios | NOT STARTED | Config keys exist, no runtime code |
+| 7 | Property | NOT STARTED | -- |
+| 8 | Director UI (Vue/Pinia) | NOT STARTED | No Vue/Pinia code or dependencies |
+| 9 | Persistence (bidirectional) | PARTIAL | Relationship canvas outbound only |
+| 10 | Animals | NOT STARTED | -- |
+| 11 | LLM Integration | NOT STARTED | Config schema exists, no implementation |
+| 12 | World Events + Seasons | NOT STARTED | -- |
+| 13 | Polish | NOT STARTED | -- |
+
+**Active metrics:**
+- Source: ~115 files (~9,720 LoC)
+- Tests: 910 passing across 102 files
+- Coverage: 80.75% statements, 71.05% branches, 81.31% functions, 83.35% lines
+- Systems: 18 active (of 34 planned)
+- Agents: 3 defined (Aldric, Bram, Celia)
+- Locations: 7, Regions: 4, Items: 26, Traits: 8, Jobs: 7

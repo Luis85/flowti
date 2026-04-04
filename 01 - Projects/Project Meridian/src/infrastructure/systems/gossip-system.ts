@@ -9,10 +9,7 @@ import { MemoryComponent } from '../components/memory-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import type { MemoryEntry } from '../../domain/core/component-data.js';
-
-function pairKey(a: string, b: string): string {
-	return a < b ? `${a}:${b}` : `${b}:${a}`;
-}
+import { pairKey } from '../../domain/core/math-utils.js';
 
 function extractGossipFromMemory(entries: MemoryEntry[]): { memory: MemoryEntry; data: GossipData }[] {
 	const result: { memory: MemoryEntry; data: GossipData }[] = [];
@@ -226,7 +223,7 @@ export function createGossipSystem(
 				// Collect gossip types for event
 				const types = new Set<string>();
 				for (const t of [...aToBResult.transferred, ...bToAResult.transferred]) {
-					const meta = t.memory.metadata as Record<string, unknown> | undefined;
+					const meta = t.memory.metadata;
 					if (meta !== undefined) {
 						types.add(meta['gossipType'] as string);
 					}

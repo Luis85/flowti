@@ -24,6 +24,7 @@ export interface PerceivedFacility {
 	distance: number;
 	hasUnmetInput: boolean;
 	workerId: string | null;
+	wage: number;
 }
 
 export interface MovementTarget {
@@ -123,8 +124,9 @@ export interface BehaviorAgent {
 	NeedsTools(): boolean;
 	NeedsEquipment(): boolean;
 	CanAffordItem(itemId: string): boolean;
+	BetterPayAvailable(): boolean;
 
-	// Action methods (23)
+	// Action methods (24)
 	Eat(): ActionResult;
 	Rest(): ActionResult;
 	Drink(): ActionResult;
@@ -149,6 +151,7 @@ export interface BehaviorAgent {
 	ClaimJob(): ActionResult;
 	ClaimBestJob(): ActionResult;
 	ReleaseJob(): ActionResult;
+	SwitchJob(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
 

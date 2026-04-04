@@ -7,10 +7,7 @@ import type { AgentActor } from '../entity/agent-actor.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
-
-function pairKey(a: string, b: string): string {
-	return a < b ? `${a}:${b}` : `${b}:${a}`;
-}
+import { pairKey } from '../../domain/core/math-utils.js';
 
 export function createDialogueSystem(
 	agents: () => AgentActor[],

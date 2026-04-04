@@ -83,9 +83,7 @@ function edgeColor(disposition: number): string {
 	return '0';
 }
 
-function sortedPairKey(a: string, b: string): string {
-	return a < b ? `${a}:${b}` : `${b}:${a}`;
-}
+import { pairKey as sortedPairKey } from '../core/math-utils.js';
 
 function buildNodes(
 	agents: RelationshipGraphInput['agents'],

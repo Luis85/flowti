@@ -5,6 +5,9 @@ import type { AgentActor } from '../entity/agent-actor.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
+import { WalletComponent } from '../components/wallet-component.js';
+import { RelationshipComponent } from '../components/relationship-component.js';
+import { clamp } from '../../domain/core/math-utils.js';
 
 /** 4 needs x 100 max each = 400 */
 const NEEDS_SUM_MAX = 400;
@@ -30,14 +33,23 @@ export function createMoodSystem(
 				const positiveCount = recentEntries.filter(e => e.outcome === 'positive').length;
 				const negativeCount = recentEntries.filter(e => e.outcome === 'negative').length;
 
+				const wallet = entity.get(WalletComponent);
+				const walletHealth = clamp(wallet.state.gold / 100, 0, 1);
+
+				const relComp = entity.get(RelationshipComponent);
+				const relEntries = relComp.state.entries;
+				const relationshipQuality = relEntries.length > 0
+					? clamp((relEntries.reduce((sum, e) => sum + e.disposition, 0) / relEntries.length + 100) / 200, 0, 1)
+					: 0.5;
+
 				const factors: MoodFactors = {
 					needsSatisfaction: (needs.state.hunger + needs.state.energy + needs.state.social + needs.state.thirst) / NEEDS_SUM_MAX,
 					positiveMemories: Math.min(positiveCount / memorySaturationCount, 1.0),
 					negativeMemories: Math.min(negativeCount / memorySaturationCount, 1.0),
 					goalProgress: 0,
-					walletHealth: 0,
+					walletHealth,
 					equipmentCondition: 0,
-					relationshipQuality: 0,
+					relationshipQuality,
 				};
 
 				const previousBucket = mood.state.bucket;

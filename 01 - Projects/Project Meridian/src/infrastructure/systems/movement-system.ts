@@ -8,7 +8,6 @@ import { StaminaComponent } from '../components/stamina-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { clamp, distance } from '../../domain/core/math-utils.js';
 import { resolveArrivalOffset } from '../../domain/systems/arrival-spread.js';
-import { resolveSteeringOffset, type Obstacle } from '../../domain/systems/steering.js';
 import type { JourneyState } from '../../domain/core/component-data.js';
 
 /** Sentinel value used by journey waypoint navigation. */
@@ -68,6 +67,7 @@ function handleJourneyWaypointArrival(
 	const stamina = agent.get(StaminaComponent);
 	const newStamina = Math.max(0, stamina.state.current - waypoint.travelCost);
 	stamina.state = { ...stamina.state, current: newStamina };
+	stamina.markDirty();
 
 	deps.eventBus.emit({
 		type: 'RegionEntered',
@@ -107,28 +107,6 @@ function handleJourneyWaypointArrival(
 	}
 }
 
-function collectObstacles(
-	agentList: AgentActor[],
-	locationList: WorldLocation[],
-	currentAgent: AgentActor,
-	targetId: string,
-): Obstacle[] {
-	const obstacles: Obstacle[] = [];
-	for (const other of agentList) {
-		if (other === currentAgent) continue;
-		if (other.agentId === targetId) continue;
-		if (other.behaviorAgent.atLocation !== null) {
-			// Don't block agents heading to the same location — arrival spread handles positioning
-			if (other.behaviorAgent.atLocation === targetId) continue;
-			obstacles.push({ x: other.pos.x, y: other.pos.y, radius: 14 });
-		}
-	}
-	for (const loc of locationList) {
-		if (loc.id === targetId) continue;
-		obstacles.push({ x: loc.position.x, y: loc.position.y, radius: 10 });
-	}
-	return obstacles;
-}
 
 export function createMovementSystem(
 	agents: () => AgentActor[],

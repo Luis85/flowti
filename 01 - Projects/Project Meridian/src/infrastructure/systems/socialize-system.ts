@@ -5,10 +5,7 @@ import type { AgentActor } from '../entity/agent-actor.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
-
-function pairKey(a: string, b: string): string {
-	return a < b ? `${a}:${b}` : `${b}:${a}`;
-}
+import { pairKey } from '../../domain/core/math-utils.js';
 
 export function createSocializeSystem(
 	agents: () => AgentActor[],

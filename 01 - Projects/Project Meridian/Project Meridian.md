@@ -10,6 +10,8 @@ end: ""
 
 # Project Meridian - Game Design Document
 
+> **Implementation status:** Phases 0--2 complete, Phase 3 partial. See arc42 §13 for current status.
+
 > **Working Title.** "Project Meridian"
 
 ---
@@ -32,7 +34,7 @@ No single system creates the game. The game emerges from the collision of all of
 - No behavior is hardcoded. If an agent builds a bakery, it's because the BT evaluated savings, available land, baking skill, local bread scarcity, and current mood — not because we wrote a "build bakery" script.
 - The Director creates conditions and observes outcomes. Agents decide.
 - Data drives everything. A single frontmatter value change ripples through systems.
-- The system is **resilient**. Errors are handled with typed Result values, circuit breakers, and recovery queues — never bare try/catch.
+- The system is **resilient**. Errors are handled with typed Result values, [PLANNED: circuit breakers], and recovery queues — never bare try/catch.
 - All data is **Zod-validated** at the boundary. Invalid data is quarantined, not silently accepted.
 
 **The Emergence Stack:**
@@ -51,7 +53,7 @@ Layer 0 — DATA               Markdown, Canvas graphs, Zod schemas, ECS compone
 |Feature|DF|RimWorld|Sims|Lords & Villeins|Stanford Agents|**Meridian**|
 |---|---|---|---|---|---|---|
 |Autonomous agents|✓✓✓|✓✓|✓✓|✓|✓✓✓|✓✓✓|
-|LLM integration|✗|✗|✗|✗|✓✓✓|✓✓ (hybrid)|
+|LLM integration|✗|✗|✗|✗|✓✓✓|— (planned)|
 |Production economy|✓✓✓|✓✓|✗|✓✓✓|✗|✓✓|
 |Supply/demand pricing|✓|✗|✗|✓✓✓|✗|✓✓|
 |Relationship graphs|✓✓|✓|✓✓|✓|✓✓✓|✓✓ (Canvas)|
@@ -80,7 +82,7 @@ You are the hand behind the curtain — placing farms and quest boards, watching
 - **Autonomous brains** — agents with BTs and optional LLM; animals with instinct BTs.
 - **Data-driven reality** — the Obsidian vault _is_ the database. Markdown, Canvas, JSON.
 - **Director-as-player** — indirect control through quests, zones, object placement, and dialogue.
-- **Resilient runtime** — Result types, circuit breakers, retry queues, entity suspension.
+- **Resilient runtime** — Result types, [PLANNED: circuit breakers], retry queues, entity suspension.
 - **Zod-validated pipeline** — schemas are the single source of truth for types and validation.
 
 ### 1.6 Target Experience

@@ -142,6 +142,7 @@ function buildResolveNearbyFacilities(actor: AgentActor, deps: BehaviorAgentDeps
 				distance: nearLoc.distance,
 				hasUnmetInput,
 				workerId: facility.state.workerId,
+				wage: locData.production?.wage ?? 0,
 			});
 		}
 
@@ -1117,6 +1118,106 @@ describe('bt-conditions', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { conditions } = makeConditions(actor, setupDeps(actor));
 			expect(conditions.FacilityNeedsSupply()).toBe(false);
+		});
+	});
+
+	describe('BetterPayAvailable', () => {
+		it('returns false when agent has no job', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { conditions } = makeConditions(actor, setupDeps(actor));
+			expect(conditions.BetterPayAvailable()).toBe(false);
+		});
+
+		it('returns false when no open facilities nearby', () => {
+			const actor = new AgentActor(createTestAgentData('a1', { job: 'farmer' }), defaultMoodConfig);
+			const { conditions } = makeConditions(actor, setupDeps(actor));
+			expect(conditions.BetterPayAvailable()).toBe(false);
+		});
+
+		it('returns false when no facility offers higher effective wage', () => {
+			const actor = new AgentActor(createTestAgentData('a1', { job: 'farmer' }), defaultMoodConfig);
+			const farmLoc = makeLocation('farm-1', 'food', 110, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 10,
+			});
+			const locActor = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: actor.agentId });
+			const locationActors = new Map<string, Actor>([['farm-1', locActor]]);
+			actor.get(PerceptionComponent).state = {
+				nearbyAgents: [],
+				nearbyLocations: [{ id: 'farm-1', type: 'food', distance: 10 }],
+			};
+			const deps = setupDeps(actor, {
+				config: GameConfigSchema.parse({ jobs: { definitions: { farmer: { primary_attribute: 'HT', behavior_tree: 'bt-farmer' } } } }),
+				getLocationActors: () => locationActors,
+				getLocations: () => [farmLoc],
+			});
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.BetterPayAvailable()).toBe(false);
+		});
+
+		it('returns true when open facility offers higher wage', () => {
+			const actor = new AgentActor(createTestAgentData('a1', { job: 'farmer' }), defaultMoodConfig);
+			const farmLoc = makeLocation('farm-1', 'food', 110, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 5,
+			});
+			const betterFarmLoc = makeLocation('farm-2', 'food', 120, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 15,
+			});
+			const locActor1 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: actor.agentId });
+			const locActor2 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null });
+			const locationActors = new Map<string, Actor>([['farm-1', locActor1], ['farm-2', locActor2]]);
+			actor.get(PerceptionComponent).state = {
+				nearbyAgents: [],
+				nearbyLocations: [
+					{ id: 'farm-1', type: 'food', distance: 10 },
+					{ id: 'farm-2', type: 'food', distance: 20 },
+				],
+			};
+			const deps = setupDeps(actor, {
+				config: GameConfigSchema.parse({ jobs: { definitions: { farmer: { primary_attribute: 'HT', behavior_tree: 'bt-farmer' } } } }),
+				getLocationActors: () => locationActors,
+				getLocations: () => [farmLoc, betterFarmLoc],
+			});
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.BetterPayAvailable()).toBe(true);
+		});
+
+		it('accounts for aptitude efficiency in effective wage comparison', () => {
+			// Agent has high IQ (15) but low HT (5). Current job: farmer (HT-based, wage 10).
+			// Available job: scholar (IQ-based, wage 8). Scholar effective = 8 * 15/10 = 12 > farmer effective = 10 * 5/10 = 5.
+			const actor = new AgentActor(createTestAgentData('a1', {
+				job: 'farmer',
+				attributes: { ST: 10, DX: 10, IQ: 15, HT: 5 },
+			}), defaultMoodConfig);
+			const farmLoc = makeLocation('farm-1', 'food', 110, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 10,
+			});
+			const scholarLoc = makeLocation('library-1', 'workshop', 120, 200, {
+				job: 'scholar', output: { item_id: 'scroll', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 8,
+			});
+			const locActor1 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: actor.agentId });
+			const locActor2 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null });
+			const locationActors = new Map<string, Actor>([['farm-1', locActor1], ['library-1', locActor2]]);
+			actor.get(PerceptionComponent).state = {
+				nearbyAgents: [],
+				nearbyLocations: [
+					{ id: 'farm-1', type: 'food', distance: 10 },
+					{ id: 'library-1', type: 'workshop', distance: 20 },
+				],
+			};
+			const deps = setupDeps(actor, {
+				config: GameConfigSchema.parse({
+					jobs: {
+						definitions: {
+							farmer: { primary_attribute: 'HT', behavior_tree: 'bt-farmer' },
+							scholar: { primary_attribute: 'IQ', behavior_tree: 'bt-scholar' },
+						},
+					},
+				}),
+				getLocationActors: () => locationActors,
+				getLocations: () => [farmLoc, scholarLoc],
+			});
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.BetterPayAvailable()).toBe(true);
 		});
 	});
 });

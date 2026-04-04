@@ -130,12 +130,12 @@ export function parseGossipData(entry: MemoryEntry): GossipData | null {
 		) return null;
 		return {
 			gossipType: 'location',
-			locationId: meta['locationId'] as string,
-			locationType: meta['locationType'] as string,
+			locationId: meta['locationId'],
+			locationType: meta['locationType'],
 			position: { x: pos.x, y: pos.y },
-			reliability: meta['reliability'] as number,
-			sourceAgentId: meta['sourceAgentId'] as string,
-			hopCount: meta['hopCount'] as number,
+			reliability: meta['reliability'],
+			sourceAgentId: meta['sourceAgentId'],
+			hopCount: meta['hopCount'],
 		};
 	}
 
@@ -149,11 +149,11 @@ export function parseGossipData(entry: MemoryEntry): GossipData | null {
 		) return null;
 		return {
 			gossipType: 'reputation',
-			subjectAgentId: meta['subjectAgentId'] as string,
-			dispositionBias: meta['dispositionBias'] as number,
-			reliability: meta['reliability'] as number,
-			sourceAgentId: meta['sourceAgentId'] as string,
-			hopCount: meta['hopCount'] as number,
+			subjectAgentId: meta['subjectAgentId'],
+			dispositionBias: meta['dispositionBias'],
+			reliability: meta['reliability'],
+			sourceAgentId: meta['sourceAgentId'],
+			hopCount: meta['hopCount'],
 		};
 	}
 

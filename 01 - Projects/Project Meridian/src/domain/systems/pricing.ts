@@ -1,3 +1,5 @@
+import { clamp } from '../core/math-utils.js';
+
 export interface PricingInput {
 	baseValue: number;
 	demandRate: number;
@@ -18,8 +20,4 @@ export function calculatePostedPrice(input: PricingInput): number {
 		: 1.0;
 	const raw = input.baseValue * scarcity * locationMod * pipeline;
 	return clamp(raw, input.baseValue * input.clampMin, input.baseValue * input.clampMax);
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.max(min, Math.min(max, value));
 }

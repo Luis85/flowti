@@ -73,6 +73,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 				distance: nearLoc.distance,
 				hasUnmetInput,
 				workerId: facility.state.workerId,
+				wage: locData.production?.wage ?? 0,
 			});
 		}
 

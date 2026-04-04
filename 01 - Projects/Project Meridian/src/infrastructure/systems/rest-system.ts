@@ -126,10 +126,8 @@ export function createRestSystem(
 							const restLocationActor = locationActors.get(nearestRest.id);
 							if (restLocationActor !== undefined) {
 								const facility = restLocationActor.get(FacilityComponent);
-								if (facility !== undefined) {
-									facility.state = { ...facility.state, fund: facility.state.fund + restPrice };
-									facility.markDirty();
-								}
+								facility.state = { ...facility.state, fund: facility.state.fund + restPrice };
+								facility.markDirty();
 							}
 						}
 

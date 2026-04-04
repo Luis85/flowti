@@ -39,7 +39,7 @@ export function calculateMonetarySnapshot(
 	for (const f of recent) {
 		if (f.category === 'transfer') transferVolume += f.amount;
 		else if (f.category === 'faucet') faucetTotal += f.amount;
-		else if (f.category === 'sink') sinkTotal += f.amount;
+		else sinkTotal += f.amount;
 	}
 
 	return {

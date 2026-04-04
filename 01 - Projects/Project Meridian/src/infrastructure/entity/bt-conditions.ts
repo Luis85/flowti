@@ -7,6 +7,7 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { TimeComponent } from '../components/time-component.js';
+import { AttributesComponent } from '../components/attributes-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { findFoodInInventory, FOOD_ITEMS, TRADE_GOODS } from '../../domain/systems/food-items.js';
 import { isPriceStale } from '../../domain/systems/price-memory.js';
@@ -45,6 +46,7 @@ export interface ConditionMethods {
 	NeedsTools(): boolean;
 	NeedsEquipment(): boolean;
 	CanAffordItem(itemId: string): boolean;
+	BetterPayAvailable(): boolean;
 }
 
 export function createConditions(
@@ -268,6 +270,30 @@ export function createConditions(
 				cheapestPrice = config.economy.food_price; // fallback
 			}
 			return actor.get(WalletComponent).state.gold >= cheapestPrice;
+		},
+
+		BetterPayAvailable(): boolean {
+			if (actor.job === null) return false;
+			const facilities = resolveNearbyFacilities();
+			const { jobs: jobsConfig } = deps.config;
+			const baseline = jobsConfig.aptitude_baseline;
+			const attrs = actor.get(AttributesComponent).state as unknown as Record<string, number>;
+
+			// Current job effective wage
+			const currentFacility = facilities.find(f => f.workerId === actor.agentId);
+			const currentWage = currentFacility?.wage ?? 0;
+			const currentJobDef = jobsConfig.definitions[actor.job];
+			const currentApt = currentJobDef !== undefined ? (attrs[currentJobDef.primary_attribute] ?? baseline) : baseline;
+			const currentEffective = currentWage * (currentApt / baseline);
+
+			// Best available open position
+			for (const f of facilities) {
+				if (f.workerId !== null || f.job === '') continue;
+				const jobDef = jobsConfig.definitions[f.job];
+				const apt = jobDef !== undefined ? (attrs[jobDef.primary_attribute] ?? baseline) : baseline;
+				if (f.wage * (apt / baseline) > currentEffective) return true;
+			}
+			return false;
 		},
 	};
 }

@@ -32,6 +32,7 @@ export interface ActionMethods {
 	ClaimJob(): ActionResult;
 	ClaimBestJob(): ActionResult;
 	ReleaseJob(): ActionResult;
+	SwitchJob(): ActionResult;
 	Work(): ActionResult;
 	Talk(): ActionResult;
 	SeekWork(): ActionResult;
@@ -342,6 +343,43 @@ export function createActions(
 			memory.unemployedTicks = 0;
 			memory.btAction = null;
 			deps.swapBehaviorTree?.(null);
+			return SUCCEEDED;
+		},
+
+		SwitchJob(): ActionResult {
+			const facilities = resolveNearbyFacilities();
+			const { jobs: jobsConfig } = deps.config;
+			const baseline = jobsConfig.aptitude_baseline;
+			const attrs = actor.get(AttributesComponent).state as unknown as Record<string, number>;
+
+			const currentWage = facilities.find(f => f.workerId === actor.agentId)?.wage ?? 0;
+			const currentJobDef = actor.job !== null ? jobsConfig.definitions[actor.job] : undefined;
+			const currentApt = currentJobDef !== undefined ? (attrs[currentJobDef.primary_attribute] ?? baseline) : baseline;
+			const currentEffective = currentWage * (currentApt / baseline);
+
+			let bestFacility: PerceivedFacility | null = null;
+			let bestEffective = currentEffective;
+			for (const f of facilities) {
+				if (f.workerId !== null || f.job === '') continue;
+				const jobDef = jobsConfig.definitions[f.job];
+				const apt = jobDef !== undefined ? (attrs[jobDef.primary_attribute] ?? baseline) : baseline;
+				const effective = f.wage * (apt / baseline);
+				if (effective > bestEffective) { bestFacility = f; bestEffective = effective; }
+			}
+
+			if (bestFacility === null) return FAILED;
+
+			const oldJob = actor.job;
+			actor.job = bestFacility.job;
+			memory.btAction = 'switch_job';
+			deps.eventBus.emit({
+				type: 'JobSwitched',
+				tick: deps.tickCount(),
+				wallClock: Date.now(),
+				source: 'BehaviorAgent',
+				payload: { agentId: actor.agentId, oldJob, newJob: bestFacility.job, oldWage: currentWage, newWage: bestFacility.wage },
+			});
+			deps.swapBehaviorTree?.(bestFacility.job);
 			return SUCCEEDED;
 		},
 

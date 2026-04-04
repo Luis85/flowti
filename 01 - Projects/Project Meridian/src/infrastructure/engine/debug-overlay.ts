@@ -194,7 +194,7 @@ function renderWorldPanel(deps: OverlayDeps): string {
 	// Non-facility locations
 	const nonFacilities = locations.filter(l => {
 		const a = locationActors.get(l.id);
-		return a === undefined || !a.has(FacilityComponent);
+		return a?.has(FacilityComponent) !== true;
 	});
 	if (nonFacilities.length > 0) {
 		lines.push('<br><b style="color:#89b4fa">Locations</b>');
@@ -238,7 +238,7 @@ function renderEconomyPanel(deps: OverlayDeps): string {
 	const facLines: string[] = [];
 	for (const loc of locations) {
 		const actor = locationActors.get(loc.id);
-		if (actor === undefined || !actor.has(FacilityComponent)) continue;
+		if (actor?.has(FacilityComponent) !== true) continue;
 		const fund = actor.get(FacilityComponent).state.fund;
 		totalFacility += fund;
 		facLines.push(`${loc.name}: <b>${fund.toFixed(0)}g</b>`);
@@ -258,7 +258,7 @@ function renderEconomyPanel(deps: OverlayDeps): string {
 	const marketLoc = locations.find(l => l.type === 'market');
 	if (marketLoc !== undefined) {
 		const marketActor = locationActors.get(marketLoc.id);
-		if (marketActor !== undefined && marketActor.has(FacilityComponent)) {
+		if (marketActor?.has(FacilityComponent) === true) {
 			const market = marketActor.get(FacilityComponent);
 			const prices = market.state.currentPrices ?? {};
 			const priceEntries = Object.entries(prices);
@@ -369,7 +369,7 @@ export function createDebugOverlay(
 		border: 1px solid var(--background-modifier-border, #45475a);
 		opacity: 0.92; pointer-events: auto;
 	`;
-	container.style.position = 'relative';
+	container.addClass('meridian-debug-container');
 	container.appendChild(el);
 
 	let activePanel: Panel = 'agents';
@@ -379,9 +379,9 @@ export function createDebugOverlay(
 
 	// Tab click handler
 	el.addEventListener('click', (e) => {
-		const target = (e.target as HTMLElement).closest('.meridian-tab') as HTMLElement | null;
+		const target = (e.target as HTMLElement).closest('.meridian-tab');
 		if (target === null) return;
-		const tab = target.dataset.tab as Panel | undefined;
+		const tab = (target as HTMLElement).dataset['tab'] as Panel | undefined;
 		if (tab !== undefined) {
 			activePanel = tab;
 			update();
@@ -456,7 +456,10 @@ export function createDebugOverlay(
 			case 'stats': body = renderStatsPanel(history, deps); break;
 		}
 
-		el.innerHTML = `${header}<br>${renderTabBar(activePanel)}${body}`;
+		while (el.firstChild !== null) el.removeChild(el.firstChild);
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		el.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel)}${body}`));
 	}
 
 	const interval = setInterval(update, 1000);

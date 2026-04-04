@@ -11,3 +11,8 @@ export function distance(ax: number, ay: number, bx: number, by: number): number
 	const dy = by - ay;
 	return Math.sqrt(dx * dx + dy * dy);
 }
+
+/** Canonical sorted pair key for deduplicating symmetric interactions. */
+export function pairKey(a: string, b: string): string {
+	return a < b ? `${a}:${b}` : `${b}:${a}`;
+}

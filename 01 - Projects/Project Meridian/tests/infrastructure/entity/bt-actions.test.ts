@@ -143,6 +143,7 @@ function makeResolveNearbyFacilities(
 				distance: nearLoc.distance,
 				hasUnmetInput,
 				workerId: facility.state.workerId,
+				wage: locData.production?.wage ?? 0,
 			});
 		}
 		return facilities;
@@ -1572,6 +1573,136 @@ describe('bt-actions: createActions', () => {
 				}
 				expect(found).toBe(true);
 			});
+		});
+	});
+
+	describe('SwitchJob', () => {
+		it('returns FAILED when no better facility available', () => {
+			const actor = new AgentActor(createTestAgentData('a1', { job: 'farmer' }), defaultMoodConfig);
+			const { actions } = setupActions(actor);
+			expect(actions.SwitchJob()).toBe('mistreevous.failed');
+		});
+
+		it('releases current job and claims better one', () => {
+			const actor = new AgentActor(createTestAgentData('a1', { job: 'farmer' }), defaultMoodConfig);
+			const farmLoc = makeLocation('farm-1', 'food', 110, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 5,
+			});
+			const betterFarmLoc = makeLocation('farm-2', 'food', 120, 200, {
+				job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 15,
+			});
+			const locActor1 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: actor.agentId });
+			const locActor2 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null });
+			const locationActors = new Map<string, Actor>([['farm-1', locActor1], ['farm-2', locActor2]]);
+			actor.get(PerceptionComponent).state = {
+				nearbyAgents: [],
+				nearbyLocations: [
+					{ id: 'farm-1', type: 'food', distance: 10 },
+					{ id: 'farm-2', type: 'food', distance: 20 },
+				],
+			};
+			const deps: Partial<BehaviorAgentDeps> = {
+				config: GameConfigSchema.parse({
+					jobs: {
+						definitions: {
+							farmer: { primary_attribute: 'HT', behavior_tree: 'bt-farmer' },
+							baker: { primary_attribute: 'HT', behavior_tree: 'bt-baker' },
+						},
+					},
+				}),
+				getLocationActors: () => locationActors,
+				getLocations: () => [farmLoc, betterFarmLoc],
+			};
+			const { actions } = setupActions(actor, deps);
+			const result = actions.SwitchJob();
+			expect(result).toBe('mistreevous.succeeded');
+			expect(actor.job).toBe('baker');
+		});
+
+		it('emits JobSwitched event with old/new details', () => {
+			const actor = new AgentActor(createTestAgentData('a1', { job: 'farmer' }), defaultMoodConfig);
+			const farmLoc = makeLocation('farm-1', 'food', 110, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 5,
+			});
+			const betterLoc = makeLocation('shop-1', 'workshop', 120, 200, {
+				job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 15,
+			});
+			const locActor1 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: actor.agentId });
+			const locActor2 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null });
+			const locationActors = new Map<string, Actor>([['farm-1', locActor1], ['shop-1', locActor2]]);
+			actor.get(PerceptionComponent).state = {
+				nearbyAgents: [],
+				nearbyLocations: [
+					{ id: 'farm-1', type: 'food', distance: 10 },
+					{ id: 'shop-1', type: 'workshop', distance: 20 },
+				],
+			};
+			const emitted: unknown[] = [];
+			const eventBus: EventBus = {
+				emit: (e: unknown) => { emitted.push(e); },
+				on: () => () => {},
+				off: () => {},
+				onAny: () => () => {},
+				filter: () => () => {},
+				history: () => [],
+			};
+			const deps: Partial<BehaviorAgentDeps> = {
+				config: GameConfigSchema.parse({
+					jobs: {
+						definitions: {
+							farmer: { primary_attribute: 'HT', behavior_tree: 'bt-farmer' },
+							baker: { primary_attribute: 'HT', behavior_tree: 'bt-baker' },
+						},
+					},
+				}),
+				getLocationActors: () => locationActors,
+				getLocations: () => [farmLoc, betterLoc],
+				eventBus,
+			};
+			const { actions } = setupActions(actor, deps);
+			actions.SwitchJob();
+			expect(emitted.length).toBe(1);
+			const event = emitted[0] as { type: string; payload: { agentId: string; oldJob: string; newJob: string } };
+			expect(event.type).toBe('JobSwitched');
+			expect(event.payload.oldJob).toBe('farmer');
+			expect(event.payload.newJob).toBe('baker');
+		});
+
+		it('triggers BT swap via swapBehaviorTree', () => {
+			const actor = new AgentActor(createTestAgentData('a1', { job: 'farmer' }), defaultMoodConfig);
+			const farmLoc = makeLocation('farm-1', 'food', 110, 200, {
+				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 5,
+			});
+			const betterLoc = makeLocation('shop-1', 'workshop', 120, 200, {
+				job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 15,
+			});
+			const locActor1 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: actor.agentId });
+			const locActor2 = createLocationActor({ stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null });
+			const locationActors = new Map<string, Actor>([['farm-1', locActor1], ['shop-1', locActor2]]);
+			actor.get(PerceptionComponent).state = {
+				nearbyAgents: [],
+				nearbyLocations: [
+					{ id: 'farm-1', type: 'food', distance: 10 },
+					{ id: 'shop-1', type: 'workshop', distance: 20 },
+				],
+			};
+			let swappedTo: string | null | undefined;
+			const deps: Partial<BehaviorAgentDeps> = {
+				config: GameConfigSchema.parse({
+					jobs: {
+						definitions: {
+							farmer: { primary_attribute: 'HT', behavior_tree: 'bt-farmer' },
+							baker: { primary_attribute: 'HT', behavior_tree: 'bt-baker' },
+						},
+					},
+				}),
+				getLocationActors: () => locationActors,
+				getLocations: () => [farmLoc, betterLoc],
+				swapBehaviorTree: (job) => { swappedTo = job; },
+			};
+			const { actions } = setupActions(actor, deps);
+			actions.SwitchJob();
+			expect(swappedTo).toBe('baker');
 		});
 	});
 });

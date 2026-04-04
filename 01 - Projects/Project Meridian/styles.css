@@ -29,6 +29,11 @@
 	height: 100%;
 }
 
+/* Debug overlay container needs relative positioning for absolute overlay */
+.meridian-debug-container {
+	position: relative;
+}
+
 /* Loading overlay */
 .meridian-loading {
 	position: absolute;

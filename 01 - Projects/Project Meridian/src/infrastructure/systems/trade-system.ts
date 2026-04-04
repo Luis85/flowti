@@ -32,7 +32,7 @@ function findNearestFacilityWithItem(
 
 	for (const loc of locationList) {
 		const locActor = locationActorMap.get(loc.id);
-		if (locActor === undefined || !locActor.has(FacilityComponent)) continue;
+		if (locActor?.has(FacilityComponent) !== true) continue;
 		const dist = distance(agent.pos.x, agent.pos.y, loc.position.x, loc.position.y);
 		if (dist > radius || dist >= nearestDist) continue;
 
@@ -107,7 +107,7 @@ function applySuccessfulTrade(
 	// Relationship update if facility has a worker
 	const facilityComp = target.actor.get(FacilityComponent);
 	if (facilityComp.state.workerId !== null) {
-		applyBuyerRelationship(agent, facilityComp.state);
+		applyBuyerRelationship(agent, facilityComp.state, deps.tickCount);
 	}
 
 	deps.eventBus.emit({
@@ -164,7 +164,7 @@ function updateFacilityAfterSale(facilityActor: Actor, itemId: string, fundChang
 	facilityComp.markDirty();
 }
 
-function applyBuyerRelationship(agent: AgentActor, facilityState: FacilityState): void {
+function applyBuyerRelationship(agent: AgentActor, facilityState: FacilityState, tickCount: number): void {
 	if (facilityState.workerId === null) return;
 	const agentRelComp = agent.get(RelationshipComponent);
 	const workerId = facilityState.workerId;
@@ -181,7 +181,7 @@ function applyBuyerRelationship(agent: AgentActor, facilityState: FacilityState)
 		disposition: relResult.newDisposition,
 		familiarity: relResult.newFamiliarity,
 		tags: existingTags.includes('traded_with') ? [...existingTags] : [...existingTags, 'traded_with'],
-		lastInteractionTick: 0,
+		lastInteractionTick: tickCount,
 	};
 	const updatedEntries = existingRel !== undefined
 		? agentRelComp.state.entries.map(e => e.agentId === workerId ? newEntry : { ...e })
