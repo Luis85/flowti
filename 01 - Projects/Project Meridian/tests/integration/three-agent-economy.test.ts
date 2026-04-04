@@ -119,7 +119,7 @@ function createWorldEntity(): Actor {
 
 function createWorldWithTime(): Actor {
 	const actor = new Actor();
-	actor.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
+	actor.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0, dayBoundaryThisTick: false }));
 	actor.addComponent(new EconomyComponent({
 		treasury: 500,
 		ledger: [],

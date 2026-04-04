@@ -63,7 +63,7 @@ function createTestAgentData(id: string, overrides: Record<string, unknown> = {}
 
 function createWorldEntity(phase: 'dawn' | 'day' | 'dusk' | 'night' = 'day'): Actor {
 	const world = new Actor();
-	world.addComponent(new TimeComponent({ phase, tickInCycle: 0, dayCount: 0 }));
+	world.addComponent(new TimeComponent({ phase, tickInCycle: 0, dayCount: 0, dayBoundaryThisTick: false }));
 	world.addComponent(new EconomyComponent({
 		treasury: 500,
 		ledger: [],
@@ -1682,7 +1682,7 @@ describe('BehaviorAgent factory', () => {
 			const config = GameConfigSchema.parse({});
 			const world = createWorldEntity('dawn');
 			// Set tickInCycle to 0 — very start of dawn
-			world.get(TimeComponent).state = { phase: 'dawn', tickInCycle: 0, dayCount: 0 };
+			world.get(TimeComponent).state = { phase: 'dawn', tickInCycle: 0, dayCount: 0, dayBoundaryThisTick: false };
 
 			const agentA = new AgentActor(createTestAgentData('agent-aldric'), defaultMoodConfig);
 			const agentB = new AgentActor(createTestAgentData('agent-bram'), defaultMoodConfig);

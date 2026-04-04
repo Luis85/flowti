@@ -17,7 +17,7 @@ import type { WorldLocation } from '../../../src/domain/schemas/location-schema.
 
 function createWorldEntity(): Actor {
 	const actor = new Actor();
-	actor.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
+	actor.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0, dayBoundaryThisTick: false }));
 	return actor;
 }
 
@@ -50,7 +50,7 @@ describe('DayNightSystem', () => {
 	it('emits DayPhaseChanged event when phase transitions', () => {
 		const worldEntity = createWorldEntity();
 		// Manually set phase to 'dawn' so the transition to 'day' is detectable
-		worldEntity.get(TimeComponent).state = { phase: 'dawn', tickInCycle: 59, dayCount: 0 };
+		worldEntity.get(TimeComponent).state = { phase: 'dawn', tickInCycle: 59, dayCount: 0, dayBoundaryThisTick: false };
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];
 		eventBus.on('DayPhaseChanged', (e) => { events.push(e); });
@@ -67,7 +67,7 @@ describe('DayNightSystem', () => {
 
 	it('does not emit DayPhaseChanged when phase is unchanged', () => {
 		const worldEntity = createWorldEntity();
-		worldEntity.get(TimeComponent).state = { phase: 'day', tickInCycle: 61, dayCount: 0 };
+		worldEntity.get(TimeComponent).state = { phase: 'day', tickInCycle: 61, dayCount: 0, dayBoundaryThisTick: false };
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];
 		eventBus.on('DayPhaseChanged', (e) => { events.push(e); });
@@ -116,7 +116,7 @@ function createTestAgentData(id: string, overrides: Record<string, unknown> = {}
 
 function createWorldWithEconomy(dailySummary = { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 }): Actor {
 	const actor = new Actor();
-	actor.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
+	actor.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0, dayBoundaryThisTick: false }));
 	actor.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary }));
 	return actor;
 }

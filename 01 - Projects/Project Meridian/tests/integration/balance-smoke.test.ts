@@ -105,7 +105,7 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 
 		// Create world entity with time and economy
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0, dayBoundaryThisTick: false }));
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: config.economy.treasury_start_sandbox,
 			ledger: [],

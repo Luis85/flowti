@@ -93,7 +93,7 @@ describe('mistreevous BT integration', () => {
 		const actor = new AgentActor(elenaData, defaultMoodConfig);
 
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'dusk', tickInCycle: 300, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'dusk', tickInCycle: 300, dayCount: 0, dayBoundaryThisTick: false }));
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: 500, ledger: [],
 			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
@@ -179,7 +179,7 @@ describe('mistreevous BT integration', () => {
 		const actor = new AgentActor(elenaData, defaultMoodConfig);
 
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'dusk', tickInCycle: 300, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'dusk', tickInCycle: 300, dayCount: 0, dayBoundaryThisTick: false }));
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: 500, ledger: [],
 			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },

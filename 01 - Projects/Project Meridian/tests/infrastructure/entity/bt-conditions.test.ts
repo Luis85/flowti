@@ -66,7 +66,7 @@ function createTestAgentData(id: string, overrides: Record<string, unknown> = {}
 
 function createWorldEntity(phase: 'dawn' | 'day' | 'dusk' | 'night' = 'day', tickInCycle = 0): Actor {
 	const world = new Actor();
-	world.addComponent(new TimeComponent({ phase, tickInCycle, dayCount: 0 }));
+	world.addComponent(new TimeComponent({ phase, tickInCycle, dayCount: 0, dayBoundaryThisTick: false }));
 	world.addComponent(new EconomyComponent({
 		treasury: 500,
 		ledger: [],

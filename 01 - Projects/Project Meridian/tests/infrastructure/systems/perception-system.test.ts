@@ -46,7 +46,7 @@ function createTestAgentData(overrides: Record<string, unknown> = {}) {
 
 function createWorldEntityWithPhase(phase: 'dawn' | 'day' | 'dusk' | 'night'): Actor {
 	const actor = new Actor();
-	actor.addComponent(new TimeComponent({ phase, tickInCycle: 0, dayCount: 0 }));
+	actor.addComponent(new TimeComponent({ phase, tickInCycle: 0, dayCount: 0, dayBoundaryThisTick: false }));
 	return actor;
 }
 

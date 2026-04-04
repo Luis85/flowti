@@ -52,6 +52,7 @@ export interface TimeState {
 	phase: 'dawn' | 'day' | 'dusk' | 'night';
 	tickInCycle: number;
 	dayCount: number;
+	dayBoundaryThisTick: boolean;
 }
 
 export interface PerceptionState {

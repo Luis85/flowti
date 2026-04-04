@@ -49,7 +49,7 @@ function createTestAgent(id: string, name: string, kind: string, x: number, y: n
 
 function createWorldEntity(): Actor {
 	const world = new Actor();
-	world.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+	world.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0, dayBoundaryThisTick: false }));
 	world.addComponent(new EconomyComponent({
 		treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
 	}));

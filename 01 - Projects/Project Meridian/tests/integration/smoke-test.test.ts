@@ -103,7 +103,7 @@ describe('Smoke Test — Real Data', () => {
 		});
 
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0, dayBoundaryThisTick: false }));
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: 500, ledger: [],
 			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
@@ -202,7 +202,7 @@ describe('Smoke Test — Real Data', () => {
 		const preTickNeeds = actors.map(a => ({ ...a.get(NeedsComponent).state }));
 
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0, dayBoundaryThisTick: false }));
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: 500, ledger: [],
 			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },

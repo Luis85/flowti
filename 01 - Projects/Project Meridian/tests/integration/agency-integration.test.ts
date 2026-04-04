@@ -81,7 +81,7 @@ describe('Agency Integration', () => {
 		} as typeof agent.behaviorTree;
 
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0, dayBoundaryThisTick: false }));
 
 		const getAgents = () => [agent];
 		const getLocations = () => [foodLocation];
@@ -122,7 +122,7 @@ describe('Agency Integration', () => {
 
 		// Pre-set night phase in the world entity — skip DayNightSystem so the phase stays 'night'.
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'night', tickInCycle: 400, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'night', tickInCycle: 400, dayCount: 0, dayBoundaryThisTick: false }));
 
 		const getAgents = () => [agent];
 		const getLocations = () => [farFood];
@@ -177,7 +177,7 @@ describe('Agency Integration', () => {
 		agent.behaviorAgent.movementTarget = { id: 'loc-near', type: 'location' };
 
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'day', tickInCycle: 60, dayCount: 0, dayBoundaryThisTick: false }));
 
 		const getAgents = () => [agent];
 		const getLocations = () => [nearFood];

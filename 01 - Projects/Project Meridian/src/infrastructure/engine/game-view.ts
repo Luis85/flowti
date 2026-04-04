@@ -183,7 +183,7 @@ export class MeridianGameView extends ItemView {
 
 		// Create world entity for time state + economy
 		const worldEntity = new ex.Actor();
-		worldEntity.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0 }));
+		worldEntity.addComponent(new TimeComponent({ phase: 'dawn', tickInCycle: 0, dayCount: 0, dayBoundaryThisTick: false }));
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: deps.config.economy.treasury_start_sandbox,
 			ledger: [],

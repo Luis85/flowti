@@ -44,7 +44,7 @@ export function advanceTime(
 	const phaseChanged = phase !== previousPhase;
 
 	return {
-		state: { phase, tickInCycle, dayCount },
+		state: { phase, tickInCycle, dayCount, dayBoundaryThisTick: false },
 		phaseChanged,
 		previousPhase,
 	};
