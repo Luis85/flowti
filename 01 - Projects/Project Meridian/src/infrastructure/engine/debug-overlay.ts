@@ -436,13 +436,61 @@ export function createDebugOverlay(
 		if (history.length > MAX_HISTORY) history.shift();
 	}
 
+	// Occupancy badge labels — one per location actor
+	const occupancyLabels = new Map<string, ex.Label>();
+
+	function ensureOccupancyLabel(locId: string, locActor: Actor): ex.Label {
+		let label = occupancyLabels.get(locId);
+		if (label === undefined) {
+			label = new ex.Label({
+				text: '',
+				pos: ex.vec(0, 18),
+				font: new ex.Font({ size: 11, unit: ex.FontUnit.Px, color: ex.Color.White, bold: true }),
+			});
+			locActor.addChild(label);
+			occupancyLabels.set(locId, label);
+		}
+		return label;
+	}
+
 	function update(): void {
-		// Update thought bubbles regardless of active panel
+		// Update thought bubbles + hide agents inside facilities
 		for (const agent of deps.getAgents()) {
 			const action = agent.behaviorAgent.btAction ?? 'idle';
 			const actionInfo = ACTION_DISPLAY[action] ?? { emoji: '❓', label: action };
 			const bubble = ensureThoughtBubble(agent);
 			bubble.text = `${actionInfo.emoji} ${actionInfo.label}`;
+
+			if (agent.behaviorAgent.insideFacility === true) {
+				agent.graphics.visible = false;
+				bubble.graphics.visible = false;
+			} else {
+				agent.graphics.visible = true;
+				bubble.graphics.visible = true;
+			}
+		}
+
+		// Occupancy badges on facility locations
+		const occupancyCounts = new Map<string, number>();
+		for (const agent of deps.getAgents()) {
+			const ba = agent.behaviorAgent;
+			if (ba.insideFacility === true && ba.atLocation !== null) {
+				occupancyCounts.set(ba.atLocation, (occupancyCounts.get(ba.atLocation) ?? 0) + 1);
+			}
+		}
+		const locationActors = deps.getLocationActors();
+		for (const [locId, locActor] of locationActors) {
+			const count = occupancyCounts.get(locId) ?? 0;
+			if (count > 0) {
+				const badge = ensureOccupancyLabel(locId, locActor);
+				badge.text = `x${count}`;
+				badge.graphics.visible = true;
+			} else {
+				const existing = occupancyLabels.get(locId);
+				if (existing !== undefined) {
+					existing.graphics.visible = false;
+				}
+			}
 		}
 
 		recordSnapshot();
@@ -473,6 +521,10 @@ export function createDebugOverlay(
 				label.kill();
 			}
 			thoughtLabels.clear();
+			for (const label of occupancyLabels.values()) {
+				label.kill();
+			}
+			occupancyLabels.clear();
 		},
 	};
 }

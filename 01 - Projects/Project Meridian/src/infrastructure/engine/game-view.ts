@@ -150,6 +150,9 @@ export class MeridianGameView extends ItemView {
 		const locationActors = new Map<string, ex.Actor>();
 		for (const loc of world.locations) {
 			const marker = createLocationMarker(loc);
+			if (loc.production !== null) {
+				marker.scale = ex.vec(2.0, 2.0);
+			}
 			engine.currentScene.add(marker);
 
 			if (loc.production !== null) {
