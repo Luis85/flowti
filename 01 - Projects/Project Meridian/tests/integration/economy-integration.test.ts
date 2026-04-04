@@ -77,7 +77,7 @@ describe('Economy integration', () => {
 
 		const locationActors = new Map([['loc-farm', farmActor], ['loc-bakery', bakeryActor]]);
 		const worldEntity = new Actor();
-		worldEntity.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 } }));
+		worldEntity.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 } }));
 
 		const allAgents = [farmer, baker, buyer];
 

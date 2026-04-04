@@ -83,7 +83,7 @@ export interface RelationshipState {
 
 export interface LedgerEntry {
 	tick: number;
-	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare' | 'stipend' | 'subsidy';
+	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare' | 'stipend' | 'subsidy' | 'quest_reward';
 	from: string;
 	to: string;
 	itemId: string | null;
@@ -107,6 +107,13 @@ export interface DailySummary {
 	totalTax: number;
 	totalSales: number;
 	totalConsumption: number;
+	avgWage: number;
+	wageSpread: number;
+	vacancyCount: number;
+	unemploymentCount: number;
+	jobSwitchesThisDay: number;
+	supplyDeliveries: number;
+	questsCompletedThisDay: number;
 }
 
 export interface EconomyState {
