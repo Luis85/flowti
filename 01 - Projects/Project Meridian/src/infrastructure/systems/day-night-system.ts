@@ -402,6 +402,12 @@ export function createDayNightSystem(
 			const entity = worldEntity();
 			const time = entity.get(TimeComponent);
 
+			// Clear boundary flag at start of each tick
+			if (time.state.dayBoundaryThisTick) {
+				time.state = { ...time.state, dayBoundaryThisTick: false };
+				time.markDirty();
+			}
+
 			const result = advanceTime(deps.tickCount, {
 				ticks_per_day: deps.config.ticks_per_day,
 				day_night: deps.config.day_night,
@@ -425,12 +431,35 @@ export function createDayNightSystem(
 				});
 			}
 
-			// Day boundary logic — welfare check + daily report + ledger pruning
+			// Day boundary — set flag and do treasury regen; other systems react to the flag
 			const dayIncremented = result.state.dayCount > previousDayCount && previousDayCount >= 0;
 			previousDayCount = result.state.dayCount;
 
 			if (dayIncremented) {
-				processDayBoundary(entity, result.state.dayCount, getAgents, getLocationActors, getLocations, deps, previousGold);
+				time.state = { ...time.state, dayBoundaryThisTick: true };
+				time.markDirty();
+
+				if (entity.has(EconomyComponent)) {
+					const economy = entity.get(EconomyComponent);
+					const agentList = getAgents?.() ?? [];
+					const treasuryRegen = deps.config.economy.treasury_regen_per_agent_per_day * agentList.length;
+					economy.state = { ...economy.state, treasury: economy.state.treasury + treasuryRegen };
+					economy.markDirty();
+
+					deps.eventBus.emit({
+						type: 'GoldFlowed',
+						tick: deps.tickCount,
+						wallClock: Date.now(),
+						source: 'DayNightSystem',
+						payload: {
+							category: 'faucet' as const,
+							subcategory: 'treasury_regen',
+							amount: treasuryRegen,
+							fromEntity: null,
+							toEntity: 'treasury',
+						},
+					});
+				}
 			}
 		},
 	};
