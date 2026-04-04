@@ -15,6 +15,11 @@ export interface TickScheduler {
 export const SystemPriority = {
 	TRAIT_RESOLVER: 0.5,
 	DAY_NIGHT: 0.7,
+	WELFARE: 0.8,
+	STIPEND: 0.81,
+	SUBSIDY: 0.82,
+	EQUIPMENT_DECAY: 0.83,
+	DAILY_REPORT: 0.84,
 	NEEDS_DECAY: 1,
 	MOOD: 2,
 	PERCEPTION: 3,

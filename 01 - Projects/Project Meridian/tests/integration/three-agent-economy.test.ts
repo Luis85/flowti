@@ -13,6 +13,7 @@ import { createEventBus } from '../../src/infrastructure/event-bus.js';
 import { createFacilitySystem } from '../../src/infrastructure/systems/facility-system.js';
 import { createNeedsDecaySystem } from '../../src/infrastructure/systems/needs-decay-system.js';
 import { createDayNightSystem } from '../../src/infrastructure/systems/day-night-system.js';
+import { createEquipmentDecaySystem } from '../../src/infrastructure/systems/equipment-decay-system.js';
 import { createBehaviorAgent } from '../../src/infrastructure/entity/behavior-agent-factory.js';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
@@ -286,13 +287,16 @@ describe('three-agent economy integration', () => {
 			defaultMoodConfig,
 		);
 
-		const system = createDayNightSystem(() => worldEntity, () => [agent]);
+		const dayNight = createDayNightSystem(() => worldEntity, () => [agent]);
+		const equipDecay = createEquipmentDecaySystem(() => worldEntity, () => [agent]);
 
 		// First tick to initialize previousDayCount
-		system.execute(createDeps(0));
+		dayNight.execute(createDeps(0));
 
-		// Tick at day boundary
-		system.execute(createDeps(config.ticks_per_day));
+		// Tick at day boundary — run both systems
+		const boundaryDeps = createDeps(config.ticks_per_day);
+		dayNight.execute(boundaryDeps);
+		equipDecay.execute(boundaryDeps);
 
 		const inv = agent.get(InventoryComponent);
 		const equip = inv.state.items.find(i => i.item_id === 'equipment');

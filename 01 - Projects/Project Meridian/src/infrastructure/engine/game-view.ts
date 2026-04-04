@@ -31,6 +31,11 @@ import { createGossipSystem } from '../systems/gossip-system.js';
 import { createRelationshipCheckpointSystem } from '../systems/relationship-checkpoint-system.js';
 import { createEconomySystem } from '../systems/economy-system.js';
 import { createMonetaryPolicySystem } from '../systems/monetary-policy-system.js';
+import { createWelfareSystem } from '../systems/welfare-system.js';
+import { createStipendSystem } from '../systems/stipend-system.js';
+import { createSubsidySystem } from '../systems/subsidy-system.js';
+import { createEquipmentDecaySystem } from '../systems/equipment-decay-system.js';
+import { createDailyReportSystem } from '../systems/daily-report-system.js';
 import { TimeComponent } from '../components/time-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
@@ -244,6 +249,11 @@ export class MeridianGameView extends ItemView {
 		// Register all systems (priority order handled by tick runner)
 		tickRunner.register(createTraitResolverSystem(getAgents, world.traitDefs));
 		tickRunner.register(createDayNightSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
+		tickRunner.register(createWelfareSystem(getWorldEntity, getAgents));
+		tickRunner.register(createStipendSystem(getWorldEntity, getAgents));
+		tickRunner.register(createSubsidySystem(getWorldEntity, getLocationActors, getLocations));
+		tickRunner.register(createEquipmentDecaySystem(getWorldEntity, getAgents));
+		tickRunner.register(createDailyReportSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
 		tickRunner.register(createNeedsDecaySystem(getAgents));
 		tickRunner.register(createMoodSystem(getAgents));
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
