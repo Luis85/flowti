@@ -835,6 +835,11 @@ export function createActions(
 				memory.committedAction = null;
 				return FAILED;
 			}
+			if (ca === 'buy' && needs.hunger >= memory.personalThresholds.hunger) {
+				memory.commitmentTicks = 0;
+				memory.committedAction = null;
+				return FAILED;
+			}
 			// Restore btAction so downstream systems (rest, needs-decay) see the correct activity
 			memory.btAction = memory.committedAction;
 			return RUNNING;

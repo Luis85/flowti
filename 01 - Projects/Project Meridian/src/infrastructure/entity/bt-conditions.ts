@@ -278,7 +278,8 @@ export function createConditions(
 				}
 			}
 			if (cheapestPrice === Infinity) {
-				cheapestPrice = config.economy.food_price; // fallback
+				const itemDef = config.items[itemId];
+				cheapestPrice = itemDef?.baseValue ?? config.economy.food_price;
 			}
 			return actor.get(WalletComponent).state.gold >= cheapestPrice;
 		},

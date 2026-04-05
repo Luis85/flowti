@@ -73,7 +73,7 @@ describe('AbandonmentSystem', () => {
 		expect(events[0]?.payload.lastWorker).toBeNull();
 	});
 
-	it('does not abandon if worker is present (fund=0 but workerId set)', () => {
+	it('abandons and evicts worker when fund=0 (worker present)', () => {
 		const loc = createLocation('loc-bakery');
 		const locActor = createFacilityActor(0, 'idle', 'agent-bob');
 		const locationActors = new Map<string, Actor>([['loc-bakery', locActor]]);
@@ -85,8 +85,9 @@ describe('AbandonmentSystem', () => {
 
 		system.execute(createDeps(eventBus));
 
-		expect(events.length).toBe(0);
-		expect(locActor.get(FacilityComponent).state.status).toBe('idle');
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.lastWorker).toBe('agent-bob');
+		expect(locActor.get(FacilityComponent).state.status).toBe('abandoned');
 	});
 
 	it('does not abandon if fund > 0', () => {

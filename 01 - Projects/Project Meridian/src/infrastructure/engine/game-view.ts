@@ -278,7 +278,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createMonetaryPolicySystem(getAgents, getWorldEntity));
 		tickRunner.register(createQuestEvaluationSystem(getWorldEntity, getAgents));
 		tickRunner.register(createQuestGenerationSystem(getWorldEntity, getLocationActors, getLocations));
-		tickRunner.register(createAbandonmentSystem(getLocationActors, getLocations));
+		tickRunner.register(createAbandonmentSystem(getLocationActors, getLocations, getAgents));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.jobTrees).length)} jobs, ${String(Object.keys(world.traitDefs).length)} traits`);
 

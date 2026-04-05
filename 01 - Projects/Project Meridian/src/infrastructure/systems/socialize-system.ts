@@ -36,11 +36,12 @@ export function createSocializeSystem(
 				if (processedPairs.has(key)) continue;
 				processedPairs.add(key);
 
-				// Find the partner AgentActor — both agents must be willing to talk
+				// Find the partner AgentActor — partner must be available (not in intense activity)
 				const partner = agentList.find(a => a.agentId === nearbyAgent.id);
 				if (partner === undefined) continue;
 				const partnerBtAction = partner.behaviorAgent.btAction;
-				if (partnerBtAction !== 'talk') continue;
+				const socialReceptive = partnerBtAction === null || partnerBtAction === 'talk' || partnerBtAction === 'idle' || partnerBtAction === 'wander' || partnerBtAction === 'rest' || partnerBtAction === 'seek_social';
+				if (!socialReceptive) continue;
 
 				// Read cooldown for this pair
 				const lastSocialTick = ba.socialCooldowns.get(nearbyAgent.id) ?? null;
