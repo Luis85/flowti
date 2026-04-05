@@ -30,12 +30,16 @@
 
 6. **`bt-conditions.ts` — `OpenProductionFacilityNearby()`** — Check `workerId === null` (same as now, but now authoritative).
 
-**Invariant**: `actor.job` and exactly one facility's `workerId` are always in sync. `ReleaseJob()` and `SwitchJob()` already clear `workerId` — they are the only release paths.
+7. **`bt-actions.ts` — `ReleaseJob()`** — Currently only clears `actor.job` and `memory.btAction` but does not touch `FacilityComponent.state.workerId`. Add `deps.releaseFacility()` call before clearing `actor.job`.
+
+8. **`bt-actions.ts` — `Work()` and `SeekWork()`** — Remove the `f.workerId === null` fallback from their facility lookups. Post-reservation, these should only match `f.workerId === actor.agentId`. The `SeekWork()` fallback `allLocations` search (which skips `workerId` checks entirely) must also be guarded against occupied facilities.
+
+**Invariant**: `actor.job` and exactly one facility's `workerId` are always in sync. `ReleaseJob()`, `SwitchJob()`, and `releaseFacility()` are the only release paths.
 
 ### Files
 
 - `src/infrastructure/entity/behavior-agent-factory.ts` — add `claimFacility`/`releaseFacility`
-- `src/infrastructure/entity/bt-actions.ts` — `ClaimJob`, `ClaimBestJob` call `claimFacility`
+- `src/infrastructure/entity/bt-actions.ts` — `ClaimJob`, `ClaimBestJob` call `claimFacility`; `ReleaseJob` calls `releaseFacility`; `Work`/`SeekWork` remove `workerId === null` fallback
 - `src/infrastructure/systems/facility-system.ts` — `findWorker` reads reservation
 - `src/infrastructure/entity/bt-conditions.ts` — `AtJobFacility`, `OpenProductionFacilityNearby`
 - `src/domain/systems/behavior-agent.ts` — add `claimFacility`/`releaseFacility` to interface
@@ -64,7 +68,7 @@ All agents are permanently "distressed" (-26 to -34) despite moderate needs.
    ```
    Factor-average 0.5 now maps to mood 0 ("neutral"). Scale is still -100 to +100.
 
-2. **`mood-system.ts`** — When `positiveMemories === 0 && negativeMemories === 0`, exclude both memory weights (positive weight + negative weight) from `totalWeight`. Once any memory exists, full weights apply. This prevents the empty-memory drag at simulation start.
+2. **`mood.ts` — `calculateMood()`** — The `totalWeight` computation lives in `mood.ts`, not `mood-system.ts`. When the incoming `positiveMemories === 0 && negativeMemories === 0`, exclude both memory weights from `totalWeight`. Once any memory exists, full weights apply. This prevents the empty-memory drag at simulation start.
 
 3. **`mood-system.ts`** — Default `goalProgress = 0.5` (not 0) when `entity.job === null`. No goal is neutral, not actively negative.
 
@@ -74,8 +78,8 @@ All agents are permanently "distressed" (-26 to -34) despite moderate needs.
 
 ### Files
 
-- `src/domain/systems/mood.ts` — formula change
-- `src/infrastructure/systems/mood-system.ts` — empty weight exclusion, goalProgress default
+- `src/domain/systems/mood.ts` — formula change + empty weight exclusion (totalWeight lives here)
+- `src/infrastructure/systems/mood-system.ts` — goalProgress default
 - `src/infrastructure/entity/agent-actor.ts` — bootstrap values
 - `tests/domain/systems/mood.test.ts` — updated expectations
 - `tests/infrastructure/systems/mood-system.test.ts` — updated expectations
@@ -112,7 +116,7 @@ Single line addition. `IsWorkHours` already exists in `bt-conditions.ts`. At nig
 
 ### Problem
 
-`seek_rest` is in the `isResting` whitelist in `rest-system.ts`. Agents get outdoor-tier recovery (with -3 mood penalty and only 1.0 energy/tick) every tick while walking to a shelter. This creates a mood death spiral during transit.
+`seek_rest` is in the `isResting` whitelist in `rest-system.ts`. Agents get outdoor-tier energy recovery (1.0/tick) every tick while walking to a shelter. Note: the `moodEffect` returned by `applyRest()` is currently dead code — `rest-system.ts` reads `result.newEnergy` but never applies `result.moodEffect`. The real problem is premature energy recovery during transit, not a mood penalty.
 
 ### Design
 
@@ -129,15 +133,18 @@ Remove `seek_rest` from the `isResting` check in `resolveRestTier()`. Only `rest
 
 ### Problem
 
-`social_decay` defaults to 0 in the schema. The social need never changes from its initial value, creating a frozen contribution to mood and no pressure to seek social interaction.
+`social_decay` defaults to `0` in the schema (`game-config-schema.ts`). The running config (`game-config.json`) already overrides this to `0.02`, so social need does decay — but very slowly. The schema default is misleading for anyone starting from a bare config.
 
 ### Design
 
-Set `social_decay` to `0.05` in `game-config.json` — slow decay matching the least aggressive need. This creates gentle pressure for agents to seek social interaction without making it as urgent as hunger or energy.
+Two changes:
+1. **`game-config-schema.ts`** — Change schema default for `social_decay` from `0` to `0.05` so bare configs get reasonable behavior.
+2. **`game-config.json`** — Bump `social_decay` from `0.02` to `0.05` for slightly more meaningful social pressure.
 
 ### Files
 
-- `configs/game-config.json` — set `social_decay: 0.05`
+- `src/domain/schemas/game-config-schema.ts` — change schema default
+- `configs/game-config.json` — bump `social_decay` to `0.05`
 
 ---
 
@@ -167,7 +174,7 @@ After all 6 fixes:
 | Food production | None (idle farms) | Active (settler → farmland → market) |
 | Agent mood (typical) | -26 to -34 (distressed) | 0 to +20 (neutral to content) |
 | Night behavior | Seek work when hungry | Sleep, eat available food |
-| Travel rest penalty | -3 mood/tick while walking | No penalty during transit |
+| Travel rest penalty | Premature energy recovery while walking | Recovery only at destination |
 | Social need | Frozen at initial value | Slow decay, recoverable via interaction |
 | Mortality config | true (misleading) | false (accurate) |
 
