@@ -53,6 +53,11 @@ export function createNeedsDecaySystem(
 					mergedMods.energyDecayScale = (mergedMods.energyDecayScale ?? 1) * reduction;
 				}
 
+				// Sleep debt increases energy drain
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- behaviorAgent uses !: but may be unset in tests
+				const sleepDebtMult = 1 + ((entity.behaviorAgent?.sleepDebt ?? 0) / 100);
+				mergedMods.energyDecayScale = (mergedMods.energyDecayScale ?? 1) * sleepDebtMult;
+
 				const result = applyNeedsDecay(
 					{
 						state: needs.state,
