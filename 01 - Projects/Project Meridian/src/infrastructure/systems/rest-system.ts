@@ -7,6 +7,7 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
+import { TimeComponent } from '../components/time-component.js';
 import { distance } from '../../domain/core/math-utils.js';
 import type { Actor } from 'excalibur';
 
@@ -69,9 +70,29 @@ export function createRestSystem(
 			const restConfig: RestConfig = deps.config.rest_tiers;
 			const locationActors = getLocationActors?.() ?? new Map<string, Actor>();
 
+			// Day boundary: compute sleep deficit and reset counter
+			const world = worldEntity();
+			if (world.has(TimeComponent) && world.get(TimeComponent).state.dayBoundaryThisTick) {
+				const minRest = deps.config.min_rest_ticks ?? 80;
+				const maxDebt = deps.config.sleep_debt_max ?? 100;
+				for (const agent of agentList) {
+					const ba = agent.behaviorAgent;
+					const deficit = minRest - ba.ticksRestedThisDay;
+					if (deficit > 0) {
+						ba.sleepDebt = Math.min(ba.sleepDebt + deficit, maxDebt);
+					}
+					ba.ticksRestedThisDay = 0;
+				}
+			}
+
 			for (const agent of agentList) {
 				const ba = agent.behaviorAgent;
 				const btAction = ba.btAction;
+
+				// Track rest ticks for sleep debt calculation
+				if (btAction === 'rest' || btAction === 'idle') {
+					ba.ticksRestedThisDay++;
+				}
 
 				const nearestRest = findNearestRestLocation(agent.pos.x, agent.pos.y, locationList, radius);
 				const wallet = agent.get(WalletComponent);
@@ -89,6 +110,11 @@ export function createRestSystem(
 
 				needs.state = { ...needs.state, energy: result.newEnergy };
 				needs.markDirty();
+
+				// Reduce sleep debt while resting
+				if (ba.sleepDebt > 0) {
+					ba.sleepDebt = Math.max(0, ba.sleepDebt - restConfig[restTier].recovery_rate);
+				}
 
 				// Track restingAt for first-tick event emission
 				const previousRestingAt = ba.restingAt;
