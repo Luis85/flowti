@@ -27,6 +27,7 @@ export interface PerceivedFacility {
 	hasUnmetInput: boolean;
 	workerId: string | null;
 	wage: number;
+	status: string;
 }
 
 export interface MovementTarget {

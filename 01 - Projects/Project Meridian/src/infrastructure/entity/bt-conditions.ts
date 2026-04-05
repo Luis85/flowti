@@ -196,6 +196,7 @@ export function createConditions(
 			return facilities.some(f =>
 				f.id === memory.atLocation &&
 				f.job === actor.job &&
+				f.status !== 'abandoned' &&
 				(f.workerId === null || f.workerId === actor.agentId),
 			);
 		},
@@ -239,7 +240,7 @@ export function createConditions(
 		},
 
 		OpenProductionFacilityNearby(): boolean {
-			return resolveNearbyFacilities().some(f => f.workerId === null && f.job !== '');
+			return resolveNearbyFacilities().some(f => f.workerId === null && f.job !== '' && f.status !== 'abandoned');
 		},
 
 		IsThirsty(): boolean {

@@ -477,6 +477,19 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 	}
 	lines.push('');
 
+	// Population health summary
+	const avgHunger = agents.length > 0 ? agents.reduce((s, a) => s + a.get(NeedsComponent).state.hunger, 0) / agents.length : 0;
+	const avgEnergy = agents.length > 0 ? agents.reduce((s, a) => s + a.get(NeedsComponent).state.energy, 0) / agents.length : 0;
+	const avgThirst = agents.length > 0 ? agents.reduce((s, a) => s + a.get(NeedsComponent).state.thirst, 0) / agents.length : 0;
+	const avgMood = agents.length > 0 ? agents.reduce((s, a) => s + a.get(MoodComponent).state.value, 0) / agents.length : 0;
+	const avgDebt = agents.length > 0 ? agents.reduce((s, a) => s + a.behaviorAgent.sleepDebt, 0) / agents.length : 0;
+	const employed = agents.filter(a => a.job !== null).length;
+	lines.push('## Population Health');
+	lines.push(`Agents: ${agents.length} | Employed: ${employed}/${agents.length}`);
+	lines.push(`Avg needs: hunger ${avgHunger.toFixed(0)} | energy ${avgEnergy.toFixed(0)} | thirst ${avgThirst.toFixed(0)}`);
+	lines.push(`Avg mood: ${avgMood.toFixed(0)} | Avg sleep debt: ${avgDebt.toFixed(0)}`);
+	lines.push('');
+
 	// Agents
 	lines.push('## Agents');
 	for (const agent of agents) {
@@ -559,10 +572,10 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 	// Recent events
 	const eventBus = deps.getEventBus?.();
 	if (eventBus !== undefined) {
-		const events = eventBus.history({ limit: 30 }).reverse();
+		const events = eventBus.history({ limit: 50 }).reverse();
 		if (events.length > 0) {
 			lines.push('');
-			lines.push('## Recent Events (last 30)');
+			lines.push('## Recent Events (last 50)');
 			for (const e of events) {
 				const payload = Object.entries(e.payload).map(([k, v]) => `${k}=${String(v)}`).join(', ');
 				lines.push(`t${e.tick} [${e.source}] ${e.type}: ${payload}`);

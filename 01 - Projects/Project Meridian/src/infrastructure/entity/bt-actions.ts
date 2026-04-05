@@ -70,6 +70,12 @@ export function createActions(
 
 	function beginAction(actionName: string): void {
 		memory.btAction = actionName;
+		// If a different action overrides an existing commitment (e.g., P0 critical needs
+		// preempting P-1), clear the stale commitment so the new action owns the timer.
+		if (memory.commitmentTicks > 0 && memory.committedAction !== actionName) {
+			memory.commitmentTicks = 0;
+			memory.committedAction = null;
+		}
 		if (memory.commitmentTicks <= 0) {
 			const duration = Math.round((config.commitment_ticks[actionName] ?? 0) * commitmentMultiplier);
 			if (duration > 0) {

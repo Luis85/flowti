@@ -92,6 +92,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 				hasUnmetInput,
 				workerId: facility.state.workerId,
 				wage: locData.production?.wage ?? 0,
+				status: facility.state.status,
 			});
 		}
 
