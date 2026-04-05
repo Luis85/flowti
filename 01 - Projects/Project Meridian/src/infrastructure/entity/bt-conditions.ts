@@ -84,7 +84,7 @@ export function createConditions(
 
 		IsRecovering(): boolean {
 			if (!memory.recovering) return false;
-			const recoveredThreshold = memory.personalThresholds.energy + config.needs.recovery_hysteresis;
+			const recoveredThreshold = Math.min(memory.personalThresholds.energy + config.needs.recovery_hysteresis, 100);
 			if (actor.get(NeedsComponent).state.energy >= recoveredThreshold) {
 				memory.recovering = false;
 				return false;
@@ -390,6 +390,8 @@ export function createConditions(
 			const time = worldEntity().get(TimeComponent).state;
 			if (time.phase === 'night') return true;
 			if (time.phase === 'dusk') {
+				// High sleep debt: sleep immediately at dusk start (no offset)
+				if (memory.sleepDebt > config.sleep_debt_max * 0.5) return true;
 				return time.tickInCycle >= config.day_night.dusk.start + personalSleepOffset;
 			}
 			return false;

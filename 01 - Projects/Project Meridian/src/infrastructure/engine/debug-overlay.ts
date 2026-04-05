@@ -155,6 +155,7 @@ function renderAgentsPanel(deps: OverlayDeps): string {
 				`needs:${(f.needs * 100).toFixed(0)}`,
 				`mem:+${(f.positiveMemories * 100).toFixed(0)}/-${(f.negativeMemories * 100).toFixed(0)}`,
 				`goal:${(f.goalProgress * 100).toFixed(0)}`,
+				`gold:${(f.walletHealth * 100).toFixed(0)}`,
 				`rel:${(f.relationshipQuality * 100).toFixed(0)}`,
 			].join(' ');
 			lines.push(`<span style="color:#585b70;font-size:9px">${parts}</span>`);

@@ -46,13 +46,14 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	const duskDuration = config.day_night.dusk.end - config.day_night.dusk.start + 1;
 	const personalSleepOffset = Math.abs(staggerSeed * 7) % Math.floor(duskDuration / 2);
 
-	// Personal thresholds from GURPS attributes
+	// Personal thresholds from GURPS attributes (clamped to 90 — must stay below need max 100)
 	const attrs = actor.get(AttributesComponent).state;
 	const aptitudeBaseline = config.jobs.aptitude_baseline;
+	const THRESHOLD_CAP = 90;
 	memory.personalThresholds = {
-		hunger: config.needs.hunger_threshold * (aptitudeBaseline / attrs.HT),
-		energy: config.needs.energy_threshold * (aptitudeBaseline / attrs.IQ),
-		thirst: config.needs.thirst_threshold * (aptitudeBaseline / attrs.HT),
+		hunger: Math.min(config.needs.hunger_threshold * (aptitudeBaseline / attrs.HT), THRESHOLD_CAP),
+		energy: Math.min(config.needs.energy_threshold * (aptitudeBaseline / attrs.IQ), THRESHOLD_CAP),
+		thirst: Math.min(config.needs.thirst_threshold * (aptitudeBaseline / attrs.HT), THRESHOLD_CAP),
 	};
 
 	// ST-scaled commitment duration multiplier
