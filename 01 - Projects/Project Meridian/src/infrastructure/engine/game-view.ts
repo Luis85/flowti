@@ -291,6 +291,7 @@ export class MeridianGameView extends ItemView {
 			getTickCount: () => deps.tickCount,
 			getTicksPerDay: () => deps.config.ticks_per_day,
 			getItemRegistry,
+			getEventBus: () => deps.eventBus,
 		});
 		this.disposeOverlay = debugOverlay.dispose;
 	}

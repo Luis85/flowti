@@ -21,6 +21,7 @@ interface OverlayDeps {
 	getTickCount: () => number;
 	getTicksPerDay?: () => number;
 	getItemRegistry?: () => Map<string, Item>;
+	getEventBus?: () => { history: (opts?: { limit?: number }) => { type: string; tick: number; source: string; payload: Record<string, unknown> }[] };
 }
 
 type Panel = 'agents' | 'world' | 'economy' | 'stats';
@@ -392,7 +393,43 @@ function renderStatsPanel(history: Snapshot[], deps: OverlayDeps): string {
 
 	lines.push(`<br><span style="color:#6c7086">${history.length} snapshots (since day ${first.day})</span>`);
 
+	// Event log
+	const eventBus = deps.getEventBus?.();
+	if (eventBus !== undefined) {
+		const EVENT_ICONS: Record<string, string> = {
+			QuestGenerated: '📜', QuestClaimed: '📋', QuestCompleted: '✅', QuestExpired: '⏰', QuestAbandoned: '❌',
+			JobSwitched: '🔄', GoldFlowed: '💰', MoodChanged: '😶', MoodBreakdown: '💔',
+			FacilityAbandoned: '🏚️', FacilityRestored: '🏗️', RestStarted: '😴',
+			DayPhaseChanged: '🌅', SupplyDelivered: '📦', TickBudgetExceeded: '⚠️',
+		};
+		const events = eventBus.history({ limit: 15 }).reverse();
+		if (events.length > 0) {
+			lines.push('<br><b style="color:#89b4fa">Recent Events</b>');
+			for (const e of events) {
+				const icon = EVENT_ICONS[e.type] ?? '📋';
+				const detail = formatEventPayload(e);
+				lines.push(`<span style="color:#585b70">t${e.tick}</span> ${icon} <span style="color:#bac2de">${detail}</span>`);
+			}
+		}
+	}
+
 	return lines.join('<br>');
+}
+
+function formatEventPayload(e: { type: string; payload: Record<string, unknown> }): string {
+	const p = e.payload;
+	switch (e.type) {
+		case 'QuestGenerated': return `Quest: ${String(p['type'])} → ${String(p['facilityId'])}`;
+		case 'QuestClaimed': return `${String(p['agentId']).replace('agent-', '')} claimed ${String(p['questType'])} quest`;
+		case 'QuestCompleted': return `${String(p['agentId']).replace('agent-', '')} completed quest (+${String(p['reward'])}g)`;
+		case 'JobSwitched': return `${String(p['agentId']).replace('agent-', '')} switched job`;
+		case 'GoldFlowed': return `${String(p['subcategory'] ?? '')}: ${String(p['amount'])}g`;
+		case 'MoodChanged': return `${String(p['agentId']).replace('agent-', '')} mood: ${String(p['oldBucket'])} → ${String(p['newBucket'])}`;
+		case 'DayPhaseChanged': return `${String(p['previousPhase'])} → ${String(p['newPhase'])}`;
+		case 'FacilityAbandoned': return `${String(p['facilityId'])} abandoned`;
+		case 'FacilityRestored': return `${String(p['facilityId'])} restored`;
+		default: return e.type;
+	}
 }
 
 export function createDebugOverlay(
