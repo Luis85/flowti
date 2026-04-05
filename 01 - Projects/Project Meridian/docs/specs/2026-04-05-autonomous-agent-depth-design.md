@@ -34,10 +34,10 @@ Agents are too rigidly bound to day/night cycles. All agents simultaneously swit
 ```typescript
 // bt-working-memory.ts — add to WorkingMemory interface
 commitmentTicks: number;      // remaining ticks on current commitment (0 = free)
-commitmentAction: string | null; // the action being committed to
+// NOTE: reuses existing `committedAction` field (already on WorkingMemory)
 ```
 
-Initialized to `0` and `null` in `createWorkingMemory()`.
+`commitmentTicks` initialized to `0` in `createWorkingMemory()`. The existing `committedAction: string | null` field is repurposed for commitment tracking (already initialized to `null`).
 
 ### Config Additions
 
@@ -92,7 +92,7 @@ IsCommitted(): boolean {
 ContinueCommitment(): ActionResult {
   memory.commitmentTicks--;
   if (memory.commitmentTicks <= 0) {
-    memory.commitmentAction = null;
+    memory.committedAction = null;
     return FAILED; // commitment expired — re-evaluate next tick
   }
   return RUNNING;
@@ -104,20 +104,22 @@ ContinueCommitment(): ActionResult {
 When any action sets `memory.btAction`, it also sets commitment if configured:
 
 ```typescript
-// bt-actions.ts — helper used by all action methods
+// bt-actions.ts — helper used by action methods on their RUNNING/SUCCEEDED path
 function beginAction(actionName: string): void {
   memory.btAction = actionName;
   if (memory.commitmentTicks <= 0) {
-    const duration = config.commitment_ticks?.[actionName] ?? 0;
+    const duration = Math.round((config.commitment_ticks?.[actionName] ?? 0) * commitmentMultiplier);
     if (duration > 0) {
       memory.commitmentTicks = duration;
-      memory.commitmentAction = actionName;
+      memory.committedAction = actionName;
     }
   }
 }
 ```
 
-All existing action methods that set `memory.btAction = '...'` switch to calling `beginAction('...')`.
+**Important:** `beginAction` must only be called on the `RUNNING` or `SUCCEEDED` return path — never before precondition checks. If an action fails its preconditions (e.g., `Work()` when not at facility), it must return `FAILED` without calling `beginAction`. This prevents failed actions from incorrectly acquiring commitment.
+
+All existing action methods that set `memory.btAction = '...'` on their RUNNING/SUCCEEDED path switch to calling `beginAction('...')`.
 
 ### BT Structure Change
 
@@ -137,21 +139,30 @@ root {
 }
 ```
 
-If committed and no critical need, keep doing what you're doing. Critical needs (hunger < 20, energy < 15, thirst < 20) still preempt.
+If committed and no critical need, keep doing what you're doing. Critical needs still preempt (uses `NEED_CRITICAL_THRESHOLDS` from `ranges.ts`).
+
+**Important: `behavior-tree-system.ts` change required.** The system currently calls `agent.behaviorTree.reset()` unconditionally every tick, which clears all RUNNING state. The `reset()` must be skipped when the agent is committed:
+
+```typescript
+// behavior-tree-system.ts
+if (agent.behaviorAgent.commitmentTicks <= 0) {
+  agent.behaviorTree.reset();
+}
+agent.behaviorTree.step();
+```
+
+Without this change, `reset()` would clear the BT's internal state each tick, making the P-1 guard the sole mechanism (which works but wastes the RUNNING return from `ContinueCommitment`). With the conditional reset, the BT properly re-enters running nodes when committed.
 
 ### ST-Scaled Commitment Duration
 
-Agents with higher ST sustain effort longer:
+Agents with higher ST sustain effort longer. `commitmentMultiplier` is computed once in `behavior-agent-factory.ts` and passed to `createActions`:
 
 ```typescript
 // behavior-agent-factory.ts — computed once at creation
-const commitmentMultiplier = attrs.ST / aptitudeBaseline;
+const commitmentMultiplier = (attrs.ST ?? aptitudeBaseline) / aptitudeBaseline;
 ```
 
-Applied when `beginAction` reads from config:
-```typescript
-const duration = Math.round((config.commitment_ticks?.[actionName] ?? 0) * commitmentMultiplier);
-```
+The `beginAction` helper (shown above) applies `commitmentMultiplier` when reading from config.
 
 ST 14 agent: `work` commitment = `round(30 * 14/12)` = 35 ticks.
 ST 8 agent: `work` commitment = `round(30 * 8/12)` = 20 ticks.
@@ -175,6 +186,8 @@ const personalThresholds = {
   thirst: config.needs.thirst_threshold * (baseline / (attrs.HT ?? baseline)),
 };
 ```
+
+**Design note — attribute mapping rationale:** HT (Health/Toughness) governs hunger and thirst thresholds because these are physical tolerances — a tougher body endures deprivation longer. IQ (Intelligence) governs the energy threshold because mental discipline allows better fatigue management — a smarter agent recognizes they can push through tiredness. This is intentionally asymmetric with `needs-decay-system.ts`, which uses HT for the energy *decay rate*. The distinction: HT determines how fast energy *drains* (physical endurance), while IQ determines how low energy can *go* before the agent decides to rest (self-regulation). Both influence the effective work duration, but through different mechanisms.
 
 ### Working Memory Addition
 
@@ -219,9 +232,9 @@ IsThirsty(): boolean {
 }
 
 NeedsCritical(): boolean {
-  const needs = actor.get(NeedsComponent).state;
-  return needs.hunger < 20 || needs.energy < 15 || needs.thirst < 20;
-  // Critical thresholds stay global — these are survival, not preference
+  // Critical thresholds stay global — uses NEED_CRITICAL_THRESHOLDS from ranges.ts
+  // (hunger: 20, energy: 15, social: 25, thirst: 20) — unchanged from current implementation
+  // This condition is NOT personalized; it's a survival floor.
 }
 ```
 
@@ -250,6 +263,8 @@ const personalSleepOffset = Math.abs(staggerSeed * 7) % Math.floor(duskDuration 
 ```
 
 Different hash multiplier (`* 7`) ensures sleep offset differs from wake offset for the same agent.
+
+**Note:** `createConditions` signature must be extended to accept `personalSleepOffset: number` alongside the existing `wakeOffset: number` parameter. The `createBehaviorAgent` call in the factory must pass both values.
 
 ### New Condition: ShouldSleep
 
@@ -375,10 +390,12 @@ for (const quest of board.state.quests) {
 
 ### C) Event Log in Stats Panel
 
-Show last 15 events from `eventBus.history()`:
+Show last 15 events from `eventBus.history()`.
+
+**Prerequisite:** Add `eventBus?: EventBus` to the `OverlayDeps` interface in `debug-overlay.ts`, and update the `createDebugOverlay` call site in `game-view.ts` to pass `deps.eventBus`. Use the `history({ limit: 15 })` built-in parameter instead of `.slice(-15)`:
 
 ```typescript
-const events = deps.eventBus?.history().slice(-15).reverse() ?? [];
+const events = deps.eventBus?.history({ limit: 15 })?.reverse() ?? [];
 for (const e of events) {
   const icon = EVENT_ICONS[e.type] ?? '📋';
   lines.push(`<span style="color:#6c7086">t${e.tick}</span> ${icon} ${formatEvent(e)}`);
@@ -393,7 +410,7 @@ The `MoodComponent` stores the computed `value` but not the individual factors. 
 
 **Option chosen:** Store factor breakdown on MoodComponent state:
 ```typescript
-// mood-component.ts — extend MoodState
+// component-data.ts — extend MoodState interface (NOT mood-component.ts — MoodState lives here)
 factors?: {
   base: number;
   needs: number;
@@ -424,20 +441,22 @@ Steps 2 and 3 are independent of each other and can run in parallel.
 
 | File | Changes |
 |------|---------|
-| `bt-working-memory.ts` | Add commitmentTicks, commitmentAction, personalThresholds, sleepDebt, ticksRestedThisDay |
+| `bt-working-memory.ts` | Add commitmentTicks, personalThresholds, sleepDebt, ticksRestedThisDay |
 | `bt-conditions.ts` | Personal thresholds in IsHungry/IsExhausted/IsThirsty/IsRecovering; new IsCommitted, ShouldSleep |
 | `bt-actions.ts` | beginAction helper, ContinueCommitment action |
 | `behavior-agent-factory.ts` | Compute personalThresholds, personalSleepOffset, commitmentMultiplier |
-| `behavior-tree-system.ts` | Skip tree.reset() when committed (or let BT handle via guard) |
+| `behavior-agent.ts` (domain) | Add getter/setter pairs for commitmentTicks, personalThresholds, sleepDebt, ticksRestedThisDay on BehaviorAgent interface |
+| `behavior-tree-system.ts` | Skip `tree.reset()` when `commitmentTicks > 0` |
 | `rest-system.ts` | Sleep debt reduction during rest, ticksRestedThisDay tracking |
 | `needs-decay-system.ts` | Sleep debt multiplier on energy decay |
 | `mood-system.ts` | Store factor breakdown on MoodComponent; add sleepDebt factor |
-| `mood-component.ts` | Extend MoodState with factors object |
-| `debug-overlay.ts` | Commitment display, threshold context, quest board, event log, mood breakdown |
+| `component-data.ts` | Extend MoodState with factors object |
+| `debug-overlay.ts` | Add `eventBus` to OverlayDeps; commitment display, threshold context, quest board, event log, mood breakdown |
+| `game-view.ts` | Pass `eventBus` to `createDebugOverlay` |
 | `base.mdsl` | P-1 commitment guard, P6 ShouldSleep |
 | `game-config.json` | commitment_ticks, sleep_debt_max, min_rest_ticks |
 | `game-config-schema.ts` | Schema additions for new config fields |
-| Tests | bt-conditions.test.ts, bt-actions.test.ts, rest-system.test.ts, needs-decay-system.test.ts, mood-system.test.ts |
+| Tests | bt-conditions.test.ts, bt-actions.test.ts, rest-system.test.ts, needs-decay-system.test.ts, mood-system.test.ts. **Also update:** `behavior-agent.test.ts` (existing threshold tests must seed `personalThresholds`), `behavior-tree-system.test.ts` (conditional reset) |
 
 ## Success Criteria
 
