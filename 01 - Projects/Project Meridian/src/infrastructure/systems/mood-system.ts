@@ -81,7 +81,19 @@ export function createMoodSystem(
 				const previousBucket = mood.state.bucket;
 				const result = calculateMood(factors, previousBucket, deps.config.mood, 0);
 
-				mood.state = { value: result.value, bucket: result.bucket };
+				mood.state = {
+					value: result.value,
+					bucket: result.bucket,
+					factors: {
+						needs: factors.needsSatisfaction,
+						positiveMemories: factors.positiveMemories,
+						negativeMemories: factors.negativeMemories,
+						goalProgress: factors.goalProgress,
+						walletHealth: factors.walletHealth,
+						equipmentCondition: factors.equipmentCondition,
+						relationshipQuality: factors.relationshipQuality,
+					},
+				};
 				mood.markDirty();
 
 				if (result.changed) {

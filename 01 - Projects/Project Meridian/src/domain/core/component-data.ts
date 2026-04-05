@@ -16,6 +16,15 @@ export interface NeedsState {
 export interface MoodState {
 	value: number;
 	bucket: string;
+	factors?: {
+		needs: number;
+		positiveMemories: number;
+		negativeMemories: number;
+		goalProgress: number;
+		walletHealth: number;
+		equipmentCondition: number;
+		relationshipQuality: number;
+	};
 }
 
 export interface MemoryEntry {
