@@ -291,8 +291,9 @@ export function createConditions(
 			const baseline = jobsConfig.aptitude_baseline;
 			const attrComp = actor.get(AttributesComponent);
 
-			// Current job effective wage
-			const currentFacility = facilities.find(f => f.workerId === actor.agentId);
+			// Current job effective wage — check facility worker, or all nearby facilities matching our job
+			const currentFacility = facilities.find(f => f.workerId === actor.agentId)
+				?? facilities.find(f => f.job === actor.job);
 			const currentWage = currentFacility?.wage ?? 0;
 			const currentJobDef = jobsConfig.definitions[actor.job];
 			const currentApt = currentJobDef !== undefined ? (attrComp.getByName(currentJobDef.primary_attribute) || baseline) : baseline;

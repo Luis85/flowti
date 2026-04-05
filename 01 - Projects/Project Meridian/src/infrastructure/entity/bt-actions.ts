@@ -395,6 +395,20 @@ export function createActions(
 			}
 
 			if (bestFacility === null) return FAILED;
+			// Don't switch to the same job at the same facility
+			if (bestFacility.job === actor.job && bestFacility.wage <= currentWage) return FAILED;
+
+			// Release old facility worker slot
+			const locationActorMap = getLocationActors();
+			for (const [, locActor] of locationActorMap) {
+				if (!locActor.has(FacilityComponent)) continue;
+				const fac = locActor.get(FacilityComponent);
+				if (fac.state.workerId === actor.agentId) {
+					fac.state = { ...fac.state, workerId: null };
+					fac.markDirty();
+					break;
+				}
+			}
 
 			const oldJob = actor.job;
 			actor.job = bestFacility.job;
