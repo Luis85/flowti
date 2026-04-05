@@ -13,8 +13,11 @@ export function createBehaviorTreeSystem(
 				agent.behaviorAgent.tickUnemployment();
 				agent.behaviorAgent.btAction = null;
 				// Reset before step — forces re-evaluation from root so higher-priority
-				// branches (P0 critical needs) can preempt lower ones (P2 work)
-				agent.behaviorTree.reset();
+				// branches (P0 critical needs) can preempt lower ones (P2 work).
+				// Skip reset when committed — let P-1 guard handle continuation.
+				if (agent.behaviorAgent.commitmentTicks <= 0) {
+					agent.behaviorTree.reset();
+				}
 				agent.behaviorTree.step();
 			}
 		},

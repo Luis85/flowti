@@ -1,6 +1,13 @@
 root {
     selector {
 
+        /* P-1: Honor current commitment (unless critical override) */
+        sequence {
+            condition [IsCommitted]
+            flip { condition [NeedsCritical] }
+            action [ContinueCommitment]
+        }
+
         /* P0: Critical survival — any need at dangerous levels */
         sequence {
             condition [NeedsCritical]
@@ -137,11 +144,11 @@ root {
             action [Rest] while(IsExhausted)
         }
 
-        /* P6: Night — go home and sleep */
+        /* P6: Personal sleep time */
         sequence {
-            condition [IsNighttime]
+            condition [ShouldSleep]
             action [SeekRest]
-            action [Rest] while(IsNighttime)
+            action [Rest] while(ShouldSleep)
         }
 
         /* P7: Fallback */
