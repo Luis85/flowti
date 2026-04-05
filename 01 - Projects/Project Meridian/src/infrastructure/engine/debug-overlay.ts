@@ -10,6 +10,8 @@ import { FacilityComponent } from '../components/facility-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { StaminaComponent } from '../components/stamina-component.js';
 import { QuestBoardComponent } from '../components/quest-board-component.js';
+import { RelationshipComponent } from '../components/relationship-component.js';
+import { MemoryComponent } from '../components/memory-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 
@@ -511,7 +513,14 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		lines.push(`Needs: hunger ${needs.hunger.toFixed(1)} (thr:${ba.personalThresholds.hunger.toFixed(0)}) | energy ${needs.energy.toFixed(1)} (thr:${ba.personalThresholds.energy.toFixed(0)}) | thirst ${needs.thirst.toFixed(1)} (thr:${ba.personalThresholds.thirst.toFixed(0)}) | social ${needs.social.toFixed(1)}`);
 		lines.push(`Mood: ${mood.value.toFixed(0)} (${mood.bucket})${mood.factors !== undefined ? ` = needs:${(mood.factors.needs * 100).toFixed(0)} mem:+${(mood.factors.positiveMemories * 100).toFixed(0)}/-${(mood.factors.negativeMemories * 100).toFixed(0)} goal:${(mood.factors.goalProgress * 100).toFixed(0)} gold:${(mood.factors.walletHealth * 100).toFixed(0)} equip:${(mood.factors.equipmentCondition * 100).toFixed(0)} rel:${(mood.factors.relationshipQuality * 100).toFixed(0)}` : ''}`);
 		lines.push(`Gold: ${wallet.gold.toFixed(0)}g | Stamina: ${stamina.current.toFixed(0)}/${stamina.max} | Sleep debt: ${ba.sleepDebt.toFixed(0)} | Rested today: ${ba.ticksRestedThisDay}t | Recovering: ${ba.recovering ? 'yes' : 'no'}`);
-		lines.push(`Job: ${agent.job ?? 'none'} | Unemployed ticks: ${ba.unemployedTicks} | Known locations: ${ba.knownLocations.length}`);
+		// Job + facility cross-reference
+		const jobFacility = locations.find(l => {
+			const la = locationActors.get(l.id);
+			return la?.has(FacilityComponent) === true && la.get(FacilityComponent).state.workerId === agent.agentId;
+		});
+		const jobFacilityLabel = jobFacility !== undefined ? ` @ ${jobFacility.name}` : (agent.job !== null ? ' (no facility assigned)' : '');
+		lines.push(`Job: ${agent.job ?? 'none'}${jobFacilityLabel} | Unemployed ticks: ${ba.unemployedTicks}`);
+		lines.push(`Known: ${ba.knownLocations.map(id => { const l = locations.find(x => x.id === id); return l?.name ?? id; }).join(', ') || 'none'}`);
 
 		const items = inv.items.map(i => i.charges !== undefined ? `${i.item_id}(${i.charges})x${i.quantity}` : `${i.item_id}x${i.quantity}`);
 		if (items.length > 0) lines.push(`Inventory: ${items.join(', ')}`);
@@ -526,6 +535,26 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		}
 		if (ba.haulCargo !== null) {
 			lines.push(`Hauling: ${ba.haulCargo.itemId}x${ba.haulCargo.quantity} → ${ba.haulCargo.destination}`);
+		}
+		// Relationships
+		if (agent.has(RelationshipComponent)) {
+			const rels = agent.get(RelationshipComponent).state.entries;
+			if (rels.length > 0) {
+				const relStr = rels.map(r => {
+					const name = agents.find(a => a.agentId === r.agentId)?.agentName ?? r.agentId.replace('agent-', '');
+					return `${name}:${r.disposition.toFixed(0)}(f${r.familiarity.toFixed(0)})`;
+				}).join(', ');
+				lines.push(`Relationships: ${relStr}`);
+			}
+		}
+		// Recent memories (last 3)
+		if (agent.has(MemoryComponent)) {
+			const mem = agent.get(MemoryComponent).state.entries;
+			if (mem.length > 0) {
+				const recent = mem.slice(-3);
+				const memStr = recent.map(m => `t${m.tick} ${m.outcome === 'positive' ? '+' : m.outcome === 'negative' ? '-' : '~'} ${m.type}`).join(' | ');
+				lines.push(`Memories: ${memStr}`);
+			}
 		}
 		lines.push('');
 	}
@@ -569,14 +598,34 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		}
 	}
 
-	// Recent events
+	// Gold flow ledger summary (today's transactions by type)
+	const ledger = economy.state.ledger;
+	if (ledger.length > 0) {
+		const dayStartTick = tick - time.state.tickInCycle;
+		const todayLedger = ledger.filter(e => e.tick >= dayStartTick);
+		if (todayLedger.length > 0) {
+			const byType = new Map<string, number>();
+			for (const entry of todayLedger) {
+				byType.set(entry.type, (byType.get(entry.type) ?? 0) + entry.gold);
+			}
+			lines.push('');
+			lines.push('## Gold Flows Today');
+			for (const [type, total] of byType) {
+				lines.push(`${type}: ${total.toFixed(0)}g (${todayLedger.filter(e => e.type === type).length} txns)`);
+			}
+		}
+	}
+
+	// Recent events — filtered (skip NeedChanged noise, keep meaningful events)
 	const eventBus = deps.getEventBus?.();
 	if (eventBus !== undefined) {
-		const events = eventBus.history({ limit: 50 }).reverse();
-		if (events.length > 0) {
+		const allEvents = eventBus.history({ limit: 200 });
+		const meaningful = allEvents.filter(e => e.type !== 'NeedChanged' && e.type !== 'NeedCritical' && e.type !== 'EconomicStimulusActivated');
+		const recent = meaningful.slice(-30).reverse();
+		if (recent.length > 0) {
 			lines.push('');
-			lines.push('## Recent Events (last 50)');
-			for (const e of events) {
+			lines.push('## Recent Events (last 30, filtered)');
+			for (const e of recent) {
 				const payload = Object.entries(e.payload).map(([k, v]) => `${k}=${String(v)}`).join(', ');
 				lines.push(`t${e.tick} [${e.source}] ${e.type}: ${payload}`);
 			}
@@ -638,6 +687,38 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		}
 	}
 
+	// Agent-facility mismatches
+	for (const agent of agents) {
+		if (agent.job === null) continue;
+		const hasRegisteredFacility = locations.some(l => {
+			const la = locationActors.get(l.id);
+			return la?.has(FacilityComponent) === true && la.get(FacilityComponent).state.workerId === agent.agentId;
+		});
+		if (!hasRegisteredFacility) {
+			anomalies.push(`[MEDIUM] ${agent.agentName}: has job=${agent.job} but no facility has them as worker`);
+		}
+	}
+
+	// Completed quests sitting on board (should be cleaned up)
+	if (world.has(QuestBoardComponent)) {
+		const board = world.get(QuestBoardComponent);
+		const staleCompleted = board.state.quests.filter(q => q.state === 'completed');
+		if (staleCompleted.length > 0) {
+			anomalies.push(`[LOW] Quest board: ${staleCompleted.length} completed quest(s) not cleaned up`);
+		}
+		const expired = board.state.quests.filter(q => q.state === 'open' && tick - q.createdTick > q.expiryTicks);
+		if (expired.length > 0) {
+			anomalies.push(`[LOW] Quest board: ${expired.length} expired quest(s) not cleaned up`);
+		}
+	}
+
+	// Gold inflation check
+	const totalGold = economy.state.treasury + totalAgentGold + totalFacilityGold;
+	const expectedGold = 1720; // approximate starting gold
+	if (totalGold > expectedGold * 2) {
+		anomalies.push(`[MEDIUM] Gold inflation: total ${totalGold.toFixed(0)}g is ${(totalGold / expectedGold * 100).toFixed(0)}% of starting supply`);
+	}
+
 	// Systemic: action uniformity (all agents doing the same thing = lockstep)
 	for (const [action, names] of agentsByAction) {
 		if (names.length === agents.length && agents.length > 1) {
@@ -660,6 +741,16 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		lines.push('## Anomalies');
 		lines.push('None detected.');
 	}
+
+	// Key config values for tuning context
+	lines.push('');
+	lines.push('## Config (key tuning values)');
+	lines.push(`Ticks/day: ${deps.getTicksPerDay?.() ?? 480} | Phases: dawn 0-59, day 60-299, dusk 300-359, night 360-479`);
+	if (agents.length > 0) {
+		const a1 = agents[0]!;
+		lines.push(`Thresholds (${a1.agentName}): hunger=${a1.behaviorAgent.personalThresholds.hunger.toFixed(0)} energy=${a1.behaviorAgent.personalThresholds.energy.toFixed(0)} thirst=${a1.behaviorAgent.personalThresholds.thirst.toFixed(0)}`);
+	}
+	lines.push(`Sleep: min_rest=50t | debt_max=100 | Treasury regen: 25g/agent/day`);
 
 	return lines.join('\n');
 }
