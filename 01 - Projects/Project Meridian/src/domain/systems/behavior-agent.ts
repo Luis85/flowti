@@ -2,6 +2,7 @@ import type { JourneyState, CargoState } from '../core/component-data.js';
 import type { CircularBuffer } from 'mnemonist';
 import type { PriceMemory } from './price-memory.js';
 import type { SupplyRoute } from './cargo.js';
+import type { QuestRuntime } from '../schemas/quest-schema.js';
 
 export type { CargoState } from '../core/component-data.js';
 
@@ -89,11 +90,18 @@ export interface BehaviorAgent {
 	unemployedTicks: number;
 	recovering: boolean;
 	supplyRoute: SupplyRoute | null;
+	activeQuest: QuestRuntime | null;
+	cachedAvailableQuest: QuestRuntime | null;
+	insideFacility: boolean;
+	commitmentTicks: number;
+	sleepDebt: number;
+	ticksRestedThisDay: number;
+	readonly personalThresholds: { hunger: number; energy: number; thirst: number };
 
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;
 
-	// Condition methods (25)
+	// Condition methods (29)
 	IsHungry(): boolean;
 	IsExhausted(): boolean;
 	IsRecovering(): boolean;
@@ -128,8 +136,14 @@ export interface BehaviorAgent {
 	CanAffordItem(itemId: string): boolean;
 	BetterPayAvailable(): boolean;
 	KnowsSupplyRoute(): boolean;
+	HasQuest(): boolean;
+	QuestAvailable(): boolean;
+	QuestAtFacility(): boolean;
+	QuestCargoReady(): boolean;
+	IsCommitted(): boolean;
+	ShouldSleep(): boolean;
 
-	// Action methods (24)
+	// Action methods
 	Eat(): ActionResult;
 	Rest(): ActionResult;
 	Drink(): ActionResult;
@@ -155,6 +169,12 @@ export interface BehaviorAgent {
 	ClaimBestJob(): ActionResult;
 	ReleaseJob(): ActionResult;
 	SwitchJob(): ActionResult;
+	ClaimQuest(): ActionResult;
+	SeekQuestFacility(): ActionResult;
+	WorkRepair(): ActionResult;
+	CompleteQuest(): ActionResult;
+	AbandonQuest(): ActionResult;
+	ContinueCommitment(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
 

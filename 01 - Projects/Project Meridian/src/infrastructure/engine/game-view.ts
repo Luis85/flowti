@@ -36,9 +36,13 @@ import { createStipendSystem } from '../systems/stipend-system.js';
 import { createSubsidySystem } from '../systems/subsidy-system.js';
 import { createEquipmentDecaySystem } from '../systems/equipment-decay-system.js';
 import { createDailyReportSystem } from '../systems/daily-report-system.js';
+import { createAbandonmentSystem } from '../systems/abandonment-system.js';
+import { createQuestEvaluationSystem } from '../systems/quest-evaluation-system.js';
+import { createQuestGenerationSystem } from '../systems/quest-generation-system.js';
 import { TimeComponent } from '../components/time-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
+import { QuestBoardComponent } from '../components/quest-board-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 
 export const MERIDIAN_VIEW_TYPE = 'meridian-game-view';
@@ -192,8 +196,9 @@ export class MeridianGameView extends ItemView {
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: deps.config.economy.treasury_start_sandbox,
 			ledger: [],
-			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 },
 		}));
+		worldEntity.addComponent(new QuestBoardComponent({ quests: [] }));
 		engine.currentScene.add(worldEntity);
 
 		// Entity queries
@@ -231,6 +236,7 @@ export class MeridianGameView extends ItemView {
 				eventBus: deps.eventBus,
 				swapBehaviorTree,
 				jobsConfig: deps.config.jobs,
+				getQuestBoard: () => worldEntity.get(QuestBoardComponent).state,
 			});
 
 			// Initialize with job-specific tree if agent has a job, otherwise jobless
@@ -259,7 +265,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		tickRunner.register(createBehaviorTreeSystem(getAgents));
-		tickRunner.register(createMovementSystem(getAgents, getLocations));
+		tickRunner.register(createMovementSystem(getAgents, getLocations, getLocationActors));
 		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
@@ -270,6 +276,9 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createRelationshipCheckpointSystem(getAgents));
 		tickRunner.register(createEconomySystem(getLocations, getLocationActors, getItemRegistry));
 		tickRunner.register(createMonetaryPolicySystem(getAgents, getWorldEntity));
+		tickRunner.register(createQuestEvaluationSystem(getWorldEntity, getAgents));
+		tickRunner.register(createQuestGenerationSystem(getWorldEntity, getLocationActors, getLocations));
+		tickRunner.register(createAbandonmentSystem(getLocationActors, getLocations));
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.jobTrees).length)} jobs, ${String(Object.keys(world.traitDefs).length)} traits`);
 
@@ -282,6 +291,7 @@ export class MeridianGameView extends ItemView {
 			getTickCount: () => deps.tickCount,
 			getTicksPerDay: () => deps.config.ticks_per_day,
 			getItemRegistry,
+			getEventBus: () => deps.eventBus,
 		});
 		this.disposeOverlay = debugOverlay.dispose;
 	}
@@ -349,11 +359,13 @@ function createVaultAdapter(vault: Vault): VaultReader {
 }
 
 function createLocationMarker(loc: WorldLocation): ex.Actor {
+	const isFacility = loc.production !== null;
+	const size = isFacility ? 40 : 20;
 	const marker = new ex.Actor({ pos: new ex.Vector(loc.position.x, loc.position.y) });
-	marker.graphics.use(new ex.Rectangle({ width: 20, height: 20, color: ex.Color.fromHex(loc.color) }));
+	marker.graphics.use(new ex.Rectangle({ width: size, height: size, color: ex.Color.fromHex(loc.color) }));
 	const label = new ex.Label({
 		text: loc.name,
-		pos: new ex.Vector(0, -18),
+		pos: new ex.Vector(0, -(size / 2 + 8)),
 		font: new ex.Font({ size: 9, unit: ex.FontUnit.Px, color: ex.Color.fromHex('#aaaaaa') }),
 	});
 	marker.addChild(label);

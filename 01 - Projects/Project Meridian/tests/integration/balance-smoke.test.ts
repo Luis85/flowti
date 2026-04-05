@@ -110,7 +110,7 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		worldEntity.addComponent(new EconomyComponent({
 			treasury: config.economy.treasury_start_sandbox,
 			ledger: [],
-			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 },
 		}));
 
 		// Create location actors with FacilityComponent (seeded with 5 units of output, matching game-view.ts)

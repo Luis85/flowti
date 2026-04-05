@@ -9,6 +9,7 @@ import { EconomyComponent } from '../components/economy-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { StaminaComponent } from '../components/stamina-component.js';
+import { QuestBoardComponent } from '../components/quest-board-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 
@@ -20,6 +21,7 @@ interface OverlayDeps {
 	getTickCount: () => number;
 	getTicksPerDay?: () => number;
 	getItemRegistry?: () => Map<string, Item>;
+	getEventBus?: () => { history: (opts?: { limit?: number }) => { type: string; tick: number; source: string; payload: Record<string, unknown> }[] };
 }
 
 type Panel = 'agents' | 'world' | 'economy' | 'stats';
@@ -60,6 +62,10 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	deliver_cargo: { emoji: '🚚', label: 'Delivering' },
 	seek_delivery: { emoji: '🚶📦', label: 'Going to deliver' },
 	seek_supply: { emoji: '🔍📦', label: 'Finding supplies' },
+	claim_quest: { emoji: '📜', label: 'Claiming quest' },
+	seek_quest: { emoji: '🗺️', label: 'Quest journey' },
+	repair: { emoji: '🔧', label: 'Repairing' },
+	switch_job: { emoji: '🔄', label: 'Switching job' },
 };
 
 const PHASE_DISPLAY: Record<string, { emoji: string; label: string }> = {
@@ -128,15 +134,32 @@ function renderAgentsPanel(deps: OverlayDeps): string {
 		const actionInfo = ACTION_DISPLAY[action] ?? { emoji: '❓', label: action };
 
 		lines.push(`<div style="margin-top:6px;padding:6px;background:#181825;border-radius:4px">`);
-		lines.push(`<b style="color:${agent.agentColor}">${agent.agentName}</b> <span style="color:#6c7086">${agent.kind}</span> &middot; ${actionInfo.emoji} ${actionInfo.label}`);
+		const commitLabel = ba.commitmentTicks > 0 ? ` <span style="color:#f5c2e7">[${ba.commitmentTicks}t]</span>` : '';
+		lines.push(`<b style="color:${agent.agentColor}">${agent.agentName}</b> <span style="color:#6c7086">${agent.kind}</span> &middot; ${actionInfo.emoji} ${actionInfo.label}${commitLabel}`);
 
-		// Needs — compact row
-		lines.push(`<div style="margin:3px 0">${needBar(needs.hunger, 'Food', '🍖')} ${needBar(needs.thirst, 'Water', '💧')}</div>`);
-		lines.push(`<div style="margin:3px 0">${needBar(needs.energy, 'Energy', '⚡')} ${needBar(needs.social, 'Social', '👥')}</div>`);
+		// Needs — compact row with personal thresholds
+		const ht = ba.personalThresholds.hunger.toFixed(0);
+		const et = ba.personalThresholds.energy.toFixed(0);
+		lines.push(`<div style="margin:3px 0">${needBar(needs.hunger, 'Food', '🍖')} <span style="color:#585b70;font-size:9px">thr:${ht}</span> ${needBar(needs.thirst, 'Water', '💧')}</div>`);
+		lines.push(`<div style="margin:3px 0">${needBar(needs.energy, 'Energy', '⚡')} <span style="color:#585b70;font-size:9px">thr:${et}</span> ${needBar(needs.social, 'Social', '👥')}</div>`);
 
-		// Status line
+		// Status line with sleep debt
 		const moodEmoji = mood.value > 30 ? '😊' : mood.value > -10 ? '😐' : '😞';
-		lines.push(`${moodEmoji} ${mood.bucket} &middot; 🏃 ${stamina.current.toFixed(0)}/${stamina.max} &middot; 💰 ${wallet.gold.toFixed(0)}g`);
+		const debtLabel = ba.sleepDebt > 0 ? ` &middot; <span style="color:#f38ba8">😴 debt:${ba.sleepDebt.toFixed(0)}</span>` : '';
+		lines.push(`${moodEmoji} ${mood.bucket} &middot; 🏃 ${stamina.current.toFixed(0)}/${stamina.max} &middot; 💰 ${wallet.gold.toFixed(0)}g${debtLabel}`);
+
+		// Mood factor breakdown
+		if (mood.factors !== undefined) {
+			const f = mood.factors;
+			const parts = [
+				`needs:${(f.needs * 100).toFixed(0)}`,
+				`mem:+${(f.positiveMemories * 100).toFixed(0)}/-${(f.negativeMemories * 100).toFixed(0)}`,
+				`goal:${(f.goalProgress * 100).toFixed(0)}`,
+				`gold:${(f.walletHealth * 100).toFixed(0)}`,
+				`rel:${(f.relationshipQuality * 100).toFixed(0)}`,
+			].join(' ');
+			lines.push(`<span style="color:#585b70;font-size:9px">${parts}</span>`);
+		}
 
 		// Inventory
 		const items = inv.items.map(i => {
@@ -201,6 +224,26 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		for (const loc of nonFacilities) {
 			const locIcon = LOCATION_ICONS[loc.type] ?? '📍';
 			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.type})</span>`);
+		}
+	}
+
+	// Quest board
+	const world = deps.getWorldEntity();
+	if (world.has(QuestBoardComponent)) {
+		const board = world.get(QuestBoardComponent);
+		if (board.state.quests.length > 0) {
+			const tickCount = deps.getTickCount();
+			lines.push('<br><b style="color:#89b4fa">Quest Board</b>');
+			for (const quest of board.state.quests) {
+				const icon = quest.type === 'repair' ? '🔧' : quest.type === 'supply' ? '📦' : '🏪';
+				const remaining = quest.expiryTicks - (tickCount - quest.createdTick);
+				const stateLabel = quest.state === 'claimed'
+					? `<span style="color:#f9e2af">claimed by ${quest.claimedBy?.replace('agent-', '') ?? '?'}</span>`
+					: quest.state === 'completed'
+						? '<span style="color:#a6e3a1">done</span>'
+						: '<span style="color:#6c7086">open</span>';
+				lines.push(`<div style="margin:2px 0">${icon} ${quest.type} → ${quest.facilityId.replace('loc-', '')} — ${stateLabel} <span style="color:#585b70">(${remaining}t)</span></div>`);
+			}
 		}
 	}
 
@@ -351,7 +394,43 @@ function renderStatsPanel(history: Snapshot[], deps: OverlayDeps): string {
 
 	lines.push(`<br><span style="color:#6c7086">${history.length} snapshots (since day ${first.day})</span>`);
 
+	// Event log
+	const eventBus = deps.getEventBus?.();
+	if (eventBus !== undefined) {
+		const EVENT_ICONS: Record<string, string> = {
+			QuestGenerated: '📜', QuestClaimed: '📋', QuestCompleted: '✅', QuestExpired: '⏰', QuestAbandoned: '❌',
+			JobSwitched: '🔄', GoldFlowed: '💰', MoodChanged: '😶', MoodBreakdown: '💔',
+			FacilityAbandoned: '🏚️', FacilityRestored: '🏗️', RestStarted: '😴',
+			DayPhaseChanged: '🌅', SupplyDelivered: '📦', TickBudgetExceeded: '⚠️',
+		};
+		const events = eventBus.history({ limit: 15 }).reverse();
+		if (events.length > 0) {
+			lines.push('<br><b style="color:#89b4fa">Recent Events</b>');
+			for (const e of events) {
+				const icon = EVENT_ICONS[e.type] ?? '📋';
+				const detail = formatEventPayload(e);
+				lines.push(`<span style="color:#585b70">t${e.tick}</span> ${icon} <span style="color:#bac2de">${detail}</span>`);
+			}
+		}
+	}
+
 	return lines.join('<br>');
+}
+
+function formatEventPayload(e: { type: string; payload: Record<string, unknown> }): string {
+	const p = e.payload;
+	switch (e.type) {
+		case 'QuestGenerated': return `Quest: ${String(p['type'])} → ${String(p['facilityId'])}`;
+		case 'QuestClaimed': return `${String(p['agentId']).replace('agent-', '')} claimed ${String(p['questType'])} quest`;
+		case 'QuestCompleted': return `${String(p['agentId']).replace('agent-', '')} completed quest (+${String(p['reward'])}g)`;
+		case 'JobSwitched': return `${String(p['agentId']).replace('agent-', '')} switched job`;
+		case 'GoldFlowed': return `${String(p['subcategory'] as string | undefined ?? '')}: ${String(p['amount'])}g`;
+		case 'MoodChanged': return `${String(p['agentId']).replace('agent-', '')} mood: ${String(p['oldBucket'])} → ${String(p['newBucket'])}`;
+		case 'DayPhaseChanged': return `${String(p['previousPhase'])} → ${String(p['newPhase'])}`;
+		case 'FacilityAbandoned': return `${String(p['facilityId'])} abandoned`;
+		case 'FacilityRestored': return `${String(p['facilityId'])} restored`;
+		default: return e.type;
+	}
 }
 
 export function createDebugOverlay(
@@ -436,13 +515,61 @@ export function createDebugOverlay(
 		if (history.length > MAX_HISTORY) history.shift();
 	}
 
+	// Occupancy badge labels — one per location actor
+	const occupancyLabels = new Map<string, ex.Label>();
+
+	function ensureOccupancyLabel(locId: string, locActor: Actor): ex.Label {
+		let label = occupancyLabels.get(locId);
+		if (label === undefined) {
+			label = new ex.Label({
+				text: '',
+				pos: ex.vec(0, 18),
+				font: new ex.Font({ size: 11, unit: ex.FontUnit.Px, color: ex.Color.White, bold: true }),
+			});
+			locActor.addChild(label);
+			occupancyLabels.set(locId, label);
+		}
+		return label;
+	}
+
 	function update(): void {
-		// Update thought bubbles regardless of active panel
+		// Update thought bubbles + hide agents inside facilities
 		for (const agent of deps.getAgents()) {
 			const action = agent.behaviorAgent.btAction ?? 'idle';
 			const actionInfo = ACTION_DISPLAY[action] ?? { emoji: '❓', label: action };
 			const bubble = ensureThoughtBubble(agent);
 			bubble.text = `${actionInfo.emoji} ${actionInfo.label}`;
+
+			if (agent.behaviorAgent.insideFacility === true) {
+				agent.graphics.visible = false;
+				bubble.graphics.visible = false;
+			} else {
+				agent.graphics.visible = true;
+				bubble.graphics.visible = true;
+			}
+		}
+
+		// Occupancy badges on facility locations
+		const occupancyCounts = new Map<string, number>();
+		for (const agent of deps.getAgents()) {
+			const ba = agent.behaviorAgent;
+			if (ba.insideFacility === true && ba.atLocation !== null) {
+				occupancyCounts.set(ba.atLocation, (occupancyCounts.get(ba.atLocation) ?? 0) + 1);
+			}
+		}
+		const locationActors = deps.getLocationActors();
+		for (const [locId, locActor] of locationActors) {
+			const count = occupancyCounts.get(locId) ?? 0;
+			if (count > 0) {
+				const badge = ensureOccupancyLabel(locId, locActor);
+				badge.text = `x${count}`;
+				badge.graphics.visible = true;
+			} else {
+				const existing = occupancyLabels.get(locId);
+				if (existing !== undefined) {
+					existing.graphics.visible = false;
+				}
+			}
 		}
 
 		recordSnapshot();
@@ -473,6 +600,10 @@ export function createDebugOverlay(
 				label.kill();
 			}
 			thoughtLabels.clear();
+			for (const label of occupancyLabels.values()) {
+				label.kill();
+			}
+			occupancyLabels.clear();
 		},
 	};
 }

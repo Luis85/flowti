@@ -16,6 +16,15 @@ export interface NeedsState {
 export interface MoodState {
 	value: number;
 	bucket: string;
+	factors?: {
+		needs: number;
+		positiveMemories: number;
+		negativeMemories: number;
+		goalProgress: number;
+		walletHealth: number;
+		equipmentCondition: number;
+		relationshipQuality: number;
+	};
 }
 
 export interface MemoryEntry {
@@ -64,7 +73,7 @@ export interface FacilityState {
 	stock: { item_id: string; quantity: number }[];
 	fund: number;
 	workProgress: number;
-	status: 'idle' | 'producing' | 'auto';
+	status: 'idle' | 'producing' | 'auto' | 'abandoned';
 	workerId: string | null;
 	currentPrices?: Record<string, number>;
 }
@@ -83,7 +92,7 @@ export interface RelationshipState {
 
 export interface LedgerEntry {
 	tick: number;
-	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare' | 'stipend' | 'subsidy';
+	type: 'wage' | 'purchase' | 'tax' | 'consumption' | 'welfare' | 'stipend' | 'subsidy' | 'quest_reward';
 	from: string;
 	to: string;
 	itemId: string | null;
@@ -107,6 +116,13 @@ export interface DailySummary {
 	totalTax: number;
 	totalSales: number;
 	totalConsumption: number;
+	avgWage: number;
+	wageSpread: number;
+	vacancyCount: number;
+	unemploymentCount: number;
+	jobSwitchesThisDay: number;
+	supplyDeliveries: number;
+	questsCompletedThisDay: number;
 }
 
 export interface EconomyState {

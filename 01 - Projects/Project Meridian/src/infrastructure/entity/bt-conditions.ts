@@ -50,6 +50,12 @@ export interface ConditionMethods {
 	CanAffordItem(itemId: string): boolean;
 	BetterPayAvailable(): boolean;
 	KnowsSupplyRoute(): boolean;
+	HasQuest(): boolean;
+	QuestAvailable(): boolean;
+	QuestAtFacility(): boolean;
+	QuestCargoReady(): boolean;
+	IsCommitted(): boolean;
+	ShouldSleep(): boolean;
 }
 
 export function createConditions(
@@ -61,23 +67,24 @@ export function createConditions(
 	resolveNearbyLocations: () => PerceivedLocation[],
 	getAtLocationData: () => WorldLocation | undefined,
 	wakeOffset: number,
+	personalSleepOffset = 0,
 ): ConditionMethods {
 	const { config, worldEntity, tickCount } = deps;
 
 	return {
 		IsHungry(): boolean {
-			return actor.get(NeedsComponent).state.hunger < config.needs.hunger_threshold;
+			return actor.get(NeedsComponent).state.hunger < memory.personalThresholds.hunger;
 		},
 
 		IsExhausted(): boolean {
-			const exhausted = actor.get(NeedsComponent).state.energy < config.needs.energy_threshold;
+			const exhausted = actor.get(NeedsComponent).state.energy < memory.personalThresholds.energy;
 			if (exhausted) memory.recovering = true;
 			return exhausted;
 		},
 
 		IsRecovering(): boolean {
 			if (!memory.recovering) return false;
-			const recoveredThreshold = config.needs.energy_threshold + config.needs.recovery_hysteresis;
+			const recoveredThreshold = Math.min(memory.personalThresholds.energy + config.needs.recovery_hysteresis, 100);
 			if (actor.get(NeedsComponent).state.energy >= recoveredThreshold) {
 				memory.recovering = false;
 				return false;
@@ -236,7 +243,7 @@ export function createConditions(
 		},
 
 		IsThirsty(): boolean {
-			return actor.get(NeedsComponent).state.thirst < config.needs.thirst_threshold;
+			return actor.get(NeedsComponent).state.thirst < memory.personalThresholds.thirst;
 		},
 
 		HasWater(): boolean {
@@ -280,20 +287,20 @@ export function createConditions(
 			const facilities = resolveNearbyFacilities();
 			const { jobs: jobsConfig } = deps.config;
 			const baseline = jobsConfig.aptitude_baseline;
-			const attrs = actor.get(AttributesComponent).state as unknown as Record<string, number>;
+			const attrComp = actor.get(AttributesComponent);
 
 			// Current job effective wage
 			const currentFacility = facilities.find(f => f.workerId === actor.agentId);
 			const currentWage = currentFacility?.wage ?? 0;
 			const currentJobDef = jobsConfig.definitions[actor.job];
-			const currentApt = currentJobDef !== undefined ? (attrs[currentJobDef.primary_attribute] ?? baseline) : baseline;
+			const currentApt = currentJobDef !== undefined ? (attrComp.getByName(currentJobDef.primary_attribute) || baseline) : baseline;
 			const currentEffective = currentWage * (currentApt / baseline);
 
 			// Best available open position
 			for (const f of facilities) {
 				if (f.workerId !== null || f.job === '') continue;
 				const jobDef = jobsConfig.definitions[f.job];
-				const apt = jobDef !== undefined ? (attrs[jobDef.primary_attribute] ?? baseline) : baseline;
+				const apt = jobDef !== undefined ? (attrComp.getByName(jobDef.primary_attribute) || baseline) : baseline;
 				if (f.wage * (apt / baseline) > currentEffective) return true;
 			}
 			return false;
@@ -323,6 +330,71 @@ export function createConditions(
 
 			memory.supplyRoute = route;
 			return route !== null;
+		},
+
+		HasQuest(): boolean {
+			return memory.activeQuest !== null;
+		},
+
+		QuestAvailable(): boolean {
+			const board = deps.getQuestBoard?.();
+			if (board === undefined) return false;
+			const openQuests = board.quests.filter(q => q.state === 'open');
+			if (openQuests.length === 0) return false;
+
+			let bestQuest: typeof openQuests[0] | null = null;
+			let bestScore = -Infinity;
+
+			for (const q of openQuests) {
+				// For supply/restock, check agent can source the item from known locations
+				if (q.type !== 'repair' && q.itemId !== null) {
+					const knownSet = new Set(memory.knownLocations);
+					if (!knownSet.has(q.facilityId)) continue; // can't reach quest facility
+				}
+
+				// Score by reward / distance (estimate from perception)
+				const locList = resolveNearbyLocations();
+				const facilityLoc = locList.find(l => l.id === q.facilityId);
+				const distance = facilityLoc?.distance ?? 1000;
+				const score = q.reward / Math.max(distance, 1);
+
+				if (score > bestScore) {
+					bestScore = score;
+					bestQuest = q;
+				}
+			}
+
+			memory.cachedAvailableQuest = bestQuest;
+			return bestQuest !== null;
+		},
+
+		QuestAtFacility(): boolean {
+			if (memory.activeQuest === null) return false;
+			return memory.atLocation === memory.activeQuest.facilityId;
+		},
+
+		QuestCargoReady(): boolean {
+			if (memory.activeQuest === null) return false;
+			if (memory.activeQuest.type === 'repair') return true;
+			if (memory.activeQuest.itemId === null) return false;
+			const inv = actor.get(InventoryComponent).state.items;
+			const item = inv.find(i => i.item_id === memory.activeQuest!.itemId);
+			return item !== undefined && item.quantity >= memory.activeQuest.quantity;
+		},
+
+		IsCommitted(): boolean {
+			return memory.commitmentTicks > 0;
+		},
+
+		ShouldSleep(): boolean {
+			const time = worldEntity().get(TimeComponent).state;
+			if (time.phase === 'night') return true;
+			if (time.phase === 'dusk') {
+				// High sleep debt: sleep immediately at dusk start (no offset)
+				if (memory.sleepDebt > config.sleep_debt_max * 0.5) return true;
+				return time.tickInCycle >= config.day_night.dusk.start + personalSleepOffset;
+			}
+			return false;
 		},
 	};
 }

@@ -43,6 +43,9 @@ const NeedsConfigSchema = z.object({
 		buy:            { hunger: 1,   thirst: 1,   energy: 1 },
 		fill_waterskin: { hunger: 1,   thirst: 1,   energy: 1 },
 		claim_job:      { hunger: 1,   thirst: 1,   energy: 1 },
+		repair:         { hunger: 1.2, thirst: 1.1, energy: 1.3 },
+		seek_quest:     { hunger: 1.0, thirst: 1.0, energy: 1.0 },
+		claim_quest:    { hunger: 1.0, thirst: 1.0, energy: 1.0 },
 	}),
 });
 
@@ -252,6 +255,17 @@ const JobsConfigSchema = z.object({
 	}),
 });
 
+const QuestsConfigSchema = z.object({
+	max_open: z.number().default(5),
+	expiry_ticks: z.number().default(960),
+	supply_reward_multiplier: z.number().default(1.5),
+	restock_reward: z.number().default(10),
+	repair_reward: z.number().default(25),
+	repair_ticks: z.number().default(30),
+	repair_fund_injection: z.number().default(100),
+	restock_threshold: z.number().default(3),
+});
+
 const BTConfigSchema = z.object({
 	quest_wage_skip_multiplier: z.number().default(1.5),
 });
@@ -319,6 +333,19 @@ export const GameConfigSchema = z.object({
 	world_health: withDefaults(WorldHealthConfigSchema),
 	social: withDefaults(SocialConfigSchema),
 	jobs: withDefaults(JobsConfigSchema),
+	quests: withDefaults(QuestsConfigSchema),
+	items: z.record(z.string(), z.object({
+		name: z.string().default(''),
+		baseValue: z.number().default(0),
+		maxCharges: z.number().optional(),
+	})).default({
+		equipment: { name: 'Equipment', baseValue: 10, maxCharges: 5 },
+		tools: { name: 'Tools', baseValue: 8, maxCharges: 5 },
+		waterskin: { name: 'Waterskin', baseValue: 3, maxCharges: 3 },
+	}),
+	commitment_ticks: z.record(z.string(), z.number()).default({}),
+	sleep_debt_max: z.number().default(100),
+	min_rest_ticks: z.number().default(80),
 	debug: z.boolean().default(false),
 });
 

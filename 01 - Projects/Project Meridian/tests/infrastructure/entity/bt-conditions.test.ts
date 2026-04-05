@@ -70,7 +70,7 @@ function createWorldEntity(phase: 'dawn' | 'day' | 'dusk' | 'night' = 'day', tic
 	world.addComponent(new EconomyComponent({
 		treasury: 500,
 		ledger: [],
-		dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+		dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 },
 	}));
 	return world;
 }
@@ -110,7 +110,7 @@ function setupDeps(
 	const getLocations = overrides.getLocations ?? (() => []);
 	const tickCount = overrides.tickCount ?? (() => 1);
 	const eventBus = overrides.eventBus ?? noopEventBus;
-	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus };
+	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, ...overrides.getQuestBoard !== undefined ? { getQuestBoard: overrides.getQuestBoard } : {} };
 }
 
 // Helper to build resolveNearbyFacilities from deps (mirrors factory logic)
@@ -1266,6 +1266,158 @@ describe('bt-conditions', () => {
 			const { conditions, memory } = makeConditions(actor, deps);
 			memory.knownLocations = ['loc-farm'];
 			expect(conditions.KnowsSupplyRoute()).toBe(false);
+		});
+	});
+
+	// ── Quest conditions ─────────────────────────────────────────────────
+
+	describe('HasQuest', () => {
+		it('returns false when no active quest', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.HasQuest()).toBe(false);
+		});
+
+		it('returns true when active quest set', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.activeQuest = {
+				id: 'q1', type: 'supply', facilityId: 'loc-mill', itemId: 'wheat',
+				quantity: 2, reward: 10, rewardXp: 5, state: 'claimed', claimedBy: 'a1',
+				createdTick: 0, expiryTicks: 100, repairProgress: 0,
+			};
+			expect(conditions.HasQuest()).toBe(true);
+		});
+	});
+
+	describe('QuestAvailable', () => {
+		it('returns false when no quest board', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			// no getQuestBoard in deps
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.QuestAvailable()).toBe(false);
+		});
+
+		it('returns false when no open quests', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, {
+				config,
+				getQuestBoard: () => ({ quests: [
+					{ id: 'q1', type: 'supply', facilityId: 'loc-mill', itemId: 'wheat', quantity: 1, reward: 10, rewardXp: 5, state: 'completed', claimedBy: 'a1', createdTick: 0, expiryTicks: 100, repairProgress: 0 },
+				] }),
+			});
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.QuestAvailable()).toBe(false);
+		});
+
+		it('returns true and caches best quest', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(PerceptionComponent).state.nearbyLocations = [
+				{ id: 'loc-mill', type: 'work', distance: 50 },
+			];
+			const millLoc = makeLocation('loc-mill', 'work', 100, 200, {
+				job: 'miller', output: { item_id: 'flour', quantity: 1 }, input: { item_id: 'wheat', quantity: 1 }, ticks_per_cycle: 10, wage: 5,
+			});
+			const deps = setupDeps(actor, {
+				config,
+				getLocations: () => [millLoc],
+				getQuestBoard: () => ({ quests: [
+					{ id: 'q1', type: 'supply', facilityId: 'loc-mill', itemId: 'wheat', quantity: 2, reward: 15, rewardXp: 5, state: 'open', claimedBy: null, createdTick: 0, expiryTicks: 100, repairProgress: 0 },
+				] }),
+			});
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.knownLocations = ['loc-mill'];
+			expect(conditions.QuestAvailable()).toBe(true);
+			expect(memory.cachedAvailableQuest).not.toBeNull();
+			expect(memory.cachedAvailableQuest!.id).toBe('q1');
+		});
+	});
+
+	describe('QuestAtFacility', () => {
+		it('returns true when at quest facility', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.activeQuest = {
+				id: 'q1', type: 'supply', facilityId: 'loc-mill', itemId: 'wheat',
+				quantity: 2, reward: 10, rewardXp: 5, state: 'claimed', claimedBy: 'a1',
+				createdTick: 0, expiryTicks: 100, repairProgress: 0,
+			};
+			memory.atLocation = 'loc-mill';
+			expect(conditions.QuestAtFacility()).toBe(true);
+		});
+
+		it('returns false when not at quest facility', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.activeQuest = {
+				id: 'q1', type: 'supply', facilityId: 'loc-mill', itemId: 'wheat',
+				quantity: 2, reward: 10, rewardXp: 5, state: 'claimed', claimedBy: 'a1',
+				createdTick: 0, expiryTicks: 100, repairProgress: 0,
+			};
+			memory.atLocation = 'loc-farm';
+			expect(conditions.QuestAtFacility()).toBe(false);
+		});
+
+		it('returns false when no active quest', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.atLocation = 'loc-mill';
+			expect(conditions.QuestAtFacility()).toBe(false);
+		});
+	});
+
+	describe('QuestCargoReady', () => {
+		it('returns true for repair quest (no cargo needed)', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.activeQuest = {
+				id: 'q1', type: 'repair', facilityId: 'loc-mill', itemId: null,
+				quantity: 1, reward: 10, rewardXp: 5, state: 'claimed', claimedBy: 'a1',
+				createdTick: 0, expiryTicks: 100, repairProgress: 0,
+			};
+			expect(conditions.QuestCargoReady()).toBe(true);
+		});
+
+		it('returns true when agent has required item', () => {
+			const actor = new AgentActor(createTestAgentData('a1', {
+				inventory: [{ item_id: 'wheat', quantity: 5 }],
+			}), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.activeQuest = {
+				id: 'q1', type: 'supply', facilityId: 'loc-mill', itemId: 'wheat',
+				quantity: 2, reward: 10, rewardXp: 5, state: 'claimed', claimedBy: 'a1',
+				createdTick: 0, expiryTicks: 100, repairProgress: 0,
+			};
+			expect(conditions.QuestCargoReady()).toBe(true);
+		});
+
+		it('returns false when agent lacks required quantity', () => {
+			const actor = new AgentActor(createTestAgentData('a1', {
+				inventory: [{ item_id: 'wheat', quantity: 1 }],
+			}), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.activeQuest = {
+				id: 'q1', type: 'supply', facilityId: 'loc-mill', itemId: 'wheat',
+				quantity: 2, reward: 10, rewardXp: 5, state: 'claimed', claimedBy: 'a1',
+				createdTick: 0, expiryTicks: 100, repairProgress: 0,
+			};
+			expect(conditions.QuestCargoReady()).toBe(false);
+		});
+
+		it('returns false when no active quest', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.QuestCargoReady()).toBe(false);
 		});
 	});
 });

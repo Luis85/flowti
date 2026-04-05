@@ -281,8 +281,7 @@ function processFacilityTick(
 		const jobsConfig = deps.config.jobs;
 		const jobDef = jobsConfig.definitions[production.job];
 		if (jobDef !== undefined) {
-			const workerAttrs = worker.get(AttributesComponent).state as unknown as Record<string, number>;
-			const attrValue = workerAttrs[jobDef.primary_attribute] ?? jobsConfig.aptitude_baseline;
+			const attrValue = worker.get(AttributesComponent).getByName(jobDef.primary_attribute) || jobsConfig.aptitude_baseline;
 			const efficiency = attrValue / jobsConfig.aptitude_baseline;
 			effectiveTicksPerCycle = Math.round(production.ticks_per_cycle / efficiency);
 		}
@@ -311,7 +310,7 @@ function processFacilityTick(
 		workerGold: worker !== undefined ? worker.get(WalletComponent).state.gold : 0,
 		autoProcess: production.auto_process,
 		autoTicksPerCycle: production.auto_ticks_per_cycle ?? production.ticks_per_cycle,
-		funding: loc.production!.funding,
+		funding: production.funding,
 		treasuryFund: economy.state.treasury,
 	});
 
@@ -424,7 +423,9 @@ export function createFacilitySystem(
 				if (loc.production === null) continue;
 				const locActor = locationActorMap.get(loc.id);
 				if (locActor === undefined) continue;
-				processFacilityTick(loc, loc.production, locActor.get(FacilityComponent), agentList, economy, deps, items);
+				const facility = locActor.get(FacilityComponent);
+				if (facility.state.status === 'abandoned') continue;
+				processFacilityTick(loc, loc.production, facility, agentList, economy, deps, items);
 			}
 		},
 	};

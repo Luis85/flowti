@@ -66,5 +66,30 @@
 		"day":   { "start": 60,  "end": 299 },
 		"dusk":  { "start": 300, "end": 359 },
 		"night": { "start": 360, "end": 479 }
-	}
+	},
+	"commitment_ticks": {
+		"work": 30,
+		"harvest": 20,
+		"rest": 40,
+		"sell": 8,
+		"buy": 8,
+		"eat": 6,
+		"drink": 4,
+		"wander": 10,
+		"talk": 12,
+		"repair": 25,
+		"seek_work": 0,
+		"seek_food": 0,
+		"seek_rest": 0,
+		"seek_water": 0,
+		"seek_market": 0,
+		"seek_social": 0,
+		"idle": 0,
+		"fill_waterskin": 0,
+		"claim_job": 0,
+		"seek_quest": 0,
+		"claim_quest": 0
+	},
+	"sleep_debt_max": 100,
+	"min_rest_ticks": 80
 }

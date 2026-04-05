@@ -67,7 +67,7 @@ function createWorldEntity(phase: 'dawn' | 'day' | 'dusk' | 'night' = 'day'): Ac
 	world.addComponent(new EconomyComponent({
 		treasury: 500,
 		ledger: [],
-		dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 },
+		dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 },
 	}));
 	return world;
 }
@@ -354,9 +354,10 @@ describe('BehaviorAgent factory', () => {
 				expect(agent.IsExhausted()).toBe(true);
 			});
 
-			it('returns false when energy >= 30', () => {
+			it('returns false when energy >= personal threshold', () => {
+				// IQ=10, baseline=12 → personalThresholds.energy = 30 * (12/10) = 36
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70, thirst: 80 };
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 36, social: 70, thirst: 80 };
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.IsExhausted()).toBe(false);
 			});
@@ -1581,6 +1582,7 @@ describe('BehaviorAgent factory', () => {
 		});
 
 		it('IsRecovering clears when energy reaches threshold + hysteresis', () => {
+			// IQ=10, baseline=12 → personalThresholds.energy = 36; recovered = 36 + 20 = 56
 			const actor = new AgentActor(
 				createTestAgentData('agent-test', { needs: { hunger: 80, energy: 25, social: 70, thirst: 80 } }),
 				defaultMoodConfig,
@@ -1592,9 +1594,9 @@ describe('BehaviorAgent factory', () => {
 			agent.IsExhausted();
 			expect(agent.recovering).toBe(true);
 
-			// Simulate energy recovery above threshold+hysteresis (50)
+			// Simulate energy recovery above personal threshold+hysteresis (56)
 			const needs = actor.get(NeedsComponent);
-			needs.state = { ...needs.state, energy: 51 };
+			needs.state = { ...needs.state, energy: 57 };
 			needs.markDirty();
 
 			expect(agent.IsRecovering()).toBe(false);
@@ -1606,7 +1608,8 @@ describe('BehaviorAgent factory', () => {
 			expect(agent.IsRecovering()).toBe(false);
 		});
 
-		it('agent at 35 energy is not exhausted but stays recovering if previously set', () => {
+		it('agent above personal threshold is not exhausted but stays recovering if previously set', () => {
+			// IQ=10, baseline=12 → personalThresholds.energy = 36; recovered = 56
 			const actor = new AgentActor(
 				createTestAgentData('agent-test', { needs: { hunger: 80, energy: 25, social: 70, thirst: 80 } }),
 				defaultMoodConfig,
@@ -1617,9 +1620,9 @@ describe('BehaviorAgent factory', () => {
 			agent.IsExhausted(); // triggers recovering
 			expect(agent.recovering).toBe(true);
 
-			// Energy recovers to 35 (above 30 threshold, below 50 recovered threshold)
+			// Energy recovers to 40 (above 36 threshold, below 56 recovered threshold)
 			const needs = actor.get(NeedsComponent);
-			needs.state = { ...needs.state, energy: 35 };
+			needs.state = { ...needs.state, energy: 40 };
 			needs.markDirty();
 
 			expect(agent.IsExhausted()).toBe(false); // no longer exhausted

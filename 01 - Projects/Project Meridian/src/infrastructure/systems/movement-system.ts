@@ -2,9 +2,11 @@ import { SystemPriority, type GameSystem } from '../../domain/core/tick-schedule
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
+import type { Actor } from 'excalibur';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { StaminaComponent } from '../components/stamina-component.js';
+import { FacilityComponent } from '../components/facility-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { clamp, distance } from '../../domain/core/math-utils.js';
 import { resolveArrivalOffset } from '../../domain/systems/arrival-spread.js';
@@ -111,6 +113,7 @@ function handleJourneyWaypointArrival(
 export function createMovementSystem(
 	agents: () => AgentActor[],
 	locations: () => WorldLocation[],
+	locationActors?: () => Map<string, Actor>,
 ): GameSystem {
 	return {
 		name: 'MovementSystem',
@@ -137,6 +140,7 @@ export function createMovementSystem(
 				if (isMovementTarget(rawTarget) && ba.atLocation !== null) {
 					ba.atLocation = null;
 					ba.arrivalSlot = null;
+					ba.insideFacility = false;
 				}
 
 				if (!isMovementTarget(rawTarget)) {
@@ -216,6 +220,10 @@ export function createMovementSystem(
 						ba.movementTarget = null;
 						ba.atLocation = rawTarget.id;
 						ba.arrivalSlot = slotIndex;
+
+						// Mark whether the agent entered a facility
+						const locActor = locationActors?.().get(rawTarget.id);
+						ba.insideFacility = locActor?.has(FacilityComponent) === true;
 
 						// Track known locations for gossip
 						if (!ba.knownLocations.includes(rawTarget.id)) {

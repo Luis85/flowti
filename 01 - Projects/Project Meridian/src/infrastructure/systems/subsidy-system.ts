@@ -32,6 +32,7 @@ export function createSubsidySystem(
 				if (locActor === undefined) continue;
 				if (!locActor.has(FacilityComponent)) continue;
 				const facility = locActor.get(FacilityComponent);
+				if (facility.state.status === 'abandoned') continue;
 				if (facility.state.fund >= threshold) continue;
 				if (economy.state.treasury < subsidyAmount) continue;
 

@@ -1,12 +1,14 @@
 import type { Actor } from 'excalibur';
 import type { BehaviorAgent, PerceivedAgent, PerceivedLocation, PerceivedFacility } from '../../domain/systems/behavior-agent.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
+import type { QuestBoardState } from '../components/quest-board-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
+import { AttributesComponent } from '../components/attributes-component.js';
 import { TimeComponent } from '../components/time-component.js';
 import type { EventBus } from '../../domain/core/events.js';
 import type { AgentActor } from './agent-actor.js';
@@ -26,6 +28,7 @@ export interface BehaviorAgentDeps {
 	eventBus: EventBus;
 	swapBehaviorTree?: (jobName: string | null) => void;
 	jobsConfig?: GameConfig['jobs'];
+	getQuestBoard?: () => QuestBoardState;
 }
 
 export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
@@ -36,10 +39,25 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let cachedFacilities: PerceivedFacility[] | null = null;
 	let cachedFacilitiesTick = -1;
 
-	// Wake stagger offset
+	// Wake/sleep stagger offsets
 	const dawnDuration = config.day_night.dawn.end - config.day_night.dawn.start + 1;
 	const staggerSeed = actor.agentId.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
 	const wakeOffset = Math.abs(staggerSeed) % Math.floor(dawnDuration / 2);
+	const duskDuration = config.day_night.dusk.end - config.day_night.dusk.start + 1;
+	const personalSleepOffset = Math.abs(staggerSeed * 7) % Math.floor(duskDuration / 2);
+
+	// Personal thresholds from GURPS attributes (clamped to 90 — must stay below need max 100)
+	const attrs = actor.get(AttributesComponent).state;
+	const aptitudeBaseline = config.jobs.aptitude_baseline;
+	const THRESHOLD_CAP = 90;
+	memory.personalThresholds = {
+		hunger: Math.min(config.needs.hunger_threshold * (aptitudeBaseline / attrs.HT), THRESHOLD_CAP),
+		energy: Math.min(config.needs.energy_threshold * (aptitudeBaseline / attrs.IQ), THRESHOLD_CAP),
+		thirst: Math.min(config.needs.thirst_threshold * (aptitudeBaseline / attrs.HT), THRESHOLD_CAP),
+	};
+
+	// ST-scaled commitment duration multiplier
+	const commitmentMultiplier = attrs.ST / aptitudeBaseline;
 
 	function resolveNearbyFacilities(): PerceivedFacility[] {
 		const currentTick = tickCount();
@@ -112,8 +130,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		return getLocations().find(l => l.id === memory.atLocation);
 	}
 
-	const conditions = createConditions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations, getAtLocationData, wakeOffset);
-	const actions = createActions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations);
+	const conditions = createConditions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations, getAtLocationData, wakeOffset, personalSleepOffset);
+	const actions = createActions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations, commitmentMultiplier);
 
 	const agent: BehaviorAgent = {
 		// ── Read-only getters ──────────────────────────────────────────────
@@ -170,6 +188,19 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set recovering(v) { memory.recovering = v; },
 		get supplyRoute() { return memory.supplyRoute; },
 		set supplyRoute(v) { memory.supplyRoute = v; },
+		get activeQuest() { return memory.activeQuest; },
+		set activeQuest(v) { memory.activeQuest = v; },
+		get cachedAvailableQuest() { return memory.cachedAvailableQuest; },
+		set cachedAvailableQuest(v) { memory.cachedAvailableQuest = v; },
+		get insideFacility() { return memory.insideFacility; },
+		set insideFacility(v) { memory.insideFacility = v; },
+		get commitmentTicks() { return memory.commitmentTicks; },
+		set commitmentTicks(v) { memory.commitmentTicks = v; },
+		get sleepDebt() { return memory.sleepDebt; },
+		set sleepDebt(v) { memory.sleepDebt = v; },
+		get ticksRestedThisDay() { return memory.ticksRestedThisDay; },
+		set ticksRestedThisDay(v) { memory.ticksRestedThisDay = v; },
+		get personalThresholds() { return memory.personalThresholds; },
 		get priceMemories() { return memory.priceMemories; },
 
 		// ── Conditions + Actions (spread from extracted modules) ───────────

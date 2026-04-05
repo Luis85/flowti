@@ -29,6 +29,19 @@ export function createPerceptionSystem(
 				pos: { x: a.pos.x, y: a.pos.y },
 			}));
 
+			// Pre-compute facility occupancy lookup
+			const insideFacilitySet = new Set<string>();
+			const agentLocationMap = new Map<string, string>();
+			for (const a of agentList) {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- behaviorAgent uses !: but may be unset before init
+				if (a.behaviorAgent?.insideFacility === true) {
+					insideFacilitySet.add(a.agentId);
+					if (a.behaviorAgent.atLocation !== null) {
+						agentLocationMap.set(a.agentId, a.behaviorAgent.atLocation);
+					}
+				}
+			}
+
 			const locationInputs = locationList.map(l => ({
 				id: l.id,
 				type: l.type,
@@ -38,8 +51,24 @@ export function createPerceptionSystem(
 			for (const agent of agentList) {
 				const attrs = agent.get(AttributesComponent);
 				const perception = agent.get(PerceptionComponent);
+				const selfInside = insideFacilitySet.has(agent.agentId);
+				const selfLocation = agentLocationMap.get(agent.agentId) ?? null;
 
-				const otherAgents = agentInputs.filter(a => a.id !== agent.agentId);
+				let otherAgents: { id: string; pos: { x: number; y: number } }[];
+
+				if (selfInside) {
+					// Agent inside facility — only see agents at the same location
+					otherAgents = agentInputs.filter(a => {
+						if (a.id === agent.agentId) return false;
+						return agentLocationMap.get(a.id) === selfLocation;
+					});
+				} else {
+					// Agent outside — exclude agents inside facilities
+					otherAgents = agentInputs.filter(a => {
+						if (a.id === agent.agentId) return false;
+						return !insideFacilitySet.has(a.id);
+					});
+				}
 
 				const result = resolvePerception(
 					{

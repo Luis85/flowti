@@ -84,7 +84,7 @@ describe('DayNightSystem', () => {
 	it('sets dayBoundaryThisTick flag on day increment', () => {
 		const config = GameConfigSchema.parse({});
 		const worldEntity = createWorldEntity();
-		worldEntity.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 } }));
+		worldEntity.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 } }));
 
 		const system = createDayNightSystem(() => worldEntity);
 		system.execute(createDeps(createEventBus(), 0));
@@ -97,7 +97,7 @@ describe('DayNightSystem', () => {
 	it('clears dayBoundaryThisTick flag at start of next tick', () => {
 		const config = GameConfigSchema.parse({});
 		const worldEntity = createWorldEntity();
-		worldEntity.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 } }));
+		worldEntity.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 } }));
 
 		const system = createDayNightSystem(() => worldEntity);
 		system.execute(createDeps(createEventBus(), 0));
@@ -111,7 +111,7 @@ describe('DayNightSystem', () => {
 	it('adds treasury regen at day boundary', () => {
 		const config = GameConfigSchema.parse({});
 		const worldEntity = createWorldEntity();
-		worldEntity.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0 } }));
+		worldEntity.addComponent(new EconomyComponent({ treasury: 500, ledger: [], dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 } }));
 		const defaultMoodConfig = {
 			factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
 			buckets: [{ name: 'stressed', min: -100, max: 100 }],

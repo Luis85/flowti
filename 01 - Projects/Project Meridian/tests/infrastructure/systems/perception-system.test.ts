@@ -9,6 +9,7 @@ import { createPerformanceTracker } from '../../../src/infrastructure/performanc
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -136,5 +137,64 @@ describe('PerceptionSystem', () => {
 		const nightPerception = agent.get(PerceptionComponent);
 		// night radius=200*0.5=100, location at 150 → not visible
 		expect(nightPerception.state.nearbyLocations).toHaveLength(0);
+	});
+
+	it('agent inside facility is excluded from other agents nearbyAgents', () => {
+		// Both agents at same position — normally visible to each other
+		const outsideAgent = new AgentActor(createTestAgentData({ id: 'outside', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
+		const insideAgent = new AgentActor(createTestAgentData({ id: 'inside', name: 'Bob', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
+
+		// Set behaviorAgent stubs — insideAgent is inside a facility
+		outsideAgent.behaviorAgent = { insideFacility: false, atLocation: null } as unknown as BehaviorAgent;
+		insideAgent.behaviorAgent = { insideFacility: true, atLocation: 'loc-farm' } as unknown as BehaviorAgent;
+
+		const worldEntity = createWorldEntityWithPhase('day');
+		const system = createPerceptionSystem(() => [outsideAgent, insideAgent], () => [], () => worldEntity);
+		system.execute(createDeps());
+
+		const outsidePerception = outsideAgent.get(PerceptionComponent);
+		// Outside agent should NOT see the inside agent
+		expect(outsidePerception.state.nearbyAgents.map(a => a.id)).not.toContain('inside');
+	});
+
+	it('agent inside facility only sees agents at the same location', () => {
+		const insideAgent1 = new AgentActor(createTestAgentData({ id: 'inside-1', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
+		const insideAgent2 = new AgentActor(createTestAgentData({ id: 'inside-2', name: 'Bob', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
+		const insideOtherLoc = new AgentActor(createTestAgentData({ id: 'inside-other', name: 'Carol', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
+
+		// inside-1 and inside-2 share location 'loc-farm'; inside-other is at 'loc-mine'
+		insideAgent1.behaviorAgent = { insideFacility: true, atLocation: 'loc-farm' } as unknown as BehaviorAgent;
+		insideAgent2.behaviorAgent = { insideFacility: true, atLocation: 'loc-farm' } as unknown as BehaviorAgent;
+		insideOtherLoc.behaviorAgent = { insideFacility: true, atLocation: 'loc-mine' } as unknown as BehaviorAgent;
+
+		const worldEntity = createWorldEntityWithPhase('day');
+		const system = createPerceptionSystem(
+			() => [insideAgent1, insideAgent2, insideOtherLoc],
+			() => [],
+			() => worldEntity,
+		);
+		system.execute(createDeps());
+
+		const p1 = insideAgent1.get(PerceptionComponent);
+		// inside-1 should see inside-2 (same location) but NOT inside-other (different location)
+		expect(p1.state.nearbyAgents.map(a => a.id)).toContain('inside-2');
+		expect(p1.state.nearbyAgents.map(a => a.id)).not.toContain('inside-other');
+	});
+
+	it('agent NOT inside facility sees normally (no facility filtering)', () => {
+		const agent1 = new AgentActor(createTestAgentData({ id: 'agent-1', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
+		const agent2 = new AgentActor(createTestAgentData({ id: 'agent-2', name: 'Bob', position: { x: 0, y: 0, region: 'test' } }), defaultMoodConfig);
+
+		// Neither agent is inside a facility
+		agent1.behaviorAgent = { insideFacility: false, atLocation: null } as unknown as BehaviorAgent;
+		agent2.behaviorAgent = { insideFacility: false, atLocation: null } as unknown as BehaviorAgent;
+
+		const worldEntity = createWorldEntityWithPhase('day');
+		const system = createPerceptionSystem(() => [agent1, agent2], () => [], () => worldEntity);
+		system.execute(createDeps());
+
+		const p1 = agent1.get(PerceptionComponent);
+		// Both agents visible to each other as normal
+		expect(p1.state.nearbyAgents.map(a => a.id)).toContain('agent-2');
 	});
 });
