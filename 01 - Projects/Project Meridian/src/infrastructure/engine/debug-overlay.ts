@@ -9,6 +9,7 @@ import { EconomyComponent } from '../components/economy-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { MoodComponent } from '../components/mood-component.js';
 import { StaminaComponent } from '../components/stamina-component.js';
+import { QuestBoardComponent } from '../components/quest-board-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 
@@ -60,6 +61,10 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	deliver_cargo: { emoji: '🚚', label: 'Delivering' },
 	seek_delivery: { emoji: '🚶📦', label: 'Going to deliver' },
 	seek_supply: { emoji: '🔍📦', label: 'Finding supplies' },
+	claim_quest: { emoji: '📜', label: 'Claiming quest' },
+	seek_quest: { emoji: '🗺️', label: 'Quest journey' },
+	repair: { emoji: '🔧', label: 'Repairing' },
+	switch_job: { emoji: '🔄', label: 'Switching job' },
 };
 
 const PHASE_DISPLAY: Record<string, { emoji: string; label: string }> = {
@@ -128,15 +133,31 @@ function renderAgentsPanel(deps: OverlayDeps): string {
 		const actionInfo = ACTION_DISPLAY[action] ?? { emoji: '❓', label: action };
 
 		lines.push(`<div style="margin-top:6px;padding:6px;background:#181825;border-radius:4px">`);
-		lines.push(`<b style="color:${agent.agentColor}">${agent.agentName}</b> <span style="color:#6c7086">${agent.kind}</span> &middot; ${actionInfo.emoji} ${actionInfo.label}`);
+		const commitLabel = ba.commitmentTicks > 0 ? ` <span style="color:#f5c2e7">[${ba.commitmentTicks}t]</span>` : '';
+		lines.push(`<b style="color:${agent.agentColor}">${agent.agentName}</b> <span style="color:#6c7086">${agent.kind}</span> &middot; ${actionInfo.emoji} ${actionInfo.label}${commitLabel}`);
 
-		// Needs — compact row
-		lines.push(`<div style="margin:3px 0">${needBar(needs.hunger, 'Food', '🍖')} ${needBar(needs.thirst, 'Water', '💧')}</div>`);
-		lines.push(`<div style="margin:3px 0">${needBar(needs.energy, 'Energy', '⚡')} ${needBar(needs.social, 'Social', '👥')}</div>`);
+		// Needs — compact row with personal thresholds
+		const ht = ba.personalThresholds.hunger.toFixed(0);
+		const et = ba.personalThresholds.energy.toFixed(0);
+		lines.push(`<div style="margin:3px 0">${needBar(needs.hunger, 'Food', '🍖')} <span style="color:#585b70;font-size:9px">thr:${ht}</span> ${needBar(needs.thirst, 'Water', '💧')}</div>`);
+		lines.push(`<div style="margin:3px 0">${needBar(needs.energy, 'Energy', '⚡')} <span style="color:#585b70;font-size:9px">thr:${et}</span> ${needBar(needs.social, 'Social', '👥')}</div>`);
 
-		// Status line
+		// Status line with sleep debt
 		const moodEmoji = mood.value > 30 ? '😊' : mood.value > -10 ? '😐' : '😞';
-		lines.push(`${moodEmoji} ${mood.bucket} &middot; 🏃 ${stamina.current.toFixed(0)}/${stamina.max} &middot; 💰 ${wallet.gold.toFixed(0)}g`);
+		const debtLabel = ba.sleepDebt > 0 ? ` &middot; <span style="color:#f38ba8">😴 debt:${ba.sleepDebt.toFixed(0)}</span>` : '';
+		lines.push(`${moodEmoji} ${mood.bucket} &middot; 🏃 ${stamina.current.toFixed(0)}/${stamina.max} &middot; 💰 ${wallet.gold.toFixed(0)}g${debtLabel}`);
+
+		// Mood factor breakdown
+		if (mood.factors !== undefined) {
+			const f = mood.factors;
+			const parts = [
+				`needs:${(f.needs * 100).toFixed(0)}`,
+				`mem:+${(f.positiveMemories * 100).toFixed(0)}/-${(f.negativeMemories * 100).toFixed(0)}`,
+				`goal:${(f.goalProgress * 100).toFixed(0)}`,
+				`rel:${(f.relationshipQuality * 100).toFixed(0)}`,
+			].join(' ');
+			lines.push(`<span style="color:#585b70;font-size:9px">${parts}</span>`);
+		}
 
 		// Inventory
 		const items = inv.items.map(i => {
@@ -201,6 +222,26 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		for (const loc of nonFacilities) {
 			const locIcon = LOCATION_ICONS[loc.type] ?? '📍';
 			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.type})</span>`);
+		}
+	}
+
+	// Quest board
+	const world = deps.getWorldEntity();
+	if (world.has(QuestBoardComponent)) {
+		const board = world.get(QuestBoardComponent);
+		if (board.state.quests.length > 0) {
+			const tickCount = deps.getTickCount();
+			lines.push('<br><b style="color:#89b4fa">Quest Board</b>');
+			for (const quest of board.state.quests) {
+				const icon = quest.type === 'repair' ? '🔧' : quest.type === 'supply' ? '📦' : '🏪';
+				const remaining = quest.expiryTicks - (tickCount - quest.createdTick);
+				const stateLabel = quest.state === 'claimed'
+					? `<span style="color:#f9e2af">claimed by ${quest.claimedBy?.replace('agent-', '') ?? '?'}</span>`
+					: quest.state === 'completed'
+						? '<span style="color:#a6e3a1">done</span>'
+						: '<span style="color:#6c7086">open</span>';
+				lines.push(`<div style="margin:2px 0">${icon} ${quest.type} → ${quest.facilityId.replace('loc-', '')} — ${stateLabel} <span style="color:#585b70">(${remaining}t)</span></div>`);
+			}
 		}
 	}
 
