@@ -32,7 +32,9 @@ export function createSubsidySystem(
 				if (locActor === undefined) continue;
 				if (!locActor.has(FacilityComponent)) continue;
 				const facility = locActor.get(FacilityComponent);
-				if (facility.state.status === 'abandoned') continue;
+				// Skip abandoned production facilities (need repair quest to restore)
+				// but subsidize abandoned rest/market facilities (infrastructure)
+				if (facility.state.status === 'abandoned' && loc.production !== null) continue;
 				if (facility.state.fund >= threshold) continue;
 				if (economy.state.treasury < subsidyAmount) continue;
 

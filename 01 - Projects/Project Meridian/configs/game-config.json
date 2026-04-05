@@ -80,7 +80,7 @@
 	"commitment_ticks": {
 		"work": 30,
 		"harvest": 20,
-		"rest": 40,
+		"rest": 0,
 		"sell": 8,
 		"buy": 8,
 		"eat": 6,
