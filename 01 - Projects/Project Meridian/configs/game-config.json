@@ -5,7 +5,7 @@
 	"needs": {
 		"hunger_decay": 0.04,
 		"energy_decay": 0.06,
-		"social_decay": 0,
+		"social_decay": 0.02,
 		"thirst_decay": 0.05,
 		"food_recovery_rate": 30,
 		"drink_recovery": 30,
@@ -44,7 +44,7 @@
 		"reservation_stock_factor": 0.5,
 		"reservation_budget_cap": 0.3,
 		"reservation_budget_cap_critical": 0.8,
-		"guard_stipend": 0,
+		"guard_stipend": 2,
 		"facility_subsidy_threshold": 100,
 		"facility_subsidy_per_day": 30,
 		"welfare_threshold_gold": 10,

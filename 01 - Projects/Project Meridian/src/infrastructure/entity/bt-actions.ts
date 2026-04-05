@@ -817,6 +817,24 @@ export function createActions(
 				memory.committedAction = null;
 				return FAILED;
 			}
+			// Break consumption commitments when the need is satisfied — prevents waste
+			const ca = memory.committedAction;
+			const needs = actor.get(NeedsComponent).state;
+			if (ca === 'eat' && needs.hunger >= memory.personalThresholds.hunger) {
+				memory.commitmentTicks = 0;
+				memory.committedAction = null;
+				return FAILED;
+			}
+			if (ca === 'drink' && needs.thirst >= memory.personalThresholds.thirst) {
+				memory.commitmentTicks = 0;
+				memory.committedAction = null;
+				return FAILED;
+			}
+			if (ca === 'rest' && needs.energy >= memory.personalThresholds.energy + config.needs.recovery_hysteresis) {
+				memory.commitmentTicks = 0;
+				memory.committedAction = null;
+				return FAILED;
+			}
 			// Restore btAction so downstream systems (rest, needs-decay) see the correct activity
 			memory.btAction = memory.committedAction;
 			return RUNNING;

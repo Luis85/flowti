@@ -122,6 +122,33 @@ root {
             }
         }
 
+        /* P4.25: Complete active quest (repair, supply, restock) */
+        sequence {
+            condition [HasQuest]
+            selector {
+                /* At quest facility with cargo ready — complete it */
+                sequence {
+                    condition [QuestAtFacility]
+                    condition [QuestCargoReady]
+                    action [CompleteQuest]
+                }
+                /* At quest facility — work repair */
+                sequence {
+                    condition [QuestAtFacility]
+                    action [WorkRepair]
+                }
+                /* Travel to quest facility */
+                action [SeekQuestFacility]
+            }
+        }
+
+        /* P4.3: Claim available quest if idle */
+        sequence {
+            flip { condition [HasQuest] }
+            condition [QuestAvailable]
+            action [ClaimQuest]
+        }
+
         /* P4.5: Buy equipment if affordable, available, and not recovering */
         sequence {
             flip { condition [IsRecovering] }
@@ -137,11 +164,60 @@ root {
             }
         }
 
+        /* P4.6: Supply chain — haul goods between facilities */
+        sequence {
+            condition [IsWorkHours]
+            flip { condition [IsRecovering] }
+            selector {
+                /* Deliver cargo if carrying */
+                sequence {
+                    condition [HasCargo]
+                    selector {
+                        sequence {
+                            condition [CargoDestinationNearby]
+                            action [DeliverCargo]
+                        }
+                        action [SeekDeliveryTarget]
+                    }
+                }
+                /* Pick up cargo if at supply source */
+                sequence {
+                    condition [FacilityNeedsSupply]
+                    action [PickupCargo]
+                }
+                /* Find a supply route from known locations */
+                sequence {
+                    condition [KnowsSupplyRoute]
+                    action [SeekSupplySource]
+                }
+            }
+        }
+
         /* P5: Energy — rest when tired */
         sequence {
             condition [IsExhausted]
             action [SeekRest]
             action [Rest] while(IsExhausted)
+        }
+
+        /* P5.5: Switch to better-paying job if available */
+        sequence {
+            condition [IsWorkHours]
+            condition [HasJob]
+            condition [BetterPayAvailable]
+            action [SwitchJob]
+        }
+
+        /* P5.7: Socialize when lonely */
+        sequence {
+            condition [IsLonely]
+            selector {
+                sequence {
+                    condition [NearAgentClose]
+                    action [Talk]
+                }
+                action [SeekSocial]
+            }
         }
 
         /* P6: Personal sleep time */
