@@ -203,27 +203,44 @@ export function createMovementSystem(
 						agent.vel.y = 0;
 						handleJourneyWaypointArrival(agent, journey, deps);
 					} else {
+						// Mark whether the agent entered a facility
+						const locActor = locationActors?.().get(rawTarget.id);
+						const enteringFacility = locActor?.has(FacilityComponent) === true;
+
 						// Count agents already at this location (for spread offset)
 						const agentsAtLocation = agentList.filter(a => {
 							return a.behaviorAgent.atLocation === rawTarget.id;
 						});
 						const slotIndex = agentsAtLocation.length;
 						const totalAgents = slotIndex + 1;
-						const offset = resolveArrivalOffset(slotIndex, totalAgents, spreadRadius);
 
-						// Arrived — snap to target + offset, stop, emit event
-						agent.pos.x = targetPos.x + offset.dx;
-						agent.pos.y = targetPos.y + offset.dy;
+						if (enteringFacility) {
+							// Snap to facility center — agent will be hidden by overlay
+							agent.pos.x = targetPos.x;
+							agent.pos.y = targetPos.y;
+						} else {
+							const offset = resolveArrivalOffset(slotIndex, totalAgents, spreadRadius);
+							agent.pos.x = targetPos.x + offset.dx;
+							agent.pos.y = targetPos.y + offset.dy;
+						}
 						agent.vel.x = 0;
 						agent.vel.y = 0;
 
 						ba.movementTarget = null;
 						ba.atLocation = rawTarget.id;
 						ba.arrivalSlot = slotIndex;
+						ba.insideFacility = enteringFacility;
 
-						// Mark whether the agent entered a facility
-						const locActor = locationActors?.().get(rawTarget.id);
-						ba.insideFacility = locActor?.has(FacilityComponent) === true;
+						// Hide immediately on arrival to prevent 1-frame flash at facility edge
+						if (enteringFacility) {
+							agent.graphics.visible = false;
+							// Also hide child actors (thought bubble labels added by debug overlay)
+							for (const child of agent.children) {
+								if ('graphics' in child) {
+									(child as Actor).graphics.visible = false;
+								}
+							}
+						}
 
 						// Track known locations for gossip
 						if (!ba.knownLocations.includes(rawTarget.id)) {
