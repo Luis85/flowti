@@ -239,6 +239,7 @@ export class MeridianGameView extends ItemView {
 				eventBus: deps.eventBus,
 				swapBehaviorTree,
 				jobsConfig: deps.config.jobs,
+				getQuestBoard: () => worldEntity.get(QuestBoardComponent).state,
 			});
 
 			// Initialize with job-specific tree if agent has a job, otherwise jobless

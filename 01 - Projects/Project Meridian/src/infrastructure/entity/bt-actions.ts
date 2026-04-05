@@ -10,6 +10,7 @@ import { FacilityComponent } from '../components/facility-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
+import { QuestBoardComponent } from '../components/quest-board-component.js';
 import { findFoodInInventory, FOOD_ITEMS, TRADE_GOODS } from '../../domain/systems/food-items.js';
 import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
 import { isPriceStale } from '../../domain/systems/price-memory.js';
@@ -601,6 +602,7 @@ export function createActions(
 
 			quest.state = 'claimed';
 			quest.claimedBy = actor.agentId;
+			deps.worldEntity().get(QuestBoardComponent).markDirty();
 			memory.activeQuest = quest;
 			memory.cachedAvailableQuest = null;
 			memory.btAction = 'claim_quest';
@@ -738,6 +740,7 @@ export function createActions(
 
 			// Mark quest completed
 			quest.state = 'completed';
+			deps.worldEntity().get(QuestBoardComponent).markDirty();
 			memory.activeQuest = null;
 
 			eventBus.emit({
@@ -775,6 +778,7 @@ export function createActions(
 			quest.state = 'open';
 			quest.claimedBy = null;
 			quest.repairProgress = 0;
+			deps.worldEntity().get(QuestBoardComponent).markDirty();
 			memory.activeQuest = null;
 
 			eventBus.emit({

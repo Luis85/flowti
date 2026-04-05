@@ -545,35 +545,10 @@ describe('DailyReportSystem', () => {
 		expect(worldEntity.get(EconomyComponent).state.dailySummary.unemploymentCount).toBe(0);
 	});
 
-	it('counts event-based metrics from eventBus history', () => {
+	it('counts event-based metrics via incremental listeners', () => {
 		const eventBus = createEventBus();
-		const tickCount = 1000;
-		const config = GameConfigSchema.parse({});
-
-		// Emit events that fall within the current day window
-		eventBus.emit({ type: 'JobSwitched', tick: tickCount - 10, wallClock: Date.now(), source: 'test', payload: {} });
-		eventBus.emit({ type: 'JobSwitched', tick: tickCount - 5, wallClock: Date.now(), source: 'test', payload: {} });
-		eventBus.emit({ type: 'SupplyDelivered', tick: tickCount - 3, wallClock: Date.now(), source: 'test', payload: {} });
-		eventBus.emit({ type: 'QuestCompleted', tick: tickCount - 1, wallClock: Date.now(), source: 'test', payload: {} });
-		eventBus.emit({ type: 'QuestCompleted', tick: tickCount - 2, wallClock: Date.now(), source: 'test', payload: {} });
-		eventBus.emit({ type: 'QuestCompleted', tick: tickCount - 3, wallClock: Date.now(), source: 'test', payload: {} });
-
-		// Emit an event outside the day window (should not be counted)
-		eventBus.emit({ type: 'JobSwitched', tick: tickCount - config.ticks_per_day - 100, wallClock: Date.now(), source: 'test', payload: {} });
-
 		const worldEntity = createWorldWithEconomy(true, { totalWages: 10, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 });
 		const agent = createTestAgent('a1');
-
-		const deps = createDeps(eventBus, tickCount);
-		let capturedJobSwitches = -1;
-		let capturedSupplyDeliveries = -1;
-		let capturedQuests = -1;
-		deps.writeFile = async () => {
-			const summary = worldEntity.get(EconomyComponent).state.dailySummary;
-			capturedJobSwitches = summary.jobSwitchesThisDay;
-			capturedSupplyDeliveries = summary.supplyDeliveries;
-			capturedQuests = summary.questsCompletedThisDay;
-		};
 
 		const system = createDailyReportSystem(
 			() => worldEntity,
@@ -582,9 +557,35 @@ describe('DailyReportSystem', () => {
 			() => [],
 		);
 
-		system.execute(deps);
+		// First execute registers listeners and produces day-0 report
+		const deps0 = createDeps(eventBus, 480);
+		deps0.writeFile = async () => {};
+		system.execute(deps0);
 
-		// 2 JobSwitched in window (the 3rd is outside the day)
+		// Now emit events between day boundaries — listeners are active
+		eventBus.emit({ type: 'JobSwitched', tick: 490, wallClock: Date.now(), source: 'test', payload: {} });
+		eventBus.emit({ type: 'JobSwitched', tick: 495, wallClock: Date.now(), source: 'test', payload: {} });
+		eventBus.emit({ type: 'SupplyDelivered', tick: 500, wallClock: Date.now(), source: 'test', payload: {} });
+		eventBus.emit({ type: 'QuestCompleted', tick: 510, wallClock: Date.now(), source: 'test', payload: {} });
+		eventBus.emit({ type: 'QuestCompleted', tick: 520, wallClock: Date.now(), source: 'test', payload: {} });
+		eventBus.emit({ type: 'QuestCompleted', tick: 530, wallClock: Date.now(), source: 'test', payload: {} });
+
+		// Second execute on next day boundary reads accumulated counts
+		const deps1 = createDeps(eventBus, 960);
+		let capturedJobSwitches = -1;
+		let capturedSupplyDeliveries = -1;
+		let capturedQuests = -1;
+		deps1.writeFile = async () => {
+			const summary = worldEntity.get(EconomyComponent).state.dailySummary;
+			capturedJobSwitches = summary.jobSwitchesThisDay;
+			capturedSupplyDeliveries = summary.supplyDeliveries;
+			capturedQuests = summary.questsCompletedThisDay;
+		};
+
+		// Need fresh day boundary
+		worldEntity.get(TimeComponent).state = { ...worldEntity.get(TimeComponent).state, dayBoundaryThisTick: true };
+		system.execute(deps1);
+
 		expect(capturedJobSwitches).toBe(2);
 		expect(capturedSupplyDeliveries).toBe(1);
 		expect(capturedQuests).toBe(3);

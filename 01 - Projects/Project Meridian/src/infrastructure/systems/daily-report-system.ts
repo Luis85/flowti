@@ -19,12 +19,22 @@ export function createDailyReportSystem(
 	getLocations: () => WorldLocation[],
 ): GameSystem {
 	const previousGold = new Map<string, number>();
+	let jobSwitchCount = 0;
+	let supplyDeliveryCount = 0;
+	let questCompletedCount = 0;
+	let listenersRegistered = false;
 
 	return {
 		name: 'DailyReportSystem',
 		priority: SystemPriority.DAILY_REPORT,
 
 		execute(deps: GameCoreDeps): void {
+			if (!listenersRegistered) {
+				deps.eventBus.on('JobSwitched', () => { jobSwitchCount++; });
+				deps.eventBus.on('SupplyDelivered', () => { supplyDeliveryCount++; });
+				deps.eventBus.on('QuestCompleted', () => { questCompletedCount++; });
+				listenersRegistered = true;
+			}
 			const entity = worldEntity();
 			const time = entity.get(TimeComponent);
 			if (!time.state.dayBoundaryThisTick) return;
@@ -58,10 +68,12 @@ export function createDailyReportSystem(
 			const avgWage = facilityWages.length > 0 ? facilityWages.reduce((s, w) => s + w, 0) / facilityWages.length : 0;
 			const wageSpread = facilityWages.length > 0 ? Math.max(...facilityWages) - Math.min(...facilityWages) : 0;
 
-			const dayEvents = deps.eventBus.history().filter(e => e.tick > deps.tickCount - deps.config.ticks_per_day);
-			const jobSwitchesThisDay = dayEvents.filter(e => e.type === 'JobSwitched').length;
-			const supplyDeliveries = dayEvents.filter(e => e.type === 'SupplyDelivered').length;
-			const questsCompletedThisDay = dayEvents.filter(e => e.type === 'QuestCompleted').length;
+			const jobSwitchesThisDay = jobSwitchCount;
+			const supplyDeliveries = supplyDeliveryCount;
+			const questsCompletedThisDay = questCompletedCount;
+			jobSwitchCount = 0;
+			supplyDeliveryCount = 0;
+			questCompletedCount = 0;
 
 			// Store metrics on current summary before report generation
 			economy.state.dailySummary.avgWage = avgWage;

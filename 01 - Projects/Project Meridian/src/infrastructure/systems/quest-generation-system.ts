@@ -23,34 +23,8 @@ export function createQuestGenerationSystem(
 
 			const board = entity.get(QuestBoardComponent);
 
-			// 1. Clean expired quests
-			const expiredQuests: QuestRuntime[] = [];
-			const remainingQuests: QuestRuntime[] = [];
-
-			for (const quest of board.state.quests) {
-				if (quest.state === 'open' && deps.tickCount - quest.createdTick > quest.expiryTicks) {
-					expiredQuests.push(quest);
-				} else {
-					remainingQuests.push(quest);
-				}
-			}
-
-			for (const expired of expiredQuests) {
-				deps.eventBus.emit({
-					type: 'QuestExpired',
-					tick: deps.tickCount,
-					wallClock: Date.now(),
-					source: 'QuestGenerationSystem',
-					payload: { questId: expired.id, facilityId: expired.facilityId, type: expired.type },
-				});
-			}
-
-			if (expiredQuests.length > 0) {
-				board.state = { ...board.state, quests: remainingQuests };
-				board.markDirty();
-			}
-
-			// 2. Generate quests for facilities that need help
+			// Expiration is handled by QuestEvaluationSystem (runs every tick).
+			// Generate quests for facilities that need help
 			const locationActorMap = getLocationActors();
 			const locationList = getLocations();
 
@@ -125,11 +99,17 @@ export function createQuestGenerationSystem(
 				if (quest === null && loc.type === 'market') {
 					const totalStock = facility.state.stock.reduce((sum, s) => sum + s.quantity, 0);
 					if (totalStock < deps.config.quests.restock_threshold) {
+						// Pick the lowest-stock food item to restock
+						const foodStock = facility.state.stock.find(s => s.item_id === 'food');
+						const restockItem = foodStock === undefined || foodStock.quantity < deps.config.quests.restock_threshold
+							? 'food'
+							: facility.state.stock.reduce((lowest, s) => s.quantity < lowest.quantity ? s : lowest).item_id;
+
 						quest = {
 							id: `q-${loc.id}-${deps.tickCount}`,
 							type: 'restock',
 							facilityId: loc.id,
-							itemId: null,
+							itemId: restockItem,
 							quantity: 1,
 							reward: deps.config.quests.restock_reward,
 							rewardXp: 5,

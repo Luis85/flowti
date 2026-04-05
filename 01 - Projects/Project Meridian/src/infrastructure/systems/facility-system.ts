@@ -310,7 +310,7 @@ function processFacilityTick(
 		workerGold: worker !== undefined ? worker.get(WalletComponent).state.gold : 0,
 		autoProcess: production.auto_process,
 		autoTicksPerCycle: production.auto_ticks_per_cycle ?? production.ticks_per_cycle,
-		funding: loc.production!.funding,
+		funding: production.funding,
 		treasuryFund: economy.state.treasury,
 	});
 

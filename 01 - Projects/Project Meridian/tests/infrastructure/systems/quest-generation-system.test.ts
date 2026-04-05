@@ -274,51 +274,7 @@ describe('QuestGenerationSystem', () => {
 		expect(worldEntity.get(QuestBoardComponent).state.quests.length).toBe(1);
 	});
 
-	it('cleans up expired quests and emits QuestExpired', () => {
-		const expired = makeQuest({
-			id: 'q-old-1',
-			facilityId: 'loc-old',
-			state: 'open',
-			createdTick: 100,
-			expiryTicks: 200,
-		});
-		const worldEntity = createWorldEntity(true, [expired]);
-		const system = createQuestGenerationSystem(() => worldEntity, () => new Map(), () => []);
-
-		const eventBus = createEventBus();
-		const expiredEvents: GameEvent[] = [];
-		eventBus.on('QuestExpired', (e) => { expiredEvents.push(e); });
-
-		// Tick 480 > 100 + 200 = 300, so quest is expired
-		system.execute(createDeps(eventBus, 480));
-
-		expect(expiredEvents.length).toBe(1);
-		expect(expiredEvents[0]?.payload.questId).toBe('q-old-1');
-		expect(worldEntity.get(QuestBoardComponent).state.quests.length).toBe(0);
-	});
-
-	it('does not expire claimed quests', () => {
-		const claimed = makeQuest({
-			id: 'q-claimed-1',
-			facilityId: 'loc-claimed',
-			state: 'claimed',
-			claimedBy: 'agent-1',
-			createdTick: 100,
-			expiryTicks: 200,
-		});
-		const worldEntity = createWorldEntity(true, [claimed]);
-		const system = createQuestGenerationSystem(() => worldEntity, () => new Map(), () => []);
-
-		const eventBus = createEventBus();
-		const expiredEvents: GameEvent[] = [];
-		eventBus.on('QuestExpired', (e) => { expiredEvents.push(e); });
-
-		// Tick 480 > 100 + 200, but state is 'claimed' — should not expire
-		system.execute(createDeps(eventBus, 480));
-
-		expect(expiredEvents.length).toBe(0);
-		expect(worldEntity.get(QuestBoardComponent).state.quests.length).toBe(1);
-	});
+	// Expiration is tested in quest-evaluation-system.test.ts (QuestEvaluationSystem owns expiry)
 
 	it('quest ID format is q-{facilityId}-{tick}', () => {
 		const worldEntity = createWorldEntity(true);
