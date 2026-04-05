@@ -67,23 +67,24 @@ export function createConditions(
 	resolveNearbyLocations: () => PerceivedLocation[],
 	getAtLocationData: () => WorldLocation | undefined,
 	wakeOffset: number,
+	personalSleepOffset = 0,
 ): ConditionMethods {
 	const { config, worldEntity, tickCount } = deps;
 
 	return {
 		IsHungry(): boolean {
-			return actor.get(NeedsComponent).state.hunger < config.needs.hunger_threshold;
+			return actor.get(NeedsComponent).state.hunger < memory.personalThresholds.hunger;
 		},
 
 		IsExhausted(): boolean {
-			const exhausted = actor.get(NeedsComponent).state.energy < config.needs.energy_threshold;
+			const exhausted = actor.get(NeedsComponent).state.energy < memory.personalThresholds.energy;
 			if (exhausted) memory.recovering = true;
 			return exhausted;
 		},
 
 		IsRecovering(): boolean {
 			if (!memory.recovering) return false;
-			const recoveredThreshold = config.needs.energy_threshold + config.needs.recovery_hysteresis;
+			const recoveredThreshold = memory.personalThresholds.energy + config.needs.recovery_hysteresis;
 			if (actor.get(NeedsComponent).state.energy >= recoveredThreshold) {
 				memory.recovering = false;
 				return false;
@@ -242,7 +243,7 @@ export function createConditions(
 		},
 
 		IsThirsty(): boolean {
-			return actor.get(NeedsComponent).state.thirst < config.needs.thirst_threshold;
+			return actor.get(NeedsComponent).state.thirst < memory.personalThresholds.thirst;
 		},
 
 		HasWater(): boolean {
@@ -389,7 +390,7 @@ export function createConditions(
 			const time = worldEntity().get(TimeComponent).state;
 			if (time.phase === 'night') return true;
 			if (time.phase === 'dusk') {
-				return time.tickInCycle >= config.day_night.dusk.start + wakeOffset;
+				return time.tickInCycle >= config.day_night.dusk.start + personalSleepOffset;
 			}
 			return false;
 		},

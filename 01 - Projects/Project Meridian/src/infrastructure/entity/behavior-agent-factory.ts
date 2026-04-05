@@ -8,6 +8,7 @@ import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { PerceptionComponent } from '../components/perception-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
+import { AttributesComponent } from '../components/attributes-component.js';
 import { TimeComponent } from '../components/time-component.js';
 import type { EventBus } from '../../domain/core/events.js';
 import type { AgentActor } from './agent-actor.js';
@@ -38,10 +39,24 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let cachedFacilities: PerceivedFacility[] | null = null;
 	let cachedFacilitiesTick = -1;
 
-	// Wake stagger offset
+	// Wake/sleep stagger offsets
 	const dawnDuration = config.day_night.dawn.end - config.day_night.dawn.start + 1;
 	const staggerSeed = actor.agentId.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
 	const wakeOffset = Math.abs(staggerSeed) % Math.floor(dawnDuration / 2);
+	const duskDuration = config.day_night.dusk.end - config.day_night.dusk.start + 1;
+	const personalSleepOffset = Math.abs(staggerSeed * 7) % Math.floor(duskDuration / 2);
+
+	// Personal thresholds from GURPS attributes
+	const attrs = actor.get(AttributesComponent).state;
+	const aptitudeBaseline = config.jobs?.aptitude_baseline ?? 12;
+	memory.personalThresholds = {
+		hunger: config.needs.hunger_threshold * (aptitudeBaseline / (attrs.HT ?? aptitudeBaseline)),
+		energy: config.needs.energy_threshold * (aptitudeBaseline / (attrs.IQ ?? aptitudeBaseline)),
+		thirst: config.needs.thirst_threshold * (aptitudeBaseline / (attrs.HT ?? aptitudeBaseline)),
+	};
+
+	// ST-scaled commitment duration multiplier
+	const commitmentMultiplier = (attrs.ST ?? aptitudeBaseline) / aptitudeBaseline;
 
 	function resolveNearbyFacilities(): PerceivedFacility[] {
 		const currentTick = tickCount();
@@ -114,8 +129,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		return getLocations().find(l => l.id === memory.atLocation);
 	}
 
-	const conditions = createConditions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations, getAtLocationData, wakeOffset);
-	const actions = createActions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations);
+	const conditions = createConditions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations, getAtLocationData, wakeOffset, personalSleepOffset);
+	const actions = createActions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations, commitmentMultiplier);
 
 	const agent: BehaviorAgent = {
 		// ── Read-only getters ──────────────────────────────────────────────
