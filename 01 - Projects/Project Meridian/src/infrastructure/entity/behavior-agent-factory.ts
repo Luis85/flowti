@@ -48,15 +48,15 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 	// Personal thresholds from GURPS attributes
 	const attrs = actor.get(AttributesComponent).state;
-	const aptitudeBaseline = config.jobs?.aptitude_baseline ?? 12;
+	const aptitudeBaseline = config.jobs.aptitude_baseline;
 	memory.personalThresholds = {
-		hunger: config.needs.hunger_threshold * (aptitudeBaseline / (attrs.HT ?? aptitudeBaseline)),
-		energy: config.needs.energy_threshold * (aptitudeBaseline / (attrs.IQ ?? aptitudeBaseline)),
-		thirst: config.needs.thirst_threshold * (aptitudeBaseline / (attrs.HT ?? aptitudeBaseline)),
+		hunger: config.needs.hunger_threshold * (aptitudeBaseline / attrs.HT),
+		energy: config.needs.energy_threshold * (aptitudeBaseline / attrs.IQ),
+		thirst: config.needs.thirst_threshold * (aptitudeBaseline / attrs.HT),
 	};
 
 	// ST-scaled commitment duration multiplier
-	const commitmentMultiplier = (attrs.ST ?? aptitudeBaseline) / aptitudeBaseline;
+	const commitmentMultiplier = attrs.ST / aptitudeBaseline;
 
 	function resolveNearbyFacilities(): PerceivedFacility[] {
 		const currentTick = tickCount();

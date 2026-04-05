@@ -71,7 +71,7 @@ export function createActions(
 	function beginAction(actionName: string): void {
 		memory.btAction = actionName;
 		if (memory.commitmentTicks <= 0) {
-			const duration = Math.round((config.commitment_ticks?.[actionName] ?? 0) * commitmentMultiplier);
+			const duration = Math.round((config.commitment_ticks[actionName] ?? 0) * commitmentMultiplier);
 			if (duration > 0) {
 				memory.commitmentTicks = duration;
 				memory.committedAction = actionName;

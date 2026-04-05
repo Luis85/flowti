@@ -423,7 +423,7 @@ function formatEventPayload(e: { type: string; payload: Record<string, unknown> 
 		case 'QuestClaimed': return `${String(p['agentId']).replace('agent-', '')} claimed ${String(p['questType'])} quest`;
 		case 'QuestCompleted': return `${String(p['agentId']).replace('agent-', '')} completed quest (+${String(p['reward'])}g)`;
 		case 'JobSwitched': return `${String(p['agentId']).replace('agent-', '')} switched job`;
-		case 'GoldFlowed': return `${String(p['subcategory'] ?? '')}: ${String(p['amount'])}g`;
+		case 'GoldFlowed': return `${String(p['subcategory'] as string | undefined ?? '')}: ${String(p['amount'])}g`;
 		case 'MoodChanged': return `${String(p['agentId']).replace('agent-', '')} mood: ${String(p['oldBucket'])} → ${String(p['newBucket'])}`;
 		case 'DayPhaseChanged': return `${String(p['previousPhase'])} → ${String(p['newPhase'])}`;
 		case 'FacilityAbandoned': return `${String(p['facilityId'])} abandoned`;

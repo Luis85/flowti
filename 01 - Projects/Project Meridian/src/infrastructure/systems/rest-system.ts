@@ -73,8 +73,8 @@ export function createRestSystem(
 			// Day boundary: compute sleep deficit and reset counter
 			const world = worldEntity();
 			if (world.has(TimeComponent) && world.get(TimeComponent).state.dayBoundaryThisTick) {
-				const minRest = deps.config.min_rest_ticks ?? 80;
-				const maxDebt = deps.config.sleep_debt_max ?? 100;
+				const minRest = deps.config.min_rest_ticks;
+				const maxDebt = deps.config.sleep_debt_max;
 				for (const agent of agentList) {
 					const ba = agent.behaviorAgent;
 					const deficit = minRest - ba.ticksRestedThisDay;
