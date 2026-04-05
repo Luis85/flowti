@@ -93,6 +93,10 @@ export interface BehaviorAgent {
 	activeQuest: QuestRuntime | null;
 	cachedAvailableQuest: QuestRuntime | null;
 	insideFacility: boolean;
+	commitmentTicks: number;
+	sleepDebt: number;
+	ticksRestedThisDay: number;
+	readonly personalThresholds: { hunger: number; energy: number; thirst: number };
 
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;

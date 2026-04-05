@@ -28,6 +28,10 @@ export interface WorkingMemory {
 	activeQuest: QuestRuntime | null;
 	cachedAvailableQuest: QuestRuntime | null;
 	insideFacility: boolean;
+	commitmentTicks: number;
+	sleepDebt: number;
+	ticksRestedThisDay: number;
+	personalThresholds: { hunger: number; energy: number; thirst: number };
 	priceMemories: CircularBuffer<PriceMemory>;
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
 }
@@ -58,6 +62,10 @@ export function createWorkingMemory(priceMemoryMax: number): WorkingMemory {
 		activeQuest: null,
 		cachedAvailableQuest: null,
 		insideFacility: false,
+		commitmentTicks: 0,
+		sleepDebt: 0,
+		ticksRestedThisDay: 0,
+		personalThresholds: { hunger: 40, energy: 30, thirst: 40 },
 		priceMemories,
 		recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void {
 			priceMemories.push({ itemId, price, locationId, tick });

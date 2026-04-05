@@ -343,6 +343,9 @@ export const GameConfigSchema = z.object({
 		tools: { name: 'Tools', baseValue: 8, maxCharges: 5 },
 		waterskin: { name: 'Waterskin', baseValue: 3, maxCharges: 3 },
 	}),
+	commitment_ticks: z.record(z.string(), z.number()).default({}),
+	sleep_debt_max: z.number().default(100),
+	min_rest_ticks: z.number().default(80),
 	debug: z.boolean().default(false),
 });
 

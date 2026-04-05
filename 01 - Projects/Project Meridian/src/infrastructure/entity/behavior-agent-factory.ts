@@ -178,6 +178,13 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set cachedAvailableQuest(v) { memory.cachedAvailableQuest = v; },
 		get insideFacility() { return memory.insideFacility; },
 		set insideFacility(v) { memory.insideFacility = v; },
+		get commitmentTicks() { return memory.commitmentTicks; },
+		set commitmentTicks(v) { memory.commitmentTicks = v; },
+		get sleepDebt() { return memory.sleepDebt; },
+		set sleepDebt(v) { memory.sleepDebt = v; },
+		get ticksRestedThisDay() { return memory.ticksRestedThisDay; },
+		set ticksRestedThisDay(v) { memory.ticksRestedThisDay = v; },
+		get personalThresholds() { return memory.personalThresholds; },
 		get priceMemories() { return memory.priceMemories; },
 
 		// ── Conditions + Actions (spread from extracted modules) ───────────
