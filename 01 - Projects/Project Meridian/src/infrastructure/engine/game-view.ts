@@ -150,9 +150,6 @@ export class MeridianGameView extends ItemView {
 		const locationActors = new Map<string, ex.Actor>();
 		for (const loc of world.locations) {
 			const marker = createLocationMarker(loc);
-			if (loc.production !== null) {
-				marker.scale = ex.vec(2.0, 2.0);
-			}
 			engine.currentScene.add(marker);
 
 			if (loc.production !== null) {
@@ -361,11 +358,13 @@ function createVaultAdapter(vault: Vault): VaultReader {
 }
 
 function createLocationMarker(loc: WorldLocation): ex.Actor {
+	const isFacility = loc.production !== null;
+	const size = isFacility ? 40 : 20;
 	const marker = new ex.Actor({ pos: new ex.Vector(loc.position.x, loc.position.y) });
-	marker.graphics.use(new ex.Rectangle({ width: 20, height: 20, color: ex.Color.fromHex(loc.color) }));
+	marker.graphics.use(new ex.Rectangle({ width: size, height: size, color: ex.Color.fromHex(loc.color) }));
 	const label = new ex.Label({
 		text: loc.name,
-		pos: new ex.Vector(0, -18),
+		pos: new ex.Vector(0, -(size / 2 + 8)),
 		font: new ex.Font({ size: 9, unit: ex.FontUnit.Px, color: ex.Color.fromHex('#aaaaaa') }),
 	});
 	marker.addChild(label);
