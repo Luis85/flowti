@@ -418,6 +418,17 @@ export function createActions(
 
 		Wander(): ActionResult {
 			beginAction('wander');
+			// Pick a random location to wander toward — enables exploration and discovery
+			if (memory.movementTarget === null) {
+				const allLocs = getLocations();
+				if (allLocs.length > 0) {
+					const idx = Math.floor(Math.random() * allLocs.length);
+					const target = allLocs[idx];
+					if (target !== undefined) {
+						memory.movementTarget = { id: target.id, type: 'location' };
+					}
+				}
+			}
 			return RUNNING;
 		},
 
