@@ -811,6 +811,8 @@ export function createActions(
 				memory.committedAction = null;
 				return FAILED;
 			}
+			// Restore btAction so downstream systems (rest, needs-decay) see the correct activity
+			memory.btAction = memory.committedAction;
 			return RUNNING;
 		},
 

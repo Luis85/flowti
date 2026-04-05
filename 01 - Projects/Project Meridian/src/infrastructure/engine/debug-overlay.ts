@@ -492,13 +492,13 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		const target = ba.movementTarget;
 		const targetName = target !== null ? (locations.find(l => l.id === target.id)?.name ?? target.id) : null;
 
-		lines.push(`### ${agent.agentName} (${agent.kind})`);
-		lines.push(`Action: ${action}${ba.commitmentTicks > 0 ? ` [committed ${ba.commitmentTicks}t]` : ''}`);
-		lines.push(`Location: ${locName}${targetName !== null ? ` → ${targetName}` : ''}${ba.insideFacility ? ' (inside facility)' : ''}`);
+		lines.push(`### ${agent.agentName} (${agent.kind}) — ${agent.agentId}`);
+		lines.push(`Action: ${action}${ba.commitmentTicks > 0 ? ` [committed ${ba.commitmentTicks}t, action=${ba.committedAction ?? '?'}]` : ''}`);
+		lines.push(`Position: (${agent.pos.x.toFixed(0)}, ${agent.pos.y.toFixed(0)}) | Location: ${locName}${targetName !== null ? ` → ${targetName}` : ''}${ba.insideFacility ? ' (inside facility)' : ''}`);
 		lines.push(`Needs: hunger ${needs.hunger.toFixed(1)} (thr:${ba.personalThresholds.hunger.toFixed(0)}) | energy ${needs.energy.toFixed(1)} (thr:${ba.personalThresholds.energy.toFixed(0)}) | thirst ${needs.thirst.toFixed(1)} (thr:${ba.personalThresholds.thirst.toFixed(0)}) | social ${needs.social.toFixed(1)}`);
 		lines.push(`Mood: ${mood.value.toFixed(0)} (${mood.bucket})${mood.factors !== undefined ? ` = needs:${(mood.factors.needs * 100).toFixed(0)} mem:+${(mood.factors.positiveMemories * 100).toFixed(0)}/-${(mood.factors.negativeMemories * 100).toFixed(0)} goal:${(mood.factors.goalProgress * 100).toFixed(0)} gold:${(mood.factors.walletHealth * 100).toFixed(0)} equip:${(mood.factors.equipmentCondition * 100).toFixed(0)} rel:${(mood.factors.relationshipQuality * 100).toFixed(0)}` : ''}`);
 		lines.push(`Gold: ${wallet.gold.toFixed(0)}g | Stamina: ${stamina.current.toFixed(0)}/${stamina.max} | Sleep debt: ${ba.sleepDebt.toFixed(0)} | Rested today: ${ba.ticksRestedThisDay}t | Recovering: ${ba.recovering ? 'yes' : 'no'}`);
-		lines.push(`Job: ${agent.job ?? 'none'} | Unemployed ticks: ${ba.unemployedTicks}`);
+		lines.push(`Job: ${agent.job ?? 'none'} | Unemployed ticks: ${ba.unemployedTicks} | Known locations: ${ba.knownLocations.length}`);
 
 		const items = inv.items.map(i => i.charges !== undefined ? `${i.item_id}(${i.charges})x${i.quantity}` : `${i.item_id}x${i.quantity}`);
 		if (items.length > 0) lines.push(`Inventory: ${items.join(', ')}`);
@@ -506,6 +506,13 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		if (ba.activeQuest !== null) {
 			const q = ba.activeQuest;
 			lines.push(`Active quest: ${q.type} at ${q.facilityId} (${q.state}, progress: ${q.repairProgress})`);
+		}
+		if (ba.supplyRoute !== null) {
+			const r = ba.supplyRoute;
+			lines.push(`Supply route: ${r.sourceId} → ${r.destinationId} (${r.itemId})`);
+		}
+		if (ba.haulCargo !== null) {
+			lines.push(`Hauling: ${ba.haulCargo.itemId}x${ba.haulCargo.quantity} → ${ba.haulCargo.destination}`);
 		}
 		lines.push('');
 	}
@@ -563,30 +570,74 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		}
 	}
 
-	// Anomaly scan
+	// Anomaly scan — behavioral, economic, and systemic issues
 	const anomalies: string[] = [];
+	const agentsByAction = new Map<string, string[]>();
 	for (const agent of agents) {
 		const needs = agent.get(NeedsComponent).state;
 		const mood = agent.get(MoodComponent).state;
 		const ba = agent.behaviorAgent;
 		const name = agent.agentName;
-		if (needs.hunger <= 20) anomalies.push(`${name}: critical hunger (${needs.hunger.toFixed(1)})`);
-		if (needs.energy <= 15) anomalies.push(`${name}: critical energy (${needs.energy.toFixed(1)})`);
-		if (needs.thirst <= 20) anomalies.push(`${name}: critical thirst (${needs.thirst.toFixed(1)})`);
-		if (mood.value < -20) anomalies.push(`${name}: distressed mood (${mood.value.toFixed(0)}, ${mood.bucket})`);
-		if (ba.sleepDebt > 50) anomalies.push(`${name}: high sleep debt (${ba.sleepDebt.toFixed(0)})`);
-		if (ba.unemployedTicks > 200) anomalies.push(`${name}: long unemployment (${ba.unemployedTicks} ticks)`);
-		if (ba.recovering) anomalies.push(`${name}: recovering (energy=${needs.energy.toFixed(1)}, threshold=${ba.personalThresholds.energy.toFixed(0)})`);
+		const action = ba.btAction ?? 'idle';
+
+		// Track action distribution
+		const existing = agentsByAction.get(action) ?? [];
+		existing.push(name);
+		agentsByAction.set(action, existing);
+
+		// Critical needs
+		if (needs.hunger <= 20) anomalies.push(`[CRITICAL] ${name}: hunger at ${needs.hunger.toFixed(1)} (critical < 20)`);
+		if (needs.energy <= 15) anomalies.push(`[CRITICAL] ${name}: energy at ${needs.energy.toFixed(1)} (critical < 15)`);
+		if (needs.thirst <= 20) anomalies.push(`[CRITICAL] ${name}: thirst at ${needs.thirst.toFixed(1)} (critical < 20)`);
+
+		// Mood
+		if (mood.value < -20) anomalies.push(`[HIGH] ${name}: distressed mood (${mood.value.toFixed(0)}, ${mood.bucket})`);
+
+		// Sleep
+		if (ba.sleepDebt > 50) anomalies.push(`[HIGH] ${name}: high sleep debt (${ba.sleepDebt.toFixed(0)}/100)`);
+		if (ba.recovering) anomalies.push(`[MEDIUM] ${name}: recovering (energy=${needs.energy.toFixed(1)}, needs >=${(ba.personalThresholds.energy + 20).toFixed(0)} to clear)`);
+
+		// Behavioral
+		if (ba.commitmentTicks > 60) anomalies.push(`[HIGH] ${name}: very long commitment (${ba.commitmentTicks}t to ${ba.committedAction ?? action})`);
+		if (ba.unemployedTicks > 200) anomalies.push(`[HIGH] ${name}: long unemployment (${ba.unemployedTicks} ticks)`);
+		if (agent.job !== null && action === 'wander') anomalies.push(`[MEDIUM] ${name}: has job=${agent.job} but wandering`);
+		if (agent.job !== null && action === 'idle') anomalies.push(`[MEDIUM] ${name}: has job=${agent.job} but idle`);
+		if (needs.hunger < ba.personalThresholds.hunger && action !== 'eat' && action !== 'buy' && action !== 'seek_food') {
+			anomalies.push(`[LOW] ${name}: hungry (${needs.hunger.toFixed(0)} < thr ${ba.personalThresholds.hunger.toFixed(0)}) but action=${action}`);
+		}
 	}
-	if (velocity <= 0) anomalies.push('Economy: velocity stalled (0)');
-	if (economy.state.treasury <= 0) anomalies.push('Economy: treasury empty');
+
+	// Economy
+	if (velocity <= 0) anomalies.push('[CRITICAL] Economy: velocity stalled at 0');
+	else if (velocity < 0.1) anomalies.push(`[HIGH] Economy: velocity very low (${velocity.toFixed(3)})`);
+	if (economy.state.treasury <= 0) anomalies.push('[CRITICAL] Economy: treasury empty');
+	if (ds.totalWages === 0 && ds.totalSales === 0) anomalies.push('[HIGH] Economy: no wages or sales today — economy is frozen');
+
+	// Facilities
 	for (const loc of locations) {
 		const la = locationActors.get(loc.id);
 		if (la?.has(FacilityComponent) !== true) continue;
 		const fac = la.get(FacilityComponent);
-		if (fac.state.status === 'abandoned') anomalies.push(`Facility ${loc.name}: abandoned`);
-		if (fac.state.fund <= 0 && fac.state.status !== 'abandoned') anomalies.push(`Facility ${loc.name}: fund depleted (${fac.state.fund.toFixed(0)}g)`);
+		if (fac.state.status === 'abandoned') anomalies.push(`[HIGH] Facility ${loc.name}: abandoned`);
+		if (fac.state.fund <= 0 && fac.state.status !== 'abandoned') anomalies.push(`[MEDIUM] Facility ${loc.name}: fund depleted (${fac.state.fund.toFixed(0)}g)`);
+		if (loc.production !== null && fac.state.workerId === null && fac.state.status !== 'abandoned') {
+			anomalies.push(`[MEDIUM] Facility ${loc.name}: production facility with no worker (job=${loc.production.job})`);
+		}
 	}
+
+	// Systemic: action uniformity (all agents doing the same thing = lockstep)
+	for (const [action, names] of agentsByAction) {
+		if (names.length === agents.length && agents.length > 1) {
+			anomalies.push(`[MEDIUM] All ${agents.length} agents doing "${action}" simultaneously — possible lockstep behavior`);
+		}
+	}
+
+	lines.push('');
+	lines.push('## Action Distribution');
+	for (const [action, names] of agentsByAction) {
+		lines.push(`${action}: ${names.join(', ')} (${names.length}/${agents.length})`);
+	}
+
 	if (anomalies.length > 0) {
 		lines.push('');
 		lines.push('## Anomalies');

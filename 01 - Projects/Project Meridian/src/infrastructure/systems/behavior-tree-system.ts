@@ -12,12 +12,9 @@ export function createBehaviorTreeSystem(
 			for (const agent of agents()) {
 				agent.behaviorAgent.tickUnemployment();
 				agent.behaviorAgent.btAction = null;
-				// Reset before step — forces re-evaluation from root so higher-priority
-				// branches (P0 critical needs) can preempt lower ones (P2 work).
-				// Skip reset when committed — let P-1 guard handle continuation.
-				if (agent.behaviorAgent.commitmentTicks <= 0) {
-					agent.behaviorTree.reset();
-				}
+				// Always reset — forces evaluation from root every tick.
+				// P-1 commitment guard catches committed agents before they re-evaluate work.
+				agent.behaviorTree.reset();
 				agent.behaviorTree.step();
 			}
 		},
