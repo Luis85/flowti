@@ -140,8 +140,10 @@ export interface BehaviorAgent {
 	QuestAvailable(): boolean;
 	QuestAtFacility(): boolean;
 	QuestCargoReady(): boolean;
+	IsCommitted(): boolean;
+	ShouldSleep(): boolean;
 
-	// Action methods (29)
+	// Action methods
 	Eat(): ActionResult;
 	Rest(): ActionResult;
 	Drink(): ActionResult;
@@ -172,6 +174,7 @@ export interface BehaviorAgent {
 	WorkRepair(): ActionResult;
 	CompleteQuest(): ActionResult;
 	AbandonQuest(): ActionResult;
+	ContinueCommitment(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
 

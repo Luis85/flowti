@@ -54,6 +54,8 @@ export interface ConditionMethods {
 	QuestAvailable(): boolean;
 	QuestAtFacility(): boolean;
 	QuestCargoReady(): boolean;
+	IsCommitted(): boolean;
+	ShouldSleep(): boolean;
 }
 
 export function createConditions(
@@ -377,6 +379,19 @@ export function createConditions(
 			const inv = actor.get(InventoryComponent).state.items;
 			const item = inv.find(i => i.item_id === memory.activeQuest!.itemId);
 			return item !== undefined && item.quantity >= memory.activeQuest.quantity;
+		},
+
+		IsCommitted(): boolean {
+			return memory.commitmentTicks > 0;
+		},
+
+		ShouldSleep(): boolean {
+			const time = worldEntity().get(TimeComponent).state;
+			if (time.phase === 'night') return true;
+			if (time.phase === 'dusk') {
+				return time.tickInCycle >= config.day_night.dusk.start + wakeOffset;
+			}
+			return false;
 		},
 	};
 }

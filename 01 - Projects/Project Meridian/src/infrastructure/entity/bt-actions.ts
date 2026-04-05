@@ -52,6 +52,7 @@ export interface ActionMethods {
 	AbandonQuest(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
+	ContinueCommitment(): ActionResult;
 	tickUnemployment(): void;
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
 }
@@ -63,14 +64,26 @@ export function createActions(
 	resolveNearbyFacilities: () => PerceivedFacility[],
 	resolveNearbyAgents: () => PerceivedAgent[],
 	resolveNearbyLocations: () => PerceivedLocation[],
+	commitmentMultiplier = 1.0,
 ): ActionMethods {
 	const { config, getLocationActors, getLocations, tickCount, eventBus } = deps;
+
+	function beginAction(actionName: string): void {
+		memory.btAction = actionName;
+		if (memory.commitmentTicks <= 0) {
+			const duration = Math.round((config.commitment_ticks?.[actionName] ?? 0) * commitmentMultiplier);
+			if (duration > 0) {
+				memory.commitmentTicks = duration;
+				memory.committedAction = actionName;
+			}
+		}
+	}
 
 	return {
 		Eat(): ActionResult {
 			const food = findFoodInInventory([...actor.get(InventoryComponent).state.items]);
 			if (food === null) return FAILED;
-			memory.btAction = 'eat';
+			beginAction('eat');
 			return RUNNING;
 		},
 
@@ -89,7 +102,7 @@ export function createActions(
 			const newThirst = Math.min(100, needs.state.thirst + recovery);
 			needs.state = { ...needs.state, thirst: newThirst };
 			needs.markDirty();
-			memory.btAction = 'drink';
+			beginAction('drink');
 			return SUCCEEDED;
 		},
 
@@ -118,19 +131,19 @@ export function createActions(
 				: [...inv.state.items.map(i => ({ ...i })), { item_id: foodStock.item_id, quantity: 1 }];
 			inv.state = { ...inv.state, items: newItems };
 			inv.markDirty();
-			memory.btAction = 'harvest';
+			beginAction('harvest');
 			return SUCCEEDED;
 		},
 
 		Rest(): ActionResult {
-			memory.btAction = 'rest';
+			beginAction('rest');
 			return RUNNING;
 		},
 
 		SeekWater(): ActionResult {
 			const waterLocs = resolveNearbyLocations().filter(l => l.type === 'water');
 			if (waterLocs.length === 0) return FAILED;
-			memory.btAction = 'seek_water';
+			beginAction('seek_water');
 			const nearest = waterLocs.reduce((a, b) => a.distance < b.distance ? a : b);
 			memory.movementTarget = { id: nearest.id, type: 'location' };
 			if (memory.atLocation === nearest.id) return SUCCEEDED;
@@ -150,7 +163,7 @@ export function createActions(
 			});
 			inv.state = { ...inv.state, items: newItems };
 			inv.markDirty();
-			memory.btAction = 'fill_waterskin';
+			beginAction('fill_waterskin');
 			return SUCCEEDED;
 		},
 
@@ -203,7 +216,7 @@ export function createActions(
 				},
 			});
 
-			memory.btAction = 'sell';
+			beginAction('sell');
 			return SUCCEEDED;
 		},
 
@@ -214,7 +227,7 @@ export function createActions(
 			);
 			if (stockedFacilities.length > 0) {
 				const nearest = stockedFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
-				memory.btAction = 'seek_food';
+				beginAction('seek_food');
 				memory.movementTarget = { id: nearest.id, type: 'location' };
 				if (memory.atLocation === nearest.id) return SUCCEEDED;
 				return RUNNING;
@@ -222,7 +235,7 @@ export function createActions(
 			// Fallback: food-type locations (farms)
 			const foodLocs = resolveNearbyLocations().filter(l => l.type === 'food');
 			if (foodLocs.length === 0) return FAILED;
-			memory.btAction = 'seek_food';
+			beginAction('seek_food');
 			const nearest = foodLocs.reduce((a, b) => a.distance < b.distance ? a : b);
 			memory.movementTarget = { id: nearest.id, type: 'location' };
 			if (memory.atLocation === nearest.id) return SUCCEEDED;
@@ -232,7 +245,7 @@ export function createActions(
 		SeekRest(): ActionResult {
 			const restLocs = resolveNearbyLocations().filter(l => l.type === 'rest');
 			if (restLocs.length > 0) {
-				memory.btAction = 'seek_rest';
+				beginAction('seek_rest');
 				const nearest = restLocs.reduce((a, b) => a.distance < b.distance ? a : b);
 				memory.movementTarget = { id: nearest.id, type: 'location' };
 				if (memory.atLocation === nearest.id) return SUCCEEDED;
@@ -247,7 +260,7 @@ export function createActions(
 				.sort((a, b) => a.dist - b.dist)[0];
 			if (restLoc === undefined) return FAILED;
 
-			memory.btAction = 'seek_rest';
+			beginAction('seek_rest');
 			memory.movementTarget = { id: restLoc.id, type: 'location' };
 			if (memory.atLocation === restLoc.id) return SUCCEEDED;
 			return RUNNING;
@@ -259,7 +272,7 @@ export function createActions(
 				f.id === memory.atLocation && f.stock.some(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0),
 			);
 			if (atFacility === undefined) return FAILED;
-			memory.btAction = 'buy';
+			beginAction('buy');
 			memory.buyTargetItem = null;
 			return SUCCEEDED;
 		},
@@ -270,7 +283,7 @@ export function createActions(
 				f.id === memory.atLocation && f.stock.some(s => s.item_id === itemId && s.quantity > 0),
 			);
 			if (atFacility === undefined) return FAILED;
-			memory.btAction = 'buy';
+			beginAction('buy');
 			memory.buyTargetItem = itemId;
 			return SUCCEEDED;
 		},
@@ -292,7 +305,7 @@ export function createActions(
 			}
 
 			if (cheapestLocation === null) return FAILED;
-			memory.btAction = 'seek_food';
+			beginAction('seek_food');
 			memory.movementTarget = { id: cheapestLocation, type: 'location' };
 			if (memory.atLocation === cheapestLocation) return SUCCEEDED;
 			return RUNNING;
@@ -306,7 +319,7 @@ export function createActions(
 			if (openFacilities.length === 0) return FAILED;
 			const nearest = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
 			actor.job = nearest.job;
-			memory.btAction = 'claim_job';
+			beginAction('claim_job');
 			return SUCCEEDED;
 		},
 
@@ -341,7 +354,7 @@ export function createActions(
 
 			actor.job = chosen.job;
 			memory.unemployedTicks = 0;
-			memory.btAction = 'claim_job';
+			beginAction('claim_job');
 			deps.swapBehaviorTree?.(chosen.job);
 			return SUCCEEDED;
 		},
@@ -379,7 +392,7 @@ export function createActions(
 
 			const oldJob = actor.job;
 			actor.job = bestFacility.job;
-			memory.btAction = 'switch_job';
+			beginAction('switch_job');
 			deps.eventBus.emit({
 				type: 'JobSwitched',
 				tick: deps.tickCount(),
@@ -393,12 +406,12 @@ export function createActions(
 
 		/** Available for custom BTs — not used in the default tree set. */
 		Idle(): ActionResult {
-			memory.btAction = 'idle';
+			beginAction('idle');
 			return RUNNING;
 		},
 
 		Wander(): ActionResult {
-			memory.btAction = 'wander';
+			beginAction('wander');
 			return RUNNING;
 		},
 
@@ -412,7 +425,7 @@ export function createActions(
 				(f.workerId === null || f.workerId === actor.agentId),
 			);
 			if (jobFacility === undefined) return FAILED;
-			memory.btAction = 'work';
+			beginAction('work');
 			return RUNNING;
 		},
 
@@ -421,7 +434,7 @@ export function createActions(
 				a => a.distance < config.perception.interaction_radius,
 			);
 			if (closeAgents.length === 0) return FAILED;
-			memory.btAction = 'talk';
+			beginAction('talk');
 			return RUNNING;
 		},
 
@@ -433,7 +446,7 @@ export function createActions(
 				f.job === actor.job && (f.workerId === null || f.workerId === actor.agentId),
 			);
 			if (availableFacility !== undefined) {
-				memory.btAction = 'seek_work';
+				beginAction('seek_work');
 				memory.movementTarget = { id: availableFacility.id, type: 'location' };
 				if (memory.atLocation === availableFacility.id) return SUCCEEDED;
 				return RUNNING;
@@ -449,7 +462,7 @@ export function createActions(
 			// If already at the facility but it's occupied, don't re-target — fail gracefully
 			if (memory.atLocation === jobLoc.id) return FAILED;
 
-			memory.btAction = 'seek_work';
+			beginAction('seek_work');
 			memory.movementTarget = { id: jobLoc.id, type: 'location' };
 			return RUNNING;
 		},
@@ -458,7 +471,7 @@ export function createActions(
 			const nearby = resolveNearbyAgents();
 			if (nearby.length === 0) return FAILED;
 
-			memory.btAction = 'seek_social';
+			beginAction('seek_social');
 			const nearest = nearby.reduce((a, b) => a.distance < b.distance ? a : b);
 			memory.movementTarget = { id: nearest.id, type: 'agent' };
 
@@ -470,7 +483,7 @@ export function createActions(
 			const marketLocs = resolveNearbyLocations().filter(l => l.type === 'market');
 			if (marketLocs.length === 0) return FAILED;
 
-			memory.btAction = 'seek_market';
+			beginAction('seek_market');
 			const nearest = marketLocs.reduce((a, b) => a.distance < b.distance ? a : b);
 			memory.movementTarget = { id: nearest.id, type: 'location' };
 
@@ -479,7 +492,7 @@ export function createActions(
 		},
 
 		PickupCargo(): ActionResult {
-			memory.btAction = 'pickup_cargo';
+			beginAction('pickup_cargo');
 			// Find nearest facility with output stock
 			const facilitiesWithOutput = resolveNearbyFacilities().filter(
 				f => f.stock.some(s => s.quantity > 0),
@@ -524,7 +537,7 @@ export function createActions(
 		DeliverCargo(): ActionResult {
 			if (memory.haulCargo === null) return FAILED;
 			if (memory.atLocation !== memory.haulCargo.destination) return FAILED;
-			memory.btAction = 'deliver_cargo';
+			beginAction('deliver_cargo');
 
 			const locActors = getLocationActors();
 			const destActor = locActors.get(memory.haulCargo.destination);
@@ -555,7 +568,7 @@ export function createActions(
 
 		SeekDeliveryTarget(): ActionResult {
 			if (memory.haulCargo === null) return FAILED;
-			memory.btAction = 'seek_delivery';
+			beginAction('seek_delivery');
 			memory.movementTarget = { id: memory.haulCargo.destination, type: 'location' };
 			if (memory.atLocation === memory.haulCargo.destination) return SUCCEEDED;
 			return RUNNING;
@@ -565,7 +578,7 @@ export function createActions(
 			// Find nearest facility with unmet input
 			const needyFacilities = resolveNearbyFacilities().filter(f => f.hasUnmetInput);
 			if (needyFacilities.length === 0) return FAILED;
-			memory.btAction = 'seek_supply';
+			beginAction('seek_supply');
 
 			const needy = needyFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
 
@@ -605,7 +618,7 @@ export function createActions(
 			deps.worldEntity().get(QuestBoardComponent).markDirty();
 			memory.activeQuest = quest;
 			memory.cachedAvailableQuest = null;
-			memory.btAction = 'claim_quest';
+			beginAction('claim_quest');
 
 			deps.eventBus.emit({
 				type: 'QuestClaimed',
@@ -620,7 +633,7 @@ export function createActions(
 
 		SeekQuestFacility(): ActionResult {
 			if (memory.activeQuest === null) return FAILED;
-			memory.btAction = 'seek_quest';
+			beginAction('seek_quest');
 			memory.movementTarget = { id: memory.activeQuest.facilityId, type: 'location' };
 			if (memory.atLocation === memory.activeQuest.facilityId) return SUCCEEDED;
 			return RUNNING;
@@ -628,7 +641,7 @@ export function createActions(
 
 		WorkRepair(): ActionResult {
 			if (memory.activeQuest?.type !== 'repair') return FAILED;
-			memory.btAction = 'repair';
+			beginAction('repair');
 			return RUNNING;
 		},
 
@@ -790,6 +803,15 @@ export function createActions(
 			});
 
 			return SUCCEEDED;
+		},
+
+		ContinueCommitment(): ActionResult {
+			memory.commitmentTicks--;
+			if (memory.commitmentTicks <= 0) {
+				memory.committedAction = null;
+				return FAILED;
+			}
+			return RUNNING;
 		},
 
 		// ── Utility methods ────────────────────────────────────────────────
