@@ -82,9 +82,19 @@ describe('MoodSystem', () => {
 		const breakdowns: GameEvent[] = [];
 		eventBus.on('MoodBreakdown', (e) => { breakdowns.push(e); });
 
-		// Agent with zero needs and zero gold → mood should be very low
+		// Agent with zero needs, zero gold, and negative memories → mood should be very low.
+		// Negative memories are needed because the fixed-totalWeight formula uses a neutral
+		// 0.5 baseline for positive memories when empty, preventing all-zero from reaching breakdown.
+		const negativeMemories = Array.from({ length: 10 }, (_, i) => ({
+			tick: 60 + i, type: 'bad_event', description: 'test',
+			participants: [], outcome: 'negative' as const, significance: 1, mood_impact: -5,
+		}));
 		const agent = new AgentActor(
-			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0, thirst: 0 }, wallet: { gold: 0 } }),
+			createTestAgent({
+				needs: { hunger: 0, energy: 0, social: 0, thirst: 0 },
+				wallet: { gold: 0 },
+				memory: negativeMemories,
+			}),
 			defaultMoodConfig,
 		);
 		// Force previous bucket to something other than breakdown
@@ -101,8 +111,16 @@ describe('MoodSystem', () => {
 		const breakdowns: GameEvent[] = [];
 		eventBus.on('MoodBreakdown', (e) => { breakdowns.push(e); });
 
+		const negativeMemories = Array.from({ length: 10 }, (_, i) => ({
+			tick: 60 + i, type: 'bad_event', description: 'test',
+			participants: [], outcome: 'negative' as const, significance: 1, mood_impact: -5,
+		}));
 		const agent = new AgentActor(
-			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0, thirst: 0 }, wallet: { gold: 0 } }),
+			createTestAgent({
+				needs: { hunger: 0, energy: 0, social: 0, thirst: 0 },
+				wallet: { gold: 0 },
+				memory: negativeMemories,
+			}),
 			defaultMoodConfig,
 		);
 		// Agent is already in breakdown — no transition should occur

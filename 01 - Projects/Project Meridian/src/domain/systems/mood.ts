@@ -37,10 +37,16 @@ export function calculateMood(
 	externalModifiers: number,
 ): MoodResult {
 	const w = config.factor_weights;
+	const hasMemories = factors.positiveMemories > 0 || factors.negativeMemories > 0;
+
+	// When no memories exist, substitute 0.5 (neutral) for positive memories.
+	// This ensures totalWeight is always fixed and adding positive memories
+	// can only increase mood (monotonic), never decrease it.
+	const effectivePositiveMemories = hasMemories ? factors.positiveMemories : 0.5;
 
 	const positivePart =
 		factors.needsSatisfaction * w.needs
-		+ factors.positiveMemories * w.positive_memories
+		+ effectivePositiveMemories * w.positive_memories
 		+ factors.goalProgress * w.goal_progress
 		+ factors.walletHealth * w.wallet
 		+ factors.equipmentCondition * w.equipment
@@ -48,11 +54,12 @@ export function calculateMood(
 
 	const negativePart = factors.negativeMemories * w.negative_memories;
 
-	// Exclude memory weights when no memories exist (both positive and negative are 0)
-	const hasMemories = factors.positiveMemories > 0 || factors.negativeMemories > 0;
+	// Include positive_memories weight always (neutral 0.5 fills in when empty).
+	// Exclude negative_memories weight when no memories — absence of bad memories
+	// is genuinely positive and should not penalize the denominator.
 	const totalWeight = hasMemories
 		? w.needs + w.positive_memories + w.negative_memories + w.goal_progress + w.wallet + w.equipment + w.relationships
-		: w.needs + w.goal_progress + w.wallet + w.equipment + w.relationships;
+		: w.needs + w.positive_memories + w.goal_progress + w.wallet + w.equipment + w.relationships;
 
 	// Recentered formula: factor-average 0.5 maps to mood 0
 	const rawMood = ((positivePart - negativePart) / totalWeight - 0.5) * 200;

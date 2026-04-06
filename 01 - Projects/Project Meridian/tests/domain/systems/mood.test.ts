@@ -91,7 +91,8 @@ describe('calculateMood', () => {
 	});
 
 	it('all factors at maximum without memories → elated', () => {
-		// No memories → totalWeight=60, positivePart=60, rawMood=(60/60-0.5)*200=100
+		// No memories → effectivePositiveMemories=0.5, totalWeight=80
+		// positivePart=30+10+10+10+5+5=70, rawMood=(70/80-0.5)*200=75
 		const result = calculateMood(makeFactors({
 			needsSatisfaction: 1.0,
 			goalProgress: 1.0,
@@ -99,15 +100,17 @@ describe('calculateMood', () => {
 			equipmentCondition: 1.0,
 			relationshipQuality: 1.0,
 		}), '', defaultConfig, 0);
-		expect(result.value).toBe(100);
+		expect(result.value).toBe(75);
 		expect(result.bucket).toBe('elated');
 	});
 
 	it('all factors zero → lowest possible mood', () => {
+		// No memories → effectivePositiveMemories=0.5, totalWeight=80
+		// positivePart=0+10+0+0+0+0=10, rawMood=(10/80-0.5)*200=-75
 		const result = calculateMood(makeFactors({
 			needsSatisfaction: 0,
 		}), '', defaultConfig, 0);
-		expect(result.value).toBe(-100);
+		expect(result.value).toBe(-75);
 		expect(result.bucket).toBe('breakdown');
 	});
 });
