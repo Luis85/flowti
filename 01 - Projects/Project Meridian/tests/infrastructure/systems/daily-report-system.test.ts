@@ -197,7 +197,7 @@ describe('DailyReportSystem', () => {
 
 		expect(reportEvents.length).toBe(1);
 		expect(reportEvents[0]?.payload.dayCount).toBe(1);
-		expect(reportEvents[0]?.payload.path).toBe('03 - Resources/Economy/day-001.md');
+		expect(reportEvents[0]?.payload.path).toBe('test-data/Economy/day-001.md');
 	});
 
 	it('prunes old ledger entries beyond retention', () => {
@@ -363,9 +363,30 @@ describe('DailyReportSystem', () => {
 
 		system.execute(deps);
 
-		expect(writtenPath).toBe('03 - Resources/Economy/day-001.md');
+		expect(writtenPath).toBe('test-data/Economy/day-001.md');
 		expect(writtenContent).toContain('Day 1 Economy Report');
 		expect(writtenContent).toContain('---');
+	});
+
+	it('uses deps.dataRoot for report file path', () => {
+		const worldEntity = createWorldWithEconomy(true, { totalWages: 10, totalTax: 0, totalSales: 5, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 });
+		const agent = createTestAgent('a1');
+
+		const system = createDailyReportSystem(
+			() => worldEntity,
+			() => [agent],
+			() => new Map(),
+			() => [],
+		);
+
+		let writtenPath = '';
+		const deps = createDeps(createEventBus());
+		deps.dataRoot = '01 - Projects/Project Meridian';
+		deps.writeFile = async (path: string) => { writtenPath = path; };
+
+		system.execute(deps);
+
+		expect(writtenPath).toBe('01 - Projects/Project Meridian/Economy/day-001.md');
 	});
 
 	it('skips when EconomyComponent is missing', () => {
