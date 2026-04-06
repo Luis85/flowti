@@ -181,8 +181,8 @@ export function createConditions(
 		},
 
 		IsWorkHours(): boolean {
+			if (this.IsRestDay()) return false;
 			const time = worldEntity().get(TimeComponent).state;
-			if (time.dayCount > 0 && time.dayCount % config.rest_day_interval === 0) return false;
 			if (time.phase === 'day') return true;
 			if (time.phase === 'dawn') {
 				return time.tickInCycle >= config.day_night.dawn.start + wakeOffset;
