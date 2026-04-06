@@ -48,10 +48,14 @@ export function calculateMood(
 
 	const negativePart = factors.negativeMemories * w.negative_memories;
 
-	const totalWeight = w.needs + w.positive_memories + w.negative_memories
-		+ w.goal_progress + w.wallet + w.equipment + w.relationships;
+	// Exclude memory weights when no memories exist (both positive and negative are 0)
+	const hasMemories = factors.positiveMemories > 0 || factors.negativeMemories > 0;
+	const totalWeight = hasMemories
+		? w.needs + w.positive_memories + w.negative_memories + w.goal_progress + w.wallet + w.equipment + w.relationships
+		: w.needs + w.goal_progress + w.wallet + w.equipment + w.relationships;
 
-	const rawMood = ((positivePart - negativePart) / totalWeight) * 200 - 100;
+	// Recentered formula: factor-average 0.5 maps to mood 0
+	const rawMood = ((positivePart - negativePart) / totalWeight - 0.5) * 200;
 	const value = clamp(Math.round(rawMood + externalModifiers), -100, 100);
 
 	let bucket = 'stressed';

@@ -82,9 +82,9 @@ describe('MoodSystem', () => {
 		const breakdowns: GameEvent[] = [];
 		eventBus.on('MoodBreakdown', (e) => { breakdowns.push(e); });
 
-		// Agent with zero needs → mood should be very low
+		// Agent with zero needs and zero gold → mood should be very low
 		const agent = new AgentActor(
-			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0, thirst: 0 } }),
+			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0, thirst: 0 }, wallet: { gold: 0 } }),
 			defaultMoodConfig,
 		);
 		// Force previous bucket to something other than breakdown
@@ -102,7 +102,7 @@ describe('MoodSystem', () => {
 		eventBus.on('MoodBreakdown', (e) => { breakdowns.push(e); });
 
 		const agent = new AgentActor(
-			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0, thirst: 0 } }),
+			createTestAgent({ needs: { hunger: 0, energy: 0, social: 0, thirst: 0 }, wallet: { gold: 0 } }),
 			defaultMoodConfig,
 		);
 		// Agent is already in breakdown — no transition should occur
@@ -115,7 +115,7 @@ describe('MoodSystem', () => {
 	});
 
 	describe('goalProgress mood factor', () => {
-		it('returns 0 for unemployed agent', () => {
+		it('defaults to 0.5 for unemployed agent (neutral)', () => {
 			const agent = new AgentActor(createTestAgent({ job: null }), defaultMoodConfig);
 			const employed = new AgentActor(
 				createTestAgent({ id: 'employed', job: 'farmer', attributes: { ST: 10, DX: 10, IQ: 10, HT: 15 } }),
@@ -128,7 +128,7 @@ describe('MoodSystem', () => {
 			});
 			system.execute(deps);
 
-			// Unemployed agent gets lower or equal mood compared to employed with good aptitude
+			// Unemployed agent gets 0.5 goalProgress (neutral) — close to employed mood
 			const unemployedMood = agent.get(MoodComponent).state.value;
 			const employedMood = employed.get(MoodComponent).state.value;
 			expect(employedMood).toBeGreaterThanOrEqual(unemployedMood);
