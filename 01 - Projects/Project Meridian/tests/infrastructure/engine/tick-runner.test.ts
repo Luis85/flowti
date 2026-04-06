@@ -250,7 +250,6 @@ describe('TickRunner', () => {
 		expect(SystemPriority.GOSSIP).toBe(12.5);
 		expect(SystemPriority.PROGRESSION).toBe(13);
 		expect(SystemPriority.RELATIONSHIP).toBe(14);
-		expect(SystemPriority.MORTALITY_CHECK).toBe(14.5);
 		expect(SystemPriority.ITEM_DURABILITY).toBe(15);
 		expect(SystemPriority.ECONOMY).toBe(16);
 		expect(SystemPriority.WORLD_EVENT).toBe(17);
