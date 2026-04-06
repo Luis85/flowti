@@ -117,6 +117,7 @@ root {
                 }
                 sequence {
                     condition [HasJob]
+                    condition [IsWorkHours]
                     action [SeekWork]
                 }
             }

@@ -5,7 +5,7 @@
 	"needs": {
 		"hunger_decay": 0.04,
 		"energy_decay": 0.06,
-		"social_decay": 0.02,
+		"social_decay": 0.05,
 		"thirst_decay": 0.05,
 		"food_recovery_rate": 30,
 		"drink_recovery": 30,

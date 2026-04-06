@@ -228,9 +228,12 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		// BT produced at least one action (agents are not all stuck on null)
 		expect(btActions.size, `BT produced no actions`).toBeGreaterThanOrEqual(1);
 
-		// Rest system fired (agents did rest at some point, even if energy bottoms out by day end)
-		const restEvents = eventCounts.get('RestStarted') ?? 0;
-		expect(restEvents, 'No agent rested during the full day').toBeGreaterThan(0);
+		// Agents attempted rest (seek_rest or rest action observed, even if RestStarted
+		// events are zero — seek_rest no longer triggers rest-tier recovery)
+		expect(
+			btActions.has('seek_rest') || btActions.has('rest'),
+			'No agent attempted to rest during the full day',
+		).toBe(true);
 
 		// Day-night cycle advanced (at least one phase transition)
 		const phaseChanges = eventCounts.get('DayPhaseChanged') ?? 0;

@@ -16,7 +16,7 @@ const ActivityCostSchema = z.object({
 const NeedsConfigSchema = z.object({
 	hunger_decay: z.number().default(0.04),
 	energy_decay: z.number().default(0.06),
-	social_decay: z.number().default(0),
+	social_decay: z.number().default(0.05),
 	thirst_decay: z.number().default(0.05),
 	food_recovery_rate: z.number().default(30),
 	drink_recovery: z.number().default(30),
@@ -306,7 +306,7 @@ export const GameConfigSchema = z.object({
 	tick_interval_ms: z.number().int().min(50).default(500),
 	max_catch_up_ticks: z.number().int().min(1).default(3),
 	ticks_per_day: z.number().int().min(1).default(480),
-	mortality: z.boolean().default(true),
+	mortality: z.boolean().default(false),
 	needs: withDefaults(NeedsConfigSchema),
 	stamina: withDefaults(StaminaConfigSchema),
 	memory: withDefaults(MemoryConfigSchema),
