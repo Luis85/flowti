@@ -138,13 +138,13 @@ describe('EventBus', () => {
 		expect(bus.history()).toHaveLength(2);
 	});
 
-	it('caps history at 500 entries', () => {
+	it('caps history at 2000 entries', () => {
 		const bus = createEventBus();
-		for (let i = 0; i < 510; i++) {
+		for (let i = 0; i < 2010; i++) {
 			bus.emit({ type: 'Flood', tick: i, wallClock: Date.now(), source: 's', payload: {} });
 		}
 		const all = bus.history();
-		expect(all).toHaveLength(500);
+		expect(all).toHaveLength(2000);
 		expect(all[0]?.tick).toBe(10);
 	});
 

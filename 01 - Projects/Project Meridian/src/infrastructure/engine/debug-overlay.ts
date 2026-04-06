@@ -432,6 +432,15 @@ function formatEventPayload(e: { type: string; payload: Record<string, unknown> 
 		case 'DayPhaseChanged': return `${String(p['previousPhase'])} → ${String(p['newPhase'])}`;
 		case 'FacilityAbandoned': return `${String(p['facilityId'])} abandoned`;
 		case 'FacilityRestored': return `${String(p['facilityId'])} restored`;
+		case 'AgentArrived': return `agentId=${String(p['agentId'])}, targetId=${String(p['targetId'])}, targetType=${String(p['targetType'])}`;
+		case 'RestStarted': return `agentId=${String(p['agentId'])}, tier=${String(p['tier'])}, locationId=${String(p['locationId'])}`;
+		case 'LeisureStarted': return `agentId=${String(p['agentId'])}, locationId=${String(p['locationId'])}, locationName=${String(p['locationName'])}, cost=${String(p['cost'])}`;
+		case 'LeisureComplete': return `agentId=${String(p['agentId'])}, locationId=${String(p['locationId'])}`;
+		case 'ProductionComplete': return `facilityId=${String(p['facilityId'])}, output=${String(p['output'])}, quantity=${String(p['quantity'])}`;
+		case 'PurchaseComplete': return `agentId=${String(p['agentId'])}, facilityId=${String(p['facilityId'])}, itemId=${String(p['itemId'])}, price=${String(p['price'])}`;
+		case 'PurchaseFailed': return `agentId=${String(p['agentId'])}, itemId=${String(p['itemId'])}, reason=${String(p['reason'])}`;
+		case 'FacilityIdle': return `facilityId=${String(p['facilityId'])}, reason=${String(p['reason'])}`;
+		case 'TickBudgetExceeded': return `system=${String(p['system'])}, ms=${String(p['ms'])}`;
 		default: return e.type;
 	}
 }
@@ -619,14 +628,14 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 	// Recent events — filtered (skip NeedChanged noise, keep meaningful events)
 	const eventBus = deps.getEventBus?.();
 	if (eventBus !== undefined) {
-		const allEvents = eventBus.history({ limit: 200 });
-		const meaningful = allEvents.filter(e => e.type !== 'NeedChanged' && e.type !== 'NeedCritical' && e.type !== 'EconomicStimulusActivated');
+		const allEvents = eventBus.history({ limit: 500 });
+		const meaningful = allEvents.filter(e => e.type !== 'NeedChanged' && e.type !== 'NeedCritical');
 		const recent = meaningful.slice(-30).reverse();
 		if (recent.length > 0) {
 			lines.push('');
 			lines.push('## Recent Events (last 30, filtered)');
 			for (const e of recent) {
-				const payload = Object.entries(e.payload).map(([k, v]) => `${k}=${String(v)}`).join(', ');
+				const payload = formatEventPayload(e);
 				lines.push(`t${e.tick} [${e.source}] ${e.type}: ${payload}`);
 			}
 		}

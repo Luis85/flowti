@@ -14,7 +14,7 @@ interface PrioritizedHandler {
 	priority: number;
 }
 
-const HISTORY_MAX = 500;
+const HISTORY_MAX = 2000;
 
 export function createEventBus(): BatchableEventBus {
 	const handlers = new Map<string, PrioritizedHandler[]>();
