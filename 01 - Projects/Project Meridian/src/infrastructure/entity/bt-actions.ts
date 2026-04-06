@@ -465,12 +465,13 @@ export function createActions(
 			const attrComp = actor.get(AttributesComponent);
 			const baseline = deps.config.jobs.aptitude_baseline;
 			const knownSet = new Set(memory.knownLocations);
+			const nearbyIds = new Set(resolveNearbyLocations().map(l => l.id));
 
 			const candidates: { id: string; score: number }[] = [];
 
 			for (const loc of locations) {
 				if (loc.leisure === null) continue;
-				if (!knownSet.has(loc.id)) continue;
+				if (!knownSet.has(loc.id) && !nearbyIds.has(loc.id)) continue;
 				if (loc.leisure.cost > gold) continue;
 
 				let needWeight = 0;
