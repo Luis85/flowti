@@ -100,7 +100,7 @@ function needBar(value: number, label: string, emoji: string): string {
 	return `${emoji} <span style="color:${color}">${label}</span>${bar}<span style="color:${color}">${value.toFixed(1)}</span>`;
 }
 
-function renderTabBar(active: Panel): string {
+function renderTabBar(active: Panel, hasAnomaly = false): string {
 	const tabs: { id: Panel; label: string; icon: string }[] = [
 		{ id: 'agents', label: 'Agents', icon: '👤' },
 		{ id: 'world', label: 'World', icon: '🗺️' },
@@ -112,8 +112,9 @@ function renderTabBar(active: Panel): string {
 		const opacity = t.id === active ? '1' : '0.6';
 		return `<span class="meridian-tab" data-tab="${t.id}" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:${bg};opacity:${opacity}">${t.icon} ${t.label}</span>`;
 	});
+	const alertBadge = hasAnomaly ? '<span style="color:#f44;margin-left:4px" title="Anomalies detected">⚠</span>' : '';
 	const copyBtn = '<span class="meridian-copy-snapshot" style="cursor:pointer;padding:2px 8px;border-radius:4px;margin-left:auto;opacity:0.6;font-size:10px" title="Copy diagnostic snapshot to clipboard">📋 Snapshot</span>';
-	return `<div style="display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid #45475a;padding-bottom:6px">${parts.join('')}${copyBtn}</div>`;
+	return `<div style="display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid #45475a;padding-bottom:6px">${parts.join('')}${copyBtn}${alertBadge}</div>`;
 }
 
 function renderWorldHeader(deps: OverlayDeps): string {
@@ -150,7 +151,8 @@ function renderAgentsPanel(deps: OverlayDeps): string {
 		// Needs — compact row with personal thresholds
 		const ht = ba.personalThresholds.hunger.toFixed(0);
 		const et = ba.personalThresholds.energy.toFixed(0);
-		lines.push(`<div style="margin:3px 0">${needBar(needs.hunger, 'Food', '🍖')} <span style="color:#585b70;font-size:9px">thr:${ht}</span> ${needBar(needs.thirst, 'Water', '💧')}</div>`);
+		const tt = ba.personalThresholds.thirst.toFixed(0);
+		lines.push(`<div style="margin:3px 0">${needBar(needs.hunger, 'Food', '🍖')} <span style="color:#585b70;font-size:9px">thr:${ht}</span> ${needBar(needs.thirst, 'Water', '💧')} <span style="color:#585b70;font-size:9px">thr:${tt}</span></div>`);
 		lines.push(`<div style="margin:3px 0">${needBar(needs.energy, 'Energy', '⚡')} <span style="color:#585b70;font-size:9px">thr:${et}</span> ${needBar(needs.social, 'Social', '👥')}</div>`);
 
 		// Status line with sleep debt
@@ -166,6 +168,7 @@ function renderAgentsPanel(deps: OverlayDeps): string {
 				`mem:+${(f.positiveMemories * 100).toFixed(0)}/-${(f.negativeMemories * 100).toFixed(0)}`,
 				`goal:${(f.goalProgress * 100).toFixed(0)}`,
 				`gold:${(f.walletHealth * 100).toFixed(0)}`,
+				`equip:${(f.equipmentCondition * 100).toFixed(0)}`,
 				`rel:${(f.relationshipQuality * 100).toFixed(0)}`,
 			].join(' ');
 			lines.push(`<span style="color:#585b70;font-size:9px">${parts}</span>`);
@@ -188,6 +191,12 @@ function renderAgentsPanel(deps: OverlayDeps): string {
 		} else if (target !== null) {
 			const targetData = locations.find(l => l.id === target.id);
 			lines.push(`→ <b>${targetData?.name ?? target.id}</b>`);
+		}
+
+		// Leisure target
+		if (ba.leisureTarget !== null) {
+			const leisureName = locations.find(l => l.id === ba.leisureTarget)?.name ?? ba.leisureTarget;
+			lines.push(`🎭 → ${leisureName}`);
 		}
 
 		lines.push('</div>');
@@ -218,8 +227,9 @@ function renderWorldPanel(deps: OverlayDeps): string {
 			? ` ⏳ ${fac.state.workProgress}/${loc.production?.ticks_per_cycle ?? '?'}`
 			: '';
 
+		const statusColor = fac.state.status === 'abandoned' ? '#f44' : '#888';
 		lines.push(`<div style="margin:4px 0;padding:4px;background:#181825;border-radius:4px">`);
-		lines.push(`${locIcon} <b>${loc.name}</b>${progressLabel}`);
+		lines.push(`${locIcon} <b>${loc.name}</b>${progressLabel} <span style="color:${statusColor}">${fac.state.status}</span>`);
 		lines.push(`💰 ${fac.state.fund.toFixed(0)}g · 👷 ${workerLabel} · 📦 ${stockItems}`);
 		lines.push('</div>');
 	}
@@ -246,13 +256,14 @@ function renderWorldPanel(deps: OverlayDeps): string {
 			lines.push('<br><b style="color:#89b4fa">Quest Board</b>');
 			for (const quest of board.state.quests) {
 				const icon = quest.type === 'repair' ? '🔧' : quest.type === 'supply' ? '📦' : '🏪';
-				const remaining = quest.expiryTicks - (tickCount - quest.createdTick);
+				const remaining = Math.max(0, quest.expiryTicks - (tickCount - quest.createdTick));
+				const expiryLabel = remaining === 0 ? '<span style="color:#f38ba8">EXPIRED</span>' : `${remaining}t`;
 				const stateLabel = quest.state === 'claimed'
 					? `<span style="color:#f9e2af">claimed by ${quest.claimedBy?.replace('agent-', '') ?? '?'}</span>`
 					: quest.state === 'completed'
 						? '<span style="color:#a6e3a1">done</span>'
 						: '<span style="color:#6c7086">open</span>';
-				lines.push(`<div style="margin:2px 0">${icon} ${quest.type} → ${quest.facilityId.replace('loc-', '')} — ${stateLabel} <span style="color:#585b70">(${remaining}t)</span></div>`);
+				lines.push(`<div style="margin:2px 0">${icon} ${quest.type} → ${quest.facilityId.replace('loc-', '')} — ${stateLabel} <span style="color:#585b70">(${expiryLabel})</span></div>`);
 			}
 		}
 	}
@@ -332,6 +343,8 @@ function renderEconomyPanel(deps: OverlayDeps): string {
 	const ds = economy.state.dailySummary;
 	lines.push('<br><b style="color:#89b4fa">Today</b>');
 	lines.push(`Wages: ${ds.totalWages.toFixed(0)}g · Tax: ${ds.totalTax.toFixed(0)}g · Sales: ${ds.totalSales.toFixed(0)}g`);
+	lines.push(`Job switches: ${ds.jobSwitchesThisDay} · Deliveries: ${ds.supplyDeliveries} · Quests: ${ds.questsCompletedThisDay}`);
+	lines.push(`Vacancies: ${ds.vacancyCount} · Unemployed: ${ds.unemploymentCount}`);
 
 	return lines.join('<br>');
 }
@@ -693,8 +706,9 @@ function buildQuestSnapshot(questBoard: { quests: { state: string; type: string;
 	const lines: string[] = [];
 	lines.push('## Quest Board');
 	for (const q of questBoard.quests) {
-		const remaining = q.expiryTicks - (tick - q.createdTick);
-		lines.push(`[${q.state}] ${q.type} → ${q.facilityId}${q.itemId !== null ? ` (${q.itemId}x${q.quantity})` : ''} | reward=${q.reward}g | expires in ${remaining}t${q.claimedBy !== null ? ` | claimed by ${q.claimedBy.replace('agent-', '')}` : ''}${q.repairProgress > 0 ? ` | repair=${q.repairProgress}` : ''}`);
+		const remaining = Math.max(0, q.expiryTicks - (tick - q.createdTick));
+		const expiryLabel = remaining === 0 ? 'EXPIRED' : `expires in ${remaining}t`;
+		lines.push(`[${q.state}] ${q.type} → ${q.facilityId}${q.itemId !== null ? ` (${q.itemId}x${q.quantity})` : ''} | reward=${q.reward}g | ${expiryLabel}${q.claimedBy !== null ? ` | claimed by ${q.claimedBy.replace('agent-', '')}` : ''}${q.repairProgress > 0 ? ` | repair=${q.repairProgress}` : ''}`);
 	}
 	return lines.join('\n');
 }
@@ -1102,10 +1116,23 @@ export function createDebugOverlay(
 			case 'stats': body = renderStatsPanel(history, deps); break;
 		}
 
+		// Anomaly indicator
+		const agents = deps.getAgents();
+		const world = deps.getWorldEntity();
+		const velocity = world.get(EconomyComponent).state.monetarySnapshot?.velocity ?? 0;
+		const hasAnomaly = agents.some(a => {
+			const mood = a.get(MoodComponent).state.value;
+			const needs = a.get(NeedsComponent).state;
+			return mood < -40 || needs.hunger < 20 || needs.energy < 15 || needs.thirst < 20;
+		}) || velocity <= 0.05;
+
+		// Preserve scroll position across updates
+		const scrollTop = el.scrollTop;
 		while (el.firstChild !== null) el.removeChild(el.firstChild);
 		const range = document.createRange();
 		range.selectNodeContents(el);
-		el.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel)}${body}`));
+		el.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel, hasAnomaly)}${body}`));
+		el.scrollTop = scrollTop;
 	}
 
 	const interval = setInterval(update, 1000);
