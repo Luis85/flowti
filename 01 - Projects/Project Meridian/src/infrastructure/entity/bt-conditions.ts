@@ -8,6 +8,7 @@ import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { TimeComponent } from '../components/time-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
+import { MoodComponent } from '../components/mood-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { findFoodInInventory, FOOD_ITEMS, TRADE_GOODS } from '../../domain/systems/food-items.js';
 import { isPriceStale } from '../../domain/systems/price-memory.js';
@@ -56,6 +57,9 @@ export interface ConditionMethods {
 	QuestCargoReady(): boolean;
 	IsCommitted(): boolean;
 	ShouldSleep(): boolean;
+	IsRestDay(): boolean;
+	IsMoodLow(): boolean;
+	IsAtLeisure(): boolean;
 }
 
 export function createConditions(
@@ -177,10 +181,10 @@ export function createConditions(
 		},
 
 		IsWorkHours(): boolean {
-			const phase = worldEntity().get(TimeComponent).state.phase;
-			if (phase === 'day') return true;
-			if (phase === 'dawn') {
-				const time = worldEntity().get(TimeComponent).state;
+			const time = worldEntity().get(TimeComponent).state;
+			if (time.dayCount > 0 && time.dayCount % config.rest_day_interval === 0) return false;
+			if (time.phase === 'day') return true;
+			if (time.phase === 'dawn') {
 				return time.tickInCycle >= config.day_night.dawn.start + wakeOffset;
 			}
 			return false;
@@ -398,6 +402,19 @@ export function createConditions(
 				return time.tickInCycle >= config.day_night.dusk.start + personalSleepOffset;
 			}
 			return false;
+		},
+
+		IsRestDay(): boolean {
+			const time = worldEntity().get(TimeComponent).state;
+			return time.dayCount > 0 && time.dayCount % config.rest_day_interval === 0;
+		},
+
+		IsMoodLow(): boolean {
+			return actor.get(MoodComponent).state.value < config.leisure_mood_threshold;
+		},
+
+		IsAtLeisure(): boolean {
+			return memory.btAction === 'leisure' && memory.atLocation === memory.leisureTarget;
 		},
 	};
 }

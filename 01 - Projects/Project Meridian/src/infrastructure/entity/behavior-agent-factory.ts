@@ -225,6 +225,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set cachedAvailableQuest(v) { memory.cachedAvailableQuest = v; },
 		get insideFacility() { return memory.insideFacility; },
 		set insideFacility(v) { memory.insideFacility = v; },
+		get leisureTarget() { return memory.leisureTarget; },
+		set leisureTarget(v) { memory.leisureTarget = v; },
 		get commitmentTicks() { return memory.commitmentTicks; },
 		set commitmentTicks(v) { memory.commitmentTicks = v; },
 		get sleepDebt() { return memory.sleepDebt; },

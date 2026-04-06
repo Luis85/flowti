@@ -94,6 +94,7 @@ export interface BehaviorAgent {
 	activeQuest: QuestRuntime | null;
 	cachedAvailableQuest: QuestRuntime | null;
 	insideFacility: boolean;
+	leisureTarget: string | null;
 	commitmentTicks: number;
 	sleepDebt: number;
 	ticksRestedThisDay: number;
@@ -143,6 +144,9 @@ export interface BehaviorAgent {
 	QuestCargoReady(): boolean;
 	IsCommitted(): boolean;
 	ShouldSleep(): boolean;
+	IsRestDay(): boolean;
+	IsMoodLow(): boolean;
+	IsAtLeisure(): boolean;
 
 	// Action methods
 	Eat(): ActionResult;
@@ -178,6 +182,9 @@ export interface BehaviorAgent {
 	ContinueCommitment(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
+	ChooseLeisure(): ActionResult;
+	SeekLeisureTarget(): ActionResult;
+	Leisure(): ActionResult;
 
 	// Utility methods
 	tickUnemployment(): void;

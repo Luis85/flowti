@@ -28,6 +28,7 @@ export interface WorkingMemory {
 	activeQuest: QuestRuntime | null;
 	cachedAvailableQuest: QuestRuntime | null;
 	insideFacility: boolean;
+	leisureTarget: string | null;
 	commitmentTicks: number;
 	sleepDebt: number;
 	ticksRestedThisDay: number;
@@ -62,6 +63,7 @@ export function createWorkingMemory(priceMemoryMax: number): WorkingMemory {
 		activeQuest: null,
 		cachedAvailableQuest: null,
 		insideFacility: false,
+		leisureTarget: null,
 		commitmentTicks: 0,
 		sleepDebt: 0,
 		ticksRestedThisDay: 0,

@@ -8,6 +8,7 @@ import { WalletComponent } from '../components/wallet-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
+import { MoodComponent } from '../components/mood-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { QuestBoardComponent } from '../components/quest-board-component.js';
@@ -52,6 +53,9 @@ export interface ActionMethods {
 	AbandonQuest(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
+	ChooseLeisure(): ActionResult;
+	SeekLeisureTarget(): ActionResult;
+	Leisure(): ActionResult;
 	ContinueCommitment(): ActionResult;
 	tickUnemployment(): void;
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
@@ -445,6 +449,76 @@ export function createActions(
 					}
 				}
 			}
+			return RUNNING;
+		},
+
+		ChooseLeisure(): ActionResult {
+			const locations = getLocations();
+			const gold = actor.get(WalletComponent).state.gold;
+			const needs = actor.get(NeedsComponent).state;
+			const moodValue = actor.get(MoodComponent).state.value;
+			const attrComp = actor.get(AttributesComponent);
+			const baseline = deps.config.jobs.aptitude_baseline;
+			const knownSet = new Set(memory.knownLocations);
+
+			const candidates: { id: string; score: number }[] = [];
+
+			for (const loc of locations) {
+				if (loc.leisure === null || loc.leisure === undefined) continue;
+				if (!knownSet.has(loc.id)) continue;
+				if (loc.leisure.cost > gold) continue;
+
+				let needWeight = 0;
+				if (loc.leisure.effects.social > 0) {
+					needWeight += (100 - needs.social) / 100 * loc.leisure.effects.social;
+				}
+				if (loc.leisure.effects.mood > 0) {
+					const moodNeed = (100 - Math.max(0, Math.min(200, moodValue + 100)) / 2) / 100;
+					needWeight += moodNeed * loc.leisure.effects.mood;
+				}
+				if (loc.leisure.effects.energy > 0) {
+					needWeight += (100 - needs.energy) / 100 * loc.leisure.effects.energy;
+				}
+				if (loc.leisure.effects.skill_xp > 0) {
+					needWeight += loc.leisure.effects.skill_xp * 5;
+				}
+
+				let attrBonus = 0;
+				if (loc.leisure.attribute_bonus !== null) {
+					attrBonus = attrComp.getByName(loc.leisure.attribute_bonus) / baseline * 3;
+				}
+
+				const dist = Math.hypot(loc.position.x - actor.pos.x, loc.position.y - actor.pos.y);
+				const distPenalty = dist / 100;
+
+				candidates.push({ id: loc.id, score: needWeight + attrBonus - distPenalty });
+			}
+
+			if (candidates.length === 0) return FAILED;
+			candidates.sort((a, b) => b.score - a.score);
+			memory.leisureTarget = candidates[0]!.id;
+			beginAction('choose_leisure');
+			return SUCCEEDED;
+		},
+
+		SeekLeisureTarget(): ActionResult {
+			if (memory.leisureTarget === null) return FAILED;
+			beginAction('seek_leisure');
+			memory.movementTarget = { id: memory.leisureTarget, type: 'location' };
+			if (memory.atLocation === memory.leisureTarget) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		Leisure(): ActionResult {
+			if (memory.leisureTarget === null || memory.atLocation !== memory.leisureTarget) return FAILED;
+			const loc = getLocations().find(l => l.id === memory.leisureTarget);
+			if (loc?.leisure === null || loc?.leisure === undefined) return FAILED;
+
+			if (memory.commitmentTicks <= 0) {
+				memory.commitmentTicks = loc.leisure.ticks_per_visit;
+				memory.committedAction = 'leisure';
+			}
+			beginAction('leisure');
 			return RUNNING;
 		},
 
