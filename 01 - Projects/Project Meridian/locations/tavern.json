@@ -3,6 +3,8 @@
   "name": "Tavern",
   "type": "leisure",
   "position": { "x": 250, "y": 280, "region": "market-square" },
+  "color": "#d4a574",
+  "capacity": 15,
   "production": null,
   "leisure": {
     "cost": 3,

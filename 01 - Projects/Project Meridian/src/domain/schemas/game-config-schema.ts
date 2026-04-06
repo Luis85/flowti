@@ -46,6 +46,9 @@ const NeedsConfigSchema = z.object({
 		repair:         { hunger: 1.2, thirst: 1.1, energy: 1.3 },
 		seek_quest:     { hunger: 1.0, thirst: 1.0, energy: 1.0 },
 		claim_quest:    { hunger: 1.0, thirst: 1.0, energy: 1.0 },
+		leisure:        { hunger: 0.5, thirst: 0.5, energy: 0.3 },
+		seek_leisure:   { hunger: 1.1, thirst: 1.2, energy: 1.1 },
+		choose_leisure: { hunger: 1.0, thirst: 1.0, energy: 1.0 },
 	}),
 });
 

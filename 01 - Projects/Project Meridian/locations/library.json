@@ -3,6 +3,8 @@
   "name": "Library",
   "type": "leisure",
   "position": { "x": 320, "y": 150, "region": "residential" },
+  "color": "#5c6bc0",
+  "capacity": 8,
   "production": null,
   "leisure": {
     "cost": 1,

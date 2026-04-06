@@ -81,7 +81,7 @@ root {
                 condition [IsRestDay]
                 condition [IsMoodLow]
             }
-            condition [IsDaytime]
+            flip { condition [IsNighttime] }
             action [ChooseLeisure]
             action [SeekLeisureTarget]
             action [Leisure] while(IsAtLeisure)
