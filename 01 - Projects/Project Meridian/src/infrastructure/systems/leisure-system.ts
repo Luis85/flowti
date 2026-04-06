@@ -7,6 +7,7 @@ import { WalletComponent } from '../components/wallet-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
+import { applyLeisureTick } from '../../domain/systems/leisure.js';
 import type { Actor } from 'excalibur';
 
 export function createLeisureSystem(
@@ -153,20 +154,16 @@ export function createLeisureSystem(
 					});
 				}
 
-				// Per-tick effects (gradual application)
-				const ticksPerVisit = leisure.ticks_per_visit;
-
-				if (leisure.effects.social > 0) {
-					const needs = agent.get(NeedsComponent);
-					const socialGain = leisure.effects.social / ticksPerVisit;
-					needs.state = { ...needs.state, social: Math.min(100, needs.state.social + socialGain) };
-					needs.markDirty();
-				}
-
-				if (leisure.effects.energy > 0) {
-					const needs = agent.get(NeedsComponent);
-					const energyGain = leisure.effects.energy / ticksPerVisit;
-					needs.state = { ...needs.state, energy: Math.min(100, needs.state.energy + energyGain) };
+				// Per-tick effects (gradual application via domain pure function)
+				const needs = agent.get(NeedsComponent);
+				const result = applyLeisureTick({
+					currentSocial: needs.state.social,
+					currentEnergy: needs.state.energy,
+					effects: leisure.effects,
+					ticksPerVisit: leisure.ticks_per_visit,
+				});
+				if (result.newSocial !== needs.state.social || result.newEnergy !== needs.state.energy) {
+					needs.state = { ...needs.state, social: result.newSocial, energy: result.newEnergy };
 					needs.markDirty();
 				}
 			}
