@@ -412,10 +412,15 @@ export function createActions(
 			if (bestFacility.job === actor.job && bestFacility.wage <= currentWage) return FAILED;
 
 			const oldJob = actor.job;
+			const oldFacilityId = facilities.find(f => f.workerId === actor.agentId)?.id ?? null;
 			deps.releaseFacility!();
 			actor.job = bestFacility.job;
 			if (!deps.claimFacility!(bestFacility.id)) {
 				actor.job = oldJob;
+				// Re-claim old facility to restore reservation
+				if (oldFacilityId !== null) {
+					deps.claimFacility!(oldFacilityId);
+				}
 				return FAILED;
 			}
 			beginAction('switch_job');
