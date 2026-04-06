@@ -14,6 +14,8 @@ function createTestDeps(eventBus = createEventBus()): { deps: GameCoreDeps; even
 		config: GameConfigSchema.parse({}),
 		performanceTracker: createPerformanceTracker(),
 		tickCount: 0,
+		writeFile: null,
+		dataRoot: 'test-data',
 	};
 	return { deps, eventBus };
 }

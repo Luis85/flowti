@@ -167,6 +167,7 @@ describe('Smoke Test — Real Data', () => {
 			performanceTracker: createPerformanceTracker(),
 			tickCount: 60,
 			writeFile: null,
+			dataRoot: 'test-data',
 		};
 
 		runner.tick(deps);
@@ -269,6 +270,7 @@ describe('Smoke Test — Real Data', () => {
 			performanceTracker: createPerformanceTracker(),
 			tickCount: 60,
 			writeFile: null,
+			dataRoot: 'test-data',
 		};
 
 		runner.tick(deps);

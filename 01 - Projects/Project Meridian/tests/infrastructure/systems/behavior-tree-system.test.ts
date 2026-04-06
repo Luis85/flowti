@@ -15,6 +15,7 @@ function createDeps(): GameCoreDeps {
 		performanceTracker: createPerformanceTracker(),
 		tickCount: 1,
 		writeFile: null,
+		dataRoot: 'test-data',
 	};
 }
 

@@ -51,6 +51,7 @@ function createDeps(overrides: Partial<GameCoreDeps> = {}): GameCoreDeps {
 		performanceTracker: createPerformanceTracker(),
 		tickCount: 1,
 		writeFile: null,
+		dataRoot: 'test-data',
 		...overrides,
 	};
 }

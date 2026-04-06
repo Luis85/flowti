@@ -111,6 +111,7 @@ export class MeridianGameView extends ItemView {
 		const devRoot = '01 - Projects/Project Meridian';
 		const devProbe = await vaultAdapter.list(`${devRoot}/agents`);
 		const dataRoot = devProbe.length > 0 ? devRoot : '03 - Resources';
+		deps.dataRoot = dataRoot;
 
 		const worldLoader = createWorldLoader(deps.logger, {
 			moodConfig: deps.config.mood,

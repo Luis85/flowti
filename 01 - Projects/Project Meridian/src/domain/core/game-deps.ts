@@ -14,4 +14,6 @@ export interface GameCoreDeps {
 	tickCount: number;
 	/** Vault file writer — null in tests, real adapter in production */
 	writeFile: ((path: string, content: string) => Promise<void>) | null;
+	/** Root path for data files — set dynamically after vault probe in game-view */
+	dataRoot: string;
 }
