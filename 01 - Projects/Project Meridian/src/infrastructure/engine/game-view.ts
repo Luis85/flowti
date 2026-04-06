@@ -24,6 +24,7 @@ import { createMovementSystem } from '../systems/movement-system.js';
 import { createRestSystem } from '../systems/rest-system.js';
 import { createFeedSystem } from '../systems/feed-system.js';
 import { createSocializeSystem } from '../systems/socialize-system.js';
+import { createLeisureSystem } from '../systems/leisure-system.js';
 import { createFacilitySystem } from '../systems/facility-system.js';
 import { createTradeSystem } from '../systems/trade-system.js';
 import { createDialogueSystem } from '../systems/dialogue-system.js';
@@ -176,6 +177,17 @@ export class MeridianGameView extends ItemView {
 				}));
 			}
 
+			// Add FacilityComponent to leisure-type locations (receive gold from agent visits)
+			if (loc.type === 'leisure' && loc.production === null) {
+				marker.addComponent(new FacilityComponent({
+					stock: [],
+					fund: 0,
+					workProgress: 0,
+					status: 'idle',
+					workerId: null,
+				}));
+			}
+
 			// Add FacilityComponent to market-type locations with fund/stock from location data
 			if (loc.type === 'market' && loc.production === null) {
 				marker.addComponent(new FacilityComponent({
@@ -269,6 +281,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
+		tickRunner.register(createLeisureSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createDialogueSystem(getAgents, Date.now()));

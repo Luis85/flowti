@@ -31,6 +31,7 @@ export const SystemPriority = {
 	REST: 6.5,
 	FEED: 6.6,
 	SOCIALIZE: 6.7,
+	LEISURE: 6.75,
 	QUEST_EVALUATION: 7,
 	QUEST_GENERATION: 7.1,
 	OBJECT_INTERACTION: 8,
