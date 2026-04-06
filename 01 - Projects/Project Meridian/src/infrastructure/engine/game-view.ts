@@ -86,7 +86,7 @@ export class MeridianGameView extends ItemView {
 			if (this.deps !== null && this.batchableEventBus !== null) {
 				await this.initializeWorld(this.engine, this.deps, this.batchableEventBus, container);
 			} else {
-				console.warn('[Meridian] Game deps not ready — tick system not registered.');
+				this.deps?.logger.warn('Meridian', 'Game deps not ready — tick system not registered.');
 				const msg = container.createDiv({ cls: 'meridian-loading' });
 				msg.textContent = 'Simulation initializing... Please reopen this tab.';
 			}
@@ -340,6 +340,7 @@ export class MeridianGameView extends ItemView {
 
 	private showError(container: HTMLElement, err: unknown): void {
 		const message = err instanceof Error ? err.message : String(err);
+		// Logger not available during init failure — console is intentional here
 		console.error('[Meridian] Engine failed to initialize:', message);
 		container.empty();
 		const errorEl = container.createDiv({ cls: 'meridian-error' });
