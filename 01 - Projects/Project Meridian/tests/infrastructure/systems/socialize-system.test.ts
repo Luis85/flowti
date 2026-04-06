@@ -155,9 +155,9 @@ describe('SocializeSystem', () => {
 		const system = createSocializeSystem(() => [agent1, agent2]);
 		system.execute(createDeps(eventBus, 100));
 
-		// Both agents should have social recovery (recovery_rate = 3.0)
-		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(53.0);
-		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(53.0);
+		// Both agents should have social recovery: passive 0.3 + active 3.0 = 3.3
+		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(53.3);
+		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(53.3);
 
 		// SocialInteraction event emitted
 		expect(events.length).toBe(1);
@@ -205,9 +205,10 @@ describe('SocializeSystem', () => {
 		system.execute(createDeps(eventBus2, 110));
 
 		// Social should still recover (second tick)
-		// First tick: 50 + 3.0 = 53.0, second tick: 53.0 + 3.0 = 56.0
-		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(56.0);
-		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(56.0);
+		// First tick: 50 + 0.3(passive) + 3.0(active) = 53.3
+		// Second tick: 53.3 + 0.3(passive) + 3.0(active) = 56.6
+		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(56.6);
+		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(56.6);
 
 		// Memory should NOT have increased — still just 1 entry from first tick
 		expect(agent1.get(MemoryComponent).state.entries.length).toBe(1);
@@ -218,7 +219,7 @@ describe('SocializeSystem', () => {
 		expect(events[0]?.payload.memoryCreated).toBe(false);
 	});
 
-	it('skips agent with non-social btAction', () => {
+	it('non-talking agents get passive social recovery but no active talk', () => {
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];
 		eventBus.on('SocialInteraction', (e) => { events.push(e); });
@@ -227,11 +228,11 @@ describe('SocializeSystem', () => {
 		const system = createSocializeSystem(() => [agent1, agent2]);
 		system.execute(createDeps(eventBus, 100));
 
-		// No social recovery
-		expect(agent1.get(NeedsComponent).state.social).toBe(50);
-		expect(agent2.get(NeedsComponent).state.social).toBe(50);
+		// Passive social recovery only (0.3) — no active talk
+		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(50.3);
+		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(50.3);
 
-		// No event
+		// No active SocialInteraction event
 		expect(events.length).toBe(0);
 	});
 
@@ -266,9 +267,9 @@ describe('SocializeSystem', () => {
 		// Only ONE event — pair deduplication prevents double-processing
 		expect(events.length).toBe(1);
 
-		// Both still get social recovery (from the single processing)
-		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(53.0);
-		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(53.0);
+		// Both still get social recovery: passive 0.3 + active 3.0 = 3.3
+		expect(agent1.get(NeedsComponent).state.social).toBeCloseTo(53.3);
+		expect(agent2.get(NeedsComponent).state.social).toBeCloseTo(53.3);
 
 		// Both get memory
 		expect(agent1.get(MemoryComponent).state.entries.length).toBe(1);

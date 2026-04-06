@@ -287,9 +287,9 @@ describe('bt-conditions', () => {
 			conditions.IsExhausted();
 			expect(memory.recovering).toBe(true);
 
-			// Simulate energy recovery above threshold+hysteresis (30+20=50)
+			// personalThreshold.energy=36 (30*(12/10)), hysteresis=50 → recovered=86
 			const needs = actor.get(NeedsComponent);
-			needs.state = { ...needs.state, energy: 51 };
+			needs.state = { ...needs.state, energy: 87 };
 			needs.markDirty();
 
 			expect(conditions.IsRecovering()).toBe(false);

@@ -236,8 +236,8 @@ describe('MovementSystem', () => {
 		system.execute(createDeps());
 
 		const needs = agent.get(NeedsComponent);
-		// DX=10, divisor=4 -> speedPerTick=2.5, movement_energy_cost=0.02 -> drain=0.05
-		expect(needs.state.energy).toBe(90 - 0.05);
+		// DX=10, divisor=4 -> speedPerTick=2.5, movement_energy_cost=0.005 -> drain=0.0125
+		expect(needs.state.energy).toBeCloseTo(90 - 0.0125);
 	});
 
 	it('exhausted agent moves at half speed', () => {

@@ -16,7 +16,8 @@ export const SIGNIFICANCE_RANGE = { min: 1, max: 10 } as const;
 export const USE_BONUS_RANGE = { min: 0, max: 3 } as const;
 export const LLM_TEMPERATURE_RANGE = { min: 0, max: 2 } as const;
 
-export const NEED_CRITICAL_THRESHOLDS = { hunger: 20, energy: 15, social: 25, thirst: 20 } as const;
+/** Social intentionally excluded — not a survival need; discomfort only. */
+export const NEED_CRITICAL_THRESHOLDS = { hunger: 20, energy: 15, thirst: 20 } as const;
 
 export const TRAIT_CATEGORIES = ['survival', 'social', 'economic', 'work', 'special'] as const;
 export const TRAIT_ASSIGNABLE_BY = ['director', 'definition', 'milestone', 'inherited'] as const;

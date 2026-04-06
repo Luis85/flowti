@@ -150,7 +150,7 @@ describe('RestSystem', () => {
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		expect(needs.state.energy).toBeCloseTo(51.5);
+		expect(needs.state.energy).toBeCloseTo(53.0);
 
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.agentId).toBe('agent-1');
@@ -175,7 +175,7 @@ describe('RestSystem', () => {
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		expect(needs.state.energy).toBeCloseTo(52.0);
+		expect(needs.state.energy).toBeCloseTo(54.0);
 
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.tier).toBe('owned_home');
@@ -194,7 +194,7 @@ describe('RestSystem', () => {
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		expect(needs.state.energy).toBeCloseTo(51.0);
+		expect(needs.state.energy).toBeCloseTo(51.5);
 
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.tier).toBe('outdoors');
@@ -238,7 +238,7 @@ describe('RestSystem', () => {
 		expect(events.length).toBe(1);
 
 		const needs = agent.get(NeedsComponent);
-		expect(needs.state.energy).toBeCloseTo(53.0);
+		expect(needs.state.energy).toBeCloseTo(56.0); // 2 ticks of public_shelter at 3.0/tick
 	});
 
 	it('clears restingAt when agent leaves rest location and re-emits on return', () => {
@@ -325,7 +325,7 @@ describe('RestSystem', () => {
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		expect(needs.state.energy).toBeCloseTo(51.0);
+		expect(needs.state.energy).toBeCloseTo(51.5);
 
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.tier).toBe('outdoors');
@@ -409,12 +409,12 @@ describe('RestSystem', () => {
 		agent.behaviorAgent = createStubBehaviorAgent();
 		const worldEntity = createWorldEntity();
 
-		// No rest location — outdoors fallback (recovery_rate = 1.0)
+		// No rest location — outdoors fallback (recovery_rate = 1.5)
 		const system = createRestSystem(() => [agent], () => [], () => worldEntity);
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		expect(needs.state.energy).toBeCloseTo(1.0); // 0 + 1.0 outdoors recovery
+		expect(needs.state.energy).toBeCloseTo(1.5); // 0 + 1.5 outdoors recovery
 	});
 
 	it('energy does not exceed 100 when resting at owned home with high energy', () => {
@@ -435,7 +435,7 @@ describe('RestSystem', () => {
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		// owned_home recovery_rate=2.0, 99.5 + 2.0 = 101.5, clamped to 100
+		// owned_home recovery_rate=4.0, 99.5 + 4.0 = 103.5, clamped to 100
 		expect(needs.state.energy).toBe(100);
 	});
 
@@ -475,8 +475,8 @@ describe('RestSystem', () => {
 		system.execute(createDeps(eventBus));
 
 		const needs = agent.get(NeedsComponent);
-		// Outdoors tier, recovery_rate = 1.0
-		expect(needs.state.energy).toBeCloseTo(51.0);
+		// Outdoors tier, recovery_rate = 1.5
+		expect(needs.state.energy).toBeCloseTo(51.5);
 
 		expect(events.length).toBe(1);
 		expect(events[0]?.payload.tier).toBe('outdoors');
@@ -518,12 +518,12 @@ describe('RestSystem', () => {
 		system3.execute(createDeps());
 		const outdoorsEnergy = outdoorsAgent.get(NeedsComponent).state.energy;
 
-		// owned_home (2.0) > public_shelter (1.5) > outdoors (1.0)
+		// owned_home (4.0) > public_shelter (3.0) > outdoors (1.5)
 		expect(homeEnergy).toBeGreaterThan(shelterEnergy);
 		expect(shelterEnergy).toBeGreaterThan(outdoorsEnergy);
-		expect(homeEnergy).toBeCloseTo(52.0);
-		expect(shelterEnergy).toBeCloseTo(51.5);
-		expect(outdoorsEnergy).toBeCloseTo(51.0);
+		expect(homeEnergy).toBeCloseTo(54.0);
+		expect(shelterEnergy).toBeCloseTo(53.0);
+		expect(outdoorsEnergy).toBeCloseTo(51.5);
 	});
 
 	it('clears restingAt when agent starts working (non-rest btAction)', () => {

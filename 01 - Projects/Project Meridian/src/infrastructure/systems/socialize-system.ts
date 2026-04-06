@@ -20,6 +20,21 @@ export function createSocializeSystem(
 			const socialConfig = deps.config.social;
 			const processedPairs = new Set<string>();
 
+			// Passive social recovery from nearby agents (ambient proximity)
+			const passiveRecovery = 0.3;
+			for (const agent of agentList) {
+				const perception = agent.get(PerceptionComponent);
+				const hasNearbyAgent = perception.state.nearbyAgents.some(a => a.distance < radius);
+				if (!hasNearbyAgent) continue;
+
+				const needs = agent.get(NeedsComponent);
+				if (needs.state.social < 100) {
+					needs.state = { ...needs.state, social: Math.min(100, needs.state.social + passiveRecovery) };
+					needs.markDirty();
+				}
+			}
+
+			// Active socialization — requires 'talk' action
 			for (const agent of agentList) {
 				const ba = agent.behaviorAgent;
 				const btAction = ba.btAction;

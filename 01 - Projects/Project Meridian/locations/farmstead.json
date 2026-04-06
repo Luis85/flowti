@@ -1,0 +1,9 @@
+{
+	"id": "loc-farmstead",
+	"name": "Farmstead",
+	"type": "rest",
+	"position": { "x": 150, "y": 130, "region": "region-farmlands" },
+	"color": "#8d6e63",
+	"production": null,
+	"capacity": 5
+}

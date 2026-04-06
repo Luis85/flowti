@@ -49,11 +49,10 @@ describe('applyNeedsDecay', () => {
 		expect(critical?.threshold).toBe(15);
 	});
 
-	it('emits NeedCritical when social crosses below 25', () => {
+	it('does not emit NeedCritical for social — not a survival need', () => {
 		const result = applyNeedsDecay(makeInput({ state: { social: 25 } }), defaultConfig);
 		const critical = result.events.find(e => e.type === 'NeedCritical' && e.need === 'social');
-		expect(critical).toBeDefined();
-		expect(critical?.threshold).toBe(25);
+		expect(critical).toBeUndefined();
 	});
 
 	it('does not re-emit NeedCritical when already below threshold', () => {

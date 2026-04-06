@@ -14,13 +14,14 @@
 		"social_threshold": 40,
 		"thirst_threshold": 40,
 		"food_reserve": 3,
+		"recovery_hysteresis": 50,
 		"activity_costs": {
 			"work":           { "hunger": 2.5, "thirst": 2.0, "energy": 2.0 },
 			"harvest":        { "hunger": 1.8, "thirst": 1.5, "energy": 1.5 },
-			"seek_work":      { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 },
+			"seek_work":      { "hunger": 1.0, "thirst": 1.0, "energy": 0.5 },
 			"seek_food":      { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 },
 			"seek_water":     { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 },
-			"seek_rest":      { "hunger": 1.2, "thirst": 1.3, "energy": 1.2 },
+			"seek_rest":      { "hunger": 0.8, "thirst": 1.0, "energy": 0.5 },
 			"seek_market":    { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 },
 			"wander":         { "hunger": 1.1, "thirst": 1.2, "energy": 1.1 },
 			"eat":            { "hunger": 0,   "thirst": 0.5, "energy": 0.3 },
@@ -46,6 +47,14 @@
 			"choose_leisure": { "hunger": 1.0, "thirst": 1.0, "energy": 1.0 },
 			"seek_job_facility": { "hunger": 1.3, "thirst": 1.5, "energy": 1.3 }
 		}
+	},
+	"stamina": {
+		"movement_energy_cost": 0.005
+	},
+	"rest_tiers": {
+		"owned_home": { "recovery_rate": 4.0, "mood_effect": 2 },
+		"public_shelter": { "recovery_rate": 3.0, "mood_effect": 0 },
+		"outdoors": { "recovery_rate": 1.5, "mood_effect": -3 }
 	},
 	"economy": {
 		"tax_base_rate": 0.10,

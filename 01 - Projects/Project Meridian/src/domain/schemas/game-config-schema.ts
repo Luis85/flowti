@@ -24,15 +24,15 @@ const NeedsConfigSchema = z.object({
 	energy_threshold: z.number().default(30),
 	social_threshold: z.number().default(40),
 	thirst_threshold: z.number().default(40),
-	recovery_hysteresis: z.number().default(20),
+	recovery_hysteresis: z.number().default(50),
 	food_reserve: z.number().int().default(3),
 	activity_costs: z.record(z.string(), ActivityCostSchema).default({
 		work:           { hunger: 2.5, thirst: 2.0, energy: 2.0 },
 		harvest:        { hunger: 1.8, thirst: 1.5, energy: 1.5 },
-		seek_work:      { hunger: 1.3, thirst: 1.5, energy: 1.3 },
+		seek_work:      { hunger: 1.0, thirst: 1.0, energy: 0.5 },
 		seek_food:      { hunger: 1.3, thirst: 1.5, energy: 1.3 },
 		seek_water:     { hunger: 1.3, thirst: 1.5, energy: 1.3 },
-		seek_rest:      { hunger: 1.2, thirst: 1.3, energy: 1.2 },
+		seek_rest:      { hunger: 0.8, thirst: 1.0, energy: 0.5 },
 		seek_market:    { hunger: 1.3, thirst: 1.5, energy: 1.3 },
 		wander:         { hunger: 1.1, thirst: 1.2, energy: 1.1 },
 		eat:            { hunger: 0,   thirst: 0.5, energy: 0.3 },
@@ -57,7 +57,7 @@ const StaminaConfigSchema = z.object({
 	recovery_per_idle_tick: z.number().default(0.05),
 	exhaustion_speed_modifier: z.number().default(0.5),
 	exhaustion_skill_penalty: z.number().default(-2),
-	movement_energy_cost: z.number().default(0.02),
+	movement_energy_cost: z.number().default(0.005),
 });
 
 const MemoryConfigSchema = z.object({
@@ -211,9 +211,9 @@ const RestTierSchema = z.object({
 });
 
 const RestTiersConfigSchema = z.object({
-	owned_home: RestTierSchema.default({ recovery_rate: 2.0, mood_effect: 2 }),
-	public_shelter: RestTierSchema.default({ recovery_rate: 1.5, mood_effect: 0 }),
-	outdoors: RestTierSchema.default({ recovery_rate: 1.0, mood_effect: -3 }),
+	owned_home: RestTierSchema.default({ recovery_rate: 4.0, mood_effect: 2 }),
+	public_shelter: RestTierSchema.default({ recovery_rate: 3.0, mood_effect: 0 }),
+	outdoors: RestTierSchema.default({ recovery_rate: 1.5, mood_effect: -3 }),
 });
 
 const SeasonConfigSchema = z.object({

@@ -18,12 +18,16 @@ export function createQuestEvaluationSystem(
 
 			const board = entity.get(QuestBoardComponent);
 
-			// 1. Expire old quests
+			// 1. Expire old open quests + clean up completed quests
 			const expiredQuests = board.state.quests.filter(
 				q => q.state === 'open' && deps.tickCount - q.createdTick > q.expiryTicks,
 			);
 
-			if (expiredQuests.length > 0) {
+			const staleCompleted = board.state.quests.filter(
+				q => q.state === 'completed' && deps.tickCount - q.createdTick > q.expiryTicks,
+			);
+
+			if (expiredQuests.length > 0 || staleCompleted.length > 0) {
 				for (const expired of expiredQuests) {
 					deps.eventBus.emit({
 						type: 'QuestExpired',
@@ -34,10 +38,13 @@ export function createQuestEvaluationSystem(
 					});
 				}
 
-				const expiredIds = new Set(expiredQuests.map(q => q.id));
+				const removeIds = new Set([
+					...expiredQuests.map(q => q.id),
+					...staleCompleted.map(q => q.id),
+				]);
 				board.state = {
 					...board.state,
-					quests: board.state.quests.filter(q => !expiredIds.has(q.id)),
+					quests: board.state.quests.filter(q => !removeIds.has(q.id)),
 				};
 				board.markDirty();
 			}

@@ -81,7 +81,7 @@ export function applyNeedsDecay(
 			decayRate: config.social_decay,
 			attribute: input.socialAttribute,
 			modifierScale: input.modifiers?.socialDecayScale ?? 1.0,
-			criticalThreshold: NEED_CRITICAL_THRESHOLDS.social,
+			criticalThreshold: 0, // social is not a survival need — never fires critical
 		},
 		{
 			key: 'thirst',
