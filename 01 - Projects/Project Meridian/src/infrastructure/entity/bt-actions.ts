@@ -520,11 +520,13 @@ export function createActions(
 			const loc = getLocations().find(l => l.id === memory.leisureTarget);
 			if (loc?.leisure === null || loc?.leisure === undefined) return FAILED;
 
+			// Use beginAction first (sets btAction, clears stale commitment from other actions)
+			beginAction('leisure');
+			// Override commitment with location-specific duration (not config-driven — varies per location)
 			if (memory.commitmentTicks <= 0) {
 				memory.commitmentTicks = loc.leisure.ticks_per_visit;
 				memory.committedAction = 'leisure';
 			}
-			beginAction('leisure');
 			return RUNNING;
 		},
 
