@@ -144,7 +144,7 @@ git commit -m "feat(meridian): add rest_day_interval and leisure_mood_threshold 
   "leisure": {
     "cost": 3,
     "effects": { "social": 15, "mood": 5, "energy": 0, "skill_xp": 0 },
-    "attribute_bonus": "CHR",
+    "attribute_bonus": null,
     "ticks_per_visit": 20
   }
 }
@@ -604,6 +604,26 @@ export function createLeisureSystem(
 							facility.markDirty();
 						}
 
+						// Append LedgerEntry to EconomyComponent (matches RestSystem pattern)
+						const world = worldEntity();
+						const economy = world.get(EconomyComponent);
+						economy.state = {
+							...economy.state,
+							ledger: [
+								...economy.state.ledger,
+								{
+									tick: deps.tickCount,
+									type: 'purchase' as const,
+									from: agent.agentId,
+									to: targetId,
+									itemId: null,
+									quantity: 0,
+									gold: leisure.cost,
+								},
+							],
+						};
+						economy.markDirty();
+
 						// Emit GoldFlowed for monetary policy
 						deps.eventBus.emit({
 							type: 'GoldFlowed',
@@ -737,7 +757,7 @@ const tavernLocation: WorldLocation = {
 	id: 'loc-tavern', name: 'Tavern', type: 'leisure',
 	position: { x: 250, y: 280, region: 'market-square' },
 	capacity: 10, color: '#808080', production: null, region: null,
-	leisure: { cost: 3, effects: { social: 15, mood: 5, energy: 0, skill_xp: 0 }, attribute_bonus: 'CHR', ticks_per_visit: 20 },
+	leisure: { cost: 3, effects: { social: 15, mood: 5, energy: 0, skill_xp: 0 }, attribute_bonus: null, ticks_per_visit: 20 },
 };
 
 function createDeps(eventBus = createEventBus()): GameCoreDeps {

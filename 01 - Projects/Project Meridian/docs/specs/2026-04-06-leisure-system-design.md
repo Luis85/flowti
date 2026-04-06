@@ -37,7 +37,7 @@ A new `IsRestDay()` condition returns `true` when the current day is a rest day.
 
 | Location | Type | Cost | Primary Effect | Secondary Effect | Attr Bonus | Ticks/Visit |
 |---|---|---|---|---|---|---|
-| Tavern | leisure | 3g | Social +15 | Mood +5 | CHR | 20 |
+| Tavern | leisure | 3g | Social +15 | Mood +5 | — | 20 |
 | Park | leisure | 0g | Mood +8 | Social +5 | — | 15 |
 | Library | leisure | 1g | Skill XP +1 | Mood +3 | IQ | 20 |
 | Bathhouse | leisure | 2g | Energy +20 | Mood +5 | HT | 15 |
@@ -56,7 +56,7 @@ Each leisure location is a standard `WorldLocation` JSON with `type: "leisure"` 
   "leisure": {
     "cost": 3,
     "effects": { "social": 15, "mood": 5, "energy": 0, "skill_xp": 0 },
-    "attribute_bonus": "CHR",
+    "attribute_bonus": null,
     "ticks_per_visit": 20
   }
 }
@@ -82,7 +82,7 @@ Added as `leisure: LeisureConfigSchema.nullable().default(null)` on the location
 
 ### Gold Flow
 
-Gold is deducted once on arrival (same pattern as rest shelter payment in `RestSystem`). The gold goes to the location's `FacilityComponent.fund`, creating a revenue stream. Broke agents can only visit free locations (park). `GoldFlowed` events are emitted with `subcategory: 'leisure'` for monetary policy tracking.
+Gold is deducted once on arrival (same pattern as rest shelter payment in `RestSystem`). The gold goes to the location's `FacilityComponent.fund`, creating a revenue stream. A `LedgerEntry` with `type: 'purchase'` is appended to `EconomyComponent.ledger` (matching `RestSystem` pattern) so `DailyReportSystem` tracks leisure spending. Broke agents can only visit free locations (park). `GoldFlowed` events are emitted with `subcategory: 'leisure'` for monetary policy tracking.
 
 ---
 
@@ -99,14 +99,14 @@ sequence {
         condition [IsRestDay]
         condition [IsMoodLow]
     }
-    condition [IsWorkHours]
+    condition [IsDaytime]
     action [ChooseLeisure]
     action [SeekLeisureTarget]
     action [Leisure] while(IsAtLeisure)
 }
 ```
 
-**Activation**: Fires when either `IsRestDay()` is true (weekly rest day) or `IsMoodLow()` is true (mood below `leisure_mood_threshold`, default -20). The `IsWorkHours` guard ensures agents don't seek leisure at night — they sleep instead.
+**Activation**: Fires when either `IsRestDay()` is true (weekly rest day) or `IsMoodLow()` is true (mood below `leisure_mood_threshold`, default -20). The `IsDaytime` guard ensures agents don't seek leisure at night — they sleep instead. Note: `IsWorkHours` is NOT used here because it returns `false` on rest days (by design), which would block the primary use case.
 
 **`IsMoodLow()`**: Returns `true` when `agent.mood < config.leisure_mood_threshold`. This allows stressed agents to take an unplanned leisure break on workdays — emergent self-care behavior.
 
@@ -194,11 +194,7 @@ For each agent where `btAction === 'leisure'`:
 
 ### Mood Effect Application
 
-The `mood` effect from leisure is applied as a per-tick external modifier that accumulates in a new `memory.leisureMoodBonus` field. The `MoodSystem` already accepts `externalModifiers` — pass this accumulated bonus. Reset to 0 when leisure ends.
-
-Alternative (simpler): Store positive memories when leisure completes. A "visited tavern" memory with `outcome: 'positive'` naturally boosts mood through the existing memory→mood pipeline. This approach requires zero changes to MoodSystem.
-
-**Recommended**: The positive-memory approach. It's simpler, uses existing systems, and the memory persists after the visit (the agent remembers having a good time at the tavern).
+Store a positive memory when leisure starts at a location. A `leisure_loc-tavern` memory with `outcome: 'positive'` and `significance` proportional to the mood effect naturally boosts mood through the existing memory→mood pipeline. This approach requires zero changes to MoodSystem and the memory persists after the visit (the agent remembers having a good time).
 
 ---
 
@@ -249,7 +245,7 @@ Leisure commitment comes from `ticks_per_visit` on the location, not from the gl
 - `src/domain/systems/behavior-agent.ts` — add `IsRestDay`, `IsMoodLow`, `ChooseLeisure`, `SeekLeisureTarget`, `Leisure`, `IsAtLeisure`
 - `src/infrastructure/entity/bt-conditions.ts` — implement 3 new conditions
 - `src/infrastructure/entity/bt-actions.ts` — implement 3 new actions
-- `src/infrastructure/entity/bt-working-memory.ts` — add `leisureTarget`, `leisureMoodBonus`
+- `src/infrastructure/entity/bt-working-memory.ts` — add `leisureTarget`
 - `src/infrastructure/entity/behavior-agent-factory.ts` — wire new conditions/actions, expose leisure location data
 - `behavior-trees/base.mdsl` — add P2.5 leisure branch
 - `src/infrastructure/engine/game-view.ts` — register `LeisureSystem`
