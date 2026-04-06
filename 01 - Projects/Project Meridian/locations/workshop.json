@@ -8,7 +8,7 @@
 		"job": "craftsman",
 		"output": { "item_id": "tools", "quantity": 1 },
 		"input": null,
-		"wage": 0,
+		"wage": 3,
 		"ticks_per_cycle": 25,
 		"funding": "facility"
 	},

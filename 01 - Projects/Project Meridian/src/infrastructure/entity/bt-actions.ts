@@ -35,6 +35,7 @@ export interface ActionMethods {
 	SeekBestFoodSource(): ActionResult;
 	ClaimJob(): ActionResult;
 	ClaimBestJob(): ActionResult;
+	SeekJobFacility(): ActionResult;
 	ReleaseJob(): ActionResult;
 	SwitchJob(): ActionResult;
 	Work(): ActionResult;
@@ -375,6 +376,35 @@ export function createActions(
 			beginAction('claim_job');
 			deps.swapBehaviorTree?.(chosen.job);
 			return SUCCEEDED;
+		},
+
+		SeekJobFacility(): ActionResult {
+			if (actor.job !== null) return FAILED;
+			if (memory.unemployedTicks < config.jobs.desperation_ticks) return FAILED;
+
+			// Search ALL known locations for open production facilities
+			const allLocations = getLocations();
+			const locationActorMap = getLocationActors();
+
+			const openFacilities = allLocations
+				.filter(l => {
+					if (l.production === null || l.production.job === '') return false;
+					const locActor = locationActorMap.get(l.id);
+					if (locActor?.has(FacilityComponent) !== true) return false;
+					const fac = locActor.get(FacilityComponent);
+					return fac.state.workerId === null && fac.state.status !== 'abandoned';
+				})
+				.map(l => ({
+					id: l.id,
+					dist: Math.hypot(l.position.x - actor.pos.x, l.position.y - actor.pos.y),
+				}))
+				.sort((a, b) => a.dist - b.dist);
+
+			if (openFacilities.length === 0) return FAILED;
+
+			beginAction('seek_job_facility');
+			memory.movementTarget = { id: openFacilities[0]!.id, type: 'location' };
+			return RUNNING;
 		},
 
 		ReleaseJob(): ActionResult {

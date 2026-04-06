@@ -174,6 +174,7 @@ export interface BehaviorAgent {
 	SeekBestFoodSource(): ActionResult;
 	ClaimJob(): ActionResult;
 	ClaimBestJob(): ActionResult;
+	SeekJobFacility(): ActionResult;
 	ReleaseJob(): ActionResult;
 	SwitchJob(): ActionResult;
 	ClaimQuest(): ActionResult;

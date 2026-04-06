@@ -49,6 +49,7 @@ const NeedsConfigSchema = z.object({
 		leisure:        { hunger: 0.5, thirst: 0.5, energy: 0.3 },
 		seek_leisure:   { hunger: 1.1, thirst: 1.2, energy: 1.1 },
 		choose_leisure: { hunger: 1.0, thirst: 1.0, energy: 1.0 },
+		seek_job_facility: { hunger: 1.3, thirst: 1.5, energy: 1.3 },
 	}),
 });
 
@@ -136,8 +137,8 @@ const MoodBucketSchema = z.object({
 });
 
 const MoodConfigSchema = z.object({
-	memory_window_ticks: z.number().int().default(50),
-	memory_saturation_count: z.number().int().default(10),
+	memory_window_ticks: z.number().int().default(960),
+	memory_saturation_count: z.number().int().default(5),
 	factor_weights: withDefaults(MoodFactorWeightsSchema),
 	buckets: z.array(MoodBucketSchema).default([
 		{ name: 'elated', min: 60, max: 100 },

@@ -68,6 +68,13 @@ root {
             action [ClaimBestJob]
         }
 
+        /* P1.5: Desperate job search — move toward distant job facilities */
+        sequence {
+            condition [IsWorkHours]
+            condition [HasNoJob]
+            action [SeekJobFacility]
+        }
+
         /* P2: Role-specific behavior (work hours: dawn + day, skip if recovering) */
         sequence {
             condition [IsWorkHours]

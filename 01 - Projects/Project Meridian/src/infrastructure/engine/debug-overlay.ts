@@ -75,6 +75,7 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	leisure: { emoji: '🎭', label: 'Leisure' },
 	seek_leisure: { emoji: '🎭', label: 'Seeking leisure' },
 	choose_leisure: { emoji: '🤔', label: 'Choosing leisure' },
+	seek_job_facility: { emoji: '🔍', label: 'Seeking job' },
 };
 
 const PHASE_DISPLAY: Record<string, { emoji: string; label: string }> = {
@@ -286,6 +287,8 @@ function renderEconomyPanel(deps: OverlayDeps): string {
 	lines.push(`🏦 <b>${economy.state.treasury.toFixed(0)}g</b>`);
 	const velColor = velocity > 0.2 ? '#a6e3a1' : velocity > 0 ? '#f9e2af' : '#f38ba8';
 	lines.push(`📈 Velocity: <b style="color:${velColor}">${velocity.toFixed(3)}</b> <span style="color:#6c7086">(>0.2 healthy)</span>`);
+	const stimulusLabel = velocity < 0.2 ? '<span style="color:#f9e2af">stimulus ACTIVE</span>' : '<span style="color:#6c7086">stimulus inactive</span>';
+	lines.push(`🏛️ Policy: ${stimulusLabel}`);
 
 	// Agent wallets
 	lines.push('<br><b style="color:#89b4fa">Wallets</b>');
@@ -426,7 +429,8 @@ function renderStatsPanel(history: Snapshot[], deps: OverlayDeps): string {
 			FacilityAbandoned: '🏚️', FacilityRestored: '🏗️', RestStarted: '😴',
 			DayPhaseChanged: '🌅', SupplyDelivered: '📦', TickBudgetExceeded: '⚠️',
 		};
-		const events = [...eventBus.history({ limit: 15 })].reverse();
+		const LIVE_FILTERED = new Set(['NeedChanged', 'NeedCritical', 'FacilityIdle', 'MemoryDecayed', 'EconomicStimulusActivated']);
+		const events = [...eventBus.history({ limit: 50 })].filter(e => !LIVE_FILTERED.has(e.type)).slice(-15).reverse();
 		if (events.length > 0) {
 			lines.push('<br><b style="color:#89b4fa">Recent Events</b>');
 			for (const e of events) {
@@ -456,7 +460,7 @@ function formatEventPayload(e: { type: string; payload: Record<string, unknown> 
 		case 'RestStarted': return `agentId=${String(p['agentId'])}, tier=${String(p['tier'])}, locationId=${String(p['locationId'])}`;
 		case 'LeisureStarted': return `agentId=${String(p['agentId'])}, locationId=${String(p['locationId'])}, locationName=${String(p['locationName'])}, cost=${String(p['cost'])}`;
 		case 'LeisureComplete': return `agentId=${String(p['agentId'])}, locationId=${String(p['locationId'])}`;
-		case 'ProductionComplete': return `facilityId=${String(p['facilityId'])}, output=${String(p['output'])}, quantity=${String(p['quantity'])}`;
+		case 'ProductionComplete': return `facilityId=${String(p['facilityId'])}, output=${String(p['outputItem'])}, qty=${String(p['outputQty'])}, wage=${String(p['wage'])}g`;
 		case 'PurchaseComplete': return `agentId=${String(p['agentId'])}, facilityId=${String(p['facilityId'])}, itemId=${String(p['itemId'])}, price=${String(p['price'])}`;
 		case 'PurchaseFailed': return `agentId=${String(p['agentId'])}, itemId=${String(p['itemId'])}, reason=${String(p['reason'])}`;
 		case 'FacilityIdle': return `facilityId=${String(p['facilityId'])}, reason=${String(p['reason'])}`;
@@ -512,6 +516,11 @@ function buildEconomySnapshot(
 		lines.push(`Flows: faucet ${faucetTotal.toFixed(1)}g/day | sink ${sinkTotal.toFixed(1)}g/day | net ${(faucetTotal - sinkTotal).toFixed(1)}g/day`);
 	}
 	lines.push(`Today: wages ${ds.totalWages.toFixed(0)}g | tax ${ds.totalTax.toFixed(0)}g | sales ${ds.totalSales.toFixed(0)}g | job switches ${ds.jobSwitchesThisDay} | supply deliveries ${ds.supplyDeliveries} | quests completed ${ds.questsCompletedThisDay}`);
+
+	// Monetary policy — check for recent stimulus events (shown here instead of event log to avoid spam)
+	if (ms !== undefined) {
+		lines.push(`Monetary policy: ${ms.velocity < 0.2 ? 'stimulus ACTIVE' : 'stimulus inactive'}`);
+	}
 
 	// Market prices
 	const marketLoc = locations.find(l => l.type === 'market');
@@ -738,7 +747,8 @@ function buildGoldFlowsSnapshot(
 function buildEventsSnapshot(eventBus: { history: (opts?: { limit?: number }) => { type: string; tick: number; source: string; payload: Record<string, unknown> }[] } | undefined): string {
 	if (eventBus === undefined) return '';
 	const allEvents = eventBus.history({ limit: 500 });
-	const meaningful = allEvents.filter(e => e.type !== 'NeedChanged' && e.type !== 'NeedCritical');
+	const SNAPSHOT_FILTERED_EVENTS = new Set(['NeedChanged', 'NeedCritical', 'FacilityIdle', 'MemoryDecayed', 'EconomicStimulusActivated']);
+	const meaningful = allEvents.filter(e => !SNAPSHOT_FILTERED_EVENTS.has(e.type));
 	const recent = meaningful.slice(-30).reverse();
 	if (recent.length === 0) return '';
 	const lines: string[] = [];
