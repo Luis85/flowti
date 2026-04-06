@@ -136,7 +136,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	function claimFacility(facilityId: string): boolean {
 		const locationActorMap = getLocationActors();
 		const locActor = locationActorMap.get(facilityId);
-		if (locActor === undefined || !locActor.has(FacilityComponent)) return false;
+		if (locActor?.has(FacilityComponent) !== true) return false;
 		const facility = locActor.get(FacilityComponent);
 		if (facility.state.workerId !== null && facility.state.workerId !== actor.agentId) return false;
 		facility.state = { ...facility.state, workerId: actor.agentId };

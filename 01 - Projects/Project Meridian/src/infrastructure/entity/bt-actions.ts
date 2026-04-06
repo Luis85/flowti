@@ -489,9 +489,9 @@ export function createActions(
 			const allLocations = getLocations();
 			const locationActorMap = getLocationActors();
 			const jobLoc = allLocations.find(l => {
-				if (l.production === null || l.production.job !== actor.job) return false;
+				if (l.production?.job !== actor.job) return false;
 				const locActor = locationActorMap.get(l.id);
-				if (locActor === undefined || !locActor.has(FacilityComponent)) return false;
+				if (locActor?.has(FacilityComponent) !== true) return false;
 				return locActor.get(FacilityComponent).state.workerId === actor.agentId;
 			});
 			if (jobLoc === undefined) return FAILED;
