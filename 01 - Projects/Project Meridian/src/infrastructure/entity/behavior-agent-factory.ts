@@ -234,6 +234,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		get ticksRestedThisDay() { return memory.ticksRestedThisDay; },
 		set ticksRestedThisDay(v) { memory.ticksRestedThisDay = v; },
 		get personalThresholds() { return memory.personalThresholds; },
+		get wakeOffset() { return wakeOffset; },
+		get sleepOffset() { return personalSleepOffset; },
 		get priceMemories() { return memory.priceMemories; },
 
 		// ── Facility reservation ──────────────────────────────────────────

@@ -99,6 +99,8 @@ export interface BehaviorAgent {
 	sleepDebt: number;
 	ticksRestedThisDay: number;
 	readonly personalThresholds: { hunger: number; energy: number; thirst: number };
+	readonly wakeOffset: number;
+	readonly sleepOffset: number;
 
 	// Price memory
 	priceMemories: CircularBuffer<PriceMemory>;

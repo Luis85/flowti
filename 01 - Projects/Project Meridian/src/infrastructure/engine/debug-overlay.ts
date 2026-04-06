@@ -12,8 +12,11 @@ import { StaminaComponent } from '../components/stamina-component.js';
 import { QuestBoardComponent } from '../components/quest-board-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
+import { AttributesComponent } from '../components/attributes-component.js';
+import { TraitsComponent } from '../components/traits-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
+import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
 
 interface OverlayDeps {
 	getAgents: () => AgentActor[];
@@ -24,6 +27,7 @@ interface OverlayDeps {
 	getTicksPerDay?: () => number;
 	getItemRegistry?: () => Map<string, Item>;
 	getEventBus?: () => { history: (opts?: { limit?: number }) => { type: string; tick: number; source: string; payload: Record<string, unknown> }[] };
+	getConfig?: () => GameConfig;
 }
 
 type Panel = 'agents' | 'world' | 'economy' | 'stats';
@@ -474,6 +478,23 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 	lines.push('## Economy');
 	lines.push(`Treasury: ${economy.state.treasury.toFixed(0)}g | Agent gold: ${totalAgentGold.toFixed(0)}g | Facility gold: ${totalFacilityGold.toFixed(0)}g | Total: ${(economy.state.treasury + totalAgentGold + totalFacilityGold).toFixed(0)}g`);
 	lines.push(`Velocity: ${velocity.toFixed(3)} ${velocity > 0.2 ? '(healthy)' : velocity > 0 ? '(slow)' : '(stalled)'}`);
+	// Monetary flows from snapshot or computed from today's ledger
+	const ms = economy.state.monetarySnapshot;
+	if (ms !== undefined) {
+		lines.push(`Flows: faucet ${ms.faucetRate.toFixed(1)}g/day | sink ${ms.sinkRate.toFixed(1)}g/day | net ${ms.netFlow.toFixed(1)}g/day`);
+	} else {
+		const dayStartTick = tick - time.state.tickInCycle;
+		const todayEntries = economy.state.ledger.filter(e => e.tick >= dayStartTick);
+		const faucetTypes = new Set<string>(['wage', 'stipend', 'welfare', 'subsidy', 'quest_reward']);
+		const sinkTypes = new Set<string>(['tax', 'consumption']);
+		let faucetTotal = 0;
+		let sinkTotal = 0;
+		for (const entry of todayEntries) {
+			if (faucetTypes.has(entry.type)) faucetTotal += entry.gold;
+			if (sinkTypes.has(entry.type)) sinkTotal += Math.abs(entry.gold);
+		}
+		lines.push(`Flows: faucet ${faucetTotal.toFixed(1)}g/day | sink ${sinkTotal.toFixed(1)}g/day | net ${(faucetTotal - sinkTotal).toFixed(1)}g/day`);
+	}
 	lines.push(`Today: wages ${ds.totalWages.toFixed(0)}g | tax ${ds.totalTax.toFixed(0)}g | sales ${ds.totalSales.toFixed(0)}g | job switches ${ds.jobSwitchesThisDay} | supply deliveries ${ds.supplyDeliveries} | quests completed ${ds.questsCompletedThisDay}`);
 
 	// Market prices
@@ -518,10 +539,18 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 
 		lines.push(`### ${agent.agentName} (${agent.kind}) — ${agent.agentId}`);
 		lines.push(`Action: ${action}${ba.commitmentTicks > 0 ? ` [committed ${ba.commitmentTicks}t, action=${ba.committedAction ?? '?'}]` : ''}`);
+		// Attributes
+		const attrs = agent.get(AttributesComponent).state;
+		lines.push(`Attributes: ST ${attrs.ST} | DX ${attrs.DX} | IQ ${attrs.IQ} | HT ${attrs.HT}`);
+		// Traits
+		const traitIds = agent.has(TraitsComponent) ? agent.get(TraitsComponent).traitIds : [];
+		lines.push(`Traits: ${traitIds.length > 0 ? traitIds.join(', ') : '(none)'}`);
 		lines.push(`Position: (${agent.pos.x.toFixed(0)}, ${agent.pos.y.toFixed(0)}) | Location: ${locName}${targetName !== null ? ` → ${targetName}` : ''}${ba.insideFacility ? ' (inside facility)' : ''}`);
 		lines.push(`Needs: hunger ${needs.hunger.toFixed(1)} (thr:${ba.personalThresholds.hunger.toFixed(0)}) | energy ${needs.energy.toFixed(1)} (thr:${ba.personalThresholds.energy.toFixed(0)}) | thirst ${needs.thirst.toFixed(1)} (thr:${ba.personalThresholds.thirst.toFixed(0)}) | social ${needs.social.toFixed(1)}`);
 		lines.push(`Mood: ${mood.value.toFixed(0)} (${mood.bucket})${mood.factors !== undefined ? ` = needs:${(mood.factors.needs * 100).toFixed(0)} mem:+${(mood.factors.positiveMemories * 100).toFixed(0)}/-${(mood.factors.negativeMemories * 100).toFixed(0)} goal:${(mood.factors.goalProgress * 100).toFixed(0)} gold:${(mood.factors.walletHealth * 100).toFixed(0)} equip:${(mood.factors.equipmentCondition * 100).toFixed(0)} rel:${(mood.factors.relationshipQuality * 100).toFixed(0)}` : ''}`);
 		lines.push(`Gold: ${wallet.gold.toFixed(0)}g | Stamina: ${stamina.current.toFixed(0)}/${stamina.max} | Sleep debt: ${ba.sleepDebt.toFixed(0)} | Rested today: ${ba.ticksRestedThisDay}t | Recovering: ${ba.recovering ? 'yes' : 'no'}`);
+		// Wake/sleep offsets
+		lines.push(`Wake offset: ${ba.wakeOffset}t | Sleep offset: ${ba.sleepOffset}t`);
 		// Job + facility cross-reference
 		const jobFacility = locations.find(l => {
 			const la = locationActors.get(l.id);
@@ -529,10 +558,51 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		});
 		const jobFacilityLabel = jobFacility !== undefined ? ` @ ${jobFacility.name}` : (agent.job !== null ? ' (no facility assigned)' : '');
 		lines.push(`Job: ${agent.job ?? 'none'}${jobFacilityLabel} | Unemployed ticks: ${ba.unemployedTicks}`);
+		// Leisure target
+		if (ba.leisureTarget !== null) {
+			const leisureName = locations.find(l => l.id === ba.leisureTarget)?.name ?? ba.leisureTarget;
+			lines.push(`Leisure target: ${leisureName}`);
+		}
 		lines.push(`Known: ${ba.knownLocations.map(id => { const l = locations.find(x => x.id === id); return l?.name ?? id; }).join(', ') || 'none'}`);
+		// Resting at / Feeding at
+		const restFeedParts: string[] = [];
+		if (ba.restingAt !== null) {
+			const restName = locations.find(l => l.id === ba.restingAt)?.name ?? ba.restingAt;
+			restFeedParts.push(`Resting at: ${restName}`);
+		}
+		if (ba.feedingAt !== null) {
+			const feedName = locations.find(l => l.id === ba.feedingAt)?.name ?? ba.feedingAt;
+			restFeedParts.push(`Feeding at: ${feedName}`);
+		}
+		if (restFeedParts.length > 0) lines.push(restFeedParts.join(' | '));
 
 		const items = inv.items.map(i => i.charges !== undefined ? `${i.item_id}(${i.charges})x${i.quantity}` : `${i.item_id}x${i.quantity}`);
 		if (items.length > 0) lines.push(`Inventory: ${items.join(', ')}`);
+
+		// Price memory summary
+		const pmCount = ba.priceMemories.size;
+		if (pmCount > 0) {
+			let cheapestFood: { price: number; locationId: string } | null = null;
+			let oldestTick = Infinity;
+			for (const pm of ba.priceMemories) {
+				if (pm.tick < oldestTick) oldestTick = pm.tick;
+				if (pm.itemId === 'food' && (cheapestFood === null || pm.price < cheapestFood.price)) {
+					cheapestFood = { price: pm.price, locationId: pm.locationId };
+				}
+			}
+			const cheapestPart = cheapestFood !== null
+				? ` | cheapest food: ${cheapestFood.price}g at ${locations.find(l => l.id === cheapestFood!.locationId)?.name ?? cheapestFood.locationId}`
+				: '';
+			lines.push(`Price memory: ${pmCount} observations${cheapestPart} | oldest: t${oldestTick}`);
+		} else {
+			lines.push('Price memory: (empty)');
+		}
+
+		// Property
+		if (agent.property.length > 0) {
+			const propNames = agent.property.map(id => locations.find(l => l.id === id)?.name ?? id);
+			lines.push(`Property: ${propNames.join(', ')}`);
+		}
 
 		if (ba.activeQuest !== null) {
 			const q = ba.activeQuest;
@@ -556,13 +626,19 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 				lines.push(`Relationships: ${relStr}`);
 			}
 		}
-		// Recent memories (last 3)
+		// Memories — last 10 + window stats
 		if (agent.has(MemoryComponent)) {
 			const mem = agent.get(MemoryComponent).state.entries;
+			const config = deps.getConfig?.();
+			const windowTicks = config?.mood.memory_window_ticks ?? 50;
+			const inWindow = mem.filter(m => m.tick >= tick - windowTicks);
+			const positiveCount = inWindow.filter(m => m.outcome === 'positive').length;
+			const negativeCount = inWindow.filter(m => m.outcome === 'negative').length;
+			lines.push(`Memories: ${mem.length}/${agent.get(MemoryComponent).state.maxEntries} entries | ${inWindow.length} in mood window (last ${windowTicks}t) | ${positiveCount} positive, ${negativeCount} negative`);
 			if (mem.length > 0) {
-				const recent = mem.slice(-3);
+				const recent = mem.slice(-10);
 				const memStr = recent.map(m => `t${m.tick} ${m.outcome === 'positive' ? '+' : m.outcome === 'negative' ? '-' : '~'} ${m.type}`).join(' | ');
-				lines.push(`Memories: ${memStr}`);
+				lines.push(`Recent: ${memStr}`);
 			}
 		}
 		lines.push('');
@@ -754,12 +830,23 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 	// Key config values for tuning context
 	lines.push('');
 	lines.push('## Config (key tuning values)');
-	lines.push(`Ticks/day: ${deps.getTicksPerDay?.() ?? 480} | Phases: dawn 0-59, day 60-299, dusk 300-359, night 360-479`);
-	if (agents.length > 0) {
-		const a1 = agents[0]!;
-		lines.push(`Thresholds (${a1.agentName}): hunger=${a1.behaviorAgent.personalThresholds.hunger.toFixed(0)} energy=${a1.behaviorAgent.personalThresholds.energy.toFixed(0)} thirst=${a1.behaviorAgent.personalThresholds.thirst.toFixed(0)}`);
+	const config = deps.getConfig?.();
+	if (config !== undefined) {
+		const dn = config.day_night;
+		lines.push(`Ticks/day: ${config.ticks_per_day} | Phases: dawn ${dn.dawn.start}-${dn.dawn.end}, day ${dn.day.start}-${dn.day.end}, dusk ${dn.dusk.start}-${dn.dusk.end}, night ${dn.night.start}-${dn.night.end}`);
+		if (agents.length > 0) {
+			const a1 = agents[0]!;
+			lines.push(`Thresholds (${a1.agentName}): hunger=${a1.behaviorAgent.personalThresholds.hunger.toFixed(0)} energy=${a1.behaviorAgent.personalThresholds.energy.toFixed(0)} thirst=${a1.behaviorAgent.personalThresholds.thirst.toFixed(0)}`);
+		}
+		lines.push(`Rest day: every ${config.rest_day_interval} days | Leisure mood threshold: ${config.leisure_mood_threshold}`);
+		lines.push(`Sleep: min_rest=${config.min_rest_ticks}t | debt_max=${config.sleep_debt_max} | Treasury regen: ${config.economy.treasury_regen_per_agent_per_day}g/agent/day`);
+		const w = config.mood.factor_weights;
+		lines.push(`Mood weights: needs=${w.needs} pos_mem=${w.positive_memories} neg_mem=${w.negative_memories} goal=${w.goal_progress} wallet=${w.wallet} equip=${w.equipment} rel=${w.relationships}`);
+		lines.push(`Mood memory: window=${config.mood.memory_window_ticks}t | saturation=${config.mood.memory_saturation_count}`);
+		lines.push(`Rest tiers: owned=${config.rest_tiers.owned_home.recovery_rate}/t public=${config.rest_tiers.public_shelter.recovery_rate}/t outdoor=${config.rest_tiers.outdoors.recovery_rate}/t`);
+	} else {
+		lines.push(`Ticks/day: ${deps.getTicksPerDay?.() ?? 480} | (config not available)`);
 	}
-	lines.push(`Sleep: min_rest=50t | debt_max=100 | Treasury regen: 25g/agent/day`);
 
 	return lines.join('\n');
 }
