@@ -9,7 +9,7 @@ describe('GameConfigSchema', () => {
 		if (result.success) {
 			expect(result.data.tick_interval_ms).toBe(500);
 			expect(result.data.ticks_per_day).toBe(480);
-			expect(result.data.mortality).toBe(true);
+			expect(result.data.mortality).toBe(false);
 			expect(result.data.locale).toBe('en');
 			expect(result.data.needs.hunger_decay).toBe(0.04);
 			expect(result.data.economy.tax_base_rate).toBe(0.10);

@@ -1,0 +1,15 @@
+{
+  "id": "loc-tavern",
+  "name": "Tavern",
+  "type": "leisure",
+  "position": { "x": 250, "y": 280, "region": "market-square" },
+  "color": "#d4a574",
+  "capacity": 15,
+  "production": null,
+  "leisure": {
+    "cost": 3,
+    "effects": { "social": 15, "mood": 5, "energy": 0, "skill_xp": 0 },
+    "attribute_bonus": null,
+    "ticks_per_visit": 20
+  }
+}

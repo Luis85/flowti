@@ -41,17 +41,18 @@ export class AgentActor extends Actor {
 
 		this.addComponent(new NeedsComponent({ ...agent.needs }));
 
-		// Bootstrap mood from needs — agent.mood (number) is discarded
+		// Bootstrap mood from needs + wallet + equipment
 		const needsSatisfaction = (agent.needs.hunger + agent.needs.energy + agent.needs.social + agent.needs.thirst) / 400;
+		const walletHealth = Math.min(agent.wallet.gold / 100, 1);
 		const initialMood = calculateMood(
 			{
 				needsSatisfaction,
 				positiveMemories: 0,
 				negativeMemories: 0,
-				goalProgress: 0,
-				walletHealth: 0,
-				equipmentCondition: 0,
-				relationshipQuality: 0,
+				goalProgress: 0.5,
+				walletHealth,
+				equipmentCondition: 0.5,
+				relationshipQuality: 0.5,
 			},
 			'',
 			moodConfig,

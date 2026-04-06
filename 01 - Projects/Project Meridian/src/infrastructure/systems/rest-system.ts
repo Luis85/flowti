@@ -37,8 +37,8 @@ function resolveRestTier(
 	agentGold: number,
 	restPrice: number,
 ): RestTier | null {
-	// Only apply rest when agent is resting, idle, or seeking rest — don't charge agents just passing by
-	const isResting = btAction === null || btAction === 'idle' || btAction === 'rest' || btAction === 'seek_rest';
+	// Only apply rest when agent is resting or idle — don't recover energy while walking to shelter
+	const isResting = btAction === null || btAction === 'idle' || btAction === 'rest';
 	if (!isResting) return null;
 
 	if (nearestRest !== undefined) {

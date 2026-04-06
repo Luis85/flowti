@@ -17,7 +17,8 @@ export function stubBehaviorAgent(
 	agent: AgentActor,
 	overrides: Partial<Pick<BehaviorAgent,
 		'btAction' | 'gossipPending' | 'knownLocations' | 'traitModifiers' |
-		'movementTarget' | 'atLocation' | 'currentRegion' | 'feedingAt' | 'restingAt'
+		'movementTarget' | 'atLocation' | 'currentRegion' | 'feedingAt' | 'restingAt' |
+		'leisureTarget' | 'commitmentTicks' | 'insideFacility'
 	>> = {},
 ): BehaviorAgent {
 	const SUCCEEDED = 'mistreevous.succeeded' as const;
@@ -60,6 +61,15 @@ export function stubBehaviorAgent(
 		buyTargetItem: null,
 		unemployedTicks: 0,
 		recovering: false,
+		supplyRoute: null,
+		activeQuest: null,
+		cachedAvailableQuest: null,
+		insideFacility: false,
+		leisureTarget: null,
+		commitmentTicks: 0,
+		sleepDebt: 0,
+		ticksRestedThisDay: 0,
+		personalThresholds: { hunger: 40, energy: 30, thirst: 40 },
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 
 		// Condition stubs — all return false
@@ -95,6 +105,17 @@ export function stubBehaviorAgent(
 		NeedsTools() { return false; },
 		NeedsEquipment() { return false; },
 		CanAffordItem(_itemId: string) { return false; },
+		BetterPayAvailable() { return false; },
+		KnowsSupplyRoute() { return false; },
+		HasQuest() { return false; },
+		QuestAvailable() { return false; },
+		QuestAtFacility() { return false; },
+		QuestCargoReady() { return false; },
+		IsCommitted() { return false; },
+		ShouldSleep() { return false; },
+		IsRestDay() { return false; },
+		IsMoodLow() { return false; },
+		IsAtLeisure() { return false; },
 
 		// Action stubs — all succeed
 		Eat() { return SUCCEEDED; },
@@ -123,10 +144,22 @@ export function stubBehaviorAgent(
 		BuyItem(_itemId: string) { return SUCCEEDED; },
 		Idle() { return RUNNING; },
 		Wander() { return RUNNING; },
+		SwitchJob() { return FAILED; },
+		ClaimQuest() { return FAILED; },
+		SeekQuestFacility() { return FAILED; },
+		WorkRepair() { return FAILED; },
+		CompleteQuest() { return FAILED; },
+		AbandonQuest() { return FAILED; },
+		ContinueCommitment() { return FAILED; },
+		ChooseLeisure() { return FAILED; },
+		SeekLeisureTarget() { return FAILED; },
+		Leisure() { return FAILED; },
 
 		// Utility
 		tickUnemployment() {},
 		recordPriceObservation() {},
+		claimFacility() { return true; },
+		releaseFacility() {},
 	};
 
 	return ba;
@@ -152,7 +185,8 @@ export function attachBehaviorStubs(
 	agent: AgentActor,
 	overrides: Partial<Pick<BehaviorAgent,
 		'btAction' | 'gossipPending' | 'knownLocations' | 'traitModifiers' |
-		'movementTarget' | 'atLocation' | 'currentRegion' | 'feedingAt' | 'restingAt'
+		'movementTarget' | 'atLocation' | 'currentRegion' | 'feedingAt' | 'restingAt' |
+		'leisureTarget' | 'commitmentTicks' | 'insideFacility'
 	>> = {},
 ): void {
 	agent.behaviorAgent = stubBehaviorAgent(agent, overrides);

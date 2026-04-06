@@ -71,9 +71,9 @@ describe('Economy integration', () => {
 		attachBehaviorStubs(buyer);
 
 		const farmActor = new Actor({ x: 100, y: 100 });
-		farmActor.addComponent(new FacilityComponent({ stock: [], fund: 200, workProgress: 1, status: 'producing', workerId: null }));
+		farmActor.addComponent(new FacilityComponent({ stock: [], fund: 200, workProgress: 1, status: 'producing', workerId: 'agent-farmer' }));
 		const bakeryActor = new Actor({ x: 100, y: 100 });
-		bakeryActor.addComponent(new FacilityComponent({ stock: [{ item_id: 'wheat', quantity: 1 }], fund: 200, workProgress: 1, status: 'producing', workerId: null }));
+		bakeryActor.addComponent(new FacilityComponent({ stock: [{ item_id: 'wheat', quantity: 1 }], fund: 200, workProgress: 1, status: 'producing', workerId: 'agent-baker' }));
 
 		const locationActors = new Map([['loc-farm', farmActor], ['loc-bakery', bakeryActor]]);
 		const worldEntity = new Actor();

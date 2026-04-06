@@ -31,11 +31,11 @@ function makeFactors(overrides: Partial<MoodFactors> = {}): MoodFactors {
 }
 
 describe('calculateMood', () => {
-	it('full needs satisfaction with no other factors → positive mood', () => {
+	it('full needs satisfaction with no other factors → neutral mood', () => {
 		const result = calculateMood(makeFactors({ needsSatisfaction: 1.0 }), '', defaultConfig, 0);
-		expect(result.value).toBeGreaterThan(-50);
-		expect(result.value).toBeLessThan(0);
-		expect(result.bucket).toBe('distressed');
+		// No memories → totalWeight=60, positivePart=30, rawMood=(30/60-0.5)*200=0
+		expect(result.value).toBe(0);
+		expect(result.bucket).toBe('stressed');
 	});
 
 	it('all factors at maximum → elated', () => {
@@ -56,13 +56,14 @@ describe('calculateMood', () => {
 			needsSatisfaction: 1.0,
 			negativeMemories: 1.0,
 		}), '', defaultConfig, 0);
+		// Has memories → totalWeight=100, positivePart=30, negativePart=20, rawMood=((30-20)/100-0.5)*200=-80
 		expect(result.value).toBe(-80);
 		expect(result.bucket).toBe('breakdown');
 	});
 
 	it('positive memories increase mood', () => {
 		const baseResult = calculateMood(makeFactors({ needsSatisfaction: 0.5 }), '', defaultConfig, 0);
-		const withPositive = calculateMood(makeFactors({ needsSatisfaction: 0.5, positiveMemories: 0.5 }), '', defaultConfig, 0);
+		const withPositive = calculateMood(makeFactors({ needsSatisfaction: 0.5, positiveMemories: 1.0 }), '', defaultConfig, 0);
 		expect(withPositive.value).toBeGreaterThan(baseResult.value);
 	});
 
@@ -72,7 +73,8 @@ describe('calculateMood', () => {
 	});
 
 	it('bucket changed flag is false when bucket stays the same', () => {
-		const result = calculateMood(makeFactors({ needsSatisfaction: 1.0 }), 'distressed', defaultConfig, 0);
+		// needsSatisfaction=1.0, no memories → mood=0, bucket='stressed'
+		const result = calculateMood(makeFactors({ needsSatisfaction: 1.0 }), 'stressed', defaultConfig, 0);
 		expect(result.changed).toBe(false);
 	});
 
@@ -88,11 +90,27 @@ describe('calculateMood', () => {
 		expect(result.value).toBe(100);
 	});
 
+	it('all factors at maximum without memories → elated', () => {
+		// No memories → effectivePositiveMemories=0.5, totalWeight=80
+		// positivePart=30+10+10+10+5+5=70, rawMood=(70/80-0.5)*200=75
+		const result = calculateMood(makeFactors({
+			needsSatisfaction: 1.0,
+			goalProgress: 1.0,
+			walletHealth: 1.0,
+			equipmentCondition: 1.0,
+			relationshipQuality: 1.0,
+		}), '', defaultConfig, 0);
+		expect(result.value).toBe(75);
+		expect(result.bucket).toBe('elated');
+	});
+
 	it('all factors zero → lowest possible mood', () => {
+		// No memories → effectivePositiveMemories=0.5, totalWeight=80
+		// positivePart=0+10+0+0+0+0=10, rawMood=(10/80-0.5)*200=-75
 		const result = calculateMood(makeFactors({
 			needsSatisfaction: 0,
 		}), '', defaultConfig, 0);
-		expect(result.value).toBe(-100);
+		expect(result.value).toBe(-75);
 		expect(result.bucket).toBe('breakdown');
 	});
 });

@@ -61,6 +61,15 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null, buyTargetItem: null,
 		unemployedTicks: 0,
 		recovering: false,
+		supplyRoute: null,
+		activeQuest: null,
+		cachedAvailableQuest: null,
+		insideFacility: false,
+		leisureTarget: null,
+		commitmentTicks: 0,
+		sleepDebt: 0,
+		ticksRestedThisDay: 0,
+		personalThresholds: { hunger: 40, energy: 30, thirst: 40 },
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 		IsHungry: () => false, IsExhausted: () => false, IsRecovering: () => false, IsLonely: () => false,
 		IsThirsty: () => false, HasWater: () => false,
@@ -87,6 +96,17 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		SeekBestFoodSource: () => 'mistreevous.failed', ClaimJob: () => 'mistreevous.failed',
 		ClaimBestJob: () => 'mistreevous.failed' as const, ReleaseJob: () => 'mistreevous.succeeded' as const,
 		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
+		SwitchJob: () => 'mistreevous.failed', ClaimQuest: () => 'mistreevous.failed',
+		SeekQuestFacility: () => 'mistreevous.failed', WorkRepair: () => 'mistreevous.failed',
+		CompleteQuest: () => 'mistreevous.failed', AbandonQuest: () => 'mistreevous.failed',
+		ContinueCommitment: () => 'mistreevous.failed',
+		ChooseLeisure: () => 'mistreevous.failed', SeekLeisureTarget: () => 'mistreevous.failed',
+		Leisure: () => 'mistreevous.failed',
+		BetterPayAvailable: () => false, KnowsSupplyRoute: () => false,
+		HasQuest: () => false, QuestAvailable: () => false, QuestAtFacility: () => false,
+		QuestCargoReady: () => false, IsCommitted: () => false, ShouldSleep: () => false,
+		IsRestDay: () => false, IsMoodLow: () => false, IsAtLeisure: () => false,
+		claimFacility: () => true, releaseFacility: () => {},
 		recordPriceObservation: () => {}, tickUnemployment: () => {},
 		...overrides,
 	};
@@ -164,7 +184,7 @@ describe('FacilitySystem', () => {
 			fund: 200,
 			workProgress: 0,
 			status: 'idle',
-			workerId: null,
+			workerId: 'agent-1',
 		}));
 
 		const locationActors = new Map<string, Actor>([['loc-farm', farmActor]]);
@@ -278,7 +298,7 @@ describe('FacilitySystem', () => {
 			fund: 200,
 			workProgress: 0,
 			status: 'idle',
-			workerId: null,
+			workerId: 'agent-1',
 		}));
 
 		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);

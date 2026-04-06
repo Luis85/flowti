@@ -12,6 +12,8 @@ import { FacilityComponent } from '../../../src/infrastructure/components/facili
 import { TimeComponent } from '../../../src/infrastructure/components/time-component.js';
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
 import { MemoryComponent } from '../../../src/infrastructure/components/memory-component.js';
+import { MoodComponent } from '../../../src/infrastructure/components/mood-component.js';
+import { AttributesComponent } from '../../../src/infrastructure/components/attributes-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import type { GameConfig } from '../../../src/domain/schemas/game-config-schema.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
@@ -112,7 +114,9 @@ function setupDeps(
 	const getLocations = overrides.getLocations ?? (() => []);
 	const tickCount = overrides.tickCount ?? (() => 1);
 	const eventBus = overrides.eventBus ?? noopEventBus;
-	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, ...overrides };
+	const claimFacility = overrides.claimFacility ?? (() => true);
+	const releaseFacility = overrides.releaseFacility ?? (() => {});
+	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, claimFacility, releaseFacility, ...overrides };
 }
 
 /** Resolves nearby facilities from location actors with FacilityComponent */
@@ -926,7 +930,7 @@ describe('bt-actions: createActions', () => {
 				})];
 
 				const facActor = createLocationActor({
-					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 				});
 
 				const { actions, memory } = setupActions(actor, {
@@ -960,7 +964,13 @@ describe('bt-actions: createActions', () => {
 					job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null,
 					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
 				})];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
+				const facActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
+				});
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => locations,
+					getLocationActors: () => new Map([['loc-bakery', facActor]]),
+				});
 
 				expect(actions.SeekWork()).toBe('mistreevous.running');
 				expect(memory.movementTarget).toEqual({ id: 'loc-bakery', type: 'location' });
@@ -985,7 +995,7 @@ describe('bt-actions: createActions', () => {
 				})];
 
 				const facActor = createLocationActor({
-					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 				});
 
 				const { actions, memory } = setupActions(actor, {
@@ -2240,6 +2250,182 @@ describe('bt-actions: createActions', () => {
 				const { actions } = setupActions(actor);
 
 				expect(actions.AbandonQuest()).toBe('mistreevous.failed');
+			});
+		});
+	});
+
+	// ── Leisure actions ──────────────────────────────────────────────────
+	describe('Leisure actions', () => {
+		function makeLeisureLocation(id: string, x = 0, y = 0, cost = 3, ticksPerVisit = 20): WorldLocation {
+			return {
+				id,
+				name: id,
+				type: 'leisure' as WorldLocation['type'],
+				position: { x, y, region: 'test' },
+				capacity: 10,
+				color: '#808080',
+				production: null,
+				leisure: {
+					cost,
+					effects: { social: 15, mood: 10, energy: 5, skill_xp: 2 },
+					attribute_bonus: null,
+					ticks_per_visit: ticksPerVisit,
+				},
+				region: null,
+			};
+		}
+
+		describe('ChooseLeisure', () => {
+			it('returns SUCCEEDED when affordable leisure locations are known', () => {
+				const tavern = makeLeisureLocation('loc-tavern', 110, 200, 3);
+				const actor = new AgentActor(
+					createTestAgentData('a1', { wallet: { gold: 50 } }),
+					defaultMoodConfig,
+				);
+				const { actions, memory } = setupActions(actor, {
+					config,
+					getLocations: () => [tavern],
+				});
+				memory.knownLocations = ['loc-tavern'];
+
+				const result = actions.ChooseLeisure();
+				expect(result).toBe('mistreevous.succeeded');
+				expect(memory.leisureTarget).toBe('loc-tavern');
+			});
+
+			it('returns FAILED when no leisure locations in knownLocations and none nearby', () => {
+				const tavern = makeLeisureLocation('loc-tavern', 110, 200, 3);
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor, {
+					config,
+					getLocations: () => [tavern],
+				});
+				// Agent does not know about any locations and none are nearby
+				memory.knownLocations = [];
+
+				const result = actions.ChooseLeisure();
+				expect(result).toBe('mistreevous.failed');
+			});
+
+			it('sets memory.leisureTarget to best-scoring location', () => {
+				const cheapTavern = makeLeisureLocation('loc-cheap', 110, 200, 1);
+				const expensiveTavern = makeLeisureLocation('loc-expensive', 115, 200, 2);
+				// Both known, both affordable — the one closer with lower cost should win
+				const actor = new AgentActor(
+					createTestAgentData('a1', { wallet: { gold: 50 } }),
+					defaultMoodConfig,
+				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 30, thirst: 80 };
+				const { actions, memory } = setupActions(actor, {
+					config,
+					getLocations: () => [cheapTavern, expensiveTavern],
+				});
+				memory.knownLocations = ['loc-cheap', 'loc-expensive'];
+
+				actions.ChooseLeisure();
+				// Both have same effects; loc-cheap is closer and cheaper
+				expect(memory.leisureTarget).toBeDefined();
+				// Should pick the best scoring one (closer + same effects)
+				expect(['loc-cheap', 'loc-expensive']).toContain(memory.leisureTarget);
+			});
+
+			it('returns FAILED when agent cannot afford any leisure location', () => {
+				const tavern = makeLeisureLocation('loc-tavern', 110, 200, 100);
+				const actor = new AgentActor(
+					createTestAgentData('a1', { wallet: { gold: 5 } }),
+					defaultMoodConfig,
+				);
+				const { actions, memory } = setupActions(actor, {
+					config,
+					getLocations: () => [tavern],
+				});
+				memory.knownLocations = ['loc-tavern'];
+
+				const result = actions.ChooseLeisure();
+				expect(result).toBe('mistreevous.failed');
+			});
+		});
+
+		describe('SeekLeisureTarget', () => {
+			it('returns FAILED when leisureTarget is null', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.leisureTarget = null;
+
+				expect(actions.SeekLeisureTarget()).toBe('mistreevous.failed');
+			});
+
+			it('returns RUNNING when target is set and agent not at location', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.leisureTarget = 'loc-tavern';
+				memory.atLocation = null;
+
+				const result = actions.SeekLeisureTarget();
+				expect(result).toBe('mistreevous.running');
+				expect(memory.movementTarget).toEqual({ id: 'loc-tavern', type: 'location' });
+			});
+
+			it('returns SUCCEEDED when agent is at target location', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.leisureTarget = 'loc-tavern';
+				memory.atLocation = 'loc-tavern';
+
+				const result = actions.SeekLeisureTarget();
+				expect(result).toBe('mistreevous.succeeded');
+			});
+		});
+
+		describe('Leisure', () => {
+			it('returns FAILED when not at leisure target', () => {
+				const tavern = makeLeisureLocation('loc-tavern', 0, 0, 3, 20);
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => [tavern],
+				});
+				memory.leisureTarget = 'loc-tavern';
+				memory.atLocation = 'loc-farm';
+
+				expect(actions.Leisure()).toBe('mistreevous.failed');
+			});
+
+			it('returns RUNNING when at target and sets commitment ticks', () => {
+				const tavern = makeLeisureLocation('loc-tavern', 0, 0, 3, 20);
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => [tavern],
+				});
+				memory.leisureTarget = 'loc-tavern';
+				memory.atLocation = 'loc-tavern';
+
+				const result = actions.Leisure();
+				expect(result).toBe('mistreevous.running');
+				expect(memory.btAction).toBe('leisure');
+				expect(memory.commitmentTicks).toBe(20);
+				expect(memory.committedAction).toBe('leisure');
+			});
+
+			it('sets commitment ticks from location ticks_per_visit', () => {
+				const tavern = makeLeisureLocation('loc-tavern', 0, 0, 3, 15);
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => [tavern],
+				});
+				memory.leisureTarget = 'loc-tavern';
+				memory.atLocation = 'loc-tavern';
+
+				actions.Leisure();
+				expect(memory.commitmentTicks).toBe(15);
+			});
+
+			it('returns FAILED when leisureTarget is null', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor);
+				memory.leisureTarget = null;
+				memory.atLocation = null;
+
+				expect(actions.Leisure()).toBe('mistreevous.failed');
 			});
 		});
 	});

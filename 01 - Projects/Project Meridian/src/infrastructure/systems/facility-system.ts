@@ -47,17 +47,20 @@ export function updateStock(stock: StockItem[], itemId: string, delta: number): 
 
 function findWorker(
 	agentList: AgentActor[],
+	workerId: string | null,
 	facilityJob: string,
 	locX: number,
 	locY: number,
 	radius: number,
 ): AgentActor | undefined {
+	if (workerId === null) return undefined;
 	for (const agent of agentList) {
-		const btAction = agent.behaviorAgent.btAction;
-		if (btAction !== 'work') continue;
-		if (agent.job !== facilityJob) continue;
+		if (agent.agentId !== workerId) continue;
+		if (agent.behaviorAgent.btAction !== 'work') return undefined;
+		if (agent.job !== facilityJob) return undefined;
 		const dist = distance(agent.pos.x, agent.pos.y, locX, locY);
-		if (dist <= radius) return agent;
+		if (dist > radius) return undefined;
+		return agent;
 	}
 	return undefined;
 }
@@ -273,7 +276,7 @@ function processFacilityTick(
 	itemRegistry?: Map<string, Item>,
 ): void {
 	const radius = deps.config.perception.interaction_radius;
-	const worker = findWorker(agentList, production.job, loc.position.x, loc.position.y, radius);
+	const worker = findWorker(agentList, facility.state.workerId, production.job, loc.position.x, loc.position.y, radius);
 
 	// Aptitude efficiency modifier — mismatched workers produce slower
 	let effectiveTicksPerCycle = production.ticks_per_cycle;
@@ -369,7 +372,6 @@ function processFacilityTick(
 		fund: facility.state.fund + result.facilityFundChange,
 		workProgress: result.newWorkProgress,
 		status: result.status,
-		workerId: worker?.agentId ?? null,
 	};
 	facility.markDirty();
 

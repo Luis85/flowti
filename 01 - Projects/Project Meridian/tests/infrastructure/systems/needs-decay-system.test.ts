@@ -54,6 +54,15 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null, buyTargetItem: null,
 		unemployedTicks: 0,
 		recovering: false,
+		supplyRoute: null,
+		activeQuest: null,
+		cachedAvailableQuest: null,
+		insideFacility: false,
+		leisureTarget: null,
+		commitmentTicks: 0,
+		sleepDebt: 0,
+		ticksRestedThisDay: 0,
+		personalThresholds: { hunger: 40, energy: 30, thirst: 40 },
 		priceMemories: [] as unknown as BehaviorAgent['priceMemories'],
 		IsHungry: () => false, IsExhausted: () => false, IsRecovering: () => false, IsLonely: () => false,
 		IsThirsty: () => false, HasWater: () => false,
@@ -80,6 +89,17 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		SeekBestFoodSource: () => 'mistreevous.failed', ClaimJob: () => 'mistreevous.failed',
 		ClaimBestJob: () => 'mistreevous.failed' as const, ReleaseJob: () => 'mistreevous.succeeded' as const,
 		Idle: () => 'mistreevous.running', Wander: () => 'mistreevous.running',
+		SwitchJob: () => 'mistreevous.failed', ClaimQuest: () => 'mistreevous.failed',
+		SeekQuestFacility: () => 'mistreevous.failed', WorkRepair: () => 'mistreevous.failed',
+		CompleteQuest: () => 'mistreevous.failed', AbandonQuest: () => 'mistreevous.failed',
+		ContinueCommitment: () => 'mistreevous.failed',
+		ChooseLeisure: () => 'mistreevous.failed', SeekLeisureTarget: () => 'mistreevous.failed',
+		Leisure: () => 'mistreevous.failed',
+		BetterPayAvailable: () => false, KnowsSupplyRoute: () => false,
+		HasQuest: () => false, QuestAvailable: () => false, QuestAtFacility: () => false,
+		QuestCargoReady: () => false, IsCommitted: () => false, ShouldSleep: () => false,
+		IsRestDay: () => false, IsMoodLow: () => false, IsAtLeisure: () => false,
+		claimFacility: () => true, releaseFacility: () => {},
 		recordPriceObservation: () => {}, tickUnemployment: () => {},
 		...overrides,
 	};
@@ -106,8 +126,8 @@ describe('NeedsDecaySystem', () => {
 		const needs = agent.get(NeedsComponent);
 		expect(needs.state.hunger).toBeLessThan(80);
 		expect(needs.state.energy).toBeLessThan(90);
-		// social_decay is 0 by default, so social doesn't decay
-		expect(needs.state.social).toBe(70);
+		// social_decay defaults to 0.05, so social decays
+		expect(needs.state.social).toBeLessThan(70);
 		expect(needs.dirty).toBe(true);
 	});
 

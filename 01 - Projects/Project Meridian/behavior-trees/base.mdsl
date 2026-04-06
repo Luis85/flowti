@@ -75,6 +75,18 @@ root {
             branch [Job]
         }
 
+        /* P2.5: Leisure — rest day or stressed */
+        sequence {
+            selector {
+                condition [IsRestDay]
+                condition [IsMoodLow]
+            }
+            flip { condition [IsNighttime] }
+            action [ChooseLeisure]
+            action [SeekLeisureTarget]
+            action [Leisure] while(IsAtLeisure)
+        }
+
         /* P3: Thirsty — drink or refill */
         sequence {
             condition [IsThirsty]
@@ -117,6 +129,7 @@ root {
                 }
                 sequence {
                     condition [HasJob]
+                    condition [IsWorkHours]
                     action [SeekWork]
                 }
             }

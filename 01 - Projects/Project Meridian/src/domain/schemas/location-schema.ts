@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { PositionSchema } from './common.js';
 
-export const LOCATION_TYPES = ['rest', 'food', 'social', 'work', 'market', 'water'] as const;
+export const LOCATION_TYPES = ['rest', 'food', 'social', 'work', 'market', 'water', 'leisure'] as const;
 
 const ProductionOutputSchema = z.object({
 	item_id: z.string(),
@@ -24,6 +24,20 @@ export const ProductionSchema = z.object({
 	funding: z.enum(['facility', 'treasury']).default('facility'),
 }).nullable().default(null);
 
+const LeisureEffectsSchema = z.object({
+	social: z.number().default(0),
+	mood: z.number().default(0),
+	energy: z.number().default(0),
+	skill_xp: z.number().default(0),
+});
+
+export const LeisureConfigSchema = z.object({
+	cost: z.number().min(0),
+	effects: LeisureEffectsSchema,
+	attribute_bonus: z.string().nullable().default(null),
+	ticks_per_visit: z.number().int().min(1).default(15),
+}).nullable().default(null);
+
 export const LocationSchema = z.object({
 	id: z.string().regex(/^loc-[a-z0-9-]+$/),
 	name: z.string().min(1),
@@ -32,6 +46,7 @@ export const LocationSchema = z.object({
 	capacity: z.number().int().min(1).default(10),
 	color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#808080'),
 	production: ProductionSchema,
+	leisure: LeisureConfigSchema,
 	region: z.string().regex(/^region-[a-z0-9-]+$/).nullable().default(null),
 	fund: z.number().optional(),
 	stock: z.array(z.object({ item_id: z.string(), quantity: z.number() })).optional(),
@@ -39,3 +54,4 @@ export const LocationSchema = z.object({
 
 export type WorldLocation = z.infer<typeof LocationSchema>;
 export type Production = z.infer<typeof ProductionSchema>;
+export type LeisureConfig = z.infer<typeof LeisureConfigSchema>;

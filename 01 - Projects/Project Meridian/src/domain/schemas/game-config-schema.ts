@@ -16,7 +16,7 @@ const ActivityCostSchema = z.object({
 const NeedsConfigSchema = z.object({
 	hunger_decay: z.number().default(0.04),
 	energy_decay: z.number().default(0.06),
-	social_decay: z.number().default(0),
+	social_decay: z.number().default(0.05),
 	thirst_decay: z.number().default(0.05),
 	food_recovery_rate: z.number().default(30),
 	drink_recovery: z.number().default(30),
@@ -46,6 +46,9 @@ const NeedsConfigSchema = z.object({
 		repair:         { hunger: 1.2, thirst: 1.1, energy: 1.3 },
 		seek_quest:     { hunger: 1.0, thirst: 1.0, energy: 1.0 },
 		claim_quest:    { hunger: 1.0, thirst: 1.0, energy: 1.0 },
+		leisure:        { hunger: 0.5, thirst: 0.5, energy: 0.3 },
+		seek_leisure:   { hunger: 1.1, thirst: 1.2, energy: 1.1 },
+		choose_leisure: { hunger: 1.0, thirst: 1.0, energy: 1.0 },
 	}),
 });
 
@@ -306,7 +309,7 @@ export const GameConfigSchema = z.object({
 	tick_interval_ms: z.number().int().min(50).default(500),
 	max_catch_up_ticks: z.number().int().min(1).default(3),
 	ticks_per_day: z.number().int().min(1).default(480),
-	mortality: z.boolean().default(true),
+	mortality: z.boolean().default(false),
 	needs: withDefaults(NeedsConfigSchema),
 	stamina: withDefaults(StaminaConfigSchema),
 	memory: withDefaults(MemoryConfigSchema),
@@ -344,6 +347,8 @@ export const GameConfigSchema = z.object({
 		waterskin: { name: 'Waterskin', baseValue: 3, maxCharges: 3 },
 	}),
 	commitment_ticks: z.record(z.string(), z.number()).default({}),
+	rest_day_interval: z.number().int().min(1).default(7),
+	leisure_mood_threshold: z.number().default(-20),
 	sleep_debt_max: z.number().default(100),
 	min_rest_ticks: z.number().default(80),
 	debug: z.boolean().default(false),

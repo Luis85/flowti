@@ -29,6 +29,8 @@ export interface BehaviorAgentDeps {
 	swapBehaviorTree?: (jobName: string | null) => void;
 	jobsConfig?: GameConfig['jobs'];
 	getQuestBoard?: () => QuestBoardState;
+	claimFacility?: (facilityId: string) => boolean;
+	releaseFacility?: () => void;
 }
 
 export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
@@ -131,6 +133,34 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		return getLocations().find(l => l.id === memory.atLocation);
 	}
 
+	function claimFacility(facilityId: string): boolean {
+		const locationActorMap = getLocationActors();
+		const locActor = locationActorMap.get(facilityId);
+		if (locActor?.has(FacilityComponent) !== true) return false;
+		const facility = locActor.get(FacilityComponent);
+		if (facility.state.workerId !== null && facility.state.workerId !== actor.agentId) return false;
+		facility.state = { ...facility.state, workerId: actor.agentId };
+		facility.markDirty();
+		return true;
+	}
+
+	function releaseFacility(): void {
+		const locationActorMap = getLocationActors();
+		for (const [, locActor] of locationActorMap) {
+			if (!locActor.has(FacilityComponent)) continue;
+			const facility = locActor.get(FacilityComponent);
+			if (facility.state.workerId === actor.agentId) {
+				facility.state = { ...facility.state, workerId: null };
+				facility.markDirty();
+				break;
+			}
+		}
+	}
+
+	// Inject into deps so bt-actions.ts can call them without circular reference
+	deps.claimFacility = claimFacility;
+	deps.releaseFacility = releaseFacility;
+
 	const conditions = createConditions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations, getAtLocationData, wakeOffset, personalSleepOffset);
 	const actions = createActions(memory, actor, deps, resolveNearbyFacilities, resolveNearbyAgents, resolveNearbyLocations, commitmentMultiplier);
 
@@ -195,6 +225,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set cachedAvailableQuest(v) { memory.cachedAvailableQuest = v; },
 		get insideFacility() { return memory.insideFacility; },
 		set insideFacility(v) { memory.insideFacility = v; },
+		get leisureTarget() { return memory.leisureTarget; },
+		set leisureTarget(v) { memory.leisureTarget = v; },
 		get commitmentTicks() { return memory.commitmentTicks; },
 		set commitmentTicks(v) { memory.commitmentTicks = v; },
 		get sleepDebt() { return memory.sleepDebt; },
@@ -203,6 +235,10 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set ticksRestedThisDay(v) { memory.ticksRestedThisDay = v; },
 		get personalThresholds() { return memory.personalThresholds; },
 		get priceMemories() { return memory.priceMemories; },
+
+		// ── Facility reservation ──────────────────────────────────────────
+		claimFacility,
+		releaseFacility,
 
 		// ── Conditions + Actions (spread from extracted modules) ───────────
 		...conditions,

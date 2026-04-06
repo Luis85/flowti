@@ -11,6 +11,7 @@ import { PerceptionComponent } from '../../../src/infrastructure/components/perc
 import { FacilityComponent } from '../../../src/infrastructure/components/facility-component.js';
 import { TimeComponent } from '../../../src/infrastructure/components/time-component.js';
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
+import { MoodComponent } from '../../../src/infrastructure/components/mood-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../../src/domain/schemas/ranges.js';
 import type { GameConfig } from '../../../src/domain/schemas/game-config-schema.js';
@@ -875,7 +876,7 @@ describe('bt-conditions', () => {
 			})];
 
 			const facActor = createLocationActor({
-				stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 			});
 
 			const deps = setupDeps(actor, {
@@ -1418,6 +1419,100 @@ describe('bt-conditions', () => {
 			const deps = setupDeps(actor, { config });
 			const { conditions } = makeConditions(actor, deps);
 			expect(conditions.QuestCargoReady()).toBe(false);
+		});
+	});
+
+	// ── Leisure / rest-day conditions ────────────────────────────────────
+
+	describe('IsRestDay', () => {
+		it('returns false on day 0', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const world = createWorldEntity('day', 0);
+			const time = world.get(TimeComponent);
+			time.state = { ...time.state, dayCount: 0 };
+			const deps = setupDeps(actor, { config, worldEntity: () => world });
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.IsRestDay()).toBe(false);
+		});
+
+		it('returns true on day 7 (rest_day_interval default = 7)', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const world = createWorldEntity('day', 0);
+			const time = world.get(TimeComponent);
+			time.state = { ...time.state, dayCount: 7 };
+			const deps = setupDeps(actor, { config, worldEntity: () => world });
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.IsRestDay()).toBe(true);
+		});
+
+		it('returns false on day 8', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const world = createWorldEntity('day', 0);
+			const time = world.get(TimeComponent);
+			time.state = { ...time.state, dayCount: 8 };
+			const deps = setupDeps(actor, { config, worldEntity: () => world });
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.IsRestDay()).toBe(false);
+		});
+
+		it('returns true on day 14', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const world = createWorldEntity('day', 0);
+			const time = world.get(TimeComponent);
+			time.state = { ...time.state, dayCount: 14 };
+			const deps = setupDeps(actor, { config, worldEntity: () => world });
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.IsRestDay()).toBe(true);
+		});
+	});
+
+	describe('IsMoodLow', () => {
+		it('returns true when mood < leisure_mood_threshold (-20)', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(MoodComponent).state = { value: -25, bucket: 'stressed' };
+			const deps = setupDeps(actor, { config });
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.IsMoodLow()).toBe(true);
+		});
+
+		it('returns false when mood >= leisure_mood_threshold (-20)', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(MoodComponent).state = { value: -20, bucket: 'stressed' };
+			const deps = setupDeps(actor, { config });
+			const { conditions } = makeConditions(actor, deps);
+			expect(conditions.IsMoodLow()).toBe(false);
+		});
+	});
+
+	describe('IsAtLeisure', () => {
+		it('returns true when btAction is leisure and atLocation matches leisureTarget', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.btAction = 'leisure';
+			memory.leisureTarget = 'loc-tavern';
+			memory.atLocation = 'loc-tavern';
+			expect(conditions.IsAtLeisure()).toBe(true);
+		});
+
+		it('returns false when btAction is not leisure', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.btAction = 'work';
+			memory.leisureTarget = 'loc-tavern';
+			memory.atLocation = 'loc-tavern';
+			expect(conditions.IsAtLeisure()).toBe(false);
+		});
+
+		it('returns false when atLocation does not match leisureTarget', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.btAction = 'leisure';
+			memory.leisureTarget = 'loc-tavern';
+			memory.atLocation = 'loc-farm';
+			expect(conditions.IsAtLeisure()).toBe(false);
 		});
 	});
 });
