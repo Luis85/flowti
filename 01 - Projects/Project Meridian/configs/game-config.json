@@ -106,6 +106,8 @@
 		"seek_supply": 0,
 		"seek_social": 0
 	},
+	"rest_day_interval": 7,
+	"leisure_mood_threshold": -20,
 	"sleep_debt_max": 100,
 	"min_rest_ticks": 50
 }

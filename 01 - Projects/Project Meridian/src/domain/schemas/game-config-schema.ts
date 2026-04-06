@@ -344,6 +344,8 @@ export const GameConfigSchema = z.object({
 		waterskin: { name: 'Waterskin', baseValue: 3, maxCharges: 3 },
 	}),
 	commitment_ticks: z.record(z.string(), z.number()).default({}),
+	rest_day_interval: z.number().int().min(1).default(7),
+	leisure_mood_threshold: z.number().default(-20),
 	sleep_debt_max: z.number().default(100),
 	min_rest_ticks: z.number().default(80),
 	debug: z.boolean().default(false),
