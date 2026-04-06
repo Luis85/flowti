@@ -464,7 +464,7 @@ export function createActions(
 			const candidates: { id: string; score: number }[] = [];
 
 			for (const loc of locations) {
-				if (loc.leisure === null || loc.leisure === undefined) continue;
+				if (loc.leisure === null) continue;
 				if (!knownSet.has(loc.id)) continue;
 				if (loc.leisure.cost > gold) continue;
 
