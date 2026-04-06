@@ -46,14 +46,26 @@ git commit -m "feat(meridian): add claimFacility/releaseFacility to BehaviorAgen
 
 ---
 
-### Task 2: Implement `claimFacility`/`releaseFacility` in behavior-agent-factory
+### Task 2: Implement `claimFacility`/`releaseFacility` in behavior-agent-factory and wire to deps
 
 **Files:**
 - Modify: `src/infrastructure/entity/behavior-agent-factory.ts:34-213`
+- Modify: `src/infrastructure/entity/behavior-agent-factory.ts:21-32` (BehaviorAgentDeps interface)
 
-- [ ] **Step 1: Add the helper functions inside `createBehaviorAgent`**
+**IMPORTANT**: `bt-actions.ts` receives `deps: BehaviorAgentDeps` and cannot call `deps.claimFacility!()` — that would be a circular self-reference because `behaviorAgent` is assigned *after* `createBehaviorAgent` returns. Instead, add `claimFacility`/`releaseFacility` as optional properties on `BehaviorAgentDeps`.
 
-After the `resolveNearbyLocations` function (after line 127), add:
+- [ ] **Step 1: Add the optional function signatures to `BehaviorAgentDeps` interface**
+
+In `src/infrastructure/entity/behavior-agent-factory.ts`, line 31 (after `getQuestBoard?`):
+
+```typescript
+claimFacility?: (facilityId: string) => boolean;
+releaseFacility?: () => void;
+```
+
+- [ ] **Step 2: Add the helper functions inside `createBehaviorAgent`**
+
+After the `getAtLocationData` function (after line 132), add:
 
 ```typescript
 function claimFacility(facilityId: string): boolean {
@@ -79,9 +91,13 @@ function releaseFacility(): void {
 		}
 	}
 }
+
+// Inject into deps so bt-actions.ts can call them without circular reference
+deps.claimFacility = claimFacility;
+deps.releaseFacility = releaseFacility;
 ```
 
-- [ ] **Step 2: Wire the functions into the returned `agent` object**
+- [ ] **Step 3: Wire the functions into the returned `agent` object**
 
 In the `agent` object (around line 207, before `...conditions`), add:
 
@@ -90,16 +106,16 @@ claimFacility,
 releaseFacility,
 ```
 
-- [ ] **Step 3: Verify typecheck passes**
+- [ ] **Step 4: Verify typecheck passes**
 
 Run: `cd "01 - Projects/Project Meridian" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: no errors.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Project Meridian/src/infrastructure/entity/behavior-agent-factory.ts"
-git commit -m "feat(meridian): implement claimFacility/releaseFacility in behavior-agent-factory"
+git commit -m "feat(meridian): implement claimFacility/releaseFacility — injected into deps for bt-actions"
 ```
 
 ---
@@ -122,7 +138,7 @@ ClaimJob(): ActionResult {
 	if (openFacilities.length === 0) return FAILED;
 	const nearest = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
 	actor.job = nearest.job;
-	if (!deps.actor.behaviorAgent.claimFacility(nearest.id)) {
+	if (!deps.claimFacility!(nearest.id)) {
 		actor.job = null;
 		return FAILED;
 	}
@@ -137,7 +153,7 @@ After `actor.job = chosen.job;` (line 361) and before `memory.unemployedTicks = 
 
 ```typescript
 actor.job = chosen.job;
-if (!deps.actor.behaviorAgent.claimFacility(chosen.id)) {
+if (!deps.claimFacility!(chosen.id)) {
 	actor.job = null;
 	return FAILED;
 }
@@ -150,7 +166,7 @@ Add `releaseFacility()` call before clearing `actor.job`:
 
 ```typescript
 ReleaseJob(): ActionResult {
-	deps.actor.behaviorAgent.releaseFacility();
+	deps.releaseFacility!();
 	actor.job = null;
 	memory.unemployedTicks = 0;
 	memory.btAction = null;
@@ -161,18 +177,18 @@ ReleaseJob(): ActionResult {
 
 - [ ] **Step 4: Update `SwitchJob()` (line 376)**
 
-Replace the manual `workerId` clearing loop (lines 402-411) with the helper:
+Replace the manual `workerId` clearing loop (lines 402-411) with the helper. **IMPORTANT**: Capture `oldJob` BEFORE calling `releaseFacility()` so rollback restores the correct value:
 
 ```typescript
+const oldJob = actor.job;
+
 // Release old facility worker slot
-deps.actor.behaviorAgent.releaseFacility();
-```
+deps.releaseFacility!();
 
-Then after setting `actor.job = bestFacility.job;`, add the claim:
+// ... (best facility selection logic stays as-is) ...
 
-```typescript
 actor.job = bestFacility.job;
-if (!deps.actor.behaviorAgent.claimFacility(bestFacility.id)) {
+if (!deps.claimFacility!(bestFacility.id)) {
 	actor.job = oldJob;
 	return FAILED;
 }
@@ -347,9 +363,22 @@ To:
 findWorker(agentList, facility.state.workerId, production.job, loc.position.x, loc.position.y, interactionRadius)
 ```
 
-- [ ] **Step 3: Remove the `workerId` overwrite at the end of `processFacilityTick`**
+- [ ] **Step 3: Remove only the `workerId` property from the facility state spread**
 
-Find the line where `facility.state = { ...facility.state, workerId: worker?.agentId ?? null }` is written after the tick result. **Remove it** — `workerId` is now managed by `claimFacility`/`releaseFacility`, not by the per-tick observation.
+Find the object spread that updates facility state after the tick result (around line 366-374). It looks like:
+
+```typescript
+facility.state = {
+	...facility.state,
+	stock: newStock,
+	fund: facility.state.fund + result.facilityFundChange,
+	workProgress: result.newWorkProgress,
+	status: result.status,
+	workerId: worker?.agentId ?? null,  // ← REMOVE ONLY THIS LINE
+};
+```
+
+Remove only the `workerId: worker?.agentId ?? null,` line. Keep `stock`, `fund`, `workProgress`, and `status` — those are critical production state. `workerId` is now managed by `claimFacility`/`releaseFacility`, not the per-tick observation.
 
 - [ ] **Step 4: Verify typecheck passes**
 
@@ -452,8 +481,9 @@ describe('calculateMood', () => {
 	});
 
 	it('bucket changed flag is false when bucket stays the same', () => {
-		// needsSatisfaction: 0.5 with empty memories excluded → roughly mid-range
-		const result = calculateMood(makeFactors({ needsSatisfaction: 0.5, goalProgress: 0.5 }), 'stressed', defaultConfig, 0);
+		// needsSatisfaction: 0.5, goalProgress: 0.5, others 0 → memory weights excluded
+		// positivePart = 0.5*30 + 0.5*10 = 20, totalWeight = 60, rawMood = (20/60 - 0.5)*200 = -33 → distressed
+		const result = calculateMood(makeFactors({ needsSatisfaction: 0.5, goalProgress: 0.5 }), 'distressed', defaultConfig, 0);
 		expect(result.changed).toBe(false);
 	});
 
@@ -686,7 +716,7 @@ const isResting = btAction === null || btAction === 'idle' || btAction === 'rest
 - [ ] **Step 2: Run all tests**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run --config configs/vitest.config.ts`
-Expected: all pass. No existing rest-system test file exists, so no test expectations to update.
+Expected: all pass.
 
 - [ ] **Step 3: Commit**
 
