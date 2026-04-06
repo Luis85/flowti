@@ -164,7 +164,7 @@ describe('FacilitySystem', () => {
 			fund: 200,
 			workProgress: 0,
 			status: 'idle',
-			workerId: null,
+			workerId: 'agent-1',
 		}));
 
 		const locationActors = new Map<string, Actor>([['loc-farm', farmActor]]);
@@ -278,7 +278,7 @@ describe('FacilitySystem', () => {
 			fund: 200,
 			workProgress: 0,
 			status: 'idle',
-			workerId: null,
+			workerId: 'agent-1',
 		}));
 
 		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);

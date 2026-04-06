@@ -875,7 +875,7 @@ describe('bt-conditions', () => {
 			})];
 
 			const facActor = createLocationActor({
-				stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 			});
 
 			const deps = setupDeps(actor, {

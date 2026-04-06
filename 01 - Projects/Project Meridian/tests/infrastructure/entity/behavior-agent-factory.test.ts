@@ -659,7 +659,7 @@ describe('BehaviorAgent factory', () => {
 				})];
 
 				const facActor = createLocationActor({
-					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 				});
 
 				const agent = createBehaviorAgent(setupDeps(actor, {
@@ -1169,7 +1169,7 @@ describe('BehaviorAgent factory', () => {
 				})];
 
 				const facActor = createLocationActor({
-					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 				});
 
 				const agent = createBehaviorAgent(setupDeps(actor, {
@@ -1217,7 +1217,13 @@ describe('BehaviorAgent factory', () => {
 					job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null,
 					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
 				})];
-				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
+				const facActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
+				});
+				const agent = createBehaviorAgent(setupDeps(actor, {
+					getLocations: () => locations,
+					getLocationActors: () => new Map([['loc-bakery', facActor]]),
+				}));
 
 				expect(agent.SeekWork()).toBe('mistreevous.running');
 				expect(agent.movementTarget).toEqual({ id: 'loc-bakery', type: 'location' });

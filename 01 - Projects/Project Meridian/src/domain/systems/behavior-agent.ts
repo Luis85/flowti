@@ -182,4 +182,6 @@ export interface BehaviorAgent {
 	// Utility methods
 	tickUnemployment(): void;
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
+	claimFacility(facilityId: string): boolean;
+	releaseFacility(): void;
 }

@@ -325,6 +325,10 @@ export function createActions(
 			if (openFacilities.length === 0) return FAILED;
 			const nearest = openFacilities.reduce((a, b) => a.distance < b.distance ? a : b);
 			actor.job = nearest.job;
+			if (!deps.claimFacility!(nearest.id)) {
+				actor.job = null;
+				return FAILED;
+			}
 			beginAction('claim_job');
 			return SUCCEEDED;
 		},
@@ -359,6 +363,10 @@ export function createActions(
 			}
 
 			actor.job = chosen.job;
+			if (!deps.claimFacility!(chosen.id)) {
+				actor.job = null;
+				return FAILED;
+			}
 			memory.unemployedTicks = 0;
 			beginAction('claim_job');
 			deps.swapBehaviorTree?.(chosen.job);
@@ -366,6 +374,7 @@ export function createActions(
 		},
 
 		ReleaseJob(): ActionResult {
+			deps.releaseFacility!();
 			actor.job = null;
 			memory.unemployedTicks = 0;
 			memory.btAction = null;
@@ -398,20 +407,13 @@ export function createActions(
 			// Don't switch to the same job at the same facility
 			if (bestFacility.job === actor.job && bestFacility.wage <= currentWage) return FAILED;
 
-			// Release old facility worker slot
-			const locationActorMap = getLocationActors();
-			for (const [, locActor] of locationActorMap) {
-				if (!locActor.has(FacilityComponent)) continue;
-				const fac = locActor.get(FacilityComponent);
-				if (fac.state.workerId === actor.agentId) {
-					fac.state = { ...fac.state, workerId: null };
-					fac.markDirty();
-					break;
-				}
-			}
-
 			const oldJob = actor.job;
+			deps.releaseFacility!();
 			actor.job = bestFacility.job;
+			if (!deps.claimFacility!(bestFacility.id)) {
+				actor.job = oldJob;
+				return FAILED;
+			}
 			beginAction('switch_job');
 			deps.eventBus.emit({
 				type: 'JobSwitched',
@@ -453,7 +455,7 @@ export function createActions(
 			const jobFacility = facilities.find(f =>
 				f.id === memory.atLocation &&
 				f.job === actor.job &&
-				(f.workerId === null || f.workerId === actor.agentId),
+				f.workerId === actor.agentId,
 			);
 			if (jobFacility === undefined) return FAILED;
 			beginAction('work');
@@ -472,9 +474,9 @@ export function createActions(
 		SeekWork(): ActionResult {
 			if (actor.job === null) return FAILED;
 
-			// Only target facilities that are unoccupied or already assigned to this agent
+			// Only target facilities reserved by this agent
 			const availableFacility = resolveNearbyFacilities().find(f =>
-				f.job === actor.job && (f.workerId === null || f.workerId === actor.agentId),
+				f.job === actor.job && f.workerId === actor.agentId,
 			);
 			if (availableFacility !== undefined) {
 				beginAction('seek_work');
@@ -485,9 +487,13 @@ export function createActions(
 
 			// Fallback: search all locations (for facilities outside perception range)
 			const allLocations = getLocations();
-			const jobLoc = allLocations.find(
-				l => l.production !== null && l.production.job === actor.job,
-			);
+			const locationActorMap = getLocationActors();
+			const jobLoc = allLocations.find(l => {
+				if (l.production === null || l.production.job !== actor.job) return false;
+				const locActor = locationActorMap.get(l.id);
+				if (locActor === undefined || !locActor.has(FacilityComponent)) return false;
+				return locActor.get(FacilityComponent).state.workerId === actor.agentId;
+			});
 			if (jobLoc === undefined) return FAILED;
 
 			// If already at the facility but it's occupied, don't re-target — fail gracefully

@@ -112,7 +112,9 @@ function setupDeps(
 	const getLocations = overrides.getLocations ?? (() => []);
 	const tickCount = overrides.tickCount ?? (() => 1);
 	const eventBus = overrides.eventBus ?? noopEventBus;
-	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, ...overrides };
+	const claimFacility = overrides.claimFacility ?? (() => true);
+	const releaseFacility = overrides.releaseFacility ?? (() => {});
+	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, claimFacility, releaseFacility, ...overrides };
 }
 
 /** Resolves nearby facilities from location actors with FacilityComponent */
@@ -926,7 +928,7 @@ describe('bt-actions: createActions', () => {
 				})];
 
 				const facActor = createLocationActor({
-					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 				});
 
 				const { actions, memory } = setupActions(actor, {
@@ -960,7 +962,13 @@ describe('bt-actions: createActions', () => {
 					job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null,
 					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
 				})];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
+				const facActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
+				});
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => locations,
+					getLocationActors: () => new Map([['loc-bakery', facActor]]),
+				});
 
 				expect(actions.SeekWork()).toBe('mistreevous.running');
 				expect(memory.movementTarget).toEqual({ id: 'loc-bakery', type: 'location' });
@@ -985,7 +993,7 @@ describe('bt-actions: createActions', () => {
 				})];
 
 				const facActor = createLocationActor({
-					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 				});
 
 				const { actions, memory } = setupActions(actor, {

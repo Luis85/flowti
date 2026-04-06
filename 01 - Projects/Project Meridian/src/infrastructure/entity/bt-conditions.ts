@@ -197,7 +197,7 @@ export function createConditions(
 				f.id === memory.atLocation &&
 				f.job === actor.job &&
 				f.status !== 'abandoned' &&
-				(f.workerId === null || f.workerId === actor.agentId),
+				f.workerId === actor.agentId,
 			);
 		},
 
