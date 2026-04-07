@@ -375,6 +375,29 @@ describe('bt-conditions', () => {
 		});
 	});
 
+	describe('IsSociallyCritical', () => {
+		it('returns true when social below critical threshold (15)', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 10, thirst: 80 };
+			const { conditions } = makeConditions(actor, setupDeps(actor));
+			expect(conditions.IsSociallyCritical()).toBe(true);
+		});
+
+		it('returns false when social at critical threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: NEED_CRITICAL_THRESHOLDS.social, thirst: 80 };
+			const { conditions } = makeConditions(actor, setupDeps(actor));
+			expect(conditions.IsSociallyCritical()).toBe(false);
+		});
+
+		it('returns false when social is healthy', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 50, thirst: 80 };
+			const { conditions } = makeConditions(actor, setupDeps(actor));
+			expect(conditions.IsSociallyCritical()).toBe(false);
+		});
+	});
+
 	// ── Inventory conditions ──────────────────────────────────────────────
 
 	describe('HasFood', () => {

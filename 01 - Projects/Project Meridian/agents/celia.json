@@ -15,7 +15,7 @@
 	],
 	"equipment": { "head": null, "body": null, "hands": null, "tool": null, "accessory": null },
 	"persona": null,
-	"traits": [],
+	"traits": ["curious"],
 	"wallet": { "gold": 40 },
 	"xp": 0,
 	"level": 1,

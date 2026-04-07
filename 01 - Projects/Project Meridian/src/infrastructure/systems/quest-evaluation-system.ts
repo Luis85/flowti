@@ -24,7 +24,7 @@ export function createQuestEvaluationSystem(
 			);
 
 			const staleCompleted = board.state.quests.filter(
-				q => q.state === 'completed' && deps.tickCount - q.createdTick > q.expiryTicks,
+				q => q.state === 'completed',
 			);
 
 			if (expiredQuests.length > 0 || staleCompleted.length > 0) {

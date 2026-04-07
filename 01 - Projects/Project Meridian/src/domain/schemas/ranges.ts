@@ -16,8 +16,8 @@ export const SIGNIFICANCE_RANGE = { min: 1, max: 10 } as const;
 export const USE_BONUS_RANGE = { min: 0, max: 3 } as const;
 export const LLM_TEMPERATURE_RANGE = { min: 0, max: 2 } as const;
 
-/** Social intentionally excluded — not a survival need; discomfort only. */
-export const NEED_CRITICAL_THRESHOLDS = { hunger: 20, energy: 15, thirst: 20 } as const;
+/** Social included at lower threshold — extreme isolation triggers P0.5 emergency via IsSociallyCritical (not NeedsCritical). */
+export const NEED_CRITICAL_THRESHOLDS = { hunger: 20, energy: 15, thirst: 20, social: 15 } as const;
 
 export const PERSONAL_THRESHOLD_CAP = 90;
 

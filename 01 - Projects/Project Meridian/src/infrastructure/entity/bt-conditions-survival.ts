@@ -4,7 +4,7 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 
-type SurvivalKeys = 'IsHungry' | 'IsThirsty' | 'IsExhausted' | 'IsRecovering' | 'IsLonely' | 'NeedsCritical' | 'NeedsTools' | 'NeedsEquipment';
+type SurvivalKeys = 'IsHungry' | 'IsThirsty' | 'IsExhausted' | 'IsRecovering' | 'IsLonely' | 'NeedsCritical' | 'NeedsTools' | 'NeedsEquipment' | 'IsSociallyCritical';
 
 export function createSurvivalConditions(ctx: ConditionContext): Pick<ConditionMethods, SurvivalKeys> {
 	const { actor, deps, memory } = ctx;
@@ -42,6 +42,10 @@ export function createSurvivalConditions(ctx: ConditionContext): Pick<ConditionM
 				needs.energy < NEED_CRITICAL_THRESHOLDS.energy ||
 				needs.thirst < NEED_CRITICAL_THRESHOLDS.thirst
 			);
+		},
+
+		IsSociallyCritical(): boolean {
+			return actor.get(NeedsComponent).state.social < NEED_CRITICAL_THRESHOLDS.social;
 		},
 
 		IsThirsty(): boolean {

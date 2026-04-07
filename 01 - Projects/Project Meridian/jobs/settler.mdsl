@@ -7,18 +7,16 @@ root [Job] {
             action [Harvest]
         }
 
-        /* Sell excess at market — but only if not hungry and above reserve */
+        /* Work at facility */
         sequence {
-            condition [AtLocation, "market"]
-            condition [HasFoodReserve]
-            flip { condition [IsHungry] }
-            action [SellAtMarket]
+            condition [AtJobFacility]
+            action [Work] while(IsWorkHours)
         }
-        /* Go to market to sell if carrying excess and not hungry */
+
+        /* Go to work */
         sequence {
-            condition [HasFoodReserve]
-            flip { condition [IsHungry] }
-            action [SeekMarket]
+            condition [HasJob]
+            action [SeekWork]
         }
 
         /* Buy tools from market if needed and affordable */
@@ -35,16 +33,18 @@ root [Job] {
             action [SeekMarket]
         }
 
-        /* Work at facility */
+        /* Sell excess at market — but only if not hungry and above reserve */
         sequence {
-            condition [AtJobFacility]
-            action [Work] while(IsWorkHours)
+            condition [AtLocation, "market"]
+            condition [HasFoodReserve]
+            flip { condition [IsHungry] }
+            action [SellAtMarket]
         }
-
-        /* Go to work */
+        /* Go to market to sell if carrying excess and not hungry */
         sequence {
-            condition [HasJob]
-            action [SeekWork]
+            condition [HasFoodReserve]
+            flip { condition [IsHungry] }
+            action [SeekMarket]
         }
 
         action [Wander]

@@ -15,7 +15,7 @@
 	],
 	"equipment": { "head": null, "body": null, "hands": null, "tool": null, "accessory": null },
 	"persona": "personas/settler.md",
-	"traits": [],
+	"traits": ["hardy"],
 	"wallet": { "gold": 50 },
 	"xp": 0,
 	"level": 1,
