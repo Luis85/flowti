@@ -159,13 +159,6 @@ const MoodConfigSchema = z.object({
 	rock_bottom_boost: z.number().default(10),
 });
 
-const MortalityConfigSchema = z.object({
-	starvation_collapse_ticks: z.number().int().default(50),
-	starvation_death_ticks: z.number().int().default(100),
-	despair_death_ticks: z.number().int().default(200),
-	quest_danger_mortality_chance: z.number().min(0).max(1).default(0.1),
-});
-
 const PerceptionConfigSchema = z.object({
 	base_multiplier: z.number().default(20),
 	night_multiplier: z.number().default(0.5),
@@ -268,10 +261,13 @@ const QuestsConfigSchema = z.object({
 	repair_ticks: z.number().default(30),
 	repair_fund_injection: z.number().default(100),
 	restock_threshold: z.number().default(3),
+	quest_repair_mood_impact: z.number().default(15),
+	quest_abandon_mood_impact: z.number().default(-10),
 });
 
 const BTConfigSchema = z.object({
 	quest_wage_skip_multiplier: z.number().default(1.5),
+	leisure_distance_divisor: z.number().default(100),
 });
 
 const AgentCreationConfigSchema = z.object({
@@ -316,7 +312,6 @@ export const GameConfigSchema = z.object({
 	memory: withDefaults(MemoryConfigSchema),
 	economy: withDefaults(EconomyConfigSchema),
 	mood: withDefaults(MoodConfigSchema),
-	mortality_config: withDefaults(MortalityConfigSchema),
 	perception: withDefaults(PerceptionConfigSchema),
 	day_night: withDefaults(DayNightConfigSchema),
 	gossip: withDefaults(GossipConfigSchema),

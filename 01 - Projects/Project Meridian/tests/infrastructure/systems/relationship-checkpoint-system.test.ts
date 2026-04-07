@@ -51,6 +51,7 @@ function createDeps(overrides: Partial<GameCoreDeps> = {}): GameCoreDeps {
 		performanceTracker: createPerformanceTracker(),
 		tickCount: 1,
 		writeFile: null,
+		dataRoot: 'test-data',
 		...overrides,
 	};
 }
@@ -105,7 +106,7 @@ describe('RelationshipCheckpointSystem', () => {
 		}
 
 		expect(writeFile).toHaveBeenCalledWith(
-			'03 - Resources/Graphs/relationships.canvas',
+			'test-data/Graphs/relationships.canvas',
 			expect.any(String),
 		);
 	});
@@ -142,7 +143,7 @@ describe('RelationshipCheckpointSystem', () => {
 		expect(events).toHaveLength(1);
 		expect(events[0]?.payload.agentCount).toBe(2);
 		expect(events[0]?.payload.edgeCount).toBe(1);
-		expect(events[0]?.payload.path).toBe('03 - Resources/Graphs/relationships.canvas');
+		expect(events[0]?.payload.path).toBe('test-data/Graphs/relationships.canvas');
 	});
 
 	it('handles RequestAgentRelationshipView from event history', () => {
@@ -165,7 +166,50 @@ describe('RelationshipCheckpointSystem', () => {
 
 		// Should write the per-agent view file (not the checkpoint — that needs 50 ticks)
 		expect(writeFile).toHaveBeenCalledWith(
-			'03 - Resources/Graphs/Alice-relationships.canvas',
+			'test-data/Graphs/Alice-relationships.canvas',
+			expect.any(String),
+		);
+	});
+
+	it('uses deps.dataRoot for graph checkpoint path', () => {
+		const writeFile = vi.fn<(path: string, content: string) => Promise<void>>().mockResolvedValue(undefined);
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('RelationshipGraphCheckpointed', (e) => { events.push(e); });
+
+		const [alice, bob] = makeAgentPair();
+		const system = createRelationshipCheckpointSystem(() => [alice, bob]);
+
+		for (let i = 1; i <= 50; i++) {
+			system.execute(createDeps({ writeFile, eventBus, tickCount: i, dataRoot: '01 - Projects/Project Meridian' }));
+		}
+
+		expect(writeFile).toHaveBeenCalledWith(
+			'01 - Projects/Project Meridian/Graphs/relationships.canvas',
+			expect.any(String),
+		);
+		expect(events[0]?.payload.path).toBe('01 - Projects/Project Meridian/Graphs/relationships.canvas');
+	});
+
+	it('uses deps.dataRoot for per-agent relationship view path', () => {
+		const eventBus = createEventBus();
+		const writeFile = vi.fn<(path: string, content: string) => Promise<void>>().mockResolvedValue(undefined);
+
+		const [alice, bob] = makeAgentPair();
+		const system = createRelationshipCheckpointSystem(() => [alice, bob]);
+
+		eventBus.emit({
+			type: 'RequestAgentRelationshipView',
+			tick: 1,
+			wallClock: Date.now(),
+			source: 'DirectorUI',
+			payload: { agentId: 'agent-alice' },
+		});
+
+		system.execute(createDeps({ eventBus, writeFile, tickCount: 1, dataRoot: '01 - Projects/Project Meridian' }));
+
+		expect(writeFile).toHaveBeenCalledWith(
+			'01 - Projects/Project Meridian/Graphs/Alice-relationships.canvas',
 			expect.any(String),
 		);
 	});

@@ -16,6 +16,8 @@ function createIntegrationDeps(
 		config: GameConfigSchema.parse({}),
 		performanceTracker: perfTracker,
 		tickCount: 0,
+		writeFile: null,
+		dataRoot: 'test-data',
 	};
 }
 

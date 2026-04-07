@@ -194,7 +194,7 @@ function writeDailyReport(
 	});
 
 	const dayStr = String(dayCount).padStart(DAY_PADDING_WIDTH, '0');
-	const path = `03 - Resources/Economy/day-${dayStr}.md`;
+	const path = `${deps.dataRoot}/Economy/day-${dayStr}.md`;
 
 	if (deps.writeFile !== null) {
 		const content = `${report.frontmatter}\n${report.body}`;

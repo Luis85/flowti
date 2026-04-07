@@ -63,4 +63,20 @@ describe('recalculateFacilityPrices', () => {
 		}));
 		expect(Number.isFinite(result.bread)).toBe(true);
 	});
+
+	it('falls back to 0 when demandRate is undefined for an item', () => {
+		const ctx = baseFacility({
+			items: [{ itemId: 'ale', baseValue: 5, category: 'comfort', stock: 10 }],
+			demandRates: {}, // ale is missing from demandRates
+		});
+		const prices = recalculateFacilityPrices(ctx);
+		expect(prices).toHaveProperty('ale');
+		expect(Number.isFinite(prices.ale)).toBe(true);
+	});
+
+	it('returns empty object for empty items array', () => {
+		const ctx = baseFacility({ items: [] });
+		const prices = recalculateFacilityPrices(ctx);
+		expect(prices).toEqual({});
+	});
 });

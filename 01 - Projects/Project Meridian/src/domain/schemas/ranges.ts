@@ -19,6 +19,8 @@ export const LLM_TEMPERATURE_RANGE = { min: 0, max: 2 } as const;
 /** Social intentionally excluded — not a survival need; discomfort only. */
 export const NEED_CRITICAL_THRESHOLDS = { hunger: 20, energy: 15, thirst: 20 } as const;
 
+export const PERSONAL_THRESHOLD_CAP = 90;
+
 export const TRAIT_CATEGORIES = ['survival', 'social', 'economic', 'work', 'special'] as const;
 export const TRAIT_ASSIGNABLE_BY = ['director', 'definition', 'milestone', 'inherited'] as const;
 export const GOAL_TYPES = ['aspirational', 'operational'] as const;

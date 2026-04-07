@@ -196,6 +196,7 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 			performanceTracker: createPerformanceTracker(),
 			tickCount: 0,
 			writeFile: vi.fn(),
+			dataRoot: 'test-data',
 		};
 
 		// Track events via listener (eventBus.history() is capped at 500 entries)

@@ -71,6 +71,7 @@ function createDeps(eventBus: ReturnType<typeof createEventBus>): GameCoreDeps {
 		performanceTracker: createPerformanceTracker(),
 		tickCount: 60,
 		writeFile: null,
+		dataRoot: 'test-data',
 	};
 }
 

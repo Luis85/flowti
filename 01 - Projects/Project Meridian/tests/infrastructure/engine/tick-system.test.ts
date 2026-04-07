@@ -20,6 +20,8 @@ function createMockDeps(): GameCoreDeps {
 		config: GameConfigSchema.parse({ tick_interval_ms: 500 }),
 		performanceTracker: { enabled: false, setEnabled() {}, startSystem() {}, endSystem() {}, completeTick: () => null, history: () => [], averages: () => new Map() },
 		tickCount: 0,
+		writeFile: null,
+		dataRoot: 'test-data',
 	};
 }
 

@@ -64,6 +64,7 @@ function createDeps(eventBus: ReturnType<typeof createEventBus>, writeFile: Game
 		performanceTracker: createPerformanceTracker(),
 		tickCount: 0,
 		writeFile,
+		dataRoot: 'test-data',
 	};
 }
 

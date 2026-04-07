@@ -21,6 +21,7 @@ function createDeps(eventBus = createEventBus(), tickCount = 480): GameCoreDeps 
 		performanceTracker: createPerformanceTracker(),
 		tickCount,
 		writeFile: null,
+		dataRoot: 'test-data',
 	};
 }
 

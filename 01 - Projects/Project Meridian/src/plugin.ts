@@ -149,6 +149,7 @@ export class MeridianPlugin extends Plugin {
 				performanceTracker: this.performanceTracker,
 				tickCount: 0,
 				writeFile: null,
+				dataRoot: '',
 			};
 		}
 

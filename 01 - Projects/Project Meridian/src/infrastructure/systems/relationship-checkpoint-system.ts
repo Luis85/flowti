@@ -8,8 +8,6 @@ import {
 	type RelationshipGraphInput,
 } from '../../domain/systems/relationship-canvas.js';
 
-const GRAPH_PATH = '03 - Resources/Graphs/relationships.canvas';
-
 function collectGraphInput(agentList: AgentActor[]): RelationshipGraphInput {
 	const agents = agentList.map(a => ({
 		id: a.agentId,
@@ -58,13 +56,14 @@ export function createRelationshipCheckpointSystem(
 				ticksSinceCheckpoint = 0;
 
 				const content = serializeRelationshipGraph(input);
+				const graphPath = `${deps.dataRoot}/Graphs/relationships.canvas`;
 
 				// Count edges for the event payload
 				const parsed = JSON.parse(content) as { edges: unknown[] };
 				const edgeCount = parsed.edges.length;
 
 				if (deps.writeFile !== null) {
-					void deps.writeFile(GRAPH_PATH, content);
+					void deps.writeFile(graphPath, content);
 				}
 
 				deps.eventBus.emit({
@@ -76,7 +75,7 @@ export function createRelationshipCheckpointSystem(
 						tickCount: deps.tickCount,
 						agentCount: agentList.length,
 						edgeCount,
-						path: GRAPH_PATH,
+						path: graphPath,
 					},
 				});
 			}
@@ -88,7 +87,7 @@ export function createRelationshipCheckpointSystem(
 					if (agent === undefined) continue;
 
 					const viewContent = serializeAgentRelationshipView(requestedAgentId, input);
-					const viewPath = `03 - Resources/Graphs/${agent.agentName}-relationships.canvas`;
+					const viewPath = `${deps.dataRoot}/Graphs/${agent.agentName}-relationships.canvas`;
 
 					if (deps.writeFile !== null) {
 						void deps.writeFile(viewPath, viewContent);
