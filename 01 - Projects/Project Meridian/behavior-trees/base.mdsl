@@ -60,6 +60,18 @@ root {
             }
         }
 
+        /* P0.5: Social emergency — extreme isolation */
+        sequence {
+            condition [IsSociallyCritical]
+            selector {
+                sequence {
+                    condition [NearAgentClose]
+                    action [Talk]
+                }
+                action [SeekSocial]
+            }
+        }
+
         /* P1: Claim a job if unemployed and facility available */
         sequence {
             condition [IsWorkHours]
