@@ -207,6 +207,29 @@ describe('QuestEvaluationSystem', () => {
 		expect(board.state.quests[0]?.repairProgress).toBe(0);
 	});
 
+	it('removes completed quests immediately without waiting for expiry', () => {
+		const completed = makeQuest({
+			id: 'q-done-1',
+			state: 'completed',
+			createdTick: 470, // recent — expiry has NOT passed (470 + 960 = 1430 >> 480)
+			expiryTicks: 960,
+		});
+		const fresh = makeQuest({
+			id: 'q-fresh-1',
+			state: 'open',
+			createdTick: 400,
+			expiryTicks: 960,
+		});
+		const worldEntity = createWorldEntity([completed, fresh]);
+		const system = createQuestEvaluationSystem(() => worldEntity, () => []);
+
+		system.execute(createDeps(createEventBus(), 480));
+
+		const board = worldEntity.get(QuestBoardComponent);
+		expect(board.state.quests.length).toBe(1);
+		expect(board.state.quests[0]?.id).toBe('q-fresh-1');
+	});
+
 	it('has correct system name and priority', () => {
 		const system = createQuestEvaluationSystem(() => new Actor(), () => []);
 		expect(system.name).toBe('QuestEvaluationSystem');
