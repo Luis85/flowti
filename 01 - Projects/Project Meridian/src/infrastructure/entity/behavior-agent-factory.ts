@@ -16,6 +16,7 @@ import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import { createWorkingMemory } from './bt-working-memory.js';
 import { createConditions } from './bt-conditions.js';
 import { createActions } from './bt-actions.js';
+import { PERSONAL_THRESHOLD_CAP } from '../../domain/schemas/ranges.js';
 
 
 export interface BehaviorAgentDeps {
@@ -48,14 +49,13 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	const duskDuration = config.day_night.dusk.end - config.day_night.dusk.start + 1;
 	const personalSleepOffset = Math.abs(staggerSeed * 7) % Math.floor(duskDuration / 2);
 
-	// Personal thresholds from GURPS attributes (clamped to 90 — must stay below need max 100)
+	// Personal thresholds from GURPS attributes (clamped to PERSONAL_THRESHOLD_CAP — must stay below need max 100)
 	const attrs = actor.get(AttributesComponent).state;
 	const aptitudeBaseline = config.jobs.aptitude_baseline;
-	const THRESHOLD_CAP = 90;
 	memory.personalThresholds = {
-		hunger: Math.min(config.needs.hunger_threshold * (aptitudeBaseline / attrs.HT), THRESHOLD_CAP),
-		energy: Math.min(config.needs.energy_threshold * (aptitudeBaseline / attrs.IQ), THRESHOLD_CAP),
-		thirst: Math.min(config.needs.thirst_threshold * (aptitudeBaseline / attrs.HT), THRESHOLD_CAP),
+		hunger: Math.min(config.needs.hunger_threshold * (aptitudeBaseline / attrs.HT), PERSONAL_THRESHOLD_CAP),
+		energy: Math.min(config.needs.energy_threshold * (aptitudeBaseline / attrs.IQ), PERSONAL_THRESHOLD_CAP),
+		thirst: Math.min(config.needs.thirst_threshold * (aptitudeBaseline / attrs.HT), PERSONAL_THRESHOLD_CAP),
 	};
 
 	// ST-scaled commitment duration multiplier

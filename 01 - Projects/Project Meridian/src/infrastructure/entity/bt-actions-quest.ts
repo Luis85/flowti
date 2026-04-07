@@ -160,7 +160,7 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods, 'Cla
 					participants: [quest.facilityId],
 					outcome: 'positive' as const,
 					significance: 8,
-					mood_impact: 15,
+					mood_impact: config.quests.quest_repair_mood_impact,
 				}],
 			};
 			mem.markDirty();
@@ -196,7 +196,7 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods, 'Cla
 					participants: [quest.facilityId],
 					outcome: 'negative' as const,
 					significance: 5,
-					mood_impact: -10,
+					mood_impact: config.quests.quest_abandon_mood_impact,
 				}],
 			};
 			abandonMem.markDirty();

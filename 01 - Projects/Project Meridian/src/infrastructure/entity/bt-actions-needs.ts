@@ -90,7 +90,7 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 			const inv = actor.get(InventoryComponent);
 			const waterskin = inv.state.items.find(i => i.item_id === 'waterskin');
 			if (waterskin === undefined) return FAILED;
-			const maxCharges = 3; // Hardcoded until itemRegistry is available in BehaviorAgentDeps
+			const maxCharges = ctx.deps.config.items['waterskin']?.maxCharges ?? 3;
 			const newItems = inv.state.items.map(i => {
 				if (i.item_id !== 'waterskin') return { ...i };
 				return { ...i, charges: maxCharges };

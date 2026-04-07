@@ -261,10 +261,13 @@ const QuestsConfigSchema = z.object({
 	repair_ticks: z.number().default(30),
 	repair_fund_injection: z.number().default(100),
 	restock_threshold: z.number().default(3),
+	quest_repair_mood_impact: z.number().default(15),
+	quest_abandon_mood_impact: z.number().default(-10),
 });
 
 const BTConfigSchema = z.object({
 	quest_wage_skip_multiplier: z.number().default(1.5),
+	leisure_distance_divisor: z.number().default(100),
 });
 
 const AgentCreationConfigSchema = z.object({

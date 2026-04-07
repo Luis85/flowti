@@ -50,7 +50,7 @@ export function createLeisureActions(ctx: ActionContext): Pick<ActionMethods, 'C
 				}
 
 				const dist = Math.hypot(loc.position.x - actor.pos.x, loc.position.y - actor.pos.y);
-				const distPenalty = dist / 100;
+				const distPenalty = dist / deps.config.bt.leisure_distance_divisor;
 
 				candidates.push({ id: loc.id, score: needWeight + attrBonus - distPenalty });
 			}
