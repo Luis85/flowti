@@ -1,5 +1,16 @@
 root [Job] {
     selector {
+        /* Work at workshop */
+        sequence {
+            condition [AtJobFacility]
+            action [Work] while(IsWorkHours)
+        }
+        /* Go to work */
+        sequence {
+            condition [HasJob]
+            action [SeekWork]
+        }
+
         /* Sell goods at market if carrying any and not hungry */
         sequence {
             condition [AtLocation, "market"]
@@ -12,17 +23,6 @@ root [Job] {
             condition [HasTradeGoods]
             flip { condition [IsHungry] }
             action [SeekMarket]
-        }
-
-        /* Work at workshop */
-        sequence {
-            condition [AtJobFacility]
-            action [Work] while(IsWorkHours)
-        }
-        /* Go to work */
-        sequence {
-            condition [HasJob]
-            action [SeekWork]
         }
 
         action [Wander]
