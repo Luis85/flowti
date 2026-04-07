@@ -6,6 +6,7 @@ import { FacilityComponent } from '../../../src/infrastructure/components/facili
 import { EconomyComponent } from '../../../src/infrastructure/components/economy-component.js';
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
 import { InventoryComponent } from '../../../src/infrastructure/components/inventory-component.js';
+import { RelationshipComponent } from '../../../src/infrastructure/components/relationship-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -13,6 +14,7 @@ import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
 import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
+import type { Item } from '../../../src/domain/schemas/item-schema.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -364,5 +366,186 @@ describe('TradeSystem', () => {
 
 		const facility = bakeryActor.get(FacilityComponent);
 		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 5 });
+	});
+
+	it('skips agents whose btAction is not buy', () => {
+		const agent = new AgentActor(createTestAgentData('agent-idle', 100, 100), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'idle' });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'food', quantity: 5 }],
+			fund: 100,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+		const world = createWorldEntity();
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => new Map(),
+		);
+		system.execute(createDeps());
+
+		// Wallet and stock unchanged — agent was skipped entirely
+		const wallet = agent.get(WalletComponent);
+		expect(wallet.state.gold).toBe(50);
+
+		const facility = bakeryActor.get(FacilityComponent);
+		expect(facility.state.stock).toContainEqual({ item_id: 'food', quantity: 5 });
+	});
+
+	it('falls back to config food_price when item not in registry and no currentPrices', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('PurchaseComplete', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-fallback', 100, 100, { wallet: { gold: 200 } }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy' });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'food', quantity: 5 }],
+			fund: 50,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+			// No currentPrices set
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+		const world = createWorldEntity();
+		const deps = createDeps(eventBus);
+		const configFoodPrice = deps.config.economy.food_price;
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => new Map(), // empty item registry — forces food_price fallback
+		);
+		system.execute(deps);
+
+		expect(events.length).toBe(1);
+		expect(events[0]?.payload.price).toBe(configFoodPrice);
+	});
+
+	it('emits GoldFlowed event on successful trade', () => {
+		const eventBus = createEventBus();
+		const goldFlows: GameEvent[] = [];
+		eventBus.on('GoldFlowed', (e) => { goldFlows.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-gold', 100, 100), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy' });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'food', quantity: 5 }],
+			fund: 100,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+		const world = createWorldEntity();
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => new Map(),
+		);
+		system.execute(createDeps(eventBus));
+
+		expect(goldFlows.length).toBe(1);
+		expect(goldFlows[0]?.payload.category).toBe('transfer');
+		expect(goldFlows[0]?.payload.subcategory).toBe('purchase');
+		expect(goldFlows[0]?.payload.fromEntity).toBe('agent-gold');
+		expect(goldFlows[0]?.payload.toEntity).toBe('loc-bakery');
+	});
+
+	it('creates relationship between buyer and facility worker', () => {
+		const agent = new AgentActor(createTestAgentData('agent-rel', 100, 100), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy' });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'food', quantity: 5 }],
+			fund: 100,
+			workProgress: 0,
+			status: 'idle',
+			workerId: 'worker-1', // facility has a worker
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+		const world = createWorldEntity();
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => new Map(),
+		);
+		system.execute(createDeps());
+
+		const relComp = agent.get(RelationshipComponent);
+		const workerRel = relComp.state.entries.find(e => e.agentId === 'worker-1');
+		expect(workerRel).toBeDefined();
+		expect(workerRel?.tags).toContain('traded_with');
+		expect(workerRel?.familiarity).toBeGreaterThan(0);
+	});
+
+	it('uses item registry baseValue when currentPrices not set', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('PurchaseComplete', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-reg', 100, 100, { wallet: { gold: 200 } }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy' });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'food', quantity: 5 }],
+			fund: 100,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+			// No currentPrices
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+		const world = createWorldEntity();
+
+		const itemReg = new Map<string, Item>([
+			['food', { id: 'food', name: 'Food', baseValue: 7, category: 'subsistence' } as Item],
+		]);
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => itemReg,
+		);
+		system.execute(createDeps(eventBus));
+
+		expect(events.length).toBe(1);
+		// Price should use item registry baseValue (7) since no currentPrices
+		expect(events[0]?.payload.price).toBe(7);
 	});
 });
