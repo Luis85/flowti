@@ -147,4 +147,42 @@ describe('planSupplyRoute', () => {
 		const result = planSupplyRoute(['fac-farm', 'fac-mill'], facilityData, 'region-a', new Map());
 		expect(result).toBeNull();
 	});
+
+	it('returns null when regions are disconnected', () => {
+		// regionGraph has two isolated islands: region-a and region-z (no edges between them)
+		const regionGraph = new Map<string, string[]>([
+			['region-a', []],
+			['region-z', []],
+		]);
+		const facilityData = new Map<string, FacilityData>([
+			['fac-farm', { id: 'fac-farm', output: { item_id: 'wheat' }, region: 'region-z' }],
+			['fac-mill', { id: 'fac-mill', input: { item_id: 'wheat' }, region: 'region-a' }],
+		]);
+		const result = planSupplyRoute(
+			['fac-farm', 'fac-mill'],
+			facilityData,
+			'region-a',
+			regionGraph,
+		);
+		// Source is in disconnected region — hops = Infinity, so no route chosen
+		expect(result).toBeNull();
+	});
+
+	it('skips facilities missing from facilityData without crashing', () => {
+		const facilityData = new Map<string, FacilityData>([
+			['fac-farm', { id: 'fac-farm', output: { item_id: 'wheat' }, region: 'region-a' }],
+			['fac-mill', { id: 'fac-mill', input: { item_id: 'wheat' }, region: 'region-a' }],
+		]);
+		// 'unknown-loc' is in knownLocations but not in facilityData
+		const result = planSupplyRoute(
+			['unknown-loc', 'fac-farm', 'fac-mill'],
+			facilityData,
+			'region-a',
+			new Map(),
+		);
+		// Should still find the valid route between fac-farm and fac-mill
+		expect(result).not.toBeNull();
+		expect(result!.sourceId).toBe('fac-farm');
+		expect(result!.destinationId).toBe('fac-mill');
+	});
 });
