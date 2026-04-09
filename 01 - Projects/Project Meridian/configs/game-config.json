@@ -14,7 +14,7 @@
 		"social_threshold": 40,
 		"thirst_threshold": 40,
 		"food_reserve": 3,
-		"recovery_hysteresis": 50,
+		"recovery_hysteresis": 30,
 		"activity_costs": {
 			"work":           { "hunger": 2.5, "thirst": 2.0, "energy": 2.0 },
 			"harvest":        { "hunger": 1.8, "thirst": 1.5, "energy": 1.5 },
