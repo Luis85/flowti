@@ -277,6 +277,42 @@ describe('LeisureSystem', () => {
 		expect(completeEvents[0]?.payload.locationId).toBe('loc-tavern');
 	});
 
+	it('deducts gold from agent and credits facility on first leisure tick at paid location', () => {
+		const eventBus = createEventBus();
+		const goldEvents: GameEvent[] = [];
+		eventBus.on('GoldFlowed', (e) => { goldEvents.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('agent-pay', 300, 200), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'leisure', leisureTarget: 'loc-tavern' });
+		const tavern = createTavernLocation();
+		const worldEntity = createWorldEntity();
+
+		// Create facility actor for the tavern
+		const tavernActor = new Actor();
+		tavernActor.addComponent(new FacilityComponent({
+			stock: [], fund: 10, workProgress: 0, status: 'idle', workerId: null,
+		}));
+		const locationActors = new Map<string, Actor>([['loc-tavern', tavernActor]]);
+
+		const system = createLeisureSystem(
+			() => [agent], () => [tavern], () => worldEntity, () => locationActors,
+		);
+		system.execute(createDeps(eventBus));
+
+		// Agent wallet decreased by tavern cost (3)
+		const wallet = agent.get(WalletComponent);
+		expect(wallet.state.gold).toBe(47);
+
+		// Facility fund increased by tavern cost (3)
+		const facility = tavernActor.get(FacilityComponent);
+		expect(facility.state.fund).toBe(13);
+
+		// GoldFlowed event emitted with correct amount
+		expect(goldEvents).toHaveLength(1);
+		expect(goldEvents[0]?.payload.amount).toBe(3);
+		expect(goldEvents[0]?.payload.subcategory).toBe('leisure');
+	});
+
 	it('skips agents not doing leisure', () => {
 		const agent = new AgentActor(createTestAgentData('agent-1', 300, 200), defaultMoodConfig);
 		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'work', leisureTarget: null });

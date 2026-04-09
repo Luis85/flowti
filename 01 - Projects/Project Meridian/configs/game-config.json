@@ -124,6 +124,9 @@
 		"memory_window_ticks": 960,
 		"memory_saturation_count": 5
 	},
+	"memory": {
+		"min_lifespan_ticks": 480
+	},
 	"rest_day_interval": 7,
 	"leisure_mood_threshold": -20,
 	"sleep_debt_max": 100,

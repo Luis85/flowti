@@ -7,6 +7,7 @@ import { EconomyComponent } from '../../../src/infrastructure/components/economy
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
 import { InventoryComponent } from '../../../src/infrastructure/components/inventory-component.js';
 import { RelationshipComponent } from '../../../src/infrastructure/components/relationship-component.js';
+import { MemoryComponent } from '../../../src/infrastructure/components/memory-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { createPerformanceTracker } from '../../../src/infrastructure/performance/performance-tracker.js';
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
@@ -507,6 +508,41 @@ describe('TradeSystem', () => {
 		expect(workerRel).toBeDefined();
 		expect(workerRel?.tags).toContain('traded_with');
 		expect(workerRel?.familiarity).toBeGreaterThan(0);
+	});
+
+	it('creates a positive memory for the buyer on successful purchase', () => {
+		const agent = new AgentActor(createTestAgentData('agent-mem', 100, 100), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy' });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({
+			stock: [{ item_id: 'food', quantity: 5 }],
+			fund: 100,
+			workProgress: 0,
+			status: 'idle',
+			workerId: null,
+		}));
+
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+		const world = createWorldEntity();
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => new Map(),
+		);
+		system.execute(createDeps());
+
+		const memComp = agent.get(MemoryComponent);
+		const purchaseMemory = memComp.state.entries.find(e => e.type.includes('purchase'));
+		expect(purchaseMemory).toBeDefined();
+		expect(purchaseMemory?.outcome).toBe('positive');
+		expect(purchaseMemory?.significance).toBe(3);
+		expect(purchaseMemory?.mood_impact).toBe(2);
+		expect(purchaseMemory?.participants).toContain('loc-bakery');
 	});
 
 	it('uses item registry baseValue when currentPrices not set', () => {
