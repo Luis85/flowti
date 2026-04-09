@@ -93,6 +93,7 @@ const EconomyConfigSchema = z.object({
 	max_active_welfare_quests: z.number().int().default(3),
 	treasury_start_sandbox: z.number().default(1000),
 	treasury_regen_per_agent_per_day: z.number().default(25),
+	facility_maintenance_per_day: z.number().default(5),
 	circulation_floor_per_agent: z.number().default(50),
 	loan_interest_per_day: z.number().default(0.01),
 	food_price: z.number().default(3),

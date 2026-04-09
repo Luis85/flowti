@@ -14,7 +14,7 @@
 		"social_threshold": 40,
 		"thirst_threshold": 40,
 		"food_reserve": 3,
-		"overload_food_threshold": 10,
+		"overload_food_threshold": 5,
 		"recovery_hysteresis": 30,
 		"activity_costs": {
 			"work":           { "hunger": 2.5, "thirst": 2.0, "energy": 2.0 },
@@ -63,7 +63,7 @@
 		"facility_start_fund": 200,
 		"food_price": 5,
 		"rest_price": 1,
-		"treasury_regen_per_agent_per_day": 25,
+		"treasury_regen_per_agent_per_day": 15,
 		"reservation_urgency_max": 3,
 		"reservation_stock_factor": 0.5,
 		"reservation_budget_cap": 0.3,
@@ -75,7 +75,8 @@
 		"welfare_reward_min": 15,
 		"overload_goods_threshold": 15,
 		"tools_output_multiplier": 2,
-		"equipment_decay_reduction": 0.2
+		"equipment_decay_reduction": 0.2,
+		"facility_maintenance_per_day": 5
 	},
 	"jobs": {
 		"aptitude_baseline": 12,

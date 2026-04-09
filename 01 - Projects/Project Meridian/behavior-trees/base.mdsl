@@ -8,10 +8,16 @@ root {
             action [ContinueCommitment]
         }
 
-        /* P0: Critical survival — any need at dangerous levels */
+        /* P0: Critical survival — most dangerous need first */
         sequence {
             condition [NeedsCritical]
             selector {
+                /* Rest if exhausted — energy depletion is most dangerous */
+                sequence {
+                    condition [IsExhausted]
+                    action [SeekRest]
+                    action [Rest] while(IsExhausted)
+                }
                 /* Drink if thirsty and have water */
                 sequence {
                     condition [IsThirsty]
@@ -31,31 +37,27 @@ root {
                     condition [HasFood]
                     action [Eat] while(IsHungry)
                 }
-                /* Buy food if hungry */
+                /* Buy food if hungry and available at current location */
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
                     condition [FacilityHasStock, "food"]
                     action [Buy]
                 }
-                /* Seek food to buy */
+                /* Seek known food source */
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
-                    selector {
-                        sequence {
-                            condition [KnowsFoodSource]
-                            action [SeekBestFoodSource] while(IsHungry)
-                        }
-                        action [SeekFood] while(IsHungry)
-                    }
+                    condition [KnowsFoodSource]
+                    action [SeekBestFoodSource]
                     action [Buy]
                 }
-                /* Rest if exhausted */
+                /* Fallback: seek any food source if desperate */
                 sequence {
-                    condition [IsExhausted]
-                    action [SeekRest]
-                    action [Rest] while(IsExhausted)
+                    condition [IsHungry]
+                    condition [CanAffordFood]
+                    action [SeekFood]
+                    action [Buy]
                 }
             }
         }
