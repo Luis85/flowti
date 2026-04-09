@@ -98,7 +98,6 @@ root {
         sequence {
             condition [IsDusk]
             flip { condition [IsRecovering] }
-            flip { condition [ShouldSleep] }
             selector {
                 /* At market — sell */
                 sequence {
