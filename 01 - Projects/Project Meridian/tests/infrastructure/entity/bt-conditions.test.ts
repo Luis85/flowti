@@ -816,6 +816,29 @@ describe('bt-conditions', () => {
 		});
 	});
 
+	describe('IsDusk', () => {
+		it('returns true during dusk phase', () => {
+			const world = createWorldEntity('dusk');
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { worldEntity: () => world }));
+			expect(conditions.IsDusk()).toBe(true);
+		});
+
+		it('returns false during day phase', () => {
+			const world = createWorldEntity('day');
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { worldEntity: () => world }));
+			expect(conditions.IsDusk()).toBe(false);
+		});
+
+		it('returns false during night phase', () => {
+			const world = createWorldEntity('night');
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { worldEntity: () => world }));
+			expect(conditions.IsDusk()).toBe(false);
+		});
+	});
+
 	describe('IsWorkHours', () => {
 		it('returns true when phase is day regardless of offset', () => {
 			const world = createWorldEntity('day');

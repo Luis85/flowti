@@ -33,20 +33,6 @@ root [Job] {
             action [SeekMarket]
         }
 
-        /* Sell excess at market — but only if not hungry and above reserve */
-        sequence {
-            condition [AtLocation, "market"]
-            condition [HasFoodReserve]
-            flip { condition [IsHungry] }
-            action [SellAtMarket]
-        }
-        /* Go to market to sell if carrying excess and not hungry */
-        sequence {
-            condition [HasFoodReserve]
-            flip { condition [IsHungry] }
-            action [SeekMarket]
-        }
-
         action [Wander]
     }
 }

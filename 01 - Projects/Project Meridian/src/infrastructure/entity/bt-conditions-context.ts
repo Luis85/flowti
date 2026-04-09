@@ -6,7 +6,7 @@ import { MoodComponent } from '../components/mood-component.js';
 type ContextKeys =
 	| 'NearAgent' | 'NearAgentClose' | 'AtLocation' | 'NearLocation'
 	| 'IsAtLeisure' | 'IsDaytime' | 'IsNighttime' | 'IsWorkHours'
-	| 'ShouldSleep' | 'IsRestDay' | 'IsMoodLow';
+	| 'ShouldSleep' | 'IsRestDay' | 'IsMoodLow' | 'IsDusk';
 
 export function createContextConditions(ctx: ConditionContext): Pick<ConditionMethods, ContextKeys> {
 	const { actor, deps, memory, resolveNearbyAgents, resolveNearbyLocations, getAtLocationData, wakeOffset, personalSleepOffset } = ctx;
@@ -36,6 +36,10 @@ export function createContextConditions(ctx: ConditionContext): Pick<ConditionMe
 
 		IsDaytime(): boolean {
 			return worldEntity().get(TimeComponent).state.phase === 'day';
+		},
+
+		IsDusk(): boolean {
+			return worldEntity().get(TimeComponent).state.phase === 'dusk';
 		},
 
 		IsNighttime(): boolean {

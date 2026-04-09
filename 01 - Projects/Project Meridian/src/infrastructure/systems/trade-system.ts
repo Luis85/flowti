@@ -11,6 +11,7 @@ import { InventoryComponent } from '../components/inventory-component.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import { RelationshipComponent } from '../components/relationship-component.js';
+import { MemoryComponent } from '../components/memory-component.js';
 import type { FacilityState } from '../../domain/core/component-data.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 
@@ -137,6 +138,22 @@ function applySuccessfulTrade(
 			toEntity: target.location.id,
 		},
 	});
+
+	// Create purchase memory for mood pipeline
+	const memComp = agent.get(MemoryComponent);
+	memComp.state = {
+		...memComp.state,
+		entries: [...memComp.state.entries, {
+			tick: deps.tickCount,
+			type: `purchase_${target.itemId}`,
+			description: `Bought ${target.itemId} for ${foodPrice}g`,
+			participants: [target.location.id],
+			outcome: 'positive' as const,
+			significance: 3,
+			mood_impact: 2,
+		}],
+	};
+	memComp.markDirty();
 
 	// Record price observation — agent learns current price
 	agent.behaviorAgent.recordPriceObservation(

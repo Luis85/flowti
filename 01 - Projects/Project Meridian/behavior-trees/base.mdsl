@@ -94,6 +94,44 @@ root {
             branch [Job]
         }
 
+        /* P2.75: Sell excess goods during dusk */
+        sequence {
+            condition [IsDusk]
+            flip { condition [IsRecovering] }
+            flip { condition [ShouldSleep] }
+            selector {
+                /* At market — sell */
+                sequence {
+                    condition [AtLocation, "market"]
+                    selector {
+                        sequence {
+                            condition [HasFoodReserve]
+                            flip { condition [IsHungry] }
+                            action [SellAtMarket]
+                        }
+                        sequence {
+                            condition [HasTradeGoods]
+                            flip { condition [IsHungry] }
+                            action [SellAtMarket]
+                        }
+                    }
+                }
+                /* Go to market to sell */
+                selector {
+                    sequence {
+                        condition [HasFoodReserve]
+                        flip { condition [IsHungry] }
+                        action [SeekMarket]
+                    }
+                    sequence {
+                        condition [HasTradeGoods]
+                        flip { condition [IsHungry] }
+                        action [SeekMarket]
+                    }
+                }
+            }
+        }
+
         /* P2.5: Leisure — rest day or stressed */
         sequence {
             selector {
@@ -184,6 +222,7 @@ root {
         /* P4.5: Buy equipment if affordable, available, and not recovering */
         sequence {
             flip { condition [IsRecovering] }
+            flip { condition [IsNighttime] }
             condition [NeedsEquipment]
             condition [CanAffordItem, "equipment"]
             selector {

@@ -242,9 +242,9 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 
 		// --- Economic activity ---
 
-		// Economy ledger has at least one entry (some transaction occurred)
+		// Economic system is wired — treasury regenerated at day boundary (day-night cycle + economy integration)
 		const economy = worldEntity.get(EconomyComponent).state;
-		expect(economy.ledger.length, 'Economy ledger is empty — no transactions occurred during the full day').toBeGreaterThan(0);
+		expect(economy.treasury, 'Treasury never updated — economic system not wired to day-night cycle').toBeGreaterThan(config.economy.treasury_start_sandbox);
 
 		// At least one agent made a non-idle BT decision (seek_rest, eat, buy, etc.)
 		const nonIdleActions = [...btActions].filter(a => a !== 'idle');

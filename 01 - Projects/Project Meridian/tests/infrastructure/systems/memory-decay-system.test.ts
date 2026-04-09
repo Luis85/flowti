@@ -72,6 +72,23 @@ describe('MemoryDecaySystem', () => {
 		expect(events[0]?.payload.agentId).toBe('agent-test');
 	});
 
+	it('significance-5 memory survives at least one full game day (480 ticks)', () => {
+		const memory = [{
+			tick: 0, type: 'quest_completed', description: 'completed repair',
+			participants: [], outcome: 'positive' as const, significance: 5, mood_impact: 10,
+		}];
+		const agent = new AgentActor(createTestAgent(memory), defaultMoodConfig);
+		const system = createMemoryDecaySystem(() => [agent]);
+		const deps = createDeps();
+		deps.config.memory.min_lifespan_ticks = 480;
+
+		system.execute({ ...deps, tickCount: 480 });
+
+		const memComp = agent.get(MemoryComponent);
+		expect(memComp.state.entries.length).toBe(1);
+		expect(memComp.state.entries[0]!.significance).toBeGreaterThanOrEqual(1);
+	});
+
 	it('does not emit when no entries change', () => {
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];
