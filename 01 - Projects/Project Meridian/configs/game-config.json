@@ -63,7 +63,7 @@
 		"facility_start_fund": 200,
 		"food_price": 5,
 		"rest_price": 1,
-		"treasury_regen_per_agent_per_day": 15,
+		"treasury_regen_per_agent_per_day": 20,
 		"reservation_urgency_max": 3,
 		"reservation_stock_factor": 0.5,
 		"reservation_budget_cap": 0.3,
