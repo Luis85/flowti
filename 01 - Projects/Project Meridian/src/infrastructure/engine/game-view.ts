@@ -36,6 +36,7 @@ import { createWelfareSystem } from '../systems/welfare-system.js';
 import { createStipendSystem } from '../systems/stipend-system.js';
 import { createSubsidySystem } from '../systems/subsidy-system.js';
 import { createEquipmentDecaySystem } from '../systems/equipment-decay-system.js';
+import { createFacilityMaintenanceSystem } from '../systems/facility-maintenance-system.js';
 import { createDailyReportSystem } from '../systems/daily-report-system.js';
 import { createAbandonmentSystem } from '../systems/abandonment-system.js';
 import { createQuestEvaluationSystem } from '../systems/quest-evaluation-system.js';
@@ -272,6 +273,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createStipendSystem(getWorldEntity, getAgents));
 		tickRunner.register(createSubsidySystem(getWorldEntity, getLocationActors, getLocations));
 		tickRunner.register(createEquipmentDecaySystem(getWorldEntity, getAgents));
+		tickRunner.register(createFacilityMaintenanceSystem(getWorldEntity, getLocationActors));
 		tickRunner.register(createDailyReportSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
 		tickRunner.register(createNeedsDecaySystem(getAgents));
 		tickRunner.register(createMoodSystem(getAgents));
