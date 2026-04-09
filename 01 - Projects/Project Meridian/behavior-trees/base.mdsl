@@ -87,14 +87,7 @@ root {
             action [SeekJobFacility]
         }
 
-        /* P2: Role-specific behavior (work hours: dawn + day, skip if recovering) */
-        sequence {
-            condition [IsWorkHours]
-            flip { condition [IsRecovering] }
-            branch [Job]
-        }
-
-        /* P2.75: Sell excess goods when overloaded */
+        /* P1.9: Sell excess goods when overloaded — takes priority over work */
         sequence {
             condition [IsOverloaded]
             flip { condition [IsNighttime] }
@@ -106,6 +99,13 @@ root {
                 }
                 action [SeekMarket]
             }
+        }
+
+        /* P2: Role-specific behavior (work hours: dawn + day, skip if recovering) */
+        sequence {
+            condition [IsWorkHours]
+            flip { condition [IsRecovering] }
+            branch [Job]
         }
 
         /* P2.5: Leisure — rest day or stressed */
