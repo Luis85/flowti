@@ -29,18 +29,20 @@ Additionally, two systems appear non-functional:
 
 **Files:**
 - Modify: `behavior-trees/base.mdsl` — add P2.75 block
-- Modify: `jobs/settler.mdsl` — remove sell branches (lines 6-8 sell at market, lines 9-12 seek market to sell)
-- Modify: `jobs/craftsman.mdsl` — remove sell branches (lines 3-8 sell at market, lines 9-13 seek market to sell)
+- Modify: `jobs/settler.mdsl` — remove sell branches
+- Modify: `jobs/craftsman.mdsl` — remove sell branches
+- Create: new `IsDusk` condition in `bt-conditions-context.ts` (+ barrel + interface)
 
 **Design:**
 
 Add a new priority level P2.75 in `base.mdsl`, between P2 (work) and P2.5 (leisure):
 
 ```
-/* P2.75: Sell excess goods during off-hours */
+/* P2.75: Sell excess goods during dusk */
 sequence {
-    flip { condition [IsWorkHours] }
-    flip { condition [IsNighttime] }
+    condition [IsDusk]
+    flip { condition [IsRecovering] }
+    flip { condition [ShouldSleep] }
     selector {
         /* At market — sell */
         sequence {
@@ -75,11 +77,25 @@ sequence {
 }
 ```
 
+**Why `IsDusk` instead of `!IsWorkHours AND !IsNighttime`:** The existing `IsNighttime` condition returns true for BOTH dusk AND night (`phase === 'night' || phase === 'dusk'`). Combined with `!IsWorkHours`, the two guards are mutually exclusive across all four phases — P2.75 would never fire. A dedicated `IsDusk` condition (`phase === 'dusk'`) targets exactly the sell window.
+
+**New condition — `IsDusk`:**
+```typescript
+// In bt-conditions-context.ts
+IsDusk(): boolean {
+    return worldEntity().get(TimeComponent).state.phase === 'dusk';
+}
+```
+Add `IsDusk(): boolean;` to `ConditionMethods` interface in `bt-conditions.ts` and to the context keys type.
+
 **Guards:**
-- `!IsWorkHours` — only during dusk (300-359) and dawn (0-59, after wake offset)
-- `!IsNighttime` — don't sell at night, sleep instead
+- `IsDusk` — sell only during dusk (ticks 300-359, 60-tick window)
+- `!IsRecovering` — don't divert recovering agents to sell (they need rest)
+- `!ShouldSleep` — don't sell if sleep-deprived (sleep debt > 50), go to bed instead
 - `!IsHungry` — don't sell food you need to eat
 - `HasFoodReserve` / `HasTradeGoods` — only sell if you have excess
+
+**Note on commitment spillover:** An agent who starts `SeekMarket` at tick 350 (10 ticks before dusk ends) commits for 15 ticks, spanning into night (ticks 360-364). P-1's commitment guard protects this — the agent finishes the journey and sells. This minor night spillover is acceptable and emergent.
 
 **Job MDSL cleanup:** Strip all sell/seek-market-to-sell sequences from `settler.mdsl` and `craftsman.mdsl`. They become pure work logic:
 
@@ -109,7 +125,7 @@ root [Job] {
 }
 ```
 
-**Expected behavior:** Agents work during day hours (dawn+day), sell at market during dusk, sleep at night. Bram sells excess food → Market Stall restocks → Celia/Aldric buy from market → gold returns to facilities.
+**Expected behavior:** Agents work during day hours (dawn+day), sell at market during dusk (60-tick window, skipped if recovering or sleep-deprived), sleep at night. Bram sells excess food → Market Stall restocks → Celia/Aldric buy from market → gold returns to facilities.
 
 ---
 
