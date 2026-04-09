@@ -29,7 +29,7 @@
 
 - [ ] **Step 1: Add IsDusk to ConditionMethods interface**
 
-In `src/infrastructure/entity/bt-conditions.ts`, add after `IsAtLeisure(): boolean;` (line 56) and before `IsSociallyCritical(): boolean;`:
+In `src/infrastructure/entity/bt-conditions.ts`, find `IsAtLeisure(): boolean;` in the `ConditionMethods` interface and add after it (before `IsSociallyCritical`):
 
 ```typescript
 IsDusk(): boolean;
@@ -37,7 +37,7 @@ IsDusk(): boolean;
 
 - [ ] **Step 2: Add IsDusk to ContextKeys type**
 
-In `src/infrastructure/entity/bt-conditions-context.ts`, update the `ContextKeys` type (line 6-9) to include `'IsDusk'`:
+In `src/infrastructure/entity/bt-conditions-context.ts`, find the `ContextKeys` type union and append `'IsDusk'`:
 
 ```typescript
 type ContextKeys =
@@ -48,7 +48,7 @@ type ContextKeys =
 
 - [ ] **Step 3: Add IsDusk implementation**
 
-In `src/infrastructure/entity/bt-conditions-context.ts`, add after the `IsDaytime()` method (after line 38):
+In `src/infrastructure/entity/bt-conditions-context.ts`, find the `IsDaytime()` method and add `IsDusk()` directly after its closing `},`:
 
 ```typescript
 IsDusk(): boolean {
@@ -106,7 +106,7 @@ git commit -m "feat(meridian): add IsDusk condition for dusk-only sell window"
 
 - [ ] **Step 1: Add P2.75 sell block to base.mdsl**
 
-In `behavior-trees/base.mdsl`, after the P2 block closing `}` (after line 83) and before the P2.5 leisure block (line 85), insert:
+In `behavior-trees/base.mdsl`, find the closing `}` of the `/* P2: Role-specific behavior */` sequence and insert BEFORE the `/* P2.5: Leisure */` block. Also note: there is a `/* P0.5: Social emergency */` block between P0 and P1 from the previous increment. Insert P2.75 between P2 and P2.5:
 
 ```
         /* P2.75: Sell excess goods during dusk */
@@ -343,9 +343,23 @@ Memory decay in `applyMemoryDecay()`: prunes entries with significance < 1. Deca
 
 - [ ] **Step 1: Investigate memory config defaults**
 
-Read `src/domain/schemas/game-config-schema.ts` and find the `memory` config section. Check what `min_lifespan_ticks` defaults to. Calculate how long a significance-5 memory survives: `min_lifespan_ticks + (5 - 1) / (0.1 / (5/5))` = `min_lifespan_ticks + 40 ticks`.
+Read `src/domain/schemas/game-config-schema.ts` and find the `memory` config section. The schema default for `min_lifespan_ticks` is **20** (very low). A significance-5 memory survives only `20 + 40 = 60 ticks` — less than 1/8 of a game day (480 ticks). This is why memories vanish almost immediately.
 
-- [ ] **Step 2: Write failing test for memory persistence**
+**IMPORTANT:** `configs/game-config.json` currently has NO `memory:` section. The schema default (20) applies. You must add one.
+
+- [ ] **Step 2: Add memory config to game-config.json**
+
+In `configs/game-config.json`, add a `"memory"` section (after the `"mood"` section):
+
+```json
+"memory": {
+	"min_lifespan_ticks": 480
+}
+```
+
+This ensures significance-5 memories survive at least 1 full game day (480 ticks) before decay starts. After decay begins, they last another 40 ticks (total ~520 ticks, just over 1 day).
+
+- [ ] **Step 3: Write test for memory persistence**
 
 In `tests/infrastructure/systems/memory-decay-system.test.ts`, add:
 
@@ -357,8 +371,9 @@ it('significance-5 memory survives at least one full game day (480 ticks)', () =
 	}];
 	const agent = new AgentActor(createTestAgent(memory), defaultMoodConfig);
 	const system = createMemoryDecaySystem(() => [agent]);
+	const deps = createDeps();
 
-	// Run decay at end of day 1
+	// Run decay at end of day 1 — memory should survive (within min_lifespan)
 	system.execute({ ...deps, tickCount: 480 });
 
 	const memComp = agent.get(MemoryComponent);
@@ -367,11 +382,13 @@ it('significance-5 memory survives at least one full game day (480 ticks)', () =
 });
 ```
 
-- [ ] **Step 3: Run test — if it fails, tune decay parameters**
+Note: `createDeps()` and `createTestAgent()` are existing helper functions in this test file.
+
+- [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd "01 - Projects/Project Meridian" && npx vitest run tests/infrastructure/systems/memory-decay-system.test.ts --config configs/vitest.config.ts`
 
-If FAIL: increase `min_lifespan_ticks` in `game-config.json` (try 480 — one full day), or reduce the decay constant in `applyMemoryDecay` from 0.1 to 0.02. Choose whichever is simpler.
+Expected: PASS — the test should pass now that `min_lifespan_ticks: 480` is set in config. If it still fails, the test's deps may be using the schema default (20) instead of the file config. Check that `createDeps()` parses the config from the game-config.json file or override manually: `deps.config.memory.min_lifespan_ticks = 480`.
 
 - [ ] **Step 4: Write failing test for trade purchase memory**
 
@@ -389,19 +406,20 @@ Adapt to the existing trade-system test setup pattern.
 
 - [ ] **Step 5: Implement trade purchase memory creation**
 
-In `src/infrastructure/systems/trade-system.ts`, after a successful trade (inside the success branch of `applySuccessfulTrade()`), add memory creation:
+In `src/infrastructure/systems/trade-system.ts`, find the `applySuccessfulTrade()` function. Read it to understand the exact parameter names — the agent parameter is likely named `agent` (not `buyer`), the item ID is on a `target` object, and the price variable may be `foodPrice` or similar. After the successful trade logic, add memory creation using the correct variable names:
 
 ```typescript
-const memComp = buyer.get(MemoryComponent);
+// Example — adapt variable names to match the actual function signature:
+const memComp = agent.get(MemoryComponent);
 memComp.state = {
 	...memComp.state,
 	entries: [
 		...memComp.state.entries,
 		{
 			tick: deps.tickCount,
-			type: `purchase_${itemId}`,
-			description: `Bought ${itemId} for ${price}g`,
-			participants: [facilityId],
+			type: `purchase_${target.itemId}`,
+			description: `Bought ${target.itemId} for ${actualPrice}g`,
+			participants: [target.location.id],
 			outcome: 'positive' as const,
 			significance: 3,
 			mood_impact: 2,
@@ -411,7 +429,7 @@ memComp.state = {
 memComp.markDirty();
 ```
 
-Import `MemoryComponent` at the top of the file if not already imported.
+**IMPORTANT:** Read the actual `applySuccessfulTrade()` function signature first. The variable names above are approximate — use the real parameter names from the code. Import `MemoryComponent` from `'../components/memory-component.js'` at the top of the file.
 
 - [ ] **Step 6: Run full test suite**
 
@@ -443,7 +461,7 @@ On Day 7 (rest day), agents visited leisure locations and hit social 100, but no
 
 - [ ] **Step 1: Read ChooseLeisure action scoring**
 
-Read `src/infrastructure/entity/bt-actions-leisure.ts` — find the `ChooseLeisure` action. Check how it scores leisure locations. If cost is a negative factor in the score, agents will prefer free Park over paid Tavern/Library/Bathhouse.
+Read `src/infrastructure/entity/bt-actions-leisure.ts` — find the `ChooseLeisure` action. Check how it scores leisure locations. Note: cost is used as an **affordability filter** (`if (cost > gold) continue`), NOT as a score penalty. The score is `needWeight + attrBonus - distPenalty`. This means the most likely cause of agents choosing free locations is **distance** (Park may be closer) rather than cost preference. Check the location positions relative to common agent rest spots.
 
 - [ ] **Step 2: Read leisure location JSON files**
 
@@ -478,9 +496,11 @@ If FAIL: debug the gold deduction path and fix.
 
 - [ ] **Step 6: Apply fix based on diagnosis**
 
-If the issue is scoring: adjust `ChooseLeisure` in `bt-actions-leisure.ts` so that cost is not a penalty factor (or is negligible). The goal is agents choosing a mix of locations based on personality/needs, not always defaulting to the cheapest.
+If the issue is **distance bias** (free Park is closer than paid locations): consider adding a small mood-effect bonus to the scoring formula so paid locations with better effects score higher despite distance. E.g., `score = needWeight + attrBonus + moodEffectBonus - distPenalty` where `moodEffectBonus = loc.leisure.effects.mood * 0.1`.
 
-If the issue is code: fix the broken path.
+If the issue is **code** (gold deduction not firing despite correct btAction): debug the `previousTarget !== targetId` guard in LeisureSystem — it only charges on the first tick of a NEW leisure session. If the agent revisits the same location in the same session, it won't charge again (intended). Check if the `activeLeisure` map is being cleared correctly between sessions.
+
+If the **test passes and agents DO pay at paid locations**: the issue may be that the snapshot's gold flow summary groups leisure payments under `purchase` or `transfer` rather than a separate `leisure` label. Check the ledger entry type — LeisureSystem records it as `type: 'purchase'`. This is cosmetic, not a bug.
 
 - [ ] **Step 7: Run full test suite**
 
