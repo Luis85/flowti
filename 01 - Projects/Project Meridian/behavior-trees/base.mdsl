@@ -94,40 +94,17 @@ root {
             branch [Job]
         }
 
-        /* P2.75: Sell excess goods during dusk */
+        /* P2.75: Sell excess goods when overloaded */
         sequence {
-            condition [IsDusk]
+            condition [IsOverloaded]
+            flip { condition [IsNighttime] }
             flip { condition [IsRecovering] }
             selector {
-                /* At market — sell */
                 sequence {
                     condition [AtLocation, "market"]
-                    selector {
-                        sequence {
-                            condition [HasFoodReserve]
-                            flip { condition [IsHungry] }
-                            action [SellAtMarket]
-                        }
-                        sequence {
-                            condition [HasTradeGoods]
-                            flip { condition [IsHungry] }
-                            action [SellAtMarket]
-                        }
-                    }
+                    action [SellAtMarket]
                 }
-                /* Go to market to sell */
-                selector {
-                    sequence {
-                        condition [HasFoodReserve]
-                        flip { condition [IsHungry] }
-                        action [SeekMarket]
-                    }
-                    sequence {
-                        condition [HasTradeGoods]
-                        flip { condition [IsHungry] }
-                        action [SeekMarket]
-                    }
-                }
+                action [SeekMarket]
             }
         }
 

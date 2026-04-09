@@ -1530,6 +1530,43 @@ describe('bt-conditions', () => {
 		});
 	});
 
+	describe('IsOverloaded', () => {
+		it('returns true when food exceeds overload threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'food', quantity: 15 }] };
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.IsOverloaded()).toBe(true);
+		});
+
+		it('returns false when food is at overload threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'food', quantity: 10 }] };
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.IsOverloaded()).toBe(false);
+		});
+
+		it('returns true when trade goods exceed overload threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'tools', quantity: 20 }] };
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.IsOverloaded()).toBe(true);
+		});
+
+		it('returns false with normal inventory', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'food', quantity: 5 }, { item_id: 'tools', quantity: 3 }] };
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.IsOverloaded()).toBe(false);
+		});
+
+		it('returns false with empty inventory', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(InventoryComponent).state = { items: [] };
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.IsOverloaded()).toBe(false);
+		});
+	});
+
 	describe('IsAtLeisure', () => {
 		it('returns true when btAction is leisure and atLocation matches leisureTarget', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
