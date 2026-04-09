@@ -12,7 +12,7 @@ import type { FacilityData } from '../../domain/systems/cargo.js';
 type EconomyKeys =
 	| 'HasGold' | 'HasFood' | 'HasFoodReserve' | 'HasWater' | 'HasTradeGoods'
 	| 'CanAffordFood' | 'CanAffordItem' | 'KnowsFoodSource' | 'FacilityHasStock'
-	| 'KnowsSupplyRoute' | 'HasCargo' | 'CargoDestinationNearby' | 'FacilityNeedsSupply';
+	| 'KnowsSupplyRoute' | 'HasCargo' | 'CargoDestinationNearby' | 'FacilityNeedsSupply' | 'IsOverloaded';
 
 export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMethods, EconomyKeys> {
 	const { actor, deps, memory, resolveNearbyFacilities, resolveNearbyLocations } = ctx;
@@ -143,6 +143,15 @@ export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMe
 
 		FacilityNeedsSupply(): boolean {
 			return resolveNearbyFacilities().some(f => f.hasUnmetInput);
+		},
+
+		IsOverloaded(): boolean {
+			const inv = actor.get(InventoryComponent).state.items;
+			const food = inv.find(i => FOOD_ITEMS.has(i.item_id));
+			if (food !== undefined && food.quantity > config.needs.overload_food_threshold) return true;
+			const goods = inv.find(i => TRADE_GOODS.has(i.item_id));
+			if (goods !== undefined && goods.quantity > config.economy.overload_goods_threshold) return true;
+			return false;
 		},
 	};
 }

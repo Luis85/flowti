@@ -26,6 +26,7 @@ const NeedsConfigSchema = z.object({
 	thirst_threshold: z.number().default(40),
 	recovery_hysteresis: z.number().default(50),
 	food_reserve: z.number().int().default(3),
+	overload_food_threshold: z.number().default(10),
 	activity_costs: z.record(z.string(), ActivityCostSchema).default({
 		work:           { hunger: 2.5, thirst: 2.0, energy: 2.0 },
 		harvest:        { hunger: 1.8, thirst: 1.5, energy: 1.5 },
@@ -115,6 +116,7 @@ const EconomyConfigSchema = z.object({
 		trade_goods: 0.7,
 		luxury: 0.4,
 	}),
+	overload_goods_threshold: z.number().default(15),
 	tools_output_multiplier: z.number().default(2),
 	equipment_decay_reduction: z.number().default(0.2),
 	monetary_policy: withDefaults(MonetaryPolicyConfigSchema),

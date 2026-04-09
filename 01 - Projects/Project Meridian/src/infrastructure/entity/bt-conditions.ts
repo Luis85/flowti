@@ -33,6 +33,7 @@ export interface ConditionMethods {
 	HasCargo(): boolean;
 	CargoDestinationNearby(): boolean;
 	FacilityNeedsSupply(): boolean;
+	IsOverloaded(): boolean;
 	KnowsFoodSource(): boolean;
 	HasNoJob(): boolean;
 	OpenFacilityNearby(): boolean;
