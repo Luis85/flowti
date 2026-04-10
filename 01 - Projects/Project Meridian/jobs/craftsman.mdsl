@@ -1,5 +1,11 @@
 root [Job] {
     selector {
+        /* Collect produced tools from workshop */
+        sequence {
+            condition [AtJobFacility]
+            condition [FacilityHasStock, "tools"]
+            action [CollectProduced]
+        }
         /* Work at workshop */
         sequence {
             condition [AtJobFacility]
