@@ -29,7 +29,6 @@ const NeedsConfigSchema = z.object({
 	overload_food_threshold: z.number().default(10),
 	activity_costs: z.record(z.string(), ActivityCostSchema).default({
 		work:           { hunger: 2.5, thirst: 2.0, energy: 2.0 },
-		harvest:        { hunger: 1.8, thirst: 1.5, energy: 1.5 },
 		seek_work:      { hunger: 1.0, thirst: 1.0, energy: 0.5 },
 		seek_food:      { hunger: 1.3, thirst: 1.5, energy: 1.3 },
 		seek_water:     { hunger: 1.3, thirst: 1.5, energy: 1.3 },

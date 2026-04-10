@@ -65,9 +65,12 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 			// Add to agent inventory
 			const inv = actor.get(InventoryComponent);
 			const existing = inv.state.items.find(i => i.item_id === stockItem.item_id);
+			const itemDef = config.items[stockItem.item_id];
+			const newEntry: { item_id: string; quantity: number; charges?: number } = { item_id: stockItem.item_id, quantity: 1 };
+			if (itemDef?.maxCharges !== undefined) newEntry.charges = itemDef.maxCharges;
 			const newItems = existing !== undefined
 				? inv.state.items.map(i => i.item_id === stockItem.item_id ? { ...i, quantity: i.quantity + 1 } : { ...i })
-				: [...inv.state.items.map(i => ({ ...i })), { item_id: stockItem.item_id, quantity: 1 }];
+				: [...inv.state.items.map(i => ({ ...i })), newEntry];
 			inv.state = { ...inv.state, items: newItems };
 			inv.markDirty();
 
@@ -84,14 +87,15 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 			if (equip === undefined) return FAILED;
 
 			const repairCharges = config.economy.tool_repair_charges;
+			const maxCharges = config.items['equipment']?.maxCharges ?? repairCharges;
 
 			const newItems = inv.state.items
 				.map(i => {
 					if (i.item_id === 'tools') return { ...i, quantity: i.quantity - 1 };
-					if (i.item_id === 'equipment') return { ...i, charges: (i.charges ?? 0) + repairCharges };
+					if (i.item_id === 'equipment') return { ...i, charges: Math.min((i.charges ?? 0) + repairCharges, maxCharges) };
 					return { ...i };
 				})
-				.filter(i => i.quantity > 0);
+				.filter(i => !(i.item_id === 'tools' && i.quantity === 0));
 
 			inv.state = { ...inv.state, items: newItems };
 			inv.markDirty();

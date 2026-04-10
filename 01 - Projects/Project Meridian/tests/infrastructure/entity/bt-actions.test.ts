@@ -463,7 +463,10 @@ describe('bt-actions: createActions', () => {
 
 				const result = actions.CollectProduced();
 				expect(result).toBe('mistreevous.succeeded');
-				expect(actor.get(InventoryComponent).state.items.find(i => i.item_id === 'tools')?.quantity).toBe(1);
+				const toolsItem = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'tools');
+				expect(toolsItem?.quantity).toBe(1);
+				// Chargeable items get charges initialized from config maxCharges
+				expect(toolsItem?.charges).toBe(config.items['tools']?.maxCharges);
 				expect(facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'tools')?.quantity).toBe(1);
 			});
 
@@ -504,7 +507,7 @@ describe('bt-actions: createActions', () => {
 		});
 
 		describe('RepairWithTools', () => {
-			it('consumes 1 tool and adds charges to equipment', () => {
+			it('consumes 1 tool and adds charges capped at maxCharges', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
 						inventory: [
@@ -519,7 +522,8 @@ describe('bt-actions: createActions', () => {
 				expect(result).toBe('mistreevous.succeeded');
 				const inv = actor.get(InventoryComponent).state.items;
 				expect(inv.find(i => i.item_id === 'tools')?.quantity).toBe(1);
-				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(13);
+				// maxCharges for equipment is 5, so 3 + 10 caps at 5
+				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(5);
 			});
 
 			it('fails when no tools in inventory', () => {
@@ -559,7 +563,8 @@ describe('bt-actions: createActions', () => {
 				expect(result).toBe('mistreevous.succeeded');
 				const inv = actor.get(InventoryComponent).state.items;
 				expect(inv.find(i => i.item_id === 'tools')).toBeUndefined();
-				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(12);
+				// maxCharges for equipment is 5, so 2 + 10 caps at 5
+				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(5);
 			});
 
 			it('emits EquipmentRepaired event', () => {

@@ -48,7 +48,8 @@ interface Snapshot {
 const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	work: { emoji: '⛏️', label: 'Working' },
 	seek_work: { emoji: '🚶', label: 'Going to work' },
-	harvest: { emoji: '🌾', label: 'Harvesting' },
+	collect: { emoji: '🌾', label: 'Collecting' },
+	repair_equipment: { emoji: '🔧🛠️', label: 'Repairing equipment' },
 	sell: { emoji: '💰', label: 'Selling' },
 	seek_food: { emoji: '🔍🍖', label: 'Looking for food' },
 	buy: { emoji: '🛒', label: 'Buying food' },
