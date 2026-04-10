@@ -12,7 +12,8 @@ import type { FacilityData } from '../../domain/systems/cargo.js';
 type EconomyKeys =
 	| 'HasGold' | 'HasFood' | 'HasFoodReserve' | 'HasWater' | 'HasTradeGoods'
 	| 'CanAffordFood' | 'CanAffordItem' | 'KnowsFoodSource' | 'FacilityHasStock'
-	| 'KnowsSupplyRoute' | 'HasCargo' | 'CargoDestinationNearby' | 'FacilityNeedsSupply' | 'IsOverloaded';
+	| 'KnowsSupplyRoute' | 'HasCargo' | 'CargoDestinationNearby' | 'FacilityNeedsSupply' | 'IsOverloaded'
+	| 'NeedsRepair' | 'HasTools';
 
 export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMethods, EconomyKeys> {
 	const { actor, deps, memory, resolveNearbyFacilities, resolveNearbyLocations } = ctx;
@@ -152,6 +153,19 @@ export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMe
 			const goods = inv.find(i => TRADE_GOODS.has(i.item_id));
 			if (goods !== undefined && goods.quantity > config.economy.overload_goods_threshold) return true;
 			return false;
+		},
+
+		NeedsRepair(): boolean {
+			const inv = actor.get(InventoryComponent).state.items;
+			const equip = inv.find(i => i.item_id === 'equipment');
+			if (equip === undefined || equip.quantity === 0) return false;
+			return (equip.charges ?? 0) > 0 && (equip.charges ?? 0) < config.economy.equipment_repair_threshold;
+		},
+
+		HasTools(): boolean {
+			const inv = actor.get(InventoryComponent).state.items;
+			const tools = inv.find(i => i.item_id === 'tools');
+			return tools !== undefined && tools.quantity > 0;
 		},
 	};
 }

@@ -1567,6 +1567,67 @@ describe('bt-conditions', () => {
 		});
 	});
 
+	describe('NeedsRepair', () => {
+		it('returns true when equipment charges below repair threshold', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 3 }] }),
+				defaultMoodConfig,
+			);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.NeedsRepair()).toBe(true);
+		});
+
+		it('returns false when equipment charges at threshold', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 5 }] }),
+				defaultMoodConfig,
+			);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.NeedsRepair()).toBe(false);
+		});
+
+		it('returns false when equipment fully depleted (NeedsEquipment handles that)', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 0 }] }),
+				defaultMoodConfig,
+			);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.NeedsRepair()).toBe(false);
+		});
+
+		it('returns false when no equipment', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.NeedsRepair()).toBe(false);
+		});
+	});
+
+	describe('HasTools', () => {
+		it('returns true when tools in inventory', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 3 }] }),
+				defaultMoodConfig,
+			);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.HasTools()).toBe(true);
+		});
+
+		it('returns false when no tools', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.HasTools()).toBe(false);
+		});
+
+		it('returns false when tools quantity is 0', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 0 }] }),
+				defaultMoodConfig,
+			);
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.HasTools()).toBe(false);
+		});
+	});
+
 	describe('IsAtLeisure', () => {
 		it('returns true when btAction is leisure and atLocation matches leisureTarget', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
