@@ -1,10 +1,10 @@
 root [Job] {
     selector {
-        /* Harvest food from farm if stock available */
+        /* Collect produced food from farm */
         sequence {
             condition [AtJobFacility]
             condition [FacilityHasStock, "food"]
-            action [Harvest]
+            action [CollectProduced]
         }
 
         /* Work at facility */
