@@ -597,15 +597,18 @@ BehaviorTreeSystem (tick 5)
 │   ├─ Call tree.step() — mistreevous evaluates MDSL tree
 │   │   BehaviorAgent provides typed condition/action methods:
 │   │   Conditions: IsHungry(), IsExhausted(), HasFood(), CanAffordFood(),
+│   │     NeedsRepair(), HasTools(), NeedsEquipment(), IsOverloaded(),
 │   │     IsAtFoodFacility(), IsAtRestFacility(), IsAtWorkFacility(), etc.
-│   │   Actions: Eat(), Rest(), Buy(), Work(), PickupCargo(), DeliverCargo(),
-│   │     Patrol(), SeekFood(), SeekRest(), SeekWork(), Idle(), etc.
+│   │   Actions: Eat(), Rest(), Buy(), Work(), CollectProduced(), RepairWithTools(),
+│   │     PickupCargo(), DeliverCargo(), SeekFood(), SeekRest(), SeekWork(), Idle(), etc.
 │   │
 │   ├─ MDSL tree structure (base + per-role branch):
-│   │   1. Survival (critical hunger → seek food → buy → eat)
-│   │   2. Rest (critical energy → seek rest → rest)
-│   │   3. Role branch (guard/merchant/artisan/scholar)
-│   │   4. Idle (wander)
+│   │   P0. Survival (critical hunger/thirst/energy)
+│   │   P1. Economy (sell overloaded goods, buy food/equipment/tools)
+│   │   P2. Job duty (role branch: settler/guard/craftsman)
+│   │   P3. Quests, social, leisure
+│   │   P4. Maintenance (P4.45 repair equipment with tools, P4.5 buy equipment)
+│   │   P5. Idle (wander)
 │   │
 │   └─ Actions return RUNNING (in progress) or SUCCEEDED/FAILED
 │      → Systems execute effects on the next tick

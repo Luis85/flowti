@@ -629,6 +629,8 @@ Equipped items degrade with use. Each tick an equipped item is "active" (agent i
 
 Broken items can be repaired (repair service or workbench interaction) or replaced.
 
+**Tool-based repair (implemented):** When equipment charges drop below `equipment_repair_threshold` (default: 5) but are still above 0, agents proactively repair using tools. The BT condition `NeedsRepair` triggers priority P4.45, which checks `HasTools` — if tools are in inventory, `RepairWithTools` consumes 1 tool and restores charges (capped at `maxCharges`). If no tools are available, the agent navigates to market to buy them first. This creates a tool demand loop: craftsmen produce tools at workshops → `CollectProduced` picks them up → overload threshold triggers selling at market → other agents buy tools for equipment repair. The `EquipmentRepaired` event is emitted on each repair.
+
 ### 5.4 Recipe System
 
 Recipes are the backbone of production and construction. Each recipe is a markdown file with Zod-validated frontmatter.
@@ -2100,6 +2102,12 @@ Root (Selector — first success wins)
 ├── [8] Object Interaction (Sequence)
 │   ├── Condition: useful object nearby AND relevant need < 50?
 │   └── Action: use object (buy drink, eat food, repair equipment)
+│
+├── [8.5] Equipment Maintenance (Sequence) — P4.45
+│   ├── Condition: NeedsRepair (charges > 0 AND charges < threshold)?
+│   └── Selector:
+│       ├── HasTools → RepairWithTools (consume 1 tool, restore charges)
+│       └── CanAffordItem("tools") → SeekMarket → BuyItem("tools")
 │
 └── [9] Idle (Selector)
     ├── Action: wander within current location
