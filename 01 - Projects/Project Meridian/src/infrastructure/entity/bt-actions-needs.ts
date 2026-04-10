@@ -9,7 +9,7 @@ import { findFoodInInventory, FOOD_ITEMS } from '../../domain/systems/food-items
 import { isPriceStale } from '../../domain/systems/price-memory.js';
 import { findNearest } from '../../domain/core/array-utils.js';
 
-export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat' | 'Drink' | 'Harvest' | 'Rest' | 'SeekWater' | 'FillWaterskin' | 'SeekFood' | 'SeekRest' | 'SeekBestFoodSource'> {
+export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat' | 'Drink' | 'Harvest' | 'RepairWithTools' | 'Rest' | 'SeekWater' | 'FillWaterskin' | 'SeekFood' | 'SeekRest' | 'SeekBestFoodSource'> {
 	const { memory, actor, deps, resolveNearbyFacilities, resolveNearbyLocations } = ctx;
 	const { config, getLocationActors, getLocations } = deps;
 
@@ -66,6 +66,40 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 			inv.state = { ...inv.state, items: newItems };
 			inv.markDirty();
 			beginAction(ctx, 'harvest');
+			return SUCCEEDED;
+		},
+
+		RepairWithTools(): ActionResult {
+			const inv = actor.get(InventoryComponent);
+			const tools = inv.state.items.find(i => i.item_id === 'tools');
+			if (tools === undefined || tools.quantity === 0) return FAILED;
+
+			const equip = inv.state.items.find(i => i.item_id === 'equipment');
+			if (equip === undefined) return FAILED;
+
+			const repairCharges = config.economy.tool_repair_charges;
+
+			const newItems = inv.state.items
+				.map(i => {
+					if (i.item_id === 'tools') return { ...i, quantity: i.quantity - 1 };
+					if (i.item_id === 'equipment') return { ...i, charges: (i.charges ?? 0) + repairCharges };
+					return { ...i };
+				})
+				.filter(i => i.quantity > 0);
+
+			inv.state = { ...inv.state, items: newItems };
+			inv.markDirty();
+
+			beginAction(ctx, 'repair_equipment');
+
+			deps.eventBus.emit({
+				type: 'EquipmentRepaired',
+				tick: deps.tickCount(),
+				wallClock: Date.now(),
+				source: 'BehaviorAgent',
+				payload: { agentId: actor.agentId, chargesAdded: repairCharges },
+			});
+
 			return SUCCEEDED;
 		},
 

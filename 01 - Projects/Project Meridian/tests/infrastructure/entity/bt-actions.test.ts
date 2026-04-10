@@ -471,6 +471,87 @@ describe('bt-actions: createActions', () => {
 			});
 		});
 
+		describe('RepairWithTools', () => {
+			it('consumes 1 tool and adds charges to equipment', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [
+							{ item_id: 'tools', quantity: 2 },
+							{ item_id: 'equipment', quantity: 1, charges: 3 },
+						],
+					}),
+					defaultMoodConfig,
+				);
+				const { actions } = setupActions(actor, { config });
+				const result = actions.RepairWithTools();
+				expect(result).toBe('mistreevous.succeeded');
+				const inv = actor.get(InventoryComponent).state.items;
+				expect(inv.find(i => i.item_id === 'tools')?.quantity).toBe(1);
+				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(13);
+			});
+
+			it('fails when no tools in inventory', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [{ item_id: 'equipment', quantity: 1, charges: 3 }],
+					}),
+					defaultMoodConfig,
+				);
+				const { actions } = setupActions(actor, { config });
+				expect(actions.RepairWithTools()).toBe('mistreevous.failed');
+			});
+
+			it('fails when no equipment in inventory', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [{ item_id: 'tools', quantity: 2 }],
+					}),
+					defaultMoodConfig,
+				);
+				const { actions } = setupActions(actor, { config });
+				expect(actions.RepairWithTools()).toBe('mistreevous.failed');
+			});
+
+			it('removes tools item when quantity reaches 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [
+							{ item_id: 'tools', quantity: 1 },
+							{ item_id: 'equipment', quantity: 1, charges: 2 },
+						],
+					}),
+					defaultMoodConfig,
+				);
+				const { actions } = setupActions(actor, { config });
+				const result = actions.RepairWithTools();
+				expect(result).toBe('mistreevous.succeeded');
+				const inv = actor.get(InventoryComponent).state.items;
+				expect(inv.find(i => i.item_id === 'tools')).toBeUndefined();
+				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(12);
+			});
+
+			it('emits EquipmentRepaired event', () => {
+				const emitted: unknown[] = [];
+				const testEventBus: EventBus = {
+					...noopEventBus,
+					emit: (e) => { emitted.push(e); },
+				};
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						inventory: [
+							{ item_id: 'tools', quantity: 1 },
+							{ item_id: 'equipment', quantity: 1, charges: 2 },
+						],
+					}),
+					defaultMoodConfig,
+				);
+				const { actions } = setupActions(actor, { config, eventBus: testEventBus });
+				actions.RepairWithTools();
+				expect(emitted.length).toBe(1);
+				expect((emitted[0] as Record<string, unknown>).type).toBe('EquipmentRepaired');
+			});
+		});
+
 		describe('SellAtMarket', () => {
 			function setupSellScenario(inventoryItems: { item_id: string; quantity: number }[], fund = 100) {
 				const actor = new AgentActor(

@@ -17,6 +17,7 @@ export interface ActionMethods {
 	Eat(): ActionResult;
 	Drink(): ActionResult;
 	Harvest(): ActionResult;
+	RepairWithTools(): ActionResult;
 	Rest(): ActionResult;
 	SeekWater(): ActionResult;
 	FillWaterskin(): ActionResult;
