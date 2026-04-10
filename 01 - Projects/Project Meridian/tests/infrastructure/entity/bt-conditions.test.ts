@@ -1579,7 +1579,7 @@ describe('bt-conditions', () => {
 
 		it('returns false when equipment charges at threshold', () => {
 			const actor = new AgentActor(
-				createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 5 }] }),
+				createTestAgentData('a1', { inventory: [{ item_id: 'equipment', quantity: 1, charges: 10 }] }),
 				defaultMoodConfig,
 			);
 			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));

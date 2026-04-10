@@ -74,11 +74,11 @@
 		"facility_subsidy_per_day": 30,
 		"welfare_threshold_gold": 10,
 		"welfare_reward_min": 15,
-		"overload_goods_threshold": 15,
+		"overload_goods_threshold": 5,
 		"tools_output_multiplier": 2,
 		"equipment_decay_reduction": 0.2,
 		"facility_maintenance_per_day": 5,
-		"equipment_repair_threshold": 5,
+		"equipment_repair_threshold": 10,
 		"tool_repair_charges": 10
 	},
 	"jobs": {

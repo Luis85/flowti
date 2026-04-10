@@ -522,8 +522,8 @@ describe('bt-actions: createActions', () => {
 				expect(result).toBe('mistreevous.succeeded');
 				const inv = actor.get(InventoryComponent).state.items;
 				expect(inv.find(i => i.item_id === 'tools')?.quantity).toBe(1);
-				// maxCharges for equipment is 5, so 3 + 10 caps at 5
-				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(5);
+				// maxCharges for equipment is 20, so 3 + 10 = 13 (under cap)
+				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(13);
 			});
 
 			it('fails when no tools in inventory', () => {
@@ -563,8 +563,8 @@ describe('bt-actions: createActions', () => {
 				expect(result).toBe('mistreevous.succeeded');
 				const inv = actor.get(InventoryComponent).state.items;
 				expect(inv.find(i => i.item_id === 'tools')).toBeUndefined();
-				// maxCharges for equipment is 5, so 2 + 10 caps at 5
-				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(5);
+				// maxCharges for equipment is 20, so 2 + 10 = 12 (under cap)
+				expect(inv.find(i => i.item_id === 'equipment')?.charges).toBe(12);
 			});
 
 			it('emits EquipmentRepaired event', () => {
