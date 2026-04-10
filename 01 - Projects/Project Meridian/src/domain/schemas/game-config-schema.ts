@@ -118,6 +118,8 @@ const EconomyConfigSchema = z.object({
 		luxury: 0.4,
 	}),
 	overload_goods_threshold: z.number().default(15),
+	equipment_repair_threshold: z.number().default(5),
+	tool_repair_charges: z.number().default(10),
 	tools_output_multiplier: z.number().default(2),
 	equipment_decay_reduction: z.number().default(0.2),
 	monetary_policy: withDefaults(MonetaryPolicyConfigSchema),

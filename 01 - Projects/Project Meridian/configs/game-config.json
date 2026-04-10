@@ -76,7 +76,9 @@
 		"overload_goods_threshold": 15,
 		"tools_output_multiplier": 2,
 		"equipment_decay_reduction": 0.2,
-		"facility_maintenance_per_day": 5
+		"facility_maintenance_per_day": 5,
+		"equipment_repair_threshold": 5,
+		"tool_repair_charges": 10
 	},
 	"jobs": {
 		"aptitude_baseline": 12,
