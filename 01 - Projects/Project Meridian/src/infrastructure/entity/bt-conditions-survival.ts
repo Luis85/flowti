@@ -23,8 +23,12 @@ export function createSurvivalConditions(ctx: ConditionContext): Pick<ConditionM
 
 		IsRecovering(): boolean {
 			if (!memory.recovering) return false;
+			// Survival trumps recovery — let agent travel to find food/water
+			const needs = actor.get(NeedsComponent).state;
+			if (needs.hunger < NEED_CRITICAL_THRESHOLDS.hunger) return false;
+			if (needs.thirst < NEED_CRITICAL_THRESHOLDS.thirst) return false;
 			const recoveredThreshold = Math.min(memory.personalThresholds.energy + config.needs.recovery_hysteresis, 100);
-			if (actor.get(NeedsComponent).state.energy >= recoveredThreshold) {
+			if (needs.energy >= recoveredThreshold) {
 				memory.recovering = false;
 				return false;
 			}

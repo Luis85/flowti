@@ -311,6 +311,42 @@ describe('bt-conditions', () => {
 			expect(conditions.IsExhausted()).toBe(false); // no longer exhausted
 			expect(conditions.IsRecovering()).toBe(true);  // still recovering
 		});
+
+		it('returns false when recovering but hunger is critical', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { needs: { hunger: 10, energy: 40, social: 70, thirst: 80 } }),
+				defaultMoodConfig,
+			);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.recovering = true;
+			expect(conditions.IsRecovering()).toBe(false);
+			// recovering flag stays set — not cleared
+			expect(memory.recovering).toBe(true);
+		});
+
+		it('returns false when recovering but thirst is critical', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { needs: { hunger: 80, energy: 40, social: 70, thirst: 10 } }),
+				defaultMoodConfig,
+			);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.recovering = true;
+			expect(conditions.IsRecovering()).toBe(false);
+			expect(memory.recovering).toBe(true);
+		});
+
+		it('returns true when recovering and needs are above critical', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { needs: { hunger: 50, energy: 40, social: 70, thirst: 50 } }),
+				defaultMoodConfig,
+			);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.recovering = true;
+			expect(conditions.IsRecovering()).toBe(true);
+		});
 	});
 
 	describe('IsLonely', () => {
