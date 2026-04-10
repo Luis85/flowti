@@ -397,8 +397,8 @@ describe('bt-actions: createActions', () => {
 
 	// ── Economy actions ───────────────────────────────────────────────────
 	describe('Economy actions', () => {
-		describe('Harvest', () => {
-			it('transfers food from facility to agent inventory', () => {
+		describe('CollectProduced', () => {
+			it('transfers first stock item from facility to agent inventory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
@@ -424,9 +424,9 @@ describe('bt-actions: createActions', () => {
 				});
 				memory.atLocation = 'loc-farm';
 
-				const result = actions.Harvest();
+				const result = actions.CollectProduced();
 				expect(result).toBe('mistreevous.succeeded');
-				expect(memory.btAction).toBe('harvest');
+				expect(memory.btAction).toBe('collect');
 
 				// Facility stock decremented
 				expect(facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'food')?.quantity).toBe(2);
@@ -435,13 +435,45 @@ describe('bt-actions: createActions', () => {
 				expect(actor.get(InventoryComponent).state.items.find(i => i.item_id === 'food')?.quantity).toBe(1);
 			});
 
+			it('collects tools from workshop (generic — not food-only)', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [{ id: 'loc-workshop', type: 'work', distance: 5 }],
+				};
+
+				const locations = [makeLocation('loc-workshop', 'work', 0, 0, {
+					job: 'craftsman', output: { item_id: 'tools', quantity: 1 }, input: null,
+					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
+				})];
+
+				const facActor = createLocationActor({
+					stock: [{ item_id: 'tools', quantity: 2 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+
+				const locActors = new Map<string, Actor>([['loc-workshop', facActor]]);
+
+				const { actions, memory } = setupActions(actor, {
+					config,
+					getLocations: () => locations,
+					getLocationActors: () => locActors,
+				});
+				memory.atLocation = 'loc-workshop';
+
+				const result = actions.CollectProduced();
+				expect(result).toBe('mistreevous.succeeded');
+				expect(actor.get(InventoryComponent).state.items.find(i => i.item_id === 'tools')?.quantity).toBe(1);
+				expect(facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'tools')?.quantity).toBe(1);
+			});
+
 			it('returns failed when not at any location', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions } = setupActions(actor, { config });
-				expect(actions.Harvest()).toBe('mistreevous.failed');
+				expect(actions.CollectProduced()).toBe('mistreevous.failed');
 			});
 
-			it('returns failed when facility has no food stock', () => {
+			it('returns failed when facility has no stock', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
@@ -467,7 +499,7 @@ describe('bt-actions: createActions', () => {
 				});
 				memory.atLocation = 'loc-farm';
 
-				expect(actions.Harvest()).toBe('mistreevous.failed');
+				expect(actions.CollectProduced()).toBe('mistreevous.failed');
 			});
 		});
 

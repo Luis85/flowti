@@ -9,7 +9,7 @@ import { findFoodInInventory, FOOD_ITEMS } from '../../domain/systems/food-items
 import { isPriceStale } from '../../domain/systems/price-memory.js';
 import { findNearest } from '../../domain/core/array-utils.js';
 
-export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat' | 'Drink' | 'Harvest' | 'RepairWithTools' | 'Rest' | 'SeekWater' | 'FillWaterskin' | 'SeekFood' | 'SeekRest' | 'SeekBestFoodSource'> {
+export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat' | 'Drink' | 'CollectProduced' | 'RepairWithTools' | 'Rest' | 'SeekWater' | 'FillWaterskin' | 'SeekFood' | 'SeekRest' | 'SeekBestFoodSource'> {
 	const { memory, actor, deps, resolveNearbyFacilities, resolveNearbyLocations } = ctx;
 	const { config, getLocationActors, getLocations } = deps;
 
@@ -40,32 +40,38 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 			return SUCCEEDED;
 		},
 
-		Harvest(): ActionResult {
+		CollectProduced(): ActionResult {
 			if (memory.atLocation === null) return FAILED;
 			const locationActorMap = getLocationActors();
 			const locActor = locationActorMap.get(memory.atLocation);
 			if (locActor?.has(FacilityComponent) !== true) return FAILED;
 			const facility = locActor.get(FacilityComponent);
-			const foodStock = facility.state.stock.find(s => FOOD_ITEMS.has(s.item_id) && s.quantity > 0);
-			if (foodStock === undefined) return FAILED;
-			// Move food from facility stock to agent inventory
+
+			// Take first available stock item (generic — works for food, tools, any produced good)
+			const stockItem = facility.state.stock.find(s => s.quantity > 0);
+			if (stockItem === undefined) return FAILED;
+
+			// Remove from facility stock
 			const newStock = facility.state.stock
 				.map(s => {
-					if (s.item_id !== foodStock.item_id) return { ...s };
+					if (s.item_id !== stockItem.item_id) return { ...s };
 					const newQty = s.quantity - 1;
 					return newQty > 0 ? { ...s, quantity: newQty } : null;
 				})
 				.filter((s): s is NonNullable<typeof s> => s !== null);
 			facility.state = { ...facility.state, stock: newStock };
 			facility.markDirty();
+
+			// Add to agent inventory
 			const inv = actor.get(InventoryComponent);
-			const existingItem = inv.state.items.find(i => i.item_id === foodStock.item_id);
-			const newItems = existingItem !== undefined
-				? inv.state.items.map(i => i.item_id === foodStock.item_id ? { ...i, quantity: i.quantity + 1 } : { ...i })
-				: [...inv.state.items.map(i => ({ ...i })), { item_id: foodStock.item_id, quantity: 1 }];
+			const existing = inv.state.items.find(i => i.item_id === stockItem.item_id);
+			const newItems = existing !== undefined
+				? inv.state.items.map(i => i.item_id === stockItem.item_id ? { ...i, quantity: i.quantity + 1 } : { ...i })
+				: [...inv.state.items.map(i => ({ ...i })), { item_id: stockItem.item_id, quantity: 1 }];
 			inv.state = { ...inv.state, items: newItems };
 			inv.markDirty();
-			beginAction(ctx, 'harvest');
+
+			beginAction(ctx, 'collect');
 			return SUCCEEDED;
 		},
 

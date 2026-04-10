@@ -16,7 +16,7 @@ import { createLeisureActions } from './bt-actions-leisure.js';
 export interface ActionMethods {
 	Eat(): ActionResult;
 	Drink(): ActionResult;
-	Harvest(): ActionResult;
+	CollectProduced(): ActionResult;
 	RepairWithTools(): ActionResult;
 	Rest(): ActionResult;
 	SeekWater(): ActionResult;

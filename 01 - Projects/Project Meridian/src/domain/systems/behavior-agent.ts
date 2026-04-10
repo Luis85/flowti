@@ -137,6 +137,8 @@ export interface BehaviorAgent {
 	HasTradeGoods(): boolean;
 	NeedsTools(): boolean;
 	NeedsEquipment(): boolean;
+	NeedsRepair(): boolean;
+	HasTools(): boolean;
 	CanAffordItem(itemId: string): boolean;
 	BetterPayAvailable(): boolean;
 	KnowsSupplyRoute(): boolean;
@@ -154,7 +156,7 @@ export interface BehaviorAgent {
 	Eat(): ActionResult;
 	Rest(): ActionResult;
 	Drink(): ActionResult;
-	Harvest(): ActionResult;
+	CollectProduced(): ActionResult;
 	SeekFood(): ActionResult;
 	SeekRest(): ActionResult;
 	SeekWater(): ActionResult;
@@ -182,6 +184,7 @@ export interface BehaviorAgent {
 	WorkRepair(): ActionResult;
 	CompleteQuest(): ActionResult;
 	AbandonQuest(): ActionResult;
+	RepairWithTools(): ActionResult;
 	ContinueCommitment(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
