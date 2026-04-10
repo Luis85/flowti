@@ -5,6 +5,7 @@ import type { ActionResult, PerceivedFacility, PerceivedAgent, PerceivedLocation
 import type { ActionContext } from './bt-action-helpers.js';
 import { FAILED, RUNNING } from './bt-action-helpers.js';
 import { NeedsComponent } from '../components/needs-component.js';
+import { InventoryComponent } from '../components/inventory-component.js';
 import { createNeedsActions } from './bt-actions-needs.js';
 import { createWorkActions } from './bt-actions-work.js';
 import { createEconomyActions } from './bt-actions-economy.js';
@@ -111,6 +112,31 @@ export function createActions(
 				memory.commitmentTicks = 0;
 				memory.committedAction = null;
 				return FAILED;
+			}
+			// Break work/leisure commitments when maintenance needs arise
+			if (ca === 'work' || ca === 'leisure') {
+				if (needs.hunger < memory.personalThresholds.hunger) {
+					memory.commitmentTicks = 0;
+					memory.committedAction = null;
+					return FAILED;
+				}
+				if (needs.thirst < memory.personalThresholds.thirst) {
+					memory.commitmentTicks = 0;
+					memory.committedAction = null;
+					return FAILED;
+				}
+				const inv = actor.get(InventoryComponent).state.items;
+				const equip = inv.find(i => i.item_id === 'equipment');
+				if (equip === undefined || equip.quantity === 0 || (equip.charges ?? 0) === 0) {
+					memory.commitmentTicks = 0;
+					memory.committedAction = null;
+					return FAILED;
+				}
+				if ((equip.charges ?? 0) > 0 && (equip.charges ?? 0) < config.economy.equipment_repair_threshold) {
+					memory.commitmentTicks = 0;
+					memory.committedAction = null;
+					return FAILED;
+				}
 			}
 			// Restore btAction so downstream systems (rest, needs-decay) see the correct activity
 			memory.btAction = memory.committedAction;

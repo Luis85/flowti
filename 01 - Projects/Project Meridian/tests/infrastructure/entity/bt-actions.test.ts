@@ -2547,4 +2547,127 @@ describe('bt-actions: createActions', () => {
 			});
 		});
 	});
+
+	describe('ContinueCommitment', () => {
+		it('breaks work commitment when hunger < personal threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 35 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.committedAction).toBeNull();
+		});
+
+		it('breaks work commitment when thirst < personal threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, thirst: 35 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.committedAction).toBeNull();
+		});
+
+		it('breaks work commitment when equipment missing', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 80 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+		});
+
+		it('breaks work commitment when equipment charges < repair threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 80 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 5 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+		});
+
+		it('does NOT break work commitment when equipment charges at repair threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 80 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 10 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.running');
+		});
+
+		it('does NOT break work commitment when all needs healthy and equipment OK', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 80 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.running');
+			expect(memory.commitmentTicks).toBe(19);
+		});
+
+		it('breaks leisure commitment when hunger < personal threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'leisure';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 35 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+		});
+
+		it('breaks leisure commitment when thirst < personal threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'leisure';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, thirst: 35 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+		});
+
+		it('does NOT break sell commitment at personal hunger threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'sell';
+			memory.commitmentTicks = 5;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 35 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.running');
+		});
+
+		it('does NOT break rest commitment at personal hunger threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'rest';
+			memory.commitmentTicks = 15;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 35, energy: 50 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.running');
+		});
+
+		it('existing: eat commitment breaks when hunger satisfied', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'eat';
+			memory.commitmentTicks = 5;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+		});
+	});
 });
