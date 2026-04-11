@@ -165,5 +165,29 @@ describe('FacilityTypeSchema', () => {
 			});
 			expect(parsed.default_wage).toBe(3);
 		});
+
+		it('rejects negative default_wage', () => {
+			expect(() =>
+				FacilityTypeSchema.parse({
+					id: 'farm',
+					kind: 'production',
+					primary_job: 'settler',
+					allowed_recipes: ['recipe-farm-wheat'],
+					default_wage: -1,
+				}),
+			).toThrow();
+		});
+
+		it('rejects negative default_fund', () => {
+			expect(() =>
+				FacilityTypeSchema.parse({
+					id: 'farm',
+					kind: 'production',
+					primary_job: 'settler',
+					allowed_recipes: ['recipe-farm-wheat'],
+					default_fund: -1,
+				}),
+			).toThrow();
+		});
 	});
 });
