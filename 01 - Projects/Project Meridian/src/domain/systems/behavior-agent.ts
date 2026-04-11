@@ -182,6 +182,8 @@ export interface BehaviorAgent {
 	SwitchJob(): ActionResult;
 	ClaimQuest(): ActionResult;
 	SeekQuestFacility(): ActionResult;
+	SeekQuestSource(): ActionResult;
+	PickupForQuest(): ActionResult;
 	WorkRepair(): ActionResult;
 	CompleteQuest(): ActionResult;
 	AbandonQuest(): ActionResult;

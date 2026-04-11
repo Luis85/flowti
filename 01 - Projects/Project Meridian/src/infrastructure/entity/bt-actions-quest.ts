@@ -9,7 +9,8 @@ import { EconomyComponent } from '../components/economy-component.js';
 import { MemoryComponent } from '../components/memory-component.js';
 import { QuestBoardComponent } from '../components/quest-board-component.js';
 
-export function createQuestActions(ctx: ActionContext): Pick<ActionMethods, 'ClaimQuest' | 'SeekQuestFacility' | 'WorkRepair' | 'CompleteQuest' | 'AbandonQuest'> {
+export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
+	'ClaimQuest' | 'SeekQuestFacility' | 'SeekQuestSource' | 'PickupForQuest' | 'WorkRepair' | 'CompleteQuest' | 'AbandonQuest'> {
 	const { memory, actor, deps } = ctx;
 	const { config, getLocationActors, tickCount, eventBus } = deps;
 
@@ -51,6 +52,78 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods, 'Cla
 			memory.movementTarget = { id: memory.activeQuest.facilityId, type: 'location' };
 			if (memory.atLocation === memory.activeQuest.facilityId) return SUCCEEDED;
 			return RUNNING;
+		},
+
+		SeekQuestSource(): ActionResult {
+			// Find the nearest known location whose production output matches the
+			// quest's itemId, and move toward it. Used for supply/restock quests
+			// where the agent needs to physically collect the item before delivery.
+			const quest = memory.activeQuest;
+			if (quest === null) return FAILED;
+			if (quest.type === 'repair') return FAILED;
+			if (quest.itemId === null) return FAILED;
+
+			const knownSet = new Set(memory.knownLocations);
+			const candidates = deps.getLocations().filter(l =>
+				knownSet.has(l.id)
+				&& l.id !== quest.facilityId
+				&& l.production !== null
+				&& l.production.output.item_id === quest.itemId,
+			);
+			if (candidates.length === 0) return FAILED;
+
+			// Prefer the closest candidate by Euclidean distance from the actor position
+			const agentX = actor.pos.x;
+			const agentY = actor.pos.y;
+			let best = candidates[0]!;
+			let bestDistSq = (best.position.x - agentX) ** 2 + (best.position.y - agentY) ** 2;
+			for (const c of candidates) {
+				const d = (c.position.x - agentX) ** 2 + (c.position.y - agentY) ** 2;
+				if (d < bestDistSq) { best = c; bestDistSq = d; }
+			}
+
+			beginAction(ctx, 'seek_quest_source');
+			memory.movementTarget = { id: best.id, type: 'location' };
+			if (memory.atLocation === best.id) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		PickupForQuest(): ActionResult {
+			// Pick up one 'quantity' unit of the quest's required item from the
+			// current facility's stock. Writes to memory.questCargo. Does not
+			// touch the agent's personal inventory.
+			const quest = memory.activeQuest;
+			if (quest === null) return FAILED;
+			if (quest.type === 'repair') return FAILED;
+			if (quest.itemId === null) return FAILED;
+			if (memory.atLocation === null) return FAILED;
+
+			const locActors = getLocationActors();
+			const facActor = locActors.get(memory.atLocation);
+			if (facActor === undefined) return FAILED;
+			if (!facActor.has(FacilityComponent)) return FAILED;
+
+			const fac = facActor.get(FacilityComponent);
+			const stockItem = fac.state.stock.find(s => s.item_id === quest.itemId);
+			if (stockItem === undefined || stockItem.quantity < quest.quantity) return FAILED;
+
+			// Transfer `quantity` units from facility stock to questCargo
+			const newStock = fac.state.stock
+				.map(s => s.item_id === quest.itemId
+					? { ...s, quantity: s.quantity - quest.quantity }
+					: { ...s })
+				.filter(s => s.quantity > 0);
+			fac.state = { ...fac.state, stock: newStock };
+			fac.markDirty();
+
+			memory.questCargo = {
+				itemId: quest.itemId,
+				quantity: quest.quantity,
+				questId: quest.id,
+			};
+
+			beginAction(ctx, 'pickup_quest_item');
+			return SUCCEEDED;
 		},
 
 		WorkRepair(): ActionResult {

@@ -80,6 +80,8 @@ export interface ActionMethods {
 	SeekSupplySource(): ActionResult;
 	ClaimQuest(): ActionResult;
 	SeekQuestFacility(): ActionResult;
+	SeekQuestSource(): ActionResult;
+	PickupForQuest(): ActionResult;
 	WorkRepair(): ActionResult;
 	CompleteQuest(): ActionResult;
 	AbandonQuest(): ActionResult;
