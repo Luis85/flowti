@@ -98,12 +98,18 @@ const PHASE_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	night: { emoji: '🌙', label: 'Night' },
 };
 
-const LOCATION_ICONS: Record<string, string> = {
-	food: '🌾',
-	market: '🏪',
-	rest: '🏠',
-	water: '💧',
-	work: '🏭',
+const FACILITY_TYPE_ICONS: Record<string, string> = {
+	farm: '🌾',
+	workshop: '🔨',
+	smithy: '⚒️',
+	well: '💧',
+	guard_post: '🛡️',
+	rest_inn: '🛏️',
+	bathhouse: '🛁',
+	tavern: '🍺',
+	library: '📚',
+	park: '🌳',
+	market_stall: '🏪',
 };
 
 function needBar(value: number, label: string, emoji: string): string {
@@ -233,7 +239,7 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		if (actor === undefined) continue;
 		if (!actor.has(FacilityComponent)) continue;
 		const fac = actor.get(FacilityComponent);
-		const locIcon = LOCATION_ICONS[loc.type] ?? '🏭';
+		const locIcon = FACILITY_TYPE_ICONS[loc.facility_type ?? ''] ?? '🏭';
 		const stockItems = fac.state.stock.map(s => `${s.item_id} x${s.quantity}`).join(', ') || '<span style="color:#6c7086">empty</span>';
 		const worker = fac.state.workerId;
 		const workerLabel = worker !== null
@@ -262,8 +268,8 @@ function renderWorldPanel(deps: OverlayDeps): string {
 	if (nonFacilities.length > 0) {
 		lines.push('<br><b style="color:#89b4fa">Locations</b>');
 		for (const loc of nonFacilities) {
-			const locIcon = LOCATION_ICONS[loc.type] ?? '📍';
-			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.type})</span>`);
+			const locIcon = FACILITY_TYPE_ICONS[loc.facility_type ?? ''] ?? '📍';
+			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.facility_type ?? 'unknown'})</span>`);
 		}
 	}
 
@@ -341,7 +347,7 @@ function renderEconomyPanel(deps: OverlayDeps): string {
 	lines.push(`Total: <b>${totalGold.toFixed(0)}g</b> (treasury ${economy.state.treasury.toFixed(0)} + agents ${totalAgent.toFixed(0)} + facilities ${totalFacility.toFixed(0)})`);
 
 	// Market prices
-	const marketLoc = locations.find(l => l.type === 'market');
+	const marketLoc = locations.find(l => l.facility_type === 'market_stall');
 	if (marketLoc !== undefined) {
 		const marketActor = locationActors.get(marketLoc.id);
 		if (marketActor?.has(FacilityComponent) === true) {
@@ -642,7 +648,7 @@ function buildEconomySnapshot(
 	}
 
 	// Market prices
-	const marketLoc = locations.find(l => l.type === 'market');
+	const marketLoc = locations.find(l => l.facility_type === 'market_stall');
 	if (marketLoc !== undefined) {
 		const ma = locationActors.get(marketLoc.id);
 		if (ma?.has(FacilityComponent) === true) {
@@ -833,7 +839,7 @@ function buildFacilitiesSnapshot(
 		const recipe = loc.active_recipe !== null ? recipes?.get(loc.active_recipe) : undefined;
 		const progressMax = recipe?.ticks_per_cycle ?? loc.production?.ticks_per_cycle ?? null;
 		const progress = fac.state.workProgress > 0 ? ` | progress: ${fac.state.workProgress}/${progressMax ?? '?'}` : '';
-		lines.push(`${loc.name} (${loc.type}): status=${fac.state.status} | fund=${fac.state.fund.toFixed(0)}g | worker=${worker} | stock=[${stock}]${progress}`);
+		lines.push(`${loc.name} (${loc.facility_type ?? 'unknown'}): status=${fac.state.status} | fund=${fac.state.fund.toFixed(0)}g | worker=${worker} | stock=[${stock}]${progress}`);
 		if (ft?.kind === 'production' && recipe !== undefined) {
 			const outputs = recipe.outputs.map(o => `${o.item_id}x${o.quantity}`).join(', ');
 			const inputs = recipe.inputs.length > 0 ? ` | input=${recipe.inputs.map(i => `${i.item_id}x${i.quantity}`).join(', ')}` : '';
@@ -850,7 +856,7 @@ function buildFacilitiesSnapshot(
 		lines.push('');
 		lines.push('## Locations');
 		for (const loc of nonFac) {
-			lines.push(`${loc.name} (${loc.type}) at (${loc.position.x}, ${loc.position.y})`);
+			lines.push(`${loc.name} (${loc.facility_type ?? 'unknown'}) at (${loc.position.x}, ${loc.position.y})`);
 		}
 	}
 
