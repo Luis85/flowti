@@ -1,11 +1,11 @@
 # Generalized Facility Production — Design
 
-**Status:** Draft
+**Status:** Draft (rev 2 — reviewer findings incorporated)
 **Date:** 2026-04-11
 **Source:** Review of recording 2026-04-11-1639 + user requirements for generalized production/service/area-effect facility model
-**Scope:** Full refactor of the facility, production, recipe, and service subsystems — ~70 files touched, ~1360 LoC added, ~450 LoC deleted, ~98 new tests
+**Scope:** Full refactor of the facility, production, recipe, and service subsystems — ~80 files touched, ~1400 LoC added, ~500 LoC deleted, ~120 new tests (plus ~100-150 existing tests rewritten in Phase 3)
 **Replaces:** inline production config + separate `LeisureSystem` / `RestSystem` / direct-interaction water source
-**Follows GDD §5.4 / §6** (with YAGNI scoping — see "Out of scope")
+**Follows GDD §5.4 / §6 with explicit deviations** (recipes as JSON not markdown; see "Deviations from GDD")
 
 ---
 
@@ -171,12 +171,12 @@ Rationale: the user chose this explicitly. Creates fragility (idle service facil
 
 ```typescript
 export const RecipeSchema = z.object({
-  id: z.string().regex(/^recipe-[a-z0-9-]+$/),
+  id: z.string().regex(/^recipe-[a-z0-9-]+$/),   // must have 'recipe-' prefix
   name: z.string().min(1),
   inputs: z.array(z.object({
     item_id: z.string(),
     quantity: z.number().int().min(1),
-  })).default([]),                              // empty for raw producers
+  })).default([]),                                // empty for raw producers
   outputs: z.array(z.object({
     item_id: z.string(),
     quantity: z.number().int().min(1),
@@ -191,6 +191,16 @@ export type Recipe = z.infer<typeof RecipeSchema>;
 
 Lives in `recipes/*.json`. Loaded at boot via `recipe-loader.ts` into a `Map<string, Recipe>` registry passed to systems.
 
+**Recipe IDs must use the `recipe-` prefix** per the regex. Recipe FILES can be named without the prefix for brevity (e.g. `recipes/farm-wheat.json`), but the `id` field inside the file must be `recipe-farm-wheat`. Loader validates this.
+
+File naming convention:
+- `recipes/farm-wheat.json` → contains `id: "recipe-farm-wheat"`
+- `recipes/craft-tools.json` → `id: "recipe-craft-tools"`
+- `recipes/smithy-equipment.json` → `id: "recipe-smithy-equipment"`
+- `recipes/draw-water.json` → `id: "recipe-draw-water"`
+
+References elsewhere (facility type's `allowed_recipes`, location's `active_recipe`) use the full prefixed id.
+
 ### Facility type schema
 
 `src/domain/schemas/facility-type-schema.ts`:
@@ -202,7 +212,7 @@ const CommonFields = z.object({
   default_wage: z.number().min(0).default(3),
   default_fund: z.number().min(0).default(200),
   funding: z.enum(['facility', 'treasury']).default('facility'),
-  capacity: z.number().int().min(1).default(1),   // max workers (kept for future)
+  capacity: z.literal(1).default(1),      // YAGNI: multi-worker deferred, enforced to 1
 });
 
 const ProductionKindSchema = CommonFields.extend({
@@ -281,16 +291,24 @@ interface FacilityComponentState {
   workProgress: number;         // counts toward recipe.ticks_per_cycle (production) or ticks_per_visit (service)
   status: 'idle' | 'producing' | 'abandoned';
   workerId: string | null;
-  lastPulseTick: number;        // NEW — for area_effect kind
+  lastPulseTick: number;        // NEW — for area_effect kind, initialized to deps.tickCount on spawn
   currentPrices?: Record<string, number>;  // unchanged — EconomySystem writes
 }
 ```
 
 Only addition is `lastPulseTick` for area-effect pulse tracking.
 
+### Facility bootstrap (fund wiring)
+
+Today, `game-view.ts` `populateScene()` reads `config.economy.facility_start_fund` (a single global number) and assigns it to every production facility's initial fund. After migration, facilities use `facility_type.default_fund` — a PER-TYPE value.
+
+**Migration in Phase 2**: `populateScene` iterates locations, looks up `registry.facilityType(loc.facility_type).default_fund`, uses it as the initial `FacilityComponent.fund`. The location file can override via a top-level `fund: N` field (kept for back-compat and Director placement). Precedence: `location.fund ?? facility_type.default_fund`.
+
+`config.economy.facility_start_fund` becomes unused after Phase 2 and is removed in Phase 6.
+
 ### Item schema (water addition)
 
-`03 - Resources/items/water.md` (new):
+`items/water.md` (new — items live at project root, NOT under `03 - Resources/`):
 
 ```yaml
 ---
@@ -303,7 +321,7 @@ base_price: 2
 ---
 ```
 
-`03 - Resources/items/waterskin.md` → **deleted**.
+`items/waterskin.md` → **deleted**.
 
 ---
 
@@ -337,7 +355,7 @@ FacilitySystem.execute(deps):
       workProgress: facility.workProgress,
       ticksPerCycle: effectiveTicks,
       recipe,
-      wage: recipe.wage_override ?? facilityType.default_wage,
+      wage: facilityType.default_wage,        // wage lives on facility type, not recipe
       facilityFund: facility.fund,
       funding: facilityType.funding,
       treasuryFund: economy.treasury,
@@ -370,8 +388,10 @@ ServiceSystem.execute(deps):
       wage = facilityType.default_wage
       if facilityType.funding == 'facility':
         if facility.fund < wage:
-          // can't afford — mark abandoned on next eval
-          emit 'FacilityInsolvent'
+          // Insufficient fund — skip wage this tick.
+          // AbandonmentSystem will pick up facility.fund <= 0 on its next pass
+          // and transition the facility to 'abandoned', causing the worker to
+          // release. No new FacilityInsolvent event needed — reuse existing flow.
           continue
         facility.fund -= wage
       else:
@@ -397,7 +417,47 @@ ServiceSystem.execute(deps):
         emit 'ServiceDelivered'
 ```
 
-Visits are tracked via a new `memory.currentServiceVisit: { facilityId, ticksRemaining } | null` field. A new `UseService` BT action initiates a visit (checks cost, moves into facility, starts countdown).
+Visits are tracked via a new `memory.currentServiceVisit: { facilityId, ticksRemaining, costPaid } | null` field.
+
+**Worker eligibility for hourly wage** (fixes a reviewer-flagged gap):
+
+The `findWorker` helper checks `agent.btAction === 'work'` — so a worker commuting (`seek_work`) does NOT get hourly wage. The wage starts the tick the worker arrives at the facility and begins the `Work` action, not during travel. This matches production behavior and means:
+
+- A service worker in `seek_work` commit is paid nothing
+- The moment they arrive and `beginAction('work', commit=30)` fires, they start earning per-tick wage
+- If the work commit expires and the agent does NOT immediately re-claim (e.g., needs a rest cycle), the wage pauses
+- A worker who walks out of radius mid-shift also stops earning (same check as production)
+
+This is intentional: services should pay for active presence, not availability. Agents commuting don't earn, which is correct — commute time is unpaid.
+
+**UseService action pseudocode** (fixes another reviewer gap — cost timing and exploit guards):
+
+```
+UseService():
+  facility = nearestServiceFacility(agent.intent)
+  if facility == null: return FAILED
+  facilityType = registry.getType(facility.facility_type)
+  if agent.wallet < facilityType.cost_per_visit: return FAILED
+  if agent.currentServiceVisit !== null: return FAILED  // already using something
+
+  // Debit cost UPFRONT — prevents the exploit of leaving mid-visit with free benefit
+  agent.wallet -= facilityType.cost_per_visit
+  facility.fund += facilityType.cost_per_visit
+  emit 'GoldFlowed purchase'
+
+  agent.currentServiceVisit = {
+    facilityId: facility.id,
+    ticksRemaining: facilityType.ticks_per_visit,
+    costPaid: true,
+  }
+  agent.insideFacility = facility.id
+  beginAction(ctx, 'use_service', facilityType.ticks_per_visit)
+  return RUNNING
+```
+
+Cost is debited at visit START, not END. If the agent leaves mid-visit (commit broken by critical needs), effects are not applied but the cost is not refunded. That matches the real-world model of "you paid to enter, you got some of the benefit, no refunds".
+
+**Negative wallet prevention**: `BuyItem` and `UseService` both check wallet ≥ cost before proceeding; neither allows negative gold.
 
 ### Area effect
 
@@ -439,13 +499,21 @@ AreaEffectSystem.execute(deps):
 
 Multiple overlapping guard posts stack: 3 posts → `+6 mood/tick` for an agent in all three radiuses. Intuitive and correct.
 
+**Pulse timing initialization** (fixes reviewer gap):
+
+`facility.lastPulseTick` must be initialized to the current tick at facility spawn, not `0`. Otherwise, a game loaded at tick 5000 with a fresh `lastPulseTick = 0` would immediately fire a pulse on tick 5000 (because `5000 - 0 >= 30`), regardless of when the last pulse actually happened. The game-view's `populateScene` sets `lastPulseTick: deps.tickCount` when creating the FacilityComponent for an area-effect facility.
+
+If the game is saved and reloaded later, `lastPulseTick` is persisted. Re-initialization only happens on fresh spawn.
+
 ### Wage model summary
 
 | Kind | When wage paid | Source | Amount |
 |---|---|---|---|
-| Production | On cycle complete | Fund (private) or treasury (public) | `recipe.wage_override ?? facility_type.default_wage` |
-| Service | Every tick while worker present | Fund (private) or treasury (public) | `facility_type.default_wage` |
+| Production | On cycle complete | Fund (private) or treasury (public) | `facility_type.default_wage` |
+| Service | Every tick while worker is at facility + btAction=='work' | Fund (private) or treasury (public) | `facility_type.default_wage` |
 | Area effect | On pulse tick | Fund or treasury | `facility_type.default_wage` |
+
+Wage lives on the facility type, not the recipe. If two facilities of the same type (e.g., two Workshops) need different wages, they need different facility types (or the concept can be added later via a location-level `wage_override`).
 
 Production and area-effect keep their existing funding fragility (fund empties → abandoned). Service inherits the same pattern but via hourly drain — if no customers pay, fund depletes faster.
 
@@ -524,21 +592,25 @@ Note: no recipe for guard patrol — area-effect facilities don't have recipes, 
 
 **`facility-types/` (new folder, 11 files or 10 after consolidation):**
 
-| File | Kind | Primary job | Key config |
-|---|---|---|---|
-| `farm.json` | production | settler | `allowed_recipes: [farm-wheat]` |
-| `workshop.json` | production | craftsman | `allowed_recipes: [craft-tools]` |
-| `smithy.json` | production | blacksmith | `allowed_recipes: [smithy-equipment]` |
-| `well.json` | production | water_carrier | `allowed_recipes: [draw-water]` |
-| `guard_post.json` | area_effect | guard | `modifier: mood +2, radius: 150, ticks_per_pulse: 30` |
-| `rest_inn.json` | service | innkeeper | staffed: `energy+8, mood+3`; unstaffed: `energy+4`; cost: 2 |
-| `bathhouse.json` | service | bathhouse_keeper | staffed: `mood+15, energy+5`; unstaffed: `mood+5`; cost: 5 |
-| `tavern.json` | service | bartender | staffed: `social+15, mood+10`; unstaffed: `social+5, mood+3`; cost: 5 |
-| `library.json` | service | librarian | staffed: `mood+10, skill_xp+1`; unstaffed: `mood+3`; cost: 3 |
-| `park.json` | service | park_keeper | staffed: `mood+8, energy+3`; unstaffed: `mood+5, energy+2`; cost: 0 |
-| `market_stall.json` | service | shopkeeper | staffed: `mood+2`; unstaffed: `mood+0`; cost: 0 (just a trade hub) |
+| File | Kind | Primary job | Funding | Key config |
+|---|---|---|---|---|
+| `farm.json` | production | settler | facility | `allowed_recipes: [farm-wheat], default_wage: 3, default_fund: 200` |
+| `workshop.json` | production | craftsman | facility | `allowed_recipes: [craft-tools], default_wage: 3, default_fund: 200` |
+| `smithy.json` | production | blacksmith | facility | `allowed_recipes: [smithy-equipment], default_wage: 4, default_fund: 200` |
+| `well.json` | production | water_carrier | facility | `allowed_recipes: [draw-water], default_wage: 2, default_fund: 150` |
+| `guard_post.json` | area_effect | guard | **treasury** | `modifier: mood +2, radius: 150, ticks_per_pulse: 30, default_wage: 4` |
+| `rest_inn.json` | service | innkeeper | facility | staffed: `energy+8, mood+3`; unstaffed: `energy+4`; cost: 2; `default_wage: 1, default_fund: 150` |
+| `bathhouse.json` | service | bathhouse_keeper | facility | staffed: `mood+15, energy+5`; unstaffed: `mood+5`; cost: 5; `default_wage: 2, default_fund: 150` |
+| `tavern.json` | service | bartender | facility | staffed: `social+15, mood+10`; unstaffed: `social+5, mood+3`; cost: 5; `default_wage: 2, default_fund: 150` |
+| `library.json` | service | librarian | facility | staffed: `mood+10, skill_xp+1`; unstaffed: `mood+3`; cost: 3; `default_wage: 1, default_fund: 120` |
+| `park.json` | service | park_keeper | **treasury** | staffed: `mood+8, energy+3`; unstaffed: `mood+5, energy+2`; cost: 0; `default_wage: 1, default_fund: 0` |
+| `market_stall.json` | service | shopkeeper | facility | staffed: `mood+2`; unstaffed: `mood+0`; cost: 0 (trade hub); `default_wage: 1, default_fund: 200` |
 
-`rest_inn.json` is shared across the 4 existing rest facilities (cabin, cottage, farmstead, house) per user decision.
+**`rest_inn.json` is shared across the 3 existing rest facilities** (cabin, farmstead, house). There is no cottage in the current world — the spec previously listed 4 incorrectly. Count confirmed against `ls locations/`.
+
+**Guard Post funding is `treasury`** — it's a public service, unchanged from the current config. This MUST be set correctly in `guard_post.json` or the treasury stops paying guards and the whole economy loop this spec exists to fix breaks.
+
+**Park funding is also `treasury`** — matches current behavior (parks are public amenities).
 
 ### Location file changes
 
@@ -556,9 +628,10 @@ Every existing location in `locations/` gets its `type`, `production`, `leisure`
 | library.json | `type: leisure, leisure: {...}` | `facility_type: library` |
 | park.json | `type: leisure, leisure: {...}` | `facility_type: park` |
 | cabin.json | `type: rest, leisure: null` | `facility_type: rest_inn` |
-| cottage.json | `type: rest, leisure: null` | `facility_type: rest_inn` |
 | farmstead.json | `type: rest, leisure: null` | `facility_type: rest_inn` |
 | house.json | `type: rest, leisure: null` | `facility_type: rest_inn` |
+
+**No `cottage.json` exists** in the current `locations/` directory. Earlier drafts incorrectly listed 4 rest facilities. Confirmed by `ls locations/ | grep -E "cabin|farmstead|house"` → 3 files.
 
 **New location file:**
 - `locations/smithy.json` — new Smithy facility somewhere near Workshop
@@ -572,40 +645,144 @@ Every existing location in `locations/` gets its `type`, `production`, `leisure`
 ### Code deletions
 
 - `src/infrastructure/systems/leisure-system.ts`
-- `src/infrastructure/systems/rest-system.ts` (if exists as standalone)
+- `src/infrastructure/systems/rest-system.ts`
 - `LocationSchema.production` field
 - `LocationSchema.leisure` field
 - `LocationSchema.type` field
-- `FillWaterskin` BT action
+- `FillWaterskin` BT action (from `bt-actions-needs.ts`)
+- `bt-actions-leisure.ts`'s `Leisure`, `ChooseLeisure`, `SeekLeisureTarget` actions — replaced by a new `UseService` action
 - `HasWater` condition's waterskin check (replaced with water item check)
+- `waterskin` item file + all references
 - Inline production handling in `facility-system.ts`
+
+**NOT deleted (kept in place):**
+- `Wander`, `Idle` BT actions — relocated from `bt-actions-leisure.ts` to `bt-actions-needs.ts` or `bt-actions.ts`
+- `IsAtLeisure` condition — repurposed to `IsUsingService` or deleted if unused after the BT rewrite
 
 ### Code additions
 
 - `src/domain/schemas/recipe-schema.ts`
 - `src/domain/schemas/facility-type-schema.ts`
 - `src/domain/systems/recipe.ts` — pure `applyRecipeCycle` function
-- `src/domain/systems/facility-worker.ts` — shared `findWorker` helper
+- `src/domain/systems/facility-worker.ts` — **existing `findWorker` function extracted and moved** from `facility-system.ts:48-66` (not a new implementation). Same signature and behavior; all three systems import from the new shared location.
 - `src/infrastructure/entity/recipe-loader.ts`
 - `src/infrastructure/entity/facility-type-loader.ts`
 - `src/infrastructure/systems/service-system.ts`
 - `src/infrastructure/systems/area-effect-system.ts`
-- `UseService` BT action (for service visits)
-- `memory.currentServiceVisit` and `memory.pendingAreaModifiers` working memory fields
-- Updated `Drink` action (consumes water item)
-- Updated `MoodSystem` to read `pendingAreaModifiers`
+- `src/infrastructure/entity/bt-actions-service.ts` — new file containing `UseService`, `SeekService`, `ChooseServiceFacility`
+- `memory.currentServiceVisit: { facilityId: string, ticksRemaining: number, costPaid: boolean } | null`
+- `memory.pendingAreaModifiers: Array<{ kind: 'mood', delta: number }>`
+- Updated `Drink` action (consumes water item instead of waterskin charge)
+- Updated `MoodSystem` to read `pendingAreaModifiers` queue (drained each tick)
+- Updated `GameCoreDeps` to carry `getFacilityTypeRegistry: () => Map<string, FacilityType>` and `getRecipeRegistry: () => Map<string, Recipe>`
 
 ### Quest generation updates
 
 `QuestGenerationSystem` currently triggers on:
 - Facility abandonment → repair quest
 - Production input stock low → supply quest
-- Production output stock low → restock quest
+- Production output stock low → restock quest (gated by `loc.type === 'market'`)
 
 After migration:
-- **Abandonment trigger unchanged** (facility.fund <= 0 still drives abandonment)
-- **Supply trigger** now reads `recipe.inputs` from the facility's active recipe (instead of `production.input`). Multi-input recipes generate one quest per missing input.
-- **Restock trigger** reads the facility type's expected stock (for service facilities, may be different mechanic — defer to future spec)
+- **Abandonment trigger unchanged** (`facility.fund <= 0` still drives abandonment via `AbandonmentSystem`)
+- **Supply trigger** — reads `recipe.inputs` from the facility's active recipe (instead of `production.input`). Only applies to facilities where `facility_type.kind === 'production'`. Multi-input recipes generate one quest per missing input. If `active_recipe === null` (service/area_effect), skip.
+- **Restock trigger** — replaces the `loc.type === 'market'` gate with `facility_type.id === 'market_stall'`. Reads the Market Stall's configured "restock threshold" (new field `restock_threshold_per_item: Record<string, number>` on `market_stall` facility type) and emits a restock quest for any item below threshold. Without this concrete replacement, the restock trigger would silently stop firing after migration and the market supply loop would break.
+
+### Incidental call sites that read removed fields
+
+The spec removes `location.type`, `location.production`, and `location.leisure` from the schema. The following 14 files currently read those fields and must be updated during Phase 2 or Phase 3. Each entry lists the file, what it reads, and the replacement. If any of these are missed, the tsc build breaks.
+
+| File | Current reference | Replacement | Phase |
+|---|---|---|---|
+| `src/domain/systems/world-validation.ts` | `loc.type` for region placement rules | `registry.facilityType(loc.facility_type).kind` (map kind→category) | Phase 2 |
+| `src/infrastructure/engine/debug-overlay.ts` | `loc.type` for `LOCATION_ICONS` lookup (12 sites) | Derive icon from `facility_type.id` via new `FACILITY_TYPE_ICONS` map | Phase 3 |
+| `src/infrastructure/engine/debug-overlay.ts` | `loc.production.job` in anomaly detector | Read `facility_type.primary_job` | Phase 2 |
+| `src/infrastructure/engine/debug-overlay.ts` | `loc.production.funding` | Read `facility_type.funding` | Phase 2 |
+| `src/infrastructure/engine/game-view.ts` | `loc.type === 'rest' \| 'leisure' \| 'market'` (3 sites) | Replace with `facility_type.kind === 'service'` and `facility_type.id === 'market_stall'` where distinction matters | Phase 3 |
+| `src/infrastructure/engine/game-view.ts` | `loc.production.funding` bootstrap fund | Read `facility_type.default_fund` + `facility_type.funding` | Phase 2 |
+| `src/infrastructure/engine/world-loader.ts` | `loc.production.job/output/input` in world projection | Read from recipe + facility type registries | Phase 2 |
+| `src/infrastructure/engine/world-loader.ts` | `loc.type` in world snapshot graph | Read `facility_type.id` or `facility_type.kind` | Phase 2 |
+| `src/infrastructure/entity/bt-actions-leisure.ts` | `loc.type === 'leisure' \| 'rest'` for target lookup | **Entire file deleted in Phase 3** (actions replaced by `UseService`) | Phase 3 |
+| `src/infrastructure/entity/bt-conditions-economy.ts` | `loc.type === 'market'` for `FacilityHasStock` | `facility_type.id === 'market_stall'` | Phase 3 |
+| `src/infrastructure/systems/daily-report-system.ts` | `loc.production?.wage`, `loc.production?.job` | Read `facility_type.default_wage` + `facility_type.primary_job` | Phase 2 |
+| `src/infrastructure/systems/economy-system.ts` | `loc.production !== null \|\| loc.type === 'market'` (controls price updates) | `facility_type.kind === 'production' \|\| facility_type.id === 'market_stall'` | Phase 2 |
+| `src/infrastructure/systems/facility-system.ts` | Inline production — entire tick loop | Rewrite to read facility type + recipe registries | Phase 2 |
+| `src/infrastructure/systems/gossip-system.ts` | `locationType: loc.type` in rumor payload | `facility_type.id` | Phase 3 |
+| `src/infrastructure/systems/leisure-system.ts` | Entire file — `loc.type === 'leisure'`, `loc.leisure` | **Entire file deleted in Phase 3** | Phase 3 |
+| `src/infrastructure/systems/rest-system.ts` | Entire file — `loc.type === 'rest'` | **Entire file deleted in Phase 3** | Phase 3 |
+| `src/infrastructure/systems/subsidy-system.ts` | `loc.production !== null` (decides who gets subsidies) | `facility_type.kind === 'production' && facility_type.funding === 'facility'` | Phase 2 |
+| `src/domain/systems/gossip.ts` | 5 references to `loc.type` in rumor generation | Map `facility_type.id` to human label | Phase 3 |
+
+Every replacement is a read against the new registries (facility types + recipes) which are injected via `deps`. The spec's Phase 1 creates the loaders; Phase 2 wires the registry into `GameCoreDeps`; Phases 2 and 3 do the field replacements on the respective call sites. No site is left reading removed fields after Phase 3.
+
+### Behavior Tree changes (`base.mdsl`)
+
+The BT dsl file hardcodes action names. Three sections need rewriting:
+
+**P0.3 (Drink fallback during critical thirst)** — current:
+```
+sequence {
+    condition [IsThirsty]
+    action [SeekWater]
+    action [FillWaterskin]
+    action [Drink]
+}
+```
+After Phase 3:
+```
+sequence {
+    condition [IsThirsty]
+    flip { condition [HasWater] }
+    action [SeekMarket]           // or SeekWell — whichever is closer
+    action [BuyItem, "water"]
+    action [Drink]
+}
+sequence {
+    condition [IsThirsty]
+    condition [HasWater]
+    action [Drink]
+}
+```
+
+**P2.5 (Leisure branch)** — current:
+```
+sequence {
+    selector {
+        condition [IsRestDay]
+        condition [IsMoodLow]
+    }
+    flip { condition [IsNighttime] }
+    action [ChooseLeisure]
+    action [SeekLeisureTarget]
+    action [Leisure] while(IsAtLeisure)
+}
+```
+After Phase 3:
+```
+sequence {
+    selector {
+        condition [IsRestDay]
+        condition [IsMoodLow]
+    }
+    flip { condition [IsNighttime] }
+    action [ChooseServiceFacility, "leisure"]   // picks a service facility with mood effects
+    action [SeekService]
+    action [UseService] while(IsUsingService)
+}
+```
+
+**P5 (Rest branch)** — current uses `SeekRest` + `Rest` actions pointing at `loc.type === 'rest'`. After Phase 3, uses the same `UseService` pattern but filtered by service facilities with `staffed_effects.energy > 0`.
+
+**New BT actions to add** (in `bt-actions-service.ts`, new file):
+- `ChooseServiceFacility(intent: string)` — picks a service facility from nearby by matching intent ('leisure', 'rest', 'bathhouse') to its primary effect type
+- `SeekService()` — moves toward the chosen service facility; same shape as existing `SeekLeisureTarget`
+- `UseService()` — initiates a service visit: checks `cost_per_visit`, sets `memory.currentServiceVisit = {facilityId, ticksRemaining: ticks_per_visit}`, commits the agent
+
+**BT actions to delete** (in Phase 3): `FillWaterskin`, `ChooseLeisure`, `SeekLeisureTarget`, `Leisure`, `Rest`, `SeekRest`.
+
+**BT actions renamed/repurposed**: `SeekRest` → `SeekService` (energy-focused). Alternatively keep `SeekRest` as a thin wrapper that calls `SeekService` with rest intent.
+
+The full `base.mdsl` rewrite happens atomically in Phase 3's commit. `bt-loader.test.ts` must parse the new tree.
 
 ---
 
@@ -675,7 +852,18 @@ After migration:
 
 ### Coverage target
 
-≥75% line coverage on new systems and loaders (matches project standard). Estimated new test count: ~98 cases; estimated deleted: ~15.
+≥75% line coverage on new systems and loaders (matches project standard).
+
+**Test churn estimate (revised after reviewer findings):**
+
+A grep for `waterskin | leisure: | type.*['"]rest['"] | type.*['"]leisure['"] | type.*['"]market['"]` across `tests/` yields ~200 hits across ~31 files. Not all are deletions — many are fixture literals that need rewriting to the new schema. Breakdown:
+
+- ~40 test files need some edit (fixture updates, assertion changes)
+- ~100-150 individual test cases need rewriting (mostly fixture replacement, small assertion tweaks)
+- ~15 test cases fully deleted (e.g. `FillWaterskin`-specific cases)
+- ~120 new test cases added (recipe, facility type loader, ServiceSystem, AreaEffectSystem, BT service actions, bootstrap)
+
+**Phase 3 test churn is the largest single item in the plan.** Budget accordingly — rewriting 150 test cases to use new fixtures is 1-2 days of focused work.
 
 ---
 
@@ -720,7 +908,7 @@ Highest-risk phase. Touches item schema, BT actions, many tests.
 
 Files:
 - `facility-types/` for service kinds (rest_inn, bathhouse, tavern, library, park, market_stall)
-- Location files updated: cabin, cottage, farmstead, house, bathhouse, tavern, library, park, market
+- Location files updated: cabin, farmstead, house, bathhouse, tavern, library, park, market
 - ServiceSystem registered in tick pipeline
 - LeisureSystem, RestSystem deleted
 - Water item added, waterskin removed
@@ -781,6 +969,15 @@ If the recording is green, proceed to Phase 5 and 6. If not, fix and re-verify b
 
 ---
 
+## Deviations from GDD
+
+GDD §5.4 and §6 describe the recipe/job system. The spec follows the GDD structurally but diverges in these specific places:
+
+- **Recipes as JSON, not markdown.** GDD §5.4 says "Each recipe is a markdown file with Zod-validated frontmatter." We use JSON for recipes and facility types because (a) they're pure data with no prose body, (b) JSON is the convention already used for `locations/*.json`, (c) Zod validation works identically against both formats. Items keep their existing markdown format (they have prose descriptions). If the Director ever wants to add prose/flavor text to recipes, we migrate to markdown at that point.
+- **No processing / crafting / construction recipe subtypes.** GDD distinguishes them; we use one uniform `Recipe` schema. Subtypes added later if needed.
+- **Jobs stay in `game-config.json`, not separate markdown files.** GDD §6.2 describes a job-baker.md schema. We extend the existing `config.jobs.definitions` map instead, because no gameplay difference exists yet and it avoids loader plumbing.
+- **Services are a facility type kind, not a separate "service job" concept.** GDD §6.1 splits jobs into "product" and "service" types. Our split is at the facility type level (production vs service vs area_effect). The job name on a service facility is just a name; no `type: service` marker on the job itself.
+
 ## Out of Scope (explicit YAGNI)
 
 The following GDD features are **not** implemented in this pass. Each can be added later as a separate spec once concrete need arises.
@@ -805,17 +1002,19 @@ The following GDD features are **not** implemented in this pass. Each can be add
 
 After all 6 phases land, a new recording session should show:
 
-| Metric | Baseline (recording 1639) | Target |
-|---|---|---|
-| Equipment production | zero producer | at least Smithy produces equipment when staffed |
-| Bram as guard | 0 Work actions | measurable Work actions at Guard Post (assuming staffed + equipped) |
-| Market water stock | zero (water not an item) | water items reach Market via supply or Well |
-| Agents drink water items | use waterskin | `Drink` consumes water items |
-| Guard Post impact | unused | observable `+2 mood/tick` while agents are in radius |
-| Facility stocks | Farmland / Workshop only | all 4 producers populated |
-| Service visits | `LeisureSystem` applies effects | `ServiceSystem` applies effects + pays wages + collects costs |
-| Abandonment | fund-driven (unchanged) | works identically for all kinds |
-| Test suite | 1489 pass | 1570ish pass (+98 new, -15 deleted) |
+Each row has an objective measurement method so the post-migration recording can be scored without interpretation.
+
+| Metric | Baseline (recording 1639) | Target | Measurement |
+|---|---|---|---|
+| Equipment production | zero producer | ≥5 equipment items produced per 1000 ticks | Count `ProductionComplete` events where `outputItem === 'equipment'` in recent-events section |
+| Bram work actions | 0 `Work` in 85 days | ≥20 `Work` actions over 500 ticks | Count snapshots where `Bram.Action === 'work'` and divide by snapshot count |
+| Market water stock | zero (water not an item) | Market shows `water×N` in stock at least once | Grep `Market Stall.*water` across snapshots |
+| Drink uses water items | `FillWaterskin` still present | zero `FillWaterskin` events, ≥1 `Drink` event with water consumed | Recent-events log has no `FillWaterskin` emission |
+| Guard Post impact | unused | Agents in radius show mood breakdown with `area +2` factor | Mood factor breakdown in snapshot shows `area` contribution > 0 when agent is near guard post |
+| Facility stocks | Farmland / Workshop only | all 4 producers have non-zero stock at some point | Grep `Farmland \| Workshop \| Smithy \| Well` for non-empty stock |
+| Service visits | `LeisureSystem` applies effects | `ServiceDelivered` events emitted, agent mood changes observably | Recent events log has `ServiceDelivered` entries |
+| Abandonment | fund-driven (unchanged) | no abandonment regressions vs baseline | Count `[HIGH] Facility ... abandoned` anomalies |
+| Test suite | 1489 pass | 1570-1620 pass (+120 new, -15 deleted, ~100 rewritten) | `npx vitest run` green |
 
 The recording after Phase 4 is the primary verification gate. If core metrics regress, we fix before shipping Phase 5/6.
 
@@ -835,9 +1034,17 @@ The recording after Phase 4 is the primary verification gate. If core metrics re
 
 ---
 
-## Open questions for reviewers
+## Open questions — resolved
 
-- Should services have a minimum fund floor where they stop paying wages but don't immediately abandon? (Prevents rapid empty-bathhouse shutdown while still modeling financial stress.)
-- Should service facilities advertise their staffed/unstaffed state to agents so the BT can prefer staffed ones? (Small feature but meaningful.)
-- Should the Smithy's `smithy-equipment` recipe require more than just tools? (Would create longer supply chain at the cost of more content.)
-- Is the Market Stall really a `service` facility, or is it a fourth kind (trade hub)? Currently modeled as service with negligible effects because it doesn't fit any kind cleanly.
+All reviewer-flagged open questions are decided here so implementation can proceed without further clarification.
+
+- **Service fund floor**: **no special floor**. `facility.fund <= 0` → AbandonmentSystem marks abandoned on next tick (existing behavior). Fragility is intentional per Decision 10. If this turns out to be too aggressive in the first recording, raise `default_fund` on service types in a config patch rather than adding new mechanics.
+- **BT prefers staffed services**: **yes**, the new `ChooseServiceFacility` action scores candidates with a preference for staffed facilities (same cost, better effects). Unstaffed is a fallback only.
+- **Smithy input scope**: **tools only** (1 tool per equipment). Keeps supply chain short and the first-pass content load small. If equipment scarcity turns out to be boring, add ore/iron as a second input in a future spec.
+- **Market Stall as service kind**: **yes, accepted as an architectural smell but not a blocker**. Market Stall doesn't fit cleanly — it has no effects, no cost, no real service. It's modeled as `kind: service` because (a) that lets it have a worker requirement uniformly, (b) ServiceSystem's visit loop is a no-op for facilities with zero effects + zero cost, (c) adding a 4th kind `trade_hub` just for one facility type is YAGNI. If we ever add a second trade facility (e.g., black market, auction house), consider promoting `trade` to a proper kind.
+
+## Items tracked for post-migration observation
+
+- **Guard Post causes `blacksmith` flip risk**: Bram has ST 14 (strongest), making him the best candidate for Smithy (ST primary). If `ClaimBestJob` flips him from guard → blacksmith, Guard Post goes unstaffed. Not a blocker for this spec, but observe in the first recording and tune agent attributes or `blacksmith.primary_attribute` if the problem is severe.
+- **Waterskin `charges` infrastructure**: removing `waterskin` removes one consumer of the `item.charges` mechanic, but `equipment.charges` remains (equipment decay/repair). The charges concept stays in the item schema and inventory code.
+- **Service wage drain**: hourly wages without customers may bankrupt services faster than expected at x10 speed. First recording will reveal the time-to-abandon for a bathhouse with 150g fund and 2g/tick wage. Adjust `default_fund` via config if needed.
