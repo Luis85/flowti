@@ -1,5 +1,6 @@
 import { Plugin } from 'obsidian';
 import { MeridianGameView, MERIDIAN_VIEW_TYPE } from './infrastructure/engine/game-view.js';
+import { MeridianBTInspectorView, MERIDIAN_BT_INSPECTOR_VIEW_TYPE, type BTInspectorDeps } from './infrastructure/ui/bt-inspector-view.js';
 import { MeridianSettingsTab } from './infrastructure/settings/settings-tab.js';
 import { createConsoleLogger } from './infrastructure/logger/console-logger.js';
 import { createPerformanceTracker } from './infrastructure/performance/performance-tracker.js';
@@ -22,6 +23,7 @@ export class MeridianPlugin extends Plugin {
 	private previousLogLevel: LogLevel = DEFAULT_SETTINGS.logLevel;
 	/** Immutable baseline config from game-config.json — never mutated by settings */
 	private baseConfig: GameConfig | null = null;
+	private inspectorDeps: BTInspectorDeps | null = null;
 
 	async onload(): Promise<void> {
 		// Lightweight registrations only — keep onload fast (Obsidian load-time guide)
@@ -33,6 +35,11 @@ export class MeridianPlugin extends Plugin {
 
 		this.registerView(MERIDIAN_VIEW_TYPE, (leaf) => new MeridianGameView(leaf, this.gameDeps, this.batchableEventBus));
 
+		this.registerView(
+			MERIDIAN_BT_INSPECTOR_VIEW_TYPE,
+			(leaf) => new MeridianBTInspectorView(leaf, this.inspectorDeps),
+		);
+
 		this.addRibbonIcon('gamepad-2', 'Project Meridian', async () => {
 			const existingLeaves = this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE);
 			const first = existingLeaves[0];
@@ -42,6 +49,16 @@ export class MeridianPlugin extends Plugin {
 			}
 			const leaf = this.app.workspace.getLeaf('tab');
 			await leaf.setViewState({ type: MERIDIAN_VIEW_TYPE, active: true });
+		});
+
+		this.addRibbonIcon('git-branch', 'BT Inspector', async () => {
+			await this.openBTInspector();
+		});
+
+		this.addCommand({
+			id: 'open-bt-inspector',
+			name: 'Open BT Inspector',
+			callback: () => { void this.openBTInspector(); },
 		});
 
 		this.addSettingTab(new MeridianSettingsTab(this.app, this, {
@@ -173,9 +190,72 @@ export class MeridianPlugin extends Plugin {
 			this.gameDeps.writeFile = writeFile;
 		}
 
+		// Create inspector deps — used by MeridianBTInspectorView to access agents and vault
+		if (this.gameDeps !== null) {
+			const vaultAdapter = {
+				list: async (path: string): Promise<string[]> => {
+					const exists = await this.app.vault.adapter.exists(path);
+					if (!exists) return [];
+					const listing = await this.app.vault.adapter.list(path);
+					return listing.files;
+				},
+				read: async (path: string): Promise<string> => {
+					return this.app.vault.adapter.read(path);
+				},
+			};
+			this.inspectorDeps = {
+				getAgents: () => {
+					const gameLeaves = this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE);
+					const first = gameLeaves[0];
+					if (first === undefined) return [];
+					const view = first.view as MeridianGameView;
+					return view.getAgents?.() ?? [];
+				},
+				getAgentById: (id: string) => {
+					return this.inspectorDeps?.getAgents().find(a => a.agentId === id);
+				},
+				vault: vaultAdapter,
+				logger: this.logger!,
+				dataRoot: () => this.gameDeps?.dataRoot ?? '',
+			};
+			// Refresh any already-open inspector views with the new deps
+			for (const leaf of this.app.workspace.getLeavesOfType(MERIDIAN_BT_INSPECTOR_VIEW_TYPE)) {
+				const view = leaf.view as MeridianBTInspectorView;
+				view.setDeps(this.inspectorDeps);
+			}
+		}
+
 		// Sync config with saved settings (schema defaults differ from user settings)
 		this.applySettings();
 
 		// Vault event listeners MUST be registered here, not in onload() (Obsidian guideline)
+	}
+
+	private async openBTInspector(): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(MERIDIAN_BT_INSPECTOR_VIEW_TYPE);
+		const first = existing[0];
+		if (first !== undefined) {
+			await this.app.workspace.revealLeaf(first);
+			return;
+		}
+		const leaf = this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({ type: MERIDIAN_BT_INSPECTOR_VIEW_TYPE, active: true });
+	}
+
+	private async openBTInspectorForAgent(agentId: string): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(MERIDIAN_BT_INSPECTOR_VIEW_TYPE);
+		const first = existing[0];
+		if (first !== undefined) {
+			await this.app.workspace.revealLeaf(first);
+			const view = first.view as MeridianBTInspectorView;
+			await view.showAgent(agentId);
+			return;
+		}
+		const leaf = this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({
+			type: MERIDIAN_BT_INSPECTOR_VIEW_TYPE,
+			active: true,
+			state: { agentId },
+		});
 	}
 }
