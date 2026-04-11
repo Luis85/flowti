@@ -18,10 +18,20 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 			const locData = getLocations().find(l => l.id === memory.atLocation);
 			if (locData?.type !== 'market') return FAILED;
 			const inv = actor.get(InventoryComponent);
-			const sellable = inv.state.items.find(i =>
+			// Prefer the most-overloaded sellable item — dump the excess first.
+			// Previously `find` picked the first sellable (usually food) even when
+			// the agent was actually overloaded on tools or equipment.
+			const foodThreshold = config.needs.overload_food_threshold;
+			const goodsThreshold = config.economy.overload_goods_threshold;
+			const candidates = inv.state.items.filter(i =>
 				(FOOD_ITEMS.has(i.item_id) || TRADE_GOODS.has(i.item_id)) && i.quantity > 0,
 			);
-			if (sellable === undefined) return FAILED;
+			if (candidates.length === 0) return FAILED;
+			const overloadAmount = (itemId: string, qty: number): number =>
+				FOOD_ITEMS.has(itemId) ? qty - foodThreshold : qty - goodsThreshold;
+			// Sort by overload amount descending — most overloaded first
+			candidates.sort((a, b) => overloadAmount(b.item_id, b.quantity) - overloadAmount(a.item_id, a.quantity));
+			const sellable = candidates[0]!;
 			const locationActorMap = getLocationActors();
 			const marketActor = locationActorMap.get(memory.atLocation);
 			if (marketActor === undefined) return FAILED;

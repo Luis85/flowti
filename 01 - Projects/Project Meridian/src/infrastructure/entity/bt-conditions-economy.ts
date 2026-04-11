@@ -148,10 +148,14 @@ export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMe
 
 		IsOverloaded(): boolean {
 			const inv = actor.get(InventoryComponent).state.items;
-			const food = inv.find(i => FOOD_ITEMS.has(i.item_id));
-			if (food !== undefined && food.quantity > config.needs.overload_food_threshold) return true;
-			const goods = inv.find(i => TRADE_GOODS.has(i.item_id));
-			if (goods !== undefined && goods.quantity > config.economy.overload_goods_threshold) return true;
+			// Check EVERY item — using `find` would miss a stockpile if an earlier
+			// trade-good entry (e.g. equipment) was under threshold while a later
+			// entry (e.g. tools) is over. Recording 2026-04-11-1339 had Celia with
+			// equipment(1) + tools(84) and the condition silently returned false.
+			for (const item of inv) {
+				if (FOOD_ITEMS.has(item.item_id) && item.quantity > config.needs.overload_food_threshold) return true;
+				if (TRADE_GOODS.has(item.item_id) && item.quantity > config.economy.overload_goods_threshold) return true;
+			}
 			return false;
 		},
 

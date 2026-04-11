@@ -703,6 +703,24 @@ describe('bt-actions: createActions', () => {
 				const { actions } = setupSellScenario([{ item_id: 'tools', quantity: 1 }], 0);
 				expect(actions.SellAtMarket()).toBe('mistreevous.failed');
 			});
+
+			it('prefers the most-overloaded item when multiple sellables present', () => {
+				// Regression for recording 2026-04-11-1339: Celia had food(4) + equipment(1) + tools(84)
+				// and the old SellAtMarket used .find() which picked food first, so tools never
+				// got dumped despite massive overload. The fix sorts by overload amount and
+				// picks the most-over-threshold item.
+				const { actions, actor, facActor } = setupSellScenario([
+					{ item_id: 'food', quantity: 4 },
+					{ item_id: 'equipment', quantity: 1 },
+					{ item_id: 'tools', quantity: 84 },
+				]);
+				const result = actions.SellAtMarket();
+				expect(result).toBe('mistreevous.succeeded');
+				// Tools should be the one sold — most overloaded (84 - 5 = 79 over threshold)
+				expect(actor.get(InventoryComponent).state.items.find(i => i.item_id === 'tools')?.quantity).toBe(83);
+				expect(actor.get(InventoryComponent).state.items.find(i => i.item_id === 'food')?.quantity).toBe(4);
+				expect(facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'tools')?.quantity).toBe(1);
+			});
 		});
 
 		describe('Buy', () => {

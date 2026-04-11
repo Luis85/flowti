@@ -1601,6 +1601,30 @@ describe('bt-conditions', () => {
 			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
 			expect(conditions.IsOverloaded()).toBe(false);
 		});
+
+		it('detects tools stockpile even when earlier trade good is under threshold', () => {
+			// Regression for recording 2026-04-11-1339: Celia had equipment(1) + tools(84),
+			// but IsOverloaded used .find() which returned the first match (equipment, qty 1)
+			// and never checked tools. The fix iterates all items and returns true if ANY
+			// trade-good stockpile exceeds its threshold.
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(InventoryComponent).state = { items: [
+				{ item_id: 'equipment', quantity: 1 },
+				{ item_id: 'tools', quantity: 84 },
+			] };
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.IsOverloaded()).toBe(true);
+		});
+
+		it('detects food stockpile even when earlier item is under threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.get(InventoryComponent).state = { items: [
+				{ item_id: 'tools', quantity: 2 },
+				{ item_id: 'food', quantity: 20 },
+			] };
+			const { conditions } = makeConditions(actor, setupDeps(actor, { config }));
+			expect(conditions.IsOverloaded()).toBe(true);
+		});
 	});
 
 	describe('NeedsRepair', () => {
