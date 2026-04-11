@@ -1,6 +1,6 @@
 # Generalized Facility Production — Design
 
-**Status:** Draft (rev 2 — reviewer findings incorporated)
+**Status:** Draft (rev 3 — iteration 2 reviewer findings incorporated: orphan service visit cleanup, SeekWell fallback, incidental call sites table corrected)
 **Date:** 2026-04-11
 **Source:** Review of recording 2026-04-11-1639 + user requirements for generalized production/service/area-effect facility model
 **Scope:** Full refactor of the facility, production, recipe, and service subsystems — ~80 files touched, ~1400 LoC added, ~500 LoC deleted, ~120 new tests (plus ~100-150 existing tests rewritten in Phase 3)
@@ -124,14 +124,14 @@ Rejected alternatives for equipment:
 - (F) No producer, repair-only — no supply chain gameplay, equipment scarcity is artificial
 
 Water flow:
-- Well (`kind: production`, `primary_job: water_carrier`, recipe: `draw-water`)
+- Well (`kind: production`, `primary_job: water_carrier`, recipe: `recipe-draw-water`)
 - Water is a real inventory item — `waterskin` concept is removed
 - Customers buy `water×1` at the Well OR at the Market (supplied by hauling quest)
 - `Drink` action consumes 1 water item, restores thirst (symmetrical with food/Eat)
 - `FillWaterskin` BT action is deleted
 
 Equipment flow:
-- Smithy (`kind: production`, `primary_job: blacksmith`, recipe: `smithy-equipment`)
+- Smithy (`kind: production`, `primary_job: blacksmith`, recipe: `recipe-smithy-equipment`)
 - Recipe input: `tools×1`, output: `equipment×1` — creates a Workshop → Smithy supply chain
 - Existing `repair_equipment` path (tools repair existing equipment via `RepairWithTools`) remains as the primary maintenance loop
 
@@ -403,21 +403,35 @@ ServiceSystem.execute(deps):
     // Process visits (customers)
     for agent in agents where agent.currentServiceVisit?.facilityId == location.id:
       visit = agent.currentServiceVisit
+
+      // ORPHAN GUARD — re-validate every tick that the agent is still at
+      // this facility. A commit break (ContinueCommitment FAILED from a
+      // critical need, or BT re-evaluation into a new branch) can leave
+      // currentServiceVisit dangling. Without this guard the visit would
+      // keep ticking from across the map, apply effects when the agent is
+      // nowhere near the facility, and block re-entry indefinitely.
+      agentX = agent.pos.x; agentY = agent.pos.y
+      dx = agentX - location.position.x
+      dy = agentY - location.position.y
+      inRadius = (dx*dx + dy*dy) <= (FACILITY_INTERACT_RADIUS ** 2)
+      if agent.btAction !== 'use_service' or not inRadius or agent.insideFacility !== location.id:
+        agent.insideFacility = null
+        agent.currentServiceVisit = null
+        continue   // do NOT apply effects, do NOT refund cost
+
       visit.ticksRemaining--
 
       if visit.ticksRemaining == 0:
         effects = worker != null ? facilityType.staffed_effects : facilityType.unstaffed_effects
         applyEffects(agent, effects)
-        if facilityType.cost_per_visit > 0 and worker != null:
-          agent.wallet -= facilityType.cost_per_visit
-          facility.fund += facilityType.cost_per_visit
-          emit 'GoldFlowed purchase'
         agent.insideFacility = null
         agent.currentServiceVisit = null
         emit 'ServiceDelivered'
 ```
 
-Visits are tracked via a new `memory.currentServiceVisit: { facilityId, ticksRemaining, costPaid } | null` field.
+Visits are tracked via a new `memory.currentServiceVisit: { facilityId, ticksRemaining, costPaid } | null` field. `FACILITY_INTERACT_RADIUS` is the existing constant the movement system uses for "agent is at location".
+
+**Cost was debited upfront in `UseService` (see below), not on completion.** That's why the completion branch above doesn't touch the wallet — it would be a double-charge. If the agent leaves mid-visit, the orphan guard clears the visit without a refund, matching the "paid to enter" model.
 
 **Worker eligibility for hourly wage** (fixes a reviewer-flagged gap):
 
@@ -456,6 +470,8 @@ UseService():
 ```
 
 Cost is debited at visit START, not END. If the agent leaves mid-visit (commit broken by critical needs), effects are not applied but the cost is not refunded. That matches the real-world model of "you paid to enter, you got some of the benefit, no refunds".
+
+**Commit break hook (ContinueCommitment extension):** when `memory.committedAction === 'use_service'` and the commit breaks for any reason (critical need, BT re-evaluation, expiry), `ContinueCommitment` must also null out `memory.currentServiceVisit` and `agent.insideFacility`. Without this, the orphan guard above would catch the stale visit on the next ServiceSystem tick — which is correct, but one tick late. Clearing it synchronously in the commit break keeps the state machine clean and prevents a one-tick window where `agent.currentServiceVisit` disagrees with `agent.btAction`.
 
 **Negative wallet prevention**: `BuyItem` and `UseService` both check wallet ≥ cost before proceeding; neither allows negative gold.
 
@@ -523,14 +539,26 @@ Production and area-effect keep their existing funding fragility (fund empties �
 
 ### Unified `Work` action
 
+The existing `Work` action (in `bt-actions-work.ts`) stays structurally identical:
+
 ```
-BT action: Work (existing, unchanged)
-  Preconditions: HasJob, AtJobFacility, IsWorkHours, facility.status != abandoned
-  Effect: beginAction('work', commit=config.commitment_ticks.work)
-  Return: RUNNING
+Work():
+  if memory.atLocation == null: return FAILED
+  if actor.job == null: return FAILED
+  facility = nearbyFacilities.find(f =>
+    f.id == memory.atLocation && f.job == actor.job && f.workerId == actor.agentId)
+  if facility == null: return FAILED
+  beginAction(ctx, 'work', commit=config.commitment_ticks.work)
+  return RUNNING
 ```
 
-Generic. All three systems filter for `agent.btAction === 'work'` + `agent.pos within radius`.
+**What's unchanged**: the action body itself. The checks listed are the action's current internal guards (read directly from `bt-actions-work.ts:157-168`). `IsWorkHours`, `HasJob`, and `AtJobFacility` are enforced at the BT level by surrounding sequence nodes in `base.mdsl` (P2, P4.6, etc.), not inside the action — that separation is already correct and we don't touch it.
+
+**What changes in the migration**: the `facility.job` field that the action compares against is today populated from `loc.production?.job`. After Phase 2, it comes from `facility_type.primary_job`. The shape of the comparison is unchanged; only the source of the `facility.job` attribute in the `PerceivedFacility` projection changes (in `world-loader.ts`). The action's TypeScript code needs **no edits** if `PerceivedFacility.job` stays as `string`.
+
+**Abandonment check**: not performed inside `Work` — it is the BT's P2/P4.6 branches that gate on `facility.status != abandoned` via the perception layer (abandoned facilities are filtered out of `resolveNearbyFacilities()` or carry a status flag). This is existing behavior preserved.
+
+Generic across kinds: all three systems (FacilitySystem, ServiceSystem, AreaEffectSystem) filter candidate workers for `agent.btAction === 'work'` + proximity to the facility. The agent doesn't know which system will pick it up.
 
 ### Hiring (`ClaimBestJob` refactor)
 
@@ -594,10 +622,10 @@ Note: no recipe for guard patrol — area-effect facilities don't have recipes, 
 
 | File | Kind | Primary job | Funding | Key config |
 |---|---|---|---|---|
-| `farm.json` | production | settler | facility | `allowed_recipes: [farm-wheat], default_wage: 3, default_fund: 200` |
-| `workshop.json` | production | craftsman | facility | `allowed_recipes: [craft-tools], default_wage: 3, default_fund: 200` |
-| `smithy.json` | production | blacksmith | facility | `allowed_recipes: [smithy-equipment], default_wage: 4, default_fund: 200` |
-| `well.json` | production | water_carrier | facility | `allowed_recipes: [draw-water], default_wage: 2, default_fund: 150` |
+| `farm.json` | production | settler | facility | `allowed_recipes: [recipe-farm-wheat], default_wage: 3, default_fund: 200` |
+| `workshop.json` | production | craftsman | facility | `allowed_recipes: [recipe-craft-tools], default_wage: 3, default_fund: 200` |
+| `smithy.json` | production | blacksmith | facility | `allowed_recipes: [recipe-smithy-equipment], default_wage: 4, default_fund: 200` |
+| `well.json` | production | water_carrier | facility | `allowed_recipes: [recipe-draw-water], default_wage: 2, default_fund: 150` |
 | `guard_post.json` | area_effect | guard | **treasury** | `modifier: mood +2, radius: 150, ticks_per_pulse: 30, default_wage: 4` |
 | `rest_inn.json` | service | innkeeper | facility | staffed: `energy+8, mood+3`; unstaffed: `energy+4`; cost: 2; `default_wage: 1, default_fund: 150` |
 | `bathhouse.json` | service | bathhouse_keeper | facility | staffed: `mood+15, energy+5`; unstaffed: `mood+5`; cost: 5; `default_wage: 2, default_fund: 150` |
@@ -618,10 +646,10 @@ Every existing location in `locations/` gets its `type`, `production`, `leisure`
 
 | Location | Old | New |
 |---|---|---|
-| farmland.json | `type: food, production: {...}` | `facility_type: farm, active_recipe: farm-wheat` |
-| workshop.json | `type: work, production: {...}` | `facility_type: workshop, active_recipe: craft-tools` |
+| farmland.json | `type: food, production: {...}` | `facility_type: farm, active_recipe: recipe-farm-wheat` |
+| workshop.json | `type: work, production: {...}` | `facility_type: workshop, active_recipe: recipe-craft-tools` |
 | guard-post.json | `type: work, production: {...}` | `facility_type: guard_post` (no active_recipe — area_effect) |
-| spring.json → **renamed** well.json | `type: water, production: null` | `facility_type: well, active_recipe: draw-water` |
+| water-source.json → **renamed** well.json | `type: water, production: null` (existing enum value) | `facility_type: well, active_recipe: recipe-draw-water` |
 | market.json | `type: market, production: null` | `facility_type: market_stall` |
 | bathhouse.json | `type: leisure, leisure: {...}` | `facility_type: bathhouse` |
 | tavern.json | `type: leisure, leisure: {...}` | `facility_type: tavern` |
@@ -690,30 +718,30 @@ After migration:
 
 ### Incidental call sites that read removed fields
 
-The spec removes `location.type`, `location.production`, and `location.leisure` from the schema. The following 14 files currently read those fields and must be updated during Phase 2 or Phase 3. Each entry lists the file, what it reads, and the replacement. If any of these are missed, the tsc build breaks.
+The spec removes `location.type`, `location.production`, and `location.leisure` from the schema. The table below is the **authoritative list**, verified against a grep of `src/` on 2026-04-11. Every entry has been cross-checked: file path, line numbers, and current reference shape. If any of these are missed, the tsc build breaks.
 
-| File | Current reference | Replacement | Phase |
+**Grep scope:** `src/domain/` and `src/infrastructure/` for the patterns `loc\.type|loc\.production|loc\.leisure|location\.type|location\.production`. 14 files match (one in domain, 13 in infrastructure).
+
+| File | Current reference (verified lines) | Replacement | Phase |
 |---|---|---|---|
-| `src/domain/systems/world-validation.ts` | `loc.type` for region placement rules | `registry.facilityType(loc.facility_type).kind` (map kind→category) | Phase 2 |
-| `src/infrastructure/engine/debug-overlay.ts` | `loc.type` for `LOCATION_ICONS` lookup (12 sites) | Derive icon from `facility_type.id` via new `FACILITY_TYPE_ICONS` map | Phase 3 |
-| `src/infrastructure/engine/debug-overlay.ts` | `loc.production.job` in anomaly detector | Read `facility_type.primary_job` | Phase 2 |
-| `src/infrastructure/engine/debug-overlay.ts` | `loc.production.funding` | Read `facility_type.funding` | Phase 2 |
-| `src/infrastructure/engine/game-view.ts` | `loc.type === 'rest' \| 'leisure' \| 'market'` (3 sites) | Replace with `facility_type.kind === 'service'` and `facility_type.id === 'market_stall'` where distinction matters | Phase 3 |
-| `src/infrastructure/engine/game-view.ts` | `loc.production.funding` bootstrap fund | Read `facility_type.default_fund` + `facility_type.funding` | Phase 2 |
-| `src/infrastructure/engine/world-loader.ts` | `loc.production.job/output/input` in world projection | Read from recipe + facility type registries | Phase 2 |
-| `src/infrastructure/engine/world-loader.ts` | `loc.type` in world snapshot graph | Read `facility_type.id` or `facility_type.kind` | Phase 2 |
-| `src/infrastructure/entity/bt-actions-leisure.ts` | `loc.type === 'leisure' \| 'rest'` for target lookup | **Entire file deleted in Phase 3** (actions replaced by `UseService`) | Phase 3 |
-| `src/infrastructure/entity/bt-conditions-economy.ts` | `loc.type === 'market'` for `FacilityHasStock` | `facility_type.id === 'market_stall'` | Phase 3 |
-| `src/infrastructure/systems/daily-report-system.ts` | `loc.production?.wage`, `loc.production?.job` | Read `facility_type.default_wage` + `facility_type.primary_job` | Phase 2 |
-| `src/infrastructure/systems/economy-system.ts` | `loc.production !== null \|\| loc.type === 'market'` (controls price updates) | `facility_type.kind === 'production' \|\| facility_type.id === 'market_stall'` | Phase 2 |
-| `src/infrastructure/systems/facility-system.ts` | Inline production — entire tick loop | Rewrite to read facility type + recipe registries | Phase 2 |
-| `src/infrastructure/systems/gossip-system.ts` | `locationType: loc.type` in rumor payload | `facility_type.id` | Phase 3 |
-| `src/infrastructure/systems/leisure-system.ts` | Entire file — `loc.type === 'leisure'`, `loc.leisure` | **Entire file deleted in Phase 3** | Phase 3 |
-| `src/infrastructure/systems/rest-system.ts` | Entire file — `loc.type === 'rest'` | **Entire file deleted in Phase 3** | Phase 3 |
-| `src/infrastructure/systems/subsidy-system.ts` | `loc.production !== null` (decides who gets subsidies) | `facility_type.kind === 'production' && facility_type.funding === 'facility'` | Phase 2 |
-| `src/domain/systems/gossip.ts` | 5 references to `loc.type` in rumor generation | Map `facility_type.id` to human label | Phase 3 |
+| `src/domain/systems/world-validation.ts` | `loc.production !== null` (62, 103, 108); `loc.production.job` (63); `loc.production.output.item_id` (104); `loc.production.input.item_id` (109, 112) — used to build producer/consumer sets for the "input has a producer" validation rule | Read `facility_type.primary_job` for the producer set; iterate `recipe.inputs`/`recipe.outputs` from the recipe registry to build the graph | Phase 2 |
+| `src/infrastructure/engine/debug-overlay.ts` | `loc.type` (232, 257, 258, 820, 833) — 5 sites; drives `LOCATION_ICONS` lookup + inline display strings. `loc.production?.ticks_per_cycle` (239, 819); `loc.production !== null` (821, 971); `loc.production.<...>` (822, 972) — anomaly detector + progress display | Add a `FACILITY_TYPE_ICONS: Record<string, string>` map keyed by `facility_type.id`; progress reads `recipe.ticks_per_cycle`; anomaly detector reads `facility_type.primary_job` | Phase 2 (production refs) + Phase 3 (icon refs) |
+| `src/infrastructure/engine/game-view.ts` | `loc.production !== null` (178, 423); `loc.production.funding` (181); `loc.type === 'rest'` (192); `loc.type === 'leisure'` (203); `loc.type === 'market'` (214) | `facility_type.kind === 'production'` + `facility_type.default_fund` for bootstrap; `facility_type.kind === 'service'` for rest/leisure grouping; `facility_type.id === 'market_stall'` for the market branch | Phase 2 (production refs) + Phase 3 (type refs) |
+| `src/infrastructure/engine/world-loader.ts` | `loc.type` (206); `loc.production !== null` (207); `loc.production.job` (209); `loc.production.output.item_id` (210); `loc.production.input` (211) — builds the projected `WorldLocation` shape consumed by the BT perception layer | Projection now includes `facility_type: string` and (for production facilities) the resolved `active_recipe` data from the recipe registry. No more separate `type` field. | Phase 2 |
+| `src/infrastructure/entity/bt-actions-leisure.ts` | Entire file reads `loc.type === 'leisure'`/`'rest'` and `loc.leisure` for target selection | **File deleted in Phase 3.** `Wander` and `Idle` (the only non-leisure actions in the file) move to `bt-actions.ts` before deletion | Phase 3 |
+| `src/infrastructure/entity/bt-conditions-economy.ts` | `loc.production === null` (115); `loc.production.output` (119); `loc.production.input` (120) — in `KnowsSupplyRoute`, NOT in `FacilityHasStock` (which reads `facilityData.stock` directly and needs no change) | `KnowsSupplyRoute` reads `recipe.outputs`/`recipe.inputs` from the active recipe via registry lookup; `FacilityHasStock` is untouched | Phase 2 |
+| `src/infrastructure/systems/daily-report-system.ts` | `loc.production?.wage` (62); `loc.production?.job` (63) | `facility_type.default_wage` + `facility_type.primary_job` | Phase 2 |
+| `src/infrastructure/systems/economy-system.ts` | `loc.production !== null \|\| loc.type === 'market'` (32) — single compound predicate; gates per-tick price updates | `facility_type.kind === 'production' \|\| facility_type.id === 'market_stall'` | Phase 2 |
+| `src/infrastructure/systems/facility-system.ts` | Entire inline production tick loop reads `loc.production.<...>` throughout | Full rewrite to recipe + facility type registries (this is the core of Phase 2) | Phase 2 |
+| `src/infrastructure/systems/gossip-system.ts` | `loc.type` (40, 50) — two sites; `locationType: loc.type` in rumor payload and inline `(${loc.type})` in description | `facility_type.id` in payload + a human-readable mapping in the description (reuse `FACILITY_TYPE_LABELS` helper introduced by debug-overlay's icon refactor) | Phase 3 |
+| `src/infrastructure/systems/leisure-system.ts` | Entire file reads `loc.type === 'leisure'` and `loc.leisure` | **Entire file deleted in Phase 3** | Phase 3 |
+| `src/infrastructure/systems/quest-generation-system.ts` | `loc.production !== null` (70); `loc.production!.input!.item_id` (71, 85); `loc.production.input.quantity` (73); `loc.production.input.item_id` (77); `loc.type === 'market'` (99) | Supply quest trigger reads `recipe.inputs` from the active recipe. Restock trigger gate becomes `facility_type.id === 'market_stall'` and uses the new `restock_threshold_per_item` field defined in `market_stall.json`. | Phase 2 |
+| `src/infrastructure/systems/rest-system.ts` | Entire file reads `loc.type === 'rest'` | **Entire file deleted in Phase 3** | Phase 3 |
+| `src/infrastructure/systems/subsidy-system.ts` | `loc.production !== null` (37) — gates who receives abandonment subsidies | `facility_type.kind === 'production' && facility_type.funding === 'facility'` | Phase 2 |
 
-Every replacement is a read against the new registries (facility types + recipes) which are injected via `deps`. The spec's Phase 1 creates the loaders; Phase 2 wires the registry into `GameCoreDeps`; Phases 2 and 3 do the field replacements on the respective call sites. No site is left reading removed fields after Phase 3.
+**Files that do NOT match and need no update:** `src/domain/systems/gossip.ts` (zero matches — the rumor generation helper reads the projected `WorldLocation.type` field which is already going away at the schema boundary, and the inline strings inside this file use `locRef.name` not `locRef.type`). All rumor `loc.type` usage lives in `gossip-system.ts` (the infrastructure wrapper).
+
+Every replacement is a read against the new registries (facility types + recipes) injected via `deps`. Phase 1 creates the loaders; Phase 2 wires the registries into `GameCoreDeps` and migrates all production-side call sites; Phase 3 migrates the service/type-display call sites and deletes the leisure/rest files. No site is left reading removed fields after Phase 3.
 
 ### Behavior Tree changes (`base.mdsl`)
 
@@ -728,21 +756,35 @@ sequence {
     action [Drink]
 }
 ```
-After Phase 3:
+After Phase 3 — drink from inventory first, then try the Well, then try the Market (both are water sellers; cost-and-availability fallback chain mirrors food):
 ```
-sequence {
-    condition [IsThirsty]
-    flip { condition [HasWater] }
-    action [SeekMarket]           // or SeekWell — whichever is closer
-    action [BuyItem, "water"]
-    action [Drink]
-}
+/* Already have water — just drink it */
 sequence {
     condition [IsThirsty]
     condition [HasWater]
     action [Drink]
 }
+/* Buy water at the Well (primary producer) */
+sequence {
+    condition [IsThirsty]
+    flip { condition [HasWater] }
+    condition [CanAffordItem, "water"]
+    action [SeekWell]
+    action [BuyItem, "water"]
+    action [Drink]
+}
+/* Fallback: Market Stall (if Well is out of stock or unreachable) */
+sequence {
+    condition [IsThirsty]
+    flip { condition [HasWater] }
+    condition [CanAffordItem, "water"]
+    action [SeekMarket]
+    action [BuyItem, "water"]
+    action [Drink]
+}
 ```
+
+The selector tries Well before Market because Well is the raw producer — lower base price, higher stock turnover. Market only comes into play when the Well is abandoned or out of stock. The BT selector's existing "try sequence, fall through on FAILED" semantics give us the fallback chain for free.
 
 **P2.5 (Leisure branch)** — current:
 ```
@@ -773,14 +815,17 @@ sequence {
 
 **P5 (Rest branch)** — current uses `SeekRest` + `Rest` actions pointing at `loc.type === 'rest'`. After Phase 3, uses the same `UseService` pattern but filtered by service facilities with `staffed_effects.energy > 0`.
 
-**New BT actions to add** (in `bt-actions-service.ts`, new file):
+**New BT actions to add** (in `bt-actions-service.ts`, new file — plus one new action in `bt-actions-economy.ts`):
 - `ChooseServiceFacility(intent: string)` — picks a service facility from nearby by matching intent ('leisure', 'rest', 'bathhouse') to its primary effect type
 - `SeekService()` — moves toward the chosen service facility; same shape as existing `SeekLeisureTarget`
-- `UseService()` — initiates a service visit: checks `cost_per_visit`, sets `memory.currentServiceVisit = {facilityId, ticksRemaining: ticks_per_visit}`, commits the agent
+- `UseService()` — initiates a service visit: checks `cost_per_visit`, validates wallet, debits cost upfront, sets `memory.currentServiceVisit = {facilityId, ticksRemaining: ticks_per_visit, costPaid: true}`, commits the agent with `committedAction: 'use_service'`
+- `SeekWell()` — (goes in `bt-actions-economy.ts` alongside `SeekMarket`) moves toward the nearest Well facility with water in stock. Same shape as `SeekMarket`. Separate action rather than `SeekFacility("well")` parameterization because the MDSL parser treats action names atomically and we already have `SeekMarket` as precedent.
 
-**BT actions to delete** (in Phase 3): `FillWaterskin`, `ChooseLeisure`, `SeekLeisureTarget`, `Leisure`, `Rest`, `SeekRest`.
+**BT actions to delete** (in Phase 3): `FillWaterskin`, `ChooseLeisure`, `SeekLeisureTarget`, `Leisure`, `Rest`, `SeekRest`, `SeekWater`.
 
-**BT actions renamed/repurposed**: `SeekRest` → `SeekService` (energy-focused). Alternatively keep `SeekRest` as a thin wrapper that calls `SeekService` with rest intent.
+`SeekRest` is fully deleted (not kept as a wrapper). The P5 energy branch is rewritten to use `ChooseServiceFacility("rest") → SeekService → UseService` directly, mirroring P2.5. This removes the wrapper contradiction noted in earlier review iterations: one path, no alias.
+
+`SeekWater` is also deleted — its old job was to find a direct-interaction water location (Spring). After migration there is no such concept; water is an item bought from Well or Market, and `SeekWell` / `SeekMarket` cover both.
 
 The full `base.mdsl` rewrite happens atomically in Phase 3's commit. `bt-loader.test.ts` must parse the new tree.
 
@@ -893,7 +938,7 @@ Big cut-over for production facilities.
 Files:
 - `recipes/` folder populated
 - `facility-types/` for production kinds (farm, workshop, smithy, well, guard_post shell)
-- Location files updated: farmland, workshop, spring→well, smithy (new), guard-post (temporary production kind)
+- Location files updated: farmland, workshop, water-source→well (renamed), smithy (new), guard-post (temporary production kind)
 - FacilitySystem refactor to use recipes
 - QuestGenerationSystem reads recipe inputs
 - World loader loads recipes + facility types
