@@ -74,10 +74,12 @@ export function createWorkActions(ctx: ActionContext): Pick<ActionMethods, 'Clai
 			// Search ALL known locations for open production facilities
 			const allLocations = getLocations();
 			const locationActorMap = getLocationActors();
+			const facilityTypeRegistry = deps.getFacilityTypeRegistry?.();
 
 			const openFacilities = allLocations
 				.filter(l => {
-					if (l.production === null || l.production.job === '') return false;
+					const ft = facilityTypeRegistry?.get(l.facility_type);
+					if (ft?.kind !== 'production' || ft.primary_job === '') return false;
 					const locActor = locationActorMap.get(l.id);
 					if (locActor?.has(FacilityComponent) !== true) return false;
 					const fac = locActor.get(FacilityComponent);
@@ -184,8 +186,10 @@ export function createWorkActions(ctx: ActionContext): Pick<ActionMethods, 'Clai
 			// Fallback: search all locations (for facilities outside perception range)
 			const allLocations = getLocations();
 			const locationActorMap = getLocationActors();
+			const facilityTypeRegistry = deps.getFacilityTypeRegistry?.();
 			const jobLoc = allLocations.find(l => {
-				if (l.production?.job !== actor.job) return false;
+				const ft = facilityTypeRegistry?.get(l.facility_type);
+				if (ft?.primary_job !== actor.job) return false;
 				const locActor = locationActorMap.get(l.id);
 				if (locActor?.has(FacilityComponent) !== true) return false;
 				return locActor.get(FacilityComponent).state.workerId === actor.agentId;

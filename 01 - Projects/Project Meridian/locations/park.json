@@ -1,17 +1,9 @@
 {
   "id": "loc-park",
   "name": "Park",
-  "type": "leisure",
   "facility_type": "park",
   "active_recipe": null,
   "position": { "x": 120, "y": 220, "region": "residential" },
   "color": "#4caf50",
-  "capacity": 20,
-  "production": null,
-  "leisure": {
-    "cost": 0,
-    "effects": { "social": 5, "mood": 8, "energy": 0, "skill_xp": 0 },
-    "attribute_bonus": null,
-    "ticks_per_visit": 15
-  }
+  "capacity": 20
 }

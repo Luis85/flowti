@@ -62,7 +62,7 @@ const validTrait = {
 const validLocation = {
 	id: 'loc-tavern',
 	name: 'The Rusty Anchor',
-	type: 'rest',
+	facility_type: 'tavern',
 	position: { x: 300, y: 200 },
 	capacity: 5,
 };

@@ -5,7 +5,7 @@ export interface PerceptionInput {
 	agentPos: { x: number; y: number };
 	agentIQ: number;
 	agents: { id: string; pos: { x: number; y: number } }[];
-	locations: { id: string; type: string; facility_type: string; pos: { x: number; y: number } }[];
+	locations: { id: string; facility_type: string; pos: { x: number; y: number } }[];
 	timePhase: string;
 }
 
@@ -29,7 +29,7 @@ export function resolvePerception(
 		.sort((a, b) => a.distance - b.distance);
 
 	const nearbyLocations = input.locations
-		.map(l => ({ id: l.id, type: l.type, facility_type: l.facility_type, distance: distance(input.agentPos.x, input.agentPos.y, l.pos.x, l.pos.y) }))
+		.map(l => ({ id: l.id, facility_type: l.facility_type, distance: distance(input.agentPos.x, input.agentPos.y, l.pos.x, l.pos.y) }))
 		.filter(l => l.distance <= radius)
 		.sort((a, b) => a.distance - b.distance);
 

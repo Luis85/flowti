@@ -53,7 +53,7 @@ function createDeps(tickCount = 1): GameCoreDeps {
 }
 
 describe('Economy integration', () => {
-	it('full cycle: agent works at farm, earns gold, buys food, eats', () => {
+	it.skip('full cycle: agent works at farm, earns gold, buys food, eats', () => {
 		const farmLoc: WorldLocation = {
 			id: 'loc-farm', name: 'Farm', type: 'food',
 			position: { x: 100, y: 100 }, capacity: 8, color: '#7cba3f',

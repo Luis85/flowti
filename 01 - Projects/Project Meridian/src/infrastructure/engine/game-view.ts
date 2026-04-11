@@ -202,62 +202,19 @@ export class MeridianGameView extends ItemView {
 			const marker = createLocationMarker(loc);
 			engine.currentScene.add(marker);
 
-			if (loc.production !== null) {
-				// Production facilities start empty — agents must work to produce.
-				// Non-production facilities (market) get stock from their JSON data.
-				// Fund bootstrap chain:
-				//   1. Per-location `fund` wins if present
-				//   2. Per-type `default_fund` wins (0 when funding === 'treasury')
-				//   3. Legacy production-funding logic + facility_start_fund
-				const facilityType = loc.facility_type !== undefined
-					? deps.getFacilityTypeRegistry().get(loc.facility_type)
-					: undefined;
-
-				const fund = loc.fund
-					?? (facilityType?.funding === 'treasury' ? 0 : facilityType?.default_fund)
-					?? (loc.production.funding === 'treasury' ? 0 : deps.config.economy.facility_start_fund);
-
-				marker.addComponent(new FacilityComponent({
-					stock: [],
-					fund,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
-
-			// Add fund-only FacilityComponent to tavern (non-production locations that receive gold)
-			if (loc.type === 'rest' && loc.production === null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [],
-					fund: 0,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
-
-			// Add FacilityComponent to leisure-type locations (receive gold from agent visits)
-			if (loc.type === 'leisure' && loc.production === null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [],
-					fund: 0,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
-
-			// Add FacilityComponent to market-type locations with fund/stock from location data
-			if (loc.type === 'market' && loc.production === null) {
-				marker.addComponent(new FacilityComponent({
-					stock: loc.stock ?? [],
-					fund: loc.fund ?? deps.config.economy.facility_start_fund,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
+			// All locations get a FacilityComponent. Fund/stock bootstrap from
+			// facility_type default, overridden by per-location fund/stock when set.
+			const facilityType = deps.getFacilityTypeRegistry().get(loc.facility_type);
+			const defaultFund = facilityType?.funding === 'treasury'
+				? 0
+				: (facilityType?.default_fund ?? deps.config.economy.facility_start_fund);
+			marker.addComponent(new FacilityComponent({
+				stock: loc.stock ?? [],
+				fund: loc.fund ?? defaultFund,
+				workProgress: 0,
+				status: 'idle',
+				workerId: null,
+			}));
 
 			locationActors.set(loc.id, marker);
 		}
@@ -310,6 +267,7 @@ export class MeridianGameView extends ItemView {
 				jobsConfig: deps.config.jobs,
 				getQuestBoard: () => worldEntity.get(QuestBoardComponent).state,
 				getFacilityTypeRegistry: () => deps.getFacilityTypeRegistry(),
+				getRecipeRegistry: () => deps.getRecipeRegistry(),
 			});
 
 			// Initialize with job-specific tree if agent has a job, otherwise jobless
@@ -471,8 +429,7 @@ function createVaultAdapter(vault: Vault): VaultReader {
 }
 
 function createLocationMarker(loc: WorldLocation): ex.Actor {
-	const isFacility = loc.production !== null;
-	const size = isFacility ? 40 : 20;
+	const size = loc.active_recipe !== null ? 40 : 20;
 	const marker = new ex.Actor({ pos: new ex.Vector(loc.position.x, loc.position.y) });
 	marker.graphics.use(new ex.Rectangle({ width: size, height: size, color: ex.Color.fromHex(loc.color) }));
 	const label = new ex.Label({

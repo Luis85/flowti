@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AgentSchema } from '../../src/domain/schemas/agent-schema.js';
-import { LocationSchema, ProductionSchema } from '../../src/domain/schemas/location-schema.js';
+import { LocationSchema } from '../../src/domain/schemas/location-schema.js';
 import { RegionSchema } from '../../src/domain/schemas/region-schema.js';
 import { TraitDefinitionSchema } from '../../src/domain/schemas/trait-definition-schema.js';
 import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
@@ -115,68 +115,27 @@ describe('Shipped Data Validation', () => {
 		});
 	});
 
-	describe('ProductionSchema', () => {
-		it('defaults to null when not specified', () => {
+	describe('LocationSchema facility fields', () => {
+		it('defaults active_recipe to null when not specified', () => {
 			const loc = LocationSchema.parse({
 				id: 'loc-test',
 				name: 'Test',
-				type: 'rest',
+				facility_type: 'rest_inn',
 				position: { x: 0, y: 0 },
 			});
-			expect(loc.production).toBeNull();
+			expect(loc.active_recipe).toBeNull();
 		});
 
-		it('parses farm production', () => {
-			const production = ProductionSchema.parse({
-				job: 'farmer',
-				output: { item_id: 'wheat', quantity: 1 },
-				input: null,
-				wage: 3,
-				ticks_per_cycle: 30,
-			});
-			expect(production).not.toBeNull();
-			expect(production?.job).toBe('farmer');
-			expect(production?.output.item_id).toBe('wheat');
-			expect(production?.input).toBeNull();
-		});
-
-		it('parses bakery production with input', () => {
-			const production = ProductionSchema.parse({
-				job: 'baker',
-				output: { item_id: 'bread', quantity: 1 },
-				input: { item_id: 'wheat', quantity: 1 },
-				wage: 4,
-				ticks_per_cycle: 20,
-			});
-			expect(production).not.toBeNull();
-			expect(production?.input?.item_id).toBe('wheat');
-		});
-
-		it('applies wage default', () => {
-			const production = ProductionSchema.parse({
-				job: 'test',
-				output: { item_id: 'item', quantity: 1 },
-			});
-			expect(production?.wage).toBe(5);
-		});
-	});
-
-	describe('LocationSchema with production', () => {
-		it('parses location with production block', () => {
+		it('parses location with facility_type + active_recipe', () => {
 			const loc = LocationSchema.parse({
 				id: 'loc-farm',
 				name: 'Farm',
-				type: 'food',
+				facility_type: 'farm',
+				active_recipe: 'recipe-farm-wheat',
 				position: { x: 100, y: 100 },
-				production: {
-					job: 'farmer',
-					output: { item_id: 'wheat', quantity: 1 },
-					wage: 3,
-					ticks_per_cycle: 30,
-				},
 			});
-			expect(loc.production).not.toBeNull();
-			expect(loc.production?.job).toBe('farmer');
+			expect(loc.facility_type).toBe('farm');
+			expect(loc.active_recipe).toBe('recipe-farm-wheat');
 		});
 	});
 

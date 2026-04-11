@@ -233,7 +233,7 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		if (actor === undefined) continue;
 		if (!actor.has(FacilityComponent)) continue;
 		const fac = actor.get(FacilityComponent);
-		const locIcon = FACILITY_TYPE_ICONS[loc.facility_type ?? ''] ?? '🏭';
+		const locIcon = FACILITY_TYPE_ICONS[loc.facility_type] ?? '🏭';
 		const stockItems = fac.state.stock.map(s => `${s.item_id} x${s.quantity}`).join(', ') || '<span style="color:#6c7086">empty</span>';
 		const worker = fac.state.workerId;
 		const workerLabel = worker !== null
@@ -242,7 +242,7 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		const recipe = loc.active_recipe !== null
 			? deps.getRecipeRegistry?.().get(loc.active_recipe)
 			: undefined;
-		const progressMax = recipe?.ticks_per_cycle ?? loc.production?.ticks_per_cycle ?? null;
+		const progressMax = recipe?.ticks_per_cycle ?? null;
 		const progressLabel = fac.state.workProgress > 0
 			? ` ⏳ ${fac.state.workProgress}/${progressMax ?? '?'}`
 			: '';
@@ -262,8 +262,8 @@ function renderWorldPanel(deps: OverlayDeps): string {
 	if (nonFacilities.length > 0) {
 		lines.push('<br><b style="color:#89b4fa">Locations</b>');
 		for (const loc of nonFacilities) {
-			const locIcon = FACILITY_TYPE_ICONS[loc.facility_type ?? ''] ?? '📍';
-			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.facility_type ?? 'unknown'})</span>`);
+			const locIcon = FACILITY_TYPE_ICONS[loc.facility_type] ?? '📍';
+			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.facility_type})</span>`);
 		}
 	}
 
@@ -824,18 +824,15 @@ function buildFacilitiesSnapshot(
 		const fac = la.get(FacilityComponent);
 		const stock = fac.state.stock.map(s => `${s.item_id}x${s.quantity}`).join(', ') || 'empty';
 		const worker = fac.state.workerId?.replace('agent-', '') ?? 'none';
-		const ft = loc.facility_type !== undefined ? facilityTypes?.get(loc.facility_type) : undefined;
+		const ft = facilityTypes?.get(loc.facility_type);
 		const recipe = loc.active_recipe !== null ? recipes?.get(loc.active_recipe) : undefined;
-		const progressMax = recipe?.ticks_per_cycle ?? loc.production?.ticks_per_cycle ?? null;
+		const progressMax = recipe?.ticks_per_cycle ?? null;
 		const progress = fac.state.workProgress > 0 ? ` | progress: ${fac.state.workProgress}/${progressMax ?? '?'}` : '';
-		lines.push(`${loc.name} (${loc.facility_type ?? 'unknown'}): status=${fac.state.status} | fund=${fac.state.fund.toFixed(0)}g | worker=${worker} | stock=[${stock}]${progress}`);
+		lines.push(`${loc.name} (${loc.facility_type}): status=${fac.state.status} | fund=${fac.state.fund.toFixed(0)}g | worker=${worker} | stock=[${stock}]${progress}`);
 		if (ft?.kind === 'production' && recipe !== undefined) {
 			const outputs = recipe.outputs.map(o => `${o.item_id}x${o.quantity}`).join(', ');
 			const inputs = recipe.inputs.length > 0 ? ` | input=${recipe.inputs.map(i => `${i.item_id}x${i.quantity}`).join(', ')}` : '';
 			lines.push(`  Production: ${outputs} every ${recipe.ticks_per_cycle}t | wage=${ft.default_wage}g | job=${ft.primary_job}${inputs}`);
-		} else if (loc.production !== null) {
-			const p = loc.production;
-			lines.push(`  Production: ${p.output.item_id}x${p.output.quantity} every ${p.ticks_per_cycle}t | wage=${p.wage}g | job=${p.job}${p.input !== null ? ` | input=${p.input.item_id}x${p.input.quantity}` : ''}`);
 		}
 	}
 
@@ -845,7 +842,7 @@ function buildFacilitiesSnapshot(
 		lines.push('');
 		lines.push('## Locations');
 		for (const loc of nonFac) {
-			lines.push(`${loc.name} (${loc.facility_type ?? 'unknown'}) at (${loc.position.x}, ${loc.position.y})`);
+			lines.push(`${loc.name} (${loc.facility_type}) at (${loc.position.x}, ${loc.position.y})`);
 		}
 	}
 
@@ -984,9 +981,9 @@ function detectAnomalies(
 		const fac = la.get(FacilityComponent);
 		if (fac.state.status === 'abandoned') anomalies.push(`[HIGH] Facility ${loc.name}: abandoned`);
 		if (fac.state.fund <= 0 && fac.state.status !== 'abandoned') anomalies.push(`[MEDIUM] Facility ${loc.name}: fund depleted (${fac.state.fund.toFixed(0)}g)`);
-		const ft = loc.facility_type !== undefined ? facilityTypes?.get(loc.facility_type) : undefined;
-		const isProduction = ft?.kind === 'production' || loc.production !== null;
-		const primaryJob = ft?.primary_job ?? loc.production?.job ?? '';
+		const ft = facilityTypes?.get(loc.facility_type);
+		const isProduction = ft?.kind === 'production';
+		const primaryJob = ft?.primary_job ?? '';
 		if (isProduction && fac.state.workerId === null && fac.state.status !== 'abandoned') {
 			anomalies.push(`[MEDIUM] Facility ${loc.name}: production facility with no worker (job=${primaryJob})`);
 		}
@@ -1020,7 +1017,7 @@ function detectAnomalies(
 	// Gold inflation check — compute expected from config
 	const treasuryStart = config?.economy.treasury_start_sandbox ?? 1000;
 	const facilityFund = config?.economy.facility_start_fund ?? 200;
-	const expectedGold = treasuryStart + (locations.filter(l => l.production !== null).length * facilityFund);
+	const expectedGold = treasuryStart + (locations.filter(l => l.active_recipe !== null).length * facilityFund);
 	if (totalGold > expectedGold * 2) {
 		anomalies.push(`[MEDIUM] Gold inflation: total ${totalGold.toFixed(0)}g is ${(totalGold / expectedGold * 100).toFixed(0)}% of starting supply`);
 	}

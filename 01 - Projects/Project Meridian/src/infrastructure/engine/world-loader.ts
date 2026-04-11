@@ -212,26 +212,16 @@ export function createWorldLoader(
 					behaviorTree: a.job ?? '',
 				})),
 				locations: locationResult.items.map(loc => {
-					const facilityType = loc.facility_type !== undefined
-						? facilityTypeRegistry.get(loc.facility_type)
-						: undefined;
+					const facilityType = facilityTypeRegistry.get(loc.facility_type);
 					const recipe = loc.active_recipe !== null
 						? recipeRegistry.get(loc.active_recipe)
 						: undefined;
 					return {
 						id: loc.id,
-						type: loc.type,
-						facility_type: loc.facility_type ?? loc.type,
+						facility_type: loc.facility_type,
 						primary_job: facilityType?.primary_job ?? null,
 						inputs: recipe?.inputs.map(i => ({ item_id: i.item_id })) ?? [],
 						outputs: recipe?.outputs.map(o => ({ item_id: o.item_id })) ?? [],
-						production: loc.production !== null
-							? {
-								job: loc.production.job,
-								output: { item_id: loc.production.output.item_id },
-								input: loc.production.input !== null ? { item_id: loc.production.input.item_id } : null,
-							}
-							: null,
 					};
 				}),
 				btDefinitions: btMdslDefinitions,

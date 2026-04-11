@@ -8,6 +8,7 @@ import { LocationSchema } from '../../src/domain/schemas/location-schema.js';
 import { RegionSchema } from '../../src/domain/schemas/region-schema.js';
 import { TraitDefinitionSchema } from '../../src/domain/schemas/trait-definition-schema.js';
 import { FacilityTypeSchema } from '../../src/domain/schemas/facility-type-schema.js';
+import { RecipeSchema } from '../../src/domain/schemas/recipe-schema.js';
 import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
 import { buildRegionGraph } from '../../src/domain/systems/pathfinding.js';
 import { createTickRunner } from '../../src/infrastructure/engine/tick-runner.js';
@@ -42,6 +43,7 @@ import type { WorldLocation } from '../../src/domain/schemas/location-schema.js'
 import type { WorldRegion } from '../../src/domain/schemas/region-schema.js';
 import type { TraitDefinition } from '../../src/domain/systems/trait-resolver.js';
 import type { FacilityType } from '../../src/domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../src/domain/schemas/recipe-schema.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '../..');
@@ -81,6 +83,9 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 	const regions: WorldRegion[] = loadAndParse('regions', RegionSchema);
 	const traitFiles = loadAndParse('traits', TraitDefinitionSchema);
 	const facilityTypes: FacilityType[] = loadAndParse('facility-types', FacilityTypeSchema);
+	const recipeList: Recipe[] = loadAndParse('recipes', RecipeSchema);
+	const recipes = new Map<string, Recipe>();
+	for (const r of recipeList) recipes.set(r.id, r);
 
 	// Skip if real data files are not available
 	if (agentData.length === 0 || locations.length === 0 || Object.keys(jobTrees).length === 0) {
@@ -119,16 +124,16 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		const locationActors = new Map<string, Actor>();
 		for (const loc of locations) {
 			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
-			if (loc.production !== null) {
-				const startingStock = [{ item_id: loc.production.output.item_id, quantity: 5 }];
-				marker.addComponent(new FacilityComponent({
-					stock: startingStock,
-					fund: config.economy.facility_start_fund,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
+			const recipe = loc.active_recipe !== null ? recipes.get(loc.active_recipe) : undefined;
+			const firstOutput = recipe?.outputs[0];
+			const startingStock = firstOutput !== undefined ? [{ item_id: firstOutput.item_id, quantity: 5 }] : [];
+			marker.addComponent(new FacilityComponent({
+				stock: startingStock,
+				fund: config.economy.facility_start_fund,
+				workProgress: 0,
+				status: 'idle',
+				workerId: null,
+			}));
 			locationActors.set(loc.id, marker);
 		}
 

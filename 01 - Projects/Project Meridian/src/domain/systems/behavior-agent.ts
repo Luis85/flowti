@@ -14,8 +14,7 @@ export interface PerceivedAgent {
 
 export interface PerceivedLocation {
 	id: string;
-	type: string;            // LEGACY — dropped in Phase 3
-	facility_type: string;   // NEW — Phase 2 plumb-through
+	facility_type: string;
 	position: { x: number; y: number };
 	distance: number;
 }

@@ -66,15 +66,13 @@ export function createQuestGenerationSystem(
 					};
 				}
 
-				// NEW: recipe-path supply quest — when facility_type + active_recipe are set,
+				// Recipe-path supply quest — when facility_type + active_recipe are set,
 				// read inputs from the recipe registry. First missing input drives the quest.
-				let suppliedByRecipe = false;
-				if (quest === null && loc.facility_type !== undefined) {
+				if (quest === null) {
 					const facilityType = deps.getFacilityTypeRegistry().get(loc.facility_type);
 					if (facilityType?.kind === 'production' && loc.active_recipe !== null) {
 						const recipe = deps.getRecipeRegistry().get(loc.active_recipe);
 						if (recipe !== undefined && recipe.inputs.length > 0) {
-							suppliedByRecipe = true;
 							for (const input of recipe.inputs) {
 								const inputStock = facility.state.stock.find(s => s.item_id === input.item_id);
 								const currentQty = inputStock?.quantity ?? 0;
@@ -104,42 +102,11 @@ export function createQuestGenerationSystem(
 					}
 				}
 
-				// LEGACY supply quest: production.input exists AND input stock below required quantity
-				if (quest === null && !suppliedByRecipe && loc.production !== null && loc.production.input !== null) {
-					const inputStock = facility.state.stock.find(s => s.item_id === loc.production!.input!.item_id);
-					const currentQty = inputStock?.quantity ?? 0;
-					const requiredQty = loc.production.input.quantity;
-
-					if (currentQty < requiredQty) {
-						const neededQty = requiredQty - currentQty;
-						const itemConfig = deps.config.items[loc.production.input.item_id];
-						const baseValue = itemConfig?.baseValue ?? deps.config.economy.food_price;
-						const reward = baseValue * neededQty * deps.config.quests.supply_reward_multiplier;
-
-						quest = {
-							id: `q-${loc.id}-${deps.tickCount}`,
-							type: 'supply',
-							facilityId: loc.id,
-							itemId: loc.production.input.item_id,
-							quantity: neededQty,
-							reward,
-							rewardXp: 5,
-							state: 'open',
-							claimedBy: null,
-							createdTick: deps.tickCount,
-							expiryTicks: deps.config.quests.expiry_ticks,
-							repairProgress: 0,
-						};
-					}
-				}
-
-				// NEW: recipe-path restock quest — market_stall facility type reads
+				// Recipe-path restock quest — market_stall facility type reads
 				// per-item thresholds from the facility type registry.
-				let restockHandled = false;
-				if (quest === null && loc.facility_type !== undefined) {
+				if (quest === null) {
 					const facilityType = deps.getFacilityTypeRegistry().get(loc.facility_type);
 					if (facilityType?.kind === 'service' && facilityType.id === 'market_stall') {
-						restockHandled = true;
 						const thresholds = facilityType.restock_threshold_per_item;
 						for (const [itemId, threshold] of Object.entries(thresholds)) {
 							const stock = facility.state.stock.find(s => s.item_id === itemId);
@@ -162,33 +129,6 @@ export function createQuestGenerationSystem(
 								break;
 							}
 						}
-					}
-				}
-
-				// LEGACY restock quest: location type is 'market' AND total stock < restock_threshold
-				if (quest === null && !restockHandled && loc.type === 'market') {
-					const totalStock = facility.state.stock.reduce((sum, s) => sum + s.quantity, 0);
-					if (totalStock < deps.config.quests.restock_threshold) {
-						// Pick the lowest-stock food item to restock
-						const foodStock = facility.state.stock.find(s => s.item_id === 'food');
-						const restockItem = foodStock === undefined || foodStock.quantity < deps.config.quests.restock_threshold
-							? 'food'
-							: facility.state.stock.reduce((lowest, s) => s.quantity < lowest.quantity ? s : lowest).item_id;
-
-						quest = {
-							id: `q-${loc.id}-${deps.tickCount}`,
-							type: 'restock',
-							facilityId: loc.id,
-							itemId: restockItem,
-							quantity: 1,
-							reward: deps.config.quests.restock_reward,
-							rewardXp: 5,
-							state: 'open',
-							claimedBy: null,
-							createdTick: deps.tickCount,
-							expiryTicks: deps.config.quests.expiry_ticks,
-							repairProgress: 0,
-						};
 					}
 				}
 

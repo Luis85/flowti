@@ -17,6 +17,8 @@ import { AttributesComponent } from '../../../src/infrastructure/components/attr
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import type { GameConfig } from '../../../src/domain/schemas/game-config-schema.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import type { FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../../src/domain/schemas/recipe-schema.js';
 import type { EventBus } from '../../../src/domain/core/events.js';
 import type { PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../../src/domain/systems/behavior-agent.js';
 import type { QuestRuntime } from '../../../src/domain/schemas/quest-schema.js';
@@ -91,17 +93,65 @@ function createLocationActor(facilityState: {
 	return loc;
 }
 
-function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldLocation['production'] = null, region: string | null = null, facility_type?: string): WorldLocation {
+// Legacy signature kept for this test file — production block is ignored,
+// facility_type/active_recipe are derived from the production.job + output
+// where possible. The mock registry (testFacilityTypes / testRecipes) is
+// populated alongside via helper function.
+interface LegacyProduction {
+	job?: string;
+	output?: { item_id: string; quantity: number };
+	input?: { item_id: string; quantity: number } | null;
+	wage?: number;
+	ticks_per_cycle?: number;
+}
+
+// Shared registries that test mutates as locations are created
+const testFacilityTypes = new Map<string, FacilityType>();
+const testRecipes = new Map<string, Recipe>();
+
+function resetTestRegistries(): void {
+	testFacilityTypes.clear();
+	testRecipes.clear();
+	// seed common default types
+	testFacilityTypes.set('market_stall', { id: 'market_stall', kind: 'service', primary_job: 'settler', default_wage: 1, default_fund: 200, funding: 'facility', capacity: 1, staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {} });
+	testFacilityTypes.set('well', { id: 'well', kind: 'production', primary_job: 'waterbearer', default_wage: 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: ['recipe-well'] });
+	testFacilityTypes.set('tavern', { id: 'tavern', kind: 'service', primary_job: 'settler', default_wage: 1, default_fund: 200, funding: 'facility', capacity: 1, staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {} });
+	testRecipes.set('recipe-well', { id: 'recipe-well', name: 'Well', inputs: [], outputs: [{ item_id: 'water', quantity: 1 }], ticks_per_cycle: 30, required_skill: null, min_skill_level: 0 });
+}
+
+function makeLocation(
+	id: string,
+	_legacyType: string,
+	x = 0,
+	y = 0,
+	production: LegacyProduction | null = null,
+	region: string | null = null,
+	explicitFacilityType?: string,
+): WorldLocation {
+	let facility_type = explicitFacilityType;
+	let active_recipe: string | null = null;
+
+	if (production !== null && production.job !== undefined) {
+		facility_type ??= `type-${id}`;
+		const recipeId = `recipe-${id}`;
+		active_recipe = recipeId;
+		const inputs = production.input !== null && production.input !== undefined ? [{ item_id: production.input.item_id, quantity: production.input.quantity }] : [];
+		const outputs = production.output !== undefined ? [{ item_id: production.output.item_id, quantity: production.output.quantity }] : [];
+		testRecipes.set(recipeId, { id: recipeId, name: recipeId, inputs, outputs, ticks_per_cycle: production.ticks_per_cycle ?? 30, required_skill: null, min_skill_level: 0 });
+		testFacilityTypes.set(facility_type, { id: facility_type, kind: 'production', primary_job: production.job, default_wage: production.wage ?? 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: [recipeId] });
+	}
+
+	facility_type ??= _legacyType;
+
 	return {
 		id,
 		name: id,
-		type: type as WorldLocation['type'],
+		facility_type,
+		active_recipe,
 		position: { x, y, region: region ?? 'test' },
 		capacity: 10,
 		color: '#808080',
-		production,
 		region,
-		...(facility_type !== undefined ? { facility_type } : {}),
 	};
 }
 
@@ -117,7 +167,9 @@ function setupDeps(
 	const eventBus = overrides.eventBus ?? noopEventBus;
 	const claimFacility = overrides.claimFacility ?? (() => true);
 	const releaseFacility = overrides.releaseFacility ?? (() => {});
-	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, claimFacility, releaseFacility, ...overrides };
+	const getFacilityTypeRegistry = overrides.getFacilityTypeRegistry ?? (() => testFacilityTypes);
+	const getRecipeRegistry = overrides.getRecipeRegistry ?? (() => testRecipes);
+	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, claimFacility, releaseFacility, getFacilityTypeRegistry, getRecipeRegistry, ...overrides };
 }
 
 /** Resolves nearby facilities from location actors with FacilityComponent */
@@ -129,6 +181,8 @@ function makeResolveNearbyFacilities(
 		const locationActorMap = deps.getLocationActors();
 		const locationList = deps.getLocations();
 		const perception = actor.get(PerceptionComponent);
+		const facilityTypeRegistry = deps.getFacilityTypeRegistry?.();
+		const recipeRegistry = deps.getRecipeRegistry?.();
 		const facilities: PerceivedFacility[] = [];
 
 		for (const nearLoc of perception.state.nearbyLocations) {
@@ -138,21 +192,29 @@ function makeResolveNearbyFacilities(
 			if (locActor?.has(FacilityComponent) !== true) continue;
 			const facility = locActor.get(FacilityComponent);
 
+			const facilityType = facilityTypeRegistry?.get(locData.facility_type);
+			const recipe = locData.active_recipe !== null ? recipeRegistry?.get(locData.active_recipe) : undefined;
+
 			let hasUnmetInput = false;
-			if (locData.production?.input !== null && locData.production?.input !== undefined) {
-				const needed = locData.production.input;
-				const inStock = facility.state.stock.find(s => s.item_id === needed.item_id);
-				hasUnmetInput = inStock === undefined || inStock.quantity < needed.quantity;
+			if (recipe !== undefined) {
+				for (const input of recipe.inputs) {
+					const inStock = facility.state.stock.find(s => s.item_id === input.item_id);
+					if (inStock === undefined || inStock.quantity < input.quantity) {
+						hasUnmetInput = true;
+						break;
+					}
+				}
 			}
 
 			facilities.push({
 				id: nearLoc.id,
-				job: locData.production?.job ?? '',
+				job: facilityType?.primary_job ?? '',
 				stock: [...facility.state.stock],
 				distance: nearLoc.distance,
 				hasUnmetInput,
 				workerId: facility.state.workerId,
-				wage: locData.production?.wage ?? 0,
+				wage: facilityType?.default_wage ?? 0,
+				status: facility.state.status,
 			});
 		}
 		return facilities;
@@ -178,7 +240,6 @@ function makeResolveNearbyLocations(actor: AgentActor, deps: BehaviorAgentDeps):
 			const locData = locationList.find(l => l.id === nl.id);
 			return {
 				id: nl.id,
-				type: locData?.type ?? nl.type,
 				facility_type: locData?.facility_type ?? nl.facility_type ?? '',
 				position: locData !== undefined
 					? { x: locData.position.x, y: locData.position.y }
@@ -220,6 +281,7 @@ describe('bt-actions: createActions', () => {
 
 	beforeEach(() => {
 		config = GameConfigSchema.parse({});
+		resetTestRegistries();
 	});
 
 	// ── Life actions ──────────────────────────────────────────────────────

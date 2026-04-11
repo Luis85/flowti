@@ -8,6 +8,40 @@ import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
 import type { Item } from '../../../src/domain/schemas/item-schema.js';
+import type { FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
+
+const marketFacilityType: FacilityType = {
+	id: 'market_stall',
+	kind: 'service',
+	primary_job: 'settler',
+	default_wage: 1,
+	default_fund: 200,
+	funding: 'facility',
+	capacity: 1,
+	staffed_effects: { mood: 0, energy: 0, social: 2, skill_xp: 0 },
+	unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+	cost_per_visit: 0,
+	ticks_per_visit: 10,
+	restock_threshold_per_item: {},
+};
+
+const bakeryFacilityType: FacilityType = {
+	id: 'bakery',
+	kind: 'production',
+	primary_job: 'baker',
+	default_wage: 5,
+	default_fund: 200,
+	funding: 'facility',
+	capacity: 1,
+	allowed_recipes: ['recipe-bake-bread'],
+};
+
+function createFacilityTypeRegistry(): Map<string, FacilityType> {
+	const map = new Map<string, FacilityType>();
+	map.set('market_stall', marketFacilityType);
+	map.set('bakery', bakeryFacilityType);
+	return map;
+}
 
 function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 	return {
@@ -19,7 +53,7 @@ function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 		writeFile: null,
 		dataRoot: 'test-data',
 		getRecipeRegistry: () => new Map(),
-		getFacilityTypeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => createFacilityTypeRegistry(),
 	};
 }
 
@@ -27,11 +61,12 @@ function createMarketLocation(id = 'loc-market'): WorldLocation {
 	return {
 		id,
 		name: 'Market',
-		type: 'market',
+		facility_type: 'market_stall',
+		active_recipe: null,
 		position: { x: 100, y: 100, region: 'test' },
 		capacity: 10,
 		color: '#808080',
-		production: null,
+		region: null,
 	};
 }
 
@@ -39,17 +74,12 @@ function createProductionLocation(id = 'loc-bakery'): WorldLocation {
 	return {
 		id,
 		name: 'Bakery',
-		type: 'work',
+		facility_type: 'bakery',
+		active_recipe: 'recipe-bake-bread',
 		position: { x: 200, y: 200, region: 'test' },
 		capacity: 10,
 		color: '#808080',
-		production: {
-			job: 'baker',
-			output: { item_id: 'food', quantity: 1 },
-			input: { item_id: 'wheat', quantity: 1 },
-			wage: 5,
-			ticks_per_cycle: 30,
-		},
+		region: null,
 	};
 }
 

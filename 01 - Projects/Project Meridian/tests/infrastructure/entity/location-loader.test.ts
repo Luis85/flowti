@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createLocationLoader } from '../../../src/infrastructure/entity/location-loader.js';
 import type { VaultReader } from '../../../src/infrastructure/entity/agent-spawner.js';
 
-const validLocation = { id: 'loc-tavern', name: 'The Rusty Anchor', type: 'rest', position: { x: 300, y: 200 }, capacity: 5 };
+const validLocation = { id: 'loc-tavern', name: 'The Rusty Anchor', facility_type: 'tavern', position: { x: 300, y: 200 }, capacity: 5 };
 const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
 function createMockVault(files: Record<string, string>): VaultReader {

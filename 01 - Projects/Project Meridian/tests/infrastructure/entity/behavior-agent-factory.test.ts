@@ -15,6 +15,8 @@ import { NEED_CRITICAL_THRESHOLDS } from '../../../src/domain/schemas/ranges.js'
 import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
 import type { GameConfig } from '../../../src/domain/schemas/game-config-schema.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import type { FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../../src/domain/schemas/recipe-schema.js';
 import type { EventBus } from '../../../src/domain/core/events.js';
 
 const noopEventBus: EventBus = {
@@ -84,18 +86,68 @@ function createLocationActor(facilityState: {
 	return loc;
 }
 
-function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldLocation['production'] = null, region: string | null = null, facility_type?: string): WorldLocation {
+function makeLocation(
+	id: string,
+	facility_type: string,
+	x = 0,
+	y = 0,
+	activeRecipe: string | null = null,
+	region: string | null = null,
+): WorldLocation {
 	return {
 		id,
 		name: id,
-		type: type as WorldLocation['type'],
+		facility_type,
+		active_recipe: activeRecipe,
 		position: { x, y, region: region ?? 'test' },
 		capacity: 10,
 		color: '#808080',
-		production,
 		region,
-		facility_type,
 	};
+}
+
+function productionType(id: string, primary_job: string, allowed_recipes = ['r-test']): FacilityType {
+	return {
+		id, kind: 'production', primary_job, default_wage: 5, default_fund: 200, funding: 'facility',
+		capacity: 1, allowed_recipes,
+	};
+}
+
+function serviceType(id: string, primary_job = 'settler'): FacilityType {
+	return {
+		id, kind: 'service', primary_job, default_wage: 1, default_fund: 100, funding: 'facility',
+		capacity: 1,
+		staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+		unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+		cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {},
+	};
+}
+
+function makeRecipe(
+	id: string,
+	inputs: { item_id: string; quantity: number }[],
+	outputs: { item_id: string; quantity: number }[],
+): Recipe {
+	return { id, name: id, inputs, outputs, ticks_per_cycle: 30, required_skill: null, min_skill_level: 0 };
+}
+
+function defaultFacilityTypes(): Map<string, FacilityType> {
+	const m = new Map<string, FacilityType>();
+	m.set('farm', productionType('farm', 'farmer', ['recipe-farm-wheat']));
+	m.set('bakery', productionType('bakery', 'baker', ['recipe-bake-bread']));
+	m.set('mill', productionType('mill', 'miller', ['recipe-mill-flour']));
+	m.set('market_stall', serviceType('market_stall'));
+	m.set('tavern', serviceType('tavern'));
+	m.set('inn', serviceType('inn'));
+	return m;
+}
+
+function defaultRecipes(): Map<string, Recipe> {
+	const m = new Map<string, Recipe>();
+	m.set('recipe-farm-wheat', makeRecipe('recipe-farm-wheat', [], [{ item_id: 'wheat', quantity: 1 }]));
+	m.set('recipe-bake-bread', makeRecipe('recipe-bake-bread', [{ item_id: 'wheat', quantity: 1 }], [{ item_id: 'bread', quantity: 1 }]));
+	m.set('recipe-mill-flour', makeRecipe('recipe-mill-flour', [{ item_id: 'wheat', quantity: 1 }], [{ item_id: 'flour', quantity: 1 }]));
+	return m;
 }
 
 function setupDeps(
@@ -108,7 +160,9 @@ function setupDeps(
 	const getLocations = overrides.getLocations ?? (() => []);
 	const tickCount = overrides.tickCount ?? (() => 1);
 	const eventBus = overrides.eventBus ?? noopEventBus;
-	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus };
+	const getFacilityTypeRegistry = overrides.getFacilityTypeRegistry ?? (() => defaultFacilityTypes());
+	const getRecipeRegistry = overrides.getRecipeRegistry ?? (() => defaultRecipes());
+	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, getFacilityTypeRegistry, getRecipeRegistry };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -211,12 +265,12 @@ describe('BehaviorAgent factory', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			actor.get(PerceptionComponent).state = {
 				nearbyAgents: [],
-				nearbyLocations: [{ id: 'loc-tavern', type: 'food', distance: 20 }],
+				nearbyLocations: [{ id: 'loc-tavern', facility_type: 'tavern', distance: 20 }],
 			};
-			const locations = [makeLocation('loc-tavern', 'food', 30, 40)];
+			const locations = [makeLocation('loc-tavern', 'tavern', 30, 40)];
 			const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 			expect(agent.nearbyLocations).toHaveLength(1);
-			expect(agent.nearbyLocations[0]!.type).toBe('food');
+			expect(agent.nearbyLocations[0]!.facility_type).toBe('tavern');
 			expect(agent.nearbyLocations[0]!.position).toEqual({ x: 30, y: 40 });
 		});
 
@@ -224,21 +278,13 @@ describe('BehaviorAgent factory', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			actor.get(PerceptionComponent).state = {
 				nearbyAgents: [],
-				nearbyLocations: [{ id: 'loc-bakery', type: 'work', distance: 15 }],
+				nearbyLocations: [{ id: 'loc-bakery', facility_type: 'bakery', distance: 15 }],
 			};
 
-			const locations = [makeLocation('loc-bakery', 'work', 0, 0, {
-				job: 'baker',
-				output: { item_id: 'bread', quantity: 1 },
-				input: null,
-				wage: 5,
-				ticks_per_cycle: 30,
-				auto_process: false,
-				auto_ticks_per_cycle: 60,
-			})];
+			const locations = [makeLocation('loc-bakery', 'bakery', 0, 0, 'recipe-bake-bread')];
 
 			const facActor = createLocationActor({
-				stock: [{ item_id: 'bread', quantity: 5 }],
+				stock: [{ item_id: 'bread', quantity: 5 }, { item_id: 'wheat', quantity: 2 }],
 				fund: 100,
 				workProgress: 0,
 				status: 'idle',
@@ -254,7 +300,7 @@ describe('BehaviorAgent factory', () => {
 
 			expect(agent.nearbyFacilities).toHaveLength(1);
 			expect(agent.nearbyFacilities[0]!.job).toBe('baker');
-			expect(agent.nearbyFacilities[0]!.stock).toEqual([{ item_id: 'bread', quantity: 5 }]);
+			expect(agent.nearbyFacilities[0]!.stock).toEqual([{ item_id: 'bread', quantity: 5 }, { item_id: 'wheat', quantity: 2 }]);
 			expect(agent.nearbyFacilities[0]!.hasUnmetInput).toBe(false);
 		});
 
@@ -262,18 +308,10 @@ describe('BehaviorAgent factory', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			actor.get(PerceptionComponent).state = {
 				nearbyAgents: [],
-				nearbyLocations: [{ id: 'loc-mill', type: 'work', distance: 10 }],
+				nearbyLocations: [{ id: 'loc-mill', facility_type: 'mill', distance: 10 }],
 			};
 
-			const locations = [makeLocation('loc-mill', 'work', 0, 0, {
-				job: 'miller',
-				output: { item_id: 'flour', quantity: 1 },
-				input: { item_id: 'wheat', quantity: 1 },
-				wage: 5,
-				ticks_per_cycle: 30,
-				auto_process: false,
-				auto_ticks_per_cycle: 60,
-			})];
+			const locations = [makeLocation('loc-mill', 'mill', 0, 0, 'recipe-mill-flour')];
 
 			const facActor = createLocationActor({
 				stock: [],
@@ -508,7 +546,7 @@ describe('BehaviorAgent factory', () => {
 		describe('AtLocation', () => {
 			it('returns true when atLocation is set and facility_type matches', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const locations = [makeLocation('loc-tavern', 'food', 0, 0, null, null, 'tavern')];
+				const locations = [makeLocation('loc-tavern', 'tavern', 0, 0)];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 				agent.atLocation = 'loc-tavern';
 				expect(agent.AtLocation('tavern')).toBe(true);
@@ -522,7 +560,7 @@ describe('BehaviorAgent factory', () => {
 
 			it('returns false when facility_type does not match', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const locations = [makeLocation('loc-tavern', 'food', 0, 0, null, null, 'tavern')];
+				const locations = [makeLocation('loc-tavern', 'tavern', 0, 0)];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 				agent.atLocation = 'loc-tavern';
 				expect(agent.AtLocation('inn')).toBe(false);
@@ -534,9 +572,9 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-inn', type: 'rest', facility_type: 'inn', distance: 20 }],
+					nearbyLocations: [{ id: 'loc-inn', facility_type: 'inn', distance: 20 }],
 				};
-				const locations = [makeLocation('loc-inn', 'rest', 0, 0, null, null, 'inn')];
+				const locations = [makeLocation('loc-inn', 'inn', 0, 0)];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 				expect(agent.NearLocation('inn')).toBe(true);
 			});
@@ -545,9 +583,9 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-inn', type: 'rest', facility_type: 'inn', distance: 20 }],
+					nearbyLocations: [{ id: 'loc-inn', facility_type: 'inn', distance: 20 }],
 				};
-				const locations = [makeLocation('loc-inn', 'rest', 0, 0, null, null, 'inn')];
+				const locations = [makeLocation('loc-inn', 'inn', 0, 0)];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 				expect(agent.NearLocation('market_stall')).toBe(false);
 			});
@@ -651,13 +689,10 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1', { job: 'baker' }), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-bakery', type: 'work', distance: 5 }],
+					nearbyLocations: [{ id: 'loc-bakery', facility_type: 'bakery', distance: 5 }],
 				};
 
-				const locations = [makeLocation('loc-bakery', 'work', 0, 0, {
-					job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null,
-					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-				})];
+				const locations = [makeLocation('loc-bakery', 'bakery', 0, 0, 'recipe-bake-bread')];
 
 				const facActor = createLocationActor({
 					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
@@ -691,13 +726,10 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-bakery', type: 'work', distance: 10 }],
+					nearbyLocations: [{ id: 'loc-bakery', facility_type: 'bakery', distance: 10 }],
 				};
 
-				const locations = [makeLocation('loc-bakery', 'work', 0, 0, {
-					job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null,
-					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-				})];
+				const locations = [makeLocation('loc-bakery', 'bakery', 0, 0, 'recipe-bake-bread')];
 
 				const facActor = createLocationActor({
 					stock: [{ item_id: 'food', quantity: 3 }], fund: 100, workProgress: 0, status: 'idle', workerId: null,
@@ -738,9 +770,9 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-mill', type: 'work', distance: 15 }],
+					nearbyLocations: [{ id: 'loc-mill', facility_type: 'mill', distance: 15 }],
 				};
-				const locations = [makeLocation('loc-mill', 'work')];
+				const locations = [makeLocation('loc-mill', 'mill')];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 				agent.haulCargo = { itemId: 'flour', quantity: 1, source: 'loc-a', destination: 'loc-mill' };
 				expect(agent.CargoDestinationNearby()).toBe(true);
@@ -758,14 +790,10 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-mill', type: 'work', distance: 10 }],
+					nearbyLocations: [{ id: 'loc-mill', facility_type: 'mill', distance: 10 }],
 				};
 
-				const locations = [makeLocation('loc-mill', 'work', 0, 0, {
-					job: 'miller', output: { item_id: 'flour', quantity: 1 },
-					input: { item_id: 'wheat', quantity: 1 },
-					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-				})];
+				const locations = [makeLocation('loc-mill', 'mill', 0, 0, 'recipe-mill-flour')];
 
 				const facActor = createLocationActor({
 					stock: [], fund: 50, workProgress: 0, status: 'idle', workerId: null,
@@ -974,13 +1002,13 @@ describe('BehaviorAgent factory', () => {
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
 					nearbyLocations: [
-						{ id: 'loc-tavern', type: 'food', facility_type: 'farm', distance: 50 },
-						{ id: 'loc-bakery', type: 'food', facility_type: 'farm', distance: 20 },
+						{ id: 'loc-tavern', facility_type: 'farm', distance: 50 },
+						{ id: 'loc-bakery', facility_type: 'farm', distance: 20 },
 					],
 				};
 				const locations = [
-					makeLocation('loc-tavern', 'food', 0, 0, null, null, 'farm'),
-					makeLocation('loc-bakery', 'food', 0, 0, null, null, 'farm'),
+					makeLocation('loc-tavern', 'farm', 0, 0),
+					makeLocation('loc-bakery', 'farm', 0, 0),
 				];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 
@@ -993,9 +1021,9 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-tavern', type: 'food', facility_type: 'farm', distance: 5 }],
+					nearbyLocations: [{ id: 'loc-tavern', facility_type: 'farm', distance: 5 }],
 				};
-				const locations = [makeLocation('loc-tavern', 'food', 0, 0, null, null, 'farm')];
+				const locations = [makeLocation('loc-tavern', 'farm', 0, 0)];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 				agent.atLocation = 'loc-tavern';
 
@@ -1017,13 +1045,10 @@ describe('BehaviorAgent factory', () => {
 				);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-market', type: 'market', distance: 5 }],
+					nearbyLocations: [{ id: 'loc-market', facility_type: 'market_stall', distance: 5 }],
 				};
 
-				const locations = [makeLocation('loc-market', 'market', 0, 0, {
-					job: 'shopkeeper', output: { item_id: 'food', quantity: 1 }, input: null,
-					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-				})];
+				const locations = [makeLocation('loc-market', 'market_stall', 0, 0)];
 
 				const facActor = createLocationActor({
 					stock: [{ item_id: 'food', quantity: 10 }],
@@ -1113,13 +1138,10 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1', { job: 'baker' }), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-bakery', type: 'work', distance: 5 }],
+					nearbyLocations: [{ id: 'loc-bakery', facility_type: 'bakery', distance: 5 }],
 				};
 
-				const locations = [makeLocation('loc-bakery', 'work', 0, 0, {
-					job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null,
-					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-				})];
+				const locations = [makeLocation('loc-bakery', 'bakery', 0, 0, 'recipe-bake-bread')];
 
 				const facActor = createLocationActor({
 					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
@@ -1166,10 +1188,7 @@ describe('BehaviorAgent factory', () => {
 		describe('SeekWork', () => {
 			it('sets movementTarget to job facility', () => {
 				const actor = new AgentActor(createTestAgentData('a1', { job: 'baker' }), defaultMoodConfig);
-				const locations = [makeLocation('loc-bakery', 'work', 0, 0, {
-					job: 'baker', output: { item_id: 'bread', quantity: 1 }, input: null,
-					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-				})];
+				const locations = [makeLocation('loc-bakery', 'bakery', 0, 0, 'recipe-bake-bread')];
 				const facActor = createLocationActor({
 					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: 'a1',
 				});
@@ -1227,9 +1246,9 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-market', type: 'market', facility_type: 'market_stall', distance: 30 }],
+					nearbyLocations: [{ id: 'loc-market', facility_type: 'market_stall', distance: 30 }],
 				};
-				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
+				const locations = [makeLocation('loc-market', 'market_stall', 0, 0)];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 
 				expect(agent.SeekMarket()).toBe('mistreevous.running');
@@ -1249,21 +1268,14 @@ describe('BehaviorAgent factory', () => {
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
 					nearbyLocations: [
-						{ id: 'loc-farm', type: 'work', distance: 5 },
-						{ id: 'loc-mill', type: 'work', distance: 20 },
+						{ id: 'loc-farm', facility_type: 'farm', distance: 5 },
+						{ id: 'loc-mill', facility_type: 'mill', distance: 20 },
 					],
 				};
 
 				const locations: WorldLocation[] = [
-					makeLocation('loc-farm', 'work', 0, 0, {
-						job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null,
-						wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-					}),
-					makeLocation('loc-mill', 'work', 0, 0, {
-						job: 'miller', output: { item_id: 'flour', quantity: 1 },
-						input: { item_id: 'wheat', quantity: 1 },
-						wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-					}),
+					makeLocation('loc-farm', 'farm', 0, 0, 'recipe-farm-wheat'),
+					makeLocation('loc-mill', 'mill', 0, 0, 'recipe-mill-flour'),
 				];
 
 				const farmActor = createLocationActor({
@@ -1373,21 +1385,14 @@ describe('BehaviorAgent factory', () => {
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
 					nearbyLocations: [
-						{ id: 'loc-mill', type: 'work', distance: 10 },
-						{ id: 'loc-farm', type: 'work', distance: 30 },
+						{ id: 'loc-mill', facility_type: 'mill', distance: 10 },
+						{ id: 'loc-farm', facility_type: 'farm', distance: 30 },
 					],
 				};
 
 				const locations: WorldLocation[] = [
-					makeLocation('loc-mill', 'work', 0, 0, {
-						job: 'miller', output: { item_id: 'flour', quantity: 1 },
-						input: { item_id: 'wheat', quantity: 1 },
-						wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-					}),
-					makeLocation('loc-farm', 'work', 0, 0, {
-						job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null,
-						wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
-					}),
+					makeLocation('loc-mill', 'mill', 0, 0, 'recipe-mill-flour'),
+					makeLocation('loc-farm', 'farm', 0, 0, 'recipe-farm-wheat'),
 				];
 
 				const millActor = createLocationActor({
@@ -1426,7 +1431,7 @@ describe('BehaviorAgent factory', () => {
 					defaultMoodConfig,
 				);
 
-				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
+				const locations = [makeLocation('loc-market', 'market_stall', 0, 0)];
 
 				const facActor = createLocationActor({
 					stock: [],
@@ -1493,7 +1498,7 @@ describe('BehaviorAgent factory', () => {
 					createTestAgentData('a1', { inventory: [{ item_id: 'tools', quantity: 1 }] }),
 					defaultMoodConfig,
 				);
-				const locations = [makeLocation('loc-tavern', 'food')];
+				const locations = [makeLocation('loc-tavern', 'tavern')];
 				const agent = createBehaviorAgent(setupDeps(actor, {
 					config,
 					getLocations: () => locations,

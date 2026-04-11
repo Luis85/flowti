@@ -1,7 +1,6 @@
 {
 	"id": "loc-guard-post",
 	"name": "Guard Post",
-	"type": "work",
 	"position": { "x": 400, "y": 150, "region": "region-market-square" },
 	"color": "#78909c",
 	"facility_type": "guard_post",

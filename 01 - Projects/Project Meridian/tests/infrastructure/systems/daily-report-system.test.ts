@@ -12,6 +12,7 @@ import { createPerformanceTracker } from '../../../src/infrastructure/performanc
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
+import type { FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
 
 const defaultMoodConfig = {
 	factor_weights: { needs: 30, positive_memories: 20, negative_memories: 20, goal_progress: 10, wallet: 10, equipment: 5, relationships: 5 },
@@ -507,14 +508,21 @@ describe('DailyReportSystem', () => {
 		locationActors.set('loc-tavern', noJobActor);
 
 		const locations = [
-			{ id: 'loc-farm', name: 'Farm', type: 'work' as const, position: { x: 0, y: 0 }, capacity: 10, color: '#808080', production: { job: 'settler', output: { item_id: 'wheat', quantity: 1 }, input: null, wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: null, funding: 'facility' as const }, region: null },
-			{ id: 'loc-mine', name: 'Mine', type: 'work' as const, position: { x: 0, y: 0 }, capacity: 10, color: '#808080', production: { job: 'settler', output: { item_id: 'ore', quantity: 1 }, input: null, wage: 8, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: null, funding: 'facility' as const }, region: null },
-			{ id: 'loc-tavern', name: 'Tavern', type: 'social' as const, position: { x: 0, y: 0 }, capacity: 10, color: '#808080', region: null },
+			{ id: 'loc-farm', name: 'Farm', facility_type: 'farm', active_recipe: null, position: { x: 0, y: 0 }, capacity: 10, color: '#808080', region: null },
+			{ id: 'loc-mine', name: 'Mine', facility_type: 'mine', active_recipe: null, position: { x: 0, y: 0 }, capacity: 10, color: '#808080', region: null },
+			{ id: 'loc-tavern', name: 'Tavern', facility_type: 'tavern_no_job', active_recipe: null, position: { x: 0, y: 0 }, capacity: 10, color: '#808080', region: null },
 		];
 
 		// Use writeFile spy to capture metrics before reset
 		const eventBus = createEventBus();
 		const deps = createDeps(eventBus);
+		deps.getFacilityTypeRegistry = () => {
+			const map = new Map<string, FacilityType>();
+			map.set('farm', { id: 'farm', kind: 'production', primary_job: 'settler', default_wage: 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: ['r'] });
+			map.set('mine', { id: 'mine', kind: 'production', primary_job: 'settler', default_wage: 8, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: ['r'] });
+			map.set('tavern_no_job', { id: 'tavern_no_job', kind: 'service', primary_job: '', default_wage: 0, default_fund: 0, funding: 'facility', capacity: 1, staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {} });
+			return map;
+		};
 
 		// We need to capture the vacancy count before the reset.
 		// The metrics are stored on economy.state.dailySummary before the report, then reset.

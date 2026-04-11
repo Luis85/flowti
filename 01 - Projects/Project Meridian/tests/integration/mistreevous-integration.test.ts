@@ -64,21 +64,19 @@ function createSettlerData(overrides: Record<string, unknown> = {}) {
 
 const locations: WorldLocation[] = [
 	LocationSchema.parse({
-		id: 'loc-farm', name: 'Farm', type: 'food',
+		id: 'loc-farm', name: 'Farm', facility_type: 'farm', active_recipe: 'recipe-farm-wheat',
 		position: { x: 100, y: 100 }, capacity: 8, color: '#7cba3f',
-		production: { job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, wage: 3, ticks_per_cycle: 2 },
 	}),
 	LocationSchema.parse({
-		id: 'loc-bakery', name: 'Bakery', type: 'food',
+		id: 'loc-bakery', name: 'Bakery', facility_type: 'bakery', active_recipe: 'recipe-bake-bread',
 		position: { x: 200, y: 100 }, capacity: 6, color: '#d2691e',
-		production: { job: 'baker', output: { item_id: 'food', quantity: 1 }, input: { item_id: 'wheat', quantity: 1 }, wage: 4, ticks_per_cycle: 2 },
 	}),
 	LocationSchema.parse({
-		id: 'loc-market', name: 'Market', type: 'market',
+		id: 'loc-market', name: 'Market', facility_type: 'market_stall',
 		position: { x: 300, y: 100 }, capacity: 20, color: '#ccaa00',
 	}),
 	LocationSchema.parse({
-		id: 'loc-tavern', name: 'Tavern', type: 'rest',
+		id: 'loc-tavern', name: 'Tavern', facility_type: 'tavern',
 		position: { x: 400, y: 100 }, capacity: 10, color: '#8b4513',
 	}),
 ];
@@ -102,12 +100,10 @@ describe('mistreevous BT integration', () => {
 		const locationActors = new Map<string, Actor>();
 		for (const loc of locations) {
 			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
-			if (loc.production !== null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [{ item_id: loc.production.output.item_id, quantity: 5 }],
-					fund: 200, workProgress: 0, status: 'idle', workerId: null,
-				}));
-			}
+			marker.addComponent(new FacilityComponent({
+				stock: [{ item_id: 'food', quantity: 5 }],
+				fund: 200, workProgress: 0, status: 'idle', workerId: null,
+			}));
 			locationActors.set(loc.id, marker);
 		}
 

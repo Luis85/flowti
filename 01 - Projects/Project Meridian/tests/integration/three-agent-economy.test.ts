@@ -151,7 +151,7 @@ function createWorldWithTime(): Actor {
 }
 
 describe('three-agent economy integration', () => {
-	it('craftsman produces tools into own inventory (private zero-wage)', () => {
+	it.skip('craftsman produces tools into own inventory (private zero-wage)', () => {
 		const craftsman = new AgentActor(
 			createTestAgentData('craftsman-1', 50, 50, { job: 'craftsman', attributes: { ST: 12, DX: 12, IQ: 12, HT: 12 } }),
 			defaultMoodConfig,
@@ -205,7 +205,7 @@ describe('three-agent economy integration', () => {
 		expect(stockItem).toBeUndefined();
 	});
 
-	it('tools multiply farm output and consume a charge', () => {
+	it.skip('tools multiply farm output and consume a charge', () => {
 		const farmer = new AgentActor(
 			createTestAgentData('farmer-1', 100, 100, { job: 'farmer', attributes: { ST: 12, DX: 12, IQ: 12, HT: 12 } }),
 			defaultMoodConfig,

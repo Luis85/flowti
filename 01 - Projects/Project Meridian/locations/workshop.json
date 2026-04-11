@@ -1,7 +1,6 @@
 {
 	"id": "loc-workshop",
 	"name": "Workshop",
-	"type": "work",
 	"position": { "x": 160, "y": 350, "region": "region-craft-quarter" },
 	"color": "#ff8a65",
 	"facility_type": "workshop",

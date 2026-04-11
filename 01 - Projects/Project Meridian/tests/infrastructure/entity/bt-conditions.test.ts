@@ -16,6 +16,8 @@ import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema
 import { NEED_CRITICAL_THRESHOLDS } from '../../../src/domain/schemas/ranges.js';
 import type { GameConfig } from '../../../src/domain/schemas/game-config-schema.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import type { FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../../src/domain/schemas/recipe-schema.js';
 import type { EventBus } from '../../../src/domain/core/events.js';
 import type { PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../../src/domain/systems/behavior-agent.js';
 
@@ -88,18 +90,85 @@ function createLocationActor(facilityState: {
 	return loc;
 }
 
-function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldLocation['production'] = null, region: string | null = null, facility_type?: string): WorldLocation {
+interface LegacyProduction {
+	job?: string;
+	output?: { item_id: string; quantity: number };
+	input?: { item_id: string; quantity: number } | null;
+	wage?: number;
+	ticks_per_cycle?: number;
+}
+
+const testFacilityTypes = new Map<string, FacilityType>();
+const testRecipes = new Map<string, Recipe>();
+
+function resetTestRegistries(): void {
+	testFacilityTypes.clear();
+	testRecipes.clear();
+	for (const [k, v] of defaultFacilityTypes()) testFacilityTypes.set(k, v);
+	for (const [k, v] of defaultRecipes()) testRecipes.set(k, v);
+	testFacilityTypes.set('tavern', { id: 'tavern', kind: 'service', primary_job: 'settler', default_wage: 1, default_fund: 200, funding: 'facility', capacity: 1, staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {} });
+	testFacilityTypes.set('inn', { id: 'inn', kind: 'service', primary_job: 'settler', default_wage: 1, default_fund: 200, funding: 'facility', capacity: 1, staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {} });
+}
+
+function makeLocation(
+	id: string,
+	legacyTypeOrFacilityType: string,
+	x = 0,
+	y = 0,
+	productionOrRecipe: LegacyProduction | string | null = null,
+	region: string | null = null,
+	explicitFacilityType?: string,
+): WorldLocation {
+	let facility_type = explicitFacilityType ?? legacyTypeOrFacilityType;
+	let active_recipe: string | null = null;
+
+	// String = active_recipe (new signature)
+	if (typeof productionOrRecipe === 'string') {
+		active_recipe = productionOrRecipe;
+	} else if (productionOrRecipe !== null && productionOrRecipe.job !== undefined) {
+		// Legacy production object — synthesize facility_type + recipe (per-location unique)
+		if (explicitFacilityType === undefined) {
+			facility_type = `type-${id}`;
+		}
+		const recipeId = `recipe-${id}`;
+		active_recipe = recipeId;
+		const inputs = productionOrRecipe.input !== null && productionOrRecipe.input !== undefined
+			? [{ item_id: productionOrRecipe.input.item_id, quantity: productionOrRecipe.input.quantity }]
+			: [];
+		const outputs = productionOrRecipe.output !== undefined
+			? [{ item_id: productionOrRecipe.output.item_id, quantity: productionOrRecipe.output.quantity }]
+			: [];
+		testRecipes.set(recipeId, { id: recipeId, name: recipeId, inputs, outputs, ticks_per_cycle: productionOrRecipe.ticks_per_cycle ?? 30, required_skill: null, min_skill_level: 0 });
+		testFacilityTypes.set(facility_type, { id: facility_type, kind: 'production', primary_job: productionOrRecipe.job, default_wage: productionOrRecipe.wage ?? 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: [recipeId] });
+	}
+
 	return {
 		id,
 		name: id,
-		type: type as WorldLocation['type'],
+		facility_type,
+		active_recipe,
 		position: { x, y, region: region ?? 'test' },
 		capacity: 10,
 		color: '#808080',
-		production,
 		region,
-		facility_type,
 	};
+}
+
+function defaultRecipes(): Map<string, Recipe> {
+	const m = new Map<string, Recipe>();
+	m.set('recipe-farm-wheat', { id: 'recipe-farm-wheat', name: 'Farm wheat', inputs: [], outputs: [{ item_id: 'wheat', quantity: 1 }], ticks_per_cycle: 30, required_skill: null, min_skill_level: 0 });
+	m.set('recipe-bake-bread', { id: 'recipe-bake-bread', name: 'Bake bread', inputs: [{ item_id: 'wheat', quantity: 1 }], outputs: [{ item_id: 'bread', quantity: 1 }], ticks_per_cycle: 30, required_skill: null, min_skill_level: 0 });
+	m.set('recipe-mill-flour', { id: 'recipe-mill-flour', name: 'Mill flour', inputs: [{ item_id: 'wheat', quantity: 1 }], outputs: [{ item_id: 'flour', quantity: 1 }], ticks_per_cycle: 30, required_skill: null, min_skill_level: 0 });
+	return m;
+}
+
+function defaultFacilityTypes(): Map<string, FacilityType> {
+	const m = new Map<string, FacilityType>();
+	m.set('farm', { id: 'farm', kind: 'production', primary_job: 'farmer', default_wage: 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: ['recipe-farm-wheat'] });
+	m.set('bakery', { id: 'bakery', kind: 'production', primary_job: 'baker', default_wage: 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: ['recipe-bake-bread'] });
+	m.set('mill', { id: 'mill', kind: 'production', primary_job: 'miller', default_wage: 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: ['recipe-mill-flour'] });
+	m.set('market_stall', { id: 'market_stall', kind: 'service', primary_job: 'settler', default_wage: 1, default_fund: 200, funding: 'facility', capacity: 1, staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {} });
+	return m;
 }
 
 function setupDeps(
@@ -112,7 +181,9 @@ function setupDeps(
 	const getLocations = overrides.getLocations ?? (() => []);
 	const tickCount = overrides.tickCount ?? (() => 1);
 	const eventBus = overrides.eventBus ?? noopEventBus;
-	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, ...overrides.getQuestBoard !== undefined ? { getQuestBoard: overrides.getQuestBoard } : {} };
+	const getFacilityTypeRegistry = overrides.getFacilityTypeRegistry ?? (() => testFacilityTypes);
+	const getRecipeRegistry = overrides.getRecipeRegistry ?? (() => testRecipes);
+	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, getFacilityTypeRegistry, getRecipeRegistry, ...overrides.getQuestBoard !== undefined ? { getQuestBoard: overrides.getQuestBoard } : {} };
 }
 
 // Helper to build resolveNearbyFacilities from deps (mirrors factory logic)
@@ -121,6 +192,8 @@ function buildResolveNearbyFacilities(actor: AgentActor, deps: BehaviorAgentDeps
 		const locationActorMap = deps.getLocationActors();
 		const locationList = deps.getLocations();
 		const perception = actor.get(PerceptionComponent);
+		const facilityTypeRegistry = deps.getFacilityTypeRegistry?.();
+		const recipeRegistry = deps.getRecipeRegistry?.();
 		const facilities: PerceivedFacility[] = [];
 
 		for (const nearLoc of perception.state.nearbyLocations) {
@@ -130,21 +203,29 @@ function buildResolveNearbyFacilities(actor: AgentActor, deps: BehaviorAgentDeps
 			if (locActor?.has(FacilityComponent) !== true) continue;
 			const facility = locActor.get(FacilityComponent);
 
+			const facilityType = facilityTypeRegistry?.get(locData.facility_type);
+			const recipe = locData.active_recipe !== null ? recipeRegistry?.get(locData.active_recipe) : undefined;
+
 			let hasUnmetInput = false;
-			if (locData.production?.input !== null && locData.production?.input !== undefined) {
-				const needed = locData.production.input;
-				const inStock = facility.state.stock.find(s => s.item_id === needed.item_id);
-				hasUnmetInput = inStock === undefined || inStock.quantity < needed.quantity;
+			if (recipe !== undefined) {
+				for (const input of recipe.inputs) {
+					const inStock = facility.state.stock.find(s => s.item_id === input.item_id);
+					if (inStock === undefined || inStock.quantity < input.quantity) {
+						hasUnmetInput = true;
+						break;
+					}
+				}
 			}
 
 			facilities.push({
 				id: nearLoc.id,
-				job: locData.production?.job ?? '',
+				job: facilityType?.primary_job ?? '',
 				stock: [...facility.state.stock],
 				distance: nearLoc.distance,
 				hasUnmetInput,
 				workerId: facility.state.workerId,
-				wage: locData.production?.wage ?? 0,
+				wage: facilityType?.default_wage ?? 0,
+				status: facility.state.status,
 			});
 		}
 
@@ -171,7 +252,6 @@ function buildResolveNearbyLocations(actor: AgentActor, deps: BehaviorAgentDeps)
 			const locData = locationList.find(l => l.id === nl.id);
 			return {
 				id: nl.id,
-				type: locData?.type ?? nl.type,
 				facility_type: locData?.facility_type ?? nl.facility_type,
 				position: locData !== undefined
 					? { x: locData.position.x, y: locData.position.y }
@@ -221,6 +301,7 @@ describe('bt-conditions', () => {
 	beforeEach(() => {
 		config = GameConfigSchema.parse({});
 		worldEntity = createWorldEntity();
+		resetTestRegistries();
 	});
 
 	// ── Need-based conditions ─────────────────────────────────────────────
@@ -1340,12 +1421,8 @@ describe('bt-conditions', () => {
 
 		it('returns true and caches route when source and destination match', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const farmLoc = makeLocation('loc-farm', 'food', 100, 200, {
-				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 5,
-			}, 'region-test');
-			const millLoc = makeLocation('loc-mill', 'work', 120, 200, {
-				job: 'miller', output: { item_id: 'flour', quantity: 1 }, input: { item_id: 'wheat', quantity: 1 }, ticks_per_cycle: 10, wage: 5,
-			}, 'region-test');
+			const farmLoc = makeLocation('loc-farm', 'farm', 100, 200, 'recipe-farm-wheat', 'region-test');
+			const millLoc = makeLocation('loc-mill', 'mill', 120, 200, 'recipe-mill-flour', 'region-test');
 			const deps = setupDeps(actor, {
 				getLocations: () => [farmLoc, millLoc],
 			});
@@ -1360,9 +1437,7 @@ describe('bt-conditions', () => {
 
 		it('returns false when no facility needs input', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const farmLoc = makeLocation('loc-farm', 'food', 100, 200, {
-				job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null, ticks_per_cycle: 10, wage: 5,
-			});
+			const farmLoc = makeLocation('loc-farm', 'farm', 100, 200, 'recipe-farm-wheat');
 			const deps = setupDeps(actor, {
 				getLocations: () => [farmLoc],
 			});

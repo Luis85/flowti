@@ -66,7 +66,7 @@ export interface TimeState {
 
 export interface PerceptionState {
 	nearbyAgents: { id: string; distance: number }[];
-	nearbyLocations: { id: string; type: string; facility_type: string; distance: number }[];
+	nearbyLocations: { id: string; facility_type: string; distance: number }[];
 }
 
 export interface FacilityState {

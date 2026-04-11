@@ -29,8 +29,8 @@ export function createEconomySystem(
 
 			if (!initialized) {
 				for (const loc of locationList) {
-					const ft = loc.facility_type !== undefined ? deps.getFacilityTypeRegistry().get(loc.facility_type) : undefined;
-					if (loc.production !== null || loc.type === 'market' || ft?.kind === 'production' || ft?.id === 'market_stall') {
+					const ft = deps.getFacilityTypeRegistry().get(loc.facility_type);
+					if (ft?.kind === 'production' || ft?.id === 'market_stall') {
 						recalcQueue.push(loc.id, deps.tickCount);
 					}
 				}

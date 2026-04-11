@@ -108,16 +108,14 @@ describe('Smoke Test — Real Data', () => {
 			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 },
 		}));
 
-		// Create location actors with FacilityComponent for production locations
+		// Create location actors with FacilityComponent for all locations
 		const locationActors = new Map<string, Actor>();
 		for (const loc of locations) {
 			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
-			if (loc.production !== null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [{ item_id: loc.production.output.item_id, quantity: 5 }],
-					fund: 200, workProgress: 0, status: 'idle', workerId: null,
-				}));
-			}
+			marker.addComponent(new FacilityComponent({
+				stock: [{ item_id: 'food', quantity: 5 }],
+				fund: 200, workProgress: 0, status: 'idle', workerId: null,
+			}));
 			locationActors.set(loc.id, marker);
 		}
 
@@ -184,8 +182,8 @@ describe('Smoke Test — Real Data', () => {
 		const config = GameConfigSchema.parse({});
 
 		// Find a food or rest location to place an agent on
-		const foodLoc = locations.find(l => l.type === 'food');
-		const restLoc = locations.find(l => l.type === 'rest');
+		const foodLoc = locations.find(l => l.facility_type === 'farm');
+		const restLoc = locations.find(l => l.facility_type === 'rest_inn');
 		const targetLoc = foodLoc ?? restLoc;
 		expect(targetLoc, 'Need at least one food or rest location in shipped data').toBeDefined();
 
@@ -214,12 +212,10 @@ describe('Smoke Test — Real Data', () => {
 		const locationActors = new Map<string, Actor>();
 		for (const loc of locations) {
 			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
-			if (loc.production !== null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [{ item_id: loc.production.output.item_id, quantity: 5 }],
-					fund: 200, workProgress: 0, status: 'idle', workerId: null,
-				}));
-			}
+			marker.addComponent(new FacilityComponent({
+				stock: [{ item_id: 'food', quantity: 5 }],
+				fund: 200, workProgress: 0, status: 'idle', workerId: null,
+			}));
 			locationActors.set(loc.id, marker);
 		}
 

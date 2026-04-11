@@ -5,10 +5,26 @@ import { SUCCEEDED, FAILED, RUNNING, beginAction } from './bt-action-helpers.js'
 import { FacilityComponent } from '../components/facility-component.js';
 import { pickupCargo, deliverCargo } from '../../domain/systems/cargo.js';
 import { findNearest } from '../../domain/core/array-utils.js';
+import type { Recipe } from '../../domain/schemas/recipe-schema.js';
 
 export function createCargoActions(ctx: ActionContext): Pick<ActionMethods, 'PickupCargo' | 'DeliverCargo' | 'SeekDeliveryTarget' | 'SeekSupplySource'> {
 	const { memory, actor, deps, resolveNearbyFacilities } = ctx;
 	const { getLocationActors, getLocations, tickCount, eventBus } = deps;
+
+	function getLocationRecipe(locationId: string): Recipe | undefined {
+		const loc = getLocations().find(l => l.id === locationId);
+		if (loc === undefined) return undefined;
+		if (loc.active_recipe === null) return undefined;
+		return deps.getRecipeRegistry?.().get(loc.active_recipe);
+	}
+
+	function getLocationRecipeInputs(locationId: string): { item_id: string; quantity: number }[] {
+		return getLocationRecipe(locationId)?.inputs ?? [];
+	}
+
+	function getLocationRecipeOutputs(locationId: string): { item_id: string; quantity: number }[] {
+		return getLocationRecipe(locationId)?.outputs ?? [];
+	}
 
 	return {
 		PickupCargo(): ActionResult {
@@ -26,8 +42,9 @@ export function createCargoActions(ctx: ActionContext): Pick<ActionMethods, 'Pic
 			// Find destination facility that needs this item as input
 			const allLocations = getLocations();
 			const destLoc = allLocations.find(l => {
-				if (l.id === source.id || l.production?.input === null || l.production?.input === undefined) return false;
-				return l.production.input.item_id === stockItem.item_id;
+				if (l.id === source.id) return false;
+				const inputs = getLocationRecipeInputs(l.id);
+				return inputs.some(i => i.item_id === stockItem.item_id);
 			});
 			if (destLoc === undefined) return FAILED;
 
@@ -104,13 +121,13 @@ export function createCargoActions(ctx: ActionContext): Pick<ActionMethods, 'Pic
 
 			// Find the PRODUCING facility (source) for the needed item
 			const allLocations = getLocations();
-			const needyLoc = allLocations.find(l => l.id === needy.id);
-			if (needyLoc?.production?.input === null || needyLoc?.production?.input === undefined) return FAILED;
-
-			const neededItemId = needyLoc.production.input.item_id;
+			const needyInputs = getLocationRecipeInputs(needy.id);
+			if (needyInputs.length === 0) return FAILED;
+			const neededItemId = needyInputs[0]!.item_id;
 			const sourceLoc = allLocations.find(l => {
-				if (l.id === needy.id || l.production === null) return false;
-				return l.production.output.item_id === neededItemId;
+				if (l.id === needy.id) return false;
+				const outputs = getLocationRecipeOutputs(l.id);
+				return outputs.some(o => o.item_id === neededItemId);
 			});
 			if (sourceLoc === undefined) return FAILED;
 
