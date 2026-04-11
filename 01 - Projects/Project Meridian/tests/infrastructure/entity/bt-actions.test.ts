@@ -91,7 +91,7 @@ function createLocationActor(facilityState: {
 	return loc;
 }
 
-function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldLocation['production'] = null, region: string | null = null): WorldLocation {
+function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldLocation['production'] = null, region: string | null = null, facility_type?: string): WorldLocation {
 	return {
 		id,
 		name: id,
@@ -101,6 +101,7 @@ function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldL
 		color: '#808080',
 		production,
 		region,
+		...(facility_type !== undefined ? { facility_type } : {}),
 	};
 }
 
@@ -178,6 +179,7 @@ function makeResolveNearbyLocations(actor: AgentActor, deps: BehaviorAgentDeps):
 			return {
 				id: nl.id,
 				type: locData?.type ?? nl.type,
+				facility_type: locData?.facility_type ?? nl.facility_type ?? '',
 				position: locData !== undefined
 					? { x: locData.position.x, y: locData.position.y }
 					: { x: 0, y: 0 },
@@ -1129,6 +1131,82 @@ describe('bt-actions: createActions', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions } = setupActions(actor);
 				expect(actions.SeekMarket()).toBe('mistreevous.failed');
+			});
+		});
+
+		describe('SeekWell', () => {
+			it('sets movementTarget to a nearby well with water in stock', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [{ id: 'loc-well', type: 'work', facility_type: 'well', distance: 15 }],
+				};
+				const locations = [
+					makeLocation('loc-well', 'work', 0, 0, {
+						job: 'water_drawer', output: { item_id: 'water', quantity: 1 }, input: null,
+						wage: 0, ticks_per_cycle: 30, auto_process: true, auto_ticks_per_cycle: 60,
+					}, null, 'well'),
+				];
+				const facActor = createLocationActor({
+					stock: [{ item_id: 'water', quantity: 5 }],
+					fund: 0, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => locations,
+					getLocationActors: () => new Map([['loc-well', facActor]]),
+				});
+
+				const result = actions.SeekWell();
+				expect(result).toBe('mistreevous.running');
+				expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
+				expect(memory.btAction).toBe('seek_well');
+			});
+
+			it('returns succeeded when already at the well', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [{ id: 'loc-well', type: 'work', facility_type: 'well', distance: 5 }],
+				};
+				const locations = [
+					makeLocation('loc-well', 'work', 0, 0, {
+						job: 'water_drawer', output: { item_id: 'water', quantity: 1 }, input: null,
+						wage: 0, ticks_per_cycle: 30, auto_process: true, auto_ticks_per_cycle: 60,
+					}, null, 'well'),
+				];
+				const facActor = createLocationActor({
+					stock: [{ item_id: 'water', quantity: 5 }],
+					fund: 0, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => locations,
+					getLocationActors: () => new Map([['loc-well', facActor]]),
+				});
+				memory.atLocation = 'loc-well';
+
+				expect(actions.SeekWell()).toBe('mistreevous.succeeded');
+				expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
+			});
+
+			it('falls back to the closest well on the full map when none in perception', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.pos.x = 300;
+				actor.pos.y = 400;
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [], // no wells in perception
+				};
+				const locations = [
+					makeLocation('loc-well-far', 'work', 80, 130, null, null, 'well'),
+					makeLocation('loc-well-near', 'work', 250, 380, null, null, 'well'),
+					makeLocation('loc-market', 'market', 300, 380),
+				];
+				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
+
+				const result = actions.SeekWell();
+				expect(result).toBe('mistreevous.running');
+				expect(memory.movementTarget).toEqual({ id: 'loc-well-near', type: 'location' });
+				expect(memory.btAction).toBe('seek_well');
 			});
 		});
 	});

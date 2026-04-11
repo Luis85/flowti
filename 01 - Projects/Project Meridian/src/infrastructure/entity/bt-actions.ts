@@ -75,6 +75,7 @@ export interface ActionMethods {
 	SeekWork(): ActionResult;
 	SeekSocial(): ActionResult;
 	SeekMarket(): ActionResult;
+	SeekWell(): ActionResult;
 	PickupCargo(): ActionResult;
 	DeliverCargo(): ActionResult;
 	SeekDeliveryTarget(): ActionResult;

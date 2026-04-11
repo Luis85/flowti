@@ -8,7 +8,7 @@ import { FacilityComponent } from '../components/facility-component.js';
 import { FOOD_ITEMS, TRADE_GOODS } from '../../domain/systems/food-items.js';
 import { findNearest } from '../../domain/core/array-utils.js';
 
-export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'SellAtMarket' | 'Buy' | 'BuyItem' | 'SeekMarket'> {
+export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'SellAtMarket' | 'Buy' | 'BuyItem' | 'SeekMarket' | 'SeekWell'> {
 	const { memory, actor, deps, resolveNearbyFacilities, resolveNearbyLocations } = ctx;
 	const { config, getLocationActors, getLocations, tickCount, eventBus } = deps;
 
@@ -107,6 +107,40 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 			memory.movementTarget = { id: nearest.id, type: 'location' };
 
 			if (memory.atLocation === nearest.id) return SUCCEEDED;
+			return RUNNING;
+		},
+
+		SeekWell(): ActionResult {
+			// Prefer a well in the agent's current perception range with water in stock.
+			const nearbyWells = resolveNearbyLocations().filter(l => l.facility_type === 'well');
+			if (nearbyWells.length > 0) {
+				// Cross-reference with nearby facilities to check stock.
+				const stockedWells = nearbyWells.filter(l => {
+					const fac = resolveNearbyFacilities().find(f => f.id === l.id);
+					return fac !== undefined && fac.stock.some(s => s.item_id === 'water' && s.quantity > 0);
+				});
+				const target = stockedWells.length > 0 ? stockedWells : nearbyWells;
+				beginAction(ctx, 'seek_well');
+				const nearest = findNearest(target)!;
+				memory.movementTarget = { id: nearest.id, type: 'location' };
+				if (memory.atLocation === nearest.id) return SUCCEEDED;
+				return RUNNING;
+			}
+
+			// Fallback: full-map search for any well (water sources are rare)
+			const allWells = getLocations().filter(l => l.facility_type === 'well');
+			if (allWells.length === 0) return FAILED;
+			const agentX = actor.pos.x;
+			const agentY = actor.pos.y;
+			let best = allWells[0]!;
+			let bestDistSq = (best.position.x - agentX) ** 2 + (best.position.y - agentY) ** 2;
+			for (const w of allWells) {
+				const d = (w.position.x - agentX) ** 2 + (w.position.y - agentY) ** 2;
+				if (d < bestDistSq) { best = w; bestDistSq = d; }
+			}
+			beginAction(ctx, 'seek_well');
+			memory.movementTarget = { id: best.id, type: 'location' };
+			if (memory.atLocation === best.id) return SUCCEEDED;
 			return RUNNING;
 		},
 	};
