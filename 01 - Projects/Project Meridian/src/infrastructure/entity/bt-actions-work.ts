@@ -39,17 +39,20 @@ export function createWorkActions(ctx: ActionContext): Pick<ActionMethods, 'Clai
 				// Desperate — take nearest regardless of fit
 				chosen = findNearest(openFacilities)!;
 			} else {
-				// Score by primary attribute aptitude, tiebreak by distance
+				// Score = wage × (attribute / baseline) — prefers high-wage facilities
+				// when aptitude matches. Covers all facility kinds (production,
+				// service, area_effect) since resolveNearbyFacilities returns all.
 				const attrComp = actor.get(AttributesComponent);
-				chosen = openFacilities.reduce((best, f) => {
+				const baseline = jobsConfig.aptitude_baseline;
+				const scoreFor = (f: typeof openFacilities[0]): number => {
 					const jobDef = jobsConfig.definitions[f.job];
-					const fScore = jobDef !== undefined
-						? attrComp.getByName(jobDef.primary_attribute)
-						: 0;
-					const bestDef = jobsConfig.definitions[best.job];
-					const bestScore = bestDef !== undefined
-						? attrComp.getByName(bestDef.primary_attribute)
-						: 0;
+					if (jobDef === undefined) return 0;
+					const apt = attrComp.getByName(jobDef.primary_attribute) || baseline;
+					return f.wage * (apt / baseline);
+				};
+				chosen = openFacilities.reduce((best, f) => {
+					const fScore = scoreFor(f);
+					const bestScore = scoreFor(best);
 					if (fScore > bestScore) return f;
 					if (fScore === bestScore && f.distance < best.distance) return f;
 					return best;

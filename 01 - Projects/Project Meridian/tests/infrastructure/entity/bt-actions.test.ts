@@ -1390,6 +1390,147 @@ describe('bt-actions: createActions', () => {
 				const { actions } = setupActions(actor, { config });
 				expect(actions.ClaimBestJob()).toBe('mistreevous.failed');
 			});
+
+			it('prefers higher-wage facility when aptitude matches', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						attributes: { ST: 15, DX: 10, IQ: 10, HT: 10 },
+					}),
+					defaultMoodConfig,
+				);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [
+						{ id: 'loc-farm', type: 'work', distance: 5 },
+						{ id: 'loc-smithy', type: 'work', distance: 10 },
+					],
+				};
+
+				// Two facilities, both ST-primary (farmer + blacksmith), but
+				// blacksmith pays a higher wage. Wage-weighted scoring should
+				// prefer the smithy despite the extra distance.
+				const locations = [
+					makeLocation('loc-farm', 'work', 0, 0, {
+						job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null,
+						wage: 3, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
+					}),
+					makeLocation('loc-smithy', 'work', 0, 0, {
+						job: 'blacksmith', output: { item_id: 'tool', quantity: 1 }, input: null,
+						wage: 8, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
+					}),
+				];
+
+				const farmActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const smithyActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([
+					['loc-farm', farmActor],
+					['loc-smithy', smithyActor],
+				]);
+
+				const jobsConfig = {
+					aptitude_baseline: 12,
+					desperation_ticks: 100,
+					definitions: {
+						farmer: { primary_attribute: 'ST' },
+						blacksmith: { primary_attribute: 'ST' },
+					} as Record<string, { primary_attribute: 'ST' | 'DX' | 'IQ' | 'HT' }>,
+				};
+
+				const { actions } = setupActions(actor, {
+					config,
+					getLocations: () => locations,
+					getLocationActors: () => locActors,
+					jobsConfig: jobsConfig as unknown as GameConfig['jobs'],
+				});
+
+				expect(actions.ClaimBestJob()).toBe('mistreevous.succeeded');
+				expect(actor.job).toBe('blacksmith');
+			});
+
+			it('claims service facility when it has best effective wage', () => {
+				// HT=15 agent prefers an innkeeper (HT-primary) at an inn (service)
+				// over a DX-primary farmer job at the same wage.
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						attributes: { ST: 10, DX: 10, IQ: 10, HT: 15 },
+					}),
+					defaultMoodConfig,
+				);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [
+						{ id: 'loc-farm', type: 'work', distance: 5 },
+						{ id: 'loc-inn', type: 'work', distance: 10 },
+					],
+				};
+
+				const farmLoc = makeLocation('loc-farm', 'work', 0, 0, {
+					job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null,
+					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
+				});
+
+				// Service facility — register in registry directly, no recipe.
+				testFacilityTypes.set('rest_inn', {
+					id: 'rest_inn',
+					kind: 'service',
+					primary_job: 'innkeeper',
+					default_wage: 5,
+					default_fund: 200,
+					funding: 'facility',
+					capacity: 1,
+					staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+					unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+					cost_per_visit: 0,
+					ticks_per_visit: 20,
+					restock_threshold_per_item: {},
+				});
+				const innLoc: WorldLocation = {
+					id: 'loc-inn',
+					name: 'loc-inn',
+					facility_type: 'rest_inn',
+					active_recipe: null,
+					position: { x: 0, y: 0, region: 'test' },
+					capacity: 10,
+					color: '#808080',
+					region: null,
+				};
+
+				const farmActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const innActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([
+					['loc-farm', farmActor],
+					['loc-inn', innActor],
+				]);
+
+				const jobsConfig = {
+					aptitude_baseline: 12,
+					desperation_ticks: 100,
+					definitions: {
+						farmer: { primary_attribute: 'DX' },
+						innkeeper: { primary_attribute: 'HT' },
+					} as Record<string, { primary_attribute: 'ST' | 'DX' | 'IQ' | 'HT' }>,
+				};
+
+				const { actions } = setupActions(actor, {
+					config,
+					getLocations: () => [farmLoc, innLoc],
+					getLocationActors: () => locActors,
+					jobsConfig: jobsConfig as unknown as GameConfig['jobs'],
+				});
+
+				expect(actions.ClaimBestJob()).toBe('mistreevous.succeeded');
+				// Both wage=5, but HT=15 boosts innkeeper score above farmer
+				// (DX=10 → score 5 × 10/12 ≈ 4.17 vs innkeeper 5 × 15/12 = 6.25)
+				expect(actor.job).toBe('innkeeper');
+			});
 		});
 
 		describe('ReleaseJob', () => {
