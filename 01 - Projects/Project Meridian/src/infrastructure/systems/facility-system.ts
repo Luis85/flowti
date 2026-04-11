@@ -18,6 +18,31 @@ import { AttributesComponent } from '../components/attributes-component.js';
 import type { LedgerEntry } from '../../domain/core/component-data.js';
 import type { SkillEntry } from '../../domain/systems/behavior-agent.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
+import { processRecipeFacilityTick } from './facility-system-recipe.js';
+import type { Recipe } from '../../domain/schemas/recipe-schema.js';
+import type { FacilityType } from '../../domain/schemas/facility-type-schema.js';
+
+/**
+ * Attempts the new recipe-based path for a location.
+ * Returns true if this location was handled by the recipe path, false otherwise.
+ */
+function tryRecipePath(
+	loc: WorldLocation,
+	facility: FacilityComponent,
+	agentList: AgentActor[],
+	economy: EconomyComponent,
+	deps: GameCoreDeps,
+	facilityTypeRegistry: Map<string, FacilityType>,
+	recipeRegistry: Map<string, Recipe>,
+): boolean {
+	if (loc.facility_type === undefined || loc.active_recipe === null) return false;
+	const facilityType = facilityTypeRegistry.get(loc.facility_type);
+	if (facilityType?.kind !== 'production') return false;
+	const recipe = recipeRegistry.get(loc.active_recipe);
+	if (recipe === undefined) return false;
+	processRecipeFacilityTick(loc, facilityType, recipe, facility, agentList, economy, deps);
+	return true;
+}
 
 interface StockItem {
 	item_id: string;
@@ -400,12 +425,23 @@ export function createFacilitySystem(
 			const economy = worldEntity().get(EconomyComponent);
 			const items = getItemRegistry?.();
 
+			const recipeRegistry = deps.getRecipeRegistry();
+			const facilityTypeRegistry = deps.getFacilityTypeRegistry();
+
 			for (const loc of locationList) {
-				if (loc.production === null) continue;
 				const locActor = locationActorMap.get(loc.id);
 				if (locActor === undefined) continue;
 				const facility = locActor.get(FacilityComponent);
 				if (facility.state.status === 'abandoned') continue;
+
+				// New recipe-based path (Chunk 3). Phase 2 dual-path coexistence —
+				// falls through to legacy path when the location lacks a facility_type.
+				if (tryRecipePath(loc, facility, agentList, economy, deps, facilityTypeRegistry, recipeRegistry)) {
+					continue;
+				}
+
+				// Legacy path — unchanged.
+				if (loc.production === null) continue;
 				processFacilityTick(loc, loc.production, facility, agentList, economy, deps, items);
 			}
 		},
