@@ -43,4 +43,16 @@ describe('findWorker', () => {
 		const result = findWorker([alice, bram, cara], 'bram', 'settler', 100, 100, 50);
 		expect(result).toBe(bram);
 	});
+
+	it('returns undefined when workerId is null', () => {
+		const agent = makeAgent();
+		const result = findWorker([agent], null, 'settler', 100, 100, 50);
+		expect(result).toBeUndefined();
+	});
+
+	it('returns undefined when the matched agent has a null btAction', () => {
+		const agent = makeAgent({ behaviorAgent: { btAction: null } });
+		const result = findWorker([agent], 'bram', 'settler', 100, 100, 50);
+		expect(result).toBeUndefined();
+	});
 });
