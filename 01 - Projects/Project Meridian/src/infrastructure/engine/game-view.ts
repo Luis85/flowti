@@ -58,6 +58,7 @@ export class MeridianGameView extends ItemView {
 	private deps: GameCoreDeps | null;
 	private batchableEventBus: BatchableEventBus | null;
 	private worldAgents: AgentActor[] = [];
+	private onAgentSelectedCb: ((agentId: string) => void) | null = null;
 
 	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null, batchableEventBus: BatchableEventBus | null = null) {
 		super(leaf);
@@ -77,8 +78,9 @@ export class MeridianGameView extends ItemView {
 		return this.worldAgents;
 	}
 
-	getContentContainer(): HTMLElement | null {
-		return this.contentEl;
+	/** Set the callback invoked when an agent is clicked on the canvas. */
+	setOnAgentSelected(cb: ((agentId: string) => void) | null): void {
+		this.onAgentSelectedCb = cb;
 	}
 
 	async onOpen(): Promise<void> {
@@ -159,10 +161,9 @@ export class MeridianGameView extends ItemView {
 		for (const agent of world.agents) {
 			engine.currentScene.add(agent);
 			agent.on('pointerdown', () => {
-				container.dispatchEvent(new CustomEvent('meridian-agent-selected', {
-					detail: { agentId: agent.agentId },
-					bubbles: true,
-				}));
+				if (this.onAgentSelectedCb !== null) {
+					this.onAgentSelectedCb(agent.agentId);
+				}
 			});
 		}
 

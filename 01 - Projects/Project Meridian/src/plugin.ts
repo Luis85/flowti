@@ -33,7 +33,13 @@ export class MeridianPlugin extends Plugin {
 		this.performanceTracker = createPerformanceTracker(this.logger);
 		this.performanceTracker.setEnabled(this.settings.performanceTracking);
 
-		this.registerView(MERIDIAN_VIEW_TYPE, (leaf) => new MeridianGameView(leaf, this.gameDeps, this.batchableEventBus));
+		this.registerView(MERIDIAN_VIEW_TYPE, (leaf) => {
+			const view = new MeridianGameView(leaf, this.gameDeps, this.batchableEventBus);
+			// Wire agent-click → BT inspector. Factory runs on every view construction,
+			// so this survives tab close/reopen and works regardless of init timing.
+			view.setOnAgentSelected((agentId) => { void this.openBTInspectorForAgent(agentId); });
+			return view;
+		});
 
 		this.registerView(
 			MERIDIAN_BT_INSPECTOR_VIEW_TYPE,
@@ -222,27 +228,6 @@ export class MeridianPlugin extends Plugin {
 			for (const leaf of this.app.workspace.getLeavesOfType(MERIDIAN_BT_INSPECTOR_VIEW_TYPE)) {
 				const view = leaf.view as MeridianBTInspectorView;
 				view.setDeps(this.inspectorDeps);
-			}
-		}
-
-		// Wire agent-click → inspector plumbing.
-		// Obsidian's registerDomEvent has strict overloads limited to HTMLElementEventMap,
-		// so a custom event like 'meridian-agent-selected' can't be passed without an `any` cast.
-		// Instead, use addEventListener directly and use this.register() to schedule cleanup.
-		const gameLeaves = this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE);
-		const firstGame = gameLeaves[0];
-		if (firstGame !== undefined) {
-			const gameView = firstGame.view as MeridianGameView;
-			const container = gameView.getContentContainer();
-			if (container !== null) {
-				const handler = (e: Event): void => {
-					const customEvent = e as CustomEvent<{ agentId: string }>;
-					void this.openBTInspectorForAgent(customEvent.detail.agentId);
-				};
-				container.addEventListener('meridian-agent-selected', handler);
-				this.register(() => {
-					container.removeEventListener('meridian-agent-selected', handler);
-				});
 			}
 		}
 

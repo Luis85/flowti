@@ -20,7 +20,7 @@ export interface BTInspectorDeps {
 
 interface StaticTreeEntry {
 	label: string;
-	ref: TreeRef;
+	makeRef: (dataRoot: string) => TreeRef;
 }
 
 /**
@@ -136,8 +136,12 @@ export class MeridianBTInspectorView extends ItemView {
 		this.currentAgentId = null;
 		this.currentStaticRef = null;
 
-		const header = this.contentEl.createEl('h3', { text: 'Behavior Trees' });
-		header.setCssProps({ 'margin-top': '0' });
+		const headerRow = this.contentEl.createDiv();
+		headerRow.setCssProps({ display: 'flex', 'align-items': 'center', gap: '8px', 'margin-top': '0', 'margin-bottom': '8px' });
+		const header = headerRow.createEl('h3', { text: 'Behavior Trees' });
+		header.setCssProps({ 'margin-top': '0', 'margin-bottom': '0', flex: '1' });
+		const refreshBtn = headerRow.createEl('button', { text: '↻ Refresh' });
+		refreshBtn.addEventListener('click', () => { this.renderIndex(); });
 
 		// Static trees section
 		const staticSection = this.contentEl.createDiv();
@@ -146,23 +150,25 @@ export class MeridianBTInspectorView extends ItemView {
 		if (this.deps === null) {
 			staticSection.createEl('div', { text: 'Game not loaded yet' });
 		} else {
-			const dataRoot = this.deps.dataRoot();
+			// NOTE: dataRoot is resolved lazily at click time, not at render time.
+			// That way, if the inspector is opened before the game view has populated
+			// dataRoot, clicking a row after the game loads still resolves the correct path.
 			const entries: StaticTreeEntry[] = [
 				{
 					label: 'base.mdsl',
-					ref: { kind: 'base', path: `${dataRoot}/behavior-trees/base.mdsl` },
+					makeRef: (root) => ({ kind: 'base', path: `${root}/behavior-trees/base.mdsl` }),
 				},
 				{
 					label: 'settler (base + settler)',
-					ref: { kind: 'job', branchPath: `${dataRoot}/jobs/settler.mdsl`, basePath: `${dataRoot}/behavior-trees/base.mdsl` },
+					makeRef: (root) => ({ kind: 'job', branchPath: `${root}/jobs/settler.mdsl`, basePath: `${root}/behavior-trees/base.mdsl` }),
 				},
 				{
 					label: 'craftsman (base + craftsman)',
-					ref: { kind: 'job', branchPath: `${dataRoot}/jobs/craftsman.mdsl`, basePath: `${dataRoot}/behavior-trees/base.mdsl` },
+					makeRef: (root) => ({ kind: 'job', branchPath: `${root}/jobs/craftsman.mdsl`, basePath: `${root}/behavior-trees/base.mdsl` }),
 				},
 				{
 					label: 'guard (base + guard)',
-					ref: { kind: 'job', branchPath: `${dataRoot}/jobs/guard.mdsl`, basePath: `${dataRoot}/behavior-trees/base.mdsl` },
+					makeRef: (root) => ({ kind: 'job', branchPath: `${root}/jobs/guard.mdsl`, basePath: `${root}/behavior-trees/base.mdsl` }),
 				},
 			];
 
@@ -170,7 +176,15 @@ export class MeridianBTInspectorView extends ItemView {
 				const row = staticSection.createDiv();
 				row.setCssProps({ cursor: 'pointer', padding: '4px 8px', 'border-radius': '4px' });
 				row.textContent = `🌳 ${entry.label}`;
-				row.addEventListener('click', () => void this.showStaticTree(entry.ref, entry.label));
+				row.addEventListener('click', () => {
+					if (this.deps === null) return;
+					const root = this.deps.dataRoot();
+					if (root === '') {
+						this.renderError('Game not yet loaded — open the Project Meridian game view first');
+						return;
+					}
+					void this.showStaticTree(entry.makeRef(root), entry.label);
+				});
 				row.addEventListener('mouseenter', () => { row.setCssProps({ background: 'var(--background-modifier-hover)' }); });
 				row.addEventListener('mouseleave', () => { row.setCssProps({ background: '' }); });
 			}
