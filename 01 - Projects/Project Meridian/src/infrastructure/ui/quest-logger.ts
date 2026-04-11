@@ -242,17 +242,94 @@ export function createQuestLogger(deps: QuestLoggerDeps): QuestLogger {
 }
 
 /**
- * Serialize a quest log entry to markdown. Pure — exported for use by the
- * debug overlay (inline rendering) and the file writer.
+ * Serialize a quest log entry to a markdown file with YAML frontmatter.
+ *
+ * The frontmatter is designed to be consumable by Obsidian Bases — every field
+ * is explicitly typed, nullable fields emit `null` instead of being omitted so
+ * Bases can build consistent columns, and tags follow the `quest/<facet>` convention.
+ * The body below the frontmatter is a human-readable snapshot of the same data.
  */
 export function serializeQuest(entry: QuestLogEntry, resolveName: (id: string) => string): string {
 	const facilityName = resolveName(entry.facilityId);
+	const claimedByName = entry.claimedBy !== null ? resolveName(entry.claimedBy) : null;
+
+	const frontmatter = buildFrontmatter(entry, facilityName, claimedByName);
+	const body = buildBody(entry, facilityName, claimedByName);
+
+	return `---\n${frontmatter}\n---\n${body}`;
+}
+
+function buildFrontmatter(
+	entry: QuestLogEntry,
+	facilityName: string,
+	claimedByName: string | null,
+): string {
+	const lines: string[] = [];
+	// Identity
+	lines.push(`id: ${yamlString(entry.questId)}`);
+	lines.push(`quest_type: ${yamlString(entry.type)}`);
+	lines.push(`state: ${yamlString(entry.state)}`);
+	lines.push(`resolution: ${entry.resolution !== null ? yamlString(entry.resolution) : 'null'}`);
+
+	// Target
+	lines.push(`facility: ${yamlString(facilityName)}`);
+	lines.push(`facility_id: ${yamlString(entry.facilityId)}`);
+	lines.push(`item: ${entry.itemId !== null ? yamlString(entry.itemId) : 'null'}`);
+	lines.push(`quantity: ${entry.itemId !== null ? String(entry.quantity) : 'null'}`);
+
+	// Economy
+	lines.push(`reward: ${String(entry.reward)}`);
+
+	// Timeline (ticks)
+	lines.push(`created_tick: ${String(entry.createdTick)}`);
+	lines.push(`claimed_tick: ${entry.claimedTick !== null ? String(entry.claimedTick) : 'null'}`);
+	lines.push(`resolved_tick: ${entry.resolvedTick !== null ? String(entry.resolvedTick) : 'null'}`);
+	lines.push(`duration_ticks: ${entry.resolvedTick !== null ? String(entry.resolvedTick - entry.createdTick) : 'null'}`);
+
+	// Participants
+	lines.push(`claimed_by: ${claimedByName !== null ? yamlString(claimedByName) : 'null'}`);
+	lines.push(`claimed_by_id: ${entry.claimedBy !== null ? yamlString(entry.claimedBy) : 'null'}`);
+
+	// Wall-clock timestamps — derived from timeline entries (first = created, last = resolved)
+	const createdAt = entry.timeline[0]?.wallClock;
+	const resolvedAt = entry.resolution !== null ? entry.timeline.at(-1)?.wallClock : undefined;
+	lines.push(`created_at: ${createdAt !== undefined ? isoDateTime(createdAt) : 'null'}`);
+	lines.push(`resolved_at: ${resolvedAt !== undefined ? isoDateTime(resolvedAt) : 'null'}`);
+
+	// Stats
+	lines.push(`timeline_events: ${String(entry.timeline.length)}`);
+
+	// Tags — Obsidian tag system uses slash-separated facets
+	const tags = buildTags(entry);
+	lines.push('tags:');
+	for (const tag of tags) {
+		lines.push(`  - ${tag}`);
+	}
+
+	return lines.join('\n');
+}
+
+function buildTags(entry: QuestLogEntry): string[] {
+	const tags = ['quest', `quest/${entry.type}`];
+	if (entry.resolution !== null) {
+		tags.push(`quest/${entry.resolution}`);
+	} else {
+		tags.push(`quest/${entry.state}`);
+	}
+	return tags;
+}
+
+function buildBody(
+	entry: QuestLogEntry,
+	facilityName: string,
+	claimedByName: string | null,
+): string {
 	const resolutionLabel = entry.resolution ?? 'in progress';
 	const duration = entry.resolvedTick !== null
 		? `${String(entry.resolvedTick - entry.createdTick)}t`
 		: 'ongoing';
-	const claimedBy = entry.claimedBy !== null ? resolveName(entry.claimedBy) : '—';
 	const item = entry.itemId !== null ? `${entry.itemId}x${String(entry.quantity)}` : '—';
+	const claimedByDisplay = claimedByName ?? '—';
 
 	const lines: string[] = [];
 	lines.push(`# Quest ${entry.questId}`);
@@ -266,7 +343,7 @@ export function serializeQuest(entry: QuestLogEntry, resolveName: (id: string) =
 	lines.push(`- **Resolution**: ${resolutionLabel}`);
 	lines.push(`- **Resolved at**: ${entry.resolvedTick !== null ? `t${String(entry.resolvedTick)}` : '—'}`);
 	lines.push(`- **Duration**: ${duration}`);
-	lines.push(`- **Claimed by**: ${claimedBy}`);
+	lines.push(`- **Claimed by**: ${claimedByDisplay}`);
 	lines.push('');
 	lines.push('## Timeline');
 	lines.push('');
@@ -279,6 +356,32 @@ export function serializeQuest(entry: QuestLogEntry, resolveName: (id: string) =
 	}
 	lines.push('');
 	return lines.join('\n');
+}
+
+/**
+ * Quote a YAML string only if it contains characters that would trip the parser.
+ * Safe plain scalars are left bare for readability (matching existing Meridian conventions).
+ */
+function yamlString(s: string): string {
+	if (s === '') return '""';
+	// Always quote if the string starts with a YAML indicator character
+	if (/^[-?:,[\]{}#&*!|>%@`"']/.test(s)) return JSON.stringify(s);
+	// Always quote if it contains structure-breaking chars or ": " sequences
+	if (/[:#[\]{},&*!|>"'`]/.test(s)) return JSON.stringify(s);
+	if (s.includes(': ')) return JSON.stringify(s);
+	// Leave simple strings bare (alphanumeric, spaces, underscores, dashes, dots)
+	return s;
+}
+
+/**
+ * Format a wall-clock millisecond timestamp as an ISO 8601 datetime that
+ * Obsidian's property editor recognizes as a Date.
+ */
+function isoDateTime(ms: number): string {
+	const iso = new Date(ms).toISOString();
+	// Strip fractional seconds and the trailing Z for cleaner display;
+	// Obsidian still parses this as a datetime value.
+	return iso.slice(0, 19);
 }
 
 function stringField(payload: Record<string, unknown>, key: string): string | null {
