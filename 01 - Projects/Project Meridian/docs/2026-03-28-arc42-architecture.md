@@ -596,19 +596,68 @@ BehaviorTreeSystem (tick 5)
 │ For each agent with a BehaviourTree:
 │   ├─ Call tree.step() — mistreevous evaluates MDSL tree
 │   │   BehaviorAgent provides typed condition/action methods:
-│   │   Conditions: IsHungry(), IsExhausted(), HasFood(), CanAffordFood(),
-│   │     NeedsRepair(), HasTools(), NeedsEquipment(), IsOverloaded(),
-│   │     IsAtFoodFacility(), IsAtRestFacility(), IsAtWorkFacility(), etc.
-│   │   Actions: Eat(), Rest(), Buy(), Work(), CollectProduced(), RepairWithTools(),
-│   │     PickupCargo(), DeliverCargo(), SeekFood(), SeekRest(), SeekWork(), Idle(), etc.
+│   │   Conditions:
+│   │     Survival: IsHungry(), IsExhausted(), IsThirsty(), IsLonely(),
+│   │       NeedsCritical(), IsRecovering(), IsSociallyCritical()
+│   │     Inventory: HasFood(), HasWater(), HasTools(), NeedsEquipment(),
+│   │       NeedsRepair(), IsOverloaded()
+│   │     Economy: CanAffordFood(), CanAffordItem(), FacilityHasStock()
+│   │     Quests: HasQuest(), QuestAvailable(), QuestAtFacility(), QuestCargoReady()
+│   │     Cargo: HasCargo(), CargoDestinationNearby(), FacilityNeedsSupply(),
+│   │       KnowsSupplyRoute()
+│   │     World: IsCommitted(), IsWorkHours(), IsNighttime(), IsRestDay(),
+│   │       IsMoodLow(), AtLocation(), NearAgentClose(), HasJob(), HasNoJob()
 │   │
-│   ├─ MDSL tree structure (base + per-role branch):
-│   │   P0. Survival (critical hunger/thirst/energy)
-│   │   P1. Economy (sell overloaded goods, buy food/equipment/tools)
-│   │   P2. Job duty (role branch: settler/guard/craftsman)
-│   │   P3. Quests, social, leisure
-│   │   P4. Maintenance (P4.45 repair equipment with tools, P4.5 buy equipment)
-│   │   P5. Idle (wander)
+│   │   Actions:
+│   │     Life: Eat(), Drink(), Rest(), FillWaterskin()
+│   │     Work: Work(), SeekWork(), ClaimJob(), ClaimBestJob(), SeekJobFacility(),
+│   │       SwitchJob(), ReleaseJob(), CollectProduced(), RepairWithTools()
+│   │     Economy: Buy(), BuyItem(), SellAtMarket(), SeekMarket(), SeekFood(),
+│   │       SeekBestFoodSource(), SeekRest(), SeekWater()
+│   │     Cargo (supply chain): PickupCargo(), DeliverCargo(), SeekDeliveryTarget(),
+│   │       SeekSupplySource()
+│   │     Quests: ClaimQuest(), SeekQuestFacility(), SeekQuestSource(),
+│   │       PickupForQuest(), WorkRepair(), CompleteQuest(), AbandonQuest()
+│   │     Social: Talk(), SeekSocial()
+│   │     Leisure: ChooseLeisure(), SeekLeisureTarget(), Leisure()
+│   │     Control: ContinueCommitment(), Wander()
+│   │
+│   ├─ MDSL tree structure (base.mdsl + per-role branch):
+│   │   P-1. Commitment (honor active commitment unless critical override)
+│   │   P0.  Critical survival (rest/drink/eat in danger order)
+│   │   P0.5 Social emergency
+│   │   P1.  Claim nearby job / P1.5 seek distant job
+│   │   P1.9 Sell overloaded goods (overrides job)
+│   │   P2.  Role-specific job branch (settler/guard/craftsman) — includes
+│   │        equipment maintenance gate (NeedsRepair → buy tools → repair)
+│   │   P2.5 Leisure (rest day or low mood)
+│   │   P3.  Non-critical thirst
+│   │   P4.  Non-critical hunger
+│   │   P4.25 Active quest: complete → work repair → source+pickup → travel
+│   │   P4.3 Claim available quest
+│   │   P4.6 Supply chain cargo flow
+│   │   P5.  Non-critical rest
+│   │   P5.5 Switch to better-paying job
+│   │   P5.7 Socialize when lonely
+│   │   P6.  Personal sleep time
+│   │   P7.  Wander fallback
+│   │
+│   │   Commitment break rules:
+│   │     - eat/drink/rest/buy: break when the target need is satisfied
+│   │     - work/leisure: break when hunger/thirst dip below PERSONAL thresholds,
+│   │       or when equipment needs repair (see job MDSL equipment gate)
+│   │     - seek_* (travel): break when any need crosses its CRITICAL threshold
+│   │       (cheaper to interrupt travel than work; prevents death spirals)
+│   │
+│   │   Quest cargo flow (supply/restock):
+│   │     1. ClaimQuest → sets memory.activeQuest
+│   │     2. If QuestCargoReady (cargo or personal inventory has the item):
+│   │          SeekQuestFacility → CompleteQuest
+│   │     3. Else: SeekQuestSource (nearest known producer with sufficient stock)
+│   │             → PickupForQuest (transfers source stock → memory.questCargo)
+│   │             → SeekQuestFacility → CompleteQuest
+│   │     memory.questCargo is separate from memory.haulCargo so quest
+│   │     fulfillment doesn't interfere with supply-chain routing.
 │   │
 │   └─ Actions return RUNNING (in progress) or SUCCEEDED/FAILED
 │      → Systems execute effects on the next tick

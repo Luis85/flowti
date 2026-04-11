@@ -330,7 +330,7 @@ Entity (ECS base — Position, Renderable)
 |Energy|0–100|0.25|÷ (HT/10)|< 15|Sleep (rest location — see tiers below)|
 |Social|0–100|0.15|÷ (Chr/10)|< 25|Converse with nearby agent|
 
-Critical needs override all other BT priorities.
+Critical needs override all other BT priorities. **Commitments do not block critical needs.** Agents may be committed to a multi-tick action (work, rest, seek_market, seek_quest) — but `ContinueCommitment` checks for critical need thresholds each tick and breaks the commitment when any need (hunger/thirst/energy) crosses into the critical range, returning control to the BT root so the survival branch can fire. Work and leisure commitments break proactively at **personal** thresholds (which scale with GURPS HT/IQ); travel commitments break at the stricter **critical** thresholds (since travel is cheap to interrupt but should not be abandoned for mild discomfort).
 
 **Pacing Targets (at 480 ticks/day):**
 
@@ -777,7 +777,16 @@ Each tick, the `FacilitySystem` iterates all facilities (not agents):
 
 Items move between facilities via the **quest economy** — no dedicated logistics system.
 
-When a facility's inventory is low on recipe inputs, the owner's BT triggers a facility auto-quest (§8.2): "Deliver 10 wheat to my mill" posted to the billboard, funded from the facility's operating fund. Any agent can accept — they travel to the supplier (farm), purchase the inputs (agent-to-agent trade or shop purchase), carry them to the requesting facility, and deliver. Quest completed, inputs transferred.
+When a facility's inventory is low on recipe inputs, the owner's BT triggers a facility auto-quest (§8.2): "Deliver 10 wheat to my mill" posted to the billboard, funded from the facility's operating fund. Any agent can accept — they travel to the supplier (farm), pick up the inputs, carry them to the requesting facility, and deliver. Quest completed, inputs transferred.
+
+**Implementation (Phase 4):** Supply and restock quests use a dedicated source→pickup→deliver behavior tree flow:
+
+1. **Claim** — agent accepts a quest at the billboard
+2. **Seek source** — the BT's `SeekQuestSource` action finds the nearest known producer whose output matches the quest's item AND has sufficient stock (empty facilities are skipped, preventing dead-source loops)
+3. **Pickup** — `PickupForQuest` transfers `quantity` units from the source's production stock into a dedicated `questCargo` slot on the agent (distinct from the supply-chain `haulCargo` slot so the two flows don't interfere)
+4. **Deliver** — `SeekQuestFacility` travels to the target, `CompleteQuest` transfers from `questCargo` to facility stock and pays the reward
+
+For `supply` quests where the agent already has the item in personal inventory (e.g. they bought food for themselves), `CompleteQuest` falls back to draining personal inventory. This keeps both patterns viable: agents can opportunistically deliver from their own stock OR formally source-and-deliver via the cargo slot.
 
 This means supply chains are emergent:
 - A thriving economy has plenty of delivery quests flowing, keeping facilities stocked.
