@@ -206,6 +206,46 @@ describe('createQuestLogger', () => {
 		expect(list[1]?.questId).toBe('q1');
 	});
 
+	it('resets resolution on re-claim after abandonment', () => {
+		fire({ type: 'QuestGenerated', tick: 5, payload: { questId: 'q1', type: 'supply', facilityId: 'loc-market', reward: 15 } });
+		fire({ type: 'QuestClaimed', tick: 10, payload: { questId: 'q1', agentId: 'agent-bram' } });
+		fire({ type: 'QuestAbandoned', tick: 20, payload: { questId: 'q1', agentId: 'agent-bram', reason: 'abandoned' } });
+
+		// After abandonment, the board resets the quest to open; another agent claims it
+		fire({ type: 'QuestClaimed', tick: 25, payload: { questId: 'q1', agentId: 'agent-alice' } });
+
+		const entry = logger.getQuest('q1')!;
+		expect(entry.state).toBe('claimed');
+		expect(entry.resolution).toBeNull();
+		expect(entry.resolvedTick).toBeNull();
+		expect(entry.claimedBy).toBe('agent-alice');
+		expect(entry.claimedTick).toBe(25);
+		// Timeline preserves history
+		const messages = entry.timeline.map(t => t.message);
+		expect(messages[0]).toContain('Generated');
+		expect(messages[1]).toBe('Claimed by Bram');
+		expect(messages[2]).toContain('Abandoned by Bram');
+		expect(messages[3]).toBe('Re-claimed by Alice');
+	});
+
+	it('re-claim followed by completion produces a consistent terminal state', async () => {
+		fire({ type: 'QuestGenerated', tick: 5, payload: { questId: 'q1', type: 'supply', facilityId: 'loc-market', reward: 15 } });
+		fire({ type: 'QuestClaimed', tick: 10, payload: { questId: 'q1', agentId: 'agent-bram' } });
+		fire({ type: 'QuestAbandoned', tick: 20, payload: { questId: 'q1', agentId: 'agent-bram', reason: 'abandoned' } });
+		fire({ type: 'QuestClaimed', tick: 25, payload: { questId: 'q1', agentId: 'agent-alice' } });
+		fire({ type: 'QuestCompleted', tick: 40, payload: { questId: 'q1', agentId: 'agent-alice', reward: 15 } });
+
+		const entry = logger.getQuest('q1')!;
+		expect(entry.state).toBe('completed');
+		expect(entry.resolution).toBe('completed');
+		expect(entry.resolvedTick).toBe(40);
+		expect(entry.claimedBy).toBe('agent-alice');
+
+		await Promise.resolve();
+		// Two writes total: one at abandonment, one at completion. Final file has the completion state.
+		expect(writeFile).toHaveBeenCalledTimes(2);
+	});
+
 	it('dispose unsubscribes from the bus', () => {
 		fire({ type: 'QuestGenerated', tick: 5, payload: { questId: 'q1', type: 'supply', facilityId: 'loc-market', reward: 15 } });
 		expect(logger.getQuests()).toHaveLength(1);

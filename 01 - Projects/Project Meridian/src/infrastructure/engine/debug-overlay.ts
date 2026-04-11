@@ -382,6 +382,7 @@ function renderQuestsPanel(deps: OverlayDeps): string {
 		return '<span style="color:#6c7086">No quests yet.</span>';
 	}
 
+	const resolveName = logger.resolveName;
 	const active = all.filter(q => q.resolution === null);
 	const resolved = all.filter(q => q.resolution !== null);
 
@@ -393,7 +394,7 @@ function renderQuestsPanel(deps: OverlayDeps): string {
 		lines.push('<span style="color:#6c7086">(none)</span>');
 	} else {
 		for (const q of active) {
-			lines.push(formatQuestRow(q));
+			lines.push(formatQuestRow(q, resolveName));
 		}
 	}
 
@@ -403,27 +404,30 @@ function renderQuestsPanel(deps: OverlayDeps): string {
 		lines.push('<span style="color:#6c7086">(none)</span>');
 	} else {
 		for (const q of resolved.slice(0, 10)) {
-			lines.push(formatQuestRow(q));
+			lines.push(formatQuestRow(q, resolveName));
 		}
 	}
 
 	return lines.join('<br>');
 }
 
-function formatQuestRow(q: {
-	questId: string;
-	type: string;
-	facilityId: string;
-	itemId: string | null;
-	quantity: number;
-	reward: number;
-	state: string;
-	claimedBy: string | null;
-	createdTick: number;
-	resolvedTick: number | null;
-	resolution: string | null;
-	timeline: { tick: number; type: string; message: string }[];
-}): string {
+function formatQuestRow(
+	q: {
+		questId: string;
+		type: string;
+		facilityId: string;
+		itemId: string | null;
+		quantity: number;
+		reward: number;
+		state: string;
+		claimedBy: string | null;
+		createdTick: number;
+		resolvedTick: number | null;
+		resolution: string | null;
+		timeline: { tick: number; type: string; message: string }[];
+	},
+	resolveName: (id: string) => string,
+): string {
 	const icon = q.type === 'repair' ? '🔧' : q.type === 'restock' ? '📦' : '📋';
 	const stateColor = q.resolution === 'completed'
 		? '#a6e3a1'
@@ -434,23 +438,28 @@ function formatQuestRow(q: {
 				: q.state === 'claimed'
 					? '#f9e2af'
 					: '#cdd6f4';
-	const stateLabel = q.resolution ?? q.state;
+	const stateLabel = escapeHtml(q.resolution ?? q.state);
+	const typeLabel = escapeHtml(capitalize(q.type));
 	const item = q.itemId !== null
-		? `${q.itemId}${q.quantity > 1 ? `x${String(q.quantity)}` : ''}`
+		? escapeHtml(`${q.itemId}${q.quantity > 1 ? `x${String(q.quantity)}` : ''}`)
 		: '';
-	const facilityId = q.facilityId.replace(/^loc-/, '');
-	const claimedBy = q.claimedBy !== null ? q.claimedBy.replace(/^agent-/, '') : '—';
+	const facilityName = escapeHtml(resolveName(q.facilityId));
+	const claimedBy = q.claimedBy !== null ? escapeHtml(resolveName(q.claimedBy)) : '—';
 	const duration = q.resolvedTick !== null
 		? `${String(q.resolvedTick - q.createdTick)}t`
 		: `ongoing (t${String(q.createdTick)})`;
 
-	const header = `${icon} <span style="color:${stateColor}">${stateLabel}</span> · ${q.type}${item !== '' ? ` ${item}` : ''} → ${facilityId} · ${String(q.reward)}g · ${claimedBy} · ${duration}`;
+	const header = `${icon} <span style="color:${stateColor}">${stateLabel}</span> · ${typeLabel}${item !== '' ? ` ${item}` : ''} → ${facilityName} · ${String(q.reward)}g · ${claimedBy} · ${duration}`;
 
 	// Timeline (last 5 events, monospace indent)
 	const recent = q.timeline.slice(-5);
 	const timelineLines = recent.map(ev => `<span style="color:#6c7086;font-size:10px">  t${String(ev.tick)} · ${escapeHtml(ev.message)}</span>`).join('<br>');
 
 	return `<div style="margin:4px 0">${header}${timelineLines !== '' ? `<br>${timelineLines}` : ''}</div>`;
+}
+
+function capitalize(s: string): string {
+	return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
 }
 
 function escapeHtml(s: string): string {

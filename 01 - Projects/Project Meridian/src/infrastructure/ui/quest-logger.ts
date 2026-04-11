@@ -63,6 +63,8 @@ export interface QuestLogger {
 	getQuests(): QuestLogEntry[];
 	getQuest(id: string): QuestLogEntry | undefined;
 	toMarkdown(entry: QuestLogEntry): string;
+	/** The same resolveName injected via deps — exposed so UIs can render consistent names. */
+	resolveName(id: string): string;
 	dispose(): void;
 }
 
@@ -141,11 +143,20 @@ export function createQuestLogger(deps: QuestLoggerDeps): QuestLogger {
 		const entry = quests.get(questId);
 		if (entry === undefined) return;
 		const agentId = stringField(event.payload, 'agentId');
+
+		// If the quest is being re-claimed after a previous terminal state
+		// (e.g. abandoned → reopened → reclaimed), reset the resolution fields
+		// but keep the timeline history so the full lifecycle is preserved.
+		const isReclaim = entry.resolution !== null;
+		if (isReclaim) {
+			entry.resolution = null;
+			entry.resolvedTick = null;
+		}
 		entry.state = 'claimed';
 		entry.claimedBy = agentId;
 		entry.claimedTick = event.tick;
 		const agentName = agentId !== null ? deps.resolveName(agentId) : 'unknown';
-		appendTimeline(entry, event, `Claimed by ${agentName}`);
+		appendTimeline(entry, event, isReclaim ? `Re-claimed by ${agentName}` : `Claimed by ${agentName}`);
 	}
 
 	function handleCompleted(event: GameEvent): void {
@@ -221,6 +232,7 @@ export function createQuestLogger(deps: QuestLoggerDeps): QuestLogger {
 			return quests.get(id);
 		},
 		toMarkdown,
+		resolveName: deps.resolveName,
 		dispose(): void {
 			for (const unsub of unsubs) unsub();
 			unsubs.length = 0;
