@@ -915,6 +915,11 @@ function detectAnomalies(
 ): string {
 	const anomalies: string[] = [];
 	const ds = economy.state.dailySummary;
+	// Read current day phase once — used to guard night-time false positives
+	// on "employed but wandering/idle" anomalies. Agents without beds naturally
+	// fall through to Wander at night when no higher-priority branch applies.
+	const currentPhase = world.has(TimeComponent) ? world.get(TimeComponent).state.phase : 'day';
+	const isNight = currentPhase === 'night';
 
 	for (const agent of agents) {
 		const needs = agent.get(NeedsComponent).state;
@@ -938,8 +943,11 @@ function detectAnomalies(
 		// Behavioral
 		if (ba.commitmentTicks > 60) anomalies.push(`[HIGH] ${name}: very long commitment (${ba.commitmentTicks}t to ${ba.committedAction ?? action})`);
 		if (ba.unemployedTicks > 200) anomalies.push(`[HIGH] ${name}: long unemployment (${ba.unemployedTicks} ticks)`);
-		if (agent.job !== null && action === 'wander') anomalies.push(`[MEDIUM] ${name}: has job=${agent.job} but wandering`);
-		if (agent.job !== null && action === 'idle') anomalies.push(`[MEDIUM] ${name}: has job=${agent.job} but idle`);
+		// Suppress "wandering/idle while employed" at night — agents legitimately
+		// fall through to Wander/idle when no higher-priority branch applies during
+		// rest phase (no bed, no work, no emergency needs).
+		if (!isNight && agent.job !== null && action === 'wander') anomalies.push(`[MEDIUM] ${name}: has job=${agent.job} but wandering`);
+		if (!isNight && agent.job !== null && action === 'idle') anomalies.push(`[MEDIUM] ${name}: has job=${agent.job} but idle`);
 		if (needs.hunger < ba.personalThresholds.hunger && action !== 'eat' && action !== 'buy' && action !== 'seek_food') {
 			anomalies.push(`[LOW] ${name}: hungry (${needs.hunger.toFixed(0)} < thr ${ba.personalThresholds.hunger.toFixed(0)}) but action=${action}`);
 		}
