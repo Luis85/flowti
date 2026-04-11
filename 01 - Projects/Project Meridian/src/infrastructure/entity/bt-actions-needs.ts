@@ -119,12 +119,34 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 		},
 
 		SeekWater(): ActionResult {
-			const waterLocs = resolveNearbyLocations().filter(l => l.type === 'water');
-			if (waterLocs.length === 0) return FAILED;
+			// Prefer a water source in the agent's current perception range.
+			const nearbyWater = resolveNearbyLocations().filter(l => l.type === 'water');
+			if (nearbyWater.length > 0) {
+				beginAction(ctx, 'seek_water');
+				const nearest = findNearest(nearbyWater)!;
+				memory.movementTarget = { id: nearest.id, type: 'location' };
+				if (memory.atLocation === nearest.id) return SUCCEEDED;
+				return RUNNING;
+			}
+
+			// Fallback: no water in perception — pick the closest water location
+			// from the full world map. Water sources are rare (usually a single
+			// Spring) and an agent with critical thirst should traverse the whole
+			// map rather than die in place. Without this fallback, P0 critical
+			// survival silently fails when far from the Spring.
+			const allWater = getLocations().filter(l => l.type === 'water');
+			if (allWater.length === 0) return FAILED;
+			const agentX = actor.pos.x;
+			const agentY = actor.pos.y;
+			let best = allWater[0]!;
+			let bestDistSq = (best.position.x - agentX) ** 2 + (best.position.y - agentY) ** 2;
+			for (const w of allWater) {
+				const d = (w.position.x - agentX) ** 2 + (w.position.y - agentY) ** 2;
+				if (d < bestDistSq) { best = w; bestDistSq = d; }
+			}
 			beginAction(ctx, 'seek_water');
-			const nearest = findNearest(waterLocs)!;
-			memory.movementTarget = { id: nearest.id, type: 'location' };
-			if (memory.atLocation === nearest.id) return SUCCEEDED;
+			memory.movementTarget = { id: best.id, type: 'location' };
+			if (memory.atLocation === best.id) return SUCCEEDED;
 			return RUNNING;
 		},
 

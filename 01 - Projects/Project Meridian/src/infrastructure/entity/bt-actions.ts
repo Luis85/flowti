@@ -151,8 +151,10 @@ export function createActions(
 				memory.committedAction = null;
 				return FAILED;
 			}
-			// Break work/leisure commitments when maintenance needs arise
-			if (ca === 'work' || ca === 'leisure') {
+			// Break work/leisure/repair commitments when maintenance needs arise.
+			// Repair is a long (25t) stationary action like work — an agent
+			// mid-repair shouldn't starve or dehydrate while fixing a building.
+			if (ca === 'work' || ca === 'leisure' || ca === 'repair') {
 				if (needs.hunger < memory.personalThresholds.hunger) {
 					memory.commitmentTicks = 0;
 					memory.committedAction = null;

@@ -1008,10 +1008,36 @@ describe('bt-actions: createActions', () => {
 				expect(actions.SeekWater()).toBe('mistreevous.succeeded');
 			});
 
-			it('returns failed when no water locations nearby', () => {
+			it('returns failed when no water locations exist anywhere', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions } = setupActions(actor);
+				const { actions } = setupActions(actor, { getLocations: () => [] });
 				expect(actions.SeekWater()).toBe('mistreevous.failed');
+			});
+
+			it('falls back to the closest global water when no water in perception', () => {
+				// Regression for recording 2026-04-11-1610 — Bram was dying of thirst
+				// (2.6/100) because SeekWater only checked perception range. If the
+				// Spring is outside perception, fallback to getLocations() to find
+				// the closest water by world position.
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.pos.x = 300;
+				actor.pos.y = 400;
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [], // no water in perception
+				};
+				const locations = [
+					makeLocation('loc-spring-far', 'water', 80, 130),
+					makeLocation('loc-spring-near', 'water', 250, 380),
+					makeLocation('loc-market', 'market', 300, 380),
+				];
+				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
+
+				const result = actions.SeekWater();
+				expect(result).toBe('mistreevous.running');
+				// Closer spring wins
+				expect(memory.movementTarget).toEqual({ id: 'loc-spring-near', type: 'location' });
+				expect(memory.btAction).toBe('seek_water');
 			});
 		});
 
@@ -3179,6 +3205,20 @@ describe('bt-actions: createActions', () => {
 				memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
 				expect(actions.ContinueCommitment(), `variant=${travelAction}`).toBe('mistreevous.failed');
 			}
+		});
+
+		it('breaks repair commitment when thirst drops below personal threshold', () => {
+			// Regression for recording 2026-04-11-1610 — agents mid-repair
+			// ignored low thirst because `repair` wasn't in the break list.
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'repair';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 35, energy: 80 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.committedAction).toBeNull();
 		});
 	});
 });

@@ -103,6 +103,24 @@ root {
             }
         }
 
+        /* P1.95: Continue active quest AT CURRENT facility — preempts work.
+         * Without this, a repair quest at 100% progress can sit forever because
+         * P2 SeekWork fires the moment the repair commit expires. This branch
+         * only applies when the agent is already at the quest facility, so it
+         * never causes travel interruptions — agents finish what they're doing
+         * before walking off to work. */
+        sequence {
+            condition [HasQuest]
+            condition [QuestAtFacility]
+            selector {
+                sequence {
+                    condition [QuestCargoReady]
+                    action [CompleteQuest]
+                }
+                action [WorkRepair]
+            }
+        }
+
         /* P2: Role-specific behavior (work hours: dawn + day, skip if recovering) */
         sequence {
             condition [IsWorkHours]
