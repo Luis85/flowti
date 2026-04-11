@@ -2670,4 +2670,77 @@ describe('bt-actions: createActions', () => {
 			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
 		});
 	});
+
+	describe('ContinueCommitment — travel commitments break on critical needs', () => {
+		it('breaks seek_rest when thirst crosses critical threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'seek_rest';
+			memory.commitmentTicks = 8;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 10, energy: 80, social: 50 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.commitmentTicks).toBe(0);
+			expect(memory.committedAction).toBeNull();
+		});
+
+		it('breaks seek_food when energy crosses critical threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'seek_food';
+			memory.commitmentTicks = 6;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 20, thirst: 80, energy: 10, social: 50 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+		});
+
+		it('does NOT break seek_rest for sub-critical thirst (only personal threshold)', () => {
+			// Personal thirst=40, critical=20, thirst=30 is below personal but above critical.
+			// Travel commitments only break on CRITICAL, not personal thresholds.
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'seek_rest';
+			memory.commitmentTicks = 8;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 30, energy: 80, social: 50 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.running');
+			expect(memory.commitmentTicks).toBe(7);
+		});
+
+		it('does NOT break seek_market when all needs above critical', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'seek_market';
+			memory.commitmentTicks = 10;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 80, energy: 80, social: 50 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.running');
+		});
+
+		it('work commitment uses personal-threshold logic even with critical-level thirst (regression)', () => {
+			// Work break fires because thirst 10 < personal threshold 40. The new
+			// critical-travel block only applies to seek_* commitments.
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 10, energy: 80 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+		});
+
+		it('breaks all travel variants on critical hunger', () => {
+			const variants = ['seek_food', 'seek_water', 'seek_rest', 'seek_market', 'seek_quest', 'seek_quest_source', 'seek_delivery', 'seek_supply', 'seek_job_facility', 'seek_leisure', 'seek_social', 'seek_work'];
+			for (const travelAction of variants) {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const { actions, memory } = setupActions(actor, { config });
+				memory.committedAction = travelAction;
+				memory.commitmentTicks = 5;
+				actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 10, thirst: 80, energy: 80, social: 50 };
+				memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+				expect(actions.ContinueCommitment(), `variant=${travelAction}`).toBe('mistreevous.failed');
+			}
+		});
+	});
 });

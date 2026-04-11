@@ -6,6 +6,7 @@ import type { ActionContext } from './bt-action-helpers.js';
 import { FAILED, RUNNING } from './bt-action-helpers.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
+import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 import { createNeedsActions } from './bt-actions-needs.js';
 import { createWorkActions } from './bt-actions-work.js';
 import { createEconomyActions } from './bt-actions-economy.js';
@@ -13,6 +14,41 @@ import { createSocialActions } from './bt-actions-social.js';
 import { createCargoActions } from './bt-actions-cargo.js';
 import { createQuestActions } from './bt-actions-quest.js';
 import { createLeisureActions } from './bt-actions-leisure.js';
+
+/**
+ * Returns true when an ongoing travel commitment should be interrupted because
+ * one of the agent's needs has crossed the critical threshold. Used by
+ * ContinueCommitment to break `seek_*` travel actions in emergencies.
+ *
+ * Non-travel commitments (work / leisure / eat / drink / rest / buy) are
+ * handled by their own break logic and do not go through this helper.
+ */
+function shouldBreakTravelForCriticalNeed(needs: {
+	hunger: number;
+	thirst: number;
+	energy: number;
+}): boolean {
+	return (
+		needs.hunger < NEED_CRITICAL_THRESHOLDS.hunger
+		|| needs.thirst < NEED_CRITICAL_THRESHOLDS.thirst
+		|| needs.energy < NEED_CRITICAL_THRESHOLDS.energy
+	);
+}
+
+const TRAVEL_COMMITMENTS = new Set<string>([
+	'seek_food',
+	'seek_water',
+	'seek_rest',
+	'seek_market',
+	'seek_quest',
+	'seek_quest_source',
+	'seek_delivery',
+	'seek_supply',
+	'seek_job_facility',
+	'seek_leisure',
+	'seek_social',
+	'seek_work',
+]);
 
 export interface ActionMethods {
 	Eat(): ActionResult;
@@ -137,6 +173,15 @@ export function createActions(
 					memory.committedAction = null;
 					return FAILED;
 				}
+			}
+			// Break travel commitments when a critical need escalates. Travel is cheap
+			// to interrupt (max ~15 ticks of progress) and blocking critical needs
+			// causes death spirals (see recording 2026-04-11-1339 — Bram with thirst=0
+			// stuck in seek_rest for 70+ ticks).
+			if (ca !== null && TRAVEL_COMMITMENTS.has(ca) && shouldBreakTravelForCriticalNeed(needs)) {
+				memory.commitmentTicks = 0;
+				memory.committedAction = null;
+				return FAILED;
 			}
 			// Restore btAction so downstream systems (rest, needs-decay) see the correct activity
 			memory.btAction = memory.committedAction;
