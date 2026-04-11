@@ -19,8 +19,17 @@ export type TreeRef =
  * For job trees, composes the branch with base.mdsl (matches how bt-loader does it at runtime).
  * The returned tree has all nodes in READY state — no stepping is performed.
  *
- * Stub agent is used only to satisfy the mistreevous Agent type at construction.
- * The BehaviourTree constructor never invokes agent methods, so return values don't matter.
+ * The stub agent exists only to satisfy the `new BehaviourTree(mdsl, agent)` type
+ * signature. It is never stepped, so no action callbacks are invoked.
+ *
+ * Verified against mistreevous ^4.3.1. If a future version starts eagerly validating
+ * that agent actions exist (e.g. via `typeof agent[actionName] === 'function'`), this
+ * stub still satisfies those checks for string property access. Symbol property access
+ * (iterators, thenables) returns `undefined` — a safe no-op.
+ *
+ * If an upgrade breaks this, the loader will throw from `new BehaviourTree(...)`
+ * — that exception is caught by the caller (bt-inspector-view) and shown as a
+ * "Failed to load tree" error instead of crashing the view.
  */
 export async function loadStaticTree(
 	vault: VaultReader,
@@ -42,12 +51,24 @@ export async function loadStaticTree(
 		mdsl = result.mdsl;
 	}
 
-	// Proxy stub — returns no-op functions for any property access.
-	// BehaviourTree constructor validates structure but never calls agent methods.
-	const stubAgent = new Proxy({} as Agent, {
-		get: () => () => undefined,
-	});
-
+	const stubAgent = createStubAgent();
 	const tree = new BehaviourTree(mdsl, stubAgent);
 	return tree.getTreeNodeDetails();
+}
+
+/**
+ * Build a Proxy that appears to have every string-named action as a no-op function.
+ * Symbol-keyed access (e.g. `Symbol.iterator`, `Symbol.toPrimitive`, `.then`) returns
+ * undefined so the stub doesn't masquerade as iterable, thenable, or primitive-coercible.
+ */
+function createStubAgent(): Agent {
+	return new Proxy({} as Agent, {
+		get(_target, prop) {
+			if (typeof prop === 'symbol') return undefined;
+			// `then` is checked by Promise.resolve() to detect thenables — return undefined
+			// so the stub never accidentally acts as a Promise.
+			if (prop === 'then') return undefined;
+			return () => undefined;
+		},
+	});
 }

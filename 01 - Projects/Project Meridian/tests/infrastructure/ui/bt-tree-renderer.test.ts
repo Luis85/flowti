@@ -62,6 +62,18 @@ describe('renderTree', () => {
 		expect(el.textContent).toContain('"equipment"');
 	});
 
+	it('shows only the distinctive label (name for leaves, type for composites)', () => {
+		// Leaves: show name, not type — "Eat" not "action Eat"
+		const leafEl = renderTree(leaf('Eat', READY));
+		expect(leafEl.textContent).toMatch(/◦\s*Eat/);
+		expect(leafEl.textContent).not.toContain('action Eat');
+
+		// Composites: show type, not a repeated "sequence sequence"
+		const compositeEl = renderTree(composite('sequence', [leaf('Eat', READY)]));
+		expect(compositeEl.textContent).toContain('sequence');
+		expect(compositeEl.textContent).not.toContain('sequence sequence');
+	});
+
 	it('nested composites produce correct depth via padding-left', () => {
 		const tree = composite('selector', [
 			composite('sequence', [leaf('Eat', READY)]),
