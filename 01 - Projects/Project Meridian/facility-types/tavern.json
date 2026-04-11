@@ -1,0 +1,14 @@
+{
+	"id": "tavern",
+	"kind": "service",
+	"primary_job": "settler",
+	"default_wage": 2,
+	"default_fund": 150,
+	"funding": "facility",
+	"capacity": 1,
+	"staffed_effects":   { "mood": 10, "energy": 0, "social": 10, "skill_xp": 0 },
+	"unstaffed_effects": { "mood": 3,  "energy": 0, "social": 3,  "skill_xp": 0 },
+	"cost_per_visit": 4,
+	"ticks_per_visit": 20,
+	"restock_threshold_per_item": {}
+}

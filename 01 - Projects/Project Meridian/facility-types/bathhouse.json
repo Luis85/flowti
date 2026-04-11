@@ -1,0 +1,14 @@
+{
+	"id": "bathhouse",
+	"kind": "service",
+	"primary_job": "settler",
+	"default_wage": 2,
+	"default_fund": 150,
+	"funding": "facility",
+	"capacity": 1,
+	"staffed_effects":   { "mood": 15, "energy": 5, "social": 0, "skill_xp": 0 },
+	"unstaffed_effects": { "mood": 5,  "energy": 0, "social": 0, "skill_xp": 0 },
+	"cost_per_visit": 5,
+	"ticks_per_visit": 20,
+	"restock_threshold_per_item": {}
+}
