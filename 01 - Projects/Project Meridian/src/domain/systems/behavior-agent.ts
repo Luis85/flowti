@@ -75,6 +75,7 @@ export interface BehaviorAgent {
 	atLocation: string | null;
 	currentRegion: string;
 	haulCargo: CargoState | null;
+	questCargo: { itemId: string; quantity: number; questId: string } | null;
 	readonly socialCooldowns: Map<string, number>;
 	committedAction: string | null;
 

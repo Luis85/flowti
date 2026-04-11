@@ -5,12 +5,24 @@ import type { SupplyRoute } from '../../domain/systems/cargo.js';
 import type { QuestRuntime } from '../../domain/schemas/quest-schema.js';
 import { CircularBuffer } from 'mnemonist';
 
+/**
+ * Item the agent is physically carrying for a claimed quest. Separate from
+ * haulCargo which belongs to the supply-chain system. Populated by
+ * PickupForQuest, consumed by CompleteQuest, cleared by AbandonQuest.
+ */
+export interface QuestCargo {
+	itemId: string;
+	quantity: number;
+	questId: string;
+}
+
 export interface WorkingMemory {
 	movementTarget: MovementTarget | null;
 	journey: JourneyState | null;
 	atLocation: string | null;
 	currentRegion: string;
 	haulCargo: CargoState | null;
+	questCargo: QuestCargo | null;
 	readonly socialCooldowns: Map<string, number>;
 	committedAction: string | null;
 	btAction: string | null;
@@ -46,6 +58,7 @@ export function createWorkingMemory(priceMemoryMax: number): WorkingMemory {
 		atLocation: null,
 		currentRegion: '',
 		haulCargo: null,
+		questCargo: null,
 		socialCooldowns: new Map<string, number>(),
 		committedAction: null,
 		btAction: null,

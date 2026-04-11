@@ -192,6 +192,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set currentRegion(v) { memory.currentRegion = v; },
 		get haulCargo() { return memory.haulCargo; },
 		set haulCargo(v) { memory.haulCargo = v; },
+		get questCargo() { return memory.questCargo; },
+		set questCargo(v) { memory.questCargo = v; },
 		get socialCooldowns() { return memory.socialCooldowns; },
 		get committedAction() { return memory.committedAction; },
 		set committedAction(v) { memory.committedAction = v; },
