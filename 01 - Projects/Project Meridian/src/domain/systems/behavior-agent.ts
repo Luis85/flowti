@@ -97,6 +97,9 @@ export interface BehaviorAgent {
 	cachedAvailableQuest: QuestRuntime | null;
 	insideFacility: boolean;
 	leisureTarget: string | null;
+	serviceTarget: string | null;
+	currentServiceVisit: { facilityId: string; ticksRemaining: number; costPaid: boolean } | null;
+	pendingAreaModifiers: { kind: 'mood'; delta_per_tick: number }[];
 	commitmentTicks: number;
 	sleepDebt: number;
 	ticksRestedThisDay: number;
@@ -195,6 +198,9 @@ export interface BehaviorAgent {
 	ChooseLeisure(): ActionResult;
 	SeekLeisureTarget(): ActionResult;
 	Leisure(): ActionResult;
+	ChooseServiceFacility(intent: string): ActionResult;
+	SeekService(): ActionResult;
+	UseService(): ActionResult;
 
 	// Utility methods
 	tickUnemployment(): void;

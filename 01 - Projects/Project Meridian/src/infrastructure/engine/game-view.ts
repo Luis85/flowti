@@ -311,6 +311,7 @@ export class MeridianGameView extends ItemView {
 				swapBehaviorTree,
 				jobsConfig: deps.config.jobs,
 				getQuestBoard: () => worldEntity.get(QuestBoardComponent).state,
+				getFacilityTypeRegistry: () => deps.getFacilityTypeRegistry(),
 			});
 
 			// Initialize with job-specific tree if agent has a job, otherwise jobless
@@ -326,9 +327,9 @@ export class MeridianGameView extends ItemView {
 			agent.behaviorTree = tree;
 		}
 
-		// Create ServiceSystem handle (includes test helpers + the GameSystem).
-		// Chunk 5 / Task 4.4 relocates the in-closure visit map into MemoryComponent.
-		const serviceSystemHandle = createServiceSystem(
+		// Create ServiceSystem — visits are stored on WorkingMemory
+		// (`currentServiceVisit`) and populated by the `UseService` BT action.
+		const serviceSystem = createServiceSystem(
 			getAgents,
 			getLocations,
 			getLocationActors,
@@ -356,7 +357,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
 		tickRunner.register(createLeisureSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
-		tickRunner.register(serviceSystemHandle.system);
+		tickRunner.register(serviceSystem);
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createDialogueSystem(getAgents, Date.now()));

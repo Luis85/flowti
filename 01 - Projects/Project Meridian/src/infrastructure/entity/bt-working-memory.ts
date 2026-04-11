@@ -16,6 +16,28 @@ export interface QuestCargo {
 	questId: string;
 }
 
+/**
+ * Active service-facility visit. Populated by the `UseService` BT action and
+ * consumed by `ServiceSystem`, which ticks `ticksRemaining` down and applies
+ * the facility's staffed/unstaffed effects on completion. Cleared on
+ * completion or by the orphan guard when the agent leaves mid-visit.
+ */
+export interface ServiceVisit {
+	facilityId: string;
+	ticksRemaining: number;
+	costPaid: boolean;
+}
+
+/**
+ * Mood/area modifier queued by nearby `area_effect` facilities. Applied by
+ * the mood system on the tick following observation. Populated by the
+ * AreaEffectSystem (Task 4.5), drained during mood recomputation.
+ */
+export interface AreaModifier {
+	kind: 'mood';
+	delta_per_tick: number;
+}
+
 export interface WorkingMemory {
 	movementTarget: MovementTarget | null;
 	journey: JourneyState | null;
@@ -41,6 +63,9 @@ export interface WorkingMemory {
 	cachedAvailableQuest: QuestRuntime | null;
 	insideFacility: boolean;
 	leisureTarget: string | null;
+	serviceTarget: string | null;
+	currentServiceVisit: ServiceVisit | null;
+	pendingAreaModifiers: AreaModifier[];
 	commitmentTicks: number;
 	sleepDebt: number;
 	ticksRestedThisDay: number;
@@ -77,6 +102,9 @@ export function createWorkingMemory(priceMemoryMax: number): WorkingMemory {
 		cachedAvailableQuest: null,
 		insideFacility: false,
 		leisureTarget: null,
+		serviceTarget: null,
+		currentServiceVisit: null,
+		pendingAreaModifiers: [],
 		commitmentTicks: 0,
 		sleepDebt: 0,
 		ticksRestedThisDay: 0,

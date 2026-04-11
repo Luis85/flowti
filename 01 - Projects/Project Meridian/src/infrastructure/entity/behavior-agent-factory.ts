@@ -1,6 +1,7 @@
 import type { Actor } from 'excalibur';
 import type { BehaviorAgent, PerceivedAgent, PerceivedLocation, PerceivedFacility } from '../../domain/systems/behavior-agent.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
+import type { FacilityType } from '../../domain/schemas/facility-type-schema.js';
 import type { QuestBoardState } from '../components/quest-board-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
@@ -30,6 +31,7 @@ export interface BehaviorAgentDeps {
 	swapBehaviorTree?: (jobName: string | null) => void;
 	jobsConfig?: GameConfig['jobs'];
 	getQuestBoard?: () => QuestBoardState;
+	getFacilityTypeRegistry?: () => Map<string, FacilityType>;
 	claimFacility?: (facilityId: string) => boolean;
 	releaseFacility?: () => void;
 }
@@ -232,6 +234,12 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set insideFacility(v) { memory.insideFacility = v; },
 		get leisureTarget() { return memory.leisureTarget; },
 		set leisureTarget(v) { memory.leisureTarget = v; },
+		get serviceTarget() { return memory.serviceTarget; },
+		set serviceTarget(v) { memory.serviceTarget = v; },
+		get currentServiceVisit() { return memory.currentServiceVisit; },
+		set currentServiceVisit(v) { memory.currentServiceVisit = v; },
+		get pendingAreaModifiers() { return memory.pendingAreaModifiers; },
+		set pendingAreaModifiers(v) { memory.pendingAreaModifiers = v; },
 		get commitmentTicks() { return memory.commitmentTicks; },
 		set commitmentTicks(v) { memory.commitmentTicks = v; },
 		get sleepDebt() { return memory.sleepDebt; },

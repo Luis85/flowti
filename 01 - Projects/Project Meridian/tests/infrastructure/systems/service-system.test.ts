@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Actor } from 'excalibur';
-import { createServiceSystem, type ServiceSystemHandle } from '../../../src/infrastructure/systems/service-system.js';
+import { createServiceSystem } from '../../../src/infrastructure/systems/service-system.js';
+import type { GameSystem } from '../../../src/domain/core/tick-scheduler.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
@@ -68,6 +69,9 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		cachedAvailableQuest: null,
 		insideFacility: false,
 		leisureTarget: null,
+		serviceTarget: null,
+		currentServiceVisit: null,
+		pendingAreaModifiers: [],
 		commitmentTicks: 0,
 		sleepDebt: 0,
 		ticksRestedThisDay: 0,
@@ -106,6 +110,8 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		RepairWithTools: () => 'mistreevous.failed', ContinueCommitment: () => 'mistreevous.failed',
 		ChooseLeisure: () => 'mistreevous.failed', SeekLeisureTarget: () => 'mistreevous.failed',
 		Leisure: () => 'mistreevous.failed',
+		ChooseServiceFacility: () => 'mistreevous.failed', SeekService: () => 'mistreevous.failed',
+		UseService: () => 'mistreevous.failed',
 		BetterPayAvailable: () => false, KnowsSupplyRoute: () => false,
 		HasQuest: () => false, QuestAvailable: () => false, QuestAtFacility: () => false,
 		QuestCargoReady: () => false, IsCommitted: () => false, ShouldSleep: () => false,
@@ -192,7 +198,7 @@ interface Fixture {
 	facilityType: Extract<FacilityType, { kind: 'service' }>;
 	location: WorldLocation;
 	worldEntity: Actor;
-	handle: ServiceSystemHandle;
+	system: GameSystem;
 	allAgents: AgentActor[];
 }
 
@@ -239,7 +245,7 @@ function buildFixture(options: {
 	if (worker !== null) allAgents.push(worker);
 	if (options.extraAgents !== undefined) allAgents.push(...options.extraAgents);
 
-	const handle = createServiceSystem(
+	const system = createServiceSystem(
 		() => allAgents,
 		() => [location],
 		() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -256,15 +262,19 @@ function buildFixture(options: {
 		facilityType,
 		location,
 		worldEntity,
-		handle,
+		system,
 		allAgents,
 	};
+}
+
+function seedVisit(agent: AgentActor, visit: { facilityId: string; ticksRemaining: number; costPaid: boolean }): void {
+	agent.behaviorAgent.currentServiceVisit = { ...visit };
 }
 
 describe('ServiceSystem', () => {
 	it('staffed visit: effects applied when visit completes', () => {
 		const fx = buildFixture({ withWorker: true });
-		fx.handle.startVisit(fx.agent.agentId, {
+		seedVisit(fx.agent, {
 			facilityId: fx.location.id,
 			ticksRemaining: 3,
 			costPaid: true,
@@ -275,18 +285,18 @@ describe('ServiceSystem', () => {
 		eventBus.on('ServiceDelivered', e => { events.push(e); });
 
 		// Tick 1: 3 -> 2
-		fx.handle.system.execute(createDeps(eventBus, 1));
-		expect(fx.handle.getVisit(fx.agent.agentId)?.ticksRemaining).toBe(2);
+		fx.system.execute(createDeps(eventBus, 1));
+		expect(fx.agent.behaviorAgent.currentServiceVisit?.ticksRemaining).toBe(2);
 		expect(events).toHaveLength(0);
 
 		// Tick 2: 2 -> 1
-		fx.handle.system.execute(createDeps(eventBus, 2));
-		expect(fx.handle.getVisit(fx.agent.agentId)?.ticksRemaining).toBe(1);
+		fx.system.execute(createDeps(eventBus, 2));
+		expect(fx.agent.behaviorAgent.currentServiceVisit?.ticksRemaining).toBe(1);
 		expect(events).toHaveLength(0);
 
 		// Tick 3: 1 -> 0 → complete
-		fx.handle.system.execute(createDeps(eventBus, 3));
-		expect(fx.handle.getVisit(fx.agent.agentId)).toBeUndefined();
+		fx.system.execute(createDeps(eventBus, 3));
+		expect(fx.agent.behaviorAgent.currentServiceVisit).toBeNull();
 		expect(fx.agent.behaviorAgent.insideFacility).toBe(false);
 
 		expect(events).toHaveLength(1);
@@ -308,7 +318,7 @@ describe('ServiceSystem', () => {
 
 	it('unstaffed visit: degraded effects applied, no wage paid', () => {
 		const fx = buildFixture({ withWorker: false });
-		fx.handle.startVisit(fx.agent.agentId, {
+		seedVisit(fx.agent, {
 			facilityId: fx.location.id,
 			ticksRemaining: 1,
 			costPaid: true,
@@ -316,7 +326,7 @@ describe('ServiceSystem', () => {
 
 		const fundBefore = fx.facility.state.fund;
 
-		fx.handle.system.execute(createDeps(createEventBus(), 1));
+		fx.system.execute(createDeps(createEventBus(), 1));
 
 		// Unstaffed effects: energy +2, mood +5
 		const needs = fx.agent.get(NeedsComponent);
@@ -342,7 +352,7 @@ describe('ServiceSystem', () => {
 		const eventBus = createEventBus();
 		eventBus.on('GoldFlowed', e => { goldEvents.push(e); });
 
-		fx.handle.system.execute(createDeps(eventBus, 1));
+		fx.system.execute(createDeps(eventBus, 1));
 
 		// Default wage 4, tax 10% → net 3.6, tax 0.4
 		expect(workerWallet.state.gold).toBeCloseTo(walletBefore + 3.6);
@@ -366,7 +376,7 @@ describe('ServiceSystem', () => {
 		const walletBefore = workerWallet.state.gold;
 		const fundBefore = fx.facility.state.fund;
 
-		fx.handle.system.execute(createDeps(createEventBus(), 1));
+		fx.system.execute(createDeps(createEventBus(), 1));
 
 		expect(workerWallet.state.gold).toBe(walletBefore);
 		expect(fx.facility.state.fund).toBe(fundBefore);
@@ -377,15 +387,15 @@ describe('ServiceSystem', () => {
 		const fx = buildFixture({ withWorker: true, fund: 6 });
 		const workerWallet = fx.worker!.get(WalletComponent);
 
-		fx.handle.system.execute(createDeps(createEventBus(), 1));
+		fx.system.execute(createDeps(createEventBus(), 1));
 		expect(fx.facility.state.fund).toBe(2);
 		const afterFirst = workerWallet.state.gold;
 
-		fx.handle.system.execute(createDeps(createEventBus(), 2));
+		fx.system.execute(createDeps(createEventBus(), 2));
 		expect(fx.facility.state.fund).toBe(2); // unchanged — wage skipped
 		expect(workerWallet.state.gold).toBe(afterFirst);
 
-		fx.handle.system.execute(createDeps(createEventBus(), 3));
+		fx.system.execute(createDeps(createEventBus(), 3));
 		expect(fx.facility.state.fund).toBe(2); // still unchanged
 	});
 
@@ -402,28 +412,28 @@ describe('ServiceSystem', () => {
 		});
 		fx.allAgents.push(second);
 
-		fx.handle.startVisit('customer-1', { facilityId: fx.location.id, ticksRemaining: 3, costPaid: true });
-		fx.handle.startVisit('customer-2', { facilityId: fx.location.id, ticksRemaining: 2, costPaid: true });
+		seedVisit(fx.agent, { facilityId: fx.location.id, ticksRemaining: 3, costPaid: true });
+		seedVisit(second, { facilityId: fx.location.id, ticksRemaining: 2, costPaid: true });
 
 		const events: GameEvent[] = [];
 		const eventBus = createEventBus();
 		eventBus.on('ServiceDelivered', e => { events.push(e); });
 
 		// Tick 1
-		fx.handle.system.execute(createDeps(eventBus, 1));
-		expect(fx.handle.getVisit('customer-1')?.ticksRemaining).toBe(2);
-		expect(fx.handle.getVisit('customer-2')?.ticksRemaining).toBe(1);
+		fx.system.execute(createDeps(eventBus, 1));
+		expect(fx.agent.behaviorAgent.currentServiceVisit?.ticksRemaining).toBe(2);
+		expect(second.behaviorAgent.currentServiceVisit?.ticksRemaining).toBe(1);
 
 		// Tick 2 → customer-2 completes
-		fx.handle.system.execute(createDeps(eventBus, 2));
-		expect(fx.handle.getVisit('customer-1')?.ticksRemaining).toBe(1);
-		expect(fx.handle.getVisit('customer-2')).toBeUndefined();
+		fx.system.execute(createDeps(eventBus, 2));
+		expect(fx.agent.behaviorAgent.currentServiceVisit?.ticksRemaining).toBe(1);
+		expect(second.behaviorAgent.currentServiceVisit).toBeNull();
 		expect(events).toHaveLength(1);
 		expect(events[0]?.payload.agentId).toBe('customer-2');
 
 		// Tick 3 → customer-1 completes
-		fx.handle.system.execute(createDeps(eventBus, 3));
-		expect(fx.handle.getVisit('customer-1')).toBeUndefined();
+		fx.system.execute(createDeps(eventBus, 3));
+		expect(fx.agent.behaviorAgent.currentServiceVisit).toBeNull();
 		expect(events).toHaveLength(2);
 		expect(events[1]?.payload.agentId).toBe('customer-1');
 	});
@@ -431,7 +441,7 @@ describe('ServiceSystem', () => {
 	it('orphan guard: btAction !== use_service clears visit with no effects and no ServiceDelivered event', () => {
 		const fx = buildFixture({ withWorker: false });
 		fx.agent.behaviorAgent.btAction = 'wander'; // not use_service
-		fx.handle.startVisit(fx.agent.agentId, {
+		seedVisit(fx.agent, {
 			facilityId: fx.location.id,
 			ticksRemaining: 1,
 			costPaid: true,
@@ -445,9 +455,9 @@ describe('ServiceSystem', () => {
 		const needsBefore = fx.agent.get(NeedsComponent).state;
 		const memBefore = fx.agent.get(MemoryComponent).state.entries.length;
 
-		fx.handle.system.execute(createDeps(eventBus, 1));
+		fx.system.execute(createDeps(eventBus, 1));
 
-		expect(fx.handle.getVisit(fx.agent.agentId)).toBeUndefined();
+		expect(fx.agent.behaviorAgent.currentServiceVisit).toBeNull();
 		expect(fx.agent.behaviorAgent.insideFacility).toBe(false);
 		expect(fx.agent.get(NeedsComponent).state).toEqual(needsBefore);
 		expect(fx.agent.get(MemoryComponent).state.entries.length).toBe(memBefore);
@@ -469,7 +479,7 @@ describe('ServiceSystem', () => {
 		const eventBus = createEventBus();
 		eventBus.on('GoldFlowed', e => { goldEvents.push(e); });
 
-		fx.handle.system.execute(createDeps(eventBus, 1));
+		fx.system.execute(createDeps(eventBus, 1));
 
 		// wage 4, tax_base_rate 0.10 → net 3.6, tax 0.4
 		// Treasury: -4 (wage) +0.4 (tax) = net -3.6
@@ -496,7 +506,7 @@ describe('ServiceSystem', () => {
 
 	it('orphan guard: insideFacility === false clears visit even when btAction and atLocation match', () => {
 		const fx = buildFixture({ withWorker: false });
-		fx.handle.startVisit(fx.agent.agentId, {
+		seedVisit(fx.agent, {
 			facilityId: fx.location.id,
 			ticksRemaining: 1,
 			costPaid: true,
@@ -513,9 +523,9 @@ describe('ServiceSystem', () => {
 		const needsBefore = { ...fx.agent.get(NeedsComponent).state };
 		const memBefore = fx.agent.get(MemoryComponent).state.entries.length;
 
-		fx.handle.system.execute(createDeps(eventBus, 1));
+		fx.system.execute(createDeps(eventBus, 1));
 
-		expect(fx.handle.getVisit(fx.agent.agentId)).toBeUndefined();
+		expect(fx.agent.behaviorAgent.currentServiceVisit).toBeNull();
 		expect(fx.agent.get(NeedsComponent).state).toEqual(needsBefore);
 		expect(fx.agent.get(MemoryComponent).state.entries.length).toBe(memBefore);
 		expect(events).toHaveLength(0);
@@ -524,7 +534,7 @@ describe('ServiceSystem', () => {
 	it('orphan guard: memory.atLocation !== facility.id clears visit', () => {
 		const fx = buildFixture({ withWorker: false });
 		fx.agent.behaviorAgent.atLocation = 'loc-somewhere-else';
-		fx.handle.startVisit(fx.agent.agentId, {
+		seedVisit(fx.agent, {
 			facilityId: fx.location.id,
 			ticksRemaining: 1,
 			costPaid: true,
@@ -535,9 +545,9 @@ describe('ServiceSystem', () => {
 		eventBus.on('ServiceDelivered', e => { events.push(e); });
 		const needsBefore = fx.agent.get(NeedsComponent).state;
 
-		fx.handle.system.execute(createDeps(eventBus, 1));
+		fx.system.execute(createDeps(eventBus, 1));
 
-		expect(fx.handle.getVisit(fx.agent.agentId)).toBeUndefined();
+		expect(fx.agent.behaviorAgent.currentServiceVisit).toBeNull();
 		expect(fx.agent.get(NeedsComponent).state).toEqual(needsBefore);
 		expect(events).toHaveLength(0);
 	});
@@ -549,21 +559,21 @@ describe('ServiceSystem', () => {
 			withWorker: false,
 			facilityTypeOverrides: { cost_per_visit: 0 },
 		});
-		fx.handle.startVisit(fx.agent.agentId, {
+		seedVisit(fx.agent, {
 			facilityId: fx.location.id,
 			ticksRemaining: 1,
 			costPaid: false,
 		});
 
 		const walletBefore = fx.agent.get(WalletComponent).state.gold;
-		fx.handle.system.execute(createDeps(createEventBus(), 1));
+		fx.system.execute(createDeps(createEventBus(), 1));
 		expect(fx.agent.get(WalletComponent).state.gold).toBe(walletBefore);
-		expect(fx.handle.getVisit(fx.agent.agentId)).toBeUndefined();
+		expect(fx.agent.behaviorAgent.currentServiceVisit).toBeNull();
 	});
 
-	it('system is not registered automatically — factory returns handle only', () => {
+	it('system is not registered automatically — factory returns GameSystem only', () => {
 		const fx = buildFixture({ withWorker: false });
-		expect(fx.handle.system.name).toBe('ServiceSystem');
-		expect(typeof fx.handle.system.execute).toBe('function');
+		expect(fx.system.name).toBe('ServiceSystem');
+		expect(typeof fx.system.execute).toBe('function');
 	});
 });

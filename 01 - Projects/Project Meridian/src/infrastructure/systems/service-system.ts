@@ -15,29 +15,11 @@ import type { LedgerEntry } from '../../domain/core/component-data.js';
 import type { SkillEntry } from '../../domain/systems/behavior-agent.js';
 
 /**
- * In-system visit tracking used during the Task 1.7 stub phase. Task 4.4 will
- * relocate this state into `MemoryComponent.currentServiceVisit` so that it
- * persists across saves alongside the rest of the agent's working memory.
- */
-export interface ServiceVisit {
-	facilityId: string;
-	ticksRemaining: number;
-	costPaid: boolean;
-}
-
-export interface ServiceSystemHandle {
-	readonly system: GameSystem;
-	/** Seed an active visit. Stub-only helper — replaced by `UseService` BT action in Task 4.4. */
-	startVisit(agentId: string, visit: ServiceVisit): void;
-	/** Read an active visit (for assertions). */
-	getVisit(agentId: string): ServiceVisit | undefined;
-	/** Clear an active visit (test utility). */
-	clearVisit(agentId: string): void;
-}
-
-/**
- * Create a ServiceSystem instance. NOT registered with the tick scheduler in
- * Task 1.7 — Chunk 4 / Task 4.3 wires it in.
+ * Create a ServiceSystem instance. Visits are read from
+ * `agent.behaviorAgent.currentServiceVisit`, which is populated by the
+ * `UseService` BT action (Task 4.4). ServiceSystem ticks `ticksRemaining`
+ * down and applies staffed / unstaffed effects on completion, clearing the
+ * visit field when done or when the orphan guard fires.
  *
  * Registry is passed as a factory parameter (not read from `deps`) because
  * `GameCoreDeps.getFacilityTypeRegistry` is added in Task 1.9. Same story for
@@ -52,9 +34,7 @@ export function createServiceSystem(
 	worldEntity: () => Actor,
 	getFacilityTypeRegistry: () => Map<string, FacilityType>,
 	getLocationFacilityType: (loc: WorldLocation) => string | undefined,
-): ServiceSystemHandle {
-	const visits = new Map<string, ServiceVisit>();
-
+): GameSystem {
 	function payWage(
 		worker: AgentActor,
 		facility: FacilityComponent,
@@ -267,25 +247,30 @@ export function createServiceSystem(
 
 	function tickVisitor(
 		agent: AgentActor,
-		visit: ServiceVisit,
 		loc: WorldLocation,
 		facilityType: Extract<FacilityType, { kind: 'service' }>,
 		hasWorker: boolean,
 		deps: GameCoreDeps,
 	): void {
+		const visit = agent.behaviorAgent.currentServiceVisit;
+		if (visit === null) return;
+
 		if (isOrphaned(agent, loc)) {
+			agent.behaviorAgent.currentServiceVisit = null;
 			agent.behaviorAgent.insideFacility = false;
-			visits.delete(agent.agentId);
 			return;
 		}
 
-		visit.ticksRemaining -= 1;
-		if (visit.ticksRemaining > 0) return;
+		const remaining = visit.ticksRemaining - 1;
+		if (remaining > 0) {
+			agent.behaviorAgent.currentServiceVisit = { ...visit, ticksRemaining: remaining };
+			return;
+		}
 
 		const effects = hasWorker ? facilityType.staffed_effects : facilityType.unstaffed_effects;
 		applyEffects(agent, effects, loc, deps);
+		agent.behaviorAgent.currentServiceVisit = null;
 		agent.behaviorAgent.insideFacility = false;
-		visits.delete(agent.agentId);
 		emitServiceDelivered(agent, loc, facilityType, hasWorker, deps);
 	}
 
@@ -312,13 +297,14 @@ export function createServiceSystem(
 		}
 
 		for (const agent of agentList) {
-			const visit = visits.get(agent.agentId);
-			if (visit?.facilityId !== loc.id) continue;
-			tickVisitor(agent, visit, loc, facilityType, worker !== undefined, deps);
+			const visit = agent.behaviorAgent.currentServiceVisit;
+			if (visit === null) continue;
+			if (visit.facilityId !== loc.id) continue;
+			tickVisitor(agent, loc, facilityType, worker !== undefined, deps);
 		}
 	}
 
-	const system: GameSystem = {
+	return {
 		name: 'ServiceSystem',
 		priority: SystemPriority.LEISURE,
 
@@ -334,20 +320,6 @@ export function createServiceSystem(
 				if (resolved === null) continue;
 				processServiceLocation(loc, resolved.facilityType, resolved.facility, agentList, economy, deps);
 			}
-		},
-	};
-
-	return {
-		system,
-		startVisit(agentId, visit): void {
-			visits.set(agentId, { ...visit });
-		},
-		getVisit(agentId): ServiceVisit | undefined {
-			const v = visits.get(agentId);
-			return v === undefined ? undefined : { ...v };
-		},
-		clearVisit(agentId): void {
-			visits.delete(agentId);
 		},
 	};
 }

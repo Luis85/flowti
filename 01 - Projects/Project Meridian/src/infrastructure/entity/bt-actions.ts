@@ -14,6 +14,7 @@ import { createSocialActions } from './bt-actions-social.js';
 import { createCargoActions } from './bt-actions-cargo.js';
 import { createQuestActions } from './bt-actions-quest.js';
 import { createLeisureActions } from './bt-actions-leisure.js';
+import { createServiceActions } from './bt-actions-service.js';
 
 /**
  * Returns true when an ongoing travel commitment should be interrupted because
@@ -90,6 +91,9 @@ export interface ActionMethods {
 	ChooseLeisure(): ActionResult;
 	SeekLeisureTarget(): ActionResult;
 	Leisure(): ActionResult;
+	ChooseServiceFacility(intent: string): ActionResult;
+	SeekService(): ActionResult;
+	UseService(): ActionResult;
 	ContinueCommitment(): ActionResult;
 	tickUnemployment(): void;
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
@@ -120,6 +124,7 @@ export function createActions(
 		...createCargoActions(ctx),
 		...createQuestActions(ctx),
 		...createLeisureActions(ctx),
+		...createServiceActions(ctx),
 
 		// Cross-cutting utilities — small, kept inline
 		ContinueCommitment(): ActionResult {
