@@ -2,6 +2,8 @@
   "id": "loc-bathhouse",
   "name": "Bathhouse",
   "type": "leisure",
+  "facility_type": "bathhouse",
+  "active_recipe": null,
   "position": { "x": 200, "y": 350, "region": "residential" },
   "color": "#00bcd4",
   "capacity": 10,

@@ -2,6 +2,8 @@
 	"id": "loc-house",
 	"name": "Cottage",
 	"type": "rest",
+	"facility_type": "rest_inn",
+	"active_recipe": null,
 	"position": { "x": 370, "y": 350, "region": "region-residential" },
 	"color": "#8d6e63",
 	"production": null,

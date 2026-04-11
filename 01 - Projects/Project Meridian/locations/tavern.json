@@ -2,6 +2,8 @@
   "id": "loc-tavern",
   "name": "Tavern",
   "type": "leisure",
+  "facility_type": "tavern",
+  "active_recipe": null,
   "position": { "x": 250, "y": 280, "region": "market-square" },
   "color": "#d4a574",
   "capacity": 15,

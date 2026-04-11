@@ -2,6 +2,8 @@
 	"id": "loc-market",
 	"name": "Market Stall",
 	"type": "market",
+	"facility_type": "market_stall",
+	"active_recipe": null,
 	"position": { "x": 300, "y": 190, "region": "region-market-square" },
 	"color": "#ff9800",
 	"production": null,

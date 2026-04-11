@@ -2,6 +2,8 @@
 	"id": "loc-cabin",
 	"name": "Cabin",
 	"type": "rest",
+	"facility_type": "rest_inn",
+	"active_recipe": null,
 	"position": { "x": 200, "y": 380, "region": "region-craft-quarter" },
 	"color": "#a1887f",
 	"production": null,
