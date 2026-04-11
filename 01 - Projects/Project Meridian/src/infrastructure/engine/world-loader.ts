@@ -204,6 +204,7 @@ export function createWorldLoader(
 				locations: locationResult.items.map(loc => ({
 					id: loc.id,
 					type: loc.type,
+					facility_type: loc.facility_type ?? loc.type,
 					production: loc.production !== null
 						? {
 							job: loc.production.job,

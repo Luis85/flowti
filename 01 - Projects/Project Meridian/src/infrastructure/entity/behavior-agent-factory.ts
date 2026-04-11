@@ -122,6 +122,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			return {
 				id: nl.id,
 				type: locData?.type ?? nl.type,
+				facility_type: locData?.facility_type ?? nl.facility_type,
 				position: locData !== undefined
 					? { x: locData.position.x, y: locData.position.y }
 					: { x: 0, y: 0 },

@@ -11,6 +11,10 @@ export interface WorldValidationAgent {
 export interface WorldValidationLocation {
 	id: string;
 	type: string;
+	facility_type?: string;
+	primary_job?: string | null;
+	inputs?: { item_id: string }[];
+	outputs?: { item_id: string }[];
 	production: {
 		job: string;
 		output: { item_id: string };

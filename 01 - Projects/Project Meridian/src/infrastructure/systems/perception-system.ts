@@ -45,6 +45,7 @@ export function createPerceptionSystem(
 			const locationInputs = locationList.map(l => ({
 				id: l.id,
 				type: l.type,
+				facility_type: l.facility_type ?? '',   // coalesce during Phase 2
 				pos: { x: l.position.x, y: l.position.y },
 			}));
 
