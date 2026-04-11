@@ -185,7 +185,13 @@ root {
                     condition [QuestAtFacility]
                     action [WorkRepair]
                 }
-                /* Travel to quest facility */
+                /* Cargo not ready — go source the item from a production facility */
+                sequence {
+                    flip { condition [QuestCargoReady] }
+                    action [SeekQuestSource]
+                    action [PickupForQuest]
+                }
+                /* Travel to quest facility (has cargo, just needs to deliver) */
                 action [SeekQuestFacility]
             }
         }
