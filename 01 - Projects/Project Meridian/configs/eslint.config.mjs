@@ -205,6 +205,7 @@ export default [
 			'src/main.ts',
 			'src/plugin.ts',
 			'src/infrastructure/engine/*-view.ts',
+			'src/infrastructure/ui/*-view.ts',
 			'src/infrastructure/settings/settings-tab.ts',
 			'src/infrastructure/vault/obsidian-*.ts',
 			'src/infrastructure/platform/obsidian-*.ts',
