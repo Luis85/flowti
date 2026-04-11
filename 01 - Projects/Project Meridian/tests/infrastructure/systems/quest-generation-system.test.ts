@@ -12,8 +12,15 @@ import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
 import type { QuestRuntime } from '../../../src/domain/schemas/quest-schema.js';
+import type { Recipe } from '../../../src/domain/schemas/recipe-schema.js';
+import type { FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
 
-function createDeps(eventBus = createEventBus(), tickCount = 480): GameCoreDeps {
+function createDeps(
+	eventBus = createEventBus(),
+	tickCount = 480,
+	recipes: Map<string, Recipe> = new Map(),
+	facilityTypes: Map<string, FacilityType> = new Map(),
+): GameCoreDeps {
 	return {
 		logger: { debug() {}, info() {}, warn() {}, error() {} },
 		eventBus,
@@ -22,8 +29,8 @@ function createDeps(eventBus = createEventBus(), tickCount = 480): GameCoreDeps 
 		tickCount,
 		writeFile: null,
 		dataRoot: 'test-data',
-		getRecipeRegistry: () => new Map(),
-		getFacilityTypeRegistry: () => new Map(),
+		getRecipeRegistry: () => recipes,
+		getFacilityTypeRegistry: () => facilityTypes,
 	};
 }
 
@@ -296,6 +303,121 @@ describe('QuestGenerationSystem', () => {
 		const system = createQuestGenerationSystem(() => new Actor(), () => new Map(), () => []);
 		expect(system.name).toBe('QuestGenerationSystem');
 		expect(system.priority).toBe(7.1);
+	});
+
+	it('recipe-path: generates supply quest from active recipe inputs', () => {
+		const worldEntity = createWorldEntity(true);
+		const loc: WorldLocation = {
+			id: 'loc-smithy',
+			name: 'Smithy',
+			type: 'work',
+			position: { x: 300, y: 300, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: null,
+			leisure: null,
+			region: null,
+			facility_type: 'smithy',
+			active_recipe: 'recipe-smithy-equipment',
+		};
+		const locActor = createFacilityActor([]); // empty stock
+		const locationActors = new Map<string, Actor>([['loc-smithy', locActor]]);
+
+		const recipes = new Map<string, Recipe>([
+			['recipe-smithy-equipment', {
+				id: 'recipe-smithy-equipment',
+				name: 'Smithy Equipment',
+				inputs: [{ item_id: 'tools', quantity: 1 }],
+				outputs: [{ item_id: 'equipment', quantity: 1 }],
+				ticks_per_cycle: 40,
+				required_skill: null,
+				min_skill_level: 0,
+			}],
+		]);
+		const facilityTypes = new Map<string, FacilityType>([
+			['smithy', {
+				kind: 'production',
+				id: 'smithy',
+				primary_job: 'smith',
+				default_wage: 5,
+				default_fund: 200,
+				funding: 'facility',
+				capacity: 1,
+				allowed_recipes: ['recipe-smithy-equipment'],
+			}],
+		]);
+
+		const system = createQuestGenerationSystem(() => worldEntity, () => locationActors, () => [loc]);
+
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('QuestGenerated', (e) => { events.push(e); });
+
+		system.execute(createDeps(eventBus, 480, recipes, facilityTypes));
+
+		const board = worldEntity.get(QuestBoardComponent);
+		expect(board.state.quests.length).toBe(1);
+
+		const quest = board.state.quests[0]!;
+		expect(quest.type).toBe('supply');
+		expect(quest.facilityId).toBe('loc-smithy');
+		expect(quest.itemId).toBe('tools');
+		expect(quest.quantity).toBe(1);
+		expect(events.length).toBe(1);
+	});
+
+	it('recipe-path: market_stall restock quest uses per-item thresholds', () => {
+		const worldEntity = createWorldEntity(true);
+		const loc: WorldLocation = {
+			id: 'loc-stall',
+			name: 'Market Stall',
+			type: 'work',
+			position: { x: 100, y: 100, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: null,
+			leisure: null,
+			region: null,
+			facility_type: 'market_stall',
+			active_recipe: null,
+		};
+		const locActor = createFacilityActor([{ item_id: 'food', quantity: 2 }]);
+		const locationActors = new Map<string, Actor>([['loc-stall', locActor]]);
+
+		const facilityTypes = new Map<string, FacilityType>([
+			['market_stall', {
+				kind: 'service',
+				id: 'market_stall',
+				primary_job: 'merchant',
+				default_wage: 3,
+				default_fund: 200,
+				funding: 'facility',
+				capacity: 1,
+				staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+				unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+				cost_per_visit: 0,
+				ticks_per_visit: 20,
+				restock_threshold_per_item: { food: 5 },
+			}],
+		]);
+
+		const system = createQuestGenerationSystem(() => worldEntity, () => locationActors, () => [loc]);
+
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('QuestGenerated', (e) => { events.push(e); });
+
+		system.execute(createDeps(eventBus, 480, new Map(), facilityTypes));
+
+		const board = worldEntity.get(QuestBoardComponent);
+		expect(board.state.quests.length).toBe(1);
+
+		const quest = board.state.quests[0]!;
+		expect(quest.type).toBe('restock');
+		expect(quest.facilityId).toBe('loc-stall');
+		expect(quest.itemId).toBe('food');
+		expect(quest.quantity).toBe(3);
+		expect(events.length).toBe(1);
 	});
 
 	it('supply quest reward uses item baseValue from config', () => {

@@ -66,8 +66,46 @@ export function createQuestGenerationSystem(
 					};
 				}
 
-				// Supply quest: production.input exists AND input stock below required quantity
-				if (quest === null && loc.production !== null && loc.production.input !== null) {
+				// NEW: recipe-path supply quest — when facility_type + active_recipe are set,
+				// read inputs from the recipe registry. First missing input drives the quest.
+				let suppliedByRecipe = false;
+				if (quest === null && loc.facility_type !== undefined) {
+					const facilityType = deps.getFacilityTypeRegistry().get(loc.facility_type);
+					if (facilityType?.kind === 'production' && loc.active_recipe !== null && loc.active_recipe !== undefined) {
+						const recipe = deps.getRecipeRegistry().get(loc.active_recipe);
+						if (recipe !== undefined && recipe.inputs.length > 0) {
+							suppliedByRecipe = true;
+							for (const input of recipe.inputs) {
+								const inputStock = facility.state.stock.find(s => s.item_id === input.item_id);
+								const currentQty = inputStock?.quantity ?? 0;
+								if (currentQty < input.quantity) {
+									const neededQty = input.quantity - currentQty;
+									const itemConfig = deps.config.items[input.item_id];
+									const baseValue = itemConfig?.baseValue ?? deps.config.economy.food_price;
+									const reward = baseValue * neededQty * deps.config.quests.supply_reward_multiplier;
+									quest = {
+										id: `q-${loc.id}-${deps.tickCount}`,
+										type: 'supply',
+										facilityId: loc.id,
+										itemId: input.item_id,
+										quantity: neededQty,
+										reward,
+										rewardXp: 5,
+										state: 'open',
+										claimedBy: null,
+										createdTick: deps.tickCount,
+										expiryTicks: deps.config.quests.expiry_ticks,
+										repairProgress: 0,
+									};
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				// LEGACY supply quest: production.input exists AND input stock below required quantity
+				if (quest === null && !suppliedByRecipe && loc.production !== null && loc.production.input !== null) {
 					const inputStock = facility.state.stock.find(s => s.item_id === loc.production!.input!.item_id);
 					const currentQty = inputStock?.quantity ?? 0;
 					const requiredQty = loc.production.input.quantity;
@@ -95,8 +133,40 @@ export function createQuestGenerationSystem(
 					}
 				}
 
-				// Restock quest: location type is 'market' AND total stock < restock_threshold
-				if (quest === null && loc.type === 'market') {
+				// NEW: recipe-path restock quest — market_stall facility type reads
+				// per-item thresholds from the facility type registry.
+				let restockHandled = false;
+				if (quest === null && loc.facility_type !== undefined) {
+					const facilityType = deps.getFacilityTypeRegistry().get(loc.facility_type);
+					if (facilityType?.kind === 'service' && facilityType.id === 'market_stall') {
+						restockHandled = true;
+						const thresholds = facilityType.restock_threshold_per_item;
+						for (const [itemId, threshold] of Object.entries(thresholds)) {
+							const stock = facility.state.stock.find(s => s.item_id === itemId);
+							const currentQty = stock?.quantity ?? 0;
+							if (currentQty < threshold) {
+								quest = {
+									id: `q-${loc.id}-${deps.tickCount}`,
+									type: 'restock',
+									facilityId: loc.id,
+									itemId,
+									quantity: threshold - currentQty,
+									reward: deps.config.quests.restock_reward,
+									rewardXp: 5,
+									state: 'open',
+									claimedBy: null,
+									createdTick: deps.tickCount,
+									expiryTicks: deps.config.quests.expiry_ticks,
+									repairProgress: 0,
+								};
+								break;
+							}
+						}
+					}
+				}
+
+				// LEGACY restock quest: location type is 'market' AND total stock < restock_threshold
+				if (quest === null && !restockHandled && loc.type === 'market') {
 					const totalStock = facility.state.stock.reduce((sum, s) => sum + s.quantity, 0);
 					if (totalStock < deps.config.quests.restock_threshold) {
 						// Pick the lowest-stock food item to restock
