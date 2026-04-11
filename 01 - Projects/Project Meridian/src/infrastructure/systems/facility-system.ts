@@ -4,7 +4,7 @@ import { applyFacilityTick, type FacilityTickResult } from '../../domain/systems
 import { getEffectiveTaxRate } from '../../domain/systems/monetary-policy.js';
 import { applySkillProgression } from '../../domain/systems/skill-progression.js';
 import { applyRelationshipUpdate } from '../../domain/systems/relationship.js';
-import { distance } from '../../domain/core/math-utils.js';
+import { findWorker } from '../../domain/systems/facility-worker.js';
 import { FOOD_ITEMS } from '../../domain/systems/food-items.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { WorldLocation, Production } from '../../domain/schemas/location-schema.js';
@@ -44,27 +44,6 @@ export function updateStock(stock: StockItem[], itemId: string, delta: number): 
 		})
 		.filter((item): item is StockItem => item !== null);
 }
-
-function findWorker(
-	agentList: AgentActor[],
-	workerId: string | null,
-	facilityJob: string,
-	locX: number,
-	locY: number,
-	radius: number,
-): AgentActor | undefined {
-	if (workerId === null) return undefined;
-	for (const agent of agentList) {
-		if (agent.agentId !== workerId) continue;
-		if (agent.behaviorAgent.btAction !== 'work') return undefined;
-		if (agent.job !== facilityJob) return undefined;
-		const dist = distance(agent.pos.x, agent.pos.y, locX, locY);
-		if (dist > radius) return undefined;
-		return agent;
-	}
-	return undefined;
-}
-
 
 function recordCycleComplete(
 	worker: AgentActor,
@@ -276,7 +255,7 @@ function processFacilityTick(
 	itemRegistry?: Map<string, Item>,
 ): void {
 	const radius = deps.config.perception.interaction_radius;
-	const worker = findWorker(agentList, facility.state.workerId, production.job, loc.position.x, loc.position.y, radius);
+	const worker = findWorker<AgentActor>(agentList, facility.state.workerId, production.job, loc.position.x, loc.position.y, radius);
 
 	// Aptitude efficiency modifier — mismatched workers produce slower
 	let effectiveTicksPerCycle = production.ticks_per_cycle;
