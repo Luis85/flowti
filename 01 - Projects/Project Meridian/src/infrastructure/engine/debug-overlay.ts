@@ -17,6 +17,7 @@ import { TraitsComponent } from '../components/traits-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
+import { extractActivePath } from '../ui/bt-active-path.js';
 
 interface OverlayDeps {
 	getAgents: () => AgentActor[];
@@ -579,6 +580,14 @@ function buildAgentSnapshot(
 
 	lines.push(`### ${agent.agentName} (${agent.kind}) — ${agent.agentId}`);
 	lines.push(`Action: ${action}${ba.commitmentTicks > 0 ? ` [committed ${ba.commitmentTicks}t, action=${ba.committedAction ?? '?'}]` : ''}`);
+	// BT active path — shows which branch the tree is currently executing
+	try {
+		const nodeDetails = agent.behaviorTree.getTreeNodeDetails();
+		const activePath = extractActivePath(nodeDetails);
+		lines.push(`BT Path: ${activePath}`);
+	} catch {
+		// Skip if tree is not available (e.g. agent mid-initialization)
+	}
 	// Attributes
 	const attrs = agent.get(AttributesComponent).state;
 	lines.push(`Attributes: ST ${attrs.ST} | DX ${attrs.DX} | IQ ${attrs.IQ} | HT ${attrs.HT}`);
