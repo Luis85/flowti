@@ -88,7 +88,7 @@ function createLocationActor(facilityState: {
 	return loc;
 }
 
-function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldLocation['production'] = null, region: string | null = null): WorldLocation {
+function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldLocation['production'] = null, region: string | null = null, facility_type?: string): WorldLocation {
 	return {
 		id,
 		name: id,
@@ -98,6 +98,7 @@ function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldL
 		color: '#808080',
 		production,
 		region,
+		facility_type,
 	};
 }
 
@@ -171,6 +172,7 @@ function buildResolveNearbyLocations(actor: AgentActor, deps: BehaviorAgentDeps)
 			return {
 				id: nl.id,
 				type: locData?.type ?? nl.type,
+				facility_type: locData?.facility_type ?? nl.facility_type,
 				position: locData !== undefined
 					? { x: locData.position.x, y: locData.position.y }
 					: { x: 0, y: 0 },
@@ -738,52 +740,52 @@ describe('bt-conditions', () => {
 	// ── Location-based conditions ─────────────────────────────────────────
 
 	describe('AtLocation', () => {
-		it('returns true when atLocation is set and type matches', () => {
+		it('returns true when atLocation is set and facility_type matches', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const locations = [makeLocation('loc-tavern', 'food')];
+			const locations = [makeLocation('loc-tavern', 'food', 0, 0, null, null, 'tavern')];
 			const deps = setupDeps(actor, { getLocations: () => locations });
 			const { conditions, memory } = makeConditions(actor, deps);
 			memory.atLocation = 'loc-tavern';
-			expect(conditions.AtLocation('food')).toBe(true);
+			expect(conditions.AtLocation('tavern')).toBe(true);
 		});
 
 		it('returns false when atLocation is null', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { conditions } = makeConditions(actor, setupDeps(actor));
-			expect(conditions.AtLocation('food')).toBe(false);
+			expect(conditions.AtLocation('tavern')).toBe(false);
 		});
 
-		it('returns false when type does not match', () => {
+		it('returns false when facility_type does not match', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const locations = [makeLocation('loc-tavern', 'food')];
+			const locations = [makeLocation('loc-tavern', 'food', 0, 0, null, null, 'tavern')];
 			const deps = setupDeps(actor, { getLocations: () => locations });
 			const { conditions, memory } = makeConditions(actor, deps);
 			memory.atLocation = 'loc-tavern';
-			expect(conditions.AtLocation('rest')).toBe(false);
+			expect(conditions.AtLocation('inn')).toBe(false);
 		});
 	});
 
 	describe('NearLocation', () => {
-		it('returns true when nearby location matches type', () => {
+		it('returns true when nearby location matches facility_type', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			actor.get(PerceptionComponent).state = {
 				nearbyAgents: [],
-				nearbyLocations: [{ id: 'loc-inn', type: 'rest', distance: 20 }],
+				nearbyLocations: [{ id: 'loc-inn', type: 'rest', facility_type: 'inn', distance: 20 }],
 			};
-			const locations = [makeLocation('loc-inn', 'rest')];
+			const locations = [makeLocation('loc-inn', 'rest', 0, 0, null, null, 'inn')];
 			const { conditions } = makeConditions(actor, setupDeps(actor, { getLocations: () => locations }));
-			expect(conditions.NearLocation('rest')).toBe(true);
+			expect(conditions.NearLocation('inn')).toBe(true);
 		});
 
 		it('returns false when no nearby location matches', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			actor.get(PerceptionComponent).state = {
 				nearbyAgents: [],
-				nearbyLocations: [{ id: 'loc-inn', type: 'rest', distance: 20 }],
+				nearbyLocations: [{ id: 'loc-inn', type: 'rest', facility_type: 'inn', distance: 20 }],
 			};
-			const locations = [makeLocation('loc-inn', 'rest')];
+			const locations = [makeLocation('loc-inn', 'rest', 0, 0, null, null, 'inn')];
 			const { conditions } = makeConditions(actor, setupDeps(actor, { getLocations: () => locations }));
-			expect(conditions.NearLocation('market')).toBe(false);
+			expect(conditions.NearLocation('market_stall')).toBe(false);
 		});
 	});
 

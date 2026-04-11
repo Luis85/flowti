@@ -108,7 +108,7 @@ root {
             flip { condition [IsRecovering] }
             selector {
                 sequence {
-                    condition [AtLocation, "market"]
+                    condition [AtLocation, "market_stall"]
                     action [SellAtMarket]
                 }
                 action [SeekMarket]
