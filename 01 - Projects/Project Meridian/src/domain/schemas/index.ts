@@ -14,3 +14,4 @@ export { LocationSchema, LOCATION_TYPES, type WorldLocation } from './location-s
 export * from './ranges.js';
 export { ItemSchema, ITEM_CATEGORIES, type Item, type ItemCategory } from './item-schema.js';
 export { QuestSchema, QUEST_TYPES, QUEST_STATES, type Quest, type QuestType, type QuestState, type QuestRuntime } from './quest-schema.js';
+export { RecipeSchema, type Recipe } from './recipe-schema.js';
