@@ -37,7 +37,7 @@ function buildFirstHandLocationGossip(
 		const data: LocationGossip = {
 			gossipType: 'location',
 			locationId: loc.id,
-			locationType: loc.type,
+			locationType: loc.facility_type ?? loc.type,
 			position: { x: loc.position.x, y: loc.position.y },
 			reliability: 1.0,
 			sourceAgentId: agentId,
@@ -47,7 +47,7 @@ function buildFirstHandLocationGossip(
 		const memory: MemoryEntry = {
 			tick: currentTick,
 			type: 'gossip',
-			description: `Heard from ${agentId}: there is a ${loc.type} at (${loc.position.x}, ${loc.position.y})`,
+			description: `Heard from ${agentId}: there is a ${loc.facility_type ?? loc.type} at (${loc.position.x}, ${loc.position.y})`,
 			participants: [agentId],
 			outcome: 'neutral',
 			significance: 5,
