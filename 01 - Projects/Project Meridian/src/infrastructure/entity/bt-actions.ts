@@ -129,32 +129,40 @@ export function createActions(
 
 		// Cross-cutting utilities — small, kept inline
 		ContinueCommitment(): ActionResult {
+			// Helper: break the current commitment, also clearing any in-flight
+			// service visit so ServiceSystem's orphan guard doesn't have to chase it.
+			const breakCommitment = (): void => {
+				const ca = memory.committedAction;
+				memory.commitmentTicks = 0;
+				memory.committedAction = null;
+				if (ca === 'use_service') {
+					memory.currentServiceVisit = null;
+					memory.insideFacility = false;
+				}
+			};
+
 			memory.commitmentTicks--;
 			if (memory.commitmentTicks <= 0) {
-				memory.committedAction = null;
+				breakCommitment();
 				return FAILED;
 			}
 			// Break consumption commitments when the need is satisfied — prevents waste
 			const ca = memory.committedAction;
 			const needs = actor.get(NeedsComponent).state;
 			if (ca === 'eat' && needs.hunger >= memory.personalThresholds.hunger) {
-				memory.commitmentTicks = 0;
-				memory.committedAction = null;
+				breakCommitment();
 				return FAILED;
 			}
 			if (ca === 'drink' && needs.thirst >= memory.personalThresholds.thirst) {
-				memory.commitmentTicks = 0;
-				memory.committedAction = null;
+				breakCommitment();
 				return FAILED;
 			}
 			if (ca === 'rest' && needs.energy >= memory.personalThresholds.energy + config.needs.recovery_hysteresis) {
-				memory.commitmentTicks = 0;
-				memory.committedAction = null;
+				breakCommitment();
 				return FAILED;
 			}
 			if (ca === 'buy' && needs.hunger >= memory.personalThresholds.hunger) {
-				memory.commitmentTicks = 0;
-				memory.committedAction = null;
+				breakCommitment();
 				return FAILED;
 			}
 			// Break work/leisure/repair commitments when maintenance needs arise.
@@ -162,25 +170,21 @@ export function createActions(
 			// mid-repair shouldn't starve or dehydrate while fixing a building.
 			if (ca === 'work' || ca === 'leisure' || ca === 'repair') {
 				if (needs.hunger < memory.personalThresholds.hunger) {
-					memory.commitmentTicks = 0;
-					memory.committedAction = null;
+					breakCommitment();
 					return FAILED;
 				}
 				if (needs.thirst < memory.personalThresholds.thirst) {
-					memory.commitmentTicks = 0;
-					memory.committedAction = null;
+					breakCommitment();
 					return FAILED;
 				}
 				const inv = actor.get(InventoryComponent).state.items;
 				const equip = inv.find(i => i.item_id === 'equipment');
 				if (equip === undefined || equip.quantity === 0 || (equip.charges ?? 0) === 0) {
-					memory.commitmentTicks = 0;
-					memory.committedAction = null;
+					breakCommitment();
 					return FAILED;
 				}
 				if ((equip.charges ?? 0) > 0 && (equip.charges ?? 0) < config.economy.equipment_repair_threshold) {
-					memory.commitmentTicks = 0;
-					memory.committedAction = null;
+					breakCommitment();
 					return FAILED;
 				}
 			}
@@ -189,8 +193,7 @@ export function createActions(
 			// causes death spirals (see recording 2026-04-11-1339 — Bram with thirst=0
 			// stuck in seek_rest for 70+ ticks).
 			if (ca !== null && TRAVEL_COMMITMENTS.has(ca) && shouldBreakTravelForCriticalNeed(needs)) {
-				memory.commitmentTicks = 0;
-				memory.committedAction = null;
+				breakCommitment();
 				return FAILED;
 			}
 			// Restore btAction so downstream systems (rest, needs-decay) see the correct activity

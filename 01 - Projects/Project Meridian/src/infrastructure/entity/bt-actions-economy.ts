@@ -117,7 +117,7 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 				// Cross-reference with nearby facilities to check stock.
 				const stockedWells = nearbyWells.filter(l => {
 					const fac = resolveNearbyFacilities().find(f => f.id === l.id);
-					return fac !== undefined && fac.stock.some(s => s.item_id === 'water' && s.quantity > 0);
+					return fac?.stock.some(s => s.item_id === 'water' && s.quantity > 0) === true;
 				});
 				const target = stockedWells.length > 0 ? stockedWells : nearbyWells;
 				beginAction(ctx, 'seek_well');

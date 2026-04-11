@@ -3356,4 +3356,40 @@ describe('bt-actions: createActions', () => {
 			expect(memory.committedAction).toBeNull();
 		});
 	});
+
+	describe('ContinueCommitment — use_service cleanup', () => {
+		it('clears currentServiceVisit and insideFacility when use_service expires', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'use_service';
+			memory.commitmentTicks = 1;
+			memory.insideFacility = true;
+			memory.currentServiceVisit = { facilityId: 'loc-tavern', ticksRemaining: 0, costPaid: true };
+
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.committedAction).toBeNull();
+			expect(memory.currentServiceVisit).toBeNull();
+			expect(memory.insideFacility).toBe(false);
+		});
+
+		it('does NOT clear service visit when a non-use_service commitment breaks', () => {
+			// Sanity: clearing must be gated on ca === 'use_service'. A `work`
+			// commitment breaking on hunger should not touch service-visit fields.
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			memory.insideFacility = true;
+			memory.currentServiceVisit = { facilityId: 'loc-tavern', ticksRemaining: 5, costPaid: true };
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 35 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.committedAction).toBeNull();
+			// Service visit untouched — only the use_service path should clean it up
+			expect(memory.currentServiceVisit).not.toBeNull();
+			expect(memory.insideFacility).toBe(true);
+		});
+	});
 });
