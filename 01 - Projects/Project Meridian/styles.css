@@ -67,3 +67,34 @@
 	border-radius: var(--radius-s);
 	font-size: var(--font-smaller);
 }
+
+/* BT Inspector — behavior tree node state colors */
+.bt-tree {
+	font-family: var(--font-monospace);
+	font-size: var(--font-smaller);
+	line-height: 1.5;
+}
+
+.bt-node {
+	white-space: pre;
+	padding: 1px 4px;
+	border-radius: 2px;
+}
+
+.bt-node-ready {
+	color: var(--text-muted);
+}
+
+.bt-node-running {
+	color: var(--color-blue, #7dcfff);
+	font-weight: 600;
+	background: rgba(125, 207, 255, 0.08);
+}
+
+.bt-node-succeeded {
+	color: var(--color-green, #9ece6a);
+}
+
+.bt-node-failed {
+	color: var(--color-red, #f7768e);
+}

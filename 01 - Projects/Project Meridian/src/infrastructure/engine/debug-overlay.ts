@@ -991,6 +991,11 @@ export function createDebugOverlay(
 	container.addClass('meridian-debug-container');
 	container.appendChild(el);
 
+	// Content wrapper — only this gets wiped on update(), so menuEl/toastEl survive
+	const contentEl = document.createElement('div');
+	contentEl.className = 'meridian-debug-content';
+	el.appendChild(contentEl);
+
 	let activePanel: Panel = 'agents';
 	const history: Snapshot[] = [];
 	const MAX_HISTORY = 60;
@@ -1027,10 +1032,15 @@ export function createDebugOverlay(
 	`;
 	el.appendChild(toastEl);
 
+	let toastHideTimer: number | null = null;
 	function showToast(message: string): void {
 		toastEl.textContent = message;
 		toastEl.setCssProps({ display: 'block' });
-		setTimeout(() => { toastEl.setCssProps({ display: 'none' }); }, 2000);
+		if (toastHideTimer !== null) clearTimeout(toastHideTimer);
+		toastHideTimer = window.setTimeout(() => {
+			toastEl.setCssProps({ display: 'none' });
+			toastHideTimer = null;
+		}, 2000);
 	}
 
 	function renderMenu(): void {
@@ -1055,13 +1065,28 @@ export function createDebugOverlay(
 		renderMenu();
 		menuEl.setCssProps({ display: 'block' });
 		menuOpen = true;
-		// Close on outside click — once:true auto-removes after first click
-		menuCloseHandler = (): void => {
+		// Close on outside click. If the click is on the kebab toggle itself, skip —
+		// the element-level handler will toggle it via closeMenu(). This prevents the
+		// capture-phase close + bubble-phase reopen race.
+		menuCloseHandler = (e: MouseEvent): void => {
+			const target = e.target as HTMLElement | null;
+			if (target !== null && target.closest('.meridian-menu-toggle') !== null) {
+				// Re-register so we keep watching for a real outside click
+				return;
+			}
+			if (target !== null && target.closest('.meridian-menu') !== null) {
+				// Click inside the menu — let the menu-item handler run, don't close here
+				return;
+			}
 			menuEl.setCssProps({ display: 'none' });
 			menuOpen = false;
-			menuCloseHandler = null;
+			if (menuCloseHandler !== null) {
+				document.removeEventListener('click', menuCloseHandler, { capture: true });
+				menuCloseHandler = null;
+			}
 		};
-		document.addEventListener('click', menuCloseHandler, { once: true, capture: true });
+		// Use plain (not once) so we can decide whether to consume per-click
+		document.addEventListener('click', menuCloseHandler, { capture: true });
 	}
 
 	function closeMenu(): void {
@@ -1311,10 +1336,10 @@ export function createDebugOverlay(
 
 		// Preserve scroll position across updates
 		const scrollTop = el.scrollTop;
-		while (el.firstChild !== null) el.removeChild(el.firstChild);
+		while (contentEl.firstChild !== null) contentEl.removeChild(contentEl.firstChild);
 		const range = document.createRange();
-		range.selectNodeContents(el);
-		el.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel, hasAnomaly, isRecording)}${body}`));
+		range.selectNodeContents(contentEl);
+		contentEl.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel, hasAnomaly, isRecording)}${body}`));
 		el.scrollTop = scrollTop;
 	}
 

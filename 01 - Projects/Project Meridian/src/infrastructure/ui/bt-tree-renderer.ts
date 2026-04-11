@@ -57,12 +57,13 @@ function stateLabel(state: string): string {
 
 function formatNode(details: NodeDetails): string {
 	const icon = stateIcon(details.state);
-	const typeLabel = details.type;
-	const nameLabel = details.name !== details.type ? ` ${details.name}` : '';
+	// Show the distinctive label: the name if it differs from type (e.g. action "Eat"),
+	// otherwise the type itself (e.g. composite "sequence"). Matches bt-active-path.
+	const label = details.name !== details.type ? details.name : details.type;
 	const argsLabel = details.args !== undefined && details.args.length > 0
 		? ` ${details.args.map(formatArg).join(', ')}`
 		: '';
-	return `${icon}${typeLabel}${nameLabel}${argsLabel}${stateLabel(details.state)}`;
+	return `${icon}${label}${argsLabel}${stateLabel(details.state)}`;
 }
 
 function formatArg(arg: unknown): string {
