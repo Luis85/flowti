@@ -14,29 +14,19 @@ import type { NodeDetails } from 'mistreevous/dist/nodes/Node.js';
  */
 export function extractActivePath(details: NodeDetails): string {
 	const path: string[] = [];
-	let node: NodeDetails | undefined = details;
-
-	while (node !== undefined) {
-		path.push(describeNode(node));
-		node = pickNextChild(node);
-	}
-
-	// Determine the final node's state for the suffix
-	// We walked the full chain, so the last item we pushed is the deepest.
-	// Find the final node again by re-walking — or track it during the walk.
-	const finalState = walkToFinal(details).state;
-	const suffix = stateLabel(finalState);
-
-	return path.join(' → ') + suffix;
-}
-
-function walkToFinal(details: NodeDetails): NodeDetails {
 	let node: NodeDetails = details;
+	let last: NodeDetails = details;
+
+	// Single walk: accumulate path and remember the deepest node we reach.
 	for (;;) {
+		path.push(describeNode(node));
+		last = node;
 		const next = pickNextChild(node);
-		if (next === undefined) return node;
+		if (next === undefined) break;
 		node = next;
 	}
+
+	return path.join(' → ') + stateLabel(last.state);
 }
 
 function pickNextChild(node: NodeDetails): NodeDetails | undefined {
