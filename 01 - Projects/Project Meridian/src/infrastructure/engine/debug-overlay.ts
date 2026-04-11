@@ -77,6 +77,8 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	seek_supply: { emoji: '🔍📦', label: 'Finding supplies' },
 	claim_quest: { emoji: '📜', label: 'Claiming quest' },
 	seek_quest: { emoji: '🗺️', label: 'Quest journey' },
+	seek_quest_source: { emoji: '🔍📦', label: 'Finding quest item' },
+	pickup_quest_item: { emoji: '📦', label: 'Picking up for quest' },
 	repair: { emoji: '🔧', label: 'Repairing' },
 	switch_job: { emoji: '🔄', label: 'Switching job' },
 	leisure: { emoji: '🎭', label: 'Leisure' },

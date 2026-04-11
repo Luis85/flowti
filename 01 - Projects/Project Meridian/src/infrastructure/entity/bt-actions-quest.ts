@@ -56,20 +56,32 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 
 		SeekQuestSource(): ActionResult {
 			// Find the nearest known location whose production output matches the
-			// quest's itemId, and move toward it. Used for supply/restock quests
-			// where the agent needs to physically collect the item before delivery.
+			// quest's itemId AND has enough stock to fulfill the quest. Used for
+			// supply/restock quests where the agent needs to physically collect the
+			// item before delivery.
 			const quest = memory.activeQuest;
 			if (quest === null) return FAILED;
 			if (quest.type === 'repair') return FAILED;
 			if (quest.itemId === null) return FAILED;
 
 			const knownSet = new Set(memory.knownLocations);
-			const candidates = deps.getLocations().filter(l =>
-				knownSet.has(l.id)
-				&& l.id !== quest.facilityId
-				&& l.production !== null
-				&& l.production.output.item_id === quest.itemId,
-			);
+			const locActors = getLocationActors();
+
+			// Candidate = known producer of the quest item that CURRENTLY has at
+			// least `quest.quantity` in stock. Filtering by live stock prevents the
+			// agent from walking to a facility that's empty and then failing to
+			// pick up, which would cause the BT to loop forever on a dead source.
+			const candidates = deps.getLocations().filter(l => {
+				if (!knownSet.has(l.id)) return false;
+				if (l.id === quest.facilityId) return false;
+				if (l.production === null) return false;
+				if (l.production.output.item_id !== quest.itemId) return false;
+				const facActor = locActors.get(l.id);
+				if (facActor?.has(FacilityComponent) !== true) return false;
+				const fac = facActor.get(FacilityComponent);
+				const stockItem = fac.state.stock.find(s => s.item_id === quest.itemId);
+				return stockItem !== undefined && stockItem.quantity >= quest.quantity;
+			});
 			if (candidates.length === 0) return FAILED;
 
 			// Prefer the closest candidate by Euclidean distance from the actor position
@@ -97,6 +109,18 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 			if (quest.type === 'repair') return FAILED;
 			if (quest.itemId === null) return FAILED;
 			if (memory.atLocation === null) return FAILED;
+
+			// Re-entry guard: if we're already carrying cargo for this quest, return
+			// SUCCEEDED idempotently. Without this guard, a double-entry would overwrite
+			// the existing questCargo and silently deduct another batch from the facility
+			// (the original batch would be lost — neither in cargo nor in facility stock).
+			const existing = memory.questCargo;
+			if (existing !== null
+				&& existing.questId === quest.id
+				&& existing.itemId === quest.itemId
+				&& existing.quantity >= quest.quantity) {
+				return SUCCEEDED;
+			}
 
 			const locActors = getLocationActors();
 			const facActor = locActors.get(memory.atLocation);
@@ -149,18 +173,20 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 					&& cargo.quantity >= quest.quantity;
 
 				if (useQuestCargo) {
-					// Transfer from questCargo to facility stock
+					// Transfer from questCargo to facility stock. If the facility has
+					// disappeared (destroyed/unloaded), bail before consuming the cargo so
+					// we don't silently lose the carried items. The agent keeps the cargo
+					// and the BT can retry next tick or abandon the quest.
 					const locActors = getLocationActors();
 					const facActor = locActors.get(quest.facilityId);
-					if (facActor !== undefined) {
-						const fac = facActor.get(FacilityComponent);
-						const hasItem = fac.state.stock.some(s => s.item_id === quest.itemId);
-						const newStock = hasItem
-							? fac.state.stock.map(s => s.item_id === quest.itemId ? { ...s, quantity: s.quantity + quest.quantity } : { ...s })
-							: [...fac.state.stock.map(s => ({ ...s })), { item_id: quest.itemId, quantity: quest.quantity }];
-						fac.state = { ...fac.state, stock: newStock };
-						fac.markDirty();
-					}
+					if (facActor === undefined) return FAILED;
+					const fac = facActor.get(FacilityComponent);
+					const hasItem = fac.state.stock.some(s => s.item_id === quest.itemId);
+					const newStock = hasItem
+						? fac.state.stock.map(s => s.item_id === quest.itemId ? { ...s, quantity: s.quantity + quest.quantity } : { ...s })
+						: [...fac.state.stock.map(s => ({ ...s })), { item_id: quest.itemId, quantity: quest.quantity }];
+					fac.state = { ...fac.state, stock: newStock };
+					fac.markDirty();
 					memory.questCargo = null;
 				} else {
 					// Fall back to personal inventory

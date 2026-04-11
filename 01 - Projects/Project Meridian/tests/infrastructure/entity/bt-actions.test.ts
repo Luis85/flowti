@@ -2096,10 +2096,16 @@ describe('bt-actions: createActions', () => {
 					funding: 'self',
 				} as WorldLocation['production']);
 				const market = makeLocation('loc-market', 'market', 100, 0);
+				const farmFac = createLocationActor({
+					stock: [{ item_id: 'wheat', quantity: 5 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([['loc-farmland', farmFac]]);
 				const { actions, memory } = setupActions(actor, {
 					getLocations: () => [farmland, market],
+					getLocationActors: () => locActors,
 				});
-				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market' });
+				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 2 });
 				memory.knownLocations = ['loc-farmland', 'loc-market'];
 
 				const result = actions.SeekQuestSource();
@@ -2118,16 +2124,93 @@ describe('bt-actions: createActions', () => {
 					wage: 3,
 					funding: 'self',
 				} as WorldLocation['production']);
-				const { actions, memory } = setupActions(actor, { getLocations: () => [farmland] });
-				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market' });
+				const farmFac = createLocationActor({
+					stock: [{ item_id: 'wheat', quantity: 5 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([['loc-farmland', farmFac]]);
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => [farmland],
+					getLocationActors: () => locActors,
+				});
+				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 2 });
 				memory.knownLocations = ['loc-farmland'];
 				memory.atLocation = 'loc-farmland';
 
 				expect(actions.SeekQuestSource()).toBe('mistreevous.succeeded');
 			});
 
+			it('skips sources with insufficient stock', () => {
+				// Regression: without stock filtering, the nearest producer wins even
+				// if its stock is empty. Agent walks there, PickupForQuest fails, loop.
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const nearEmpty = makeLocation('loc-farm-empty', 'food', 0, 0, {
+					output: { item_id: 'wheat', quantity: 1 },
+					input: null,
+					job: 'settler',
+					ticks: 15,
+					wage: 3,
+					funding: 'self',
+				} as WorldLocation['production']);
+				const farStocked = makeLocation('loc-farm-stocked', 'food', 500, 0, {
+					output: { item_id: 'wheat', quantity: 1 },
+					input: null,
+					job: 'settler',
+					ticks: 15,
+					wage: 3,
+					funding: 'self',
+				} as WorldLocation['production']);
+				const emptyFac = createLocationActor({
+					stock: [{ item_id: 'wheat', quantity: 0 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const stockedFac = createLocationActor({
+					stock: [{ item_id: 'wheat', quantity: 10 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([
+					['loc-farm-empty', emptyFac],
+					['loc-farm-stocked', stockedFac],
+				]);
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => [nearEmpty, farStocked],
+					getLocationActors: () => locActors,
+				});
+				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 2 });
+				memory.knownLocations = ['loc-farm-empty', 'loc-farm-stocked'];
+
+				actions.SeekQuestSource();
+				// Empty farm is closer but has no stock — must route to the stocked farm
+				expect(memory.movementTarget).toEqual({ id: 'loc-farm-stocked', type: 'location' });
+			});
+
+			it('returns FAILED when all producers are out of stock', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const farm = makeLocation('loc-farm', 'food', 0, 0, {
+					output: { item_id: 'wheat', quantity: 1 },
+					input: null,
+					job: 'settler',
+					ticks: 15,
+					wage: 3,
+					funding: 'self',
+				} as WorldLocation['production']);
+				const emptyFac = createLocationActor({
+					stock: [],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([['loc-farm', emptyFac]]);
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => [farm],
+					getLocationActors: () => locActors,
+				});
+				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 1 });
+				memory.knownLocations = ['loc-farm'];
+
+				expect(actions.SeekQuestSource()).toBe('mistreevous.failed');
+			});
+
 			it('skips the quest target facility when searching for a source', () => {
-				// Prevent picking from the destination (where stock is empty anyway)
+				// Prevent picking from the destination
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const market = makeLocation('loc-market', 'market', 50, 0, {
 					output: { item_id: 'wheat', quantity: 1 },
@@ -2145,12 +2228,28 @@ describe('bt-actions: createActions', () => {
 					wage: 3,
 					funding: 'self',
 				} as WorldLocation['production']);
-				const { actions, memory } = setupActions(actor, { getLocations: () => [market, farmland] });
-				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market' });
+				// Both facilities have stock — market is closer but must be skipped because it's the target
+				const marketFac = createLocationActor({
+					stock: [{ item_id: 'wheat', quantity: 10 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const farmFac = createLocationActor({
+					stock: [{ item_id: 'wheat', quantity: 10 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([
+					['loc-market', marketFac],
+					['loc-farmland', farmFac],
+				]);
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => [market, farmland],
+					getLocationActors: () => locActors,
+				});
+				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 2 });
 				memory.knownLocations = ['loc-market', 'loc-farmland'];
 
 				actions.SeekQuestSource();
-				// Market is closer but it's the quest target — must skip and pick farmland
+				// Market is closer AND has stock, but it's the quest target — must skip and pick farmland
 				expect(memory.movementTarget).toEqual({ id: 'loc-farmland', type: 'location' });
 			});
 		});
@@ -2243,6 +2342,31 @@ describe('bt-actions: createActions', () => {
 				memory.activeQuest = makeQuest({ type: 'repair', itemId: null });
 				memory.atLocation = 'loc-farmland';
 				expect(actions.PickupForQuest()).toBe('mistreevous.failed');
+			});
+
+			it('returns SUCCEEDED idempotently when cargo already picked up (re-entry guard)', () => {
+				// Regression: without this guard, a double-entry would overwrite the
+				// existing cargo AND subtract again from the facility — silent item loss.
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				const farmActor = createLocationActor({
+					stock: [{ item_id: 'wheat', quantity: 5 }],
+					fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map([['loc-farmland', farmActor]]);
+				const { actions, memory } = setupActions(actor, {
+					getLocationActors: () => locActors,
+				});
+				memory.activeQuest = makeQuest({ id: 'q-42', type: 'restock', itemId: 'wheat', quantity: 2 });
+				memory.atLocation = 'loc-farmland';
+				// Pre-existing cargo for the same quest
+				memory.questCargo = { itemId: 'wheat', quantity: 2, questId: 'q-42' };
+
+				const result = actions.PickupForQuest();
+				expect(result).toBe('mistreevous.succeeded');
+				// Facility stock should NOT have been reduced a second time
+				expect(farmActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'wheat')?.quantity).toBe(5);
+				// Cargo unchanged
+				expect(memory.questCargo).toEqual({ itemId: 'wheat', quantity: 2, questId: 'q-42' });
 			});
 		});
 
@@ -2593,6 +2717,38 @@ describe('bt-actions: createActions', () => {
 
 				const facWheat = facActor.get(FacilityComponent).state.stock.find(s => s.item_id === 'wheat');
 				expect(facWheat?.quantity).toBe(5);
+			});
+
+			it('returns FAILED when the target facility is missing (questCargo path)', () => {
+				// Regression: previously the questCargo branch would consume cargo
+				// and pay reward even when the facility couldn't be found — silent
+				// item loss. Fix: bail with FAILED so the agent keeps the cargo.
+				const quest = makeQuest({ id: 'q-ghost', type: 'restock', itemId: 'wheat', quantity: 2, reward: 15, facilityId: 'loc-market' });
+				const actor = new AgentActor(
+					createTestAgentData('a1', { wallet: { gold: 0 } }),
+					defaultMoodConfig,
+				);
+				// No facility actor in the map — the market has "disappeared"
+				const locActors = new Map<string, Actor>();
+				const worldEntity = createWorldEntity();
+				worldEntity.addComponent(new QuestBoardComponent({ quests: [quest] }));
+
+				const { actions, memory } = setupActions(actor, {
+					getLocationActors: () => locActors,
+					worldEntity: () => worldEntity,
+				});
+
+				memory.activeQuest = quest;
+				memory.questCargo = { itemId: 'wheat', quantity: 2, questId: 'q-ghost' };
+
+				const result = actions.CompleteQuest();
+				expect(result).toBe('mistreevous.failed');
+				// Cargo should be preserved for a retry / abandon
+				expect(memory.questCargo).not.toBeNull();
+				// Quest not marked completed
+				expect(memory.activeQuest).not.toBeNull();
+				// Reward not paid
+				expect(actor.get(WalletComponent).state.gold).toBe(0);
 			});
 		});
 
