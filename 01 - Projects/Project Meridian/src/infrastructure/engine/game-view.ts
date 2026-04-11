@@ -6,6 +6,8 @@ import { createGameLoader } from './game-loader.js';
 import { createDebugOverlay } from './debug-overlay.js';
 import { createQuestLogger, type QuestLogger } from '../ui/quest-logger.js';
 import { createWorldLoader, type WorldData } from './world-loader.js';
+import { createRecipeLoader } from '../entity/recipe-loader.js';
+import { createFacilityTypeLoader, validateFacilityTypes } from '../entity/facility-type-loader.js';
 import { createTickRunner } from './tick-runner.js';
 import { MeridianTickSystem } from './tick-system.js';
 import type { BatchableEventBus } from './batchable-event-bus.js';
@@ -139,6 +141,28 @@ export class MeridianGameView extends ItemView {
 			overlay.textContent = label;
 		});
 
+		// Load recipes + facility types into the plugin-owned registries.
+		// The getters return the same Map reference that plugin.ts closes over,
+		// so mutating them here makes the data visible to all downstream systems.
+		// Cross-ref validation throws on missing recipe references — the error
+		// propagates to the overlay so the user can fix the offending file.
+		overlay.textContent = 'Loading recipes...';
+		const recipeLoader = createRecipeLoader(deps.logger);
+		const recipesResult = await recipeLoader.loadFromVault(vaultAdapter, `${dataRoot}/recipes`);
+
+		overlay.textContent = 'Loading facility types...';
+		const facilityTypeLoader = createFacilityTypeLoader(deps.logger);
+		const typesResult = await facilityTypeLoader.loadFromVault(vaultAdapter, `${dataRoot}/facility-types`);
+
+		const recipeRegistry = deps.getRecipeRegistry();
+		const facilityTypeRegistry = deps.getFacilityTypeRegistry();
+		recipeRegistry.clear();
+		facilityTypeRegistry.clear();
+		for (const r of recipesResult.items) recipeRegistry.set(r.id, r);
+		for (const ft of typesResult.items) facilityTypeRegistry.set(ft.id, ft);
+
+		validateFacilityTypes([...facilityTypeRegistry.values()], [...recipeRegistry.values()]);
+
 		overlay.textContent = 'Starting simulation...';
 
 		// Wire tick system
@@ -178,7 +202,18 @@ export class MeridianGameView extends ItemView {
 			if (loc.production !== null) {
 				// Production facilities start empty — agents must work to produce.
 				// Non-production facilities (market) get stock from their JSON data.
-				const fund = loc.production.funding === 'treasury' ? 0 : deps.config.economy.facility_start_fund;
+				// Fund bootstrap chain:
+				//   1. Per-location `fund` wins if present
+				//   2. Per-type `default_fund` wins (0 when funding === 'treasury')
+				//   3. Legacy production-funding logic + facility_start_fund
+				const facilityType = loc.facility_type !== undefined
+					? deps.getFacilityTypeRegistry().get(loc.facility_type)
+					: undefined;
+
+				const fund = loc.fund
+					?? (facilityType?.funding === 'treasury' ? 0 : facilityType?.default_fund)
+					?? (loc.production.funding === 'treasury' ? 0 : deps.config.economy.facility_start_fund);
+
 				marker.addComponent(new FacilityComponent({
 					stock: [],
 					fund,
