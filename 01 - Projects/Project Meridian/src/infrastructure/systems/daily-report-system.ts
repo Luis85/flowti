@@ -59,8 +59,11 @@ export function createDailyReportSystem(
 				const locActor = locationActors.get(loc.id);
 				if (locActor?.has(FacilityComponent) !== true) continue;
 				const fac = locActor.get(FacilityComponent);
-				facilityWages.push(loc.production?.wage ?? 0);
-				if (fac.state.workerId === null && loc.production?.job !== undefined && loc.production.job !== '') {
+				const ft = loc.facility_type !== undefined ? deps.getFacilityTypeRegistry().get(loc.facility_type) : undefined;
+				const wage = ft?.default_wage ?? loc.production?.wage ?? 0;
+				facilityWages.push(wage);
+				const primaryJob = ft?.primary_job ?? loc.production?.job ?? '';
+				if (fac.state.workerId === null && primaryJob !== '') {
 					vacancyCount++;
 				}
 			}
