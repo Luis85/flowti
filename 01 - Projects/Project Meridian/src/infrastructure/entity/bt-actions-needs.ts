@@ -23,6 +23,29 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 
 		Drink(): ActionResult {
 			const inv = actor.get(InventoryComponent);
+
+			// NEW: prefer consuming a water item (quantity-based)
+			const waterItem = inv.state.items.find(i => i.item_id === 'water' && i.quantity > 0);
+			if (waterItem !== undefined) {
+				const newItems = inv.state.items
+					.map(i => {
+						if (i.item_id !== 'water') return { ...i };
+						const newQty = i.quantity - 1;
+						return newQty > 0 ? { ...i, quantity: newQty } : null;
+					})
+					.filter((i): i is NonNullable<typeof i> => i !== null);
+				inv.state = { ...inv.state, items: newItems };
+				inv.markDirty();
+				const needs = actor.get(NeedsComponent);
+				const recovery = config.needs.drink_recovery;
+				const newThirst = Math.min(100, needs.state.thirst + recovery);
+				needs.state = { ...needs.state, thirst: newThirst };
+				needs.markDirty();
+				beginAction(ctx, 'drink');
+				return SUCCEEDED;
+			}
+
+			// LEGACY: fall back to waterskin charges
 			const waterskin = inv.state.items.find(i => i.item_id === 'waterskin' && (i.charges ?? 0) > 0);
 			if (waterskin === undefined) return FAILED;
 			const newItems = inv.state.items.map(i => {

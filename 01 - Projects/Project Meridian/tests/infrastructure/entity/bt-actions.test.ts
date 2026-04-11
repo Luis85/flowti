@@ -304,6 +304,63 @@ describe('bt-actions: createActions', () => {
 				const { actions } = setupActions(actor, { config });
 				expect(actions.Drink()).toBe('mistreevous.failed');
 			});
+
+			it('consumes 1 water item (quantity decrement) when water is present', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
+						inventory: [{ item_id: 'water', quantity: 3 }],
+					}),
+					defaultMoodConfig,
+				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 40 };
+				const { actions, memory } = setupActions(actor, { config });
+
+				const result = actions.Drink();
+				expect(result).toBe('mistreevous.succeeded');
+				expect(memory.btAction).toBe('drink');
+
+				const water = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'water');
+				expect(water?.quantity).toBe(2);
+				expect(actor.get(NeedsComponent).state.thirst).toBeGreaterThan(40);
+			});
+
+			it('removes water from inventory when quantity drops to 0', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
+						inventory: [{ item_id: 'water', quantity: 1 }],
+					}),
+					defaultMoodConfig,
+				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 40 };
+				const { actions } = setupActions(actor, { config });
+
+				const result = actions.Drink();
+				expect(result).toBe('mistreevous.succeeded');
+				const water = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'water');
+				expect(water).toBeUndefined();
+			});
+
+			it('falls back to waterskin charges when no water item is present', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
+						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 2 }],
+					}),
+					defaultMoodConfig,
+				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 40 };
+				const { actions, memory } = setupActions(actor, { config });
+
+				const result = actions.Drink();
+				expect(result).toBe('mistreevous.succeeded');
+				expect(memory.btAction).toBe('drink');
+
+				const waterskin = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'waterskin');
+				expect(waterskin?.charges).toBe(1);
+				expect(actor.get(NeedsComponent).state.thirst).toBeGreaterThan(40);
+			});
 		});
 
 		describe('Rest', () => {

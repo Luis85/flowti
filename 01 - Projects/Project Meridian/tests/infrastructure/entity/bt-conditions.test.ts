@@ -508,6 +508,24 @@ describe('bt-conditions', () => {
 			const { conditions } = makeConditions(actor, setupDeps(actor));
 			expect(conditions.HasWater()).toBe(false);
 		});
+
+		it('returns true when inventory has water item with quantity > 0 (no waterskin)', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { inventory: [{ item_id: 'water', quantity: 2 }] }),
+				defaultMoodConfig,
+			);
+			const { conditions } = makeConditions(actor, setupDeps(actor));
+			expect(conditions.HasWater()).toBe(true);
+		});
+
+		it('returns false when no water item and no waterskin charges', () => {
+			const actor = new AgentActor(
+				createTestAgentData('a1', { inventory: [{ item_id: 'water', quantity: 0 }] }),
+				defaultMoodConfig,
+			);
+			const { conditions } = makeConditions(actor, setupDeps(actor));
+			expect(conditions.HasWater()).toBe(false);
+		});
 	});
 
 	describe('HasTradeGoods', () => {
