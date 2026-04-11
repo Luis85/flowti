@@ -116,7 +116,7 @@ function renderTabBar(active: Panel, hasAnomaly = false): string {
 		return `<span class="meridian-tab" data-tab="${t.id}" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:${bg};opacity:${opacity}">${t.icon} ${t.label}</span>`;
 	});
 	const alertBadge = hasAnomaly ? '<span style="color:#f44;margin-left:4px" title="Anomalies detected">⚠</span>' : '';
-	const copyBtn = '<span class="meridian-copy-snapshot" style="cursor:pointer;padding:2px 8px;border-radius:4px;margin-left:auto;opacity:0.6;font-size:10px" title="Copy diagnostic snapshot to clipboard">📋 Snapshot</span>';
+	const copyBtn = '<span class="meridian-copy-snapshot" style="cursor:pointer;padding:2px 8px;border-radius:4px;margin-left:auto;opacity:0.6;font-size:10px" title="Copy diagnostic snapshot to clipboard">📋 Snapshot</span><span class="meridian-record-toggle" style="cursor:pointer;padding:2px 8px;border-radius:4px;margin-left:4px;opacity:0.6;font-size:10px" title="Auto-record snapshots on every day-phase change">⏺ Record</span>';
 	return `<div style="display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid #45475a;padding-bottom:6px">${parts.join('')}${copyBtn}${alertBadge}</div>`;
 }
 
@@ -985,6 +985,12 @@ export function createDebugOverlay(
 	const MAX_HISTORY = 60;
 	let lastSnapshotTick = -1;
 
+	// Recording state
+	let isRecording = false;
+	let recordingBuffer: string[] = [];
+	let recordingUnsubscribe: (() => void) | null = null;
+	let recordingStartedAt: Date | null = null;
+
 	// Tab click handler
 	el.addEventListener('click', (e) => {
 		const clickTarget = e.target as HTMLElement;
@@ -999,6 +1005,69 @@ export function createDebugOverlay(
 					setTimeout(() => { btn.textContent = '📋 Snapshot'; }, 1500);
 				}
 			});
+			return;
+		}
+
+		// Record toggle button
+		if (clickTarget.closest('.meridian-record-toggle') !== null) {
+			const btn = el.querySelector('.meridian-record-toggle');
+			if (isRecording) {
+				// Stop recording — write buffer to vault
+				isRecording = false;
+				if (recordingUnsubscribe !== null) {
+					recordingUnsubscribe();
+					recordingUnsubscribe = null;
+				}
+				if (deps.writeFile !== undefined && recordingStartedAt !== null && recordingBuffer.length > 0) {
+					const d = recordingStartedAt;
+					const pad = (n: number): string => n.toString().padStart(2, '0');
+					const filename = `recording-${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.md`;
+					const path = `03 - Resources/Economy/Recordings/${filename}`;
+					const content = recordingBuffer.join('\n\n---\n\n');
+					void deps.writeFile(path, content).then(() => {
+						if (btn !== null) {
+							btn.textContent = '✅ Saved';
+							(btn as HTMLElement).style.color = '';
+							setTimeout(() => { if (btn !== null) btn.textContent = '⏺ Record'; }, 2000);
+						}
+					}).catch(() => {
+						if (btn !== null) {
+							btn.textContent = '❌ Failed';
+							(btn as HTMLElement).style.color = '';
+							setTimeout(() => { if (btn !== null) btn.textContent = '⏺ Record'; }, 2000);
+						}
+					});
+				} else if (btn !== null) {
+					btn.textContent = '⏺ Record';
+					(btn as HTMLElement).style.color = '';
+				}
+				recordingBuffer = [];
+				recordingStartedAt = null;
+			} else {
+				// Start recording — subscribe to DayPhaseChanged
+				const eventBus = deps.getEventBus?.();
+				if (eventBus === undefined || eventBus.onAny === undefined || deps.writeFile === undefined) {
+					if (btn !== null) {
+						btn.textContent = '❌ Unavailable';
+						setTimeout(() => { if (btn !== null) btn.textContent = '⏺ Record'; }, 2000);
+					}
+					return;
+				}
+				isRecording = true;
+				recordingBuffer = [];
+				recordingStartedAt = new Date();
+				// Capture an initial snapshot so the recording starts with current state
+				recordingBuffer.push(buildDiagnosticSnapshot(deps));
+				recordingUnsubscribe = eventBus.onAny((event) => {
+					if (event.type === 'DayPhaseChanged') {
+						recordingBuffer.push(buildDiagnosticSnapshot(deps));
+					}
+				});
+				if (btn !== null) {
+					btn.textContent = '⏹ Stop';
+					(btn as HTMLElement).style.color = '#ff6b6b';
+				}
+			}
 			return;
 		}
 
@@ -1152,6 +1221,10 @@ export function createDebugOverlay(
 
 	return {
 		dispose(): void {
+			if (recordingUnsubscribe !== null) {
+				recordingUnsubscribe();
+				recordingUnsubscribe = null;
+			}
 			clearInterval(interval);
 			el.remove();
 			for (const label of thoughtLabels.values()) {
