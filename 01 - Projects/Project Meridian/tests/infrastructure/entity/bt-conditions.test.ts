@@ -1737,4 +1737,22 @@ describe('bt-conditions', () => {
 			expect(conditions.IsAtLeisure()).toBe(false);
 		});
 	});
+
+	describe('IsUsingService', () => {
+		it('returns true when currentServiceVisit is set', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.currentServiceVisit = { facilityId: 'fac-tavern', ticksRemaining: 5, costPaid: true };
+			expect(conditions.IsUsingService()).toBe(true);
+		});
+
+		it('returns false when currentServiceVisit is null', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const deps = setupDeps(actor, { config });
+			const { conditions, memory } = makeConditions(actor, deps);
+			memory.currentServiceVisit = null;
+			expect(conditions.IsUsingService()).toBe(false);
+		});
+	});
 });
