@@ -58,7 +58,10 @@ function createDeps(eventBus = createEventBus(), tickCount = 1): GameCoreDeps {
 	return {
 		logger: { debug() {}, info() {}, warn() {}, error() {} },
 		eventBus,
-		config: GameConfigSchema.parse({}),
+		// Pin tick_interval_ms to the historical 500ms baseline so movement-speed
+		// test expectations (px/sec) remain deterministic regardless of the
+		// production default.
+		config: GameConfigSchema.parse({ tick_interval_ms: 500 }),
 		performanceTracker: createPerformanceTracker(),
 		tickCount,
 		writeFile: null,

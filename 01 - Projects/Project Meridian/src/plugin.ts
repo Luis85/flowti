@@ -113,8 +113,9 @@ export class MeridianPlugin extends Plugin {
 			const base = this.baseConfig;
 			const speed = this.settings.gameSpeed;
 
-			// Game speed: faster tick interval = more ticks per second
-			config.tick_interval_ms = Math.max(50, Math.round(base.tick_interval_ms / speed));
+			// Game speed: faster tick interval = more ticks per second.
+			// Clamped at 20ms (= 50 ticks/sec) to prevent pathological CPU usage on extreme speeds.
+			config.tick_interval_ms = Math.max(20, Math.round(base.tick_interval_ms / speed));
 
 			// Needs rates: always computed from base * settings multiplier (never cumulative)
 			config.needs.hunger_decay = base.needs.hunger_decay * this.settings.hungerRate;

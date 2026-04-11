@@ -1,6 +1,6 @@
 {
 	"$schema": "Game configuration — single source of truth for simulation tuning",
-	"tick_interval_ms": 500,
+	"tick_interval_ms": 100,
 	"ticks_per_day": 480,
 	"needs": {
 		"hunger_decay": 0.04,

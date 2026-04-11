@@ -7,7 +7,7 @@ describe('GameConfigSchema', () => {
 		const result = GameConfigSchema.safeParse({});
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.tick_interval_ms).toBe(500);
+			expect(result.data.tick_interval_ms).toBe(100);
 			expect(result.data.ticks_per_day).toBe(480);
 			expect(result.data.mortality).toBe(false);
 			expect(result.data.locale).toBe('en');
@@ -103,7 +103,7 @@ describe('loadGameConfig', () => {
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			expect(result.value.mortality).toBe(false);
-			expect(result.value.tick_interval_ms).toBe(500);
+			expect(result.value.tick_interval_ms).toBe(100);
 		}
 	});
 
