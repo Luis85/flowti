@@ -10,6 +10,7 @@ import { MeridianTickSystem } from './tick-system.js';
 import type { BatchableEventBus } from './batchable-event-bus.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import type { TickScheduler } from '../../domain/core/tick-scheduler.js';
+import type { AgentActor } from '../entity/agent-actor.js';
 import type { VaultReader } from '../entity/agent-spawner.js';
 import { createBehaviorAgent } from '../entity/behavior-agent-factory.js';
 import { createGameRNG, hashString } from '../../domain/core/game-rng.js';
@@ -56,6 +57,7 @@ export class MeridianGameView extends ItemView {
 	private disposeOverlay: (() => void) | null = null;
 	private deps: GameCoreDeps | null;
 	private batchableEventBus: BatchableEventBus | null;
+	private worldAgents: AgentActor[] = [];
 
 	constructor(leaf: WorkspaceLeaf, deps: GameCoreDeps | null, batchableEventBus: BatchableEventBus | null = null) {
 		super(leaf);
@@ -69,6 +71,14 @@ export class MeridianGameView extends ItemView {
 
 	getDisplayText(): string {
 		return 'Project Meridian';
+	}
+
+	getAgents(): AgentActor[] {
+		return this.worldAgents;
+	}
+
+	getContentContainer(): HTMLElement | null {
+		return this.contentEl;
 	}
 
 	async onOpen(): Promise<void> {
@@ -144,9 +154,16 @@ export class MeridianGameView extends ItemView {
 	}
 
 	private populateScene(engine: ex.Engine, world: WorldData, deps: GameCoreDeps, tickRunner: TickScheduler, container: HTMLElement): void {
+		this.worldAgents = [...world.agents];
 		// Add agents to scene
 		for (const agent of world.agents) {
 			engine.currentScene.add(agent);
+			agent.on('pointerdown', () => {
+				container.dispatchEvent(new CustomEvent('meridian-agent-selected', {
+					detail: { agentId: agent.agentId },
+					bubbles: true,
+				}));
+			});
 		}
 
 		// Add location markers and retain references for FacilityComponent queries

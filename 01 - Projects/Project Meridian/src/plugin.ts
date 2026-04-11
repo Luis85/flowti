@@ -209,7 +209,7 @@ export class MeridianPlugin extends Plugin {
 					const first = gameLeaves[0];
 					if (first === undefined) return [];
 					const view = first.view as MeridianGameView;
-					return view.getAgents?.() ?? [];
+					return view.getAgents();
 				},
 				getAgentById: (id: string) => {
 					return this.inspectorDeps?.getAgents().find(a => a.agentId === id);
@@ -222,6 +222,27 @@ export class MeridianPlugin extends Plugin {
 			for (const leaf of this.app.workspace.getLeavesOfType(MERIDIAN_BT_INSPECTOR_VIEW_TYPE)) {
 				const view = leaf.view as MeridianBTInspectorView;
 				view.setDeps(this.inspectorDeps);
+			}
+		}
+
+		// Wire agent-click → inspector plumbing.
+		// Obsidian's registerDomEvent has strict overloads limited to HTMLElementEventMap,
+		// so a custom event like 'meridian-agent-selected' can't be passed without an `any` cast.
+		// Instead, use addEventListener directly and use this.register() to schedule cleanup.
+		const gameLeaves = this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE);
+		const firstGame = gameLeaves[0];
+		if (firstGame !== undefined) {
+			const gameView = firstGame.view as MeridianGameView;
+			const container = gameView.getContentContainer();
+			if (container !== null) {
+				const handler = (e: Event): void => {
+					const customEvent = e as CustomEvent<{ agentId: string }>;
+					void this.openBTInspectorForAgent(customEvent.detail.agentId);
+				};
+				container.addEventListener('meridian-agent-selected', handler);
+				this.register(() => {
+					container.removeEventListener('meridian-agent-selected', handler);
+				});
 			}
 		}
 
