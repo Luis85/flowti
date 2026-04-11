@@ -29,6 +29,7 @@ import { createRestSystem } from '../systems/rest-system.js';
 import { createFeedSystem } from '../systems/feed-system.js';
 import { createSocializeSystem } from '../systems/socialize-system.js';
 import { createLeisureSystem } from '../systems/leisure-system.js';
+import { createServiceSystem } from '../systems/service-system.js';
 import { createFacilitySystem } from '../systems/facility-system.js';
 import { createTradeSystem } from '../systems/trade-system.js';
 import { createDialogueSystem } from '../systems/dialogue-system.js';
@@ -325,6 +326,17 @@ export class MeridianGameView extends ItemView {
 			agent.behaviorTree = tree;
 		}
 
+		// Create ServiceSystem handle (includes test helpers + the GameSystem).
+		// Chunk 5 / Task 4.4 relocates the in-closure visit map into MemoryComponent.
+		const serviceSystemHandle = createServiceSystem(
+			getAgents,
+			getLocations,
+			getLocationActors,
+			getWorldEntity,
+			() => deps.getFacilityTypeRegistry(),
+			(loc) => loc.facility_type,
+		);
+
 		// Register all systems (priority order handled by tick runner)
 		tickRunner.register(createTraitResolverSystem(getAgents, world.traitDefs));
 		tickRunner.register(createDayNightSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
@@ -344,6 +356,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
 		tickRunner.register(createLeisureSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
+		tickRunner.register(serviceSystemHandle.system);
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createDialogueSystem(getAgents, Date.now()));
