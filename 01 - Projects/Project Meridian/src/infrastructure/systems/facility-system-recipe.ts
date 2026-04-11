@@ -1,6 +1,6 @@
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { applyRecipeCycle } from '../../domain/systems/recipe.js';
-import { getEffectiveTaxRate } from '../../domain/systems/monetary-policy.js';
+import { resolveEffectiveTaxRate } from '../../domain/systems/monetary-policy.js';
 import { applySkillProgression } from '../../domain/systems/skill-progression.js';
 import { applyRelationshipUpdate } from '../../domain/systems/relationship.js';
 import { findWorker } from '../../domain/systems/facility-worker.js';
@@ -67,15 +67,7 @@ function applyWorkerRelationship(worker: AgentActor, locationId: string, tickCou
 }
 
 function computeTaxRate(economy: EconomyComponent, deps: GameCoreDeps): number {
-	const snapshot = economy.state.monetarySnapshot;
-	if (snapshot === undefined) return deps.config.economy.tax_base_rate;
-	const mp = deps.config.economy.monetary_policy;
-	return getEffectiveTaxRate(
-		mp.tax_base_rate,
-		snapshot.velocity,
-		{ stagnant: mp.velocity_stagnant, overheated: mp.velocity_overheated },
-		{ stagnant: mp.tax_stagnant_multiplier, overheated: mp.tax_overheated_multiplier },
-	);
+	return resolveEffectiveTaxRate(economy.state, deps.config.economy);
 }
 
 function computeEffectiveTicks(

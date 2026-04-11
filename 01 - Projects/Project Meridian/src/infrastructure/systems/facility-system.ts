@@ -1,7 +1,7 @@
 import { SystemPriority, type GameSystem } from '../../domain/core/tick-scheduler.js';
 import type { GameCoreDeps } from '../../domain/core/game-deps.js';
 import { applyFacilityTick, type FacilityTickResult } from '../../domain/systems/facility.js';
-import { getEffectiveTaxRate } from '../../domain/systems/monetary-policy.js';
+import { resolveEffectiveTaxRate } from '../../domain/systems/monetary-policy.js';
 import { applySkillProgression } from '../../domain/systems/skill-progression.js';
 import { applyRelationshipUpdate } from '../../domain/systems/relationship.js';
 import { findWorker } from '../../domain/systems/facility-worker.js';
@@ -302,17 +302,7 @@ function processFacilityTick(
 		ticksPerCycle: effectiveTicksPerCycle,
 		hasRequiredInput: checkRequiredInput(facility, production),
 		wage: production.wage,
-		taxRate: (() => {
-			const snapshot = economy.state.monetarySnapshot;
-			if (snapshot === undefined) return deps.config.economy.tax_base_rate;
-			const mp = deps.config.economy.monetary_policy;
-			return getEffectiveTaxRate(
-				mp.tax_base_rate,
-				snapshot.velocity,
-				{ stagnant: mp.velocity_stagnant, overheated: mp.velocity_overheated },
-				{ stagnant: mp.tax_stagnant_multiplier, overheated: mp.tax_overheated_multiplier },
-			);
-		})(),
+		taxRate: resolveEffectiveTaxRate(economy.state, deps.config.economy),
 		facilityFund: facility.state.fund,
 		workerGold: worker !== undefined ? worker.get(WalletComponent).state.gold : 0,
 		autoProcess: production.auto_process,

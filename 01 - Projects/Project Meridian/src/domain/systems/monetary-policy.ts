@@ -1,4 +1,5 @@
-import type { GoldFlow, MonetarySnapshot } from '../core/component-data.js';
+import type { GoldFlow, MonetarySnapshot, EconomyState } from '../core/component-data.js';
+import type { GameConfig } from '../schemas/game-config-schema.js';
 
 export type { MonetarySnapshot };
 
@@ -60,6 +61,32 @@ export function getEffectiveTaxRate(
 	if (velocity > thresholds.overheated) return baseTax * multipliers.overheated;
 	if (velocity < thresholds.stagnant) return baseTax * multipliers.stagnant;
 	return baseTax;
+}
+
+/**
+ * Resolve the current effective tax rate for a system that levies wages/tax.
+ *
+ * Consolidates the velocity-aware branch used by FacilitySystem and
+ * FacilitySystemRecipe so ServiceSystem (and AreaEffectSystem, Task 6.1) stay
+ * in sync with monetary-policy-driven rate adjustments.
+ *
+ * Fallback: if `monetarySnapshot` is undefined (early game, tests, or before
+ * the monetary policy system has produced its first snapshot), the flat
+ * `economyConfig.tax_base_rate` is returned.
+ */
+export function resolveEffectiveTaxRate(
+	economyState: Pick<EconomyState, 'monetarySnapshot'>,
+	economyConfig: GameConfig['economy'],
+): number {
+	const snapshot = economyState.monetarySnapshot;
+	if (snapshot === undefined) return economyConfig.tax_base_rate;
+	const mp = economyConfig.monetary_policy;
+	return getEffectiveTaxRate(
+		mp.tax_base_rate,
+		snapshot.velocity,
+		{ stagnant: mp.velocity_stagnant, overheated: mp.velocity_overheated },
+		{ stagnant: mp.tax_stagnant_multiplier, overheated: mp.tax_overheated_multiplier },
+	);
 }
 
 export function evaluateSafetyNets(

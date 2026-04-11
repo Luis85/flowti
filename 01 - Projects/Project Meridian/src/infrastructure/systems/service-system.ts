@@ -5,6 +5,7 @@ import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { FacilityType } from '../../domain/schemas/facility-type-schema.js';
 import type { Actor } from 'excalibur';
 import { findWorker } from '../../domain/systems/facility-worker.js';
+import { resolveEffectiveTaxRate } from '../../domain/systems/monetary-policy.js';
 import { FacilityComponent } from '../components/facility-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
@@ -77,7 +78,7 @@ export function createServiceSystem(
 			wageFrom = 'treasury';
 		}
 
-		const taxRate = deps.config.economy.tax_base_rate;
+		const taxRate = resolveEffectiveTaxRate(economy.state, deps.config.economy);
 		const tax = wage * taxRate;
 		const netWage = wage - tax;
 
