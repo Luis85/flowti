@@ -1,0 +1,12 @@
+{
+	"id": "guard_post",
+	"kind": "area_effect",
+	"primary_job": "guard",
+	"default_wage": 4,
+	"default_fund": 200,
+	"funding": "treasury",
+	"capacity": 1,
+	"modifier": { "kind": "mood", "delta_per_tick": 2 },
+	"radius": 150,
+	"ticks_per_pulse": 30
+}
