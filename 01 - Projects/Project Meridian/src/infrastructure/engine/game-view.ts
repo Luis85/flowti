@@ -28,6 +28,7 @@ import { createMovementSystem } from '../systems/movement-system.js';
 import { createFeedSystem } from '../systems/feed-system.js';
 import { createSocializeSystem } from '../systems/socialize-system.js';
 import { createServiceSystem } from '../systems/service-system.js';
+import { createAreaEffectSystem } from '../systems/area-effect-system.js';
 import { createFacilitySystem } from '../systems/facility-system.js';
 import { createTradeSystem } from '../systems/trade-system.js';
 import { createDialogueSystem } from '../systems/dialogue-system.js';
@@ -208,12 +209,16 @@ export class MeridianGameView extends ItemView {
 			const defaultFund = facilityType?.funding === 'treasury'
 				? 0
 				: (facilityType?.default_fund ?? deps.config.economy.facility_start_fund);
+			// Seed `lastPulseTick` at spawn for area_effect facilities so the
+			// first pulse fires on or after `spawnTick + ticks_per_pulse`.
+			const isAreaEffect = facilityType?.kind === 'area_effect';
 			marker.addComponent(new FacilityComponent({
 				stock: loc.stock ?? [],
 				fund: loc.fund ?? defaultFund,
 				workProgress: 0,
 				status: 'idle',
 				workerId: null,
+				lastPulseTick: isAreaEffect ? deps.tickCount : undefined,
 			}));
 
 			locationActors.set(loc.id, marker);
@@ -294,6 +299,18 @@ export class MeridianGameView extends ItemView {
 			(loc) => loc.facility_type,
 		);
 
+		// Create AreaEffectSystem — area_effect facilities pulse every
+		// `ticks_per_pulse` ticks, pushing mood modifiers onto nearby agents'
+		// `pendingAreaModifiers` queue (drained by MoodSystem next tick).
+		const areaEffectSystem = createAreaEffectSystem(
+			getAgents,
+			getLocations,
+			getLocationActors,
+			() => deps.getFacilityTypeRegistry(),
+			(loc) => loc.facility_type,
+			getWorldEntity,
+		);
+
 		// Register all systems (priority order handled by tick runner)
 		tickRunner.register(createTraitResolverSystem(getAgents, world.traitDefs));
 		tickRunner.register(createDayNightSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
@@ -304,6 +321,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createFacilityMaintenanceSystem(getWorldEntity, getLocationActors));
 		tickRunner.register(createDailyReportSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
 		tickRunner.register(createNeedsDecaySystem(getAgents));
+		tickRunner.register(areaEffectSystem);
 		tickRunner.register(createMoodSystem(getAgents));
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createMemoryDecaySystem(getAgents));

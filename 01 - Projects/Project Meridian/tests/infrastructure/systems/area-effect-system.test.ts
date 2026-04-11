@@ -65,6 +65,9 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		activeQuest: null,
 		cachedAvailableQuest: null,
 		insideFacility: false,
+		serviceTarget: null,
+		currentServiceVisit: null,
+		pendingAreaModifiers: [],
 		commitmentTicks: 0,
 		sleepDebt: 0,
 		ticksRestedThisDay: 0,
@@ -102,6 +105,8 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		CompleteQuest: () => 'mistreevous.failed', AbandonQuest: () => 'mistreevous.failed',
 		RepairWithTools: () => 'mistreevous.failed', ContinueCommitment: () => 'mistreevous.failed',
 		Leisure: () => 'mistreevous.failed',
+		ChooseServiceFacility: () => 'mistreevous.failed', SeekService: () => 'mistreevous.failed',
+		UseService: () => 'mistreevous.failed',
 		BetterPayAvailable: () => false, KnowsSupplyRoute: () => false,
 		HasQuest: () => false, QuestAvailable: () => false, QuestAtFacility: () => false,
 		QuestCargoReady: () => false, IsCommitted: () => false, ShouldSleep: () => false,
@@ -143,10 +148,11 @@ function createGuardPostType(overrides: Partial<Record<string, unknown>> = {}): 
 	return parsed;
 }
 
-function createFacilityActor(fund = 200, workerId: string | null = null): Actor {
+function createFacilityActor(fund = 200, workerId: string | null = null, lastPulseTick?: number): Actor {
 	const actor = new Actor();
 	actor.addComponent(new FacilityComponent({
 		stock: [], fund, workProgress: 0, status: 'idle', workerId,
+		lastPulseTick,
 	}));
 	return actor;
 }
@@ -207,7 +213,7 @@ describe('AreaEffectSystem', () => {
 		const worldEntity = createWorldEntity();
 		const agents = [worker, bystander];
 
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [location],
 			() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -221,17 +227,17 @@ describe('AreaEffectSystem', () => {
 		eventBus.on('AreaEffectPulsed', e => { events.push(e); });
 
 		// First call at tick 5000 → initialise lastPulseTick, no pulse
-		handle.system.execute(createDeps(eventBus, 5000));
-		expect(handle.getLastPulseTick(location.id)).toBe(5000);
+		system.execute(createDeps(eventBus, 5000));
+		expect(facilityActor.get(FacilityComponent).state.lastPulseTick).toBe(5000);
 		expect(events).toHaveLength(0);
-		expect(handle.getPending(bystander.agentId)).toHaveLength(0);
+		expect(bystander.behaviorAgent.pendingAreaModifiers).toHaveLength(0);
 
 		// Call at tick 5030 → pulse fires (30 ticks elapsed)
-		handle.system.execute(createDeps(eventBus, 5030));
+		system.execute(createDeps(eventBus, 5030));
 		expect(events).toHaveLength(1);
-		expect(handle.getLastPulseTick(location.id)).toBe(5030);
+		expect(facilityActor.get(FacilityComponent).state.lastPulseTick).toBe(5030);
 
-		const pending = handle.getPending(bystander.agentId);
+		const pending = bystander.behaviorAgent.pendingAreaModifiers;
 		expect(pending).toHaveLength(1);
 		expect(pending[0]).toEqual({ kind: 'mood', delta_per_tick: 0.5 });
 	});
@@ -244,7 +250,7 @@ describe('AreaEffectSystem', () => {
 		const worldEntity = createWorldEntity(1000);
 		const agents = [bystander];
 
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [location],
 			() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -261,15 +267,15 @@ describe('AreaEffectSystem', () => {
 		const treasuryBefore = worldEntity.get(EconomyComponent).state.treasury;
 
 		// Many ticks pass unstaffed — no pulse, no wage, no clock advance
-		handle.system.execute(createDeps(eventBus, 5000));
-		handle.system.execute(createDeps(eventBus, 5100));
-		handle.system.execute(createDeps(eventBus, 5200));
+		system.execute(createDeps(eventBus, 5000));
+		system.execute(createDeps(eventBus, 5100));
+		system.execute(createDeps(eventBus, 5200));
 
 		expect(events).toHaveLength(0);
-		expect(handle.getPending(bystander.agentId)).toHaveLength(0);
+		expect(bystander.behaviorAgent.pendingAreaModifiers).toHaveLength(0);
 		expect(worldEntity.get(EconomyComponent).state.treasury).toBe(treasuryBefore);
 		// lastPulseTick never set — clock not advanced while unstaffed
-		expect(handle.getLastPulseTick(location.id)).toBeUndefined();
+		expect(facilityActor.get(FacilityComponent).state.lastPulseTick).toBeUndefined();
 	});
 
 	it('pulse interval enforcement: no pulse until ticks_per_pulse elapse', () => {
@@ -281,7 +287,7 @@ describe('AreaEffectSystem', () => {
 		const worldEntity = createWorldEntity(1000);
 		const agents = [worker, bystander];
 
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [location],
 			() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -295,30 +301,31 @@ describe('AreaEffectSystem', () => {
 		eventBus.on('AreaEffectPulsed', e => { events.push(e); });
 
 		// tick 5000: initialise
-		handle.system.execute(createDeps(eventBus, 5000));
+		system.execute(createDeps(eventBus, 5000));
 		expect(events).toHaveLength(0);
 
 		// tick 5029: only 29 ticks elapsed → no pulse
-		handle.system.execute(createDeps(eventBus, 5029));
+		system.execute(createDeps(eventBus, 5029));
 		expect(events).toHaveLength(0);
-		expect(handle.getPending(bystander.agentId)).toHaveLength(0);
+		expect(bystander.behaviorAgent.pendingAreaModifiers).toHaveLength(0);
 
 		// tick 5030: 30 ticks elapsed → pulse
-		handle.system.execute(createDeps(eventBus, 5030));
+		system.execute(createDeps(eventBus, 5030));
 		expect(events).toHaveLength(1);
-		expect(handle.getPending(bystander.agentId)).toHaveLength(1);
+		expect(bystander.behaviorAgent.pendingAreaModifiers).toHaveLength(1);
 	});
 
-	it('lastPulseTick spawn semantics: first encounter does not pulse that same tick', () => {
+	it('lastPulseTick spawn semantics: freshly spawned facility does not pulse that same tick', () => {
 		const facilityType = createGuardPostType();
 		const location = createGuardPostLocation();
 		const worker = createWorkerAgent(location.position.x, location.position.y);
 		const bystander = createBystander('bystander-1', location.position.x, location.position.y);
-		const facilityActor = createFacilityActor(200, worker.agentId);
+		// Seed lastPulseTick at "spawn" — same as populateScene does for area_effect facilities
+		const facilityActor = createFacilityActor(200, worker.agentId, 5000);
 		const worldEntity = createWorldEntity(1000);
 		const agents = [worker, bystander];
 
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [location],
 			() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -331,11 +338,19 @@ describe('AreaEffectSystem', () => {
 		const eventBus = createEventBus();
 		eventBus.on('AreaEffectPulsed', e => { events.push(e); });
 
-		handle.system.execute(createDeps(eventBus, 5000));
+		// Tick 5000 (spawn tick): no pulse because delta is 0, not >= ticks_per_pulse
+		system.execute(createDeps(eventBus, 5000));
 		expect(events).toHaveLength(0);
-		expect(handle.getLastPulseTick(location.id)).toBe(5000);
-		// No pulse fired → no pending modifier on bystander
-		expect(handle.getPending(bystander.agentId)).toHaveLength(0);
+		expect(facilityActor.get(FacilityComponent).state.lastPulseTick).toBe(5000);
+		expect(bystander.behaviorAgent.pendingAreaModifiers).toHaveLength(0);
+
+		// Tick 5029: still no pulse
+		system.execute(createDeps(eventBus, 5029));
+		expect(events).toHaveLength(0);
+
+		// Tick 5030: pulse fires
+		system.execute(createDeps(eventBus, 5030));
+		expect(events).toHaveLength(1);
 	});
 
 	it('multiple overlapping posts stack: each pushes its own modifier', () => {
@@ -376,7 +391,7 @@ describe('AreaEffectSystem', () => {
 			[locA.id, actorA],
 			[locB.id, actorB],
 		]);
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [locA, locB],
 			() => locationActors,
@@ -386,11 +401,11 @@ describe('AreaEffectSystem', () => {
 		);
 
 		// Init tick → no pulse
-		handle.system.execute(createDeps(createEventBus(), 5000));
+		system.execute(createDeps(createEventBus(), 5000));
 		// Pulse tick
-		handle.system.execute(createDeps(createEventBus(), 5030));
+		system.execute(createDeps(createEventBus(), 5030));
 
-		const pending = handle.getPending(bystander.agentId);
+		const pending = bystander.behaviorAgent.pendingAreaModifiers;
 		expect(pending).toHaveLength(2);
 		const deltas = pending.map(m => m.delta_per_tick).sort();
 		expect(deltas).toEqual([0.25, 0.5]);
@@ -401,11 +416,12 @@ describe('AreaEffectSystem', () => {
 		const location = createGuardPostLocation();
 		const worker = createWorkerAgent(location.position.x, location.position.y);
 		const bystander = createBystander('bystander-1', location.position.x, location.position.y);
-		const facilityActor = createFacilityActor(200, worker.agentId);
+		// Seed lastPulseTick so next tick pulses
+		const facilityActor = createFacilityActor(200, worker.agentId, 5000);
 		const worldEntity = createWorldEntity(1000);
 		const agents = [worker, bystander];
 
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [location],
 			() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -413,9 +429,6 @@ describe('AreaEffectSystem', () => {
 			() => facilityType.id,
 			() => worldEntity,
 		);
-
-		// Seed lastPulseTick so next tick pulses
-		handle.setLastPulseTick(location.id, 5000);
 
 		const goldEvents: GameEvent[] = [];
 		const pulseEvents: GameEvent[] = [];
@@ -427,7 +440,7 @@ describe('AreaEffectSystem', () => {
 		const treasuryBefore = worldEntity.get(EconomyComponent).state.treasury;
 		const fundBefore = facilityActor.get(FacilityComponent).state.fund;
 
-		handle.system.execute(createDeps(eventBus, 5030));
+		system.execute(createDeps(eventBus, 5030));
 
 		// Wage 4, tax 10% → net 3.6, tax 0.4
 		// Treasury: -4 (wage) + 0.4 (tax) = net -3.6
@@ -454,11 +467,11 @@ describe('AreaEffectSystem', () => {
 		const location = createGuardPostLocation();
 		const worker = createWorkerAgent(location.position.x, location.position.y);
 		const bystander = createBystander('bystander-1', location.position.x, location.position.y);
-		const facilityActor = createFacilityActor(200, worker.agentId);
+		const facilityActor = createFacilityActor(200, worker.agentId, 5000);
 		const worldEntity = createWorldEntity(1000);
 		const agents = [worker, bystander];
 
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [location],
 			() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -466,8 +479,6 @@ describe('AreaEffectSystem', () => {
 			() => facilityType.id,
 			() => worldEntity,
 		);
-
-		handle.setLastPulseTick(location.id, 5000);
 
 		const goldEvents: GameEvent[] = [];
 		const eventBus = createEventBus();
@@ -477,7 +488,7 @@ describe('AreaEffectSystem', () => {
 		const treasuryBefore = worldEntity.get(EconomyComponent).state.treasury;
 		const fundBefore = facilityActor.get(FacilityComponent).state.fund;
 
-		handle.system.execute(createDeps(eventBus, 5030));
+		system.execute(createDeps(eventBus, 5030));
 
 		expect(facilityActor.get(FacilityComponent).state.fund).toBe(fundBefore - 4);
 		expect(worker.get(WalletComponent).state.gold).toBeCloseTo(walletBefore + 3.6);
@@ -495,11 +506,11 @@ describe('AreaEffectSystem', () => {
 		const worker = createWorkerAgent(location.position.x, location.position.y);
 		const insideAgent = createBystander('inside', 105, 100);
 		const outsideAgent = createBystander('outside', 200, 200);
-		const facilityActor = createFacilityActor(200, worker.agentId);
+		const facilityActor = createFacilityActor(200, worker.agentId, 5000);
 		const worldEntity = createWorldEntity(1000);
 		const agents = [worker, insideAgent, outsideAgent];
 
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [location],
 			() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -508,14 +519,13 @@ describe('AreaEffectSystem', () => {
 			() => worldEntity,
 		);
 
-		handle.setLastPulseTick(location.id, 5000);
-		handle.system.execute(createDeps(createEventBus(), 5030));
+		system.execute(createDeps(createEventBus(), 5030));
 
-		expect(handle.getPending('inside')).toHaveLength(1);
-		expect(handle.getPending('outside')).toHaveLength(0);
+		expect(insideAgent.behaviorAgent.pendingAreaModifiers).toHaveLength(1);
+		expect(outsideAgent.behaviorAgent.pendingAreaModifiers).toHaveLength(0);
 	});
 
-	it('clearPending removes all queued modifiers for an agent', () => {
+	it('pushing modifiers is idempotent across non-pulse ticks (queue does not accumulate without a pulse)', () => {
 		const facilityType = createGuardPostType();
 		const location = createGuardPostLocation();
 		const worker = createWorkerAgent(location.position.x, location.position.y);
@@ -524,7 +534,7 @@ describe('AreaEffectSystem', () => {
 		const worldEntity = createWorldEntity(1000);
 		const agents = [worker, bystander];
 
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => agents,
 			() => [location],
 			() => new Map<string, Actor>([[location.id, facilityActor]]),
@@ -533,19 +543,20 @@ describe('AreaEffectSystem', () => {
 			() => worldEntity,
 		);
 
-		handle.setLastPulseTick(location.id, 5000);
-		handle.system.execute(createDeps(createEventBus(), 5030));
-		expect(handle.getPending(bystander.agentId)).toHaveLength(1);
-
-		handle.clearPending(bystander.agentId);
-		expect(handle.getPending(bystander.agentId)).toHaveLength(0);
+		// Init
+		system.execute(createDeps(createEventBus(), 5000));
+		// Many sub-pulse ticks
+		for (let t = 5001; t < 5030; t++) {
+			system.execute(createDeps(createEventBus(), t));
+		}
+		expect(bystander.behaviorAgent.pendingAreaModifiers).toHaveLength(0);
 	});
 
-	it('system name is AreaEffectSystem and factory returns a valid GameSystem handle', () => {
+	it('system name is AreaEffectSystem and factory returns a valid GameSystem', () => {
 		const facilityType = createGuardPostType();
 		const location = createGuardPostLocation();
 		const worldEntity = createWorldEntity(1000);
-		const handle = createAreaEffectSystem(
+		const system = createAreaEffectSystem(
 			() => [],
 			() => [location],
 			() => new Map<string, Actor>(),
@@ -553,7 +564,7 @@ describe('AreaEffectSystem', () => {
 			() => facilityType.id,
 			() => worldEntity,
 		);
-		expect(handle.system.name).toBe('AreaEffectSystem');
-		expect(typeof handle.system.execute).toBe('function');
+		expect(system.name).toBe('AreaEffectSystem');
+		expect(typeof system.execute).toBe('function');
 	});
 });

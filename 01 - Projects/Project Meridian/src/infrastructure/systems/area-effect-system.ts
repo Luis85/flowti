@@ -11,43 +11,16 @@ import { EconomyComponent } from '../components/economy-component.js';
 import type { LedgerEntry } from '../../domain/core/component-data.js';
 
 /**
- * Pending area modifier queued by AreaEffectSystem for later consumption by
- * MoodSystem. Task 6.1 will migrate this queue onto `BehaviorAgent` /
- * `MemoryComponent`; during the Task 1.8 stub phase it lives in the closure.
- */
-export interface PendingAreaModifier {
-	kind: 'mood';
-	delta_per_tick: number;
-}
-
-export interface AreaEffectSystemHandle {
-	readonly system: GameSystem;
-	/** Read the queued area modifiers for an agent (stub helper). */
-	getPending(agentId: string): PendingAreaModifier[];
-	/** Clear queued area modifiers for an agent (stub helper). */
-	clearPending(agentId: string): void;
-	/** Seed `lastPulseTick` for a facility id (stub helper). */
-	setLastPulseTick(locationId: string, tick: number): void;
-	/** Read `lastPulseTick` for a facility id (stub helper). */
-	getLastPulseTick(locationId: string): number | undefined;
-}
-
-/**
- * Create an AreaEffectSystem instance. NOT registered with the tick scheduler
- * in Task 1.8 — Chunk 6 / Task 6.1 wires it in before MoodSystem.
+ * Create an AreaEffectSystem instance. Registered in the tick pipeline by
+ * `game-view.ts` BEFORE `MoodSystem` (although actual execution order is
+ * determined by `SystemPriority` — MOOD=2 runs earlier than LEISURE=6.75, so
+ * modifiers pushed in tick N are drained by MoodSystem in tick N+1: a
+ * deliberate 1-tick latency acceptable for area effects).
  *
- * Stub-state notes:
- * - `lastPulseTick` lives in a closure `Map<locationId, number>` because
- *   `FacilityComponent.state` does not yet carry a `lastPulseTick` field.
- *   Task 6.1 Step 4 will initialize it on `FacilityComponent.state` inside
- *   `populateScene`, at which point this map collapses.
- * - `pendingAreaModifiers` live in a closure `Map<agentId, PendingAreaModifier[]>`
- *   because neither `BehaviorAgent` nor `MemoryComponent` exposes the queue yet.
- *   Task 6.1 will migrate it onto working memory and hook MoodSystem to drain it.
- * - `getFacilityTypeRegistry` / `getLocationFacilityType` are passed as factory
- *   parameters (not read from `deps`) because Task 1.9 adds the registry to
- *   `GameCoreDeps` and Task 2.1 adds `facility_type` to `LocationSchema`. Once
- *   those land, both resolvers collapse into direct lookups.
+ * State lives on components / working memory (no closure):
+ * - `lastPulseTick` on `FacilityComponent.state` (seeded at spawn in
+ *   `populateScene` for area_effect facilities).
+ * - `pendingAreaModifiers` on `agent.behaviorAgent` (drained by `MoodSystem`).
  */
 export function createAreaEffectSystem(
 	agents: () => AgentActor[],
@@ -56,10 +29,7 @@ export function createAreaEffectSystem(
 	getFacilityTypeRegistry: () => Map<string, FacilityType>,
 	getLocationFacilityType: (loc: WorldLocation) => string | undefined,
 	worldEntity: () => Actor,
-): AreaEffectSystemHandle {
-	const lastPulseTickMap = new Map<string, number>();
-	const pendingModifiers = new Map<string, PendingAreaModifier[]>();
-
+): GameSystem {
 	function payWage(
 		worker: AgentActor,
 		facility: FacilityComponent,
@@ -152,15 +122,6 @@ export function createAreaEffectSystem(
 		}
 	}
 
-	function pushModifier(agentId: string, modifier: PendingAreaModifier): void {
-		const existing = pendingModifiers.get(agentId);
-		if (existing === undefined) {
-			pendingModifiers.set(agentId, [{ ...modifier }]);
-			return;
-		}
-		existing.push({ ...modifier });
-	}
-
 	function applyPulseToAgents(
 		loc: WorldLocation,
 		facilityType: Extract<FacilityType, { kind: 'area_effect' }>,
@@ -171,7 +132,7 @@ export function createAreaEffectSystem(
 			const dx = agent.pos.x - loc.position.x;
 			const dy = agent.pos.y - loc.position.y;
 			if ((dx * dx + dy * dy) <= radiusSquared) {
-				pushModifier(agent.agentId, facilityType.modifier);
+				agent.behaviorAgent.pendingAreaModifiers.push({ ...facilityType.modifier });
 			}
 		}
 	}
@@ -217,9 +178,10 @@ export function createAreaEffectSystem(
 
 		// Initialise lastPulseTick on first encounter without pulsing this tick.
 		// First pulse happens on or after tick = initTick + ticks_per_pulse.
-		const stored = lastPulseTickMap.get(loc.id);
+		const stored = facility.state.lastPulseTick;
 		if (stored === undefined) {
-			lastPulseTickMap.set(loc.id, deps.tickCount);
+			facility.state = { ...facility.state, lastPulseTick: deps.tickCount };
+			facility.markDirty();
 			return;
 		}
 
@@ -227,7 +189,8 @@ export function createAreaEffectSystem(
 
 		payWage(worker, facility, facilityType, loc, economy, deps);
 		applyPulseToAgents(loc, facilityType, agentList);
-		lastPulseTickMap.set(loc.id, deps.tickCount);
+		facility.state = { ...facility.state, lastPulseTick: deps.tickCount };
+		facility.markDirty();
 
 		deps.eventBus.emit({
 			type: 'AreaEffectPulsed',
@@ -244,7 +207,7 @@ export function createAreaEffectSystem(
 		});
 	}
 
-	const system: GameSystem = {
+	return {
 		name: 'AreaEffectSystem',
 		priority: SystemPriority.LEISURE,
 
@@ -260,23 +223,6 @@ export function createAreaEffectSystem(
 				if (resolved === null) continue;
 				processAreaLocation(loc, resolved.facilityType, resolved.facility, agentList, economy, deps);
 			}
-		},
-	};
-
-	return {
-		system,
-		getPending(agentId): PendingAreaModifier[] {
-			const list = pendingModifiers.get(agentId);
-			return list === undefined ? [] : list.map(m => ({ ...m }));
-		},
-		clearPending(agentId): void {
-			pendingModifiers.delete(agentId);
-		},
-		setLastPulseTick(locationId, tick): void {
-			lastPulseTickMap.set(locationId, tick);
-		},
-		getLastPulseTick(locationId): number | undefined {
-			return lastPulseTickMap.get(locationId);
 		},
 	};
 }
