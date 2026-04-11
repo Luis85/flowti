@@ -210,6 +210,46 @@ describe('validateWorldConsistency', () => {
 			const supplyWarnings = warnings.filter(w => w.category === 'supply_chain');
 			expect(supplyWarnings).toHaveLength(0);
 		});
+
+		it('uses outputs array (new path) to recognize producers', () => {
+			const input = makeInput({
+				locations: [
+					makeLocation({
+						id: 'loc-smithy',
+						type: 'work',
+						outputs: [{ item_id: 'equipment' }],
+						inputs: [],
+					}),
+					makeLocation({
+						id: 'loc-quartermaster',
+						type: 'work',
+						outputs: [{ item_id: 'supplies' }],
+						inputs: [{ item_id: 'equipment' }],
+					}),
+				],
+			});
+			const warnings = validateWorldConsistency(input);
+			const supplyWarnings = warnings.filter(w => w.category === 'supply_chain');
+			expect(supplyWarnings).toHaveLength(0);
+		});
+
+		it('warns when inputs array (new path) references a missing producer', () => {
+			const input = makeInput({
+				locations: [
+					makeLocation({
+						id: 'loc-workshop',
+						type: 'work',
+						outputs: [{ item_id: 'gadget' }],
+						inputs: [{ item_id: 'tools' }],
+					}),
+				],
+			});
+			const warnings = validateWorldConsistency(input);
+			const supplyWarnings = warnings.filter(w => w.category === 'supply_chain');
+			expect(supplyWarnings).toHaveLength(1);
+			expect(supplyWarnings[0].message).toContain('tools');
+			expect(supplyWarnings[0].locationId).toBe('loc-workshop');
+		});
 	});
 
 	describe('multiple warnings', () => {

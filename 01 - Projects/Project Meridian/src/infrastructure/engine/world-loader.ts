@@ -5,6 +5,8 @@ import type { WorldRegion } from '../../domain/schemas/region-schema.js';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { VaultReader } from '../entity/agent-spawner.js';
 import type { MoodConfig } from '../../domain/systems/mood.js';
+import type { FacilityType } from '../../domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../domain/schemas/recipe-schema.js';
 import { RegionSchema } from '../../domain/schemas/region-schema.js';
 import { buildRegionGraph, type RegionGraph } from '../../domain/systems/pathfinding.js';
 import { pointInPolygon } from '../../domain/core/polygon.js';
@@ -40,6 +42,10 @@ interface WorldLoaderConfig {
 	dataRoot: string;
 	/** Job definitions from game config — keys are job names */
 	jobDefinitions?: Record<string, { primary_attribute: string }>;
+	/** Facility-type registry accessor for validation projection (optional — empty map when absent) */
+	getFacilityTypeRegistry?: () => Map<string, FacilityType>;
+	/** Recipe registry accessor for validation projection (optional — empty map when absent) */
+	getRecipeRegistry?: () => Map<string, Recipe>;
 }
 
 function collectErrors(step: string, errors: { file: string; message: string }[], target: WorldData['errors']): void {
@@ -192,7 +198,11 @@ export function createWorldLoader(
 			}
 			logger.info('WorldLoader', `World loaded: ${String(traitResult.items.length)} traits, ${String(spawnResult.agents.length)} agents, ${String(locationResult.items.length)} locations, ${String(regionResult.items.length)} regions, ${String(Object.keys(btMdslDefinitions).length)} BTs, ${String(itemRegistry.size)} items`);
 
-			// Startup consistency validation
+			// Startup consistency validation — resolve facility_type + active_recipe via registries
+			// so the validator sees primary_job / inputs / outputs for migrated facilities
+			// (which no longer carry the legacy `production` block in their JSON).
+			const facilityTypeRegistry = config.getFacilityTypeRegistry?.() ?? new Map<string, FacilityType>();
+			const recipeRegistry = config.getRecipeRegistry?.() ?? new Map<string, Recipe>();
 			const validationWarnings = validateWorldConsistency({
 				agents: spawnResult.agents.map(a => ({
 					id: a.agentId,
@@ -201,18 +211,29 @@ export function createWorldLoader(
 					inventory: a.get(InventoryComponent).state.items,
 					behaviorTree: a.job ?? '',
 				})),
-				locations: locationResult.items.map(loc => ({
-					id: loc.id,
-					type: loc.type,
-					facility_type: loc.facility_type ?? loc.type,
-					production: loc.production !== null
-						? {
-							job: loc.production.job,
-							output: { item_id: loc.production.output.item_id },
-							input: loc.production.input !== null ? { item_id: loc.production.input.item_id } : null,
-						}
-						: null,
-				})),
+				locations: locationResult.items.map(loc => {
+					const facilityType = loc.facility_type !== undefined
+						? facilityTypeRegistry.get(loc.facility_type)
+						: undefined;
+					const recipe = loc.active_recipe !== null
+						? recipeRegistry.get(loc.active_recipe)
+						: undefined;
+					return {
+						id: loc.id,
+						type: loc.type,
+						facility_type: loc.facility_type ?? loc.type,
+						primary_job: facilityType?.primary_job ?? null,
+						inputs: recipe?.inputs.map(i => ({ item_id: i.item_id })) ?? [],
+						outputs: recipe?.outputs.map(o => ({ item_id: o.item_id })) ?? [],
+						production: loc.production !== null
+							? {
+								job: loc.production.job,
+								output: { item_id: loc.production.output.item_id },
+								input: loc.production.input !== null ? { item_id: loc.production.input.item_id } : null,
+							}
+							: null,
+					};
+				}),
 				btDefinitions: btMdslDefinitions,
 				knownFoodItems: FOOD_ITEMS,
 				knownActions: new Set<string>(),

@@ -130,22 +130,11 @@ export class MeridianGameView extends ItemView {
 		const dataRoot = devProbe.length > 0 ? devRoot : '03 - Resources';
 		deps.dataRoot = dataRoot;
 
-		const worldLoader = createWorldLoader(deps.logger, {
-			moodConfig: deps.config.mood,
-			memoryMaxEntries: deps.config.memory.max_entries,
-			dataRoot,
-			jobDefinitions: deps.config.jobs.definitions,
-		});
-
-		const world = await worldLoader.load(vaultAdapter, (_step, _total, label) => {
-			overlay.textContent = label;
-		});
-
-		// Load recipes + facility types into the plugin-owned registries.
-		// The getters return the same Map reference that plugin.ts closes over,
-		// so mutating them here makes the data visible to all downstream systems.
-		// Cross-ref validation throws on missing recipe references — the error
-		// propagates to the overlay so the user can fix the offending file.
+		// Load recipes + facility types BEFORE the world loader so its startup
+		// validation can resolve `facility_type` → primary_job and `active_recipe`
+		// → inputs/outputs via the plugin-owned registries. The getters return
+		// the same Map references that plugin.ts closes over, so mutating them
+		// here makes the data visible to all downstream systems.
 		overlay.textContent = 'Loading recipes...';
 		const recipeLoader = createRecipeLoader(deps.logger);
 		const recipesResult = await recipeLoader.loadFromVault(vaultAdapter, `${dataRoot}/recipes`);
@@ -161,7 +150,22 @@ export class MeridianGameView extends ItemView {
 		for (const r of recipesResult.items) recipeRegistry.set(r.id, r);
 		for (const ft of typesResult.items) facilityTypeRegistry.set(ft.id, ft);
 
+		// Cross-ref validation throws on missing recipe references — the error
+		// propagates to the overlay so the user can fix the offending file.
 		validateFacilityTypes([...facilityTypeRegistry.values()], [...recipeRegistry.values()]);
+
+		const worldLoader = createWorldLoader(deps.logger, {
+			moodConfig: deps.config.mood,
+			memoryMaxEntries: deps.config.memory.max_entries,
+			dataRoot,
+			jobDefinitions: deps.config.jobs.definitions,
+			getFacilityTypeRegistry: () => deps.getFacilityTypeRegistry(),
+			getRecipeRegistry: () => deps.getRecipeRegistry(),
+		});
+
+		const world = await worldLoader.load(vaultAdapter, (_step, _total, label) => {
+			overlay.textContent = label;
+		});
 
 		overlay.textContent = 'Starting simulation...';
 
