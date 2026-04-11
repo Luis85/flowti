@@ -452,6 +452,73 @@ describe('ServiceSystem', () => {
 		expect(events).toHaveLength(0);
 	});
 
+	it('treasury funding: treasury drains by wage, worker paid net, GoldFlowed uses public_wage subcategory', () => {
+		const fx = buildFixture({
+			withWorker: true,
+			fund: 100,
+			facilityTypeOverrides: { funding: 'treasury', default_wage: 4 },
+		});
+		const workerWallet = fx.worker!.get(WalletComponent);
+		const walletBefore = workerWallet.state.gold;
+		const fundBefore = fx.facility.state.fund;
+		const treasuryBefore = fx.worldEntity.get(EconomyComponent).state.treasury;
+
+		const goldEvents: GameEvent[] = [];
+		const eventBus = createEventBus();
+		eventBus.on('GoldFlowed', e => { goldEvents.push(e); });
+
+		fx.handle.system.execute(createDeps(eventBus, 1));
+
+		// wage 4, tax_base_rate 0.10 → net 3.6, tax 0.4
+		// Treasury: -4 (wage) +0.4 (tax) = net -3.6
+		expect(fx.worldEntity.get(EconomyComponent).state.treasury).toBeCloseTo(treasuryBefore - 4 + 0.4);
+		expect(workerWallet.state.gold).toBeCloseTo(walletBefore + 3.6);
+		// Facility fund must be untouched under treasury funding
+		expect(fx.facility.state.fund).toBe(fundBefore);
+
+		const publicWageFlow = goldEvents.find(e => e.payload.subcategory === 'public_wage');
+		expect(publicWageFlow).toBeDefined();
+		expect(publicWageFlow?.payload.amount).toBeCloseTo(3.6);
+		expect(publicWageFlow?.payload.fromEntity).toBe('treasury');
+		expect(publicWageFlow?.payload.toEntity).toBe('worker-1');
+
+		// No plain 'wage' subcategory should have been emitted under treasury funding
+		const plainWageFlow = goldEvents.find(e => e.payload.subcategory === 'wage');
+		expect(plainWageFlow).toBeUndefined();
+
+		const taxFlow = goldEvents.find(e => e.payload.subcategory === 'tax');
+		expect(taxFlow).toBeDefined();
+		expect(taxFlow?.payload.amount).toBeCloseTo(0.4);
+		expect(taxFlow?.payload.fromEntity).toBe('treasury');
+	});
+
+	it('orphan guard: insideFacility === false clears visit even when btAction and atLocation match', () => {
+		const fx = buildFixture({ withWorker: false });
+		fx.handle.startVisit(fx.agent.agentId, {
+			facilityId: fx.location.id,
+			ticksRemaining: 1,
+			costPaid: true,
+		});
+		// btAction and atLocation remain valid — only insideFacility is wrong
+		fx.agent.behaviorAgent.insideFacility = false;
+		expect(fx.agent.behaviorAgent.btAction).toBe('use_service');
+		expect(fx.agent.behaviorAgent.atLocation).toBe(fx.location.id);
+
+		const events: GameEvent[] = [];
+		const eventBus = createEventBus();
+		eventBus.on('ServiceDelivered', e => { events.push(e); });
+
+		const needsBefore = { ...fx.agent.get(NeedsComponent).state };
+		const memBefore = fx.agent.get(MemoryComponent).state.entries.length;
+
+		fx.handle.system.execute(createDeps(eventBus, 1));
+
+		expect(fx.handle.getVisit(fx.agent.agentId)).toBeUndefined();
+		expect(fx.agent.get(NeedsComponent).state).toEqual(needsBefore);
+		expect(fx.agent.get(MemoryComponent).state.entries.length).toBe(memBefore);
+		expect(events).toHaveLength(0);
+	});
+
 	it('orphan guard: memory.atLocation !== facility.id clears visit', () => {
 		const fx = buildFixture({ withWorker: false });
 		fx.agent.behaviorAgent.atLocation = 'loc-somewhere-else';
