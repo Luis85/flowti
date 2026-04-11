@@ -26,8 +26,9 @@ interface OverlayDeps {
 	getTickCount: () => number;
 	getTicksPerDay?: () => number;
 	getItemRegistry?: () => Map<string, Item>;
-	getEventBus?: () => { history: (opts?: { limit?: number }) => { type: string; tick: number; source: string; payload: Record<string, unknown> }[] };
+	getEventBus?: () => { history: (opts?: { limit?: number }) => { type: string; tick: number; source: string; payload: Record<string, unknown> }[]; onAny?: (handler: (event: { type: string; tick: number; source: string; payload: Record<string, unknown> }) => void) => () => void };
 	getConfig?: () => GameConfig;
+	writeFile?: (path: string, content: string) => Promise<void>;
 }
 
 type Panel = 'agents' | 'world' | 'economy' | 'stats';
