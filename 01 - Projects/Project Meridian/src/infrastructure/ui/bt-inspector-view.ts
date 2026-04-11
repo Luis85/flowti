@@ -1,10 +1,11 @@
-import { ItemView, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, type WorkspaceLeaf, type ViewStateResult } from 'obsidian';
 import type { AgentActor } from '../entity/agent-actor.js';
 import type { VaultReader } from '../entity/agent-spawner.js';
 import type { Logger } from '../../domain/core/logger.js';
 import type { NodeDetails } from 'mistreevous/dist/nodes/Node.js';
 import { renderTree } from './bt-tree-renderer.js';
 import { loadStaticTree, type TreeRef } from './bt-tree-loader.js';
+import { parseState, type BTInspectorState } from './bt-inspector-state.js';
 
 export const MERIDIAN_BT_INSPECTOR_VIEW_TYPE = 'meridian-bt-inspector';
 
@@ -23,22 +24,17 @@ interface StaticTreeEntry {
 	makeRef: (dataRoot: string) => TreeRef;
 }
 
-/**
- * Persisted view state (survives Obsidian restart).
- * If agentId is set, the view tries to load that agent in detail mode.
- */
-interface BTInspectorState {
-	agentId?: string;
-	staticTreePath?: string;
-}
 
 export class MeridianBTInspectorView extends ItemView {
 	private deps: BTInspectorDeps | null;
 	private mode: 'index' | 'detail' = 'index';
 	private currentAgentId: string | null = null;
 	private currentStaticRef: TreeRef | null = null;
+	private currentStaticLabel: string | null = null;
 	private refreshInterval: number | null = null;
 	private treeContainer: HTMLElement | null = null;
+	/** Incremented on every detail-mode switch to cancel stale async loads. */
+	private loadSeq = 0;
 
 	constructor(leaf: WorkspaceLeaf, deps: BTInspectorDeps | null) {
 		super(leaf);
@@ -74,34 +70,44 @@ export class MeridianBTInspectorView extends ItemView {
 	}
 
 	getState(): Record<string, unknown> {
-		return {
-			agentId: this.currentAgentId ?? undefined,
-		};
+		const state: BTInspectorState = {};
+		if (this.currentAgentId !== null) {
+			state.agentId = this.currentAgentId;
+		} else if (this.currentStaticRef !== null && this.currentStaticLabel !== null) {
+			state.staticRef = this.currentStaticRef;
+			state.staticLabel = this.currentStaticLabel;
+		}
+		return state as unknown as Record<string, unknown>;
 	}
 
-	async setState(state: unknown, result: unknown): Promise<void> {
-		const s = state as BTInspectorState;
+	async setState(state: unknown, result: ViewStateResult): Promise<void> {
+		const s = parseState(state);
 		if (s.agentId !== undefined) {
 			await this.showAgent(s.agentId);
+		} else if (s.staticRef !== undefined && s.staticLabel !== undefined) {
+			await this.showStaticTree(s.staticRef, s.staticLabel);
 		}
-		// @ts-expect-error — Obsidian ItemView.setState signature
 		await super.setState(state, result);
 	}
 
 	/** Update deps after game initialization (called by plugin) */
 	setDeps(deps: BTInspectorDeps): void {
 		this.deps = deps;
-		// Refresh current mode if view is already open
+		// Refresh whichever mode is active so stale placeholders get real data
 		if (this.mode === 'index') {
 			this.renderIndex();
 		} else if (this.currentAgentId !== null) {
 			void this.showAgent(this.currentAgentId);
+		} else if (this.currentStaticRef !== null && this.currentStaticLabel !== null) {
+			void this.showStaticTree(this.currentStaticRef, this.currentStaticLabel);
 		}
 	}
 
 	showAgent(agentId: string): Promise<void> {
+		this.loadSeq++;
 		this.currentAgentId = agentId;
 		this.currentStaticRef = null;
+		this.currentStaticLabel = null;
 		this.mode = 'detail';
 		this.stopRefresh();
 		this.renderDetail();
@@ -110,8 +116,10 @@ export class MeridianBTInspectorView extends ItemView {
 	}
 
 	async showStaticTree(ref: TreeRef, label: string): Promise<void> {
+		const seq = ++this.loadSeq;
 		this.currentAgentId = null;
 		this.currentStaticRef = ref;
+		this.currentStaticLabel = label;
 		this.mode = 'detail';
 		this.stopRefresh();
 
@@ -122,8 +130,11 @@ export class MeridianBTInspectorView extends ItemView {
 
 		try {
 			const details = await loadStaticTree(this.deps.vault, ref, this.deps.logger);
+			// If another showAgent / showStaticTree fired while we were loading, drop this result.
+			if (seq !== this.loadSeq) return;
 			this.renderStaticDetail(label, details);
 		} catch (err) {
+			if (seq !== this.loadSeq) return;
 			const message = err instanceof Error ? err.message : String(err);
 			this.renderError(`Failed to load tree: ${message}`);
 		}
@@ -133,8 +144,10 @@ export class MeridianBTInspectorView extends ItemView {
 		this.contentEl.empty();
 		this.mode = 'index';
 		this.stopRefresh();
+		this.loadSeq++; // cancel any in-flight static-tree load
 		this.currentAgentId = null;
 		this.currentStaticRef = null;
+		this.currentStaticLabel = null;
 
 		const headerRow = this.contentEl.createDiv();
 		headerRow.setCssProps({ display: 'flex', 'align-items': 'center', gap: '8px', 'margin-top': '0', 'margin-bottom': '8px' });
