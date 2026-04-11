@@ -71,7 +71,7 @@ export function createQuestGenerationSystem(
 				let suppliedByRecipe = false;
 				if (quest === null && loc.facility_type !== undefined) {
 					const facilityType = deps.getFacilityTypeRegistry().get(loc.facility_type);
-					if (facilityType?.kind === 'production' && loc.active_recipe !== null && loc.active_recipe !== undefined) {
+					if (facilityType?.kind === 'production' && loc.active_recipe !== null) {
 						const recipe = deps.getRecipeRegistry().get(loc.active_recipe);
 						if (recipe !== undefined && recipe.inputs.length > 0) {
 							suppliedByRecipe = true;

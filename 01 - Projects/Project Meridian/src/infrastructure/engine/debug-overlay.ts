@@ -17,6 +17,8 @@ import { TraitsComponent } from '../components/traits-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
+import type { FacilityType } from '../../domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../domain/schemas/recipe-schema.js';
 import { extractActivePath } from '../ui/bt-active-path.js';
 import { enrichAgentStatus } from '../ui/agent-status-label.js';
 import type { QuestLogger } from '../ui/quest-logger.js';
@@ -34,6 +36,8 @@ interface OverlayDeps {
 	writeFile?: (path: string, content: string) => Promise<void>;
 	dataRoot?: string;
 	getQuestLogger?: () => QuestLogger;
+	getFacilityTypeRegistry?: () => Map<string, FacilityType>;
+	getRecipeRegistry?: () => Map<string, Recipe>;
 }
 
 type Panel = 'agents' | 'world' | 'economy' | 'stats' | 'quests';
@@ -235,8 +239,12 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		const workerLabel = worker !== null
 			? `<span style="color:#a6e3a1">✅ ${worker.replace('agent-', '')}</span>`
 			: '<span style="color:#6c7086">—</span>';
+		const recipe = loc.active_recipe !== null
+			? deps.getRecipeRegistry?.().get(loc.active_recipe)
+			: undefined;
+		const progressMax = recipe?.ticks_per_cycle ?? loc.production?.ticks_per_cycle ?? null;
 		const progressLabel = fac.state.workProgress > 0
-			? ` ⏳ ${fac.state.workProgress}/${loc.production?.ticks_per_cycle ?? '?'}`
+			? ` ⏳ ${fac.state.workProgress}/${progressMax ?? '?'}`
 			: '';
 
 		const statusColor = fac.state.status === 'abandoned' ? '#f44' : '#888';
@@ -807,7 +815,12 @@ function buildAgentSnapshot(
 	return lines.join('\n');
 }
 
-function buildFacilitiesSnapshot(locations: WorldLocation[], locationActors: Map<string, Actor>): string {
+function buildFacilitiesSnapshot(
+	locations: WorldLocation[],
+	locationActors: Map<string, Actor>,
+	facilityTypes?: Map<string, FacilityType>,
+	recipes?: Map<string, Recipe>,
+): string {
 	const lines: string[] = [];
 	lines.push('## Facilities');
 	for (const loc of locations) {
@@ -816,9 +829,16 @@ function buildFacilitiesSnapshot(locations: WorldLocation[], locationActors: Map
 		const fac = la.get(FacilityComponent);
 		const stock = fac.state.stock.map(s => `${s.item_id}x${s.quantity}`).join(', ') || 'empty';
 		const worker = fac.state.workerId?.replace('agent-', '') ?? 'none';
-		const progress = fac.state.workProgress > 0 ? ` | progress: ${fac.state.workProgress}/${loc.production?.ticks_per_cycle ?? '?'}` : '';
+		const ft = loc.facility_type !== undefined ? facilityTypes?.get(loc.facility_type) : undefined;
+		const recipe = loc.active_recipe !== null ? recipes?.get(loc.active_recipe) : undefined;
+		const progressMax = recipe?.ticks_per_cycle ?? loc.production?.ticks_per_cycle ?? null;
+		const progress = fac.state.workProgress > 0 ? ` | progress: ${fac.state.workProgress}/${progressMax ?? '?'}` : '';
 		lines.push(`${loc.name} (${loc.type}): status=${fac.state.status} | fund=${fac.state.fund.toFixed(0)}g | worker=${worker} | stock=[${stock}]${progress}`);
-		if (loc.production !== null) {
+		if (ft?.kind === 'production' && recipe !== undefined) {
+			const outputs = recipe.outputs.map(o => `${o.item_id}x${o.quantity}`).join(', ');
+			const inputs = recipe.inputs.length > 0 ? ` | input=${recipe.inputs.map(i => `${i.item_id}x${i.quantity}`).join(', ')}` : '';
+			lines.push(`  Production: ${outputs} every ${recipe.ticks_per_cycle}t | wage=${ft.default_wage}g | job=${ft.primary_job}${inputs}`);
+		} else if (loc.production !== null) {
 			const p = loc.production;
 			lines.push(`  Production: ${p.output.item_id}x${p.output.quantity} every ${p.ticks_per_cycle}t | wage=${p.wage}g | job=${p.job}${p.input !== null ? ` | input=${p.input.item_id}x${p.input.quantity}` : ''}`);
 		}
@@ -914,6 +934,7 @@ function detectAnomalies(
 	config: GameConfig | undefined,
 	velocity: number,
 	agentsByAction: Map<string, string[]>,
+	facilityTypes?: Map<string, FacilityType>,
 ): string {
 	const anomalies: string[] = [];
 	const ds = economy.state.dailySummary;
@@ -968,8 +989,11 @@ function detectAnomalies(
 		const fac = la.get(FacilityComponent);
 		if (fac.state.status === 'abandoned') anomalies.push(`[HIGH] Facility ${loc.name}: abandoned`);
 		if (fac.state.fund <= 0 && fac.state.status !== 'abandoned') anomalies.push(`[MEDIUM] Facility ${loc.name}: fund depleted (${fac.state.fund.toFixed(0)}g)`);
-		if (loc.production !== null && fac.state.workerId === null && fac.state.status !== 'abandoned') {
-			anomalies.push(`[MEDIUM] Facility ${loc.name}: production facility with no worker (job=${loc.production.job})`);
+		const ft = loc.facility_type !== undefined ? facilityTypes?.get(loc.facility_type) : undefined;
+		const isProduction = ft?.kind === 'production' || loc.production !== null;
+		const primaryJob = ft?.primary_job ?? loc.production?.job ?? '';
+		if (isProduction && fac.state.workerId === null && fac.state.status !== 'abandoned') {
+			anomalies.push(`[MEDIUM] Facility ${loc.name}: production facility with no worker (job=${primaryJob})`);
 		}
 	}
 
@@ -1084,12 +1108,12 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		buildEconomySnapshot(agents, economy, locationActors, locations, tick, time),
 		buildPopulationSnapshot(agents),
 		'## Agents\n' + agents.map(a => buildAgentSnapshot(a, agents, locationMap, locationActors, locations, tick, config)).join('\n\n'),
-		buildFacilitiesSnapshot(locations, locationActors),
+		buildFacilitiesSnapshot(locations, locationActors, deps.getFacilityTypeRegistry?.(), deps.getRecipeRegistry?.()),
 		buildQuestSnapshot(questBoard, tick),
 		buildGoldFlowsSnapshot(economy, tick, time),
 		buildEventsSnapshot(eventBus),
 		actionSection,
-		detectAnomalies(agents, economy, locations, locationActors, world, tick, totalGold, config, velocity, agentsByAction),
+		detectAnomalies(agents, economy, locations, locationActors, world, tick, totalGold, config, velocity, agentsByAction, deps.getFacilityTypeRegistry?.()),
 		buildConfigSnapshot(agents, config, ticksPerDay),
 	];
 	return sections.filter(s => s.length > 0).join('\n\n');

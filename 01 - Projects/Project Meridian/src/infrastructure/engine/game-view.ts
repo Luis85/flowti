@@ -385,6 +385,8 @@ export class MeridianGameView extends ItemView {
 			writeFile: deps.writeFile ?? undefined,
 			dataRoot: deps.dataRoot,
 			getQuestLogger: () => questLogger,
+			getFacilityTypeRegistry: () => deps.getFacilityTypeRegistry(),
+			getRecipeRegistry: () => deps.getRecipeRegistry(),
 		});
 		this.disposeOverlay = debugOverlay.dispose;
 	}
