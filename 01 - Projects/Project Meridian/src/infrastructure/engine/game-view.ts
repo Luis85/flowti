@@ -310,6 +310,7 @@ export class MeridianGameView extends ItemView {
 			getEventBus: () => deps.eventBus,
 			getConfig: () => deps.config,
 			writeFile: deps.writeFile ?? undefined,
+			dataRoot: deps.dataRoot,
 		});
 		this.disposeOverlay = debugOverlay.dispose;
 	}

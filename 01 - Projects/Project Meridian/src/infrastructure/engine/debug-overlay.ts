@@ -26,9 +26,10 @@ interface OverlayDeps {
 	getTickCount: () => number;
 	getTicksPerDay?: () => number;
 	getItemRegistry?: () => Map<string, Item>;
-	getEventBus?: () => { history: (opts?: { limit?: number }) => { type: string; tick: number; source: string; payload: Record<string, unknown> }[]; onAny?: (handler: (event: { type: string; tick: number; source: string; payload: Record<string, unknown> }) => void) => () => void };
+	getEventBus?: () => { history: (opts?: { limit?: number }) => { type: string; tick: number; source: string; payload: Record<string, unknown> }[]; onAny: (handler: (event: { type: string; tick: number; source: string; payload: Record<string, unknown> }) => void) => () => void };
 	getConfig?: () => GameConfig;
 	writeFile?: (path: string, content: string) => Promise<void>;
+	dataRoot?: string;
 }
 
 type Panel = 'agents' | 'world' | 'economy' | 'stats';
@@ -987,6 +988,7 @@ export function createDebugOverlay(
 
 	// Recording state
 	let isRecording = false;
+	let isWriting = false;
 	let recordingBuffer: string[] = [];
 	let recordingUnsubscribe: (() => void) | null = null;
 	let recordingStartedAt: Date | null = null;
@@ -1010,7 +1012,10 @@ export function createDebugOverlay(
 
 		// Record toggle button
 		if (clickTarget.closest('.meridian-record-toggle') !== null) {
+			// Block all actions while a previous write is still in flight
+			if (isWriting) return;
 			const btn = el.querySelector('.meridian-record-toggle');
+			if (btn === null) return;
 			if (isRecording) {
 				// Stop recording — write buffer to vault
 				isRecording = false;
@@ -1022,51 +1027,57 @@ export function createDebugOverlay(
 					const d = recordingStartedAt;
 					const pad = (n: number): string => n.toString().padStart(2, '0');
 					const filename = `recording-${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.md`;
-					const path = `03 - Resources/Economy/Recordings/${filename}`;
+					const root = deps.dataRoot !== undefined && deps.dataRoot.length > 0 ? deps.dataRoot : '03 - Resources';
+					const path = `${root}/Economy/Recordings/${filename}`;
 					const content = recordingBuffer.join('\n\n---\n\n');
+					// Synchronous feedback while the write is in flight
+					btn.textContent = '⏳ Saving...';
+					isWriting = true;
 					void deps.writeFile(path, content).then(() => {
-						if (btn !== null) {
-							btn.textContent = '✅ Saved';
-							(btn as HTMLElement).style.color = '';
-							setTimeout(() => { if (btn !== null) btn.textContent = '⏺ Record'; }, 2000);
-						}
+						isWriting = false;
+						btn.textContent = '✅ Saved';
+						setTimeout(() => { btn.textContent = '⏺ Record'; }, 2000);
 					}).catch(() => {
-						if (btn !== null) {
-							btn.textContent = '❌ Failed';
-							(btn as HTMLElement).style.color = '';
-							setTimeout(() => { if (btn !== null) btn.textContent = '⏺ Record'; }, 2000);
-						}
+						isWriting = false;
+						btn.textContent = '❌ Failed';
+						setTimeout(() => { btn.textContent = '⏺ Record'; }, 2000);
 					});
-				} else if (btn !== null) {
+				} else {
 					btn.textContent = '⏺ Record';
-					(btn as HTMLElement).style.color = '';
 				}
 				recordingBuffer = [];
 				recordingStartedAt = null;
 			} else {
 				// Start recording — subscribe to DayPhaseChanged
 				const eventBus = deps.getEventBus?.();
-				if (eventBus === undefined || eventBus.onAny === undefined || deps.writeFile === undefined) {
-					if (btn !== null) {
-						btn.textContent = '❌ Unavailable';
-						setTimeout(() => { if (btn !== null) btn.textContent = '⏺ Record'; }, 2000);
-					}
+				if (eventBus === undefined || deps.writeFile === undefined) {
+					btn.textContent = '❌ Unavailable';
+					setTimeout(() => { btn.textContent = '⏺ Record'; }, 2000);
+					return;
+				}
+				// Capture an initial snapshot so the recording starts with current state.
+				// Wrap in try/catch — buildDiagnosticSnapshot touches world state that may be mid-init.
+				let initialSnapshot: string;
+				try {
+					initialSnapshot = buildDiagnosticSnapshot(deps);
+				} catch {
+					btn.textContent = '❌ Failed';
+					setTimeout(() => { btn.textContent = '⏺ Record'; }, 2000);
 					return;
 				}
 				isRecording = true;
-				recordingBuffer = [];
+				recordingBuffer = [initialSnapshot];
 				recordingStartedAt = new Date();
-				// Capture an initial snapshot so the recording starts with current state
-				recordingBuffer.push(buildDiagnosticSnapshot(deps));
 				recordingUnsubscribe = eventBus.onAny((event) => {
 					if (event.type === 'DayPhaseChanged') {
-						recordingBuffer.push(buildDiagnosticSnapshot(deps));
+						try {
+							recordingBuffer.push(buildDiagnosticSnapshot(deps));
+						} catch {
+							// Silently skip snapshots that fail to build
+						}
 					}
 				});
-				if (btn !== null) {
-					btn.textContent = '⏹ Stop';
-					(btn as HTMLElement).style.color = '#ff6b6b';
-				}
+				btn.textContent = '⏹ Stop';
 			}
 			return;
 		}
@@ -1222,6 +1233,9 @@ export function createDebugOverlay(
 	return {
 		dispose(): void {
 			if (recordingUnsubscribe !== null) {
+				if (isRecording && recordingBuffer.length > 0) {
+					console.warn(`[Meridian] Debug overlay disposed while recording — ${String(recordingBuffer.length)} snapshot(s) discarded`);
+				}
 				recordingUnsubscribe();
 				recordingUnsubscribe = null;
 			}
