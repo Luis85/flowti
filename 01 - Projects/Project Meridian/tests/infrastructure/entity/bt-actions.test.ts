@@ -568,7 +568,7 @@ describe('bt-actions: createActions', () => {
 					defaultMoodConfig,
 				);
 
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 
 				const facActor = createLocationActor({
 					stock: [],
@@ -625,7 +625,7 @@ describe('bt-actions: createActions', () => {
 					createTestAgentData('a1', { inventory: [{ item_id: 'food', quantity: 2 }] }),
 					defaultMoodConfig,
 				);
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 				const facActor = createLocationActor({
 					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
 				});
@@ -952,7 +952,7 @@ describe('bt-actions: createActions', () => {
 					nearbyAgents: [],
 					nearbyLocations: [{ id: 'loc-market', type: 'market', distance: 30 }],
 				};
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
 
 				expect(actions.SeekMarket()).toBe('mistreevous.running');
@@ -965,7 +965,7 @@ describe('bt-actions: createActions', () => {
 					nearbyAgents: [],
 					nearbyLocations: [{ id: 'loc-market', type: 'market', distance: 5 }],
 				};
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
 				memory.atLocation = 'loc-market';
 

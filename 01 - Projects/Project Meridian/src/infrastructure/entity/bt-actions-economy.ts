@@ -16,7 +16,7 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 		SellAtMarket(): ActionResult {
 			if (memory.atLocation === null) return FAILED;
 			const locData = getLocations().find(l => l.id === memory.atLocation);
-			if (locData?.type !== 'market') return FAILED;
+			if (locData?.facility_type !== 'market_stall') return FAILED;
 			const inv = actor.get(InventoryComponent);
 			// Prefer the most-overloaded sellable item — dump the excess first.
 			// Previously `find` picked the first sellable (usually food) even when
@@ -99,7 +99,7 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 		},
 
 		SeekMarket(): ActionResult {
-			const marketLocs = resolveNearbyLocations().filter(l => l.type === 'market');
+			const marketLocs = resolveNearbyLocations().filter(l => l.facility_type === 'market_stall');
 			if (marketLocs.length === 0) return FAILED;
 
 			beginAction(ctx, 'seek_market');

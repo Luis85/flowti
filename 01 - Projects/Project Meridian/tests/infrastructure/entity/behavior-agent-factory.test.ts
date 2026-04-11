@@ -1227,9 +1227,9 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-market', type: 'market', distance: 30 }],
+					nearbyLocations: [{ id: 'loc-market', type: 'market', facility_type: 'market_stall', distance: 30 }],
 				};
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 
 				expect(agent.SeekMarket()).toBe('mistreevous.running');
@@ -1426,7 +1426,7 @@ describe('BehaviorAgent factory', () => {
 					defaultMoodConfig,
 				);
 
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 
 				const facActor = createLocationActor({
 					stock: [],
