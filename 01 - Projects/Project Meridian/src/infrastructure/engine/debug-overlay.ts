@@ -104,7 +104,7 @@ function needBar(value: number, label: string, emoji: string): string {
 	return `${emoji} <span style="color:${color}">${label}</span>${bar}<span style="color:${color}">${value.toFixed(1)}</span>`;
 }
 
-function renderTabBar(active: Panel, hasAnomaly = false): string {
+function renderTabBar(active: Panel, hasAnomaly: boolean, isRecording: boolean): string {
 	const tabs: { id: Panel; label: string; icon: string }[] = [
 		{ id: 'agents', label: 'Agents', icon: '👤' },
 		{ id: 'world', label: 'World', icon: '🗺️' },
@@ -117,8 +117,9 @@ function renderTabBar(active: Panel, hasAnomaly = false): string {
 		return `<span class="meridian-tab" data-tab="${t.id}" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:${bg};opacity:${opacity}">${t.icon} ${t.label}</span>`;
 	});
 	const alertBadge = hasAnomaly ? '<span style="color:#f44;margin-left:4px" title="Anomalies detected">⚠</span>' : '';
-	const copyBtn = '<span class="meridian-copy-snapshot" style="cursor:pointer;padding:2px 8px;border-radius:4px;margin-left:auto;opacity:0.6;font-size:10px" title="Copy diagnostic snapshot to clipboard">📋 Snapshot</span><span class="meridian-record-toggle" style="cursor:pointer;padding:2px 8px;border-radius:4px;margin-left:4px;opacity:0.6;font-size:10px" title="Auto-record snapshots on every day-phase change">⏺ Record</span>';
-	return `<div style="display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid #45475a;padding-bottom:6px">${parts.join('')}${copyBtn}${alertBadge}</div>`;
+	const recIndicator = isRecording ? '<span class="meridian-rec-indicator" style="color:#ff6b6b;margin-left:8px;font-size:10px" title="Recording in progress">● REC</span>' : '';
+	const menuBtn = '<span class="meridian-menu-toggle" style="cursor:pointer;padding:2px 8px;border-radius:4px;margin-left:auto;opacity:0.7;font-size:14px" title="Actions">⋮</span>';
+	return `<div style="display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid #45475a;padding-bottom:6px;position:relative">${parts.join('')}${menuBtn}${recIndicator}${alertBadge}</div>`;
 }
 
 function renderWorldHeader(deps: OverlayDeps): string {
@@ -973,7 +974,7 @@ export function createDebugOverlay(
 		position: absolute; top: 8px; right: 8px; z-index: 100;
 		background: var(--background-secondary, #1e1e2e); color: var(--text-normal, #cdd6f4);
 		font-family: var(--font-monospace); font-size: 11px; line-height: 1.5;
-		padding: 10px 12px; border-radius: 6px; width: 320px; max-height: 80vh;
+		padding: 10px 12px; border-radius: 6px; width: 480px; max-height: 80vh;
 		overflow-y: auto; overflow-x: hidden;
 		border: 1px solid var(--background-modifier-border, #45475a);
 		opacity: 0.92; pointer-events: auto;
@@ -1223,7 +1224,7 @@ export function createDebugOverlay(
 		while (el.firstChild !== null) el.removeChild(el.firstChild);
 		const range = document.createRange();
 		range.selectNodeContents(el);
-		el.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel, hasAnomaly)}${body}`));
+		el.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel, hasAnomaly, isRecording)}${body}`));
 		el.scrollTop = scrollTop;
 	}
 
