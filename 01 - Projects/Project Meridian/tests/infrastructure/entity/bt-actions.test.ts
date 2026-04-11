@@ -365,93 +365,6 @@ describe('bt-actions: createActions', () => {
 			});
 		});
 
-		describe('Rest', () => {
-			it('sets btAction to rest and returns running', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70, thirst: 80 } }),
-					defaultMoodConfig,
-				);
-				const { actions, memory } = setupActions(actor, { config });
-
-				const result = actions.Rest();
-				expect(result).toBe('mistreevous.running');
-				expect(memory.btAction).toBe('rest');
-			});
-
-			it('does not modify energy (system handles that)', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70, thirst: 80 } }),
-					defaultMoodConfig,
-				);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70, thirst: 80 };
-				const { actions } = setupActions(actor, { config });
-
-				actions.Rest();
-				expect(actor.get(NeedsComponent).state.energy).toBe(30);
-			});
-		});
-
-		describe('FillWaterskin', () => {
-			it('fills waterskin when at water location', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', {
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }],
-					}),
-					defaultMoodConfig,
-				);
-				const locations = [makeLocation('loc-river', 'water')];
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => locations,
-				});
-				memory.atLocation = 'loc-river';
-
-				const result = actions.FillWaterskin();
-				expect(result).toBe('mistreevous.succeeded');
-				expect(memory.btAction).toBe('fill_waterskin');
-
-				const waterskin = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'waterskin');
-				expect(waterskin?.charges).toBe(3);
-			});
-
-			it('returns failed when not at water location', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', {
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }],
-					}),
-					defaultMoodConfig,
-				);
-				const locations = [makeLocation('loc-tavern', 'food')];
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => locations,
-				});
-				memory.atLocation = 'loc-tavern';
-				expect(actions.FillWaterskin()).toBe('mistreevous.failed');
-			});
-
-			it('returns failed when no waterskin in inventory', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const locations = [makeLocation('loc-river', 'water')];
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => locations,
-				});
-				memory.atLocation = 'loc-river';
-				expect(actions.FillWaterskin()).toBe('mistreevous.failed');
-			});
-
-			it('returns failed when atLocation is null', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', {
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }],
-					}),
-					defaultMoodConfig,
-				);
-				const { actions } = setupActions(actor, { config });
-				expect(actions.FillWaterskin()).toBe('mistreevous.failed');
-			});
-		});
 	});
 
 	// ── Economy actions ───────────────────────────────────────────────────
@@ -952,18 +865,18 @@ describe('bt-actions: createActions', () => {
 				expect(memory.movementTarget).toEqual({ id: 'loc-market', type: 'location' });
 			});
 
-			it('falls back to food-type locations when no stocked facilities', () => {
+			it('falls back to farm facilities when no stocked facilities', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
 					nearbyLocations: [
-						{ id: 'loc-tavern', type: 'food', distance: 50 },
-						{ id: 'loc-bakery', type: 'food', distance: 20 },
+						{ id: 'loc-tavern', type: 'food', facility_type: 'farm', distance: 50 },
+						{ id: 'loc-bakery', type: 'food', facility_type: 'farm', distance: 20 },
 					],
 				};
 				const locations = [
-					makeLocation('loc-tavern', 'food', 0, 0),
-					makeLocation('loc-bakery', 'food', 0, 0),
+					makeLocation('loc-tavern', 'food', 0, 0, null, null, 'farm'),
+					makeLocation('loc-bakery', 'food', 0, 0, null, null, 'farm'),
 				];
 				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
 
@@ -972,13 +885,13 @@ describe('bt-actions: createActions', () => {
 				expect(memory.movementTarget).toEqual({ id: 'loc-bakery', type: 'location' });
 			});
 
-			it('returns succeeded when already at food location', () => {
+			it('returns succeeded when already at farm location', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-tavern', type: 'food', distance: 5 }],
+					nearbyLocations: [{ id: 'loc-tavern', type: 'food', facility_type: 'farm', distance: 5 }],
 				};
-				const locations = [makeLocation('loc-tavern', 'food')];
+				const locations = [makeLocation('loc-tavern', 'food', 0, 0, null, null, 'farm')];
 				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
 				memory.atLocation = 'loc-tavern';
 
@@ -1029,74 +942,6 @@ describe('bt-actions: createActions', () => {
 				memory.priceMemories.push({ itemId: 'food', price: 3, locationId: 'loc-a', tick: 1 });
 
 				expect(actions.SeekBestFoodSource()).toBe('mistreevous.failed');
-			});
-		});
-
-		describe('SeekWater', () => {
-			it('sets movementTarget to nearest water location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [
-						{ id: 'loc-river', type: 'water', distance: 50 },
-						{ id: 'loc-well', type: 'water', distance: 20 },
-					],
-				};
-				const locations = [
-					makeLocation('loc-river', 'water'),
-					makeLocation('loc-well', 'water'),
-				];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-
-				const result = actions.SeekWater();
-				expect(result).toBe('mistreevous.running');
-				expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
-				expect(memory.btAction).toBe('seek_water');
-			});
-
-			it('returns succeeded when already at water location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-well', type: 'water', distance: 5 }],
-				};
-				const locations = [makeLocation('loc-well', 'water')];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-				memory.atLocation = 'loc-well';
-
-				expect(actions.SeekWater()).toBe('mistreevous.succeeded');
-			});
-
-			it('returns failed when no water locations exist anywhere', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions } = setupActions(actor, { getLocations: () => [] });
-				expect(actions.SeekWater()).toBe('mistreevous.failed');
-			});
-
-			it('falls back to the closest global water when no water in perception', () => {
-				// Regression for recording 2026-04-11-1610 — Bram was dying of thirst
-				// (2.6/100) because SeekWater only checked perception range. If the
-				// Spring is outside perception, fallback to getLocations() to find
-				// the closest water by world position.
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.pos.x = 300;
-				actor.pos.y = 400;
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [], // no water in perception
-				};
-				const locations = [
-					makeLocation('loc-spring-far', 'water', 80, 130),
-					makeLocation('loc-spring-near', 'water', 250, 380),
-					makeLocation('loc-market', 'market', 300, 380),
-				];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-
-				const result = actions.SeekWater();
-				expect(result).toBe('mistreevous.running');
-				// Closer spring wins
-				expect(memory.movementTarget).toEqual({ id: 'loc-spring-near', type: 'location' });
-				expect(memory.btAction).toBe('seek_water');
 			});
 		});
 
@@ -1814,56 +1659,6 @@ describe('bt-actions: createActions', () => {
 
 	// ── Navigation actions ────────────────────────────────────────────────
 	describe('Navigation actions', () => {
-		describe('SeekRest', () => {
-			it('sets movementTarget to nearest rest location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-inn', type: 'rest', distance: 30 }],
-				};
-				const locations = [makeLocation('loc-inn', 'rest')];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-
-				expect(actions.SeekRest()).toBe('mistreevous.running');
-				expect(memory.movementTarget).toEqual({ id: 'loc-inn', type: 'location' });
-			});
-
-			it('returns succeeded when already at rest location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-inn', type: 'rest', distance: 5 }],
-				};
-				const locations = [makeLocation('loc-inn', 'rest')];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-				memory.atLocation = 'loc-inn';
-
-				expect(actions.SeekRest()).toBe('mistreevous.succeeded');
-			});
-
-			it('falls back to all locations when no rest in perception range', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.pos.x = 300;
-				actor.pos.y = 190;
-				actor.get(PerceptionComponent).state = { nearbyAgents: [], nearbyLocations: [] };
-
-				const restLocation = makeLocation('loc-cabin', 'rest', 200, 380);
-				const { actions, memory } = setupActions(actor, {
-					getLocations: () => [restLocation],
-				});
-
-				const result = actions.SeekRest();
-				expect(result).toBe('mistreevous.running');
-				expect(memory.movementTarget).toEqual({ id: 'loc-cabin', type: 'location' });
-			});
-
-			it('returns failed when no rest locations exist at all', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions } = setupActions(actor);
-				expect(actions.SeekRest()).toBe('mistreevous.failed');
-			});
-		});
-
 		describe('Idle', () => {
 			it('always returns running and sets btAction', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
@@ -3271,18 +3066,6 @@ describe('bt-actions: createActions', () => {
 	});
 
 	describe('ContinueCommitment — travel commitments break on critical needs', () => {
-		it('breaks seek_rest when thirst crosses critical threshold', () => {
-			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const { actions, memory } = setupActions(actor, { config });
-			memory.committedAction = 'seek_rest';
-			memory.commitmentTicks = 8;
-			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 10, energy: 80, social: 50 };
-			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
-			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
-			expect(memory.commitmentTicks).toBe(0);
-			expect(memory.committedAction).toBeNull();
-		});
-
 		it('breaks seek_food when energy crosses critical threshold', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { actions, memory } = setupActions(actor, { config });
@@ -3293,12 +3076,12 @@ describe('bt-actions: createActions', () => {
 			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
 		});
 
-		it('does NOT break seek_rest for sub-critical thirst (only personal threshold)', () => {
+		it('does NOT break seek_food for sub-critical thirst (only personal threshold)', () => {
 			// Personal thirst=40, critical=20, thirst=30 is below personal but above critical.
 			// Travel commitments only break on CRITICAL, not personal thresholds.
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { actions, memory } = setupActions(actor, { config });
-			memory.committedAction = 'seek_rest';
+			memory.committedAction = 'seek_food';
 			memory.commitmentTicks = 8;
 			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 30, energy: 80, social: 50 };
 			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
@@ -3330,7 +3113,7 @@ describe('bt-actions: createActions', () => {
 		});
 
 		it('breaks all travel variants on critical hunger', () => {
-			const variants = ['seek_food', 'seek_water', 'seek_rest', 'seek_market', 'seek_quest', 'seek_quest_source', 'seek_delivery', 'seek_supply', 'seek_job_facility', 'seek_leisure', 'seek_social', 'seek_work'];
+			const variants = ['seek_food', 'seek_market', 'seek_quest', 'seek_quest_source', 'seek_delivery', 'seek_supply', 'seek_job_facility', 'seek_leisure', 'seek_social', 'seek_work'];
 			for (const travelAction of variants) {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions, memory } = setupActions(actor, { config });

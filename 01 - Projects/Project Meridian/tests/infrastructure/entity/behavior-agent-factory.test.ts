@@ -968,46 +968,19 @@ describe('BehaviorAgent factory', () => {
 			});
 		});
 
-		describe('Rest', () => {
-			it('sets btAction to rest and returns running', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70, thirst: 80 } }),
-					defaultMoodConfig,
-				);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70, thirst: 80 };
-				const agent = createBehaviorAgent(setupDeps(actor, { config }));
-
-				const result = agent.Rest();
-				expect(result).toBe('mistreevous.running');
-				expect(agent.btAction).toBe('rest');
-			});
-
-			it('does not modify energy (system handles that)', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70, thirst: 80 } }),
-					defaultMoodConfig,
-				);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70, thirst: 80 };
-				const agent = createBehaviorAgent(setupDeps(actor, { config }));
-
-				agent.Rest();
-				expect(agent.energy).toBe(30);
-			});
-		});
-
 		describe('SeekFood', () => {
-			it('sets movementTarget to nearest food location', () => {
+			it('sets movementTarget to nearest farm location', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
 					nearbyLocations: [
-						{ id: 'loc-tavern', type: 'food', distance: 50 },
-						{ id: 'loc-bakery', type: 'food', distance: 20 },
+						{ id: 'loc-tavern', type: 'food', facility_type: 'farm', distance: 50 },
+						{ id: 'loc-bakery', type: 'food', facility_type: 'farm', distance: 20 },
 					],
 				};
 				const locations = [
-					makeLocation('loc-tavern', 'food', 0, 0),
-					makeLocation('loc-bakery', 'food', 0, 0),
+					makeLocation('loc-tavern', 'food', 0, 0, null, null, 'farm'),
+					makeLocation('loc-bakery', 'food', 0, 0, null, null, 'farm'),
 				];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 
@@ -1016,13 +989,13 @@ describe('BehaviorAgent factory', () => {
 				expect(agent.movementTarget).toEqual({ id: 'loc-bakery', type: 'location' });
 			});
 
-			it('returns succeeded when already at food location', () => {
+			it('returns succeeded when already at farm location', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-tavern', type: 'food', distance: 5 }],
+					nearbyLocations: [{ id: 'loc-tavern', type: 'food', facility_type: 'farm', distance: 5 }],
 				};
-				const locations = [makeLocation('loc-tavern', 'food')];
+				const locations = [makeLocation('loc-tavern', 'food', 0, 0, null, null, 'farm')];
 				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
 				agent.atLocation = 'loc-tavern';
 
@@ -1033,27 +1006,6 @@ describe('BehaviorAgent factory', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const agent = createBehaviorAgent(setupDeps(actor));
 				expect(agent.SeekFood()).toBe('mistreevous.failed');
-			});
-		});
-
-		describe('SeekRest', () => {
-			it('sets movementTarget to nearest rest location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-inn', type: 'rest', distance: 30 }],
-				};
-				const locations = [makeLocation('loc-inn', 'rest')];
-				const agent = createBehaviorAgent(setupDeps(actor, { getLocations: () => locations }));
-
-				expect(agent.SeekRest()).toBe('mistreevous.running');
-				expect(agent.movementTarget).toEqual({ id: 'loc-inn', type: 'location' });
-			});
-
-			it('returns failed when no rest locations nearby', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const agent = createBehaviorAgent(setupDeps(actor));
-				expect(agent.SeekRest()).toBe('mistreevous.failed');
 			});
 		});
 
@@ -1634,56 +1586,6 @@ describe('BehaviorAgent factory', () => {
 
 			expect(agent.IsExhausted()).toBe(false); // no longer exhausted
 			expect(agent.IsRecovering()).toBe(true);  // still recovering — won't go to work
-		});
-	});
-
-	describe('SeekRest fallback', () => {
-		it('falls back to all locations when no rest in perception range', () => {
-			const actor = new AgentActor(
-				createTestAgentData('agent-faraway', { needs: { hunger: 80, energy: 20, social: 70, thirst: 80 } }),
-				defaultMoodConfig,
-			);
-			// Place agent at (300, 190) — far from rest locations
-			actor.pos.x = 300;
-			actor.pos.y = 190;
-
-			// Empty perception — no nearby locations at all
-			actor.get(PerceptionComponent).state = { nearbyAgents: [], nearbyLocations: [] };
-
-			const restLocation = makeLocation('loc-cabin', 'rest', 200, 380);
-			const deps = setupDeps(actor, {
-				getLocations: () => [restLocation],
-			});
-			const agent = createBehaviorAgent(deps);
-
-			const result = agent.SeekRest();
-			expect(result).toBe('mistreevous.running');
-			expect(agent.movementTarget).toEqual({ id: 'loc-cabin', type: 'location' });
-		});
-
-		it('prefers nearby rest location over distant fallback', () => {
-			const actor = new AgentActor(
-				createTestAgentData('agent-nearby-rest', { needs: { hunger: 80, energy: 20, social: 70, thirst: 80 } }),
-				defaultMoodConfig,
-			);
-
-			// Nearby rest visible in perception
-			actor.get(PerceptionComponent).state = {
-				nearbyAgents: [],
-				nearbyLocations: [{ id: 'loc-cabin', type: 'rest', distance: 50 }],
-			};
-
-			const deps = setupDeps(actor, {
-				getLocations: () => [
-					makeLocation('loc-cabin', 'rest', 200, 380),
-					makeLocation('loc-house', 'rest', 370, 350),
-				],
-			});
-			const agent = createBehaviorAgent(deps);
-
-			const result = agent.SeekRest();
-			expect(result).toBe('mistreevous.running');
-			expect(agent.movementTarget).toEqual({ id: 'loc-cabin', type: 'location' });
 		});
 	});
 

@@ -9,9 +9,9 @@ import { findFoodInInventory, FOOD_ITEMS } from '../../domain/systems/food-items
 import { isPriceStale } from '../../domain/systems/price-memory.js';
 import { findNearest } from '../../domain/core/array-utils.js';
 
-export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat' | 'Drink' | 'CollectProduced' | 'RepairWithTools' | 'Rest' | 'SeekWater' | 'FillWaterskin' | 'SeekFood' | 'SeekRest' | 'SeekBestFoodSource'> {
+export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat' | 'Drink' | 'CollectProduced' | 'RepairWithTools' | 'SeekFood' | 'SeekBestFoodSource'> {
 	const { memory, actor, deps, resolveNearbyFacilities, resolveNearbyLocations } = ctx;
-	const { config, getLocationActors, getLocations } = deps;
+	const { config, getLocationActors } = deps;
 
 	return {
 		Eat(): ActionResult {
@@ -136,60 +136,6 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 			return SUCCEEDED;
 		},
 
-		Rest(): ActionResult {
-			beginAction(ctx, 'rest');
-			return RUNNING;
-		},
-
-		SeekWater(): ActionResult {
-			// Prefer a water source in the agent's current perception range.
-			const nearbyWater = resolveNearbyLocations().filter(l => l.type === 'water');
-			if (nearbyWater.length > 0) {
-				beginAction(ctx, 'seek_water');
-				const nearest = findNearest(nearbyWater)!;
-				memory.movementTarget = { id: nearest.id, type: 'location' };
-				if (memory.atLocation === nearest.id) return SUCCEEDED;
-				return RUNNING;
-			}
-
-			// Fallback: no water in perception — pick the closest water location
-			// from the full world map. Water sources are rare (usually a single
-			// Spring) and an agent with critical thirst should traverse the whole
-			// map rather than die in place. Without this fallback, P0 critical
-			// survival silently fails when far from the Spring.
-			const allWater = getLocations().filter(l => l.type === 'water');
-			if (allWater.length === 0) return FAILED;
-			const agentX = actor.pos.x;
-			const agentY = actor.pos.y;
-			let best = allWater[0]!;
-			let bestDistSq = (best.position.x - agentX) ** 2 + (best.position.y - agentY) ** 2;
-			for (const w of allWater) {
-				const d = (w.position.x - agentX) ** 2 + (w.position.y - agentY) ** 2;
-				if (d < bestDistSq) { best = w; bestDistSq = d; }
-			}
-			beginAction(ctx, 'seek_water');
-			memory.movementTarget = { id: best.id, type: 'location' };
-			if (memory.atLocation === best.id) return SUCCEEDED;
-			return RUNNING;
-		},
-
-		FillWaterskin(): ActionResult {
-			const locData = memory.atLocation !== null ? getLocations().find(l => l.id === memory.atLocation) : undefined;
-			if (locData?.type !== 'water') return FAILED;
-			const inv = actor.get(InventoryComponent);
-			const waterskin = inv.state.items.find(i => i.item_id === 'waterskin');
-			if (waterskin === undefined) return FAILED;
-			const maxCharges = ctx.deps.config.items['waterskin']?.maxCharges ?? 3;
-			const newItems = inv.state.items.map(i => {
-				if (i.item_id !== 'waterskin') return { ...i };
-				return { ...i, charges: maxCharges };
-			});
-			inv.state = { ...inv.state, items: newItems };
-			inv.markDirty();
-			beginAction(ctx, 'fill_waterskin');
-			return SUCCEEDED;
-		},
-
 		SeekFood(): ActionResult {
 			// Prefer locations with food in stock (market, stocked farm)
 			const stockedFacilities = resolveNearbyFacilities().filter(f =>
@@ -202,37 +148,13 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 				if (memory.atLocation === nearest.id) return SUCCEEDED;
 				return RUNNING;
 			}
-			// Fallback: food-type locations (farms)
-			const foodLocs = resolveNearbyLocations().filter(l => l.type === 'food');
+			// Fallback: farm facilities (facility_type === 'farm')
+			const foodLocs = resolveNearbyLocations().filter(l => l.facility_type === 'farm');
 			if (foodLocs.length === 0) return FAILED;
 			beginAction(ctx, 'seek_food');
 			const nearest = findNearest(foodLocs)!;
 			memory.movementTarget = { id: nearest.id, type: 'location' };
 			if (memory.atLocation === nearest.id) return SUCCEEDED;
-			return RUNNING;
-		},
-
-		SeekRest(): ActionResult {
-			const restLocs = resolveNearbyLocations().filter(l => l.type === 'rest');
-			if (restLocs.length > 0) {
-				beginAction(ctx, 'seek_rest');
-				const nearest = findNearest(restLocs)!;
-				memory.movementTarget = { id: nearest.id, type: 'location' };
-				if (memory.atLocation === nearest.id) return SUCCEEDED;
-				return RUNNING;
-			}
-
-			// Fallback: search all locations (rest outside perception range, e.g. at night)
-			const allLocations = getLocations();
-			const restLoc = allLocations
-				.filter(l => l.type === 'rest')
-				.map(l => ({ id: l.id, dist: Math.hypot(l.position.x - actor.pos.x, l.position.y - actor.pos.y) }))
-				.sort((a, b) => a.dist - b.dist)[0];
-			if (restLoc === undefined) return FAILED;
-
-			beginAction(ctx, 'seek_rest');
-			memory.movementTarget = { id: restLoc.id, type: 'location' };
-			if (memory.atLocation === restLoc.id) return SUCCEEDED;
 			return RUNNING;
 		},
 

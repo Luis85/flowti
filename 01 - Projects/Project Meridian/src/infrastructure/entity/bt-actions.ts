@@ -38,8 +38,6 @@ function shouldBreakTravelForCriticalNeed(needs: {
 
 const TRAVEL_COMMITMENTS = new Set<string>([
 	'seek_food',
-	'seek_water',
-	'seek_rest',
 	'seek_market',
 	'seek_quest',
 	'seek_quest_source',
@@ -56,12 +54,8 @@ export interface ActionMethods {
 	Drink(): ActionResult;
 	CollectProduced(): ActionResult;
 	RepairWithTools(): ActionResult;
-	Rest(): ActionResult;
-	SeekWater(): ActionResult;
-	FillWaterskin(): ActionResult;
 	SellAtMarket(): ActionResult;
 	SeekFood(): ActionResult;
-	SeekRest(): ActionResult;
 	Buy(): ActionResult;
 	BuyItem(itemId: string): ActionResult;
 	SeekBestFoodSource(): ActionResult;

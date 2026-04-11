@@ -159,13 +159,9 @@ export interface BehaviorAgent {
 
 	// Action methods
 	Eat(): ActionResult;
-	Rest(): ActionResult;
 	Drink(): ActionResult;
 	CollectProduced(): ActionResult;
 	SeekFood(): ActionResult;
-	SeekRest(): ActionResult;
-	SeekWater(): ActionResult;
-	FillWaterskin(): ActionResult;
 	SellAtMarket(): ActionResult;
 	SeekWork(): ActionResult;
 	SeekSocial(): ActionResult;
