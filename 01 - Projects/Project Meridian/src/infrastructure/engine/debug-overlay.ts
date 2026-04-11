@@ -18,6 +18,8 @@ import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
 import { extractActivePath } from '../ui/bt-active-path.js';
+import { enrichAgentStatus } from '../ui/agent-status-label.js';
+import type { QuestLogger } from '../ui/quest-logger.js';
 
 interface OverlayDeps {
 	getAgents: () => AgentActor[];
@@ -31,9 +33,10 @@ interface OverlayDeps {
 	getConfig?: () => GameConfig;
 	writeFile?: (path: string, content: string) => Promise<void>;
 	dataRoot?: string;
+	getQuestLogger?: () => QuestLogger;
 }
 
-type Panel = 'agents' | 'world' | 'economy' | 'stats';
+type Panel = 'agents' | 'world' | 'economy' | 'stats' | 'quests';
 
 interface Snapshot {
 	tick: number;
@@ -110,6 +113,7 @@ function renderTabBar(active: Panel, hasAnomaly: boolean, isRecording: boolean):
 		{ id: 'agents', label: 'Agents', icon: '👤' },
 		{ id: 'world', label: 'World', icon: '🗺️' },
 		{ id: 'economy', label: 'Economy', icon: '💰' },
+		{ id: 'quests', label: 'Quests', icon: '📜' },
 		{ id: 'stats', label: 'Stats', icon: '📈' },
 	];
 	const parts = tabs.map(t => {
@@ -365,6 +369,97 @@ function sparkline(values: number[], width: number, height: number, color: strin
 	const step = width / (values.length - 1);
 	const points = values.map((v, i) => `${(i * step).toFixed(1)},${(height - ((v - min) / range) * height).toFixed(1)}`).join(' ');
 	return `<svg width="${width}" height="${height}" style="vertical-align:middle;margin:0 4px"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+}
+
+function renderQuestsPanel(deps: OverlayDeps): string {
+	const logger = deps.getQuestLogger?.();
+	if (logger === undefined) {
+		return '<span style="color:#6c7086">Quest logger not available.</span>';
+	}
+
+	const all = logger.getQuests();
+	if (all.length === 0) {
+		return '<span style="color:#6c7086">No quests yet.</span>';
+	}
+
+	const active = all.filter(q => q.resolution === null);
+	const resolved = all.filter(q => q.resolution !== null);
+
+	const lines: string[] = [];
+
+	// Active section
+	lines.push(`<b style="color:#89b4fa">Active (${String(active.length)})</b>`);
+	if (active.length === 0) {
+		lines.push('<span style="color:#6c7086">(none)</span>');
+	} else {
+		for (const q of active) {
+			lines.push(formatQuestRow(q));
+		}
+	}
+
+	// Resolved section (most recent first, cap at 10)
+	lines.push(`<br><b style="color:#89b4fa">Recent (${String(Math.min(resolved.length, 10))} of ${String(resolved.length)})</b>`);
+	if (resolved.length === 0) {
+		lines.push('<span style="color:#6c7086">(none)</span>');
+	} else {
+		for (const q of resolved.slice(0, 10)) {
+			lines.push(formatQuestRow(q));
+		}
+	}
+
+	return lines.join('<br>');
+}
+
+function formatQuestRow(q: {
+	questId: string;
+	type: string;
+	facilityId: string;
+	itemId: string | null;
+	quantity: number;
+	reward: number;
+	state: string;
+	claimedBy: string | null;
+	createdTick: number;
+	resolvedTick: number | null;
+	resolution: string | null;
+	timeline: { tick: number; type: string; message: string }[];
+}): string {
+	const icon = q.type === 'repair' ? '🔧' : q.type === 'restock' ? '📦' : '📋';
+	const stateColor = q.resolution === 'completed'
+		? '#a6e3a1'
+		: q.resolution === 'expired'
+			? '#6c7086'
+			: q.resolution === 'abandoned'
+				? '#f38ba8'
+				: q.state === 'claimed'
+					? '#f9e2af'
+					: '#cdd6f4';
+	const stateLabel = q.resolution ?? q.state;
+	const item = q.itemId !== null
+		? `${q.itemId}${q.quantity > 1 ? `x${String(q.quantity)}` : ''}`
+		: '';
+	const facilityId = q.facilityId.replace(/^loc-/, '');
+	const claimedBy = q.claimedBy !== null ? q.claimedBy.replace(/^agent-/, '') : '—';
+	const duration = q.resolvedTick !== null
+		? `${String(q.resolvedTick - q.createdTick)}t`
+		: `ongoing (t${String(q.createdTick)})`;
+
+	const header = `${icon} <span style="color:${stateColor}">${stateLabel}</span> · ${q.type}${item !== '' ? ` ${item}` : ''} → ${facilityId} · ${String(q.reward)}g · ${claimedBy} · ${duration}`;
+
+	// Timeline (last 5 events, monospace indent)
+	const recent = q.timeline.slice(-5);
+	const timelineLines = recent.map(ev => `<span style="color:#6c7086;font-size:10px">  t${String(ev.tick)} · ${escapeHtml(ev.message)}</span>`).join('<br>');
+
+	return `<div style="margin:4px 0">${header}${timelineLines !== '' ? `<br>${timelineLines}` : ''}</div>`;
+}
+
+function escapeHtml(s: string): string {
+	return s
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
 }
 
 function renderStatsPanel(history: Snapshot[], deps: OverlayDeps): string {
@@ -655,7 +750,15 @@ function buildAgentSnapshot(
 
 	if (ba.activeQuest !== null) {
 		const q = ba.activeQuest;
-		lines.push(`Active quest: ${q.type} at ${q.facilityId} (${q.state}, progress: ${q.repairProgress})`);
+		const facilityName = locationMap.get(q.facilityId)?.name ?? q.facilityId;
+		const itemPart = q.itemId !== null ? ` ${q.itemId}${q.quantity > 1 ? `x${String(q.quantity)}` : ''}` : '';
+		const repairTicks = config?.quests.repair_ticks;
+		const progressPart = q.type === 'repair'
+			? (repairTicks !== undefined && repairTicks > 0
+				? ` · progress ${String(Math.min(100, Math.round((q.repairProgress / repairTicks) * 100)))}%`
+				: ` · progress ${String(q.repairProgress)}t`)
+			: '';
+		lines.push(`Active quest: ${q.type}${itemPart} → ${facilityName} (${q.state} · ${String(q.reward)}g reward${progressPart})`);
 	}
 	if (ba.supplyRoute !== null) {
 		const r = ba.supplyRoute;
@@ -1274,14 +1377,42 @@ export function createDebugOverlay(
 	}
 
 	function update(): void {
+		// Build location name lookup once per tick — used by bubble enrichment
+		const locationNames = new Map<string, string>();
+		for (const loc of deps.getLocations()) {
+			locationNames.set(loc.id, loc.name);
+		}
+		const resolveLocation = (id: string): string => locationNames.get(id) ?? id;
+		const repairTicksRequired = deps.getConfig?.().quests.repair_ticks;
+
 		// Update thought bubbles + hide agents inside facilities
 		for (const agent of deps.getAgents()) {
-			const action = agent.behaviorAgent.btAction ?? 'idle';
-			const actionInfo = ACTION_DISPLAY[action] ?? { emoji: '❓', label: action };
+			const ba = agent.behaviorAgent;
+			const action = ba.btAction ?? 'idle';
+			const enriched = enrichAgentStatus({
+				action,
+				activeQuest: ba.activeQuest !== null ? {
+					type: ba.activeQuest.type,
+					facilityId: ba.activeQuest.facilityId,
+					itemId: ba.activeQuest.itemId,
+					quantity: ba.activeQuest.quantity,
+					repairProgress: ba.activeQuest.repairProgress,
+					repairTicksRequired,
+				} : null,
+				supplyRoute: ba.supplyRoute,
+				haulCargo: ba.haulCargo !== null ? {
+					itemId: ba.haulCargo.itemId,
+					quantity: ba.haulCargo.quantity,
+					destination: ba.haulCargo.destination,
+				} : null,
+				buyTargetItem: ba.buyTargetItem,
+				resolveLocation,
+			});
+			const actionInfo = enriched ?? ACTION_DISPLAY[action] ?? { emoji: '❓', label: action };
 			const bubble = ensureThoughtBubble(agent);
 			bubble.text = `${actionInfo.emoji} ${actionInfo.label}`;
 
-			if (agent.behaviorAgent.insideFacility === true) {
+			if (ba.insideFacility === true) {
 				agent.graphics.visible = false;
 				bubble.graphics.visible = false;
 			} else {
@@ -1321,6 +1452,7 @@ export function createDebugOverlay(
 			case 'agents': body = renderAgentsPanel(deps); break;
 			case 'world': body = renderWorldPanel(deps); break;
 			case 'economy': body = renderEconomyPanel(deps); break;
+			case 'quests': body = renderQuestsPanel(deps); break;
 			case 'stats': body = renderStatsPanel(history, deps); break;
 		}
 

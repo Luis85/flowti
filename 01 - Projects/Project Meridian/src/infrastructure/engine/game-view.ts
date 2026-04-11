@@ -4,6 +4,7 @@ import { BehaviourTree } from 'mistreevous';
 import { createGameEngine } from './game-engine.js';
 import { createGameLoader } from './game-loader.js';
 import { createDebugOverlay } from './debug-overlay.js';
+import { createQuestLogger, type QuestLogger } from '../ui/quest-logger.js';
 import { createWorldLoader, type WorldData } from './world-loader.js';
 import { createTickRunner } from './tick-runner.js';
 import { MeridianTickSystem } from './tick-system.js';
@@ -55,6 +56,7 @@ export class MeridianGameView extends ItemView {
 	private disposeEngine: (() => void) | null = null;
 	private debugUnsubscribe: (() => void) | null = null;
 	private disposeOverlay: (() => void) | null = null;
+	private questLogger: QuestLogger | null = null;
 	private deps: GameCoreDeps | null;
 	private batchableEventBus: BatchableEventBus | null;
 	private worldAgents: AgentActor[] = [];
@@ -316,6 +318,24 @@ export class MeridianGameView extends ItemView {
 
 		deps.logger.info('Meridian', `World ready: ${String(world.agents.length)} agents, ${String(world.locations.length)} locations, ${String(world.regions.length)} regions, ${String(Object.keys(world.jobTrees).length)} jobs, ${String(Object.keys(world.traitDefs).length)} traits`);
 
+		// Quest logger — subscribes to Quest* events, tracks each quest's timeline,
+		// persists terminal quests to markdown files under <dataRoot>/Economy/Quests/.
+		const resolveEntityName = (id: string): string => {
+			const loc = world.locations.find(l => l.id === id);
+			if (loc !== undefined) return loc.name;
+			const agent = world.agents.find(a => a.agentId === id);
+			if (agent !== undefined) return agent.agentName;
+			return id;
+		};
+		this.questLogger = createQuestLogger({
+			eventBus: deps.eventBus,
+			getQuestBoard: () => worldEntity.get(QuestBoardComponent).state,
+			resolveName: resolveEntityName,
+			writeFile: deps.writeFile ?? undefined,
+			dataRoot: () => deps.dataRoot,
+		});
+		const questLogger = this.questLogger;
+
 		// Debug overlay
 		const debugOverlay = createDebugOverlay(container, {
 			getAgents,
@@ -329,6 +349,7 @@ export class MeridianGameView extends ItemView {
 			getConfig: () => deps.config,
 			writeFile: deps.writeFile ?? undefined,
 			dataRoot: deps.dataRoot,
+			getQuestLogger: () => questLogger,
 		});
 		this.disposeOverlay = debugOverlay.dispose;
 	}
@@ -350,6 +371,8 @@ export class MeridianGameView extends ItemView {
 	async onClose(): Promise<void> {
 		this.disposeOverlay?.();
 		this.disposeOverlay = null;
+		this.questLogger?.dispose();
+		this.questLogger = null;
 		this.debugUnsubscribe?.();
 		this.debugUnsubscribe = null;
 		if (this.engine !== null) {
