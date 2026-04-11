@@ -254,19 +254,6 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		lines.push('</div>');
 	}
 
-	// Non-facility locations
-	const nonFacilities = locations.filter(l => {
-		const a = locationActors.get(l.id);
-		return a?.has(FacilityComponent) !== true;
-	});
-	if (nonFacilities.length > 0) {
-		lines.push('<br><b style="color:#89b4fa">Locations</b>');
-		for (const loc of nonFacilities) {
-			const locIcon = FACILITY_TYPE_ICONS[loc.facility_type] ?? '📍';
-			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.facility_type})</span>`);
-		}
-	}
-
 	// Quest board
 	const world = deps.getWorldEntity();
 	if (world.has(QuestBoardComponent)) {
@@ -833,16 +820,6 @@ function buildFacilitiesSnapshot(
 			const outputs = recipe.outputs.map(o => `${o.item_id}x${o.quantity}`).join(', ');
 			const inputs = recipe.inputs.length > 0 ? ` | input=${recipe.inputs.map(i => `${i.item_id}x${i.quantity}`).join(', ')}` : '';
 			lines.push(`  Production: ${outputs} every ${recipe.ticks_per_cycle}t | wage=${ft.default_wage}g | job=${ft.primary_job}${inputs}`);
-		}
-	}
-
-	// Non-facility locations
-	const nonFac = locations.filter(l => locationActors.get(l.id)?.has(FacilityComponent) !== true);
-	if (nonFac.length > 0) {
-		lines.push('');
-		lines.push('## Locations');
-		for (const loc of nonFac) {
-			lines.push(`${loc.name} (${loc.facility_type}) at (${loc.position.x}, ${loc.position.y})`);
 		}
 	}
 
