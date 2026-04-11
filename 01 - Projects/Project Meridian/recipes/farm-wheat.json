@@ -1,0 +1,9 @@
+{
+	"id": "recipe-farm-wheat",
+	"name": "Farm Wheat",
+	"inputs": [],
+	"outputs": [{ "item_id": "food", "quantity": 1 }],
+	"ticks_per_cycle": 15,
+	"required_skill": null,
+	"min_skill_level": 0
+}

@@ -1,0 +1,9 @@
+{
+	"id": "recipe-smithy-equipment",
+	"name": "Forge Equipment",
+	"inputs": [{ "item_id": "tools", "quantity": 1 }],
+	"outputs": [{ "item_id": "equipment", "quantity": 1 }],
+	"ticks_per_cycle": 40,
+	"required_skill": null,
+	"min_skill_level": 0
+}
