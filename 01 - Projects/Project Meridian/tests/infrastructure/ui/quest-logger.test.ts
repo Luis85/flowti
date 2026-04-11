@@ -2,9 +2,32 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	createQuestLogger,
 	serializeQuest,
+	computeFlowMetrics,
 	type QuestLogger,
 	type QuestLogEntry,
 } from '../../../src/infrastructure/ui/quest-logger.js';
+
+/** Test helper — merges partial fixture into a complete QuestLogEntry with sane defaults. */
+function mkEntry(partial: Partial<QuestLogEntry> & { questId: string; type: string; facilityId: string; createdTick: number }): QuestLogEntry {
+	return {
+		itemId: null,
+		quantity: 1,
+		reward: 10,
+		expiryTick: null,
+		state: 'open',
+		claimedBy: null,
+		claimedTick: null,
+		firstClaimedBy: null,
+		firstClaimedTick: null,
+		firstClaimedAt: null,
+		reclaimCount: 0,
+		claimers: [],
+		resolvedTick: null,
+		resolution: null,
+		timeline: [],
+		...partial,
+	};
+}
 import type { EventBus, EventHandler, GameEvent, Unsubscribe } from '../../../src/domain/core/events.js';
 
 function makeBus(): { bus: EventBus; fire: (e: Partial<GameEvent>) => void } {
@@ -46,7 +69,9 @@ function makeBoard(quests: {
 	itemId?: string | null;
 	quantity?: number;
 	reward?: number;
-}[]): { quests: { id: string; type: string; facilityId: string; itemId: string | null; quantity: number; reward: number }[] } {
+	expiryTicks?: number;
+	createdTick?: number;
+}[]): { quests: { id: string; type: string; facilityId: string; itemId: string | null; quantity: number; reward: number; expiryTicks: number; createdTick: number }[] } {
 	return {
 		quests: quests.map(q => ({
 			id: q.id,
@@ -55,6 +80,8 @@ function makeBoard(quests: {
 			itemId: q.itemId ?? null,
 			quantity: q.quantity ?? 1,
 			reward: q.reward ?? 10,
+			expiryTicks: q.expiryTicks ?? 100,
+			createdTick: q.createdTick ?? 0,
 		})),
 	};
 }
@@ -206,6 +233,53 @@ describe('createQuestLogger', () => {
 		expect(list[1]?.questId).toBe('q1');
 	});
 
+	it('tracks first-claim separately from latest claim', () => {
+		fire({ type: 'QuestGenerated', tick: 5, payload: { questId: 'q1', type: 'supply', facilityId: 'loc-market', reward: 15 } });
+		fire({ type: 'QuestClaimed', tick: 10, wallClock: 1000, payload: { questId: 'q1', agentId: 'agent-bram' } });
+
+		const entry = logger.getQuest('q1')!;
+		expect(entry.firstClaimedBy).toBe('agent-bram');
+		expect(entry.firstClaimedTick).toBe(10);
+		expect(entry.firstClaimedAt).toBe(1000);
+		expect(entry.reclaimCount).toBe(0);
+		expect(entry.claimers).toEqual(['agent-bram']);
+	});
+
+	it('preserves first-claim info and increments reclaim count on reclaim', () => {
+		fire({ type: 'QuestGenerated', tick: 5, payload: { questId: 'q1', type: 'supply', facilityId: 'loc-market', reward: 15 } });
+		fire({ type: 'QuestClaimed', tick: 10, wallClock: 1000, payload: { questId: 'q1', agentId: 'agent-bram' } });
+		fire({ type: 'QuestAbandoned', tick: 20, payload: { questId: 'q1', agentId: 'agent-bram', reason: 'abandoned' } });
+		fire({ type: 'QuestClaimed', tick: 25, wallClock: 2000, payload: { questId: 'q1', agentId: 'agent-alice' } });
+
+		const entry = logger.getQuest('q1')!;
+		expect(entry.firstClaimedBy).toBe('agent-bram');
+		expect(entry.firstClaimedTick).toBe(10);
+		expect(entry.firstClaimedAt).toBe(1000);
+		expect(entry.claimedBy).toBe('agent-alice');
+		expect(entry.claimedTick).toBe(25);
+		expect(entry.reclaimCount).toBe(1);
+		expect(entry.claimers).toEqual(['agent-bram', 'agent-alice']);
+	});
+
+	it('reclaim by the same agent still increments reclaim count but keeps claimers unique', () => {
+		fire({ type: 'QuestGenerated', tick: 5, payload: { questId: 'q1', type: 'supply', facilityId: 'loc-market', reward: 15 } });
+		fire({ type: 'QuestClaimed', tick: 10, payload: { questId: 'q1', agentId: 'agent-bram' } });
+		fire({ type: 'QuestAbandoned', tick: 20, payload: { questId: 'q1', agentId: 'agent-bram', reason: 'abandoned' } });
+		fire({ type: 'QuestClaimed', tick: 25, payload: { questId: 'q1', agentId: 'agent-bram' } });
+
+		const entry = logger.getQuest('q1')!;
+		expect(entry.reclaimCount).toBe(1);
+		expect(entry.claimers).toEqual(['agent-bram']);
+	});
+
+	it('captures expiryTick from the quest board at generation time', () => {
+		board.quests[0]!.expiryTicks = 300;
+		board.quests[0]!.createdTick = 5;
+		fire({ type: 'QuestGenerated', tick: 5, payload: { questId: 'q1', type: 'supply', facilityId: 'loc-market', reward: 15 } });
+		const entry = logger.getQuest('q1')!;
+		expect(entry.expiryTick).toBe(305);
+	});
+
 	it('resets resolution on re-claim after abandonment', () => {
 		fire({ type: 'QuestGenerated', tick: 5, payload: { questId: 'q1', type: 'supply', facilityId: 'loc-market', reward: 15 } });
 		fire({ type: 'QuestClaimed', tick: 10, payload: { questId: 'q1', agentId: 'agent-bram' } });
@@ -282,7 +356,7 @@ describe('serializeQuest', () => {
 		// 2026-04-11 12:39:00 UTC → ms epoch
 		const createdMs = Date.UTC(2026, 3, 11, 12, 39, 0);
 		const resolvedMs = Date.UTC(2026, 3, 11, 12, 42, 0);
-		return {
+		return mkEntry({
 			questId: 'q1',
 			type: 'supply',
 			facilityId: 'loc-market',
@@ -290,9 +364,14 @@ describe('serializeQuest', () => {
 			quantity: 3,
 			reward: 15,
 			createdTick: 5,
+			expiryTick: 105,
 			state: 'completed',
 			claimedBy: 'agent-bram',
 			claimedTick: 10,
+			firstClaimedBy: 'agent-bram',
+			firstClaimedTick: 10,
+			firstClaimedAt: createdMs + 30_000,
+			claimers: ['agent-bram'],
 			resolvedTick: 25,
 			resolution: 'completed',
 			timeline: [
@@ -300,7 +379,7 @@ describe('serializeQuest', () => {
 				{ tick: 10, wallClock: createdMs + 30_000, type: 'QuestClaimed', message: 'Claimed by Bram' },
 				{ tick: 25, wallClock: resolvedMs, type: 'QuestCompleted', message: 'Completed by Bram (+15g)' },
 			],
-		};
+		});
 	}
 
 	function parseFrontmatter(md: string): Record<string, string> {
@@ -354,7 +433,15 @@ describe('serializeQuest', () => {
 		expect(fm['claimed_by']).toBe('Bram');
 		expect(fm['claimed_by_id']).toBe('agent-bram');
 		expect(fm['timeline_events']).toBe('3');
-		expect(fm['tags']).toBe('quest,quest/supply,quest/completed');
+		// Tags include baseline facets plus derived stage/outcome/size/SLA facets
+		const tagSet = new Set(fm['tags']!.split(','));
+		expect(tagSet).toContain('quest');
+		expect(tagSet).toContain('quest/supply');
+		expect(tagSet).toContain('quest/completed');
+		expect(tagSet).toContain('quest/stage/done');
+		expect(tagSet).toContain('quest/outcome/success');
+		expect(tagSet).toContain('quest/size/small'); // cycle time 15 → small
+		expect(tagSet).toContain('quest/sla/met');    // resolved at t25, expiry at t105
 	});
 
 	it('emits ISO 8601 datetime for created_at and resolved_at', () => {
@@ -365,21 +452,14 @@ describe('serializeQuest', () => {
 	});
 
 	it('emits null for all nullable fields when a quest is still open', () => {
-		const entry: QuestLogEntry = {
+		const entry = mkEntry({
 			questId: 'q1',
 			type: 'repair',
 			facilityId: 'loc-workshop',
-			itemId: null,
-			quantity: 1,
 			reward: 20,
 			createdTick: 0,
-			state: 'open',
-			claimedBy: null,
-			claimedTick: null,
-			resolvedTick: null,
-			resolution: null,
 			timeline: [{ tick: 0, wallClock: Date.UTC(2026, 0, 1), type: 'QuestGenerated', message: 'Generated' }],
-		};
+		});
 		const md = serializeQuest(entry, resolveName);
 		const fm = parseFrontmatter(md);
 		expect(fm['resolution']).toBe('null');
@@ -391,10 +471,21 @@ describe('serializeQuest', () => {
 		expect(fm['claimed_by']).toBe('null');
 		expect(fm['claimed_by_id']).toBe('null');
 		expect(fm['resolved_at']).toBe('null');
+		expect(fm['lead_time_ticks']).toBe('null');
+		expect(fm['queue_time_ticks']).toBe('null');
+		expect(fm['cycle_time_ticks']).toBe('null');
+		expect(fm['wait_ratio']).toBe('null');
+		expect(fm['reward_per_tick']).toBe('null');
+		expect(fm['met_sla']).toBe('null');
+		expect(fm['size']).toBe('null');
+		expect(fm['reclaim_count']).toBe('0');
+		expect(fm['touched_by_count']).toBe('0');
+		expect(fm['stage']).toBe('waiting');
+		expect(fm['outcome']).toBe('pending');
 	});
 
-	it('emits the open-state tag for unresolved quests', () => {
-		const entry: QuestLogEntry = {
+	it('emits the active-stage tag for unresolved quests', () => {
+		const entry = mkEntry({
 			questId: 'q1',
 			type: 'supply',
 			facilityId: 'loc-market',
@@ -405,34 +496,36 @@ describe('serializeQuest', () => {
 			state: 'claimed',
 			claimedBy: 'agent-bram',
 			claimedTick: 5,
-			resolvedTick: null,
-			resolution: null,
+			firstClaimedBy: 'agent-bram',
+			firstClaimedTick: 5,
+			firstClaimedAt: Date.UTC(2026, 0, 1),
+			claimers: ['agent-bram'],
 			timeline: [{ tick: 0, wallClock: Date.UTC(2026, 0, 1), type: 'QuestGenerated', message: 'Generated' }],
-		};
+		});
 		const fm = parseFrontmatter(serializeQuest(entry, resolveName));
-		expect(fm['tags']).toBe('quest,quest/supply,quest/claimed');
+		// Expect baseline + stage/outcome tags for an active claimed quest
+		expect(fm['tags']).toContain('quest');
+		expect(fm['tags']).toContain('quest/supply');
+		expect(fm['tags']).toContain('quest/claimed');
+		expect(fm['tags']).toContain('quest/stage/active');
+		expect(fm['tags']).toContain('quest/outcome/pending');
 	});
 
 	it('quotes YAML strings with special characters', () => {
 		const specialResolve = (id: string): string => id === 'loc-weird' ? "Bob's: Workshop" : id;
-		const entry: QuestLogEntry = {
+		const entry = mkEntry({
 			questId: 'q1',
 			type: 'repair',
 			facilityId: 'loc-weird',
-			itemId: null,
-			quantity: 0,
-			reward: 10,
 			createdTick: 0,
 			state: 'completed',
-			claimedBy: null,
-			claimedTick: null,
 			resolvedTick: 5,
 			resolution: 'completed',
 			timeline: [
 				{ tick: 0, wallClock: Date.UTC(2026, 0, 1), type: 'QuestGenerated', message: 'Generated' },
 				{ tick: 5, wallClock: Date.UTC(2026, 0, 1), type: 'QuestCompleted', message: 'Completed' },
 			],
-		};
+		});
 		const md = serializeQuest(entry, specialResolve);
 		// The "Bob's: Workshop" string contains a colon followed by space — must be quoted
 		expect(md).toContain('facility: "Bob\'s: Workshop"');
@@ -452,25 +545,235 @@ describe('serializeQuest', () => {
 	});
 
 	it('shows "(no events recorded)" for empty timeline', () => {
-		const entry: QuestLogEntry = {
+		const entry = mkEntry({
 			questId: 'q1',
 			type: 'supply',
 			facilityId: 'loc-market',
-			itemId: null,
-			quantity: 1,
-			reward: 10,
 			createdTick: 0,
-			state: 'open',
-			claimedBy: null,
-			claimedTick: null,
-			resolvedTick: null,
-			resolution: null,
-			timeline: [],
-		};
+		});
 		const md = serializeQuest(entry, resolveName);
 		expect(md).toContain('(no events recorded)');
 		// Empty timeline → created_at is null
 		const fm = parseFrontmatter(md);
 		expect(fm['created_at']).toBe('null');
+	});
+});
+
+describe('computeFlowMetrics', () => {
+	it('classifies an open quest as waiting/pending with null metrics', () => {
+		const m = computeFlowMetrics(mkEntry({ questId: 'q1', type: 'supply', facilityId: 'loc-market', createdTick: 0 }));
+		expect(m.stage).toBe('waiting');
+		expect(m.outcome).toBe('pending');
+		expect(m.leadTimeTicks).toBeNull();
+		expect(m.queueTimeTicks).toBeNull();
+		expect(m.cycleTimeTicks).toBeNull();
+		expect(m.waitRatio).toBeNull();
+		expect(m.rewardPerTick).toBeNull();
+		expect(m.metSla).toBeNull();
+		expect(m.size).toBeNull();
+	});
+
+	it('classifies a claimed-but-not-done quest as active', () => {
+		const m = computeFlowMetrics(mkEntry({
+			questId: 'q1', type: 'supply', facilityId: 'loc-market', createdTick: 0,
+			state: 'claimed', firstClaimedTick: 5, claimedTick: 5, firstClaimedBy: 'agent-bram', claimedBy: 'agent-bram',
+		}));
+		expect(m.stage).toBe('active');
+		expect(m.outcome).toBe('pending');
+	});
+
+	it('computes lead/queue/cycle time for a straight-through completed quest', () => {
+		const m = computeFlowMetrics(mkEntry({
+			questId: 'q1', type: 'supply', facilityId: 'loc-market',
+			reward: 30, createdTick: 10,
+			firstClaimedTick: 20, claimedTick: 20,
+			resolvedTick: 100, resolution: 'completed', state: 'completed',
+		}));
+		expect(m.leadTimeTicks).toBe(90);  // 100 - 10
+		expect(m.queueTimeTicks).toBe(10); // 20 - 10
+		expect(m.cycleTimeTicks).toBe(80); // 100 - 20
+		expect(m.waitRatio).toBeCloseTo(10 / 90, 4);
+		expect(m.rewardPerTick).toBeCloseTo(30 / 80, 4);
+		expect(m.outcome).toBe('success');
+		expect(m.stage).toBe('done');
+	});
+
+	it('classifies size by cycle time', () => {
+		function sizeForCycle(cycle: number): string | null {
+			return computeFlowMetrics(mkEntry({
+				questId: 'q', type: 'repair', facilityId: 'loc-x',
+				createdTick: 0, firstClaimedTick: 0, claimedTick: 0,
+				resolvedTick: cycle, resolution: 'completed', state: 'completed',
+			})).size;
+		}
+		expect(sizeForCycle(30)).toBe('small');
+		expect(sizeForCycle(60)).toBe('small');
+		expect(sizeForCycle(61)).toBe('medium');
+		expect(sizeForCycle(240)).toBe('medium');
+		expect(sizeForCycle(241)).toBe('large');
+		expect(sizeForCycle(600)).toBe('large');
+		expect(sizeForCycle(601)).toBe('xl');
+		expect(sizeForCycle(5000)).toBe('xl');
+	});
+
+	it('metSla is true for on-time completions, false for expired quests', () => {
+		const onTime = computeFlowMetrics(mkEntry({
+			questId: 'q1', type: 'supply', facilityId: 'loc-market',
+			createdTick: 0, expiryTick: 100,
+			firstClaimedTick: 5, claimedTick: 5,
+			resolvedTick: 50, resolution: 'completed', state: 'completed',
+		}));
+		expect(onTime.metSla).toBe(true);
+
+		const expired = computeFlowMetrics(mkEntry({
+			questId: 'q2', type: 'supply', facilityId: 'loc-market',
+			createdTick: 0, expiryTick: 100,
+			resolvedTick: 120, resolution: 'expired', state: 'expired',
+		}));
+		expect(expired.metSla).toBe(false);
+	});
+
+	it('metSla is null when expiry_tick is missing', () => {
+		const m = computeFlowMetrics(mkEntry({
+			questId: 'q1', type: 'supply', facilityId: 'loc-market',
+			createdTick: 0,
+			firstClaimedTick: 5, claimedTick: 5,
+			resolvedTick: 50, resolution: 'completed', state: 'completed',
+		}));
+		expect(m.metSla).toBeNull();
+	});
+
+	it('metSla is false when completion happens past expiry', () => {
+		const m = computeFlowMetrics(mkEntry({
+			questId: 'q1', type: 'repair', facilityId: 'loc-x',
+			createdTick: 0, expiryTick: 50,
+			firstClaimedTick: 10, claimedTick: 10,
+			resolvedTick: 60, resolution: 'completed', state: 'completed',
+		}));
+		expect(m.metSla).toBe(false);
+		expect(m.outcome).toBe('success'); // still counts as completed, just missed SLA
+	});
+
+	it('rewardPerTick is null for non-success outcomes', () => {
+		const m = computeFlowMetrics(mkEntry({
+			questId: 'q1', type: 'repair', facilityId: 'loc-x',
+			reward: 50, createdTick: 0, expiryTick: 100,
+			firstClaimedTick: 10, claimedTick: 10,
+			resolvedTick: 30, resolution: 'abandoned', state: 'abandoned',
+		}));
+		expect(m.rewardPerTick).toBeNull();
+	});
+
+	it('rewardPerTick handles zero cycle time safely', () => {
+		const m = computeFlowMetrics(mkEntry({
+			questId: 'q1', type: 'supply', facilityId: 'loc-market',
+			reward: 10, createdTick: 0,
+			firstClaimedTick: 5, claimedTick: 5,
+			resolvedTick: 5, resolution: 'completed', state: 'completed',
+		}));
+		expect(m.cycleTimeTicks).toBe(0);
+		expect(m.rewardPerTick).toBeNull(); // guard against divide-by-zero
+	});
+});
+
+describe('serializeQuest — flow metrics integration', () => {
+	it('emits flow metrics fields with correct values for a completed quest', () => {
+		const createdMs = Date.UTC(2026, 3, 11, 12, 0, 0);
+		const firstClaimedMs = createdMs + 10_000;
+		const resolvedMs = createdMs + 120_000;
+		const entry = mkEntry({
+			questId: 'q1', type: 'supply', facilityId: 'loc-market',
+			itemId: 'food', quantity: 5,
+			reward: 100, createdTick: 0, expiryTick: 200,
+			firstClaimedTick: 20, claimedTick: 20,
+			firstClaimedBy: 'agent-bram', claimedBy: 'agent-bram',
+			firstClaimedAt: firstClaimedMs,
+			claimers: ['agent-bram'],
+			resolvedTick: 100, resolution: 'completed', state: 'completed',
+			timeline: [
+				{ tick: 0, wallClock: createdMs, type: 'QuestGenerated', message: 'Generated' },
+				{ tick: 20, wallClock: firstClaimedMs, type: 'QuestClaimed', message: 'Claimed by Bram' },
+				{ tick: 100, wallClock: resolvedMs, type: 'QuestCompleted', message: 'Completed by Bram (+100g)' },
+			],
+		});
+		const md = serializeQuest(entry, resolveName);
+		// Parse the frontmatter using a local helper
+		const fm = Object.fromEntries(
+			md.split('\n---\n')[0]!.split('\n').slice(1)
+				.map(l => /^([a-z_]+):\s*(.*)$/.exec(l))
+				.filter((m): m is RegExpExecArray => m !== null)
+				.map(m => [m[1], m[2]]),
+		);
+
+		expect(fm['stage']).toBe('done');
+		expect(fm['outcome']).toBe('success');
+		expect(fm['lead_time_ticks']).toBe('100');
+		expect(fm['queue_time_ticks']).toBe('20');
+		expect(fm['cycle_time_ticks']).toBe('80');
+		expect(fm['wait_ratio']).toBe('0.2000');
+		expect(fm['reward_per_tick']).toBe('1.2500');
+		expect(fm['met_sla']).toBe('true');
+		expect(fm['size']).toBe('medium');
+		expect(fm['reclaim_count']).toBe('0');
+		expect(fm['touched_by_count']).toBe('1');
+		expect(fm['first_claimed_tick']).toBe('20');
+		expect(fm['first_claimed_by']).toBe('Bram');
+		expect(fm['first_claimed_by_id']).toBe('agent-bram');
+		expect(fm['first_claimed_at']).toBe('2026-04-11T12:00:10');
+		expect(fm['expiry_tick']).toBe('200');
+	});
+
+	it('emits reclaim tags and correct touched_by count for a re-claimed quest', () => {
+		const createdMs = Date.UTC(2026, 3, 11, 12, 0, 0);
+		const entry = mkEntry({
+			questId: 'q1', type: 'supply', facilityId: 'loc-market',
+			reward: 15, createdTick: 0, expiryTick: 300,
+			firstClaimedTick: 10,
+			firstClaimedBy: 'agent-bram',
+			firstClaimedAt: createdMs + 10_000,
+			claimedTick: 50, claimedBy: 'agent-alice',
+			claimers: ['agent-bram', 'agent-alice'],
+			reclaimCount: 1,
+			resolvedTick: 100, resolution: 'completed', state: 'completed',
+			timeline: [
+				{ tick: 0, wallClock: createdMs, type: 'QuestGenerated', message: 'Generated' },
+				{ tick: 10, wallClock: createdMs + 10_000, type: 'QuestClaimed', message: 'Claimed by Bram' },
+				{ tick: 30, wallClock: createdMs + 30_000, type: 'QuestAbandoned', message: 'Abandoned by Bram (abandoned)' },
+				{ tick: 50, wallClock: createdMs + 50_000, type: 'QuestClaimed', message: 'Re-claimed by Alice' },
+				{ tick: 100, wallClock: createdMs + 100_000, type: 'QuestCompleted', message: 'Completed by Alice (+15g)' },
+			],
+		});
+		const md = serializeQuest(entry, resolveName);
+		expect(md).toContain('reclaim_count: 1');
+		expect(md).toContain('touched_by_count: 2');
+		expect(md).toContain('quest/reclaimed');
+		// Queue time = 10 - 0 = 10 (from creation to FIRST claim, not reclaim)
+		expect(md).toContain('queue_time_ticks: 10');
+		// Cycle time = 100 - 10 = 90 (first claim to resolution, including abandon period)
+		expect(md).toContain('cycle_time_ticks: 90');
+		// Lead time = 100 - 0
+		expect(md).toContain('lead_time_ticks: 100');
+	});
+
+	it('emits sla/met and sla/missed tags', () => {
+		const onTime = mkEntry({
+			questId: 'q1', type: 'supply', facilityId: 'loc-market',
+			createdTick: 0, expiryTick: 100,
+			firstClaimedTick: 5, claimedTick: 5,
+			firstClaimedBy: 'agent-bram', claimedBy: 'agent-bram',
+			claimers: ['agent-bram'],
+			resolvedTick: 50, resolution: 'completed', state: 'completed',
+		});
+		expect(serializeQuest(onTime, resolveName)).toContain('quest/sla/met');
+
+		const late = mkEntry({
+			questId: 'q2', type: 'supply', facilityId: 'loc-market',
+			createdTick: 0, expiryTick: 50,
+			firstClaimedTick: 5, claimedTick: 5,
+			firstClaimedBy: 'agent-bram', claimedBy: 'agent-bram',
+			claimers: ['agent-bram'],
+			resolvedTick: 100, resolution: 'completed', state: 'completed',
+		});
+		expect(serializeQuest(late, resolveName)).toContain('quest/sla/missed');
 	});
 });
