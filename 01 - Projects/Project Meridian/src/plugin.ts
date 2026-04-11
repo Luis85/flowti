@@ -13,6 +13,7 @@ import type { GameCoreDeps } from './domain/core/game-deps.js';
 import type { BatchableEventBus } from './infrastructure/engine/batchable-event-bus.js';
 import type { LogLevel } from './domain/core/logger.js';
 import type { GameConfig } from './domain/schemas/game-config-schema.js';
+import type { AgentActor } from './infrastructure/entity/agent-actor.js';
 
 export class MeridianPlugin extends Plugin {
 	private settings: MeridianSettings = { ...DEFAULT_SETTINGS };
@@ -196,8 +197,12 @@ export class MeridianPlugin extends Plugin {
 			this.gameDeps.writeFile = writeFile;
 		}
 
-		// Create inspector deps — used by MeridianBTInspectorView to access agents and vault
-		if (this.gameDeps !== null) {
+		// Create inspector deps — used by MeridianBTInspectorView to access agents and vault.
+		// Narrow gameDeps and logger to locals so the inspector deps don't need non-null
+		// assertions; the callbacks close over the stable local references.
+		const gameDeps = this.gameDeps;
+		const logger = this.logger;
+		if (gameDeps !== null && logger !== null) {
 			const vaultAdapter = {
 				list: async (path: string): Promise<string[]> => {
 					const exists = await this.app.vault.adapter.exists(path);
@@ -209,20 +214,24 @@ export class MeridianPlugin extends Plugin {
 					return this.app.vault.adapter.read(path);
 				},
 			};
+			const getAgents = (): AgentActor[] => {
+				// Aggregate across all game leaves in case the user has split the view.
+				// In practice there's always one, but this avoids silently dropping work.
+				const agents: AgentActor[] = [];
+				for (const leaf of this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE)) {
+					const view = leaf.view as MeridianGameView;
+					agents.push(...view.getAgents());
+				}
+				return agents;
+			};
 			this.inspectorDeps = {
-				getAgents: () => {
-					const gameLeaves = this.app.workspace.getLeavesOfType(MERIDIAN_VIEW_TYPE);
-					const first = gameLeaves[0];
-					if (first === undefined) return [];
-					const view = first.view as MeridianGameView;
-					return view.getAgents();
-				},
-				getAgentById: (id: string) => {
-					return this.inspectorDeps?.getAgents().find(a => a.agentId === id);
-				},
+				getAgents,
+				getAgentById: (id: string) => getAgents().find(a => a.agentId === id),
 				vault: vaultAdapter,
-				logger: this.logger!,
-				dataRoot: () => this.gameDeps?.dataRoot ?? '',
+				logger,
+				// Live getter: game-view mutates gameDeps.dataRoot during initializeWorld,
+				// so we need to re-read it each time (don't capture the empty initial value).
+				dataRoot: () => gameDeps.dataRoot,
 			};
 			// Refresh any already-open inspector views with the new deps
 			for (const leaf of this.app.workspace.getLeavesOfType(MERIDIAN_BT_INSPECTOR_VIEW_TYPE)) {
