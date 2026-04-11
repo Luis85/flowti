@@ -197,48 +197,6 @@ root {
             action [ClaimQuest]
         }
 
-        /* P4.45: Repair equipment with tools when charges low */
-        sequence {
-            flip { condition [IsNighttime] }
-            flip { condition [IsRecovering] }
-            condition [NeedsRepair]
-            selector {
-                /* Have tools — consume and repair */
-                sequence {
-                    condition [HasTools]
-                    action [RepairWithTools]
-                }
-                /* Buy tools first */
-                sequence {
-                    condition [CanAffordItem, "tools"]
-                    selector {
-                        sequence {
-                            condition [AtLocation, "market"]
-                            condition [FacilityHasStock, "tools"]
-                            action [BuyItem, "tools"]
-                        }
-                        action [SeekMarket]
-                    }
-                }
-            }
-        }
-
-        /* P4.5: Buy equipment if affordable, available, and not recovering */
-        sequence {
-            flip { condition [IsRecovering] }
-            flip { condition [IsNighttime] }
-            condition [NeedsEquipment]
-            condition [CanAffordItem, "equipment"]
-            selector {
-                sequence {
-                    condition [AtLocation, "market"]
-                    condition [FacilityHasStock, "equipment"]
-                    action [BuyItem, "equipment"]
-                }
-                action [SeekMarket]
-            }
-        }
-
         /* P4.6: Supply chain — haul goods between facilities */
         sequence {
             condition [IsWorkHours]
