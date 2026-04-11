@@ -14,7 +14,8 @@ const SPEED_LABELS: Record<number, string> = {
 	1: '1x (normal)',
 	2: '2x (fast)',
 	3: '3x (faster)',
-	5: '5x (fastest)',
+	5: '5x (very fast)',
+	10: '10x (fastest)',
 };
 
 export class MeridianSettingsTab extends PluginSettingTab {

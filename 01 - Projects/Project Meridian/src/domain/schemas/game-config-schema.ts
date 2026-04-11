@@ -309,9 +309,10 @@ const SocialConfigSchema = z.object({
 export const GameConfigSchema = z.object({
 	version: z.string().default('1.0.0'),
 	locale: z.string().default('en'),
-	// Baseline tick interval. 100ms = 10 ticks/sec. Lower values (down to min 20ms = 50 ticks/sec)
-	// are produced when the user raises gameSpeed above 1x.
-	tick_interval_ms: z.number().int().min(20).default(100),
+	// Baseline tick interval. 100ms = 10 ticks/sec. Lower values (down to min 10ms = 100 ticks/sec)
+	// are produced when the user raises gameSpeed above 1x. At 10x (the top setting) the
+	// effective interval is 10ms, which is aggressive but still feasible for a 3-agent world.
+	tick_interval_ms: z.number().int().min(10).default(100),
 	max_catch_up_ticks: z.number().int().min(1).default(3),
 	ticks_per_day: z.number().int().min(1).default(480),
 	mortality: z.boolean().default(false),

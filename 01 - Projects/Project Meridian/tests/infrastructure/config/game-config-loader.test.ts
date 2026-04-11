@@ -114,7 +114,8 @@ describe('loadGameConfig', () => {
 	});
 
 	it('returns error for invalid config values', () => {
-		const result = loadGameConfig('{ "tick_interval_ms": 10 }');
+		// Min is 10ms (= 100 ticks/sec at 10x speed). Anything below that is rejected.
+		const result = loadGameConfig('{ "tick_interval_ms": 5 }');
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe('CONFIG_SCHEMA_INVALID');
 	});
