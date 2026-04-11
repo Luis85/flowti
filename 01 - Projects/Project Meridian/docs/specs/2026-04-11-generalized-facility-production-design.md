@@ -1,6 +1,6 @@
 # Generalized Facility Production — Design
 
-**Status:** Draft (rev 3 — iteration 2 reviewer findings incorporated: orphan service visit cleanup, SeekWell fallback, incidental call sites table corrected)
+**Status:** Draft (rev 4 — iteration 3 reviewer findings incorporated: undefined FACILITY_INTERACT_RADIUS replaced with `memory.atLocation` co-location check, `SeekMarket`'s `loc.type === 'market'` filter added to incidental sites table, `SeekWell` filter shape pinned down)
 **Date:** 2026-04-11
 **Source:** Review of recording 2026-04-11-1639 + user requirements for generalized production/service/area-effect facility model
 **Scope:** Full refactor of the facility, production, recipe, and service subsystems — ~80 files touched, ~1400 LoC added, ~500 LoC deleted, ~120 new tests (plus ~100-150 existing tests rewritten in Phase 3)
@@ -410,11 +410,14 @@ ServiceSystem.execute(deps):
       // currentServiceVisit dangling. Without this guard the visit would
       // keep ticking from across the map, apply effects when the agent is
       // nowhere near the facility, and block re-entry indefinitely.
-      agentX = agent.pos.x; agentY = agent.pos.y
-      dx = agentX - location.position.x
-      dy = agentY - location.position.y
-      inRadius = (dx*dx + dy*dy) <= (FACILITY_INTERACT_RADIUS ** 2)
-      if agent.btAction !== 'use_service' or not inRadius or agent.insideFacility !== location.id:
+      //
+      // Co-location check mirrors the existing `Work` action's approach
+      // (bt-actions-work.ts:160-163): `memory.atLocation === location.id`
+      // is the canonical "agent is at this location" flag, set by the
+      // movement system when the agent reaches its target. No radius math
+      // is needed here — the movement system already owns that check and
+      // writes the result into `memory.atLocation`.
+      if agent.btAction !== 'use_service' or agent.memory.atLocation !== location.id or agent.insideFacility !== location.id:
         agent.insideFacility = null
         agent.currentServiceVisit = null
         continue   // do NOT apply effects, do NOT refund cost
@@ -429,7 +432,7 @@ ServiceSystem.execute(deps):
         emit 'ServiceDelivered'
 ```
 
-Visits are tracked via a new `memory.currentServiceVisit: { facilityId, ticksRemaining, costPaid } | null` field. `FACILITY_INTERACT_RADIUS` is the existing constant the movement system uses for "agent is at location".
+Visits are tracked via a new `memory.currentServiceVisit: { facilityId, ticksRemaining, costPaid } | null` field. The orphan guard uses `memory.atLocation` (maintained by the movement system) rather than introducing a new radius check — this keeps the co-location definition in one place. Any system that needs true radius math reads `deps.config.perception.interaction_radius` directly (as `FacilitySystem:278`, `rest-system.ts:69`, `trade-system.ts:227`, `socialize-system.ts:19`, and `bt-actions-social.ts:14` already do).
 
 **Cost was debited upfront in `UseService` (see below), not on completion.** That's why the completion branch above doesn't touch the wallet — it would be a double-charge. If the agent leaves mid-visit, the orphan guard clears the visit without a refund, matching the "paid to enter" model.
 
@@ -728,6 +731,7 @@ The spec removes `location.type`, `location.production`, and `location.leisure` 
 | `src/infrastructure/engine/debug-overlay.ts` | `loc.type` (232, 257, 258, 820, 833) — 5 sites; drives `LOCATION_ICONS` lookup + inline display strings. `loc.production?.ticks_per_cycle` (239, 819); `loc.production !== null` (821, 971); `loc.production.<...>` (822, 972) — anomaly detector + progress display | Add a `FACILITY_TYPE_ICONS: Record<string, string>` map keyed by `facility_type.id`; progress reads `recipe.ticks_per_cycle`; anomaly detector reads `facility_type.primary_job` | Phase 2 (production refs) + Phase 3 (icon refs) |
 | `src/infrastructure/engine/game-view.ts` | `loc.production !== null` (178, 423); `loc.production.funding` (181); `loc.type === 'rest'` (192); `loc.type === 'leisure'` (203); `loc.type === 'market'` (214) | `facility_type.kind === 'production'` + `facility_type.default_fund` for bootstrap; `facility_type.kind === 'service'` for rest/leisure grouping; `facility_type.id === 'market_stall'` for the market branch | Phase 2 (production refs) + Phase 3 (type refs) |
 | `src/infrastructure/engine/world-loader.ts` | `loc.type` (206); `loc.production !== null` (207); `loc.production.job` (209); `loc.production.output.item_id` (210); `loc.production.input` (211) — builds the projected `WorldLocation` shape consumed by the BT perception layer | Projection now includes `facility_type: string` and (for production facilities) the resolved `active_recipe` data from the recipe registry. No more separate `type` field. | Phase 2 |
+| `src/infrastructure/entity/bt-actions-economy.ts` | `SeekMarket` filter `l.type === 'market'` (102) — existing action, kept but retargeted | Replace with `l.facility_type === 'market_stall'` reading the projected field from the new `WorldLocation` shape. Same file gets the new `SeekWell()` action added alongside, filtering `l.facility_type === 'well' && l.stock.some(s => s.item_id === 'water' && s.quantity > 0)`. | Phase 3 |
 | `src/infrastructure/entity/bt-actions-leisure.ts` | Entire file reads `loc.type === 'leisure'`/`'rest'` and `loc.leisure` for target selection | **File deleted in Phase 3.** `Wander` and `Idle` (the only non-leisure actions in the file) move to `bt-actions.ts` before deletion | Phase 3 |
 | `src/infrastructure/entity/bt-conditions-economy.ts` | `loc.production === null` (115); `loc.production.output` (119); `loc.production.input` (120) — in `KnowsSupplyRoute`, NOT in `FacilityHasStock` (which reads `facilityData.stock` directly and needs no change) | `KnowsSupplyRoute` reads `recipe.outputs`/`recipe.inputs` from the active recipe via registry lookup; `FacilityHasStock` is untouched | Phase 2 |
 | `src/infrastructure/systems/daily-report-system.ts` | `loc.production?.wage` (62); `loc.production?.job` (63) | `facility_type.default_wage` + `facility_type.primary_job` | Phase 2 |
@@ -819,7 +823,7 @@ sequence {
 - `ChooseServiceFacility(intent: string)` — picks a service facility from nearby by matching intent ('leisure', 'rest', 'bathhouse') to its primary effect type
 - `SeekService()` — moves toward the chosen service facility; same shape as existing `SeekLeisureTarget`
 - `UseService()` — initiates a service visit: checks `cost_per_visit`, validates wallet, debits cost upfront, sets `memory.currentServiceVisit = {facilityId, ticksRemaining: ticks_per_visit, costPaid: true}`, commits the agent with `committedAction: 'use_service'`
-- `SeekWell()` — (goes in `bt-actions-economy.ts` alongside `SeekMarket`) moves toward the nearest Well facility with water in stock. Same shape as `SeekMarket`. Separate action rather than `SeekFacility("well")` parameterization because the MDSL parser treats action names atomically and we already have `SeekMarket` as precedent.
+- `SeekWell()` — (goes in `bt-actions-economy.ts` alongside `SeekMarket`) moves toward the nearest Well facility with water in stock. Filter: `l.facility_type === 'well' && l.stock.some(s => s.item_id === 'water' && s.quantity > 0)`. If none in perception, fall back to full-map search (same pattern as `SeekRest`'s fallback). Returns `FAILED` only when no Well exists anywhere or all Wells are empty — the P0.3 selector then drops through to the `SeekMarket` branch. Separate action rather than `SeekFacility("well")` parameterization because the MDSL parser treats action names atomically and we already have `SeekMarket` as precedent. After Phase 3, `SeekMarket`'s own filter also switches from `l.type === 'market'` to `l.facility_type === 'market_stall'` (see incidental sites table).
 
 **BT actions to delete** (in Phase 3): `FillWaterskin`, `ChooseLeisure`, `SeekLeisureTarget`, `Leisure`, `Rest`, `SeekRest`, `SeekWater`.
 
