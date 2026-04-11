@@ -42,12 +42,14 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	let cachedFacilities: PerceivedFacility[] | null = null;
 	let cachedFacilitiesTick = -1;
 
-	// Wake/sleep stagger offsets
+	// Wake/sleep stagger offsets — widened from dawn/2 to full dawn window so
+	// agents diverge more on rest schedules and break lockstep patterns. See
+	// recording 2026-04-11-1339 where all 3 agents rested simultaneously 16+ times.
 	const dawnDuration = config.day_night.dawn.end - config.day_night.dawn.start + 1;
 	const staggerSeed = actor.agentId.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
-	const wakeOffset = Math.abs(staggerSeed) % Math.floor(dawnDuration / 2);
+	const wakeOffset = Math.abs(staggerSeed) % Math.max(dawnDuration - 1, 1);
 	const duskDuration = config.day_night.dusk.end - config.day_night.dusk.start + 1;
-	const personalSleepOffset = Math.abs(staggerSeed * 7) % Math.floor(duskDuration / 2);
+	const personalSleepOffset = Math.abs(staggerSeed * 7) % Math.max(duskDuration - 1, 1);
 
 	// Personal thresholds from GURPS attributes (clamped to PERSONAL_THRESHOLD_CAP — must stay below need max 100)
 	const attrs = actor.get(AttributesComponent).state;

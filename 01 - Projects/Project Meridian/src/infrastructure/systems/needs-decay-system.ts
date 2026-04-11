@@ -20,6 +20,25 @@ function getActivityModifiers(
 	};
 }
 
+/**
+ * Deterministic per-agent, per-tick jitter in the range [0.95, 1.05].
+ * Same (agentId, tick) always returns the same value so replay is stable.
+ * Used to prevent identical agents from converging to identical need states
+ * and causing lockstep behavior (see recording 2026-04-11-1339 — 16+
+ * "all 3 agents resting simultaneously" anomalies).
+ */
+function computeJitter(agentId: string, tick: number): number {
+	// FNV-1a-ish string hash to a 32-bit int, then mix with tick
+	let h = 2166136261 >>> 0;
+	for (let i = 0; i < agentId.length; i++) {
+		h ^= agentId.charCodeAt(i);
+		h = (h * 16777619) >>> 0;
+	}
+	h = ((h ^ (tick * 19349663)) * 2654435761) >>> 0;
+	// Map to ±5% — (h % 11) gives 0..10, minus 5 gives -5..5
+	return 1 + ((h % 11) - 5) / 100;
+}
+
 export function createNeedsDecaySystem(
 	entities: () => AgentActor[],
 ): GameSystem {
@@ -66,6 +85,7 @@ export function createNeedsDecaySystem(
 						socialAttribute: social.state.charisma,
 						thirstAttribute: attrs.state.HT,
 						modifiers: mergedMods,
+						jitterFactor: computeJitter(entity.agentId, deps.tickCount),
 					},
 					deps.config.needs,
 				);

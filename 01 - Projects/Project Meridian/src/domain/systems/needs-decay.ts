@@ -9,6 +9,13 @@ export interface NeedsDecayInput {
 	socialAttribute: number;
 	thirstAttribute: number;
 	modifiers: NeedsModifiers | null;
+	/**
+	 * Optional per-tick, per-agent multiplier (symmetric around 1.0) that prevents
+	 * identical agents from converging to identical need states. Intended to be
+	 * computed from agent id + tick so it's deterministic and replay-stable.
+	 * Default = 1.0 (no jitter).
+	 */
+	jitterFactor?: number;
 }
 
 export interface NeedsModifiers {
@@ -92,10 +99,11 @@ export function applyNeedsDecay(
 		},
 	];
 
+	const jitter = input.jitterFactor ?? 1.0;
 	for (const need of needs) {
 		const oldValue = state[need.key];
 		if (oldValue === 0) continue;
-		const decay = (need.decayRate / (need.attribute / 10)) * need.modifierScale;
+		const decay = (need.decayRate / (need.attribute / 10)) * need.modifierScale * jitter;
 		const newValue = round2(clamp(oldValue - decay, 0, 100));
 		state[need.key] = newValue;
 		events.push(...eventsForNeed(need, oldValue, newValue));
