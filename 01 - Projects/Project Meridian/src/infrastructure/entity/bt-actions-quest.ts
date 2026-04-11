@@ -137,34 +137,58 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 			const quest = memory.activeQuest;
 
 			if (quest.type === 'supply' || quest.type === 'restock') {
-				// Check agent has required item
 				if (quest.itemId === null) return FAILED;
-				const inv = actor.get(InventoryComponent);
-				const item = inv.state.items.find(i => i.item_id === quest.itemId);
-				if (item === undefined || item.quantity < quest.quantity) return FAILED;
 
-				// Transfer item from agent to facility
-				const newItems = inv.state.items
-					.map(i => {
-						if (i.item_id !== quest.itemId) return { ...i };
-						const newQty = i.quantity - quest.quantity;
-						return newQty > 0 ? { ...i, quantity: newQty } : null;
-					})
-					.filter((i): i is NonNullable<typeof i> => i !== null);
-				inv.state = { ...inv.state, items: newItems };
-				inv.markDirty();
+				// Prefer questCargo — the agent specifically picked this up for the quest.
+				// Falls back to personal inventory for supply quests where the agent may
+				// have bought the item for themselves.
+				const cargo = memory.questCargo;
+				const useQuestCargo = cargo !== null
+					&& cargo.questId === quest.id
+					&& cargo.itemId === quest.itemId
+					&& cargo.quantity >= quest.quantity;
 
-				// Add to facility stock
-				const locActors = getLocationActors();
-				const facActor = locActors.get(quest.facilityId);
-				if (facActor !== undefined) {
-					const fac = facActor.get(FacilityComponent);
-					const hasItem = fac.state.stock.some(s => s.item_id === quest.itemId);
-					const newStock = hasItem
-						? fac.state.stock.map(s => s.item_id === quest.itemId ? { ...s, quantity: s.quantity + quest.quantity } : { ...s })
-						: [...fac.state.stock.map(s => ({ ...s })), { item_id: quest.itemId, quantity: quest.quantity }];
-					fac.state = { ...fac.state, stock: newStock };
-					fac.markDirty();
+				if (useQuestCargo) {
+					// Transfer from questCargo to facility stock
+					const locActors = getLocationActors();
+					const facActor = locActors.get(quest.facilityId);
+					if (facActor !== undefined) {
+						const fac = facActor.get(FacilityComponent);
+						const hasItem = fac.state.stock.some(s => s.item_id === quest.itemId);
+						const newStock = hasItem
+							? fac.state.stock.map(s => s.item_id === quest.itemId ? { ...s, quantity: s.quantity + quest.quantity } : { ...s })
+							: [...fac.state.stock.map(s => ({ ...s })), { item_id: quest.itemId, quantity: quest.quantity }];
+						fac.state = { ...fac.state, stock: newStock };
+						fac.markDirty();
+					}
+					memory.questCargo = null;
+				} else {
+					// Fall back to personal inventory
+					const inv = actor.get(InventoryComponent);
+					const item = inv.state.items.find(i => i.item_id === quest.itemId);
+					if (item === undefined || item.quantity < quest.quantity) return FAILED;
+
+					const newItems = inv.state.items
+						.map(i => {
+							if (i.item_id !== quest.itemId) return { ...i };
+							const newQty = i.quantity - quest.quantity;
+							return newQty > 0 ? { ...i, quantity: newQty } : null;
+						})
+						.filter((i): i is NonNullable<typeof i> => i !== null);
+					inv.state = { ...inv.state, items: newItems };
+					inv.markDirty();
+
+					const locActors = getLocationActors();
+					const facActor = locActors.get(quest.facilityId);
+					if (facActor !== undefined) {
+						const fac = facActor.get(FacilityComponent);
+						const hasItem = fac.state.stock.some(s => s.item_id === quest.itemId);
+						const newStock = hasItem
+							? fac.state.stock.map(s => s.item_id === quest.itemId ? { ...s, quantity: s.quantity + quest.quantity } : { ...s })
+							: [...fac.state.stock.map(s => ({ ...s })), { item_id: quest.itemId, quantity: quest.quantity }];
+						fac.state = { ...fac.state, stock: newStock };
+						fac.markDirty();
+					}
 				}
 			} else {
 				// Check repair progress
@@ -242,6 +266,7 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 			quest.state = 'completed';
 			deps.worldEntity().get(QuestBoardComponent).markDirty();
 			memory.activeQuest = null;
+			memory.questCargo = null;
 
 			eventBus.emit({
 				type: 'QuestCompleted',
@@ -280,6 +305,8 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 			quest.repairProgress = 0;
 			deps.worldEntity().get(QuestBoardComponent).markDirty();
 			memory.activeQuest = null;
+			// Drop any quest cargo — the quest is gone, don't keep stale cargo
+			memory.questCargo = null;
 
 			eventBus.emit({
 				type: 'QuestAbandoned',

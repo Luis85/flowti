@@ -53,6 +53,18 @@ export function createQuestConditions(ctx: ConditionContext): Pick<ConditionMeth
 			if (memory.activeQuest === null) return false;
 			if (memory.activeQuest.type === 'repair') return true;
 			if (memory.activeQuest.itemId === null) return false;
+
+			// Prefer questCargo — purpose-built for quest delivery
+			const cargo = memory.questCargo;
+			if (cargo !== null
+				&& cargo.questId === memory.activeQuest.id
+				&& cargo.itemId === memory.activeQuest.itemId
+				&& cargo.quantity >= memory.activeQuest.quantity) {
+				return true;
+			}
+
+			// Fall back to personal inventory for supply quests where the agent
+			// may have bought the item for themselves
 			const inv = actor.get(InventoryComponent).state.items;
 			const item = inv.find(i => i.item_id === memory.activeQuest!.itemId);
 			return item !== undefined && item.quantity >= memory.activeQuest.quantity;
