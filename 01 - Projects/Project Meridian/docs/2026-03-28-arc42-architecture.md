@@ -605,21 +605,22 @@ BehaviorTreeSystem (tick 5)
 │   │     Quests: HasQuest(), QuestAvailable(), QuestAtFacility(), QuestCargoReady()
 │   │     Cargo: HasCargo(), CargoDestinationNearby(), FacilityNeedsSupply(),
 │   │       KnowsSupplyRoute()
+│   │     Service: IsUsingService()
 │   │     World: IsCommitted(), IsWorkHours(), IsNighttime(), IsRestDay(),
 │   │       IsMoodLow(), AtLocation(), NearAgentClose(), HasJob(), HasNoJob()
 │   │
 │   │   Actions:
-│   │     Life: Eat(), Drink(), Rest(), FillWaterskin()
+│   │     Life: Eat(), Drink(), Rest()
 │   │     Work: Work(), SeekWork(), ClaimJob(), ClaimBestJob(), SeekJobFacility(),
 │   │       SwitchJob(), ReleaseJob(), CollectProduced(), RepairWithTools()
 │   │     Economy: Buy(), BuyItem(), SellAtMarket(), SeekMarket(), SeekFood(),
-│   │       SeekBestFoodSource(), SeekRest(), SeekWater()
+│   │       SeekBestFoodSource(), SeekWell()
 │   │     Cargo (supply chain): PickupCargo(), DeliverCargo(), SeekDeliveryTarget(),
 │   │       SeekSupplySource()
 │   │     Quests: ClaimQuest(), SeekQuestFacility(), SeekQuestSource(),
 │   │       PickupForQuest(), WorkRepair(), CompleteQuest(), AbandonQuest()
 │   │     Social: Talk(), SeekSocial()
-│   │     Leisure: ChooseLeisure(), SeekLeisureTarget(), Leisure()
+│   │     Service: ChooseServiceFacility(), SeekService(), UseService()
 │   │     Control: ContinueCommitment(), Wander()
 │   │
 │   ├─ MDSL tree structure (base.mdsl + per-role branch):

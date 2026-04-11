@@ -633,30 +633,29 @@ Broken items can be repaired (repair service or workbench interaction) or replac
 
 ### 5.4 Recipe System
 
-Recipes are the backbone of production and construction. Each recipe is a markdown file with Zod-validated frontmatter.
+Recipes are the backbone of production and construction. Each recipe is a **JSON file in `recipes/`**, parsed and validated at world-load time via `RecipeSchema`, and registered in the recipe registry injected through `GameCoreDeps`. Production facilities reference a recipe by id via the `active_recipe` field on the location (e.g., `"active_recipe": "recipe-farm-wheat"`), and the `FacilitySystem` looks up the recipe at tick time from the registry.
 
-**Recipe Schema:**
+**Recipe Schema (JSON):**
 
-```yaml
----
-id: recipe-bread
-name: "Bake Bread"
-type: crafting         # crafting | processing | construction
-category: food
-inputs:
-  - item_id: item-flour
-    quantity: 2
-  - item_id: item-water
-    quantity: 1
-outputs:
-  - item_id: item-bread
-    quantity: 3
-required_facility: bakery
-required_skill: cooking
-required_level: 10
-time_ticks: 5
-xp_reward: 15
----
+```json
+{
+  "id": "recipe-bread",
+  "name": "Bake Bread",
+  "type": "crafting",
+  "category": "food",
+  "inputs": [
+    { "item_id": "item-flour", "quantity": 2 },
+    { "item_id": "item-water", "quantity": 1 }
+  ],
+  "outputs": [
+    { "item_id": "item-bread", "quantity": 3 }
+  ],
+  "required_facility": "bakery",
+  "required_skill": "cooking",
+  "required_level": 10,
+  "ticks_per_cycle": 5,
+  "xp_reward": 15
+}
 ```
 
 **Recipe types:**
@@ -687,33 +686,29 @@ Items with `spoilage_ticks` degrade in inventory. Each tick, the spoilage counte
 
 ### 6.1 Job Types
 
-Jobs take place at **facilities** (buildings/world objects). Each job has a schedule, a wage, and either produces **products** (items via recipes) or provides **services** (skill-based labor consumed on delivery).
+Jobs take place at **facilities** (buildings/world objects). Each facility is declared in `facility-types/*.json` and has a `kind` that determines how it behaves at tick time:
 
-**Product Jobs** — produce tangible items:
+- **`production`** — runs an `active_recipe` from the recipe registry, consumes inputs, produces outputs into facility stock, pays wages from its operating fund.
+- **`service`** — visitors pay `cost_per_visit` and receive staffed or unstaffed effects (mood, energy, social, skill XP) while occupying the facility for `ticks_per_visit`. Service quality degrades when the facility has no assigned worker but is still usable (degraded-mode effects).
+- **`area_effect`** — pulses a `modifier` (e.g., mood +2) over a `radius` every `ticks_per_pulse` to all agents in range, regardless of whether anyone visits. Guard posts are the canonical example.
 
-|Job|Facility|Produces|Recipe|
+Each job has a schedule, a wage, and a `primary_job` binding declared on its facility type. There are **11 facility types** in the current world:
+
+| Facility | Kind | Primary job | Funding |
 |---|---|---|---|
-|Farmer|Farm|Wheat, vegetables|Grow crops|
-|Miner|Mine|Ore, stone|Extract minerals|
-|Lumberjack|Lumber yard|Logs|Fell trees|
-|Miller|Mill|Flour|Wheat → Flour|
-|Baker|Bakery|Bread|Flour → Bread|
-|Blacksmith|Forge|Tools, weapons|Ingots → Equipment|
-|Carpenter|Workshop|Furniture, planks|Logs → Finished goods|
-|Weaver|Loom house|Cloth, clothes|Thread → Finished goods|
-|Brewer|Brewery|Drinks|Grain → Drinks|
+| farm | production | settler | facility |
+| workshop | production | craftsman | facility |
+| smithy | production | blacksmith | facility |
+| well | production | water_carrier | facility |
+| guard_post | area_effect | guard | treasury |
+| rest_inn | service | innkeeper | facility |
+| bathhouse | service | bathhouse_keeper | facility |
+| tavern | service | bartender | facility |
+| library | service | librarian | facility |
+| park | service | park_keeper | treasury |
+| market_stall | service | shopkeeper | facility |
 
-**Service Jobs** — provide intangible labor:
-
-|Job|Facility|Service|Quality Scaling|
-|---|---|---|---|
-|Shopkeeper|Shop|Sells goods to buyers|Chr affects prices|
-|Doctor|Clinic|Heals HP/treats conditions|IQ + medicine skill|
-|Teacher|School|Trains skills for other agents|IQ + relevant skill|
-|Guard (patrol)|Guard post|Area protection service|DX + combat skill|
-|Builder|Construction site|Constructs buildings (recipes)|ST + construction skill|
-|Entertainer|Tavern|Restores social need for visitors|Chr + performance skill|
-|Repairsmith|Repair shop|Restores equipment durability|DX + repair skill|
+**8 new jobs** were added alongside the facility-type system: `blacksmith`, `water_carrier`, `innkeeper`, `bartender`, `bathhouse_keeper`, `librarian`, `park_keeper`, `shopkeeper`. Each is registered in `game-config.json` under `jobs.definitions` with a `primary_attribute`, `skill`, and `base_wage`.
 
 ### 6.2 Job Schema
 
