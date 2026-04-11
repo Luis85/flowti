@@ -197,6 +197,8 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 			tickCount: 0,
 			writeFile: vi.fn(),
 			dataRoot: 'test-data',
+			getRecipeRegistry: () => new Map(),
+			getFacilityTypeRegistry: () => new Map(),
 		};
 
 		// Track events via listener (eventBus.history() is capped at 500 entries)

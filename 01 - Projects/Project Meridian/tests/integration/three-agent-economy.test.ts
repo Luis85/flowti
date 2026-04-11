@@ -126,6 +126,8 @@ function createDeps(tickCount = 1): GameCoreDeps {
 		tickCount,
 		writeFile: null,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => new Map(),
 	};
 }
 

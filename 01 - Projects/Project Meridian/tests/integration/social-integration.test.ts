@@ -65,6 +65,8 @@ function createDeps(eventBus: ReturnType<typeof createEventBus>, writeFile: Game
 		tickCount: 0,
 		writeFile,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => new Map(),
 	};
 }
 

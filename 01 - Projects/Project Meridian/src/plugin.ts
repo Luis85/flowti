@@ -176,6 +176,8 @@ export class MeridianPlugin extends Plugin {
 				tickCount: 0,
 				writeFile: null,
 				dataRoot: '',
+				getRecipeRegistry: () => new Map(),
+				getFacilityTypeRegistry: () => new Map(),
 			};
 		}
 

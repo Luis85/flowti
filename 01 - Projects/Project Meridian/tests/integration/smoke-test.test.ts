@@ -168,6 +168,8 @@ describe('Smoke Test — Real Data', () => {
 			tickCount: 60,
 			writeFile: null,
 			dataRoot: 'test-data',
+			getRecipeRegistry: () => new Map(),
+			getFacilityTypeRegistry: () => new Map(),
 		};
 
 		runner.tick(deps);
@@ -271,6 +273,8 @@ describe('Smoke Test — Real Data', () => {
 			tickCount: 60,
 			writeFile: null,
 			dataRoot: 'test-data',
+			getRecipeRegistry: () => new Map(),
+			getFacilityTypeRegistry: () => new Map(),
 		};
 
 		runner.tick(deps);

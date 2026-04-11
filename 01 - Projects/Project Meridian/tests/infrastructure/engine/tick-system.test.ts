@@ -22,6 +22,8 @@ function createMockDeps(): GameCoreDeps {
 		tickCount: 0,
 		writeFile: null,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => new Map(),
 	};
 }
 
