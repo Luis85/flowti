@@ -1,7 +1,7 @@
 {
 	"id": "tavern",
 	"kind": "service",
-	"primary_job": "settler",
+	"primary_job": "bartender",
 	"default_wage": 2,
 	"default_fund": 150,
 	"funding": "facility",

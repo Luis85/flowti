@@ -1,7 +1,7 @@
 {
 	"id": "bathhouse",
 	"kind": "service",
-	"primary_job": "settler",
+	"primary_job": "bathhouse_keeper",
 	"default_wage": 2,
 	"default_fund": 150,
 	"funding": "facility",

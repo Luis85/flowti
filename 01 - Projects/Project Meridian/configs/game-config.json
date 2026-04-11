@@ -85,9 +85,17 @@
 		"aptitude_baseline": 12,
 		"desperation_ticks": 200,
 		"definitions": {
-			"settler":   { "primary_attribute": "HT" },
-			"guard":     { "primary_attribute": "ST" },
-			"craftsman": { "primary_attribute": "DX" }
+			"settler":          { "primary_attribute": "HT" },
+			"guard":            { "primary_attribute": "ST" },
+			"craftsman":        { "primary_attribute": "DX" },
+			"blacksmith":       { "primary_attribute": "ST" },
+			"water_carrier":    { "primary_attribute": "HT" },
+			"innkeeper":        { "primary_attribute": "HT" },
+			"bartender":        { "primary_attribute": "HT" },
+			"bathhouse_keeper": { "primary_attribute": "HT" },
+			"librarian":        { "primary_attribute": "IQ" },
+			"park_keeper":      { "primary_attribute": "HT" },
+			"shopkeeper":       { "primary_attribute": "IQ" }
 		}
 	},
 	"day_night": {

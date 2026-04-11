@@ -1,7 +1,7 @@
 {
 	"id": "library",
 	"kind": "service",
-	"primary_job": "settler",
+	"primary_job": "librarian",
 	"default_wage": 1,
 	"default_fund": 100,
 	"funding": "facility",

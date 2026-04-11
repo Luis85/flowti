@@ -1,7 +1,7 @@
 {
 	"id": "market_stall",
 	"kind": "service",
-	"primary_job": "settler",
+	"primary_job": "shopkeeper",
 	"default_wage": 1,
 	"default_fund": 200,
 	"funding": "facility",

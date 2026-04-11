@@ -1,7 +1,7 @@
 {
 	"id": "rest_inn",
 	"kind": "service",
-	"primary_job": "settler",
+	"primary_job": "innkeeper",
 	"default_wage": 1,
 	"default_fund": 150,
 	"funding": "facility",
