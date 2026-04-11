@@ -232,8 +232,6 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set cachedAvailableQuest(v) { memory.cachedAvailableQuest = v; },
 		get insideFacility() { return memory.insideFacility; },
 		set insideFacility(v) { memory.insideFacility = v; },
-		get leisureTarget() { return memory.leisureTarget; },
-		set leisureTarget(v) { memory.leisureTarget = v; },
 		get serviceTarget() { return memory.serviceTarget; },
 		set serviceTarget(v) { memory.serviceTarget = v; },
 		get currentServiceVisit() { return memory.currentServiceVisit; },

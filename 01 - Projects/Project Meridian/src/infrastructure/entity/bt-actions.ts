@@ -3,7 +3,7 @@ import type { BehaviorAgentDeps } from './behavior-agent-factory.js';
 import type { AgentActor } from './agent-actor.js';
 import type { ActionResult, PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../domain/systems/behavior-agent.js';
 import type { ActionContext } from './bt-action-helpers.js';
-import { FAILED, RUNNING } from './bt-action-helpers.js';
+import { FAILED, RUNNING, beginAction } from './bt-action-helpers.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
 import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
@@ -13,7 +13,6 @@ import { createEconomyActions } from './bt-actions-economy.js';
 import { createSocialActions } from './bt-actions-social.js';
 import { createCargoActions } from './bt-actions-cargo.js';
 import { createQuestActions } from './bt-actions-quest.js';
-import { createLeisureActions } from './bt-actions-leisure.js';
 import { createServiceActions } from './bt-actions-service.js';
 
 /**
@@ -44,7 +43,7 @@ const TRAVEL_COMMITMENTS = new Set<string>([
 	'seek_delivery',
 	'seek_supply',
 	'seek_job_facility',
-	'seek_leisure',
+	'seek_service',
 	'seek_social',
 	'seek_work',
 ]);
@@ -83,9 +82,6 @@ export interface ActionMethods {
 	AbandonQuest(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
-	ChooseLeisure(): ActionResult;
-	SeekLeisureTarget(): ActionResult;
-	Leisure(): ActionResult;
 	ChooseServiceFacility(intent: string): ActionResult;
 	SeekService(): ActionResult;
 	UseService(): ActionResult;
@@ -110,6 +106,7 @@ export function createActions(
 	};
 
 	const { config } = deps;
+	const { getLocations } = deps;
 
 	return {
 		...createNeedsActions(ctx),
@@ -118,10 +115,31 @@ export function createActions(
 		...createSocialActions(ctx),
 		...createCargoActions(ctx),
 		...createQuestActions(ctx),
-		...createLeisureActions(ctx),
 		...createServiceActions(ctx),
 
 		// Cross-cutting utilities — small, kept inline
+		/** Available for custom BTs — not used in the default tree set. */
+		Idle(): ActionResult {
+			beginAction(ctx, 'idle');
+			return RUNNING;
+		},
+
+		Wander(): ActionResult {
+			beginAction(ctx, 'wander');
+			// Pick a random location to wander toward — enables exploration and discovery
+			if (memory.movementTarget === null) {
+				const allLocs = getLocations();
+				if (allLocs.length > 0) {
+					const idx = Math.floor(Math.random() * allLocs.length);
+					const target = allLocs[idx];
+					if (target !== undefined) {
+						memory.movementTarget = { id: target.id, type: 'location' };
+					}
+				}
+			}
+			return RUNNING;
+		},
+
 		ContinueCommitment(): ActionResult {
 			// Helper: break the current commitment, also clearing any in-flight
 			// service visit so ServiceSystem's orphan guard doesn't have to chase it.
@@ -159,10 +177,10 @@ export function createActions(
 				breakCommitment();
 				return FAILED;
 			}
-			// Break work/leisure/repair commitments when maintenance needs arise.
+			// Break work/repair commitments when maintenance needs arise.
 			// Repair is a long (25t) stationary action like work — an agent
 			// mid-repair shouldn't starve or dehydrate while fixing a building.
-			if (ca === 'work' || ca === 'leisure' || ca === 'repair') {
+			if (ca === 'work' || ca === 'repair') {
 				if (needs.hunger < memory.personalThresholds.hunger) {
 					breakCommitment();
 					return FAILED;

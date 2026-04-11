@@ -22,7 +22,6 @@ import { createDayNightSystem } from '../../src/infrastructure/systems/day-night
 import { createPerceptionSystem } from '../../src/infrastructure/systems/perception-system.js';
 import { createBehaviorTreeSystem } from '../../src/infrastructure/systems/behavior-tree-system.js';
 import { createMovementSystem } from '../../src/infrastructure/systems/movement-system.js';
-import { createRestSystem } from '../../src/infrastructure/systems/rest-system.js';
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
@@ -261,7 +260,6 @@ describe('Smoke Test — Real Data', () => {
 		runner.register(createMemoryDecaySystem(getAgents));
 		runner.register(createBehaviorTreeSystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations, getWorld, getLocationActors));
 		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 

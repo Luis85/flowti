@@ -29,7 +29,6 @@ import { createPerceptionSystem } from '../../src/infrastructure/systems/percept
 import { createMemoryDecaySystem } from '../../src/infrastructure/systems/memory-decay-system.js';
 import { createBehaviorTreeSystem } from '../../src/infrastructure/systems/behavior-tree-system.js';
 import { createMovementSystem } from '../../src/infrastructure/systems/movement-system.js';
-import { createRestSystem } from '../../src/infrastructure/systems/rest-system.js';
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { createFacilitySystem } from '../../src/infrastructure/systems/facility-system.js';
@@ -191,7 +190,6 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		tickRunner.register(createBehaviorTreeSystem(getAgents));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
-		tickRunner.register(createRestSystem(getAgents, getLocations, getWorld, getLocationActors));
 		tickRunner.register(createFeedSystem(getAgents, getWorld));
 		tickRunner.register(createSocializeSystem(getAgents));
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorld));

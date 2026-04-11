@@ -18,7 +18,7 @@ export function stubBehaviorAgent(
 	overrides: Partial<Pick<BehaviorAgent,
 		'btAction' | 'gossipPending' | 'knownLocations' | 'traitModifiers' |
 		'movementTarget' | 'atLocation' | 'currentRegion' | 'feedingAt' | 'restingAt' |
-		'leisureTarget' | 'commitmentTicks' | 'insideFacility'
+		'commitmentTicks' | 'insideFacility'
 	>> = {},
 ): BehaviorAgent {
 	const SUCCEEDED = 'mistreevous.succeeded' as const;
@@ -65,7 +65,6 @@ export function stubBehaviorAgent(
 		activeQuest: null,
 		cachedAvailableQuest: null,
 		insideFacility: false,
-		leisureTarget: null,
 		commitmentTicks: 0,
 		sleepDebt: 0,
 		ticksRestedThisDay: 0,
@@ -117,7 +116,6 @@ export function stubBehaviorAgent(
 		ShouldSleep() { return false; },
 		IsRestDay() { return false; },
 		IsMoodLow() { return false; },
-		IsAtLeisure() { return false; },
 
 		// Action stubs — all succeed
 		Eat() { return SUCCEEDED; },
@@ -154,9 +152,6 @@ export function stubBehaviorAgent(
 		AbandonQuest() { return FAILED; },
 		RepairWithTools() { return SUCCEEDED; },
 		ContinueCommitment() { return FAILED; },
-		ChooseLeisure() { return FAILED; },
-		SeekLeisureTarget() { return FAILED; },
-		Leisure() { return FAILED; },
 
 		// Utility
 		tickUnemployment() {},
@@ -189,7 +184,7 @@ export function attachBehaviorStubs(
 	overrides: Partial<Pick<BehaviorAgent,
 		'btAction' | 'gossipPending' | 'knownLocations' | 'traitModifiers' |
 		'movementTarget' | 'atLocation' | 'currentRegion' | 'feedingAt' | 'restingAt' |
-		'leisureTarget' | 'commitmentTicks' | 'insideFacility'
+		'commitmentTicks' | 'insideFacility'
 	>> = {},
 ): void {
 	agent.behaviorAgent = stubBehaviorAgent(agent, overrides);

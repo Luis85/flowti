@@ -5,7 +5,7 @@ import { MoodComponent } from '../components/mood-component.js';
 
 type ContextKeys =
 	| 'NearAgent' | 'NearAgentClose' | 'AtLocation' | 'NearLocation'
-	| 'IsAtLeisure' | 'IsUsingService' | 'IsDaytime' | 'IsNighttime' | 'IsWorkHours'
+	| 'IsUsingService' | 'IsDaytime' | 'IsNighttime' | 'IsWorkHours'
 	| 'ShouldSleep' | 'IsRestDay' | 'IsMoodLow' | 'IsDusk';
 
 export function createContextConditions(ctx: ConditionContext): Pick<ConditionMethods, ContextKeys> {
@@ -28,10 +28,6 @@ export function createContextConditions(ctx: ConditionContext): Pick<ConditionMe
 
 		NearLocation(type: string): boolean {
 			return resolveNearbyLocations().some(l => l.facility_type === type);
-		},
-
-		IsAtLeisure(): boolean {
-			return memory.btAction === 'leisure' && memory.atLocation === memory.leisureTarget;
 		},
 
 		IsUsingService(): boolean {

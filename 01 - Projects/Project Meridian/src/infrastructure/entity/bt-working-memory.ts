@@ -62,7 +62,6 @@ export interface WorkingMemory {
 	activeQuest: QuestRuntime | null;
 	cachedAvailableQuest: QuestRuntime | null;
 	insideFacility: boolean;
-	leisureTarget: string | null;
 	serviceTarget: string | null;
 	currentServiceVisit: ServiceVisit | null;
 	pendingAreaModifiers: AreaModifier[];
@@ -101,7 +100,6 @@ export function createWorkingMemory(priceMemoryMax: number): WorkingMemory {
 		activeQuest: null,
 		cachedAvailableQuest: null,
 		insideFacility: false,
-		leisureTarget: null,
 		serviceTarget: null,
 		currentServiceVisit: null,
 		pendingAreaModifiers: [],

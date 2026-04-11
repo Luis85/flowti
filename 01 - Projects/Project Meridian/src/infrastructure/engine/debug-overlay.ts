@@ -215,12 +215,6 @@ function renderAgentsPanel(deps: OverlayDeps): string {
 			lines.push(`→ <b>${targetData?.name ?? target.id}</b>`);
 		}
 
-		// Leisure target
-		if (ba.leisureTarget !== null) {
-			const leisureName = locations.find(l => l.id === ba.leisureTarget)?.name ?? ba.leisureTarget;
-			lines.push(`🎭 → ${leisureName}`);
-		}
-
 		lines.push('</div>');
 	}
 
@@ -727,11 +721,6 @@ function buildAgentSnapshot(
 	});
 	const jobFacilityLabel = jobFacility !== undefined ? ` @ ${jobFacility.name}` : (agent.job !== null ? ' (no facility assigned)' : '');
 	lines.push(`Job: ${agent.job ?? 'none'}${jobFacilityLabel} | Unemployed ticks: ${ba.unemployedTicks}`);
-	// Leisure target
-	if (ba.leisureTarget !== null) {
-		const leisureName = locationMap.get(ba.leisureTarget)?.name ?? ba.leisureTarget;
-		lines.push(`Leisure target: ${leisureName}`);
-	}
 	lines.push(`Known: ${ba.knownLocations.map(id => locationMap.get(id)?.name ?? id).join(', ') || 'none'}`);
 	// Resting at / Feeding at
 	const restFeedParts: string[] = [];

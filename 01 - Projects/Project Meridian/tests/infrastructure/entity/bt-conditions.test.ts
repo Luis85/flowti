@@ -1708,38 +1708,6 @@ describe('bt-conditions', () => {
 		});
 	});
 
-	describe('IsAtLeisure', () => {
-		it('returns true when btAction is leisure and atLocation matches leisureTarget', () => {
-			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const deps = setupDeps(actor, { config });
-			const { conditions, memory } = makeConditions(actor, deps);
-			memory.btAction = 'leisure';
-			memory.leisureTarget = 'loc-tavern';
-			memory.atLocation = 'loc-tavern';
-			expect(conditions.IsAtLeisure()).toBe(true);
-		});
-
-		it('returns false when btAction is not leisure', () => {
-			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const deps = setupDeps(actor, { config });
-			const { conditions, memory } = makeConditions(actor, deps);
-			memory.btAction = 'work';
-			memory.leisureTarget = 'loc-tavern';
-			memory.atLocation = 'loc-tavern';
-			expect(conditions.IsAtLeisure()).toBe(false);
-		});
-
-		it('returns false when atLocation does not match leisureTarget', () => {
-			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const deps = setupDeps(actor, { config });
-			const { conditions, memory } = makeConditions(actor, deps);
-			memory.btAction = 'leisure';
-			memory.leisureTarget = 'loc-tavern';
-			memory.atLocation = 'loc-farm';
-			expect(conditions.IsAtLeisure()).toBe(false);
-		});
-	});
-
 	describe('IsUsingService', () => {
 		it('returns true when currentServiceVisit is set', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
