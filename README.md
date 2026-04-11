@@ -79,6 +79,7 @@ In Obsidian, hit `Ctrl+P` and try:
 For the full onboarding walkthrough, see [[03 - Resources/Documentation/Tutorials/Tutorial - How to get in|Tutorial - How to get in]].
 
 ---
+
 ## Current Ideas and Concepts to work on
 
 - How to migrate Flowti IBDE Development into the Flowti structure
@@ -112,4 +113,8 @@ For the full onboarding walkthrough, see [[03 - Resources/Documentation/Tutorial
 
 ![[OneSeater Windtunnel Ideas.png]]
 
+---
 
+## Future Plugin Ideas
+
+- Economy and Scenario Simulation
