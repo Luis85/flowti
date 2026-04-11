@@ -32,7 +32,7 @@ export function extractActivePath(details: NodeDetails): string {
 
 function walkToFinal(details: NodeDetails): NodeDetails {
 	let node: NodeDetails = details;
-	while (true) {
+	for (;;) {
 		const next = pickNextChild(node);
 		if (next === undefined) return node;
 		node = next;
