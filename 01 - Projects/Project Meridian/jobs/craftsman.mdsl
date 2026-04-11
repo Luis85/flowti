@@ -6,6 +6,50 @@ root [Job] {
             condition [FacilityHasStock, "tools"]
             action [CollectProduced]
         }
+
+        /* Equipment maintenance before work (after CollectProduced so craftsman can self-supply tools) */
+        sequence {
+            condition [HasJob]
+            selector {
+                condition [NeedsEquipment]
+                condition [NeedsRepair]
+            }
+            selector {
+                /* Option 1: Repair immediately if has tools */
+                sequence {
+                    condition [NeedsRepair]
+                    condition [HasTools]
+                    action [RepairWithTools]
+                }
+                /* Option 2: Buy new equipment if missing/depleted */
+                sequence {
+                    condition [NeedsEquipment]
+                    condition [CanAffordItem, "equipment"]
+                    selector {
+                        sequence {
+                            condition [AtLocation, "market"]
+                            condition [FacilityHasStock, "equipment"]
+                            action [BuyItem, "equipment"]
+                        }
+                        action [SeekMarket]
+                    }
+                }
+                /* Option 3: Buy tools for future repair */
+                sequence {
+                    condition [NeedsRepair]
+                    condition [CanAffordItem, "tools"]
+                    selector {
+                        sequence {
+                            condition [AtLocation, "market"]
+                            condition [FacilityHasStock, "tools"]
+                            action [BuyItem, "tools"]
+                        }
+                        action [SeekMarket]
+                    }
+                }
+            }
+        }
+
         /* Work at workshop */
         sequence {
             condition [AtJobFacility]

@@ -1,5 +1,48 @@
 root [Job] {
     selector {
+        /* Equipment maintenance before work */
+        sequence {
+            condition [HasJob]
+            selector {
+                condition [NeedsEquipment]
+                condition [NeedsRepair]
+            }
+            selector {
+                /* Option 1: Repair immediately if has tools */
+                sequence {
+                    condition [NeedsRepair]
+                    condition [HasTools]
+                    action [RepairWithTools]
+                }
+                /* Option 2: Buy new equipment if missing/depleted */
+                sequence {
+                    condition [NeedsEquipment]
+                    condition [CanAffordItem, "equipment"]
+                    selector {
+                        sequence {
+                            condition [AtLocation, "market"]
+                            condition [FacilityHasStock, "equipment"]
+                            action [BuyItem, "equipment"]
+                        }
+                        action [SeekMarket]
+                    }
+                }
+                /* Option 3: Buy tools for future repair */
+                sequence {
+                    condition [NeedsRepair]
+                    condition [CanAffordItem, "tools"]
+                    selector {
+                        sequence {
+                            condition [AtLocation, "market"]
+                            condition [FacilityHasStock, "tools"]
+                            action [BuyItem, "tools"]
+                        }
+                        action [SeekMarket]
+                    }
+                }
+            }
+        }
+
         /* Collect produced food from farm */
         sequence {
             condition [AtJobFacility]
@@ -17,20 +60,6 @@ root [Job] {
         sequence {
             condition [HasJob]
             action [SeekWork]
-        }
-
-        /* Buy tools from market if needed and affordable */
-        sequence {
-            condition [AtLocation, "market"]
-            condition [NeedsTools]
-            condition [CanAffordItem, "tools"]
-            condition [FacilityHasStock, "tools"]
-            action [BuyItem, "tools"]
-        }
-        sequence {
-            condition [NeedsTools]
-            condition [CanAffordItem, "tools"]
-            action [SeekMarket]
         }
 
         action [Wander]
