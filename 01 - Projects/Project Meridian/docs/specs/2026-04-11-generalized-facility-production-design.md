@@ -602,6 +602,8 @@ Note: Original spec listed `Chr` for service roles but `Chr` is not in the attri
 
 All skills (`smithing`, `hauling`, `hospitality`, `knowledge`, `trade`) are cosmetic markers for this pass — no skill-based bonuses. Provide extension points for later.
 
+> **Spec deviation — `insideFacility` is boolean, not string:** The original pseudocode used `agent.insideFacility = facility.id` (string | null). Implementation uses `boolean` instead. This is intentional: `atLocation` already carries the facility identity, so `insideFacility` only needs to answer "is the agent inside a building?" for perception hiding and state tracking. Storing the ID would duplicate `atLocation` and create a sync risk.
+
 ### Job switching
 
 `SwitchJob` + `BetterPayAvailable` condition already exists and iterates facilities. Generalization: iterate all kinds, compute expected wage-per-tick including service hourly rates. No structural change.
