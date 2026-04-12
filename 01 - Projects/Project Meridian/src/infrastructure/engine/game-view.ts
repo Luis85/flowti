@@ -273,6 +273,7 @@ export class MeridianGameView extends ItemView {
 				getQuestBoard: () => worldEntity.get(QuestBoardComponent).state,
 				getFacilityTypeRegistry: () => deps.getFacilityTypeRegistry(),
 				getRecipeRegistry: () => deps.getRecipeRegistry(),
+				getAgents,
 			});
 
 			// Initialize with job-specific tree if agent has a job, otherwise jobless

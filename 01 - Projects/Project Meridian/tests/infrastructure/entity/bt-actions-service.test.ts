@@ -6,6 +6,7 @@ import type { BehaviorAgentDeps } from '../../../src/infrastructure/entity/behav
 import type { ActionContext } from '../../../src/infrastructure/entity/bt-action-helpers.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { WalletComponent } from '../../../src/infrastructure/components/wallet-component.js';
+import { FacilityComponent } from '../../../src/infrastructure/components/facility-component.js';
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import { FacilityTypeSchema, type FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
 import type { EventBus } from '../../../src/domain/core/events.js';
@@ -364,6 +365,62 @@ describe('createServiceActions', () => {
 			const actions = createServiceActions(ctx);
 
 			expect(actions.UseService()).toBe('mistreevous.failed');
+		});
+
+		it('credits cost_per_visit to facility fund and emits GoldFlowed', () => {
+			const bathhouse = createBathhouseType(); // cost_per_visit: 8
+			const registry = new Map<string, FacilityType>([['bathhouse', bathhouse]]);
+			const emittedEvents: Array<{ type: string; payload: Record<string, unknown> }> = [];
+			const capturingEventBus: EventBus = {
+				...noopEventBus,
+				emit: (e: { type: string; payload?: unknown }) => { emittedEvents.push(e as { type: string; payload: Record<string, unknown> }); },
+			};
+
+			const actor = new AgentActor(
+				createTestAgentData('agent-1', { wallet: { gold: 50 } }),
+				defaultMoodConfig,
+			);
+			const facilityActor = new Actor();
+			facilityActor.addComponent(new FacilityComponent({
+				stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			}));
+			const locationActors = new Map<string, Actor>([['loc-bathhouse', facilityActor]]);
+
+			const config = GameConfigSchema.parse({});
+			const deps: BehaviorAgentDeps = {
+				actor,
+				worldEntity: () => new Actor(),
+				config,
+				getLocationActors: () => locationActors,
+				getLocations: () => [],
+				tickCount: () => 1,
+				eventBus: capturingEventBus,
+				getFacilityTypeRegistry: () => registry,
+			};
+			const memory = createWorkingMemory(config.economy.price_memory_max);
+			const ctx: ActionContext = {
+				memory, actor, deps,
+				resolveNearbyFacilities: () => [],
+				resolveNearbyAgents: () => [],
+				resolveNearbyLocations: () => [makeNearbyLocation('loc-bathhouse', 'bathhouse')],
+				commitmentMultiplier: 1.0,
+			};
+
+			memory.serviceTarget = 'loc-bathhouse';
+			const actions = createServiceActions(ctx);
+			actions.UseService();
+
+			// Facility fund increased by cost_per_visit
+			expect(facilityActor.get(FacilityComponent).state.fund).toBe(108);
+			// Agent wallet decreased
+			expect(actor.get(WalletComponent).state.gold).toBe(42);
+			// GoldFlowed event emitted
+			const goldEvent = emittedEvents.find(e => e.type === 'GoldFlowed');
+			expect(goldEvent).toBeDefined();
+			expect(goldEvent!.payload.subcategory).toBe('service_fee');
+			expect(goldEvent!.payload.amount).toBe(8);
+			expect(goldEvent!.payload.fromEntity).toBe('agent-1');
+			expect(goldEvent!.payload.toEntity).toBe('loc-bathhouse');
 		});
 
 		it('returns FAILED when the target location is no longer nearby', () => {

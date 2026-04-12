@@ -3,6 +3,7 @@ import type { ActionMethods } from './bt-actions.js';
 import type { ActionContext } from './bt-action-helpers.js';
 import { SUCCEEDED, FAILED, RUNNING, beginAction } from './bt-action-helpers.js';
 import { WalletComponent } from '../components/wallet-component.js';
+import { FacilityComponent } from '../components/facility-component.js';
 import type { FacilityType } from '../../domain/schemas/facility-type-schema.js';
 
 type ServiceFacility = Extract<FacilityType, { kind: 'service' }>;
@@ -95,6 +96,30 @@ export function createServiceActions(
 			if (ft.cost_per_visit > 0) {
 				wallet.state = { ...wallet.state, gold: wallet.state.gold - ft.cost_per_visit };
 				wallet.markDirty();
+
+				// Credit the facility fund — service revenue
+				const locationActorMap = ctx.deps.getLocationActors();
+				const locActor = locationActorMap.get(targetId);
+				if (locActor?.has(FacilityComponent) === true) {
+					const facility = locActor.get(FacilityComponent);
+					facility.state = { ...facility.state, fund: facility.state.fund + ft.cost_per_visit };
+					facility.markDirty();
+				}
+
+				// Emit GoldFlowed for monetary policy velocity tracking
+				ctx.deps.eventBus.emit({
+					type: 'GoldFlowed',
+					tick: ctx.deps.tickCount(),
+					wallClock: Date.now(),
+					source: 'UseService',
+					payload: {
+						category: 'transfer' as const,
+						subcategory: 'service_fee',
+						amount: ft.cost_per_visit,
+						fromEntity: actor.agentId,
+						toEntity: targetId,
+					},
+				});
 			}
 
 			memory.currentServiceVisit = {

@@ -2989,6 +2989,18 @@ describe('bt-actions: createActions', () => {
 			expect(memory.committedAction).toBeNull();
 		});
 
+		it('breaks work commitment when energy < personal threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, energy: 25 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.committedAction).toBeNull();
+		});
+
 		it('breaks work commitment when equipment missing', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { actions, memory } = setupActions(actor, { config });

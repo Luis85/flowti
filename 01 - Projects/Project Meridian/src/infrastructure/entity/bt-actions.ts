@@ -189,6 +189,10 @@ export function createActions(
 					breakCommitment();
 					return FAILED;
 				}
+				if (needs.energy < memory.personalThresholds.energy) {
+					breakCommitment();
+					return FAILED;
+				}
 				const inv = actor.get(InventoryComponent).state.items;
 				const equip = inv.find(i => i.item_id === 'equipment');
 				if (equip === undefined || equip.quantity === 0 || (equip.charges ?? 0) === 0) {

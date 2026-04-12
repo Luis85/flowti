@@ -36,6 +36,7 @@ export interface BehaviorAgentDeps {
 	getRecipeRegistry?: () => Map<string, Recipe>;
 	claimFacility?: (facilityId: string) => boolean;
 	releaseFacility?: () => void;
+	getAgents?: () => AgentActor[];
 }
 
 export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
@@ -122,11 +123,17 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 
 	function resolveNearbyAgents(): PerceivedAgent[] {
 		const perception = actor.get(PerceptionComponent);
-		return perception.state.nearbyAgents.map(a => ({
-			id: a.id,
-			position: { x: 0, y: 0 },
-			distance: a.distance,
-		}));
+		const allAgents = deps.getAgents?.() ?? [];
+		return perception.state.nearbyAgents.map(a => {
+			const agentActor = allAgents.find(ag => ag.agentId === a.id);
+			return {
+				id: a.id,
+				position: agentActor !== undefined
+					? { x: agentActor.pos.x, y: agentActor.pos.y }
+					: { x: 0, y: 0 },
+				distance: a.distance,
+			};
+		});
 	}
 
 	function resolveNearbyLocations(): PerceivedLocation[] {
