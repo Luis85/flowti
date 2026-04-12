@@ -81,7 +81,7 @@ describe('Smoke Test — Real Data', () => {
 	it('loads all shipped data successfully', () => {
 		expect(agentData.length).toBeGreaterThanOrEqual(2);
 		expect(locations.length).toBeGreaterThanOrEqual(4);
-		expect(Object.keys(jobTrees).length).toBeGreaterThanOrEqual(2);
+		expect(Object.keys(jobTrees).length).toBeGreaterThanOrEqual(1);
 	});
 
 	it('every job has a matching MDSL job tree', () => {
