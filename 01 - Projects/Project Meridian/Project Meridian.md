@@ -165,7 +165,7 @@ These must arise naturally without special-case code:
 
 ### 2.1 Tick Cycle
 
-Each tick (~500 ms default). The tick system runs inside ExcaliburJS's update loop using the **fixed timestep with accumulator** pattern: ExcaliburJS renders at ~60 FPS; elapsed time accumulates; when the accumulator exceeds the tick interval (500ms), a simulation tick executes. This gives smooth rendering between ticks while maintaining deterministic simulation order. All game state changes happen strictly at tick boundaries — ExcaliburJS interpolates positions between ticks for smooth visual movement.
+Each tick (1 tick = 100ms, configurable via `tick_interval_ms`). The tick system runs inside ExcaliburJS's update loop using the **fixed timestep with accumulator** pattern: ExcaliburJS renders at ~60 FPS; elapsed time accumulates; when the accumulator exceeds the tick interval (100ms default), a simulation tick executes. This gives smooth rendering between ticks while maintaining deterministic simulation order. All game state changes happen strictly at tick boundaries — ExcaliburJS interpolates positions between ticks for smooth visual movement.
 
 Systems execute in deterministic order, each inside an **error boundary** using the Result pattern:
 
@@ -179,7 +179,7 @@ Systems execute in deterministic order, each inside an **error boundary** using 
 |4|`MemorySystem`|Memory decay, consolidation|
 |5|`BehaviorTreeSystem`|Decision engine (agent + animal BTs via Blackboard)|
 |5.5|`MovementSystem`|Processes move ActionIntents, region transitions, stamina deduction|
-|6.5|`RestSystem`|Recovers energy based on rest location tier (owned_home: +2.0, public_shelter: +1.5, outdoors: +1.0)|
+|6.5|`RestSystem`|Recovers energy based on rest location tier (owned_home: +4.0, public_shelter: +3.0, outdoors: +1.5)|
 |6.6|`FeedSystem`|Recovers hunger at food locations (+0.3/tick, only when btAction is seek_food)|
 |6.7|`SocializeSystem`|Recovers social near agents (+0.5/tick), creates mutual memories with 50-tick per-pair cooldown|
 |6|`FacilitySystem`|Facility-driven production — iterates facilities, checks workers + inputs, produces goods, pays wages. Shift scheduling deferred to Phase 5.|
@@ -326,9 +326,10 @@ Entity (ECS base — Position, Renderable)
 
 |Need|Range|Decay/Tick|Modifier|Critical|Recovery|
 |---|---|---|---|---|---|
-|Hunger|0–100|0.5|÷ (HT/10)|< 20|Eat (food source, item, object)|
-|Energy|0–100|0.25|÷ (HT/10)|< 15|Sleep (rest location — see tiers below)|
-|Social|0–100|0.15|÷ (Chr/10)|< 25|Converse with nearby agent|
+|Hunger|0–100|0.04|÷ (HT/10)|< 20|Eat (food source, item, object)|
+|Energy|0–100|0.06|÷ (HT/10)|< 15|Sleep (rest location — see tiers below)|
+|Social|0–100|0.05|÷ (Chr/10)|< 25|Converse with nearby agent|
+|Thirst|0–100|0.05|÷ (HT/10)|< 20|Drink (water source, item, tavern)|
 
 Critical needs override all other BT priorities. **Commitments do not block critical needs.** Agents may be committed to a multi-tick action (work, rest, seek_market, seek_quest) — but `ContinueCommitment` checks for critical need thresholds each tick and breaks the commitment when any need (hunger/thirst/energy) crosses into the critical range, returning control to the BT root so the survival branch can fire. Work and leisure commitments break proactively at **personal** thresholds (which scale with GURPS HT/IQ); travel commitments break at the stricter **critical** thresholds (since travel is cheap to interrupt but should not be abandoned for mild discomfort).
 
@@ -349,11 +350,17 @@ These rates are configurable in `game-config.json`. The design intent: a single 
 
 |Tier|Location|Energy Recovery Rate|Mood Effect|
 |---|---|---|---|
-|Owned home|Agent's own property with a home building|100% (base recovery: 2.0/tick)|+2 mood ("home comfort")|
-|Public shelter|Any residential zone building, tavern, inn|75% (1.5/tick)|Neutral|
-|Outdoors|Anywhere — bench, ground, open field|50% (1.0/tick)|-3 mood ("slept rough")|
+|Owned home|Agent's own property with a home building|100% (base recovery: 4.0/tick)|+2 mood ("home comfort")|
+|Public shelter|Any residential zone building, tavern, inn|75% (3.0/tick)|Neutral|
+|Outdoors|Anywhere — bench, ground, open field|50% (1.5/tick)|-3 mood ("slept rough")|
 
 Homeless agents always have the worst tier. They can rest but recover slowly and suffer a mood penalty. This creates natural housing demand without locking agents out of rest entirely.
+
+**Rest Tuning Parameters:**
+
+- **`recovery_hysteresis`** (default 30): Energy must exceed `personalThreshold + hysteresis` to clear the recovering state, preventing oscillation between resting and active behaviors.
+- **`sleep_debt_max`**: Maximum accumulated sleep debt before forced rest. Sleep debt accrues when an agent skips rest cycles and amplifies energy decay.
+- **`min_rest_ticks`**: Minimum number of ticks an agent must remain in the resting state before the BT can transition out, ensuring rest is not interrupted by marginal need changes.
 
 ### Action Consequences (Phase 1D)
 
@@ -363,9 +370,9 @@ Actions have tangible effects when agents are within the interaction radius (25p
 
 |Tier|Rate/tick|Mood|Condition|
 |---|---|---|---|
-|Owned Home|+2.0|+2|Agent owns the location (property[])|
-|Public Shelter|+1.5|0|At rest location, not owned|
-|Outdoors|+1.0|-3|Idle, no rest location nearby|
+|Owned Home|+4.0|+2|Agent owns the location (property[])|
+|Public Shelter|+3.0|0|At rest location, not owned|
+|Outdoors|+1.5|-3|Idle, no rest location nearby|
 
 **Food Recovery:** Hunger recovers at +0.3/tick at food locations, but only when agent's BT action is `seek_food`. Passive proximity doesn't trigger recovery.
 
@@ -1057,7 +1064,7 @@ Regions are connected via a graph. **Travel between regions** costs Stamina (the
 
 ### 9.2 Time Model
 
-- 1 tick ≈ 500ms (default). Director controls: pause, slow (1s), normal (500ms), fast (100ms).
+- 1 tick = 100ms (configurable via `tick_interval_ms`). Director controls: pause, slow (1s), normal (100ms), fast (50ms).
 - Day cycle: 1 day = N ticks (default 480). Season cycle: 15 days per season, 60 days per year (§28).
 
 **Day/Night Phases** (managed by `DayNightSystem`):
@@ -1555,13 +1562,14 @@ stamina_cost: 0
 {
   "version": "1.0.0",
   "locale": "en",
-  "tick_interval_ms": 500,
+  "tick_interval_ms": 100,
   "ticks_per_day": 480,
   "mortality": true,
   "needs": {
-    "hunger_decay": 0.5,
-    "energy_decay": 0.25,
-    "social_decay": 0.15,
+    "hunger_decay": 0.04,
+    "energy_decay": 0.06,
+    "social_decay": 0.05,
+    "thirst_decay": 0.05,
     "food_recovery_rate": 0.3
   },
   "stamina": {
@@ -3150,8 +3158,8 @@ Toggled via toolbar button or keyboard shortcut. Individual overlay categories t
 |---|---|---|
 |System execution time|Wall-clock ms per system per tick|Stacked bar chart (segments per system)|
 |System budget utilization|Actual ms vs. budget target|Percentage bar with red threshold|
-|Tick total time|Sum of all systems|Running line chart with 500ms target line|
-|Tick overrun count|Ticks exceeding 500ms budget|Counter + rate (overruns/minute)|
+|Tick total time|Sum of all systems|Running line chart with 100ms target line|
+|Tick overrun count|Ticks exceeding 100ms budget|Counter + rate (overruns/minute)|
 |Tick skip count|Ticks dropped due to previous overrun|Counter (should be 0)|
 
 **Per-System Deep Profiling (expandable):**
@@ -3194,7 +3202,7 @@ Toggled via toolbar button or keyboard shortcut. Individual overlay categories t
 
 |Alert|Trigger|
 |---|---|
-|`PerfTickOverrun`|Tick exceeds 500ms|
+|`PerfTickOverrun`|Tick exceeds 100ms|
 |`PerfSystemSlow`|Individual system exceeds its budget|
 |`PerfMemoryHigh`|Heap exceeds 80% of available|
 |`PerfVaultSyncSlow`|Sync batch exceeds 1000ms|
@@ -3435,7 +3443,7 @@ Infrastructure → Domain → Systems → UI
 |**World Object**|Passive entity (vending machine, food cart, workbench) that agents interact with.|
 |**Director**|The player. Operates from the management UI via indirect control.|
 |**Billboard**|Location where quests are posted for agents to discover.|
-|**Tick**|One discrete simulation step (~500ms default).|
+|**Tick**|One discrete simulation step (100ms default, configurable via `tick_interval_ms`).|
 |**Kind**|Agent archetype (merchant, scholar, etc.) setting BT template and defaults.|
 |**Species**|Animal archetype (dog, cat, etc.) setting instinct profile and stats.|
 |**Emergence**|Complex behavior arising from runtime interaction of simple, decoupled systems.|
