@@ -153,6 +153,19 @@ export function createActions(
 				}
 			};
 
+			// Break non-recovery commitments when needs are critical.
+			// use_service is exempt: it IS the recovery mechanism — breaking it
+			// on critical needs prevents energy/mood from ever recovering.
+			if (memory.committedAction !== 'use_service') {
+				const critNeeds = actor.get(NeedsComponent).state;
+				if (critNeeds.hunger < NEED_CRITICAL_THRESHOLDS.hunger ||
+					critNeeds.energy < NEED_CRITICAL_THRESHOLDS.energy ||
+					critNeeds.thirst < NEED_CRITICAL_THRESHOLDS.thirst) {
+					breakCommitment();
+					return FAILED;
+				}
+			}
+
 			memory.commitmentTicks--;
 			if (memory.commitmentTicks <= 0) {
 				breakCommitment();

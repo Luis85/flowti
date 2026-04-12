@@ -1,10 +1,11 @@
 root {
     selector {
 
-        /* P-1: Honor current commitment (unless critical override) */
+        /* P-1: Honor current commitment — critical-needs override is handled
+         * inside ContinueCommitment (exempts use_service so recovery visits
+         * are never broken by the very need they are resolving). */
         sequence {
             condition [IsCommitted]
-            flip { condition [NeedsCritical] }
             action [ContinueCommitment]
         }
 
