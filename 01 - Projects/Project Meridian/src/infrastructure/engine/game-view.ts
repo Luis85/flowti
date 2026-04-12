@@ -208,7 +208,7 @@ export class MeridianGameView extends ItemView {
 			const facilityType = deps.getFacilityTypeRegistry().get(loc.facility_type);
 			const defaultFund = facilityType?.funding === 'treasury'
 				? 0
-				: (facilityType?.default_fund ?? deps.config.economy.facility_start_fund);
+				: (facilityType?.default_fund ?? 200);
 			// Seed `lastPulseTick` at spawn for area_effect facilities so the
 			// first pulse fires on or after `spawnTick + ticks_per_pulse`.
 			const isAreaEffect = facilityType?.kind === 'area_effect';

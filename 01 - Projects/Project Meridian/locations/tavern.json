@@ -3,7 +3,7 @@
   "name": "Tavern",
   "facility_type": "tavern",
   "active_recipe": null,
-  "position": { "x": 250, "y": 280, "region": "market-square" },
+  "position": { "x": 250, "y": 280, "region": "region-market-square" },
   "color": "#d4a574",
   "capacity": 15
 }

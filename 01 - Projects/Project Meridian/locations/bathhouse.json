@@ -3,7 +3,7 @@
   "name": "Bathhouse",
   "facility_type": "bathhouse",
   "active_recipe": null,
-  "position": { "x": 200, "y": 350, "region": "residential" },
+  "position": { "x": 200, "y": 350, "region": "region-residential" },
   "color": "#00bcd4",
   "capacity": 10
 }

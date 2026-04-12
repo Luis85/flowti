@@ -3,7 +3,7 @@
   "name": "Park",
   "facility_type": "park",
   "active_recipe": null,
-  "position": { "x": 120, "y": 220, "region": "residential" },
+  "position": { "x": 120, "y": 220, "region": "region-residential" },
   "color": "#4caf50",
   "capacity": 20
 }

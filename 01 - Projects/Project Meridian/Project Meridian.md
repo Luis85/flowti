@@ -708,7 +708,7 @@ Each job has a schedule, a wage, and a `primary_job` binding declared on its fac
 | park | service | park_keeper | treasury |
 | market_stall | service | shopkeeper | facility |
 
-**8 new jobs** were added alongside the facility-type system: `blacksmith`, `water_carrier`, `innkeeper`, `bartender`, `bathhouse_keeper`, `librarian`, `park_keeper`, `shopkeeper`. Each is registered in `game-config.json` under `jobs.definitions` with a `primary_attribute`, `skill`, and `base_wage`.
+**8 new jobs** were added alongside the facility-type system: `blacksmith`, `water_carrier`, `innkeeper`, `bartender`, `bathhouse_keeper`, `librarian`, `park_keeper`, `shopkeeper`. Each is registered in `game-config.json` under `jobs.definitions` with a `primary_attribute` (one of `ST`, `DX`, `IQ`, `HT`). Wages come from the facility type's `default_wage` field, not the job definition.
 
 ### 6.2 Job Schema
 

@@ -25,9 +25,16 @@ function tryRecipePath(
 ): boolean {
 	if (loc.active_recipe === null) return false;
 	const facilityType = facilityTypeRegistry.get(loc.facility_type);
-	if (facilityType?.kind !== 'production') return false;
+	if (facilityType === undefined) {
+		deps.logger.warn('FacilitySystem', `Unknown facility type "${loc.facility_type}" for "${loc.id}"`);
+		return false;
+	}
+	if (facilityType.kind !== 'production') return false;
 	const recipe = recipeRegistry.get(loc.active_recipe);
-	if (recipe === undefined) return false;
+	if (recipe === undefined) {
+		deps.logger.warn('FacilitySystem', `Unknown recipe "${loc.active_recipe}" for "${loc.id}"`);
+		return false;
+	}
 	processRecipeFacilityTick(loc, facilityType, recipe, facility, agentList, economy, deps);
 	return true;
 }

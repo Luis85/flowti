@@ -568,25 +568,25 @@ describe('bt-conditions', () => {
 	});
 
 	describe('HasWater', () => {
-		it('returns true when inventory has waterskin with charges', () => {
+		it('returns true when inventory has water item with quantity > 0', () => {
 			const actor = new AgentActor(
-				createTestAgentData('a1', { inventory: [{ item_id: 'waterskin', quantity: 1, charges: 3 }] }),
+				createTestAgentData('a1', { inventory: [{ item_id: 'water', quantity: 3 }] }),
 				defaultMoodConfig,
 			);
 			const { conditions } = makeConditions(actor, setupDeps(actor));
 			expect(conditions.HasWater()).toBe(true);
 		});
 
-		it('returns false when waterskin has 0 charges', () => {
+		it('returns false when water item has 0 quantity', () => {
 			const actor = new AgentActor(
-				createTestAgentData('a1', { inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }] }),
+				createTestAgentData('a1', { inventory: [{ item_id: 'water', quantity: 0 }] }),
 				defaultMoodConfig,
 			);
 			const { conditions } = makeConditions(actor, setupDeps(actor));
 			expect(conditions.HasWater()).toBe(false);
 		});
 
-		it('returns false when no waterskin in inventory', () => {
+		it('returns false when no water in inventory', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { conditions } = makeConditions(actor, setupDeps(actor));
 			expect(conditions.HasWater()).toBe(false);

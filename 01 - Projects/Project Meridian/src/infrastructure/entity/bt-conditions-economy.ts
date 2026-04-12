@@ -36,11 +36,8 @@ export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMe
 
 		HasWater(): boolean {
 			const inv = actor.get(InventoryComponent).state.items;
-			// NEW: check water item first
 			const waterItem = inv.find(i => i.item_id === 'water');
-			if (waterItem !== undefined && waterItem.quantity > 0) return true;
-			// LEGACY: fall back to waterskin charges
-			return inv.some(i => i.item_id === 'waterskin' && (i.charges ?? 0) > 0);
+			return waterItem !== undefined && waterItem.quantity > 0;
 		},
 
 		HasTradeGoods(): boolean {

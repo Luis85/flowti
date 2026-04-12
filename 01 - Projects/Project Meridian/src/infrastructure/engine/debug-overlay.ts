@@ -65,10 +65,11 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	buy: { emoji: '🛒', label: 'Buying food' },
 	eat: { emoji: '🍖', label: 'Eating' },
 	drink: { emoji: '💧', label: 'Drinking' },
-	seek_water: { emoji: '🔍💧', label: 'Going for water' },
-	fill_waterskin: { emoji: '🫗', label: 'Filling waterskin' },
+	seek_well: { emoji: '🔍💧', label: 'Going to well' },
+	seek_service: { emoji: '🏠', label: 'Going to service' },
+	use_service: { emoji: '🛋️', label: 'Using service' },
+	choose_service: { emoji: '🤔', label: 'Choosing service' },
 	rest: { emoji: '😴', label: 'Resting' },
-	seek_rest: { emoji: '🏠', label: 'Going home' },
 	wander: { emoji: '🚶‍♂️', label: 'Wandering' },
 	idle: { emoji: '💤', label: 'Idle' },
 	claim_job: { emoji: '📋', label: 'Claiming job' },
@@ -85,9 +86,6 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	pickup_quest_item: { emoji: '📦', label: 'Picking up for quest' },
 	repair: { emoji: '🔧', label: 'Repairing' },
 	switch_job: { emoji: '🔄', label: 'Switching job' },
-	leisure: { emoji: '🎭', label: 'Leisure' },
-	seek_leisure: { emoji: '🎭', label: 'Seeking leisure' },
-	choose_leisure: { emoji: '🤔', label: 'Choosing leisure' },
 	seek_job_facility: { emoji: '🔍', label: 'Seeking job' },
 };
 
@@ -991,10 +989,14 @@ function detectAnomalies(
 		}
 	}
 
-	// Gold inflation check — compute expected from config
+	// Gold inflation check — compute expected from registry-based fund totals
 	const treasuryStart = config?.economy.treasury_start_sandbox ?? 1000;
-	const facilityFund = config?.economy.facility_start_fund ?? 200;
-	const expectedGold = treasuryStart + (locations.filter(l => l.active_recipe !== null).length * facilityFund);
+	let totalFacilityFund = 0;
+	for (const loc of locations) {
+		const ft = facilityTypes?.get(loc.facility_type);
+		if (ft !== undefined && ft.funding !== 'treasury') totalFacilityFund += (loc.fund ?? ft.default_fund);
+	}
+	const expectedGold = treasuryStart + totalFacilityFund;
 	if (totalGold > expectedGold * 2) {
 		anomalies.push(`[MEDIUM] Gold inflation: total ${totalGold.toFixed(0)}g is ${(totalGold / expectedGold * 100).toFixed(0)}% of starting supply`);
 	}

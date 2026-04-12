@@ -215,13 +215,9 @@ function createSmithyLocation(): WorldLocation {
 	return {
 		id: 'loc-smithy',
 		name: 'Smithy',
-		type: 'work',
 		position: { x: 100, y: 100, region: 'test' },
 		capacity: 10,
 		color: '#808080',
-		production: null,
-		leisure: null,
-		region: null,
 		facility_type: 'smithy',
 		active_recipe: 'recipe-smithy-equipment',
 	};
@@ -231,13 +227,9 @@ function createRecipeFarmLocation(): WorldLocation {
 	return {
 		id: 'loc-recipe-farm',
 		name: 'Recipe Farm',
-		type: 'work',
 		position: { x: 100, y: 100, region: 'test' },
 		capacity: 10,
 		color: '#808080',
-		production: null,
-		leisure: null,
-		region: null,
 		facility_type: 'farm',
 		active_recipe: 'recipe-farm-wheat',
 	};
@@ -247,13 +239,9 @@ function createRecipeGuardPostLocation(): WorldLocation {
 	return {
 		id: 'loc-recipe-guardpost',
 		name: 'Recipe Guard Post',
-		type: 'work',
 		position: { x: 100, y: 100, region: 'test' },
 		capacity: 10,
 		color: '#808080',
-		production: null,
-		leisure: null,
-		region: null,
 		facility_type: 'guard_post',
 		active_recipe: 'recipe-guard-safety',
 	};

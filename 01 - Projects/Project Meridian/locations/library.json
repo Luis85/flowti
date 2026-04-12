@@ -3,7 +3,7 @@
   "name": "Library",
   "facility_type": "library",
   "active_recipe": null,
-  "position": { "x": 320, "y": 150, "region": "residential" },
+  "position": { "x": 320, "y": 150, "region": "region-residential" },
   "color": "#5c6bc0",
   "capacity": 8
 }

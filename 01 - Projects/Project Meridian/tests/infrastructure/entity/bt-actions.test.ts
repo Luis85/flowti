@@ -329,11 +329,11 @@ describe('bt-actions: createActions', () => {
 		});
 
 		describe('Drink', () => {
-			it('consumes a waterskin charge and recovers thirst', () => {
+			it('consumes a water item and recovers thirst', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
 						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 2 }],
+						inventory: [{ item_id: 'water', quantity: 2 }],
 					}),
 					defaultMoodConfig,
 				);
@@ -344,18 +344,18 @@ describe('bt-actions: createActions', () => {
 				expect(result).toBe('mistreevous.succeeded');
 				expect(memory.btAction).toBe('drink');
 
-				// Charges decremented
-				const waterskin = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'waterskin');
-				expect(waterskin?.charges).toBe(1);
+				// Quantity decremented
+				const water = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'water');
+				expect(water?.quantity).toBe(1);
 
 				// Thirst recovered
 				expect(actor.get(NeedsComponent).state.thirst).toBeGreaterThan(40);
 			});
 
-			it('returns failed when no waterskin with charges', () => {
+			it('returns failed when no water items', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }],
+						inventory: [{ item_id: 'food', quantity: 5 }],
 					}),
 					defaultMoodConfig,
 				);
@@ -363,7 +363,7 @@ describe('bt-actions: createActions', () => {
 				expect(actions.Drink()).toBe('mistreevous.failed');
 			});
 
-			it('returns failed when no waterskin at all', () => {
+			it('returns failed when inventory is empty', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions } = setupActions(actor, { config });
 				expect(actions.Drink()).toBe('mistreevous.failed');
@@ -406,7 +406,7 @@ describe('bt-actions: createActions', () => {
 				expect(water).toBeUndefined();
 			});
 
-			it('falls back to waterskin charges when no water item is present', () => {
+			it('returns failed when only waterskin in inventory (no water items)', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
 						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
@@ -415,15 +415,10 @@ describe('bt-actions: createActions', () => {
 					defaultMoodConfig,
 				);
 				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 40 };
-				const { actions, memory } = setupActions(actor, { config });
+				const { actions } = setupActions(actor, { config });
 
 				const result = actions.Drink();
-				expect(result).toBe('mistreevous.succeeded');
-				expect(memory.btAction).toBe('drink');
-
-				const waterskin = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'waterskin');
-				expect(waterskin?.charges).toBe(1);
-				expect(actor.get(NeedsComponent).state.thirst).toBeGreaterThan(40);
+				expect(result).toBe('mistreevous.failed');
 			});
 		});
 

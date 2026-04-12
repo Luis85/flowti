@@ -591,12 +591,14 @@ Added to `config.jobs.definitions`:
 |---|---|---|---|
 | `blacksmith` | ST | smithing | smithy |
 | `water_carrier` | HT | hauling | well |
-| `innkeeper` | Chr | hospitality | rest_inn |
-| `bartender` | Chr | hospitality | tavern |
-| `bathhouse_keeper` | Chr | hospitality | bathhouse |
+| `innkeeper` | HT | hospitality | rest_inn |
+| `bartender` | HT | hospitality | tavern |
+| `bathhouse_keeper` | HT | hospitality | bathhouse |
 | `librarian` | IQ | knowledge | library |
 | `park_keeper` | HT | hospitality | park |
-| `shopkeeper` | Chr | trade | market_stall |
+| `shopkeeper` | IQ | trade | market_stall |
+
+Note: Original spec listed `Chr` for service roles but `Chr` is not in the attribute enum (`ST`, `DX`, `IQ`, `HT`). Implementation uses `HT` for physical service roles and `IQ` for knowledge/trade roles.
 
 All skills (`smithing`, `hauling`, `hospitality`, `knowledge`, `trade`) are cosmetic markers for this pass — no skill-based bonuses. Provide extension points for later.
 

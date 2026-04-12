@@ -97,8 +97,9 @@ describe('Shipped Data Validation', () => {
 			expect(config.economy.rest_price).toBe(1);
 		});
 
-		it('parses with facility_start_fund default', () => {
+		it('parses with ledger_retention_days default (facility_start_fund deprecated)', () => {
 			const config = GameConfigSchema.parse({});
+			// facility_start_fund still in schema for back-compat; facility types use default_fund now
 			expect(config.economy.facility_start_fund).toBe(200);
 		});
 

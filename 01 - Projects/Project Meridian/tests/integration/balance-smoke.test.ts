@@ -129,7 +129,7 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 			const startingStock = firstOutput !== undefined ? [{ item_id: firstOutput.item_id, quantity: 5 }] : [];
 			marker.addComponent(new FacilityComponent({
 				stock: startingStock,
-				fund: config.economy.facility_start_fund,
+				fund: facilityTypes.find(ft => ft.id === loc.facility_type)?.default_fund ?? 200,
 				workProgress: 0,
 				status: 'idle',
 				workerId: null,
