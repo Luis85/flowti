@@ -55,6 +55,21 @@ export function createServiceActions(
 			const registry = deps.getFacilityTypeRegistry?.();
 			if (registry === undefined) return FAILED;
 
+			// Sticky target: if we already picked a valid service facility for
+			// this intent, keep it. Prevents ping-ponging between equal-score
+			// facilities (all rest_inns have identical energy effects).
+			if (memory.serviceTarget !== null) {
+				const existing = resolveNearbyLocations().find(l => l.id === memory.serviceTarget);
+				if (existing !== undefined) {
+					const eft = registry.get(existing.facility_type);
+					if (eft?.kind === 'service' && scoreForIntent(eft, intent) > 0) {
+						return SUCCEEDED;
+					}
+				}
+				// Previous target no longer valid — re-pick
+				memory.serviceTarget = null;
+			}
+
 			type Candidate = { id: string; score: number };
 			const candidates: Candidate[] = [];
 
