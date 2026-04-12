@@ -172,16 +172,8 @@ export class MeridianBTInspectorView extends ItemView {
 					makeRef: (root) => ({ kind: 'base', path: `${root}/behavior-trees/base.mdsl` }),
 				},
 				{
-					label: 'settler (base + settler)',
-					makeRef: (root) => ({ kind: 'job', branchPath: `${root}/jobs/settler.mdsl`, basePath: `${root}/behavior-trees/base.mdsl` }),
-				},
-				{
-					label: 'craftsman (base + craftsman)',
-					makeRef: (root) => ({ kind: 'job', branchPath: `${root}/jobs/craftsman.mdsl`, basePath: `${root}/behavior-trees/base.mdsl` }),
-				},
-				{
-					label: 'guard (base + guard)',
-					makeRef: (root) => ({ kind: 'job', branchPath: `${root}/jobs/guard.mdsl`, basePath: `${root}/behavior-trees/base.mdsl` }),
+					label: 'default (base + default)',
+					makeRef: (root) => ({ kind: 'job', branchPath: `${root}/jobs/default.mdsl`, basePath: `${root}/behavior-trees/base.mdsl` }),
 				},
 			];
 
