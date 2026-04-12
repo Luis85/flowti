@@ -22,7 +22,8 @@ import type { Recipe } from '../../domain/schemas/recipe-schema.js';
 import { extractActivePath } from '../ui/bt-active-path.js';
 import { enrichAgentStatus } from '../ui/agent-status-label.js';
 import type { QuestLogger } from '../ui/quest-logger.js';
-import type { SnapshotData } from './recorder.js';
+import type { EventBus } from '../../domain/core/events.js';
+import { createRecorder, type SnapshotData } from './recorder.js';
 
 interface OverlayDeps {
 	getAgents: () => AgentActor[];
@@ -1417,12 +1418,14 @@ export function createDebugOverlay(
 	const MAX_HISTORY = 60;
 	let lastSnapshotTick = -1;
 
-	// Recording state
-	let isRecording = false;
-	let isWriting = false;
-	let recordingBuffer: string[] = [];
-	let recordingUnsubscribe: (() => void) | null = null;
-	let recordingStartedAt: Date | null = null;
+	const recorder = deps.getEventBus !== undefined && deps.writeFile !== undefined
+		? createRecorder({
+			getEventBus: deps.getEventBus! as () => EventBus,
+			buildSnapshot: () => buildSnapshotData(deps),
+			writeFile: deps.writeFile!,
+			dataRoot: deps.dataRoot,
+		})
+		: null;
 
 	// Dropdown menu state
 	let menuOpen = false;
@@ -1468,7 +1471,7 @@ export function createDebugOverlay(
 		snapshotItem.dataset['action'] = 'snapshot';
 		snapshotItem.setCssProps({ cursor: 'pointer', padding: '6px 12px' });
 
-		const recordLabel = isRecording ? '⏹ Stop recording' : '⏺ Start recording';
+		const recordLabel = recorder?.isRecording() === true ? '⏹ Stop recording' : '⏺ Start recording';
 		const recordItem = menuEl.createDiv({
 			cls: 'meridian-menu-item',
 			text: recordLabel,
@@ -1550,65 +1553,22 @@ export function createDebugOverlay(
 			}
 
 			if (action === 'record') {
-				if (isWriting) return;
-				if (isRecording) {
-					// Stop recording — write buffer to vault
-					isRecording = false;
-					if (recordingUnsubscribe !== null) {
-						recordingUnsubscribe();
-						recordingUnsubscribe = null;
-					}
-					if (deps.writeFile !== undefined && recordingStartedAt !== null && recordingBuffer.length > 0) {
-						const d = recordingStartedAt;
-						const pad = (n: number): string => n.toString().padStart(2, '0');
-						const filename = `recording-${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.md`;
-						const root = deps.dataRoot !== undefined && deps.dataRoot.length > 0 ? deps.dataRoot : '03 - Resources';
-						const path = `${root}/Economy/Recordings/${filename}`;
-						const content = recordingBuffer.join('\n\n---\n\n');
-						showToast('⏳ Saving...');
-						isWriting = true;
-						void deps.writeFile(path, content).then(() => {
-							isWriting = false;
-							showToast('✅ Saved');
-						}).catch(() => {
-							isWriting = false;
-							showToast('❌ Save failed');
-						});
-					} else {
-						showToast('⏺ Record');
-					}
-					recordingBuffer = [];
-					recordingStartedAt = null;
+				if (recorder === null) {
+					showToast('❌ Unavailable');
+					return;
+				}
+				if (recorder.isRecording()) {
+					// Stop recording
+					showToast('⏳ Saving...');
+					void recorder.stop().then(() => {
+						showToast('✅ Saved');
+					}).catch(() => {
+						showToast('❌ Save failed');
+					});
 				} else {
-					// Start recording — subscribe to DayPhaseChanged
-					const eventBus = deps.getEventBus?.();
-					if (eventBus === undefined || deps.writeFile === undefined) {
-						showToast('❌ Unavailable');
-						return;
-					}
-					// setTimeout to defer the heavy initial snapshot
-					setTimeout(() => {
-						let initialSnapshot: string;
-						try {
-							initialSnapshot = buildDiagnosticSnapshot(deps);
-						} catch {
-							showToast('❌ Build failed');
-							return;
-						}
-						isRecording = true;
-						recordingBuffer = [initialSnapshot];
-						recordingStartedAt = new Date();
-						recordingUnsubscribe = eventBus.onAny((event) => {
-							if (event.type === 'DayPhaseChanged') {
-								try {
-									recordingBuffer.push(buildDiagnosticSnapshot(deps));
-								} catch {
-									// Silently skip snapshots that fail to build
-								}
-							}
-						});
-						showToast('● Recording started');
-					}, 0);
+					// Start recording
+					recorder.start();
+					showToast('● Recording started');
 				}
 				return;
 			}
@@ -1784,7 +1744,7 @@ export function createDebugOverlay(
 		while (contentEl.firstChild !== null) contentEl.removeChild(contentEl.firstChild);
 		const range = document.createRange();
 		range.selectNodeContents(contentEl);
-		contentEl.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel, hasAnomaly, isRecording)}${body}`));
+		contentEl.appendChild(range.createContextualFragment(`${header}<br>${renderTabBar(activePanel, hasAnomaly, recorder?.isRecording() ?? false)}${body}`));
 		el.scrollTop = scrollTop;
 	}
 
@@ -1797,12 +1757,9 @@ export function createDebugOverlay(
 				document.removeEventListener('click', menuCloseHandler, { capture: true });
 				menuCloseHandler = null;
 			}
-			if (recordingUnsubscribe !== null) {
-				if (isRecording && recordingBuffer.length > 0) {
-					console.warn(`[Meridian] Debug overlay disposed while recording — ${String(recordingBuffer.length)} snapshot(s) discarded`);
-				}
-				recordingUnsubscribe();
-				recordingUnsubscribe = null;
+			if (recorder?.isRecording() === true) {
+				// Fire-and-forget — best-effort save on dispose
+				void recorder.stop().catch(() => {});
 			}
 			clearInterval(interval);
 			el.remove();
