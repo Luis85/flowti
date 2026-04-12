@@ -74,14 +74,25 @@ export function createWorkActions(ctx: ActionContext): Pick<ActionMethods, 'Clai
 			if (actor.job !== null) return FAILED;
 			if (memory.unemployedTicks < config.jobs.desperation_ticks) return FAILED;
 
-			// Search ALL known locations for open production facilities
+			// Search ALL locations for open facilities (any kind with a primary_job)
 			const allLocations = getLocations();
 			const locationActorMap = getLocationActors();
 			const facilityTypeRegistry = deps.getFacilityTypeRegistry?.();
 
+			if (facilityTypeRegistry === undefined || facilityTypeRegistry.size === 0) {
+				deps.eventBus.emit({
+					type: 'DebugNote',
+					tick: deps.tickCount(),
+					wallClock: Date.now(),
+					source: 'SeekJobFacility',
+					payload: { agentId: actor.agentId, reason: 'facilityTypeRegistry empty or undefined' },
+				});
+				return FAILED;
+			}
+
 			const openFacilities = allLocations
 				.filter(l => {
-					const ft = facilityTypeRegistry?.get(l.facility_type);
+					const ft = facilityTypeRegistry.get(l.facility_type);
 					if (ft === undefined || ft.primary_job === '') return false;
 					const locActor = locationActorMap.get(l.id);
 					if (locActor?.has(FacilityComponent) !== true) return false;

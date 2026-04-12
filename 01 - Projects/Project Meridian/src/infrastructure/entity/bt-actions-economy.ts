@@ -119,17 +119,35 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 					const fac = resolveNearbyFacilities().find(f => f.id === l.id);
 					return fac?.stock.some(s => s.item_id === 'water' && s.quantity > 0) === true;
 				});
-				const target = stockedWells.length > 0 ? stockedWells : nearbyWells;
+				if (stockedWells.length > 0) {
+					beginAction(ctx, 'seek_well');
+					const nearest = findNearest(stockedWells)!;
+					memory.movementTarget = { id: nearest.id, type: 'location' };
+					if (memory.atLocation === nearest.id) return SUCCEEDED;
+					return RUNNING;
+				}
+				// No stocked wells nearby — if already at a well, FAIL so BT falls
+				// through to the market branch instead of looping at an empty well.
+				const atWell = nearbyWells.find(l => l.id === memory.atLocation);
+				if (atWell !== undefined) return FAILED;
+				// Not at a well yet — travel to nearest (it may get stocked by the time we arrive)
 				beginAction(ctx, 'seek_well');
-				const nearest = findNearest(target)!;
+				const nearest = findNearest(nearbyWells)!;
 				memory.movementTarget = { id: nearest.id, type: 'location' };
-				if (memory.atLocation === nearest.id) return SUCCEEDED;
 				return RUNNING;
 			}
 
 			// Fallback: full-map search for any well (water sources are rare)
 			const allWells = getLocations().filter(l => l.facility_type === 'well');
 			if (allWells.length === 0) return FAILED;
+			// If already at a well with no stock, fail to avoid infinite loop
+			const atWellGlobal = allWells.find(l => l.id === memory.atLocation);
+			if (atWellGlobal !== undefined) {
+				const fac = resolveNearbyFacilities().find(f => f.id === atWellGlobal.id);
+				if (fac === undefined || !fac.stock.some(s => s.item_id === 'water' && s.quantity > 0)) {
+					return FAILED;
+				}
+			}
 			const agentX = actor.pos.x;
 			const agentY = actor.pos.y;
 			let best = allWells[0]!;
