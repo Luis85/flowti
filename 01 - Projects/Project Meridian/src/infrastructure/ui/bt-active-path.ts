@@ -29,6 +29,20 @@ export function extractActivePath(details: NodeDetails): string {
 	return path.join(' → ') + stateLabel(last.state);
 }
 
+/**
+ * Walks the tree to the active leaf node and returns its name + normalized state.
+ * Used by BehaviorTreeSystem to emit BtEvaluated events.
+ */
+export function extractLeafNode(details: NodeDetails): { name: string; state: string } {
+	let node: NodeDetails = details;
+	for (;;) {
+		const next = pickNextChild(node);
+		if (next === undefined) break;
+		node = next;
+	}
+	return { name: describeNode(node), state: normalizeState(node.state) };
+}
+
 function pickNextChild(node: NodeDetails): NodeDetails | undefined {
 	const children = node.children;
 	if (children === undefined || children.length === 0) return undefined;
@@ -65,6 +79,15 @@ function formatArg(arg: unknown): string {
 	if (typeof arg === 'string') return `"${arg}"`;
 	if (typeof arg === 'number' || typeof arg === 'boolean') return String(arg);
 	return JSON.stringify(arg);
+}
+
+function normalizeState(state: string): string {
+	switch (state) {
+		case 'mistreevous.running': return 'RUNNING';
+		case 'mistreevous.succeeded': return 'SUCCEEDED';
+		case 'mistreevous.failed': return 'FAILED';
+		default: return 'READY';
+	}
 }
 
 function stateLabel(state: string): string {

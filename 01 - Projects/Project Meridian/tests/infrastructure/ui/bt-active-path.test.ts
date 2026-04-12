@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractActivePath } from '../../../src/infrastructure/ui/bt-active-path.js';
+import { extractActivePath, extractLeafNode } from '../../../src/infrastructure/ui/bt-active-path.js';
 import type { NodeDetails } from 'mistreevous/dist/nodes/Node.js';
 
 const READY = 'mistreevous.ready' as const;
@@ -70,5 +70,50 @@ describe('extractActivePath', () => {
 	it('READY root with no state suffix', () => {
 		const tree: NodeDetails = { id: 'root', type: 'selector', name: 'selector', state: READY };
 		expect(extractActivePath(tree)).toBe('selector');
+	});
+});
+
+describe('extractLeafNode', () => {
+	it('returns the deepest RUNNING leaf', () => {
+		const tree: NodeDetails = {
+			name: 'ROOT', type: 'root', state: 'mistreevous.running',
+			children: [{
+				name: 'selector', type: 'selector', state: 'mistreevous.running',
+				children: [
+					{ name: 'Eat', type: 'action', state: 'mistreevous.running', children: [] },
+				],
+			}],
+		} as unknown as NodeDetails;
+		const result = extractLeafNode(tree);
+		expect(result).toEqual({ name: 'Eat', state: 'RUNNING' });
+	});
+
+	it('returns the last SUCCEEDED/FAILED leaf when no RUNNING', () => {
+		const tree: NodeDetails = {
+			name: 'ROOT', type: 'root', state: 'mistreevous.succeeded',
+			children: [{
+				name: 'sequence', type: 'sequence', state: 'mistreevous.succeeded',
+				children: [
+					{ name: 'CheckHunger', type: 'action', state: 'mistreevous.succeeded', children: [] },
+					{ name: 'Eat', type: 'action', state: 'mistreevous.failed', children: [] },
+				],
+			}],
+		} as unknown as NodeDetails;
+		const result = extractLeafNode(tree);
+		expect(result).toEqual({ name: 'Eat', state: 'FAILED' });
+	});
+
+	it('returns root node when all children are READY', () => {
+		const tree: NodeDetails = {
+			name: 'ROOT', type: 'root', state: 'mistreevous.ready',
+			children: [{
+				name: 'selector', type: 'selector', state: 'mistreevous.ready',
+				children: [
+					{ name: 'Eat', type: 'action', state: 'mistreevous.ready', children: [] },
+				],
+			}],
+		} as unknown as NodeDetails;
+		const result = extractLeafNode(tree);
+		expect(result).toEqual({ name: 'ROOT', state: 'READY' });
 	});
 });
