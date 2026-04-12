@@ -82,7 +82,7 @@ export function createWorkActions(ctx: ActionContext): Pick<ActionMethods, 'Clai
 			const openFacilities = allLocations
 				.filter(l => {
 					const ft = facilityTypeRegistry?.get(l.facility_type);
-					if (ft?.kind !== 'production' || ft.primary_job === '') return false;
+					if (ft === undefined || ft.primary_job === '') return false;
 					const locActor = locationActorMap.get(l.id);
 					if (locActor?.has(FacilityComponent) !== true) return false;
 					const fac = locActor.get(FacilityComponent);

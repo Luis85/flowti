@@ -9,6 +9,7 @@ import { FacilityComponent } from '../components/facility-component.js';
 import { WalletComponent } from '../components/wallet-component.js';
 import { EconomyComponent } from '../components/economy-component.js';
 import type { LedgerEntry } from '../../domain/core/component-data.js';
+import { resolveEffectiveTaxRate } from '../../domain/systems/monetary-policy.js';
 
 /**
  * Create an AreaEffectSystem instance. Registered in the tick pipeline by
@@ -53,7 +54,7 @@ export function createAreaEffectSystem(
 			wageFrom = 'treasury';
 		}
 
-		const taxRate = deps.config.economy.tax_base_rate;
+		const taxRate = resolveEffectiveTaxRate(economy.state, deps.config.economy);
 		const tax = wage * taxRate;
 		const netWage = wage - tax;
 

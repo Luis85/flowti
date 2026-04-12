@@ -105,12 +105,11 @@ export function createServiceActions(
 			memory.insideFacility = true;
 
 			// beginAction first (sets btAction, clears stale commitments), then
-			// override commitment ticks with the facility-type-specific duration.
+			// unconditionally set commitment — UseService always owns the
+			// commitment once it fires (double-enter is already guarded above).
 			beginAction(ctx, 'use_service');
-			if (memory.commitmentTicks <= 0) {
-				memory.commitmentTicks = ft.ticks_per_visit;
-				memory.committedAction = 'use_service';
-			}
+			memory.commitmentTicks = ft.ticks_per_visit;
+			memory.committedAction = 'use_service';
 			return RUNNING;
 		},
 	};

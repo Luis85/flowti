@@ -17,7 +17,7 @@ root {
                     condition [IsExhausted]
                     action [ChooseServiceFacility, "rest"]
                     action [SeekService]
-                    action [UseService] while(IsExhausted)
+                    action [UseService] while(IsUsingService)
                 }
                 /* Drink if thirsty and have water */
                 sequence {
@@ -274,7 +274,7 @@ root {
             condition [IsExhausted]
             action [ChooseServiceFacility, "rest"]
             action [SeekService]
-            action [UseService] while(IsExhausted)
+            action [UseService] while(IsUsingService)
         }
 
         /* P5.5: Switch to better-paying job if available */
@@ -302,7 +302,7 @@ root {
             condition [ShouldSleep]
             action [ChooseServiceFacility, "rest"]
             action [SeekService]
-            action [UseService] while(ShouldSleep)
+            action [UseService] while(IsUsingService)
         }
 
         /* P7: Fallback */
