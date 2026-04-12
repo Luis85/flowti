@@ -1,0 +1,14 @@
+{
+	"id": "library",
+	"kind": "service",
+	"primary_job": "librarian",
+	"default_wage": 1,
+	"default_fund": 100,
+	"funding": "facility",
+	"capacity": 1,
+	"staffed_effects":   { "mood": 2, "energy": 0, "social": 0, "skill_xp": 10 },
+	"unstaffed_effects": { "mood": 0, "energy": 0, "social": 0, "skill_xp": 3  },
+	"cost_per_visit": 2,
+	"ticks_per_visit": 25,
+	"restock_threshold_per_item": {}
+}

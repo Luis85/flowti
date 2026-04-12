@@ -1,0 +1,9 @@
+{
+	"id": "loc-smithy",
+	"name": "Smithy",
+	"position": { "x": 200, "y": 400, "region": "region-craft-quarter" },
+	"color": "#b0592f",
+	"facility_type": "smithy",
+	"active_recipe": "recipe-smithy-equipment",
+	"capacity": 1
+}

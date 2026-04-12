@@ -10,12 +10,10 @@ export interface WorldValidationAgent {
 
 export interface WorldValidationLocation {
 	id: string;
-	type: string;
-	production: {
-		job: string;
-		output: { item_id: string };
-		input: { item_id: string } | null;
-	} | null;
+	facility_type: string;
+	primary_job?: string | null;
+	inputs?: { item_id: string }[];
+	outputs?: { item_id: string }[];
 }
 
 export interface WorldValidationInput {
@@ -59,8 +57,8 @@ function checkJobFacilityMatches(agents: WorldValidationAgent[], locations: Worl
 	const warnings: ValidationWarning[] = [];
 	const facilityJobs = new Set<string>();
 	for (const loc of locations) {
-		if (loc.production !== null) {
-			facilityJobs.add(loc.production.job);
+		if (loc.primary_job !== undefined && loc.primary_job !== null && loc.primary_job !== '') {
+			facilityJobs.add(loc.primary_job);
 		}
 	}
 	for (const agent of agents) {
@@ -100,16 +98,17 @@ function checkSupplyChains(locations: WorldValidationLocation[]): ValidationWarn
 	const warnings: ValidationWarning[] = [];
 	const producedItems = new Set<string>();
 	for (const loc of locations) {
-		if (loc.production !== null) {
-			producedItems.add(loc.production.output.item_id);
+		if (loc.outputs !== undefined && loc.outputs.length > 0) {
+			for (const out of loc.outputs) producedItems.add(out.item_id);
 		}
 	}
 	for (const loc of locations) {
-		if (loc.production !== null && loc.production.input !== null) {
-			if (!producedItems.has(loc.production.input.item_id)) {
+		if (loc.inputs === undefined || loc.inputs.length === 0) continue;
+		for (const input of loc.inputs) {
+			if (!producedItems.has(input.item_id)) {
 				warnings.push({
 					category: 'supply_chain',
-					message: `Location "${loc.id}" requires input "${loc.production.input.item_id}" but no facility produces it`,
+					message: `Location "${loc.id}" requires input "${input.item_id}" but no facility produces it`,
 					locationId: loc.id,
 				});
 			}

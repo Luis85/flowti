@@ -71,11 +71,14 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 			// least `quest.quantity` in stock. Filtering by live stock prevents the
 			// agent from walking to a facility that's empty and then failing to
 			// pick up, which would cause the BT to loop forever on a dead source.
+			const recipeRegistry = deps.getRecipeRegistry?.();
 			const candidates = deps.getLocations().filter(l => {
 				if (!knownSet.has(l.id)) return false;
 				if (l.id === quest.facilityId) return false;
-				if (l.production === null) return false;
-				if (l.production.output.item_id !== quest.itemId) return false;
+				if (l.active_recipe === null) return false;
+				const recipe = recipeRegistry?.get(l.active_recipe);
+				if (recipe === undefined) return false;
+				if (!recipe.outputs.some(o => o.item_id === quest.itemId)) return false;
 				const facActor = locActors.get(l.id);
 				if (facActor?.has(FacilityComponent) !== true) return false;
 				const fac = facActor.get(FacilityComponent);

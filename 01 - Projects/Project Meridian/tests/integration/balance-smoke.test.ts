@@ -7,6 +7,8 @@ import { AgentSchema } from '../../src/domain/schemas/agent-schema.js';
 import { LocationSchema } from '../../src/domain/schemas/location-schema.js';
 import { RegionSchema } from '../../src/domain/schemas/region-schema.js';
 import { TraitDefinitionSchema } from '../../src/domain/schemas/trait-definition-schema.js';
+import { FacilityTypeSchema } from '../../src/domain/schemas/facility-type-schema.js';
+import { RecipeSchema } from '../../src/domain/schemas/recipe-schema.js';
 import { GameConfigSchema } from '../../src/domain/schemas/game-config-schema.js';
 import { buildRegionGraph } from '../../src/domain/systems/pathfinding.js';
 import { createTickRunner } from '../../src/infrastructure/engine/tick-runner.js';
@@ -28,7 +30,6 @@ import { createPerceptionSystem } from '../../src/infrastructure/systems/percept
 import { createMemoryDecaySystem } from '../../src/infrastructure/systems/memory-decay-system.js';
 import { createBehaviorTreeSystem } from '../../src/infrastructure/systems/behavior-tree-system.js';
 import { createMovementSystem } from '../../src/infrastructure/systems/movement-system.js';
-import { createRestSystem } from '../../src/infrastructure/systems/rest-system.js';
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { createFacilitySystem } from '../../src/infrastructure/systems/facility-system.js';
@@ -41,6 +42,8 @@ import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
 import type { WorldRegion } from '../../src/domain/schemas/region-schema.js';
 import type { TraitDefinition } from '../../src/domain/systems/trait-resolver.js';
+import type { FacilityType } from '../../src/domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../src/domain/schemas/recipe-schema.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '../..');
@@ -79,6 +82,10 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 	const { jobTrees, joblessMdsl } = loadJobTrees();
 	const regions: WorldRegion[] = loadAndParse('regions', RegionSchema);
 	const traitFiles = loadAndParse('traits', TraitDefinitionSchema);
+	const facilityTypes: FacilityType[] = loadAndParse('facility-types', FacilityTypeSchema);
+	const recipeList: Recipe[] = loadAndParse('recipes', RecipeSchema);
+	const recipes = new Map<string, Recipe>();
+	for (const r of recipeList) recipes.set(r.id, r);
 
 	// Skip if real data files are not available
 	if (agentData.length === 0 || locations.length === 0 || Object.keys(jobTrees).length === 0) {
@@ -117,16 +124,16 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		const locationActors = new Map<string, Actor>();
 		for (const loc of locations) {
 			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
-			if (loc.production !== null) {
-				const startingStock = [{ item_id: loc.production.output.item_id, quantity: 5 }];
-				marker.addComponent(new FacilityComponent({
-					stock: startingStock,
-					fund: config.economy.facility_start_fund,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
+			const recipe = loc.active_recipe !== null ? recipes.get(loc.active_recipe) : undefined;
+			const firstOutput = recipe?.outputs[0];
+			const startingStock = firstOutput !== undefined ? [{ item_id: firstOutput.item_id, quantity: 5 }] : [];
+			marker.addComponent(new FacilityComponent({
+				stock: startingStock,
+				fund: facilityTypes.find(ft => ft.id === loc.facility_type)?.default_fund ?? 200,
+				workProgress: 0,
+				status: 'idle',
+				workerId: null,
+			}));
 			locationActors.set(loc.id, marker);
 		}
 
@@ -135,6 +142,13 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		const getLocations = () => locations;
 		const getWorld = () => worldEntity;
 		const getLocationActors = () => locationActors;
+
+		// Build facility-type registry from loaded JSON — service actions consult this
+		// to score rest/leisure/social targets against their nearby locations.
+		const facilityTypeRegistry = new Map<string, FacilityType>();
+		for (const ft of facilityTypes) {
+			facilityTypeRegistry.set(ft.id, ft);
+		}
 
 		// Wire up BehaviorAgent + jobless BehaviourTree for each agent (mirroring game-view.ts)
 		for (const actor of actors) {
@@ -158,6 +172,7 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 				eventBus,
 				swapBehaviorTree,
 				jobsConfig: config.jobs,
+				getFacilityTypeRegistry: () => facilityTypeRegistry,
 			});
 
 			const rng = createGameRNG(hashString(actor.agentId + 'jobless'));
@@ -180,7 +195,6 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		tickRunner.register(createBehaviorTreeSystem(getAgents));
 		tickRunner.register(createMovementSystem(getAgents, getLocations));
-		tickRunner.register(createRestSystem(getAgents, getLocations, getWorld, getLocationActors));
 		tickRunner.register(createFeedSystem(getAgents, getWorld));
 		tickRunner.register(createSocializeSystem(getAgents));
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorld));
@@ -197,6 +211,8 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 			tickCount: 0,
 			writeFile: vi.fn(),
 			dataRoot: 'test-data',
+			getRecipeRegistry: () => new Map(),
+			getFacilityTypeRegistry: () => facilityTypeRegistry,
 		};
 
 		// Track events via listener (eventBus.history() is capped at 500 entries)
@@ -229,10 +245,12 @@ describe('Balance Smoke Test — Two Days (960 ticks)', () => {
 		// BT produced at least one action (agents are not all stuck on null)
 		expect(btActions.size, `BT produced no actions`).toBeGreaterThanOrEqual(1);
 
-		// Agents attempted rest (seek_rest or rest action observed, even if RestStarted
-		// events are zero — seek_rest no longer triggers rest-tier recovery)
+		// Agents attempted rest (legacy seek_rest/rest actions, or the new
+		// service-facility flow seek_service/use_service which now routes rest
+		// through ServiceSystem per Task 5.2).
 		expect(
-			btActions.has('seek_rest') || btActions.has('rest'),
+			btActions.has('seek_rest') || btActions.has('rest')
+				|| btActions.has('seek_service') || btActions.has('use_service'),
 			'No agent attempted to rest during the full day',
 		).toBe(true);
 

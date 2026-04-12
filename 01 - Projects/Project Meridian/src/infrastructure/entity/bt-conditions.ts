@@ -56,7 +56,7 @@ export interface ConditionMethods {
 	ShouldSleep(): boolean;
 	IsRestDay(): boolean;
 	IsMoodLow(): boolean;
-	IsAtLeisure(): boolean;
+	IsUsingService(): boolean;
 	IsDusk(): boolean;
 	IsSociallyCritical(): boolean;
 }

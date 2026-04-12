@@ -1,0 +1,9 @@
+{
+	"id": "recipe-draw-water",
+	"name": "Draw Water",
+	"inputs": [],
+	"outputs": [{ "item_id": "water", "quantity": 3 }],
+	"ticks_per_cycle": 10,
+	"required_skill": null,
+	"min_skill_level": 0
+}

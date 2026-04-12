@@ -15,8 +15,9 @@ root {
                 /* Rest if exhausted — energy depletion is most dangerous */
                 sequence {
                     condition [IsExhausted]
-                    action [SeekRest]
-                    action [Rest] while(IsExhausted)
+                    action [ChooseServiceFacility, "rest"]
+                    action [SeekService]
+                    action [UseService] while(IsUsingService)
                 }
                 /* Drink if thirsty and have water */
                 sequence {
@@ -24,11 +25,22 @@ root {
                     condition [HasWater]
                     action [Drink]
                 }
-                /* Go fill waterskin and drink if thirsty */
+                /* Thirsty: buy water at a well if affordable */
                 sequence {
                     condition [IsThirsty]
-                    action [SeekWater]
-                    action [FillWaterskin]
+                    flip { condition [HasWater] }
+                    condition [CanAffordItem, "water"]
+                    action [SeekWell]
+                    action [BuyItem, "water"]
+                    action [Drink]
+                }
+                /* Thirsty: buy water at the market if affordable */
+                sequence {
+                    condition [IsThirsty]
+                    flip { condition [HasWater] }
+                    condition [CanAffordItem, "water"]
+                    action [SeekMarket]
+                    action [BuyItem, "water"]
                     action [Drink]
                 }
                 /* Eat if hungry and have food */
@@ -96,7 +108,7 @@ root {
             flip { condition [IsRecovering] }
             selector {
                 sequence {
-                    condition [AtLocation, "market"]
+                    condition [AtLocation, "market_stall"]
                     action [SellAtMarket]
                 }
                 action [SeekMarket]
@@ -135,12 +147,12 @@ root {
                 condition [IsMoodLow]
             }
             flip { condition [IsNighttime] }
-            action [ChooseLeisure]
-            action [SeekLeisureTarget]
-            action [Leisure] while(IsAtLeisure)
+            action [ChooseServiceFacility, "leisure"]
+            action [SeekService]
+            action [UseService] while(IsUsingService)
         }
 
-        /* P3: Thirsty — drink or refill */
+        /* P3: Thirsty — drink, or buy water at a well/market */
         sequence {
             condition [IsThirsty]
             selector {
@@ -149,8 +161,15 @@ root {
                     action [Drink]
                 }
                 sequence {
-                    action [SeekWater]
-                    action [FillWaterskin]
+                    condition [CanAffordItem, "water"]
+                    action [SeekWell]
+                    action [BuyItem, "water"]
+                    action [Drink]
+                }
+                sequence {
+                    condition [CanAffordItem, "water"]
+                    action [SeekMarket]
+                    action [BuyItem, "water"]
                     action [Drink]
                 }
             }
@@ -253,8 +272,9 @@ root {
         /* P5: Energy — rest when tired */
         sequence {
             condition [IsExhausted]
-            action [SeekRest]
-            action [Rest] while(IsExhausted)
+            action [ChooseServiceFacility, "rest"]
+            action [SeekService]
+            action [UseService] while(IsUsingService)
         }
 
         /* P5.5: Switch to better-paying job if available */
@@ -280,8 +300,9 @@ root {
         /* P6: Personal sleep time */
         sequence {
             condition [ShouldSleep]
-            action [SeekRest]
-            action [Rest] while(ShouldSleep)
+            action [ChooseServiceFacility, "rest"]
+            action [SeekService]
+            action [UseService] while(IsUsingService)
         }
 
         /* P7: Fallback */

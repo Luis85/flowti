@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateWorldConsistency } from '../../../src/domain/systems/world-validation.js';
-import type { WorldValidationInput, WorldValidationAgent, WorldValidationLocation, ValidationWarning } from '../../../src/domain/systems/world-validation.js';
+import type { WorldValidationInput, WorldValidationAgent, WorldValidationLocation } from '../../../src/domain/systems/world-validation.js';
 
 function makeAgent(overrides: Partial<WorldValidationAgent> = {}): WorldValidationAgent {
 	return {
@@ -16,8 +16,7 @@ function makeAgent(overrides: Partial<WorldValidationAgent> = {}): WorldValidati
 function makeLocation(overrides: Partial<WorldValidationLocation> = {}): WorldValidationLocation {
 	return {
 		id: 'loc-tavern',
-		type: 'social',
-		production: null,
+		facility_type: 'tavern',
 		...overrides,
 	};
 }
@@ -39,8 +38,10 @@ describe('validateWorldConsistency', () => {
 			agents: [makeAgent({ job: 'baker', behaviorTree: 'default', inventory: [{ item_id: 'bread', quantity: 2 }] })],
 			locations: [makeLocation({
 				id: 'loc-bakery',
-				type: 'work',
-				production: { job: 'baker', output: { item_id: 'bread' }, input: null },
+				facility_type: 'bakery',
+				primary_job: 'baker',
+				outputs: [{ item_id: 'bread' }],
+				inputs: [],
 			})],
 		});
 		const warnings = validateWorldConsistency(input);
@@ -55,9 +56,9 @@ describe('validateWorldConsistency', () => {
 			const warnings = validateWorldConsistency(input);
 			const itemWarnings = warnings.filter(w => w.category === 'item_mismatch');
 			expect(itemWarnings).toHaveLength(1);
-			expect(itemWarnings[0].message).toContain('rye_bread');
-			expect(itemWarnings[0].message).toContain('bread');
-			expect(itemWarnings[0].agentId).toBe('agent-1');
+			expect(itemWarnings[0]!.message).toContain('rye_bread');
+			expect(itemWarnings[0]!.message).toContain('bread');
+			expect(itemWarnings[0]!.agentId).toBe('agent-1');
 		});
 
 		it('does not warn for registered food items', () => {
@@ -85,7 +86,7 @@ describe('validateWorldConsistency', () => {
 			const warnings = validateWorldConsistency(input);
 			const itemWarnings = warnings.filter(w => w.category === 'item_mismatch');
 			expect(itemWarnings).toHaveLength(1);
-			expect(itemWarnings[0].message).toContain('wheat');
+			expect(itemWarnings[0]!.message).toContain('wheat');
 		});
 	});
 
@@ -95,14 +96,15 @@ describe('validateWorldConsistency', () => {
 				agents: [makeAgent({ job: 'blacksmith' })],
 				locations: [makeLocation({
 					id: 'loc-bakery',
-					production: { job: 'baker', output: { item_id: 'bread' }, input: null },
+					facility_type: 'bakery',
+					primary_job: 'baker',
 				})],
 			});
 			const warnings = validateWorldConsistency(input);
 			const jobWarnings = warnings.filter(w => w.category === 'job_mismatch');
 			expect(jobWarnings).toHaveLength(1);
-			expect(jobWarnings[0].message).toContain('blacksmith');
-			expect(jobWarnings[0].agentId).toBe('agent-1');
+			expect(jobWarnings[0]!.message).toContain('blacksmith');
+			expect(jobWarnings[0]!.agentId).toBe('agent-1');
 		});
 
 		it('does not warn when facility matches agent job', () => {
@@ -110,7 +112,8 @@ describe('validateWorldConsistency', () => {
 				agents: [makeAgent({ job: 'baker' })],
 				locations: [makeLocation({
 					id: 'loc-bakery',
-					production: { job: 'baker', output: { item_id: 'bread' }, input: null },
+					facility_type: 'bakery',
+					primary_job: 'baker',
 				})],
 			});
 			const warnings = validateWorldConsistency(input);
@@ -137,8 +140,8 @@ describe('validateWorldConsistency', () => {
 			const warnings = validateWorldConsistency(input);
 			const btWarnings = warnings.filter(w => w.category === 'bt_missing');
 			expect(btWarnings).toHaveLength(1);
-			expect(btWarnings[0].message).toContain('warrior');
-			expect(btWarnings[0].agentId).toBe('agent-1');
+			expect(btWarnings[0]!.message).toContain('warrior');
+			expect(btWarnings[0]!.agentId).toBe('agent-1');
 		});
 
 		it('does not warn when behavior tree exists', () => {
@@ -167,14 +170,16 @@ describe('validateWorldConsistency', () => {
 			const input = makeInput({
 				locations: [makeLocation({
 					id: 'loc-bakery',
-					production: { job: 'baker', output: { item_id: 'bread' }, input: { item_id: 'flour' } },
+					facility_type: 'bakery',
+					outputs: [{ item_id: 'bread' }],
+					inputs: [{ item_id: 'flour' }],
 				})],
 			});
 			const warnings = validateWorldConsistency(input);
 			const supplyWarnings = warnings.filter(w => w.category === 'supply_chain');
 			expect(supplyWarnings).toHaveLength(1);
-			expect(supplyWarnings[0].message).toContain('flour');
-			expect(supplyWarnings[0].locationId).toBe('loc-bakery');
+			expect(supplyWarnings[0]!.message).toContain('flour');
+			expect(supplyWarnings[0]!.locationId).toBe('loc-bakery');
 		});
 
 		it('does not warn when another facility supplies the input', () => {
@@ -182,15 +187,21 @@ describe('validateWorldConsistency', () => {
 				locations: [
 					makeLocation({
 						id: 'loc-mill',
-						production: { job: 'miller', output: { item_id: 'flour' }, input: { item_id: 'wheat' } },
+						facility_type: 'mill',
+						outputs: [{ item_id: 'flour' }],
+						inputs: [{ item_id: 'wheat' }],
 					}),
 					makeLocation({
 						id: 'loc-bakery',
-						production: { job: 'baker', output: { item_id: 'bread' }, input: { item_id: 'flour' } },
+						facility_type: 'bakery',
+						outputs: [{ item_id: 'bread' }],
+						inputs: [{ item_id: 'flour' }],
 					}),
 					makeLocation({
 						id: 'loc-farm',
-						production: { job: 'farmer', output: { item_id: 'wheat' }, input: null },
+						facility_type: 'farm',
+						outputs: [{ item_id: 'wheat' }],
+						inputs: [],
 					}),
 				],
 			});
@@ -203,12 +214,54 @@ describe('validateWorldConsistency', () => {
 			const input = makeInput({
 				locations: [makeLocation({
 					id: 'loc-farm',
-					production: { job: 'farmer', output: { item_id: 'wheat' }, input: null },
+					facility_type: 'farm',
+					outputs: [{ item_id: 'wheat' }],
+					inputs: [],
 				})],
 			});
 			const warnings = validateWorldConsistency(input);
 			const supplyWarnings = warnings.filter(w => w.category === 'supply_chain');
 			expect(supplyWarnings).toHaveLength(0);
+		});
+
+		it('uses outputs array (new path) to recognize producers', () => {
+			const input = makeInput({
+				locations: [
+					makeLocation({
+						id: 'loc-smithy',
+						facility_type: 'smithy',
+						outputs: [{ item_id: 'equipment' }],
+						inputs: [],
+					}),
+					makeLocation({
+						id: 'loc-quartermaster',
+						facility_type: 'quartermaster',
+						outputs: [{ item_id: 'supplies' }],
+						inputs: [{ item_id: 'equipment' }],
+					}),
+				],
+			});
+			const warnings = validateWorldConsistency(input);
+			const supplyWarnings = warnings.filter(w => w.category === 'supply_chain');
+			expect(supplyWarnings).toHaveLength(0);
+		});
+
+		it('warns when inputs array references a missing producer', () => {
+			const input = makeInput({
+				locations: [
+					makeLocation({
+						id: 'loc-workshop',
+						facility_type: 'workshop',
+						outputs: [{ item_id: 'gadget' }],
+						inputs: [{ item_id: 'tools' }],
+					}),
+				],
+			});
+			const warnings = validateWorldConsistency(input);
+			const supplyWarnings = warnings.filter(w => w.category === 'supply_chain');
+			expect(supplyWarnings).toHaveLength(1);
+			expect(supplyWarnings[0]!.message).toContain('tools');
+			expect(supplyWarnings[0]!.locationId).toBe('loc-workshop');
 		});
 	});
 
@@ -221,7 +274,10 @@ describe('validateWorldConsistency', () => {
 				locations: [
 					makeLocation({
 						id: 'loc-bakery',
-						production: { job: 'baker', output: { item_id: 'bread' }, input: { item_id: 'flour' } },
+						facility_type: 'bakery',
+						primary_job: 'baker',
+						outputs: [{ item_id: 'bread' }],
+						inputs: [{ item_id: 'flour' }],
 					}),
 				],
 				btDefinitions: { default: {} },

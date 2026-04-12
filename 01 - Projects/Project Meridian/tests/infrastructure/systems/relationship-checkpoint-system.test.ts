@@ -52,6 +52,8 @@ function createDeps(overrides: Partial<GameCoreDeps> = {}): GameCoreDeps {
 		tickCount: 1,
 		writeFile: null,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => new Map(),
 		...overrides,
 	};
 }

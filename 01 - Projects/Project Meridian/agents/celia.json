@@ -11,7 +11,7 @@
 	"skills": [],
 	"inventory": [
 		{ "item_id": "food", "quantity": 3 },
-		{ "item_id": "waterskin", "quantity": 1, "charges": 3 }
+		{ "item_id": "water", "quantity": 3 }
 	],
 	"equipment": { "head": null, "body": null, "hands": null, "tool": null, "accessory": null },
 	"persona": null,

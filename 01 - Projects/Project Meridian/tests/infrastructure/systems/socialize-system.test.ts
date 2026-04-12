@@ -56,6 +56,8 @@ function createDeps(eventBus = createEventBus(), tickCount = 100): GameCoreDeps 
 		tickCount,
 		writeFile: null,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => new Map(),
 	};
 }
 
@@ -74,7 +76,6 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		activeQuest: null,
 		cachedAvailableQuest: null,
 		insideFacility: false,
-		leisureTarget: null,
 		commitmentTicks: 0,
 		sleepDebt: 0,
 		ticksRestedThisDay: 0,
@@ -109,12 +110,11 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		SeekQuestFacility: () => 'mistreevous.failed', WorkRepair: () => 'mistreevous.failed',
 		CompleteQuest: () => 'mistreevous.failed', AbandonQuest: () => 'mistreevous.failed',
 		RepairWithTools: () => 'mistreevous.failed', ContinueCommitment: () => 'mistreevous.failed',
-		ChooseLeisure: () => 'mistreevous.failed', SeekLeisureTarget: () => 'mistreevous.failed',
 		Leisure: () => 'mistreevous.failed',
 		BetterPayAvailable: () => false, KnowsSupplyRoute: () => false,
 		HasQuest: () => false, QuestAvailable: () => false, QuestAtFacility: () => false,
 		QuestCargoReady: () => false, IsCommitted: () => false, ShouldSleep: () => false,
-		IsRestDay: () => false, IsMoodLow: () => false, IsAtLeisure: () => false,
+		IsRestDay: () => false, IsMoodLow: () => false,
 		claimFacility: () => true, releaseFacility: () => {},
 		recordPriceObservation: () => {}, tickUnemployment: () => {},
 		...overrides,

@@ -78,8 +78,31 @@ export function createMoodSystem(
 					relationshipQuality,
 				};
 
+				// Drain pending area modifiers queued by AreaEffectSystem. The sum
+				// is clamped to `external_modifier_cap` and then passed as
+				// `externalModifiers` to `calculateMood`. The queue is cleared each
+				// tick so each area pulse contributes exactly once. Guarded by an
+				// undefined check because some unit tests construct `AgentActor`
+				// without wiring a `behaviorAgent` — in that case there are no
+				// modifiers to drain.
+				let areaDelta = 0;
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+				if (entity.behaviorAgent !== undefined) {
+					const pending = entity.behaviorAgent.pendingAreaModifiers;
+					for (const mod of pending) {
+						// All AreaModifiers are currently `kind: 'mood'`; adding
+						// new kinds later requires branching here.
+						areaDelta += mod.delta_per_tick;
+					}
+					if (pending.length > 0) {
+						entity.behaviorAgent.pendingAreaModifiers = [];
+					}
+				}
+				const cap = deps.config.mood.external_modifier_cap;
+				const clampedAreaDelta = clamp(areaDelta, -cap, cap);
+
 				const previousBucket = mood.state.bucket;
-				const result = calculateMood(factors, previousBucket, deps.config.mood, 0);
+				const result = calculateMood(factors, previousBucket, deps.config.mood, clampedAreaDelta);
 
 				mood.state = {
 					value: result.value,

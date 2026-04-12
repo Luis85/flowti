@@ -14,7 +14,7 @@ export interface PerceivedAgent {
 
 export interface PerceivedLocation {
 	id: string;
-	type: string;
+	facility_type: string;
 	position: { x: number; y: number };
 	distance: number;
 }
@@ -95,7 +95,9 @@ export interface BehaviorAgent {
 	activeQuest: QuestRuntime | null;
 	cachedAvailableQuest: QuestRuntime | null;
 	insideFacility: boolean;
-	leisureTarget: string | null;
+	serviceTarget: string | null;
+	currentServiceVisit: { facilityId: string; ticksRemaining: number; costPaid: boolean } | null;
+	pendingAreaModifiers: { kind: 'mood'; delta_per_tick: number }[];
 	commitmentTicks: number;
 	sleepDebt: number;
 	ticksRestedThisDay: number;
@@ -151,17 +153,12 @@ export interface BehaviorAgent {
 	ShouldSleep(): boolean;
 	IsRestDay(): boolean;
 	IsMoodLow(): boolean;
-	IsAtLeisure(): boolean;
 
 	// Action methods
 	Eat(): ActionResult;
-	Rest(): ActionResult;
 	Drink(): ActionResult;
 	CollectProduced(): ActionResult;
 	SeekFood(): ActionResult;
-	SeekRest(): ActionResult;
-	SeekWater(): ActionResult;
-	FillWaterskin(): ActionResult;
 	SellAtMarket(): ActionResult;
 	SeekWork(): ActionResult;
 	SeekSocial(): ActionResult;
@@ -191,9 +188,9 @@ export interface BehaviorAgent {
 	ContinueCommitment(): ActionResult;
 	Idle(): ActionResult;
 	Wander(): ActionResult;
-	ChooseLeisure(): ActionResult;
-	SeekLeisureTarget(): ActionResult;
-	Leisure(): ActionResult;
+	ChooseServiceFacility(intent: string): ActionResult;
+	SeekService(): ActionResult;
+	UseService(): ActionResult;
 
 	// Utility methods
 	tickUnemployment(): void;

@@ -1,15 +1,9 @@
 {
   "id": "loc-library",
   "name": "Library",
-  "type": "leisure",
-  "position": { "x": 320, "y": 150, "region": "residential" },
+  "facility_type": "library",
+  "active_recipe": null,
+  "position": { "x": 320, "y": 150, "region": "region-residential" },
   "color": "#5c6bc0",
-  "capacity": 8,
-  "production": null,
-  "leisure": {
-    "cost": 1,
-    "effects": { "social": 0, "mood": 3, "energy": 0, "skill_xp": 1 },
-    "attribute_bonus": "IQ",
-    "ticks_per_visit": 20
-  }
+  "capacity": 8
 }

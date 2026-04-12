@@ -22,7 +22,6 @@ import { createDayNightSystem } from '../../src/infrastructure/systems/day-night
 import { createPerceptionSystem } from '../../src/infrastructure/systems/perception-system.js';
 import { createBehaviorTreeSystem } from '../../src/infrastructure/systems/behavior-tree-system.js';
 import { createMovementSystem } from '../../src/infrastructure/systems/movement-system.js';
-import { createRestSystem } from '../../src/infrastructure/systems/rest-system.js';
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { NeedsComponent } from '../../src/infrastructure/components/needs-component.js';
@@ -109,16 +108,14 @@ describe('Smoke Test — Real Data', () => {
 			dailySummary: { totalWages: 0, totalTax: 0, totalSales: 0, totalConsumption: 0, avgWage: 0, wageSpread: 0, vacancyCount: 0, unemploymentCount: 0, jobSwitchesThisDay: 0, supplyDeliveries: 0, questsCompletedThisDay: 0 },
 		}));
 
-		// Create location actors with FacilityComponent for production locations
+		// Create location actors with FacilityComponent for all locations
 		const locationActors = new Map<string, Actor>();
 		for (const loc of locations) {
 			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
-			if (loc.production !== null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [{ item_id: loc.production.output.item_id, quantity: 5 }],
-					fund: 200, workProgress: 0, status: 'idle', workerId: null,
-				}));
-			}
+			marker.addComponent(new FacilityComponent({
+				stock: [{ item_id: 'food', quantity: 5 }],
+				fund: 200, workProgress: 0, status: 'idle', workerId: null,
+			}));
 			locationActors.set(loc.id, marker);
 		}
 
@@ -168,6 +165,8 @@ describe('Smoke Test — Real Data', () => {
 			tickCount: 60,
 			writeFile: null,
 			dataRoot: 'test-data',
+			getRecipeRegistry: () => new Map(),
+			getFacilityTypeRegistry: () => new Map(),
 		};
 
 		runner.tick(deps);
@@ -183,8 +182,8 @@ describe('Smoke Test — Real Data', () => {
 		const config = GameConfigSchema.parse({});
 
 		// Find a food or rest location to place an agent on
-		const foodLoc = locations.find(l => l.type === 'food');
-		const restLoc = locations.find(l => l.type === 'rest');
+		const foodLoc = locations.find(l => l.facility_type === 'farm');
+		const restLoc = locations.find(l => l.facility_type === 'rest_inn');
 		const targetLoc = foodLoc ?? restLoc;
 		expect(targetLoc, 'Need at least one food or rest location in shipped data').toBeDefined();
 
@@ -213,12 +212,10 @@ describe('Smoke Test — Real Data', () => {
 		const locationActors = new Map<string, Actor>();
 		for (const loc of locations) {
 			const marker = new Actor({ x: loc.position.x, y: loc.position.y });
-			if (loc.production !== null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [{ item_id: loc.production.output.item_id, quantity: 5 }],
-					fund: 200, workProgress: 0, status: 'idle', workerId: null,
-				}));
-			}
+			marker.addComponent(new FacilityComponent({
+				stock: [{ item_id: 'food', quantity: 5 }],
+				fund: 200, workProgress: 0, status: 'idle', workerId: null,
+			}));
 			locationActors.set(loc.id, marker);
 		}
 
@@ -259,7 +256,6 @@ describe('Smoke Test — Real Data', () => {
 		runner.register(createMemoryDecaySystem(getAgents));
 		runner.register(createBehaviorTreeSystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations, getWorld, getLocationActors));
 		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 
@@ -271,6 +267,8 @@ describe('Smoke Test — Real Data', () => {
 			tickCount: 60,
 			writeFile: null,
 			dataRoot: 'test-data',
+			getRecipeRegistry: () => new Map(),
+			getFacilityTypeRegistry: () => new Map(),
 		};
 
 		runner.tick(deps);

@@ -14,6 +14,8 @@ import type { BatchableEventBus } from './infrastructure/engine/batchable-event-
 import type { LogLevel } from './domain/core/logger.js';
 import type { GameConfig } from './domain/schemas/game-config-schema.js';
 import type { AgentActor } from './infrastructure/entity/agent-actor.js';
+import type { Recipe } from './domain/schemas/recipe-schema.js';
+import type { FacilityType } from './domain/schemas/facility-type-schema.js';
 
 export class MeridianPlugin extends Plugin {
 	private settings: MeridianSettings = { ...DEFAULT_SETTINGS };
@@ -167,6 +169,12 @@ export class MeridianPlugin extends Plugin {
 		// Deep clone — live config is mutated by applySettings, base stays immutable
 		const config = GameConfigSchema.parse(configOverrides);
 
+		// Closed-over mutable registries — game-view.initialize() mutates these in place
+		// during boot (after worldLoader.load, before populateScene). The getter returns
+		// the same Map reference so downstream systems always see the up-to-date data.
+		const recipeRegistry = new Map<string, Recipe>();
+		const facilityTypeRegistry = new Map<string, FacilityType>();
+
 		if (this.logger !== null && this.performanceTracker !== null) {
 			this.gameDeps = {
 				logger: this.logger,
@@ -176,6 +184,8 @@ export class MeridianPlugin extends Plugin {
 				tickCount: 0,
 				writeFile: null,
 				dataRoot: '',
+				getRecipeRegistry: () => recipeRegistry,
+				getFacilityTypeRegistry: () => facilityTypeRegistry,
 			};
 		}
 

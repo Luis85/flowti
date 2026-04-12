@@ -30,10 +30,10 @@ describe('resolvePerception', () => {
 	});
 
 	it('detects locations within radius', () => {
-		const input = makeInput({ locations: [{ id: 'loc1', type: 'food', pos: { x: 50, y: 0 } }] });
+		const input = makeInput({ locations: [{ id: 'loc1', facility_type: 'farm', pos: { x: 50, y: 0 } }] });
 		const result = resolvePerception(input, defaultConfig);
 		expect(result.nearbyLocations).toHaveLength(1);
-		expect(result.nearbyLocations[0]?.type).toBe('food');
+		expect(result.nearbyLocations[0]?.facility_type).toBe('farm');
 	});
 
 	it('IQ scaling expands radius', () => {

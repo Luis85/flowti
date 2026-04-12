@@ -1,16 +1,9 @@
 {
 	"id": "loc-workshop",
 	"name": "Workshop",
-	"type": "work",
 	"position": { "x": 160, "y": 350, "region": "region-craft-quarter" },
 	"color": "#ff8a65",
-	"production": {
-		"job": "craftsman",
-		"output": { "item_id": "tools", "quantity": 1 },
-		"input": null,
-		"wage": 3,
-		"ticks_per_cycle": 25,
-		"funding": "facility"
-	},
+	"facility_type": "workshop",
+	"active_recipe": "recipe-craft-tools",
 	"capacity": 1
 }

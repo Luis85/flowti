@@ -12,8 +12,16 @@ import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
 import type { QuestRuntime } from '../../../src/domain/schemas/quest-schema.js';
+import type { Recipe } from '../../../src/domain/schemas/recipe-schema.js';
+import type { FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
 
-function createDeps(eventBus = createEventBus(), tickCount = 480): GameCoreDeps {
+function createDeps(
+	eventBus = createEventBus(),
+	tickCount = 480,
+	recipes?: Map<string, Recipe>,
+	facilityTypes?: Map<string, FacilityType>,
+): GameCoreDeps {
+	const defaults = makeRegistries();
 	return {
 		logger: { debug() {}, info() {}, warn() {}, error() {} },
 		eventBus,
@@ -22,6 +30,8 @@ function createDeps(eventBus = createEventBus(), tickCount = 480): GameCoreDeps 
 		tickCount,
 		writeFile: null,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => recipes ?? defaults.recipes,
+		getFacilityTypeRegistry: () => facilityTypes ?? defaults.facilityTypes,
 	};
 }
 
@@ -53,24 +63,86 @@ function createFacilityActor(
 	return actor;
 }
 
-function createProductionLocation(id = 'loc-bakery', inputItemId = 'wheat', inputQty = 2): WorldLocation {
+const bakeryFacilityType: FacilityType = {
+	id: 'bakery',
+	kind: 'production',
+	primary_job: 'baker',
+	default_wage: 5,
+	default_fund: 200,
+	funding: 'facility',
+	capacity: 1,
+	allowed_recipes: ['recipe-bake-bread'],
+};
+
+const mineFacilityType: FacilityType = {
+	id: 'mine',
+	kind: 'production',
+	primary_job: 'miner',
+	default_wage: 5,
+	default_fund: 200,
+	funding: 'facility',
+	capacity: 1,
+	allowed_recipes: ['recipe-mine-ore'],
+};
+
+const marketStallFacilityType: FacilityType = {
+	id: 'market_stall',
+	kind: 'service',
+	primary_job: 'settler',
+	default_wage: 1,
+	default_fund: 200,
+	funding: 'facility',
+	capacity: 1,
+	staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+	unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+	cost_per_visit: 0,
+	ticks_per_visit: 20,
+	restock_threshold_per_item: { food: 3 },
+};
+
+function bakeryRecipe(inputItemId = 'wheat', inputQty = 2): Recipe {
+	return {
+		id: 'recipe-bake-bread',
+		name: 'Bake bread',
+		inputs: [{ item_id: inputItemId, quantity: inputQty }],
+		outputs: [{ item_id: 'food', quantity: 1 }],
+		ticks_per_cycle: 30,
+		required_skill: null,
+		min_skill_level: 0,
+	};
+}
+
+const mineRecipe: Recipe = {
+	id: 'recipe-mine-ore',
+	name: 'Mine ore',
+	inputs: [],
+	outputs: [{ item_id: 'ore', quantity: 1 }],
+	ticks_per_cycle: 30,
+	required_skill: null,
+	min_skill_level: 0,
+};
+
+function makeRegistries(inputItemId = 'wheat', inputQty = 2): { recipes: Map<string, Recipe>; facilityTypes: Map<string, FacilityType> } {
+	const recipes = new Map<string, Recipe>();
+	recipes.set('recipe-bake-bread', bakeryRecipe(inputItemId, inputQty));
+	recipes.set('recipe-mine-ore', mineRecipe);
+	const facilityTypes = new Map<string, FacilityType>();
+	facilityTypes.set('bakery', bakeryFacilityType);
+	facilityTypes.set('mine', mineFacilityType);
+	facilityTypes.set('market_stall', marketStallFacilityType);
+	return { recipes, facilityTypes };
+}
+
+function createProductionLocation(id = 'loc-bakery'): WorldLocation {
 	return {
 		id,
 		name: 'Bakery',
-		type: 'work',
+		facility_type: 'bakery',
+		active_recipe: 'recipe-bake-bread',
 		position: { x: 200, y: 200, region: 'test' },
 		capacity: 10,
 		color: '#808080',
-		production: {
-			job: 'baker',
-			output: { item_id: 'food', quantity: 1 },
-			input: { item_id: inputItemId, quantity: inputQty },
-			wage: 5,
-			ticks_per_cycle: 30,
-			auto_process: false,
-			auto_ticks_per_cycle: null,
-			funding: 'facility',
-		},
+		region: null,
 	};
 }
 
@@ -78,11 +150,12 @@ function createMarketLocation(id = 'loc-market'): WorldLocation {
 	return {
 		id,
 		name: 'Market',
-		type: 'market',
+		facility_type: 'market_stall',
+		active_recipe: null,
 		position: { x: 100, y: 100, region: 'test' },
 		capacity: 10,
 		color: '#808080',
-		production: null,
+		region: null,
 	};
 }
 
@@ -90,20 +163,12 @@ function createAbandonedLocation(id = 'loc-mine'): WorldLocation {
 	return {
 		id,
 		name: 'Mine',
-		type: 'work',
+		facility_type: 'mine',
+		active_recipe: 'recipe-mine-ore',
 		position: { x: 300, y: 300, region: 'test' },
 		capacity: 10,
 		color: '#808080',
-		production: {
-			job: 'miner',
-			output: { item_id: 'ore', quantity: 1 },
-			input: null,
-			wage: 5,
-			ticks_per_cycle: 30,
-			auto_process: false,
-			auto_ticks_per_cycle: null,
-			funding: 'facility',
-		},
+		region: null,
 	};
 }
 
@@ -146,7 +211,7 @@ describe('QuestGenerationSystem', () => {
 
 	it('generates supply quest when facility has unmet input', () => {
 		const worldEntity = createWorldEntity(true);
-		const loc = createProductionLocation('loc-bakery', 'wheat', 2);
+		const loc = createProductionLocation('loc-bakery');
 		const locActor = createFacilityActor([]); // no wheat in stock
 		const locationActors = new Map<string, Actor>([['loc-bakery', locActor]]);
 
@@ -235,7 +300,7 @@ describe('QuestGenerationSystem', () => {
 			}));
 		}
 		const worldEntity = createWorldEntity(true, existingQuests);
-		const loc = createProductionLocation('loc-bakery', 'wheat', 2);
+		const loc = createProductionLocation('loc-bakery');
 		const locActor = createFacilityActor([]);
 		const locationActors = new Map<string, Actor>([['loc-bakery', locActor]]);
 
@@ -259,7 +324,7 @@ describe('QuestGenerationSystem', () => {
 			state: 'open',
 		});
 		const worldEntity = createWorldEntity(true, [existing]);
-		const loc = createProductionLocation('loc-bakery', 'wheat', 2);
+		const loc = createProductionLocation('loc-bakery');
 		const locActor = createFacilityActor([]);
 		const locationActors = new Map<string, Actor>([['loc-bakery', locActor]]);
 
@@ -279,7 +344,7 @@ describe('QuestGenerationSystem', () => {
 
 	it('quest ID format is q-{facilityId}-{tick}', () => {
 		const worldEntity = createWorldEntity(true);
-		const loc = createProductionLocation('loc-bakery', 'wheat', 2);
+		const loc = createProductionLocation('loc-bakery');
 		const locActor = createFacilityActor([]);
 		const locationActors = new Map<string, Actor>([['loc-bakery', locActor]]);
 
@@ -296,15 +361,135 @@ describe('QuestGenerationSystem', () => {
 		expect(system.priority).toBe(7.1);
 	});
 
+	it('recipe-path: generates supply quest from active recipe inputs', () => {
+		const worldEntity = createWorldEntity(true);
+		const loc: WorldLocation = {
+			id: 'loc-smithy',
+			name: 'Smithy',
+			type: 'work',
+			position: { x: 300, y: 300, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: null,
+			leisure: null,
+			region: null,
+			facility_type: 'smithy',
+			active_recipe: 'recipe-smithy-equipment',
+		};
+		const locActor = createFacilityActor([]); // empty stock
+		const locationActors = new Map<string, Actor>([['loc-smithy', locActor]]);
+
+		const recipes = new Map<string, Recipe>([
+			['recipe-smithy-equipment', {
+				id: 'recipe-smithy-equipment',
+				name: 'Smithy Equipment',
+				inputs: [{ item_id: 'tools', quantity: 1 }],
+				outputs: [{ item_id: 'equipment', quantity: 1 }],
+				ticks_per_cycle: 40,
+				required_skill: null,
+				min_skill_level: 0,
+			}],
+		]);
+		const facilityTypes = new Map<string, FacilityType>([
+			['smithy', {
+				kind: 'production',
+				id: 'smithy',
+				primary_job: 'smith',
+				default_wage: 5,
+				default_fund: 200,
+				funding: 'facility',
+				capacity: 1,
+				allowed_recipes: ['recipe-smithy-equipment'],
+			}],
+		]);
+
+		const system = createQuestGenerationSystem(() => worldEntity, () => locationActors, () => [loc]);
+
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('QuestGenerated', (e) => { events.push(e); });
+
+		system.execute(createDeps(eventBus, 480, recipes, facilityTypes));
+
+		const board = worldEntity.get(QuestBoardComponent);
+		expect(board.state.quests.length).toBe(1);
+
+		const quest = board.state.quests[0]!;
+		expect(quest.type).toBe('supply');
+		expect(quest.facilityId).toBe('loc-smithy');
+		expect(quest.itemId).toBe('tools');
+		expect(quest.quantity).toBe(1);
+		expect(events.length).toBe(1);
+	});
+
+	it('recipe-path: market_stall restock quest uses per-item thresholds', () => {
+		const worldEntity = createWorldEntity(true);
+		const loc: WorldLocation = {
+			id: 'loc-stall',
+			name: 'Market Stall',
+			type: 'work',
+			position: { x: 100, y: 100, region: 'test' },
+			capacity: 10,
+			color: '#808080',
+			production: null,
+			leisure: null,
+			region: null,
+			facility_type: 'market_stall',
+			active_recipe: null,
+		};
+		const locActor = createFacilityActor([{ item_id: 'food', quantity: 2 }]);
+		const locationActors = new Map<string, Actor>([['loc-stall', locActor]]);
+
+		const facilityTypes = new Map<string, FacilityType>([
+			['market_stall', {
+				kind: 'service',
+				id: 'market_stall',
+				primary_job: 'merchant',
+				default_wage: 3,
+				default_fund: 200,
+				funding: 'facility',
+				capacity: 1,
+				staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+				unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+				cost_per_visit: 0,
+				ticks_per_visit: 20,
+				restock_threshold_per_item: { food: 5 },
+			}],
+		]);
+
+		const system = createQuestGenerationSystem(() => worldEntity, () => locationActors, () => [loc]);
+
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('QuestGenerated', (e) => { events.push(e); });
+
+		system.execute(createDeps(eventBus, 480, new Map(), facilityTypes));
+
+		const board = worldEntity.get(QuestBoardComponent);
+		expect(board.state.quests.length).toBe(1);
+
+		const quest = board.state.quests[0]!;
+		expect(quest.type).toBe('restock');
+		expect(quest.facilityId).toBe('loc-stall');
+		expect(quest.itemId).toBe('food');
+		expect(quest.quantity).toBe(3);
+		expect(events.length).toBe(1);
+	});
+
 	it('supply quest reward uses item baseValue from config', () => {
 		const worldEntity = createWorldEntity(true);
-		const loc = createProductionLocation('loc-bakery', 'wheat', 3);
+		const loc = createProductionLocation('loc-bakery');
 		const locActor = createFacilityActor([{ item_id: 'wheat', quantity: 1 }]); // need 2 more
 		const locationActors = new Map<string, Actor>([['loc-bakery', locActor]]);
 
 		const system = createQuestGenerationSystem(() => worldEntity, () => locationActors, () => [loc]);
 		const config = GameConfigSchema.parse({});
-		system.execute(createDeps(createEventBus(), 480));
+		// Recipe with quantity 3 (standard bakery recipe needs 2; override here)
+		const recipes = new Map<string, Recipe>();
+		recipes.set('recipe-bake-bread', bakeryRecipe('wheat', 3));
+		const facilityTypes = new Map<string, FacilityType>();
+		facilityTypes.set('bakery', bakeryFacilityType);
+		system.execute(createDeps(createEventBus(), 480, recipes, facilityTypes));
 
 		const quest = worldEntity.get(QuestBoardComponent).state.quests[0]!;
 		// wheat not in config.items, so fallback to economy.food_price

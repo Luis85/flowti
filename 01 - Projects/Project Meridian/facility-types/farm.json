@@ -1,0 +1,10 @@
+{
+	"id": "farm",
+	"kind": "production",
+	"primary_job": "settler",
+	"default_wage": 3,
+	"default_fund": 200,
+	"funding": "facility",
+	"capacity": 1,
+	"allowed_recipes": ["recipe-farm-wheat"]
+}

@@ -16,6 +16,8 @@ function createTestDeps(eventBus = createEventBus()): { deps: GameCoreDeps; even
 		tickCount: 0,
 		writeFile: null,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => new Map(),
 	};
 	return { deps, eventBus };
 }

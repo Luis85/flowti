@@ -1,6 +1,8 @@
 import type { Actor } from 'excalibur';
 import type { BehaviorAgent, PerceivedAgent, PerceivedLocation, PerceivedFacility } from '../../domain/systems/behavior-agent.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
+import type { FacilityType } from '../../domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../domain/schemas/recipe-schema.js';
 import type { QuestBoardState } from '../components/quest-board-component.js';
 import { NeedsComponent } from '../components/needs-component.js';
 import { MoodComponent } from '../components/mood-component.js';
@@ -30,6 +32,8 @@ export interface BehaviorAgentDeps {
 	swapBehaviorTree?: (jobName: string | null) => void;
 	jobsConfig?: GameConfig['jobs'];
 	getQuestBoard?: () => QuestBoardState;
+	getFacilityTypeRegistry?: () => Map<string, FacilityType>;
+	getRecipeRegistry?: () => Map<string, Recipe>;
 	claimFacility?: (facilityId: string) => boolean;
 	releaseFacility?: () => void;
 }
@@ -72,6 +76,8 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		const locationActorMap = getLocationActors();
 		const locationList = getLocations();
 		const perception = actor.get(PerceptionComponent);
+		const facilityTypeRegistry = deps.getFacilityTypeRegistry?.();
+		const recipeRegistry = deps.getRecipeRegistry?.();
 		const facilities: PerceivedFacility[] = [];
 
 		for (const nearLoc of perception.state.nearbyLocations) {
@@ -81,21 +87,30 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			if (locActor?.has(FacilityComponent) !== true) continue;
 			const facility = locActor.get(FacilityComponent);
 
+			const facilityType = facilityTypeRegistry?.get(locData.facility_type);
+			const recipe = locData.active_recipe !== null
+				? recipeRegistry?.get(locData.active_recipe)
+				: undefined;
+
 			let hasUnmetInput = false;
-			if (locData.production?.input !== null && locData.production?.input !== undefined) {
-				const needed = locData.production.input;
-				const inStock = facility.state.stock.find(s => s.item_id === needed.item_id);
-				hasUnmetInput = inStock === undefined || inStock.quantity < needed.quantity;
+			if (recipe !== undefined) {
+				for (const input of recipe.inputs) {
+					const inStock = facility.state.stock.find(s => s.item_id === input.item_id);
+					if (inStock === undefined || inStock.quantity < input.quantity) {
+						hasUnmetInput = true;
+						break;
+					}
+				}
 			}
 
 			facilities.push({
 				id: nearLoc.id,
-				job: locData.production?.job ?? '',
+				job: facilityType?.primary_job ?? '',
 				stock: [...facility.state.stock],
 				distance: nearLoc.distance,
 				hasUnmetInput,
 				workerId: facility.state.workerId,
-				wage: locData.production?.wage ?? 0,
+				wage: facilityType?.default_wage ?? 0,
 				status: facility.state.status,
 			});
 		}
@@ -121,7 +136,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 			const locData = locationList.find(l => l.id === nl.id);
 			return {
 				id: nl.id,
-				type: locData?.type ?? nl.type,
+				facility_type: locData?.facility_type ?? nl.facility_type,
 				position: locData !== undefined
 					? { x: locData.position.x, y: locData.position.y }
 					: { x: 0, y: 0 },
@@ -229,8 +244,12 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set cachedAvailableQuest(v) { memory.cachedAvailableQuest = v; },
 		get insideFacility() { return memory.insideFacility; },
 		set insideFacility(v) { memory.insideFacility = v; },
-		get leisureTarget() { return memory.leisureTarget; },
-		set leisureTarget(v) { memory.leisureTarget = v; },
+		get serviceTarget() { return memory.serviceTarget; },
+		set serviceTarget(v) { memory.serviceTarget = v; },
+		get currentServiceVisit() { return memory.currentServiceVisit; },
+		set currentServiceVisit(v) { memory.currentServiceVisit = v; },
+		get pendingAreaModifiers() { return memory.pendingAreaModifiers; },
+		set pendingAreaModifiers(v) { memory.pendingAreaModifiers = v; },
 		get commitmentTicks() { return memory.commitmentTicks; },
 		set commitmentTicks(v) { memory.commitmentTicks = v; },
 		get sleepDebt() { return memory.sleepDebt; },

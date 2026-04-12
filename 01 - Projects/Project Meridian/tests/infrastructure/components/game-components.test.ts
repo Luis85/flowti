@@ -228,6 +228,25 @@ describe('FacilityComponent', () => {
 		expect(comp.state.workerId).toBe('agent-1');
 		expect(comp.dirty).toBe(true);
 	});
+
+	it('lastPulseTick defaults to undefined when omitted', () => {
+		const comp = new FacilityComponent({
+			stock: [], fund: 0, workProgress: 0, status: 'idle', workerId: null,
+		});
+		expect(comp.state.lastPulseTick).toBeUndefined();
+	});
+
+	it('lastPulseTick preserves the value passed at construction (area_effect spawn seeding)', () => {
+		// Mirrors how `game-view.ts populateScene` seeds area_effect facilities:
+		// `lastPulseTick: deps.tickCount` at spawn so the first pulse fires on
+		// or after `spawnTick + ticks_per_pulse`.
+		const spawnTick = 12345;
+		const comp = new FacilityComponent({
+			stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			lastPulseTick: spawnTick,
+		});
+		expect(comp.state.lastPulseTick).toBe(spawnTick);
+	});
 });
 
 describe('InventoryComponent', () => {

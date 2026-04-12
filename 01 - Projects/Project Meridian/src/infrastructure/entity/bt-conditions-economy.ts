@@ -36,7 +36,8 @@ export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMe
 
 		HasWater(): boolean {
 			const inv = actor.get(InventoryComponent).state.items;
-			return inv.some(i => i.item_id === 'waterskin' && (i.charges ?? 0) > 0);
+			const waterItem = inv.find(i => i.item_id === 'water');
+			return waterItem !== undefined && waterItem.quantity > 0;
 		},
 
 		HasTradeGoods(): boolean {
@@ -110,14 +111,19 @@ export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMe
 		KnowsSupplyRoute(): boolean {
 			const locations = deps.getLocations();
 			const knownSet = new Set(memory.knownLocations);
+			const recipeRegistry = deps.getRecipeRegistry?.();
 			const facilityData = new Map<string, FacilityData>();
 			for (const loc of locations) {
-				if (loc.production === null) continue;
+				if (loc.active_recipe === null) continue;
 				if (!knownSet.has(loc.id)) continue;
+				const recipe = recipeRegistry?.get(loc.active_recipe);
+				if (recipe === undefined) continue;
+				const firstOutput = recipe.outputs[0];
+				const firstInput = recipe.inputs[0];
 				facilityData.set(loc.id, {
 					id: loc.id,
-					output: loc.production.output,
-					input: loc.production.input,
+					output: firstOutput !== undefined ? { item_id: firstOutput.item_id } : undefined,
+					input: firstInput !== undefined ? { item_id: firstInput.item_id } : null,
 					region: loc.position.region ?? '',
 				});
 			}

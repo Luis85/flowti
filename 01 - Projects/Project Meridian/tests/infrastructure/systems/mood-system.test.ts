@@ -7,6 +7,13 @@ import { createPerformanceTracker } from '../../../src/infrastructure/performanc
 import { createEventBus } from '../../../src/infrastructure/event-bus.js';
 import type { GameCoreDeps } from '../../../src/domain/core/game-deps.js';
 import type { GameEvent } from '../../../src/domain/core/events.js';
+import type { BehaviorAgent } from '../../../src/domain/systems/behavior-agent.js';
+
+function attachBehaviorAgentStub(agent: AgentActor, pendingAreaModifiers: BehaviorAgent['pendingAreaModifiers'] = []): void {
+	// Minimal stub: MoodSystem only reads `pendingAreaModifiers`. Using a bare
+	// object cast avoids rebuilding the full BehaviorAgent surface area.
+	agent.behaviorAgent = { pendingAreaModifiers } as unknown as BehaviorAgent;
+}
 
 function createTestAgent(overrides: Record<string, unknown> = {}) {
 	return {
@@ -44,6 +51,8 @@ function createDeps(eventBus = createEventBus()): GameCoreDeps {
 		tickCount: 100,
 		writeFile: null,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => new Map(),
 	};
 }
 
@@ -204,6 +213,90 @@ describe('MoodSystem', () => {
 			const fullMood = fullCharges.get(MoodComponent).state.value;
 			const emptyMood = emptyCharges.get(MoodComponent).state.value;
 			expect(fullMood).toBeGreaterThan(emptyMood);
+		});
+	});
+
+	describe('pendingAreaModifiers queue drain', () => {
+		it('applies area modifier delta to mood value and drains the queue', () => {
+			const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
+			attachBehaviorAgentStub(agent, [{ kind: 'mood', delta_per_tick: 10 }]);
+			const system = createMoodSystem(() => [agent]);
+
+			// Run a baseline tick with no modifiers to capture the expected no-boost value
+			const baselineAgent = new AgentActor(createTestAgent({ id: 'baseline' }), defaultMoodConfig);
+			attachBehaviorAgentStub(baselineAgent, []);
+			const baselineSystem = createMoodSystem(() => [baselineAgent]);
+			baselineSystem.execute(createDeps());
+			const baselineValue = baselineAgent.get(MoodComponent).state.value;
+
+			system.execute(createDeps());
+			const boostedValue = agent.get(MoodComponent).state.value;
+
+			expect(boostedValue).toBeGreaterThan(baselineValue);
+			// Queue was drained
+			expect(agent.behaviorAgent.pendingAreaModifiers).toHaveLength(0);
+		});
+
+		it('queue drained after application — next tick with empty queue produces baseline mood', () => {
+			const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
+			attachBehaviorAgentStub(agent, [{ kind: 'mood', delta_per_tick: 15 }]);
+			const system = createMoodSystem(() => [agent]);
+
+			system.execute(createDeps());
+			const boostedValue = agent.get(MoodComponent).state.value;
+
+			// Tick 2: queue is empty, re-run
+			system.execute(createDeps());
+			const secondValue = agent.get(MoodComponent).state.value;
+
+			// Second tick has no area bonus, so it returns to the un-boosted baseline
+			expect(secondValue).toBeLessThan(boostedValue);
+			expect(agent.behaviorAgent.pendingAreaModifiers).toHaveLength(0);
+		});
+
+		it('multiple modifiers stack additively', () => {
+			const single = new AgentActor(createTestAgent({ id: 'single' }), defaultMoodConfig);
+			attachBehaviorAgentStub(single, [{ kind: 'mood', delta_per_tick: 5 }]);
+
+			const doubled = new AgentActor(createTestAgent({ id: 'doubled' }), defaultMoodConfig);
+			attachBehaviorAgentStub(doubled, [
+				{ kind: 'mood', delta_per_tick: 5 },
+				{ kind: 'mood', delta_per_tick: 5 },
+			]);
+
+			const system = createMoodSystem(() => [single, doubled]);
+			system.execute(createDeps());
+
+			// Two +5 modifiers should give a strictly larger mood than one +5 modifier
+			expect(doubled.get(MoodComponent).state.value).toBeGreaterThan(single.get(MoodComponent).state.value);
+		});
+
+		it('empty queue → no mood change from area effects', () => {
+			const withQueue = new AgentActor(createTestAgent({ id: 'withq' }), defaultMoodConfig);
+			attachBehaviorAgentStub(withQueue, []);
+
+			const withoutQueue = new AgentActor(createTestAgent({ id: 'withoutq' }), defaultMoodConfig);
+			// No behaviorAgent attached at all — guard-path
+
+			const system = createMoodSystem(() => [withQueue, withoutQueue]);
+			system.execute(createDeps());
+
+			// Both should produce identical mood (no area boost, no decay)
+			expect(withQueue.get(MoodComponent).state.value).toBe(withoutQueue.get(MoodComponent).state.value);
+		});
+
+		it('delta is clamped to external_modifier_cap', () => {
+			const agent = new AgentActor(createTestAgent(), defaultMoodConfig);
+			// Push a huge modifier — larger than cap (30)
+			attachBehaviorAgentStub(agent, [{ kind: 'mood', delta_per_tick: 1000 }]);
+			const capped = new AgentActor(createTestAgent({ id: 'capped' }), defaultMoodConfig);
+			attachBehaviorAgentStub(capped, [{ kind: 'mood', delta_per_tick: 30 }]);
+
+			const system = createMoodSystem(() => [agent, capped]);
+			system.execute(createDeps());
+
+			// Both should produce the same mood value because 1000 got clamped to 30
+			expect(agent.get(MoodComponent).state.value).toBe(capped.get(MoodComponent).state.value);
 		});
 	});
 

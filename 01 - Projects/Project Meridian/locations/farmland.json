@@ -1,17 +1,9 @@
 {
 	"id": "loc-farmland",
 	"name": "Farmland",
-	"type": "food",
 	"position": { "x": 120, "y": 90, "region": "region-farmlands" },
 	"color": "#7cb342",
-	"production": {
-		"job": "settler",
-		"output": { "item_id": "food", "quantity": 1 },
-		"input": null,
-		"wage": 3,
-		"ticks_per_cycle": 15,
-		"auto_process": false,
-		"auto_ticks_per_cycle": null
-	},
+	"facility_type": "farm",
+	"active_recipe": "recipe-farm-wheat",
 	"capacity": 1
 }

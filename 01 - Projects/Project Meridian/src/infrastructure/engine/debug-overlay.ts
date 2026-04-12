@@ -17,6 +17,8 @@ import { TraitsComponent } from '../components/traits-component.js';
 import type { WorldLocation } from '../../domain/schemas/location-schema.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 import type { GameConfig } from '../../domain/schemas/game-config-schema.js';
+import type { FacilityType } from '../../domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../domain/schemas/recipe-schema.js';
 import { extractActivePath } from '../ui/bt-active-path.js';
 import { enrichAgentStatus } from '../ui/agent-status-label.js';
 import type { QuestLogger } from '../ui/quest-logger.js';
@@ -34,6 +36,8 @@ interface OverlayDeps {
 	writeFile?: (path: string, content: string) => Promise<void>;
 	dataRoot?: string;
 	getQuestLogger?: () => QuestLogger;
+	getFacilityTypeRegistry?: () => Map<string, FacilityType>;
+	getRecipeRegistry?: () => Map<string, Recipe>;
 }
 
 type Panel = 'agents' | 'world' | 'economy' | 'stats' | 'quests';
@@ -61,10 +65,11 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	buy: { emoji: '🛒', label: 'Buying food' },
 	eat: { emoji: '🍖', label: 'Eating' },
 	drink: { emoji: '💧', label: 'Drinking' },
-	seek_water: { emoji: '🔍💧', label: 'Going for water' },
-	fill_waterskin: { emoji: '🫗', label: 'Filling waterskin' },
+	seek_well: { emoji: '🔍💧', label: 'Going to well' },
+	seek_service: { emoji: '🏠', label: 'Going to service' },
+	use_service: { emoji: '🛋️', label: 'Using service' },
+	choose_service: { emoji: '🤔', label: 'Choosing service' },
 	rest: { emoji: '😴', label: 'Resting' },
-	seek_rest: { emoji: '🏠', label: 'Going home' },
 	wander: { emoji: '🚶‍♂️', label: 'Wandering' },
 	idle: { emoji: '💤', label: 'Idle' },
 	claim_job: { emoji: '📋', label: 'Claiming job' },
@@ -81,9 +86,6 @@ const ACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	pickup_quest_item: { emoji: '📦', label: 'Picking up for quest' },
 	repair: { emoji: '🔧', label: 'Repairing' },
 	switch_job: { emoji: '🔄', label: 'Switching job' },
-	leisure: { emoji: '🎭', label: 'Leisure' },
-	seek_leisure: { emoji: '🎭', label: 'Seeking leisure' },
-	choose_leisure: { emoji: '🤔', label: 'Choosing leisure' },
 	seek_job_facility: { emoji: '🔍', label: 'Seeking job' },
 };
 
@@ -94,12 +96,18 @@ const PHASE_DISPLAY: Record<string, { emoji: string; label: string }> = {
 	night: { emoji: '🌙', label: 'Night' },
 };
 
-const LOCATION_ICONS: Record<string, string> = {
-	food: '🌾',
-	market: '🏪',
-	rest: '🏠',
-	water: '💧',
-	work: '🏭',
+const FACILITY_TYPE_ICONS: Record<string, string> = {
+	farm: '🌾',
+	workshop: '🔨',
+	smithy: '⚒️',
+	well: '💧',
+	guard_post: '🛡️',
+	rest_inn: '🛏️',
+	bathhouse: '🛁',
+	tavern: '🍺',
+	library: '📚',
+	park: '🌳',
+	market_stall: '🏪',
 };
 
 function needBar(value: number, label: string, emoji: string): string {
@@ -205,12 +213,6 @@ function renderAgentsPanel(deps: OverlayDeps): string {
 			lines.push(`→ <b>${targetData?.name ?? target.id}</b>`);
 		}
 
-		// Leisure target
-		if (ba.leisureTarget !== null) {
-			const leisureName = locations.find(l => l.id === ba.leisureTarget)?.name ?? ba.leisureTarget;
-			lines.push(`🎭 → ${leisureName}`);
-		}
-
 		lines.push('</div>');
 	}
 
@@ -229,14 +231,18 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		if (actor === undefined) continue;
 		if (!actor.has(FacilityComponent)) continue;
 		const fac = actor.get(FacilityComponent);
-		const locIcon = LOCATION_ICONS[loc.type] ?? '🏭';
+		const locIcon = FACILITY_TYPE_ICONS[loc.facility_type] ?? '🏭';
 		const stockItems = fac.state.stock.map(s => `${s.item_id} x${s.quantity}`).join(', ') || '<span style="color:#6c7086">empty</span>';
 		const worker = fac.state.workerId;
 		const workerLabel = worker !== null
 			? `<span style="color:#a6e3a1">✅ ${worker.replace('agent-', '')}</span>`
 			: '<span style="color:#6c7086">—</span>';
+		const recipe = loc.active_recipe !== null
+			? deps.getRecipeRegistry?.().get(loc.active_recipe)
+			: undefined;
+		const progressMax = recipe?.ticks_per_cycle ?? null;
 		const progressLabel = fac.state.workProgress > 0
-			? ` ⏳ ${fac.state.workProgress}/${loc.production?.ticks_per_cycle ?? '?'}`
+			? ` ⏳ ${fac.state.workProgress}/${progressMax ?? '?'}`
 			: '';
 
 		const statusColor = fac.state.status === 'abandoned' ? '#f44' : '#888';
@@ -244,19 +250,6 @@ function renderWorldPanel(deps: OverlayDeps): string {
 		lines.push(`${locIcon} <b>${loc.name}</b>${progressLabel} <span style="color:${statusColor}">${fac.state.status}</span>`);
 		lines.push(`💰 ${fac.state.fund.toFixed(0)}g · 👷 ${workerLabel} · 📦 ${stockItems}`);
 		lines.push('</div>');
-	}
-
-	// Non-facility locations
-	const nonFacilities = locations.filter(l => {
-		const a = locationActors.get(l.id);
-		return a?.has(FacilityComponent) !== true;
-	});
-	if (nonFacilities.length > 0) {
-		lines.push('<br><b style="color:#89b4fa">Locations</b>');
-		for (const loc of nonFacilities) {
-			const locIcon = LOCATION_ICONS[loc.type] ?? '📍';
-			lines.push(`${locIcon} ${loc.name} <span style="color:#6c7086">(${loc.type})</span>`);
-		}
 	}
 
 	// Quest board
@@ -333,7 +326,7 @@ function renderEconomyPanel(deps: OverlayDeps): string {
 	lines.push(`Total: <b>${totalGold.toFixed(0)}g</b> (treasury ${economy.state.treasury.toFixed(0)} + agents ${totalAgent.toFixed(0)} + facilities ${totalFacility.toFixed(0)})`);
 
 	// Market prices
-	const marketLoc = locations.find(l => l.type === 'market');
+	const marketLoc = locations.find(l => l.facility_type === 'market_stall');
 	if (marketLoc !== undefined) {
 		const marketActor = locationActors.get(marketLoc.id);
 		if (marketActor?.has(FacilityComponent) === true) {
@@ -634,7 +627,7 @@ function buildEconomySnapshot(
 	}
 
 	// Market prices
-	const marketLoc = locations.find(l => l.type === 'market');
+	const marketLoc = locations.find(l => l.facility_type === 'market_stall');
 	if (marketLoc !== undefined) {
 		const ma = locationActors.get(marketLoc.id);
 		if (ma?.has(FacilityComponent) === true) {
@@ -713,11 +706,6 @@ function buildAgentSnapshot(
 	});
 	const jobFacilityLabel = jobFacility !== undefined ? ` @ ${jobFacility.name}` : (agent.job !== null ? ' (no facility assigned)' : '');
 	lines.push(`Job: ${agent.job ?? 'none'}${jobFacilityLabel} | Unemployed ticks: ${ba.unemployedTicks}`);
-	// Leisure target
-	if (ba.leisureTarget !== null) {
-		const leisureName = locationMap.get(ba.leisureTarget)?.name ?? ba.leisureTarget;
-		lines.push(`Leisure target: ${leisureName}`);
-	}
 	lines.push(`Known: ${ba.knownLocations.map(id => locationMap.get(id)?.name ?? id).join(', ') || 'none'}`);
 	// Resting at / Feeding at
 	const restFeedParts: string[] = [];
@@ -807,7 +795,12 @@ function buildAgentSnapshot(
 	return lines.join('\n');
 }
 
-function buildFacilitiesSnapshot(locations: WorldLocation[], locationActors: Map<string, Actor>): string {
+function buildFacilitiesSnapshot(
+	locations: WorldLocation[],
+	locationActors: Map<string, Actor>,
+	facilityTypes?: Map<string, FacilityType>,
+	recipes?: Map<string, Recipe>,
+): string {
 	const lines: string[] = [];
 	lines.push('## Facilities');
 	for (const loc of locations) {
@@ -816,21 +809,15 @@ function buildFacilitiesSnapshot(locations: WorldLocation[], locationActors: Map
 		const fac = la.get(FacilityComponent);
 		const stock = fac.state.stock.map(s => `${s.item_id}x${s.quantity}`).join(', ') || 'empty';
 		const worker = fac.state.workerId?.replace('agent-', '') ?? 'none';
-		const progress = fac.state.workProgress > 0 ? ` | progress: ${fac.state.workProgress}/${loc.production?.ticks_per_cycle ?? '?'}` : '';
-		lines.push(`${loc.name} (${loc.type}): status=${fac.state.status} | fund=${fac.state.fund.toFixed(0)}g | worker=${worker} | stock=[${stock}]${progress}`);
-		if (loc.production !== null) {
-			const p = loc.production;
-			lines.push(`  Production: ${p.output.item_id}x${p.output.quantity} every ${p.ticks_per_cycle}t | wage=${p.wage}g | job=${p.job}${p.input !== null ? ` | input=${p.input.item_id}x${p.input.quantity}` : ''}`);
-		}
-	}
-
-	// Non-facility locations
-	const nonFac = locations.filter(l => locationActors.get(l.id)?.has(FacilityComponent) !== true);
-	if (nonFac.length > 0) {
-		lines.push('');
-		lines.push('## Locations');
-		for (const loc of nonFac) {
-			lines.push(`${loc.name} (${loc.type}) at (${loc.position.x}, ${loc.position.y})`);
+		const ft = facilityTypes?.get(loc.facility_type);
+		const recipe = loc.active_recipe !== null ? recipes?.get(loc.active_recipe) : undefined;
+		const progressMax = recipe?.ticks_per_cycle ?? null;
+		const progress = fac.state.workProgress > 0 ? ` | progress: ${fac.state.workProgress}/${progressMax ?? '?'}` : '';
+		lines.push(`${loc.name} (${loc.facility_type}): status=${fac.state.status} | fund=${fac.state.fund.toFixed(0)}g | worker=${worker} | stock=[${stock}]${progress}`);
+		if (ft?.kind === 'production' && recipe !== undefined) {
+			const outputs = recipe.outputs.map(o => `${o.item_id}x${o.quantity}`).join(', ');
+			const inputs = recipe.inputs.length > 0 ? ` | input=${recipe.inputs.map(i => `${i.item_id}x${i.quantity}`).join(', ')}` : '';
+			lines.push(`  Production: ${outputs} every ${recipe.ticks_per_cycle}t | wage=${ft.default_wage}g | job=${ft.primary_job}${inputs}`);
 		}
 	}
 
@@ -914,6 +901,7 @@ function detectAnomalies(
 	config: GameConfig | undefined,
 	velocity: number,
 	agentsByAction: Map<string, string[]>,
+	facilityTypes?: Map<string, FacilityType>,
 ): string {
 	const anomalies: string[] = [];
 	const ds = economy.state.dailySummary;
@@ -968,8 +956,11 @@ function detectAnomalies(
 		const fac = la.get(FacilityComponent);
 		if (fac.state.status === 'abandoned') anomalies.push(`[HIGH] Facility ${loc.name}: abandoned`);
 		if (fac.state.fund <= 0 && fac.state.status !== 'abandoned') anomalies.push(`[MEDIUM] Facility ${loc.name}: fund depleted (${fac.state.fund.toFixed(0)}g)`);
-		if (loc.production !== null && fac.state.workerId === null && fac.state.status !== 'abandoned') {
-			anomalies.push(`[MEDIUM] Facility ${loc.name}: production facility with no worker (job=${loc.production.job})`);
+		const ft = facilityTypes?.get(loc.facility_type);
+		const isProduction = ft?.kind === 'production';
+		const primaryJob = ft?.primary_job ?? '';
+		if (isProduction && fac.state.workerId === null && fac.state.status !== 'abandoned') {
+			anomalies.push(`[MEDIUM] Facility ${loc.name}: production facility with no worker (job=${primaryJob})`);
 		}
 	}
 
@@ -998,10 +989,14 @@ function detectAnomalies(
 		}
 	}
 
-	// Gold inflation check — compute expected from config
+	// Gold inflation check — compute expected from registry-based fund totals
 	const treasuryStart = config?.economy.treasury_start_sandbox ?? 1000;
-	const facilityFund = config?.economy.facility_start_fund ?? 200;
-	const expectedGold = treasuryStart + (locations.filter(l => l.production !== null).length * facilityFund);
+	let totalFacilityFund = 0;
+	for (const loc of locations) {
+		const ft = facilityTypes?.get(loc.facility_type);
+		if (ft !== undefined && ft.funding !== 'treasury') totalFacilityFund += (loc.fund ?? ft.default_fund);
+	}
+	const expectedGold = treasuryStart + totalFacilityFund;
 	if (totalGold > expectedGold * 2) {
 		anomalies.push(`[MEDIUM] Gold inflation: total ${totalGold.toFixed(0)}g is ${(totalGold / expectedGold * 100).toFixed(0)}% of starting supply`);
 	}
@@ -1084,12 +1079,12 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		buildEconomySnapshot(agents, economy, locationActors, locations, tick, time),
 		buildPopulationSnapshot(agents),
 		'## Agents\n' + agents.map(a => buildAgentSnapshot(a, agents, locationMap, locationActors, locations, tick, config)).join('\n\n'),
-		buildFacilitiesSnapshot(locations, locationActors),
+		buildFacilitiesSnapshot(locations, locationActors, deps.getFacilityTypeRegistry?.(), deps.getRecipeRegistry?.()),
 		buildQuestSnapshot(questBoard, tick),
 		buildGoldFlowsSnapshot(economy, tick, time),
 		buildEventsSnapshot(eventBus),
 		actionSection,
-		detectAnomalies(agents, economy, locations, locationActors, world, tick, totalGold, config, velocity, agentsByAction),
+		detectAnomalies(agents, economy, locations, locationActors, world, tick, totalGold, config, velocity, agentsByAction, deps.getFacilityTypeRegistry?.()),
 		buildConfigSnapshot(agents, config, ticksPerDay),
 	];
 	return sections.filter(s => s.length > 0).join('\n\n');

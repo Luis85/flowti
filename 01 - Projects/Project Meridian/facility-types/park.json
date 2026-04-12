@@ -1,0 +1,14 @@
+{
+	"id": "park",
+	"kind": "service",
+	"primary_job": "park_keeper",
+	"default_wage": 1,
+	"default_fund": 100,
+	"funding": "treasury",
+	"capacity": 1,
+	"staffed_effects":   { "mood": 8, "energy": 5, "social": 5, "skill_xp": 0 },
+	"unstaffed_effects": { "mood": 4, "energy": 2, "social": 2, "skill_xp": 0 },
+	"cost_per_visit": 0,
+	"ticks_per_visit": 15,
+	"restock_threshold_per_item": {}
+}

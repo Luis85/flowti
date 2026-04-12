@@ -1,0 +1,14 @@
+{
+	"id": "rest_inn",
+	"kind": "service",
+	"primary_job": "innkeeper",
+	"default_wage": 1,
+	"default_fund": 150,
+	"funding": "facility",
+	"capacity": 1,
+	"staffed_effects":   { "mood": 5,  "energy": 20, "social": 0, "skill_xp": 0 },
+	"unstaffed_effects": { "mood": 0,  "energy": 10, "social": 0, "skill_xp": 0 },
+	"cost_per_visit": 3,
+	"ticks_per_visit": 30,
+	"restock_threshold_per_item": {}
+}

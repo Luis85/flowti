@@ -1,16 +1,10 @@
 {
 	"id": "loc-guard-post",
 	"name": "Guard Post",
-	"type": "work",
 	"position": { "x": 400, "y": 150, "region": "region-market-square" },
 	"color": "#78909c",
-	"production": {
-		"job": "guard",
-		"output": { "item_id": "security", "quantity": 1 },
-		"input": null,
-		"wage": 4,
-		"ticks_per_cycle": 20,
-		"funding": "treasury"
-	},
+	"facility_type": "guard_post",
+	"active_recipe": null,
+	"fund": 0,
 	"capacity": 1
 }

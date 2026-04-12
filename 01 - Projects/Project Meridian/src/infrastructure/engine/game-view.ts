@@ -6,6 +6,8 @@ import { createGameLoader } from './game-loader.js';
 import { createDebugOverlay } from './debug-overlay.js';
 import { createQuestLogger, type QuestLogger } from '../ui/quest-logger.js';
 import { createWorldLoader, type WorldData } from './world-loader.js';
+import { createRecipeLoader } from '../entity/recipe-loader.js';
+import { createFacilityTypeLoader, validateFacilityTypes } from '../entity/facility-type-loader.js';
 import { createTickRunner } from './tick-runner.js';
 import { MeridianTickSystem } from './tick-system.js';
 import type { BatchableEventBus } from './batchable-event-bus.js';
@@ -23,10 +25,10 @@ import { createDayNightSystem } from '../systems/day-night-system.js';
 import { createPerceptionSystem } from '../systems/perception-system.js';
 import { createBehaviorTreeSystem } from '../systems/behavior-tree-system.js';
 import { createMovementSystem } from '../systems/movement-system.js';
-import { createRestSystem } from '../systems/rest-system.js';
 import { createFeedSystem } from '../systems/feed-system.js';
 import { createSocializeSystem } from '../systems/socialize-system.js';
-import { createLeisureSystem } from '../systems/leisure-system.js';
+import { createServiceSystem } from '../systems/service-system.js';
+import { createAreaEffectSystem } from '../systems/area-effect-system.js';
 import { createFacilitySystem } from '../systems/facility-system.js';
 import { createTradeSystem } from '../systems/trade-system.js';
 import { createDialogueSystem } from '../systems/dialogue-system.js';
@@ -128,11 +130,37 @@ export class MeridianGameView extends ItemView {
 		const dataRoot = devProbe.length > 0 ? devRoot : '03 - Resources';
 		deps.dataRoot = dataRoot;
 
+		// Load recipes + facility types BEFORE the world loader so its startup
+		// validation can resolve `facility_type` → primary_job and `active_recipe`
+		// → inputs/outputs via the plugin-owned registries. The getters return
+		// the same Map references that plugin.ts closes over, so mutating them
+		// here makes the data visible to all downstream systems.
+		overlay.textContent = 'Loading recipes...';
+		const recipeLoader = createRecipeLoader(deps.logger);
+		const recipesResult = await recipeLoader.loadFromVault(vaultAdapter, `${dataRoot}/recipes`);
+
+		overlay.textContent = 'Loading facility types...';
+		const facilityTypeLoader = createFacilityTypeLoader(deps.logger);
+		const typesResult = await facilityTypeLoader.loadFromVault(vaultAdapter, `${dataRoot}/facility-types`);
+
+		const recipeRegistry = deps.getRecipeRegistry();
+		const facilityTypeRegistry = deps.getFacilityTypeRegistry();
+		recipeRegistry.clear();
+		facilityTypeRegistry.clear();
+		for (const r of recipesResult.items) recipeRegistry.set(r.id, r);
+		for (const ft of typesResult.items) facilityTypeRegistry.set(ft.id, ft);
+
+		// Cross-ref validation throws on missing recipe references — the error
+		// propagates to the overlay so the user can fix the offending file.
+		validateFacilityTypes([...facilityTypeRegistry.values()], [...recipeRegistry.values()]);
+
 		const worldLoader = createWorldLoader(deps.logger, {
 			moodConfig: deps.config.mood,
 			memoryMaxEntries: deps.config.memory.max_entries,
 			dataRoot,
 			jobDefinitions: deps.config.jobs.definitions,
+			getFacilityTypeRegistry: () => deps.getFacilityTypeRegistry(),
+			getRecipeRegistry: () => deps.getRecipeRegistry(),
 		});
 
 		const world = await worldLoader.load(vaultAdapter, (_step, _total, label) => {
@@ -175,51 +203,23 @@ export class MeridianGameView extends ItemView {
 			const marker = createLocationMarker(loc);
 			engine.currentScene.add(marker);
 
-			if (loc.production !== null) {
-				// Production facilities start empty — agents must work to produce.
-				// Non-production facilities (market) get stock from their JSON data.
-				const fund = loc.production.funding === 'treasury' ? 0 : deps.config.economy.facility_start_fund;
-				marker.addComponent(new FacilityComponent({
-					stock: [],
-					fund,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
-
-			// Add fund-only FacilityComponent to tavern (non-production locations that receive gold)
-			if (loc.type === 'rest' && loc.production === null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [],
-					fund: 0,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
-
-			// Add FacilityComponent to leisure-type locations (receive gold from agent visits)
-			if (loc.type === 'leisure' && loc.production === null) {
-				marker.addComponent(new FacilityComponent({
-					stock: [],
-					fund: 0,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
-
-			// Add FacilityComponent to market-type locations with fund/stock from location data
-			if (loc.type === 'market' && loc.production === null) {
-				marker.addComponent(new FacilityComponent({
-					stock: loc.stock ?? [],
-					fund: loc.fund ?? deps.config.economy.facility_start_fund,
-					workProgress: 0,
-					status: 'idle',
-					workerId: null,
-				}));
-			}
+			// All locations get a FacilityComponent. Fund/stock bootstrap from
+			// facility_type default, overridden by per-location fund/stock when set.
+			const facilityType = deps.getFacilityTypeRegistry().get(loc.facility_type);
+			const defaultFund = facilityType?.funding === 'treasury'
+				? 0
+				: (facilityType?.default_fund ?? 200);
+			// Seed `lastPulseTick` at spawn for area_effect facilities so the
+			// first pulse fires on or after `spawnTick + ticks_per_pulse`.
+			const isAreaEffect = facilityType?.kind === 'area_effect';
+			marker.addComponent(new FacilityComponent({
+				stock: loc.stock ?? [],
+				fund: loc.fund ?? defaultFund,
+				workProgress: 0,
+				status: 'idle',
+				workerId: null,
+				lastPulseTick: isAreaEffect ? deps.tickCount : undefined,
+			}));
 
 			locationActors.set(loc.id, marker);
 		}
@@ -271,6 +271,8 @@ export class MeridianGameView extends ItemView {
 				swapBehaviorTree,
 				jobsConfig: deps.config.jobs,
 				getQuestBoard: () => worldEntity.get(QuestBoardComponent).state,
+				getFacilityTypeRegistry: () => deps.getFacilityTypeRegistry(),
+				getRecipeRegistry: () => deps.getRecipeRegistry(),
 			});
 
 			// Initialize with job-specific tree if agent has a job, otherwise jobless
@@ -286,6 +288,29 @@ export class MeridianGameView extends ItemView {
 			agent.behaviorTree = tree;
 		}
 
+		// Create ServiceSystem — visits are stored on WorkingMemory
+		// (`currentServiceVisit`) and populated by the `UseService` BT action.
+		const serviceSystem = createServiceSystem(
+			getAgents,
+			getLocations,
+			getLocationActors,
+			getWorldEntity,
+			() => deps.getFacilityTypeRegistry(),
+			(loc) => loc.facility_type,
+		);
+
+		// Create AreaEffectSystem — area_effect facilities pulse every
+		// `ticks_per_pulse` ticks, pushing mood modifiers onto nearby agents'
+		// `pendingAreaModifiers` queue (drained by MoodSystem next tick).
+		const areaEffectSystem = createAreaEffectSystem(
+			getAgents,
+			getLocations,
+			getLocationActors,
+			() => deps.getFacilityTypeRegistry(),
+			(loc) => loc.facility_type,
+			getWorldEntity,
+		);
+
 		// Register all systems (priority order handled by tick runner)
 		tickRunner.register(createTraitResolverSystem(getAgents, world.traitDefs));
 		tickRunner.register(createDayNightSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
@@ -296,15 +321,15 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(createFacilityMaintenanceSystem(getWorldEntity, getLocationActors));
 		tickRunner.register(createDailyReportSystem(getWorldEntity, getAgents, getLocationActors, getLocations));
 		tickRunner.register(createNeedsDecaySystem(getAgents));
+		tickRunner.register(areaEffectSystem);
 		tickRunner.register(createMoodSystem(getAgents));
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		tickRunner.register(createBehaviorTreeSystem(getAgents));
 		tickRunner.register(createMovementSystem(getAgents, getLocations, getLocationActors));
-		tickRunner.register(createRestSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
 		tickRunner.register(createFeedSystem(getAgents, getWorldEntity));
 		tickRunner.register(createSocializeSystem(getAgents));
-		tickRunner.register(createLeisureSystem(getAgents, getLocations, getWorldEntity, getLocationActors));
+		tickRunner.register(serviceSystem);
 		tickRunner.register(createFacilitySystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createTradeSystem(getAgents, getLocations, getLocationActors, getWorldEntity, getItemRegistry));
 		tickRunner.register(createDialogueSystem(getAgents, Date.now()));
@@ -350,6 +375,8 @@ export class MeridianGameView extends ItemView {
 			writeFile: deps.writeFile ?? undefined,
 			dataRoot: deps.dataRoot,
 			getQuestLogger: () => questLogger,
+			getFacilityTypeRegistry: () => deps.getFacilityTypeRegistry(),
+			getRecipeRegistry: () => deps.getRecipeRegistry(),
 		});
 		this.disposeOverlay = debugOverlay.dispose;
 	}
@@ -420,8 +447,7 @@ function createVaultAdapter(vault: Vault): VaultReader {
 }
 
 function createLocationMarker(loc: WorldLocation): ex.Actor {
-	const isFacility = loc.production !== null;
-	const size = isFacility ? 40 : 20;
+	const size = loc.active_recipe !== null ? 40 : 20;
 	const marker = new ex.Actor({ pos: new ex.Vector(loc.position.x, loc.position.y) });
 	marker.graphics.use(new ex.Rectangle({ width: size, height: size, color: ex.Color.fromHex(loc.color) }));
 	const label = new ex.Label({

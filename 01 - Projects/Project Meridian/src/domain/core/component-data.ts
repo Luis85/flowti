@@ -66,7 +66,7 @@ export interface TimeState {
 
 export interface PerceptionState {
 	nearbyAgents: { id: string; distance: number }[];
-	nearbyLocations: { id: string; type: string; distance: number }[];
+	nearbyLocations: { id: string; facility_type: string; distance: number }[];
 }
 
 export interface FacilityState {
@@ -76,6 +76,14 @@ export interface FacilityState {
 	status: 'idle' | 'producing' | 'auto' | 'abandoned';
 	workerId: string | null;
 	currentPrices?: Record<string, number>;
+	/**
+	 * Last tick at which an `area_effect` facility emitted a pulse. Seeded to
+	 * `deps.tickCount` at spawn for area_effect facilities so the first pulse
+	 * fires on or after `spawnTick + ticks_per_pulse`. Undefined (or absent)
+	 * for non-area-effect facilities and for newly-encountered area_effect
+	 * facilities before AreaEffectSystem has seen them.
+	 */
+	lastPulseTick?: number;
 }
 
 export interface RelationshipEntry {

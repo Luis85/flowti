@@ -17,6 +17,8 @@ import { AttributesComponent } from '../../../src/infrastructure/components/attr
 import { GameConfigSchema } from '../../../src/domain/schemas/game-config-schema.js';
 import type { GameConfig } from '../../../src/domain/schemas/game-config-schema.js';
 import type { WorldLocation } from '../../../src/domain/schemas/location-schema.js';
+import type { FacilityType } from '../../../src/domain/schemas/facility-type-schema.js';
+import type { Recipe } from '../../../src/domain/schemas/recipe-schema.js';
 import type { EventBus } from '../../../src/domain/core/events.js';
 import type { PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../../src/domain/systems/behavior-agent.js';
 import type { QuestRuntime } from '../../../src/domain/schemas/quest-schema.js';
@@ -91,15 +93,64 @@ function createLocationActor(facilityState: {
 	return loc;
 }
 
-function makeLocation(id: string, type: string, x = 0, y = 0, production: WorldLocation['production'] = null, region: string | null = null): WorldLocation {
+// Legacy signature kept for this test file — production block is ignored,
+// facility_type/active_recipe are derived from the production.job + output
+// where possible. The mock registry (testFacilityTypes / testRecipes) is
+// populated alongside via helper function.
+interface LegacyProduction {
+	job?: string;
+	output?: { item_id: string; quantity: number };
+	input?: { item_id: string; quantity: number } | null;
+	wage?: number;
+	ticks_per_cycle?: number;
+}
+
+// Shared registries that test mutates as locations are created
+const testFacilityTypes = new Map<string, FacilityType>();
+const testRecipes = new Map<string, Recipe>();
+
+function resetTestRegistries(): void {
+	testFacilityTypes.clear();
+	testRecipes.clear();
+	// seed common default types
+	testFacilityTypes.set('market_stall', { id: 'market_stall', kind: 'service', primary_job: 'settler', default_wage: 1, default_fund: 200, funding: 'facility', capacity: 1, staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {} });
+	testFacilityTypes.set('well', { id: 'well', kind: 'production', primary_job: 'waterbearer', default_wage: 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: ['recipe-well'] });
+	testFacilityTypes.set('tavern', { id: 'tavern', kind: 'service', primary_job: 'settler', default_wage: 1, default_fund: 200, funding: 'facility', capacity: 1, staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 }, cost_per_visit: 0, ticks_per_visit: 20, restock_threshold_per_item: {} });
+	testRecipes.set('recipe-well', { id: 'recipe-well', name: 'Well', inputs: [], outputs: [{ item_id: 'water', quantity: 1 }], ticks_per_cycle: 30, required_skill: null, min_skill_level: 0 });
+}
+
+function makeLocation(
+	id: string,
+	_legacyType: string,
+	x = 0,
+	y = 0,
+	production: LegacyProduction | null = null,
+	region: string | null = null,
+	explicitFacilityType?: string,
+): WorldLocation {
+	let facility_type = explicitFacilityType;
+	let active_recipe: string | null = null;
+
+	if (production !== null && production.job !== undefined) {
+		facility_type ??= `type-${id}`;
+		const recipeId = `recipe-${id}`;
+		active_recipe = recipeId;
+		const inputs = production.input !== null && production.input !== undefined ? [{ item_id: production.input.item_id, quantity: production.input.quantity }] : [];
+		const outputs = production.output !== undefined ? [{ item_id: production.output.item_id, quantity: production.output.quantity }] : [];
+		testRecipes.set(recipeId, { id: recipeId, name: recipeId, inputs, outputs, ticks_per_cycle: production.ticks_per_cycle ?? 30, required_skill: null, min_skill_level: 0 });
+		testFacilityTypes.set(facility_type, { id: facility_type, kind: 'production', primary_job: production.job, default_wage: production.wage ?? 5, default_fund: 200, funding: 'facility', capacity: 1, allowed_recipes: [recipeId] });
+	}
+
+	facility_type ??= _legacyType;
+
 	return {
 		id,
 		name: id,
-		type: type as WorldLocation['type'],
+		facility_type,
+		active_recipe,
 		position: { x, y, region: region ?? 'test' },
 		capacity: 10,
 		color: '#808080',
-		production,
 		region,
 	};
 }
@@ -116,7 +167,9 @@ function setupDeps(
 	const eventBus = overrides.eventBus ?? noopEventBus;
 	const claimFacility = overrides.claimFacility ?? (() => true);
 	const releaseFacility = overrides.releaseFacility ?? (() => {});
-	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, claimFacility, releaseFacility, ...overrides };
+	const getFacilityTypeRegistry = overrides.getFacilityTypeRegistry ?? (() => testFacilityTypes);
+	const getRecipeRegistry = overrides.getRecipeRegistry ?? (() => testRecipes);
+	return { actor, worldEntity, config, getLocationActors, getLocations, tickCount, eventBus, claimFacility, releaseFacility, getFacilityTypeRegistry, getRecipeRegistry, ...overrides };
 }
 
 /** Resolves nearby facilities from location actors with FacilityComponent */
@@ -128,6 +181,8 @@ function makeResolveNearbyFacilities(
 		const locationActorMap = deps.getLocationActors();
 		const locationList = deps.getLocations();
 		const perception = actor.get(PerceptionComponent);
+		const facilityTypeRegistry = deps.getFacilityTypeRegistry?.();
+		const recipeRegistry = deps.getRecipeRegistry?.();
 		const facilities: PerceivedFacility[] = [];
 
 		for (const nearLoc of perception.state.nearbyLocations) {
@@ -137,21 +192,29 @@ function makeResolveNearbyFacilities(
 			if (locActor?.has(FacilityComponent) !== true) continue;
 			const facility = locActor.get(FacilityComponent);
 
+			const facilityType = facilityTypeRegistry?.get(locData.facility_type);
+			const recipe = locData.active_recipe !== null ? recipeRegistry?.get(locData.active_recipe) : undefined;
+
 			let hasUnmetInput = false;
-			if (locData.production?.input !== null && locData.production?.input !== undefined) {
-				const needed = locData.production.input;
-				const inStock = facility.state.stock.find(s => s.item_id === needed.item_id);
-				hasUnmetInput = inStock === undefined || inStock.quantity < needed.quantity;
+			if (recipe !== undefined) {
+				for (const input of recipe.inputs) {
+					const inStock = facility.state.stock.find(s => s.item_id === input.item_id);
+					if (inStock === undefined || inStock.quantity < input.quantity) {
+						hasUnmetInput = true;
+						break;
+					}
+				}
 			}
 
 			facilities.push({
 				id: nearLoc.id,
-				job: locData.production?.job ?? '',
+				job: facilityType?.primary_job ?? '',
 				stock: [...facility.state.stock],
 				distance: nearLoc.distance,
 				hasUnmetInput,
 				workerId: facility.state.workerId,
-				wage: locData.production?.wage ?? 0,
+				wage: facilityType?.default_wage ?? 0,
+				status: facility.state.status,
 			});
 		}
 		return facilities;
@@ -177,7 +240,7 @@ function makeResolveNearbyLocations(actor: AgentActor, deps: BehaviorAgentDeps):
 			const locData = locationList.find(l => l.id === nl.id);
 			return {
 				id: nl.id,
-				type: locData?.type ?? nl.type,
+				facility_type: locData?.facility_type ?? nl.facility_type ?? '',
 				position: locData !== undefined
 					? { x: locData.position.x, y: locData.position.y }
 					: { x: 0, y: 0 },
@@ -218,6 +281,7 @@ describe('bt-actions: createActions', () => {
 
 	beforeEach(() => {
 		config = GameConfigSchema.parse({});
+		resetTestRegistries();
 	});
 
 	// ── Life actions ──────────────────────────────────────────────────────
@@ -265,11 +329,11 @@ describe('bt-actions: createActions', () => {
 		});
 
 		describe('Drink', () => {
-			it('consumes a waterskin charge and recovers thirst', () => {
+			it('consumes a water item and recovers thirst', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
 						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 2 }],
+						inventory: [{ item_id: 'water', quantity: 2 }],
 					}),
 					defaultMoodConfig,
 				);
@@ -280,18 +344,18 @@ describe('bt-actions: createActions', () => {
 				expect(result).toBe('mistreevous.succeeded');
 				expect(memory.btAction).toBe('drink');
 
-				// Charges decremented
-				const waterskin = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'waterskin');
-				expect(waterskin?.charges).toBe(1);
+				// Quantity decremented
+				const water = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'water');
+				expect(water?.quantity).toBe(1);
 
 				// Thirst recovered
 				expect(actor.get(NeedsComponent).state.thirst).toBeGreaterThan(40);
 			});
 
-			it('returns failed when no waterskin with charges', () => {
+			it('returns failed when no water items', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }],
+						inventory: [{ item_id: 'food', quantity: 5 }],
 					}),
 					defaultMoodConfig,
 				);
@@ -299,100 +363,65 @@ describe('bt-actions: createActions', () => {
 				expect(actions.Drink()).toBe('mistreevous.failed');
 			});
 
-			it('returns failed when no waterskin at all', () => {
+			it('returns failed when inventory is empty', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions } = setupActions(actor, { config });
 				expect(actions.Drink()).toBe('mistreevous.failed');
 			});
-		});
 
-		describe('Rest', () => {
-			it('sets btAction to rest and returns running', () => {
+			it('consumes 1 water item (quantity decrement) when water is present', () => {
 				const actor = new AgentActor(
-					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70, thirst: 80 } }),
+					createTestAgentData('a1', {
+						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
+						inventory: [{ item_id: 'water', quantity: 3 }],
+					}),
 					defaultMoodConfig,
 				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 40 };
 				const { actions, memory } = setupActions(actor, { config });
 
-				const result = actions.Rest();
-				expect(result).toBe('mistreevous.running');
-				expect(memory.btAction).toBe('rest');
-			});
-
-			it('does not modify energy (system handles that)', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', { needs: { hunger: 80, energy: 30, social: 70, thirst: 80 } }),
-					defaultMoodConfig,
-				);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 30, social: 70, thirst: 80 };
-				const { actions } = setupActions(actor, { config });
-
-				actions.Rest();
-				expect(actor.get(NeedsComponent).state.energy).toBe(30);
-			});
-		});
-
-		describe('FillWaterskin', () => {
-			it('fills waterskin when at water location', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', {
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }],
-					}),
-					defaultMoodConfig,
-				);
-				const locations = [makeLocation('loc-river', 'water')];
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => locations,
-				});
-				memory.atLocation = 'loc-river';
-
-				const result = actions.FillWaterskin();
+				const result = actions.Drink();
 				expect(result).toBe('mistreevous.succeeded');
-				expect(memory.btAction).toBe('fill_waterskin');
+				expect(memory.btAction).toBe('drink');
 
-				const waterskin = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'waterskin');
-				expect(waterskin?.charges).toBe(3);
+				const water = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'water');
+				expect(water?.quantity).toBe(2);
+				expect(actor.get(NeedsComponent).state.thirst).toBeGreaterThan(40);
 			});
 
-			it('returns failed when not at water location', () => {
+			it('removes water from inventory when quantity drops to 0', () => {
 				const actor = new AgentActor(
 					createTestAgentData('a1', {
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }],
+						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
+						inventory: [{ item_id: 'water', quantity: 1 }],
 					}),
 					defaultMoodConfig,
 				);
-				const locations = [makeLocation('loc-tavern', 'food')];
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => locations,
-				});
-				memory.atLocation = 'loc-tavern';
-				expect(actions.FillWaterskin()).toBe('mistreevous.failed');
-			});
-
-			it('returns failed when no waterskin in inventory', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const locations = [makeLocation('loc-river', 'water')];
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => locations,
-				});
-				memory.atLocation = 'loc-river';
-				expect(actions.FillWaterskin()).toBe('mistreevous.failed');
-			});
-
-			it('returns failed when atLocation is null', () => {
-				const actor = new AgentActor(
-					createTestAgentData('a1', {
-						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 0 }],
-					}),
-					defaultMoodConfig,
-				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 40 };
 				const { actions } = setupActions(actor, { config });
-				expect(actions.FillWaterskin()).toBe('mistreevous.failed');
+
+				const result = actions.Drink();
+				expect(result).toBe('mistreevous.succeeded');
+				const water = actor.get(InventoryComponent).state.items.find(i => i.item_id === 'water');
+				expect(water).toBeUndefined();
+			});
+
+			it('returns failed when only waterskin in inventory (no water items)', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						needs: { hunger: 80, energy: 90, social: 70, thirst: 40 },
+						inventory: [{ item_id: 'waterskin', quantity: 1, charges: 2 }],
+					}),
+					defaultMoodConfig,
+				);
+				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 40 };
+				const { actions } = setupActions(actor, { config });
+
+				const result = actions.Drink();
+				expect(result).toBe('mistreevous.failed');
 			});
 		});
+
 	});
 
 	// ── Economy actions ───────────────────────────────────────────────────
@@ -596,7 +625,7 @@ describe('bt-actions: createActions', () => {
 					defaultMoodConfig,
 				);
 
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 
 				const facActor = createLocationActor({
 					stock: [],
@@ -653,7 +682,7 @@ describe('bt-actions: createActions', () => {
 					createTestAgentData('a1', { inventory: [{ item_id: 'food', quantity: 2 }] }),
 					defaultMoodConfig,
 				);
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 				const facActor = createLocationActor({
 					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
 				});
@@ -893,18 +922,18 @@ describe('bt-actions: createActions', () => {
 				expect(memory.movementTarget).toEqual({ id: 'loc-market', type: 'location' });
 			});
 
-			it('falls back to food-type locations when no stocked facilities', () => {
+			it('falls back to farm facilities when no stocked facilities', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
 					nearbyLocations: [
-						{ id: 'loc-tavern', type: 'food', distance: 50 },
-						{ id: 'loc-bakery', type: 'food', distance: 20 },
+						{ id: 'loc-tavern', type: 'food', facility_type: 'farm', distance: 50 },
+						{ id: 'loc-bakery', type: 'food', facility_type: 'farm', distance: 20 },
 					],
 				};
 				const locations = [
-					makeLocation('loc-tavern', 'food', 0, 0),
-					makeLocation('loc-bakery', 'food', 0, 0),
+					makeLocation('loc-tavern', 'food', 0, 0, null, null, 'farm'),
+					makeLocation('loc-bakery', 'food', 0, 0, null, null, 'farm'),
 				];
 				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
 
@@ -913,13 +942,13 @@ describe('bt-actions: createActions', () => {
 				expect(memory.movementTarget).toEqual({ id: 'loc-bakery', type: 'location' });
 			});
 
-			it('returns succeeded when already at food location', () => {
+			it('returns succeeded when already at farm location', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				actor.get(PerceptionComponent).state = {
 					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-tavern', type: 'food', distance: 5 }],
+					nearbyLocations: [{ id: 'loc-tavern', type: 'food', facility_type: 'farm', distance: 5 }],
 				};
-				const locations = [makeLocation('loc-tavern', 'food')];
+				const locations = [makeLocation('loc-tavern', 'food', 0, 0, null, null, 'farm')];
 				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
 				memory.atLocation = 'loc-tavern';
 
@@ -973,74 +1002,6 @@ describe('bt-actions: createActions', () => {
 			});
 		});
 
-		describe('SeekWater', () => {
-			it('sets movementTarget to nearest water location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [
-						{ id: 'loc-river', type: 'water', distance: 50 },
-						{ id: 'loc-well', type: 'water', distance: 20 },
-					],
-				};
-				const locations = [
-					makeLocation('loc-river', 'water'),
-					makeLocation('loc-well', 'water'),
-				];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-
-				const result = actions.SeekWater();
-				expect(result).toBe('mistreevous.running');
-				expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
-				expect(memory.btAction).toBe('seek_water');
-			});
-
-			it('returns succeeded when already at water location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-well', type: 'water', distance: 5 }],
-				};
-				const locations = [makeLocation('loc-well', 'water')];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-				memory.atLocation = 'loc-well';
-
-				expect(actions.SeekWater()).toBe('mistreevous.succeeded');
-			});
-
-			it('returns failed when no water locations exist anywhere', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions } = setupActions(actor, { getLocations: () => [] });
-				expect(actions.SeekWater()).toBe('mistreevous.failed');
-			});
-
-			it('falls back to the closest global water when no water in perception', () => {
-				// Regression for recording 2026-04-11-1610 — Bram was dying of thirst
-				// (2.6/100) because SeekWater only checked perception range. If the
-				// Spring is outside perception, fallback to getLocations() to find
-				// the closest water by world position.
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.pos.x = 300;
-				actor.pos.y = 400;
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [], // no water in perception
-				};
-				const locations = [
-					makeLocation('loc-spring-far', 'water', 80, 130),
-					makeLocation('loc-spring-near', 'water', 250, 380),
-					makeLocation('loc-market', 'market', 300, 380),
-				];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-
-				const result = actions.SeekWater();
-				expect(result).toBe('mistreevous.running');
-				// Closer spring wins
-				expect(memory.movementTarget).toEqual({ id: 'loc-spring-near', type: 'location' });
-				expect(memory.btAction).toBe('seek_water');
-			});
-		});
-
 		describe('SeekMarket', () => {
 			it('sets movementTarget to nearest market', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
@@ -1048,7 +1009,7 @@ describe('bt-actions: createActions', () => {
 					nearbyAgents: [],
 					nearbyLocations: [{ id: 'loc-market', type: 'market', distance: 30 }],
 				};
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
 
 				expect(actions.SeekMarket()).toBe('mistreevous.running');
@@ -1061,7 +1022,7 @@ describe('bt-actions: createActions', () => {
 					nearbyAgents: [],
 					nearbyLocations: [{ id: 'loc-market', type: 'market', distance: 5 }],
 				};
-				const locations = [makeLocation('loc-market', 'market')];
+				const locations = [makeLocation('loc-market', 'market', 0, 0, null, null, 'market_stall')];
 				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
 				memory.atLocation = 'loc-market';
 
@@ -1072,6 +1033,82 @@ describe('bt-actions: createActions', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions } = setupActions(actor);
 				expect(actions.SeekMarket()).toBe('mistreevous.failed');
+			});
+		});
+
+		describe('SeekWell', () => {
+			it('sets movementTarget to a nearby well with water in stock', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [{ id: 'loc-well', type: 'work', facility_type: 'well', distance: 15 }],
+				};
+				const locations = [
+					makeLocation('loc-well', 'work', 0, 0, {
+						job: 'water_drawer', output: { item_id: 'water', quantity: 1 }, input: null,
+						wage: 0, ticks_per_cycle: 30, auto_process: true, auto_ticks_per_cycle: 60,
+					}, null, 'well'),
+				];
+				const facActor = createLocationActor({
+					stock: [{ item_id: 'water', quantity: 5 }],
+					fund: 0, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => locations,
+					getLocationActors: () => new Map([['loc-well', facActor]]),
+				});
+
+				const result = actions.SeekWell();
+				expect(result).toBe('mistreevous.running');
+				expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
+				expect(memory.btAction).toBe('seek_well');
+			});
+
+			it('returns succeeded when already at the well', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [{ id: 'loc-well', type: 'work', facility_type: 'well', distance: 5 }],
+				};
+				const locations = [
+					makeLocation('loc-well', 'work', 0, 0, {
+						job: 'water_drawer', output: { item_id: 'water', quantity: 1 }, input: null,
+						wage: 0, ticks_per_cycle: 30, auto_process: true, auto_ticks_per_cycle: 60,
+					}, null, 'well'),
+				];
+				const facActor = createLocationActor({
+					stock: [{ item_id: 'water', quantity: 5 }],
+					fund: 0, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const { actions, memory } = setupActions(actor, {
+					getLocations: () => locations,
+					getLocationActors: () => new Map([['loc-well', facActor]]),
+				});
+				memory.atLocation = 'loc-well';
+
+				expect(actions.SeekWell()).toBe('mistreevous.succeeded');
+				expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
+			});
+
+			it('falls back to the closest well on the full map when none in perception', () => {
+				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+				actor.pos.x = 300;
+				actor.pos.y = 400;
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [], // no wells in perception
+				};
+				const locations = [
+					makeLocation('loc-well-far', 'work', 80, 130, null, null, 'well'),
+					makeLocation('loc-well-near', 'work', 250, 380, null, null, 'well'),
+					makeLocation('loc-market', 'market', 300, 380),
+				];
+				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
+
+				const result = actions.SeekWell();
+				expect(result).toBe('mistreevous.running');
+				expect(memory.movementTarget).toEqual({ id: 'loc-well-near', type: 'location' });
+				expect(memory.btAction).toBe('seek_well');
 			});
 		});
 	});
@@ -1347,6 +1384,147 @@ describe('bt-actions: createActions', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions } = setupActions(actor, { config });
 				expect(actions.ClaimBestJob()).toBe('mistreevous.failed');
+			});
+
+			it('prefers higher-wage facility when aptitude matches', () => {
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						attributes: { ST: 15, DX: 10, IQ: 10, HT: 10 },
+					}),
+					defaultMoodConfig,
+				);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [
+						{ id: 'loc-farm', type: 'work', distance: 5 },
+						{ id: 'loc-smithy', type: 'work', distance: 10 },
+					],
+				};
+
+				// Two facilities, both ST-primary (farmer + blacksmith), but
+				// blacksmith pays a higher wage. Wage-weighted scoring should
+				// prefer the smithy despite the extra distance.
+				const locations = [
+					makeLocation('loc-farm', 'work', 0, 0, {
+						job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null,
+						wage: 3, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
+					}),
+					makeLocation('loc-smithy', 'work', 0, 0, {
+						job: 'blacksmith', output: { item_id: 'tool', quantity: 1 }, input: null,
+						wage: 8, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
+					}),
+				];
+
+				const farmActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const smithyActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([
+					['loc-farm', farmActor],
+					['loc-smithy', smithyActor],
+				]);
+
+				const jobsConfig = {
+					aptitude_baseline: 12,
+					desperation_ticks: 100,
+					definitions: {
+						farmer: { primary_attribute: 'ST' },
+						blacksmith: { primary_attribute: 'ST' },
+					} as Record<string, { primary_attribute: 'ST' | 'DX' | 'IQ' | 'HT' }>,
+				};
+
+				const { actions } = setupActions(actor, {
+					config,
+					getLocations: () => locations,
+					getLocationActors: () => locActors,
+					jobsConfig: jobsConfig as unknown as GameConfig['jobs'],
+				});
+
+				expect(actions.ClaimBestJob()).toBe('mistreevous.succeeded');
+				expect(actor.job).toBe('blacksmith');
+			});
+
+			it('claims service facility when it has best effective wage', () => {
+				// HT=15 agent prefers an innkeeper (HT-primary) at an inn (service)
+				// over a DX-primary farmer job at the same wage.
+				const actor = new AgentActor(
+					createTestAgentData('a1', {
+						attributes: { ST: 10, DX: 10, IQ: 10, HT: 15 },
+					}),
+					defaultMoodConfig,
+				);
+				actor.get(PerceptionComponent).state = {
+					nearbyAgents: [],
+					nearbyLocations: [
+						{ id: 'loc-farm', type: 'work', distance: 5 },
+						{ id: 'loc-inn', type: 'work', distance: 10 },
+					],
+				};
+
+				const farmLoc = makeLocation('loc-farm', 'work', 0, 0, {
+					job: 'farmer', output: { item_id: 'wheat', quantity: 1 }, input: null,
+					wage: 5, ticks_per_cycle: 30, auto_process: false, auto_ticks_per_cycle: 60,
+				});
+
+				// Service facility — register in registry directly, no recipe.
+				testFacilityTypes.set('rest_inn', {
+					id: 'rest_inn',
+					kind: 'service',
+					primary_job: 'innkeeper',
+					default_wage: 5,
+					default_fund: 200,
+					funding: 'facility',
+					capacity: 1,
+					staffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+					unstaffed_effects: { mood: 0, energy: 0, social: 0, skill_xp: 0 },
+					cost_per_visit: 0,
+					ticks_per_visit: 20,
+					restock_threshold_per_item: {},
+				});
+				const innLoc: WorldLocation = {
+					id: 'loc-inn',
+					name: 'loc-inn',
+					facility_type: 'rest_inn',
+					active_recipe: null,
+					position: { x: 0, y: 0, region: 'test' },
+					capacity: 10,
+					color: '#808080',
+					region: null,
+				};
+
+				const farmActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const innActor = createLocationActor({
+					stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				});
+				const locActors = new Map<string, Actor>([
+					['loc-farm', farmActor],
+					['loc-inn', innActor],
+				]);
+
+				const jobsConfig = {
+					aptitude_baseline: 12,
+					desperation_ticks: 100,
+					definitions: {
+						farmer: { primary_attribute: 'DX' },
+						innkeeper: { primary_attribute: 'HT' },
+					} as Record<string, { primary_attribute: 'ST' | 'DX' | 'IQ' | 'HT' }>,
+				};
+
+				const { actions } = setupActions(actor, {
+					config,
+					getLocations: () => [farmLoc, innLoc],
+					getLocationActors: () => locActors,
+					jobsConfig: jobsConfig as unknown as GameConfig['jobs'],
+				});
+
+				expect(actions.ClaimBestJob()).toBe('mistreevous.succeeded');
+				// Both wage=5, but HT=15 boosts innkeeper score above farmer
+				// (DX=10 → score 5 × 10/12 ≈ 4.17 vs innkeeper 5 × 15/12 = 6.25)
+				expect(actor.job).toBe('innkeeper');
 			});
 		});
 
@@ -1679,56 +1857,6 @@ describe('bt-actions: createActions', () => {
 
 	// ── Navigation actions ────────────────────────────────────────────────
 	describe('Navigation actions', () => {
-		describe('SeekRest', () => {
-			it('sets movementTarget to nearest rest location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-inn', type: 'rest', distance: 30 }],
-				};
-				const locations = [makeLocation('loc-inn', 'rest')];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-
-				expect(actions.SeekRest()).toBe('mistreevous.running');
-				expect(memory.movementTarget).toEqual({ id: 'loc-inn', type: 'location' });
-			});
-
-			it('returns succeeded when already at rest location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.get(PerceptionComponent).state = {
-					nearbyAgents: [],
-					nearbyLocations: [{ id: 'loc-inn', type: 'rest', distance: 5 }],
-				};
-				const locations = [makeLocation('loc-inn', 'rest')];
-				const { actions, memory } = setupActions(actor, { getLocations: () => locations });
-				memory.atLocation = 'loc-inn';
-
-				expect(actions.SeekRest()).toBe('mistreevous.succeeded');
-			});
-
-			it('falls back to all locations when no rest in perception range', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				actor.pos.x = 300;
-				actor.pos.y = 190;
-				actor.get(PerceptionComponent).state = { nearbyAgents: [], nearbyLocations: [] };
-
-				const restLocation = makeLocation('loc-cabin', 'rest', 200, 380);
-				const { actions, memory } = setupActions(actor, {
-					getLocations: () => [restLocation],
-				});
-
-				const result = actions.SeekRest();
-				expect(result).toBe('mistreevous.running');
-				expect(memory.movementTarget).toEqual({ id: 'loc-cabin', type: 'location' });
-			});
-
-			it('returns failed when no rest locations exist at all', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions } = setupActions(actor);
-				expect(actions.SeekRest()).toBe('mistreevous.failed');
-			});
-		});
-
 		describe('Idle', () => {
 			it('always returns running and sets btAction', () => {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
@@ -2836,182 +2964,6 @@ describe('bt-actions: createActions', () => {
 		});
 	});
 
-	// ── Leisure actions ──────────────────────────────────────────────────
-	describe('Leisure actions', () => {
-		function makeLeisureLocation(id: string, x = 0, y = 0, cost = 3, ticksPerVisit = 20): WorldLocation {
-			return {
-				id,
-				name: id,
-				type: 'leisure' as WorldLocation['type'],
-				position: { x, y, region: 'test' },
-				capacity: 10,
-				color: '#808080',
-				production: null,
-				leisure: {
-					cost,
-					effects: { social: 15, mood: 10, energy: 5, skill_xp: 2 },
-					attribute_bonus: null,
-					ticks_per_visit: ticksPerVisit,
-				},
-				region: null,
-			};
-		}
-
-		describe('ChooseLeisure', () => {
-			it('returns SUCCEEDED when affordable leisure locations are known', () => {
-				const tavern = makeLeisureLocation('loc-tavern', 110, 200, 3);
-				const actor = new AgentActor(
-					createTestAgentData('a1', { wallet: { gold: 50 } }),
-					defaultMoodConfig,
-				);
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => [tavern],
-				});
-				memory.knownLocations = ['loc-tavern'];
-
-				const result = actions.ChooseLeisure();
-				expect(result).toBe('mistreevous.succeeded');
-				expect(memory.leisureTarget).toBe('loc-tavern');
-			});
-
-			it('returns FAILED when no leisure locations in knownLocations and none nearby', () => {
-				const tavern = makeLeisureLocation('loc-tavern', 110, 200, 3);
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => [tavern],
-				});
-				// Agent does not know about any locations and none are nearby
-				memory.knownLocations = [];
-
-				const result = actions.ChooseLeisure();
-				expect(result).toBe('mistreevous.failed');
-			});
-
-			it('sets memory.leisureTarget to best-scoring location', () => {
-				const cheapTavern = makeLeisureLocation('loc-cheap', 110, 200, 1);
-				const expensiveTavern = makeLeisureLocation('loc-expensive', 115, 200, 2);
-				// Both known, both affordable — the one closer with lower cost should win
-				const actor = new AgentActor(
-					createTestAgentData('a1', { wallet: { gold: 50 } }),
-					defaultMoodConfig,
-				);
-				actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 30, thirst: 80 };
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => [cheapTavern, expensiveTavern],
-				});
-				memory.knownLocations = ['loc-cheap', 'loc-expensive'];
-
-				actions.ChooseLeisure();
-				// Both have same effects; loc-cheap is closer and cheaper
-				expect(memory.leisureTarget).toBeDefined();
-				// Should pick the best scoring one (closer + same effects)
-				expect(['loc-cheap', 'loc-expensive']).toContain(memory.leisureTarget);
-			});
-
-			it('returns FAILED when agent cannot afford any leisure location', () => {
-				const tavern = makeLeisureLocation('loc-tavern', 110, 200, 100);
-				const actor = new AgentActor(
-					createTestAgentData('a1', { wallet: { gold: 5 } }),
-					defaultMoodConfig,
-				);
-				const { actions, memory } = setupActions(actor, {
-					config,
-					getLocations: () => [tavern],
-				});
-				memory.knownLocations = ['loc-tavern'];
-
-				const result = actions.ChooseLeisure();
-				expect(result).toBe('mistreevous.failed');
-			});
-		});
-
-		describe('SeekLeisureTarget', () => {
-			it('returns FAILED when leisureTarget is null', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions, memory } = setupActions(actor);
-				memory.leisureTarget = null;
-
-				expect(actions.SeekLeisureTarget()).toBe('mistreevous.failed');
-			});
-
-			it('returns RUNNING when target is set and agent not at location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions, memory } = setupActions(actor);
-				memory.leisureTarget = 'loc-tavern';
-				memory.atLocation = null;
-
-				const result = actions.SeekLeisureTarget();
-				expect(result).toBe('mistreevous.running');
-				expect(memory.movementTarget).toEqual({ id: 'loc-tavern', type: 'location' });
-			});
-
-			it('returns SUCCEEDED when agent is at target location', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions, memory } = setupActions(actor);
-				memory.leisureTarget = 'loc-tavern';
-				memory.atLocation = 'loc-tavern';
-
-				const result = actions.SeekLeisureTarget();
-				expect(result).toBe('mistreevous.succeeded');
-			});
-		});
-
-		describe('Leisure', () => {
-			it('returns FAILED when not at leisure target', () => {
-				const tavern = makeLeisureLocation('loc-tavern', 0, 0, 3, 20);
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions, memory } = setupActions(actor, {
-					getLocations: () => [tavern],
-				});
-				memory.leisureTarget = 'loc-tavern';
-				memory.atLocation = 'loc-farm';
-
-				expect(actions.Leisure()).toBe('mistreevous.failed');
-			});
-
-			it('returns RUNNING when at target and sets commitment ticks', () => {
-				const tavern = makeLeisureLocation('loc-tavern', 0, 0, 3, 20);
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions, memory } = setupActions(actor, {
-					getLocations: () => [tavern],
-				});
-				memory.leisureTarget = 'loc-tavern';
-				memory.atLocation = 'loc-tavern';
-
-				const result = actions.Leisure();
-				expect(result).toBe('mistreevous.running');
-				expect(memory.btAction).toBe('leisure');
-				expect(memory.commitmentTicks).toBe(20);
-				expect(memory.committedAction).toBe('leisure');
-			});
-
-			it('sets commitment ticks from location ticks_per_visit', () => {
-				const tavern = makeLeisureLocation('loc-tavern', 0, 0, 3, 15);
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions, memory } = setupActions(actor, {
-					getLocations: () => [tavern],
-				});
-				memory.leisureTarget = 'loc-tavern';
-				memory.atLocation = 'loc-tavern';
-
-				actions.Leisure();
-				expect(memory.commitmentTicks).toBe(15);
-			});
-
-			it('returns FAILED when leisureTarget is null', () => {
-				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-				const { actions, memory } = setupActions(actor);
-				memory.leisureTarget = null;
-				memory.atLocation = null;
-
-				expect(actions.Leisure()).toBe('mistreevous.failed');
-			});
-		});
-	});
-
 	describe('ContinueCommitment', () => {
 		it('breaks work commitment when hunger < personal threshold', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
@@ -3082,28 +3034,6 @@ describe('bt-actions: createActions', () => {
 			expect(memory.commitmentTicks).toBe(19);
 		});
 
-		it('breaks leisure commitment when hunger < personal threshold', () => {
-			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const { actions, memory } = setupActions(actor, { config });
-			memory.committedAction = 'leisure';
-			memory.commitmentTicks = 20;
-			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 35 };
-			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
-			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
-			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
-		});
-
-		it('breaks leisure commitment when thirst < personal threshold', () => {
-			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const { actions, memory } = setupActions(actor, { config });
-			memory.committedAction = 'leisure';
-			memory.commitmentTicks = 20;
-			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, thirst: 35 };
-			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
-			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
-			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
-		});
-
 		it('does NOT break sell commitment at personal hunger threshold', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { actions, memory } = setupActions(actor, { config });
@@ -3136,18 +3066,6 @@ describe('bt-actions: createActions', () => {
 	});
 
 	describe('ContinueCommitment — travel commitments break on critical needs', () => {
-		it('breaks seek_rest when thirst crosses critical threshold', () => {
-			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
-			const { actions, memory } = setupActions(actor, { config });
-			memory.committedAction = 'seek_rest';
-			memory.commitmentTicks = 8;
-			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 10, energy: 80, social: 50 };
-			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
-			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
-			expect(memory.commitmentTicks).toBe(0);
-			expect(memory.committedAction).toBeNull();
-		});
-
 		it('breaks seek_food when energy crosses critical threshold', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { actions, memory } = setupActions(actor, { config });
@@ -3158,12 +3076,12 @@ describe('bt-actions: createActions', () => {
 			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
 		});
 
-		it('does NOT break seek_rest for sub-critical thirst (only personal threshold)', () => {
+		it('does NOT break seek_food for sub-critical thirst (only personal threshold)', () => {
 			// Personal thirst=40, critical=20, thirst=30 is below personal but above critical.
 			// Travel commitments only break on CRITICAL, not personal thresholds.
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			const { actions, memory } = setupActions(actor, { config });
-			memory.committedAction = 'seek_rest';
+			memory.committedAction = 'seek_food';
 			memory.commitmentTicks = 8;
 			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 80, thirst: 30, energy: 80, social: 50 };
 			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
@@ -3195,7 +3113,7 @@ describe('bt-actions: createActions', () => {
 		});
 
 		it('breaks all travel variants on critical hunger', () => {
-			const variants = ['seek_food', 'seek_water', 'seek_rest', 'seek_market', 'seek_quest', 'seek_quest_source', 'seek_delivery', 'seek_supply', 'seek_job_facility', 'seek_leisure', 'seek_social', 'seek_work'];
+			const variants = ['seek_food', 'seek_market', 'seek_quest', 'seek_quest_source', 'seek_delivery', 'seek_supply', 'seek_job_facility', 'seek_service', 'seek_social', 'seek_work'];
 			for (const travelAction of variants) {
 				const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 				const { actions, memory } = setupActions(actor, { config });
@@ -3219,6 +3137,42 @@ describe('bt-actions: createActions', () => {
 			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
 			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
 			expect(memory.committedAction).toBeNull();
+		});
+	});
+
+	describe('ContinueCommitment — use_service cleanup', () => {
+		it('clears currentServiceVisit and insideFacility when use_service expires', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'use_service';
+			memory.commitmentTicks = 1;
+			memory.insideFacility = true;
+			memory.currentServiceVisit = { facilityId: 'loc-tavern', ticksRemaining: 0, costPaid: true };
+
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.committedAction).toBeNull();
+			expect(memory.currentServiceVisit).toBeNull();
+			expect(memory.insideFacility).toBe(false);
+		});
+
+		it('does NOT clear service visit when a non-use_service commitment breaks', () => {
+			// Sanity: clearing must be gated on ca === 'use_service'. A `work`
+			// commitment breaking on hunger should not touch service-visit fields.
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config });
+			memory.committedAction = 'work';
+			memory.commitmentTicks = 20;
+			memory.insideFacility = true;
+			memory.currentServiceVisit = { facilityId: 'loc-tavern', ticksRemaining: 5, costPaid: true };
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 35 };
+			memory.personalThresholds = { hunger: 40, energy: 30, thirst: 40 };
+			actor.get(InventoryComponent).state = { items: [{ item_id: 'equipment', quantity: 1, charges: 15 }] };
+
+			expect(actions.ContinueCommitment()).toBe('mistreevous.failed');
+			expect(memory.committedAction).toBeNull();
+			// Service visit untouched — only the use_service path should clean it up
+			expect(memory.currentServiceVisit).not.toBeNull();
+			expect(memory.insideFacility).toBe(true);
 		});
 	});
 });

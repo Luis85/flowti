@@ -13,16 +13,13 @@ import { createMoodSystem } from '../../src/infrastructure/systems/mood-system.j
 import { createMemoryDecaySystem } from '../../src/infrastructure/systems/memory-decay-system.js';
 import { createDayNightSystem } from '../../src/infrastructure/systems/day-night-system.js';
 import { createPerceptionSystem } from '../../src/infrastructure/systems/perception-system.js';
-import { createBehaviorTreeSystem } from '../../src/infrastructure/systems/behavior-tree-system.js';
 import { createMovementSystem } from '../../src/infrastructure/systems/movement-system.js';
-import { createRestSystem } from '../../src/infrastructure/systems/rest-system.js';
 import { createFeedSystem } from '../../src/infrastructure/systems/feed-system.js';
 import { createSocializeSystem } from '../../src/infrastructure/systems/socialize-system.js';
 import { EconomyComponent } from '../../src/infrastructure/components/economy-component.js';
 import { attachBehaviorStubs } from './test-behavior-stub.js';
 import { Actor } from 'excalibur';
 import type { GameCoreDeps } from '../../src/domain/core/game-deps.js';
-import type { GameEvent } from '../../src/domain/core/events.js';
 import type { WorldLocation } from '../../src/domain/schemas/location-schema.js';
 import type { Agent } from '../../src/domain/schemas/agent-schema.js';
 
@@ -72,6 +69,8 @@ function createDeps(eventBus: ReturnType<typeof createEventBus>): GameCoreDeps {
 		tickCount: 60,
 		writeFile: null,
 		dataRoot: 'test-data',
+		getRecipeRegistry: () => new Map(),
+		getFacilityTypeRegistry: () => new Map(),
 	};
 }
 
@@ -107,7 +106,6 @@ describe('Consequence Systems — Integration', () => {
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations, getWorld));
 		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 
@@ -120,53 +118,9 @@ describe('Consequence Systems — Integration', () => {
 		expect(hungerAfter).toBeCloseTo(80);
 	});
 
-	it('agent rests at tavern — energy recovers, RestStarted emitted', () => {
-		const eventBus = createEventBus();
-
-		const agentData = createTestAgent('agent-tired', 200, 200, { needs: { hunger: 80, energy: 50, social: 80, thirst: 80 } });
-		const actor = new AgentActor(agentData, defaultMoodConfig);
-		attachBehaviorStubs(actor, { btAction: 'idle' });
-
-		const restLocation: WorldLocation = {
-			id: 'loc-inn-rest', name: 'Village Inn', type: 'rest',
-			position: { x: 200, y: 200, region: 'test' }, capacity: 10, color: '#808080',
-		};
-
-		const worldEntity = createWorldEntity();
-		const actors = [actor];
-		const locations = [restLocation];
-		const getAgents = () => actors;
-		const getLocations = () => locations;
-		const getWorld = () => worldEntity;
-
-		const runner = createTickRunner(eventBus);
-		runner.register(createTraitResolverSystem(getAgents, {}));
-		runner.register(createDayNightSystem(getWorld));
-		runner.register(createNeedsDecaySystem(getAgents));
-		runner.register(createMoodSystem(getAgents));
-		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
-		runner.register(createMemoryDecaySystem(getAgents));
-		runner.register(createBehaviorTreeSystem(getAgents));
-		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations, getWorld));
-		runner.register(createFeedSystem(getAgents, getWorld));
-		runner.register(createSocializeSystem(getAgents));
-
-		const restEvents: GameEvent[] = [];
-		eventBus.on('RestStarted', (e) => { restEvents.push(e); });
-
-		const energyBefore = actor.get(NeedsComponent).state.energy;
-		const deps = createDeps(eventBus);
-		runner.tick(deps);
-		const energyAfter = actor.get(NeedsComponent).state.energy;
-
-		// Rest recovery (public_shelter 1.5) should exceed energy decay (0.25), so net energy increases
-		expect(energyAfter).toBeGreaterThan(energyBefore);
-
-		// RestStarted event should have been emitted for this agent
-		expect(restEvents.length).toBeGreaterThanOrEqual(1);
-		expect(restEvents[0]?.payload.agentId).toBe('agent-tired');
-	});
+	// Removed in Task 5.9 — rest behavior migrated to ServiceSystem; the old
+	// 'agent rests at tavern — RestStarted emitted' integration test exercised
+	// rest-system.ts which no longer exists.
 
 	it('two agents socialize — both gain memory', () => {
 		const eventBus = createEventBus();
@@ -196,7 +150,6 @@ describe('Consequence Systems — Integration', () => {
 		runner.register(createPerceptionSystem(getAgents, getLocations, getWorld));
 		runner.register(createMemoryDecaySystem(getAgents));
 		runner.register(createMovementSystem(getAgents, getLocations));
-		runner.register(createRestSystem(getAgents, getLocations, getWorld));
 		runner.register(createFeedSystem(getAgents, getWorld));
 		runner.register(createSocializeSystem(getAgents));
 

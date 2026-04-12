@@ -1,9 +1,9 @@
 {
-	"id": "loc-water-source",
-	"name": "Spring",
-	"type": "water",
+	"id": "loc-well",
+	"name": "Well",
 	"position": { "x": 80, "y": 130, "region": "region-farmlands" },
 	"color": "#4da6ff",
-	"production": null,
+	"facility_type": "well",
+	"active_recipe": "recipe-draw-water",
 	"capacity": 1
 }

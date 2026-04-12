@@ -66,6 +66,8 @@ describe('Life Systems Integration', () => {
 			tickCount: 0,
 			writeFile: null,
 			dataRoot: 'test-data',
+			getRecipeRegistry: () => new Map(),
+			getFacilityTypeRegistry: () => new Map(),
 		};
 
 		runner.tick(deps);
@@ -105,8 +107,8 @@ describe('Life Systems Integration', () => {
 		runner2.register(createNeedsDecaySystem(() => [agentWithout]));
 
 		const config = GameConfigSchema.parse({});
-		const deps1: GameCoreDeps = { logger: { debug() {}, info() {}, warn() {}, error() {} }, eventBus, config, performanceTracker: createPerformanceTracker(), tickCount: 0, writeFile: null, dataRoot: 'test-data' };
-		const deps2: GameCoreDeps = { logger: { debug() {}, info() {}, warn() {}, error() {} }, eventBus: createEventBus(), config, performanceTracker: createPerformanceTracker(), tickCount: 0, writeFile: null, dataRoot: 'test-data' };
+		const deps1: GameCoreDeps = { logger: { debug() {}, info() {}, warn() {}, error() {} }, eventBus, config, performanceTracker: createPerformanceTracker(), tickCount: 0, writeFile: null, dataRoot: 'test-data', getRecipeRegistry: () => new Map(), getFacilityTypeRegistry: () => new Map() };
+		const deps2: GameCoreDeps = { logger: { debug() {}, info() {}, warn() {}, error() {} }, eventBus: createEventBus(), config, performanceTracker: createPerformanceTracker(), tickCount: 0, writeFile: null, dataRoot: 'test-data', getRecipeRegistry: () => new Map(), getFacilityTypeRegistry: () => new Map() };
 
 		runner1.tick(deps1);
 		runner2.tick(deps2);
@@ -141,6 +143,8 @@ describe('Life Systems Integration', () => {
 			tickCount: 0,
 			writeFile: null,
 			dataRoot: 'test-data',
+			getRecipeRegistry: () => new Map(),
+			getFacilityTypeRegistry: () => new Map(),
 		};
 
 		runner.tick(deps);

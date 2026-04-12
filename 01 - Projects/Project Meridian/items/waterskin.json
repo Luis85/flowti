@@ -1,8 +1,0 @@
-{
-	"id": "waterskin",
-	"name": "Waterskin",
-	"baseValue": 0,
-	"category": "tool",
-	"charges": 3,
-	"maxCharges": 3
-}
