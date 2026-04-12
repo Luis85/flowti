@@ -89,6 +89,7 @@ describe('WorldLoader', () => {
 			'01 - Projects/Project Meridian/agents/elena.json': JSON.stringify(validAgent),
 			'01 - Projects/Project Meridian/locations/tavern.json': JSON.stringify(validLocation),
 			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
+			'01 - Projects/Project Meridian/jobs/default.mdsl': jobMdsl,
 			'01 - Projects/Project Meridian/jobs/settler.mdsl': jobMdsl,
 			'01 - Projects/Project Meridian/jobs/guard.mdsl': jobMdsl,
 			'01 - Projects/Project Meridian/jobs/craftsman.mdsl': jobMdsl,
@@ -160,6 +161,7 @@ describe('WorldLoader', () => {
 	it('loads job trees keyed by job name', async () => {
 		const vault = createMockVault({
 			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
+			'01 - Projects/Project Meridian/jobs/default.mdsl': jobMdsl,
 			'01 - Projects/Project Meridian/jobs/settler.mdsl': jobMdsl,
 			'01 - Projects/Project Meridian/jobs/guard.mdsl': jobMdsl,
 		});
@@ -172,5 +174,39 @@ describe('WorldLoader', () => {
 		// Each definition should be the composed base + job module
 		expect(result.jobTrees['settler']).toContain('Wander');
 		expect(result.joblessMdsl).toContain('action [Wander]');
+	});
+
+	it('falls back to default.mdsl for jobs without custom tree', async () => {
+		const vault = createMockVault({
+			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
+			'01 - Projects/Project Meridian/jobs/default.mdsl': jobMdsl,
+			// Note: no settler.mdsl, guard.mdsl, or craftsman.mdsl
+		});
+
+		const loader = createWorldLoader(logger, loaderConfig);
+		const result = await loader.load(vault);
+
+		// All 3 jobs should get the default tree
+		expect(result.jobTrees['settler']).toBeDefined();
+		expect(result.jobTrees['guard']).toBeDefined();
+		expect(result.jobTrees['craftsman']).toBeDefined();
+		expect(result.jobTrees['settler']).toContain('Wander');
+	});
+
+	it('prefers custom tree over default when both exist', async () => {
+		const customMdsl = 'root [Job] {\n    action [Work]\n}\n';
+		const vault = createMockVault({
+			'01 - Projects/Project Meridian/behavior-trees/base.mdsl': baseMdsl,
+			'01 - Projects/Project Meridian/jobs/default.mdsl': jobMdsl,
+			'01 - Projects/Project Meridian/jobs/settler.mdsl': customMdsl,
+		});
+
+		const loader = createWorldLoader(logger, loaderConfig);
+		const result = await loader.load(vault);
+
+		// settler gets custom, others get default
+		expect(result.jobTrees['settler']).toContain('Work');
+		expect(result.jobTrees['settler']).not.toContain('Wander');
+		expect(result.jobTrees['guard']).toContain('Wander');
 	});
 });

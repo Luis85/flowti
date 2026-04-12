@@ -165,16 +165,31 @@ export function createWorldLoader(
 			// Compose job trees from config definitions
 			const jobNames = Object.keys(config.jobDefinitions ?? {});
 			if (baseMdsl !== '') {
+				// Load default job tree (fallback for jobs without custom .mdsl)
+				let defaultJobMdsl: string | null = null;
+				const defaultResult = await mdslLoader.loadComposed(
+					vault,
+					`${btPath}/base.mdsl`,
+					`${jobsPath}/default.mdsl`,
+				);
+				collectErrors('jobs', defaultResult.errors, errors);
+				if (defaultResult.mdsl !== null) defaultJobMdsl = defaultResult.mdsl;
+
 				for (const jobName of jobNames) {
 					const result = await mdslLoader.loadComposed(
 						vault,
 						`${btPath}/base.mdsl`,
 						`${jobsPath}/${jobName}.mdsl`,
 					);
-					collectErrors('jobs', result.errors, errors);
 					if (result.mdsl !== null) {
 						jobTrees[jobName] = result.mdsl;
-						btMdslDefinitions[jobName] = result.mdsl; // backward compat
+						btMdslDefinitions[jobName] = result.mdsl;
+					} else if (defaultJobMdsl !== null) {
+						jobTrees[jobName] = defaultJobMdsl;
+						btMdslDefinitions[jobName] = defaultJobMdsl;
+						logger.info('WorldLoader', `Job "${jobName}" has no custom tree — using default`);
+					} else {
+						collectErrors('jobs', result.errors, errors);
 					}
 				}
 			}
