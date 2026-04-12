@@ -1,0 +1,63 @@
+root [Job] {
+    selector {
+        /* Equipment maintenance before work */
+        sequence {
+            condition [HasJob]
+            selector {
+                condition [NeedsEquipment]
+                condition [NeedsRepair]
+            }
+            selector {
+                sequence {
+                    condition [NeedsRepair]
+                    condition [HasTools]
+                    action [RepairWithTools]
+                }
+                sequence {
+                    condition [NeedsEquipment]
+                    condition [CanAffordItem, "equipment"]
+                    selector {
+                        sequence {
+                            condition [AtLocation, "market_stall"]
+                            condition [FacilityHasStock, "equipment"]
+                            action [BuyItem, "equipment"]
+                        }
+                        action [SeekMarket]
+                    }
+                }
+                sequence {
+                    condition [NeedsRepair]
+                    condition [CanAffordItem, "tools"]
+                    selector {
+                        sequence {
+                            condition [AtLocation, "market_stall"]
+                            condition [FacilityHasStock, "tools"]
+                            action [BuyItem, "tools"]
+                        }
+                        action [SeekMarket]
+                    }
+                }
+            }
+        }
+
+        /* Collect produced goods — skips for service/area_effect (empty stock) */
+        sequence {
+            condition [AtJobFacility]
+            action [CollectProduced]
+        }
+
+        /* Work at facility */
+        sequence {
+            condition [AtJobFacility]
+            action [Work] while(IsWorkHours)
+        }
+
+        /* Travel to work */
+        sequence {
+            condition [HasJob]
+            action [SeekWork]
+        }
+
+        action [Wander]
+    }
+}
