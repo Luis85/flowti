@@ -17,8 +17,7 @@ root {
                 sequence {
                     condition [IsExhausted]
                     action [ChooseServiceFacility, "rest"]
-                    action [SeekService]
-                    action [UseService] while(IsUsingService)
+                    action [SeekService] while(IsUsingService)
                 }
                 /* Drink if thirsty and have water */
                 sequence {
@@ -149,8 +148,7 @@ root {
             }
             flip { condition [IsNighttime] }
             action [ChooseServiceFacility, "leisure"]
-            action [SeekService]
-            action [UseService] while(IsUsingService)
+            action [SeekService] while(IsUsingService)
         }
 
         /* P3: Thirsty — drink, or buy water at a well/market */
@@ -274,8 +272,7 @@ root {
         sequence {
             condition [IsExhausted]
             action [ChooseServiceFacility, "rest"]
-            action [SeekService]
-            action [UseService] while(IsUsingService)
+            action [SeekService] while(IsUsingService)
         }
 
         /* P5.5: Switch to better-paying job if available */
@@ -302,8 +299,7 @@ root {
         sequence {
             condition [ShouldSleep]
             action [ChooseServiceFacility, "rest"]
-            action [SeekService]
-            action [UseService] while(IsUsingService)
+            action [SeekService] while(IsUsingService)
         }
 
         /* P7: Fallback */

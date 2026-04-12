@@ -90,12 +90,78 @@ export function createServiceActions(
 
 		SeekService(): ActionResult {
 			if (memory.serviceTarget === null) return FAILED;
-			beginAction(ctx, 'seek_service');
-			memory.movementTarget = { id: memory.serviceTarget, type: 'location' };
-			if (memory.atLocation === memory.serviceTarget) {
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, result: 'SUCCEEDED', target: memory.serviceTarget } });
-				return SUCCEEDED;
+
+			// If not at target yet, travel
+			if (memory.atLocation !== memory.serviceTarget) {
+				beginAction(ctx, 'seek_service');
+				memory.movementTarget = { id: memory.serviceTarget, type: 'location' };
+				return RUNNING;
 			}
+
+			// At target — immediately start the service visit (merged with
+			// UseService to work around mistreevous reset() preventing sequence
+			// advancement from SeekService SUCCEEDED to UseService in the same step).
+			const targetId = memory.serviceTarget;
+			if (memory.currentServiceVisit !== null) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, reason: 'visit already active', facilityId: memory.currentServiceVisit.facilityId } });
+				return FAILED;
+			}
+
+			const ft = resolveServiceFacilityType(ctx, targetId);
+			if (ft === null) {
+				const nearbyIds = resolveNearbyLocations().map(l => l.id);
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, reason: 'facility type not resolved at arrival', targetId, nearbyCount: nearbyIds.length, nearbyIds: nearbyIds.slice(0, 5) } });
+				memory.serviceTarget = null;
+				return FAILED;
+			}
+
+			const wallet = actor.get(WalletComponent);
+			if (wallet.state.gold < ft.cost_per_visit) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, reason: 'insufficient gold at arrival', gold: wallet.state.gold, cost: ft.cost_per_visit } });
+				memory.serviceTarget = null;
+				return FAILED;
+			}
+
+			// Debit cost upfront
+			if (ft.cost_per_visit > 0) {
+				wallet.state = { ...wallet.state, gold: wallet.state.gold - ft.cost_per_visit };
+				wallet.markDirty();
+
+				const locationActorMap = ctx.deps.getLocationActors();
+				const locActor = locationActorMap.get(targetId);
+				if (locActor?.has(FacilityComponent) === true) {
+					const facility = locActor.get(FacilityComponent);
+					facility.state = { ...facility.state, fund: facility.state.fund + ft.cost_per_visit };
+					facility.markDirty();
+				}
+
+				ctx.deps.eventBus.emit({
+					type: 'GoldFlowed',
+					tick: ctx.deps.tickCount(),
+					wallClock: Date.now(),
+					source: 'UseService',
+					payload: {
+						category: 'transfer' as const,
+						subcategory: 'service_fee',
+						amount: ft.cost_per_visit,
+						fromEntity: actor.agentId,
+						toEntity: targetId,
+					},
+				});
+			}
+
+			memory.currentServiceVisit = {
+				facilityId: targetId,
+				ticksRemaining: ft.ticks_per_visit,
+				costPaid: true,
+			};
+			memory.insideFacility = true;
+
+			beginAction(ctx, 'use_service');
+			memory.commitmentTicks = ft.ticks_per_visit;
+			memory.committedAction = 'use_service';
+
+			deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, result: 'VISIT_STARTED', target: targetId, ticks: ft.ticks_per_visit } });
 			return RUNNING;
 		},
 

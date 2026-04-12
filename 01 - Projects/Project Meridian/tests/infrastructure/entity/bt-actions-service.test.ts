@@ -248,18 +248,23 @@ describe('createServiceActions', () => {
 			expect(memory.btAction).toBe('seek_service');
 		});
 
-		it('returns SUCCEEDED when already at service target', () => {
-			const bathhouse = createBathhouseType();
+		it('starts service visit and returns RUNNING when already at service target', () => {
+			const bathhouse = createBathhouseType(); // cost_per_visit: 8
 			const registry = new Map<string, FacilityType>([['bathhouse', bathhouse]]);
-			const { ctx, memory } = setupServiceContext({
+			const { ctx, memory, actor } = setupServiceContext({
 				nearbyLocations: [makeNearbyLocation('loc-bathhouse', 'bathhouse')],
 				registry,
+				startingGold: 50,
 			});
 			memory.serviceTarget = 'loc-bathhouse';
 			memory.atLocation = 'loc-bathhouse';
 			const actions = createServiceActions(ctx);
 
-			expect(actions.SeekService()).toBe('mistreevous.succeeded');
+			expect(actions.SeekService()).toBe('mistreevous.running');
+			expect(memory.currentServiceVisit).not.toBeNull();
+			expect(memory.currentServiceVisit!.facilityId).toBe('loc-bathhouse');
+			expect(memory.committedAction).toBe('use_service');
+			expect(actor.get(WalletComponent).state.gold).toBe(42); // 50 - 8
 		});
 
 		it('returns FAILED when serviceTarget is null', () => {
