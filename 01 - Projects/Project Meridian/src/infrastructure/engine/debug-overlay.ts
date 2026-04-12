@@ -22,6 +22,7 @@ import type { Recipe } from '../../domain/schemas/recipe-schema.js';
 import { extractActivePath } from '../ui/bt-active-path.js';
 import { enrichAgentStatus } from '../ui/agent-status-label.js';
 import type { QuestLogger } from '../ui/quest-logger.js';
+import type { SnapshotData } from './recorder.js';
 
 interface OverlayDeps {
 	getAgents: () => AgentActor[];
@@ -1088,6 +1089,304 @@ function buildDiagnosticSnapshot(deps: OverlayDeps): string {
 		buildConfigSnapshot(agents, config, ticksPerDay),
 	];
 	return sections.filter(s => s.length > 0).join('\n\n');
+}
+
+function buildSnapshotData(deps: OverlayDeps): SnapshotData {
+	const world = deps.getWorldEntity();
+	const agents = deps.getAgents();
+	const locations = deps.getLocations();
+	const locationActors = deps.getLocationActors();
+	const tick = deps.getTickCount();
+	const ticksPerDay = deps.getTicksPerDay?.() ?? 480;
+	const time = world.get(TimeComponent);
+	const economy = world.get(EconomyComponent);
+	const velocity = economy.state.monetarySnapshot?.velocity ?? 0;
+	const config = deps.getConfig?.();
+	const facilityTypes = deps.getFacilityTypeRegistry?.();
+	const recipes = deps.getRecipeRegistry?.();
+
+	// Economy totals
+	let totalAgentGold = 0;
+	let totalFacilityGold = 0;
+	for (const a of agents) totalAgentGold += a.get(WalletComponent).state.gold;
+	for (const loc of locations) {
+		const la = locationActors.get(loc.id);
+		if (la?.has(FacilityComponent) === true) totalFacilityGold += la.get(FacilityComponent).state.fund;
+	}
+
+	// Market prices
+	const marketPrices: Record<string, number> = {};
+	const marketLoc = locations.find(l => l.facility_type === 'market_stall');
+	if (marketLoc !== undefined) {
+		const ma = locationActors.get(marketLoc.id);
+		if (ma?.has(FacilityComponent) === true) {
+			const prices = ma.get(FacilityComponent).state.currentPrices ?? {};
+			for (const [id, p] of Object.entries(prices)) marketPrices[id] = Number(p);
+		}
+	}
+
+	// Daily summary
+	const ds = economy.state.dailySummary;
+
+	// Monetary snapshot
+	const ms = economy.state.monetarySnapshot;
+
+	// Gold flows (today only)
+	const goldFlows: Record<string, { total: number; count: number }> = {};
+	const dayStartTick = tick - time.state.tickInCycle;
+	const todayLedger = economy.state.ledger.filter(e => e.tick >= dayStartTick);
+	for (const entry of todayLedger) {
+		const existing = goldFlows[entry.type];
+		if (existing !== undefined) {
+			existing.total += entry.gold;
+			existing.count += 1;
+		} else {
+			goldFlows[entry.type] = { total: entry.gold, count: 1 };
+		}
+	}
+
+	// Action distribution
+	const actionDistribution: Record<string, string[]> = {};
+	for (const agent of agents) {
+		const action = agent.behaviorAgent.btAction ?? 'idle';
+		const existing = actionDistribution[action];
+		if (existing !== undefined) {
+			existing.push(agent.agentName);
+		} else {
+			actionDistribution[action] = [agent.agentName];
+		}
+	}
+
+	// Anomalies — reuse the existing detectAnomalies function, parse its markdown output
+	const questBoard = world.has(QuestBoardComponent) ? world.get(QuestBoardComponent).state : null;
+	const { agentsByAction } = buildActionDistribution(agents);
+	const anomalySection = detectAnomalies(agents, economy, locations, locationActors, world, tick, economy.state.treasury + totalAgentGold + totalFacilityGold, config, velocity, agentsByAction, facilityTypes);
+	const anomalies = anomalySection.split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2));
+
+	// Agents
+	const agentData = agents.map(agent => {
+		const needs = agent.get(NeedsComponent).state;
+		const wallet = agent.get(WalletComponent).state;
+		const mood = agent.get(MoodComponent).state;
+		const stamina = agent.get(StaminaComponent).state;
+		const inv = agent.get(InventoryComponent).state;
+		const ba = agent.behaviorAgent;
+		const loc = ba.atLocation;
+		const target = ba.movementTarget;
+
+		// BT path
+		let btPath = '';
+		try {
+			const nodeDetails = agent.behaviorTree.getTreeNodeDetails();
+			btPath = extractActivePath(nodeDetails);
+		} catch { /* skip */ }
+
+		// Job + facility
+		const jobFacility = locations.find(l => {
+			const la = locationActors.get(l.id);
+			return la?.has(FacilityComponent) === true && la.get(FacilityComponent).state.workerId === agent.agentId;
+		});
+
+		// Price memory
+		let cheapestFood: number | null = null;
+		let oldestTick: number | null = null;
+		for (const pm of ba.priceMemories) {
+			if (oldestTick === null || pm.tick < oldestTick) oldestTick = pm.tick;
+			if (pm.itemId === 'food' && (cheapestFood === null || pm.price < cheapestFood)) {
+				cheapestFood = pm.price;
+			}
+		}
+
+		// Memories
+		const memComponent = agent.has(MemoryComponent) ? agent.get(MemoryComponent) : null;
+		const memEntries = memComponent?.state.entries ?? [];
+		const windowTicks = config?.mood.memory_window_ticks ?? 50;
+		const inWindow = memEntries.filter(m => m.tick >= tick - windowTicks);
+
+		// Relationships
+		const relEntries = agent.has(RelationshipComponent) ? agent.get(RelationshipComponent).state.entries : [];
+
+		return {
+			name: agent.agentName,
+			id: agent.agentId,
+			kind: agent.kind,
+			action: ba.btAction,
+			commitment: ba.commitmentTicks > 0 ? { action: ba.committedAction ?? 'unknown', ticksRemaining: ba.commitmentTicks } : null,
+			btPath,
+			attributes: { st: agent.get(AttributesComponent).state.ST, dx: agent.get(AttributesComponent).state.DX, iq: agent.get(AttributesComponent).state.IQ, ht: agent.get(AttributesComponent).state.HT },
+			traits: agent.has(TraitsComponent) ? agent.get(TraitsComponent).traitIds : [],
+			position: { x: Math.round(agent.pos.x), y: Math.round(agent.pos.y) },
+			location: loc,
+			destination: target?.id ?? null,
+			insideFacility: ba.insideFacility,
+			needs: {
+				hunger: { value: needs.hunger, threshold: ba.personalThresholds.hunger },
+				energy: { value: needs.energy, threshold: ba.personalThresholds.energy },
+				thirst: { value: needs.thirst, threshold: ba.personalThresholds.thirst },
+				social: { value: needs.social },
+			},
+			mood: {
+				value: mood.value,
+				bucket: mood.bucket,
+				factors: mood.factors !== undefined ? {
+					needs: mood.factors.needs,
+					positiveMemories: mood.factors.positiveMemories,
+					negativeMemories: mood.factors.negativeMemories,
+					goalProgress: mood.factors.goalProgress,
+					walletHealth: mood.factors.walletHealth,
+					equipmentCondition: mood.factors.equipmentCondition,
+					relationshipQuality: mood.factors.relationshipQuality,
+				} as Record<string, number> : {} as Record<string, number>,
+			},
+			gold: wallet.gold,
+			stamina: { current: stamina.current, max: stamina.max },
+			sleepDebt: ba.sleepDebt,
+			recovering: ba.recovering,
+			wakeOffset: ba.wakeOffset,
+			sleepOffset: ba.sleepOffset,
+			job: agent.job !== null ? { role: agent.job, facility: jobFacility?.name ?? 'unassigned' } : null,
+			unemployedTicks: ba.unemployedTicks,
+			knownLocations: [...ba.knownLocations],
+			inventory: inv.items.map(i => ({ item: i.item_id, quantity: i.quantity, ...(i.charges !== undefined ? { charges: i.charges } : {}) })),
+			priceMemory: { count: ba.priceMemories.size, cheapestFood, oldestTick },
+			memories: {
+				count: memEntries.length,
+				max: memComponent?.state.maxEntries ?? 0,
+				inWindow: inWindow.length,
+				positive: inWindow.filter(m => m.outcome === 'positive').length,
+				negative: inWindow.filter(m => m.outcome === 'negative').length,
+			},
+			relationships: relEntries.map(r => ({ target: r.agentId, disposition: r.disposition, familiarity: r.familiarity })),
+			quests: ba.activeQuest !== null ? [ba.activeQuest.type] : [],
+			supplyRoutes: ba.supplyRoute !== null ? [`${ba.supplyRoute.sourceId} → ${ba.supplyRoute.destinationId}`] : [],
+			hauling: ba.haulCargo !== null ? `${ba.haulCargo.itemId}x${ba.haulCargo.quantity}` : null,
+			serviceVisit: ba.currentServiceVisit,
+		};
+	});
+
+	// Facilities
+	const facilityData = locations
+		.filter(loc => {
+			const la = locationActors.get(loc.id);
+			return la?.has(FacilityComponent) === true;
+		})
+		.map(loc => {
+			const la = locationActors.get(loc.id)!;
+			const fac = la.get(FacilityComponent);
+			const ft = facilityTypes?.get(loc.facility_type);
+			const recipe = loc.active_recipe !== null ? recipes?.get(loc.active_recipe) : undefined;
+			const isProduction = ft?.kind === 'production' && recipe !== undefined;
+
+			return {
+				name: loc.name,
+				id: loc.id,
+				type: loc.facility_type,
+				status: fac.state.status,
+				fund: fac.state.fund,
+				workerId: fac.state.workerId,
+				stock: fac.state.stock.map(s => ({ item: s.item_id, quantity: s.quantity })),
+				production: isProduction && recipe !== undefined ? {
+					output: recipe.outputs.map(o => o.item_id).join(', '),
+					quantity: recipe.outputs.reduce((s, o) => s + o.quantity, 0),
+					intervalTicks: recipe.ticks_per_cycle,
+					wage: (ft as Extract<typeof ft, { kind: 'production' }>).default_wage,
+					job: (ft as Extract<typeof ft, { kind: 'production' }>).primary_job,
+					...(recipe.inputs.length > 0 ? { input: recipe.inputs.map(i => `${i.item_id}x${i.quantity}`).join(', ') } : {}),
+				} : null,
+			};
+		});
+
+	// Quests
+	const questData = questBoard !== null ? questBoard.quests.map(q => ({
+		state: q.state,
+		type: q.type,
+		facilityId: q.facilityId,
+		itemId: q.itemId,
+		quantity: q.quantity,
+		reward: q.reward,
+		expiryTicksRemaining: Math.max(0, q.expiryTicks - (tick - q.createdTick)),
+		claimedBy: q.claimedBy,
+		repairProgress: q.repairProgress,
+	})) : [];
+
+	// Config
+	const configData = config !== undefined ? {
+		ticksPerDay: config.ticks_per_day,
+		phases: {
+			dawn: { start: config.day_night.dawn.start, end: config.day_night.dawn.end },
+			day: { start: config.day_night.day.start, end: config.day_night.day.end },
+			dusk: { start: config.day_night.dusk.start, end: config.day_night.dusk.end },
+			night: { start: config.day_night.night.start, end: config.day_night.night.end },
+		},
+		restDayInterval: config.rest_day_interval,
+		leisureMoodThreshold: config.leisure_mood_threshold,
+		sleepDebtMax: config.sleep_debt_max,
+		treasuryRegenPerAgentPerDay: config.economy.treasury_regen_per_agent_per_day,
+		moodWeights: config.mood.factor_weights,
+		restTiers: {
+			owned_home: config.rest_tiers.owned_home.recovery_rate,
+			public_shelter: config.rest_tiers.public_shelter.recovery_rate,
+			outdoors: config.rest_tiers.outdoors.recovery_rate,
+		},
+	} : {
+		ticksPerDay,
+		phases: {} as Record<string, { start: number; end: number }>,
+		restDayInterval: 7,
+		leisureMoodThreshold: -20,
+		sleepDebtMax: 100,
+		treasuryRegenPerAgentPerDay: 20,
+		moodWeights: {} as Record<string, number>,
+		restTiers: {} as Record<string, number>,
+	};
+
+	return {
+		tick,
+		day: time.state.dayCount,
+		phase: time.state.phase,
+		phaseProgress: `${time.state.tickInCycle}/${ticksPerDay}`,
+		economy: {
+			treasury: economy.state.treasury,
+			agentGold: totalAgentGold,
+			facilityGold: totalFacilityGold,
+			totalGold: economy.state.treasury + totalAgentGold + totalFacilityGold,
+			velocity,
+			velocityHealth: velocity > 0.2 ? 'healthy' : velocity > 0 ? 'slow' : 'stalled',
+			faucetRate: ms?.faucetRate ?? 0,
+			sinkRate: ms?.sinkRate ?? 0,
+			netFlow: ms?.netFlow ?? 0,
+			dailySummary: {
+				wages: ds.totalWages,
+				tax: ds.totalTax,
+				sales: ds.totalSales,
+				consumption: ds.totalConsumption,
+				avgWage: ds.avgWage,
+				wageSpread: ds.wageSpread,
+				vacancyCount: ds.vacancyCount,
+				unemploymentCount: ds.unemploymentCount,
+				jobSwitches: ds.jobSwitchesThisDay,
+				supplyDeliveries: ds.supplyDeliveries,
+				questsCompleted: ds.questsCompletedThisDay,
+			},
+			marketPrices,
+			stimulusActive: velocity < 0.2,
+		},
+		population: {
+			agentCount: agents.length,
+			employedCount: agents.filter(a => a.job !== null).length,
+			avgHunger: agents.length > 0 ? agents.reduce((s, a) => s + a.get(NeedsComponent).state.hunger, 0) / agents.length : 0,
+			avgEnergy: agents.length > 0 ? agents.reduce((s, a) => s + a.get(NeedsComponent).state.energy, 0) / agents.length : 0,
+			avgThirst: agents.length > 0 ? agents.reduce((s, a) => s + a.get(NeedsComponent).state.thirst, 0) / agents.length : 0,
+			avgMood: agents.length > 0 ? agents.reduce((s, a) => s + a.get(MoodComponent).state.value, 0) / agents.length : 0,
+			avgSleepDebt: agents.length > 0 ? agents.reduce((s, a) => s + a.behaviorAgent.sleepDebt, 0) / agents.length : 0,
+		},
+		agents: agentData,
+		facilities: facilityData,
+		quests: questData,
+		goldFlows,
+		actionDistribution,
+		anomalies,
+		config: configData,
+	};
 }
 
 export function createDebugOverlay(
