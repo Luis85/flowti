@@ -92,20 +92,36 @@ export function createServiceActions(
 			if (memory.serviceTarget === null) return FAILED;
 			beginAction(ctx, 'seek_service');
 			memory.movementTarget = { id: memory.serviceTarget, type: 'location' };
-			if (memory.atLocation === memory.serviceTarget) return SUCCEEDED;
+			if (memory.atLocation === memory.serviceTarget) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, result: 'SUCCEEDED', target: memory.serviceTarget } });
+				return SUCCEEDED;
+			}
 			return RUNNING;
 		},
 
 		UseService(): ActionResult {
 			const targetId = memory.serviceTarget;
-			if (targetId === null) return FAILED;
-			if (memory.currentServiceVisit !== null) return FAILED;
+			if (targetId === null) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'UseService', payload: { agentId: actor.agentId, reason: 'serviceTarget is null' } });
+				return FAILED;
+			}
+			if (memory.currentServiceVisit !== null) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'UseService', payload: { agentId: actor.agentId, reason: 'currentServiceVisit already set', facilityId: memory.currentServiceVisit.facilityId } });
+				return FAILED;
+			}
 
 			const ft = resolveServiceFacilityType(ctx, targetId);
-			if (ft === null) return FAILED;
+			if (ft === null) {
+				const nearbyIds = resolveNearbyLocations().map(l => l.id);
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'UseService', payload: { agentId: actor.agentId, reason: 'resolveServiceFacilityType returned null', targetId, atLocation: memory.atLocation, nearbyLocationCount: nearbyIds.length, nearbyIds: nearbyIds.slice(0, 5) } });
+				return FAILED;
+			}
 
 			const wallet = actor.get(WalletComponent);
-			if (wallet.state.gold < ft.cost_per_visit) return FAILED;
+			if (wallet.state.gold < ft.cost_per_visit) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'UseService', payload: { agentId: actor.agentId, reason: 'insufficient gold', gold: wallet.state.gold, cost: ft.cost_per_visit } });
+				return FAILED;
+			}
 
 			// Debit cost upfront — completed visits are non-refundable
 			if (ft.cost_per_visit > 0) {
