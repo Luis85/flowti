@@ -110,12 +110,17 @@ interface SnapshotData {
             wages: number;
             tax: number;
             sales: number;
+            consumption: number;
+            avgWage: number;
+            wageSpread: number;
+            vacancyCount: number;
+            unemploymentCount: number;
             jobSwitches: number;
             supplyDeliveries: number;
             questsCompleted: number;
         };
         marketPrices: Record<string, number>;
-        stimulusActive: boolean;
+        stimulusActive: boolean;  // derived: velocity < 0.2 (no native field — compute inline)
     };
 
     population: {
@@ -140,7 +145,7 @@ interface SnapshotData {
         position: { x: number; y: number };
         location: string | null;
         destination: string | null;
-        facilityOccupancy: string | null;
+        insideFacility: boolean;  // derived from ba.insideFacility boolean + ba.atLocation
         needs: {
             hunger: { value: number; threshold: number };
             energy: { value: number; threshold: number };
@@ -201,7 +206,7 @@ interface SnapshotData {
         repairProgress: number;
     }>;
 
-    goldFlows: Record<string, { total: number; count: number }>;
+    goldFlows: Record<string, { total: number; count: number }>;  // scoped to current day only (tick >= dayStartTick), aggregated by ledger type
 
     actionDistribution: Record<string, string[]>;
 
@@ -209,7 +214,7 @@ interface SnapshotData {
 
     config: {
         ticksPerDay: number;
-        phases: Record<string, { start: number; end: number }>;
+        phases: Record<string, { start: number; end: number }>;  // manually constructed from config.day_night named keys (dawn/day/dusk/night)
         restDayInterval: number;
         leisureMoodThreshold: number;
         sleepDebtMax: number;
@@ -244,6 +249,11 @@ New event emitted from `behavior-tree-system.ts` each tick per agent after tree 
 ```
 
 Emitted right after `agent.behaviorTree.step()`. One event per agent per tick (~1,440 events/day with 3 agents). Flows through the standard event bus — captured by the recorder like any other event, no special-casing.
+
+### Implementation Notes
+
+- `behavior-tree-system.ts` currently ignores its `_deps: GameCoreDeps` parameter. The implementation must rename it to `deps` and use `deps.eventBus` for emission.
+- `extractActivePath` requires calling `agent.behaviorTree.getTreeNodeDetails()` which can throw when the tree is mid-initialization. The emission must be wrapped in a `try/catch` with a graceful fallback (emit with `leaf: "unknown"`, `leafStatus: "unknown"`).
 
 ---
 
@@ -282,12 +292,16 @@ function createRecorder(deps: RecorderDeps): Recorder;
 
 ### 1. `behavior-tree-system.ts`
 
-After `agent.behaviorTree.step()`, emit `BtEvaluated` event using `extractActivePath` to get the leaf node and status.
+- Rename `_deps` parameter to `deps` to access `deps.eventBus`
+- After `agent.behaviorTree.step()`, emit `BtEvaluated` event
+- Wrap `extractActivePath` call in try/catch (tree can throw during init)
+- Import `extractActivePath` from `../ui/bt-active-path.js`
 
 ### 2. `debug-overlay.ts`
 
 - Replace recording state variables and start/stop logic (~60 lines) with `createRecorder()` call
 - Menu click handler delegates to `recorder.start()` / `recorder.stop()`
+- Pass `buildSnapshotData` as a bound closure: `buildSnapshot: () => buildSnapshotData(deps)` — the recorder receives a zero-arg function that closes over `OverlayDeps`
 - Existing markdown builder, live panels, copy-to-clipboard — all unchanged
 
 ### 3. New: `recorder.ts`
