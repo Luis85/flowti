@@ -25,8 +25,18 @@ function createMockAgent(): AgentActor {
 	const stepFn = vi.fn();
 	const resetFn = vi.fn();
 	return {
-		behaviorAgent: { btAction: null as string | null, tickUnemployment: vi.fn() },
-		behaviorTree: { step: stepFn, reset: resetFn },
+		agentId: 'agent-test',
+		behaviorAgent: {
+			btAction: null as string | null,
+			tickUnemployment: vi.fn(),
+			committedAction: null as string | null,
+			commitmentTicks: 0,
+		},
+		behaviorTree: {
+			step: stepFn,
+			reset: resetFn,
+			getTreeNodeDetails: vi.fn().mockImplementation(() => { throw new Error('no tree'); }),
+		},
 		_stepFn: stepFn,
 		_resetFn: resetFn,
 	} as unknown as AgentActor & { _stepFn: ReturnType<typeof vi.fn>; _resetFn: ReturnType<typeof vi.fn> };
@@ -84,5 +94,47 @@ describe('BehaviorTreeSystem (mistreevous thin wrapper)', () => {
 
 		// btAction should already be null when step() runs
 		expect(btActionDuringStep).toBeNull();
+	});
+
+	it('emits BtEvaluated event after each agent step', () => {
+		const agent = createMockAgent();
+		// Override getTreeNodeDetails to return a minimal tree
+		(agent.behaviorTree as Record<string, unknown>).getTreeNodeDetails = vi.fn().mockReturnValue({
+			name: 'ROOT', type: 'root', state: 'mistreevous.running',
+			children: [{ name: 'Eat', type: 'action', state: 'mistreevous.running', children: [] }],
+		});
+
+		const deps = createDeps();
+		const emitSpy = vi.spyOn(deps.eventBus, 'emit');
+		const system = createBehaviorTreeSystem(() => [agent]);
+
+		system.execute(deps);
+
+		const btEvents = emitSpy.mock.calls.filter(c => c[0].type === 'BtEvaluated');
+		expect(btEvents).toHaveLength(1);
+		expect(btEvents[0]![0].source).toBe('BehaviorTreeSystem');
+		expect(btEvents[0]![0].payload).toMatchObject({
+			agentId: 'agent-test',
+			leaf: 'Eat',
+			leafStatus: 'RUNNING',
+		});
+	});
+
+	it('emits BtEvaluated with unknown leaf when getTreeNodeDetails throws', () => {
+		const agent = createMockAgent();
+		// Default mock already throws — no override needed
+
+		const deps = createDeps();
+		const emitSpy = vi.spyOn(deps.eventBus, 'emit');
+		const system = createBehaviorTreeSystem(() => [agent]);
+
+		system.execute(deps);
+
+		const btEvents = emitSpy.mock.calls.filter(c => c[0].type === 'BtEvaluated');
+		expect(btEvents).toHaveLength(1);
+		expect(btEvents[0]![0].payload).toMatchObject({
+			leaf: 'unknown',
+			leafStatus: 'unknown',
+		});
 	});
 });
