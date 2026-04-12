@@ -51,7 +51,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | **Obsidian Plugin** | Host environment. Must use Obsidian's Plugin API, file system, and view lifecycle. |
 | **ExcaliburJS v0.32+** | Game engine. Provides ECS, Actor, collision, rendering, camera, input. Already validated via spike. |
 | **TypeScript strict mode** | Type safety, Zod integration, no `any` types. |
-| **Single-process Electron** | ExcaliburJS render loop (60 FPS) and tick simulation (2 Hz) share one process. Fixed timestep accumulator pattern. |
+| **Single-process Electron** | ExcaliburJS render loop (60 FPS) and tick simulation (10 Hz) share one process. Fixed timestep accumulator pattern. |
 | **Zero runtime npm dependencies** | All deps bundled by Vite. Obsidian and Electron are external. |
 | **Vault as database** | Markdown + Canvas + JSON files are the canonical data store. No SQLite, no IndexedDB. |
 | **No bare try/catch in domain/systems** | Result type for all fallible ops. Infrastructure boundary code is exempted. |
@@ -128,12 +128,12 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 │       │                    │            │
 │       ▼                    ▼            │
 │  Actor/Scene       Tick Accumulator     │
-│  Rendering         (500ms threshold)    │
+│  Rendering         (100ms threshold)    │
 │       │                    │            │
 │       │             ┌──────┴──────┐     │
 │       │             │ System      │     │
 │       │             │ Pipeline    │     │
-│       │             │(18 active / │     │
+│       │             │(28 active / │     │
 │       │             │ 34 defined) │     │
 │       │             └──────┬──────┘     │
 │       │                    │            │
@@ -148,7 +148,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 └─────────────────────────────────────────┘
 ```
 
-> **Note:** 18 of 34 system pipeline slots are active. 16 priority slots are reserved for future systems (quests, construction, progression, mortality, durability, world events, seasons, notifications, chronicler, scenarios, abandonment, vault sync, UI bridge, etc.). Vue/Pinia UI is [PLANNED — Phase 8+].
+> **Note:** 28 of 34 system pipeline slots are active. 6 priority slots are reserved for future systems (construction, progression, mortality, durability, vault sync, UI bridge, etc.). Vue/Pinia UI is [PLANNED — Phase 8+].
 
 ---
 
@@ -159,7 +159,7 @@ Project Meridian is an **emergent agent-simulation sandbox RPG** implemented as 
 | Decision | Rationale |
 |----------|-----------|
 | **ExcaliburJS ECS as foundation** | Built-in Entity/Component/System/World/Query. Actors provide position, collision, graphics, pointer events. No custom ECS needed. |
-| **Fixed timestep accumulator** | ExcaliburJS renders at 60 FPS. Simulation ticks at 2 Hz (500ms). Accumulator pattern gives smooth rendering with deterministic simulation. |
+| **Fixed timestep accumulator** | ExcaliburJS renders at 60 FPS. Simulation ticks at 10 Hz (100ms, configurable via `tick_interval_ms`). Accumulator pattern gives smooth rendering with deterministic simulation. |
 | **Vault-as-database** | Every entity is a markdown file. Zod validates at boundary. Director can inspect/edit files directly in Obsidian. |
 | **EventBus for inter-system communication** | Systems never import each other. All communication via typed events with priority, history, and batching. |
 | **Result type for error handling** | No bare try/catch in domain/system code. Explicit success/failure paths. Composable via map/flatMap. |
@@ -285,13 +285,20 @@ domain/
     ├── price-memory.ts           — Agent price memories (staleness, best-source queries)
     ├── economy.ts                — Facility price recalculation orchestration
     ├── monetary-policy.ts        — Velocity tracking, faucet/sink ledger, tax, safety nets
+    ├── facility-maintenance.ts   — Facility upkeep, degradation, repair
+    ├── welfare.ts                — Population welfare scoring, deprivation alerts
+    ├── stipend.ts                — Periodic gold distribution to qualifying agents
+    ├── subsidy.ts                — Facility subsidy allocation from treasury
     ├── food-items.ts             — Food item definitions
     ├── arrival-spread.ts         — Agent arrival positioning
     ├── crossing-point.ts         — Region crossing calculations
     ├── steering.ts               — Agent steering behaviors
     ├── pathfinding.ts            — A* region-graph pathfinding
     ├── world-validation.ts       — World state validation
-    ├── quest-evaluation.ts       — [PLANNED] Objective tracking, completion, failure
+    ├── area-effect.ts            — Zone buff/debuff application to agents in area
+    ├── service.ts                — Service job execution (non-production work)
+    ├── quest-evaluation.ts       — Objective tracking, completion, failure
+    ├── quest-generation.ts       — Auto-generate quests from world state
     ├── object-interaction.ts     — [PLANNED] World object use, stock depletion
     ├── tool-execution.ts         — [PLANNED] Vault file ops (Command pattern)
     ├── construction.ts           — [PLANNED] Building progress, property registration
@@ -319,7 +326,7 @@ infrastructure/
 │   ├── world-loader.ts     — Vault → ECS entity hydration (agents, locations, traits, BTs)
 │   └── batchable-event-bus.ts — EventBus with batch/flush for tick-boundary delivery
 │
-├── systems/                     — GameSystem wrappers (dual-layer pattern, 18 systems)
+├── systems/                     — GameSystem wrappers (dual-layer pattern, 28 systems)
 │   ├── trait-resolver-system.ts
 │   ├── day-night-system.ts
 │   ├── needs-decay-system.ts
@@ -336,8 +343,17 @@ infrastructure/
 │   ├── dialogue-system.ts
 │   ├── gossip-system.ts
 │   ├── relationship-checkpoint-system.ts
+│   ├── area-effect-system.ts     — Zone buff/debuff application
+│   ├── service-system.ts         — Service job execution
+│   ├── quest-evaluation-system.ts — Objective tracking
+│   ├── quest-generation-system.ts — Auto-generate quests
 │   ├── economy-system.ts        — FlatQueue-driven price recalculation
-│   └── monetary-policy-system.ts — Velocity tracking, safety net interventions
+│   ├── facility-maintenance-system.ts — Facility upkeep, degradation
+│   ├── monetary-policy-system.ts — Velocity tracking, safety net interventions
+│   ├── welfare-system.ts         — Population welfare scoring
+│   ├── stipend-system.ts         — Periodic gold distribution
+│   ├── subsidy-system.ts         — Facility subsidy allocation
+│   └── abandonment-system.ts     — Facility abandonment detection
 │
 ├── components/                  — ECS components (TrackedComponent base, 15 components)
 │   ├── tracked-component.ts     — Base class with markDirty()/clearDirty()
@@ -449,7 +465,10 @@ ExcaliburJS Engine.update(delta)
 │   ├─ RestSystem (6.5)             — Recovers energy at rest-type locations (3 tiers)
 │   ├─ FeedSystem (6.6)             — Recovers hunger at food-type locations (requires seek_food action)
 │   ├─ SocializeSystem (6.7)        — Recovers social near agents, creates mutual memories
+│   ├─ AreaEffectSystem (6.8)       — Zone buff/debuff application
+│   ├─ ServiceSystem (6.9)          — Service job execution (non-production work)
 │   ├─ QuestEvaluationSystem (7)    — Objective tracking
+│   ├─ QuestGenerationSystem (7.5)  — Auto-generate quests from world state
 │   ├─ ObjectInteractionSystem (8)  — World object use
 │   ├─ ToolExecutionSystem (9)      — File ops via Command pattern
 │   ├─ ConstructionSystem (10)      — Building progress
@@ -460,7 +479,11 @@ ExcaliburJS Engine.update(delta)
 │   ├─ MortalityCheckSystem (14.5)  — Collapse, death, legacy
 │   ├─ ItemDurabilitySystem (15)    — Wear, breakage, spoilage
 │   ├─ EconomySystem (16)           — FlatQueue-driven facility price recalculation, demand tracking
+│   ├─ FacilityMaintenanceSystem (16.2) — Facility upkeep, degradation, repair
 │   ├─ MonetaryPolicySystem (16.5)  — Velocity tracking, snapshot write, safety net interventions
+│   ├─ WelfareSystem (16.6)         — Population welfare scoring, deprivation alerts
+│   ├─ StipendSystem (16.7)         — Periodic gold distribution to qualifying agents
+│   ├─ SubsidySystem (16.8)         — Facility subsidy allocation from treasury
 │   ├─ WorldEventSystem (17)        — Random events (every M ticks)
 │   ├─ SeasonSystem (17.5)          — Season advancement
 │   ├─ NotificationSystem (18)      — Director alert filtering
@@ -1021,11 +1044,11 @@ onunload():
 | ADR | Decision | Rationale | Status |
 |-----|---------|-----------|--------|
 | ADR-01 | ExcaliburJS ECS, not custom | Built-in Entity/Component/System/Query. Validated via spike. | Accepted |
-| ADR-02 | Fixed timestep accumulator | Deterministic simulation at 2 Hz, smooth rendering at 60 FPS. | Accepted |
+| ADR-02 | Fixed timestep accumulator | Deterministic simulation at 10 Hz (100ms, configurable via `tick_interval_ms`), smooth rendering at 60 FPS. | Accepted |
 | ADR-03 | Vault-as-database | Obsidian-native. Director can inspect/edit files. Zod validates at boundary. | Accepted |
 | ADR-04 | Result type, no try/catch | Explicit error paths. Composable. Infrastructure boundary exempted. | Accepted |
 | ADR-05 | EventBus with priority + batching | Loose coupling. Deterministic event delivery between systems. | Accepted |
-| ADR-06 | BT + Blackboard for agent decisions | Independently testable. BT reads Blackboard, writes selectedAction. Event type is `BTActionSelected` (not `ActionIntent`). **Amendment (2026-03-29):** Custom pure-function BT evaluator (`evaluateBT()`) used instead of mistreevous. 4 node types (action, condition, selector, sequence) cover Phases 0–1D. mistreevous remains the target if complexity warrants it at Phase 3+ (parallel, decorator, guard nodes). Review gate at Phase 3 (Social). | Accepted |
+| ADR-06 | BT + Blackboard for agent decisions | Independently testable. BT reads Blackboard, writes selectedAction. Event type is `BTActionSelected` (not `ActionIntent`). **Amendment (2026-03-29):** Custom pure-function BT evaluator (`evaluateBT()`) used instead of mistreevous. 4 node types (action, condition, selector, sequence) cover Phases 0–1D. mistreevous remains the target if complexity warrants it at Phase 3+ (parallel, decorator, guard nodes). Review gate at Phase 3 (Social). **Superseded:** mistreevous 4.3.1 is the production BT engine. The custom evaluator described in this amendment was explored but never adopted. | Accepted |
 | ADR-07 | Modifier pipeline (multiplicative rates, additive flats) | Composable. Prevents stacking to impossible values via clamping. | Accepted |
 | ADR-08 | Hybrid spatial model (region graph + free movement) | Strategic macro-movement + fluid micro-movement. ExcaliburJS collision for agent blocking. | Accepted |
 | ADR-09 | Supply chains via quest economy | No dedicated logistics system. Facility auto-quests drive supply transport. | Accepted |
@@ -1134,7 +1157,7 @@ See GDD §37 for the full glossary (42 terms). Key architecture terms:
 | **VaultSync** | Bidirectional synchronization between Obsidian vault files and ECS components. |
 | **SpatialQueryService** | Stateless service populated by PerceptionSystem for non-BT system spatial lookups. |
 | **UIBridge** | System that pushes ECS state diffs to Pinia stores via events + periodic snapshots. |
-| **Tick** | One discrete simulation step (~500ms). All game state changes happen at tick boundaries. |
+| **Tick** | One discrete simulation step (~100ms, configurable via `tick_interval_ms`). All game state changes happen at tick boundaries. |
 | **Quarantine** | Invalid vault files flagged and excluded from ECS loading. Director notified. |
 | **Saga** | Ordered Command sequence with compensating rollback. Used for trades and construction. |
 | **World Health** | Composite score (mood + economy + population) that subtly modulates event probabilities. |
@@ -1163,6 +1186,6 @@ See GDD §37 for the full glossary (42 terms). Key architecture terms:
 - Source: ~115 files (~9,720 LoC)
 - Tests: 910 passing across 102 files
 - Coverage: 80.75% statements, 71.05% branches, 81.31% functions, 83.35% lines
-- Systems: 18 active (of 34 planned)
+- Systems: 28 active (of 34 planned)
 - Agents: 3 defined (Aldric, Bram, Celia)
 - Locations: 7, Regions: 4, Items: 26, Traits: 8, Jobs: 7
