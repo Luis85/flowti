@@ -104,21 +104,17 @@ export function createServiceActions(
 			// advancement from SeekService SUCCEEDED to UseService in the same step).
 			const targetId = memory.serviceTarget;
 			if (memory.currentServiceVisit !== null) {
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, reason: 'visit already active', facilityId: memory.currentServiceVisit.facilityId } });
 				return FAILED;
 			}
 
 			const ft = resolveServiceFacilityType(ctx, targetId);
 			if (ft === null) {
-				const nearbyIds = resolveNearbyLocations().map(l => l.id);
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, reason: 'facility type not resolved at arrival', targetId, nearbyCount: nearbyIds.length, nearbyIds: nearbyIds.slice(0, 5) } });
 				memory.serviceTarget = null;
 				return FAILED;
 			}
 
 			const wallet = actor.get(WalletComponent);
 			if (wallet.state.gold < ft.cost_per_visit) {
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, reason: 'insufficient gold at arrival', gold: wallet.state.gold, cost: ft.cost_per_visit } });
 				memory.serviceTarget = null;
 				return FAILED;
 			}
@@ -162,31 +158,25 @@ export function createServiceActions(
 			memory.commitmentTicks = ft.ticks_per_visit;
 			memory.committedAction = 'use_service';
 
-			deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'SeekService', payload: { agentId: actor.agentId, result: 'VISIT_STARTED', target: targetId, ticks: ft.ticks_per_visit } });
 			return RUNNING;
 		},
 
 		UseService(): ActionResult {
 			const targetId = memory.serviceTarget;
 			if (targetId === null) {
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'UseService', payload: { agentId: actor.agentId, reason: 'serviceTarget is null' } });
 				return FAILED;
 			}
 			if (memory.currentServiceVisit !== null) {
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'UseService', payload: { agentId: actor.agentId, reason: 'currentServiceVisit already set', facilityId: memory.currentServiceVisit.facilityId } });
 				return FAILED;
 			}
 
 			const ft = resolveServiceFacilityType(ctx, targetId);
 			if (ft === null) {
-				const nearbyIds = resolveNearbyLocations().map(l => l.id);
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'UseService', payload: { agentId: actor.agentId, reason: 'resolveServiceFacilityType returned null', targetId, atLocation: memory.atLocation, nearbyLocationCount: nearbyIds.length, nearbyIds: nearbyIds.slice(0, 5) } });
 				return FAILED;
 			}
 
 			const wallet = actor.get(WalletComponent);
 			if (wallet.state.gold < ft.cost_per_visit) {
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'UseService', payload: { agentId: actor.agentId, reason: 'insufficient gold', gold: wallet.state.gold, cost: ft.cost_per_visit } });
 				return FAILED;
 			}
 
