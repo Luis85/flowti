@@ -203,6 +203,41 @@ export function createGossipSystem(
 					for (const item of aToBResult.transferred) {
 						applyDispositionChanges(partner, item.dispositionChanges, deps.tickCount);
 					}
+
+					// Write location gossip to partner's locationMemories
+					const locMemConfig = deps.config.location_memory;
+					for (const item of aToBResult.transferred) {
+						const meta = item.memory.metadata;
+						if (meta?.['gossipType'] !== 'location') continue;
+						const locId = meta['locationId'] as string;
+						const existingLocMem = partnerBa.locationMemories.find(m => m.locationId === locId);
+						if (existingLocMem !== undefined) {
+							if (existingLocMem.source !== 'gossip') continue;
+							const newReliability = meta['reliability'] as number;
+							if (newReliability > existingLocMem.reliability) {
+								existingLocMem.reliability = newReliability;
+								existingLocMem.significance = locMemConfig.gossip.significance_multiplier * newReliability;
+								existingLocMem.originalSignificance = existingLocMem.significance;
+								existingLocMem.lastRefreshedTick = deps.tickCount;
+							}
+							continue;
+						}
+						const pos = meta['position'] as { x: number; y: number };
+						const reliability = meta['reliability'] as number;
+						const sig = locMemConfig.gossip.significance_multiplier * reliability;
+						if (sig < locMemConfig.usable_threshold) continue;
+						partnerBa.locationMemories = [...partnerBa.locationMemories, {
+							locationId: locId,
+							facilityType: (meta['locationType'] as string) ?? '',
+							position: { x: pos.x, y: pos.y },
+							significance: sig,
+							originalSignificance: sig,
+							source: 'gossip' as const,
+							reliability,
+							discoveredTick: deps.tickCount,
+							lastRefreshedTick: deps.tickCount,
+						}];
+					}
 				}
 
 				// Write B->A gossip to agent's memory
@@ -217,6 +252,41 @@ export function createGossipSystem(
 					// Apply disposition changes on agent (receiver)
 					for (const item of bToAResult.transferred) {
 						applyDispositionChanges(agent, item.dispositionChanges, deps.tickCount);
+					}
+
+					// Write location gossip to agent's locationMemories
+					const locMemConfigB = deps.config.location_memory;
+					for (const item of bToAResult.transferred) {
+						const meta = item.memory.metadata;
+						if (meta?.['gossipType'] !== 'location') continue;
+						const locId = meta['locationId'] as string;
+						const existingLocMem = ba.locationMemories.find(m => m.locationId === locId);
+						if (existingLocMem !== undefined) {
+							if (existingLocMem.source !== 'gossip') continue;
+							const newReliability = meta['reliability'] as number;
+							if (newReliability > existingLocMem.reliability) {
+								existingLocMem.reliability = newReliability;
+								existingLocMem.significance = locMemConfigB.gossip.significance_multiplier * newReliability;
+								existingLocMem.originalSignificance = existingLocMem.significance;
+								existingLocMem.lastRefreshedTick = deps.tickCount;
+							}
+							continue;
+						}
+						const pos = meta['position'] as { x: number; y: number };
+						const reliability = meta['reliability'] as number;
+						const sig = locMemConfigB.gossip.significance_multiplier * reliability;
+						if (sig < locMemConfigB.usable_threshold) continue;
+						ba.locationMemories = [...ba.locationMemories, {
+							locationId: locId,
+							facilityType: (meta['locationType'] as string) ?? '',
+							position: { x: pos.x, y: pos.y },
+							significance: sig,
+							originalSignificance: sig,
+							source: 'gossip' as const,
+							reliability,
+							discoveredTick: deps.tickCount,
+							lastRefreshedTick: deps.tickCount,
+						}];
 					}
 				}
 
