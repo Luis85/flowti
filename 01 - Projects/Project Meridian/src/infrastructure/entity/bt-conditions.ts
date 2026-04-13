@@ -37,6 +37,7 @@ export interface ConditionMethods {
 	NeedsRepair(): boolean;
 	HasTools(): boolean;
 	KnowsFoodSource(): boolean;
+	KnowsRestLocation(): boolean;
 	HasNoJob(): boolean;
 	OpenFacilityNearby(): boolean;
 	OpenProductionFacilityNearby(): boolean;

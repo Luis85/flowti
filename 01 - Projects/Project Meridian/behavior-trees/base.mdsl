@@ -16,8 +16,16 @@ root {
                 /* Rest if exhausted — energy depletion is most dangerous */
                 sequence {
                     condition [IsExhausted]
-                    action [ChooseServiceFacility, "rest"]
-                    action [SeekService] while(IsUsingService)
+                    selector {
+                        sequence {
+                            action [ChooseServiceFacility, "rest"]
+                            action [SeekService] while(IsUsingService)
+                        }
+                        sequence {
+                            condition [KnowsRestLocation]
+                            action [SeekKnownRestLocation]
+                        }
+                    }
                 }
                 /* Drink if thirsty and have water */
                 sequence {
@@ -271,8 +279,16 @@ root {
         /* P5: Energy — rest when tired */
         sequence {
             condition [IsExhausted]
-            action [ChooseServiceFacility, "rest"]
-            action [SeekService] while(IsUsingService)
+            selector {
+                sequence {
+                    action [ChooseServiceFacility, "rest"]
+                    action [SeekService] while(IsUsingService)
+                }
+                sequence {
+                    condition [KnowsRestLocation]
+                    action [SeekKnownRestLocation]
+                }
+            }
         }
 
         /* P5.5: Switch to better-paying job if available */
@@ -298,8 +314,16 @@ root {
         /* P6: Personal sleep time */
         sequence {
             condition [ShouldSleep]
-            action [ChooseServiceFacility, "rest"]
-            action [SeekService] while(IsUsingService)
+            selector {
+                sequence {
+                    action [ChooseServiceFacility, "rest"]
+                    action [SeekService] while(IsUsingService)
+                }
+                sequence {
+                    condition [KnowsRestLocation]
+                    action [SeekKnownRestLocation]
+                }
+            }
         }
 
         /* P7: Fallback */

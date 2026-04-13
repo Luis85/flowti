@@ -13,7 +13,7 @@ type EconomyKeys =
 	| 'HasGold' | 'HasFood' | 'HasFoodReserve' | 'HasWater' | 'HasTradeGoods'
 	| 'CanAffordFood' | 'CanAffordItem' | 'KnowsFoodSource' | 'FacilityHasStock'
 	| 'KnowsSupplyRoute' | 'HasCargo' | 'CargoDestinationNearby' | 'FacilityNeedsSupply' | 'IsOverloaded'
-	| 'NeedsRepair' | 'HasTools';
+	| 'NeedsRepair' | 'HasTools' | 'KnowsRestLocation';
 
 export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMethods, EconomyKeys> {
 	const { actor, deps, memory, resolveNearbyFacilities, resolveNearbyLocations } = ctx;
@@ -176,6 +176,19 @@ export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMe
 			const inv = actor.get(InventoryComponent).state.items;
 			const tools = inv.find(i => i.item_id === 'tools');
 			return tools !== undefined && tools.quantity > 0;
+		},
+
+		KnowsRestLocation(): boolean {
+			const registry = deps.getFacilityTypeRegistry?.();
+			if (registry === undefined) return false;
+			const locations = deps.getLocations();
+			for (const locId of memory.knownLocations) {
+				const loc = locations.find(l => l.id === locId);
+				if (loc === undefined) continue;
+				const ft = registry.get(loc.facility_type);
+				if (ft?.kind === 'service' && ft.staffed_effects.energy > 0) return true;
+			}
+			return false;
 		},
 	};
 }

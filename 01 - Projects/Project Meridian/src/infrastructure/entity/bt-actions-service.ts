@@ -47,13 +47,16 @@ function resolveServiceFacilityType(ctx: ActionContext, targetId: string): Servi
  */
 export function createServiceActions(
 	ctx: ActionContext,
-): Pick<ActionMethods, 'ChooseServiceFacility' | 'SeekService' | 'UseService'> {
+): Pick<ActionMethods, 'ChooseServiceFacility' | 'SeekService' | 'UseService' | 'SeekKnownRestLocation'> {
 	const { memory, actor, deps, resolveNearbyLocations } = ctx;
 
 	return {
 		ChooseServiceFacility(intent: string): ActionResult {
 			const registry = deps.getFacilityTypeRegistry?.();
-			if (registry === undefined) return FAILED;
+			if (registry === undefined) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'ChooseServiceFacility', payload: { agentId: actor.agentId, reason: 'registry undefined', intent } });
+				return FAILED;
+			}
 
 			// Sticky target: if we already picked a valid service facility for
 			// this intent, keep it. Prevents ping-ponging between equal-score
@@ -73,7 +76,8 @@ export function createServiceActions(
 			type Candidate = { id: string; score: number };
 			const candidates: Candidate[] = [];
 
-			for (const loc of resolveNearbyLocations()) {
+			const nearbyLocs = resolveNearbyLocations();
+			for (const loc of nearbyLocs) {
 				if (loc.facility_type === '') continue;
 				const ft = registry.get(loc.facility_type);
 				if (ft?.kind !== 'service') continue;
@@ -82,7 +86,10 @@ export function createServiceActions(
 				candidates.push({ id: loc.id, score });
 			}
 
-			if (candidates.length === 0) return FAILED;
+			if (candidates.length === 0) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'ChooseServiceFacility', payload: { agentId: actor.agentId, reason: 'no candidates', intent, nearbyCount: nearbyLocs.length, nearbyTypes: nearbyLocs.map(l => l.facility_type), registrySize: registry.size, registryKeys: [...registry.keys()] } });
+				return FAILED;
+			}
 			candidates.sort((a, b) => b.score - a.score);
 			memory.serviceTarget = candidates[0]!.id;
 			return SUCCEEDED;
@@ -232,6 +239,35 @@ export function createServiceActions(
 			beginAction(ctx, 'use_service');
 			memory.commitmentTicks = ft.ticks_per_visit;
 			memory.committedAction = 'use_service';
+			return RUNNING;
+		},
+
+		SeekKnownRestLocation(): ActionResult {
+			const registry = deps.getFacilityTypeRegistry?.();
+			if (registry === undefined) return FAILED;
+			const locations = deps.getLocations();
+
+			// Find known service locations with energy effects
+			type RestCandidate = { id: string; x: number; y: number; distance: number };
+			const candidates: RestCandidate[] = [];
+			for (const locId of memory.knownLocations) {
+				const loc = locations.find(l => l.id === locId);
+				if (loc === undefined) continue;
+				const ft = registry.get(loc.facility_type);
+				if (ft?.kind !== 'service' || ft.staffed_effects.energy <= 0) continue;
+				const dx = actor.pos.x - loc.position.x;
+				const dy = actor.pos.y - loc.position.y;
+				candidates.push({ id: loc.id, x: loc.position.x, y: loc.position.y, distance: Math.sqrt(dx * dx + dy * dy) });
+			}
+			if (candidates.length === 0) return FAILED;
+			candidates.sort((a, b) => a.distance - b.distance);
+
+			const target = candidates[0]!;
+			if (memory.atLocation === target.id) return SUCCEEDED;
+
+			memory.movementTarget = { id: target.id, type: 'location' };
+			memory.serviceTarget = target.id;
+			beginAction(ctx, 'seek_service');
 			return RUNNING;
 		},
 	};

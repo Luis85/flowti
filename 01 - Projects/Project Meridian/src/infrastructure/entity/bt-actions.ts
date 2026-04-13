@@ -85,6 +85,7 @@ export interface ActionMethods {
 	ChooseServiceFacility(intent: string): ActionResult;
 	SeekService(): ActionResult;
 	UseService(): ActionResult;
+	SeekKnownRestLocation(): ActionResult;
 	ContinueCommitment(): ActionResult;
 	tickUnemployment(): void;
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
