@@ -181,11 +181,10 @@ export function createEconomyConditions(ctx: ConditionContext): Pick<ConditionMe
 		KnowsRestLocation(): boolean {
 			const registry = deps.getFacilityTypeRegistry?.();
 			if (registry === undefined) return false;
-			const locations = deps.getLocations();
-			for (const locId of memory.knownLocations) {
-				const loc = locations.find(l => l.id === locId);
-				if (loc === undefined) continue;
-				const ft = registry.get(loc.facility_type);
+			const threshold = config.location_memory?.usable_threshold ?? 5;
+			for (const locMem of memory.locationMemories) {
+				if (locMem.significance < threshold) continue;
+				const ft = registry.get(locMem.facilityType);
 				if (ft?.kind === 'service' && ft.staffed_effects.energy > 0) return true;
 			}
 			return false;

@@ -245,22 +245,26 @@ export function createServiceActions(
 		SeekKnownRestLocation(): ActionResult {
 			const registry = deps.getFacilityTypeRegistry?.();
 			if (registry === undefined) return FAILED;
-			const locations = deps.getLocations();
+			const threshold = deps.config?.location_memory?.usable_threshold ?? 5;
 
-			// Find known service locations with energy effects
-			type RestCandidate = { id: string; x: number; y: number; distance: number };
+			type RestCandidate = { id: string; distance: number; source: 'visited' | 'perceived' | 'gossip' };
+			const sourcePriority = { visited: 0, perceived: 1, gossip: 2 };
 			const candidates: RestCandidate[] = [];
-			for (const locId of memory.knownLocations) {
-				const loc = locations.find(l => l.id === locId);
-				if (loc === undefined) continue;
-				const ft = registry.get(loc.facility_type);
+
+			for (const locMem of memory.locationMemories) {
+				if (locMem.significance < threshold) continue;
+				const ft = registry.get(locMem.facilityType);
 				if (ft?.kind !== 'service' || ft.staffed_effects.energy <= 0) continue;
-				const dx = actor.pos.x - loc.position.x;
-				const dy = actor.pos.y - loc.position.y;
-				candidates.push({ id: loc.id, x: loc.position.x, y: loc.position.y, distance: Math.sqrt(dx * dx + dy * dy) });
+				const dx = actor.pos.x - locMem.position.x;
+				const dy = actor.pos.y - locMem.position.y;
+				candidates.push({ id: locMem.locationId, distance: Math.sqrt(dx * dx + dy * dy), source: locMem.source });
 			}
 			if (candidates.length === 0) return FAILED;
-			candidates.sort((a, b) => a.distance - b.distance);
+			candidates.sort((a, b) => {
+				const sp = sourcePriority[a.source] - sourcePriority[b.source];
+				if (sp !== 0) return sp;
+				return a.distance - b.distance;
+			});
 
 			const target = candidates[0]!;
 			if (memory.atLocation === target.id) return SUCCEEDED;
