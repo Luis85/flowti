@@ -137,4 +137,95 @@ describe('BehaviorTreeSystem (mistreevous thin wrapper)', () => {
 			leafStatus: 'unknown',
 		});
 	});
+
+	it('emits ActionChanged when btAction changes between ticks', () => {
+		const agent = createMockAgent();
+		const deps = createDeps();
+		const emitSpy = vi.spyOn(deps.eventBus, 'emit');
+		const system = createBehaviorTreeSystem(() => [agent]);
+
+		// Tick 1: btAction stays null (step mock doesn't set it)
+		system.execute(deps);
+
+		// Tick 2: step sets btAction to 'work'
+		(agent as unknown as { _stepFn: ReturnType<typeof vi.fn> })._stepFn.mockImplementation(() => {
+			agent.behaviorAgent.btAction = 'work';
+		});
+		deps.tickCount = 2;
+		system.execute(deps);
+
+		const changed = emitSpy.mock.calls.filter(c => c[0].type === 'ActionChanged');
+		expect(changed).toHaveLength(1);
+		expect(changed[0]![0].payload).toMatchObject({
+			agentId: 'agent-test',
+			previousAction: null,
+			newAction: 'work',
+			preempted: false,
+		});
+	});
+
+	it('sets preempted=true when both old and new actions are non-null', () => {
+		const agent = createMockAgent();
+		const deps = createDeps();
+		const emitSpy = vi.spyOn(deps.eventBus, 'emit');
+		const system = createBehaviorTreeSystem(() => [agent]);
+
+		// Tick 1: set action to 'seek_well'
+		(agent as unknown as { _stepFn: ReturnType<typeof vi.fn> })._stepFn.mockImplementation(() => {
+			agent.behaviorAgent.btAction = 'seek_well';
+		});
+		system.execute(deps);
+
+		// Tick 2: action changes to 'seek_market'
+		(agent as unknown as { _stepFn: ReturnType<typeof vi.fn> })._stepFn.mockImplementation(() => {
+			agent.behaviorAgent.btAction = 'seek_market';
+		});
+		deps.tickCount = 2;
+		system.execute(deps);
+
+		const changed = emitSpy.mock.calls.filter(c => c[0].type === 'ActionChanged');
+		expect(changed).toHaveLength(2); // null→seek_well, seek_well→seek_market
+		const preemption = changed[1]![0].payload;
+		expect(preemption.preempted).toBe(true);
+		expect(preemption.previousAction).toBe('seek_well');
+		expect(preemption.newAction).toBe('seek_market');
+	});
+
+	it('does not emit ActionChanged when btAction stays the same', () => {
+		const agent = createMockAgent();
+		const deps = createDeps();
+		const emitSpy = vi.spyOn(deps.eventBus, 'emit');
+		const system = createBehaviorTreeSystem(() => [agent]);
+
+		// Both ticks: btAction = 'work'
+		(agent as unknown as { _stepFn: ReturnType<typeof vi.fn> })._stepFn.mockImplementation(() => {
+			agent.behaviorAgent.btAction = 'work';
+		});
+		system.execute(deps);
+		deps.tickCount = 2;
+		system.execute(deps);
+
+		const changed = emitSpy.mock.calls.filter(c => c[0].type === 'ActionChanged');
+		expect(changed).toHaveLength(1); // only the initial null→work
+	});
+
+	it('throttles BtEvaluated — only emits when leaf changes', () => {
+		const agent = createMockAgent();
+		(agent.behaviorTree as Record<string, unknown>).getTreeNodeDetails = vi.fn().mockReturnValue({
+			name: 'ROOT', type: 'root', state: 'mistreevous.running',
+			children: [{ name: 'Eat', type: 'action', state: 'mistreevous.running', children: [] }],
+		});
+		const deps = createDeps();
+		const emitSpy = vi.spyOn(deps.eventBus, 'emit');
+		const system = createBehaviorTreeSystem(() => [agent]);
+
+		// Tick 1: leaf=Eat — emit
+		system.execute(deps);
+		// Tick 2: leaf=Eat again — throttled
+		deps.tickCount = 2;
+		system.execute(deps);
+
+		const btEvents = emitSpy.mock.calls.filter(c => c[0].type === 'BtEvaluated');
+		expect(btEvents).toHaveLength(1); // only first tick emits
+	});
 });
