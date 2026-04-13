@@ -236,7 +236,17 @@ export function createTradeSystem(
 
 				const targetItem = pendingBuy ?? 'food';
 				const target = findNearestFacilityWithItem(agent, locationList, locationActorMap, radius, targetItem);
-				if (target === undefined) continue;
+				if (target === undefined) {
+					deps.eventBus.emit({
+						type: 'TradeAttempted',
+						tick: deps.tickCount,
+						wallClock: Date.now(),
+						source: 'TradeSystem',
+						payload: { agentId: agent.agentId, item: targetItem, result: 'no_facility' },
+					});
+					agent.behaviorAgent.buyTargetItem = null;
+					continue;
+				}
 
 				const facility = target.actor.get(FacilityComponent);
 				const item = itemRegistry().get(target.itemId);
@@ -257,8 +267,22 @@ export function createTradeSystem(
 				agent.behaviorAgent.buyTargetItem = null;
 
 				if (result.success) {
+					deps.eventBus.emit({
+						type: 'TradeAttempted',
+						tick: deps.tickCount,
+						wallClock: Date.now(),
+						source: 'TradeSystem',
+						payload: { agentId: agent.agentId, item: targetItem, result: 'purchased', amount: foodPrice, facilityId: target.location.id },
+					});
 					applySuccessfulTrade(agent, result, target, foodPrice, economy, deps, item);
 				} else {
+					deps.eventBus.emit({
+						type: 'TradeAttempted',
+						tick: deps.tickCount,
+						wallClock: Date.now(),
+						source: 'TradeSystem',
+						payload: { agentId: agent.agentId, item: targetItem, result: 'insufficient_gold', facilityId: target.location.id },
+					});
 					deps.eventBus.emit({
 						type: 'PurchaseFailed',
 						tick: deps.tickCount,
