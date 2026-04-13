@@ -3192,4 +3192,92 @@ describe('bt-actions: createActions', () => {
 			expect(memory.insideFacility).toBe(true);
 		});
 	});
+
+	describe('CommitmentChanged events', () => {
+		it('emits CommitmentChanged with event=created when beginAction creates a commitment', () => {
+			const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+			const spyEventBus: EventBus = {
+				emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+				on: () => () => {},
+				off: () => {},
+				onAny: () => () => {},
+				filter: () => () => {},
+				history: () => [],
+			};
+			const commitConfig = GameConfigSchema.parse({ commitment_ticks: { idle: 5 } });
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions } = setupActions(actor, { config: commitConfig, eventBus: spyEventBus });
+
+			actions.Idle();
+
+			const commitEvents = emitted.filter(e => e.type === 'CommitmentChanged');
+			expect(commitEvents).toHaveLength(1);
+			expect(commitEvents[0].payload).toMatchObject({
+				agentId: 'a1',
+				event: 'created',
+				action: 'idle',
+				ticksRemaining: 5,
+			});
+		});
+
+		it('emits CommitmentChanged with event=expired when timer reaches zero', () => {
+			const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+			const spyEventBus: EventBus = {
+				emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+				on: () => () => {},
+				off: () => {},
+				onAny: () => () => {},
+				filter: () => () => {},
+				history: () => [],
+			};
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config, eventBus: spyEventBus });
+			memory.committedAction = 'seek_well';
+			memory.commitmentTicks = 1;
+
+			const result = actions.ContinueCommitment();
+
+			expect(result).toBe('mistreevous.failed');
+			const commitEvents = emitted.filter(e => e.type === 'CommitmentChanged');
+			expect(commitEvents).toHaveLength(1);
+			expect(commitEvents[0].payload).toMatchObject({
+				agentId: 'a1',
+				event: 'expired',
+				action: 'seek_well',
+				reason: 'timer_expired',
+				ticksRemaining: 0,
+			});
+		});
+
+		it('emits CommitmentChanged with event=broken and reason=critical_need on critical hunger', () => {
+			const emitted: { type: string; payload: Record<string, unknown> }[] = [];
+			const spyEventBus: EventBus = {
+				emit: (e) => { emitted.push({ type: e.type, payload: e.payload }); },
+				on: () => () => {},
+				off: () => {},
+				onAny: () => () => {},
+				filter: () => () => {},
+				history: () => [],
+			};
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor, { config, eventBus: spyEventBus });
+			memory.committedAction = 'seek_well';
+			memory.commitmentTicks = 8;
+			// Set hunger below NEED_CRITICAL_THRESHOLDS.hunger (20)
+			actor.get(NeedsComponent).state = { ...actor.get(NeedsComponent).state, hunger: 10 };
+
+			const result = actions.ContinueCommitment();
+
+			expect(result).toBe('mistreevous.failed');
+			const commitEvents = emitted.filter(e => e.type === 'CommitmentChanged');
+			expect(commitEvents).toHaveLength(1);
+			expect(commitEvents[0].payload).toMatchObject({
+				agentId: 'a1',
+				event: 'broken',
+				action: 'seek_well',
+				reason: 'critical_need',
+				ticksRemaining: 8,
+			});
+		});
+	});
 });
