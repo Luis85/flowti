@@ -1,4 +1,4 @@
-import type { LocationMemoryEntry } from '../../infrastructure/entity/bt-working-memory.js';
+import type { LocationMemoryEntry } from '../core/component-data.js';
 
 export interface LocationMemoryConfig {
 	usable_threshold: number;

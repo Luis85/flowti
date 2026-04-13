@@ -41,7 +41,7 @@ export interface BehaviorAgentDeps {
 
 export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 	const { actor, worldEntity, config, getLocationActors, getLocations, tickCount } = deps;
-	const memory = createWorkingMemory(config.economy.price_memory_max);
+	const memory = createWorkingMemory(config.economy.price_memory_max, config.location_memory.usable_threshold);
 
 	// Per-tick facility cache (internal, not on WorkingMemory)
 	let cachedFacilities: PerceivedFacility[] | null = null;
@@ -225,12 +225,7 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set btAction(v) { memory.btAction = v; },
 		get gossipPending() { return memory.gossipPending; },
 		set gossipPending(v) { memory.gossipPending = v; },
-		get knownLocations() {
-			const threshold = deps.config.location_memory?.usable_threshold ?? 5;
-			return memory.locationMemories
-				.filter(m => m.significance >= threshold)
-				.map(m => m.locationId);
-		},
+		get knownLocations() { return memory.knownLocations; },
 		get locationMemories() { return memory.locationMemories; },
 		set locationMemories(v) { memory.locationMemories = v; },
 		get traitModifiers() { return memory.traitModifiers; },

@@ -27,6 +27,18 @@ export interface MoodState {
 	};
 }
 
+export interface LocationMemoryEntry {
+	locationId: string;
+	facilityType: string;
+	position: { x: number; y: number };
+	significance: number;
+	originalSignificance: number;
+	source: 'visited' | 'perceived' | 'gossip';
+	reliability: number;
+	discoveredTick: number;
+	lastRefreshedTick: number;
+}
+
 export interface MemoryEntry {
 	tick: number;
 	type: string;

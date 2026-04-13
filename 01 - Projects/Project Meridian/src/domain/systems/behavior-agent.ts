@@ -3,7 +3,7 @@ import type { CircularBuffer } from 'mnemonist';
 import type { PriceMemory } from './price-memory.js';
 import type { SupplyRoute } from './cargo.js';
 import type { QuestRuntime } from '../schemas/quest-schema.js';
-import type { LocationMemoryEntry } from '../../infrastructure/entity/bt-working-memory.js';
+import type { LocationMemoryEntry } from '../core/component-data.js';
 
 export type { CargoState } from '../core/component-data.js';
 

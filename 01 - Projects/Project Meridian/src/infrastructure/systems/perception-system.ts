@@ -94,6 +94,13 @@ export function createPerceptionSystem(
 						const existing = ba.locationMemories.find(m => m.locationId === nearLoc.id);
 						if (existing !== undefined) {
 							existing.lastRefreshedTick = deps.tickCount;
+							// Upgrade gossip entries to perceived — first-hand visual confirmation
+							if (existing.source === 'gossip') {
+								existing.source = 'perceived';
+								existing.significance = locMemConfig.perceived.significance;
+								existing.originalSignificance = locMemConfig.perceived.significance;
+								existing.reliability = 1.0;
+							}
 						} else {
 							const locData = locationList.find(l => l.id === nearLoc.id);
 							ba.locationMemories = [...ba.locationMemories, {

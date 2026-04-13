@@ -1,5 +1,6 @@
 import type { MovementTarget, SkillEntry, ModifierMap } from '../../domain/systems/behavior-agent.js';
-import type { JourneyState, CargoState } from '../../domain/core/component-data.js';
+import type { JourneyState, CargoState, LocationMemoryEntry } from '../../domain/core/component-data.js';
+export type { LocationMemoryEntry } from '../../domain/core/component-data.js';
 import type { PriceMemory } from '../../domain/systems/price-memory.js';
 import type { SupplyRoute } from '../../domain/systems/cargo.js';
 import type { QuestRuntime } from '../../domain/schemas/quest-schema.js';
@@ -38,18 +39,6 @@ export interface AreaModifier {
 	delta_per_tick: number;
 }
 
-export interface LocationMemoryEntry {
-	locationId: string;
-	facilityType: string;
-	position: { x: number; y: number };
-	significance: number;
-	originalSignificance: number;
-	source: 'visited' | 'perceived' | 'gossip';
-	reliability: number;
-	discoveredTick: number;
-	lastRefreshedTick: number;
-}
-
 export interface WorkingMemory {
 	movementTarget: MovementTarget | null;
 	journey: JourneyState | null;
@@ -86,8 +75,9 @@ export interface WorkingMemory {
 	recordPriceObservation(itemId: string, price: number, locationId: string, tick: number): void;
 }
 
-export function createWorkingMemory(priceMemoryMax: number): WorkingMemory {
+export function createWorkingMemory(priceMemoryMax: number, locationUsableThreshold = 5): WorkingMemory {
 	const priceMemories = new CircularBuffer<PriceMemory>(Array, priceMemoryMax);
+	const threshold = locationUsableThreshold;
 
 	return {
 		movementTarget: null,
@@ -103,7 +93,7 @@ export function createWorkingMemory(priceMemoryMax: number): WorkingMemory {
 		locationMemories: [] as LocationMemoryEntry[],
 		get knownLocations(): string[] {
 			return this.locationMemories
-				.filter(m => m.significance >= 5)
+				.filter(m => m.significance >= threshold)
 				.map(m => m.locationId);
 		},
 		traitModifiers: null,
