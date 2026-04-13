@@ -19,7 +19,7 @@ root {
                     selector {
                         sequence {
                             action [ChooseServiceFacility, "rest"]
-                            action [SeekService] while(IsUsingService)
+                            action [SeekService]
                         }
                         sequence {
                             condition [KnowsRestLocation]
@@ -156,7 +156,7 @@ root {
             }
             flip { condition [IsNighttime] }
             action [ChooseServiceFacility, "leisure"]
-            action [SeekService] while(IsUsingService)
+            action [SeekService]
         }
 
         /* P3: Thirsty — drink, or buy water at a well/market */
@@ -282,7 +282,7 @@ root {
             selector {
                 sequence {
                     action [ChooseServiceFacility, "rest"]
-                    action [SeekService] while(IsUsingService)
+                    action [SeekService]
                 }
                 sequence {
                     condition [KnowsRestLocation]
@@ -317,7 +317,7 @@ root {
             selector {
                 sequence {
                     action [ChooseServiceFacility, "rest"]
-                    action [SeekService] while(IsUsingService)
+                    action [SeekService]
                 }
                 sequence {
                     condition [KnowsRestLocation]
