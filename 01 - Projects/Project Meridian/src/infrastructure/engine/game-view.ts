@@ -21,6 +21,7 @@ import { createTraitResolverSystem } from '../systems/trait-resolver-system.js';
 import { createNeedsDecaySystem } from '../systems/needs-decay-system.js';
 import { createMoodSystem } from '../systems/mood-system.js';
 import { createMemoryDecaySystem } from '../systems/memory-decay-system.js';
+import { createLocationMemoryDecaySystem } from '../systems/location-memory-decay-system.js';
 import { createDayNightSystem } from '../systems/day-night-system.js';
 import { createPerceptionSystem } from '../systems/perception-system.js';
 import { createBehaviorTreeSystem } from '../systems/behavior-tree-system.js';
@@ -325,6 +326,7 @@ export class MeridianGameView extends ItemView {
 		tickRunner.register(areaEffectSystem);
 		tickRunner.register(createMoodSystem(getAgents));
 		tickRunner.register(createPerceptionSystem(getAgents, getLocations, getWorldEntity));
+		tickRunner.register(createLocationMemoryDecaySystem(getAgents));
 		tickRunner.register(createMemoryDecaySystem(getAgents));
 		tickRunner.register(createBehaviorTreeSystem(getAgents));
 		tickRunner.register(createMovementSystem(getAgents, getLocations, getLocationActors));
