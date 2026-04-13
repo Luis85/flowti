@@ -53,10 +53,7 @@ export function createServiceActions(
 	return {
 		ChooseServiceFacility(intent: string): ActionResult {
 			const registry = deps.getFacilityTypeRegistry?.();
-			if (registry === undefined) {
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'ChooseServiceFacility', payload: { agentId: actor.agentId, reason: 'registry undefined', intent } });
-				return FAILED;
-			}
+			if (registry === undefined) return FAILED;
 
 			// Sticky target: if we already picked a valid service facility for
 			// this intent, keep it. Prevents ping-ponging between equal-score
@@ -86,10 +83,7 @@ export function createServiceActions(
 				candidates.push({ id: loc.id, score });
 			}
 
-			if (candidates.length === 0) {
-				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'ChooseServiceFacility', payload: { agentId: actor.agentId, reason: 'no candidates', intent, nearbyCount: nearbyLocs.length, nearbyTypes: nearbyLocs.map(l => l.facility_type), registrySize: registry.size, registryKeys: [...registry.keys()] } });
-				return FAILED;
-			}
+			if (candidates.length === 0) return FAILED;
 			candidates.sort((a, b) => b.score - a.score);
 			memory.serviceTarget = candidates[0]!.id;
 			return SUCCEEDED;
