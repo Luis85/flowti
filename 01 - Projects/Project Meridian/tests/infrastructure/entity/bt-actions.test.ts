@@ -1091,7 +1091,8 @@ describe('bt-actions: createActions', () => {
 				memory.atLocation = 'loc-well';
 
 				expect(actions.SeekWell()).toBe('mistreevous.succeeded');
-				expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
+				// No commitment or movementTarget set when already at target
+				expect(memory.btAction).toBeNull();
 			});
 
 			it('falls back to the closest well on the full map when none in perception', () => {

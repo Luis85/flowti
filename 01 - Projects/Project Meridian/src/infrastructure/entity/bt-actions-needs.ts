@@ -125,18 +125,18 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 			);
 			if (stockedFacilities.length > 0) {
 				const nearest = findNearest(stockedFacilities)!;
+				if (memory.atLocation === nearest.id) return SUCCEEDED;
 				beginAction(ctx, 'seek_food');
 				memory.movementTarget = { id: nearest.id, type: 'location' };
-				if (memory.atLocation === nearest.id) return SUCCEEDED;
 				return RUNNING;
 			}
 			// Fallback: farm facilities (facility_type === 'farm')
 			const foodLocs = resolveNearbyLocations().filter(l => l.facility_type === 'farm');
 			if (foodLocs.length === 0) return FAILED;
-			beginAction(ctx, 'seek_food');
 			const nearest = findNearest(foodLocs)!;
-			memory.movementTarget = { id: nearest.id, type: 'location' };
 			if (memory.atLocation === nearest.id) return SUCCEEDED;
+			beginAction(ctx, 'seek_food');
+			memory.movementTarget = { id: nearest.id, type: 'location' };
 			return RUNNING;
 		},
 
@@ -157,9 +157,9 @@ export function createNeedsActions(ctx: ActionContext): Pick<ActionMethods, 'Eat
 			}
 
 			if (cheapestLocation === null) return FAILED;
+			if (memory.atLocation === cheapestLocation) return SUCCEEDED;
 			beginAction(ctx, 'seek_food');
 			memory.movementTarget = { id: cheapestLocation, type: 'location' };
-			if (memory.atLocation === cheapestLocation) return SUCCEEDED;
 			return RUNNING;
 		},
 	};

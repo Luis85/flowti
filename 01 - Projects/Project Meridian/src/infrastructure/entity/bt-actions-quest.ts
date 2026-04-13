@@ -48,9 +48,9 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 
 		SeekQuestFacility(): ActionResult {
 			if (memory.activeQuest === null) return FAILED;
+			if (memory.atLocation === memory.activeQuest.facilityId) return SUCCEEDED;
 			beginAction(ctx, 'seek_quest');
 			memory.movementTarget = { id: memory.activeQuest.facilityId, type: 'location' };
-			if (memory.atLocation === memory.activeQuest.facilityId) return SUCCEEDED;
 			return RUNNING;
 		},
 
@@ -97,9 +97,9 @@ export function createQuestActions(ctx: ActionContext): Pick<ActionMethods,
 				if (d < bestDistSq) { best = c; bestDistSq = d; }
 			}
 
+			if (memory.atLocation === best.id) return SUCCEEDED;
 			beginAction(ctx, 'seek_quest_source');
 			memory.movementTarget = { id: best.id, type: 'location' };
-			if (memory.atLocation === best.id) return SUCCEEDED;
 			return RUNNING;
 		},
 

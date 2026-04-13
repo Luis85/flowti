@@ -102,11 +102,10 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 			const marketLocs = resolveNearbyLocations().filter(l => l.facility_type === 'market_stall');
 			if (marketLocs.length === 0) return FAILED;
 
-			beginAction(ctx, 'seek_market');
 			const nearest = findNearest(marketLocs)!;
-			memory.movementTarget = { id: nearest.id, type: 'location' };
-
 			if (memory.atLocation === nearest.id) return SUCCEEDED;
+			beginAction(ctx, 'seek_market');
+			memory.movementTarget = { id: nearest.id, type: 'location' };
 			return RUNNING;
 		},
 
@@ -120,10 +119,10 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 					return fac?.stock.some(s => s.item_id === 'water' && s.quantity > 0) === true;
 				});
 				if (stockedWells.length > 0) {
-					beginAction(ctx, 'seek_well');
 					const nearest = findNearest(stockedWells)!;
-					memory.movementTarget = { id: nearest.id, type: 'location' };
 					if (memory.atLocation === nearest.id) return SUCCEEDED;
+					beginAction(ctx, 'seek_well');
+					memory.movementTarget = { id: nearest.id, type: 'location' };
 					return RUNNING;
 				}
 				// No stocked wells nearby — if already at a well, FAIL so BT falls
@@ -156,9 +155,9 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 				const d = (w.position.x - agentX) ** 2 + (w.position.y - agentY) ** 2;
 				if (d < bestDistSq) { best = w; bestDistSq = d; }
 			}
+			if (memory.atLocation === best.id) return SUCCEEDED;
 			beginAction(ctx, 'seek_well');
 			memory.movementTarget = { id: best.id, type: 'location' };
-			if (memory.atLocation === best.id) return SUCCEEDED;
 			return RUNNING;
 		},
 	};
