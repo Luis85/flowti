@@ -211,25 +211,25 @@ export function createActions(
 			// mid-repair shouldn't starve or dehydrate while fixing a building.
 			if (ca === 'work' || ca === 'repair') {
 				if (needs.hunger < memory.personalThresholds.hunger) {
-					breakCommitment('need_satisfied');
+					breakCommitment('critical_need');
 					return FAILED;
 				}
 				if (needs.thirst < memory.personalThresholds.thirst) {
-					breakCommitment('need_satisfied');
+					breakCommitment('critical_need');
 					return FAILED;
 				}
 				if (needs.energy < memory.personalThresholds.energy) {
-					breakCommitment('need_satisfied');
+					breakCommitment('critical_need');
 					return FAILED;
 				}
 				const inv = actor.get(InventoryComponent).state.items;
 				const equip = inv.find(i => i.item_id === 'equipment');
 				if (equip === undefined || equip.quantity === 0 || (equip.charges ?? 0) === 0) {
-					breakCommitment('need_satisfied');
+					breakCommitment('critical_need');
 					return FAILED;
 				}
 				if ((equip.charges ?? 0) > 0 && (equip.charges ?? 0) < config.economy.equipment_repair_threshold) {
-					breakCommitment('need_satisfied');
+					breakCommitment('critical_need');
 					return FAILED;
 				}
 			}

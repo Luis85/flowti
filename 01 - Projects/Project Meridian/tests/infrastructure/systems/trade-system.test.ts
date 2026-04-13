@@ -584,4 +584,61 @@ describe('TradeSystem', () => {
 		// Price should use item registry baseValue (7) since no currentPrices
 		expect(events[0]?.payload.price).toBe(7);
 	});
+
+	it('emits TradeAttempted with no_facility when no facility has the item', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('TradeAttempted', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('a1', 100, 100), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy', buyTargetItem: 'water' });
+
+		const world = new Actor();
+		world.addComponent(new EconomyComponent());
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [],
+			() => new Map(),
+			() => world,
+			() => new Map(),
+		);
+		system.execute(createDeps(eventBus));
+
+		expect(events).toHaveLength(1);
+		expect(events[0]!.payload.result).toBe('no_facility');
+		expect(events[0]!.payload.item).toBe('water');
+		expect(agent.behaviorAgent.buyTargetItem).toBeNull();
+	});
+
+	it('emits TradeAttempted with purchased on successful trade', () => {
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('TradeAttempted', (e) => { events.push(e); });
+
+		const agent = new AgentActor(createTestAgentData('a1', 100, 100, { wallet: { gold: 50 } }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ btAction: 'buy', buyTargetItem: 'food' });
+
+		const bakery = createBakeryLocation();
+		const bakeryActor = new Actor();
+		bakeryActor.addComponent(new FacilityComponent({ stock: [{ item_id: 'food', quantity: 5 }], fund: 100, workProgress: 0, status: 'idle', workerId: null }));
+		const locationActors = new Map<string, Actor>([['loc-bakery', bakeryActor]]);
+
+		const world = createWorldEntity();
+		const itemReg = new Map<string, Item>([['food', { id: 'food', name: 'Food', baseValue: 3, category: 'consumable' }]]);
+
+		const system = createTradeSystem(
+			() => [agent],
+			() => [bakery],
+			() => locationActors,
+			() => world,
+			() => itemReg,
+		);
+		system.execute(createDeps(eventBus));
+
+		const purchased = events.find(e => e.payload.result === 'purchased');
+		expect(purchased).toBeDefined();
+		expect(purchased!.payload.item).toBe('food');
+		expect(purchased!.payload.facilityId).toBe('loc-bakery');
+	});
 });

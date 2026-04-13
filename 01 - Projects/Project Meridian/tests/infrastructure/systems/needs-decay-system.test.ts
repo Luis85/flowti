@@ -226,4 +226,49 @@ describe('NeedsDecaySystem', () => {
 		expect(needsWith.thirst).toBe(needsWithout.thirst);
 		expect(needsWith.energy).toBe(needsWithout.energy);
 	});
+
+	it('emits NeedThresholdCrossed when hunger crosses personal threshold downward', () => {
+		// Agent hunger at 40.03 — just above personal threshold of 40
+		const agent = new AgentActor(createTestAgent({ needs: { hunger: 40.03, energy: 90, social: 70, thirst: 80 } }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ personalThresholds: { hunger: 40, energy: 30, thirst: 40 } });
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('NeedThresholdCrossed', (e) => { events.push(e); });
+		const system = createNeedsDecaySystem(() => [agent]);
+
+		system.execute(createDeps(eventBus));
+
+		const hungerCross = events.find(e => e.payload.need === 'hunger' && e.payload.thresholdType === 'personal');
+		expect(hungerCross).toBeDefined();
+		expect(hungerCross!.payload.direction).toBe('below');
+	});
+
+	it('emits NeedThresholdCrossed for both personal and critical when need drops through both', () => {
+		// Agent energy at 15.03 — just above critical threshold of 15, already below personal (30)
+		const agent = new AgentActor(createTestAgent({ needs: { hunger: 80, energy: 15.03, social: 70, thirst: 80 } }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent({ personalThresholds: { hunger: 40, energy: 30, thirst: 40 } });
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('NeedThresholdCrossed', (e) => { events.push(e); });
+		const system = createNeedsDecaySystem(() => [agent]);
+
+		system.execute(createDeps(eventBus));
+
+		const energyCritical = events.find(e => e.payload.need === 'energy' && e.payload.thresholdType === 'critical');
+		expect(energyCritical).toBeDefined();
+		expect(energyCritical!.payload.direction).toBe('below');
+	});
+
+	it('does not emit NeedThresholdCrossed when need stays above threshold', () => {
+		const agent = new AgentActor(createTestAgent({ needs: { hunger: 80, energy: 90, social: 70, thirst: 80 } }), defaultMoodConfig);
+		agent.behaviorAgent = createStubBehaviorAgent();
+		const eventBus = createEventBus();
+		const events: GameEvent[] = [];
+		eventBus.on('NeedThresholdCrossed', (e) => { events.push(e); });
+		const system = createNeedsDecaySystem(() => [agent]);
+
+		system.execute(createDeps(eventBus));
+
+		expect(events).toHaveLength(0);
+	});
 });
