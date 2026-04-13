@@ -20,11 +20,14 @@
   agentId: string;
   previousAction: string | null;
   newAction: string | null;
+  preempted: boolean;        // true when previousAction was non-null and newAction differs (non-null)
   committedAction: string | null;
   commitmentTicks: number;
 }
 ```
-**Volume:** ~50/day/agent.
+The `preempted` flag replaces the separate `BtBranchPreempted` event — it's a strict subset of `ActionChanged`.
+
+**Volume:** ~50/day/agent (includes preemptions).
 
 ### 1.2 CommitmentChanged
 
@@ -68,26 +71,12 @@
 {
   agentId: string;
   item: string;
-  result: 'purchased' | 'no_facility' | 'no_stock' | 'insufficient_gold';
+  result: 'purchased' | 'no_facility' | 'insufficient_gold';
   amount?: number;
   facilityId?: string;
 }
 ```
 **Volume:** ~5/day/agent.
-
-### 1.5 BtBranchPreempted
-
-**Emitted by:** `behavior-tree-system.ts`
-**Fires when:** The previous tick's `btAction` was non-null (agent was doing something) and this tick produces a different non-null action.
-**Payload:**
-```typescript
-{
-  agentId: string;
-  preemptedAction: string;
-  newAction: string;
-}
-```
-**Volume:** ~20/day/agent.
 
 ---
 
@@ -97,9 +86,9 @@
 
 Add a `Map<string, string | null>` to track previous btAction per agent. After `step()`:
 
-1. Compare current `btAction` with previous. If different, emit `ActionChanged`.
-2. If previous was non-null and current is non-null and different, also emit `BtBranchPreempted`.
-3. Store current as previous.
+1. Compare current `btAction` with previous. If different, emit `ActionChanged` with `preempted: previous !== null && current !== null && previous !== current`.
+2. Store current as previous.
+3. **Cleanup:** Rebuild the Map keys from the current agent list each tick to avoid leaking entries for removed agents.
 
 **BtEvaluated throttling:** Only emit `BtEvaluated` when the leaf node name changes from the previous tick (same Map approach, track previous leaf). This cuts ~90% of BtEvaluated volume.
 
@@ -111,15 +100,15 @@ When an existing commitment is cleared because a different action takes over (`c
 
 ### 2.3 bt-actions.ts — ContinueCommitment
 
-Each `breakCommitment()` call site emits `CommitmentChanged`:
-- Timer expires (`commitmentTicks <= 0`): `event: 'expired'`, `reason: 'timer_expired'`
-- Critical need break: `event: 'broken'`, `reason: 'critical_need'`
-- Need satisfied break (eat/drink/rest/buy): `event: 'broken'`, `reason: 'need_satisfied'`
-- Travel break: `event: 'broken'`, `reason: 'critical_need'`
+Refactor `breakCommitment()` to accept a `reason` parameter and emit `CommitmentChanged` internally. The closure already has access to `ctx.deps.eventBus` and `ctx.deps.tickCount()` via `createActions`'s scope. Each call site passes the reason:
+- Timer expires (`commitmentTicks <= 0`): `breakCommitment('timer_expired')`
+- Critical need break: `breakCommitment('critical_need')`
+- Need satisfied break (eat/drink/rest/buy): `breakCommitment('need_satisfied')`
+- Travel break: `breakCommitment('critical_need')`
 
 ### 2.4 needs-decay-system.ts
 
-After computing new need values, check each need against:
+**Important:** Snapshot old need values BEFORE applying `applyNeedsDecay` result (the assignment on line 93 overwrites them). After computing new need values, check each need against:
 - `personalThresholds[need]` (from WorkingMemory)
 - `NEED_CRITICAL_THRESHOLDS[need]` (from ranges.ts)
 
@@ -158,7 +147,7 @@ For a 30-day, 3-agent recording:
 | Snapshots | ~120 | ~120 |
 | BtEvaluated | ~43,200 | ~4,300 |
 | NeedChanged | ~170,000 | ~170,000 |
-| New transition events | 0 | ~3,500 |
+| New transition events | 0 | ~2,850 |
 | Other events | ~30,000 | ~30,000 |
 | **Total** | **~243,000** | **~208,000** |
 
@@ -168,7 +157,7 @@ Net ~15% reduction despite new events, due to BtEvaluated throttling.
 
 ## 5. Test Strategy
 
-- **ActionChanged / BtBranchPreempted:** Unit test in `behavior-tree-system.test.ts` — mock two agents, verify events emit on action change and preemption.
+- **ActionChanged (+ preempted flag):** Unit test in `behavior-tree-system.test.ts` — mock two agents, verify events emit on action change; verify `preempted: true` when both old and new actions are non-null.
 - **CommitmentChanged:** Unit tests in `bt-actions.test.ts` — verify created/expired/broken events with correct reasons.
 - **NeedThresholdCrossed:** Unit test in `needs-decay-system.test.ts` — verify crossing personal and critical thresholds in both directions.
 - **TradeAttempted:** Unit test in `trade-system.test.ts` — verify all 3 failure reasons and the success case.
@@ -180,7 +169,7 @@ Net ~15% reduction despite new events, due to BtEvaluated throttling.
 
 | File | Change |
 |------|--------|
-| `src/infrastructure/systems/behavior-tree-system.ts` | ActionChanged, BtBranchPreempted, BtEvaluated throttle |
+| `src/infrastructure/systems/behavior-tree-system.ts` | ActionChanged (with preempted flag), BtEvaluated throttle |
 | `src/infrastructure/entity/bt-action-helpers.ts` | CommitmentChanged on create/higher_priority |
 | `src/infrastructure/entity/bt-actions.ts` | CommitmentChanged on expire/break in ContinueCommitment |
 | `src/infrastructure/systems/needs-decay-system.ts` | NeedThresholdCrossed |
