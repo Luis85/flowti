@@ -38,6 +38,7 @@ function shouldBreakTravelForCriticalNeed(needs: {
 const TRAVEL_COMMITMENTS = new Set<string>([
 	'seek_food',
 	'seek_market',
+	'seek_well',
 	'seek_quest',
 	'seek_quest_source',
 	'seek_delivery',

@@ -228,9 +228,13 @@ export function createTradeSystem(
 
 			for (const agent of agentList) {
 				const btAction = agent.behaviorAgent.btAction;
-				if (btAction !== 'buy') continue;
+				const pendingBuy = agent.behaviorAgent.buyTargetItem;
+				// Accept either an active 'buy' action OR a pending buyTargetItem
+				// that was set by BuyItem but whose btAction was overwritten by
+				// a lower-priority BT branch before TradeSystem ran.
+				if (btAction !== 'buy' && pendingBuy === null) continue;
 
-				const targetItem = agent.behaviorAgent.buyTargetItem ?? 'food';
+				const targetItem = pendingBuy ?? 'food';
 				const target = findNearestFacilityWithItem(agent, locationList, locationActorMap, radius, targetItem);
 				if (target === undefined) continue;
 
@@ -248,6 +252,9 @@ export function createTradeSystem(
 					itemId: target.itemId,
 					quantity: 1,
 				});
+
+				// Clear pending buy regardless of outcome
+				agent.behaviorAgent.buyTargetItem = null;
 
 				if (result.success) {
 					applySuccessfulTrade(agent, result, target, foodPrice, economy, deps, item);
