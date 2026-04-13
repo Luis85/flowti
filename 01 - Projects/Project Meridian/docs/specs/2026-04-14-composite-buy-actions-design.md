@@ -4,7 +4,7 @@
 
 **Context:** The BT resets every tick, destroying sequence state. The commitment system compensates but breaks travel commitments when competing needs arise (78% of commitments broken by critical needs, avg duration 1.7 ticks vs 8 configured). Multi-step buy sequences are structurally impossible: agents arrive at facilities 800+ times but complete only 10-18 purchases per 14-day recording. The `SeekService` merge (seek + use visit inline) proved the composite pattern works.
 
-**Approach:** Two new composite actions (`BuyAndDrink`, `BuyAndEat`) with internal state machines. Inline purchases bypass TradeSystem. Commitment exemption prevents cross-need oscillation. BT simplified from 3-4 seek/buy/consume branches to one composite call per need.
+**Approach:** Two new composite actions (`BuyAndDrink`, `BuyAndEat`) with internal state machines. Purchases use a shared `executePurchase` function extracted from TradeSystem (preserving ledger, relationship, memory, and price observation side effects). Commitment exemption prevents cross-need oscillation while still allowing same-category breaks. BT simplified from 3-4 seek/buy/consume branches to one composite call per need.
 
 ---
 
@@ -17,10 +17,10 @@
 Internal state machine (driven by WorkingMemory fields, not explicit state enum):
 
 1. **Find source:** Check `locationMemories` for wells with water, then markets with water. Pick nearest. If none known, check full location list. If none found → FAILED.
-2. **Travel:** Set `memory.buyTarget = targetId`, `memory.movementTarget = { id, type: 'location' }`. If `memory.atLocation !== targetId`, call `beginAction(ctx, 'buy_and_drink')` and return RUNNING.
+2. **Travel:** Set `memory.serviceTarget = targetId`, `memory.movementTarget = { id, type: 'location' }`. If `memory.atLocation !== targetId`, call `beginAction(ctx, 'buy_and_drink')` and return RUNNING.
 3. **Buy (inline on arrival):** Verify facility has water in stock and agent can afford it. Deduct gold from agent wallet, deduct stock from facility, add water to agent inventory. Emit `GoldFlowed` event for monetary tracking. Call `recordPriceObservation`.
 4. **Consume (inline, same tick as buy):** Remove 1 water from inventory, apply `config.needs.drink_recovery` to thirst. Emit `NeedChanged` event.
-5. **Cleanup:** Clear `memory.buyTarget`. Return SUCCEEDED.
+5. **Cleanup:** Clear `memory.serviceTarget`. Return SUCCEEDED.
 
 **Failure cases:**
 - No source with water → FAILED (BT falls through to other branches)
@@ -34,27 +34,29 @@ Internal state machine (driven by WorkingMemory fields, not explicit state enum)
 Same pattern as BuyAndDrink with food-specific logic:
 
 1. **Find source:** Check `resolveNearbyFacilities` for any facility with food in stock (prefer cheapest via price memory). Fallback: full location list for farms/markets.
-2. **Travel:** Set `memory.buyTarget`, `memory.movementTarget`. If not at target, `beginAction(ctx, 'buy_and_eat')`, return RUNNING.
+2. **Travel:** Set `memory.serviceTarget`, `memory.movementTarget`. If not at target, `beginAction(ctx, 'buy_and_eat')`, return RUNNING.
 3. **Buy (inline):** Same as BuyAndDrink but for food items. Use `findFoodInInventory` pattern from existing `Eat` action to handle multiple food types.
 4. **Consume (inline):** Remove 1 food, apply food recovery to hunger. Emit `NeedChanged`.
 5. **Cleanup:** Clear `buyTarget`. Return SUCCEEDED.
 
-### 1.3 Inline Buy Pattern
+### 1.3 Shared Purchase Function
 
-Both actions perform the purchase directly, bypassing TradeSystem:
+**File:** `src/infrastructure/systems/trade-system.ts` (extracted, not new file)
 
-```
-1. Resolve facility actor from locationActors map
-2. Check facility stock for item with quantity > 0
-3. Get price from facility.currentPrices or item.baseValue or config fallback
-4. Check agent wallet >= price
-5. Deduct: wallet.gold -= price, facility stock quantity -= 1
-6. Credit: facility.fund += price, agent inventory += 1 item
-7. Emit GoldFlowed (category: 'transfer', subcategory: 'purchase')
-8. Call recordPriceObservation(itemId, price, locationId, tick)
-```
+Extract `executePurchase(agent, facilityActor, itemId, deps)` from the existing `applySuccessfulTrade` + surrounding logic in TradeSystem. This function:
 
-This mirrors `applySuccessfulTrade` in trade-system.ts but runs inline during BT evaluation (priority 5) instead of waiting for TradeSystem (priority 11).
+1. Resolves price (facility.currentPrices → item.baseValue → config fallback)
+2. Checks agent wallet >= price
+3. Applies the trade (gold transfer, stock/inventory update, fund credit)
+4. Records ledger entry on EconomyComponent
+5. Applies buyer relationship update
+6. Creates purchase memory on MemoryComponent
+7. Emits `GoldFlowed`, `TradeAttempted`
+8. Calls `recordPriceObservation`
+
+Returns `{ success: boolean; failReason?: string }`.
+
+Both TradeSystem's existing buy loop and the composite actions call this function. This ensures all purchase side effects (ledger, relationships, mood-pipeline memory) stay consistent. The composite actions call it inline during BT evaluation (priority 5) instead of waiting for TradeSystem (priority 11).
 
 ---
 
@@ -77,7 +79,7 @@ sequence { condition [IsThirsty], flip { condition [HasWater] }, condition [CanA
 
 ### 2.2 P0 Critical Survival — Hunger
 
-**Before:**
+**Before (base.mdsl lines 54-81):**
 ```
 sequence { condition [IsHungry], condition [HasFood], action [Eat] while(IsHungry) }
 sequence { condition [IsHungry], condition [CanAffordFood], condition [FacilityHasStock, "food"], action [Buy] }
@@ -92,13 +94,19 @@ sequence { condition [IsHungry], condition [CanAffordFood], condition [FacilityH
 sequence { condition [IsHungry], condition [CanAffordFood], action [BuyAndEat] }
 ```
 
-### 2.3 P3 Non-critical Thirst
+### 2.3 P3 Non-critical Thirst (base.mdsl lines 162-183)
 
-Same change as P0 thirst — replace SeekWell/SeekMarket+BuyItem+Drink sequences with `BuyAndDrink`.
+**Before:** `IsThirsty → selector { HasWater→Drink, CanAffordItem→SeekWell→BuyItem→Drink, CanAffordItem→SeekMarket→BuyItem→Drink }`
 
-### 2.4 P4 Non-critical Hunger
+**After:** `IsThirsty → selector { HasWater→Drink, CanAffordItem→BuyAndDrink }`
 
-Same change as P0 hunger — replace SeekFood/SeekBestFoodSource+Buy sequences with `BuyAndEat`. Keep `HasFood → Eat` and `FacilityHasStock → Buy` fast-paths.
+### 2.4 P4 Non-critical Hunger (base.mdsl lines 185-215)
+
+**Before:** `IsHungry → selector { HasFood→Eat, CanAffordFood+FacilityHasStock→Buy, CanAffordFood→selector{KnowsFoodSource→SeekBestFoodSource, SeekFood}→Buy, HasJob+IsWorkHours→SeekWork }`
+
+**After:** `IsHungry → selector { HasFood→Eat, CanAffordFood+FacilityHasStock→Buy, CanAffordFood→BuyAndEat, HasJob+IsWorkHours→SeekWork }`
+
+The `HasJob+IsWorkHours→SeekWork` fallback stays — it handles the case where the agent can't afford food and should work instead.
 
 ### 2.5 Removed Actions
 
@@ -111,21 +119,11 @@ Keep the implementations in `bt-actions-needs.ts` and `bt-actions-economy.ts` fo
 
 ---
 
-## 3. WorkingMemory Change
+## 3. WorkingMemory — No New Fields
 
-Add to `WorkingMemory` interface and `createWorkingMemory`:
+Reuse existing `serviceTarget: string | null` for the buy target location ID. `serviceTarget` is set by `ChooseServiceFacility`/`SeekService` (service visits) and by the new composite actions (buy visits). These are mutually exclusive BT branches — an agent is never in both a service visit and a buy visit simultaneously.
 
-```typescript
-buyTarget: string | null;
-```
-
-Add to `BehaviorAgent` interface:
-
-```typescript
-buyTarget: string | null;
-```
-
-Add getter/setter in `behavior-agent-factory.ts`.
+No changes to WorkingMemory, BehaviorAgent, or the factory.
 
 ---
 
@@ -139,16 +137,26 @@ if (memory.committedAction !== 'use_service') {
 }
 ```
 
-Change to:
+Change to **selective exemption** — each composite action is only exempt from the cross-need it resolves, not all critical needs:
 
 ```typescript
-const NEEDS_EXEMPT = new Set(['use_service', 'buy_and_drink', 'buy_and_eat']);
-if (!NEEDS_EXEMPT.has(memory.committedAction ?? '')) {
-    // break on critical needs
+const ca = memory.committedAction;
+if (ca !== 'use_service') {
+    const critNeeds = actor.get(NeedsComponent).state;
+    // buy_and_drink: exempt from thirst breaks (that's what it's resolving)
+    //   but still breaks on critical hunger or energy
+    // buy_and_eat: exempt from hunger breaks, still breaks on thirst or energy
+    const checkHunger = ca !== 'buy_and_eat' && critNeeds.hunger < NEED_CRITICAL_THRESHOLDS.hunger;
+    const checkEnergy = critNeeds.energy < NEED_CRITICAL_THRESHOLDS.energy;
+    const checkThirst = ca !== 'buy_and_drink' && critNeeds.thirst < NEED_CRITICAL_THRESHOLDS.thirst;
+    if (checkHunger || checkEnergy || checkThirst) {
+        breakCommitment('critical_need');
+        return FAILED;
+    }
 }
 ```
 
-This prevents thirst from breaking a food-buying commitment and vice versa.
+This prevents the oscillation (thirst won't break food buying and vice versa) while still allowing truly dangerous situations (energy critical during any buy, or hunger critical during water buying) to interrupt.
 
 ---
 
@@ -169,13 +177,10 @@ No new event types needed.
 | File | Change |
 |------|--------|
 | `src/infrastructure/entity/bt-actions-buy.ts` | **NEW** — BuyAndDrink + BuyAndEat composite actions |
+| `src/infrastructure/systems/trade-system.ts` | Extract `executePurchase` shared function |
 | `src/infrastructure/entity/bt-actions.ts` | Import + spread new actions, update ContinueCommitment exemption |
-| `src/infrastructure/entity/bt-working-memory.ts` | Add `buyTarget: string \| null` |
-| `src/domain/systems/behavior-agent.ts` | Add `buyTarget` to BehaviorAgent interface |
-| `src/infrastructure/entity/behavior-agent-factory.ts` | Add buyTarget getter/setter |
 | `behavior-trees/base.mdsl` | Replace seek/buy/consume sequences with composite calls |
 | `tests/infrastructure/entity/bt-actions-buy.test.ts` | **NEW** — tests for both composite actions |
-| Test mocks (multiple files) | Add `buyTarget: null` to mock BehaviorAgent objects |
 
 ---
 
