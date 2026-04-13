@@ -242,9 +242,27 @@ export function createMovementSystem(
 							}
 						}
 
-						// Track known locations for gossip
-						if (!ba.knownLocations.includes(rawTarget.id)) {
-							ba.knownLocations = [...ba.knownLocations, rawTarget.id];
+						// Track known locations — add or refresh visited entry
+						const existing = ba.locationMemories.find(m => m.locationId === rawTarget.id);
+						if (existing !== undefined) {
+							existing.source = 'visited';
+							existing.significance = deps.config.location_memory?.visited.significance ?? 50;
+							existing.originalSignificance = existing.significance;
+							existing.lastRefreshedTick = deps.tickCount;
+						} else {
+							const locData = locationList.find(l => l.id === rawTarget.id);
+							const sig = deps.config.location_memory?.visited.significance ?? 50;
+							ba.locationMemories = [...ba.locationMemories, {
+								locationId: rawTarget.id,
+								facilityType: locData?.facility_type ?? '',
+								position: locData !== undefined ? { x: locData.position.x, y: locData.position.y } : { x: 0, y: 0 },
+								significance: sig,
+								originalSignificance: sig,
+								source: 'visited' as const,
+								reliability: 1.0,
+								discoveredTick: deps.tickCount,
+								lastRefreshedTick: deps.tickCount,
+							}];
 						}
 
 						deps.eventBus.emit({

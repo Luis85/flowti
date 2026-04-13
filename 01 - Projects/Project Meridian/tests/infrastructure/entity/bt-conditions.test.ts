@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Actor } from 'excalibur';
 import { createConditions, type ConditionMethods } from '../../../src/infrastructure/entity/bt-conditions.js';
-import { createWorkingMemory, type WorkingMemory } from '../../../src/infrastructure/entity/bt-working-memory.js';
+import { createWorkingMemory, type WorkingMemory, type LocationMemoryEntry } from '../../../src/infrastructure/entity/bt-working-memory.js';
 import type { BehaviorAgentDeps } from '../../../src/infrastructure/entity/behavior-agent-factory.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
@@ -22,6 +22,10 @@ import type { EventBus } from '../../../src/domain/core/events.js';
 import type { PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../../src/domain/systems/behavior-agent.js';
 
 // ── Shared helpers ────────────────────────────────────────────────────────
+
+function makeLocMem(id: string): LocationMemoryEntry {
+	return { locationId: id, facilityType: '', position: { x: 0, y: 0 }, significance: 50, originalSignificance: 50, source: 'visited', reliability: 1.0, discoveredTick: 0, lastRefreshedTick: 0 };
+}
 
 const noopEventBus: EventBus = {
 	emit: () => {},
@@ -1414,7 +1418,7 @@ describe('bt-conditions', () => {
 				getLocations: () => [],
 			});
 			const { conditions, memory } = makeConditions(actor, deps);
-			memory.knownLocations = [];
+			memory.locationMemories = [];
 			expect(conditions.KnowsSupplyRoute()).toBe(false);
 			expect(memory.supplyRoute).toBeNull();
 		});
@@ -1427,7 +1431,7 @@ describe('bt-conditions', () => {
 				getLocations: () => [farmLoc, millLoc],
 			});
 			const { conditions, memory } = makeConditions(actor, deps);
-			memory.knownLocations = ['loc-farm', 'loc-mill'];
+			memory.locationMemories = ['loc-farm', 'loc-mill'].map(makeLocMem);
 			expect(conditions.KnowsSupplyRoute()).toBe(true);
 			expect(memory.supplyRoute).not.toBeNull();
 			expect(memory.supplyRoute!.sourceId).toBe('loc-farm');
@@ -1442,7 +1446,7 @@ describe('bt-conditions', () => {
 				getLocations: () => [farmLoc],
 			});
 			const { conditions, memory } = makeConditions(actor, deps);
-			memory.knownLocations = ['loc-farm'];
+			memory.locationMemories = ['loc-farm'].map(makeLocMem);
 			expect(conditions.KnowsSupplyRoute()).toBe(false);
 		});
 	});
@@ -1507,7 +1511,7 @@ describe('bt-conditions', () => {
 				] }),
 			});
 			const { conditions, memory } = makeConditions(actor, deps);
-			memory.knownLocations = ['loc-mill'];
+			memory.locationMemories = ['loc-mill'].map(makeLocMem);
 			expect(conditions.QuestAvailable()).toBe(true);
 			expect(memory.cachedAvailableQuest).not.toBeNull();
 			expect(memory.cachedAvailableQuest!.id).toBe('q1');

@@ -169,6 +169,23 @@ const PerceptionConfigSchema = z.object({
 	interaction_radius: z.number().default(25),
 });
 
+const LocationMemoryConfigSchema = z.object({
+	usable_threshold: z.number().default(5),
+	decay_per_tick: z.number().default(0.025),
+	visited: z.object({
+		significance: z.number().default(50),
+		min_lifespan_ticks: z.number().default(960),
+	}).default({ significance: 50, min_lifespan_ticks: 960 }),
+	perceived: z.object({
+		significance: z.number().default(25),
+		min_lifespan_ticks: z.number().default(480),
+	}).default({ significance: 25, min_lifespan_ticks: 480 }),
+	gossip: z.object({
+		significance_multiplier: z.number().default(20),
+		min_lifespan_ticks: z.number().default(480),
+	}).default({ significance_multiplier: 20, min_lifespan_ticks: 480 }),
+});
+
 const TimeRangeSchema = z.object({
 	start: z.number().default(0),
 	end: z.number().default(0),
@@ -320,6 +337,7 @@ export const GameConfigSchema = z.object({
 	economy: withDefaults(EconomyConfigSchema),
 	mood: withDefaults(MoodConfigSchema),
 	perception: withDefaults(PerceptionConfigSchema),
+	location_memory: withDefaults(LocationMemoryConfigSchema),
 	day_night: withDefaults(DayNightConfigSchema),
 	gossip: withDefaults(GossipConfigSchema),
 	status: withDefaults(StatusConfigSchema),

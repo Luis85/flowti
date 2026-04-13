@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Actor } from 'excalibur';
 import { createActions, type ActionMethods } from '../../../src/infrastructure/entity/bt-actions.js';
-import { createWorkingMemory, type WorkingMemory } from '../../../src/infrastructure/entity/bt-working-memory.js';
+import { createWorkingMemory, type WorkingMemory, type LocationMemoryEntry } from '../../../src/infrastructure/entity/bt-working-memory.js';
 import type { BehaviorAgentDeps } from '../../../src/infrastructure/entity/behavior-agent-factory.js';
 import { AgentActor } from '../../../src/infrastructure/entity/agent-actor.js';
 import { NeedsComponent } from '../../../src/infrastructure/components/needs-component.js';
@@ -23,6 +23,10 @@ import type { EventBus } from '../../../src/domain/core/events.js';
 import type { PerceivedFacility, PerceivedAgent, PerceivedLocation } from '../../../src/domain/systems/behavior-agent.js';
 import type { QuestRuntime } from '../../../src/domain/schemas/quest-schema.js';
 import { QuestBoardComponent, type QuestBoardState } from '../../../src/infrastructure/components/quest-board-component.js';
+
+function makeLocMem(id: string): LocationMemoryEntry {
+	return { locationId: id, facilityType: '', position: { x: 0, y: 0 }, significance: 50, originalSignificance: 50, source: 'visited', reliability: 1.0, discoveredTick: 0, lastRefreshedTick: 0 };
+}
 
 const noopEventBus: EventBus = {
 	emit: () => {},
@@ -2235,7 +2239,7 @@ describe('bt-actions: createActions', () => {
 					],
 				});
 				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market' });
-				memory.knownLocations = ['loc-market'];
+				memory.locationMemories = ['loc-market'].map(makeLocMem);
 				expect(actions.SeekQuestSource()).toBe('mistreevous.failed');
 			});
 
@@ -2260,7 +2264,7 @@ describe('bt-actions: createActions', () => {
 					getLocationActors: () => locActors,
 				});
 				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 2 });
-				memory.knownLocations = ['loc-farmland', 'loc-market'];
+				memory.locationMemories = ['loc-farmland', 'loc-market'].map(makeLocMem);
 
 				const result = actions.SeekQuestSource();
 				expect(result).toBe('mistreevous.running');
@@ -2288,7 +2292,7 @@ describe('bt-actions: createActions', () => {
 					getLocationActors: () => locActors,
 				});
 				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 2 });
-				memory.knownLocations = ['loc-farmland'];
+				memory.locationMemories = ['loc-farmland'].map(makeLocMem);
 				memory.atLocation = 'loc-farmland';
 
 				expect(actions.SeekQuestSource()).toBe('mistreevous.succeeded');
@@ -2331,7 +2335,7 @@ describe('bt-actions: createActions', () => {
 					getLocationActors: () => locActors,
 				});
 				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 2 });
-				memory.knownLocations = ['loc-farm-empty', 'loc-farm-stocked'];
+				memory.locationMemories = ['loc-farm-empty', 'loc-farm-stocked'].map(makeLocMem);
 
 				actions.SeekQuestSource();
 				// Empty farm is closer but has no stock — must route to the stocked farm
@@ -2358,7 +2362,7 @@ describe('bt-actions: createActions', () => {
 					getLocationActors: () => locActors,
 				});
 				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 1 });
-				memory.knownLocations = ['loc-farm'];
+				memory.locationMemories = ['loc-farm'].map(makeLocMem);
 
 				expect(actions.SeekQuestSource()).toBe('mistreevous.failed');
 			});
@@ -2400,7 +2404,7 @@ describe('bt-actions: createActions', () => {
 					getLocationActors: () => locActors,
 				});
 				memory.activeQuest = makeQuest({ type: 'restock', itemId: 'wheat', facilityId: 'loc-market', quantity: 2 });
-				memory.knownLocations = ['loc-market', 'loc-farmland'];
+				memory.locationMemories = ['loc-market', 'loc-farmland'].map(makeLocMem);
 
 				actions.SeekQuestSource();
 				// Market is closer AND has stock, but it's the quest target — must skip and pick farmland
@@ -2555,7 +2559,7 @@ describe('bt-actions: createActions', () => {
 				});
 
 				memory.activeQuest = quest;
-				memory.knownLocations = ['loc-farmland', 'loc-market'];
+				memory.locationMemories = ['loc-farmland', 'loc-market'].map(makeLocMem);
 				memory.atLocation = 'loc-farmland'; // pre-arrived for brevity
 
 				// Step 1: pickup for quest

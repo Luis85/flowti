@@ -16,7 +16,7 @@ import type { BehaviourTree } from 'mistreevous';
 export function stubBehaviorAgent(
 	agent: AgentActor,
 	overrides: Partial<Pick<BehaviorAgent,
-		'btAction' | 'gossipPending' | 'knownLocations' | 'traitModifiers' |
+		'btAction' | 'gossipPending' | 'locationMemories' | 'traitModifiers' |
 		'movementTarget' | 'atLocation' | 'currentRegion' | 'feedingAt' | 'restingAt' |
 		'commitmentTicks' | 'insideFacility'
 	>> = {},
@@ -52,7 +52,8 @@ export function stubBehaviorAgent(
 		committedAction: null,
 		btAction: overrides.btAction ?? null,
 		gossipPending: overrides.gossipPending ?? null,
-		knownLocations: overrides.knownLocations ?? [],
+		locationMemories: overrides.locationMemories ?? [],
+		get knownLocations() { return this.locationMemories.filter(m => m.significance >= 5).map(m => m.locationId); },
 		traitModifiers: overrides.traitModifiers ?? null,
 		skills: [],
 		feedingAt: overrides.feedingAt ?? null,
@@ -185,7 +186,7 @@ export function stubBehaviorTree(): BehaviourTree {
 export function attachBehaviorStubs(
 	agent: AgentActor,
 	overrides: Partial<Pick<BehaviorAgent,
-		'btAction' | 'gossipPending' | 'knownLocations' | 'traitModifiers' |
+		'btAction' | 'gossipPending' | 'locationMemories' | 'traitModifiers' |
 		'movementTarget' | 'atLocation' | 'currentRegion' | 'feedingAt' | 'restingAt' |
 		'commitmentTicks' | 'insideFacility'
 	>> = {},

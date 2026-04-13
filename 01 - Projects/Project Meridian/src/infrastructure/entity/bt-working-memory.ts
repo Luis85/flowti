@@ -38,6 +38,18 @@ export interface AreaModifier {
 	delta_per_tick: number;
 }
 
+export interface LocationMemoryEntry {
+	locationId: string;
+	facilityType: string;
+	position: { x: number; y: number };
+	significance: number;
+	originalSignificance: number;
+	source: 'visited' | 'perceived' | 'gossip';
+	reliability: number;
+	discoveredTick: number;
+	lastRefreshedTick: number;
+}
+
 export interface WorkingMemory {
 	movementTarget: MovementTarget | null;
 	journey: JourneyState | null;
@@ -49,7 +61,8 @@ export interface WorkingMemory {
 	committedAction: string | null;
 	btAction: string | null;
 	gossipPending: string | null;
-	knownLocations: string[];
+	locationMemories: LocationMemoryEntry[];
+	readonly knownLocations: string[];
 	traitModifiers: ModifierMap | null;
 	skills: SkillEntry[];
 	feedingAt: string | null;
@@ -87,7 +100,12 @@ export function createWorkingMemory(priceMemoryMax: number): WorkingMemory {
 		committedAction: null,
 		btAction: null,
 		gossipPending: null,
-		knownLocations: [],
+		locationMemories: [] as LocationMemoryEntry[],
+		get knownLocations(): string[] {
+			return this.locationMemories
+				.filter(m => m.significance >= 5)
+				.map(m => m.locationId);
+		},
 		traitModifiers: null,
 		skills: [],
 		feedingAt: null,

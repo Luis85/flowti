@@ -3,6 +3,7 @@ import type { CircularBuffer } from 'mnemonist';
 import type { PriceMemory } from './price-memory.js';
 import type { SupplyRoute } from './cargo.js';
 import type { QuestRuntime } from '../schemas/quest-schema.js';
+import type { LocationMemoryEntry } from '../../infrastructure/entity/bt-working-memory.js';
 
 export type { CargoState } from '../core/component-data.js';
 
@@ -82,7 +83,8 @@ export interface BehaviorAgent {
 	// System working memory (migrated from BlackboardComponent)
 	btAction: string | null;
 	gossipPending: string | null;
-	knownLocations: string[];
+	readonly knownLocations: string[];
+	locationMemories: LocationMemoryEntry[];
 	traitModifiers: ModifierMap | null;
 	skills: SkillEntry[];
 	feedingAt: string | null;

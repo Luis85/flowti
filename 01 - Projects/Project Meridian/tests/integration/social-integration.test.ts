@@ -79,7 +79,7 @@ describe('Social Pipeline Integration', () => {
 		const marcusData = createTestAgent('agent-marcus', 'Marcus', 'guard', 100, 100);
 
 		const elena = new AgentActor(elenaData, defaultMoodConfig);
-		attachBehaviorStubs(elena, { btAction: 'talk', knownLocations: ['loc-bakery'] });
+		attachBehaviorStubs(elena, { btAction: 'talk', locationMemories: [{ locationId: 'loc-bakery', facilityType: '', position: { x: 0, y: 0 }, significance: 50, originalSignificance: 50, source: 'visited', reliability: 1.0, discoveredTick: 0, lastRefreshedTick: 0 }] });
 		const marcus = new AgentActor(marcusData, defaultMoodConfig);
 		attachBehaviorStubs(marcus, { btAction: 'talk' });
 

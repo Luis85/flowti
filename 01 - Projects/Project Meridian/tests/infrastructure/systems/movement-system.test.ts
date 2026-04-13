@@ -78,7 +78,7 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
 		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
 		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
-		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		btAction: null, gossipPending: null, knownLocations: [], locationMemories: [], traitModifiers: null,
 		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null, buyTargetItem: null,
 		unemployedTicks: 0,
 		recovering: false,
@@ -286,7 +286,7 @@ describe('MovementSystem', () => {
 		expect(agent.vel.y).toBe(0);
 	});
 
-	it('populates knownLocations on first arrival at a location', () => {
+	it('populates locationMemories on first arrival at a location', () => {
 		const agent = createAgentWithBa('agent-1', 0, 0, {}, {
 			movementTarget: { id: 'loc-food-1', type: 'location' },
 		});
@@ -296,12 +296,17 @@ describe('MovementSystem', () => {
 
 		system.execute(createDeps());
 
-		expect(agent.behaviorAgent.knownLocations).toContain('loc-food-1');
+		const entries = agent.behaviorAgent.locationMemories;
+		expect(entries.some(m => m.locationId === 'loc-food-1' && m.source === 'visited')).toBe(true);
 	});
 
-	it('does not duplicate knownLocations on repeat arrival', () => {
+	it('does not duplicate locationMemories on repeat arrival', () => {
 		const agent = createAgentWithBa('agent-1', 0, 0, {}, {
-			knownLocations: ['loc-food-1'],
+			locationMemories: [{
+				locationId: 'loc-food-1', facilityType: '', position: { x: 1, y: 0 },
+				significance: 50, originalSignificance: 50, source: 'visited' as const,
+				reliability: 1.0, discoveredTick: 0, lastRefreshedTick: 0,
+			}],
 			movementTarget: { id: 'loc-food-1', type: 'location' },
 		});
 
@@ -310,7 +315,7 @@ describe('MovementSystem', () => {
 
 		system.execute(createDeps());
 
-		expect(agent.behaviorAgent.knownLocations.filter(l => l === 'loc-food-1')).toHaveLength(1);
+		expect(agent.behaviorAgent.locationMemories.filter(m => m.locationId === 'loc-food-1')).toHaveLength(1);
 	});
 
 	it('emits AgentExhausted when energy crosses 0', () => {

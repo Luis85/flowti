@@ -55,7 +55,7 @@ function createStubBehaviorAgent(overrides: Partial<BehaviorAgent> = {}): Behavi
 		nearbyAgents: [], nearbyLocations: [], nearbyFacilities: [],
 		movementTarget: null, journey: null, atLocation: null, currentRegion: '',
 		haulCargo: null, socialCooldowns: new Map(), committedAction: null,
-		btAction: null, gossipPending: null, knownLocations: [], traitModifiers: null,
+		btAction: null, gossipPending: null, knownLocations: [], locationMemories: [], traitModifiers: null,
 		skills: [], feedingAt: null, restingAt: null, arrivalSlot: null, buyTargetItem: null,
 		unemployedTicks: 0,
 		recovering: false,

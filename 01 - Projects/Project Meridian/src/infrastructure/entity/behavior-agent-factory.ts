@@ -225,8 +225,14 @@ export function createBehaviorAgent(deps: BehaviorAgentDeps): BehaviorAgent {
 		set btAction(v) { memory.btAction = v; },
 		get gossipPending() { return memory.gossipPending; },
 		set gossipPending(v) { memory.gossipPending = v; },
-		get knownLocations() { return memory.knownLocations; },
-		set knownLocations(v) { memory.knownLocations = v; },
+		get knownLocations() {
+			const threshold = deps.config.location_memory?.usable_threshold ?? 5;
+			return memory.locationMemories
+				.filter(m => m.significance >= threshold)
+				.map(m => m.locationId);
+		},
+		get locationMemories() { return memory.locationMemories; },
+		set locationMemories(v) { memory.locationMemories = v; },
 		get traitModifiers() { return memory.traitModifiers; },
 		set traitModifiers(v) { memory.traitModifiers = v; },
 		get skills() { return memory.skills; },
