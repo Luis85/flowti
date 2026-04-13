@@ -83,6 +83,35 @@ export function createPerceptionSystem(
 
 				perception.state = result;
 				perception.markDirty();
+
+				// Update location memories from perception
+				const locMemConfig = deps.config.location_memory;
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- behaviorAgent may be unset before init
+				if (agent.behaviorAgent !== undefined) {
+					const ba = agent.behaviorAgent;
+					for (const nearLoc of result.nearbyLocations) {
+						if (nearLoc.facility_type === '') continue;
+						const existing = ba.locationMemories.find(m => m.locationId === nearLoc.id);
+						if (existing !== undefined) {
+							existing.lastRefreshedTick = deps.tickCount;
+						} else {
+							const locData = locationList.find(l => l.id === nearLoc.id);
+							ba.locationMemories = [...ba.locationMemories, {
+								locationId: nearLoc.id,
+								facilityType: nearLoc.facility_type,
+								position: locData !== undefined
+									? { x: locData.position.x, y: locData.position.y }
+									: { x: 0, y: 0 },
+								significance: locMemConfig.perceived.significance,
+								originalSignificance: locMemConfig.perceived.significance,
+								source: 'perceived' as const,
+								reliability: 1.0,
+								discoveredTick: deps.tickCount,
+								lastRefreshedTick: deps.tickCount,
+							}];
+						}
+					}
+				}
 			}
 		},
 	};
