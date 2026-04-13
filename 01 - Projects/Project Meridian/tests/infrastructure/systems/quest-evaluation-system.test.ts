@@ -130,7 +130,7 @@ describe('QuestEvaluationSystem', () => {
 		expect(board.state.quests[0]?.id).toBe('q-fresh-1');
 	});
 
-	it('does not expire claimed quests', () => {
+	it('expires claimed quests past expiry and clears agent activeQuest', () => {
 		const claimed = makeQuest({
 			id: 'q-claimed-1',
 			state: 'claimed',
@@ -139,17 +139,22 @@ describe('QuestEvaluationSystem', () => {
 			expiryTicks: 200,
 		});
 		const worldEntity = createWorldEntity([claimed]);
-		const system = createQuestEvaluationSystem(() => worldEntity, () => []);
+		const mockAgent = {
+			agentId: 'agent-1',
+			behaviorAgent: { activeQuest: { id: 'q-claimed-1' }, questCargo: null },
+		} as unknown as AgentActor;
+		const system = createQuestEvaluationSystem(() => worldEntity, () => [mockAgent]);
 
 		const eventBus = createEventBus();
 		const events: GameEvent[] = [];
 		eventBus.on('QuestExpired', (e) => { events.push(e); });
 
-		// tickCount 480 > 100 + 200, but state is 'claimed'
+		// tickCount 480 > 100 + 200, claimed quest should expire
 		system.execute(createDeps(eventBus, 480));
 
-		expect(events.length).toBe(0);
-		expect(worldEntity.get(QuestBoardComponent).state.quests.length).toBe(1);
+		expect(events.length).toBe(1);
+		expect(worldEntity.get(QuestBoardComponent).state.quests.length).toBe(0);
+		expect(mockAgent.behaviorAgent.activeQuest).toBeNull();
 	});
 
 	it('increments repairProgress for repair quests when agent is at facility with btAction=repair', () => {

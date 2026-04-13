@@ -17,10 +17,11 @@ export function createQuestEvaluationSystem(
 			if (!entity.has(QuestBoardComponent)) return;
 
 			const board = entity.get(QuestBoardComponent);
+			const agents = getAgents();
 
-			// 1. Expire old open quests + clean up completed quests
+			// 1. Expire old open/claimed quests + clean up completed quests
 			const expiredQuests = board.state.quests.filter(
-				q => q.state === 'open' && deps.tickCount - q.createdTick > q.expiryTicks,
+				q => (q.state === 'open' || q.state === 'claimed') && deps.tickCount - q.createdTick > q.expiryTicks,
 			);
 
 			const staleCompleted = board.state.quests.filter(
@@ -28,6 +29,15 @@ export function createQuestEvaluationSystem(
 			);
 
 			if (expiredQuests.length > 0 || staleCompleted.length > 0) {
+				// Clear activeQuest on agents holding expired quests
+				const expiredIds = new Set(expiredQuests.map(q => q.id));
+				for (const agent of agents) {
+					if (agent.behaviorAgent.activeQuest !== null && expiredIds.has(agent.behaviorAgent.activeQuest.id)) {
+						agent.behaviorAgent.activeQuest = null;
+						agent.behaviorAgent.questCargo = null;
+					}
+				}
+
 				for (const expired of expiredQuests) {
 					deps.eventBus.emit({
 						type: 'QuestExpired',
@@ -50,7 +60,6 @@ export function createQuestEvaluationSystem(
 			}
 
 			// 2. Track repair progress
-			const agents = getAgents();
 
 			for (const quest of board.state.quests) {
 				if (quest.state !== 'claimed' || quest.type !== 'repair') continue;
