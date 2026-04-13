@@ -6,6 +6,7 @@ import { NeedsComponent } from '../components/needs-component.js';
 import { AttributesComponent } from '../components/attributes-component.js';
 import { SocialComponent } from '../components/social-component.js';
 import { InventoryComponent } from '../components/inventory-component.js';
+import { NEED_CRITICAL_THRESHOLDS } from '../../domain/schemas/ranges.js';
 
 function getActivityModifiers(
 	btAction: string | null,
@@ -90,8 +91,60 @@ export function createNeedsDecaySystem(
 					deps.config.needs,
 				);
 
+				const oldHunger = needs.state.hunger;
+				const oldEnergy = needs.state.energy;
+				const oldThirst = needs.state.thirst;
+
 				needs.state = result.state;
 				needs.markDirty();
+
+				// Threshold crossing detection
+				const needNames = ['hunger', 'energy', 'thirst'] as const;
+				const oldValues = { hunger: oldHunger, energy: oldEnergy, thirst: oldThirst };
+				for (const need of needNames) {
+					const value = needs.state[need];
+					const old = oldValues[need];
+
+					// Check personal threshold
+					const personalThreshold = ba.personalThresholds[need];
+					if (old >= personalThreshold && value < personalThreshold) {
+						deps.eventBus.emit({
+							type: 'NeedThresholdCrossed',
+							tick: deps.tickCount,
+							wallClock: Date.now(),
+							source: 'NeedsDecaySystem',
+							payload: { agentId: entity.agentId, need, value, threshold: personalThreshold, thresholdType: 'personal' as const, direction: 'below' as const },
+						});
+					} else if (old < personalThreshold && value >= personalThreshold) {
+						deps.eventBus.emit({
+							type: 'NeedThresholdCrossed',
+							tick: deps.tickCount,
+							wallClock: Date.now(),
+							source: 'NeedsDecaySystem',
+							payload: { agentId: entity.agentId, need, value, threshold: personalThreshold, thresholdType: 'personal' as const, direction: 'above' as const },
+						});
+					}
+
+					// Check critical threshold
+					const criticalThreshold = NEED_CRITICAL_THRESHOLDS[need];
+					if (old >= criticalThreshold && value < criticalThreshold) {
+						deps.eventBus.emit({
+							type: 'NeedThresholdCrossed',
+							tick: deps.tickCount,
+							wallClock: Date.now(),
+							source: 'NeedsDecaySystem',
+							payload: { agentId: entity.agentId, need, value, threshold: criticalThreshold, thresholdType: 'critical' as const, direction: 'below' as const },
+						});
+					} else if (old < criticalThreshold && value >= criticalThreshold) {
+						deps.eventBus.emit({
+							type: 'NeedThresholdCrossed',
+							tick: deps.tickCount,
+							wallClock: Date.now(),
+							source: 'NeedsDecaySystem',
+							payload: { agentId: entity.agentId, need, value, threshold: criticalThreshold, thresholdType: 'critical' as const, direction: 'above' as const },
+						});
+					}
+				}
 
 				for (const event of result.events) {
 					deps.eventBus.emit({
