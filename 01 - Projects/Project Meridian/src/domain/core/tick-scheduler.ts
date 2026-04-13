@@ -24,6 +24,7 @@ export const SystemPriority = {
 	NEEDS_DECAY: 1,
 	MOOD: 2,
 	PERCEPTION: 3,
+	LOCATION_MEMORY_DECAY: 3.5,
 	MEMORY: 4,
 	BEHAVIOR_TREE: 5,
 	MOVEMENT: 5.5,
