@@ -14,6 +14,7 @@ import { createSocialActions } from './bt-actions-social.js';
 import { createCargoActions } from './bt-actions-cargo.js';
 import { createQuestActions } from './bt-actions-quest.js';
 import { createServiceActions } from './bt-actions-service.js';
+import { createBuyActions } from './bt-actions-buy.js';
 
 /**
  * Returns true when an ongoing travel commitment should be interrupted because
@@ -58,6 +59,8 @@ export interface ActionMethods {
 	SeekFood(): ActionResult;
 	Buy(): ActionResult;
 	BuyItem(itemId: string): ActionResult;
+	BuyAndDrink(): ActionResult;
+	BuyAndEat(): ActionResult;
 	SeekBestFoodSource(): ActionResult;
 	ClaimJob(): ActionResult;
 	ClaimBestJob(): ActionResult;
@@ -118,6 +121,7 @@ export function createActions(
 		...createCargoActions(ctx),
 		...createQuestActions(ctx),
 		...createServiceActions(ctx),
+		...createBuyActions(ctx),
 
 		// Cross-cutting utilities — small, kept inline
 		/** Available for custom BTs — not used in the default tree set. */

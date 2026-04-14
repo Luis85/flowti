@@ -3280,4 +3280,118 @@ describe('bt-actions: createActions', () => {
 			});
 		});
 	});
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// BuyAndDrink / BuyAndEat composite actions
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	describe('BuyAndDrink composite', () => {
+		it('returns FAILED when no water source exists', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions } = setupActions(actor, { getLocations: () => [], getLocationActors: () => new Map() });
+			expect(actions.BuyAndDrink()).toBe('mistreevous.failed');
+		});
+
+		it('returns RUNNING while traveling to a known well with water', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.pos.x = 0;
+			actor.pos.y = 0;
+			const well = makeLocation('loc-well', 'well', 100, 0, {
+				job: 'waterbearer', output: { item_id: 'water', quantity: 1 }, input: null,
+				wage: 5, ticks_per_cycle: 30,
+			}, null, 'well');
+			const wellActor = createLocationActor({
+				stock: [{ item_id: 'water', quantity: 5 }],
+				fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			});
+			const { actions, memory } = setupActions(actor, {
+				getLocations: () => [well],
+				getLocationActors: () => new Map([['loc-well', wellActor]]),
+			});
+			const result = actions.BuyAndDrink();
+			expect(result).toBe('mistreevous.running');
+			expect(memory.serviceTarget).toBe('loc-well');
+			expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
+		});
+
+		it('buys + drinks inline on arrival, returns SUCCEEDED', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.pos.x = 100;
+			actor.pos.y = 0;
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 30 };
+			// executePurchase uses agent.behaviorAgent.recordPriceObservation
+			actor.behaviorAgent = { recordPriceObservation: () => {} } as unknown as AgentActor['behaviorAgent'];
+			const well = makeLocation('loc-well', 'well', 100, 0, {
+				job: 'waterbearer', output: { item_id: 'water', quantity: 1 }, input: null,
+				wage: 5, ticks_per_cycle: 30,
+			}, null, 'well');
+			const wellActor = createLocationActor({
+				stock: [{ item_id: 'water', quantity: 5 }],
+				fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			});
+			const { actions, memory } = setupActions(actor, {
+				getLocations: () => [well],
+				getLocationActors: () => new Map([['loc-well', wellActor]]),
+			});
+			memory.atLocation = 'loc-well';
+
+			const result = actions.BuyAndDrink();
+			expect(result).toBe('mistreevous.succeeded');
+			// Thirst restored
+			expect(actor.get(NeedsComponent).state.thirst).toBeGreaterThan(30);
+			// Gold deducted
+			expect(actor.get(WalletComponent).state.gold).toBeLessThan(50);
+			// Stock decremented
+			const stock = wellActor.get(FacilityComponent).state.stock;
+			expect(stock.find(s => s.item_id === 'water')?.quantity).toBe(4);
+			// Target cleared
+			expect(memory.serviceTarget).toBeNull();
+		});
+
+		it('returns FAILED when at well but stock depleted', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.pos.x = 100;
+			actor.pos.y = 0;
+			const well = makeLocation('loc-well', 'well', 100, 0, {
+				job: 'waterbearer', output: { item_id: 'water', quantity: 1 }, input: null,
+				wage: 5, ticks_per_cycle: 30,
+			}, null, 'well');
+			const wellActor = createLocationActor({
+				stock: [],
+				fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			});
+			const { actions, memory } = setupActions(actor, {
+				getLocations: () => [well],
+				getLocationActors: () => new Map([['loc-well', wellActor]]),
+			});
+			memory.serviceTarget = 'loc-well';
+			memory.atLocation = 'loc-well';
+
+			expect(actions.BuyAndDrink()).toBe('mistreevous.failed');
+			expect(memory.serviceTarget).toBeNull();
+		});
+
+		it('returns FAILED when at well but cannot afford', () => {
+			const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 0 } }), defaultMoodConfig);
+			actor.pos.x = 100;
+			actor.pos.y = 0;
+			actor.behaviorAgent = { recordPriceObservation: () => {} } as unknown as AgentActor['behaviorAgent'];
+			const well = makeLocation('loc-well', 'well', 100, 0, {
+				job: 'waterbearer', output: { item_id: 'water', quantity: 1 }, input: null,
+				wage: 5, ticks_per_cycle: 30,
+			}, null, 'well');
+			const wellActor = createLocationActor({
+				stock: [{ item_id: 'water', quantity: 5 }],
+				fund: 100, workProgress: 0, status: 'idle', workerId: null,
+				currentPrices: { water: 10 },
+			});
+			const { actions, memory } = setupActions(actor, {
+				getLocations: () => [well],
+				getLocationActors: () => new Map([['loc-well', wellActor]]),
+			});
+			memory.atLocation = 'loc-well';
+
+			expect(actions.BuyAndDrink()).toBe('mistreevous.failed');
+		});
+	});
 });
