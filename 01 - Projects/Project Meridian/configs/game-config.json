@@ -114,6 +114,8 @@
 		"seek_work": 15,
 		"seek_food": 10,
 		"seek_well": 10,
+		"buy_and_drink": 12,
+		"buy_and_eat": 12,
 		"seek_service": 10,
 		"use_service": 0,
 		"seek_market": 15,
