@@ -33,23 +33,12 @@ root {
                     condition [HasWater]
                     action [Drink]
                 }
-                /* Thirsty: buy water at a well if affordable */
+                /* Thirsty: travel + buy + drink atomically */
                 sequence {
                     condition [IsThirsty]
                     flip { condition [HasWater] }
                     condition [CanAffordItem, "water"]
-                    action [SeekWell]
-                    action [BuyItem, "water"]
-                    action [Drink]
-                }
-                /* Thirsty: buy water at the market if affordable */
-                sequence {
-                    condition [IsThirsty]
-                    flip { condition [HasWater] }
-                    condition [CanAffordItem, "water"]
-                    action [SeekMarket]
-                    action [BuyItem, "water"]
-                    action [Drink]
+                    action [BuyAndDrink]
                 }
                 /* Eat if hungry and have food */
                 sequence {
@@ -64,20 +53,11 @@ root {
                     condition [FacilityHasStock, "food"]
                     action [Buy]
                 }
-                /* Seek known food source */
+                /* Hungry: travel + buy + eat atomically */
                 sequence {
                     condition [IsHungry]
                     condition [CanAffordFood]
-                    condition [KnowsFoodSource]
-                    action [SeekBestFoodSource]
-                    action [Buy]
-                }
-                /* Fallback: seek any food source if desperate */
-                sequence {
-                    condition [IsHungry]
-                    condition [CanAffordFood]
-                    action [SeekFood]
-                    action [Buy]
+                    action [BuyAndEat]
                 }
             }
         }
@@ -169,15 +149,7 @@ root {
                 }
                 sequence {
                     condition [CanAffordItem, "water"]
-                    action [SeekWell]
-                    action [BuyItem, "water"]
-                    action [Drink]
-                }
-                sequence {
-                    condition [CanAffordItem, "water"]
-                    action [SeekMarket]
-                    action [BuyItem, "water"]
-                    action [Drink]
+                    action [BuyAndDrink]
                 }
             }
         }
@@ -197,14 +169,7 @@ root {
                 }
                 sequence {
                     condition [CanAffordFood]
-                    selector {
-                        sequence {
-                            condition [KnowsFoodSource]
-                            action [SeekBestFoodSource]
-                        }
-                        action [SeekFood]
-                    }
-                    action [Buy]
+                    action [BuyAndEat]
                 }
                 sequence {
                     condition [HasJob]
