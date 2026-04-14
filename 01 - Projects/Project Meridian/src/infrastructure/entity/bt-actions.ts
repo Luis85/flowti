@@ -214,6 +214,14 @@ export function createActions(
 				breakCommitment('need_satisfied');
 				return FAILED;
 			}
+			if (ca === 'buy_and_drink' && needs.thirst >= memory.personalThresholds.thirst) {
+				breakCommitment('need_satisfied');
+				return FAILED;
+			}
+			if (ca === 'buy_and_eat' && needs.hunger >= memory.personalThresholds.hunger) {
+				breakCommitment('need_satisfied');
+				return FAILED;
+			}
 			// Break work/repair commitments when maintenance needs arise.
 			// Repair is a long (25t) stationary action like work — an agent
 			// mid-repair shouldn't starve or dehydrate while fixing a building.

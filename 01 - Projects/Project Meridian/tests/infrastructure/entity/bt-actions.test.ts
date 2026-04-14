@@ -3314,13 +3314,13 @@ describe('bt-actions: createActions', () => {
 			expect(memory.movementTarget).toEqual({ id: 'loc-well', type: 'location' });
 		});
 
-		it('buys + drinks inline on arrival, returns SUCCEEDED', () => {
+		it('buys + drinks inline on arrival, returns SUCCEEDED and emits events', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
 			actor.pos.x = 100;
 			actor.pos.y = 0;
 			actor.get(NeedsComponent).state = { hunger: 80, energy: 90, social: 70, thirst: 30 };
-			// executePurchase uses agent.behaviorAgent.recordPriceObservation
-			actor.behaviorAgent = { recordPriceObservation: () => {} } as unknown as AgentActor['behaviorAgent'];
+			const recordPriceObservation = vi.fn();
+			actor.behaviorAgent = { recordPriceObservation } as unknown as AgentActor['behaviorAgent'];
 			const well = makeLocation('loc-well', 'well', 100, 0, {
 				job: 'waterbearer', output: { item_id: 'water', quantity: 1 }, input: null,
 				wage: 5, ticks_per_cycle: 30,
@@ -3329,9 +3329,12 @@ describe('bt-actions: createActions', () => {
 				stock: [{ item_id: 'water', quantity: 5 }],
 				fund: 100, workProgress: 0, status: 'idle', workerId: null,
 			});
+			const events: { type: string }[] = [];
+			const eventBus = { emit: (e: { type: string }) => { events.push(e); }, on: () => () => {}, off: () => {}, onAny: () => () => {}, filter: () => () => {}, history: () => [] };
 			const { actions, memory } = setupActions(actor, {
 				getLocations: () => [well],
 				getLocationActors: () => new Map([['loc-well', wellActor]]),
+				eventBus: eventBus as unknown as BehaviorAgentDeps['eventBus'],
 			});
 			memory.atLocation = 'loc-well';
 
@@ -3346,6 +3349,11 @@ describe('bt-actions: createActions', () => {
 			expect(stock.find(s => s.item_id === 'water')?.quantity).toBe(4);
 			// Target cleared
 			expect(memory.serviceTarget).toBeNull();
+			// Events emitted
+			expect(events.some(e => e.type === 'GoldFlowed')).toBe(true);
+			expect(events.some(e => e.type === 'PurchaseComplete')).toBe(true);
+			// Price observation recorded
+			expect(recordPriceObservation).toHaveBeenCalled();
 		});
 
 		it('returns FAILED when at well but stock depleted', () => {
@@ -3371,11 +3379,12 @@ describe('bt-actions: createActions', () => {
 			expect(memory.serviceTarget).toBeNull();
 		});
 
-		it('returns FAILED when at well but cannot afford', () => {
+		it('returns FAILED and records price when at well but cannot afford', () => {
 			const actor = new AgentActor(createTestAgentData('a1', { wallet: { gold: 0 } }), defaultMoodConfig);
 			actor.pos.x = 100;
 			actor.pos.y = 0;
-			actor.behaviorAgent = { recordPriceObservation: () => {} } as unknown as AgentActor['behaviorAgent'];
+			const recordPriceObservation = vi.fn();
+			actor.behaviorAgent = { recordPriceObservation } as unknown as AgentActor['behaviorAgent'];
 			const well = makeLocation('loc-well', 'well', 100, 0, {
 				job: 'waterbearer', output: { item_id: 'water', quantity: 1 }, input: null,
 				wage: 5, ticks_per_cycle: 30,
@@ -3392,6 +3401,8 @@ describe('bt-actions: createActions', () => {
 			memory.atLocation = 'loc-well';
 
 			expect(actions.BuyAndDrink()).toBe('mistreevous.failed');
+			// Agent still learns the price even on failure
+			expect(recordPriceObservation).toHaveBeenCalledWith('water', 10, 'loc-well', expect.any(Number));
 		});
 	});
 
@@ -3501,6 +3512,62 @@ describe('bt-actions: createActions', () => {
 
 			const result = actions.ContinueCommitment();
 			expect(result).toBe('mistreevous.failed');
+		});
+
+		it('breaks buy_and_drink commitment when thirst reaches personal threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor);
+			memory.committedAction = 'buy_and_drink';
+			memory.commitmentTicks = 5;
+			// Thirst recovered to personal threshold (default 40)
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 80, social: 70, thirst: 50 };
+
+			const result = actions.ContinueCommitment();
+			expect(result).toBe('mistreevous.failed');
+		});
+
+		it('breaks buy_and_eat commitment when hunger reaches personal threshold', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor);
+			memory.committedAction = 'buy_and_eat';
+			memory.commitmentTicks = 5;
+			actor.get(NeedsComponent).state = { hunger: 50, energy: 80, social: 70, thirst: 80 };
+
+			const result = actions.ContinueCommitment();
+			expect(result).toBe('mistreevous.failed');
+		});
+	});
+
+	describe('BuyAndDrink stale serviceTarget validation', () => {
+		it('ignores stale serviceTarget pointing to facility without water', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.pos.x = 0;
+			actor.pos.y = 0;
+			// Inn: no water stock (leftover target from a service visit)
+			const inn = makeLocation('loc-inn', 'rest_inn', 200, 0, null, null, 'rest_inn');
+			const innActor = createLocationActor({
+				stock: [], fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			});
+			// Well: has water
+			const well = makeLocation('loc-well', 'well', 100, 0, {
+				job: 'waterbearer', output: { item_id: 'water', quantity: 1 }, input: null,
+				wage: 5, ticks_per_cycle: 30,
+			}, null, 'well');
+			const wellActor = createLocationActor({
+				stock: [{ item_id: 'water', quantity: 5 }],
+				fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			});
+			const { actions, memory } = setupActions(actor, {
+				getLocations: () => [inn, well],
+				getLocationActors: () => new Map([['loc-inn', innActor], ['loc-well', wellActor]]),
+			});
+			// Stale target from a previous service visit
+			memory.serviceTarget = 'loc-inn';
+
+			const result = actions.BuyAndDrink();
+			expect(result).toBe('mistreevous.running');
+			// Target was switched to a valid water source
+			expect(memory.serviceTarget).toBe('loc-well');
 		});
 	});
 });

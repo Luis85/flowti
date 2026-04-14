@@ -65,11 +65,25 @@ export function createBuyActions(ctx: ActionContext): Pick<ActionMethods, 'BuyAn
 		itemPredicate: (itemId: string) => boolean,
 		onConsume: (a: AgentActor, itemId: string) => void,
 	): ActionResult {
-		// Reuse existing serviceTarget (mutually exclusive with service visits)
+		// Reuse existing serviceTarget ONLY if it stocks the required item.
+		// serviceTarget is shared with service-visit branches (rest_inn, tavern,
+		// etc.) — a leftover ID from a service visit would cause this action
+		// to travel to a facility with no water/food.
 		let targetId: string | null = memory.serviceTarget;
+		if (targetId !== null) {
+			const cachedActor = getLocationActors().get(targetId);
+			const cachedStock = cachedActor?.has(FacilityComponent) === true
+				? cachedActor.get(FacilityComponent).state.stock
+				: [];
+			const stillValid = cachedStock.some(s => itemPredicate(s.item_id) && s.quantity > 0);
+			if (!stillValid) targetId = null;
+		}
 		if (targetId === null) {
 			targetId = findSourceWithItem(itemPredicate);
-			if (targetId === null) return FAILED;
+			if (targetId === null) {
+				memory.serviceTarget = null;
+				return FAILED;
+			}
 			memory.serviceTarget = targetId;
 		}
 
