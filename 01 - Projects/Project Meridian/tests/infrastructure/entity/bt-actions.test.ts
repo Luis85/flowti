@@ -3395,6 +3395,56 @@ describe('bt-actions: createActions', () => {
 		});
 	});
 
+	describe('BuyAndEat composite', () => {
+		it('returns FAILED when no food source exists', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions } = setupActions(actor, { getLocations: () => [], getLocationActors: () => new Map() });
+			expect(actions.BuyAndEat()).toBe('mistreevous.failed');
+		});
+
+		it('buys + eats inline when at market, returns SUCCEEDED', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.pos.x = 100;
+			actor.pos.y = 0;
+			actor.get(NeedsComponent).state = { hunger: 30, energy: 90, social: 70, thirst: 80 };
+			actor.behaviorAgent = { recordPriceObservation: () => {} } as unknown as AgentActor['behaviorAgent'];
+			const market = makeLocation('loc-market', 'market_stall', 100, 0, null, null, 'market_stall');
+			const marketActor = createLocationActor({
+				stock: [{ item_id: 'food', quantity: 5 }],
+				fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			});
+			const { actions, memory } = setupActions(actor, {
+				getLocations: () => [market],
+				getLocationActors: () => new Map([['loc-market', marketActor]]),
+			});
+			memory.atLocation = 'loc-market';
+
+			const result = actions.BuyAndEat();
+			expect(result).toBe('mistreevous.succeeded');
+			expect(actor.get(NeedsComponent).state.hunger).toBeGreaterThan(30);
+			expect(actor.get(WalletComponent).state.gold).toBeLessThan(50);
+			expect(memory.serviceTarget).toBeNull();
+		});
+
+		it('returns RUNNING while traveling to food source', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			actor.pos.x = 0;
+			actor.pos.y = 0;
+			const market = makeLocation('loc-market', 'market_stall', 100, 0, null, null, 'market_stall');
+			const marketActor = createLocationActor({
+				stock: [{ item_id: 'food', quantity: 5 }],
+				fund: 100, workProgress: 0, status: 'idle', workerId: null,
+			});
+			const { actions, memory } = setupActions(actor, {
+				getLocations: () => [market],
+				getLocationActors: () => new Map([['loc-market', marketActor]]),
+			});
+			const result = actions.BuyAndEat();
+			expect(result).toBe('mistreevous.running');
+			expect(memory.serviceTarget).toBe('loc-market');
+		});
+	});
+
 	describe('ContinueCommitment selective exemption', () => {
 		it('does NOT break buy_and_drink commitment when thirst is critical', () => {
 			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
