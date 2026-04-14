@@ -15,13 +15,13 @@ import { MemoryComponent } from '../components/memory-component.js';
 import type { FacilityState } from '../../domain/core/component-data.js';
 import type { Item } from '../../domain/schemas/item-schema.js';
 
-interface NearestFacility {
+export interface NearestFacility {
 	location: WorldLocation;
 	actor: Actor;
 	itemId: string;
 }
 
-function findNearestFacilityWithItem(
+export function findNearestFacilityWithItem(
 	agent: AgentActor,
 	locationList: WorldLocation[],
 	locationActorMap: Map<string, Actor>,
@@ -207,6 +207,50 @@ function applyBuyerRelationship(agent: AgentActor, facilityState: FacilityState,
 	agentRelComp.markDirty();
 }
 
+export interface PurchaseResult {
+	success: boolean;
+	failReason?: string | null;
+	price?: number;
+}
+
+/**
+ * Execute a purchase: wallet + inventory + stock + fund transfers,
+ * ledger, buyer relationship, purchase memory, price observation.
+ * Called by both TradeSystem's buy loop AND composite BT actions
+ * (BuyAndDrink / BuyAndEat) that need to transact inline.
+ */
+export function executePurchase(
+	agent: AgentActor,
+	target: NearestFacility,
+	economy: EconomyComponent,
+	deps: GameCoreDeps,
+	itemDef: Item | undefined,
+	configFallbackPrice: number,
+): PurchaseResult {
+	const facility = target.actor.get(FacilityComponent);
+	const price = facility.state.currentPrices?.[target.itemId]
+		?? itemDef?.baseValue
+		?? configFallbackPrice;
+
+	const wallet = agent.get(WalletComponent);
+	const result = applyTrade({
+		agentGold: wallet.state.gold,
+		price,
+		facilityFund: facility.state.fund,
+		itemId: target.itemId,
+		quantity: 1,
+	});
+
+	if (!result.success) {
+		// Agent still learns the price on failure
+		agent.behaviorAgent.recordPriceObservation(target.itemId, price, target.location.id, deps.tickCount);
+		return { success: false, failReason: result.failReason, price };
+	}
+
+	applySuccessfulTrade(agent, result, target, price, economy, deps, itemDef);
+	return { success: true, price };
+}
+
 export function createTradeSystem(
 	agents: () => AgentActor[],
 	locations: () => WorldLocation[],
@@ -229,9 +273,6 @@ export function createTradeSystem(
 			for (const agent of agentList) {
 				const btAction = agent.behaviorAgent.btAction;
 				const pendingBuy = agent.behaviorAgent.buyTargetItem;
-				// Accept either an active 'buy' action OR a pending buyTargetItem
-				// that was set by BuyItem but whose btAction was overwritten by
-				// a lower-priority BT branch before TradeSystem ran.
 				if (btAction !== 'buy' && pendingBuy === null) continue;
 
 				const targetItem = pendingBuy ?? 'food';
@@ -248,22 +289,8 @@ export function createTradeSystem(
 					continue;
 				}
 
-				const facility = target.actor.get(FacilityComponent);
 				const item = itemRegistry().get(target.itemId);
-				const foodPrice = facility.state.currentPrices?.[target.itemId]
-					?? item?.baseValue
-					?? deps.config.economy.food_price;
-
-				const wallet = agent.get(WalletComponent);
-				const result = applyTrade({
-					agentGold: wallet.state.gold,
-					price: foodPrice,
-					facilityFund: facility.state.fund,
-					itemId: target.itemId,
-					quantity: 1,
-				});
-
-				// Clear pending buy regardless of outcome
+				const result = executePurchase(agent, target, economy, deps, item, deps.config.economy.food_price);
 				agent.behaviorAgent.buyTargetItem = null;
 
 				if (result.success) {
@@ -272,9 +299,8 @@ export function createTradeSystem(
 						tick: deps.tickCount,
 						wallClock: Date.now(),
 						source: 'TradeSystem',
-						payload: { agentId: agent.agentId, item: targetItem, result: 'purchased', amount: foodPrice, facilityId: target.location.id },
+						payload: { agentId: agent.agentId, item: targetItem, result: 'purchased', amount: result.price, facilityId: target.location.id },
 					});
-					applySuccessfulTrade(agent, result, target, foodPrice, economy, deps, item);
 				} else {
 					deps.eventBus.emit({
 						type: 'TradeAttempted',
@@ -288,19 +314,8 @@ export function createTradeSystem(
 						tick: deps.tickCount,
 						wallClock: Date.now(),
 						source: 'TradeSystem',
-						payload: {
-							agentId: agent.agentId,
-							reason: result.failReason,
-						},
+						payload: { agentId: agent.agentId, reason: result.failReason },
 					});
-
-					// Agent still learns the price even when purchase fails
-					agent.behaviorAgent.recordPriceObservation(
-						target.itemId,
-						foodPrice,
-						target.location.id,
-						deps.tickCount,
-					);
 				}
 			}
 		},
