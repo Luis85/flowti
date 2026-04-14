@@ -173,14 +173,19 @@ export function createActions(
 				});
 			};
 
-			// Break non-recovery commitments when needs are critical.
-			// use_service is exempt: it IS the recovery mechanism — breaking it
-			// on critical needs prevents energy/mood from ever recovering.
-			if (memory.committedAction !== 'use_service') {
+			// Selective exemption for recovery commitments:
+			// - use_service: full exemption (already at facility, visit in progress)
+			// - buy_and_drink: exempt from thirst (it IS resolving thirst),
+			//                  still breaks on critical hunger or energy
+			// - buy_and_eat:   exempt from hunger (it IS resolving hunger),
+			//                  still breaks on critical thirst or energy
+			const ca = memory.committedAction;
+			if (ca !== 'use_service') {
 				const critNeeds = actor.get(NeedsComponent).state;
-				if (critNeeds.hunger < NEED_CRITICAL_THRESHOLDS.hunger ||
-					critNeeds.energy < NEED_CRITICAL_THRESHOLDS.energy ||
-					critNeeds.thirst < NEED_CRITICAL_THRESHOLDS.thirst) {
+				const hungerCritical = ca !== 'buy_and_eat' && critNeeds.hunger < NEED_CRITICAL_THRESHOLDS.hunger;
+				const energyCritical = critNeeds.energy < NEED_CRITICAL_THRESHOLDS.energy;
+				const thirstCritical = ca !== 'buy_and_drink' && critNeeds.thirst < NEED_CRITICAL_THRESHOLDS.thirst;
+				if (hungerCritical || energyCritical || thirstCritical) {
 					breakCommitment('critical_need');
 					return FAILED;
 				}
@@ -192,7 +197,6 @@ export function createActions(
 				return FAILED;
 			}
 			// Break consumption commitments when the need is satisfied — prevents waste
-			const ca = memory.committedAction;
 			const needs = actor.get(NeedsComponent).state;
 			if (ca === 'eat' && needs.hunger >= memory.personalThresholds.hunger) {
 				breakCommitment('need_satisfied');

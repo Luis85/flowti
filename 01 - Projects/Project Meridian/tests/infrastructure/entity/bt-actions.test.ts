@@ -3394,4 +3394,63 @@ describe('bt-actions: createActions', () => {
 			expect(actions.BuyAndDrink()).toBe('mistreevous.failed');
 		});
 	});
+
+	describe('ContinueCommitment selective exemption', () => {
+		it('does NOT break buy_and_drink commitment when thirst is critical', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor);
+			memory.committedAction = 'buy_and_drink';
+			memory.commitmentTicks = 5;
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 80, social: 70, thirst: 10 };
+
+			const result = actions.ContinueCommitment();
+			expect(result).toBe('mistreevous.running');
+			expect(memory.commitmentTicks).toBe(4);
+		});
+
+		it('DOES break buy_and_drink commitment when hunger is critical', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor);
+			memory.committedAction = 'buy_and_drink';
+			memory.commitmentTicks = 5;
+			actor.get(NeedsComponent).state = { hunger: 10, energy: 80, social: 70, thirst: 80 };
+
+			const result = actions.ContinueCommitment();
+			expect(result).toBe('mistreevous.failed');
+			expect(memory.commitmentTicks).toBe(0);
+		});
+
+		it('does NOT break buy_and_eat commitment when hunger is critical', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor);
+			memory.committedAction = 'buy_and_eat';
+			memory.commitmentTicks = 5;
+			actor.get(NeedsComponent).state = { hunger: 10, energy: 80, social: 70, thirst: 80 };
+
+			const result = actions.ContinueCommitment();
+			expect(result).toBe('mistreevous.running');
+		});
+
+		it('DOES break buy_and_eat commitment when thirst is critical', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor);
+			memory.committedAction = 'buy_and_eat';
+			memory.commitmentTicks = 5;
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 80, social: 70, thirst: 10 };
+
+			const result = actions.ContinueCommitment();
+			expect(result).toBe('mistreevous.failed');
+		});
+
+		it('DOES break any composite commitment when energy is critical', () => {
+			const actor = new AgentActor(createTestAgentData('a1'), defaultMoodConfig);
+			const { actions, memory } = setupActions(actor);
+			memory.committedAction = 'buy_and_drink';
+			memory.commitmentTicks = 5;
+			actor.get(NeedsComponent).state = { hunger: 80, energy: 10, social: 70, thirst: 80 };
+
+			const result = actions.ContinueCommitment();
+			expect(result).toBe('mistreevous.failed');
+		});
+	});
 });
