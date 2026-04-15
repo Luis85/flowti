@@ -39,7 +39,7 @@ describe('registerRibbon', () => {
 			onClick,
 		});
 		// addRibbonIcon was called with a handler — extract and invoke it
-		const handler = (plugin.addRibbonIcon as ReturnType<typeof vi.fn>).mock.calls[0]?.[2] as () => void;
+		const handler = plugin.addRibbonIcon.mock.calls[0]?.[2] as () => void;
 		handler();
 		expect(onClick).toHaveBeenCalledTimes(1);
 	});
@@ -53,7 +53,7 @@ describe('registerRibbon', () => {
 			title: 'Open',
 			onClick: asyncOnClick,
 		});
-		const handler = (plugin.addRibbonIcon as ReturnType<typeof vi.fn>).mock.calls[0]?.[2] as () => void;
+		const handler = plugin.addRibbonIcon.mock.calls[0]?.[2] as () => void;
 		expect(() => { handler(); }).not.toThrow();
 	});
 
@@ -68,7 +68,7 @@ describe('registerRibbon', () => {
 		// The fake addRibbonIcon returns { remove: vi.fn() }
 		// Our handle wraps that — calling handle.remove() should call el.remove()
 		handle?.remove();
-		const el = (plugin.addRibbonIcon as ReturnType<typeof vi.fn>).mock.results[0]?.value as { remove: ReturnType<typeof vi.fn> };
+		const el = plugin.addRibbonIcon.mock.results[0]?.value as { remove: ReturnType<typeof vi.fn> };
 		expect(el.remove).toHaveBeenCalledTimes(1);
 	});
 });

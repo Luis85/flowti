@@ -3,7 +3,7 @@
   "name": "Agentonomous",
   "version": "0.0.1",
   "minAppVersion": "1.12.7",
-  "description": "Autonomous agents sandbox — Vue 3 + DDD infrastructure skeleton.",
+  "description": "Run and observe autonomous agents directly in your Obsidian vault.",
   "author": "Luis Mendez",
   "isDesktopOnly": true
 }

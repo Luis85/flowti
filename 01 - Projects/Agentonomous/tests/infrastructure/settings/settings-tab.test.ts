@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { App, Plugin } from 'obsidian';
-import { Setting, _settingsByContainer, _noticeMessages } from 'obsidian';
+import { Setting, _settingsByContainer, _noticeMessages } from '../../__stubs__/obsidian.js';
 import { AgentonomousSettingsTab } from '../../../src/infrastructure/settings/settings-tab.js';
 import { DEFAULT_SETTINGS } from '../../../src/domain/settings/plugin-settings.js';
 import { ok, err } from '../../../src/domain/shared/result.js';
@@ -27,9 +27,9 @@ function makeContainer(): HTMLElement & { createEl: (tag: string, opts?: { text?
 		createEl: (tag: string, opts?: { text?: string }) => HTMLElement;
 		empty: () => void;
 	};
-	el.createEl = (tag, opts) => {
+	el.createEl = (tag: string, opts?: { text?: string }): HTMLElement => {
 		const child = document.createElement(tag);
-		if (opts?.text) child.textContent = opts.text;
+		if (opts?.text !== undefined) child.textContent = opts.text;
 		el.appendChild(child);
 		return child;
 	};
@@ -70,7 +70,8 @@ describe('AgentonomousSettingsTab', () => {
 		const setting = new Setting(container);
 		let received: boolean | undefined;
 		setting.addToggle((toggle) => {
-			toggle.setValue(true).onChange((v) => { received = v; });
+			toggle.setValue(true);
+			toggle.onChange((v) => { received = v; });
 		});
 		expect(setting._toggles).toHaveLength(1);
 		// Callback must not be null — silent-pass guard is gone
@@ -85,7 +86,8 @@ describe('AgentonomousSettingsTab', () => {
 		let received: string | undefined;
 		setting.addDropdown((dropdown) => {
 			dropdown.addOption('home', 'Home');
-			dropdown.setValue('home').onChange((v) => { received = v; });
+			dropdown.setValue('home');
+			dropdown.onChange((v) => { received = v; });
 		});
 		expect(setting._dropdowns).toHaveLength(1);
 		expect(setting._dropdowns[0]._onChange).not.toBeNull();
@@ -127,7 +129,7 @@ describe('AgentonomousSettingsTab', () => {
 		const toggle = toggleSetting?._toggles[0];
 		expect(toggle).toBeDefined();
 
-		await toggle?._trigger(false);
+		toggle?._trigger(false);
 		await new Promise((r) => { setTimeout(r, 0); });
 
 		expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, showRibbonIcon: false });
@@ -147,7 +149,7 @@ describe('AgentonomousSettingsTab', () => {
 		const dropdown = dropdownSetting?._dropdowns[0];
 		expect(dropdown).toBeDefined();
 
-		await dropdown?._trigger('home');
+		dropdown?._trigger('home');
 		await new Promise((r) => { setTimeout(r, 0); });
 
 		expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, defaultView: 'home' });
@@ -164,7 +166,7 @@ describe('AgentonomousSettingsTab', () => {
 		const dropdownSetting = settings[1];
 		const dropdown = dropdownSetting?._dropdowns[0];
 
-		await dropdown?._trigger('bogus');
+		dropdown?._trigger('bogus');
 		await new Promise((r) => { setTimeout(r, 0); });
 
 		// save must not have been called

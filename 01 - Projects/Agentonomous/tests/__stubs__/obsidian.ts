@@ -6,7 +6,7 @@ function augmentEl(el: HTMLElement): HTMLElement & { empty: () => void; createEl
 	augmented.empty = () => { el.innerHTML = ''; };
 	augmented.createEl = (tag: string, opts?: { text?: string }) => {
 		const child = document.createElement(tag);
-		if (opts?.text) child.textContent = opts.text;
+		if (opts?.text !== undefined) child.textContent = opts.text;
 		el.appendChild(child);
 		return child;
 	};

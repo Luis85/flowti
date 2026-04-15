@@ -16,7 +16,7 @@ describe('Home page', () => {
 				{ path: '/about', component: About },
 			],
 		});
-		router.push('/');
+		await router.push('/');
 		await router.isReady();
 
 		const app = useAppStore();
@@ -36,7 +36,7 @@ describe('Home page', () => {
 				{ path: '/about', component: About },
 			],
 		});
-		router.push('/');
+		await router.push('/');
 		await router.isReady();
 		const wrapper = mount(Home, { global: { plugins: [router] } });
 		expect(wrapper.html()).toMatch(/\/about/);

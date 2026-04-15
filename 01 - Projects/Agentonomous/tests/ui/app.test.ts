@@ -1,6 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPinia } from 'pinia';
-import { createMemoryHistory, createRouter } from 'vue-router';
 import { createVueApp } from '../../src/ui/app.js';
 import { PluginContextKey } from '../../src/ui/plugin-context-key.js';
 import { createAppRouter } from '../../src/ui/router/index.js';

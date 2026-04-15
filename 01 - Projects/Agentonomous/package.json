@@ -1,7 +1,7 @@
 {
   "name": "agentonomous",
   "version": "0.0.1",
-  "description": "Autonomous agents sandbox — Vue 3 + DDD infrastructure skeleton for Obsidian.",
+  "description": "Run and observe autonomous agents directly in your Obsidian vault.",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
@@ -15,7 +15,7 @@
     "test:unit": "vitest run --config configs/vitest.config.ts",
     "test:watch": "vitest --config configs/vitest.config.ts",
     "typecheck": "tsc --noEmit --project configs/tsconfig.json",
-    "lint": "eslint src/ --config configs/eslint.config.mjs --no-error-on-unmatched-pattern",
+    "lint": "eslint src/ tests/ stories/ --config configs/eslint.config.mjs --no-error-on-unmatched-pattern",
     "storybook": "storybook dev -p 6006 -c configs/storybook",
     "build-storybook": "storybook build -c configs/storybook",
     "docs": "typedoc --options configs/typedoc.json",
