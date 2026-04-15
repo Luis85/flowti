@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useSettingsStore } from '../../../src/ui/stores/settings-store.js';
 import { DEFAULT_SETTINGS, type PluginSettings } from '../../../src/domain/settings/plugin-settings.js';
@@ -61,5 +61,25 @@ describe('useSettingsStore', () => {
 		expect(port.listenerCount()).toBe(1);
 		store.dispose();
 		expect(port.listenerCount()).toBe(0);
+	});
+
+	it('update() throws when called before hydrate()', async () => {
+		setActivePinia(createPinia());
+		const store = useSettingsStore();
+		await expect(store.update({ showRibbonIcon: false, defaultView: 'home' })).rejects.toThrow(/not hydrated/);
+	});
+
+	it('update() does not mutate state when port.save returns err', async () => {
+		setActivePinia(createPinia());
+		const port: SettingsPort = {
+			load: async () => ok(DEFAULT_SETTINGS),
+			save: vi.fn(async () => ({ kind: 'err' as const, error: 'disk full' })),
+			subscribe: () => () => {},
+		};
+		const store = useSettingsStore();
+		await store.hydrate(port);
+		const before = { ...store.settings };
+		await store.update({ showRibbonIcon: false, defaultView: 'home' });
+		expect(store.settings).toEqual(before);
 	});
 });

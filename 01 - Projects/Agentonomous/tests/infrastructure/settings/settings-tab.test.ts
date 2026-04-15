@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { App, Plugin } from 'obsidian';
-import { Setting } from 'obsidian';
+import { Setting, _settingsByContainer, _noticeMessages } from 'obsidian';
 import { AgentonomousSettingsTab } from '../../../src/infrastructure/settings/settings-tab.js';
 import { DEFAULT_SETTINGS } from '../../../src/domain/settings/plugin-settings.js';
 import { ok, err } from '../../../src/domain/shared/result.js';
@@ -38,6 +38,11 @@ function makeContainer(): HTMLElement & { createEl: (tag: string, opts?: { text?
 }
 
 describe('AgentonomousSettingsTab', () => {
+	beforeEach(() => {
+		// Clear the shared Notice log between tests.
+		_noticeMessages.splice(0);
+	});
+
 	it('constructs without throwing', () => {
 		const tab = makeTab(makePort());
 		expect(tab).toBeDefined();
@@ -106,5 +111,65 @@ describe('AgentonomousSettingsTab', () => {
 		const persist = (tab as unknown as { persist: (s: typeof DEFAULT_SETTINGS) => Promise<void> }).persist;
 		await expect(persist.call(tab, DEFAULT_SETTINGS)).resolves.toBeUndefined();
 		expect(port.save).toHaveBeenCalled();
+	});
+
+	it('display() toggle onChange calls port.save with updated showRibbonIcon', async () => {
+		const port = makePort();
+		const tab = makeTab(port);
+		tab.display();
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		const container = (tab as unknown as { containerEl: HTMLElement }).containerEl;
+		const settings = _settingsByContainer.get(container) ?? [];
+		// First Setting is the toggle row.
+		const toggleSetting = settings[0];
+		expect(toggleSetting).toBeDefined();
+		const toggle = toggleSetting?._toggles[0];
+		expect(toggle).toBeDefined();
+
+		await toggle?._trigger(false);
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, showRibbonIcon: false });
+	});
+
+	it('display() dropdown onChange calls port.save with updated defaultView for valid value', async () => {
+		const port = makePort();
+		const tab = makeTab(port);
+		tab.display();
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		const container = (tab as unknown as { containerEl: HTMLElement }).containerEl;
+		const settings = _settingsByContainer.get(container) ?? [];
+		// Second Setting is the dropdown row.
+		const dropdownSetting = settings[1];
+		expect(dropdownSetting).toBeDefined();
+		const dropdown = dropdownSetting?._dropdowns[0];
+		expect(dropdown).toBeDefined();
+
+		await dropdown?._trigger('home');
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, defaultView: 'home' });
+	});
+
+	it('display() dropdown onChange shows Notice for unknown view value and does not save', async () => {
+		const port = makePort();
+		const tab = makeTab(port);
+		tab.display();
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		const container = (tab as unknown as { containerEl: HTMLElement }).containerEl;
+		const settings = _settingsByContainer.get(container) ?? [];
+		const dropdownSetting = settings[1];
+		const dropdown = dropdownSetting?._dropdowns[0];
+
+		await dropdown?._trigger('bogus');
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		// save must not have been called
+		expect(port.save).not.toHaveBeenCalled();
+		// A Notice must have been shown
+		expect(_noticeMessages.some((m) => m.includes('bogus'))).toBe(true);
 	});
 });

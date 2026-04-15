@@ -27,7 +27,7 @@ describe('Home page', () => {
 		expect(wrapper.text()).toContain('9.9.9');
 	});
 
-	it('contains a router-link to /about', () => {
+	it('contains a router-link to /about', async () => {
 		setActivePinia(createPinia());
 		const router = createRouter({
 			history: createMemoryHistory(),
@@ -36,6 +36,8 @@ describe('Home page', () => {
 				{ path: '/about', component: About },
 			],
 		});
+		router.push('/');
+		await router.isReady();
 		const wrapper = mount(Home, { global: { plugins: [router] } });
 		expect(wrapper.html()).toMatch(/\/about/);
 	});

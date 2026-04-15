@@ -48,8 +48,15 @@ export class PluginSettingTab {
 	}
 }
 
+/**
+ * Per-container registry so tests can reach the Setting instances that
+ * display() creates without needing a module-level global.
+ * WeakMap keyed by containerEl.
+ */
+export const _settingsByContainer = new WeakMap<HTMLElement, Setting[]>();
+
 export class Setting {
-	private el: HTMLElement;
+	private readonly _el: HTMLElement;
 	/** Exposed for tests: all toggle components created by this Setting instance. */
 	_toggles: Array<{
 		_onChange: ((value: boolean) => void) | null;
@@ -67,7 +74,11 @@ export class Setting {
 	}> = [];
 
 	constructor(container: HTMLElement) {
-		this.el = container.createEl?.('div') ?? document.createElement('div');
+		this._el = container.createEl?.('div') ?? document.createElement('div');
+		// Register this instance under the container so tests can look it up.
+		const existing = _settingsByContainer.get(container) ?? [];
+		existing.push(this);
+		_settingsByContainer.set(container, existing);
 	}
 	setName(_name: string): this { return this; }
 	setDesc(_desc: string): this { return this; }
@@ -96,6 +107,11 @@ export class Setting {
 	}
 }
 
+/** Tracks all Notice messages constructed after last reset. */
+export const _noticeMessages: string[] = [];
+
 export class Notice {
-	constructor(_message: string) {}
+	constructor(message: string) {
+		_noticeMessages.push(message);
+	}
 }

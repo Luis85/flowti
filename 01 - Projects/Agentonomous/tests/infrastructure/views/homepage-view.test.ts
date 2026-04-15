@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { HomepageView, VIEW_TYPE_HOMEPAGE } from '../../../src/infrastructure/views/homepage-view.js';
+import type { PluginContext } from '../../../src/plugin.js';
 
 describe('HomepageView constants', () => {
 	it('VIEW_TYPE_HOMEPAGE is the expected string', () => {
@@ -27,6 +28,45 @@ describe('HomepageView', () => {
 		const view = new HomepageView({} as never, {} as never);
 		const unmount = vi.fn();
 		(view as unknown as { mounted: { unmount: () => void } }).mounted = { unmount };
+		await (view as unknown as { onClose: () => Promise<void> }).onClose();
+		expect(unmount).toHaveBeenCalledTimes(1);
+		expect((view as unknown as { mounted: unknown }).mounted).toBeNull();
+	});
+});
+
+describe('HomepageView — onOpen happy path', () => {
+	beforeEach(() => {
+		vi.resetModules();
+		vi.doMock('../../../src/ui/app.js', () => ({
+			createVueApp: vi.fn(() => ({ unmount: vi.fn() })),
+		}));
+	});
+
+	afterEach(() => {
+		vi.doUnmock('../../../src/ui/app.js');
+	});
+
+	it('onOpen() calls createVueApp with ctx and contentEl', async () => {
+		const { HomepageView: HV } = await import('../../../src/infrastructure/views/homepage-view.js');
+		const { createVueApp } = await import('../../../src/ui/app.js');
+		const fakeCtx = {} as unknown as PluginContext;
+		const view = new HV({} as never, fakeCtx);
+		await (view as unknown as { onOpen: () => Promise<void> }).onOpen();
+		expect(createVueApp).toHaveBeenCalledWith(
+			fakeCtx,
+			(view as unknown as { contentEl: HTMLElement }).contentEl,
+		);
+		// mounted ref should be set
+		expect((view as unknown as { mounted: unknown }).mounted).not.toBeNull();
+	});
+
+	it('onOpen() then onClose() calls unmount and clears mounted', async () => {
+		const unmount = vi.fn();
+		const { createVueApp } = await import('../../../src/ui/app.js');
+		(createVueApp as ReturnType<typeof vi.fn>).mockReturnValue({ unmount });
+		const { HomepageView: HV } = await import('../../../src/infrastructure/views/homepage-view.js');
+		const view = new HV({} as never, {} as unknown as PluginContext);
+		await (view as unknown as { onOpen: () => Promise<void> }).onOpen();
 		await (view as unknown as { onClose: () => Promise<void> }).onClose();
 		expect(unmount).toHaveBeenCalledTimes(1);
 		expect((view as unknown as { mounted: unknown }).mounted).toBeNull();
