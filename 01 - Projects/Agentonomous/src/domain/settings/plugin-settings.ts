@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	defaultView: 'home',
 };
 
-const KNOWN_DEFAULT_VIEWS: readonly DefaultViewName[] = ['home'];
+export const KNOWN_DEFAULT_VIEWS: readonly DefaultViewName[] = ['home'];
 
 function isObject(x: unknown): x is Record<string, unknown> {
 	return typeof x === 'object' && x !== null && !Array.isArray(x);

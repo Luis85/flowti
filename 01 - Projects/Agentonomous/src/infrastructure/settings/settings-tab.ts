@@ -1,7 +1,11 @@
-import { type App, type Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { type App, Notice, type Plugin, PluginSettingTab, Setting } from 'obsidian';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
-import { DEFAULT_SETTINGS, type PluginSettings } from '../../domain/settings/plugin-settings.js';
-import { isOk } from '../../domain/shared/result.js';
+import { DEFAULT_SETTINGS, KNOWN_DEFAULT_VIEWS, type DefaultViewName, type PluginSettings } from '../../domain/settings/plugin-settings.js';
+import { isErr, isOk } from '../../domain/shared/result.js';
+
+function isDefaultViewName(x: string): x is DefaultViewName {
+	return KNOWN_DEFAULT_VIEWS.includes(x as DefaultViewName);
+}
 
 export class AgentonomousSettingsTab extends PluginSettingTab {
 	private readonly port: SettingsPort;
@@ -12,10 +16,23 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 		this.port = port;
 	}
 
+	private async persist(next: PluginSettings): Promise<void> {
+		const result = await this.port.save(next);
+		if (isErr(result)) {
+			new Notice(`Agentonomous: failed to save settings — ${result.error}`);
+			return;
+		}
+		this.current = next;
+	}
+
 	display(): void {
 		void (async () => {
 			const loaded = await this.port.load();
-			if (isOk(loaded)) this.current = loaded.value;
+			if (isOk(loaded)) {
+				this.current = loaded.value;
+			} else {
+				new Notice(`Agentonomous: failed to load settings — using defaults`);
+			}
 
 			const { containerEl } = this;
 			containerEl.empty();
@@ -27,8 +44,7 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 					toggle
 						.setValue(this.current.showRibbonIcon)
 						.onChange(async (value) => {
-							this.current = { ...this.current, showRibbonIcon: value };
-							await this.port.save(this.current);
+							await this.persist({ ...this.current, showRibbonIcon: value });
 						});
 				});
 
@@ -36,13 +52,16 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 				.setName('Default view')
 				.setDesc('Which view opens when the plugin launches.')
 				.addDropdown((dropdown) => {
+					for (const view of KNOWN_DEFAULT_VIEWS) {
+						dropdown.addOption(view, view.charAt(0).toUpperCase() + view.slice(1));
+					}
 					dropdown
-						.addOption('home', 'Home')
 						.setValue(this.current.defaultView)
 						.onChange(async (value) => {
-							if (value === 'home') {
-								this.current = { ...this.current, defaultView: 'home' };
-								await this.port.save(this.current);
+							if (isDefaultViewName(value)) {
+								await this.persist({ ...this.current, defaultView: value });
+							} else {
+								new Notice(`Agentonomous: unknown view "${value}"`);
 							}
 						});
 				});
