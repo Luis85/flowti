@@ -131,6 +131,17 @@ export default [
 			...vueRecommendedRules,
 			...sharedTsRules,
 			'no-restricted-properties': noRestrictedDomElements,
+			// Repo convention: tabs, not spaces
+			'vue/html-indent': ['error', 'tab'],
+			// Singleline content formatting — allow inline text in simple elements
+			'vue/singleline-html-element-content-newline': 'off',
+			// Allow single-word page component names (Home, About) in page files
+			'vue/multi-word-component-names': 'off',
+			// Allow multiple attributes per line for concise bindings
+			'vue/max-attributes-per-line': ['warn', { singleline: 3, multiline: 1 }],
+			// eslint-plugin-vue 10.x flat config: comment-directive emits internal "clear"
+			// markers as errors; disable until upstream fix lands
+			'vue/comment-directive': 'off',
 		},
 	},
 	{
