@@ -1,5 +1,6 @@
 import type { ItemView, Plugin, WorkspaceLeaf } from 'obsidian';
 import type { PluginContext } from '../../plugin.js';
+import type { ViewRegistryPort } from '../../domain/views/view-registry-port.js';
 
 export type ViewLocation = 'main' | 'left' | 'right';
 
@@ -11,7 +12,7 @@ export type ViewRegistration = {
 	readonly viewFactory: (leaf: WorkspaceLeaf, ctx: PluginContext) => ItemView;
 };
 
-export class ViewRegistry {
+export class ViewRegistry implements ViewRegistryPort<Plugin, PluginContext> {
 	private readonly entries: readonly ViewRegistration[];
 
 	constructor(entries: readonly ViewRegistration[]) {

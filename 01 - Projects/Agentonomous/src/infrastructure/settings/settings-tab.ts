@@ -1,11 +1,7 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting } from 'obsidian';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
-import { DEFAULT_SETTINGS, KNOWN_DEFAULT_VIEWS, type DefaultViewName, type PluginSettings } from '../../domain/settings/plugin-settings.js';
+import { DEFAULT_SETTINGS, isDefaultViewName, KNOWN_DEFAULT_VIEWS, type PluginSettings } from '../../domain/settings/plugin-settings.js';
 import { isErr, isOk } from '../../domain/shared/result.js';
-
-function isDefaultViewName(x: string): x is DefaultViewName {
-	return KNOWN_DEFAULT_VIEWS.includes(x as DefaultViewName);
-}
 
 export class AgentonomousSettingsTab extends PluginSettingTab {
 	private readonly port: SettingsPort;
