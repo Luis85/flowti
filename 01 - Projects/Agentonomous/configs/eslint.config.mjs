@@ -76,7 +76,7 @@ export default [
 			'obsidianmd': obsidianmd,
 		},
 		rules: {
-			...obsidianmd.configs?.recommended,
+			...(obsidianmd.configs?.recommended?.rules ?? {}),
 			'obsidianmd/ui/sentence-case': ['warn', { brands: ['Agentonomous'] }],
 			...sharedTsRules,
 			'max-lines': ['warn', { max: 350, skipBlankLines: true, skipComments: true }],

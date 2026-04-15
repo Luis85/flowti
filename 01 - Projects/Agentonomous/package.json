@@ -9,6 +9,7 @@
   "scripts": {
     "build": "vite build --config configs/vite.config.ts",
     "build:dev": "vite build --config configs/vite.config.ts --watch",
+    "build:deploy": "node scripts/build-and-deploy.mjs",
     "deploy": "node scripts/deploy-to-test-vault.mjs",
     "test": "npm run lint && npm run typecheck && npm run test:unit",
     "test:unit": "vitest run --config configs/vitest.config.ts",

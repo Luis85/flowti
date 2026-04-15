@@ -14,14 +14,16 @@ Requires Node `>=20.19.0`.
     npm install
     npm run build
 
-`npm run build` emits `dist/main.js`, `dist/manifest.json`, `dist/styles.css` and auto-deploys them to the test vault resolved from `AGENTONOMOUS_TEST_VAULT` (default `C:\Projects\Agentonomous`).
+`npm run build` emits `dist/main.js`, `dist/manifest.json`, `dist/styles.css`. To also copy the output to the test vault (resolved from `AGENTONOMOUS_TEST_VAULT`, default `C:\Projects\Agentonomous`), run `npm run build:deploy` instead.
 
 ## Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `npm run build` | Production build + deploy to test vault |
-| `npm run build:dev` | Watch build + deploy on each change |
+| `npm run build` | Production build (dist only — no deploy) |
+| `npm run build:deploy` | Production build + auto-deploy to test vault (dev convenience) |
+| `npm run build:dev` | Watch build (dist only — no deploy) |
+| `npm run deploy` | Copy existing dist to test vault |
 | `npm test` | Lint + typecheck + Vitest |
 | `npm run test:watch` | Vitest watch mode |
 | `npm run storybook` | Storybook 10 dev server on `:6006` |

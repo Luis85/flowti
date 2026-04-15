@@ -16,7 +16,10 @@ for (const f of files) {
 
 const output = createWriteStream(zipPath);
 const archive = archiver('zip', { zlib: { level: 9 } });
-archive.on('error', (err) => { throw err; });
+archive.on('error', (err) => {
+	console.error('[release]', err);
+	process.exit(1);
+});
 archive.pipe(output);
 for (const f of files) archive.file(resolve(distDir, f), { name: f });
 await archive.finalize();

@@ -33,7 +33,7 @@ export default defineConfig({
 		vue(),
 		concatStyles({ projectRoot }),
 		copyManifest(),
-		runDeploy(),
+		...(process.env['AGENTONOMOUS_DEPLOY'] === '1' ? [runDeploy()] : []),
 	],
 	build: {
 		lib: {
