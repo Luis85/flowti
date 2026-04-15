@@ -1,0 +1,9 @@
+{
+  "id": "agentonomous",
+  "name": "Agentonomous",
+  "version": "0.0.1",
+  "minAppVersion": "1.12.7",
+  "description": "Autonomous agents sandbox — Vue 3 + DDD infrastructure skeleton.",
+  "author": "Luis Mendez",
+  "isDesktopOnly": true
+}
