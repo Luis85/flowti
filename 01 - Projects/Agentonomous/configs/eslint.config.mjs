@@ -1,8 +1,13 @@
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import vueparser from 'vue-eslint-parser';
 import vuePlugin from 'eslint-plugin-vue';
 import obsidianmd from 'eslint-plugin-obsidianmd';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = resolve(__dirname, '..');
 
 const vueRecommendedRules = Object.assign(
 	{},
@@ -63,7 +68,7 @@ export default [
 			parser: tsparser,
 			parserOptions: {
 				project: './configs/tsconfig.lint.json',
-				tsconfigRootDir: new URL('..', import.meta.url).pathname,
+				tsconfigRootDir: projectRoot,
 			},
 		},
 		plugins: {
@@ -91,7 +96,7 @@ export default [
 			parser: tsparser,
 			parserOptions: {
 				project: './configs/tsconfig.lint.json',
-				tsconfigRootDir: new URL('..', import.meta.url).pathname,
+				tsconfigRootDir: projectRoot,
 			},
 		},
 		plugins: { '@typescript-eslint': tseslint },
@@ -112,7 +117,7 @@ export default [
 			parserOptions: {
 				parser: tsparser,
 				project: './configs/tsconfig.lint.json',
-				tsconfigRootDir: new URL('..', import.meta.url).pathname,
+				tsconfigRootDir: projectRoot,
 				extraFileExtensions: ['.vue'],
 				ecmaVersion: 'latest',
 				sourceType: 'module',

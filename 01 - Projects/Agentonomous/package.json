@@ -14,7 +14,7 @@
     "test:unit": "vitest run --config configs/vitest.config.ts",
     "test:watch": "vitest --config configs/vitest.config.ts",
     "typecheck": "tsc --noEmit --project configs/tsconfig.json",
-    "lint": "eslint src/ --config configs/eslint.config.mjs",
+    "lint": "eslint src/ --config configs/eslint.config.mjs --no-error-on-unmatched-pattern",
     "storybook": "storybook dev -p 6006 -c configs/storybook",
     "build-storybook": "storybook build -c configs/storybook",
     "docs": "typedoc --options configs/typedoc.json",
