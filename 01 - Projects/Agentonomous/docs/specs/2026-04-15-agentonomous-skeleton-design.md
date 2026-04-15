@@ -123,8 +123,8 @@ Skeleton ships exactly one registration (`homepage`, `main`). A commented exampl
   - `minAppVersion`: `1.12.7`
   - `description`: "Autonomous agents sandbox — Vue 3 + DDD infrastructure skeleton."
   - `author`: `Luis Mendez`
-  - `authorUrl`: TBD (placeholder `https://github.com/luismendez` pending user input)
   - `isDesktopOnly`: `true`
+  - `authorUrl` is intentionally omitted for `0.0.1`; it is optional in Obsidian's manifest schema and will be added before marketplace submission (a later increment).
 - `versions.json`: `{ "0.0.1": "1.12.7" }`.
 - `README.md` with what/why/install sections.
 - `LICENSE` — MIT.
@@ -156,13 +156,25 @@ Skeleton ships exactly one registration (`homepage`, `main`). A commented exampl
 
 ### 4.2 Configs (all in `configs/`)
 
-- `vite.config.ts` — `@vitejs/plugin-vue`, output to `dist/`, externals `obsidian` + Node built-ins, post-build hook invokes `deploy-to-test-vault.mjs`.
+- `vite.config.ts` — `@vitejs/plugin-vue`, output to `dist/`, externals `obsidian` + Node built-ins, post-build hook invokes `deploy-to-test-vault.mjs`. Includes a small rollup/Vite plugin (`scripts/concat-styles.mjs`) that concatenates `styles/*.css` into `dist/styles.css` during build.
 - `vitest.config.ts` — `jsdom` env, `@vitest/coverage-v8`, thresholds `{ statements: 80, branches: 70, functions: 80, lines: 80 }`.
 - `tsconfig.json` — ES2022, NodeNext, strict, `types: ["vite/client", "vitest/globals"]`.
 - `tsconfig.lint.json` — extends `tsconfig.json` and includes `tests/` for type-aware linting.
-- `eslint.config.mjs` — ported from Meridian, plus `eslint-plugin-vue` for SFCs.
+- `eslint.config.mjs` — ported from Meridian, using ESLint flat config, plus `eslint-plugin-vue` for SFCs (see §4.2.1 for the required parser configuration).
 - `typedoc.json` — entry points `src/domain/**/*.ts` and `src/infrastructure/**/*.ts` (Vue SFCs excluded).
 - `storybook/main.ts` — `@storybook/vue3-vite`, addons: `a11y`, `interactions`, `essentials`.
+
+### 4.2.1 ESLint flat config — Vue SFC parser block
+
+`eslint-plugin-vue` requires `vue-eslint-parser` for `.vue` files, with `@typescript-eslint/parser` nested inside `parserOptions.parser`. The flat config therefore has **three** file-scope blocks:
+
+1. **`files: ['src/**/*.ts']`** — parser `@typescript-eslint/parser`, project `tsconfig.lint.json`, all Meridian rules (`sharedTsRules`, `no-restricted-imports` allowlists, `no-restricted-syntax` bans, `no-restricted-properties`).
+2. **`files: ['tests/**/*.ts']`** — same parser, relaxed rules mirroring Meridian (no-console off, `no-unsafe-*` off, `no-unnecessary-condition` off).
+3. **`files: ['**/*.vue']`** — parser `vue-eslint-parser`, `parserOptions: { parser: '@typescript-eslint/parser', project: './configs/tsconfig.lint.json', extraFileExtensions: ['.vue'] }`, plugin `vue` with `vue/recommended` rules plus the same `sharedTsRules`. This block is what unblocks Vue SFCs under Meridian's strict TS ruleset.
+
+Meridian's inherited strict rules (`consistent-type-imports`, `strict-boolean-expressions`, `no-unsafe-*`) apply unchanged inside `<script setup>` — all Vue component code uses type-only imports for props/emits interfaces.
+
+The Meridian override `src/infrastructure/**` still turns off `no-restricted-syntax` (allowing try/catch at infrastructure boundaries). The Vue mount call therefore lives inside `infrastructure/views/homepage-view.ts` wrapped in try/catch; `ui/app.ts` stays free of try/catch and only constructs and returns the Vue app object.
 
 ### 4.3 Build → deploy pipeline
 
@@ -188,7 +200,7 @@ Skeleton ships exactly one registration (`homepage`, `main`). A commented exampl
 
 ### 5.2 `configs/`
 
-All seven config files from §4.2.
+All eight config files from §4.2: `vite.config.ts`, `vitest.config.ts`, `tsconfig.json`, `tsconfig.lint.json`, `eslint.config.mjs`, `typedoc.json`, `storybook/main.ts`, `storybook/preview.ts`.
 
 ### 5.3 `scripts/`
 
@@ -214,13 +226,15 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 ### 5.6 `src/domain/`
 
 - `domain/settings/plugin-settings.ts` — `PluginSettings` type, `DEFAULT_SETTINGS`, `validateSettings(raw: unknown): Result<PluginSettings, string>`.
+- `domain/settings/settings-port.ts` — `SettingsPort` interface: `load(): Promise<Result<PluginSettings, string>>`, `save(s: PluginSettings): Promise<Result<void, string>>`, `subscribe(cb: (s: PluginSettings) => void): Unsubscribe`. Implemented by `infrastructure/obsidian/obsidian-settings-adapter.ts`. Consumed by `ui/stores/settings-store.ts` — the store depends only on this port type, satisfying §2.2 rule 2 ("UI reaches domain only through ports/stores").
 - `domain/shared/result.ts` — `Result<T, E>` type + `ok()`, `err()`, `isOk()`, `isErr()` helpers.
+- `domain/shared/unsubscribe.ts` — `type Unsubscribe = () => void` alias used by `SettingsPort.subscribe()` and any future observer APIs.
 
 ### 5.7 `src/infrastructure/`
 
-- `infrastructure/obsidian/obsidian-settings-adapter.ts` — wraps `plugin.loadData()` / `saveData()`, validates via the domain validator, emits typed reads/writes, notifies subscribers.
+- `infrastructure/obsidian/obsidian-settings-adapter.ts` — implements the domain `SettingsPort` interface (see §5.6). Wraps `plugin.loadData()` / `saveData()`, validates via the domain validator, emits typed reads/writes, notifies subscribers.
 - `infrastructure/obsidian/view-registry.ts` — registry pattern + `registerAll(plugin, ctx)` + `openView(plugin, type)`.
-- `infrastructure/views/homepage-view.ts` — extends `ItemView`. `VIEW_TYPE_HOMEPAGE = 'agentonomous-homepage'`. `onOpen()` mounts a Vue app; `onClose()` unmounts.
+- `infrastructure/views/homepage-view.ts` — extends `ItemView`. `VIEW_TYPE_HOMEPAGE = 'agentonomous-homepage'`. `onOpen()` constructs a Vue app via `createVueApp(ctx)` and mounts it inside a try/catch (this is the sanctioned infrastructure boundary for error capture); `onClose()` unmounts.
 - `infrastructure/settings/settings-tab.ts` — extends `PluginSettingTab`. Two controls: `Show ribbon icon` toggle, `Default view` dropdown.
 - `infrastructure/ribbon/ribbon.ts` — helper for conditional ribbon registration.
 
@@ -229,7 +243,7 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 - `ui/app.ts` — `createVueApp(context: PluginContext): { app, mount, unmount }`.
 - `ui/router/index.ts` — `createMemoryHistory()` router with routes `/` → `Home.vue`, `/about` → `About.vue`.
 - `ui/stores/app-store.ts` — `useAppStore()` with `pluginVersion` + `greeting`.
-- `ui/stores/settings-store.ts` — `useSettingsStore()` wrapping the settings adapter.
+- `ui/stores/settings-store.ts` — `useSettingsStore()` depending only on the domain `SettingsPort` (injected via Vue's `provide/inject`, bound at `createVueApp()` time to the `ObsidianSettingsAdapter` instance). Never imports from `infrastructure/**` directly.
 - `ui/pages/Home.vue` — renders `<HelloCard>` + version, router link to `/about`.
 - `ui/pages/About.vue` — plugin name/version/minAppVersion + router link to `/`.
 - `ui/components/HelloCard.vue` — presentational component, `title` + `message` props.
@@ -255,7 +269,11 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 
 ### 5.12 devDependencies (locked in)
 
-`vue`, `vue-router`, `pinia`, `vite`, `@vitejs/plugin-vue`, `vitest`, `@vitest/coverage-v8`, `@vue/test-utils`, `jsdom`, `typescript`, `typedoc`, `eslint`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `eslint-plugin-obsidianmd`, `eslint-plugin-vue`, `obsidian`, `storybook`, `@storybook/vue3-vite`, `@storybook/addon-a11y`, `@storybook/addon-interactions`, `@storybook/addon-essentials`.
+`vue`, `vue-router`, `pinia`, `vite`, `@vitejs/plugin-vue`, `vitest`, `@vitest/coverage-v8`, `@vue/test-utils`, `jsdom`, `typescript`, `typedoc`, `eslint`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `eslint-plugin-obsidianmd`, `eslint-plugin-vue`, `vue-eslint-parser`, `obsidian`, `storybook`, `@storybook/vue3-vite`, `@storybook/addon-a11y`, `@storybook/addon-interactions`, `@storybook/addon-essentials`.
+
+### 5.13 Node engines
+
+`package.json` declares `"engines": { "node": ">=18" }` — required by Storybook 8, Vite 5+, and Vitest 1+.
 
 ## 6. Acceptance Criteria
 
@@ -272,9 +290,10 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 
 7. `npm test` is green: ESLint clean (incl. `eslint-plugin-obsidianmd`), `tsc --noEmit` zero errors, Vitest passes with coverage ≥ thresholds.
 8. `npm run storybook` starts Storybook on `:6006` and renders `HelloCard` stories with a11y + interactions panels active.
-9. `npm run docs` generates TypeDoc output into `docs/api/` without warnings about missing documentation on exported symbols.
-10. `npm run build` produces `dist/main.js`, `dist/manifest.json`, `dist/styles.css`, and auto-deploys them into `%AGENTONOMOUS_TEST_VAULT%\.obsidian\plugins\agentonomous\` (default `C:\Projects\Agentonomous`).
+9. `npm run docs` generates TypeDoc output into `docs/api/` with zero errors. (TypeDoc "missing documentation" warnings are not a gate for this increment; JSDoc coverage is a later polish item.)
+10. `npm run build` produces `dist/main.js`, `dist/manifest.json`, `dist/styles.css`, and auto-deploys them into the folder resolved from the `AGENTONOMOUS_TEST_VAULT` environment variable (default `C:\Projects\Agentonomous`), target path `<vault>/.obsidian/plugins/agentonomous/`.
 11. `npm run release` produces `dist/agentonomous-0.0.1.zip` containing exactly the three required files.
+12. `npm run deploy` is idempotent — running it twice in a row with the same `dist/` contents leaves the test vault folder in the identical state (overwrites, does not error).
 
 ### 6.3 Architectural invariants (ESLint-enforced)
 
@@ -287,11 +306,10 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 
 ## 7. Risks & Open Items
 
-- **`authorUrl`** — currently a placeholder (`https://github.com/luismendez`). User should confirm the correct URL before marketplace submission (a later increment).
 - **Hot-reload plugin dependency** — iteration speed during development assumes the user has Obsidian's `hot-reload` plugin installed in the test vault. Not a blocker — manual reload also works.
 - **TypeDoc on Vue SFCs** — TypeDoc has limited SFC support; design chooses to skip SFCs entirely in API docs. If we later want component API docs, add `vue-docgen` or Storybook autodocs.
 - **Storybook bundle weight** — Storybook adds ~200MB of devDeps; acceptable for a richly-UI-oriented plugin.
-- **`eslint-plugin-vue` + flat config** — check current compatibility; fall back to `.eslintrc`-style config for the Vue layer only if flat-config support is incomplete at implementation time.
+- **Manifest `authorUrl`** — omitted for `0.0.1`. Must be populated before marketplace submission (out of scope for this increment).
 
 ## 8. Next Step
 
