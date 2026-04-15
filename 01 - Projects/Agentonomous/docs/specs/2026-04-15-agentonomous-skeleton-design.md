@@ -188,7 +188,8 @@ Skeleton ships exactly one registration (`homepage`, `main`). A commented exampl
 - `tsconfig.lint.json` — extends `tsconfig.json` and includes `tests/` for type-aware linting.
 - `eslint.config.mjs` — ported from Meridian, using ESLint flat config, plus `eslint-plugin-vue` for SFCs (see §4.2.1 for the required parser configuration).
 - `typedoc.json` — entry points `src/domain/**/*.ts` and `src/infrastructure/**/*.ts` (Vue SFCs excluded).
-- `storybook/main.ts` — `@storybook/vue3-vite`, addons: `a11y`, `interactions`, `essentials`.
+- `storybook/main.ts` — Storybook 10.3 with `@storybook/vue3-vite`; ESM-only config (Storybook 10 requires this); addons: `@storybook/addon-a11y`, `@storybook/addon-vitest`. No `addon-essentials` (removed/decomposed in 10), no `addon-interactions` (its responsibilities are taken over by `addon-vitest` for projects using Vite + Vitest — component interaction tests run through Vitest with stories attached via the `.test` story method introduced in 10).
+- `storybook/preview.ts` — uses `setup()` from `@storybook/vue3-vite` to register Vue plugins if needed by stories; decorators + parameters for a11y and Vitest component testing.
 
 ### 4.2.1 ESLint flat config — Vue SFC parser block
 
@@ -280,7 +281,7 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 
 ### 5.10 `stories/`
 
-- `stories/HelloCard.stories.ts` — 2 stories (default + long message), interactions demo.
+- `stories/HelloCard.stories.ts` — 2 visual stories (default + long message) plus one `.test` interaction story demonstrating the Storybook 10 testing API. The `.test` block runs through `@storybook/addon-vitest` when `npm run test:unit` executes.
 
 ### 5.11 `tests/` (mirrors `src/`)
 
@@ -295,11 +296,34 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 
 ### 5.12 devDependencies (locked in)
 
-`vue`, `vue-router`, `pinia`, `vite`, `@vitejs/plugin-vue`, `vitest`, `@vitest/coverage-v8`, `@vue/test-utils`, `jsdom`, `typescript`, `typedoc`, `eslint`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `eslint-plugin-obsidianmd`, `eslint-plugin-vue`, `vue-eslint-parser`, `obsidian`, `storybook`, `@storybook/vue3-vite`, `@storybook/addon-a11y`, `@storybook/addon-interactions`, `@storybook/addon-essentials`.
+Frameworks & libraries:
+- `vue` (^3.x), `vue-router` (^4.x), `pinia` (^2.x)
+- `typescript` (^6.x) — matches Meridian
+- `obsidian` (^1.12.x)
+
+Build & test:
+- `vite` (^7.x — Storybook 10 compatible), `@vitejs/plugin-vue`
+- `vitest` (^4.x — Storybook 10 pairs with Vitest 4), `@vitest/coverage-v8`
+- `@vue/test-utils`, `jsdom`
+
+Storybook 10:
+- `storybook` (^10.3.x)
+- `@storybook/vue3-vite`
+- `@storybook/addon-a11y`
+- `@storybook/addon-vitest` — provides interaction testing via Vitest (replaces `addon-interactions` + `addon-essentials`)
+
+Linting & typing:
+- `eslint` (^10.x)
+- `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `typescript-eslint`
+- `eslint-plugin-obsidianmd`
+- `eslint-plugin-vue`, `vue-eslint-parser`
+
+Docs:
+- `typedoc` (^0.28.x — matches Meridian)
 
 ### 5.13 Node engines
 
-`package.json` declares `"engines": { "node": ">=18" }` — required by Storybook 8, Vite 5+, and Vitest 1+.
+`package.json` declares `"engines": { "node": ">=20.19.0" }` — Storybook 10's floor is Node **20.19+ or 22.12+**. Vite 7 and Vitest 4 are also satisfied by this range.
 
 ## 6. Acceptance Criteria
 
@@ -315,7 +339,7 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 ### 6.2 Quality harness (local CI-equivalent)
 
 7. `npm test` is green: ESLint clean (incl. `eslint-plugin-obsidianmd`), `tsc --noEmit` zero errors, Vitest passes with coverage ≥ thresholds.
-8. `npm run storybook` starts Storybook on `:6006` and renders `HelloCard` stories with a11y + interactions panels active.
+8. `npm run storybook` starts Storybook 10 on `:6006` and renders `HelloCard` stories with the a11y panel active. The `HelloCard.stories.ts` file includes at least one `.test` interaction story; running `npm run test:unit` picks it up via `@storybook/addon-vitest`'s Vitest integration and reports it alongside the rest of the Vitest suite.
 9. `npm run docs` generates TypeDoc output into `docs/api/` with zero errors. (TypeDoc "missing documentation" warnings are not a gate for this increment; JSDoc coverage is a later polish item.)
 10. `npm run build` produces `dist/main.js`, `dist/manifest.json`, `dist/styles.css`, and auto-deploys them into the folder resolved from the `AGENTONOMOUS_TEST_VAULT` environment variable (default `C:\Projects\Agentonomous`), target path `<vault>/.obsidian/plugins/agentonomous/`.
 11. `npm run release` produces `dist/agentonomous-0.0.1.zip` containing exactly the three required files.
@@ -335,7 +359,8 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 
 - **Hot-reload plugin dependency** — iteration speed during development assumes the user has Obsidian's `hot-reload` plugin installed in the test vault. Not a blocker — manual reload also works.
 - **TypeDoc on Vue SFCs** — TypeDoc has limited SFC support; design chooses to skip SFCs entirely in API docs. If we later want component API docs, add `vue-docgen` or Storybook autodocs.
-- **Storybook bundle weight** — Storybook adds ~200MB of devDeps; acceptable for a richly-UI-oriented plugin.
+- **Storybook bundle weight** — Storybook 10 adds ~200MB of devDeps; acceptable for a richly-UI-oriented plugin.
+- **Storybook 10 + Vitest coupling** — `@storybook/addon-vitest` projects stories into the Vitest test tree. The `vitest.config.ts` must not `exclude` `stories/**` or the Storybook-produced tests will be invisible. At implementation time, verify that the addon's Vite plugin is added to `vitest.config.ts` (per `@storybook/addon-vitest` docs) so `.test` stories are discovered alongside `tests/**/*.test.ts`.
 - **Manifest `authorUrl`** — omitted for `0.0.1`. Must be populated before marketplace submission (out of scope for this increment).
 
 ## 8. Next Step
