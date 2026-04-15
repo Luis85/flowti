@@ -56,7 +56,7 @@ src/
 
 ### 2.2 Dependency rules (ESLint-enforced)
 
-1. **Domain is pure.** No import of `obsidian`, `node:*`, `src/infrastructure/**`, or Vue.
+1. **Domain is pure.** No import of `obsidian`, `node:*`, `src/infrastructure/**`, or Vue. This includes no imports of `vue`, `pinia`, `vue-router`, or `@vue/reactivity` — the domain model is plain TypeScript objects with no framework reactivity.
 2. **UI never reaches into domain internals.** Stores are the only channel; stores call domain use-cases through ports.
 3. **`obsidian` imports are on an allowlist.** Permitted files:
    - `src/main.ts`
@@ -67,6 +67,32 @@ src/
 4. **No `try`/`catch` outside `src/infrastructure/**`.** Domain uses a `Result<T,E>` type.
 5. **No `innerHTML` / `outerHTML` / `insertAdjacentHTML`** anywhere — DOM API only.
 6. **No `any`, no `@ts-ignore`, no `TODO` / `FIXME`** in committed code.
+7. **Vue SFCs are presentation-only.** No `fetch`, no direct domain imports, no business logic in `<script setup>`. Allowed: props in, events out, rendering, local-UI-only `ref`/`computed` (e.g. open/closed toggle state). Everything else comes from a store via `useXxxStore()` or is passed through props.
+
+### 2.2.1 Data-model separation (Vue is the view layer, not the model layer)
+
+Vue is strictly responsible for **presentation**. The data model is owned by the domain layer and never leaks Vue reactivity.
+
+**Layer ownership of the data model:**
+
+| Layer | Owns | Examples in skeleton | Framework dependencies |
+|-------|------|----------------------|------------------------|
+| `domain/` | Types, aggregates, value objects, use-cases, ports (interfaces) | `PluginSettings`, `Result<T,E>`, `SettingsPort`, `validateSettings()` | None (plain TS) |
+| `infrastructure/` | Port implementations: persistence, Obsidian adapters, platform I/O | `ObsidianSettingsAdapter implements SettingsPort` | `obsidian`, `node:*` |
+| `ui/stores/` | Reactive view state derived from domain, orchestration of use-case calls | `useAppStore`, `useSettingsStore` | `pinia`, `vue` (reactivity only) |
+| `ui/pages/` + `ui/components/` | Rendering and user interaction | `Home.vue`, `About.vue`, `HelloCard.vue` | `vue`, `vue-router` |
+
+**Rules that follow from this:**
+
+- **Domain types flow outward unchanged.** `PluginSettings` is declared in `domain/settings/plugin-settings.ts` as a plain TS type. Infrastructure reads/writes it, stores hold it, components receive it through props or destructured store getters. No DTO duplication, no Vue-reactive variant of the same type.
+- **Stores are the translation boundary.** A store wraps a plain-TS value from the domain in `ref()` / `reactive()` so Vue can observe changes. The store's `state` shape mirrors the domain type 1:1 for the skeleton; when richer UI needs arise later, stores may derive view-specific `computed` values, but the canonical shape remains the domain type.
+- **Stores call the domain via ports only.** `useSettingsStore()` receives a `SettingsPort` (not the concrete adapter) via Vue's `inject()`. Stores never import from `src/infrastructure/**`.
+- **Components receive data, not services.** Components get domain values through props (or `storeToRefs` on a store). Components never call a port, never import a store from a sibling tree, and never import from `src/domain/**` directly — they consume the store's exposed state and actions.
+- **No business logic in SFCs.** Validation, orchestration, and state transitions live in domain use-cases or store actions. An SFC's `<script setup>` may hold only presentation-local state (a collapsed/expanded flag, a filter string bound to an input) — anything that would outlive the component's lifetime belongs in a store or the domain.
+- **Events flow up, data flows down.** A component emits a typed event (`@save="onSave"`) and the parent page or a store action handles it. No `v-model` binding pointed at a domain type field mutating it in place; the store owns writes.
+- **No Vue types in domain tests.** Domain unit tests import only from `src/domain/**`. Store tests are the first place Vue appears, using `createTestingPinia()` and `@vue/test-utils` for hydration.
+
+This discipline keeps the domain testable without Vue, keeps stores swappable (a future CLI or headless test harness can drive the same domain without touching Pinia), and ensures no business rule ever migrates into an SFC.
 
 ### 2.3 Homepage view data flow
 
@@ -297,12 +323,13 @@ Defines `PluginContext` type and `createPluginContext(plugin)` factory.
 
 ### 6.3 Architectural invariants (ESLint-enforced)
 
-12. No file under `src/domain/**` imports from `obsidian`, `node:*`, or `src/infrastructure/**`.
-13. No file under `src/ui/**` imports `src/domain/**` internals directly — stores mediate.
+12. No file under `src/domain/**` imports from `obsidian`, `node:*`, `src/infrastructure/**`, `vue`, `pinia`, `vue-router`, or `@vue/reactivity`.
+13. No file under `src/ui/**` imports `src/domain/**` internals directly — stores mediate. Components do not import from `src/ui/stores/**` of sibling features unless the component is a page composed of those stores.
 14. `obsidian` imports appear only in the §2.2 allowlist.
 15. No `innerHTML` / `outerHTML` / `insertAdjacentHTML` anywhere.
 16. No `try`/`catch` outside `src/infrastructure/**`.
 17. No `any`, no `@ts-ignore`, no `TODO` / `FIXME` comments in committed code.
+18. No file under `src/ui/components/**` or `src/ui/pages/**` imports from `src/infrastructure/**`. Components consume stores; stores consume ports.
 
 ## 7. Risks & Open Items
 
