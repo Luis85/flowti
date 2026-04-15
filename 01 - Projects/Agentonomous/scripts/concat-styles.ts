@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { Plugin } from 'vite';
 
-export function concatStyles({ projectRoot }) {
+export function concatStyles({ projectRoot }: { projectRoot: string }): Plugin {
 	return {
 		name: 'agentonomous-concat-styles',
 		closeBundle() {

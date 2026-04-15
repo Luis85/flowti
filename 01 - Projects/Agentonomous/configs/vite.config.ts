@@ -4,7 +4,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copyFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { concatStyles } from '../scripts/concat-styles.mjs';
+import { concatStyles } from '../scripts/concat-styles.ts';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 

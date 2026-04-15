@@ -44,6 +44,7 @@ export default defineConfig({
 					name: 'storybook',
 					environment: 'jsdom',
 					globals: true,
+					include: ['stories/**/*.stories.@(ts|tsx)'],
 					setupFiles: [],
 				},
 			}),
