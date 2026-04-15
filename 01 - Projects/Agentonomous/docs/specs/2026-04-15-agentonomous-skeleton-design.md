@@ -302,7 +302,7 @@ Frameworks & libraries:
 - `obsidian` (^1.12.x)
 
 Build & test:
-- `vite` (^7.x — Storybook 10 compatible), `@vitejs/plugin-vue`
+- `vite` (^8.x — Storybook 10 compatible), `@vitejs/plugin-vue`
 - `vitest` (^4.x — Storybook 10 pairs with Vitest 4), `@vitest/coverage-v8`
 - `@vue/test-utils`, `jsdom`
 
@@ -323,7 +323,7 @@ Docs:
 
 ### 5.13 Node engines
 
-`package.json` declares `"engines": { "node": ">=20.19.0" }` — Storybook 10's floor is Node **20.19+ or 22.12+**. Vite 7 and Vitest 4 are also satisfied by this range.
+`package.json` declares `"engines": { "node": ">=20.19.0" }` — Storybook 10's floor is Node **20.19+ or 22.12+**. Vite 8 and Vitest 4 are also satisfied by this range.
 
 ## 6. Acceptance Criteria
 

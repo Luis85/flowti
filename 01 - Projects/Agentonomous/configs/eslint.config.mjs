@@ -180,7 +180,7 @@ export default [
 		},
 	},
 	{
-		files: ['src/**/*.ts'],
+		files: ['src/**/*.ts', 'src/**/*.vue'],
 		ignores: [
 			'src/main.ts',
 			'src/plugin.ts',
