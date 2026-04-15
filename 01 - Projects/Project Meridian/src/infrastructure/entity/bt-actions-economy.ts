@@ -88,11 +88,19 @@ export function createEconomyActions(ctx: ActionContext): Pick<ActionMethods, 'S
 		},
 
 		BuyItem(itemId: string): ActionResult {
-			if (memory.atLocation === null) return FAILED;
-			const atFacility = resolveNearbyFacilities().find(f =>
+			if (memory.atLocation === null) {
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'BuyItem', payload: { agentId: actor.agentId, reason: 'atLocation is null', itemId } });
+				return FAILED;
+			}
+			const facilities = resolveNearbyFacilities();
+			const atFacility = facilities.find(f =>
 				f.id === memory.atLocation && f.stock.some(s => s.item_id === itemId && s.quantity > 0),
 			);
-			if (atFacility === undefined) return FAILED;
+			if (atFacility === undefined) {
+				const matchById = facilities.find(f => f.id === memory.atLocation);
+				deps.eventBus.emit({ type: 'DebugNote', tick: deps.tickCount(), wallClock: Date.now(), source: 'BuyItem', payload: { agentId: actor.agentId, reason: 'facility not found or no stock', itemId, atLocation: memory.atLocation, facilityCount: facilities.length, facilityIds: facilities.map(f => f.id).slice(0, 5), matchedFacility: matchById !== undefined, matchedStock: matchById?.stock.map(s => ({ id: s.item_id, qty: s.quantity })) ?? null } });
+				return FAILED;
+			}
 			beginAction(ctx, 'buy');
 			memory.buyTargetItem = itemId;
 			return SUCCEEDED;
