@@ -341,7 +341,7 @@ Docs:
 7. `npm test` is green: ESLint clean (incl. `eslint-plugin-obsidianmd`), `tsc --noEmit` zero errors, Vitest passes with coverage ≥ thresholds.
 8. `npm run storybook` starts Storybook 10 on `:6006` and renders `HelloCard` stories with the a11y panel active. The `HelloCard.stories.ts` file includes at least one `.test` interaction story; running `npm run test:unit` picks it up via `@storybook/addon-vitest`'s Vitest integration and reports it alongside the rest of the Vitest suite.
 9. `npm run docs` generates TypeDoc output into `docs/api/` with zero errors. (TypeDoc "missing documentation" warnings are not a gate for this increment; JSDoc coverage is a later polish item.)
-10. `npm run build` produces `dist/main.js`, `dist/manifest.json`, `dist/styles.css`, and auto-deploys them into the folder resolved from the `AGENTONOMOUS_TEST_VAULT` environment variable (default `C:\Projects\Agentonomous`), target path `<vault>/.obsidian/plugins/agentonomous/`.
+10. `npm run build` produces `dist/main.js`, `dist/manifest.json`, `dist/styles.css`. `npm run build:deploy` additionally copies them into the folder resolved from the `AGENTONOMOUS_TEST_VAULT` environment variable (default `C:\Projects\Agentonomous`), target path `<vault>/.obsidian/plugins/agentonomous/`. `npm run build` alone is CI-safe and does not touch any vault.
 11. `npm run release` produces `dist/agentonomous-0.0.1.zip` containing exactly the three required files.
 12. `npm run deploy` is idempotent — running it twice in a row with the same `dist/` contents leaves the test vault folder in the identical state (overwrites, does not error).
 
