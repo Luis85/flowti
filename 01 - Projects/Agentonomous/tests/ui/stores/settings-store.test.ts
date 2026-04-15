@@ -5,13 +5,14 @@ import { DEFAULT_SETTINGS, type PluginSettings } from '../../../src/domain/setti
 import type { SettingsPort } from '../../../src/domain/settings/settings-port.js';
 import { ok } from '../../../src/domain/shared/result.js';
 
-function makeFakePort(initial: PluginSettings = DEFAULT_SETTINGS): SettingsPort {
+function makeFakePort(initial: PluginSettings = DEFAULT_SETTINGS): SettingsPort & { listenerCount: () => number } {
 	let current = initial;
 	const listeners = new Set<(s: PluginSettings) => void>();
 	return {
 		load: async () => ok(current),
 		save: async (s) => { current = s; for (const l of listeners) l(s); return ok(undefined); },
 		subscribe: (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
+		listenerCount: () => listeners.size,
 	};
 }
 
@@ -40,5 +41,25 @@ describe('useSettingsStore', () => {
 		await store.hydrate(port);
 		await port.save({ showRibbonIcon: false, defaultView: 'home' });
 		expect(store.settings.showRibbonIcon).toBe(false);
+	});
+
+	it('hydrate() called twice unsubscribes the first listener', async () => {
+		setActivePinia(createPinia());
+		const port = makeFakePort();
+		const store = useSettingsStore();
+		await store.hydrate(port);
+		expect(port.listenerCount()).toBe(1);
+		await store.hydrate(port);
+		expect(port.listenerCount()).toBe(1);
+	});
+
+	it('dispose() removes the port subscription', async () => {
+		setActivePinia(createPinia());
+		const port = makeFakePort();
+		const store = useSettingsStore();
+		await store.hydrate(port);
+		expect(port.listenerCount()).toBe(1);
+		store.dispose();
+		expect(port.listenerCount()).toBe(0);
 	});
 });
