@@ -62,18 +62,10 @@ mkdir -p src/domain/settings src/domain/shared \
          tests/ui/stores tests/ui/components tests/ui/pages
 ```
 
-- [ ] **Step 2: Add `.gitkeep` files so empty dirs get committed**
-
-Every empty leaf directory listed above gets a zero-byte `.gitkeep` file. These are deleted in later chunks as real files land.
-
-```bash
-find src tests configs scripts styles stories -type d -empty -exec touch {}/.gitkeep \;
-```
-
-- [ ] **Step 3: Verify the tree**
+- [ ] **Step 2: Verify the tree**
 
 Run: `find src tests configs scripts styles stories -type d | sort`
-Expected: all 21 directories from the list above appear.
+Expected: all 21 directories from the list above appear. (Git tracks files, not directories, so empty directories are not committed — they will be committed as their first real file is added in later chunks. Do not add `.gitkeep` files.)
 
 ### Task 1.2: Write `package.json`
 
@@ -109,6 +101,7 @@ Expected: all 21 directories from the list above appear.
   "devDependencies": {
     "@storybook/addon-a11y": "^10.3.0",
     "@storybook/addon-vitest": "^10.3.0",
+    "@storybook/test": "^10.3.0",
     "@storybook/vue3-vite": "^10.3.0",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
@@ -439,6 +432,12 @@ import vueparser from 'vue-eslint-parser';
 import vuePlugin from 'eslint-plugin-vue';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 
+/** Merge all Vue flat/recommended config entries' rules into one object. */
+const vueRecommendedRules = Object.assign(
+	{},
+	...(vuePlugin.configs['flat/recommended'] ?? []).map((c) => c.rules ?? {}),
+);
+
 const sharedTsRules = {
 	'@typescript-eslint/no-explicit-any': 'error',
 	'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
@@ -553,7 +552,7 @@ export default [
 			'@typescript-eslint': tseslint,
 		},
 		rules: {
-			...vuePlugin.configs['flat/recommended']?.[0]?.rules,
+			...vueRecommendedRules,
 			...sharedTsRules,
 			'no-restricted-properties': noRestrictedDomElements,
 		},
@@ -587,7 +586,7 @@ export default [
 				'error',
 				{
 					patterns: [
-						{ group: ['**/infrastructure/**'], message: 'UI must not import infrastructure — use stores + ports (invariant 18)' },
+						{ group: ['../infrastructure/*', '../../infrastructure/*', '../../../infrastructure/*'], message: 'UI must not import infrastructure — use stores + ports (invariant 18)' },
 					],
 				},
 			],
@@ -629,23 +628,29 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 - Create: `01 - Projects/Agentonomous/configs/vitest.config.ts`
 - Create: `01 - Projects/Agentonomous/tests/placeholder.test.ts`
 
-- [ ] **Step 1: Create the Vitest config**
+- [ ] **Step 1: Create the Vitest config with Storybook 10 + Vue plugins**
+
+`@storybook/addon-vitest` ships a Vite plugin (`storybookTest`) that projects stories with `play` functions into the Vitest tree. Without it, `vitest run` will not execute Storybook interaction stories. With it, no `include` glob for `stories/**/*.stories.ts` is needed — the plugin handles story discovery via the Storybook config.
 
 ```ts
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
+import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export default defineConfig({
-	plugins: [vue()],
+	plugins: [
+		vue(),
+		storybookTest({ configDir: resolve(projectRoot, 'configs/storybook') }),
+	],
 	test: {
 		environment: 'jsdom',
 		root: projectRoot,
 		globals: true,
-		include: ['tests/**/*.test.ts', 'stories/**/*.stories.ts'],
+		include: ['tests/**/*.test.ts'],
 		coverage: {
 			provider: 'v8',
 			include: ['src/**/*.ts', 'src/**/*.vue'],
@@ -660,6 +665,8 @@ export default defineConfig({
 	},
 });
 ```
+
+If `@storybook/addon-vitest/vitest-plugin` cannot be imported at this step (the Storybook configs live in Chunk 2 Task 2.10 but Storybook itself is installed in Chunk 1), that is expected — `npm install` completed in Task 1.2, so the package is on disk. Only story discovery fails until the Storybook config exists in Task 2.10; plain Vitest tests run fine.
 
 - [ ] **Step 2: Add a placeholder test**
 
@@ -920,6 +927,7 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 import type { StorybookConfig } from '@storybook/vue3-vite';
 
 const config: StorybookConfig = {
+	// Relative to this file (configs/storybook/main.ts) → project root → stories/
 	stories: ['../../stories/**/*.stories.@(ts|mdx)'],
 	addons: [
 		'@storybook/addon-a11y',
@@ -1104,7 +1112,6 @@ Expected: `3 passed`.
 ```bash
 cd "C:/Projects/flowti"
 git add "01 - Projects/Agentonomous/src/domain/shared/result.ts" "01 - Projects/Agentonomous/tests/domain/shared/result.test.ts"
-git rm --cached "01 - Projects/Agentonomous/src/domain/shared/.gitkeep" 2>/dev/null || true
 git commit -m "feat(agentonomous): add Result<T,E> type for domain error handling
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -1309,21 +1316,7 @@ npm test
 
 Expected: lint green, typecheck green, all domain tests pass, placeholder passes. Exit code `0`.
 
-- [ ] **Step 2: Clean up `.gitkeep` files no longer needed**
-
-```bash
-cd "01 - Projects/Agentonomous"
-git rm "src/domain/shared/.gitkeep" "src/domain/settings/.gitkeep" 2>/dev/null || true
-```
-
-If nothing was staged, no commit needed. Otherwise:
-
-```bash
-cd "C:/Projects/flowti"
-git commit -m "chore(agentonomous): remove domain .gitkeep placeholders
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
-```
+- [ ] **Step 2: (no .gitkeep cleanup needed — see Task 1.1 Step 2)**
 
 ---
 
@@ -1353,6 +1346,8 @@ export type FakeLeaf = {
 export type FakeWorkspace = {
 	getLeavesOfType: ReturnType<typeof vi.fn>;
 	getLeaf: ReturnType<typeof vi.fn>;
+	getLeftLeaf: ReturnType<typeof vi.fn>;
+	getRightLeaf: ReturnType<typeof vi.fn>;
 	revealLeaf: ReturnType<typeof vi.fn>;
 	detachLeavesOfType: ReturnType<typeof vi.fn>;
 };
@@ -1370,9 +1365,12 @@ export type FakePlugin = {
 
 export function createFakePlugin(initialData: unknown = null): FakePlugin {
 	const state = { data: initialData };
+	const makeLeaf = () => ({ setViewState: vi.fn(async () => undefined), detach: vi.fn() });
 	const workspace: FakeWorkspace = {
 		getLeavesOfType: vi.fn(() => []),
-		getLeaf: vi.fn(() => ({ setViewState: vi.fn(), detach: vi.fn() })),
+		getLeaf: vi.fn(makeLeaf),
+		getLeftLeaf: vi.fn(makeLeaf),
+		getRightLeaf: vi.fn(makeLeaf),
 		revealLeaf: vi.fn(),
 		detachLeavesOfType: vi.fn(),
 	};
@@ -1480,7 +1478,7 @@ Expected: FAIL — adapter module does not exist.
 import type { Plugin } from 'obsidian';
 import { DEFAULT_SETTINGS, validateSettings, type PluginSettings } from '../../domain/settings/plugin-settings.js';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
-import { ok, type Result } from '../../domain/shared/result.js';
+import { err, ok, type Result } from '../../domain/shared/result.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 
 export class ObsidianSettingsAdapter implements SettingsPort {
@@ -1500,7 +1498,7 @@ export class ObsidianSettingsAdapter implements SettingsPort {
 			return validated;
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : String(error);
-			return { kind: 'err', error: `failed to load settings: ${msg}` };
+			return err(`failed to load settings: ${msg}`);
 		}
 	}
 
@@ -1511,7 +1509,7 @@ export class ObsidianSettingsAdapter implements SettingsPort {
 			return ok(undefined);
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : String(error);
-			return { kind: 'err', error: `failed to save settings: ${msg}` };
+			return err(`failed to save settings: ${msg}`);
 		}
 	}
 
@@ -1910,7 +1908,15 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 
 ### Task 4.7: Verify Chunk 4 is green
 
-- [ ] **Step 1: Run full `npm test`**
+- [ ] **Step 1: Run lint explicitly so `eslint-plugin-obsidianmd` violations surface now**
+
+```bash
+npx eslint src/ --config configs/eslint.config.mjs
+```
+
+Expected: `0 errors`. Warnings about sentence-case for UI strings are acceptable if they concern placeholder strings scheduled for Chunk 6 polish.
+
+- [ ] **Step 2: Run full `npm test`**
 
 ```bash
 npm test
@@ -2531,7 +2537,9 @@ export default class AgentonomousPlugin extends Plugin {
 			onClick: () => registry.openView(this, VIEW_TYPE_HOMEPAGE),
 		});
 
-		settings.subscribe((s) => {
+		// Route the settings listener through Obsidian's register() so it is
+		// torn down automatically on plugin unload (spec §3.2).
+		this.register(settings.subscribe((s) => {
 			this.ribbon?.remove();
 			this.ribbon = registerRibbon(this, {
 				visible: s.showRibbonIcon,
@@ -2539,7 +2547,7 @@ export default class AgentonomousPlugin extends Plugin {
 				title: 'Open Agentonomous',
 				onClick: () => registry.openView(this, VIEW_TYPE_HOMEPAGE),
 			});
-		});
+		}));
 
 		this.addCommand({
 			id: 'open-homepage',
@@ -2673,13 +2681,7 @@ export const RendersTitleAndMessage: Story = {
 
 Note: The Storybook 10 `.test` syntax is available via the `play` function + `@storybook/test` integration. `@storybook/addon-vitest` picks up any story with a `play` function and runs it as a Vitest test.
 
-- [ ] **Step 2: Install `@storybook/test` if not already present**
-
-```bash
-npm install --save-dev @storybook/test@^10.3.0
-```
-
-- [ ] **Step 3: Run Storybook build to validate the story compiles**
+- [ ] **Step 2: Run Storybook build to validate the story compiles**
 
 ```bash
 npm run build-storybook
@@ -2687,11 +2689,19 @@ npm run build-storybook
 
 Expected: `storybook-static/` folder produced, no errors.
 
+- [ ] **Step 3: Run unit tests — verify the `play` story executes via `@storybook/addon-vitest`**
+
+```bash
+npm run test:unit
+```
+
+Expected: all existing tests pass, plus a new test entry for `Components/HelloCard/RendersTitleAndMessage` contributed by the Storybook Vitest plugin.
+
 - [ ] **Step 4: Commit**
 
 ```bash
 cd "C:/Projects/flowti"
-git add "01 - Projects/Agentonomous/stories/" "01 - Projects/Agentonomous/package.json" "01 - Projects/Agentonomous/package-lock.json"
+git add "01 - Projects/Agentonomous/stories/"
 git commit -m "feat(agentonomous): add HelloCard Storybook story with interaction test
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -2777,18 +2787,17 @@ npm test
 
 Expected: exit code `0`.
 
-- [ ] **Step 4: Final commit + cleanup**
+- [ ] **Step 4: Final verification commit**
+
+If any small drift landed (coverage-plugging tests, style adjustments uncovered by smoke), stage them:
 
 ```bash
 cd "C:/Projects/flowti"
-find "01 - Projects/Agentonomous/src" "01 - Projects/Agentonomous/tests" -name ".gitkeep" -delete
-git add -A "01 - Projects/Agentonomous/"
-git commit -m "chore(agentonomous): final quality gate — remove stale gitkeeps
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
+git add "01 - Projects/Agentonomous/"
+git status --short "01 - Projects/Agentonomous/"
 ```
 
-If nothing staged, skip. Otherwise done.
+If anything is staged, commit with an appropriate scope, e.g. `test(agentonomous): add coverage for settings-store edge cases` or `chore(agentonomous): final quality gate adjustments`. If nothing is staged, skip.
 
 ---
 
