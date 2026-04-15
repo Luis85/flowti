@@ -38,4 +38,32 @@ describe('ViewRegistry', () => {
 		const registry = new ViewRegistry([]);
 		await expect(registry.openView(plugin as unknown as Plugin, 'nope')).rejects.toThrow(/unknown/i);
 	});
+
+	it('openView() uses getLeftLeaf for left location', async () => {
+		const plugin = createFakePlugin();
+		const registry = new ViewRegistry([
+			{ type: 'left-view', displayName: 'Left', icon: 'bot', defaultLocation: 'left', viewFactory: () => ({}) as never },
+		]);
+		await registry.openView(plugin as unknown as Plugin, 'left-view');
+		expect(plugin.app.workspace.getLeftLeaf).toHaveBeenCalled();
+	});
+
+	it('openView() uses getRightLeaf for right location', async () => {
+		const plugin = createFakePlugin();
+		const registry = new ViewRegistry([
+			{ type: 'right-view', displayName: 'Right', icon: 'bot', defaultLocation: 'right', viewFactory: () => ({}) as never },
+		]);
+		await registry.openView(plugin as unknown as Plugin, 'right-view');
+		expect(plugin.app.workspace.getRightLeaf).toHaveBeenCalled();
+	});
+
+	it('openView() falls back to getLeaf when getLeftLeaf returns null', async () => {
+		const plugin = createFakePlugin();
+		plugin.app.workspace.getLeftLeaf = (() => null) as never;
+		const registry = new ViewRegistry([
+			{ type: 'left-view', displayName: 'Left', icon: 'bot', defaultLocation: 'left', viewFactory: () => ({}) as never },
+		]);
+		await registry.openView(plugin as unknown as Plugin, 'left-view');
+		expect(plugin.app.workspace.getLeaf).toHaveBeenCalled();
+	});
 });

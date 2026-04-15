@@ -23,6 +23,11 @@ export default defineConfig({
 		projects: [
 			defineProject({
 				plugins: [vue()],
+				resolve: {
+					alias: {
+						obsidian: resolve(projectRoot, 'tests/__stubs__/obsidian.ts'),
+					},
+				},
 				test: {
 					name: 'unit',
 					environment: 'jsdom',
