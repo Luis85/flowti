@@ -28,8 +28,9 @@ export class HomepageView extends ItemView {
 		}
 	}
 
-	async onClose(): Promise<void> {
+	onClose(): Promise<void> {
 		this.mounted?.unmount();
 		this.mounted = null;
+		return Promise.resolve();
 	}
 }

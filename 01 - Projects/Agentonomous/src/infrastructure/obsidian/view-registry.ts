@@ -30,13 +30,13 @@ export class ViewRegistry {
 
 		const existing = plugin.app.workspace.getLeavesOfType(type);
 		if (existing.length > 0 && existing[0] !== undefined) {
-			plugin.app.workspace.revealLeaf(existing[0]);
+			await plugin.app.workspace.revealLeaf(existing[0]);
 			return;
 		}
 
 		const leaf = this.getLeafForLocation(plugin, entry.defaultLocation);
 		await leaf.setViewState({ type, active: true });
-		plugin.app.workspace.revealLeaf(leaf);
+		await plugin.app.workspace.revealLeaf(leaf);
 	}
 
 	private getLeafForLocation(plugin: Plugin, location: ViewLocation): WorkspaceLeaf {
