@@ -6,7 +6,7 @@
 
 **Architecture:** Mirrors Project Meridian's `Infrastructure → Domain → UI` split, ESLint-enforced. Vue is pure presentation: domain types are plain TypeScript, stores translate them to Vue reactivity via domain ports, components are props-in/events-out. Obsidian imports limited to an allowlist. Build outputs to `dist/`, a post-build script deploys into a dedicated test vault at `C:\Projects\Agentonomous\.obsidian\plugins\agentonomous\`.
 
-**Tech Stack:** TypeScript 6, Vue 3, Vue Router 4, Pinia 2, Vite 7, Vitest 4, `@vue/test-utils`, Storybook 10.3 (`@storybook/vue3-vite` + `@storybook/addon-a11y` + `@storybook/addon-vitest`), TypeDoc 0.28, ESLint 10 (flat config) with `eslint-plugin-obsidianmd`, `eslint-plugin-vue`, `vue-eslint-parser`, Obsidian 1.12.7 API. Node ≥ 20.19.
+**Tech Stack:** TypeScript 6, Vue 3, Vue Router 4, Pinia 2, Vite 8, Vitest 4, `@vue/test-utils`, Storybook 10.3 (`@storybook/vue3-vite` + `@storybook/addon-a11y` + `@storybook/addon-vitest`), TypeDoc 0.28, ESLint 10 (flat config) with `eslint-plugin-obsidianmd`, `eslint-plugin-vue`, `vue-eslint-parser`, Obsidian 1.12.7 API. Node ≥ 20.19.
 
 **Spec:** [`01 - Projects/Agentonomous/docs/specs/2026-04-15-agentonomous-skeleton-design.md`](../specs/2026-04-15-agentonomous-skeleton-design.md)
 
@@ -101,7 +101,6 @@ Expected: all 21 directories from the list above appear. (Git tracks files, not 
   "devDependencies": {
     "@storybook/addon-a11y": "^10.3.0",
     "@storybook/addon-vitest": "^10.3.0",
-    "@storybook/test": "^10.3.0",
     "@storybook/vue3-vite": "^10.3.0",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
@@ -119,7 +118,7 @@ Expected: all 21 directories from the list above appear. (Git tracks files, not 
     "typedoc": "^0.28.18",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.0",
-    "vite": "^7.0.0",
+    "vite": "^8.0.0",
     "vitest": "^4.1.2",
     "vue": "^3.5.0",
     "vue-eslint-parser": "^10.0.0",
@@ -2649,7 +2648,7 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ```ts
 // stories/HelloCard.stories.ts
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
-import { expect } from '@storybook/test';
+import { expect } from 'vitest';
 import HelloCard from '../src/ui/components/HelloCard.vue';
 
 const meta: Meta<typeof HelloCard> = {
