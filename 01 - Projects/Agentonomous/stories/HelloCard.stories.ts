@@ -23,7 +23,7 @@ export const LongMessage: Story = {
 export const RendersTitleAndMessage: Story = {
 	args: { title: 'Interaction test', message: 'Visible to the user.' },
 	play: async ({ canvasElement }) => {
-		await expect(canvasElement.textContent ?? '').toContain('Interaction test');
-		await expect(canvasElement.textContent ?? '').toContain('Visible to the user.');
+		expect(canvasElement.textContent ?? '').toContain('Interaction test');
+		expect(canvasElement.textContent ?? '').toContain('Visible to the user.');
 	},
 };

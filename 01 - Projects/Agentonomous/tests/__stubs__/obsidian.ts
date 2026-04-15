@@ -50,17 +50,48 @@ export class PluginSettingTab {
 
 export class Setting {
 	private el: HTMLElement;
+	/** Exposed for tests: all toggle components created by this Setting instance. */
+	_toggles: Array<{
+		_onChange: ((value: boolean) => void) | null;
+		setValue(v: boolean): this;
+		onChange(fn: (value: boolean) => void): this;
+		_trigger(value: boolean): void;
+	}> = [];
+	/** Exposed for tests: all dropdown components created by this Setting instance. */
+	_dropdowns: Array<{
+		_onChange: ((value: string) => void) | null;
+		addOption(v: string, l: string): this;
+		setValue(v: string): this;
+		onChange(fn: (value: string) => void): this;
+		_trigger(value: string): void;
+	}> = [];
+
 	constructor(container: HTMLElement) {
 		this.el = container.createEl?.('div') ?? document.createElement('div');
 	}
 	setName(_name: string): this { return this; }
 	setDesc(_desc: string): this { return this; }
-	addToggle(cb: (t: { setValue: (v: boolean) => { onChange: (fn: (v: boolean) => void) => void } }) => void): this {
-		cb({ setValue: () => ({ onChange: () => {} }) });
+	addToggle(cb: (t: Setting['_toggles'][number]) => void): this {
+		const toggle: Setting['_toggles'][number] = {
+			_onChange: null,
+			setValue(_v: boolean) { return this; },
+			onChange(fn: (value: boolean) => void) { this._onChange = fn; return this; },
+			_trigger(value: boolean) { this._onChange?.(value); },
+		};
+		cb(toggle);
+		this._toggles.push(toggle);
 		return this;
 	}
-	addDropdown(cb: (d: { addOption: (v: string, l: string) => void; setValue: (v: string) => { onChange: (fn: (v: string) => void) => void } }) => void): this {
-		cb({ addOption: () => {}, setValue: () => ({ onChange: () => {} }) });
+	addDropdown(cb: (d: Setting['_dropdowns'][number]) => void): this {
+		const dropdown: Setting['_dropdowns'][number] = {
+			_onChange: null,
+			addOption(_v: string, _l: string) { return this; },
+			setValue(_v: string) { return this; },
+			onChange(fn: (value: string) => void) { this._onChange = fn; return this; },
+			_trigger(value: string) { this._onChange?.(value); },
+		};
+		cb(dropdown);
+		this._dropdowns.push(dropdown);
 		return this;
 	}
 }

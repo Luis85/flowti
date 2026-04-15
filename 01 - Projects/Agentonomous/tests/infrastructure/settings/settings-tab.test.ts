@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { App, Plugin } from 'obsidian';
+import { Setting } from 'obsidian';
 import { AgentonomousSettingsTab } from '../../../src/infrastructure/settings/settings-tab.js';
 import { DEFAULT_SETTINGS } from '../../../src/domain/settings/plugin-settings.js';
 import { ok, err } from '../../../src/domain/shared/result.js';
@@ -20,6 +21,22 @@ function makeTab(port: SettingsPort): AgentonomousSettingsTab {
 	return new AgentonomousSettingsTab(fakeApp, fakePlugin, port);
 }
 
+/** Create an augmented container element matching the stub's augmentEl shape. */
+function makeContainer(): HTMLElement & { createEl: (tag: string, opts?: { text?: string }) => HTMLElement; empty: () => void } {
+	const el = document.createElement('div') as HTMLElement & {
+		createEl: (tag: string, opts?: { text?: string }) => HTMLElement;
+		empty: () => void;
+	};
+	el.createEl = (tag, opts) => {
+		const child = document.createElement(tag);
+		if (opts?.text) child.textContent = opts.text;
+		el.appendChild(child);
+		return child;
+	};
+	el.empty = () => { el.innerHTML = ''; };
+	return el;
+}
+
 describe('AgentonomousSettingsTab', () => {
 	it('constructs without throwing', () => {
 		const tab = makeTab(makePort());
@@ -29,9 +46,7 @@ describe('AgentonomousSettingsTab', () => {
 	it('display() loads settings and renders without throwing', async () => {
 		const port = makePort();
 		const tab = makeTab(port);
-		// display() fires an async IIFE — calling it should not throw
 		expect(() => { tab.display(); }).not.toThrow();
-		// Wait for the async IIFE to complete
 		await new Promise((r) => { setTimeout(r, 0); });
 		expect(port.load).toHaveBeenCalled();
 	});
@@ -39,65 +54,55 @@ describe('AgentonomousSettingsTab', () => {
 	it('display() shows a Notice when load fails and falls back to defaults', async () => {
 		const port = makePort({ load: vi.fn(async () => err('disk error')) });
 		const tab = makeTab(port);
-		// Should not throw even when load returns err
 		expect(() => { tab.display(); }).not.toThrow();
 		await new Promise((r) => { setTimeout(r, 0); });
 		expect(port.load).toHaveBeenCalled();
 	});
 
-	it('display() calls persist (save) when toggle changes', async () => {
-		let toggleCallback: ((v: boolean) => void) | undefined;
-		const port = makePort({
-			load: vi.fn(async () => ok(DEFAULT_SETTINGS)),
-			save: vi.fn(async () => ok(undefined as void)),
+	it('stub Setting._toggles threads the onChange callback via _trigger', () => {
+		// Verify the stub correctly wires toggle callbacks so downstream tests work.
+		const container = makeContainer();
+		const setting = new Setting(container);
+		let received: boolean | undefined;
+		setting.addToggle((toggle) => {
+			toggle.setValue(true).onChange((v) => { received = v; });
 		});
+		expect(setting._toggles).toHaveLength(1);
+		// Callback must not be null — silent-pass guard is gone
+		expect(setting._toggles[0]._onChange).not.toBeNull();
+		setting._toggles[0]._trigger(false);
+		expect(received).toBe(false);
+	});
 
-		// Intercept Setting to capture the toggle onChange
-		const { Setting: OrigSetting } = await import('obsidian');
-		const SettingSpy = vi.fn().mockImplementation((container: HTMLElement) => {
-			const inst = new OrigSetting(container);
-			const origAddToggle = inst.addToggle.bind(inst);
-			inst.addToggle = (cb: Parameters<typeof inst.addToggle>[0]) => {
-				return origAddToggle((toggle) => {
-					const togInst = toggle.setValue(true);
-					const origOnChange = togInst.onChange.bind(togInst);
-					togInst.onChange = (fn: (v: boolean) => void) => {
-						toggleCallback = fn;
-						return origOnChange(fn);
-					};
-					cb(toggle);
-					return togInst;
-				});
-			};
-			return inst;
+	it('stub Setting._dropdowns threads the onChange callback via _trigger', () => {
+		const container = makeContainer();
+		const setting = new Setting(container);
+		let received: string | undefined;
+		setting.addDropdown((dropdown) => {
+			dropdown.addOption('home', 'Home');
+			dropdown.setValue('home').onChange((v) => { received = v; });
 		});
+		expect(setting._dropdowns).toHaveLength(1);
+		expect(setting._dropdowns[0]._onChange).not.toBeNull();
+		setting._dropdowns[0]._trigger('about');
+		expect(received).toBe('about');
+	});
 
-		// Use vi.doMock after import to override Setting in this test scope
-		vi.doMock('obsidian', async () => {
-			const actual = await import('obsidian');
-			return { ...actual, Setting: SettingSpy };
-		});
-
+	it('persist() calls port.save with updated settings', async () => {
+		const port = makePort();
 		const tab = makeTab(port);
 		tab.display();
 		await new Promise((r) => { setTimeout(r, 0); });
-
-		if (toggleCallback) {
-			await toggleCallback(false);
-			expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, showRibbonIcon: false });
-		}
-
-		vi.doUnmock('obsidian');
+		const persist = (tab as unknown as { persist: (s: typeof DEFAULT_SETTINGS) => Promise<void> }).persist;
+		await persist.call(tab, { ...DEFAULT_SETTINGS, showRibbonIcon: false });
+		expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, showRibbonIcon: false });
 	});
 
 	it('persist() shows Notice when save fails', async () => {
-		const port = makePort({
-			save: vi.fn(async () => err('write failed')),
-		});
+		const port = makePort({ save: vi.fn(async () => err('write failed')) });
 		const tab = makeTab(port);
 		tab.display();
 		await new Promise((r) => { setTimeout(r, 0); });
-		// Trigger save via direct access to the private persist method
 		const persist = (tab as unknown as { persist: (s: typeof DEFAULT_SETTINGS) => Promise<void> }).persist;
 		await expect(persist.call(tab, DEFAULT_SETTINGS)).resolves.toBeUndefined();
 		expect(port.save).toHaveBeenCalled();

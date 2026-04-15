@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { HomepageView, VIEW_TYPE_HOMEPAGE } from '../../../src/infrastructure/views/homepage-view.js';
 
 describe('HomepageView constants', () => {
@@ -31,16 +31,31 @@ describe('HomepageView', () => {
 		expect(unmount).toHaveBeenCalledTimes(1);
 		expect((view as unknown as { mounted: unknown }).mounted).toBeNull();
 	});
+});
 
-	it('onOpen() shows fallback error text when Vue fails to load', async () => {
+describe('HomepageView — error branch', () => {
+	beforeEach(() => {
+		// Reset module registry so the dynamic import inside onOpen() picks up
+		// the mock rather than the already-cached real module.
+		vi.resetModules();
 		vi.doMock('../../../src/ui/app.js', () => ({
 			createVueApp: () => { throw new Error('Vue failed'); },
 		}));
+	});
+
+	afterEach(() => {
+		vi.doUnmock('../../../src/ui/app.js');
+	});
+
+	it('onOpen() renders fallback error text when createVueApp throws', async () => {
+		// Import HomepageView fresh AFTER vi.doMock so the dynamic import
+		// inside onOpen() resolves to the mock.
 		const { HomepageView: HV } = await import('../../../src/infrastructure/views/homepage-view.js');
 		const view = new HV({} as never, {} as never);
 		await (view as unknown as { onOpen: () => Promise<void> }).onOpen();
 		const el = (view as unknown as { contentEl: HTMLElement }).contentEl;
+		// Must show the error message — not a silent empty container
 		expect(el.textContent).toContain('Agentonomous failed to load');
-		vi.doUnmock('../../../src/ui/app.js');
+		expect(el.textContent).toContain('Vue failed');
 	});
 });
