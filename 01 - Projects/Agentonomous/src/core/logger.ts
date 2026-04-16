@@ -1,7 +1,7 @@
 import type { EventBus } from '../domain/shared/event-bus.js';
 import type { LoggerPort, LogLevel } from '../domain/shared/logger-port.js';
 
-const LEVEL_ORDER: Record<LogLevel, number> = { debug: 0, info: 1, error: 2 };
+const LEVEL_ORDER: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
 export class Logger implements LoggerPort {
 	private level: LogLevel;
@@ -22,6 +22,12 @@ export class Logger implements LoggerPort {
 		if (!this.shouldLog('info')) return;
 		console.log(`[agentonomous:${source}]`, message, data);
 		this.bus.emit('log', { level: 'info', source, message, data });
+	}
+
+	warn(source: string, message: string, data?: unknown): void {
+		if (!this.shouldLog('warn')) return;
+		console.warn(`[agentonomous:${source}]`, message, data);
+		this.bus.emit('log', { level: 'warn', source, message, data });
 	}
 
 	error(source: string, message: string, data?: unknown): void {

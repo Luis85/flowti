@@ -5,7 +5,7 @@ import type { LogLevel } from '../shared/logger-port.js';
 export const KNOWN_DEFAULT_VIEWS = ['home'] as const;
 export type DefaultViewName = (typeof KNOWN_DEFAULT_VIEWS)[number];
 
-export const KNOWN_LOG_LEVELS = ['debug', 'info', 'error'] as const;
+export const KNOWN_LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const;
 
 export type PluginSettings = {
 	readonly showRibbonIcon: boolean;
