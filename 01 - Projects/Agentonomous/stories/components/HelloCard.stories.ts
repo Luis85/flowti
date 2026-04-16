@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import { expect } from 'vitest';
-import HelloCard from '../src/ui/components/HelloCard.vue';
+import HelloCard from '../../src/ui/components/HelloCard.vue';
+import { HelloCardPO } from '../../src/ui/components/HelloCard.po.js';
 
 const meta: Meta<typeof HelloCard> = {
 	title: 'Components/HelloCard',
@@ -20,10 +21,11 @@ export const LongMessage: Story = {
 	},
 };
 
-export const RendersTitleAndMessage: Story = {
-	args: { title: 'Interaction test', message: 'Visible to the user.' },
+export const RendersContent: Story = {
+	args: { title: 'Test', message: 'Hello' },
 	play: async ({ canvasElement }) => {
-		expect(canvasElement.textContent ?? '').toContain('Interaction test');
-		expect(canvasElement.textContent ?? '').toContain('Visible to the user.');
+		const po = new HelloCardPO(canvasElement as HTMLElement);
+		expect(po.title).toBe('Test');
+		expect(po.message).toBe('Hello');
 	},
 };
