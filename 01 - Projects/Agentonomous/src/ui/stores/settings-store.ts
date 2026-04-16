@@ -4,6 +4,7 @@ import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 import { DEFAULT_SETTINGS, type PluginSettings } from '../../domain/settings/plugin-settings.js';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
 import { isOk } from '../../domain/shared/result.js';
+import { invariant } from '../../domain/shared/utils/invariant.js';
 
 export const useSettingsStore = defineStore('settings', () => {
 	const settings = ref<PluginSettings>(DEFAULT_SETTINGS);
@@ -19,7 +20,7 @@ export const useSettingsStore = defineStore('settings', () => {
 	}
 
 	async function update(next: PluginSettings): Promise<void> {
-		if (port === null) throw new Error('settings store not hydrated');
+		invariant(port !== null, 'settings store not hydrated');
 		const r = await port.save(next);
 		if (isOk(r)) settings.value = next;
 	}

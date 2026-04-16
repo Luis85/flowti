@@ -1,4 +1,5 @@
 import { err, ok, type Result } from '../shared/result.js';
+import { isOneOf } from '../shared/utils/is-one-of.js';
 
 export const KNOWN_DEFAULT_VIEWS = ['home'] as const;
 export type DefaultViewName = (typeof KNOWN_DEFAULT_VIEWS)[number];
@@ -14,16 +15,14 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 };
 
 export function isDefaultViewName(value: string): value is DefaultViewName {
-	return (KNOWN_DEFAULT_VIEWS as readonly string[]).includes(value);
-}
-
-function isObject(x: unknown): x is Record<string, unknown> {
-	return typeof x === 'object' && x !== null && !Array.isArray(x);
+	return isOneOf(value, KNOWN_DEFAULT_VIEWS);
 }
 
 export function validateSettings(raw: unknown): Result<PluginSettings, string> {
-	if (!isObject(raw)) return err('settings must be an object');
-	const { showRibbonIcon, defaultView } = raw;
+	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+		return err('settings must be an object');
+	}
+	const { showRibbonIcon, defaultView } = raw as Record<string, unknown>;
 	if (typeof showRibbonIcon !== 'boolean') return err('showRibbonIcon must be boolean');
 	if (typeof defaultView !== 'string') return err('defaultView must be string');
 	if (!isDefaultViewName(defaultView)) {
