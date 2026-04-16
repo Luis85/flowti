@@ -6,6 +6,8 @@ Agentonomous is an autonomous agents sandbox Obsidian plugin. It lets you run, o
 
 ```
 Infrastructure → Domain ← UI
+         ↑                 ↑
+      modules (bounded contexts)
 ```
 
 | Layer | Path | Rules |
@@ -13,7 +15,8 @@ Infrastructure → Domain ← UI
 | **domain** | `src/domain/` | Pure TypeScript — no Obsidian imports, no Vue imports. All external dependencies injected via ports. |
 | **infrastructure** | `src/infrastructure/` | Obsidian adapters that implement domain ports. May import from `obsidian` SDK. |
 | **ui** | `src/ui/` | Vue 3 presentation layer. Pinia stores, Vue components, router. No Obsidian SDK imports. |
-| **core** | `src/core/` _(coming)_ | Platform-agnostic agent engine. Pure TypeScript. No Obsidian, no Vue. |
+| **core** | `src/core/` | Platform-agnostic agent engine. Pure TypeScript. No Obsidian, no Vue. May use `console`. |
+| **modules** | `src/modules/` | Bounded-context feature modules. Each module is self-contained. `*-store.ts` files may import Vue/Pinia (they are the reactive boundary). All other module files must remain plain TypeScript. |
 
 Domain is the stable center — infrastructure and UI both depend on it, never the reverse.
 
@@ -23,10 +26,14 @@ Domain is the stable center — infrastructure and UI both depend on it, never t
 |------|----------|---------|
 | `SettingsPort` | `src/domain/settings/settings-port.ts` | Load, save, and subscribe to plugin settings |
 | `ViewRegistryPort` | `src/domain/views/view-registry-port.ts` | Register and deregister Obsidian leaf views |
-| `CommandPort` | _(coming)_ | Register and deregister Obsidian commands |
-| `LoggerPort` | _(coming)_ | Structured logging (levels: debug, info, warn, error) |
-| `NotificationPort` | _(coming)_ | Display Obsidian Notice toasts |
-| `EventBus` | _(coming)_ | Typed pub/sub for cross-domain events |
+| `CommandPort` | `src/domain/commands/command-port.ts` | Register and deregister Obsidian commands |
+| `LoggerPort` | `src/domain/shared/logger-port.ts` | Structured logging (levels: debug, info, warn, error) |
+| `NotificationPort` | `src/domain/shared/notification-port.ts` | Display Obsidian Notice toasts |
+| `EventBus` | `src/domain/shared/event-bus.ts` | Typed pub/sub for cross-domain events |
+| `TranslationPort` | `src/domain/shared/translation-port.ts` | i18n message lookup (t.t(key)) |
+| `PlatformPort` | `src/domain/shared/platform-port.ts` | Platform capability detection (OS, mobile, etc.) |
+| `VaultPort` | `src/domain/shared/vault-port.ts` | Read vault files by path — returns typed Result |
+| `FileExtensionPort` | `src/domain/shared/file-extension-port.ts` | Resolve file extension associations |
 
 ## Scripts
 
@@ -69,12 +76,15 @@ export AGENTONOMOUS_TEST_VAULT="C:/path/to/your/test-vault"
 - **TDD** — write the failing test first, then the implementation
 - **File naming**: kebab-case (`my-feature.ts`, `my-feature.test.ts`)
 - **Test location**: mirrors source — `src/domain/foo/bar.ts` → `tests/domain/foo/bar.test.ts`
+- **PageObject convention**: co-locate `.po.ts` files with their test counterpart (`Home.po.ts` beside `Home.test.ts`). Query elements via `data-testid` attributes exclusively; never couple to CSS classes.
+- **Layout system**: three layouts (`MainLayout`, `DashboardLayout`, `PanelLayout`). The active layout is resolved from `route.meta.layout` in `AppRoot.vue`. Sidebar module views use `PanelLayout` directly (no router involved).
 
 ## Key Config Files
 
 | File | Purpose |
 |------|---------|
-| `configs/tsconfig.json` | TypeScript config (ES2022, NodeNext, strict, exactOptionalPropertyTypes) |
+| `configs/tsconfig.json` | TypeScript config (ES2022, NodeNext, strict, exactOptionalPropertyTypes) — **build only, excludes tests** |
+| `configs/tsconfig.lint.json` | TypeScript config used by ESLint — **includes tests and stories** |
 | `configs/vitest.config.ts` | Vitest config |
 | `configs/eslint.config.mjs` | ESLint config (architecture rules) |
 | `configs/vite.config.ts` | Vite build config |
