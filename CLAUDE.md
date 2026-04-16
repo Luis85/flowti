@@ -10,6 +10,7 @@ This is an Obsidian vault and git root containing two projects:
 |---------|------|---------|
 | **Flowti CLI** | `01 - Projects/Flowti CLI/` | Definition-driven project orchestrator CLI (zero runtime deps) |
 | **Flowti Plugin** | `01 - Projects/Flowti Plugin/` | Obsidian IBDE plugin (EventBus-driven) |
+| **Agentonomous** | `01 - Projects/Agentonomous/` | Autonomous agents sandbox — Obsidian plugin (Vue 3 + DDD) |
 
 The git root is HERE (`c:\Projects\flowti`), not at either project root. Use full paths for `git mv`, `git add`, etc. On Windows, `git index.lock` can get stale — `rm -f .git/index.lock` if needed.
 
