@@ -7,10 +7,14 @@ import { ok, err } from '../../../src/domain/shared/result.js';
 import type { SettingsPort } from '../../../src/domain/settings/settings-port.js';
 import { fakeTranslation } from '../../__fakes__/fake-ports.js';
 
+/** The canonical full-blob shape used by the plugin: other modules' sections live alongside `core`. */
+const DEFAULT_BLOB = { core: CORE_SETTINGS_DEFAULTS, eventInspector: { enabled: true } };
+
 function makePort(overrides: Partial<SettingsPort> = {}): SettingsPort {
+	let stored: unknown = { ...DEFAULT_BLOB };
 	return {
-		load: vi.fn(async () => ok(CORE_SETTINGS_DEFAULTS)),
-		save: vi.fn(async () => ok(undefined as void)),
+		load: vi.fn(async () => ok(stored)),
+		save: vi.fn(async (d: unknown) => { stored = d; return ok(undefined as void); }),
 		subscribe: vi.fn(() => () => {}),
 		...overrides,
 	};
@@ -96,14 +100,30 @@ describe('AgentonomousSettingsTab', () => {
 		expect(received).toBe('about');
 	});
 
-	it('persist() calls port.save with updated settings', async () => {
+	it('persist() saves merged blob preserving other module settings', async () => {
 		const port = makePort();
 		const tab = makeTab(port);
 		tab.display();
 		await new Promise((r) => { setTimeout(r, 0); });
 		const persist = (tab as unknown as { persist: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persist;
 		await persist.call(tab, { ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
-		expect(port.save).toHaveBeenCalledWith({ ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
+		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+		// core section has the updated value
+		expect((saved['core'] as typeof CORE_SETTINGS_DEFAULTS).showRibbonIcon).toBe(false);
+		// other modules' settings are preserved
+		expect(saved['eventInspector']).toEqual({ enabled: true });
+	});
+
+	it('persist() does not overwrite other module settings', async () => {
+		const port = makePort();
+		const tab = makeTab(port);
+		tab.display();
+		await new Promise((r) => { setTimeout(r, 0); });
+		const persist = (tab as unknown as { persist: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persist;
+		await persist.call(tab, { ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
+		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+		expect(saved['eventInspector']).toEqual({ enabled: true });
+		expect((saved['core'] as typeof CORE_SETTINGS_DEFAULTS).showRibbonIcon).toBe(false);
 	});
 
 	it('persist() shows Notice when save fails', async () => {
@@ -116,7 +136,7 @@ describe('AgentonomousSettingsTab', () => {
 		expect(port.save).toHaveBeenCalled();
 	});
 
-	it('display() toggle onChange calls port.save with updated showRibbonIcon', async () => {
+	it('display() toggle onChange calls port.save with updated showRibbonIcon (merged blob)', async () => {
 		const port = makePort();
 		const tab = makeTab(port);
 		tab.display();
@@ -133,7 +153,9 @@ describe('AgentonomousSettingsTab', () => {
 		toggle?._trigger(false);
 		await new Promise((r) => { setTimeout(r, 0); });
 
-		expect(port.save).toHaveBeenCalledWith({ ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
+		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+		expect((saved['core'] as typeof CORE_SETTINGS_DEFAULTS).showRibbonIcon).toBe(false);
+		expect(saved['eventInspector']).toEqual({ enabled: true });
 	});
 
 	it('display() dropdown onChange calls port.save with updated defaultView for valid value', async () => {
@@ -153,7 +175,8 @@ describe('AgentonomousSettingsTab', () => {
 		dropdown?._trigger('home');
 		await new Promise((r) => { setTimeout(r, 0); });
 
-		expect(port.save).toHaveBeenCalledWith({ ...CORE_SETTINGS_DEFAULTS, defaultView: 'home' });
+		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+		expect((saved['core'] as typeof CORE_SETTINGS_DEFAULTS).defaultView).toBe('home');
 	});
 
 	it('display() dropdown onChange shows Notice for unknown view value and does not save', async () => {
@@ -191,7 +214,8 @@ describe('AgentonomousSettingsTab', () => {
 		dropdown?._trigger('debug');
 		await new Promise((r) => { setTimeout(r, 0); });
 
-		expect(port.save).toHaveBeenCalledWith(expect.objectContaining({ logLevel: 'debug' }));
+		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+		expect((saved['core'] as typeof CORE_SETTINGS_DEFAULTS).logLevel).toBe('debug');
 	});
 
 	it('display() locale dropdown onChange with empty value removes locale key', async () => {
@@ -212,7 +236,8 @@ describe('AgentonomousSettingsTab', () => {
 		// The saved settings should not have a locale key (or locale === undefined)
 		expect(port.save).toHaveBeenCalled();
 		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
-		expect('locale' in saved).toBe(false);
+		const coreSection = saved['core'] as Record<string, unknown>;
+		expect('locale' in coreSection).toBe(false);
 	});
 
 	it('display() locale dropdown onChange with non-empty value saves locale', async () => {
@@ -229,6 +254,7 @@ describe('AgentonomousSettingsTab', () => {
 		dropdown?._trigger('en');
 		await new Promise((r) => { setTimeout(r, 0); });
 
-		expect(port.save).toHaveBeenCalledWith(expect.objectContaining({ locale: 'en' }));
+		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+		expect((saved['core'] as Record<string, unknown>)['locale']).toBe('en');
 	});
 });
