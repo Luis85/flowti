@@ -2,23 +2,19 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Plugin } from 'obsidian';
 import { ObsidianCommandAdapter } from '../../../src/infrastructure/obsidian/obsidian-command-adapter.js';
 import { createFakePlugin } from './fake-plugin.js';
-import type { ViewRegistryPort } from '../../../src/domain/views/view-registry-port.js';
-
-function fakeViewRegistry(): ViewRegistryPort {
-	return { registerAll: vi.fn(), openView: vi.fn(async () => {}) };
-}
+import { fakeViews } from '../../__fakes__/fake-ports.js';
 
 describe('ObsidianCommandAdapter', () => {
 	it('register() calls plugin.addCommand with correct id and name', () => {
 		const plugin = createFakePlugin();
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
 		adapter.register({ id: 'test-cmd', name: 'Test command', callback: () => {} });
 		expect(plugin.addCommand).toHaveBeenCalledWith(expect.objectContaining({ id: 'test-cmd', name: 'Test command' }));
 	});
 
 	it('register() with ribbon creates a ribbon icon', () => {
 		const plugin = createFakePlugin();
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
@@ -30,7 +26,7 @@ describe('ObsidianCommandAdapter', () => {
 		const plugin = createFakePlugin();
 		const mockEl = { style: { display: '' }, remove: vi.fn() };
 		plugin.addRibbonIcon = vi.fn(() => mockEl);
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: false },
@@ -40,7 +36,7 @@ describe('ObsidianCommandAdapter', () => {
 
 	it('register() with opensView auto-generates callback via viewRegistry', () => {
 		const plugin = createFakePlugin();
-		const views = fakeViewRegistry();
+		const views = fakeViews();
 		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views);
 		adapter.register({ id: 'test-cmd', name: 'Test', opensView: 'test-view' });
 		// The addCommand callback should call viewRegistry.openView when invoked
@@ -53,7 +49,7 @@ describe('ObsidianCommandAdapter', () => {
 		const plugin = createFakePlugin();
 		const mockEl = { style: { display: '' }, remove: vi.fn() };
 		plugin.addRibbonIcon = vi.fn(() => mockEl);
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
@@ -68,7 +64,7 @@ describe('ObsidianCommandAdapter', () => {
 		const plugin = createFakePlugin();
 		const mockEl = { style: { display: '' }, remove: vi.fn() };
 		plugin.addRibbonIcon = vi.fn(() => mockEl);
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
@@ -81,7 +77,7 @@ describe('ObsidianCommandAdapter', () => {
 		const plugin = createFakePlugin();
 		const mockEl = { style: { display: '' }, remove: vi.fn() };
 		plugin.addRibbonIcon = vi.fn(() => mockEl);
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
 		const unsub = adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
@@ -92,7 +88,7 @@ describe('ObsidianCommandAdapter', () => {
 
 	it('register() unsubscribe does nothing when no ribbon', () => {
 		const plugin = createFakePlugin();
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
 		const unsub = adapter.register({ id: 'no-ribbon', name: 'No Ribbon', callback: () => {} });
 		expect(() => { unsub(); }).not.toThrow();
 	});
@@ -105,7 +101,7 @@ describe('ObsidianCommandAdapter', () => {
 			capturedClickFn = fn;
 			return { style: { display: '' }, remove: vi.fn() };
 		});
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback,
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
