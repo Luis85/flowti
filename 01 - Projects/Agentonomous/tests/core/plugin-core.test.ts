@@ -253,3 +253,25 @@ describe('PluginCore graceful degradation', () => {
 		expect(destroyCalls).not.toContain('broken');
 	});
 });
+
+describe('PluginCore listener leak detection', () => {
+	it('warns when a module leaks listeners during destroy', async () => {
+		const bus = createEventBus();
+		const logger = fakeLogger();
+		const leaky = defineModule({
+			id: 'leaky', name: 'Leaky',
+			async init(ports) {
+				ports.eventBus.on('core', () => {}); // subscribes but destroy doesn't unsubscribe
+			},
+			destroy() { /* intentionally does NOT unsubscribe */ },
+		});
+
+		const core = new PluginCore(
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger, notifications: fakeNotifications(), eventBus: bus },
+			[leaky],
+		);
+		await core.init();
+		core.destroy();
+		expect(logger.warn).toHaveBeenCalledWith('core', expect.stringContaining('leaky'));
+	});
+});
