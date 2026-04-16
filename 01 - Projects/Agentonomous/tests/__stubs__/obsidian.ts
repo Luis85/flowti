@@ -115,3 +115,72 @@ export class Notice {
 		_noticeMessages.push(message);
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Vault / TFile / MetadataCache stubs — used by ObsidianVaultAdapter tests
+// ---------------------------------------------------------------------------
+
+export type FrontmatterCache = { [key: string]: unknown };
+export type CachedMetadata = { frontmatter?: FrontmatterCache };
+
+export class TFile {
+	readonly path: string;
+	readonly stat: { size: number; ctime: number; mtime: number };
+	constructor(path: string, stat?: { size?: number; ctime?: number; mtime?: number }) {
+		this.path = path;
+		this.stat = { size: stat?.size ?? 0, ctime: stat?.ctime ?? 0, mtime: stat?.mtime ?? Date.now() };
+	}
+}
+
+type StoredEntry = { content: string; ctime: number; mtime: number };
+
+/** In-memory Vault stub sufficient for ObsidianVaultAdapter tests. */
+export class Vault {
+	private readonly _files = new Map<string, StoredEntry>();
+
+	async read(file: TFile): Promise<string> {
+		const entry = this._files.get(file.path);
+		if (entry === undefined) throw new Error(`File not found: ${file.path}`);
+		return entry.content;
+	}
+
+	async create(path: string, content: string): Promise<TFile> {
+		const now = Date.now();
+		this._files.set(path, { content, ctime: now, mtime: now });
+		return new TFile(path, { ctime: now, mtime: now, size: content.length });
+	}
+
+	async modify(file: TFile, content: string): Promise<void> {
+		const entry = this._files.get(file.path);
+		if (entry === undefined) throw new Error(`File not found: ${file.path}`);
+		this._files.set(file.path, { ...entry, content, mtime: Date.now() });
+	}
+
+	async delete(file: TFile): Promise<void> {
+		this._files.delete(file.path);
+	}
+
+	getAbstractFileByPath(path: string): TFile | null {
+		if (!this._files.has(path)) return null;
+		const entry = this._files.get(path)!;
+		return new TFile(path, { size: entry.content.length, ctime: entry.ctime, mtime: entry.mtime });
+	}
+
+	getFiles(): TFile[] {
+		return [...this._files.entries()].map(
+			([path, entry]) => new TFile(path, { size: entry.content.length, ctime: entry.ctime, mtime: entry.mtime }),
+		);
+	}
+}
+
+/** MetadataCache stub — returns null (no YAML cache in tests; adapter falls back to extractFrontmatter). */
+export class MetadataCache {
+	getFileCache(_file: TFile): CachedMetadata | null {
+		return null;
+	}
+}
+
+export class App {
+	readonly vault = new Vault();
+	readonly metadataCache = new MetadataCache();
+}
