@@ -219,14 +219,55 @@ export default [
 			],
 		},
 	},
+	// Cross-module import ban — covers all nesting depths (depth 1: module root,
+	// depth 2: module/views/, depth 3: module/views/sub/).
+	// Each pattern set targets one sibling module at one relative depth.
+	// Within-module imports always use './' so they never match these patterns.
 	{
-		files: ['src/modules/**/*.ts', 'src/modules/**/*.vue'],
+		files: ['src/modules/event-inspector/**/*.ts', 'src/modules/event-inspector/**/*.vue'],
 		rules: {
 			'no-restricted-imports': ['error', {
-				patterns: [{
-					group: ['../*/index*', '../*/*.js', '../*/*.ts'],
-					message: 'Modules must not import from other modules — use EventBus for cross-module communication',
-				}],
+				patterns: [
+					{ group: ['../core', '../core/**', '../health-monitor', '../health-monitor/**', '../file-detail', '../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+					{ group: ['../../core', '../../core/**', '../../health-monitor', '../../health-monitor/**', '../../file-detail', '../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+					{ group: ['../../../core', '../../../core/**', '../../../health-monitor', '../../../health-monitor/**', '../../../file-detail', '../../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+				],
+			}],
+		},
+	},
+	{
+		files: ['src/modules/health-monitor/**/*.ts', 'src/modules/health-monitor/**/*.vue'],
+		rules: {
+			'no-restricted-imports': ['error', {
+				patterns: [
+					{ group: ['../core', '../core/**', '../event-inspector', '../event-inspector/**', '../file-detail', '../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+					{ group: ['../../core', '../../core/**', '../../event-inspector', '../../event-inspector/**', '../../file-detail', '../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+					{ group: ['../../../core', '../../../core/**', '../../../event-inspector', '../../../event-inspector/**', '../../../file-detail', '../../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+				],
+			}],
+		},
+	},
+	{
+		files: ['src/modules/file-detail/**/*.ts', 'src/modules/file-detail/**/*.vue'],
+		rules: {
+			'no-restricted-imports': ['error', {
+				patterns: [
+					{ group: ['../core', '../core/**', '../event-inspector', '../event-inspector/**', '../health-monitor', '../health-monitor/**'], message: 'Modules must not import other modules — use EventBus' },
+					{ group: ['../../core', '../../core/**', '../../event-inspector', '../../event-inspector/**', '../../health-monitor', '../../health-monitor/**'], message: 'Modules must not import other modules — use EventBus' },
+					{ group: ['../../../core', '../../../core/**', '../../../event-inspector', '../../../event-inspector/**', '../../../health-monitor', '../../../health-monitor/**'], message: 'Modules must not import other modules — use EventBus' },
+				],
+			}],
+		},
+	},
+	{
+		files: ['src/modules/core/**/*.ts', 'src/modules/core/**/*.vue'],
+		rules: {
+			'no-restricted-imports': ['error', {
+				patterns: [
+					{ group: ['../event-inspector', '../event-inspector/**', '../health-monitor', '../health-monitor/**', '../file-detail', '../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+					{ group: ['../../event-inspector', '../../event-inspector/**', '../../health-monitor', '../../health-monitor/**', '../../file-detail', '../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+					{ group: ['../../../event-inspector', '../../../event-inspector/**', '../../../health-monitor', '../../../health-monitor/**', '../../../file-detail', '../../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
+				],
 			}],
 		},
 	},
