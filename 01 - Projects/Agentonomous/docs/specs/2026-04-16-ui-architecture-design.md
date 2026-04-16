@@ -139,7 +139,19 @@ Routes declare their layout in `meta`:
 
 Routes without `meta.layout` default to `MainLayout`.
 
-Sidebar views (Event Inspector, File Detail) mount their own Vue app with a single-route router where the layout is `panel`.
+**Sidebar views** (Event Inspector, File Detail) currently mount their own Vue app directly (no router, no AppRoot). They do NOT use the layout resolution system. Instead, they import `PanelLayout` directly in their `.vue` template:
+
+```vue
+<!-- EventInspectorView.vue (simplified) -->
+<template>
+	<PanelLayout>
+		<template #header>Event Inspector</template>
+		<!-- content -->
+	</PanelLayout>
+</template>
+```
+
+This is intentional — sidebar views have a single page, no routing, and no need for dynamic layout resolution. They use `PanelLayout` as a direct wrapper component. Only the main Homepage `ItemView` (which has a router with `/` and `/about`) uses `AppRoot.vue` with route-meta layout resolution.
 
 ### 2.6 Layout styles
 
@@ -202,6 +214,7 @@ export class HomePage {
 4. **No Vue/Pinia dependency** — POs are plain classes. They don't mount components or create stores.
 5. **Private `el(testId)` helper** — every PO has this shared accessor; DRY within the class.
 6. **Async interactions return `Promise<void>`** — click + wait patterns for router navigation.
+7. **Storybook stories using `<router-link>` need a router decorator.** Create a `withRouter` Storybook decorator in `stories/decorators/with-router.ts` that wraps the story in a memory-history router. Stories that exercise navigation (PO methods like `navigateToAbout()`) must add `decorators: [withRouter]`. Stories that only read text or check static content do not need the decorator.
 
 ### 3.4 Storybook usage
 
@@ -219,6 +232,7 @@ export const RendersGreeting: Story = {
 };
 
 export const NavigatesToAbout: Story = {
+	decorators: [withRouter],  // router decorator required for <router-link> stories
 	play: async ({ canvasElement }) => {
 		const page = new HomePage(canvasElement);
 		await page.navigateToAbout();
@@ -304,7 +318,29 @@ Each card shows:
 
 Data source: `PluginCore` exposes module status. The Dashboard reads it via a new `useModuleStatusStore` that queries the core's module list + `degradedModules`.
 
-Since the store needs data from `PluginCore` (which is in `src/core/`), the store receives the data via `PluginContext` injection — the shell populates `ctx.moduleStatus: { id, name, status }[]` after `core.init()`.
+Since the store needs data from `PluginCore` (which is in `src/core/`), the store receives the data via `PluginContext` injection. `PluginContext` gains a new field:
+
+```ts
+type ModuleStatus = {
+	readonly id: string;
+	readonly name: string;
+	readonly status: 'ready' | 'degraded' | 'not-loaded';
+};
+
+// Added to PluginContext:
+readonly moduleStatus: readonly ModuleStatus[];
+```
+
+The shell populates this after `core.init()`:
+```ts
+const moduleStatus = core.modules.map((m) => ({
+	id: m.id,
+	name: m.name,
+	status: core.degradedModules.includes(m.id) ? 'degraded' as const : 'ready' as const,
+}));
+```
+
+`PluginCore` needs a `modules: readonly Module[]` getter exposing the registered modules (currently private). This is a read-only accessor, not a new port.
 
 ### 5.5 Dashboard PO
 
