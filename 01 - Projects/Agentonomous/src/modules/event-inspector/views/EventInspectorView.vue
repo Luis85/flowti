@@ -71,7 +71,7 @@ onUnmounted(() => {
 					class="event-inspector__filter"
 					placeholder="Filter channels (comma-separated)"
 					@input="applyFilter"
-				/>
+				>
 				<button class="event-inspector__clear" @click="clearEvents">Clear</button>
 			</div>
 

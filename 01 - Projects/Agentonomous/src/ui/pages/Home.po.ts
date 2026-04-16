@@ -2,18 +2,18 @@ export class HomePage {
 	constructor(private readonly root: HTMLElement) {}
 
 	get greeting(): string {
-		return this.el('greeting')?.textContent?.trim() ?? '';
+		return this.el('greeting')?.textContent.trim() ?? '';
 	}
 
 	get version(): string {
-		return this.el('version')?.textContent?.trim() ?? '';
+		return this.el('version')?.textContent.trim() ?? '';
 	}
 
 	get aboutLink(): HTMLElement | null {
 		return this.el('nav-about');
 	}
 
-	async navigateToAbout(): Promise<void> {
+	navigateToAbout(): void {
 		this.aboutLink?.click();
 	}
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { Component } from 'vue';
 import { useRoute } from 'vue-router';
 import MainLayout from './layouts/MainLayout.vue';
 import PanelLayout from './layouts/PanelLayout.vue';
@@ -7,17 +8,18 @@ import DashboardLayout from './layouts/DashboardLayout.vue';
 
 const route = useRoute();
 
-const layouts = {
+const layouts: Record<string, Component> = {
 	main: MainLayout,
 	panel: PanelLayout,
 	dashboard: DashboardLayout,
-} as const;
+};
 
-type LayoutName = keyof typeof layouts;
-
-const LayoutComponent = computed(() => {
-	const name = (route.meta?.layout as LayoutName | undefined) ?? 'main';
-	return layouts[name] ?? MainLayout;
+const LayoutComponent = computed<Component>(() => {
+	const name = route.meta.layout as string | undefined;
+	if (name !== undefined && name in layouts) {
+		return layouts[name] as Component;
+	}
+	return MainLayout;
 });
 </script>
 

@@ -21,7 +21,7 @@ describe('Dashboard page', () => {
 			history: createMemoryHistory(),
 			routes: [{ path: '/dashboard', component: Dashboard }],
 		});
-		router.push('/dashboard');
+		await router.push('/dashboard');
 		await router.isReady();
 
 		const wrapper = mount(Dashboard, { global: { plugins: [pinia, router] } });
@@ -42,7 +42,7 @@ describe('Dashboard page', () => {
 			history: createMemoryHistory(),
 			routes: [{ path: '/dashboard', component: Dashboard }],
 		});
-		router.push('/dashboard');
+		await router.push('/dashboard');
 		await router.isReady();
 
 		const wrapper = mount(Dashboard, { global: { plugins: [pinia, router] } });
