@@ -18,7 +18,7 @@ export function topologicalSort<T>(
 		if (visited.has(id)) return null;
 		if (visiting.has(id)) return `circular dependency involving "${id}"`;
 		const node = nodeMap.get(id);
-		if (!node) return `unknown dependency "${id}"`;
+		if (node === undefined) return `unknown dependency "${id}"`;
 		visiting.add(id);
 		for (const dep of getDeps(node)) {
 			const error = visit(dep);

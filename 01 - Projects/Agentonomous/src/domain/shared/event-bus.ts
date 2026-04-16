@@ -1,14 +1,8 @@
-import type { PluginSettings } from '../settings/plugin-settings.js';
 import type { Unsubscribe } from './unsubscribe.js';
 import { generateId, timestamp } from './utils/identity.js';
+import './core-events.js';
 
-export interface EventMap {
-	log: { level: 'debug' | 'info' | 'error'; source: string; message: string; data?: unknown };
-	error: { code: string; message: string; source: string; severity: 'user' | 'system' | 'fatal'; data?: unknown };
-	settings: { previous: PluginSettings; current: PluginSettings };
-	core: { phase: 'initializing' | 'ready' | 'destroying' | 'destroyed' };
-	command: { id: string; trigger: 'palette' | 'ribbon' | 'hotkey' };
-}
+export interface EventMap {}
 
 export type EventEnvelope<K extends keyof EventMap = keyof EventMap> = {
 	readonly channel: K;
