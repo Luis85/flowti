@@ -561,12 +561,18 @@ This is a sweeping rename. The implementer must:
    - `save()` accepts `unknown` (was `PluginSettings`)
    - `subscribe()` callback passes `unknown` (was `PluginSettings`)
 
-3. Update all files that reference the old names. Key files:
+3. Update all files that reference the old names. Key source files:
    - `src/infrastructure/obsidian/obsidian-settings-adapter.ts`
    - `src/infrastructure/settings/settings-tab.ts`
    - `src/core/plugin-core.ts`
    - `src/ui/stores/settings-store.ts`
-   - All corresponding test files
+   
+   Key test files (must update type references, not just source):
+   - `tests/infrastructure/obsidian/obsidian-settings-adapter.test.ts`
+   - `tests/domain/settings/plugin-settings.test.ts`
+   - `tests/ui/stores/settings-store.test.ts`
+   - `tests/infrastructure/settings/settings-tab.test.ts`
+   - `tests/core/plugin-core.test.ts`
 
 4. The settings adapter (`ObsidianSettingsAdapter`) no longer validates — it just passes raw data through. Validation moves to `PluginCore`.
 
@@ -836,7 +842,7 @@ Key implementation details:
 
 - [ ] **Step 1: Create settings, events, store, module, view**
 
-(Implementer has creative freedom within the spec constraints. Key contract: the store exposes `events: ref<EventEnvelope[]>`, `traceGroups: computed<Map<string, EventEnvelope[]>>`, `filterChannels: ref<string[]>`, and the module subscribes via `bus.onAny()` at priority `-100`.)
+(Implementer has creative freedom within the spec constraints. Key contract: the store exposes `events: ref<EventEnvelope[]>`, `traceGroups: computed<Map<string, EventEnvelope[]>>`, `filterChannels: ref<string[]>`. The module subscribes via `bus.onAny(listener)` — **no priority argument; `onAny` does not support priority** per spec §3.3. The `-100` label in the spec is the conceptual tier describing when `onAny` fires relative to channel listeners (always after all channel-specific listeners), not an API parameter.)
 
 - [ ] **Step 2: Write tests — store ring buffer behavior, module lifecycle**
 
@@ -941,7 +947,7 @@ bus.on('settings', (env) => {
 });
 ```
 
-- [ ] **Step 2: Remove `setRibbonVisibility` from `CommandPort` interface** (if still present).
+- [ ] **Step 2: Remove `setRibbonVisibility` from `CommandPort` interface only** (if still present). **Retain it as a concrete method on `ObsidianCommandAdapter`** — `main.ts` calls it on the adapter instance directly, not through the port.
 
 - [ ] **Step 3: Remove any `setRibbonVisibility` call from `plugin-core.ts`**.
 
