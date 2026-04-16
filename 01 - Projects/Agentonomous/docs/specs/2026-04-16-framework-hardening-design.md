@@ -147,6 +147,14 @@ interface EventBus {
 - Bus is synchronous. Listeners fire in registration order, same tick. Listeners that need async work dispatch to a queue; they do not block the bus.
 - Bus is instantiated once in `PluginCore` and injected everywhere. No global singleton.
 - `traceId` + `eventId` generated via `generateId()` (wraps `crypto.randomUUID()`).
+- `onAny()` consumer pattern for channel discrimination:
+  ```ts
+  bus.onAny((envelope) => {
+    if (envelope.channel === 'error') {
+      const { code, severity } = envelope.payload; // narrowed to ErrorEvent
+    }
+  });
+  ```
 
 ### 3.5 Extending EventMap for new domains
 
@@ -207,6 +215,9 @@ class PluginCore {
   }
 
   get ready(): boolean { return this.state === 'ready'; }
+
+  /** Public accessor for the composed context. Built during init(), available after ready. */
+  get context(): PluginContext { ... }
 }
 ```
 
@@ -291,7 +302,9 @@ interface CommandPort {
 
 ### 5.3 Settings-driven ribbon toggling
 
-`PluginCore.init()` subscribes to `settings:changed` on the bus. When `showRibbonIcon` changes, it calls `commandPort.unregisterAll()` and re-registers with updated visibility. This replaces the manual remove/re-add dance in the current `main.ts`.
+`PluginCore.init()` subscribes to `settings:changed` on the bus. When `showRibbonIcon` changes, the `ObsidianCommandAdapter` toggles ribbon DOM element visibility via `el.style.display = visible ? '' : 'none'` rather than removing and re-adding the element. This avoids DOM flicker on rapid toggles. The adapter keeps a `Map<string, HTMLElement>` of ribbon elements created at registration time — toggling visibility is a style change, not a DOM mutation.
+
+If `showRibbonIcon` goes from `false` to `true` after initial registration (i.e., the ribbon was never created because the initial setting was `false`), the adapter lazily creates it at that point via `plugin.addRibbonIcon()`.
 
 ### 5.4 What this replaces
 
@@ -518,11 +531,21 @@ async function hydrate(newPort: SettingsPort): Promise<void> {
 
 Subscribe fires only AFTER initial state is set.
 
+**Residual race window (accepted):** If the settings adapter fires a notification between `load()` resolving and `subscribe()` being called, that single change is missed. This is acceptable because: (a) the window is microseconds in synchronous JS execution between two statements, (b) the settings adapter's `save()` notifies listeners synchronously — so a concurrent save would need to originate from a different async context (e.g. another plugin), which is extremely unlikely for plugin-scoped `saveData()`, and (c) the prior ordering was strictly worse (subscriber fires with stale data before load completes). No lock or mutex is warranted.
+
 ### 8.3 ESLint Vue try/catch coverage
 
 Add `'no-restricted-syntax': noTryCatchOutsideInfra` to the `**/*.vue` ESLint block.
 
-### 8.4 Storybook `test.include` deprecation
+### 8.4 ESLint allowlist update for new adapters
+
+The `obsidian` import allowlist in `eslint.config.mjs` must be extended to include the new infrastructure adapters:
+- `src/infrastructure/obsidian/obsidian-command-adapter.ts`
+- `src/infrastructure/obsidian/obsidian-notification-adapter.ts`
+
+These are added to the existing `ignores` array alongside the current entries (`obsidian-settings-adapter.ts`, `view-registry.ts`, etc.).
+
+### 8.5 Storybook `test.include` deprecation
 
 Remove explicit `include` from the storybook vitest project. Let `storybookTest()` handle discovery.
 
@@ -602,7 +625,7 @@ tests/placeholder.test.ts            # Noise
 
 ### 10.2 Headless test
 
-6. A test constructs `PluginCore` with fake ports (no Obsidian, no DOM, no Vue), calls `init()`, verifies `core:ready` on bus, exercises a command entry, verifies `command:*` event on bus, calls `destroy()`, verifies `core:destroyed` on bus.
+6. A test constructs `PluginCore` with fake ports (no Obsidian, no DOM, no Vue), calls `init()`, verifies `core:ready` on bus, exercises a command entry, verifies a `command` channel event on bus (using `bus.on('command', ...)`, not glob), calls `destroy()`, verifies `core:destroyed` on bus.
 
 ### 10.3 Quality gates
 
