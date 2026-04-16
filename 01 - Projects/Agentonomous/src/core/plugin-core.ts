@@ -77,15 +77,9 @@ export class PluginCore {
 			}
 		}
 
-		for (const m of this.sortedModules) {
-			try {
-				await m.init(modulePorts, this.resolveModuleSettings(m, blob));
-				this.initializedModuleIds.add(m.id);
-			} catch (error) {
-				const msg = error instanceof Error ? error.message : String(error);
-				this.ports.logger.error('core', `Module "${m.id}" failed to initialize: ${msg}`);
-				this.degradedModuleIds.push(m.id);
-			}
+		const migratedBlob = await this.initModulesAndMigrate(modulePorts, blob);
+		if (migratedBlob !== null) {
+			await this.ports.settings.save(migratedBlob);
 		}
 
 		this.registerAllCommands();
@@ -94,9 +88,11 @@ export class PluginCore {
 			this.ports.eventBus.emit('core', { phase: 'ready', degraded: true, errors: this.degradedModuleIds.map((id) => `Module "${id}" failed`) });
 		}
 
-		this.settingsUnsub = this.ports.settings.subscribe(async (_raw) => {
+		this.settingsUnsub = this.ports.settings.subscribe(async (raw) => {
+			const previousBlob: unknown = blob;
 			const freshBlob = await this.loadSettingsBlob();
 			this.currentCoreSettings = this.resolveCoreSettings(freshBlob);
+			this.ports.eventBus.emit('settings', { previous: previousBlob, current: raw });
 		});
 
 		this.state = 'ready';
@@ -270,6 +266,43 @@ export class PluginCore {
 		if (section === undefined) return CORE_SETTINGS_DEFAULTS;
 		const result = validateCoreSettings(section);
 		return isOk(result) ? result.value : CORE_SETTINGS_DEFAULTS;
+	}
+
+	/**
+	 * Initialize all sorted modules, applying any pending migrations along the
+	 * way.  Returns a new merged blob if any module's settings were migrated
+	 * (so the caller can save it back), or null if nothing changed.
+	 */
+	private async initModulesAndMigrate(
+		modulePorts: ModulePorts,
+		blob: Record<string, unknown>,
+	): Promise<Record<string, unknown> | null> {
+		let migratedBlob: Record<string, unknown> | null = null;
+
+		for (const m of this.sortedModules) {
+			try {
+				const rawSection = m.settingsKey !== undefined ? blob[m.settingsKey] : undefined;
+				const migrated = m.settingsVersion !== undefined && m.migrate !== undefined
+					? this.applyMigration(m, rawSection)
+					: rawSection;
+
+				if (migrated !== rawSection && m.settingsKey !== undefined) {
+					if (migratedBlob === null) migratedBlob = { ...blob };
+					migratedBlob[m.settingsKey] = migrated;
+				}
+
+				const resolvedBlob = migratedBlob ?? blob;
+				const settings = this.resolveModuleSettings(m, resolvedBlob);
+				await m.init(modulePorts, settings);
+				this.initializedModuleIds.add(m.id);
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				this.ports.logger.error('core', `Module "${m.id}" failed to initialize: ${msg}`);
+				this.degradedModuleIds.push(m.id);
+			}
+		}
+
+		return migratedBlob;
 	}
 
 	/**

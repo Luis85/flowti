@@ -416,3 +416,59 @@ describe('PluginCore.registerExtensions', () => {
 		expect(registered).toHaveLength(0);
 	});
 });
+
+describe('PluginCore settings event channel', () => {
+	it('emits settings event on bus when settings change after init', async () => {
+		const bus = createEventBus();
+		const settings = fakeSettings({ core: { showRibbonIcon: true, defaultView: 'home', logLevel: 'info' } });
+		const m = defineModule({ id: 'a', name: 'A', async init() {}, destroy() {} });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[m],
+		);
+		await core.init();
+
+		const listener = vi.fn();
+		bus.on('settings', listener);
+
+		// Trigger a settings change via the subscribe callback
+		const updated = { core: { showRibbonIcon: false, defaultView: 'home', logLevel: 'info' } };
+		await settings.save(updated);
+		// Wait for the async subscribe callback to complete
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		expect(listener).toHaveBeenCalledOnce();
+		core.destroy();
+	});
+});
+
+describe('PluginCore migration re-save', () => {
+	it('saves migrated settings back via SettingsPort', async () => {
+		const bus = createEventBus();
+		const migrateFn = vi.fn((_fromVersion: number, blob: unknown) => {
+			return ok({ ...(blob as Record<string, unknown>), migrated: true });
+		});
+		const m = defineModule<{ color: string }>({
+			id: 'test', name: 'Test',
+			settingsKey: 'test',
+			settingsVersion: 2,
+			settingsDefaults: { color: 'blue' },
+			migrate: migrateFn as (fromVersion: number, blob: unknown) => Result<{ color: string }, string>,
+			async init() {},
+			destroy() {},
+		});
+
+		const settings = fakeSettings({ test: { _version: 1, color: 'red' } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[m],
+		);
+		await core.init();
+
+		// save should have been called once with the migrated blob (after init)
+		expect(settings.save).toHaveBeenCalled();
+		const savedBlob = (settings.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+		expect((savedBlob['test'] as Record<string, unknown>)['migrated']).toBe(true);
+		core.destroy();
+	});
+});
