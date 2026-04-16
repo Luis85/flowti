@@ -1,5 +1,6 @@
 import type { Unsubscribe } from './unsubscribe.js';
 import { generateId, timestamp } from './utils/identity.js';
+import { runWithConcurrency } from './utils/run-with-concurrency.js';
 import './core-events.js';
 
 export interface EventMap {}
@@ -20,8 +21,9 @@ export interface EventBus {
 		opts?: { priority?: number },
 	): Unsubscribe;
 	emit<K extends keyof EventMap>(channel: K, payload: EventMap[K], opts?: { parentId?: string }): EventEnvelope<K>;
-	emitAsync<K extends keyof EventMap>(channel: K, payload: EventMap[K], opts?: { parentId?: string }): Promise<EventEnvelope<K>>;
+	emitAsync<K extends keyof EventMap>(channel: K, payload: EventMap[K], opts?: { parentId?: string; maxConcurrency?: number }): Promise<EventEnvelope<K>>;
 	onAny(listener: (envelope: EventEnvelope) => void): Unsubscribe;
+	listenerCount(channel?: keyof EventMap): number;
 }
 
 type ListenerEntry = {
@@ -152,18 +154,19 @@ export function createEventBus(opts?: { maxTraceEntries?: number }): EventBus {
 	async function emitAsync<K extends keyof EventMap>(
 		channel: K,
 		payload: EventMap[K],
-		emitOpts?: { parentId?: string },
+		emitOpts?: { parentId?: string; maxConcurrency?: number },
 	): Promise<EventEnvelope<K>> {
 		const envelope = buildEnvelope(channel, payload, emitOpts);
+		const maxConcurrency = emitOpts?.maxConcurrency ?? Infinity;
 
 		const entries = getListeners(channel as string);
-		const promises: Array<void | Promise<void>> = [];
 
 		if (entries !== undefined) {
 			const snapshot = [...entries];
-			for (const entry of snapshot) {
-				promises.push((entry.listener as (envelope: EventEnvelope<K>) => void | Promise<void>)(envelope));
-			}
+			const tasks = snapshot.map((entry) => () =>
+				(entry.listener as (envelope: EventEnvelope<K>) => void | Promise<void>)(envelope),
+			);
+			await runWithConcurrency(tasks, maxConcurrency);
 		}
 
 		const anySnapshot = [...anyListeners];
@@ -171,8 +174,6 @@ export function createEventBus(opts?: { maxTraceEntries?: number }): EventBus {
 			fn(envelope as EventEnvelope);
 		}
 
-		const settled = promises.filter((p): p is Promise<void> => p instanceof Promise);
-		await Promise.all(settled);
 		return envelope;
 	}
 
@@ -184,5 +185,16 @@ export function createEventBus(opts?: { maxTraceEntries?: number }): EventBus {
 		};
 	}
 
-	return { on, emit, emitAsync, onAny };
+	function listenerCount(channel?: keyof EventMap): number {
+		if (channel !== undefined) {
+			return channelListeners.get(channel as string)?.length ?? 0;
+		}
+		let total = anyListeners.length;
+		for (const entries of channelListeners.values()) {
+			total += entries.length;
+		}
+		return total;
+	}
+
+	return { on, emit, emitAsync, onAny, listenerCount };
 }

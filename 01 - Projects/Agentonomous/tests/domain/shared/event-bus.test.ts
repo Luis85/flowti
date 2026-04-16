@@ -172,6 +172,72 @@ describe('emitAsync', () => {
 	});
 });
 
+describe('emitAsync backpressure', () => {
+	it('limits concurrent listeners with maxConcurrency', async () => {
+		const bus = createEventBus();
+		let concurrent = 0;
+		let maxConcurrent = 0;
+		for (let i = 0; i < 5; i++) {
+			bus.on('core', async () => {
+				concurrent++;
+				maxConcurrent = Math.max(maxConcurrent, concurrent);
+				await new Promise((r) => { setTimeout(r, 10); });
+				concurrent--;
+			});
+		}
+		await bus.emitAsync('core', { phase: 'ready' }, { maxConcurrency: 2 });
+		expect(maxConcurrent).toBe(2);
+	});
+
+	it('defaults to Infinity (all concurrent)', async () => {
+		const bus = createEventBus();
+		let concurrent = 0;
+		let maxConcurrent = 0;
+		for (let i = 0; i < 3; i++) {
+			bus.on('core', async () => {
+				concurrent++;
+				maxConcurrent = Math.max(maxConcurrent, concurrent);
+				await new Promise((r) => { setTimeout(r, 10); });
+				concurrent--;
+			});
+		}
+		await bus.emitAsync('core', { phase: 'ready' });
+		expect(maxConcurrent).toBe(3);
+	});
+});
+
+describe('listenerCount', () => {
+	it('returns 0 for empty bus', () => {
+		const bus = createEventBus();
+		expect(bus.listenerCount()).toBe(0);
+	});
+
+	it('counts channel listeners', () => {
+		const bus = createEventBus();
+		bus.on('core', () => {});
+		bus.on('core', () => {});
+		bus.on('log', () => {});
+		expect(bus.listenerCount('core')).toBe(2);
+		expect(bus.listenerCount('log')).toBe(1);
+		expect(bus.listenerCount()).toBe(3);
+	});
+
+	it('includes onAny listeners in total', () => {
+		const bus = createEventBus();
+		bus.on('core', () => {});
+		bus.onAny(() => {});
+		expect(bus.listenerCount()).toBe(2);
+	});
+
+	it('decreases after unsubscribe', () => {
+		const bus = createEventBus();
+		const unsub = bus.on('core', () => {});
+		expect(bus.listenerCount('core')).toBe(1);
+		unsub();
+		expect(bus.listenerCount('core')).toBe(0);
+	});
+});
+
 describe('traceMap eviction', () => {
 	it('keeps traceMap bounded when maxTraceEntries is exceeded', () => {
 		const bus = createEventBus({ maxTraceEntries: 100 });
