@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PanelLayout from '../../../ui/layouts/PanelLayout.vue';
+
 type FileAnalysisSummary = Record<string, string | number>;
 
 const props = defineProps<{
@@ -9,47 +11,50 @@ const props = defineProps<{
 </script>
 
 <template>
-	<div class="file-detail">
-		<div v-if="props.error !== null" class="file-detail__error">
-			{{ props.error }}
-		</div>
+	<PanelLayout>
+		<template #header>File Detail</template>
 
-		<div v-else-if="props.analysis === null" class="file-detail__empty">
-			No file selected.
-		</div>
-
-		<div v-else class="file-detail__card">
-			<div class="file-detail__header">
-				<span class="file-detail__name">{{ props.analysis.fileName }}</span>
-				<span class="file-detail__size">{{ props.analysis.sizeBytes }} bytes</span>
+		<div class="file-detail">
+			<div v-if="props.error !== null" class="file-detail__error">
+				{{ props.error }}
 			</div>
 
-			<table class="file-detail__summary">
-				<tbody>
-					<tr
-						v-for="(value, key) in props.analysis.summary"
-						:key="key"
-					>
-						<th>{{ key }}</th>
-						<td>{{ value }}</td>
-					</tr>
-				</tbody>
-			</table>
+			<div v-else-if="props.analysis === null" class="file-detail__empty">
+				No file selected.
+			</div>
 
-			<button
-				v-if="props.onOpenInEditor !== undefined"
-				class="file-detail__open-btn"
-				@click="props.onOpenInEditor()"
-			>
-				Open in editor
-			</button>
+			<div v-else class="file-detail__card">
+				<div class="file-detail__header">
+					<span class="file-detail__name">{{ props.analysis.fileName }}</span>
+					<span class="file-detail__size">{{ props.analysis.sizeBytes }} bytes</span>
+				</div>
+
+				<table class="file-detail__summary">
+					<tbody>
+						<tr
+							v-for="(value, key) in props.analysis.summary"
+							:key="key"
+						>
+							<th>{{ key }}</th>
+							<td>{{ value }}</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<button
+					v-if="props.onOpenInEditor !== undefined"
+					class="file-detail__open-btn"
+					@click="props.onOpenInEditor()"
+				>
+					Open in editor
+				</button>
+			</div>
 		</div>
-	</div>
+	</PanelLayout>
 </template>
 
 <style scoped>
 .file-detail {
-	padding: 12px;
 	font-size: 13px;
 }
 
