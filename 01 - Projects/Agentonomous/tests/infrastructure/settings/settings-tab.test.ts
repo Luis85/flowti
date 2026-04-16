@@ -5,6 +5,7 @@ import { AgentonomousSettingsTab } from '../../../src/infrastructure/settings/se
 import { CORE_SETTINGS_DEFAULTS } from '../../../src/domain/settings/plugin-settings.js';
 import { ok, err } from '../../../src/domain/shared/result.js';
 import type { SettingsPort } from '../../../src/domain/settings/settings-port.js';
+import { fakeTranslation } from '../../__fakes__/fake-ports.js';
 
 function makePort(overrides: Partial<SettingsPort> = {}): SettingsPort {
 	return {
@@ -18,7 +19,7 @@ function makePort(overrides: Partial<SettingsPort> = {}): SettingsPort {
 function makeTab(port: SettingsPort): AgentonomousSettingsTab {
 	const fakeApp = { workspace: {} } as unknown as App;
 	const fakePlugin = {} as unknown as Plugin;
-	return new AgentonomousSettingsTab(fakeApp, fakePlugin, port);
+	return new AgentonomousSettingsTab(fakeApp, fakePlugin, port, fakeTranslation());
 }
 
 /** Create an augmented container element matching the stub's augmentEl shape. */

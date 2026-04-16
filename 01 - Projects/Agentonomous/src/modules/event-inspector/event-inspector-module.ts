@@ -3,6 +3,7 @@ import { defineModule } from '../../domain/shared/module.js';
 import { EVENT_INSPECTOR_DEFAULTS, validateEventInspectorSettings, type EventInspectorSettings } from './event-inspector-settings.js';
 import { EventBuffer } from './event-inspector-buffer.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
+import enMessages from './locales/en.json' with { type: 'json' };
 
 export const VIEW_TYPE_EVENT_INSPECTOR = 'agentonomous-event-inspector';
 
@@ -26,6 +27,7 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 	settingsKey: 'eventInspector',
 	settingsDefaults: EVENT_INSPECTOR_DEFAULTS,
 	validateSettings: validateEventInspectorSettings,
+	messages: { en: enMessages },
 
 	commands: [
 		{

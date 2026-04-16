@@ -1,6 +1,7 @@
 import './health-monitor-events.js';
 import { defineModule } from '../../domain/shared/module.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
+import enMessages from './locales/en.json' with { type: 'json' };
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let busUnsub: Unsubscribe | null = null;
@@ -15,6 +16,7 @@ export const HealthMonitorModule = defineModule({
 	id: 'health-monitor',
 	name: 'Health Monitor',
 	dependsOn: ['core'],
+	messages: { en: enMessages },
 
 	commands: [
 		{

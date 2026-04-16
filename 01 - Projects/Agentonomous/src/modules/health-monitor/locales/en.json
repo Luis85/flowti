@@ -1,0 +1,4 @@
+{
+	"health-monitor.commands.showHealth": "Show health status",
+	"health-monitor.notifications.healthCheck": "Agentonomous: health check — see console for details"
+}
