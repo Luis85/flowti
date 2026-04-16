@@ -195,7 +195,6 @@ export default [
 			'src/infrastructure/obsidian/obsidian-notification-adapter.ts',
 			'src/infrastructure/views/*-view.ts',
 			'src/infrastructure/settings/settings-tab.ts',
-			'src/infrastructure/ribbon/ribbon.ts',
 			'src/domain/**/*.ts',
 		],
 		rules: {
