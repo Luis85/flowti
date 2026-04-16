@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import About from '../../../src/ui/pages/About.vue';
 import Home from '../../../src/ui/pages/Home.vue';
+import { AboutPage } from '../../../src/ui/pages/About.po.js';
 
 describe('About page', () => {
 	it('renders the Agentonomous title', () => {
@@ -16,7 +17,8 @@ describe('About page', () => {
 			],
 		});
 		const wrapper = mount(About, { global: { plugins: [router] } });
-		expect(wrapper.text()).toContain('Agentonomous');
+		const page = new AboutPage(wrapper.element as HTMLElement);
+		expect(page.title).toBe('Agentonomous');
 	});
 
 	it('contains a router-link back to /', () => {
@@ -29,7 +31,8 @@ describe('About page', () => {
 			],
 		});
 		const wrapper = mount(About, { global: { plugins: [router] } });
-		expect(wrapper.html()).toMatch(/href="\/"/);
+		const page = new AboutPage(wrapper.element as HTMLElement);
+		expect(page.homeLink).not.toBeNull();
 	});
 
 	it('displays the pluginVersion from the store', async () => {
@@ -45,6 +48,7 @@ describe('About page', () => {
 		const app = useAppStore();
 		app.setVersion('1.2.3');
 		const wrapper = mount(About, { global: { plugins: [router] } });
-		expect(wrapper.text()).toContain('1.2.3');
+		const page = new AboutPage(wrapper.element as HTMLElement);
+		expect(page.version).toContain('1.2.3');
 	});
 });
