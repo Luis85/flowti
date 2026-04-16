@@ -18,7 +18,7 @@ export class ObsidianVaultAdapter implements VaultPort {
 			const content = await this.app.vault.read(file);
 			const cached = this.app.metadataCache.getFileCache(file);
 			const frontmatter: Record<string, unknown> =
-				cached?.frontmatter !== undefined && cached.frontmatter !== null
+				cached?.frontmatter !== undefined
 					? { ...cached.frontmatter }
 					: extractFrontmatter(content);
 			return ok({
@@ -63,12 +63,12 @@ export class ObsidianVaultAdapter implements VaultPort {
 		}
 	}
 
-	async exists(path: string): Promise<boolean> {
-		return this.app.vault.getAbstractFileByPath(path) !== null;
+	exists(path: string): Promise<boolean> {
+		return Promise.resolve(this.app.vault.getAbstractFileByPath(path) !== null);
 	}
 
-	async list(folder: string): Promise<Result<string[], string>> {
+	list(folder: string): Promise<Result<string[], string>> {
 		const files = this.app.vault.getFiles();
-		return ok(files.map((f) => f.path).filter((p) => p.startsWith(folder)));
+		return Promise.resolve(ok(files.map((f) => f.path).filter((p) => p.startsWith(folder))));
 	}
 }

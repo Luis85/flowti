@@ -175,4 +175,60 @@ describe('AgentonomousSettingsTab', () => {
 		// A Notice must have been shown
 		expect(_noticeMessages.some((m) => m.includes('bogus'))).toBe(true);
 	});
+
+	it('display() logLevel dropdown onChange calls port.save with updated logLevel', async () => {
+		const port = makePort();
+		const tab = makeTab(port);
+		tab.display();
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		const container = (tab as unknown as { containerEl: HTMLElement }).containerEl;
+		const settings = _settingsByContainer.get(container) ?? [];
+		// Third Setting is the logLevel dropdown row.
+		const logLevelSetting = settings[2];
+		const dropdown = logLevelSetting?._dropdowns[0];
+
+		dropdown?._trigger('debug');
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		expect(port.save).toHaveBeenCalledWith(expect.objectContaining({ logLevel: 'debug' }));
+	});
+
+	it('display() locale dropdown onChange with empty value removes locale key', async () => {
+		const port = makePort();
+		const tab = makeTab(port);
+		tab.display();
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		const container = (tab as unknown as { containerEl: HTMLElement }).containerEl;
+		const settings = _settingsByContainer.get(container) ?? [];
+		// Fourth Setting is the locale dropdown row.
+		const localeSetting = settings[3];
+		const dropdown = localeSetting?._dropdowns[0];
+
+		dropdown?._trigger('');
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		// The saved settings should not have a locale key (or locale === undefined)
+		expect(port.save).toHaveBeenCalled();
+		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+		expect('locale' in saved).toBe(false);
+	});
+
+	it('display() locale dropdown onChange with non-empty value saves locale', async () => {
+		const port = makePort();
+		const tab = makeTab(port);
+		tab.display();
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		const container = (tab as unknown as { containerEl: HTMLElement }).containerEl;
+		const settings = _settingsByContainer.get(container) ?? [];
+		const localeSetting = settings[3];
+		const dropdown = localeSetting?._dropdowns[0];
+
+		dropdown?._trigger('en');
+		await new Promise((r) => { setTimeout(r, 0); });
+
+		expect(port.save).toHaveBeenCalledWith(expect.objectContaining({ locale: 'en' }));
+	});
 });

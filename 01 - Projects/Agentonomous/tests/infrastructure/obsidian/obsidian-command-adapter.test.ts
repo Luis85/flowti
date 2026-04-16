@@ -96,4 +96,21 @@ describe('ObsidianCommandAdapter', () => {
 		const unsub = adapter.register({ id: 'no-ribbon', name: 'No Ribbon', callback: () => {} });
 		expect(() => { unsub(); }).not.toThrow();
 	});
+
+	it('register() ribbon click callback invokes the command callback', () => {
+		const plugin = createFakePlugin();
+		const callback = vi.fn();
+		let capturedClickFn: (() => void) | undefined;
+		plugin.addRibbonIcon = vi.fn((_icon: string, _title: string, fn: () => void) => {
+			capturedClickFn = fn;
+			return { style: { display: '' }, remove: vi.fn() };
+		});
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		adapter.register({
+			id: 'test-cmd', name: 'Test', callback,
+			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
+		});
+		capturedClickFn?.();
+		expect(callback).toHaveBeenCalled();
+	});
 });

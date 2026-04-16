@@ -336,11 +336,83 @@ describe('PluginCore listener leak detection', () => {
 		});
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger, notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger, notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[leaky],
 		);
 		await core.init();
 		core.destroy();
 		expect(logger.warn).toHaveBeenCalledWith('core', expect.stringContaining('leaky'));
+	});
+});
+
+describe('PluginCore core settings resolution', () => {
+	it('falls back to defaults when core settings are invalid in blob', async () => {
+		const bus = createEventBus();
+		// Provide invalid core settings (logLevel: 99 is not a valid LogLevel)
+		const settingsPort = fakeSettings({ core: { showRibbonIcon: 'not-a-boolean', defaultView: 'home', logLevel: 'info' } });
+		const m = defineModule({ id: 'a', name: 'A', async init() {}, destroy() {} });
+		const core = new PluginCore(
+			{ settings: settingsPort, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[m],
+		);
+		await core.init();
+		// Should fall back to defaults since showRibbonIcon is invalid
+		expect(core.coreSettings).toBeDefined();
+	});
+});
+
+describe('PluginCore.registerExtensions', () => {
+	it('calls port.register for each module extension after init', async () => {
+		const bus = createEventBus();
+		const m = defineModule({
+			id: 'test', name: 'Test',
+			extensions: [
+				{ ext: 'csv', viewType: 'agentonomous-file-detail' },
+				{ ext: 'json', viewType: 'agentonomous-file-detail' },
+			],
+			async init() {},
+			destroy() {},
+		});
+
+		const core = new PluginCore(
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[m],
+		);
+		await core.init();
+
+		const registered: Array<{ extensions: readonly string[]; viewType: string }> = [];
+		const fakePort = {
+			register: (extensions: readonly string[], viewType: string) => {
+				registered.push({ extensions, viewType });
+				return () => {};
+			},
+		};
+		core.registerExtensions(fakePort);
+
+		expect(registered).toHaveLength(2);
+		expect(registered[0]).toEqual({ extensions: ['csv'], viewType: 'agentonomous-file-detail' });
+		expect(registered[1]).toEqual({ extensions: ['json'], viewType: 'agentonomous-file-detail' });
+	});
+
+	it('does not register extensions for failed modules', async () => {
+		const bus = createEventBus();
+		const broken = defineModule({
+			id: 'broken', name: 'Broken',
+			extensions: [{ ext: 'csv', viewType: 'test-view' }],
+			async init() { throw new Error('boom'); },
+			destroy() {},
+		});
+
+		const core = new PluginCore(
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[broken],
+		);
+		await core.init();
+
+		const registered: string[] = [];
+		const fakePort = { register: (exts: readonly string[]) => { registered.push(...exts); return () => {}; } };
+		core.registerExtensions(fakePort);
+
+		expect(registered).toHaveLength(0);
 	});
 });

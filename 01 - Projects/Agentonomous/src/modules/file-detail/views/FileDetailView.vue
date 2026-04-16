@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { FileAnalysis } from '../handlers/types.js';
+type FileAnalysisSummary = Record<string, string | number>;
 
 const props = defineProps<{
-	analysis: FileAnalysis | null;
+	analysis: { fileName: string; extension: string; sizeBytes: number; summary: FileAnalysisSummary } | null;
 	error: string | null;
 	onOpenInEditor?: () => void;
 }>();

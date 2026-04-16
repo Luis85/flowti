@@ -5,7 +5,7 @@
  */
 export function extractFrontmatter(content: string): Record<string, string> {
 	const match = content.match(/^---\n([\s\S]*?)\n---/);
-	if (match === null || match[1] === undefined || match[1].length === 0) return {};
+	if (match?.[1] === undefined || match[1].length === 0) return {};
 	const lines = match[1].split('\n');
 	const result: Record<string, string> = {};
 	for (const line of lines) {

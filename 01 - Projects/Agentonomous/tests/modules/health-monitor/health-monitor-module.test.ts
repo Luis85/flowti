@@ -51,6 +51,28 @@ describe('HealthMonitorModule', () => {
 		HealthMonitorModule.destroy();
 	});
 
+	it('handles core:ready and core:destroyed events without throwing', async () => {
+		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
+		const bus = createEventBus();
+		const logger = fakeLogger();
+		const ports = {
+			eventBus: bus,
+			logger,
+			settings: fakeSettings(),
+			notifications: fakeNotifications(),
+			views: fakeViews(),
+		};
+
+		await HealthMonitorModule.init(ports, undefined);
+		// Cover the branch: phase === 'ready'
+		bus.emit('core', { phase: 'ready' });
+		// Cover the branch: phase === 'destroyed'
+		bus.emit('core', { phase: 'destroyed' });
+		// Cover the else: phase not matching
+		bus.emit('core', { phase: 'initializing' });
+		HealthMonitorModule.destroy();
+	});
+
 	it('show-health command invokes logger and notifications', async () => {
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();

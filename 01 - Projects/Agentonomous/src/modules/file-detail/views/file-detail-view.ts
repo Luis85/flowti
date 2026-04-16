@@ -5,6 +5,23 @@ export { VIEW_TYPE_FILE_DETAIL };
 
 type MountedView = { unmount: () => void };
 
+type AnalysisResult = {
+	analysis: { fileName: string; extension: string; sizeBytes: number; summary: Record<string, string | number> } | null;
+	error: string | null;
+};
+
+function getFilePathFromState(state: unknown): string | null {
+	if (typeof state !== 'object' || state === null) return null;
+	const s = state as Record<string, unknown>;
+	return typeof s['file'] === 'string' ? s['file'] : null;
+}
+
+function getContentFromState(state: unknown): string {
+	if (typeof state !== 'object' || state === null) return '';
+	const s = state as Record<string, unknown>;
+	return typeof s['content'] === 'string' ? s['content'] : '';
+}
+
 /**
  * Obsidian ItemView for the File Detail panel.
  * Reads the file path from ViewState, runs the appropriate handler,
@@ -22,36 +39,11 @@ export class FileDetailView extends ItemView {
 		if (this.mounted !== null || this.mounting) return;
 		this.mounting = true;
 		try {
-			const state = this.getState() as Record<string, unknown>;
-			const filePath = typeof state['file'] === 'string' ? state['file'] : null;
-
+			const state = this.getState();
+			const result = await this.buildAnalysis(state);
 			const { createApp } = await import('vue');
 			const { default: FileDetailViewComponent } = await import('./FileDetailView.vue');
-			const { getHandler } = await import('../handlers/handler-registry.js');
-
-			let analysis = null;
-			let error: string | null = null;
-
-			if (filePath !== null) {
-				const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
-				const handler = getHandler(ext);
-				if (handler !== undefined) {
-					try {
-						// Read raw content — vault access is done at open time.
-						// In Obsidian we read via app.vault; here we pass content
-						// through getState to keep the view testable.
-						const content = typeof state['content'] === 'string' ? state['content'] : '';
-						const fileName = filePath.split('/').pop() ?? filePath;
-						analysis = handler.analyze(content, fileName);
-					} catch (e) {
-						error = e instanceof Error ? e.message : String(e);
-					}
-				} else {
-					error = `No handler for extension: ${filePath.split('.').pop() ?? 'unknown'}`;
-				}
-			}
-
-			const app = createApp(FileDetailViewComponent, { analysis, error });
+			const app = createApp(FileDetailViewComponent, result);
 			app.mount(this.contentEl);
 			this.mounted = { unmount: () => { app.unmount(); } };
 		} catch (err) {
@@ -68,5 +60,22 @@ export class FileDetailView extends ItemView {
 		this.mounted?.unmount();
 		this.mounted = null;
 		return Promise.resolve();
+	}
+
+	private async buildAnalysis(state: unknown): Promise<AnalysisResult> {
+		const filePath = getFilePathFromState(state);
+		if (filePath === null) return { analysis: null, error: null };
+
+		const { getHandler } = await import('../handlers/handler-registry.js');
+		const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+		const handler = getHandler(ext);
+		if (handler === undefined) {
+			return { analysis: null, error: `No handler for extension: ${ext}` };
+		}
+
+		const content = getContentFromState(state);
+		const fileName = filePath.split('/').pop() ?? filePath;
+		const analysis = handler.analyze(content, fileName);
+		return { analysis, error: null };
 	}
 }
