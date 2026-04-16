@@ -16,6 +16,9 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement): MountedApp {
 
 	vue.use(pinia);
 	vue.use(router);
+	if (ctx.i18n !== undefined) {
+		vue.use(ctx.i18n);
+	}
 	vue.provide(PluginContextKey, ctx);
 
 	const appStore = useAppStore(pinia);
