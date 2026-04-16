@@ -15,7 +15,7 @@ describe('ObsidianSettingsAdapter', () => {
 	});
 
 	it('load() returns stored settings when valid', async () => {
-		const plugin = createFakePlugin({ showRibbonIcon: false, defaultView: 'home' });
+		const plugin = createFakePlugin({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		const adapter = new ObsidianSettingsAdapter(plugin as unknown as Plugin);
 		const r = await adapter.load();
 		expect(isOk(r)).toBe(true);
@@ -35,7 +35,7 @@ describe('ObsidianSettingsAdapter', () => {
 		const adapter = new ObsidianSettingsAdapter(plugin as unknown as Plugin);
 		const listener = vi.fn();
 		adapter.subscribe(listener);
-		const next = { showRibbonIcon: false, defaultView: 'home' as const };
+		const next = { showRibbonIcon: false, defaultView: 'home' as const, logLevel: 'info' as const };
 		await adapter.save(next);
 		expect(plugin.saveData).toHaveBeenCalledWith(next);
 		expect(listener).toHaveBeenCalledWith(next);
@@ -47,7 +47,7 @@ describe('ObsidianSettingsAdapter', () => {
 		const listener = vi.fn();
 		const unsub = adapter.subscribe(listener);
 		unsub();
-		await adapter.save({ showRibbonIcon: false, defaultView: 'home' });
+		await adapter.save({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		expect(listener).not.toHaveBeenCalled();
 	});
 });

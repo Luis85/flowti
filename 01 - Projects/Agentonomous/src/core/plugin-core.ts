@@ -1,5 +1,5 @@
 import type { EventBus } from '../domain/shared/event-bus.js';
-import type { LoggerPort, LogLevel } from '../domain/shared/logger-port.js';
+import type { LoggerPort } from '../domain/shared/logger-port.js';
 import type { NotificationPort } from '../domain/shared/notification-port.js';
 import type { SettingsPort } from '../domain/settings/settings-port.js';
 import type { CommandPort } from '../domain/commands/command-port.js';
@@ -9,16 +9,6 @@ import type { Unsubscribe } from '../domain/shared/unsubscribe.js';
 import { isOk } from '../domain/shared/result.js';
 import { DEFAULT_SETTINGS, type PluginSettings } from '../domain/settings/plugin-settings.js';
 import { ErrorHandler } from './error-handler.js';
-
-// PluginSettings may or may not carry logLevel depending on the version.
-// This helper narrows the optional field safely without unsafe-argument.
-function extractLogLevel(s: PluginSettings): LogLevel | undefined {
-	const maybeLevel = (s as Record<string, unknown>)['logLevel'];
-	if (maybeLevel === 'debug' || maybeLevel === 'info' || maybeLevel === 'error') {
-		return maybeLevel;
-	}
-	return undefined;
-}
 
 export interface CorePorts {
 	readonly settings: SettingsPort;
@@ -55,10 +45,7 @@ export class PluginCore {
 		const loaded = await this.ports.settings.load();
 		this.currentSettings = isOk(loaded) ? loaded.value : DEFAULT_SETTINGS;
 
-		const initialLevel = extractLogLevel(this.currentSettings);
-		if (initialLevel !== undefined) {
-			this.ports.logger.setLevel(initialLevel);
-		}
+		this.ports.logger.setLevel(this.currentSettings.logLevel);
 
 		for (const entry of this.commandEntries) {
 			this.ports.commands.register(entry);
@@ -69,10 +56,8 @@ export class PluginCore {
 			this.currentSettings = s;
 			this.ports.eventBus.emit('settings', { previous, current: s });
 
-			const prevLevel = extractLogLevel(previous);
-			const nextLevel = extractLogLevel(s);
-			if (prevLevel !== nextLevel && nextLevel !== undefined) {
-				this.ports.logger.setLevel(nextLevel);
+			if (previous.logLevel !== s.logLevel) {
+				this.ports.logger.setLevel(s.logLevel);
 			}
 
 			if (previous.showRibbonIcon !== s.showRibbonIcon) {

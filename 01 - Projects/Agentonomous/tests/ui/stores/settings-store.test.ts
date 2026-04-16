@@ -20,7 +20,7 @@ function makeFakePort(initial: PluginSettings = DEFAULT_SETTINGS): SettingsPort 
 describe('useSettingsStore', () => {
 	it('hydrate() loads settings from the port', async () => {
 		setActivePinia(createPinia());
-		const port = makeFakePort({ showRibbonIcon: false, defaultView: 'home' });
+		const port = makeFakePort({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		const store = useSettingsStore();
 		await store.hydrate(port);
 		expect(store.settings.showRibbonIcon).toBe(false);
@@ -31,7 +31,7 @@ describe('useSettingsStore', () => {
 		const port = makeFakePort();
 		const store = useSettingsStore();
 		await store.hydrate(port);
-		await store.update({ showRibbonIcon: false, defaultView: 'home' });
+		await store.update({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		expect(store.settings.showRibbonIcon).toBe(false);
 	});
 
@@ -40,7 +40,7 @@ describe('useSettingsStore', () => {
 		const port = makeFakePort();
 		const store = useSettingsStore();
 		await store.hydrate(port);
-		await port.save({ showRibbonIcon: false, defaultView: 'home' });
+		await port.save({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		expect(store.settings.showRibbonIcon).toBe(false);
 	});
 
@@ -67,7 +67,7 @@ describe('useSettingsStore', () => {
 	it('update() throws when called before hydrate()', async () => {
 		setActivePinia(createPinia());
 		const store = useSettingsStore();
-		await expect(store.update({ showRibbonIcon: false, defaultView: 'home' })).rejects.toThrow(/not hydrated/);
+		await expect(store.update({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' })).rejects.toThrow(/not hydrated/);
 	});
 
 	it('update() does not mutate state when port.save returns err', async () => {
@@ -80,7 +80,7 @@ describe('useSettingsStore', () => {
 		const store = useSettingsStore();
 		await store.hydrate(port);
 		const before = { ...store.settings };
-		await store.update({ showRibbonIcon: false, defaultView: 'home' });
+		await store.update({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		expect(store.settings).toEqual(before);
 	});
 
@@ -96,7 +96,7 @@ describe('useSettingsStore', () => {
 		};
 		const store = useSettingsStore();
 		await store.hydrate(port, bus);
-		await store.update({ showRibbonIcon: false, defaultView: 'home' });
+		await store.update({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		expect(errorListener).toHaveBeenCalledOnce();
 		expect(errorListener.mock.calls[0][0].payload.code).toBe('SETTINGS_SAVE_FAILED');
 	});

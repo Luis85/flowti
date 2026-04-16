@@ -9,7 +9,7 @@ describe('validateSettings', () => {
 	});
 
 	it('accepts raw JSON matching the schema', () => {
-		const r = validateSettings({ showRibbonIcon: false, defaultView: 'home' });
+		const r = validateSettings({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		expect(isOk(r)).toBe(true);
 		if (isOk(r)) expect(r.value.showRibbonIcon).toBe(false);
 	});
@@ -21,22 +21,33 @@ describe('validateSettings', () => {
 	});
 
 	it('rejects a missing showRibbonIcon', () => {
-		const r = validateSettings({ defaultView: 'home' });
+		const r = validateSettings({ defaultView: 'home', logLevel: 'info' });
 		expect(isErr(r)).toBe(true);
 	});
 
 	it('rejects a wrong-type showRibbonIcon', () => {
-		const r = validateSettings({ showRibbonIcon: 'yes', defaultView: 'home' });
+		const r = validateSettings({ showRibbonIcon: 'yes', defaultView: 'home', logLevel: 'info' });
 		expect(isErr(r)).toBe(true);
 	});
 
 	it('rejects an unknown defaultView value', () => {
-		const r = validateSettings({ showRibbonIcon: true, defaultView: 'not-a-view' });
+		const r = validateSettings({ showRibbonIcon: true, defaultView: 'not-a-view', logLevel: 'info' });
 		expect(isErr(r)).toBe(true);
 	});
 
-	it('DEFAULT_SETTINGS has showRibbonIcon = true and defaultView = home', () => {
+	it('rejects a missing logLevel', () => {
+		const r = validateSettings({ showRibbonIcon: true, defaultView: 'home' });
+		expect(isErr(r)).toBe(true);
+	});
+
+	it('rejects an unknown logLevel value', () => {
+		const r = validateSettings({ showRibbonIcon: true, defaultView: 'home', logLevel: 'verbose' });
+		expect(isErr(r)).toBe(true);
+	});
+
+	it('DEFAULT_SETTINGS has showRibbonIcon = true, defaultView = home, logLevel = info', () => {
 		expect(DEFAULT_SETTINGS.showRibbonIcon).toBe(true);
 		expect(DEFAULT_SETTINGS.defaultView).toBe('home');
+		expect(DEFAULT_SETTINGS.logLevel).toBe('info');
 	});
 });

@@ -1,7 +1,9 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting } from 'obsidian';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
-import { DEFAULT_SETTINGS, isDefaultViewName, KNOWN_DEFAULT_VIEWS, type PluginSettings } from '../../domain/settings/plugin-settings.js';
+import { DEFAULT_SETTINGS, isDefaultViewName, KNOWN_DEFAULT_VIEWS, KNOWN_LOG_LEVELS, type PluginSettings } from '../../domain/settings/plugin-settings.js';
+import type { LogLevel } from '../../domain/shared/logger-port.js';
 import { isErr, isOk } from '../../domain/shared/result.js';
+import { isOneOf } from '../../domain/shared/utils/is-one-of.js';
 
 export class AgentonomousSettingsTab extends PluginSettingTab {
 	private readonly port: SettingsPort;
@@ -58,6 +60,22 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 								await this.persist({ ...this.current, defaultView: value });
 							} else {
 								new Notice(`Agentonomous: unknown view "${value}"`);
+							}
+						});
+				});
+
+			new Setting(containerEl)
+				.setName('Log level')
+				.setDesc('Controls console output verbosity.')
+				.addDropdown((dropdown) => {
+					for (const level of KNOWN_LOG_LEVELS) {
+						dropdown.addOption(level, level.charAt(0).toUpperCase() + level.slice(1));
+					}
+					dropdown
+						.setValue(this.current.logLevel)
+						.onChange(async (value) => {
+							if (isOneOf(value, KNOWN_LOG_LEVELS)) {
+								await this.persist({ ...this.current, logLevel: value as LogLevel });
 							}
 						});
 				});
