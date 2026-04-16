@@ -12,12 +12,16 @@ export const VIEW_TYPE_EVENT_INSPECTOR = 'agentonomous-event-inspector';
  * sidebar view) wraps this buffer reactively when the leaf opens.
  * This keeps the module itself free of any Vue / Pinia / Obsidian imports.
  */
-let sharedBuffer: EventBuffer | null = null;
-let busUnsub: Unsubscribe | null = null;
+type ModuleState = {
+	buffer: EventBuffer;
+	busUnsub: Unsubscribe;
+};
+
+let state: ModuleState | null = null;
 
 /** Read-only accessor so the sidebar view can obtain the buffer on mount. */
 export function getEventBuffer(): EventBuffer | null {
-	return sharedBuffer;
+	return state?.buffer ?? null;
 }
 
 export const EventInspectorModule = defineModule<EventInspectorSettings>({
@@ -44,19 +48,19 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 			return Promise.resolve();
 		}
 
-		sharedBuffer = new EventBuffer(settings.maxEvents);
-
-		busUnsub = ports.eventBus.onAny((envelope) => {
-			sharedBuffer?.add(envelope);
+		const buffer = new EventBuffer(settings.maxEvents);
+		const busUnsub = ports.eventBus.onAny((envelope) => {
+			buffer.add(envelope);
 		});
+
+		state = { buffer, busUnsub };
 
 		ports.logger.info('event-inspector', `Capturing events (max: ${String(settings.maxEvents)})`);
 		return Promise.resolve();
 	},
 
 	destroy() {
-		busUnsub?.();
-		busUnsub = null;
-		sharedBuffer = null;
+		state?.busUnsub();
+		state = null;
 	},
 });

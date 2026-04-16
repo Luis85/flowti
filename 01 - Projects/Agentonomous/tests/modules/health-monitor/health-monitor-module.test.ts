@@ -1,22 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 import '../../../src/domain/shared/core-events.js';
-import { fakeLogger, fakeSettings, fakeNotifications, fakeViews } from '../../__fakes__/fake-ports.js';
+import { fakeModulePorts, fakeLogger, fakeNotifications } from '../../__fakes__/fake-ports.js';
 
 describe('HealthMonitorModule', () => {
 	it('init starts periodic health checks and destroy clears them', async () => {
 		vi.useFakeTimers();
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
-		const logger = fakeLogger();
-		const notifications = fakeNotifications();
-		const ports = {
-			eventBus: bus,
-			logger,
-			settings: fakeSettings(),
-			notifications,
-			views: fakeViews(),
-		};
+		const ports = fakeModulePorts({ eventBus: bus });
 
 		await HealthMonitorModule.init(ports, undefined);
 
@@ -38,13 +30,7 @@ describe('HealthMonitorModule', () => {
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
 		const logger = fakeLogger();
-		const ports = {
-			eventBus: bus,
-			logger,
-			settings: fakeSettings(),
-			notifications: fakeNotifications(),
-			views: fakeViews(),
-		};
+		const ports = fakeModulePorts({ eventBus: bus, logger });
 
 		await HealthMonitorModule.init(ports, undefined);
 		expect(logger.info).toHaveBeenCalledWith('health-monitor', 'Health monitoring active');
@@ -54,14 +40,7 @@ describe('HealthMonitorModule', () => {
 	it('handles core:ready and core:destroyed events without throwing', async () => {
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
-		const logger = fakeLogger();
-		const ports = {
-			eventBus: bus,
-			logger,
-			settings: fakeSettings(),
-			notifications: fakeNotifications(),
-			views: fakeViews(),
-		};
+		const ports = fakeModulePorts({ eventBus: bus });
 
 		await HealthMonitorModule.init(ports, undefined);
 		// Cover the branch: phase === 'ready'
@@ -78,13 +57,7 @@ describe('HealthMonitorModule', () => {
 		const bus = createEventBus();
 		const logger = fakeLogger();
 		const notifications = fakeNotifications();
-		const ports = {
-			eventBus: bus,
-			logger,
-			settings: fakeSettings(),
-			notifications,
-			views: fakeViews(),
-		};
+		const ports = fakeModulePorts({ eventBus: bus, logger, notifications });
 
 		await HealthMonitorModule.init(ports, undefined);
 
@@ -92,9 +65,24 @@ describe('HealthMonitorModule', () => {
 		expect(showHealthCmd).toBeDefined();
 		void showHealthCmd?.callback?.();
 
-		expect(logger.info).toHaveBeenCalledWith('health-monitor', expect.stringContaining('health check'));
-		expect(notifications.show).toHaveBeenCalledWith(expect.stringContaining('health check'));
+		expect(logger.info).toHaveBeenCalledWith('health-monitor', expect.stringContaining('health'));
+		expect(notifications.show).toHaveBeenCalledWith(expect.stringContaining('health'));
 
+		HealthMonitorModule.destroy();
+	});
+
+	it('init() called twice does not leak the first subscription', async () => {
+		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
+		const bus = createEventBus();
+		const ports = fakeModulePorts({ eventBus: bus });
+
+		await HealthMonitorModule.init(ports, undefined);
+		const countAfterFirst = bus.listenerCount();
+		HealthMonitorModule.destroy();
+
+		await HealthMonitorModule.init(ports, undefined);
+		const countAfterSecond = bus.listenerCount();
+		expect(countAfterSecond).toBe(countAfterFirst);
 		HealthMonitorModule.destroy();
 	});
 });

@@ -3,14 +3,13 @@ import { defineModule } from '../../domain/shared/module.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 import enMessages from './locales/en.json' with { type: 'json' };
 
-let intervalId: ReturnType<typeof setInterval> | null = null;
-let busUnsub: Unsubscribe | null = null;
+type ModuleState = {
+	intervalId: ReturnType<typeof setInterval>;
+	busUnsub: Unsubscribe;
+	showHealthCallback: () => void;
+};
 
-/**
- * Closed over during init() so the statically-declared command callback can
- * reach the ports that are only available at init time.
- */
-let showHealthCallback: (() => void) | null = null;
+let state: ModuleState | null = null;
 
 export const HealthMonitorModule = defineModule({
 	id: 'health-monitor',
@@ -22,38 +21,38 @@ export const HealthMonitorModule = defineModule({
 		{
 			id: 'show-health',
 			name: 'Show health status',
-			callback: () => { showHealthCallback?.(); },
+			callback: () => { state?.showHealthCallback(); },
 		},
 	],
 
 	init(ports) {
-		showHealthCallback = () => {
-			const summary = 'Agentonomous: health check — see console for details';
+		const showHealthCallback = (): void => {
+			const summary = ports.t.t('health-monitor.notifications.healthCheck');
 			ports.logger.info('health-monitor', summary);
 			ports.notifications.show(summary);
 		};
 
-		busUnsub = ports.eventBus.on('core', (env) => {
+		const busUnsub = ports.eventBus.on('core', (env) => {
 			if (env.payload.phase === 'ready' || env.payload.phase === 'destroyed') {
 				// Track module lifecycle via core events (simplified for skeleton)
 			}
 		});
 
-		intervalId = setInterval(() => {
+		const intervalId = setInterval(() => {
 			ports.eventBus.emit('health-monitor', { action: 'health-check' });
 		}, 60000);
+
+		state = { intervalId, busUnsub, showHealthCallback };
 
 		ports.logger.info('health-monitor', 'Health monitoring active');
 		return Promise.resolve();
 	},
 
 	destroy() {
-		if (intervalId !== null) {
-			clearInterval(intervalId);
-			intervalId = null;
+		if (state !== null) {
+			clearInterval(state.intervalId);
+			state.busUnsub();
+			state = null;
 		}
-		busUnsub?.();
-		busUnsub = null;
-		showHealthCallback = null;
 	},
 });

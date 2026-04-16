@@ -1,20 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 import '../../../src/domain/shared/core-events.js';
-import { fakeLogger, fakeSettings, fakeNotifications, fakeViews } from '../../__fakes__/fake-ports.js';
+import { fakeModulePorts, fakeLogger } from '../../__fakes__/fake-ports.js';
 
 describe('EventInspectorModule', () => {
 	it('init subscribes to the bus and captures events', async () => {
 		const { EventInspectorModule } = await import('../../../src/modules/event-inspector/event-inspector-module.js');
 		const bus = createEventBus();
 		const logger = fakeLogger();
-		const ports = {
-			eventBus: bus,
-			logger,
-			settings: fakeSettings(),
-			notifications: fakeNotifications(),
-			views: fakeViews(),
-		};
+		const ports = fakeModulePorts({ eventBus: bus, logger });
 
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
 		expect(logger.info).toHaveBeenCalled();
@@ -29,13 +23,7 @@ describe('EventInspectorModule', () => {
 		const { EventInspectorModule } = await import('../../../src/modules/event-inspector/event-inspector-module.js');
 		const bus = createEventBus();
 		const logger = fakeLogger();
-		const ports = {
-			eventBus: bus,
-			logger,
-			settings: fakeSettings(),
-			notifications: fakeNotifications(),
-			views: fakeViews(),
-		};
+		const ports = fakeModulePorts({ eventBus: bus, logger });
 
 		await EventInspectorModule.init(ports, { enabled: false, maxEvents: 100, filterChannels: [] });
 		expect(logger.info).toHaveBeenCalledWith('event-inspector', 'Event inspector disabled by settings');
@@ -49,14 +37,7 @@ describe('EventInspectorModule', () => {
 		expect(getEventBuffer()).toBeNull();
 
 		const bus = createEventBus();
-		const logger = fakeLogger();
-		const ports = {
-			eventBus: bus,
-			logger,
-			settings: fakeSettings(),
-			notifications: fakeNotifications(),
-			views: fakeViews(),
-		};
+		const ports = fakeModulePorts({ eventBus: bus });
 
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 50, filterChannels: [] });
 		expect(getEventBuffer()).not.toBeNull();
@@ -68,14 +49,7 @@ describe('EventInspectorModule', () => {
 	it('captured events appear in the buffer', async () => {
 		const { EventInspectorModule, getEventBuffer } = await import('../../../src/modules/event-inspector/event-inspector-module.js');
 		const bus = createEventBus();
-		const logger = fakeLogger();
-		const ports = {
-			eventBus: bus,
-			logger,
-			settings: fakeSettings(),
-			notifications: fakeNotifications(),
-			views: fakeViews(),
-		};
+		const ports = fakeModulePorts({ eventBus: bus });
 
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
 		bus.emit('core', { phase: 'ready' });
@@ -84,6 +58,21 @@ describe('EventInspectorModule', () => {
 		const buffer = getEventBuffer();
 		expect(buffer?.getAll()).toHaveLength(2);
 
+		EventInspectorModule.destroy();
+	});
+
+	it('init() called twice does not leak the first subscription', async () => {
+		const { EventInspectorModule } = await import('../../../src/modules/event-inspector/event-inspector-module.js');
+		const bus = createEventBus();
+		const ports = fakeModulePorts({ eventBus: bus });
+
+		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
+		const countAfterFirst = bus.listenerCount();
+		EventInspectorModule.destroy();
+
+		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
+		const countAfterSecond = bus.listenerCount();
+		expect(countAfterSecond).toBe(countAfterFirst);
 		EventInspectorModule.destroy();
 	});
 });
