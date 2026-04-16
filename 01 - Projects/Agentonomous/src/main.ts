@@ -5,6 +5,8 @@ import { ObsidianSettingsAdapter } from './infrastructure/obsidian/obsidian-sett
 import { ObsidianCommandAdapter } from './infrastructure/obsidian/obsidian-command-adapter.js';
 import { ObsidianNotificationAdapter } from './infrastructure/obsidian/obsidian-notification-adapter.js';
 import { ObsidianPlatformAdapter } from './infrastructure/obsidian/obsidian-platform-adapter.js';
+import { ObsidianVaultAdapter } from './infrastructure/obsidian/obsidian-vault-adapter.js';
+import { ObsidianFileExtensionAdapter } from './infrastructure/obsidian/obsidian-file-extension-adapter.js';
 import { ViewRegistry } from './infrastructure/obsidian/view-registry.js';
 import { HomepageView, VIEW_TYPE_HOMEPAGE } from './infrastructure/views/homepage-view.js';
 import { AgentonomousSettingsTab } from './infrastructure/settings/settings-tab.js';
@@ -14,6 +16,8 @@ import { CoreModule } from './modules/core/core-module.js';
 import { EventInspectorModule } from './modules/event-inspector/event-inspector-module.js';
 import { EventInspectorView, VIEW_TYPE_EVENT_INSPECTOR } from './modules/event-inspector/views/event-inspector-view.js';
 import { HealthMonitorModule } from './modules/health-monitor/health-monitor-module.js';
+import { FileDetailModule, VIEW_TYPE_FILE_DETAIL } from './modules/file-detail/file-detail-module.js';
+import { FileDetailView } from './modules/file-detail/views/file-detail-view.js';
 import type { TranslationPort } from './domain/shared/translation-port.js';
 import type { PluginContext } from './plugin.js';
 
@@ -38,6 +42,8 @@ export default class AgentonomousPlugin extends Plugin {
 		};
 
 		const settings = new ObsidianSettingsAdapter(this);
+		const vault = new ObsidianVaultAdapter(this.app);
+		const fileExtensions = new ObsidianFileExtensionAdapter(this);
 		const views = new ViewRegistry([
 			{
 				type: VIEW_TYPE_HOMEPAGE,
@@ -53,20 +59,17 @@ export default class AgentonomousPlugin extends Plugin {
 				defaultLocation: 'right',
 				viewFactory: (leaf, _ctx) => new EventInspectorView(leaf),
 			},
+			{
+				type: VIEW_TYPE_FILE_DETAIL,
+				displayName: 'File detail',
+				icon: 'file-search',
+				defaultLocation: 'right',
+				viewFactory: (leaf, _ctx) => new FileDetailView(leaf),
+			},
 		]);
 		const logger = new Logger(bus, 'info');
 		const notifications = new ObsidianNotificationAdapter();
 		const commands = new ObsidianCommandAdapter(this, views);
-
-		// Stub vault — full ObsidianVaultAdapter ships in Chunk 2
-		const vault = {
-			read: async (_path: string) => ({ kind: 'err' as const, error: 'VaultPort not yet wired' }),
-			create: async (_path: string, _content: string) => ({ kind: 'err' as const, error: 'VaultPort not yet wired' }),
-			update: async (_path: string, _content: string) => ({ kind: 'err' as const, error: 'VaultPort not yet wired' }),
-			delete: async (_path: string) => ({ kind: 'err' as const, error: 'VaultPort not yet wired' }),
-			exists: async (_path: string) => false,
-			list: async (_folder: string) => ({ kind: 'err' as const, error: 'VaultPort not yet wired' }),
-		};
 
 		this.core = new PluginCore(
 			{
@@ -81,7 +84,7 @@ export default class AgentonomousPlugin extends Plugin {
 				vault,
 				i18nMerge: (locale, messages) => { i18n.global.mergeLocaleMessage(locale, messages); },
 			},
-			[CoreModule, EventInspectorModule, HealthMonitorModule],
+			[CoreModule, EventInspectorModule, HealthMonitorModule, FileDetailModule],
 		);
 		await this.core.init();
 
@@ -108,6 +111,9 @@ export default class AgentonomousPlugin extends Plugin {
 			i18n,
 		};
 		views.registerAll(this, ctx);
+		// registerExtensions must come AFTER registerAll — Obsidian requires
+		// view types to be registered before extensions can reference them.
+		this.core.registerExtensions(fileExtensions);
 		this.addSettingTab(new AgentonomousSettingsTab(this.app, this, settings, translationPort));
 		this.register(() => { this.core?.destroy(); });
 	}

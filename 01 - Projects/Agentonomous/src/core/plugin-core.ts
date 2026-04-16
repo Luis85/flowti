@@ -9,6 +9,7 @@ import type { Unsubscribe } from '../domain/shared/unsubscribe.js';
 import type { TranslationPort } from '../domain/shared/translation-port.js';
 import type { PlatformPort } from '../domain/shared/platform-port.js';
 import type { VaultPort } from '../domain/shared/vault-port.js';
+import type { FileExtensionPort } from '../domain/shared/file-extension-port.js';
 import { isOk } from '../domain/shared/result.js';
 import { topologicalSort } from '../domain/shared/utils/topo-sort.js';
 import { ErrorHandler } from './error-handler.js';
@@ -269,6 +270,20 @@ export class PluginCore {
 		if (section === undefined) return CORE_SETTINGS_DEFAULTS;
 		const result = validateCoreSettings(section);
 		return isOk(result) ? result.value : CORE_SETTINGS_DEFAULTS;
+	}
+
+	/**
+	 * Register all file extensions declared by initialized modules.
+	 * Must be called AFTER views.registerAll() — Obsidian requires view
+	 * types to exist before extensions can be associated with them.
+	 */
+	registerExtensions(port: FileExtensionPort): void {
+		for (const m of this.sortedModules) {
+			if (!this.initializedModuleIds.has(m.id)) continue;
+			for (const entry of m.extensions ?? []) {
+				port.register([entry.ext], entry.viewType);
+			}
+		}
 	}
 
 	private registerAllCommands(): void {
