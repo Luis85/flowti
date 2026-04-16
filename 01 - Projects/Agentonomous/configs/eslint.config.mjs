@@ -16,7 +16,7 @@ const vueRecommendedRules = Object.assign(
 
 const sharedTsRules = {
 	'@typescript-eslint/no-explicit-any': 'error',
-	'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+	'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
 	'@typescript-eslint/strict-boolean-expressions': 'error',
 	'@typescript-eslint/no-floating-promises': 'error',
 	'@typescript-eslint/no-misused-promises': 'error',

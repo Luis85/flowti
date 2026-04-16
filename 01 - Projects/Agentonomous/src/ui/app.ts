@@ -22,9 +22,7 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement): MountedApp {
 	appStore.setVersion(ctx.plugin.manifest.version);
 
 	const settingsStore = useSettingsStore(pinia);
-	settingsStore.hydrate(ctx.settings).catch((err: unknown) => {
-		console.error('[agentonomous] failed to hydrate settings store', err);
-	});
+	void settingsStore.hydrate(ctx.settings, ctx.eventBus);
 
 	vue.mount(el);
 

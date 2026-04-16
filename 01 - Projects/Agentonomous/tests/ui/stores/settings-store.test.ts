@@ -4,6 +4,7 @@ import { useSettingsStore } from '../../../src/ui/stores/settings-store.js';
 import { DEFAULT_SETTINGS, type PluginSettings } from '../../../src/domain/settings/plugin-settings.js';
 import type { SettingsPort } from '../../../src/domain/settings/settings-port.js';
 import { ok } from '../../../src/domain/shared/result.js';
+import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 
 function makeFakePort(initial: PluginSettings = DEFAULT_SETTINGS): SettingsPort & { listenerCount: () => number } {
 	let current = initial;
@@ -81,5 +82,22 @@ describe('useSettingsStore', () => {
 		const before = { ...store.settings };
 		await store.update({ showRibbonIcon: false, defaultView: 'home' });
 		expect(store.settings).toEqual(before);
+	});
+
+	it('update() emits error on bus when port.save returns err', async () => {
+		setActivePinia(createPinia());
+		const bus = createEventBus();
+		const errorListener = vi.fn();
+		bus.on('error', errorListener);
+		const port: SettingsPort = {
+			load: async () => ok(DEFAULT_SETTINGS),
+			save: async () => ({ kind: 'err' as const, error: 'disk full' }),
+			subscribe: () => () => {},
+		};
+		const store = useSettingsStore();
+		await store.hydrate(port, bus);
+		await store.update({ showRibbonIcon: false, defaultView: 'home' });
+		expect(errorListener).toHaveBeenCalledOnce();
+		expect(errorListener.mock.calls[0][0].payload.code).toBe('SETTINGS_SAVE_FAILED');
 	});
 });
