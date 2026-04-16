@@ -19,7 +19,11 @@ function makeCtx(version = '1.0.0'): PluginContext {
 				return () => { listeners.splice(listeners.indexOf(cb), 1); };
 			}),
 		},
-		viewRegistry: {} as never,
+		commands: {} as never,
+		views: {} as never,
+		logger: {} as never,
+		notifications: {} as never,
+		eventBus: {} as never,
 	};
 }
 

@@ -50,9 +50,11 @@ export default class AgentonomousPlugin extends Plugin {
 			app: this.app,
 			plugin: this,
 			settings,
-			viewRegistry: views,
-			eventBus: bus,
+			commands,
+			views,
 			logger,
+			notifications,
+			eventBus: bus,
 		};
 		views.registerAll(this, ctx);
 		this.addSettingTab(new AgentonomousSettingsTab(this.app, this, settings));
