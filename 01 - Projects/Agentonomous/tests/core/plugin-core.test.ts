@@ -6,6 +6,7 @@ import { Logger } from '../../src/core/logger.js';
 import { defineModule } from '../../src/domain/shared/module.js';
 import { ok } from '../../src/domain/shared/result.js';
 import { fakeSettings, fakeCommands, fakeViews, fakeNotifications, fakeLogger } from '../__fakes__/fake-ports.js';
+import type { Result } from '../../src/domain/shared/result.js';
 
 describe('PluginCore with modules', () => {
 	it('init() calls module.init in dependency order', async () => {
@@ -251,6 +252,74 @@ describe('PluginCore graceful degradation', () => {
 		core.destroy();
 		expect(destroyCalls).toEqual(['healthy']);
 		expect(destroyCalls).not.toContain('broken');
+	});
+});
+
+describe('PluginCore settings migration', () => {
+	it('calls migrate() when settings version is behind', async () => {
+		const bus = createEventBus();
+		const migrateFn = vi.fn((_fromVersion: number, blob: unknown) => {
+			return ok({ ...(blob as Record<string, unknown>), migrated: true, _version: 2 });
+		});
+		const m = defineModule<{ color: string }>({
+			id: 'test', name: 'Test',
+			settingsKey: 'test',
+			settingsVersion: 2,
+			settingsDefaults: { color: 'blue' },
+			migrate: migrateFn as (fromVersion: number, blob: unknown) => Result<{ color: string }, string>,
+			async init() {},
+			destroy() {},
+		});
+
+		const settings = fakeSettings({ test: { _version: 1, color: 'red' } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			[m],
+		);
+		await core.init();
+		expect(migrateFn).toHaveBeenCalledWith(1, expect.objectContaining({ color: 'red' }));
+	});
+
+	it('falls back to defaults when migrate returns err', async () => {
+		const bus = createEventBus();
+		const receivedSettings: unknown[] = [];
+		const m = defineModule<{ color: string }>({
+			id: 'test', name: 'Test',
+			settingsKey: 'test',
+			settingsVersion: 2,
+			settingsDefaults: { color: 'blue' },
+			migrate: () => ({ kind: 'err', error: 'migration failed' }),
+			async init(_ports, settings) { receivedSettings.push(settings); },
+			destroy() {},
+		});
+
+		const settings = fakeSettings({ test: { _version: 1, color: 'red' } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			[m],
+		);
+		await core.init();
+		expect(receivedSettings[0]).toEqual({ color: 'blue' });
+	});
+
+	it('skips migration when no settingsVersion declared', async () => {
+		const bus = createEventBus();
+		const receivedSettings: unknown[] = [];
+		const m = defineModule<{ color: string }>({
+			id: 'test', name: 'Test',
+			settingsKey: 'test',
+			settingsDefaults: { color: 'blue' },
+			async init(_ports, settings) { receivedSettings.push(settings); },
+			destroy() {},
+		});
+
+		const settings = fakeSettings({ test: { color: 'red' } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			[m],
+		);
+		await core.init();
+		expect(receivedSettings[0]).toEqual(expect.objectContaining({ color: 'red' }));
 	});
 });
 

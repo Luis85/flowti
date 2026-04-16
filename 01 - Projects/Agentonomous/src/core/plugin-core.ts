@@ -199,11 +199,41 @@ export class PluginCore {
 		if (section === undefined) {
 			return m.settingsDefaults;
 		}
+
+		let resolved = this.applyMigration(m, section);
+
 		if (m.validateSettings !== undefined) {
-			const validated = m.validateSettings(section);
-			return isOk(validated) ? validated.value : m.settingsDefaults;
+			const validated = m.validateSettings(resolved);
+			resolved = isOk(validated) ? validated.value : m.settingsDefaults;
 		}
-		return section;
+		return resolved;
+	}
+
+	private applyMigration(m: Module, section: unknown): unknown {
+		if (m.settingsVersion === undefined || m.migrate === undefined) {
+			return section;
+		}
+
+		let version = (section as Record<string, unknown>)?._version as number ?? 0;
+		let current = section;
+		const maxIterations = m.settingsVersion - version;
+		let iterations = 0;
+
+		while (version < m.settingsVersion && iterations < maxIterations + 1) {
+			const migrated = m.migrate(version, current);
+			if (!isOk(migrated)) {
+				this.ports.logger.warn('core', `Migration failed for "${m.id}": ${migrated.error}`);
+				return m.settingsDefaults;
+			}
+			current = migrated.value;
+			version++;
+			iterations++;
+		}
+
+		if (typeof current === 'object' && current !== null) {
+			(current as Record<string, unknown>)['_version'] = m.settingsVersion;
+		}
+		return current;
 	}
 
 	private resolveCoreSettings(blob: Record<string, unknown>): CoreSettings {
