@@ -25,11 +25,11 @@ const props = defineProps<{
 
 			<div v-else class="file-detail__card">
 				<div class="file-detail__header">
-					<span class="file-detail__name">{{ props.analysis.fileName }}</span>
-					<span class="file-detail__size">{{ props.analysis.sizeBytes }} bytes</span>
+					<span class="file-detail__name" data-testid="file-name">{{ props.analysis.fileName }}</span>
+					<span class="file-detail__size" data-testid="file-size">{{ props.analysis.sizeBytes }} bytes</span>
 				</div>
 
-				<table class="file-detail__summary">
+				<table class="file-detail__summary" data-testid="file-summary">
 					<tbody>
 						<tr
 							v-for="(value, key) in props.analysis.summary"
@@ -44,6 +44,7 @@ const props = defineProps<{
 				<button
 					v-if="props.onOpenInEditor !== undefined"
 					class="file-detail__open-btn"
+					data-testid="open-in-editor"
 					@click="props.onOpenInEditor()"
 				>
 					Open in editor

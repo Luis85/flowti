@@ -69,6 +69,7 @@ onUnmounted(() => {
 				<input
 					v-model="filterInput"
 					class="event-inspector__filter"
+					data-testid="event-filter"
 					placeholder="Filter channels (comma-separated)"
 					@input="applyFilter"
 				>
@@ -77,11 +78,12 @@ onUnmounted(() => {
 
 			<div class="event-inspector__count">{{ events.length }} event(s)</div>
 
-			<ul class="event-inspector__list">
+			<ul class="event-inspector__list" data-testid="event-list">
 				<li
 					v-for="env in events"
 					:key="env.eventId"
 					class="event-inspector__item"
+					data-testid="event-item"
 				>
 					<span class="event-inspector__channel">{{ formatChannel(env) }}</span>
 					<span class="event-inspector__time">{{ formatTime(env.timestamp) }}</span>
