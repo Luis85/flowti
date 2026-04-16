@@ -9,6 +9,7 @@ import type { Unsubscribe } from '../domain/shared/unsubscribe.js';
 import { isOk } from '../domain/shared/result.js';
 import { topologicalSort } from '../domain/shared/utils/topo-sort.js';
 import { ErrorHandler } from './error-handler.js';
+import { CORE_SETTINGS_DEFAULTS, validateCoreSettings, type CoreSettings } from '../domain/settings/plugin-settings.js';
 
 export interface CorePorts {
 	readonly settings: SettingsPort;
@@ -26,6 +27,7 @@ export class PluginCore {
 	private sortedModules: Module[] = [];
 	private errorHandler: ErrorHandler | null = null;
 	private settingsUnsub: Unsubscribe | null = null;
+	private currentCoreSettings: CoreSettings = CORE_SETTINGS_DEFAULTS;
 
 	constructor(ports: CorePorts, modules: readonly Module[]) {
 		this.ports = ports;
@@ -51,6 +53,7 @@ export class PluginCore {
 		}
 
 		const blob = await this.loadSettingsBlob();
+		this.currentCoreSettings = this.resolveCoreSettings(blob);
 		const modulePorts = this.buildModulePorts();
 
 		for (const m of this.sortedModules) {
@@ -59,8 +62,9 @@ export class PluginCore {
 
 		this.registerAllCommands();
 
-		this.settingsUnsub = this.ports.settings.subscribe((_raw) => {
-			// Individual modules manage their own settings
+		this.settingsUnsub = this.ports.settings.subscribe(async (_raw) => {
+			const freshBlob = await this.loadSettingsBlob();
+			this.currentCoreSettings = this.resolveCoreSettings(freshBlob);
 		});
 
 		this.state = 'ready';
@@ -86,8 +90,8 @@ export class PluginCore {
 		return this.state === 'ready';
 	}
 
-	get settings(): unknown {
-		return undefined;
+	get coreSettings(): CoreSettings {
+		return this.currentCoreSettings;
 	}
 
 	private collectValidationErrors(): string[] {
@@ -176,6 +180,13 @@ export class PluginCore {
 			return isOk(validated) ? validated.value : m.settingsDefaults;
 		}
 		return section;
+	}
+
+	private resolveCoreSettings(blob: Record<string, unknown>): CoreSettings {
+		const section = blob['core'];
+		if (section === undefined) return CORE_SETTINGS_DEFAULTS;
+		const result = validateCoreSettings(section);
+		return isOk(result) ? result.value : CORE_SETTINGS_DEFAULTS;
 	}
 
 	private registerAllCommands(): void {

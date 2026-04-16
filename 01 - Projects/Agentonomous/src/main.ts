@@ -46,6 +46,14 @@ export default class AgentonomousPlugin extends Plugin {
 		);
 		await this.core.init();
 
+		// Ribbon visibility: adapter-level concern, driven by CoreSettings
+		commands.setRibbonVisibility(this.core.coreSettings.showRibbonIcon);
+		settings.subscribe(() => {
+			if (this.core !== null) {
+				commands.setRibbonVisibility(this.core.coreSettings.showRibbonIcon);
+			}
+		});
+
 		const ctx: PluginContext = {
 			app: this.app,
 			plugin: this,
