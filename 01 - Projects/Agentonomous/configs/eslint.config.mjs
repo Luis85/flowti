@@ -153,10 +153,16 @@ export default [
 		},
 	},
 	{
-		files: ['src/modules/**/*.ts'],
+		files: ['src/modules/**/*.ts', 'src/modules/**/*.vue'],
 		rules: {
 			'no-console': 'off',
 			'no-restricted-syntax': 'off',
+		},
+	},
+	{
+		files: ['src/domain/**/*.ts', 'src/modules/**/*.ts'],
+		rules: {
+			'max-lines': ['error', { max: 350, skipBlankLines: true, skipComments: true }],
 		},
 	},
 	{
@@ -211,6 +217,17 @@ export default [
 				'error',
 				{ paths: [{ name: 'obsidian', message: 'Obsidian only allowed in allowlist (spec §2.2 rule 3)' }] },
 			],
+		},
+	},
+	{
+		files: ['src/modules/**/*.ts', 'src/modules/**/*.vue'],
+		rules: {
+			'no-restricted-imports': ['error', {
+				patterns: [{
+					group: ['../*/index*', '../*/*.js', '../*/*.ts'],
+					message: 'Modules must not import from other modules — use EventBus for cross-module communication',
+				}],
+			}],
 		},
 	},
 ];

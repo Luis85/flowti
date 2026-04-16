@@ -3,14 +3,14 @@ export async function runWithConcurrency(
 	limit: number,
 ): Promise<void> {
 	if (!Number.isFinite(limit)) {
-		await Promise.all(tasks.map((t) => t()));
+		await Promise.all(tasks.map((t) => Promise.resolve(t())));
 		return;
 	}
 	let index = 0;
 	async function next(): Promise<void> {
 		while (index < tasks.length) {
 			const i = index++;
-			await tasks[i]?.();
+			await Promise.resolve(tasks[i]?.());
 		}
 	}
 	await Promise.all(

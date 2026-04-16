@@ -213,25 +213,32 @@ export class PluginCore {
 		if (m.settingsVersion === undefined || m.migrate === undefined) {
 			return section;
 		}
+		return this.runMigrationLoop(m, m.migrate, section, m.settingsVersion);
+	}
 
-		let version = (section as Record<string, unknown>)?._version as number ?? 0;
+	private runMigrationLoop(
+		m: Module,
+		migrate: NonNullable<Module['migrate']>,
+		section: unknown,
+		targetVersion: number,
+	): unknown {
+		const sectionRecord = typeof section === 'object' && section !== null ? section as Record<string, unknown> : {};
+		let version = typeof sectionRecord['_version'] === 'number' ? sectionRecord['_version'] : 0;
 		let current = section;
-		const maxIterations = m.settingsVersion - version;
-		let iterations = 0;
+		const maxIterations = targetVersion - version;
 
-		while (version < m.settingsVersion && iterations < maxIterations + 1) {
-			const migrated = m.migrate(version, current);
+		for (let iterations = 0; version < targetVersion && iterations < maxIterations + 1; iterations++) {
+			const migrated = migrate(version, current);
 			if (!isOk(migrated)) {
 				this.ports.logger.warn('core', `Migration failed for "${m.id}": ${migrated.error}`);
 				return m.settingsDefaults;
 			}
 			current = migrated.value;
 			version++;
-			iterations++;
 		}
 
 		if (typeof current === 'object' && current !== null) {
-			(current as Record<string, unknown>)['_version'] = m.settingsVersion;
+			(current as Record<string, unknown>)['_version'] = targetVersion;
 		}
 		return current;
 	}
