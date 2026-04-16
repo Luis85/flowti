@@ -1,16 +1,24 @@
 import { Plugin } from 'obsidian';
+import { createEventBus } from './domain/shared/event-bus.js';
+import { CORE_COMMANDS } from './domain/commands/core-commands.js';
 import { ObsidianSettingsAdapter } from './infrastructure/obsidian/obsidian-settings-adapter.js';
+import { ObsidianCommandAdapter } from './infrastructure/obsidian/obsidian-command-adapter.js';
+import { ObsidianNotificationAdapter } from './infrastructure/obsidian/obsidian-notification-adapter.js';
 import { ViewRegistry } from './infrastructure/obsidian/view-registry.js';
-import { HomepageView, VIEW_TYPE_HOMEPAGE } from './infrastructure/views/homepage-view.js';
+import { HomepageView } from './infrastructure/views/homepage-view.js';
 import { AgentonomousSettingsTab } from './infrastructure/settings/settings-tab.js';
-import { createPluginContext } from './plugin.js';
+import { VIEW_TYPE_HOMEPAGE } from './domain/views/view-types.js';
+import { Logger } from './core/logger.js';
+import { PluginCore } from './core/plugin-core.js';
+import type { PluginContext } from './plugin.js';
 
 export default class AgentonomousPlugin extends Plugin {
-	async onload(): Promise<void> {
-		const settings = new ObsidianSettingsAdapter(this);
-		await settings.load();
+	private core: PluginCore | null = null;
 
-		const registry = new ViewRegistry([
+	async onload(): Promise<void> {
+		const bus = createEventBus();
+		const settings = new ObsidianSettingsAdapter(this);
+		const views = new ViewRegistry([
 			{
 				type: VIEW_TYPE_HOMEPAGE,
 				displayName: 'Agentonomous homepage',
@@ -18,23 +26,27 @@ export default class AgentonomousPlugin extends Plugin {
 				defaultLocation: 'main',
 				viewFactory: (leaf, ctx) => new HomepageView(leaf, ctx),
 			},
-			// Example future sidebar panel:
-			// { type: 'agentonomous-inspector', displayName: 'Agent inspector', icon: 'search', defaultLocation: 'right', viewFactory: (leaf, ctx) => new InspectorView(leaf, ctx) },
 		]);
+		const logger = new Logger(bus, 'info');
+		const notifications = new ObsidianNotificationAdapter();
+		const commands = new ObsidianCommandAdapter(this, views);
 
-		const ctx = createPluginContext(this, settings, registry);
-		registry.registerAll(this, ctx);
+		this.core = new PluginCore(
+			{ settings, commands, views, logger, notifications, eventBus: bus },
+			CORE_COMMANDS,
+		);
+		await this.core.init();
 
-		this.addCommand({
-			id: 'open-homepage',
-			name: 'Open homepage',
-			callback: () => { void registry.openView(this, VIEW_TYPE_HOMEPAGE); },
-		});
-
+		const ctx: PluginContext = {
+			app: this.app,
+			plugin: this,
+			settings,
+			viewRegistry: views,
+			eventBus: bus,
+			logger,
+		};
+		views.registerAll(this, ctx);
 		this.addSettingTab(new AgentonomousSettingsTab(this.app, this, settings));
-	}
-
-	onunload(): void {
-		// Chunk 5 will wire CommandAdapter + cleanup here.
+		this.register(() => { this.core?.destroy(); });
 	}
 }
