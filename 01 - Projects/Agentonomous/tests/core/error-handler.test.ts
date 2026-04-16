@@ -49,4 +49,33 @@ describe('ErrorHandler', () => {
 		bus.emit('error', { code: 'LATE', message: 'After destroy', source: 'test', severity: 'user' });
 		expect(logger.error).not.toHaveBeenCalled();
 	});
+
+	it('shows Notice for each error when core event has degraded: true', () => {
+		const bus = createEventBus();
+		const logger = fakeLogger();
+		const notifications = fakeNotifications();
+		new ErrorHandler(bus, logger, notifications);
+		bus.emit('core', { phase: 'ready', degraded: true, errors: ['Module "alpha" failed', 'Module "beta" failed'] });
+		expect(notifications.messages).toContain('Module "alpha" failed');
+		expect(notifications.messages).toContain('Module "beta" failed');
+	});
+
+	it('does not show Notice for core events without degraded flag', () => {
+		const bus = createEventBus();
+		const logger = fakeLogger();
+		const notifications = fakeNotifications();
+		new ErrorHandler(bus, logger, notifications);
+		bus.emit('core', { phase: 'ready' });
+		expect(notifications.messages).toHaveLength(0);
+	});
+
+	it('destroy() also unsubscribes from core channel', () => {
+		const bus = createEventBus();
+		const logger = fakeLogger();
+		const notifications = fakeNotifications();
+		const handler = new ErrorHandler(bus, logger, notifications);
+		handler.destroy();
+		bus.emit('core', { phase: 'ready', degraded: true, errors: ['Module "x" failed'] });
+		expect(notifications.messages).toHaveLength(0);
+	});
 });
