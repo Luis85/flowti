@@ -15,10 +15,6 @@ type Story = StoryObj<typeof DashboardLayout>;
 export const Default: Story = {
 	render: () => ({
 		components: { DashboardLayout },
-		setup() {
-			const pinia = createPinia();
-			return { pinia };
-		},
 		template: `
 			<DashboardLayout>
 				<div>Main Content Area</div>
