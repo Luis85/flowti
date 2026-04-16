@@ -23,6 +23,7 @@
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "devDependencies": {
+    "@intlify/unplugin-vue-i18n": "^11.0.7",
     "@storybook/addon-a11y": "^10.3.0",
     "@storybook/addon-vitest": "^10.3.0",
     "@storybook/vue3-vite": "^10.3.0",
@@ -47,6 +48,7 @@
     "vitest": "^4.1.2",
     "vue": "^3.5.0",
     "vue-eslint-parser": "^10.0.0",
+    "vue-i18n": "^9.14.5",
     "vue-router": "^4.4.0",
     "vue-tsc": "^2.2.0"
   }
