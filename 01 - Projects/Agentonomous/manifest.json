@@ -1,0 +1,9 @@
+{
+  "id": "agentonomous",
+  "name": "Agentonomous",
+  "version": "0.0.1",
+  "minAppVersion": "1.12.7",
+  "description": "Run and observe autonomous agents directly in your Obsidian vault.",
+  "author": "Luis Mendez",
+  "isDesktopOnly": true
+}

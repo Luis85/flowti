@@ -1,0 +1,11 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["../src/domain", "../src/infrastructure"],
+  "entryPointStrategy": "expand",
+  "exclude": ["**/*.vue", "**/*.test.ts"],
+  "out": "../docs/api",
+  "tsconfig": "./tsconfig.json",
+  "skipErrorChecking": false,
+  "disableSources": false,
+  "readme": "none"
+}

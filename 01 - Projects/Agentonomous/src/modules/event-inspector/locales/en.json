@@ -1,0 +1,8 @@
+{
+	"event-inspector.settings.enabled": "Enable event inspector",
+	"event-inspector.settings.enabled.desc": "Capture and display plugin events in the sidebar panel.",
+	"event-inspector.settings.maxEvents": "Max events",
+	"event-inspector.settings.maxEvents.desc": "Maximum number of events to retain in the buffer.",
+	"event-inspector.commands.toggle": "Toggle event inspector",
+	"event-inspector.views.title": "Event inspector"
+}

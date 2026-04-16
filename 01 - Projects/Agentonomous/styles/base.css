@@ -1,0 +1,12 @@
+/* Agentonomous base reset + layout tokens */
+.agentonomous-home,
+.agentonomous-about {
+	padding: 1rem;
+	color: var(--text-normal);
+}
+
+.agentonomous-nav {
+	margin-top: 1rem;
+	display: flex;
+	gap: 0.75rem;
+}

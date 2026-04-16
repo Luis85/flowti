@@ -1,0 +1,14 @@
+{
+	"core.settings.showRibbonIcon": "Show ribbon icon",
+	"core.settings.showRibbonIcon.desc": "Show the Agentonomous icon in the left ribbon.",
+	"core.settings.defaultView": "Default view",
+	"core.settings.defaultView.desc": "Which view opens when the plugin launches.",
+	"core.settings.logLevel": "Log level",
+	"core.settings.logLevel.desc": "Controls console output verbosity.",
+	"core.settings.locale": "Language",
+	"core.settings.locale.desc": "Plugin language. Auto uses Obsidian's language setting.",
+	"core.settings.locale.auto": "Auto (from Obsidian)",
+	"core.commands.openHomepage": "Open homepage",
+	"core.views.homepage": "Agentonomous homepage",
+	"core.errors.saveFailed": "Agentonomous: failed to save settings"
+}
