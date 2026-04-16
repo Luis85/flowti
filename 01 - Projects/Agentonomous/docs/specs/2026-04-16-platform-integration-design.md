@@ -91,8 +91,13 @@ Each module declares `messages` on the Module interface:
 interface Module {
     // ... existing fields ...
     readonly messages?: Record<string, Record<string, string>>;
+    readonly extensions?: readonly FileExtensionEntry[];
 }
 ```
+
+Both `messages` and `extensions` must also be added to the `defineModule<T>()` builder's `def` parameter type. Since `defineModule` mirrors the `Module` interface, any new field on `Module` must appear in `def` — otherwise callers using `defineModule()` (the required way to create modules) get a TypeScript error when they try to set these fields.
+
+**Coordinated port addition:** Adding `t: TranslationPort`, `platform: PlatformPort`, and `vault: VaultPort` to `ModulePorts` is a single coordinated change. All three fakes (`fakeTranslation`, `fakePlatform`, `fakeVault`) must land in `tests/__fakes__/fake-ports.ts` in the same commit that adds the ports to the interface — otherwise `fakeModulePorts()` won't compile.
 
 Example:
 ```ts
@@ -150,9 +155,11 @@ The `TranslationPort` implementation wraps `i18n.global.t`:
 ```ts
 const translationPort: TranslationPort = {
     t: (key, params) => i18n.global.t(key, params ?? {}),
-    get locale() { return i18n.global.locale; },
+    get locale() { return i18n.global.locale.value; },  // .value — vue-i18n v9+ locale is Ref<string>
 };
 ```
+
+Note: In vue-i18n v9+, `i18n.global.locale` is a `Ref<string>`, not a plain string. The `.value` accessor is required. Pin `vue-i18n` to a specific v9 minor (e.g., `^9.14.0`) in `package.json` rather than `latest` — the API surface between v9 and v10 differs.
 
 ## 4. File Extension Registry + File Detail View
 
@@ -190,7 +197,15 @@ type FileExtensionEntry = {
 };
 ```
 
-`PluginCore.init()` collects all modules' `extensions` arrays and registers them via `FileExtensionPort`.
+`PluginCore.init()` collects all modules' `extensions` arrays but does NOT register them during init. Instead, `PluginCore` exposes a `registerExtensions(port: FileExtensionPort)` method that `main.ts` calls AFTER `views.registerAll()`. This is because Obsidian's `registerExtensions` requires the view type to already be registered. The sequence in `main.ts`:
+
+```ts
+await this.core.init();              // modules init, commands registered
+views.registerAll(this, ctx);         // view types registered with Obsidian
+this.core.registerExtensions(fileExtPort); // extensions point to now-registered views
+```
+
+Note: `ObsidianFileExtensionAdapter.register()` returns `() => {}` as a no-op unsubscribe. Obsidian's `registerExtensions` has no deregistration API — cleanup happens automatically on plugin unload. The `Unsubscribe` return type on `FileExtensionPort` is kept for interface consistency with other ports but is intentionally empty.
 
 ### 4.4 File-type handlers (pure functions)
 
@@ -323,7 +338,15 @@ function extractFrontmatter(content: string): Record<string, unknown> {
 }
 ```
 
-For this increment, a simple line-based parser handles flat `key: value` frontmatter. Nested YAML is returned as unparsed strings. If the `yaml` package is needed later, it's added as a devDependency.
+For this increment, a simple line-based parser handles flat `key: value` frontmatter. Known limitations (documented, not bugs):
+- Values containing colons: `title: My Project: Phase 1` — splits on first `: ` only; the rest is part of the value.
+- Multiline values: returned as the first-line value only (truncated).
+- Empty frontmatter block (`---\n---`) → returns `{}`.
+- Leading/trailing whitespace in values → trimmed.
+
+The shared test suite (§5.5) must include test cases for each of these edge cases.
+
+Nested YAML is returned as unparsed strings. If the `yaml` package is needed later, it's added as a devDependency.
 
 ### 5.4 Integration
 
@@ -415,7 +438,7 @@ tests/__stubs__/obsidian.ts              # TFile, vault mock surface
 ## 8. Risks
 
 - **vue-i18n version resolution** — pin to latest compatible with Vue 3.5 + Vite 8; if resolution fails, stop and report (same protocol as Increment 1).
-- **Obsidian `registerExtensions` behavior** — some extensions (.md, .json) may already be claimed by Obsidian core. If `.json` conflicts, fall back to a context-menu command instead of auto-opening.
+- **Obsidian `registerExtensions` behavior** — `.json` may already be claimed by Obsidian core. At startup, if `registerExtensions` fails silently for `.json`, the module logs a `warn`: `"File extension .json may be claimed by Obsidian — File Detail View will only open via command"`. The module always registers its command (`toggle-file-detail`) as a fallback; extensions are a convenience, not a requirement. `.csv` is unlikely to conflict (Obsidian doesn't handle CSV natively).
 - **Frontmatter parsing in LocalStorageVaultAdapter** — the simple line-based parser handles flat `key: value` only. Nested YAML returns unparsed strings. Sufficient for the skeleton; upgrade to `yaml` package when needed.
 - **`exactOptionalPropertyTypes` + `locale?` field** — the `'locale' in raw` narrowing pattern must be used consistently; `raw.locale !== undefined` will fail compilation.
 
