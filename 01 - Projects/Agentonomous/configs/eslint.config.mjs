@@ -156,6 +156,23 @@ export default [
 		files: ['src/modules/**/*.ts', 'src/modules/**/*.vue'],
 		rules: {
 			'no-console': 'off',
+			// try/catch ban remains active for modules (domain purity applies here too)
+		},
+	},
+	{
+		// File-type handlers wrap external parsing (JSON.parse, CSV) and legitimately
+		// need try/catch for error boundary isolation.
+		files: ['src/modules/**/handlers/**/*.ts'],
+		rules: {
+			'no-restricted-syntax': 'off',
+		},
+	},
+	{
+		// View files wrap Obsidian lifecycle callbacks (onOpen, onClose) with dynamic
+		// Vue imports that cannot be expressed as Result — dynamic import() errors
+		// must be caught here to prevent blank panels.
+		files: ['src/modules/**/views/*-view.ts'],
+		rules: {
 			'no-restricted-syntax': 'off',
 		},
 	},

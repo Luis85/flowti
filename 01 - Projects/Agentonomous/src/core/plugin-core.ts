@@ -273,6 +273,22 @@ export class PluginCore {
 	 * way.  Returns a new merged blob if any module's settings were migrated
 	 * (so the caller can save it back), or null if nothing changed.
 	 */
+	private applyMigrationToBlob(
+		m: Module,
+		blob: Record<string, unknown>,
+		migratedBlob: Record<string, unknown> | null,
+	): Record<string, unknown> | null {
+		if (m.settingsKey === undefined || m.settingsVersion === undefined || m.migrate === undefined) {
+			return migratedBlob;
+		}
+		const rawSection = blob[m.settingsKey];
+		const migrated = this.applyMigration(m, rawSection);
+		if (migrated === rawSection) return migratedBlob;
+		const next = migratedBlob ?? { ...blob };
+		next[m.settingsKey] = migrated;
+		return next;
+	}
+
 	private async initModulesAndMigrate(
 		modulePorts: ModulePorts,
 		blob: Record<string, unknown>,
@@ -281,16 +297,7 @@ export class PluginCore {
 
 		for (const m of this.sortedModules) {
 			try {
-				const rawSection = m.settingsKey !== undefined ? blob[m.settingsKey] : undefined;
-				const migrated = m.settingsVersion !== undefined && m.migrate !== undefined
-					? this.applyMigration(m, rawSection)
-					: rawSection;
-
-				if (migrated !== rawSection && m.settingsKey !== undefined) {
-					if (migratedBlob === null) migratedBlob = { ...blob };
-					migratedBlob[m.settingsKey] = migrated;
-				}
-
+				migratedBlob = this.applyMigrationToBlob(m, blob, migratedBlob);
 				const resolvedBlob = migratedBlob ?? blob;
 				const settings = this.resolveModuleSettings(m, resolvedBlob);
 				await m.init(modulePorts, settings);
