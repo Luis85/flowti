@@ -1,25 +1,18 @@
 import { Plugin } from 'obsidian';
 import { createEventBus } from './domain/shared/event-bus.js';
-import { CORE_COMMANDS } from './domain/commands/core-commands.js';
-import { defineModule } from './domain/shared/module.js';
 import { ObsidianSettingsAdapter } from './infrastructure/obsidian/obsidian-settings-adapter.js';
 import { ObsidianCommandAdapter } from './infrastructure/obsidian/obsidian-command-adapter.js';
 import { ObsidianNotificationAdapter } from './infrastructure/obsidian/obsidian-notification-adapter.js';
 import { ViewRegistry } from './infrastructure/obsidian/view-registry.js';
-import { HomepageView } from './infrastructure/views/homepage-view.js';
+import { HomepageView, VIEW_TYPE_HOMEPAGE } from './infrastructure/views/homepage-view.js';
 import { AgentonomousSettingsTab } from './infrastructure/settings/settings-tab.js';
-import { VIEW_TYPE_HOMEPAGE } from './domain/views/view-types.js';
 import { Logger } from './core/logger.js';
 import { PluginCore } from './core/plugin-core.js';
+import { CoreModule } from './modules/core/core-module.js';
+import { EventInspectorModule } from './modules/event-inspector/event-inspector-module.js';
+import { EventInspectorView, VIEW_TYPE_EVENT_INSPECTOR } from './modules/event-inspector/views/event-inspector-view.js';
+import { HealthMonitorModule } from './modules/health-monitor/health-monitor-module.js';
 import type { PluginContext } from './plugin.js';
-
-const tempModule = defineModule({
-	id: 'core-temp',
-	name: 'Core (temporary)',
-	commands: CORE_COMMANDS,
-	async init() {},
-	destroy() {},
-});
 
 export default class AgentonomousPlugin extends Plugin {
 	private core: PluginCore | null = null;
@@ -35,6 +28,13 @@ export default class AgentonomousPlugin extends Plugin {
 				defaultLocation: 'main',
 				viewFactory: (leaf, ctx) => new HomepageView(leaf, ctx),
 			},
+			{
+				type: VIEW_TYPE_EVENT_INSPECTOR,
+				displayName: 'Event inspector',
+				icon: 'activity',
+				defaultLocation: 'right',
+				viewFactory: (leaf, _ctx) => new EventInspectorView(leaf),
+			},
 		]);
 		const logger = new Logger(bus, 'info');
 		const notifications = new ObsidianNotificationAdapter();
@@ -42,7 +42,7 @@ export default class AgentonomousPlugin extends Plugin {
 
 		this.core = new PluginCore(
 			{ settings, commands, views, logger, notifications, eventBus: bus },
-			[tempModule],
+			[CoreModule, EventInspectorModule, HealthMonitorModule],
 		);
 		await this.core.init();
 
