@@ -133,6 +133,10 @@ export class PluginCore {
 		return this.degradedModuleIds;
 	}
 
+	get registeredModules(): readonly Module[] {
+		return this.sortedModules;
+	}
+
 	private collectValidationErrors(): string[] {
 		const errors: string[] = [
 			...this.checkDuplicateIds(),

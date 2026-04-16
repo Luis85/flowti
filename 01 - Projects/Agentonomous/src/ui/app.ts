@@ -4,6 +4,7 @@ import { createAppRouter } from './router/index.js';
 import { PluginContextKey } from './plugin-context-key.js';
 import { useAppStore } from './stores/app-store.js';
 import { useSettingsStore } from './stores/settings-store.js';
+import { useModuleStatusStore } from './stores/module-status-store.js';
 import AppRoot from './AppRoot.vue';
 import type { PluginContext } from '../plugin.js';
 
@@ -26,6 +27,9 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement): MountedApp {
 
 	const settingsStore = useSettingsStore(pinia);
 	void settingsStore.hydrate(ctx.settings, ctx.eventBus);
+
+	const moduleStatusStore = useModuleStatusStore(pinia);
+	moduleStatusStore.setModules(ctx.moduleStatus);
 
 	vue.mount(el);
 

@@ -24,6 +24,7 @@ function makeCtx(version = '1.0.0'): PluginContext {
 		logger: {} as never,
 		notifications: {} as never,
 		eventBus: {} as never,
+		moduleStatus: [],
 	};
 }
 
@@ -34,12 +35,13 @@ describe('PluginContextKey', () => {
 });
 
 describe('createAppRouter', () => {
-	it('creates a router with / and /about routes', () => {
+	it('creates a router with /, /about, and /dashboard routes', () => {
 		const router = createAppRouter();
 		const routes = router.getRoutes();
 		const paths = routes.map((r) => r.path);
 		expect(paths).toContain('/');
 		expect(paths).toContain('/about');
+		expect(paths).toContain('/dashboard');
 	});
 });
 

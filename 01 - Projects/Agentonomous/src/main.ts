@@ -19,7 +19,7 @@ import { HealthMonitorModule } from './modules/health-monitor/health-monitor-mod
 import { FileDetailModule, VIEW_TYPE_FILE_DETAIL } from './modules/file-detail/file-detail-module.js';
 import { FileDetailView } from './modules/file-detail/views/file-detail-view.js';
 import type { TranslationPort } from './domain/shared/translation-port.js';
-import type { PluginContext } from './plugin.js';
+import type { PluginContext, ModuleStatus } from './plugin.js';
 
 export default class AgentonomousPlugin extends Plugin {
 	private core: PluginCore | null = null;
@@ -88,6 +88,12 @@ export default class AgentonomousPlugin extends Plugin {
 		);
 		await this.core.init();
 
+		const moduleStatus: readonly ModuleStatus[] = this.core.registeredModules.map((m) => ({
+			id: m.id,
+			name: m.name,
+			status: this.core!.degradedModules.includes(m.id) ? 'degraded' as const : 'ready' as const,
+		}));
+
 		// Ribbon visibility: adapter-level concern, driven by CoreSettings
 		commands.setRibbonVisibility(this.core.coreSettings.showRibbonIcon);
 		settings.subscribe(() => {
@@ -109,6 +115,7 @@ export default class AgentonomousPlugin extends Plugin {
 			platform,
 			vault,
 			i18n,
+			moduleStatus,
 		};
 		views.registerAll(this, ctx);
 		// registerExtensions must come AFTER registerAll — Obsidian requires
