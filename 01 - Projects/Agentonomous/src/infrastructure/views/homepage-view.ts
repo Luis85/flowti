@@ -1,8 +1,8 @@
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type { PluginContext } from '../../plugin.js';
 import type { MountedApp } from '../../ui/app.js';
-
-export const VIEW_TYPE_HOMEPAGE = 'agentonomous-homepage';
+import { VIEW_TYPE_HOMEPAGE } from '../../domain/views/view-types.js';
+export { VIEW_TYPE_HOMEPAGE };
 
 export class HomepageView extends ItemView {
 	private mounted: MountedApp | null = null;
