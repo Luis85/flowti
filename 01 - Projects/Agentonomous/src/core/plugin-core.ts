@@ -28,6 +28,8 @@ export class PluginCore {
 	private errorHandler: ErrorHandler | null = null;
 	private settingsUnsub: Unsubscribe | null = null;
 	private currentCoreSettings: CoreSettings = CORE_SETTINGS_DEFAULTS;
+	private initializedModuleIds = new Set<string>();
+	private degradedModuleIds: string[] = [];
 
 	constructor(ports: CorePorts, modules: readonly Module[]) {
 		this.ports = ports;
@@ -57,10 +59,21 @@ export class PluginCore {
 		const modulePorts = this.buildModulePorts();
 
 		for (const m of this.sortedModules) {
-			await m.init(modulePorts, this.resolveModuleSettings(m, blob));
+			try {
+				await m.init(modulePorts, this.resolveModuleSettings(m, blob));
+				this.initializedModuleIds.add(m.id);
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				this.ports.logger.error('core', `Module "${m.id}" failed to initialize: ${msg}`);
+				this.degradedModuleIds.push(m.id);
+			}
 		}
 
 		this.registerAllCommands();
+
+		if (this.degradedModuleIds.length > 0) {
+			this.ports.eventBus.emit('core', { phase: 'ready', degraded: true, errors: this.degradedModuleIds.map((id) => `Module "${id}" failed`) });
+		}
 
 		this.settingsUnsub = this.ports.settings.subscribe(async (_raw) => {
 			const freshBlob = await this.loadSettingsBlob();
@@ -77,7 +90,14 @@ export class PluginCore {
 		this.settingsUnsub?.();
 
 		for (const m of [...this.sortedModules].reverse()) {
+			if (!this.initializedModuleIds.has(m.id)) continue;
+
+			const before = this.ports.eventBus.listenerCount();
 			m.destroy();
+			const after = this.ports.eventBus.listenerCount();
+			if (after >= before) {
+				this.ports.logger.warn('core', `Module "${m.id}" may have leaked event listener(s)`);
+			}
 		}
 
 		this.ports.commands.unregisterAll();
@@ -92,6 +112,10 @@ export class PluginCore {
 
 	get coreSettings(): CoreSettings {
 		return this.currentCoreSettings;
+	}
+
+	get degradedModules(): readonly string[] {
+		return this.degradedModuleIds;
 	}
 
 	private collectValidationErrors(): string[] {
@@ -191,6 +215,7 @@ export class PluginCore {
 
 	private registerAllCommands(): void {
 		for (const m of this.sortedModules) {
+			if (!this.initializedModuleIds.has(m.id)) continue;
 			for (const cmd of m.commands ?? []) {
 				this.ports.commands.register(cmd);
 			}

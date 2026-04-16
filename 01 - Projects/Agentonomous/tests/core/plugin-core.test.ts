@@ -176,3 +176,80 @@ describe('PluginCore with modules', () => {
 		expect(core.ready).toBe(false);
 	});
 });
+
+describe('PluginCore graceful degradation', () => {
+	it('continues initializing other modules when one throws', async () => {
+		const bus = createEventBus();
+		const order: string[] = [];
+		const broken = defineModule({ id: 'broken', name: 'Broken', async init() { throw new Error('boom'); }, destroy() {} });
+		const healthy = defineModule({ id: 'healthy', name: 'Healthy', async init() { order.push('healthy'); }, destroy() {} });
+
+		const core = new PluginCore(
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			[broken, healthy],
+		);
+		await core.init();
+		expect(core.ready).toBe(true);
+		expect(order).toContain('healthy');
+	});
+
+	it('exposes degradedModules for failed modules', async () => {
+		const bus = createEventBus();
+		const broken = defineModule({ id: 'broken', name: 'Broken', async init() { throw new Error('boom'); }, destroy() {} });
+
+		const core = new PluginCore(
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			[broken],
+		);
+		await core.init();
+		expect(core.degradedModules).toContain('broken');
+	});
+
+	it('emits core event with degraded: true when a module fails', async () => {
+		const bus = createEventBus();
+		const events: unknown[] = [];
+		bus.on('core', (env) => { events.push(env.payload); });
+		const broken = defineModule({ id: 'broken', name: 'Broken', async init() { throw new Error('boom'); }, destroy() {} });
+
+		const core = new PluginCore(
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			[broken],
+		);
+		await core.init();
+		expect(events).toContainEqual(expect.objectContaining({ degraded: true }));
+	});
+
+	it('does not register commands for failed modules', async () => {
+		const bus = createEventBus();
+		const commands = fakeCommands();
+		const broken = defineModule({
+			id: 'broken', name: 'Broken',
+			commands: [{ id: 'broken-cmd', name: 'Broken' }],
+			async init() { throw new Error('boom'); },
+			destroy() {},
+		});
+
+		const core = new PluginCore(
+			{ settings: fakeSettings(), commands, views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			[broken],
+		);
+		await core.init();
+		expect(commands.registered).not.toContain('broken-cmd');
+	});
+
+	it('skips failed modules during destroy', async () => {
+		const bus = createEventBus();
+		const destroyCalls: string[] = [];
+		const broken = defineModule({ id: 'broken', name: 'Broken', async init() { throw new Error('boom'); }, destroy() { destroyCalls.push('broken'); } });
+		const healthy = defineModule({ id: 'healthy', name: 'Healthy', async init() {}, destroy() { destroyCalls.push('healthy'); } });
+
+		const core = new PluginCore(
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			[broken, healthy],
+		);
+		await core.init();
+		core.destroy();
+		expect(destroyCalls).toEqual(['healthy']);
+		expect(destroyCalls).not.toContain('broken');
+	});
+});
