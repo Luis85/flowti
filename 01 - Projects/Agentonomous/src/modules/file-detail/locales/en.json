@@ -1,0 +1,11 @@
+{
+	"file-detail.views.title": "File detail",
+	"file-detail.views.openInEditor": "Open in editor",
+	"file-detail.views.noFile": "No file selected.",
+	"file-detail.views.fileName": "File name",
+	"file-detail.views.size": "Size",
+	"file-detail.views.unknown": "Unknown",
+	"file-detail.settings.enabled": "Enable file detail view",
+	"file-detail.settings.enabled.desc": "Show a detail panel for CSV and JSON files.",
+	"file-detail.commands.open": "Open file detail view"
+}

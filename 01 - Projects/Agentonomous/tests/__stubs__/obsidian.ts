@@ -35,6 +35,7 @@ export class Plugin {
 	addCommand = (_cmd: unknown): void => undefined;
 	addSettingTab = (_tab: unknown): void => undefined;
 	register = (_cb: () => void): void => undefined;
+	registerExtensions = (_extensions: string[], _viewType: string): void => undefined;
 }
 
 export class PluginSettingTab {
