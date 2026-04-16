@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Plugin } from 'obsidian';
 import { ViewRegistry } from '../../../src/infrastructure/obsidian/view-registry.js';
+import { isErr } from '../../../src/domain/shared/result.js';
 import { createFakePlugin } from './fake-plugin.js';
 
 describe('ViewRegistry', () => {
@@ -33,10 +34,14 @@ describe('ViewRegistry', () => {
 		expect(plugin.app.workspace.getLeaf).toHaveBeenCalled();
 	});
 
-	it('openView() throws for unknown type', async () => {
+	it('openView() returns Err for unknown type', async () => {
 		const plugin = createFakePlugin();
 		const registry = new ViewRegistry([]);
-		await expect(registry.openView(plugin as unknown as Plugin, 'nope')).rejects.toThrow(/unknown/i);
+		const result = await registry.openView(plugin as unknown as Plugin, 'nope');
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) {
+			expect(result.error).toMatch(/unknown/i);
+		}
 	});
 
 	it('openView() uses getLeftLeaf for left location', async () => {

@@ -19,7 +19,7 @@ export class ObsidianCommandAdapter implements CommandPort {
 
 		if (entry.opensView !== undefined) {
 			const viewType = entry.opensView;
-			callback = () => this.viewRegistry.openView(this.plugin, viewType);
+			callback = () => { void this.viewRegistry.openView(this.plugin, viewType); };
 		}
 
 		this.plugin.addCommand({
