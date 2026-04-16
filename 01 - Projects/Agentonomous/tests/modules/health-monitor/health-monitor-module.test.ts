@@ -1,19 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 import '../../../src/domain/shared/core-events.js';
+import { fakeLogger, fakeSettings, fakeNotifications, fakeViews } from '../../__fakes__/fake-ports.js';
 
 describe('HealthMonitorModule', () => {
 	it('init starts periodic health checks and destroy clears them', async () => {
 		vi.useFakeTimers();
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
-		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
+		const logger = fakeLogger();
+		const notifications = fakeNotifications();
 		const ports = {
 			eventBus: bus,
 			logger,
-			settings: { load: vi.fn(), save: vi.fn(), subscribe: vi.fn(() => () => {}) },
-			notifications: { show: vi.fn() },
-			views: { registerAll: vi.fn(), openView: vi.fn() },
+			settings: fakeSettings(),
+			notifications,
+			views: fakeViews(),
 		};
 
 		await HealthMonitorModule.init(ports, undefined);
@@ -35,13 +37,13 @@ describe('HealthMonitorModule', () => {
 	it('logs when initialized', async () => {
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
-		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
+		const logger = fakeLogger();
 		const ports = {
 			eventBus: bus,
 			logger,
-			settings: { load: vi.fn(), save: vi.fn(), subscribe: vi.fn(() => () => {}) },
-			notifications: { show: vi.fn() },
-			views: { registerAll: vi.fn(), openView: vi.fn() },
+			settings: fakeSettings(),
+			notifications: fakeNotifications(),
+			views: fakeViews(),
 		};
 
 		await HealthMonitorModule.init(ports, undefined);
@@ -52,14 +54,14 @@ describe('HealthMonitorModule', () => {
 	it('show-health command invokes logger and notifications', async () => {
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
-		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
-		const notifications = { show: vi.fn() };
+		const logger = fakeLogger();
+		const notifications = fakeNotifications();
 		const ports = {
 			eventBus: bus,
 			logger,
-			settings: { load: vi.fn(), save: vi.fn(), subscribe: vi.fn(() => () => {}) },
+			settings: fakeSettings(),
 			notifications,
-			views: { registerAll: vi.fn(), openView: vi.fn() },
+			views: fakeViews(),
 		};
 
 		await HealthMonitorModule.init(ports, undefined);

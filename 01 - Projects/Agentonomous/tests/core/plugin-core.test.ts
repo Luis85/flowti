@@ -4,30 +4,8 @@ import { createEventBus } from '../../src/domain/shared/event-bus.js';
 import '../../src/domain/shared/core-events.js';
 import { Logger } from '../../src/core/logger.js';
 import { defineModule } from '../../src/domain/shared/module.js';
-import type { NotificationPort } from '../../src/domain/shared/notification-port.js';
-import type { CommandPort } from '../../src/domain/commands/command-port.js';
 import { ok } from '../../src/domain/shared/result.js';
-
-function fakeSettings() {
-	return {
-		load: vi.fn(async () => ok(null)),
-		save: vi.fn(async () => ok(undefined)),
-		subscribe: vi.fn(() => () => {}),
-	};
-}
-
-function fakeCommands(): CommandPort {
-	return {
-		register: vi.fn(() => () => {}),
-		unregisterAll: vi.fn(),
-	};
-}
-
-function fakeViews() {
-	return { registerAll: vi.fn(), openView: vi.fn(async () => ok(undefined)) };
-}
-
-function fakeNotifications(): NotificationPort { return { show: vi.fn() }; }
+import { fakeSettings, fakeCommands, fakeViews, fakeNotifications, fakeLogger } from '../__fakes__/fake-ports.js';
 
 describe('PluginCore with modules', () => {
 	it('init() calls module.init in dependency order', async () => {
@@ -155,8 +133,7 @@ describe('PluginCore with modules', () => {
 			destroy() {},
 		});
 
-		const settings = fakeSettings();
-		settings.load = vi.fn(async () => ok({ test: { color: 'red' } }));
+		const settings = fakeSettings({ test: { color: 'red' } });
 
 		const core = new PluginCore(
 			{ settings, commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
@@ -177,8 +154,7 @@ describe('PluginCore with modules', () => {
 			destroy() {},
 		});
 
-		const settings = fakeSettings();
-		settings.load = vi.fn(async () => ok({}));
+		const settings = fakeSettings({});
 
 		const core = new PluginCore(
 			{ settings, commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },

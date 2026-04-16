@@ -1,18 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 import '../../../src/domain/shared/core-events.js';
+import { fakeLogger, fakeSettings, fakeNotifications, fakeViews } from '../../__fakes__/fake-ports.js';
 
 describe('EventInspectorModule', () => {
 	it('init subscribes to the bus and captures events', async () => {
 		const { EventInspectorModule } = await import('../../../src/modules/event-inspector/event-inspector-module.js');
 		const bus = createEventBus();
-		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
+		const logger = fakeLogger();
 		const ports = {
 			eventBus: bus,
 			logger,
-			settings: { load: vi.fn(), save: vi.fn(), subscribe: vi.fn(() => () => {}) },
-			notifications: { show: vi.fn() },
-			views: { registerAll: vi.fn(), openView: vi.fn() },
+			settings: fakeSettings(),
+			notifications: fakeNotifications(),
+			views: fakeViews(),
 		};
 
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
@@ -27,13 +28,13 @@ describe('EventInspectorModule', () => {
 	it('does not subscribe when disabled', async () => {
 		const { EventInspectorModule } = await import('../../../src/modules/event-inspector/event-inspector-module.js');
 		const bus = createEventBus();
-		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
+		const logger = fakeLogger();
 		const ports = {
 			eventBus: bus,
 			logger,
-			settings: { load: vi.fn(), save: vi.fn(), subscribe: vi.fn(() => () => {}) },
-			notifications: { show: vi.fn() },
-			views: { registerAll: vi.fn(), openView: vi.fn() },
+			settings: fakeSettings(),
+			notifications: fakeNotifications(),
+			views: fakeViews(),
 		};
 
 		await EventInspectorModule.init(ports, { enabled: false, maxEvents: 100, filterChannels: [] });
@@ -48,13 +49,13 @@ describe('EventInspectorModule', () => {
 		expect(getEventBuffer()).toBeNull();
 
 		const bus = createEventBus();
-		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
+		const logger = fakeLogger();
 		const ports = {
 			eventBus: bus,
 			logger,
-			settings: { load: vi.fn(), save: vi.fn(), subscribe: vi.fn(() => () => {}) },
-			notifications: { show: vi.fn() },
-			views: { registerAll: vi.fn(), openView: vi.fn() },
+			settings: fakeSettings(),
+			notifications: fakeNotifications(),
+			views: fakeViews(),
 		};
 
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 50, filterChannels: [] });
@@ -67,13 +68,13 @@ describe('EventInspectorModule', () => {
 	it('captured events appear in the buffer', async () => {
 		const { EventInspectorModule, getEventBuffer } = await import('../../../src/modules/event-inspector/event-inspector-module.js');
 		const bus = createEventBus();
-		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
+		const logger = fakeLogger();
 		const ports = {
 			eventBus: bus,
 			logger,
-			settings: { load: vi.fn(), save: vi.fn(), subscribe: vi.fn(() => () => {}) },
-			notifications: { show: vi.fn() },
-			views: { registerAll: vi.fn(), openView: vi.fn() },
+			settings: fakeSettings(),
+			notifications: fakeNotifications(),
+			views: fakeViews(),
 		};
 
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });

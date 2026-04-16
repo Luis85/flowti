@@ -1,17 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ErrorHandler } from '../../src/core/error-handler.js';
 import { createEventBus } from '../../src/domain/shared/event-bus.js';
-import type { LoggerPort } from '../../src/domain/shared/logger-port.js';
-import type { NotificationPort } from '../../src/domain/shared/notification-port.js';
-
-function fakeLogger(): LoggerPort {
-	return { debug: vi.fn(), info: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
-}
-
-function fakeNotifications(): NotificationPort & { messages: string[] } {
-	const messages: string[] = [];
-	return { show: (msg: string) => { messages.push(msg); }, messages };
-}
+import { fakeLogger, fakeNotifications } from '../__fakes__/fake-ports.js';
 
 describe('ErrorHandler', () => {
 	it('logs all errors via logger.error()', () => {
