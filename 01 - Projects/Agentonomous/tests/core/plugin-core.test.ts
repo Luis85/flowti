@@ -8,12 +8,12 @@ import type { CommandEntry } from '../../src/domain/commands/command-types.js';
 import type { NotificationPort } from '../../src/domain/shared/notification-port.js';
 import type { ViewRegistryPort } from '../../src/domain/views/view-registry-port.js';
 import { ok } from '../../src/domain/shared/result.js';
-import { DEFAULT_SETTINGS } from '../../src/domain/settings/plugin-settings.js';
+import { CORE_SETTINGS_DEFAULTS } from '../../src/domain/settings/plugin-settings.js';
 import { CORE_COMMANDS } from '../../src/domain/commands/core-commands.js';
 
 function fakeSettings(): SettingsPort {
 	return {
-		load: vi.fn(async () => ok(DEFAULT_SETTINGS)),
+		load: vi.fn(async () => ok(CORE_SETTINGS_DEFAULTS)),
 		save: vi.fn(async () => ok(undefined)),
 		subscribe: vi.fn(() => () => {}),
 	};

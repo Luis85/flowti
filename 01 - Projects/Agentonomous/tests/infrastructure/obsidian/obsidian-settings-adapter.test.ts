@@ -1,36 +1,37 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Plugin } from 'obsidian';
 import { ObsidianSettingsAdapter } from '../../../src/infrastructure/obsidian/obsidian-settings-adapter.js';
-import { DEFAULT_SETTINGS } from '../../../src/domain/settings/plugin-settings.js';
 import { isOk } from '../../../src/domain/shared/result.js';
 import { createFakePlugin } from './fake-plugin.js';
 
 describe('ObsidianSettingsAdapter', () => {
-	it('load() returns DEFAULT_SETTINGS when plugin data is null', async () => {
+	it('load() returns ok(null) when plugin data is null', async () => {
 		const plugin = createFakePlugin(null);
 		const adapter = new ObsidianSettingsAdapter(plugin as unknown as Plugin);
 		const r = await adapter.load();
 		expect(isOk(r)).toBe(true);
-		if (isOk(r)) expect(r.value).toEqual(DEFAULT_SETTINGS);
+		if (isOk(r)) expect(r.value).toBeNull();
 	});
 
-	it('load() returns stored settings when valid', async () => {
-		const plugin = createFakePlugin({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
+	it('load() returns the raw stored data without validation', async () => {
+		const stored = { showRibbonIcon: false, defaultView: 'home', logLevel: 'info' };
+		const plugin = createFakePlugin(stored);
 		const adapter = new ObsidianSettingsAdapter(plugin as unknown as Plugin);
 		const r = await adapter.load();
 		expect(isOk(r)).toBe(true);
-		if (isOk(r)) expect(r.value.showRibbonIcon).toBe(false);
+		if (isOk(r)) expect(r.value).toEqual(stored);
 	});
 
-	it('load() returns DEFAULT_SETTINGS when stored data is invalid', async () => {
-		const plugin = createFakePlugin({ showRibbonIcon: 'yes' });
+	it('load() returns invalid data as-is (no validation in adapter)', async () => {
+		const stored = { showRibbonIcon: 'yes' };
+		const plugin = createFakePlugin(stored);
 		const adapter = new ObsidianSettingsAdapter(plugin as unknown as Plugin);
 		const r = await adapter.load();
 		expect(isOk(r)).toBe(true);
-		if (isOk(r)) expect(r.value).toEqual(DEFAULT_SETTINGS);
+		if (isOk(r)) expect(r.value).toEqual(stored);
 	});
 
-	it('save() persists settings and notifies subscribers', async () => {
+	it('save() persists data and notifies subscribers', async () => {
 		const plugin = createFakePlugin(null);
 		const adapter = new ObsidianSettingsAdapter(plugin as unknown as Plugin);
 		const listener = vi.fn();

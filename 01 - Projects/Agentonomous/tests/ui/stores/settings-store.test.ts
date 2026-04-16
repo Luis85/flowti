@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useSettingsStore } from '../../../src/ui/stores/settings-store.js';
-import { DEFAULT_SETTINGS, type PluginSettings } from '../../../src/domain/settings/plugin-settings.js';
+import { CORE_SETTINGS_DEFAULTS, type CoreSettings } from '../../../src/domain/settings/plugin-settings.js';
 import type { SettingsPort } from '../../../src/domain/settings/settings-port.js';
 import { ok } from '../../../src/domain/shared/result.js';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 
-function makeFakePort(initial: PluginSettings = DEFAULT_SETTINGS): SettingsPort & { listenerCount: () => number } {
-	let current = initial;
-	const listeners = new Set<(s: PluginSettings) => void>();
+function makeFakePort(initial: CoreSettings = CORE_SETTINGS_DEFAULTS): SettingsPort & { listenerCount: () => number } {
+	let current: unknown = initial;
+	const listeners = new Set<(s: unknown) => void>();
 	return {
 		load: async () => ok(current),
 		save: async (s) => { current = s; for (const l of listeners) l(s); return ok(undefined); },
@@ -73,7 +73,7 @@ describe('useSettingsStore', () => {
 	it('update() does not mutate state when port.save returns err', async () => {
 		setActivePinia(createPinia());
 		const port: SettingsPort = {
-			load: async () => ok(DEFAULT_SETTINGS),
+			load: async () => ok(CORE_SETTINGS_DEFAULTS),
 			save: vi.fn(async () => ({ kind: 'err' as const, error: 'disk full' })),
 			subscribe: () => () => {},
 		};
@@ -90,7 +90,7 @@ describe('useSettingsStore', () => {
 		const errorListener = vi.fn();
 		bus.on('error', errorListener);
 		const port: SettingsPort = {
-			load: async () => ok(DEFAULT_SETTINGS),
+			load: async () => ok(CORE_SETTINGS_DEFAULTS),
 			save: async () => ({ kind: 'err' as const, error: 'disk full' }),
 			subscribe: () => () => {},
 		};

@@ -7,7 +7,7 @@ import type { CommandEntry } from '../domain/commands/command-types.js';
 import type { ViewRegistryPort } from '../domain/views/view-registry-port.js';
 import type { Unsubscribe } from '../domain/shared/unsubscribe.js';
 import { isOk } from '../domain/shared/result.js';
-import { DEFAULT_SETTINGS, type PluginSettings } from '../domain/settings/plugin-settings.js';
+import { CORE_SETTINGS_DEFAULTS, type CoreSettings, validateCoreSettings } from '../domain/settings/plugin-settings.js';
 import { ErrorHandler } from './error-handler.js';
 
 export interface CorePorts {
@@ -25,7 +25,7 @@ export class PluginCore {
 	private readonly commandEntries: readonly CommandEntry[];
 	private errorHandler: ErrorHandler | null = null;
 	private settingsUnsub: Unsubscribe | null = null;
-	private currentSettings: PluginSettings = DEFAULT_SETTINGS;
+	private currentSettings: CoreSettings = CORE_SETTINGS_DEFAULTS;
 
 	constructor(ports: CorePorts, commandEntries: readonly CommandEntry[]) {
 		this.ports = ports;
@@ -43,7 +43,10 @@ export class PluginCore {
 		);
 
 		const loaded = await this.ports.settings.load();
-		this.currentSettings = isOk(loaded) ? loaded.value : DEFAULT_SETTINGS;
+		if (isOk(loaded)) {
+			const validated = validateCoreSettings(loaded.value);
+			this.currentSettings = isOk(validated) ? validated.value : CORE_SETTINGS_DEFAULTS;
+		}
 
 		this.ports.logger.setLevel(this.currentSettings.logLevel);
 
@@ -51,7 +54,10 @@ export class PluginCore {
 			this.ports.commands.register(entry);
 		}
 
-		this.settingsUnsub = this.ports.settings.subscribe((s) => {
+		this.settingsUnsub = this.ports.settings.subscribe((raw) => {
+			const validated = validateCoreSettings(raw);
+			if (!isOk(validated)) return;
+			const s = validated.value;
 			const previous = this.currentSettings;
 			this.currentSettings = s;
 			this.ports.eventBus.emit('settings', { previous, current: s });
@@ -83,7 +89,7 @@ export class PluginCore {
 		return this.state === 'ready';
 	}
 
-	get settings(): PluginSettings {
+	get settings(): CoreSettings {
 		return this.currentSettings;
 	}
 }

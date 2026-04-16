@@ -7,13 +7,13 @@ export type DefaultViewName = (typeof KNOWN_DEFAULT_VIEWS)[number];
 
 export const KNOWN_LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const;
 
-export type PluginSettings = {
+export type CoreSettings = {
 	readonly showRibbonIcon: boolean;
 	readonly defaultView: DefaultViewName;
 	readonly logLevel: LogLevel;
 };
 
-export const DEFAULT_SETTINGS: PluginSettings = {
+export const CORE_SETTINGS_DEFAULTS: CoreSettings = {
 	showRibbonIcon: true,
 	defaultView: 'home',
 	logLevel: 'info',
@@ -23,7 +23,7 @@ export function isDefaultViewName(value: string): value is DefaultViewName {
 	return isOneOf(value, KNOWN_DEFAULT_VIEWS);
 }
 
-export function validateSettings(raw: unknown): Result<PluginSettings, string> {
+export function validateCoreSettings(raw: unknown): Result<CoreSettings, string> {
 	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
 		return err('settings must be an object');
 	}

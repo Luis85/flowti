@@ -2,13 +2,13 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { App, Plugin } from 'obsidian';
 import { Setting, _settingsByContainer, _noticeMessages } from '../../__stubs__/obsidian.js';
 import { AgentonomousSettingsTab } from '../../../src/infrastructure/settings/settings-tab.js';
-import { DEFAULT_SETTINGS } from '../../../src/domain/settings/plugin-settings.js';
+import { CORE_SETTINGS_DEFAULTS } from '../../../src/domain/settings/plugin-settings.js';
 import { ok, err } from '../../../src/domain/shared/result.js';
 import type { SettingsPort } from '../../../src/domain/settings/settings-port.js';
 
 function makePort(overrides: Partial<SettingsPort> = {}): SettingsPort {
 	return {
-		load: vi.fn(async () => ok(DEFAULT_SETTINGS)),
+		load: vi.fn(async () => ok(CORE_SETTINGS_DEFAULTS)),
 		save: vi.fn(async () => ok(undefined as void)),
 		subscribe: vi.fn(() => () => {}),
 		...overrides,
@@ -100,9 +100,9 @@ describe('AgentonomousSettingsTab', () => {
 		const tab = makeTab(port);
 		tab.display();
 		await new Promise((r) => { setTimeout(r, 0); });
-		const persist = (tab as unknown as { persist: (s: typeof DEFAULT_SETTINGS) => Promise<void> }).persist;
-		await persist.call(tab, { ...DEFAULT_SETTINGS, showRibbonIcon: false });
-		expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, showRibbonIcon: false });
+		const persist = (tab as unknown as { persist: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persist;
+		await persist.call(tab, { ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
+		expect(port.save).toHaveBeenCalledWith({ ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
 	});
 
 	it('persist() shows Notice when save fails', async () => {
@@ -110,8 +110,8 @@ describe('AgentonomousSettingsTab', () => {
 		const tab = makeTab(port);
 		tab.display();
 		await new Promise((r) => { setTimeout(r, 0); });
-		const persist = (tab as unknown as { persist: (s: typeof DEFAULT_SETTINGS) => Promise<void> }).persist;
-		await expect(persist.call(tab, DEFAULT_SETTINGS)).resolves.toBeUndefined();
+		const persist = (tab as unknown as { persist: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persist;
+		await expect(persist.call(tab, CORE_SETTINGS_DEFAULTS)).resolves.toBeUndefined();
 		expect(port.save).toHaveBeenCalled();
 	});
 
@@ -132,7 +132,7 @@ describe('AgentonomousSettingsTab', () => {
 		toggle?._trigger(false);
 		await new Promise((r) => { setTimeout(r, 0); });
 
-		expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, showRibbonIcon: false });
+		expect(port.save).toHaveBeenCalledWith({ ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
 	});
 
 	it('display() dropdown onChange calls port.save with updated defaultView for valid value', async () => {
@@ -152,7 +152,7 @@ describe('AgentonomousSettingsTab', () => {
 		dropdown?._trigger('home');
 		await new Promise((r) => { setTimeout(r, 0); });
 
-		expect(port.save).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, defaultView: 'home' });
+		expect(port.save).toHaveBeenCalledWith({ ...CORE_SETTINGS_DEFAULTS, defaultView: 'home' });
 	});
 
 	it('display() dropdown onChange shows Notice for unknown view value and does not save', async () => {

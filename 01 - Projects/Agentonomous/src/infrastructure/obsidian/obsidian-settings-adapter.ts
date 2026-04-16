@@ -1,42 +1,36 @@
 import type { Plugin } from 'obsidian';
-import { DEFAULT_SETTINGS, validateSettings, type PluginSettings } from '../../domain/settings/plugin-settings.js';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 
 export class ObsidianSettingsAdapter implements SettingsPort {
 	private readonly plugin: Plugin;
-	private readonly listeners = new Set<(s: PluginSettings) => void>();
+	private readonly listeners = new Set<(s: unknown) => void>();
 
 	constructor(plugin: Plugin) {
 		this.plugin = plugin;
 	}
 
-	async load(): Promise<Result<PluginSettings, string>> {
+	async load(): Promise<Result<unknown, string>> {
 		try {
 			const raw: unknown = await this.plugin.loadData();
-			if (raw === null || raw === undefined) return ok(DEFAULT_SETTINGS);
-			const validated = validateSettings(raw);
-			if (validated.kind === 'err') return ok(DEFAULT_SETTINGS);
-			return validated;
+			return ok(raw ?? null);
 		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error);
-			return err(`failed to load settings: ${msg}`);
+			return err(`failed to load: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
-	async save(settings: PluginSettings): Promise<Result<void, string>> {
+	async save(data: unknown): Promise<Result<void, string>> {
 		try {
-			await this.plugin.saveData(settings);
-			for (const l of this.listeners) l(settings);
+			await this.plugin.saveData(data);
+			for (const l of this.listeners) l(data);
 			return ok(undefined);
 		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error);
-			return err(`failed to save settings: ${msg}`);
+			return err(`failed to save: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
-	subscribe(listener: (s: PluginSettings) => void): Unsubscribe {
+	subscribe(listener: (s: unknown) => void): Unsubscribe {
 		this.listeners.add(listener);
 		return () => { this.listeners.delete(listener); };
 	}

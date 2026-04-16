@@ -3,18 +3,18 @@ import { createVueApp } from '../../src/ui/app.js';
 import { PluginContextKey } from '../../src/ui/plugin-context-key.js';
 import { createAppRouter } from '../../src/ui/router/index.js';
 import type { PluginContext } from '../../src/plugin.js';
-import { DEFAULT_SETTINGS } from '../../src/domain/settings/plugin-settings.js';
+import { CORE_SETTINGS_DEFAULTS } from '../../src/domain/settings/plugin-settings.js';
 import { ok } from '../../src/domain/shared/result.js';
 
 function makeCtx(version = '1.0.0'): PluginContext {
-	const listeners: Array<(s: typeof DEFAULT_SETTINGS) => void> = [];
+	const listeners: Array<(s: unknown) => void> = [];
 	return {
 		app: {} as never,
 		plugin: { manifest: { version }, app: {} as never } as never,
 		settings: {
-			load: vi.fn(async () => ok(DEFAULT_SETTINGS)),
+			load: vi.fn(async () => ok(CORE_SETTINGS_DEFAULTS)),
 			save: vi.fn(async () => ok(undefined as void)),
-			subscribe: vi.fn((cb: (s: typeof DEFAULT_SETTINGS) => void) => {
+			subscribe: vi.fn((cb: (s: unknown) => void) => {
 				listeners.push(cb);
 				return () => { listeners.splice(listeners.indexOf(cb), 1); };
 			}),

@@ -1,20 +1,20 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting } from 'obsidian';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
-import { DEFAULT_SETTINGS, isDefaultViewName, KNOWN_DEFAULT_VIEWS, KNOWN_LOG_LEVELS, type PluginSettings } from '../../domain/settings/plugin-settings.js';
+import { CORE_SETTINGS_DEFAULTS, isDefaultViewName, KNOWN_DEFAULT_VIEWS, KNOWN_LOG_LEVELS, type CoreSettings, validateCoreSettings } from '../../domain/settings/plugin-settings.js';
 import type { LogLevel } from '../../domain/shared/logger-port.js';
 import { isErr, isOk } from '../../domain/shared/result.js';
 import { isOneOf } from '../../domain/shared/utils/is-one-of.js';
 
 export class AgentonomousSettingsTab extends PluginSettingTab {
 	private readonly port: SettingsPort;
-	private current: PluginSettings = DEFAULT_SETTINGS;
+	private current: CoreSettings = CORE_SETTINGS_DEFAULTS;
 
 	constructor(app: App, plugin: Plugin, port: SettingsPort) {
 		super(app, plugin);
 		this.port = port;
 	}
 
-	private async persist(next: PluginSettings): Promise<void> {
+	private async persist(next: CoreSettings): Promise<void> {
 		const result = await this.port.save(next);
 		if (isErr(result)) {
 			new Notice(`Agentonomous: failed to save settings — ${result.error}`);
@@ -27,7 +27,10 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 		void (async () => {
 			const loaded = await this.port.load();
 			if (isOk(loaded)) {
-				this.current = loaded.value;
+				const validated = validateCoreSettings(loaded.value);
+				if (isOk(validated)) {
+					this.current = validated.value;
+				}
 			} else {
 				new Notice(`Agentonomous: failed to load settings — using defaults`);
 			}

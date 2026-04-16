@@ -1,14 +1,14 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
-import { DEFAULT_SETTINGS, type PluginSettings } from '../../domain/settings/plugin-settings.js';
+import { CORE_SETTINGS_DEFAULTS, type CoreSettings, validateCoreSettings } from '../../domain/settings/plugin-settings.js';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
 import { isOk } from '../../domain/shared/result.js';
 import { invariant } from '../../domain/shared/utils/invariant.js';
 import type { EventBus } from '../../domain/shared/event-bus.js';
 
 export const useSettingsStore = defineStore('settings', () => {
-	const settings = ref<PluginSettings>(DEFAULT_SETTINGS);
+	const settings = ref<CoreSettings>(CORE_SETTINGS_DEFAULTS);
 	let port: SettingsPort | null = null;
 	let bus: EventBus | null = null;
 	let unsub: Unsubscribe | null = null;
@@ -21,11 +21,17 @@ export const useSettingsStore = defineStore('settings', () => {
 		const loaded = await capturedPort.load();
 		// Guard: dispose() may have been called while load() was in flight
 		if (port !== capturedPort) return;
-		if (isOk(loaded)) settings.value = loaded.value;
-		unsub = capturedPort.subscribe((s) => { settings.value = s; });
+		if (isOk(loaded)) {
+			const validated = validateCoreSettings(loaded.value);
+			if (isOk(validated)) settings.value = validated.value;
+		}
+		unsub = capturedPort.subscribe((raw) => {
+			const validated = validateCoreSettings(raw);
+			if (isOk(validated)) settings.value = validated.value;
+		});
 	}
 
-	async function update(next: PluginSettings): Promise<void> {
+	async function update(next: CoreSettings): Promise<void> {
 		invariant(port !== null, 'settings store not hydrated');
 		const r = await port.save(next);
 		if (isOk(r)) {
