@@ -153,6 +153,11 @@ export default [
 		},
 	},
 	{
+		// *-store.ts files within modules are the reactive boundary: they bridge
+		// plain-TS module state to Vue/Pinia reactivity.  Importing pinia/vue here
+		// is intentional and necessary — the boundary is the store, not the module.
+		// All other module files (module.ts, buffer.ts, events.ts, settings.ts)
+		// must remain free of Vue/Pinia imports.
 		files: ['src/modules/**/*.ts', 'src/modules/**/*.vue'],
 		rules: {
 			'no-console': 'off',
