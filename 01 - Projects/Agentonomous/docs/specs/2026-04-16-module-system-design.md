@@ -34,22 +34,51 @@ Increment 2 hardened the skeleton into a framework with a shell/core split, type
 
 ### 2.1 Type definition (`src/domain/shared/module.ts`)
 
+The collection type (`Module`) uses `unknown` for settings. A `defineModule<T>()` builder preserves compile-time type safety at the definition site while returning the erasable base type for the collection.
+
 ```ts
-interface Module<TSettings = unknown> {
+// Base interface — used in PluginCore's Module[] collection
+interface Module {
   readonly id: string;
   readonly name: string;
   readonly dependsOn?: readonly string[];
 
   readonly settingsKey?: string;
-  readonly settingsDefaults?: TSettings;
-  validateSettings?(raw: unknown): Result<TSettings, string>;
+  readonly settingsDefaults?: unknown;
+  validateSettings?(raw: unknown): Result<unknown, string>;
 
   readonly commands?: readonly CommandEntry[];
 
-  init(ports: ModulePorts, settings: TSettings): Promise<void>;
+  init(ports: ModulePorts, settings: unknown): Promise<void>;
   destroy(): void;
 }
+
+// Type-safe builder — preserves TSettings at definition site, erases to Module for the collection
+function defineModule<TSettings = unknown>(def: {
+  readonly id: string;
+  readonly name: string;
+  readonly dependsOn?: readonly string[];
+  readonly settingsKey?: string;
+  readonly settingsDefaults?: TSettings;
+  validateSettings?(raw: unknown): Result<TSettings, string>;
+  readonly commands?: readonly CommandEntry[];
+  init(ports: ModulePorts, settings: TSettings): Promise<void>;
+  destroy(): void;
+}): Module {
+  return def as Module;
+}
 ```
+
+**How it works:** Module authors call `defineModule<CoreSettings>({...})`. Inside the definition, `init(ports, settings)` has `settings: CoreSettings` — fully typed. The return type is `Module` (base), so `PluginCore` holds `Module[]` and calls `module.init(ports, validatedSettings)` where `validatedSettings` is `unknown`. The cast is encapsulated inside `defineModule` — the ONLY unsafe boundary. Module authors never see a cast.
+
+**`PluginCore.init()` call site:**
+```ts
+const validated = module.validateSettings?.(raw) ?? ok(module.settingsDefaults);
+// validated is Result<unknown, string> — the value is the right shape because the same module validated it
+await module.init(ports, isOk(validated) ? validated.value : module.settingsDefaults);
+```
+
+The `as Module` cast in `defineModule` is the standard pattern for heterogeneous typed collections in TypeScript (same pattern NestJS and Angular use for provider registration).
 
 ### 2.2 ModulePorts — scoped subset
 
@@ -111,7 +140,7 @@ declare module './event-bus.js' {
     log: { level: LogLevel; source: string; message: string; data?: unknown };
     error: { code: string; message: string; source: string; severity: 'user' | 'system' | 'fatal'; data?: unknown };
     settings: { previous: unknown; current: unknown };
-    core: { phase: 'initializing' | 'ready' | 'destroying' | 'destroyed' };
+    core: { phase: 'initializing' | 'ready' | 'destroying' | 'destroyed' | 'validation'; degraded?: boolean; errors?: string[] };
     command: { id: string; trigger: 'palette' | 'ribbon' | 'hotkey' };
   }
 }
@@ -140,7 +169,7 @@ interface EventBus {
 ```
 
 - `emit` (sync): fires all listeners synchronously, ignores return values. Fire-and-forget. Most common.
-- `emitAsync`: fires all listeners and `await`s any that return a Promise. Resolves when all listeners complete. For cases where the emitter needs downstream work to finish before continuing.
+- `emitAsync`: **snapshots the listener set before dispatching** (copies the Set into an array), then fires all listeners and `await`s any that return a Promise. Resolves when all listeners complete. This snapshot prevents re-entrancy hazards: if a listener calls `on()` or unsubscribes during the async gap, the current dispatch is unaffected. The sync `emit` should also snapshot for consistency (a listener unsubscribing itself during iteration can cause skips in a live Set).
 - Listener signature accepts `void | Promise<void>`. Sync listeners work in both `emit` and `emitAsync`. Only async-aware listeners return Promises.
 
 ### 3.3 Listener priority
@@ -156,6 +185,8 @@ Recommended priority ranges:
 - `0`: feature modules (default)
 - `-10`: observability (telemetry, logging)
 - `-100`: debug tools (Event Inspector)
+
+`onAny()` does NOT support priority — `onAny` listeners always fire after all channel-specific listeners, in registration order. This is by design: `onAny` is for observation, not intervention.
 
 ### 3.4 traceMap eviction
 
@@ -185,11 +216,10 @@ warn(source: string, message: string, data?: unknown): void {
 ### 5.1 MergedSettings shape
 
 ```ts
-type MergedSettings = {
-  core: CoreSettings;
-  [moduleKey: string]: unknown;
-};
+type MergedSettings = { core: CoreSettings } & Record<string, unknown>;
 ```
+
+Uses an intersection (`&`) instead of an index signature to avoid the TypeScript widening issue where `core` would read as `unknown` due to the index signature `[key: string]: unknown` overriding the explicit `core` property. With the intersection, `mergedSettings.core` is properly typed as `CoreSettings` and arbitrary module keys are accessed via `Record<string, unknown>` on the intersection side.
 
 `CoreSettings` is the renamed `PluginSettings`:
 ```ts
@@ -231,7 +261,7 @@ If absent, the module has no settings UI. Core settings render first; module set
 - `PluginSettings` → renamed to `CoreSettings`.
 - `DEFAULT_SETTINGS` → `CORE_SETTINGS_DEFAULTS`.
 - `validateSettings` → `validateCoreSettings`.
-- `SettingsPort` interface unchanged (still loads/saves opaque `unknown`).
+- `SettingsPort` interface: the `save()` method signature changes from accepting `PluginSettings` to accepting `unknown` (the merged settings blob). The `load()` return type becomes `Promise<Result<unknown, string>>` — the core validates and narrows sections. This is a breaking change to the port interface. Update `ObsidianSettingsAdapter`, `useSettingsStore`, and the settings-tab accordingly.
 - Persisted data migration: if saved data is flat (no `core` wrapper), the startup flow detects this and wraps it: `{ core: existingFlatData }`. Backward-compatible.
 
 ## 6. Startup Validation
@@ -333,7 +363,15 @@ The command callback logs a structured summary and shows a Notice:
 [agentonomous:health] Settings: valid (3 sections)
 ```
 
-**This module proves:** command-only module (no view, no settings), module observing lifecycle events, periodic sampling.
+The Health Monitor's 60-second periodic emit uses `setInterval` — the module's `destroy()` MUST call `clearInterval` to prevent leaks after plugin unload:
+
+```ts
+destroy() {
+  if (this.intervalId !== null) clearInterval(this.intervalId);
+}
+```
+
+**This module proves:** command-only module (no view, no settings), module observing lifecycle events, periodic sampling with proper interval cleanup.
 
 ## 8. Anti-Pattern Fixes
 
@@ -342,7 +380,7 @@ The command callback logs a structured summary and shows a Notice:
 | `traceMap` unbounded growth | `maxTraceEntries = 10000`, evict oldest 25% on overflow |
 | `ViewRegistry.openView` throws | Returns `Promise<Result<void, string>>`. Callers handle `err` via the bus. |
 | `PluginContext` / `CorePorts` overlap | `PluginContext = CorePorts & { readonly app: App; readonly plugin: Plugin }`. One source of truth. |
-| `setRibbonVisibility` on `CommandPort` | Removed from interface. `ObsidianCommandAdapter.setRibbonVisibility()` is a concrete method. The adapter subscribes to `settings` events on the bus in `main.ts` and toggles visibility itself — no core involvement. |
+| `setRibbonVisibility` on `CommandPort` | Removed from interface. `ObsidianCommandAdapter.setRibbonVisibility()` is a concrete method. The adapter subscribes to `settings` events on the bus in `main.ts` and toggles visibility itself — no core involvement. **Lifecycle note:** the adapter subscribes BEFORE `PluginCore.init()` is called, so it sees all settings events including those emitted during init. Additionally, the adapter reads the initial `showRibbonIcon` value from `PluginCore.settings` immediately after `init()` completes and applies it — this covers the case where saved settings have `showRibbonIcon: false` but `visibleByDefault: true` in the command entry. Without this initial sync, the ribbon would briefly show then hide only on the next settings change. |
 
 ## 9. File Inventory
 
