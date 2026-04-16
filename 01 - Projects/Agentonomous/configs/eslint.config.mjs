@@ -192,6 +192,7 @@ export default [
 			'src/main.ts',
 			'src/plugin.ts',
 			'src/infrastructure/obsidian/**/*.ts',
+			'src/infrastructure/obsidian/obsidian-notification-adapter.ts',
 			'src/infrastructure/views/*-view.ts',
 			'src/infrastructure/settings/settings-tab.ts',
 			'src/infrastructure/ribbon/ribbon.ts',
