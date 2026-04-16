@@ -17,16 +17,10 @@ function getFilePathFromState(state: unknown): string | null {
 	return typeof s['file'] === 'string' ? s['file'] : null;
 }
 
-function getContentFromState(state: unknown): string {
-	if (typeof state !== 'object' || state === null) return '';
-	const s = state as Record<string, unknown>;
-	return typeof s['content'] === 'string' ? s['content'] : '';
-}
-
 /**
  * Obsidian ItemView for the File Detail panel.
- * Reads the file path from ViewState, runs the appropriate handler,
- * and mounts a Vue component to display the analysis result.
+ * Reads the file path from ViewState, fetches the file content via VaultPort,
+ * runs the appropriate handler, and mounts a Vue component to display the result.
  */
 export class FileDetailView extends ItemView {
 	private mounted: MountedView | null = null;
@@ -71,16 +65,21 @@ export class FileDetailView extends ItemView {
 		const filePath = getFilePathFromState(state);
 		if (filePath === null) return { analysis: null, error: null };
 
+		const result = await this.ctx.vault.read(filePath);
+		if (result.kind === 'err') {
+			return { analysis: null, error: `Could not read file: ${result.error}` };
+		}
+
 		const { getHandler } = await import('../handlers/handler-registry.js');
-		const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+		const file = result.value;
+		const ext = file.path.split('.').pop()?.toLowerCase() ?? '';
 		const handler = getHandler(ext);
 		if (handler === undefined) {
 			return { analysis: null, error: `No handler for extension: ${ext}` };
 		}
 
-		const content = getContentFromState(state);
-		const fileName = filePath.split('/').pop() ?? filePath;
-		const analysis = handler.analyze(content, fileName);
+		const fileName = file.path.split('/').pop() ?? file.path;
+		const analysis = handler.analyze(file.content, fileName);
 		return { analysis, error: null };
 	}
 }
