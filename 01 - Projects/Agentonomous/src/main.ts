@@ -1,6 +1,7 @@
 import { Plugin } from 'obsidian';
 import { createEventBus } from './domain/shared/event-bus.js';
 import { CORE_COMMANDS } from './domain/commands/core-commands.js';
+import { defineModule } from './domain/shared/module.js';
 import { ObsidianSettingsAdapter } from './infrastructure/obsidian/obsidian-settings-adapter.js';
 import { ObsidianCommandAdapter } from './infrastructure/obsidian/obsidian-command-adapter.js';
 import { ObsidianNotificationAdapter } from './infrastructure/obsidian/obsidian-notification-adapter.js';
@@ -11,6 +12,14 @@ import { VIEW_TYPE_HOMEPAGE } from './domain/views/view-types.js';
 import { Logger } from './core/logger.js';
 import { PluginCore } from './core/plugin-core.js';
 import type { PluginContext } from './plugin.js';
+
+const tempModule = defineModule({
+	id: 'core-temp',
+	name: 'Core (temporary)',
+	commands: CORE_COMMANDS,
+	async init() {},
+	destroy() {},
+});
 
 export default class AgentonomousPlugin extends Plugin {
 	private core: PluginCore | null = null;
@@ -33,7 +42,7 @@ export default class AgentonomousPlugin extends Plugin {
 
 		this.core = new PluginCore(
 			{ settings, commands, views, logger, notifications, eventBus: bus },
-			CORE_COMMANDS,
+			[tempModule],
 		);
 		await this.core.init();
 

@@ -3,11 +3,11 @@ import type { LoggerPort } from '../domain/shared/logger-port.js';
 import type { NotificationPort } from '../domain/shared/notification-port.js';
 import type { SettingsPort } from '../domain/settings/settings-port.js';
 import type { CommandPort } from '../domain/commands/command-port.js';
-import type { CommandEntry } from '../domain/commands/command-types.js';
 import type { ViewRegistryPort } from '../domain/views/view-registry-port.js';
+import type { Module, ModulePorts } from '../domain/shared/module.js';
 import type { Unsubscribe } from '../domain/shared/unsubscribe.js';
 import { isOk } from '../domain/shared/result.js';
-import { CORE_SETTINGS_DEFAULTS, type CoreSettings, validateCoreSettings } from '../domain/settings/plugin-settings.js';
+import { topologicalSort } from '../domain/shared/utils/topo-sort.js';
 import { ErrorHandler } from './error-handler.js';
 
 export interface CorePorts {
@@ -22,14 +22,14 @@ export interface CorePorts {
 export class PluginCore {
 	private state: 'idle' | 'initializing' | 'ready' | 'destroyed' = 'idle';
 	private readonly ports: CorePorts;
-	private readonly commandEntries: readonly CommandEntry[];
+	private readonly modules: readonly Module[];
+	private sortedModules: Module[] = [];
 	private errorHandler: ErrorHandler | null = null;
 	private settingsUnsub: Unsubscribe | null = null;
-	private currentSettings: CoreSettings = CORE_SETTINGS_DEFAULTS;
 
-	constructor(ports: CorePorts, commandEntries: readonly CommandEntry[]) {
+	constructor(ports: CorePorts, modules: readonly Module[]) {
 		this.ports = ports;
-		this.commandEntries = commandEntries;
+		this.modules = modules;
 	}
 
 	async init(): Promise<void> {
@@ -42,33 +42,25 @@ export class PluginCore {
 			this.ports.notifications,
 		);
 
-		const loaded = await this.ports.settings.load();
-		if (isOk(loaded)) {
-			const validated = validateCoreSettings(loaded.value);
-			this.currentSettings = isOk(validated) ? validated.value : CORE_SETTINGS_DEFAULTS;
+		const validationErrors = this.collectValidationErrors();
+		if (validationErrors.length > 0) {
+			this.ports.eventBus.emit('core', { phase: 'validation', errors: validationErrors });
+			this.ports.logger.error('core', `Startup validation failed: ${validationErrors.join('; ')}`);
+			this.state = 'destroyed';
+			return;
 		}
 
-		this.ports.logger.setLevel(this.currentSettings.logLevel);
+		const blob = await this.loadSettingsBlob();
+		const modulePorts = this.buildModulePorts();
 
-		for (const entry of this.commandEntries) {
-			this.ports.commands.register(entry);
+		for (const m of this.sortedModules) {
+			await m.init(modulePorts, this.resolveModuleSettings(m, blob));
 		}
 
-		this.settingsUnsub = this.ports.settings.subscribe((raw) => {
-			const validated = validateCoreSettings(raw);
-			if (!isOk(validated)) return;
-			const s = validated.value;
-			const previous = this.currentSettings;
-			this.currentSettings = s;
-			this.ports.eventBus.emit('settings', { previous, current: s });
+		this.registerAllCommands();
 
-			if (previous.logLevel !== s.logLevel) {
-				this.ports.logger.setLevel(s.logLevel);
-			}
-
-			if (previous.showRibbonIcon !== s.showRibbonIcon) {
-				this.ports.commands.setRibbonVisibility?.(s.showRibbonIcon);
-			}
+		this.settingsUnsub = this.ports.settings.subscribe((_raw) => {
+			// Individual modules manage their own settings
 		});
 
 		this.state = 'ready';
@@ -79,6 +71,11 @@ export class PluginCore {
 	destroy(): void {
 		this.ports.eventBus.emit('core', { phase: 'destroying' });
 		this.settingsUnsub?.();
+
+		for (const m of [...this.sortedModules].reverse()) {
+			m.destroy();
+		}
+
 		this.ports.commands.unregisterAll();
 		this.errorHandler?.destroy();
 		this.state = 'destroyed';
@@ -89,7 +86,103 @@ export class PluginCore {
 		return this.state === 'ready';
 	}
 
-	get settings(): CoreSettings {
-		return this.currentSettings;
+	get settings(): unknown {
+		return undefined;
+	}
+
+	private collectValidationErrors(): string[] {
+		const errors: string[] = [
+			...this.checkDuplicateIds(),
+			...this.checkDuplicateSettingsKeys(),
+			...this.checkDuplicateCommandIds(),
+		];
+
+		const sortResult = topologicalSort(
+			this.modules,
+			(m) => m.id,
+			(m) => m.dependsOn ?? [],
+		);
+
+		if (!isOk(sortResult)) {
+			errors.push(sortResult.error);
+		} else {
+			this.sortedModules = sortResult.value;
+		}
+
+		return errors;
+	}
+
+	private checkDuplicateIds(): string[] {
+		const errors: string[] = [];
+		const seen = new Set<string>();
+		for (const m of this.modules) {
+			if (seen.has(m.id)) errors.push(`duplicate module id "${m.id}"`);
+			seen.add(m.id);
+		}
+		return errors;
+	}
+
+	private checkDuplicateSettingsKeys(): string[] {
+		const errors: string[] = [];
+		const seen = new Set<string>();
+		for (const m of this.modules) {
+			if (m.settingsKey === undefined) continue;
+			if (seen.has(m.settingsKey)) errors.push(`duplicate settingsKey "${m.settingsKey}"`);
+			seen.add(m.settingsKey);
+		}
+		return errors;
+	}
+
+	private checkDuplicateCommandIds(): string[] {
+		const errors: string[] = [];
+		const seen = new Set<string>();
+		for (const m of this.modules) {
+			for (const cmd of m.commands ?? []) {
+				if (seen.has(cmd.id)) errors.push(`duplicate command id "${cmd.id}"`);
+				seen.add(cmd.id);
+			}
+		}
+		return errors;
+	}
+
+	private async loadSettingsBlob(): Promise<Record<string, unknown>> {
+		const loaded = await this.ports.settings.load();
+		const rawSettings = isOk(loaded) ? loaded.value : null;
+		return (typeof rawSettings === 'object' && rawSettings !== null)
+			? rawSettings as Record<string, unknown>
+			: {};
+	}
+
+	private buildModulePorts(): ModulePorts {
+		return {
+			eventBus: this.ports.eventBus,
+			logger: this.ports.logger,
+			settings: this.ports.settings,
+			notifications: this.ports.notifications,
+			views: this.ports.views,
+		};
+	}
+
+	private resolveModuleSettings(m: Module, blob: Record<string, unknown>): unknown {
+		if (m.settingsKey === undefined) {
+			return m.settingsDefaults;
+		}
+		const section = blob[m.settingsKey];
+		if (section === undefined) {
+			return m.settingsDefaults;
+		}
+		if (m.validateSettings !== undefined) {
+			const validated = m.validateSettings(section);
+			return isOk(validated) ? validated.value : m.settingsDefaults;
+		}
+		return section;
+	}
+
+	private registerAllCommands(): void {
+		for (const m of this.sortedModules) {
+			for (const cmd of m.commands ?? []) {
+				this.ports.commands.register(cmd);
+			}
+		}
 	}
 }
