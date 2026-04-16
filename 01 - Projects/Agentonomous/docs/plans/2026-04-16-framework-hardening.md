@@ -518,7 +518,7 @@ export function createEventBus(): EventBus {
 }
 ```
 
-Note: The `traceMap` stores `eventId → traceId` mappings so child events can look up their parent's traceId. This map will grow unboundedly over a long session — for a skeleton this is acceptable; a production version should add TTL-based eviction or a WeakRef approach. Add a brief inline comment noting this.
+Note: The `traceMap` stores `eventId → traceId` mappings so child events can look up their parent's traceId. This map will grow unboundedly over a long session — for a skeleton this is acceptable; a production version should add TTL-based eviction or a WeakRef approach. Add a brief inline comment noting this. Also note that `on()` / `onAny()` unsubscribes intentionally do NOT prune `traceMap` entries — once an eventId is emitted, its trace membership is permanent (the envelope was already delivered to listeners).
 
 - [ ] **Step 4: Run — verify 10 tests pass**
 
@@ -940,6 +940,7 @@ import type { CommandEntry } from './command-types.js';
 export interface CommandPort {
 	register(entry: CommandEntry): Unsubscribe;
 	unregisterAll(): void;
+	setRibbonVisibility?(visible: boolean): void;
 }
 ```
 
@@ -1151,19 +1152,34 @@ export class ObsidianCommandAdapter implements CommandPort {
 }
 ```
 
-Note: The `opensView` hint is NOT wired here — that wiring happens in `PluginCore.init()` (Chunk 5), which resolves `opensView` to a callback via the `ViewRegistryPort` before passing the entry to the adapter.
+**Important: The adapter takes TWO constructor args from the start: `(plugin: Plugin, viewRegistry: ViewRegistryPort)`.** When `register()` receives an entry with `opensView`, it auto-generates the callback as `() => viewRegistry.openView(plugin, viewType)`. Update Step 1 tests and Step 3 implementation to use the two-arg constructor. Test fakes should pass `{ registerAll: vi.fn(), openView: vi.fn(async () => {}) }` as the viewRegistry arg.
+
+The `register()` method resolves `opensView`:
+```ts
+register(entry: CommandEntry): Unsubscribe {
+	let callback = entry.callback ?? (() => {});
+	if (entry.opensView !== undefined) {
+		const viewType = entry.opensView;
+		callback = () => this.viewRegistry.openView(this.plugin, viewType);
+	}
+	// ... addCommand + ribbon logic unchanged ...
+}
+```
+
+This keeps `PluginCore` fully platform-agnostic — it passes command entries as-is to `commandPort.register()` without resolving callbacks.
 
 - [ ] **Step 4: Run — verify 5 tests pass**
 
 - [ ] **Step 5: Update ESLint obsidian allowlist** — add `src/infrastructure/obsidian/obsidian-command-adapter.ts` to ignores.
 
-- [ ] **Step 6: Delete `src/infrastructure/ribbon/ribbon.ts`**
+- [ ] **Step 6: Delete `src/infrastructure/ribbon/ribbon.ts` and its test**
 
 ```bash
 git rm src/infrastructure/ribbon/ribbon.ts
+git rm tests/infrastructure/ribbon/ribbon.test.ts
 ```
 
-Also delete `tests/infrastructure/ribbon/ribbon.test.ts` if it exists (responsibility moved to the adapter).
+Both files are being replaced by `ObsidianCommandAdapter`. If either `git rm` fails because the file doesn't exist at that exact path, find the actual path with `git ls-files | grep ribbon` and delete it.
 
 - [ ] **Step 7: Update existing imports** — `src/main.ts` currently imports from `./infrastructure/ribbon/ribbon.js`. Remove that import. The actual main.ts rewrite happens in Chunk 5, but the import must be removed now to keep the build green. Temporarily comment out or remove the ribbon-related code in main.ts — it will be fully replaced in Chunk 5.
 
@@ -1372,10 +1388,7 @@ export class PluginCore {
 			}
 
 			if (previous.showRibbonIcon !== s.showRibbonIcon) {
-				if ('setRibbonVisibility' in this.ports.commands) {
-					(this.ports.commands as { setRibbonVisibility: (v: boolean) => void })
-						.setRibbonVisibility(s.showRibbonIcon);
-				}
+				this.ports.commands.setRibbonVisibility?.(s.showRibbonIcon);
 			}
 		});
 
@@ -1403,37 +1416,13 @@ export class PluginCore {
 
 	private registerCommands(): void {
 		for (const entry of this.commandEntries) {
-			let resolved = entry;
-			if (entry.opensView !== undefined && entry.callback === undefined) {
-				const viewType = entry.opensView;
-				resolved = {
-					...entry,
-					callback: () => this.ports.views.openView(
-						null as never,
-						viewType,
-					),
-				};
-			} else if (entry.opensView !== undefined && entry.callback !== undefined) {
-				this.ports.logger.info('core', `Command "${entry.id}" has both callback and opensView — opensView takes precedence`);
-				const viewType = entry.opensView;
-				resolved = {
-					...entry,
-					callback: () => this.ports.views.openView(null as never, viewType),
-				};
-			}
-			this.ports.commands.register(resolved);
+			this.ports.commands.register(entry);
 		}
 	}
 }
 ```
 
-Note: The `openView(null as never, viewType)` is a temporary hack — `ViewRegistryPort` takes a generic `P` for the plugin param, but `PluginCore` doesn't have a `Plugin` reference. The actual `openView` call in the Obsidian shell will need the real plugin. This will be resolved in Task 5.2 when we rewire `main.ts` — the shell passes a bound `openView` that already has the plugin reference. For now, the callback stored in the command entry captures the view type; the shell adapter resolves it. Mark this with a comment.
-
-Actually, a cleaner approach: don't resolve `opensView` in PluginCore at all. The `ObsidianCommandAdapter.register()` should receive the `opensView` string and call the view registry itself (it needs the plugin reference anyway). Update: let `PluginCore` pass command entries as-is to `commandPort.register()`. The adapter resolves `opensView` internally using the view registry it's given.
-
-Revise `ObsidianCommandAdapter` to accept a `ViewRegistryPort` + `Plugin` at construction time so it can resolve `opensView` callbacks itself. This keeps PluginCore fully platform-agnostic.
-
-Update the PluginCore implementation accordingly — `registerCommands` just forwards entries to the port without resolving callbacks.
+`PluginCore.registerCommands()` simply forwards entries to the port. The `ObsidianCommandAdapter` (Chunk 4) resolves `opensView` → callback internally using its `viewRegistry` constructor arg. PluginCore never touches `Plugin` or `ViewRegistryPort` directly for command resolution — fully platform-agnostic.
 
 - [ ] **Step 4: Run — verify 4 tests pass**
 
@@ -1676,9 +1665,23 @@ Update `validateSettings` to check `logLevel`.
 
 In `settings-tab.ts`, add a new `Setting` block for log level, similar to the default-view dropdown but using `KNOWN_LOG_LEVELS`.
 
-- [ ] **Step 3: Update existing tests**
+- [ ] **Step 3: Update existing tests — enumerate every file that constructs `PluginSettings` objects**
 
-Tests that construct `PluginSettings` objects or compare with `DEFAULT_SETTINGS` need the `logLevel` field. Update them.
+With `exactOptionalPropertyTypes: true` (enabled in Chunk 1) and `logLevel` as a required field, every literal `{ showRibbonIcon: ..., defaultView: ... }` missing `logLevel` will fail tsc. Update these files:
+
+1. **`tests/domain/settings/plugin-settings.test.ts`** — every `validateSettings({ ... })` call needs `logLevel: 'info'` added (or a new validator test for missing `logLevel`).
+2. **`tests/ui/stores/settings-store.test.ts`** — `makeFakePort(...)` default, and every inline `{ showRibbonIcon: false, defaultView: 'home' }` literal (at least 5 occurrences) → add `logLevel: 'info'`.
+3. **`tests/infrastructure/obsidian/obsidian-settings-adapter.test.ts`** — `createFakePlugin({ showRibbonIcon: false, defaultView: 'home' })` calls → add `logLevel: 'info'`.
+4. **`tests/infrastructure/settings/settings-tab.test.ts`** — any literal settings objects → add `logLevel: 'info'`.
+5. **`tests/core/plugin-core.test.ts`** — `fakeSettings()` returns `ok(DEFAULT_SETTINGS)` which auto-includes `logLevel` — likely fine, but verify.
+
+Also add a new `plugin-settings.test.ts` test:
+```ts
+it('rejects a missing logLevel', () => {
+	const r = validateSettings({ showRibbonIcon: true, defaultView: 'home' });
+	expect(isErr(r)).toBe(true);
+});
+```
 
 - [ ] **Step 4: Run `npm test` — verify green**
 
