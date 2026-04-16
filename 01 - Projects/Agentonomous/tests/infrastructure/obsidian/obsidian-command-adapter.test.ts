@@ -76,4 +76,24 @@ describe('ObsidianCommandAdapter', () => {
 		adapter.unregisterAll();
 		expect(mockEl.remove).toHaveBeenCalled();
 	});
+
+	it('register() returns an unsubscribe that removes the ribbon element', () => {
+		const plugin = createFakePlugin();
+		const mockEl = { style: { display: '' }, remove: vi.fn() };
+		plugin.addRibbonIcon = vi.fn(() => mockEl);
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const unsub = adapter.register({
+			id: 'test-cmd', name: 'Test', callback: () => {},
+			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
+		});
+		unsub();
+		expect(mockEl.remove).toHaveBeenCalled();
+	});
+
+	it('register() unsubscribe does nothing when no ribbon', () => {
+		const plugin = createFakePlugin();
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViewRegistry());
+		const unsub = adapter.register({ id: 'no-ribbon', name: 'No Ribbon', callback: () => {} });
+		expect(() => { unsub(); }).not.toThrow();
+	});
 });
