@@ -8,7 +8,7 @@ defineProps<Props>();
 
 <template>
 	<section class="hello-card">
-		<h2 class="hello-card__title">{{ title }}</h2>
-		<p class="hello-card__message">{{ message }}</p>
+		<h2 class="hello-card__title" data-testid="card-title">{{ title }}</h2>
+		<p class="hello-card__message" data-testid="card-message">{{ message }}</p>
 	</section>
 </template>

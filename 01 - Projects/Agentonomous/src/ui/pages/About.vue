@@ -11,10 +11,10 @@ const _ctx = inject(PluginContextKey);
 
 <template>
 	<div class="agentonomous-about">
-		<h2>Agentonomous</h2>
-		<p>Autonomous agents sandbox — version {{ pluginVersion }}.</p>
+		<h2 data-testid="about-title">Agentonomous</h2>
+		<p data-testid="about-version">Autonomous agents sandbox — version {{ pluginVersion }}.</p>
 		<nav class="agentonomous-nav">
-			<router-link to="/">Home</router-link>
+			<router-link data-testid="nav-home" to="/">Home</router-link>
 		</nav>
 	</div>
 </template>

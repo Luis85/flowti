@@ -9,9 +9,10 @@ const { greeting, pluginVersion } = storeToRefs(appStore);
 
 <template>
 	<div class="agentonomous-home">
-		<HelloCard :title="greeting" :message="`Version ${pluginVersion}`" />
+		<HelloCard data-testid="greeting" :title="greeting" :message="`Version ${pluginVersion}`" />
+		<p data-testid="version">{{ pluginVersion }}</p>
 		<nav class="agentonomous-nav">
-			<router-link to="/about">About</router-link>
+			<router-link data-testid="nav-about" to="/about">About</router-link>
 		</nav>
 	</div>
 </template>
