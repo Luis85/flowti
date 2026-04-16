@@ -6,6 +6,9 @@ import type { CommandPort } from '../domain/commands/command-port.js';
 import type { ViewRegistryPort } from '../domain/views/view-registry-port.js';
 import type { Module, ModulePorts } from '../domain/shared/module.js';
 import type { Unsubscribe } from '../domain/shared/unsubscribe.js';
+import type { TranslationPort } from '../domain/shared/translation-port.js';
+import type { PlatformPort } from '../domain/shared/platform-port.js';
+import type { VaultPort } from '../domain/shared/vault-port.js';
 import { isOk } from '../domain/shared/result.js';
 import { topologicalSort } from '../domain/shared/utils/topo-sort.js';
 import { ErrorHandler } from './error-handler.js';
@@ -18,6 +21,11 @@ export interface CorePorts {
 	readonly logger: LoggerPort;
 	readonly notifications: NotificationPort;
 	readonly eventBus: EventBus;
+	readonly t: TranslationPort;
+	readonly platform: PlatformPort;
+	readonly vault: VaultPort;
+	/** Merge per-locale messages from a module into the i18n instance. Platform-agnostic callback. */
+	readonly i18nMerge?: (locale: string, messages: Record<string, string>) => void;
 }
 
 export class PluginCore {
@@ -57,6 +65,16 @@ export class PluginCore {
 		const blob = await this.loadSettingsBlob();
 		this.currentCoreSettings = this.resolveCoreSettings(blob);
 		const modulePorts = this.buildModulePorts();
+
+		if (this.ports.i18nMerge !== undefined) {
+			for (const m of this.sortedModules) {
+				if (m.messages !== undefined) {
+					for (const [locale, messages] of Object.entries(m.messages)) {
+						this.ports.i18nMerge(locale, messages);
+					}
+				}
+			}
+		}
 
 		for (const m of this.sortedModules) {
 			try {
@@ -188,6 +206,9 @@ export class PluginCore {
 			settings: this.ports.settings,
 			notifications: this.ports.notifications,
 			views: this.ports.views,
+			t: this.ports.t,
+			platform: this.ports.platform,
+			vault: this.ports.vault,
 		};
 	}
 

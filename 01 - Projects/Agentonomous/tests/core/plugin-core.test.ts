@@ -5,7 +5,7 @@ import '../../src/domain/shared/core-events.js';
 import { Logger } from '../../src/core/logger.js';
 import { defineModule } from '../../src/domain/shared/module.js';
 import { ok } from '../../src/domain/shared/result.js';
-import { fakeSettings, fakeCommands, fakeViews, fakeNotifications, fakeLogger } from '../__fakes__/fake-ports.js';
+import { fakeSettings, fakeCommands, fakeViews, fakeNotifications, fakeLogger, fakeTranslation, fakePlatform, fakeVault } from '../__fakes__/fake-ports.js';
 import type { Result } from '../../src/domain/shared/result.js';
 
 describe('PluginCore with modules', () => {
@@ -16,7 +16,7 @@ describe('PluginCore with modules', () => {
 		const b = defineModule({ id: 'b', name: 'B', dependsOn: ['a'], async init() { order.push('b'); }, destroy() {} });
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[b, a],
 		);
 		await core.init();
@@ -31,7 +31,7 @@ describe('PluginCore with modules', () => {
 		const b = defineModule({ id: 'b', name: 'B', dependsOn: ['a'], async init() {}, destroy() { order.push('b'); } });
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[b, a],
 		);
 		await core.init();
@@ -45,7 +45,7 @@ describe('PluginCore with modules', () => {
 		const b = defineModule({ id: 'b', name: 'B', dependsOn: ['a'], async init() {}, destroy() {} });
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[a, b],
 		);
 
@@ -62,7 +62,7 @@ describe('PluginCore with modules', () => {
 		const a2 = defineModule({ id: 'a', name: 'A2', async init() {}, destroy() {} });
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[a1, a2],
 		);
 		await core.init();
@@ -79,7 +79,7 @@ describe('PluginCore with modules', () => {
 		});
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands, views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands, views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();
@@ -93,7 +93,7 @@ describe('PluginCore with modules', () => {
 
 		const m = defineModule({ id: 'a', name: 'A', async init() {}, destroy() {} });
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();
@@ -105,7 +105,7 @@ describe('PluginCore with modules', () => {
 		const bus = createEventBus();
 		const m = defineModule({ id: 'a', name: 'A', async init() {}, destroy() {} });
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();
@@ -137,7 +137,7 @@ describe('PluginCore with modules', () => {
 		const settings = fakeSettings({ test: { color: 'red' } });
 
 		const core = new PluginCore(
-			{ settings, commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();
@@ -158,7 +158,7 @@ describe('PluginCore with modules', () => {
 		const settings = fakeSettings({});
 
 		const core = new PluginCore(
-			{ settings, commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();
@@ -169,7 +169,7 @@ describe('PluginCore with modules', () => {
 		const bus = createEventBus();
 		const m = defineModule({ id: 'a', name: 'A', async init() {}, destroy() {} });
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: new Logger(bus, 'error'), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();
@@ -186,7 +186,7 @@ describe('PluginCore graceful degradation', () => {
 		const healthy = defineModule({ id: 'healthy', name: 'Healthy', async init() { order.push('healthy'); }, destroy() {} });
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[broken, healthy],
 		);
 		await core.init();
@@ -199,7 +199,7 @@ describe('PluginCore graceful degradation', () => {
 		const broken = defineModule({ id: 'broken', name: 'Broken', async init() { throw new Error('boom'); }, destroy() {} });
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[broken],
 		);
 		await core.init();
@@ -213,7 +213,7 @@ describe('PluginCore graceful degradation', () => {
 		const broken = defineModule({ id: 'broken', name: 'Broken', async init() { throw new Error('boom'); }, destroy() {} });
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[broken],
 		);
 		await core.init();
@@ -231,7 +231,7 @@ describe('PluginCore graceful degradation', () => {
 		});
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands, views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands, views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[broken],
 		);
 		await core.init();
@@ -245,7 +245,7 @@ describe('PluginCore graceful degradation', () => {
 		const healthy = defineModule({ id: 'healthy', name: 'Healthy', async init() {}, destroy() { destroyCalls.push('healthy'); } });
 
 		const core = new PluginCore(
-			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			{ settings: fakeSettings(), commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[broken, healthy],
 		);
 		await core.init();
@@ -273,7 +273,7 @@ describe('PluginCore settings migration', () => {
 
 		const settings = fakeSettings({ test: { _version: 1, color: 'red' } });
 		const core = new PluginCore(
-			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();
@@ -295,7 +295,7 @@ describe('PluginCore settings migration', () => {
 
 		const settings = fakeSettings({ test: { _version: 1, color: 'red' } });
 		const core = new PluginCore(
-			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();
@@ -315,7 +315,7 @@ describe('PluginCore settings migration', () => {
 
 		const settings = fakeSettings({ test: { color: 'red' } });
 		const core = new PluginCore(
-			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus },
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
 			[m],
 		);
 		await core.init();

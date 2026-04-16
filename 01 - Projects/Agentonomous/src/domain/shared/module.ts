@@ -5,6 +5,9 @@ import type { NotificationPort } from './notification-port.js';
 import type { SettingsPort } from '../settings/settings-port.js';
 import type { ViewRegistryPort } from '../views/view-registry-port.js';
 import type { CommandEntry } from '../commands/command-types.js';
+import type { TranslationPort } from './translation-port.js';
+import type { PlatformPort } from './platform-port.js';
+import type { VaultPort } from './vault-port.js';
 
 /** Scoped ports injected into every module at init time. */
 export interface ModulePorts {
@@ -18,6 +21,12 @@ export interface ModulePorts {
 	readonly notifications: NotificationPort;
 	/** Register and open Obsidian views. */
 	readonly views: ViewRegistryPort;
+	/** i18n translation function. All user-facing strings must go through this. */
+	readonly t: TranslationPort;
+	/** Platform adapter (locale, etc). */
+	readonly platform: PlatformPort;
+	/** Vault CRUD + frontmatter access. */
+	readonly vault: VaultPort;
 }
 
 /** A self-contained feature unit. Registered with PluginCore and lifecycle-managed. */
@@ -49,6 +58,12 @@ export interface Module {
 	/** Commands to register with Obsidian. Declared as data; PluginCore handles registration. */
 	readonly commands?: readonly CommandEntry[];
 
+	/** Per-locale message maps for vue-i18n. Keys are locale codes (e.g. 'en'). */
+	readonly messages?: Record<string, Record<string, string>>;
+
+	/** File extensions this module claims, paired with their view type. */
+	readonly extensions?: readonly { readonly ext: string; readonly viewType: string }[];
+
 	/** Called after dependencies are ready. Receives scoped ports and validated settings. May subscribe to EventBus. */
 	init(ports: ModulePorts, settings: unknown): Promise<void>;
 
@@ -73,6 +88,8 @@ export function defineModule<TSettings = unknown>(def: {
 	validateSettings?(raw: unknown): Result<TSettings, string>;
 	migrate?(fromVersion: number, blob: unknown): Result<TSettings, string>;
 	readonly commands?: readonly CommandEntry[];
+	readonly messages?: Record<string, Record<string, string>>;
+	readonly extensions?: readonly { readonly ext: string; readonly viewType: string }[];
 	init(ports: ModulePorts, settings: TSettings): Promise<void>;
 	destroy(): void;
 }): Module {
