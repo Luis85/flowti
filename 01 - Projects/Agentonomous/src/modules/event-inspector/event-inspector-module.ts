@@ -43,6 +43,11 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 	],
 
 	init(ports, settings) {
+		// Guard: if already initialized, destroy first to prevent leaks
+		if (state !== null) {
+			this.destroy();
+		}
+
 		if (!settings.enabled) {
 			ports.logger.info('event-inspector', 'Event inspector disabled by settings');
 			return Promise.resolve();

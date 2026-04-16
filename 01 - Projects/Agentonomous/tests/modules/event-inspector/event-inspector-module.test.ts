@@ -75,4 +75,16 @@ describe('EventInspectorModule', () => {
 		expect(countAfterSecond).toBe(countAfterFirst);
 		EventInspectorModule.destroy();
 	});
+
+	it('double init without destroy does not leak listeners', async () => {
+		const { EventInspectorModule } = await import('../../../src/modules/event-inspector/event-inspector-module.js');
+		const bus = createEventBus();
+		const ports = fakeModulePorts({ eventBus: bus });
+
+		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
+		const countAfterFirst = bus.listenerCount();
+		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] }); // no destroy between
+		expect(bus.listenerCount()).toBe(countAfterFirst);
+		EventInspectorModule.destroy();
+	});
 });

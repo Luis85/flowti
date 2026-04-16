@@ -26,6 +26,11 @@ export const HealthMonitorModule = defineModule({
 	],
 
 	init(ports) {
+		// Guard: if already initialized, destroy first to prevent leaks
+		if (state !== null) {
+			this.destroy();
+		}
+
 		const showHealthCallback = (): void => {
 			const summary = ports.t.t('health-monitor.notifications.healthCheck');
 			ports.logger.info('health-monitor', summary);

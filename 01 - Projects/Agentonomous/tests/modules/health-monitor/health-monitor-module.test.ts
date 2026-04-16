@@ -85,4 +85,16 @@ describe('HealthMonitorModule', () => {
 		expect(countAfterSecond).toBe(countAfterFirst);
 		HealthMonitorModule.destroy();
 	});
+
+	it('double init without destroy does not leak listeners', async () => {
+		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
+		const bus = createEventBus();
+		const ports = fakeModulePorts({ eventBus: bus });
+
+		await HealthMonitorModule.init(ports, undefined);
+		const countAfterFirst = bus.listenerCount();
+		await HealthMonitorModule.init(ports, undefined); // no destroy between
+		expect(bus.listenerCount()).toBe(countAfterFirst);
+		HealthMonitorModule.destroy();
+	});
 });
