@@ -131,6 +131,7 @@ export default [
 			...vueRecommendedRules,
 			...sharedTsRules,
 			'no-restricted-properties': noRestrictedDomElements,
+			'no-restricted-syntax': noTryCatchOutsideInfra,
 			// Repo convention: tabs, not spaces
 			'vue/html-indent': ['error', 'tab'],
 			// Singleline content formatting — allow inline text in simple elements

@@ -14,9 +14,9 @@ export const useSettingsStore = defineStore('settings', () => {
 	async function hydrate(newPort: SettingsPort): Promise<void> {
 		port = newPort;
 		unsub?.();
-		unsub = port.subscribe((s) => { settings.value = s; });
 		const loaded = await port.load();
 		if (isOk(loaded)) settings.value = loaded.value;
+		unsub = port.subscribe((s) => { settings.value = s; });
 	}
 
 	async function update(next: PluginSettings): Promise<void> {
