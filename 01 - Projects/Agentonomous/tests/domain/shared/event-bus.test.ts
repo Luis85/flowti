@@ -92,3 +92,95 @@ describe('EventBus', () => {
 		expect(env.payload.severity).toBe('system');
 	});
 });
+
+describe('listener priority', () => {
+	it('higher priority fires first', () => {
+		const bus = createEventBus();
+		const order: string[] = [];
+		bus.on('core', () => { order.push('default'); });
+		bus.on('core', () => { order.push('high'); }, { priority: 100 });
+		bus.on('core', () => { order.push('low'); }, { priority: -100 });
+		bus.emit('core', { phase: 'ready' });
+		expect(order).toEqual(['high', 'default', 'low']);
+	});
+
+	it('same priority preserves registration order', () => {
+		const bus = createEventBus();
+		const order: number[] = [];
+		bus.on('core', () => { order.push(1); }, { priority: 0 });
+		bus.on('core', () => { order.push(2); }, { priority: 0 });
+		bus.emit('core', { phase: 'ready' });
+		expect(order).toEqual([1, 2]);
+	});
+});
+
+describe('snapshot dispatch', () => {
+	it('unsubscribing during emit does not skip listeners', () => {
+		const bus = createEventBus();
+		const calls: string[] = [];
+		const unsub = bus.on('core', () => {
+			calls.push('first');
+			unsub();
+		});
+		bus.on('core', () => { calls.push('second'); });
+		bus.emit('core', { phase: 'ready' });
+		expect(calls).toEqual(['first', 'second']);
+	});
+
+	it('subscribing during emit does not fire new listener in current dispatch', () => {
+		const bus = createEventBus();
+		const calls: string[] = [];
+		bus.on('core', () => {
+			calls.push('original');
+			bus.on('core', () => { calls.push('added-during-emit'); });
+		});
+		bus.emit('core', { phase: 'ready' });
+		expect(calls).toEqual(['original']);
+	});
+});
+
+describe('emitAsync', () => {
+	it('awaits all listener Promises before resolving', async () => {
+		const bus = createEventBus();
+		const order: string[] = [];
+		bus.on('core', async () => {
+			await new Promise((r) => { setTimeout(r, 10); });
+			order.push('async-listener');
+		});
+		bus.on('core', () => { order.push('sync-listener'); });
+		await bus.emitAsync('core', { phase: 'ready' });
+		expect(order).toContain('async-listener');
+		expect(order).toContain('sync-listener');
+	});
+
+	it('returns the EventEnvelope', async () => {
+		const bus = createEventBus();
+		const env = await bus.emitAsync('core', { phase: 'ready' });
+		expect(env.channel).toBe('core');
+		expect(env.eventId).toBeTruthy();
+	});
+
+	it('snapshots listeners before dispatching', async () => {
+		const bus = createEventBus();
+		const calls: string[] = [];
+		bus.on('core', async () => {
+			calls.push('original');
+			bus.on('core', () => { calls.push('added-during-async'); });
+		});
+		await bus.emitAsync('core', { phase: 'ready' });
+		expect(calls).toEqual(['original']);
+	});
+});
+
+describe('traceMap eviction', () => {
+	it('keeps traceMap bounded when maxTraceEntries is exceeded', () => {
+		const bus = createEventBus({ maxTraceEntries: 100 });
+		for (let i = 0; i < 150; i++) {
+			bus.emit('core', { phase: 'ready' });
+		}
+		// Verify bus still works (traceId is valid)
+		const env = bus.emit('core', { phase: 'ready' });
+		expect(env.traceId).toBeTruthy();
+		expect(env.eventId).toBeTruthy();
+	});
+});

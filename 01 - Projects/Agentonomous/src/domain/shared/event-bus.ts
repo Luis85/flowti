@@ -14,68 +14,134 @@ export type EventEnvelope<K extends keyof EventMap = keyof EventMap> = {
 };
 
 export interface EventBus {
-	on<K extends keyof EventMap>(channel: K, listener: (envelope: EventEnvelope<K>) => void): Unsubscribe;
+	on<K extends keyof EventMap>(
+		channel: K,
+		listener: (envelope: EventEnvelope<K>) => void | Promise<void>,
+		opts?: { priority?: number },
+	): Unsubscribe;
 	emit<K extends keyof EventMap>(channel: K, payload: EventMap[K], opts?: { parentId?: string }): EventEnvelope<K>;
+	emitAsync<K extends keyof EventMap>(channel: K, payload: EventMap[K], opts?: { parentId?: string }): Promise<EventEnvelope<K>>;
 	onAny(listener: (envelope: EventEnvelope) => void): Unsubscribe;
 }
 
-export function createEventBus(): EventBus {
-	// channelListeners keys are keyof EventMap at runtime, typed as string for Map ergonomics.
-	// Type safety is enforced at the on() and emit() API surfaces via generics.
-	const channelListeners = new Map<string, Set<(envelope: never) => void>>();
-	const anyListeners = new Set<(envelope: EventEnvelope) => void>();
+type ListenerEntry = {
+	listener: (envelope: never) => void | Promise<void>;
+	priority: number;
+	insertionOrder: number;
+};
+
+export function createEventBus(opts?: { maxTraceEntries?: number }): EventBus {
+	const maxTraceEntries = opts?.maxTraceEntries ?? 10000;
+
+	// channelListeners holds sorted arrays of listener entries.
+	// Sorted descending by priority; within same priority, ascending by insertionOrder (stable).
+	const channelListeners = new Map<string, ListenerEntry[]>();
+	const anyListeners: Array<(envelope: EventEnvelope) => void> = [];
 
 	// eventId → traceId lookup for child-event trace correlation.
-	// Grows unboundedly over a session — acceptable for a skeleton; production should add TTL eviction.
-	// Unsubscribes intentionally do NOT prune entries — once emitted, trace membership is permanent.
 	const traceMap = new Map<string, string>();
+
+	let insertionCounter = 0;
+
+	function getListeners(key: string): ListenerEntry[] | undefined {
+		return channelListeners.get(key);
+	}
 
 	function on<K extends keyof EventMap>(
 		channel: K,
-		listener: (envelope: EventEnvelope<K>) => void,
+		listener: (envelope: EventEnvelope<K>) => void | Promise<void>,
+		onOpts?: { priority?: number },
 	): Unsubscribe {
 		const key = channel as string;
-		let set = channelListeners.get(key);
-		if (set === undefined) {
-			set = new Set();
-			channelListeners.set(key, set);
+		let entries = channelListeners.get(key);
+		if (entries === undefined) {
+			entries = [];
+			channelListeners.set(key, entries);
 		}
-		// Cast is safe: the set for a given key only ever holds listeners for that key's type.
-		set.add(listener as (envelope: never) => void);
-		const capturedSet = set;
-		return () => { capturedSet.delete(listener as (envelope: never) => void); };
+
+		const priority = onOpts?.priority ?? 0;
+		const insertionOrder = insertionCounter++;
+
+		const entry: ListenerEntry = {
+			listener: listener as (envelope: never) => void | Promise<void>,
+			priority,
+			insertionOrder,
+		};
+
+		// Insert maintaining descending priority order, stable by insertionOrder within same priority.
+		// Find the first position where existing entry has strictly lower priority.
+		let insertAt = entries.length;
+		for (let i = 0; i < entries.length; i++) {
+			const existing = entries[i];
+			if (existing !== undefined && existing.priority < priority) {
+				insertAt = i;
+				break;
+			}
+		}
+		entries.splice(insertAt, 0, entry);
+
+		return () => {
+			const arr = channelListeners.get(key);
+			if (arr === undefined) return;
+			const idx = arr.indexOf(entry);
+			if (idx !== -1) arr.splice(idx, 1);
+		};
 	}
 
-	function emit<K extends keyof EventMap>(
+	function buildEnvelope<K extends keyof EventMap>(
 		channel: K,
 		payload: EventMap[K],
-		opts?: { parentId?: string },
+		emitOpts?: { parentId?: string },
 	): EventEnvelope<K> {
 		const eventId = generateId();
 		let traceId: string;
 
-		if (opts?.parentId !== undefined) {
-			traceId = traceMap.get(opts.parentId) ?? generateId();
+		if (emitOpts?.parentId !== undefined) {
+			traceId = traceMap.get(emitOpts.parentId) ?? generateId();
 		} else {
 			traceId = generateId();
 		}
 
 		traceMap.set(eventId, traceId);
 
-		// exactOptionalPropertyTypes requires parentId to be absent (not undefined) when there is no parent.
-		const envelope: EventEnvelope<K> = opts?.parentId !== undefined
-			? { channel, payload, traceId, eventId, parentId: opts.parentId, timestamp: timestamp() }
-			: { channel, payload, traceId, eventId, timestamp: timestamp() };
-
-		const set = channelListeners.get(channel as string);
-		if (set !== undefined) {
-			for (const fn of set) {
-				// Cast is safe: listeners in this set were registered for channel K.
-				(fn as (envelope: EventEnvelope<K>) => void)(envelope);
+		// Evict oldest 25% when over the limit.
+		if (traceMap.size > maxTraceEntries) {
+			const evictCount = Math.floor(maxTraceEntries * 0.25);
+			const iterator = traceMap.keys();
+			for (let i = 0; i < evictCount; i++) {
+				const key = iterator.next().value;
+				if (key !== undefined) traceMap.delete(key);
 			}
 		}
 
-		for (const fn of anyListeners) {
+		// exactOptionalPropertyTypes requires parentId to be absent (not undefined) when there is no parent.
+		const envelope: EventEnvelope<K> = emitOpts?.parentId !== undefined
+			? { channel, payload, traceId, eventId, parentId: emitOpts.parentId, timestamp: timestamp() }
+			: { channel, payload, traceId, eventId, timestamp: timestamp() };
+
+		return envelope;
+	}
+
+	function emit<K extends keyof EventMap>(
+		channel: K,
+		payload: EventMap[K],
+		emitOpts?: { parentId?: string },
+	): EventEnvelope<K> {
+		const envelope = buildEnvelope(channel, payload, emitOpts);
+
+		const entries = getListeners(channel as string);
+		if (entries !== undefined) {
+			// Snapshot before iterating to handle unsubscribe/subscribe during dispatch.
+			const snapshot = [...entries];
+			for (const entry of snapshot) {
+				// Cast is safe: listeners in this array were registered for channel K.
+				(entry.listener as (envelope: EventEnvelope<K>) => void)(envelope);
+			}
+		}
+
+		// Snapshot anyListeners as well.
+		const anySnapshot = [...anyListeners];
+		for (const fn of anySnapshot) {
 			// Cast is safe: EventEnvelope<K> is a subtype of EventEnvelope<keyof EventMap>.
 			fn(envelope as EventEnvelope);
 		}
@@ -83,10 +149,40 @@ export function createEventBus(): EventBus {
 		return envelope;
 	}
 
-	function onAny(listener: (envelope: EventEnvelope) => void): Unsubscribe {
-		anyListeners.add(listener);
-		return () => { anyListeners.delete(listener); };
+	async function emitAsync<K extends keyof EventMap>(
+		channel: K,
+		payload: EventMap[K],
+		emitOpts?: { parentId?: string },
+	): Promise<EventEnvelope<K>> {
+		const envelope = buildEnvelope(channel, payload, emitOpts);
+
+		const entries = getListeners(channel as string);
+		const promises: Array<void | Promise<void>> = [];
+
+		if (entries !== undefined) {
+			const snapshot = [...entries];
+			for (const entry of snapshot) {
+				promises.push((entry.listener as (envelope: EventEnvelope<K>) => void | Promise<void>)(envelope));
+			}
+		}
+
+		const anySnapshot = [...anyListeners];
+		for (const fn of anySnapshot) {
+			fn(envelope as EventEnvelope);
+		}
+
+		const settled = promises.filter((p): p is Promise<void> => p instanceof Promise);
+		await Promise.all(settled);
+		return envelope;
 	}
 
-	return { on, emit, onAny };
+	function onAny(listener: (envelope: EventEnvelope) => void): Unsubscribe {
+		anyListeners.push(listener);
+		return () => {
+			const idx = anyListeners.indexOf(listener);
+			if (idx !== -1) anyListeners.splice(idx, 1);
+		};
+	}
+
+	return { on, emit, emitAsync, onAny };
 }
