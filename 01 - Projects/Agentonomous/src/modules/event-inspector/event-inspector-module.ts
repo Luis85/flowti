@@ -36,10 +36,10 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 		},
 	],
 
-	async init(ports, settings) {
+	init(ports, settings) {
 		if (!settings.enabled) {
 			ports.logger.info('event-inspector', 'Event inspector disabled by settings');
-			return;
+			return Promise.resolve();
 		}
 
 		sharedBuffer = new EventBuffer(settings.maxEvents);
@@ -49,6 +49,7 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 		});
 
 		ports.logger.info('event-inspector', `Capturing events (max: ${String(settings.maxEvents)})`);
+		return Promise.resolve();
 	},
 
 	destroy() {

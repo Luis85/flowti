@@ -153,6 +153,13 @@ export default [
 		},
 	},
 	{
+		files: ['src/modules/**/*.ts'],
+		rules: {
+			'no-console': 'off',
+			'no-restricted-syntax': 'off',
+		},
+	},
+	{
 		files: ['src/infrastructure/**/*.ts'],
 		rules: {
 			'no-restricted-syntax': 'off',
@@ -197,6 +204,7 @@ export default [
 			'src/infrastructure/views/*-view.ts',
 			'src/infrastructure/settings/settings-tab.ts',
 			'src/domain/**/*.ts',
+			'src/modules/**/views/*-view.ts',
 		],
 		rules: {
 			'no-restricted-imports': [

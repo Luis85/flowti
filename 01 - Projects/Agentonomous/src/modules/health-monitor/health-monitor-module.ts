@@ -24,7 +24,7 @@ export const HealthMonitorModule = defineModule({
 		},
 	],
 
-	async init(ports) {
+	init(ports) {
 		showHealthCallback = () => {
 			const summary = 'Agentonomous: health check — see console for details';
 			ports.logger.info('health-monitor', summary);
@@ -42,6 +42,7 @@ export const HealthMonitorModule = defineModule({
 		}, 60000);
 
 		ports.logger.info('health-monitor', 'Health monitoring active');
+		return Promise.resolve();
 	},
 
 	destroy() {

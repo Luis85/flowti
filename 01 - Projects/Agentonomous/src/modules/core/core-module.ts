@@ -11,8 +11,9 @@ export const CoreModule = defineModule<CoreSettings>({
 	validateSettings: validateCoreSettings,
 	commands: CORE_COMMANDS,
 
-	async init(ports, settings) {
+	init(ports, settings) {
 		ports.logger.info('core', `Core module initialized (logLevel: ${settings.logLevel})`);
+		return Promise.resolve();
 	},
 
 	destroy() {},

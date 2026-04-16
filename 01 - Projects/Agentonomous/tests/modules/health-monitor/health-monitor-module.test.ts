@@ -66,7 +66,7 @@ describe('HealthMonitorModule', () => {
 
 		const showHealthCmd = HealthMonitorModule.commands?.find((c) => c.id === 'show-health');
 		expect(showHealthCmd).toBeDefined();
-		showHealthCmd?.callback?.();
+		void showHealthCmd?.callback?.();
 
 		expect(logger.info).toHaveBeenCalledWith('health-monitor', expect.stringContaining('health check'));
 		expect(notifications.show).toHaveBeenCalledWith(expect.stringContaining('health check'));

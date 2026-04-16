@@ -8,10 +8,10 @@ import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 
 function makeFakePort(initial: CoreSettings = CORE_SETTINGS_DEFAULTS): SettingsPort & { listenerCount: () => number } {
 	let current: unknown = initial;
-	const listeners = new Set<(s: unknown) => void>();
+	const listeners = new Set<(s: unknown) => void | Promise<void>>();
 	return {
 		load: async () => ok(current),
-		save: async (s) => { current = s; for (const l of listeners) l(s); return ok(undefined); },
+		save: async (s) => { current = s; for (const l of listeners) { void l(s); } return ok(undefined); },
 		subscribe: (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
 		listenerCount: () => listeners.size,
 	};
