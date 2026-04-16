@@ -6,8 +6,8 @@ export function createAppRouter(): Router {
 	return createRouter({
 		history: createMemoryHistory(),
 		routes: [
-			{ path: '/', name: 'home', component: Home },
-			{ path: '/about', name: 'about', component: About },
+			{ path: '/', name: 'home', component: Home, meta: { layout: 'main' } },
+			{ path: '/about', name: 'about', component: About, meta: { layout: 'main' } },
 		],
 	});
 }
