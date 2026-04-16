@@ -145,6 +145,13 @@ export default [
 		},
 	},
 	{
+		files: ['src/core/**/*.ts'],
+		rules: {
+			'no-console': 'off',
+			'no-restricted-syntax': 'off',
+		},
+	},
+	{
 		files: ['src/infrastructure/**/*.ts'],
 		rules: {
 			'no-restricted-syntax': 'off',
