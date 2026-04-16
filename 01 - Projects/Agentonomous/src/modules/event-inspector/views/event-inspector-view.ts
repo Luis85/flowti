@@ -1,13 +1,18 @@
-import { ItemView } from 'obsidian';
+import { ItemView, type WorkspaceLeaf } from 'obsidian';
+import type { PluginContext } from '../../../plugin.js';
 import { VIEW_TYPE_EVENT_INSPECTOR } from '../event-inspector-module.js';
-
-type MountedView = { unmount: () => void };
 
 export { VIEW_TYPE_EVENT_INSPECTOR };
 
 export class EventInspectorView extends ItemView {
-	private mounted: MountedView | null = null;
+	private mounted: { unmount: () => void } | null = null;
 	private mounting = false;
+	private readonly ctx: PluginContext;
+
+	constructor(leaf: WorkspaceLeaf, ctx: PluginContext) {
+		super(leaf);
+		this.ctx = ctx;
+	}
 
 	getViewType(): string { return VIEW_TYPE_EVENT_INSPECTOR; }
 	getDisplayText(): string { return 'Event inspector'; }
@@ -17,11 +22,9 @@ export class EventInspectorView extends ItemView {
 		if (this.mounted !== null || this.mounting) return;
 		this.mounting = true;
 		try {
-			const { createApp } = await import('vue');
+			const { createModuleVueApp } = await import('../../../ui/create-module-vue-app.js');
 			const { default: EventInspectorViewComponent } = await import('./EventInspectorView.vue');
-			const app = createApp(EventInspectorViewComponent);
-			app.mount(this.contentEl);
-			this.mounted = { unmount: () => { app.unmount(); } };
+			this.mounted = createModuleVueApp(EventInspectorViewComponent, this.ctx, this.contentEl);
 		} catch (error) {
 			this.contentEl.empty();
 			this.contentEl.createEl('div', {

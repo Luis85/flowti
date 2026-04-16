@@ -1,4 +1,5 @@
-import { ItemView } from 'obsidian';
+import { ItemView, type WorkspaceLeaf } from 'obsidian';
+import type { PluginContext } from '../../../plugin.js';
 import { VIEW_TYPE_FILE_DETAIL } from '../file-detail-module.js';
 
 export { VIEW_TYPE_FILE_DETAIL };
@@ -30,6 +31,12 @@ function getContentFromState(state: unknown): string {
 export class FileDetailView extends ItemView {
 	private mounted: MountedView | null = null;
 	private mounting = false;
+	private readonly ctx: PluginContext;
+
+	constructor(leaf: WorkspaceLeaf, ctx: PluginContext) {
+		super(leaf);
+		this.ctx = ctx;
+	}
 
 	getViewType(): string { return VIEW_TYPE_FILE_DETAIL; }
 	getDisplayText(): string { return 'File detail'; }
@@ -41,11 +48,9 @@ export class FileDetailView extends ItemView {
 		try {
 			const state = this.getState();
 			const result = await this.buildAnalysis(state);
-			const { createApp } = await import('vue');
+			const { createModuleVueApp } = await import('../../../ui/create-module-vue-app.js');
 			const { default: FileDetailViewComponent } = await import('./FileDetailView.vue');
-			const app = createApp(FileDetailViewComponent, result);
-			app.mount(this.contentEl);
-			this.mounted = { unmount: () => { app.unmount(); } };
+			this.mounted = createModuleVueApp(FileDetailViewComponent, this.ctx, this.contentEl, result as Record<string, unknown>);
 		} catch (err) {
 			this.contentEl.empty();
 			this.contentEl.createEl('div', {

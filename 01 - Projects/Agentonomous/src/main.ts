@@ -57,14 +57,14 @@ export default class AgentonomousPlugin extends Plugin {
 				displayName: 'Event inspector',
 				icon: 'activity',
 				defaultLocation: 'right',
-				viewFactory: (leaf, _ctx) => new EventInspectorView(leaf),
+				viewFactory: (leaf, ctx) => new EventInspectorView(leaf, ctx),
 			},
 			{
 				type: VIEW_TYPE_FILE_DETAIL,
 				displayName: 'File detail',
 				icon: 'file-search',
 				defaultLocation: 'right',
-				viewFactory: (leaf, _ctx) => new FileDetailView(leaf),
+				viewFactory: (leaf, ctx) => new FileDetailView(leaf, ctx),
 			},
 		]);
 		const logger = new Logger(bus, 'info');
