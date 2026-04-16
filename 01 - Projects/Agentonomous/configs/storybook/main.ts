@@ -4,7 +4,6 @@ const config: StorybookConfig = {
 	stories: ['../../stories/**/*.stories.@(ts|mdx)'],
 	addons: [
 		'@storybook/addon-a11y',
-		'@storybook/addon-vitest',
 	],
 	framework: {
 		name: '@storybook/vue3-vite',

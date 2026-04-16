@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
-import { createPinia } from 'pinia';
 import { expect } from 'vitest';
 import Home from '../../src/ui/pages/Home.vue';
 import { HomePage } from '../../src/ui/pages/Home.po.js';
@@ -18,7 +17,6 @@ export const Default: Story = {
 	render: () => ({
 		components: { Home },
 		template: '<Home />',
-		global: { plugins: [createPinia()] },
 	}),
 };
 
@@ -26,7 +24,6 @@ export const RendersGreeting: Story = {
 	render: () => ({
 		components: { Home },
 		template: '<Home />',
-		global: { plugins: [createPinia()] },
 	}),
 	play: async ({ canvasElement }) => {
 		const page = new HomePage(canvasElement as HTMLElement);

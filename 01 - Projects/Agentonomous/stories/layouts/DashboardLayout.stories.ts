@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
-import { createPinia } from 'pinia';
 import DashboardLayout from '../../src/ui/layouts/DashboardLayout.vue';
 import { withRouter } from '../decorators/with-router.js';
 
@@ -20,6 +19,5 @@ export const Default: Story = {
 				<div>Main Content Area</div>
 			</DashboardLayout>
 		`,
-		global: { plugins: [createPinia()] },
 	}),
 };

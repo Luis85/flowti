@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
-import { createPinia } from 'pinia';
 import { expect } from 'vitest';
 import About from '../../src/ui/pages/About.vue';
 import { AboutPage } from '../../src/ui/pages/About.po.js';
@@ -18,7 +17,6 @@ export const Default: Story = {
 	render: () => ({
 		components: { About },
 		template: '<About />',
-		global: { plugins: [createPinia()] },
 	}),
 };
 
@@ -26,7 +24,6 @@ export const RendersTitle: Story = {
 	render: () => ({
 		components: { About },
 		template: '<About />',
-		global: { plugins: [createPinia()] },
 	}),
 	play: async ({ canvasElement }) => {
 		const page = new AboutPage(canvasElement as HTMLElement);
