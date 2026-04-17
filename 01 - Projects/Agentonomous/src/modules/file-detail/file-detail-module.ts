@@ -1,4 +1,3 @@
-import './file-detail-events.js';
 import { defineModule } from '../../domain/shared/module.js';
 import { FILE_DETAIL_DEFAULTS, validateFileDetailSettings, type FileDetailSettings } from './file-detail-settings.js';
 import enMessages from './locales/en.json' with { type: 'json' };
@@ -13,6 +12,14 @@ export const FileDetailModule = defineModule<FileDetailSettings>({
 	settingsDefaults: FILE_DETAIL_DEFAULTS,
 	validateSettings: validateFileDetailSettings,
 	messages: { en: enMessages },
+	views: [
+		{
+			type: VIEW_TYPE_FILE_DETAIL,
+			displayName: 'File detail',
+			icon: 'file-search',
+			defaultLocation: 'right',
+		},
+	],
 
 	extensions: [
 		{ ext: 'csv', viewType: VIEW_TYPE_FILE_DETAIL },

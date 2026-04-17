@@ -18,12 +18,7 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 	}
 
 	private async persist(next: CoreSettings): Promise<void> {
-		const loadResult = await this.port.load();
-		const blob = isOk(loadResult) && typeof loadResult.value === 'object' && loadResult.value !== null
-			? loadResult.value as Record<string, unknown>
-			: {};
-		const merged = { ...blob, core: next };
-		const result = await this.port.save(merged);
+		const result = await this.port.saveSection('core', next);
 		if (isErr(result)) {
 			new Notice(this.t.t('core.errors.saveFailed'));
 			return;
@@ -33,14 +28,11 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 
 	display(): void {
 		void (async () => {
-			const loadResult = await this.port.load();
-			const blob = isOk(loadResult) && typeof loadResult.value === 'object' && loadResult.value !== null
-				? loadResult.value as Record<string, unknown>
-				: {};
+			const loadResult = await this.port.loadSection('core');
 			if (!isOk(loadResult)) {
 				new Notice(`Agentonomous: failed to load settings — using defaults`);
 			}
-			const coreSection = blob['core'];
+			const coreSection = isOk(loadResult) ? loadResult.value : null;
 			const validated = validateCoreSettings(coreSection);
 			if (isOk(validated)) {
 				this.current = validated.value;

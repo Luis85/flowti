@@ -1,0 +1,10 @@
+/*
+ * Global styles bundled into dist/styles.css by Vite.
+ * Obsidian auto-loads this alongside main.js.
+ * Scoped Vue <style> blocks stay in their components.
+ */
+
+/* Hide the Obsidian view-header (tab title bar) on the plugin's main leaf */
+.workspace-leaf-content[data-type="agentonomous-homepage"] .view-header {
+	display: none;
+}

@@ -472,3 +472,102 @@ describe('PluginCore migration re-save', () => {
 		core.destroy();
 	});
 });
+
+describe('PluginCore onSettingsChange dispatch', () => {
+	it('calls onSettingsChange when the module\'s section changes', async () => {
+		const bus = createEventBus();
+		const hook = vi.fn();
+		const m = defineModule<{ count: number }>({
+			id: 'watcher', name: 'Watcher',
+			settingsKey: 'watcher',
+			settingsDefaults: { count: 0 },
+			async init() {},
+			onSettingsChange: hook,
+			destroy() {},
+		});
+
+		const settings = fakeSettings({ watcher: { count: 1 } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[m],
+		);
+		await core.init();
+		hook.mockClear();
+
+		await settings.saveSection('watcher', { count: 7 });
+
+		expect(hook).toHaveBeenCalledTimes(1);
+		expect(hook).toHaveBeenCalledWith({ count: 7 });
+		core.destroy();
+	});
+
+	it('ignores modules without onSettingsChange', async () => {
+		const bus = createEventBus();
+		const m = defineModule<{ count: number }>({
+			id: 'quiet', name: 'Quiet',
+			settingsKey: 'quiet',
+			settingsDefaults: { count: 0 },
+			async init() {},
+			destroy() {},
+		});
+
+		const settings = fakeSettings({ quiet: { count: 1 } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[m],
+		);
+		await core.init();
+		await expect(settings.saveSection('quiet', { count: 2 })).resolves.toBeDefined();
+		core.destroy();
+	});
+
+	it('does not call onSettingsChange for unrelated section changes', async () => {
+		const bus = createEventBus();
+		const hook = vi.fn();
+		const m = defineModule<{ count: number }>({
+			id: 'watcher', name: 'Watcher',
+			settingsKey: 'watcher',
+			settingsDefaults: { count: 0 },
+			async init() {},
+			onSettingsChange: hook,
+			destroy() {},
+		});
+
+		const settings = fakeSettings({ watcher: { count: 1 }, other: { x: 1 } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[m],
+		);
+		await core.init();
+		hook.mockClear();
+
+		await settings.saveSection('other', { x: 2 });
+
+		expect(hook).not.toHaveBeenCalled();
+		core.destroy();
+	});
+
+	it('logs error and continues when onSettingsChange throws', async () => {
+		const bus = createEventBus();
+		const logger = fakeLogger();
+		const m = defineModule<{ count: number }>({
+			id: 'broken', name: 'Broken',
+			settingsKey: 'broken',
+			settingsDefaults: { count: 0 },
+			async init() {},
+			onSettingsChange: () => { throw new Error('oops'); },
+			destroy() {},
+		});
+
+		const settings = fakeSettings({ broken: { count: 1 } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger, notifications: fakeNotifications(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault() },
+			[m],
+		);
+		await core.init();
+		await settings.saveSection('broken', { count: 2 });
+
+		expect(logger.error).toHaveBeenCalledWith('core', expect.stringContaining('oops'));
+		core.destroy();
+	});
+});

@@ -21,6 +21,8 @@ export class ItemView {
 	getViewType(): string { return ''; }
 	getDisplayText(): string { return ''; }
 	getIcon(): string { return ''; }
+	getState(): Record<string, unknown> { return {}; }
+	setState(_state: unknown, _result: unknown): Promise<void> { return Promise.resolve(); }
 }
 
 export class WorkspaceLeaf {}

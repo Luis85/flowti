@@ -23,9 +23,22 @@ export function fakeLogger(): LoggerPort {
 export function fakeSettings(initial: unknown = null): SettingsPort {
 	let data = initial;
 	const listeners = new Set<(s: unknown) => void>();
+	const notify = (): void => { for (const l of listeners) l(data); };
+	const asBlob = (): Record<string, unknown> =>
+		(typeof data === 'object' && data !== null && !Array.isArray(data))
+			? { ...(data as Record<string, unknown>) }
+			: {};
 	return {
 		load: vi.fn(async () => ok(data)),
-		save: vi.fn(async (d: unknown) => { data = d; for (const l of listeners) l(d); return ok(undefined); }),
+		save: vi.fn(async (d: unknown) => { data = d; notify(); return ok(undefined); }),
+		loadSection: vi.fn(async (key: string) => ok(asBlob()[key] ?? null)),
+		saveSection: vi.fn(async (key: string, value: unknown) => {
+			const next = asBlob();
+			next[key] = value;
+			data = next;
+			notify();
+			return ok(undefined);
+		}),
 		subscribe: vi.fn((l: (s: unknown) => void) => { listeners.add(l); return () => { listeners.delete(l); }; }),
 	};
 }
@@ -41,7 +54,7 @@ export function fakeNotifications(): NotificationPort & { messages: string[] } {
 export function fakeCommands(): CommandPort & { registered: string[] } {
 	const registered: string[] = [];
 	return {
-		register: vi.fn((entry: { id: string }) => { registered.push(entry.id); return () => {}; }),
+		register: vi.fn((entry: { id: string }) => { registered.push(entry.id); }),
 		unregisterAll: vi.fn(),
 		registered,
 	};

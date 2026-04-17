@@ -8,7 +8,6 @@
   },
   "scripts": {
     "build": "vite build",
-    "build:dev": "vite build --watch",
     "build:deploy": "node scripts/build-and-deploy.mjs",
     "deploy": "node scripts/deploy-to-test-vault.mjs",
     "test": "npm run lint && npm run typecheck && npm run test:unit",

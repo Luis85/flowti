@@ -1,7 +1,9 @@
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
-import type { PluginContext } from '../../plugin.js';
-import type { MountedApp } from '../../ui/app.js';
-import { VIEW_TYPE_HOMEPAGE } from '../../domain/views/view-types.js';
+import type { PluginContext } from '../../../plugin.js';
+import type { MountedApp } from '../../../ui/app.js';
+import type { ViewRegistration } from '../view-registry.js';
+import { VIEW_TYPE_HOMEPAGE } from '../../../domain/views/view-types.js';
+
 export { VIEW_TYPE_HOMEPAGE };
 
 export class HomepageView extends ItemView {
@@ -22,7 +24,7 @@ export class HomepageView extends ItemView {
 		if (this.mounted !== null || this.mounting) return;
 		this.mounting = true;
 		try {
-			const { createVueApp } = await import('../../ui/app.js');
+			const { createVueApp } = await import('../../../ui/app.js');
 			this.mounted = createVueApp(this.ctx, this.contentEl);
 		} catch (error) {
 			this.contentEl.empty();
@@ -38,3 +40,15 @@ export class HomepageView extends ItemView {
 		return Promise.resolve();
 	}
 }
+
+export const HOMEPAGE_VIEW_INTENT = {
+	type: VIEW_TYPE_HOMEPAGE,
+	displayName: 'Agentonomous homepage',
+	icon: 'bot',
+	defaultLocation: 'main',
+} as const;
+
+export const HOMEPAGE_VIEW_REGISTRATION: ViewRegistration = {
+	...HOMEPAGE_VIEW_INTENT,
+	viewFactory: (leaf, ctx) => new HomepageView(leaf, ctx),
+};

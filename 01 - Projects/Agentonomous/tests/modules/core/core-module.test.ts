@@ -5,7 +5,7 @@ function makePorts() {
 	return {
 		eventBus: { on: vi.fn(() => () => {}), onAny: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn() },
 		logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() },
-		settings: { load: vi.fn(), save: vi.fn(), subscribe: vi.fn(() => () => {}) },
+		settings: { load: vi.fn(), save: vi.fn(), loadSection: vi.fn(), saveSection: vi.fn(), subscribe: vi.fn(() => () => {}) },
 		notifications: { show: vi.fn() },
 		views: { registerAll: vi.fn(), openView: vi.fn() },
 	};
@@ -16,14 +16,14 @@ describe('CoreModule', () => {
 		expect(CoreModule.id).toBe('core');
 	});
 
-	it('has settingsKey "core"', () => {
-		expect(CoreModule.settingsKey).toBe('core');
+	it('does not claim the reserved "core" settingsKey — PluginCore owns it', () => {
+		expect(CoreModule.settingsKey).toBeUndefined();
 	});
 
-	it('init() logs initialization message with logLevel', async () => {
+	it('init() logs initialization message', async () => {
 		const ports = makePorts();
-		await CoreModule.init(ports, { showRibbonIcon: true, defaultView: 'home', logLevel: 'debug' });
-		expect(ports.logger.info).toHaveBeenCalledWith('core', expect.stringContaining('debug'));
+		await CoreModule.init(ports, undefined);
+		expect(ports.logger.info).toHaveBeenCalledWith('core', expect.stringContaining('initialized'));
 	});
 
 	it('destroy() does not throw', () => {
@@ -35,13 +35,8 @@ describe('CoreModule', () => {
 		expect(cmd).toBeDefined();
 	});
 
-	it('validateSettings rejects non-object', () => {
-		const result = CoreModule.validateSettings?.('not-an-object');
-		expect(result?.kind).toBe('err');
-	});
-
-	it('validateSettings accepts valid settings', () => {
-		const result = CoreModule.validateSettings?.({ showRibbonIcon: true, defaultView: 'home', logLevel: 'info' });
-		expect(result?.kind).toBe('ok');
+	it('declares the homepage view', () => {
+		const homepage = CoreModule.views?.find((v) => v.type === 'agentonomous-homepage');
+		expect(homepage).toBeDefined();
 	});
 });

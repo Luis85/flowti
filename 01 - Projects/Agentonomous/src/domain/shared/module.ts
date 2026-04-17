@@ -8,6 +8,7 @@ import type { CommandEntry } from '../commands/command-types.js';
 import type { TranslationPort } from './translation-port.js';
 import type { PlatformPort } from './platform-port.js';
 import type { VaultPort } from './vault-port.js';
+import type { ViewIntent } from '../views/view-registration.js';
 
 /** Scoped ports injected into every module at init time. */
 export interface ModulePorts {
@@ -64,8 +65,19 @@ export interface Module {
 	/** File extensions this module claims, paired with their view type. */
 	readonly extensions?: readonly { readonly ext: string; readonly viewType: string }[];
 
+	/** Platform-neutral view declarations. Infrastructure resolves each to a concrete factory by `type`. */
+	readonly views?: readonly ViewIntent[];
+
 	/** Called after dependencies are ready. Receives scoped ports and validated settings. May subscribe to EventBus. */
 	init(ports: ModulePorts, settings: unknown): Promise<void>;
+
+	/**
+	 * Called when the module's settings section changes at runtime.  Receives
+	 * the new validated settings (same shape `init` would see).  Use this to
+	 * reconfigure live state (e.g. resize a buffer, rebind a listener) without
+	 * requiring a plugin reload.
+	 */
+	onSettingsChange?(next: unknown): void;
 
 	/** Called on plugin unload in reverse dependency order. Must unsubscribe all listeners and clear intervals. */
 	destroy(): void;
@@ -90,7 +102,9 @@ export function defineModule<TSettings = unknown>(def: {
 	readonly commands?: readonly CommandEntry[];
 	readonly messages?: Record<string, Record<string, string>>;
 	readonly extensions?: readonly { readonly ext: string; readonly viewType: string }[];
+	readonly views?: readonly ViewIntent[];
 	init(ports: ModulePorts, settings: TSettings): Promise<void>;
+	onSettingsChange?(next: TSettings): void;
 	destroy(): void;
 }): Module {
 	return def as Module;

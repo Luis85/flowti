@@ -73,24 +73,10 @@ describe('ObsidianCommandAdapter', () => {
 		expect(mockEl.remove).toHaveBeenCalled();
 	});
 
-	it('register() returns an unsubscribe that removes the ribbon element', () => {
-		const plugin = createFakePlugin();
-		const mockEl = { style: { display: '' }, remove: vi.fn() };
-		plugin.addRibbonIcon = vi.fn(() => mockEl);
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
-		const unsub = adapter.register({
-			id: 'test-cmd', name: 'Test', callback: () => {},
-			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
-		});
-		unsub();
-		expect(mockEl.remove).toHaveBeenCalled();
-	});
-
-	it('register() unsubscribe does nothing when no ribbon', () => {
+	it('register() does not throw for commands with no ribbon', () => {
 		const plugin = createFakePlugin();
 		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
-		const unsub = adapter.register({ id: 'no-ribbon', name: 'No Ribbon', callback: () => {} });
-		expect(() => { unsub(); }).not.toThrow();
+		expect(() => { adapter.register({ id: 'no-ribbon', name: 'No Ribbon', callback: () => {} }); }).not.toThrow();
 	});
 
 	it('register() ribbon click callback invokes the command callback', () => {

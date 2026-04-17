@@ -5,20 +5,22 @@ Agentonomous is an autonomous agents sandbox Obsidian plugin. It lets you run, o
 ## Layer Rules
 
 ```
-Infrastructure → Domain ← UI
-         ↑                 ↑
-      modules (bounded contexts)
+      domain  ← stable center
+   ↑    ↑    ↑
+   |    |    |
+ infra modules  ui
+        (pure TS)  (all Vue)
 ```
 
 | Layer | Path | Rules |
 |-------|------|-------|
-| **domain** | `src/domain/` | Pure TypeScript — no Obsidian imports, no Vue imports. All external dependencies injected via ports. |
-| **infrastructure** | `src/infrastructure/` | Obsidian adapters that implement domain ports. May import from `obsidian` SDK. |
-| **ui** | `src/ui/` | Vue 3 presentation layer. Pinia stores, Vue components, router. No Obsidian SDK imports. |
-| **core** | `src/core/` | Platform-agnostic agent engine. Pure TypeScript. No Obsidian, no Vue. May use `console`. |
-| **modules** | `src/modules/` | Bounded-context feature modules. Each module is self-contained. `*-store.ts` files may import Vue/Pinia (they are the reactive boundary). All other module files must remain plain TypeScript. |
+| **domain** | `src/domain/` | Pure TypeScript — no Obsidian, no Vue, no Pinia. Ports, types, pure logic. |
+| **core** | `src/core/` | Plugin bootstrap (PluginCore, Logger, ErrorHandler). Pure TypeScript. May use `console`. |
+| **modules** | `src/modules/` | Bounded-context **backend** — pure TypeScript. Module definition, settings, events, handlers, locales. **No Vue, no Obsidian.** Declares view *intents* (data only); the infrastructure resolves them to Obsidian views. |
+| **ui** | `src/ui/` | The **presentation layer** — ALL Vue lives here. `AppRoot.vue`, router, `pages/`, `layouts/`, `components/`, `panels/` (sidebar panels), `stores/` (Pinia reactive boundary). No Obsidian SDK imports. |
+| **infrastructure** | `src/infrastructure/` | Adapters that wire the above into Obsidian. Includes `infrastructure/obsidian/views/` — Obsidian `ItemView` wrappers that mount Vue panels from `src/ui/` into Obsidian leaves. May import from `obsidian`, `ui/`, `domain/`, `modules/` (it's the glue). |
 
-Domain is the stable center — infrastructure and UI both depend on it, never the reverse.
+**One Vue, one place.** Every `.vue` file and every Pinia `*-store.ts` lives under `src/ui/`. Modules express what they need as `ViewIntent` data; infrastructure resolves each intent to a concrete `ViewRegistration` (intent + factory) via `src/infrastructure/obsidian/views/index.ts`.
 
 ## Port Inventory
 
@@ -47,7 +49,6 @@ All commands run from `cd "01 - Projects/Agentonomous"`:
 | `test:unit` | `npm run test:unit` | Vitest unit tests only |
 | `test:watch` | `npm run test:watch` | Vitest in watch mode |
 | `build` | `npm run build` | Production build → `dist/` |
-| `build:dev` | `npm run build:dev` | Watch build with hot-reload |
 | `build:deploy` | `npm run build:deploy` | Build + copy to test vault |
 | `deploy` | `npm run deploy` | Copy built dist to test vault |
 | `storybook` | `npm run storybook` | Storybook dev server on port 6006 |

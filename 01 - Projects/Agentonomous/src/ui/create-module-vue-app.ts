@@ -1,9 +1,12 @@
 import { createApp, type App as VueApp, type Component } from 'vue';
-import { createPinia } from 'pinia';
+import { createPinia, type Pinia } from 'pinia';
 import type { PluginContext } from '../plugin.js';
 import { PluginContextKey } from './plugin-context-key.js';
 
-export type MountedModuleApp = { unmount: () => void };
+export type MountedModuleApp = {
+	readonly pinia: Pinia;
+	unmount: () => void;
+};
 
 /**
  * Shared factory for sidebar module views.
@@ -40,6 +43,7 @@ export function createModuleVueApp(
 	vue.mount(el);
 
 	return {
+		pinia,
 		unmount: () => { vue.unmount(); },
 	};
 }

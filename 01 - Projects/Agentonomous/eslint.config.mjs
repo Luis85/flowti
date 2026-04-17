@@ -61,6 +61,64 @@ const noTryCatchOutsideInfra = [
 	{ selector: "UnaryExpression[operator='delete']", message: 'Use obj[key] = undefined instead of delete' },
 ];
 
+const MODULE_NAMES = ['core', 'event-inspector', 'health-monitor', 'file-detail'];
+
+/**
+ * Build cross-module import-ban patterns for a given module.
+ * Covers relative-path depths 1–3 (module root, views/, views/sub/).
+ */
+function crossModulePatterns(moduleName) {
+	const others = MODULE_NAMES.filter((m) => m !== moduleName);
+	const atDepth = (prefix) =>
+		others.flatMap((m) => [`${prefix}${m}`, `${prefix}${m}/**`]);
+	return [
+		{ group: atDepth('../'), message: 'Modules must not import other modules — use EventBus' },
+		{ group: atDepth('../../'), message: 'Modules must not import other modules — use EventBus' },
+		{ group: atDepth('../../../'), message: 'Modules must not import other modules — use EventBus' },
+	];
+}
+
+/**
+ * Vue/Pinia boundary: only *-store.ts files inside a module may import Vue.
+ * All other module .ts files must be plain TypeScript.
+ */
+const vueBoundaryPatterns = [
+	{
+		group: ['vue', 'vue/*', 'pinia', 'vue-i18n', 'vue-router', '@vue/reactivity'],
+		message: 'Module files must not import Vue/Pinia — keep reactive code in *-store.ts (the reactive boundary)',
+	},
+];
+
+/**
+ * Per-module ESLint configs: cross-module ban for all files,
+ * Vue ban for non-store .ts files, Vue allowed in *-store.ts and *.vue.
+ */
+function moduleBoundaryConfigs(moduleName) {
+	const base = `src/modules/${moduleName}`;
+	const cross = crossModulePatterns(moduleName);
+	return [
+		{
+			files: [`${base}/**/*.vue`],
+			rules: {
+				'no-restricted-imports': ['error', { patterns: cross }],
+			},
+		},
+		{
+			files: [`${base}/**/*.ts`],
+			ignores: [`${base}/**/*-store.ts`],
+			rules: {
+				'no-restricted-imports': ['error', { patterns: [...cross, ...vueBoundaryPatterns] }],
+			},
+		},
+		{
+			files: [`${base}/**/*-store.ts`],
+			rules: {
+				'no-restricted-imports': ['error', { patterns: cross }],
+			},
+		},
+	];
+}
+
 export default [
 	{
 		files: ['src/**/*.ts'],
@@ -241,56 +299,7 @@ export default [
 			],
 		},
 	},
-	// Cross-module import ban — covers all nesting depths (depth 1: module root,
-	// depth 2: module/views/, depth 3: module/views/sub/).
-	// Each pattern set targets one sibling module at one relative depth.
-	// Within-module imports always use './' so they never match these patterns.
-	{
-		files: ['src/modules/event-inspector/**/*.ts', 'src/modules/event-inspector/**/*.vue'],
-		rules: {
-			'no-restricted-imports': ['error', {
-				patterns: [
-					{ group: ['../core', '../core/**', '../health-monitor', '../health-monitor/**', '../file-detail', '../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-					{ group: ['../../core', '../../core/**', '../../health-monitor', '../../health-monitor/**', '../../file-detail', '../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-					{ group: ['../../../core', '../../../core/**', '../../../health-monitor', '../../../health-monitor/**', '../../../file-detail', '../../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-				],
-			}],
-		},
-	},
-	{
-		files: ['src/modules/health-monitor/**/*.ts', 'src/modules/health-monitor/**/*.vue'],
-		rules: {
-			'no-restricted-imports': ['error', {
-				patterns: [
-					{ group: ['../core', '../core/**', '../event-inspector', '../event-inspector/**', '../file-detail', '../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-					{ group: ['../../core', '../../core/**', '../../event-inspector', '../../event-inspector/**', '../../file-detail', '../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-					{ group: ['../../../core', '../../../core/**', '../../../event-inspector', '../../../event-inspector/**', '../../../file-detail', '../../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-				],
-			}],
-		},
-	},
-	{
-		files: ['src/modules/file-detail/**/*.ts', 'src/modules/file-detail/**/*.vue'],
-		rules: {
-			'no-restricted-imports': ['error', {
-				patterns: [
-					{ group: ['../core', '../core/**', '../event-inspector', '../event-inspector/**', '../health-monitor', '../health-monitor/**'], message: 'Modules must not import other modules — use EventBus' },
-					{ group: ['../../core', '../../core/**', '../../event-inspector', '../../event-inspector/**', '../../health-monitor', '../../health-monitor/**'], message: 'Modules must not import other modules — use EventBus' },
-					{ group: ['../../../core', '../../../core/**', '../../../event-inspector', '../../../event-inspector/**', '../../../health-monitor', '../../../health-monitor/**'], message: 'Modules must not import other modules — use EventBus' },
-				],
-			}],
-		},
-	},
-	{
-		files: ['src/modules/core/**/*.ts', 'src/modules/core/**/*.vue'],
-		rules: {
-			'no-restricted-imports': ['error', {
-				patterns: [
-					{ group: ['../event-inspector', '../event-inspector/**', '../health-monitor', '../health-monitor/**', '../file-detail', '../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-					{ group: ['../../event-inspector', '../../event-inspector/**', '../../health-monitor', '../../health-monitor/**', '../../file-detail', '../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-					{ group: ['../../../event-inspector', '../../../event-inspector/**', '../../../health-monitor', '../../../health-monitor/**', '../../../file-detail', '../../../file-detail/**'], message: 'Modules must not import other modules — use EventBus' },
-				],
-			}],
-		},
-	},
+	// Per-module boundary rules: cross-module imports banned; Vue/Pinia banned
+	// outside *-store.ts and .vue files.
+	...MODULE_NAMES.flatMap((m) => moduleBoundaryConfigs(m)),
 ];

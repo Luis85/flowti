@@ -1,6 +1,6 @@
 import type { Plugin } from 'obsidian';
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
-import { err, ok, type Result } from '../../domain/shared/result.js';
+import { err, isOk, ok, type Result } from '../../domain/shared/result.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 
 export class ObsidianSettingsAdapter implements SettingsPort {
@@ -30,8 +30,27 @@ export class ObsidianSettingsAdapter implements SettingsPort {
 		}
 	}
 
+	async loadSection(key: string): Promise<Result<unknown, string>> {
+		const loaded = await this.load();
+		if (!isOk(loaded)) return loaded;
+		const blob = isBlob(loaded.value) ? loaded.value : {};
+		return ok(blob[key] ?? null);
+	}
+
+	async saveSection(key: string, value: unknown): Promise<Result<void, string>> {
+		const loaded = await this.load();
+		if (!isOk(loaded)) return loaded;
+		const blob = isBlob(loaded.value) ? { ...loaded.value } : {};
+		blob[key] = value;
+		return this.save(blob);
+	}
+
 	subscribe(listener: (s: unknown) => void | Promise<void>): Unsubscribe {
 		this.listeners.add(listener);
 		return () => { this.listeners.delete(listener); };
 	}
+}
+
+function isBlob(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

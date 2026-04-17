@@ -11,8 +11,10 @@ function makeCtx(): PluginContext {
 		app: {} as never,
 		plugin: { manifest: { version: '1.0.0' }, app: {} as never } as never,
 		settings: {
-			load: vi.fn(async () => ok(CORE_SETTINGS_DEFAULTS)),
+			load: vi.fn(async () => ok({ core: CORE_SETTINGS_DEFAULTS })),
 			save: vi.fn(async () => ok(undefined as void)),
+			loadSection: vi.fn(async () => ok(CORE_SETTINGS_DEFAULTS)),
+			saveSection: vi.fn(async () => ok(undefined as void)),
 			subscribe: vi.fn(() => () => {}),
 		},
 		commands: {} as never,

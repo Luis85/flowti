@@ -2,7 +2,6 @@ import type { Plugin } from 'obsidian';
 import type { CommandPort } from '../../domain/commands/command-port.js';
 import type { CommandEntry } from '../../domain/commands/command-types.js';
 import type { ViewRegistryPort } from '../../domain/views/view-registry-port.js';
-import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 
 export class ObsidianCommandAdapter implements CommandPort {
 	private readonly plugin: Plugin;
@@ -14,7 +13,7 @@ export class ObsidianCommandAdapter implements CommandPort {
 		this.viewRegistry = viewRegistry;
 	}
 
-	register(entry: CommandEntry): Unsubscribe {
+	register(entry: CommandEntry): void {
 		let callback = entry.callback ?? (() => {});
 
 		if (entry.opensView !== undefined) {
@@ -39,14 +38,6 @@ export class ObsidianCommandAdapter implements CommandPort {
 			}
 			this.ribbonElements.set(entry.id, el);
 		}
-
-		return () => {
-			const el = this.ribbonElements.get(entry.id);
-			if (el !== undefined) {
-				el.remove();
-				this.ribbonElements.delete(entry.id);
-			}
-		};
 	}
 
 	setRibbonVisibility(visible: boolean): void {

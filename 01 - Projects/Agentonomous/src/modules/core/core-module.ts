@@ -1,20 +1,32 @@
 import { defineModule } from '../../domain/shared/module.js';
-import { CORE_SETTINGS_DEFAULTS, validateCoreSettings, type CoreSettings } from '../../domain/settings/plugin-settings.js';
 import { CORE_COMMANDS } from '../../domain/commands/core-commands.js';
+import { VIEW_TYPE_HOMEPAGE } from '../../domain/views/view-types.js';
 import enMessages from './locales/en.json' with { type: 'json' };
 
-export const CoreModule = defineModule<CoreSettings>({
+/**
+ * The Core module owns the homepage view intent and the built-in commands.
+ * Core *settings* (logLevel, locale, showRibbonIcon, defaultView) are owned
+ * by PluginCore itself — that's a plugin-bootstrap concern, not a module
+ * one — so this module does NOT declare a settingsKey.  PluginCore reserves
+ * the `core` blob section and validates no module claims it.
+ */
+export const CoreModule = defineModule({
 	id: 'core',
 	name: 'Core',
 	dependsOn: [],
-	settingsKey: 'core',
-	settingsDefaults: CORE_SETTINGS_DEFAULTS,
-	validateSettings: validateCoreSettings,
 	commands: CORE_COMMANDS,
 	messages: { en: enMessages },
+	views: [
+		{
+			type: VIEW_TYPE_HOMEPAGE,
+			displayName: 'Agentonomous homepage',
+			icon: 'bot',
+			defaultLocation: 'main',
+		},
+	],
 
-	init(ports, settings) {
-		ports.logger.info('core', `Core module initialized (logLevel: ${settings.logLevel})`);
+	init(ports) {
+		ports.logger.info('core', 'Core module initialized');
 		return Promise.resolve();
 	},
 

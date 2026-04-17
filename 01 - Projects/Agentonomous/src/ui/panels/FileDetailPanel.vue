@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import PanelLayout from '../../../ui/layouts/PanelLayout.vue';
-import { useFileDetailStore } from '../file-detail-store.js';
+import PanelLayout from '../layouts/PanelLayout.vue';
+import { useFileDetailStore } from '../stores/file-detail-store.js';
 
 const store = useFileDetailStore();
 const { analysis, error } = storeToRefs(store);

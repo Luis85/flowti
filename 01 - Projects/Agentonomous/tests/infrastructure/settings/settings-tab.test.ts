@@ -12,12 +12,23 @@ const DEFAULT_BLOB = { core: CORE_SETTINGS_DEFAULTS, eventInspector: { enabled: 
 
 function makePort(overrides: Partial<SettingsPort> = {}): SettingsPort {
 	let stored: unknown = { ...DEFAULT_BLOB };
-	return {
+	const asBlob = (): Record<string, unknown> =>
+		(typeof stored === 'object' && stored !== null && !Array.isArray(stored))
+			? { ...(stored as Record<string, unknown>) }
+			: {};
+	const port: SettingsPort = {
 		load: vi.fn(async () => ok(stored)),
 		save: vi.fn(async (d: unknown) => { stored = d; return ok(undefined as void); }),
+		loadSection: vi.fn(async (key: string) => ok(asBlob()[key] ?? null)),
+		saveSection: vi.fn(async (key: string, value: unknown) => {
+			const next = asBlob();
+			next[key] = value;
+			return port.save(next);
+		}),
 		subscribe: vi.fn(() => () => {}),
 		...overrides,
 	};
+	return port;
 }
 
 function makeTab(port: SettingsPort): AgentonomousSettingsTab {
@@ -58,15 +69,15 @@ describe('AgentonomousSettingsTab', () => {
 		const tab = makeTab(port);
 		expect(() => { tab.display(); }).not.toThrow();
 		await new Promise((r) => { setTimeout(r, 0); });
-		expect(port.load).toHaveBeenCalled();
+		expect(port.loadSection).toHaveBeenCalledWith('core');
 	});
 
 	it('display() shows a Notice when load fails and falls back to defaults', async () => {
-		const port = makePort({ load: vi.fn(async () => err('disk error')) });
+		const port = makePort({ loadSection: vi.fn(async () => err('disk error')) });
 		const tab = makeTab(port);
 		expect(() => { tab.display(); }).not.toThrow();
 		await new Promise((r) => { setTimeout(r, 0); });
-		expect(port.load).toHaveBeenCalled();
+		expect(port.loadSection).toHaveBeenCalled();
 	});
 
 	it('stub Setting._toggles threads the onChange callback via _trigger', () => {

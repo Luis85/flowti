@@ -12,6 +12,7 @@ import type { VaultPort } from '../domain/shared/vault-port.js';
 import type { FileExtensionPort } from '../domain/shared/file-extension-port.js';
 import { isOk } from '../domain/shared/result.js';
 import { topologicalSort } from '../domain/shared/utils/topo-sort.js';
+import { diffSettingsBlob } from '../domain/settings/diff-settings-blob.js';
 import { ErrorHandler } from './error-handler.js';
 import { CORE_SETTINGS_DEFAULTS, validateCoreSettings, type CoreSettings } from '../domain/settings/plugin-settings.js';
 
@@ -39,6 +40,7 @@ export class PluginCore {
 	private currentCoreSettings: CoreSettings = CORE_SETTINGS_DEFAULTS;
 	private initializedModuleIds = new Set<string>();
 	private degradedModuleIds: string[] = [];
+	private readonly initListenerDelta = new Map<string, number>();
 
 	constructor(ports: CorePorts, modules: readonly Module[]) {
 		this.ports = ports;
@@ -89,13 +91,15 @@ export class PluginCore {
 		}
 
 		this.settingsUnsub = this.ports.settings.subscribe((raw) => {
-			const previousBlob: unknown = blob;
+			const previousBlob = blob;
 			const freshBlob = typeof raw === 'object' && raw !== null && !Array.isArray(raw)
 				? raw as Record<string, unknown>
 				: {};
 			blob = freshBlob;
 			this.currentCoreSettings = this.resolveCoreSettings(freshBlob);
-			this.ports.eventBus.emit('settings', { previous: previousBlob, current: raw });
+			const changes = diffSettingsBlob(previousBlob, freshBlob);
+			this.ports.eventBus.emit('settings', { action: 'changed', changes });
+			this.dispatchSettingsChanges(changes, freshBlob);
 		});
 
 		this.state = 'ready';
@@ -110,10 +114,14 @@ export class PluginCore {
 		for (const m of [...this.sortedModules].reverse()) {
 			if (!this.initializedModuleIds.has(m.id)) continue;
 
+			const delta = this.initListenerDelta.get(m.id) ?? 0;
 			const before = this.ports.eventBus.listenerCount();
 			m.destroy();
 			const after = this.ports.eventBus.listenerCount();
-			if (after >= before) {
+			// A module that added N listeners at init time should unsubscribe at
+			// least N on destroy. Anything less is a leak. Modules that never
+			// subscribed (delta = 0) are never flagged.
+			if (delta > 0 && after > before - delta) {
 				this.ports.logger.warn('core', `Module "${m.id}" may have leaked event listener(s)`);
 			}
 		}
@@ -144,6 +152,7 @@ export class PluginCore {
 		const errors: string[] = [
 			...this.checkDuplicateIds(),
 			...this.checkDuplicateSettingsKeys(),
+			...this.checkReservedSettingsKeys(),
 			...this.checkDuplicateCommandIds(),
 		];
 
@@ -168,6 +177,18 @@ export class PluginCore {
 		for (const m of this.modules) {
 			if (seen.has(m.id)) errors.push(`duplicate module id "${m.id}"`);
 			seen.add(m.id);
+		}
+		return errors;
+	}
+
+	private checkReservedSettingsKeys(): string[] {
+		// PluginCore owns the "core" settings section (logLevel, locale, etc.)
+		// No module may claim it.
+		const errors: string[] = [];
+		for (const m of this.modules) {
+			if (m.settingsKey === 'core') {
+				errors.push(`module "${m.id}" cannot use reserved settingsKey "core"`);
+			}
 		}
 		return errors;
 	}
@@ -216,22 +237,35 @@ export class PluginCore {
 		};
 	}
 
-	private resolveModuleSettings(m: Module, blob: Record<string, unknown>): unknown {
+	/**
+	 * Single migration + validation pass for one module's settings.  Returns
+	 * the value to pass to init(), the migrated section (or undefined if the
+	 * section was absent), and whether the section changed (so the caller can
+	 * persist the blob back).
+	 */
+	private resolveSettingsFor(m: Module, blob: Record<string, unknown>): {
+		settings: unknown;
+		migratedSection: unknown;
+		wasMigrated: boolean;
+	} {
 		if (m.settingsKey === undefined) {
-			return m.settingsDefaults;
+			return { settings: m.settingsDefaults, migratedSection: undefined, wasMigrated: false };
 		}
-		const section = blob[m.settingsKey];
-		if (section === undefined) {
-			return m.settingsDefaults;
+		const rawSection = blob[m.settingsKey];
+		if (rawSection === undefined) {
+			return { settings: m.settingsDefaults, migratedSection: undefined, wasMigrated: false };
 		}
 
-		let resolved = this.applyMigration(m, section);
+		const migratedSection = this.applyMigration(m, rawSection);
+		const wasMigrated = migratedSection !== rawSection;
 
+		let validated = migratedSection;
 		if (m.validateSettings !== undefined) {
-			const validated = m.validateSettings(resolved);
-			resolved = isOk(validated) ? validated.value : m.settingsDefaults;
+			const result = m.validateSettings(validated);
+			validated = isOk(result) ? result.value : m.settingsDefaults;
 		}
-		return resolved;
+
+		return { settings: validated, migratedSection, wasMigrated };
 	}
 
 	private applyMigration(m: Module, section: unknown): unknown {
@@ -268,6 +302,29 @@ export class PluginCore {
 		return current;
 	}
 
+	/**
+	 * Forward each changed section to the owning module's onSettingsChange
+	 * hook (if it has one and was successfully initialized).
+	 */
+	private dispatchSettingsChanges(
+		changes: ReadonlyArray<{ key: string }>,
+		blob: Record<string, unknown>,
+	): void {
+		for (const change of changes) {
+			const m = this.sortedModules.find((mod) => mod.settingsKey === change.key);
+			if (m === undefined || !this.initializedModuleIds.has(m.id)) continue;
+			if (m.onSettingsChange === undefined) continue;
+
+			const { settings } = this.resolveSettingsFor(m, blob);
+			try {
+				m.onSettingsChange(settings);
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				this.ports.logger.error('core', `Module "${m.id}" onSettingsChange failed: ${msg}`);
+			}
+		}
+	}
+
 	private resolveCoreSettings(blob: Record<string, unknown>): CoreSettings {
 		const section = blob['core'];
 		if (section === undefined) return CORE_SETTINGS_DEFAULTS;
@@ -276,26 +333,10 @@ export class PluginCore {
 	}
 
 	/**
-	 * Initialize all sorted modules, applying any pending migrations along the
-	 * way.  Returns a new merged blob if any module's settings were migrated
+	 * Initialize all sorted modules, applying migrations exactly once along
+	 * the way.  Returns a merged blob if any module's settings were migrated
 	 * (so the caller can save it back), or null if nothing changed.
 	 */
-	private applyMigrationToBlob(
-		m: Module,
-		blob: Record<string, unknown>,
-		migratedBlob: Record<string, unknown> | null,
-	): Record<string, unknown> | null {
-		if (m.settingsKey === undefined || m.settingsVersion === undefined || m.migrate === undefined) {
-			return migratedBlob;
-		}
-		const rawSection = blob[m.settingsKey];
-		const migrated = this.applyMigration(m, rawSection);
-		if (migrated === rawSection) return migratedBlob;
-		const next = migratedBlob ?? { ...blob };
-		next[m.settingsKey] = migrated;
-		return next;
-	}
-
 	private async initModulesAndMigrate(
 		modulePorts: ModulePorts,
 		blob: Record<string, unknown>,
@@ -304,10 +345,15 @@ export class PluginCore {
 
 		for (const m of this.sortedModules) {
 			try {
-				migratedBlob = this.applyMigrationToBlob(m, blob, migratedBlob);
-				const resolvedBlob = migratedBlob ?? blob;
-				const settings = this.resolveModuleSettings(m, resolvedBlob);
+				const { settings, migratedSection, wasMigrated } = this.resolveSettingsFor(m, blob);
+				if (wasMigrated && m.settingsKey !== undefined) {
+					const next: Record<string, unknown> = migratedBlob ?? { ...blob };
+					next[m.settingsKey] = migratedSection;
+					migratedBlob = next;
+				}
+				const baseline = this.ports.eventBus.listenerCount();
 				await m.init(modulePorts, settings);
+				this.initListenerDelta.set(m.id, this.ports.eventBus.listenerCount() - baseline);
 				this.initializedModuleIds.add(m.id);
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : String(error);

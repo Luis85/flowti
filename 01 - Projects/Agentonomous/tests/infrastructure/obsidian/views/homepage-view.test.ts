@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { HomepageView, VIEW_TYPE_HOMEPAGE } from '../../../src/infrastructure/views/homepage-view.js';
-import type { PluginContext } from '../../../src/plugin.js';
+import { HomepageView, VIEW_TYPE_HOMEPAGE } from '../../../../src/infrastructure/obsidian/views/homepage-view.js';
+import type { PluginContext } from '../../../../src/plugin.js';
 
 describe('HomepageView constants', () => {
 	it('VIEW_TYPE_HOMEPAGE is the expected string', () => {
@@ -37,18 +37,18 @@ describe('HomepageView', () => {
 describe('HomepageView — onOpen happy path', () => {
 	beforeEach(() => {
 		vi.resetModules();
-		vi.doMock('../../../src/ui/app.js', () => ({
+		vi.doMock('../../../../src/ui/app.js', () => ({
 			createVueApp: vi.fn(() => ({ unmount: vi.fn() })),
 		}));
 	});
 
 	afterEach(() => {
-		vi.doUnmock('../../../src/ui/app.js');
+		vi.doUnmock('../../../../src/ui/app.js');
 	});
 
 	it('onOpen() calls createVueApp with ctx and contentEl', async () => {
-		const { HomepageView: HV } = await import('../../../src/infrastructure/views/homepage-view.js');
-		const { createVueApp } = await import('../../../src/ui/app.js');
+		const { HomepageView: HV } = await import('../../../../src/infrastructure/obsidian/views/homepage-view.js');
+		const { createVueApp } = await import('../../../../src/ui/app.js');
 		const fakeCtx = {} as unknown as PluginContext;
 		const view = new HV({} as never, fakeCtx);
 		await (view as unknown as { onOpen: () => Promise<void> }).onOpen();
@@ -62,9 +62,9 @@ describe('HomepageView — onOpen happy path', () => {
 
 	it('onOpen() then onClose() calls unmount and clears mounted', async () => {
 		const unmount = vi.fn();
-		const { createVueApp } = await import('../../../src/ui/app.js');
+		const { createVueApp } = await import('../../../../src/ui/app.js');
 		(createVueApp as ReturnType<typeof vi.fn>).mockReturnValue({ unmount });
-		const { HomepageView: HV } = await import('../../../src/infrastructure/views/homepage-view.js');
+		const { HomepageView: HV } = await import('../../../../src/infrastructure/obsidian/views/homepage-view.js');
 		const view = new HV({} as never, {} as unknown as PluginContext);
 		await (view as unknown as { onOpen: () => Promise<void> }).onOpen();
 		await (view as unknown as { onClose: () => Promise<void> }).onClose();
@@ -78,19 +78,19 @@ describe('HomepageView — error branch', () => {
 		// Reset module registry so the dynamic import inside onOpen() picks up
 		// the mock rather than the already-cached real module.
 		vi.resetModules();
-		vi.doMock('../../../src/ui/app.js', () => ({
+		vi.doMock('../../../../src/ui/app.js', () => ({
 			createVueApp: () => { throw new Error('Vue failed'); },
 		}));
 	});
 
 	afterEach(() => {
-		vi.doUnmock('../../../src/ui/app.js');
+		vi.doUnmock('../../../../src/ui/app.js');
 	});
 
 	it('onOpen() renders fallback error text when createVueApp throws', async () => {
 		// Import HomepageView fresh AFTER vi.doMock so the dynamic import
 		// inside onOpen() resolves to the mock.
-		const { HomepageView: HV } = await import('../../../src/infrastructure/views/homepage-view.js');
+		const { HomepageView: HV } = await import('../../../../src/infrastructure/obsidian/views/homepage-view.js');
 		const view = new HV({} as never, {} as never);
 		await (view as unknown as { onOpen: () => Promise<void> }).onOpen();
 		const el = (view as unknown as { contentEl: HTMLElement }).contentEl;

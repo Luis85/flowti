@@ -7,10 +7,9 @@ type StoredFile = { content: string; ctime: number; mtime: number };
 /**
  * In-memory VaultPort implementation.
  * Useful for tests and non-Obsidian environments (e.g. Storybook, web harness).
- * Does NOT persist to localStorage — the name reflects its role as a lightweight
- * non-Obsidian backend (no filesystem, no IndexedDB).
+ * Holds files in a Map — nothing is persisted to disk, localStorage, or IndexedDB.
  */
-export class LocalStorageVaultAdapter implements VaultPort {
+export class InMemoryVaultAdapter implements VaultPort {
 	private readonly files = new Map<string, StoredFile>();
 
 	read(path: string): Promise<Result<VaultFile, string>> {

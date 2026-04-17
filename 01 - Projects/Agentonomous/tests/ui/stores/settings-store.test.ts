@@ -6,15 +6,26 @@ import type { SettingsPort } from '../../../src/domain/settings/settings-port.js
 import { ok } from '../../../src/domain/shared/result.js';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 
-function makeFakePort(initial: CoreSettings = CORE_SETTINGS_DEFAULTS): SettingsPort & { listenerCount: () => number } {
-	let current: unknown = initial;
+function makeFakePort(initialCore: CoreSettings = CORE_SETTINGS_DEFAULTS): SettingsPort & { listenerCount: () => number } {
+	let blob: unknown = { core: initialCore };
 	const listeners = new Set<(s: unknown) => void | Promise<void>>();
-	return {
-		load: async () => ok(current),
-		save: async (s) => { current = s; for (const l of listeners) { void l(s); } return ok(undefined); },
+	const asBlob = (): Record<string, unknown> =>
+		(typeof blob === 'object' && blob !== null && !Array.isArray(blob))
+			? { ...(blob as Record<string, unknown>) }
+			: {};
+	const port: SettingsPort & { listenerCount: () => number } = {
+		load: async () => ok(blob),
+		save: async (s) => { blob = s; for (const l of listeners) { void l(s); } return ok(undefined); },
+		loadSection: async (key) => ok(asBlob()[key] ?? null),
+		saveSection: async (key, value) => {
+			const next = asBlob();
+			next[key] = value;
+			return port.save(next);
+		},
 		subscribe: (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
 		listenerCount: () => listeners.size,
 	};
+	return port;
 }
 
 describe('useSettingsStore', () => {
@@ -40,7 +51,7 @@ describe('useSettingsStore', () => {
 		const port = makeFakePort();
 		const store = useSettingsStore();
 		await store.hydrate(port);
-		await port.save({ showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
+		await port.saveSection('core', { showRibbonIcon: false, defaultView: 'home', logLevel: 'info' });
 		expect(store.settings.showRibbonIcon).toBe(false);
 	});
 
@@ -73,8 +84,10 @@ describe('useSettingsStore', () => {
 	it('update() does not mutate state when port.save returns err', async () => {
 		setActivePinia(createPinia());
 		const port: SettingsPort = {
-			load: async () => ok(CORE_SETTINGS_DEFAULTS),
+			load: async () => ok({ core: CORE_SETTINGS_DEFAULTS }),
 			save: vi.fn(async () => ({ kind: 'err' as const, error: 'disk full' })),
+			loadSection: async () => ok(CORE_SETTINGS_DEFAULTS),
+			saveSection: async () => ({ kind: 'err' as const, error: 'disk full' }),
 			subscribe: () => () => {},
 		};
 		const store = useSettingsStore();
@@ -90,8 +103,10 @@ describe('useSettingsStore', () => {
 		const errorListener = vi.fn();
 		bus.on('error', errorListener);
 		const port: SettingsPort = {
-			load: async () => ok(CORE_SETTINGS_DEFAULTS),
+			load: async () => ok({ core: CORE_SETTINGS_DEFAULTS }),
 			save: async () => ({ kind: 'err' as const, error: 'disk full' }),
+			loadSection: async () => ok(CORE_SETTINGS_DEFAULTS),
+			saveSection: async () => ({ kind: 'err' as const, error: 'disk full' }),
 			subscribe: () => () => {},
 		};
 		const store = useSettingsStore();
