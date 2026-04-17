@@ -10,6 +10,7 @@
  * lines at the top of their code.
  */
 import './domain/shared/core-events.js';
+import './domain/shared/vault-events.js';
 import './modules/event-inspector/event-inspector-events.js';
 import './modules/file-detail/file-detail-events.js';
 import './modules/health-monitor/health-monitor-events.js';

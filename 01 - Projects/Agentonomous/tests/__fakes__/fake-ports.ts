@@ -8,7 +8,7 @@ import type { ViewRegistryPort } from '../../src/domain/views/view-registry-port
 import type { ModulePorts } from '../../src/domain/shared/module.js';
 import type { TranslationPort } from '../../src/domain/shared/translation-port.js';
 import type { PlatformPort } from '../../src/domain/shared/platform-port.js';
-import type { VaultPort } from '../../src/domain/shared/vault-port.js';
+import type { VaultChange, VaultPort } from '../../src/domain/shared/vault-port.js';
 import type { StoragePort } from '../../src/domain/shared/storage-port.js';
 import type { SchedulerPort } from '../../src/domain/shared/scheduler-port.js';
 import type { AgentPort, TaskPort } from '../../src/domain/agents/agent-port.js';
@@ -99,8 +99,14 @@ export function fakePlatform(): PlatformPort {
 	return { locale: 'en' };
 }
 
-export function fakeVault(): VaultPort {
+export type FakeVault = VaultPort & {
+	/** Manually trigger a vault change (useful for simulating file events in tests). */
+	emitChange: (change: VaultChange) => void;
+};
+
+export function fakeVault(): FakeVault {
 	const files = new Map<string, { content: string; ctime: number; mtime: number }>();
+	const listeners = new Set<(change: VaultChange) => void>();
 	return {
 		read: vi.fn(async (path: string) => {
 			const f = files.get(path);
@@ -126,6 +132,13 @@ export function fakeVault(): VaultPort {
 			const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
 			return ok([...files.keys()].filter((k) => prefix === '' || k.startsWith(prefix)));
 		}),
+		watch: vi.fn((listener: (change: VaultChange) => void) => {
+			listeners.add(listener);
+			return () => { listeners.delete(listener); };
+		}),
+		emitChange: (change: VaultChange) => {
+			for (const l of listeners) l(change);
+		},
 	};
 }
 

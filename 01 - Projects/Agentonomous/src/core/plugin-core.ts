@@ -49,6 +49,7 @@ export class PluginCore {
 	private sortedModules: Module[] = [];
 	private errorHandler: ErrorHandler | null = null;
 	private settingsUnsub: Unsubscribe | null = null;
+	private vaultUnsub: Unsubscribe | null = null;
 	private currentCoreSettings: CoreSettings = CORE_SETTINGS_DEFAULTS;
 	private initializedModuleIds = new Set<string>();
 	private degradedModuleIds: string[] = [];
@@ -69,6 +70,13 @@ export class PluginCore {
 			this.ports.logger,
 			this.ports.notifications,
 		);
+
+		// Bridge vault changes onto the `vault` event bus channel.  Modules
+		// can subscribe via ports.eventBus.on('vault', ...) without holding
+		// a direct port reference.
+		this.vaultUnsub = this.ports.vault.watch((change) => {
+			this.ports.eventBus.emit('vault', change);
+		});
 
 		const validationErrors = this.collectValidationErrors();
 		if (validationErrors.length > 0) {
@@ -124,6 +132,7 @@ export class PluginCore {
 	async destroy(): Promise<void> {
 		this.ports.eventBus.emit('core', { phase: 'destroying' });
 		this.settingsUnsub?.();
+		this.vaultUnsub?.();
 
 		for (const m of [...this.sortedModules].reverse()) {
 			if (!this.initializedModuleIds.has(m.id)) continue;
