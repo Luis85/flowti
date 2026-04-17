@@ -16,7 +16,6 @@
 .agentonomous-layout--main {
 	display: flex;
 	flex-direction: column;
-	padding: 1rem;
 	height: 100%;
 	color: var(--text-normal);
 }
