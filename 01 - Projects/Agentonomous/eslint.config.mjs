@@ -253,6 +253,14 @@ export default [
 		},
 	},
 	{
+		// try-async.ts IS the try/catch abstraction — the one domain file
+		// that legitimately needs try/catch to exist.
+		files: ['src/domain/shared/try-async.ts'],
+		rules: {
+			'no-restricted-syntax': 'off',
+		},
+	},
+	{
 		files: ['src/domain/**/*.ts'],
 		rules: {
 			'no-restricted-imports': [
