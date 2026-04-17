@@ -1,4 +1,5 @@
 import type { AgentPort, TaskPort } from '../../domain/agents/agent-port.js';
+import type { AgentId, AgentStatus, Task, TaskId } from '../../domain/agents/agent-types.js';
 import { err, type Result } from '../../domain/shared/result.js';
 import { appError, type AppError } from '../../domain/shared/app-error.js';
 
@@ -23,7 +24,7 @@ export class UnimplementedAgentAdapter implements AgentPort {
 	getSession(): Promise<Result<never, AppError>> { return Promise.resolve(NOT_IMPLEMENTED('getSession')); }
 	closeSession(): Promise<Result<never, AppError>> { return Promise.resolve(NOT_IMPLEMENTED('closeSession')); }
 	sendMessage(): Promise<Result<never, AppError>> { return Promise.resolve(NOT_IMPLEMENTED('sendMessage')); }
-	subscribeStatus(): () => void { return () => {}; }
+	subscribeStatus(_agentId: AgentId, _listener: (status: AgentStatus) => void): () => void { return () => {}; }
 }
 
 /** Stub TaskPort mirroring UnimplementedAgentAdapter's behavior. */
@@ -31,6 +32,6 @@ export class UnimplementedTaskAdapter implements TaskPort {
 	enqueue(): Promise<Result<never, AppError>> { return Promise.resolve(NOT_IMPLEMENTED('enqueue')); }
 	getTask(): Promise<Result<never, AppError>> { return Promise.resolve(NOT_IMPLEMENTED('getTask')); }
 	cancel(): Promise<Result<never, AppError>> { return Promise.resolve(NOT_IMPLEMENTED('cancel')); }
-	subscribe(): () => void { return () => {}; }
+	subscribe(_taskId: TaskId, _listener: (task: Task) => void): () => void { return () => {}; }
 	listBySession(): Promise<Result<never, AppError>> { return Promise.resolve(NOT_IMPLEMENTED('listBySession')); }
 }

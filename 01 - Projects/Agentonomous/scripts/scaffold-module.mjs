@@ -44,6 +44,7 @@ const pascalName = name
 	.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
 	.join('');
 const camelName = pascalName.charAt(0).toLowerCase() + pascalName.slice(1);
+const screamName = name.replace(/-/g, '_').toUpperCase();
 
 const moduleDir = join(projectRoot, 'src', 'modules', name);
 const testDir = join(projectRoot, 'tests', 'modules', name);
@@ -56,7 +57,7 @@ mkdirSync(testDir, { recursive: true });
 const SETTINGS_KEY = camelName;
 
 const moduleFile = `import { defineModule } from '../../domain/shared/module.js';
-import { ${pascalName.toUpperCase()}_DEFAULTS, validate${pascalName}Settings, type ${pascalName}Settings } from './${name}-settings.js';
+import { ${screamName}_DEFAULTS, validate${pascalName}Settings, type ${pascalName}Settings } from './${name}-settings.js';
 import enMessages from './locales/en.json' with { type: 'json' };
 
 export const ${pascalName}Module = defineModule<${pascalName}Settings>({
@@ -64,7 +65,7 @@ export const ${pascalName}Module = defineModule<${pascalName}Settings>({
 	name: '${pascalName}',
 	dependsOn: ['core'],
 	settingsKey: '${SETTINGS_KEY}',
-	settingsDefaults: ${pascalName.toUpperCase()}_DEFAULTS,
+	settingsDefaults: ${screamName}_DEFAULTS,
 	validateSettings: validate${pascalName}Settings,
 	messages: { en: enMessages },
 
@@ -91,7 +92,7 @@ export type ${pascalName}Settings = {
 	readonly enabled: boolean;
 };
 
-export const ${pascalName.toUpperCase()}_DEFAULTS: ${pascalName}Settings = {
+export const ${screamName}_DEFAULTS: ${pascalName}Settings = {
 	enabled: true,
 };
 
@@ -120,14 +121,14 @@ const localesFile = `{
 const testFile = `import { describe, expect, it } from 'vitest';
 import { ${pascalName}Module } from '../../../src/modules/${name}/${name}-module.js';
 import { fakeModulePorts, fakeLogger } from '../../__fakes__/fake-ports.js';
-import { ${pascalName.toUpperCase()}_DEFAULTS, validate${pascalName}Settings } from '../../../src/modules/${name}/${name}-settings.js';
+import { ${screamName}_DEFAULTS, validate${pascalName}Settings } from '../../../src/modules/${name}/${name}-settings.js';
 import { isErr, isOk } from '../../../src/domain/shared/result.js';
 
 describe('${pascalName}Module', () => {
 	it('init logs and resolves', async () => {
 		const logger = fakeLogger();
 		const ports = fakeModulePorts({ logger });
-		await ${pascalName}Module.init(ports, ${pascalName.toUpperCase()}_DEFAULTS);
+		await ${pascalName}Module.init(ports, ${screamName}_DEFAULTS);
 		expect(logger.info).toHaveBeenCalledWith('${name}', expect.stringContaining('initialized'));
 	});
 

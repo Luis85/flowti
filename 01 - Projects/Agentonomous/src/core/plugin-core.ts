@@ -15,8 +15,8 @@ import type { SchedulerPort } from '../domain/shared/scheduler-port.js';
 import type { AgentPort, TaskPort } from '../domain/agents/agent-port.js';
 import type { FileExtensionPort } from '../domain/shared/file-extension-port.js';
 import { isOk } from '../domain/shared/result.js';
-import { topologicalSort } from '../domain/shared/utils/topo-sort.js';
 import { diffSettingsBlob } from '../domain/settings/diff-settings-blob.js';
+import { validateModules } from './validate-modules.js';
 import { ErrorHandler } from './error-handler.js';
 import { CORE_SETTINGS_DEFAULTS, validateCoreSettings, type CoreSettings } from '../domain/settings/plugin-settings.js';
 
@@ -186,71 +186,9 @@ export class PluginCore {
 	}
 
 	private collectValidationErrors(): string[] {
-		const errors: string[] = [
-			...this.checkDuplicateIds(),
-			...this.checkDuplicateSettingsKeys(),
-			...this.checkReservedSettingsKeys(),
-			...this.checkDuplicateCommandIds(),
-		];
-
-		const sortResult = topologicalSort(
-			this.modules,
-			(m) => m.id,
-			(m) => m.dependsOn ?? [],
-		);
-
-		if (!isOk(sortResult)) {
-			errors.push(sortResult.error);
-		} else {
-			this.sortedModules = sortResult.value;
-		}
-
-		return errors;
-	}
-
-	private checkDuplicateIds(): string[] {
-		const errors: string[] = [];
-		const seen = new Set<string>();
-		for (const m of this.modules) {
-			if (seen.has(m.id)) errors.push(`duplicate module id "${m.id}"`);
-			seen.add(m.id);
-		}
-		return errors;
-	}
-
-	private checkReservedSettingsKeys(): string[] {
-		// PluginCore owns the "core" settings section (logLevel, locale, etc.)
-		// No module may claim it.
-		const errors: string[] = [];
-		for (const m of this.modules) {
-			if (m.settingsKey === 'core') {
-				errors.push(`module "${m.id}" cannot use reserved settingsKey "core"`);
-			}
-		}
-		return errors;
-	}
-
-	private checkDuplicateSettingsKeys(): string[] {
-		const errors: string[] = [];
-		const seen = new Set<string>();
-		for (const m of this.modules) {
-			if (m.settingsKey === undefined) continue;
-			if (seen.has(m.settingsKey)) errors.push(`duplicate settingsKey "${m.settingsKey}"`);
-			seen.add(m.settingsKey);
-		}
-		return errors;
-	}
-
-	private checkDuplicateCommandIds(): string[] {
-		const errors: string[] = [];
-		const seen = new Set<string>();
-		for (const m of this.modules) {
-			for (const cmd of m.commands ?? []) {
-				if (seen.has(cmd.id)) errors.push(`duplicate command id "${cmd.id}"`);
-				seen.add(cmd.id);
-			}
-		}
-		return errors;
+		const { errors, sorted } = validateModules(this.modules);
+		if (errors.length === 0) this.sortedModules = [...sorted];
+		return [...errors];
 	}
 
 	private async loadSettingsBlob(): Promise<Record<string, unknown>> {

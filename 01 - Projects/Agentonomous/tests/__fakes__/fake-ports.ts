@@ -167,7 +167,7 @@ export function fakeStorage(): StoragePort {
 			store.delete(namespace);
 			return ok(undefined as void);
 		}),
-	};
+	} as StoragePort;
 }
 
 /**

@@ -106,11 +106,15 @@ describe('ObsidianStorageAdapter', () => {
 		expect(written).toBe('.data/ns_with_slash/weird__key.json');
 	});
 
-	it('returns err when loadJson parses invalid JSON', async () => {
+	it('returns err with AppError when loadJson parses invalid JSON', async () => {
 		const fa = createFakeAdapter();
 		fa.files.set('.data/ns/k.json', '{not json');
 		const s = new ObsidianStorageAdapter(pluginWith(fa), '.data');
 		const r = await s.loadJson('ns', 'k');
 		expect(isErr(r)).toBe(true);
+		if (isErr(r)) {
+			expect(r.error.code).toBe('STORAGE_LOAD_FAILED');
+			expect(r.error.source).toContain('ns/k');
+		}
 	});
 });

@@ -228,6 +228,26 @@ export class Vault {
 			([path, entry]) => new TFile(path, { size: entry.content.length, ctime: entry.ctime, mtime: entry.mtime }),
 		);
 	}
+
+	/** Vault event listeners by event name.  Tests that subscribe via on() can fire via _trigger(). */
+	private readonly _listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+
+	on(event: string, listener: (...args: unknown[]) => void): { event: string; listener: (...args: unknown[]) => void } {
+		const set = this._listeners.get(event) ?? new Set();
+		set.add(listener);
+		this._listeners.set(event, set);
+		return { event, listener };
+	}
+
+	offref(ref: { event: string; listener: (...args: unknown[]) => void }): void {
+		this._listeners.get(ref.event)?.delete(ref.listener);
+	}
+
+	_trigger(event: string, ...args: unknown[]): void {
+		const set = this._listeners.get(event);
+		if (set === undefined) return;
+		for (const listener of set) listener(...args);
+	}
 }
 
 /** MetadataCache stub — returns null (no YAML cache in tests; adapter falls back to extractFrontmatter). */
