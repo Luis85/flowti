@@ -4,6 +4,7 @@ import type { LoggerPort } from './logger-port.js';
 import type { NotificationPort } from './notification-port.js';
 import type { DialogPort } from './dialog-port.js';
 import type { SettingsPort } from '../settings/settings-port.js';
+import type { SettingsSchema } from '../settings/settings-schema.js';
 import type { ViewRegistryPort } from '../views/view-registry-port.js';
 import type { CommandEntry } from '../commands/command-types.js';
 import type { TranslationPort } from './translation-port.js';
@@ -67,6 +68,9 @@ export interface Module {
 	/** Validates raw persisted settings blob. Return ok(validated) or err(reason). On err, defaults are used. */
 	validateSettings?(raw: unknown): Result<unknown, string>;
 
+	/** Declarative settings schema.  Rendered by the settings tab as one section per module. */
+	readonly settingsSchema?: SettingsSchema;
+
 	/** Migrates settings from an older version. Called in a loop until version matches settingsVersion. */
 	migrate?(fromVersion: number, blob: unknown): Result<unknown, string>;
 
@@ -113,6 +117,7 @@ export function defineModule<TSettings = unknown>(def: {
 	readonly settingsVersion?: number;
 	validateSettings?(raw: unknown): Result<TSettings, string>;
 	migrate?(fromVersion: number, blob: unknown): Result<TSettings, string>;
+	readonly settingsSchema?: SettingsSchema;
 	readonly commands?: readonly CommandEntry[];
 	readonly messages?: Record<string, Record<string, string>>;
 	readonly extensions?: readonly { readonly ext: string; readonly viewType: string }[];

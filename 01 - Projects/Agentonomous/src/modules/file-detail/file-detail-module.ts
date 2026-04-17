@@ -11,6 +11,17 @@ export const FileDetailModule = defineModule<FileDetailSettings>({
 	settingsKey: 'fileDetail',
 	settingsDefaults: FILE_DETAIL_DEFAULTS,
 	validateSettings: validateFileDetailSettings,
+	settingsSchema: {
+		title: 'File Detail',
+		fields: [
+			{
+				kind: 'toggle',
+				key: 'enabled',
+				label: 'Enable File Detail view',
+				description: 'Register the file-detail view as the handler for .json and .csv files.',
+			},
+		],
+	},
 	messages: { en: enMessages },
 	views: [
 		{

@@ -116,8 +116,8 @@ describe('AgentonomousSettingsTab', () => {
 		const tab = makeTab(port);
 		tab.display();
 		await new Promise((r) => { setTimeout(r, 0); });
-		const persist = (tab as unknown as { persist: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persist;
-		await persist.call(tab, { ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
+		const persistCore = (tab as unknown as { persistCore: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persistCore;
+		await persistCore.call(tab, { ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
 		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
 		// core section has the updated value
 		expect((saved['core'] as typeof CORE_SETTINGS_DEFAULTS).showRibbonIcon).toBe(false);
@@ -130,8 +130,8 @@ describe('AgentonomousSettingsTab', () => {
 		const tab = makeTab(port);
 		tab.display();
 		await new Promise((r) => { setTimeout(r, 0); });
-		const persist = (tab as unknown as { persist: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persist;
-		await persist.call(tab, { ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
+		const persistCore = (tab as unknown as { persistCore: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persistCore;
+		await persistCore.call(tab, { ...CORE_SETTINGS_DEFAULTS, showRibbonIcon: false });
 		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
 		expect(saved['eventInspector']).toEqual({ enabled: true });
 		expect((saved['core'] as typeof CORE_SETTINGS_DEFAULTS).showRibbonIcon).toBe(false);
@@ -142,8 +142,8 @@ describe('AgentonomousSettingsTab', () => {
 		const tab = makeTab(port);
 		tab.display();
 		await new Promise((r) => { setTimeout(r, 0); });
-		const persist = (tab as unknown as { persist: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persist;
-		await expect(persist.call(tab, CORE_SETTINGS_DEFAULTS)).resolves.toBeUndefined();
+		const persistCore = (tab as unknown as { persistCore: (s: typeof CORE_SETTINGS_DEFAULTS) => Promise<void> }).persistCore;
+		await expect(persistCore.call(tab, CORE_SETTINGS_DEFAULTS)).resolves.toBeUndefined();
 		expect(port.save).toHaveBeenCalled();
 	});
 

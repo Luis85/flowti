@@ -38,6 +38,26 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 	settingsKey: 'eventInspector',
 	settingsDefaults: EVENT_INSPECTOR_DEFAULTS,
 	validateSettings: validateEventInspectorSettings,
+	settingsSchema: {
+		title: 'Event Inspector',
+		fields: [
+			{
+				kind: 'toggle',
+				key: 'enabled',
+				label: 'Capture events',
+				description: 'When off, the Event Inspector panel shows nothing — no events captured.',
+			},
+			{
+				kind: 'number',
+				key: 'maxEvents',
+				label: 'Buffer size',
+				description: 'How many recent events to retain in memory.',
+				min: 10,
+				max: 10000,
+				step: 10,
+			},
+		],
+	},
 	messages: { en: enMessages },
 	views: [
 		{

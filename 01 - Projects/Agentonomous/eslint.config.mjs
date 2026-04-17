@@ -296,7 +296,7 @@ export default [
 			'src/infrastructure/obsidian/**/*.ts',
 			'src/infrastructure/obsidian/obsidian-notification-adapter.ts',
 			'src/infrastructure/views/*-view.ts',
-			'src/infrastructure/settings/settings-tab.ts',
+			'src/infrastructure/settings/**/*.ts',
 			'src/domain/**/*.ts',
 			'src/modules/**/views/*-view.ts',
 		],
