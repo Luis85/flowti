@@ -66,7 +66,7 @@ describe('HealthMonitorModule', () => {
 		void showHealthCmd?.callback?.();
 
 		expect(logger.info).toHaveBeenCalledWith('health-monitor', expect.stringContaining('health'));
-		expect(notifications.show).toHaveBeenCalledWith(expect.stringContaining('health'));
+		expect(notifications.info).toHaveBeenCalledWith(expect.stringContaining('health'));
 
 		HealthMonitorModule.destroy();
 	});

@@ -31,7 +31,7 @@ export const HealthMonitorModule = defineModule({
 		const showHealthCallback = (): void => {
 			const summary = ports.t.t('health-monitor.notifications.healthCheck');
 			ports.logger.info('health-monitor', summary);
-			ports.notifications.show(summary);
+			ports.notifications.info(summary);
 		};
 
 		const intervalId = setInterval(() => {

@@ -2,6 +2,7 @@ import type { Result } from './result.js';
 import type { EventBus } from './event-bus.js';
 import type { LoggerPort } from './logger-port.js';
 import type { NotificationPort } from './notification-port.js';
+import type { DialogPort } from './dialog-port.js';
 import type { SettingsPort } from '../settings/settings-port.js';
 import type { ViewRegistryPort } from '../views/view-registry-port.js';
 import type { CommandEntry } from '../commands/command-types.js';
@@ -20,8 +21,10 @@ export interface ModulePorts {
 	readonly logger: LoggerPort;
 	/** Load/save the merged settings blob. Modules read only their own settingsKey section. */
 	readonly settings: SettingsPort;
-	/** Show user-facing toast notifications. Use for user-severity errors only. */
+	/** Show user-facing toast notifications (info/success/warn/error). */
 	readonly notifications: NotificationPort;
+	/** Confirmation and text-input dialogs. */
+	readonly dialogs: DialogPort;
 	/** Register and open Obsidian views. */
 	readonly views: ViewRegistryPort;
 	/** i18n translation function. All user-facing strings must go through this. */

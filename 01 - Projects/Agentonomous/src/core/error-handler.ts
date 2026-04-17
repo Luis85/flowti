@@ -24,8 +24,10 @@ export class ErrorHandler {
 	private handle(envelope: EventEnvelope<'error'>): void {
 		const { severity, message, source, code } = envelope.payload;
 		this.logger.error(source, `[${code}] ${message}`);
-		if (severity === 'user' || severity === 'fatal') {
-			this.notifications.show(message);
+		if (severity === 'fatal') {
+			this.notifications.error(message);
+		} else if (severity === 'user') {
+			this.notifications.warn(message);
 		}
 	}
 
@@ -33,7 +35,7 @@ export class ErrorHandler {
 		const { degraded, errors } = envelope.payload;
 		if (degraded !== true || errors === undefined) return;
 		for (const error of errors) {
-			this.notifications.show(error);
+			this.notifications.warn(error);
 		}
 	}
 }

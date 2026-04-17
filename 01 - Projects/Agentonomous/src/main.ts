@@ -6,6 +6,7 @@ import { createEventBus } from './domain/shared/event-bus.js';
 import { ObsidianSettingsAdapter } from './infrastructure/obsidian/obsidian-settings-adapter.js';
 import { ObsidianCommandAdapter } from './infrastructure/obsidian/obsidian-command-adapter.js';
 import { ObsidianNotificationAdapter } from './infrastructure/obsidian/obsidian-notification-adapter.js';
+import { ObsidianDialogAdapter } from './infrastructure/obsidian/obsidian-dialog-adapter.js';
 import { ObsidianPlatformAdapter } from './infrastructure/obsidian/obsidian-platform-adapter.js';
 import { ObsidianVaultAdapter } from './infrastructure/obsidian/obsidian-vault-adapter.js';
 import { ObsidianFileExtensionAdapter } from './infrastructure/obsidian/obsidian-file-extension-adapter.js';
@@ -57,6 +58,7 @@ export default class AgentonomousPlugin extends Plugin {
 		const views = new ViewRegistry();
 		const logger = new Logger(bus, 'info');
 		const notifications = new ObsidianNotificationAdapter();
+		const dialogs = new ObsidianDialogAdapter(this.app);
 		const commands = new ObsidianCommandAdapter(this, views);
 
 		const modules = [CoreModule, EventInspectorModule, HealthMonitorModule, FileDetailModule];
@@ -68,6 +70,7 @@ export default class AgentonomousPlugin extends Plugin {
 				views,
 				logger,
 				notifications,
+				dialogs,
 				eventBus: bus,
 				t: translationPort,
 				platform,
@@ -103,6 +106,7 @@ export default class AgentonomousPlugin extends Plugin {
 			views,
 			logger,
 			notifications,
+			dialogs,
 			eventBus: bus,
 			t: translationPort,
 			platform,

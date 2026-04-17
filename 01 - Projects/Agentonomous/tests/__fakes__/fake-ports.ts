@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import type { LoggerPort } from '../../src/domain/shared/logger-port.js';
 import type { NotificationPort } from '../../src/domain/shared/notification-port.js';
+import type { DialogPort } from '../../src/domain/shared/dialog-port.js';
 import type { SettingsPort } from '../../src/domain/settings/settings-port.js';
 import type { CommandPort } from '../../src/domain/commands/command-port.js';
 import type { ViewRegistryPort } from '../../src/domain/views/view-registry-port.js';
@@ -46,11 +47,30 @@ export function fakeSettings(initial: unknown = null): SettingsPort {
 	};
 }
 
-export function fakeNotifications(): NotificationPort & { messages: string[] } {
+export type FakeNotification = { severity: 'info' | 'success' | 'warn' | 'error'; message: string };
+
+export function fakeNotifications(): NotificationPort & { messages: string[]; events: FakeNotification[] } {
+	const events: FakeNotification[] = [];
 	const messages: string[] = [];
+	const push = (severity: FakeNotification['severity'], message: string): void => {
+		events.push({ severity, message });
+		messages.push(message);
+	};
 	return {
-		show: vi.fn((msg: string) => { messages.push(msg); }),
+		info: vi.fn((msg: string) => { push('info', msg); }),
+		success: vi.fn((msg: string) => { push('success', msg); }),
+		warn: vi.fn((msg: string) => { push('warn', msg); }),
+		error: vi.fn((msg: string) => { push('error', msg); }),
+		show: vi.fn((msg: string) => { push('info', msg); }),
+		events,
 		messages,
+	};
+}
+
+export function fakeDialogs(overrides?: { confirm?: boolean; prompt?: string | null }): DialogPort {
+	return {
+		confirm: vi.fn(async () => overrides?.confirm ?? false),
+		prompt: vi.fn(async () => overrides?.prompt ?? null),
 	};
 }
 
@@ -147,6 +167,7 @@ export function fakeModulePorts(overrides?: Partial<ModulePorts>): ModulePorts {
 		logger: overrides?.logger ?? fakeLogger(),
 		settings: overrides?.settings ?? fakeSettings(),
 		notifications: overrides?.notifications ?? fakeNotifications(),
+		dialogs: overrides?.dialogs ?? fakeDialogs(),
 		views: overrides?.views ?? fakeViews(),
 		t: overrides?.t ?? fakeTranslation(),
 		platform: overrides?.platform ?? fakePlatform(),

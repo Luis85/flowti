@@ -1,6 +1,7 @@
 import type { EventBus } from '../domain/shared/event-bus.js';
 import type { LoggerPort } from '../domain/shared/logger-port.js';
 import type { NotificationPort } from '../domain/shared/notification-port.js';
+import type { DialogPort } from '../domain/shared/dialog-port.js';
 import type { SettingsPort } from '../domain/settings/settings-port.js';
 import type { CommandPort } from '../domain/commands/command-port.js';
 import type { ViewRegistryPort } from '../domain/views/view-registry-port.js';
@@ -24,6 +25,7 @@ export interface CorePorts {
 	readonly views: ViewRegistryPort;
 	readonly logger: LoggerPort;
 	readonly notifications: NotificationPort;
+	readonly dialogs: DialogPort;
 	readonly eventBus: EventBus;
 	readonly t: TranslationPort;
 	readonly platform: PlatformPort;
@@ -235,6 +237,7 @@ export class PluginCore {
 			logger: this.ports.logger,
 			settings: this.ports.settings,
 			notifications: this.ports.notifications,
+			dialogs: this.ports.dialogs,
 			views: this.ports.views,
 			t: this.ports.t,
 			platform: this.ports.platform,

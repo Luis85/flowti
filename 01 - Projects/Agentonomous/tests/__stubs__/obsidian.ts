@@ -1,8 +1,14 @@
 // Minimal runtime stub for the `obsidian` types-only package.
 // Used by Vitest via a resolve alias so tests that extend Obsidian classes work.
 
-function augmentEl(el: HTMLElement): HTMLElement & { empty: () => void; createEl: (tag: string, opts?: { text?: string }) => HTMLElement } {
-	const augmented = el as HTMLElement & { empty: () => void; createEl: (tag: string, opts?: { text?: string }) => HTMLElement };
+type AugmentedEl = HTMLElement & {
+	empty: () => void;
+	createEl: (tag: string, opts?: { text?: string }) => HTMLElement;
+	setText: (text: string) => void;
+};
+
+function augmentEl(el: HTMLElement): AugmentedEl {
+	const augmented = el as AugmentedEl;
 	augmented.empty = () => { el.innerHTML = ''; };
 	augmented.createEl = (tag: string, opts?: { text?: string }) => {
 		const child = document.createElement(tag);
@@ -10,6 +16,7 @@ function augmentEl(el: HTMLElement): HTMLElement & { empty: () => void; createEl
 		el.appendChild(child);
 		return child;
 	};
+	augmented.setText = (text: string) => { el.textContent = text; };
 	return augmented;
 }
 
@@ -107,6 +114,53 @@ export class Setting {
 		cb(dropdown);
 		this._dropdowns.push(dropdown);
 		return this;
+	}
+	addButton(cb: (b: { _label: string; _clicked: boolean; _onClick: (() => void) | null; setButtonText(t: string): { _label: string; _clicked: boolean; _onClick: (() => void) | null }; setCta(): unknown; setWarning(): unknown; onClick(fn: () => void): unknown; _trigger(): void }) => void): this {
+		const btn = {
+			_label: '',
+			_clicked: false,
+			_onClick: null as (() => void) | null,
+			setButtonText(text: string) { this._label = text; return this; },
+			setCta() { return this; },
+			setWarning() { return this; },
+			onClick(fn: () => void) { this._onClick = fn; return this; },
+			_trigger() { this._clicked = true; this._onClick?.(); },
+		};
+		cb(btn);
+		return this;
+	}
+	addText(cb: (t: { inputEl: { addEventListener(ev: string, fn: (e: KeyboardEvent) => void): void }; setValue(v: string): unknown; setPlaceholder(v: string): unknown; onChange(fn: (v: string) => void): unknown }) => void): this {
+		const txt = {
+			inputEl: {
+				addEventListener(_ev: string, _fn: (e: KeyboardEvent) => void) {},
+			},
+			setValue(_v: string) { return this; },
+			setPlaceholder(_v: string) { return this; },
+			onChange(_fn: (v: string) => void) { return this; },
+		};
+		cb(txt);
+		return this;
+	}
+}
+
+/** Captures modals opened in tests so assertions can reach them. */
+export const _openModals: Modal[] = [];
+
+export class Modal {
+	protected app: unknown;
+	titleEl: ReturnType<typeof augmentEl>;
+	contentEl: ReturnType<typeof augmentEl>;
+	constructor(app: unknown) {
+		this.app = app;
+		this.titleEl = augmentEl(document.createElement('div'));
+		this.contentEl = augmentEl(document.createElement('div'));
+	}
+	open(): void {
+		_openModals.push(this);
+		(this as unknown as { onOpen?: () => void }).onOpen?.();
+	}
+	close(): void {
+		(this as unknown as { onClose?: () => void }).onClose?.();
 	}
 }
 
