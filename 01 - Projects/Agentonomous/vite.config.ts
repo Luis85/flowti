@@ -47,11 +47,11 @@ export default defineConfig({
 		rollupOptions: {
 			external: ['obsidian', 'electron', /^node:/],
 			output: {
-				// Inline all dynamic imports so the entire app (including the
-				// lazy-loaded Vue app in homepage-view) ends up in a single
-				// main.js.  Obsidian loads only main.js from the plugin directory;
-				// split chunks would fail to resolve at runtime.
-				inlineDynamicImports: true,
+				// Obsidian loads only main.js from the plugin directory; split
+				// chunks would fail to resolve at runtime.  Disabling code
+				// splitting inlines every dynamic import (Vue app, handler
+				// registry, etc.) into main.js.
+				codeSplitting: false,
 				globals: { obsidian: 'obsidian' },
 				banner: '/* Agentonomous — Obsidian plugin. Generated file, do not edit. */',
 			},
