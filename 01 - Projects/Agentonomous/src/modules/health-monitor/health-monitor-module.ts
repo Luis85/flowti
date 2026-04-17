@@ -1,9 +1,12 @@
 import { defineModule } from '../../domain/shared/module.js';
 import enMessages from './locales/en.json' with { type: 'json' };
 
+const HEALTH_TICK_ID = 'health-monitor:tick';
+const HEALTH_TICK_INTERVAL_MS = 60_000;
+
 type ModuleState = {
-	intervalId: ReturnType<typeof setInterval>;
 	showHealthCallback: () => void;
+	cancelTick: () => void;
 };
 
 let state: ModuleState | null = null;
@@ -23,7 +26,6 @@ export const HealthMonitorModule = defineModule({
 	],
 
 	init(ports) {
-		// Guard: if already initialized, destroy first to prevent leaks
 		if (state !== null) {
 			this.destroy();
 		}
@@ -34,20 +36,21 @@ export const HealthMonitorModule = defineModule({
 			ports.notifications.info(summary);
 		};
 
-		const intervalId = setInterval(() => {
+		ports.scheduler.every(HEALTH_TICK_ID, HEALTH_TICK_INTERVAL_MS, () => {
 			ports.eventBus.emit('health-monitor', { action: 'health-check' });
-		}, 60000);
+		});
 
-		state = { intervalId, showHealthCallback };
+		state = {
+			showHealthCallback,
+			cancelTick: () => { ports.scheduler.cancel(HEALTH_TICK_ID); },
+		};
 
 		ports.logger.info('health-monitor', 'Health monitoring active');
 		return Promise.resolve();
 	},
 
 	destroy() {
-		if (state !== null) {
-			clearInterval(state.intervalId);
-			state = null;
-		}
+		state?.cancelTick();
+		state = null;
 	},
 });

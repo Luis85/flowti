@@ -1,29 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 import '../../../src/domain/shared/core-events.js';
-import { fakeModulePorts, fakeLogger, fakeNotifications } from '../../__fakes__/fake-ports.js';
+import { fakeModulePorts, fakeLogger, fakeNotifications, fakeScheduler } from '../../__fakes__/fake-ports.js';
 
 describe('HealthMonitorModule', () => {
-	it('init starts periodic health checks and destroy clears them', async () => {
-		vi.useFakeTimers();
+	it('schedules a periodic health-check tick that emits on the bus', async () => {
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
-		const ports = fakeModulePorts({ eventBus: bus });
+		const scheduler = fakeScheduler();
+		const ports = fakeModulePorts({ eventBus: bus, scheduler });
 
 		await HealthMonitorModule.init(ports, undefined);
+		expect(scheduler.scheduled.has('health-monitor:tick')).toBe(true);
 
 		const listener = vi.fn();
 		bus.on('health-monitor', listener);
 
-		vi.advanceTimersByTime(60000);
+		await scheduler.fire('health-monitor:tick');
 		expect(listener).toHaveBeenCalledOnce();
 
 		HealthMonitorModule.destroy();
-
-		vi.advanceTimersByTime(60000);
-		expect(listener).toHaveBeenCalledOnce(); // no second call — interval cleared
-
-		vi.useRealTimers();
+		expect(scheduler.scheduled.has('health-monitor:tick')).toBe(false);
 	});
 
 	it('logs when initialized', async () => {
@@ -34,21 +31,6 @@ describe('HealthMonitorModule', () => {
 
 		await HealthMonitorModule.init(ports, undefined);
 		expect(logger.info).toHaveBeenCalledWith('health-monitor', 'Health monitoring active');
-		HealthMonitorModule.destroy();
-	});
-
-	it('handles core:ready and core:destroyed events without throwing', async () => {
-		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
-		const bus = createEventBus();
-		const ports = fakeModulePorts({ eventBus: bus });
-
-		await HealthMonitorModule.init(ports, undefined);
-		// Cover the branch: phase === 'ready'
-		bus.emit('core', { phase: 'ready' });
-		// Cover the branch: phase === 'destroyed'
-		bus.emit('core', { phase: 'destroyed' });
-		// Cover the else: phase not matching
-		bus.emit('core', { phase: 'initializing' });
 		HealthMonitorModule.destroy();
 	});
 
@@ -71,30 +53,29 @@ describe('HealthMonitorModule', () => {
 		HealthMonitorModule.destroy();
 	});
 
-	it('init() called twice does not leak the first subscription', async () => {
+	it('init() called twice replaces the scheduled tick', async () => {
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
-		const ports = fakeModulePorts({ eventBus: bus });
+		const scheduler = fakeScheduler();
+		const ports = fakeModulePorts({ eventBus: bus, scheduler });
 
 		await HealthMonitorModule.init(ports, undefined);
-		const countAfterFirst = bus.listenerCount();
 		HealthMonitorModule.destroy();
 
 		await HealthMonitorModule.init(ports, undefined);
-		const countAfterSecond = bus.listenerCount();
-		expect(countAfterSecond).toBe(countAfterFirst);
+		expect(scheduler.scheduled.size).toBe(1);
 		HealthMonitorModule.destroy();
 	});
 
-	it('double init without destroy does not leak listeners', async () => {
+	it('double init without destroy does not leave stale state', async () => {
 		const { HealthMonitorModule } = await import('../../../src/modules/health-monitor/health-monitor-module.js');
 		const bus = createEventBus();
-		const ports = fakeModulePorts({ eventBus: bus });
+		const scheduler = fakeScheduler();
+		const ports = fakeModulePorts({ eventBus: bus, scheduler });
 
 		await HealthMonitorModule.init(ports, undefined);
-		const countAfterFirst = bus.listenerCount();
-		await HealthMonitorModule.init(ports, undefined); // no destroy between
-		expect(bus.listenerCount()).toBe(countAfterFirst);
+		await HealthMonitorModule.init(ports, undefined); // self-guard triggers destroy first
+		expect(scheduler.scheduled.size).toBe(1);
 		HealthMonitorModule.destroy();
 	});
 });

@@ -10,6 +10,7 @@ import type { TranslationPort } from '../../src/domain/shared/translation-port.j
 import type { PlatformPort } from '../../src/domain/shared/platform-port.js';
 import type { VaultPort } from '../../src/domain/shared/vault-port.js';
 import type { StoragePort } from '../../src/domain/shared/storage-port.js';
+import type { SchedulerPort } from '../../src/domain/shared/scheduler-port.js';
 import type { AgentPort, TaskPort } from '../../src/domain/agents/agent-port.js';
 import { UnimplementedAgentAdapter, UnimplementedTaskAdapter } from '../../src/infrastructure/agents/unimplemented-agent-adapter.js';
 import { ok } from '../../src/domain/shared/result.js';
@@ -153,6 +154,41 @@ export function fakeStorage(): StoragePort {
 	};
 }
 
+/**
+ * In-memory scheduler for tests.  No real timers — run scheduled tasks
+ * by calling `fire(id)` or `fireAll()`.
+ */
+export type FakeScheduler = SchedulerPort & {
+	readonly scheduled: Map<string, { kind: 'every' | 'once'; intervalMs: number; fn: () => void | Promise<void> }>;
+	fire: (id: string) => Promise<void>;
+	fireAll: () => Promise<void>;
+};
+
+export function fakeScheduler(): FakeScheduler {
+	const scheduled = new Map<string, { kind: 'every' | 'once'; intervalMs: number; fn: () => void | Promise<void> }>();
+	const port: FakeScheduler = {
+		scheduled,
+		every: vi.fn((id: string, intervalMs: number, fn: () => void | Promise<void>) => {
+			scheduled.set(id, { kind: 'every', intervalMs, fn });
+		}),
+		once: vi.fn((id: string, delayMs: number, fn: () => void | Promise<void>) => {
+			scheduled.set(id, { kind: 'once', intervalMs: delayMs, fn });
+		}),
+		cancel: vi.fn((id: string) => { scheduled.delete(id); }),
+		cancelAll: vi.fn(() => { scheduled.clear(); }),
+		fire: async (id: string): Promise<void> => {
+			const entry = scheduled.get(id);
+			if (entry === undefined) return;
+			if (entry.kind === 'once') scheduled.delete(id);
+			await entry.fn();
+		},
+		fireAll: async (): Promise<void> => {
+			for (const id of [...scheduled.keys()]) await port.fire(id);
+		},
+	};
+	return port;
+}
+
 export function fakeAgents(): AgentPort {
 	return new UnimplementedAgentAdapter();
 }
@@ -173,6 +209,7 @@ export function fakeModulePorts(overrides?: Partial<ModulePorts>): ModulePorts {
 		platform: overrides?.platform ?? fakePlatform(),
 		vault: overrides?.vault ?? fakeVault(),
 		storage: overrides?.storage ?? fakeStorage(),
+		scheduler: overrides?.scheduler ?? fakeScheduler(),
 		agents: overrides?.agents ?? fakeAgents(),
 		tasks: overrides?.tasks ?? fakeTasks(),
 		...overrides,

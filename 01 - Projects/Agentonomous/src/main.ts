@@ -11,6 +11,7 @@ import { ObsidianPlatformAdapter } from './infrastructure/obsidian/obsidian-plat
 import { ObsidianVaultAdapter } from './infrastructure/obsidian/obsidian-vault-adapter.js';
 import { ObsidianFileExtensionAdapter } from './infrastructure/obsidian/obsidian-file-extension-adapter.js';
 import { ObsidianStorageAdapter } from './infrastructure/obsidian/obsidian-storage-adapter.js';
+import { BrowserScheduler } from './infrastructure/scheduler/browser-scheduler.js';
 import { UnimplementedAgentAdapter, UnimplementedTaskAdapter } from './infrastructure/agents/unimplemented-agent-adapter.js';
 import { ViewRegistry } from './infrastructure/obsidian/view-registry.js';
 import { VIEW_REGISTRATIONS } from './infrastructure/obsidian/views/index.js';
@@ -53,6 +54,7 @@ export default class AgentonomousPlugin extends Plugin {
 		const vault = new ObsidianVaultAdapter(this.app);
 		const fileExtensions = new ObsidianFileExtensionAdapter(this);
 		const storage = new ObsidianStorageAdapter(this);
+		const scheduler = new BrowserScheduler();
 		const agents = new UnimplementedAgentAdapter();
 		const tasks = new UnimplementedTaskAdapter();
 		const views = new ViewRegistry();
@@ -76,6 +78,7 @@ export default class AgentonomousPlugin extends Plugin {
 				platform,
 				vault,
 				storage,
+				scheduler,
 				agents,
 				tasks,
 				i18nMerge: (locale, messages) => { i18n.global.mergeLocaleMessage(locale, messages); },
@@ -112,6 +115,7 @@ export default class AgentonomousPlugin extends Plugin {
 			platform,
 			vault,
 			storage,
+			scheduler,
 			agents,
 			tasks,
 			i18n,

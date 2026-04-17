@@ -10,6 +10,7 @@ import type { TranslationPort } from './translation-port.js';
 import type { PlatformPort } from './platform-port.js';
 import type { VaultPort } from './vault-port.js';
 import type { StoragePort } from './storage-port.js';
+import type { SchedulerPort } from './scheduler-port.js';
 import type { AgentPort, TaskPort } from '../agents/agent-port.js';
 import type { ViewIntent } from '../views/view-registration.js';
 
@@ -35,6 +36,8 @@ export interface ModulePorts {
 	readonly vault: VaultPort;
 	/** Namespaced keyed JSON storage for structured per-module data. */
 	readonly storage: StoragePort;
+	/** Scheduler for repeating or deferred work (replaces raw setInterval/setTimeout). */
+	readonly scheduler: SchedulerPort;
 	/** Agent runtime (STUB: unimplemented adapter returns AppError for every call today). */
 	readonly agents: AgentPort;
 	/** Task queue (STUB: unimplemented adapter returns AppError for every call today). */
