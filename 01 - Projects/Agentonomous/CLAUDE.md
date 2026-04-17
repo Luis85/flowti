@@ -79,6 +79,7 @@ export AGENTONOMOUS_TEST_VAULT="C:/path/to/your/test-vault"
 - **Test location**: mirrors source — `src/domain/foo/bar.ts` → `tests/domain/foo/bar.test.ts`
 - **PageObject convention**: co-locate `.po.ts` files with their test counterpart (`Home.po.ts` beside `Home.test.ts`). Query elements via `data-testid` attributes exclusively; never couple to CSS classes.
 - **Layout system**: three layouts (`MainLayout`, `DashboardLayout`, `PanelLayout`). The active layout is resolved from `route.meta.layout` in `AppRoot.vue`. Sidebar module views use `PanelLayout` directly (no router involved).
+- **Module state singletons**: modules that hold runtime state (`event-inspector`, `health-monitor`, etc.) use a module-scope `let state: ModuleState | null = null` pattern. This is intentional — there is exactly one instance per module per plugin load. `init()` must be idempotent: if `state !== null`, call `this.destroy()` first. PluginCore's listener-leak tripwire depends on this shape; don't replace with per-instance state unless you're refactoring the whole module contract.
 
 ## Key Config Files
 

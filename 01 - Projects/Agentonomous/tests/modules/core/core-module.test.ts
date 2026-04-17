@@ -26,8 +26,8 @@ describe('CoreModule', () => {
 		expect(ports.logger.info).toHaveBeenCalledWith('core', expect.stringContaining('initialized'));
 	});
 
-	it('destroy() does not throw', () => {
-		expect(() => { CoreModule.destroy(); }).not.toThrow();
+	it('destroy() does not throw', async () => {
+		await expect(Promise.resolve(CoreModule.destroy())).resolves.toBeUndefined();
 	});
 
 	it('commands includes open-homepage', () => {

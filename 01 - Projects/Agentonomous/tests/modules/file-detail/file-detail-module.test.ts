@@ -20,7 +20,7 @@ describe('FileDetailModule', () => {
 
 	it('destroy runs without error', async () => {
 		const { FileDetailModule } = await import('../../../src/modules/file-detail/file-detail-module.js');
-		expect(() => { FileDetailModule.destroy(); }).not.toThrow();
+		await expect(Promise.resolve(FileDetailModule.destroy())).resolves.toBeUndefined();
 	});
 
 	it('declares csv and json extensions', async () => {

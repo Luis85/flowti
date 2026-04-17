@@ -18,7 +18,7 @@ describe('EventInspectorModule', () => {
 		expect(getEventInspectorBuffer()).toHaveLength(1);
 		expect(logger.info).toHaveBeenCalled();
 
-		EventInspectorModule.destroy();
+		await EventInspectorModule.destroy();
 	});
 
 	it('does not subscribe when disabled', async () => {
@@ -34,7 +34,7 @@ describe('EventInspectorModule', () => {
 
 		expect(getEventInspectorBuffer()).toHaveLength(0);
 		expect(logger.info).toHaveBeenCalledWith('event-inspector', 'Event inspector disabled by settings');
-		EventInspectorModule.destroy();
+		await EventInspectorModule.destroy();
 	});
 
 	it('buffer respects maxEvents', async () => {
@@ -50,7 +50,7 @@ describe('EventInspectorModule', () => {
 		}
 
 		expect(getEventInspectorBuffer()).toHaveLength(3);
-		EventInspectorModule.destroy();
+		await EventInspectorModule.destroy();
 	});
 
 	it('subscribeToEvents receives live events and can unsubscribe', async () => {
@@ -72,7 +72,7 @@ describe('EventInspectorModule', () => {
 		bus.emit('core', { phase: 'destroyed' });
 		expect(received).toHaveLength(1);
 
-		EventInspectorModule.destroy();
+		await EventInspectorModule.destroy();
 	});
 
 	it('init() called twice does not leak the first subscription', async () => {
@@ -82,12 +82,12 @@ describe('EventInspectorModule', () => {
 
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
 		const countAfterFirst = bus.listenerCount();
-		EventInspectorModule.destroy();
+		await EventInspectorModule.destroy();
 
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
 		const countAfterSecond = bus.listenerCount();
 		expect(countAfterSecond).toBe(countAfterFirst);
-		EventInspectorModule.destroy();
+		await EventInspectorModule.destroy();
 	});
 
 	it('double init without destroy does not leak listeners', async () => {
@@ -99,6 +99,6 @@ describe('EventInspectorModule', () => {
 		const countAfterFirst = bus.listenerCount();
 		await EventInspectorModule.init(ports, { enabled: true, maxEvents: 100, filterChannels: [] });
 		expect(bus.listenerCount()).toBe(countAfterFirst);
-		EventInspectorModule.destroy();
+		await EventInspectorModule.destroy();
 	});
 });

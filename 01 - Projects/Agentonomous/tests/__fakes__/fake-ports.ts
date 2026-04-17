@@ -122,7 +122,10 @@ export function fakeVault(): VaultPort {
 			return ok(undefined);
 		}),
 		exists: vi.fn(async (path: string) => files.has(path)),
-		list: vi.fn(async (folder: string) => ok([...files.keys()].filter((k) => k.startsWith(folder)))),
+		list: vi.fn(async (folder: string) => {
+			const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
+			return ok([...files.keys()].filter((k) => prefix === '' || k.startsWith(prefix)));
+		}),
 	};
 }
 

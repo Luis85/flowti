@@ -19,7 +19,7 @@ describe('HealthMonitorModule', () => {
 		await scheduler.fire('health-monitor:tick');
 		expect(listener).toHaveBeenCalledOnce();
 
-		HealthMonitorModule.destroy();
+		await HealthMonitorModule.destroy();
 		expect(scheduler.scheduled.has('health-monitor:tick')).toBe(false);
 	});
 
@@ -31,7 +31,7 @@ describe('HealthMonitorModule', () => {
 
 		await HealthMonitorModule.init(ports, undefined);
 		expect(logger.info).toHaveBeenCalledWith('health-monitor', 'Health monitoring active');
-		HealthMonitorModule.destroy();
+		await HealthMonitorModule.destroy();
 	});
 
 	it('show-health command invokes logger and notifications', async () => {
@@ -50,7 +50,7 @@ describe('HealthMonitorModule', () => {
 		expect(logger.info).toHaveBeenCalledWith('health-monitor', expect.stringContaining('health'));
 		expect(notifications.info).toHaveBeenCalledWith(expect.stringContaining('health'));
 
-		HealthMonitorModule.destroy();
+		await HealthMonitorModule.destroy();
 	});
 
 	it('init() called twice replaces the scheduled tick', async () => {
@@ -60,11 +60,11 @@ describe('HealthMonitorModule', () => {
 		const ports = fakeModulePorts({ eventBus: bus, scheduler });
 
 		await HealthMonitorModule.init(ports, undefined);
-		HealthMonitorModule.destroy();
+		await HealthMonitorModule.destroy();
 
 		await HealthMonitorModule.init(ports, undefined);
 		expect(scheduler.scheduled.size).toBe(1);
-		HealthMonitorModule.destroy();
+		await HealthMonitorModule.destroy();
 	});
 
 	it('double init without destroy does not leave stale state', async () => {
@@ -76,6 +76,6 @@ describe('HealthMonitorModule', () => {
 		await HealthMonitorModule.init(ports, undefined);
 		await HealthMonitorModule.init(ports, undefined); // self-guard triggers destroy first
 		expect(scheduler.scheduled.size).toBe(1);
-		HealthMonitorModule.destroy();
+		await HealthMonitorModule.destroy();
 	});
 });

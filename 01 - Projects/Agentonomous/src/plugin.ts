@@ -6,6 +6,8 @@ export type ModuleStatus = {
 	readonly id: string;
 	readonly name: string;
 	readonly status: 'ready' | 'degraded' | 'not-loaded';
+	/** Populated for degraded modules — the error message from init(). */
+	readonly reason?: string;
 };
 
 export type PluginContext = CorePorts & {

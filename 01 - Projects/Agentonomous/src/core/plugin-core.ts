@@ -39,8 +39,11 @@ export interface CorePorts {
 	readonly i18nMerge?: (locale: string, messages: Record<string, string>) => void;
 }
 
+export type PluginState = 'idle' | 'initializing' | 'ready' | 'failed' | 'destroyed';
+
 export class PluginCore {
-	private state: 'idle' | 'initializing' | 'ready' | 'destroyed' = 'idle';
+	private state: PluginState = 'idle';
+	private failureReasonValue: string | null = null;
 	private readonly ports: CorePorts;
 	private readonly modules: readonly Module[];
 	private sortedModules: Module[] = [];
@@ -49,6 +52,7 @@ export class PluginCore {
 	private currentCoreSettings: CoreSettings = CORE_SETTINGS_DEFAULTS;
 	private initializedModuleIds = new Set<string>();
 	private degradedModuleIds: string[] = [];
+	private readonly degradedReasons = new Map<string, string>();
 	private readonly initListenerDelta = new Map<string, number>();
 
 	constructor(ports: CorePorts, modules: readonly Module[]) {
@@ -70,7 +74,8 @@ export class PluginCore {
 		if (validationErrors.length > 0) {
 			this.ports.eventBus.emit('core', { phase: 'validation', errors: validationErrors });
 			this.ports.logger.error('core', `Startup validation failed: ${validationErrors.join('; ')}`);
-			this.state = 'destroyed';
+			this.state = 'failed';
+			this.failureReasonValue = validationErrors.join('; ');
 			return;
 		}
 
@@ -116,7 +121,7 @@ export class PluginCore {
 		this.ports.logger.info('core', 'Plugin initialized');
 	}
 
-	destroy(): void {
+	async destroy(): Promise<void> {
 		this.ports.eventBus.emit('core', { phase: 'destroying' });
 		this.settingsUnsub?.();
 
@@ -125,7 +130,7 @@ export class PluginCore {
 
 			const delta = this.initListenerDelta.get(m.id) ?? 0;
 			const before = this.ports.eventBus.listenerCount();
-			m.destroy();
+			await m.destroy();
 			const after = this.ports.eventBus.listenerCount();
 			// A module that added N listeners at init time should unsubscribe at
 			// least N on destroy. Anything less is a leak. Modules that never
@@ -136,6 +141,7 @@ export class PluginCore {
 		}
 
 		this.ports.commands.unregisterAll();
+		this.ports.scheduler.cancelAll();
 		this.errorHandler?.destroy();
 		this.state = 'destroyed';
 		this.ports.eventBus.emit('core', { phase: 'destroyed' });
@@ -145,12 +151,25 @@ export class PluginCore {
 		return this.state === 'ready';
 	}
 
+	get currentState(): PluginState {
+		return this.state;
+	}
+
+	get failureReason(): string | null {
+		return this.failureReasonValue;
+	}
+
 	get coreSettings(): CoreSettings {
 		return this.currentCoreSettings;
 	}
 
 	get degradedModules(): readonly string[] {
 		return this.degradedModuleIds;
+	}
+
+	/** Reason each degraded module failed to initialize (keyed by module id). */
+	get moduleFailures(): ReadonlyMap<string, string> {
+		return this.degradedReasons;
 	}
 
 	get registeredModules(): readonly Module[] {
@@ -373,6 +392,7 @@ export class PluginCore {
 				const msg = error instanceof Error ? error.message : String(error);
 				this.ports.logger.error('core', `Module "${m.id}" failed to initialize: ${msg}`);
 				this.degradedModuleIds.push(m.id);
+				this.degradedReasons.set(m.id, msg);
 			}
 		}
 

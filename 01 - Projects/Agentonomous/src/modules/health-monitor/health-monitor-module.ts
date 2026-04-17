@@ -27,7 +27,7 @@ export const HealthMonitorModule = defineModule({
 
 	init(ports) {
 		if (state !== null) {
-			this.destroy();
+			void this.destroy();
 		}
 
 		const showHealthCallback = (): void => {

@@ -79,7 +79,7 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 
 	init(ports, settings) {
 		if (state !== null) {
-			this.destroy();
+			void this.destroy();
 		}
 
 		if (!settings.enabled) {

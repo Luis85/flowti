@@ -87,11 +87,13 @@ export default class AgentonomousPlugin extends Plugin {
 		);
 		await this.core.init();
 
-		const moduleStatus: readonly ModuleStatus[] = this.core.registeredModules.map((m) => ({
-			id: m.id,
-			name: m.name,
-			status: this.core!.degradedModules.includes(m.id) ? 'degraded' as const : 'ready' as const,
-		}));
+		const coreRef = this.core;
+		const moduleStatus: readonly ModuleStatus[] = coreRef.registeredModules.map((m) => {
+			const degraded = coreRef.degradedModules.includes(m.id);
+			const reason = coreRef.moduleFailures.get(m.id);
+			const base = { id: m.id, name: m.name, status: degraded ? 'degraded' as const : 'ready' as const };
+			return reason !== undefined ? { ...base, reason } : base;
+		});
 
 		// Ribbon visibility: adapter-level concern, driven by CoreSettings
 		commands.setRibbonVisibility(this.core.coreSettings.showRibbonIcon);
@@ -129,10 +131,19 @@ export default class AgentonomousPlugin extends Plugin {
 		const activeIntentTypes = new Set(
 			this.core.registeredModules.flatMap((m) => (m.views ?? []).map((v) => v.type)),
 		);
+		const knownRegistrationTypes = new Set(VIEW_REGISTRATIONS.map((r) => r.type));
+		const missingRegistrations = [...activeIntentTypes].filter((t) => !knownRegistrationTypes.has(t));
+		if (missingRegistrations.length > 0) {
+			logger.warn(
+				'core',
+				`View intents declared by modules have no matching registration: ${missingRegistrations.join(', ')}. ` +
+				`Add to src/infrastructure/obsidian/views/index.ts`,
+			);
+		}
 		const activeRegistrations = VIEW_REGISTRATIONS.filter((r) => activeIntentTypes.has(r.type));
 		views.registerAll(this, ctx, activeRegistrations);
 		this.core.registerExtensions(fileExtensions);
 		this.addSettingTab(new AgentonomousSettingsTab(this.app, this, settings, translationPort, this.core.registeredModules));
-		this.register(() => { this.core?.destroy(); });
+		this.register(() => { void this.core?.destroy(); });
 	}
 }

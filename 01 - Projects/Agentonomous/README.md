@@ -22,7 +22,6 @@ Requires Node `>=20.19.0`.
 |--------|---------|
 | `npm run build` | Production build (dist only — no deploy) |
 | `npm run build:deploy` | Production build + auto-deploy to test vault (dev convenience) |
-| `npm run build:dev` | Watch build (dist only — no deploy) |
 | `npm run deploy` | Copy existing dist to test vault |
 | `npm test` | Lint + typecheck + Vitest |
 | `npm run test:watch` | Vitest watch mode |

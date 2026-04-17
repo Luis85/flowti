@@ -69,6 +69,10 @@ export class ObsidianVaultAdapter implements VaultPort {
 
 	list(folder: string): Promise<Result<string[], string>> {
 		const files = this.app.vault.getFiles();
-		return Promise.resolve(ok(files.map((f) => f.path).filter((p) => p.startsWith(folder))));
+		// Root (empty folder) matches all; otherwise require a trailing slash
+		// boundary so `"notes"` doesn't match `"notes-archive/foo.md"`.
+		const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
+		const paths = files.map((f) => f.path);
+		return Promise.resolve(ok(prefix === '' ? paths : paths.filter((p) => p.startsWith(prefix))));
 	}
 }

@@ -97,8 +97,12 @@ export interface Module {
 	 */
 	onSettingsChange?(next: unknown): void;
 
-	/** Called on plugin unload in reverse dependency order. Must unsubscribe all listeners and clear intervals. */
-	destroy(): void;
+	/**
+	 * Called on plugin unload in reverse dependency order.  Must unsubscribe
+	 * all listeners and clear intervals.  May be async — PluginCore awaits
+	 * each module's destroy() before moving on.
+	 */
+	destroy(): void | Promise<void>;
 }
 
 /**
@@ -124,7 +128,7 @@ export function defineModule<TSettings = unknown>(def: {
 	readonly views?: readonly ViewIntent[];
 	init(ports: ModulePorts, settings: TSettings): Promise<void>;
 	onSettingsChange?(next: TSettings): void;
-	destroy(): void;
+	destroy(): void | Promise<void>;
 }): Module {
 	return def as Module;
 }

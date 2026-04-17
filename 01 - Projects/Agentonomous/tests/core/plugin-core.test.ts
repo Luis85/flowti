@@ -35,7 +35,7 @@ describe('PluginCore with modules', () => {
 			[b, a],
 		);
 		await core.init();
-		core.destroy();
+		await core.destroy();
 		expect(order).toEqual(['b', 'a']);
 	});
 
@@ -112,7 +112,7 @@ describe('PluginCore with modules', () => {
 
 		const phases: string[] = [];
 		bus.on('core', (env) => { phases.push(String(env.payload.phase)); });
-		core.destroy();
+		await core.destroy();
 		expect(phases).toContain('destroying');
 		expect(phases).toContain('destroyed');
 	});
@@ -173,7 +173,7 @@ describe('PluginCore with modules', () => {
 			[m],
 		);
 		await core.init();
-		core.destroy();
+		await core.destroy();
 		expect(core.ready).toBe(false);
 	});
 });
@@ -249,7 +249,7 @@ describe('PluginCore graceful degradation', () => {
 			[broken, healthy],
 		);
 		await core.init();
-		core.destroy();
+		await core.destroy();
 		expect(destroyCalls).toEqual(['healthy']);
 		expect(destroyCalls).not.toContain('broken');
 	});
@@ -340,7 +340,7 @@ describe('PluginCore listener leak detection', () => {
 			[leaky],
 		);
 		await core.init();
-		core.destroy();
+		await core.destroy();
 		expect(logger.warn).toHaveBeenCalledWith('core', expect.stringContaining('leaky'));
 	});
 });
@@ -438,7 +438,7 @@ describe('PluginCore settings event channel', () => {
 		await new Promise((r) => { setTimeout(r, 0); });
 
 		expect(listener).toHaveBeenCalledOnce();
-		core.destroy();
+		await core.destroy();
 	});
 });
 
@@ -469,7 +469,7 @@ describe('PluginCore migration re-save', () => {
 		expect(settings.save).toHaveBeenCalled();
 		const savedBlob = (settings.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
 		expect((savedBlob['test'] as Record<string, unknown>)['migrated']).toBe(true);
-		core.destroy();
+		await core.destroy();
 	});
 });
 
@@ -498,7 +498,7 @@ describe('PluginCore onSettingsChange dispatch', () => {
 
 		expect(hook).toHaveBeenCalledTimes(1);
 		expect(hook).toHaveBeenCalledWith({ count: 7 });
-		core.destroy();
+		await core.destroy();
 	});
 
 	it('ignores modules without onSettingsChange', async () => {
@@ -518,7 +518,7 @@ describe('PluginCore onSettingsChange dispatch', () => {
 		);
 		await core.init();
 		await expect(settings.saveSection('quiet', { count: 2 })).resolves.toBeDefined();
-		core.destroy();
+		await core.destroy();
 	});
 
 	it('does not call onSettingsChange for unrelated section changes', async () => {
@@ -544,7 +544,7 @@ describe('PluginCore onSettingsChange dispatch', () => {
 		await settings.saveSection('other', { x: 2 });
 
 		expect(hook).not.toHaveBeenCalled();
-		core.destroy();
+		await core.destroy();
 	});
 
 	it('logs error and continues when onSettingsChange throws', async () => {
@@ -568,6 +568,6 @@ describe('PluginCore onSettingsChange dispatch', () => {
 		await settings.saveSection('broken', { count: 2 });
 
 		expect(logger.error).toHaveBeenCalledWith('core', expect.stringContaining('oops'));
-		core.destroy();
+		await core.destroy();
 	});
 });
