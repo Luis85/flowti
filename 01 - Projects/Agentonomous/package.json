@@ -22,6 +22,7 @@
     "build-storybook": "storybook build",
     "docs": "typedoc --options configs/typedoc.json",
     "release": "node scripts/package-release.mjs",
+    "scaffold:module": "node scripts/scaffold-module.mjs",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "devDependencies": {
