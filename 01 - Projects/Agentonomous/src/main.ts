@@ -10,6 +10,7 @@ import { ObsidianPlatformAdapter } from './infrastructure/obsidian/obsidian-plat
 import { ObsidianVaultAdapter } from './infrastructure/obsidian/obsidian-vault-adapter.js';
 import { ObsidianFileExtensionAdapter } from './infrastructure/obsidian/obsidian-file-extension-adapter.js';
 import { ObsidianStorageAdapter } from './infrastructure/obsidian/obsidian-storage-adapter.js';
+import { UnimplementedAgentAdapter, UnimplementedTaskAdapter } from './infrastructure/agents/unimplemented-agent-adapter.js';
 import { ViewRegistry } from './infrastructure/obsidian/view-registry.js';
 import { VIEW_REGISTRATIONS } from './infrastructure/obsidian/views/index.js';
 import { AgentonomousSettingsTab } from './infrastructure/settings/settings-tab.js';
@@ -51,6 +52,8 @@ export default class AgentonomousPlugin extends Plugin {
 		const vault = new ObsidianVaultAdapter(this.app);
 		const fileExtensions = new ObsidianFileExtensionAdapter(this);
 		const storage = new ObsidianStorageAdapter(this);
+		const agents = new UnimplementedAgentAdapter();
+		const tasks = new UnimplementedTaskAdapter();
 		const views = new ViewRegistry();
 		const logger = new Logger(bus, 'info');
 		const notifications = new ObsidianNotificationAdapter();
@@ -70,6 +73,8 @@ export default class AgentonomousPlugin extends Plugin {
 				platform,
 				vault,
 				storage,
+				agents,
+				tasks,
 				i18nMerge: (locale, messages) => { i18n.global.mergeLocaleMessage(locale, messages); },
 			},
 			modules,
@@ -103,6 +108,8 @@ export default class AgentonomousPlugin extends Plugin {
 			platform,
 			vault,
 			storage,
+			agents,
+			tasks,
 			i18n,
 			moduleStatus,
 		};

@@ -9,6 +9,8 @@ import type { TranslationPort } from '../../src/domain/shared/translation-port.j
 import type { PlatformPort } from '../../src/domain/shared/platform-port.js';
 import type { VaultPort } from '../../src/domain/shared/vault-port.js';
 import type { StoragePort } from '../../src/domain/shared/storage-port.js';
+import type { AgentPort, TaskPort } from '../../src/domain/agents/agent-port.js';
+import { UnimplementedAgentAdapter, UnimplementedTaskAdapter } from '../../src/infrastructure/agents/unimplemented-agent-adapter.js';
 import { ok } from '../../src/domain/shared/result.js';
 
 export function fakeLogger(): LoggerPort {
@@ -131,6 +133,14 @@ export function fakeStorage(): StoragePort {
 	};
 }
 
+export function fakeAgents(): AgentPort {
+	return new UnimplementedAgentAdapter();
+}
+
+export function fakeTasks(): TaskPort {
+	return new UnimplementedTaskAdapter();
+}
+
 export function fakeModulePorts(overrides?: Partial<ModulePorts>): ModulePorts {
 	return {
 		eventBus: overrides?.eventBus ?? { on: vi.fn(() => () => {}), emit: vi.fn(), emitAsync: vi.fn(), onAny: vi.fn(() => () => {}), listenerCount: vi.fn(() => 0) } as never,
@@ -142,6 +152,8 @@ export function fakeModulePorts(overrides?: Partial<ModulePorts>): ModulePorts {
 		platform: overrides?.platform ?? fakePlatform(),
 		vault: overrides?.vault ?? fakeVault(),
 		storage: overrides?.storage ?? fakeStorage(),
+		agents: overrides?.agents ?? fakeAgents(),
+		tasks: overrides?.tasks ?? fakeTasks(),
 		...overrides,
 	};
 }
