@@ -8,6 +8,7 @@ import type { CommandEntry } from '../commands/command-types.js';
 import type { TranslationPort } from './translation-port.js';
 import type { PlatformPort } from './platform-port.js';
 import type { VaultPort } from './vault-port.js';
+import type { StoragePort } from './storage-port.js';
 import type { ViewIntent } from '../views/view-registration.js';
 
 /** Scoped ports injected into every module at init time. */
@@ -28,6 +29,8 @@ export interface ModulePorts {
 	readonly platform: PlatformPort;
 	/** Vault CRUD + frontmatter access. */
 	readonly vault: VaultPort;
+	/** Namespaced keyed JSON storage for structured per-module data. */
+	readonly storage: StoragePort;
 }
 
 /** A self-contained feature unit. Registered with PluginCore and lifecycle-managed. */

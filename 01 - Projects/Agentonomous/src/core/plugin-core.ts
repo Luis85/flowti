@@ -9,6 +9,7 @@ import type { Unsubscribe } from '../domain/shared/unsubscribe.js';
 import type { TranslationPort } from '../domain/shared/translation-port.js';
 import type { PlatformPort } from '../domain/shared/platform-port.js';
 import type { VaultPort } from '../domain/shared/vault-port.js';
+import type { StoragePort } from '../domain/shared/storage-port.js';
 import type { FileExtensionPort } from '../domain/shared/file-extension-port.js';
 import { isOk } from '../domain/shared/result.js';
 import { topologicalSort } from '../domain/shared/utils/topo-sort.js';
@@ -26,6 +27,7 @@ export interface CorePorts {
 	readonly t: TranslationPort;
 	readonly platform: PlatformPort;
 	readonly vault: VaultPort;
+	readonly storage: StoragePort;
 	/** Merge per-locale messages from a module into the i18n instance. Platform-agnostic callback. */
 	readonly i18nMerge?: (locale: string, messages: Record<string, string>) => void;
 }
@@ -234,6 +236,7 @@ export class PluginCore {
 			t: this.ports.t,
 			platform: this.ports.platform,
 			vault: this.ports.vault,
+			storage: this.ports.storage,
 		};
 	}
 

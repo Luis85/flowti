@@ -8,6 +8,7 @@ import type { ModulePorts } from '../../src/domain/shared/module.js';
 import type { TranslationPort } from '../../src/domain/shared/translation-port.js';
 import type { PlatformPort } from '../../src/domain/shared/platform-port.js';
 import type { VaultPort } from '../../src/domain/shared/vault-port.js';
+import type { StoragePort } from '../../src/domain/shared/storage-port.js';
 import { ok } from '../../src/domain/shared/result.js';
 
 export function fakeLogger(): LoggerPort {
@@ -102,6 +103,34 @@ export function fakeVault(): VaultPort {
 	};
 }
 
+export function fakeStorage(): StoragePort {
+	const store = new Map<string, Map<string, unknown>>();
+	const ns = (namespace: string): Map<string, unknown> => {
+		let bucket = store.get(namespace);
+		if (bucket === undefined) {
+			bucket = new Map();
+			store.set(namespace, bucket);
+		}
+		return bucket;
+	};
+	return {
+		loadJson: vi.fn(async (namespace: string, key: string) => ok(ns(namespace).get(key) ?? null)),
+		saveJson: vi.fn(async (namespace: string, key: string, value: unknown) => {
+			ns(namespace).set(key, value);
+			return ok(undefined as void);
+		}),
+		deleteKey: vi.fn(async (namespace: string, key: string) => {
+			ns(namespace).delete(key);
+			return ok(undefined as void);
+		}),
+		listKeys: vi.fn(async (namespace: string) => ok([...ns(namespace).keys()])),
+		clearNamespace: vi.fn(async (namespace: string) => {
+			store.delete(namespace);
+			return ok(undefined as void);
+		}),
+	};
+}
+
 export function fakeModulePorts(overrides?: Partial<ModulePorts>): ModulePorts {
 	return {
 		eventBus: overrides?.eventBus ?? { on: vi.fn(() => () => {}), emit: vi.fn(), emitAsync: vi.fn(), onAny: vi.fn(() => () => {}), listenerCount: vi.fn(() => 0) } as never,
@@ -112,6 +141,7 @@ export function fakeModulePorts(overrides?: Partial<ModulePorts>): ModulePorts {
 		t: overrides?.t ?? fakeTranslation(),
 		platform: overrides?.platform ?? fakePlatform(),
 		vault: overrides?.vault ?? fakeVault(),
+		storage: overrides?.storage ?? fakeStorage(),
 		...overrides,
 	};
 }
