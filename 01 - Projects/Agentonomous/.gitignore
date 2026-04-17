@@ -9,3 +9,5 @@ storybook-static/
 Thumbs.db
 
 *storybook.log
+.hotreload
+vitest.shims.d.ts
