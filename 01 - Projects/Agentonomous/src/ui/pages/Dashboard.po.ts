@@ -1,6 +1,10 @@
 export class DashboardPage {
 	constructor(private readonly root: HTMLElement) {}
 
+	get moduleCardsContainer(): HTMLElement | null {
+		return this.el('module-cards');
+	}
+
 	get moduleCards(): { name: string; status: string }[] {
 		const cards = this.root.querySelectorAll('[data-testid^="module-card-"]');
 		return Array.from(cards).map((card) => ({

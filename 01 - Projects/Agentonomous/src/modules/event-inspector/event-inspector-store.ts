@@ -1,64 +1,31 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { EventEnvelope } from '../../domain/shared/event-bus.js';
-import type { EventBuffer } from './event-inspector-buffer.js';
 
-/**
- * Creates a reactive Pinia store backed by a plain-TS EventBuffer.
- * The store is created lazily when the sidebar view mounts — keeping the
- * module itself free of Vue/Pinia imports.
- */
-export function createEventInspectorStore(buffer: EventBuffer) {
-	return defineStore('event-inspector', () => {
-		const events = ref<EventEnvelope[]>([...buffer.getAll()]);
-		const filterChannels = ref<string[]>([]);
+const pending: EventEnvelope[] = [];
+let maxBuffer = 500;
 
-		// Sync with the buffer whenever it changes (add / clear / setMax).
-		const stopSync = buffer.onChange(() => {
-			events.value = [...buffer.getAll()];
-		});
-
-		const filteredEvents = computed(() => {
-			if (filterChannels.value.length === 0) return events.value;
-			return events.value.filter((e) => filterChannels.value.includes(e.channel as string));
-		});
-
-		const traceGroups = computed(() => {
-			const groups = new Map<string, EventEnvelope[]>();
-			for (const event of events.value) {
-				const existing = groups.get(event.traceId);
-				if (existing !== undefined) {
-					existing.push(event);
-				} else {
-					groups.set(event.traceId, [event]);
-				}
-			}
-			return groups;
-		});
-
-		function setFilterChannels(channels: string[]): void {
-			filterChannels.value = channels;
-		}
-
-		function clear(): void {
-			buffer.clear();
-		}
-
-		function dispose(): void {
-			stopSync();
-		}
-
-		return { events, filteredEvents, traceGroups, filterChannels, setFilterChannels, clear, dispose };
-	});
+export function pushEvent(envelope: EventEnvelope): void {
+	pending.push(envelope);
+	if (pending.length > maxBuffer) {
+		pending.splice(0, pending.length - maxBuffer);
+	}
 }
 
-/**
- * Standalone store definition (no buffer) for use in unit tests that
- * want to drive the store directly without going through a module.
- */
+export function setMaxBufferSize(max: number): void {
+	maxBuffer = max;
+	if (pending.length > max) {
+		pending.splice(0, pending.length - max);
+	}
+}
+
+export function clearPending(): void {
+	pending.length = 0;
+}
+
 export const useEventInspectorStore = defineStore('event-inspector', () => {
-	const events = ref<EventEnvelope[]>([]);
-	const maxEvents = ref<number>(500);
+	const events = ref<EventEnvelope[]>(pending.splice(0));
+	const maxEvents = ref<number>(maxBuffer);
 	const filterChannels = ref<string[]>([]);
 
 	const filteredEvents = computed(() => {

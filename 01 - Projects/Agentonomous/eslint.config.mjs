@@ -7,7 +7,7 @@ import vuePlugin from 'eslint-plugin-vue';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(__dirname, '..');
+const projectRoot = __dirname;
 
 const vueRecommendedRules = Object.assign(
 	{},
@@ -67,7 +67,7 @@ export default [
 		languageOptions: {
 			parser: tsparser,
 			parserOptions: {
-				project: './configs/tsconfig.lint.json',
+				project: './tsconfig.lint.json',
 				tsconfigRootDir: projectRoot,
 			},
 		},
@@ -95,7 +95,7 @@ export default [
 		languageOptions: {
 			parser: tsparser,
 			parserOptions: {
-				project: './configs/tsconfig.lint.json',
+				project: './tsconfig.lint.json',
 				tsconfigRootDir: projectRoot,
 			},
 		},
@@ -116,7 +116,7 @@ export default [
 			parser: vueparser,
 			parserOptions: {
 				parser: tsparser,
-				project: './configs/tsconfig.lint.json',
+				project: './tsconfig.lint.json',
 				tsconfigRootDir: projectRoot,
 				extraFileExtensions: ['.vue'],
 				ecmaVersion: 'latest',

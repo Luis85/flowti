@@ -1,0 +1,26 @@
+:root {
+	--text-normal: #dcddde;
+	--text-muted: #999;
+	--text-faint: #666;
+	--text-on-accent: #dcddde;
+	--interactive-normal: #2a2a2a;
+	--interactive-hover: #353535;
+	--interactive-accent: #7f6df2;
+	--background-primary: #1e1e1e;
+	--background-primary-alt: #262626;
+	--background-secondary: #262626;
+	--background-secondary-alt: #1a1a1a;
+	--background-modifier-border: #404040;
+	--background-modifier-form-field: #1a1a1a;
+	--background-modifier-hover: rgba(255, 255, 255, 0.06);
+	--background-modifier-active-hover: rgba(255, 255, 255, 0.08);
+	--background-modifier-success: #197300;
+	--background-modifier-error: #3d0000;
+	--font-text: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-text);
+}

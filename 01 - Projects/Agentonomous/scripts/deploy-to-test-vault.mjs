@@ -1,12 +1,20 @@
-import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const vault = process.env.AGENTONOMOUS_TEST_VAULT ?? 'C:\\Projects\\Agentonomous';
-const distDir = resolve(process.cwd(), 'dist');
-const targetDir = resolve(vault, '.obsidian', 'plugins', 'agentonomous');
-const files = ['main.js', 'manifest.json', 'styles.css'];
+const configPath = resolve(process.cwd(), 'configs', 'deploy-targets.json');
+if (!existsSync(configPath)) {
+	console.error('[deploy] configs/deploy-targets.json not found');
+	process.exit(1);
+}
 
-mkdirSync(targetDir, { recursive: true });
+const { targets } = JSON.parse(readFileSync(configPath, 'utf8'));
+if (!targets?.length) {
+	console.error('[deploy] no targets defined in configs/deploy-targets.json');
+	process.exit(1);
+}
+
+const distDir = resolve(process.cwd(), 'dist');
+const files = ['main.js', 'manifest.json', 'styles.css'];
 
 for (const file of files) {
 	const src = resolve(distDir, file);
@@ -14,10 +22,19 @@ for (const file of files) {
 		console.error(`[deploy] missing ${file} in dist/ — run \`npm run build\` first`);
 		process.exit(1);
 	}
-	const dest = resolve(targetDir, file);
-	copyFileSync(src, dest);
-	const { size } = statSync(dest);
-	console.log(`[deploy] ${file} -> ${dest} (${size} bytes)`);
 }
 
-console.log(`[deploy] ok — plugin deployed to ${targetDir}`);
+for (const { name, path: vaultPath } of targets) {
+	const targetDir = resolve(vaultPath, '.obsidian', 'plugins', 'agentonomous');
+	mkdirSync(targetDir, { recursive: true });
+
+	for (const file of files) {
+		const src = resolve(distDir, file);
+		const dest = resolve(targetDir, file);
+		copyFileSync(src, dest);
+		const { size } = statSync(dest);
+		console.log(`[deploy:${name}] ${file} -> ${dest} (${size} bytes)`);
+	}
+
+	console.log(`[deploy:${name}] ok`);
+}

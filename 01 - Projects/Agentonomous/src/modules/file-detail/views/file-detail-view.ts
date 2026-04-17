@@ -1,15 +1,11 @@
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type { PluginContext } from '../../../plugin.js';
 import { VIEW_TYPE_FILE_DETAIL } from '../file-detail-module.js';
+import { setFileDetail, clearFileDetail } from '../file-detail-store.js';
 
 export { VIEW_TYPE_FILE_DETAIL };
 
 type MountedView = { unmount: () => void };
-
-type AnalysisResult = {
-	analysis: { fileName: string; extension: string; sizeBytes: number; summary: Record<string, string | number> } | null;
-	error: string | null;
-};
 
 function getFilePathFromState(state: unknown): string | null {
 	if (typeof state !== 'object' || state === null) return null;
@@ -17,11 +13,6 @@ function getFilePathFromState(state: unknown): string | null {
 	return typeof s['file'] === 'string' ? s['file'] : null;
 }
 
-/**
- * Obsidian ItemView for the File Detail panel.
- * Reads the file path from ViewState, fetches the file content via VaultPort,
- * runs the appropriate handler, and mounts a Vue component to display the result.
- */
 export class FileDetailView extends ItemView {
 	private mounted: MountedView | null = null;
 	private mounting = false;
@@ -40,11 +31,10 @@ export class FileDetailView extends ItemView {
 		if (this.mounted !== null || this.mounting) return;
 		this.mounting = true;
 		try {
-			const state = this.getState();
-			const result = await this.buildAnalysis(state);
+			await this.loadFileAnalysis();
 			const { createModuleVueApp } = await import('../../../ui/create-module-vue-app.js');
 			const { default: FileDetailViewComponent } = await import('./FileDetailView.vue');
-			this.mounted = createModuleVueApp(FileDetailViewComponent, this.ctx, this.contentEl, result as Record<string, unknown>);
+			this.mounted = createModuleVueApp(FileDetailViewComponent, this.ctx, this.contentEl);
 		} catch (err) {
 			this.contentEl.empty();
 			this.contentEl.createEl('div', {
@@ -58,16 +48,21 @@ export class FileDetailView extends ItemView {
 	onClose(): Promise<void> {
 		this.mounted?.unmount();
 		this.mounted = null;
+		clearFileDetail();
 		return Promise.resolve();
 	}
 
-	private async buildAnalysis(state: unknown): Promise<AnalysisResult> {
-		const filePath = getFilePathFromState(state);
-		if (filePath === null) return { analysis: null, error: null };
+	private async loadFileAnalysis(): Promise<void> {
+		const filePath = getFilePathFromState(this.getState());
+		if (filePath === null) {
+			setFileDetail(null, null);
+			return;
+		}
 
 		const result = await this.ctx.vault.read(filePath);
 		if (result.kind === 'err') {
-			return { analysis: null, error: `Could not read file: ${result.error}` };
+			setFileDetail(null, `Could not read file: ${result.error}`);
+			return;
 		}
 
 		const { getHandler } = await import('../handlers/handler-registry.js');
@@ -75,11 +70,12 @@ export class FileDetailView extends ItemView {
 		const ext = file.path.split('.').pop()?.toLowerCase() ?? '';
 		const handler = getHandler(ext);
 		if (handler === undefined) {
-			return { analysis: null, error: `No handler for extension: ${ext}` };
+			setFileDetail(null, `No handler for extension: ${ext}`);
+			return;
 		}
 
 		const fileName = file.path.split('/').pop() ?? file.path;
 		const analysis = handler.analyze(file.content, fileName);
-		return { analysis, error: null };
+		setFileDetail(analysis, null);
 	}
 }

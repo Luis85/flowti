@@ -1,33 +1,42 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
-import { expect } from 'vitest';
+import { expect, within, userEvent } from 'storybook/test';
 import Home from '../../src/ui/pages/Home.vue';
-import { HomePage } from '../../src/ui/pages/Home.po.js';
-import { withRouter } from '../decorators/with-router.js';
 
 const meta: Meta<typeof Home> = {
 	title: 'Pages/Home',
 	component: Home,
-	decorators: [withRouter],
 };
 export default meta;
 
 type Story = StoryObj<typeof Home>;
 
-export const Default: Story = {
-	render: () => ({
-		components: { Home },
-		template: '<Home />',
-	}),
-};
+export const Default: Story = {};
 
 export const RendersGreeting: Story = {
-	render: () => ({
-		components: { Home },
-		template: '<Home />',
-	}),
-	play: async ({ canvasElement }) => {
-		const page = new HomePage(canvasElement as HTMLElement);
-		expect(page.greeting).toContain('Agentonomous');
-		expect(page.aboutLink).not.toBeNull();
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+
+		await step('shows greeting with app name', async () => {
+			await expect(canvas.getByTestId('greeting')).toHaveTextContent(/Agentonomous/);
+		});
+
+		await step('shows version string', async () => {
+			await expect(canvas.getByTestId('version')).toBeVisible();
+		});
+
+		await step('has navigation link to About', async () => {
+			await expect(canvas.getByTestId('nav-about')).toBeVisible();
+		});
+	},
+};
+
+export const NavigateToAbout: Story = {
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+
+		await step('click About link', async () => {
+			const aboutLink = canvas.getByTestId('nav-about');
+			await userEvent.click(aboutLink);
+		});
 	},
 };

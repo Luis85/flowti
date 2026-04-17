@@ -1,28 +1,17 @@
 import './event-inspector-events.js';
 import { defineModule } from '../../domain/shared/module.js';
 import { EVENT_INSPECTOR_DEFAULTS, validateEventInspectorSettings, type EventInspectorSettings } from './event-inspector-settings.js';
-import { EventBuffer } from './event-inspector-buffer.js';
+import { pushEvent, setMaxBufferSize, clearPending } from './event-inspector-store.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 import enMessages from './locales/en.json' with { type: 'json' };
 
 export const VIEW_TYPE_EVENT_INSPECTOR = 'agentonomous-event-inspector';
 
-/**
- * The module owns a plain-TS EventBuffer.  The Pinia store (and the Vue
- * sidebar view) wraps this buffer reactively when the leaf opens.
- * This keeps the module itself free of any Vue / Pinia / Obsidian imports.
- */
 type ModuleState = {
-	buffer: EventBuffer;
 	busUnsub: Unsubscribe;
 };
 
 let state: ModuleState | null = null;
-
-/** Read-only accessor so the sidebar view can obtain the buffer on mount. */
-export function getEventBuffer(): EventBuffer | null {
-	return state?.buffer ?? null;
-}
 
 export const EventInspectorModule = defineModule<EventInspectorSettings>({
 	id: 'event-inspector',
@@ -43,7 +32,6 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 	],
 
 	init(ports, settings) {
-		// Guard: if already initialized, destroy first to prevent leaks
 		if (state !== null) {
 			this.destroy();
 		}
@@ -53,12 +41,14 @@ export const EventInspectorModule = defineModule<EventInspectorSettings>({
 			return Promise.resolve();
 		}
 
-		const buffer = new EventBuffer(settings.maxEvents);
+		setMaxBufferSize(settings.maxEvents);
+		clearPending();
+
 		const busUnsub = ports.eventBus.onAny((envelope) => {
-			buffer.add(envelope);
+			pushEvent(envelope);
 		});
 
-		state = { buffer, busUnsub };
+		state = { busUnsub };
 
 		ports.logger.info('event-inspector', `Capturing events (max: ${String(settings.maxEvents)})`);
 		return Promise.resolve();

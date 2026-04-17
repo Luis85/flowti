@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia';
 import PanelLayout from '../../../ui/layouts/PanelLayout.vue';
+import { useFileDetailStore } from '../file-detail-store.js';
 
-type FileAnalysisSummary = Record<string, string | number>;
+const store = useFileDetailStore();
+const { analysis, error } = storeToRefs(store);
 
-const props = defineProps<{
-	analysis: { fileName: string; extension: string; sizeBytes: number; summary: FileAnalysisSummary } | null;
-	error: string | null;
+defineProps<{
 	onOpenInEditor?: () => void;
 }>();
 </script>
@@ -15,24 +16,24 @@ const props = defineProps<{
 		<template #header>File Detail</template>
 
 		<div class="file-detail">
-			<div v-if="props.error !== null" class="file-detail__error">
-				{{ props.error }}
+			<div v-if="error !== null" class="file-detail__error" data-testid="file-error">
+				{{ error }}
 			</div>
 
-			<div v-else-if="props.analysis === null" class="file-detail__empty">
+			<div v-else-if="analysis === null" class="file-detail__empty" data-testid="file-empty">
 				No file selected.
 			</div>
 
 			<div v-else class="file-detail__card">
 				<div class="file-detail__header">
-					<span class="file-detail__name" data-testid="file-name">{{ props.analysis.fileName }}</span>
-					<span class="file-detail__size" data-testid="file-size">{{ props.analysis.sizeBytes }} bytes</span>
+					<span class="file-detail__name" data-testid="file-name">{{ analysis.fileName }}</span>
+					<span class="file-detail__size" data-testid="file-size">{{ analysis.sizeBytes }} bytes</span>
 				</div>
 
 				<table class="file-detail__summary" data-testid="file-summary">
 					<tbody>
 						<tr
-							v-for="(value, key) in props.analysis.summary"
+							v-for="(value, key) in analysis.summary"
 							:key="key"
 						>
 							<th>{{ key }}</th>
@@ -42,10 +43,10 @@ const props = defineProps<{
 				</table>
 
 				<button
-					v-if="props.onOpenInEditor !== undefined"
+					v-if="onOpenInEditor !== undefined"
 					class="file-detail__open-btn"
 					data-testid="open-in-editor"
-					@click="props.onOpenInEditor()"
+					@click="onOpenInEditor()"
 				>
 					Open in editor
 				</button>

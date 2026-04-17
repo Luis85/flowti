@@ -4,9 +4,8 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copyFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { concatStyles } from '../scripts/concat-styles.ts';
 
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 function copyManifest(): Plugin {
 	return {
@@ -31,7 +30,6 @@ function runDeploy(): Plugin {
 export default defineConfig({
 	plugins: [
 		vue(),
-		concatStyles({ projectRoot }),
 		copyManifest(),
 		...(process.env['AGENTONOMOUS_DEPLOY'] === '1' ? [runDeploy()] : []),
 	],
@@ -40,6 +38,7 @@ export default defineConfig({
 			entry: resolve(projectRoot, 'src/main.ts'),
 			formats: ['cjs'],
 			fileName: () => 'main.js',
+			cssFileName: 'styles',
 		},
 		outDir: resolve(projectRoot, 'dist'),
 		emptyOutDir: true,

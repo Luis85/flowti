@@ -1,51 +1,55 @@
 import type { Meta, StoryObj, Decorator } from '@storybook/vue3-vite';
-import { expect } from 'vitest';
-import { createPinia } from 'pinia';
+import { expect, within } from 'storybook/test';
 import Dashboard from '../../src/ui/pages/Dashboard.vue';
-import { DashboardPage } from '../../src/ui/pages/Dashboard.po.js';
 import { useModuleStatusStore } from '../../src/ui/stores/module-status-store.js';
-import { withRouter } from '../decorators/with-router.js';
 
-const withModules: Decorator = (_story, context) => {
-	const pinia = createPinia();
-	const store = useModuleStatusStore(pinia);
-	store.setModules([
-		{ id: 'core', name: 'Core', status: 'ready' },
-		{ id: 'event-inspector', name: 'Event Inspector', status: 'ready' },
-		{ id: 'broken', name: 'Broken', status: 'degraded' },
-	]);
-	return {
-		setup() { return {}; },
-		template: '<story />',
-		global: { plugins: [pinia] },
-	};
-};
+const withModules: Decorator = () => ({
+	setup() {
+		const store = useModuleStatusStore();
+		store.setModules([
+			{ id: 'core', name: 'Core', status: 'ready' },
+			{ id: 'event-inspector', name: 'Event Inspector', status: 'ready' },
+			{ id: 'broken', name: 'Broken', status: 'degraded' },
+		]);
+		return {};
+	},
+	template: '<story />',
+});
 
 const meta: Meta<typeof Dashboard> = {
 	title: 'Pages/Dashboard',
 	component: Dashboard,
-	decorators: [withRouter],
 };
 export default meta;
 
 type Story = StoryObj<typeof Dashboard>;
 
-export const Empty: Story = {
-	render: () => ({
-		components: { Dashboard },
-		template: '<Dashboard />',
-	}),
-};
+export const Empty: Story = {};
 
 export const WithModules: Story = {
 	decorators: [withModules],
-	render: () => ({
-		components: { Dashboard },
-		template: '<Dashboard />',
-	}),
-	play: async ({ canvasElement }) => {
-		const page = new DashboardPage(canvasElement as HTMLElement);
-		expect(canvasElement.querySelector('[data-testid="module-cards"]')).not.toBeNull();
-		expect(page.moduleCards).toHaveLength(3);
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+
+		await step('renders module cards container', async () => {
+			await expect(canvas.getByTestId('module-cards')).toBeVisible();
+		});
+
+		await step('renders all three module cards', async () => {
+			const cards = canvas.getAllByTestId(/^module-card-/);
+			await expect(cards).toHaveLength(3);
+		});
+
+		await step('displays correct module names', async () => {
+			await expect(canvas.getByTestId('module-card-core')).toHaveTextContent('Core');
+			await expect(canvas.getByTestId('module-card-event-inspector')).toHaveTextContent('Event Inspector');
+			await expect(canvas.getByTestId('module-card-broken')).toHaveTextContent('Broken');
+		});
+
+		await step('shows degraded status for broken module', async () => {
+			const brokenCard = canvas.getByTestId('module-card-broken');
+			const status = within(brokenCard).getByTestId('module-status');
+			await expect(status).toHaveTextContent('degraded');
+		});
 	},
 };

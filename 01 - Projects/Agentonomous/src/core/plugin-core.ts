@@ -63,7 +63,7 @@ export class PluginCore {
 			return;
 		}
 
-		const blob = await this.loadSettingsBlob();
+		let blob = await this.loadSettingsBlob();
 		this.currentCoreSettings = this.resolveCoreSettings(blob);
 		const modulePorts = this.buildModulePorts();
 
@@ -88,9 +88,12 @@ export class PluginCore {
 			this.ports.eventBus.emit('core', { phase: 'ready', degraded: true, errors: this.degradedModuleIds.map((id) => `Module "${id}" failed`) });
 		}
 
-		this.settingsUnsub = this.ports.settings.subscribe(async (raw) => {
+		this.settingsUnsub = this.ports.settings.subscribe((raw) => {
 			const previousBlob: unknown = blob;
-			const freshBlob = await this.loadSettingsBlob();
+			const freshBlob = typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+				? raw as Record<string, unknown>
+				: {};
+			blob = freshBlob;
 			this.currentCoreSettings = this.resolveCoreSettings(freshBlob);
 			this.ports.eventBus.emit('settings', { previous: previousBlob, current: raw });
 		});

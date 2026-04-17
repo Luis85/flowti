@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
-import { expect } from 'vitest';
+import { expect, within } from 'storybook/test';
 import HelloCard from '../../src/ui/components/HelloCard.vue';
-import { HelloCardPO } from '../../src/ui/components/HelloCard.po.js';
 
 const meta: Meta<typeof HelloCard> = {
 	title: 'Components/HelloCard',
@@ -23,9 +22,12 @@ export const LongMessage: Story = {
 
 export const RendersContent: Story = {
 	args: { title: 'Test', message: 'Hello' },
-	play: async ({ canvasElement }) => {
-		const po = new HelloCardPO(canvasElement as HTMLElement);
-		expect(po.title).toBe('Test');
-		expect(po.message).toBe('Hello');
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+
+		await step('displays title and message from props', async () => {
+			await expect(canvas.getByTestId('card-title')).toHaveTextContent('Test');
+			await expect(canvas.getByTestId('card-message')).toHaveTextContent('Hello');
+		});
 	},
 };

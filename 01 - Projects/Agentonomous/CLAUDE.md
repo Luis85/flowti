@@ -83,11 +83,12 @@ export AGENTONOMOUS_TEST_VAULT="C:/path/to/your/test-vault"
 
 | File | Purpose |
 |------|---------|
-| `configs/tsconfig.json` | TypeScript config (ES2022, NodeNext, strict, exactOptionalPropertyTypes) — **build only, excludes tests** |
-| `configs/tsconfig.lint.json` | TypeScript config used by ESLint — **includes tests and stories** |
-| `configs/vitest.config.ts` | Vitest config |
-| `configs/eslint.config.mjs` | ESLint config (architecture rules) |
-| `configs/vite.config.ts` | Vite build config |
-| `configs/storybook/` | Storybook config directory |
+| `tsconfig.json` | TypeScript config (ES2022, NodeNext, strict) — **build only, excludes tests** |
+| `tsconfig.lint.json` | TypeScript config used by ESLint — **includes tests and stories** |
+| `vitest.config.ts` | Vitest config (unit + storybook projects) |
+| `eslint.config.mjs` | ESLint config (architecture rules) |
+| `vite.config.ts` | Vite build config |
+| `.storybook/` | Storybook config (Storybook convention) |
+| `configs/deploy-targets.json` | Deploy target vault paths |
 | `configs/typedoc.json` | TypeDoc config |
 | `manifest.json` | Obsidian plugin manifest |

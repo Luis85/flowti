@@ -16,3 +16,16 @@ const { greeting, pluginVersion } = storeToRefs(appStore);
 		</nav>
 	</div>
 </template>
+
+<style scoped>
+.agentonomous-home {
+	padding: 1rem;
+	color: var(--text-normal);
+}
+
+.agentonomous-nav {
+	margin-top: 1rem;
+	display: flex;
+	gap: 0.75rem;
+}
+</style>

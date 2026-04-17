@@ -1,4 +1,3 @@
-// tests/infrastructure/obsidian/fake-plugin.ts
 import { vi } from 'vitest';
 
 export type FakeLeaf = {

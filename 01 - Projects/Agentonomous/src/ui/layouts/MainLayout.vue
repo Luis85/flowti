@@ -11,3 +11,17 @@
 		</main>
 	</div>
 </template>
+
+<style scoped>
+.agentonomous-layout--main {
+	display: flex;
+	flex-direction: column;
+	padding: 1rem;
+	height: 100%;
+	color: var(--text-normal);
+}
+
+.layout-header {
+	margin-bottom: 1rem;
+}
+</style>
