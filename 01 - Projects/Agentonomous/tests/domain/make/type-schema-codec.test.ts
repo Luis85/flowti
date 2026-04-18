@@ -47,6 +47,10 @@ describe('parseTypeSchema / serializeTypeSchema', () => {
 		const raw = { ...BOOK, titleFieldName: 'nonexistent' };
 		expect(parseTypeSchema(raw)).toMatchObject({ kind: 'err', error: { kind: 'title-field-missing' } });
 	});
+	it('reports non-string titleFieldName as invalid-json, not title-field-missing', () => {
+		const raw = { ...BOOK, titleFieldName: 42 };
+		expect(parseTypeSchema(raw)).toMatchObject({ kind: 'err', error: { kind: 'invalid-json' } });
+	});
 	it('rejects title field referencing a non-text field', () => {
 		const raw = { ...BOOK, titleFieldName: 'pages' };
 		expect(parseTypeSchema(raw)).toMatchObject({ kind: 'err', error: { kind: 'title-field-not-text' } });

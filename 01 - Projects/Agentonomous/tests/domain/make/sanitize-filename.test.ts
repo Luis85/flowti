@@ -25,4 +25,13 @@ describe('sanitizeFilenameStem', () => {
 		expect(sanitizeFilenameStem('///')).toBe('');
 		expect(sanitizeFilenameStem('   ')).toBe('');
 	});
+	it('rejects Windows reserved device names (case-insensitive)', () => {
+		for (const reserved of ['CON', 'con', 'Con', 'PRN', 'AUX', 'NUL', 'COM1', 'com9', 'LPT1', 'lpt9']) {
+			expect(sanitizeFilenameStem(reserved)).toBe('');
+		}
+	});
+	it('allows names that merely contain a reserved name as a substring', () => {
+		expect(sanitizeFilenameStem('CONtract')).toBe('CONtract');
+		expect(sanitizeFilenameStem('acon')).toBe('acon');
+	});
 });
