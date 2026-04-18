@@ -314,47 +314,52 @@ export function yamlQuote(value: string): string;
 
 All deterministic. Snapshot-testable. Error unions are exhaustive.
 
-## 4. `VaultPort` Extension
+## 4. `VaultPort` — No Extension Needed
 
-`VaultPort` gains four methods:
+The existing `VaultPort` already provides every operation Make requires. This was reconfirmed against `src/domain/shared/vault-port.ts` at plan-writing time. No port change is proposed.
 
 ```ts
-// src/domain/shared/vault-port.ts
+// src/domain/shared/vault-port.ts — existing surface reproduced here for reference
+export interface VaultPort {
+    read(path: string):                      Promise<Result<VaultFile, string>>;
+    create(path: string, content: string):   Promise<Result<void, string>>;
+    update(path: string, content: string):   Promise<Result<void, string>>;
+    delete(path: string):                    Promise<Result<void, string>>;
+    exists(path: string):                    Promise<boolean>;
+    list(folder: string):                    Promise<Result<string[], string>>;
+    watch(listener: (change: VaultChange) => void): Unsubscribe;
+}
 
-export type VaultPort = {
-    // Existing
-    read(path: string): Promise<Result<string, VaultError>>;
-
-    // New
-    writeText(path: string, content: string, options?: { createFolders?: boolean }): Promise<Result<void, VaultError>>;
-    delete(path: string): Promise<Result<void, VaultError>>;
-    exists(path: string): Promise<boolean>;
-    list(folderPath: string, options?: { extension?: string }): Promise<Result<readonly string[], VaultError>>;
+export type VaultFile = {
+    readonly path: string;
+    readonly content: string;
+    readonly frontmatter: Record<string, unknown>;
+    readonly stat: { readonly size: number; readonly ctime: number; readonly mtime: number };
 };
-
-export type VaultError =
-    | { kind: 'not-found';       path: string }
-    | { kind: 'already-exists';  path: string }
-    | { kind: 'not-a-folder';    path: string }
-    | { kind: 'io-error';        path: string; reason: string };
 ```
 
-### 4.1 Behaviour contract
+### 4.1 Behavior contract (as it stands today)
 
-- `writeText` with `createFolders: true` creates missing ancestor folders. Overwrites existing files unconditionally — callers that want create-only semantics call `exists` first.
-- `delete` goes through Obsidian's system trash (`vault.trash(file, true)`), not a hard delete, so Make's explicit delete dialog pairs with a filesystem-level safety net. Returns `not-found` if the path is missing (not silently-success).
-- `exists` never errors. Returns `false` for missing paths or anything that isn't a file.
-- `list` is non-recursive. Returns the relative paths of immediate children of the folder filtered by extension. If the folder does not exist, returns an empty array (so "no types yet" does not require a pre-flight `exists`). Returns `not-a-folder` only if the path exists but is a file.
+- **`create` vs `update`** — `create` fails if the file already exists; `update` fails if the file does not exist. Make uses `exists` + `create` on the create-instance path (so the `instance-exists` branch is hit deterministically), and `update` on the regenerate-base-file path (where we know the file is present). For the create-type partial-success path (Section 5.3), the sequence is `create(typeJson) → generateBase → create(baseFile) → update(typeJson) with stamped baseFile`.
+- **`delete`** — the adapter implementation delegates to Obsidian's trash in line with the "safety net" design. The port error type is `string`, not a structured union; Make wraps it with `MakeError { kind: 'vault-error', cause: string }` to keep its own errors tagged.
+- **`exists`** — already exists in the signature; used before `create` to surface `instance-exists` explicitly.
+- **`list(folder)`** — returns all descendant paths under the folder (recursive, since the fake implementation filters by `startsWith(prefix)`). Make filters the result in domain land (`type-registry.ts`) to keep only immediate children with the `.json` extension. This is acceptable because the types folder is expected to be small.
+- **Folder creation on write** — the adapter may or may not auto-create parent folders. Make defensively ensures folder existence by calling `create` and, on failure, trying `create` again after attempting a folder-create dance. For v1, the simplest approach is to require the types/bases/instances folders to exist (either pre-created by the user or by Make at first `createType`). Plan Slice 1 adds a helper `ensureFolder(vault, path)` in the service layer that no-ops if the folder exists and creates it otherwise.
+- **`read`** — returns a rich `VaultFile` (content, frontmatter, stat). Make uses `stat.ctime` / `stat.mtime` directly for KPIs and recently-created list, avoiding any need to parse frontmatter for timestamps.
+- **`watch`** — Make does **not** subscribe in v1 (per Section 5.2 external-mutation scope). A future "live external sync" feature could.
 
-### 4.2 Adapter and fake
+### 4.2 `MakeError.vault-error` carries a string
 
-- `src/infrastructure/obsidian/vault-adapter.ts` implements the new methods on top of `app.vault.create|modify|trash|getAbstractFileByPath|getFiles`.
-- `tests/__fakes__/fake-vault.ts` mirrors the API using a `Map<string, string>` store. Domain and module tests alike consume this fake.
+```ts
+{ kind: 'vault-error'; cause: string }   // the raw message from the existing VaultPort
+```
+
+The store's notification layer prepends a Make-specific label when surfacing this to the user (e.g. `"Vault: not found: Make/Types/book.json"`).
 
 ### 4.3 Rejected alternatives
 
-- A separate `VaultWritePort` was considered to keep reads separate from writes. Rejected: the existing `VaultPort` surface is already slim and the "one port per responsibility" split is a purity trade-off without runtime benefit. Callers can still avoid mutations by typing against a `Readonly<Pick<VaultPort, 'read' | 'exists' | 'list'>>` subset where needed.
-- A `hard?: boolean` flag on `delete` to skip the trash. Rejected for v1; trash is always the correct behavior given Make's explicit delete confirmation is already the "are you sure" step.
+- Introducing a `VaultError` structured union was considered. Rejected: would require changing every other module that consumes `VaultPort`. Not worth the blast radius for Make alone; if a future module needs structured errors, the port can be migrated then.
+- A separate `VaultWritePort`. Rejected — the existing surface is fine.
 
 ## 5. The `make` Module
 
@@ -427,14 +432,14 @@ export type DeleteTypeReport = {
 };
 
 export type MakeError =
-    | { kind: 'vault-error';         cause: VaultError }
+    | { kind: 'vault-error';         cause: string }
     | { kind: 'invalid-schema';      issues: NonEmptyArray<SchemaError> }
     | { kind: 'invalid-values';      issues: NonEmptyArray<FieldError> }
     | { kind: 'type-not-found';      typeId: TypeId }
     | { kind: 'duplicate-name';      name: string }
     | { kind: 'instance-exists';     path: string }
     | { kind: 'no-title-field' }
-    | { kind: 'base-generation-failed'; cause: VaultError }
+    | { kind: 'base-generation-failed'; cause: string }
     | { kind: 'not-implemented' };   // used only by Slice 1 scaffold
 ```
 
@@ -752,7 +757,7 @@ Each slice ships a green, usable product.
 
 ### Slice 1 — Foundation & Read Paths
 
-- Extend `VaultPort` + adapter + fake (all four new methods). **Breaking change to the port interface** — all existing `fakeVault()` consumers must add the four new method stubs in the same slice; lint/tsc will surface every call site.
+- **No port changes.** `VaultPort` already covers Make's needs (Section 4).
 - Domain: `type-schema` (+ shared contracts from Section 3.1), `type-schema-codec`, `field-kinds/*`, `instance-ops`, `base-file`, `sanitize-filename`, `yaml-quote`.
 - Module skeleton with `listTypes` + `loadType` fully implemented. All write methods (`createType`, `updateType`, `deleteType`, `createInstance`, `deleteInstance`, `regenerateBaseFile`) return `err({ kind: 'not-implemented' })` — consistent with the "service methods never throw" rule from Section 8.7.
 - UI: per-kind input components + `SchemaForm` + `FieldEditor` + their Storybook stories. All new components use the Storybook theme toolbar pattern introduced in the recent commits (light/dark via decorator).
