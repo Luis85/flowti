@@ -11,12 +11,17 @@ export const TEXT_FIELD_KIND = {
 	defaultField: (name: string): TextField => ({ kind: 'text', name, required: false }),
 	validateField: (_field: TextField): readonly SchemaError[] => [],
 	validateValue: (field: TextField, raw: unknown): Result<TextValue, FieldError> => {
+		if (raw === undefined || raw === null) {
+			if (field.required) return err({ kind: 'required-missing', fieldName: field.name });
+			return ok({ kind: 'text', value: '' });
+		}
 		if (typeof raw !== 'string') return err({ kind: 'invalid-text', fieldName: field.name });
 		if (field.required && raw.trim() === '') return err({ kind: 'required-missing', fieldName: field.name });
 		return ok({ kind: 'text', value: raw });
 	},
 	toFrontmatter: (value: TextValue): unknown => value.value,
 	fromFrontmatter: (field: TextField, raw: unknown): Result<TextValue, FieldError> => {
+		if (raw === undefined || raw === null) return ok({ kind: 'text', value: '' });
 		if (typeof raw !== 'string') return err({ kind: 'invalid-text', fieldName: field.name });
 		return ok({ kind: 'text', value: raw });
 	},

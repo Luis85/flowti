@@ -35,4 +35,11 @@ describe('TEXT_FIELD_KIND', () => {
 	it('fromFrontmatter rejects non-strings', () => {
 		expect(TEXT_FIELD_KIND.fromFrontmatter(TEXT_FIELD, 42)).toMatchObject({ kind: 'err', error: { kind: 'invalid-text' } });
 	});
+	it('treats undefined as required-missing when required', () => {
+		expect(TEXT_FIELD_KIND.validateValue(TEXT_FIELD, undefined)).toMatchObject({ kind: 'err', error: { kind: 'required-missing' } });
+	});
+	it('coerces undefined to empty when not required', () => {
+		const opt: Extract<Field, { kind: 'text' }> = { kind: 'text', name: 'bio', required: false };
+		expect(TEXT_FIELD_KIND.validateValue(opt, undefined)).toEqual({ kind: 'ok', value: { kind: 'text', value: '' } });
+	});
 });
