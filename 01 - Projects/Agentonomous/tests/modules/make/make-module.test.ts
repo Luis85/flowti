@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { MakeModule, getMakeService, subscribeMakeEvents, VIEW_TYPE_MAKE } from '../../../src/modules/make/make-module.js';
+import { describe, it, expect, vi } from 'vitest';
+import { MakeModule, getMakeService, getMakeSettings, subscribeMakeEvents, VIEW_TYPE_MAKE } from '../../../src/modules/make/make-module.js';
 import { MAKE_DEFAULTS } from '../../../src/modules/make/make-settings.js';
 import { fakeModulePorts } from '../../__fakes__/fake-ports.js';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
@@ -31,7 +31,7 @@ describe('MakeModule', () => {
 	it('onSettingsChange with folder change destroys and re-inits', async () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
 		const before = getMakeService();
-		MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, typesFolder: 'OtherTypes' });
+		await MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, typesFolder: 'OtherTypes' });
 		const after = getMakeService();
 		expect(after).not.toBe(before);        // different service instance
 		expect(after).not.toBeNull();
@@ -40,18 +40,47 @@ describe('MakeModule', () => {
 	it('onSettingsChange for non-folder change keeps the SAME service instance', async () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
 		const before = getMakeService();
-		MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, favorites: ['book'] });
+		await MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, favorites: ['book'] });
 		const after = getMakeService();
 		expect(after).toBe(before);             // same instance — no rebuild
 		await MakeModule.destroy();
 	});
 	it('onSettingsChange updates state.settings in place for non-folder changes', async () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
-		MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, favorites: ['book', 'recipe'] });
+		await MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, favorites: ['book', 'recipe'] });
 		// The getter used by the service should now return the new favorites.
 		// (Direct assertion is via the module-level getter exported for tests.)
-		const { getMakeSettings } = await import('../../../src/modules/make/make-module.js');
 		expect(getMakeSettings()?.favorites).toEqual(['book', 'recipe']);
+		await MakeModule.destroy();
+	});
+});
+
+describe('MakeModule onSettingsChange async', () => {
+	it('rebuilds service when typesFolder changes (success path)', async () => {
+		const ports = fakeModulePorts();
+		await MakeModule.init(ports, MAKE_DEFAULTS);
+		const before = getMakeService();
+		expect(before).not.toBeNull();
+		await MakeModule.onSettingsChange!({ ...MAKE_DEFAULTS, typesFolder: 'Schemas' });
+		const after = getMakeService();
+		expect(after).not.toBeNull();
+		expect(after).not.toBe(before);
+		expect(getMakeSettings()?.typesFolder).toBe('Schemas');
+		await MakeModule.destroy();
+	});
+
+	it('re-throws when init fails during settings change, leaves module destroyed', async () => {
+		const ports = fakeModulePorts();
+		await MakeModule.init(ports, MAKE_DEFAULTS);
+		// Failure-injection mechanism (deterministic): MakeModule.init's last
+		// line calls `ports.logger.info('make', 'Make module initialised')`.
+		// Spy on logger.info with mockImplementationOnce so ONLY the next
+		// init throws.
+		vi.spyOn(ports.logger, 'info').mockImplementationOnce(() => { throw new Error('logger boom'); });
+		await expect(
+			MakeModule.onSettingsChange!({ ...MAKE_DEFAULTS, typesFolder: 'Schemas' }),
+		).rejects.toThrow('logger boom');
+		expect(getMakeService()).toBeNull();
 		await MakeModule.destroy();
 	});
 });

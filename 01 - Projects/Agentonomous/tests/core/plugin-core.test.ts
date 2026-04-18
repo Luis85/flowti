@@ -566,8 +566,37 @@ describe('PluginCore onSettingsChange dispatch', () => {
 		);
 		await core.init();
 		await settings.saveSection('broken', { count: 2 });
+		await new Promise((r) => { setTimeout(r, 0); });
 
 		expect(logger.error).toHaveBeenCalledWith('core', expect.stringContaining('oops'));
 		await core.destroy();
+	});
+
+	it('marks a module degraded when its onSettingsChange rejects', async () => {
+		const bus = createEventBus();
+		const emitSpy = vi.spyOn(bus, 'emit');
+		const failingModule = defineModule<{ foo: string }>({
+			id: 'failing',
+			name: 'Failing',
+			settingsKey: 'failing',
+			settingsDefaults: { foo: 'a' },
+			validateSettings: (raw) => ok(raw as { foo: string }),
+			init: () => Promise.resolve(),
+			onSettingsChange: async () => { throw new Error('boom'); },
+			destroy: () => Promise.resolve(),
+		});
+		const settings = fakeSettings({ failing: { foo: 'a' } });
+		const core = new PluginCore(
+			{ settings, commands: fakeCommands(), views: fakeViews(), logger: fakeLogger(), notifications: fakeNotifications(), dialogs: fakeDialogs(), eventBus: bus, t: fakeTranslation(), platform: fakePlatform(), vault: fakeVault(), storage: fakeStorage(), scheduler: fakeScheduler(), agents: fakeAgents(), tasks: fakeTasks() },
+			[failingModule],
+		);
+		await core.init();
+		await settings.saveSection('failing', { foo: 'b' });
+		await new Promise((r) => { setTimeout(r, 0); });
+		expect(core.degradedModules).toContain('failing');
+		expect(emitSpy).toHaveBeenCalledWith(
+			'core',
+			expect.objectContaining({ phase: 'settings-change-failure', moduleId: 'failing' }),
+		);
 	});
 });

@@ -121,7 +121,9 @@ export class PluginCore {
 			this.currentCoreSettings = this.resolveCoreSettings(freshBlob);
 			const changes = diffSettingsBlob(previousBlob, freshBlob);
 			this.ports.eventBus.emit('settings', { action: 'changed', changes });
-			this.dispatchSettingsChanges(changes, freshBlob);
+			void this.dispatchSettingsChanges(changes, freshBlob).catch((err: unknown) => {
+				this.ports.logger.error('core', `dispatchSettingsChanges top-level failure: ${String(err)}`);
+			});
 		});
 
 		this.state = 'ready';
@@ -284,12 +286,14 @@ export class PluginCore {
 
 	/**
 	 * Forward each changed section to the owning module's onSettingsChange
-	 * hook (if it has one and was successfully initialized).
+	 * hook (if it has one and was successfully initialized). Awaits each
+	 * handler so async rejections are catchable; on failure, marks the
+	 * module degraded and emits a core event.
 	 */
-	private dispatchSettingsChanges(
+	private async dispatchSettingsChanges(
 		changes: ReadonlyArray<{ key: string }>,
 		blob: Record<string, unknown>,
-	): void {
+	): Promise<void> {
 		for (const change of changes) {
 			const m = this.sortedModules.find((mod) => mod.settingsKey === change.key);
 			if (m === undefined || !this.initializedModuleIds.has(m.id)) continue;
@@ -297,10 +301,18 @@ export class PluginCore {
 
 			const { settings } = this.resolveSettingsFor(m, blob);
 			try {
-				m.onSettingsChange(settings);
+				await m.onSettingsChange(settings);
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : String(error);
 				this.ports.logger.error('core', `Module "${m.id}" onSettingsChange failed: ${msg}`);
+				if (!this.degradedModuleIds.includes(m.id)) {
+					this.degradedModuleIds.push(m.id);
+				}
+				this.ports.eventBus.emit('core', {
+					phase: 'settings-change-failure',
+					moduleId: m.id,
+					reason: msg,
+				});
 			}
 		}
 	}

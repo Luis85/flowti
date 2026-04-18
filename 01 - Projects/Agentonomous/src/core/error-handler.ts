@@ -32,7 +32,9 @@ export class ErrorHandler {
 	}
 
 	private handleCore(envelope: EventEnvelope<'core'>): void {
-		const { degraded, errors } = envelope.payload;
+		const payload = envelope.payload;
+		if (payload.phase === 'settings-change-failure') return;
+		const { degraded, errors } = payload;
 		if (degraded !== true || errors === undefined) return;
 		for (const error of errors) {
 			this.notifications.warn(error);

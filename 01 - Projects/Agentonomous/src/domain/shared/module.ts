@@ -95,7 +95,7 @@ export interface Module {
 	 * reconfigure live state (e.g. resize a buffer, rebind a listener) without
 	 * requiring a plugin reload.
 	 */
-	onSettingsChange?(next: unknown): void;
+	onSettingsChange?(next: unknown): void | Promise<void>;
 
 	/**
 	 * Called on plugin unload in reverse dependency order.  Must unsubscribe
@@ -127,7 +127,7 @@ export function defineModule<TSettings = unknown>(def: {
 	readonly extensions?: readonly { readonly ext: string; readonly viewType: string }[];
 	readonly views?: readonly ViewIntent[];
 	init(ports: ModulePorts, settings: TSettings): Promise<void>;
-	onSettingsChange?(next: TSettings): void;
+	onSettingsChange?(next: TSettings): void | Promise<void>;
 	destroy(): void | Promise<void>;
 }): Module {
 	return def as Module;

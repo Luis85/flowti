@@ -74,7 +74,7 @@ export const MakeModule = defineModule<MakeSettings>({
 		state = { ports, service, settings };
 		ports.logger.info('make', 'Make module initialised');
 	},
-	onSettingsChange(next) {
+	async onSettingsChange(next): Promise<void> {
 		if (state === null) return;
 		const prev = state.settings;
 		const folderChanged =
@@ -83,14 +83,15 @@ export const MakeModule = defineModule<MakeSettings>({
 			prev.defaultInstancesRoot !== next.defaultInstancesRoot;
 		if (folderChanged) {
 			const ports = state.ports;
-			// Interface contract is synchronous; fire-and-forget is safe today because
-			// destroy() and init() resolve in a single microtask with no real async work.
-			void this.destroy();
-			void this.init(ports, next);
-		} else {
-			// Favorites / enabled-flag changes: update settings in place, reuse service.
-			state.settings = next;
+			await this.destroy();
+			return this.init(ports, next).catch((err: unknown) => {
+				state = null;
+				ports.logger.error('make', `re-init after folder change failed: ${String(err)}`);
+				return Promise.reject(err);
+			});
 		}
+		// Favorites / enabled-flag changes: update settings in place, reuse service.
+		state.settings = next;
 	},
 	destroy() { state = null; return Promise.resolve(); },
 });

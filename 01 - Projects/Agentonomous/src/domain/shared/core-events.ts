@@ -8,7 +8,9 @@ declare module './event-bus.js' {
 			action: 'changed' | 'replaced';
 			changes: ReadonlyArray<{ key: string; previous?: unknown; current?: unknown }>;
 		};
-		core: { phase: 'initializing' | 'ready' | 'destroying' | 'destroyed' | 'validation'; degraded?: boolean; errors?: string[] };
+		core:
+			| { phase: 'initializing' | 'ready' | 'destroying' | 'destroyed' | 'validation'; degraded?: boolean; errors?: string[] }
+			| { phase: 'settings-change-failure'; moduleId: string; reason: string };
 		command: { id: string; trigger: 'palette' | 'ribbon' | 'hotkey' };
 	}
 }
