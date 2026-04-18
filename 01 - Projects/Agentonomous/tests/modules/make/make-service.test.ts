@@ -4,6 +4,7 @@ import { MAKE_DEFAULTS } from '../../../src/modules/make/make-settings.js';
 import { fakeModulePorts, fakeVault } from '../../__fakes__/fake-ports.js';
 import { serializeTypeSchema } from '../../../src/domain/make/type-schema-codec.js';
 import { generateBaseYaml } from '../../../src/domain/make/base-file.js';
+import { err } from '../../../src/domain/shared/result.js';
 import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
 
 const BOOK: TypeSchema = {
@@ -500,6 +501,32 @@ describe('makeService.toggleFavorite', () => {
 		const r = await svc.toggleFavorite('book');
 		expect(r).toMatchObject({ kind: 'err', error: { kind: 'vault-error' } });
 		expect(ports.notifications.warn).toHaveBeenCalled();
+	});
+});
+
+describe('listTypes error handling', () => {
+	it('returns ok([]) when types folder does not exist', async () => {
+		const ports = fakeModulePorts();
+		vi.spyOn(ports.vault, 'exists').mockResolvedValue(false);
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const result = await svc.listTypes();
+		expect(result.kind).toBe('ok');
+		if (result.kind === 'ok') expect(result.value).toEqual([]);
+	});
+
+	it('returns vault-error when folder exists but list fails', async () => {
+		const ports = fakeModulePorts();
+		vi.spyOn(ports.vault, 'exists').mockResolvedValue(true);
+		vi.spyOn(ports.vault, 'list').mockResolvedValue(err('EACCES: permission denied'));
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const result = await svc.listTypes();
+		expect(result.kind).toBe('err');
+		if (result.kind === 'err') {
+			expect(result.error.kind).toBe('vault-error');
+			if (result.error.kind === 'vault-error') {
+				expect(result.error.cause).toContain('EACCES');
+			}
+		}
 	});
 });
 

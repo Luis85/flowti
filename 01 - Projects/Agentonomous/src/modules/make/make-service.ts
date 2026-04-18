@@ -30,14 +30,11 @@ export interface MakeService {
 export function createMakeService(ports: ModulePorts, getSettings: () => MakeSettings): MakeService {
 	async function listTypes(): Promise<Result<readonly TypeSchema[], MakeError>> {
 		const settings = getSettings();
+		const folderExists = await ports.vault.exists(settings.typesFolder);
+		if (!folderExists) return ok([]);
 		const listResult = await ports.vault.list(settings.typesFolder);
 		if (listResult.kind === 'err') {
-			// The fake and real adapters return an err when the folder does not exist.
-			// Treat that as "no types yet" — an empty result, not an error. Any other vault
-			// error would also collapse to empty here; this is a known trade-off. If users
-			// report confusion from mis-configured folders, revisit: we can read the error
-			// and surface vault-error when the folder *exists but is unreadable*.
-			return ok([]);
+			return err({ kind: 'vault-error', cause: String(listResult.error) });
 		}
 		const prefix = settings.typesFolder.endsWith('/') ? settings.typesFolder : `${settings.typesFolder}/`;
 		const children = listResult.value.filter((p) => p.startsWith(prefix) && !p.slice(prefix.length).includes('/') && p.endsWith('.json'));

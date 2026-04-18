@@ -107,6 +107,14 @@ export type FakeVault = VaultPort & {
 export function fakeVault(): FakeVault {
 	const files = new Map<string, { content: string; ctime: number; mtime: number }>();
 	const listeners = new Set<(change: VaultChange) => void>();
+	const folderExists = (folder: string): boolean => {
+		const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
+		if (prefix === '') return true; // root always exists
+		for (const k of files.keys()) {
+			if (k.startsWith(prefix)) return true;
+		}
+		return false;
+	};
 	return {
 		read: vi.fn(async (path: string) => {
 			const f = files.get(path);
@@ -127,7 +135,7 @@ export function fakeVault(): FakeVault {
 			files.delete(path);
 			return ok(undefined);
 		}),
-		exists: vi.fn(async (path: string) => files.has(path)),
+		exists: vi.fn(async (path: string) => files.has(path) || folderExists(path)),
 		list: vi.fn(async (folder: string) => {
 			const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
 			return ok([...files.keys()].filter((k) => prefix === '' || k.startsWith(prefix)));
