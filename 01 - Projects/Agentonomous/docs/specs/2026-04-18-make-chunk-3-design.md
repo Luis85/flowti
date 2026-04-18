@@ -1,9 +1,11 @@
 # Make — Chunk 3: Type authoring
 
 **Date**: 2026-04-18
-**Status**: Approved
+**Status**: ✅ Shipped 2026-04-18 (tag `make-slice-3` at `ba9ae360`, merged to master)
 **Supersedes**: Chunk 3 placeholder in `docs/plans/2026-04-18-make.md` (line 2594)
 **Depends on**: Chunk 2 shipped (tag `make-slice-2`), parent design `docs/specs/2026-04-18-make-design.md`
+**Plan**: `docs/plans/2026-04-18-make-chunk-3.md` (19 commits, 18 feature + 1 bridge fix)
+**Test outcome**: 533 baseline → 740 passing (+207 tests), 0 lint errors, typecheck clean, build + Storybook smoke green
 
 ## Context
 
@@ -929,8 +931,80 @@ Items deferred from this review's Should-fix findings. Each is a focused piece o
 
 ## 14. Reminders for Chunk 4 planner
 
-- Re-enable cascade checkbox in `DeleteTypeDialog`; implement `alsoDeleteInstances: true` branch.
+- Re-enable cascade checkbox in `DeleteTypeDialog`; implement `alsoDeleteInstances: true` branch (currently returns `err({ kind: 'not-implemented', feature: 'instance-cascade' })`).
 - Corrupt type file UI surface (deferred from Chunks 2+3).
 - Instance CRUD + "Open in Obsidian" row action on `MakeTypeInstances`.
 - `instancesFolder` file-move physics on rename.
 - Post-save orphan banner (from Chunk 3.5 if not already shipped).
+
+## Appendix: Execution-time deviations from the plan
+
+Recorded verbatim from the subagent-driven execution on 2026-04-18. Listed in commit order. Small and mechanical — none changed user-facing behavior vs. what §§1–13 above describe.
+
+**1. `deepEqualDraft` complexity refactor** (commit `1801d461` amended)
+
+The plan's `fieldsEqual` helper had cyclomatic complexity 11 (ESLint reports this as a warning at the project's max-10 threshold). Refactored to consolidate the 4 scalar `if`-return checks into a single `&&`-joined boolean expression, bringing complexity to 8. Same behavior, cleaner shape.
+
+**2. `subscribeMakeEvents` arrow-body wrapping** (commit `8de8ba3f`)
+
+The plan's helper wrote `(e) => handlers.onX!(e.payload)` which triggered `@typescript-eslint/no-confusing-void-expression`. Wrapped each handler body in `{ ... }` blocks — no behavior change.
+
+**3. `subscribeMakeEvents` tests use real `createEventBus()`** (commit `8de8ba3f`)
+
+The default `fakeModulePorts()` event bus is `{ emit: vi.fn(), … }` which doesn't dispatch to subscribed listeners. Tests that assert dispatch behavior pass a real bus via `fakeModulePorts({ eventBus: createEventBus() })`.
+
+**4. `validateFieldName` used inside `createType`'s field validation loop** (commit `35ffac9b`)
+
+The plan's import list didn't include `validateFieldName`, but it was needed to reject empty field names. Added to imports alongside `validateTypeName` / `validateInstancesFolder`.
+
+**5. `createType` / `updateType` complexity extraction** (commit `35ffac9b`, reinforced in `a65506bd`)
+
+Both functions would exceed the max-10 complexity cap as a single block. Extracted `validateDraft(draft)` (sync) and `writeTypeFiles(schema)` (async, returns Result) helpers inside the `createMakeService` closure. Shared by both functions.
+
+**6. Plan-numbering test-suite adjustment** (commit `a65506bd`)
+
+The pre-existing "write methods return not-implemented" test in `make-service.test.ts` referenced `updateType` — needed to switch to `deleteInstance` (still a stub) once `updateType` went live.
+
+**7. `MakeTypes.vue` template variable shadow fix** (commit `068e1e39`)
+
+Chunk 2's `v-for="t in typesSortedByName"` shadowed the `t` returned by `useI18n()`. Renamed loop variable to `type` throughout the template.
+
+**8. `subscribeMakeEvents` mock added to pre-existing router + page tests** (commit `4a34e9a9`)
+
+The store's new event subscription fires at every pinia-instance setup. Every test that mounts a component that instantiates the store must mock `subscribeMakeEvents` — 4 test files got the mock addition: `make-routes.test.ts`, `MakeHome.test.ts`, `MakeTypes.test.ts`, `MakeType.test.ts`.
+
+**9. `useMakeTypeDraft` added `lastAppliedSchema` ref** (commit `4c7465f6`)
+
+To make `isDirty` clear immediately after `applyResult(savedSchema)` without waiting for the event-driven `committedType` update, the composable tracks the last-applied schema and compares against it. Plan's spec had an implicit requirement that `applyResult` clears `isDirty`; this implementation detail satisfies that.
+
+**10. `FIELD_KINDS_LITERAL` import path** (commit `ffb617be`)
+
+The plan said to import from `'../../../domain/make/field-kinds/index.js'`. Actual location: `'../../../domain/make/type-schema.js'`. Corrected in `MakeTypeFieldRow.vue`.
+
+**11. `ConfirmDialog` `labels` prop triggers `vue/require-default-prop` warning** (commit `8ff872a5`)
+
+Warning-only (lint exits 0). The prop is `labels?: ...` (optional record). Fixing properly would require `labels: undefined` in `withDefaults`, which changes the TS type in ways that complicate usage. Left the warning — consistent with other pre-existing warnings in the codebase.
+
+**12. `MakeTypeFieldsEditor` bridge commit** (commit `f7f45cdd`, unplanned)
+
+Deleting `MakeTypeFields.vue` (Chunk 2's read-only version) in Task 3.15 broke `MakeType.vue` (still imported it) and two related tests. An unplanned bridge fix wired `MakeTypeFieldsEditor` as a read-only stand-in with a derived Draft — consistent with what Task 3.17 replaced wholesale with real store wiring.
+
+**13. `useMakeTypeSaveFlow` composable extraction** (commit `bd18ee68`)
+
+`MakeType.vue` hit 364 lines in its first monolithic form (over the 350-line ESLint cap). Plan §4 Step 3b anticipated this: extracted `onSave` / `surfaceError` / rename / overwrite / regenerate orchestration into a new `src/ui/pages/make/use-make-type-save-flow.ts` composable (137 lines). `MakeType.vue` ended at 271 lines. The composable takes `t: (key: string, params?) => string` as a plain function type rather than `ReturnType<typeof useI18n>` to avoid `@typescript-eslint/no-unsafe-*` warnings — cleaner than the plan's implicit signature.
+
+**14. `onBeforeRouteLeave` guard not covered by unit tests** (commit `bd18ee68`)
+
+Vue Test Utils can't fully simulate `onBeforeRouteLeave` for a component mounted in isolation (the guard only fires inside a real `<router-view>` in a navigation transition). Dialog-open/close behavior and the save path are covered via the composable's unit tests instead. Manual smoke in Task 3.19 (deferred by user as out-of-scope) would cover the full guard integration.
+
+**15. `DeleteTypeDialog` PO double-optional-chain fix** (commit `5133efa3`)
+
+`?.textContent?.trim()` flagged by `@typescript-eslint/no-unnecessary-condition`. Changed to `?.textContent.trim()` matching the ConfirmDialog.po.ts pattern.
+
+**16. `favoriteStar(typeId)` method added to `MakeTypes.po.ts`** (commit `ba9ae360`)
+
+Called out for future test authors: prefer this getter over ad-hoc selectors when writing tests against clickable stars.
+
+---
+
+None of the above changed the user-facing contract. Every item is a mechanical ESLint/TypeScript accommodation or an unplanned-but-safe bridging fix. If a future Chunk 3 follow-up is planned, these should NOT be re-introduced.
