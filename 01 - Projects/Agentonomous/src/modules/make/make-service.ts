@@ -22,8 +22,8 @@ export interface MakeService {
 	listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>>;
 	createInstance(typeId: string, raw: Record<string, unknown>, explicitFilename: string | null): Promise<Result<InstanceRef, MakeError>>;
 	deleteInstance(path: string): Promise<Result<void, MakeError>>;
-	regenerateBaseFile(typeId: string): Promise<Result<string, MakeError>>;
-	toggleFavorite(typeId: string): Promise<void>;
+	regenerateBaseFile(typeId: string, options?: { force?: boolean }): Promise<Result<string, MakeError>>;
+	toggleFavorite(typeId: string): Promise<Result<boolean, MakeError>>;
 	getKpis(): Promise<KpiSnapshot>;
 }
 
@@ -64,7 +64,23 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		if (parsed.kind === 'err') return err({ kind: 'invalid-schema', issues: [{ kind: 'invalid-json', reason: parsed.error.message }] });
 		const schemaResult = parseTypeSchema(parsed.value);
 		if (schemaResult.kind === 'err') return err({ kind: 'invalid-schema', issues: [schemaResult.error] });
-		return ok(schemaResult.value);
+		// Orphan-base reconciliation: if the loaded schema has no baseFile stamp but a
+		// .base file exists at the conventional path, adopt it as the baseFile. This
+		// self-heals after a crash between createType steps 6 and 7 (see Chunk 3 spec §3).
+		let schemaWithBase = schemaResult.value;
+		if (schemaWithBase.baseFile === undefined) {
+			const basesFolder = settings.basesFolder.replace(/\/$/, '');
+			const conventionalPath = `${basesFolder}/${schemaWithBase.id}.base`;
+			const baseExists = await ports.vault.exists(conventionalPath);
+			if (baseExists) {
+				const baseRead = await ports.vault.read(conventionalPath);
+				if (baseRead.kind === 'ok') {
+					const mtimeIso = new Date(baseRead.value.stat.mtime).toISOString();
+					schemaWithBase = { ...schemaWithBase, baseFile: { path: conventionalPath, generatedAt: mtimeIso } };
+				}
+			}
+		}
+		return ok(schemaWithBase);
 	}
 
 	async function listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>> {
@@ -252,17 +268,104 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		return ok(next);
 	}
 
+	async function deleteType(
+		typeId: string,
+		options: DeleteTypeOptions,
+	): Promise<Result<DeleteTypeReport, MakeError>> {
+		if (options.alsoDeleteInstances === true) {
+			return err({ kind: 'not-implemented', feature: 'instance-cascade' });
+		}
+		const current = await loadType(typeId);
+		if (current.kind === 'err') return current;
+		const schema = current.value;
+		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
+		const basesFolder = getSettings().basesFolder.replace(/\/$/, '');
+		const jsonPath = `${typesFolder}/${schema.id}.json`;
+		const deleteJson = await ports.vault.delete(jsonPath);
+		if (deleteJson.kind === 'err') return err({ kind: 'vault-error', cause: deleteJson.error });
+		let baseFileDeleted = false;
+		if (options.alsoDeleteBaseFile && schema.baseFile !== undefined) {
+			// Safety: only delete if path lives under current basesFolder.
+			const expectedPrefix = `${basesFolder}/`;
+			if (schema.baseFile.path.startsWith(expectedPrefix)) {
+				const deleteBase = await ports.vault.delete(schema.baseFile.path);
+				if (deleteBase.kind === 'ok') {
+					baseFileDeleted = true;
+				} else {
+					ports.notifications.warn(ports.t.t('make.notify.baseDeleteFailed'));
+				}
+			} else {
+				ports.logger.warn('make', `base file at '${schema.baseFile.path}' lives outside configured basesFolder '${basesFolder}' — not deleted`);
+				ports.notifications.info(ports.t.t('make.notify.baseLeftAlone'));
+			}
+		}
+		ports.eventBus.emit('make:type-deleted', { typeId: schema.id, name: schema.name });
+		return ok({ instancesDeleted: 0, baseFileDeleted });
+	}
+
+	async function regenerateBaseFile(
+		typeId: string,
+		options: { force?: boolean } = {},
+	): Promise<Result<string, MakeError>> {
+		const current = await loadType(typeId);
+		if (current.kind === 'err') return current;
+		const schema = current.value;
+		const basesFolder = getSettings().basesFolder.replace(/\/$/, '');
+		const path = `${basesFolder}/${schema.id}.base`;
+		const yaml = generateBaseYaml(schema);
+		// User-edit check (skipped when force: true).
+		if (options.force !== true) {
+			const existsAtPath = await ports.vault.exists(path);
+			if (existsAtPath) {
+				const read = await ports.vault.read(path);
+				if (read.kind === 'ok' && read.value.content !== yaml) {
+					return err({ kind: 'base-generation-failed', cause: 'user-edited' });
+				}
+			}
+		}
+		// Write (exists → update, else → create).
+		const existsFinal = await ports.vault.exists(path);
+		const writeResult = existsFinal
+			? await ports.vault.update(path, yaml)
+			: await ports.vault.create(path, yaml);
+		if (writeResult.kind === 'err') return err({ kind: 'vault-error', cause: writeResult.error });
+		// Stamp schema.baseFile.generatedAt.
+		const now = new Date().toISOString();
+		const stamped: TypeSchema = { ...schema, baseFile: { path, generatedAt: now } };
+		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
+		const writeStamp = await ports.vault.update(`${typesFolder}/${schema.id}.json`, serializeTypeSchema(stamped));
+		if (writeStamp.kind === 'err') return err({ kind: 'vault-error', cause: writeStamp.error });
+		ports.eventBus.emit('make:base-regenerated', { typeId: schema.id, basePath: path });
+		return ok(path);
+	}
+
+	async function toggleFavorite(typeId: string): Promise<Result<boolean, MakeError>> {
+		const current = getSettings();
+		const wasFavorited = current.favorites.includes(typeId);
+		const nextFavorites = wasFavorited
+			? current.favorites.filter((id) => id !== typeId)
+			: [...current.favorites, typeId];
+		const saveResult = await ports.settings.saveSection('make', { ...current, favorites: nextFavorites });
+		if (saveResult.kind === 'err') {
+			ports.notifications.warn(ports.t.t('make.error.favoriteFailed'));
+			return err({ kind: 'vault-error', cause: saveResult.error });
+		}
+		const favorited = !wasFavorited;
+		ports.eventBus.emit('make:favorite-toggled', { typeId, favorited });
+		return ok(favorited);
+	}
+
 	return {
 		listTypes,
 		loadType,
 		createType,
 		updateType,
-		deleteType: () => notImpl(),
+		deleteType,
 		listInstances,
 		createInstance: () => notImpl(),
 		deleteInstance: () => notImpl(),
-		regenerateBaseFile: () => notImpl(),
-		toggleFavorite: () => Promise.resolve(),
+		regenerateBaseFile,
+		toggleFavorite,
 		getKpis: () => Promise.resolve({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] }),
 	};
 }

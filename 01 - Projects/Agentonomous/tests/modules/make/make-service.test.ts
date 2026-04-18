@@ -3,6 +3,7 @@ import { createMakeService } from '../../../src/modules/make/make-service.js';
 import { MAKE_DEFAULTS } from '../../../src/modules/make/make-settings.js';
 import { fakeModulePorts, fakeVault } from '../../__fakes__/fake-ports.js';
 import { serializeTypeSchema } from '../../../src/domain/make/type-schema-codec.js';
+import { generateBaseYaml } from '../../../src/domain/make/base-file.js';
 import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
 
 const BOOK: TypeSchema = {
@@ -358,5 +359,170 @@ describe('makeService.updateType', () => {
 		await svc.updateType('book', { description: 'x' });
 		const read = await vault.read('Make/Bases/book.base');
 		if (read.kind === 'ok') expect(read.value.content).toBe('sentinel-content');
+	});
+});
+
+describe('makeService.deleteType', () => {
+	async function withBook() {
+		const vault = fakeVault();
+		const stamped: TypeSchema = { ...BOOK, baseFile: { path: 'Make/Bases/book.base', generatedAt: BOOK.createdAt } };
+		await vault.create('Make/Types/book.json', serializeTypeSchema(stamped));
+		await vault.create('Make/Bases/book.base', 'yaml');
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		return { vault, svc, stamped };
+	}
+
+	it('deletes the type JSON and returns ok with report (base not deleted)', async () => {
+		const { vault, svc } = await withBook();
+		const r = await svc.deleteType('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: false });
+		expect(r).toMatchObject({ kind: 'ok', value: { instancesDeleted: 0, baseFileDeleted: false } });
+		expect(await vault.exists('Make/Types/book.json')).toBe(false);
+		expect(await vault.exists('Make/Bases/book.base')).toBe(true);
+	});
+
+	it('deletes the base file when alsoDeleteBaseFile is true', async () => {
+		const { vault, svc } = await withBook();
+		const r = await svc.deleteType('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: true });
+		expect(r).toMatchObject({ kind: 'ok', value: { baseFileDeleted: true } });
+		expect(await vault.exists('Make/Bases/book.base')).toBe(false);
+	});
+
+	it('returns not-implemented with feature when alsoDeleteInstances is true', async () => {
+		const { svc } = await withBook();
+		const r = await svc.deleteType('book', { alsoDeleteInstances: true, alsoDeleteBaseFile: false });
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'not-implemented', feature: 'instance-cascade' } });
+	});
+
+	it('emits make:type-deleted', async () => {
+		const vault = fakeVault();
+		const stamped: TypeSchema = { ...BOOK, baseFile: { path: 'Make/Bases/book.base', generatedAt: BOOK.createdAt } };
+		await vault.create('Make/Types/book.json', serializeTypeSchema(stamped));
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		await svc.deleteType('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: false });
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:type-deleted', { typeId: 'book', name: 'Book' });
+	});
+
+	it('returns type-not-found when typeId has no schema file', async () => {
+		const svc = createMakeService(fakeModulePorts({ vault: fakeVault() }), () => MAKE_DEFAULTS);
+		const r = await svc.deleteType('missing', { alsoDeleteInstances: false, alsoDeleteBaseFile: false });
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'type-not-found' } });
+	});
+
+	it('skips base delete if schema.baseFile.path is outside current basesFolder', async () => {
+		const vault = fakeVault();
+		const stamped: TypeSchema = { ...BOOK, baseFile: { path: 'Custom/Elsewhere/book.base', generatedAt: BOOK.createdAt } };
+		await vault.create('Make/Types/book.json', serializeTypeSchema(stamped));
+		await vault.create('Custom/Elsewhere/book.base', 'orphan');
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const r = await svc.deleteType('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: true });
+		expect(r).toMatchObject({ kind: 'ok', value: { baseFileDeleted: false } });
+		expect(await vault.exists('Custom/Elsewhere/book.base')).toBe(true);
+		expect(ports.notifications.info).toHaveBeenCalled();
+	});
+});
+
+describe('makeService.regenerateBaseFile', () => {
+	async function withBook(baseContent: string | null = null) {
+		const vault = fakeVault();
+		const stamped: TypeSchema = { ...BOOK, baseFile: { path: 'Make/Bases/book.base', generatedAt: BOOK.createdAt } };
+		await vault.create('Make/Types/book.json', serializeTypeSchema(stamped));
+		if (baseContent !== null) await vault.create('Make/Bases/book.base', baseContent);
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		return { vault, svc };
+	}
+
+	it('regenerates when no base file exists', async () => {
+		const { vault, svc } = await withBook(null);
+		const r = await svc.regenerateBaseFile('book');
+		expect(r.kind).toBe('ok');
+		expect(await vault.exists('Make/Bases/book.base')).toBe(true);
+	});
+
+	it('overwrites when existing base file matches generated content (no divergence)', async () => {
+		const { svc } = await withBook();
+		const yaml = generateBaseYaml(BOOK); // import generateBaseYaml at top of test file
+		await svc.regenerateBaseFile('book'); // first call creates it
+		void yaml;
+		const r = await svc.regenerateBaseFile('book');
+		expect(r.kind).toBe('ok');
+	});
+
+	it('returns base-generation-failed user-edited when content diverges from canonical', async () => {
+		const { svc } = await withBook('# user-edited content');
+		const r = await svc.regenerateBaseFile('book');
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'base-generation-failed', cause: 'user-edited' } });
+	});
+
+	it('overwrites with force: true even when content diverges', async () => {
+		const { vault, svc } = await withBook('# user-edited');
+		const r = await svc.regenerateBaseFile('book', { force: true });
+		expect(r.kind).toBe('ok');
+		const read = await vault.read('Make/Bases/book.base');
+		if (read.kind === 'ok') expect(read.value.content).not.toBe('# user-edited');
+	});
+
+	it('updates schema.baseFile.generatedAt on success', async () => {
+		const { vault, svc } = await withBook();
+		await svc.regenerateBaseFile('book', { force: true });
+		const read = await vault.read('Make/Types/book.json');
+		if (read.kind === 'ok') {
+			const parsed = JSON.parse(read.value.content) as { baseFile: { generatedAt: string } };
+			expect(parsed.baseFile.generatedAt).not.toBe(BOOK.createdAt);
+		}
+	});
+});
+
+describe('makeService.toggleFavorite', () => {
+	it('adds typeId to favorites + emits event on first click', async () => {
+		const ports = fakeModulePorts();
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const r = await svc.toggleFavorite('book');
+		expect(r).toMatchObject({ kind: 'ok', value: true });
+		expect(ports.settings.saveSection).toHaveBeenCalledWith('make', expect.objectContaining({ favorites: ['book'] }));
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:favorite-toggled', { typeId: 'book', favorited: true });
+	});
+
+	it('removes typeId from favorites on second click', async () => {
+		const ports = fakeModulePorts();
+		const svc = createMakeService(ports, () => ({ ...MAKE_DEFAULTS, favorites: ['book'] }));
+		const r = await svc.toggleFavorite('book');
+		expect(r).toMatchObject({ kind: 'ok', value: false });
+		expect(ports.settings.saveSection).toHaveBeenCalledWith('make', expect.objectContaining({ favorites: [] }));
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:favorite-toggled', { typeId: 'book', favorited: false });
+	});
+
+	it('returns vault-error when saveSection fails', async () => {
+		const ports = fakeModulePorts();
+		ports.settings.saveSection = vi.fn(async () => ({ kind: 'err' as const, error: 'quota exceeded' }));
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const r = await svc.toggleFavorite('book');
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'vault-error' } });
+		expect(ports.notifications.warn).toHaveBeenCalled();
+	});
+});
+
+describe('makeService.loadType — orphan-base reconciliation', () => {
+	it('stamps baseFile from disk when JSON has no baseFile but .base exists', async () => {
+		const vault = fakeVault();
+		const unstamped: TypeSchema = { ...BOOK }; // no baseFile field
+		await vault.create('Make/Types/book.json', serializeTypeSchema(unstamped));
+		await vault.create('Make/Bases/book.base', 'yaml');
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.loadType('book');
+		if (r.kind === 'ok') {
+			expect(r.value.baseFile).toBeDefined();
+			expect(r.value.baseFile?.path).toBe('Make/Bases/book.base');
+		}
+	});
+
+	it('leaves baseFile undefined when no .base exists', async () => {
+		const vault = fakeVault();
+		const unstamped: TypeSchema = { ...BOOK };
+		await vault.create('Make/Types/book.json', serializeTypeSchema(unstamped));
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.loadType('book');
+		if (r.kind === 'ok') expect(r.value.baseFile).toBeUndefined();
 	});
 });
