@@ -1,4 +1,4 @@
-import type { Preview } from '@storybook/vue3-vite';
+import type { Preview, Decorator } from '@storybook/vue3-vite';
 import { setup } from '@storybook/vue3-vite';
 import { createPinia, setActivePinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
@@ -23,6 +23,21 @@ setup((app) => {
 	app.provide(PluginContextKey, {} as never);
 });
 
+/**
+ * Toggle `body.theme-dark` / `body.theme-light` to mirror Obsidian's own
+ * theme classes.  The same CSS variable set that drives components
+ * inside Obsidian drives them here — flip the toolbar, flip the variables.
+ */
+const withObsidianTheme: Decorator = (story, ctx) => ({
+	setup() {
+		const theme = (ctx.globals['theme'] as string | undefined) ?? 'dark';
+		document.body.classList.toggle('theme-dark', theme === 'dark');
+		document.body.classList.toggle('theme-light', theme === 'light');
+		return {};
+	},
+	template: '<story />',
+});
+
 const preview: Preview = {
 	tags: ['autodocs'],
 	beforeEach() {
@@ -30,6 +45,22 @@ const preview: Preview = {
 		// `setActivePinia(createPinia())` per test.  Eliminates the class
 		// of "story B inherits story A's paused/filter/search state" bugs.
 		setActivePinia(createPinia());
+	},
+	decorators: [withObsidianTheme],
+	globalTypes: {
+		theme: {
+			description: 'Obsidian theme (drives the CSS variable set)',
+			defaultValue: 'dark',
+			toolbar: {
+				title: 'Theme',
+				icon: 'mirror',
+				items: [
+					{ value: 'dark', title: 'Dark', icon: 'moon' },
+					{ value: 'light', title: 'Light', icon: 'sun' },
+				],
+				dynamicTitle: true,
+			},
+		},
 	},
 	parameters: {
 		controls: {
