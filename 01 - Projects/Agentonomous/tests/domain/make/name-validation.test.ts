@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateTypeName, validateFieldName } from '../../../src/domain/make/name-validation.js';
+import { validateTypeName, validateFieldName, validateInstancesFolder } from '../../../src/domain/make/name-validation.js';
 
 describe('validateTypeName', () => {
 	it('accepts a simple name', () => {
@@ -39,5 +39,28 @@ describe('validateFieldName', () => {
 	it('rejects reserved names', () => {
 		expect(validateFieldName('type')).toMatchObject({ kind: 'err', error: { kind: 'invalid-name', reason: 'reserved' } });
 		expect(validateFieldName('type-id')).toMatchObject({ kind: 'err', error: { kind: 'invalid-name', reason: 'reserved' } });
+	});
+});
+
+describe('validateInstancesFolder', () => {
+	it('returns ok with trimmed value for valid folders', () => {
+		expect(validateInstancesFolder('Books')).toEqual({ kind: 'ok', value: 'Books' });
+		expect(validateInstancesFolder('  Books/Reviews  ')).toEqual({ kind: 'ok', value: 'Books/Reviews' });
+	});
+
+	it('rejects empty folder', () => {
+		const r = validateInstancesFolder('');
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'invalid-folder-path' } });
+	});
+
+	it('rejects leading or trailing slash', () => {
+		expect(validateInstancesFolder('/Books').kind).toBe('err');
+		expect(validateInstancesFolder('Books/').kind).toBe('err');
+	});
+
+	it('rejects illegal filesystem characters', () => {
+		expect(validateInstancesFolder('Books*').kind).toBe('err');
+		expect(validateInstancesFolder('Books?').kind).toBe('err');
+		expect(validateInstancesFolder('Books<>').kind).toBe('err');
 	});
 });

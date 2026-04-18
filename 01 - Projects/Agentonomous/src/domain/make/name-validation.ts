@@ -21,3 +21,15 @@ export function validateFieldName(raw: string): Result<string, SchemaError> {
 	if (RESERVED_FIELD_NAMES.has(trimmed)) return err({ kind: 'invalid-name', name: trimmed, reason: 'reserved' });
 	return ok(trimmed);
 }
+
+export function validateInstancesFolder(raw: string): Result<string, SchemaError> {
+	const trimmed = raw.trim();
+	if (trimmed === '') return err({ kind: 'invalid-folder-path', path: raw });
+	// No leading/trailing slashes — the write site prepends '/' between folder and filename.
+	if (trimmed.startsWith('/') || trimmed.endsWith('/')) {
+		return err({ kind: 'invalid-folder-path', path: trimmed });
+	}
+	// Reject paths containing the Obsidian-illegal filesystem characters.
+	if (/[\\:*?"<>|\x00-\x1f]/.test(trimmed)) return err({ kind: 'invalid-folder-path', path: trimmed });
+	return ok(trimmed);
+}

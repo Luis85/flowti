@@ -1,13 +1,17 @@
 import type { ModulePorts } from '../../domain/shared/module.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
 import { trySync } from '../../domain/shared/try-async.js';
-import { parseTypeSchema } from '../../domain/make/type-schema-codec.js';
+import { parseTypeSchema, serializeTypeSchema } from '../../domain/make/type-schema-codec.js';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
-import type { MakeError } from '../../domain/make/errors.js';
+import type { MakeError, SchemaError } from '../../domain/make/errors.js';
 import type {
-	DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, NewTypeDraft, TypeSchemaPatch,
+	DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, NewTypeDraft, NonEmptyArray, TypeSchemaPatch,
 } from '../../domain/make/types.js';
+import { slugifyTypeName } from '../../domain/make/type-id.js';
+import { validateTypeName, validateFieldName, validateInstancesFolder } from '../../domain/make/name-validation.js';
+import { generateBaseYaml } from '../../domain/make/base-file.js';
+import { FIELD_KINDS } from '../../domain/make/field-kinds/index.js';
 
 export interface MakeService {
 	listTypes(): Promise<Result<readonly TypeSchema[], MakeError>>;
@@ -95,10 +99,101 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 
 	const notImpl = <T>(): Promise<Result<T, MakeError>> => Promise.resolve(err({ kind: 'not-implemented' }));
 
+	async function uniqueSlug(baseSlug: string): Promise<string | null> {
+		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
+		const basesFolder = getSettings().basesFolder.replace(/\/$/, '');
+		for (let i = 1; i <= 100; i++) {
+			const candidate = i === 1 ? baseSlug : `${baseSlug}-${i}`;
+			const jsonPath = `${typesFolder}/${candidate}.json`;
+			const basePath = `${basesFolder}/${candidate}.base`;
+			const jsonExists = await ports.vault.exists(jsonPath);
+			const baseExists = await ports.vault.exists(basePath);
+			if (!jsonExists && !baseExists) return candidate;
+		}
+		return null;
+	}
+
+	function validateDraft(draft: NewTypeDraft): SchemaError[] {
+		const errors: SchemaError[] = [];
+		for (const field of draft.fields) {
+			const nameResult = validateFieldName(field.name);
+			if (nameResult.kind === 'err') errors.push(nameResult.error);
+			errors.push(...FIELD_KINDS[field.kind].validateField(field as never));
+		}
+		const nameResult = validateTypeName(draft.name);
+		if (nameResult.kind === 'err') errors.push(nameResult.error);
+		const folderResult = validateInstancesFolder(draft.instancesFolder);
+		if (folderResult.kind === 'err') errors.push(folderResult.error);
+		return errors;
+	}
+
+	async function writeTypeFiles(
+		jsonPath: string, basePath: string, schema: TypeSchema, now: string,
+	): Promise<Result<TypeSchema, MakeError>> {
+		// Step 5: write type JSON.
+		const writeJson = await ports.vault.create(jsonPath, serializeTypeSchema(schema));
+		if (writeJson.kind === 'err') return err({ kind: 'vault-error', cause: writeJson.error });
+		// Step 6: generate + write base YAML (partial success on failure).
+		const writeBase = await ports.vault.create(basePath, generateBaseYaml(schema));
+		if (writeBase.kind === 'err') {
+			ports.notifications.warn(ports.t.t('make.notify.baseFailed'));
+			return ok(schema);
+		}
+		// Step 7: stamp baseFile + re-write JSON (partial success on failure).
+		const stamped: TypeSchema = { ...schema, baseFile: { path: basePath, generatedAt: now } };
+		const writeStamp = await ports.vault.update(jsonPath, serializeTypeSchema(stamped));
+		if (writeStamp.kind === 'err') {
+			ports.notifications.warn(ports.t.t('make.error.baseStampFailed'));
+			return ok(schema);
+		}
+		return ok(stamped);
+	}
+
+	async function createType(draft: NewTypeDraft): Promise<Result<TypeSchema, MakeError>> {
+		// Step 1: validate all fields + type name + folder.
+		const schemaErrors = validateDraft(draft);
+		if (schemaErrors.length > 0) {
+			return err({ kind: 'invalid-schema', issues: schemaErrors as unknown as NonEmptyArray<SchemaError> });
+		}
+		// Step 2: soft name uniqueness (in-memory cache shortcut).
+		const existing = await listTypes();
+		if (existing.kind === 'ok') {
+			const collision = existing.value.find((t) => t.name.toLowerCase() === draft.name.toLowerCase());
+			if (collision !== undefined) return err({ kind: 'duplicate-name', name: draft.name });
+		}
+		// Step 3: generate id via disk probe (authoritative).
+		const slugResult = await uniqueSlug(slugifyTypeName(draft.name));
+		if (slugResult === null) return err({ kind: 'vault-error', cause: 'slug-exhaustion' });
+		// Step 4: stamp timestamps.
+		const now = new Date().toISOString();
+		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
+		const basesFolder = getSettings().basesFolder.replace(/\/$/, '');
+		const schemaPreStamp: TypeSchema = {
+			id: slugResult,
+			name: draft.name,
+			...(draft.description !== undefined ? { description: draft.description } : {}),
+			instancesFolder: draft.instancesFolder,
+			titleFieldName: draft.titleFieldName,
+			fields: draft.fields,
+			createdAt: now,
+			updatedAt: now,
+		};
+		// Steps 5-7: write files.
+		const writeResult = await writeTypeFiles(
+			`${typesFolder}/${slugResult}.json`,
+			`${basesFolder}/${slugResult}.base`,
+			schemaPreStamp, now,
+		);
+		if (writeResult.kind === 'err') return writeResult;
+		// Step 8: emit.
+		ports.eventBus.emit('make:type-created', { schema: writeResult.value });
+		return writeResult;
+	}
+
 	return {
 		listTypes,
 		loadType,
-		createType: () => notImpl(),
+		createType,
 		updateType: () => notImpl(),
 		deleteType: () => notImpl(),
 		listInstances,
