@@ -25,6 +25,6 @@ const LayoutComponent = computed<Component>(() => {
 
 <template>
 	<component :is="LayoutComponent">
-		<router-view />
+		<router-view :key="$route.fullPath" />
 	</component>
 </template>

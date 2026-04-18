@@ -59,4 +59,22 @@ describe('Make routes', () => {
 		await router.isReady();
 		expect(router.currentRoute.value.name).toBe('make-types');
 	});
+
+	it('registers /make/types/new BEFORE /make/types/:typeId (declaration order)', () => {
+		const router = createAppRouter();
+		const routes = router.getRoutes();
+		const newIdx = routes.findIndex((r) => r.name === 'make-type-new');
+		const dynIdx = routes.findIndex((r) => r.name === 'make-type');
+		expect(newIdx).toBeGreaterThanOrEqual(0);
+		expect(dynIdx).toBeGreaterThanOrEqual(0);
+		expect(newIdx).toBeLessThan(dynIdx);
+	});
+
+	it('/make/types/new resolves to make-type-new (not captured as :typeId="new")', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		const router = createAppRouter();
+		await router.push('/make/types/new');
+		await router.isReady();
+		expect(router.currentRoute.value.name).toBe('make-type-new');
+	});
 });

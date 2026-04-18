@@ -16,6 +16,7 @@ export function createAppRouter(): Router {
 			{ path: '/dashboard', name: 'dashboard', component: Dashboard, meta: { layout: 'dashboard' } },
 			{ path: '/make', name: 'make-home', component: MakeHome, meta: { layout: 'main' } },
 			{ path: '/make/types', name: 'make-types', component: MakeTypes, meta: { layout: 'main' } },
+			{ path: '/make/types/new', name: 'make-type-new', component: MakeType, meta: { layout: 'main' } },
 			{
 				path: '/make/types/:typeId',
 				name: 'make-type',
