@@ -724,7 +724,7 @@ const unsubscribeEvents = subscribeMakeEvents({
 
 Setup-syntax Pinia stores don't have explicit dispose hooks, but the Vue app is recreated per `createVueApp` call (Chunk 2's pattern). When the Obsidian leaf closes and `MakeView.onClose` unmounts the app, the event-bus listeners registered via `subscribeMakeEvents` are garbage-collected with the store instance.
 
-Defensive measure: register the `unsubscribeEvents` callback in a module-scoped `WeakSet` that `PluginCore`'s existing listener-leak tripwire can audit. Already the pattern for `event-inspector` and `health-monitor` stores.
+Defensive measure: register the `unsubscribeEvents` callback in a module-scoped `WeakSet` that `PluginCore`'s existing listener-leak tripwire can audit. Aligns with the listener-tracking discipline already applied in modules like `event-inspector` and `health-monitor`.
 
 ## 8. i18n wiring + new keys
 
@@ -865,7 +865,7 @@ TDD-ordered. Commits land on green tests.
 | 3.5 | `MakeService.deleteType` (base-path safety + `not-implemented` cascade error + event) + `regenerateBaseFile` (user-edit check + force flag + event) + `toggleFavorite` (Result + event) + tests |
 | 3.6 | `MakeError` variant extension (`not-implemented.feature`), `SchemaError.field-rename-warning` — typecheck pass |
 | 3.7 | i18n — add Chunk 3 keys + backfill Chunk 2 dead keys + wire `t()` in `MakeHome` / `MakeTypes` / `MakeType` / `MakeTypeInstances` |
-| 3.8 | Store — 5 new actions + state refs + event subscription (handlers are sole cache mutators); orphan-base reconciliation in `loadTypes` |
+| 3.8 | Store — 5 new actions + state refs (including `optimisticFavoriteOverrides` + `isFavoritedForUI` helper for R1 true optimistic flip) + event subscription (handlers are sole cache mutators); orphan-base reconciliation in `loadTypes` |
 | 3.9 | Route `/make/types/new` + ordering test; `AppRoot.vue` `:key="$route.fullPath"`; navigation tests |
 | 3.10 | `useMakeTypeDraft` composable + tests |
 | 3.11 | `ConfirmDialog.vue` + PO + tests + stories (a11y-complete: role, focus trap, return focus, keyboard) |
