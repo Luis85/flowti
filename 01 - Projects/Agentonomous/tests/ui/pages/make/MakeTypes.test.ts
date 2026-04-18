@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import MakeTypes from '../../../../src/ui/pages/make/MakeTypes.vue';
 import { MakeTypesPage } from '../../../../src/ui/pages/make/MakeTypes.po.js';
+import { mountWithI18n } from '../../../__fixtures__/mount-with-i18n.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
 import type { InstanceRef } from '../../../../src/domain/make/types.js';
 
@@ -24,6 +24,7 @@ vi.mock('../../../../src/modules/make/make-module.js', () => {
 	return {
 		getMakeService:  () => svc,
 		getMakeSettings: () => ({ enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] }),
+		subscribeMakeEvents: () => () => { /* no-op */ },
 		__mock: svc,
 	};
 });
@@ -40,7 +41,7 @@ async function mountTypes() {
 	});
 	await router.push('/make/types');
 	await router.isReady();
-	const wrapper = mount(MakeTypes, { global: { plugins: [router] } });
+	const wrapper = mountWithI18n(MakeTypes, { router });
 	return { wrapper, page: new MakeTypesPage(wrapper.element as HTMLElement) };
 }
 

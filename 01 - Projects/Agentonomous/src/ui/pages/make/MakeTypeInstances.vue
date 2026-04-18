@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { InstanceRef } from '../../../domain/make/types.js';
 import type { TypeSchema } from '../../../domain/make/type-schema.js';
+
+const { t } = useI18n();
 
 const props = defineProps<{
 	type: TypeSchema;
@@ -25,12 +28,12 @@ function shortDate(iso: string): string {
 		<p v-if="loading" data-testid="make-type-instances-loading" class="loading">Loading…</p>
 		<p v-else-if="error" data-testid="make-type-instances-error" class="error">{{ error }}</p>
 		<p v-else-if="sorted.length === 0" data-testid="make-type-instances-empty" class="empty">
-			No {{ type.name }} instances yet. Instance creation comes in a later update.
+			{{ t('make.type.instances.empty', { typeName: type.name }) }}
 		</p>
 		<ul v-else class="instances-list">
-			<li v-for="ref in sorted" :key="ref.path" :data-testid="`instance-row-${ref.path}`" class="instance-row">
-				<span class="instance-title">{{ ref.title }}</span>
-				<span class="instance-date">created {{ shortDate(ref.createdAt) }}</span>
+			<li v-for="instanceRef in sorted" :key="instanceRef.path" :data-testid="`instance-row-${instanceRef.path}`" class="instance-row">
+				<span class="instance-title">{{ instanceRef.title }}</span>
+				<span class="instance-date">{{ t('make.type.instances.createdLabel', { date: shortDate(instanceRef.createdAt) }) }}</span>
 			</li>
 		</ul>
 	</div>

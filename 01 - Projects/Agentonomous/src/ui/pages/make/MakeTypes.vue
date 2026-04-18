@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import { useMakeStore } from '../../stores/make-store.js';
 import type { MakeSettings } from '../../../modules/make/make-settings.js';
 import { getMakeSettings } from '../../../modules/make/make-module.js';
 
+const { t } = useI18n();
 const store = useMakeStore();
 const { typesLoading, typesError, typesSortedByName, instanceCountByTypeId, instancesLoading } = storeToRefs(store);
 
@@ -20,7 +22,7 @@ function isFavorite(typeId: string): boolean {
 function countLabel(typeId: string): string {
 	const n = instanceCountByTypeId.value.get(typeId);
 	if (n === undefined) return '— instances';
-	return n === 1 ? '1 instance' : `${n} instances`;
+	return n === 1 ? t('make.types.instancesCountOne', { count: 1 }) : t('make.types.instancesCountOther', { count: n });
 }
 async function onRefresh(): Promise<void> {
 	await store.refreshAll();
@@ -32,9 +34,9 @@ async function onRefresh(): Promise<void> {
 	<div class="make-types">
 		<header class="make-types__header">
 			<div class="make-types__title-block">
-				<h1 data-testid="make-types-title">Types</h1>
+				<h1 data-testid="make-types-title">{{ t('make.types.title') }}</h1>
 				<span data-testid="make-types-count" class="make-types__count-label">
-					{{ typesSortedByName.length === 1 ? '1 type' : `${typesSortedByName.length} types` }}
+					{{ typesSortedByName.length === 1 ? t('make.types.countOne', { count: 1 }) : t('make.types.countOther', { count: typesSortedByName.length }) }}
 				</span>
 			</div>
 			<button
@@ -43,7 +45,7 @@ async function onRefresh(): Promise<void> {
 				:disabled="typesLoading || instancesLoading.size > 0"
 				@click="onRefresh"
 			>
-				Refresh
+				{{ t('make.types.refresh') }}
 			</button>
 		</header>
 
@@ -55,16 +57,16 @@ async function onRefresh(): Promise<void> {
 		<p v-else-if="typesLoading && typesSortedByName.length === 0" class="make-types__loading">Loading…</p>
 
 		<p v-else-if="typesSortedByName.length === 0" data-testid="make-types-empty" class="make-types__empty">
-			No types yet.
+			{{ t('make.types.empty') }}
 		</p>
 
 		<ul v-else class="make-types__list">
-			<li v-for="t in typesSortedByName" :key="t.id" class="make-types__row">
-				<router-link :to="`/make/types/${t.id}`" :data-testid="`type-row-${t.id}`" class="make-types__link">
-					<span v-if="isFavorite(t.id)" :data-testid="`favorite-star-${t.id}`" class="make-types__star" aria-label="favorite">★</span>
-					<span class="make-types__name">{{ t.name }}</span>
-					<span v-if="t.description" class="make-types__description">{{ t.description }}</span>
-					<span class="make-types__count">{{ countLabel(t.id) }}</span>
+			<li v-for="type in typesSortedByName" :key="type.id" class="make-types__row">
+				<router-link :to="`/make/types/${type.id}`" :data-testid="`type-row-${type.id}`" class="make-types__link">
+					<span v-if="isFavorite(type.id)" :data-testid="`favorite-star-${type.id}`" class="make-types__star" aria-label="favorite">★</span>
+					<span class="make-types__name">{{ type.name }}</span>
+					<span v-if="type.description" class="make-types__description">{{ type.description }}</span>
+					<span class="make-types__count">{{ countLabel(type.id) }}</span>
 				</router-link>
 			</li>
 		</ul>

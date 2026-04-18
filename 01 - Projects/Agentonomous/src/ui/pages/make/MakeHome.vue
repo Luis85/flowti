@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import { useMakeStore } from '../../stores/make-store.js';
 
+const { t } = useI18n();
 const store = useMakeStore();
 const { typesLoading, types, favoriteTypes } = storeToRefs(store);
 
@@ -11,8 +13,8 @@ onMounted(() => { void store.loadTypes(); });
 
 <template>
 	<div class="make-home">
-		<h1 data-testid="make-home-title">Make</h1>
-		<p data-testid="make-home-blurb">Author structured content in your vault.</p>
+		<h1 data-testid="make-home-title">{{ t('make.home.title') }}</h1>
+		<p data-testid="make-home-blurb">{{ t('make.home.blurb') }}</p>
 
 		<div v-if="typesLoading" data-testid="make-home-spinner" class="make-home__spinner">Loading…</div>
 
@@ -22,23 +24,23 @@ onMounted(() => { void store.loadTypes(); });
 			to="/make/types"
 			class="make-home__cta"
 		>
-			Browse types
+			{{ t('make.home.browseTypesCta') }}
 		</router-link>
 
 		<p v-else data-testid="make-home-empty" class="make-home__empty">
-			You haven't created any types yet. Type authoring comes in a later update.
+			{{ t('make.home.empty') }}
 		</p>
 
 		<section v-if="favoriteTypes.length > 0" class="make-home__favorites">
-			<h2 data-testid="make-home-favorites-heading">Favorites</h2>
+			<h2 data-testid="make-home-favorites-heading">{{ t('make.home.favoritesHeading') }}</h2>
 			<ul class="make-home__chips">
-				<li v-for="t in favoriteTypes" :key="t.id">
+				<li v-for="t2 in favoriteTypes" :key="t2.id">
 					<router-link
-						:data-testid="`favorite-chip-${t.id}`"
-						:to="`/make/types/${t.id}`"
+						:data-testid="`favorite-chip-${t2.id}`"
+						:to="`/make/types/${t2.id}`"
 						class="make-home__chip"
 					>
-						{{ t.name }}
+						{{ t2.name }}
 					</router-link>
 				</li>
 			</ul>

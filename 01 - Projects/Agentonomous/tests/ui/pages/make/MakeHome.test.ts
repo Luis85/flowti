@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import MakeHome from '../../../../src/ui/pages/make/MakeHome.vue';
 import MakeTypes from '../../../../src/ui/pages/make/MakeTypes.vue';
 import { MakeHomePage } from '../../../../src/ui/pages/make/MakeHome.po.js';
+import { mountWithI18n } from '../../../__fixtures__/mount-with-i18n.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
 
 const BOOK: TypeSchema = {
@@ -18,6 +18,7 @@ vi.mock('../../../../src/modules/make/make-module.js', () => {
 	return {
 		getMakeService:  () => svc,
 		getMakeSettings: () => ({ enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] }),
+		subscribeMakeEvents: () => () => { /* no-op */ },
 		__mock: svc,
 	};
 });
@@ -34,7 +35,7 @@ async function mountHome() {
 	});
 	await router.push('/make');
 	await router.isReady();
-	const wrapper = mount(MakeHome, { global: { plugins: [router] } });
+	const wrapper = mountWithI18n(MakeHome, { router });
 	return { wrapper, router, page: new MakeHomePage(wrapper.element as HTMLElement) };
 }
 

@@ -15,24 +15,40 @@ const DUNE: InstanceRef = {
 };
 
 vi.mock('../../../src/modules/make/make-module.js', () => {
-	const mock = {
-		listTypes:     vi.fn(),
-		loadType:      vi.fn(),
-		listInstances: vi.fn(),
+	const svc = {
+		listTypes:          vi.fn(),
+		loadType:           vi.fn(),
+		listInstances:      vi.fn(),
+		createType:         vi.fn(),
+		updateType:         vi.fn(),
+		deleteType:         vi.fn(),
+		regenerateBaseFile: vi.fn(),
+		toggleFavorite:     vi.fn(),
 	};
+	let capturedHandlers: Record<string, ((payload: unknown) => void) | undefined> = {};
 	const settings = { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] };
 	return {
-		getMakeService:  () => mock,
+		getMakeService:  () => svc,
 		getMakeSettings: () => settings,
-		__mock:          mock,
+		subscribeMakeEvents: (h: Record<string, ((payload: unknown) => void) | undefined>) => {
+			capturedHandlers = h;
+			return () => { capturedHandlers = {}; };
+		},
+		__mock:          svc,
+		__captured:      () => capturedHandlers,
 	};
 });
 
 import * as makeModule from '../../../src/modules/make/make-module.js';
 const mock = (makeModule as unknown as { __mock: {
-	listTypes: ReturnType<typeof vi.fn>;
-	loadType: ReturnType<typeof vi.fn>;
-	listInstances: ReturnType<typeof vi.fn>;
+	listTypes:          ReturnType<typeof vi.fn>;
+	loadType:           ReturnType<typeof vi.fn>;
+	listInstances:      ReturnType<typeof vi.fn>;
+	createType:         ReturnType<typeof vi.fn>;
+	updateType:         ReturnType<typeof vi.fn>;
+	deleteType:         ReturnType<typeof vi.fn>;
+	regenerateBaseFile: ReturnType<typeof vi.fn>;
+	toggleFavorite:     ReturnType<typeof vi.fn>;
 } }).__mock;
 
 describe('make-store', () => {
@@ -41,6 +57,11 @@ describe('make-store', () => {
 		mock.listTypes.mockReset();
 		mock.loadType.mockReset();
 		mock.listInstances.mockReset();
+		mock.createType.mockReset();
+		mock.updateType.mockReset();
+		mock.deleteType.mockReset();
+		mock.regenerateBaseFile.mockReset();
+		mock.toggleFavorite.mockReset();
 	});
 
 	it('loadTypes populates types, flips loading false, leaves no error on success', async () => {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useMakeStore } from '../../stores/make-store.js';
@@ -9,6 +10,7 @@ import { getMakeSettings } from '../../../modules/make/make-module.js';
 
 type Tab = 'fields' | 'instances';
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const store = useMakeStore();
@@ -57,10 +59,10 @@ const errorInstances = computed(() => type.value ? (instancesError.value.get(typ
 					:disabled="typesLoading || instancesLoading.size > 0"
 					@click="onRefresh"
 				>
-					Refresh
+					{{ t('make.types.refresh') }}
 				</button>
 			</div>
-			<p data-testid="make-type-folder" class="folder">Folder: {{ type.instancesFolder }}</p>
+			<p data-testid="make-type-folder" class="folder">{{ t('make.type.folderLabel', { folder: type.instancesFolder }) }}</p>
 		</header>
 
 		<div role="tablist" class="tabs">
@@ -72,7 +74,7 @@ const errorInstances = computed(() => type.value ? (instancesError.value.get(typ
 				:class="{ active: activeTab === 'fields' }"
 				@click="activeTab = 'fields'"
 			>
-				Fields
+				{{ t('make.type.tabs.fields') }}
 			</button>
 			<button
 				type="button"
@@ -82,7 +84,7 @@ const errorInstances = computed(() => type.value ? (instancesError.value.get(typ
 				:class="{ active: activeTab === 'instances' }"
 				@click="activeTab = 'instances'"
 			>
-				Instances
+				{{ t('make.type.tabs.instances') }}
 			</button>
 		</div>
 
