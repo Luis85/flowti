@@ -21,5 +21,17 @@ export class MakeTypePage {
 	get instancesLoading(): HTMLElement | null { return this.el('make-type-instances-loading'); }
 	get instancesError(): HTMLElement | null { return this.el('make-type-instances-error'); }
 
+	// --- Task 3.17 additions ---
+	get unsavedBadge(): HTMLElement | null { return this.el('make-type-unsaved-badge'); }
+	get fieldsTabUnsavedIndicator(): HTMLElement | null { return this.root.querySelector('[data-testid="make-type-tab-fields"] [aria-label]'); }
+	get deleteButton(): HTMLButtonElement | null { return this.root.querySelector<HTMLButtonElement>('[data-testid="fields-delete"]'); }
+	get saveButton(): HTMLButtonElement | null { return this.root.querySelector<HTMLButtonElement>('[data-testid="fields-save"]'); }
+	get cancelButton(): HTMLButtonElement | null { return this.root.querySelector<HTMLButtonElement>('[data-testid="fields-cancel"]'); }
+	get baseBanner(): HTMLElement | null { return this.el('base-file-banner'); }
+	get baseBannerRegenerate(): HTMLButtonElement | null { return this.root.querySelector<HTMLButtonElement>('[data-testid="base-file-banner-regenerate"]'); }
+	get deleteDialog(): HTMLElement | null { return this.el('delete-type-dialog'); }
+	get confirmDialog(): HTMLElement | null { return this.el('confirm-dialog'); }
+	get favoriteButton(): HTMLButtonElement | null { return this.root.querySelector<HTMLButtonElement>('[data-testid^="favorite-star-"]'); }
+
 	private el(testId: string): HTMLElement | null { return this.root.querySelector(`[data-testid="${testId}"]`); }
 }

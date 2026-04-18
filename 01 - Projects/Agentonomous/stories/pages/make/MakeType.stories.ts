@@ -14,6 +14,13 @@ const BOOK: TypeSchema = {
 	],
 	createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z',
 };
+
+const BOOK_STALE: TypeSchema = {
+	...BOOK,
+	updatedAt: '2026-04-20T00:00:00.000Z',
+	baseFile: { path: 'Make/Bases/book.md', generatedAt: '2026-04-19T00:00:00.000Z' },
+};
+
 const DUNE: InstanceRef = { typeId: 'book', path: 'Books/Dune.md', title: 'Dune', createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
 const NEURO: InstanceRef = { typeId: 'book', path: 'Books/Neuromancer.md', title: 'Neuromancer', createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z' };
 
@@ -70,5 +77,37 @@ export const InstancesError: Story = {
 	decorators: [makeDecorator('/make/types/book', (s) => {
 		s.types = [BOOK]; s.typesLoaded = true;
 		s.instancesError = new Map([['book', 'vault-error: EIO']]);
+	})],
+};
+
+// --- Task 3.17 new stories ---
+
+export const NewMode: Story = {
+	decorators: [makeDecorator('/make/types/new', (s) => {
+		s.types = []; s.typesLoaded = true;
+	})],
+};
+
+export const EditMode_WithBannerStale: Story = {
+	name: 'EditMode: Stale Base Banner',
+	decorators: [makeDecorator('/make/types/book#fields', (s) => {
+		s.types = [BOOK_STALE]; s.typesLoaded = true;
+		s.instancesByTypeId = new Map([['book', [DUNE, NEURO]]]);
+	})],
+};
+
+export const EditMode_UnsavedDialog: Story = {
+	name: 'EditMode: Unsaved Changes (simulated dirty)',
+	decorators: [makeDecorator('/make/types/book#fields', (s) => {
+		s.types = [BOOK]; s.typesLoaded = true;
+		s.instancesByTypeId = new Map([['book', [DUNE, NEURO]]]);
+	})],
+};
+
+export const EditMode_DeleteDialog: Story = {
+	name: 'EditMode: Delete Dialog (1 instance)',
+	decorators: [makeDecorator('/make/types/book#fields', (s) => {
+		s.types = [BOOK]; s.typesLoaded = true;
+		s.instancesByTypeId = new Map([['book', [DUNE]]]);
 	})],
 };

@@ -1,122 +1,257 @@
 <script setup lang="ts">
-import { computed, onMounted, watch, ref, shallowRef } from 'vue';
-import type { Draft } from '../../../domain/make/draft-equality.js';
-import type { FieldError } from '../../../domain/make/errors.js';
-import { useI18n } from 'vue-i18n';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, inject, onMounted, ref, watch } from 'vue';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
+import { useI18n } from 'vue-i18n';
 import { useMakeStore } from '../../stores/make-store.js';
+import { useMakeTypeDraft } from './use-make-type-draft.js';
+import { useMakeTypeSaveFlow } from './use-make-type-save-flow.js';
 import MakeTypeFieldsEditor from './MakeTypeFieldsEditor.vue';
 import MakeTypeInstances from './MakeTypeInstances.vue';
-import { getMakeSettings } from '../../../modules/make/make-module.js';
+import MakeTypeBaseBanner from './MakeTypeBaseBanner.vue';
+import ConfirmDialog from '../../components/make/ConfirmDialog.vue';
+import DeleteTypeDialog from '../../components/make/DeleteTypeDialog.vue';
+import { PluginContextKey } from '../../plugin-context-key.js';
 
 type Tab = 'fields' | 'instances';
 
-const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const store = useMakeStore();
-const { instancesByTypeId, instancesLoading, instancesError, typesLoading } = storeToRefs(store);
+const { t } = useI18n();
+const ctx = inject(PluginContextKey);
 
-const typeId = computed(() => String(route.params['typeId']));
-const type = computed(() => store.getType(typeId.value));
+const draftState = useMakeTypeDraft(route, store);
+const { isNewMode, typeId, committedType, draft, isDirty, fieldErrors, resetDraft } = draftState;
 
-const activeTab = ref<Tab>(route.hash === '#fields' ? 'fields' : 'instances');
+const {
+	instancesByTypeId, instancesLoading, instancesError,
+	savingType, regeneratingForId, regenerationError,
+} = storeToRefs(store);
 
-watch(() => route.hash, (hash) => {
-	activeTab.value = hash === '#fields' ? 'fields' : 'instances';
+const {
+	schemaErrors, renameWarningOpen, renameWarningBody, overwriteWarningOpen,
+	onSave, onRenameAcknowledge, onRegenerate, onOverwriteConfirm,
+} = useMakeTypeSaveFlow(store, draftState, router, t as (key: string, values?: Record<string, unknown>) => string, ctx);
+
+// --- Tab state (full a11y) ---
+const activeTab = ref<Tab>(route.hash === '#fields' || isNewMode.value ? 'fields' : 'instances');
+watch(() => route.hash, (h) => { if (!isNewMode.value) activeTab.value = h === '#fields' ? 'fields' : 'instances'; });
+watch(activeTab, (tab) => { if (!isNewMode.value && route.hash !== `#${tab}`) void router.replace({ hash: `#${tab}` }); });
+function onTabKeydown(e: KeyboardEvent, current: Tab): void {
+	if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+		activeTab.value = current === 'fields' ? 'instances' : 'fields';
+		e.preventDefault();
+	}
+}
+
+// --- Base banner computed state ---
+const baseFileMissing = computed(() => !isNewMode.value && committedType.value !== null && committedType.value.baseFile === undefined);
+const baseFileStale = computed(() => {
+	const c = committedType.value;
+	if (c?.baseFile === undefined) return false;
+	return new Date(c.updatedAt).getTime() > new Date(c.baseFile.generatedAt).getTime();
 });
-watch(activeTab, (next) => {
-	const wantedHash = `#${next}`;
-	if (route.hash !== wantedHash) void router.replace({ hash: wantedHash });
+const bannerState = computed<'missing' | 'stale' | null>(() => {
+	if (baseFileMissing.value) return 'missing';
+	if (baseFileStale.value) return 'stale';
+	return null;
+});
+const bannerRegenerating = computed(() => typeId.value !== null && regeneratingForId.value.has(typeId.value));
+const bannerError = computed(() => typeId.value !== null ? (regenerationError.value.get(typeId.value) ?? null) : null);
+
+// --- Dialog state ---
+const unsavedOpen = ref(false);
+const unsavedResolver = ref<((choice: 'save' | 'discard' | 'cancel') => void) | null>(null);
+const deleteOpen = ref(false);
+const isDeleting = ref(false);
+
+// --- Instance count for DeleteTypeDialog ---
+function ensureInstancesLoaded(): void {
+	if (typeId.value !== null && !instancesByTypeId.value.has(typeId.value)) {
+		void store.loadInstances(typeId.value);
+	}
+}
+const instanceCount = computed<number | null>(() =>
+	typeId.value === null ? null : (instancesByTypeId.value.get(typeId.value)?.length ?? null),
+);
+
+// --- Route guard ---
+onBeforeRouteLeave(async () => {
+	if (!isDirty.value) return true;
+	const choice = await new Promise<'save' | 'discard' | 'cancel'>((resolve) => {
+		unsavedResolver.value = resolve;
+		unsavedOpen.value = true;
+	});
+	unsavedOpen.value = false;
+	unsavedResolver.value = null;
+	if (choice === 'cancel') return false;
+	if (choice === 'discard') return true;
+	await onSave();
+	return !isDirty.value;
 });
 
+// --- onMount ---
 onMounted(async () => {
-	if (!store.typesLoaded) await store.loadTypes();
-	if (type.value !== undefined) await store.loadInstances(type.value.id);
+	if (!isNewMode.value && !store.typesLoaded) await store.loadTypes();
+	if (!isNewMode.value && typeId.value !== null) void store.loadInstances(typeId.value);
 });
 
-function isFavorite(id: string): boolean {
-	return getMakeSettings()?.favorites.includes(id) ?? false;
+// --- onDelete + confirm flow ---
+function onDelete(): void {
+	ensureInstancesLoaded();
+	deleteOpen.value = true;
+}
+async function onDeleteConfirm(payload: { alsoDeleteBaseFile: boolean }): Promise<void> {
+	isDeleting.value = true;
+	const result = await store.deleteType(typeId.value!, { alsoDeleteInstances: false, alsoDeleteBaseFile: payload.alsoDeleteBaseFile });
+	isDeleting.value = false;
+	if (result.kind === 'ok') {
+		deleteOpen.value = false;
+		ctx?.notifications.success(t('make.notify.typeDeleted', { name: committedType.value?.name ?? '' }));
+		await router.replace('/make/types');
+	}
 }
 
-function onRefresh(): void {
-	if (type.value !== undefined) void store.refreshAll(type.value.id);
+// --- onToggleFavorite ---
+async function onToggleFavorite(): Promise<void> {
+	if (typeId.value === null) return;
+	await store.toggleFavorite(typeId.value);
 }
 
-const instances = computed(() => type.value ? instancesByTypeId.value.get(type.value.id) : undefined);
-const loadingInstances = computed(() => type.value ? instancesLoading.value.has(type.value.id) : false);
-const errorInstances = computed(() => type.value ? (instancesError.value.get(type.value.id) ?? null) : null);
-
-const draft = computed<Draft>(() => ({
-	name: type.value?.name ?? '',
-	description: type.value?.description ?? '',
-	instancesFolder: type.value?.instancesFolder ?? '',
-	titleFieldName: type.value?.titleFieldName ?? null,
-	fields: type.value?.fields ?? [],
-}));
-
-const _fieldErrors = shallowRef(new Map<string, FieldError[]>());
+// --- Header computed ---
+const headerTitle = computed(() => {
+	if (isNewMode.value) return draft.value.name.trim() || t('make.type.create.title');
+	return committedType.value?.name ?? '';
+});
+const favoriteAriaLabel = computed(() => {
+	if (typeId.value === null) return '';
+	return store.isFavoritedForUI(typeId.value)
+		? t('make.type.favoriteRemove', { name: committedType.value?.name ?? '' })
+		: t('make.type.favoriteAdd', { name: committedType.value?.name ?? '' });
+});
+const hasExistingInstances = computed(() => typeId.value !== null && (instancesByTypeId.value.get(typeId.value)?.length ?? 0) > 0);
 </script>
 
 <template>
-	<div v-if="type" class="make-type">
+	<div class="make-type">
 		<header class="make-type__header">
-			<div class="make-type__title-row">
-				<h1 data-testid="make-type-title">{{ type.name }}</h1>
-				<span v-if="isFavorite(type.id)" :data-testid="`favorite-star-${type.id}`" class="star">★</span>
+			<div class="title-row">
+				<h1 data-testid="make-type-title">{{ headerTitle }}</h1>
+				<span v-if="isDirty" data-testid="make-type-unsaved-badge" :aria-label="t('make.type.edit.unsaved')">●</span>
 				<button
+					v-if="!isNewMode && committedType !== null"
 					type="button"
-					data-testid="make-type-refresh"
-					:disabled="typesLoading || instancesLoading.size > 0"
-					@click="onRefresh"
-				>
-					{{ t('make.types.refresh') }}
-				</button>
+					:data-testid="`favorite-star-${typeId}`"
+					:aria-label="favoriteAriaLabel"
+					:aria-pressed="store.isFavoritedForUI(typeId!) ? 'true' : 'false'"
+					:aria-busy="store.favoriteToggling.has(typeId!) ? 'true' : 'false'"
+					class="favorite-star"
+					:class="{ filled: store.isFavoritedForUI(typeId!), pending: store.favoriteToggling.has(typeId!) }"
+					@click="onToggleFavorite"
+				>★</button>
 			</div>
-			<p data-testid="make-type-folder" class="folder">{{ t('make.type.folderLabel', { folder: type.instancesFolder }) }}</p>
+			<p v-if="committedType" data-testid="make-type-folder" class="folder">Folder: {{ committedType.instancesFolder }}</p>
 		</header>
 
-		<div role="tablist" class="tabs">
+		<MakeTypeBaseBanner
+			v-if="bannerState !== null"
+			:state="bannerState"
+			:generated-at="committedType?.baseFile?.generatedAt"
+			:regenerate-loading="bannerRegenerating"
+			:regenerate-error="bannerError"
+			@regenerate="onRegenerate(false)"
+		/>
+
+		<div v-if="!isNewMode" role="tablist" class="tabs" :aria-label="t('make.module.name')">
 			<button
-				type="button"
+				id="tab-fields"
 				role="tab"
 				data-testid="make-type-tab-fields"
 				:aria-selected="activeTab === 'fields'"
-				:class="{ active: activeTab === 'fields' }"
+				:aria-controls="'panel-fields'"
+				:tabindex="activeTab === 'fields' ? 0 : -1"
 				@click="activeTab = 'fields'"
+				@keydown="onTabKeydown($event, 'fields')"
 			>
 				{{ t('make.type.tabs.fields') }}
+				<span v-if="isDirty && activeTab !== 'fields'" :aria-label="t('make.type.edit.unsaved')">●</span>
 			</button>
 			<button
-				type="button"
+				id="tab-instances"
 				role="tab"
 				data-testid="make-type-tab-instances"
 				:aria-selected="activeTab === 'instances'"
-				:class="{ active: activeTab === 'instances' }"
+				:aria-controls="'panel-instances'"
+				:tabindex="activeTab === 'instances' ? 0 : -1"
 				@click="activeTab = 'instances'"
+				@keydown="onTabKeydown($event, 'instances')"
 			>
 				{{ t('make.type.tabs.instances') }}
 			</button>
 		</div>
 
-		<MakeTypeFieldsEditor
-			v-if="activeTab === 'fields'"
-			:draft="draft"
-			mode="edit"
-			:is-dirty="false"
-			:is-saving="false"
-			:service-error="null"
-			:has-existing-instances="false"
-			:field-errors="_fieldErrors"
-			:schema-errors="{}"
+		<section id="panel-fields" role="tabpanel" aria-labelledby="tab-fields" :hidden="!isNewMode && activeTab !== 'fields'">
+			<MakeTypeFieldsEditor
+				:draft="draft"
+				:mode="isNewMode ? 'new' : 'edit'"
+				:is-dirty="isDirty"
+				:is-saving="savingType"
+				:service-error="store.saveError"
+				:has-existing-instances="hasExistingInstances"
+				:original-folder="committedType?.instancesFolder"
+				:field-errors="fieldErrors"
+				:schema-errors="schemaErrors"
+				@update:draft="draft = $event"
+				@save="onSave"
+				@cancel="isNewMode ? router.push('/make/types') : resetDraft()"
+				@delete="onDelete"
+			/>
+		</section>
+
+		<section v-if="!isNewMode" id="panel-instances" role="tabpanel" aria-labelledby="tab-instances" :hidden="activeTab !== 'instances'">
+			<MakeTypeInstances
+				v-if="committedType"
+				:type="committedType"
+				:instances="instancesByTypeId.get(typeId!)"
+				:loading="instancesLoading.has(typeId!)"
+				:error="instancesError.get(typeId!) ?? null"
+			/>
+		</section>
+
+		<!-- Dialogs -->
+		<ConfirmDialog
+			:open="unsavedOpen"
+			:title="t('make.type.unsaved.title')"
+			:body="t('make.type.unsaved.body')"
+			:options="['save', 'discard', 'cancel']"
+			@resolve="(choice) => unsavedResolver?.(choice as 'save' | 'discard' | 'cancel')"
 		/>
-		<MakeTypeInstances
-			v-else
-			:type="type"
-			:instances="instances"
-			:loading="loadingInstances"
-			:error="errorInstances"
+		<ConfirmDialog
+			:open="renameWarningOpen"
+			:title="t('make.type.renameWarning.title')"
+			:body="renameWarningBody"
+			:options="['cancel', 'confirm']"
+			destructive
+			@resolve="onRenameAcknowledge"
+		/>
+		<ConfirmDialog
+			:open="overwriteWarningOpen"
+			:title="t('make.type.basefile.overwriteWarning.title')"
+			:body="t('make.type.basefile.overwriteWarning.body')"
+			:options="['cancel', 'confirm']"
+			destructive
+			:labels="{ confirm: t('make.type.basefile.overwriteWarning.confirm') }"
+			@resolve="onOverwriteConfirm"
+		/>
+		<DeleteTypeDialog
+			v-if="committedType"
+			:open="deleteOpen"
+			:type="committedType"
+			:instance-count="instanceCount"
+			:is-deleting="isDeleting"
+			@confirm="onDeleteConfirm"
+			@cancel="deleteOpen = false"
 		/>
 	</div>
 </template>
@@ -124,11 +259,13 @@ const _fieldErrors = shallowRef(new Map<string, FieldError[]>());
 <style scoped>
 .make-type { padding: 1rem; color: var(--text-normal); display: flex; flex-direction: column; gap: 0.5rem; }
 .make-type__header { display: flex; flex-direction: column; gap: 0.25rem; }
-.make-type__title-row { display: flex; align-items: center; gap: 0.75rem; }
-.make-type__title-row h1 { margin: 0; }
-.star { color: var(--text-accent); }
+.title-row { display: flex; align-items: center; gap: 0.75rem; }
+.title-row h1 { margin: 0; }
+.favorite-star { background: none; border: none; padding: 0; cursor: pointer; font-size: 1.25rem; color: var(--text-muted); }
+.favorite-star.filled { color: var(--text-accent); }
+.favorite-star.pending { opacity: 0.6; }
 .folder { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
 .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--background-modifier-border); }
 .tabs button { background: none; border: none; padding: 0.5rem 0.75rem; color: var(--text-muted); border-bottom: 2px solid transparent; cursor: pointer; }
-.tabs button.active { color: var(--text-normal); border-bottom-color: var(--interactive-accent); }
+.tabs button[aria-selected="true"] { color: var(--text-normal); border-bottom-color: var(--interactive-accent); }
 </style>
