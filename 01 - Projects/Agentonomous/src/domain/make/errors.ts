@@ -1,5 +1,11 @@
 import type { NonEmptyArray, TypeId } from './types.js';
 
+export type FieldRename = {
+	readonly oldName: string;
+	readonly newName: string;
+	readonly position: number;
+};
+
 export type SchemaError =
 	| { readonly kind: 'invalid-json';          readonly reason: string }
 	| { readonly kind: 'missing-required-key';  readonly key: string }
@@ -9,7 +15,8 @@ export type SchemaError =
 	| { readonly kind: 'title-field-missing';   readonly titleFieldName: string }
 	| { readonly kind: 'invalid-field-default'; readonly fieldName: string; readonly reason: string }
 	| { readonly kind: 'invalid-name';          readonly name: string; readonly reason: 'empty' | 'too-long' | 'illegal-char' | 'reserved' }
-	| { readonly kind: 'invalid-folder-path';   readonly path: string };
+	| { readonly kind: 'invalid-folder-path';   readonly path: string }
+	| { readonly kind: 'field-rename-warning'; readonly renames: readonly FieldRename[]; readonly affectedCount: number };
 
 export type FieldError =
 	| { readonly kind: 'required-missing'; readonly fieldName: string }
@@ -30,4 +37,4 @@ export type MakeError =
 	| { readonly kind: 'instance-exists';        readonly path: string }
 	| { readonly kind: 'no-title-field' }
 	| { readonly kind: 'base-generation-failed'; readonly cause: string }
-	| { readonly kind: 'not-implemented' };
+	| { readonly kind: 'not-implemented'; readonly feature?: string };
