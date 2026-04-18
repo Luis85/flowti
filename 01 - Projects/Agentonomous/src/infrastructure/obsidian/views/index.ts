@@ -10,9 +10,11 @@ import type { ViewRegistration } from '../view-registry.js';
 import { HOMEPAGE_VIEW_REGISTRATION } from './homepage-view.js';
 import { EVENT_INSPECTOR_VIEW_REGISTRATION } from './event-inspector-view.js';
 import { FILE_DETAIL_VIEW_REGISTRATION } from './file-detail-view.js';
+import { MAKE_VIEW_REGISTRATION } from './make-view.js';
 
 export const VIEW_REGISTRATIONS: readonly ViewRegistration[] = [
 	HOMEPAGE_VIEW_REGISTRATION,
 	EVENT_INSPECTOR_VIEW_REGISTRATION,
 	FILE_DETAIL_VIEW_REGISTRATION,
+	MAKE_VIEW_REGISTRATION,
 ];
