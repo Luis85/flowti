@@ -100,7 +100,7 @@ export type SchemaError =
     | { kind: 'title-field-not-text';   titleFieldName: string }
     | { kind: 'title-field-missing';    titleFieldName: string }
     | { kind: 'invalid-field-default';  fieldName: string; reason: string }
-    | { kind: 'invalid-name';           name: string; reason: 'empty' | 'too-long' | 'illegal-char' }
+    | { kind: 'invalid-name';           name: string; reason: 'empty' | 'too-long' | 'illegal-char' | 'reserved' }
     | { kind: 'invalid-folder-path';    path: string };
 
 // Per-value errors — emitted by validateValue / validateInstanceValues
@@ -130,7 +130,7 @@ export type TypeSchemaPatch = Partial<Pick<TypeSchema,
 export type InstanceRef = {
     readonly typeId: TypeId;
     readonly path: string;
-    readonly title: string;        // derived from filename stem
+    readonly title: string;        // always the filename stem; never the frontmatter `title` value
     readonly createdAt: string;    // file ctime, ISO
     readonly updatedAt: string;    // file mtime, ISO
 };
@@ -148,7 +148,7 @@ export type KpiSnapshot = {
 
 - Non-empty, trimmed, length ≤ 64 chars.
 - `TypeSchema.name`: no filesystem-hostile characters — disallow `/ \ : * ? " < > |` and control chars. Case-insensitively unique across all types.
-- `Field.name`: must be a valid YAML key — ASCII letters, digits, underscore, hyphen; must start with a letter. Unique within its type. Reserved names: `type`, `type-id` (stamped by Make into every instance).
+- `Field.name`: must be a valid YAML key — ASCII letters, digits, underscore, hyphen; must start with a letter. Unique within its type. Reserved names: `type`, `type-id` (stamped by Make into every instance). The reserved-name check is part of `validateField` — `FIELD_KINDS[*].validateField` rejects them with `SchemaError { kind: 'invalid-name', reason: 'reserved' }`. (The `invalid-name.reason` union is extended to `'empty' | 'too-long' | 'illegal-char' | 'reserved'`.)
 - Violations of either rule produce a `SchemaError { kind: 'invalid-name' | 'duplicate-field-name' | 'invalid-field-kind' | … }`.
 
 **`TypeId` generation rule** (applied once, at `createType`):
@@ -440,6 +440,8 @@ export type MakeError =
 
 `createMakeService(ports, settings)` is a factory returning the object above; methods close over the captured deps. KPIs are computed on demand, not cached.
 
+`getKpis()` intentionally does not return a `Result` wrapper. KPIs degrade gracefully: on vault failure the snapshot reports zeros/empty arrays and the homepage shows the normal numbers rather than an error banner. Surface-level failures are still logged via the shared `error` bus event.
+
 **`createType` flow** (authoritative for planner):
 
 1. Validate the draft: field-kind validators + name constraints (Section 3.1) + uniqueness check against current `listTypes()` → returns `invalid-schema` or `duplicate-name` on failure.
@@ -457,7 +459,8 @@ export type MakeError =
 export const VIEW_TYPE_MAKE = 'agentonomous-make';
 
 type ModuleState = {
-    readonly service: MakeService;
+    readonly ports: ModulePorts;   // captured at init so onSettingsChange can reuse for rebuilds
+    service: MakeService;
     settings: MakeSettings;
 };
 
@@ -485,23 +488,24 @@ export const MakeModule = defineModule<MakeSettings>({
     init(ports, settings) {
         if (state !== null) void this.destroy();     // idempotent per module convention
         const service = createMakeService(ports, settings);
-        state = { service, settings };
+        state = { ports, service, settings };         // ports stashed so onSettingsChange can reuse them
     },
     onSettingsChange(next) {
         // If folder paths changed, rebuild the service so its captured refs are consistent.
         // Favorites and enabled-flag changes do NOT require a rebuild — they're read through
         // getSettings() on each service call, not captured at factory time.
-        const prev = state?.settings;
-        if (prev === undefined) return;
+        if (state === null) return;
+        const prev = state.settings;
         const folderChanged =
             prev.typesFolder !== next.typesFolder ||
             prev.basesFolder !== next.basesFolder ||
             prev.defaultInstancesRoot !== next.defaultInstancesRoot;
         if (folderChanged) {
+            const ports = state.ports;       // capture before destroy clears state
             void this.destroy();
-            void this.init(/* ports from closure */, next);
+            void this.init(ports, next);
         } else {
-            state!.settings = next;
+            state.settings = next;
         }
     },
     destroy() { state = null; },
@@ -635,7 +639,7 @@ views:
 
 ### 7.3 Lifecycle
 
-- On `createType`: generate YAML, `ports.vault.writeText` into `{basesFolder}/{schema.name}.base` with `createFolders: true`, stamp `schema.baseFile` into the JSON. If the write fails, save the type JSON anyway and surface a warning.
+- On `createType`: generate YAML, `ports.vault.writeText` into `{basesFolder}/{schema.id}.base` with `createFolders: true`, stamp `schema.baseFile` into the JSON. If the write fails, save the type JSON anyway, leave `schema.baseFile` undefined, and surface a warning via `ports.notifications.warn`. The service still returns `ok(schema)` in this partial-success case — **the UI's cue that the base file is missing is `schema.baseFile === undefined`**, not the Result tag. The notification is the sole out-of-band channel; no warnings-array is added to the service response.
 - On `updateType`: do **not** touch the base file. The Type Config page shows a "Schema changed since base generation" banner when `schema.updatedAt > schema.baseFile.generatedAt`, with a "Regenerate base file" action button.
 - On `regenerateBaseFile`: overwrite unconditionally. User is always explicitly requesting this.
 - On `deleteType({ alsoDeleteBaseFile: true })`: delete via `ports.vault.delete` (trash).
@@ -733,7 +737,7 @@ Both write through the same `SettingsPort` section — not two sources of truth.
     - `base-file.test.ts` — snapshot test per schema shape.
 - **Module** (`tests/modules/make/`) — `fakeModulePorts()` + `fakeVault()`.
     - `make-service.test.ts` — createType writes JSON + base + emits event; deleteType with/without cascade; regenerateBaseFile overwrites; instance CRUD including path resolution; error paths.
-    - `make-module.test.ts` — init/destroy idempotency, onSettingsChange reconfigures, command registrations.
+    - `make-module.test.ts` — init/destroy idempotency; `onSettingsChange` exercises both branches (folder-path change triggers destroy+init with ports reused from captured state; favorite/enabled change updates `state.settings` in place without rebuild); command registrations.
 - **UI components** — Storybook stories double as visual regression checks (existing `@storybook/addon-vitest` pattern). Dedicated `.test.ts` only for components with non-trivial logic (`SchemaForm` validation, `FieldEditor` reorder).
 - **UI stores** (`tests/ui/stores/`) — `make-store.test.ts` covers refresh / create / delete / favorite toggle / error propagation, with a fake service.
 - **UI pages** — stories + PageObject-driven smoke tests asserting `data-testid` surfaces for each fixture state.
