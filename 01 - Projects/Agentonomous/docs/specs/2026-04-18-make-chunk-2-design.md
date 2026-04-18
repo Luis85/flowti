@@ -18,7 +18,7 @@ Chunk 2 adds the *presentation layer for read paths*. Users can open the Make vi
 - Pinia store `make-store` caching types and instances, with a manual refresh
 - Router entries for `/make`, `/make/types`, `/make/types/:typeId`
 - Obsidian view wrapper `make-view.ts` (analogous to `homepage-view.ts`)
-- Real implementation of `MakeService.listInstances` (+ a `VaultPort.stat()` method if absent)
+- Real implementation of `MakeService.listInstances` (uses `vault.read().stat` for timestamps; no new `VaultPort` method needed)
 - i18n strings for all new UI surfaces
 - Storybook stories covering page states (loading, empty, error, populated)
 
@@ -62,7 +62,7 @@ Rejected alternatives:
 
 Tab state on `MakeType` rides in the URL hash (`/make/types/book#instances`) so reopening a leaf restores the last-viewed tab. Default tab when hash is absent: **Instances** (reasoning: users visit a type to look at content; fields is one click away).
 
-**Unknown-type guard** — `make-type`'s `beforeEnter` resolves `:typeId` against the store's `types`; if missing, redirects to `/make/types` and emits an Obsidian notice ("Type not found"). Store must be loaded at guard time (guard calls `store.loadTypes()` and awaits if not yet loaded).
+**Unknown-type guard** — `make-type`'s `beforeEnter` resolves `:typeId` against the store's `types`; if missing, redirects to `/make/types` and emits an Obsidian notice ("Type not found"). Store must be loaded at guard time (guard calls `store.loadTypes()` and awaits if not yet loaded). If `store.typesError` is set after the load attempt (vault unreadable), the guard *also* redirects to `/make/types` — the list page surfaces the vault-error banner, which is more truthful than a misleading "Type not found" notice.
 
 **Obsidian view wrapper** — `src/infrastructure/obsidian/views/make-view.ts` mirrors `homepage-view.ts`:
 
@@ -102,7 +102,7 @@ instancesError:     ReadonlyMap<TypeId, string>
 **Getters**:
 - `typesSortedByName` — alphabetical by `name`.
 - `instanceCountByTypeId: ReadonlyMap<TypeId, number | undefined>` — `undefined` ⇒ "not loaded yet" (renders as `—` in UI).
-- `favoriteTypes` — filters `types` by `settings.favorites` (pulls from `getMakeSettings()`).
+- `favoriteTypes` — filters `types` by `settings.favorites` (pulls from `getMakeSettings()`; falls back to an empty array when the module isn't initialised, matching the `getMakeService()` null-handling).
 
 **Tests** at `tests/ui/stores/make-store.test.ts` — mock `getMakeService` with a fake service returning `ok(…)` / `err(…)`. Verify state transitions for each action + getters.
 
@@ -166,15 +166,11 @@ Drops the `not-implemented` stub. Behavior:
 2. Resolve `type.instancesFolder` to an absolute vault path.
 3. `vault.list(folder)` — if folder doesn't exist, return `ok([])` (matches `listTypes` convention).
 4. Filter children to direct-child `.md` files (no recursion into subfolders; consistent with `listTypes`).
-5. For each file, call `vault.stat(path)` for `createdAt` / `updatedAt`.
+5. For each file, call `vault.read(path)` and use the returned `VaultFile.stat.ctime` / `mtime` (converted to ISO strings) as `createdAt` / `updatedAt`. Content is discarded in Chunk 2 — the list view only needs filename stem + timestamps.
 6. Build `InstanceRef { typeId, path, title: <filename stem>, createdAt, updatedAt }` per Chunk 1's committed shape.
-7. Files that fail to stat or have non-.md extensions are skipped and logged at `warn` level.
+7. Files that fail to read or have non-.md extensions are skipped and logged at `warn` level.
 
-**`VaultPort.stat()`** — if absent, Chunk 2 adds it:
-- Port signature: `stat(path: string): Promise<Result<{ createdAt: string; updatedAt: string }, string>>` (ISO timestamps).
-- `ObsidianVaultAdapter` implementation maps Obsidian's file `ctime`/`mtime` to ISO strings.
-- `fakeVault` implementation records `createdAt`/`updatedAt` on `create()` and returns them.
-- Task 2.1's first step is a verification check; if the port already exposes `stat`, skip the port/adapter additions and proceed to 2.2.
+**Why `read()` instead of adding `VaultPort.stat()`** — the port already exposes stat inline via `VaultFile`. Adding a stand-alone `stat()` method would be a separate round-trip optimisation, but `listInstances` doesn't exist yet, so there's no measured cost to optimise. YAGNI: defer until a perf pass identifies this as a bottleneck (likely in Chunk 5 or beyond, when realistic instance counts are exercised).
 
 ### Refresh model
 
@@ -215,6 +211,7 @@ Each page header (MakeTypes, MakeType) carries a refresh button. MakeHome does n
 - Happy path with seeded store
 - Loading, empty, error states
 - MakeType tab switching (hash-driven)
+- MakeType hash-restore-on-leaf-reopen: mount with `route.hash = '#fields'` → Fields tab active without further interaction
 
 **Route guard** — `tests/ui/router/make-routes.test.ts`: unknown `:typeId` redirects to `/make/types`.
 
@@ -222,29 +219,27 @@ Each page header (MakeTypes, MakeType) carries a refresh button. MakeHome does n
 
 **Stories** — `stories/pages/make/*.stories.ts` per page, covering `Default`, `Loading`, `Empty`, `Error`. `MakeType` adds `FieldsTab`, `InstancesTab`. Covered by Storybook smoke test.
 
-## 7. Implementation sequencing — 10 tasks
+## 7. Implementation sequencing — 9 tasks
 
 TDD-ordered so each commit lands on green tests.
 
 | # | Task |
 |---|---|
-| 2.1 | `VaultPort.stat()` — verify; add if absent (port + adapter + fake). |
-| 2.2 | `MakeService.listInstances` real implementation + tests. |
-| 2.3 | Relocate `VIEW_TYPE_MAKE` to `src/domain/views/view-types.ts`; add i18n keys. |
-| 2.4 | `make-store.ts` + tests. |
-| 2.5 | `make-view.ts` + registration + tests. |
-| 2.6 | Router routes + stub page components + guard test. |
-| 2.7 | MakeHome (component + PO + test + story). |
-| 2.8 | MakeTypes (component + PO + test + story). |
-| 2.9 | MakeType (component + 2 tab sub-components + PO + test + stories). |
-| 2.10 | End-of-chunk verification: `npm test`, `npm run build`, `npm run storybook -- --smoke-test`, tag `make-slice-2`. |
+| 2.1 | `MakeService.listInstances` real implementation + tests. |
+| 2.2 | Relocate `VIEW_TYPE_MAKE` from `make-module.ts` to `src/domain/views/view-types.ts`; update the `commands[0].opensView` reference in `make-module.ts` to import from the new location; add i18n keys for new UI surfaces. |
+| 2.3 | `make-store.ts` + tests. |
+| 2.4 | `make-view.ts` + registration in `views/index.ts` + tests. |
+| 2.5 | Router routes + stub page components + guard test. |
+| 2.6 | MakeHome (component + PO + test + story). |
+| 2.7 | MakeTypes (component + PO + test + story). |
+| 2.8 | MakeType (component + 2 tab sub-components + PO + test + stories, including a hash-restore-on-leaf-reopen test). |
+| 2.9 | End-of-chunk verification: `npm test`, `npm run build`, `npm run storybook -- --smoke-test`, tag `make-slice-2`. |
 
 ## 8. File inventory
 
-**Modify** (7 files):
-- `src/domain/shared/vault-port.ts` + `src/infrastructure/obsidian/obsidian-vault-adapter.ts` + `tests/__fakes__/fake-ports.ts` — if `stat()` missing
+**Modify** (6 files):
 - `src/modules/make/make-service.ts` + `tests/modules/make/make-service.test.ts`
-- `src/modules/make/make-module.ts` (drop local `VIEW_TYPE_MAKE` export, import from domain)
+- `src/modules/make/make-module.ts` (drop local `VIEW_TYPE_MAKE` export, import from domain; update `commands[0].opensView` reference)
 - `src/modules/make/locales/en.json`
 - `src/domain/views/view-types.ts` (add `VIEW_TYPE_MAKE`)
 - `src/infrastructure/obsidian/views/index.ts` (register)
@@ -259,18 +254,20 @@ TDD-ordered so each commit lands on green tests.
 
 ## 9. Risks & open items
 
-1. **`VaultPort.stat()` may already exist** — Task 2.1 first step is verification. If present, skip port/adapter changes and jump to test updates.
+1. **Discarded-content read cost on MakeTypes** — `listInstancesForAll()` reads every instance file across every type to populate counts + timestamps via `vault.read().stat`. The alternative (adding `VaultPort.stat()`) is deferred per YAGNI. If profiling shows this hurts at realistic scale, add `stat()` as a perf pass — no API-surface rework because both the store action and service method already abstract the access.
 2. **N vault-list calls on MakeTypes** — for per-type instance counts. Bounded by type count (realistically <30 for a vault). If profiling shows latency, add a bulk `listInstanceCounts()` service method in a follow-up. Interface already abstracts this.
 3. **Storybook store mocking** — pages depend on Pinia. Stories need `setActivePinia(createPinia())` + seed data per story. Pattern to be documented in the implementation plan per-story-file, not here.
-4. **Tab hash sync edge cases** — Obsidian leaf restoration with hash state is under-tested terrain. Browser-history interaction inside a leaf needs verification; may need a specific test.
+4. **Tab hash sync edge cases** — Obsidian leaf restoration with hash state is under-tested terrain. Task 2.8 includes a hash-restore test to cover this explicitly.
+5. **MakeType tab default on a brand-new type** — defaults to `Instances`, which for a zero-instance type lands on an empty state. Accepted for Chunk 2; Chunk 3's "Create type" flow should navigate to `/make/types/:typeId#fields` explicitly so users first see the schema they just defined.
 
 ## 10. Success criteria
 
 Chunk 2 is done when:
-- All 10 tasks committed; tag `make-slice-2` placed.
+- All 9 tasks committed; tag `make-slice-2` placed.
 - `npm test` passes with zero new lint errors on Make files (pre-existing complexity warnings from Chunk 1 may remain).
 - `npm run build` produces `dist/main.js`.
 - `npm run storybook -- --smoke-test` exits clean.
 - Manual smoke test: open the Make view in Obsidian, verify MakeHome renders, navigate to MakeTypes, click a type, switch between Fields and Instances tabs, click refresh, verify empty states when no types exist.
 - Service's write methods remain `not-implemented` stubs (unchanged from Chunk 1).
+- No new `MakeError` variants introduced (the error surface committed in Chunk 1 already covers everything read paths need).
 - No new `any`, `@ts-ignore`, `TODO`, or `FIXME` introduced.
