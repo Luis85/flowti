@@ -141,8 +141,9 @@ This expands A2 by ~30 min but keeps the scope change contained to one file + on
 1. Folder rename succeeds → new service callable with new folder.
 2. Folder rename's `init` rejects → module marked degraded; `getMakeContext()` returns `null`; no stale service reference remains.
 3. Non-folder settings change (favorites flip) → service stays identical (identity-equal), `settings$.value.favorites` reflects the update.
+4. A failing `m.onSettingsChange` (mocked to reject) results in the module appearing in `degradedModuleIds` and a `core` event with `phase: 'settings-change-failure'` firing.
 
-**Estimate**: 2 h.
+**Estimate**: 2.5 h (includes PluginCore change + test for success criterion #6).
 
 ### A3 — Distinguish `not-found` from `vault-error` in `listTypes`
 
@@ -462,7 +463,7 @@ New file `tests/ui/composables/use-focus-trap.test.ts`. Six cases: initial focus
 | R2 | Pinia store `inject()` inside setup factory may fail when store is instantiated outside an active Vue app (rare but possible in direct unit tests). | Store tests mount via fixture component. Verified in B1.2a. |
 | R3 | `mountWithI18n` fixture may not accept `provide` overrides today. | Extending is ≤5 LOC; tracked as part of B1.1. |
 | R4 | Chunk 4 branch diverges if started before Chunk 3.5 lands. | Land Chunk 3.5 entirely on `master` before opening Chunk 4 worktree. |
-| R5 | `PluginCore` may not surface `onSettingsChange` rejections to `moduleStatus`. | Verify during A2; extend PluginCore's settings-change handler if needed (scope-expansion flagged and negotiated during execution). |
+| ~~R5~~ | ~~`PluginCore` may not surface `onSettingsChange` rejections to `moduleStatus`.~~ | **Resolved inline in A2** — spec-time verification confirmed the gap; PluginCore change is now part of A2's committed scope. |
 | R6 | `Readonly<Ref<T>>` may surface subtle inference differences at call sites vs plain `Ref<T>`. | Fallback: plain `Ref<MakeSettings>` with convention (writes flow through `onSettingsChange` enforced by code review). Decision documented inline in B1.1 implementation notes. |
 
 ## 8. Reminders for Chunk 4 planner
