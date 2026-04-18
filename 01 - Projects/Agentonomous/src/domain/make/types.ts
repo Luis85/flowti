@@ -1,3 +1,5 @@
+import type { Field, TypeSchema } from './type-schema.js';
+
 export type TypeName = string;
 export type TypeId = string;
 
@@ -29,3 +31,15 @@ export type DeleteTypeReport = {
 	readonly instancesDeleted: number;
 	readonly baseFileDeleted: boolean;
 };
+
+export type NewTypeDraft = {
+	readonly name: string;
+	readonly description?: string;
+	readonly instancesFolder: string;
+	readonly titleFieldName: string | null;
+	readonly fields: readonly Field[];
+};
+
+export type TypeSchemaPatch = Partial<Pick<TypeSchema,
+	'name' | 'description' | 'instancesFolder' | 'titleFieldName' | 'fields'
+>>;
