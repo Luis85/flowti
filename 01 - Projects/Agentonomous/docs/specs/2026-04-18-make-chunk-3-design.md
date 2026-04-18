@@ -157,7 +157,7 @@ Five new methods in `src/modules/make/make-service.ts`. All return `Result<T, Ma
 
 ### `deleteType(typeId, options: DeleteTypeOptions): Promise<Result<DeleteTypeReport, MakeError>>`
 
-- **`options.alsoDeleteInstances === true`** → return `err({ kind: 'not-implemented', feature: 'instance-cascade' })`. This is a **new `MakeError` variant** (shape: `{ kind: 'not-implemented', feature: string }`) accepted in Chunk 3 scope — §1 deviation note. Replaces the Chunk 3 draft's misleading `vault-error` with accurate semantics, and paves the way for Chunk 3.5's additional `stale-write` and Chunk 4's cascade implementation.
+- **`options.alsoDeleteInstances === true`** → return `err({ kind: 'not-implemented', feature: 'instance-cascade' })`. This uses the **extended shape** of the existing `not-implemented` variant (an optional `feature` discriminator added in Chunk 3 — see the `MakeError` type block below) — §1 deviation note #7. Replaces the Chunk 3 draft's misleading `vault-error` with accurate semantics, and paves the way for Chunk 3.5's additional `stale-write` variant and Chunk 4's cascade implementation.
 
 1. **Load schema** — `loadType(typeId)`; if err, propagate.
 2. **Delete type JSON** — `ports.vault.delete('{typesFolder}/{id}.json')`. Vault err → propagate.
@@ -562,12 +562,15 @@ Click → `store.regenerateBaseFile(typeId)` (no force). Result handling:
 ### New state refs
 
 ```ts
-const savingType         = ref(false);
-const saveError          = ref<string | null>(null);
-const regeneratingForId  = shallowRef<ReadonlySet<TypeId>>(new Set());
-const regenerationError  = shallowRef<ReadonlyMap<TypeId, string>>(new Map());
-const favoriteToggling   = shallowRef<ReadonlySet<TypeId>>(new Set());
+const savingType                  = ref(false);
+const saveError                   = ref<string | null>(null);
+const regeneratingForId           = shallowRef<ReadonlySet<TypeId>>(new Set());
+const regenerationError           = shallowRef<ReadonlyMap<TypeId, string>>(new Map());
+const favoriteToggling            = shallowRef<ReadonlySet<TypeId>>(new Set());
+const optimisticFavoriteOverrides = shallowRef<ReadonlyMap<TypeId, boolean>>(new Map());
 ```
+
+`optimisticFavoriteOverrides` powers R1's true optimistic flip: the star's visual state consults the override map first, then falls back to `getMakeSettings().favorites`. The override is set on toggle click and cleared on action completion (success or failure) — cleanly separating "what the user clicked" from "what's persisted".
 
 ### New actions (return `Result` where the service does)
 
@@ -585,37 +588,62 @@ Exception: `savingType` / `regeneratingForId` / `favoriteToggling` loading flags
 
 ### Optimistic favorite flip (R1)
 
-Replaces the draft's pending-opacity-only approach. Now possible because `toggleFavorite` returns `Result`.
+Star visually flips on click (optimistic), persists via service call, and cleanly rolls back on error. Enabled by `toggleFavorite` returning `Result` and the new `optimisticFavoriteOverrides` map.
 
 ```ts
 async function toggleFavorite(typeId: TypeId): Promise<Result<boolean, MakeError>> {
   const svc = getMakeService();
   if (svc === null) return err({ kind: 'vault-error', cause: 'make module not ready' });
+
+  // 1. Compute the optimistic target state.
+  const currentFavorited = (getMakeSettings()?.favorites ?? []).includes(typeId);
+  const targetFavorited = !currentFavorited;
+
+  // 2. Set the override (star visually flips immediately via isFavoritedForUI).
+  const nextOverrides = new Map(optimisticFavoriteOverrides.value);
+  nextOverrides.set(typeId, targetFavorited);
+  optimisticFavoriteOverrides.value = nextOverrides;
+
+  // 3. Track pending flag for aria-busy/opacity.
   const started = new Set(favoriteToggling.value); started.add(typeId); favoriteToggling.value = started;
-  // Optimistic UI: the star flips immediately because isFavorite() reads from getMakeSettings(),
-  // and we don't block the star's render on the toggle completing. If the service fails, the
-  // make:favorite-toggled event doesn't fire, and on Result err we manually refresh settings
-  // to recover the true state.
+
+  // 4. Call the service.
   const result = await svc.toggleFavorite(typeId);
-  const done = new Set(favoriteToggling.value); done.delete(typeId); favoriteToggling.value = done;
-  if (result.kind === 'err') {
-    // Rollback: force a settings re-read so the store's favoriteTypes getter picks up
-    // the true (unchanged) state on next render.
-    // Implementation detail: getMakeSettings() currently reads module state directly, which
-    // should already reflect truth. The rollback is essentially a no-op at the data layer;
-    // the UI re-renders when favoriteToggling flag clears, at which point the star reflects
-    // the unchanged settings.
-  }
+
+  // 5. Clear pending + override, regardless of outcome.
+  //    On success: getMakeSettings().favorites already reflects the new state (service saved it),
+  //                so clearing the override lets the star read truth = new state. No flicker.
+  //    On failure: settings unchanged; clearing the override lets the star read truth = old state.
+  //                User sees the optimistic flip briefly, then revert. Acceptable for rare errors.
+  const doneLoading = new Set(favoriteToggling.value); doneLoading.delete(typeId); favoriteToggling.value = doneLoading;
+  const clearedOverrides = new Map(optimisticFavoriteOverrides.value); clearedOverrides.delete(typeId); optimisticFavoriteOverrides.value = clearedOverrides;
+
   return result;
+}
+
+// Star consumers read this helper instead of checking settings directly.
+export function isFavoritedForUI(typeId: TypeId): boolean {
+  const override = optimisticFavoriteOverrides.value.get(typeId);
+  if (override !== undefined) return override;
+  return (getMakeSettings()?.favorites ?? []).includes(typeId);
 }
 ```
 
 Star's visual reasoning (from the page's perspective):
-- `isFavorited = isFavorite(typeId)` — reads from `getMakeSettings().favorites`, always reflects truth post-save.
-- `isPending = favoriteToggling.value.has(typeId)` — true during the call.
-- `starClasses = { filled: isFavorited, pending: isPending }` — pending class adds `aria-busy` + opacity.
+- `isFavorited = store.isFavoritedForUI(typeId)` — override-aware; reflects optimistic state during call, truth after.
+- `isPending = favoriteToggling.value.has(typeId)` — true during the call; drives `aria-busy` + subtle opacity for pending affordance.
+- The `filled` class is bound to `isFavorited` alone; pending adds a secondary subtle cue without changing which icon is shown.
 
-On optimistic flip with rollback: since `getMakeSettings()` only reflects what's been saved, the "optimistic" part is really just: allow the click through even while the service is in flight. On success, event propagates and settings update. On failure, settings never updated → no UI flip. User sees the star briefly appear pending, then resolve to its true state — which matches the expected flow for a toggle that might fail.
+Timing (happy path):
+1. Click → override set to `true` + pending set → star shows filled + pending (< 16 ms).
+2. Service call starts (async).
+3. Service succeeds → settings saved → `make:favorite-toggled` event fires → store's `onFavoriteToggled` handler nudges reactivity.
+4. Action continues → override cleared + pending cleared → star reads truth (now `true`) = filled. No flicker.
+
+Timing (error path):
+1. Click → override set + pending set → star shows flipped + pending.
+2. Service fails → no event.
+3. Action continues → override cleared + pending cleared → star reads truth (unchanged) = previous state. Brief visual revert + toast `make.error.favoriteFailed`.
 
 ### Cross-domain event subscriptions (R2 — corrected from draft)
 
@@ -707,7 +735,7 @@ Per mid-S8 (i), Chunk 3 wires `t()` live throughout all Make pages (including Ch
 - **TranslationPort injection**: `PluginContext` already exposes `t` via the Vue provide/inject pattern (`plugin-context-key.ts`). Pages use `const { t } = usePluginContext()` (existing helper) or `const t = inject(PluginContextKey)!.t`.
 - **No `vue-i18n` integration** — Agentonomous uses the plugin's own `TranslationPort`. Spec stays on that path.
 - **Each updated page's test** replaces any hardcoded-English assertion with the corresponding key lookup.
-- **Dead-key backfill**: Chunk 2 shipped `make.home.title`, `make.types.title`, `make.types.empty`, `make.types.refresh`, `make.type.folderLabel`, `make.type.tabs.fields`, `make.type.tabs.instances`, `make.type.fields.empty`, `make.type.fields.titleBadge`, `make.type.fields.required`, `make.type.instances.empty`, `make.type.instances.createdLabel`, `make.home.blurb`, `make.home.browseTypesCta`, `make.home.empty`, `make.home.favoritesHeading`, `make.types.countOne`, `make.types.countOther`, `make.types.instancesCountOne`, `make.types.instancesCountOther`, `make.notify.typeNotFound`, `make.error.notReady`. All get wired in Task 3.5.
+- **Dead-key backfill**: Chunk 2 shipped `make.home.title`, `make.types.title`, `make.types.empty`, `make.types.refresh`, `make.type.folderLabel`, `make.type.tabs.fields`, `make.type.tabs.instances`, `make.type.fields.empty`, `make.type.fields.titleBadge`, `make.type.fields.required`, `make.type.instances.empty`, `make.type.instances.createdLabel`, `make.home.blurb`, `make.home.browseTypesCta`, `make.home.empty`, `make.home.favoritesHeading`, `make.types.countOne`, `make.types.countOther`, `make.types.instancesCountOne`, `make.types.instancesCountOther`, `make.notify.typeNotFound`, `make.error.notReady`. All get wired in Task 3.7.
 
 ### New keys for Chunk 3 (~50)
 
@@ -803,7 +831,7 @@ Per mid-S8 (i), Chunk 3 wires `t()` live throughout all Make pages (including Ch
 **Delete** (1 file):
 - `src/ui/pages/make/MakeTypeFields.vue` — replaced by `MakeTypeFieldsEditor.vue`
 
-**Create** (22 files):
+**Create** (24 files):
 - `src/domain/make/draft-equality.ts` + `.test.ts`
 - `src/ui/pages/make/use-make-type-draft.ts` + `.test.ts`
 - `src/ui/pages/make/MakeTypeFieldsEditor.vue` + `.test.ts` + `.stories.ts`
@@ -822,9 +850,9 @@ Per mid-S8 (i), Chunk 3 wires `t()` live throughout all Make pages (including Ch
 - `make-module.test.ts` — `subscribeMakeEvents` helper tests
 - `make-service.test.ts` — extensive write-method coverage + orphan-base reconciliation + user-edit protection + rename detection
 
-Total: 10 modified + 1 deleted + 22 created = 33 file-touches, plus PO + existing-test extensions. Higher than Chunk 2's 27 file-touches, primarily due to the new composable, new domain helpers file, and `ConfirmDialog` + `DeleteTypeDialog` split.
+Total: 10 modified + 1 deleted + 24 created = 35 file-touches, plus PO + existing-test extensions. Higher than Chunk 2's 27 file-touches, primarily due to the new composable, new domain helpers file, and `ConfirmDialog` + `DeleteTypeDialog` split.
 
-## 10. Task sequencing (17 tasks)
+## 10. Task sequencing (19 tasks)
 
 TDD-ordered. Commits land on green tests.
 
@@ -866,6 +894,7 @@ Chunk 3 is done when:
   - Toggle favorite star on MakeTypes row → star fills; chip appears on MakeHome.
   - Rename a field → confirm dialog appears with instance count → Continue → save succeeds.
   - Open delete dialog → see instance count → check "Also delete the generated table view file" → Delete → both files trashed; redirected to MakeTypes.
+  - **User-edit protection**: hand-edit a `.base` file in Obsidian (add a comment or change a filter) → back in Make, click Regenerate on that type → confirm dialog appears warning about the hand-edit → choose Overwrite → file is regenerated and the manual edit is lost (intended behavior). Cancel path: dialog dismisses, file untouched.
   - **Keyboard-only run-through**: tab to "Create type" → Enter → fill with keyboard → Tab to Save → Enter. All interactions reachable without a mouse.
 - **Accessibility verification**: use Chrome DevTools "Accessibility" pane to verify (a) `role="alertdialog"` on dialogs, (b) `aria-controls` linking tabs to panels, (c) roving tabindex navigates tabs with arrow keys, (d) favorite button has dynamic `aria-label` + `aria-pressed`, (e) inputs with errors have `aria-invalid="true"` + `aria-describedby`.
 - No new `any` / `@ts-ignore` / `TODO` / `FIXME`.
@@ -885,7 +914,7 @@ Items deferred from this review's Should-fix findings. Each is a focused piece o
 8. **Precise base-file divergence check** (currently byte-compare; upgrade to canonical-form compare that ignores whitespace/line-ending differences).
 9. **External-update-during-dirty-draft recovery** — leaf A has dirty draft; external `make:type-updated` fires → "This type changed elsewhere — reload or overwrite?" dialog.
 10. **External-delete-during-edit recovery** — leaf A is editing; leaf B deletes → "Type was deleted — download draft as JSON?" recovery offer.
-11. **Favorite drift backstop** — periodic re-read of settings after `toggleFavorite` resolve, as safety net for missed events.
+11. **Favorite multi-session sync recovery** — if another session toggles a favorite while this session is open, the local `optimisticFavoriteOverrides` + cached `getMakeSettings()` may lag the persisted state. A periodic re-read of settings (or subscribing to `SettingsPort` change notifications for the `make` section) would reconcile. Chunk 3's single-session optimistic flip is complete; this handles the multi-session case.
 
 ## 13. Risks (Chunk 3 scope)
 
