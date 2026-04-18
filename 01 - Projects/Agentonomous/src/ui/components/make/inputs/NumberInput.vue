@@ -34,7 +34,7 @@ function onInput(ev: Event): void {
 			:data-testid="`input-number-${field.name}`"
 			@input="onInput"
 		>
-		<span v-if="field.description" class="make-input__help">{{ field.description }}</span>
+		<span v-if="field.description" class="make-input__help" data-testid="input-help">{{ field.description }}</span>
 		<span v-if="error" class="make-input__error" data-testid="input-error">{{ error }}</span>
 	</label>
 </template>

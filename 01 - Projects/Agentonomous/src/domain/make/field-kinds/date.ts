@@ -8,7 +8,7 @@ type DateValue = Extract<FieldValue, { kind: 'date' }>;
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-function parseLocalDate(raw: string): Date | null {
+export function parseLocalDate(raw: string): Date | null {
 	const m = DATE_RE.exec(raw);
 	if (m === null) return null;
 	const year = Number(m[1]);

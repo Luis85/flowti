@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Field } from '../../../../domain/make/type-schema.js';
+import { parseLocalDate } from '../../../../domain/make/field-kinds/date.js';
 
 const props = defineProps<{
 	field: Extract<Field, { kind: 'date' }>;
@@ -19,8 +20,7 @@ const displayValue = computed(() => {
 function onInput(ev: Event): void {
 	const raw = (ev.target as HTMLInputElement).value;
 	if (raw === '') { emit('update:modelValue', null); return; }
-	const [y, m, d] = raw.split('-').map(Number);
-	emit('update:modelValue', new Date(y, m - 1, d));
+	emit('update:modelValue', parseLocalDate(raw));
 }
 </script>
 
@@ -37,7 +37,7 @@ function onInput(ev: Event): void {
 			:data-testid="`input-date-${field.name}`"
 			@input="onInput"
 		>
-		<span v-if="field.description" class="make-input__help">{{ field.description }}</span>
+		<span v-if="field.description" class="make-input__help" data-testid="input-help">{{ field.description }}</span>
 		<span v-if="error" class="make-input__error" data-testid="input-error">{{ error }}</span>
 	</label>
 </template>

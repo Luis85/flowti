@@ -41,15 +41,16 @@ export const MakeModule = defineModule<MakeSettings>({
 		{ id: 'open-make', name: 'Open Make', opensView: VIEW_TYPE_MAKE,
 		  ribbon: { icon: 'hammer', title: 'Make', visibleByDefault: true } },
 	],
-	init(ports, settings) {
-		if (state !== null) void this.destroy();
-		// The service reads settings through a getter closure, so live in-place updates
-		// to state.settings (e.g. favorite toggles) propagate without rebuilding.
-		const currentSettings = { value: settings };
-		const service = createMakeService(ports, () => (state?.settings ?? currentSettings.value));
+	async init(ports, settings) {
+		if (state !== null) await this.destroy();
+		// Service reads settings lazily via closure, so in-place updates to
+		// state.settings (e.g. favorite toggles) propagate without rebuilding.
+		const service = createMakeService(ports, () => {
+			if (state === null) throw new Error('make-service called after destroy');
+			return state.settings;
+		});
 		state = { ports, service, settings };
 		ports.logger.info('make', 'Make module initialised');
-		return Promise.resolve();
 	},
 	onSettingsChange(next) {
 		if (state === null) return;
@@ -60,12 +61,12 @@ export const MakeModule = defineModule<MakeSettings>({
 			prev.defaultInstancesRoot !== next.defaultInstancesRoot;
 		if (folderChanged) {
 			const ports = state.ports;
+			// Interface contract is synchronous; fire-and-forget is safe today because
+			// destroy() and init() resolve in a single microtask with no real async work.
 			void this.destroy();
 			void this.init(ports, next);
 		} else {
-			// Favorites / enabled-flag changes: update settings in place, reuse existing service.
-			// Service reads settings at the start of each call via a closure on `state.settings`,
-			// so updating the reference propagates without a rebuild.
+			// Favorites / enabled-flag changes: update settings in place, reuse service.
 			state.settings = next;
 		}
 	},

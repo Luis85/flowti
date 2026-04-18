@@ -10,10 +10,16 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: 'update:modelValue', value: readonly string[]): void }>();
 
 const draft = ref('');
+const duplicateHint = ref('');
 function add(): void {
 	const trimmed = draft.value.trim();
 	if (trimmed === '') return;
-	if (props.modelValue.includes(trimmed)) { draft.value = ''; return; }
+	if (props.modelValue.includes(trimmed)) {
+		duplicateHint.value = `"${trimmed}" is already in the list`;
+		draft.value = '';
+		return;
+	}
+	duplicateHint.value = '';
 	emit('update:modelValue', [...props.modelValue, trimmed]);
 	draft.value = '';
 }
@@ -23,6 +29,7 @@ function remove(index: number): void {
 	emit('update:modelValue', next);
 }
 function onDraftKeydown(ev: KeyboardEvent): void {
+	if (duplicateHint.value !== '') duplicateHint.value = '';
 	if (ev.key === 'Enter' || ev.key === ',') {
 		ev.preventDefault();
 		add();
@@ -48,7 +55,8 @@ function onDraftKeydown(ev: KeyboardEvent): void {
 				@keydown="onDraftKeydown"
 			>
 		</div>
-		<span v-if="field.description" class="make-input__help">{{ field.description }}</span>
+		<span v-if="duplicateHint" class="make-input__hint" data-testid="input-duplicate-hint">{{ duplicateHint }}</span>
+		<span v-if="field.description" class="make-input__help" data-testid="input-help">{{ field.description }}</span>
 		<span v-if="error" class="make-input__error" data-testid="input-error">{{ error }}</span>
 	</div>
 </template>
@@ -57,6 +65,7 @@ function onDraftKeydown(ev: KeyboardEvent): void {
 .make-input { display: flex; flex-direction: column; gap: 0.25rem; }
 .make-input__label { font-size: 0.875rem; }
 .make-input__help { font-size: 0.75rem; color: var(--text-muted); }
+.make-input__hint { font-size: 0.75rem; color: var(--text-accent); }
 .make-input__error { font-size: 0.75rem; color: var(--text-error); }
 .chips { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.25rem; border: 1px solid var(--background-modifier-border); border-radius: 4px; }
 .chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background: var(--background-modifier-hover); border-radius: 999px; font-size: 0.75rem; }
