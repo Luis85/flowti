@@ -5,7 +5,7 @@
 **Supersedes**: §12 outbox items 1–11 of `docs/specs/2026-04-18-make-chunk-3-design.md` — subset redirected here (Groups A + B from the post-Chunk-3 review).
 **Depends on**: Chunk 3 shipped (tag `make-slice-3` at `ba9ae360`, merged to master).
 **Plan**: `docs/plans/2026-04-18-make-chunk-3-5.md` (to be written after this spec is approved).
-**Test outcome target**: 740 baseline → ~780 passing (+~40 tests), 0 lint errors, typecheck clean, all existing Chunk 3 behavior preserved.
+**Test outcome target**: 740 baseline → 754 passing (+14 tests), 0 lint errors, typecheck clean, all existing Chunk 3 behavior preserved.
 
 ## Context
 
@@ -415,7 +415,7 @@ New file `tests/ui/composables/use-focus-trap.test.ts`. Six cases: initial focus
 
 ### Coverage targets
 
-- 740 baseline → ~780 after Chunk 3.5.
+- 740 baseline → 754 after Chunk 3.5.
 - No coverage regression in any file.
 
 ### Out of scope for tests
@@ -429,22 +429,22 @@ New file `tests/ui/composables/use-focus-trap.test.ts`. Six cases: initial focus
 
 | # | Commit message | Group | Est. |
 |---|---|---|---|
-| 1 | `fix(make): read typesFolder from settings in DeleteTypeDialog` | A1 | 30 min |
-| 2 | `fix(core+make): async onSettingsChange + surface failure via degradedModules` | A2 | 2.5 h |
-| 3 | `fix(make): distinguish not-found from vault-error in listTypes` | A3 | 2 h |
-| 4 | `refactor(make): introduce MakeContext + reactive settings$ (shimmed)` | B1.1 | 3 h |
-| 5 | `refactor(make): migrate make-store to MakeContext` | B1.2a | 1 h |
-| 6 | `refactor(make): migrate use-make-type-draft to MakeContext` | B1.2b | 30 min |
-| 7 | `refactor(make): migrate use-make-type-save-flow to MakeContext` | B1.2c | 30 min |
-| 8 | `refactor(make): delete legacy getMakeService/getMakeSettings/subscribeMakeEvents` | B1.3 | 1 h |
-| 9 | `refactor(ui): extract useFocusTrap composable` | B2 | 2 h |
-| 10 | `refactor(make): extract validateSchema helper` | B3 | 1 h |
+| 1 | `fix(agentonomous): read typesFolder from settings in DeleteTypeDialog` | A1 | 30 min |
+| 2 | `fix(agentonomous): async onSettingsChange + surface failure via degradedModules` | A2 | 2.5 h |
+| 3 | `fix(agentonomous): distinguish not-found from vault-error in listTypes` | A3 | 2 h |
+| 4 | `refactor(agentonomous): introduce MakeContext + reactive settings$ (shimmed)` | B1.1 | 3 h |
+| 5 | `refactor(agentonomous): migrate make-store to MakeContext` | B1.2a | 1 h |
+| 6 | `refactor(agentonomous): migrate use-make-type-draft to MakeContext` | B1.2b | 30 min |
+| 7 | `refactor(agentonomous): migrate use-make-type-save-flow to MakeContext` | B1.2c | 30 min |
+| 8 | `refactor(agentonomous): delete legacy getMakeService/getMakeSettings/subscribeMakeEvents` | B1.3 | 1 h |
+| 9 | `refactor(agentonomous): extract useFocusTrap composable` | B2 | 2 h |
+| 10 | `refactor(agentonomous): extract validateSchema helper` | B3 | 1 h |
 
 **Rollback**: commits 1–3 independently revertable; commit 4 shim can live indefinitely if 5–8 pause; 9 and 10 independent of Make refactor.
 
 ## 6. Success criteria
 
-1. `npm test` passes at every commit (740 baseline → ~780 after).
+1. `npm test` passes at every commit (740 baseline → 754 after; +14 net tests).
 2. `npm run lint` stays at 0 errors (warning count may drop as dialog duplication consolidates).
 3. `npm run typecheck` stays clean.
 4. `grep -r 'getMakeService\|getMakeSettings\|subscribeMakeEvents' src/ tests/` returns 0 hits after commit 8.
