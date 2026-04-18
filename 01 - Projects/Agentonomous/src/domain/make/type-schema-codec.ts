@@ -50,7 +50,7 @@ export function parseTypeSchema(raw: unknown): Result<TypeSchema, SchemaError> {
 
 	const titleField = titleFieldName;
 	if (titleField !== null && titleField !== undefined) {
-		if (typeof titleField !== 'string') return err({ kind: 'title-field-missing', titleFieldName: String(titleField) });
+		if (typeof titleField !== 'string') return err({ kind: 'title-field-missing', titleFieldName: JSON.stringify(titleField) });
 		const target = parsedFields.find((f) => f.name === titleField);
 		if (target === undefined) return err({ kind: 'title-field-missing', titleFieldName: titleField });
 		if (target.kind !== 'text') return err({ kind: 'title-field-not-text', titleFieldName: titleField });

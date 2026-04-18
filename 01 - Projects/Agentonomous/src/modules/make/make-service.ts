@@ -1,5 +1,6 @@
 import type { ModulePorts } from '../../domain/shared/module.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
+import { trySync } from '../../domain/shared/try-async.js';
 import { parseTypeSchema } from '../../domain/make/type-schema-codec.js';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
@@ -40,9 +41,9 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		for (const path of children) {
 			const read = await ports.vault.read(path);
 			if (read.kind === 'err') continue;
-			let parsed: unknown;
-			try { parsed = JSON.parse(read.value.content); } catch { continue; }
-			const schema = parseTypeSchema(parsed);
+			const parsed = trySync(() => JSON.parse(read.value.content) as unknown, { code: 'MAKE_JSON_PARSE', source: 'make' });
+			if (parsed.kind === 'err') continue;
+			const schema = parseTypeSchema(parsed.value);
 			if (schema.kind === 'ok') schemas.push(schema.value);
 		}
 		return ok(schemas);
@@ -55,15 +56,14 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		if (!exists) return err({ kind: 'type-not-found', typeId });
 		const read = await ports.vault.read(path);
 		if (read.kind === 'err') return err({ kind: 'vault-error', cause: read.error });
-		let parsed: unknown;
-		try { parsed = JSON.parse(read.value.content); }
-		catch (e) { return err({ kind: 'invalid-schema', issues: [{ kind: 'invalid-json', reason: String(e) }] }); }
-		const schemaResult = parseTypeSchema(parsed);
+		const parsed = trySync(() => JSON.parse(read.value.content) as unknown, { code: 'MAKE_JSON_PARSE', source: 'make' });
+		if (parsed.kind === 'err') return err({ kind: 'invalid-schema', issues: [{ kind: 'invalid-json', reason: parsed.error.message }] });
+		const schemaResult = parseTypeSchema(parsed.value);
 		if (schemaResult.kind === 'err') return err({ kind: 'invalid-schema', issues: [schemaResult.error] });
 		return ok(schemaResult.value);
 	}
 
-	const notImpl = async <T>(): Promise<Result<T, MakeError>> => err({ kind: 'not-implemented' });
+	const notImpl = <T>(): Promise<Result<T, MakeError>> => Promise.resolve(err({ kind: 'not-implemented' }));
 
 	return {
 		listTypes,
@@ -75,7 +75,7 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		createInstance: () => notImpl(),
 		deleteInstance: () => notImpl(),
 		regenerateBaseFile: () => notImpl(),
-		toggleFavorite: async () => {},
-		getKpis: async () => ({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] }),
+		toggleFavorite: () => Promise.resolve(),
+		getKpis: () => Promise.resolve({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] }),
 	};
 }
