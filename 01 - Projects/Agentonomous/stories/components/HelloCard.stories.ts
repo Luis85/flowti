@@ -11,7 +11,15 @@ const meta: Meta<typeof HelloCard> = {
 export default meta;
 type Story = StoryObj<typeof HelloCard>;
 
-export const Default: Story = {};
+export const Default: Story = {
+	parameters: {
+		docs: {
+			description: {
+				story: 'Baseline rendering with the meta-level `title` / `message` args. Use this as the visual reference for layout and spacing.',
+			},
+		},
+	},
+};
 
 export const LongMessage: Story = {
 	args: {

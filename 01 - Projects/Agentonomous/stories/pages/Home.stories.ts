@@ -10,7 +10,15 @@ export default meta;
 
 type Story = StoryObj<typeof Home>;
 
-export const Default: Story = {};
+export const Default: Story = {
+	parameters: {
+		docs: {
+			description: {
+				story: 'Home page rendered in isolation with a fresh Pinia. Greeting, version badge, and the About nav link are all driven by the default `useAppStore()` state.',
+			},
+		},
+	},
+};
 
 export const RendersGreeting: Story = {
 	play: async ({ canvasElement, step }) => {

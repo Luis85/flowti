@@ -24,7 +24,15 @@ export default meta;
 
 type Story = StoryObj<typeof Dashboard>;
 
-export const Empty: Story = {};
+export const Empty: Story = {
+	parameters: {
+		docs: {
+			description: {
+				story: 'Dashboard with no modules registered — exercises the empty-state fallback when `useModuleStatusStore()` has no entries.',
+			},
+		},
+	},
+};
 
 export const WithModules: Story = {
 	decorators: [withModules],
