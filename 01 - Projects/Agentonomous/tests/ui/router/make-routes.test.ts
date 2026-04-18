@@ -14,6 +14,7 @@ vi.mock('../../../src/modules/make/make-module.js', () => {
 	return {
 		getMakeService: () => svc,
 		getMakeSettings: () => null,
+		subscribeMakeEvents: () => () => { /* no-op */ },
 		__mock: svc,
 	};
 });
