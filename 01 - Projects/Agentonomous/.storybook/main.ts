@@ -1,22 +1,23 @@
 import type { StorybookConfig } from '@storybook/vue3-vite';
 
 const config: StorybookConfig = {
-	stories: [
-		'../stories/**/*.stories.@(ts|mdx)',
-	],
+	stories: ["../stories/**/*.stories.@(ts|mdx)"],
 	addons: [
-		'@storybook/addon-vitest',
-		'@storybook/addon-a11y',
-		'@storybook/addon-docs',
-		'@storybook/addon-onboarding',
+		"@storybook/addon-vitest",
+		"@storybook/addon-a11y",
+		"@storybook/addon-docs",
+		"@storybook/addon-onboarding",
 	],
-	framework: '@storybook/vue3-vite',
+	core: {
+		disableTelemetry: true,
+	},
+	framework: "@storybook/vue3-vite",
 	async viteFinal(config) {
 		config.optimizeDeps ??= {};
 		config.optimizeDeps.exclude = [
 			...(config.optimizeDeps.exclude ?? []),
-			'obsidian',
-			'electron',
+			"obsidian",
+			"electron",
 		];
 		return config;
 	},
