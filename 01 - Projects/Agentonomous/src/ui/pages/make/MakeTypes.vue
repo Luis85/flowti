@@ -6,7 +6,7 @@ import type { MakeSettings } from '../../../modules/make/make-settings.js';
 import { getMakeSettings } from '../../../modules/make/make-module.js';
 
 const store = useMakeStore();
-const { typesLoading, typesError, typesSortedByName, instanceCountByTypeId } = storeToRefs(store);
+const { typesLoading, typesError, typesSortedByName, instanceCountByTypeId, instancesLoading } = storeToRefs(store);
 
 onMounted(async () => {
 	await store.loadTypes();
@@ -40,7 +40,7 @@ async function onRefresh(): Promise<void> {
 			<button
 				type="button"
 				data-testid="make-types-refresh"
-				:disabled="typesLoading"
+				:disabled="typesLoading || instancesLoading.size > 0"
 				@click="onRefresh"
 			>
 				Refresh

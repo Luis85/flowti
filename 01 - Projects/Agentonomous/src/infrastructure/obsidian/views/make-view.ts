@@ -25,7 +25,7 @@ export class MakeView extends ItemView {
 		this.mounting = true;
 		try {
 			const { createVueApp } = await import('../../../ui/app.js');
-			this.mounted = createVueApp(this.ctx, this.contentEl);
+			this.mounted = createVueApp(this.ctx, this.contentEl, '/make');
 		} catch (error) {
 			this.contentEl.empty();
 			this.contentEl.createEl('div', { text: `Make failed to load: ${error instanceof Error ? error.message : String(error)}` });

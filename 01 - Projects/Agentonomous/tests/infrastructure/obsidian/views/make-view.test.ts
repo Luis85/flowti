@@ -47,7 +47,7 @@ describe('MakeView — onOpen happy path', () => {
 		vi.doUnmock('../../../../src/ui/app.js');
 	});
 
-	it('onOpen() calls createVueApp with ctx and contentEl', async () => {
+	it('onOpen() calls createVueApp with ctx, contentEl, and /make initial route', async () => {
 		const { MakeView: MV } = await import('../../../../src/infrastructure/obsidian/views/make-view.js');
 		const { createVueApp } = await import('../../../../src/ui/app.js');
 		const fakeCtx = {} as unknown as PluginContext;
@@ -56,6 +56,7 @@ describe('MakeView — onOpen happy path', () => {
 		expect(createVueApp).toHaveBeenCalledWith(
 			fakeCtx,
 			(view as unknown as { contentEl: HTMLElement }).contentEl,
+			'/make',
 		);
 		expect((view as unknown as { mounted: unknown }).mounted).not.toBeNull();
 	});

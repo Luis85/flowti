@@ -51,7 +51,14 @@ const errorInstances = computed(() => type.value ? (instancesError.value.get(typ
 			<div class="make-type__title-row">
 				<h1 data-testid="make-type-title">{{ type.name }}</h1>
 				<span v-if="isFavorite(type.id)" :data-testid="`favorite-star-${type.id}`" class="star">★</span>
-				<button type="button" data-testid="make-type-refresh" :disabled="typesLoading" @click="onRefresh">Refresh</button>
+				<button
+					type="button"
+					data-testid="make-type-refresh"
+					:disabled="typesLoading || instancesLoading.size > 0"
+					@click="onRefresh"
+				>
+					Refresh
+				</button>
 			</div>
 			<p data-testid="make-type-folder" class="folder">Folder: {{ type.instancesFolder }}</p>
 		</header>

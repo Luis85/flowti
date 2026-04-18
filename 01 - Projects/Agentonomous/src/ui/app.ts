@@ -10,7 +10,7 @@ import type { PluginContext } from '../plugin.js';
 
 export type MountedApp = { unmount: () => void };
 
-export function createVueApp(ctx: PluginContext, el: HTMLElement): MountedApp {
+export function createVueApp(ctx: PluginContext, el: HTMLElement, initialRoute?: string): MountedApp {
 	const vue: VueApp = createApp(AppRoot);
 	const pinia = createPinia();
 	const router = createAppRouter();
@@ -30,6 +30,8 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement): MountedApp {
 
 	const moduleStatusStore = useModuleStatusStore(pinia);
 	moduleStatusStore.setModules(ctx.moduleStatus);
+
+	if (initialRoute !== undefined) void router.push(initialRoute);
 
 	vue.mount(el);
 
