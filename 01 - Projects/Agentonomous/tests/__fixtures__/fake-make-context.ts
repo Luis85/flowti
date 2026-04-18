@@ -1,0 +1,35 @@
+import { ref, readonly } from 'vue';
+import type { MakeContext } from '../../src/modules/make/make-context.js';
+import { MAKE_DEFAULTS, type MakeSettings } from '../../src/modules/make/make-settings.js';
+import type { MakeService } from '../../src/modules/make/make-service.js';
+import type { MakeEventHandlers } from '../../src/modules/make/make-module.js';
+
+export function fakeMakeService(overrides: Partial<MakeService> = {}): MakeService {
+	const notImpl = () => Promise.resolve({ kind: 'err' as const, error: { kind: 'not-implemented' as const } });
+	return {
+		listTypes:           overrides.listTypes           ?? (() => Promise.resolve({ kind: 'ok' as const, value: [] })),
+		loadType:            overrides.loadType            ?? ((id) => Promise.resolve({ kind: 'err' as const, error: { kind: 'type-not-found' as const, typeId: id } })),
+		createType:          overrides.createType          ?? notImpl,
+		updateType:          overrides.updateType          ?? notImpl,
+		deleteType:          overrides.deleteType          ?? notImpl,
+		listInstances:       overrides.listInstances       ?? (() => Promise.resolve({ kind: 'ok' as const, value: [] })),
+		createInstance:      overrides.createInstance      ?? notImpl,
+		deleteInstance:      overrides.deleteInstance      ?? notImpl,
+		regenerateBaseFile:  overrides.regenerateBaseFile  ?? notImpl,
+		toggleFavorite:      overrides.toggleFavorite      ?? (() => Promise.resolve({ kind: 'ok' as const, value: true })),
+		getKpis:             overrides.getKpis             ?? (() => Promise.resolve({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] })),
+	} satisfies MakeService;
+}
+
+export function createFakeMakeContext(overrides: {
+	service?: MakeService;
+	settings?: MakeSettings;
+	subscribe?: (handlers: MakeEventHandlers) => () => void;
+} = {}): MakeContext {
+	const settings$ = ref(overrides.settings ?? { ...MAKE_DEFAULTS });
+	return {
+		service:   overrides.service   ?? fakeMakeService(),
+		settings$: readonly(settings$),
+		subscribe: overrides.subscribe ?? (() => () => {}),
+	};
+}

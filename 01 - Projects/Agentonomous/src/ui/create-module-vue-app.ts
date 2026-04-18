@@ -2,6 +2,8 @@ import { createApp, type App as VueApp, type Component } from 'vue';
 import { createPinia, type Pinia } from 'pinia';
 import type { PluginContext } from '../plugin.js';
 import { PluginContextKey } from './plugin-context-key.js';
+import { MakeContextKey } from './make-context-key.js';
+import { createMakeContext } from './make-context-factory.js';
 
 export type MountedModuleApp = {
 	readonly pinia: Pinia;
@@ -40,6 +42,10 @@ export function createModuleVueApp(
 	}
 
 	vue.provide(PluginContextKey, ctx);
+	const makeCtx = createMakeContext();
+	if (makeCtx !== null) {
+		vue.provide(MakeContextKey, makeCtx);
+	}
 	vue.mount(el);
 
 	return {

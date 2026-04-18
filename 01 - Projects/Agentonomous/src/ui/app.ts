@@ -2,6 +2,8 @@ import { createApp, type App as VueApp } from 'vue';
 import { createPinia } from 'pinia';
 import { createAppRouter } from './router/index.js';
 import { PluginContextKey } from './plugin-context-key.js';
+import { MakeContextKey } from './make-context-key.js';
+import { createMakeContext } from './make-context-factory.js';
 import { useAppStore } from './stores/app-store.js';
 import { useSettingsStore } from './stores/settings-store.js';
 import { useModuleStatusStore } from './stores/module-status-store.js';
@@ -21,6 +23,10 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement, initialRoute?:
 		vue.use(ctx.i18n);
 	}
 	vue.provide(PluginContextKey, ctx);
+	const makeCtx = createMakeContext();
+	if (makeCtx !== null) {
+		vue.provide(MakeContextKey, makeCtx);
+	}
 
 	const appStore = useAppStore(pinia);
 	appStore.setVersion(ctx.plugin.manifest.version);

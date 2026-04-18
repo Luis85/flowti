@@ -61,7 +61,7 @@ const noTryCatchOutsideInfra = [
 	{ selector: "UnaryExpression[operator='delete']", message: 'Use obj[key] = undefined instead of delete' },
 ];
 
-const MODULE_NAMES = ['core', 'event-inspector', 'health-monitor', 'file-detail'];
+const MODULE_NAMES = ['core', 'event-inspector', 'health-monitor', 'file-detail', 'make'];
 
 /**
  * Build cross-module import-ban patterns for a given module.

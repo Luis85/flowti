@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MakeModule, getMakeService, getMakeSettings, subscribeMakeEvents, VIEW_TYPE_MAKE } from '../../../src/modules/make/make-module.js';
-import { MAKE_DEFAULTS } from '../../../src/modules/make/make-settings.js';
+import { MAKE_DEFAULTS, type MakeSettings } from '../../../src/modules/make/make-settings.js';
 import { fakeModulePorts } from '../../__fakes__/fake-ports.js';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
 import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
@@ -81,6 +81,29 @@ describe('MakeModule onSettingsChange async', () => {
 			MakeModule.onSettingsChange!({ ...MAKE_DEFAULTS, typesFolder: 'Schemas' }),
 		).rejects.toThrow('logger boom');
 		expect(getMakeService()).toBeNull();
+		await MakeModule.destroy();
+	});
+});
+
+describe('make:settings-changed event', () => {
+	it('emits when a non-folder setting changes', async () => {
+		const ports = fakeModulePorts({ eventBus: createEventBus() });
+		await MakeModule.init(ports, MAKE_DEFAULTS);
+		const received: MakeSettings[] = [];
+		ports.eventBus.on('make:settings-changed', (e) => { received.push(e.payload.settings); });
+		await MakeModule.onSettingsChange!({ ...MAKE_DEFAULTS, favorites: ['type-a'] });
+		expect(received).toHaveLength(1);
+		expect(received[0]?.favorites).toEqual(['type-a']);
+		await MakeModule.destroy();
+	});
+
+	it('does not emit when a folder setting changes (re-init handles it)', async () => {
+		const ports = fakeModulePorts({ eventBus: createEventBus() });
+		await MakeModule.init(ports, MAKE_DEFAULTS);
+		const received: MakeSettings[] = [];
+		ports.eventBus.on('make:settings-changed', (e) => { received.push(e.payload.settings); });
+		await MakeModule.onSettingsChange!({ ...MAKE_DEFAULTS, typesFolder: 'Schemas' });
+		expect(received).toHaveLength(0);
 		await MakeModule.destroy();
 	});
 });

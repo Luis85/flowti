@@ -16,6 +16,8 @@ type ModuleState = {
 
 let state: ModuleState | null = null;
 
+// --- Legacy exports (bodies rewritten to drive off settings; sigs stable) ---
+// These will be deleted in B1.3 (Task 8) after consumers migrate to MakeContextKey.
 export function getMakeService(): MakeService | null { return state?.service ?? null; }
 export function getMakeSettings(): MakeSettings | null { return state?.settings ?? null; }
 
@@ -25,6 +27,7 @@ export type MakeEventHandlers = {
 	readonly onTypeDeleted?:      (payload: EventMap['make:type-deleted']) => void;
 	readonly onFavoriteToggled?:  (payload: EventMap['make:favorite-toggled']) => void;
 	readonly onBaseRegenerated?:  (payload: EventMap['make:base-regenerated']) => void;
+	readonly onSettingsChanged?:  (payload: EventMap['make:settings-changed']) => void;
 };
 
 export function subscribeMakeEvents(handlers: MakeEventHandlers): () => void {
@@ -36,6 +39,7 @@ export function subscribeMakeEvents(handlers: MakeEventHandlers): () => void {
 	if (handlers.onTypeDeleted)     unsubs.push(bus.on('make:type-deleted',     (e) => { handlers.onTypeDeleted!(e.payload); }));
 	if (handlers.onFavoriteToggled) unsubs.push(bus.on('make:favorite-toggled', (e) => { handlers.onFavoriteToggled!(e.payload); }));
 	if (handlers.onBaseRegenerated) unsubs.push(bus.on('make:base-regenerated', (e) => { handlers.onBaseRegenerated!(e.payload); }));
+	if (handlers.onSettingsChanged) unsubs.push(bus.on('make:settings-changed', (e) => { handlers.onSettingsChanged!(e.payload); }));
 	return () => { for (const u of unsubs) u(); };
 }
 
@@ -65,8 +69,6 @@ export const MakeModule = defineModule<MakeSettings>({
 	],
 	async init(ports, settings) {
 		if (state !== null) await this.destroy();
-		// Service reads settings lazily via closure, so in-place updates to
-		// state.settings (e.g. favorite toggles) propagate without rebuilding.
 		const service = createMakeService(ports, () => {
 			if (state === null) throw new Error('make-service called after destroy');
 			return state.settings;
@@ -74,7 +76,7 @@ export const MakeModule = defineModule<MakeSettings>({
 		state = { ports, service, settings };
 		ports.logger.info('make', 'Make module initialised');
 	},
-	async onSettingsChange(next): Promise<void> {
+	async onSettingsChange(next) {
 		if (state === null) return;
 		const prev = state.settings;
 		const folderChanged =
@@ -84,14 +86,16 @@ export const MakeModule = defineModule<MakeSettings>({
 		if (folderChanged) {
 			const ports = state.ports;
 			await this.destroy();
+			// Task 2 used .catch() pattern instead of try/catch due to module-layer
+			// ESLint rule banning TryStatement. Preserve that pattern here.
 			return this.init(ports, next).catch((err: unknown) => {
 				state = null;
 				ports.logger.error('make', `re-init after folder change failed: ${String(err)}`);
 				return Promise.reject(err);
 			});
 		}
-		// Favorites / enabled-flag changes: update settings in place, reuse service.
 		state.settings = next;
+		state.ports.eventBus.emit('make:settings-changed', { settings: next });
 	},
 	destroy() { state = null; return Promise.resolve(); },
 });

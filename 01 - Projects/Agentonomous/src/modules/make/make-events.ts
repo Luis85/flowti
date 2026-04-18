@@ -1,5 +1,6 @@
 import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { TypeId } from '../../domain/make/types.js';
+import type { MakeSettings } from './make-settings.js';
 
 declare module '../../domain/shared/event-bus.js' {
 	interface EventMap {
@@ -10,6 +11,7 @@ declare module '../../domain/shared/event-bus.js' {
 		'make:instance-deleted':  { readonly typeId: TypeId; readonly path: string };
 		'make:base-regenerated':  { readonly typeId: TypeId; readonly basePath: string };
 		'make:favorite-toggled':  { readonly typeId: TypeId; readonly favorited: boolean };
+		'make:settings-changed':  { readonly settings: MakeSettings };
 	}
 }
 export {};
