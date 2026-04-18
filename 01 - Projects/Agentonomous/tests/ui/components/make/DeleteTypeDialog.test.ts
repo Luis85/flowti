@@ -26,6 +26,7 @@ function mountDialog(props: Record<string, unknown> = {}) {
 			type: defaultType(),
 			instanceCount: 3,
 			isDeleting: false,
+			typesFolder: 'Make/Types',
 			...props,
 		},
 		attachTo: document.body,
@@ -49,6 +50,21 @@ describe('DeleteTypeDialog', () => {
 		const { page } = mountDialog({ type: defaultType({ id: 'my-type' }) });
 		await nextTick();
 		expect(page.typeFilePath).toContain('Make/Types/my-type.json');
+	});
+
+	it('uses the provided typesFolder prop in the displayed type-file path', async () => {
+		const type: TypeSchema = {
+			id: 'my-type',
+			name: 'My Type',
+			instancesFolder: 'Make/Instances/my-type',
+			titleFieldName: 'title',
+			fields: [{ kind: 'text', name: 'title', required: true }],
+			createdAt: '2026-04-18T00:00:00.000Z',
+			updatedAt: '2026-04-18T00:00:00.000Z',
+		};
+		const { page } = mountDialog({ type, typesFolder: 'Custom/Schemas' });
+		await nextTick();
+		expect(page.typeFilePath).toContain('Custom/Schemas/my-type.json');
 	});
 
 	it('instanceCount === null shows checking text inside aria-live region', async () => {

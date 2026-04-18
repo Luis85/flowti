@@ -26,6 +26,7 @@ export const Default_HasInstances: Story = {
 		type: baseType,
 		instanceCount: 7,
 		isDeleting: false,
+		typesFolder: 'Make/Types',
 	},
 };
 
@@ -35,6 +36,7 @@ export const Default_NoInstances: Story = {
 		type: baseType,
 		instanceCount: 0,
 		isDeleting: false,
+		typesFolder: 'Make/Types',
 	},
 };
 
@@ -44,6 +46,7 @@ export const Checking: Story = {
 		type: baseType,
 		instanceCount: null,
 		isDeleting: false,
+		typesFolder: 'Make/Types',
 	},
 };
 
@@ -53,6 +56,7 @@ export const NoBaseFile_CheckboxDisabled: Story = {
 		type: { ...baseType, baseFile: undefined },
 		instanceCount: 3,
 		isDeleting: false,
+		typesFolder: 'Make/Types',
 	},
 };
 
@@ -62,5 +66,6 @@ export const IsDeleting: Story = {
 		type: baseType,
 		instanceCount: 2,
 		isDeleting: true,
+		typesFolder: 'Make/Types',
 	},
 };

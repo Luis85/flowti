@@ -12,6 +12,7 @@ import MakeTypeBaseBanner from './MakeTypeBaseBanner.vue';
 import ConfirmDialog from '../../components/make/ConfirmDialog.vue';
 import DeleteTypeDialog from '../../components/make/DeleteTypeDialog.vue';
 import { PluginContextKey } from '../../plugin-context-key.js';
+import { getMakeSettings } from '../../../modules/make/make-module.js';
 
 type Tab = 'fields' | 'instances';
 
@@ -131,6 +132,9 @@ const favoriteAriaLabel = computed(() => {
 		: t('make.type.favoriteAdd', { name: committedType.value?.name ?? '' });
 });
 const hasExistingInstances = computed(() => typeId.value !== null && (instancesByTypeId.value.get(typeId.value)?.length ?? 0) > 0);
+
+// --- typesFolder from settings ---
+const typesFolder = computed(() => getMakeSettings()?.typesFolder ?? 'Make/Types');
 </script>
 
 <template>
@@ -250,6 +254,7 @@ const hasExistingInstances = computed(() => typeId.value !== null && (instancesB
 			:type="committedType"
 			:instance-count="instanceCount"
 			:is-deleting="isDeleting"
+			:types-folder="typesFolder"
 			@confirm="onDeleteConfirm"
 			@cancel="deleteOpen = false"
 		/>

@@ -8,6 +8,7 @@ const props = defineProps<{
 	type: TypeSchema;
 	instanceCount: number | null;
 	isDeleting: boolean;
+	typesFolder: string;
 }>();
 
 const emit = defineEmits<{
@@ -42,7 +43,7 @@ const instanceLine = computed(() => {
 	return t('make.delete.hasInstancesOther', { count: props.instanceCount, folder: props.type.instancesFolder });
 });
 
-const typeFilePath = computed(() => `Make/Types/${props.type.id}.json`);
+const typeFilePath = computed(() => `${props.typesFolder.replace(/\/$/, '')}/${props.type.id}.json`);
 
 function onKeyDown(e: KeyboardEvent): void {
 	if (!props.open) return;
