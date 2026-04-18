@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, watch, ref } from 'vue';
+import { computed, onMounted, watch, ref, shallowRef } from 'vue';
+import type { Draft } from '../../../domain/make/draft-equality.js';
+import type { FieldError } from '../../../domain/make/errors.js';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useMakeStore } from '../../stores/make-store.js';
-import MakeTypeFields from './MakeTypeFields.vue';
+import MakeTypeFieldsEditor from './MakeTypeFieldsEditor.vue';
 import MakeTypeInstances from './MakeTypeInstances.vue';
 import { getMakeSettings } from '../../../modules/make/make-module.js';
 
@@ -45,6 +47,16 @@ function onRefresh(): void {
 const instances = computed(() => type.value ? instancesByTypeId.value.get(type.value.id) : undefined);
 const loadingInstances = computed(() => type.value ? instancesLoading.value.has(type.value.id) : false);
 const errorInstances = computed(() => type.value ? (instancesError.value.get(type.value.id) ?? null) : null);
+
+const draft = computed<Draft>(() => ({
+	name: type.value?.name ?? '',
+	description: type.value?.description ?? '',
+	instancesFolder: type.value?.instancesFolder ?? '',
+	titleFieldName: type.value?.titleFieldName ?? null,
+	fields: type.value?.fields ?? [],
+}));
+
+const _fieldErrors = shallowRef(new Map<string, FieldError[]>());
 </script>
 
 <template>
@@ -88,7 +100,17 @@ const errorInstances = computed(() => type.value ? (instancesError.value.get(typ
 			</button>
 		</div>
 
-		<MakeTypeFields v-if="activeTab === 'fields'" :type="type" />
+		<MakeTypeFieldsEditor
+			v-if="activeTab === 'fields'"
+			:draft="draft"
+			mode="edit"
+			:is-dirty="false"
+			:is-saving="false"
+			:service-error="null"
+			:has-existing-instances="false"
+			:field-errors="_fieldErrors"
+			:schema-errors="{}"
+		/>
 		<MakeTypeInstances
 			v-else
 			:type="type"

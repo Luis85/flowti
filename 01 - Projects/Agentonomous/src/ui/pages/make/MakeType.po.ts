@@ -11,7 +11,7 @@ export class MakeTypePage {
 		return id === 'fields' || id === 'instances' ? id : null;
 	}
 	get fieldRows(): readonly HTMLElement[] {
-		return Array.from(this.root.querySelectorAll<HTMLElement>('[data-testid^="field-row-"]'));
+		return Array.from(this.root.querySelectorAll<HTMLElement>('div[data-testid^="field-row-"]'));
 	}
 	get instanceRows(): readonly HTMLElement[] {
 		return Array.from(this.root.querySelectorAll<HTMLElement>('[data-testid^="instance-row-"]'));

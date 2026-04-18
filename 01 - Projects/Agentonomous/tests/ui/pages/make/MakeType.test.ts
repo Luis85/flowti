@@ -94,8 +94,8 @@ describe('MakeType', () => {
 	it('Fields tab marks the title field', async () => {
 		const { page } = await mountTypePage('/make/types/book#fields');
 		await new Promise((r) => setTimeout(r, 0));
-		const titleRow = page.fieldRows.find((r) => r.textContent?.includes('title'));
-		expect(titleRow?.querySelector('[data-testid="field-title-badge-title"]')).not.toBeNull();
+		const titleRow = page.fieldRows.find((r) => r.getAttribute('data-testid') === 'field-row-title');
+		expect(titleRow?.querySelector('[data-testid="field-row-title-title-badge"]')).not.toBeNull();
 	});
 
 	it('Instances tab sorts by createdAt descending', async () => {

@@ -89,6 +89,9 @@ const fieldNamesForTitle = computed(() => props.draft.fields.filter((f) => f.kin
 			@update:draft="updateDraft"
 		/>
 
+		<p v-if="draft.fields.length === 0" data-testid="make-type-fields-empty" class="fields-empty">
+			{{ t('make.type.fields.empty') }}
+		</p>
 		<section data-testid="fields-list">
 			<MakeTypeFieldRow
 				v-for="(f, i) in draft.fields"
