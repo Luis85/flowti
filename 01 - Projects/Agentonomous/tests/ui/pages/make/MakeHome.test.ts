@@ -31,6 +31,7 @@ async function mountHome() {
 		routes: [
 			{ path: '/make', component: MakeHome },
 			{ path: '/make/types', component: MakeTypes },
+			{ path: '/make/types/new', component: { template: '<div/>' } },
 		],
 	});
 	await router.push('/make');
@@ -88,4 +89,40 @@ describe('MakeHome', () => {
 		const { page } = await mountHome();
 		expect(page.spinner).not.toBeNull();
 	});
+
+	it('shows "Create type" button in empty state (testid make-home-create-cta-empty)', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		const { page } = await mountHome();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(page.createCtaEmpty).not.toBeNull();
+	});
+
+	it('"Create type" empty-state button links to /make/types/new', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		const { page } = await mountHome();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(page.createCtaEmpty?.getAttribute('href')).toBe('/make/types/new');
+	});
+
+	it('shows "Create type" button beside Browse CTA when types exist (testid make-home-create-cta-populated)', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const { page } = await mountHome();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(page.createCtaPopulated).not.toBeNull();
+	});
+
+	it('"Create type" populated-state button links to /make/types/new', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const { page } = await mountHome();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(page.createCtaPopulated?.getAttribute('href')).toBe('/make/types/new');
+	});
+
+	it('"Create type" populated-state button is hidden when no types exist', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		const { page } = await mountHome();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(page.createCtaPopulated).toBeNull();
+	});
+
 });

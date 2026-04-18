@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 import MakeTypes from '../../../../src/ui/pages/make/MakeTypes.vue';
 import { MakeTypesPage } from '../../../../src/ui/pages/make/MakeTypes.po.js';
 import { mountWithI18n } from '../../../__fixtures__/mount-with-i18n.js';
+import { useMakeStore } from '../../../../src/ui/stores/make-store.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
 import type { InstanceRef } from '../../../../src/domain/make/types.js';
 
@@ -36,6 +37,7 @@ async function mountTypes() {
 		history: createMemoryHistory(),
 		routes: [
 			{ path: '/make/types', component: MakeTypes },
+			{ path: '/make/types/new', component: { template: '<div/>' } },
 			{ path: '/make/types/:typeId', component: { template: '<div/>' } },
 		],
 	});
@@ -113,4 +115,66 @@ describe('MakeTypes', () => {
 		await new Promise((r) => setTimeout(r, 0));
 		expect(mock.listTypes.mock.calls.length).toBeGreaterThan(callsBefore);
 	});
+
+	it('"Create type" button is present in the header', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		const { page } = await mountTypes();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(page.createCta).not.toBeNull();
+	});
+
+	it('"Create type" button links to /make/types/new', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		const { page } = await mountTypes();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(page.createCta?.getAttribute('href')).toBe('/make/types/new');
+	});
+
+	it('favorite star on row is a <button> element', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [] });
+		const { page } = await mountTypes();
+		await new Promise((r) => setTimeout(r, 0));
+		const star = page.favoriteStar('book');
+		expect(star).not.toBeNull();
+		expect(star?.tagName).toBe('BUTTON');
+	});
+
+	it('favorite star has correct aria-label and aria-pressed when favorited', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [] });
+		const { wrapper, page } = await mountTypes();
+		await new Promise((r) => setTimeout(r, 0));
+		const store = (wrapper.vm as unknown as { store: { isFavoritedForUI: (id: string) => boolean } }).store;
+		const star = page.favoriteStar('book');
+		expect(star?.getAttribute('aria-pressed')).toBe(store.isFavoritedForUI('book') ? 'true' : 'false');
+		expect(star?.getAttribute('aria-label')).toBeTruthy();
+	});
+
+	it('clicking the favorite star calls store.toggleFavorite and does not navigate', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [] });
+		const { page, wrapper } = await mountTypes();
+		await new Promise((r) => setTimeout(r, 0));
+		const store = (wrapper.vm as unknown as { store: { toggleFavorite: (id: string) => Promise<unknown> } }).store;
+		const toggleSpy = vi.spyOn(store, 'toggleFavorite').mockResolvedValue({ kind: 'ok', value: true });
+		const star = page.favoriteStar('book');
+		star?.click();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(toggleSpy).toHaveBeenCalledWith('book');
+	});
+
+	it('pending state: aria-busy is "true" when favoriteToggling contains the type id', async () => {
+		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [] });
+		const { page, wrapper } = await mountTypes();
+		await new Promise((r) => setTimeout(r, 0));
+		// Get the Pinia store and patch favoriteToggling to simulate an in-flight toggle
+		const store = useMakeStore();
+		store.$patch({ favoriteToggling: new Set(['book']) });
+		await wrapper.vm.$nextTick();
+		const updatedStar = page.favoriteStar('book');
+		expect(updatedStar?.getAttribute('aria-busy')).toBe('true');
+	});
+
 });

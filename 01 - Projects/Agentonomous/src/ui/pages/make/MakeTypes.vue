@@ -3,9 +3,6 @@ import { onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import { useMakeStore } from '../../stores/make-store.js';
-import type { MakeSettings } from '../../../modules/make/make-settings.js';
-import { getMakeSettings } from '../../../modules/make/make-module.js';
-
 const { t } = useI18n();
 const store = useMakeStore();
 const { typesLoading, typesError, typesSortedByName, instanceCountByTypeId, instancesLoading } = storeToRefs(store);
@@ -15,10 +12,6 @@ onMounted(async () => {
 	void store.loadInstancesForAll();
 });
 
-function settings(): MakeSettings | null { return getMakeSettings(); }
-function isFavorite(typeId: string): boolean {
-	return settings()?.favorites.includes(typeId) ?? false;
-}
 function countLabel(typeId: string): string {
 	const n = instanceCountByTypeId.value.get(typeId);
 	if (n === undefined) return '— instances';
@@ -39,14 +32,23 @@ async function onRefresh(): Promise<void> {
 					{{ typesSortedByName.length === 1 ? t('make.types.countOne', { count: 1 }) : t('make.types.countOther', { count: typesSortedByName.length }) }}
 				</span>
 			</div>
-			<button
-				type="button"
-				data-testid="make-types-refresh"
-				:disabled="typesLoading || instancesLoading.size > 0"
-				@click="onRefresh"
-			>
-				{{ t('make.types.refresh') }}
-			</button>
+			<div class="make-types__header-actions">
+				<router-link
+					data-testid="make-types-create-cta"
+					to="/make/types/new"
+					class="make-types__create-cta"
+				>
+					{{ t('make.type.create.cta') }}
+				</router-link>
+				<button
+					type="button"
+					data-testid="make-types-refresh"
+					:disabled="typesLoading || instancesLoading.size > 0"
+					@click="onRefresh"
+				>
+					{{ t('make.types.refresh') }}
+				</button>
+			</div>
 		</header>
 
 		<div v-if="typesError" data-testid="make-types-error" class="make-types__error" role="alert">
@@ -63,7 +65,16 @@ async function onRefresh(): Promise<void> {
 		<ul v-else class="make-types__list">
 			<li v-for="type in typesSortedByName" :key="type.id" class="make-types__row">
 				<router-link :to="`/make/types/${type.id}`" :data-testid="`type-row-${type.id}`" class="make-types__link">
-					<span v-if="isFavorite(type.id)" :data-testid="`favorite-star-${type.id}`" class="make-types__star" aria-label="favorite">★</span>
+					<button
+						type="button"
+						:data-testid="`favorite-star-${type.id}`"
+						:aria-label="store.isFavoritedForUI(type.id) ? t('make.type.favoriteRemove', { name: type.name }) : t('make.type.favoriteAdd', { name: type.name })"
+						:aria-pressed="store.isFavoritedForUI(type.id) ? 'true' : 'false'"
+						:aria-busy="store.favoriteToggling.has(type.id) ? 'true' : 'false'"
+						class="favorite-star"
+						:class="{ filled: store.isFavoritedForUI(type.id), pending: store.favoriteToggling.has(type.id) }"
+						@click.prevent.stop="store.toggleFavorite(type.id)"
+					>★</button>
 					<span class="make-types__name">{{ type.name }}</span>
 					<span v-if="type.description" class="make-types__description">{{ type.description }}</span>
 					<span class="make-types__count">{{ countLabel(type.id) }}</span>
@@ -97,7 +108,11 @@ async function onRefresh(): Promise<void> {
 	color: inherit;
 	align-items: center;
 }
-.make-types__star { grid-area: star; color: var(--text-accent); }
+.make-types__header-actions { display: flex; align-items: center; gap: 0.5rem; }
+.make-types__create-cta { display: inline-block; padding: 0.375rem 0.75rem; background: var(--interactive-accent); color: var(--text-on-accent); border-radius: 4px; text-decoration: none; font-size: 0.875rem; }
+.favorite-star { grid-area: star; background: none; border: none; padding: 0; cursor: pointer; color: var(--text-muted); font-size: 1rem; line-height: 1; }
+.favorite-star.filled { color: var(--text-accent); }
+.favorite-star.pending { opacity: 0.5; }
 .make-types__name { grid-area: name; font-weight: 600; }
 .make-types__description { grid-area: desc; color: var(--text-muted); font-size: 0.875rem; }
 .make-types__count { grid-area: count; color: var(--text-muted); font-size: 0.875rem; white-space: nowrap; }
