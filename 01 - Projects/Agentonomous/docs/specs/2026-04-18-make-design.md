@@ -68,7 +68,96 @@ Routing is added to the existing `createAppRouter()`. Make pages share the singl
 
 All domain types live in `src/domain/make/` and are pure TS.
 
-### 3.1 Type schema
+### 3.1 Shared contracts and utilities
+
+All shared helpers and error types used across Sections 3–5 are consolidated here so the planner has one anchor.
+
+**Imported from existing domain shared utilities** (do not re-implement):
+
+- `Result<T, E>` from `src/domain/shared/result.ts` — existing discriminated union (`{ ok: true; value: T } | { ok: false; error: E }` or equivalent). Used by every fallible function and service method.
+- `tryAsync` / `isErr` from `src/domain/shared/try-async.js` — used when wrapping I/O in the service.
+- `EventBus.emit('error', appError)` — existing `error` channel for `AppError`-shaped payloads surfaced by the `ErrorHandler` core.
+
+**New shared types** (defined in `src/domain/make/errors.ts` and `src/domain/make/types.ts`):
+
+```ts
+// Names and slugs
+export type TypeName = string;   // user-facing display name; uniqueness rules below
+export type TypeId   = string;   // URL-safe slug derived at createType time, immutable thereafter
+
+// ReadonlyRecord helper (if not already in shared)
+export type ReadonlyRecord<K extends string, V> = { readonly [P in K]: V };
+
+// Non-empty array helper (used by FieldError lists)
+export type NonEmptyArray<T> = readonly [T, ...T[]];
+
+// Schema-level errors — emitted by parseTypeSchema / validateField
+export type SchemaError =
+    | { kind: 'invalid-json';           reason: string }
+    | { kind: 'missing-required-key';   key: string }
+    | { kind: 'invalid-field-kind';     received: string }
+    | { kind: 'duplicate-field-name';   name: string }
+    | { kind: 'title-field-not-text';   titleFieldName: string }
+    | { kind: 'title-field-missing';    titleFieldName: string }
+    | { kind: 'invalid-field-default';  fieldName: string; reason: string }
+    | { kind: 'invalid-name';           name: string; reason: 'empty' | 'too-long' | 'illegal-char' }
+    | { kind: 'invalid-folder-path';    path: string };
+
+// Per-value errors — emitted by validateValue / validateInstanceValues
+export type FieldError =
+    | { kind: 'required-missing';   fieldName: string }
+    | { kind: 'invalid-text';       fieldName: string }
+    | { kind: 'invalid-number';     fieldName: string }
+    | { kind: 'invalid-boolean';    fieldName: string }
+    | { kind: 'invalid-list';       fieldName: string }
+    | { kind: 'invalid-date';       fieldName: string; expected: 'YYYY-MM-DD' }
+    | { kind: 'invalid-datetime';   fieldName: string; expected: 'ISO-8601' }
+    | { kind: 'unknown-field';      fieldName: string };
+
+// Service-level data contracts
+export type NewTypeDraft = {
+    readonly name: string;
+    readonly description?: string;
+    readonly instancesFolder: string;
+    readonly titleFieldName: string | null;
+    readonly fields: readonly Field[];
+};
+
+export type TypeSchemaPatch = Partial<Pick<TypeSchema,
+    'name' | 'description' | 'instancesFolder' | 'titleFieldName' | 'fields'
+>>;
+
+export type InstanceRef = {
+    readonly typeId: TypeId;
+    readonly path: string;
+    readonly title: string;        // derived from filename stem
+    readonly createdAt: string;    // file ctime, ISO
+    readonly updatedAt: string;    // file mtime, ISO
+};
+
+export type KpiSnapshot = {
+    readonly typesCount: number;
+    readonly instancesCount: number;
+    readonly createdThisWeek: number;
+    readonly perType: ReadonlyRecord<TypeId, number>;
+    readonly recentlyCreated: readonly InstanceRef[];   // most recent 5, newest first
+};
+```
+
+**Naming rules applied to `TypeSchema.name` and `Field.name`:**
+
+- Non-empty, trimmed, length ≤ 64 chars.
+- `TypeSchema.name`: no filesystem-hostile characters — disallow `/ \ : * ? " < > |` and control chars. Case-insensitively unique across all types.
+- `Field.name`: must be a valid YAML key — ASCII letters, digits, underscore, hyphen; must start with a letter. Unique within its type. Reserved names: `type`, `type-id` (stamped by Make into every instance).
+- Violations of either rule produce a `SchemaError { kind: 'invalid-name' | 'duplicate-field-name' | 'invalid-field-kind' | … }`.
+
+**`TypeId` generation rule** (applied once, at `createType`):
+
+1. Kebab-slug the user-entered `name` (lowercase, ASCII only, non-alphanumeric → `-`, collapse repeats, trim).
+2. If the slug collides with an existing type id, append `-2`, `-3`, … until unique.
+3. Store as `TypeSchema.id`. Immutable thereafter — renames update `name` only.
+
+### 3.2 Type schema
 
 ```ts
 // type-schema.ts
@@ -107,11 +196,17 @@ export type TypeSchema = {
 };
 ```
 
-- `id` vs `name`: `id` is stamped into each instance's frontmatter (`type-id: <id>`) so lookups stay stable across renames. The human-readable frontmatter key is still `type: <name>`.
+- `id` vs `name`: `id` is generated once per Section 3.1 rules, immutable, and stamped into each instance's frontmatter as `type-id: <id>`. The human-readable frontmatter key is still `type: <name>`. Renames update `name` only.
 - `titleFieldName` must reference a field with `kind: 'text'`. If null, the create form shows an explicit "File name" input above the field list.
 - `baseFile` being absent indicates either the type was created before the base file existed, or base-file generation failed on creation. The UI surfaces this as "base file missing — regenerate".
+- Name uniqueness is enforced case-insensitively at `createType` and `updateType`; collisions surface as `MakeError { kind: 'duplicate-name' }` (see Section 5.3).
 
-### 3.2 Field-kind registry (Symfony-inspired)
+**Storage paths** (all derived from `id`, never from `name`):
+
+- Type definition: `{typesFolder}/{id}.json`.
+- Base file: `{basesFolder}/{id}.base` — always keyed on `id` so renames do not orphan the file. The base file's *internal content* (the `views[0].name` field, for example) uses `name` for display. Users looking at their file explorer will see `book.base`; users opening it in Obsidian will see "All Books" as the view name.
+
+### 3.3 Field-kind registry (Symfony-inspired)
 
 Each field kind is its own module under `src/domain/make/field-kinds/`:
 
@@ -152,10 +247,18 @@ export const FIELD_KINDS = {
 
 The registry is the single place where new field kinds are added. Domain consumers (`validateInstanceValues`, `renderInstanceContent`) and UI consumers (`SchemaForm.vue` dispatch, per-kind input components) look up specs by kind — no `switch` statements scatter across the codebase.
 
+**Date / datetime semantics** (explicit to avoid timezone ambiguity):
+
+- `Field.default` for `date` / `datetime` is stored in the JSON as a string in the canonical form (`YYYY-MM-DD` for date, full ISO 8601 with offset `Z` or `±HH:MM` for datetime).
+- At form-load time, the default is parsed to a `Date` via the per-kind spec's `fromFrontmatter`.
+    - `date`: the string `YYYY-MM-DD` is interpreted as **local midnight** of that calendar day. Consequence: the `Date` object's UTC instant may differ across machines, but the displayed day is always the one the user typed. Round-trip: `toFrontmatter` reads the local Y-M-D components and emits them again.
+    - `datetime`: the full ISO string is parsed as an absolute instant (timezone-aware). `toFrontmatter` emits the instant in the user's local offset (not normalized to `Z`).
+- Validation (`validateValue`) accepts `string | Date | number` (Obsidian may hand back any of these) and narrows via the per-kind spec. Invalid inputs produce `FieldError { kind: 'invalid-date' | 'invalid-datetime' }`.
+
 - Dates are kept as `Date` in-memory. `toFrontmatter` for the `date` kind produces `YYYY-MM-DD`; for `datetime` it produces full ISO 8601. YAML's ambiguous date parsing is avoided by always emitting explicit strings.
 - `fromFrontmatter` is tolerant: it accepts whatever Obsidian would hand back (string or Date), narrows, and returns a `FieldError` on failure.
 
-### 3.3 Supporting domain functions
+### 3.4 Supporting domain functions
 
 ```ts
 // type-schema-codec.ts
@@ -179,9 +282,35 @@ export function resolveInstancePath(
     explicitFilename: string | null,
 ): Result<string, 'no-title-field-and-no-filename' | 'invalid-filename'>;
 
+// sanitize-filename.ts — shared helper used by resolveInstancePath
+export function sanitizeFilenameStem(raw: string): string;
+
 // base-file.ts
 export function generateBaseYaml(schema: TypeSchema): string;
+
+// yaml-quote.ts — internal helper used by generateBaseYaml and renderInstanceContent
+export function yamlQuote(value: string): string;
 ```
+
+**`sanitizeFilenameStem` rules** (consumed by `resolveInstancePath`):
+
+1. Strip filesystem-hostile characters: `/ \ : * ? " < > |` and ASCII control characters.
+2. Collapse consecutive whitespace to single spaces, trim leading/trailing whitespace.
+3. Remove trailing dots (Windows quirk).
+4. Cap length at 120 characters (leaves room for `.md` extension and collision suffix).
+5. If the result is empty, return empty — caller returns `'invalid-filename'`.
+
+`resolveInstancePath` flow:
+
+- If `explicitFilename` is non-null, sanitize it. Empty result → `'invalid-filename'`.
+- Else, look up the `titleFieldName` field in `values`, pull its text, sanitize. If no title field and no explicit name → `'no-title-field-and-no-filename'`.
+- Target path: `{schema.instancesFolder}/{stem}.md`. Collision handling is the service's job (it calls `ports.vault.exists` and either returns `MakeError.instance-exists` or proceeds on overwrite — see Section 8.2).
+
+**`yamlQuote` rules**:
+
+- Always emit double-quoted strings.
+- Escape `\` → `\\` and `"` → `\"`. Control characters are rejected upstream by `invalid-name` / `sanitizeFilenameStem`, so no other escaping is needed.
+- Used in `generateBaseYaml` for the `type == "<name>"` filter expression and for any `displayName` value.
 
 All deterministic. Snapshot-testable. Error unions are exhaustive.
 
@@ -252,17 +381,20 @@ Favorites live here (per-vault UI state) rather than in the type JSON file — s
 
 declare module '../../domain/shared/event-bus.js' {
     interface EventMap {
-        'make:type-created':      { typeId: string; name: string };
-        'make:type-updated':      { typeId: string; name: string };
-        'make:type-deleted':      { typeId: string; name: string };
-        'make:instance-created':  { typeId: string; path: string };
-        'make:instance-deleted':  { typeId: string; path: string };
-        'make:base-regenerated':  { typeId: string; basePath: string };
+        'make:type-created':       { typeId: string; name: string };
+        'make:type-updated':       { typeId: string; name: string };
+        'make:type-deleted':       { typeId: string; name: string };
+        'make:instance-created':   { typeId: string; path: string };
+        'make:instance-deleted':   { typeId: string; path: string };
+        'make:base-regenerated':   { typeId: string; basePath: string };
+        'make:favorite-toggled':   { typeId: string; isFavorite: boolean };
     }
 }
 ```
 
-Other modules can subscribe without coupling to Make's internals.
+Other modules can subscribe without coupling to Make's internals. Make also emits the existing shared `error` bus event (via `ports.eventBus.emit('error', appError)`) with `AppError { source: 'make', code: MakeError['kind'], … }` whenever a write fails, so the `ErrorHandler` core surface picks it up for logging.
+
+**Out of scope — observation of external vault mutations.** Make does not subscribe to `vault` bus events in v1. If a user adds a markdown file with matching frontmatter via Obsidian's file explorer or an external editor, it will appear in KPIs and instance tables on the next refresh (pages re-query the vault on mount and on `make:*` events). Live-syncing external edits is a future enhancement.
 
 ### 5.3 Service
 
@@ -295,14 +427,27 @@ export type DeleteTypeReport = {
 };
 
 export type MakeError =
-    | { kind: 'vault-error';     cause: VaultError }
-    | { kind: 'invalid-schema';  issues: readonly SchemaError[] }
-    | { kind: 'type-not-found';  typeId: string }
-    | { kind: 'instance-exists'; path: string }
-    | { kind: 'no-title-field' };
+    | { kind: 'vault-error';         cause: VaultError }
+    | { kind: 'invalid-schema';      issues: NonEmptyArray<SchemaError> }
+    | { kind: 'invalid-values';      issues: NonEmptyArray<FieldError> }
+    | { kind: 'type-not-found';      typeId: TypeId }
+    | { kind: 'duplicate-name';      name: string }
+    | { kind: 'instance-exists';     path: string }
+    | { kind: 'no-title-field' }
+    | { kind: 'base-generation-failed'; cause: VaultError }
+    | { kind: 'not-implemented' };   // used only by Slice 1 scaffold
 ```
 
 `createMakeService(ports, settings)` is a factory returning the object above; methods close over the captured deps. KPIs are computed on demand, not cached.
+
+**`createType` flow** (authoritative for planner):
+
+1. Validate the draft: field-kind validators + name constraints (Section 3.1) + uniqueness check against current `listTypes()` → returns `invalid-schema` or `duplicate-name` on failure.
+2. Generate `id` from `draft.name` (Section 3.1 slug rules); stamp `createdAt` = `updatedAt` = now.
+3. Serialize with `serializeTypeSchema`; `ports.vault.writeText({typesFolder}/{id}.json, …, { createFolders: true })`. Vault failure → `vault-error`.
+4. Generate base YAML; write to `{basesFolder}/{id}.base` with `createFolders: true`. If this fails, save the type JSON anyway (type is usable without a base), stamp `baseFile = undefined`, surface a notification, and return success with a warning surfaced via `notifications.warn`. The service returns `ok(schema)` in this case — partial-success is not an error because the type is still usable; the UI banner will tell the user to regenerate.
+5. On full success, stamp `schema.baseFile = { path, generatedAt }`, re-serialize, re-write the JSON (two-step write is intentional — the base path must exist before it's recorded).
+6. Emit `make:type-created`.
 
 ### 5.4 Module shape
 
@@ -337,13 +482,35 @@ export const MakeModule = defineModule<MakeSettings>({
           ribbon: { icon: 'hammer', title: 'Make', visibleByDefault: true } },
         { id: 'make-create-type', name: 'Make: create new type', /* routes to /make/types/new/config */ },
     ],
-    init(ports, settings) { /* build service, store state */ },
-    onSettingsChange(next) { /* rebuild service if folder paths changed */ },
-    destroy() { /* clear state */ },
+    init(ports, settings) {
+        if (state !== null) void this.destroy();     // idempotent per module convention
+        const service = createMakeService(ports, settings);
+        state = { service, settings };
+    },
+    onSettingsChange(next) {
+        // If folder paths changed, rebuild the service so its captured refs are consistent.
+        // Favorites and enabled-flag changes do NOT require a rebuild — they're read through
+        // getSettings() on each service call, not captured at factory time.
+        const prev = state?.settings;
+        if (prev === undefined) return;
+        const folderChanged =
+            prev.typesFolder !== next.typesFolder ||
+            prev.basesFolder !== next.basesFolder ||
+            prev.defaultInstancesRoot !== next.defaultInstancesRoot;
+        if (folderChanged) {
+            void this.destroy();
+            void this.init(/* ports from closure */, next);
+        } else {
+            state!.settings = next;
+        }
+    },
+    destroy() { state = null; },
 });
 ```
 
-Matches the module singleton pattern already established by `event-inspector` and `health-monitor`.
+- Matches the module singleton pattern already established by `event-inspector` and `health-monitor`.
+- `init` is idempotent (self-guards by calling `destroy` first). `onSettingsChange` follows the same discipline for folder-path changes — no partial-state window.
+- There is no protection against in-flight service calls during a folder-path rebuild. Folder-path changes are user-initiated in the settings UI and considered rare; any in-flight `Promise` resolves against the old service closure and then becomes stale state to the UI. The UI store listens for `onSettingsChange` via `SettingsPort` and refreshes on the next tick. Documented limitation; not worth a request cancellation framework in v1.
 
 ## 6. UI Layer
 
@@ -352,15 +519,20 @@ Matches the module singleton pattern already established by `event-inspector` an
 ```ts
 // src/ui/pages/make/routes.ts
 export const makeRoutes: readonly RouteRecordRaw[] = [
-    { path: '/make',                    name: 'make-home',        component: MakeHome,       meta: { layout: 'dashboard' } },
-    { path: '/make/types',              name: 'make-types',       component: MakeTypes,      meta: { layout: 'dashboard' } },
-    { path: '/make/types/:name/config', name: 'make-type-config', component: MakeTypeConfig, meta: { layout: 'dashboard' }, props: true },
-    { path: '/make/types/:name',        name: 'make-type-index',  component: MakeTypeIndex,  meta: { layout: 'dashboard' }, props: true },
-    { path: '/make/settings',           name: 'make-settings',    component: MakeSettings,   meta: { layout: 'dashboard' } },
+    { path: '/make',                      name: 'make-home',        component: MakeHome,       meta: { layout: 'dashboard' } },
+    { path: '/make/types',                name: 'make-types',       component: MakeTypes,      meta: { layout: 'dashboard' } },
+    { path: '/make/types/new/config',     name: 'make-type-new',    component: MakeTypeConfig, meta: { layout: 'dashboard' } },
+    { path: '/make/types/:typeId/config', name: 'make-type-config', component: MakeTypeConfig, meta: { layout: 'dashboard' }, props: true },
+    { path: '/make/types/:typeId',        name: 'make-type-index',  component: MakeTypeIndex,  meta: { layout: 'dashboard' }, props: true },
+    { path: '/make/settings',             name: 'make-settings',    component: MakeSettings,   meta: { layout: 'dashboard' } },
 ];
 ```
 
-Spread into the main router config. `:name` binds to `TypeSchema.name` for user-meaningful URLs; navigation inside the app uses named routes, so type renames don't leave dangling internal links.
+Spread into the main router config. **URL key is `:typeId` (the stable `TypeSchema.id`), not the user-editable `name`.** Rationale: a rename does not invalidate open tabs, bookmarks survive renames, and collisions are impossible (id is unique by construction). The UI shows `name` in breadcrumbs and page titles; the URL slug is visible but never user-typed.
+
+The explicit `/make/types/new/config` route handles new-type mode (detected by route name, not by a `new` sentinel in the `:typeId` param — that avoided a reserved-value ambiguity).
+
+If a user refreshes a tab after the underlying type was deleted, `MakeTypeConfig`/`MakeTypeIndex` load receives `type-not-found`, shows an empty state with a "Type no longer exists — back to types list" action.
 
 ### 6.2 Pages
 
@@ -424,10 +596,10 @@ Make reuses the shared `AppRoot`/router rather than a Make-specific Vue entry. T
 
 ### 7.1 Generated shape
 
-For a type `Book` with fields `title: text, author: text, pages: number, read: checkbox, published: date`:
+For a type with `id: 'book'`, `name: 'Book'`, fields `title: text, author: text, pages: number, read: checkbox, published: date`:
 
 ```yaml
-# Make/Bases/Book.base
+# Make/Bases/book.base
 filters:
     and:
         - file.ext == "md"
@@ -472,6 +644,14 @@ views:
 
 Hand-rolled serializer — the shape is fixed, deterministic, has no loops or anchors. Importing a YAML library for ~60 lines of output is not warranted. Domain tests snapshot-assert the exact output per schema variant.
 
+**Escaping rules** (via `yamlQuote` from Section 3.4):
+
+- Every user-supplied string (`type == "<name>"`, `displayName`, view `name`) is double-quoted and escaped: `\` → `\\`, `"` → `\"`.
+- Name characters that would require more exotic YAML escaping (control chars, newlines) are rejected upstream by `SchemaError { kind: 'invalid-name' }` rules in Section 3.1, so the serializer never sees them.
+- Field names (`Field.name`) are YAML-safe by construction (the name validator only allows `[A-Za-z][A-Za-z0-9_-]*`) so they are emitted bare.
+
+**File path** is `{basesFolder}/{id}.base`. The id is always filesystem-safe (kebab slug from Section 3.1), so no sanitization is needed at write time.
+
 ### 7.5 Future compatibility
 
 Obsidian Bases is an evolving feature. Generated files are seeds, not authoritative contracts — users can hand-edit freely. If a future Obsidian version changes the Bases YAML schema, the generator is updated and users hit "Regenerate base file" when ready.
@@ -489,9 +669,15 @@ Obsidian Bases is an evolving feature. Generated files are seeds, not authoritat
 
 1. On `MakeTypeIndex`, the `<SchemaForm>` is visible in a collapsible panel (open by default).
 2. If `titleFieldName` is set, that field is first and labeled "(this becomes the filename)". Otherwise an explicit "File name" input renders at the top.
-3. Submit → values are validated via `FIELD_KINDS[...].validateValue`; path is resolved; existence checked.
-4. `already-exists` → a dialog offers **Overwrite** or **Choose different name**. No silent auto-rename.
-5. Success → form resets; instance table refreshes.
+3. Submit → values are validated via `FIELD_KINDS[...].validateValue`. If any value fails, the form surfaces per-field errors inline (`FieldError[]` driven) and does not submit.
+4. On valid values, `resolveInstancePath` is called (Section 3.4):
+    - **Title-field case** — the `text` value of the title field is run through `sanitizeFilenameStem`. Target is `{schema.instancesFolder}/{stem}.md`.
+    - **Explicit-filename case** — the typed filename (minus any `.md` extension) is sanitized.
+    - Empty sanitized result → `invalid-filename` surfaced as an inline form error on the title/filename input.
+5. Service checks `ports.vault.exists(path)`:
+    - If the file exists, return `MakeError { kind: 'instance-exists', path }`. The UI shows a modal: **Overwrite** or **Choose different name**. No silent auto-rename — users stay in control.
+    - If the file does not exist, write via `ports.vault.writeText(path, renderInstanceContent(...).fullMarkdown)`.
+6. On success, emit `make:instance-created`, form resets to defaults, instance table refreshes.
 
 ### 8.3 Delete type
 
@@ -500,11 +686,11 @@ Obsidian Bases is an evolving feature. Generated files are seeds, not authoritat
 ```
 Delete type "Book"?
 
-The type definition file Make/Types/Book.json will be deleted.
+The type definition file Make/Types/book.json will be deleted.
 
 [ ] Also delete 47 instances in Books/        (off by default)
 [ ] Also delete the generated base file         (off by default)
-    Make/Bases/Book.base
+    Make/Bases/book.base
 
 Deleted files go to Obsidian trash and can be restored.
 
@@ -515,7 +701,7 @@ Both opt-in checkboxes default off. Instance count loaded lazily when the dialog
 
 ### 8.4 Favorites
 
-Star icon on `TypeCard` and in the `MakeTypes` table → `toggleFavorite(typeId)` → updates `MakeSettings.favorites` via `SettingsPort.saveSection('make', next)`. Store subscribes to settings changes and re-sorts the homepage grid (favorites first).
+Star icon on `TypeCard` and in the `MakeTypes` table → `toggleFavorite(typeId)` → service flips the id in `MakeSettings.favorites`, writes via `SettingsPort.saveSection('make', next)`, and emits `make:favorite-toggled`. The store subscribes to `make:favorite-toggled` (not the generic settings change) to re-sort the homepage grid; that keeps the favorite flow decoupled from unrelated settings edits.
 
 ### 8.5 Settings surfaces
 
@@ -562,10 +748,10 @@ Each slice ships a green, usable product.
 
 ### Slice 1 — Foundation & Read Paths
 
-- Extend `VaultPort` + adapter + fake (all four new methods).
-- Domain: `type-schema`, `type-schema-codec`, `field-kinds/*`, `instance-ops`, `base-file`.
-- Module skeleton with `listTypes` + `loadType`; write methods throw `not-implemented`.
-- UI: per-kind input components + `SchemaForm` + `FieldEditor` + their Storybook stories.
+- Extend `VaultPort` + adapter + fake (all four new methods). **Breaking change to the port interface** — all existing `fakeVault()` consumers must add the four new method stubs in the same slice; lint/tsc will surface every call site.
+- Domain: `type-schema` (+ shared contracts from Section 3.1), `type-schema-codec`, `field-kinds/*`, `instance-ops`, `base-file`, `sanitize-filename`, `yaml-quote`.
+- Module skeleton with `listTypes` + `loadType` fully implemented. All write methods (`createType`, `updateType`, `deleteType`, `createInstance`, `deleteInstance`, `regenerateBaseFile`) return `err({ kind: 'not-implemented' })` — consistent with the "service methods never throw" rule from Section 8.7.
+- UI: per-kind input components + `SchemaForm` + `FieldEditor` + their Storybook stories. All new components use the Storybook theme toolbar pattern introduced in the recent commits (light/dark via decorator).
 - No routes wired.
 
 ### Slice 2 — Read Pages
@@ -605,9 +791,13 @@ Each slice ships a green, usable product.
 
 ### 11.2 Mocked store
 
-`useMakeStore` gains a `seedForStories(state)` helper that bypasses the service layer. A Storybook decorator `withMakeStore(seedFn)` provisions a fresh Pinia per story, following the pattern established in the recent story commits.
+A Storybook decorator `withMakeStore(seedFn)` provisions a fresh Pinia per story and hydrates the store via `seedFn(store)`. The seeding happens from the decorator — `useMakeStore` itself stays free of test-only helpers; the decorator just uses the public refs/actions to push fixture data in. This follows the fresh-Pinia-per-story pattern established in the recent story commits without polluting the production store API.
 
-### 11.3 Phased authoring
+### 11.3 Visual conventions
+
+All new Make components integrate with the Storybook theme toolbar introduced in recent commits (light/dark parity via the shared `withTheme` decorator). Each story exports are expected to render cleanly in both themes; per-kind input components' stories include explicit light and dark snapshots where visual differences matter.
+
+### 11.4 Phased authoring
 
 **Phase 1 (bottom-up):** per-kind inputs → `FieldEditor` → `SchemaForm` → presentational components (`KpiStrip`, `TypeCard`, `InstanceTable`, `DeleteTypeDialog`).
 
