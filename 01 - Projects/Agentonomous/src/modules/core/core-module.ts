@@ -19,7 +19,7 @@ export const CoreModule = defineModule({
 	views: [
 		{
 			type: VIEW_TYPE_HOMEPAGE,
-			displayName: 'Agentonomous homepage',
+			displayName: 'Agentonomous',
 			icon: 'bot',
 			defaultLocation: 'main',
 		},
