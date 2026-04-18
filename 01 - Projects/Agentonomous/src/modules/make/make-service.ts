@@ -2,7 +2,7 @@ import type { ModulePorts } from '../../domain/shared/module.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
 import { trySync } from '../../domain/shared/try-async.js';
 import { parseTypeSchema, serializeTypeSchema } from '../../domain/make/type-schema-codec.js';
-import type { TypeSchema } from '../../domain/make/type-schema.js';
+import type { Field, TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
 import type { FieldRename, MakeError, SchemaError } from '../../domain/make/errors.js';
 import type {
@@ -126,16 +126,20 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		return null;
 	}
 
-	function validateDraft(draft: NewTypeDraft): SchemaError[] {
+	function validateSchema(schema: {
+		readonly name: string;
+		readonly instancesFolder: string;
+		readonly fields: readonly (Field)[];
+	}): SchemaError[] {
 		const errors: SchemaError[] = [];
-		for (const field of draft.fields) {
+		for (const field of schema.fields) {
 			const nameResult = validateFieldName(field.name);
 			if (nameResult.kind === 'err') errors.push(nameResult.error);
 			errors.push(...FIELD_KINDS[field.kind].validateField(field as never));
 		}
-		const nameResult = validateTypeName(draft.name);
+		const nameResult = validateTypeName(schema.name);
 		if (nameResult.kind === 'err') errors.push(nameResult.error);
-		const folderResult = validateInstancesFolder(draft.instancesFolder);
+		const folderResult = validateInstancesFolder(schema.instancesFolder);
 		if (folderResult.kind === 'err') errors.push(folderResult.error);
 		return errors;
 	}
@@ -164,7 +168,7 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 
 	async function createType(draft: NewTypeDraft): Promise<Result<TypeSchema, MakeError>> {
 		// Step 1: validate all fields + type name + folder.
-		const schemaErrors = validateDraft(draft);
+		const schemaErrors = validateSchema(draft);
 		if (schemaErrors.length > 0) {
 			return err({ kind: 'invalid-schema', issues: schemaErrors as unknown as NonEmptyArray<SchemaError> });
 		}
@@ -236,14 +240,7 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 			}
 		}
 		// Re-validate merged schema via the same rules createType uses.
-		const schemaErrors: SchemaError[] = [];
-		for (const field of next.fields) {
-			schemaErrors.push(...FIELD_KINDS[field.kind].validateField(field as never));
-		}
-		const nameResult = validateTypeName(next.name);
-		if (nameResult.kind === 'err') schemaErrors.push(nameResult.error);
-		const folderResult = validateInstancesFolder(next.instancesFolder);
-		if (folderResult.kind === 'err') schemaErrors.push(folderResult.error);
+		const schemaErrors = validateSchema(next);
 		if (schemaErrors.length > 0) {
 			return err({ kind: 'invalid-schema', issues: schemaErrors as unknown as NonEmptyArray<SchemaError> });
 		}
