@@ -1,7 +1,7 @@
 import type { Meta, StoryObj, Decorator } from '@storybook/vue3-vite';
 import { expect, within, userEvent } from 'storybook/test';
-import EventInspectorView from '../../src/modules/event-inspector/views/EventInspectorView.vue';
-import { useEventInspectorStore } from '../../src/modules/event-inspector/event-inspector-store.js';
+import EventInspectorPanel from '../../src/ui/panels/EventInspectorPanel.vue';
+import { useEventInspectorStore } from '../../src/ui/stores/event-inspector-store.js';
 import { sampleEvents } from '../__fixtures__/events.js';
 
 const withEvents: Decorator = () => ({
@@ -16,13 +16,13 @@ const withEvents: Decorator = () => ({
 	template: '<story />',
 });
 
-const meta: Meta<typeof EventInspectorView> = {
-	title: 'Modules/EventInspectorView',
-	component: EventInspectorView,
+const meta: Meta<typeof EventInspectorPanel> = {
+	title: 'Panels/EventInspectorPanel',
+	component: EventInspectorPanel,
 };
 export default meta;
 
-type Story = StoryObj<typeof EventInspectorView>;
+type Story = StoryObj<typeof EventInspectorPanel>;
 
 export const Empty: Story = {
 	play: async ({ canvasElement, step }) => {

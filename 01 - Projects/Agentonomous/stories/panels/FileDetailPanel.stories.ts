@@ -1,7 +1,7 @@
 import type { Meta, StoryObj, Decorator } from '@storybook/vue3-vite';
 import { expect, within, userEvent, fn } from 'storybook/test';
-import FileDetailView from '../../src/modules/file-detail/views/FileDetailView.vue';
-import { useFileDetailStore } from '../../src/modules/file-detail/file-detail-store.js';
+import FileDetailPanel from '../../src/ui/panels/FileDetailPanel.vue';
+import { useFileDetailStore } from '../../src/ui/stores/file-detail-store.js';
 import { jsonAnalysis, csvAnalysis, largeFileAnalysis } from '../__fixtures__/file-analysis.js';
 
 function withAnalysis(analysis: typeof jsonAnalysis | null, error: string | null = null): Decorator {
@@ -20,13 +20,13 @@ function withAnalysis(analysis: typeof jsonAnalysis | null, error: string | null
 	});
 }
 
-const meta: Meta<typeof FileDetailView> = {
-	title: 'Modules/FileDetailView',
-	component: FileDetailView,
+const meta: Meta<typeof FileDetailPanel> = {
+	title: 'Panels/FileDetailPanel',
+	component: FileDetailPanel,
 };
 export default meta;
 
-type Story = StoryObj<typeof FileDetailView>;
+type Story = StoryObj<typeof FileDetailPanel>;
 
 export const Empty: Story = {
 	decorators: [withAnalysis(null)],
