@@ -7,7 +7,7 @@ import type { TypeId } from '../../../domain/make/types.js';
 import type { FieldError } from '../../../domain/make/errors.js';
 import { FIELD_KINDS } from '../../../domain/make/field-kinds/index.js';
 import type { useMakeStore } from '../../stores/make-store.js';
-import { getMakeSettings } from '../../../modules/make/make-module.js';
+import { useMakeContext } from '../../composables/use-make-context.js';
 
 export interface UseMakeTypeDraft {
 	readonly isNewMode:     ComputedRef<boolean>;
@@ -50,7 +50,8 @@ export function useMakeTypeDraft(
 	const committedType = computed<TypeSchema | null>(() => typeId.value === null ? null : (store.getType(typeId.value) ?? null));
 	const firstSaveComplete = ref(false);
 	const fieldErrors = ref<Map<string, FieldError[]>>(new Map());
-	const defaultFolder = getMakeSettings()?.defaultInstancesRoot ?? 'Make/Instances';
+	const ctx = useMakeContext();
+	const defaultFolder = ctx.settings$.value.defaultInstancesRoot;
 	const draft = ref<Draft>(
 		isNewMode.value
 			? emptyDraftForNewMode(defaultFolder)
