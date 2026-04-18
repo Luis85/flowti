@@ -3,8 +3,9 @@ import type { ModulePorts } from '../../domain/shared/module.js';
 import { MAKE_DEFAULTS, validateMakeSettings, type MakeSettings } from './make-settings.js';
 import { createMakeService, type MakeService } from './make-service.js';
 import enMessages from './locales/en.json' with { type: 'json' };
+import { VIEW_TYPE_MAKE } from '../../domain/views/view-types.js';
 
-export const VIEW_TYPE_MAKE = 'agentonomous-make';
+export { VIEW_TYPE_MAKE };
 
 type ModuleState = {
 	readonly ports: ModulePorts;
