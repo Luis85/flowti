@@ -483,7 +483,7 @@ export const MakeModule = defineModule<MakeSettings>({
     settingsSchema: { /* four text fields + toggle */ },
     messages: { en: enMessages },
     views: [
-        { type: VIEW_TYPE_MAKE, displayName: 'Make', icon: 'hammer', defaultLocation: 'tab' },
+        { type: VIEW_TYPE_MAKE, displayName: 'Make', icon: 'hammer', defaultLocation: 'main' },
     ],
     commands: [
         { id: 'open-make',        name: 'Open Make',             opensView: VIEW_TYPE_MAKE,
