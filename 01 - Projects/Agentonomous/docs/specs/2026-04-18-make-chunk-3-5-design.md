@@ -15,7 +15,7 @@ A post-Chunk-3 review (2026-04-18) catalogued flaws across four severities. Sev 
 
 Chunk 3.5 ships a **focused prerequisite** for Chunk 4: the three Sev 1 bug fixes plus the PluginContext-based refactor of module-state reach-in (Chunk 3 §12 item #6 plus two adjacent cleanups). Out of scope: safety nets (relative `baseFile.path`, optimistic concurrency, save-time notices, external-edit recovery, favorite multi-session sync, VaultPort JSDoc) — those remain in the Chunk 3 §12 outbox for a second hardening pass after Chunk 4.
 
-Chunk 3.5 is deliberately small (~13.5 h, 10 commits). Every commit is green at its boundary; any prefix of the chunk ships meaningful value on its own.
+Chunk 3.5 is deliberately small (~14 h, 10 commits). Every commit is green at its boundary; any prefix of the chunk ships meaningful value on its own.
 
 ## Decisions captured (4 clarifying Qs)
 
@@ -62,7 +62,16 @@ const typeFilePath = computed(() => `Make/Types/${props.type.id}.json`);
 
 **Target (pre-B1 state)**: add a `typesFolder: string` prop. `MakeType.vue` reads from `getMakeSettings()?.typesFolder ?? 'Make/Types'` and passes it down.
 
-**Target (post-B1 state)**: prop still exists for isolation; `MakeType.vue` reads from `inject(MakeContextKey)!.settings$.value.typesFolder`. (Alternative: the dialog injects directly — rejected because it complicates Storybook stories. Prop-drilling is the right boundary here.)
+**Target (post-B1 state)**: prop still exists for isolation; `MakeType.vue` reads via a small helper `useMakeContext()` that throws on null (avoids the `!` non-null assertion, consistent with "no `@ts-ignore`" rule in CLAUDE.md):
+```ts
+// src/ui/composables/use-make-context.ts
+export function useMakeContext(): MakeContext {
+  const ctx = inject(MakeContextKey);
+  if (ctx === undefined) throw new Error('MakeContextKey not provided — mount inside a Vue app that called provide(MakeContextKey, ...)');
+  return ctx;
+}
+```
+Then: `const typesFolder = useMakeContext().settings$.value.typesFolder;`. (Alternative: the dialog injects directly — rejected because it complicates Storybook stories. Prop-drilling is the right boundary here.)
 
 **Behavior**: when `typesFolder = 'Custom/Schemas'`, the delete dialog displays `Custom/Schemas/my-type.json` instead of `Make/Types/my-type.json`.
 
@@ -112,7 +121,21 @@ async onSettingsChange(next) {
 }
 ```
 
-**PluginCore integration**: verify that `PluginCore` catches `onSettingsChange` rejections and marks the module degraded in `moduleStatus`. If it does not today, add that to B1.1 rather than A2 (scope control).
+**PluginCore integration (verified during spec writing, `src/core/plugin-core.ts:289-306`)**:
+
+Current `dispatchSettingsChanges` is:
+```ts
+try { m.onSettingsChange(settings); }          // sync try/catch
+catch (error) { logger.error('core', ...); }   // logs but does NOT mark degraded
+```
+Two problems for the A2 target: (1) making `onSettingsChange` async makes the current sync try/catch useless — promise rejections escape as unhandled. (2) Errors only log; modules are never marked degraded for settings-change failures. `degradedModuleIds` is populated at init time only.
+
+**A2 scope therefore includes a PluginCore change** (not deferred to B1.1). Specifically:
+1. In `plugin-core.ts:289`, `dispatchSettingsChanges` becomes `async` — the for-loop `await`s each `onSettingsChange` call inside the try/catch, so both sync and async rejections funnel through the same handler.
+2. On catch, the module is added to `degradedModuleIds` and a follow-up `core` event fires (`{ phase: 'settings-change-failure', moduleId, reason }`). Reuses the existing degraded-module plumbing.
+3. `subscribe` callers (the `settings.subscribe((raw) => {...})` at `plugin-core.ts:115`) are already void-returning; the sync callback schedules an async dispatch — existing promise-chain hygiene suffices (add a `.catch(logger.error)` at the subscribe-callback boundary for safety).
+
+This expands A2 by ~30 min but keeps the scope change contained to one file + one test. Alternative (keep logging only, don't mark degraded) was rejected because Success Criterion #6 specifically requires user-visible degraded status.
 
 **Tests** (extend `tests/modules/make/make-module.test.ts`):
 1. Folder rename succeeds → new service callable with new folder.
@@ -159,19 +182,19 @@ async function listTypes(): Promise<Result<readonly TypeSchema[], MakeError>> {
 **New file**: `src/modules/make/make-context.ts`.
 
 ```ts
-import type { Ref, DeepReadonly } from 'vue';
+import type { Ref } from 'vue';
 import type { MakeService } from './make-service.js';
 import type { MakeSettings } from './make-settings.js';
 import type { MakeEventHandlers } from './make-module.js';
 
 export type MakeContext = {
   readonly service:   MakeService;
-  readonly settings$: DeepReadonly<Ref<MakeSettings>>;
+  readonly settings$: Readonly<Ref<MakeSettings>>;
   readonly subscribe: (handlers: MakeEventHandlers) => () => void;
 };
 ```
 
-`DeepReadonly<Ref<...>>` is type-only — no runtime wrapper. Enforces "writes flow through `onSettingsChange`" at the type boundary.
+`Readonly<Ref<T>>` prevents `.value =` reassignment at the type layer — which is exactly the invariant we need ("writes flow through `onSettingsChange`"). The underlying `MakeSettings` fields are already all `readonly` in `make-settings.ts`, so mutations through `.value.favorites.push(...)` are already blocked structurally. `DeepReadonly<Ref<T>>` (Vue's deeper type) was considered but rejected: its conditional-type expansion surfaces awkwardly at call sites (e.g., `.value.favorites` infers as `DeepReadonly<readonly string[]>` which trips downstream inference). Current shape is simpler with equivalent runtime semantics given `MakeSettings` is already deep-readonly at the type level.
 
 **New file**: `src/ui/make-context-key.ts`.
 
@@ -206,7 +229,10 @@ export const MakeContextKey: InjectionKey<MakeContext> = Symbol('MakeContext');
      };
    }
    ```
-6. Keep existing exports (`getMakeService`, `getMakeSettings`, `subscribeMakeEvents`) unchanged — they already delegate to `state?.service` / `state?.settings$.value` / `state.ports.eventBus.on(...)` after the migration. Shim: zero LOC change to call sites.
+6. **Rewrite the bodies** of `getMakeService`, `getMakeSettings`, `subscribeMakeEvents` — their exported signatures stay stable (zero LOC change at call sites), but the bodies must change because `state.settings` is now `state.settings$: Ref<MakeSettings>`.
+   - `getMakeService()` → unchanged (still returns `state?.service ?? null`).
+   - `getMakeSettings()` → `return state?.settings$.value ?? null;` (reads `.value` off the ref).
+   - `subscribeMakeEvents(handlers)` → keep its current implementation that iterates handlers and wires `bus.on(...)`. It is a real function, not a getter; the phrase "thin delegation" in earlier drafts was imprecise. The shim reality: bodies evolve to drive off `state.settings$`, signatures do not. This is what keeps call sites zero-change in B1.1 so B1.2 can migrate them one at a time.
 
 **Vue wiring**: `src/ui/app.ts` already does `vue.provide(PluginContextKey, ctx)`. After module init settles, add:
 ```ts
@@ -227,7 +253,17 @@ export function createFakeMakeContext(overrides?: Partial<MakeContext>): MakeCon
 }
 ```
 
-**Test fixture extension**: `tests/__fixtures__/mount-with-i18n.ts` accepts a `provide` option forwarded to Vue Test Utils' `global.provide`. If it doesn't today, add it (≤5 LOC).
+**Test fixture extension (verified — does NOT accept today)**: `tests/__fixtures__/mount-with-i18n.ts` currently hardcodes `plugins = [i18n, options.router]` with no way to pass additional plugins or provides. B1.1 extends the options shape to accept:
+```ts
+options: {
+  router?: Router;
+  props?: Record<string, unknown>;
+  attachTo?: Element;
+  provide?: ReadonlyArray<readonly [symbol | string, unknown]>; // forwarded to global.provide
+  plugins?: ReadonlyArray<unknown>;                               // appended after i18n + router
+}
+```
+~10 LOC net. Every Chunk 3.5 consumer-migration test uses the new options; no breaking change to existing callers (all new keys optional).
 
 **Tests for B1.1**: all 740 existing tests continue to pass unchanged. One new test confirms `getMakeContext()` returns a readonly `settings$` (attempting to mutate is a TS error — verified via a type-level test or a try/catch in dev mode).
 
@@ -248,7 +284,7 @@ Per-consumer commit pattern:
 - Tests: delete the `vi.mock('.../make-module.js', ...)` block; install `createFakeMakeContext()` via `mountWithI18n`'s new `provide` option.
 
 **`make-store.ts` specifics** (commit B1.2a):
-- `useMakeStore` uses `inject(MakeContextKey)` inside the factory. Pinia allows `inject()` inside `defineStore` setup when the store is instantiated within a component's setup — the normal path.
+- `useMakeStore` uses `inject(MakeContextKey)` inside the factory via the shared `useMakeContext()` helper (see A1 post-B1 section). Pinia allows `inject()` inside `defineStore` setup only when the store is instantiated within an active Vue app's setup context. **Invariant**: `useMakeStore()` must never be called at module top-level or from non-Vue consumers. Documented with a one-line comment at the top of `make-store.ts`; no runtime enforcement needed (Pinia's error message is clear enough).
 - The `onFavoriteToggled` handler's `types.value = [...types.value]` nudge is deleted. `favoriteTypes` and `isFavoritedForUI` read `ctx.settings$.value.favorites` directly; Vue tracks the ref.
 - `optimisticFavoriteOverrides` stays as-is for the in-flight flicker window.
 
@@ -388,12 +424,12 @@ New file `tests/ui/composables/use-focus-trap.test.ts`. Six cases: initial focus
 
 ## 5. Commit sequence
 
-10 commits, all green at every boundary. Total ~13.5 h.
+10 commits, all green at every boundary. Total ~14 h.
 
 | # | Commit message | Group | Est. |
 |---|---|---|---|
 | 1 | `fix(make): read typesFolder from settings in DeleteTypeDialog` | A1 | 30 min |
-| 2 | `fix(make): serialise destroy/init in onSettingsChange + surface failure` | A2 | 2 h |
+| 2 | `fix(core+make): async onSettingsChange + surface failure via degradedModules` | A2 | 2.5 h |
 | 3 | `fix(make): distinguish not-found from vault-error in listTypes` | A3 | 2 h |
 | 4 | `refactor(make): introduce MakeContext + reactive settings$ (shimmed)` | B1.1 | 3 h |
 | 5 | `refactor(make): migrate make-store to MakeContext` | B1.2a | 1 h |
@@ -427,7 +463,7 @@ New file `tests/ui/composables/use-focus-trap.test.ts`. Six cases: initial focus
 | R3 | `mountWithI18n` fixture may not accept `provide` overrides today. | Extending is ≤5 LOC; tracked as part of B1.1. |
 | R4 | Chunk 4 branch diverges if started before Chunk 3.5 lands. | Land Chunk 3.5 entirely on `master` before opening Chunk 4 worktree. |
 | R5 | `PluginCore` may not surface `onSettingsChange` rejections to `moduleStatus`. | Verify during A2; extend PluginCore's settings-change handler if needed (scope-expansion flagged and negotiated during execution). |
-| R6 | `DeepReadonly<Ref<T>>` TypeScript complexity surfaces unusable generics at call sites. | Fallback: plain `Ref<MakeSettings>` with convention (writes flow through `onSettingsChange` enforced by code review). Documented in B1.1 implementation notes. |
+| R6 | `Readonly<Ref<T>>` may surface subtle inference differences at call sites vs plain `Ref<T>`. | Fallback: plain `Ref<MakeSettings>` with convention (writes flow through `onSettingsChange` enforced by code review). Decision documented inline in B1.1 implementation notes. |
 
 ## 8. Reminders for Chunk 4 planner
 
@@ -437,3 +473,14 @@ New file `tests/ui/composables/use-focus-trap.test.ts`. Six cases: initial focus
 - `listTypes` now surfaces `vault-error`; ensure new flows (instance create/delete) handle the existing typed error variants consistently.
 - `MakeModule.onSettingsChange` is now async — any Chunk 4 code path that triggers settings changes (e.g., `instancesFolder` rename) must await appropriately.
 - The Chunk 3 §12 outbox still has 9 items deferred to post-Chunk-4 hardening. Do not let Chunk 4 accidentally close or re-scope them without an explicit decision.
+
+## Appendix: Post-review revisions (2026-04-18)
+
+Applied after spec-document-reviewer feedback on the initial draft:
+
+1. **A2 scope expanded to include PluginCore change** — verified `src/core/plugin-core.ts:289-306` uses a sync try/catch that cannot catch async rejections and never marks modules degraded for settings-change failures. A2 now explicitly covers `dispatchSettingsChanges` becoming async + degraded-marking. Estimate bumped 2 h → 2.5 h.
+2. **B1.1 shim rewording** — clarified that the three legacy exports' bodies change (to drive off `state.settings$`) while their signatures stay stable. Prior "thin delegation" wording was imprecise — `subscribeMakeEvents` is a real wiring function, not a getter.
+3. **Fixture extension made explicit** — verified `tests/__fixtures__/mount-with-i18n.ts` currently accepts neither `provide` nor user `plugins`. B1.1 explicitly extends the options shape with both (~10 LOC net) rather than "≤5 LOC, tracked as part of B1.1".
+4. **`useMakeContext()` helper added** — avoids `inject(MakeContextKey)!` non-null assertions throughout the migration (consistent with CLAUDE.md's no-`@ts-ignore` rule).
+5. **`Readonly<Ref<T>>` replaces `DeepReadonly<Ref<T>>`** — simpler, equivalent runtime semantics given `MakeSettings` fields are already `readonly`. R6 updated.
+6. **`useMakeStore()` invariant documented** — Pinia's `inject()` only resolves inside component setup; a one-line ADR comment in `make-store.ts` prevents future footgun.
