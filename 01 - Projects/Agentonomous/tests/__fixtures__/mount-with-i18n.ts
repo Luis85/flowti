@@ -6,7 +6,7 @@ import enMessages from '../../src/modules/make/locales/en.json' with { type: 'js
 
 export function mountWithI18n<T extends Component>(
 	component: T,
-	options: { router?: Router; props?: Record<string, unknown> } = {},
+	options: { router?: Router; props?: Record<string, unknown>; attachTo?: Element } = {},
 ): VueWrapper<InstanceType<T>> {
 	const i18n = createI18n({
 		legacy: false,
@@ -19,5 +19,6 @@ export function mountWithI18n<T extends Component>(
 	return mount(component, {
 		global: { plugins },
 		props: options.props,
+		attachTo: options.attachTo,
 	}) as VueWrapper<InstanceType<T>>;
 }
