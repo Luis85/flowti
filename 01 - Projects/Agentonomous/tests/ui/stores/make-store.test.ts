@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
+import { defineComponent, h } from 'vue';
+import { mountWithI18n } from '../../__fixtures__/mount-with-i18n.js';
+import { createFakeMakeContext, fakeMakeService } from '../../__fixtures__/fake-make-context.js';
+import { MakeContextKey } from '../../../src/ui/make-context-key.js';
 import { useMakeStore } from '../../../src/ui/stores/make-store.js';
+import type { MakeEventHandlers } from '../../../src/modules/make/make-module.js';
 import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
 import type { InstanceRef } from '../../../src/domain/make/types.js';
 
@@ -14,59 +19,36 @@ const DUNE: InstanceRef = {
 	createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z',
 };
 
-vi.mock('../../../src/modules/make/make-module.js', () => {
-	const svc = {
-		listTypes:          vi.fn(),
-		loadType:           vi.fn(),
-		listInstances:      vi.fn(),
-		createType:         vi.fn(),
-		updateType:         vi.fn(),
-		deleteType:         vi.fn(),
-		regenerateBaseFile: vi.fn(),
-		toggleFavorite:     vi.fn(),
-	};
-	let capturedHandlers: Record<string, ((payload: unknown) => void) | undefined> = {};
-	const settings = { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] };
-	return {
-		getMakeService:  () => svc,
-		getMakeSettings: () => settings,
-		subscribeMakeEvents: (h: Record<string, ((payload: unknown) => void) | undefined>) => {
+function mountStore(
+	ctx = createFakeMakeContext(),
+): { store: ReturnType<typeof useMakeStore>; handlers: MakeEventHandlers } {
+	let store!: ReturnType<typeof useMakeStore>;
+	let capturedHandlers: MakeEventHandlers = {};
+	const ctxWithCapture = {
+		...ctx,
+		subscribe: (h: MakeEventHandlers) => {
 			capturedHandlers = h;
 			return () => { capturedHandlers = {}; };
 		},
-		__mock:          svc,
-		__captured:      () => capturedHandlers,
 	};
-});
+	mountWithI18n(
+		defineComponent({
+			setup() { store = useMakeStore(); return () => h('div'); },
+		}),
+		{
+			provide: { [MakeContextKey as symbol]: ctxWithCapture } as Record<PropertyKey, unknown>,
+			plugins: [createPinia()],
+		},
+	);
+	return { store, handlers: capturedHandlers };
+}
 
-import * as makeModule from '../../../src/modules/make/make-module.js';
-const mock = (makeModule as unknown as { __mock: {
-	listTypes:          ReturnType<typeof vi.fn>;
-	loadType:           ReturnType<typeof vi.fn>;
-	listInstances:      ReturnType<typeof vi.fn>;
-	createType:         ReturnType<typeof vi.fn>;
-	updateType:         ReturnType<typeof vi.fn>;
-	deleteType:         ReturnType<typeof vi.fn>;
-	regenerateBaseFile: ReturnType<typeof vi.fn>;
-	toggleFavorite:     ReturnType<typeof vi.fn>;
-} }).__mock;
+beforeEach(() => { setActivePinia(createPinia()); });
 
 describe('make-store', () => {
-	beforeEach(() => {
-		setActivePinia(createPinia());
-		mock.listTypes.mockReset();
-		mock.loadType.mockReset();
-		mock.listInstances.mockReset();
-		mock.createType.mockReset();
-		mock.updateType.mockReset();
-		mock.deleteType.mockReset();
-		mock.regenerateBaseFile.mockReset();
-		mock.toggleFavorite.mockReset();
-	});
-
 	it('loadTypes populates types, flips loading false, leaves no error on success', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
-		const store = useMakeStore();
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
 		expect(store.typesLoaded).toBe(false);
 		await store.loadTypes();
 		expect(store.types).toEqual([BOOK]);
@@ -76,16 +58,16 @@ describe('make-store', () => {
 	});
 
 	it('loadTypes on error sets typesError and typesLoaded stays false', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'permission denied' } });
-		const store = useMakeStore();
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'permission denied' } });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
 		await store.loadTypes();
 		expect(store.typesError).toMatch(/vault-error/);
 		expect(store.typesLoaded).toBe(false);
 	});
 
 	it('loadInstances(typeId) populates instancesByTypeId and tracks per-type loading', async () => {
-		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [DUNE] });
-		const store = useMakeStore();
+		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE] });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listInstances }) }));
 		const p = store.loadInstances('book');
 		expect(store.instancesLoading.has('book')).toBe(true);
 		await p;
@@ -94,27 +76,27 @@ describe('make-store', () => {
 	});
 
 	it('loadInstances error populates instancesError[typeId]', async () => {
-		mock.listInstances.mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'EIO' } });
-		const store = useMakeStore();
+		const listInstances = vi.fn().mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'EIO' } });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listInstances }) }));
 		await store.loadInstances('book');
 		expect(store.instancesError.get('book')).toMatch(/vault-error/);
 	});
 
 	it('refreshAll wipes cache then re-fetches types', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
-		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [DUNE] });
-		const store = useMakeStore();
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE] });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes, listInstances }) }));
 		await store.loadTypes();
 		await store.loadInstances('book');
 		expect(store.types).toHaveLength(1);
 		expect(store.instancesByTypeId.size).toBe(1);
 		await store.refreshAll();
-		expect(mock.listTypes).toHaveBeenCalledTimes(2);
+		expect(listTypes).toHaveBeenCalledTimes(2);
 	});
 
 	it('getType returns cached TypeSchema or undefined', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
-		const store = useMakeStore();
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
 		await store.loadTypes();
 		expect(store.getType('book')).toEqual(BOOK);
 		expect(store.getType('missing')).toBeUndefined();
@@ -122,16 +104,16 @@ describe('make-store', () => {
 
 	it('typesSortedByName sorts alphabetically', async () => {
 		const ZEBRA: TypeSchema = { ...BOOK, id: 'zebra', name: 'Zebra', instancesFolder: 'Zebras' };
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [ZEBRA, BOOK] });
-		const store = useMakeStore();
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [ZEBRA, BOOK] });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
 		await store.loadTypes();
 		expect(store.typesSortedByName.map((t) => t.id)).toEqual(['book', 'zebra']);
 	});
 
 	it('instanceCountByTypeId returns undefined for types without loaded instances', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
-		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [DUNE, { ...DUNE, path: 'Books/Neuromancer.md', title: 'Neuromancer' }] });
-		const store = useMakeStore();
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE, { ...DUNE, path: 'Books/Neuromancer.md', title: 'Neuromancer' }] });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes, listInstances }) }));
 		await store.loadTypes();
 		expect(store.instanceCountByTypeId.get('book')).toBeUndefined();
 		await store.loadInstances('book');
@@ -140,48 +122,35 @@ describe('make-store', () => {
 
 	it('favoriteTypes filters types by settings.favorites', async () => {
 		const ZEBRA: TypeSchema = { ...BOOK, id: 'zebra', name: 'Zebra', instancesFolder: 'Zebras' };
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK, ZEBRA] });
-		const store = useMakeStore();
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK, ZEBRA] });
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ listTypes }),
+			settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] },
+		}));
 		await store.loadTypes();
 		expect(store.favoriteTypes.map((t) => t.id)).toEqual(['book']);
 	});
 });
 
-describe('make-store — service not ready', () => {
-	beforeEach(() => {
-		setActivePinia(createPinia());
-		vi.resetModules();
-	});
-
-	it('sets typesError when getMakeService returns null', async () => {
-		vi.doMock('../../../src/modules/make/make-module.js', () => ({
-			getMakeService: () => null,
-			getMakeSettings: () => null,
-			subscribeMakeEvents: () => () => { /* no-op */ },
-		}));
-		const { useMakeStore: useStoreReloaded } = await import('../../../src/ui/stores/make-store.js');
-		const store = useStoreReloaded();
-		await store.loadTypes();
-		expect(store.typesError).toMatch(/not ready/);
+describe('make-store — context invariant', () => {
+	it('throws when MakeContextKey is not provided (useMakeContext() invariant)', () => {
+		// The store calls useMakeContext() which throws if the context is missing.
+		expect(() => {
+			mountWithI18n(
+				defineComponent({
+					setup() { useMakeStore(); return () => h('div'); },
+				}),
+				{ plugins: [createPinia()] },
+			);
+		}).toThrow(/MakeContextKey not provided/);
 	});
 });
 
 describe('make-store write actions', () => {
-	beforeEach(() => {
-		setActivePinia(createPinia());
-		mock.createType.mockReset();
-		mock.updateType.mockReset();
-		mock.deleteType.mockReset();
-		mock.regenerateBaseFile.mockReset();
-		mock.toggleFavorite.mockReset();
-		mock.listTypes.mockReset();
-		mock.listInstances.mockReset();
-	});
-
 	it('createType: returns Result; does NOT mutate types cache (event is sole mutator)', async () => {
 		const NEW: TypeSchema = { ...BOOK, id: 'book', name: 'Book' };
-		mock.createType.mockResolvedValue({ kind: 'ok', value: NEW });
-		const store = useMakeStore();
+		const createType = vi.fn().mockResolvedValue({ kind: 'ok', value: NEW });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ createType }) }));
 		const r = await store.createType({
 			name: 'Book', instancesFolder: 'Books', titleFieldName: 'title',
 			fields: [{ kind: 'text', name: 'title', required: true }],
@@ -194,8 +163,8 @@ describe('make-store write actions', () => {
 
 	it('createType: exposes savingType flag during call', async () => {
 		let resolveCall!: (value: unknown) => void;
-		mock.createType.mockReturnValue(new Promise((r) => { resolveCall = r; }));
-		const store = useMakeStore();
+		const createType = vi.fn().mockReturnValue(new Promise((r) => { resolveCall = r; }));
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ createType }) }));
 		const p = store.createType({ name: 'X', instancesFolder: 'X', titleFieldName: null, fields: [] });
 		expect(store.savingType).toBe(true);
 		resolveCall({ kind: 'ok', value: BOOK });
@@ -204,51 +173,54 @@ describe('make-store write actions', () => {
 	});
 
 	it('createType: sets saveError on vault-error', async () => {
-		mock.createType.mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'EIO' } });
-		const store = useMakeStore();
+		const createType = vi.fn().mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'EIO' } });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ createType }) }));
 		await store.createType({ name: 'X', instancesFolder: 'X', titleFieldName: null, fields: [] });
 		expect(store.saveError).toMatch(/vault-error/);
 	});
 
 	it('updateType: returns Result; forwards acknowledgeRenames option', async () => {
-		mock.updateType.mockResolvedValue({ kind: 'ok', value: BOOK });
-		const store = useMakeStore();
+		const updateType = vi.fn().mockResolvedValue({ kind: 'ok', value: BOOK });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ updateType }) }));
 		await store.updateType('book', { description: 'x' }, { acknowledgeRenames: true });
-		expect(mock.updateType).toHaveBeenCalledWith('book', { description: 'x' }, { acknowledgeRenames: true });
+		expect(updateType).toHaveBeenCalledWith('book', { description: 'x' }, { acknowledgeRenames: true });
 	});
 
 	it('deleteType: returns Result; forwards options', async () => {
-		mock.deleteType.mockResolvedValue({ kind: 'ok', value: { instancesDeleted: 0, baseFileDeleted: true } });
-		const store = useMakeStore();
+		const deleteType = vi.fn().mockResolvedValue({ kind: 'ok', value: { instancesDeleted: 0, baseFileDeleted: true } });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ deleteType }) }));
 		const r = await store.deleteType('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: true });
 		expect(r.kind).toBe('ok');
-		expect(mock.deleteType).toHaveBeenCalledWith('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: true });
+		expect(deleteType).toHaveBeenCalledWith('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: true });
 	});
 
 	it('regenerateBaseFile: tracks per-type loading; clears on success', async () => {
 		let resolveCall!: (v: unknown) => void;
-		mock.regenerateBaseFile.mockReturnValue(new Promise((r) => { resolveCall = r; }));
-		const store = useMakeStore();
+		const regenerateBaseFile = vi.fn().mockReturnValue(new Promise((r) => { resolveCall = r; }));
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ regenerateBaseFile, listTypes }) }));
 		const p = store.regenerateBaseFile('book');
 		expect(store.regeneratingForId.has('book')).toBe(true);
 		resolveCall({ kind: 'ok', value: 'Make/Bases/book.base' });
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
 		await p;
 		expect(store.regeneratingForId.has('book')).toBe(false);
 	});
 
 	it('regenerateBaseFile: sets regenerationError on user-edited', async () => {
-		mock.regenerateBaseFile.mockResolvedValue({ kind: 'err', error: { kind: 'base-generation-failed', cause: 'user-edited' } });
-		const store = useMakeStore();
+		const regenerateBaseFile = vi.fn().mockResolvedValue({ kind: 'err', error: { kind: 'base-generation-failed', cause: 'user-edited' } });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ regenerateBaseFile }) }));
 		await store.regenerateBaseFile('book');
 		expect(store.regenerationError.get('book')).toMatch(/user-edited/);
 	});
 
 	it('toggleFavorite: sets optimistic override during call, clears on completion', async () => {
 		let resolveCall!: (v: unknown) => void;
-		mock.toggleFavorite.mockReturnValue(new Promise((r) => { resolveCall = r; }));
-		// getMakeSettings mock has favorites: ['book']; so toggling book should flip to false.
-		const store = useMakeStore();
+		const toggleFavorite = vi.fn().mockReturnValue(new Promise((r) => { resolveCall = r; }));
+		// Settings has favorites: ['book']; toggling book should flip to false optimistically.
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ toggleFavorite }),
+			settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] },
+		}));
 		const p = store.toggleFavorite('book');
 		expect(store.isFavoritedForUI('book')).toBe(false); // optimistic
 		expect(store.favoriteToggling.has('book')).toBe(true);
@@ -258,7 +230,9 @@ describe('make-store write actions', () => {
 	});
 
 	it('isFavoritedForUI: returns override when set, settings otherwise', () => {
-		const store = useMakeStore();
+		const { store } = mountStore(createFakeMakeContext({
+			settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] },
+		}));
 		// No override: falls back to settings favorites which include 'book'.
 		expect(store.isFavoritedForUI('book')).toBe(true);
 		// 'recipe' not in favorites.
@@ -266,27 +240,24 @@ describe('make-store write actions', () => {
 	});
 
 	it('event onTypeCreated: appends schema to types cache', () => {
-		const store = useMakeStore();
-		const handlers = (makeModule as unknown as { __captured: () => Record<string, ((payload: unknown) => void) | undefined> }).__captured();
+		const { store, handlers } = mountStore();
 		const NEW: TypeSchema = { ...BOOK, id: 'novel', name: 'Novel', instancesFolder: 'Novels' };
 		handlers['onTypeCreated']?.({ schema: NEW });
 		expect(store.types).toContainEqual(NEW);
 	});
 
 	it('event onTypeUpdated: replaces schema in types cache', () => {
-		const store = useMakeStore();
+		const { store, handlers } = mountStore();
 		store.types = [BOOK];
-		const handlers = (makeModule as unknown as { __captured: () => Record<string, ((payload: unknown) => void) | undefined> }).__captured();
 		const UPDATED: TypeSchema = { ...BOOK, description: 'Updated' };
 		handlers['onTypeUpdated']?.({ schema: UPDATED });
 		expect(store.types[0]).toMatchObject({ description: 'Updated' });
 	});
 
 	it('event onTypeDeleted: removes schema and clears related maps', () => {
-		const store = useMakeStore();
+		const { store, handlers } = mountStore();
 		store.types = [BOOK];
-		const handlers = (makeModule as unknown as { __captured: () => Record<string, ((payload: unknown) => void) | undefined> }).__captured();
-		handlers['onTypeDeleted']?.({ typeId: 'book' });
+		handlers['onTypeDeleted']?.({ typeId: 'book', name: 'Book' });
 		expect(store.types).toEqual([]);
 	});
 });

@@ -1,11 +1,13 @@
+// INVARIANT: useMakeStore() must be called from within an active Vue app's
+// setup context (component setup or a composable invoked from setup).
+// Pinia's inject() cannot resolve outside a running app.
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { InstanceRef, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport } from '../../domain/make/types.js';
 import type { MakeError } from '../../domain/make/errors.js';
 import type { Result } from '../../domain/shared/result.js';
-import { err } from '../../domain/shared/result.js';
-import { getMakeService, getMakeSettings, subscribeMakeEvents } from '../../modules/make/make-module.js';
+import { useMakeContext } from '../composables/use-make-context.js';
 
 function formatError(error: unknown): string {
 	if (typeof error === 'object' && error !== null && 'kind' in error) {
@@ -17,6 +19,8 @@ function formatError(error: unknown): string {
 }
 
 export const useMakeStore = defineStore('make', () => {
+	const ctx = useMakeContext();
+
 	const types = shallowRef<readonly TypeSchema[]>([]);
 	const typesLoaded = ref(false);
 	const typesLoading = ref(false);
@@ -27,11 +31,9 @@ export const useMakeStore = defineStore('make', () => {
 	const instancesError = shallowRef<ReadonlyMap<TypeId, string>>(new Map());
 
 	async function loadTypes(): Promise<void> {
-		const svc = getMakeService();
-		if (svc === null) { typesError.value = 'make module not ready'; return; }
 		typesLoading.value = true;
 		typesError.value = null;
-		const result = await svc.listTypes();
+		const result = await ctx.service.listTypes();
 		typesLoading.value = false;
 		if (result.kind === 'err') { typesError.value = formatError(result.error); return; }
 		types.value = result.value;
@@ -39,12 +41,10 @@ export const useMakeStore = defineStore('make', () => {
 	}
 
 	async function loadInstances(typeId: TypeId): Promise<void> {
-		const svc = getMakeService();
-		if (svc === null) { typesError.value = 'make module not ready'; return; }
 		const nextLoading = new Set(instancesLoading.value);
 		nextLoading.add(typeId);
 		instancesLoading.value = nextLoading;
-		const result = await svc.listInstances(typeId);
+		const result = await ctx.service.listInstances(typeId);
 		const clearLoading = new Set(instancesLoading.value);
 		clearLoading.delete(typeId);
 		instancesLoading.value = clearLoading;
@@ -88,8 +88,7 @@ export const useMakeStore = defineStore('make', () => {
 	});
 
 	const favoriteTypes = computed(() => {
-		const settings = getMakeSettings();
-		const favorites = settings?.favorites ?? [];
+		const favorites = ctx.settings$.value.favorites;
 		return types.value.filter((t) => favorites.includes(t.id));
 	});
 
@@ -103,43 +102,35 @@ export const useMakeStore = defineStore('make', () => {
 
 	// --- Write actions ---
 	async function createType(draft: NewTypeDraft): Promise<Result<TypeSchema, MakeError>> {
-		const svc = getMakeService();
-		if (svc === null) { saveError.value = 'make module not ready'; return err({ kind: 'vault-error', cause: 'not-ready' }); }
 		savingType.value = true;
 		saveError.value = null;
-		const result = await svc.createType(draft);
+		const result = await ctx.service.createType(draft);
 		savingType.value = false;
 		if (result.kind === 'err') saveError.value = formatError(result.error);
 		return result;
 	}
 
 	async function updateType(typeId: TypeId, patch: TypeSchemaPatch, options?: { acknowledgeRenames?: boolean }): Promise<Result<TypeSchema, MakeError>> {
-		const svc = getMakeService();
-		if (svc === null) { saveError.value = 'make module not ready'; return err({ kind: 'vault-error', cause: 'not-ready' }); }
 		savingType.value = true;
 		saveError.value = null;
-		const result = await svc.updateType(typeId, patch, options);
+		const result = await ctx.service.updateType(typeId, patch, options);
 		savingType.value = false;
 		if (result.kind === 'err') saveError.value = formatError(result.error);
 		return result;
 	}
 
 	async function deleteType(typeId: TypeId, options: DeleteTypeOptions): Promise<Result<DeleteTypeReport, MakeError>> {
-		const svc = getMakeService();
-		if (svc === null) { saveError.value = 'make module not ready'; return err({ kind: 'vault-error', cause: 'not-ready' }); }
 		savingType.value = true;
 		saveError.value = null;
-		const result = await svc.deleteType(typeId, options);
+		const result = await ctx.service.deleteType(typeId, options);
 		savingType.value = false;
 		if (result.kind === 'err') saveError.value = formatError(result.error);
 		return result;
 	}
 
 	async function regenerateBaseFile(typeId: TypeId, options?: { force?: boolean }): Promise<Result<string, MakeError>> {
-		const svc = getMakeService();
-		if (svc === null) return err({ kind: 'vault-error', cause: 'not-ready' });
 		const startedLoading = new Set(regeneratingForId.value); startedLoading.add(typeId); regeneratingForId.value = startedLoading;
-		const result = await svc.regenerateBaseFile(typeId, options);
+		const result = await ctx.service.regenerateBaseFile(typeId, options);
 		const doneLoading = new Set(regeneratingForId.value); doneLoading.delete(typeId); regeneratingForId.value = doneLoading;
 		if (result.kind === 'err') {
 			const nextError = new Map(regenerationError.value); nextError.set(typeId, formatError(result.error)); regenerationError.value = nextError;
@@ -152,15 +143,12 @@ export const useMakeStore = defineStore('make', () => {
 	}
 
 	async function toggleFavorite(typeId: TypeId): Promise<Result<boolean, MakeError>> {
-		const svc = getMakeService();
-		if (svc === null) return err({ kind: 'vault-error', cause: 'not-ready' });
-		const settings = getMakeSettings();
-		const currentFavorited = (settings?.favorites ?? []).includes(typeId);
+		const currentFavorited = ctx.settings$.value.favorites.includes(typeId);
 		const targetFavorited = !currentFavorited;
 		// Optimistic override.
 		const nextOverrides = new Map(optimisticFavoriteOverrides.value); nextOverrides.set(typeId, targetFavorited); optimisticFavoriteOverrides.value = nextOverrides;
 		const started = new Set(favoriteToggling.value); started.add(typeId); favoriteToggling.value = started;
-		const result = await svc.toggleFavorite(typeId);
+		const result = await ctx.service.toggleFavorite(typeId);
 		const doneLoading = new Set(favoriteToggling.value); doneLoading.delete(typeId); favoriteToggling.value = doneLoading;
 		const clearedOverrides = new Map(optimisticFavoriteOverrides.value); clearedOverrides.delete(typeId); optimisticFavoriteOverrides.value = clearedOverrides;
 		return result;
@@ -169,11 +157,11 @@ export const useMakeStore = defineStore('make', () => {
 	function isFavoritedForUI(typeId: TypeId): boolean {
 		const override = optimisticFavoriteOverrides.value.get(typeId);
 		if (override !== undefined) return override;
-		return (getMakeSettings()?.favorites ?? []).includes(typeId);
+		return ctx.settings$.value.favorites.includes(typeId);
 	}
 
 	// --- Event subscription (handlers are sole cache mutators) ---
-	subscribeMakeEvents({
+	ctx.subscribe({
 		onTypeCreated: ({ schema }) => {
 			if (!types.value.some((t) => t.id === schema.id)) types.value = [...types.value, schema];
 		},
@@ -187,8 +175,7 @@ export const useMakeStore = defineStore('make', () => {
 			const nextRegenErr = new Map(regenerationError.value); nextRegenErr.delete(typeId); regenerationError.value = nextRegenErr;
 		},
 		onFavoriteToggled: () => {
-			// Nudge reactivity so favoriteTypes / isFavoritedForUI recompute against fresh settings.
-			types.value = [...types.value];
+			// favoriteTypes and isFavoritedForUI read reactively off ctx.settings$; no nudge needed.
 		},
 		onBaseRegenerated: ({ typeId: _typeId }) => {
 			// regenerateBaseFile action already triggers loadTypes; this handler is a no-op

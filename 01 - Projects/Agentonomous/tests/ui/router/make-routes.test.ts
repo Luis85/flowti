@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
+import { defineComponent, h } from 'vue';
+import { mountWithI18n } from '../../__fixtures__/mount-with-i18n.js';
+import { createFakeMakeContext, fakeMakeService } from '../../__fixtures__/fake-make-context.js';
+import { MakeContextKey } from '../../../src/ui/make-context-key.js';
+import { useMakeStore } from '../../../src/ui/stores/make-store.js';
 import { createAppRouter } from '../../../src/ui/router/index.js';
 import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
 
@@ -9,23 +14,38 @@ const BOOK: TypeSchema = {
 	createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z',
 };
 
-vi.mock('../../../src/modules/make/make-module.js', () => {
-	const svc = { listTypes: vi.fn(), loadType: vi.fn(), listInstances: vi.fn() };
-	return {
-		getMakeService: () => svc,
-		getMakeSettings: () => null,
-		subscribeMakeEvents: () => () => { /* no-op */ },
-		__mock: svc,
-	};
-});
+// Per-test service spy.
+let listTypesSpy: ReturnType<typeof vi.fn>;
 
-import * as makeModule from '../../../src/modules/make/make-module.js';
-const mock = (makeModule as unknown as { __mock: { listTypes: ReturnType<typeof vi.fn> } }).__mock;
+/**
+ * Create a router and prime the Pinia store by mounting a component inside
+ * an app that provides MakeContextKey. The route guard calls useMakeStore()
+ * outside setup; Pinia returns the cached instance after first initialization.
+ */
+async function createPrimedRouter() {
+	const pinia = createPinia();
+	const ctx = createFakeMakeContext({
+		service: fakeMakeService({ listTypes: listTypesSpy }),
+	});
+	const router = createAppRouter();
+
+	// Mount a component with MakeContextKey provided so the Pinia setup store
+	// initialises (inject resolves during setup) and caches its instance.
+	mountWithI18n(
+		defineComponent({ setup() { useMakeStore(); return () => h('div'); } }),
+		{
+			provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+			plugins: [pinia, router],
+		},
+	);
+
+	return { router, ctx, pinia };
+}
 
 describe('Make routes', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());
-		mock.listTypes.mockReset();
+		listTypesSpy = vi.fn();
 	});
 
 	it('registers /make, /make/types, /make/types/:typeId', () => {
@@ -37,24 +57,24 @@ describe('Make routes', () => {
 	});
 
 	it('redirects /make/types/:typeId to /make/types when the typeId is unknown', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
-		const router = createAppRouter();
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const { router } = await createPrimedRouter();
 		await router.push('/make/types/missing-id');
 		await router.isReady();
 		expect(router.currentRoute.value.name).toBe('make-types');
 	});
 
 	it('allows /make/types/:typeId when the typeId matches a known type', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
-		const router = createAppRouter();
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const { router } = await createPrimedRouter();
 		await router.push('/make/types/book');
 		await router.isReady();
 		expect(router.currentRoute.value.name).toBe('make-type');
 	});
 
 	it('redirects to /make/types when typesError is set after loading', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'EIO' } });
-		const router = createAppRouter();
+		listTypesSpy.mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'EIO' } });
+		const { router } = await createPrimedRouter();
 		await router.push('/make/types/book');
 		await router.isReady();
 		expect(router.currentRoute.value.name).toBe('make-types');
@@ -71,8 +91,8 @@ describe('Make routes', () => {
 	});
 
 	it('/make/types/new resolves to make-type-new (not captured as :typeId="new")', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
-		const router = createAppRouter();
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
+		const { router } = await createPrimedRouter();
 		await router.push('/make/types/new');
 		await router.isReady();
 		expect(router.currentRoute.value.name).toBe('make-type-new');

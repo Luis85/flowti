@@ -5,6 +5,8 @@ import MakeHome from '../../../../src/ui/pages/make/MakeHome.vue';
 import MakeTypes from '../../../../src/ui/pages/make/MakeTypes.vue';
 import { MakeHomePage } from '../../../../src/ui/pages/make/MakeHome.po.js';
 import { mountWithI18n } from '../../../__fixtures__/mount-with-i18n.js';
+import { createFakeMakeContext, fakeMakeService } from '../../../__fixtures__/fake-make-context.js';
+import { MakeContextKey } from '../../../../src/ui/make-context-key.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
 
 const BOOK: TypeSchema = {
@@ -13,19 +15,14 @@ const BOOK: TypeSchema = {
 	createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z',
 };
 
-vi.mock('../../../../src/modules/make/make-module.js', () => {
-	const svc = { listTypes: vi.fn(), loadType: vi.fn(), listInstances: vi.fn() };
-	return {
-		getMakeService:  () => svc,
-		getMakeSettings: () => ({ enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] }),
-		subscribeMakeEvents: () => () => { /* no-op */ },
-		__mock: svc,
-	};
-});
-import * as makeModule from '../../../../src/modules/make/make-module.js';
-const mock = (makeModule as unknown as { __mock: { listTypes: ReturnType<typeof vi.fn> } }).__mock;
+// Per-test service spy — set in each test.
+let listTypesSpy: ReturnType<typeof vi.fn>;
 
 async function mountHome() {
+	const ctx = createFakeMakeContext({
+		service: fakeMakeService({ listTypes: listTypesSpy }),
+		settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] },
+	});
 	const router = createRouter({
 		history: createMemoryHistory(),
 		routes: [
@@ -36,18 +33,22 @@ async function mountHome() {
 	});
 	await router.push('/make');
 	await router.isReady();
-	const wrapper = mountWithI18n(MakeHome, { router });
+	const wrapper = mountWithI18n(MakeHome, {
+		router,
+		provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+		plugins: [createPinia()],
+	});
 	return { wrapper, router, page: new MakeHomePage(wrapper.element as HTMLElement) };
 }
 
 describe('MakeHome', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());
-		mock.listTypes.mockReset();
+		listTypesSpy = vi.fn();
 	});
 
 	it('renders title and blurb', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.title).toContain('Make');
@@ -55,14 +56,14 @@ describe('MakeHome', () => {
 	});
 
 	it('shows the Browse types CTA when types exist', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.browseCta).not.toBeNull();
 	});
 
 	it('shows the empty-state copy and hides the CTA when no types exist', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.browseCta).toBeNull();
@@ -70,7 +71,7 @@ describe('MakeHome', () => {
 	});
 
 	it('renders favorite chips for favorites present in types', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.favoriteChips.length).toBe(1);
@@ -78,48 +79,48 @@ describe('MakeHome', () => {
 	});
 
 	it('hides favorites section when no favorited types are loaded', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.favoritesHeading).toBeNull();
 	});
 
 	it('shows a spinner while typesLoading is true', async () => {
-		mock.listTypes.mockReturnValue(new Promise(() => { /* never resolves */ }));
+		listTypesSpy.mockReturnValue(new Promise(() => { /* never resolves */ }));
 		const { page } = await mountHome();
 		expect(page.spinner).not.toBeNull();
 	});
 
 	it('shows "Create type" button in empty state (testid make-home-create-cta-empty)', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaEmpty).not.toBeNull();
 	});
 
 	it('"Create type" empty-state button links to /make/types/new', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaEmpty?.getAttribute('href')).toBe('/make/types/new');
 	});
 
 	it('shows "Create type" button beside Browse CTA when types exist (testid make-home-create-cta-populated)', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaPopulated).not.toBeNull();
 	});
 
 	it('"Create type" populated-state button links to /make/types/new', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaPopulated?.getAttribute('href')).toBe('/make/types/new');
 	});
 
 	it('"Create type" populated-state button is hidden when no types exist', async () => {
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaPopulated).toBeNull();

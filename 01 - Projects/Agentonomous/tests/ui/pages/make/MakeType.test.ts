@@ -5,6 +5,8 @@ import MakeType from '../../../../src/ui/pages/make/MakeType.vue';
 import MakeTypes from '../../../../src/ui/pages/make/MakeTypes.vue';
 import { MakeTypePage } from '../../../../src/ui/pages/make/MakeType.po.js';
 import { mountWithI18n } from '../../../__fixtures__/mount-with-i18n.js';
+import { createFakeMakeContext, fakeMakeService } from '../../../__fixtures__/fake-make-context.js';
+import { MakeContextKey } from '../../../../src/ui/make-context-key.js';
 import { useMakeStore } from '../../../../src/ui/stores/make-store.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
 import type { InstanceRef } from '../../../../src/domain/make/types.js';
@@ -31,36 +33,14 @@ const BOOK_WITH_BASE_FRESH: TypeSchema = {
 const DUNE: InstanceRef = { typeId: 'book', path: 'Books/Dune.md', title: 'Dune', createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
 const NEURO: InstanceRef = { typeId: 'book', path: 'Books/Neuromancer.md', title: 'Neuromancer', createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z' };
 
-vi.mock('../../../../src/modules/make/make-module.js', () => {
-	const svc = {
-		listTypes: vi.fn(),
-		loadType: vi.fn(),
-		listInstances: vi.fn(),
-		createType: vi.fn(),
-		updateType: vi.fn(),
-		deleteType: vi.fn(),
-		regenerateBaseFile: vi.fn(),
-		toggleFavorite: vi.fn(),
-	};
-	return {
-		getMakeService:  () => svc,
-		getMakeSettings: () => ({ enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: [] }),
-		subscribeMakeEvents: () => () => { /* no-op */ },
-		__mock: svc,
-	};
-});
-import * as makeModule from '../../../../src/modules/make/make-module.js';
-const mock = (makeModule as unknown as {
-	__mock: {
-		listTypes: ReturnType<typeof vi.fn>;
-		listInstances: ReturnType<typeof vi.fn>;
-		createType: ReturnType<typeof vi.fn>;
-		updateType: ReturnType<typeof vi.fn>;
-		deleteType: ReturnType<typeof vi.fn>;
-		regenerateBaseFile: ReturnType<typeof vi.fn>;
-		toggleFavorite: ReturnType<typeof vi.fn>;
-	};
-}).__mock;
+// Per-test service spies — created fresh in beforeEach.
+let listTypes: ReturnType<typeof vi.fn>;
+let listInstances: ReturnType<typeof vi.fn>;
+let createType: ReturnType<typeof vi.fn>;
+let updateType: ReturnType<typeof vi.fn>;
+let deleteType: ReturnType<typeof vi.fn>;
+let regenerateBaseFile: ReturnType<typeof vi.fn>;
+let toggleFavorite: ReturnType<typeof vi.fn>;
 
 function createTestRouter(extraRoutes: { path: string; name?: string; component: unknown }[] = []) {
 	return createRouter({
@@ -74,12 +54,44 @@ function createTestRouter(extraRoutes: { path: string; name?: string; component:
 	});
 }
 
-async function mountTypePage(initialPath = '/make/types/book') {
+async function mountTypePage(
+	initialPath = '/make/types/book',
+	seedTypes: TypeSchema[] = [BOOK],
+) {
+	const ctx = createFakeMakeContext({
+		service: fakeMakeService({ listTypes, listInstances, createType, updateType, deleteType, regenerateBaseFile, toggleFavorite }),
+		settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: [] },
+	});
 	const router = createTestRouter();
 	await router.push(initialPath);
 	await router.isReady();
-	const wrapper = mountWithI18n(MakeType, { router, attachTo: document.body });
-	return { wrapper, router, page: new MakeTypePage(wrapper.element as HTMLElement) };
+	const pinia = createPinia();
+	// Pre-seed the Pinia store state so the component's setup() sees populated
+	// types before useMakeTypeDraft initialises the draft. Pinia hydrates
+	// setup-store refs from pinia.state.value[storeId] during first access.
+	pinia.state.value['make'] = {
+		types: seedTypes,
+		typesLoaded: true,
+		typesLoading: false,
+		typesError: null,
+		instancesByTypeId: new Map(),
+		instancesLoading: new Set(),
+		instancesError: new Map(),
+		savingType: false,
+		saveError: null,
+		regeneratingForId: new Set(),
+		regenerationError: new Map(),
+		favoriteToggling: new Set(),
+		optimisticFavoriteOverrides: new Map(),
+	};
+	const wrapper = mountWithI18n(MakeType, {
+		router,
+		attachTo: document.body,
+		provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+		plugins: [pinia],
+	});
+	const store = useMakeStore();
+	return { wrapper, router, page: new MakeTypePage(wrapper.element as HTMLElement), store };
 }
 
 function tick(ms = 0): Promise<void> {
@@ -89,18 +101,13 @@ function tick(ms = 0): Promise<void> {
 describe('MakeType', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());
-		mock.listTypes.mockReset();
-		mock.listInstances.mockReset();
-		mock.createType?.mockReset();
-		mock.updateType?.mockReset();
-		mock.deleteType?.mockReset();
-		mock.regenerateBaseFile?.mockReset();
-		mock.toggleFavorite?.mockReset();
-		mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
-		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [DUNE, NEURO] });
-		const s = useMakeStore();
-		s.types = [BOOK];
-		s.typesLoaded = true;
+		listTypes         = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listInstances     = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE, NEURO] });
+		createType        = vi.fn();
+		updateType        = vi.fn();
+		deleteType        = vi.fn();
+		regenerateBaseFile = vi.fn();
+		toggleFavorite    = vi.fn();
 	});
 
 	afterEach(() => {
@@ -162,22 +169,20 @@ describe('MakeType', () => {
 
 	it('Fields tab shows empty state when type.fields is empty', async () => {
 		const empty: TypeSchema = { ...BOOK, fields: [] };
-		const s = useMakeStore();
-		s.types = [empty];
-		const { page } = await mountTypePage('/make/types/book#fields');
+		const { page } = await mountTypePage('/make/types/book#fields', [empty]);
 		await tick();
 		expect(page.fieldsEmpty).not.toBeNull();
 	});
 
 	it('Instances tab shows empty state when instances list is empty', async () => {
-		mock.listInstances.mockResolvedValue({ kind: 'ok', value: [] });
+		listInstances.mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountTypePage();
 		await tick();
 		expect(page.instancesEmpty).not.toBeNull();
 	});
 
 	it('Instances tab shows the error when instancesError is set', async () => {
-		mock.listInstances.mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'EIO' } });
+		listInstances.mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'EIO' } });
 		const { page } = await mountTypePage();
 		await tick();
 		expect(page.instancesError).not.toBeNull();
@@ -185,7 +190,7 @@ describe('MakeType', () => {
 	});
 
 	it('Instances tab shows loading indicator while fetching', async () => {
-		mock.listInstances.mockReturnValue(new Promise(() => { /* hang */ }));
+		listInstances.mockReturnValue(new Promise(() => { /* hang */ }));
 		const { page } = await mountTypePage();
 		await tick();
 		expect(page.instancesLoading).not.toBeNull();
@@ -195,29 +200,56 @@ describe('MakeType', () => {
 
 	describe('new-mode', () => {
 		it('mounts in new-mode with "New type" title when name is empty', async () => {
+			const ctx = createFakeMakeContext({
+				service: fakeMakeService({ listTypes, listInstances }),
+				settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: [] },
+			});
 			const router = createTestRouter();
 			await router.push('/make/types/new');
 			await router.isReady();
-			const wrapper = mountWithI18n(MakeType, { router, attachTo: document.body });
+			const wrapper = mountWithI18n(MakeType, {
+				router,
+				attachTo: document.body,
+				provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+				plugins: [createPinia()],
+			});
 			await tick();
 			const page = new MakeTypePage(wrapper.element as HTMLElement);
 			expect(page.title).toContain('New type');
 		});
 
 		it('new-mode: no tab strip rendered', async () => {
+			const ctx = createFakeMakeContext({
+				service: fakeMakeService({ listTypes, listInstances }),
+				settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: [] },
+			});
 			const router = createTestRouter();
 			await router.push('/make/types/new');
 			await router.isReady();
-			const wrapper = mountWithI18n(MakeType, { router, attachTo: document.body });
+			const wrapper = mountWithI18n(MakeType, {
+				router,
+				attachTo: document.body,
+				provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+				plugins: [createPinia()],
+			});
 			await tick();
 			expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
 		});
 
 		it('new-mode: Save button shows Create label', async () => {
+			const ctx = createFakeMakeContext({
+				service: fakeMakeService({ listTypes, listInstances }),
+				settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: [] },
+			});
 			const router = createTestRouter();
 			await router.push('/make/types/new');
 			await router.isReady();
-			const wrapper = mountWithI18n(MakeType, { router, attachTo: document.body });
+			const wrapper = mountWithI18n(MakeType, {
+				router,
+				attachTo: document.body,
+				provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+				plugins: [createPinia()],
+			});
 			await tick();
 			const page = new MakeTypePage(wrapper.element as HTMLElement);
 			// saveButton label includes "Create" when mode=new
@@ -226,17 +258,26 @@ describe('MakeType', () => {
 
 		it('new-mode: save calls store.createType and navigates on success', async () => {
 			const createdType: TypeSchema = { ...BOOK, id: 'new-book', name: 'New Book' };
-			mock.createType.mockResolvedValue({ kind: 'ok', value: createdType });
+			createType.mockResolvedValue({ kind: 'ok', value: createdType });
+			const ctx = createFakeMakeContext({
+				service: fakeMakeService({ listTypes, listInstances, createType }),
+				settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: [] },
+			});
 			const router = createTestRouter();
 			await router.push('/make/types/new');
 			await router.isReady();
-			const wrapper = mountWithI18n(MakeType, { router, attachTo: document.body });
+			const wrapper = mountWithI18n(MakeType, {
+				router,
+				attachTo: document.body,
+				provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+				plugins: [createPinia()],
+			});
 			await tick();
 			// Trigger save via button — in new mode isDirty=true always, so button is enabled
 			const saveBtn = wrapper.find('[data-testid="fields-save"]');
 			await saveBtn.trigger('click');
 			await tick(50);
-			expect(mock.createType).toHaveBeenCalled();
+			expect(createType).toHaveBeenCalled();
 			expect(router.currentRoute.value.path).toBe('/make/types/new-book');
 		});
 	});
@@ -244,10 +285,10 @@ describe('MakeType', () => {
 	describe('edit-mode', () => {
 		it('save calls store.updateType and clears isDirty on success', async () => {
 			const updatedType: TypeSchema = { ...BOOK, name: 'Book Updated' };
-			mock.updateType.mockResolvedValue({ kind: 'ok', value: updatedType });
+			updateType.mockResolvedValue({ kind: 'ok', value: updatedType });
 			const { wrapper } = await mountTypePage('/make/types/book#fields');
 			await tick();
-			// Dirty the draft so save button becomes enabled
+			// Dirty the draft by emitting update:draft
 			const editor = wrapper.findComponent({ name: 'MakeTypeFieldsEditor' });
 			const dirtyDraft = { ...BOOK, description: 'changed', fields: BOOK.fields };
 			const emitFn = (editor.vm as { $emit: (event: string, ...args: unknown[]) => void }).$emit;
@@ -257,7 +298,7 @@ describe('MakeType', () => {
 			const saveBtn = wrapper.find('[data-testid="fields-save"]');
 			await saveBtn.trigger('click');
 			await tick(50);
-			expect(mock.updateType).toHaveBeenCalled();
+			expect(updateType).toHaveBeenCalled();
 		});
 
 		it('favorite star is rendered in edit mode', async () => {
@@ -267,19 +308,28 @@ describe('MakeType', () => {
 		});
 
 		it('favorite star click calls store.toggleFavorite', async () => {
-			mock.toggleFavorite.mockResolvedValue({ kind: 'ok', value: false });
+			toggleFavorite.mockResolvedValue({ kind: 'ok', value: false });
 			const { page } = await mountTypePage('/make/types/book#fields');
 			await tick();
 			page.favoriteButton?.click();
 			await tick();
-			expect(mock.toggleFavorite).toHaveBeenCalledWith('book');
+			expect(toggleFavorite).toHaveBeenCalledWith('book');
 		});
 
 		it('no favorite star shown in new-mode', async () => {
+			const ctx = createFakeMakeContext({
+				service: fakeMakeService({ listTypes, listInstances }),
+				settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: [] },
+			});
 			const router = createTestRouter();
 			await router.push('/make/types/new');
 			await router.isReady();
-			const wrapper = mountWithI18n(MakeType, { router, attachTo: document.body });
+			const wrapper = mountWithI18n(MakeType, {
+				router,
+				attachTo: document.body,
+				provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+				plugins: [createPinia()],
+			});
 			await tick();
 			const page = new MakeTypePage(wrapper.element as HTMLElement);
 			expect(page.favoriteButton).toBeNull();
@@ -288,10 +338,7 @@ describe('MakeType', () => {
 
 	describe('base banner', () => {
 		it('renders banner with state=missing when baseFile is undefined', async () => {
-			const s = useMakeStore();
-			s.types = [BOOK]; // BOOK has no baseFile
-			s.typesLoaded = true;
-			const { page } = await mountTypePage('/make/types/book#fields');
+			const { page } = await mountTypePage('/make/types/book#fields', [BOOK]);
 			await tick();
 			expect(page.baseBanner).not.toBeNull();
 			const bannerTitle = page.baseBanner?.querySelector('[data-testid="base-file-banner-title"]');
@@ -299,10 +346,7 @@ describe('MakeType', () => {
 		});
 
 		it('renders banner with state=stale when updatedAt > generatedAt', async () => {
-			const s = useMakeStore();
-			s.types = [BOOK_WITH_BASE]; // updatedAt > generatedAt
-			s.typesLoaded = true;
-			const { page } = await mountTypePage('/make/types/book#fields');
+			const { page } = await mountTypePage('/make/types/book#fields', [BOOK_WITH_BASE]);
 			await tick();
 			expect(page.baseBanner).not.toBeNull();
 			const bannerTitle = page.baseBanner?.querySelector('[data-testid="base-file-banner-title"]');
@@ -310,19 +354,13 @@ describe('MakeType', () => {
 		});
 
 		it('does NOT render banner when base is fresh', async () => {
-			const s = useMakeStore();
-			s.types = [BOOK_WITH_BASE_FRESH]; // generatedAt > updatedAt
-			s.typesLoaded = true;
-			const { page } = await mountTypePage('/make/types/book#fields');
+			const { page } = await mountTypePage('/make/types/book#fields', [BOOK_WITH_BASE_FRESH]);
 			await tick();
 			expect(page.baseBanner).toBeNull();
 		});
 
 		it('user-edited error on regenerate → overwrite ConfirmDialog opens', async () => {
-			const s = useMakeStore();
-			s.types = [BOOK];
-			s.typesLoaded = true;
-			mock.regenerateBaseFile.mockResolvedValue({
+			regenerateBaseFile.mockResolvedValue({
 				kind: 'err',
 				error: { kind: 'base-generation-failed', cause: 'user-edited' },
 			});
@@ -337,14 +375,11 @@ describe('MakeType', () => {
 		});
 
 		it('confirming overwrite re-calls regenerateBaseFile with force:true', async () => {
-			const s = useMakeStore();
-			s.types = [BOOK];
-			s.typesLoaded = true;
-			mock.regenerateBaseFile
+			regenerateBaseFile
 				.mockResolvedValueOnce({ kind: 'err', error: { kind: 'base-generation-failed', cause: 'user-edited' } })
 				.mockResolvedValueOnce({ kind: 'ok', value: 'Make/Bases/book.md' });
 			// Also mock listTypes for the refresh call after successful regenerate
-			mock.listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+			listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
 			const { page } = await mountTypePage('/make/types/book#fields');
 			await tick();
 			page.baseBannerRegenerate?.click();
@@ -353,8 +388,8 @@ describe('MakeType', () => {
 			const confirmBtn = document.body.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]');
 			confirmBtn?.click();
 			await tick(50);
-			expect(mock.regenerateBaseFile).toHaveBeenCalledTimes(2);
-			expect(mock.regenerateBaseFile).toHaveBeenLastCalledWith('book', { force: true });
+			expect(regenerateBaseFile).toHaveBeenCalledTimes(2);
+			expect(regenerateBaseFile).toHaveBeenLastCalledWith('book', { force: true });
 		});
 	});
 
@@ -370,7 +405,7 @@ describe('MakeType', () => {
 		});
 
 		it('confirming delete navigates to /make/types on success', async () => {
-			mock.deleteType.mockResolvedValue({ kind: 'ok', value: { deletedTypeId: 'book', deletedBaseFile: false } });
+			deleteType.mockResolvedValue({ kind: 'ok', value: { deletedTypeId: 'book', deletedBaseFile: false } });
 			const { page, router } = await mountTypePage('/make/types/book#fields');
 			await tick();
 			page.deleteButton?.click();
@@ -379,7 +414,7 @@ describe('MakeType', () => {
 			const confirmBtn = document.body.querySelector<HTMLButtonElement>('[data-testid="delete-type-confirm"]');
 			confirmBtn?.click();
 			await tick(50);
-			expect(mock.deleteType).toHaveBeenCalled();
+			expect(deleteType).toHaveBeenCalled();
 			expect(router.currentRoute.value.path).toBe('/make/types');
 		});
 	});

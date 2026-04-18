@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { defineComponent, h } from 'vue';
 import { mount } from '@vue/test-utils';
 import { useMakeTypeDraft } from '../../../../src/ui/pages/make/use-make-type-draft.js';
 import { useMakeStore } from '../../../../src/ui/stores/make-store.js';
+import { createFakeMakeContext } from '../../../__fixtures__/fake-make-context.js';
+import { MakeContextKey } from '../../../../src/ui/make-context-key.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
 
 const BOOK: TypeSchema = {
@@ -13,12 +15,6 @@ const BOOK: TypeSchema = {
 	createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z',
 };
 
-vi.mock('../../../../src/modules/make/make-module.js', () => {
-	const svc = { listTypes: vi.fn(), loadType: vi.fn(), listInstances: vi.fn(), createType: vi.fn(), updateType: vi.fn(), deleteType: vi.fn(), regenerateBaseFile: vi.fn(), toggleFavorite: vi.fn() };
-	const settings = { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: [] };
-	return { getMakeService: () => svc, getMakeSettings: () => settings, subscribeMakeEvents: () => () => {}, __mock: svc };
-});
-
 async function mountComposable(initialPath: string, seedTypes: TypeSchema[] = []) {
 	const router = createRouter({ history: createMemoryHistory(), routes: [
 		{ path: '/make/types/new', name: 'make-type-new', component: { template: '<div/>' } },
@@ -26,6 +22,7 @@ async function mountComposable(initialPath: string, seedTypes: TypeSchema[] = []
 	]});
 	await router.push(initialPath);
 	await router.isReady();
+	const ctx = createFakeMakeContext();
 	let captured!: ReturnType<typeof useMakeTypeDraft>;
 	const TestComp = defineComponent({
 		setup() {
@@ -35,7 +32,12 @@ async function mountComposable(initialPath: string, seedTypes: TypeSchema[] = []
 			return () => h('div');
 		},
 	});
-	mount(TestComp, { global: { plugins: [router] } });
+	mount(TestComp, {
+		global: {
+			plugins: [router, createPinia()],
+			provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+		},
+	});
 	return captured;
 }
 
