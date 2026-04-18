@@ -18,6 +18,9 @@ setup((app) => {
 			{ path: '/', component: Stub },
 			{ path: '/about', component: Stub },
 			{ path: '/dashboard', component: Stub },
+			{ path: '/make', component: Stub },
+			{ path: '/make/types', component: Stub },
+			{ path: '/make/types/:typeId', component: Stub },
 		],
 	}));
 	app.provide(PluginContextKey, {} as never);
