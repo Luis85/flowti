@@ -22,6 +22,7 @@ import { CoreModule } from './modules/core/core-module.js';
 import { EventInspectorModule } from './modules/event-inspector/event-inspector-module.js';
 import { HealthMonitorModule } from './modules/health-monitor/health-monitor-module.js';
 import { FileDetailModule } from './modules/file-detail/file-detail-module.js';
+import { MakeModule } from './modules/make/make-module.js';
 import type { TranslationPort } from './domain/shared/translation-port.js';
 import type { PluginContext, ModuleStatus } from './plugin.js';
 
@@ -63,7 +64,7 @@ export default class AgentonomousPlugin extends Plugin {
 		const dialogs = new ObsidianDialogAdapter(this.app);
 		const commands = new ObsidianCommandAdapter(this, views);
 
-		const modules = [CoreModule, EventInspectorModule, HealthMonitorModule, FileDetailModule];
+		const modules = [CoreModule, EventInspectorModule, HealthMonitorModule, FileDetailModule, MakeModule];
 
 		this.core = new PluginCore(
 			{

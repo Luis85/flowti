@@ -14,3 +14,4 @@ import './domain/shared/vault-events.js';
 import './modules/event-inspector/event-inspector-events.js';
 import './modules/file-detail/file-detail-events.js';
 import './modules/health-monitor/health-monitor-events.js';
+import './modules/make/make-events.js';
