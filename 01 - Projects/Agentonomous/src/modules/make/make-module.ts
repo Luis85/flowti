@@ -4,6 +4,7 @@ import { MAKE_DEFAULTS, validateMakeSettings, type MakeSettings } from './make-s
 import { createMakeService, type MakeService } from './make-service.js';
 import enMessages from './locales/en.json' with { type: 'json' };
 import { VIEW_TYPE_MAKE } from '../../domain/views/view-types.js';
+import type { EventMap } from '../../domain/shared/event-bus.js';
 
 export { VIEW_TYPE_MAKE };
 
@@ -17,6 +18,26 @@ let state: ModuleState | null = null;
 
 export function getMakeService(): MakeService | null { return state?.service ?? null; }
 export function getMakeSettings(): MakeSettings | null { return state?.settings ?? null; }
+
+export type MakeEventHandlers = {
+	readonly onTypeCreated?:      (payload: EventMap['make:type-created']) => void;
+	readonly onTypeUpdated?:      (payload: EventMap['make:type-updated']) => void;
+	readonly onTypeDeleted?:      (payload: EventMap['make:type-deleted']) => void;
+	readonly onFavoriteToggled?:  (payload: EventMap['make:favorite-toggled']) => void;
+	readonly onBaseRegenerated?:  (payload: EventMap['make:base-regenerated']) => void;
+};
+
+export function subscribeMakeEvents(handlers: MakeEventHandlers): () => void {
+	if (state === null) return () => { /* no-op when module not initialised */ };
+	const bus = state.ports.eventBus;
+	const unsubs: Array<() => void> = [];
+	if (handlers.onTypeCreated)     unsubs.push(bus.on('make:type-created',     (e) => { handlers.onTypeCreated!(e.payload); }));
+	if (handlers.onTypeUpdated)     unsubs.push(bus.on('make:type-updated',     (e) => { handlers.onTypeUpdated!(e.payload); }));
+	if (handlers.onTypeDeleted)     unsubs.push(bus.on('make:type-deleted',     (e) => { handlers.onTypeDeleted!(e.payload); }));
+	if (handlers.onFavoriteToggled) unsubs.push(bus.on('make:favorite-toggled', (e) => { handlers.onFavoriteToggled!(e.payload); }));
+	if (handlers.onBaseRegenerated) unsubs.push(bus.on('make:base-regenerated', (e) => { handlers.onBaseRegenerated!(e.payload); }));
+	return () => { for (const u of unsubs) u(); };
+}
 
 export const MakeModule = defineModule<MakeSettings>({
 	id: 'make',

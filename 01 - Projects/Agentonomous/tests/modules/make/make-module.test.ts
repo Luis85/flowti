@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { MakeModule, getMakeService, VIEW_TYPE_MAKE } from '../../../src/modules/make/make-module.js';
+import { MakeModule, getMakeService, subscribeMakeEvents, VIEW_TYPE_MAKE } from '../../../src/modules/make/make-module.js';
 import { MAKE_DEFAULTS } from '../../../src/modules/make/make-settings.js';
 import { fakeModulePorts } from '../../__fakes__/fake-ports.js';
+import { createEventBus } from '../../../src/domain/shared/event-bus.js';
+import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
+
+const BOOK: TypeSchema = {
+	id: 'book', name: 'Book', instancesFolder: 'Books', titleFieldName: 'title',
+	fields: [{ kind: 'text', name: 'title', required: true }],
+	createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z',
+};
 
 describe('MakeModule', () => {
 	it('registers view and commands declaratively', () => {
@@ -44,6 +52,45 @@ describe('MakeModule', () => {
 		// (Direct assertion is via the module-level getter exported for tests.)
 		const { getMakeSettings } = await import('../../../src/modules/make/make-module.js');
 		expect(getMakeSettings()?.favorites).toEqual(['book', 'recipe']);
+		await MakeModule.destroy();
+	});
+});
+
+describe('subscribeMakeEvents', () => {
+	it('returns a no-op when module is not initialised', () => {
+		const unsubscribe = subscribeMakeEvents({ onTypeCreated: () => { /* noop */ } });
+		expect(typeof unsubscribe).toBe('function');
+		unsubscribe();
+	});
+
+	it('dispatches payload-only handler on matching channel', async () => {
+		const ports = fakeModulePorts({ eventBus: createEventBus() });
+		await MakeModule.init(ports, MAKE_DEFAULTS);
+		const received: TypeSchema[] = [];
+		const unsubscribe = subscribeMakeEvents({
+			onTypeCreated: (p) => { received.push(p.schema); },
+		});
+		ports.eventBus.emit('make:type-created', { schema: BOOK });
+		expect(received).toEqual([BOOK]);
+		unsubscribe();
+		ports.eventBus.emit('make:type-created', { schema: BOOK });
+		expect(received).toHaveLength(1);
+		await MakeModule.destroy();
+	});
+
+	it('subscribes to multiple channels independently', async () => {
+		const ports = fakeModulePorts({ eventBus: createEventBus() });
+		await MakeModule.init(ports, MAKE_DEFAULTS);
+		const typeCreated: TypeSchema[] = [];
+		const typeDeleted: string[] = [];
+		subscribeMakeEvents({
+			onTypeCreated: (p) => { typeCreated.push(p.schema); },
+			onTypeDeleted: (p) => { typeDeleted.push(p.typeId); },
+		});
+		ports.eventBus.emit('make:type-created', { schema: BOOK });
+		ports.eventBus.emit('make:type-deleted', { typeId: 'book', name: 'Book' });
+		expect(typeCreated).toHaveLength(1);
+		expect(typeDeleted).toEqual(['book']);
 		await MakeModule.destroy();
 	});
 });
