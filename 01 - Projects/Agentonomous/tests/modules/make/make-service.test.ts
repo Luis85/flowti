@@ -47,10 +47,10 @@ describe('makeService — read-only', () => {
 		const r = await svc.loadType('book');
 		expect(r).toEqual({ kind: 'ok', value: BOOK });
 	});
-	it('write methods return not-implemented', async () => {
+	it('deleteInstance returns not-implemented', async () => {
 		const svc = createMakeService(fakeModulePorts(), () => MAKE_DEFAULTS);
-		const updateR = await svc.updateType('book', {});
-		expect(updateR).toMatchObject({ kind: 'err', error: { kind: 'not-implemented' } });
+		const r = await svc.deleteInstance('some/path.md');
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'not-implemented' } });
 	});
 });
 
@@ -262,5 +262,101 @@ describe('makeService.createType', () => {
 			fields: [{ kind: 'text', name: 'title', required: true }],
 		});
 		expect(r).toMatchObject({ kind: 'err', error: { kind: 'vault-error' } });
+	});
+});
+
+describe('makeService.updateType', () => {
+	async function withBook() {
+		const vault = fakeVault();
+		await vault.create('Make/Types/book.json', serializeTypeSchema(BOOK));
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		return { vault, svc };
+	}
+
+	it('merges patch and writes updated schema with new updatedAt', async () => {
+		const { vault, svc } = await withBook();
+		const r = await svc.updateType('book', { description: 'Reading log' });
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') return;
+		expect(r.value.description).toBe('Reading log');
+		expect(r.value.updatedAt).not.toBe(BOOK.updatedAt);
+		// Disk reflects it.
+		const read = await vault.read('Make/Types/book.json');
+		if (read.kind === 'ok') {
+			const parsed = JSON.parse(read.value.content) as { description: string };
+			expect(parsed.description).toBe('Reading log');
+		}
+	});
+
+	it('emits make:type-updated with the new schema', async () => {
+		const vault = fakeVault();
+		await vault.create('Make/Types/book.json', serializeTypeSchema(BOOK));
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		await svc.updateType('book', { description: 'Reading log' });
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:type-updated', expect.objectContaining({
+			schema: expect.objectContaining({ description: 'Reading log' }),
+		}));
+	});
+
+	it('returns type-not-found when loadType fails', async () => {
+		const vault = fakeVault();
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.updateType('missing', { description: 'x' });
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'type-not-found' } });
+	});
+
+	it('returns invalid-schema with field-rename-warning when a field name changes and acknowledgeRenames is not set', async () => {
+		const { svc } = await withBook();
+		const r = await svc.updateType('book', {
+			fields: [{ kind: 'text', name: 'full-title', required: true }], // renamed from 'title'
+		});
+		expect(r).toMatchObject({
+			kind: 'err',
+			error: { kind: 'invalid-schema', issues: expect.arrayContaining([
+				expect.objectContaining({ kind: 'field-rename-warning', renames: expect.any(Array), affectedCount: 0 }),
+			]) },
+		});
+	});
+
+	it('commits the rename when acknowledgeRenames: true', async () => {
+		const { svc } = await withBook();
+		const r = await svc.updateType('book', {
+			fields: [{ kind: 'text', name: 'full-title', required: true }],
+		}, { acknowledgeRenames: true });
+		expect(r.kind).toBe('ok');
+	});
+
+	it('reports affectedCount > 0 when instances exist', async () => {
+		const { vault, svc } = await withBook();
+		await vault.create('Books/Dune.md', '# Dune');
+		await vault.create('Books/Neuromancer.md', '# Neuromancer');
+		const r = await svc.updateType('book', {
+			fields: [{ kind: 'text', name: 'full-title', required: true }],
+		});
+		if (r.kind === 'err' && r.error.kind === 'invalid-schema') {
+			const issue = r.error.issues.find((i) => i.kind === 'field-rename-warning');
+			expect(issue).toBeDefined();
+			if (issue?.kind === 'field-rename-warning') {
+				expect(issue.affectedCount).toBe(2);
+			}
+		}
+	});
+
+	it('returns duplicate-name when new name collides with another type', async () => {
+		const { vault, svc } = await withBook();
+		const RECIPE: TypeSchema = { ...BOOK, id: 'recipe', name: 'Recipe', instancesFolder: 'Recipes' };
+		await vault.create('Make/Types/recipe.json', serializeTypeSchema(RECIPE));
+		const r = await svc.updateType('book', { name: 'Recipe' });
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'duplicate-name' } });
+	});
+
+	it('does NOT regenerate the base file on update', async () => {
+		const { vault, svc } = await withBook();
+		// Write a known base-file content first.
+		await vault.create('Make/Bases/book.base', 'sentinel-content');
+		await svc.updateType('book', { description: 'x' });
+		const read = await vault.read('Make/Bases/book.base');
+		if (read.kind === 'ok') expect(read.value.content).toBe('sentinel-content');
 	});
 });

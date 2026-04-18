@@ -4,7 +4,7 @@ import { trySync } from '../../domain/shared/try-async.js';
 import { parseTypeSchema, serializeTypeSchema } from '../../domain/make/type-schema-codec.js';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
-import type { MakeError, SchemaError } from '../../domain/make/errors.js';
+import type { FieldRename, MakeError, SchemaError } from '../../domain/make/errors.js';
 import type {
 	DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, NewTypeDraft, NonEmptyArray, TypeSchemaPatch,
 } from '../../domain/make/types.js';
@@ -17,7 +17,7 @@ export interface MakeService {
 	listTypes(): Promise<Result<readonly TypeSchema[], MakeError>>;
 	loadType(typeId: string): Promise<Result<TypeSchema, MakeError>>;
 	createType(draft: NewTypeDraft): Promise<Result<TypeSchema, MakeError>>;
-	updateType(typeId: string, changes: TypeSchemaPatch): Promise<Result<TypeSchema, MakeError>>;
+	updateType(typeId: string, changes: TypeSchemaPatch, options?: { acknowledgeRenames?: boolean }): Promise<Result<TypeSchema, MakeError>>;
 	deleteType(typeId: string, options: DeleteTypeOptions): Promise<Result<DeleteTypeReport, MakeError>>;
 	listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>>;
 	createInstance(typeId: string, raw: Record<string, unknown>, explicitFilename: string | null): Promise<Result<InstanceRef, MakeError>>;
@@ -190,11 +190,73 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		return writeResult;
 	}
 
+	async function updateType(
+		typeId: string,
+		changes: TypeSchemaPatch,
+		options: { acknowledgeRenames?: boolean } = {},
+	): Promise<Result<TypeSchema, MakeError>> {
+		const current = await loadType(typeId);
+		if (current.kind === 'err') return current;
+		const next: TypeSchema = {
+			...current.value,
+			...changes,
+			updatedAt: new Date().toISOString(),
+		};
+		// Detect field renames (position-wise, same kind, different name, old name not elsewhere).
+		if (options.acknowledgeRenames !== true && changes.fields !== undefined) {
+			const renames: FieldRename[] = [];
+			const currentFields = current.value.fields;
+			for (let i = 0; i < Math.min(currentFields.length, next.fields.length); i++) {
+				const before = currentFields[i]!;
+				const after = next.fields[i]!;
+				if (before.kind === after.kind && before.name !== after.name && !next.fields.some((f) => f.name === before.name)) {
+					renames.push({ oldName: before.name, newName: after.name, position: i });
+				}
+			}
+			if (renames.length > 0) {
+				const instanceList = await listInstances(typeId);
+				const affectedCount = instanceList.kind === 'ok' ? instanceList.value.length : 0;
+				return err({
+					kind: 'invalid-schema',
+					issues: [{ kind: 'field-rename-warning', renames, affectedCount }] as unknown as NonEmptyArray<SchemaError>,
+				});
+			}
+		}
+		// Re-validate merged schema via the same rules createType uses.
+		const schemaErrors: SchemaError[] = [];
+		for (const field of next.fields) {
+			schemaErrors.push(...FIELD_KINDS[field.kind].validateField(field as never));
+		}
+		const nameResult = validateTypeName(next.name);
+		if (nameResult.kind === 'err') schemaErrors.push(nameResult.error);
+		const folderResult = validateInstancesFolder(next.instancesFolder);
+		if (folderResult.kind === 'err') schemaErrors.push(folderResult.error);
+		if (schemaErrors.length > 0) {
+			return err({ kind: 'invalid-schema', issues: schemaErrors as unknown as NonEmptyArray<SchemaError> });
+		}
+		// Name uniqueness only if name changed.
+		if (changes.name !== undefined && changes.name !== current.value.name) {
+			const existing = await listTypes();
+			if (existing.kind === 'ok') {
+				const collision = existing.value.find(
+					(t) => t.id !== current.value.id && t.name.toLowerCase() === next.name.toLowerCase(),
+				);
+				if (collision !== undefined) return err({ kind: 'duplicate-name', name: next.name });
+			}
+		}
+		// Write — use update (file exists).
+		const jsonPath = `${getSettings().typesFolder.replace(/\/$/, '')}/${next.id}.json`;
+		const writeResult = await ports.vault.update(jsonPath, serializeTypeSchema(next));
+		if (writeResult.kind === 'err') return err({ kind: 'vault-error', cause: writeResult.error });
+		ports.eventBus.emit('make:type-updated', { schema: next });
+		return ok(next);
+	}
+
 	return {
 		listTypes,
 		loadType,
 		createType,
-		updateType: () => notImpl(),
+		updateType,
 		deleteType: () => notImpl(),
 		listInstances,
 		createInstance: () => notImpl(),
