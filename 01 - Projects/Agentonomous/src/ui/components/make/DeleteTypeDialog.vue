@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, ref, toRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { TypeSchema } from '../../../domain/make/type-schema.js';
+import { useFocusTrap } from '../../composables/use-focus-trap.js';
 
 const props = defineProps<{
 	open: boolean;
@@ -19,21 +20,16 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const alsoDeleteBaseFile = ref(false);
 const dialogRef = ref<HTMLElement | null>(null);
-let returnFocusEl: HTMLElement | null = null;
+const openRef = toRef(props, 'open');
 
-// Reset checkbox when dialog re-opens.
-watch(() => props.open, async (isOpen) => {
-	if (isOpen) {
-		alsoDeleteBaseFile.value = false;
-		returnFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-		// nextTick to allow teleported DOM to appear, then focus the cancel button
-		await Promise.resolve();
-		const focusable = dialogRef.value?.querySelectorAll<HTMLButtonElement>('button');
-		focusable?.[0]?.focus();
-	} else {
-		returnFocusEl?.focus();
-		returnFocusEl = null;
-	}
+useFocusTrap(dialogRef, openRef, {
+	onEscape: () => { emit('cancel'); },
+	initialFocus: 'first',
+});
+
+// Reset checkbox on dialog re-open (preserved from the pre-refactor watcher).
+watch(() => props.open, (isOpen) => {
+	if (isOpen) alsoDeleteBaseFile.value = false;
 });
 
 const instanceLine = computed(() => {
@@ -44,33 +40,6 @@ const instanceLine = computed(() => {
 });
 
 const typeFilePath = computed(() => `${props.typesFolder.replace(/\/$/, '')}/${props.type.id}.json`);
-
-function onKeyDown(e: KeyboardEvent): void {
-	if (!props.open) return;
-	if (e.key === 'Escape') {
-		e.preventDefault();
-		emit('cancel');
-		return;
-	}
-	if (e.key === 'Tab' && dialogRef.value) {
-		const focusable = Array.from(
-			dialogRef.value.querySelectorAll<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])'),
-		);
-		if (focusable.length === 0) return;
-		const first = focusable[0]!;
-		const last = focusable[focusable.length - 1]!;
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
-}
-
-onMounted(() => { document.addEventListener('keydown', onKeyDown); });
-onUnmounted(() => { document.removeEventListener('keydown', onKeyDown); });
 </script>
 
 <template>

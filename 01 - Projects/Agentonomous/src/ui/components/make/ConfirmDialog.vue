@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
+import { ref, toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useFocusTrap } from '../../composables/use-focus-trap.js';
 
 type Choice = 'save' | 'discard' | 'cancel' | 'confirm' | 'reject';
 
@@ -16,7 +17,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ resolve: [choice: Choice] }>();
 const { t } = useI18n();
 const dialogRef = ref<HTMLElement | null>(null);
-let returnFocusEl: HTMLElement | null = null;
+const openRef = toRef(props, 'open');
 
 function resolve(choice: Choice): void { emit('resolve', choice); }
 
@@ -31,44 +32,10 @@ function isConfirmButton(choice: Choice): boolean {
 	return choice === 'confirm' || choice === 'save';
 }
 
-function onKeyDown(e: KeyboardEvent): void {
-	if (!props.open) return;
-	if (e.key === 'Escape') {
-		e.preventDefault();
-		resolve(props.options.includes('cancel') ? 'cancel' : props.options[0]!);
-		return;
-	}
-	if (e.key === 'Tab' && dialogRef.value) {
-		const focusable = Array.from(dialogRef.value.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
-		if (focusable.length === 0) return;
-		const first = focusable[0]!;
-		const last = focusable[focusable.length - 1]!;
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
-}
-
-watch(() => props.open, async (isOpen) => {
-	if (isOpen) {
-		returnFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-		await nextTick();
-		// Focus the LAST focusable element (Cancel convention).
-		const focusable = dialogRef.value?.querySelectorAll<HTMLElement>('button');
-		const last = focusable?.[focusable.length - 1];
-		last?.focus();
-	} else {
-		returnFocusEl?.focus();
-		returnFocusEl = null;
-	}
-}, { immediate: true });
-
-onMounted(() => { document.addEventListener('keydown', onKeyDown); });
-onUnmounted(() => { document.removeEventListener('keydown', onKeyDown); });
+useFocusTrap(dialogRef, openRef, {
+	onEscape: () => { resolve(props.options.includes('cancel') ? 'cancel' : props.options[0]!); },
+	initialFocus: 'last', // matches existing behavior (Cancel convention)
+});
 </script>
 
 <template>
