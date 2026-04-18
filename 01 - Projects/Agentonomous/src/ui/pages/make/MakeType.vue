@@ -12,7 +12,7 @@ import MakeTypeBaseBanner from './MakeTypeBaseBanner.vue';
 import ConfirmDialog from '../../components/make/ConfirmDialog.vue';
 import DeleteTypeDialog from '../../components/make/DeleteTypeDialog.vue';
 import { PluginContextKey } from '../../plugin-context-key.js';
-import { getMakeSettings } from '../../../modules/make/make-module.js';
+import { useMakeContext } from '../../composables/use-make-context.js';
 
 type Tab = 'fields' | 'instances';
 
@@ -21,6 +21,7 @@ const router = useRouter();
 const store = useMakeStore();
 const { t } = useI18n();
 const ctx = inject(PluginContextKey);
+const makeCtx = useMakeContext();
 
 const draftState = useMakeTypeDraft(route, store);
 const { isNewMode, typeId, committedType, draft, isDirty, fieldErrors, resetDraft } = draftState;
@@ -134,7 +135,7 @@ const favoriteAriaLabel = computed(() => {
 const hasExistingInstances = computed(() => typeId.value !== null && (instancesByTypeId.value.get(typeId.value)?.length ?? 0) > 0);
 
 // --- typesFolder from settings ---
-const typesFolder = computed(() => getMakeSettings()?.typesFolder ?? 'Make/Types');
+const typesFolder = computed(() => makeCtx.settings$.value.typesFolder);
 </script>
 
 <template>
