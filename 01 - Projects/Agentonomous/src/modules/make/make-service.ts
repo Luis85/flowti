@@ -63,6 +63,36 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		return ok(schemaResult.value);
 	}
 
+	async function listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>> {
+		const typeResult = await loadType(typeId);
+		if (typeResult.kind === 'err') return typeResult;
+		const type = typeResult.value;
+		const folder = type.instancesFolder;
+		const listResult = await ports.vault.list(folder);
+		if (listResult.kind === 'err') return ok([]);
+		const prefix = folder.endsWith('/') ? folder : `${folder}/`;
+		const mdFiles = listResult.value.filter((p) =>
+			p.startsWith(prefix) && !p.slice(prefix.length).includes('/') && p.endsWith('.md'),
+		);
+		const refs: InstanceRef[] = [];
+		for (const path of mdFiles) {
+			const read = await ports.vault.read(path);
+			if (read.kind === 'err') {
+				ports.logger.warn('make', `skipping unreadable instance ${path}: ${read.error}`);
+				continue;
+			}
+			const stem = path.slice(prefix.length, -'.md'.length);
+			refs.push({
+				typeId,
+				path,
+				title: stem,
+				createdAt: new Date(read.value.stat.ctime).toISOString(),
+				updatedAt: new Date(read.value.stat.mtime).toISOString(),
+			});
+		}
+		return ok(refs);
+	}
+
 	const notImpl = <T>(): Promise<Result<T, MakeError>> => Promise.resolve(err({ kind: 'not-implemented' }));
 
 	return {
@@ -71,7 +101,7 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		createType: () => notImpl(),
 		updateType: () => notImpl(),
 		deleteType: () => notImpl(),
-		listInstances: () => notImpl(),
+		listInstances,
 		createInstance: () => notImpl(),
 		deleteInstance: () => notImpl(),
 		regenerateBaseFile: () => notImpl(),
