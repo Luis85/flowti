@@ -1,4 +1,6 @@
-export const jsonAnalysis = {
+import type { FileAnalysis } from '../../src/modules/file-detail/handlers/types.js';
+
+export const jsonAnalysis: FileAnalysis = {
 	fileName: 'agents.json',
 	extension: '.json',
 	sizeBytes: 4096,
@@ -7,9 +9,9 @@ export const jsonAnalysis = {
 		'Max depth': 3,
 		'Format': 'JSON',
 	},
-} as const;
+};
 
-export const csvAnalysis = {
+export const csvAnalysis: FileAnalysis = {
 	fileName: 'activity-log.csv',
 	extension: '.csv',
 	sizeBytes: 28_672,
@@ -18,9 +20,9 @@ export const csvAnalysis = {
 		'Columns': 8,
 		'Delimiter': 'comma',
 	},
-} as const;
+};
 
-export const largeFileAnalysis = {
+export const largeFileAnalysis: FileAnalysis = {
 	fileName: 'world-state.json',
 	extension: '.json',
 	sizeBytes: 1_048_576,
@@ -32,4 +34,4 @@ export const largeFileAnalysis = {
 		'Positions': 12,
 		'Inventory slots': 48,
 	},
-} as const;
+};

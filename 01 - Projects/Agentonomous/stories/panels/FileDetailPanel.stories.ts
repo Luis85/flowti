@@ -2,13 +2,15 @@ import type { Meta, StoryObj, Decorator } from '@storybook/vue3-vite';
 import { expect, within, userEvent, fn } from 'storybook/test';
 import FileDetailPanel from '../../src/ui/panels/FileDetailPanel.vue';
 import { useFileDetailStore } from '../../src/ui/stores/file-detail-store.js';
+import type { FileAnalysis } from '../../src/modules/file-detail/handlers/types.js';
 import { jsonAnalysis, csvAnalysis, largeFileAnalysis } from '../__fixtures__/file-analysis.js';
 
-function withAnalysis(analysis: typeof jsonAnalysis | null, error: string | null = null): Decorator {
+// Pinia is fresh per story (see .storybook/preview.ts beforeEach).  The
+// decorator only seeds whatever state this story needs.
+function withAnalysis(analysis: FileAnalysis | null, error: string | null = null): Decorator {
 	return () => ({
 		setup() {
 			const store = useFileDetailStore();
-			store.clear();
 			if (error !== null) {
 				store.setError(error);
 			} else if (analysis !== null) {

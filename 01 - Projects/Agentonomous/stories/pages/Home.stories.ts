@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
-import { expect, within, userEvent } from 'storybook/test';
+import { expect, within } from 'storybook/test';
 import Home from '../../src/ui/pages/Home.vue';
 
 const meta: Meta<typeof Home> = {
@@ -24,19 +24,13 @@ export const RendersGreeting: Story = {
 			await expect(canvas.getByTestId('version')).toBeVisible();
 		});
 
-		await step('has navigation link to About', async () => {
-			await expect(canvas.getByTestId('nav-about')).toBeVisible();
-		});
-	},
-};
-
-export const NavigateToAbout: Story = {
-	play: async ({ canvasElement, step }) => {
-		const canvas = within(canvasElement);
-
-		await step('click About link', async () => {
-			const aboutLink = canvas.getByTestId('nav-about');
-			await userEvent.click(aboutLink);
+		await step('nav link to About is rendered and targets /about', async () => {
+			// Home.vue has no <router-view>, so clicking the link navigates but
+			// can't render the target.  Verifying the `to` attribute via href
+			// exercises the real wiring without needing a host with <router-view>.
+			const link = canvas.getByTestId('nav-about');
+			await expect(link).toBeVisible();
+			await expect(link).toHaveAttribute('href', '/about');
 		});
 	},
 };

@@ -5,14 +5,11 @@ import { useEventInspectorStore } from '../../src/ui/stores/event-inspector-stor
 import type { EventEnvelope } from '../../src/domain/shared/event-bus.js';
 import { sampleEvents } from '../__fixtures__/events.js';
 
+// Pinia is fresh per story (see .storybook/preview.ts beforeEach), so the
+// decorator only needs to seed events — no resets required.
 const withEvents: Decorator = () => ({
 	setup() {
 		const store = useEventInspectorStore();
-		store.clear();
-		store.setFilterChannels([]);
-		store.setSearchQuery('');
-		store.setGroupByTrace(false);
-		if (store.paused) store.togglePause();
 		for (const event of sampleEvents) {
 			store.addEvent(event);
 		}
@@ -155,8 +152,8 @@ export const PauseResume: Story = {
 
 		await step('events added while paused show as a +N badge, not the count', async () => {
 			const newEvent: EventEnvelope = {
-				channel: 'log' as never,
-				payload: { message: 'arrived while paused' } as never,
+				channel: 'log',
+				payload: { level: 'info', source: 'test', message: 'arrived while paused' },
 				traceId: 'p1',
 				eventId: 'evt-paused-1',
 				timestamp: Date.now(),
