@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { MakeModule, getMakeService, getMakeSettings, subscribeMakeEvents, VIEW_TYPE_MAKE } from '../../../src/modules/make/make-module.js';
+import { MakeModule, getMakeModuleState, VIEW_TYPE_MAKE } from '../../../src/modules/make/make-module.js';
 import { MAKE_DEFAULTS, type MakeSettings } from '../../../src/modules/make/make-settings.js';
 import { fakeModulePorts } from '../../__fakes__/fake-ports.js';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
@@ -18,30 +18,30 @@ describe('MakeModule', () => {
 	});
 	it('init exposes a service; destroy clears it', async () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
-		expect(getMakeService()).not.toBeNull();
+		expect(getMakeModuleState()).not.toBeNull();
 		await MakeModule.destroy();
-		expect(getMakeService()).toBeNull();
+		expect(getMakeModuleState()).toBeNull();
 	});
 	it('init is idempotent', async () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
-		expect(getMakeService()).not.toBeNull();
+		expect(getMakeModuleState()).not.toBeNull();
 		await MakeModule.destroy();
 	});
 	it('onSettingsChange with folder change destroys and re-inits', async () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
-		const before = getMakeService();
+		const before = getMakeModuleState()?.service;
 		await MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, typesFolder: 'OtherTypes' });
-		const after = getMakeService();
+		const after = getMakeModuleState()?.service;
 		expect(after).not.toBe(before);        // different service instance
 		expect(after).not.toBeNull();
 		await MakeModule.destroy();
 	});
 	it('onSettingsChange for non-folder change keeps the SAME service instance', async () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
-		const before = getMakeService();
+		const before = getMakeModuleState()?.service;
 		await MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, favorites: ['book'] });
-		const after = getMakeService();
+		const after = getMakeModuleState()?.service;
 		expect(after).toBe(before);             // same instance — no rebuild
 		await MakeModule.destroy();
 	});
@@ -49,8 +49,8 @@ describe('MakeModule', () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
 		await MakeModule.onSettingsChange?.({ ...MAKE_DEFAULTS, favorites: ['book', 'recipe'] });
 		// The getter used by the service should now return the new favorites.
-		// (Direct assertion is via the module-level getter exported for tests.)
-		expect(getMakeSettings()?.favorites).toEqual(['book', 'recipe']);
+		// (Direct assertion is via getMakeModuleState().)
+		expect(getMakeModuleState()?.settings.favorites).toEqual(['book', 'recipe']);
 		await MakeModule.destroy();
 	});
 });
@@ -59,13 +59,13 @@ describe('MakeModule onSettingsChange async', () => {
 	it('rebuilds service when typesFolder changes (success path)', async () => {
 		const ports = fakeModulePorts();
 		await MakeModule.init(ports, MAKE_DEFAULTS);
-		const before = getMakeService();
+		const before = getMakeModuleState()?.service;
 		expect(before).not.toBeNull();
 		await MakeModule.onSettingsChange!({ ...MAKE_DEFAULTS, typesFolder: 'Schemas' });
-		const after = getMakeService();
+		const after = getMakeModuleState()?.service;
 		expect(after).not.toBeNull();
 		expect(after).not.toBe(before);
-		expect(getMakeSettings()?.typesFolder).toBe('Schemas');
+		expect(getMakeModuleState()?.settings.typesFolder).toBe('Schemas');
 		await MakeModule.destroy();
 	});
 
@@ -80,7 +80,7 @@ describe('MakeModule onSettingsChange async', () => {
 		await expect(
 			MakeModule.onSettingsChange!({ ...MAKE_DEFAULTS, typesFolder: 'Schemas' }),
 		).rejects.toThrow('logger boom');
-		expect(getMakeService()).toBeNull();
+		expect(getMakeModuleState()).toBeNull();
 		await MakeModule.destroy();
 	});
 });
@@ -108,9 +108,10 @@ describe('make:settings-changed event', () => {
 	});
 });
 
-describe('subscribeMakeEvents', () => {
+describe('getMakeModuleState subscribe', () => {
 	it('returns a no-op when module is not initialised', () => {
-		const unsubscribe = subscribeMakeEvents({ onTypeCreated: () => { /* noop */ } });
+		const moduleState = getMakeModuleState();
+		const unsubscribe = moduleState?.subscribe({ onTypeCreated: () => { /* noop */ } }) ?? (() => { /* noop */ });
 		expect(typeof unsubscribe).toBe('function');
 		unsubscribe();
 	});
@@ -119,7 +120,9 @@ describe('subscribeMakeEvents', () => {
 		const ports = fakeModulePorts({ eventBus: createEventBus() });
 		await MakeModule.init(ports, MAKE_DEFAULTS);
 		const received: TypeSchema[] = [];
-		const unsubscribe = subscribeMakeEvents({
+		const moduleState = getMakeModuleState();
+		expect(moduleState).not.toBeNull();
+		const unsubscribe = moduleState!.subscribe({
 			onTypeCreated: (p) => { received.push(p.schema); },
 		});
 		ports.eventBus.emit('make:type-created', { schema: BOOK });
@@ -135,7 +138,9 @@ describe('subscribeMakeEvents', () => {
 		await MakeModule.init(ports, MAKE_DEFAULTS);
 		const typeCreated: TypeSchema[] = [];
 		const typeDeleted: string[] = [];
-		subscribeMakeEvents({
+		const moduleState = getMakeModuleState();
+		expect(moduleState).not.toBeNull();
+		moduleState!.subscribe({
 			onTypeCreated: (p) => { typeCreated.push(p.schema); },
 			onTypeDeleted: (p) => { typeDeleted.push(p.typeId); },
 		});

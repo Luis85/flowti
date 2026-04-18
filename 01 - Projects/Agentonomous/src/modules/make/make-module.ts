@@ -16,11 +16,6 @@ type ModuleState = {
 
 let state: ModuleState | null = null;
 
-// --- Legacy exports (bodies rewritten to drive off settings; sigs stable) ---
-// These will be deleted in B1.3 (Task 8) after consumers migrate to MakeContextKey.
-export function getMakeService(): MakeService | null { return state?.service ?? null; }
-export function getMakeSettings(): MakeSettings | null { return state?.settings ?? null; }
-
 export type MakeEventHandlers = {
 	readonly onTypeCreated?:      (payload: EventMap['make:type-created']) => void;
 	readonly onTypeUpdated?:      (payload: EventMap['make:type-updated']) => void;
@@ -30,7 +25,7 @@ export type MakeEventHandlers = {
 	readonly onSettingsChanged?:  (payload: EventMap['make:settings-changed']) => void;
 };
 
-export function subscribeMakeEvents(handlers: MakeEventHandlers): () => void {
+function subscribe(handlers: MakeEventHandlers): () => void {
 	if (state === null) return () => { /* no-op when module not initialised */ };
 	const bus = state.ports.eventBus;
 	const unsubs: Array<() => void> = [];
@@ -41,6 +36,17 @@ export function subscribeMakeEvents(handlers: MakeEventHandlers): () => void {
 	if (handlers.onBaseRegenerated) unsubs.push(bus.on('make:base-regenerated', (e) => { handlers.onBaseRegenerated!(e.payload); }));
 	if (handlers.onSettingsChanged) unsubs.push(bus.on('make:settings-changed', (e) => { handlers.onSettingsChanged!(e.payload); }));
 	return () => { for (const u of unsubs) u(); };
+}
+
+export type MakeModuleState = {
+	readonly service: MakeService;
+	readonly settings: MakeSettings;
+	readonly subscribe: (handlers: MakeEventHandlers) => () => void;
+};
+
+export function getMakeModuleState(): MakeModuleState | null {
+	if (state === null) return null;
+	return { service: state.service, settings: state.settings, subscribe };
 }
 
 export const MakeModule = defineModule<MakeSettings>({

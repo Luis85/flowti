@@ -1,6 +1,6 @@
 import { ref, readonly, onScopeDispose } from 'vue';
 import type { MakeContext } from '../modules/make/make-context.js';
-import { getMakeService, getMakeSettings, subscribeMakeEvents } from '../modules/make/make-module.js';
+import { getMakeModuleState } from '../modules/make/make-module.js';
 import type { MakeSettings } from '../modules/make/make-settings.js';
 
 /**
@@ -18,17 +18,16 @@ import type { MakeSettings } from '../modules/make/make-settings.js';
  * via vue.unmount() which disposes all app-level effects.
  */
 export function createMakeContext(): MakeContext | null {
-	const service = getMakeService();
-	const initialSettings = getMakeSettings();
-	if (service === null || initialSettings === null) return null;
-	const settings$ = ref<MakeSettings>(initialSettings);
-	const unsubscribe = subscribeMakeEvents({
+	const moduleState = getMakeModuleState();
+	if (moduleState === null) return null;
+	const settings$ = ref<MakeSettings>(moduleState.settings);
+	const unsubscribe = moduleState.subscribe({
 		onSettingsChanged: ({ settings }) => { settings$.value = settings; },
 	});
 	onScopeDispose(() => { unsubscribe(); });
 	return {
-		service,
+		service: moduleState.service,
 		settings$: readonly(settings$),
-		subscribe: subscribeMakeEvents,
+		subscribe: moduleState.subscribe,
 	};
 }
