@@ -1,0 +1,15 @@
+{
+	"make.module.name": "Make",
+	"make.command.open": "Open Make",
+	"make.command.createType": "Make: create new type",
+	"make.notify.typeCreated": "Type created",
+	"make.notify.typeUpdated": "Type updated",
+	"make.notify.typeDeleted": "Type deleted",
+	"make.notify.baseFailed": "Base file generation failed — open the type to regenerate",
+	"make.error.vault": "Vault error",
+	"make.error.duplicateName": "A type with that name already exists",
+	"make.error.instanceExists": "A file with that name already exists",
+	"make.error.invalidSchema": "Type has validation errors",
+	"make.error.noTitleField": "No title field is configured for this type",
+	"make.error.notImplemented": "Not implemented yet"
+}
