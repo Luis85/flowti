@@ -435,7 +435,7 @@ New file `tests/ui/composables/use-focus-trap.test.ts`. Six cases: initial focus
 | 4 | `refactor(agentonomous): introduce MakeContext + reactive settings$ (shimmed)` | B1.1 | 3 h |
 | 5 | `refactor(agentonomous): migrate make-store to MakeContext` | B1.2a | 1 h |
 | 6 | `refactor(agentonomous): migrate use-make-type-draft to MakeContext` | B1.2b | 30 min |
-| 7 | `refactor(agentonomous): migrate use-make-type-save-flow to MakeContext` | B1.2c | 30 min |
+| 7 | `refactor(agentonomous): migrate MakeType.vue typesFolder callsite to MakeContext` | B1.2c | 30 min |
 | 8 | `refactor(agentonomous): delete legacy getMakeService/getMakeSettings/subscribeMakeEvents` | B1.3 | 1 h |
 | 9 | `refactor(agentonomous): extract useFocusTrap composable` | B2 | 2 h |
 | 10 | `refactor(agentonomous): extract validateSchema helper` | B3 | 1 h |
