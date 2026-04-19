@@ -1,5 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import type { SchemaError, FieldError, MakeError } from '../../../src/domain/make/errors.js';
+import type { SchemaError, FieldError, MakeError, CorruptTypeRef, IoError } from '../../../src/domain/make/errors.js';
 
 describe('error unions', () => {
 	it('MakeError.kind is a finite literal union', () => {
@@ -20,5 +20,23 @@ describe('error unions', () => {
 	});
 	it('FieldError has at least eight variants', () => {
 		expectTypeOf<FieldError['kind']>().toMatchTypeOf<string>();
+	});
+});
+
+describe('CorruptTypeRef', () => {
+	it('unions SchemaError and IoError in the error field', () => {
+		expectTypeOf<CorruptTypeRef['error']>().toEqualTypeOf<SchemaError | IoError>();
+	});
+
+	it('carries filename and absolute path', () => {
+		expectTypeOf<CorruptTypeRef>().toHaveProperty('path').toBeString();
+		expectTypeOf<CorruptTypeRef>().toHaveProperty('filename').toBeString();
+	});
+});
+
+describe('IoError', () => {
+	it('has kind "io-error" and cause string', () => {
+		expectTypeOf<IoError['kind']>().toEqualTypeOf<'io-error'>();
+		expectTypeOf<IoError['cause']>().toBeString();
 	});
 });

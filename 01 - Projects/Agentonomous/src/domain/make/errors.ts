@@ -38,3 +38,14 @@ export type MakeError =
 	| { readonly kind: 'no-title-field' }
 	| { readonly kind: 'base-generation-failed'; readonly cause: string }
 	| { readonly kind: 'not-implemented'; readonly feature?: string };
+
+export type IoError = {
+	readonly kind: 'io-error';
+	readonly cause: string;
+};
+
+export type CorruptTypeRef = {
+	readonly path: string;
+	readonly filename: string;
+	readonly error: SchemaError | IoError;
+};
