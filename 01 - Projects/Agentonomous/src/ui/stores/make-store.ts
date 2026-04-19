@@ -5,7 +5,7 @@ import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { InstanceRef, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport } from '../../domain/make/types.js';
-import type { MakeError } from '../../domain/make/errors.js';
+import type { CorruptTypeRef, MakeError } from '../../domain/make/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import { useMakeContext } from '../composables/use-make-context.js';
 
@@ -22,6 +22,7 @@ export const useMakeStore = defineStore('make', () => {
 	const ctx = useMakeContext();
 
 	const types = shallowRef<readonly TypeSchema[]>([]);
+	const issues = shallowRef<readonly CorruptTypeRef[]>([]);
 	const typesLoaded = ref(false);
 	const typesLoading = ref(false);
 	const typesError = ref<string | null>(null);
@@ -37,6 +38,7 @@ export const useMakeStore = defineStore('make', () => {
 		typesLoading.value = false;
 		if (result.kind === 'err') { typesError.value = formatError(result.error); return; }
 		types.value = result.value.types;
+		issues.value = result.value.issues;
 		typesLoaded.value = true;
 	}
 
@@ -185,6 +187,7 @@ export const useMakeStore = defineStore('make', () => {
 
 	return {
 		types,
+		issues,
 		typesLoaded,
 		typesLoading,
 		typesError,

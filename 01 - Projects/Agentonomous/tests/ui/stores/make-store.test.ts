@@ -8,6 +8,7 @@ import { useMakeStore } from '../../../src/ui/stores/make-store.js';
 import type { MakeEventHandlers } from '../../../src/modules/make/make-module.js';
 import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
 import type { InstanceRef } from '../../../src/domain/make/types.js';
+import type { CorruptTypeRef } from '../../../src/domain/make/errors.js';
 
 const BOOK: TypeSchema = {
 	id: 'book', name: 'Book', instancesFolder: 'Books', titleFieldName: 'title',
@@ -118,6 +119,28 @@ describe('make-store', () => {
 		expect(store.instanceCountByTypeId.get('book')).toBeUndefined();
 		await store.loadInstances('book');
 		expect(store.instanceCountByTypeId.get('book')).toBe(2);
+	});
+
+	it('initially exposes empty issues ref', () => {
+		const { store } = mountStore();
+		expect(store.issues).toEqual([]);
+	});
+
+	it('loadTypes populates both types and issues from ListTypesResult', async () => {
+		const issue: CorruptTypeRef = {
+			path: 'Make/Types/broken.json',
+			filename: 'broken.json',
+			error: { kind: 'invalid-json', reason: 'unexpected token' },
+		};
+		const listTypes = vi.fn().mockResolvedValue({
+			kind: 'ok',
+			value: { types: [BOOK], issues: [issue] },
+		});
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
+		await store.loadTypes();
+		expect(store.types).toHaveLength(1);
+		expect(store.issues).toHaveLength(1);
+		expect(store.issues[0]?.filename).toBe('broken.json');
 	});
 
 	it('favoriteTypes filters types by settings.favorites', async () => {
