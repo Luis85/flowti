@@ -183,4 +183,54 @@ describe('useMakeTypeSaveFlow', () => {
 		await flow.onOverwriteConfirm('cancel');
 		expect(regenerateBaseFileSpy.mock.calls.length).toBe(callsBefore);
 	});
+
+	// --- Slice J: move-confirm dialog ---
+
+	it('instances-move-required opens moveInstancesDialogOpen with count+folders', async () => {
+		updateTypeSpy.mockResolvedValueOnce({
+			kind: 'err',
+			error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 3 },
+		});
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		expect(flow.moveInstancesDialogOpen?.value).toBe(true);
+		expect(flow.moveInstancesDialogBody?.value).toContain('3');
+		expect(flow.moveInstancesDialogBody?.value).toContain('NewBooks');
+	});
+
+	it('onMoveInstancesConfirm re-calls updateType with moveInstances:true', async () => {
+		const moveReport = { oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 3, failedMoves: [] };
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 3 } })
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: BOOK, moveReport } });
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		await flow.onMoveInstancesConfirm?.('confirm');
+		expect(updateTypeSpy).toHaveBeenCalledTimes(2);
+		expect(updateTypeSpy).toHaveBeenLastCalledWith('book', expect.any(Object), { moveInstances: true });
+	});
+
+	it('partial-move after confirm leaves moveInstancesDialogOpen=false and does not crash', async () => {
+		const moveReport = { oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 2, failedMoves: [{ path: 'Books/Dune.md', cause: 'locked' }] };
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 3 } })
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'partial-move', moveReport } });
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		await flow.onMoveInstancesConfirm?.('confirm');
+		expect(flow.moveInstancesDialogOpen?.value).toBe(false);
+	});
+
+	it('onMoveInstancesConfirm cancel does NOT re-call updateType', async () => {
+		updateTypeSpy.mockResolvedValueOnce({
+			kind: 'err',
+			error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 3 },
+		});
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		const before = updateTypeSpy.mock.calls.length;
+		await flow.onMoveInstancesConfirm?.('cancel');
+		expect(updateTypeSpy.mock.calls.length).toBe(before);
+		expect(flow.moveInstancesDialogOpen?.value).toBe(false);
+	});
 });

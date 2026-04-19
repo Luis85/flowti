@@ -3,19 +3,24 @@ import type { Router } from 'vue-router';
 import type { useMakeStore } from '../../stores/make-store.js';
 import type { useMakeTypeDraft } from './use-make-type-draft.js';
 import type { MakeError, FieldError, SchemaError } from '../../../domain/make/errors.js';
+import type { MoveReport, TypeSchemaPatch } from '../../../domain/make/types.js';
 import type { PluginContext } from '../../../plugin.js';
 
 type Translate = (key: string, values?: Record<string, unknown>) => string;
 
 export interface UseMakeTypeSaveFlow {
-	readonly schemaErrors:        ReturnType<typeof ref<{ name?: string; folder?: string }>>;
-	readonly renameWarningOpen:   ReturnType<typeof ref<boolean>>;
-	readonly renameWarningBody:   ReturnType<typeof ref<string>>;
-	readonly overwriteWarningOpen: ReturnType<typeof ref<boolean>>;
-	onSave():                        Promise<void>;
+	readonly schemaErrors:              ReturnType<typeof ref<{ name?: string; folder?: string }>>;
+	readonly renameWarningOpen:         ReturnType<typeof ref<boolean>>;
+	readonly renameWarningBody:         ReturnType<typeof ref<string>>;
+	readonly overwriteWarningOpen:      ReturnType<typeof ref<boolean>>;
+	readonly moveInstancesDialogOpen:   ReturnType<typeof ref<boolean>>;
+	readonly moveInstancesDialogTitle:  ReturnType<typeof ref<string>>;
+	readonly moveInstancesDialogBody:   ReturnType<typeof ref<string>>;
+	onSave():                           Promise<void>;
 	onRenameAcknowledge(choice: string): Promise<void>;
-	onRegenerate(force?: boolean):   Promise<void>;
+	onRegenerate(force?: boolean):      Promise<void>;
 	onOverwriteConfirm(choice: string): Promise<void>;
+	onMoveInstancesConfirm(choice: string): Promise<void>;
 }
 
 function applySchemaIssues(
@@ -48,6 +53,9 @@ export function useMakeTypeSaveFlow(
 	const renameWarningOpen = ref(false);
 	const renameWarningBody = ref('');
 	const overwriteWarningOpen = ref(false);
+	const moveInstancesDialogOpen = ref(false);
+	const moveInstancesDialogTitle = ref('');
+	const moveInstancesDialogBody = ref('');
 
 	function surfaceError(error: MakeError): void {
 		schemaErrors.value = {};
@@ -70,38 +78,79 @@ export function useMakeTypeSaveFlow(
 		applySchemaIssues(error.issues, schemaErrors, fieldErrors, t);
 	}
 
-	async function onSave(): Promise<void> {
-		const patch = {
+	function draftPatch(): Required<TypeSchemaPatch> {
+		return {
 			name: draft.value.name,
 			description: draft.value.description,
 			instancesFolder: draft.value.instancesFolder,
 			titleFieldName: draft.value.titleFieldName,
 			fields: draft.value.fields,
 		};
+	}
+
+	function notifyMoveOutcome(moveReport: MoveReport | undefined): void {
+		if (moveReport === undefined || moveReport.movedCount === 0) return;
+		ctx?.notifications.info(t('make.move-report.info-toast', {
+			movedCount: moveReport.movedCount, newFolder: moveReport.newFolder,
+		}));
+	}
+
+	function surfacePartialMoveWarning(moveReport: MoveReport): void {
+		const total = moveReport.movedCount + moveReport.failedMoves.length;
+		const failed = moveReport.failedMoves.length;
+		const firstNames = moveReport.failedMoves.slice(0, 3).map((m) => m.path).join(', ');
+		const hasMore = failed > 3 ? `, +${failed - 3} more` : '';
+		ctx?.notifications.warn(t('make.move-report.partial.body', {
+			moved: moveReport.movedCount, total, newFolder: moveReport.newFolder,
+			failed, oldFolder: moveReport.oldFolder, firstNames, hasMore,
+		}));
+	}
+
+	async function attemptUpdate(options?: { moveInstances?: true }): Promise<void> {
+		const result = await store.updateType(typeId.value!, draftPatch(), options);
+		if (result.kind === 'err') {
+			if (result.error.kind === 'instances-move-required') {
+				moveInstancesDialogTitle.value = t('make.move-instances-dialog.title', { count: result.error.count });
+				moveInstancesDialogBody.value = t('make.move-instances-dialog.body', {
+					count: result.error.count, oldFolder: result.error.oldFolder, newFolder: result.error.newFolder,
+				});
+				moveInstancesDialogOpen.value = true;
+				return;
+			}
+			if (result.error.kind === 'partial-move') {
+				surfacePartialMoveWarning(result.error.moveReport);
+				return;
+			}
+			surfaceError(result.error);
+			return;
+		}
+		applyResult(result.value.schema);
+		ctx?.notifications.success(t('make.notify.typeUpdated'));
+		notifyMoveOutcome(result.value.moveReport);
+	}
+
+	async function onSave(): Promise<void> {
 		if (isNewMode.value) {
-			const result = await store.createType(patch);
+			const result = await store.createType(draftPatch());
 			if (result.kind === 'err') { surfaceError(result.error); return; }
 			applyResult(result.value);
 			ctx?.notifications.success(t('make.notify.typeCreated'));
 			await router.replace(`/make/types/${result.value.id}`);
 			return;
 		}
-		const result = await store.updateType(typeId.value!, patch);
-		if (result.kind === 'err') { surfaceError(result.error); return; }
-		applyResult(result.value.schema);
-		ctx?.notifications.success(t('make.notify.typeUpdated'));
+		await attemptUpdate();
+	}
+
+	async function onMoveInstancesConfirm(choice: string): Promise<void> {
+		moveInstancesDialogOpen.value = false;
+		if (choice !== 'confirm') return;
+		await attemptUpdate({ moveInstances: true });
 	}
 
 	async function onRenameAcknowledge(choice: string): Promise<void> {
 		renameWarningOpen.value = false;
 		if (choice !== 'confirm') return;
-		const result = await store.updateType(typeId.value!, {
-			name: draft.value.name,
-			description: draft.value.description,
-			instancesFolder: draft.value.instancesFolder,
-			titleFieldName: draft.value.titleFieldName,
-			fields: draft.value.fields,
-		}, { acknowledgeRenames: true });
+		const result = await store.updateType(typeId.value!, draftPatch(), { acknowledgeRenames: true });
 		if (result.kind === 'ok') applyResult(result.value.schema);
 	}
 
@@ -123,9 +172,13 @@ export function useMakeTypeSaveFlow(
 		renameWarningOpen,
 		renameWarningBody,
 		overwriteWarningOpen,
+		moveInstancesDialogOpen,
+		moveInstancesDialogTitle,
+		moveInstancesDialogBody,
 		onSave,
 		onRenameAcknowledge,
 		onRegenerate,
 		onOverwriteConfirm,
+		onMoveInstancesConfirm,
 	};
 }

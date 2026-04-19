@@ -33,7 +33,8 @@ const {
 
 const {
 	schemaErrors, renameWarningOpen, renameWarningBody, overwriteWarningOpen,
-	onSave, onRenameAcknowledge, onRegenerate, onOverwriteConfirm,
+	moveInstancesDialogOpen, moveInstancesDialogTitle, moveInstancesDialogBody,
+	onSave, onRenameAcknowledge, onRegenerate, onOverwriteConfirm, onMoveInstancesConfirm,
 } = useMakeTypeSaveFlow(store, draftState, router, t as (key: string, values?: Record<string, unknown>) => string, ctx);
 
 // --- Tab state (full a11y) ---
@@ -263,6 +264,14 @@ const typesFolder = computed(() => makeCtx.settings$.value.typesFolder);
 			destructive
 			:labels="{ confirm: t('make.type.basefile.overwriteWarning.confirm') }"
 			@resolve="onOverwriteConfirm"
+		/>
+		<ConfirmDialog
+			:open="moveInstancesDialogOpen"
+			:title="moveInstancesDialogTitle"
+			:body="moveInstancesDialogBody"
+			:options="['cancel', 'confirm']"
+			:labels="{ confirm: t('make.move-instances-dialog.confirm'), cancel: t('make.move-instances-dialog.cancel') }"
+			@resolve="onMoveInstancesConfirm"
 		/>
 		<DeleteTypeDialog
 			v-if="committedType"
