@@ -4,7 +4,7 @@ import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
 import type { MakeError } from '../../domain/make/errors.js';
 import type {
-	DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, ListTypesResult, NewTypeDraft, TypeSchemaPatch,
+	CreateInstanceOptions, DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, ListTypesResult, NewTypeDraft, TypeSchemaPatch,
 } from '../../domain/make/types.js';
 import { createTypeOps, type TypeServiceMethods } from './make-service-types.js';
 import { createInstanceOps, type InstanceServiceMethods } from './make-service-instances.js';
@@ -17,7 +17,7 @@ export interface MakeService {
 	updateType(typeId: string, changes: TypeSchemaPatch, options?: { acknowledgeRenames?: boolean }): Promise<Result<TypeSchema, MakeError>>;
 	deleteType(typeId: string, options: DeleteTypeOptions): Promise<Result<DeleteTypeReport, MakeError>>;
 	listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>>;
-	createInstance(typeId: string, raw: Record<string, unknown>, explicitFilename: string | null): Promise<Result<InstanceRef, MakeError>>;
+	createInstance(typeId: string, raw: Record<string, unknown>, explicitFilename: string | null, options?: CreateInstanceOptions): Promise<Result<InstanceRef, MakeError>>;
 	deleteInstance(path: string): Promise<Result<void, MakeError>>;
 	deleteCorruptFile(path: string): Promise<Result<void, MakeError>>;
 	regenerateBaseFile(typeId: string, options?: { force?: boolean }): Promise<Result<string, MakeError>>;

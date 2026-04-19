@@ -596,6 +596,85 @@ describe('listTypes error handling', () => {
 	});
 });
 
+describe('makeService.createInstance', () => {
+	async function withBook(extra?: Record<string, string | { __readError: string }>) {
+		const seed: Record<string, string | { __readError: string }> = {
+			'Make/Types/book.json': serializeTypeSchema(BOOK),
+			...(extra ?? {}),
+		};
+		const vault = fakeVault(seed);
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		return { vault, ports, svc };
+	}
+
+	it('happy path: writes file, emits make:instance-created, returns InstanceRef', async () => {
+		const { vault, ports, svc } = await withBook();
+		const r = await svc.createInstance('book', { title: 'Dune' }, null);
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') return;
+		expect(r.value.typeId).toBe('book');
+		expect(r.value.path).toBe('Books/Dune.md');
+		expect(r.value.title).toBe('Dune');
+		expect(typeof r.value.createdAt).toBe('string');
+		expect(typeof r.value.updatedAt).toBe('string');
+		expect(await vault.exists('Books/Dune.md')).toBe(true);
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:instance-created', { typeId: 'book', path: 'Books/Dune.md' });
+	});
+
+	it('returns invalid-values when validation fails (missing required title)', async () => {
+		const { svc } = await withBook();
+		const r = await svc.createInstance('book', {}, null);
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'invalid-values' } });
+		if (r.kind === 'err' && r.error.kind === 'invalid-values') {
+			expect(r.error.issues[0]?.kind).toBe('required-missing');
+		}
+	});
+
+	it('returns no-title-field when titleFieldName is null and no explicitFilename is given', async () => {
+		const NO_TITLE: TypeSchema = { ...BOOK, titleFieldName: null };
+		const vault = fakeVault({ 'Make/Types/book.json': serializeTypeSchema(NO_TITLE) });
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.createInstance('book', { title: 'Dune' }, null);
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'no-title-field' } });
+	});
+
+	it('returns invalid-values with __filename__ when explicitFilename sanitizes to empty', async () => {
+		const { svc } = await withBook();
+		const r = await svc.createInstance('book', { title: 'Dune' }, '/////');
+		expect(r).toMatchObject({
+			kind: 'err',
+			error: {
+				kind: 'invalid-values',
+				issues: expect.arrayContaining([
+					expect.objectContaining({ kind: 'invalid-text', fieldName: '__filename__' }),
+				]),
+			},
+		});
+	});
+
+	it('returns instance-exists on collision when overwrite is not true', async () => {
+		const { svc } = await withBook({ 'Books/Dune.md': '# existing' });
+		const r = await svc.createInstance('book', { title: 'Dune' }, null);
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'instance-exists', path: 'Books/Dune.md' } });
+	});
+
+	it('succeeds on collision when overwrite: true (uses vault.update)', async () => {
+		const { vault, svc } = await withBook({ 'Books/Dune.md': '# existing' });
+		const r = await svc.createInstance('book', { title: 'Dune' }, null, { overwrite: true });
+		expect(r.kind).toBe('ok');
+		expect(vault.update).toHaveBeenCalledWith('Books/Dune.md', expect.stringContaining('type: "Book"'));
+		expect(vault.create).not.toHaveBeenCalledWith('Books/Dune.md', expect.any(String));
+	});
+
+	it('returns vault-error when write fails', async () => {
+		const vault = fakeVault({ 'Make/Types/book.json': serializeTypeSchema(BOOK) }, { createError: 'EIO' });
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.createInstance('book', { title: 'Dune' }, null);
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'vault-error' } });
+	});
+});
+
 describe('makeService.deleteCorruptFile', () => {
 	it('deletes the file via vault.delete and returns ok', async () => {
 		const vault = fakeVault({ 'Make/Types/broken.json': '{ malformed' });
