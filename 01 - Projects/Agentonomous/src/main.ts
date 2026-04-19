@@ -64,7 +64,7 @@ export default class AgentonomousPlugin extends Plugin {
 		const logger = new Logger(bus, 'info');
 		const notifications = new ObsidianNotificationAdapter();
 		const dialogs = new ObsidianDialogAdapter(this.app);
-		const commands = new ObsidianCommandAdapter(this, views);
+		const commands = new ObsidianCommandAdapter(this, views, logger);
 
 		const modules = [CoreModule, EventInspectorModule, HealthMonitorModule, FileDetailModule, MakeModule];
 
