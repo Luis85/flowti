@@ -7,9 +7,11 @@ import { MakeTypePage } from '../../../../src/ui/pages/make/MakeType.po.js';
 import { mountWithI18n } from '../../../__fixtures__/mount-with-i18n.js';
 import { createFakeMakeContext, fakeMakeService } from '../../../__fixtures__/fake-make-context.js';
 import { MakeContextKey } from '../../../../src/ui/make-context-key.js';
+import { PluginContextKey } from '../../../../src/ui/plugin-context-key.js';
 import { useMakeStore } from '../../../../src/ui/stores/make-store.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
 import type { InstanceRef } from '../../../../src/domain/make/types.js';
+import type { PluginContext } from '../../../../src/plugin.js';
 
 const BOOK: TypeSchema = {
 	id: 'book', name: 'Book', description: 'Reading log', instancesFolder: 'Books', titleFieldName: 'title',
@@ -41,6 +43,12 @@ let updateType: ReturnType<typeof vi.fn>;
 let deleteType: ReturnType<typeof vi.fn>;
 let regenerateBaseFile: ReturnType<typeof vi.fn>;
 let toggleFavorite: ReturnType<typeof vi.fn>;
+let notificationsSpy: {
+	success: ReturnType<typeof vi.fn>;
+	warn:    ReturnType<typeof vi.fn>;
+	info:    ReturnType<typeof vi.fn>;
+	error:   ReturnType<typeof vi.fn>;
+};
 
 function createTestRouter(extraRoutes: { path: string; name?: string; component: unknown }[] = []) {
 	return createRouter({
@@ -84,10 +92,14 @@ async function mountTypePage(
 		favoriteToggling: new Set(),
 		optimisticFavoriteOverrides: new Map(),
 	};
+	const pluginCtx = { notifications: notificationsSpy } as unknown as PluginContext;
 	const wrapper = mountWithI18n(MakeType, {
 		router,
 		attachTo: document.body,
-		provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
+		provide: {
+			[MakeContextKey as symbol]: ctx,
+			[PluginContextKey as symbol]: pluginCtx,
+		} as Record<PropertyKey, unknown>,
 		plugins: [pinia],
 	});
 	const store = useMakeStore();
@@ -108,6 +120,7 @@ describe('MakeType', () => {
 		deleteType        = vi.fn();
 		regenerateBaseFile = vi.fn();
 		toggleFavorite    = vi.fn();
+		notificationsSpy  = { success: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() };
 	});
 
 	afterEach(() => {
@@ -434,6 +447,9 @@ describe('MakeType', () => {
 			confirmBtn?.click();
 			await tick(50);
 			expect(deleteType).toHaveBeenCalledWith('book', expect.objectContaining({ alsoDeleteInstances: true }));
+			expect(notificationsSpy.success).toHaveBeenCalledTimes(1);
+			expect(notificationsSpy.success).toHaveBeenCalledWith(expect.stringMatching(/3/));
+			expect(notificationsSpy.warn).not.toHaveBeenCalled();
 		});
 
 		it('cascade delete surfaces partial warning when instances fail', async () => {
@@ -453,6 +469,9 @@ describe('MakeType', () => {
 			confirmBtn?.click();
 			await tick(50);
 			expect(deleteType).toHaveBeenCalledWith('book', expect.objectContaining({ alsoDeleteInstances: true }));
+			expect(notificationsSpy.warn).toHaveBeenCalledTimes(1);
+			expect(notificationsSpy.warn).toHaveBeenCalledWith(expect.stringMatching(/1/));
+			expect(notificationsSpy.success).not.toHaveBeenCalled();
 		});
 	});
 

@@ -11,6 +11,7 @@ import { useMakeTypeSaveFlow } from '../../../../src/ui/pages/make/use-make-type
 import { createFakeMakeContext, fakeMakeService } from '../../../__fixtures__/fake-make-context.js';
 import { MakeContextKey } from '../../../../src/ui/make-context-key.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
+import type { PluginContext } from '../../../../src/plugin.js';
 
 // Suppress unused import warning — useI18n needed only for type inference in tests
 void useI18n;
@@ -33,6 +34,12 @@ let createTypeSpy: ReturnType<typeof vi.fn>;
 let updateTypeSpy: ReturnType<typeof vi.fn>;
 let regenerateBaseFileSpy: ReturnType<typeof vi.fn>;
 let listTypesSpy: ReturnType<typeof vi.fn>;
+let notificationsSpy: {
+	success: ReturnType<typeof vi.fn>;
+	warn:    ReturnType<typeof vi.fn>;
+	info:    ReturnType<typeof vi.fn>;
+	error:   ReturnType<typeof vi.fn>;
+};
 
 async function setupEditFlow(path = '/make/types/book') {
 	const router = createRouter({
@@ -56,13 +63,14 @@ async function setupEditFlow(path = '/make/types/book') {
 	let capturedDraftState!: ReturnType<typeof useMakeTypeDraft>;
 	let capturedFlow!: ReturnType<typeof useMakeTypeSaveFlow>;
 
+	const pluginCtx = { notifications: notificationsSpy } as unknown as PluginContext;
 	const TestComp = defineComponent({
 		setup() {
 			capturedStore = useMakeStore();
 			capturedStore.types = [BOOK];
 			capturedStore.typesLoaded = true;
 			capturedDraftState = useMakeTypeDraft(router.currentRoute.value, capturedStore);
-			capturedFlow = useMakeTypeSaveFlow(capturedStore, capturedDraftState, router, t, undefined);
+			capturedFlow = useMakeTypeSaveFlow(capturedStore, capturedDraftState, router, t, pluginCtx);
 			return () => h('div');
 		},
 	});
@@ -84,6 +92,7 @@ describe('useMakeTypeSaveFlow', () => {
 		updateTypeSpy        = vi.fn();
 		regenerateBaseFileSpy = vi.fn();
 		listTypesSpy         = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
+		notificationsSpy     = { success: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() };
 	});
 
 	it('onSave in edit-mode calls updateType and calls applyResult on success', async () => {
@@ -250,5 +259,61 @@ describe('useMakeTypeSaveFlow', () => {
 		await flow.onMoveInstancesConfirm?.('cancel');
 		expect(updateTypeSpy.mock.calls.length).toBe(before);
 		expect(flow.moveInstancesDialogOpen?.value).toBe(false);
+	});
+
+	it('successful update fires notifications.success with make.notify.typeUpdated', async () => {
+		const updated: TypeSchema = { ...BOOK, name: 'Book Updated' };
+		updateTypeSpy.mockResolvedValue({ kind: 'ok', value: { schema: updated } });
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		expect(notificationsSpy.success).toHaveBeenCalledWith(expect.stringContaining('updated'));
+		expect(notificationsSpy.warn).not.toHaveBeenCalled();
+	});
+
+	it('full-success move fires notifications.info move-report AND success update', async () => {
+		const moveReport = { oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 3, failedMoves: [] };
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 3 } })
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: BOOK, moveReport } });
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		await flow.onMoveInstancesConfirm?.('confirm');
+		expect(notificationsSpy.success).toHaveBeenCalledTimes(1);
+		expect(notificationsSpy.info).toHaveBeenCalledTimes(1);
+		expect(notificationsSpy.info).toHaveBeenCalledWith(expect.stringContaining('NewBooks'));
+		expect(notificationsSpy.warn).not.toHaveBeenCalled();
+	});
+
+	it('partial-move fires notifications.warn with failed paths and does NOT fire success', async () => {
+		const moveReport = {
+			oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 2,
+			failedMoves: [{ path: 'Books/Dune.md', cause: 'locked' }],
+		};
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 3 } })
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: BOOK, moveReport } });
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		await flow.onMoveInstancesConfirm?.('confirm');
+		expect(notificationsSpy.warn).toHaveBeenCalledTimes(1);
+		expect(notificationsSpy.warn).toHaveBeenCalledWith(expect.stringContaining('Dune'));
+		expect(notificationsSpy.success).not.toHaveBeenCalled();
+		expect(notificationsSpy.info).not.toHaveBeenCalled();
+	});
+
+	it('partial-move applyResult is called so draft reflects on-disk schema', async () => {
+		const updated: TypeSchema = { ...BOOK, name: 'Book Updated', instancesFolder: 'NewBooks' };
+		const moveReport = {
+			oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 1,
+			failedMoves: [{ path: 'Books/Dune.md', cause: 'locked' }],
+		};
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 2 } })
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: updated, moveReport } });
+		const { flow, draftState } = await setupEditFlow();
+		await flow.onSave();
+		await flow.onMoveInstancesConfirm?.('confirm');
+		expect(draftState.draft.value.name).toBe('Book Updated');
+		expect(draftState.draft.value.instancesFolder).toBe('NewBooks');
 	});
 });
