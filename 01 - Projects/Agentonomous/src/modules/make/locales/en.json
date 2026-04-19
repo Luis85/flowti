@@ -144,5 +144,47 @@
 	"make.corrupt.invalid-folder-path": "Invalid folder path: {path}",
 	"make.corrupt.field-rename-warning": "Field rename warning",
 	"make.corrupt.io-error": "Couldn't read file: {cause}",
-	"make.corrupt.unknown": "Unknown issue"
+	"make.corrupt.unknown": "Unknown issue",
+
+	"make.form.submit": "Create",
+	"make.form.cancel": "Cancel",
+	"make.form.panel-title": "New instance",
+	"make.form.filename": "File name",
+	"make.form.filename-help": "(used as the markdown file name)",
+	"make.form.title-suffix": "(becomes the file name)",
+
+	"make.instance-actions.open-in-obsidian": "Open in Obsidian",
+	"make.instance-actions.delete": "Delete",
+
+	"make.instance-delete-confirm.title": "Delete instance '{title}'?",
+	"make.instance-delete-confirm.body": "File goes to Obsidian trash and can be restored.",
+	"make.instance-delete-confirm.confirm": "Delete",
+	"make.instance-delete-confirm.cancel": "Cancel",
+
+	"make.overwrite-dialog.title": "File already exists",
+	"make.overwrite-dialog.body": "A file already exists at {path}. Overwrite or choose a different name?",
+	"make.overwrite-dialog.overwrite": "Overwrite",
+	"make.overwrite-dialog.rename": "Choose different name",
+	"make.overwrite-dialog.cancel": "Cancel",
+
+	"make.move-instances-dialog.title": "Move {count} instances?",
+	"make.move-instances-dialog.body": "Changing the instance folder from {oldFolder} to {newFolder} will move all {count} existing instance files. Obsidian backlinks will update automatically.",
+	"make.move-instances-dialog.confirm": "Move files and save",
+	"make.move-instances-dialog.cancel": "Cancel",
+
+	"make.move-report.info-toast": "Moved {movedCount} instances to {newFolder}.",
+	"make.move-report.partial.title": "Type saved — some files couldn't move",
+	"make.move-report.partial.body": "{moved} of {total} files moved to {newFolder}. {failed} files remain at {oldFolder}: {firstNames}{hasMore}",
+
+	"make.cascade.deleted-success": "Deleted type '{name}' and {instancesDeleted} instances.",
+	"make.cascade.deleted-partial": "Deleted type '{name}'. {instancesDeleted} instances deleted, {failedCount} failed.",
+
+	"make.form.errors.required-missing": "{fieldName} is required",
+	"make.form.errors.invalid-text": "Invalid value for {fieldName}",
+	"make.form.errors.invalid-number": "{fieldName} must be a number",
+	"make.form.errors.invalid-boolean": "{fieldName} must be true or false",
+	"make.form.errors.invalid-list": "{fieldName} must be a list",
+	"make.form.errors.invalid-date": "{fieldName} must match {expected}",
+	"make.form.errors.invalid-datetime": "{fieldName} must be an ISO-8601 timestamp",
+	"make.form.errors.unknown-field": "Unknown field {fieldName}"
 }
