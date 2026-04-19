@@ -107,7 +107,9 @@ export function createPerTypeQueue(): PerTypeQueue {
 }
 ```
 
-`make-module.ts` (or wherever the service factories are wired) constructs **one** `PerTypeQueue` per module instance and threads it into both `createUpdateTypeOps` and into the new bulk-delete code path in `make-service-instances.ts`. `update-type-ops.ts` is updated to consume the injected queue instead of constructing its own — pure refactor, no behavior change for the existing `updateType`/`retryFailedMoves` callers.
+`make-service.ts` (where the service is composed) constructs **one** `PerTypeQueue` per `MakeService` instance and threads it into both `createUpdateTypeOps` and into the new bulk-delete code path in `make-service-instances.ts`. `update-type-ops.ts` is updated to consume the injected queue instead of constructing its own — behavior unchanged for existing `updateType`/`retryFailedMoves` callers, but the constructor signatures of both factories gain a `queue: PerTypeQueue` parameter.
+
+**Queue lifetime = `MakeService` lifetime.** The `make` module re-initializes its service on folder-related settings changes (see `make-module.ts` re-init path), which discards the old queue and constructs a fresh one. In-flight operations on the old queue continue to settle on the old service's closures; no new operations enter that queue after re-init. This matches the existing isolation guarantees of the module init/destroy cycle.
 
 ### Cascade delete (`deleteType({cascade: true})`) — unchanged
 
