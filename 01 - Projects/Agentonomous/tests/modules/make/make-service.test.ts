@@ -539,6 +539,61 @@ describe('listTypes error handling', () => {
 			}
 		}
 	});
+
+	it('surfaces malformed JSON as issues with invalid-json SchemaError', async () => {
+		const vault = fakeVault({
+			'Make/Types/book.json':   serializeTypeSchema(BOOK),
+			'Make/Types/broken.json': '{ malformed json',
+		});
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const result = await svc.listTypes();
+		if (result.kind !== 'ok') throw new Error('unreachable');
+		expect(result.value.types).toHaveLength(1);
+		expect(result.value.issues).toHaveLength(1);
+		expect(result.value.issues[0]?.filename).toBe('broken.json');
+		expect(result.value.issues[0]?.error.kind).toBe('invalid-json');
+	});
+
+	it('surfaces read failure as issues with io-error', async () => {
+		const vault = fakeVault({
+			'Make/Types/book.json':   serializeTypeSchema(BOOK),
+			'Make/Types/secret.json': { __readError: 'permission denied' },
+		});
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const result = await svc.listTypes();
+		if (result.kind !== 'ok') throw new Error('unreachable');
+		expect(result.value.types).toHaveLength(1);
+		expect(result.value.issues).toHaveLength(1);
+		expect(result.value.issues[0]?.filename).toBe('secret.json');
+		expect(result.value.issues[0]?.error.kind).toBe('io-error');
+	});
+
+	it('separates valid, corrupt, and io-failing files into correct buckets', async () => {
+		const vault = fakeVault({
+			'Make/Types/book.json':   serializeTypeSchema(BOOK),
+			'Make/Types/broken.json': '{ malformed',
+			'Make/Types/secret.json': { __readError: 'permission denied' },
+		});
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const result = await svc.listTypes();
+		if (result.kind !== 'ok') throw new Error('unreachable');
+		expect(result.value.types).toHaveLength(1);
+		expect(result.value.issues).toHaveLength(2);
+		const kinds = result.value.issues.map((i) => i.error.kind).sort();
+		expect(kinds).toEqual(['invalid-json', 'io-error']);
+	});
+
+	it('returns outer vault-error when folder listing itself fails', async () => {
+		const vault = fakeVault(
+			{ 'Make/Types/book.json': serializeTypeSchema(BOOK) },
+			{ listError: 'permission denied on Make/Types/' },
+		);
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const result = await svc.listTypes();
+		expect(result.kind).toBe('err');
+		if (result.kind !== 'err') throw new Error('unreachable');
+		expect(result.error.kind).toBe('vault-error');
+	});
 });
 
 describe('makeService.loadType — orphan-base reconciliation', () => {
