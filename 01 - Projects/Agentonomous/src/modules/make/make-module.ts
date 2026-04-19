@@ -18,6 +18,20 @@ type ModuleState = {
 
 let state: ModuleState | null = null;
 
+let navigateHandler: ((path: string) => void) | null = null;
+
+export function setMakeNavigateHandler(fn: (path: string) => void): void {
+	navigateHandler = fn;
+}
+
+export function clearMakeNavigateHandler(): void {
+	navigateHandler = null;
+}
+
+function navigate(path: string): void {
+	if (navigateHandler !== null) navigateHandler(path);
+}
+
 export type MakeEventHandlers = {
 	readonly onTypeCreated?:              (payload: EventMap['make:type-created']) => void;
 	readonly onTypeUpdated?:              (payload: EventMap['make:type-updated']) => void;
@@ -86,6 +100,10 @@ export const MakeModule = defineModule<MakeSettings>({
 	commands: [
 		{ id: 'open-make', name: 'Open Make', opensView: VIEW_TYPE_MAKE,
 		  ribbon: { icon: 'hammer', title: 'Make', visibleByDefault: true } },
+		{ id: 'make-create-type', name: 'Make: create new type', opensView: VIEW_TYPE_MAKE,
+		  callback: () => { navigate('/make/types/new'); } },
+		{ id: 'make-browse-types', name: 'Make: browse types', opensView: VIEW_TYPE_MAKE,
+		  callback: () => { navigate('/make/types'); } },
 	],
 	async init(ports, settings) {
 		if (state !== null) await this.destroy();

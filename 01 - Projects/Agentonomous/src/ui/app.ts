@@ -4,6 +4,7 @@ import { createAppRouter } from './router/index.js';
 import { PluginContextKey } from './plugin-context-key.js';
 import { MakeContextKey } from './make-context-key.js';
 import { createMakeContext } from './make-context-factory.js';
+import { setMakeNavigateHandler, clearMakeNavigateHandler } from '../modules/make/make-module.js';
 import { useAppStore } from './stores/app-store.js';
 import { useSettingsStore } from './stores/settings-store.js';
 import { useModuleStatusStore } from './stores/module-status-store.js';
@@ -19,6 +20,7 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement, initialRoute?:
 
 	vue.use(pinia);
 	vue.use(router);
+	setMakeNavigateHandler((path) => { void router.push(path); });
 	if (ctx.i18n !== undefined) {
 		vue.use(ctx.i18n);
 	}
@@ -43,6 +45,7 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement, initialRoute?:
 
 	return {
 		unmount: () => {
+			clearMakeNavigateHandler();
 			settingsStore.dispose();
 			vue.unmount();
 		},

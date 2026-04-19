@@ -14,24 +14,28 @@ export class ObsidianCommandAdapter implements CommandPort {
 	}
 
 	register(entry: CommandEntry): void {
-		let callback = entry.callback ?? (() => {});
-
-		if (entry.opensView !== undefined) {
-			const viewType = entry.opensView;
-			callback = () => { void this.viewRegistry.openView(this.plugin, viewType); };
-		}
+		const userCallback = entry.callback;
+		const viewType = entry.opensView;
+		const combined = async (): Promise<void> => {
+			if (viewType !== undefined) {
+				await this.viewRegistry.openView(this.plugin, viewType);
+			}
+			if (userCallback !== undefined) {
+				await userCallback();
+			}
+		};
 
 		this.plugin.addCommand({
 			id: entry.id,
 			name: entry.name,
-			callback: () => { void callback(); },
+			callback: () => { void combined(); },
 		});
 
 		if (entry.ribbon !== undefined) {
 			const el = this.plugin.addRibbonIcon(
 				entry.ribbon.icon,
 				entry.ribbon.title,
-				() => { void callback(); },
+				() => { void combined(); },
 			);
 			if (!entry.ribbon.visibleByDefault) {
 				el.style.display = 'none';

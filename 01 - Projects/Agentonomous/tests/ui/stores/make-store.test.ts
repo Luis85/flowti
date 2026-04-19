@@ -518,3 +518,139 @@ describe('make-store — onInstancesDeletedBatch subscription', () => {
 		expect(listInstancesCalls).toBe(2);
 	});
 });
+
+describe('make-store — kpis', () => {
+	const SNAPSHOT = {
+		typesCount: 3, instancesCount: 12, createdThisWeek: 4,
+		perType: { book: 5, recipe: 7 } as Record<string, number>,
+		recentlyCreated: [] as ReadonlyArray<{ typeId: string; path: string; title: string; createdAt: string; updatedAt: string }>,
+	};
+
+	it('initial state: kpis is null, kpisLoading is false', () => {
+		const { store } = mountStore();
+		expect(store.kpis).toBeNull();
+		expect(store.kpisLoading).toBe(false);
+	});
+
+	it('loadKpis populates store.kpis, toggles loading, calls service.getKpis once', async () => {
+		const getKpis = vi.fn().mockResolvedValue(SNAPSHOT);
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ getKpis: getKpis as MakeService['getKpis'] }),
+		}));
+		const p = store.loadKpis();
+		expect(store.kpisLoading).toBe(true);
+		await p;
+		expect(store.kpisLoading).toBe(false);
+		expect(store.kpis).toEqual(SNAPSHOT);
+		expect(getKpis).toHaveBeenCalledTimes(1);
+	});
+
+	it('loadKpis does NOT throw if the service rejects — logs through ctx.logger.warn via safeRefresh', async () => {
+		const warn = vi.fn();
+		const getKpis = vi.fn().mockRejectedValue(new Error('boom'));
+		const ctx = createFakeMakeContext({
+			service: fakeMakeService({ getKpis: getKpis as MakeService['getKpis'] }),
+			logger: { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
+		});
+		const { store } = mountStore(ctx);
+		await expect(store.loadKpis()).resolves.toBeUndefined();
+		expect(store.kpisLoading).toBe(false);
+		expect(store.kpis).toBeNull();
+	});
+
+	it('concurrent loadKpis calls: last caller wins; kpisLoading stays true until last call resolves', async () => {
+		// Two in-flight calls; the first resolves AFTER the second. The first
+		// must NOT overwrite kpis.value (stale) and must NOT flip kpisLoading
+		// to false while the second is still in flight.
+		const FIRST  = { typesCount: 1, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] };
+		const SECOND = { typesCount: 2, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] };
+
+		// Two manual promises so we can control resolution order.
+		let resolveFirst:  ((v: typeof FIRST)  => void) | null = null;
+		let resolveSecond: ((v: typeof SECOND) => void) | null = null;
+		const calls: Array<'first' | 'second'> = [];
+		const getKpis = vi.fn().mockImplementation(() => {
+			if (calls.length === 0) {
+				calls.push('first');
+				return new Promise<typeof FIRST>((r) => { resolveFirst = r; });
+			}
+			calls.push('second');
+			return new Promise<typeof SECOND>((r) => { resolveSecond = r; });
+		});
+
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ getKpis: getKpis as MakeService['getKpis'] }),
+		}));
+
+		const p1 = store.loadKpis();
+		const p2 = store.loadKpis();
+		expect(store.kpisLoading).toBe(true);
+		expect(getKpis).toHaveBeenCalledTimes(2);
+
+		// Second resolves first with its data.
+		resolveSecond!(SECOND);
+		await p2;
+		expect(store.kpis).toEqual(SECOND);
+		expect(store.kpisLoading).toBe(false);
+
+		// Now the earlier first call resolves with STALE data. It must NOT overwrite.
+		resolveFirst!(FIRST);
+		await p1;
+		expect(store.kpis).toEqual(SECOND); // unchanged — stale write discarded
+		expect(store.kpisLoading).toBe(false);
+	});
+});
+
+describe('make-store — kpis event subscriptions', () => {
+	function setupWithGetKpis() {
+		const getKpis = vi.fn().mockResolvedValue({
+			typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [],
+		});
+		const mounted = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ getKpis: getKpis as MakeService['getKpis'] }),
+		}));
+		return { ...mounted, getKpis };
+	}
+
+	it('make:type-created triggers a kpis refresh', async () => {
+		const { handlers, getKpis } = setupWithGetKpis();
+		handlers.onTypeCreated?.({ schema: { id: 'x', name: 'X', instancesFolder: 'X', titleFieldName: null, fields: [], createdAt: '', updatedAt: '' } });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(getKpis).toHaveBeenCalled();
+	});
+
+	it('make:type-deleted triggers a kpis refresh', async () => {
+		const { handlers, getKpis } = setupWithGetKpis();
+		handlers.onTypeDeleted?.({ typeId: 'x', name: 'X' });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(getKpis).toHaveBeenCalled();
+	});
+
+	it('make:instance-created triggers a kpis refresh', async () => {
+		const { handlers, getKpis } = setupWithGetKpis();
+		handlers.onInstanceCreated?.({ typeId: 'x', path: 'X/a.md' });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(getKpis).toHaveBeenCalled();
+	});
+
+	it('make:instance-deleted triggers a kpis refresh', async () => {
+		const { handlers, getKpis } = setupWithGetKpis();
+		handlers.onInstanceDeleted?.({ typeId: 'x', path: 'X/a.md' });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(getKpis).toHaveBeenCalled();
+	});
+
+	it('make:instances-deleted-batch triggers a kpis refresh', async () => {
+		const { handlers, getKpis } = setupWithGetKpis();
+		handlers.onInstancesDeletedBatch?.({ typeId: 'x', deletedPaths: ['X/a.md'], failures: [] });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(getKpis).toHaveBeenCalled();
+	});
+
+	it('make:instances-moved triggers a kpis refresh', async () => {
+		const { handlers, getKpis } = setupWithGetKpis();
+		handlers.onInstancesMoved?.({ typeId: 'x', report: { oldFolder: 'X', newFolder: 'Y', movedCount: 0, failedMoves: [] } });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(getKpis).toHaveBeenCalled();
+	});
+});

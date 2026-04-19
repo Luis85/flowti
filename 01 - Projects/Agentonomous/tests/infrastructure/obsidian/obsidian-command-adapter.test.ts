@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Plugin } from 'obsidian';
 import { ObsidianCommandAdapter } from '../../../src/infrastructure/obsidian/obsidian-command-adapter.js';
+import type { ViewRegistryPort } from '../../../src/domain/views/view-registry-port.js';
 import { createFakePlugin } from './fake-plugin.js';
 import { fakeViews } from '../../__fakes__/fake-ports.js';
 
@@ -94,5 +95,38 @@ describe('ObsidianCommandAdapter', () => {
 		});
 		capturedClickFn?.();
 		expect(callback).toHaveBeenCalled();
+	});
+
+	it('register: opensView-only command invokes viewRegistry.openView on execute', async () => {
+		const plugin = createFakePlugin();
+		const views = fakeViews();
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views);
+		adapter.register({ id: 'x', name: 'X', opensView: 'MY_VIEW' });
+		expect(plugin.addCommand).toHaveBeenCalledTimes(1);
+		const commandCall = plugin.addCommand.mock.calls[0][0] as { callback: () => void };
+		commandCall.callback();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(views.openView).toHaveBeenCalledWith(plugin, 'MY_VIEW');
+	});
+
+	it('register: opensView + callback runs view open BEFORE user callback (awaited ordering)', async () => {
+		const order: string[] = [];
+		const plugin = createFakePlugin();
+		const views: ViewRegistryPort = {
+			registerAll: vi.fn(),
+			openView: vi.fn(async () => {
+				await new Promise<void>((r) => { setTimeout(r, 10); });
+				order.push('view-open');
+				return { kind: 'ok', value: undefined };
+			}),
+		};
+		const userCallback = vi.fn(async () => { order.push('user-callback'); });
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views);
+		adapter.register({ id: 'x', name: 'X', opensView: 'MY_VIEW', callback: userCallback });
+		const commandCall = plugin.addCommand.mock.calls[0][0] as { callback: () => void };
+		commandCall.callback();
+		await new Promise<void>((r) => { setTimeout(r, 30); });
+		expect(order).toEqual(['view-open', 'user-callback']);
+		expect(userCallback).toHaveBeenCalledTimes(1);
 	});
 });
