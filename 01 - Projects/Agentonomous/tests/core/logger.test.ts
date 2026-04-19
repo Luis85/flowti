@@ -33,7 +33,7 @@ describe('Logger', () => {
 		const logger = new Logger(bus, 'info');
 		const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		logger.error('src', 'boom');
-		expect(spy).toHaveBeenCalledWith('[agentonomous:src]', 'boom', undefined);
+		expect(spy).toHaveBeenCalledWith('[agentonomous:src]', 'boom');
 		spy.mockRestore();
 	});
 
@@ -56,7 +56,7 @@ describe('Logger', () => {
 		const busListener = vi.fn();
 		bus.on('log', busListener);
 		logger.warn('src', 'degraded');
-		expect(spy).toHaveBeenCalledWith('[agentonomous:src]', 'degraded', undefined);
+		expect(spy).toHaveBeenCalledWith('[agentonomous:src]', 'degraded');
 		expect(busListener.mock.calls[0][0].payload.level).toBe('warn');
 		spy.mockRestore();
 	});

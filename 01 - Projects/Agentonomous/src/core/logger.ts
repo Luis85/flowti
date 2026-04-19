@@ -14,24 +14,28 @@ export class Logger implements LoggerPort {
 
 	debug(source: string, message: string, data?: unknown): void {
 		if (!this.shouldLog('debug')) return;
-		console.debug(`[agentonomous:${source}]`, message, data);
+		if (data === undefined) console.debug(`[agentonomous:${source}]`, message);
+		else console.debug(`[agentonomous:${source}]`, message, data);
 		this.bus.emit('log', { level: 'debug', source, message, data });
 	}
 
 	info(source: string, message: string, data?: unknown): void {
 		if (!this.shouldLog('info')) return;
-		console.log(`[agentonomous:${source}]`, message, data);
+		if (data === undefined) console.log(`[agentonomous:${source}]`, message);
+		else console.log(`[agentonomous:${source}]`, message, data);
 		this.bus.emit('log', { level: 'info', source, message, data });
 	}
 
 	warn(source: string, message: string, data?: unknown): void {
 		if (!this.shouldLog('warn')) return;
-		console.warn(`[agentonomous:${source}]`, message, data);
+		if (data === undefined) console.warn(`[agentonomous:${source}]`, message);
+		else console.warn(`[agentonomous:${source}]`, message, data);
 		this.bus.emit('log', { level: 'warn', source, message, data });
 	}
 
 	error(source: string, message: string, data?: unknown): void {
-		console.error(`[agentonomous:${source}]`, message, data);
+		if (data === undefined) console.error(`[agentonomous:${source}]`, message);
+		else console.error(`[agentonomous:${source}]`, message, data);
 		this.bus.emit('log', { level: 'error', source, message, data });
 	}
 
