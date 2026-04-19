@@ -13,6 +13,8 @@ describe('error unions', () => {
 			| 'no-title-field'
 			| 'base-generation-failed'
 			| 'not-implemented'
+			| 'instances-move-required'
+			| 'partial-move'
 		>();
 	});
 	it('SchemaError has at least nine variants', () => {
@@ -38,5 +40,30 @@ describe('IoError', () => {
 	it('has kind "io-error" and cause string', () => {
 		expectTypeOf<IoError['kind']>().toEqualTypeOf<'io-error'>();
 		expectTypeOf<IoError['cause']>().toBeString();
+	});
+});
+
+describe('MakeError Chunk 4 additions', () => {
+	it('includes instances-move-required', () => {
+		const err: MakeError = {
+			kind: 'instances-move-required',
+			oldFolder: 'Books',
+			newFolder: 'Reading',
+			count: 47,
+		};
+		expectTypeOf(err).toMatchTypeOf<MakeError>();
+	});
+
+	it('includes partial-move carrying a MoveReport', () => {
+		const err: MakeError = {
+			kind: 'partial-move',
+			moveReport: {
+				oldFolder: 'Books',
+				newFolder: 'Reading',
+				movedCount: 45,
+				failedMoves: [{ path: 'Books/x.md', cause: 'target-exists: Reading/x.md' }],
+			},
+		};
+		expectTypeOf(err).toMatchTypeOf<MakeError>();
 	});
 });
