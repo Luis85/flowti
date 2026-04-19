@@ -223,6 +223,15 @@ function onRowKeydown(e: KeyboardEvent, index: number): void {
 	// Only act when the row itself has focus — don't steal keys from buttons inside it.
 	if (target !== rowRefs.value[index]) return;
 	const count = sorted.value.length;
+
+	// Select-mode-specific keys (handled before the default keymap):
+	if (selectMode.value) {
+		if (e.key === ' ') { e.preventDefault(); toggleRowSelection(sorted.value[index]!.path); return; }
+		if (e.key === 'a' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); selectedPaths.value = new Set(sorted.value.map((r) => r.path)); return; }
+		if (e.key === 'Escape') { e.preventDefault(); selectMode.value = false; selectedPaths.value = new Set(); return; }
+		if (e.key === 'Delete') { e.preventDefault(); return; } // intentional no-op in select mode
+	}
+
 	switch (e.key) {
 		case 'ArrowDown': e.preventDefault(); focusRow((index + 1) % count); return;
 		case 'ArrowUp':   e.preventDefault(); focusRow((index - 1 + count) % count); return;

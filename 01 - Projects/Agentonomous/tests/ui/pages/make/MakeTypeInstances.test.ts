@@ -770,3 +770,95 @@ describe('MakeTypeInstances — bulk delete partial-result dialog', () => {
 		wrapper.unmount();
 	});
 });
+
+describe('MakeTypeInstances — keyboard a11y in select mode', () => {
+	const DUNE:  InstanceRef = { typeId: 'book', path: 'Books/Dune.md',        title: 'Dune',         createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z' };
+	const NEURO: InstanceRef = { typeId: 'book', path: 'Books/Neuromancer.md', title: 'Neuromancer',  createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
+	const FOUND: InstanceRef = { typeId: 'book', path: 'Books/Foundation.md',  title: 'Foundation',   createdAt: '2026-04-17T00:00:00.000Z', updatedAt: '2026-04-17T00:00:00.000Z' };
+
+	beforeEach(() => {
+		setActivePinia(createPinia());
+		createInstanceSpy = vi.fn();
+		document.body.innerHTML = '';
+	});
+
+	function rowEl(wrapper: ReturnType<typeof mountPage>['wrapper'], i: number): HTMLElement {
+		const rs = (wrapper.element as HTMLElement).querySelectorAll('li.instance-row');
+		const r  = rs[i];
+		if (!(r instanceof HTMLElement)) throw new Error(`row ${i} not found`);
+		return r;
+	}
+
+	it('Space toggles selection of the focused row in select mode', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		const r = rowEl(wrapper, 0);
+		r.focus();
+		r.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+		await nextTick();
+		expect(r.getAttribute('aria-selected')).toBe('true');
+		r.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+		await nextTick();
+		expect(r.getAttribute('aria-selected')).toBe('false');
+		wrapper.unmount();
+	});
+
+	it('Space outside select mode is a no-op (does NOT toggle)', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE] });
+		const r = rowEl(wrapper, 0);
+		r.focus();
+		r.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+		await nextTick();
+		expect(r.hasAttribute('aria-selected')).toBe(false);
+		wrapper.unmount();
+	});
+
+	it('Ctrl+A in select mode selects all visible rows', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		const r = rowEl(wrapper, 0);
+		r.focus();
+		r.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true }));
+		await nextTick();
+		const rows = wrapper.findAll('li.instance-row');
+		expect(rows.every((row) => row.attributes('aria-selected') === 'true')).toBe(true);
+		wrapper.unmount();
+	});
+
+	it('Esc in select mode exits select mode and clears selection', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		const r = rowEl(wrapper, 0);
+		r.focus();
+		r.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		await nextTick();
+		expect(wrapper.find('[data-testid="bulk-toolbar"]').exists()).toBe(false);
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		expect(wrapper.findAll('li.instance-row')[0]!.attributes('aria-selected')).toBe('false');
+		wrapper.unmount();
+	});
+
+	it('Delete in select mode is a no-op (does NOT open the per-row delete dialog)', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		const r = rowEl(wrapper, 0);
+		r.focus();
+		r.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+		await nextTick();
+		expect(document.body.querySelector('[data-testid="confirm-dialog"]')).toBeNull();
+		wrapper.unmount();
+	});
+
+	it('Enter in select mode still opens the focused row (existing behavior preserved)', async () => {
+		const { wrapper, store } = mountPage({ instances: [DUNE] });
+		const open = vi.spyOn(store, 'openInstance').mockResolvedValue({ kind: 'ok', value: undefined });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		const r = rowEl(wrapper, 0);
+		r.focus();
+		r.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		await flushPromises();
+		expect(open).toHaveBeenCalledWith('Books/Dune.md', 'tab');
+		wrapper.unmount();
+	});
+});
