@@ -33,7 +33,7 @@ const {
 
 const {
 	schemaErrors, renameWarningOpen, renameWarningBody, overwriteWarningOpen,
-	moveInstancesDialogOpen, moveInstancesDialogTitle, moveInstancesDialogBody,
+	moveInstancesDialogOpen, moveInstancesDialogTitle, moveInstancesDialogBody, moveInstancesDialogBusy,
 	onSave, onRenameAcknowledge, onRegenerate, onOverwriteConfirm, onMoveInstancesConfirm,
 } = useMakeTypeSaveFlow(store, draftState, router, t as (key: string, values?: Record<string, unknown>) => string, ctx);
 
@@ -271,6 +271,8 @@ const typesFolder = computed(() => makeCtx.settings$.value.typesFolder);
 			:body="moveInstancesDialogBody"
 			:options="['cancel', 'confirm']"
 			:labels="{ confirm: t('make.move-instances-dialog.confirm'), cancel: t('make.move-instances-dialog.cancel') }"
+			destructive
+			:busy="moveInstancesDialogBusy"
 			@resolve="onMoveInstancesConfirm"
 		/>
 		<DeleteTypeDialog

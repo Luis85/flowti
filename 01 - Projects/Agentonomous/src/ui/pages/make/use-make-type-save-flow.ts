@@ -16,6 +16,7 @@ export interface UseMakeTypeSaveFlow {
 	readonly moveInstancesDialogOpen:   ReturnType<typeof ref<boolean>>;
 	readonly moveInstancesDialogTitle:  ReturnType<typeof ref<string>>;
 	readonly moveInstancesDialogBody:   ReturnType<typeof ref<string>>;
+	readonly moveInstancesDialogBusy:   ReturnType<typeof ref<boolean>>;
 	onSave():                           Promise<void>;
 	onRenameAcknowledge(choice: string): Promise<void>;
 	onRegenerate(force?: boolean):      Promise<void>;
@@ -56,6 +57,7 @@ export function useMakeTypeSaveFlow(
 	const moveInstancesDialogOpen = ref(false);
 	const moveInstancesDialogTitle = ref('');
 	const moveInstancesDialogBody = ref('');
+	const moveInstancesDialogBusy = ref(false);
 
 	function surfaceError(error: MakeError): void {
 		schemaErrors.value = {};
@@ -143,9 +145,14 @@ export function useMakeTypeSaveFlow(
 	}
 
 	async function onMoveInstancesConfirm(choice: string): Promise<void> {
-		moveInstancesDialogOpen.value = false;
-		if (choice !== 'confirm') return;
+		if (choice !== 'confirm') {
+			moveInstancesDialogOpen.value = false;
+			return;
+		}
+		moveInstancesDialogBusy.value = true;
 		await attemptUpdate({ moveInstances: true });
+		moveInstancesDialogBusy.value = false;
+		moveInstancesDialogOpen.value = false;
 	}
 
 	async function onRenameAcknowledge(choice: string): Promise<void> {
@@ -176,6 +183,7 @@ export function useMakeTypeSaveFlow(
 		moveInstancesDialogOpen,
 		moveInstancesDialogTitle,
 		moveInstancesDialogBody,
+		moveInstancesDialogBusy,
 		onSave,
 		onRenameAcknowledge,
 		onRegenerate,

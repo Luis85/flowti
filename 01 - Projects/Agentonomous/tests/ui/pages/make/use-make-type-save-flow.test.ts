@@ -221,6 +221,24 @@ describe('useMakeTypeSaveFlow', () => {
 		expect(flow.moveInstancesDialogOpen?.value).toBe(false);
 	});
 
+	it('onMoveInstancesConfirm sets moveInstancesDialogBusy=true during flight, clears after', async () => {
+		const moveReport = { oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 3, failedMoves: [] };
+		let resolveUpdate!: (v: { kind: 'ok'; value: { schema: TypeSchema; moveReport: typeof moveReport } }) => void;
+		const updatePromise = new Promise<{ kind: 'ok'; value: { schema: TypeSchema; moveReport: typeof moveReport } }>((r) => { resolveUpdate = r; });
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 3 } })
+			.mockReturnValueOnce(updatePromise);
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		expect(flow.moveInstancesDialogBusy?.value).toBe(false);
+		const confirmPromise = flow.onMoveInstancesConfirm?.('confirm');
+		expect(flow.moveInstancesDialogBusy?.value).toBe(true);
+		resolveUpdate({ kind: 'ok', value: { schema: BOOK, moveReport } });
+		await confirmPromise;
+		expect(flow.moveInstancesDialogBusy?.value).toBe(false);
+		expect(flow.moveInstancesDialogOpen?.value).toBe(false);
+	});
+
 	it('onMoveInstancesConfirm cancel does NOT re-call updateType', async () => {
 		updateTypeSpy.mockResolvedValueOnce({
 			kind: 'err',

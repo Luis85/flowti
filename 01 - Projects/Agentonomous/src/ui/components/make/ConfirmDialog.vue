@@ -11,15 +11,24 @@ const props = withDefaults(defineProps<{
 	body: string;
 	options: readonly Choice[];
 	destructive?: boolean;
+	busy?: boolean;
 	labels?: Partial<Record<Choice, string>>;
-}>(), { destructive: false });
+}>(), { destructive: false, busy: false });
 
 const emit = defineEmits<{ resolve: [choice: Choice] }>();
 const { t } = useI18n();
 const dialogRef = ref<HTMLElement | null>(null);
 const openRef = toRef(props, 'open');
 
-function resolve(choice: Choice): void { emit('resolve', choice); }
+function resolve(choice: Choice): void {
+	if (props.busy) return;
+	emit('resolve', choice);
+}
+
+function onBackdropClick(): void {
+	if (props.busy) return;
+	resolve(props.options.includes('cancel') ? 'cancel' : props.options[0]!);
+}
 
 function defaultLabel(choice: Choice): string {
 	return t(`make.confirmDialog.default.${choice}`); // generic fallback keys; see i18n
@@ -33,7 +42,10 @@ function isConfirmButton(choice: Choice): boolean {
 }
 
 useFocusTrap(dialogRef, openRef, {
-	onEscape: () => { resolve(props.options.includes('cancel') ? 'cancel' : props.options[0]!); },
+	onEscape: () => {
+		if (props.busy) return;
+		resolve(props.options.includes('cancel') ? 'cancel' : props.options[0]!);
+	},
 	initialFocus: 'last', // matches existing behavior (Cancel convention)
 });
 </script>
@@ -44,7 +56,7 @@ useFocusTrap(dialogRef, openRef, {
 			v-if="open"
 			data-testid="confirm-dialog-backdrop"
 			class="confirm-dialog__backdrop"
-			@click="resolve(options.includes('cancel') ? 'cancel' : options[0]!)"
+			@click="onBackdropClick"
 		/>
 		<div
 			v-if="open"
@@ -54,6 +66,7 @@ useFocusTrap(dialogRef, openRef, {
 			aria-modal="true"
 			aria-labelledby="confirm-dialog-title"
 			aria-describedby="confirm-dialog-body"
+			:aria-busy="busy"
 			class="confirm-dialog"
 		>
 			<h2 id="confirm-dialog-title" data-testid="confirm-dialog-title">{{ title }}</h2>
@@ -64,9 +77,11 @@ useFocusTrap(dialogRef, openRef, {
 					:key="choice"
 					type="button"
 					:data-testid="`confirm-dialog-${choice}`"
-					:class="{ destructive: destructive && isConfirmButton(choice) }"
+					:class="{ destructive: destructive && isConfirmButton(choice), busy: busy && isConfirmButton(choice) }"
+					:disabled="busy"
 					@click.stop="resolve(choice)"
 				>
+					<span v-if="busy && isConfirmButton(choice)" class="confirm-dialog__spinner" aria-hidden="true" />
 					{{ buttonLabel(choice) }}
 				</button>
 			</footer>
@@ -80,4 +95,8 @@ useFocusTrap(dialogRef, openRef, {
 .confirm-dialog h2 { margin: 0 0 0.5rem 0; }
 .confirm-dialog__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
 .confirm-dialog__actions button.destructive { background: var(--text-error); color: var(--text-on-accent); }
+.confirm-dialog__actions button[disabled] { opacity: 0.6; cursor: not-allowed; }
+.confirm-dialog__actions button.busy { display: inline-flex; align-items: center; gap: 0.4rem; }
+.confirm-dialog__spinner { width: 0.75rem; height: 0.75rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: confirm-dialog-spin 0.6s linear infinite; }
+@keyframes confirm-dialog-spin { to { transform: rotate(360deg); } }
 </style>
