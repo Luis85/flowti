@@ -20,7 +20,6 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement, initialRoute?:
 
 	vue.use(pinia);
 	vue.use(router);
-	setMakeNavigateHandler((path) => { void router.push(path); });
 	if (ctx.i18n !== undefined) {
 		vue.use(ctx.i18n);
 	}
@@ -41,7 +40,17 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement, initialRoute?:
 
 	if (initialRoute !== undefined) void router.push(initialRoute);
 
-	vue.mount(el);
+	try {
+		vue.mount(el);
+	} catch (err) {
+		settingsStore.dispose();
+		throw err;
+	}
+
+	// Wire the command-palette nav bridge only after a successful mount —
+	// otherwise a mount failure leaves a handler pointing at a never-live
+	// router, and the next createVueApp would race with it.
+	setMakeNavigateHandler((path) => { void router.push(path); });
 
 	return {
 		unmount: () => {
