@@ -1722,7 +1722,67 @@ Expected: 6 tests pass.
 
 **Files:**
 - Modify: `src/ui/pages/make/MakeTypeInstances.vue` (template + script)
-- Modify: `tests/ui/pages/make/MakeTypeInstances.test.ts`
+- Modify: `tests/ui/pages/make/MakeTypeInstances.test.ts` (extend `mountPage` + add tests)
+
+- [ ] **Step 6.2.0: Extend `mountPage` to inject a `notificationsSpy` via `PluginContextKey`**
+
+The page calls `ctx?.notifications.success(...)` / `.warn(...)` via `inject(PluginContextKey)` (`MakeTypeInstances.vue:22, 28`). The current `mountPage` (line 49) only provides `MakeContextKey`, so `ctx` is `undefined` in tests today and notification calls silently no-op. The `MakeType.test.ts:46-123` pattern is the canonical extension; copy it.
+
+Edit `tests/ui/pages/make/MakeTypeInstances.test.ts`:
+
+1. Add imports near the top:
+```ts
+import { PluginContextKey } from '../../../../src/ui/plugin-context-key.js';
+import type { PluginContext } from '../../../../src/plugin.js';
+```
+
+2. Extend `mountPage` to accept and provide a notification spy:
+```ts
+function mountPage(opts: {
+	type?: TypeSchema;
+	instances?: readonly InstanceRef[] | undefined;
+	loading?: boolean;
+	error?: string | null;
+	notificationsSpy?: { success: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+} = {}) {
+	const ctx = createFakeMakeContext({
+		service: fakeMakeService({ createInstance: createInstanceSpy }),
+	});
+	const notificationsSpy = opts.notificationsSpy ?? { success: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() };
+	const pluginCtx = { notifications: notificationsSpy } as unknown as PluginContext;
+	const pinia = createPinia();
+	const wrapper = mountWithI18n(MakeTypeInstances, {
+		props: {
+			type:      opts.type      ?? BOOK,
+			instances: opts.instances,
+			loading:   opts.loading   ?? false,
+			error:     opts.error     ?? null,
+		},
+		provide: {
+			[MakeContextKey as symbol]:   ctx,
+			[PluginContextKey as symbol]: pluginCtx,
+		} as Record<PropertyKey, unknown>,
+		plugins: [pinia],
+		attachTo: document.body,
+	});
+	setActivePinia(pinia);
+	const page = new MakeTypeInstancesPage(wrapper.element as HTMLElement);
+	const store = useMakeStore();
+	const rerenderInstances = async (next: readonly InstanceRef[] | undefined): Promise<void> => {
+		await wrapper.setProps({ instances: next });
+		await nextTick();
+	};
+	return { wrapper, page, store, ctx, notificationsSpy, rerenderInstances };
+}
+```
+
+(This rolls the `rerenderInstances` extension from Chunk 5 into the same edit — if Chunk 5 already added it, just add the `notificationsSpy` parameter and provide. Existing tests that don't pass `notificationsSpy` get a fresh `vi.fn()` default and remain unaffected.)
+
+3. Re-run the existing tests to confirm zero regressions:
+```bash
+cd "01 - Projects/Agentonomous" && npx vitest run tests/ui/pages/make/MakeTypeInstances.test.ts --project unit
+```
+Expected: existing tests still pass (the new `PluginContextKey` provision is invisible to anything that doesn't reach for it).
 
 - [ ] **Step 6.2.1: Write the failing tests**
 
@@ -1748,57 +1808,50 @@ describe('MakeTypeInstances — bulk delete confirm + success', () => {
 	});
 
 	it('confirming the dialog calls store.bulkDeleteInstances with the selected paths', async () => {
-		const bulkDeleteInstances = vi.fn(async () => ({ kind: 'ok' as const, value: { deletedPaths: ['Books/Dune.md', 'Books/Neuromancer.md'], failures: [] } }));
 		const { wrapper, store } = mountPage({ instances: [DUNE, NEURO] });
-		// Stub the action on the store proxy.
-		store.bulkDeleteInstances = bulkDeleteInstances as typeof store.bulkDeleteInstances;
+		const spy = vi.spyOn(store, 'bulkDeleteInstances').mockResolvedValue({
+			kind: 'ok',
+			value: { deletedPaths: ['Books/Dune.md', 'Books/Neuromancer.md'], failures: [] },
+		});
 		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
 		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
 		await wrapper.find(`[data-testid="instance-row-checkbox-${NEURO.path}"]`).trigger('click');
 		await wrapper.find('[data-testid="bulk-toolbar-delete"]').trigger('click');
-		// Click the destructive confirm button inside the dialog.
 		const confirmBtn = document.body.querySelector('[data-testid="confirm-dialog-confirm"]') as HTMLButtonElement | null;
 		expect(confirmBtn).not.toBeNull();
 		confirmBtn!.click();
 		await flushPromises();
-		expect(bulkDeleteInstances).toHaveBeenCalledTimes(1);
-		expect(bulkDeleteInstances).toHaveBeenCalledWith('book', expect.arrayContaining(['Books/Dune.md', 'Books/Neuromancer.md']));
+		expect(spy).toHaveBeenCalledTimes(1);
+		expect(spy).toHaveBeenCalledWith('book', expect.arrayContaining(['Books/Dune.md', 'Books/Neuromancer.md']));
 		wrapper.unmount();
 	});
 
-	it('on full success: notification fires, select mode exits, selection clears', async () => {
-		const notice = vi.fn();
-		const ctx = createFakeMakeContext({
-			service: fakeMakeService({
-				deleteInstances: async () => ({ kind: 'ok', value: { deletedPaths: ['Books/Dune.md'], failures: [] } }),
-			}),
+	it('on full success: notificationsSpy.success fires, select mode exits, selection clears', async () => {
+		const { wrapper, store, notificationsSpy } = mountPage({ instances: [DUNE] });
+		vi.spyOn(store, 'bulkDeleteInstances').mockResolvedValue({
+			kind: 'ok',
+			value: { deletedPaths: ['Books/Dune.md'], failures: [] },
 		});
-		// Inject a notification port that we can spy on.
-		// (Adapt to however notification port is provided in the existing tests — see other tests in this file
-		// that assert on notifications, e.g. cascade-delete tests from Polish P0 #5.)
-		// Pseudo: ctx.notifications.notice = notice;
-		const { wrapper } = mountPage({ instances: [DUNE] }, ctx);
 		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
 		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
 		await wrapper.find('[data-testid="bulk-toolbar-delete"]').trigger('click');
 		(document.body.querySelector('[data-testid="confirm-dialog-confirm"]') as HTMLButtonElement).click();
 		await flushPromises();
-		expect(notice).toHaveBeenCalled();
-		// Select mode exited:
+		expect(notificationsSpy.success).toHaveBeenCalledTimes(1);
+		expect(notificationsSpy.success).toHaveBeenCalledWith(expect.stringMatching(/1/));   // count interpolated
 		expect(wrapper.find('[data-testid="bulk-toolbar"]').exists()).toBe(false);
 		wrapper.unmount();
 	});
 
 	it('cancelling the dialog does NOT call bulkDeleteInstances and stays in select mode with selection intact', async () => {
-		const bulkDeleteInstances = vi.fn();
 		const { wrapper, store } = mountPage({ instances: [DUNE, NEURO] });
-		store.bulkDeleteInstances = bulkDeleteInstances as typeof store.bulkDeleteInstances;
+		const spy = vi.spyOn(store, 'bulkDeleteInstances');
 		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
 		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
 		await wrapper.find('[data-testid="bulk-toolbar-delete"]').trigger('click');
 		(document.body.querySelector('[data-testid="confirm-dialog-cancel"]') as HTMLButtonElement).click();
 		await flushPromises();
-		expect(bulkDeleteInstances).not.toHaveBeenCalled();
+		expect(spy).not.toHaveBeenCalled();
 		expect(wrapper.find('[data-testid="bulk-toolbar"]').exists()).toBe(true);
 		expect(wrapper.findAll('li.instance-row')[0]!.attributes('aria-selected')).toBe('true'); // DUNE still selected
 		wrapper.unmount();
@@ -1806,7 +1859,7 @@ describe('MakeTypeInstances — bulk delete confirm + success', () => {
 });
 ```
 
-(For the notification assertion: read the existing cascade-delete notification test from `tests/ui/pages/make/MakeTypeInstances.test.ts` (search for `notice` or `notification`) to copy how the notifications port is provided to `mountPage`. The plan above uses pseudo-code for that hook because it depends on whether the existing `mountPage` already injects a fake notifications port via `ctx.notifications` or a separate injection. Use what's there.)
+**Confirm-dialog testid convention:** `ConfirmDialog.vue` renders its options as buttons with `data-testid="confirm-dialog-{choice}"` (e.g. `confirm-dialog-confirm`, `confirm-dialog-cancel`). Verify with `grep -n "data-testid" src/ui/components/make/ConfirmDialog.vue` before writing the tests; if the actual convention differs, adjust the selectors in the snippets above accordingly.
 
 - [ ] **Step 6.2.2: Run tests to verify they fail**
 
@@ -1837,12 +1890,12 @@ async function onConfirmBulkDelete(choice: 'cancel' | 'confirm' | 'save' | 'disc
 	const result = await store.bulkDeleteInstances(props.type.id, paths);
 	if (result.kind === 'err') {
 		// 'busy' guard — surface a toast and stay in select mode.
-		ctx?.notifications?.notice(t('make.instances.bulk.busy-toast'));
+		ctx?.notifications.warn(t('make.instances.bulk.busy-toast'));
 		return;
 	}
 	bulkResult.value = result.value;
 	if (result.value.failures.length === 0) {
-		ctx?.notifications?.notice(t('make.instances.bulk.notification.success', { count: result.value.deletedPaths.length }));
+		ctx?.notifications.success(t('make.instances.bulk.notification.success', { count: result.value.deletedPaths.length }));
 		// Exit select mode + clear selection (toggleSelectMode handles the clear).
 		selectMode.value = false;
 		selectedPaths.value = new Set();
@@ -1897,29 +1950,25 @@ describe('MakeTypeInstances — bulk delete partial-result dialog', () => {
 	beforeEach(() => { setActivePinia(createPinia()); document.body.innerHTML = ''; });
 
 	async function runBulkWithPartialResult(failurePath: string, succeededPath: string) {
-		const ctx = createFakeMakeContext({
-			service: fakeMakeService({
-				deleteInstances: async () => ({
-					kind: 'ok',
-					value: {
-						deletedPaths: [succeededPath],
-						failures:     [{ path: failurePath, error: 'locked' }],
-					},
-				}),
-			}),
+		const mounted = mountPage({ instances: [DUNE, NEURO] });
+		vi.spyOn(mounted.store, 'bulkDeleteInstances').mockResolvedValue({
+			kind: 'ok',
+			value: {
+				deletedPaths: [succeededPath],
+				failures:     [{ path: failurePath, error: 'locked' }],
+			},
 		});
-		const { wrapper } = mountPage({ instances: [DUNE, NEURO] }, ctx);
-		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
-		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
-		await wrapper.find(`[data-testid="instance-row-checkbox-${NEURO.path}"]`).trigger('click');
-		await wrapper.find('[data-testid="bulk-toolbar-delete"]').trigger('click');
+		await mounted.wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		await mounted.wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		await mounted.wrapper.find(`[data-testid="instance-row-checkbox-${NEURO.path}"]`).trigger('click');
+		await mounted.wrapper.find('[data-testid="bulk-toolbar-delete"]').trigger('click');
 		(document.body.querySelector('[data-testid="confirm-dialog-confirm"]') as HTMLButtonElement).click();
 		await flushPromises();
-		return wrapper;
+		return mounted;
 	}
 
 	it('on partial failure: opens the partial-result dialog with counts and (truncated) path list', async () => {
-		const wrapper = await runBulkWithPartialResult('Books/Neuromancer.md', 'Books/Dune.md');
+		const { wrapper } = await runBulkWithPartialResult('Books/Neuromancer.md', 'Books/Dune.md');
 		const dialogs = document.body.querySelectorAll('[data-testid="confirm-dialog"]');
 		// One dialog open: the partial-result dialog. (The original confirm dialog is closed.)
 		expect(dialogs).toHaveLength(1);
@@ -1931,16 +1980,15 @@ describe('MakeTypeInstances — bulk delete partial-result dialog', () => {
 	});
 
 	it('Retry calls bulkDeleteInstances with only the failed paths', async () => {
+		const { wrapper, store } = mountPage({ instances: [DUNE, NEURO] });
 		const calls: Array<readonly string[]> = [];
-		const deleteInstances = vi.fn(async (_typeId: string, paths: readonly string[]) => {
+		vi.spyOn(store, 'bulkDeleteInstances').mockImplementation(async (_typeId, paths) => {
 			calls.push(paths);
 			if (calls.length === 1) {
-				return { kind: 'ok' as const, value: { deletedPaths: ['Books/Dune.md'], failures: [{ path: 'Books/Neuromancer.md', error: 'locked' }] } };
+				return { kind: 'ok', value: { deletedPaths: ['Books/Dune.md'], failures: [{ path: 'Books/Neuromancer.md', error: 'locked' }] } };
 			}
-			return { kind: 'ok' as const, value: { deletedPaths: ['Books/Neuromancer.md'], failures: [] } };
+			return { kind: 'ok', value: { deletedPaths: ['Books/Neuromancer.md'], failures: [] } };
 		});
-		const ctx = createFakeMakeContext({ service: fakeMakeService({ deleteInstances }) });
-		const { wrapper } = mountPage({ instances: [DUNE, NEURO] }, ctx);
 		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
 		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
 		await wrapper.find(`[data-testid="instance-row-checkbox-${NEURO.path}"]`).trigger('click');
@@ -1956,32 +2004,26 @@ describe('MakeTypeInstances — bulk delete partial-result dialog', () => {
 	});
 
 	it('Dismiss closes the partial-result dialog and leaves failed paths selected', async () => {
-		const wrapper = await runBulkWithPartialResult('Books/Neuromancer.md', 'Books/Dune.md');
+		const { wrapper } = await runBulkWithPartialResult('Books/Neuromancer.md', 'Books/Dune.md');
 		(document.body.querySelector('[data-testid="confirm-dialog-cancel"]') as HTMLButtonElement).click();
 		await flushPromises();
 		expect(document.body.querySelector('[data-testid="confirm-dialog"]')).toBeNull();
-		// Still in select mode; only the failed path remains selected (the succeeded path
-		// dropped out of the list via the batch event refresh).
+		// Still in select mode; selectedPaths pruned to only the failed path.
 		expect(wrapper.find('[data-testid="bulk-toolbar"]').exists()).toBe(true);
-		// (The list itself is mocked; the production path uses the subscription handler
-		// to refresh. For this test we verify the selectedPaths set was pruned to only
-		// the failed path — easiest assertion: bulk-toolbar-count says "1 selected".)
 		expect(wrapper.find('[data-testid="bulk-toolbar-count"]').text()).toContain('1');
 		wrapper.unmount();
 	});
 
 	it('truncates the path list to the first 3 with "+N more" when failures > 3', async () => {
 		const failures = ['a', 'b', 'c', 'd', 'e'].map((n) => ({ path: `Books/${n}.md`, error: 'locked' }));
-		const ctx = createFakeMakeContext({
-			service: fakeMakeService({
-				deleteInstances: async () => ({ kind: 'ok', value: { deletedPaths: [], failures } }),
-			}),
-		});
-		const FAKE_INSTANCES: InstanceRef[] = failures.map((f, i) => ({
+		const FAKE_INSTANCES: InstanceRef[] = failures.map((f) => ({
 			typeId: 'book', path: f.path, title: f.path.split('/').pop()!.replace('.md',''),
 			createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z',
 		}));
-		const { wrapper } = mountPage({ instances: FAKE_INSTANCES }, ctx);
+		const { wrapper, store } = mountPage({ instances: FAKE_INSTANCES });
+		vi.spyOn(store, 'bulkDeleteInstances').mockResolvedValue({
+			kind: 'ok', value: { deletedPaths: [], failures },
+		});
 		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
 		for (const f of failures) {
 			await wrapper.find(`[data-testid="instance-row-checkbox-${f.path}"]`).trigger('click');
@@ -2019,12 +2061,12 @@ async function onConfirmBulkDelete(choice: 'cancel' | 'confirm' | 'save' | 'disc
 	if (paths.length === 0) return;
 	const result = await store.bulkDeleteInstances(props.type.id, paths);
 	if (result.kind === 'err') {
-		ctx?.notifications?.notice(t('make.instances.bulk.busy-toast'));
+		ctx?.notifications.warn(t('make.instances.bulk.busy-toast'));
 		return;
 	}
 	bulkResult.value = result.value;
 	if (result.value.failures.length === 0) {
-		ctx?.notifications?.notice(t('make.instances.bulk.notification.success', { count: result.value.deletedPaths.length }));
+		ctx?.notifications.success(t('make.instances.bulk.notification.success', { count: result.value.deletedPaths.length }));
 		selectMode.value = false;
 		selectedPaths.value = new Set();
 		bulkResult.value = null;
@@ -2060,12 +2102,12 @@ async function onResolvePartialDialog(choice: 'cancel' | 'confirm' | 'save' | 'd
 		const retryPaths = report.failures.map((f) => f.path);
 		const retry = await store.bulkDeleteInstances(props.type.id, retryPaths);
 		if (retry.kind === 'err') {
-			ctx?.notifications?.notice(t('make.instances.bulk.busy-toast'));
+			ctx?.notifications.warn(t('make.instances.bulk.busy-toast'));
 			return;
 		}
 		bulkResult.value = retry.value;
 		if (retry.value.failures.length === 0) {
-			ctx?.notifications?.notice(t('make.instances.bulk.notification.success', { count: retry.value.deletedPaths.length }));
+			ctx?.notifications.success(t('make.instances.bulk.notification.success', { count: retry.value.deletedPaths.length }));
 			selectMode.value = false;
 			selectedPaths.value = new Set();
 			bulkResult.value = null;
@@ -2242,7 +2284,7 @@ Expected: most pass for "no-op" cases by accident, FAILs for Space, Ctrl+A, Esc.
 
 - [ ] **Step 7.1.3: Extend `onRowKeydown` to handle select-mode keys**
 
-Edit `src/ui/pages/make/MakeTypeInstances.vue`. Modify the existing `onRowKeydown` (currently lines 109–123) to branch on `selectMode.value`:
+Edit `src/ui/pages/make/MakeTypeInstances.vue`. Locate the existing `onRowKeydown` function by name (it was at lines 109–123 on master, but lines have shifted after Chunks 5/6 edits). Replace it with the select-mode-aware version:
 
 ```ts
 function onRowKeydown(e: KeyboardEvent, index: number): void {
