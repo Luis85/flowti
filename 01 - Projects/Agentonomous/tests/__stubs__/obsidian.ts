@@ -32,6 +32,16 @@ export class ItemView {
 	setState(_state: unknown, _result: unknown): Promise<void> { return Promise.resolve(); }
 }
 
+export class FileView extends ItemView {
+	file: TFile | null = null;
+	allowNoFile = true;
+	navigation = true;
+	canAcceptExtension(_extension: string): boolean { return false; }
+	onLoadFile(_file: TFile): Promise<void> { return Promise.resolve(); }
+	onUnloadFile(_file: TFile): Promise<void> { return Promise.resolve(); }
+	onRename(_file: TFile): Promise<void> { return Promise.resolve(); }
+}
+
 export class WorkspaceLeaf {}
 
 export class Plugin {
