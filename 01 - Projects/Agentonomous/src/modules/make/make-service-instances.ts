@@ -3,7 +3,7 @@ import { err, ok, type Result } from '../../domain/shared/result.js';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
 import type { FieldError, MakeError } from '../../domain/make/errors.js';
-import type { CreateInstanceOptions, InstanceRef, NonEmptyArray } from '../../domain/make/types.js';
+import type { CreateInstanceOptions, InstanceRef, ListTypesResult, NonEmptyArray } from '../../domain/make/types.js';
 import {
 	renderInstanceContent, resolveInstancePath, validateInstanceValues,
 } from '../../domain/make/instance-ops.js';
@@ -13,6 +13,7 @@ export type InstanceServiceMethods = Pick<MakeService, 'listInstances' | 'create
 
 export interface InstanceOpsPeers {
 	loadType: (typeId: string) => Promise<Result<TypeSchema, MakeError>>;
+	listTypes: () => Promise<Result<ListTypesResult, MakeError>>;
 }
 
 function basename(path: string): string {
@@ -20,12 +21,22 @@ function basename(path: string): string {
 	return idx === -1 ? path : path.slice(idx + 1);
 }
 
+function dirname(path: string): string {
+	const idx = path.lastIndexOf('/');
+	return idx === -1 ? '' : path.slice(0, idx);
+}
+
+function inferTypeId(path: string, types: readonly TypeSchema[]): string | null {
+	const parent = dirname(path);
+	const match = types.find((s) => s.instancesFolder.replace(/\/$/, '') === parent);
+	return match?.id ?? null;
+}
+
 export function createInstanceOps(
 	ports: ModulePorts,
 	_getSettings: () => MakeSettings,
 	peers: InstanceOpsPeers,
 ): InstanceServiceMethods {
-	const notImpl = <T>(): Promise<Result<T, MakeError>> => Promise.resolve(err({ kind: 'not-implemented' }));
 
 	async function listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>> {
 		const typeResult = await peers.loadType(typeId);
@@ -101,9 +112,20 @@ export function createInstanceOps(
 		return ok(ref);
 	}
 
+	async function deleteInstance(path: string): Promise<Result<void, MakeError>> {
+		const deleteResult = await ports.vault.delete(path);
+		if (deleteResult.kind === 'err') return err({ kind: 'vault-error', cause: String(deleteResult.error) });
+
+		const listResult = await peers.listTypes();
+		const types = listResult.kind === 'ok' ? listResult.value.types : [];
+		const typeId = inferTypeId(path, types);
+		ports.eventBus.emit('make:instance-deleted', { typeId, path });
+		return ok(undefined);
+	}
+
 	return {
 		listInstances,
 		createInstance,
-		deleteInstance: () => notImpl(),
+		deleteInstance,
 	};
 }

@@ -39,7 +39,8 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 	typesRef.current = types;
 
 	const instances = createInstanceOps(ports, getSettings, {
-		loadType: (typeId) => typesRef.current!.loadType(typeId),
+		loadType:  (typeId) => typesRef.current!.loadType(typeId),
+		listTypes: () => typesRef.current!.listTypes(),
 	});
 	instancesRef.current = instances;
 

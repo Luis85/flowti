@@ -214,7 +214,10 @@ export const useMakeStore = defineStore('make', () => {
 			// for same-session calls but ensures cache consistency if emitted cross-session.
 		},
 		onInstanceCreated: ({ typeId }) => { safeRefresh('instance-created', () => loadInstances(typeId)); },
-		onInstanceDeleted: ({ typeId }) => { safeRefresh('instance-deleted', () => loadInstances(typeId)); },
+		onInstanceDeleted: ({ typeId }) => {
+			if (typeId === null) return; // orphan delete — no cached list to refresh
+			safeRefresh('instance-deleted', () => loadInstances(typeId));
+		},
 		// instancesFolder lives on TypeSchema; reload types so cached schema reflects the new path.
 		onInstancesMoved: () => { safeRefresh('instances-moved', () => loadTypes()); },
 	});

@@ -60,10 +60,53 @@ describe('makeService — read-only', () => {
 		const r = await svc.loadType('book');
 		expect(r).toEqual({ kind: 'ok', value: BOOK });
 	});
-	it('deleteInstance returns not-implemented', async () => {
-		const svc = createMakeService(fakeModulePorts(), () => MAKE_DEFAULTS);
-		const r = await svc.deleteInstance('some/path.md');
-		expect(r).toMatchObject({ kind: 'err', error: { kind: 'not-implemented' } });
+});
+
+describe('makeService.deleteInstance', () => {
+	it('calls vault.delete and emits make:instance-deleted with matched typeId', async () => {
+		const vault = fakeVault({
+			'Make/Types/book.json': serializeTypeSchema(BOOK), // BOOK has instancesFolder 'Books'
+			'Books/Dune.md':        '---\ntype: Book\n---\nx',
+		});
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		await svc.listTypes(); // prime any cache that might exist
+		const result = await svc.deleteInstance('Books/Dune.md');
+		expect(result.kind).toBe('ok');
+		expect(vault.delete).toHaveBeenCalledWith('Books/Dune.md');
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:instance-deleted', { typeId: 'book', path: 'Books/Dune.md' });
+	});
+
+	it('emits with typeId null when no schema matches the parent folder', async () => {
+		const vault = fakeVault({ 'Random/Orphan.md': 'x' });
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const result = await svc.deleteInstance('Random/Orphan.md');
+		expect(result.kind).toBe('ok');
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:instance-deleted', { typeId: null, path: 'Random/Orphan.md' });
+	});
+
+	it('uses exact-parent-folder match, not prefix', async () => {
+		const CLASSICS: TypeSchema = { ...BOOK, id: 'classics', name: 'Classic', instancesFolder: 'Books/Classics' };
+		const vault = fakeVault({
+			'Make/Types/book.json':     serializeTypeSchema(BOOK),
+			'Make/Types/classics.json': serializeTypeSchema(CLASSICS),
+			'Books/Classics/Dune.md':   'x',
+		});
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const result = await svc.deleteInstance('Books/Classics/Dune.md');
+		expect(result.kind).toBe('ok');
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:instance-deleted', { typeId: 'classics', path: 'Books/Classics/Dune.md' });
+	});
+
+	it('returns vault-error on vault failure', async () => {
+		const vault = fakeVault({}, { deleteError: 'perm denied' });
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const result = await svc.deleteInstance('x.md');
+		expect(result.kind).toBe('err');
+		if (result.kind !== 'err') throw new Error('unreachable');
+		expect(result.error.kind).toBe('vault-error');
 	});
 });
 
