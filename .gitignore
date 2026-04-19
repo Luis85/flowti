@@ -12,6 +12,7 @@ node_modules
 
 .claude/settings.local.json
 .claude/worktrees
+.claude/scheduled_tasks.lock
 .superpowers
 
 /** Ignore my digital garden **/
