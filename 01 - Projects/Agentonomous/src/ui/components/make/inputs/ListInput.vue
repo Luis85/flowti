@@ -6,6 +6,8 @@ const props = defineProps<{
 	field: Extract<Field, { kind: 'list' }>;
 	modelValue: readonly string[];
 	error?: string;
+	ariaInvalid?: boolean | 'true' | 'false';
+	ariaDescribedby?: string;
 }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: readonly string[]): void }>();
 
@@ -47,10 +49,13 @@ function onDraftKeydown(ev: KeyboardEvent): void {
 				{{ chip }}
 				<button type="button" :data-testid="`chip-remove-${field.name}-${i}`" @click="remove(i)">×</button>
 			</span>
+			<!-- aria-invalid/aria-describedby applied to the draft input — the only single editable control in this composite widget. -->
 			<input
 				v-model="draft"
 				type="text"
 				:placeholder="field.required && modelValue.length === 0 ? 'Add at least one' : 'Add...'"
+				:aria-invalid="ariaInvalid"
+				:aria-describedby="ariaDescribedby"
 				:data-testid="`input-list-draft-${field.name}`"
 				@keydown="onDraftKeydown"
 			>

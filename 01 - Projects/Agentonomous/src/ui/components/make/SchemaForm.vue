@@ -30,6 +30,8 @@ const { t } = useI18n();
 const FILENAME_PSEUDO_FIELD: Extract<Field, { kind: 'text' }> = {
 	kind: 'text',
 	name: '__filename__',
+	label: t('make.form.filename'),
+	description: t('make.form.filename-help'),
 	required: true,
 };
 
@@ -172,17 +174,12 @@ function setTitleModel(value: string): void {
 	>
 		<section data-testid="form-title-section" class="schema-form__field">
 			<template v-if="titleField !== null">
-				<label class="schema-form__label">
-					{{ titleField.label ?? titleField.name }}<span v-if="titleField.required" class="make-field-required">*</span>
-					<small class="schema-form__suffix">{{ t('make.form.title-suffix') }}</small>
-				</label>
-				<small v-if="titleField.description" class="schema-form__help">{{ titleField.description }}</small>
 				<div data-testid="form-title-input">
 					<TextInput
 						:field="titleField"
 						:model-value="titleModel()"
 						:error="errorMessage(titleField.name)"
-						:aria-invalid="errorFor(titleField.name) !== null ? 'true' : undefined"
+						:aria-invalid="errorFor(titleField.name) !== null"
 						:aria-describedby="errorFor(titleField.name) !== null ? 'form-title-error' : undefined"
 						@update:model-value="setTitleModel"
 					/>
@@ -197,16 +194,12 @@ function setTitleModel(value: string): void {
 				</p>
 			</template>
 			<template v-else>
-				<label class="schema-form__label">
-					{{ t('make.form.filename') }}<span class="make-field-required">*</span>
-					<small class="schema-form__suffix">{{ t('make.form.filename-help') }}</small>
-				</label>
 				<div data-testid="form-filename-input">
 					<TextInput
 						:field="FILENAME_PSEUDO_FIELD"
 						:model-value="explicitFilename"
 						:error="filenameErrorMessage"
-						:aria-invalid="filenameError !== null ? 'true' : undefined"
+						:aria-invalid="filenameError !== null"
 						:aria-describedby="filenameError !== null ? 'form-filename-error' : undefined"
 						@update:model-value="(v: string) => { explicitFilename = v; }"
 					/>
@@ -228,10 +221,6 @@ function setTitleModel(value: string): void {
 				:key="field.name"
 				class="make-field-row schema-form__field"
 			>
-				<label class="schema-form__label">
-					{{ field.label ?? field.name }}<span v-if="field.required" class="make-field-required">*</span>
-				</label>
-				<small v-if="field.description" class="schema-form__help">{{ field.description }}</small>
 				<div :data-testid="`form-field-${field.name}`">
 					<component
 						:is="INPUT_COMPONENTS[field.kind]"
@@ -239,7 +228,7 @@ function setTitleModel(value: string): void {
 						:model-value="values[field.name]"
 						:error="errorMessage(field.name)"
 						:aria-required="field.required ? 'true' : undefined"
-						:aria-invalid="errorFor(field.name) !== null ? 'true' : undefined"
+						:aria-invalid="errorFor(field.name) !== null"
 						:aria-describedby="errorFor(field.name) !== null ? `form-field-${field.name}-error` : undefined"
 						@update:model-value="(v: unknown) => setFieldValue(field.name, v)"
 					/>
@@ -280,10 +269,6 @@ function setTitleModel(value: string): void {
 .schema-form { display: flex; flex-direction: column; gap: 0.75rem; }
 .schema-form__fields { display: flex; flex-direction: column; gap: 0.75rem; }
 .schema-form__field { display: flex; flex-direction: column; gap: 0.25rem; }
-.schema-form__label { font-size: 0.875rem; }
-.schema-form__suffix { color: var(--text-muted); margin-left: 0.25rem; font-size: 0.75rem; }
-.schema-form__help { font-size: 0.75rem; color: var(--text-muted); }
-.make-field-required { color: var(--text-error); margin-left: 0.125rem; }
 .make-field-error { font-size: 0.75rem; color: var(--text-error); margin: 0; }
 .schema-form__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
 </style>

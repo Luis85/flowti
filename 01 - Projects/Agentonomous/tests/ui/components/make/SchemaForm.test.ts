@@ -135,4 +135,26 @@ describe('SchemaForm', () => {
 		expect(wrapper.emitted('submit')).toBeFalsy();
 		expect(page.filenameError).not.toBeNull();
 	});
+
+	it('forwards aria-invalid and aria-describedby to the inner input on error', async () => {
+		const serverErrors: FieldError[] = [
+			{ kind: 'required-missing', fieldName: 'title' },
+		];
+		const { page } = mountForm({ schema: BOOK_SCHEMA_WITH_TITLE, serverErrors });
+		await nextTick();
+		const inner = page.titleInput;
+		expect(inner).not.toBeNull();
+		expect(inner?.getAttribute('aria-invalid')).toBe('true');
+		expect(inner?.getAttribute('aria-describedby')).toBe('form-title-error');
+	});
+
+	it('renders each field label exactly once (no SchemaForm/Input duplication)', async () => {
+		const { wrapper } = mountForm({ schema: BOOK_SCHEMA_WITH_TITLE });
+		await nextTick();
+		const root = wrapper.element as HTMLElement;
+		const labels = Array.from(root.querySelectorAll('label'));
+		// The author field has a unique name not shared by any control id, suffix, etc.
+		const authorLabels = labels.filter((l) => l.textContent?.includes('author') === true);
+		expect(authorLabels.length).toBe(1);
+	});
 });

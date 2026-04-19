@@ -5,6 +5,8 @@ defineProps<{
 	field: Extract<Field, { kind: 'checkbox' }>;
 	modelValue: boolean;
 	error?: string;
+	ariaInvalid?: boolean | 'true' | 'false';
+	ariaDescribedby?: string;
 }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>();
 </script>
@@ -15,6 +17,8 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>();
 			<input
 				type="checkbox"
 				:checked="modelValue"
+				:aria-invalid="ariaInvalid"
+				:aria-describedby="ariaDescribedby"
 				:data-testid="`input-checkbox-${field.name}`"
 				@change="emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
 			>

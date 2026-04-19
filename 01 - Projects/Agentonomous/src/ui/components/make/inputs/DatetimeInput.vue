@@ -6,6 +6,8 @@ const props = defineProps<{
 	field: Extract<Field, { kind: 'datetime' }>;
 	modelValue: Date | null;
 	error?: string;
+	ariaInvalid?: boolean | 'true' | 'false';
+	ariaDescribedby?: string;
 }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: Date | null): void }>();
 
@@ -37,6 +39,8 @@ function onInput(ev: Event): void {
 			type="datetime-local"
 			:value="displayValue"
 			:required="field.required"
+			:aria-invalid="ariaInvalid"
+			:aria-describedby="ariaDescribedby"
 			:data-testid="`input-datetime-${field.name}`"
 			@input="onInput"
 		>

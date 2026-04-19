@@ -6,6 +6,8 @@ const props = defineProps<{
 	field: Extract<Field, { kind: 'text' }>;
 	modelValue: string;
 	error?: string;
+	ariaInvalid?: boolean | 'true' | 'false';
+	ariaDescribedby?: string;
 }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>();
 
@@ -22,6 +24,8 @@ const id = computed(() => `make-text-${props.field.name}`);
 			type="text"
 			:value="modelValue"
 			:required="field.required"
+			:aria-invalid="ariaInvalid"
+			:aria-describedby="ariaDescribedby"
 			:data-testid="`input-text-${field.name}`"
 			@input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
 		>

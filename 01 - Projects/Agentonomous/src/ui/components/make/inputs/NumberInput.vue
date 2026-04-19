@@ -6,6 +6,8 @@ const props = defineProps<{
 	field: Extract<Field, { kind: 'number' }>;
 	modelValue: number | null;
 	error?: string;
+	ariaInvalid?: boolean | 'true' | 'false';
+	ariaDescribedby?: string;
 }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: number | null): void }>();
 
@@ -31,6 +33,8 @@ function onInput(ev: Event): void {
 			type="number"
 			:value="displayValue"
 			:required="field.required"
+			:aria-invalid="ariaInvalid"
+			:aria-describedby="ariaDescribedby"
 			:data-testid="`input-number-${field.name}`"
 			@input="onInput"
 		>
