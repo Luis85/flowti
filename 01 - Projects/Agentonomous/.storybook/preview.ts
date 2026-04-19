@@ -2,10 +2,41 @@ import type { Preview, Decorator } from '@storybook/vue3-vite';
 import { setup } from '@storybook/vue3-vite';
 import { createPinia, setActivePinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
+import { createI18n } from 'vue-i18n';
+import { ref, readonly } from 'vue';
 import { PluginContextKey } from '../src/ui/plugin-context-key.js';
+import { MakeContextKey } from '../src/ui/make-context-key.js';
+import { MAKE_DEFAULTS } from '../src/modules/make/make-settings.js';
+import type { MakeContext } from '../src/modules/make/make-context.js';
+import type { MakeService } from '../src/modules/make/make-service.js';
+import coreMessages from '../src/modules/core/locales/en.json' with { type: 'json' };
+import makeMessages from '../src/modules/make/locales/en.json' with { type: 'json' };
+import eventInspectorMessages from '../src/modules/event-inspector/locales/en.json' with { type: 'json' };
+import fileDetailMessages from '../src/modules/file-detail/locales/en.json' with { type: 'json' };
+import healthMonitorMessages from '../src/modules/health-monitor/locales/en.json' with { type: 'json' };
 import './obsidian-theme.css';
 
 const Stub = { template: '<div />' };
+
+const notImpl = () => Promise.resolve({ kind: 'err' as const, error: { kind: 'not-implemented' as const } });
+const stubMakeService: MakeService = {
+	listTypes:          () => Promise.resolve({ kind: 'ok' as const, value: [] }),
+	loadType:           (id) => Promise.resolve({ kind: 'err' as const, error: { kind: 'type-not-found' as const, typeId: id } }),
+	createType:         notImpl,
+	updateType:         notImpl,
+	deleteType:         notImpl,
+	listInstances:      () => Promise.resolve({ kind: 'ok' as const, value: [] }),
+	createInstance:     notImpl,
+	deleteInstance:     notImpl,
+	regenerateBaseFile: notImpl,
+	toggleFavorite:     () => Promise.resolve({ kind: 'ok' as const, value: true }),
+	getKpis:            () => Promise.resolve({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] }),
+};
+
+function createStubMakeContext(): MakeContext {
+	const settings$ = ref({ ...MAKE_DEFAULTS });
+	return { service: stubMakeService, settings$: readonly(settings$), subscribe: () => () => {} };
+}
 
 setup((app) => {
 	// NOTE: no Pinia installed on the app on purpose.  Pinia is created
@@ -23,7 +54,24 @@ setup((app) => {
 			{ path: '/make/types/:typeId', component: Stub },
 		],
 	}));
+	app.use(createI18n({
+		legacy: false,
+		locale: 'en',
+		fallbackLocale: 'en',
+		missingWarn: false,
+		fallbackWarn: false,
+		messages: {
+			en: {
+				...coreMessages,
+				...makeMessages,
+				...eventInspectorMessages,
+				...fileDetailMessages,
+				...healthMonitorMessages,
+			},
+		},
+	}));
 	app.provide(PluginContextKey, {} as never);
+	app.provide(MakeContextKey, createStubMakeContext());
 });
 
 /**
