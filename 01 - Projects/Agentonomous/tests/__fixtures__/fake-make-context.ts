@@ -33,6 +33,7 @@ export function createFakeMakeContext(overrides: {
 	subscribe?: (handlers: MakeEventHandlers) => () => void;
 	workspace?: WorkspacePort;
 	logger?: LoggerPort;
+	kpisDebounceMs?: number;
 } = {}): MakeContext {
 	const settings$ = ref(overrides.settings ?? { ...MAKE_DEFAULTS });
 	return {
@@ -41,5 +42,8 @@ export function createFakeMakeContext(overrides: {
 		subscribe: overrides.subscribe ?? (() => () => {}),
 		workspace: overrides.workspace ?? fakeWorkspace().port,
 		logger:    overrides.logger    ?? fakeLogger(),
+		// Tests flush setTimeout(0) to drive refreshes deterministically;
+		// debouncing at 0ms matches that cadence. Production defaults to 150ms.
+		kpisDebounceMs: overrides.kpisDebounceMs ?? 0,
 	};
 }

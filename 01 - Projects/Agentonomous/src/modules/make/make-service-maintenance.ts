@@ -68,12 +68,20 @@ export function createMaintenanceOps(
 			return { typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] };
 		}
 		const types = typesResult.value.types;
+		// Fan out listInstances in parallel — the previous serial await loop
+		// made a vault with N types do N sequential folder scans on every
+		// mutation event (debounce now coalesces bursts, but a single refresh
+		// still benefits from parallelism).
+		const perTypeResults = await Promise.all(
+			types.map(async (type) => {
+				const list = await peers.listInstances(type.id);
+				return { typeId: type.id, refs: list.kind === 'ok' ? list.value : [] };
+			}),
+		);
 		const perType: Record<string, number> = {};
 		const all: InstanceRef[] = [];
-		for (const type of types) {
-			const list = await peers.listInstances(type.id);
-			const refs = list.kind === 'ok' ? list.value : [];
-			perType[type.id] = refs.length;
+		for (const { typeId, refs } of perTypeResults) {
+			perType[typeId] = refs.length;
 			for (const r of refs) all.push(r);
 		}
 		const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;

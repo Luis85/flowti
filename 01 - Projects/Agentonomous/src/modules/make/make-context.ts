@@ -27,4 +27,12 @@ export type MakeContext = {
 	readonly subscribe: (handlers: MakeEventHandlers) => () => void;
 	readonly workspace: WorkspacePort;
 	readonly logger:    LoggerPort;
+	/**
+	 * Trailing-debounce window for event-driven KPI refreshes. When the
+	 * store receives a burst of make:* mutation events (e.g., bulk-delete
+	 * firing N instance-deleted events), it coalesces them so getKpis
+	 * runs once instead of N times. Defaults to 150ms when unset.
+	 * Tests may set this to 0 to opt out of debouncing.
+	 */
+	readonly kpisDebounceMs?: number;
 };

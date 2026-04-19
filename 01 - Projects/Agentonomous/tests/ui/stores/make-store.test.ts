@@ -653,4 +653,19 @@ describe('make-store — kpis event subscriptions', () => {
 		await new Promise((r) => setTimeout(r, 0));
 		expect(getKpis).toHaveBeenCalled();
 	});
+
+	it('coalesces a burst of mutation events into a single kpis refresh (trailing debounce)', async () => {
+		// kpisDebounceMs=0 in the fake still uses setTimeout(…,0) as its
+		// trailing window; firing events back-to-back within a single tick
+		// should result in exactly one getKpis call once the macrotask runs.
+		const { handlers, getKpis } = setupWithGetKpis();
+		handlers.onInstanceCreated?.({ typeId: 'x', path: 'X/a.md' });
+		handlers.onInstanceCreated?.({ typeId: 'x', path: 'X/b.md' });
+		handlers.onInstanceCreated?.({ typeId: 'x', path: 'X/c.md' });
+		handlers.onInstanceDeleted?.({ typeId: 'x', path: 'X/a.md' });
+		handlers.onInstancesDeletedBatch?.({ typeId: 'x', deletedPaths: ['X/b.md'], failures: [] });
+		expect(getKpis).not.toHaveBeenCalled();
+		await new Promise((r) => setTimeout(r, 0));
+		expect(getKpis).toHaveBeenCalledTimes(1);
+	});
 });
