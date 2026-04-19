@@ -15,6 +15,30 @@ export class MakeTypesPage {
 		return this.root.querySelector<HTMLButtonElement>(`[data-testid="favorite-star-${typeId}"]`);
 	}
 
+	get corruptBanner(): HTMLElement | null { return this.el('corrupt-banner'); }
+	get corruptBannerToggle(): HTMLButtonElement | null {
+		return this.root.querySelector<HTMLButtonElement>('[data-testid="corrupt-banner-toggle"]');
+	}
+	get corruptBannerRefresh(): HTMLButtonElement | null {
+		return this.root.querySelector<HTMLButtonElement>('[data-testid="corrupt-banner-refresh"]');
+	}
+	get corruptDetails(): HTMLElement | null { return this.el('corrupt-details'); }
+	corruptOpen(index: number): HTMLButtonElement | null {
+		return this.root.querySelector<HTMLButtonElement>(`[data-testid="corrupt-open-${index}"]`);
+	}
+	corruptDelete(index: number): HTMLButtonElement | null {
+		return this.root.querySelector<HTMLButtonElement>(`[data-testid="corrupt-delete-${index}"]`);
+	}
+	get confirmDialog(): HTMLElement | null {
+		return document.querySelector<HTMLElement>('[data-testid="confirm-dialog"]');
+	}
+	get confirmDialogConfirm(): HTMLButtonElement | null {
+		return document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]');
+	}
+	get confirmDialogCancel(): HTMLButtonElement | null {
+		return document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-cancel"]');
+	}
+
 	private el(testId: string): HTMLElement | null {
 		return this.root.querySelector(`[data-testid="${testId}"]`);
 	}

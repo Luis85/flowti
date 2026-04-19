@@ -1,11 +1,21 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import { useMakeStore } from '../../stores/make-store.js';
+import { useMakeContext } from '../../composables/use-make-context.js';
+import ConfirmDialog from '../../components/make/ConfirmDialog.vue';
+import type { CorruptTypeRef, SchemaError, IoError } from '../../../domain/make/errors.js';
+
 const { t } = useI18n();
 const store = useMakeStore();
-const { typesLoading, typesError, typesSortedByName, instanceCountByTypeId, instancesLoading } = storeToRefs(store);
+const ctx = useMakeContext();
+const { typesLoading, typesError, typesSortedByName, instanceCountByTypeId, instancesLoading, issues } = storeToRefs(store);
+
+const showCorruptDetails = ref(false);
+const pendingDelete = ref<CorruptTypeRef | null>(null);
+
+const typesFolder = computed(() => ctx.settings$.value.typesFolder);
 
 onMounted(async () => {
 	await store.loadTypes();
@@ -20,6 +30,32 @@ function countLabel(typeId: string): string {
 async function onRefresh(): Promise<void> {
 	await store.refreshAll();
 	await store.loadInstancesForAll();
+}
+
+function reasonText(error: SchemaError | IoError): string {
+	const key = `make.corrupt.${error.kind}`;
+	const params: Record<string, unknown> = {};
+	if ('reason' in error)      params['reason']    = error.reason;
+	if ('cause' in error)       params['cause']     = error.cause;
+	if ('key' in error)         params['key']       = error.key;
+	if ('received' in error)    params['received']  = error.received;
+	if ('name' in error)        params['name']      = error.name;
+	if ('fieldName' in error)   params['fieldName'] = error.fieldName;
+	if ('path' in error)        params['path']      = error.path;
+	return t(key, params);
+}
+
+async function onCorruptRefresh(): Promise<void> {
+	await store.loadTypes();
+}
+
+function askDelete(issue: CorruptTypeRef): void { pendingDelete.value = issue; }
+
+async function onConfirmDelete(choice: 'confirm' | 'cancel' | 'save' | 'discard' | 'reject'): Promise<void> {
+	const target = pendingDelete.value;
+	pendingDelete.value = null;
+	if (target === null || choice !== 'confirm') return;
+	await store.deleteCorruptFile(target.path);
 }
 </script>
 
@@ -50,6 +86,80 @@ async function onRefresh(): Promise<void> {
 				</button>
 			</div>
 		</header>
+
+		<aside
+			v-if="issues.length > 0"
+			data-testid="corrupt-banner"
+			class="make-types__corrupt-banner"
+			role="status"
+		>
+			<div class="make-types__corrupt-summary">
+				<span class="make-types__corrupt-message">
+					{{ t('make.corrupt.banner', { count: issues.length, folder: typesFolder }) }}
+				</span>
+				<div class="make-types__corrupt-actions">
+					<button
+						type="button"
+						data-testid="corrupt-banner-toggle"
+						:aria-expanded="showCorruptDetails ? 'true' : 'false'"
+						@click="showCorruptDetails = !showCorruptDetails"
+					>
+						{{ showCorruptDetails ? t('make.corrupt.hide') : t('make.corrupt.show') }}
+					</button>
+					<button
+						type="button"
+						data-testid="corrupt-banner-refresh"
+						@click="onCorruptRefresh"
+					>
+						{{ t('make.corrupt.refresh') }}
+					</button>
+				</div>
+			</div>
+			<ul
+				v-if="showCorruptDetails"
+				data-testid="corrupt-details"
+				class="make-types__corrupt-list"
+			>
+				<li
+					v-for="(issue, i) in issues"
+					:key="issue.path"
+					:data-testid="`corrupt-row-${i}`"
+					class="make-types__corrupt-row"
+				>
+					<span class="make-types__corrupt-filename">{{ issue.filename }}</span>
+					<span class="make-types__corrupt-reason">{{ reasonText(issue.error) }}</span>
+					<div class="make-types__corrupt-row-actions">
+						<button
+							type="button"
+							:data-testid="`corrupt-open-${i}`"
+							:aria-label="t('make.corrupt.openLabel', { filename: issue.filename })"
+							@click="store.openInstance(issue.path, 'tab')"
+						>
+							{{ t('make.corrupt.open') }}
+						</button>
+						<button
+							type="button"
+							:data-testid="`corrupt-delete-${i}`"
+							:aria-label="t('make.corrupt.deleteLabel', { filename: issue.filename })"
+							class="make-types__corrupt-delete"
+							@click="askDelete(issue)"
+						>
+							{{ t('make.corrupt.delete') }}
+						</button>
+					</div>
+				</li>
+			</ul>
+		</aside>
+
+		<ConfirmDialog
+			:open="pendingDelete !== null"
+			:title="pendingDelete ? t('make.corrupt.delete-confirm.title', { filename: pendingDelete.filename }) : ''"
+			:body="t('make.corrupt.delete-confirm.body')"
+			:options="['cancel', 'confirm']"
+			:labels="{ confirm: t('make.corrupt.delete-confirm.confirm'), cancel: t('make.corrupt.delete-confirm.cancel') }"
+			:destructive="true"
+			@resolve="onConfirmDelete"
+		/>
 
 		<div v-if="typesError" data-testid="make-types-error" class="make-types__error" role="alert">
 			{{ typesError }}
@@ -116,4 +226,15 @@ async function onRefresh(): Promise<void> {
 .make-types__name { grid-area: name; font-weight: 600; }
 .make-types__description { grid-area: desc; color: var(--text-muted); font-size: 0.875rem; }
 .make-types__count { grid-area: count; color: var(--text-muted); font-size: 0.875rem; white-space: nowrap; }
+
+.make-types__corrupt-banner { padding: 0.5rem 0.75rem; border: 1px solid var(--text-warning, var(--text-error)); border-radius: 4px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 0.5rem; }
+.make-types__corrupt-summary { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.make-types__corrupt-message { font-weight: 500; }
+.make-types__corrupt-actions { display: flex; gap: 0.5rem; }
+.make-types__corrupt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.make-types__corrupt-row { display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; align-items: center; padding: 0.25rem 0; border-top: 1px solid var(--background-modifier-border); }
+.make-types__corrupt-filename { font-family: var(--font-monospace, monospace); }
+.make-types__corrupt-reason { color: var(--text-muted); font-size: 0.875rem; }
+.make-types__corrupt-row-actions { display: flex; gap: 0.25rem; }
+.make-types__corrupt-delete { color: var(--text-error); }
 </style>
