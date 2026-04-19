@@ -1,4 +1,4 @@
-import type { NonEmptyArray, TypeId, MoveReport } from './types.js';
+import type { NonEmptyArray, TypeId } from './types.js';
 
 export type FieldRename = {
 	readonly oldName: string;
@@ -38,8 +38,7 @@ export type MakeError =
 	| { readonly kind: 'no-title-field' }
 	| { readonly kind: 'base-generation-failed'; readonly cause: string }
 	| { readonly kind: 'not-implemented'; readonly feature?: string }
-	| { readonly kind: 'instances-move-required'; readonly oldFolder: string; readonly newFolder: string; readonly count: number }
-	| { readonly kind: 'partial-move';            readonly moveReport: MoveReport };
+	| { readonly kind: 'instances-move-required'; readonly oldFolder: string; readonly newFolder: string; readonly count: number };
 
 export type IoError = {
 	readonly kind: 'io-error';

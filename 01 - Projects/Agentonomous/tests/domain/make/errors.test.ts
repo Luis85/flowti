@@ -14,7 +14,6 @@ describe('error unions', () => {
 			| 'base-generation-failed'
 			| 'not-implemented'
 			| 'instances-move-required'
-			| 'partial-move'
 		>();
 	});
 	it('SchemaError has at least nine variants', () => {
@@ -54,16 +53,4 @@ describe('MakeError Chunk 4 additions', () => {
 		expectTypeOf(err).toMatchTypeOf<MakeError>();
 	});
 
-	it('includes partial-move carrying a MoveReport', () => {
-		const err: MakeError = {
-			kind: 'partial-move',
-			moveReport: {
-				oldFolder: 'Books',
-				newFolder: 'Reading',
-				movedCount: 45,
-				failedMoves: [{ path: 'Books/x.md', cause: 'target-exists: Reading/x.md' }],
-			},
-		};
-		expectTypeOf(err).toMatchTypeOf<MakeError>();
-	});
 });

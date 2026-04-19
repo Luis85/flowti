@@ -214,7 +214,7 @@ describe('useMakeTypeSaveFlow', () => {
 		const moveReport = { oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 2, failedMoves: [{ path: 'Books/Dune.md', cause: 'locked' }] };
 		updateTypeSpy
 			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 3 } })
-			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'partial-move', moveReport } });
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: BOOK, moveReport } });
 		const { flow } = await setupEditFlow();
 		await flow.onSave();
 		await flow.onMoveInstancesConfirm?.('confirm');

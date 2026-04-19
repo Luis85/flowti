@@ -118,7 +118,6 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 		if (w.kind === 'err') return w;
 		ports.eventBus.emit('make:instances-moved', { typeId: next.id, report: moveReport });
 		ports.eventBus.emit('make:type-updated', { schema: next });
-		if (moveReport.failedMoves.length > 0) return err({ kind: 'partial-move', moveReport });
 		return ok({ schema: next, moveReport });
 	}
 

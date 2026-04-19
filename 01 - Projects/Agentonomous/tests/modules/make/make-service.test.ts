@@ -491,7 +491,7 @@ describe('makeService.updateType — folder-move physics (Slice J)', () => {
 		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:type-updated', expect.objectContaining({ schema: expect.any(Object) }));
 	});
 
-	it('folder changed, one rename fails: partial-move err, JSON still written, both events emitted', async () => {
+	it('folder changed, one rename fails: ok with failedMoves, JSON still written, both events emitted', async () => {
 		const { vault, svc, ports } = await withBookAndInstances(['Dune', 'Neuromancer']);
 		// Patch rename to fail on exactly one file.
 		const originalRename = vault.rename;
@@ -500,13 +500,11 @@ describe('makeService.updateType — folder-move physics (Slice J)', () => {
 			return originalRename(oldPath, newPath);
 		}) as typeof vault.rename;
 		const r = await svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
-		expect(r.kind).toBe('err');
-		if (r.kind !== 'err') throw new Error('unreachable');
-		expect(r.error.kind).toBe('partial-move');
-		if (r.error.kind !== 'partial-move') throw new Error('unreachable');
-		expect(r.error.moveReport.movedCount).toBe(1);
-		expect(r.error.moveReport.failedMoves).toHaveLength(1);
-		expect(r.error.moveReport.failedMoves[0]?.path).toBe('Books/Dune.md');
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.moveReport?.movedCount).toBe(1);
+		expect(r.value.moveReport?.failedMoves).toHaveLength(1);
+		expect(r.value.moveReport?.failedMoves[0]?.path).toBe('Books/Dune.md');
 		// JSON still reflects the new folder.
 		const read = await vault.read('Make/Types/book.json');
 		if (read.kind === 'ok') {
@@ -518,16 +516,14 @@ describe('makeService.updateType — folder-move physics (Slice J)', () => {
 		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:type-updated', expect.any(Object));
 	});
 
-	it('folder changed, all renames fail: movedCount=0, JSON still written, partial-move returned', async () => {
+	it('folder changed, all renames fail: movedCount=0, JSON still written, ok with failedMoves', async () => {
 		const { vault, svc } = await withBookAndInstances(['Dune', 'Neuromancer']);
 		vault.rename = vi.fn(async () => ({ kind: 'err' as const, error: 'EPERM' })) as typeof vault.rename;
 		const r = await svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
-		expect(r.kind).toBe('err');
-		if (r.kind !== 'err') throw new Error('unreachable');
-		expect(r.error.kind).toBe('partial-move');
-		if (r.error.kind !== 'partial-move') throw new Error('unreachable');
-		expect(r.error.moveReport.movedCount).toBe(0);
-		expect(r.error.moveReport.failedMoves).toHaveLength(2);
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.moveReport?.movedCount).toBe(0);
+		expect(r.value.moveReport?.failedMoves).toHaveLength(2);
 		const read = await vault.read('Make/Types/book.json');
 		if (read.kind === 'ok') {
 			const parsed = JSON.parse(read.value.content) as { instancesFolder: string };

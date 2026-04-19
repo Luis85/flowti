@@ -117,16 +117,17 @@ export function useMakeTypeSaveFlow(
 				moveInstancesDialogOpen.value = true;
 				return;
 			}
-			if (result.error.kind === 'partial-move') {
-				surfacePartialMoveWarning(result.error.moveReport);
-				return;
-			}
 			surfaceError(result.error);
 			return;
 		}
 		applyResult(result.value.schema);
+		const moveReport = result.value.moveReport;
+		if (moveReport !== undefined && moveReport.failedMoves.length > 0) {
+			surfacePartialMoveWarning(moveReport);
+			return;
+		}
 		ctx?.notifications.success(t('make.notify.typeUpdated'));
-		notifyMoveOutcome(result.value.moveReport);
+		notifyMoveOutcome(moveReport);
 	}
 
 	async function onSave(): Promise<void> {

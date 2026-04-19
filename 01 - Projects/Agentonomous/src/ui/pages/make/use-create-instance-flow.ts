@@ -40,8 +40,6 @@ const ERROR_MESSAGE_MAP: {
 	'invalid-schema':           { key: 'make.error.invalidSchema' },
 	'duplicate-name':           { key: 'make.error.duplicateName', values: (e) => ({ name: e.name }) },
 	'base-generation-failed':   { key: 'make.notify.baseFailed' },
-	'instances-move-required':  { key: 'make.error.vault' },
-	'partial-move':             { key: 'make.error.vault' },
 };
 
 function unhandledErrorMessage(error: MakeError, t: Translate): string | null {
