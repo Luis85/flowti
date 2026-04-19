@@ -8,7 +8,10 @@ declare module '../../domain/shared/event-bus.js' {
 		'make:type-updated':      { readonly schema: TypeSchema };
 		'make:type-deleted':      { readonly typeId: TypeId; readonly name: string };
 		'make:instance-created':  { readonly typeId: TypeId; readonly path: string };
-		'make:instance-deleted':  { readonly typeId: TypeId | null; readonly path: string };
+		'make:instance-deleted':  { readonly typeId: TypeId; readonly path: string };
+		/** Fired when a file was deleted via deleteInstance but its folder does not
+		 *  match any registered type (orphan from a prior type rename/delete). */
+		'make:orphan-deleted':    { readonly path: string };
 		// Declared in Slice G for forward-staging; emitter sites land in Slice J (move-instances).
 		'make:instances-moved':   { readonly typeId: TypeId; readonly report: MoveReport };
 		'make:base-regenerated':  { readonly typeId: TypeId; readonly basePath: string };

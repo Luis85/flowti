@@ -77,13 +77,14 @@ describe('makeService.deleteInstance', () => {
 		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:instance-deleted', { typeId: 'book', path: 'Books/Dune.md' });
 	});
 
-	it('emits with typeId null when no schema matches the parent folder', async () => {
+	it('emits make:orphan-deleted (not make:instance-deleted) when no schema matches the parent folder', async () => {
 		const vault = fakeVault({ 'Random/Orphan.md': 'x' });
 		const ports = fakeModulePorts({ vault });
 		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
 		const result = await svc.deleteInstance('Random/Orphan.md');
 		expect(result.kind).toBe('ok');
-		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:instance-deleted', { typeId: null, path: 'Random/Orphan.md' });
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:orphan-deleted', { path: 'Random/Orphan.md' });
+		expect(ports.eventBus.emit).not.toHaveBeenCalledWith('make:instance-deleted', expect.anything());
 	});
 
 	it('uses exact-parent-folder match, not prefix', async () => {

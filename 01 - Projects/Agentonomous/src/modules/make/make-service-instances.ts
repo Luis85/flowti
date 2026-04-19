@@ -125,7 +125,11 @@ export function createInstanceOps(
 		const listResult = await peers.listTypes();
 		const types = listResult.kind === 'ok' ? listResult.value.types : [];
 		const typeId = inferTypeId(path, types);
-		ports.eventBus.emit('make:instance-deleted', { typeId, path });
+		if (typeId !== null) {
+			ports.eventBus.emit('make:instance-deleted', { typeId, path });
+		} else {
+			ports.eventBus.emit('make:orphan-deleted', { path });
+		}
 		return ok(undefined);
 	}
 
