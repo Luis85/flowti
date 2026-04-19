@@ -532,6 +532,85 @@ describe('makeService.updateType — folder-move physics (Slice J)', () => {
 	});
 });
 
+describe('makeService.updateType move preconditions', () => {
+	async function withBookAndInstances(instanceNames: string[]) {
+		const vault = fakeVault();
+		await vault.create('Make/Types/book.json', serializeTypeSchema(BOOK));
+		for (const name of instanceNames) {
+			await vault.create(`Books/${name}.md`, `# ${name}`);
+		}
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		return { vault, svc, ports };
+	}
+
+	it('target-exists collision: the colliding file reports as failed, others move, JSON written', async () => {
+		const { vault, svc } = await withBookAndInstances(['Dune', 'Neuromancer']);
+		// Pre-seed a blocking file at the destination so Dune.md collides on rename.
+		await vault.create('NewBooks/Dune.md', '# other');
+		const r = await svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.moveReport?.movedCount).toBe(1);
+		expect(r.value.moveReport?.failedMoves).toHaveLength(1);
+		expect(r.value.moveReport?.failedMoves[0]?.path).toBe('Books/Dune.md');
+		expect(r.value.moveReport?.failedMoves[0]?.cause).toContain('target-exists');
+		// Dune stays at old path (rename was rejected); Neuromancer moves.
+		expect(await vault.exists('Books/Dune.md')).toBe(true);
+		expect(await vault.exists('NewBooks/Neuromancer.md')).toBe(true);
+		// Pre-existing NewBooks/Dune.md untouched.
+		const existing = await vault.read('NewBooks/Dune.md');
+		if (existing.kind === 'ok') expect(existing.value.content).toBe('# other');
+		// JSON still reflects new folder.
+		const read = await vault.read('Make/Types/book.json');
+		if (read.kind === 'ok') {
+			const parsed = JSON.parse(read.value.content) as { instancesFolder: string };
+			expect(parsed.instancesFolder).toBe('NewBooks');
+		}
+	});
+
+	it('TOCTOU: instance removed between listInstancesInFolder and rename is reported as failed, loop continues', async () => {
+		const { vault, svc } = await withBookAndInstances(['Dune', 'Neuromancer']);
+		// Patch rename: on the FIRST rename attempt, remove the OTHER file from the vault
+		// to simulate a concurrent delete while the loop is running.
+		const originalRename = vault.rename;
+		let firstCall = true;
+		vault.rename = vi.fn(async (oldPath: string, newPath: string) => {
+			if (firstCall) {
+				firstCall = false;
+				// Before the first rename happens, remove the second file from under us.
+				await vault.delete('Books/Neuromancer.md');
+			}
+			return originalRename(oldPath, newPath);
+		}) as typeof vault.rename;
+		const r = await svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.moveReport?.movedCount).toBe(1);
+		expect(r.value.moveReport?.failedMoves).toHaveLength(1);
+		expect(r.value.moveReport?.failedMoves[0]?.path).toBe('Books/Neuromancer.md');
+		expect(r.value.moveReport?.failedMoves[0]?.cause).toContain('not-found');
+		// JSON still reflects new folder (write-regardless semantics).
+		const read = await vault.read('Make/Types/book.json');
+		if (read.kind === 'ok') {
+			const parsed = JSON.parse(read.value.content) as { instancesFolder: string };
+			expect(parsed.instancesFolder).toBe('NewBooks');
+		}
+	});
+
+	it('partial-move is returned as ok (not err) when any renames fail — regression guard for Polish #2', async () => {
+		const { vault, svc } = await withBookAndInstances(['Dune']);
+		// Force all renames to fail.
+		vault.rename = vi.fn(async () => ({ kind: 'err' as const, error: 'EBUSY' })) as typeof vault.rename;
+		const r = await svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.moveReport?.failedMoves).toHaveLength(1);
+		// Semantics: no 'err' with kind 'partial-move' on MakeError anymore.
+		// The caller must inspect moveReport.failedMoves.length > 0.
+	});
+});
+
 describe('makeService.retryFailedMoves', () => {
 	async function withBookUpdatedToNewBooks() {
 		const vault = fakeVault();
