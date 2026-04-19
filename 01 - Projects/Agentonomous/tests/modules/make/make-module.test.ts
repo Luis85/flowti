@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { MakeModule, getMakeModuleState, VIEW_TYPE_MAKE } from '../../../src/modules/make/make-module.js';
+import { MakeModule, getMakeModuleState, VIEW_TYPE_MAKE, setMakeNavigateHandler, clearMakeNavigateHandler } from '../../../src/modules/make/make-module.js';
 import { MAKE_DEFAULTS, type MakeSettings } from '../../../src/modules/make/make-settings.js';
 import { fakeModulePorts } from '../../__fakes__/fake-ports.js';
 import { createEventBus } from '../../../src/domain/shared/event-bus.js';
@@ -172,5 +172,39 @@ describe('getMakeModuleState subscribe', () => {
 		}]);
 		unsubscribe();
 		await MakeModule.destroy();
+	});
+});
+
+describe('MakeModule commands', () => {
+	it('declares exactly three commands with ids: open-make, make-create-type, make-browse-types', () => {
+		const ids = (MakeModule.commands ?? []).map((c) => c.id);
+		expect(ids).toEqual(['open-make', 'make-create-type', 'make-browse-types']);
+	});
+
+	it('make-create-type command callback invokes the registered navigate handler with "/make/types/new"', async () => {
+		const navigate = vi.fn();
+		setMakeNavigateHandler(navigate);
+		const cmd = (MakeModule.commands ?? []).find((c) => c.id === 'make-create-type');
+		expect(cmd).toBeDefined();
+		await cmd!.callback?.();
+		expect(navigate).toHaveBeenCalledWith('/make/types/new');
+		clearMakeNavigateHandler();
+	});
+
+	it('make-browse-types command callback invokes the registered navigate handler with "/make/types"', async () => {
+		const navigate = vi.fn();
+		setMakeNavigateHandler(navigate);
+		const cmd = (MakeModule.commands ?? []).find((c) => c.id === 'make-browse-types');
+		expect(cmd).toBeDefined();
+		await cmd!.callback?.();
+		expect(navigate).toHaveBeenCalledWith('/make/types');
+		clearMakeNavigateHandler();
+	});
+
+	it('command callbacks no-op safely when no navigate handler is registered', async () => {
+		clearMakeNavigateHandler();
+		const cmd = (MakeModule.commands ?? []).find((c) => c.id === 'make-create-type');
+		// Should not throw. Wrap in Promise.resolve because callbacks may be sync.
+		await expect(Promise.resolve(cmd!.callback?.())).resolves.toBeUndefined();
 	});
 });

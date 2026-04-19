@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { createVueApp } from '../../src/ui/app.js';
 import { PluginContextKey } from '../../src/ui/plugin-context-key.js';
 import { createAppRouter } from '../../src/ui/router/index.js';
+import * as makeModule from '../../src/modules/make/make-module.js';
 import type { PluginContext } from '../../src/plugin.js';
 import { CORE_SETTINGS_DEFAULTS } from '../../src/domain/settings/plugin-settings.js';
 import { ok } from '../../src/domain/shared/result.js';
@@ -79,5 +80,37 @@ describe('createVueApp', () => {
 		expect(el.textContent).toContain('5.5.5');
 		mounted.unmount();
 		document.body.removeChild(el);
+	});
+});
+
+describe('createVueApp - Make navigate handler wiring', () => {
+	let el: HTMLElement;
+	let setSpy: ReturnType<typeof vi.spyOn>;
+	let clearSpy: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		el = document.createElement('div');
+		document.body.appendChild(el);
+		setSpy   = vi.spyOn(makeModule, 'setMakeNavigateHandler');
+		clearSpy = vi.spyOn(makeModule, 'clearMakeNavigateHandler');
+	});
+
+	afterEach(() => {
+		el.remove();
+		vi.restoreAllMocks();
+	});
+
+	it('setMakeNavigateHandler is called with a function on mount', () => {
+		const app = createVueApp(makeCtx('1.0.0'), el);
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(typeof setSpy.mock.calls[0]![0]).toBe('function');
+		app.unmount();
+	});
+
+	it('clearMakeNavigateHandler is called on unmount', () => {
+		const app = createVueApp(makeCtx('1.0.0'), el);
+		expect(clearSpy).not.toHaveBeenCalled();
+		app.unmount();
+		expect(clearSpy).toHaveBeenCalledTimes(1);
 	});
 });
