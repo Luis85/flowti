@@ -100,9 +100,9 @@ export const MakeModule = defineModule<MakeSettings>({
 	commands: [
 		{ id: 'open-make', name: 'Open Make', opensView: VIEW_TYPE_MAKE,
 		  ribbon: { icon: 'hammer', title: 'Make', visibleByDefault: true } },
-		{ id: 'make-create-type', name: 'Make: create new type', opensView: VIEW_TYPE_MAKE,
+		{ id: 'make-create-type', name: 'Create new type', opensView: VIEW_TYPE_MAKE,
 		  callback: () => { navigate('/make/types/new'); } },
-		{ id: 'make-browse-types', name: 'Make: browse types', opensView: VIEW_TYPE_MAKE,
+		{ id: 'make-browse-types', name: 'Browse types', opensView: VIEW_TYPE_MAKE,
 		  callback: () => { navigate('/make/types'); } },
 	],
 	async init(ports, settings) {
