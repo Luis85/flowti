@@ -294,7 +294,7 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 			}
 		}
 		ports.eventBus.emit('make:type-deleted', { typeId: schema.id, name: schema.name });
-		return ok({ instancesDeleted: 0, baseFileDeleted });
+		return ok({ instancesDeleted: 0, instanceFailures: [], baseFileDeleted });
 	}
 
 	async function regenerateBaseFile(

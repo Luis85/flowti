@@ -1,4 +1,5 @@
 import type { Field, TypeSchema } from './type-schema.js';
+import type { CorruptTypeRef as _CorruptTypeRef } from './errors.js';
 
 export type TypeName = string;
 export type TypeId = string;
@@ -27,8 +28,14 @@ export type DeleteTypeOptions = {
 	readonly alsoDeleteBaseFile: boolean;
 };
 
+export type FailedDelete = {
+	readonly path: string;
+	readonly cause: string;
+};
+
 export type DeleteTypeReport = {
 	readonly instancesDeleted: number;
+	readonly instanceFailures: readonly FailedDelete[];
 	readonly baseFileDeleted: boolean;
 };
 
@@ -43,3 +50,38 @@ export type NewTypeDraft = {
 export type TypeSchemaPatch = Partial<Pick<TypeSchema,
 	'name' | 'description' | 'instancesFolder' | 'titleFieldName' | 'fields'
 >>;
+
+// ===== Chunk 4 additions =====
+
+export type { CorruptTypeRef } from './errors.js';
+
+export type FailedMove = {
+	readonly path: string;
+	readonly cause: string;
+};
+
+export type MoveReport = {
+	readonly oldFolder: string;
+	readonly newFolder: string;
+	readonly movedCount: number;
+	readonly failedMoves: readonly FailedMove[];
+};
+
+export type ListTypesResult = {
+	readonly types: readonly TypeSchema[];
+	readonly issues: readonly _CorruptTypeRef[];
+};
+
+export type UpdateTypeResult = {
+	readonly schema: TypeSchema;
+	readonly moveReport?: MoveReport;
+};
+
+export type UpdateTypeOptions = {
+	readonly acknowledgeRenames?: boolean;
+	readonly moveInstances?: boolean;
+};
+
+export type CreateInstanceOptions = {
+	readonly overwrite?: boolean;
+};
