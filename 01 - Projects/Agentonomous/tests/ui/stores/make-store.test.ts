@@ -10,6 +10,7 @@ import type { MakeEventHandlers } from '../../../src/modules/make/make-module.js
 import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
 import type { InstanceRef } from '../../../src/domain/make/types.js';
 import type { CorruptTypeRef } from '../../../src/domain/make/errors.js';
+import type { MakeService } from '../../../src/modules/make/make-service.js';
 
 const BOOK: TypeSchema = {
 	id: 'book', name: 'Book', instancesFolder: 'Books', titleFieldName: 'title',
@@ -416,5 +417,104 @@ describe('make-store — openInstance', () => {
 		const { store } = mountStore(createFakeMakeContext({ workspace }));
 		await store.openInstance('Books/dune.md', 'split');
 		expect(calls).toEqual([{ path: 'Books/dune.md', mode: 'split' }]);
+	});
+});
+
+describe('make-store — bulkDeleteInstances', () => {
+	const REPORT_SUCCESS = { deletedPaths: ['Books/Dune.md', 'Books/Foundation.md'], failures: [] };
+	const REPORT_PARTIAL = {
+		deletedPaths: ['Books/Dune.md'],
+		failures:     [{ path: 'Books/Foundation.md', error: 'locked' }],
+	};
+
+	it('returns ok({deletedPaths:[], failures:[]}) and does NOT call the service when paths is empty', async () => {
+		const deleteInstances = vi.fn();
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances: deleteInstances as unknown as MakeService['deleteInstances'] }),
+		}));
+		const result = await store.bulkDeleteInstances('book', []);
+		expect(result).toEqual({ kind: 'ok', value: { deletedPaths: [], failures: [] } });
+		expect(deleteInstances).not.toHaveBeenCalled();
+	});
+
+	it('toggles bulkDeleting set around the service call (added before, removed after)', async () => {
+		let observedDuringCall: ReadonlySet<string> | null = null;
+		const storeHolder: { current: ReturnType<typeof useMakeStore> | null } = { current: null };
+		const deleteInstances: MakeService['deleteInstances'] = async () => {
+			observedDuringCall = new Set(storeHolder.current!.bulkDeleting);
+			return { kind: 'ok', value: REPORT_SUCCESS };
+		};
+		const mounted = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances }),
+		}));
+		storeHolder.current = mounted.store;
+		expect(mounted.store.bulkDeleting.has('book')).toBe(false);
+		await mounted.store.bulkDeleteInstances('book', ['Books/Dune.md', 'Books/Foundation.md']);
+		expect(observedDuringCall!.has('book')).toBe(true);
+		expect(mounted.store.bulkDeleting.has('book')).toBe(false);
+	});
+
+	it('returns err({kind:"busy"}) when a concurrent call is already in flight for the same typeId', async () => {
+		let resolveFirst: ((r: { kind: 'ok'; value: typeof REPORT_SUCCESS }) => void) | null = null;
+		const deleteInstances = vi.fn(() => new Promise<{ kind: 'ok'; value: typeof REPORT_SUCCESS }>((r) => { resolveFirst = r; }));
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances: deleteInstances as unknown as MakeService['deleteInstances'] }),
+		}));
+		const first = store.bulkDeleteInstances('book', ['a.md']);
+		const second = await store.bulkDeleteInstances('book', ['b.md']);
+		expect(second).toEqual({ kind: 'err', error: { kind: 'busy' } });
+		expect(deleteInstances).toHaveBeenCalledTimes(1);
+		resolveFirst!({ kind: 'ok', value: REPORT_SUCCESS });
+		await first;
+	});
+
+	it('passes through the service result on success', async () => {
+		const deleteInstances: MakeService['deleteInstances'] = async () => ({ kind: 'ok', value: REPORT_SUCCESS });
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances }),
+		}));
+		const result = await store.bulkDeleteInstances('book', ['Books/Dune.md', 'Books/Foundation.md']);
+		expect(result).toEqual({ kind: 'ok', value: REPORT_SUCCESS });
+	});
+
+	it('passes through partial-failure results', async () => {
+		const deleteInstances: MakeService['deleteInstances'] = async () => ({ kind: 'ok', value: REPORT_PARTIAL });
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances }),
+		}));
+		const result = await store.bulkDeleteInstances('book', ['Books/Dune.md', 'Books/Foundation.md']);
+		expect(result).toEqual({ kind: 'ok', value: REPORT_PARTIAL });
+	});
+
+	it('clears bulkDeleting even if the service rejects', async () => {
+		const deleteInstances = vi.fn(async () => { throw new Error('boom'); });
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances: deleteInstances as unknown as MakeService['deleteInstances'] }),
+		}));
+		await expect(store.bulkDeleteInstances('book', ['a.md'])).rejects.toThrow('boom');
+		expect(store.bulkDeleting.has('book')).toBe(false);
+	});
+});
+
+describe('make-store — onInstancesDeletedBatch subscription', () => {
+	it('onInstancesDeletedBatch handler triggers exactly one loadInstances call regardless of deletedPaths size', async () => {
+		let listInstancesCalls = 0;
+		const listInstances: MakeService['listInstances'] = async () => {
+			listInstancesCalls += 1;
+			return { kind: 'ok', value: [] };
+		};
+		const { handlers } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ listInstances }),
+		}));
+		listInstancesCalls = 0;
+
+		handlers.onInstancesDeletedBatch?.({ typeId: 'book', deletedPaths: ['a.md'], failures: [] });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(listInstancesCalls).toBe(1);
+
+		const tenPaths = Array.from({ length: 10 }, (_, i) => `Books/${i}.md`);
+		handlers.onInstancesDeletedBatch?.({ typeId: 'book', deletedPaths: tenPaths, failures: [] });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(listInstancesCalls).toBe(2);
 	});
 });
