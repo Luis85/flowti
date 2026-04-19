@@ -5,16 +5,19 @@ import type { Field, TypeSchema } from '../../../domain/make/type-schema.js';
 import type { FieldError } from '../../../domain/make/errors.js';
 import { FIELD_KINDS } from '../../../domain/make/field-kinds/index.js';
 import { INPUT_COMPONENTS } from './inputs/registry.js';
+import TextInput from './inputs/TextInput.vue';
 
 const props = withDefaults(defineProps<{
 	schema: TypeSchema;
 	serverErrors?: readonly FieldError[];
 	initialValues?: Readonly<Record<string, unknown>>;
 	submitting?: boolean;
+	submitLabel?: string;
 }>(), {
 	serverErrors: () => [],
 	initialValues: () => ({}),
 	submitting: false,
+	submitLabel: undefined,
 });
 
 const emit = defineEmits<{
@@ -24,9 +27,17 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const titleField = computed<Field | null>(() => {
+const FILENAME_PSEUDO_FIELD: Extract<Field, { kind: 'text' }> = {
+	kind: 'text',
+	name: '__filename__',
+	required: true,
+};
+
+const titleField = computed<Extract<Field, { kind: 'text' }> | null>(() => {
 	if (props.schema.titleFieldName === null) return null;
-	return props.schema.fields.find((f) => f.name === props.schema.titleFieldName) ?? null;
+	const found = props.schema.fields.find((f) => f.name === props.schema.titleFieldName);
+	if (found?.kind !== 'text') return null;
+	return found;
 });
 
 const remainingFields = computed<readonly Field[]>(() => {
@@ -64,10 +75,11 @@ const values = ref<Record<string, unknown>>(seedValues());
 const explicitFilename = ref<string>('');
 const clientErrors = ref<readonly FieldError[]>([]);
 
-function errorFor(fieldName: string): FieldError | undefined {
+function errorFor(fieldName: string): FieldError | null {
 	const client = clientErrors.value.find((e) => e.fieldName === fieldName);
 	if (client !== undefined) return client;
-	return props.serverErrors.find((e) => e.fieldName === fieldName);
+	const server = props.serverErrors.find((e) => e.fieldName === fieldName);
+	return server ?? null;
 }
 
 function errorMessageFor(error: FieldError): string {
@@ -76,12 +88,14 @@ function errorMessageFor(error: FieldError): string {
 
 function errorMessage(fieldName: string): string | undefined {
 	const error = errorFor(fieldName);
-	return error === undefined ? undefined : errorMessageFor(error);
+	return error === null ? undefined : errorMessageFor(error);
 }
 
-function fieldErrorTestId(fieldName: string): string {
-	return `schema-form-error-${fieldName}`;
-}
+const filenameError = computed<FieldError | null>(() => errorFor('__filename__'));
+const filenameErrorMessage = computed<string | undefined>(() => {
+	const err = filenameError.value;
+	return err === null ? undefined : errorMessageFor(err);
+});
 
 function isEmpty(field: Field, raw: unknown): boolean {
 	if (raw === null || raw === undefined) return true;
@@ -137,95 +151,114 @@ function setFieldValue(name: string, value: unknown): void {
 	values.value = { ...values.value, [name]: value };
 }
 
-function ariaDescribedBy(fieldName: string): string | undefined {
-	return errorFor(fieldName) === undefined ? undefined : fieldErrorTestId(fieldName);
+function titleModel(): string {
+	if (titleField.value === null) return '';
+	const v = values.value[titleField.value.name];
+	return typeof v === 'string' ? v : '';
+}
+
+function setTitleModel(value: string): void {
+	if (titleField.value === null) return;
+	setFieldValue(titleField.value.name, value);
 }
 </script>
 
 <template>
-	<form class="schema-form" novalidate @submit.prevent="onSubmit">
-		<template v-if="titleField !== null">
-			<label class="schema-form__field" :for="`schema-form-title-input-${schema.id}`">
-				<span class="schema-form__label">
-					{{ titleField.label ?? titleField.name }}
-					<span class="schema-form__suffix">{{ t('make.form.title-suffix') }}</span>
-				</span>
-				<input
-					:id="`schema-form-title-input-${schema.id}`"
-					type="text"
-					data-testid="schema-form-title"
-					:value="values[titleField.name] ?? ''"
-					:aria-required="titleField.required ? 'true' : undefined"
-					:aria-invalid="errorFor(titleField.name) !== undefined ? 'true' : undefined"
-					:aria-describedby="ariaDescribedBy(titleField.name)"
-					@input="setFieldValue(titleField.name, ($event.target as HTMLInputElement).value)"
-				>
-				<span
+	<form
+		class="schema-form"
+		data-testid="schema-form"
+		novalidate
+		@submit.prevent="onSubmit"
+	>
+		<section data-testid="form-title-section" class="schema-form__field">
+			<template v-if="titleField !== null">
+				<label class="schema-form__label">
+					{{ titleField.label ?? titleField.name }}<span v-if="titleField.required" class="make-field-required">*</span>
+					<small class="schema-form__suffix">{{ t('make.form.title-suffix') }}</small>
+				</label>
+				<small v-if="titleField.description" class="schema-form__help">{{ titleField.description }}</small>
+				<div data-testid="form-title-input">
+					<TextInput
+						:field="titleField"
+						:model-value="titleModel()"
+						:error="errorMessage(titleField.name)"
+						:aria-invalid="errorFor(titleField.name) !== null ? 'true' : undefined"
+						:aria-describedby="errorFor(titleField.name) !== null ? 'form-title-error' : undefined"
+						@update:model-value="setTitleModel"
+					/>
+				</div>
+				<p
 					v-if="errorMessage(titleField.name)"
-					:id="fieldErrorTestId(titleField.name)"
-					:data-testid="fieldErrorTestId(titleField.name)"
-					class="schema-form__error"
+					id="form-title-error"
+					data-testid="form-title-error"
+					class="make-field-error"
 				>
 					{{ errorMessage(titleField.name) }}
-				</span>
-			</label>
-		</template>
-		<template v-else>
-			<label class="schema-form__field" for="schema-form-filename-input">
-				<span class="schema-form__label">
-					{{ t('make.form.filename') }}
-					<span class="schema-form__suffix">{{ t('make.form.filename-help') }}</span>
-				</span>
-				<input
-					id="schema-form-filename-input"
-					type="text"
-					data-testid="schema-form-filename"
-					:value="explicitFilename"
-					aria-required="true"
-					:aria-invalid="errorFor('__filename__') !== undefined ? 'true' : undefined"
-					:aria-describedby="ariaDescribedBy('__filename__')"
-					@input="explicitFilename = ($event.target as HTMLInputElement).value"
+				</p>
+			</template>
+			<template v-else>
+				<label class="schema-form__label">
+					{{ t('make.form.filename') }}<span class="make-field-required">*</span>
+					<small class="schema-form__suffix">{{ t('make.form.filename-help') }}</small>
+				</label>
+				<div data-testid="form-filename-input">
+					<TextInput
+						:field="FILENAME_PSEUDO_FIELD"
+						:model-value="explicitFilename"
+						:error="filenameErrorMessage"
+						:aria-invalid="filenameError !== null ? 'true' : undefined"
+						:aria-describedby="filenameError !== null ? 'form-filename-error' : undefined"
+						@update:model-value="(v: string) => { explicitFilename = v; }"
+					/>
+				</div>
+				<p
+					v-if="filenameErrorMessage"
+					id="form-filename-error"
+					data-testid="form-filename-error"
+					class="make-field-error"
 				>
-				<span
-					v-if="errorMessage('__filename__')"
-					:id="fieldErrorTestId('__filename__')"
-					:data-testid="fieldErrorTestId('__filename__')"
-					class="schema-form__error"
-				>
-					{{ errorMessage('__filename__') }}
-				</span>
-			</label>
-		</template>
+					{{ filenameErrorMessage }}
+				</p>
+			</template>
+		</section>
 
-		<div
-			v-for="field in remainingFields"
-			:key="field.name"
-			class="schema-form__field"
-		>
-			<component
-				:is="INPUT_COMPONENTS[field.kind]"
-				:field="field"
-				:model-value="values[field.name]"
-				:error="errorMessage(field.name)"
-				:aria-required="field.required ? 'true' : undefined"
-				:aria-invalid="errorFor(field.name) !== undefined ? 'true' : undefined"
-				:aria-describedby="ariaDescribedBy(field.name)"
-				@update:model-value="(v: unknown) => setFieldValue(field.name, v)"
-			/>
-			<span
-				v-if="errorMessage(field.name)"
-				:id="fieldErrorTestId(field.name)"
-				:data-testid="fieldErrorTestId(field.name)"
-				class="schema-form__sr-only"
+		<div data-testid="form-fields" class="schema-form__fields">
+			<div
+				v-for="field in remainingFields"
+				:key="field.name"
+				class="make-field-row schema-form__field"
 			>
-				{{ errorMessage(field.name) }}
-			</span>
+				<label class="schema-form__label">
+					{{ field.label ?? field.name }}<span v-if="field.required" class="make-field-required">*</span>
+				</label>
+				<small v-if="field.description" class="schema-form__help">{{ field.description }}</small>
+				<div :data-testid="`form-field-${field.name}`">
+					<component
+						:is="INPUT_COMPONENTS[field.kind]"
+						:field="field"
+						:model-value="values[field.name]"
+						:error="errorMessage(field.name)"
+						:aria-required="field.required ? 'true' : undefined"
+						:aria-invalid="errorFor(field.name) !== null ? 'true' : undefined"
+						:aria-describedby="errorFor(field.name) !== null ? `form-field-${field.name}-error` : undefined"
+						@update:model-value="(v: unknown) => setFieldValue(field.name, v)"
+					/>
+				</div>
+				<p
+					v-if="errorMessage(field.name)"
+					:id="`form-field-${field.name}-error`"
+					:data-testid="`form-field-${field.name}-error`"
+					class="make-field-error"
+				>
+					{{ errorMessage(field.name) }}
+				</p>
+			</div>
 		</div>
 
 		<footer class="schema-form__actions">
 			<button
 				type="button"
-				data-testid="schema-form-cancel"
+				data-testid="form-cancel"
 				:disabled="submitting"
 				@click="onCancel"
 			>
@@ -233,11 +266,11 @@ function ariaDescribedBy(fieldName: string): string | undefined {
 			</button>
 			<button
 				type="submit"
-				data-testid="schema-form-submit"
+				data-testid="form-submit"
 				:disabled="submitting"
 				:aria-busy="submitting ? 'true' : undefined"
 			>
-				{{ t('make.form.submit') }}
+				{{ submitLabel ?? t('make.form.submit') }}
 			</button>
 		</footer>
 	</form>
@@ -245,11 +278,12 @@ function ariaDescribedBy(fieldName: string): string | undefined {
 
 <style scoped>
 .schema-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.schema-form__fields { display: flex; flex-direction: column; gap: 0.75rem; }
 .schema-form__field { display: flex; flex-direction: column; gap: 0.25rem; }
 .schema-form__label { font-size: 0.875rem; }
 .schema-form__suffix { color: var(--text-muted); margin-left: 0.25rem; font-size: 0.75rem; }
-.schema-form__error { font-size: 0.75rem; color: var(--text-error); }
-.schema-form__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.schema-form__help { font-size: 0.75rem; color: var(--text-muted); }
+.make-field-required { color: var(--text-error); margin-left: 0.125rem; }
+.make-field-error { font-size: 0.75rem; color: var(--text-error); margin: 0; }
 .schema-form__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
-.schema-form input[type="text"] { padding: 0.375rem 0.5rem; background: var(--background-primary); color: var(--text-normal); border: 1px solid var(--background-modifier-border); border-radius: 4px; }
 </style>

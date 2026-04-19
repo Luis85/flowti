@@ -115,8 +115,24 @@ describe('SchemaForm', () => {
 		page.submitButton?.click();
 		await nextTick();
 		expect(wrapper.emitted('submit')).toBeFalsy();
-		// The required title field should have an error.
-		expect(page.fieldError('title')).not.toBeNull();
+		// The required title field should have a title-section error and author should have a row error.
+		expect(page.titleError).not.toBeNull();
 		expect(page.fieldError('author')).not.toBeNull();
+	});
+
+	it('renders submitLabel prop on the submit button when provided', async () => {
+		const { page } = mountForm({ schema: BOOK_SCHEMA_WITH_TITLE, submitLabel: 'Save' });
+		await nextTick();
+		expect(page.submitButton?.textContent?.trim()).toBe('Save');
+	});
+
+	it('rejects empty filename submission and surfaces the filename error', async () => {
+		const { wrapper, page } = mountForm({ schema: SCHEMA_WITH_ALL_KINDS });
+		await nextTick();
+		// Submit without entering anything in the filename input.
+		page.submitButton?.click();
+		await nextTick();
+		expect(wrapper.emitted('submit')).toBeFalsy();
+		expect(page.filenameError).not.toBeNull();
 	});
 });
