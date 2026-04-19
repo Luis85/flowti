@@ -14,7 +14,11 @@ export class ObsidianWorkspaceAdapter implements WorkspacePort {
 	async openFile(path: string, mode: OpenFileMode): Promise<Result<void, string>> {
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return err(`not-found: ${path}`);
-		await this.app.workspace.getLeaf(MODE_MAP[mode]).openFile(file);
-		return ok(undefined);
+		try {
+			await this.app.workspace.getLeaf(MODE_MAP[mode]).openFile(file);
+			return ok(undefined);
+		} catch (e) {
+			return err(`open-failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
 	}
 }

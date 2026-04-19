@@ -67,4 +67,18 @@ describe('ObsidianWorkspaceAdapter', () => {
 		const result = await adapter.openFile('Books', 'tab');
 		expect(result.kind).toBe('err');
 	});
+
+	it('returns err open-failed when workspace.openFile rejects', async () => {
+		const openFileSpy = vi.fn().mockRejectedValue(new Error('boom'));
+		const leafSpy = vi.fn(() => ({ openFile: openFileSpy }));
+		const { TFile } = await import('obsidian');
+		const tfile = Object.create(TFile.prototype);
+		const app = makeFakeApp(tfile, leafSpy);
+		const adapter = new ObsidianWorkspaceAdapter(app);
+		const result = await adapter.openFile('Books/dune.md', 'tab');
+		expect(result.kind).toBe('err');
+		if (result.kind !== 'err') throw new Error('unreachable');
+		expect(result.error.startsWith('open-failed:')).toBe(true);
+		expect(result.error).toContain('boom');
+	});
 });
