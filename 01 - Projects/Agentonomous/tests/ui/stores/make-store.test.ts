@@ -316,6 +316,28 @@ describe('make-store — deleteCorruptFile', () => {
 	});
 });
 
+describe('make-store — createInstance', () => {
+	const REF: InstanceRef = {
+		typeId: 'book', path: 'Books/Dune.md', title: 'Dune',
+		createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z',
+	};
+
+	it('delegates to service and returns the Result', async () => {
+		const createInstance = vi.fn().mockResolvedValue({ kind: 'ok', value: REF });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ createInstance }) }));
+		const result = await store.createInstance('book', { title: 'Dune' }, null);
+		expect(createInstance).toHaveBeenCalledWith('book', { title: 'Dune' }, null, undefined);
+		expect(result.kind).toBe('ok');
+	});
+
+	it('forwards options.overwrite through', async () => {
+		const createInstance = vi.fn().mockResolvedValue({ kind: 'ok', value: REF });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ createInstance }) }));
+		await store.createInstance('book', { title: 'Dune' }, null, { overwrite: true });
+		expect(createInstance).toHaveBeenCalledWith('book', { title: 'Dune' }, null, { overwrite: true });
+	});
+});
+
 describe('make-store — openInstance', () => {
 	it('delegates to ctx.workspace.openFile with default mode tab', async () => {
 		const { port: workspace, calls } = fakeWorkspace();

@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
-import type { InstanceRef, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport } from '../../domain/make/types.js';
+import type { CreateInstanceOptions, InstanceRef, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport } from '../../domain/make/types.js';
 import type { CorruptTypeRef, MakeError } from '../../domain/make/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import type { OpenFileMode } from '../../domain/shared/workspace-port.js';
@@ -151,6 +151,15 @@ export const useMakeStore = defineStore('make', () => {
 		return result;
 	}
 
+	async function createInstance(
+		typeId: TypeId,
+		raw: Record<string, unknown>,
+		explicitFilename: string | null,
+		options?: CreateInstanceOptions,
+	): Promise<Result<InstanceRef, MakeError>> {
+		return ctx.service.createInstance(typeId, raw, explicitFilename, options);
+	}
+
 	async function openInstance(path: string, mode: OpenFileMode = 'tab'): Promise<Result<void, string>> {
 		return ctx.workspace.openFile(path, mode);
 	}
@@ -223,6 +232,7 @@ export const useMakeStore = defineStore('make', () => {
 		updateType,
 		deleteType,
 		deleteCorruptFile,
+		createInstance,
 		openInstance,
 		regenerateBaseFile,
 		toggleFavorite,
