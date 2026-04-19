@@ -72,8 +72,10 @@ Per-chunk endpoints (cumulative test counts after each chunk's commits — verif
 |---|---|---|---|
 | Chunk 0 | 102 | 963 | Baseline. |
 | Chunk 1 | 103 | 969 | +1 file (`per-type-queue.test.ts`), +5 from Task 1.1, +1 from Task 1.2.8. |
-| Chunk 2 | 103 | 971 | 0 new files (extends `make-module.test.ts` and `types.test.ts` if it exists; otherwise +1). +2 tests (BulkDeleteReport shape + onInstancesDeletedBatch wire). |
-| Chunk 3 | 104 | 976 | +1 file (`make-service-instances-bulk-delete.test.ts`), +5 tests. |
+| Chunk 2 | 104 | 971 | +1 file (`tests/domain/make/types.test.ts` — new), +2 tests (BulkDeleteReport shape + onInstancesDeletedBatch wire). |
+| Chunk 3 | 105 | 976 | +1 file (`make-service-instances-bulk-delete.test.ts`), +5 tests. |
+| Chunk 4 | 105 | 983 | 0 new files (extends `make-store.test.ts`), +7 tests (6 action + 1 subscription). |
+| Chunk 5 | 105 | 990 | 0 new files (extends `MakeTypeInstances.test.ts`), +7 tests (select-mode foundation). |
 
 If at any chunk-end the count is below the table or lint errors > 0, stop and diagnose before proceeding.
 
@@ -533,12 +535,7 @@ Add the `BulkDeleteReport` import at the top of the file:
 import type { BulkDeleteReport, MoveReport, TypeId } from '../../domain/make/types.js';
 ```
 
-…and rewrite the new event using the imported type for DRYness:
-```ts
-'make:instances-deleted-batch':  { readonly typeId: TypeId } & BulkDeleteReport;
-```
-
-(This intersection form keeps `BulkDeleteReport` as the single source of truth — if its shape ever changes, the event payload follows automatically.)
+The intersection form (`{ readonly typeId: TypeId } & BulkDeleteReport`) keeps `BulkDeleteReport` as the single source of truth — if its shape ever changes, the event payload follows automatically.
 
 - [ ] **Step 2.2.2: Run typecheck (no behavior to test yet)**
 
@@ -809,13 +806,9 @@ describe('service.deleteInstances', () => {
 ```
 
 **Notes on the snippet:**
-- The `eventBus: bus` field on `fakeModulePorts({ ... })` requires that `fakeModulePorts` accepts an `eventBus` override. Verify with:
-  ```bash
-  grep -n "eventBus" tests/__fakes__/fake-ports.ts | head -10
-  ```
-  If it doesn't currently, the cleanest fix is a one-line addition to the fake (`eventBus: overrides.eventBus ?? createEventBus()`). Add it as a sub-step here if needed and commit it with the rest of Chunk 3.
-- The `createEventBus` import path is whatever the production code imports it from (`grep -n "createEventBus" src/domain/shared/event-bus.ts` to confirm).
+- `fakeModulePorts({ vault, eventBus })` already accepts an `eventBus` override (see `tests/__fakes__/fake-ports.ts:298`).
 - `vault.delete.mockResolvedValue(...)` works because `fake-ports.ts:175` makes `delete` a `vi.fn(async ...)`.
+- `createEventBus` is exported from `src/domain/shared/event-bus.ts` (line 35); the `bus.on('channel', listener)` envelope `{ channel, payload, ... }` matches the test snippet's `e.payload` access.
 
 - [ ] **Step 3.2.2: Run tests to verify they fail**
 
@@ -900,6 +893,13 @@ import type {
 
 (The spread at line 56 — `return { ...types, ...instancePublic, ...maintenance };` — automatically picks up `deleteInstances` from `instancePublic` because we added it to `InstanceServiceMethods`.)
 
+7. **Update the test fixture** `tests/__fixtures__/fake-make-context.ts`. The `fakeMakeService` factory uses `satisfies MakeService`, so adding a new interface method makes typecheck fail until the fixture provides a default. Add a default override slot (alphabetically with the others, around line 21):
+```ts
+deleteInstances:     overrides.deleteInstances     ?? (() => Promise.resolve({ kind: 'ok' as const, value: { deletedPaths: [], failures: [] } })),
+```
+
+A no-op `ok({deletedPaths:[], failures:[]})` is a safe default — tests that need to assert `deleteInstances` behavior will override it via the overrides arg.
+
 - [ ] **Step 3.2.4: Run the new tests to verify they pass**
 
 ```bash
@@ -917,8 +917,7 @@ Expected: file count +1 (the new bulk-delete test file), test count +5 (vs. end 
 - [ ] **Step 3.2.6: Commit**
 
 ```bash
-git add "01 - Projects/Agentonomous/src/modules/make/make-service-instances.ts" "01 - Projects/Agentonomous/src/modules/make/make-service.ts" "01 - Projects/Agentonomous/tests/modules/make/make-service-instances-bulk-delete.test.ts"
-# Plus any test files modified in Step 3.1.4
+git add "01 - Projects/Agentonomous/src/modules/make/make-service-instances.ts" "01 - Projects/Agentonomous/src/modules/make/make-service.ts" "01 - Projects/Agentonomous/tests/modules/make/make-service-instances-bulk-delete.test.ts" "01 - Projects/Agentonomous/tests/__fixtures__/fake-make-context.ts"
 git commit -m "$(cat <<'EOF'
 feat(agentonomous): service.deleteInstances + make:instances-deleted-batch (Polish P1 #13)
 
@@ -934,3 +933,553 @@ EOF
 ```
 
 ---
+
+## Chunk 4: Store action + subscription
+
+Add the `bulkDeleteInstances` action to `make-store.ts`, plus the `bulkDeleting` state and the `onInstancesDeletedBatch` subscription handler. This chunk is purely the store layer — no UI yet.
+
+### Task 4.1: `bulkDeleting` state + `bulkDeleteInstances` action (TDD)
+
+**Files:**
+- Modify: `src/ui/stores/make-store.ts` (add state at lines 99–104; add action near `deleteInstance` at line 167; add to return object at line 261)
+- Modify: `tests/ui/stores/make-store.test.ts` (extend with new describe block)
+
+- [ ] **Step 4.1.1: Write the failing tests for the action**
+
+Append a new `describe` block to `tests/ui/stores/make-store.test.ts`. Use the existing `mountStore()` helper at the top of that file (lines 25–47).
+
+```ts
+describe('make-store — bulkDeleteInstances', () => {
+	const REPORT_SUCCESS = { deletedPaths: ['Books/Dune.md', 'Books/Foundation.md'], failures: [] };
+	const REPORT_PARTIAL = {
+		deletedPaths: ['Books/Dune.md'],
+		failures:     [{ path: 'Books/Foundation.md', error: 'locked' }],
+	};
+
+	it('returns ok({deletedPaths:[], failures:[]}) and does NOT call the service when paths is empty', async () => {
+		const deleteInstances = vi.fn();
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances }),
+		}));
+		const result = await store.bulkDeleteInstances('book', []);
+		expect(result).toEqual({ kind: 'ok', value: { deletedPaths: [], failures: [] } });
+		expect(deleteInstances).not.toHaveBeenCalled();
+	});
+
+	it('toggles bulkDeleting set around the service call (added before, removed after)', async () => {
+		let observedDuringCall: ReadonlySet<string> | null = null;
+		const deleteInstances = vi.fn(async (typeId: string, _paths: readonly string[]) => {
+			observedDuringCall = new Set(store.bulkDeleting.value);
+			return { kind: 'ok' as const, value: REPORT_SUCCESS };
+		});
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances }),
+		}));
+		expect(store.bulkDeleting.value.has('book')).toBe(false);
+		await store.bulkDeleteInstances('book', ['Books/Dune.md', 'Books/Foundation.md']);
+		expect(observedDuringCall!.has('book')).toBe(true);
+		expect(store.bulkDeleting.value.has('book')).toBe(false);
+	});
+
+	it('returns err({kind:"busy"}) when a concurrent call is already in flight for the same typeId', async () => {
+		// Hold the first call open with a manual promise so we can test concurrent invocation.
+		let resolveFirst: ((r: { kind: 'ok'; value: typeof REPORT_SUCCESS }) => void) | null = null;
+		const deleteInstances = vi.fn(() => new Promise<{ kind: 'ok'; value: typeof REPORT_SUCCESS }>((r) => { resolveFirst = r; }));
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances: deleteInstances as MakeService['deleteInstances'] }),
+		}));
+		const first = store.bulkDeleteInstances('book', ['a.md']);
+		const second = await store.bulkDeleteInstances('book', ['b.md']);
+		expect(second).toEqual({ kind: 'err', error: { kind: 'busy' } });
+		expect(deleteInstances).toHaveBeenCalledTimes(1); // second never reached the service
+		resolveFirst!({ kind: 'ok', value: REPORT_SUCCESS });
+		await first;
+	});
+
+	it('passes through the service result on success', async () => {
+		const deleteInstances = vi.fn(async () => ({ kind: 'ok' as const, value: REPORT_SUCCESS }));
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances }),
+		}));
+		const result = await store.bulkDeleteInstances('book', ['Books/Dune.md', 'Books/Foundation.md']);
+		expect(result).toEqual({ kind: 'ok', value: REPORT_SUCCESS });
+	});
+
+	it('passes through partial-failure results', async () => {
+		const deleteInstances = vi.fn(async () => ({ kind: 'ok' as const, value: REPORT_PARTIAL }));
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances }),
+		}));
+		const result = await store.bulkDeleteInstances('book', ['Books/Dune.md', 'Books/Foundation.md']);
+		expect(result).toEqual({ kind: 'ok', value: REPORT_PARTIAL });
+	});
+
+	it('clears bulkDeleting even if the service rejects', async () => {
+		const deleteInstances = vi.fn(async () => { throw new Error('boom'); });
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ deleteInstances: deleteInstances as MakeService['deleteInstances'] }),
+		}));
+		await expect(store.bulkDeleteInstances('book', ['a.md'])).rejects.toThrow('boom');
+		expect(store.bulkDeleting.value.has('book')).toBe(false);
+	});
+});
+```
+
+You'll need to add `import type { MakeService } from '../../../src/modules/make/make-service.js';` to the test file's imports if it's not already there.
+
+- [ ] **Step 4.1.2: Run the new tests to verify they fail**
+
+```bash
+cd "01 - Projects/Agentonomous" && npx vitest run tests/ui/stores/make-store.test.ts -t "bulkDeleteInstances" --project unit
+```
+Expected: 6 FAILs, all because `store.bulkDeleteInstances` and `store.bulkDeleting` don't exist.
+
+- [ ] **Step 4.1.3: Add `bulkDeleting` state**
+
+Edit `src/ui/stores/make-store.ts`. Inside the "Write state" block (lines 99–104), add a new shallowRef next to `regeneratingForId` and `favoriteToggling`:
+
+```ts
+const savingType                  = ref(false);
+const saveError                   = ref<string | null>(null);
+const regeneratingForId           = shallowRef<ReadonlySet<TypeId>>(new Set());
+const regenerationError           = shallowRef<ReadonlyMap<TypeId, string>>(new Map());
+const favoriteToggling            = shallowRef<ReadonlySet<TypeId>>(new Set());
+const optimisticFavoriteOverrides = shallowRef<ReadonlyMap<TypeId, boolean>>(new Map());
+const bulkDeleting                = shallowRef<ReadonlySet<TypeId>>(new Set());
+```
+
+- [ ] **Step 4.1.4: Add the `bulkDeleteInstances` action**
+
+In the same file, after the existing `deleteInstance` action (line 167), add:
+
+```ts
+async function bulkDeleteInstances(
+	typeId: TypeId,
+	paths: readonly string[],
+): Promise<Result<BulkDeleteReport, MakeError>> {
+	if (paths.length === 0) return { kind: 'ok', value: { deletedPaths: [], failures: [] } };
+	if (bulkDeleting.value.has(typeId)) return { kind: 'err', error: { kind: 'busy' } };
+	const next = new Set(bulkDeleting.value); next.add(typeId); bulkDeleting.value = next;
+	try {
+		return await ctx.service.deleteInstances(typeId, paths);
+	} finally {
+		const done = new Set(bulkDeleting.value); done.delete(typeId); bulkDeleting.value = done;
+	}
+}
+```
+
+Add `BulkDeleteReport` to the existing type import (line 7):
+```ts
+import type { BulkDeleteReport, CreateInstanceOptions, InstanceRef, MoveReport, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
+```
+
+**About `MakeError` and the `'busy'` kind:** `MakeError` is a discriminated union in `src/domain/make/errors.ts`. Verify whether `{kind: 'busy'}` is already a member; if not, add it as a new variant. Find the union with:
+```bash
+grep -n "type MakeError\|kind:" src/domain/make/errors.ts | head -20
+```
+If `'busy'` is missing, add `| { kind: 'busy' }` to the `MakeError` union — minimal, no extra fields needed since the surface meaning is "operation is already in flight." Update `formatError` in `make-store.ts:13-20` if it has a switch that needs the new variant (likely just falls through to the default).
+
+- [ ] **Step 4.1.5: Add `bulkDeleteInstances` and `bulkDeleting` to the store's return object**
+
+Find the return statement around line 231 and add:
+```ts
+return {
+	// ... existing fields ...
+	deleteInstance,
+	bulkDeleteInstances,
+	bulkDeleting,
+	openInstance,
+	// ... rest ...
+};
+```
+
+- [ ] **Step 4.1.6: Run the action tests to verify they pass**
+
+```bash
+cd "01 - Projects/Agentonomous" && npx vitest run tests/ui/stores/make-store.test.ts -t "bulkDeleteInstances" --project unit
+```
+Expected: 6 tests pass.
+
+### Task 4.2: `onInstancesDeletedBatch` subscription handler (TDD)
+
+**Files:**
+- Modify: `src/ui/stores/make-store.ts` (add to the `ctx.subscribe(...)` block at lines 204–229)
+- Modify: `tests/ui/stores/make-store.test.ts` (extend with a subscription test)
+
+- [ ] **Step 4.2.1: Write the failing test**
+
+Append to the same `make-store.test.ts` file. The existing tests for `onInstanceDeleted` are good templates (find with `grep -n "onInstanceDeleted\|onInstancesMoved" tests/ui/stores/make-store.test.ts`). Add:
+
+```ts
+it('onInstancesDeletedBatch handler triggers exactly one loadInstances call regardless of deletedPaths size', async () => {
+	let listInstancesCalls = 0;
+	const listInstances = vi.fn(async (_typeId: string) => {
+		listInstancesCalls += 1;
+		return { kind: 'ok' as const, value: [] };
+	});
+	const { store, handlers } = mountStore(createFakeMakeContext({
+		service: fakeMakeService({ listInstances }),
+	}));
+	// Establish a baseline call from any setup.
+	listInstancesCalls = 0;
+
+	// Fire the handler with 1 deletedPath then with 10 deletedPaths.
+	handlers.onInstancesDeletedBatch?.({ typeId: 'book', deletedPaths: ['a.md'], failures: [] });
+	await new Promise((r) => setTimeout(r, 0)); // let safeRefresh microtask settle
+	expect(listInstancesCalls).toBe(1);
+
+	const tenPaths = Array.from({ length: 10 }, (_, i) => `Books/${i}.md`);
+	handlers.onInstancesDeletedBatch?.({ typeId: 'book', deletedPaths: tenPaths, failures: [] });
+	await new Promise((r) => setTimeout(r, 0));
+	expect(listInstancesCalls).toBe(2); // one more, not eleven more
+});
+```
+
+- [ ] **Step 4.2.2: Run the test to verify it fails**
+
+```bash
+cd "01 - Projects/Agentonomous" && npx vitest run tests/ui/stores/make-store.test.ts -t "onInstancesDeletedBatch" --project unit
+```
+Expected: FAIL with `handlers.onInstancesDeletedBatch is undefined` (or equivalent — the handler is not yet registered).
+
+- [ ] **Step 4.2.3: Add the subscription handler**
+
+Edit `src/ui/stores/make-store.ts`. Inside the `ctx.subscribe({ ... })` block (currently lines 204–229), add a new handler next to the existing `onInstanceDeleted`:
+
+```ts
+onInstanceDeleted: ({ typeId }) => { safeRefresh('instance-deleted', () => loadInstances(typeId)); },
+onInstancesDeletedBatch: ({ typeId }) => { safeRefresh('instances-deleted-batch', () => loadInstances(typeId)); },
+// make:orphan-deleted intentionally not subscribed — no cached list matches an orphan path.
+```
+
+- [ ] **Step 4.2.4: Run the test to verify it passes**
+
+```bash
+cd "01 - Projects/Agentonomous" && npx vitest run tests/ui/stores/make-store.test.ts -t "onInstancesDeletedBatch" --project unit
+```
+Expected: PASS.
+
+- [ ] **Step 4.2.5: Run the full gate**
+
+```bash
+cd "01 - Projects/Agentonomous" && npm test
+```
+Expected: end of Chunk 4 → 105 files, 983 tests (976 + 6 from Task 4.1 + 1 from Task 4.2). Lint: 0 errors.
+
+- [ ] **Step 4.2.6: Commit**
+
+```bash
+git add "01 - Projects/Agentonomous/src/ui/stores/make-store.ts" "01 - Projects/Agentonomous/tests/ui/stores/make-store.test.ts" "01 - Projects/Agentonomous/src/domain/make/errors.ts"
+# (errors.ts only if you added the 'busy' variant in Step 4.1.4)
+git commit -m "$(cat <<'EOF'
+feat(agentonomous): make-store bulkDeleteInstances action + batch subscription (Polish P1 #13)
+
+Adds the bulkDeleting per-typeId set as a UI optimistic guard, the
+bulkDeleteInstances action that single-flights per typeId and returns
+err({kind:'busy'}) on overlap, and the onInstancesDeletedBatch
+subscription handler that triggers exactly one loadInstances refresh
+per batch — regardless of how many paths were deleted.
+
+Real cross-action serialization with updateType is provided by the
+service-layer per-type-queue (Chunk 1); this store-level set is the
+UI affordance that disables buttons and hides spinners.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+## Chunk 5: Page UI — select mode foundation
+
+Add the select-mode toggle, the checkbox column, the selection-state hygiene watcher, and the basic ARIA semantics. **No bulk-action toolbar or dialogs in this chunk** — just the toggle + selection state. The toolbar and partial-result flow land in Chunk 6.
+
+### Task 5.1: Select-mode state + toggle + checkbox rendering (TDD)
+
+**Files:**
+- Modify: `src/ui/pages/make/MakeTypeInstances.vue` (script + template + styles)
+- Modify: `tests/ui/pages/make/MakeTypeInstances.test.ts` (extend with a new describe block)
+
+- [ ] **Step 5.1.1: Write the failing tests**
+
+Append a new describe block to `tests/ui/pages/make/MakeTypeInstances.test.ts`. Use the existing `mountPage()` helper and `InstanceRef` fixtures from the existing tests in that file (the keyboard-a11y describe block from Polish P1 #8 is a good template — see commit `2fe654c2`).
+
+```ts
+describe('MakeTypeInstances — select mode foundation', () => {
+	const DUNE:  InstanceRef = { typeId: 'book', path: 'Books/Dune.md',        title: 'Dune',         createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z' };
+	const NEURO: InstanceRef = { typeId: 'book', path: 'Books/Neuromancer.md', title: 'Neuromancer',  createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
+	const FOUND: InstanceRef = { typeId: 'book', path: 'Books/Foundation.md',  title: 'Foundation',   createdAt: '2026-04-17T00:00:00.000Z', updatedAt: '2026-04-17T00:00:00.000Z' };
+
+	beforeEach(() => {
+		setActivePinia(createPinia());
+		document.body.innerHTML = '';
+	});
+
+	it('renders a Select toggle button in the header (default off, no checkboxes shown)', () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		const toggle = wrapper.find('[data-testid="select-mode-toggle"]');
+		expect(toggle.exists()).toBe(true);
+		expect(toggle.attributes('aria-pressed')).toBe('false');
+		expect(wrapper.findAll('[data-testid^="instance-row-checkbox-"]')).toHaveLength(0);
+		wrapper.unmount();
+	});
+
+	it('clicking the Select toggle enters select mode: shows checkboxes, hides per-row delete buttons', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		const checkboxes = wrapper.findAll('[data-testid^="instance-row-checkbox-"]');
+		expect(checkboxes).toHaveLength(3);
+		// Per-row delete buttons should NOT render in select mode.
+		expect(wrapper.findAll('[data-testid^="delete-instance-"]')).toHaveLength(0);
+		expect(wrapper.find('[data-testid="select-mode-toggle"]').attributes('aria-pressed')).toBe('true');
+		wrapper.unmount();
+	});
+
+	it('toggling a row checkbox adds/removes its path from the selection', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		const cb = wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`);
+		expect(cb.element.getAttribute('aria-checked')).toBe('false');
+		await cb.trigger('click');
+		expect(cb.element.getAttribute('aria-checked')).toBe('true');
+		await cb.trigger('click');
+		expect(cb.element.getAttribute('aria-checked')).toBe('false');
+		wrapper.unmount();
+	});
+
+	it('list gets aria-multiselectable="true" only in select mode; rows expose aria-selected', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		const list = () => wrapper.find('.instances-list');
+		expect(list().attributes('aria-multiselectable')).toBeUndefined();
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		expect(list().attributes('aria-multiselectable')).toBe('true');
+		const rows = wrapper.findAll('li.instance-row');
+		expect(rows).toHaveLength(3);
+		expect(rows[0]!.attributes('aria-selected')).toBe('false');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		expect(rows[0]!.attributes('aria-selected')).toBe('true');
+		wrapper.unmount();
+	});
+
+	it('exiting select mode clears selection', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		expect(wrapper.findAll('li.instance-row')[0]!.attributes('aria-selected')).toBe('true');
+		// Toggle off:
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		// Re-enter to inspect:
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		expect(wrapper.findAll('li.instance-row')[0]!.attributes('aria-selected')).toBe('false');
+		wrapper.unmount();
+	});
+
+	it('selection hygiene: paths removed from the list also leave the selection set', async () => {
+		// Mount with three instances; select two; then re-render with one removed; the survivor stays selected.
+		const { wrapper, rerenderInstances } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${NEURO.path}"]`).trigger('click');
+		// Drop NEURO from the props.
+		await rerenderInstances([DUNE, FOUND]);
+		const rows = wrapper.findAll('li.instance-row');
+		expect(rows).toHaveLength(2);
+		// DUNE survives selected; FOUND was never selected.
+		expect(rows[0]!.attributes('aria-selected')).toBe('true');  // DUNE
+		expect(rows[1]!.attributes('aria-selected')).toBe('false'); // FOUND
+		wrapper.unmount();
+	});
+
+	it('select-mode toggle is disabled while loading=true', () => {
+		const { wrapper } = mountPage({ instances: undefined, loading: true });
+		const toggle = wrapper.find('[data-testid="select-mode-toggle"]');
+		expect(toggle.attributes('disabled')).toBeDefined();
+		wrapper.unmount();
+	});
+});
+```
+
+The `mountPage` helper currently takes `{ instances, loading?, error? }`. The "selection hygiene" test needs to update the `instances` prop after mount — verify the existing helper supports this (`grep -n "function mountPage" tests/ui/pages/make/MakeTypeInstances.test.ts`); if it returns the wrapper but no setProps shorthand, add a thin `rerenderInstances(next)` that calls `wrapper.setProps({ instances: next }); await nextTick();`.
+
+- [ ] **Step 5.1.2: Run tests to verify they fail**
+
+```bash
+cd "01 - Projects/Agentonomous" && npx vitest run tests/ui/pages/make/MakeTypeInstances.test.ts -t "select mode foundation" --project unit
+```
+Expected: 7 FAILs.
+
+- [ ] **Step 5.1.3: Add the script-side state to `MakeTypeInstances.vue`**
+
+Edit the `<script setup>` block of `src/ui/pages/make/MakeTypeInstances.vue`. Add after the existing `pendingInstanceDelete` ref (around line 37):
+
+```ts
+// --- Bulk select mode ---
+const selectMode    = ref(false);
+const selectedPaths = shallowRef<ReadonlySet<string>>(new Set());
+
+function toggleSelectMode(): void {
+	if (props.loading) return;          // off→on guard (selection hygiene §)
+	selectMode.value = !selectMode.value;
+	if (!selectMode.value) selectedPaths.value = new Set();
+}
+
+function isRowSelected(path: string): boolean {
+	return selectedPaths.value.has(path);
+}
+
+function toggleRowSelection(path: string): void {
+	const next = new Set(selectedPaths.value);
+	if (next.has(path)) next.delete(path); else next.add(path);
+	selectedPaths.value = next;
+}
+
+// Selection hygiene: when the sorted list changes (refresh, external delete),
+// drop any selected paths that no longer exist in the rendered set.
+watch(
+	() => sorted.value.map((r) => r.path),
+	(currentPaths) => {
+		const allowed = new Set(currentPaths);
+		const next = new Set([...selectedPaths.value].filter((p) => allowed.has(p)));
+		if (next.size !== selectedPaths.value.size) selectedPaths.value = next;
+	},
+);
+```
+
+Add `shallowRef` to the existing Vue import (line 2):
+```ts
+import { computed, inject, nextTick, ref, shallowRef, watch } from 'vue';
+```
+
+- [ ] **Step 5.1.4: Update the template — header toggle + checkbox column + ARIA**
+
+Edit the template:
+
+1. In the header (currently lines 136–146), add the Select toggle next to the "+ New" button:
+
+```vue
+<header class="make-type-instances__header">
+	<h2 data-testid="make-type-instances-heading">{{ t('make.instances.heading') }}</h2>
+	<div class="make-type-instances__header-actions">
+		<button
+			type="button"
+			data-testid="select-mode-toggle"
+			:aria-pressed="selectMode ? 'true' : 'false'"
+			:disabled="loading"
+			@click="toggleSelectMode"
+		>
+			{{ selectMode ? t('make.instances.bulk.done-button') : t('make.instances.bulk.select-button') }}
+		</button>
+		<button
+			type="button"
+			data-testid="new-instance-button"
+			:aria-expanded="panelOpen ? 'true' : 'false'"
+			@click="togglePanel"
+		>
+			+ {{ t('make.instances.new-button') }}
+		</button>
+	</div>
+</header>
+```
+
+(The `make.instances.bulk.*` keys are added in Chunk 8; for now the test passes by data-testid alone, but tsc/lint won't fault on missing i18n at runtime — the missing-key fallback returns the key itself. Tests assert structure, not text.)
+
+2. On the `<ul class="instances-list">` (currently line 170), add `:aria-multiselectable` conditionally:
+
+```vue
+<ul
+	v-else
+	role="list"
+	class="instances-list"
+	:aria-label="t('make.instances.heading')"
+	:aria-multiselectable="selectMode ? 'true' : undefined"
+>
+```
+
+3. On the `<li class="instance-row">` (currently lines 171–183), add `:aria-selected`:
+
+```vue
+<li
+	v-for="(instanceRef, index) in sorted"
+	:key="instanceRef.path"
+	:ref="(el) => setRowRef(el as Element | null, index)"
+	:data-testid="`instance-row-${instanceRef.path}`"
+	class="instance-row"
+	role="listitem"
+	:tabindex="index === focusedRowIndex ? 0 : -1"
+	:aria-posinset="index + 1"
+	:aria-setsize="sorted.length"
+	:aria-selected="selectMode ? (isRowSelected(instanceRef.path) ? 'true' : 'false') : undefined"
+	@focus="focusedRowIndex = index"
+	@keydown="(e: KeyboardEvent) => onRowKeydown(e, index)"
+>
+```
+
+4. Inside the row (between `<span class="instance-title">` and `<span class="instance-row__actions">`), add a checkbox visible only in select mode, and wrap the actions span with `v-if="!selectMode"`:
+
+```vue
+	<span
+		v-if="selectMode"
+		role="checkbox"
+		:data-testid="`instance-row-checkbox-${instanceRef.path}`"
+		:aria-checked="isRowSelected(instanceRef.path) ? 'true' : 'false'"
+		:aria-label="`${t('make.instances.bulk.select-row-aria', { title: instanceRef.title })}`"
+		tabindex="-1"
+		class="instance-row__checkbox"
+		@click="() => toggleRowSelection(instanceRef.path)"
+	>
+		<!-- Visual: simple inline SVG or unicode glyph; tests only assert aria-checked. -->
+		{{ isRowSelected(instanceRef.path) ? '☑' : '☐' }}
+	</span>
+	<span class="instance-title">{{ instanceRef.title }}</span>
+	<span class="instance-date">{{ t('make.type.instances.createdLabel', { date: shortDate(instanceRef.createdAt) }) }}</span>
+	<span v-if="!selectMode" class="instance-row__actions">
+		<!-- existing two buttons unchanged -->
+	</span>
+```
+
+(Using `role="checkbox"` on a `<span>` with `aria-checked` is a deliberate choice: it composes cleanly with the row's roving-tabindex story without introducing a focusable native control inside the row that would break Tab semantics. The visual glyph is a placeholder — design polish can come later.)
+
+5. Add minimal CSS in the existing `<style scoped>` block:
+
+```css
+.make-type-instances__header-actions { display: flex; gap: 0.5rem; align-items: center; }
+.instance-row__checkbox { user-select: none; cursor: pointer; padding: 0 0.25rem; font-size: 1.1em; }
+.instance-row[aria-selected="true"] { background: var(--background-modifier-hover); }
+```
+
+- [ ] **Step 5.1.5: Run tests to verify they pass**
+
+```bash
+cd "01 - Projects/Agentonomous" && npx vitest run tests/ui/pages/make/MakeTypeInstances.test.ts -t "select mode foundation" --project unit
+```
+Expected: 7 tests pass.
+
+- [ ] **Step 5.1.6: Run the full gate**
+
+```bash
+cd "01 - Projects/Agentonomous" && npm test
+```
+Expected: end of Chunk 5 → 105 files, 990 tests (983 + 7). Lint: 0 errors. (If `mountPage` was extended with `rerenderInstances`, lint should still be 0.)
+
+- [ ] **Step 5.1.7: Commit**
+
+```bash
+git add "01 - Projects/Agentonomous/src/ui/pages/make/MakeTypeInstances.vue" "01 - Projects/Agentonomous/tests/ui/pages/make/MakeTypeInstances.test.ts"
+git commit -m "$(cat <<'EOF'
+feat(agentonomous): MakeTypeInstances select-mode toggle + checkbox column (Polish P1 #13)
+
+Adds a "Select" toggle button in the header that switches the instances
+list into select mode: per-row delete buttons hide, a checkbox span
+appears at the start of every row, the list gains aria-multiselectable,
+rows expose aria-selected, and a watcher prunes stale paths from the
+selection set on every list refresh. The toggle is disabled while the
+list is loading. No bulk-action toolbar yet — that lands in Chunk 6.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
