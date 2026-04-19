@@ -76,6 +76,15 @@ function seedValues(): Record<string, unknown> {
 const values = ref<Record<string, unknown>>(seedValues());
 const explicitFilename = ref<string>('');
 const clientErrors = ref<readonly FieldError[]>([]);
+const titleInputRef = ref<HTMLElement | null>(null);
+const filenameInputRef = ref<HTMLElement | null>(null);
+
+function focusNameInput(): void {
+	const target = titleInputRef.value ?? filenameInputRef.value;
+	target?.querySelector<HTMLInputElement>('input')?.focus();
+}
+
+defineExpose({ focusNameInput });
 
 function errorFor(fieldName: string): FieldError | null {
 	const client = clientErrors.value.find((e) => e.fieldName === fieldName);
@@ -174,7 +183,7 @@ function setTitleModel(value: string): void {
 	>
 		<section data-testid="form-title-section" class="schema-form__field">
 			<template v-if="titleField !== null">
-				<div data-testid="form-title-input">
+				<div ref="titleInputRef" data-testid="form-title-input">
 					<TextInput
 						:field="titleField"
 						:model-value="titleModel()"
@@ -194,7 +203,7 @@ function setTitleModel(value: string): void {
 				</p>
 			</template>
 			<template v-else>
-				<div data-testid="form-filename-input">
+				<div ref="filenameInputRef" data-testid="form-filename-input">
 					<TextInput
 						:field="FILENAME_PSEUDO_FIELD"
 						:model-value="explicitFilename"

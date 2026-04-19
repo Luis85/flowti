@@ -153,6 +153,9 @@
 	"make.form.filename-help": "(used as the markdown file name)",
 	"make.form.title-suffix": "(becomes the file name)",
 
+	"make.instances.heading": "Instances",
+	"make.instances.new-button": "New instance",
+
 	"make.instance-actions.open-in-obsidian": "Open in Obsidian",
 	"make.instance-actions.delete": "Delete",
 
