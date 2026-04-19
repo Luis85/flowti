@@ -127,10 +127,10 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 		return ok({ schema: next, moveReport });
 	}
 
-	async function updateType(
+	async function updateTypeImpl(
 		typeId: string,
 		changes: TypeSchemaPatch,
-		options: UpdateTypeOptions = {},
+		options: UpdateTypeOptions,
 	): Promise<Result<UpdateTypeResult, MakeError>> {
 		const current = await loadType(typeId);
 		if (current.kind === 'err') return current;
@@ -151,7 +151,7 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 		return commitWithMove(next, oldInstances, prevFolder, nextFolder);
 	}
 
-	async function retryFailedMoves(
+	async function retryFailedMovesImpl(
 		typeId: string, failedPaths: readonly string[],
 	): Promise<Result<MoveReport, MakeError>> {
 		const loaded = await loadType(typeId);
@@ -172,6 +172,32 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 		const report: MoveReport = { oldFolder, newFolder: toFolder, movedCount, failedMoves };
 		if (movedCount > 0) ports.eventBus.emit('make:instances-moved', { typeId, report });
 		return ok(report);
+	}
+
+	// Per-typeId serialization. Concurrent updateType/retryFailedMoves calls for
+	// the same type queue behind each other; loadType in the next call observes
+	// the previous call's committed schema, preventing stale-write races (e.g.
+	// two Obsidian panes saving the same type at once).
+	const chains = new Map<string, Promise<unknown>>();
+	function enqueue<T>(typeId: string, work: () => Promise<T>): Promise<T> {
+		const previous = chains.get(typeId) ?? Promise.resolve();
+		const current = previous.then(work);
+		chains.set(typeId, current.catch(() => undefined));
+		return current;
+	}
+
+	function updateType(
+		typeId: string,
+		changes: TypeSchemaPatch,
+		options: UpdateTypeOptions = {},
+	): Promise<Result<UpdateTypeResult, MakeError>> {
+		return enqueue(typeId, () => updateTypeImpl(typeId, changes, options));
+	}
+
+	function retryFailedMoves(
+		typeId: string, failedPaths: readonly string[],
+	): Promise<Result<MoveReport, MakeError>> {
+		return enqueue(typeId, () => retryFailedMovesImpl(typeId, failedPaths));
 	}
 
 	return { updateType, retryFailedMoves };

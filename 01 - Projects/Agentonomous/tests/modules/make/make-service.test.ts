@@ -609,6 +609,42 @@ describe('makeService.updateType move preconditions', () => {
 		// Semantics: no 'err' with kind 'partial-move' on MakeError anymore.
 		// The caller must inspect moveReport.failedMoves.length > 0.
 	});
+
+	it('concurrent updateType calls serialize per typeId (no stale-write race)', async () => {
+		const { vault, svc } = await withBookAndInstances(['Dune']);
+		// Gate the first rename on a manually-resolved promise so the folder-move
+		// is definitively in-flight when the second updateType call arrives.
+		let releaseFirstRename: () => void = () => {};
+		const firstRenameWait = new Promise<void>((r) => { releaseFirstRename = r; });
+		const originalRename = vault.rename;
+		let renameCallCount = 0;
+		vault.rename = vi.fn(async (oldPath: string, newPath: string) => {
+			renameCallCount += 1;
+			if (renameCallCount === 1) await firstRenameWait;
+			return originalRename(oldPath, newPath);
+		}) as typeof vault.rename;
+
+		// Call 1: folder-move (suspends on firstRenameWait).
+		const r1 = svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
+		// Call 2: description change, started while call 1 is mid-rename.
+		const r2 = svc.updateType('book', { description: 'Updated via second call' });
+
+		// Release call 1 to complete.
+		releaseFirstRename();
+		const [res1, res2] = await Promise.all([r1, r2]);
+		expect(res1.kind).toBe('ok');
+		expect(res2.kind).toBe('ok');
+
+		// With serialization, call 2 loads the post-call-1 schema and preserves the
+		// folder move while applying its description. Without it, call 2 would have
+		// loaded stale state and clobbered the folder change.
+		const read = await vault.read('Make/Types/book.json');
+		if (read.kind === 'ok') {
+			const parsed = JSON.parse(read.value.content) as { description: string; instancesFolder: string };
+			expect(parsed.instancesFolder).toBe('NewBooks');
+			expect(parsed.description).toBe('Updated via second call');
+		}
+	});
 });
 
 describe('makeService.retryFailedMoves', () => {
