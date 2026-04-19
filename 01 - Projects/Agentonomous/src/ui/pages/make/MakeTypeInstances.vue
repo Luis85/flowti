@@ -7,7 +7,7 @@ import SchemaForm from '../../components/make/SchemaForm.vue';
 import OverwriteDialog from '../../components/make/OverwriteDialog.vue';
 import ConfirmDialog from '../../components/make/ConfirmDialog.vue';
 import { PluginContextKey } from '../../plugin-context-key.js';
-import type { InstanceRef, TypeId } from '../../../domain/make/types.js';
+import type { BulkDeleteReport, InstanceRef, TypeId } from '../../../domain/make/types.js';
 import type { TypeSchema } from '../../../domain/make/type-schema.js';
 
 const { t } = useI18n();
@@ -54,6 +54,71 @@ function toggleRowSelection(path: string): void {
 	const next = new Set(selectedPaths.value);
 	if (next.has(path)) next.delete(path); else next.add(path);
 	selectedPaths.value = next;
+}
+
+const pendingBulkDelete = ref(false);
+const bulkResult        = ref<BulkDeleteReport | null>(null);
+const showPartialDialog = computed(() => bulkResult.value !== null && bulkResult.value.failures.length > 0);
+
+function onClickBulkDelete(): void {
+	if (selectedPaths.value.size === 0) return;
+	pendingBulkDelete.value = true;
+}
+
+async function onConfirmBulkDelete(choice: 'cancel' | 'confirm' | 'save' | 'discard' | 'reject'): Promise<void> {
+	pendingBulkDelete.value = false;
+	if (choice !== 'confirm') return;
+	const paths = [...selectedPaths.value];
+	if (paths.length === 0) return;
+	const result = await store.bulkDeleteInstances(props.type.id, paths);
+	if (result.kind === 'err') {
+		ctx?.notifications.warn(t('make.instances.bulk.busy-toast'));
+		return;
+	}
+	bulkResult.value = result.value;
+	if (result.value.failures.length === 0) {
+		ctx?.notifications.success(t('make.instances.bulk.notification.success', { count: result.value.deletedPaths.length }));
+		selectMode.value = false;
+		selectedPaths.value = new Set();
+		bulkResult.value = null;
+	} else {
+		selectedPaths.value = new Set(result.value.failures.map((f) => f.path));
+	}
+}
+
+function partialBodyText(report: BulkDeleteReport): string {
+	const failedPaths = report.failures.map((f) => f.path);
+	const head        = failedPaths.slice(0, 3).join(', ');
+	const tail        = failedPaths.length > 3 ? `, +${failedPaths.length - 3} more` : '';
+	const total       = report.deletedPaths.length + report.failures.length;
+	return t('make.instances.bulk.partial.body', {
+		ok:    report.deletedPaths.length,
+		total,
+		fail:  report.failures.length,
+		paths: `${head}${tail}`,
+	});
+}
+
+async function onResolvePartialDialog(choice: 'cancel' | 'confirm' | 'save' | 'discard' | 'reject'): Promise<void> {
+	const report = bulkResult.value;
+	bulkResult.value = null;
+	if (choice === 'confirm' && report !== null) {
+		const retryPaths = report.failures.map((f) => f.path);
+		const retry = await store.bulkDeleteInstances(props.type.id, retryPaths);
+		if (retry.kind === 'err') {
+			ctx?.notifications.warn(t('make.instances.bulk.busy-toast'));
+			return;
+		}
+		bulkResult.value = retry.value;
+		if (retry.value.failures.length === 0) {
+			ctx?.notifications.success(t('make.instances.bulk.notification.success', { count: retry.value.deletedPaths.length }));
+			selectMode.value = false;
+			selectedPaths.value = new Set();
+			bulkResult.value = null;
+		} else {
+			selectedPaths.value = new Set(retry.value.failures.map((f) => f.path));
+		}
+	}
 }
 
 // Auto-open the panel when the instances list arrives empty.
@@ -108,6 +173,22 @@ watch(
 		if (next.size !== selectedPaths.value.size) selectedPaths.value = next;
 	},
 );
+
+const selectAllState = computed<'none' | 'some' | 'all'>(() => {
+	const total = sorted.value.length;
+	const sel   = selectedPaths.value.size;
+	if (sel === 0)    return 'none';
+	if (sel >= total) return 'all';
+	return 'some';
+});
+
+function selectAllToggle(): void {
+	if (selectAllState.value === 'all') {
+		selectedPaths.value = new Set();
+	} else {
+		selectedPaths.value = new Set(sorted.value.map((r) => r.path));
+	}
+}
 
 function shortDate(iso: string): string {
 	return iso.slice(0, 10);
@@ -187,6 +268,48 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 				</button>
 			</div>
 		</header>
+
+		<div
+			v-if="selectMode"
+			data-testid="bulk-toolbar"
+			class="bulk-toolbar"
+			role="toolbar"
+			:aria-label="t('make.instances.bulk.toolbar-aria')"
+		>
+			<span
+				role="checkbox"
+				data-testid="bulk-toolbar-select-all"
+				:aria-checked="selectAllState === 'all' ? 'true' : selectAllState === 'some' ? 'mixed' : 'false'"
+				:aria-label="t('make.instances.bulk.select-all-aria')"
+				tabindex="0"
+				class="bulk-toolbar__select-all"
+				@click="selectAllToggle"
+				@keydown.space.prevent="selectAllToggle"
+			>
+				{{ selectAllState === 'all' ? '☑' : selectAllState === 'some' ? '◼' : '☐' }}
+			</span>
+			<span data-testid="bulk-toolbar-count" class="bulk-toolbar__count">
+				{{ t('make.instances.bulk.count', { count: selectedPaths.size }) }}
+			</span>
+			<button
+				type="button"
+				data-testid="bulk-toolbar-delete"
+				class="bulk-toolbar__delete"
+				:disabled="selectedPaths.size === 0 || store.bulkDeleting.has(type.id)"
+				@click="onClickBulkDelete"
+			>
+				{{ t('make.instances.bulk.delete-button') }}
+			</button>
+			<button
+				type="button"
+				data-testid="bulk-toolbar-done"
+				class="bulk-toolbar__done"
+				:disabled="store.bulkDeleting.has(type.id)"
+				@click="toggleSelectMode"
+			>
+				{{ t('make.instances.bulk.done-button') }}
+			</button>
+		</div>
 
 		<section
 			v-if="panelOpen"
@@ -285,6 +408,27 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 			:destructive="true"
 			@resolve="onConfirmInstanceDelete"
 		/>
+
+		<ConfirmDialog
+			:open="pendingBulkDelete"
+			:title="t('make.instances.bulk.confirm.title', { count: selectedPaths.size })"
+			:body="t('make.instances.bulk.confirm.body')"
+			:options="['cancel', 'confirm']"
+			:labels="{ confirm: t('make.instances.bulk.confirm.confirm', { count: selectedPaths.size }), cancel: t('make.instances.bulk.confirm.cancel') }"
+			:destructive="true"
+			:busy="store.bulkDeleting.has(type.id)"
+			@resolve="onConfirmBulkDelete"
+		/>
+
+		<ConfirmDialog
+			:open="showPartialDialog"
+			:title="t('make.instances.bulk.partial.title')"
+			:body="bulkResult ? partialBodyText(bulkResult) : ''"
+			:options="['cancel', 'confirm']"
+			:labels="{ confirm: t('make.instances.bulk.partial.confirm'), cancel: t('make.instances.bulk.partial.cancel') }"
+			:busy="store.bulkDeleting.has(type.id)"
+			@resolve="onResolvePartialDialog"
+		/>
 	</div>
 </template>
 
@@ -306,4 +450,8 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 .make-type-instances__header-actions { display: flex; gap: 0.5rem; align-items: center; }
 .instance-row__checkbox { user-select: none; cursor: pointer; padding: 0 0.25rem; font-size: 1.1em; }
 .instance-row[aria-selected="true"] { background: var(--background-modifier-hover); }
+.bulk-toolbar { display: flex; gap: 0.5rem; align-items: center; padding: 0.375rem 0.5rem; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: 4px; }
+.bulk-toolbar__select-all { user-select: none; cursor: pointer; padding: 0 0.25rem; font-size: 1.1em; outline: none; }
+.bulk-toolbar__select-all:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; border-radius: 2px; }
+.bulk-toolbar__count { color: var(--text-muted); flex: 1; }
 </style>
