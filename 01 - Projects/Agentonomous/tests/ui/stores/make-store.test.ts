@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from 'pinia';
 import { defineComponent, h } from 'vue';
 import { mountWithI18n } from '../../__fixtures__/mount-with-i18n.js';
 import { createFakeMakeContext, fakeMakeService } from '../../__fixtures__/fake-make-context.js';
+import { fakeWorkspace } from '../../__fakes__/fake-ports.js';
 import { MakeContextKey } from '../../../src/ui/make-context-key.js';
 import { useMakeStore } from '../../../src/ui/stores/make-store.js';
 import type { MakeEventHandlers } from '../../../src/modules/make/make-module.js';
@@ -282,5 +283,51 @@ describe('make-store write actions', () => {
 		store.types = [BOOK];
 		handlers['onTypeDeleted']?.({ typeId: 'book', name: 'Book' });
 		expect(store.types).toEqual([]);
+	});
+});
+
+describe('make-store — deleteCorruptFile', () => {
+	const ISSUE: CorruptTypeRef = {
+		path: 'Make/Types/x.json', filename: 'x.json',
+		error: { kind: 'invalid-json', reason: 'bad' },
+	};
+
+	it('calls service.deleteCorruptFile and triggers loadTypes on success', async () => {
+		const deleteCorruptFile = vi.fn().mockResolvedValue({ kind: 'ok', value: undefined });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [ISSUE] } });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ deleteCorruptFile, listTypes }) }));
+		await store.loadTypes();
+		const callsBefore = listTypes.mock.calls.length;
+		const result = await store.deleteCorruptFile('Make/Types/x.json');
+		expect(result.kind).toBe('ok');
+		expect(deleteCorruptFile).toHaveBeenCalledWith('Make/Types/x.json');
+		expect(listTypes.mock.calls.length).toBeGreaterThan(callsBefore);
+	});
+
+	it('does not refresh on failure', async () => {
+		const deleteCorruptFile = vi.fn().mockResolvedValue({ kind: 'err', error: { kind: 'vault-error', cause: 'nope' } });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ deleteCorruptFile, listTypes }) }));
+		await store.loadTypes();
+		const callsBefore = listTypes.mock.calls.length;
+		const result = await store.deleteCorruptFile('Make/Types/x.json');
+		expect(result.kind).toBe('err');
+		expect(listTypes.mock.calls.length).toBe(callsBefore);
+	});
+});
+
+describe('make-store — openInstance', () => {
+	it('delegates to ctx.workspace.openFile with default mode tab', async () => {
+		const { port: workspace, calls } = fakeWorkspace();
+		const { store } = mountStore(createFakeMakeContext({ workspace }));
+		await store.openInstance('Books/dune.md');
+		expect(calls).toEqual([{ path: 'Books/dune.md', mode: 'tab' }]);
+	});
+
+	it('honors explicit mode', async () => {
+		const { port: workspace, calls } = fakeWorkspace();
+		const { store } = mountStore(createFakeMakeContext({ workspace }));
+		await store.openInstance('Books/dune.md', 'split');
+		expect(calls).toEqual([{ path: 'Books/dune.md', mode: 'split' }]);
 	});
 });

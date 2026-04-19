@@ -7,6 +7,7 @@ import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { InstanceRef, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport } from '../../domain/make/types.js';
 import type { CorruptTypeRef, MakeError } from '../../domain/make/errors.js';
 import type { Result } from '../../domain/shared/result.js';
+import type { OpenFileMode } from '../../domain/shared/workspace-port.js';
 import { useMakeContext } from '../composables/use-make-context.js';
 
 function formatError(error: unknown): string {
@@ -144,6 +145,16 @@ export const useMakeStore = defineStore('make', () => {
 		return result;
 	}
 
+	async function deleteCorruptFile(path: string): Promise<Result<void, MakeError>> {
+		const result = await ctx.service.deleteCorruptFile(path);
+		if (result.kind === 'ok') await loadTypes();
+		return result;
+	}
+
+	async function openInstance(path: string, mode: OpenFileMode = 'tab'): Promise<Result<void, string>> {
+		return ctx.workspace.openFile(path, mode);
+	}
+
 	async function toggleFavorite(typeId: TypeId): Promise<Result<boolean, MakeError>> {
 		const currentFavorited = ctx.settings$.value.favorites.includes(typeId);
 		const targetFavorited = !currentFavorited;
@@ -211,6 +222,8 @@ export const useMakeStore = defineStore('make', () => {
 		createType,
 		updateType,
 		deleteType,
+		deleteCorruptFile,
+		openInstance,
 		regenerateBaseFile,
 		toggleFavorite,
 		isFavoritedForUI,
