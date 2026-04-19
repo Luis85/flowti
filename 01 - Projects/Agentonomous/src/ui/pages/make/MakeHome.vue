@@ -23,6 +23,16 @@ const typeNamesById = computed<Record<string, string>>(() => {
 	return out;
 });
 
+// KPI labels follow the existing pluralization pattern used elsewhere
+// (e.g., make.types.countOne/Other) — the label below the card's numeric
+// value should agree grammatically with that number.
+const kpiLabelTypes = computed(() =>
+	(kpis.value?.typesCount ?? 0) === 1 ? t('make.home.kpi.typesOne') : t('make.home.kpi.typesOther'),
+);
+const kpiLabelInstances = computed(() =>
+	(kpis.value?.instancesCount ?? 0) === 1 ? t('make.home.kpi.instancesOne') : t('make.home.kpi.instancesOther'),
+);
+
 function onOpenInstance(path: string): void {
 	void store.openInstance(path, 'tab');
 }
@@ -52,7 +62,13 @@ function onOpenInstance(path: string): void {
 
 		<p data-testid="make-home-blurb" class="make-home__blurb">{{ t('make.home.blurb') }}</p>
 
-		<div v-if="typesLoading" data-testid="make-home-spinner" class="make-home__spinner">Loading…</div>
+		<div
+			v-if="typesLoading"
+			data-testid="make-home-spinner"
+			class="make-home__spinner"
+			role="status"
+			aria-live="polite"
+		>{{ t('make.home.loading') }}</div>
 
 		<div v-else-if="!hasTypes" class="make-home__empty">
 			<p data-testid="make-home-empty">{{ t('make.home.empty') }}</p>
@@ -66,9 +82,9 @@ function onOpenInstance(path: string): void {
 		</div>
 
 		<template v-else>
-			<section class="make-home__kpis" role="group" :aria-label="t('make.home.title')">
-				<KpiCard :label="t('make.home.kpi.types')"           :value="kpis?.typesCount ?? 0"     testid="kpi-types"     :loading="kpis === null" />
-				<KpiCard :label="t('make.home.kpi.instances')"       :value="kpis?.instancesCount ?? 0" testid="kpi-instances" :loading="kpis === null" />
+			<section class="make-home__kpis" role="group" :aria-label="t('make.home.kpi.groupAriaLabel')">
+				<KpiCard :label="kpiLabelTypes"                      :value="kpis?.typesCount ?? 0"      testid="kpi-types"     :loading="kpis === null" />
+				<KpiCard :label="kpiLabelInstances"                  :value="kpis?.instancesCount ?? 0"  testid="kpi-instances" :loading="kpis === null" />
 				<KpiCard :label="t('make.home.kpi.createdThisWeek')" :value="kpis?.createdThisWeek ?? 0" testid="kpi-week"      :loading="kpis === null" />
 			</section>
 

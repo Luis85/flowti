@@ -12,9 +12,15 @@ const displayValue = computed<string>(() => props.loading ? '—' : String(props
 </script>
 
 <template>
-	<div :data-testid="testid" class="kpi-card">
-		<span :data-testid="`${testid}-value`" class="kpi-card__value">{{ displayValue }}</span>
-		<span :data-testid="`${testid}-label`" class="kpi-card__label">{{ label }}</span>
+	<div
+		:data-testid="testid"
+		class="kpi-card"
+		role="group"
+		:aria-label="`${label}: ${displayValue}`"
+		:aria-busy="loading ? 'true' : 'false'"
+	>
+		<span :data-testid="`${testid}-value`" class="kpi-card__value" aria-hidden="true">{{ displayValue }}</span>
+		<span :data-testid="`${testid}-label`" class="kpi-card__label" aria-hidden="true">{{ label }}</span>
 	</div>
 </template>
 
