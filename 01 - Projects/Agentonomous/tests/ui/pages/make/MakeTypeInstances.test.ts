@@ -70,7 +70,11 @@ function mountPage(opts: {
 	setActivePinia(pinia);
 	const page = new MakeTypeInstancesPage(wrapper.element as HTMLElement);
 	const store = useMakeStore();
-	return { wrapper, page, store, ctx };
+	const rerenderInstances = async (next: readonly InstanceRef[] | undefined): Promise<void> => {
+		await wrapper.setProps({ instances: next });
+		await nextTick();
+	};
+	return { wrapper, page, store, ctx, rerenderInstances };
 }
 
 describe('MakeTypeInstances — create form', () => {
@@ -414,6 +418,94 @@ describe('MakeTypeInstances — keyboard a11y', () => {
 		row(root, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 		await flushPromises();
 		expect(openSpy).toHaveBeenCalledWith('Books/Dune.md', 'tab');
+		wrapper.unmount();
+	});
+});
+
+describe('MakeTypeInstances — select mode foundation', () => {
+	const DUNE:  InstanceRef = { typeId: 'book', path: 'Books/Dune.md',        title: 'Dune',         createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z' };
+	const NEURO: InstanceRef = { typeId: 'book', path: 'Books/Neuromancer.md', title: 'Neuromancer',  createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
+	const FOUND: InstanceRef = { typeId: 'book', path: 'Books/Foundation.md',  title: 'Foundation',   createdAt: '2026-04-17T00:00:00.000Z', updatedAt: '2026-04-17T00:00:00.000Z' };
+
+	beforeEach(() => {
+		setActivePinia(createPinia());
+		createInstanceSpy = vi.fn();
+		document.body.innerHTML = '';
+	});
+
+	it('renders a Select toggle button in the header (default off, no checkboxes shown)', () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		const toggle = wrapper.find('[data-testid="select-mode-toggle"]');
+		expect(toggle.exists()).toBe(true);
+		expect(toggle.attributes('aria-pressed')).toBe('false');
+		expect(wrapper.findAll('[data-testid^="instance-row-checkbox-"]')).toHaveLength(0);
+		wrapper.unmount();
+	});
+
+	it('clicking the Select toggle enters select mode: shows checkboxes, hides per-row delete buttons', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		const checkboxes = wrapper.findAll('[data-testid^="instance-row-checkbox-"]');
+		expect(checkboxes).toHaveLength(3);
+		expect(wrapper.findAll('[data-testid^="delete-instance-"]')).toHaveLength(0);
+		expect(wrapper.find('[data-testid="select-mode-toggle"]').attributes('aria-pressed')).toBe('true');
+		wrapper.unmount();
+	});
+
+	it('toggling a row checkbox adds/removes its path from the selection', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		const cb = wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`);
+		expect(cb.attributes('aria-checked')).toBe('false');
+		await cb.trigger('click');
+		expect(wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).attributes('aria-checked')).toBe('true');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		expect(wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).attributes('aria-checked')).toBe('false');
+		wrapper.unmount();
+	});
+
+	it('list gets aria-multiselectable="true" only in select mode; rows expose aria-selected', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		const list = () => wrapper.find('.instances-list');
+		expect(list().attributes('aria-multiselectable')).toBeUndefined();
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		expect(list().attributes('aria-multiselectable')).toBe('true');
+		const rows = wrapper.findAll('li.instance-row');
+		expect(rows).toHaveLength(3);
+		expect(rows[0]!.attributes('aria-selected')).toBe('false');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		expect(wrapper.findAll('li.instance-row')[0]!.attributes('aria-selected')).toBe('true');
+		wrapper.unmount();
+	});
+
+	it('exiting select mode clears selection', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		expect(wrapper.findAll('li.instance-row')[0]!.attributes('aria-selected')).toBe('true');
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		expect(wrapper.findAll('li.instance-row')[0]!.attributes('aria-selected')).toBe('false');
+		wrapper.unmount();
+	});
+
+	it('selection hygiene: paths removed from the list also leave the selection set', async () => {
+		const { wrapper, rerenderInstances } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		await wrapper.find('[data-testid="select-mode-toggle"]').trigger('click');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${DUNE.path}"]`).trigger('click');
+		await wrapper.find(`[data-testid="instance-row-checkbox-${NEURO.path}"]`).trigger('click');
+		await rerenderInstances([DUNE, FOUND]);
+		const rows = wrapper.findAll('li.instance-row');
+		expect(rows).toHaveLength(2);
+		expect(rows[0]!.attributes('aria-selected')).toBe('true');  // DUNE
+		expect(rows[1]!.attributes('aria-selected')).toBe('false'); // FOUND
+		wrapper.unmount();
+	});
+
+	it('select-mode toggle is disabled while loading=true', () => {
+		const { wrapper } = mountPage({ instances: undefined, loading: true });
+		const toggle = wrapper.find('[data-testid="select-mode-toggle"]');
+		expect(toggle.attributes('disabled')).toBeDefined();
 		wrapper.unmount();
 	});
 });

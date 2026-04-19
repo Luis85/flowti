@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, ref, watch } from 'vue';
+import { computed, inject, nextTick, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMakeStore } from '../../stores/make-store.js';
 import { useCreateInstanceFlow } from './use-create-instance-flow.js';
@@ -35,6 +35,26 @@ const flowOverwriteDialog = flow.overwriteDialog;
 const formRef = ref<InstanceType<typeof SchemaForm> | null>(null);
 const panelOpen = ref(false);
 const pendingInstanceDelete = ref<InstanceRef | null>(null);
+
+// --- Bulk select mode ---
+const selectMode    = ref(false);
+const selectedPaths = shallowRef<ReadonlySet<string>>(new Set());
+
+function toggleSelectMode(): void {
+	if (props.loading) return;
+	selectMode.value = !selectMode.value;
+	if (!selectMode.value) selectedPaths.value = new Set();
+}
+
+function isRowSelected(path: string): boolean {
+	return selectedPaths.value.has(path);
+}
+
+function toggleRowSelection(path: string): void {
+	const next = new Set(selectedPaths.value);
+	if (next.has(path)) next.delete(path); else next.add(path);
+	selectedPaths.value = next;
+}
 
 // Auto-open the panel when the instances list arrives empty.
 watch(
@@ -77,6 +97,17 @@ const sorted = computed(() => {
 	const list = props.instances ?? [];
 	return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 });
+
+// Selection hygiene: when the sorted list changes (refresh, external delete),
+// drop any selected paths that no longer exist in the rendered set.
+watch(
+	() => sorted.value.map((r) => r.path),
+	(currentPaths) => {
+		const allowed = new Set(currentPaths);
+		const next = new Set([...selectedPaths.value].filter((p) => allowed.has(p)));
+		if (next.size !== selectedPaths.value.size) selectedPaths.value = next;
+	},
+);
 
 function shortDate(iso: string): string {
 	return iso.slice(0, 10);
@@ -135,14 +166,26 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 	<div class="make-type-instances">
 		<header class="make-type-instances__header">
 			<h2 data-testid="make-type-instances-heading">{{ t('make.instances.heading') }}</h2>
-			<button
-				type="button"
-				data-testid="new-instance-button"
-				:aria-expanded="panelOpen ? 'true' : 'false'"
-				@click="togglePanel"
-			>
-				+ {{ t('make.instances.new-button') }}
-			</button>
+			<div class="make-type-instances__header-actions">
+				<button
+					type="button"
+					data-testid="select-mode-toggle"
+					:aria-pressed="selectMode ? 'true' : 'false'"
+					:disabled="loading"
+					@click="toggleSelectMode"
+				>
+					{{ selectMode ? t('make.instances.bulk.done-button') : t('make.instances.bulk.select-button') }}
+				</button>
+				<button
+					v-if="!selectMode"
+					type="button"
+					data-testid="new-instance-button"
+					:aria-expanded="panelOpen ? 'true' : 'false'"
+					@click="togglePanel"
+				>
+					+ {{ t('make.instances.new-button') }}
+				</button>
+			</div>
 		</header>
 
 		<section
@@ -167,7 +210,13 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 		<p v-else-if="sorted.length === 0" data-testid="make-type-instances-empty" class="empty">
 			{{ t('make.type.instances.empty', { typeName: type.name }) }}
 		</p>
-		<ul v-else role="list" class="instances-list" :aria-label="t('make.instances.heading')">
+		<ul
+			v-else
+			role="list"
+			class="instances-list"
+			:aria-label="t('make.instances.heading')"
+			:aria-multiselectable="selectMode ? 'true' : undefined"
+		>
 			<li
 				v-for="(instanceRef, index) in sorted"
 				:key="instanceRef.path"
@@ -178,12 +227,25 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 				:tabindex="index === focusedRowIndex ? 0 : -1"
 				:aria-posinset="index + 1"
 				:aria-setsize="sorted.length"
+				:aria-selected="selectMode ? (isRowSelected(instanceRef.path) ? 'true' : 'false') : undefined"
 				@focus="focusedRowIndex = index"
 				@keydown="(e: KeyboardEvent) => onRowKeydown(e, index)"
 			>
+				<span
+					v-if="selectMode"
+					role="checkbox"
+					:data-testid="`instance-row-checkbox-${instanceRef.path}`"
+					:aria-checked="isRowSelected(instanceRef.path) ? 'true' : 'false'"
+					:aria-label="t('make.instances.bulk.select-row-aria', { title: instanceRef.title })"
+					tabindex="-1"
+					class="instance-row__checkbox"
+					@click="() => toggleRowSelection(instanceRef.path)"
+				>
+					{{ isRowSelected(instanceRef.path) ? '☑' : '☐' }}
+				</span>
 				<span class="instance-title">{{ instanceRef.title }}</span>
 				<span class="instance-date">{{ t('make.type.instances.createdLabel', { date: shortDate(instanceRef.createdAt) }) }}</span>
-				<span class="instance-row__actions">
+				<span v-if="!selectMode" class="instance-row__actions">
 					<button
 						type="button"
 						tabindex="-1"
@@ -241,4 +303,7 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 .instance-title { font-weight: 500; flex: 1; }
 .instance-date { color: var(--text-muted); font-size: 0.875rem; }
 .instance-row__actions { display: flex; gap: 0.25rem; }
+.make-type-instances__header-actions { display: flex; gap: 0.5rem; align-items: center; }
+.instance-row__checkbox { user-select: none; cursor: pointer; padding: 0 0.25rem; font-size: 1.1em; }
+.instance-row[aria-selected="true"] { background: var(--background-modifier-hover); }
 </style>
