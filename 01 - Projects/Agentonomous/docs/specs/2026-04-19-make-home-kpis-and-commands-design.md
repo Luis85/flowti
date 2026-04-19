@@ -24,7 +24,7 @@ The work is deliberately scoped to land in a single coherent slice: one UI page 
 | 5 | **Ribbon:** unchanged, one icon (Q5 option A) | Obsidian ribbon convention is 0–1 icons per plugin. Users wanting fast "create type" have the command palette. Configurable toggle (option C) adds settings surface for marginal benefit. |
 | 6 | **Empty state (types = 0):** unchanged (Q4 scenario 1) | Current empty-state block (blurb + single CTA) works. KPIs + recent-list simply don't render in this branch. |
 | 7 | **Empty state (types ≥ 1, instances = 0):** placeholder text, no CTA (Q4 scenario 2 option B) | Placeholder reads "No instances yet. Open a type to create your first one." The page-level "type list" CTA is already visible in the header; no need for a second deep-link that pushes users into another page's implicit UI state. |
-| 8 | **KPI freshness model:** event-driven recompute | The Make module emits a comprehensive set of `make:*` events on every mutation. Re-running `getKpis()` on `type-created`, `type-deleted`, `instance-created`, `instance-deleted`, `instances-deleted-batch`, `instances-moved` is cheaper than a TTL cache (no stale UI risk) and reuses the store's existing `safeRefresh` wrapper. |
+| 8 | **KPI freshness model:** event-driven recompute | The Make module emits a comprehensive set of `make:*` events on every mutation. Re-running `getKpis()` on `type-created`, `type-deleted`, `instance-created`, `instance-deleted`, `instances-deleted-batch`, `instances-moved` eliminates stale-UI risk, reuses the store's existing `safeRefresh` wrapper, and avoids an extra caching abstraction (TTL). The tradeoff is extra work on bursty event sequences — acceptable here because `getKpis` is O(types × avg-instances) and bulk operations already emit one batch event, not N. |
 
 ## Architecture
 
@@ -148,8 +148,9 @@ This is the one known unknown. The plan will open with a small exploratory step 
 - `tests/ui/stores/make-store.test.ts` — new describe block `make-store — kpis`:
   - `loadKpis` populates `store.kpis`, toggles `kpisLoading`
   - Each of the 6 subscribed events triggers a `loadKpis` call (one test per event)
-  - `loadKpis` called once even if multiple events fire in the same microtask (via the `safeRefresh` pattern — this is already how `loadInstances` behaves)
-  - `loadKpis` never throws — service rejection logged through `ctx.logger.warn`
+  - Concurrent event bursts do NOT corrupt `store.kpis`: if 3 events fire during an in-flight `loadKpis`, the snapshot ultimately reflects a fully-settled recompute (no partial/interleaved state). Note: `safeRefresh` wraps `.catch()` — it does NOT coalesce or debounce; under a burst the service is called once per event. Test asserts this honestly rather than claiming coalescing we don't have.
+  - `loadKpis` never throws — service rejection logged through `ctx.logger.warn` via `safeRefresh`
+  - Per-type `listInstances` errors inside `getKpis` DO NOT propagate as a store-level error: the snapshot still loads, the problem type counts as 0 instances (service-layer graceful degradation)
 
 ### UI layer
 - `tests/ui/pages/make/MakeHome.test.ts` — replace existing tests with new layout assertions:
