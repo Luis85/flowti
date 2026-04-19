@@ -596,6 +596,34 @@ describe('listTypes error handling', () => {
 	});
 });
 
+describe('makeService.deleteCorruptFile', () => {
+	it('deletes the file via vault.delete and returns ok', async () => {
+		const vault = fakeVault({ 'Make/Types/broken.json': '{ malformed' });
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const result = await svc.deleteCorruptFile('Make/Types/broken.json');
+		expect(result.kind).toBe('ok');
+		const existsAfter = await vault.exists('Make/Types/broken.json');
+		expect(existsAfter).toBe(false);
+	});
+
+	it('returns vault-error when delete fails', async () => {
+		const vault = fakeVault({}, { deleteError: 'permission denied' });
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const result = await svc.deleteCorruptFile('Make/Types/x.json');
+		expect(result.kind).toBe('err');
+		if (result.kind !== 'err') throw new Error('unreachable');
+		expect(result.error.kind).toBe('vault-error');
+	});
+
+	it('does not emit events', async () => {
+		const vault = fakeVault({ 'Make/Types/broken.json': '{ ' });
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		await svc.deleteCorruptFile('Make/Types/broken.json');
+		expect(ports.eventBus.emit).not.toHaveBeenCalled();
+	});
+});
+
 describe('makeService.loadType — orphan-base reconciliation', () => {
 	it('stamps baseFile from disk when JSON has no baseFile but .base exists', async () => {
 		const vault = fakeVault();

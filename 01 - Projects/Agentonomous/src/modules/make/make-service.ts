@@ -22,6 +22,7 @@ export interface MakeService {
 	listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>>;
 	createInstance(typeId: string, raw: Record<string, unknown>, explicitFilename: string | null): Promise<Result<InstanceRef, MakeError>>;
 	deleteInstance(path: string): Promise<Result<void, MakeError>>;
+	deleteCorruptFile(path: string): Promise<Result<void, MakeError>>;
 	regenerateBaseFile(typeId: string, options?: { force?: boolean }): Promise<Result<string, MakeError>>;
 	toggleFavorite(typeId: string): Promise<Result<boolean, MakeError>>;
 	getKpis(): Promise<KpiSnapshot>;
@@ -349,6 +350,11 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		return ok(path);
 	}
 
+	async function deleteCorruptFile(path: string): Promise<Result<void, MakeError>> {
+		const r = await ports.vault.delete(path);
+		return r.kind === 'err' ? err({ kind: 'vault-error', cause: String(r.error) }) : ok(undefined);
+	}
+
 	async function toggleFavorite(typeId: string): Promise<Result<boolean, MakeError>> {
 		const current = getSettings();
 		const wasFavorited = current.favorites.includes(typeId);
@@ -366,16 +372,10 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 	}
 
 	return {
-		listTypes,
-		loadType,
-		createType,
-		updateType,
-		deleteType,
-		listInstances,
+		listTypes, loadType, createType, updateType, deleteType, listInstances,
 		createInstance: () => notImpl(),
 		deleteInstance: () => notImpl(),
-		regenerateBaseFile,
-		toggleFavorite,
+		deleteCorruptFile, regenerateBaseFile, toggleFavorite,
 		getKpis: () => Promise.resolve({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] }),
 	};
 }

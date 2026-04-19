@@ -17,6 +17,7 @@ export function fakeMakeService(overrides: Partial<MakeService> = {}): MakeServi
 		listInstances:       overrides.listInstances       ?? (() => Promise.resolve({ kind: 'ok' as const, value: [] })),
 		createInstance:      overrides.createInstance      ?? notImpl,
 		deleteInstance:      overrides.deleteInstance      ?? notImpl,
+		deleteCorruptFile:   overrides.deleteCorruptFile   ?? (() => Promise.resolve({ kind: 'ok' as const, value: undefined })),
 		regenerateBaseFile:  overrides.regenerateBaseFile  ?? notImpl,
 		toggleFavorite:      overrides.toggleFavorite      ?? (() => Promise.resolve({ kind: 'ok' as const, value: true })),
 		getKpis:             overrides.getKpis             ?? (() => Promise.resolve({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] })),
