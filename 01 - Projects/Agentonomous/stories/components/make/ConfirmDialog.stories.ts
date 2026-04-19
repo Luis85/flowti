@@ -77,3 +77,46 @@ export const MoveReportManyFailures: Story = {
 		labels: { confirm: 'Retry failed files', cancel: 'Dismiss' },
 	},
 };
+
+export const BulkDeleteConfirm: Story = {
+	args: {
+		open: true,
+		title: 'Delete 3 selected instances?',
+		body: 'Files go to Obsidian trash and can be restored.',
+		options: ['cancel', 'confirm'],
+		destructive: true,
+		labels: { confirm: 'Delete 3 files', cancel: 'Cancel' },
+	},
+};
+
+export const BulkDeleteConfirmBusy: Story = {
+	args: {
+		open: true,
+		title: 'Delete 3 selected instances?',
+		body: 'Files go to Obsidian trash and can be restored.',
+		options: ['cancel', 'confirm'],
+		destructive: true,
+		busy: true,
+		labels: { confirm: 'Delete 3 files', cancel: 'Cancel' },
+	},
+};
+
+export const BulkDeletePartial: Story = {
+	args: {
+		open: true,
+		title: "Some files couldn't be deleted",
+		body: '7 of 10 deleted. 3 remain: Books/Dune.md, Books/Neuromancer.md, Books/Foundation.md',
+		options: ['cancel', 'confirm'],
+		labels: { confirm: 'Retry failed files', cancel: 'Dismiss' },
+	},
+};
+
+export const BulkDeletePartialTruncated: Story = {
+	args: {
+		open: true,
+		title: "Some files couldn't be deleted",
+		body: '2 of 10 deleted. 8 remain: Books/Dune.md, Books/Neuromancer.md, Books/Foundation.md, +5 more',
+		options: ['cancel', 'confirm'],
+		labels: { confirm: 'Retry failed files', cancel: 'Dismiss' },
+	},
+};
