@@ -4,7 +4,7 @@ import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
 import type { MakeError } from '../../domain/make/errors.js';
 import type {
-	CreateInstanceOptions, DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, ListTypesResult,
+	BulkDeleteReport, CreateInstanceOptions, DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, ListTypesResult,
 	MoveReport, NewTypeDraft, TypeSchemaPatch, UpdateTypeOptions, UpdateTypeResult,
 } from '../../domain/make/types.js';
 import { createTypeOps, type TypeServiceMethods } from './make-service-types.js';
@@ -22,6 +22,7 @@ export interface MakeService {
 	listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>>;
 	createInstance(typeId: string, raw: Record<string, unknown>, explicitFilename: string | null, options?: CreateInstanceOptions): Promise<Result<InstanceRef, MakeError>>;
 	deleteInstance(path: string): Promise<Result<void, MakeError>>;
+	deleteInstances(typeId: string, paths: readonly string[]): Promise<Result<BulkDeleteReport, MakeError>>;
 	deleteCorruptFile(path: string): Promise<Result<void, MakeError>>;
 	regenerateBaseFile(typeId: string, options?: { force?: boolean }): Promise<Result<string, MakeError>>;
 	toggleFavorite(typeId: string): Promise<Result<boolean, MakeError>>;
@@ -50,7 +51,7 @@ export function createMakeService(
 	const instances = createInstanceOps(ports, getSettings, {
 		loadType:  (typeId) => typesRef.current!.loadType(typeId),
 		listTypes: () => typesRef.current!.listTypes(),
-	});
+	}, queue);
 	instancesRef.current = instances;
 
 	const maintenance = createMaintenanceOps(ports, getSettings, {
