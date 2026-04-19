@@ -254,7 +254,7 @@ export type MoveReport = {
 
 export type FailedMove = {
     readonly path: string;
-    readonly cause: string;    // e.g. 'rename-failed: target-exists', 'rename-failed: not-found'
+    readonly cause: string;    // raw adapter message — e.g. 'not-found: <oldPath>', 'target-exists: <newPath>', 'rename-failed: <msg>'
 };
 
 export type CreateInstanceOptions = {
@@ -349,7 +349,7 @@ Fully authoritative:
    - For each `ref.path`:
      - `newPath = nextSchema.instancesFolder + '/' + basename(ref.path)`
      - `vault.rename(ref.path, newPath)`
-     - On error: push `{ path: ref.path, cause: 'rename-failed: ' + msg }` to `failedMoves`. **Do not abort.**
+     - On error: push `{ path: ref.path, cause: rename.error }` to `failedMoves` — use the adapter's structured message verbatim per §2.2/§6.5 (no re-prefixing). **Do not abort.**
      - On success: increment `movedCount`.
    - Write JSON (even if some moves failed — schema truth wins).
    - Emit `make:instances-moved { typeId, oldFolder, newFolder, movedCount, failedCount }` where `failedCount = failedMoves.length`.
@@ -374,7 +374,9 @@ async listTypes(): Promise<Result<ListTypesResult, MakeError>> {
     const list = await vault.list(settings.typesFolder);
     if (isErr(list)) return err({ kind: 'vault-error', cause: list.error });
 
-    const jsonPaths = list.value.filter(p => p.endsWith('.json') && /* immediate child check */);
+    // Filter to immediate children only (exclude descendants): dirname(p) === settings.typesFolder.
+    // The existing make-service.ts uses a startsWith(prefix) + no-additional-slash check — reuse that code path.
+    const jsonPaths = list.value.filter(p => p.endsWith('.json') && isImmediateChild(p, settings.typesFolder));
     const results = await Promise.all(jsonPaths.map(async (path) => {
         const read = await vault.read(path);
         if (isErr(read)) return { kind: 'io' as const, path, filename: basename(path), cause: read.error };
@@ -983,7 +985,7 @@ Each slice merges to master when all tests pass. No slice depends on future slic
 - Page tests for both confirms.
 - **Exit:** all Chunk 4 deliverables live. Tag as `make-slice-4`.
 
-**Slices execute in letter order A → B → C → D → E → F → G → H → I → J** (no cross-order reconciliation needed after the reorder above).
+**Slices execute in letter order A → B → C → D → E → F → G → H → I → J.**
 
 ## 10. Risks & Open Questions
 
