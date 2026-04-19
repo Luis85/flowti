@@ -5,7 +5,7 @@ import type { FileAnalysis } from '../../../src/modules/file-detail/handlers/typ
 
 const sampleAnalysis: FileAnalysis = {
 	fileName: 'test.json',
-	extension: '.json',
+	extension: 'json',
 	sizeBytes: 1024,
 	summary: { Keys: 5, Format: 'JSON' },
 };

@@ -70,10 +70,12 @@ describe('FileDetailView basics', () => {
 		const unmount = vi.fn();
 		(view as unknown as { mounted: { unmount: () => void } | null }).mounted = { unmount };
 		(view as unknown as { store: unknown }).store = {};
+		(view as unknown as { mountPromise: unknown }).mountPromise = Promise.resolve();
 		await (view as unknown as { onClose: () => Promise<void> }).onClose();
 		expect(unmount).toHaveBeenCalledTimes(1);
 		expect((view as unknown as { mounted: unknown }).mounted).toBeNull();
 		expect((view as unknown as { store: unknown }).store).toBeNull();
+		expect((view as unknown as { mountPromise: unknown }).mountPromise).toBeNull();
 	});
 
 	it('onUnloadFile() clears the store when one is mounted', async () => {
@@ -82,82 +84,6 @@ describe('FileDetailView basics', () => {
 		(view as unknown as { store: { clear: () => void } }).store = { clear };
 		await view.onUnloadFile(new TFile('notes/plan.json'));
 		expect(clear).toHaveBeenCalledTimes(1);
-	});
-});
-
-describe('FileDetailView setState — new-tab redirect', () => {
-	type NewLeaf = { openFile: ReturnType<typeof vi.fn> };
-	function makeView(currentFile: TFile | null, existingLeaves: unknown[] = []): {
-		view: FileDetailView;
-		newLeaf: NewLeaf;
-		getLeaf: ReturnType<typeof vi.fn>;
-		setActiveLeaf: ReturnType<typeof vi.fn>;
-		getLeavesOfType: ReturnType<typeof vi.fn>;
-	} {
-		const view = new FileDetailView({} as never, {} as never);
-		view.file = currentFile;
-		const newLeaf: NewLeaf = { openFile: vi.fn().mockResolvedValue(undefined) };
-		const getLeaf = vi.fn().mockReturnValue(newLeaf);
-		const setActiveLeaf = vi.fn();
-		const getLeavesOfType = vi.fn().mockReturnValue(existingLeaves);
-		const getFileByPath = vi.fn().mockReturnValue(new TFile('data/other.csv'));
-		(view as unknown as { app: unknown }).app = {
-			vault: { getFileByPath },
-			workspace: { getLeaf, setActiveLeaf, getLeavesOfType },
-		};
-		return { view, newLeaf, getLeaf, setActiveLeaf, getLeavesOfType };
-	}
-
-	it('redirects to a new tab when the new path differs from the current file', async () => {
-		const { view, newLeaf, getLeaf } = makeView(new TFile('data/first.json'));
-		await view.setState({ file: 'data/other.csv' }, {} as never);
-		expect(getLeaf).toHaveBeenCalledWith('tab');
-		expect(newLeaf.openFile).toHaveBeenCalledTimes(1);
-		expect(newLeaf.openFile).toHaveBeenCalledWith(expect.anything(), { active: true });
-	});
-
-	it('re-asserts active leaf on a macrotask to survive the caller re-activating the origin', async () => {
-		const { view, newLeaf, setActiveLeaf } = makeView(new TFile('data/first.json'));
-		await view.setState({ file: 'data/other.csv' }, {} as never);
-		await new Promise<void>((r) => setTimeout(r, 0));
-		expect(setActiveLeaf).toHaveBeenCalledTimes(1);
-		expect(setActiveLeaf).toHaveBeenCalledWith(newLeaf, { focus: true });
-	});
-
-	it('activates an existing file-detail leaf when one already shows the target file', async () => {
-		const existingLeaf = { view: { file: new TFile('data/other.csv') } };
-		const { view, getLeaf, setActiveLeaf, newLeaf } = makeView(
-			new TFile('data/first.json'),
-			[existingLeaf],
-		);
-		await view.setState({ file: 'data/other.csv' }, {} as never);
-		expect(setActiveLeaf).toHaveBeenCalledWith(existingLeaf, { focus: true });
-		expect(getLeaf).not.toHaveBeenCalled();
-		expect(newLeaf.openFile).not.toHaveBeenCalled();
-	});
-
-	it('does not redirect when no file is currently loaded (fresh view)', async () => {
-		const { view, newLeaf, setActiveLeaf } = makeView(null);
-		await view.setState({ file: 'data/first.json' }, {} as never);
-		await new Promise<void>((r) => setTimeout(r, 0));
-		expect(newLeaf.openFile).not.toHaveBeenCalled();
-		expect(setActiveLeaf).not.toHaveBeenCalled();
-	});
-
-	it('does not redirect when the path matches the currently loaded file', async () => {
-		const { view, newLeaf, setActiveLeaf } = makeView(new TFile('data/first.json'));
-		await view.setState({ file: 'data/first.json' }, {} as never);
-		await new Promise<void>((r) => setTimeout(r, 0));
-		expect(newLeaf.openFile).not.toHaveBeenCalled();
-		expect(setActiveLeaf).not.toHaveBeenCalled();
-	});
-
-	it('does not redirect when the state has no file key', async () => {
-		const { view, newLeaf, setActiveLeaf } = makeView(new TFile('data/first.json'));
-		await view.setState({}, {} as never);
-		await new Promise<void>((r) => setTimeout(r, 0));
-		expect(newLeaf.openFile).not.toHaveBeenCalled();
-		expect(setActiveLeaf).not.toHaveBeenCalled();
 	});
 });
 
@@ -178,9 +104,95 @@ describe('FileDetailView — onOpen error branch', () => {
 			'../../../../src/infrastructure/obsidian/views/file-detail-view.js'
 		);
 		const view = new FV({} as never, {} as unknown as PluginContext);
-		await (view as unknown as { onOpen: () => Promise<void> }).onOpen();
+		await expect((view as unknown as { onOpen: () => Promise<void> }).onOpen()).rejects.toThrow('Vue boom');
 		const el = (view as unknown as { contentEl: HTMLElement }).contentEl;
 		expect(el.textContent).toContain('File detail failed to load');
 		expect(el.textContent).toContain('Vue boom');
+	});
+
+	it('onLoadFile swallows a failed mount and returns without touching the store', async () => {
+		const { FileDetailView: FV } = await import(
+			'../../../../src/infrastructure/obsidian/views/file-detail-view.js'
+		);
+		const view = new FV({} as never, {} as unknown as PluginContext);
+		void (view as unknown as { onOpen: () => Promise<void> }).onOpen().catch(() => {});
+		await expect(view.onLoadFile(new TFile('notes/plan.json'))).resolves.toBeUndefined();
+	});
+});
+
+describe('FileDetailView setState — delegates to TabPolicy', () => {
+	type NewLeaf = { openFile: ReturnType<typeof vi.fn> };
+	function makeView(opts: {
+		currentFile?: TFile | null;
+		siblingLeaves?: readonly unknown[];
+	} = {}): {
+		view: FileDetailView;
+		newLeaf: NewLeaf;
+		getLeaf: ReturnType<typeof vi.fn>;
+		setActiveLeaf: ReturnType<typeof vi.fn>;
+	} {
+		const view = new FileDetailView({} as never, {} as never);
+		view.file = opts.currentFile ?? null;
+		const newLeaf: NewLeaf = { openFile: vi.fn().mockResolvedValue(undefined) };
+		const getLeaf = vi.fn().mockReturnValue(newLeaf);
+		const setActiveLeaf = vi.fn();
+		const ownLeaf = {};
+		(view as unknown as { leaf: unknown }).leaf = ownLeaf;
+		const leavesOfType = [ownLeaf, ...(opts.siblingLeaves ?? [])];
+		(view as unknown as { app: unknown }).app = {
+			vault: { getFileByPath: (p: string) => new TFile(p) },
+			workspace: {
+				getLeaf,
+				setActiveLeaf,
+				getLeavesOfType: vi.fn().mockReturnValue(leavesOfType),
+			},
+		};
+		return { view, newLeaf, getLeaf, setActiveLeaf };
+	}
+
+	it('opens a new tab when the requested file differs from the current one and no sibling has it', async () => {
+		const { view, newLeaf, getLeaf } = makeView({ currentFile: new TFile('data/first.json') });
+		await view.setState({ file: 'data/other.csv' }, {} as never);
+		expect(getLeaf).toHaveBeenCalledWith('tab');
+		expect(newLeaf.openFile).toHaveBeenCalledWith(expect.anything(), { active: true });
+	});
+
+	it('activates the existing sibling leaf when one already shows the requested file', async () => {
+		const sibling = { view: { file: new TFile('data/other.csv') } };
+		const { view, setActiveLeaf, newLeaf } = makeView({
+			currentFile: new TFile('data/first.json'),
+			siblingLeaves: [sibling],
+		});
+		await view.setState({ file: 'data/other.csv' }, {} as never);
+		expect(setActiveLeaf).toHaveBeenCalledWith(sibling, { focus: true });
+		expect(newLeaf.openFile).not.toHaveBeenCalled();
+	});
+
+	it('re-asserts focus on a macrotask after opening a new tab', async () => {
+		const { view, newLeaf, setActiveLeaf } = makeView({ currentFile: new TFile('data/first.json') });
+		await view.setState({ file: 'data/other.csv' }, {} as never);
+		await new Promise<void>((r) => setTimeout(r, 0));
+		expect(setActiveLeaf).toHaveBeenCalledWith(newLeaf, { focus: true });
+	});
+
+	it('accepts (lets super.setState run) when no file is loaded yet', async () => {
+		const { view, newLeaf, setActiveLeaf } = makeView({ currentFile: null });
+		await view.setState({ file: 'data/first.json' }, {} as never);
+		expect(newLeaf.openFile).not.toHaveBeenCalled();
+		expect(setActiveLeaf).not.toHaveBeenCalled();
+	});
+
+	it('accepts when the requested path matches the currently loaded file', async () => {
+		const { view, newLeaf, setActiveLeaf } = makeView({ currentFile: new TFile('data/first.json') });
+		await view.setState({ file: 'data/first.json' }, {} as never);
+		expect(newLeaf.openFile).not.toHaveBeenCalled();
+		expect(setActiveLeaf).not.toHaveBeenCalled();
+	});
+
+	it('accepts when state carries no file key', async () => {
+		const { view, newLeaf, setActiveLeaf } = makeView({ currentFile: new TFile('data/first.json') });
+		await view.setState({}, {} as never);
+		expect(newLeaf.openFile).not.toHaveBeenCalled();
+		expect(setActiveLeaf).not.toHaveBeenCalled();
 	});
 });

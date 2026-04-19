@@ -21,4 +21,11 @@ describe('csvHandler', () => {
 		const result = csvHandler.analyze('', 'empty.csv');
 		expect(result.summary['Row count']).toBe(0);
 	});
+
+	it('handles header-only content (no data rows)', () => {
+		const result = csvHandler.analyze('name,age,city', 'header-only.csv');
+		expect(result.summary['Row count']).toBe(0);
+		expect(result.summary['Column count']).toBe(3);
+		expect(result.summary['Columns']).toBe('name, age, city');
+	});
 });
