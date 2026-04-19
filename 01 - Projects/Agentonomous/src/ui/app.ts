@@ -40,16 +40,12 @@ export function createVueApp(ctx: PluginContext, el: HTMLElement, initialRoute?:
 
 	if (initialRoute !== undefined) void router.push(initialRoute);
 
-	try {
-		vue.mount(el);
-	} catch (err) {
-		settingsStore.dispose();
-		throw err;
-	}
+	vue.mount(el);
 
 	// Wire the command-palette nav bridge only after a successful mount —
-	// otherwise a mount failure leaves a handler pointing at a never-live
-	// router, and the next createVueApp would race with it.
+	// otherwise a mount failure (vue.mount throws synchronously) would leave
+	// a handler pointing at a never-live router, and the next createVueApp
+	// call would race with the orphan.
 	setMakeNavigateHandler((path) => { void router.push(path); });
 
 	return {
