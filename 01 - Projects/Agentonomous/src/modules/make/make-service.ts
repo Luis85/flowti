@@ -55,7 +55,9 @@ export function createMakeService(
 	instancesRef.current = instances;
 
 	const maintenance = createMaintenanceOps(ports, getSettings, {
-		loadType: (typeId) => typesRef.current!.loadType(typeId),
+		loadType:      (typeId) => typesRef.current!.loadType(typeId),
+		listTypes:     () => typesRef.current!.listTypes(),
+		listInstances: (typeId) => instancesRef.current!.listInstances(typeId),
 	});
 
 	const { listInstancesInFolder: _omit, ...instancePublic } = instances;
