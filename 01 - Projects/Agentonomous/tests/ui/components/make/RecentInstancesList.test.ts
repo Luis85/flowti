@@ -81,4 +81,26 @@ describe('RecentInstancesList', () => {
 		expect(row.attributes('tabindex')).toBe('0');
 		wrapper.unmount();
 	});
+
+	it('rows expose role="button" and an aria-label naming the instance', () => {
+		const wrapper = mountWithI18n(RecentInstancesList, {
+			props: { instances: [DUNE], typeNamesById: { book: 'Book' }, emptyPlaceholder: '', loading: false },
+		});
+		const row = wrapper.find(`[data-testid="recent-instance-row-${DUNE.path}"]`);
+		expect(row.attributes('role')).toBe('button');
+		expect(row.attributes('aria-label')).toBe('Open Dune');
+		wrapper.unmount();
+	});
+
+	it('emits "open" when Space is pressed on a focused row', async () => {
+		const wrapper = mountWithI18n(RecentInstancesList, {
+			props: { instances: [DUNE], typeNamesById: { book: 'Book' }, emptyPlaceholder: '', loading: false },
+			attachTo: document.body,
+		});
+		const row = wrapper.find(`[data-testid="recent-instance-row-${DUNE.path}"]`);
+		(row.element as HTMLElement).focus();
+		row.element.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+		expect(wrapper.emitted('open')).toEqual([['Books/Dune.md']]);
+		wrapper.unmount();
+	});
 });

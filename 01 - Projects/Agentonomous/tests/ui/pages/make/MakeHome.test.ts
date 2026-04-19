@@ -179,4 +179,53 @@ describe('MakeHome — mount calls loadKpis', () => {
 		await flushPromises();
 		expect(getKpis).toHaveBeenCalled();
 	});
+
+	it('calls BOTH service.listTypes and service.getKpis at mount — types and KPIs load together', async () => {
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } }) as unknown as MakeService['listTypes'];
+		const getKpis   = vi.fn().mockResolvedValue(POPULATED);
+		await mountHome({ listTypes, getKpis });
+		await flushPromises();
+		expect(listTypes).toHaveBeenCalledTimes(1);
+		expect(getKpis).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('MakeHome — accessibility and i18n polish', () => {
+	beforeEach(() => { setActivePinia(createPinia()); });
+
+	it('KPI group carries a specific aria-label ("Key metrics"), not the page title', async () => {
+		const { wrapper, page } = await mountHome();
+		await flushPromises();
+		const group = page.kpiGroup;
+		expect(group).not.toBeNull();
+		expect(group!.getAttribute('role')).toBe('group');
+		expect(group!.getAttribute('aria-label')).toBe('Key metrics');
+		wrapper.unmount();
+	});
+
+	it('KPI labels switch to singular form when count is 1 (types/instances)', async () => {
+		const oneOfEach: KpiSnapshot = { typesCount: 1, instancesCount: 1, createdThisWeek: 0, perType: { book: 1 }, recentlyCreated: [] };
+		const { page } = await mountHome({ getKpis: vi.fn().mockResolvedValue(oneOfEach) });
+		await flushPromises();
+		// Labels are next to the numeric value; value=1 should pair with singular "Type"/"Instance".
+		expect(page.kpiTypes?.textContent).toContain('Type');
+		expect(page.kpiTypes?.textContent).not.toContain('Types');
+		expect(page.kpiInstances?.textContent).toContain('Instance');
+		expect(page.kpiInstances?.textContent).not.toContain('Instances');
+		expect(page.kpiWeek?.textContent).toContain('This week');
+	});
+
+	it('loading spinner uses the i18n key and exposes role=status + aria-live=polite', async () => {
+		// Simulate a listTypes call that never resolves during the test — so
+		// typesLoading stays true long enough to assert the spinner markup.
+		const pending = new Promise<never>(() => { /* never resolves */ });
+		const listTypes = vi.fn().mockReturnValue(pending) as unknown as MakeService['listTypes'];
+		const { wrapper, page } = await mountHome({ listTypes });
+		const spinner = page.spinner;
+		expect(spinner).not.toBeNull();
+		expect(spinner!.textContent?.trim()).toBe('Loading…');
+		expect(spinner!.getAttribute('role')).toBe('status');
+		expect(spinner!.getAttribute('aria-live')).toBe('polite');
+		wrapper.unmount();
+	});
 });

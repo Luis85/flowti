@@ -16,6 +16,7 @@ export class MakeHomePage {
 	get kpiTypes():     HTMLElement | null { return this.el('kpi-types'); }
 	get kpiInstances(): HTMLElement | null { return this.el('kpi-instances'); }
 	get kpiWeek():      HTMLElement | null { return this.el('kpi-week'); }
+	get kpiGroup():     HTMLElement | null { return this.root.querySelector<HTMLElement>('.make-home__kpis'); }
 	get recentHeading():  HTMLElement | null { return this.el('make-home-recent-heading'); }
 	get recentEmpty():    HTMLElement | null { return this.el('recent-instances-empty'); }
 	get recentRows(): readonly HTMLElement[] {

@@ -181,6 +181,13 @@ describe('MakeModule commands', () => {
 		expect(ids).toEqual(['open-make', 'make-create-type', 'make-browse-types']);
 	});
 
+	it('command names use Obsidian sentence-case without a redundant "Make:" prefix', () => {
+		const byId = new Map((MakeModule.commands ?? []).map((c) => [c.id, c.name] as const));
+		expect(byId.get('open-make')).toBe('Open Make');
+		expect(byId.get('make-create-type')).toBe('Create new type');
+		expect(byId.get('make-browse-types')).toBe('Browse types');
+	});
+
 	it('make-create-type command callback invokes the registered navigate handler with "/make/types/new"', async () => {
 		const navigate = vi.fn();
 		setMakeNavigateHandler(navigate);

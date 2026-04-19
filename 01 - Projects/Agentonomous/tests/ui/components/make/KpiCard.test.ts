@@ -28,4 +28,18 @@ describe('KpiCard', () => {
 		expect(wrapper.find('[data-testid="z-value"]').text()).toBe('0');
 		wrapper.unmount();
 	});
+
+	it('exposes an aria-label combining label and value, and aria-busy during loading', () => {
+		const ready = mountWithI18n(KpiCard, { props: { label: 'Types', value: 3, testid: 'kpi-a' } });
+		const readyCard = ready.find('[data-testid="kpi-a"]');
+		expect(readyCard.attributes('aria-label')).toBe('Types: 3');
+		expect(readyCard.attributes('aria-busy')).toBe('false');
+		ready.unmount();
+
+		const busy = mountWithI18n(KpiCard, { props: { label: 'Types', value: 0, testid: 'kpi-b', loading: true } });
+		const busyCard = busy.find('[data-testid="kpi-b"]');
+		expect(busyCard.attributes('aria-busy')).toBe('true');
+		expect(busyCard.attributes('aria-label')).toBe('Types: —');
+		busy.unmount();
+	});
 });

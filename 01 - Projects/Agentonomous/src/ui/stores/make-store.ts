@@ -84,6 +84,20 @@ export const useMakeStore = defineStore('make', () => {
 		if (result !== null) kpis.value = result;
 	}
 
+	// Trailing-debounce wrapper for event-driven KPI refreshes. Delay comes
+	// from ctx.kpisDebounceMs (tests pass 0 to flush on next macrotask).
+	// Direct loadKpis() calls (e.g., from onMounted) bypass this and fire
+	// immediately.
+	let kpisRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+	function requestKpisRefresh(): void {
+		if (kpisRefreshTimer !== null) clearTimeout(kpisRefreshTimer);
+		const delay = ctx.kpisDebounceMs ?? 150;
+		kpisRefreshTimer = setTimeout(() => {
+			kpisRefreshTimer = null;
+			void loadKpis();
+		}, delay);
+	}
+
 	async function refreshAll(currentTypeId?: TypeId): Promise<void> {
 		types.value = [];
 		typesLoaded.value = false;
@@ -235,7 +249,7 @@ export const useMakeStore = defineStore('make', () => {
 	ctx.subscribe({
 		onTypeCreated: ({ schema }) => {
 			if (!types.value.some((t) => t.id === schema.id)) types.value = [...types.value, schema];
-			safeRefresh('kpis-after-type-created', () => loadKpis());
+			requestKpisRefresh();
 		},
 		onTypeUpdated: ({ schema }) => {
 			types.value = types.value.map((t) => t.id === schema.id ? schema : t);
@@ -245,7 +259,7 @@ export const useMakeStore = defineStore('make', () => {
 			const nextInstances = new Map(instancesByTypeId.value); nextInstances.delete(typeId); instancesByTypeId.value = nextInstances;
 			const nextInstanceErr = new Map(instancesError.value); nextInstanceErr.delete(typeId); instancesError.value = nextInstanceErr;
 			const nextRegenErr = new Map(regenerationError.value); nextRegenErr.delete(typeId); regenerationError.value = nextRegenErr;
-			safeRefresh('kpis-after-type-deleted', () => loadKpis());
+			requestKpisRefresh();
 		},
 		onFavoriteToggled: () => {
 			// favoriteTypes and isFavoritedForUI read reactively off ctx.settings$; no nudge needed.
@@ -256,21 +270,21 @@ export const useMakeStore = defineStore('make', () => {
 		},
 		onInstanceCreated: ({ typeId }) => {
 			safeRefresh('instance-created', () => loadInstances(typeId));
-			safeRefresh('kpis-after-instance-created', () => loadKpis());
+			requestKpisRefresh();
 		},
 		onInstanceDeleted: ({ typeId }) => {
 			safeRefresh('instance-deleted', () => loadInstances(typeId));
-			safeRefresh('kpis-after-instance-deleted', () => loadKpis());
+			requestKpisRefresh();
 		},
 		onInstancesDeletedBatch: ({ typeId }) => {
 			safeRefresh('instances-deleted-batch', () => loadInstances(typeId));
-			safeRefresh('kpis-after-instances-deleted-batch', () => loadKpis());
+			requestKpisRefresh();
 		},
 		// make:orphan-deleted intentionally not subscribed — no cached list matches an orphan path.
 		// instancesFolder lives on TypeSchema; reload types so cached schema reflects the new path.
 		onInstancesMoved: () => {
 			safeRefresh('instances-moved', () => loadTypes());
-			safeRefresh('kpis-after-instances-moved', () => loadKpis());
+			requestKpisRefresh();
 		},
 	});
 

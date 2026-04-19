@@ -3,19 +3,19 @@ import type { Plugin } from 'obsidian';
 import { ObsidianCommandAdapter } from '../../../src/infrastructure/obsidian/obsidian-command-adapter.js';
 import type { ViewRegistryPort } from '../../../src/domain/views/view-registry-port.js';
 import { createFakePlugin } from './fake-plugin.js';
-import { fakeViews } from '../../__fakes__/fake-ports.js';
+import { fakeViews, fakeLogger } from '../../__fakes__/fake-ports.js';
 
 describe('ObsidianCommandAdapter', () => {
 	it('register() calls plugin.addCommand with correct id and name', () => {
 		const plugin = createFakePlugin();
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews(), fakeLogger());
 		adapter.register({ id: 'test-cmd', name: 'Test command', callback: () => {} });
 		expect(plugin.addCommand).toHaveBeenCalledWith(expect.objectContaining({ id: 'test-cmd', name: 'Test command' }));
 	});
 
 	it('register() with ribbon creates a ribbon icon', () => {
 		const plugin = createFakePlugin();
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews(), fakeLogger());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
@@ -27,7 +27,7 @@ describe('ObsidianCommandAdapter', () => {
 		const plugin = createFakePlugin();
 		const mockEl = { style: { display: '' }, remove: vi.fn() };
 		plugin.addRibbonIcon = vi.fn(() => mockEl);
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews(), fakeLogger());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: false },
@@ -38,7 +38,7 @@ describe('ObsidianCommandAdapter', () => {
 	it('register() with opensView auto-generates callback via viewRegistry', () => {
 		const plugin = createFakePlugin();
 		const views = fakeViews();
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views);
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views, fakeLogger());
 		adapter.register({ id: 'test-cmd', name: 'Test', opensView: 'test-view' });
 		// The addCommand callback should call viewRegistry.openView when invoked
 		const commandCall = plugin.addCommand.mock.calls[0][0] as { callback: () => void };
@@ -50,7 +50,7 @@ describe('ObsidianCommandAdapter', () => {
 		const plugin = createFakePlugin();
 		const mockEl = { style: { display: '' }, remove: vi.fn() };
 		plugin.addRibbonIcon = vi.fn(() => mockEl);
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews(), fakeLogger());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
@@ -65,7 +65,7 @@ describe('ObsidianCommandAdapter', () => {
 		const plugin = createFakePlugin();
 		const mockEl = { style: { display: '' }, remove: vi.fn() };
 		plugin.addRibbonIcon = vi.fn(() => mockEl);
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews(), fakeLogger());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback: () => {},
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
@@ -76,7 +76,7 @@ describe('ObsidianCommandAdapter', () => {
 
 	it('register() does not throw for commands with no ribbon', () => {
 		const plugin = createFakePlugin();
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews(), fakeLogger());
 		expect(() => { adapter.register({ id: 'no-ribbon', name: 'No Ribbon', callback: () => {} }); }).not.toThrow();
 	});
 
@@ -88,7 +88,7 @@ describe('ObsidianCommandAdapter', () => {
 			capturedClickFn = fn;
 			return { style: { display: '' }, remove: vi.fn() };
 		});
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews());
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews(), fakeLogger());
 		adapter.register({
 			id: 'test-cmd', name: 'Test', callback,
 			ribbon: { icon: 'bot', title: 'Open', visibleByDefault: true },
@@ -100,33 +100,80 @@ describe('ObsidianCommandAdapter', () => {
 	it('register: opensView-only command invokes viewRegistry.openView on execute', async () => {
 		const plugin = createFakePlugin();
 		const views = fakeViews();
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views);
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views, fakeLogger());
 		adapter.register({ id: 'x', name: 'X', opensView: 'MY_VIEW' });
 		expect(plugin.addCommand).toHaveBeenCalledTimes(1);
 		const commandCall = plugin.addCommand.mock.calls[0][0] as { callback: () => void };
 		commandCall.callback();
-		await new Promise((r) => setTimeout(r, 0));
+		// Flush microtasks deterministically — no wall-clock delay.
+		await Promise.resolve();
+		await Promise.resolve();
 		expect(views.openView).toHaveBeenCalledWith(plugin, 'MY_VIEW');
 	});
 
 	it('register: opensView + callback runs view open BEFORE user callback (awaited ordering)', async () => {
 		const order: string[] = [];
 		const plugin = createFakePlugin();
+		let resolveOpen: (() => void) | undefined;
 		const views: ViewRegistryPort = {
 			registerAll: vi.fn(),
 			openView: vi.fn(async () => {
-				await new Promise<void>((r) => { setTimeout(r, 10); });
+				await new Promise<void>((r) => { resolveOpen = r; });
 				order.push('view-open');
 				return { kind: 'ok', value: undefined };
 			}),
 		};
 		const userCallback = vi.fn(async () => { order.push('user-callback'); });
-		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views);
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views, fakeLogger());
 		adapter.register({ id: 'x', name: 'X', opensView: 'MY_VIEW', callback: userCallback });
 		const commandCall = plugin.addCommand.mock.calls[0][0] as { callback: () => void };
 		commandCall.callback();
-		await new Promise<void>((r) => { setTimeout(r, 30); });
-		expect(order).toEqual(['view-open', 'user-callback']);
+		// userCallback must NOT fire until openView resolves.
+		await Promise.resolve();
+		expect(order).toEqual([]);
+		expect(userCallback).not.toHaveBeenCalled();
+		// Release openView.
+		resolveOpen?.();
+		await vi.waitFor(() => { expect(order).toEqual(['view-open', 'user-callback']); });
 		expect(userCallback).toHaveBeenCalledTimes(1);
+	});
+
+	it('register: user callback still runs when openView rejects; error is logged', async () => {
+		const logger = fakeLogger();
+		const plugin = createFakePlugin();
+		const views: ViewRegistryPort = {
+			registerAll: vi.fn(),
+			openView: vi.fn(async () => { throw new Error('view-not-registered'); }),
+		};
+		const userCallback = vi.fn();
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, views, logger);
+		adapter.register({ id: 'nav-cmd', name: 'Nav', opensView: 'MISSING', callback: userCallback });
+		const commandCall = plugin.addCommand.mock.calls[0][0] as { callback: () => void };
+		commandCall.callback();
+		await vi.waitFor(() => { expect(userCallback).toHaveBeenCalledTimes(1); });
+		expect(logger.error).toHaveBeenCalledWith(
+			'ObsidianCommandAdapter',
+			'openView failed for command "nav-cmd"',
+			expect.any(Error),
+		);
+	});
+
+	it('register: callback rejection is logged and swallowed (does not bubble)', async () => {
+		const logger = fakeLogger();
+		const plugin = createFakePlugin();
+		const adapter = new ObsidianCommandAdapter(plugin as unknown as Plugin, fakeViews(), logger);
+		adapter.register({
+			id: 'throwing-cmd', name: 'Throws',
+			callback: () => { throw new Error('user-boom'); },
+		});
+		const commandCall = plugin.addCommand.mock.calls[0][0] as { callback: () => void };
+		expect(() => { commandCall.callback(); }).not.toThrow();
+		await vi.waitFor(() => {
+			expect(logger.error).toHaveBeenCalledWith(
+				'ObsidianCommandAdapter',
+				'callback failed for command "throwing-cmd"',
+				expect.any(Error),
+			);
+		});
 	});
 });

@@ -122,6 +122,20 @@ The existing `open-make` command uses `opensView: VIEW_TYPE_MAKE` declaratively 
 
 This is the one known unknown. The plan will open with a small exploratory step that determines the pattern, then the remaining steps proceed deterministically.
 
+> **Resolved (as shipped, 2026-04-19):** a **fourth** approach was chosen,
+> simpler than (a)–(c): a module-scope navigation handler
+> (`setMakeNavigateHandler` / `clearMakeNavigateHandler`) exported from
+> `make-module.ts`. `src/ui/app.ts:createVueApp` registers a handler
+> `(path) => void router.push(path)` after a successful `vue.mount`, and
+> clears it on unmount. The two new commands carry BOTH `opensView:
+> VIEW_TYPE_MAKE` AND a `callback: () => navigate(...)`; to make that
+> pair work, `ObsidianCommandAdapter.register()` was changed to **chain**
+> opensView and callback (previously opensView replaced callback). View
+> opens first, then callback pushes the route. Post-ship polish also
+> wraps each step in try/catch + logger so a failed openView no longer
+> silently drops the navigation. See the plan's "As shipped" section
+> and the `Chunk 5 Polish` row in `project_make_status.md` memory.
+
 ## Out of scope
 
 - **`MakeSettings.vue`** (A2) — deferred to Chunk 5.5. Settings UI is a full component + path-picker UX and deserves its own slice.
