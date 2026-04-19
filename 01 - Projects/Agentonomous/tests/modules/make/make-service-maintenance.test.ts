@@ -113,4 +113,18 @@ describe('service.getKpis', () => {
 		expect(kpis.instancesCount).toBe(1);
 		expect(kpis.perType).toEqual({ book: 0, recipe: 1 });
 	});
+
+	it('listTypes error → zero-snapshot fallback (all zeros, perType empty)', async () => {
+		// Force listTypes to fail by making vault.list err on the types folder.
+		const vault = fakeVault();
+		const ports = fakeModulePorts({ vault });
+		const originalList = ports.vault.list;
+		ports.vault.list = vi.fn(async (folder: string) => {
+			if (folder === 'Make/Types') return { kind: 'err' as const, error: 'types-folder-unreadable' };
+			return originalList(folder);
+		}) as typeof ports.vault.list;
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const kpis = await svc.getKpis();
+		expect(kpis).toEqual({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] });
+	});
 });

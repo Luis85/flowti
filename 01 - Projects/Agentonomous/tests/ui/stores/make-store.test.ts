@@ -599,6 +599,49 @@ describe('make-store — kpis', () => {
 		expect(store.kpis).toEqual(SECOND); // unchanged — stale write discarded
 		expect(store.kpisLoading).toBe(false);
 	});
+
+	it('concurrent loadKpis calls: stale-guard early-return when FIRST resolves before SECOND', async () => {
+		// Reverse-resolution variant of the above: the stale (earlier) call
+		// resolves FIRST, before the latest call. The guard must drop the
+		// stale result without flipping kpisLoading to false, so the UI
+		// spinner keeps showing until the real data arrives.
+		const FIRST_STALE  = { typesCount: 9, instancesCount: 9, createdThisWeek: 9, perType: {}, recentlyCreated: [] };
+		const SECOND_FRESH = { typesCount: 2, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] };
+
+		let resolveFirst:  ((v: typeof FIRST_STALE)  => void) | null = null;
+		let resolveSecond: ((v: typeof SECOND_FRESH) => void) | null = null;
+		const calls: Array<'first' | 'second'> = [];
+		const getKpis = vi.fn().mockImplementation(() => {
+			if (calls.length === 0) {
+				calls.push('first');
+				return new Promise<typeof FIRST_STALE>((r) => { resolveFirst = r; });
+			}
+			calls.push('second');
+			return new Promise<typeof SECOND_FRESH>((r) => { resolveSecond = r; });
+		});
+
+		const { store } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ getKpis: getKpis as MakeService['getKpis'] }),
+		}));
+
+		const p1 = store.loadKpis();
+		const p2 = store.loadKpis();
+		expect(store.kpis).toBeNull();
+		expect(store.kpisLoading).toBe(true);
+
+		// First (stale) resolves first. Guard must drop it — kpis stays null
+		// and kpisLoading stays true because the latest call isn't done yet.
+		resolveFirst!(FIRST_STALE);
+		await p1;
+		expect(store.kpis).toBeNull();
+		expect(store.kpisLoading).toBe(true);
+
+		// Second (fresh) resolves. Guard passes; flag flips; kpis commits.
+		resolveSecond!(SECOND_FRESH);
+		await p2;
+		expect(store.kpis).toEqual(SECOND_FRESH);
+		expect(store.kpisLoading).toBe(false);
+	});
 });
 
 describe('make-store — kpis event subscriptions', () => {

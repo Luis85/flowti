@@ -179,6 +179,15 @@ describe('MakeHome — mount calls loadKpis', () => {
 		await flushPromises();
 		expect(getKpis).toHaveBeenCalled();
 	});
+
+	it('calls BOTH service.listTypes and service.getKpis at mount — types and KPIs load together', async () => {
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } }) as unknown as MakeService['listTypes'];
+		const getKpis   = vi.fn().mockResolvedValue(POPULATED);
+		await mountHome({ listTypes, getKpis });
+		await flushPromises();
+		expect(listTypes).toHaveBeenCalledTimes(1);
+		expect(getKpis).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe('MakeHome — accessibility and i18n polish', () => {
