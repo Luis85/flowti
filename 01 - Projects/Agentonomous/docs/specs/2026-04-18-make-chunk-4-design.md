@@ -316,7 +316,7 @@ export type MakeError =
 ### 4.4 `deleteInstance` flow
 
 1. `vault.delete(path)`. On failure → `vault-error`.
-2. Emit `make:instance-deleted { typeId, path }` where `typeId` is inferred from the in-memory `types` cache (match by path prefix against `schema.instancesFolder`). If no match, emit with `typeId: null`.
+2. Emit `make:instance-deleted { typeId, path }` where `typeId` is inferred from the in-memory `types` cache by **exact parent-folder match** — i.e., `dirname(path) === schema.instancesFolder` (after trim). If two types have nested folders (e.g., `Books` and `Books/Classics`), the exact-parent rule picks the right one; naive prefix matching would be ambiguous. If no schema matches, emit with `typeId: null` (treat as advisory — UI refresh is still triggered).
 3. Return `ok(undefined)`.
 
 ### 4.5 `deleteType` cascade flow (`alsoDeleteInstances: true`)
@@ -341,11 +341,11 @@ Fully authoritative:
 2. Apply patch in-memory to get `nextSchema`. Compare `prev.instancesFolder` to `nextSchema.instancesFolder` (after trim).
 3. If unchanged: write JSON, emit `make:type-updated`, return `ok({ schema: nextSchema })`. **No `moveReport`.**
 4. If changed AND `options?.moveInstances !== true`:
-   - Call `listInstances(typeId)` under the OLD folder (schema pre-patch).
+   - Enumerate instances under the OLD folder. **The OLD folder is `prev.instancesFolder` — the value from the schema *before* the patch is applied.** Do NOT call `listInstances(typeId)` on `nextSchema`; its `instancesFolder` already points at the new location and would return zero. Instead, use a helper that accepts the folder explicitly — e.g., `listInstancesInFolder(prev.instancesFolder)` — or inline the enumeration: `vault.list(prev.instancesFolder).filter(/* .md with type-id === typeId */)`.
    - If `count === 0`: write JSON, emit `make:type-updated`, return `ok({ schema: nextSchema })`. No move needed.
    - If `count >= 1`: return `MakeError { kind: 'instances-move-required', oldFolder, newFolder, count }`. **JSON NOT written.** UI catches and confirms.
 5. If changed AND `options.moveInstances === true`:
-   - Enumerate old-folder instances (same listInstances call).
+   - Enumerate old-folder instances via the same explicit-folder helper as step 4 (using `prev.instancesFolder`).
    - For each `ref.path`:
      - `newPath = nextSchema.instancesFolder + '/' + basename(ref.path)`
      - `vault.rename(ref.path, newPath)`
@@ -461,7 +461,7 @@ interface SchemaFormProps {
     <div v-for="(field, index) in remainingFields" :key="field.name">
       <label>{{ field.label ?? field.name }}<span v-if="field.required">*</span></label>
       <small v-if="field.description">{{ field.description }}</small>
-      <component :is="FIELD_KINDS[field.kind].inputComponent" v-model="values[field.name]" :field="field" :error="errorFor(field.name)" :data-testid="`form-field-${field.name}`" />
+      <component :is="INPUT_COMPONENTS[field.kind]" v-model="values[field.name]" :field="field" :error="errorFor(field.name)" :data-testid="`form-field-${field.name}`" />
       <p v-if="errorFor(field.name)" class="make-field-error" :data-testid="`form-field-${field.name}-error`">{{ errorMessage(field.name) }}</p>
     </div>
   </section>
@@ -561,7 +561,7 @@ No layout change — the design reserved a slot for this in Chunk 3.
     <button @click="expanded = !expanded" data-testid="corrupt-banner-toggle">
       {{ expanded ? t('make.corrupt.hide') : t('make.corrupt.show') }}
     </button>
-    <button @click="store.refreshTypes()" data-testid="corrupt-banner-refresh">{{ t('make.corrupt.refresh') }}</button>
+    <button @click="store.loadTypes()" data-testid="corrupt-banner-refresh">{{ t('make.corrupt.refresh') }}</button>
   </div>
   <ul v-if="expanded" class="banner-details">
     <li v-for="(issue, i) in issues" :key="issue.path" :data-testid="`corrupt-row-${i}`">
@@ -574,7 +574,7 @@ No layout change — the design reserved a slot for this in Chunk 3.
 </aside>
 ```
 
-- `[Refresh]` triggers `store.refreshTypes()` — re-runs `listTypes`.
+- `[Refresh]` triggers `store.loadTypes()` — re-runs `listTypes`.
 - `[Delete file]` → `ConfirmDialog` with copy `t('make.corrupt.delete-confirm.body', { filename })` → `store.deleteCorruptFile(path)` → auto-refresh.
 - Banner unmounts when `issues.length === 0`.
 
@@ -613,11 +613,18 @@ export const useMakeStore = defineStore('make', () => {
     // Existing Chunk 3 refs: types, loadingTypes, error, optimisticFavoriteOverrides.
     const issues = ref<readonly CorruptTypeRef[]>([]);
 
-    async function refreshTypes() {
+    // Existing Chunk 3 loadTypes() signature preserved; body updates to consume
+    // the widened ListTypesResult. No new refreshTypes() method — callers keep
+    // using store.loadTypes().
+    async function loadTypes(): Promise<void> {
+        typesLoading.value = true;
+        typesError.value = null;
         const result = await ctx.service.listTypes();
-        if (isErr(result)) { error.value = result.error; return; }
+        typesLoading.value = false;
+        if (result.kind === 'err') { typesError.value = formatError(result.error); return; }
         types.value  = result.value.types;
-        issues.value = result.value.issues;
+        issues.value = result.value.issues;   // new
+        typesLoaded.value = true;
     }
 
     async function createInstance(typeId, raw, explicitFilename, options) {
@@ -630,7 +637,7 @@ export const useMakeStore = defineStore('make', () => {
 
     async function deleteCorruptFile(path) {
         const result = await ctx.service.deleteCorruptFile(path);
-        if (isOk(result)) await refreshTypes();
+        if (result.kind === 'ok') await loadTypes();
         return result;
     }
 
@@ -639,18 +646,20 @@ export const useMakeStore = defineStore('make', () => {
     }
 
     // Subscription additions: make:instance-created, make:instance-deleted,
-    // make:instances-moved all trigger refreshTypes() (cache is small; lazy is fine).
+    // make:instances-moved all trigger loadTypes() (cache is small; lazy is fine).
 });
 ```
 
-Event handler is the sole cache mutator (Chunk 3 R3 rule preserved). Actions return `Result` but do not mutate `types`/`issues` directly; `refreshTypes` is the only mutator.
+Event handler is the sole cache mutator (Chunk 3 R3 rule preserved). Actions return `Result` but do not mutate `types`/`issues` directly; `loadTypes` is the only mutator.
 
 ### 5.7 i18n keys (~40 new)
 
 Under `make.*` in `src/modules/make/locales/en.json`:
 
 **Form**:
-- `make.form.submit`, `make.form.cancel`, `make.form.panel-title`, `make.form.filename`, `make.form.filename-help`, `make.form.title-suffix`, `make.form.required-marker`.
+- `make.form.submit`, `make.form.cancel`, `make.form.panel-title`, `make.form.filename`, `make.form.filename-help`, `make.form.title-suffix`.
+
+(The visual required-marker is a hardcoded `*` asterisk — no i18n key; visual convention, not translatable text.)
 
 **Instance actions**:
 - `make.instance-actions.open-in-obsidian`, `.delete`.
@@ -665,13 +674,14 @@ Under `make.*` in `src/modules/make/locales/en.json`:
 - `make.move-instances-dialog.title`, `.body`, `.confirm`, `.cancel`.
 
 **Move report / cascade**:
-- `make.move-report.success`, `.partial`, `.info-toast`.
+- `make.move-report.info-toast` (success case: "Moved {movedCount} instances to {newFolder}").
+- `make.move-report.partial.title`, `.body` (see §6.6 for placeholders).
 - `make.cascade.deleted-success`, `.deleted-partial`.
 
 **Corrupt banner**:
 - `make.corrupt.banner` (pluralized), `.show`, `.hide`, `.refresh`, `.open`, `.delete`.
 - `make.corrupt.delete-confirm.title`, `.body`, `.confirm`, `.cancel`.
-- `make.corrupt.invalid-json`, `.missing-required-key`, `.invalid-field-kind`, `.duplicate-field-name`, `.title-field-not-text`, `.title-field-missing`, `.invalid-field-default`, `.invalid-name`, `.invalid-folder-path`, `.io-error`.
+- `make.corrupt.invalid-json`, `.missing-required-key`, `.invalid-field-kind`, `.duplicate-field-name`, `.title-field-not-text`, `.title-field-missing`, `.invalid-field-default`, `.invalid-name`, `.invalid-folder-path`, `.io-error`, `.unknown` (fallback when a reason-kind is emitted that doesn't match any of the above — e.g., forward-compat).
 
 All keys wired at render via `useI18n().t(...)`.
 
@@ -691,7 +701,7 @@ All keys wired at render via `useI18n().t(...)`.
 
 ### 6.2 Pre-move enumeration
 
-- Source list is `listInstances(typeId)` called *before* the move begins. It enumerates via `vault.list(oldFolder)` filtered to `.md` with matching `type-id` frontmatter (same code path as Chunk 2).
+- Source list is enumerated via an **explicit-folder** helper using `prev.instancesFolder` (not `schema.instancesFolder` on the in-memory patched schema — see §4.6 step 4 rationale). Implementation either (a) factors a new `listInstancesInFolder(folder: string)` helper out of the existing `listInstances(typeId)` code, or (b) inlines `vault.list(prev.instancesFolder)` + filter to `.md` files with matching `type-id` frontmatter. Both match the Chunk 2 code path.
 - If the enumerator returns `[]`: no-op move. Skip to JSON write. No event. No report.
 - If the enumerator returns `N ≥ 1` AND `options.moveInstances !== true` → return `instances-move-required`. **JSON NOT written.**
 
@@ -702,7 +712,10 @@ For each InstanceRef ref in ordered list:
     newPath = newFolder + '/' + basename(ref.path)
     rename = vault.rename(ref.path, newPath)
     if (rename.err):
-        failedMoves.push({ path: ref.path, cause: 'rename-failed: ' + rename.error })
+        // rename.error is already a structured message from the adapter
+        // (e.g., 'not-found: <oldPath>', 'target-exists: <newPath>', 'rename-failed: <msg>'),
+        // so the service uses it verbatim — no re-prefixing.
+        failedMoves.push({ path: ref.path, cause: rename.error })
         continue
     movedCount++
 ```
@@ -718,14 +731,16 @@ JSON writes **after** the move loop completes, even if some renames failed. Rati
 
 ### 6.5 Failure reporting
 
-- `MoveReport.failedMoves` includes `{ path, cause }` per failure. `cause` values are prefixed `rename-failed: ` followed by the adapter error string (`not-found`, `target-exists`, `rename-failed: <msg>`).
+- `MoveReport.failedMoves` includes `{ path, cause }` per failure. `cause` values are the raw adapter error strings (one of `'not-found: <oldPath>'`, `'target-exists: <newPath>'`, or `'rename-failed: <msg>'`). The service does NOT wrap or re-prefix these — see §2.2 for the adapter error contract.
 - `partial-move` error kind fires when `failedMoves.length > 0` *after the move loop finished*. The JSON has been written; the UI surfaces a warning, not a rollback.
 - Failures are also emitted individually via `ports.eventBus.emit('error', appError)` with `source: 'make', code: 'partial-move'` and the `failedMoves` list in the payload. `ErrorHandler` logs them.
 
 ### 6.6 User-facing `partial-move` copy
 
-- Title: `"Type saved — some files couldn't move"`.
-- Body: `"{moved} of {total} files moved to {newFolder}. {failed} files remain at {oldFolder}: {first-3-filenames}{hasMore ? ', …' : ''}"`.
+- Title: via i18n key `make.move-report.partial.title`.
+- Body: via i18n key `make.move-report.partial.body` with placeholders `{moved}`, `{total}`, `{newFolder}`, `{failed}`, `{oldFolder}`, `{firstNames}`, `{hasMore}` — rendered by `vue-i18n`'s interpolation.
+- Example English value of `make.move-report.partial.title`: `"Type saved — some files couldn't move"`.
+- Example English value of `make.move-report.partial.body`: `"{moved} of {total} files moved to {newFolder}. {failed} files remain at {oldFolder}: {firstNames}{hasMore}"`.
 - Dialog action: `[OK]` (no retry button — deferred). The user can re-open the type and change `instancesFolder` back then forward to retry.
 
 ### 6.7 `listInstances` scope
@@ -749,13 +764,13 @@ Already described in §4.8 — single pass through `vault.list(typesFolder)` wit
 1. User clicks `[Open in Obsidian]` in the banner row → `store.openInstance(path, 'tab')` → `ctx.workspace.openFile(path, 'tab')` → file opens in a new Obsidian tab.
 2. User fixes the JSON in Obsidian editor, saves.
 3. User flips back to Make. **The banner is stale until refresh** (no `vault` bus subscription in v1).
-4. User clicks `[Refresh]` in the banner → `store.refreshTypes()` → banner row drops if the file now parses.
+4. User clicks `[Refresh]` in the banner → `store.loadTypes()` → banner row drops if the file now parses.
 5. If all issues resolve, banner unmounts.
 
 ### 7.3 Deletion flow
 
 1. User clicks `[Delete file]` → `ConfirmDialog`: `"Delete {filename}? File goes to Obsidian trash and can be restored."`.
-2. On confirm → `store.deleteCorruptFile(path)` → `ctx.service.deleteCorruptFile(path)` → `vault.delete(path)` → `store.refreshTypes()`.
+2. On confirm → `store.deleteCorruptFile(path)` → `ctx.service.deleteCorruptFile(path)` → `vault.delete(path)` → `store.loadTypes()`.
 3. Banner row drops.
 
 ### 7.4 Reason i18n keys
@@ -806,9 +821,9 @@ One key per `SchemaError.kind` + one for `IoError`. Missing keys fall back to `t
 
 - **`createInstance` / `deleteInstance`** actions call service, propagate result.
 - **`openInstance`** calls `ctx.workspace.openFile` with correct mode.
-- **`issues` ref** mirrors `listTypes` return; refreshes on `refreshTypes()`.
+- **`issues` ref** mirrors `listTypes` return; refreshes on `loadTypes()`.
 - **`deleteCorruptFile`** calls service, triggers refresh on success.
-- **Event subscriptions** — `make:instance-created`, `make:instance-deleted`, `make:instances-moved` all trigger `refreshTypes` (spy-assertable).
+- **Event subscriptions** — `make:instance-created`, `make:instance-deleted`, `make:instances-moved` all trigger `loadTypes` (spy-assertable).
 
 ### 8.5 UI component tests
 
@@ -842,7 +857,7 @@ One key per `SchemaError.kind` + one for `IoError`. Missing keys fall back to `t
   - `[Show details]` expands; `[Hide]` collapses.
   - `[Open in Obsidian]` per row calls `store.openInstance(path, 'tab')`.
   - `[Delete file]` per row triggers confirm → `store.deleteCorruptFile(path)`.
-  - `[Refresh]` triggers `store.refreshTypes()`.
+  - `[Refresh]` triggers `store.loadTypes()`.
 - **`tests/ui/pages/make/MakeType.test.ts`** (extend):
   - Save with `instancesFolder` change + instances present → move confirm dialog appears.
   - Move confirm → re-call with `moveInstances: true`.
@@ -866,8 +881,8 @@ One key per `SchemaError.kind` + one for `IoError`. Missing keys fall back to `t
 ### 8.9 Baseline delta
 
 - Chunk 3.5 baseline: 754 tests, 92 files.
-- Estimated Chunk 4 additions: ~130–160 new tests across 9 slices.
-- **Expected final: ≥ 850 tests**, 0 lint errors, typecheck clean.
+- Estimated Chunk 4 additions: ~90–120 new tests across 10 slices (enumerated roughly: 22 service + 3 port adapter + 5 store + 8 SchemaForm + 3 DeleteTypeDialog + 6 MakeTypeInstances + 7 MakeTypes + 4 MakeType + domain/fake additions).
+- **Expected final: ≥ 850 tests** (754 baseline + ≥ 96 net), 0 lint errors, typecheck clean. Slice B test-fixture migration must NOT reduce the baseline.
 
 ### 8.10 Lint / typecheck expectations
 
@@ -876,7 +891,7 @@ One key per `SchemaError.kind` + one for `IoError`. Missing keys fall back to `t
 - Domain layer gains `IoError` only — no Vue imports, `try/catch` ban respected.
 - Store remains the sole Vue-side service consumer.
 
-## 9. Build Order — 9 Slices
+## 9. Build Order — 10 Slices
 
 Each slice merges to master when all tests pass. No slice depends on future slice UI.
 
@@ -889,29 +904,38 @@ Each slice merges to master when all tests pass. No slice depends on future slic
 ### Slice B — `listTypes` widened shape
 - Change service return type to `ListTypesResult`.
 - Implement `{ types, issues }` split in service.
-- Store exposes `issues` ref; `refreshTypes` populates both.
+- Store exposes `issues` ref; existing `loadTypes()` widens to populate both `types` and `issues` from the new `ListTypesResult` shape.
 - Module tests: all corrupt/io/mixed/vault-level cases.
 - Store tests: `issues` propagation.
 - **UI ignores `issues`** — no banner yet.
+- **Test-fixture migration (mechanical)**: every existing test call site that builds `{ kind: 'ok', value: [BOOK] }` for `listTypes` needs to become `{ kind: 'ok', value: { types: [BOOK], issues: [] } }`. Known affected files (non-exhaustive — planner should grep `listTypes` across `tests/`):
+    - `tests/ui/pages/make/MakeHome.test.ts`
+    - `tests/ui/pages/make/MakeTypes.test.ts`
+    - `tests/ui/pages/make/MakeType.test.ts`
+    - `tests/ui/router/make-routes.test.ts`
+    - `tests/ui/pages/make/use-make-type-save-flow.test.ts`
+    - `tests/ui/stores/make-store.test.ts`
+    - `tests/__fixtures__/fake-make-context.ts`
+  This migration is "modified tests," not "new tests" — does not count toward the Slice delta estimate but MUST leave the baseline ≥ 754 net.
 - **Exit:** tests green; existing pages unaffected.
 
-### Slice C — Corrupt-types banner UI
-- `MakeTypes.vue` renders banner when `issues.length > 0`.
-- `ConfirmDialog` reuse for `[Delete file]`.
-- `[Show/Hide details]`, per-row `[Open]` + `[Delete file]`, `[Refresh]`.
-- i18n keys + Storybook story variants.
-- `deleteCorruptFile` service + store action.
-- Depends on Slice D (workspace port) for `[Open in Obsidian]`. **Move D before C** if Slice C needs the port working. Final order: **A → B → D → C** for the corrupt-files arc.
-- **Exit:** corrupt files visible and actionable.
-
-### Slice D — `WorkspacePort`
+### Slice C — `WorkspacePort`
 - `src/domain/shared/workspace-port.ts` — interface.
 - `src/infrastructure/obsidian/workspace-adapter.ts` — adapter + tests.
 - `tests/__fakes__/fake-ports.ts` — `fakeWorkspace()`.
 - Register in `ModulePorts`; `PluginCore` passes it.
 - `createMakeContext` passes workspace through.
 - `fake-make-context.ts` exposes workspace field.
-- **Exit:** port usable, adapter tested, no caller yet.
+- **Exit:** port usable, adapter tested, no caller yet. Sequenced before Slice D so the corrupt banner's `[Open in Obsidian]` action has a real port to call.
+
+### Slice D — Corrupt-types banner UI
+- `MakeTypes.vue` renders banner when `issues.length > 0`.
+- `ConfirmDialog` reuse for `[Delete file]`.
+- `[Show/Hide details]`, per-row `[Open]` + `[Delete file]`, `[Refresh]`.
+- i18n keys + Storybook story variants.
+- `deleteCorruptFile` service + store action.
+- Uses `WorkspacePort` from Slice C.
+- **Exit:** corrupt files visible and actionable.
 
 ### Slice E — `SchemaForm` component
 - `src/ui/components/make/SchemaForm.vue` + Storybook stories.
@@ -959,11 +983,12 @@ Each slice merges to master when all tests pass. No slice depends on future slic
 - Page tests for both confirms.
 - **Exit:** all Chunk 4 deliverables live. Tag as `make-slice-4`.
 
-**Final slice order**: A → B → D → C → E → F → G → H → I → J.
+**Slices execute in letter order A → B → C → D → E → F → G → H → I → J** (no cross-order reconciliation needed after the reorder above).
 
 ## 10. Risks & Open Questions
 
 - **Move atomicity** — N rename operations, no transaction. Documented limitation. Individual renames are atomic from Obsidian's view; the sequence is not. Crash mid-move → partial state, reconciled on next open.
+- **Cascade-delete partial state** — if instance deletes succeed but the final type-JSON delete fails, the user has a "type with no instances that still exists." Recoverable by retrying delete; trash safety net covers the instances. Same class of risk as move atomicity; same acceptance rationale.
 - **Concurrent edits during move** — no `stat.mtime` check. Deferred to Chunk 3.5 hardening.
 - **Two Make leaves during a move** — same limitation as Chunk 3; documented, not mitigated.
 - **Workspace port scope** — v1 only exposes `openFile`. Future needs (`closeLeaf`, `focusLeaf`, `revealInSidebar`) expand the port surface; not anticipated for Chunk 4.
@@ -972,7 +997,7 @@ Each slice merges to master when all tests pass. No slice depends on future slic
 
 ## 11. Definition of Done
 
-- All 9 slices merged to master.
+- All 10 slices merged to master in letter order.
 - Tag `make-slice-4` at final slice merge.
 - Test count ≥ 850, 0 lint errors, typecheck clean.
 - Manual QA in test vault: create instance, delete instance, cascade delete, folder rename (move), corrupt JSON surfacing, "Open in Obsidian" opens new tab.
