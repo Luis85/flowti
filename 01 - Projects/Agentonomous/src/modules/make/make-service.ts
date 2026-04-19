@@ -10,6 +10,7 @@ import type {
 import { createTypeOps, type TypeServiceMethods } from './make-service-types.js';
 import { createInstanceOps, type InstanceOpsInternal } from './make-service-instances.js';
 import { createMaintenanceOps } from './make-service-maintenance.js';
+import { createPerTypeQueue, type PerTypeQueue } from './per-type-queue.js';
 
 export interface MakeService {
 	listTypes(): Promise<Result<ListTypesResult, MakeError>>;
@@ -27,18 +28,23 @@ export interface MakeService {
 	getKpis(): Promise<KpiSnapshot>;
 }
 
-export function createMakeService(ports: ModulePorts, getSettings: () => MakeSettings): MakeService {
+export function createMakeService(
+	ports: ModulePorts,
+	getSettings: () => MakeSettings,
+	queueOverride?: PerTypeQueue,
+): MakeService {
 	// Forward-declared peer refs: the three sub-modules cross-reference each other,
 	// so each peer wrapper reads from a ref that is assigned after construction.
 	// The non-null `!` is safe because callers can only reach methods after the
 	// facade returns, by which point all refs have been assigned.
 	const typesRef: { current: TypeServiceMethods | null } = { current: null };
 	const instancesRef: { current: InstanceOpsInternal | null } = { current: null };
+	const queue = queueOverride ?? createPerTypeQueue();
 
 	const types = createTypeOps(ports, getSettings, {
 		listInstances: (typeId) => instancesRef.current!.listInstances(typeId),
 		listInstancesInFolder: (folder, typeId) => instancesRef.current!.listInstancesInFolder(folder, typeId),
-	});
+	}, queue);
 	typesRef.current = types;
 
 	const instances = createInstanceOps(ports, getSettings, {
