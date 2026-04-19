@@ -4,16 +4,17 @@ import { trySync } from '../../domain/shared/try-async.js';
 import { parseTypeSchema, serializeTypeSchema } from '../../domain/make/type-schema-codec.js';
 import type { Field, TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
-import type { CorruptTypeRef, FieldRename, MakeError, SchemaError } from '../../domain/make/errors.js';
+import type { CorruptTypeRef, MakeError, SchemaError } from '../../domain/make/errors.js';
 import type {
-	DeleteTypeOptions, DeleteTypeReport, FailedDelete, FailedMove, InstanceRef, ListTypesResult, MoveReport,
-	NewTypeDraft, NonEmptyArray, TypeSchemaPatch, UpdateTypeOptions, UpdateTypeResult,
+	DeleteTypeOptions, DeleteTypeReport, FailedDelete, InstanceRef, ListTypesResult,
+	NewTypeDraft, NonEmptyArray,
 } from '../../domain/make/types.js';
 import { slugifyTypeName } from '../../domain/make/type-id.js';
 import { validateTypeName, validateFieldName, validateInstancesFolder } from '../../domain/make/name-validation.js';
 import { generateBaseYaml } from '../../domain/make/base-file.js';
 import { FIELD_KINDS } from '../../domain/make/field-kinds/index.js';
 import type { MakeService } from './make-service.js';
+import { createUpdateTypeOps } from './update-type-ops.js';
 
 export type TypeServiceMethods = Pick<MakeService, 'listTypes' | 'loadType' | 'createType' | 'updateType' | 'deleteType' | 'toggleFavorite'>;
 
@@ -190,115 +191,9 @@ export function createTypeOps(
 		return writeResult;
 	}
 
-	async function detectFieldRename(
-		currentFields: readonly Field[], next: TypeSchema, typeId: string,
-	): Promise<MakeError | null> {
-		const renames: FieldRename[] = [];
-		for (let i = 0; i < Math.min(currentFields.length, next.fields.length); i++) {
-			const before = currentFields[i]!;
-			const after = next.fields[i]!;
-			if (before.kind === after.kind && before.name !== after.name && !next.fields.some((f) => f.name === before.name)) {
-				renames.push({ oldName: before.name, newName: after.name, position: i });
-			}
-		}
-		if (renames.length === 0) return null;
-		const instanceList = await peers.listInstances(typeId);
-		const affectedCount = instanceList.kind === 'ok' ? instanceList.value.length : 0;
-		return {
-			kind: 'invalid-schema',
-			issues: [{ kind: 'field-rename-warning', renames, affectedCount }] as unknown as NonEmptyArray<SchemaError>,
-		};
-	}
-
-	async function writeNextSchema(next: TypeSchema): Promise<Result<void, MakeError>> {
-		const jsonPath = `${getSettings().typesFolder.replace(/\/$/, '')}/${next.id}.json`;
-		const writeResult = await ports.vault.update(jsonPath, serializeTypeSchema(next));
-		if (writeResult.kind === 'err') return err({ kind: 'vault-error', cause: String(writeResult.error) });
-		return ok(undefined);
-	}
-
-	async function moveAllInstances(
-		oldInstances: readonly InstanceRef[], oldFolder: string, nextFolder: string,
-	): Promise<MoveReport> {
-		const failedMoves: FailedMove[] = [];
-		let movedCount = 0;
-		for (const ref of oldInstances) {
-			const newPath = `${nextFolder}/${basename(ref.path)}`;
-			const rename = await ports.vault.rename(ref.path, newPath);
-			if (rename.kind === 'err') {
-				failedMoves.push({ path: ref.path, cause: String(rename.error) });
-				continue;
-			}
-			movedCount += 1;
-		}
-		return { oldFolder, newFolder: nextFolder, movedCount, failedMoves };
-	}
-
-	async function preflightUpdate(
-		prev: TypeSchema, next: TypeSchema, changes: TypeSchemaPatch, options: UpdateTypeOptions, typeId: string,
-	): Promise<MakeError | null> {
-		if (options.acknowledgeRenames !== true && changes.fields !== undefined) {
-			const renameErr = await detectFieldRename(prev.fields, next, typeId);
-			if (renameErr !== null) return renameErr;
-		}
-		const schemaErrors = validateSchema(next);
-		if (schemaErrors.length > 0) {
-			return { kind: 'invalid-schema', issues: schemaErrors as unknown as NonEmptyArray<SchemaError> };
-		}
-		if (changes.name !== undefined && changes.name !== prev.name) {
-			const existing = await listTypes();
-			if (existing.kind === 'ok') {
-				const collision = existing.value.types.find(
-					(t) => t.id !== prev.id && t.name.toLowerCase() === next.name.toLowerCase(),
-				);
-				if (collision !== undefined) return { kind: 'duplicate-name', name: next.name };
-			}
-		}
-		return null;
-	}
-
-	async function commitNoMove(next: TypeSchema): Promise<Result<UpdateTypeResult, MakeError>> {
-		const w = await writeNextSchema(next);
-		if (w.kind === 'err') return w;
-		ports.eventBus.emit('make:type-updated', { schema: next });
-		return ok({ schema: next });
-	}
-
-	async function commitWithMove(
-		next: TypeSchema, oldInstances: readonly InstanceRef[], prevFolder: string, nextFolder: string,
-	): Promise<Result<UpdateTypeResult, MakeError>> {
-		const moveReport = await moveAllInstances(oldInstances, prevFolder, nextFolder);
-		const w = await writeNextSchema(next);
-		if (w.kind === 'err') return w;
-		ports.eventBus.emit('make:instances-moved', { typeId: next.id, report: moveReport });
-		ports.eventBus.emit('make:type-updated', { schema: next });
-		if (moveReport.failedMoves.length > 0) return err({ kind: 'partial-move', moveReport });
-		return ok({ schema: next, moveReport });
-	}
-
-	async function updateType(
-		typeId: string,
-		changes: TypeSchemaPatch,
-		options: UpdateTypeOptions = {},
-	): Promise<Result<UpdateTypeResult, MakeError>> {
-		const current = await loadType(typeId);
-		if (current.kind === 'err') return current;
-		const prev = current.value;
-		const next: TypeSchema = { ...prev, ...changes, updatedAt: new Date().toISOString() };
-		const preflight = await preflightUpdate(prev, next, changes, options, typeId);
-		if (preflight !== null) return err(preflight);
-
-		const prevFolder = prev.instancesFolder.trim();
-		const nextFolder = next.instancesFolder.trim();
-		if (prevFolder === nextFolder) return commitNoMove(next);
-
-		const oldInstances = await peers.listInstancesInFolder(prevFolder, typeId);
-		if (oldInstances.length === 0) return commitNoMove(next);
-		if (options.moveInstances !== true) {
-			return err({ kind: 'instances-move-required', oldFolder: prevFolder, newFolder: nextFolder, count: oldInstances.length });
-		}
-		return commitWithMove(next, oldInstances, prevFolder, nextFolder);
-	}
+	const { updateType } = createUpdateTypeOps({
+		ports, getSettings, peers, loadType, listTypes, validateSchema,
+	});
 
 	async function cascadeInstances(typeId: string): Promise<Result<{ deleted: number; failures: FailedDelete[] }, MakeError>> {
 		const list = await peers.listInstances(typeId);
