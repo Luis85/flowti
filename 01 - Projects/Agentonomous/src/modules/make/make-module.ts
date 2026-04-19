@@ -5,6 +5,7 @@ import { createMakeService, type MakeService } from './make-service.js';
 import enMessages from './locales/en.json' with { type: 'json' };
 import { VIEW_TYPE_MAKE } from '../../domain/views/view-types.js';
 import type { EventMap } from '../../domain/shared/event-bus.js';
+import type { WorkspacePort } from '../../domain/shared/workspace-port.js';
 
 export { VIEW_TYPE_MAKE };
 
@@ -42,11 +43,12 @@ export type MakeModuleState = {
 	readonly service: MakeService;
 	readonly settings: MakeSettings;
 	readonly subscribe: (handlers: MakeEventHandlers) => () => void;
+	readonly workspace: WorkspacePort;
 };
 
 export function getMakeModuleState(): MakeModuleState | null {
 	if (state === null) return null;
-	return { service: state.service, settings: state.settings, subscribe };
+	return { service: state.service, settings: state.settings, subscribe, workspace: state.ports.workspace };
 }
 
 export const MakeModule = defineModule<MakeSettings>({

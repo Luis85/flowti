@@ -23,5 +23,6 @@ export function createMakeContext(): MakeContext | null {
 		service: moduleState.service,
 		settings$: readonly(settings$),
 		subscribe: moduleState.subscribe,
+		workspace: moduleState.workspace,
 	};
 }
