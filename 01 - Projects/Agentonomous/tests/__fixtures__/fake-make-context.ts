@@ -14,6 +14,7 @@ export function fakeMakeService(overrides: Partial<MakeService> = {}): MakeServi
 		loadType:            overrides.loadType            ?? ((id) => Promise.resolve({ kind: 'err' as const, error: { kind: 'type-not-found' as const, typeId: id } })),
 		createType:          overrides.createType          ?? notImpl,
 		updateType:          overrides.updateType          ?? notImpl,
+		retryFailedMoves:    overrides.retryFailedMoves    ?? (() => Promise.resolve({ kind: 'ok' as const, value: { oldFolder: '', newFolder: '', movedCount: 0, failedMoves: [] } })),
 		deleteType:          overrides.deleteType          ?? notImpl,
 		listInstances:       overrides.listInstances       ?? (() => Promise.resolve({ kind: 'ok' as const, value: [] })),
 		createInstance:      overrides.createInstance      ?? notImpl,

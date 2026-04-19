@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
-import type { CreateInstanceOptions, InstanceRef, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
+import type { CreateInstanceOptions, InstanceRef, MoveReport, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
 import type { CorruptTypeRef, MakeError } from '../../domain/make/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import type { OpenFileMode } from '../../domain/shared/workspace-port.js';
@@ -120,6 +120,10 @@ export const useMakeStore = defineStore('make', () => {
 		savingType.value = false;
 		if (result.kind === 'err') saveError.value = formatError(result.error);
 		return result;
+	}
+
+	async function retryFailedMoves(typeId: TypeId, failedPaths: readonly string[]): Promise<Result<MoveReport, MakeError>> {
+		return ctx.service.retryFailedMoves(typeId, failedPaths);
 	}
 
 	async function deleteType(typeId: TypeId, options: DeleteTypeOptions): Promise<Result<DeleteTypeReport, MakeError>> {
@@ -251,6 +255,7 @@ export const useMakeStore = defineStore('make', () => {
 		optimisticFavoriteOverrides,
 		createType,
 		updateType,
+		retryFailedMoves,
 		deleteType,
 		deleteCorruptFile,
 		createInstance,

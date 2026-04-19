@@ -179,6 +179,10 @@
 	"make.move-report.info-toast": "Moved {movedCount} instances to {newFolder}.",
 	"make.move-report.partial.title": "Type saved — some files couldn't move",
 	"make.move-report.partial.body": "{moved} of {total} files moved to {newFolder}. {failed} files remain at {oldFolder}: {firstNames}{hasMore}",
+	"make.move-report.partial.retry": "Retry failed files",
+	"make.move-report.partial.dismiss": "Dismiss",
+	"make.move-report.retry.success": "All remaining files moved to {newFolder}.",
+	"make.move-report.retry.still-failing": "Retry moved {movedCount} more. {failed} files still failing.",
 
 	"make.cascade.deleted-success": "Deleted type '{name}' and {instancesDeleted} instances.",
 	"make.cascade.deleted-partial": "Deleted type '{name}'. {instancesDeleted} instances deleted, {failedCount} failed.",

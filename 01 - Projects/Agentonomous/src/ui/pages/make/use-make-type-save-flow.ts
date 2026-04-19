@@ -17,11 +17,16 @@ export interface UseMakeTypeSaveFlow {
 	readonly moveInstancesDialogTitle:  ReturnType<typeof ref<string>>;
 	readonly moveInstancesDialogBody:   ReturnType<typeof ref<string>>;
 	readonly moveInstancesDialogBusy:   ReturnType<typeof ref<boolean>>;
+	readonly moveReportDialogOpen:      ReturnType<typeof ref<boolean>>;
+	readonly moveReportDialogTitle:     ReturnType<typeof ref<string>>;
+	readonly moveReportDialogBody:      ReturnType<typeof ref<string>>;
+	readonly moveReportDialogBusy:      ReturnType<typeof ref<boolean>>;
 	onSave():                           Promise<void>;
 	onRenameAcknowledge(choice: string): Promise<void>;
 	onRegenerate(force?: boolean):      Promise<void>;
 	onOverwriteConfirm(choice: string): Promise<void>;
 	onMoveInstancesConfirm(choice: string): Promise<void>;
+	onRetryFailedMoves(choice: string): Promise<void>;
 }
 
 function applySchemaIssues(
@@ -58,6 +63,11 @@ export function useMakeTypeSaveFlow(
 	const moveInstancesDialogTitle = ref('');
 	const moveInstancesDialogBody = ref('');
 	const moveInstancesDialogBusy = ref(false);
+	const moveReportDialogOpen = ref(false);
+	const moveReportDialogTitle = ref('');
+	const moveReportDialogBody = ref('');
+	const moveReportDialogBusy = ref(false);
+	const currentMoveReport = ref<MoveReport | null>(null);
 
 	function surfaceError(error: MakeError): void {
 		schemaErrors.value = {};
@@ -97,15 +107,18 @@ export function useMakeTypeSaveFlow(
 		}));
 	}
 
-	function surfacePartialMoveWarning(moveReport: MoveReport): void {
+	function openMoveReportDialog(moveReport: MoveReport): void {
 		const total = moveReport.movedCount + moveReport.failedMoves.length;
 		const failed = moveReport.failedMoves.length;
 		const firstNames = moveReport.failedMoves.slice(0, 3).map((m) => m.path).join(', ');
 		const hasMore = failed > 3 ? `, +${failed - 3} more` : '';
-		ctx?.notifications.warn(t('make.move-report.partial.body', {
+		currentMoveReport.value = moveReport;
+		moveReportDialogTitle.value = t('make.move-report.partial.title');
+		moveReportDialogBody.value = t('make.move-report.partial.body', {
 			moved: moveReport.movedCount, total, newFolder: moveReport.newFolder,
 			failed, oldFolder: moveReport.oldFolder, firstNames, hasMore,
-		}));
+		});
+		moveReportDialogOpen.value = true;
 	}
 
 	async function attemptUpdate(options?: { moveInstances?: true }): Promise<void> {
@@ -125,7 +138,7 @@ export function useMakeTypeSaveFlow(
 		applyResult(result.value.schema);
 		const moveReport = result.value.moveReport;
 		if (moveReport !== undefined && moveReport.failedMoves.length > 0) {
-			surfacePartialMoveWarning(moveReport);
+			openMoveReportDialog(moveReport);
 			return;
 		}
 		ctx?.notifications.success(t('make.notify.typeUpdated'));
@@ -175,6 +188,31 @@ export function useMakeTypeSaveFlow(
 		if (choice === 'confirm') await onRegenerate(true);
 	}
 
+	async function onRetryFailedMoves(choice: string): Promise<void> {
+		const current = currentMoveReport.value;
+		if (choice !== 'confirm' || current === null || typeId.value === null) {
+			moveReportDialogOpen.value = false;
+			currentMoveReport.value = null;
+			return;
+		}
+		moveReportDialogBusy.value = true;
+		const failedPaths = current.failedMoves.map((m) => m.path);
+		const result = await store.retryFailedMoves(typeId.value, failedPaths);
+		moveReportDialogBusy.value = false;
+		if (result.kind === 'err') {
+			ctx?.notifications.error(t('make.error.vault'));
+			return;
+		}
+		const nextReport = result.value;
+		if (nextReport.failedMoves.length === 0) {
+			ctx?.notifications.success(t('make.move-report.retry.success', { newFolder: nextReport.newFolder }));
+			moveReportDialogOpen.value = false;
+			currentMoveReport.value = null;
+			return;
+		}
+		openMoveReportDialog({ ...nextReport, oldFolder: current.oldFolder });
+	}
+
 	return {
 		schemaErrors,
 		renameWarningOpen,
@@ -184,10 +222,15 @@ export function useMakeTypeSaveFlow(
 		moveInstancesDialogTitle,
 		moveInstancesDialogBody,
 		moveInstancesDialogBusy,
+		moveReportDialogOpen,
+		moveReportDialogTitle,
+		moveReportDialogBody,
+		moveReportDialogBusy,
 		onSave,
 		onRenameAcknowledge,
 		onRegenerate,
 		onOverwriteConfirm,
 		onMoveInstancesConfirm,
+		onRetryFailedMoves,
 	};
 }

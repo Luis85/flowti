@@ -5,7 +5,7 @@ import type { MakeSettings } from './make-settings.js';
 import type { MakeError } from '../../domain/make/errors.js';
 import type {
 	CreateInstanceOptions, DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, ListTypesResult,
-	NewTypeDraft, TypeSchemaPatch, UpdateTypeOptions, UpdateTypeResult,
+	MoveReport, NewTypeDraft, TypeSchemaPatch, UpdateTypeOptions, UpdateTypeResult,
 } from '../../domain/make/types.js';
 import { createTypeOps, type TypeServiceMethods } from './make-service-types.js';
 import { createInstanceOps, type InstanceOpsInternal } from './make-service-instances.js';
@@ -16,6 +16,7 @@ export interface MakeService {
 	loadType(typeId: string): Promise<Result<TypeSchema, MakeError>>;
 	createType(draft: NewTypeDraft): Promise<Result<TypeSchema, MakeError>>;
 	updateType(typeId: string, changes: TypeSchemaPatch, options?: UpdateTypeOptions): Promise<Result<UpdateTypeResult, MakeError>>;
+	retryFailedMoves(typeId: string, failedPaths: readonly string[]): Promise<Result<MoveReport, MakeError>>;
 	deleteType(typeId: string, options: DeleteTypeOptions): Promise<Result<DeleteTypeReport, MakeError>>;
 	listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>>;
 	createInstance(typeId: string, raw: Record<string, unknown>, explicitFilename: string | null, options?: CreateInstanceOptions): Promise<Result<InstanceRef, MakeError>>;

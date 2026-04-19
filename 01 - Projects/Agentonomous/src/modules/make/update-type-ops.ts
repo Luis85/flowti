@@ -25,12 +25,18 @@ export interface UpdateTypeOpsDeps {
 }
 
 export interface UpdateTypeMethods {
-	updateType: MakeService['updateType'];
+	updateType:       MakeService['updateType'];
+	retryFailedMoves: MakeService['retryFailedMoves'];
 }
 
 function basename(path: string): string {
 	const idx = path.lastIndexOf('/');
 	return idx === -1 ? path : path.slice(idx + 1);
+}
+
+function folderOf(path: string): string {
+	const idx = path.lastIndexOf('/');
+	return idx === -1 ? '' : path.slice(0, idx);
 }
 
 export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods {
@@ -145,5 +151,28 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 		return commitWithMove(next, oldInstances, prevFolder, nextFolder);
 	}
 
-	return { updateType };
+	async function retryFailedMoves(
+		typeId: string, failedPaths: readonly string[],
+	): Promise<Result<MoveReport, MakeError>> {
+		const loaded = await loadType(typeId);
+		if (loaded.kind === 'err') return loaded;
+		const toFolder = loaded.value.instancesFolder.trim();
+		const oldFolder = failedPaths.length > 0 ? folderOf(failedPaths[0]!) : '';
+		const failedMoves: FailedMove[] = [];
+		let movedCount = 0;
+		for (const oldPath of failedPaths) {
+			const newPath = `${toFolder}/${basename(oldPath)}`;
+			const rename = await ports.vault.rename(oldPath, newPath);
+			if (rename.kind === 'err') {
+				failedMoves.push({ path: oldPath, cause: String(rename.error) });
+				continue;
+			}
+			movedCount += 1;
+		}
+		const report: MoveReport = { oldFolder, newFolder: toFolder, movedCount, failedMoves };
+		if (movedCount > 0) ports.eventBus.emit('make:instances-moved', { typeId, report });
+		return ok(report);
+	}
+
+	return { updateType, retryFailedMoves };
 }

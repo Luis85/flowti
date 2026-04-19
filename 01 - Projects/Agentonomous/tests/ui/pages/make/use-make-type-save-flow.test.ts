@@ -32,6 +32,7 @@ function makeTFn(): (key: string, values?: Record<string, unknown>) => string {
 // Per-test service spies — created fresh in beforeEach.
 let createTypeSpy: ReturnType<typeof vi.fn>;
 let updateTypeSpy: ReturnType<typeof vi.fn>;
+let retryFailedMovesSpy: ReturnType<typeof vi.fn>;
 let regenerateBaseFileSpy: ReturnType<typeof vi.fn>;
 let listTypesSpy: ReturnType<typeof vi.fn>;
 let notificationsSpy: {
@@ -53,6 +54,7 @@ async function setupEditFlow(path = '/make/types/book') {
 		service: fakeMakeService({
 			createType: createTypeSpy,
 			updateType: updateTypeSpy,
+			retryFailedMoves: retryFailedMovesSpy,
 			regenerateBaseFile: regenerateBaseFileSpy,
 			listTypes: listTypesSpy,
 		}),
@@ -90,6 +92,7 @@ describe('useMakeTypeSaveFlow', () => {
 		setActivePinia(createPinia());
 		createTypeSpy        = vi.fn();
 		updateTypeSpy        = vi.fn();
+		retryFailedMovesSpy  = vi.fn();
 		regenerateBaseFileSpy = vi.fn();
 		listTypesSpy         = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		notificationsSpy     = { success: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() };
@@ -284,7 +287,7 @@ describe('useMakeTypeSaveFlow', () => {
 		expect(notificationsSpy.warn).not.toHaveBeenCalled();
 	});
 
-	it('partial-move fires notifications.warn with failed paths and does NOT fire success', async () => {
+	it('partial-move opens the move-report dialog and does NOT fire success notification', async () => {
 		const moveReport = {
 			oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 2,
 			failedMoves: [{ path: 'Books/Dune.md', cause: 'locked' }],
@@ -295,10 +298,71 @@ describe('useMakeTypeSaveFlow', () => {
 		const { flow } = await setupEditFlow();
 		await flow.onSave();
 		await flow.onMoveInstancesConfirm?.('confirm');
-		expect(notificationsSpy.warn).toHaveBeenCalledTimes(1);
-		expect(notificationsSpy.warn).toHaveBeenCalledWith(expect.stringContaining('Dune'));
+		expect(flow.moveReportDialogOpen?.value).toBe(true);
+		expect(flow.moveReportDialogBody?.value).toContain('Dune');
 		expect(notificationsSpy.success).not.toHaveBeenCalled();
+		expect(notificationsSpy.warn).not.toHaveBeenCalled();
 		expect(notificationsSpy.info).not.toHaveBeenCalled();
+	});
+
+	it('onRetryFailedMoves cancel closes dialog without calling the service', async () => {
+		const moveReport = {
+			oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 1,
+			failedMoves: [{ path: 'Books/Dune.md', cause: 'locked' }],
+		};
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 2 } })
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: BOOK, moveReport } });
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		await flow.onMoveInstancesConfirm?.('confirm');
+		expect(flow.moveReportDialogOpen?.value).toBe(true);
+		await flow.onRetryFailedMoves?.('cancel');
+		expect(flow.moveReportDialogOpen?.value).toBe(false);
+		expect(retryFailedMovesSpy).not.toHaveBeenCalled();
+	});
+
+	it('onRetryFailedMoves confirm with full success closes dialog and fires success', async () => {
+		const initialReport = {
+			oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 1,
+			failedMoves: [{ path: 'Books/Dune.md', cause: 'locked' }],
+		};
+		const retriedReport = { oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 1, failedMoves: [] };
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 2 } })
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: BOOK, moveReport: initialReport } });
+		retryFailedMovesSpy.mockResolvedValue({ kind: 'ok', value: retriedReport });
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		await flow.onMoveInstancesConfirm?.('confirm');
+		await flow.onRetryFailedMoves?.('confirm');
+		expect(retryFailedMovesSpy).toHaveBeenCalledWith('book', ['Books/Dune.md']);
+		expect(flow.moveReportDialogOpen?.value).toBe(false);
+		expect(notificationsSpy.success).toHaveBeenCalledWith(expect.stringContaining('NewBooks'));
+	});
+
+	it('onRetryFailedMoves confirm with still-failing keeps dialog open with new report', async () => {
+		const initialReport = {
+			oldFolder: 'Books', newFolder: 'NewBooks', movedCount: 0,
+			failedMoves: [{ path: 'Books/Dune.md', cause: 'locked' }, { path: 'Books/Neuromancer.md', cause: 'locked' }],
+		};
+		const retriedReport = {
+			oldFolder: 'NewBooks', newFolder: 'NewBooks', movedCount: 1,
+			failedMoves: [{ path: 'Books/Dune.md', cause: 'still-locked' }],
+		};
+		updateTypeSpy
+			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'instances-move-required', oldFolder: 'Books', newFolder: 'NewBooks', count: 2 } })
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: BOOK, moveReport: initialReport } });
+		retryFailedMovesSpy.mockResolvedValue({ kind: 'ok', value: retriedReport });
+		const { flow } = await setupEditFlow();
+		await flow.onSave();
+		await flow.onMoveInstancesConfirm?.('confirm');
+		const bodyBefore = flow.moveReportDialogBody?.value;
+		await flow.onRetryFailedMoves?.('confirm');
+		expect(flow.moveReportDialogOpen?.value).toBe(true);
+		expect(flow.moveReportDialogBody?.value).not.toBe(bodyBefore);
+		expect(flow.moveReportDialogBody?.value).toContain('Dune');
+		expect(notificationsSpy.success).not.toHaveBeenCalled();
 	});
 
 	it('partial-move applyResult is called so draft reflects on-disk schema', async () => {

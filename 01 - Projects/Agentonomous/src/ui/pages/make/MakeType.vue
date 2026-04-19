@@ -34,7 +34,8 @@ const {
 const {
 	schemaErrors, renameWarningOpen, renameWarningBody, overwriteWarningOpen,
 	moveInstancesDialogOpen, moveInstancesDialogTitle, moveInstancesDialogBody, moveInstancesDialogBusy,
-	onSave, onRenameAcknowledge, onRegenerate, onOverwriteConfirm, onMoveInstancesConfirm,
+	moveReportDialogOpen, moveReportDialogTitle, moveReportDialogBody, moveReportDialogBusy,
+	onSave, onRenameAcknowledge, onRegenerate, onOverwriteConfirm, onMoveInstancesConfirm, onRetryFailedMoves,
 } = useMakeTypeSaveFlow(store, draftState, router, t as (key: string, values?: Record<string, unknown>) => string, ctx);
 
 // --- Tab state (full a11y) ---
@@ -274,6 +275,15 @@ const typesFolder = computed(() => makeCtx.settings$.value.typesFolder);
 			destructive
 			:busy="moveInstancesDialogBusy"
 			@resolve="onMoveInstancesConfirm"
+		/>
+		<ConfirmDialog
+			:open="moveReportDialogOpen"
+			:title="moveReportDialogTitle"
+			:body="moveReportDialogBody"
+			:options="['cancel', 'confirm']"
+			:labels="{ confirm: t('make.move-report.partial.retry'), cancel: t('make.move-report.partial.dismiss') }"
+			:busy="moveReportDialogBusy"
+			@resolve="onRetryFailedMoves"
 		/>
 		<DeleteTypeDialog
 			v-if="committedType"

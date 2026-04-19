@@ -532,6 +532,59 @@ describe('makeService.updateType — folder-move physics (Slice J)', () => {
 	});
 });
 
+describe('makeService.retryFailedMoves', () => {
+	async function withBookUpdatedToNewBooks() {
+		const vault = fakeVault();
+		const updated: TypeSchema = { ...BOOK, instancesFolder: 'NewBooks' };
+		await vault.create('Make/Types/book.json', serializeTypeSchema(updated));
+		// Two orphaned instance files left at the OLD folder after a prior partial-move.
+		await vault.create('Books/Dune.md', '---\ntitle: Dune\n---');
+		await vault.create('Books/Neuromancer.md', '---\ntitle: Neuromancer\n---');
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		return { vault, svc, ports };
+	}
+
+	it('retries failed paths, renames to current instancesFolder, reports movedCount', async () => {
+		const { vault, svc, ports } = await withBookUpdatedToNewBooks();
+		const r = await svc.retryFailedMoves('book', ['Books/Dune.md', 'Books/Neuromancer.md']);
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.movedCount).toBe(2);
+		expect(r.value.failedMoves).toEqual([]);
+		expect(r.value.newFolder).toBe('NewBooks');
+		expect(await vault.exists('NewBooks/Dune.md')).toBe(true);
+		expect(await vault.exists('NewBooks/Neuromancer.md')).toBe(true);
+		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:instances-moved',
+			expect.objectContaining({ typeId: 'book' }));
+	});
+
+	it('still-failing paths come back in failedMoves; movedCount reflects the successful subset', async () => {
+		const { vault, svc } = await withBookUpdatedToNewBooks();
+		vault.rename = vi.fn(async (oldPath: string, newPath: string) => {
+			if (oldPath === 'Books/Dune.md') return { kind: 'err' as const, error: 'still-locked' };
+			// For Neuromancer, still perform the rename via underlying create+delete to mimic success.
+			const content = await vault.read(oldPath);
+			if (content.kind === 'err') return { kind: 'err' as const, error: content.error };
+			const create = await vault.create(newPath, content.value.content);
+			if (create.kind === 'err') return { kind: 'err' as const, error: create.error };
+			return vault.delete(oldPath);
+		}) as typeof vault.rename;
+		const r = await svc.retryFailedMoves('book', ['Books/Dune.md', 'Books/Neuromancer.md']);
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.movedCount).toBe(1);
+		expect(r.value.failedMoves).toHaveLength(1);
+		expect(r.value.failedMoves[0]?.path).toBe('Books/Dune.md');
+	});
+
+	it('unknown typeId returns type-not-found', async () => {
+		const { svc } = await withBookUpdatedToNewBooks();
+		const r = await svc.retryFailedMoves('ghost', ['Books/Dune.md']);
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'type-not-found', typeId: 'ghost' } });
+	});
+});
+
 describe('makeService.deleteType', () => {
 	async function withBook() {
 		const vault = fakeVault();

@@ -16,7 +16,7 @@ import { FIELD_KINDS } from '../../domain/make/field-kinds/index.js';
 import type { MakeService } from './make-service.js';
 import { createUpdateTypeOps } from './update-type-ops.js';
 
-export type TypeServiceMethods = Pick<MakeService, 'listTypes' | 'loadType' | 'createType' | 'updateType' | 'deleteType' | 'toggleFavorite'>;
+export type TypeServiceMethods = Pick<MakeService, 'listTypes' | 'loadType' | 'createType' | 'updateType' | 'retryFailedMoves' | 'deleteType' | 'toggleFavorite'>;
 
 export interface TypeOpsPeers {
 	listInstances: (typeId: string) => Promise<Result<readonly InstanceRef[], MakeError>>;
@@ -191,7 +191,7 @@ export function createTypeOps(
 		return writeResult;
 	}
 
-	const { updateType } = createUpdateTypeOps({
+	const { updateType, retryFailedMoves } = createUpdateTypeOps({
 		ports, getSettings, peers, loadType, listTypes, validateSchema,
 	});
 
@@ -277,6 +277,7 @@ export function createTypeOps(
 		loadType,
 		createType,
 		updateType,
+		retryFailedMoves,
 		deleteType,
 		toggleFavorite,
 	};
