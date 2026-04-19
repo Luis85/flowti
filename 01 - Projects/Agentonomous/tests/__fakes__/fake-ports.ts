@@ -99,13 +99,47 @@ export function fakePlatform(): PlatformPort {
 	return { locale: 'en' };
 }
 
+export type FakeVaultOptions = {
+	/** If set, every `list()` call returns this error. */
+	listError?: string;
+	/** If set, every `create()` call returns this error. */
+	createError?: string;
+	/** If set, every `delete()` call returns this error. */
+	deleteError?: string;
+	/**
+	 * If set, every `rename()` call returns this error.
+	 * (The `rename` method is added to VaultPort in Slice F; this option is
+	 * reserved here so the fake is ready when that slice lands.)
+	 */
+	renameError?: string;
+};
+
 export type FakeVault = VaultPort & {
 	/** Manually trigger a vault change (useful for simulating file events in tests). */
 	emitChange: (change: VaultChange) => void;
 };
 
-export function fakeVault(): FakeVault {
-	const files = new Map<string, { content: string; ctime: number; mtime: number }>();
+/**
+ * @param initial  Seed files for the fake vault.  Each value is either a plain
+ *                 content string, or `{ __readError: '<msg>' }` to simulate a
+ *                 per-file read failure on that path.
+ * @param options  Per-operation error overrides (see `FakeVaultOptions`).
+ */
+export function fakeVault(
+	initial: Record<string, string | { __readError: string }> = {},
+	options: FakeVaultOptions = {},
+): FakeVault {
+	const files = new Map<string, { content: string; ctime: number; mtime: number } | { __readError: string }>();
+
+	// Seed from initial
+	for (const [path, value] of Object.entries(initial)) {
+		if (typeof value === 'string') {
+			files.set(path, { content: value, ctime: Date.now(), mtime: Date.now() });
+		} else {
+			files.set(path, { __readError: value.__readError });
+		}
+	}
+
 	const listeners = new Set<(change: VaultChange) => void>();
 	const folderExists = (folder: string): boolean => {
 		const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
@@ -119,24 +153,33 @@ export function fakeVault(): FakeVault {
 		read: vi.fn(async (path: string) => {
 			const f = files.get(path);
 			if (f === undefined) return { kind: 'err' as const, error: `not found: ${path}` };
+			if ('__readError' in f) return { kind: 'err' as const, error: f.__readError };
 			return ok({ path, content: f.content, frontmatter: {}, stat: { size: f.content.length, ctime: f.ctime, mtime: f.mtime } });
 		}),
 		create: vi.fn(async (path: string, content: string) => {
+			if (options.createError !== undefined) return { kind: 'err' as const, error: options.createError };
 			files.set(path, { content, ctime: Date.now(), mtime: Date.now() });
 			return ok(undefined);
 		}),
 		update: vi.fn(async (path: string, content: string) => {
 			const f = files.get(path);
 			if (f === undefined) return { kind: 'err' as const, error: `not found: ${path}` };
+			if ('__readError' in f) return { kind: 'err' as const, error: f.__readError };
 			files.set(path, { ...f, content, mtime: Date.now() });
 			return ok(undefined);
 		}),
 		delete: vi.fn(async (path: string) => {
+			if (options.deleteError !== undefined) return { kind: 'err' as const, error: options.deleteError };
 			files.delete(path);
 			return ok(undefined);
 		}),
-		exists: vi.fn(async (path: string) => files.has(path) || folderExists(path)),
+		exists: vi.fn(async (path: string) => {
+			const entry = files.get(path);
+			if (entry !== undefined) return true;
+			return folderExists(path);
+		}),
 		list: vi.fn(async (folder: string) => {
+			if (options.listError !== undefined) return { kind: 'err' as const, error: options.listError };
 			const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
 			return ok([...files.keys()].filter((k) => prefix === '' || k.startsWith(prefix)));
 		}),
