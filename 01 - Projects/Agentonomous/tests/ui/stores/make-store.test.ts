@@ -319,7 +319,7 @@ describe('make-store — deleteCorruptFile', () => {
 describe('make-store — instance lifecycle subscriptions', () => {
 	it('reloads instances on make:instance-created', async () => {
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
-		const { store, handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listInstances }) }));
+		const { handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listInstances }) }));
 		const before = listInstances.mock.calls.length;
 		handlers['onInstanceCreated']?.({ typeId: 'book', path: 'Books/Dune.md' });
 		// Allow the async loadInstances to complete.
@@ -327,24 +327,22 @@ describe('make-store — instance lifecycle subscriptions', () => {
 		await Promise.resolve();
 		expect(listInstances.mock.calls.length).toBeGreaterThan(before);
 		expect(listInstances).toHaveBeenLastCalledWith('book');
-		void store;
 	});
 
 	it('reloads instances on make:instance-deleted', async () => {
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
-		const { store, handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listInstances }) }));
+		const { handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listInstances }) }));
 		const before = listInstances.mock.calls.length;
 		handlers['onInstanceDeleted']?.({ typeId: 'book', path: 'Books/Dune.md' });
 		await Promise.resolve();
 		await Promise.resolve();
 		expect(listInstances.mock.calls.length).toBeGreaterThan(before);
 		expect(listInstances).toHaveBeenLastCalledWith('book');
-		void store;
 	});
 
 	it('reloads types on make:instances-moved (instancesFolder may have changed)', async () => {
 		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
-		const { store, handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
+		const { handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
 		const before = listTypes.mock.calls.length;
 		handlers['onInstancesMoved']?.({
 			typeId: 'book',
@@ -353,7 +351,23 @@ describe('make-store — instance lifecycle subscriptions', () => {
 		await Promise.resolve();
 		await Promise.resolve();
 		expect(listTypes.mock.calls.length).toBeGreaterThan(before);
-		void store;
+	});
+
+	it('logs warning when subscription refresh rejects', async () => {
+		const warnSpy = vi.fn();
+		const logger = { debug: vi.fn(), info: vi.fn(), warn: warnSpy, error: vi.fn(), setLevel: vi.fn() };
+		const listInstances = vi.fn().mockRejectedValue(new Error('boom'));
+		const { handlers } = mountStore(createFakeMakeContext({
+			service: fakeMakeService({ listInstances }),
+			logger,
+		}));
+		handlers['onInstanceCreated']?.({ typeId: 'book', path: 'Books/Dune.md' });
+		// Allow the catch to fire.
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(warnSpy).toHaveBeenCalled();
+		expect(warnSpy.mock.calls[0]?.[0]).toBe('make-store');
+		expect(String(warnSpy.mock.calls[0]?.[1])).toContain('boom');
 	});
 });
 

@@ -105,6 +105,8 @@ export type FakeVaultOptions = {
 	listError?: string;
 	/** If set, every `create()` call returns this error. */
 	createError?: string;
+	/** If set, every `update()` call returns this error. */
+	updateError?: string;
 	/** If set, every `delete()` call returns this error. */
 	deleteError?: string;
 	/**
@@ -163,6 +165,7 @@ export function fakeVault(
 			return ok(undefined);
 		}),
 		update: vi.fn(async (path: string, content: string) => {
+			if (options.updateError !== undefined) return { kind: 'err' as const, error: options.updateError };
 			const f = files.get(path);
 			if (f === undefined) return { kind: 'err' as const, error: `not found: ${path}` };
 			if ('__readError' in f) return { kind: 'err' as const, error: f.__readError };

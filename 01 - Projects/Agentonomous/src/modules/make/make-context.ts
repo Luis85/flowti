@@ -2,6 +2,7 @@ import type { MakeService } from './make-service.js';
 import type { MakeSettings } from './make-settings.js';
 import type { MakeEventHandlers } from './make-module.js';
 import type { WorkspacePort } from '../../domain/shared/workspace-port.js';
+import type { LoggerPort } from '../../domain/shared/logger-port.js';
 
 /**
  * A read-only reactive reference compatible with Vue's Readonly<Ref<T>>.
@@ -25,4 +26,5 @@ export type MakeContext = {
 	readonly settings$: ReadonlyRef<MakeSettings>;
 	readonly subscribe: (handlers: MakeEventHandlers) => () => void;
 	readonly workspace: WorkspacePort;
+	readonly logger:    LoggerPort;
 };

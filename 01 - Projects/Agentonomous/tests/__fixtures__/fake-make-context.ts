@@ -4,7 +4,8 @@ import { MAKE_DEFAULTS, type MakeSettings } from '../../src/modules/make/make-se
 import type { MakeService } from '../../src/modules/make/make-service.js';
 import type { MakeEventHandlers } from '../../src/modules/make/make-module.js';
 import type { WorkspacePort } from '../../src/domain/shared/workspace-port.js';
-import { fakeWorkspace } from '../__fakes__/fake-ports.js';
+import type { LoggerPort } from '../../src/domain/shared/logger-port.js';
+import { fakeLogger, fakeWorkspace } from '../__fakes__/fake-ports.js';
 
 export function fakeMakeService(overrides: Partial<MakeService> = {}): MakeService {
 	const notImpl = () => Promise.resolve({ kind: 'err' as const, error: { kind: 'not-implemented' as const } });
@@ -29,6 +30,7 @@ export function createFakeMakeContext(overrides: {
 	settings?: MakeSettings;
 	subscribe?: (handlers: MakeEventHandlers) => () => void;
 	workspace?: WorkspacePort;
+	logger?: LoggerPort;
 } = {}): MakeContext {
 	const settings$ = ref(overrides.settings ?? { ...MAKE_DEFAULTS });
 	return {
@@ -36,5 +38,6 @@ export function createFakeMakeContext(overrides: {
 		settings$: readonly(settings$),
 		subscribe: overrides.subscribe ?? (() => () => {}),
 		workspace: overrides.workspace ?? fakeWorkspace().port,
+		logger:    overrides.logger    ?? fakeLogger(),
 	};
 }

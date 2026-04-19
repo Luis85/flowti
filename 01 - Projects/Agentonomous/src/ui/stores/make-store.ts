@@ -182,6 +182,16 @@ export const useMakeStore = defineStore('make', () => {
 		return ctx.settings$.value.favorites.includes(typeId);
 	}
 
+	// Subscription handlers fire from the EventBus and must never produce an
+	// unhandled rejection (which would crash the Obsidian renderer). Wrap each
+	// async refresh so a synchronous throw or an unhandled rejection inside
+	// loadInstances/loadTypes is logged instead of propagated.
+	function safeRefresh(label: string, work: () => Promise<unknown>): void {
+		work().catch((e: unknown) => {
+			ctx.logger.warn('make-store', `${label} refresh failed: ${e instanceof Error ? e.message : String(e)}`);
+		});
+	}
+
 	// --- Event subscription (handlers are sole cache mutators) ---
 	ctx.subscribe({
 		onTypeCreated: ({ schema }) => {
@@ -203,16 +213,10 @@ export const useMakeStore = defineStore('make', () => {
 			// regenerateBaseFile action already triggers loadTypes; this handler is a no-op
 			// for same-session calls but ensures cache consistency if emitted cross-session.
 		},
-		onInstanceCreated: ({ typeId }) => {
-			void loadInstances(typeId);
-		},
-		onInstanceDeleted: ({ typeId }) => {
-			void loadInstances(typeId);
-		},
-		onInstancesMoved: () => {
-			// instancesFolder lives on TypeSchema; reload types so cached schema reflects the new path.
-			void loadTypes();
-		},
+		onInstanceCreated: ({ typeId }) => { safeRefresh('instance-created', () => loadInstances(typeId)); },
+		onInstanceDeleted: ({ typeId }) => { safeRefresh('instance-deleted', () => loadInstances(typeId)); },
+		// instancesFolder lives on TypeSchema; reload types so cached schema reflects the new path.
+		onInstancesMoved: () => { safeRefresh('instances-moved', () => loadTypes()); },
 	});
 
 	return {

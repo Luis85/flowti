@@ -616,8 +616,8 @@ describe('makeService.createInstance', () => {
 		expect(r.value.typeId).toBe('book');
 		expect(r.value.path).toBe('Books/Dune.md');
 		expect(r.value.title).toBe('Dune');
-		expect(typeof r.value.createdAt).toBe('string');
-		expect(typeof r.value.updatedAt).toBe('string');
+		expect(r.value.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		expect(r.value.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 		expect(await vault.exists('Books/Dune.md')).toBe(true);
 		expect(ports.eventBus.emit).toHaveBeenCalledWith('make:instance-created', { typeId: 'book', path: 'Books/Dune.md' });
 	});
@@ -672,6 +672,21 @@ describe('makeService.createInstance', () => {
 		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
 		const r = await svc.createInstance('book', { title: 'Dune' }, null);
 		expect(r).toMatchObject({ kind: 'err', error: { kind: 'vault-error' } });
+	});
+
+	it('returns vault-error when overwrite update fails', async () => {
+		const vault = fakeVault(
+			{
+				'Make/Types/book.json': serializeTypeSchema(BOOK),
+				'Books/Dune.md':        '# existing',
+			},
+			{ updateError: 'EIO' },
+		);
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.createInstance('book', { title: 'Dune' }, null, { overwrite: true });
+		expect(r.kind).toBe('err');
+		if (r.kind !== 'err') throw new Error('unreachable');
+		expect(r.error.kind).toBe('vault-error');
 	});
 });
 
