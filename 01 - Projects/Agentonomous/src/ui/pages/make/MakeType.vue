@@ -104,13 +104,28 @@ function onDelete(): void {
 	ensureInstancesLoaded();
 	deleteOpen.value = true;
 }
-async function onDeleteConfirm(payload: { alsoDeleteBaseFile: boolean }): Promise<void> {
+async function onDeleteConfirm(payload: { alsoDeleteBaseFile: boolean; alsoDeleteInstances: boolean }): Promise<void> {
 	isDeleting.value = true;
-	const result = await store.deleteType(typeId.value!, { alsoDeleteInstances: false, alsoDeleteBaseFile: payload.alsoDeleteBaseFile });
+	const name = committedType.value?.name ?? '';
+	const result = await store.deleteType(typeId.value!, {
+		alsoDeleteInstances: payload.alsoDeleteInstances,
+		alsoDeleteBaseFile: payload.alsoDeleteBaseFile,
+	});
 	isDeleting.value = false;
 	if (result.kind === 'ok') {
 		deleteOpen.value = false;
-		ctx?.notifications.success(t('make.notify.typeDeleted', { name: committedType.value?.name ?? '' }));
+		const failedCount = result.value.instanceFailures.length;
+		if (payload.alsoDeleteInstances && failedCount > 0) {
+			ctx?.notifications.warn(t('make.cascade.deleted-partial', {
+				name, instancesDeleted: result.value.instancesDeleted, failedCount,
+			}));
+		} else if (payload.alsoDeleteInstances) {
+			ctx?.notifications.success(t('make.cascade.deleted-success', {
+				name, instancesDeleted: result.value.instancesDeleted,
+			}));
+		} else {
+			ctx?.notifications.success(t('make.notify.typeDeleted', { name }));
+		}
 		await router.replace('/make/types');
 	}
 }

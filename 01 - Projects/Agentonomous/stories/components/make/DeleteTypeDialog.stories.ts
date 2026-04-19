@@ -69,3 +69,25 @@ export const IsDeleting: Story = {
 		typesFolder: 'Make/Types',
 	},
 };
+
+// Cascade-specific variants (Slice J): the "also delete instances" checkbox only
+// appears when there's at least one instance to delete.
+export const Cascade_AvailableWithInstances: Story = {
+	args: {
+		open: true,
+		type: baseType,
+		instanceCount: 4,
+		isDeleting: false,
+		typesFolder: 'Make/Types',
+	},
+};
+
+export const Cascade_HiddenNoInstances: Story = {
+	args: {
+		open: true,
+		type: baseType,
+		instanceCount: 0,
+		isDeleting: false,
+		typesFolder: 'Make/Types',
+	},
+};

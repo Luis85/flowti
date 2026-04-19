@@ -13,12 +13,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-	confirm: [payload: { alsoDeleteBaseFile: boolean }];
+	confirm: [payload: { alsoDeleteBaseFile: boolean; alsoDeleteInstances: boolean }];
 	cancel:  [];
 }>();
 
 const { t } = useI18n();
 const alsoDeleteBaseFile = ref(false);
+const alsoDeleteInstances = ref(false);
 const dialogRef = ref<HTMLElement | null>(null);
 const openRef = toRef(props, 'open');
 
@@ -27,10 +28,15 @@ useFocusTrap(dialogRef, openRef, {
 	initialFocus: 'first',
 });
 
-// Reset checkbox on dialog re-open (preserved from the pre-refactor watcher).
+// Reset checkboxes on dialog re-open (preserved from the pre-refactor watcher).
 watch(() => props.open, (isOpen) => {
-	if (isOpen) alsoDeleteBaseFile.value = false;
+	if (isOpen) {
+		alsoDeleteBaseFile.value = false;
+		alsoDeleteInstances.value = false;
+	}
 });
+
+const showInstancesCheckbox = computed(() => typeof props.instanceCount === 'number' && props.instanceCount > 0);
 
 const instanceLine = computed(() => {
 	if (props.instanceCount === null) return t('make.delete.checkingInstances');
@@ -73,6 +79,17 @@ const typeFilePath = computed(() => `${props.typesFolder.replace(/\/$/, '')}/${p
 				>
 					{{ instanceLine }}
 				</p>
+				<label
+					v-if="showInstancesCheckbox"
+					data-testid="delete-type-instances-checkbox-label"
+				>
+					<input
+						v-model="alsoDeleteInstances"
+						type="checkbox"
+						data-testid="delete-type-instances-checkbox"
+					/>
+					{{ t('make.delete.alsoDeleteInstances', { count: props.instanceCount, folder: props.type.instancesFolder }) }}
+				</label>
 				<label data-testid="delete-type-base-checkbox-label">
 					<input
 						v-model="alsoDeleteBaseFile"
@@ -100,7 +117,7 @@ const typeFilePath = computed(() => `${props.typesFolder.replace(/\/$/, '')}/${p
 					class="destructive"
 					:disabled="isDeleting"
 					:aria-busy="isDeleting ? 'true' : 'false'"
-					@click="emit('confirm', { alsoDeleteBaseFile })"
+					@click="emit('confirm', { alsoDeleteBaseFile, alsoDeleteInstances })"
 				>
 					{{ isDeleting ? t('make.delete.deleting') : t('make.delete.confirm') }}
 				</button>

@@ -101,6 +101,7 @@
 	"make.delete.noInstances": "This type has no instances.",
 	"make.delete.checkingInstances": "Checking instance count…",
 	"make.delete.alsoDeleteBase": "Also delete the generated table view file",
+	"make.delete.alsoDeleteInstances": "Also delete {count} instance files in {folder}",
 	"make.delete.trashNote": "Deleted files move to Obsidian's configured trash — you can restore them there.",
 	"make.delete.confirm": "Delete type",
 	"make.delete.cancel": "Cancel",

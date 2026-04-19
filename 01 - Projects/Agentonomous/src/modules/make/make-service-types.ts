@@ -6,7 +6,8 @@ import type { Field, TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
 import type { CorruptTypeRef, FieldRename, MakeError, SchemaError } from '../../domain/make/errors.js';
 import type {
-	DeleteTypeOptions, DeleteTypeReport, InstanceRef, ListTypesResult, NewTypeDraft, NonEmptyArray, TypeSchemaPatch,
+	DeleteTypeOptions, DeleteTypeReport, FailedDelete, InstanceRef, ListTypesResult,
+	NewTypeDraft, NonEmptyArray, TypeSchemaPatch,
 } from '../../domain/make/types.js';
 import { slugifyTypeName } from '../../domain/make/type-id.js';
 import { validateTypeName, validateFieldName, validateInstancesFolder } from '../../domain/make/name-validation.js';
@@ -243,39 +244,65 @@ export function createTypeOps(
 		return ok(next);
 	}
 
+	async function cascadeInstances(typeId: string): Promise<Result<{ deleted: number; failures: FailedDelete[] }, MakeError>> {
+		const list = await peers.listInstances(typeId);
+		if (list.kind === 'err') return list;
+		const failures: FailedDelete[] = [];
+		let deleted = 0;
+		for (const ref of list.value) {
+			const del = await ports.vault.delete(ref.path);
+			if (del.kind === 'err') {
+				failures.push({ path: ref.path, cause: String(del.error) });
+			} else {
+				deleted += 1;
+			}
+		}
+		return ok({ deleted, failures });
+	}
+
+	async function maybeDeleteBaseFile(schema: TypeSchema, basesFolder: string): Promise<boolean> {
+		if (schema.baseFile === undefined) return false;
+		const expectedPrefix = `${basesFolder}/`;
+		if (!schema.baseFile.path.startsWith(expectedPrefix)) {
+			ports.logger.warn('make', `base file at '${schema.baseFile.path}' lives outside configured basesFolder '${basesFolder}' — not deleted`);
+			ports.notifications.info(ports.t.t('make.notify.baseLeftAlone'));
+			return false;
+		}
+		const deleteBase = await ports.vault.delete(schema.baseFile.path);
+		if (deleteBase.kind === 'ok') return true;
+		ports.notifications.warn(ports.t.t('make.notify.baseDeleteFailed'));
+		return false;
+	}
+
 	async function deleteType(
 		typeId: string,
 		options: DeleteTypeOptions,
 	): Promise<Result<DeleteTypeReport, MakeError>> {
-		if (options.alsoDeleteInstances === true) {
-			return err({ kind: 'not-implemented', feature: 'instance-cascade' });
-		}
 		const current = await loadType(typeId);
 		if (current.kind === 'err') return current;
 		const schema = current.value;
-		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
+
+		let instancesDeleted = 0;
+		let instanceFailures: readonly FailedDelete[] = [];
+		if (options.alsoDeleteInstances === true) {
+			const cascade = await cascadeInstances(typeId);
+			if (cascade.kind === 'err') return cascade;
+			instancesDeleted = cascade.value.deleted;
+			instanceFailures = cascade.value.failures;
+		}
+
 		const basesFolder = getSettings().basesFolder.replace(/\/$/, '');
+		const baseFileDeleted = options.alsoDeleteBaseFile === true
+			? await maybeDeleteBaseFile(schema, basesFolder)
+			: false;
+
+		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
 		const jsonPath = `${typesFolder}/${schema.id}.json`;
 		const deleteJson = await ports.vault.delete(jsonPath);
-		if (deleteJson.kind === 'err') return err({ kind: 'vault-error', cause: deleteJson.error });
-		let baseFileDeleted = false;
-		if (options.alsoDeleteBaseFile && schema.baseFile !== undefined) {
-			// Safety: only delete if path lives under current basesFolder.
-			const expectedPrefix = `${basesFolder}/`;
-			if (schema.baseFile.path.startsWith(expectedPrefix)) {
-				const deleteBase = await ports.vault.delete(schema.baseFile.path);
-				if (deleteBase.kind === 'ok') {
-					baseFileDeleted = true;
-				} else {
-					ports.notifications.warn(ports.t.t('make.notify.baseDeleteFailed'));
-				}
-			} else {
-				ports.logger.warn('make', `base file at '${schema.baseFile.path}' lives outside configured basesFolder '${basesFolder}' — not deleted`);
-				ports.notifications.info(ports.t.t('make.notify.baseLeftAlone'));
-			}
-		}
+		if (deleteJson.kind === 'err') return err({ kind: 'vault-error', cause: String(deleteJson.error) });
+
 		ports.eventBus.emit('make:type-deleted', { typeId: schema.id, name: schema.name });
-		return ok({ instancesDeleted: 0, instanceFailures: [], baseFileDeleted });
+		return ok({ instancesDeleted, instanceFailures, baseFileDeleted });
 	}
 
 	async function toggleFavorite(typeId: string): Promise<Result<boolean, MakeError>> {

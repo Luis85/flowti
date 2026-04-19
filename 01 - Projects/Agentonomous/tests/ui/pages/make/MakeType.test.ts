@@ -405,7 +405,7 @@ describe('MakeType', () => {
 		});
 
 		it('confirming delete navigates to /make/types on success', async () => {
-			deleteType.mockResolvedValue({ kind: 'ok', value: { deletedTypeId: 'book', deletedBaseFile: false } });
+			deleteType.mockResolvedValue({ kind: 'ok', value: { instancesDeleted: 0, instanceFailures: [], baseFileDeleted: false } });
 			const { page, router } = await mountTypePage('/make/types/book#fields');
 			await tick();
 			page.deleteButton?.click();
@@ -416,6 +416,43 @@ describe('MakeType', () => {
 			await tick(50);
 			expect(deleteType).toHaveBeenCalled();
 			expect(router.currentRoute.value.path).toBe('/make/types');
+		});
+
+		it('cascade delete surfaces success notification when no instances fail', async () => {
+			deleteType.mockResolvedValue({ kind: 'ok', value: { instancesDeleted: 3, instanceFailures: [], baseFileDeleted: false } });
+			const { page } = await mountTypePage('/make/types/book#fields');
+			await tick();
+			page.deleteButton?.click();
+			await tick(50);
+			// Check the cascade checkbox
+			const cascade = document.body.querySelector<HTMLInputElement>('[data-testid="delete-type-instances-checkbox"]');
+			expect(cascade).not.toBeNull();
+			cascade!.checked = true;
+			cascade!.dispatchEvent(new Event('change'));
+			await tick();
+			const confirmBtn = document.body.querySelector<HTMLButtonElement>('[data-testid="delete-type-confirm"]');
+			confirmBtn?.click();
+			await tick(50);
+			expect(deleteType).toHaveBeenCalledWith('book', expect.objectContaining({ alsoDeleteInstances: true }));
+		});
+
+		it('cascade delete surfaces partial warning when instances fail', async () => {
+			deleteType.mockResolvedValue({
+				kind: 'ok',
+				value: { instancesDeleted: 1, instanceFailures: [{ path: 'Books/Dune.md', cause: 'locked' }], baseFileDeleted: false },
+			});
+			const { page } = await mountTypePage('/make/types/book#fields');
+			await tick();
+			page.deleteButton?.click();
+			await tick(50);
+			const cascade = document.body.querySelector<HTMLInputElement>('[data-testid="delete-type-instances-checkbox"]');
+			cascade!.checked = true;
+			cascade!.dispatchEvent(new Event('change'));
+			await tick();
+			const confirmBtn = document.body.querySelector<HTMLButtonElement>('[data-testid="delete-type-confirm"]');
+			confirmBtn?.click();
+			await tick(50);
+			expect(deleteType).toHaveBeenCalledWith('book', expect.objectContaining({ alsoDeleteInstances: true }));
 		});
 	});
 

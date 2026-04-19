@@ -442,13 +442,85 @@ describe('makeService.deleteType', () => {
 		expect(await vault.exists('Make/Bases/book.base')).toBe(false);
 	});
 
-	it('returns not-implemented with feature when alsoDeleteInstances is true', async () => {
-		const { svc } = await withBook();
-		const r = await svc.deleteType('book', { alsoDeleteInstances: true, alsoDeleteBaseFile: false });
-		expect(r).toMatchObject({ kind: 'err', error: { kind: 'not-implemented', feature: 'instance-cascade' } });
+	it('cascade happy path: alsoDeleteInstances+alsoDeleteBaseFile deletes instances+base+JSON and reports counts', async () => {
+		const vault = fakeVault();
+		const stamped: TypeSchema = { ...BOOK, baseFile: { path: 'Make/Bases/book.base', generatedAt: BOOK.createdAt } };
+		await vault.create('Make/Types/book.json', serializeTypeSchema(stamped));
+		await vault.create('Make/Bases/book.base', 'yaml');
+		await vault.create('Books/Dune.md', '# Dune');
+		await vault.create('Books/Neuromancer.md', '# Neuro');
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.deleteType('book', { alsoDeleteInstances: true, alsoDeleteBaseFile: true });
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.instancesDeleted).toBe(2);
+		expect(r.value.instanceFailures).toEqual([]);
+		expect(r.value.baseFileDeleted).toBe(true);
+		expect(await vault.exists('Books/Dune.md')).toBe(false);
+		expect(await vault.exists('Books/Neuromancer.md')).toBe(false);
+		expect(await vault.exists('Make/Bases/book.base')).toBe(false);
+		expect(await vault.exists('Make/Types/book.json')).toBe(false);
 	});
 
-	it('emits make:type-deleted', async () => {
+	it('cascade with per-instance failure: reports partial success without aborting', async () => {
+		const vault = fakeVault();
+		const stamped: TypeSchema = { ...BOOK, baseFile: { path: 'Make/Bases/book.base', generatedAt: BOOK.createdAt } };
+		await vault.create('Make/Types/book.json', serializeTypeSchema(stamped));
+		await vault.create('Books/Dune.md', '# Dune');
+		await vault.create('Books/Neuromancer.md', '# Neuro');
+		// Patch vault.delete so exactly one instance fails.
+		const originalDelete = vault.delete;
+		vault.delete = vi.fn(async (path: string) => {
+			if (path === 'Books/Dune.md') return { kind: 'err' as const, error: 'locked' };
+			return originalDelete(path);
+		}) as typeof vault.delete;
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.deleteType('book', { alsoDeleteInstances: true, alsoDeleteBaseFile: false });
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.instancesDeleted).toBe(1);
+		expect(r.value.instanceFailures).toHaveLength(1);
+		expect(r.value.instanceFailures[0]?.path).toBe('Books/Dune.md');
+	});
+
+	it('no cascade: vault.delete called once (for type JSON), never for instances', async () => {
+		const vault = fakeVault();
+		await vault.create('Make/Types/book.json', serializeTypeSchema(BOOK));
+		await vault.create('Books/Dune.md', '# Dune');
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		await svc.deleteType('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: false });
+		expect(vault.delete).toHaveBeenCalledTimes(1);
+		expect(vault.delete).toHaveBeenCalledWith('Make/Types/book.json');
+	});
+
+	it('emits make:type-deleted exactly once after cascade succeeds', async () => {
+		const vault = fakeVault();
+		await vault.create('Make/Types/book.json', serializeTypeSchema(BOOK));
+		await vault.create('Books/Dune.md', '# Dune');
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		await svc.deleteType('book', { alsoDeleteInstances: true, alsoDeleteBaseFile: false });
+		const typeDeletedCalls = (ports.eventBus.emit as ReturnType<typeof vi.fn>).mock.calls
+			.filter((c) => c[0] === 'make:type-deleted');
+		expect(typeDeletedCalls).toHaveLength(1);
+		expect(typeDeletedCalls[0]?.[1]).toEqual({ typeId: 'book', name: 'Book' });
+	});
+
+	it('returns vault-error on type JSON delete failure', async () => {
+		const vault = fakeVault();
+		await vault.create('Make/Types/book.json', serializeTypeSchema(BOOK));
+		// Rig vault.delete to fail only on the JSON path.
+		const originalDelete = vault.delete;
+		vault.delete = vi.fn(async (path: string) => {
+			if (path === 'Make/Types/book.json') return { kind: 'err' as const, error: 'EIO' };
+			return originalDelete(path);
+		}) as typeof vault.delete;
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.deleteType('book', { alsoDeleteInstances: false, alsoDeleteBaseFile: false });
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'vault-error' } });
+	});
+
+	it('emits make:type-deleted (no cascade)', async () => {
 		const vault = fakeVault();
 		const stamped: TypeSchema = { ...BOOK, baseFile: { path: 'Make/Bases/book.base', generatedAt: BOOK.createdAt } };
 		await vault.create('Make/Types/book.json', serializeTypeSchema(stamped));

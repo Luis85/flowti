@@ -120,9 +120,9 @@ describe('DeleteTypeDialog', () => {
 		await nextTick();
 		page.confirmButton?.click();
 		await nextTick();
-		const emitted = wrapper.emitted('confirm') as Array<[{ alsoDeleteBaseFile: boolean }]>;
+		const emitted = wrapper.emitted('confirm') as Array<[{ alsoDeleteBaseFile: boolean; alsoDeleteInstances: boolean }]>;
 		expect(emitted).toBeTruthy();
-		expect(emitted[0]![0]).toEqual({ alsoDeleteBaseFile: false });
+		expect(emitted[0]![0]).toEqual({ alsoDeleteBaseFile: false, alsoDeleteInstances: false });
 	});
 
 	it('confirm emits confirm with alsoDeleteBaseFile=true when checkbox checked', async () => {
@@ -134,9 +134,41 @@ describe('DeleteTypeDialog', () => {
 		await nextTick();
 		page.confirmButton?.click();
 		await nextTick();
-		const emitted = wrapper.emitted('confirm') as Array<[{ alsoDeleteBaseFile: boolean }]>;
+		const emitted = wrapper.emitted('confirm') as Array<[{ alsoDeleteBaseFile: boolean; alsoDeleteInstances: boolean }]>;
 		expect(emitted).toBeTruthy();
-		expect(emitted[0]![0]).toEqual({ alsoDeleteBaseFile: true });
+		expect(emitted[0]![0]).toEqual({ alsoDeleteBaseFile: true, alsoDeleteInstances: false });
+	});
+
+	it('cascade checkbox is rendered when instanceCount > 0', async () => {
+		const { page } = mountDialog({ instanceCount: 3 });
+		await nextTick();
+		expect(page.instancesCheckbox).not.toBeNull();
+	});
+
+	it('cascade checkbox is not rendered when instanceCount === 0', async () => {
+		const { page } = mountDialog({ instanceCount: 0 });
+		await nextTick();
+		expect(page.instancesCheckbox).toBeNull();
+	});
+
+	it('cascade checkbox is not rendered while instanceCount is loading (null)', async () => {
+		const { page } = mountDialog({ instanceCount: null });
+		await nextTick();
+		expect(page.instancesCheckbox).toBeNull();
+	});
+
+	it('confirm emits alsoDeleteInstances=true when cascade checkbox is checked', async () => {
+		const { wrapper, page } = mountDialog({ instanceCount: 2 });
+		await nextTick();
+		const checkbox = page.instancesCheckbox!;
+		checkbox.checked = true;
+		checkbox.dispatchEvent(new Event('change'));
+		await nextTick();
+		page.confirmButton?.click();
+		await nextTick();
+		const emitted = wrapper.emitted('confirm') as Array<[{ alsoDeleteBaseFile: boolean; alsoDeleteInstances: boolean }]>;
+		expect(emitted).toBeTruthy();
+		expect(emitted[0]![0]).toEqual({ alsoDeleteBaseFile: false, alsoDeleteInstances: true });
 	});
 
 	it('cancel button click emits cancel', async () => {
