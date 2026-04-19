@@ -18,12 +18,15 @@ type ModuleState = {
 let state: ModuleState | null = null;
 
 export type MakeEventHandlers = {
-	readonly onTypeCreated?:      (payload: EventMap['make:type-created']) => void;
-	readonly onTypeUpdated?:      (payload: EventMap['make:type-updated']) => void;
-	readonly onTypeDeleted?:      (payload: EventMap['make:type-deleted']) => void;
-	readonly onFavoriteToggled?:  (payload: EventMap['make:favorite-toggled']) => void;
-	readonly onBaseRegenerated?:  (payload: EventMap['make:base-regenerated']) => void;
-	readonly onSettingsChanged?:  (payload: EventMap['make:settings-changed']) => void;
+	readonly onTypeCreated?:        (payload: EventMap['make:type-created']) => void;
+	readonly onTypeUpdated?:        (payload: EventMap['make:type-updated']) => void;
+	readonly onTypeDeleted?:        (payload: EventMap['make:type-deleted']) => void;
+	readonly onInstanceCreated?:    (payload: EventMap['make:instance-created']) => void;
+	readonly onInstanceDeleted?:    (payload: EventMap['make:instance-deleted']) => void;
+	readonly onInstancesMoved?:     (payload: EventMap['make:instances-moved']) => void;
+	readonly onFavoriteToggled?:    (payload: EventMap['make:favorite-toggled']) => void;
+	readonly onBaseRegenerated?:    (payload: EventMap['make:base-regenerated']) => void;
+	readonly onSettingsChanged?:    (payload: EventMap['make:settings-changed']) => void;
 };
 
 function subscribe(handlers: MakeEventHandlers): () => void {
@@ -33,6 +36,9 @@ function subscribe(handlers: MakeEventHandlers): () => void {
 	if (handlers.onTypeCreated)     unsubs.push(bus.on('make:type-created',     (e) => { handlers.onTypeCreated!(e.payload); }));
 	if (handlers.onTypeUpdated)     unsubs.push(bus.on('make:type-updated',     (e) => { handlers.onTypeUpdated!(e.payload); }));
 	if (handlers.onTypeDeleted)     unsubs.push(bus.on('make:type-deleted',     (e) => { handlers.onTypeDeleted!(e.payload); }));
+	if (handlers.onInstanceCreated) unsubs.push(bus.on('make:instance-created', (e) => { handlers.onInstanceCreated!(e.payload); }));
+	if (handlers.onInstanceDeleted) unsubs.push(bus.on('make:instance-deleted', (e) => { handlers.onInstanceDeleted!(e.payload); }));
+	if (handlers.onInstancesMoved)  unsubs.push(bus.on('make:instances-moved',  (e) => { handlers.onInstancesMoved!(e.payload); }));
 	if (handlers.onFavoriteToggled) unsubs.push(bus.on('make:favorite-toggled', (e) => { handlers.onFavoriteToggled!(e.payload); }));
 	if (handlers.onBaseRegenerated) unsubs.push(bus.on('make:base-regenerated', (e) => { handlers.onBaseRegenerated!(e.payload); }));
 	if (handlers.onSettingsChanged) unsubs.push(bus.on('make:settings-changed', (e) => { handlers.onSettingsChanged!(e.payload); }));

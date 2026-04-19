@@ -203,6 +203,16 @@ export const useMakeStore = defineStore('make', () => {
 			// regenerateBaseFile action already triggers loadTypes; this handler is a no-op
 			// for same-session calls but ensures cache consistency if emitted cross-session.
 		},
+		onInstanceCreated: ({ typeId }) => {
+			void loadInstances(typeId);
+		},
+		onInstanceDeleted: ({ typeId }) => {
+			void loadInstances(typeId);
+		},
+		onInstancesMoved: () => {
+			// instancesFolder lives on TypeSchema; reload types so cached schema reflects the new path.
+			void loadTypes();
+		},
 	});
 
 	return {

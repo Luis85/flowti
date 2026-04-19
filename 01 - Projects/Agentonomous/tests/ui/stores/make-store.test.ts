@@ -316,6 +316,47 @@ describe('make-store — deleteCorruptFile', () => {
 	});
 });
 
+describe('make-store — instance lifecycle subscriptions', () => {
+	it('reloads instances on make:instance-created', async () => {
+		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
+		const { store, handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listInstances }) }));
+		const before = listInstances.mock.calls.length;
+		handlers['onInstanceCreated']?.({ typeId: 'book', path: 'Books/Dune.md' });
+		// Allow the async loadInstances to complete.
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(listInstances.mock.calls.length).toBeGreaterThan(before);
+		expect(listInstances).toHaveBeenLastCalledWith('book');
+		void store;
+	});
+
+	it('reloads instances on make:instance-deleted', async () => {
+		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
+		const { store, handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listInstances }) }));
+		const before = listInstances.mock.calls.length;
+		handlers['onInstanceDeleted']?.({ typeId: 'book', path: 'Books/Dune.md' });
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(listInstances.mock.calls.length).toBeGreaterThan(before);
+		expect(listInstances).toHaveBeenLastCalledWith('book');
+		void store;
+	});
+
+	it('reloads types on make:instances-moved (instancesFolder may have changed)', async () => {
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
+		const { store, handlers } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
+		const before = listTypes.mock.calls.length;
+		handlers['onInstancesMoved']?.({
+			typeId: 'book',
+			report: { oldFolder: 'Books', newFolder: 'Library', movedCount: 2, failedMoves: [] },
+		});
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(listTypes.mock.calls.length).toBeGreaterThan(before);
+		void store;
+	});
+});
+
 describe('make-store — createInstance', () => {
 	const REF: InstanceRef = {
 		typeId: 'book', path: 'Books/Dune.md', title: 'Dune',
