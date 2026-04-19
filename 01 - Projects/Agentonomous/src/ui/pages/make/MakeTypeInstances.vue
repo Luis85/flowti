@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMakeStore } from '../../stores/make-store.js';
 import { useCreateInstanceFlow } from './use-create-instance-flow.js';
 import SchemaForm from '../../components/make/SchemaForm.vue';
 import OverwriteDialog from '../../components/make/OverwriteDialog.vue';
+import { PluginContextKey } from '../../plugin-context-key.js';
 import type { InstanceRef, TypeId } from '../../../domain/make/types.js';
 import type { TypeSchema } from '../../../domain/make/type-schema.js';
 
@@ -17,9 +18,15 @@ const props = defineProps<{
 	error:     string | null;
 }>();
 
+const ctx = inject(PluginContextKey);
 const store = useMakeStore();
 const typeIdRef = computed<TypeId>(() => props.type.id);
-const flow = useCreateInstanceFlow(typeIdRef, store);
+const flow = useCreateInstanceFlow(
+	typeIdRef,
+	store,
+	ctx?.notifications,
+	t as (key: string, values?: Record<string, unknown>) => string,
+);
 const flowSubmitting    = flow.submitting;
 const flowServerErrors  = flow.serverErrors;
 const flowOverwriteDialog = flow.overwriteDialog;
@@ -44,8 +51,19 @@ function closePanel(): void {
 	panelOpen.value = false;
 }
 
+/** Returns true when the latest flow operation completed without inline errors and without opening the overwrite dialog. */
+function flowSucceeded(): boolean {
+	return flow.serverErrors.value.length === 0 && flow.overwriteDialog.value === null;
+}
+
 async function onSubmit(payload: { raw: Record<string, unknown>; explicitFilename: string | null }): Promise<void> {
 	await flow.submit(payload);
+	if (flowSucceeded()) closePanel();
+}
+
+async function onConfirmOverwrite(): Promise<void> {
+	await flow.confirmOverwrite();
+	if (flowSucceeded()) closePanel();
 }
 
 function onRename(): void {
@@ -114,7 +132,7 @@ function shortDate(iso: string): string {
 		<OverwriteDialog
 			v-if="flowOverwriteDialog !== null"
 			:path="flowOverwriteDialog.path"
-			@overwrite="flow.confirmOverwrite"
+			@overwrite="onConfirmOverwrite"
 			@rename="onRename"
 			@cancel="flow.cancelOverwrite"
 		/>

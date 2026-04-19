@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 defineProps<{ path: string }>();
@@ -11,9 +12,28 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
+const overwriteButtonRef = ref<HTMLButtonElement | null>(null);
+
 function onOverwrite(): void { emit('overwrite'); }
 function onRename():    void { emit('rename'); }
 function onCancel():    void { emit('cancel'); }
+
+function onKeydown(event: KeyboardEvent): void {
+	if (event.key === 'Escape') {
+		event.preventDefault();
+		emit('cancel');
+	}
+}
+
+onMounted(async () => {
+	await nextTick();
+	overwriteButtonRef.value?.focus();
+	document.addEventListener('keydown', onKeydown);
+});
+
+onBeforeUnmount(() => {
+	document.removeEventListener('keydown', onKeydown);
+});
 </script>
 
 <template>
@@ -53,6 +73,7 @@ function onCancel():    void { emit('cancel'); }
 					{{ t('make.overwrite-dialog.rename') }}
 				</button>
 				<button
+					ref="overwriteButtonRef"
 					type="button"
 					data-testid="overwrite-dialog-overwrite"
 					class="destructive"

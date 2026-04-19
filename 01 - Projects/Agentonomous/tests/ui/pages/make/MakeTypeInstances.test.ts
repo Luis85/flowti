@@ -175,6 +175,56 @@ describe('MakeTypeInstances — create form', () => {
 		wrapper.unmount();
 	});
 
+	it('closes the panel after a successful submit', async () => {
+		createInstanceSpy.mockResolvedValue(ok(SAMPLE_INSTANCE));
+		const { wrapper, page } = mountPage({ instances: [SAMPLE_INSTANCE] });
+		page.newInstanceButton?.click();
+		await nextTick();
+		expect(page.createPanel).not.toBeNull();
+		page.form.titleInput!.value = 'Dune';
+		page.form.titleInput!.dispatchEvent(new Event('input'));
+		await nextTick();
+		page.form.submitButton?.click();
+		await flushPromises();
+		expect(page.createPanel).toBeNull();
+		wrapper.unmount();
+	});
+
+	it('keeps the panel open when submit returns invalid-values', async () => {
+		createInstanceSpy.mockResolvedValue(err({ kind: 'invalid-values', issues: [{ kind: 'required-missing', fieldName: 'author' }] }));
+		const { wrapper, page } = mountPage({ instances: [SAMPLE_INSTANCE] });
+		page.newInstanceButton?.click();
+		await nextTick();
+		page.form.titleInput!.value = 'Dune';
+		page.form.titleInput!.dispatchEvent(new Event('input'));
+		await nextTick();
+		page.form.submitButton?.click();
+		await flushPromises();
+		expect(page.createPanel).not.toBeNull();
+		wrapper.unmount();
+	});
+
+	it('closes the panel after a successful overwrite confirm', async () => {
+		createInstanceSpy
+			.mockResolvedValueOnce(err({ kind: 'instance-exists', path: 'Books/Dune.md' }))
+			.mockResolvedValueOnce(ok(SAMPLE_INSTANCE));
+		const { wrapper, page } = mountPage({ instances: [SAMPLE_INSTANCE] });
+		page.newInstanceButton?.click();
+		await nextTick();
+		page.form.titleInput!.value = 'Dune';
+		page.form.titleInput!.dispatchEvent(new Event('input'));
+		await nextTick();
+		page.form.submitButton?.click();
+		await flushPromises();
+		expect(page.overwriteDialog.dialog).not.toBeNull();
+		expect(page.createPanel).not.toBeNull();
+		page.overwriteDialog.overwriteButton?.click();
+		await flushPromises();
+		expect(page.overwriteDialog.dialog).toBeNull();
+		expect(page.createPanel).toBeNull();
+		wrapper.unmount();
+	});
+
 	it('with titleFieldName=null, focusNameInput focuses the filename input after rename', async () => {
 		createInstanceSpy.mockResolvedValue(err({ kind: 'instance-exists', path: 'Notes/foo.md' }));
 		const { wrapper, page } = mountPage({ type: NOTE_NO_TITLE, instances: [] });
