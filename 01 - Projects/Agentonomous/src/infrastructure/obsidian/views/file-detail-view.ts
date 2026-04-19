@@ -69,7 +69,7 @@ export class FileDetailView extends FileView {
 				return;
 			case 'activate': {
 				const target = siblings[decision.leafIndex];
-				if (target !== undefined) this.app.workspace.setActiveLeaf(target, { focus: true });
+				if (target !== undefined) this.deferredActivate(target);
 				return;
 			}
 			case 'newTab':
@@ -131,12 +131,18 @@ export class FileDetailView extends FileView {
 		if (target === null) return;
 		const newLeaf = this.app.workspace.getLeaf('tab');
 		await newLeaf.openFile(target, { active: true });
-		// Obsidian's openLinkText flow re-activates the origin leaf
-		// after our setState resolves.  The caller's await-continuation
-		// runs on a microtask, so re-assert activation on the next task
-		// to win the race.
+		this.deferredActivate(newLeaf);
+	}
+
+	/**
+	 * Obsidian's openLinkText flow re-activates the origin leaf after
+	 * our setState resolves (the caller's await-continuation is itself
+	 * a microtask, which runs after any microtask we queue here).  Defer
+	 * the setActiveLeaf call into the next task so we win the race.
+	 */
+	private deferredActivate(leaf: WorkspaceLeaf): void {
 		setTimeout(() => {
-			this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+			this.app.workspace.setActiveLeaf(leaf, { focus: true });
 		}, 0);
 	}
 

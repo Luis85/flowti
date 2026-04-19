@@ -164,6 +164,7 @@ describe('FileDetailView setState — delegates to TabPolicy', () => {
 			siblingLeaves: [sibling],
 		});
 		await view.setState({ file: 'data/other.csv' }, {} as never);
+		await new Promise<void>((r) => setTimeout(r, 0));
 		expect(setActiveLeaf).toHaveBeenCalledWith(sibling, { focus: true });
 		expect(newLeaf.openFile).not.toHaveBeenCalled();
 	});
