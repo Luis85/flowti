@@ -969,16 +969,16 @@ describe('make-store — bulkDeleteInstances', () => {
 	it('toggles bulkDeleting set around the service call (added before, removed after)', async () => {
 		let observedDuringCall: ReadonlySet<string> | null = null;
 		const deleteInstances = vi.fn(async (typeId: string, _paths: readonly string[]) => {
-			observedDuringCall = new Set(store.bulkDeleting.value);
+			observedDuringCall = new Set(store.bulkDeleting);
 			return { kind: 'ok' as const, value: REPORT_SUCCESS };
 		});
 		const { store } = mountStore(createFakeMakeContext({
 			service: fakeMakeService({ deleteInstances }),
 		}));
-		expect(store.bulkDeleting.value.has('book')).toBe(false);
+		expect(store.bulkDeleting.has('book')).toBe(false);
 		await store.bulkDeleteInstances('book', ['Books/Dune.md', 'Books/Foundation.md']);
 		expect(observedDuringCall!.has('book')).toBe(true);
-		expect(store.bulkDeleting.value.has('book')).toBe(false);
+		expect(store.bulkDeleting.has('book')).toBe(false);
 	});
 
 	it('returns err({kind:"busy"}) when a concurrent call is already in flight for the same typeId', async () => {
@@ -1020,7 +1020,7 @@ describe('make-store — bulkDeleteInstances', () => {
 			service: fakeMakeService({ deleteInstances: deleteInstances as MakeService['deleteInstances'] }),
 		}));
 		await expect(store.bulkDeleteInstances('book', ['a.md'])).rejects.toThrow('boom');
-		expect(store.bulkDeleting.value.has('book')).toBe(false);
+		expect(store.bulkDeleting.has('book')).toBe(false);
 	});
 });
 ```
@@ -1060,24 +1060,26 @@ async function bulkDeleteInstances(
 	if (paths.length === 0) return { kind: 'ok', value: { deletedPaths: [], failures: [] } };
 	if (bulkDeleting.value.has(typeId)) return { kind: 'err', error: { kind: 'busy' } };
 	const next = new Set(bulkDeleting.value); next.add(typeId); bulkDeleting.value = next;
-	try {
-		return await ctx.service.deleteInstances(typeId, paths);
-	} finally {
+	const cleanup = (): void => {
 		const done = new Set(bulkDeleting.value); done.delete(typeId); bulkDeleting.value = done;
-	}
+	};
+	return ctx.service.deleteInstances(typeId, paths).finally(cleanup);
 }
 ```
+
+**Why `Promise#finally` and not `try/finally`:** the project's ESLint config sets `no-restricted-syntax` to ban `TryStatement` outside `src/infrastructure/**` (`eslint.config.mjs:58-62, 144, 192`). The promise-method `.finally(...)` is a method call, not a try statement, so it passes lint. Behavior is equivalent — `finally` runs on both fulfillment and rejection, the rejection still propagates.
 
 Add `BulkDeleteReport` to the existing type import (line 7):
 ```ts
 import type { BulkDeleteReport, CreateInstanceOptions, InstanceRef, MoveReport, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
 ```
 
-**About `MakeError` and the `'busy'` kind:** `MakeError` is a discriminated union in `src/domain/make/errors.ts`. Verify whether `{kind: 'busy'}` is already a member; if not, add it as a new variant. Find the union with:
-```bash
-grep -n "type MakeError\|kind:" src/domain/make/errors.ts | head -20
+**Add the `'busy'` variant to `MakeError`:** `src/domain/make/errors.ts:31-41` defines the union. The `'busy'` kind is NOT currently a member — add it:
+```ts
+// In the MakeError union (around line 41):
+| { readonly kind: 'busy' };
 ```
-If `'busy'` is missing, add `| { kind: 'busy' }` to the `MakeError` union — minimal, no extra fields needed since the surface meaning is "operation is already in flight." Update `formatError` in `make-store.ts:13-20` if it has a switch that needs the new variant (likely just falls through to the default).
+No exhaustive switch on `MakeError.kind` exists in `src/`; the existing `formatError` in `make-store.ts:13-20` reads `kind` generically and handles the new variant correctly without changes.
 
 - [ ] **Step 4.1.5: Add `bulkDeleteInstances` and `bulkDeleting` to the store's return object**
 
@@ -1170,7 +1172,6 @@ Expected: end of Chunk 4 → 105 files, 983 tests (976 + 6 from Task 4.1 + 1 fro
 
 ```bash
 git add "01 - Projects/Agentonomous/src/ui/stores/make-store.ts" "01 - Projects/Agentonomous/tests/ui/stores/make-store.test.ts" "01 - Projects/Agentonomous/src/domain/make/errors.ts"
-# (errors.ts only if you added the 'busy' variant in Step 4.1.4)
 git commit -m "$(cat <<'EOF'
 feat(agentonomous): make-store bulkDeleteInstances action + batch subscription (Polish P1 #13)
 
@@ -1300,7 +1301,17 @@ describe('MakeTypeInstances — select mode foundation', () => {
 });
 ```
 
-The `mountPage` helper currently takes `{ instances, loading?, error? }`. The "selection hygiene" test needs to update the `instances` prop after mount — verify the existing helper supports this (`grep -n "function mountPage" tests/ui/pages/make/MakeTypeInstances.test.ts`); if it returns the wrapper but no setProps shorthand, add a thin `rerenderInstances(next)` that calls `wrapper.setProps({ instances: next }); await nextTick();`.
+The "selection hygiene" test calls `rerenderInstances([DUNE, FOUND])` to update the `instances` prop after mount. The existing `mountPage` helper at `tests/ui/pages/make/MakeTypeInstances.test.ts:49-74` returns `{ wrapper, page, store, ctx }` — no `rerenderInstances` shorthand. Add it now (inside `mountPage` before the `return`):
+
+```ts
+const rerenderInstances = async (next: readonly InstanceRef[] | undefined): Promise<void> => {
+	await wrapper.setProps({ instances: next });
+	await nextTick();
+};
+return { wrapper, page, store, ctx, rerenderInstances };
+```
+
+This is a one-line type-aware extension; commit it together with the new tests.
 
 - [ ] **Step 5.1.2: Run tests to verify they fail**
 
@@ -1415,7 +1426,7 @@ Edit the template:
 >
 ```
 
-4. Inside the row (between `<span class="instance-title">` and `<span class="instance-row__actions">`), add a checkbox visible only in select mode, and wrap the actions span with `v-if="!selectMode"`:
+4. Inside the row, add a checkbox **before** the `<span class="instance-title">` (visible only in select mode), and wrap the existing `<span class="instance-row__actions">` with `v-if="!selectMode"`:
 
 ```vue
 	<span
