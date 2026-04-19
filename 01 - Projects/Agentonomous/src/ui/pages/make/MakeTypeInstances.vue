@@ -5,6 +5,7 @@ import { useMakeStore } from '../../stores/make-store.js';
 import { useCreateInstanceFlow } from './use-create-instance-flow.js';
 import SchemaForm from '../../components/make/SchemaForm.vue';
 import OverwriteDialog from '../../components/make/OverwriteDialog.vue';
+import ConfirmDialog from '../../components/make/ConfirmDialog.vue';
 import { PluginContextKey } from '../../plugin-context-key.js';
 import type { InstanceRef, TypeId } from '../../../domain/make/types.js';
 import type { TypeSchema } from '../../../domain/make/type-schema.js';
@@ -33,6 +34,7 @@ const flowOverwriteDialog = flow.overwriteDialog;
 
 const formRef = ref<InstanceType<typeof SchemaForm> | null>(null);
 const panelOpen = ref(false);
+const pendingInstanceDelete = ref<InstanceRef | null>(null);
 
 // Auto-open the panel when the instances list arrives empty.
 watch(
@@ -79,6 +81,18 @@ const sorted = computed(() => {
 function shortDate(iso: string): string {
 	return iso.slice(0, 10);
 }
+
+function requestDeleteInstance(target: InstanceRef): void {
+	pendingInstanceDelete.value = target;
+}
+
+async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | 'discard' | 'reject'): Promise<void> {
+	const target = pendingInstanceDelete.value;
+	pendingInstanceDelete.value = null;
+	if (target === null || choice !== 'confirm') return;
+	await store.deleteInstance(target.path);
+	// Cache refresh happens automatically via the make:instance-deleted subscription (Slice G).
+}
 </script>
 
 <template>
@@ -119,13 +133,31 @@ function shortDate(iso: string): string {
 		</p>
 		<ul v-else class="instances-list">
 			<li
-				v-for="instanceRef in sorted"
+				v-for="(instanceRef, index) in sorted"
 				:key="instanceRef.path"
 				:data-testid="`instance-row-${instanceRef.path}`"
 				class="instance-row"
 			>
 				<span class="instance-title">{{ instanceRef.title }}</span>
 				<span class="instance-date">{{ t('make.type.instances.createdLabel', { date: shortDate(instanceRef.createdAt) }) }}</span>
+				<span class="instance-row__actions">
+					<button
+						type="button"
+						:data-testid="`open-in-obsidian-${index}`"
+						:aria-label="`${t('make.instance-actions.open-in-obsidian')} — ${instanceRef.title}`"
+						@click="() => store.openInstance(instanceRef.path, 'tab')"
+					>
+						{{ t('make.instance-actions.open-in-obsidian') }}
+					</button>
+					<button
+						type="button"
+						:data-testid="`delete-instance-${index}`"
+						:aria-label="`${t('make.instance-actions.delete')} — ${instanceRef.title}`"
+						@click="() => requestDeleteInstance(instanceRef)"
+					>
+						{{ t('make.instance-actions.delete') }}
+					</button>
+				</span>
 			</li>
 		</ul>
 
@@ -135,6 +167,16 @@ function shortDate(iso: string): string {
 			@overwrite="onConfirmOverwrite"
 			@rename="onRename"
 			@cancel="flow.cancelOverwrite"
+		/>
+
+		<ConfirmDialog
+			:open="pendingInstanceDelete !== null"
+			:title="pendingInstanceDelete ? t('make.instance-delete-confirm.title', { title: pendingInstanceDelete.title }) : ''"
+			:body="t('make.instance-delete-confirm.body')"
+			:options="['cancel', 'confirm']"
+			:labels="{ confirm: t('make.instance-delete-confirm.confirm'), cancel: t('make.instance-delete-confirm.cancel') }"
+			:destructive="true"
+			@resolve="onConfirmInstanceDelete"
 		/>
 	</div>
 </template>
@@ -149,7 +191,8 @@ function shortDate(iso: string): string {
 .empty { color: var(--text-muted); margin: 0; }
 .error { color: var(--text-error); margin: 0; }
 .instances-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-.instance-row { display: flex; justify-content: space-between; padding: 0.375rem 0.5rem; border: 1px solid var(--background-modifier-border); border-radius: 4px; }
-.instance-title { font-weight: 500; }
+.instance-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; border: 1px solid var(--background-modifier-border); border-radius: 4px; }
+.instance-title { font-weight: 500; flex: 1; }
 .instance-date { color: var(--text-muted); font-size: 0.875rem; }
+.instance-row__actions { display: flex; gap: 0.25rem; }
 </style>

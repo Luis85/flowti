@@ -160,6 +160,10 @@ export const useMakeStore = defineStore('make', () => {
 		return ctx.service.createInstance(typeId, raw, explicitFilename, options);
 	}
 
+	async function deleteInstance(path: string): Promise<Result<void, MakeError>> {
+		return ctx.service.deleteInstance(path);
+	}
+
 	async function openInstance(path: string, mode: OpenFileMode = 'tab'): Promise<Result<void, string>> {
 		return ctx.workspace.openFile(path, mode);
 	}
@@ -250,6 +254,7 @@ export const useMakeStore = defineStore('make', () => {
 		deleteType,
 		deleteCorruptFile,
 		createInstance,
+		deleteInstance,
 		openInstance,
 		regenerateBaseFile,
 		toggleFavorite,

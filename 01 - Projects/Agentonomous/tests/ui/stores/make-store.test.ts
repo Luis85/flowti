@@ -316,6 +316,16 @@ describe('make-store — deleteCorruptFile', () => {
 	});
 });
 
+describe('make-store — deleteInstance', () => {
+	it('delegates to service.deleteInstance', async () => {
+		const deleteInstance = vi.fn().mockResolvedValue({ kind: 'ok', value: undefined });
+		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ deleteInstance }) }));
+		const result = await store.deleteInstance('Books/Dune.md');
+		expect(deleteInstance).toHaveBeenCalledWith('Books/Dune.md');
+		expect(result.kind).toBe('ok');
+	});
+});
+
 describe('make-store — instance lifecycle subscriptions', () => {
 	it('reloads instances on make:instance-created', async () => {
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });

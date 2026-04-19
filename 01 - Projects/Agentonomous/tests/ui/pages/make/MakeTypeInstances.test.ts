@@ -244,6 +244,48 @@ describe('MakeTypeInstances — create form', () => {
 	});
 });
 
+describe('MakeTypeInstances — row actions', () => {
+	beforeEach(() => {
+		setActivePinia(createPinia());
+		createInstanceSpy = vi.fn();
+		document.body.innerHTML = '';
+	});
+
+	it('Open in Obsidian calls store.openInstance with tab mode', async () => {
+		const { wrapper, page, store } = mountPage({ instances: [SAMPLE_INSTANCE] });
+		const spy = vi.spyOn(store, 'openInstance').mockResolvedValue(ok(undefined));
+		page.row(0).openButton?.click();
+		await flushPromises();
+		expect(spy).toHaveBeenCalledWith('Books/Dune.md', 'tab');
+		wrapper.unmount();
+	});
+
+	it('Delete shows confirm dialog, then calls store.deleteInstance on confirm', async () => {
+		const { wrapper, page, store } = mountPage({ instances: [SAMPLE_INSTANCE] });
+		const spy = vi.spyOn(store, 'deleteInstance').mockResolvedValue(ok(undefined));
+		page.row(0).deleteButton?.click();
+		await nextTick();
+		expect(page.deleteInstanceConfirm.dialog).not.toBeNull();
+		page.deleteInstanceConfirm.button('confirm')?.click();
+		await flushPromises();
+		expect(spy).toHaveBeenCalledWith('Books/Dune.md');
+		wrapper.unmount();
+	});
+
+	it('Delete cancel closes dialog without calling service', async () => {
+		const { wrapper, page, store } = mountPage({ instances: [SAMPLE_INSTANCE] });
+		const spy = vi.spyOn(store, 'deleteInstance');
+		page.row(0).deleteButton?.click();
+		await nextTick();
+		expect(page.deleteInstanceConfirm.dialog).not.toBeNull();
+		page.deleteInstanceConfirm.button('cancel')?.click();
+		await flushPromises();
+		expect(page.deleteInstanceConfirm.dialog).toBeNull();
+		expect(spy).not.toHaveBeenCalled();
+		wrapper.unmount();
+	});
+});
+
 describe('MakeTypeInstances — list rendering (regression)', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());

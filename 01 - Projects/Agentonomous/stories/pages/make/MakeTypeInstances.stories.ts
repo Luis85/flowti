@@ -18,8 +18,11 @@ const BOOK: TypeSchema = {
 	updatedAt: '2026-04-18T00:00:00.000Z',
 };
 
-const DUNE:  InstanceRef = { typeId: 'book', path: 'Books/Dune.md',         title: 'Dune',         createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
-const NEURO: InstanceRef = { typeId: 'book', path: 'Books/Neuromancer.md',  title: 'Neuromancer',  createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z' };
+const DUNE:    InstanceRef = { typeId: 'book', path: 'Books/Dune.md',         title: 'Dune',         createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
+const NEURO:   InstanceRef = { typeId: 'book', path: 'Books/Neuromancer.md',  title: 'Neuromancer',  createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z' };
+const FOUND:   InstanceRef = { typeId: 'book', path: 'Books/Foundation.md',   title: 'Foundation',   createdAt: '2026-04-17T00:00:00.000Z', updatedAt: '2026-04-17T00:00:00.000Z' };
+const HYPER:   InstanceRef = { typeId: 'book', path: 'Books/Hyperion.md',     title: 'Hyperion',     createdAt: '2026-04-16T00:00:00.000Z', updatedAt: '2026-04-16T00:00:00.000Z' };
+const SNOWCR:  InstanceRef = { typeId: 'book', path: 'Books/Snow Crash.md',   title: 'Snow Crash',   createdAt: '2026-04-15T00:00:00.000Z', updatedAt: '2026-04-15T00:00:00.000Z' };
 
 function seedDecorator(seed: (s: ReturnType<typeof useMakeStore>) => void): Decorator {
 	return (story) => ({
@@ -56,5 +59,14 @@ export const Loading: Story = {
 
 export const Errored: Story = {
 	args: { type: BOOK, instances: undefined, loading: false, error: 'vault-error: EIO' },
+	decorators: [seedDecorator((s) => { s.types = [BOOK]; })],
+};
+
+/**
+ * Showcases the per-row [Open in Obsidian] and [Delete] buttons added in Slice I.
+ * Click [Delete] on any row to see the confirm dialog (cancel vs destructive confirm).
+ */
+export const WithTableAndActions: Story = {
+	args: { type: BOOK, instances: [DUNE, NEURO, FOUND, HYPER, SNOWCR], loading: false, error: null },
 	decorators: [seedDecorator((s) => { s.types = [BOOK]; })],
 };
