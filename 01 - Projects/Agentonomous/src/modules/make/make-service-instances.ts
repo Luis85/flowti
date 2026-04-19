@@ -3,13 +3,14 @@ import { err, ok, type Result } from '../../domain/shared/result.js';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
 import type { FieldError, MakeError } from '../../domain/make/errors.js';
-import type { CreateInstanceOptions, InstanceRef, ListTypesResult, NonEmptyArray } from '../../domain/make/types.js';
+import type { BulkDeleteReport, CreateInstanceOptions, InstanceRef, ListTypesResult, NonEmptyArray } from '../../domain/make/types.js';
 import {
 	renderInstanceContent, resolveInstancePath, validateInstanceValues,
 } from '../../domain/make/instance-ops.js';
 import type { MakeService } from './make-service.js';
+import type { PerTypeQueue } from './per-type-queue.js';
 
-export type InstanceServiceMethods = Pick<MakeService, 'listInstances' | 'createInstance' | 'deleteInstance'>;
+export type InstanceServiceMethods = Pick<MakeService, 'listInstances' | 'createInstance' | 'deleteInstance' | 'deleteInstances'>;
 
 export type InstanceOpsInternal = InstanceServiceMethods & {
 	listInstancesInFolder: (folder: string, typeId: string) => Promise<readonly InstanceRef[]>;
@@ -40,6 +41,7 @@ export function createInstanceOps(
 	ports: ModulePorts,
 	_getSettings: () => MakeSettings,
 	peers: InstanceOpsPeers,
+	queue: PerTypeQueue,
 ): InstanceOpsInternal {
 
 	async function listInstancesInFolder(folder: string, typeId: string): Promise<readonly InstanceRef[]> {
@@ -133,10 +135,29 @@ export function createInstanceOps(
 		return ok(undefined);
 	}
 
+	async function deleteInstances(
+		typeId: string,
+		paths: readonly string[],
+	): Promise<Result<BulkDeleteReport, MakeError>> {
+		if (paths.length === 0) return ok({ deletedPaths: [], failures: [] });
+		return queue.enqueue(typeId, async () => {
+			const deletedPaths: string[] = [];
+			const failures:     Array<{ path: string; error: string }> = [];
+			for (const path of paths) {
+				const r = await ports.vault.delete(path);
+				if (r.kind === 'ok') deletedPaths.push(path);
+				else failures.push({ path, error: String(r.error) });
+			}
+			ports.eventBus.emit('make:instances-deleted-batch', { typeId, deletedPaths, failures });
+			return ok({ deletedPaths, failures });
+		});
+	}
+
 	return {
 		listInstances,
 		createInstance,
 		deleteInstance,
+		deleteInstances,
 		listInstancesInFolder,
 	};
 }

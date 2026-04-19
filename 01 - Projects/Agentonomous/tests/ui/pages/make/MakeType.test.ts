@@ -91,6 +91,7 @@ async function mountTypePage(
 		regenerationError: new Map(),
 		favoriteToggling: new Set(),
 		optimisticFavoriteOverrides: new Map(),
+		bulkDeleting: new Set(),
 	};
 	const pluginCtx = { notifications: notificationsSpy } as unknown as PluginContext;
 	const wrapper = mountWithI18n(MakeType, {

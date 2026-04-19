@@ -5,6 +5,7 @@ import { fakeModulePorts, fakeVault } from '../../__fakes__/fake-ports.js';
 import { serializeTypeSchema } from '../../../src/domain/make/type-schema-codec.js';
 import { generateBaseYaml } from '../../../src/domain/make/base-file.js';
 import { err } from '../../../src/domain/shared/result.js';
+import { createPerTypeQueue } from '../../../src/modules/make/per-type-queue.js';
 import type { TypeSchema } from '../../../src/domain/make/type-schema.js';
 
 const BOOK: TypeSchema = {
@@ -645,6 +646,34 @@ describe('makeService.updateType move preconditions', () => {
 			expect(parsed.instancesFolder).toBe('NewBooks');
 			expect(parsed.description).toBe('Updated via second call');
 		}
+	});
+
+	it('shared per-type-queue: an external enqueue on the same typeId FIFO-waits behind in-flight updateType', async () => {
+		// Guards the contract that the queue is shared — the upcoming deleteInstances
+		// (Chunk 3) will FIFO behind updateType for the same typeId via this queue.
+		const queue = createPerTypeQueue();
+		const vault = fakeVault();
+		await vault.create('Make/Types/book.json', serializeTypeSchema(BOOK));
+		await vault.create('Books/Dune.md', '# Dune');
+		// Gate the folder rename so updateType is still in flight when we enqueue the external.
+		let releaseRename: () => void = () => {};
+		const renameWait = new Promise<void>((r) => { releaseRename = r; });
+		const originalRename = vault.rename;
+		vault.rename = vi.fn(async (oldPath: string, newPath: string) => {
+			await renameWait;
+			return originalRename(oldPath, newPath);
+		}) as typeof vault.rename;
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS, queue);
+
+		const order: string[] = [];
+		const updatePromise = svc
+			.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true })
+			.then(() => { order.push('updateType'); });
+		const externalPromise = queue.enqueue('book', async () => { order.push('external'); });
+		releaseRename();
+		await Promise.all([updatePromise, externalPromise]);
+
+		expect(order).toEqual(['updateType', 'external']);
 	});
 });
 

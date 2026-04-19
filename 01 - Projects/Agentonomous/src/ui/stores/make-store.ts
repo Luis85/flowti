@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
-import type { CreateInstanceOptions, InstanceRef, MoveReport, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
+import type { BulkDeleteReport, CreateInstanceOptions, InstanceRef, MoveReport, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
 import type { CorruptTypeRef, MakeError } from '../../domain/make/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import type { OpenFileMode } from '../../domain/shared/workspace-port.js';
@@ -102,6 +102,7 @@ export const useMakeStore = defineStore('make', () => {
 	const regenerationError           = shallowRef<ReadonlyMap<TypeId, string>>(new Map());
 	const favoriteToggling            = shallowRef<ReadonlySet<TypeId>>(new Set());
 	const optimisticFavoriteOverrides = shallowRef<ReadonlyMap<TypeId, boolean>>(new Map());
+	const bulkDeleting                = shallowRef<ReadonlySet<TypeId>>(new Set());
 
 	// --- Write actions ---
 	async function createType(draft: NewTypeDraft): Promise<Result<TypeSchema, MakeError>> {
@@ -168,6 +169,19 @@ export const useMakeStore = defineStore('make', () => {
 		return ctx.service.deleteInstance(path);
 	}
 
+	async function bulkDeleteInstances(
+		typeId: TypeId,
+		paths: readonly string[],
+	): Promise<Result<BulkDeleteReport, MakeError>> {
+		if (paths.length === 0) return { kind: 'ok', value: { deletedPaths: [], failures: [] } };
+		if (bulkDeleting.value.has(typeId)) return { kind: 'err', error: { kind: 'busy' } };
+		const next = new Set(bulkDeleting.value); next.add(typeId); bulkDeleting.value = next;
+		const cleanup = (): void => {
+			const done = new Set(bulkDeleting.value); done.delete(typeId); bulkDeleting.value = done;
+		};
+		return ctx.service.deleteInstances(typeId, paths).finally(cleanup);
+	}
+
 	async function openInstance(path: string, mode: OpenFileMode = 'tab'): Promise<Result<void, string>> {
 		return ctx.workspace.openFile(path, mode);
 	}
@@ -223,6 +237,7 @@ export const useMakeStore = defineStore('make', () => {
 		},
 		onInstanceCreated: ({ typeId }) => { safeRefresh('instance-created', () => loadInstances(typeId)); },
 		onInstanceDeleted: ({ typeId }) => { safeRefresh('instance-deleted', () => loadInstances(typeId)); },
+		onInstancesDeletedBatch: ({ typeId }) => { safeRefresh('instances-deleted-batch', () => loadInstances(typeId)); },
 		// make:orphan-deleted intentionally not subscribed — no cached list matches an orphan path.
 		// instancesFolder lives on TypeSchema; reload types so cached schema reflects the new path.
 		onInstancesMoved: () => { safeRefresh('instances-moved', () => loadTypes()); },
@@ -258,6 +273,8 @@ export const useMakeStore = defineStore('make', () => {
 		deleteCorruptFile,
 		createInstance,
 		deleteInstance,
+		bulkDeleteInstances,
+		bulkDeleting,
 		openInstance,
 		regenerateBaseFile,
 		toggleFavorite,

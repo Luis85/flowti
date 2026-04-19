@@ -15,6 +15,7 @@ import { generateBaseYaml } from '../../domain/make/base-file.js';
 import { FIELD_KINDS } from '../../domain/make/field-kinds/index.js';
 import type { MakeService } from './make-service.js';
 import { createUpdateTypeOps } from './update-type-ops.js';
+import type { PerTypeQueue } from './per-type-queue.js';
 
 export type TypeServiceMethods = Pick<MakeService, 'listTypes' | 'loadType' | 'createType' | 'updateType' | 'retryFailedMoves' | 'deleteType' | 'toggleFavorite'>;
 
@@ -32,6 +33,7 @@ export function createTypeOps(
 	ports: ModulePorts,
 	getSettings: () => MakeSettings,
 	peers: TypeOpsPeers,
+	queue: PerTypeQueue,
 ): TypeServiceMethods {
 	async function listTypes(): Promise<Result<ListTypesResult, MakeError>> {
 		const settings = getSettings();
@@ -192,7 +194,7 @@ export function createTypeOps(
 	}
 
 	const { updateType, retryFailedMoves } = createUpdateTypeOps({
-		ports, getSettings, peers, loadType, listTypes, validateSchema,
+		ports, getSettings, peers, loadType, listTypes, validateSchema, queue,
 	});
 
 	async function cascadeInstances(typeId: string): Promise<Result<{ deleted: number; failures: FailedDelete[] }, MakeError>> {

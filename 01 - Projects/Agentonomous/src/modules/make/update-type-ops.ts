@@ -10,6 +10,7 @@ import type {
 } from '../../domain/make/types.js';
 import type { MakeService } from './make-service.js';
 import type { TypeOpsPeers } from './make-service-types.js';
+import type { PerTypeQueue } from './per-type-queue.js';
 
 export interface UpdateTypeOpsDeps {
 	readonly ports: ModulePorts;
@@ -22,6 +23,7 @@ export interface UpdateTypeOpsDeps {
 		readonly instancesFolder: string;
 		readonly fields: readonly Field[];
 	}) => SchemaError[];
+	readonly queue: PerTypeQueue;
 }
 
 export interface UpdateTypeMethods {
@@ -40,7 +42,7 @@ function folderOf(path: string): string {
 }
 
 export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods {
-	const { ports, getSettings, peers, loadType, listTypes, validateSchema } = deps;
+	const { ports, getSettings, peers, loadType, listTypes, validateSchema, queue } = deps;
 
 	async function detectFieldRename(
 		currentFields: readonly Field[], next: TypeSchema, typeId: string,
@@ -174,30 +176,22 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 		return ok(report);
 	}
 
-	// Per-typeId serialization. Concurrent updateType/retryFailedMoves calls for
-	// the same type queue behind each other; loadType in the next call observes
-	// the previous call's committed schema, preventing stale-write races (e.g.
-	// two Obsidian panes saving the same type at once).
-	const chains = new Map<string, Promise<unknown>>();
-	function enqueue<T>(typeId: string, work: () => Promise<T>): Promise<T> {
-		const previous = chains.get(typeId) ?? Promise.resolve();
-		const current = previous.then(work);
-		chains.set(typeId, current.catch(() => undefined));
-		return current;
-	}
-
+	// Per-typeId serialization delegated to the shared queue — concurrent
+	// updateType / retryFailedMoves calls for the same type FIFO behind each
+	// other, and the same queue is shared with deleteInstances so folder
+	// moves and bulk deletes serialize against each other too.
 	function updateType(
 		typeId: string,
 		changes: TypeSchemaPatch,
 		options: UpdateTypeOptions = {},
 	): Promise<Result<UpdateTypeResult, MakeError>> {
-		return enqueue(typeId, () => updateTypeImpl(typeId, changes, options));
+		return queue.enqueue(typeId, () => updateTypeImpl(typeId, changes, options));
 	}
 
 	function retryFailedMoves(
 		typeId: string, failedPaths: readonly string[],
 	): Promise<Result<MoveReport, MakeError>> {
-		return enqueue(typeId, () => retryFailedMovesImpl(typeId, failedPaths));
+		return queue.enqueue(typeId, () => retryFailedMovesImpl(typeId, failedPaths));
 	}
 
 	return { updateType, retryFailedMoves };

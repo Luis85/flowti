@@ -38,7 +38,8 @@ export type MakeError =
 	| { readonly kind: 'no-title-field' }
 	| { readonly kind: 'base-generation-failed'; readonly cause: string }
 	| { readonly kind: 'not-implemented'; readonly feature?: string }
-	| { readonly kind: 'instances-move-required'; readonly oldFolder: string; readonly newFolder: string; readonly count: number };
+	| { readonly kind: 'instances-move-required'; readonly oldFolder: string; readonly newFolder: string; readonly count: number }
+	| { readonly kind: 'busy' };
 
 export type IoError = {
 	readonly kind: 'io-error';

@@ -150,4 +150,27 @@ describe('getMakeModuleState subscribe', () => {
 		expect(typeDeleted).toEqual(['book']);
 		await MakeModule.destroy();
 	});
+
+	it('invokes onInstancesDeletedBatch when make:instances-deleted-batch is emitted', async () => {
+		const ports = fakeModulePorts({ eventBus: createEventBus() });
+		await MakeModule.init(ports, MAKE_DEFAULTS);
+		const calls: Array<{ readonly typeId: string; readonly deletedPaths: readonly string[]; readonly failures: readonly { readonly path: string; readonly error: string }[] }> = [];
+		const moduleState = getMakeModuleState();
+		expect(moduleState).not.toBeNull();
+		const unsubscribe = moduleState!.subscribe({
+			onInstancesDeletedBatch: (payload) => { calls.push(payload); },
+		});
+		ports.eventBus.emit('make:instances-deleted-batch', {
+			typeId: 'book',
+			deletedPaths: ['Books/Dune.md'],
+			failures:     [{ path: 'Books/Foundation.md', error: 'locked' }],
+		});
+		expect(calls).toEqual([{
+			typeId: 'book',
+			deletedPaths: ['Books/Dune.md'],
+			failures:     [{ path: 'Books/Foundation.md', error: 'locked' }],
+		}]);
+		unsubscribe();
+		await MakeModule.destroy();
+	});
 });
