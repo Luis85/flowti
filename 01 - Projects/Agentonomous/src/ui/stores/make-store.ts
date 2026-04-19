@@ -36,7 +36,7 @@ export const useMakeStore = defineStore('make', () => {
 		const result = await ctx.service.listTypes();
 		typesLoading.value = false;
 		if (result.kind === 'err') { typesError.value = formatError(result.error); return; }
-		types.value = result.value;
+		types.value = result.value.types;
 		typesLoaded.value = true;
 	}
 

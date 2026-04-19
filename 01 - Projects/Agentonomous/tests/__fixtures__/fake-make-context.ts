@@ -7,7 +7,7 @@ import type { MakeEventHandlers } from '../../src/modules/make/make-module.js';
 export function fakeMakeService(overrides: Partial<MakeService> = {}): MakeService {
 	const notImpl = () => Promise.resolve({ kind: 'err' as const, error: { kind: 'not-implemented' as const } });
 	return {
-		listTypes:           overrides.listTypes           ?? (() => Promise.resolve({ kind: 'ok' as const, value: [] })),
+		listTypes:           overrides.listTypes           ?? (() => Promise.resolve({ kind: 'ok' as const, value: { types: [], issues: [] } })),
 		loadType:            overrides.loadType            ?? ((id) => Promise.resolve({ kind: 'err' as const, error: { kind: 'type-not-found' as const, typeId: id } })),
 		createType:          overrides.createType          ?? notImpl,
 		updateType:          overrides.updateType          ?? notImpl,

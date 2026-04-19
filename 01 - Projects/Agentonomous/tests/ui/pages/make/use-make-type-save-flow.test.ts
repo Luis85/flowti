@@ -83,7 +83,7 @@ describe('useMakeTypeSaveFlow', () => {
 		createTypeSpy        = vi.fn();
 		updateTypeSpy        = vi.fn();
 		regenerateBaseFileSpy = vi.fn();
-		listTypesSpy         = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy         = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 	});
 
 	it('onSave in edit-mode calls updateType and calls applyResult on success', async () => {
@@ -165,7 +165,7 @@ describe('useMakeTypeSaveFlow', () => {
 		regenerateBaseFileSpy
 			.mockResolvedValueOnce({ kind: 'err', error: { kind: 'base-generation-failed', cause: 'user-edited' } })
 			.mockResolvedValueOnce({ kind: 'ok', value: 'Make/Bases/book.md' });
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { flow } = await setupEditFlow();
 		await flow.onRegenerate();
 		await flow.onOverwriteConfirm('confirm');

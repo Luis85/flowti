@@ -18,7 +18,7 @@ describe('makeService — read-only', () => {
 		const vault = fakeVault();
 		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
 		const r = await svc.listTypes();
-		expect(r).toEqual({ kind: 'ok', value: [] });
+		expect(r).toEqual({ kind: 'ok', value: { types: [], issues: [] } });
 	});
 	it('listTypes returns schemas from the types folder', async () => {
 		const vault = fakeVault();
@@ -26,7 +26,7 @@ describe('makeService — read-only', () => {
 		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
 		const r = await svc.listTypes();
 		expect(r.kind).toBe('ok');
-		if (r.kind === 'ok') expect(r.value).toHaveLength(1);
+		if (r.kind === 'ok') expect(r.value.types).toHaveLength(1);
 	});
 	it('listTypes ignores non-json files', async () => {
 		const vault = fakeVault();
@@ -34,7 +34,18 @@ describe('makeService — read-only', () => {
 		await vault.create('Make/Types/readme.md', 'hi');
 		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
 		const r = await svc.listTypes();
-		if (r.kind === 'ok') expect(r.value).toHaveLength(1);
+		if (r.kind === 'ok') expect(r.value.types).toHaveLength(1);
+	});
+	it('listTypes returns { types, issues: [] } on happy path (Chunk 4 widened shape)', async () => {
+		const vault = fakeVault();
+		await vault.create('Make/Types/book.json', serializeTypeSchema(BOOK));
+		const svc = createMakeService(fakeModulePorts({ vault }), () => MAKE_DEFAULTS);
+		const r = await svc.listTypes();
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.types).toHaveLength(1);
+		expect(r.value.types[0]?.id).toBe('book');
+		expect(r.value.issues).toEqual([]);
 	});
 	it('loadType returns type-not-found for missing id', async () => {
 		const vault = fakeVault();
@@ -505,13 +516,13 @@ describe('makeService.toggleFavorite', () => {
 });
 
 describe('listTypes error handling', () => {
-	it('returns ok([]) when types folder does not exist', async () => {
+	it('returns ok({ types: [], issues: [] }) when types folder does not exist', async () => {
 		const ports = fakeModulePorts();
 		vi.spyOn(ports.vault, 'exists').mockResolvedValue(false);
 		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
 		const result = await svc.listTypes();
 		expect(result.kind).toBe('ok');
-		if (result.kind === 'ok') expect(result.value).toEqual([]);
+		if (result.kind === 'ok') expect(result.value).toEqual({ types: [], issues: [] });
 	});
 
 	it('returns vault-error when folder exists but list fails', async () => {

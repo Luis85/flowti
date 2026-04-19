@@ -23,7 +23,7 @@ const RECIPE: TypeSchema = {
 const DUNE: InstanceRef = { typeId: 'book', path: 'Books/Dune.md', title: 'Dune', createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
 
 async function mountTypes(
-	listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [] }),
+	listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } }),
 	listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] }),
 	settings = { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] as readonly string[] },
 ) {
@@ -52,7 +52,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('renders title', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK, RECIPE] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK, RECIPE], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));
@@ -60,7 +60,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('renders one row per type sorted alphabetically', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [RECIPE, BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [RECIPE, BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));
@@ -69,7 +69,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('shows name, description, and favorite star on the row when favorited', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE] });
 		const { page } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));
@@ -80,7 +80,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('renders "— instances" while instance count is loading, then the number', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE, { ...DUNE, path: 'Books/Neuromancer.md', title: 'Neuromancer' }] });
 		const { page } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));
@@ -88,7 +88,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('shows empty state when no types exist', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { page } = await mountTypes(listTypes);
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.empty).not.toBeNull();
@@ -103,7 +103,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('refresh button calls refreshAll on the store', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));
@@ -114,21 +114,21 @@ describe('MakeTypes', () => {
 	});
 
 	it('"Create type" button is present in the header', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { page } = await mountTypes(listTypes);
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCta).not.toBeNull();
 	});
 
 	it('"Create type" button links to /make/types/new', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { page } = await mountTypes(listTypes);
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCta?.getAttribute('href')).toBe('/make/types/new');
 	});
 
 	it('favorite star on row is a <button> element', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
 		const { page } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));
@@ -138,7 +138,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('favorite star has correct aria-label and aria-pressed when favorited', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
 		const { wrapper, page } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));
@@ -149,7 +149,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('clicking the favorite star calls store.toggleFavorite and does not navigate', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
 		const { page, wrapper } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));
@@ -162,7 +162,7 @@ describe('MakeTypes', () => {
 	});
 
 	it('pending state: aria-busy is "true" when favoriteToggling contains the type id', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [] });
 		const { page, wrapper } = await mountTypes(listTypes, listInstances);
 		await new Promise((r) => setTimeout(r, 0));

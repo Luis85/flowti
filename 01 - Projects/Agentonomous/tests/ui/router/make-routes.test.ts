@@ -57,7 +57,7 @@ describe('Make routes', () => {
 	});
 
 	it('redirects /make/types/:typeId to /make/types when the typeId is unknown', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { router } = await createPrimedRouter();
 		await router.push('/make/types/missing-id');
 		await router.isReady();
@@ -65,7 +65,7 @@ describe('Make routes', () => {
 	});
 
 	it('allows /make/types/:typeId when the typeId matches a known type', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { router } = await createPrimedRouter();
 		await router.push('/make/types/book');
 		await router.isReady();
@@ -91,7 +91,7 @@ describe('Make routes', () => {
 	});
 
 	it('/make/types/new resolves to make-type-new (not captured as :typeId="new")', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { router } = await createPrimedRouter();
 		await router.push('/make/types/new');
 		await router.isReady();

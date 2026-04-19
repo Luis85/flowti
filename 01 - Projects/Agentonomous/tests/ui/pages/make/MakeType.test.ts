@@ -101,7 +101,7 @@ function tick(ms = 0): Promise<void> {
 describe('MakeType', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());
-		listTypes         = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypes         = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		listInstances     = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE, NEURO] });
 		createType        = vi.fn();
 		updateType        = vi.fn();
@@ -379,7 +379,7 @@ describe('MakeType', () => {
 				.mockResolvedValueOnce({ kind: 'err', error: { kind: 'base-generation-failed', cause: 'user-edited' } })
 				.mockResolvedValueOnce({ kind: 'ok', value: 'Make/Bases/book.md' });
 			// Also mock listTypes for the refresh call after successful regenerate
-			listTypes.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+			listTypes.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 			const { page } = await mountTypePage('/make/types/book#fields');
 			await tick();
 			page.baseBannerRegenerate?.click();

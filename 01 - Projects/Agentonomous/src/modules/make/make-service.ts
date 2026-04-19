@@ -4,9 +4,9 @@ import { trySync } from '../../domain/shared/try-async.js';
 import { parseTypeSchema, serializeTypeSchema } from '../../domain/make/type-schema-codec.js';
 import type { Field, TypeSchema } from '../../domain/make/type-schema.js';
 import type { MakeSettings } from './make-settings.js';
-import type { FieldRename, MakeError, SchemaError } from '../../domain/make/errors.js';
+import type { CorruptTypeRef, FieldRename, MakeError, SchemaError } from '../../domain/make/errors.js';
 import type {
-	DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, NewTypeDraft, NonEmptyArray, TypeSchemaPatch,
+	DeleteTypeOptions, DeleteTypeReport, InstanceRef, KpiSnapshot, ListTypesResult, NewTypeDraft, NonEmptyArray, TypeSchemaPatch,
 } from '../../domain/make/types.js';
 import { slugifyTypeName } from '../../domain/make/type-id.js';
 import { validateTypeName, validateFieldName, validateInstancesFolder } from '../../domain/make/name-validation.js';
@@ -14,7 +14,7 @@ import { generateBaseYaml } from '../../domain/make/base-file.js';
 import { FIELD_KINDS } from '../../domain/make/field-kinds/index.js';
 
 export interface MakeService {
-	listTypes(): Promise<Result<readonly TypeSchema[], MakeError>>;
+	listTypes(): Promise<Result<ListTypesResult, MakeError>>;
 	loadType(typeId: string): Promise<Result<TypeSchema, MakeError>>;
 	createType(draft: NewTypeDraft): Promise<Result<TypeSchema, MakeError>>;
 	updateType(typeId: string, changes: TypeSchemaPatch, options?: { acknowledgeRenames?: boolean }): Promise<Result<TypeSchema, MakeError>>;
@@ -27,11 +27,16 @@ export interface MakeService {
 	getKpis(): Promise<KpiSnapshot>;
 }
 
+function basename(path: string): string {
+	const idx = path.lastIndexOf('/');
+	return idx === -1 ? path : path.slice(idx + 1);
+}
+
 export function createMakeService(ports: ModulePorts, getSettings: () => MakeSettings): MakeService {
-	async function listTypes(): Promise<Result<readonly TypeSchema[], MakeError>> {
+	async function listTypes(): Promise<Result<ListTypesResult, MakeError>> {
 		const settings = getSettings();
 		const folderExists = await ports.vault.exists(settings.typesFolder);
-		if (!folderExists) return ok([]);
+		if (!folderExists) return ok({ types: [], issues: [] });
 		const listResult = await ports.vault.list(settings.typesFolder);
 		if (listResult.kind === 'err') {
 			return err({ kind: 'vault-error', cause: String(listResult.error) });
@@ -39,15 +44,26 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		const prefix = settings.typesFolder.endsWith('/') ? settings.typesFolder : `${settings.typesFolder}/`;
 		const children = listResult.value.filter((p) => p.startsWith(prefix) && !p.slice(prefix.length).includes('/') && p.endsWith('.json'));
 		const schemas: TypeSchema[] = [];
+		const issues: CorruptTypeRef[] = [];
 		for (const path of children) {
 			const read = await ports.vault.read(path);
-			if (read.kind === 'err') continue;
+			if (read.kind === 'err') {
+				issues.push({ path, filename: basename(path), error: { kind: 'io-error', cause: String(read.error) } });
+				continue;
+			}
 			const parsed = trySync(() => JSON.parse(read.value.content) as unknown, { code: 'MAKE_JSON_PARSE', source: 'make' });
-			if (parsed.kind === 'err') continue;
+			if (parsed.kind === 'err') {
+				issues.push({ path, filename: basename(path), error: { kind: 'invalid-json', reason: parsed.error.message } });
+				continue;
+			}
 			const schema = parseTypeSchema(parsed.value);
-			if (schema.kind === 'ok') schemas.push(schema.value);
+			if (schema.kind === 'err') {
+				issues.push({ path, filename: basename(path), error: schema.error });
+				continue;
+			}
+			schemas.push(schema.value);
 		}
-		return ok(schemas);
+		return ok({ types: schemas, issues });
 	}
 
 	async function loadType(typeId: string): Promise<Result<TypeSchema, MakeError>> {
@@ -175,7 +191,7 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		// Step 2: soft name uniqueness (in-memory cache shortcut).
 		const existing = await listTypes();
 		if (existing.kind === 'ok') {
-			const collision = existing.value.find((t) => t.name.toLowerCase() === draft.name.toLowerCase());
+			const collision = existing.value.types.find((t) => t.name.toLowerCase() === draft.name.toLowerCase());
 			if (collision !== undefined) return err({ kind: 'duplicate-name', name: draft.name });
 		}
 		// Step 3: generate id via disk probe (authoritative).
@@ -248,7 +264,7 @@ export function createMakeService(ports: ModulePorts, getSettings: () => MakeSet
 		if (changes.name !== undefined && changes.name !== current.value.name) {
 			const existing = await listTypes();
 			if (existing.kind === 'ok') {
-				const collision = existing.value.find(
+				const collision = existing.value.types.find(
 					(t) => t.id !== current.value.id && t.name.toLowerCase() === next.name.toLowerCase(),
 				);
 				if (collision !== undefined) return err({ kind: 'duplicate-name', name: next.name });

@@ -47,7 +47,7 @@ beforeEach(() => { setActivePinia(createPinia()); });
 
 describe('make-store', () => {
 	it('loadTypes populates types, flips loading false, leaves no error on success', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
 		expect(store.typesLoaded).toBe(false);
 		await store.loadTypes();
@@ -83,7 +83,7 @@ describe('make-store', () => {
 	});
 
 	it('refreshAll wipes cache then re-fetches types', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE] });
 		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes, listInstances }) }));
 		await store.loadTypes();
@@ -95,7 +95,7 @@ describe('make-store', () => {
 	});
 
 	it('getType returns cached TypeSchema or undefined', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
 		await store.loadTypes();
 		expect(store.getType('book')).toEqual(BOOK);
@@ -104,14 +104,14 @@ describe('make-store', () => {
 
 	it('typesSortedByName sorts alphabetically', async () => {
 		const ZEBRA: TypeSchema = { ...BOOK, id: 'zebra', name: 'Zebra', instancesFolder: 'Zebras' };
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [ZEBRA, BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [ZEBRA, BOOK], issues: [] } });
 		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes }) }));
 		await store.loadTypes();
 		expect(store.typesSortedByName.map((t) => t.id)).toEqual(['book', 'zebra']);
 	});
 
 	it('instanceCountByTypeId returns undefined for types without loaded instances', async () => {
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const listInstances = vi.fn().mockResolvedValue({ kind: 'ok', value: [DUNE, { ...DUNE, path: 'Books/Neuromancer.md', title: 'Neuromancer' }] });
 		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ listTypes, listInstances }) }));
 		await store.loadTypes();
@@ -122,7 +122,7 @@ describe('make-store', () => {
 
 	it('favoriteTypes filters types by settings.favorites', async () => {
 		const ZEBRA: TypeSchema = { ...BOOK, id: 'zebra', name: 'Zebra', instancesFolder: 'Zebras' };
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK, ZEBRA] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK, ZEBRA], issues: [] } });
 		const { store } = mountStore(createFakeMakeContext({
 			service: fakeMakeService({ listTypes }),
 			settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] },
@@ -197,7 +197,7 @@ describe('make-store write actions', () => {
 	it('regenerateBaseFile: tracks per-type loading; clears on success', async () => {
 		let resolveCall!: (v: unknown) => void;
 		const regenerateBaseFile = vi.fn().mockReturnValue(new Promise((r) => { resolveCall = r; }));
-		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		const listTypes = vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ regenerateBaseFile, listTypes }) }));
 		const p = store.regenerateBaseFile('book');
 		expect(store.regeneratingForId.has('book')).toBe(true);

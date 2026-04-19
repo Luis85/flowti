@@ -48,7 +48,7 @@ describe('MakeHome', () => {
 	});
 
 	it('renders title and blurb', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.title).toContain('Make');
@@ -56,14 +56,14 @@ describe('MakeHome', () => {
 	});
 
 	it('shows the Browse types CTA when types exist', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.browseCta).not.toBeNull();
 	});
 
 	it('shows the empty-state copy and hides the CTA when no types exist', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.browseCta).toBeNull();
@@ -71,7 +71,7 @@ describe('MakeHome', () => {
 	});
 
 	it('renders favorite chips for favorites present in types', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.favoriteChips.length).toBe(1);
@@ -79,7 +79,7 @@ describe('MakeHome', () => {
 	});
 
 	it('hides favorites section when no favorited types are loaded', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.favoritesHeading).toBeNull();
@@ -92,35 +92,35 @@ describe('MakeHome', () => {
 	});
 
 	it('shows "Create type" button in empty state (testid make-home-create-cta-empty)', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaEmpty).not.toBeNull();
 	});
 
 	it('"Create type" empty-state button links to /make/types/new', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaEmpty?.getAttribute('href')).toBe('/make/types/new');
 	});
 
 	it('shows "Create type" button beside Browse CTA when types exist (testid make-home-create-cta-populated)', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaPopulated).not.toBeNull();
 	});
 
 	it('"Create type" populated-state button links to /make/types/new', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [BOOK] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaPopulated?.getAttribute('href')).toBe('/make/types/new');
 	});
 
 	it('"Create type" populated-state button is hidden when no types exist', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: [] });
+		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
 		const { page } = await mountHome();
 		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaPopulated).toBeNull();
