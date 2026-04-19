@@ -204,7 +204,7 @@ describe('make-store write actions', () => {
 	});
 
 	it('updateType: returns Result; forwards acknowledgeRenames option', async () => {
-		const updateType = vi.fn().mockResolvedValue({ kind: 'ok', value: BOOK });
+		const updateType = vi.fn().mockResolvedValue({ kind: 'ok', value: { schema: BOOK } });
 		const { store } = mountStore(createFakeMakeContext({ service: fakeMakeService({ updateType }) }));
 		await store.updateType('book', { description: 'x' }, { acknowledgeRenames: true });
 		expect(updateType).toHaveBeenCalledWith('book', { description: 'x' }, { acknowledgeRenames: true });

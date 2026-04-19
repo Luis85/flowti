@@ -88,7 +88,7 @@ describe('useMakeTypeSaveFlow', () => {
 
 	it('onSave in edit-mode calls updateType and calls applyResult on success', async () => {
 		const updated: TypeSchema = { ...BOOK, name: 'Book Updated' };
-		updateTypeSpy.mockResolvedValue({ kind: 'ok', value: updated });
+		updateTypeSpy.mockResolvedValue({ kind: 'ok', value: { schema: updated } });
 		const { flow, draftState } = await setupEditFlow();
 		await flow.onSave();
 		expect(updateTypeSpy).toHaveBeenCalledWith('book', expect.objectContaining({ name: 'Book' }), undefined);
@@ -143,7 +143,7 @@ describe('useMakeTypeSaveFlow', () => {
 					issues: [{ kind: 'field-rename-warning', renames: [{ oldName: 'a', newName: 'b', position: 0 }], affectedCount: 1 }],
 				},
 			})
-			.mockResolvedValueOnce({ kind: 'ok', value: BOOK });
+			.mockResolvedValueOnce({ kind: 'ok', value: { schema: BOOK } });
 		const { flow } = await setupEditFlow();
 		await flow.onSave();
 		await flow.onRenameAcknowledge('confirm');

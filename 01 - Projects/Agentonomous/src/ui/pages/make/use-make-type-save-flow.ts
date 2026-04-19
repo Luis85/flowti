@@ -71,31 +71,25 @@ export function useMakeTypeSaveFlow(
 	}
 
 	async function onSave(): Promise<void> {
-		let result;
+		const patch = {
+			name: draft.value.name,
+			description: draft.value.description,
+			instancesFolder: draft.value.instancesFolder,
+			titleFieldName: draft.value.titleFieldName,
+			fields: draft.value.fields,
+		};
 		if (isNewMode.value) {
-			result = await store.createType({
-				name: draft.value.name,
-				description: draft.value.description,
-				instancesFolder: draft.value.instancesFolder,
-				titleFieldName: draft.value.titleFieldName,
-				fields: draft.value.fields,
-			});
-		} else {
-			result = await store.updateType(typeId.value!, {
-				name: draft.value.name,
-				description: draft.value.description,
-				instancesFolder: draft.value.instancesFolder,
-				titleFieldName: draft.value.titleFieldName,
-				fields: draft.value.fields,
-			});
-		}
-		if (result.kind === 'err') {
-			surfaceError(result.error);
+			const result = await store.createType(patch);
+			if (result.kind === 'err') { surfaceError(result.error); return; }
+			applyResult(result.value);
+			ctx?.notifications.success(t('make.notify.typeCreated'));
+			await router.replace(`/make/types/${result.value.id}`);
 			return;
 		}
-		applyResult(result.value);
-		ctx?.notifications.success(t(isNewMode.value ? 'make.notify.typeCreated' : 'make.notify.typeUpdated'));
-		if (isNewMode.value) await router.replace(`/make/types/${result.value.id}`);
+		const result = await store.updateType(typeId.value!, patch);
+		if (result.kind === 'err') { surfaceError(result.error); return; }
+		applyResult(result.value.schema);
+		ctx?.notifications.success(t('make.notify.typeUpdated'));
 	}
 
 	async function onRenameAcknowledge(choice: string): Promise<void> {
@@ -108,7 +102,7 @@ export function useMakeTypeSaveFlow(
 			titleFieldName: draft.value.titleFieldName,
 			fields: draft.value.fields,
 		}, { acknowledgeRenames: true });
-		if (result.kind === 'ok') applyResult(result.value);
+		if (result.kind === 'ok') applyResult(result.value.schema);
 	}
 
 	async function onRegenerate(force = false): Promise<void> {

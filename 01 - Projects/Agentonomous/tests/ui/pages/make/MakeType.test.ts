@@ -285,7 +285,7 @@ describe('MakeType', () => {
 	describe('edit-mode', () => {
 		it('save calls store.updateType and clears isDirty on success', async () => {
 			const updatedType: TypeSchema = { ...BOOK, name: 'Book Updated' };
-			updateType.mockResolvedValue({ kind: 'ok', value: updatedType });
+			updateType.mockResolvedValue({ kind: 'ok', value: { schema: updatedType } });
 			const { wrapper } = await mountTypePage('/make/types/book#fields');
 			await tick();
 			// Dirty the draft by emitting update:draft

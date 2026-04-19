@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
-import type { CreateInstanceOptions, InstanceRef, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport } from '../../domain/make/types.js';
+import type { CreateInstanceOptions, InstanceRef, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
 import type { CorruptTypeRef, MakeError } from '../../domain/make/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import type { OpenFileMode } from '../../domain/shared/workspace-port.js';
@@ -113,7 +113,7 @@ export const useMakeStore = defineStore('make', () => {
 		return result;
 	}
 
-	async function updateType(typeId: TypeId, patch: TypeSchemaPatch, options?: { acknowledgeRenames?: boolean }): Promise<Result<TypeSchema, MakeError>> {
+	async function updateType(typeId: TypeId, patch: TypeSchemaPatch, options?: UpdateTypeOptions): Promise<Result<UpdateTypeResult, MakeError>> {
 		savingType.value = true;
 		saveError.value = null;
 		const result = await ctx.service.updateType(typeId, patch, options);

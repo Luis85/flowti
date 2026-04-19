@@ -11,6 +11,10 @@ import type { MakeService } from './make-service.js';
 
 export type InstanceServiceMethods = Pick<MakeService, 'listInstances' | 'createInstance' | 'deleteInstance'>;
 
+export type InstanceOpsInternal = InstanceServiceMethods & {
+	listInstancesInFolder: (folder: string, typeId: string) => Promise<readonly InstanceRef[]>;
+};
+
 export interface InstanceOpsPeers {
 	loadType: (typeId: string) => Promise<Result<TypeSchema, MakeError>>;
 	listTypes: () => Promise<Result<ListTypesResult, MakeError>>;
@@ -36,15 +40,11 @@ export function createInstanceOps(
 	ports: ModulePorts,
 	_getSettings: () => MakeSettings,
 	peers: InstanceOpsPeers,
-): InstanceServiceMethods {
+): InstanceOpsInternal {
 
-	async function listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>> {
-		const typeResult = await peers.loadType(typeId);
-		if (typeResult.kind === 'err') return typeResult;
-		const type = typeResult.value;
-		const folder = type.instancesFolder;
+	async function listInstancesInFolder(folder: string, typeId: string): Promise<readonly InstanceRef[]> {
 		const listResult = await ports.vault.list(folder);
-		if (listResult.kind === 'err') return ok([]);
+		if (listResult.kind === 'err') return [];
 		const prefix = folder.endsWith('/') ? folder : `${folder}/`;
 		const mdFiles = listResult.value.filter((p) =>
 			p.startsWith(prefix) && !p.slice(prefix.length).includes('/') && p.endsWith('.md'),
@@ -65,7 +65,13 @@ export function createInstanceOps(
 				updatedAt: new Date(read.value.stat.mtime).toISOString(),
 			});
 		}
-		return ok(refs);
+		return refs;
+	}
+
+	async function listInstances(typeId: string): Promise<Result<readonly InstanceRef[], MakeError>> {
+		const typeResult = await peers.loadType(typeId);
+		if (typeResult.kind === 'err') return typeResult;
+		return ok(await listInstancesInFolder(typeResult.value.instancesFolder, typeId));
 	}
 
 	function mapPathError(reason: 'no-title-field-and-no-filename' | 'invalid-filename'): MakeError {
@@ -127,5 +133,6 @@ export function createInstanceOps(
 		listInstances,
 		createInstance,
 		deleteInstance,
+		listInstancesInFolder,
 	};
 }
