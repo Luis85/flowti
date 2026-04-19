@@ -174,6 +174,15 @@ export function fakeVault(
 			files.delete(path);
 			return ok(undefined);
 		}),
+		rename: vi.fn(async (oldPath: string, newPath: string) => {
+			if (options.renameError !== undefined) return { kind: 'err' as const, error: options.renameError };
+			const entry = files.get(oldPath);
+			if (entry === undefined) return { kind: 'err' as const, error: `not-found: ${oldPath}` };
+			if (files.has(newPath)) return { kind: 'err' as const, error: `target-exists: ${newPath}` };
+			files.set(newPath, entry);
+			files.delete(oldPath);
+			return ok(undefined);
+		}),
 		exists: vi.fn(async (path: string) => {
 			const entry = files.get(path);
 			if (entry !== undefined) return true;

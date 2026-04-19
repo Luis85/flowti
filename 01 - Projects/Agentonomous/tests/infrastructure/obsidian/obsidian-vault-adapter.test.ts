@@ -1,4 +1,5 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
+import type { App as ObsidianApp } from 'obsidian';
 import { App } from '../../__stubs__/obsidian.js';
 import { ObsidianVaultAdapter } from '../../../src/infrastructure/obsidian/obsidian-vault-adapter.js';
 import { isOk, isErr } from '../../../src/domain/shared/result.js';
@@ -72,5 +73,65 @@ describe('ObsidianVaultAdapter', () => {
 	it('delete returns err for missing file', async () => {
 		const result = await adapter.delete('ghost.md');
 		expect(isErr(result)).toBe(true);
+	});
+});
+
+describe('ObsidianVaultAdapter.rename', () => {
+	it('calls fileManager.renameFile with resolved TFile', async () => {
+		const renameSpy = vi.fn().mockResolvedValue(undefined);
+		const { TFile } = await import('obsidian');
+		const tfile: unknown = Object.create(TFile.prototype);
+		const app = {
+			vault: { getAbstractFileByPath: vi.fn((p: string): unknown => p === 'a.md' ? tfile : null) },
+			fileManager: { renameFile: renameSpy },
+		} as unknown as ObsidianApp;
+		const adapter = new ObsidianVaultAdapter(app);
+		const result = await adapter.rename('a.md', 'b.md');
+		expect(result.kind).toBe('ok');
+		expect(renameSpy).toHaveBeenCalledWith(tfile, 'b.md');
+	});
+
+	it('returns not-found when source does not resolve', async () => {
+		const app = {
+			vault: { getAbstractFileByPath: vi.fn(() => null) },
+			fileManager: { renameFile: vi.fn() },
+		} as unknown as ObsidianApp;
+		const adapter = new ObsidianVaultAdapter(app);
+		const result = await adapter.rename('a.md', 'b.md');
+		expect(result.kind).toBe('err');
+		if (result.kind !== 'err') throw new Error('unreachable');
+		expect(result.error).toContain('not-found');
+	});
+
+	it('returns target-exists when destination already exists', async () => {
+		const { TFile } = await import('obsidian');
+		const source: unknown = Object.create(TFile.prototype);
+		const target: unknown = Object.create(TFile.prototype);
+		const app = {
+			vault: {
+				getAbstractFileByPath: vi.fn((p: string): unknown => p === 'a.md' ? source : p === 'b.md' ? target : null),
+			},
+			fileManager: { renameFile: vi.fn() },
+		} as unknown as ObsidianApp;
+		const adapter = new ObsidianVaultAdapter(app);
+		const result = await adapter.rename('a.md', 'b.md');
+		expect(result.kind).toBe('err');
+		if (result.kind !== 'err') throw new Error('unreachable');
+		expect(result.error).toContain('target-exists');
+	});
+
+	it('wraps renameFile throw as rename-failed', async () => {
+		const { TFile } = await import('obsidian');
+		const tfile: unknown = Object.create(TFile.prototype);
+		const app = {
+			vault: { getAbstractFileByPath: vi.fn((p: string): unknown => p === 'a.md' ? tfile : null) },
+			fileManager: { renameFile: vi.fn().mockRejectedValue(new Error('EIO')) },
+		} as unknown as ObsidianApp;
+		const adapter = new ObsidianVaultAdapter(app);
+		const result = await adapter.rename('a.md', 'b.md');
+		expect(result.kind).toBe('err');
+		if (result.kind !== 'err') throw new Error('unreachable');
+		expect(result.error).toContain('rename-failed');
+		expect(result.error).toContain('EIO');
 	});
 });

@@ -49,6 +49,16 @@ export class InMemoryVaultAdapter implements VaultPort {
 		return Promise.resolve(ok(undefined));
 	}
 
+	rename(oldPath: string, newPath: string): Promise<Result<void, string>> {
+		const entry = this.files.get(oldPath);
+		if (entry === undefined) return Promise.resolve(err(`not-found: ${oldPath}`));
+		if (this.files.has(newPath)) return Promise.resolve(err(`target-exists: ${newPath}`));
+		this.files.set(newPath, entry);
+		this.files.delete(oldPath);
+		this.emit({ kind: 'rename', path: newPath, oldPath, at: Date.now() });
+		return Promise.resolve(ok(undefined));
+	}
+
 	exists(path: string): Promise<boolean> {
 		return Promise.resolve(this.files.has(path));
 	}

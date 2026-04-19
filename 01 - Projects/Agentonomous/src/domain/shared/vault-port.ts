@@ -23,6 +23,7 @@ export interface VaultPort {
 	create(path: string, content: string): Promise<Result<void, string>>;
 	update(path: string, content: string): Promise<Result<void, string>>;
 	delete(path: string): Promise<Result<void, string>>;
+	rename(oldPath: string, newPath: string): Promise<Result<void, string>>;
 	exists(path: string): Promise<boolean>;
 	list(folder: string): Promise<Result<string[], string>>;
 

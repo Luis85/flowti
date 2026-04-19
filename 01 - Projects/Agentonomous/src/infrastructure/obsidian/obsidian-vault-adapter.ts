@@ -1,4 +1,4 @@
-import type { App, TAbstractFile, TFile } from 'obsidian';
+import { TFile, type App, type TAbstractFile } from 'obsidian';
 import type { VaultChange, VaultFile, VaultPort } from '../../domain/shared/vault-port.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
@@ -64,6 +64,19 @@ export class ObsidianVaultAdapter implements VaultPort {
 			return ok(undefined);
 		} catch (e) {
 			return err(e instanceof Error ? e.message : String(e));
+		}
+	}
+
+	async rename(oldPath: string, newPath: string): Promise<Result<void, string>> {
+		const source = this.app.vault.getAbstractFileByPath(oldPath);
+		if (!(source instanceof TFile)) return err(`not-found: ${oldPath}`);
+		const target = this.app.vault.getAbstractFileByPath(newPath);
+		if (target !== null) return err(`target-exists: ${newPath}`);
+		try {
+			await this.app.fileManager.renameFile(source, newPath);
+			return ok(undefined);
+		} catch (e) {
+			return err(`rename-failed: ${e instanceof Error ? e.message : String(e)}`);
 		}
 	}
 
