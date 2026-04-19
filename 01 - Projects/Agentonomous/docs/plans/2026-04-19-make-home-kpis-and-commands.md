@@ -2036,3 +2036,55 @@ Expected:
   5. `feat: MakeHome restructured as dashboard` (Chunk 5 #5)
   6. `feat: Make: create-type + browse-types commands` (Chunk 5 #6)
   7. `feat: MakeHome storybook stories` (Chunk 5 #7)
+
+---
+
+## As shipped (reconciliation — 2026-04-19)
+
+The plan was executed verbatim except for the following deviations, all
+noted here for future readers of this document:
+
+**Test counts**
+- Predicted end state (this file): 109 files / 1057 tests.
+- **Actual end state: 108 files / 1048 tests** (at commit `8793e5a5`, end
+  of Chunk 7 / merge into master).
+- Root causes:
+  - Chunk 5 cumulative row predicted `net +4 tests (16 new − 12 removed)`,
+    but the test file ended with 13 describes (net +1). The plan text at
+    what was then Chunk 5's body (§5.1) itself admitted "+1 delta",
+    contradicting the table at the top of the file. Plan arithmetic bug.
+  - Chunk 6 predicted "+1 new file
+    (`tests/infrastructure/obsidian/obsidian-command-adapter.test.ts`)"
+    — that file already existed from commit `438900dc` with 8 tests.
+    Chunk 6 appended 2 tests to it instead of creating a new file.
+
+**Test file claim (§Chunk 6)**
+- Plan line ~1604 said "Create `tests/infrastructure/obsidian/obsidian-command-adapter.test.ts` (new file — check with `ls` first; if the directory doesn't exist, create it). The adapter currently has no tests; this is the first." — **factually wrong**: the directory and file pre-existed with 8 tests. The implementer appended the 2 new ordering tests; no new file was created.
+
+**Post-ship polish (separate branch, 8 commits on `feat/agentonomous-makehome-polish`)**
+A multi-perspective review after this plan shipped surfaced post-ship
+issues that were addressed in a follow-up polish branch (not in this
+plan). Summary of changes visible to future readers of this code:
+- Command names `Make: create new type` / `Make: browse types` were
+  renamed to `Create new type` / `Browse types` (Obsidian auto-prefixes;
+  the old names double-prefixed in the palette).
+- `setMakeNavigateHandler` call site in `src/ui/app.ts` moved to **after**
+  `vue.mount(el)` so a mount failure can't leak an orphan handler.
+- `ObsidianCommandAdapter.combined()` now wraps each step (openView,
+  callback) in its own try/catch + logger.error, and runs them
+  independently (callback fires even if openView rejects).
+- `RecentInstancesList` rows use `<li><div role="button" tabindex=0>`
+  instead of `<li role="listitem" tabindex=0>` + the keyboard handler
+  now activates on Space in addition to Enter.
+- `getKpis` walks types in parallel (`Promise.all`) instead of serial.
+- `loadKpis` wrapped in a trailing-debounce (`requestKpisRefresh`) —
+  burst events coalesce to one call. Debounce window via
+  `MakeContext.kpisDebounceMs` (production 150ms, tests 0ms).
+- New i18n keys: `make.home.kpi.groupAriaLabel`, `make.home.loading`,
+  `make.home.kpi.typesOne/Other`, `make.home.kpi.instancesOne/Other`.
+- `ObsidianCommandAdapter` constructor now takes `(plugin, viewRegistry,
+  logger)` — the old `(plugin, viewRegistry)` signature is gone.
+- End state after polish merges: **1069 tests / 108 files / 0 lint errors**.
+
+Plan stays here as the historical design-time artifact. For current
+shape of the code, read the source.
