@@ -14,6 +14,7 @@ import type { StoragePort } from './storage-port.js';
 import type { SchedulerPort } from './scheduler-port.js';
 import type { AgentPort, TaskPort } from '../agents/agent-port.js';
 import type { ViewIntent } from '../views/view-registration.js';
+import type { WorkspacePort } from './workspace-port.js';
 
 /** Scoped ports injected into every module at init time. */
 export interface ModulePorts {
@@ -43,6 +44,8 @@ export interface ModulePorts {
 	readonly agents: AgentPort;
 	/** Task queue (STUB: unimplemented adapter returns AppError for every call today). */
 	readonly tasks: TaskPort;
+	/** Open files in Obsidian leaves (current / tab / split). */
+	readonly workspace: WorkspacePort;
 }
 
 /** A self-contained feature unit. Registered with PluginCore and lifecycle-managed. */

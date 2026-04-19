@@ -9,6 +9,7 @@ import { ObsidianNotificationAdapter } from './infrastructure/obsidian/obsidian-
 import { ObsidianDialogAdapter } from './infrastructure/obsidian/obsidian-dialog-adapter.js';
 import { ObsidianPlatformAdapter } from './infrastructure/obsidian/obsidian-platform-adapter.js';
 import { ObsidianVaultAdapter } from './infrastructure/obsidian/obsidian-vault-adapter.js';
+import { ObsidianWorkspaceAdapter } from './infrastructure/obsidian/workspace-adapter.js';
 import { ObsidianFileExtensionAdapter } from './infrastructure/obsidian/obsidian-file-extension-adapter.js';
 import { ObsidianStorageAdapter } from './infrastructure/obsidian/obsidian-storage-adapter.js';
 import { BrowserScheduler } from './infrastructure/scheduler/browser-scheduler.js';
@@ -58,6 +59,7 @@ export default class AgentonomousPlugin extends Plugin {
 		const scheduler = new BrowserScheduler();
 		const agents = new UnimplementedAgentAdapter();
 		const tasks = new UnimplementedTaskAdapter();
+		const workspace = new ObsidianWorkspaceAdapter(this.app);
 		const views = new ViewRegistry();
 		const logger = new Logger(bus, 'info');
 		const notifications = new ObsidianNotificationAdapter();
@@ -82,6 +84,7 @@ export default class AgentonomousPlugin extends Plugin {
 				scheduler,
 				agents,
 				tasks,
+				workspace,
 				i18nMerge: (locale, messages) => { i18n.global.mergeLocaleMessage(locale, messages); },
 			},
 			modules,
@@ -121,6 +124,7 @@ export default class AgentonomousPlugin extends Plugin {
 			scheduler,
 			agents,
 			tasks,
+			workspace,
 			i18n,
 			moduleStatus,
 		};

@@ -199,6 +199,13 @@ export class TFile {
 	}
 }
 
+export class TFolder {
+	readonly path: string;
+	constructor(path: string = '') {
+		this.path = path;
+	}
+}
+
 type StoredEntry = { content: string; ctime: number; mtime: number };
 
 /** In-memory Vault stub sufficient for ObsidianVaultAdapter tests. */

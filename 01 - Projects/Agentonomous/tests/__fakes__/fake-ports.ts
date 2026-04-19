@@ -12,6 +12,7 @@ import type { VaultChange, VaultPort } from '../../src/domain/shared/vault-port.
 import type { StoragePort } from '../../src/domain/shared/storage-port.js';
 import type { SchedulerPort } from '../../src/domain/shared/scheduler-port.js';
 import type { AgentPort, TaskPort } from '../../src/domain/agents/agent-port.js';
+import type { WorkspacePort, OpenFileMode } from '../../src/domain/shared/workspace-port.js';
 import { UnimplementedAgentAdapter, UnimplementedTaskAdapter } from '../../src/infrastructure/agents/unimplemented-agent-adapter.js';
 import { ok } from '../../src/domain/shared/result.js';
 
@@ -264,6 +265,22 @@ export function fakeTasks(): TaskPort {
 	return new UnimplementedTaskAdapter();
 }
 
+export function fakeWorkspace(): {
+	port: WorkspacePort;
+	calls: Array<{ path: string; mode: OpenFileMode }>;
+} {
+	const calls: Array<{ path: string; mode: OpenFileMode }> = [];
+	return {
+		port: {
+			async openFile(path, mode) {
+				calls.push({ path, mode });
+				return ok(undefined);
+			},
+		} satisfies WorkspacePort,
+		calls,
+	};
+}
+
 export function fakeModulePorts(overrides?: Partial<ModulePorts>): ModulePorts {
 	return {
 		eventBus: overrides?.eventBus ?? { on: vi.fn(() => () => {}), emit: vi.fn(), emitAsync: vi.fn(), onAny: vi.fn(() => () => {}), listenerCount: vi.fn(() => 0) } as never,
@@ -279,6 +296,7 @@ export function fakeModulePorts(overrides?: Partial<ModulePorts>): ModulePorts {
 		scheduler: overrides?.scheduler ?? fakeScheduler(),
 		agents: overrides?.agents ?? fakeAgents(),
 		tasks: overrides?.tasks ?? fakeTasks(),
+		workspace: overrides?.workspace ?? fakeWorkspace().port,
 		...overrides,
 	};
 }

@@ -14,6 +14,7 @@ import type { StoragePort } from '../domain/shared/storage-port.js';
 import type { SchedulerPort } from '../domain/shared/scheduler-port.js';
 import type { AgentPort, TaskPort } from '../domain/agents/agent-port.js';
 import type { FileExtensionPort } from '../domain/shared/file-extension-port.js';
+import type { WorkspacePort } from '../domain/shared/workspace-port.js';
 import { isOk } from '../domain/shared/result.js';
 import { diffSettingsBlob } from '../domain/settings/diff-settings-blob.js';
 import { validateModules } from './validate-modules.js';
@@ -35,6 +36,7 @@ export interface CorePorts {
 	readonly scheduler: SchedulerPort;
 	readonly agents: AgentPort;
 	readonly tasks: TaskPort;
+	readonly workspace: WorkspacePort;
 	/** Merge per-locale messages from a module into the i18n instance. Platform-agnostic callback. */
 	readonly i18nMerge?: (locale: string, messages: Record<string, string>) => void;
 }
@@ -216,6 +218,7 @@ export class PluginCore {
 			scheduler: this.ports.scheduler,
 			agents: this.ports.agents,
 			tasks: this.ports.tasks,
+			workspace: this.ports.workspace,
 		};
 	}
 
