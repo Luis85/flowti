@@ -64,3 +64,69 @@ describe('validateInstancesFolder', () => {
 		expect(validateInstancesFolder('Books<>').kind).toBe('err');
 	});
 });
+
+describe('cross-platform name edge cases', () => {
+	describe('validateTypeName unicode + control chars', () => {
+		it.each([
+			['simple ASCII', 'Book', true],
+			['CJK', '書籍', true],
+			['emoji', '📚 Library', true],
+			['accented', 'Café Récipé', true],
+			['cyrillic', 'Книга', true],
+			['mixed with hyphen', 'Item-Type_v2', true],
+		])('accepts %s: %j', (_label, input, shouldAccept) => {
+			const r = validateTypeName(input);
+			expect(r.kind).toBe(shouldAccept ? 'ok' : 'err');
+		});
+
+		it.each([
+			['null byte', 'Book\x00'],
+			['tab', 'Book\tX'],
+			['newline', 'Book\nX'],
+			['escape', 'Book\x1bX'],
+		])('rejects control char %s', (_label, input) => {
+			const r = validateTypeName(input);
+			expect(r).toMatchObject({ kind: 'err', error: { reason: 'illegal-char' } });
+		});
+	});
+
+	describe('validateInstancesFolder path shapes', () => {
+		it.each([
+			['simple', 'Books', true],
+			['nested', 'Content/Books', true],
+			['deeply nested', 'a/b/c/d/e', true],
+			['unicode segment', 'Контент/Книги', true],
+			['emoji segment', '📁/Books', true],
+			['space in segment', 'My Books/2026', true],
+		])('accepts path shape %s: %j', (_label, input, shouldAccept) => {
+			const r = validateInstancesFolder(input);
+			expect(r.kind).toBe(shouldAccept ? 'ok' : 'err');
+		});
+
+		it.each([
+			['leading slash',       '/Books'],
+			['trailing slash',      'Books/'],
+			['double slash',        'Books//Reviews'], // not currently rejected — document current behavior in separate test
+			['backslash',           'Books\\Reviews'],
+			['pipe',                'Books|x'],
+			['asterisk',            'Books/*.md'],
+			['quote',               'Books/"x"'],
+		].filter(([label]) => label !== 'double slash'))('rejects %s: %j', (_label, input) => {
+			expect(validateInstancesFolder(input).kind).toBe('err');
+		});
+
+		it('does NOT currently reject traversal segments (documents existing behavior)', () => {
+			// `..` and `.` pass the character check; no path-semantic analysis happens here.
+			// Flagged as a follow-up — domain would need explicit traversal rejection.
+			expect(validateInstancesFolder('..').kind).toBe('ok');
+			expect(validateInstancesFolder('Books/..').kind).toBe('ok');
+		});
+
+		it('does NOT currently reject Windows reserved segments (documents existing behavior)', () => {
+			// CON, PRN, AUX, NUL, COM1-9, LPT1-9 are reserved on Windows. The validator
+			// is filesystem-agnostic today — a follow-up could add a platform-aware pass.
+			expect(validateInstancesFolder('CON').kind).toBe('ok');
+			expect(validateInstancesFolder('PRN/x').kind).toBe('ok');
+		});
+	});
+});
