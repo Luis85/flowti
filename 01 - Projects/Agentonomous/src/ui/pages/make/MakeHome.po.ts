@@ -13,6 +13,15 @@ export class MakeHomePage {
 	get createCtaEmpty(): HTMLElement | null { return this.el('make-home-create-cta-empty'); }
 	get createCtaPopulated(): HTMLElement | null { return this.el('make-home-create-cta-populated'); }
 
+	get kpiTypes():     HTMLElement | null { return this.el('kpi-types'); }
+	get kpiInstances(): HTMLElement | null { return this.el('kpi-instances'); }
+	get kpiWeek():      HTMLElement | null { return this.el('kpi-week'); }
+	get recentHeading():  HTMLElement | null { return this.el('make-home-recent-heading'); }
+	get recentEmpty():    HTMLElement | null { return this.el('recent-instances-empty'); }
+	get recentRows(): readonly HTMLElement[] {
+		return Array.from(this.root.querySelectorAll<HTMLElement>('[data-testid^="recent-instance-row-"]'));
+	}
+
 	private el(testId: string): HTMLElement | null {
 		return this.root.querySelector(`[data-testid="${testId}"]`);
 	}

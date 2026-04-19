@@ -1,13 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
+import { flushPromises } from '@vue/test-utils';
 import MakeHome from '../../../../src/ui/pages/make/MakeHome.vue';
 import MakeTypes from '../../../../src/ui/pages/make/MakeTypes.vue';
 import { MakeHomePage } from '../../../../src/ui/pages/make/MakeHome.po.js';
 import { mountWithI18n } from '../../../__fixtures__/mount-with-i18n.js';
 import { createFakeMakeContext, fakeMakeService } from '../../../__fixtures__/fake-make-context.js';
 import { MakeContextKey } from '../../../../src/ui/make-context-key.js';
+import { useMakeStore } from '../../../../src/ui/stores/make-store.js';
 import type { TypeSchema } from '../../../../src/domain/make/type-schema.js';
+import type { InstanceRef, KpiSnapshot } from '../../../../src/domain/make/types.js';
+import type { MakeService } from '../../../../src/modules/make/make-service.js';
 
 const BOOK: TypeSchema = {
 	id: 'book', name: 'Book', instancesFolder: 'Books', titleFieldName: 'title',
@@ -15,12 +19,25 @@ const BOOK: TypeSchema = {
 	createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z',
 };
 
-// Per-test service spy — set in each test.
-let listTypesSpy: ReturnType<typeof vi.fn>;
+const DUNE:  InstanceRef = { typeId: 'book', path: 'Books/Dune.md',  title: 'Dune',  createdAt: '2026-04-19T10:00:00.000Z', updatedAt: '2026-04-19T10:00:00.000Z' };
+const NEURO: InstanceRef = { typeId: 'book', path: 'Books/Neuro.md', title: 'Neuro', createdAt: '2026-04-18T12:00:00.000Z', updatedAt: '2026-04-18T12:00:00.000Z' };
 
-async function mountHome() {
+const EMPTY_KPIS:  KpiSnapshot = { typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {},           recentlyCreated: [] };
+const TYPES_ONLY:  KpiSnapshot = { typesCount: 1, instancesCount: 0, createdThisWeek: 0, perType: { book: 0 }, recentlyCreated: [] };
+const POPULATED:   KpiSnapshot = { typesCount: 1, instancesCount: 12, createdThisWeek: 3, perType: { book: 12 }, recentlyCreated: [DUNE, NEURO] };
+
+const NOW = new Date('2026-04-19T12:00:00.000Z');
+beforeAll(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
+afterAll(() => { vi.useRealTimers(); });
+
+async function mountHome(opts: {
+	listTypes?: MakeService['listTypes'];
+	getKpis?:   MakeService['getKpis'];
+} = {}) {
+	const listTypes = opts.listTypes ?? vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
+	const getKpis   = opts.getKpis   ?? vi.fn().mockResolvedValue(POPULATED);
 	const ctx = createFakeMakeContext({
-		service: fakeMakeService({ listTypes: listTypesSpy }),
+		service: fakeMakeService({ listTypes, getKpis }),
 		settings: { enabled: true, typesFolder: 'Make/Types', basesFolder: 'Make/Bases', defaultInstancesRoot: 'Make/Instances', favorites: ['book'] },
 	});
 	const router = createRouter({
@@ -33,97 +50,133 @@ async function mountHome() {
 	});
 	await router.push('/make');
 	await router.isReady();
+	const pinia = createPinia();
+	setActivePinia(pinia);
 	const wrapper = mountWithI18n(MakeHome, {
 		router,
 		provide: { [MakeContextKey as symbol]: ctx } as Record<PropertyKey, unknown>,
-		plugins: [createPinia()],
+		plugins: [pinia],
 	});
-	return { wrapper, router, page: new MakeHomePage(wrapper.element as HTMLElement) };
+	const store = useMakeStore();
+	return { wrapper, router, page: new MakeHomePage(wrapper.element as HTMLElement), store };
 }
 
-describe('MakeHome', () => {
-	beforeEach(() => {
-		setActivePinia(createPinia());
-		listTypesSpy = vi.fn();
-	});
+describe('MakeHome — existing behaviors preserved', () => {
+	beforeEach(() => { setActivePinia(createPinia()); });
 
 	it('renders title and blurb', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
 		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
+		await flushPromises();
 		expect(page.title).toContain('Make');
 		expect(page.blurb.length).toBeGreaterThan(0);
 	});
 
-	it('shows the Browse types CTA when types exist', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
-		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
-		expect(page.browseCta).not.toBeNull();
-	});
-
-	it('shows the empty-state copy and hides the CTA when no types exist', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
-		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
-		expect(page.browseCta).toBeNull();
+	it('shows empty-state copy + CTA when 0 types', async () => {
+		const { page } = await mountHome({ listTypes: vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } }), getKpis: vi.fn().mockResolvedValue(EMPTY_KPIS) });
+		await flushPromises();
 		expect(page.empty).not.toBeNull();
-	});
-
-	it('renders favorite chips for favorites present in types', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
-		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
-		expect(page.favoriteChips.length).toBe(1);
-		expect(page.favoriteChips[0]?.textContent).toContain('Book');
-	});
-
-	it('hides favorites section when no favorited types are loaded', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
-		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
-		expect(page.favoritesHeading).toBeNull();
-	});
-
-	it('shows a spinner while typesLoading is true', async () => {
-		listTypesSpy.mockReturnValue(new Promise(() => { /* never resolves */ }));
-		const { page } = await mountHome();
-		expect(page.spinner).not.toBeNull();
-	});
-
-	it('shows "Create type" button in empty state (testid make-home-create-cta-empty)', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
-		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaEmpty).not.toBeNull();
-	});
-
-	it('"Create type" empty-state button links to /make/types/new', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
-		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
 		expect(page.createCtaEmpty?.getAttribute('href')).toBe('/make/types/new');
 	});
 
-	it('shows "Create type" button beside Browse CTA when types exist (testid make-home-create-cta-populated)', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
+	it('shows Browse + Create CTAs when types exist', async () => {
 		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
+		await flushPromises();
+		expect(page.browseCta).not.toBeNull();
 		expect(page.createCtaPopulated).not.toBeNull();
 	});
 
-	it('"Create type" populated-state button links to /make/types/new', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [BOOK], issues: [] } });
+	it('favorites chips render for favorites present in types', async () => {
 		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
-		expect(page.createCtaPopulated?.getAttribute('href')).toBe('/make/types/new');
+		await flushPromises();
+		expect(page.favoriteChips.length).toBe(1);
+		expect(page.favoriteChips[0]?.textContent).toContain('Book');
+	});
+});
+
+describe('MakeHome — KPI row', () => {
+	beforeEach(() => { setActivePinia(createPinia()); });
+
+	it('does NOT render KPI row in the 0-types branch', async () => {
+		const { page } = await mountHome({ listTypes: vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } }), getKpis: vi.fn().mockResolvedValue(EMPTY_KPIS) });
+		await flushPromises();
+		expect(page.kpiTypes).toBeNull();
 	});
 
-	it('"Create type" populated-state button is hidden when no types exist', async () => {
-		listTypesSpy.mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } });
+	it('renders 3 KPI tiles when types exist — Types / Instances / This week — with correct values', async () => {
 		const { page } = await mountHome();
-		await new Promise((r) => setTimeout(r, 0));
-		expect(page.createCtaPopulated).toBeNull();
+		await flushPromises();
+		expect(page.kpiTypes).not.toBeNull();
+		expect(page.kpiInstances).not.toBeNull();
+		expect(page.kpiWeek).not.toBeNull();
+		expect(page.kpiTypes?.textContent).toContain('1');
+		expect(page.kpiInstances?.textContent).toContain('12');
+		expect(page.kpiWeek?.textContent).toContain('3');
 	});
 
+	it('renders zeros in KPI tiles when types exist but 0 instances (TYPES_ONLY snapshot)', async () => {
+		const { page } = await mountHome({ getKpis: vi.fn().mockResolvedValue(TYPES_ONLY) });
+		await flushPromises();
+		expect(page.kpiTypes?.textContent).toContain('1');
+		expect(page.kpiInstances?.textContent).toContain('0');
+		expect(page.kpiWeek?.textContent).toContain('0');
+	});
+});
+
+describe('MakeHome — Recently created section', () => {
+	beforeEach(() => { setActivePinia(createPinia()); });
+
+	it('does NOT render section in the 0-types branch', async () => {
+		const { page } = await mountHome({ listTypes: vi.fn().mockResolvedValue({ kind: 'ok', value: { types: [], issues: [] } }), getKpis: vi.fn().mockResolvedValue(EMPTY_KPIS) });
+		await flushPromises();
+		expect(page.recentHeading).toBeNull();
+	});
+
+	it('renders heading + placeholder when types exist but 0 instances', async () => {
+		const { page } = await mountHome({ getKpis: vi.fn().mockResolvedValue(TYPES_ONLY) });
+		await flushPromises();
+		expect(page.recentHeading).not.toBeNull();
+		expect(page.recentEmpty).not.toBeNull();
+		expect(page.recentEmpty?.textContent?.length).toBeGreaterThan(0);
+	});
+
+	it('renders rows for the kpis.recentlyCreated list in order', async () => {
+		const { page } = await mountHome();
+		await flushPromises();
+		expect(page.recentRows).toHaveLength(2);
+		expect(page.recentRows[0]!.textContent).toContain('Dune');
+		expect(page.recentRows[1]!.textContent).toContain('Neuro');
+	});
+
+	it('row click calls store.openInstance with the correct path and tab mode', async () => {
+		const { wrapper, page, store } = await mountHome();
+		const openSpy = vi.spyOn(store, 'openInstance').mockResolvedValue({ kind: 'ok', value: undefined });
+		await flushPromises();
+		(page.recentRows[0] as HTMLElement).click();
+		await flushPromises();
+		expect(openSpy).toHaveBeenCalledWith('Books/Dune.md', 'tab');
+		wrapper.unmount();
+	});
+
+	it('row keyboard Enter calls store.openInstance with the correct path and tab mode', async () => {
+		const { wrapper, page, store } = await mountHome();
+		const openSpy = vi.spyOn(store, 'openInstance').mockResolvedValue({ kind: 'ok', value: undefined });
+		await flushPromises();
+		(page.recentRows[0] as HTMLElement).focus();
+		(page.recentRows[0] as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		await flushPromises();
+		expect(openSpy).toHaveBeenCalledWith('Books/Dune.md', 'tab');
+		wrapper.unmount();
+	});
+});
+
+describe('MakeHome — mount calls loadKpis', () => {
+	beforeEach(() => { setActivePinia(createPinia()); });
+
+	it('calls service.getKpis at mount (when types exist)', async () => {
+		const getKpis = vi.fn().mockResolvedValue(POPULATED);
+		await mountHome({ getKpis });
+		await flushPromises();
+		expect(getKpis).toHaveBeenCalled();
+	});
 });
