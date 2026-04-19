@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import type { TypeSchema } from '../../domain/make/type-schema.js';
-import type { BulkDeleteReport, CreateInstanceOptions, InstanceRef, MoveReport, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
+import type { BulkDeleteReport, CreateInstanceOptions, InstanceRef, KpiSnapshot, MoveReport, TypeId, NewTypeDraft, TypeSchemaPatch, DeleteTypeOptions, DeleteTypeReport, UpdateTypeOptions, UpdateTypeResult } from '../../domain/make/types.js';
 import type { CorruptTypeRef, MakeError } from '../../domain/make/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import type { OpenFileMode } from '../../domain/shared/workspace-port.js';
@@ -69,6 +69,21 @@ export const useMakeStore = defineStore('make', () => {
 		await Promise.all(types.value.map((t) => loadInstances(t.id)));
 	}
 
+	let loadKpisCallId = 0;
+
+	async function loadKpis(): Promise<void> {
+		const myId = ++loadKpisCallId;
+		kpisLoading.value = true;
+		const result = await ctx.service.getKpis().catch((e: unknown) => {
+			ctx.logger.warn('make-store', `getKpis failed: ${e instanceof Error ? e.message : String(e)}`);
+			return null;
+		});
+		// Only the latest call may commit. Stale in-flight calls no-op.
+		if (myId !== loadKpisCallId) return;
+		kpisLoading.value = false;
+		if (result !== null) kpis.value = result;
+	}
+
 	async function refreshAll(currentTypeId?: TypeId): Promise<void> {
 		types.value = [];
 		typesLoaded.value = false;
@@ -103,6 +118,8 @@ export const useMakeStore = defineStore('make', () => {
 	const favoriteToggling            = shallowRef<ReadonlySet<TypeId>>(new Set());
 	const optimisticFavoriteOverrides = shallowRef<ReadonlyMap<TypeId, boolean>>(new Map());
 	const bulkDeleting                = shallowRef<ReadonlySet<TypeId>>(new Set());
+	const kpis                        = shallowRef<KpiSnapshot | null>(null);
+	const kpisLoading                 = ref(false);
 
 	// --- Write actions ---
 	async function createType(draft: NewTypeDraft): Promise<Result<TypeSchema, MakeError>> {
@@ -218,6 +235,7 @@ export const useMakeStore = defineStore('make', () => {
 	ctx.subscribe({
 		onTypeCreated: ({ schema }) => {
 			if (!types.value.some((t) => t.id === schema.id)) types.value = [...types.value, schema];
+			safeRefresh('kpis-after-type-created', () => loadKpis());
 		},
 		onTypeUpdated: ({ schema }) => {
 			types.value = types.value.map((t) => t.id === schema.id ? schema : t);
@@ -227,6 +245,7 @@ export const useMakeStore = defineStore('make', () => {
 			const nextInstances = new Map(instancesByTypeId.value); nextInstances.delete(typeId); instancesByTypeId.value = nextInstances;
 			const nextInstanceErr = new Map(instancesError.value); nextInstanceErr.delete(typeId); instancesError.value = nextInstanceErr;
 			const nextRegenErr = new Map(regenerationError.value); nextRegenErr.delete(typeId); regenerationError.value = nextRegenErr;
+			safeRefresh('kpis-after-type-deleted', () => loadKpis());
 		},
 		onFavoriteToggled: () => {
 			// favoriteTypes and isFavoritedForUI read reactively off ctx.settings$; no nudge needed.
@@ -235,12 +254,24 @@ export const useMakeStore = defineStore('make', () => {
 			// regenerateBaseFile action already triggers loadTypes; this handler is a no-op
 			// for same-session calls but ensures cache consistency if emitted cross-session.
 		},
-		onInstanceCreated: ({ typeId }) => { safeRefresh('instance-created', () => loadInstances(typeId)); },
-		onInstanceDeleted: ({ typeId }) => { safeRefresh('instance-deleted', () => loadInstances(typeId)); },
-		onInstancesDeletedBatch: ({ typeId }) => { safeRefresh('instances-deleted-batch', () => loadInstances(typeId)); },
+		onInstanceCreated: ({ typeId }) => {
+			safeRefresh('instance-created', () => loadInstances(typeId));
+			safeRefresh('kpis-after-instance-created', () => loadKpis());
+		},
+		onInstanceDeleted: ({ typeId }) => {
+			safeRefresh('instance-deleted', () => loadInstances(typeId));
+			safeRefresh('kpis-after-instance-deleted', () => loadKpis());
+		},
+		onInstancesDeletedBatch: ({ typeId }) => {
+			safeRefresh('instances-deleted-batch', () => loadInstances(typeId));
+			safeRefresh('kpis-after-instances-deleted-batch', () => loadKpis());
+		},
 		// make:orphan-deleted intentionally not subscribed — no cached list matches an orphan path.
 		// instancesFolder lives on TypeSchema; reload types so cached schema reflects the new path.
-		onInstancesMoved: () => { safeRefresh('instances-moved', () => loadTypes()); },
+		onInstancesMoved: () => {
+			safeRefresh('instances-moved', () => loadTypes());
+			safeRefresh('kpis-after-instances-moved', () => loadKpis());
+		},
 	});
 
 	return {
@@ -255,11 +286,14 @@ export const useMakeStore = defineStore('make', () => {
 		loadTypes,
 		loadInstances,
 		loadInstancesForAll,
+		loadKpis,
 		refreshAll,
 		getType,
 		typesSortedByName,
 		instanceCountByTypeId,
 		favoriteTypes,
+		kpis,
+		kpisLoading,
 		savingType,
 		saveError,
 		regeneratingForId,
