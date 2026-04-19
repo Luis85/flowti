@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch } from 'vue';
+import { computed, inject, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMakeStore } from '../../stores/make-store.js';
 import { useCreateInstanceFlow } from './use-create-instance-flow.js';
@@ -86,6 +86,42 @@ function requestDeleteInstance(target: InstanceRef): void {
 	pendingInstanceDelete.value = target;
 }
 
+// --- Roving tabindex + keyboard navigation for the instances list ---
+const focusedRowIndex = ref(0);
+const rowRefs = ref<(HTMLElement | null)[]>([]);
+
+watch(() => sorted.value.length, (n) => {
+	if (focusedRowIndex.value >= n) focusedRowIndex.value = Math.max(0, n - 1);
+});
+
+function setRowRef(el: Element | null, index: number): void {
+	rowRefs.value[index] = el as HTMLElement | null;
+}
+
+function focusRow(index: number): void {
+	const count = sorted.value.length;
+	if (count === 0) return;
+	const clamped = Math.max(0, Math.min(index, count - 1));
+	focusedRowIndex.value = clamped;
+	void nextTick(() => rowRefs.value[clamped]?.focus());
+}
+
+function onRowKeydown(e: KeyboardEvent, index: number): void {
+	const target = e.target as HTMLElement | null;
+	// Only act when the row itself has focus — don't steal keys from buttons inside it.
+	if (target !== rowRefs.value[index]) return;
+	const count = sorted.value.length;
+	switch (e.key) {
+		case 'ArrowDown': e.preventDefault(); focusRow((index + 1) % count); return;
+		case 'ArrowUp':   e.preventDefault(); focusRow((index - 1 + count) % count); return;
+		case 'Home':      e.preventDefault(); focusRow(0); return;
+		case 'End':       e.preventDefault(); focusRow(count - 1); return;
+		case 'Delete':    e.preventDefault(); requestDeleteInstance(sorted.value[index]!); return;
+		case 'Enter':     e.preventDefault(); void store.openInstance(sorted.value[index]!.path, 'tab'); return;
+		default: return;
+	}
+}
+
 async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | 'discard' | 'reject'): Promise<void> {
 	const target = pendingInstanceDelete.value;
 	pendingInstanceDelete.value = null;
@@ -131,18 +167,26 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 		<p v-else-if="sorted.length === 0" data-testid="make-type-instances-empty" class="empty">
 			{{ t('make.type.instances.empty', { typeName: type.name }) }}
 		</p>
-		<ul v-else class="instances-list">
+		<ul v-else role="list" class="instances-list" :aria-label="t('make.instances.heading')">
 			<li
 				v-for="(instanceRef, index) in sorted"
 				:key="instanceRef.path"
+				:ref="(el) => setRowRef(el as Element | null, index)"
 				:data-testid="`instance-row-${instanceRef.path}`"
 				class="instance-row"
+				role="listitem"
+				:tabindex="index === focusedRowIndex ? 0 : -1"
+				:aria-posinset="index + 1"
+				:aria-setsize="sorted.length"
+				@focus="focusedRowIndex = index"
+				@keydown="(e: KeyboardEvent) => onRowKeydown(e, index)"
 			>
 				<span class="instance-title">{{ instanceRef.title }}</span>
 				<span class="instance-date">{{ t('make.type.instances.createdLabel', { date: shortDate(instanceRef.createdAt) }) }}</span>
 				<span class="instance-row__actions">
 					<button
 						type="button"
+						tabindex="-1"
 						:data-testid="`open-in-obsidian-${index}`"
 						:aria-label="`${t('make.instance-actions.open-in-obsidian')} — ${instanceRef.title}`"
 						@click="() => store.openInstance(instanceRef.path, 'tab')"
@@ -151,6 +195,7 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 					</button>
 					<button
 						type="button"
+						tabindex="-1"
 						:data-testid="`delete-instance-${index}`"
 						:aria-label="`${t('make.instance-actions.delete')} — ${instanceRef.title}`"
 						@click="() => requestDeleteInstance(instanceRef)"
@@ -191,7 +236,8 @@ async function onConfirmInstanceDelete(choice: 'cancel' | 'confirm' | 'save' | '
 .empty { color: var(--text-muted); margin: 0; }
 .error { color: var(--text-error); margin: 0; }
 .instances-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-.instance-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; border: 1px solid var(--background-modifier-border); border-radius: 4px; }
+.instance-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; border: 1px solid var(--background-modifier-border); border-radius: 4px; outline: none; }
+.instance-row:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
 .instance-title { font-weight: 500; flex: 1; }
 .instance-date { color: var(--text-muted); font-size: 0.875rem; }
 .instance-row__actions { display: flex; gap: 0.25rem; }

@@ -312,3 +312,108 @@ describe('MakeTypeInstances — list rendering (regression)', () => {
 		wrapper.unmount();
 	});
 });
+
+describe('MakeTypeInstances — keyboard a11y', () => {
+	const DUNE:  InstanceRef = { typeId: 'book', path: 'Books/Dune.md',        title: 'Dune',         createdAt: '2026-04-19T00:00:00.000Z', updatedAt: '2026-04-19T00:00:00.000Z' };
+	const NEURO: InstanceRef = { typeId: 'book', path: 'Books/Neuromancer.md', title: 'Neuromancer',  createdAt: '2026-04-18T00:00:00.000Z', updatedAt: '2026-04-18T00:00:00.000Z' };
+	const FOUND: InstanceRef = { typeId: 'book', path: 'Books/Foundation.md',  title: 'Foundation',   createdAt: '2026-04-17T00:00:00.000Z', updatedAt: '2026-04-17T00:00:00.000Z' };
+
+	beforeEach(() => {
+		setActivePinia(createPinia());
+		createInstanceSpy = vi.fn();
+		document.body.innerHTML = '';
+	});
+
+	function rows(wrapperEl: HTMLElement): HTMLElement[] {
+		const list = wrapperEl.querySelectorAll('li.instance-row');
+		const result: HTMLElement[] = [];
+		list.forEach((el) => { if (el instanceof HTMLElement) result.push(el); });
+		return result;
+	}
+	function row(wrapperEl: HTMLElement, i: number): HTMLElement {
+		const r = rows(wrapperEl)[i];
+		if (r === undefined) throw new Error(`row ${i} not found`);
+		return r;
+	}
+
+	it('list has role=list and rows have role=listitem with aria-posinset/aria-setsize', () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		const root = wrapper.element as HTMLElement;
+		const list = root.querySelector('.instances-list');
+		expect(list).not.toBeNull();
+		expect((list as HTMLElement).getAttribute('role')).toBe('list');
+		const rs = rows(root);
+		expect(rs).toHaveLength(3);
+		rs.forEach((r, i) => {
+			expect(r.getAttribute('role')).toBe('listitem');
+			expect(r.getAttribute('aria-posinset')).toBe(String(i + 1));
+			expect(r.getAttribute('aria-setsize')).toBe('3');
+		});
+		wrapper.unmount();
+	});
+
+	it('applies roving tabindex: only first row has tabindex=0 by default; buttons are tabindex=-1', () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		const root = wrapper.element as HTMLElement;
+		expect(row(root, 0).getAttribute('tabindex')).toBe('0');
+		expect(row(root, 1).getAttribute('tabindex')).toBe('-1');
+		expect(row(root, 2).getAttribute('tabindex')).toBe('-1');
+		// Buttons inside rows are NOT in the Tab sequence (single tabstop for the list).
+		const buttons = root.querySelectorAll('.instance-row__actions button');
+		buttons.forEach((btn) => {
+			expect((btn as HTMLElement).getAttribute('tabindex')).toBe('-1');
+		});
+		wrapper.unmount();
+	});
+
+	it('ArrowDown moves roving tabindex to the next row; ArrowUp wraps backwards', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		const root = wrapper.element as HTMLElement;
+		row(root, 0).focus();
+		row(root, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+		await nextTick();
+		expect(row(root, 1).getAttribute('tabindex')).toBe('0');
+		expect(row(root, 0).getAttribute('tabindex')).toBe('-1');
+		row(root, 1).dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+		await nextTick();
+		expect(row(root, 0).getAttribute('tabindex')).toBe('0');
+		wrapper.unmount();
+	});
+
+	it('Home jumps to first row, End jumps to last', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE, NEURO, FOUND] });
+		const root = wrapper.element as HTMLElement;
+		row(root, 0).focus();
+		row(root, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+		await nextTick();
+		expect(row(root, 2).getAttribute('tabindex')).toBe('0');
+		row(root, 2).focus();
+		row(root, 2).dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+		await nextTick();
+		expect(row(root, 0).getAttribute('tabindex')).toBe('0');
+		wrapper.unmount();
+	});
+
+	it('Delete key on focused row opens the delete-instance confirm dialog', async () => {
+		const { wrapper } = mountPage({ instances: [DUNE] });
+		const root = wrapper.element as HTMLElement;
+		row(root, 0).focus();
+		row(root, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+		await nextTick();
+		const dialog = document.body.querySelector('[data-testid="confirm-dialog"]');
+		expect(dialog).not.toBeNull();
+		expect(dialog?.textContent).toContain('Dune');
+		wrapper.unmount();
+	});
+
+	it('Enter key on focused row invokes openInstance on the store', async () => {
+		const { wrapper, store } = mountPage({ instances: [DUNE] });
+		const openSpy = vi.spyOn(store, 'openInstance').mockResolvedValue({ kind: 'ok', value: undefined });
+		const root = wrapper.element as HTMLElement;
+		row(root, 0).focus();
+		row(root, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		await flushPromises();
+		expect(openSpy).toHaveBeenCalledWith('Books/Dune.md', 'tab');
+		wrapper.unmount();
+	});
+});
