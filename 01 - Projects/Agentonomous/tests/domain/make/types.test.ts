@@ -5,6 +5,7 @@ import type {
 	CreateInstanceOptions, DeleteTypeReport,
 	TypeSchema,
 	CorruptTypeRef,
+	BulkDeleteReport, BulkDeleteFailure,
 } from '../../../src/domain/make/types.js';
 
 describe('MoveReport', () => {
@@ -55,5 +56,14 @@ describe('CreateInstanceOptions', () => {
 describe('DeleteTypeReport (Chunk 4 widening)', () => {
 	it('includes instanceFailures array', () => {
 		expectTypeOf<DeleteTypeReport['instanceFailures']>().toBeObject();
+	});
+});
+
+describe('BulkDeleteReport', () => {
+	it('is shaped { deletedPaths, failures } with string paths and {path,error} failures', () => {
+		expectTypeOf<BulkDeleteReport['deletedPaths']>().toEqualTypeOf<readonly string[]>();
+		expectTypeOf<BulkDeleteReport['failures']>().toEqualTypeOf<readonly BulkDeleteFailure[]>();
+		expectTypeOf<BulkDeleteFailure['path']>().toBeString();
+		expectTypeOf<BulkDeleteFailure['error']>().toBeString();
 	});
 });

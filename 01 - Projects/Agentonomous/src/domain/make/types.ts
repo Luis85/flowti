@@ -67,6 +67,16 @@ export type MoveReport = {
 	readonly failedMoves: readonly FailedMove[];
 };
 
+export type BulkDeleteFailure = {
+	readonly path:  string;
+	readonly error: string;
+};
+
+export type BulkDeleteReport = {
+	readonly deletedPaths: readonly string[];
+	readonly failures:     readonly BulkDeleteFailure[];
+};
+
 export type ListTypesResult = {
 	readonly types: readonly TypeSchema[];
 	readonly issues: readonly _CorruptTypeRef[];
