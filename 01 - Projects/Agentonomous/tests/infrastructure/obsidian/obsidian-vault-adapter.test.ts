@@ -15,6 +15,7 @@ describe('ObsidianVaultAdapter', () => {
 	});
 
 	it('create + read round-trips content', async () => {
+		await adapter.ensureFolder('notes');
 		await adapter.create('notes/hello.md', '---\ntitle: Hi\n---\nBody text');
 		const result = await adapter.read('notes/hello.md');
 		expect(isOk(result)).toBe(true);
@@ -50,6 +51,8 @@ describe('ObsidianVaultAdapter', () => {
 	});
 
 	it('list returns files in folder', async () => {
+		await adapter.ensureFolder('folder');
+		await adapter.ensureFolder('other');
 		await adapter.create('folder/a.md', 'a');
 		await adapter.create('folder/b.md', 'b');
 		await adapter.create('other/c.md', 'c');
@@ -73,6 +76,46 @@ describe('ObsidianVaultAdapter', () => {
 	it('delete returns err for missing file', async () => {
 		const result = await adapter.delete('ghost.md');
 		expect(isErr(result)).toBe(true);
+	});
+
+	it('ensureFolder creates a missing folder so subsequent create succeeds', async () => {
+		// Reproduces the user-reported ENOENT bug: before this fix, create on
+		// a path whose parent folder doesn't exist threw ENOENT. ensureFolder
+		// must close that gap.
+		const failsBefore = await adapter.create('Make/Types/test.json', '{}');
+		expect(isErr(failsBefore)).toBe(true);
+		const ensured = await adapter.ensureFolder('Make/Types');
+		expect(isOk(ensured)).toBe(true);
+		const succeedsAfter = await adapter.create('Make/Types/test.json', '{}');
+		expect(isOk(succeedsAfter)).toBe(true);
+	});
+
+	it('ensureFolder is idempotent on an existing folder', async () => {
+		const first  = await adapter.ensureFolder('Make/Bases');
+		const second = await adapter.ensureFolder('Make/Bases');
+		expect(isOk(first)).toBe(true);
+		expect(isOk(second)).toBe(true);
+	});
+
+	it('ensureFolder walks nested segments (Make/Types walks Make → Make/Types)', async () => {
+		const result = await adapter.ensureFolder('a/b/c');
+		expect(isOk(result)).toBe(true);
+		// After nested ensure, a file in the deepest folder should create cleanly.
+		const created = await adapter.create('a/b/c/leaf.md', 'leaf');
+		expect(isOk(created)).toBe(true);
+	});
+
+	it('ensureFolder on root (empty or "/") is a no-op returning ok', async () => {
+		expect(isOk(await adapter.ensureFolder(''))).toBe(true);
+		expect(isOk(await adapter.ensureFolder('/'))).toBe(true);
+	});
+
+	it('ensureFolder returns err when a file blocks the path', async () => {
+		// Create a file at 'blocked', then try to ensure it as a folder.
+		await adapter.create('blocked', 'i am a file');
+		const result = await adapter.ensureFolder('blocked/child');
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) expect(result.error).toContain('path-conflict');
 	});
 });
 

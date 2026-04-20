@@ -41,6 +41,7 @@ export function createTypeOps(
 		if (!folderExists) return ok({ types: [], issues: [] });
 		const listResult = await ports.vault.list(settings.typesFolder);
 		if (listResult.kind === 'err') {
+			ports.logger.error('make-service', `listTypes: vault.list failed for ${settings.typesFolder}`, listResult.error);
 			return err({ kind: 'vault-error', cause: String(listResult.error) });
 		}
 		const prefix = settings.typesFolder.endsWith('/') ? settings.typesFolder : `${settings.typesFolder}/`;
@@ -74,7 +75,10 @@ export function createTypeOps(
 		const exists = await ports.vault.exists(path);
 		if (!exists) return err({ kind: 'type-not-found', typeId });
 		const read = await ports.vault.read(path);
-		if (read.kind === 'err') return err({ kind: 'vault-error', cause: read.error });
+		if (read.kind === 'err') {
+			ports.logger.error('make-service', `loadType: vault.read failed for ${path}`, read.error);
+			return err({ kind: 'vault-error', cause: read.error });
+		}
 		const parsed = trySync(() => JSON.parse(read.value.content) as unknown, { code: 'MAKE_JSON_PARSE', source: 'make' });
 		if (parsed.kind === 'err') return err({ kind: 'invalid-schema', issues: [{ kind: 'invalid-json', reason: parsed.error.message }] });
 		const schemaResult = parseTypeSchema(parsed.value);
@@ -133,12 +137,32 @@ export function createTypeOps(
 	async function writeTypeFiles(
 		jsonPath: string, basePath: string, schema: TypeSchema, now: string,
 	): Promise<Result<TypeSchema, MakeError>> {
+		// Step 4.5: ensure parent folders exist. Obsidian's vault.create fails
+		// with ENOENT when the parent folder is missing — on a fresh install
+		// neither Make/Types nor Make/Bases exists. ensureFolder is idempotent,
+		// so the cost after the first create is negligible.
+		const jsonFolder = jsonPath.includes('/') ? jsonPath.slice(0, jsonPath.lastIndexOf('/')) : '';
+		const baseFolder = basePath.includes('/') ? basePath.slice(0, basePath.lastIndexOf('/')) : '';
+		const ensureJson = await ports.vault.ensureFolder(jsonFolder);
+		if (ensureJson.kind === 'err') {
+			ports.logger.error('make-service', `ensureFolder failed for ${jsonFolder}`, ensureJson.error);
+			return err({ kind: 'vault-error', cause: ensureJson.error });
+		}
+		const ensureBase = await ports.vault.ensureFolder(baseFolder);
+		if (ensureBase.kind === 'err') {
+			ports.logger.error('make-service', `ensureFolder failed for ${baseFolder}`, ensureBase.error);
+			return err({ kind: 'vault-error', cause: ensureBase.error });
+		}
 		// Step 5: write type JSON.
 		const writeJson = await ports.vault.create(jsonPath, serializeTypeSchema(schema));
-		if (writeJson.kind === 'err') return err({ kind: 'vault-error', cause: writeJson.error });
+		if (writeJson.kind === 'err') {
+			ports.logger.error('make-service', `createType: failed to write ${jsonPath}`, writeJson.error);
+			return err({ kind: 'vault-error', cause: writeJson.error });
+		}
 		// Step 6: generate + write base YAML (partial success on failure).
 		const writeBase = await ports.vault.create(basePath, generateBaseYaml(schema));
 		if (writeBase.kind === 'err') {
+			ports.logger.warn('make-service', `createType: base-file write failed for ${basePath}`, writeBase.error);
 			ports.notifications.warn(ports.t.t('make.notify.baseFailed'));
 			return ok(schema);
 		}
@@ -146,6 +170,7 @@ export function createTypeOps(
 		const stamped: TypeSchema = { ...schema, baseFile: { path: basePath, generatedAt: now } };
 		const writeStamp = await ports.vault.update(jsonPath, serializeTypeSchema(stamped));
 		if (writeStamp.kind === 'err') {
+			ports.logger.warn('make-service', `createType: base-stamp write failed for ${jsonPath}`, writeStamp.error);
 			ports.notifications.warn(ports.t.t('make.error.baseStampFailed'));
 			return ok(schema);
 		}
@@ -252,7 +277,10 @@ export function createTypeOps(
 		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
 		const jsonPath = `${typesFolder}/${schema.id}.json`;
 		const deleteJson = await ports.vault.delete(jsonPath);
-		if (deleteJson.kind === 'err') return err({ kind: 'vault-error', cause: String(deleteJson.error) });
+		if (deleteJson.kind === 'err') {
+			ports.logger.error('make-service', `deleteType: vault.delete failed for ${jsonPath}`, deleteJson.error);
+			return err({ kind: 'vault-error', cause: String(deleteJson.error) });
+		}
 
 		ports.eventBus.emit('make:type-deleted', { typeId: schema.id, name: schema.name });
 		return ok({ instancesDeleted, instanceFailures, baseFileDeleted });
@@ -266,6 +294,7 @@ export function createTypeOps(
 			: [...current.favorites, typeId];
 		const saveResult = await ports.settings.saveSection('make', { ...current, favorites: nextFavorites });
 		if (saveResult.kind === 'err') {
+			ports.logger.error('make-service', `toggleFavorite: settings.saveSection failed`, saveResult.error);
 			ports.notifications.warn(ports.t.t('make.error.favoriteFailed'));
 			return err({ kind: 'vault-error', cause: saveResult.error });
 		}

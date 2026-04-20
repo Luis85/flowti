@@ -67,7 +67,10 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 	async function writeNextSchema(next: TypeSchema): Promise<Result<void, MakeError>> {
 		const jsonPath = `${getSettings().typesFolder.replace(/\/$/, '')}/${next.id}.json`;
 		const writeResult = await ports.vault.update(jsonPath, serializeTypeSchema(next));
-		if (writeResult.kind === 'err') return err({ kind: 'vault-error', cause: String(writeResult.error) });
+		if (writeResult.kind === 'err') {
+			ports.logger.error('make-service', `updateType: vault.update failed for ${jsonPath}`, writeResult.error);
+			return err({ kind: 'vault-error', cause: String(writeResult.error) });
+		}
 		return ok(undefined);
 	}
 

@@ -211,6 +211,7 @@ type StoredEntry = { content: string; ctime: number; mtime: number };
 /** In-memory Vault stub sufficient for ObsidianVaultAdapter tests. */
 export class Vault {
 	private readonly _files = new Map<string, StoredEntry>();
+	private readonly _folders = new Set<string>();
 
 	async read(file: TFile): Promise<string> {
 		const entry = this._files.get(file.path);
@@ -219,6 +220,14 @@ export class Vault {
 	}
 
 	async create(path: string, content: string): Promise<TFile> {
+		// Mirror Obsidian's real behaviour: refuse to create files under a
+		// non-existent parent folder. This is what exposes the user-reported
+		// ENOENT bug in the Make create flow when the types folder is
+		// missing on a fresh vault.
+		const parent = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+		if (parent !== '' && !this._folders.has(parent)) {
+			throw new Error(`ENOENT: no such file or directory, open '${path}'`);
+		}
 		const now = Date.now();
 		this._files.set(path, { content, ctime: now, mtime: now });
 		return new TFile(path, { ctime: now, mtime: now, size: content.length });
@@ -234,10 +243,19 @@ export class Vault {
 		this._files.delete(file.path);
 	}
 
-	getAbstractFileByPath(path: string): TFile | null {
-		if (!this._files.has(path)) return null;
-		const entry = this._files.get(path)!;
-		return new TFile(path, { size: entry.content.length, ctime: entry.ctime, mtime: entry.mtime });
+	async createFolder(path: string): Promise<TFolder> {
+		if (this._folders.has(path)) throw new Error(`Folder already exists: ${path}`);
+		this._folders.add(path);
+		return new TFolder(path);
+	}
+
+	getAbstractFileByPath(path: string): TFile | TFolder | null {
+		if (this._files.has(path)) {
+			const entry = this._files.get(path)!;
+			return new TFile(path, { size: entry.content.length, ctime: entry.ctime, mtime: entry.mtime });
+		}
+		if (this._folders.has(path)) return new TFolder(path);
+		return null;
 	}
 
 	getFiles(): TFile[] {

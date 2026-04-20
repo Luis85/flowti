@@ -1,4 +1,4 @@
-import { TFile, type App, type TAbstractFile } from 'obsidian';
+import { TFile, TFolder, type App, type TAbstractFile } from 'obsidian';
 import type { VaultChange, VaultFile, VaultPort } from '../../domain/shared/vault-port.js';
 import type { Unsubscribe } from '../../domain/shared/unsubscribe.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
@@ -91,6 +91,39 @@ export class ObsidianVaultAdapter implements VaultPort {
 		const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
 		const paths = files.map((f) => f.path);
 		return Promise.resolve(ok(prefix === '' ? paths : paths.filter((p) => p.startsWith(prefix))));
+	}
+
+	async ensureFolder(path: string): Promise<Result<void, string>> {
+		// Walk the path segment by segment, creating each missing folder.
+		// Obsidian's createFolder has varied semantics across versions for
+		// nested creation; walking explicitly keeps behavior deterministic
+		// and lets us detect path conflicts (file where folder should be).
+		const cleaned = path.replace(/^\/+|\/+$/g, '');
+		if (cleaned === '') return ok(undefined);
+		const segments = cleaned.split('/').filter((s) => s.length > 0);
+		let current = '';
+		for (const seg of segments) {
+			current = current === '' ? seg : `${current}/${seg}`;
+			const existing = this.app.vault.getAbstractFileByPath(current);
+			if (existing instanceof TFolder) continue;
+			if (existing !== null) return err(`path-conflict: ${current} exists as a file`);
+			const created = await this.createFolderSafe(current);
+			if (created.kind === 'err') return created;
+		}
+		return ok(undefined);
+	}
+
+	private async createFolderSafe(path: string): Promise<Result<void, string>> {
+		try {
+			await this.app.vault.createFolder(path);
+			return ok(undefined);
+		} catch (e) {
+			// Race: another code path may have created it between the exists
+			// check and this call. Accept the folder if it now exists.
+			const retry = this.app.vault.getAbstractFileByPath(path);
+			if (retry instanceof TFolder) return ok(undefined);
+			return err(e instanceof Error ? e.message : String(e));
+		}
 	}
 
 	watch(listener: (change: VaultChange) => void): Unsubscribe {

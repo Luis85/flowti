@@ -200,6 +200,47 @@ describe('makeService.createType', () => {
 		expect(await vault.exists('Make/Bases/book.base')).toBe(true);
 	});
 
+	it('ensureFolder is called for typesFolder AND basesFolder before any create (first-type bootstrap)', async () => {
+		// Regression: on a fresh vault with no Make/Types or Make/Bases,
+		// vault.create('Make/Types/book.json', …) throws ENOENT in Obsidian.
+		// The service must call ensureFolder on both folders before writing.
+		const { vault, svc } = await fresh();
+		await svc.createType({
+			name: 'Book',
+			instancesFolder: 'Books',
+			titleFieldName: 'title',
+			fields: [{ kind: 'text', name: 'title', required: true }],
+		});
+		expect(vault.ensureFolder).toHaveBeenCalledWith('Make/Types');
+		expect(vault.ensureFolder).toHaveBeenCalledWith('Make/Bases');
+		// Ensure-calls MUST precede the first create call in invocation order.
+		const ensureCalls = (vault.ensureFolder as unknown as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder;
+		const createCalls = (vault.create as unknown as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder;
+		expect(Math.min(...ensureCalls)).toBeLessThan(Math.min(...createCalls));
+	});
+
+	it('logs vault-error to logger.error when the JSON write fails, so it appears in console', async () => {
+		// User-observable outcome: if the type JSON write fails (e.g., ENOENT
+		// before ensureFolder is wired, or permissions error), the failure
+		// message should land in the Obsidian devtools console via
+		// LoggerPort.error — not only in the red UI banner.
+		const vault = fakeVault({}, { createError: 'EACCES: permission denied' });
+		const ports = fakeModulePorts({ vault });
+		const svc = createMakeService(ports, () => MAKE_DEFAULTS);
+		const r = await svc.createType({
+			name: 'Book',
+			instancesFolder: 'Books',
+			titleFieldName: 'title',
+			fields: [{ kind: 'text', name: 'title', required: true }],
+		});
+		expect(r.kind).toBe('err');
+		expect(ports.logger.error).toHaveBeenCalledWith(
+			'make-service',
+			expect.stringContaining('createType: failed to write'),
+			expect.stringContaining('EACCES'),
+		);
+	});
+
 	it('emits make:type-created with the stamped schema', async () => {
 		const { vault } = await fresh();
 		const received: TypeSchema[] = [];

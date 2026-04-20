@@ -15,6 +15,7 @@ type StoredFile = { content: string; ctime: number; mtime: number };
  */
 export class InMemoryVaultAdapter implements VaultPort {
 	private readonly files = new Map<string, StoredFile>();
+	private readonly folders = new Set<string>();
 	private readonly listeners = new Set<(change: VaultChange) => void>();
 
 	read(path: string): Promise<Result<VaultFile, string>> {
@@ -60,7 +61,21 @@ export class InMemoryVaultAdapter implements VaultPort {
 	}
 
 	exists(path: string): Promise<boolean> {
-		return Promise.resolve(this.files.has(path));
+		if (this.files.has(path)) return Promise.resolve(true);
+		return Promise.resolve(this.folders.has(path.replace(/\/+$/, '')));
+	}
+
+	ensureFolder(path: string): Promise<Result<void, string>> {
+		const cleaned = path.replace(/^\/+|\/+$/g, '');
+		if (cleaned === '') return Promise.resolve(ok(undefined));
+		const segments = cleaned.split('/').filter((s) => s.length > 0);
+		let current = '';
+		for (const seg of segments) {
+			current = current === '' ? seg : `${current}/${seg}`;
+			if (this.files.has(current)) return Promise.resolve(err(`path-conflict: ${current} exists as a file`));
+			this.folders.add(current);
+		}
+		return Promise.resolve(ok(undefined));
 	}
 
 	list(folder: string): Promise<Result<string[], string>> {

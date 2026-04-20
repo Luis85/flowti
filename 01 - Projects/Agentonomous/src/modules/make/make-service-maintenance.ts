@@ -23,7 +23,11 @@ export function createMaintenanceOps(
 ): MaintenanceServiceMethods {
 	async function deleteCorruptFile(path: string): Promise<Result<void, MakeError>> {
 		const r = await ports.vault.delete(path);
-		return r.kind === 'err' ? err({ kind: 'vault-error', cause: String(r.error) }) : ok(undefined);
+		if (r.kind === 'err') {
+			ports.logger.error('make-service', `deleteCorruptFile: vault.delete failed for ${path}`, r.error);
+			return err({ kind: 'vault-error', cause: String(r.error) });
+		}
+		return ok(undefined);
 	}
 
 	async function regenerateBaseFile(
@@ -46,18 +50,34 @@ export function createMaintenanceOps(
 				}
 			}
 		}
-		// Write (exists → update, else → create).
+		// Write (exists → update, else → create). If creating, ensure the
+		// bases folder first — regenerate can be the first thing to ever
+		// write into Make/Bases on a long-lived vault if base-creation at
+		// createType time was skipped/failed.
 		const existsFinal = await ports.vault.exists(path);
+		if (!existsFinal) {
+			const ensured = await ports.vault.ensureFolder(basesFolder);
+			if (ensured.kind === 'err') {
+				ports.logger.error('make-service', `ensureFolder failed for ${basesFolder}`, ensured.error);
+				return err({ kind: 'vault-error', cause: ensured.error });
+			}
+		}
 		const writeResult = existsFinal
 			? await ports.vault.update(path, yaml)
 			: await ports.vault.create(path, yaml);
-		if (writeResult.kind === 'err') return err({ kind: 'vault-error', cause: writeResult.error });
+		if (writeResult.kind === 'err') {
+			ports.logger.error('make-service', `regenerateBaseFile: failed to write ${path}`, writeResult.error);
+			return err({ kind: 'vault-error', cause: writeResult.error });
+		}
 		// Stamp schema.baseFile.generatedAt.
 		const now = new Date().toISOString();
 		const stamped: TypeSchema = { ...schema, baseFile: { path, generatedAt: now } };
 		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
 		const writeStamp = await ports.vault.update(`${typesFolder}/${schema.id}.json`, serializeTypeSchema(stamped));
-		if (writeStamp.kind === 'err') return err({ kind: 'vault-error', cause: writeStamp.error });
+		if (writeStamp.kind === 'err') {
+			ports.logger.error('make-service', `regenerateBaseFile: stamp write failed`, writeStamp.error);
+			return err({ kind: 'vault-error', cause: writeStamp.error });
+		}
 		ports.eventBus.emit('make:base-regenerated', { typeId: schema.id, basePath: path });
 		return ok(path);
 	}

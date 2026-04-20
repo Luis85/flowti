@@ -144,9 +144,12 @@ export function fakeVault(
 	}
 
 	const listeners = new Set<(change: VaultChange) => void>();
+	const ensuredFolders = new Set<string>();
 	const folderExists = (folder: string): boolean => {
 		const prefix = folder === '' || folder.endsWith('/') ? folder : `${folder}/`;
 		if (prefix === '') return true; // root always exists
+		const normalized = prefix.replace(/\/+$/, '');
+		if (ensuredFolders.has(normalized)) return true;
 		for (const k of files.keys()) {
 			if (k.startsWith(prefix)) return true;
 		}
@@ -199,6 +202,11 @@ export function fakeVault(
 		watch: vi.fn((listener: (change: VaultChange) => void) => {
 			listeners.add(listener);
 			return () => { listeners.delete(listener); };
+		}),
+		ensureFolder: vi.fn(async (folder: string) => {
+			const normalized = folder.replace(/^\/+|\/+$/g, '');
+			if (normalized !== '') ensuredFolders.add(normalized);
+			return ok(undefined);
 		}),
 		emitChange: (change: VaultChange) => {
 			for (const l of listeners) l(change);

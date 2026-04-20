@@ -28,6 +28,15 @@ export interface VaultPort {
 	list(folder: string): Promise<Result<string[], string>>;
 
 	/**
+	 * Ensure a folder path exists in the vault, creating missing segments
+	 * (including nested parents). Idempotent: calling with an existing folder
+	 * returns ok. Returns err if a file of the same path blocks creation
+	 * (path conflict) or the adapter cannot create the folder for any reason.
+	 * Root (`""` or `"/"`) is a no-op.
+	 */
+	ensureFolder(path: string): Promise<Result<void, string>>;
+
+	/**
 	 * Subscribe to vault change events (create/modify/delete/rename).  The
 	 * returned Unsubscribe detaches the listener.  Infrastructure adapters
 	 * also mirror these events on the `vault` bus channel so modules can

@@ -109,11 +109,26 @@ export function createInstanceOps(
 		const exists = await ports.vault.exists(path);
 		if (exists && options?.overwrite !== true) return err({ kind: 'instance-exists', path });
 
+		// When creating (not updating) a brand-new instance, ensure the type's
+		// instances folder exists. A fresh install has no Make/Instances/ —
+		// without this, vault.create fails with ENOENT.
+		if (!exists) {
+			const instancesFolder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+			const ensured = await ports.vault.ensureFolder(instancesFolder);
+			if (ensured.kind === 'err') {
+				ports.logger.error('make-service', `ensureFolder failed for ${instancesFolder}`, ensured.error);
+				return err({ kind: 'vault-error', cause: String(ensured.error) });
+			}
+		}
+
 		const rendered = renderInstanceContent(schema, validated.value);
 		const writeResult = exists
 			? await ports.vault.update(path, rendered.fullMarkdown)
 			: await ports.vault.create(path, rendered.fullMarkdown);
-		if (writeResult.kind === 'err') return err({ kind: 'vault-error', cause: String(writeResult.error) });
+		if (writeResult.kind === 'err') {
+			ports.logger.error('make-service', `createInstance: failed to write ${path}`, writeResult.error);
+			return err({ kind: 'vault-error', cause: String(writeResult.error) });
+		}
 
 		const ref = await buildInstanceRef(typeId, path);
 		ports.eventBus.emit('make:instance-created', { typeId, path });
@@ -122,7 +137,10 @@ export function createInstanceOps(
 
 	async function deleteInstance(path: string): Promise<Result<void, MakeError>> {
 		const deleteResult = await ports.vault.delete(path);
-		if (deleteResult.kind === 'err') return err({ kind: 'vault-error', cause: String(deleteResult.error) });
+		if (deleteResult.kind === 'err') {
+			ports.logger.error('make-service', `deleteInstance: vault.delete failed for ${path}`, deleteResult.error);
+			return err({ kind: 'vault-error', cause: String(deleteResult.error) });
+		}
 
 		const listResult = await peers.listTypes();
 		const types = listResult.kind === 'ok' ? listResult.value.types : [];
@@ -146,7 +164,10 @@ export function createInstanceOps(
 			for (const path of paths) {
 				const r = await ports.vault.delete(path);
 				if (r.kind === 'ok') deletedPaths.push(path);
-				else failures.push({ path, error: String(r.error) });
+				else {
+					ports.logger.error('make-service', `deleteInstances: vault.delete failed for ${path}`, r.error);
+					failures.push({ path, error: String(r.error) });
+				}
 			}
 			ports.eventBus.emit('make:instances-deleted-batch', { typeId, deletedPaths, failures });
 			return ok({ deletedPaths, failures });

@@ -64,4 +64,31 @@ describe('InMemoryVaultAdapter', () => {
 			expect(result.value.frontmatter['tags']).toBe('a');
 		}
 	});
+
+	it('ensureFolder tracks nested folder paths and exists returns true for them', async () => {
+		const adapter = new InMemoryVaultAdapter();
+		const result = await adapter.ensureFolder('Make/Types');
+		expect(isOk(result)).toBe(true);
+		expect(await adapter.exists('Make/Types')).toBe(true);
+		expect(await adapter.exists('Make')).toBe(true);
+	});
+
+	it('ensureFolder is idempotent', async () => {
+		const adapter = new InMemoryVaultAdapter();
+		expect(isOk(await adapter.ensureFolder('x/y'))).toBe(true);
+		expect(isOk(await adapter.ensureFolder('x/y'))).toBe(true);
+	});
+
+	it('ensureFolder returns err when a file blocks the path', async () => {
+		const adapter = new InMemoryVaultAdapter();
+		await adapter.create('blocked', 'i am a file');
+		const result = await adapter.ensureFolder('blocked');
+		expect(isErr(result)).toBe(true);
+	});
+
+	it('ensureFolder on root is a no-op', async () => {
+		const adapter = new InMemoryVaultAdapter();
+		expect(isOk(await adapter.ensureFolder(''))).toBe(true);
+		expect(isOk(await adapter.ensureFolder('/'))).toBe(true);
+	});
 });
