@@ -115,6 +115,8 @@ export type FakeVaultOptions = {
 	 * reserved here so the fake is ready when that slice lands.)
 	 */
 	renameError?: string;
+	/** If set, every `ensureFolder()` call returns this error. */
+	ensureFolderError?: string;
 };
 
 export type FakeVault = VaultPort & {
@@ -204,6 +206,7 @@ export function fakeVault(
 			return () => { listeners.delete(listener); };
 		}),
 		ensureFolder: vi.fn(async (folder: string) => {
+			if (options.ensureFolderError !== undefined) return { kind: 'err' as const, error: options.ensureFolderError };
 			const normalized = folder.replace(/^\/+|\/+$/g, '');
 			if (normalized !== '') ensuredFolders.add(normalized);
 			return ok(undefined);

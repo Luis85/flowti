@@ -89,6 +89,27 @@ export function createInstanceOps(
 		return { typeId, path, title: basename(path).replace(/\.md$/, ''), createdAt, updatedAt };
 	}
 
+	async function ensureInstanceParent(path: string): Promise<Result<void, MakeError>> {
+		const instancesFolder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+		const ensured = await ports.vault.ensureFolder(instancesFolder);
+		if (ensured.kind === 'err') {
+			ports.logger.error('make-service', `ensureFolder failed for ${instancesFolder}`, ensured.error);
+			return err({ kind: 'vault-error', cause: String(ensured.error) });
+		}
+		return ok(undefined);
+	}
+
+	async function writeInstanceFile(path: string, content: string, exists: boolean): Promise<Result<void, MakeError>> {
+		const writeResult = exists
+			? await ports.vault.update(path, content)
+			: await ports.vault.create(path, content);
+		if (writeResult.kind === 'err') {
+			ports.logger.error('make-service', `createInstance: failed to write ${path}`, writeResult.error);
+			return err({ kind: 'vault-error', cause: String(writeResult.error) });
+		}
+		return ok(undefined);
+	}
+
 	async function createInstance(
 		typeId: string,
 		raw: Record<string, unknown>,
@@ -113,22 +134,13 @@ export function createInstanceOps(
 		// instances folder exists. A fresh install has no Make/Instances/ —
 		// without this, vault.create fails with ENOENT.
 		if (!exists) {
-			const instancesFolder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
-			const ensured = await ports.vault.ensureFolder(instancesFolder);
-			if (ensured.kind === 'err') {
-				ports.logger.error('make-service', `ensureFolder failed for ${instancesFolder}`, ensured.error);
-				return err({ kind: 'vault-error', cause: String(ensured.error) });
-			}
+			const ensured = await ensureInstanceParent(path);
+			if (ensured.kind === 'err') return ensured;
 		}
 
 		const rendered = renderInstanceContent(schema, validated.value);
-		const writeResult = exists
-			? await ports.vault.update(path, rendered.fullMarkdown)
-			: await ports.vault.create(path, rendered.fullMarkdown);
-		if (writeResult.kind === 'err') {
-			ports.logger.error('make-service', `createInstance: failed to write ${path}`, writeResult.error);
-			return err({ kind: 'vault-error', cause: String(writeResult.error) });
-		}
+		const wrote = await writeInstanceFile(path, rendered.fullMarkdown, exists);
+		if (wrote.kind === 'err') return wrote;
 
 		const ref = await buildInstanceRef(typeId, path);
 		ports.eventBus.emit('make:instance-created', { typeId, path });

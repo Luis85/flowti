@@ -140,15 +140,18 @@ export function createTypeOps(
 		// Step 4.5: ensure parent folders exist. Obsidian's vault.create fails
 		// with ENOENT when the parent folder is missing — on a fresh install
 		// neither Make/Types nor Make/Bases exists. ensureFolder is idempotent,
-		// so the cost after the first create is negligible.
+		// so the cost after the first create is negligible. The two folders
+		// are independent — fan out.
 		const jsonFolder = jsonPath.includes('/') ? jsonPath.slice(0, jsonPath.lastIndexOf('/')) : '';
 		const baseFolder = basePath.includes('/') ? basePath.slice(0, basePath.lastIndexOf('/')) : '';
-		const ensureJson = await ports.vault.ensureFolder(jsonFolder);
+		const [ensureJson, ensureBase] = await Promise.all([
+			ports.vault.ensureFolder(jsonFolder),
+			ports.vault.ensureFolder(baseFolder),
+		]);
 		if (ensureJson.kind === 'err') {
 			ports.logger.error('make-service', `ensureFolder failed for ${jsonFolder}`, ensureJson.error);
 			return err({ kind: 'vault-error', cause: ensureJson.error });
 		}
-		const ensureBase = await ports.vault.ensureFolder(baseFolder);
 		if (ensureBase.kind === 'err') {
 			ports.logger.error('make-service', `ensureFolder failed for ${baseFolder}`, ensureBase.error);
 			return err({ kind: 'vault-error', cause: ensureBase.error });

@@ -9,6 +9,8 @@ import { MakeContextKey } from '../src/ui/make-context-key.js';
 import { MAKE_DEFAULTS } from '../src/modules/make/make-settings.js';
 import type { MakeContext } from '../src/modules/make/make-context.js';
 import type { MakeService } from '../src/modules/make/make-service.js';
+import type { LoggerPort } from '../src/domain/shared/logger-port.js';
+import type { WorkspacePort } from '../src/domain/shared/workspace-port.js';
 import coreMessages from '../src/modules/core/locales/en.json' with { type: 'json' };
 import makeMessages from '../src/modules/make/locales/en.json' with { type: 'json' };
 import eventInspectorMessages from '../src/modules/event-inspector/locales/en.json' with { type: 'json' };
@@ -20,22 +22,40 @@ const Stub = { template: '<div />' };
 
 const notImpl = () => Promise.resolve({ kind: 'err' as const, error: { kind: 'not-implemented' as const } });
 const stubMakeService: MakeService = {
-	listTypes:          () => Promise.resolve({ kind: 'ok' as const, value: [] }),
+	listTypes:          () => Promise.resolve({ kind: 'ok' as const, value: { types: [], issues: [] } }),
 	loadType:           (id) => Promise.resolve({ kind: 'err' as const, error: { kind: 'type-not-found' as const, typeId: id } }),
 	createType:         notImpl,
 	updateType:         notImpl,
+	retryFailedMoves:   notImpl,
 	deleteType:         notImpl,
+	deleteCorruptFile:  notImpl,
 	listInstances:      () => Promise.resolve({ kind: 'ok' as const, value: [] }),
 	createInstance:     notImpl,
 	deleteInstance:     notImpl,
+	deleteInstances:    () => Promise.resolve({ kind: 'ok' as const, value: { deletedPaths: [], failures: [] } }),
 	regenerateBaseFile: notImpl,
 	toggleFavorite:     () => Promise.resolve({ kind: 'ok' as const, value: true }),
 	getKpis:            () => Promise.resolve({ typesCount: 0, instancesCount: 0, createdThisWeek: 0, perType: {}, recentlyCreated: [] }),
 };
 
+const noopLogger: LoggerPort = {
+	debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, setLevel: () => {},
+};
+
+const noopWorkspace: WorkspacePort = {
+	openFile: () => Promise.resolve({ kind: 'ok' as const, value: undefined }),
+};
+
 function createStubMakeContext(): MakeContext {
 	const settings$ = ref({ ...MAKE_DEFAULTS });
-	return { service: stubMakeService, settings$: readonly(settings$), subscribe: () => () => {} };
+	return {
+		service:         stubMakeService,
+		settings$:       readonly(settings$),
+		subscribe:       () => () => {},
+		workspace:       noopWorkspace,
+		logger:          noopLogger,
+		kpisDebounceMs:  0,
+	};
 }
 
 setup((app) => {

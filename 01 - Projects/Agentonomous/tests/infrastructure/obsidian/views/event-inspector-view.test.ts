@@ -6,6 +6,17 @@ import {
 } from '../../../../src/infrastructure/obsidian/views/event-inspector-view.js';
 import type { PluginContext } from '../../../../src/plugin.js';
 
+// Hoisted mock: stable across test orderings and worker reuse (unlike
+// vi.doMock + vi.resetModules, which races against the static imports
+// above when another test file has already resolved this module).
+let createModuleVueAppShouldThrow = false;
+vi.mock('../../../../src/ui/create-module-vue-app.js', () => ({
+	createModuleVueApp: () => {
+		if (createModuleVueAppShouldThrow) throw new Error('Vue boom');
+		return { unmount: vi.fn(), pinia: {} };
+	},
+}));
+
 describe('VIEW_TYPE_EVENT_INSPECTOR', () => {
 	it('is the expected string', () => {
 		expect(VIEW_TYPE_EVENT_INSPECTOR).toBe('agentonomous-event-inspector');
@@ -55,22 +66,11 @@ describe('EventInspectorView basics', () => {
 });
 
 describe('EventInspectorView — onOpen error branch', () => {
-	beforeEach(() => {
-		vi.resetModules();
-		vi.doMock('../../../../src/ui/create-module-vue-app.js', () => ({
-			createModuleVueApp: () => { throw new Error('Vue boom'); },
-		}));
-	});
-
-	afterEach(() => {
-		vi.doUnmock('../../../../src/ui/create-module-vue-app.js');
-	});
+	beforeEach(() => { createModuleVueAppShouldThrow = true; });
+	afterEach(() => { createModuleVueAppShouldThrow = false; });
 
 	it('renders fallback error text when mounting fails', async () => {
-		const { EventInspectorView: EV } = await import(
-			'../../../../src/infrastructure/obsidian/views/event-inspector-view.js'
-		);
-		const view = new EV({} as never, {} as unknown as PluginContext);
+		const view = new EventInspectorView({} as never, {} as unknown as PluginContext);
 		await (view as unknown as { onOpen: () => Promise<void> }).onOpen();
 		const el = (view as unknown as { contentEl: HTMLElement }).contentEl;
 		expect(el.textContent).toContain('Event inspector failed to load');

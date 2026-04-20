@@ -100,6 +100,11 @@ export class ObsidianVaultAdapter implements VaultPort {
 		// and lets us detect path conflicts (file where folder should be).
 		const cleaned = path.replace(/^\/+|\/+$/g, '');
 		if (cleaned === '') return ok(undefined);
+		// Fast path for the common case (folder already exists) — skip the
+		// per-segment walk. Any caller after the first create on a given
+		// folder hits this branch.
+		const leaf = this.app.vault.getAbstractFileByPath(cleaned);
+		if (leaf instanceof TFolder) return ok(undefined);
 		const segments = cleaned.split('/').filter((s) => s.length > 0);
 		let current = '';
 		for (const seg of segments) {

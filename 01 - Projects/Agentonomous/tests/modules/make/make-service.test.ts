@@ -513,6 +513,32 @@ describe('makeService.updateType — folder-move physics (Slice J)', () => {
 		}
 	});
 
+	it('folder changed, moveInstances: true: ensureFolder called on nextFolder before first rename', async () => {
+		const { vault, svc } = await withBookAndInstances(['Dune']);
+		const order: string[] = [];
+		const origEnsure = vault.ensureFolder;
+		const origRename = vault.rename;
+		vault.ensureFolder = vi.fn(async (p: string) => { order.push(`ensure:${p}`); return origEnsure(p); }) as typeof vault.ensureFolder;
+		vault.rename = vi.fn(async (o: string, n: string) => { order.push(`rename:${n}`); return origRename(o, n); }) as typeof vault.rename;
+		const r = await svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
+		expect(r.kind).toBe('ok');
+		const firstRename = order.findIndex((o) => o.startsWith('rename:'));
+		const firstEnsureNew = order.findIndex((o) => o === 'ensure:NewBooks');
+		expect(firstEnsureNew).toBeGreaterThanOrEqual(0);
+		expect(firstEnsureNew).toBeLessThan(firstRename);
+	});
+
+	it('folder changed, moveInstances: true: ensureFolder failure propagates as failedMoves for every path', async () => {
+		const { vault, svc } = await withBookAndInstances(['Dune', 'Neuromancer']);
+		vault.ensureFolder = vi.fn(async () => ({ kind: 'err' as const, error: 'path-conflict: NewBooks exists as a file' })) as typeof vault.ensureFolder;
+		const r = await svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
+		expect(r.kind).toBe('ok');
+		if (r.kind !== 'ok') throw new Error('unreachable');
+		expect(r.value.moveReport?.movedCount).toBe(0);
+		expect(r.value.moveReport?.failedMoves).toHaveLength(2);
+		expect(vault.rename).not.toHaveBeenCalled();
+	});
+
 	it('folder changed, moveInstances: true: renames all, writes JSON, emits move + update events', async () => {
 		const { vault, svc, ports } = await withBookAndInstances(['Dune', 'Neuromancer']);
 		const r = await svc.updateType('book', { instancesFolder: 'NewBooks' }, { moveInstances: true });
@@ -768,6 +794,28 @@ describe('makeService.retryFailedMoves', () => {
 		const { svc } = await withBookUpdatedToNewBooks();
 		const r = await svc.retryFailedMoves('ghost', ['Books/Dune.md']);
 		expect(r).toMatchObject({ kind: 'err', error: { kind: 'type-not-found', typeId: 'ghost' } });
+	});
+
+	it('ensureFolder is called for toFolder before any rename', async () => {
+		const { vault, svc } = await withBookUpdatedToNewBooks();
+		const order: string[] = [];
+		const origEnsure = vault.ensureFolder;
+		const origRename = vault.rename;
+		vault.ensureFolder = vi.fn(async (p: string) => { order.push(`ensure:${p}`); return origEnsure(p); }) as typeof vault.ensureFolder;
+		vault.rename = vi.fn(async (o: string, n: string) => { order.push(`rename:${n}`); return origRename(o, n); }) as typeof vault.rename;
+		const r = await svc.retryFailedMoves('book', ['Books/Dune.md']);
+		expect(r.kind).toBe('ok');
+		expect(order[0]).toBe('ensure:NewBooks');
+		expect(order[1]).toBe('rename:NewBooks/Dune.md');
+	});
+
+	it('ensureFolder failure surfaces vault-error and skips rename', async () => {
+		const { vault, svc, ports } = await withBookUpdatedToNewBooks();
+		vault.ensureFolder = vi.fn(async () => ({ kind: 'err' as const, error: 'path-conflict: NewBooks exists as a file' })) as typeof vault.ensureFolder;
+		const r = await svc.retryFailedMoves('book', ['Books/Dune.md']);
+		expect(r).toMatchObject({ kind: 'err', error: { kind: 'vault-error' } });
+		expect(vault.rename).not.toHaveBeenCalled();
+		expect(ports.logger.error).toHaveBeenCalledWith('make-service', expect.stringContaining('NewBooks'), expect.stringContaining('path-conflict'));
 	});
 });
 

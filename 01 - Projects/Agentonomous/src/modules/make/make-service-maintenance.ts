@@ -30,6 +30,45 @@ export function createMaintenanceOps(
 		return ok(undefined);
 	}
 
+	async function detectUserEdit(path: string, expectedYaml: string): Promise<MakeError | null> {
+		const read = await ports.vault.read(path);
+		if (read.kind === 'ok' && read.value.content !== expectedYaml) {
+			return { kind: 'base-generation-failed', cause: 'user-edited' };
+		}
+		return null;
+	}
+
+	async function writeBaseFile(
+		path: string, yaml: string, basesFolder: string, fileExists: boolean,
+	): Promise<Result<void, MakeError>> {
+		if (!fileExists) {
+			const ensured = await ports.vault.ensureFolder(basesFolder);
+			if (ensured.kind === 'err') {
+				ports.logger.error('make-service', `ensureFolder failed for ${basesFolder}`, ensured.error);
+				return err({ kind: 'vault-error', cause: ensured.error });
+			}
+		}
+		const writeResult = fileExists
+			? await ports.vault.update(path, yaml)
+			: await ports.vault.create(path, yaml);
+		if (writeResult.kind === 'err') {
+			ports.logger.error('make-service', `regenerateBaseFile: failed to write ${path}`, writeResult.error);
+			return err({ kind: 'vault-error', cause: writeResult.error });
+		}
+		return ok(undefined);
+	}
+
+	async function stampSchemaBaseFile(schema: TypeSchema, basePath: string): Promise<Result<void, MakeError>> {
+		const stamped: TypeSchema = { ...schema, baseFile: { path: basePath, generatedAt: new Date().toISOString() } };
+		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
+		const writeStamp = await ports.vault.update(`${typesFolder}/${schema.id}.json`, serializeTypeSchema(stamped));
+		if (writeStamp.kind === 'err') {
+			ports.logger.error('make-service', `regenerateBaseFile: stamp write failed`, writeStamp.error);
+			return err({ kind: 'vault-error', cause: writeStamp.error });
+		}
+		return ok(undefined);
+	}
+
 	async function regenerateBaseFile(
 		typeId: string,
 		options: { force?: boolean } = {},
@@ -40,44 +79,16 @@ export function createMaintenanceOps(
 		const basesFolder = getSettings().basesFolder.replace(/\/$/, '');
 		const path = `${basesFolder}/${schema.id}.base`;
 		const yaml = generateBaseYaml(schema);
+		const fileExists = await ports.vault.exists(path);
 		// User-edit check (skipped when force: true).
-		if (options.force !== true) {
-			const existsAtPath = await ports.vault.exists(path);
-			if (existsAtPath) {
-				const read = await ports.vault.read(path);
-				if (read.kind === 'ok' && read.value.content !== yaml) {
-					return err({ kind: 'base-generation-failed', cause: 'user-edited' });
-				}
-			}
+		if (options.force !== true && fileExists) {
+			const userEdit = await detectUserEdit(path, yaml);
+			if (userEdit !== null) return err(userEdit);
 		}
-		// Write (exists → update, else → create). If creating, ensure the
-		// bases folder first — regenerate can be the first thing to ever
-		// write into Make/Bases on a long-lived vault if base-creation at
-		// createType time was skipped/failed.
-		const existsFinal = await ports.vault.exists(path);
-		if (!existsFinal) {
-			const ensured = await ports.vault.ensureFolder(basesFolder);
-			if (ensured.kind === 'err') {
-				ports.logger.error('make-service', `ensureFolder failed for ${basesFolder}`, ensured.error);
-				return err({ kind: 'vault-error', cause: ensured.error });
-			}
-		}
-		const writeResult = existsFinal
-			? await ports.vault.update(path, yaml)
-			: await ports.vault.create(path, yaml);
-		if (writeResult.kind === 'err') {
-			ports.logger.error('make-service', `regenerateBaseFile: failed to write ${path}`, writeResult.error);
-			return err({ kind: 'vault-error', cause: writeResult.error });
-		}
-		// Stamp schema.baseFile.generatedAt.
-		const now = new Date().toISOString();
-		const stamped: TypeSchema = { ...schema, baseFile: { path, generatedAt: now } };
-		const typesFolder = getSettings().typesFolder.replace(/\/$/, '');
-		const writeStamp = await ports.vault.update(`${typesFolder}/${schema.id}.json`, serializeTypeSchema(stamped));
-		if (writeStamp.kind === 'err') {
-			ports.logger.error('make-service', `regenerateBaseFile: stamp write failed`, writeStamp.error);
-			return err({ kind: 'vault-error', cause: writeStamp.error });
-		}
+		const wrote = await writeBaseFile(path, yaml, basesFolder, fileExists);
+		if (wrote.kind === 'err') return wrote;
+		const stamped = await stampSchemaBaseFile(schema, path);
+		if (stamped.kind === 'err') return stamped;
 		ports.eventBus.emit('make:base-regenerated', { typeId: schema.id, basePath: path });
 		return ok(path);
 	}

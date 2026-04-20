@@ -77,6 +77,17 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 	async function moveAllInstances(
 		oldInstances: readonly InstanceRef[], oldFolder: string, nextFolder: string,
 	): Promise<MoveReport> {
+		// Obsidian's rename fails with ENOENT when the target's parent folder
+		// is missing. Same failure class as vault.create on a fresh vault —
+		// ensure nextFolder up front so every rename has a home to land in.
+		const ensured = await ports.vault.ensureFolder(nextFolder);
+		if (ensured.kind === 'err') {
+			ports.logger.error('make-service', `moveAllInstances: ensureFolder failed for ${nextFolder}`, ensured.error);
+			return {
+				oldFolder, newFolder: nextFolder, movedCount: 0,
+				failedMoves: oldInstances.map((ref) => ({ path: ref.path, cause: ensured.error })),
+			};
+		}
 		const failedMoves: FailedMove[] = [];
 		let movedCount = 0;
 		for (const ref of oldInstances) {
@@ -163,6 +174,14 @@ export function createUpdateTypeOps(deps: UpdateTypeOpsDeps): UpdateTypeMethods 
 		if (loaded.kind === 'err') return loaded;
 		const toFolder = loaded.value.instancesFolder.trim();
 		const oldFolder = failedPaths.length > 0 ? folderOf(failedPaths[0]!) : '';
+		// Same ENOENT class as moveAllInstances: ensure the target folder
+		// before retrying renames. If the original failure was a missing
+		// folder, this self-heals it on retry.
+		const ensured = await ports.vault.ensureFolder(toFolder);
+		if (ensured.kind === 'err') {
+			ports.logger.error('make-service', `retryFailedMoves: ensureFolder failed for ${toFolder}`, ensured.error);
+			return err({ kind: 'vault-error', cause: ensured.error });
+		}
 		const failedMoves: FailedMove[] = [];
 		let movedCount = 0;
 		for (const oldPath of failedPaths) {
