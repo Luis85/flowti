@@ -81,30 +81,56 @@ const errorText = computed(() => props.errors.map(formatFieldError).join('; '));
 			:aria-invalid="hasError ? 'true' : 'false'"
 			:aria-describedby="hasError ? errorId : undefined"
 			@input="updateName"
-		/>
-		<span v-if="isTitleField" :data-testid="`field-row-${field.name}-title-badge`" :aria-label="t('make.type.field.titleBadge')" class="title-badge">★</span>
+		>
+		<span
+			v-if="isTitleField"
+			:data-testid="`field-row-${field.name}-title-badge`"
+			:aria-label="t('make.type.field.titleBadge')"
+			class="title-badge"
+		>★</span>
 		<input
 			:value="field.label ?? ''"
 			:aria-label="t('make.type.field.labelLabel', { index: displayIndex })"
 			@input="updateLabel"
-		/>
+		>
 		<label class="required-cell">
 			<input
 				type="checkbox"
 				:checked="field.required"
 				:aria-label="t('make.type.field.requiredLabel', { index: displayIndex })"
 				@change="updateRequired"
-			/>
+			>
 		</label>
 		<input
 			:value="field.description ?? ''"
 			:aria-label="t('make.type.field.descriptionLabel', { index: displayIndex })"
 			@input="updateDescription"
-		/>
+		>
 		<div class="field-row__actions">
-			<button type="button" :aria-label="t('make.type.edit.moveUp', { index: displayIndex })" :disabled="isFirst" @click="emit('moveUp')">▲</button>
-			<button type="button" :aria-label="t('make.type.edit.moveDown', { index: displayIndex })" :disabled="isLast" @click="emit('moveDown')">▼</button>
-			<button type="button" :aria-label="t('make.type.edit.removeField', { index: displayIndex })" :disabled="isOnly" @click="emit('remove')">🗑</button>
+			<button
+				type="button"
+				:aria-label="t('make.type.edit.moveUp', { index: displayIndex })"
+				:disabled="isFirst"
+				@click="emit('moveUp')"
+			>
+				▲
+			</button>
+			<button
+				type="button"
+				:aria-label="t('make.type.edit.moveDown', { index: displayIndex })"
+				:disabled="isLast"
+				@click="emit('moveDown')"
+			>
+				▼
+			</button>
+			<button
+				type="button"
+				:aria-label="t('make.type.edit.removeField', { index: displayIndex })"
+				:disabled="isOnly"
+				@click="emit('remove')"
+			>
+				🗑
+			</button>
 		</div>
 		<p v-if="hasError" :id="errorId" class="field-row__error">{{ errorText }}</p>
 	</div>

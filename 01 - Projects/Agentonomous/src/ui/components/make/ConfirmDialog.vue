@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<{
 	destructive?: boolean;
 	busy?: boolean;
 	labels?: Partial<Record<Choice, string>>;
-}>(), { destructive: false, busy: false });
+}>(), { destructive: false, busy: false, labels: () => ({}) });
 
 const emit = defineEmits<{ resolve: [choice: Choice] }>();
 const { t } = useI18n();
@@ -34,7 +34,7 @@ function defaultLabel(choice: Choice): string {
 	return t(`make.confirmDialog.default.${choice}`); // generic fallback keys; see i18n
 }
 function buttonLabel(choice: Choice): string {
-	return props.labels?.[choice] ?? defaultLabel(choice);
+	return props.labels[choice] ?? defaultLabel(choice);
 }
 
 function isConfirmButton(choice: Choice): boolean {

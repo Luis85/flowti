@@ -16,22 +16,33 @@ export const MAKE_DEFAULTS: MakeSettings = {
 	favorites: [],
 };
 
+function readStringField(r: Record<string, unknown>, key: string, fallback: string): Result<string, string> {
+	const v = r[key];
+	if (v === undefined) return ok(fallback);
+	if (typeof v !== 'string') return err(`${key} must be a string`);
+	return ok(v);
+}
+
+function readFavorites(r: Record<string, unknown>): readonly string[] {
+	const raw = r['favorites'];
+	if (!Array.isArray(raw)) return MAKE_DEFAULTS.favorites;
+	return raw.filter((x): x is string => typeof x === 'string');
+}
+
 export function validateMakeSettings(raw: unknown): Result<MakeSettings, string> {
 	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return err('make settings must be an object');
 	const r = raw as Record<string, unknown>;
-	const enabled = typeof r['enabled'] === 'boolean' ? r['enabled'] : MAKE_DEFAULTS.enabled;
-	const typesFolder = r['typesFolder'];
-	const basesFolder = r['basesFolder'];
-	const defaultInstancesRoot = r['defaultInstancesRoot'];
-	if (typesFolder !== undefined && typeof typesFolder !== 'string') return err('typesFolder must be a string');
-	if (basesFolder !== undefined && typeof basesFolder !== 'string') return err('basesFolder must be a string');
-	if (defaultInstancesRoot !== undefined && typeof defaultInstancesRoot !== 'string') return err('defaultInstancesRoot must be a string');
-	const favorites = Array.isArray(r['favorites']) ? r['favorites'].filter((x): x is string => typeof x === 'string') : MAKE_DEFAULTS.favorites;
+	const typesFolder          = readStringField(r, 'typesFolder',          MAKE_DEFAULTS.typesFolder);
+	if (typesFolder.kind === 'err') return typesFolder;
+	const basesFolder          = readStringField(r, 'basesFolder',          MAKE_DEFAULTS.basesFolder);
+	if (basesFolder.kind === 'err') return basesFolder;
+	const defaultInstancesRoot = readStringField(r, 'defaultInstancesRoot', MAKE_DEFAULTS.defaultInstancesRoot);
+	if (defaultInstancesRoot.kind === 'err') return defaultInstancesRoot;
 	return ok({
-		enabled,
-		typesFolder: typeof typesFolder === 'string' ? typesFolder : MAKE_DEFAULTS.typesFolder,
-		basesFolder: typeof basesFolder === 'string' ? basesFolder : MAKE_DEFAULTS.basesFolder,
-		defaultInstancesRoot: typeof defaultInstancesRoot === 'string' ? defaultInstancesRoot : MAKE_DEFAULTS.defaultInstancesRoot,
-		favorites,
+		enabled: typeof r['enabled'] === 'boolean' ? r['enabled'] : MAKE_DEFAULTS.enabled,
+		typesFolder:          typesFolder.value,
+		basesFolder:          basesFolder.value,
+		defaultInstancesRoot: defaultInstancesRoot.value,
+		favorites: readFavorites(r),
 	});
 }

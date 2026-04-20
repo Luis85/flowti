@@ -68,7 +68,9 @@ function onOpenInstance(path: string): void {
 			class="make-home__spinner"
 			role="status"
 			aria-live="polite"
-		>{{ t('make.home.loading') }}</div>
+		>
+			{{ t('make.home.loading') }}
+		</div>
 
 		<div v-else-if="!hasTypes" class="make-home__empty">
 			<p data-testid="make-home-empty">{{ t('make.home.empty') }}</p>
@@ -83,9 +85,24 @@ function onOpenInstance(path: string): void {
 
 		<template v-else>
 			<section class="make-home__kpis" role="group" :aria-label="t('make.home.kpi.groupAriaLabel')">
-				<KpiCard :label="kpiLabelTypes"                      :value="kpis?.typesCount ?? 0"      testid="kpi-types"     :loading="kpis === null" />
-				<KpiCard :label="kpiLabelInstances"                  :value="kpis?.instancesCount ?? 0"  testid="kpi-instances" :loading="kpis === null" />
-				<KpiCard :label="t('make.home.kpi.createdThisWeek')" :value="kpis?.createdThisWeek ?? 0" testid="kpi-week"      :loading="kpis === null" />
+				<KpiCard
+					:label="kpiLabelTypes"
+					:value="kpis?.typesCount ?? 0"
+					testid="kpi-types"
+					:loading="kpis === null"
+				/>
+				<KpiCard
+					:label="kpiLabelInstances"
+					:value="kpis?.instancesCount ?? 0"
+					testid="kpi-instances"
+					:loading="kpis === null"
+				/>
+				<KpiCard
+					:label="t('make.home.kpi.createdThisWeek')"
+					:value="kpis?.createdThisWeek ?? 0"
+					testid="kpi-week"
+					:loading="kpis === null"
+				/>
 			</section>
 
 			<section class="make-home__recent">

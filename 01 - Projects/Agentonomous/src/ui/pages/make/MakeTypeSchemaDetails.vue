@@ -65,8 +65,13 @@ function updateTitleField(e: Event): void {
 					:aria-invalid="errors.name ? 'true' : 'false'"
 					:aria-describedby="errors.name ? 'schema-name-error' : undefined"
 					@input="updateName"
-				/>
-				<p v-if="errors.name" id="schema-name-error" data-testid="schema-name-error" class="field-error">
+				>
+				<p
+					v-if="errors.name"
+					id="schema-name-error"
+					data-testid="schema-name-error"
+					class="field-error"
+				>
 					{{ errors.name }}
 				</p>
 			</div>
@@ -79,7 +84,7 @@ function updateTitleField(e: Event): void {
 					data-testid="schema-description"
 					:value="draft.description"
 					@input="updateDescription"
-				/>
+				>
 			</div>
 
 			<!-- Instances folder -->
@@ -97,8 +102,13 @@ function updateTitleField(e: Event): void {
 					:aria-invalid="errors.folder ? 'true' : 'false'"
 					:aria-describedby="errors.folder ? 'schema-folder-error' : undefined"
 					@input="updateFolder"
-				/>
-				<p v-if="errors.folder" id="schema-folder-error" data-testid="schema-folder-error" class="field-error">
+				>
+				<p
+					v-if="errors.folder"
+					id="schema-folder-error"
+					data-testid="schema-folder-error"
+					class="field-error"
+				>
 					{{ errors.folder }}
 				</p>
 				<p

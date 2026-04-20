@@ -87,7 +87,7 @@ const typeFilePath = computed(() => `${props.typesFolder.replace(/\/$/, '')}/${p
 						v-model="alsoDeleteInstances"
 						type="checkbox"
 						data-testid="delete-type-instances-checkbox"
-					/>
+					>
 					{{ t('make.delete.alsoDeleteInstances', { count: props.instanceCount, folder: props.type.instancesFolder }) }}
 				</label>
 				<label data-testid="delete-type-base-checkbox-label">
@@ -96,7 +96,7 @@ const typeFilePath = computed(() => `${props.typesFolder.replace(/\/$/, '')}/${p
 						type="checkbox"
 						data-testid="delete-type-base-checkbox"
 						:disabled="type.baseFile === undefined"
-					/>
+					>
 					{{ t('make.delete.alsoDeleteBase') }}
 					<code v-if="type.baseFile" data-testid="delete-type-base-file-path">{{ type.baseFile.path }}</code>
 				</label>

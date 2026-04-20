@@ -5,7 +5,7 @@ import type { NonEmptyArray, ReadonlyRecord } from './types.js';
 import { FIELD_KINDS } from './field-kinds/index.js';
 import { sanitizeFilenameStem } from './sanitize-filename.js';
 
-type RawValues = ReadonlyRecord<string, unknown>;
+export type RawValues = ReadonlyRecord<string, unknown>;
 
 export function validateInstanceValues(schema: TypeSchema, raw: RawValues): Result<readonly FieldValue[], NonEmptyArray<FieldError>> {
 	const out: FieldValue[] = [];

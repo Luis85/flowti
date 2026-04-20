@@ -46,21 +46,31 @@ export type MakeEventHandlers = {
 	readonly onSettingsChanged?:          (payload: EventMap['make:settings-changed']) => void;
 };
 
+type HandlerBinding = { readonly [K in keyof MakeEventHandlers]-?: [K, keyof EventMap] }[keyof MakeEventHandlers];
+
+const HANDLER_BINDINGS: readonly HandlerBinding[] = [
+	['onTypeCreated',             'make:type-created'],
+	['onTypeUpdated',             'make:type-updated'],
+	['onTypeDeleted',             'make:type-deleted'],
+	['onInstanceCreated',         'make:instance-created'],
+	['onInstanceDeleted',         'make:instance-deleted'],
+	['onOrphanDeleted',           'make:orphan-deleted'],
+	['onInstancesDeletedBatch',   'make:instances-deleted-batch'],
+	['onInstancesMoved',          'make:instances-moved'],
+	['onFavoriteToggled',         'make:favorite-toggled'],
+	['onBaseRegenerated',         'make:base-regenerated'],
+	['onSettingsChanged',         'make:settings-changed'],
+];
+
 function subscribe(handlers: MakeEventHandlers): () => void {
 	if (state === null) return () => { /* no-op when module not initialised */ };
 	const bus = state.ports.eventBus;
 	const unsubs: Array<() => void> = [];
-	if (handlers.onTypeCreated)            unsubs.push(bus.on('make:type-created',            (e) => { handlers.onTypeCreated!(e.payload); }));
-	if (handlers.onTypeUpdated)            unsubs.push(bus.on('make:type-updated',            (e) => { handlers.onTypeUpdated!(e.payload); }));
-	if (handlers.onTypeDeleted)            unsubs.push(bus.on('make:type-deleted',            (e) => { handlers.onTypeDeleted!(e.payload); }));
-	if (handlers.onInstanceCreated)        unsubs.push(bus.on('make:instance-created',        (e) => { handlers.onInstanceCreated!(e.payload); }));
-	if (handlers.onInstanceDeleted)        unsubs.push(bus.on('make:instance-deleted',        (e) => { handlers.onInstanceDeleted!(e.payload); }));
-	if (handlers.onOrphanDeleted)          unsubs.push(bus.on('make:orphan-deleted',          (e) => { handlers.onOrphanDeleted!(e.payload); }));
-	if (handlers.onInstancesDeletedBatch)  unsubs.push(bus.on('make:instances-deleted-batch', (e) => { handlers.onInstancesDeletedBatch!(e.payload); }));
-	if (handlers.onInstancesMoved)         unsubs.push(bus.on('make:instances-moved',         (e) => { handlers.onInstancesMoved!(e.payload); }));
-	if (handlers.onFavoriteToggled)        unsubs.push(bus.on('make:favorite-toggled',        (e) => { handlers.onFavoriteToggled!(e.payload); }));
-	if (handlers.onBaseRegenerated)        unsubs.push(bus.on('make:base-regenerated',        (e) => { handlers.onBaseRegenerated!(e.payload); }));
-	if (handlers.onSettingsChanged)        unsubs.push(bus.on('make:settings-changed',        (e) => { handlers.onSettingsChanged!(e.payload); }));
+	for (const [handlerKey, eventKey] of HANDLER_BINDINGS) {
+		const handler = handlers[handlerKey];
+		if (handler === undefined) continue;
+		unsubs.push(bus.on(eventKey, (e) => { (handler as (p: unknown) => void)(e.payload); }));
+	}
 	return () => { for (const u of unsubs) u(); };
 }
 

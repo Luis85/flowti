@@ -1,11 +1,17 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["../src/domain", "../src/infrastructure"],
+  "entryPoints": ["../src/domain", "../src/infrastructure", "../src/modules", "../src/core", "../src/plugin.ts"],
   "entryPointStrategy": "expand",
   "exclude": ["**/*.vue", "**/*.test.ts"],
   "out": "../docs/api",
-  "tsconfig": "./tsconfig.json",
+  "tsconfig": "../tsconfig.json",
   "skipErrorChecking": false,
   "disableSources": false,
-  "readme": "none"
+  "readme": "none",
+  "externalSymbolLinkMappings": {
+    "typescript": {
+      "setInterval": "https://developer.mozilla.org/en-US/docs/Web/API/setInterval",
+      "window.setInterval": "https://developer.mozilla.org/en-US/docs/Web/API/setInterval"
+    }
+  }
 }

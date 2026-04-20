@@ -127,7 +127,12 @@ const fieldNamesForTitle = computed(() => props.draft.fields.filter((f) => f.kin
 		</div>
 
 		<footer data-testid="fields-footer">
-			<button type="button" data-testid="fields-cancel" :disabled="isSaving" @click="emit('cancel')">
+			<button
+				type="button"
+				data-testid="fields-cancel"
+				:disabled="isSaving"
+				@click="emit('cancel')"
+			>
 				{{ t('make.type.edit.cancel') }}
 			</button>
 			<button

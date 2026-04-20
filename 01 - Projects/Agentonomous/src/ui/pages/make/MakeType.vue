@@ -171,7 +171,9 @@ const typesFolder = computed(() => makeCtx.settings$.value.typesFolder);
 					class="favorite-star"
 					:class="{ filled: store.isFavoritedForUI(typeId!), pending: store.favoriteToggling.has(typeId!) }"
 					@click="onToggleFavorite"
-				>★</button>
+				>
+					★
+				</button>
 			</div>
 			<p v-if="committedType" data-testid="make-type-folder" class="folder">Folder: {{ committedType.instancesFolder }}</p>
 		</header>
@@ -185,7 +187,12 @@ const typesFolder = computed(() => makeCtx.settings$.value.typesFolder);
 			@regenerate="onRegenerate(false)"
 		/>
 
-		<div v-if="!isNewMode" role="tablist" class="tabs" :aria-label="t('make.module.name')">
+		<div
+			v-if="!isNewMode"
+			role="tablist"
+			class="tabs"
+			:aria-label="t('make.module.name')"
+		>
 			<button
 				id="tab-fields"
 				role="tab"
@@ -213,7 +220,12 @@ const typesFolder = computed(() => makeCtx.settings$.value.typesFolder);
 			</button>
 		</div>
 
-		<section id="panel-fields" role="tabpanel" aria-labelledby="tab-fields" :hidden="!isNewMode && activeTab !== 'fields'">
+		<section
+			id="panel-fields"
+			role="tabpanel"
+			aria-labelledby="tab-fields"
+			:hidden="!isNewMode && activeTab !== 'fields'"
+		>
 			<MakeTypeFieldsEditor
 				:draft="draft"
 				:mode="isNewMode ? 'new' : 'edit'"
@@ -231,7 +243,13 @@ const typesFolder = computed(() => makeCtx.settings$.value.typesFolder);
 			/>
 		</section>
 
-		<section v-if="!isNewMode" id="panel-instances" role="tabpanel" aria-labelledby="tab-instances" :hidden="activeTab !== 'instances'">
+		<section
+			v-if="!isNewMode"
+			id="panel-instances"
+			role="tabpanel"
+			aria-labelledby="tab-instances"
+			:hidden="activeTab !== 'instances'"
+		>
 			<MakeTypeInstances
 				v-if="committedType"
 				:type="committedType"

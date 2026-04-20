@@ -25,53 +25,77 @@ function parseField(raw: unknown): Result<Field, SchemaError> {
 	return ok(field);
 }
 
-export function parseTypeSchema(raw: unknown): Result<TypeSchema, SchemaError> {
-	if (!isObject(raw)) return err({ kind: 'invalid-json', reason: 'root is not an object' });
-	for (const k of ['id', 'name', 'instancesFolder', 'fields', 'createdAt', 'updatedAt'] as const) {
-		if (!(k in raw)) return err({ kind: 'missing-required-key', key: k });
-	}
-	const { id, name, description, instancesFolder, titleFieldName, fields, createdAt, updatedAt, baseFile } = raw;
-	if (typeof id !== 'string') return err({ kind: 'missing-required-key', key: 'id' });
-	if (typeof name !== 'string') return err({ kind: 'missing-required-key', key: 'name' });
-	const nameCheck = validateTypeName(name);
-	if (nameCheck.kind === 'err') return err(nameCheck.error);
-	if (typeof instancesFolder !== 'string') return err({ kind: 'invalid-folder-path', path: String(instancesFolder) });
-	if (!Array.isArray(fields)) return err({ kind: 'missing-required-key', key: 'fields' });
-
+function parseFields(rawFields: readonly unknown[]): Result<Field[], SchemaError> {
 	const parsedFields: Field[] = [];
 	const seen = new Set<string>();
-	for (const rawField of fields) {
+	for (const rawField of rawFields) {
 		const parsed = parseField(rawField);
 		if (parsed.kind === 'err') return err(parsed.error);
 		if (seen.has(parsed.value.name)) return err({ kind: 'duplicate-field-name', name: parsed.value.name });
 		seen.add(parsed.value.name);
 		parsedFields.push(parsed.value);
 	}
+	return ok(parsedFields);
+}
 
-	const titleField = titleFieldName;
-	if (titleField !== null && titleField !== undefined) {
-		if (typeof titleField !== 'string') return err({ kind: 'invalid-json', reason: 'titleFieldName must be a string or null' });
-		const target = parsedFields.find((f) => f.name === titleField);
-		if (target === undefined) return err({ kind: 'title-field-missing', titleFieldName: titleField });
-		if (target.kind !== 'text') return err({ kind: 'title-field-not-text', titleFieldName: titleField });
+function validateTitleField(titleField: unknown, parsedFields: readonly Field[]): SchemaError | null {
+	if (titleField === null || titleField === undefined) return null;
+	if (typeof titleField !== 'string') return { kind: 'invalid-json', reason: 'titleFieldName must be a string or null' };
+	const target = parsedFields.find((f) => f.name === titleField);
+	if (target === undefined) return { kind: 'title-field-missing', titleFieldName: titleField };
+	if (target.kind !== 'text') return { kind: 'title-field-not-text', titleFieldName: titleField };
+	return null;
+}
+
+function extractBaseFile(raw: unknown): { path: string; generatedAt: string } | null {
+	if (!isObject(raw)) return null;
+	if (typeof raw['path'] !== 'string' || typeof raw['generatedAt'] !== 'string') return null;
+	return { path: raw['path'], generatedAt: raw['generatedAt'] };
+}
+
+function checkRootShape(raw: Record<string, unknown>): SchemaError | null {
+	for (const k of ['id', 'name', 'instancesFolder', 'fields', 'createdAt', 'updatedAt'] as const) {
+		if (!(k in raw)) return { kind: 'missing-required-key', key: k };
 	}
-
-	if (typeof createdAt !== 'string' || typeof updatedAt !== 'string') {
-		return err({ kind: 'invalid-json', reason: 'createdAt/updatedAt must be strings' });
+	if (typeof raw['id'] !== 'string') return { kind: 'missing-required-key', key: 'id' };
+	if (typeof raw['name'] !== 'string') return { kind: 'missing-required-key', key: 'name' };
+	if (typeof raw['instancesFolder'] !== 'string') return { kind: 'invalid-folder-path', path: String(raw['instancesFolder']) };
+	if (!Array.isArray(raw['fields'])) return { kind: 'missing-required-key', key: 'fields' };
+	if (typeof raw['createdAt'] !== 'string' || typeof raw['updatedAt'] !== 'string') {
+		return { kind: 'invalid-json', reason: 'createdAt/updatedAt must be strings' };
 	}
+	return null;
+}
 
+export function parseTypeSchema(raw: unknown): Result<TypeSchema, SchemaError> {
+	if (!isObject(raw)) return err({ kind: 'invalid-json', reason: 'root is not an object' });
+	const rootErr = checkRootShape(raw);
+	if (rootErr !== null) return err(rootErr);
+	const { id, name, description, instancesFolder, titleFieldName, fields, createdAt, updatedAt, baseFile } = raw as {
+		id: string; name: string; description?: unknown; instancesFolder: string;
+		titleFieldName?: unknown; fields: unknown[]; createdAt: string; updatedAt: string; baseFile?: unknown;
+	};
+	const nameCheck = validateTypeName(name);
+	if (nameCheck.kind === 'err') return err(nameCheck.error);
+
+	const fieldsResult = parseFields(fields);
+	if (fieldsResult.kind === 'err') return err(fieldsResult.error);
+	const parsedFields = fieldsResult.value;
+
+	const titleErr = validateTitleField(titleFieldName, parsedFields);
+	if (titleErr !== null) return err(titleErr);
+
+	const parsedBaseFile = extractBaseFile(baseFile);
 	const schema: TypeSchema = {
 		id,
 		name: nameCheck.value,
 		...(typeof description === 'string' ? { description } : {}),
 		instancesFolder,
-		titleFieldName: typeof titleField === 'string' ? titleField : null,
+		titleFieldName: typeof titleFieldName === 'string' ? titleFieldName : null,
 		fields: parsedFields,
 		createdAt,
 		updatedAt,
-		...(isObject(baseFile) && typeof baseFile['path'] === 'string' && typeof baseFile['generatedAt'] === 'string'
-			? { baseFile: { path: baseFile['path'], generatedAt: baseFile['generatedAt'] } }
-			: {}),
+		...(parsedBaseFile !== null ? { baseFile: parsedBaseFile } : {}),
 	};
 	return ok(schema);
 }

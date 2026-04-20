@@ -161,7 +161,12 @@ async function onConfirmDelete(choice: 'confirm' | 'cancel' | 'save' | 'discard'
 			@resolve="onConfirmDelete"
 		/>
 
-		<div v-if="typesError" data-testid="make-types-error" class="make-types__error" role="alert">
+		<div
+			v-if="typesError"
+			data-testid="make-types-error"
+			class="make-types__error"
+			role="alert"
+		>
 			{{ typesError }}
 			<button type="button" data-testid="make-types-retry" @click="onRefresh">Retry</button>
 		</div>
@@ -184,7 +189,9 @@ async function onConfirmDelete(choice: 'confirm' | 'cancel' | 'save' | 'discard'
 						class="favorite-star"
 						:class="{ filled: store.isFavoritedForUI(type.id), pending: store.favoriteToggling.has(type.id) }"
 						@click.prevent.stop="store.toggleFavorite(type.id)"
-					>★</button>
+					>
+						★
+					</button>
 					<span class="make-types__name">{{ type.name }}</span>
 					<span v-if="type.description" class="make-types__description">{{ type.description }}</span>
 					<span class="make-types__count">{{ countLabel(type.id) }}</span>

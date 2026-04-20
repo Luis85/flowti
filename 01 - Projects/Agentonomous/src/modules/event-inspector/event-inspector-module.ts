@@ -6,7 +6,7 @@ import enMessages from './locales/en.json' with { type: 'json' };
 
 export const VIEW_TYPE_EVENT_INSPECTOR = 'agentonomous-event-inspector';
 
-type Listener = (envelope: EventEnvelope) => void;
+export type Listener = (envelope: EventEnvelope) => void;
 
 type ModuleState = {
 	busUnsub: Unsubscribe;
