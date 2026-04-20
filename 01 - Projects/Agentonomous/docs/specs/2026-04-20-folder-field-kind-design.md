@@ -70,7 +70,7 @@ src/modules/core/locales/en.json
 3. Renderer dispatches on kind; `folder` renders a text input + Browse button.
 4. User clicks Browse → the wired callback invokes `dialogs.pickFolder({ title })`.
 5. Obsidian adapter opens `FolderSuggestModal`; `getSuggestions(query)` returns filtered folder paths from `app.vault.getAllLoadedFiles().filter(f => f instanceof TFolder).map(f => f.path || '/').sort()`.
-6. User selects → `onChooseSuggestion(path)` resolves the promise with the path (`'/'` mapped back to `''`).
+6. User selects → `onChooseSuggestion(path)` resolves the promise with the path (`'/'` mapped back to `''`). **Mapping asymmetry:** the suggest UI displays `'/'` for root for readability, but the port contract always returns `''` for root so consumers never special-case a leading-slash path.
 7. Renderer's button handler receives the path, calls `textComp.setValue(path)` (visual update) and `commit({ ...current, [key]: path })` (data update).
 8. `commit` is the `onChange` callback wired by `settings-tab.ts` → `port.saveSection(sectionKey, next)`.
 9. Settings port broadcasts → `PluginCore.dispatchSettingsChanges` diffs sections → `MakeModule.onSettingsChange(settings)` fires.
@@ -144,6 +144,8 @@ class FolderSuggestModal extends SuggestModal<string> {
     super(app);
     this.setPlaceholder(title);
   }
+  // `run()` is not part of Obsidian's SuggestModal API — it's a local helper
+  // that wraps the base-class `open()` call in a Promise the adapter can await.
   run(): Promise<string | null> {
     return new Promise((resolve) => {
       this.resolver = resolve;
@@ -204,15 +206,15 @@ Coverage targets unchanged.
 5. `src/infrastructure/settings/settings-tab.ts` — constructor takes `DialogPort`, threads `pickFolder` through
 6. `src/modules/make/make-module.ts` — 3 kind changes in `settingsSchema`
 7. `src/modules/core/locales/en.json` — 2 new i18n keys
-8. `src/main.ts` or wherever `AgentonomousSettingsTab` is constructed — pass the new `DialogPort` arg (one-line DI update)
+8. `src/main.ts` (line 151) — pass the new `DialogPort` arg into `AgentonomousSettingsTab` (one-line DI update)
 
-**Tests (5):**
-9. `tests/__fakes__/fake-ports.ts` — extend `fakeDialogs`
-10. `tests/__stubs__/obsidian.ts` — add `SuggestModal` stub
-11. `tests/infrastructure/obsidian/obsidian-dialog-adapter.test.ts` — new/updated
-12. `tests/infrastructure/settings/render-settings-schema.test.ts` — updated
-13. `tests/infrastructure/settings/settings-tab.test.ts` — updated
-14. `tests/modules/make/make-module.test.ts` — updated
+**Tests (6):**
+1. `tests/__fakes__/fake-ports.ts` — extend `fakeDialogs` with `pickedFolder` option
+2. `tests/__stubs__/obsidian.ts` — add `SuggestModal` stub (reuse the existing `_trigger` hook pattern at line 137) and `Vault.getAllLoadedFiles`
+3. `tests/infrastructure/obsidian/obsidian-dialog-adapter.test.ts` — new/updated
+4. `tests/infrastructure/settings/render-settings-schema.test.ts` — updated
+5. `tests/infrastructure/settings/settings-tab.test.ts` — updated
+6. `tests/modules/make/make-module.test.ts` — updated
 
 New code weight ~150 lines source + ~120 lines tests.
 
@@ -232,6 +234,6 @@ None — all choices were resolved in the brainstorming dialog.
 
 ## Backlog linkage
 
-- Closes: **A2** in `docs/specs/2026-04-19-make-chunk-5-backlog.md`.
+- **Partially closes A2** in `docs/specs/2026-04-19-make-chunk-5-backlog.md`. The backlog's A2 entry scoped a full Make-specific Vue settings panel including path pickers, favorites read-only display, and an `enabled` toggle. This slice delivers the path-picker ergonomics (the actual pain point) via a framework-level field kind. Favorites and `enabled` are **explicitly scoped out** (decision #8, decision #7) because they don't benefit from a dedicated panel. A follow-up Vue panel remains possible if a future need actually requires it.
 - Does not close: A4 (locale audit) — remains pending as the next Chunk 5 slice.
 - Does not affect: B (schema migration), C-series (§12 outbox remnants), D-series (framework-level).
