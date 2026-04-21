@@ -92,6 +92,28 @@ export class Setting {
 		onChange(fn: (value: string) => void): this;
 		_trigger(value: string): void;
 	}> = [];
+	/** Exposed for tests: all text components created by this Setting instance. */
+	_texts: Array<{
+		_onChange: ((value: string) => void) | null;
+		_value: string;
+		setValue(v: string): this;
+		setPlaceholder(v: string): this;
+		onChange(fn: (value: string) => void): this;
+		_trigger(value: string): void;
+		inputEl: { addEventListener(ev: string, fn: (e: KeyboardEvent) => void): void };
+	}> = [];
+	/** Exposed for tests: all buttons created by this Setting instance. */
+	_buttons: Array<{
+		_label: string;
+		_clicked: boolean;
+		_onClick: (() => void | Promise<void>) | null;
+		setButtonText(t: string): this;
+		setCta(): this;
+		setWarning(): this;
+		onClick(fn: () => void | Promise<void>): this;
+		_trigger(): void;
+		_triggerAsync(): Promise<void>;
+	}> = [];
 
 	constructor(container: HTMLElement) {
 		this._el = container.createEl?.('div') ?? document.createElement('div');
@@ -125,30 +147,34 @@ export class Setting {
 		this._dropdowns.push(dropdown);
 		return this;
 	}
-	addButton(cb: (b: { _label: string; _clicked: boolean; _onClick: (() => void) | null; setButtonText(t: string): { _label: string; _clicked: boolean; _onClick: (() => void) | null }; setCta(): unknown; setWarning(): unknown; onClick(fn: () => void): unknown; _trigger(): void }) => void): this {
-		const btn = {
+	addButton(cb: (b: Setting['_buttons'][number]) => void): this {
+		const btn: Setting['_buttons'][number] = {
 			_label: '',
 			_clicked: false,
-			_onClick: null as (() => void) | null,
+			_onClick: null,
 			setButtonText(text: string) { this._label = text; return this; },
 			setCta() { return this; },
 			setWarning() { return this; },
-			onClick(fn: () => void) { this._onClick = fn; return this; },
-			_trigger() { this._clicked = true; this._onClick?.(); },
+			onClick(fn: () => void | Promise<void>) { this._onClick = fn; return this; },
+			_trigger() { this._clicked = true; void this._onClick?.(); },
+			async _triggerAsync() { this._clicked = true; await this._onClick?.(); },
 		};
 		cb(btn);
+		this._buttons.push(btn);
 		return this;
 	}
-	addText(cb: (t: { inputEl: { addEventListener(ev: string, fn: (e: KeyboardEvent) => void): void }; setValue(v: string): unknown; setPlaceholder(v: string): unknown; onChange(fn: (v: string) => void): unknown }) => void): this {
-		const txt = {
-			inputEl: {
-				addEventListener(_ev: string, _fn: (e: KeyboardEvent) => void) {},
-			},
-			setValue(_v: string) { return this; },
+	addText(cb: (t: Setting['_texts'][number]) => void): this {
+		const txt: Setting['_texts'][number] = {
+			_onChange: null,
+			_value: '',
+			setValue(v: string) { this._value = v; return this; },
 			setPlaceholder(_v: string) { return this; },
-			onChange(_fn: (v: string) => void) { return this; },
+			onChange(fn: (v: string) => void) { this._onChange = fn; return this; },
+			_trigger(value: string) { this._value = value; this._onChange?.(value); },
+			inputEl: { addEventListener(_ev: string, _fn: (e: KeyboardEvent) => void) {} },
 		};
 		cb(txt);
+		this._texts.push(txt);
 		return this;
 	}
 }

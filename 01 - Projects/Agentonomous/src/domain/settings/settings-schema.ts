@@ -15,7 +15,8 @@ export type SettingsField =
 	| ToggleField
 	| DropdownField
 	| TextField
-	| NumberField;
+	| NumberField
+	| FolderField;
 
 export type ToggleField = {
 	readonly kind: 'toggle';
@@ -48,4 +49,12 @@ export type NumberField = {
 	readonly min?: number;
 	readonly max?: number;
 	readonly step?: number;
+};
+
+export type FolderField = {
+	readonly kind: 'folder';
+	readonly key: string;
+	readonly label: string;
+	readonly description?: string;
+	readonly placeholder?: string;
 };

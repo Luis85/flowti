@@ -89,3 +89,90 @@ describe('renderSettingsSchema', () => {
 		expect(onChange).toHaveBeenCalledWith({ enabled: true });
 	});
 });
+
+describe('renderSettingsSchema \u2014 folder kind', () => {
+	it('renders a text input + Browse button when pickFolder is provided', () => {
+		const container = makeContainer();
+		const onChange = vi.fn();
+		const pickFolder = vi.fn(async () => null);
+		renderSettingsSchema(
+			container,
+			{ title: 'Make', fields: [{ kind: 'folder', key: 'typesFolder', label: 'Types folder' }] },
+			{ typesFolder: 'Make/Types' },
+			onChange,
+			{ pickFolder },
+		);
+		const settings = _settingsByContainer.get(container) ?? [];
+		const folderSetting = settings.at(-1)!;
+		expect(folderSetting._texts).toHaveLength(1);
+		expect(folderSetting._buttons).toHaveLength(1);
+	});
+
+	it('omits the Browse button when pickFolder is not provided', () => {
+		const container = makeContainer();
+		renderSettingsSchema(
+			container,
+			{ title: 'Make', fields: [{ kind: 'folder', key: 'typesFolder', label: 'Types folder' }] },
+			{ typesFolder: 'Make/Types' },
+			vi.fn(),
+		);
+		const settings = _settingsByContainer.get(container) ?? [];
+		const folderSetting = settings.at(-1)!;
+		// Text input is always present; Browse button skipped when pickFolder absent.
+		expect(folderSetting._texts).toHaveLength(1);
+		expect(folderSetting._buttons).toHaveLength(0);
+	});
+
+	it('clicking Browse calls pickFolder and propagates the chosen path', async () => {
+		const container = makeContainer();
+		const onChange = vi.fn();
+		const pickFolder = vi.fn(async () => 'Make/Types/Archive');
+		renderSettingsSchema(
+			container,
+			{ title: 'Make', fields: [{ kind: 'folder', key: 'typesFolder', label: 'Types folder' }] },
+			{ typesFolder: 'Make/Types' },
+			onChange,
+			{ pickFolder },
+		);
+		const folderSetting = (_settingsByContainer.get(container) ?? []).at(-1)!;
+		const browseBtn = folderSetting._buttons[0];
+		if (browseBtn === undefined) throw new Error('Browse button not registered');
+		await browseBtn._triggerAsync();
+		expect(pickFolder).toHaveBeenCalledOnce();
+		expect(onChange).toHaveBeenCalledWith({ typesFolder: 'Make/Types/Archive' });
+	});
+
+	it('null from pickFolder leaves the current value unchanged (no onChange)', async () => {
+		const container = makeContainer();
+		const onChange = vi.fn();
+		const pickFolder = vi.fn(async () => null);
+		renderSettingsSchema(
+			container,
+			{ title: 'Make', fields: [{ kind: 'folder', key: 'typesFolder', label: 'Types folder' }] },
+			{ typesFolder: 'Make/Types' },
+			onChange,
+			{ pickFolder },
+		);
+		const folderSetting = (_settingsByContainer.get(container) ?? []).at(-1)!;
+		const browseBtn = folderSetting._buttons[0];
+		if (browseBtn === undefined) throw new Error('Browse button not registered');
+		await browseBtn._triggerAsync();
+		expect(pickFolder).toHaveBeenCalledOnce();
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it('typing a trailing-slash value normalizes on onChange', () => {
+		const container = makeContainer();
+		const onChange = vi.fn();
+		renderSettingsSchema(
+			container,
+			{ title: 'Make', fields: [{ kind: 'folder', key: 'typesFolder', label: 'Types folder' }] },
+			{ typesFolder: 'Make/Types' },
+			onChange,
+			{ pickFolder: vi.fn(async () => null) },
+		);
+		const folderSetting = (_settingsByContainer.get(container) ?? []).at(-1)!;
+		folderSetting._texts[0]!._trigger('Make/Types/Archive/');
+		expect(onChange).toHaveBeenCalledWith({ typesFolder: 'Make/Types/Archive' });
+	});
+});
