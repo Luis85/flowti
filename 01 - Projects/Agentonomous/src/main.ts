@@ -148,7 +148,7 @@ export default class AgentonomousPlugin extends Plugin {
 		const activeRegistrations = VIEW_REGISTRATIONS.filter((r) => activeIntentTypes.has(r.type));
 		views.registerAll(this, ctx, activeRegistrations);
 		this.core.registerExtensions(fileExtensions);
-		this.addSettingTab(new AgentonomousSettingsTab(this.app, this, settings, translationPort, this.core.registeredModules));
+		this.addSettingTab(new AgentonomousSettingsTab(this.app, this, settings, translationPort, this.core.registeredModules, dialogs));
 		this.register(() => {
 			void this.core?.destroy();
 			vault.detach();
