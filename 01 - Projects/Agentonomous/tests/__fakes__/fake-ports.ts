@@ -69,10 +69,11 @@ export function fakeNotifications(): NotificationPort & { messages: string[]; ev
 	};
 }
 
-export function fakeDialogs(overrides?: { confirm?: boolean; prompt?: string | null }): DialogPort {
+export function fakeDialogs(overrides?: { confirm?: boolean; prompt?: string | null; pickedFolder?: string | null }): DialogPort {
 	return {
-		confirm: vi.fn(async () => overrides?.confirm ?? false),
-		prompt: vi.fn(async () => overrides?.prompt ?? null),
+		confirm:    vi.fn(async () => overrides?.confirm ?? false),
+		prompt:     vi.fn(async () => overrides?.prompt ?? null),
+		pickFolder: vi.fn(async () => overrides?.pickedFolder ?? null),
 	};
 }
 

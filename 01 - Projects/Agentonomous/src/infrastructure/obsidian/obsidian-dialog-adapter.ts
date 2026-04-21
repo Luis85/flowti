@@ -1,5 +1,5 @@
-import { type App, Modal, Setting } from 'obsidian';
-import type { DialogPort, ConfirmOptions, PromptOptions } from '../../domain/shared/dialog-port.js';
+import { type App, Modal, Setting, SuggestModal, TFolder } from 'obsidian';
+import type { DialogPort, ConfirmOptions, PromptOptions, PickFolderOptions } from '../../domain/shared/dialog-port.js';
 
 export class ObsidianDialogAdapter implements DialogPort {
 	constructor(private readonly app: App) {}
@@ -16,6 +16,10 @@ export class ObsidianDialogAdapter implements DialogPort {
 			const modal = new PromptModal(this.app, opts, resolve);
 			modal.open();
 		});
+	}
+
+	pickFolder(opts?: PickFolderOptions): Promise<string | null> {
+		return new FolderSuggestModal(this.app, opts?.title ?? 'Pick a folder').run();
 	}
 }
 
@@ -112,5 +116,50 @@ class PromptModal extends Modal {
 		this.resolved = true;
 		this.onResolve(value);
 		this.close();
+	}
+}
+
+class FolderSuggestModal extends SuggestModal<string> {
+	private resolver: ((v: string | null) => void) | null = null;
+	private resolved = false;
+
+	constructor(app: App, title: string) {
+		super(app);
+		this.setPlaceholder(title);
+	}
+
+	// `run()` is not part of Obsidian's SuggestModal API — it's a local
+	// helper that wraps the base-class `open()` call in a Promise the
+	// adapter can await.
+	run(): Promise<string | null> {
+		return new Promise((resolve) => {
+			this.resolver = resolve;
+			this.open();
+		});
+	}
+
+	getSuggestions(query: string): string[] {
+		const folders = this.app.vault.getAllLoadedFiles()
+			.filter((f): f is TFolder => f instanceof TFolder)
+			.map((f) => f.path === '' ? '/' : f.path);
+		const q = query.toLowerCase();
+		return folders.filter((p) => p.toLowerCase().includes(q)).sort();
+	}
+
+	renderSuggestion(path: string, el: HTMLElement): void {
+		el.setText(path);
+	}
+
+	onChooseSuggestion(path: string): void {
+		this.resolved = true;
+		this.resolver?.(path === '/' ? '' : path);
+	}
+
+	// Note: matches the ConfirmModal / PromptModal convention in this file —
+	// we do NOT call super.onClose(). Real Obsidian Modal.onClose is a no-op
+	// override point; the test stub's Modal likewise defines no onClose, so
+	// calling super.onClose() would throw at test runtime.
+	onClose(): void {
+		if (!this.resolved) this.resolver?.(null);
 	}
 }

@@ -9,6 +9,13 @@ export interface DialogPort {
 
 	/** Ask the user for a string.  Resolves with the value, or null if cancelled. */
 	prompt(opts: PromptOptions): Promise<string | null>;
+
+	/**
+	 * Open a folder-picker over the vault's folders. Resolves with the chosen
+	 * folder path (without trailing slash), or `null` if the user dismissed
+	 * the modal. Root folder is returned as the empty string `""`.
+	 */
+	pickFolder(opts?: PickFolderOptions): Promise<string | null>;
 }
 
 export type ConfirmOptions = {
@@ -29,4 +36,9 @@ export type PromptOptions = {
 	readonly defaultValue?: string;
 	readonly confirmLabel?: string;
 	readonly cancelLabel?: string;
+};
+
+export type PickFolderOptions = {
+	/** Modal title / placeholder shown in the suggest UI. */
+	readonly title?: string;
 };
