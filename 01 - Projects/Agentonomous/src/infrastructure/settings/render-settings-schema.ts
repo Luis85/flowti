@@ -29,13 +29,19 @@ export function renderSettingsSchema(
 	const augmented = containerEl as AugmentedEl;
 	augmented.createEl('h3', { text: schema.title });
 
+	// Shared latest-state cell. Each field's onChange calls `update(partial)`
+	// which merges into this cell, so interleaved edits across fields never
+	// compose onto a stale snapshot (previous design: each renderer received
+	// a by-value `state` and spread it in its closure, silently reverting
+	// concurrent edits from sibling fields).
 	let state: Record<string, unknown> = { ...current };
+	const update = (partial: Record<string, unknown>): void => {
+		state = { ...state, ...partial };
+		onChange(state);
+	};
 
 	for (const field of schema.fields) {
-		renderField(containerEl, field, state, (next) => {
-			state = next;
-			onChange(next);
-		}, options);
+		renderField(containerEl, field, state, update, options);
 	}
 }
 
@@ -43,24 +49,24 @@ function renderField(
 	containerEl: HTMLElement,
 	field: SettingsField,
 	state: Record<string, unknown>,
-	onChange: (next: Record<string, unknown>) => void,
+	update: (partial: Record<string, unknown>) => void,
 	options?: RenderSettingsOptions,
 ): void {
 	switch (field.kind) {
 		case 'toggle':
-			renderToggle(containerEl, field, state, onChange);
+			renderToggle(containerEl, field, state, update);
 			return;
 		case 'dropdown':
-			renderDropdown(containerEl, field, state, onChange);
+			renderDropdown(containerEl, field, state, update);
 			return;
 		case 'text':
-			renderText(containerEl, field, state, onChange);
+			renderText(containerEl, field, state, update);
 			return;
 		case 'number':
-			renderNumber(containerEl, field, state, onChange);
+			renderNumber(containerEl, field, state, update);
 			return;
 		case 'folder':
-			renderFolder(containerEl, field, state, onChange, options);
+			renderFolder(containerEl, field, state, update, options);
 			return;
 	}
 }
@@ -69,7 +75,7 @@ function renderToggle(
 	containerEl: HTMLElement,
 	field: Extract<SettingsField, { kind: 'toggle' }>,
 	state: Record<string, unknown>,
-	onChange: (next: Record<string, unknown>) => void,
+	update: (partial: Record<string, unknown>) => void,
 ): void {
 	const raw = state[field.key];
 	const initial = typeof raw === 'boolean' ? raw : false;
@@ -77,7 +83,7 @@ function renderToggle(
 	setting.addToggle((toggle) => {
 		toggle
 			.setValue(initial)
-			.onChange((value) => { onChange({ ...state, [field.key]: value }); });
+			.onChange((value) => { update({ [field.key]: value }); });
 	});
 }
 
@@ -85,7 +91,7 @@ function renderDropdown(
 	containerEl: HTMLElement,
 	field: Extract<SettingsField, { kind: 'dropdown' }>,
 	state: Record<string, unknown>,
-	onChange: (next: Record<string, unknown>) => void,
+	update: (partial: Record<string, unknown>) => void,
 ): void {
 	const raw = state[field.key];
 	const initial = typeof raw === 'string' ? raw : '';
@@ -94,7 +100,7 @@ function renderDropdown(
 		for (const opt of field.options) dropdown.addOption(opt.value, opt.label);
 		dropdown
 			.setValue(initial)
-			.onChange((value) => { onChange({ ...state, [field.key]: value }); });
+			.onChange((value) => { update({ [field.key]: value }); });
 	});
 }
 
@@ -102,7 +108,7 @@ function renderText(
 	containerEl: HTMLElement,
 	field: Extract<SettingsField, { kind: 'text' }>,
 	state: Record<string, unknown>,
-	onChange: (next: Record<string, unknown>) => void,
+	update: (partial: Record<string, unknown>) => void,
 ): void {
 	const raw = state[field.key];
 	const initial = typeof raw === 'string' ? raw : '';
@@ -111,7 +117,7 @@ function renderText(
 		if (field.placeholder !== undefined) input.setPlaceholder(field.placeholder);
 		input
 			.setValue(initial)
-			.onChange((value) => { onChange({ ...state, [field.key]: value }); });
+			.onChange((value) => { update({ [field.key]: value }); });
 	});
 }
 
@@ -119,7 +125,7 @@ function renderNumber(
 	containerEl: HTMLElement,
 	field: Extract<SettingsField, { kind: 'number' }>,
 	state: Record<string, unknown>,
-	onChange: (next: Record<string, unknown>) => void,
+	update: (partial: Record<string, unknown>) => void,
 ): void {
 	const initial = typeof state[field.key] === 'number' ? String(state[field.key]) : '';
 	const setting = applyMeta(new Setting(containerEl), field);
@@ -133,7 +139,7 @@ function renderNumber(
 			.onChange((value) => {
 				const parsed = Number(value);
 				if (Number.isNaN(parsed)) return;
-				onChange({ ...state, [field.key]: parsed });
+				update({ [field.key]: parsed });
 			});
 	});
 }
@@ -142,13 +148,13 @@ function renderFolder(
 	containerEl: HTMLElement,
 	field: Extract<SettingsField, { kind: 'folder' }>,
 	state: Record<string, unknown>,
-	onChange: (next: Record<string, unknown>) => void,
+	update: (partial: Record<string, unknown>) => void,
 	options?: RenderSettingsOptions,
 ): void {
 	const raw = state[field.key];
 	const initial = typeof raw === 'string' ? raw : '';
 	const setting = applyMeta(new Setting(containerEl), field);
-	const browseLabel = options?.t?.t('settings.folder.browse') ?? 'Browse\u2026';
+	const browseLabel = options?.t?.t('core.settings.folder.browse') ?? 'Browse\u2026';
 
 	let textRef: { setValue(v: string): unknown } | null = null;
 
@@ -158,8 +164,7 @@ function renderFolder(
 		input
 			.setValue(initial)
 			.onChange((value) => {
-				const normalized = value.replace(/\/+$/, '');
-				onChange({ ...state, [field.key]: normalized });
+				update({ [field.key]: normalizeFolderPath(value) });
 			});
 	});
 
@@ -169,11 +174,19 @@ function renderFolder(
 			btn.setButtonText(browseLabel).onClick(async () => {
 				const picked = await pickFolder();
 				if (picked === null) return;
-				textRef?.setValue(picked);
-				onChange({ ...state, [field.key]: picked });
+				// Defensive re-normalize: DialogPort contract already strips
+				// trailing slashes, but the renderer should not depend on the
+				// contract to protect its invariant.
+				const normalized = normalizeFolderPath(picked);
+				textRef?.setValue(normalized);
+				update({ [field.key]: normalized });
 			});
 		});
 	}
+}
+
+function normalizeFolderPath(value: string): string {
+	return value.replace(/\/+$/, '');
 }
 
 function applyMeta(setting: Setting, field: SettingsField): Setting {

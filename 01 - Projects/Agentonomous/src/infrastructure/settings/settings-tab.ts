@@ -149,7 +149,7 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 			renderSettingsSchema(containerEl, m.settingsSchema, initial, (next) => {
 				void this.persistModule(settingsKey, next);
 			}, {
-				pickFolder: () => this.dialogs.pickFolder({ title: this.t.t('settings.folder.pickTitle') }),
+				pickFolder: () => this.dialogs.pickFolder({ title: this.t.t('core.settings.folder.pickTitle') }),
 				t: this.t,
 			});
 		}

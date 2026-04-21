@@ -200,7 +200,20 @@ export class Modal {
 	}
 }
 
-/** Minimal SuggestModal stub. Extends Modal so subclasses inherit open()/close() semantics. Tests drive selection via `_chooseSuggestion(path)` or `_closeWithoutChoice()`. */
+/**
+ * Minimal SuggestModal stub. Extends Modal so subclasses inherit open()/close()
+ * semantics. Tests drive selection via `_chooseSuggestion(path)` or
+ * `_closeWithoutChoice()`.
+ *
+ * Call-order quirk: real Obsidian's SuggestModal invokes `onChooseSuggestion`
+ * from within its internal close() flow (so onClose fires AFTER the choose
+ * handler). This stub's `_chooseSuggestion` calls them in the opposite order:
+ * `onChooseSuggestion` first, then `close()` → `onClose`. Subclasses that set
+ * a "resolved" flag inside `onChooseSuggestion` and guard `onClose` with it
+ * (see FolderSuggestModal) are unaffected. Subclasses whose `onChooseSuggestion`
+ * itself calls `this.close()` would trigger a double-close here — either
+ * widen the guard, or adjust the stub if you hit that case.
+ */
 export class SuggestModal<T> extends Modal {
 	private _placeholder = '';
 	setPlaceholder(text: string): void { this._placeholder = text; }

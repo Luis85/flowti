@@ -175,4 +175,77 @@ describe('renderSettingsSchema \u2014 folder kind', () => {
 		folderSetting._texts[0]!._trigger('Make/Types/Archive/');
 		expect(onChange).toHaveBeenCalledWith({ typesFolder: 'Make/Types/Archive' });
 	});
+
+	it('picked value is defensively re-normalized through the renderer', async () => {
+		const container = makeContainer();
+		const onChange = vi.fn();
+		// Port contract promises no trailing slash, but renderer guards anyway.
+		const pickFolder = vi.fn(async () => 'Make/Archive/');
+		renderSettingsSchema(
+			container,
+			{ title: 'Make', fields: [{ kind: 'folder', key: 'typesFolder', label: 'Types folder' }] },
+			{ typesFolder: 'Make/Types' },
+			onChange,
+			{ pickFolder },
+		);
+		const folderSetting = (_settingsByContainer.get(container) ?? []).at(-1)!;
+		await folderSetting._buttons[0]!._triggerAsync();
+		expect(onChange).toHaveBeenCalledWith({ typesFolder: 'Make/Archive' });
+	});
+});
+
+describe('renderSettingsSchema \u2014 multi-field state integrity', () => {
+	it('edits to field A are not reverted when field B edits after it', () => {
+		const container = makeContainer();
+		const onChange = vi.fn();
+		const schema: SettingsSchema = {
+			title: 'Multi',
+			fields: [
+				{ kind: 'text', key: 'a', label: 'A' },
+				{ kind: 'text', key: 'b', label: 'B' },
+				{ kind: 'toggle', key: 'c', label: 'C' },
+			],
+		};
+		renderSettingsSchema(container, schema, { a: 'a0', b: 'b0', c: false }, onChange);
+		const settings = _settingsByContainer.get(container) ?? [];
+		// Edit field A — expect the update to carry a1 plus b0/c0 unchanged.
+		settings[0]!._texts[0]!._trigger('a1');
+		expect(onChange).toHaveBeenLastCalledWith({ a: 'a1', b: 'b0', c: false });
+		// Edit field B — without the fix, this would revert a to 'a0'.
+		settings[1]!._texts[0]!._trigger('b1');
+		expect(onChange).toHaveBeenLastCalledWith({ a: 'a1', b: 'b1', c: false });
+		// Flip toggle C — all prior edits must still be reflected.
+		settings[2]!._toggles[0]!._trigger(true);
+		expect(onChange).toHaveBeenLastCalledWith({ a: 'a1', b: 'b1', c: true });
+	});
+
+	it('folder Browse in field B preserves the typed edit in field A', async () => {
+		const container = makeContainer();
+		const onChange = vi.fn();
+		const pickFolder = vi.fn(async () => 'NewB');
+		const schema: SettingsSchema = {
+			title: 'Make',
+			fields: [
+				{ kind: 'folder', key: 'typesFolder', label: 'Types folder' },
+				{ kind: 'folder', key: 'basesFolder', label: 'Bases folder' },
+			],
+		};
+		renderSettingsSchema(
+			container,
+			schema,
+			{ typesFolder: 'Make/Types', basesFolder: 'Make/Bases' },
+			onChange,
+			{ pickFolder },
+		);
+		const settings = _settingsByContainer.get(container) ?? [];
+		// Type a new value into field A (typesFolder).
+		settings[0]!._texts[0]!._trigger('Make/CustomTypes');
+		// Click Browse on field B (basesFolder) and pick something.
+		await settings[1]!._buttons[0]!._triggerAsync();
+		// Final onChange must reflect BOTH edits — A's typed value is not reverted.
+		expect(onChange).toHaveBeenLastCalledWith({
+			typesFolder: 'Make/CustomTypes',
+			basesFolder: 'NewB',
+		});
+	});
 });
