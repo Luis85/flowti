@@ -174,6 +174,22 @@ export class Modal {
 	}
 }
 
+/** Minimal SuggestModal stub. Extends Modal so subclasses inherit open()/close() semantics. Tests drive selection via `_chooseSuggestion(path)` or `_closeWithoutChoice()`. */
+export class SuggestModal<T> extends Modal {
+	private _placeholder = '';
+	setPlaceholder(text: string): void { this._placeholder = text; }
+	getSuggestions(_query: string): T[] | Promise<T[]> { return []; }
+	renderSuggestion(_value: T, _el: HTMLElement): void { /* subclass override */ }
+	onChooseSuggestion(_value: T, _evt: MouseEvent | KeyboardEvent): void { /* subclass override */ }
+	/** Test helper: drive onChooseSuggestion as if the user clicked a suggestion. */
+	_chooseSuggestion(value: T): void {
+		this.onChooseSuggestion(value, new MouseEvent('click'));
+		this.close();
+	}
+	/** Test helper: drive onClose without a prior choose (dismiss). */
+	_closeWithoutChoice(): void { this.close(); }
+}
+
 /** Tracks all Notice messages constructed after last reset. */
 export const _noticeMessages: string[] = [];
 
@@ -262,6 +278,19 @@ export class Vault {
 		return [...this._files.entries()].map(
 			([path, entry]) => new TFile(path, { size: entry.content.length, ctime: entry.ctime, mtime: entry.mtime }),
 		);
+	}
+
+	/**
+	 * Returns every TFile + TFolder in the vault.  Matches Obsidian's API shape,
+	 * including the always-present root TFolder('').
+	 */
+	getAllLoadedFiles(): Array<TFile | TFolder> {
+		const all: Array<TFile | TFolder> = this.getFiles();
+		// Root folder is always loaded in Obsidian; mirror that here so
+		// callers don't special-case it.
+		all.push(new TFolder(''));
+		for (const path of this._folders) all.push(new TFolder(path));
+		return all;
 	}
 
 	/** Vault event listeners by event name.  Tests that subscribe via on() can fire via _trigger(). */
