@@ -46,26 +46,24 @@
 
 ---
 
-### A2. `MakeSettings.vue` — module settings UI
+### A2. `MakeSettings.vue` — module settings UI **[PARTIALLY SHIPPED 2026-04-21]**
 
-**What:** a Vue panel inside the generic plugin settings that surfaces Make's `MakeSettings` shape for editing:
-- `typesFolder` — path picker
-- `basesFolder` — path picker
-- `defaultInstancesRoot` — path picker
-- `favorites` — read-only list (shown for transparency, managed via the star UI)
-- `enabled` — toggle (currently only in framework-level settings)
+**Original scope:** a Vue panel inside the generic plugin settings that surfaces Make's `MakeSettings` shape for editing:
+- ~~`typesFolder` — path picker~~ ✅ shipped
+- ~~`basesFolder` — path picker~~ ✅ shipped
+- ~~`defaultInstancesRoot` — path picker~~ ✅ shipped
+- `favorites` — read-only list (shown for transparency, managed via the star UI) — **deferred indefinitely**
+- `enabled` — toggle (currently only in framework-level settings) — **deferred indefinitely**
 
-Writes go through the existing `MakeModule.onSettingsChange` which already handles folder changes (destroy + re-init) vs non-folder changes (in-place + event).
+**What shipped:** instead of a custom Vue panel, we chose to enrich the generic `settingsSchema` renderer with a new `folder` field kind backed by `DialogPort.pickFolder` (Obsidian `SuggestModal` over vault folders). Make's three path fields now use `kind: 'folder'` and render a Browse button next to the text input. Spec: `docs/specs/2026-04-20-folder-field-kind-design.md`. Plan: `docs/plans/2026-04-21-folder-field-kind.md`. Shipped commits `db5a7933..3938a4ac` on `master`.
 
-**Why:** Chunks 1–4 exposed settings only via the plugin's raw settings JSON. Users can't configure Make without opening files.
+**Design choice made:** generic-renderer enrichment, not a custom Vue panel. Reasoning: the path-picker UX was the only non-trivial affordance; `favorites` is already manageable via the star UI on type cards (adding a read-only mirror in settings is cosmetic); `enabled` is a framework-level concern, not Make-specific. The generic folder kind is now reusable by any module.
 
-**Dependencies:**
-- None technical. Settings infrastructure exists (`SettingsPort`, `settingsSchema` on `defineModule`).
-- The module already declares `settingsSchema` in `make-module.ts` (four fields). The framework renders these generically. The question is whether to ship a custom Vue panel or extend the generic renderer.
+**Deferred items (no longer blocking Chunk 5):**
+- `favorites` read-only mirror — deferred indefinitely; the star UI is the source of truth
+- `enabled` per-module toggle — deferred; framework settings already expose this at the core level
 
-**Design choice to make:** custom Vue panel per module, or enrich the generic `settingsSchema` to render better? Recommend custom panel — future modules will each want their own UX (Make needs path pickers that autocomplete existing vault folders).
-
-**Effort:** M. Path-picker component is reusable for future modules.
+**Effort consumed:** S (generic renderer + port + migration). The original M estimate reflected a custom Vue panel; the chosen approach was lighter.
 
 ---
 
@@ -178,10 +176,11 @@ These are cross-module — they were learned during Make Polish but apply to the
 **If the user is "where do we go from here":** A (Chunk 5 — user polish) is the most visible win, schema-migration (B) is the biggest architectural gap. Both are substantial.
 
 **Recommended sequence:**
-1. **Chunk 5 = A1 + A3** (MakeHome KPIs + ribbon/command — ships visible user value fast)
-2. **Chunk 5.5 = A2 + A4** (settings + locale — tidies up)
-3. **Chunk 6 = B** (schema-migration — full architectural feature; write spec first)
-4. **Interleave C and D as low-activity sessions allow**
+1. **Chunk 5 = A1 + A3** ✅ shipped (MakeHome KPIs + ribbon/command)
+2. **Chunk 5.5 = A2 (path-pickers)** ✅ shipped 2026-04-21 via folder-field-kind; favorites + enabled deferred
+3. **Chunk 5.6 = A4** (locale audit — now the next Chunk 5 slice)
+4. **Chunk 6 = B** (schema-migration — full architectural feature; write spec first)
+5. **Interleave C and D as low-activity sessions allow**
 
 **If the user wants to ship something small to stay sharp:** any C item (especially C6 or C7 — XS effort).
 
