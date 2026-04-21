@@ -98,9 +98,9 @@ export const MakeModule = defineModule<MakeSettings>({
 		title: 'Make',
 		fields: [
 			{ kind: 'toggle', key: 'enabled', label: 'Enable Make' },
-			{ kind: 'text', key: 'typesFolder', label: 'Types folder' },
-			{ kind: 'text', key: 'basesFolder', label: 'Bases folder' },
-			{ kind: 'text', key: 'defaultInstancesRoot', label: 'Default instances folder' },
+			{ kind: 'folder', key: 'typesFolder', label: 'Types folder' },
+			{ kind: 'folder', key: 'basesFolder', label: 'Bases folder' },
+			{ kind: 'folder', key: 'defaultInstancesRoot', label: 'Default instances folder' },
 		],
 	},
 	messages: { en: enMessages },

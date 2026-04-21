@@ -16,6 +16,10 @@ describe('MakeModule', () => {
 		expect(MakeModule.views?.[0]?.type).toBe(VIEW_TYPE_MAKE);
 		expect(MakeModule.commands?.[0]?.id).toBe('open-make');
 	});
+	it('settingsSchema marks the three path fields as folder kinds', () => {
+		const kinds = MakeModule.settingsSchema!.fields.map((f) => f.kind);
+		expect(kinds).toEqual(['toggle', 'folder', 'folder', 'folder']);
+	});
 	it('init exposes a service; destroy clears it', async () => {
 		await MakeModule.init(fakeModulePorts(), MAKE_DEFAULTS);
 		expect(getMakeModuleState()).not.toBeNull();
