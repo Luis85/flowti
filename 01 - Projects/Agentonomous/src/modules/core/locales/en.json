@@ -10,5 +10,7 @@
 	"core.settings.locale.auto": "Auto (from Obsidian)",
 	"core.commands.openHomepage": "Open homepage",
 	"core.views.homepage": "Agentonomous homepage",
-	"core.errors.saveFailed": "Agentonomous: failed to save settings"
+	"core.errors.saveFailed": "Agentonomous: failed to save settings",
+	"settings.folder.browse": "Browse\u2026",
+	"settings.folder.pickTitle": "Pick a folder"
 }
