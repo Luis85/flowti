@@ -5,7 +5,8 @@ import { AgentonomousSettingsTab } from '../../../src/infrastructure/settings/se
 import { CORE_SETTINGS_DEFAULTS } from '../../../src/domain/settings/plugin-settings.js';
 import { ok, err } from '../../../src/domain/shared/result.js';
 import type { SettingsPort } from '../../../src/domain/settings/settings-port.js';
-import { fakeTranslation } from '../../__fakes__/fake-ports.js';
+import { fakeTranslation, fakeDialogs, fakeSettings } from '../../__fakes__/fake-ports.js';
+import { defineModule } from '../../../src/domain/shared/module.js';
 
 /** The canonical full-blob shape used by the plugin: other modules' sections live alongside `core`. */
 const DEFAULT_BLOB = { core: CORE_SETTINGS_DEFAULTS, eventInspector: { enabled: true } };
@@ -267,5 +268,45 @@ describe('AgentonomousSettingsTab', () => {
 
 		const saved = (port.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
 		expect((saved['core'] as Record<string, unknown>)['locale']).toBe('en');
+	});
+});
+
+describe('AgentonomousSettingsTab \u2014 folder field wiring', () => {
+	it('threads DialogPort.pickFolder into renderSettingsSchema for folder kinds', async () => {
+		const settingsPort = fakeSettings({ make: { typesFolder: 'Make/Types' } });
+		const dialogPort = fakeDialogs({ pickedFolder: 'Make/Archive' });
+		const translation = fakeTranslation();
+		// defineModule gives a type-correct Module without hand-writing the
+		// ports-typed init/destroy signatures that strict mode would reject
+		// on bare arrow functions.
+		const makeModule = defineModule<Record<string, unknown>>({
+			id: 'make',
+			name: 'Make',
+			settingsKey: 'make',
+			settingsDefaults: {},
+			validateSettings: (raw) => ok((raw as Record<string, unknown>) ?? {}),
+			settingsSchema: {
+				title: 'Make',
+				fields: [{ kind: 'folder', key: 'typesFolder', label: 'Types folder' }],
+			},
+			init: async () => { /* no-op for tab tests */ },
+			destroy: () => Promise.resolve(),
+		});
+		const fakeApp = { workspace: {} } as unknown as App;
+		const fakePlugin = {} as unknown as Plugin;
+		const tab = new AgentonomousSettingsTab(
+			fakeApp, fakePlugin, settingsPort, translation, [makeModule], dialogPort,
+		);
+		tab.display();
+		await new Promise(resolve => setTimeout(resolve, 0));  // flush async display()
+		const settings = _settingsByContainer.get((tab as unknown as { containerEl: HTMLElement }).containerEl) ?? [];
+		const folderSetting = settings.at(-1)!;
+		const browseBtn = folderSetting._buttons[0];
+		expect(browseBtn).toBeDefined();
+		await browseBtn!._triggerAsync();
+		expect(dialogPort.pickFolder).toHaveBeenCalledOnce();
+		// Wait for saveSection to complete
+		await new Promise(resolve => setTimeout(resolve, 0));
+		expect(settingsPort.saveSection).toHaveBeenCalledWith('make', { typesFolder: 'Make/Archive' });
 	});
 });

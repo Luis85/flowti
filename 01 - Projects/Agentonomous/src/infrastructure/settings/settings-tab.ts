@@ -2,6 +2,7 @@ import { type App, Notice, type Plugin, PluginSettingTab, Setting } from 'obsidi
 import type { SettingsPort } from '../../domain/settings/settings-port.js';
 import type { TranslationPort } from '../../domain/shared/translation-port.js';
 import type { Module } from '../../domain/shared/module.js';
+import type { DialogPort } from '../../domain/shared/dialog-port.js';
 import { CORE_SETTINGS_DEFAULTS, isDefaultViewName, KNOWN_DEFAULT_VIEWS, KNOWN_LOG_LEVELS, type CoreSettings, validateCoreSettings } from '../../domain/settings/plugin-settings.js';
 import type { LogLevel } from '../../domain/shared/logger-port.js';
 import { isErr, isOk } from '../../domain/shared/result.js';
@@ -12,6 +13,7 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 	private readonly port: SettingsPort;
 	private readonly t: TranslationPort;
 	private readonly modules: readonly Module[];
+	private readonly dialogs: DialogPort;
 	private current: CoreSettings = CORE_SETTINGS_DEFAULTS;
 
 	constructor(
@@ -20,11 +22,19 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 		port: SettingsPort,
 		t: TranslationPort,
 		modules: readonly Module[] = [],
+		dialogs?: DialogPort,
 	) {
 		super(app, plugin);
 		this.port = port;
 		this.t = t;
 		this.modules = modules;
+		// When undefined (legacy tests), a no-op dialog port is supplied.
+		// Callers that need the folder picker must pass a real DialogPort.
+		this.dialogs = dialogs ?? {
+			confirm:    () => Promise.resolve(false),
+			prompt:     () => Promise.resolve(null),
+			pickFolder: () => Promise.resolve(null),
+		};
 	}
 
 	private async persistCore(next: CoreSettings): Promise<void> {
@@ -138,6 +148,9 @@ export class AgentonomousSettingsTab extends PluginSettingTab {
 			const settingsKey = m.settingsKey;
 			renderSettingsSchema(containerEl, m.settingsSchema, initial, (next) => {
 				void this.persistModule(settingsKey, next);
+			}, {
+				pickFolder: () => this.dialogs.pickFolder({ title: this.t.t('settings.folder.pickTitle') }),
+				t: this.t,
 			});
 		}
 	}
