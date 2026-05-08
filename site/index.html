@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flowti — The Business Development Environment</title>
+  <meta name="description" content="One binary. Zero dependencies. Every project under control. Flowti is a definition-driven project orchestrator and living testbed for new product ideas." />
+  <style>
+    /* ── Reset & base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0c10;
+      --surface:   #111318;
+      --surface2:  #181c23;
+      --border:    #23283a;
+      --accent:    #5b8fff;
+      --accent2:   #a78bfa;
+      --accent3:   #34d399;
+      --text:      #e2e8f0;
+      --muted:     #7a8599;
+      --radius:    10px;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section { padding: 100px 0; }
+    section + section { border-top: 1px solid var(--border); }
+
+    /* ── Nav ────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 12, 16, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    .nav-logo span { color: var(--accent); }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    .nav-cta {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 8px 20px;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+
+    .nav-cta:hover { opacity: 0.85; text-decoration: none !important; }
+
+    /* ── Hero ───────────────────────────────────────────────────── */
+    #hero {
+      padding: 140px 0 100px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 0%, rgba(91,143,255,0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 80% 60%, rgba(167,139,250,0.07) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(91,143,255,0.1);
+      border: 1px solid rgba(91,143,255,0.3);
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      padding: 6px 14px;
+      border-radius: 999px;
+      margin-bottom: 32px;
+      letter-spacing: 0.04em;
+    }
+
+    .hero-badge::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--accent3);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .hero-title {
+      font-size: clamp(2.8rem, 6vw, 5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 24px;
+    }
+
+    .hero-title .grad {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--muted);
+      max-width: 620px;
+      margin: 0 auto 48px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); text-decoration: none; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+    /* ── Terminal ───────────────────────────────────────────────── */
+    .terminal-wrap {
+      margin-top: 72px;
+      position: relative;
+    }
+
+    .terminal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      text-align: left;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red    { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green  { background: #28c840; }
+
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .terminal-body {
+      padding: 24px 28px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.9;
+    }
+
+    .t-prompt { color: var(--accent3); }
+    .t-cmd    { color: var(--text); }
+    .t-out    { color: var(--muted); }
+    .t-key    { color: var(--accent2); }
+    .t-val    { color: var(--accent3); }
+    .t-label  { color: var(--accent); }
+    .t-dim    { color: #3d4558; }
+
+    /* ── Stats bar ──────────────────────────────────────────────── */
+    .stats-bar {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 64px;
+    }
+
+    .stat {
+      flex: 1;
+      padding: 28px 24px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+
+    .stat:last-child { border-right: none; }
+
+    .stat-num {
+      font-size: 2rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Section titles ─────────────────────────────────────────── */
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      color: var(--muted);
+      max-width: 560px;
+      margin-bottom: 56px;
+    }
+
+    /* ── Problem / Solution ─────────────────────────────────────── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 16px;
+    }
+
+    .card-title .icon { margin-right: 8px; }
+
+    .pain-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pain-list li {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .pain-list li::before {
+      content: '✕';
+      position: absolute;
+      left: 0;
+      color: #f87171;
+    }
+
+    .gain-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .gain-list li {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .gain-list li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--accent3);
+    }
+
+    /* ── Features grid ──────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .feat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .feat-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .feat-icon {
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .feat-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+
+    .feat-desc {
+      color: var(--muted);
+      font-size: 0.875rem;
+      line-height: 1.65;
+    }
+
+    /* ── Testbed section ────────────────────────────────────────── */
+    #testbed {
+      background: linear-gradient(135deg, rgba(91,143,255,0.06) 0%, rgba(167,139,250,0.06) 100%);
+    }
+
+    .testbed-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    @media (max-width: 700px) { .testbed-grid { grid-template-columns: 1fr; } }
+
+    .testbed-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 32px;
+    }
+
+    .pill {
+      background: rgba(91,143,255,0.1);
+      border: 1px solid rgba(91,143,255,0.25);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      border-radius: 999px;
+    }
+
+    .experiment-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .experiment {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .exp-tag {
+      background: rgba(52,211,153,0.12);
+      color: var(--accent3);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    .exp-tag.wip {
+      background: rgba(251,191,36,0.12);
+      color: #fbbf24;
+    }
+
+    .exp-tag.planned {
+      background: rgba(91,143,255,0.1);
+      color: var(--accent);
+    }
+
+    .exp-body {}
+    .exp-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
+    .exp-desc  { color: var(--muted); font-size: 0.82rem; }
+
+    /* ── Ecosystem ──────────────────────────────────────────────── */
+    .ecosystem {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .eco-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 24px;
+      align-items: center;
+      transition: border-color 0.2s;
+    }
+
+    .eco-item:hover { border-color: var(--accent); }
+
+    .eco-badge {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 6px 14px;
+      border-radius: 6px;
+      text-align: center;
+      min-width: 90px;
+    }
+
+    .badge-cli    { background: rgba(91,143,255,0.15); color: var(--accent);  border: 1px solid rgba(91,143,255,0.3); }
+    .badge-plugin { background: rgba(167,139,250,0.15); color: var(--accent2); border: 1px solid rgba(167,139,250,0.3); }
+    .badge-agents { background: rgba(52,211,153,0.15); color: var(--accent3);  border: 1px solid rgba(52,211,153,0.3); }
+
+    .eco-title { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+    .eco-desc  { color: var(--muted); font-size: 0.875rem; }
+
+    /* ── CTA ────────────────────────────────────────────────────── */
+    #cta {
+      text-align: center;
+      padding: 120px 0;
+    }
+
+    .cta-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 80px 48px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 50% 0%, rgba(91,143,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta-title {
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .cta-sub {
+      color: var(--muted);
+      max-width: 500px;
+      margin: 0 auto 40px;
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    .footer-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-logo {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .footer-logo span { color: var(--accent); }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--muted);
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    /* ── Responsive nav ─────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      .stats-bar { flex-direction: column; }
+      .stat { border-right: none; border-bottom: 1px solid var(--border); }
+      .stat:last-child { border-bottom: none; }
+      .cta-box { padding: 48px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ───────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <span class="nav-logo">flow<span>ti</span></span>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#testbed">Testbed</a></li>
+      <li><a href="#ecosystem">Ecosystem</a></li>
+      <li><a href="https://github.com/luis85/flowti" class="nav-cta">GitHub →</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-badge">Living testbed · Active development</div>
+
+    <h1 class="hero-title">
+      One binary.<br />
+      <span class="grad">Every project under control.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Flowti is a definition-driven project orchestrator that ships as a self-contained
+      Node.js binary — and a living laboratory for new product ideas.
+    </p>
+
+    <div class="hero-actions">
+      <a href="https://github.com/luis85/flowti" class="btn btn-primary">
+        View on GitHub
+      </a>
+      <a href="#features" class="btn btn-ghost">
+        Explore features ↓
+      </a>
+    </div>
+
+    <div class="terminal-wrap">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="dot dot-red"></div>
+          <div class="dot dot-yellow"></div>
+          <div class="dot dot-green"></div>
+          <span class="terminal-title">flowti</span>
+        </div>
+        <div class="terminal-body">
+          <div><span class="t-prompt">$</span> <span class="t-cmd">flowti health --project="Flowti CLI" --format=json</span></div>
+          <div class="t-dim">──────────────────────────────────────────────────</div>
+          <div><span class="t-label">  score    </span> <span class="t-val">94 / 100  (A)</span></div>
+          <div><span class="t-label">  tests    </span> <span class="t-val">5,920 passing</span></div>
+          <div><span class="t-label">  coverage </span> <span class="t-val">80.53 %</span></div>
+          <div><span class="t-label">  deps     </span> <span class="t-val">0 runtime</span></div>
+          <div><span class="t-label">  debt     </span> <span class="t-val">30 items  (22 resolved)</span></div>
+          <div class="t-dim">──────────────────────────────────────────────────</div>
+          <div><span class="t-prompt">$</span> <span class="t-cmd">flowti build --project="Flowti CLI"</span></div>
+          <div><span class="t-out">  ✓ TypeScript  — 0 errors</span></div>
+          <div><span class="t-out">  ✓ ESLint      — 0 warnings</span></div>
+          <div><span class="t-out">  ✓ Bundle      — .flowti/bin/main.js</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-num">0</span>
+        <span class="stat-label">Runtime deps</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">5,920+</span>
+        <span class="stat-label">Tests passing</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">28</span>
+        <span class="stat-label">Sitemap pages</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">80%+</span>
+        <span class="stat-label">Code coverage</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Problem / Solution ────────────────────────────────────────── -->
+<section id="problem">
+  <div class="container">
+    <p class="section-label">The problem</p>
+    <h2 class="section-title">Development teams live in fragmented tooling</h2>
+    <p class="section-sub">
+      Every project has its own scripts, its own conventions, its own quality bar.
+      The result is invisible waste.
+    </p>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title"><span class="icon">⚠</span> Before Flowti</div>
+        <ul class="pain-list">
+          <li>Remembering which commands exist in which project</li>
+          <li>Script sprawl with overlapping, colliding names</li>
+          <li>Divergent build, test, and publish workflows</li>
+          <li>Stale documentation nobody reads or updates</li>
+          <li>No quality visibility across your project portfolio</li>
+          <li>AI agents blocked on unstructured interactive CLIs</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">✦</span> With Flowti</div>
+        <ul class="gain-list">
+          <li>One binary manages every project via a unified interface</li>
+          <li>Named build &amp; test modes — consistent across all projects</li>
+          <li>Gated publish pipeline: build → test → distribute</li>
+          <li>Self-documenting CLI Reference and Entity Reference</li>
+          <li>Health dashboard with A–F grades per project</li>
+          <li>Every action has a deterministic non-interactive equivalent</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ──────────────────────────────────────────────────── -->
+<section id="features">
+  <div class="container">
+    <p class="section-label">Capabilities</p>
+    <h2 class="section-title">Everything a project needs, nothing it doesn't</h2>
+    <p class="section-sub">
+      Features activate only when you configure them.
+      Start with a name — add thresholds, generators, and gates as you grow.
+    </p>
+
+    <div class="features-grid">
+      <div class="feat-card">
+        <span class="feat-icon">⚙</span>
+        <div class="feat-title">Build &amp; Test Orchestration</div>
+        <p class="feat-desc">
+          Named build modes (fast, increment, full, watch, distribute) and test presets
+          (unit, flows, e2e, increment) across all projects from one command.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">📊</span>
+        <div class="feat-title">Health Dashboard</div>
+        <p class="feat-desc">
+          0–100 health scores with A–F grades, aggregating test, coverage, lint, git,
+          security, and component metrics. Trend snapshots with delta indicators.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">📄</span>
+        <div class="feat-title">Reports &amp; Documentation</div>
+        <p class="feat-desc">
+          Six built-in generators: test, coverage, codebase, complexity, status, summary.
+          Plus CLI Reference and Entity Reference. HTML export with timestamped archives.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">🔗</span>
+        <div class="feat-title">Event Catalog &amp; Contracts</div>
+        <p class="feat-desc">
+          Per-project event catalog with payload schema editor, versioning, and
+          contract validation. TypeScript codegen and Mermaid flow visualization.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">🏗</span>
+        <div class="feat-title">Project Scaffolding</div>
+        <p class="feat-desc">
+          Four project types (TypeScript, CLI, Obsidian plugin, library) and eight
+          component kinds. Auto-scaffolds config from an existing package.json.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">📋</span>
+        <div class="feat-title">Project Management</div>
+        <p class="feat-desc">
+          RAID log, CAPA tracking, deliverables, time-log, lifecycle state machine,
+          and resource management — all as queryable Obsidian notes.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">🤖</span>
+        <div class="feat-title">Agent-Native Design</div>
+        <p class="feat-desc">
+          Every interactive action has a non-interactive equivalent with deterministic
+          exit codes and <code>--format=json</code> output. AI agents are first-class citizens.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">🚀</span>
+        <div class="feat-title">Zero Runtime Dependencies</div>
+        <p class="feat-desc">
+          Ships as a self-contained Node.js binary using only built-ins.
+          No <code>npm install</code>, no lock file conflicts, no version drift.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">🗺</span>
+        <div class="feat-title">Sitemap-Driven UI</div>
+        <p class="feat-desc">
+          28 declarative pages in v2 PageObject format. Hot-reload support.
+          The entire interactive menu is defined in a single auditable JSON file.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Living Testbed ────────────────────────────────────────────── -->
+<section id="testbed">
+  <div class="container">
+    <div class="testbed-grid">
+      <div>
+        <p class="section-label">Living testbed</p>
+        <h2 class="section-title">Where new ideas get built — and proven</h2>
+        <p style="color: var(--muted); margin-bottom: 16px; font-size: 0.95rem;">
+          Flowti is not just a product — it is an intentional laboratory. Every architectural
+          pattern, workflow abstraction, and agent-native convention is validated here first,
+          on a real codebase, before it becomes a recommendation.
+        </p>
+        <p style="color: var(--muted); font-size: 0.95rem;">
+          If you can think about it, you can build it here. New ideas ship as first-class
+          features: conceived, specified, instrumented, reviewed, and measured — all inside
+          the same system they describe.
+        </p>
+
+        <div class="testbed-pills">
+          <span class="pill">definition-driven</span>
+          <span class="pill">agent-native CLI</span>
+          <span class="pill">sitemap UI</span>
+          <span class="pill">vault-native docs</span>
+          <span class="pill">health scoring</span>
+          <span class="pill">IBDE concept</span>
+          <span class="pill">DDD + MVC</span>
+          <span class="pill">zero-dep binary</span>
+        </div>
+      </div>
+
+      <div class="experiment-list">
+        <div class="experiment">
+          <span class="exp-tag">live</span>
+          <div class="exp-body">
+            <div class="exp-title">Definition-Driven Orchestration</div>
+            <div class="exp-desc">Can a JSON contract be the sole source of truth for build, test, scaffold, and health — with zero runtime deps?</div>
+          </div>
+        </div>
+        <div class="experiment">
+          <span class="exp-tag">live</span>
+          <div class="exp-body">
+            <div class="exp-title">Agent-Native CLI Protocol</div>
+            <div class="exp-desc">Every interactive path has a structured non-interactive twin. AI agents execute Flowti directly — no parsing, no scraping.</div>
+          </div>
+        </div>
+        <div class="experiment">
+          <span class="exp-tag wip">in progress</span>
+          <div class="exp-body">
+            <div class="exp-title">Integrated Business Development Environment</div>
+            <div class="exp-desc">Obsidian as a living knowledge base where events, flows, and analytics are first-class project artifacts.</div>
+          </div>
+        </div>
+        <div class="experiment">
+          <span class="exp-tag planned">planned</span>
+          <div class="exp-body">
+            <div class="exp-title">Autonomous Agent Workspace</div>
+            <div class="exp-desc">Run, observe, and steer AI agents directly inside Obsidian — the Agentonomous sandbox.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Ecosystem ─────────────────────────────────────────────────── -->
+<section id="ecosystem">
+  <div class="container">
+    <p class="section-label">Ecosystem</p>
+    <h2 class="section-title">Three layers, one coherent system</h2>
+    <p class="section-sub">
+      Each component is independently useful but designed to compose.
+      The CLI orchestrates the others; they extend what the CLI manages.
+    </p>
+
+    <div class="ecosystem">
+      <div class="eco-item">
+        <div class="eco-badge badge-cli">CLI</div>
+        <div>
+          <div class="eco-title">Flowti CLI — The Orchestrator</div>
+          <div class="eco-desc">
+            Self-contained Node.js binary that manages build, test, publish, health, reports,
+            events, scaffolding, and project management for any number of projects.
+            <strong style="color: var(--text);">377 source files · 5,920 tests · 0 runtime deps.</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="eco-item">
+        <div class="eco-badge badge-plugin">Plugin</div>
+        <div>
+          <div class="eco-title">Flowti Plugin — The IBDE</div>
+          <div class="eco-desc">
+            An Obsidian plugin that implements the Integrated Business Development Environment
+            concept. Events, flows, analytics, and test management as living knowledge-base notes.
+            <strong style="color: var(--text);">21 bounded contexts · 7,697 tests · 406+ event types.</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="eco-item">
+        <div class="eco-badge badge-agents">Agents</div>
+        <div>
+          <div class="eco-title">Agentonomous — The Sandbox</div>
+          <div class="eco-desc">
+            An Obsidian plugin for running, observing, and steering autonomous AI agents
+            directly inside your vault. Currently in infrastructure build-out — the next
+            frontier of the Flowti testbed.
+            <strong style="color: var(--text);">Vue 3 + DDD · Active development.</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ───────────────────────────────────────────────────────── -->
+<section id="cta">
+  <div class="container">
+    <div class="cta-box">
+      <h2 class="cta-title">Start building with Flowti</h2>
+      <p class="cta-sub">
+        Explore the source, clone the repo, and use Flowti to manage your own projects —
+        or just watch the testbed evolve.
+      </p>
+      <div class="cta-actions">
+        <a href="https://github.com/luis85/flowti" class="btn btn-primary">
+          View on GitHub
+        </a>
+        <a href="https://github.com/luis85/flowti/blob/main/01%20-%20Projects/Flowti%20CLI/README.md" class="btn btn-ghost">
+          Read the docs
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <span class="footer-logo">flow<span>ti</span></span>
+    <ul class="footer-links">
+      <li><a href="https://github.com/luis85/flowti">GitHub</a></li>
+      <li><a href="https://github.com/luis85/flowti/issues">Issues</a></li>
+      <li><a href="https://github.com/luis85/flowti/blob/main/01%20-%20Projects/Flowti%20CLI/Flowti%20CLI%20PRD.md">PRD</a></li>
+    </ul>
+    <span class="footer-note">Built with Flowti · Zero runtime deps</span>
+  </div>
+</footer>
+
+</body>
+</html>
